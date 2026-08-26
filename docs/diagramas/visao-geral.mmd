@@ -1,0 +1,39 @@
+flowchart TB
+  subgraph Clientes
+    M[App Flutter<br/>produto principal]
+    W[SPA Vue + Tailwind<br/>subconjunto]
+  end
+
+  subgraph Backend[Microsserviços - Render]
+    ID[identidade]
+    AC[acervo]
+    LE[leitura]
+    SO[social]
+  end
+
+  MQ{{RabbitMQ<br/>CloudAMQP}}
+  DB[(PostgreSQL - Neon<br/>schema por serviço)]
+
+  subgraph Apoio[Serviços de apoio]
+    IMG[Cloudinary]
+    MAIL[Brevo]
+    PUSH[FCM Android]
+    EXT[OpenLibrary / Google Books]
+  end
+
+  M --> ID & AC & LE & SO
+  W --> ID & AC & LE & SO
+
+  ID --- DB
+  AC --- DB
+  LE --- DB
+  SO --- DB
+  ID -. eventos .-> MQ
+  AC -. eventos .-> MQ
+  LE -. eventos .-> MQ
+  SO -. eventos .-> MQ
+
+  ID --> MAIL
+  AC --> EXT
+  AC --> IMG
+  SO --> PUSH

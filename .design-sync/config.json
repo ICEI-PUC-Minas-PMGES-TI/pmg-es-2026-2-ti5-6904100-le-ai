@@ -1,0 +1,6 @@
+{
+  "projectId": "27b2515d-1062-4781-bb2d-81102884cfb7",
+  "projectName": "LeAí",
+  "shape": "off-script",
+  "note": "Bundle authored manually from documento-de-design.md. No compiled component library yet — this is a visual reference bundle. Rebuild the bundle when the design doc changes; a code-based sync becomes possible once period-0 lands src/web and src/mobile."
+}

@@ -1,0 +1,51 @@
+erDiagram
+  USUARIO ||--o{ SEGUIR : "segue"
+  USUARIO ||--o{ LEITURA : "faz"
+  USUARIO ||--o{ NOTA : "atribui"
+  USUARIO ||--o{ RESENHA : "escreve"
+  USUARIO ||--o{ LISTA : "cria"
+  USUARIO ||--o{ DESAFIO : "define"
+  USUARIO ||--o{ ATIVIDADE : "gera"
+  USUARIO ||--o{ NOTIFICACAO : "recebe"
+
+  LIVRO ||--o{ LEITURA : "alvo de"
+  LIVRO ||--o{ NOTA : "recebe"
+  LIVRO ||--o{ RESENHA : "recebe"
+  LIVRO ||--o{ ITEM_LISTA : "consta em"
+  LIVRO ||--o{ RECOMENDACAO : "recomendado"
+
+  LEITURA ||--o{ PROGRESSO : "tem"
+  RESENHA ||--o{ REACAO : "recebe"
+  LISTA ||--o{ ITEM_LISTA : "contém"
+  ATIVIDADE ||--o{ COMENTARIO : "recebe"
+  DESAFIO ||--o{ JANELA_DESAFIO : "acumula"
+
+  USUARIO {
+    uuid id
+    string username
+    string email
+    date nascimento
+    bool privado
+  }
+  LIVRO {
+    uuid id
+    string isbn13 "nulo em livro pessoal"
+    string titulo
+    int paginas
+    bool pessoal
+    uuid dono "só livro pessoal"
+  }
+  LEITURA {
+    uuid id
+    string status
+    date inicio
+    date fim
+    int pagina_atual
+    bool releitura
+  }
+  PROGRESSO {
+    uuid id
+    int pagina
+    int minutos
+    date data_local
+  }

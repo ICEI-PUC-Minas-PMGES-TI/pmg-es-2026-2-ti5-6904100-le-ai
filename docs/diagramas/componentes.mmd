@@ -1,0 +1,38 @@
+flowchart LR
+  subgraph identidade
+    ID_API[API REST]
+    ID_DB[(schema identidade)]
+    ID_V[[views: seguir, perfil]]
+  end
+  subgraph acervo
+    AC_API[API REST]
+    AC_DB[(schema acervo)]
+    AC_MV[[MV: nota dos leitores]]
+  end
+  subgraph leitura
+    LE_API[API REST]
+    LE_DB[(schema leitura)]
+    LE_V[[views: estante, nota]]
+  end
+  subgraph social
+    SO_API[API REST]
+    SO_DB[(schema social)]
+    SO_REC[Recomendação algorítmica]
+  end
+
+  MQ{{RabbitMQ}}
+
+  ID_API --- ID_DB --- ID_V
+  AC_API --- AC_DB --- AC_MV
+  LE_API --- LE_DB --- LE_V
+  SO_API --- SO_DB
+
+  LE_V -. evento nota .-> AC_MV
+  SO_REC --> LE_V
+  SO_REC --> ID_V
+  SO_REC --> AC_MV
+  ID_API -. eventos .-> MQ
+  LE_API -. eventos .-> MQ
+  SO_API -. eventos .-> MQ
+  MQ -. notificacoes .-> SO_API
+  MQ -. cache de capa .-> AC_API
