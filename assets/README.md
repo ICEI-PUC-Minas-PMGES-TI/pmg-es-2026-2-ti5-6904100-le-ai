@@ -1,11 +1,8 @@
 # Artefatos do Projeto
 
-Liste os artefatos produzidos, com suas localizaçãoes e descrição do conteúdo.
+Este diretório reúne os artefatos de apoio e gestão do projeto:
 
-* `/inpi`
-    * ... 
-* `/gerencia`
-	* ...
-* `/atas`
-	* **Ata_xx_ago_2020.docx**: Ata de reunião do dia xx de agosto de 2020.
-
+- [`inpi/`](inpi/): documentos relacionados à pesquisa de anterioridade e propriedade intelectual.
+- [`gerencia/`](gerencia/): artefatos da disciplina de Gerência de Projetos.
+- [`atas/`](atas/): modelo e atas semanais de reunião.
+- [`contribuicao_semanal/`](contribuicao_semanal/): modelo e relatórios individuais de contribuição.

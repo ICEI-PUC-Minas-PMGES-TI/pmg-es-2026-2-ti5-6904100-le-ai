@@ -1,9 +1,9 @@
 # Documento de Arquitetura de Software
 
-**Versão:** v1.0 — 22/08/2026
-**Status:** decisões de arquitetura fechadas — resolve as pendências P-02, P-04, P-06, P-08, P-09, P-11 e P-12 transferidas de `docs/REQUISITOS.md`
+**Versão:** v1.1 — 26/08/2026
+**Status:** macroarquitetura fechada — permanecem pendentes para o período-0 a alocação de stack por serviço e o mecanismo de garantia durável de RNF-ERR-10
 
-> Este documento descreve **como o sistema é construído**. O *o que* mora em `docs/REQUISITOS.md`, que continua sendo a fonte de verdade. Em caso de conflito, o `REQUISITOS.md` vence, e a divergência segue o controle de mudança do `docs/plano-de-projeto.md` §3.
+> Este documento descreve **como o sistema é construído**. O *o que* mora em `docs/orquestador/REQUISITOS.md`, que continua sendo a fonte de verdade. Em caso de conflito, o `REQUISITOS.md` vence, e a divergência segue o controle de mudança do `docs/orquestador/plano-de-projeto.md` §3.
 
 ---
 
@@ -17,9 +17,9 @@ A decomposição segue o ciclo de valor do produto (encontrar livro → registra
 
 ---
 
-## 2. Decisões de tecnologia (pendências resolvidas)
+## 2. Decisões de tecnologia
 
-Cada decisão registra a escolha, a justificativa e as consequências aceitas. As sete correspondem às pendências de arquitetura transferidas do `REQUISITOS.md`.
+Cada decisão registra a escolha, a justificativa e as consequências aceitas. As escolhas de macroarquitetura estão fechadas; os itens ainda pendentes estão explícitos no status e na §8.
 
 ### 2.1 P-11 — Frameworks de backend: Spring **e** NestJS
 
@@ -29,8 +29,8 @@ Cada decisão registra a escolha, a justificativa e as consequências aceitas. A
 
 **Consequências aceitas.**
 
-- O contrato entre serviços passa a atravessar duas linguagens. Isso é neutralizado pela regra de que a integração é sempre por **HTTP/JSON + OpenAPI** (RNF-ARQ-03) e por **mensagens validadas por schema** (RNF-SEC-30) — nenhum serviço depende de tipo ou biblioteca do outro.
-- Padrões transversais precisam ser implementados **duas vezes**: corpo de erro padronizado (RNF-ERR-01), log estruturado com `correlation-id` (RNF-OBS-01), health check (RNF-OBS-02), rate limiting (RNF-SEC-15/16). O documento trata cada um como contrato de comportamento (formato de saída), não como biblioteca compartilhada, para que as duas implementações fiquem equivalentes.
+- O contrato entre serviços passa a atravessar duas linguagens. Isso é neutralizado pela regra de que a integração é sempre por **HTTP/JSON + OpenAPI** (RNF-ARQ-03) e por **mensagens validadas por schema** (RNF-SEC-32) — nenhum serviço depende de tipo ou biblioteca do outro.
+- Padrões transversais precisam ser implementados **duas vezes**: corpo de erro padronizado (RNF-ERR-01), log estruturado com `correlation-id` (RNF-OBS-01), health check (RNF-OBS-02), rate limiting (RNF-SEC-17/18). O documento trata cada um como contrato de comportamento (formato de saída), não como biblioteca compartilhada, para que as duas implementações fiquem equivalentes.
 - Cada serviço declara sua stack no seu `AGENTS.md`, e a divisão vertical (um dev dono da feature de ponta a ponta) considera a linguagem do serviço tocado.
 
 **Alocação de stack por serviço** — a definir pela equipe conforme a força de cada dupla; a arquitetura não depende de qual serviço fica em qual stack. Recomendação: manter `acervo` e `leitura` na mesma stack, por serem os dois que mais trocam dados (nota agregada), reduzindo o atrito de quem transita entre eles.
@@ -43,7 +43,7 @@ Esta é a decisão estruturante e está detalhada na **§3** (serviços) e **§4
 - **Banco único PostgreSQL no Neon**, com **um schema por serviço**. Separação **lógica**, não física.
 - **Firebase é usado exclusivamente para FCM** (P-04). Nenhum dado de domínio vive no Firestore.
 
-O acervo permanece no PostgreSQL — e não em banco de documentos — porque é o serviço **mais dependente de busca e filtro relacional** de todo o sistema (RF-ACV-01/02/02a, RNF-DES-03), e porque a recomendação algorítmica (§10.7 do `REQUISITOS.md`) é especificada como junção entre estante, nota, seguidor e assunto, o que exige um mesmo mecanismo relacional. Ver §4.
+O acervo permanece no PostgreSQL — e não em banco de documentos — porque é o serviço **mais dependente de busca e filtro relacional** de todo o sistema (RF-ACV-01/02/03, RNF-DES-03), e porque a recomendação algorítmica (§10.7 do `REQUISITOS.md`) é especificada como junção entre estante, nota, seguidor e assunto, o que exige um mesmo mecanismo relacional. Ver §4.
 
 ### 2.3 P-06 — Broker de mensageria: RabbitMQ
 
@@ -60,7 +60,7 @@ O acervo permanece no PostgreSQL — e não em banco de documentos — porque é
 
 **Decisão.** **GitHub Actions com `schedule`** como agendador dos jobs diários. Fallback: **cron-job.org**.
 
-**Justificativa.** Os Cron Jobs do Render são pagos e indisponíveis no free tier. O GitHub Actions já existe no repositório, é versionado e auditável, e o `schedule` cobre bem os dois jobs diários — verificação de inatividade de leituras (RN-05, RF-EST-12/13) e delta de ingestão —, que o próprio `REQUISITOS.md` descreve como tolerantes a imprecisão de horário. O job dispara uma chamada autenticada a um endpoint interno do serviço responsável (leitura, para inatividade; acervo, para o delta).
+**Justificativa.** Os Cron Jobs do Render são pagos e indisponíveis no free tier. O GitHub Actions já existe no repositório, é versionado e auditável, e o `schedule` cobre bem os dois jobs diários — verificação de inatividade de leituras (RN-05, RF-EST-11/12) e delta de ingestão —, que o próprio `docs/orquestador/REQUISITOS.md` descreve como tolerantes a imprecisão de horário. O job dispara uma chamada autenticada a um endpoint interno do serviço responsável (leitura, para inatividade; acervo, para o delta).
 
 **Consequências aceitas / riscos.**
 
@@ -75,19 +75,19 @@ O acervo permanece no PostgreSQL — e não em banco de documentos — porque é
 
 **Consequências aceitas.**
 
-- O *upload preset* sem restrição é vetor de abuso: a pasta de destino, os tipos permitidos e o tamanho máximo são fixados **no próprio preset**, somados à validação de tipo real, tamanho e dimensões no servidor (RNF-SEC-18).
+- O *upload preset* sem restrição é vetor de abuso: a pasta de destino, os tipos permitidos e o tamanho máximo são fixados **no próprio preset**, somados à validação de tipo real, tamanho e dimensões no servidor (RNF-SEC-20).
 - Os limites vigentes do plano gratuito devem ser confirmados no período-0. Cloudflare R2 foi descartado como equivalente porque é storage puro, sem transformação nativa — resolveria o armazenamento, mas não a razão pela qual o Cloudinary foi escolhido.
 
 ### 2.6 P-02 — E-mail transacional: Brevo
 
 **Decisão.** **Brevo** para o e-mail transacional de recuperação de senha (RF-AUT-04).
 
-**Justificativa.** O free tier de 300 e-mails/dia é folgado para o único fluxo transacional do sistema. Oferece API e SMTP, e o volume esperado (reset de senha) é baixo. O e-mail é publicado como fluxo assíncrono candidato (§7.2 do `REQUISITOS.md`): o pedido de reset confirma de forma síncrona ao usuário e o envio ocorre fora da requisição.
+**Justificativa.** O free tier de 300 e-mails/dia é folgado para o único fluxo transacional do sistema. Oferece API e SMTP, e o volume esperado (reset de senha) é baixo. O envio de e-mail permanece fluxo assíncrono candidato (§7.2 do `REQUISITOS.md`); seu processamento assíncrono ainda não está definido nem implementado.
 
 **Consequências aceitas.**
 
 - Requer verificação de remetente/domínio, fricção comum a todos os provedores. Como o trabalho não tem domínio próprio garantido, o remetente verificado do Brevo é usado; a mensagem deixa claro o nome da aplicação.
-- O token de reset segue RNF-SEC-09: aleatório criptográfico, uso único, validade de 1 hora, armazenado como hash.
+- O token de reset segue RNF-SEC-10: aleatório criptográfico, uso único, validade de 1 hora, armazenado como hash.
 
 ### 2.7 P-04 — Push notifications: FCM (Android), in-app (iOS)
 
@@ -120,7 +120,7 @@ O acervo permanece no PostgreSQL — e não em banco de documentos — porque é
 Quatro pontos de acoplamento que a divisão deixa implícitos são fechados aqui:
 
 1. **Curtida/descurtida de resenha fica em `leitura`, junto da resenha** (RF-AVA-05, RF-AVA-08) — não em `social`. A resenha mora em `leitura`; manter o contador transacional com ela evita compor "resenha + contagem" entre dois serviços em toda página de livro. `social` fica com a curtida de **atividade do feed** (RF-SOC-11), que é sua de fato.
-2. **A nota dos leitores (agregada) é materializada em `acervo`** a partir de `leitura.nota`, por *materialized view* com refresh disparado pelo evento `nota.alterada`. A página do livro lê a média localmente, sem chamada síncrona a `leitura` no caminho crítico.
+2. **A nota dos leitores (agregada) é uma projeção em `acervo`**, alimentada pelo evento `nota.alterada` e passível de implementação como *materialized view* sobre dados locais dessa projeção. A página do livro lê a média localmente, sem acessar a tabela privada `leitura.nota` nem fazer chamada síncrona a `leitura` no caminho crítico.
 3. **A recomendação algorítmica é hospedada em `social`** (§10.7 do `REQUISITOS.md`), lendo *views* expostas por `leitura` (estante, nota), `identidade` (seguir) e `acervo` (assunto). É onde já vivem as recomendações P2P e o feed.
 4. **O feed guarda snapshot no evento de atividade** — nome do usuário, título e capa do livro no momento — em vez de hidratar por *join* a cada scroll. O feed é o caminho mais lido do app e não deve compor três serviços por requisição, ainda mais com o *cold start* do Render.
 
@@ -153,7 +153,7 @@ Sem essa regra, o schema por serviço degenera em banco compartilhado e a divis�
 - Escritas concorrentes sobre a mesma entidade são resolvidas por controle de concorrência no banco, sem perda de dados (RNF-ARQ-05).
 - Operações de escrita aceitam **chave de idempotência** (RNF-ERR-04); retentativa não duplica registro.
 - Cada serviço só cria migration das tabelas do **seu** schema; migration é revisada por humano antes de subir (plano §5).
-- Acesso sempre por consultas parametrizadas ou ORM (RNF-SEC-11).
+- Acesso sempre por consultas parametrizadas ou ORM (RNF-SEC-12).
 
 ### 4.4 Firebase
 
@@ -180,7 +180,9 @@ Os fluxos assíncronos de `REQUISITOS.md` §7.2 e seus serviços produtores/cons
 | **Busca de sinopse** | `livro.pagina_aberta` | acervo | acervo |
 | **Nota agregada** (§3.2) | `nota.alterada` | leitura | acervo |
 
-Todo consumidor é idempotente e tolera duplicação (RNF-ERR-06); falha após o máximo de tentativas vai para DLQ (RNF-ERR-07); falha na publicação não impede a operação síncrona correspondente (RNF-ERR-10). Mensagens são validadas por schema antes do processamento (RNF-SEC-30).
+Todo consumidor é idempotente e tolera duplicação (RNF-ERR-06); falha após o máximo de tentativas vai para DLQ (RNF-ERR-07). Mensagens são validadas por schema antes do processamento (RNF-SEC-32).
+
+Filas duráveis, *publisher confirms* e DLQ protegem apenas mensagens já recebidas pelo broker; a janela entre o commit no banco e a publicação continua sem garantia. O mecanismo de reprocessamento durável exigido por RNF-ERR-10 permanece pendente de decisão no período-0, portanto esta arquitetura ainda não afirma conformidade garantida com esse requisito.
 
 ### 5.3 Resiliência
 
@@ -202,14 +204,14 @@ Timeout e retentativa com backoff em toda chamada externa, com circuit breaker (
 | Agendador de jobs | GitHub Actions (`schedule`) | gratuito | fallback cron-job.org; validar no repo da faculdade |
 | CI/CD | GitHub Actions | gratuito | lint, build, testes, deploy a partir de `main` |
 
-Ambientes conforme o plano §4: local (branch de banco por dev), DES/HML (branch `main`, deploy a cada merge), PROD (tag `vX.Y.Z`, a partir de 24/11). Deploy só a partir de código versionado, por pipeline automatizado (RNF-SEC-32). Segredos por variável de ambiente e GitHub Secrets, nunca versionados (RNF-SEC-10).
+Ambientes conforme o plano §4: local (branch de banco por dev), DES/HML (branch `main`, deploy a cada merge), PROD (tag `vX.Y.Z`, a partir de 24/11). Deploy só a partir de código versionado, por pipeline automatizado (RNF-SEC-34). Segredos por variável de ambiente e GitHub Secrets, nunca versionados (RNF-SEC-11).
 
 ---
 
 ## 7. Transversais (aplicados nos quatro serviços)
 
-- **Segurança:** controle de acesso validado no servidor em todo recurso protegido (RNF-SEC-01 a 06a); HTTPS/TLS (RNF-SEC-07); senhas com Argon2/bcrypt/scrypt (RNF-SEC-08); tokens de acesso curtos e renovação revogável (RNF-SEC-28); rate limiting em auth e ações sociais (RNF-SEC-15/16); CORS restrito às origens conhecidas (RNF-SEC-19); validação por schema de toda entrada (RNF-SEC-12); proteção contra IDOR por identificador não sequencial (RNF-SEC-05).
-- **Observabilidade:** log estruturado com `correlation-id` propagado entre serviços e mensagens (RNF-OBS-01); health check por serviço (RNF-OBS-02); log de falhas de auth, autorização e ações de moderação (RNF-SEC-33).
+- **Segurança:** controle de acesso validado no servidor em todo recurso protegido (RNF-SEC-01 a 07); HTTPS/TLS (RNF-SEC-08); senhas com Argon2/bcrypt/scrypt (RNF-SEC-09); tokens de acesso curtos e renovação revogável (RNF-SEC-30); rate limiting em auth e ações sociais (RNF-SEC-17/18); CORS restrito às origens conhecidas (RNF-SEC-21); validação por schema de toda entrada (RNF-SEC-13); proteção contra IDOR por identificador não sequencial (RNF-SEC-05).
+- **Observabilidade:** log estruturado com `correlation-id` propagado entre serviços e mensagens (RNF-OBS-01); health check por serviço (RNF-OBS-02); log de falhas de auth, autorização e ações de moderação (RNF-SEC-35).
 - **Erros:** corpo de erro padronizado com código interno, mensagem exibível e id de correlação (RNF-ERR-01); códigos HTTP semânticos; mensagens em pt-BR sem detalhe técnico (RNF-USA-05).
 - **Testes:** unitários das regras de negócio, com prioridade obrigatória para a máquina de estados de leitura (RN-04), a regra de inatividade (RN-05) e o controle de acesso a perfil privado (RN-08); integração com banco real; testes dos fluxos assíncronos incluindo idempotência e DLQ (RNF-TST-01 a 08).
 
@@ -219,18 +221,20 @@ Ambientes conforme o plano §4: local (branch de banco por dev), DES/HML (branch
 
 | Pendência | Decisão | Requisitos afetados | Seção |
 |---|---|---|---|
-| P-11 | Spring + NestJS | RNF-ARQ-02 | §2.1 |
+| P-11 | Spring + NestJS; alocação por serviço pendente | RNF-ARQ-02 | §2.1 |
 | P-12 | 4 serviços; PostgreSQL/Neon, schema por serviço | RNF-ARQ-02, RNF-ARQ-07 | §2.2, §3, §4 |
 | P-06 | RabbitMQ (CloudAMQP) | §7.2, RNF-ARQ-06 | §2.3, §5.2 |
-| P-08 | GitHub Actions `schedule` (fallback cron-job.org) | RNF-ARQ-09, RF-EST-12/13 | §2.4 |
-| P-09 | Cloudinary | RF-ACV-07, RF-ACV-16, RF-SOC-01, RN-14 | §2.5 |
+| P-08 | GitHub Actions `schedule` (fallback cron-job.org) | RNF-ARQ-09, RF-EST-11/12 | §2.4 |
+| P-09 | Cloudinary | RF-ACV-08, RF-ACV-17, RF-SOC-01, RN-14 | §2.5 |
 | P-02 | Brevo | RF-AUT-04 | §2.6 |
 | P-04 | FCM (Android) + in-app (iOS) | RF-NOT-07 | §2.7 |
 
-Nenhuma decisão remove requisito do escopo. As duas que o `REQUISITOS.md` marcava como capazes de retornar por controle de mudança — P-04 e P-09 — foram resolvidas **dentro** do escopo: push restrito a Android mantém RF-NOT-07 (Opcional), e o Cloudinary atende RF-ACV-07/16 e RF-SOC-01.
+Nenhuma decisão remove requisito do escopo. As duas que o `REQUISITOS.md` marcava como capazes de retornar por controle de mudança — P-04 e P-09 — foram resolvidas **dentro** do escopo: push restrito a Android mantém RF-NOT-07 (Opcional), e o Cloudinary atende RF-ACV-08/17 e RF-SOC-01.
 
-### Itens a validar no período-0
+### Itens a validar ou decidir no período-0
 
 - Viabilidade do GitHub Actions `schedule` no repositório do GitHub Classroom (P-08).
 - Limites vigentes dos planos gratuitos de Cloudinary, CloudAMQP, Brevo e Neon.
 - Emissão de push FCM em dispositivo Android real de demonstração (P-04).
+- Alocação de Spring e NestJS entre os quatro serviços, sem alterar a decomposição definida (§2.1).
+- Mecanismo de garantia durável entre commit e publicação para cumprir RNF-ERR-10 (§5.2).

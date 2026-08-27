@@ -53,7 +53,7 @@ Aplicativo social de leitura (modelo Skoob/Letterboxd) para **aumentar a adesão
 | `leitura` | Estante, leitura, progresso, sessão, nota, resenha, frases, desafios, streak, estatísticas |
 | `social` | Feed, atividades, comentários, listas, recomendações, notificações, moderação |
 
-Alocação de stack (Spring vs NestJS) por serviço é decisão da equipe e é registrada no `AGENTS.md` de cada serviço. Recomendação da arquitetura: manter `acervo` e `leitura` na mesma stack.
+Alocação de stack (Spring vs NestJS) por serviço é decisão pendente da equipe e será registrada no `AGENTS.md` de cada serviço. Até essa decisão, nenhum agente escolhe a stack ou cria o scaffolding de um serviço por conta própria. Recomendação da arquitetura: manter `acervo` e `leitura` na mesma stack.
 
 **Acesso entre schemas:** nenhum serviço lê a tabela crua de outro schema. Leitura entre schemas ocorre exclusivamente por **VIEW que o serviço dono expõe e mantém como contrato**, versionada junto do spec OpenAPI.
 
@@ -74,7 +74,7 @@ Alocação de stack (Spring vs NestJS) por serviço é decisão da equipe e é r
 │   │   └── documento-de-design.md
 │   ├── README.md             # capa/SUMÁRIO do documento da disciplina
 │   ├── 1.apresentacao.md … 8.avaliacao_arquitetura.md  # docs da disciplina (DERIVADOS)
-│   ├── api/                  # specs OpenAPI: um .yaml por serviço
+│   ├── api/                  # planejado no período-0: um spec OpenAPI por serviço
 │   └── ...
 ├── code/                     # código (equivale a src/ do guideline)
 │   ├── mobile/               # Flutter — + AGENTS.md
@@ -88,18 +88,18 @@ Alocação de stack (Spring vs NestJS) por serviço é decisão da equipe e é r
 └── divulge/                  # apresentação e vídeo
 ```
 
-> Mapeamento em relação ao guideline do `docs/orquestador/plano-de-projeto.md` §2 (que usa `src/mobile`, `src/web`, `src/backend`): a faculdade nomeia a árvore de código como `code/`, o web como `front/` e o backend como `back/`. A lógica é a mesma — documentação em uma árvore, código em outra, um `AGENTS.md` por subprojeto. Se a estrutura mudar, ajuste os caminhos **aqui e nos `AGENTS.md`** na mesma passada: caminho errado no `AGENTS.md` significa agente lendo o arquivo errado.
+Se a estrutura mudar, ajuste os caminhos **aqui, no plano e nos `AGENTS.md` locais** na mesma passada: caminho errado no `AGENTS.md` significa agente lendo o arquivo errado.
 
-Cada subprojeto de código tem seu próprio `AGENTS.md` com as convenções daquela stack (linguagem/versão, estrutura de pastas, padrão de teste, comandos de build).
+Cada subprojeto de código tem seu próprio `AGENTS.md`. Depois do scaffolding, ele registra linguagem/versão, estrutura, testes e comandos; enquanto o projeto não estiver iniciado, deve declarar as decisões pendentes e impedir que o agente as invente.
 
 ---
 
 ## 5. Regras para agentes (plano §7)
 
-1. **Toda sessão começa com `docs/orquestador/REQUISITOS.md` + o arquivo da feature em contexto.**
-2. **O agente atualiza o arquivo da feature ao final da sessão:** status, pendências, decisões. Sessão que não atualiza o arquivo é sessão perdida — o próximo não consegue retomar.
+1. **Toda sessão de implementação começa com `docs/orquestador/REQUISITOS.md`, o arquivo da feature e os `AGENTS.md` raiz e local em contexto.** Backend, infraestrutura, dados e mensageria exigem também o Documento de Arquitetura; interface e interação exigem o Documento de Design.
+2. **O agente atualiza o arquivo da feature ao final da sessão de implementação:** status, pendências, decisões. Sessão exclusivamente de pesquisa, auditoria ou revisão somente leitura entrega seu relatório e não altera a feature.
 3. **O agente não edita arquivos de features que não são a dele.**
-4. **O agente não altera `docs/orquestador/REQUISITOS.md` por conta própria.** Divergência vira pendência no arquivo da feature e decisão do grupo.
+4. **O agente não altera nenhum arquivo de `docs/orquestador/` por conta própria.** Divergência vira pendência no arquivo da feature e decisão do grupo; alteração exige autorização humana explícita.
 5. **Protótipo é referência visual, não especificação de pixel.** Viewport fixo no protótipo não significa layout fixo na implementação.
 6. **Migration é o ponto de maior cuidado:** toda migration é revisada por humano antes de subir; cada feature só cria migration das tabelas do serviço que ela mexe; nome com timestamp.
 
@@ -109,7 +109,7 @@ Formato dos arquivos de agente: **Markdown puro**, sem sintaxe específica de fe
 
 ## 6. Fluxo de trabalho da feature
 
-Cada feature tem **um arquivo** em `docs/plano-de-desenvolvimento/periodo-N/feature-*.md`, com dono registrado. Divisão **vertical**: cada dev é dono de uma feature de ponta a ponta (infra → backend → web → mobile).
+Cada feature que entrar em implementação deve ter **um arquivo** em `docs/plano-de-desenvolvimento/periodo-N/feature-*.md`, com dono registrado. Os arquivos dos períodos futuros são criados conforme o planejamento da equipe. Divisão **vertical**: cada dev é dono de uma feature de ponta a ponta (infra → backend → web → mobile).
 
 Estrutura mínima do arquivo de feature: objetivo (referenciando a seção de `REQUISITOS.md`), tabela de status por camada, especificação por camada, critérios de aceite, Definition of Done, **pendências** e timeline. Pendência vive no arquivo da feature — **não há `PENDENCIAS.md` global**; a consolidação é gerada sob demanda por um agente que varre os arquivos.
 
@@ -141,7 +141,7 @@ Estrutura mínima do arquivo de feature: objetivo (referenciando a seção de `R
 - [ ] Arquivo da feature atualizado: status, pendências, timeline
 - [ ] Divergência protótipo × implementação registrada, se houver
 
-Uma feature pode acrescentar itens no próprio arquivo; nunca remover destes. Prioridade de cada feature: `prioritaria` | `desejavel` | `opcional` — o que não termina desce um nível e vai para o período seguinte; as opcionais são o colchão. **Nunca atrasamos entrega para caber escopo.**
+Uma feature pode acrescentar itens no próprio arquivo; nunca remover destes. Features de produto usam `prioritaria` | `desejavel` | `opcional`; `fundacao` é a categoria especial do período-0. O que não termina desce um nível e vai para o período seguinte; as opcionais são o colchão. **Nunca atrasamos entrega para caber escopo.**
 
 ---
 
@@ -166,4 +166,4 @@ O `REQUISITOS.md` §8 organiza a segurança pelo **OWASP Top 10 (2021)**; todos 
 
 - Cada serviço expõe seu spec em runtime (`/v3/api-docs` no Spring, `@nestjs/swagger` no Nest) e **commita** em `docs/api/<servico>.yaml`. Atualizar é item do DoD.
 - **Um spec por serviço**, nunca por feature. A feature atualiza o spec do serviço que mexeu.
-- Um Swagger UI único agrega todos os specs (`docker compose -f docker-compose.docs.yml up` → `localhost:8080`).
+- Um Swagger UI único agregará todos os specs quando `docs/api/` e `docker-compose.docs.yml` forem criados no período-0 (`docker compose -f docker-compose.docs.yml up` → `localhost:8080`).

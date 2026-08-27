@@ -12,8 +12,8 @@ Convenções da SPA web. Complementa o [`AGENTS.md`](../../AGENTS.md) da raiz �
 
 ## Pontos de atenção do produto (ver `REQUISITOS.md`)
 
-- **Segurança de renderização:** conteúdo de usuário tratado como texto com escape (RNF-SEC-13). Resenha em Markdown com HTML embutido desabilitado no parser **e** sanitização antes do DOM (RNF-SEC-13a). Enviar `Content-Security-Policy` restritivo (RNF-SEC-14).
+- **Segurança de renderização:** conteúdo de usuário tratado como texto com escape (RNF-SEC-14). Resenha em Markdown com HTML embutido desabilitado no parser **e** sanitização antes do DOM (RNF-SEC-15). Enviar `Content-Security-Policy` restritivo (RNF-SEC-16).
 - Interface **responsiva** (RNF-USA-02); contraste WCAG AA (RNF-USA-03); toda ação destrutiva exige confirmação (RNF-USA-04); mensagens de erro em pt-BR e acionáveis (RNF-USA-05).
 - Tratar hibernação do Render (RNF-ERR-09) e indisponibilidade/timeout com API simulada nos testes (RNF-TST-06).
-- Design tokens vêm do [`documento-de-design.md`](../../docs/orquestador/documento-de-design.md) e são traduzidos para a config do Tailwind — mesma origem que o `ThemeData` do Flutter (RNF-USA-06).
+- O [`documento-de-design.md`](../../docs/orquestador/documento-de-design.md) define o sistema; quando criado por P0-DS, `docs/design-system/tokens.json` será a fonte canônica consumida pela configuração do Tailwind e pelo `ThemeData` do Flutter (RNF-USA-06).
 - Testes unitários de componentes com lógica e de serviços de acesso à API (RNF-TST-05).

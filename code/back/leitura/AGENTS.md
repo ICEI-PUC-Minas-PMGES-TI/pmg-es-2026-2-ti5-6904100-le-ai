@@ -8,8 +8,8 @@ Núcleo do produto. Estante, leitura, progresso, sessão cronometrada, nota, res
 
 ## Stack e dados
 
-- **Stack:** Spring ou NestJS — **a definir pela equipe** (recomendação: mesma que `acervo`). Registrar aqui quando decidido.
-- **Schema:** `leitura`, no PostgreSQL único do Neon. Expõe **VIEWs** (estante, nota) consumidas pela recomendação em `social` e pela nota agregada em `acervo`.
+- **Stack:** Spring ou NestJS — **a definir pela equipe** (recomendação: mesma que `acervo`). Até a decisão, não escolher framework nem criar scaffolding por conta própria. Registrar aqui quando decidido.
+- **Schema:** `leitura`, no PostgreSQL único do Neon. Expõe **VIEWs** de estante e nota consumidas pela recomendação em `social`; a nota agregada em `acervo` é alimentada por evento.
 - **Curtida/descurtida de resenha fica aqui**, junto da resenha (não em `social`).
 
 > Projeto **ainda não iniciado** — apenas a estrutura de pastas.

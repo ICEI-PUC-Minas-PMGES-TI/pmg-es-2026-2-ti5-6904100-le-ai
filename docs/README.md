@@ -22,13 +22,13 @@ Professores:
 
 ---
 
-_Curso de Engenharia de Software, Campus Coração Eucarístico
+_Curso de Engenharia de Software, Campus Coração Eucarístico_
 
 _Instituto de Informática e Ciências Exatas – Pontifícia Universidade de Minas Gerais (PUC MINAS), Belo Horizonte – MG – Brasil_
 
 ---
 
-_**Resumo**. O Lê Ai é um aplicativo social de leitura, no modelo Skoob/Letterboxd, cujo objetivo é aumentar a adesão à leitura na população brasileira, com foco em jovens de 18 a 30 anos. A tese de produto é que o hábito de leitura se sustenta por três mecanismos — registro, meta e pertencimento — e o aplicativo entrega os três. O produto principal é um app mobile nativo em Flutter, acompanhado de uma aplicação web em Vue + Tailwind que cobre um subconjunto de funcionalidades. O backend adota arquitetura de microsserviços (Spring e NestJS) sobre PostgreSQL no Neon, com mensageria RabbitMQ para os fluxos assíncronos. Este documento reúne a visão de produto, os requisitos, a modelagem e a avaliação arquitetural do trabalho._
+_**Resumo**. O Lê Ai é um aplicativo social de leitura, no modelo Skoob/Letterboxd, cujo objetivo é aumentar a adesão à leitura na população brasileira, com foco em jovens de 18 a 30 anos. O cadastro é restrito a maiores de 18 anos e o produto opera em pt-BR. A tese de produto é que o hábito de leitura se sustenta por três mecanismos — registro, meta e pertencimento — e o aplicativo entrega os três. O produto principal é um app mobile nativo em Flutter, acompanhado de uma aplicação web em Vue + Tailwind que cobre um subconjunto de funcionalidades. O backend adota arquitetura de microsserviços (Spring e NestJS) sobre PostgreSQL no Neon, com mensageria RabbitMQ para os fluxos assíncronos. Este documento reúne a visão de produto, os requisitos, a modelagem e a avaliação arquitetural do trabalho._
 
 ---
 
@@ -50,14 +50,14 @@ _**Resumo**. O Lê Ai é um aplicativo social de leitura, no modelo Skoob/Letter
    3.3. Restrições Arquiteturais <br />
    3.4. Mecanismos Arquiteturais <br />
 
-4. [Modelagem](4.modelagem.md#modelagem "Modelagem e projeto arquitetural") <br />
-   4.1. Visão de Negócio <br />
+4. [Modelagem e Projeto Arquitetural](4.modelagem.md#modelagem "Modelagem e Projeto Arquitetural") <br />
+   4.1. Histórias de Usuário <br />
    4.2. Visão Lógica <br />
-   4.3. Modelo de dados (opcional) <br />
+   4.3. Modelo de dados <br />
 
 5. [Wireframes](5.wireframe.md#wireframes "Wireframes") <br />
 
-6. [Avaliação Heuristica](6.avaliacao_heuristica.md#solucao "Projeto da Solução") <br />
+6. [Avaliação Heurística](6.avaliacao_heuristica.md#avaliação-heurística "Avaliação Heurística") <br />
 
 7. [Solução](7.solucao.md#solucao "Projeto da Solução") <br />
 
@@ -71,10 +71,8 @@ _**Resumo**. O Lê Ai é um aplicativo social de leitura, no modelo Skoob/Letter
 
 # Ferramentas
 
-_Inclua o URL do repositório (Github, Bitbucket, etc) onde você armazenou o código da sua prova de conceito/protótipo arquitetural da aplicação como anexos. A inclusão da URL desse repositório de código servirá como base para garantir a autenticidade dos trabalhos._
-
 | Ambiente              | Plataforma | Link de Acesso                                                             |
 | --------------------- | ---------- | -------------------------------------------------------------------------- |
 | Repositório de código | GitHub     | https://github.com/ICEI-PUC-Minas-PMGES-TI/pmg-es-2026-2-ti5-6904100-le-ai |
 | Hospedagem do site    | Render     | _a definir no período-0_                                                   |
-| Protótipo Interativo  | Figma      | _a definir_                                                                |
+| Protótipo Interativo  | Claude Design | Bundles HTML planejados em `docs/prototipos/`                           |

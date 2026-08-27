@@ -2,7 +2,7 @@
 
 > **O que este arquivo é:** o processo de trabalho do grupo. Como organizamos o repositório, como dividimos tarefas, como usamos agentes, quais são os prazos e o que conta como "pronto".
 >
-> **O que este arquivo NÃO é:** decisão de produto, arquitetura ou tecnologia. Escopo, usuários, modelo de dados, divisão dos microsserviços, linguagens de cada serviço, design tokens e definições de pronto gerais ficam em `docs/orquestador/REQUISITOS.md`, que é a **fonte de verdade** do projeto. Este documento diz *como trabalhamos*; o `docs/orquestador/REQUISITOS.md` diz *o que construímos*.
+> **O que este arquivo NÃO é:** decisão de produto, arquitetura ou tecnologia. Escopo, usuários, modelo de dados, divisão dos microsserviços e design tokens ficam nos documentos correspondentes do orquestrador. Este documento diz *como trabalhamos* e define o Definition of Done do processo; o `docs/orquestador/REQUISITOS.md` diz *o que construímos*.
 
 ---
 
@@ -12,7 +12,7 @@
 |---|---|
 | Mobile | App nativo em Flutter |
 | Web | SPA em Vue + Tailwind CSS |
-| Backend | Microsserviços (Spring / NestJS / FastAPI — decidir em `docs/orquestador/REQUISITOS.md`) |
+| Backend | Microsserviços em Spring e NestJS; alocação por serviço pendente no Documento de Arquitetura |
 | Banco | PostgreSQL no Neon |
 | Repositório | Único, criado pela faculdade via GitHub Classroom |
 | Equipe | 5 integrantes, todos atuando como full-stack |
@@ -22,7 +22,7 @@
 
 ## 2. Estrutura do repositório
 
-A faculdade impõe a estrutura de alto nível do repositório. O que sabemos é que existe uma pasta de documentação (`docs/`) e uma de código (`Codigo/` ou `src/`) na raiz. **A estrutura abaixo é guideline, não regra:** se a faculdade nomear ou organizar diferente, adaptamos os nomes e mantemos a lógica — documentação em uma árvore, código em outra, um `AGENTS.md` por subprojeto.
+A faculdade impõe a estrutura de alto nível do repositório. Neste repositório, a documentação fica em `docs/` e o código em `code/`. Se a faculdade alterar essa estrutura, adaptamos os nomes e mantemos a lógica — documentação em uma árvore, código em outra, um `AGENTS.md` por subprojeto.
 
 ```
 /
@@ -55,19 +55,21 @@ A faculdade impõe a estrutura de alto nível do repositório. O que sabemos é 
 │   │   ├── periodo-1/
 │   │   ├── periodo-2/
 │   │   └── periodo-3/
+├── code/                           # código (ver AGENTS.md raiz §4)
+│   ├── mobile/                     # + AGENTS.md
+│   ├── front/                      # + AGENTS.md
+│   └── back/
+│       ├── identidade/             # + AGENTS.md
+│       ├── acervo/                 # + AGENTS.md
+│       ├── leitura/                # + AGENTS.md
+│       └── social/                 # + AGENTS.md
+├── assets/
 │   ├── atas/                       # atas de reunião semanais
-│   └── contribuicao/               # relatórios individuais semanais
-└── code/                           # código (equivale a src/; ver AGENTS.md raiz §4)
-    ├── mobile/                     # + AGENTS.md
-    ├── front/                      # + AGENTS.md
-    └── back/
-        ├── identidade/             # + AGENTS.md
-        ├── acervo/                 # + AGENTS.md
-        ├── leitura/                # + AGENTS.md
-        └── social/                 # + AGENTS.md
+│   └── contribuicao_semanal/       # relatórios individuais semanais
+└── divulge/                        # apresentação e vídeo
 ```
 
-> Design system (tokens) e protótipos vivem dentro do orquestador (no `documento-de-arquitetura.md` e no `documento-de-design.md`). As **fontes dos diagramas** (`.mmd`) ficam em `docs/diagramas/`, e `docs/imagens/` guarda as **figuras renderizadas** (`.png`) que os documentos da disciplina referenciam — fonte e figura andam em par: quem edita um `.mmd` regenera o `.png` correspondente na mesma passada (`mmdc -i docs/diagramas/<nome>.mmd -o docs/imagens/<nome>.png -b white -s 3`).
+> O `docs/orquestador/documento-de-design.md` especifica o design system. Os artefatos planejados ficam em `docs/design-system/` (tokens e prompts) e `docs/prototipos/`; sua criação pertence ao período-0. As **fontes dos diagramas** (`.mmd`) ficam em `docs/diagramas/`, e `docs/imagens/` guarda as **figuras renderizadas** (`.png`) que os documentos da disciplina referenciam — fonte e figura andam em par: quem edita um `.mmd` regenera o `.png` correspondente na mesma passada (`mmdc -i docs/diagramas/<nome>.mmd -o docs/imagens/<nome>.png -b white -s 3`).
 
 Regras:
 
@@ -98,15 +100,15 @@ Mapa de origem → destino, para saber o que atualizar:
 
 | Documento da disciplina | Deriva principalmente de |
 |---|---|
-| `docs/README.md` (capa, resumo, ferramentas) | `REQUISITOS.md` §1 |
-| `1.apresentacao.md` (problema, objetivos, definições) | `REQUISITOS.md` §1, §3 |
-| `2.nosso_produto.md` (visão, produto, personas) | `REQUISITOS.md` §1, §4 |
-| `3.requisitos.md` (RF, RNF, restrições, mecanismos) | `REQUISITOS.md` §2, §5, §7, §8 + `documento-de-arquitetura.md` §2 |
-| `4.modelagem.md` (visão geral, histórias, visão lógica, dados) | `documento-de-arquitetura.md` §1, §3, §4 + `REQUISITOS.md` §3, §5 |
-| `5.wireframe.md` | `documento-de-design.md` + protótipos |
+| `docs/README.md` (capa, resumo, ferramentas) | `docs/orquestador/REQUISITOS.md` §1 |
+| `docs/1.apresentacao.md` (problema, objetivos, definições) | `docs/orquestador/REQUISITOS.md` §1, §3 |
+| `docs/2.nosso_produto.md` (visão, produto, personas) | `docs/orquestador/REQUISITOS.md` §1, §4 |
+| `docs/3.requisitos.md` (RF, RNF, restrições, mecanismos) | `docs/orquestador/REQUISITOS.md` §2, §5, §7, §8 + `docs/orquestador/documento-de-arquitetura.md` §2 |
+| `docs/4.modelagem.md` (visão geral, histórias, visão lógica, dados) | `docs/orquestador/documento-de-arquitetura.md` §1, §3, §4 + `docs/orquestador/REQUISITOS.md` §3, §5 |
+| `docs/5.wireframe.md` | `docs/orquestador/documento-de-design.md` + protótipos |
 | `6.avaliacao_heuristica.md` | **exceção:** avaliação de aplicação externa, exercício da disciplina — **não deriva do orquestador** |
-| `7.solucao.md` (telas construídas) | telas reais do sistema (a partir do período-0) |
-| `8.avaliacao_arquitetura.md` (ATAM) | `documento-de-arquitetura.md` §7 + `REQUISITOS.md` §7, §8 (cenários); medições a partir do sistema em DES |
+| `docs/7.solucao.md` (telas construídas) | telas reais do sistema (a partir do período-0) |
+| `docs/8.avaliacao_arquitetura.md` (ATAM) | `docs/orquestador/documento-de-arquitetura.md` §7 + `docs/orquestador/REQUISITOS.md` §7, §8 (cenários); medições a partir do sistema em DES |
 
 **Consequência prática:** ao terminar uma sessão que mexeu no orquestador, verifique a coluna de destino e atualize o(s) documento(s) da disciplina afetado(s), ou registre a pendência de atualização no arquivo da feature. Documento da disciplina desatualizado em relação ao orquestador é o mesmo tipo de dívida que spec OpenAPI desatualizado (§8). Como qualquer artefato, gerar/atualizar os documentos da disciplina pode ser delegado a um agente, que lê o orquestador e reescreve o derivado — mas o agente nunca inventa conteúdo que não esteja na fonte.
 
@@ -206,7 +208,7 @@ desenvolvimento  ──►  main  ──►  tag vX.Y.Z
 - **`desenvolvimento`** — branch de trabalho. Todo mundo commita aqui direto. CI roda lint, build e testes a cada push.
 - **`main`** — sempre verde e sempre deployável. Merge aqui dispara deploy em DES/HML.
 - **`feat/<slug>`** — **opcional**. Quem quiser isolar algo específico da feature em que está atuando pode criar uma; não é obrigatório e não é o fluxo padrão. Casos em que costuma valer a pena: refatoração que toca muitos arquivos, experimento que pode não dar certo, mudança que quebra a build enquanto está pela metade. Se criar, mantenha curta — branch longa é o que gera conflito.
-- **Tags** — `v0.1.0` no fim de cada período, criando um GitHub Release. É literalmente o artefato "Release do software" que a disciplina pede em quase toda sprint.
+- **Tags** — uma versão progressiva `vX.Y.Z` no fim de cada período, criando um GitHub Release. É literalmente o artefato "Release do software" que a disciplina pede em quase toda sprint.
 
 Regras de merge:
 
@@ -218,7 +220,7 @@ Regras de merge:
 - Commits em Conventional Commits: `feat:`, `fix:`, `docs:`, `chore:`, `test:`, `refactor:`. Isso alimenta o relatório de contribuição semanal (§12) quase sem trabalho extra.
 - **Migrations:** nome com timestamp, e cada feature só cria migration das tabelas do serviço que ela mexe. Migration é sempre revisada por humano antes de subir — é o único ponto onde o custo de um erro do agente é alto.
 
-CI deve filtrar por caminho: mudança em `src/web/` não roda o pipeline do Flutter, e mudança em `docs/` não roda nada. Sem isso o pipeline fica lento e o grupo começa a ignorar.
+CI deve filtrar por caminho: mudança em `code/front/` não roda o pipeline do Flutter, e mudança em `docs/` não roda nada. Sem isso o pipeline fica lento e o grupo começa a ignorar.
 
 ---
 
@@ -243,10 +245,10 @@ Usamos ferramentas variadas (Claude Code, opencode + codex, Claude Design, outra
 
 Regras de uso:
 
-1. Toda sessão de agente começa com `docs/orquestador/REQUISITOS.md` + o arquivo da feature em contexto.
-2. O agente atualiza o arquivo da feature **ao final da sessão**: status, pendências, decisões tomadas. Sessão que não atualiza o arquivo é sessão perdida — o próximo (você ou outro agente) não consegue retomar.
+1. Toda sessão de implementação começa com `docs/orquestador/REQUISITOS.md`, o arquivo da feature e os `AGENTS.md` raiz e local em contexto. Tarefas de backend, infraestrutura, dados ou mensageria incluem também o Documento de Arquitetura; tarefas visuais ou de interação incluem o Documento de Design.
+2. O agente atualiza o arquivo da feature **ao final da sessão de implementação**: status, pendências, decisões tomadas. Sessões exclusivamente de pesquisa, auditoria ou revisão somente leitura entregam o relatório solicitado e não alteram a feature.
 3. O agente não edita arquivos de features que não são a dele.
-4. O agente não altera `docs/orquestador/REQUISITOS.md` por conta própria. Divergência entre requisito e implementação vira pendência no arquivo da feature e decisão do grupo.
+4. O agente não altera nenhum arquivo de `docs/orquestador/` por conta própria. Divergência vira pendência no arquivo da feature e decisão do grupo; edição do orquestrador exige autorização humana explícita.
 5. Protótipo é referência visual, não especificação de pixel. Viewport fixo no protótipo não significa layout fixo na implementação.
 
 ---
@@ -255,7 +257,7 @@ Regras de uso:
 
 Mesmo com divisão vertical, o contrato existe — e ele não é cerimônia prévia, é **subproduto do DoD**.
 
-- Cada serviço expõe seu spec em runtime: `/v3/api-docs` (Spring), `/openapi.json` (FastAPI), `@nestjs/swagger` (Nest).
+- Cada serviço expõe seu spec em runtime: `/v3/api-docs` no Spring e pelo endpoint configurado com `@nestjs/swagger` no NestJS.
 - O spec é **commitado** em `docs/api/<servico>.yaml`. Atualizar é item obrigatório do Definition of Done da feature.
 - Granularidade: **um spec por serviço**, nunca por feature. A feature atualiza o spec do serviço que ela mexeu.
 
@@ -331,16 +333,16 @@ Itens abertos desta feature. Quando o grupo precisar de uma visão geral,
 pedimos a um agente para varrer os arquivos de feature e sumarizar.
 
 ## Timeline
-## Criação DD/MM: ...
+### Criação DD/MM/AAAA: ...
 ```
 
-Sem `PENDENCIAS.md` global: pendência vive no arquivo da feature, e a consolidação é gerada sob demanda. Isso evita um arquivo único disputado por 5 pessoas e por agentes.
+No período-0, a prioridade especial `fundacao` identifica trabalho estrutural anterior às features de produto. Sem `PENDENCIAS.md` global: pendência vive no arquivo da feature, e a consolidação é gerada sob demanda. Isso evita um arquivo único disputado por 5 pessoas e por agentes.
 
 ---
 
 ## 10. Definition of Done
 
-As definições gerais de pronto ficam em `docs/orquestador/REQUISITOS.md`. O que este processo acrescenta, obrigatório para toda feature:
+Este plano define o Definition of Done do processo; `docs/orquestador/REQUISITOS.md` fornece as obrigações de produto, segurança e testes que também se aplicam. Para toda feature:
 
 - [ ] Código nas camadas aplicáveis mergeado em `desenvolvimento`
 - [ ] CI verde (lint, build, testes)
@@ -356,7 +358,7 @@ Feature específica pode acrescentar itens no próprio arquivo. Nunca remover de
 
 ## 11. Design system
 
-Os tokens ficam no `docs/orquestador/documento-de-design.md` como valores neutros — paleta, escala tipográfica, espaçamento, raio, elevação — e **não** como classes de framework.
+O `docs/orquestador/documento-de-design.md` especifica os tokens como valores neutros — paleta, escala tipográfica, espaçamento, raio, elevação — e **não** como classes de framework. A feature P0-DS materializa esses valores em `docs/design-system/tokens.json`, que será a fonte canônica consumida pelas duas stacks.
 
 Motivo: o design system será implementado duas vezes (na stack web e no `ThemeData` do Flutter). Se os tokens forem neutros, o agente traduz para os dois lados sem divergir. Se forem classes CSS, mobile e web derivam.
 
@@ -368,8 +370,8 @@ O mesmo documento alimenta os prompts do Claude Design e as duas implementaçõe
 
 A disciplina cobra semanalmente, e isso precisa custar pouco:
 
-- **Ata semanal** (`docs/atas/AAAA-MM-DD.md`): decisões, pendências, próximos passos. Responsabilidade do plantão da semana.
-- **Relatório de contribuição individual** (`docs/contribuicao/<nome>/AAAA-MM-DD.md`): cada um gera o seu a partir do histórico de commits/PRs e do status das suas features. Como os commits seguem Conventional Commits e as features têm dono, um agente monta o rascunho em minutos.
+- **Ata semanal** (`assets/atas/ATA-AAAA-MM-DD.md`): decisões, pendências, próximos passos. Responsabilidade do plantão da semana.
+- **Relatório de contribuição individual** (`assets/contribuicao_semanal/<nome>/AAAA-MM-DD.md`): cada um gera o seu a partir do histórico de commits/PRs e do status das suas features. Como os commits seguem Conventional Commits e as features têm dono, um agente monta o rascunho em minutos.
 - **Fechamento de período:** tag + GitHub Release + atualização do Documento de Arquitetura + planejamento do período seguinte.
 
 ---

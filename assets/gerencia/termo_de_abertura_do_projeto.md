@@ -1,25 +1,28 @@
-# Termo de Abertura de Projeto (TAP) no.: 9999
+# Termo de Abertura de Projeto (TAP) no.: a definir
 
 **Nome da empresa:**
 
-**Data:**
+**Data:** a preencher
 
 **Integrantes:**
 
-Nome completo do Aluno 1, email do aluno 1
-Nome completo do Aluno 2, email do aluno 2
-Nome completo do Aluno 3, email do aluno 3
+Vicenzo Fonseca de Mello Souza — e-mail a preencher
+Renato Douglas Nascimento Silva de Oliveira — e-mail a preencher
+Henrique Moreira Gomes de Carvalho — e-mail a preencher
+Kayke Emanoel de Souza Santos — e-mail a preencher
+Ana Luiza de Freitas Rodrigues — e-mail a preencher
 
 ---
 
 **Professores:**
 
-Prof. Nome do Prof 1
-Prof. Nome do Prof 2
+Prof. Leonardo Vilela Cardoso
+Prof. Artur Martins Mol
+Prof. João Paulo Carneiro Aramuni
 
 ---
 
-_Curso de Engenharia de Software, Unidade Praça da Liberdade_
+_Curso de Engenharia de Software, Campus Coração Eucarístico_
 
 _Instituto de Informática e Ciências Exatas – Pontifícia Universidade de Minas Gerais (PUC MINAS), Belo Horizonte – MG – Brasil_
 
@@ -27,7 +30,7 @@ _Instituto de Informática e Ciências Exatas – Pontifícia Universidade de Mi
 
 ## 1. IDENTIFICAÇÃO DO PROJETO
 
-**1.1 Nome do Projeto:**
+**1.1 Nome do Projeto:** Lê Ai
 
 **1.2 Gerente do Projeto:**
 
@@ -68,10 +71,10 @@ _Instituto de Informática e Ciências Exatas – Pontifícia Universidade de Mi
 ## 3. ESTIMATIVA DE PRAZO
 
 
-**3.1 Prazo previsto (horas):** 9999
+**3.1 Prazo previsto (horas):** a definir
 
-**3.2 Data prevista de início:  **\_\_\_\_\_ /\_\_\_\_\_ /\_\_\_\_\_ 
-**3.3 Data prevista de término: **\_\_\_\_\_ /\_\_\_\_\_ /\_\_\_\_\_ 
+**3.2 Data prevista de início:** 04/08/2026
+**3.3 Data prevista de término:** 01/12/2026
 
 ## 4. ESTIMATIVA DE CUSTO
 
@@ -100,4 +103,3 @@ _Instituto de Informática e Ciências Exatas – Pontifícia Universidade de Mi
 - Este documento, após ser completamente preenchido, deve ser assinado pelos responsáveis do projeto (gestores envolvidos).
 
 - Este documento, se aprovado na **reunião de** _ **kickoff** _, autoriza o início do projeto de acordo com a especificação supra e as normas da empresa.
-

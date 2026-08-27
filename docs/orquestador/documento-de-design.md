@@ -1,11 +1,11 @@
 # Documento de Design
 
-**Versão:** v1.0 - 25/08/2026
+**Versão:** v1.1 - 26/08/2026
 **Status:** baseline de design aberta para o período-0
 
-> Este documento define **a linguagem visual e de interação** do aplicativo. Ele é a fonte de verdade de todo tema, componente, layout e prompt de protótipo. `docs/REQUISITOS.md` continua sendo a fonte de verdade do produto; este arquivo derive dele: nada aqui contradiz um requisito, e cada decisão de design existe para atender um ou mais requisitos funcionais ou não funcionais.
+> Este documento define **a linguagem visual e de interação** do aplicativo. Ele é a fonte de verdade de todo tema, componente, layout e prompt de protótipo. `docs/orquestador/REQUISITOS.md` continua sendo a fonte de verdade do produto; este arquivo deriva dele: nada aqui contradiz um requisito, e cada decisão de design existe para atender um ou mais requisitos funcionais ou não funcionais.
 >
-> Em caso de conflito, `docs/REQUISITOS.md` vence e a divergência segue o controle de mudança do `docs/plano-de-projeto.md` §3.
+> Em caso de conflito, `docs/orquestador/REQUISITOS.md` vence e a divergência segue o controle de mudança do `docs/orquestador/plano-de-projeto.md` §3.
 
 ---
 
@@ -119,7 +119,7 @@ Modo escuro é obrigatório (RNF-USA-06 + boa prática 2026). O sistema respeita
 
 O sistema usa quatro famílias, todas disponíveis em Google Fonts (portáteis para web e Flutter via `google_fonts`):
 
-| Papel | Família | Peso disponíveis usados |
+| Papel | Família | Pesos disponíveis usados |
 |---|---|---|
 | **Display** | Space Grotesk | 500, 600, 700 |
 | **UI / Body** | Manrope | 400, 500, 600, 700 |
@@ -130,7 +130,7 @@ O sistema usa quatro famílias, todas disponíveis em Google Fonts (portáteis p
 
 - **Space Grotesk** substitui a tentação de usar Inter como padrão. É geométrica, com caráter próprio nas letras `a`, `g`, `k`, `t`, e escala bem em título grande. Google Fonts, licença open.
 - **Manrope** é sans humanista para UI, com curvas suaves que combinam com o acento verde-musgo. Legível em 14-16px em telas de celular.
-- **Newsreader** foi desenhada especificamente para interfaces de leitura pela Production Type. Usada para o **corpo renderizado da resenha** (RF-AVA-02), **frases e trechos** (RF-AVA-06) e **sinopse do livro** (RF-ACV-17). Fora dessas três aplicações, serifa não aparece.
+- **Newsreader** foi desenhada especificamente para interfaces de leitura pela Production Type. Usada para o **corpo renderizado da resenha** (RF-AVA-02), **frases e trechos** (RF-AVA-06) e **sinopse do livro** (RF-ACV-18). Fora dessas três aplicações, serifa não aparece.
 - **JetBrains Mono** para dados: número da sequência diária (RF-GAM-02), páginas lidas, minutos, contadores. Números tabulares evitam salto de layout quando a métrica atualiza.
 
 **Nenhuma das quatro famílias está na lista de bans do design skill** (evitamos Inter como padrão, Fraunces e Instrument Serif como serifa editorial). Se Space Grotesk ficar indisponível, o fallback é `system-ui, -apple-system, "Segoe UI", sans-serif`.
@@ -152,7 +152,7 @@ Escala fixa, mesma na web e no mobile. Nomes semânticos, não `text-4xl`:
 | `caption` | 13 / 18 | 1.3 | 500 | Metadado, timestamp, contador ("42 leitores"), rótulo de badge. |
 | `label` | 12 / 16 | 1.2 | 600 tracking 0.02em | Label de campo de formulário, mini-título de agrupamento. |
 | `overline` | 11 / 14 | 1.2 | 700 tracking 0.08em uppercase | Rotulagem hierárquica pontual. **Uso racionado:** máximo 1 overline a cada 3 telas. Ver §7 (Coisas a evitar). |
-| `num-display` | 36 / 40 | 1 | 500 | Numero grande e sozinho: streak atual, total de páginas lidas no ano, dias por livro. JetBrains Mono. |
+| `num-display` | 36 / 40 | 1 | 500 | Número grande e sozinho: streak atual, total de páginas lidas no ano, dias por livro. JetBrains Mono. |
 | `num-inline` | 15 / 22 | 1.45 | 500 | Números dentro do corpo (páginas, minutos, contador). JetBrains Mono, `font-feature-settings: "tnum"`. |
 
 **Regras de emphasis:**
@@ -166,7 +166,7 @@ Newsreader entra em **três lugares específicos** e em nenhum outro:
 
 1. Corpo da resenha renderizada (RN-13, ao publicar): body-lg em Newsreader regular. O leitor está lendo texto longo, escrito por outro leitor, e a serifa faz o texto respirar como uma resenha impressa.
 2. Frases e trechos do livro (RF-AVA-06): body-lg em Newsreader italic. É citação de obra, tratada como tal.
-3. Sinopse do livro na página do livro (RF-ACV-17): body-lg em Newsreader regular. É o texto que sustenta "quero ler".
+3. Sinopse do livro na página do livro (RF-ACV-18): body-lg em Newsreader regular. É o texto que sustenta "quero ler".
 
 Fora disso, o app inteiro é Manrope. Sinopse curta em card de busca, resenha em preview no feed, dropdown de "leia mais", tudo Manrope. Serifa é da experiência de leitura, não da navegação.
 
@@ -245,7 +245,7 @@ Todo motion respeita `prefers-reduced-motion`. Sob "reduce", transições viram 
 
 - **Nenhum loop infinito.** Nenhum spinner girando eternamente, nenhum "shimmer" em background que fica sempre repetindo, nenhum "float" perpétuo em card. Loading é skeleton estático com fade in único a cada estado.
 - **Zero parallax, zero scroll hijack, zero horizontal scroll pinado.** Este não é um portfolio de agência.
-- **Motion motivado.** Cada transição responde à uma pergunta: hierarquia, feedback ou state transition. Se não responde, sai.
+- **Motion motivado.** Cada transição responde a uma pergunta: hierarquia, feedback ou state transition. Se não responde, sai.
 - **Modo de foco (RN-16): zero motion.** Nenhuma transição, nenhum ícone que pulsa, nenhum contador que "salta" ao virar dígito. O cronômetro tem transição CSS `dur-instant` no dígito trocando, e ponto.
 
 ---
@@ -261,7 +261,7 @@ Três variantes principais, uma variante destrutiva:
 | **Primário** | `musgo` (claro) / `musgo-claro` (escuro) | `papel` / `noite` | nenhuma | CTA principal da tela: "Iniciar leitura", "Salvar", "Publicar resenha". |
 | **Secundário** | transparente | `tinta` / `papel-suave` | `1px linha` / `1px linha-noite` | Ação secundária ao lado do primário. |
 | **Textual** | transparente | `musgo` / `musgo-claro` | nenhuma | Ação inline, "Ver todos", "Cancelar". |
-| **Destrutivo** | transparente | `rubi` / `rubi-claro` | `1px rubi` / `1px rubi-claro` | Excluir conta, remover leitura, denunciar. Sempre com confirmação (RNF-USA-04). |
+| **Destrutivo** | transparente | `rubi` / `rubi-claro` | `1px rubi` / `1px rubi-claro` | Excluir conta, abandonar leitura, denunciar. Sempre com confirmação (RNF-USA-04). |
 
 **Regras invariáveis:**
 
@@ -303,7 +303,7 @@ Meia estrela é obrigatória (11 valores permitidos: 0, 0.5, 1, ..., 5). O compo
 
 ### 4.4 Nota geral vs Nota dos leitores
 
-RF-ACV-15 e RN-06 exigem que os dois indicadores sejam **exibidos como distintos e rotulados, nunca combinados**. Componente dedicado:
+RF-ACV-16 e RN-06 exigem que os dois indicadores sejam **exibidos como distintos e rotulados, nunca combinados**. Componente dedicado:
 
 ```
 ┌─────────────────────────────────────┐
@@ -383,7 +383,7 @@ Cada item do feed segue estrutura fixa:
 
 - Avatar circular (`radius-full`), 40px.
 - Nome do usuário em `title-sm`, timestamp em `caption` `grafite-suave` com separador `·` de espaço-simples.
-- Verbo da atividade em `body` `grafite`. Nunca inverter: "começou a ler" fica no seu próprio linha, o link para a página do livro está no card do livro que vem abaixo.
+- Verbo da atividade em `body` `grafite`. Nunca inverter: "começou a ler" fica na sua própria linha, o link para a página do livro está no card do livro que vem abaixo.
 - Botões de ação (curtir, comentar) em `radius-full`, altura 32px, texto em `caption`. Curtir preenchido usa `musgo`, curtir vazio usa `grafite`.
 
 ### 4.10 Modo de foco (RN-16)
@@ -400,7 +400,8 @@ Este é o componente mais especial do sistema, e o mais rigorosamente calmo.
   3. Cronômetro (`num-display` em 72px, JetBrains Mono, `tinta`), centralizado.
   4. Botão único no fundo, primário, "Encerrar sessão".
   5. Segundo botão textual "Pausar" acima, quando aplicável.
-- **Nada mais na tela.** Sem barra de status própria, sem menu, sem back button (o sistema operacional já tem), sem barra inferior de navegação (o app está bloqueado, RN-16.3).
+  6. Ação textual "Cancelar sessão", sempre com confirmação.
+- **Nada mais na tela.** Sem barra de status própria, sem menu, sem back button próprio, sem barra inferior de navegação (o app está bloqueado, RN-16.3). Gesto ou botão de voltar do sistema não contorna o modo de foco nem abre outra área do aplicativo.
 
 **Motion no modo de foco: zero.** O cronômetro atualiza o dígito com transição `dur-instant`, e ponto. Botão "Encerrar" tem `active: scale(0.98)`, e ponto.
 
@@ -424,7 +425,7 @@ A tela mais "editorial" do app. Layout mobile:
 - **Hero:** capa 40% do width centralizada, título em `display` centralizado abaixo, autor em `body` `grafite` centralizado.
 - **Barra de ação:** botão primário largo "Adicionar à estante" (ou "Iniciar leitura" se já está em Quero ler), botão secundário "Favoritar".
 - **Nota geral vs Nota dos leitores:** componente §4.4 abaixo da barra de ação.
-- **Sinopse:** título de seção `title-lg`, texto em `body-lg` Newsreader. Se sinopse ausente (RN-19), a seção não aparece.
+- **Sinopse:** título de seção `title-lg`, texto em `body-lg` Newsreader. Se a sinopse estiver ausente (RF-ACV-19, RN-19), a seção exibe essa ausência sem mensagem de erro.
 - **Assuntos:** faixa de chips clicáveis (`radius-full`, `caption` uppercase, borda `1px linha`), cada um levando ao filtro de busca por assunto.
 - **Autor · Editora · Série:** três blocos em linha, cada um leva à página respectiva.
 - **Resenhas dos leitores:** título de seção + lista de resenhas com espaço, cada resenha renderizada em Newsreader.
@@ -572,9 +573,9 @@ Este é o "banlist" do projeto. Toda ferramenta de agente (Claude Code, Claude D
 
 ### 7.8 Interações destrutivas
 
-- **Nada de ação destrutiva sem confirmação** (RNF-USA-04). Excluir conta, remover leitura, desistir de leitura, denunciar: todas passam por confirmação em modal.
+- **Nada de ação destrutiva sem confirmação** (RNF-USA-04). Excluir conta, abandonar leitura, denunciar: todas passam por confirmação em modal.
 - **Nada de botão destrutivo primário** (fundo `rubi`). Destrutivo é outline `rubi`, para dar mais peso à confirmação.
-- **Nada de undo em ação destrutiva pesada.** Excluir conta é excluir. Remover leitura em andamento é remover.
+- **Nada de undo em ação destrutiva pesada.** Excluir conta é excluir. Abandonar uma leitura segue a máquina de estados de RN-04.
 
 ### 7.9 Formulários
 
@@ -598,7 +599,7 @@ Este é o "banlist" do projeto. Toda ferramenta de agente (Claude Code, Claude D
 
 ### 7.12 Fora de escopo por decisão (não redecidir)
 
-Estas coisas foram cortadas em `docs/REQUISITOS.md` §11 e nenhuma prototipagem, tela ou componente deve reintroduzi-las:
+Estas coisas foram cortadas em `docs/orquestador/REQUISITOS.md` §11 e nenhuma prototipagem, tela ou componente deve reintroduzi-las:
 
 - Camada de "obra" separada de edição.
 - Login social (Google/Apple), 2FA.
@@ -635,7 +636,7 @@ O contrário de cada bala da §7 é a regra:
 
 ### 9.1 Tokens compartilhados (RNF-USA-06)
 
-Um único arquivo de tokens, versionado em `docs/design-system/tokens.json`, é lido pelas duas stacks. Formato pretendido:
+Um único arquivo de tokens, planejado em `docs/design-system/tokens.json` pela feature P0-DS, será lido pelas duas stacks. Formato pretendido:
 
 ```json
 {
@@ -672,8 +673,8 @@ Consumo:
 
 Cada componente central listado em §4 tem sua especificação aqui e uma implementação em cada stack:
 
-- **Web:** componente Vue em `src/web/components/ui/<Component>.vue` com styling Tailwind consumindo os tokens.
-- **Mobile:** widget Flutter em `src/mobile/lib/design/widgets/<component>.dart`.
+- **Web:** componente Vue em `code/front/src/components/ui/<Component>.vue` com styling Tailwind consumindo os tokens.
+- **Mobile:** widget Flutter em `code/mobile/lib/design/widgets/<component>.dart`.
 
 Ambos referenciam os mesmos tokens e obedecem à mesma especificação de estados (default, hover, focus, active, disabled, error).
 
@@ -683,7 +684,7 @@ Os prompts do Claude Design (`docs/design-system/prompts/<tela>.md`) recebem em 
 
 1. Este documento (`documento-de-design.md`) inteiro.
 2. O `tokens.json`.
-3. A seção correspondente de `docs/REQUISITOS.md` (a tela sendo prototipada).
+3. A seção correspondente de `docs/orquestador/REQUISITOS.md` (a tela sendo prototipada).
 4. O arquivo da feature em `docs/plano-de-desenvolvimento/periodo-N/`.
 
 O output do Claude Design (bundle HTML em `docs/prototipos/`) é referência visual e de navegabilidade, não especificação de pixel (regra 5 dos agentes, plano §7).
@@ -692,23 +693,23 @@ O output do Claude Design (bundle HTML em `docs/prototipos/`) é referência vis
 
 ## 10. Nome do produto
 
-O nome do aplicativo **ainda não está definido em `docs/REQUISITOS.md`** e é decisão do grupo, não deste documento. Este design system serve qualquer nome escolhido.
-
-Recomendações para a decisão de nomeação, apenas como insumo:
-
-- Uma palavra curta em pt-BR, que soe bem quando falada.
-- Que carregue uma das três teses de produto: **registro** ("Lida", "Marco"), **meta** ("Broto", "Trilha") ou **pertencimento** ("Sarau", "Estante").
-- Que não colida com apps existentes no mercado brasileiro (Skoob, Leiturama, etc.).
-
-Discutir em reunião. Não é bloqueante para o design system.
+O nome definitivo do aplicativo é **Lê Ai**. A linguagem visual definida neste documento permanece a identidade do produto sob esse nome.
 
 ---
 
 ## 11. Timeline
 
+### Atualização 26/08/2026
+
+- Nome **Lê Ai** formalizado.
+- Caminhos atualizados para a estrutura real do repositório.
+- Modo de foco alinhado às ações de encerrar e cancelar sessão definidas em RN-16.
+- Ausência de sinopse alinhada ao estado previsto em RF-ACV-19 e RN-19.
+- Nenhum token, valor, nome de componente ou decisão tipográfica foi alterado.
+
 ### Criação 25/08/2026
 
-Versão inicial, alinhada ao `docs/REQUISITOS.md` v1.0 (22/08/2026) e ao `docs/documento-de-arquitetura.md` v1.0 (22/08/2026). Baseline aberta.
+Versão inicial, alinhada ao `docs/orquestador/REQUISITOS.md` v1.0 (22/08/2026) e ao `docs/orquestador/documento-de-arquitetura.md` v1.0 (22/08/2026). Baseline aberta.
 
 Definido:
 

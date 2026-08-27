@@ -11,4 +11,4 @@ Backend em **microsserviços**, consumido por HTTP/JSON pelos clientes web e mob
 | [`leitura/`](leitura) | Estante, leitura, progresso, sessão, nota, resenha, frases, desafios, streak, estatísticas | EST, PRG, AVA, DSF, STA, GAM |
 | [`social/`](social) | Feed, atividades, comentários, listas, recomendações, notificações, moderação | SOC-09 a 15, LST, REC, NOT, MOD |
 
-**Acesso entre schemas:** nenhum serviço lê a tabela crua de outro schema — apenas por **VIEW** exposta e mantida pelo serviço dono, versionada junto do spec OpenAPI. Cada serviço publica seu contrato em [`../../docs/api/`](../../docs/api). Decomposição completa em [`../../docs/orquestador/documento-de-arquitetura.md`](../../docs/orquestador/documento-de-arquitetura.md) §3–5.
+**Acesso entre schemas:** nenhum serviço lê a tabela crua de outro schema — apenas por **VIEW** exposta e mantida pelo serviço dono, versionada junto do spec OpenAPI. Cada serviço publicará seu contrato em `docs/api/`, diretório planejado no período-0. Decomposição completa em [`../../docs/orquestador/documento-de-arquitetura.md`](../../docs/orquestador/documento-de-arquitetura.md) §3–5.

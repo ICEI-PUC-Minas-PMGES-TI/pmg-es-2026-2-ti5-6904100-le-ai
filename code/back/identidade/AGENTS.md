@@ -8,7 +8,7 @@ Usuário, autenticação, perfil, privacidade, seguidores e solicitações de se
 
 ## Stack e dados
 
-- **Stack:** Spring ou NestJS — **a definir pela equipe**; registrar aqui quando decidido.
+- **Stack:** Spring ou NestJS — **a definir pela equipe**; até a decisão, não escolher framework nem criar scaffolding por conta própria. Registrar aqui quando decidido.
 - **Schema:** `identidade`, no PostgreSQL único do Neon. Só este serviço cria migration das suas tabelas.
 - Leitura por outros serviços apenas via **VIEW** exposta e mantida por este serviço (ex.: relação de seguir para a recomendação algorítmica em `social`).
 
@@ -17,9 +17,9 @@ Usuário, autenticação, perfil, privacidade, seguidores e solicitações de se
 ## Pontos de atenção (ver `REQUISITOS.md` §8)
 
 - Senhas com Argon2/bcrypt/scrypt; token de acesso curto e renovação **revogável** (invalidada no logout e na troca de senha).
-- Token de recuperação de senha: aleatório criptográfico, uso único, validade 1h, armazenado como hash. E-mail transacional por **Brevo**, publicado como fluxo assíncrono.
+- Token de recuperação de senha: aleatório criptográfico, uso único, validade 1h, armazenado como hash. E-mail transacional por **Brevo**; processamento assíncrono permanece candidato, ainda não definido.
 - **Rate limiting** em auth/cadastro/recuperação; mensagens de login que não revelam se e-mail/username existe; bloqueio progressivo por identidade.
 - **Privacidade de perfil** (RN-08): validação de relação de seguidor aceita em todos os endpoints, incluindo listagem e busca. Descoberta **só por username exato** — sem enumeração, listagem ou sugestão.
 - Conta de **administrador** fixa e única, provisionada por variável de ambiente.
 - Publica eventos: `seguidor.novo`, `solicitacao.*`.
-- Cadastro recusa menores de 18 anos (RNF-SEC-41).
+- Cadastro recusa menores de 18 anos (RNF-SEC-43).

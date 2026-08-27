@@ -1,12 +1,12 @@
 # REQUISITOS
 
-**Versão:** v1.0 — 22/08/2026
-**Baseline prevista:** 25/08/2026
-**Status:** fechado para baseline — nenhuma pendência de requisito em aberto
+**Versão:** v1.1 — 26/08/2026
+**Baseline:** fechada em 25/08/2026
+**Status:** baseline fechada — permanecem explícitas para o período-0 a alocação de stack por serviço, a decisão de opt-out de recomendações e o mecanismo arquitetural de garantia durável de RNF-ERR-10
 
 Este documento é a **fonte de verdade** do projeto. Toda decisão de produto, modelo de dados e regra de negócio mora aqui. Arquivos de feature, specs OpenAPI, diagramas e código derivam deste documento — nunca o contrário.
 
-Alterações após a baseline seguem o controle de mudança definido em `docs/plano-de-projeto.md` §3. Nenhuma alteração é feita diretamente por agente.
+Alterações após a baseline seguem o controle de mudança definido em `docs/orquestador/plano-de-projeto.md` §3. Nenhuma alteração é feita diretamente por agente.
 
 ---
 
@@ -28,7 +28,7 @@ A tese de produto é que o hábito de leitura se sustenta por três mecanismos: 
 |---|---|---|
 | Mobile | Flutter (nativo) | **Produto principal** — escopo funcional completo |
 | Web | **Vue** (SPA) com **Tailwind CSS** | **Subconjunto** de funcionalidades |
-| Backend | Microsserviços (NestJS / FastAPI / Spring — a definir) | Web services consumidos por ambos os clientes |
+| Backend | Microsserviços em **Spring + NestJS**; alocação por serviço pendente no Documento de Arquitetura; FastAPI descartado | Web services consumidos por ambos os clientes |
 
 O professor vetou o uso de Flutter Web, portanto web e mobile são aplicações separadas com bases de código independentes, consumindo os mesmos serviços.
 
@@ -104,26 +104,26 @@ O critério de priorização: é Essencial o que sustenta o ciclo mínimo de val
 |---|---|---|---|
 | RF-ACV-01 | O leitor deve poder buscar livros por **título, autor, editora ou ISBN**, com resultados paginados. | E | ✅ |
 | RF-ACV-02 | O leitor deve poder filtrar resultados de busca por **assunto**. | E | ✅ |
-| RF-ACV-02a | O leitor deve poder filtrar resultados de busca por autor, editora, série, ano de publicação e faixa de nº de páginas. | D | ✅ |
-| RF-ACV-03 | O leitor deve poder visualizar a página de um livro com metadados, capa, **sinopse**, **nota geral**, **nota dos leitores**, distribuição de notas e resenhas de outros leitores. | E | ✅ |
-| RF-ACV-04 | O leitor deve poder **cadastrar um livro na base oficial informando o ISBN**; o sistema busca os metadados em fonte externa e cria o registro. | E | ✅ |
-| RF-ACV-05 | Se o ISBN informado não for encontrado em nenhuma fonte externa, o sistema deve exibir mensagem de erro específica e oferecer o caminho de **cadastro pessoal**. | E | ✅ |
-| RF-ACV-06 | Se o ISBN informado já existir na base oficial, o sistema deve bloquear o cadastro e direcionar o leitor à página do livro existente. | E | ✅ |
-| RF-ACV-07 | O leitor deve poder **cadastrar um livro pessoal** informando manualmente título, autor, nº de páginas e, opcionalmente, sinopse e capa por upload de imagem. | E | ✅ |
-| RF-ACV-08 | O leitor deve poder editar e excluir os livros pessoais que cadastrou. | E | ✅ |
-| RF-ACV-09 | O leitor deve poder visualizar a **página de autor**, com biografia curta e lista de livros oficiais daquele autor. | D | ✅ |
-| RF-ACV-10 | O leitor deve poder visualizar a **página de editora**, com lista de livros oficiais daquela editora. | D | ✅ |
-| RF-ACV-11 | O leitor deve poder visualizar a **página de série**, com os livros oficiais da série ordenados por número de ordem. | D | ✅ |
-| RF-ACV-12 | O sistema deve permitir carga inicial da base oficial a partir de data dump externo, com normalização de autor, editora e série. | E | — |
-| RF-ACV-13 | O sistema deve permitir recarga manual do data dump para atualizar a base oficial. | O | — |
-| RF-ACV-14 | O sistema deve importar da fonte externa, quando disponível, a **nota geral** e a quantidade de avaliações que a originou, persistindo ambas junto ao livro oficial. | D | — |
-| RF-ACV-15 | A página do livro deve exibir **nota geral** e **nota dos leitores** como indicadores distintos e rotulados, sem combiná-los em um único valor. | D | ✅ |
-| RF-ACV-16 | O sistema deve armazenar a capa de um livro oficial em serviço próprio na primeira vez que o livro entra na estante de algum usuário, conforme RN-14. | D | — |
-| RF-ACV-17 | O sistema deve obter e persistir a **sinopse** de um livro oficial **sob demanda**, na primeira vez que sua página é aberta, conforme RN-19. | E | ✅ |
-| RF-ACV-18 | A página do livro deve permanecer utilizável quando a sinopse não estiver disponível, exibindo sua ausência sem mensagem de erro. | E | ✅ |
-| RF-ACV-19 | O sistema deve associar **assuntos** aos livros oficiais na ingestão, normalizados conforme RN-21. | E | — |
-| RF-ACV-20 | A página do livro deve exibir seus assuntos, cada um acionável como filtro de busca. | D | ✅ |
-| RF-ACV-21 | O leitor deve poder informar assuntos ao cadastrar um livro pessoal, escolhendo-os do conjunto curado. | O | ✅ |
+| RF-ACV-03 | O leitor deve poder filtrar resultados de busca por autor, editora, série, ano de publicação e faixa de nº de páginas. | D | ✅ |
+| RF-ACV-04 | O leitor deve poder visualizar a página de um livro com metadados, capa, **sinopse** e resenhas de outros leitores; **nota geral**, **nota dos leitores** e distribuição de notas aparecem quando as funcionalidades correspondentes estiverem disponíveis. | E | ✅ |
+| RF-ACV-05 | O leitor deve poder **cadastrar um livro na base oficial informando o ISBN**; o sistema busca os metadados em fonte externa e cria o registro. | E | ✅ |
+| RF-ACV-06 | Se o ISBN informado não for encontrado em nenhuma fonte externa, o sistema deve exibir mensagem de erro específica e oferecer o caminho de **cadastro pessoal**. | E | ✅ |
+| RF-ACV-07 | Se o ISBN informado já existir na base oficial, o sistema deve bloquear o cadastro e direcionar o leitor à página do livro existente. | E | ✅ |
+| RF-ACV-08 | O leitor deve poder **cadastrar um livro pessoal** informando manualmente título, autor, nº de páginas e, opcionalmente, sinopse e capa por upload de imagem. | E | ✅ |
+| RF-ACV-09 | O leitor deve poder editar e excluir os livros pessoais que cadastrou. | E | ✅ |
+| RF-ACV-10 | O leitor deve poder visualizar a **página de autor**, com biografia curta e lista de livros oficiais daquele autor. | D | ✅ |
+| RF-ACV-11 | O leitor deve poder visualizar a **página de editora**, com lista de livros oficiais daquela editora. | D | ✅ |
+| RF-ACV-12 | O leitor deve poder visualizar a **página de série**, com os livros oficiais da série ordenados por número de ordem. | D | ✅ |
+| RF-ACV-13 | O sistema deve permitir carga inicial da base oficial a partir de data dump externo, com normalização de autor, editora e série. | E | — |
+| RF-ACV-14 | O sistema deve permitir recarga manual do data dump para atualizar a base oficial. | O | — |
+| RF-ACV-15 | O sistema deve importar da fonte externa, quando disponível, a **nota geral** e a quantidade de avaliações que a originou, persistindo ambas junto ao livro oficial. | D | — |
+| RF-ACV-16 | A página do livro deve exibir **nota geral** e **nota dos leitores** como indicadores distintos e rotulados, sem combiná-los em um único valor. | D | ✅ |
+| RF-ACV-17 | O sistema deve armazenar a capa de um livro oficial em serviço próprio na primeira vez que o livro entra na estante de algum usuário, conforme RN-14. | D | — |
+| RF-ACV-18 | O sistema deve obter e persistir a **sinopse** de um livro oficial **sob demanda**, na primeira vez que sua página é aberta, conforme RN-19. | E | ✅ |
+| RF-ACV-19 | A página do livro deve permanecer utilizável quando a sinopse não estiver disponível, exibindo sua ausência sem mensagem de erro. | E | ✅ |
+| RF-ACV-20 | O sistema deve associar **assuntos** aos livros oficiais na ingestão, normalizados conforme RN-21. | E | — |
+| RF-ACV-21 | A página do livro deve exibir seus assuntos, cada um acionável como filtro de busca. | D | ✅ |
+| RF-ACV-22 | O leitor deve poder informar assuntos ao cadastrar um livro pessoal, escolhendo-os do conjunto curado. | O | ✅ |
 
 Páginas de autor, editora e série **não são perfis**: não têm dono, não recebem conteúdo de usuário e não são editáveis pela interface. São páginas de consulta e filtro, alimentadas exclusivamente pela base oficial curada.
 
@@ -131,7 +131,7 @@ Páginas de autor, editora e série **não são perfis**: não têm dono, não r
 
 | ID | Requisito | Pri | Web |
 |---|---|---|---|
-| RF-EST-01 | O leitor deve poder atribuir a um livro um dos status: **Quero ler, Lendo, Lido, Relendo, Abandonado**. | E | ✅ |
+| RF-EST-01 | O sistema deve representar a relação do leitor com um livro em um dos status **Quero ler, Lendo, Lido, Relendo ou Abandonado**, conforme as transições de RN-04. | E | ✅ |
 | RF-EST-02 | O leitor deve poder visualizar sua estante agrupada por status, com ordenação e paginação. | E | ✅ |
 | RF-EST-03 | O leitor deve poder **iniciar uma leitura**, registrando a data de início (padrão: data atual, editável). | E | ✅ |
 | RF-EST-04 | O leitor deve poder **finalizar uma leitura**, registrando a data de fim (padrão: data atual, editável). | E | ✅ |
@@ -140,10 +140,9 @@ Páginas de autor, editora e série **não são perfis**: não têm dono, não r
 | RF-EST-07 | O leitor deve poder **retomar** uma primeira leitura abandonada, continuando da página registrada. | E | ✅ |
 | RF-EST-08 | O sistema deve exibir na página do livro o **número de vezes que o leitor concluiu** aquele livro. | E | ✅ |
 | RF-EST-09 | O leitor deve poder marcar e desmarcar livros como **favoritos**. | D | ✅ |
-| RF-EST-10 | O leitor deve poder adicionar e remover livros da **lista de desejados**. | D | ✅ |
-| RF-EST-11 | O leitor deve poder visualizar seu **histórico de leituras por ano**, com os livros concluídos em cada ano. | D | ✅ |
-| RF-EST-12 | O sistema deve **abandonar automaticamente** leituras sem atividade por 40 dias, conforme RN-04. | E | — |
-| RF-EST-13 | O sistema deve **alertar o leitor** nos dias 20 e 30 de inatividade de uma leitura, conforme RN-05. | E | — |
+| RF-EST-10 | O leitor deve poder visualizar seu **histórico de leituras por ano**, com os livros concluídos em cada ano. | D | ✅ |
+| RF-EST-11 | O sistema deve **abandonar automaticamente** leituras sem atividade por 40 dias, conforme RN-05 e a máquina de estados de RN-04. | E | — |
+| RF-EST-12 | O sistema deve **alertar o leitor** nos dias 20 e 30 de inatividade de uma leitura, conforme RN-05. | E | — |
 
 ### 5.4 Progresso (PRG)
 
@@ -180,10 +179,10 @@ Há **duas formas de registrar progresso**. Ambas usam a mesma entrada de págin
 | RF-AVA-03 | O leitor deve poder marcar sua resenha como **contendo spoiler**; resenhas assim marcadas são exibidas ocultas, exigindo ação para revelar. | E | ✅ |
 | RF-AVA-04 | O leitor deve poder excluir sua resenha. | E | ✅ |
 | RF-AVA-05 | O leitor deve poder reagir a resenhas de outros com **curtida ou descurtida**, uma reação por resenha, inclusive em resenhas de livros pessoais a que tenha acesso. | D | ✅ |
-| RF-AVA-08 | A resenha deve exibir a **contagem de curtidas e a contagem de descurtidas separadamente**, visíveis a todos os leitores que têm acesso à resenha. | D | ✅ |
-| RF-AVA-09 | A resenha deve aceitar formatação em **Markdown**, conforme o subconjunto permitido em RN-13, com pré-visualização antes de publicar. | D | ✅ |
 | RF-AVA-06 | O leitor deve poder cadastrar **frases/trechos** de um livro, informando obrigatoriamente a **página de referência**, respeitando o limite de caracteres de RN-11. | D | ✅ |
 | RF-AVA-07 | O leitor deve poder visualizar as frases cadastradas de um livro e excluir as suas. | D | ✅ |
+| RF-AVA-08 | A resenha deve exibir a **contagem de curtidas e a contagem de descurtidas separadamente**, visíveis a todos os leitores que têm acesso à resenha. | D | ✅ |
+| RF-AVA-09 | A resenha deve aceitar formatação em **Markdown**, conforme o subconjunto permitido em RN-13, com pré-visualização antes de publicar. | D | ✅ |
 
 Resenhas **não recebem comentários** — apenas curtida/descurtida.
 
@@ -204,10 +203,10 @@ Resenhas **não recebem comentários** — apenas curtida/descurtida.
 |---|---|---|---|
 | RF-DSF-01 | O leitor deve poder criar **um ou mais desafios simultâneos**, escolhendo unidade (**páginas, minutos ou livros**), janela (**diária, semanal, mensal ou anual**) e valor-alvo. | D | ❌ |
 | RF-DSF-02 | O sistema deve atualizar o progresso dos desafios de páginas e de minutos a partir de cada **atualização de progresso** de leitura. | D | ❌ |
-| RF-DSF-06 | O sistema deve atualizar o progresso dos desafios de livros a partir de cada **leitura finalizada**. | D | ❌ |
 | RF-DSF-03 | O leitor deve poder visualizar o progresso de cada desafio na janela corrente. | D | ❌ |
 | RF-DSF-04 | O leitor deve poder editar, pausar e excluir seus desafios. | D | ❌ |
 | RF-DSF-05 | O sistema deve manter o histórico de janelas concluídas de cada desafio, indicando cumprimento ou não. | O | ❌ |
+| RF-DSF-06 | O sistema deve atualizar o progresso dos desafios de livros a partir de cada **leitura finalizada**. | D | ❌ |
 
 ### 5.8 Estatísticas (STA)
 
@@ -235,9 +234,9 @@ Resenhas **não recebem comentários** — apenas curtida/descurtida.
 | RF-SOC-10 | O sistema deve publicar como atividade: **início de leitura, retomada de leitura, conclusão de leitura, abandono de leitura e publicação de resenha**. | E | — |
 | RF-SOC-11 | O leitor deve poder **curtir** atividades do feed. | E | ✅ |
 | RF-SOC-12 | O leitor deve poder **comentar** atividades do feed e **responder** a comentários, conforme RN-10. | E | ✅ |
+| RF-SOC-13 | O leitor deve poder editar e excluir seus comentários. | D | ✅ |
 | RF-SOC-14 | Ao responder a uma resposta, o cliente deve pré-preencher a **menção `@username`** ao autor respondido, mantendo o comentário no mesmo nível de aninhamento. | E | ✅ |
 | RF-SOC-15 | Menções `@username` devem ser resolvidas para o perfil correspondente e exibidas como link, quando o username existir. | D | ✅ |
-| RF-SOC-13 | O leitor deve poder editar e excluir seus comentários. | D | ✅ |
 
 Não há busca exploratória de pessoas, sugestão de perfis ou diretório de usuários — a descoberta é deliberada, por username exato. Esta é uma decisão de produto voltada à segurança de um público jovem.
 
@@ -245,7 +244,7 @@ Não há busca exploratória de pessoas, sugestão de perfis ou diretório de us
 
 | ID | Requisito | Pri | Web |
 |---|---|---|---|
-| RF-NOT-01 | O sistema deve gerar notificação **in-app** para: novo seguidor, solicitação de seguir, solicitação aceita, curtida em atividade, comentário em atividade, resposta a comentário, **menção em comentário**, **recomendação de livro recebida**, **lembrete de sequência diária**, curtida em resenha, alerta de leitura em risco e leitura abandonada automaticamente. | E | ❌ |
+| RF-NOT-01 | O sistema deve gerar notificação **in-app** para os eventos das funcionalidades implementadas nesta versão: novo seguidor, solicitação de seguir, solicitação aceita, curtida em atividade, comentário em atividade, resposta a comentário, **menção em comentário**, **recomendação de livro recebida**, **lembrete de sequência diária**, curtida em resenha, alerta de leitura em risco e leitura abandonada automaticamente. | E | ❌ |
 | RF-NOT-02 | O leitor deve poder visualizar suas notificações em lista paginada, com indicação de não lidas. | E | ❌ |
 | RF-NOT-03 | O leitor deve poder marcar notificações como lidas, individualmente e em lote. | E | ❌ |
 | RF-NOT-04 | A notificação de **leitura em risco** deve conter ação direta de **abandonar a leitura**. | E | ❌ |
@@ -265,7 +264,7 @@ Não há busca exploratória de pessoas, sugestão de perfis ou diretório de us
 | RF-MOD-04 | O administrador deve poder **suspender** a conta de um leitor. | O | ✅ |
 | RF-MOD-05 | O sistema deve registrar em log de auditoria toda ação de moderação, com autor, alvo, ação e timestamp. | D | — |
 
-Apenas resenhas e comentários são denunciáveis. Listas, frases, perfis e livros não possuem fluxo de denúncia.
+Apenas resenhas e comentários são denunciáveis. Listas, frases, perfis e livros não possuem fluxo de denúncia; a possibilidade de remoção direta de trechos pela moderação permanece definida em RN-11.
 
 ### 5.12 Gamificação (GAM)
 
@@ -344,7 +343,7 @@ Cada registro `Livro` representa uma edição específica. Duas edições da mes
 | Aspecto | Comportamento |
 |---|---|
 | Edição e exclusão dos dados | Exclusivas do dono |
-| Visualização da página do livro | Restrita ao dono, **exceto** por acesso a partir de lista do dono (RN-15) |
+| Visualização da página do livro | Restrita ao dono; terceiros acessam **exatamente por duas vias**, feed e lista do dono (RN-15), sempre com privacidade e autorização revalidadas na página; conhecer o ID não concede acesso |
 | Adicionar à estante e iniciar leitura | Exclusivos do dono, em **qualquer** status, inclusive Quero ler |
 | Atividades no feed | Publicadas normalmente para os seguidores do dono |
 | Nota do dono | Visível a terceiros, **sem média e sem contagem de avaliações** |
@@ -365,6 +364,9 @@ Cada registro `Livro` representa uma edição específica. Duas edições da mes
 
 | De | Evento | Para | Efeitos |
 |---|---|---|---|
+| — | Adicionar à estante sem iniciar leitura | **Quero ler** | Cria o vínculo de estante sem criar leitura |
+| Quero ler | Remover da estante | — | Remove o vínculo enquanto não houver histórico de leitura |
+| Quero ler | Iniciar leitura | **Lendo** | Cria leitura com data de início |
 | — | Iniciar leitura (livro nunca concluído) | **Lendo** | Cria leitura com data de início |
 | — | Iniciar releitura (livro já concluído) | **Relendo** | Cria leitura marcada como releitura |
 | Lendo / Relendo | Registrar progresso | mesmo estado | Atualiza página atual e zera o contador de inatividade |
@@ -458,7 +460,7 @@ Regras da menção:
 
 1. A menção só é resolvida se o username existir; caso contrário permanece como texto comum.
 2. Menção gera notificação ao usuário mencionado (RF-NOT-01).
-3. Menção está sujeita a rate limiting (RNF-SEC-16), impedindo que se use o recurso para notificar em massa quem não segue o autor.
+3. Menção está sujeita a rate limiting (RNF-SEC-18), impedindo que se use o recurso para notificar em massa quem não segue o autor.
 4. Menção a usuário de perfil privado gera notificação normalmente, mas o link só é navegável conforme RN-08.
 5. Excluir um comentário-raiz remove suas respostas.
 
@@ -469,7 +471,7 @@ Para respeitar limites de citação de obra protegida por direito autoral:
 - Limite de **500 caracteres** por trecho.
 - **Página de referência obrigatória.**
 - Máximo de 10 trechos por usuário por livro.
-- Trechos são passíveis de remoção pela moderação.
+- Trechos são passíveis de remoção direta pela moderação, embora não possuam fluxo de denúncia.
 
 ### RN-12 — Normalização de dados na ingestão
 
@@ -568,7 +570,7 @@ A sinopse é conteúdo essencial da página do livro: sustenta a decisão de "qu
 1. A sinopse **não é persistida na carga inicial do data dump**. Persistir sinopse para todo o acervo custaria entre 500 e 1.500 bytes por livro, estourando o teto de armazenamento de RNF-DES-04 e ocupando espaço com livros que nunca serão abertos.
 2. Na primeira vez que a página de um livro oficial é aberta, o sistema busca a sinopse na fonte externa e a **persiste**. Aberturas subsequentes usam o valor persistido.
 3. **Ordem das fontes:** OpenLibrary (campo de descrição da obra ou da edição) → Google Books (`description`) → ausente.
-4. Ausência de sinopse é estado válido e comum: a página do livro deve funcionar sem ela (RF-ACV-18). A cobertura nas fontes externas é irregular, especialmente em português.
+4. Ausência de sinopse é estado válido e comum: a página do livro deve funcionar sem ela (RF-ACV-19). A cobertura nas fontes externas é irregular, especialmente em português.
 5. A busca externa é assíncrona e não bloqueia a renderização da página: a sinopse aparece quando disponível.
 6. A sinopse é armazenada como **texto puro**, com limite de 4.000 caracteres. Marcação recebida da fonte externa é removida na ingestão. A sinopse **não** aceita Markdown, ao contrário das resenhas.
 7. A sinopse **não integra o índice de busca** (RF-ACV-01, RNF-DES-03). Indexar texto longo de todo o acervo multiplicaria o custo do índice, que já é o item dominante do dimensionamento (RNF-DES-05).
@@ -632,11 +634,11 @@ O dono de um livro pessoal pode incluí-lo em suas próprias listas.
 | **Feed de atividades** | Atividade do dono referenciando o livro (RF-SOC-10) | Principal |
 | **Lista do dono** | Livro pessoal incluído em lista do próprio dono | Secundária |
 
-Ambas estão sujeitas à privacidade do perfil do dono (RN-08). Não existe terceira via: busca, catálogo, filtros e páginas de autor, editora e série permanecem fechados a livros pessoais.
+Ambas estão sujeitas à privacidade do perfil do dono (RN-08). Não existe terceira via: conhecer ou informar diretamente o identificador não concede acesso, e busca, catálogo, filtros e páginas de autor, editora e série permanecem fechados a livros pessoais.
 
 1. **Somente o dono** pode adicionar um livro pessoal a uma lista, e somente a listas de sua própria autoria. Nenhum leitor pode adicionar livro pessoal de outra pessoa a uma lista sua.
 2. Para quem chega por qualquer das duas vias, a página do livro pessoal é acessível em **modo consulta**: metadados, capa, nota do dono e resenha do dono, conforme RN-03.
-3. A página exibida a terceiros **não oferece** ação de adicionar à estante, marcar como favorito, adicionar a desejados, iniciar leitura ou registrar progresso. A restrição é validada no servidor, não apenas ocultada na interface (RNF-SEC-02).
+3. A página exibida a terceiros **não oferece** ação de adicionar à estante em qualquer status, marcar como favorito, iniciar leitura ou registrar progresso. A restrição é validada no servidor, não apenas ocultada na interface (RNF-SEC-02).
 4. Terceiros com acesso **podem curtir, descurtir e denunciar** a resenha do dono, nas mesmas regras aplicadas a livros oficiais (RF-AVA-05, RF-AVA-08, RF-MOD-01). Conteúdo visível a terceiros não pode ficar fora do alcance da moderação.
 5. A visibilidade **herda a privacidade do perfil do dono** (RN-08): se o perfil é privado, a atividade, a lista e, por consequência, a página do livro pessoal só são acessíveis a seguidores aceitos. A verificação deve ser refeita na página do livro, não apenas na via de origem.
 6. Se o dono excluir o livro pessoal, ou remover as atividades e a inclusão em lista que o referenciam, o acesso de terceiros à página cessa imediatamente.
@@ -671,6 +673,7 @@ Fluxos assíncronos definidos para esta versão:
 | **Ingestão de livros** | `livro.importacao_solicitada` | Depende de serviço de terceiro; exige retentativa com backoff |
 | **Cache de capas** | `livro.adicionado_a_estante` | Download de imagem de terceiro não pode bloquear a adição à estante; exige retentativa (RN-14) |
 | **Busca de sinopse** | `livro.pagina_aberta` | Consulta a terceiro não pode bloquear a renderização da página do livro (RN-19) |
+| **Nota agregada** | `nota.alterada` | Atualização da projeção da nota dos leitores em `acervo` sem chamada síncrona a `leitura` |
 
 **Não são assíncronos:** mudança de status na estante, registro de progresso, criação de nota e de resenha. Essas operações confirmam de forma síncrona ao autor; o evento é publicado **após** a escrita confirmada.
 
@@ -711,12 +714,12 @@ RNF-ERR-05 e RNF-ERR-09 são as evidências principais para o requisito da disci
 |---|---|
 | RNF-USA-01 | A interface móvel e a web devem seguir o design system definido no **Documento de Design**, com componentes consistentes entre plataformas. |
 | RNF-USA-02 | A interface web deve ser responsiva. |
-| RNF-USA-06 | Os *design tokens* — cores, tipografia, espaçamento, raios e elevação — devem ser definidos uma única vez no **Documento de Design §3** e traduzidos para a configuração do Tailwind na web e para o tema do Flutter no mobile, evitando divergência visual entre as plataformas. |
 | RNF-USA-03 | Contraste de texto deve atender WCAG AA, conforme paletas definidas no Documento de Design §3.1. |
 | RNF-USA-04 | Toda ação destrutiva deve exigir confirmação explícita. |
 | RNF-USA-05 | Mensagens de erro devem ser em pt-BR e acionáveis, sem expor detalhes técnicos. |
+| RNF-USA-06 | Os *design tokens* — cores, tipografia, espaçamento, raios e elevação — devem ser especificados no **Documento de Design §3**, materializados uma única vez em `docs/design-system/tokens.json` e traduzidos para a configuração do Tailwind na web e para o tema do Flutter no mobile, evitando divergência visual entre as plataformas. |
 
-> ℹ️ **Documento de Design.** Toda decisão de linguagem visual e de interação — paleta, tipografia, espaçamento, raios, elevação, motion, componentes (botões, inputs, cards de livro, status pill, feed, modo de foco) e prompts de protótipo — mora no Documento de Design, que deriva deste arquivo. `REQUISITOS.md` continua sendo a fonte de verdade; em caso de conflito, este documento vence e a divergência segue o controle de mudança do `docs/plano-de-projeto.md` §3.
+> ℹ️ **Documento de Design.** Toda decisão de linguagem visual e de interação — paleta, tipografia, espaçamento, raios, elevação, motion, componentes (botões, inputs, cards de livro, status pill, feed, modo de foco) e prompts de protótipo — mora no Documento de Design, que deriva deste arquivo. `REQUISITOS.md` continua sendo a fonte de verdade; em caso de conflito, este documento vence e a divergência segue o controle de mudança do `docs/orquestador/plano-de-projeto.md` §3.
 
 ### 7.6 Observabilidade
 
@@ -741,95 +744,95 @@ Requisitos organizados pelo **OWASP Top 10 (2021)**. Todos são **Essenciais**.
 | RNF-SEC-03 | O acesso a conteúdo de perfil privado deve validar relação de seguidor aceita, em todos os endpoints, incluindo os de listagem e busca. |
 | RNF-SEC-04 | O painel de moderação e suas operações devem ser restritos à conta de administrador, com verificação no servidor. |
 | RNF-SEC-05 | Identificadores de recurso não devem permitir acesso a recurso alheio por substituição direta (proteção contra IDOR); recomenda-se identificador não sequencial em recursos expostos. |
-| RNF-SEC-06 | Livro pessoal não deve ser recuperável por busca, listagem de catálogo, filtro ou página de autor/editora/série por qualquer usuário que não seja o dono. A **única** via de acesso de terceiros é a lista do dono (RN-15), sujeita à privacidade do perfil. |
-| RNF-SEC-06a | O servidor deve recusar toda tentativa de adicionar à estante, favoritar, adicionar a desejados ou iniciar leitura de livro pessoal de outro usuário, ainda que o identificador do livro seja conhecido. |
+| RNF-SEC-06 | Livro pessoal não deve ser recuperável por busca, listagem de catálogo, filtro ou página de autor/editora/série por qualquer usuário que não seja o dono. Terceiros acessam **exatamente por duas vias**, feed e lista do dono (RN-15), com privacidade e autorização revalidadas no recurso-alvo; conhecer ou informar diretamente o identificador não concede acesso. |
+| RNF-SEC-07 | O servidor deve recusar toda tentativa de adicionar à estante em qualquer status, favoritar ou iniciar leitura de livro pessoal de outro usuário, ainda que o identificador do livro seja conhecido. |
 
 ### A02 — Cryptographic Failures
 
 | ID | Requisito |
 |---|---|
-| RNF-SEC-07 | Todo tráfego deve usar HTTPS/TLS, sem endpoint em texto claro. |
-| RNF-SEC-08 | Senhas devem ser armazenadas com função de derivação de chave com sal, resistente a hardware dedicado (bcrypt, scrypt ou Argon2). Hash simples é proibido. |
-| RNF-SEC-09 | Tokens de recuperação de senha devem ser aleatórios criptograficamente, de uso único, com validade máxima de 1 hora, e armazenados como hash. |
-| RNF-SEC-10 | Segredos — credenciais de banco, do broker, do administrador, chaves de serviços — devem vir de variáveis de ambiente. É proibido versioná-los no repositório. |
+| RNF-SEC-08 | Todo tráfego deve usar HTTPS/TLS, sem endpoint em texto claro. |
+| RNF-SEC-09 | Senhas devem ser armazenadas com função de derivação de chave com sal, resistente a hardware dedicado (bcrypt, scrypt ou Argon2). Hash simples é proibido. |
+| RNF-SEC-10 | Tokens de recuperação de senha devem ser aleatórios criptograficamente, de uso único, com validade máxima de 1 hora, e armazenados como hash. |
+| RNF-SEC-11 | Segredos — credenciais de banco, do broker, do administrador, chaves de serviços — devem vir de variáveis de ambiente. É proibido versioná-los no repositório. |
 
 ### A03 — Injection
 
 | ID | Requisito |
 |---|---|
-| RNF-SEC-11 | Todo acesso a banco deve usar consultas parametrizadas ou ORM; concatenação de entrada do usuário em SQL é proibida. |
-| RNF-SEC-12 | Toda entrada deve ser validada no servidor por esquema explícito — tipo, tamanho, formato e faixa —, independentemente da validação no cliente. |
-| RNF-SEC-13 | Conteúdo gerado por usuário (comentário, biografia, trecho, título de lista) deve ser tratado como texto na renderização, com escape adequado, prevenindo XSS na aplicação web. |
-| RNF-SEC-13a | A resenha, por aceitar Markdown (RN-13), deve ser renderizada com HTML embutido desabilitado no parser e com sanitização da saída antes da inserção no DOM. Renderizar Markdown de usuário sem essas duas medidas reintroduz XSS. |
-| RNF-SEC-14 | A aplicação web deve enviar cabeçalho `Content-Security-Policy` restritivo. |
+| RNF-SEC-12 | Todo acesso a banco deve usar consultas parametrizadas ou ORM; concatenação de entrada do usuário em SQL é proibida. |
+| RNF-SEC-13 | Toda entrada deve ser validada no servidor por esquema explícito — tipo, tamanho, formato e faixa —, independentemente da validação no cliente. |
+| RNF-SEC-14 | Conteúdo gerado por usuário (comentário, biografia, trecho, título de lista) deve ser tratado como texto na renderização, com escape adequado, prevenindo XSS na aplicação web. |
+| RNF-SEC-15 | A resenha, por aceitar Markdown (RN-13), deve ser renderizada com HTML embutido desabilitado no parser e com sanitização da saída antes da inserção no DOM. Renderizar Markdown de usuário sem essas duas medidas reintroduz XSS. |
+| RNF-SEC-16 | A aplicação web deve enviar cabeçalho `Content-Security-Policy` restritivo. |
 
 ### A04 — Insecure Design
 
 | ID | Requisito |
 |---|---|
-| RNF-SEC-15 | Endpoints de autenticação, cadastro e recuperação de senha devem ter **rate limiting** por IP e por identidade. |
-| RNF-SEC-16 | Ações sociais — seguir, curtir, comentar, mencionar, denunciar — e cadastro de livro por ISBN devem ter rate limiting, prevenindo abuso e spam. |
-| RNF-SEC-17 | A descoberta de usuários deve ocorrer somente por username exato, sem enumeração por prefixo, listagem ou sugestão. |
-| RNF-SEC-18 | Upload de imagem deve validar tipo real do arquivo, tamanho máximo e dimensões, rejeitando conteúdo não-imagem. |
+| RNF-SEC-17 | Endpoints de autenticação, cadastro e recuperação de senha devem ter **rate limiting** por IP e por identidade. |
+| RNF-SEC-18 | Ações sociais — seguir, curtir, comentar, mencionar, denunciar — e cadastro de livro por ISBN devem ter rate limiting, prevenindo abuso e spam. |
+| RNF-SEC-19 | A descoberta de usuários deve ocorrer somente por username exato, sem enumeração por prefixo, listagem ou sugestão. |
+| RNF-SEC-20 | Upload de imagem deve validar tipo real do arquivo, tamanho máximo e dimensões, rejeitando conteúdo não-imagem. |
 
 ### A05 — Security Misconfiguration
 
 | ID | Requisito |
 |---|---|
-| RNF-SEC-19 | CORS deve permitir apenas as origens conhecidas dos clientes; curinga é proibido em produção. |
-| RNF-SEC-20 | Respostas de erro não devem expor *stack trace*, versão de framework, estrutura de banco ou caminho de arquivo. |
-| RNF-SEC-21 | Ambientes de desenvolvimento e produção devem ter configuração distinta, com modo de depuração desabilitado em produção. |
-| RNF-SEC-22 | Cabeçalhos de segurança devem ser aplicados: `HSTS`, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`. |
+| RNF-SEC-21 | CORS deve permitir apenas as origens conhecidas dos clientes; curinga é proibido em produção. |
+| RNF-SEC-22 | Respostas de erro não devem expor *stack trace*, versão de framework, estrutura de banco ou caminho de arquivo. |
+| RNF-SEC-23 | Ambientes de desenvolvimento e produção devem ter configuração distinta, com modo de depuração desabilitado em produção. |
+| RNF-SEC-24 | Cabeçalhos de segurança devem ser aplicados: `HSTS`, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`. |
 
 ### A06 — Vulnerable and Outdated Components
 
 | ID | Requisito |
 |---|---|
-| RNF-SEC-23 | Dependências devem ter versões fixadas por arquivo de lock versionado no repositório. |
-| RNF-SEC-24 | O pipeline de CI deve executar auditoria de dependências, falhando em vulnerabilidade de severidade alta ou crítica. |
+| RNF-SEC-25 | Dependências devem ter versões fixadas por arquivo de lock versionado no repositório. |
+| RNF-SEC-26 | O pipeline de CI deve executar auditoria de dependências, falhando em vulnerabilidade de severidade alta ou crítica. |
 
 ### A07 — Identification and Authentication Failures
 
 | ID | Requisito |
 |---|---|
-| RNF-SEC-25 | Senha deve ter mínimo de 8 caracteres, com verificação contra lista de senhas comuns. |
-| RNF-SEC-26 | Mensagens de erro de login e de recuperação de senha não devem revelar se o e-mail ou username existe. |
-| RNF-SEC-27 | Tentativas de login sucessivas falhas devem sofrer bloqueio temporário progressivo por identidade. |
-| RNF-SEC-28 | Token de acesso deve ter validade curta; token de renovação deve ser revogável e invalidado no logout e na alteração de senha. |
-| RNF-SEC-29 | A conta de administrador deve exigir senha forte provisionada por ambiente, distinta de qualquer valor padrão. |
+| RNF-SEC-27 | Senha deve ter mínimo de 8 caracteres, com verificação contra lista de senhas comuns. |
+| RNF-SEC-28 | Mensagens de erro de login e de recuperação de senha não devem revelar se o e-mail ou username existe. |
+| RNF-SEC-29 | Tentativas de login sucessivas falhas devem sofrer bloqueio temporário progressivo por identidade. |
+| RNF-SEC-30 | Token de acesso deve ter validade curta; token de renovação deve ser revogável e invalidado no logout e na alteração de senha. |
+| RNF-SEC-31 | A conta de administrador deve exigir senha forte provisionada por ambiente, distinta de qualquer valor padrão. |
 
 ### A08 — Software and Data Integrity Failures
 
 | ID | Requisito |
 |---|---|
-| RNF-SEC-30 | Mensagens consumidas do broker devem ser validadas por esquema antes do processamento. |
-| RNF-SEC-31 | Dados provenientes de fonte externa devem ser validados e normalizados antes da persistência, jamais confiados por origem. |
-| RNF-SEC-32 | Deploy deve ocorrer somente a partir de código versionado no repositório, por pipeline automatizado. |
+| RNF-SEC-32 | Mensagens consumidas do broker devem ser validadas por esquema antes do processamento. |
+| RNF-SEC-33 | Dados provenientes de fonte externa devem ser validados e normalizados antes da persistência, jamais confiados por origem. |
+| RNF-SEC-34 | Deploy deve ocorrer somente a partir de código versionado no repositório, por pipeline automatizado. |
 
 ### A09 — Security Logging and Monitoring Failures
 
 | ID | Requisito |
 |---|---|
-| RNF-SEC-33 | Devem ser registrados: falhas de autenticação, falhas de autorização, alterações de senha, ações de moderação e ações administrativas. |
-| RNF-SEC-34 | Logs não devem conter senha, token, hash de senha ou conteúdo integral de mensagem privada. |
-| RNF-SEC-35 | Ações de moderação devem constar em log de auditoria consultável. |
+| RNF-SEC-35 | Devem ser registrados: falhas de autenticação, falhas de autorização, alterações de senha, ações de moderação e ações administrativas. |
+| RNF-SEC-36 | Logs não devem conter senha, token, hash de senha ou conteúdo integral de mensagem privada. |
+| RNF-SEC-37 | Ações de moderação devem constar em log de auditoria consultável. |
 
 ### A10 — Server-Side Request Forgery
 
 | ID | Requisito |
 |---|---|
-| RNF-SEC-36 | O cadastro por ISBN não deve aceitar URL do usuário. O ISBN deve ser validado por formato e dígito verificador, e a URL da fonte externa deve ser construída pelo servidor a partir de allowlist de domínios. |
-| RNF-SEC-37 | Requisições a serviços externos devem ter timeout, limite de tamanho de resposta e proibição de seguir redirecionamentos para destinos fora da allowlist. |
+| RNF-SEC-38 | O cadastro por ISBN não deve aceitar URL do usuário. O ISBN deve ser validado por formato e dígito verificador, e a URL da fonte externa deve ser construída pelo servidor a partir de allowlist de domínios. |
+| RNF-SEC-39 | Requisições a serviços externos devem ter timeout, limite de tamanho de resposta e proibição de seguir redirecionamentos para destinos fora da allowlist. |
 
 ### Privacidade e LGPD
 
 | ID | Requisito |
 |---|---|
-| RNF-SEC-38 | O cadastro deve coletar o mínimo de dados pessoais necessários à finalidade do aplicativo. |
-| RNF-SEC-39 | O leitor deve poder excluir sua conta, com remoção ou anonimização de seus dados pessoais (RF-AUT-07). |
-| RNF-SEC-40 | O aplicativo deve apresentar política de privacidade informando dados coletados, finalidade e retenção. |
-| RNF-SEC-41 | O cadastro deve exigir declaração de idade e recusar usuários menores de 18 anos. |
-| RNF-SEC-42 | Não devem ser coletados dados de localização precisa nem dados pessoais sensíveis, e não deve haver descoberta aberta de perfis. |
+| RNF-SEC-40 | O cadastro deve coletar o mínimo de dados pessoais necessários à finalidade do aplicativo. |
+| RNF-SEC-41 | O leitor deve poder excluir sua conta, com remoção ou anonimização de seus dados pessoais (RF-AUT-07). |
+| RNF-SEC-42 | O aplicativo deve apresentar política de privacidade informando dados coletados, finalidade e retenção. |
+| RNF-SEC-43 | O cadastro deve exigir declaração de idade e recusar usuários menores de 18 anos. |
+| RNF-SEC-44 | Não devem ser coletados dados de localização precisa nem dados pessoais sensíveis, e não deve haver descoberta aberta de perfis. |
 
 ---
 
@@ -863,9 +866,9 @@ Requisitos organizados pelo **OWASP Top 10 (2021)**. Todos são **Essenciais**.
 | **Google Books — API** | Cadastro por ISBN (fonte secundária) | Consultada quando a primária não retorna resultado. |
 | **OpenLibrary — Covers** | Capas de livros oficiais | Referenciadas por URL, não armazenadas. Usar chave por `cover_id`, não por ISBN, evitando o limite de taxa daquele caminho. |
 
-**Nota geral (RF-ACV-14):** o OpenLibrary publica avaliações em dump próprio (`ol_dump_ratings`) e a API do Google Books expõe `averageRating` e `ratingsCount` por volume. Em ambos os casos a cobertura é **esparsa** — a maioria dos títulos não tem avaliação alguma, e a escassez tende a ser maior justamente no catálogo em português. O indicador deve ser tratado como opcional por livro, nunca como campo obrigatório, e a interface precisa funcionar bem no caso de ausência.
+**Nota geral (RF-ACV-15):** o OpenLibrary publica avaliações em dump próprio (`ol_dump_ratings`) e a API do Google Books expõe `averageRating` e `ratingsCount` por volume. Em ambos os casos a cobertura é **esparsa** — a maioria dos títulos não tem avaliação alguma, e a escassez tende a ser maior justamente no catálogo em português. O indicador deve ser tratado como opcional por livro, nunca como campo obrigatório, e a interface precisa funcionar bem no caso de ausência.
 
-Se nenhuma fonte retornar o ISBN, o fluxo termina em erro com oferta de cadastro pessoal (RF-ACV-05). A indisponibilidade das fontes externas não deve impedir o uso do restante do aplicativo.
+Se nenhuma fonte retornar o ISBN, o fluxo termina em erro com oferta de cadastro pessoal (RF-ACV-06). A indisponibilidade das fontes externas não deve impedir o uso do restante do aplicativo.
 
 **Cobertura de nota geral — medida em 16/08/2026 (P-14 encerrada).** Amostra de 100 obras em português:
 
@@ -876,12 +879,12 @@ Se nenhuma fonte retornar o ISBN, o fluxo termina em erro com oferta de cadastro
 | OpenLibrary — obras com menos de 5 avaliações | 0 |
 | Google Books | **não medido** — 69% das consultas bloqueadas por cota, 31% sem ISBN-13 em português |
 
-**Conclusão: RF-ACV-14 e RF-ACV-15 permanecem no escopo.** A nota geral do OpenLibrary tem cobertura e volume de avaliações suficientes para ser exibida como indicador significativo, e não como ruído.
+**Conclusão: RF-ACV-15 e RF-ACV-16 permanecem no escopo.** A nota geral do OpenLibrary tem cobertura e volume de avaliações suficientes para ser exibida como indicador significativo, e não como ruído.
 
 **Duas ressalvas sobre a medição:**
 
 1. **A amostra não é aleatória.** `search.json` sem parâmetro de ordenação retorna por relevância, que nesta consulta ampla correlaciona fortemente com popularidade. Foram medidas, portanto, as obras em português mais proeminentes — não uma amostra uniforme do acervo. A cobertura real do universo é seguramente inferior a 100%. A ressalva é atenuada pelo fato de que os filtros de ingestão desta seção também enviesam o acervo em direção a obras populares e recentes, de modo que a população medida se aproxima da que será efetivamente carregada.
-2. **A cobertura do Google Books permanece desconhecida**, assim como sua taxa de acerto por ISBN, que valida a fonte secundária de RF-ACV-04. A medição exigiria chave de API ou amostra menor distribuída ao longo de dias.
+2. **A cobertura do Google Books permanece desconhecida**, assim como sua taxa de acerto por ISBN, que valida a fonte secundária de RF-ACV-05. A medição exigiria chave de API ou amostra menor distribuída ao longo de dias.
 
 **Viabilidade da fonte — medida em 16/08/2026 (P-07 encerrada).** Amostragem de 100 obras via `search.json` e `/works/{key}/editions.json`, avaliando cada obra pelo filtro desta seção (edição em português com ISBN-13, total de páginas e capa):
 
@@ -901,7 +904,7 @@ Se nenhuma fonte retornar o ISBN, o fluxo termina em erro com oferta de cadastro
 1. `language:por` no nível de obra é pouco confiável — 26% da amostra não tinha edição em português real. O filtro precisa ser aplicado no nível da **edição**.
 2. O corpus mistura mercados brasileiro e português: cerca de 13% da amostra vinha de editoras portuguesas. Não é motivo de exclusão, mas afeta a curadoria das páginas de editora.
 3. `publish_place` é campo mal preenchido e **não deve ser usado como filtro principal**: excluiria Rocco e Intrínseca, as editoras mais frequentes da amostra.
-4. `first_publish_year` refere-se à obra original, não à edição em português. Uma janela de anos recentes exclui todo o cânone de vestibular e ENEM, leitura central do público-alvo — esse acervo exige curadoria manual ou entrada via RF-ACV-04.
+4. `first_publish_year` refere-se à obra original, não à edição em português. Uma janela de anos recentes exclui todo o cânone de vestibular e ENEM, leitura central do público-alvo — esse acervo exige curadoria manual ou entrada via RF-ACV-05.
 5. Autopublicação (`Independently Published` e similares) apareceu com frequência alta e metadado pobre; recomenda-se exclusão na ingestão.
 6. Variação de grafia de editora foi confirmada na amostra (ex.: "Intrinseca" sem acento), validando a necessidade da tabela de sinônimos.
 
@@ -917,38 +920,40 @@ Cron Jobs do Render são recurso pago e **não estão disponíveis** no plano gr
 
 | Serviço | Uso | Status |
 |---|---|---|
-| Armazenamento de imagens | Avatares e capas de livros pessoais | ⚠️ **P-09** — ver §10.4 |
-| E-mail transacional | Recuperação de senha | ⚠️ **P-02** |
-| Broker de mensageria | §7.2 | ⚠️ **P-06** |
-| Push móvel | RF-NOT-07 | ⚠️ **P-04** — ver §10.5 |
+| Armazenamento de imagens | Avatares e capas de livros pessoais | ✅ **P-09 decidida:** Cloudinary — ver §10.4 |
+| E-mail transacional | Recuperação de senha | ✅ **P-02 decidida:** Brevo |
+| Broker de mensageria | §7.2 | ✅ **P-06 decidida:** RabbitMQ (CloudAMQP) |
+| Push móvel | RF-NOT-07 | ✅ **P-04 decidida:** FCM em Android, in-app no iOS — ver §10.5 |
+
+**Validações operacionais do período-0:** confirmar os limites vigentes dos planos gratuitos de Cloudinary, CloudAMQP e Brevo e testar a emissão de push FCM em dispositivo Android real.
 
 ---
 
-### 10.4 Serviço de imagens — análise para decisão do grupo
+### 10.4 Serviço de imagens — histórico da decisão
 
 > ℹ️ **P-09 decidida: Cloudinary.** Decisão registrada no Documento de Arquitetura §2.5. A análise abaixo é o que fundamentou a escolha.
 
 **Recomendação: Cloudinary.** O critério decisivo não é o tamanho do plano gratuito, é a **transformação de imagem sob demanda pela URL**. São necessárias miniaturas de avatar em três tamanhos e de capa em dois; sem transformação no serviço, esse redimensionamento vira código rodando em container Render de 512 MB de RAM — o pior lugar possível para processar imagem. Segundo motivo: *unsigned upload preset* permite ao cliente Flutter enviar direto ao Cloudinary, sem que os bytes trafeguem pela API.
 
-**Cuidado associado:** upload preset sem restrição é vetor de abuso. Fixar pasta de destino, tipos permitidos e tamanho máximo no próprio preset, além do previsto em RNF-SEC-18.
+**Cuidado associado:** upload preset sem restrição é vetor de abuso. Fixar pasta de destino, tipos permitidos e tamanho máximo no próprio preset, além do previsto em RNF-SEC-20.
 
 **Alternativas:** Supabase Storage, se houver preferência por concentrar serviços em um fornecedor. Cloudflare R2 foi descartado: não oferece transformação nativa e o produto de imagens da Cloudflare é pago.
 
-**A verificar antes de fechar:** limites vigentes do plano gratuito de cada candidato, que mudam com frequência e não foram confirmados.
+**Validação operacional do período-0:** confirmar os limites vigentes do plano gratuito do Cloudinary, que mudam com frequência.
 
-### 10.5 Push notifications — análise para decisão do grupo
+### 10.5 Push notifications — histórico da decisão
 
 > ℹ️ **P-04 decidida: FCM em Android, in-app no iOS.** Decisão registrada no Documento de Arquitetura §2.7. A análise abaixo é o que fundamentou a escolha.
 
 **Recomendação: FCM (Firebase Cloud Messaging) direto**, via `firebase_messaging`. É gratuito sem teto prático e é o caminho nativo do Flutter. OneSignal simplifica a configuração inicial, mas insere um intermediário e, no Android, opera sobre FCM de todo modo.
 
-**Obstáculo que deve ser verificado primeiro:** push em **iOS exige conta paga no Apple Developer Program** para emissão da chave APNs. Se a demonstração ocorrer em Android, é irrelevante; se houver intenção de apresentar em iPhone, esse único fato decide a pendência antes de qualquer avaliação técnica.
+**Fundamento da decisão:** push em **iOS exige conta paga no Apple Developer Program** para emissão da chave APNs. A demonstração de push ocorre em Android; no iOS, permanecem as notificações in-app.
 
 **Escopo:** push é extensão do fluxo assíncrono de notificações já definido em §7.2. Sua inclusão não exige remodelagem do backend, apenas um consumidor adicional.
 
 ### 10.6 Persistência das capas externas — decisão registrada
 
-**Decidido (16/08/2026): cache sob demanda, sem expiração por tempo.** Regra completa em RN-14; requisito em RF-ACV-16.
+**Decidido (16/08/2026): cache sob demanda, sem expiração por tempo.** Regra completa em RN-14; requisito em RF-ACV-17.
 
 **Descartado — download em massa na ingestão:** cerca de 50 mil livros a aproximadamente 50 KB por capa resultariam em algo em torno de 2,5 GB, acima de qualquer plano gratuito de armazenamento de imagem, e a maioria dessas capas nunca seria exibida a ninguém.
 
@@ -981,7 +986,7 @@ As duas seções são consultas paginadas com limite fixo de resultados, apoiada
 
 **Assuntos são o insumo principal.** Sem a normalização definida em RN-21, a seção "Do seu gosto" fica restrita a autor e série e degenera em "mais livros do mesmo autor", informação que o leitor já obtém na página do autor.
 
-**A definir:** se o leitor pode optar por não ter suas leituras utilizadas nas recomendações de outros. Recomendação: sim, como chave no perfil — custo baixo e alinhado à LGPD.
+**Pendência real do período-0:** decidir se o leitor pode optar por não ter suas leituras utilizadas nas recomendações de outros. Recomendação: sim, como chave no perfil — custo baixo e alinhado à LGPD.
 
 **Terminologia.** O pedido original mencionou "leituras dos seguidores". O sinal forte é o inverso — **quem o usuário segue** —, por ser escolha deliberada do usuário. RF-REC-09 está redigido nesse sentido.
 
@@ -1010,7 +1015,7 @@ Resumo das decisões, no modelo de compartilhamento de conteúdo em redes sociai
 - A supressão da pergunta de descarte em lote (RN-22.13) é estado do cliente, não do servidor, e se perde ao reiniciar o aplicativo — comportamento deliberado.
 - O limite de RN-22.4 conta recomendações **ativas**, não o total já enviado historicamente.
 
-### 10.9 Sessão cronometrada — pontos em aberto (P-18)
+### 10.9 Sessão cronometrada — decisão registrada (P-18)
 
 **P-18 encerrada (16/08/2026).** Decisões registradas:
 
@@ -1047,6 +1052,16 @@ Registrado explicitamente para evitar reabertura de discussão:
 ---
 
 ## 12. Timeline
+
+### v1.1 — 26/08/2026
+
+- Baseline marcada como fechada, mantendo explícitas as pendências de alocação de stack por serviço, opt-out de recomendações e garantia durável de RNF-ERR-10.
+- Backend consolidado em Spring + NestJS, com FastAPI descartado.
+- IDs normalizados sem sufixos: RF-ACV renumerados posicionalmente para 01–22 e RNF-SEC para 01–44, com todas as referências atualizadas.
+- Lista de desejados unificada ao status **Quero ler**; RF-EST-10 a RF-EST-12 renumerados posicionalmente, preservando favoritos em RF-EST-09.
+- Acesso de terceiros a livro pessoal restrito às duas vias já definidas, feed e lista do dono, com autorização e privacidade revalidadas no recurso-alvo e sem acesso direto por ID.
+- Mensageria consolidada em seis fluxos definidos, incluindo `nota.alterada`; estatísticas, desafios, sequência diária e e-mail permanecem candidatos futuros.
+- Serviços de apoio P-02, P-04, P-06 e P-09 marcados como decididos, separados das validações operacionais do período-0.
 
 ### v1.0 — 22/08/2026
 
@@ -1087,7 +1102,7 @@ Versão inicial consolidada. Reúne a definição de escopo, o modelo de domíni
 
 **Requisitos não funcionais**
 
-- Quatro fluxos assíncronos definidos: notificações, expiração de leituras, ingestão de livros e cache de capas
+- Seis fluxos assíncronos definidos: notificações, expiração de leituras, ingestão de livros, cache de capas, busca de sinopse e nota agregada
 - Resiliência com timeout, retentativa com backoff, idempotência, dead-letter queue e **fila offline no cliente móvel**
-- Segurança organizada pelo **OWASP Top 10 (2021)**, com 42 requisitos, mais privacidade e LGPD
+- Segurança organizada pelo **OWASP Top 10 (2021)**, com 44 requisitos, mais privacidade e LGPD
 - Testes unitários e de integração, com prioridade obrigatória para a máquina de estados de leitura, a regra de inatividade e o controle de acesso a perfil privado
