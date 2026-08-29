@@ -1,31 +1,59 @@
-cff-version: 1.0.1
+cff-version: 1.2.0
 message: Please cite this software using these metadata.
-title: 
+title: "Lê Ai: aplicativo social de leitura para jovens adultos brasileiros"
+abstract: >-
+  Lê Ai é um aplicativo social de leitura, no modelo Skoob/Letterboxd, cujo
+  objetivo é aumentar a adesão à leitura na população brasileira, com foco em
+  jovens de 18 a 30 anos. A tese de produto é que o hábito de leitura se
+  sustenta por três mecanismos — registro, meta e pertencimento — e o
+  aplicativo entrega os três. O produto principal é um app mobile nativo em
+  Flutter, acompanhado de uma aplicação web em Vue + Tailwind que cobre um
+  subconjunto de funcionalidades. O backend adota arquitetura de
+  microsserviços (Spring e NestJS) sobre PostgreSQL no Neon, com mensageria
+  RabbitMQ para os fluxos assíncronos.
 authors:
-  - family-names: 
-    given-names: 
-  - family-names: 
-    given-names: 
-  - family-names: 
-    given-names: 
-  - family-names: 
-    given-names: 
-  - family-names: 
-    given-names: 
-  - family-names: 
-    given-names:
+  - family-names: Fonseca de Mello Souza
+    given-names: Vicenzo
+    affiliation: PUC Minas
+  - family-names: Nascimento Silva de Oliveira
+    given-names: Renato Douglas
+    affiliation: PUC Minas
+  - family-names: Moreira Gomes de Carvalho
+    given-names: Henrique
+    affiliation: PUC Minas
+  - family-names: de Souza Santos
+    given-names: Kayke Emanoel
+    affiliation: PUC Minas
+  - family-names: de Freitas Rodrigues
+    given-names: Ana Luiza
+    affiliation: PUC Minas
   - name-suffix: Professor
     affiliation: PUC Minas
-    family-names: 
-    given-names: 
+    family-names: Vilela Cardoso
+    given-names: Leonardo
   - name-suffix: Professor
     affiliation: PUC Minas
-    family-names: 
-    given-names: 
+    family-names: Martins Mol
+    given-names: Artur
+  - name-suffix: Professor
+    affiliation: PUC Minas
+    family-names: Carneiro Aramuni
+    given-names: João Paulo
 keywords:
-  - 
-  - 
-repository-code: 
+  - leitura
+  - hábito de leitura
+  - rede social de leitura
+  - aplicativo mobile
+  - Flutter
+  - Vue
+  - microsserviços
+  - Spring
+  - NestJS
+  - PostgreSQL
+  - RabbitMQ
+  - engenharia de software
+  - PUC Minas
+repository-code: "https://github.com/ICEI-PUC-Minas-PMGES-TI/pmg-es-2026-2-ti5-6904100-le-ai"
 license: CC-BY-4.0
 version: 1.0.0
 date-released: 2026-07-10
