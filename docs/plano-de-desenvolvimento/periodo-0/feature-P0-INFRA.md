@@ -1,0 +1,169 @@
+# P0-INFRA — Scaffolding do monorepo e serviços
+
+**Período:** 0 · **Prioridade:** fundação
+**Dono:** a definir · **Serviços afetados:** transversal (os 4 serviços de backend + web + mobile)
+
+> Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md). Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md). Processo e template: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §9. Em caso de conflito, o `REQUISITOS.md` ganha.
+
+## Objetivo
+
+Transformar as pastas vazias de `code/` em **esqueletos executáveis** dos quatro serviços de backend (`identidade`, `acervo`, `leitura`, `social`), do app Flutter e da SPA Vue, cada um com os **comportamentos transversais mínimos** que a arquitetura exige de todo serviço antes de qualquer feature de domínio:
+
+- **health check** por serviço (RNF-OBS-02);
+- **corpo de erro padronizado** com código interno, mensagem exibível e `correlation-id` (RNF-ERR-01, RNF-ERR-02);
+- **log estruturado com `correlation-id`** propagado (RNF-OBS-01);
+- serviços **stateless** (RNF-ARQ-04), com **CORS restrito** (RNF-SEC-21), **headers de segurança** (RNF-SEC-22/23/24) e **HTTPS** (RNF-SEC-08);
+- **lockfile versionado** com versões fixadas (RNF-SEC-25);
+- **conta de administrador** provisionada por variável de ambiente (RF-AUT-08, RNF-SEC-31), com segredos só em `.env` / GitHub Secrets (RNF-SEC-11).
+
+É a base sobre a qual [P0-CI](feature-P0-CI.md) (precisa de projetos que compilam), [P0-DEPLOY](feature-P0-DEPLOY.md) (precisa de artefatos deployáveis), [P0-MSG](feature-P0-MSG.md) (precisa dos serviços de pé) e [P0-DS](feature-P0-DS.md) (precisa de web/mobile scaffoldados) rodam. Não implementa nenhum RF de domínio — entrega o "esqueleto" citado no [periodo-0/README.md](README.md).
+
+Requisitos não funcionais atendidos: **RNF-ARQ-01/02/03/04/07** (microsserviços HTTP/JSON, stateless, OpenAPI, PostgreSQL/Neon), **RNF-OBS-01/02/03**, **RNF-ERR-01/02**, **RNF-SEC-08/11/21/22/23/24/25/31**.
+
+## Status
+
+| Camada | Status | Observação |
+|---|---|---|
+| Infra | não iniciado | árvore `code/` só com pastas e `AGENTS.md`; falta inicializar cada projeto |
+| Backend | não iniciado | 4 serviços; transversais (health/erro/log) por implementar nas 2 stacks |
+| Web | não iniciado | `code/front` a inicializar (Vite + Vue + Tailwind) |
+| Mobile | não iniciado | `code/mobile` a inicializar (`flutter create`) |
+
+## Especificação
+
+### Infra
+
+**Árvore de código** (já existe apenas a estrutura de pastas + `AGENTS.md` por subprojeto — ver [`AGENTS.md`](../../../AGENTS.md) raiz §4):
+
+```
+code/
+├── mobile/                # Flutter
+├── front/                 # Vue (SPA) + Tailwind
+└── back/
+    ├── identidade/        # Spring OU NestJS (a definir — ver Pendências)
+    ├── acervo/
+    ├── leitura/
+    └── social/
+```
+
+**Inicialização de cada projeto** (uma vez, pelo dono da frente):
+
+- **Backend (por serviço, na stack alocada):**
+  - *Spring:* projeto Spring Boot (Web, Validation, Actuator, Data JPA, PostgreSQL driver, Spring AMQP, springdoc-openapi, Flyway). Build Gradle ou Maven — fixar no `AGENTS.md` do serviço.
+  - *NestJS:* `nest new`, com `@nestjs/config`, `class-validator`/`class-transformer`, driver `pg` + TypeORM (ou Prisma), `@nestjs/swagger`, `@nestjs/terminus` (health), `amqplib`. Gerenciador de pacote fixo (`pnpm`/`npm`) com lockfile.
+- **Web (`code/front`):** `npm create vite@latest` com template Vue, Tailwind CSS instalado e configurado, Vue Router, ferramenta de teste (Vitest). Node LTS fixado no `AGENTS.md`.
+- **Mobile (`code/mobile`):** `flutter create` (Android + iOS), SDK fixado no `AGENTS.md`; dependências base (`http`/`dio`, gerenciador de estado a definir).
+
+Cada projeto deve **compilar e subir** com um endpoint/tela mínima antes de fechar esta feature.
+
+**Variáveis de ambiente — `.env.example` versionado, `.env` nunca** (RNF-SEC-11; plano §4):
+
+- **Raiz** (`.env.example`): valores compartilhados de referência (URL do Neon do projeto, host do CloudAMQP, origem CORS de DES).
+- **Por serviço de backend** (`code/back/<servico>/.env.example`), no mínimo:
+
+  ```dotenv
+  # Banco — projeto único Neon, schema por serviço (arquitetura §4.1)
+  DATABASE_URL=postgresql://<user>:<pass>@<host>/<db>?options=-csearch_path%3D<servico>
+  DB_SCHEMA=<servico>
+
+  # Mensageria (ver P0-MSG)
+  AMQP_URL=amqps://<user>:<pass>@<host>/<vhost>
+
+  # Observabilidade / erro
+  LOG_LEVEL=info
+  SERVICE_NAME=<servico>
+
+  # Segurança
+  CORS_ALLOWED_ORIGINS=http://localhost:5173
+  JWT_SECRET=            # segredo forte, aleatório e provisionado por ambiente
+
+  # Admin fixo e único, provisionado por ambiente (RF-AUT-08, RNF-SEC-31)
+  ADMIN_EMAIL=
+  ADMIN_PASSWORD=        # senha forte, distinta de qualquer default
+  ```
+
+- **Web/Mobile:** `.env.example` com a base URL da API por ambiente.
+
+**Banco e migrations** (arquitetura §4; plano §5):
+
+- Um projeto PostgreSQL no Neon, **um schema por serviço** (`identidade`, `acervo`, `leitura`, `social`) — separação lógica no mesmo cluster. O provisionamento do projeto e das branches é de [P0-DEPLOY](feature-P0-DEPLOY.md); aqui garante-se apenas que cada serviço aponta para o **seu** schema via `search_path`.
+- **Ferramenta de migration por serviço**, escolhida somente após a alocação de stack e registrada no `AGENTS.md` local, criando **apenas** as tabelas do próprio schema (arquitetura §4.3). Migration com nome por timestamp e **revisada por humano** antes de subir (plano §5, AGENTS §5.6). Nesta feature entra só a configuração da ferramenta + migration inicial que cria/valida o schema (sem tabelas de domínio).
+- **Nenhum serviço lê tabela crua de outro schema** — acesso entre schemas só por VIEW exposta pelo dono (arquitetura §4.2). Nenhuma VIEW é criada aqui; a regra é registrada para as features de domínio.
+
+### Backend / API — contrato de comportamento (implementado nas 2 stacks)
+
+Os transversais são **contratos de saída**, não biblioteca compartilhada: cada stack implementa o seu, mas o formato observável é idêntico (arquitetura §2.1).
+
+- **Health check** (RNF-OBS-02): `GET /health` → `200` quando o serviço está de pé e o banco responde.
+  ```json
+  { "status": "ok", "service": "acervo", "time": "2026-08-25T12:00:00Z" }
+  ```
+  (Spring: Actuator `/actuator/health` ou controller próprio no path acima; Nest: `@nestjs/terminus`.)
+
+- **Corpo de erro padronizado** (RNF-ERR-01, RNF-ERR-02, RNF-USA-05): toda resposta de erro tem a mesma forma, com **código HTTP semântico** e **mensagem em pt-BR sem detalhe técnico** (sem stack trace — RNF-SEC-22):
+  ```json
+  {
+    "codigo": "RECURSO_NAO_ENCONTRADO",
+    "mensagem": "Não encontramos o que você procura.",
+    "correlationId": "b3f1c2e4-..."
+  }
+  ```
+  Handler global de exceções em cada stack (`@ControllerAdvice` no Spring; `ExceptionFilter` no Nest) mapeia validação/autenticação/autorização/inexistente/conflito/indisponibilidade/timeout para os códigos corretos.
+
+- **Log estruturado com `correlation-id`** (RNF-OBS-01, RNF-OBS-03): middleware/filter que, a cada requisição, lê o header `X-Correlation-Id` (ou gera um), coloca no contexto de log (MDC no Spring; interceptor + async local storage no Nest) e o devolve na resposta e no corpo de erro. Logs em JSON, sem dados sensíveis (nunca senha/token/hash — RNF-SEC-36). O mesmo id será propagado nas mensagens em [P0-MSG](feature-P0-MSG.md).
+
+- **Stateless** (RNF-ARQ-04): sem estado de sessão em memória; qualquer estado vai para banco ou token.
+
+- **CORS e headers de segurança:** CORS restrito às origens conhecidas, sem curinga (RNF-SEC-21); headers `HSTS`, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` (RNF-SEC-24); debug desligado em produção (RNF-SEC-23). HTTPS é terminado pelo Render (RNF-SEC-08).
+
+- **OpenAPI em runtime + commit** (RNF-ARQ-03; AGENTS §10): cada serviço expõe o spec (`/v3/api-docs` no Spring, `@nestjs/swagger` no Nest) e commita o **esqueleto** em `docs/api/<servico>.yaml` (só health + info por ora; as rotas de domínio entram com as features). Criar a pasta `docs/api/` com os 4 arquivos e o `docker-compose.docs.yml` do Swagger UI agregado (plano §8) fica compartilhado com [P0-NAV](feature-P0-NAV.md); aqui basta o esqueleto de cada spec.
+
+### Frontend Web (`code/front`)
+
+- Projeto Vite + Vue + Tailwind que **compila e roda**, com Vue Router e uma tela inicial em branco navegável.
+- Cliente HTTP central com base URL por ambiente, envio de `X-Correlation-Id`, e tratamento do **cold start do Render** como carregamento prolongado, não erro (RNF-ERR-09).
+- Consumo dos design tokens fica em [P0-DS](feature-P0-DS.md); aqui só o esqueleto que ela vai preencher.
+
+### App Flutter (`code/mobile`)
+
+- Projeto `flutter create` que **compila e roda** em Android (alvo principal de demonstração) com uma tela inicial.
+- Camada de acesso à API com base URL por ambiente, `X-Correlation-Id`, e tratamento do cold start (RNF-ERR-09).
+- `ThemeData` a partir dos tokens fica em [P0-DS](feature-P0-DS.md).
+
+## Critérios de aceite
+
+- [ ] Os 4 serviços de backend, o `code/front` e o `code/mobile` **compilam e sobem** localmente.
+- [ ] `GET /health` responde `200` em cada um dos 4 serviços, com o corpo padronizado.
+- [ ] Um erro forçado em cada serviço retorna o **corpo de erro padrão** com `correlationId` e código HTTP semântico.
+- [ ] O `correlation-id` recebido no header aparece no log estruturado e volta na resposta.
+- [ ] Cada serviço tem `.env.example` versionado; nenhum `.env` real está no repositório.
+- [ ] Cada serviço aponta para o **seu schema** no Neon via `search_path`; a ferramenta de migration cria só o schema do próprio serviço.
+- [ ] Lockfile versionado com versões fixadas em cada projeto (RNF-SEC-25).
+- [ ] Admin provisionável por variável de ambiente (sem tela de criação).
+- [ ] Esqueleto de `docs/api/<servico>.yaml` commitado para os 4 serviços.
+- [ ] CORS restrito e headers de segurança presentes nas respostas.
+
+## Definition of Done
+
+(plano §10 — obrigatórios para toda feature)
+
+- [ ] Código das camadas aplicáveis mergeado em `desenvolvimento`
+- [ ] CI verde (lint, build, testes) — depende de [P0-CI](feature-P0-CI.md); o esqueleto deve passar no pipeline assim que ele existir
+- [ ] Testes automatizados dos casos de uso da feature (mínimo backend): teste do health check e do handler de erro/correlation-id em cada serviço
+- [ ] Spec OpenAPI do serviço atualizado em `docs/api/` (esqueleto dos 4 specs)
+- [ ] Fluxo funcionando em DES/HML — os esqueletos sobem em DES via [P0-DEPLOY](feature-P0-DEPLOY.md)
+- [ ] Arquivo da feature atualizado: status, pendências, timeline
+- [ ] Divergência protótipo × implementação registrada, se houver (N/A — feature sem UI de produto)
+
+**Itens próprios desta feature:**
+- [ ] `AGENTS.md` de cada serviço atualizado com stack decidida, estrutura interna, padrão de teste e comandos de build (hoje esses campos estão como "a definir").
+
+## Pendências
+
+- **Alocação de stack por serviço (Spring vs NestJS)** — decisão do grupo, ainda "a definir" nos `AGENTS.md` (arquitetura §2.1). Recomendação da arquitetura: manter **`acervo` e `leitura` na mesma stack** (mais troca de dados entre eles). Enquanto não decidida, os specs deste arquivo valem para as duas stacks. Registrar a decisão no `AGENTS.md` de cada serviço quando fechada.
+- Versões exatas de SDK/linguagem/ferramenta de build (Node, JDK, Flutter SDK, gerenciador de pacote) a fixar em cada `AGENTS.md` no arranque.
+- Gerenciamento de estado do Flutter e da web a definir (não bloqueia o scaffolding).
+
+## Timeline
+
+### Criação 25/08/2026: arquivo criado a partir do escopo de P0-INFRA no [periodo-0/README.md](README.md) e do [`documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §2–§8. Stack por serviço mantida como pendência (decisão do grupo).

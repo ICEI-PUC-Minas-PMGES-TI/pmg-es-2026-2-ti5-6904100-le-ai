@@ -1,0 +1,84 @@
+# F-NOT-2 — Notificações em tempo real
+
+**Período:** 2 · **Prioridade:** desejavel
+**Dono:** a definir · **Serviços afetados:** `social` (backend) + mobile
+
+> Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.10 (RF-NOT-06) e §2.1 (escopo web). Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §3.1, §6 (Render/cold start), §2.7. Processo e template: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §9. Regras compartilhadas do projeto: [`../periodo-1/README.md#regras-de-implementação-compartilhadas`](../periodo-1/README.md#regras-de-implementação-compartilhadas). Em caso de conflito, o `REQUISITOS.md` ganha; protótipo é referência visual, não spec de pixel (plano §7).
+
+## Objetivo
+
+Entregar a **entrega em tempo real** das notificações — o cliente recebe sem recarga manual. Continua [F-NOT](../periodo-1/feature-F-NOT.md) (que entregou a lista in-app). Fecha o requisito **Desejável**:
+
+- **RF-NOT-06** o sistema deve entregar notificações ao cliente **em tempo real**, sem necessidade de recarga manual.
+
+É entrega **in-app em tempo real** — **não** push FCM (RF-NOT-07 é Opcional/Período 3). **Fora do escopo web** (§2.1: notificações não fazem parte do cliente Vue).
+
+RNF atendidos: **RNF-ERR-09** (hibernação do Render tratada — reconexão, não erro), **RNF-ERR-03** (reconexão com backoff), **RNF-SEC-01/02** (o canal só entrega ao dono autenticado), **RNF-ARQ-04** (serviço stateless — o dado vive no banco; a conexão é transporte).
+
+## Status
+
+| Camada | Status | Observação |
+|---|---|---|
+| Infra | não iniciado | canal de tempo real (WebSocket/SSE) no serviço `social` |
+| Backend | não iniciado | `social`: empurrar a notificação recém-criada ao destinatário conectado |
+| Web | **não aplicável** | notificações estão **fora do escopo web** (`REQUISITOS.md` §2.1) |
+| Mobile | não iniciado | conexão de tempo real + fallback para a lista de [F-NOT](../periodo-1/feature-F-NOT.md) |
+
+## Especificação
+
+### Backend / API — `social`
+
+Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + correlation-id e mensagens pt-BR. **Não** introduz evento de domínio novo nem novo tipo de notificação: reusa a **criação de notificação** de [F-NOT](../periodo-1/feature-F-NOT.md); esta feature adiciona a **camada de transporte** em tempo real.
+
+- **Canal de tempo real** por usuário **autenticado** (token de [F-AUT](../periodo-1/feature-F-AUT.md)) — **WebSocket** ou **SSE** (decisão a fixar; ver Pendências). O canal só entrega ao **dono** (SEC-01/02). O token de acesso nunca vai em query string/log; o protocolo escolhido usa cabeçalho ou handshake protegido.
+- **Expiração da sessão:** a conexão não pode sobreviver indefinidamente ao JWT curto. O servidor encerra o canal quando o token expira; o app renova pelo fluxo de F-AUT e reconecta com backoff, sem criar um mecanismo de sessão paralelo.
+- **Empurrar (RF-NOT-06):** quando o consumidor de notificações de [F-NOT](../periodo-1/feature-F-NOT.md) **grava uma notificação**, ela é **empurrada** à(s) conexão(ões) ativa(s) do destinatário, junto com a **contagem de não lidas** atualizada (badge). A gravação continua sendo a fonte de verdade; o tempo real é só a entrega antecipada.
+- **Sem estado essencial na conexão (RNF-ARQ-04):** a notificação vive no banco (F-NOT); a conexão é transporte. Em **instância única** do plano gratuito do Render, o fan-out à conexão do destinatário é **in-process** a partir do consumidor; um **backplane** (pub/sub) só é necessário se o serviço escalar para múltiplas instâncias (registrado como consideração).
+
+### App Flutter (`code/mobile`)
+
+- **Conexão de tempo real** que recebe as notificações e atualiza a lista/badge de [F-NOT](../periodo-1/feature-F-NOT.md) **sem recarga manual**; usa `ThemeData` de [P0-DS](../periodo-0/feature-P0-DS.md). Alvo de demonstração Android.
+- **Degradação graciosa / cold start (RNF-ERR-09):** a **hibernação do Render** derruba a conexão; o cliente trata isso como **reconexão** (com backoff — RNF-ERR-03), não erro, e enquanto desconectado **volta à lista paginada** de [F-NOT](../periodo-1/feature-F-NOT.md) (RF-NOT-02) — nada se perde, pois a notificação está no banco. Ao reconectar, sincroniza as não lidas.
+
+### Frontend Web (`code/front`)
+
+- **Fora de escopo:** notificações não fazem parte do cliente web (§2.1). Registrado no Status e no DoD.
+
+## Critérios de aceite
+
+- [ ] Uma notificação recém-criada aparece no cliente **sem recarga manual**, empurrada pelo canal de tempo real (RF-NOT-06), com a contagem de não lidas atualizada.
+- [ ] O canal só entrega ao **dono autenticado** (SEC-01/02); token inválido não conecta.
+- [ ] Token expirado encerra o canal; o app renova e reconecta sem expor credencial em URL/log.
+- [ ] A queda da conexão (cold start/hibernação) é tratada como **reconexão com backoff** (RNF-ERR-09/03), com **fallback** para a lista paginada de [F-NOT](../periodo-1/feature-F-NOT.md); nenhuma notificação se perde.
+- [ ] Ao reconectar, o cliente **sincroniza** as não lidas (sem duplicar as já exibidas).
+- [ ] A escolha de transporte (WS × SSE) está fixada e registrada.
+- [ ] A entrega em tempo real funciona no app **em DES**.
+
+## Definition of Done
+
+(plano §10)
+
+- [ ] Código (backend `social`, mobile) mergeado em `desenvolvimento`
+- [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
+- [ ] Testes automatizados: autenticação/autorização, expiração do token, destinatário correto e não lidas; mobile: renovação, reconexão, fallback e sincronização sem duplicar (RNF-TST-02, RNF-TST-04 e RNF-TST-06)
+- [ ] **Spec OpenAPI de `social`** — o endpoint de tempo real (handshake/rota do canal) documentado em `docs/api/social.yaml` no que for expressável; o protocolo do canal (WS/SSE) descrito junto
+- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)) — **web N/A** (notificações fora do escopo web, §2.1); justificativa registrada aqui em vez de remover o item
+- [ ] Arquivo da feature atualizado: status, pendências, timeline
+- [ ] Divergência protótipo × implementação registrada, se houver
+
+**Item próprio:** validar em DES que o **WebSocket/SSE funciona no plano gratuito do Render** com a hibernação (reconexão após cold start) — a viabilidade do transporte em free tier é o risco técnico desta feature.
+
+## Pendências
+
+- **Depende de** [F-NOT](../periodo-1/feature-F-NOT.md) (criação de notificação e lista/fallback), [F-AUT](../periodo-1/feature-F-AUT.md) (autenticação do canal), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md).
+- **Decisão de transporte:** WebSocket × SSE — fixar considerando o plano gratuito do Render (hibernação, conexões) e o cliente Flutter; registrar.
+- **Backplane:** desnecessário em instância única; se o serviço escalar, o fan-out às conexões exige um pub/sub — registrado como consideração, não implementado.
+- **Sem evento/tipo novo:** não estende o mapa de mensageria — sem divergência de baseline; a entrega é transporte sobre a notificação já criada por [F-NOT](../periodo-1/feature-F-NOT.md).
+- **Push FCM** (RF-NOT-07) e **preferências** (RF-NOT-05) permanecem no Período 3.
+- Stack de `social` ainda pendente (P0-INFRA).
+
+## Timeline
+
+### Criação 28/08/2026: arquivo criado a partir do escopo de F-NOT-2 no [periodo-2/README.md](README.md) e de RF-NOT-06 do [`REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.10. Entrega em tempo real fixada como camada de transporte sobre a notificação de F-NOT (sem evento novo), com fallback à lista e reconexão no cold start; escolha WS × SSE e viabilidade no Render registradas como pendências.
+
+### Revisão 29/08/2026: o canal foi alinhado ao token curto de F-AUT: encerra na expiração e reutiliza refresh/reconexão do cliente, sem token em URL e sem sessão paralela. Backplane continua fora do escopo de instância única.
