@@ -1,16 +1,19 @@
-# F-EST-2 — Favoritos e histórico
+# F-EST-2 — Favoritos, histórico e busca na estante
 
 **Período:** 2 · **Prioridade:** desejavel
 **Dono:** a definir · **Serviços afetados:** `leitura` (backend) + web + mobile
 
-> Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.3 (RF-EST-09, 10), RN-04 e RN-15. Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §3.1, §4.2. Processo e template: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §9. Regras compartilhadas do projeto: [`../periodo-1/README.md#regras-de-implementação-compartilhadas`](../periodo-1/README.md#regras-de-implementação-compartilhadas). Em caso de conflito, o `REQUISITOS.md` ganha; protótipo é referência visual, não spec de pixel (plano §7).
+> Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.3 (RF-EST-09, 10, 13), RN-04 e RN-15. Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §3.1, §4.2. Processo e template: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §9. Regras compartilhadas do projeto: [`../periodo-1/README.md#regras-de-implementação-compartilhadas`](../periodo-1/README.md#regras-de-implementação-compartilhadas). Em caso de conflito, o `REQUISITOS.md` ganha; protótipo é referência visual, não spec de pixel (plano §7).
 
 ## Objetivo
 
-Somar os dois recursos que [F-EST](../periodo-1/feature-F-EST.md) adiou para o Período 2: **favoritos** e o **histórico de leituras por ano**. Fecha os requisitos **Desejáveis**:
+Somar os três recursos que [F-EST](../periodo-1/feature-F-EST.md) adiou para o Período 2: **favoritos**, o **histórico de leituras por ano** e a **busca dentro da estante**. Fecha os requisitos **Desejáveis**:
 
 - **RF-EST-09** marcar e desmarcar livros como **favoritos**;
-- **RF-EST-10** visualizar o **histórico de leituras por ano**, com os livros concluídos em cada ano.
+- **RF-EST-10** visualizar o **histórico de leituras por ano**, com os livros concluídos em cada ano;
+- **RF-EST-13** **buscar por título e autor dentro da própria estante**, combinável com o filtro por status.
+
+RF-EST-13 nasceu em 01/09/2026 (`REQUISITOS.md` v1.2), da prototipagem de [F-ACV-BUSCA](../periodo-1/feature-F-ACV-BUSCA.md) e [F-EST](../periodo-1/feature-F-EST.md): a lupa do header da estante não tinha escopo declarado e o protótipo a tratava como porta do acervo. Separadas as duas buscas, a do acervo virou a aba `Descobrir` e a da estante ficou sem requisito. **O desenho já existe:** [`estante.md`](../../design/periodo-1/F-EST/estante.md) traz o modo de busca do header e os artboards 4.9, 4.10 e 5.5. Em Período 1 o header da estante sai **sem lupa**; ela entra aqui.
 
 RNF atendidos: **RNF-SEC-02** (propriedade no servidor), **RNF-SEC-07** (recusar favoritar livro pessoal de outro), **RNF-DES-02** (histórico paginado), **RNF-ERR-04** (idempotência na escrita de favorito).
 
@@ -18,9 +21,9 @@ RNF atendidos: **RNF-SEC-02** (propriedade no servidor), **RNF-SEC-07** (recusar
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | não iniciado | tabela `favorito`; consulta de histórico por ano |
+| Infra | não iniciado | tabela `favorito`; consulta de histórico por ano; índice para a busca por título e autor na estante |
 | Backend | não iniciado | `leitura`: favoritos e histórico próprios por ano |
-| Web | não iniciado | marcar favorito; aba/seção de histórico por ano |
+| Web | não iniciado | marcar favorito; aba/seção de histórico por ano; campo de busca no header da estante |
 | Mobile | não iniciado | mesmas telas |
 
 ## Especificação

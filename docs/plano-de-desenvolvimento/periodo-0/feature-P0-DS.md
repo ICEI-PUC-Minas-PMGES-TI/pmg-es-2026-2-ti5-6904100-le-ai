@@ -75,7 +75,7 @@ Exemplo do formato (design §9.1):
 
 Anotadas aqui para que quem implementar componentes não reintroduza: um único acento (`musgo`), sem gradiente de acento, sem `#000000`, sem sombra preta pura, sem Inter/Instrument Serif/Fraunces, sem loop de motion infinito, sem emoji na copy de interface, ação destrutiva sempre com confirmação (RNF-USA-04). Modo de foco (RN-16) = zero motion.
 
-> **Caminhos:** o design §9.2/9.3 usa a estrutura real `code/front`/`code/mobile`. Componentes (`src/components/ui/<Component>.vue`, `lib/design/widgets/<component>.dart`) e protótipos (`docs/prototipos/`, `docs/design-system/prompts/`) seguem esses caminhos quando entrarem.
+> **Caminhos:** o design §9.2/9.3 usa a estrutura real `code/front`/`code/mobile`. Componentes (`src/components/ui/<Component>.vue`, `lib/design/widgets/<component>.dart`) seguem esses caminhos quando entrarem. Prompts de tela e protótipos ficam em `docs/design/periodo-N/<FEATURE>/`, com as convenções em [`docs/design/AGENTS.md`](../../design/AGENTS.md); `docs/design-system/` guarda apenas o `tokens.json` desta feature.
 
 ## Critérios de aceite
 
@@ -111,5 +111,7 @@ Anotadas aqui para que quem implementar componentes não reintroduza: um único 
 - Os **componentes** de §4 (botão, input, estrela, card, status pill, progresso, streak, feed, modo de foco) e os protótipos ficam para depois; aqui entra no máximo um componente-piloto para validar o contrato dos dois lados.
 
 ## Timeline
+
+### Revisão 31/08/2026: caminhos de prompt e protótipo atualizados para `docs/design/`, acompanhando a atualização do [`documento-de-design.md`](../../orquestador/documento-de-design.md) §9.1/§9.3 de 31/08/2026. `docs/design-system/tokens.json` continua sendo a entrega desta feature, sem mudança de escopo.
 
 ### Criação 25/08/2026: arquivo criado a partir do escopo de P0-DS no [periodo-0/README.md](README.md) e do [`documento-de-design.md`](../../orquestador/documento-de-design.md) §3 e §9. Fonte canônica fixada em `docs/design-system/tokens.json`; caminhos de código alinhados a `code/front`/`code/mobile`. Componentes de produto deliberadamente fora de escopo desta feature.

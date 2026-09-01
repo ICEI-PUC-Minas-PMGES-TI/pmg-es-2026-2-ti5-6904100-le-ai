@@ -75,4 +75,4 @@ _**Resumo**. O Lê Ai é um aplicativo social de leitura, no modelo Skoob/Letter
 | --------------------- | ---------- | -------------------------------------------------------------------------- |
 | Repositório de código | GitHub     | https://github.com/ICEI-PUC-Minas-PMGES-TI/pmg-es-2026-2-ti5-6904100-le-ai |
 | Hospedagem do site    | Render     | _a definir no período-0_                                                   |
-| Protótipo Interativo  | Claude Design | Bundles HTML planejados em `docs/prototipos/`                           |
+| Protótipo Interativo  | Claude Design | Bundles HTML planejados em `docs/design/`                                |

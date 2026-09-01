@@ -409,11 +409,13 @@ Este é o componente mais especial do sistema, e o mais rigorosamente calmo.
 
 ## 5. Padrões de tela
 
+**Áreas de navegação.** O app autenticado tem **quatro** áreas de primeiro nível, na ordem: **Estante** (`Books`), **Descobrir** (`Compass`), **Feed** (`Newspaper`) e **Perfil** (`UserCircle`). Elas são barra inferior no mobile e sidebar na web. As demais telas deste capítulo são telas de detalhe empilhadas sobre a área de origem, e não itens de navegação.
+
 ### 5.1 Estante
 
 Tela principal do app depois da autenticação. Layout:
 
-- **Header:** `display` "Minha estante" à esquerda, `MagnifyingGlass` (Phosphor, `regular`, 24px) à direita.
+- **Header:** `display` "Minha estante" à esquerda, `MagnifyingGlass` (Phosphor, `regular`, 24px) à direita. **A lupa busca dentro da estante do leitor**, por título e autor, combinada com o filtro de status. Ela nunca traz resultado do acervo: encontrar livro novo é a área **Descobrir** (§5.7).
 - **Filtros por status:** faixa horizontal rolável com pills, um pill por status (RF-EST-02).
 - **Grid:** 2 colunas em mobile, 4 em `md`, 6 em `lg`. Gap `space-4`. Cards da variante Estante.
 - **Vazio:** quando o filtro atual não tem livros, ilustração NEUTRA de linha (não fotografia, não emoji) + mensagem em `body` `grafite` + botão primário para ação relevante ("Adicionar livro" quando "Quero ler" está vazio).
@@ -474,9 +476,16 @@ Layout mobile:
 - **Indicador de não lida:** ponto `musgo` de 8px à esquerda do ícone (não pill grande, não fundo tingido). Sob leitura, o ponto some com transição `dur-fast`.
 - **Ação inline para leitura em risco (RF-NOT-04):** "Abandonar leitura" como botão textual `rubi` inline na notificação.
 
----
+### 5.7 Descobrir
 
-## 6. Iconografia
+A área de busca do acervo (RF-ACV-01/02). Separada da estante porque o escopo das duas buscas é diferente: a estante mostra o que o leitor já tem, Descobrir mostra o catálogo. Layout mobile:
+
+- **Header em duas linhas:** `display` "Descobrir" à esquerda com `Bell` à direita na primeira; campo de busca em largura total na segunda, conforme §4.2, com `MagnifyingGlass` (Phosphor, `regular`, 20px) dentro à esquerda. Sem botão de voltar: é área de navegação, não tela empilhada.
+- **Filtro por assunto (RF-ACV-02):** faixa horizontal rolável de chips do conjunto curado de RN-21, seleção única. Chip ativo em `musgo-fundo` com texto `musgo` peso 600 e `X` de remoção.
+- **Resultados:** lista de cards da variante Busca (§4.5), um por linha, separados por divisor `linha`. Paginação por rolagem. Livro pessoal nunca aparece (RN-03).
+- **Vazio da consulta:** o vazio tem saída, e a saída é o cadastro (RF-ACV-05/08), não uma mensagem de ausência.
+- **Aterrissagem, sem consulta:** campo e chips, sem foco automático no campo. Sem destaques e sem histórico: curadoria de descoberta não é escopo de nenhum RF.
+- **Web:** título e campo na mesma linha do header, painel de assuntos em coluna fixa à esquerda e resultados em grid de duas colunas.
 
 **Decidido (25/08/2026): Phosphor Icons.** Fechada sem pendência.
 
@@ -667,7 +676,7 @@ Consumo:
 
 - **Web (Vue + Tailwind):** um script gera `tailwind.config.js` a partir do `tokens.json`. Nenhuma cor entra no `tailwind.config` que não venha do JSON.
 - **Mobile (Flutter):** um script gera `lib/design/tokens.dart` com `class DesignTokens { static const Color papel = Color(0xFFF4F2EC); ... }` e uma extensão `ThemeData` que consome esses tokens.
-- **Prompts do Claude Design** (`docs/design-system/prompts/`): mesmo `tokens.json` é injetado como contexto do prompt, garantindo que a tela gerada usa os tokens corretos por nome.
+- **Prompts do Claude Design** (`docs/design/periodo-N/<FEATURE>/<tela>.md`): mesmo `tokens.json` é injetado como contexto do prompt, garantindo que a tela gerada usa os tokens corretos por nome.
 
 ### 9.2 Componentes: dois lados, um contrato
 
@@ -680,14 +689,18 @@ Ambos referenciam os mesmos tokens e obedecem à mesma especificação de estado
 
 ### 9.3 Protótipos
 
-Os prompts do Claude Design (`docs/design-system/prompts/<tela>.md`) recebem em contexto:
+Prompts e protótipos vivem em `docs/design/`, agrupados por período e por feature: um arquivo de prompt por tela em `docs/design/periodo-N/<FEATURE>/<tela>.md` e o HTML exportado ao lado, em `docs/design/periodo-N/<FEATURE>/prototipos/<tela>.html`.
+
+As convenções de escrita do prompt (template obrigatório, disposição dos artboards em modelo Figma, regra da versão web com desenho próprio, checklist de revisão) estão em `docs/design/AGENTS.md`.
+
+Cada prompt recebe em contexto:
 
 1. Este documento (`documento-de-design.md`) inteiro.
 2. O `tokens.json`.
-3. A seção correspondente de `docs/orquestador/REQUISITOS.md` (a tela sendo prototipada).
+3. A seção correspondente de `docs/orquestador/REQUISITOS.md` (a tela sendo prototipada), incluindo a coluna **Web**, que decide se a tela ganha artboards de web.
 4. O arquivo da feature em `docs/plano-de-desenvolvimento/periodo-N/`.
 
-O output do Claude Design (bundle HTML em `docs/prototipos/`) é referência visual e de navegabilidade, não especificação de pixel (regra 5 dos agentes, plano §7).
+O output do Claude Design (bundle HTML na pasta `prototipos/` da feature) é referência visual e de navegabilidade, não especificação de pixel (regra 5 dos agentes, plano §7).
 
 ---
 
@@ -698,6 +711,20 @@ O nome definitivo do aplicativo é **Lê Ai**. A linguagem visual definida neste
 ---
 
 ## 11. Timeline
+
+### Atualização 01/09/2026
+
+- **Quatro áreas de navegação fixadas na abertura da §5:** Estante, Descobrir, Feed e Perfil. O documento definia os headers tela a tela mas nunca a navegação, lacuna que o protótipo de P0-NAV vinha preenchendo por conta própria.
+- **§5.1 passou a dizer o que a lupa da estante busca:** ela filtra a estante do leitor, não o acervo. Antes o ícone estava no header sem escopo declarado, e o protótipo o tratava como porta do acervo. Isso fazia o campo de busca do header web de "Minha estante" devolver o catálogo inteiro.
+- **§5.7 Descobrir criada**, com o padrão da tela de busca do acervo. Numeração adicionada ao fim do capítulo para não renumerar §5.2 a §5.6, que já são citadas por prompts e arquivos de feature.
+- Nenhum token, valor, nome de componente ou decisão tipográfica foi alterado. Os padrões §5.2 a §5.6 seguem intactos.
+
+### Atualização 31/08/2026
+
+- Caminhos de prompt e protótipo movidos para `docs/design/`, agrupados por período e por feature, com o HTML exportado na pasta `prototipos/` de cada feature. §9.1 e §9.3 atualizados.
+- Convenções de escrita do prompt de tela fixadas em `docs/design/AGENTS.md`: template obrigatório, disposição dos artboards em modelo Figma, estados a cobrir, regra da versão web com desenho próprio e checklist de revisão.
+- `docs/design-system/tokens.json` permanece a fonte canônica de tokens, sem mudança para a feature P0-DS.
+- Nenhum token, valor, nome de componente, padrão de tela ou decisão tipográfica foi alterado.
 
 ### Atualização 26/08/2026
 

@@ -24,4 +24,27 @@
 
 ## Arquivos de feature
 
-Ainda não criados. Cada feature ganhará um `feature-<ID>.md` (template em `../../orquestador/plano-de-projeto.md` §9) quando o detalhamento começar.
+Template em `../../orquestador/plano-de-projeto.md` §9. As **regras de implementação compartilhadas** do projeto (idempotência de escrita, paginação, envelope/schema de evento, backfill antes de consumir, testes por feature) valem também aqui e estão em [`../periodo-1/README.md`](../periodo-1/README.md#regras-de-implementação-compartilhadas).
+
+### Contratos transversais
+
+| Contrato | Produtor/dono | Consumidor | Situação no Período 3 |
+|---|---|---|---|
+| `v_livro_recomendacao_v1` | `acervo` | `social` / F-REC-ALG | previsto no DER e em `docs/4.modelagem.md` §4.2 como item do Período 3; **conteúdo a fechar com `acervo` no arquivo de F-REC-ALG, antes da migration** |
+| `sequencia.lembrete` | `leitura` / F-GAM-OPC | `social` / extensão do consumidor de F-NOT | contrato proposto; **não** consta nos seis fluxos fechados de mensageria — F-NOT exige nome, schema, chave, consumidor e DLQ antes de ativar o tipo |
+| entrega push (FCM Android) | `social` / F-NOT-OPC | — | a arquitetura §5.2 já prevê o consumidor como "social (+ FCM em Android)"; novo é o **registro de dispositivo**, não o fluxo |
+| mapa tipo→categoria de notificação | `social` / F-NOT-OPC | — | **PENDENTE** no DER; F-NOT-OPC propõe o agrupamento dos 12 tipos, o grupo decide, e só então a migration do enum sobe |
+| suspensão de conta | `social` / F-MOD-OPC | `identidade` | comando autenticado proposto, no mesmo desenho da remoção de resenha de F-MOD; depende de decisão de baseline |
+| `opt_out_recomendacao` | `identidade` | `social` / F-REC-ALG | **PENDENTE** §10.7 — "não migrar antes da decisão"; F-REC-ALG consome o sinal social sem o filtro até o grupo resolver |
+
+**Escopo enxuto do período:** as opcionais são o colchão de corte (plano §3). Nenhuma delas cria tabela derivada, evento ou job que o requisito não peça — F-REC-ALG calcula em tempo de consulta (§10.7), F-NOT-OPC estende o consumidor existente em vez de criar outro fluxo, F-GAM-OPC lê o dado que F-GAM já persiste, e F-ACV-OPC reaproveita o script de F-ACV-INGESTAO.
+
+As 5 primeiras features do Período 3 estão detalhadas:
+
+- [F-ACV-OPC — Extras de acervo](feature-F-ACV-OPC.md)
+- [F-REC-ALG — Recomendação algorítmica + descarte em lote](feature-F-REC-ALG.md)
+- [F-NOT-OPC — Preferências de notificação + push](feature-F-NOT-OPC.md)
+- [F-MOD-OPC — Suspensão de conta](feature-F-MOD-OPC.md)
+- [F-GAM-OPC — Calendário e lembrete de streak](feature-F-GAM-OPC.md)
+
+Faltam detalhar **F-STA-OPC** (distribuição de notas) e **F-DSF-OPC** (histórico de janelas de desafio), na rodada seguinte.

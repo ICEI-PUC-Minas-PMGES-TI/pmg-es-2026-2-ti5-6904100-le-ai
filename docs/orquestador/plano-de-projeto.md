@@ -69,7 +69,7 @@ A faculdade impõe a estrutura de alto nível do repositório. Neste repositóri
 └── divulge/                        # apresentação e vídeo
 ```
 
-> O `docs/orquestador/documento-de-design.md` especifica o design system. Os artefatos planejados ficam em `docs/design-system/` (tokens e prompts) e `docs/prototipos/`; sua criação pertence ao período-0. As **fontes dos diagramas** (`.mmd`) ficam em `docs/diagramas/`, e `docs/imagens/` guarda as **figuras renderizadas** (`.png`) que os documentos da disciplina referenciam — fonte e figura andam em par: quem edita um `.mmd` regenera o `.png` correspondente na mesma passada (`mmdc -i docs/diagramas/<nome>.mmd -o docs/imagens/<nome>.png -b white -s 3`).
+> O `docs/orquestador/documento-de-design.md` especifica o design system. Os tokens planejados ficam em `docs/design-system/`, e sua criação pertence ao período-0. Os **prompts de tela e os protótipos** ficam em `docs/design/`, agrupados por período e por feature, com as convenções de escrita em `docs/design/AGENTS.md`. As **fontes dos diagramas** (`.mmd`) ficam em `docs/diagramas/`, e `docs/imagens/` guarda as **figuras renderizadas** (`.png`) que os documentos da disciplina referenciam — fonte e figura andam em par: quem edita um `.mmd` regenera o `.png` correspondente na mesma passada (`mmdc -i docs/diagramas/<nome>.mmd -o docs/imagens/<nome>.png -b white -s 3`).
 
 Regras:
 

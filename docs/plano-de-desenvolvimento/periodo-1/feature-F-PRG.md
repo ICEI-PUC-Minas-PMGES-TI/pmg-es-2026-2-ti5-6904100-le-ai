@@ -89,6 +89,10 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - Persistir a **data local** da atualização (RN-18.2) desde já, para a sequência diária (Período 2) não exigir retrabalho.
 - Stack de `leitura` ainda pendente (P0-INFRA).
 
+- **Prompts de tela em [`docs/design/periodo-1/F-PRG/`](../../design/periodo-1/F-PRG/):** `registrar-progresso.md` e `atualizacoes-de-progresso.md`. **RF-PRG-02 não tem prompt próprio:** a página atual e o percentual aparecem como barra de progresso em [`F-EST/estante.md`](../../design/periodo-1/F-EST/estante.md) e em [`F-ACV-BUSCA/pagina-do-livro.md`](../../design/periodo-1/F-ACV-BUSCA/pagina-do-livro.md), conforme a regra de recorte do [`docs/design/AGENTS.md`](../../design/AGENTS.md) §2.
+- **Componentes que nascem no protótipo e ainda não estão na fonte:** o **aviso de registro enfileirado offline** (RNF-ERR-05; desenhado como linha em `ambar` no contexto, porque o design §7.6 proíbe toast com fundo saturado), a **linha de três valores com divisor vertical** (o §7.3 diz o que não fazer, mas não desenha a alternativa) e a **tabela de dados da web**, que o documento não tem em nenhuma seção. Incorporar ao `documento-de-design.md` pelo controle de mudança do plano §3.
+- **A confirmação de exclusão de atualização informa o resultado do recálculo**, não uma frase genérica sobre irreversibilidade, porque é esse número que o leitor precisa para decidir (RN-17.4). Fixado na seção 8 de `atualizacoes-de-progresso.md`.
+
 ## Timeline
 
 ### Revisão 28/08/2026: total de páginas passou a vir do contrato de `acervo`; resumo derivado, metadados automáticos de fuso/data local, concorrência, fila FIFO, listagem paginada, confirmação de exclusão, idempotência e testes foram explicitados. `progresso.registrado` permaneceu candidato futuro, sem publicação antecipada.

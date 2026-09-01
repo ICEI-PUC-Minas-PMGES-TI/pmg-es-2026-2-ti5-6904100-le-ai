@@ -75,6 +75,8 @@ Alocação de stack (Spring vs NestJS) por serviço é decisão pendente da equi
 │   ├── README.md             # capa/SUMÁRIO do documento da disciplina
 │   ├── 1.apresentacao.md … 8.avaliacao_arquitetura.md  # docs da disciplina (DERIVADOS)
 │   ├── api/                  # planejado no período-0: um spec OpenAPI por serviço
+│   ├── design/               # prompts de tela e protótipos — + AGENTS.md e CLAUDE.md
+│   │   └── periodo-N/<FEATURE>/<tela>.md + prototipos/<tela>.html
 │   └── ...
 ├── code/                     # código (equivale a src/ do guideline)
 │   ├── mobile/               # Flutter — + AGENTS.md

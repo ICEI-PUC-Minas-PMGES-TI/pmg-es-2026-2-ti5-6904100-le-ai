@@ -98,6 +98,11 @@ O feed não consome VIEW de resenha; consome exclusivamente `resenha.publicada`.
 - **Evento de atividade:** `resenha.publicada` é necessário ao snapshot de F-FEED, mas não consta entre os seis fluxos fechados em `REQUISITOS.md` §7.2/arquitetura §5.2. Aprovar sua inclusão nos documentos-mestre ou definir integração alternativa antes de implementar.
 - Stack de `leitura` ainda pendente (P0-INFRA).
 
+- **Prompts de tela em [`docs/design/periodo-1/F-AVA/`](../../design/periodo-1/F-AVA/):** `avaliar-livro.md` e `escrever-resenha.md`. **A exibição da nota e das resenhas não tem prompt próprio:** ela é elemento que esta feature acrescenta a [`F-ACV-BUSCA/pagina-do-livro.md`](../../design/periodo-1/F-ACV-BUSCA/pagina-do-livro.md), incluindo o estado de resenha de terceiro com spoiler oculto, conforme a regra de recorte do [`docs/design/AGENTS.md`](../../design/AGENTS.md) §2.
+- **Nota ausente e nota zero são estados distintos na interface, por RN-06.** Ausente é o texto `Sem nota`; `0` é uma nota válida e aparece como `0`. O protótipo traz os dois artboards lado a lado justamente porque as estrelas são idênticas nos dois casos e só o texto distingue. Ausente nunca é representado como `0,0` nem como traço.
+- **Componentes que nascem no protótipo e ainda não estão na fonte:** o **painel de dar nota** (o §4.3 define o componente de estrela, não o painel em que ele vive), o **toggle de spoiler** e o **contador de caracteres permanente** com as três faixas de cor. Incorporar ao `documento-de-design.md` pelo controle de mudança do plano §3.
+- **A área de texto da resenha é exceção declarada ao input do design §4.2:** sem borda e sem fundo próprio, em Newsreader, ocupando o corpo da tela. O §4.2 define o campo curto com borda e fundo `papel-elevado`, que não serve a texto de 5.000 caracteres.
+
 ## Timeline
 
 ### Revisão 28/08/2026: VIEWs foram renomeadas e tiveram consumidores delimitados; `nota.alterada` e `resenha.publicada` receberam semântica única. Foram adicionados contrato de livro, perfil paginado sob RN-08, confirmação de remoção de nota e idempotência; testes de publisher foram separados dos testes de consumo/DLQ.

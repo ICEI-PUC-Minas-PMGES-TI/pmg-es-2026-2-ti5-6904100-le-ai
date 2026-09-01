@@ -143,6 +143,7 @@ Páginas de autor, editora e série **não são perfis**: não têm dono, não r
 | RF-EST-10 | O leitor deve poder visualizar seu **histórico de leituras por ano**, com os livros concluídos em cada ano. | D | ✅ |
 | RF-EST-11 | O sistema deve **abandonar automaticamente** leituras sem atividade por 40 dias, conforme RN-05 e a máquina de estados de RN-04. | E | — |
 | RF-EST-12 | O sistema deve **alertar o leitor** nos dias 20 e 30 de inatividade de uma leitura, conforme RN-05. | E | — |
+| RF-EST-13 | O leitor deve poder **buscar por título e autor dentro da própria estante**, combinável com o filtro por status de RF-EST-02. A busca é restrita à estante do leitor e não retorna livros do acervo. | D | ✅ |
 
 ### 5.4 Progresso (PRG)
 
@@ -1052,6 +1053,12 @@ Registrado explicitamente para evitar reabertura de discussão:
 ---
 
 ## 12. Timeline
+
+### v1.2 — 01/09/2026
+
+- **RF-EST-13 criado:** busca por título e autor **dentro da estante** do leitor, combinável com o filtro por status. Desejável, web e mobile. Surgiu da prototipagem de F-ACV-BUSCA e F-EST: o `documento-de-design.md` §5.1 punha uma lupa no header da estante sem declarar o escopo dela, e o protótipo a tratava como porta do acervo. Na web isso virava um campo de busca dentro de "Minha estante" que devolvia o catálogo inteiro, e no mobile a aba `Estante` ficava ativa numa tela de resultados de acervo. Separadas as duas buscas, a da estante ficou sem requisito que a amparasse.
+- **Impacto:** serviço `leitura` ganha parâmetro de busca no endpoint de estante, com índice e paginação sob RNF-DES-02, e o spec OpenAPI de `leitura` precisa refletir isso. Registrado como pendência em `feature-F-EST.md`.
+- **Fora desta alteração:** RF-ACV-01/02 não mudaram. A busca do acervo continua exatamente como estava; o que mudou foi **onde ela mora na interface**, e isso é `documento-de-design.md` §5.7, não requisito.
 
 ### v1.1 — 26/08/2026
 
