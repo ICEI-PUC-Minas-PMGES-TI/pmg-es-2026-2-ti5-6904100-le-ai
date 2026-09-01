@@ -36,15 +36,18 @@ Template em `../../orquestador/plano-de-projeto.md` §9. As **regras de implemen
 | mapa tipo→categoria de notificação | `social` / F-NOT-OPC | — | **PENDENTE** no DER; F-NOT-OPC propõe o agrupamento dos 12 tipos, o grupo decide, e só então a migration do enum sobe |
 | suspensão de conta | `social` / F-MOD-OPC | `identidade` | comando autenticado proposto, no mesmo desenho da remoção de resenha de F-MOD; depende de decisão de baseline |
 | `opt_out_recomendacao` | `identidade` | `social` / F-REC-ALG | **PENDENTE** §10.7 — "não migrar antes da decisão"; F-REC-ALG consome o sinal social sem o filtro até o grupo resolver |
+| alvo vigente na janela selada | `leitura` / F-DSF-OPC | — | extensão de DER **proposta**: `janela_desafio` não guarda o valor-alvo da janela, e editar o desafio falsificaria a razão exibida no histórico (RN-20.7); `cumprida` já atende à letra de RF-DSF-05 — não migrar antes da decisão |
 
-**Escopo enxuto do período:** as opcionais são o colchão de corte (plano §3). Nenhuma delas cria tabela derivada, evento ou job que o requisito não peça — F-REC-ALG calcula em tempo de consulta (§10.7), F-NOT-OPC estende o consumidor existente em vez de criar outro fluxo, F-GAM-OPC lê o dado que F-GAM já persiste, e F-ACV-OPC reaproveita o script de F-ACV-INGESTAO.
+**Escopo enxuto do período:** as opcionais são o colchão de corte (plano §3). Nenhuma delas cria tabela derivada, evento ou job que o requisito não peça — F-REC-ALG calcula em tempo de consulta (§10.7), F-NOT-OPC estende o consumidor existente em vez de criar outro fluxo, F-GAM-OPC lê o dado que F-GAM já persiste, F-ACV-OPC reaproveita o script de F-ACV-INGESTAO, F-STA-OPC deriva o histograma por agrupamento sem entidade nova e F-DSF-OPC apenas retém e sela a janela que F-DSF já cria.
 
-As 5 primeiras features do Período 3 estão detalhadas:
+As 7 features do Período 3 estão detalhadas:
 
 - [F-ACV-OPC — Extras de acervo](feature-F-ACV-OPC.md)
 - [F-REC-ALG — Recomendação algorítmica + descarte em lote](feature-F-REC-ALG.md)
 - [F-NOT-OPC — Preferências de notificação + push](feature-F-NOT-OPC.md)
 - [F-MOD-OPC — Suspensão de conta](feature-F-MOD-OPC.md)
 - [F-GAM-OPC — Calendário e lembrete de streak](feature-F-GAM-OPC.md)
+- [F-STA-OPC — Distribuição de notas](feature-F-STA-OPC.md)
+- [F-DSF-OPC — Histórico de janelas de desafio](feature-F-DSF-OPC.md)
 
-Faltam detalhar **F-STA-OPC** (distribuição de notas) e **F-DSF-OPC** (histórico de janelas de desafio), na rodada seguinte.
+Com o detalhamento fechado, o que resta do período é o **cross-cutting** acima: testes das desejáveis, refino das pendências acumuladas e o ATAM inicial.

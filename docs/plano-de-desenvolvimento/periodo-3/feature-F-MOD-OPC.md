@@ -47,7 +47,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 **Contratos consumidos:** `v_perfil_referencia_v1` (identidade) para exibir o alvo no painel. Nenhuma tabela crua de outro schema é lida (§4.2).
 
-**Eventos:** **nenhum**, se o comando autenticado HTTP interno bastar — coerente com o escopo enxuto do período, que proíbe criar evento só para separar funções. A escolha entre comando síncrono e evento é a pendência de baseline abaixo, e é a mesma já aberta em F-MOD.
+**Eventos:** **nenhum**. A ação administrativa usa o comando HTTP interno já adotado por [F-MOD](../periodo-2/feature-F-MOD.md), coerente com o escopo enxuto do período: não se cria evento para uma operação que precisa de resposta imediata ao administrador.
 
 ### Frontend Web (`code/front`)
 
@@ -84,12 +84,13 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [ ] Arquivo da feature atualizado: status, pendências, timeline
 - [ ] Divergência protótipo × implementação registrada, se houver
 
-**Item próprio:** fixar com `identidade` **um único contrato** de ação administrativa sobre a conta (autorização, revalidação, retorno idempotente e auditoria em `social`), reaproveitando o mesmo desenho que [F-MOD](../periodo-2/feature-F-MOD.md) fechar para a remoção de resenha — não dois padrões diferentes para o mesmo problema.
+**Item próprio:** fixar com `identidade` **um único contrato** de ação administrativa sobre a conta (autorização, revalidação, retorno idempotente e auditoria em `social`), reaproveitando o desenho que [F-MOD](../periodo-2/feature-F-MOD.md) já fechou para a remoção de resenha — não dois padrões diferentes para o mesmo problema.
 
 ## Pendências
 
 - **Depende de** [F-MOD](../periodo-2/feature-F-MOD.md) (painel, log de auditoria e o padrão cross-service), [F-AUT](../periodo-1/feature-F-AUT.md) (conta admin, refresh tokens, logout), [F-PERFIL](../periodo-1/feature-F-PERFIL.md) (`v_perfil_referencia_v1`), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md).
-- **Divergência de baseline — comando cross-service:** ação de `social` sobre a conta em `identidade` **não** consta nos fluxos fechados de §7.2, e o `docs/4.modelagem.md` já lista o contrato de suspensão entre as pendências preservadas. Definir comando autenticado e idempotente (sem inventar evento se HTTP interno bastar) e registrar pelo controle de mudança do plano §3 **antes** de implementar. É a mesma pendência aberta em [F-MOD](../periodo-2/feature-F-MOD.md).
+- **Padrão cross-service já fechado:** [F-MOD](../periodo-2/feature-F-MOD.md) adotou **comando HTTP interno autenticado e idempotente** para a remoção de resenha, em vez de evento ou saga — um comando administrativo precisa de resposta. F-MOD-OPC segue esse mesmo padrão, sem repropô-lo.
+- **Pendência aberta — contrato específico de suspensão:** o que continua em aberto é o contrato da ação sobre a conta em `identidade`, que `docs/4.modelagem.md` ainda lista entre as pendências preservadas. Fechar rota, payload, revalidação, retorno idempotente e auditoria pelo controle de mudança do plano §3 **antes** de implementar.
 - **Pendência aberta — visibilidade do conteúdo de conta suspensa:** se resenhas, atividades, listas e o perfil de um leitor suspenso continuam visíveis a terceiros. Ocultar tudo se aproxima de remoção em massa sem denúncia; manter tudo visível pode frustrar o motivo da sanção. Decisão do grupo; esta feature entrega o bloqueio de acesso e não altera visibilidade.
 - **Pendência aberta — reativação:** acrescentada como extensão mínima e simétrica, fora da letra de RF-MOD-04. Confirmar com o grupo; é o primeiro item a cortar se o escopo apertar.
 - **Compartilha `social`** com as demais features sociais e **`identidade`** com [F-AUT](../periodo-1/feature-F-AUT.md)/[F-CONTA-2](../periodo-2/feature-F-CONTA-2.md) — sinalizar no grupo antes de mexer (plano §6).
@@ -97,4 +98,6 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 ## Timeline
 
-### Criação 01/09/2026: arquivo criado a partir do escopo de F-MOD-OPC no [periodo-3/README.md](README.md) e de RF-MOD-04 do [`REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.11, reusando o padrão cross-service e o log de auditoria de F-MOD. Suspensão fixada como bloqueio de acesso com revogação de sessão, sem remover conteúdo nem excluir conta; reativação incluída como extensão mínima e sinalizada como tal; a escolha entre comando síncrono e evento e a visibilidade do conteúdo de conta suspensa ficaram como pendências do grupo.
+### Revisão 01/09/2026: alinhado ao passe de consistência — o padrão cross-service deixou de ser tratado como aberto, já que F-MOD o fechou como comando HTTP interno autenticado/idempotente; permanece pendente apenas o contrato específico de suspensão, que `docs/4.modelagem.md` ainda lista.
+
+### Criação 01/09/2026: arquivo criado a partir do escopo de F-MOD-OPC no [periodo-3/README.md](README.md) e de RF-MOD-04 do [`REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.11, reusando o padrão cross-service e o log de auditoria de F-MOD. Suspensão fixada como bloqueio de acesso com revogação de sessão, sem remover conteúdo nem excluir conta; reativação incluída como extensão mínima e sinalizada como tal; a visibilidade do conteúdo de conta suspensa ficou como pendência do grupo.

@@ -94,4 +94,4 @@ Os 130 RFs de `../orquestador/REQUISITOS.md` §5 estão todos alocados: **54 Ess
 
 ## Próximo passo
 
-Os [Período 0](periodo-0/README.md), [Período 1](periodo-1/README.md) e [Período 2](periodo-2/README.md) já têm todas as features detalhadas, e o [Período 3](periodo-3/README.md) tem **5 das 7**. O próximo passo documental é detalhar **F-STA-OPC** e **F-DSF-OPC**, sem antecipar decisões dos donos.
+Todos os períodos têm **todas** as features detalhadas — [Período 0](periodo-0/README.md), [Período 1](periodo-1/README.md), [Período 2](periodo-2/README.md) e [Período 3](periodo-3/README.md), este último fechado em **7/7**. O detalhamento por feature terminou; o que resta é o **cross-cutting** de cada período — testes das desejáveis, refino das pendências acumuladas e o ATAM inicial — e as decisões dos donos registradas nos arquivos, que não devem ser antecipadas.
