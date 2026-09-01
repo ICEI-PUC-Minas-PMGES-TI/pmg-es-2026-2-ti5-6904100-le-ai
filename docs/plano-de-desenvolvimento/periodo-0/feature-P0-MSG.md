@@ -11,7 +11,7 @@ Deixar de pé o **encanamento de mensageria** que os fluxos assíncronos do prod
 
 Duas frentes:
 
-1. **Broker conectado:** RabbitMQ no **CloudAMQP** (plano gratuito *Little Lemur*), com **uma conexão por serviço** (arquitetura §2.3) e o esqueleto de publisher/consumer resiliente — idempotência (RNF-ERR-06), dead-letter queue (RNF-ERR-07), validação de schema de mensagem (RNF-SEC-32) e backoff (RNF-ERR-03). A garantia durável exigida por RNF-ERR-10 permanece pendente de decisão arquitetural.
+1. **Broker conectado:** RabbitMQ no **CloudAMQP** (plano gratuito *Little Lemur*), com **uma conexão por serviço**, publisher/consumer resiliente, outbox transacional (RNF-ERR-10), idempotência, DLQ, validação de schema e backoff.
 2. **Prova de conceito das integrações gratuitas:** confirmar, em ambiente real, GitHub Actions `schedule` (agendador, P-08), Cloudinary (imagens, P-09), Brevo (e-mail, P-02) e FCM (push Android, P-04) — cada um com uma chamada mínima que prova que funciona no free tier.
 
 Esta feature **não implementa nenhum fluxo de negócio** (notificações, ingestão, cache de capas etc.) — só o encanamento e as validações. Os fluxos entram com suas features de domínio no Período 1+.
@@ -40,7 +40,7 @@ Requisitos atendidos: **RNF-ARQ-06** (mensageria), **RNF-ERR-03/06/07** (resili�
 O broker é comum; cada stack usa seu cliente maduro (arquitetura §2.3): **Spring AMQP** no Java, **`amqplib`** no Node. O comportamento observável é o mesmo.
 
 - **Topologia base:** um *topic exchange* por domínio de evento, filas nomeadas por consumidor, e **dead-letter exchange + DLQ** para cada fila (RNF-ERR-07). Bindings por routing key.
-- **Publisher:** publica **depois** da escrita síncrona confirmada (arquitetura §5.1); falha ao publicar é logada e **não desfaz** a operação síncrona. Esse comportamento, isoladamente, não garante o reprocessamento de RNF-ERR-10.
+- **Publisher + outbox:** a escrita de domínio e a mensagem são gravadas na mesma transação PostgreSQL. Um dispatcher publica os registros pendentes, aguarda confirmação do broker e marca a outbox; falha é reprocessada sem desfazer a operação síncrona (RNF-ERR-10).
 - **Consumer:** **idempotente** (tolera entrega duplicada — RNF-ERR-06), usando chave de idempotência/dedup; **valida o schema** da mensagem antes de processar (RNF-SEC-32); em falha, **retentativa com backoff** e, esgotadas as tentativas, a mensagem vai para a **DLQ** sem bloquear a fila principal (RNF-ERR-03/07).
 - **Correlation-id** propagado no header/property da mensagem, ligado ao log estruturado (RNF-OBS-01) definido em [P0-INFRA](feature-P0-INFRA.md).
 - **Envelope de mensagem padrão** (referência para todos os fluxos):
@@ -58,11 +58,15 @@ O broker é comum; cada stack usa seu cliente maduro (arquitetura §2.3): **Spri
   | Fluxo | Evento(s) | Produtor | Consumidor |
   |---|---|---|---|
   | Notificações in-app | `seguidor.novo`, `solicitacao.*`, `atividade.curtida`, `atividade.comentada`, `comentario.respondido`, `usuario.mencionado`, `resenha.curtida`, `leitura.em_risco`, `leitura.expirada` | identidade, leitura, social | social (+ FCM Android) |
-  | Expiração de leituras | `leitura.em_risco`, `leitura.expirada` | leitura (job diário) | leitura, social |
+  | Expiração de leituras | `leitura.em_risco`, `leitura.expirada` | leitura (job diário) | social |
   | Ingestão de livros | `livro.importacao_solicitada` | acervo | acervo |
-  | Cache de capas | `livro.adicionado_a_estante` | leitura | acervo |
+  | Cache/recomendação | `livro.adicionado_a_estante` | leitura | acervo, social |
   | Busca de sinopse | `livro.pagina_aberta` | acervo | acervo |
   | Nota agregada | `nota.alterada` | leitura | acervo |
+  | Atividades | `leitura.iniciada`, `leitura.retomada`, `leitura.finalizada`, `leitura.abandonada`, `resenha.publicada`, `resenha.excluida` | leitura | social |
+  | Estatísticas/desafios/streak | `progresso.registrado`, `leitura.finalizada` | leitura | leitura |
+  | Exclusão de conta | `conta.excluida` | identidade | leitura, social, acervo |
+  | Recomendação recebida | `recomendacao.recebida` | social | social |
 
 - **Prova mínima:** um evento de teste (`ping.teste`) publicado por um serviço e consumido por outro, com um caso que força ida à DLQ, comprovando idempotência e dead-lettering.
 
@@ -83,7 +87,7 @@ Cada item vira um teste mínimo que prova viabilidade **no ambiente real**, não
 - [ ] Um evento de teste é publicado por um serviço e consumido por outro, com `correlation-id` propagado.
 - [ ] Uma mensagem que falha repetidamente vai para a **DLQ** sem travar a fila principal; consumidor comprovadamente **idempotente** (entrega duplicada não duplica efeito).
 - [ ] Mensagem com schema inválido é rejeitada antes do processamento (RNF-SEC-32).
-- [ ] Falha ao publicar não desfaz a operação síncrona correspondente; RNF-ERR-10 permanece pendente até ser definido e testado o mecanismo de reprocessamento durável.
+- [ ] A outbox transacional preserva o evento quando a publicação falha e o dispatcher o reprocessa até a confirmação do broker (RNF-ERR-10).
 - [ ] `schedule` do GitHub Actions dispara no repo da faculdade **ou** o fallback cron-job.org está validado (P-08).
 - [ ] Upload + transformação por URL no Cloudinary funcionam no free tier (P-09).
 - [ ] E-mail transacional de teste entregue pelo Brevo com remetente verificado (P-02).
@@ -96,7 +100,7 @@ Cada item vira um teste mínimo que prova viabilidade **no ambiente real**, não
 
 - [ ] Esqueleto de mensageria mergeado em `desenvolvimento`
 - [ ] CI verde ([P0-CI](feature-P0-CI.md))
-- [ ] Testes automatizados: **publicação, consumo, idempotência e DLQ** do evento de teste (RNF-TST-03 pede exatamente isso para fluxos assíncronos)
+- [ ] Testes automatizados: gravação atômica da outbox, retry de publicação, **publicação, consumo, idempotência e DLQ** do evento de teste
 - [ ] Spec OpenAPI do serviço atualizado em `docs/api/` — **N/A para o broker** (mensageria não é HTTP); os endpoints internos usados pelo `schedule` entram no spec do serviço dono quando existirem
 - [ ] Fluxo funcionando em DES/HML — broker conectado a partir dos serviços em DES ([P0-DEPLOY](feature-P0-DEPLOY.md))
 - [ ] Arquivo da feature atualizado: status, pendências, timeline
@@ -110,9 +114,10 @@ Cada item vira um teste mínimo que prova viabilidade **no ambiente real**, não
 - **Viabilidade das Actions `schedule` no GitHub Classroom não confirmada** (P-08) — se restrita, adotar cron-job.org.
 - Cliente AMQP concreto por serviço depende da stack alocada (pendência de P0-INFRA): Spring AMQP ou `amqplib`.
 - Definir a **biblioteca de validação de schema de mensagem** por stack (ex.: JSON Schema com validador Java/Node) — RNF-SEC-32.
-- Decidir o mecanismo de garantia durável entre o commit no banco e a publicação no broker. Filas duráveis, publisher confirms e DLQ não recuperam evento que nunca chegou ao RabbitMQ; outbox transacional é candidata, não decisão tomada.
 - Limites vigentes dos planos gratuitos a confirmar e anotar (Cloudinary, CloudAMQP, Brevo, Neon).
 
 ## Timeline
+
+### Revisão 01/09/2026: outbox transacional aprovada como garantia de RNF-ERR-10; mapa atualizado com atividades, progresso/conclusão, exclusão de resenha/conta e recomendação P2P.
 
 ### Criação 25/08/2026: arquivo criado a partir do escopo de P0-MSG no [periodo-0/README.md](README.md) e do [`documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §2.3–2.7, §5 e §8 (itens a validar no período-0). Fluxos de negócio deliberadamente fora de escopo aqui — só o encanamento e as validações de free-tier.

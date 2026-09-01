@@ -34,6 +34,7 @@ RNF atendidos: **RNF-ERR-04** (chave de idempotência na escrita — retentativa
 Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + correlation-id e mensagens pt-BR. Operação **síncrona** (§7.2: registro de progresso não é assíncrono; confirma ao autor). Valida **propriedade** da leitura (SEC-02), **esquema** de entrada (SEC-13) e obtém o total de páginas por `v_livro_referencia_v1`, sem ler tabela crua de `acervo`. IDs não sequenciais (SEC-05). POST e DELETE aceitam `Idempotency-Key`.
 
 - **`POST /leituras/{id}/progresso`** (RF-PRG-01, RF-PRG-04, RN-17) — recebe **página em que parou** (absoluta), **tempo gasto** e metadados automáticos `registradoEmDispositivo` + `fusoHorarioDispositivo` (IANA, não editáveis no formulário). O servidor valida esses metadados e deriva/persiste a data local de RN-18.2, inclusive quando uma fila offline envia depois. Valida (RN-17.2, RF-PRG-04): página **> página atual** e **≤ total de páginas** do livro; violação → `422` com mensagem clara (pt-BR). Aceita **chave de idempotência** (RNF-ERR-04): reenvio da mesma chave não cria registro duplicado. A leitura precisa estar em **Lendo** ou **Relendo** ([F-EST](feature-F-EST.md), RN-04). O registro **zera o contador de inatividade** (RN-05) e retorna o resumo derivado atualizado.
+- Na mesma transação, grava `progresso.registrado` na outbox com atualização, páginas derivadas, minutos, instante e data/fuso locais. F-DSF, F-STA e F-GAM consomem o contrato aprovado; eventos anteriores ao início dos consumidores são cobertos por backfill.
 - Registros concorrentes da mesma leitura são serializados por lock/controle otimista sobre a leitura. Página anterior e páginas lidas são calculadas dentro da mesma transação; a segunda escrita revalida contra a página já confirmada, evitando duas atualizações derivadas da mesma base (RNF-ARQ-05).
 - **`GET /leituras/{id}/progresso?page=`** (RF-PRG-02 e RF-PRG-03) — lista paginada, ordenada e com limite máximo imposto pelo servidor (RNF-DES-02). Cada resposta inclui metadados de resumo independentes da página: `paginaAtual`, `totalPaginas` e `percentualConcluido`.
 - **`DELETE /progresso/{id}`** (RF-PRG-03, RN-17.4) — exclui uma atualização de leitura em andamento, **recalcula a página atual** a partir das restantes e retorna o resumo derivado atualizado. É **Essencial** justamente porque, com entrada absoluta e monotônica, um valor digitado alto demais bloqueia os registros seguintes (RN-17.4). Exige confirmação explícita no cliente (RNF-USA-04).
@@ -65,6 +66,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [ ] No mobile, registros feitos **offline** são enfileirados e reenviados ao voltar a conexão, sem duplicar (RNF-ERR-05).
 - [ ] Cada registro **zera o contador de inatividade** da leitura (RN-05, integra [F-EST](feature-F-EST.md)).
 - [ ] Data local é derivada do instante/fuso capturados automaticamente no dispositivo e preservada no reenvio offline (RN-18.2).
+- [ ] `progresso.registrado` é gravado atomicamente na outbox e publicado com os campos necessários a DSF, STA e GAM.
 - [ ] Operações validam **propriedade** da leitura (SEC-02).
 - [ ] Registrar/exibir/excluir progresso funciona **em DES**.
 
@@ -85,7 +87,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 - **Depende de** [F-EST](feature-F-EST.md) (leitura em andamento e máquina de estados; compartilham o serviço `leitura` — sinalizar no grupo antes de mexer, plano §6), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md).
 - **Sessão de leitura cronometrada** (RF-PRG-05..12, RN-16) fica **fora** — é **F-SESSAO** (Período 2). A entrada de página desta feature é a mesma que a sessão usará ao encerrar; manter o contrato compatível.
-- `progresso.registrado` permanece **candidato futuro** em `REQUISITOS.md` §7.2 e não é publicado nesta feature. F-DSF/F-GAM/F-STA devem definir o contrato e, ao entrar, fazer backfill das atualizações persistidas antes de consumir eventos novos, se o grupo aprovar o fluxo.
+- **Decisão da feature:** definir como progresso offline, capturado no dia correto e sincronizado depois, afeta streak e janelas já encerradas; distinguir esse caso de registro retroativo, que continua proibido por RN-18.
 - Persistir a **data local** da atualização (RN-18.2) desde já, para a sequência diária (Período 2) não exigir retrabalho.
 - Stack de `leitura` ainda pendente (P0-INFRA).
 
@@ -95,6 +97,8 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 ## Timeline
 
-### Revisão 28/08/2026: total de páginas passou a vir do contrato de `acervo`; resumo derivado, metadados automáticos de fuso/data local, concorrência, fila FIFO, listagem paginada, confirmação de exclusão, idempotência e testes foram explicitados. `progresso.registrado` permaneceu candidato futuro, sem publicação antecipada.
+### Revisão 01/09/2026: `progresso.registrado` aprovado e ligado à outbox; chegada tardia da fila offline registrada para decisão do dono da feature.
+
+### Revisão 28/08/2026: total de páginas passou a vir do contrato de `acervo`; resumo derivado, metadados automáticos de fuso/data local, concorrência, fila FIFO, listagem paginada, confirmação de exclusão, idempotência e testes foram explicitados.
 
 ### Criação 27/08/2026: arquivo criado a partir do escopo de F-PRG no [periodo-1/README.md](README.md), de RF-PRG-01..04 do [`REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.4, da RN-17 e da arquitetura §5.1/§5.3. Entrada absoluta de página e valores derivados fixados; sessão cronometrada adiada ao Período 2; data local já persistida para o streak futuro.

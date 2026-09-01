@@ -84,9 +84,12 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Compartilha `leitura` com [F-EST](../periodo-1/feature-F-EST.md)/[F-PRG](../periodo-1/feature-F-PRG.md)/[F-AVA](../periodo-1/feature-F-AVA.md)** e demais features de leitura desta leva — sinalizar no grupo (plano §6).
 - **Denúncia de resenha** e **remoção direta de frase pela moderação** (RN-11) são de **F-MOD** — frase não possui fluxo de denúncia.
 - `resenha.curtida` **já é** fluxo fechado de §7.2 — sem divergência de baseline.
+- **Decisão do dono:** definir se retirar uma curtida e curtir novamente deve gerar nova notificação; a chave semântica deve distinguir reentrega do mesmo fato de uma nova transição legítima.
 - Stack de `leitura` ainda pendente (P0-INFRA).
 
 ## Timeline
+
+### Revisão 01/09/2026: semântica de nova curtida após remoção registrada para decisão do dono da feature.
 
 ### Criação 28/08/2026: arquivo criado a partir do escopo de F-AVA-2 no [periodo-2/README.md](README.md), de RF-AVA-05..09 do [`REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.5 e das RN-07/RN-11/RN-13/RN-15. Reações fixadas em `leitura` (arch §3.2, ajuste 1) com `resenha.curtida` no fluxo fechado; Markdown como subconjunto renderizado no cliente; frases com página obrigatória.
 

@@ -1,8 +1,8 @@
 # REQUISITOS
 
-**Versão:** v1.1 — 26/08/2026
+**Versão:** v1.2 — 01/09/2026
 **Baseline:** fechada em 25/08/2026
-**Status:** baseline fechada — permanecem explícitas para o período-0 a alocação de stack por serviço, a decisão de opt-out de recomendações e o mecanismo arquitetural de garantia durável de RNF-ERR-10
+**Status:** baseline fechada — permanecem explícitas a alocação de stack por serviço e a decisão de opt-out de recomendações
 
 Este documento é a **fonte de verdade** do projeto. Toda decisão de produto, modelo de dados e regra de negócio mora aqui. Arquivos de feature, specs OpenAPI, diagramas e código derivam deste documento — nunca o contrário.
 
@@ -91,7 +91,7 @@ O critério de priorização: é Essencial o que sustenta o ciclo mínimo de val
 | RF-AUT-04 | O leitor deve poder solicitar recuperação de senha por e-mail, recebendo link com token de uso único e prazo de validade. | E | ✅ |
 | RF-AUT-05 | O leitor deve poder alterar a própria senha informando a senha atual. | E | ✅ |
 | RF-AUT-06 | O leitor deve poder encerrar a sessão, invalidando o token de renovação. | E | ✅ |
-| RF-AUT-07 | O leitor deve poder excluir a própria conta e seus dados pessoais. | D | ✅ |
+| RF-AUT-07 | O leitor deve poder solicitar a exclusão da própria conta, recuperá-la em até **30 dias** e, vencido o prazo, ter seus dados e conteúdos removidos definitivamente. | D | ✅ |
 | RF-AUT-08 | O administrador deve autenticar-se pelo mesmo fluxo, com credenciais provisionadas por variável de ambiente. | E | ✅ |
 
 > ℹ️ **P-02 decidida: Brevo.** Serviço de e-mail transacional para RF-AUT-04. Justificativa e consequências no Documento de Arquitetura §2.6.
@@ -525,6 +525,16 @@ A capa de um livro oficial é **cacheada sob demanda**, não na ingestão.
 14. Recomendação removida por qualquer via não é restaurável.
 15. **Recomendações já enviadas permanecem** ainda que o seguimento mútuo se desfaça depois do envio. O seguimento mútuo é condição de envio (RN-22.1), não de permanência.
 
+### RN-23 — Exclusão e recuperação de conta
+
+1. Solicitar exclusão exige autenticação, reautenticação por senha, confirmação explícita e chave de idempotência.
+2. A solicitação inicia uma janela de recuperação de **30 dias**. Durante esse prazo, os dados permanecem armazenados, mas conta, perfil e conteúdo ficam ocultos para os demais leitores.
+3. Todos os tokens de renovação são revogados na solicitação. Um novo login válido em conta com exclusão pendente emite acesso restrito exclusivamente ao cancelamento da exclusão; nenhuma outra área do produto fica disponível.
+4. Cancelar dentro do prazo restaura a conta e sua visibilidade sem recriar dados nem publicar evento de restauração.
+5. Vencido o prazo, um job diário remove definitivamente identidade, dados e conteúdo nos quatro schemas. A remoção nos demais serviços é disparada por `conta.excluida`.
+6. Username e e-mail permanecem reservados durante a janela de recuperação. Depois da exclusão definitiva, deixam de identificar uma conta existente.
+7. A exclusão definitiva remove também projeções, importações solicitadas, tentativas de login, respostas idempotentes e assets associados. Registros técnicos obrigatórios só podem permanecer sem dados que identifiquem o leitor.
+
 ### RN-21 — Assuntos
 
 Assunto é o gênero literário do livro, usado como **filtro de busca** (RF-ACV-02) e como principal insumo da recomendação algorítmica (§10.7).
@@ -675,10 +685,14 @@ Fluxos assíncronos definidos para esta versão:
 | **Cache de capas** | `livro.adicionado_a_estante` | Download de imagem de terceiro não pode bloquear a adição à estante; exige retentativa (RN-14) |
 | **Busca de sinopse** | `livro.pagina_aberta` | Consulta a terceiro não pode bloquear a renderização da página do livro (RN-19) |
 | **Nota agregada** | `nota.alterada` | Atualização da projeção da nota dos leitores em `acervo` sem chamada síncrona a `leitura` |
+| **Atividades do feed** | `leitura.iniciada`, `leitura.retomada`, `leitura.finalizada`, `leitura.abandonada`, `resenha.publicada`, `resenha.excluida` | `social` mantém a projeção do feed sem chamada síncrona a `leitura` |
+| **Estatísticas, desafios e sequência** | `progresso.registrado`, `leitura.finalizada` | Recálculo assíncrono e efeitos idempotentes a partir dos fatos de leitura |
+| **Exclusão definitiva de conta** | `conta.excluida` | Cada serviço remove os dados de seu próprio schema após o prazo de recuperação |
+| **Recomendação P2P** | `recomendacao.recebida`, `livro.adicionado_a_estante` | Notifica o destinatário e remove recomendações quando o livro entra na estante |
 
 **Não são assíncronos:** mudança de status na estante, registro de progresso, criação de nota e de resenha. Essas operações confirmam de forma síncrona ao autor; o evento é publicado **após** a escrita confirmada.
 
-Fluxos candidatos a inclusão futura, cujo desenho já é compatível: fan-out do feed, recálculo de estatísticas, progresso de desafios (a partir de `progresso.registrado` e `leitura.finalizada`), sequência diária, envio de e-mail transacional.
+Fluxos candidatos a inclusão futura, cujo desenho já é compatível: lembrete de sequência diária e envio de e-mail transacional.
 
 > ℹ️ **P-06 decidida: RabbitMQ (CloudAMQP).** Atende aos critérios de plano gratuito permanente, *dead-letter queue* nativa e cliente maduro nas duas linguagens. Justificativa e consequências no Documento de Arquitetura §2.3.
 
@@ -695,7 +709,7 @@ Fluxos candidatos a inclusão futura, cujo desenho já é compatível: fan-out d
 | RNF-ERR-07 | Mensagens que falharem após o número máximo de tentativas devem ser encaminhadas a **dead-letter queue**, sem bloquear a fila principal. |
 | RNF-ERR-08 | Chamadas a APIs externas devem ter timeout, retentativa com backoff e **circuit breaker**, degradando para mensagem de erro clara ao usuário. |
 | RNF-ERR-09 | Os clientes devem tratar a **hibernação do plano gratuito** do Render, exibindo estado de carregamento prolongado em vez de erro na primeira requisição. |
-| RNF-ERR-10 | Falha em fluxo assíncrono não deve impedir a operação síncrona correspondente: se a publicação do evento falhar, a operação principal é confirmada e o evento é reprocessado. |
+| RNF-ERR-10 | Falha em fluxo assíncrono não deve impedir a operação síncrona correspondente: produtor e evento devem ser gravados na mesma transação por **outbox transacional**, e a publicação deve ser reprocessada até confirmação do broker. |
 
 RNF-ERR-05 e RNF-ERR-09 são as evidências principais para o requisito da disciplina sobre reenvio de mensagens e servidor indisponível.
 
@@ -830,7 +844,7 @@ Requisitos organizados pelo **OWASP Top 10 (2021)**. Todos são **Essenciais**.
 | ID | Requisito |
 |---|---|
 | RNF-SEC-40 | O cadastro deve coletar o mínimo de dados pessoais necessários à finalidade do aplicativo. |
-| RNF-SEC-41 | O leitor deve poder excluir sua conta, com remoção ou anonimização de seus dados pessoais (RF-AUT-07). |
+| RNF-SEC-41 | O leitor deve poder solicitar exclusão, recuperar a conta em até 30 dias e, vencido o prazo, ter dados pessoais e conteúdo removidos definitivamente (RF-AUT-07, RN-23). |
 | RNF-SEC-42 | O aplicativo deve apresentar política de privacidade informando dados coletados, finalidade e retenção. |
 | RNF-SEC-43 | O cadastro deve exigir declaração de idade e recusar usuários menores de 18 anos. |
 | RNF-SEC-44 | Não devem ser coletados dados de localização precisa nem dados pessoais sensíveis, e não deve haver descoberta aberta de perfis. |
@@ -867,7 +881,7 @@ Requisitos organizados pelo **OWASP Top 10 (2021)**. Todos são **Essenciais**.
 | **Google Books — API** | Cadastro por ISBN (fonte secundária) | Consultada quando a primária não retorna resultado. |
 | **OpenLibrary — Covers** | Capas de livros oficiais | Referenciadas por URL, não armazenadas. Usar chave por `cover_id`, não por ISBN, evitando o limite de taxa daquele caminho. |
 
-**Nota geral (RF-ACV-15):** o OpenLibrary publica avaliações em dump próprio (`ol_dump_ratings`) e a API do Google Books expõe `averageRating` e `ratingsCount` por volume. Em ambos os casos a cobertura é **esparsa** — a maioria dos títulos não tem avaliação alguma, e a escassez tende a ser maior justamente no catálogo em português. O indicador deve ser tratado como opcional por livro, nunca como campo obrigatório, e a interface precisa funcionar bem no caso de ausência.
+**Nota geral (RF-ACV-15):** o OpenLibrary publica avaliações em dump próprio (`ol_dump_ratings`) e a API do Google Books expõe `averageRating` e `ratingsCount` por volume. Em ambos os casos a cobertura é **esparsa** — a maioria dos títulos não tem avaliação alguma, e a escassez tende a ser maior justamente no catálogo em português. O indicador deve ser tratado como opcional por livro, nunca como campo obrigatório, e a interface precisa funcionar bem no caso de ausência. Quando a origem fornecer a avaliação no nível de obra, a mesma nota externa e sua contagem são replicadas nas edições associadas por `ol_work_key`; isso não cria entidade Obra nem combina as notas dos leitores, que continuam independentes por edição.
 
 Se nenhuma fonte retornar o ISBN, o fluxo termina em erro com oferta de cadastro pessoal (RF-ACV-06). A indisponibilidade das fontes externas não deve impedir o uso do restante do aplicativo.
 
@@ -911,7 +925,7 @@ Se nenhuma fonte retornar o ISBN, o fluxo termina em erro com oferta de cadastro
 
 ### 10.2 Agendamento
 
-Jobs diários: verificação de inatividade de leituras (RN-05) e delta de ingestão.
+Jobs diários: verificação de inatividade de leituras (RN-05), exclusão definitiva de contas cujo prazo de 30 dias venceu (RN-23) e delta de ingestão.
 
 Cron Jobs do Render são recurso pago e **não estão disponíveis** no plano gratuito. Candidatos: **GitHub Actions com `schedule`** (preferido — já existe repositório, é versionado e auditável), Cloudflare Workers Cron Triggers, cron-job.org.
 
@@ -1055,6 +1069,11 @@ Registrado explicitamente para evitar reabertura de discussão:
 ## 12. Timeline
 
 ### v1.2 — 01/09/2026
+
+- Exclusão de conta ganhou janela de recuperação de 30 dias, login restrito e remoção definitiva por job após o prazo.
+- Outbox transacional foi aprovada como garantia durável de RNF-ERR-10.
+- Eventos de feed, progresso/conclusão, exclusão de resenha/conta e recomendação P2P foram incorporados aos fluxos assíncronos definidos.
+- Nota geral no nível de obra passou a ser replicada nas edições associadas, sem introduzir entidade Obra.
 
 - **RF-EST-13 criado:** busca por título e autor **dentro da estante** do leitor, combinável com o filtro por status. Desejável, web e mobile. Surgiu da prototipagem de F-ACV-BUSCA e F-EST: o `documento-de-design.md` §5.1 punha uma lupa no header da estante sem declarar o escopo dela, e o protótipo a tratava como porta do acervo. Na web isso virava um campo de busca dentro de "Minha estante" que devolvia o catálogo inteiro, e no mobile a aba `Estante` ficava ativa numa tela de resultados de acervo. Separadas as duas buscas, a da estante ficou sem requisito que a amparasse.
 - **Impacto:** serviço `leitura` ganha parâmetro de busca no endpoint de estante, com índice e paginação sob RNF-DES-02, e o spec OpenAPI de `leitura` precisa refletir isso. Registrado como pendência em `feature-F-EST.md`.

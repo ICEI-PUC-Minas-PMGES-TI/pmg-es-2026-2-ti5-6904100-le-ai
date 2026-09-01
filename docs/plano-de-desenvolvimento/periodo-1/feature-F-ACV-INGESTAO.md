@@ -34,6 +34,7 @@ Modelo mínimo do catálogo oficial (schema `acervo`, migration revisada por hum
 - `Livro` (edição — RN-01): ISBN-13 **único** (RN-02), `ol_edition_key` (id secundário de dedup — RN-02), título, ano, nº de páginas, **duas URLs de capa** (externa preenchida na ingestão, própria inicialmente ausente — RN-14.1), flag oficial/pessoal.
 - `Autor`, `Editora`, `Serie` (com número de ordem opcional por livro), `Assunto` (conjunto curado), e as associações livro↔autor/editora/serie/assunto.
 - **Índices** de busca sobre título, autor e ISBN (RNF-DES-03), dimensionados no custo de armazenamento (RNF-DES-05).
+- **Identificadores externos:** persiste `ol_edition_key` para deduplicação da edição e `ol_work_key` como referência externa não única. `ol_work_key` não cria camada de obra; permite a F-ACV-NOTA replicar ratings de obra nas edições associadas.
 - **Contrato entre schemas:** `v_livro_referencia_v1` expõe somente `livro_id`, tipo oficial/pessoal, `dono_id`, total de páginas, título, autor para exibição, capa resolvida e estado ativo. `leitura` usa o contrato para validar página, tipo e dono; `social` usa livro/estado para snapshots e para ocultar atividade de alvo excluído. [F-ACV-CADASTRO](feature-F-ACV-CADASTRO.md) completa o mesmo contrato para livros pessoais. Nenhum consumidor lê as tabelas cruas de `acervo`.
 
 ### Script de carga (RF-ACV-13, RN-12, §10.1)
@@ -89,6 +90,8 @@ Modelo mínimo do catálogo oficial (schema `acervo`, migration revisada por hum
 - Linguagem do script (Python recomendado) e ambiente de execução (rodar localmente / job) a fixar no arranque.
 
 ## Timeline
+
+### Revisão 01/09/2026: `ol_work_key` incorporado como identificador externo não único para associar ratings por obra às edições, sem criar entidade Obra.
 
 ### Revisão 28/08/2026: contrato `v_livro_referencia_v1`, deduplicação da carga e teste de integração foram explicitados. Recarga manual permaneceu em F-ACV-OPC e o delta diário sem feature foi registrado separadamente como pendência.
 

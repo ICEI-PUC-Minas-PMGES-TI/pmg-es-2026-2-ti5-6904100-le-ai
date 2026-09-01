@@ -32,7 +32,7 @@ O escopo de gamificação é **só o streak** (mais os desafios de [F-DSF](featu
 
 Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + correlation-id e mensagens pt-BR. Acesso a dados por ORM/consulta parametrizada (SEC-12). Só os dados do **próprio usuário** (SEC-02).
 
-- **Atualização (RF-GAM-01):** marca o dia com leitura usando a data local persistida por F-PRG. Se `progresso.registrado` for promovido, consome com schema/idempotência/DLQ; enquanto candidato, F-PRG chama o mesmo efeito local após confirmar a atualização, sem criar outro evento interno.
+- **Atualização (RF-GAM-01):** consome `progresso.registrado`, contrato aprovado, e marca o dia usando a data local persistida por F-PRG, com schema, idempotência e DLQ.
 - **`GET /me/sequencia`** (RF-GAM-02) — **sequência atual** e **maior já alcançada**.
 
 **Regras de RN-18:**
@@ -57,7 +57,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [ ] A sequência usa **data local** do dispositivo (RN-18.2) e incrementa **1×/dia** no máximo (RN-18.3).
 - [ ] A sequência **zera** quando um dia de calendário se encerra sem registro (RF-GAM-03, RN-18.4); sem recuperação retroativa (RN-18.5).
 - [ ] **Sequência atual** e **maior alcançada** aparecem corretamente; a maior é preservada quando a atual zera (RF-GAM-02, RN-18.6).
-- [ ] Atualização é idempotente; se o evento for aprovado, também cobre retentativa/DLQ.
+- [ ] Consumo é idempotente e cobre retentativa/DLQ.
 - [ ] Zeramento derivado usa o último fuso registrado e não cria job próprio.
 - [ ] A sequência funciona no app **em DES**.
 
@@ -68,7 +68,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [ ] Código (backend `leitura`, mobile) mergeado em `desenvolvimento`
 - [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
 - [ ] Testes unitários e de integração com banco real/container: página lida, 1×/dia, mudança/último fuso, zeramento por dia vazio, maior sequência e idempotência (RNF-TST-02)
-- [ ] Com evento aprovado, testes cobrem duplicação/DLQ; na alternativa local, integração cobre repetição sem segundo efeito (RNF-TST-02/03)
+- [ ] Testes cobrem consumo duplicado, retentativa e DLQ (RNF-TST-02/03)
 - [ ] Testes mobile cobrem exibição da sequência e indisponibilidade/timeout com API simulada (RNF-TST-04/06)
 - [ ] **Spec OpenAPI de `leitura` atualizado em `docs/api/leitura.yaml`** com o endpoint de sequência
 - [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
@@ -78,12 +78,15 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 ## Pendências
 
 - **Depende de** [F-PRG](../periodo-1/feature-F-PRG.md) (`progresso.registrado` **com data local persistida** — RN-18.2), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md), [P0-MSG](../periodo-0/feature-P0-MSG.md).
-- **Divergência de baseline — fluxo candidato:** `progresso.registrado` está em §7.2 como **candidato** ("sequência diária"), **não** entre os seis fechados (arch §5.2). Promover nos documentos-mestre **ou** definir integração alternativa antes de implementar; não alterar a baseline silenciosamente.
+- **Decisão do dono:** definir se progresso capturado offline no dia correto e sincronizado após o zeramento recompõe a sequência; não confundir com registro retroativo manual, que é proibido.
+- **Alternativa a avaliar, sem mudar o desenho atual:** derivar sequência diretamente das datas locais de progresso e adicionar cache apenas se houver necessidade medida.
 - **Fronteira:** **calendário de dias com progresso** (RF-GAM-04) e **lembrete push** (RF-GAM-05, depende de push/P-04) são Opcionais → **F-GAM-OPC** (Período 3).
 - **Compartilha `leitura`** com as demais features de leitura — sinalizar no grupo (plano §6). A sequência é limpa por [F-CONTA-2](feature-F-CONTA-2.md) na exclusão.
 - Stack de `leitura` ainda pendente (P0-INFRA).
 
 ## Timeline
+
+### Revisão 01/09/2026: `progresso.registrado` aprovado; chegada tardia offline registrada para decisão do dono e derivação direta mantida apenas como alternativa de avaliação.
 
 ### Criação 28/08/2026: arquivo criado a partir do escopo de F-GAM no [periodo-2/README.md](README.md), de RF-GAM-01/02/03 do [`REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.12 e da RN-18. Streak medido em dias com leitura pela data local de F-PRG; consumo de `progresso.registrado` marcado como fluxo candidato de §7.2 (pendência de baseline); calendário e lembrete push adiados ao Período 3.
 

@@ -31,7 +31,7 @@ Template em `../../orquestador/plano-de-projeto.md` §9. As **regras de implemen
 | Contrato | Produtor/dono | Consumidor | Situação no Período 3 |
 |---|---|---|---|
 | `v_livro_recomendacao_v1` | `acervo` | `social` / F-REC-ALG | previsto no DER e em `docs/4.modelagem.md` §4.2 como item do Período 3; **conteúdo a fechar com `acervo` no arquivo de F-REC-ALG, antes da migration** |
-| `sequencia.lembrete` | `leitura` / F-GAM-OPC | `social` / extensão do consumidor de F-NOT | contrato proposto; **não** consta nos seis fluxos fechados de mensageria — F-NOT exige nome, schema, chave, consumidor e DLQ antes de ativar o tipo |
+| `sequencia.lembrete` | `leitura` / F-GAM-OPC | `social` / extensão do consumidor de F-NOT | contrato futuro ainda não aprovado; F-GAM-OPC deve fechar nome, schema, chave, consumidor e DLQ antes de ativar o tipo |
 | entrega push (FCM Android) | `social` / F-NOT-OPC | — | a arquitetura §5.2 já prevê o consumidor como "social (+ FCM em Android)"; novo é o **registro de dispositivo**, não o fluxo |
 | mapa tipo→categoria de notificação | `social` / F-NOT-OPC | — | **PENDENTE** no DER; F-NOT-OPC propõe o agrupamento dos 12 tipos, o grupo decide, e só então a migration do enum sobe |
 | suspensão de conta | `social` / F-MOD-OPC | `identidade` | comando autenticado proposto, no mesmo desenho da remoção de resenha de F-MOD; depende de decisão de baseline |

@@ -1,7 +1,7 @@
 # Documento de Arquitetura de Software
 
-**Versão:** v1.1 — 26/08/2026
-**Status:** macroarquitetura fechada — permanecem pendentes para o período-0 a alocação de stack por serviço e o mecanismo de garantia durável de RNF-ERR-10
+**Versão:** v1.2 — 01/09/2026
+**Status:** macroarquitetura fechada — permanece pendente para o período-0 a alocação de stack por serviço
 
 > Este documento descreve **como o sistema é construído**. O *o que* mora em `docs/orquestador/REQUISITOS.md`, que continua sendo a fonte de verdade. Em caso de conflito, o `REQUISITOS.md` vence, e a divergência segue o controle de mudança do `docs/orquestador/plano-de-projeto.md` §3.
 
@@ -60,7 +60,7 @@ O acervo permanece no PostgreSQL — e não em banco de documentos — porque é
 
 **Decisão.** **GitHub Actions com `schedule`** como agendador dos jobs diários. Fallback: **cron-job.org**.
 
-**Justificativa.** Os Cron Jobs do Render são pagos e indisponíveis no free tier. O GitHub Actions já existe no repositório, é versionado e auditável, e o `schedule` cobre bem os dois jobs diários — verificação de inatividade de leituras (RN-05, RF-EST-11/12) e delta de ingestão —, que o próprio `docs/orquestador/REQUISITOS.md` descreve como tolerantes a imprecisão de horário. O job dispara uma chamada autenticada a um endpoint interno do serviço responsável (leitura, para inatividade; acervo, para o delta).
+**Justificativa.** Os Cron Jobs do Render são pagos e indisponíveis no free tier. O GitHub Actions já existe no repositório, é versionado e auditável, e o `schedule` cobre bem os três jobs diários — verificação de inatividade de leituras (RN-05, RF-EST-11/12), exclusão definitiva de contas após 30 dias (RN-23) e delta de ingestão —, que o próprio `docs/orquestador/REQUISITOS.md` descreve como tolerantes a imprecisão de horário. O job dispara uma chamada autenticada ao serviço responsável.
 
 **Consequências aceitas / riscos.**
 
@@ -154,6 +154,7 @@ Sem essa regra, o schema por serviço degenera em banco compartilhado e a divis�
 - Operações de escrita aceitam **chave de idempotência** (RNF-ERR-04); retentativa não duplica registro.
 - Cada serviço só cria migration das tabelas do **seu** schema; migration é revisada por humano antes de subir (plano §5).
 - Acesso sempre por consultas parametrizadas ou ORM (RNF-SEC-12).
+- Cada schema produtor mantém uma **outbox transacional**. A alteração de domínio e o evento são gravados na mesma transação; um dispatcher publica com confirmação do broker e retry, fechando RNF-ERR-10 sem transformar falha de publicação em falha da operação síncrona.
 
 ### 4.4 Firebase
 
@@ -174,15 +175,21 @@ Os fluxos assíncronos de `REQUISITOS.md` §7.2 e seus serviços produtores/cons
 | Fluxo | Evento(s) | Produtor | Consumidor |
 |---|---|---|---|
 | **Notificações in-app** | `seguidor.novo`, `solicitacao.*`, `atividade.curtida`, `atividade.comentada`, `comentario.respondido`, `usuario.mencionado`, `resenha.curtida`, `leitura.em_risco`, `leitura.expirada` | identidade, leitura, social | social (+ FCM em Android) |
-| **Expiração de leituras** | `leitura.em_risco`, `leitura.expirada` | leitura (job diário) | leitura, social |
+| **Expiração de leituras** | `leitura.em_risco`, `leitura.expirada` | leitura (job diário) | social |
 | **Ingestão de livros** | `livro.importacao_solicitada` | acervo | acervo |
-| **Cache de capas** | `livro.adicionado_a_estante` | leitura | acervo |
+| **Cache de capas e remoção de recomendações** | `livro.adicionado_a_estante` | leitura | acervo, social |
 | **Busca de sinopse** | `livro.pagina_aberta` | acervo | acervo |
 | **Nota agregada** (§3.2) | `nota.alterada` | leitura | acervo |
+| **Atividades do feed** | `leitura.iniciada`, `leitura.retomada`, `leitura.finalizada`, `leitura.abandonada`, `resenha.publicada`, `resenha.excluida` | leitura | social |
+| **Estatísticas, desafios e streak** | `progresso.registrado`, `leitura.finalizada` | leitura | leitura |
+| **Exclusão definitiva de conta** | `conta.excluida` | identidade | leitura, social, acervo |
+| **Recomendação recebida** | `recomendacao.recebida` | social | social |
+
+`livro.adicionado_a_estante` passa a ter dois consumidores: `acervo`, para cache de capa, e `social`, para remover recomendações recebidas do livro.
 
 Todo consumidor é idempotente e tolera duplicação (RNF-ERR-06); falha após o máximo de tentativas vai para DLQ (RNF-ERR-07). Mensagens são validadas por schema antes do processamento (RNF-SEC-32).
 
-Filas duráveis, *publisher confirms* e DLQ protegem apenas mensagens já recebidas pelo broker; a janela entre o commit no banco e a publicação continua sem garantia. O mecanismo de reprocessamento durável exigido por RNF-ERR-10 permanece pendente de decisão no período-0, portanto esta arquitetura ainda não afirma conformidade garantida com esse requisito.
+Filas duráveis, *publisher confirms* e DLQ protegem mensagens já recebidas pelo broker. A janela anterior ao broker é coberta pela outbox transacional: o evento permanece no PostgreSQL até a confirmação da publicação, com retry seguro e observável.
 
 ### 5.3 Resiliência
 
@@ -224,7 +231,7 @@ Ambientes conforme o plano §4: local (branch de banco por dev), DES/HML (branch
 | P-11 | Spring + NestJS; alocação por serviço pendente | RNF-ARQ-02 | §2.1 |
 | P-12 | 4 serviços; PostgreSQL/Neon, schema por serviço | RNF-ARQ-02, RNF-ARQ-07 | §2.2, §3, §4 |
 | P-06 | RabbitMQ (CloudAMQP) | §7.2, RNF-ARQ-06 | §2.3, §5.2 |
-| P-08 | GitHub Actions `schedule` (fallback cron-job.org) | RNF-ARQ-09, RF-EST-11/12 | §2.4 |
+| P-08 | GitHub Actions `schedule` (fallback cron-job.org) | RNF-ARQ-09, RF-EST-11/12, RN-23 | §2.4 |
 | P-09 | Cloudinary | RF-ACV-08, RF-ACV-17, RF-SOC-01, RN-14 | §2.5 |
 | P-02 | Brevo | RF-AUT-04 | §2.6 |
 | P-04 | FCM (Android) + in-app (iOS) | RF-NOT-07 | §2.7 |
@@ -237,4 +244,3 @@ Nenhuma decisão remove requisito do escopo. As duas que o `REQUISITOS.md` marca
 - Limites vigentes dos planos gratuitos de Cloudinary, CloudAMQP, Brevo e Neon.
 - Emissão de push FCM em dispositivo Android real de demonstração (P-04).
 - Alocação de Spring e NestJS entre os quatro serviços, sem alterar a decomposição definida (§2.1).
-- Mecanismo de garantia durável entre commit e publicação para cumprir RNF-ERR-10 (§5.2).

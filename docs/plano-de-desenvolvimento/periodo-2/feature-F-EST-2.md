@@ -74,8 +74,12 @@ Favoritos e histórico permanecem recursos do próprio usuário neste escopo; a 
 - **Depende de** [F-EST](../periodo-1/feature-F-EST.md) (estante, máquina de estados e favorito adiado), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md).
 - **Compartilha `leitura` com [F-EST](../periodo-1/feature-F-EST.md)/[F-PRG](../periodo-1/feature-F-PRG.md)/[F-AVA](../periodo-1/feature-F-AVA.md)** e será limpo por [F-CONTA-2](feature-F-CONTA-2.md) na exclusão — sinalizar no grupo antes de mexer no serviço (plano §6).
 - Stack de `leitura` ainda pendente (P0-INFRA).
+- **Decisão do dono:** definir se duas conclusões/releituras do mesmo livro no mesmo ano aparecem como duas ocorrências históricas ou uma entrada consolidada; o modelo suporta ambas sem migration nova.
+- **Alternativa a avaliar, sem mudar o desenho atual:** reutilizar uma única ação/componente de favorito nos pontos de entrada antes de duplicar estado entre telas.
 
 ## Timeline
+
+### Revisão 01/09/2026: múltiplas conclusões do mesmo livro no mesmo ano registradas como decisão de apresentação/consulta do dono da feature.
 
 ### Criação 28/08/2026: arquivo criado a partir do escopo de F-EST-2 no [periodo-2/README.md](README.md), de RF-EST-09/10 do [`REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.3 e das RN-04/RN-08/RN-15. Completa o check SEC-07 de favoritar que [F-EST](../periodo-1/feature-F-EST.md) deixou para cá; naquele momento, a modelagem do favorito ficou como decisão a fixar.
 

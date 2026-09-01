@@ -53,6 +53,8 @@ Todas as escritas aceitam `Idempotency-Key` conforme a convenção do [README do
 
 **Middleware de auth** — herdado de P0-NAV: valida o token de acesso, injeta a identidade, `401` quando ausente/inválido; serviço **stateless** (RNF-ARQ-04). Falhas de autenticação e autorização são **logadas** (SEC-35), nunca com senha/token/hash (SEC-36).
 
+[F-CONTA-2](../periodo-2/feature-F-CONTA-2.md) estende o login: conta com exclusão pendente recebe acesso restrito somente a `POST /me/conta/cancelar-exclusao`, sem refresh token nem acesso às demais rotas.
+
 **Modelo de dados** (schema `identidade`, migration revisada por humano — plano §5):
 - `usuario` (herdado de P0-NAV; confirmar campos: e-mail, username único, nome de exibição, data de nascimento, hash de senha, privacidade default, timestamps).
 - `refresh_token` — id opaco não sequencial (SEC-05), dono, hash do token, revogado/expiração, timestamps.
@@ -111,8 +113,11 @@ Todas as escritas aceitam `Idempotency-Key` conforme a convenção do [README do
 - Biblioteca de JWT e de secure storage (mobile) a fixar no arranque; stack do serviço (`identidade`) ainda pendente (Spring vs NestJS — P0-INFRA).
 - **Decisão bloqueante do envio de e-mail:** o fluxo é candidato assíncrono em §7.2, mas não foi aprovado. Antes de implementar, o grupo deve escolher entre aceite durável assíncrono (por exemplo, outbox/worker) ou chamada síncrona. Em ambos, `forgot` preserva `202` uniforme; no modo síncrono, falha do Brevo fica apenas em log/métrica e o usuário pode repetir a solicitação, pois expor `503` somente para conta existente violaria SEC-28. A escolha e o tratamento da tensão com a mensagem clara de RNF-ERR-08 devem ser registrados pelo controle de mudança.
 - Compartilhamento do serviço `identidade` com [F-PERFIL](feature-F-PERFIL.md): sinalizar no grupo antes de mexer no modelo `usuario` (plano §6).
+- **Depende futuramente de F-CONTA-2:** preservar um ponto de extensão no login/middleware para o acesso restrito de recuperação de conta, sem antecipar sua implementação no Período 1.
 
 ## Timeline
+
+### Revisão 01/09/2026: extensão de login restrito para recuperação de conta em F-CONTA-2 registrada, sem ampliar o escopo do Período 1.
 
 ### Revisão 28/08/2026: idempotência de escritas, resposta anti-enumeração uniforme, resiliência do Brevo, política de privacidade nas duas plataformas e testes obrigatórios explicitados. A topologia de e-mail e a contradição RF-AUT-07 × RNF-SEC-41 foram registradas como decisões de baseline, sem reclassificação autônoma.
 

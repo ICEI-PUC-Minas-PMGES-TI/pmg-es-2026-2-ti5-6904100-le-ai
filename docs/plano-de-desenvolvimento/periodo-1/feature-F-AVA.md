@@ -34,14 +34,15 @@ RNF atendidos: **RNF-SEC-02** (propriedade no servidor), **RNF-SEC-13** (valida�
 Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + correlation-id e mensagens pt-BR. Operações **síncronas** (§7.2: criação de nota e de resenha não são assíncronas; confirmam ao autor, evento publicado após a escrita). Valida **propriedade** (SEC-02), **esquema** (SEC-13) e livro/tipo/dono por `v_livro_referencia_v1`, sem ler tabela crua de `acervo`. IDs não sequenciais (SEC-05). PUT e DELETE aceitam `Idempotency-Key`.
 
 - **`PUT /livros/{id}/nota`** (RF-AVA-01, RN-06) — cria/atualiza a nota do leitor para o livro. Valores permitidos: **0; 0,5; 1; … 5** (passos de 0,5) — fora da escala → `422`. **Uma nota por usuário por livro**, editável. `DELETE /livros/{id}/nota` remove com confirmação no cliente (RNF-USA-04). Ambas publicam **`nota.alterada`** (§5.2) para a projeção em `acervo`, distinguindo operação `upsert | delete`.
-- **`PUT /livros/{id}/resenha`** (RF-AVA-02, RF-AVA-03, RN-07) — cria/atualiza **uma resenha por usuário por livro**, editável, **não** dependente de leitura concluída. **Texto cru**, limite **5.000 caracteres** contados sobre o texto (RN-07); armazenado como texto (renderizado no cliente com escape — SEC-14). Marcação de **spoiler** opcional e reversível (RF-AVA-03). `DELETE /livros/{id}/resenha` exclui (RF-AVA-04, confirmação no cliente — RNF-USA-04).
+- **`PUT /livros/{id}/resenha`** (RF-AVA-02, RF-AVA-03, RN-07) — cria/atualiza **uma resenha por usuário por livro**, editável, **não** dependente de leitura concluída. **Texto cru**, limite **5.000 caracteres** contados sobre o texto (RN-07); armazenado como texto (renderizado no cliente com escape — SEC-14). Marcação de **spoiler** opcional e reversível (RF-AVA-03). `DELETE /livros/{id}/resenha` exclui fisicamente após modal irreversível (RF-AVA-04, RNF-USA-04).
 - **`GET /livros/{id}/minha-avaliacao`** — retorna a nota e a resenha atuais do usuário autenticado para preencher edição em nova sessão; ausência de uma delas é representada como ausente, nunca como valor vazio inventado.
 - **Livro pessoal:** apenas o **dono** escreve nota/resenha (RN-03); a resenha do dono é visível a terceiros que cheguem por feed/lista (RN-15) — as **reações e denúncias** a essa resenha são do Período 2 ([F-AVA-2](../periodo-2/README.md)/F-MOD).
 - **`GET /perfis/{usuarioId}/resenhas?page=`** — composição paginada de RF-SOC-02. Combina `v_perfil_referencia_v1` e `v_seguimento_aceito_v1`: perfil privado exige próprio usuário ou seguidor aceito (RN-08, SEC-03).
 
 **Eventos produzidos:**
 - `nota.alterada` (§5.2): payload versionado com autor, livro, operação `upsert | delete`, valor quando aplicável e chave de negócio usuário+livro. É o caminho **incremental** da projeção após o backfill inicial de F-ACV-NOTA.
-- `resenha.publicada`: emitido somente na primeira publicação, não em edição, com autor e snapshot mínimo de usuário/livro, resenha, spoiler e chave do fato. [F-FEED](feature-F-FEED.md) cria a atividade; esta feature termina na publicação conforme o contrato.
+- `resenha.publicada`: emitido na criação, não em edição, com autor e snapshot mínimo de usuário/livro, resenha, spoiler e chave do fato. Após exclusão, uma nova resenha é nova criação e gera novo id/evento.
+- `resenha.excluida`: emitido na exclusão física com `resenhaId`, autor, livro e chave do fato; [F-FEED](feature-F-FEED.md) remove a atividade antiga e suas interações. Os dois eventos são gravados pela outbox.
 
 **VIEWs expostas por `leitura`** (arquitetura §4.2), com nomes distintos das tabelas:
 - `v_resenha_publicacao_v1` — consumida pela página de livro oficial e pela página autorizada de livro pessoal em `acervo`; contém autor suficiente para aplicar RN-08/RN-15.
@@ -65,9 +66,9 @@ O feed não consome VIEW de resenha; consome exclusivamente `resenha.publicada`.
 - [ ] Resenha é **uma por usuário+livro**, editável, **texto cru ≤5.000** (RN-07), **sem** exigir leitura concluída.
 - [ ] `minha-avaliacao` recupera nota/resenha atuais para edição e respeita propriedade.
 - [ ] **Spoiler** marca/desmarca e a resenha é exibida oculta até revelar (RF-AVA-03).
-- [ ] Excluir resenha funciona com confirmação (RF-AVA-04, RNF-USA-04).
+- [ ] Excluir resenha é físico, usa confirmação irreversível e publica `resenha.excluida`; recriar gera nova resenha e nova atividade (RF-AVA-04, RNF-USA-04).
 - [ ] Remover nota exige confirmação; PUT/DELETE repetidos com a mesma chave não repetem efeitos (RNF-USA-04, RNF-ERR-04).
-- [ ] `nota.alterada` distingue upsert/delete e alimenta incrementalmente a projeção após backfill; `resenha.publicada` ocorre apenas na primeira publicação. Os efeitos consumidores são aceitos em F-ACV-NOTA/F-FEED.
+- [ ] `nota.alterada` distingue upsert/delete e alimenta incrementalmente a projeção após backfill; criação/exclusão publicam `resenha.publicada`/`resenha.excluida`. Os efeitos consumidores são aceitos em F-ACV-NOTA/F-FEED.
 - [ ] As VIEWs permitem à página autorizada de livro pessoal mostrar somente nota/resenha do dono; `v_resenha_publicacao_v1` também atende a página oficial sob RN-08. Nenhuma alimenta o feed.
 - [ ] Resenhas do perfil são paginadas e negadas server-side a não seguidor de perfil privado (RNF-DES-02, SEC-03).
 - [ ] Em **livro pessoal**, só o dono escreve nota/resenha (RN-03).
@@ -95,7 +96,6 @@ O feed não consome VIEW de resenha; consome exclusivamente `resenha.publicada`.
 - **Compartilha `leitura` com [F-EST](feature-F-EST.md) e [F-PRG](feature-F-PRG.md)** — sinalizar no grupo antes de mexer no serviço (plano §6).
 - **Ficam fora (Período 2):** curtir/descurtir e contadores de resenha (RF-AVA-05/08), frases/trechos (RF-AVA-06/07, RN-11), **Markdown** (RF-AVA-09, RN-13) — todos **F-AVA-2**. No Período 1 a resenha é **texto puro**; nada de parser Markdown ainda.
 - A **projeção nota dos leitores** e a **nota geral** (RF-ACV-15/16) são **F-ACV-NOTA** (Período 2). Antes de consumir novos `nota.alterada`, essa feature deve fazer backfill de `v_nota_publicacao_v1`, pois eventos do Período 1 não são presumidos retidos.
-- **Evento de atividade:** `resenha.publicada` é necessário ao snapshot de F-FEED, mas não consta entre os seis fluxos fechados em `REQUISITOS.md` §7.2/arquitetura §5.2. Aprovar sua inclusão nos documentos-mestre ou definir integração alternativa antes de implementar.
 - Stack de `leitura` ainda pendente (P0-INFRA).
 
 - **Prompts de tela em [`docs/design/periodo-1/F-AVA/`](../../design/periodo-1/F-AVA/):** `avaliar-livro.md` e `escrever-resenha.md`. **A exibição da nota e das resenhas não tem prompt próprio:** ela é elemento que esta feature acrescenta a [`F-ACV-BUSCA/pagina-do-livro.md`](../../design/periodo-1/F-ACV-BUSCA/pagina-do-livro.md), incluindo o estado de resenha de terceiro com spoiler oculto, conforme a regra de recorte do [`docs/design/AGENTS.md`](../../design/AGENTS.md) §2.
@@ -104,6 +104,8 @@ O feed não consome VIEW de resenha; consome exclusivamente `resenha.publicada`.
 - **A área de texto da resenha é exceção declarada ao input do design §4.2:** sem borda e sem fundo próprio, em Newsreader, ocupando o corpo da tela. O §4.2 define o campo curto com borda e fundo `papel-elevado`, que não serve a texto de 5.000 caracteres.
 
 ## Timeline
+
+### Revisão 01/09/2026: exclusão física de resenha e `resenha.excluida` aprovados; recriação gera novo registro e nova atividade, com publicação pela outbox.
 
 ### Revisão 28/08/2026: VIEWs foram renomeadas e tiveram consumidores delimitados; `nota.alterada` e `resenha.publicada` receberam semântica única. Foram adicionados contrato de livro, perfil paginado sob RN-08, confirmação de remoção de nota e idempotência; testes de publisher foram separados dos testes de consumo/DLQ.
 

@@ -52,7 +52,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 **Aba unificada (RF-REC-13/14):** a **aba Recomendações** apresenta a seção **P2P** (recebidas) em seção rotulada e **funciona sem** a recomendação algorítmica (RF-REC-14); a shell é construída para acomodar a seção algorítmica quando ela existir (F-REC-ALG).
 
-**Evento produzido e consumido:** **`recomendacao.recebida`** (RF-REC-02, RF-NOT-01). Payload versionado com `recomendacaoId`, `destinatarioId`, remetente, livro, mensagem opcional, `eventId`, `occurredAt`, `correlationId` e chave semântica `recomendacaoId`. Após a aprovação do contrato de baseline, F-REC-P2P publica depois da escrita e acrescenta ao consumidor de [F-NOT](../periodo-1/feature-F-NOT.md) o mapeamento que grava a notificação, com schema, idempotência e DLQ. Um novo envio após descarte/expiração cria novo id e pode notificar; reentrega do mesmo fato não duplica.
+**Evento produzido e consumido:** **`recomendacao.recebida`** (RF-REC-02, RF-NOT-01), contrato aprovado. É gravado na outbox após cada recomendação criada e consumido por F-NOT com schema, idempotência e DLQ. Novo envio após descarte/expiração cria novo id; reentrega do mesmo fato não duplica.
 
 **Eventos consumidos:** `livro.adicionado_a_estante` (para RF-REC-16).
 
@@ -92,19 +92,21 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [ ] Arquivo da feature atualizado: status, pendências, timeline
 - [ ] Divergência protótipo × implementação registrada, se houver
 
-**Item próprio:** propor o contrato de `recomendacao.recebida` e o novo consumidor de `livro.adicionado_a_estante`; se aprovados, entregar produtor e consumidor de notificação na própria feature.
+**Item próprio:** entregar o contrato aprovado de `recomendacao.recebida`, seu consumidor de notificação e o novo consumo de `livro.adicionado_a_estante` por `social`.
 
 ## Pendências
 
 - **A "aba Recomendações" de RF-REC-13 é uma SEÇÃO dentro da aba `Descobrir`, não um item de navegação.** Decidido em 01/09/2026 junto da criação de `Descobrir` ([P0-NAV](../periodo-0/feature-P0-NAV.md)): a barra inferior tem quatro itens (Estante, Descobrir, Feed, Perfil) e esse é o teto. Um quinto item apertaria o rótulo em `caption` no mobile e fragmentaria descoberta em duas áreas que fazem a mesma coisa. RF-REC-13 pede que a aba "reúna as fontes em seções distintas" e RF-REC-14 que ela funcione só com P2P: as duas exigências são atendidas por uma seção rotulada dentro de `Descobrir`, que hoje aterrissa quase vazia ([`descobrir.md`](../../design/periodo-1/F-ACV-BUSCA/descobrir.md) §4.6). **Se o grupo preferir aba própria**, a decisão volta pelo plano §3 e o impacto é o shell replicado em seis prompts de design.
 - **Depende de** [F-PERFIL](../periodo-1/feature-F-PERFIL.md) (mútuo), [F-EST](../periodo-1/feature-F-EST.md) (`v_estante_publica_v1`, `livro.adicionado_a_estante`), [F-ACV-BUSCA](../periodo-1/feature-F-ACV-BUSCA.md)/[F-ACV-CADASTRO](../periodo-1/feature-F-ACV-CADASTRO.md) (`v_livro_referencia_v1`, página do livro), [F-NOT](../periodo-1/feature-F-NOT.md) (consumo da notificação), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md), [P0-MSG](../periodo-0/feature-P0-MSG.md).
-- **Divergência de baseline — evento de notificação:** `recomendacao.recebida` é exigido por RF-REC-02/RF-NOT-01, mas **não** consta entre os seis fluxos fechados de §7.2. Conforme a disciplina de [F-NOT](../periodo-1/feature-F-NOT.md), definir nome/schema/chave/produtor/consumidor/DLQ e **propor inclusão nos documentos-mestre** pelo controle de mudança antes de estender o consumidor.
-- **Divergência de baseline — novo consumidor:** a arquitetura §5.2 lista só `acervo` como consumidor de `livro.adicionado_a_estante`; adicionar `social` (para RF-REC-16) deve ser refletido na matriz de mensageria.
+- **Decisões do dono:** definir semântica de falha parcial e formato de resposta por destinatário no envio múltiplo, além dos limites de destinatários e caracteres da mensagem.
+- **Alternativa a avaliar, sem mudar o desenho atual:** aplicar expiração apenas por `expira_em` nas consultas e adiar a remoção física para manutenção, sem job próprio da feature.
 - **Fronteira:** recomendação **algorítmica** (RF-REC-08..12), **motivo/aba algorítmica** e **descarte em lote** (RF-REC-17, RN-22.12/13) são Opcionais → **F-REC-ALG** (Período 3); a **decisão de opt-out** de leituras nas recomendações (§10.7) é pendência do período-0/grupo.
 - **Compartilha `social`** com as demais features sociais; recomendações limpas por [F-CONTA-2](feature-F-CONTA-2.md) na exclusão — sinalizar no grupo (plano §6).
 - Stack de `social` ainda pendente (P0-INFRA).
 
 ## Timeline
+
+### Revisão 01/09/2026: `recomendacao.recebida` e consumo de `livro.adicionado_a_estante` por `social` aprovados; falha parcial/limites ficaram como decisões do dono.
 
 ### Criação 28/08/2026: arquivo criado a partir do escopo de F-REC-P2P no [periodo-2/README.md](README.md), de RF-REC-01..07/13/14/15/16 do [`REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.13 e da RN-22/§10.8. Modelo sem aceitação, quatro vias de remoção e limite de 50 fixados; `recomendacao.recebida` e o novo consumo de `livro.adicionado_a_estante` registrados como pendências de baseline; algorítmica e descarte em lote adiados ao Período 3.
 

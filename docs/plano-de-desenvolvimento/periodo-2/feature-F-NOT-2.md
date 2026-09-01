@@ -72,12 +72,15 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 - **Depende de** [F-NOT](../periodo-1/feature-F-NOT.md) (criação de notificação e lista/fallback), [F-AUT](../periodo-1/feature-F-AUT.md) (autenticação do canal), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md).
 - **Decisão de transporte:** WebSocket × SSE — fixar considerando o plano gratuito do Render (hibernação, conexões) e o cliente Flutter; registrar.
+- **Alternativa a avaliar:** preferir SSE se a validação no Render/Flutter confirmar suporte adequado, pois o fluxo é somente servidor → cliente; WebSocket permanece opção válida até o teste.
 - **Backplane:** desnecessário em instância única; se o serviço escalar, o fan-out às conexões exige um pub/sub — registrado como consideração, não implementado.
 - **Sem evento/tipo novo:** não estende o mapa de mensageria — sem divergência de baseline; a entrega é transporte sobre a notificação já criada por [F-NOT](../periodo-1/feature-F-NOT.md).
 - **Push FCM** (RF-NOT-07) e **preferências** (RF-NOT-05) permanecem no Período 3.
 - Stack de `social` ainda pendente (P0-INFRA).
 
 ## Timeline
+
+### Revisão 01/09/2026: SSE registrado como alternativa preferencial a avaliar, sem antecipar a decisão técnica de transporte.
 
 ### Criação 28/08/2026: arquivo criado a partir do escopo de F-NOT-2 no [periodo-2/README.md](README.md) e de RF-NOT-06 do [`REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.10. Entrega em tempo real fixada como camada de transporte sobre a notificação de F-NOT (sem evento novo), com fallback à lista e reconexão no cold start; escolha WS × SSE e viabilidade no Render registradas como pendências.
 

@@ -87,8 +87,12 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Coordenar com `acervo`** o handler de `?via=lista` na página de livro pessoal, espelhando o de `?via=feed`.
 - **Compartilha `social`** com as demais features sociais e é limpo por [F-CONTA-2](feature-F-CONTA-2.md) na exclusão — sinalizar no grupo (plano §6).
 - Stack de `social` ainda pendente (P0-INFRA).
+- **Decisão do dono:** fixar limites de título/descrição e o comportamento de adicionar novamente livro já presente antes da migration.
+- **Alternativa a avaliar, sem mudar o desenho atual:** retornar metadados e primeira página de itens no detalhe da lista e usar controles acessíveis de ordem antes de exigir drag-and-drop.
 
 ## Timeline
+
+### Revisão 01/09/2026: limites de entrada/duplicidade registrados para o dono e alternativa de API/reordenação mantida apenas para avaliação.
 
 ### Criação 28/08/2026: arquivo criado a partir do escopo de F-LST no [periodo-2/README.md](README.md), de RF-LST-01..06 do [`REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.6 e das RN-15/RN-08. Segunda via de RN-15 (lista do dono) fixada com `v_lista_livro_pessoal_v1`, espelho da via feed de F-FEED; fecha a composição de listas de RF-SOC-02 pendente em F-PERFIL.
 

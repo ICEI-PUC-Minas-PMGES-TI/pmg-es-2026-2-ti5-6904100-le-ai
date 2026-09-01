@@ -34,7 +34,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 - **CRUD (RF-DSF-01/04):** `POST /desafios` (unidade `paginas|minutos|livros`, janela `diaria|semanal|mensal|anual`, valor-alvo), `PATCH /desafios/{id}` (editar), `POST /desafios/{id}/pausar` (e retomar), `DELETE /desafios/{id}`. Vários desafios ativos simultâneos por usuário (RN-20).
 - **Progresso da janela corrente (RF-DSF-03):** `GET /desafios` — cada desafio com o acumulado da **janela corrente** e o alvo; paginado (RNF-DES-02).
-- **Atualização por eventos (RF-DSF-02/06):** se os fluxos candidatos forem aprovados, consome **`progresso.registrado`** (páginas/minutos e data local persistida) e **`leitura.finalizada`** (livro e data de fim local), de [F-PRG](../periodo-1/feature-F-PRG.md)/[F-EST](../periodo-1/feature-F-EST.md). Esses campos posicionam o fato na janela de calendário de RN-20. Consumidor idempotente por fato e com DLQ; enquanto a promoção não for aprovada, o mesmo efeito pode ser chamado localmente após a transação, pois tudo vive em `leitura`.
+- **Atualização por eventos (RF-DSF-02/06):** consome os contratos aprovados **`progresso.registrado`** e **`leitura.finalizada`**. Os campos de data/fuso posicionam o fato na janela de calendário. Consumidor idempotente por fato e com DLQ; backfill cobre fatos anteriores.
 
 **Regras de RN-20:**
 - Janelas são de **calendário** (não períodos móveis) no **fuso do dispositivo** (RN-20.1), como em RN-18.
@@ -54,7 +54,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 ## Critérios de aceite
 
 - [ ] Criar múltiplos desafios com qualquer combinação de **unidade × janela × alvo** (RF-DSF-01, RN-20).
-- [ ] Desafios atualizam a cada progresso/finalização; com eventos aprovados, consumidor é idempotente + DLQ; sem promoção, o efeito local no mesmo serviço produz o mesmo resultado (RF-DSF-02/06).
+- [ ] Desafios atualizam a cada progresso/finalização; consumidor é idempotente + DLQ e o backfill cobre fatos anteriores (RF-DSF-02/06).
 - [ ] Uma atualização alimenta **todos** os desafios ativos compatíveis (RN-20.5).
 - [ ] Desafio criado no meio da janela **considera o já registrado** na janela (RN-20.2), via consulta ao próprio schema.
 - [ ] **Livros** contam só finalizados (releitura finalizada conta; incompleta/abandonada não — RN-20.3/RN-04); livros pessoais contam (RN-20.4).
@@ -70,7 +70,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [ ] Código (backend `leitura`, mobile) mergeado em `desenvolvimento`
 - [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
 - [ ] Testes unitários e de integração com banco real/container: janelas por data local, criação no meio da janela, finalizados, vários desafios, múltiplas pausas na janela corrente, recálculo, propriedade e idempotência (RNF-TST-02)
-- [ ] Se os eventos forem aprovados, testes cobrem duplicação/DLQ; na alternativa local, integração cobre chamada após commit e repetição sem segundo efeito (RNF-TST-02/03)
+- [ ] Testes assíncronos cobrem backfill, consumo duplicado, retentativa e DLQ (RNF-TST-02/03)
 - [ ] Testes mobile cobrem estado dos desafios e indisponibilidade/timeout com API simulada (RNF-TST-04/06)
 - [ ] **Spec OpenAPI de `leitura` atualizado em `docs/api/leitura.yaml`** com os endpoints de desafio
 - [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
@@ -80,12 +80,15 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 ## Pendências
 
 - **Depende de** [F-PRG](../periodo-1/feature-F-PRG.md) (`progresso.registrado`, unidades páginas/minutos, fuso do dispositivo), [F-EST](../periodo-1/feature-F-EST.md) (`leitura.finalizada`, máquina de estados), [F-SESSAO](feature-F-SESSAO.md) (minutos cronometrados alimentam desafios — RN-16.13), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md), [P0-MSG](../periodo-0/feature-P0-MSG.md).
-- **Divergência de baseline — fluxos candidatos:** `progresso.registrado` e `leitura.finalizada` constam em `REQUISITOS.md` §7.2 como **fluxos candidatos** ("progresso de desafios"), **não** entre os seis fluxos fechados da arquitetura §5.2. Aprovar sua promoção nos documentos-mestre **ou** definir integração alternativa (ex.: atualização síncrona intra-serviço) antes de implementar; não alterar a baseline silenciosamente.
+- **Decisões do dono:** fixar faixa do valor-alvo e tratamento de pausa que começa em uma janela e termina em outra ou atravessa mudança de fuso.
+- **Alternativa a avaliar, sem mudar o desenho atual:** calcular a janela corrente consultando progresso/leitura e persistir apenas snapshots históricos no P3.
 - **Histórico de janelas** (RF-DSF-05) é Opcional → **F-DSF-OPC** (Período 3); aqui só a janela corrente.
 - **Compartilha `leitura`** com as demais features de leitura — sinalizar no grupo (plano §6). Desafios são limpos por [F-CONTA-2](feature-F-CONTA-2.md) na exclusão.
 - Stack de `leitura` ainda pendente (P0-INFRA).
 
 ## Timeline
+
+### Revisão 01/09/2026: eventos de progresso/finalização aprovados; faixa do alvo e pausas entre janelas registradas para decisão do dono; alternativa por consulta mantida apenas para avaliação.
 
 ### Criação 28/08/2026: arquivo criado a partir do escopo de F-DSF no [periodo-2/README.md](README.md), de RF-DSF-01..04/06 do [`REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.7 e da RN-20. Janelas de calendário e consulta histórica no próprio schema fixadas; consumo de `progresso.registrado`/`leitura.finalizada` marcado como fluxo candidato de §7.2 (pendência de baseline); histórico de janelas adiado ao Período 3.
 

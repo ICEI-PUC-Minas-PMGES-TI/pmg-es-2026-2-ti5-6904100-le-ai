@@ -1,7 +1,7 @@
 # F-ACV-NOTA — Nota geral e cache de capas
 
 **Período:** 2 · **Prioridade:** desejavel
-**Dono:** a definir · **Serviços afetados:** `acervo` (backend + projeção/cache) + web
+**Dono:** a definir · **Serviços afetados:** `acervo` (backend + projeção/cache) + web + mobile
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.2 (RF-ACV-15, 16, 17), RN-06, RN-14, §10.1. Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §2.5, §3.2, §4.2, §5.2. Processo e template: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §9. Regras compartilhadas do projeto: [`../periodo-1/README.md#regras-de-implementação-compartilhadas`](../periodo-1/README.md#regras-de-implementação-compartilhadas). Em caso de conflito, o `REQUISITOS.md` ganha; protótipo é referência visual, não spec de pixel (plano §7).
 
@@ -38,9 +38,11 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
   - Capas de **livro pessoal não** passam por este fluxo (RN-14.7 — são enviadas pelo dono em [F-ACV-CADASTRO](../periodo-1/feature-F-ACV-CADASTRO.md)).
   - **Backfill inicial** dos livros já presentes em estantes a partir de **`v_estante_publica_v1`**, antes de consumir eventos novos (contrato registrado em [F-EST](../periodo-1/feature-F-EST.md)).
   A cópia própria alimenta a **resolução de capa** (ordem cópia própria → URL externa → placeholder, RN-14.4): dentro do próprio `acervo`, a página do livro de [F-ACV-BUSCA](../periodo-1/feature-F-ACV-BUSCA.md) lê a capa resolvida; para os demais serviços, a resolução é exposta por `v_livro_referencia_v1`, consumida em cross-schema pelos snapshots de feed em `social`.
-- **Import da nota geral (RF-ACV-15, RN-06):** importar da fonte externa a **nota geral** e a **quantidade de avaliações** que a originou, persistindo ambas no `Livro` oficial. Fonte primária **OpenLibrary** (`ol_dump_ratings` — cobertura medida em §10.1: 100% na amostra popular em pt, mediana 213 avaliações), Google Books (`averageRating`/`ratingsCount`) como alternativa esparsa. Executado como **etapa em lote alinhada à ingestão** ([F-ACV-INGESTAO](../periodo-1/feature-F-ACV-INGESTAO.md)), chaveada por `ol_edition_key`/obra. A nota geral é **somente leitura** (não recalculada pelo app, não afetada por avaliações de usuários — RN-06.4) e **só muda em recarga do dump ou reimportação** (RN-06.6). Escala fora de 0–5 é **convertida** na importação (RN-12); dado externo é **validado/normalizado antes de persistir** (SEC-33); **ausência é registrada como ausente, nunca como zero** (RN-06.3).
+- **Import da nota geral (RF-ACV-15, RN-06):** importar nota e quantidade de avaliações. Quando `ol_dump_ratings` fornecer avaliação por obra, `ol_work_key` associa e replica o mesmo valor externo às edições correspondentes; isso não cria entidade Obra e as notas dos leitores continuam independentes por edição. Google Books permanece alternativa esparsa. A nota é somente leitura, atualizada em recarga/reimportação, convertida para 0–5 e ausência nunca vira zero.
 
 **Exibição (RF-ACV-16, RN-06):** a página do livro passa a mostrar **nota geral** (externa) e **nota dos leitores** (média do app) como **indicadores distintos e rotulados, nunca combinados** em um único número. Regras de RN-06: um livro pode ter um sem o outro; indicador ausente é exibido como ausente (não zero); **livro pessoal não tem nenhum dos dois** — só a nota individual do dono (RN-03/RN-06.5).
+
+**Distribuição das notas do livro (RF-ACV-04):** a página também recebe o histograma dos valores dados pelos leitores, derivado por agrupamento de `nota_leitor_projecao.valor`. Não cria tabela nova e não se confunde com RF-STA-04, que distribui as notas dadas por um usuário.
 
 **Eventos consumidos:** `nota.alterada`, `livro.adicionado_a_estante`. **VIEWs consumidas** (para backfill): `v_nota_publicacao_v1` (de [F-AVA](../periodo-1/feature-F-AVA.md)) e `v_estante_publica_v1` (de [F-EST](../periodo-1/feature-F-EST.md)).
 
@@ -48,11 +50,11 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 ### Frontend Web (`code/front`)
 
-- **Página do livro** exibe os **dois indicadores** com rótulos claros ("Nota geral" × "Nota dos leitores"), cada um mostrado apenas quando existe, ausência sem placeholder de zero. Usa só os tokens de [P0-DS](../periodo-0/feature-P0-DS.md) (componente de estrelas/indicador). A resolução de capa passa a exibir a **cópia própria** quando disponível.
+- **Página do livro** exibe os dois indicadores e a distribuição das avaliações dos leitores quando existir, sem zero inventado. Usa os componentes de estrelas/indicador de P0-DS. A resolução de capa passa a exibir a cópia própria quando disponível.
 
 ### App / sistema
 
-- RF-ACV-15 e RF-ACV-17 são de sistema. A página Flutter de [F-ACV-BUSCA](../periodo-1/feature-F-ACV-BUSCA.md) recebe os mesmos dois indicadores, rótulos e estados ausentes da web.
+- RF-ACV-15 e RF-ACV-17 são de sistema. A página Flutter recebe os mesmos indicadores, distribuição e estados ausentes da web.
 
 ## Critérios de aceite
 
@@ -61,6 +63,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [ ] A **resolução de capa** passa a usar cópia própria → externa → placeholder (RN-14.4) via `v_livro_referencia_v1`.
 - [ ] A **nota geral** é importada com a quantidade de avaliações, **somente leitura**, ausência como ausente (RN-06.3), escala convertida (RN-12), dado externo validado (SEC-33).
 - [ ] A página exibe **nota geral** e **nota dos leitores** como indicadores **distintos e rotulados**, nunca combinados (RF-ACV-16, RN-06); livro pessoal não exibe nenhum dos dois.
+- [ ] Livro oficial com avaliações dos leitores exibe distribuição por valor; ausência retorna distribuição vazia, sem tabela adicional (RF-ACV-04).
 - [ ] Projeção, cache e import funcionam **em DES**.
 
 ## Definition of Done
@@ -71,8 +74,8 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
 - [ ] Testes unitários e de integração com banco real/container: criação/edição/exclusão e evento fora de ordem na projeção individual/agregada, cache único, backfills, import/normalização e indicadores ausentes (RNF-TST-02)
 - [ ] Testes assíncronos: consumo de `nota.alterada` e `livro.adicionado_a_estante` com entrega duplicada, backfill precedendo o incremento, falha de download reprocessável e DLQ (RNF-TST-03)
-- [ ] Testes web/mobile cobrem indicadores distintos, ausência sem zero e cold start (RNF-TST-04, RNF-TST-05 e RNF-TST-06)
-- [ ] **Spec OpenAPI de `acervo` atualizado em `docs/api/acervo.yaml`** com os campos de nota na página do livro; `v_livro_referencia_v1` reflete a capa resolvida
+- [ ] Testes web/mobile cobrem indicadores distintos, distribuição, ausência sem zero e cold start (RNF-TST-04/05/06)
+- [ ] **Spec OpenAPI de `acervo` atualizado em `docs/api/acervo.yaml`** com indicadores e distribuição na página do livro; `v_livro_referencia_v1` reflete a capa resolvida
 - [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
 - [ ] Arquivo da feature atualizado: status, pendências, timeline
 - [ ] Divergência protótipo × implementação registrada, se houver
@@ -82,11 +85,13 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 ## Pendências
 
 - **Depende de** [F-AVA](../periodo-1/feature-F-AVA.md) (`nota.alterada`, `v_nota_publicacao_v1`), [F-EST](../periodo-1/feature-F-EST.md) (`livro.adicionado_a_estante`, `v_estante_publica_v1`), [F-ACV-BUSCA](../periodo-1/feature-F-ACV-BUSCA.md) (página do livro e resolução de capa), [F-ACV-INGESTAO](../periodo-1/feature-F-ACV-INGESTAO.md) (chaves de dedup para o import; `v_livro_referencia_v1`), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md) e [P0-MSG](../periodo-0/feature-P0-MSG.md) (broker; Cloudinary/P-09 para o cache).
-- **Divergência de baseline — distribuição de notas do livro:** RF-ACV-04 a exibe "quando a funcionalidade correspondente existir", mas ela **não tem feature alocada** (registrado em [F-ACV-BUSCA](../periodo-1/feature-F-ACV-BUSCA.md)). Esta feature é o candidato natural, mas a distribuição **não está** entre seus RFs (15/16/17) e **não deve ser confundida** com F-STA-OPC (distribuição das notas que o **leitor** deu). Alocar pelo grupo antes de implementar; não implementar em silêncio.
-- **Fonte da nota geral:** confirmar o formato do `ol_dump_ratings` e a chave de junção com os livros carregados; a alternativa Google Books tem cobertura desconhecida (§10.1). Não bloqueia a projeção/cache.
+- **Fonte da nota geral:** confirmar o formato concreto do `ol_dump_ratings`; a semântica por obra já está decidida e usa `ol_work_key`.
+- **Alternativa a avaliar, sem mudar o desenho atual:** manter somente a projeção individual e calcular média/contagem por VIEW SQL antes de materializar `nota_livro_agregada`.
 - Stack de `acervo` ainda pendente (P0-INFRA).
 
 ## Timeline
+
+### Revisão 01/09/2026: ratings por obra passaram a ser replicados nas edições via `ol_work_key`; distribuição de notas do livro alocada nesta feature sem tabela nova; mobile corrigido no escopo.
 
 ### Criação 28/08/2026: arquivo criado a partir do escopo de F-ACV-NOTA no [periodo-2/README.md](README.md), de RF-ACV-15/16/17 do [`REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.2 e das RN-06/RN-14/§10.1. Projeção e cache ligados aos fluxos fechados `nota.alterada`/`livro.adicionado_a_estante` com backfill obrigatório pelas VIEWs de F-AVA/F-EST; a distribuição de notas sem feature foi registrada como pendência de baseline, sem alocação autônoma.
 

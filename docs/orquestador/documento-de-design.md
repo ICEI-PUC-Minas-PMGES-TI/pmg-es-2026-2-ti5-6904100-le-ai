@@ -1,6 +1,6 @@
 # Documento de Design
 
-**Versão:** v1.1 - 26/08/2026
+**Versão:** v1.2 - 01/09/2026
 **Status:** baseline de design aberta para o período-0
 
 > Este documento define **a linguagem visual e de interação** do aplicativo. Ele é a fonte de verdade de todo tema, componente, layout e prompt de protótipo. `docs/orquestador/REQUISITOS.md` continua sendo a fonte de verdade do produto; este arquivo deriva dele: nada aqui contradiz um requisito, e cada decisão de design existe para atender um ou mais requisitos funcionais ou não funcionais.
@@ -317,6 +317,7 @@ RF-ACV-16 e RN-06 exigem que os dois indicadores sejam **exibidos como distintos
 - Cada bloco tem título em `label`, nota grande em `num-display`, contagem em `caption`.
 - Ausência: texto "sem nota" em `caption` `grafite-suave`. **Nunca exibir `0.0` ou `-` para nota ausente.**
 - Livro pessoal (RN-03): componente **não aparece**. Aparece apenas a nota individual do dono, com rótulo "Nota do autor da estante".
+- Quando houver avaliações de leitores, a página exibe abaixo um histograma compacto de 0 a 5 estrelas, com meia estrela, contagem e barras em `musgo`. Ausência de avaliações omite o histograma; não se cria estado zerado decorativo.
 
 ### 4.5 Card de livro
 
@@ -585,6 +586,8 @@ Este é o "banlist" do projeto. Toda ferramenta de agente (Claude Code, Claude D
 - **Nada de ação destrutiva sem confirmação** (RNF-USA-04). Excluir conta, abandonar leitura, denunciar: todas passam por confirmação em modal.
 - **Nada de botão destrutivo primário** (fundo `rubi`). Destrutivo é outline `rubi`, para dar mais peso à confirmação.
 - **Nada de undo em ação destrutiva pesada.** Excluir conta é excluir. Abandonar uma leitura segue a máquina de estados de RN-04.
+- Excluir resenha ou comentário usa modal com título direto, consequência irreversível e acento `rubi`. Confirmada a ação, o conteúdo é removido fisicamente; não se oferece undo.
+- Conta com exclusão pendente abre somente uma tela de recuperação: informa a data da remoção definitiva e oferece `Cancelar exclusão` como única ação principal. A navegação normal permanece bloqueada até recuperar a conta.
 
 ### 7.9 Formulários
 
@@ -717,6 +720,8 @@ O nome definitivo do aplicativo é **Lê Ai**. A linguagem visual definida neste
 - **Quatro áreas de navegação fixadas na abertura da §5:** Estante, Descobrir, Feed e Perfil. O documento definia os headers tela a tela mas nunca a navegação, lacuna que o protótipo de P0-NAV vinha preenchendo por conta própria.
 - **§5.1 passou a dizer o que a lupa da estante busca:** ela filtra a estante do leitor, não o acervo. Antes o ícone estava no header sem escopo declarado, e o protótipo o tratava como porta do acervo. Isso fazia o campo de busca do header web de "Minha estante" devolver o catálogo inteiro.
 - **§5.7 Descobrir criada**, com o padrão da tela de busca do acervo. Numeração adicionada ao fim do capítulo para não renumerar §5.2 a §5.6, que já são citadas por prompts e arquivos de feature.
+- Histograma de distribuição das notas dos leitores incorporado ao componente de notas da página do livro.
+- Exclusão física de resenha/comentário ganhou confirmação irreversível; conta em exclusão pendente ganhou tela restrita de recuperação.
 - Nenhum token, valor, nome de componente ou decisão tipográfica foi alterado. Os padrões §5.2 a §5.6 seguem intactos.
 
 ### Atualização 31/08/2026

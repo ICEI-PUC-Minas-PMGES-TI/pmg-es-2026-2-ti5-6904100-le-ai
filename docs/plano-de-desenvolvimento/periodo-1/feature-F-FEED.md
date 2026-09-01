@@ -34,7 +34,7 @@ RNF atendidos: **RNF-SEC-03** (acesso a conteúdo de perfil privado validado no 
 
 Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + correlation-id e mensagens pt-BR. Acesso a dados por ORM/consulta parametrizada (SEC-12). IDs não sequenciais (SEC-05). Conteúdo do usuário tratado como texto (escape — SEC-14). Escritas aceitam `Idempotency-Key` conforme o [README do período](README.md#regras-de-implementação-compartilhadas).
 
-- **Publicação de atividade (RF-SOC-10)** — `social` consome `leitura.iniciada`, `leitura.retomada`, `leitura.finalizada`, `leitura.abandonada` e `resenha.publicada`. Os schemas versionados exigem autor, livro, tipo do fato e snapshot mínimo de nome/username/avatar, título/autor/capa. Ao consumir, grava uma `atividade` com esse snapshot (arquitetura §3.2.4). Consumidor idempotente por `eventId` e chave do fato, com validação de schema e DLQ (RNF-ERR-06/07, SEC-32). RF-SOC-10 é de sistema (Web —).
+- **Publicação de atividade (RF-SOC-10)** — `social` consome `leitura.iniciada`, `leitura.retomada`, `leitura.finalizada`, `leitura.abandonada` e `resenha.publicada`. Os schemas versionados exigem autor, livro, tipo do fato e snapshot mínimo de nome/username/avatar, título/autor/capa. Ao consumir, grava uma `atividade` com esse snapshot (arquitetura §3.2.4). `resenha.excluida` remove fisicamente a atividade da resenha e, por cascade, suas curtidas e comentários; uma nova publicação cria outra atividade. Consumidores são idempotentes por `eventId` e chave do fato, com validação de schema e DLQ.
 - **`GET /feed?page=`** (RF-SOC-09, RN-09) — feed **paginado** (RNF-DES-02) com atividades dos leitores que o usuário segue, em ordem cronológica decrescente. Usa `v_seguimento_aceito_v1`; ao deixar de seguir, as atividades somem. Combina `v_livro_referencia_v1` para não exibir atividade cujo alvo esteja ausente/inativo (RN-09). Respeita RN-08/RN-15 sem ler tabelas cruas.
 - Atividade de livro pessoal gera link para `GET /livros/pessoal/{id}?via=feed&referenciaId=<atividadeId>`. `v_atividade_livro_pessoal_v1` expõe apenas atividades ativas, seu autor/dono e o livro referenciado. `acervo` exige também que o solicitante siga o autor por `v_seguimento_aceito_v1`; perfil público não transforma atividade fora do feed do solicitante em via válida. Conhecer os ids não concede autorização.
 - **`POST /atividades/{id}/curtir`** / **`DELETE`** (RF-SOC-11) — curtir/descurtir atividade que ainda integra o feed do solicitante. O servidor revalida visibilidade por RN-08/RN-09 antes da escrita; conhecer o id não autoriza interação. Rate limiting (SEC-18).
@@ -59,7 +59,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 ## Critérios de aceite
 
 - [ ] O feed mostra, em **ordem cronológica decrescente** e **paginado**, as atividades de quem o usuário segue via `v_seguimento_aceito_v1`; ao deixar de seguir, somem; atividade de **livro excluído** não aparece via `v_livro_referencia_v1` (RN-09).
-- [ ] Início/retomada/conclusão/abandono de leitura e primeira publicação de resenha viram **atividade com snapshot**; edição de resenha não gera outra; consumidor é idempotente e usa DLQ.
+- [ ] Início/retomada/conclusão/abandono e criação de resenha viram **atividade com snapshot**; edição não gera outra; exclusão da resenha remove a atividade antiga; consumidor é idempotente e usa DLQ.
 - [ ] Curtir/descurtir funciona (uma curtida por usuário+atividade) somente enquanto a atividade estiver visível ao solicitante; rate limiting ativo (SEC-18).
 - [ ] Comentar e responder exigem atividade visível e respeitam **um nível**; resposta a resposta é irmã com destinatário derivado do comentário e `@username` pré-preenchido (RN-08, RN-09, RN-10, RF-SOC-14). Exclusão fica em F-SOCIAL-2.
 - [ ] Comentários e respostas possuem paginação/limite server-side e só são listados quando a atividade é visível (RNF-DES-02, RN-08, RN-09).
@@ -77,7 +77,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [ ] Código (backend `social`, web, mobile) mergeado em `desenvolvimento`
 - [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
 - [ ] Testes unitários e de integração com banco real/container: feed sob RN-08/RN-09/RN-15, alvo excluído, via de livro pessoal, curtida, paginação de comentários/respostas, destinatário e idempotência (RNF-TST-02)
-- [ ] Testes assíncronos cobrem schemas, snapshots, consumo duplicado/DLQ e publicação dos eventos de notificação (RNF-TST-03)
+- [ ] Testes assíncronos cobrem schemas, snapshots, exclusão/recriação de resenha, consumo duplicado/DLQ e publicação dos eventos de notificação (RNF-TST-03)
 - [ ] Testes web/mobile cobrem paginação, interações, link de livro pessoal e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
 - [ ] **Spec OpenAPI de `social` atualizado em `docs/api/social.yaml`** com feed/curtidas/comentários
 - [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
@@ -90,11 +90,12 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 - **Depende de** [F-PERFIL](feature-F-PERFIL.md) (`v_seguimento_aceito_v1`), [F-EST](feature-F-EST.md)/[F-AVA](feature-F-AVA.md) (eventos que viram atividade), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md) e [P0-MSG](../periodo-0/feature-P0-MSG.md) (broker, envelope, DLQ, idempotência).
 - **Compartilha `social` com [F-NOT](feature-F-NOT.md)** — quem chegar primeiro fixa a estrutura; sinalizar no grupo (plano §6).
-- **Ficam fora (Período 2):** editar/excluir o próprio comentário (RF-SOC-13) e menção arbitrária resolvida como link (RF-SOC-15) — **F-SOCIAL-2**. Denúncia é F-MOD. **Notificações** em tempo real pertencem a RF-NOT-06/F-NOT-2; feed em tempo real não possui RF. Fan-out do feed permanece apenas candidato futuro; no Período 1 ele é montado por consulta.
-- **Eventos de atividade ainda não formalizados:** `leitura.*` e `resenha.publicada` sustentam o snapshot previsto na arquitetura, mas não constam na lista fechada de fluxos de §7.2/arquitetura §5.2. A equipe deve aprovar sua inclusão nos documentos-mestre ou definir integração alternativa antes de implementar os consumidores.
+- **Ficam fora (Período 2):** editar/excluir o próprio comentário (RF-SOC-13) e menção arbitrária resolvida como link (RF-SOC-15) — **F-SOCIAL-2**. Denúncia é F-MOD. **Notificações** em tempo real pertencem a RF-NOT-06/F-NOT-2; feed em tempo real não possui RF.
 - Stack de `social` ainda pendente (P0-INFRA).
 
 ## Timeline
+
+### Revisão 01/09/2026: eventos de atividade formalizados e consumo de `resenha.excluida` acrescentado para remover a atividade antiga fisicamente.
 
 ### Revisão 28/08/2026: eventos de atividade receberam nomes e payload mínimo; VIEWs de identidade/acervo passaram a governar privacidade e alvo excluído. A via feed para livro pessoal ganhou contrato verificável; menção arbitrária e exclusão de comentários voltaram ao Período 2; respostas ganharam rota paginada própria e deixaram de gerar notificação duplicada de menção; critérios produtor/consumidor e testes deixaram de ser circulares.
 

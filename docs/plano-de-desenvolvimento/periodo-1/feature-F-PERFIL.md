@@ -47,6 +47,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) o corpo de erro padrão + 
   - **`DELETE /perfis/{username}/seguir`** (RF-SOC-07) — deixar de seguir, com confirmação no cliente.
   - **`DELETE /seguidores/{username}`** (RF-SOC-07) — remover um seguidor (ação destrutiva → confirmação no cliente, RNF-USA-04).
   - Rate limiting em seguir/solicitar (SEC-18).
+  - O servidor recusa seguir ou solicitar seguimento ao próprio usuário; o banco aplica `seguidor_id <> seguido_id` e `solicitante_id <> alvo_id`.
 - **`GET /me/seguidores?page=`** e **`GET /me/seguidos?page=`** (RF-SOC-08) — listas próprias **paginadas** (RNF-DES-02), acessíveis somente ao usuário autenticado. Não há listagem dos seguidores/seguidos de terceiros, evitando transformar o grafo em diretório de usuários (SEC-19/44).
 
 **Regras de RN-08 (matriz de privacidade):**
@@ -65,6 +66,8 @@ Mudar de **público para privado não remove** seguidores existentes.
 **VIEWs expostas por `identidade`** (arquitetura §4.2), com nomes distintos das tabelas:
 - `v_perfil_referencia_v1` — id, username, nome de exibição, avatar e privacidade; permite distinguir perfil público de privado e montar snapshots sem ler `usuario`.
 - `v_seguimento_aceito_v1` — pares seguidor → seguido **somente com seguimento aceito**.
+
+As duas VIEWs omitem contas com `exclusao_solicitada_em` preenchido. Durante os 30 dias de recuperação, perfil, conteúdo e relações deixam de ser visíveis sem apagar os dados; cancelar a exclusão restaura automaticamente as linhas contratuais.
 
 `acervo`, `leitura` e `social` combinam os dois contratos para aplicar RN-08: conteúdo é visível se o perfil for público, se o solicitante for o próprio dono ou se houver seguimento aceito. As VIEWs são versionadas e documentadas junto do spec OpenAPI.
 
@@ -86,6 +89,7 @@ Mudar de **público para privado não remove** seguidores existentes.
 - [ ] Perfil privado só mostra estante/resenhas/notas/listas/estatísticas a **seguidor aceito**; a checagem é **server-side** em todos os endpoints, inclusive busca e listagem (RN-08, SEC-03).
 - [ ] Busca encontra leitor **só por username exato**; prefixo/parcial não retorna nada e não há sugestão (SEC-19/44).
 - [ ] Seguir perfil público é **imediato**; perfil privado gera **solicitação** que o destinatário aceita/recusa.
+- [ ] Auto-seguimento e auto-solicitação são recusados pelo domínio e por CHECK no banco.
 - [ ] Solicitações recebidas possuem inbox paginada e só o destinatário aceita/recusa.
 - [ ] Deixar de seguir e remover seguidor funcionam e pedem confirmação (RNF-USA-04).
 - [ ] Listas próprias de seguidores/seguidos são paginadas e owner-only; perfis de terceiros não expõem o grafo como diretório (RNF-DES-02, SEC-19/44).
@@ -117,10 +121,15 @@ Mudar de **público para privado não remove** seguidores existentes.
 - **Depende de** [F-AUT](feature-F-AUT.md)/[P0-NAV](../periodo-0/feature-P0-NAV.md) (sessão e modelo `usuario`), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md) e [P0-MSG](../periodo-0/feature-P0-MSG.md) (broker para os eventos; Cloudinary/P-09 para avatar).
 - **Compartilha o serviço `identidade` com [F-AUT](feature-F-AUT.md)** — alinhar o campo de privacidade e contadores no `usuario` antes de mexer (plano §6).
 - **Divergência de baseline em RF-SOC-02:** estante/resenhas vêm de `leitura` ([F-EST](feature-F-EST.md)/[F-AVA](feature-F-AVA.md)), mas listas pertencem a F-LST no Período 2. No Período 1, o perfil compõe identidade, contadores, estante e resenhas disponíveis; RF-SOC-02 não é marcado integralmente fechado até o grupo resolver a alocação das listas pelo controle de mudança.
+- **Depende futuramente de F-CONTA-2:** as VIEWs devem ocultar conta com exclusão pendente sem remover dados durante os 30 dias.
 - Definir o **preset Cloudinary de avatar** (pasta/tipos/tamanho) com [P0-MSG](../periodo-0/feature-P0-MSG.md).
 - Stack do serviço `identidade` ainda pendente (Spring vs NestJS — P0-INFRA).
 
 ## Timeline
+
+### Revisão 01/09/2026: auto-seguimento/auto-solicitação explicitamente proibidos e protegidos por CHECK no DER.
+
+### Revisão 01/09/2026: contratos de perfil/seguimento passaram a ocultar contas com exclusão pendente e a restaurá-las por cancelamento sem fan-out reverso.
 
 ### Revisão 28/08/2026: VIEWs receberam nomes não conflitantes e contratos mínimos de privacidade/seguimento; eventos, idempotência, inbox e listas próprias owner-only foram fechados sem dependência circular com F-NOT e sem criar diretório de usuários. A divergência de listas em RF-SOC-02 foi registrada como pendência de baseline.
 

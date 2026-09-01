@@ -41,8 +41,8 @@ erDiagram
     bool opt_out_recomendacao "PENDENTE §10.7; não migrar antes da decisão"
     int qtd_seguidores "contador"
     int qtd_seguidos "contador"
-    timestamp exclusao_solicitada_em "fluxo LGPD (P2), nullable"
-    timestamp anonimizado_em "PENDENTE política remover vs anonimizar, nullable"
+    timestamp exclusao_solicitada_em "janela de recuperação LGPD (P2), nullable"
+    timestamp exclusao_prevista_em "solicitação + 30 dias, nullable"
     timestamp criado_em
     timestamp atualizado_em
   }
@@ -86,8 +86,12 @@ erDiagram
     uuid id PK "recibo técnico sem PII (P2)"
     uuid usuario_ref "subject opaco; sem FK para sobreviver à limpeza"
     string chave_idempotencia "UK com usuario_ref"
+    enum status "pendente|cancelada|concluida"
     timestamp criado_em
-    timestamp expira_em "retenção curta"
+    timestamp prevista_em "remoção definitiva após 30 dias"
+    timestamp cancelada_em "nullable"
+    timestamp concluida_em "nullable"
+    timestamp expira_em "retenção técnica curta após conclusão"
   }
   IDEMPOTENCIA_IDENTIDADE {
     uuid id PK "ledger HTTP técnico"
@@ -100,13 +104,28 @@ erDiagram
     timestamp criado_em
     timestamp expira_em "UK(subject_ref,operacao,chave)"
   }
+  OUTBOX_IDENTIDADE {
+    uuid event_id PK
+    string tipo
+    int versao
+    string chave_negocio
+    uuid correlation_id
+    json payload
+    enum status "pendente|publicado"
+    int tentativas
+    timestamp criado_em
+    timestamp publicado_em "nullable"
+  }
 
-  %% PENDENTE identidade: aprovar conta.excluida ou orquestração síncrona;
-  %% fechar matriz remover/anonimizar antes da migration de F-CONTA-2.
+  %% Conta com exclusão pendente fica oculta e só autentica com acesso restrito
+  %% ao cancelamento. O job diário finaliza após 30 dias e publica
+  %% conta.excluida pela outbox. Username/e-mail ficam reservados no prazo.
+  %% Constraints: seguidor_id <> seguido_id; solicitante_id <> alvo_id;
+  %% token_hash de REFRESH_TOKEN/RESET_TOKEN único e indexado com expira_em.
 
   %% ============================= schema acervo =============================
-  EDITORA ||--o{ LIVRO : "publica"
-  SERIE ||--o{ LIVRO : "agrupa"
+  EDITORA o|--o{ LIVRO : "publica"
+  SERIE o|--o{ LIVRO : "agrupa"
   LIVRO ||--o{ LIVRO_AUTOR : "tem"
   AUTOR ||--o{ LIVRO_AUTOR : "escreve"
   LIVRO ||--o{ LIVRO_ASSUNTO : "classificado"
@@ -121,6 +140,7 @@ erDiagram
     uuid id PK "não-sequencial (SEC-05)"
     string isbn13 UK "único p/ oficial; AUSENTE em pessoal (RN-02); partial-unique WHERE not null"
     string ol_edition_key UK "id dedup fonte externa (RN-02), nullable; UK parcial"
+    string ol_work_key "id externo da obra; sem entidade Obra; indexado, nullable"
     string titulo
     string autor_informado "obrigatório só em pessoal; não cria AUTOR"
     int ano_publicacao "nullable"
@@ -222,12 +242,25 @@ erDiagram
     timestamp criado_em
     timestamp expira_em "UK(subject_ref,operacao,chave)"
   }
+  OUTBOX_ACERVO {
+    uuid event_id PK
+    string tipo
+    int versao
+    string chave_negocio
+    uuid correlation_id
+    json payload
+    enum status "pendente|publicado"
+    int tentativas
+    timestamp criado_em
+    timestamp publicado_em "nullable"
+  }
 
   %% CHECKs de LIVRO: oficial exige isbn13 e dono ausente; pessoal exige dono,
   %% autor_informado e isbn13 ausente. Livro pessoal não usa LIVRO_AUTOR,
   %% editora/série, nota geral nem NOTA_LIVRO_AGREGADA e fica fora do catálogo.
-  %% PENDENTE acervo: confirmar chave do ol_dump_ratings/ol_work_key e a fonte
-  %% da biografia antes das migrations das respectivas funcionalidades.
+  %% Rating externo por ol_work_key é replicado nas edições associadas; notas
+  %% dos leitores continuam independentes por edição. PENDENTE: fonte da bio.
+  %% Índices de busca cobrem título, autor e ISBN; páginas > 0 e contadores >= 0.
 
   %% ============================= schema leitura =============================
   ESTANTE ||--o{ LEITURA : "histórico (mesmo usuario+livro)"
@@ -407,16 +440,33 @@ erDiagram
     timestamp criado_em
     timestamp expira_em "UK(subject_ref,operacao,chave)"
   }
+  OUTBOX_LEITURA {
+    uuid event_id PK
+    string tipo
+    int versao
+    string chave_negocio
+    uuid correlation_id
+    json payload
+    enum status "pendente|publicado"
+    int tentativas
+    timestamp criado_em
+    timestamp publicado_em "nullable"
+  }
 
-  %% Constraints: uma leitura em andamento por (usuario,livro); um limiar por
+  %% Constraints: índice parcial garante uma leitura em andamento por
+  %% (usuario,livro); status lendo exige data_fim ausente e incompleta=false;
+  %% releitura abandonada exige releitura=true e incompleta=true; transições
+  %% mantêm ESTANTE e LEITURA consistentes na mesma transação. Um limiar por
   %% (leitura,inatividade_versao,limiar_dias); um favorito por (usuario,livro);
-  %% máximo 10 FRASE por (usuario,livro); uma janela por desafio+intervalo.
+  %% máximo 10 FRASE por (usuario,livro); uma janela por desafio+intervalo;
+  %% pagina/paginas_lidas > 0, minutos >= 0, valor_alvo > 0, inicio <= fim e
+  %% contadores >= 0.
   %% Limiar risco aceita só 20/30 e expiracao só 40. Excluir progresso remove
   %% suas contribuições, recalcula página/estatísticas e reavalia DIA_LEITURA
   %% apenas pelos demais progressos qualificáveis daquele usuário+dia.
   %% Histórico de leitura e total acumulado de estatísticas derivam dos fatos.
-  %% PENDENTE leitura: promoção de progresso.registrado/leitura.finalizada e
-  %% mecanismo durável de RNF-ERR-10; não criar outbox antes da decisão.
+  %% progresso.registrado e leitura.finalizada são contratos aprovados; toda
+  %% publicação usa a outbox transacional de RNF-ERR-10.
 
   %% ============================= schema social =============================
   ATIVIDADE ||--o{ CURTIDA_ATIVIDADE : "recebe"
@@ -459,14 +509,13 @@ erDiagram
     string texto "menções @username no texto cru (RN-10, SEC-14)"
     timestamp criado_em
     timestamp atualizado_em "SOC-13 (P2)"
-    timestamp excluido_em "nullable"
   }
   COMENTARIO_MENCAO {
-    uuid id PK "SOC-15 (P2)"
+    uuid id PK "uma ocorrência resolvida (SOC-15, P2)"
     uuid comentario_id FK
     uuid mencionado_id "→ usuario"
     int posicao "posição no texto cru"
-    timestamp criado_em "UK composto (comentario_id, mencionado_id)"
+    timestamp criado_em "UK composto (comentario_id, posicao)"
   }
   LISTA {
     uuid id PK
@@ -558,11 +607,23 @@ erDiagram
     timestamp criado_em
     timestamp expira_em "UK(subject_ref,operacao,chave)"
   }
+  OUTBOX_SOCIAL {
+    uuid event_id PK
+    string tipo
+    int versao
+    string chave_negocio
+    uuid correlation_id
+    json payload
+    enum status "pendente|publicado"
+    int tentativas
+    timestamp criado_em
+    timestamp publicado_em "nullable"
+  }
 
   %% Constraints: UK(ATIVIDADE.tipo,chave_fato), uma curtida por
-  %% (atividade,usuario), raiz/resposta sempre na mesma atividade, uma menção
-  %% por (comentario,mencionado), UK(lista,livro), UK(lista,ordem) e limite de
+  %% (atividade,usuario), raiz/resposta sempre na mesma atividade; exclusão
+  %% física da raiz usa ON DELETE CASCADE nas respostas; uma ocorrência de
+  %% menção por (comentario,posicao), UK(lista,livro), UK(lista,ordem) e limite de
   %% 50 recomendações ativas protegido por transação/lock do par remetente-alvo.
-  %% PENDENTE social: contratos de atividade, recomendacao.recebida, remoção por
-  %% moderação e suspensão; categorias de preferência; política LGPD para
-  %% snapshots, comentários, notificações, denúncias e auditoria.
+  %% resenha.excluida remove a atividade antiga; nova resenha gera novo fato.
+  %% PENDENTE social: categorias de preferência e contrato de suspensão.

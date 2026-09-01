@@ -63,14 +63,14 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 - **Dia 20/30:** dentro da transação, registra o limiar como processado; após confirmar, publica `leitura.em_risco` para `social` criar a notificação.
 - **Dia 40:** aplica e confirma primeiro a transição de abandono de RN-04 e registra o limiar; somente depois publica `leitura.expirada`, que representa fato concluído e gera notificação.
-- Reexecução do job no mesmo ciclo não repete alerta ou transição; atividade inicia nova versão e permite novos alertas após outros 20/30 dias. Entrega duplicada do mesmo ciclo não duplica notificação. Falha de consumo segue retentativa/DLQ. A garantia entre commit e publicação continua condicionada à decisão durável de RNF-ERR-10 em P0-MSG.
+- Reexecução do job no mesmo ciclo não repete alerta ou transição; atividade inicia nova versão e permite novos alertas após outros 20/30 dias. Entrega duplicada do mesmo ciclo não duplica notificação. Eventos são gravados na outbox na mesma transação e falhas seguem retry/DLQ.
 - Atividade é qualquer registro de progresso ou edição da leitura.
 
 **Eventos produzidos** (§5.2, publicados **após** a escrita confirmada):
 - `leitura.iniciada`, `leitura.retomada`, `leitura.finalizada` e `leitura.abandonada` para [F-FEED](feature-F-FEED.md). O payload versionado contém autor e snapshot mínimo de usuário/livro obtido de `v_perfil_referencia_v1` e `v_livro_referencia_v1`, além de leitura/livro, tipo e chave do fato. O critério de F-EST termina na publicação; criar a atividade é critério de F-FEED.
 - `livro.adicionado_a_estante` → o consumidor de cache pertence a **F-ACV-NOTA** (Período 2, RF-ACV-17). F-ACV-NOTA deve fazer backfill dos livros já presentes em estantes antes de consumir eventos novos; o Período 1 não presume retenção histórica no broker.
 - `leitura.em_risco` / `leitura.expirada` (do job) → consumidos por [F-NOT](feature-F-NOT.md).
-- `leitura.finalizada` → candidato futuro (desafios/estatísticas, Período 2).
+- `leitura.finalizada` também alimenta desafios e estatísticas no próprio serviço `leitura`.
 
 **VIEW exposta por `leitura`** (arquitetura §4.2): `v_estante_publica_v1` (usuário, livro, status, nº de conclusões), com nome distinto da tabela `estante`. F-ACV-NOTA usa a VIEW para backfill dos livros que já entraram em estantes antes do cache, e a recomendação a usa futuramente. A composição do perfil usa o endpoint autorizado de `leitura`, não a VIEW diretamente.
 
@@ -109,7 +109,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [ ] Código (backend `leitura`, web, mobile, workflow do job) mergeado em `desenvolvimento`
 - [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
 - [ ] Testes unitários e de integração com banco real/container, **com prioridade para RN-04/RN-05**: cada transição, concorrência, propriedade, estante privada/pública, idempotência, job dos dias 20/30/40 e novo ciclo após atividade (RNF-TST-01 e RNF-TST-02)
-- [ ] Testes assíncronos de F-EST cobrem schema/publicação após a transação e reexecução sem segundo fato; consumo/DLQ ficam em F-NOT e, se aprovados, F-FEED (RNF-TST-03)
+- [ ] Testes assíncronos de F-EST cobrem outbox, schema/publicação, reexecução sem segundo fato; consumo/DLQ ficam em F-NOT, F-FEED, F-DSF e F-STA (RNF-TST-03)
 - [ ] Testes web/mobile cobrem máquina de estados na camada de estado, autorização de perfil e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
 - [ ] **Spec OpenAPI de `leitura` atualizado em `docs/api/leitura.yaml`** com estante/leituras, endpoint interno e `v_estante_publica_v1`
 - [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
@@ -123,8 +123,6 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Depende de** [F-ACV-BUSCA](feature-F-ACV-BUSCA.md)/[F-ACV-CADASTRO](feature-F-ACV-CADASTRO.md) (livros para colocar na estante), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md) e [P0-MSG](../periodo-0/feature-P0-MSG.md) (broker + agendador P-08).
 - **Compartilha `leitura` com [F-PRG](feature-F-PRG.md) e [F-AVA](feature-F-AVA.md)** — quem chegar primeiro fixa a estrutura de `leitura`; sinalizar no grupo (plano §6). O "registrar progresso" que zera a inatividade é de F-PRG.
 - **Favoritos (RF-EST-09) e histórico por ano (RF-EST-10)** ficam **fora** — são **F-EST-2** (Período 2).
-- **Eventos de atividade:** os contratos `leitura.*` são necessários ao desenho de snapshot de F-FEED, mas ainda não constam entre os seis fluxos fechados em `REQUISITOS.md` §7.2/arquitetura §5.2. Aprovar sua inclusão nos documentos-mestre ou definir integração alternativa antes de implementar; não alterar a baseline silenciosamente.
-- **Consumidor de expiração:** a arquitetura §5.2 lista `leitura` e `social` como consumidores de `leitura.expirada`, mas o desenho consistente de fato aplica o abandono no job antes de publicar e deixa `social` consumir a notificação. O grupo deve corrigir a matriz ou definir um comando distinto; não implementar um segundo abandono ao consumir o fato.
 - Viabilidade do `schedule` no GitHub Classroom **não confirmada** (P-08) — se restrita, cron-job.org sem mudar o desenho.
 - Stack de `leitura` ainda pendente (recomendação: mesma de `acervo` — P0-INFRA).
 
@@ -135,6 +133,8 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Componentes que nascem no protótipo e ainda não estão na fonte:** a **contagem dentro do pill de filtro** e o **controle de ordenação** (`estante.md`, RF-EST-02 exige ordenação e o design §5.1 não desenha o controle), e a **lista de ações do sheet** com ação neutra, principal e destrutiva (`acoes-de-leitura.md`; o §5.4 desenha o sheet de progresso, que é formulário, não menu de transições). Incorporar ao `documento-de-design.md` pelo controle de mudança do plano §3.
 
 ## Timeline
+
+### Revisão 01/09/2026: eventos `leitura.*` aprovados; `leitura.finalizada` passou a alimentar feed, desafios e estatísticas pela outbox transacional.
 
 ### Revisão 01/09/2026: a busca do acervo saiu desta tela para a nova aba `Descobrir` ([P0-NAV](../periodo-0/feature-P0-NAV.md)). O gatilho foi a ambiguidade do campo de 320px no header web de `Minha estante`, que devolvia o catálogo inteiro. A busca **dentro** da estante virou **RF-EST-13** (`REQUISITOS.md` v1.2), classificada como Desejável e alocada em [F-EST-2](../periodo-2/feature-F-EST-2.md): no Período 1 o header da estante fica **sem lupa**. `estante.md` ganhou o modo de busca do header e três artboards novos (4.9, 4.10 e 5.5), todos marcados como escopo do Período 2.
 

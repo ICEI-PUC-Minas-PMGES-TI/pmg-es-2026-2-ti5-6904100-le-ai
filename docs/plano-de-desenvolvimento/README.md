@@ -8,7 +8,7 @@
 
 Este documento é **derivado** e mantido em sincronia com o orquestador. Ele não decide escopo — projeta o que já está decidido:
 
-- **`../orquestador/REQUISITOS.md` §5** — fonte de verdade dos 129 requisitos funcionais (RF), agrupados em 13 módulos, cada RF com prioridade `E`/`D`/`O`. Em caso de conflito, o `REQUISITOS.md` ganha.
+- **`../orquestador/REQUISITOS.md` §5** — fonte de verdade dos 130 requisitos funcionais (RF), agrupados em 13 módulos, cada RF com prioridade `E`/`D`/`O`. Em caso de conflito, o `REQUISITOS.md` ganha.
 - **`../orquestador/documento-de-arquitetura.md` §3** — os 4 serviços de backend e a que módulos cada um pertence.
 - **`../orquestador/plano-de-projeto.md` §3** — o modelo de períodos, a regra prioridade→período e a regra de corte de escopo.
 
@@ -63,7 +63,7 @@ Granularidade atual: features "maiores" — cerca de uma por módulo de RF, por 
 | F-SOCIAL-2 | Comentários (edição) e menções-link | social | 2 | desejavel | RF-SOC-13, 15 | a definir |
 | F-ACV-DESCOBERTA | Filtros e páginas de autor/editora/série | acervo | 2 | desejavel | RF-ACV-03, 10, 11, 12, 21 | a definir |
 | F-ACV-NOTA | Nota geral e cache de capas | acervo | 2 | desejavel | RF-ACV-15, 16, 17 | a definir |
-| F-EST-2 | Favoritos e histórico | leitura | 2 | desejavel | RF-EST-09, 10 | a definir |
+| F-EST-2 | Favoritos, histórico e busca na estante | leitura | 2 | desejavel | RF-EST-09, 10, 13 | a definir |
 | F-SESSAO | Sessão de leitura cronometrada (mobile) | leitura | 2 | desejavel | RF-PRG-05..12 | a definir |
 | F-AVA-2 | Reações, Markdown e frases | leitura | 2 | desejavel | RF-AVA-05, 06, 07, 08, 09 | a definir |
 | F-DSF | Desafios | leitura | 2 | desejavel | RF-DSF-01, 02, 03, 04, 06 | a definir |
@@ -90,8 +90,8 @@ Granularidade atual: features "maiores" — cerca de uma por módulo de RF, por 
 
 ## Cobertura
 
-Os 129 RFs de `../orquestador/REQUISITOS.md` §5 estão todos alocados: **54 Essenciais** (Período 1), **60 Desejáveis** (Período 2), **15 Opcionais** (Período 3). Nenhum RF fica sem período; nenhum aparece em dois. Os RFs de sistema/backend sem UI (ex.: RF-EST-11/12, RF-STA-05, RF-SOC-10) ficam junto da feature de negócio a que servem.
+Os 130 RFs de `../orquestador/REQUISITOS.md` §5 estão todos alocados: **54 Essenciais**, **61 Desejáveis** e **15 Opcionais**. Nenhum RF fica sem período; nenhum aparece em dois.
 
 ## Próximo passo
 
-Os [Período 0](periodo-0/README.md), [Período 1](periodo-1/README.md) e [Período 2](periodo-2/README.md) já têm **todas** as features detalhadas (14/14 no Período 2), e o [Período 3](periodo-3/README.md) tem **5 das 7** (F-ACV-OPC, F-REC-ALG, F-NOT-OPC, F-MOD-OPC e F-GAM-OPC), com a tabela de contratos transversais do período já consolidada. Os próximos passos são detalhar as duas opcionais restantes — **F-STA-OPC** e **F-DSF-OPC** — e **consolidar a tabela de contratos transversais do Período 2**, usando o template de `../orquestador/plano-de-projeto.md` §9, sem antecipar decisões ainda em desenvolvimento.
+Os [Período 0](periodo-0/README.md), [Período 1](periodo-1/README.md) e [Período 2](periodo-2/README.md) já têm todas as features detalhadas, e o [Período 3](periodo-3/README.md) tem **5 das 7**. O próximo passo documental é detalhar **F-STA-OPC** e **F-DSF-OPC**, sem antecipar decisões dos donos.

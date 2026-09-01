@@ -40,6 +40,7 @@ Tabelas e VIEWs usam nomes distintos porque compartilham o mesmo namespace no Po
 - Toda escrita HTTP aplicável aceita `Idempotency-Key` conforme RNF-ERR-04; o spec define escopo, repetição com mesmo payload e conflito quando a chave é reutilizada com payload diferente.
 - Toda listagem é paginada e tem limite máximo imposto pelo servidor (RNF-DES-02), inclusive progresso, resenhas, seguidores, feed e notificações.
 - Eventos usam o envelope de P0-MSG e um schema versionado do payload. O produtor é aceito pela publicação conforme o contrato; o consumidor é aceito pelo efeito idempotente e pela DLQ, evitando dependência circular no DoD.
+- Produtores gravam a alteração de domínio e o evento na mesma transação pela outbox de P0-MSG; publicação direta após commit não atende RNF-ERR-10.
 - Deduplicação assíncrona considera `eventId` e uma chave de negócio estável quando o mesmo fato puder ser republicado, como `(leituraId, limiarDias)` nos alertas de inatividade.
 - Clientes web e mobile usam o cliente HTTP central com timeout e retentativa com backoff apenas para operações idempotentes; indisponibilidade e timeout têm testes com API simulada (RNF-ERR-03, RNF-TST-06).
 - Cada feature inclui testes unitários de regra, integração dos endpoints com banco real/container (RNF-TST-02), testes dos clientes aplicáveis (RNF-TST-04/05) e dos fluxos assíncronos que possuir (RNF-TST-03). O checkpoint do Período 2 revisa esses testes; não adia o DoD do Período 1.
@@ -53,8 +54,6 @@ Estas divergências não podem ser decididas pelos arquivos de feature e devem s
 - **Exclusão de conta:** RF-AUT-07 está como Desejável e alocado a F-CONTA-2, mas RNF-SEC-41 pertence ao conjunto de segurança declarado Essencial. F-AUT não marca RNF-SEC-41 como atendido enquanto o grupo não resolver a prioridade.
 - **Composição de RF-SOC-02:** o RF Essencial exige listas no perfil, mas F-LST está no Período 2. F-PERFIL entrega no Período 1 identidade, contadores, estante e resenhas disponíveis; não declara RF-SOC-02 integralmente fechado até a decisão do grupo.
 - **Delta de ingestão:** o job diário consta nos documentos-mestre, mas não possui feature alocada. RF-ACV-14/F-ACV-OPC cobre somente recarga manual.
-- **Distribuição de notas do livro:** RF-ACV-04 a exibe quando a funcionalidade correspondente existir, mas o mapa futuro não a atribui explicitamente. F-STA-OPC trata a distribuição das notas dadas pelo leitor, que é outro dado.
-- **Eventos que originam atividades:** RF-SOC-10 exige criar atividades e a arquitetura define snapshot no evento, mas `leitura.*` e `resenha.publicada` não aparecem entre os seis fluxos fechados de mensageria. F-EST/F-AVA/F-FEED descrevem o contrato pretendido, porém a equipe deve aprovar sua inclusão nos documentos-mestre ou definir integração alternativa antes da implementação.
 
 ## Arquivos de feature
 

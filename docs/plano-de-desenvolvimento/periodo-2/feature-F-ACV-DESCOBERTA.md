@@ -77,10 +77,14 @@ Sem novos eventos e sem VIEW cross-schema: a feature lê e serve dados do própr
 - **Esta feature preenche a aba `Descobrir`, criada em 01/09/2026.** A busca do acervo deixou de ser tela filha da estante e virou o quarto item da navegação ([P0-NAV](../periodo-0/feature-P0-NAV.md), [`descobrir.md`](../../design/periodo-1/F-ACV-BUSCA/descobrir.md)). No Período 1 a aba aterrissa magra de propósito: campo de busca e faixa de assuntos, sem destaques e sem histórico. Os filtros avançados de RF-ACV-03 e os links para as páginas de autor, editora e série entram **nesta aba**, e junto com a seção de recomendações de [F-REC-P2P](feature-F-REC-P2P.md) são o que dá corpo à aterrissagem. **Atenção ao nome:** `descobrir.md` corrige a afirmação de que esta feature entregaria "descoberta aberta" com livros em destaque ou mais lidos. Ela entrega filtros e páginas de consulta; curadoria de destaques não é escopo de nenhum RF.
 - **Depende de** [F-ACV-BUSCA](../periodo-1/feature-F-ACV-BUSCA.md) (busca e página do livro que esta feature estende) e [F-ACV-INGESTAO](../periodo-1/feature-F-ACV-INGESTAO.md) (autor/editora/série/assunto normalizados e número de ordem), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md).
 - **Origem da biografia curta do autor (RF-ACV-10)** não está definida e bloqueia o fechamento desse requisito. A ingestão não carrega bio; o grupo deve aprovar uma fonte/estratégia simples antes da implementação. Exibir ausência permanentemente não fecha RF-ACV-10; não inventar integração nem alterar a baseline sem decisão.
+- **Decisão do dono:** validar `paginasMin <= paginasMax`, faixas positivas e combinações de filtros no schema de entrada antes de atualizar o OpenAPI.
 - **Curadoria de editoras** (RF-ACV-11): ~13% da amostra são editoras **portuguesas** (§10.1) e a normalização usa a tabela de sinônimos de [F-ACV-INGESTAO](../periodo-1/feature-F-ACV-INGESTAO.md) — a página de editora depende da qualidade dessa normalização.
 - Stack de `acervo` ainda pendente (P0-INFRA).
+- **Alternativa a avaliar, sem mudar o desenho atual:** reutilizar um componente de página de catálogo para autor/editora/série e criar índices adicionais somente após validar o plano de execução das consultas.
 
 ## Timeline
+
+### Revisão 01/09/2026: reúso de página de catálogo e índices orientados por medição registrados apenas como alternativas de implementação.
 
 ### Criação 28/08/2026: arquivo criado a partir do escopo de F-ACV-DESCOBERTA no [periodo-2/README.md](README.md), de RF-ACV-03/10/11/12/21 do [`REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.2 e da RN-21. Continua a fronteira que [F-ACV-BUSCA](../periodo-1/feature-F-ACV-BUSCA.md) fixou (filtros avançados, páginas de consulta e assunto acionável no P2); origem da bio do autor registrada como pendência, sem inventar fonte.
 
