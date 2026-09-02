@@ -125,6 +125,7 @@ O sistema usa quatro famílias, todas disponíveis em Google Fonts (portáteis p
 | **UI / Body** | Manrope | 400, 500, 600, 700 |
 | **Editorial (leitura longa)** | Newsreader | 400, 500 (regular e italic) |
 | **Números e dados** | JetBrains Mono | 400, 500 |
+| **Logo (wordmark)** | *a definir* — decisão pendente (interino: Space Grotesk 600) | 600 |
 
 **Justificativa da escolha:**
 
@@ -134,6 +135,8 @@ O sistema usa quatro famílias, todas disponíveis em Google Fonts (portáteis p
 - **JetBrains Mono** para dados: número da sequência diária (RF-GAM-02), páginas lidas, minutos, contadores. Números tabulares evitam salto de layout quando a métrica atualiza.
 
 **Nenhuma das quatro famílias está na lista de bans do design skill** (evitamos Inter como padrão, Fraunces e Instrument Serif como serifa editorial). Se Space Grotesk ficar indisponível, o fallback é `system-ui, -apple-system, "Segoe UI", sans-serif`.
+
+- **Logo (wordmark)** é uma família **exclusiva da marca**: aparece apenas no lockup horizontal da logo (§3.7), nunca na UI. Ela **não substitui** as quatro famílias de texto — Space Grotesk continua sendo o display da interface. A fonte definitiva do wordmark é **decisão pendente da equipe**; até ela ser fechada, o lockup usa **Space Grotesk 600, `-0.015em`** como interino. Quando escolhida, esta linha e o token `wordmark` (§3.2.1) são atualizados na mesma passada.
 
 #### 3.2.1 Escala tipográfica
 
@@ -154,6 +157,7 @@ Escala fixa, mesma na web e no mobile. Nomes semânticos, não `text-4xl`:
 | `overline` | 11 / 14 | 1.2 | 700 tracking 0.08em uppercase | Rotulagem hierárquica pontual. **Uso racionado:** máximo 1 overline a cada 3 telas. Ver §7 (Coisas a evitar). |
 | `num-display` | 36 / 40 | 1 | 500 | Número grande e sozinho: streak atual, total de páginas lidas no ano, dias por livro. JetBrains Mono. |
 | `num-inline` | 15 / 22 | 1.45 | 500 | Números dentro do corpo (páginas, minutos, contador). JetBrains Mono, `font-feature-settings: "tnum"`. |
+| `wordmark` | — | 1 | 600 tracking -0.015em | **Exclusivo do lockup da logo** (§3.7). Fonte da logo (pendente; interino Space Grotesk 600). Tamanho definido pelo contexto do lockup, alinhado à altura da caixa alta do símbolo. |
 
 **Regras de emphasis:**
 
@@ -247,6 +251,28 @@ Todo motion respeita `prefers-reduced-motion`. Sob "reduce", transições viram 
 - **Zero parallax, zero scroll hijack, zero horizontal scroll pinado.** Este não é um portfolio de agência.
 - **Motion motivado.** Cada transição responde a uma pergunta: hierarquia, feedback ou state transition. Se não responde, sai.
 - **Modo de foco (RN-16): zero motion.** Nenhuma transição, nenhum ícone que pulsa, nenhum contador que "salta" ao virar dígito. O cronômetro tem transição CSS `dur-instant` no dígito trocando, e ponto.
+
+### 3.7 Marca (logo)
+
+O símbolo é uma **folha (broto de leitura) sobre um livro aberto** — a metáfora do produto: registro e crescimento a partir da leitura. O asset vive em `assets/imagens/logo-leai.svg` (§9.4).
+
+**Símbolo e lockups.** A marca aparece de duas formas:
+
+1. **Símbolo isolado** — só o livro-com-broto, para ícone de app, favicon e espaços apertados.
+2. **Lockup horizontal** — `[símbolo] Lê Ai`. Ícone e texto **na mesma cor**; texto no token `wordmark` (§3.2.1); `gap` entre símbolo e texto = `space-3`; a base do texto alinha à altura da caixa alta, e o símbolo ocupa a altura da caixa alta do texto.
+
+**Cor — regra dura.** A logo é um **asset monocromático de cor única**. Ela usa exatamente **duas combinações**:
+
+- `musgo` (`#3E5C42`) sobre `papel`, **ou**
+- `papel` sobre `musgo`.
+
+Nunca é recolorida para `rubi`, `ambar`, `broto` ou `tinta`, nem ganha mais de uma cor ao mesmo tempo. Em modo escuro, segue a regra de acento do §3.1.2 (a cor ativa vira `musgo-claro` quando a logo faz papel de elemento de acento sobre superfície escura). O único estado tonal permitido além disso é uma variante **esmaecida** (logo desabilitada/marca-d'água), num neutro derivado — nunca um segundo matiz. A cor é aplicada em runtime (§9.4), não fixada no arquivo.
+
+**Regras de uso:**
+
+- **Área de proteção:** ao menos a **largura da folha** de respiro em todos os lados; nada de texto ou borda dentro dessa margem.
+- **Tamanho mínimo:** **24px de altura** para o símbolo permanecer legível.
+- **Nunca** distorcer a proporção, aplicar sombra ou girar o símbolo.
 
 ---
 
@@ -574,6 +600,8 @@ Este é o "banlist" do projeto. Toda ferramenta de agente (Claude Code, Claude D
 - **Nada de card com sombra preta pura sobre `papel`.** Ver §3.5.
 - **Nada de rounded-full em canto de capa de livro.** Capa tem canto vivo.
 - **Nada de "toast" com cor de fundo saturada** (verde para sucesso, vermelho para erro). Toast é `papel-elevado` com barra lateral fina em `musgo` ou `rubi`.
+- **Nada de recolorir a logo** para acento de estado (`rubi`, `ambar`, `broto`) ou para um segundo matiz. Ela é só `musgo` sobre `papel` ou `papel` sobre `musgo` (§3.7).
+- **Nada de distorcer, sombrear, girar ou usar a logo abaixo de 24px** de altura. Sem variantes de cor da logo em disco — a cor é aplicada em runtime (§9.4).
 
 ### 7.7 Modo escuro
 
@@ -705,6 +733,15 @@ Cada prompt recebe em contexto:
 
 O output do Claude Design (bundle HTML na pasta `prototipos/` da feature) é referência visual e de navegabilidade, não especificação de pixel (regra 5 dos agentes, plano §7).
 
+### 9.4 Assets de marca
+
+Os assets vivem em `assets/imagens/`. Dois tipos, com contratos diferentes:
+
+- **Logo (`logo-leai.svg`)** — símbolo monocromático **recolorível**. Todos os fills são `currentColor`; **um único arquivo** cobre todas as cores da marca (§3.7). O texto do wordmark **não** está no SVG: é tipográfico (fonte `wordmark`, §3.2.1).
+  - **Web (Vue):** SVG inline (ou `<img>` com máscara) herdando `fill: currentColor`; a cor vem do token `musgo` via `color` no container. Inversão para `papel` é só trocar o `color`.
+  - **Mobile (Flutter):** `flutter_svg`, tingindo em runtime — `SvgPicture.asset('assets/imagens/logo-leai.svg', colorFilter: ColorFilter.mode(DesignTokens.musgo, BlendMode.srcIn))` (ou `papel` sobre `musgo`). Não há variantes de cor em disco.
+- **Ilustrações (`illustration-leitora-{light,dark}.svg`)** — arte **multicolorida**, não recolorível por tint. Têm **uma versão por tema** (clara e escura), selecionadas pelo tema ativo. Não passam por `ColorFilter`.
+
 ---
 
 ## 10. Nome do produto
@@ -714,6 +751,13 @@ O nome definitivo do aplicativo é **Lê Ai**. A linguagem visual definida neste
 ---
 
 ## 11. Timeline
+
+### Atualização 02/09/2026
+
+- **Marca (logo) formalizada em §3.7:** símbolo (folha/broto sobre livro aberto), os dois lockups, regra de cor (`musgo` sobre `papel` ou `papel` sobre `musgo` — nunca recolorir), área de proteção, mínimo de 24px e proibições. O documento antes não descrevia a logo.
+- **Fonte da logo:** criado um slot tipográfico dedicado (`wordmark`, §3.2 e §3.2.1), **exclusivo da marca** e que não substitui as famílias de texto. A fonte definitiva é **decisão pendente**; interino é Space Grotesk 600, `-0.015em`.
+- **Contrato de asset em §9.4:** `logo-leai.svg` normalizada para `currentColor` (asset monocromático único, recolorido em runtime — `color`/`currentColor` na web, `ColorFilter.srcIn` no Flutter), tingido pelo token `musgo` `#3E5C42`. O arquivo antes trazia um verde fora do token (`#395D35`) e atributos `fill` vermelhos residuais, agora removidos. Ilustrações `illustration-leitora-*` registradas como assets multicoloridos por tema, à parte da logo.
+- **Grafia da marca confirmada:** o wordmark é **"Lê Ai"**, coerente com o §10.
 
 ### Atualização 01/09/2026
 
