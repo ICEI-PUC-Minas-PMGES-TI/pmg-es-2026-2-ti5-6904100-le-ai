@@ -1,6 +1,6 @@
 # REQUISITOS
 
-**Versão:** v1.2 — 01/09/2026
+**Versão:** v1.3 — 01/09/2026
 **Baseline:** fechada em 25/08/2026
 **Status:** baseline fechada — permanecem explícitas a alocação de stack por serviço e a decisão de opt-out de recomendações
 
@@ -140,7 +140,7 @@ Páginas de autor, editora e série **não são perfis**: não têm dono, não r
 | RF-EST-07 | O leitor deve poder **retomar** uma primeira leitura abandonada, continuando da página registrada. | E | ✅ |
 | RF-EST-08 | O sistema deve exibir na página do livro o **número de vezes que o leitor concluiu** aquele livro. | E | ✅ |
 | RF-EST-09 | O leitor deve poder marcar e desmarcar livros como **favoritos**. | D | ✅ |
-| RF-EST-10 | O leitor deve poder visualizar seu **histórico de leituras por ano**, com os livros concluídos em cada ano. | D | ✅ |
+| RF-EST-10 | O leitor deve poder visualizar seu **histórico de leituras concluídas por ano**, pesquisar por **título ou autor em todo o histórico**, ver cada ocorrência finalizada de leitura ou releitura do livro encontrado e selecionar uma ocorrência para consultar, em modo somente leitura, suas **atualizações de progresso**. | D | ✅ |
 | RF-EST-11 | O sistema deve **abandonar automaticamente** leituras sem atividade por 40 dias, conforme RN-05 e a máquina de estados de RN-04. | E | — |
 | RF-EST-12 | O sistema deve **alertar o leitor** nos dias 20 e 30 de inatividade de uma leitura, conforme RN-05. | E | — |
 | RF-EST-13 | O leitor deve poder **buscar por título e autor dentro da própria estante**, combinável com o filtro por status de RF-EST-02. A busca é restrita à estante do leitor e não retorna livros do acervo. | D | ✅ |
@@ -1067,6 +1067,12 @@ Registrado explicitamente para evitar reabertura de discussão:
 ---
 
 ## 12. Timeline
+
+### v1.3 — 01/09/2026
+
+- **RF-EST-10 ampliado:** o histórico geral continua restrito a leituras e releituras finalizadas, mas passa a aceitar pesquisa por título ou autor em todos os anos. O resultado preserva cada ocorrência concluída do mesmo livro, permitindo selecionar uma delas e consultar suas atualizações de progresso em modo somente leitura.
+- **Impacto:** F-EST-2 passa a combinar `q`, ano e paginação em `GET /me/historico`; o retorno identifica cada ocorrência por `leituraId`. `GET /leituras/{id}/progresso` passa a aceitar consulta do dono também para leitura finalizada, sem permitir exclusão, novo progresso ou alteração de status. A tela de histórico ganha pesquisa e detalhamento por ocorrência; a tela de atualizações de progresso ganha um estado histórico somente leitura.
+- **Sem mudança de dados ou arquitetura:** `leitura` já é histórica e `atualizacao_progresso` já pertence a uma ocorrência de leitura. Leituras abandonadas e releituras incompletas permanecem fora do histórico geral de concluídas. O spec OpenAPI de `leitura` deverá refletir os novos parâmetros e o modo de consulta quando F-EST-2 for implementada.
 
 ### v1.2 — 01/09/2026
 

@@ -12,7 +12,7 @@
 | F-SOCIAL-2 | Comentários (edição) e menções-link | social | desejavel | RF-SOC-13, 15 | Editar/excluir próprios comentários; resolver menções `@username` para link de perfil |
 | F-ACV-DESCOBERTA | Filtros e páginas de autor/editora/série | acervo | desejavel | RF-ACV-03, 10, 11, 12, 21 | Filtros avançados de busca; páginas de autor, editora e série; assuntos exibidos e acionáveis como filtro |
 | F-ACV-NOTA | Nota geral e cache de capas | acervo | desejavel | RF-ACV-15, 16, 17 | Importar nota geral externa; exibir nota geral e nota dos leitores como indicadores distintos; cache de capas oficiais (RN-14) |
-| F-EST-2 | Favoritos, histórico e busca na estante | leitura | desejavel | RF-EST-09, 10, 13 | Favoritar/desfavoritar, histórico por ano e busca local por título/autor |
+| F-EST-2 | Favoritos, histórico e buscas | leitura | desejavel | RF-EST-09, 10, 13 | Favoritar/desfavoritar; histórico de ocorrências concluídas pesquisável por título/autor, com consulta do progresso; busca local na estante |
 | F-SESSAO | Sessão de leitura cronometrada (mobile) | leitura | desejavel | RF-PRG-05..12 | Sessão cronometrada com modo de foco (RN-16), pausa/retomada, cancelamento e recuperação de sessão interrompida — apenas mobile |
 | F-AVA-2 | Reações, Markdown e frases | leitura | desejavel | RF-AVA-05, 06, 07, 08, 09 | Curtir/descurtir resenhas com contadores separados, Markdown com preview (RN-13), frases/trechos com página (RN-11) |
 | F-DSF | Desafios | leitura | desejavel | RF-DSF-01, 02, 03, 04, 06 | Criar desafios (páginas/minutos/livros; janela diária/semanal/mensal/anual), atualização a cada progresso e a cada leitura finalizada, visualização, editar/pausar/excluir |
@@ -56,7 +56,7 @@ As 14 features do Período 2 estão detalhadas:
 - [F-SOCIAL-2 — Comentários (edição) e menções-link](feature-F-SOCIAL-2.md)
 - [F-ACV-DESCOBERTA — Filtros e páginas de autor/editora/série](feature-F-ACV-DESCOBERTA.md)
 - [F-ACV-NOTA — Nota geral e cache de capas](feature-F-ACV-NOTA.md)
-- [F-EST-2 — Favoritos, histórico e busca na estante](feature-F-EST-2.md)
+- [F-EST-2 — Favoritos, histórico e buscas](feature-F-EST-2.md)
 - [F-SESSAO — Sessão de leitura cronometrada (mobile)](feature-F-SESSAO.md)
 - [F-AVA-2 — Reações, Markdown e frases](feature-F-AVA-2.md)
 - [F-DSF — Desafios](feature-F-DSF.md)

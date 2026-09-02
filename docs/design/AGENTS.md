@@ -36,6 +36,7 @@ docs/design/
 - **O HTML exportado usa o mesmo nome base** e fica em `prototipos/` ao lado do prompt: `prototipos/estante.md` está errado, `prototipos/estante.html` está certo.
 - As pastas de período e de feature nascem junto com o primeiro prompt de cada uma. Não crie pasta vazia.
 - **Prompt e HTML são commitados juntos.** HTML sem o prompt que o gerou não é reprodutível.
+- **Tela já entregue não é reescrita: ela ganha um prompt de edição.** Quando uma feature de outro período muda uma tela que já tem prompt e protótipo commitados, o arquivo novo mora na pasta da feature que pediu a mudança, dentro do período dela, com o **mesmo nome de tela**: `periodo-2/F-AVA-2/escrever-resenha.md` edita a tela de `periodo-1/F-AVA/escrever-resenha.md`. O arquivo antigo não é alterado. Regras no §2.1, fluxo no §3.1 e template no §6.1.
 
 Não existe inventário central de telas neste diretório. A lista de telas de cada feature vive no arquivo da feature; duplicar aqui seria mais um lugar para atualizar e sair de sincronia.
 
@@ -56,10 +57,24 @@ Antes de escrever qualquer prompt, leia, nesta ordem:
 - **Confirmação de ação destrutiva não é tela.** É um estado dentro do prompt da tela que dispara a ação.
 - **Fluxo com passos separados vira um `.md` por passo** quando cada passo ocupa o viewport inteiro. Cadastro por ISBN, ISBN não encontrado e cadastro pessoal (RF-ACV-05, 06, 08) são três arquivos.
 - **RF de sistema não gera tela.** Job diário, ingestão de dump, cache de capa, recálculo assíncrono: sem prompt. O cliente só exibe o efeito, e o efeito é um estado de outra tela.
-- **Elemento que uma feature acrescenta a uma tela de outra feature não vira arquivo novo.** RF-EST-08 exibe o número de conclusões **na página do livro**, que pertence a F-ACV-BUSCA: isso é um estado a acrescentar em `F-ACV-BUSCA/pagina-do-livro.md`, com o RF citado ali. O prompt mora junto da tela, não junto da feature que pediu o dado. Quem pediu registra a dependência no seu próprio arquivo de feature.
+- **Elemento que uma feature acrescenta a uma tela de outra feature do mesmo período não vira arquivo novo.** RF-EST-08 exibe o número de conclusões **na página do livro**, que pertence a F-ACV-BUSCA: isso é um estado a acrescentar em `F-ACV-BUSCA/pagina-do-livro.md`, com o RF citado ali. O prompt mora junto da tela, não junto da feature que pediu o dado. Quem pediu registra a dependência no seu próprio arquivo de feature. **Quando a tela já foi entregue**, com prompt e protótipo commitados, a regra é outra: §2.1.
 - **A tela tem versão web quando pelo menos um dos RFs dela tem `✅` na coluna Web.** Se todos estão marcados com traço, a tela é só mobile.
 - **Desafios, gamificação e notificações nunca ganham seção web** (`REQUISITOS.md` §2.1, fora do escopo do cliente web), mesmo que algum RF pareça compatível.
 - **Nada de reintroduzir escopo cortado.** O `documento-de-design.md` §7.12 e o `REQUISITOS.md` §11 listam o que não existe: medalhas, conquistas, ranking de leitores, mensagem direta, clubes de leitura, login social, leitura de e-book no app, camada de obra. Se um prompt precisa de uma dessas para funcionar, o prompt está errado.
+
+### 2.1 Tela já entregue: o arquivo novo é um prompt de edição
+
+**Quando aplica.** A tela já tem `.md` e `prototipos/<tela>.html` commitados, e uma feature de outro período muda o que ela faz. RF-AVA-09 acrescenta Markdown e pré-visualização à tela de escrever resenha, entregue no Período 1; RF-AVA-06/07, RF-EST-09 e RF-ACV-21 mudam a página do livro pelo mesmo caminho.
+
+**A regra.** O arquivo novo **não** é um prompt de tela nova nem uma cópia editada do anterior. Ele é um **prompt de edição**, escrito para ser rodado **sobre o canvas que já existe** daquela tela no Claude Design. Ele acrescenta, substitui e remove o que estiver descrito nele, e tudo que não estiver descrito permanece como está. Isso precisa estar **declarado na primeira linha do arquivo**, no aviso do §6.1: quem for rodar o prompt tem que saber, antes de colar, que é edição e em qual canvas.
+
+**O que decorre disso:**
+
+- **O arquivo do período anterior não é alterado.** Ele continua sendo a única coisa que reproduz o protótipo daquele período, inclusive a seção 10, cujas proibições estavam certas para o escopo dele. Ele só ganha, no cabeçalho de referências, a linha `**Editada por:**` apontando para o arquivo novo.
+- **Ponteiros nos dois sentidos.** O arquivo novo abre com `**Edita:** ../../periodo-N/<ID>/<tela>.md`; o antigo recebe `**Editada por:** ../../periodo-N/<ID>/<tela>.md`.
+- **O HTML resultante vai para o `prototipos/` da pasta nova**, com o mesmo nome base. O HTML do período anterior permanece onde está: os dois juntos são o histórico visual da tela.
+- **Quem pediu a mudança registra no seu arquivo de feature** que a tela de outro período foi editada, como pendência e como item da divergência protótipo × implementação (Definition of Done).
+- **Ainda não exportada não é edição.** Se a tela tem prompt mas nenhum protótipo commitado, corrija o próprio arquivo, no lugar. Prompt de edição só existe para o que já foi entregue.
 
 ---
 
@@ -71,6 +86,17 @@ Antes de escrever qualquer prompt, leia, nesta ordem:
 4. **Revisar os artboards** contra o checklist do §9. Se algo saiu fora da banlist, corrija o prompt e gere de novo; não corrija só o HTML, ou o prompt deixa de reproduzir o protótipo.
 5. **Exportar o HTML** para `prototipos/<tela>.html`.
 6. **Commitar prompt e HTML juntos.** Se o protótipo divergir do que a implementação precisa fazer, registrar a divergência no arquivo da feature (item do Definition of Done).
+
+### 3.1 Fluxo do prompt de edição
+
+Para o caso do §2.1. Muda o passo 3 e o passo 5.
+
+1. **Escrever o `.md`** no template do §6.1, na pasta da feature que pediu a mudança.
+2. **Abrir no Claude Design o canvas já existente da tela**, o mesmo que gerou o protótipo commitado. Não comece um canvas em branco: o prompt pressupõe os artboards que já estão lá.
+3. **Colar o arquivo inteiro.** Ele continua autocontido quanto ao design: o bloco de contexto do §7 é obrigatório também aqui, porque a edição pode ser rodada em outra sessão, e o que não estiver escrito não existe para o Claude Design.
+4. **Revisar contra o checklist do §9, aplicado ao canvas inteiro**, e não só aos artboards novos: o que era para permanecer precisa ter permanecido.
+5. **Exportar o HTML** para o `prototipos/` da pasta nova. O protótipo anterior fica onde está.
+6. **Commitar prompt e HTML juntos**, mais a linha `**Editada por:**` no arquivo da tela original e o registro no arquivo da feature.
 
 ---
 
@@ -197,6 +223,60 @@ Os itens aplicáveis do documento-de-design §7, reescritos por extenso (ver §8
 - **§8 Copy completa.** Todo texto visível, literal, em pt-BR. **Zero em-dash.** Zero emoji. Título de seção diz o que a seção é ("Resenhas", "Estatísticas"), sem label poético. Mensagem de erro específica e acionável, nunca "Algo deu errado".
 - **§9 Acessibilidade e interação.** Contraste WCAG AA no corpo, AAA no título quando der. Alvo de toque de 48px no mobile. Foco de teclado visível na web. `prefers-reduced-motion` respeitado. Toda ação destrutiva com confirmação em modal (RNF-USA-04), botão destrutivo em outline `rubi`, nunca preenchido.
 
+### 6.1 Template do prompt de edição
+
+Para o caso do §2.1. Mesmo cabeçalho de referências, mais o aviso de edição, e as seções recortadas no que muda. **Não repita os artboards que continuam iguais**: declare que permanecem.
+
+````markdown
+# <ID da feature> · <Nome da tela> (edição)
+
+> **Prompt de edição.** Rode este prompt **sobre o canvas já existente** de `<Nome da tela>`, gerado por `<caminho do prompt original>`. Ele **não** cria um canvas novo: acrescenta, substitui e remove só o que está descrito abaixo. **Tudo que não estiver aqui permanece exatamente como está.**
+
+**Edita:** ../../periodo-N/<ID>/<tela>.md
+**Feature:** ../../../plano-de-desenvolvimento/periodo-N/feature-<ID>.md
+**Requisitos que entram:** RF-XXX-NN
+**Regras de negócio:** RN-NN
+**Versão web:** sim (RF-XXX-NN tem marcação na coluna Web) | não (motivo)
+
+## 1. O que muda e por quê
+
+O recorte da edição em poucas linhas: qual requisito entra, o que ele acrescenta à tela e o que deixa de valer do escopo anterior.
+
+## 2. Contexto do design
+
+<bloco de contexto do design, transcrito conforme o §7. Obrigatório também na edição.>
+
+## 3. O que permanece intocado
+
+Lista explícita: shell, header, cabeçalho de conteúdo, artboards que não mudam, copy que não muda. É o que impede a edição de virar um redesenho.
+
+## 4. Artboards que mudam
+
+Um bloco por artboard existente, **chamado pelo rótulo que ele já tem no canvas**, dizendo o que entra, o que sai e o que fica.
+
+## 5. Artboards novos
+
+Mobile, web e escuro, no mesmo formato do §6, com o rótulo no padrão `<Nome da tela> · <estado>` e a posição na linha do canvas.
+
+## 6. Artboards a remover
+
+Com o motivo. Se nenhum sai, escreva que nenhum sai.
+
+## 7. Componentes novos ou alterados
+
+Com a seção do documento-de-design que define cada um, e a lista do que nasce aqui e vira pendência de incorporação pelo controle de mudança (plano §3).
+
+## 8. Copy nova ou alterada
+
+Só o delta, literal, com a copy substituída ao lado da que entra.
+
+## 9. Acessibilidade e interação do que muda
+
+## 10. O que não fazer nesta edição
+
+Os itens aplicáveis do documento-de-design §7 reescritos por extenso, mais a regra própria da edição: não redesenhar o que não foi citado, não reordenar artboard existente e não reintroduzir o que a seção 10 do prompt original proibia e continua valendo.
+````
+
 ---
 
 ## 7. Bloco de contexto do design
@@ -262,7 +342,7 @@ Na seção 10 do prompt, **reescreva por extenso** os itens aplicáveis, na impe
 
 ## 9. Checklist antes de exportar
 
-Verificável olhando o canvas gerado. Cada item aponta para a regra na fonte:
+Verificável olhando o canvas gerado. Cada item aponta para a regra na fonte. **Em prompt de edição (§2.1), o checklist vale para o canvas inteiro depois da edição**, e não só para os artboards novos:
 
 - [ ] Todos os estados relevantes estão presentes, incluindo vazio, carregando e erro (§4 deste arquivo).
 - [ ] Modo escuro presente, no mínimo o estado padrão de cada plataforma, com o tratamento de superfície de design §3.1.2.

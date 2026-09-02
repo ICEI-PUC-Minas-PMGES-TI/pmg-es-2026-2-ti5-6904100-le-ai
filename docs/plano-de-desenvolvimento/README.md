@@ -63,7 +63,7 @@ Granularidade atual: features "maiores" — cerca de uma por módulo de RF, por 
 | F-SOCIAL-2 | Comentários (edição) e menções-link | social | 2 | desejavel | RF-SOC-13, 15 | a definir |
 | F-ACV-DESCOBERTA | Filtros e páginas de autor/editora/série | acervo | 2 | desejavel | RF-ACV-03, 10, 11, 12, 21 | a definir |
 | F-ACV-NOTA | Nota geral e cache de capas | acervo | 2 | desejavel | RF-ACV-15, 16, 17 | a definir |
-| F-EST-2 | Favoritos, histórico e busca na estante | leitura | 2 | desejavel | RF-EST-09, 10, 13 | a definir |
+| F-EST-2 | Favoritos, histórico e buscas | leitura | 2 | desejavel | RF-EST-09, 10, 13 | a definir |
 | F-SESSAO | Sessão de leitura cronometrada (mobile) | leitura | 2 | desejavel | RF-PRG-05..12 | a definir |
 | F-AVA-2 | Reações, Markdown e frases | leitura | 2 | desejavel | RF-AVA-05, 06, 07, 08, 09 | a definir |
 | F-DSF | Desafios | leitura | 2 | desejavel | RF-DSF-01, 02, 03, 04, 06 | a definir |
