@@ -99,7 +99,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Fronteira:** o transporte **em tempo real** in-app é [F-NOT-2](../periodo-2/feature-F-NOT-2.md) (Período 2), não esta feature; as duas coexistem — tempo real dentro do app, push fora dele.
 - **Consumidora direta:** [F-GAM-OPC](feature-F-GAM-OPC.md) depende deste push para que o lembrete de sequência tenha função (§5.12) — ordenar as duas features na sprint.
 - **Compartilha `social`** com as demais features sociais — sinalizar no grupo (plano §6). Preferências e dispositivos são limpos por [F-CONTA-2](../periodo-2/feature-F-CONTA-2.md) na exclusão de conta.
-- Stack de `social` ainda pendente (P0-INFRA).
+- Stack de `social` definida: **Spring (Java)** (arquitetura §2.1).
 
 ## Timeline
 

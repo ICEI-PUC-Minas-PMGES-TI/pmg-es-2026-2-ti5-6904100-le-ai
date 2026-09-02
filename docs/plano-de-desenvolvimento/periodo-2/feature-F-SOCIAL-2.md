@@ -82,7 +82,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - `usuario.mencionado` já pertence ao fluxo aprovado de notificações — sem divergência de baseline.
 - **Decisão da feature:** fixar limite de caracteres do comentário e regras de posição após edição antes da migration.
 - **Alternativa a avaliar, sem mudar o desenho atual:** persistir apenas o conjunto de mencionados e resolver posições no cliente; a implementação prevista mantém cada posição por decisão do grupo.
-- Stack de `social` ainda pendente (P0-INFRA).
+- Stack de `social` definida: **Spring (Java)** (arquitetura §2.1).
 
 ## Timeline
 

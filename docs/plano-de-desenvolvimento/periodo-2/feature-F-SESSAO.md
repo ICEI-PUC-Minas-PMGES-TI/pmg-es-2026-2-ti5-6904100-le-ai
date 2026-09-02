@@ -79,7 +79,7 @@ A sessão é **estado exclusivamente local do dispositivo** (RN-16.7/9/10): **in
 
 - **Depende de** [F-PRG](../periodo-1/feature-F-PRG.md) (endpoint de progresso, fila offline, regras de RN-17) e [F-EST](../periodo-1/feature-F-EST.md) (leitura em Lendo/Relendo), [P0-DS](../periodo-0/feature-P0-DS.md) (tokens; modo de foco = zero motion), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md).
 - Biblioteca de persistência local do estado da sessão (mobile) a fixar no arranque.
-- Stack de `leitura` ainda pendente (P0-INFRA) — irrelevante para o cliente, relevante só para o campo opcional acima.
+- Stack de `leitura` definida: **NestJS** (arquitetura §2.1) — irrelevante para o cliente, relevante só para o campo opcional acima.
 
 ## Timeline
 

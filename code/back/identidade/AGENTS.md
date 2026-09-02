@@ -8,7 +8,7 @@ Usuário, autenticação, perfil, privacidade, seguidores e solicitações de se
 
 ## Stack e dados
 
-- **Stack:** Spring ou NestJS — **a definir pela equipe**; até a decisão, não escolher framework nem criar scaffolding por conta própria. Registrar aqui quando decidido.
+- **Stack:** **Spring (Java)** — decidido pela equipe em 02/09/2026 (arquitetura §2.1). Versão do JDK e build (Gradle ou Maven) a fixar no arranque do scaffolding (P0-INFRA).
 - **Schema:** `identidade`, no PostgreSQL único do Neon. Só este serviço cria migration das suas tabelas.
 - Leitura por outros serviços apenas via **VIEW** exposta e mantida por este serviço (ex.: relação de seguir para a recomendação algorítmica em `social`).
 

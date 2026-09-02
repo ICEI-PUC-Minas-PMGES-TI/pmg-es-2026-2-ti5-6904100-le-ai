@@ -94,7 +94,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Pendência aberta — visibilidade do conteúdo de conta suspensa:** se resenhas, atividades, listas e o perfil de um leitor suspenso continuam visíveis a terceiros. Ocultar tudo se aproxima de remoção em massa sem denúncia; manter tudo visível pode frustrar o motivo da sanção. Decisão do grupo; esta feature entrega o bloqueio de acesso e não altera visibilidade.
 - **Pendência aberta — reativação:** acrescentada como extensão mínima e simétrica, fora da letra de RF-MOD-04. Confirmar com o grupo; é o primeiro item a cortar se o escopo apertar.
 - **Compartilha `social`** com as demais features sociais e **`identidade`** com [F-AUT](../periodo-1/feature-F-AUT.md)/[F-CONTA-2](../periodo-2/feature-F-CONTA-2.md) — sinalizar no grupo antes de mexer (plano §6).
-- Stack de `social` e de `identidade` ainda pendentes (P0-INFRA).
+- Stack definida (arquitetura §2.1): `social` e `identidade` em Spring.
 
 ## Timeline
 

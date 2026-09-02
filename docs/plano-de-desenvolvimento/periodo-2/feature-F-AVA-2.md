@@ -85,7 +85,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Denúncia de resenha** e **remoção direta de frase pela moderação** (RN-11) são de **F-MOD** — frase não possui fluxo de denúncia.
 - `resenha.curtida` **já é** fluxo fechado de §7.2 — sem divergência de baseline.
 - **Decisão do dono:** definir se retirar uma curtida e curtir novamente deve gerar nova notificação; a chave semântica deve distinguir reentrega do mesmo fato de uma nova transição legítima.
-- Stack de `leitura` ainda pendente (P0-INFRA).
+- Stack de `leitura` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
 ## Timeline
 

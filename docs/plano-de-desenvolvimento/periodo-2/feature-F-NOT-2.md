@@ -76,7 +76,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Backplane:** desnecessário em instância única; se o serviço escalar, o fan-out às conexões exige um pub/sub — registrado como consideração, não implementado.
 - **Sem evento/tipo novo:** não estende o mapa de mensageria — sem divergência de baseline; a entrega é transporte sobre a notificação já criada por [F-NOT](../periodo-1/feature-F-NOT.md).
 - **Push FCM** (RF-NOT-07) e **preferências** (RF-NOT-05) permanecem no Período 3.
-- Stack de `social` ainda pendente (P0-INFRA).
+- Stack de `social` definida: **Spring (Java)** (arquitetura §2.1).
 
 ## Timeline
 

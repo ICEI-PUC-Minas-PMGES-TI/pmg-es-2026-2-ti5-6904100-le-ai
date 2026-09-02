@@ -101,7 +101,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Validação do período-0:** viabilidade do GitHub Actions `schedule` no repositório do GitHub Classroom (P-08) e emissão de push FCM em Android real (P-04) — arquitetura §8. O lembrete depende das duas.
 - **Ordem na sprint:** entra **depois** de [F-NOT-OPC](feature-F-NOT-OPC.md). Se o push não sair, RF-GAM-04 (calendário) permanece entregável sozinho e RF-GAM-05 é o candidato natural a corte, dado o congelamento de 17/11.
 - **Compartilha `leitura`** com as demais features de leitura e **`social`** com as sociais — sinalizar no grupo (plano §6).
-- Stack de `leitura` e de `social` ainda pendentes (P0-INFRA).
+- Stack definida (arquitetura §2.1): `leitura` em NestJS, `social` em Spring.
 
 ## Timeline
 

@@ -88,7 +88,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Alternativa avaliada e adotada:** comando HTTP interno autenticado/idempotente para remoção; não criar evento ou saga para um comando administrativo que precisa de resposta.
 - **Fronteira:** **suspender conta** (RF-MOD-04) é Opcional → **F-MOD-OPC** (Período 3).
 - **Compartilha `social`** com as demais features sociais — sinalizar no grupo (plano §6).
-- Stack de `social` e de `leitura` ainda pendentes (P0-INFRA).
+- Stack definida (arquitetura §2.1): `social` em Spring, `leitura` em NestJS.
 
 ## Timeline
 

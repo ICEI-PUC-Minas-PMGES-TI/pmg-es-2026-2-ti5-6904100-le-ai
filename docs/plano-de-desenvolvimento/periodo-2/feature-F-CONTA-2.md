@@ -89,7 +89,7 @@ Ledgers e outboxes só permanecem pelo prazo técnico necessário e sem payload/
 - **Divergência de baseline — prioridade:** RF-AUT-07 é Desejável (P2), mas RNF-SEC-41 é Essencial (§8). O grupo deve resolver o agendamento pelo controle de mudança (plano §3); esta feature não altera a baseline.
 - **Depende também de** F-AVA-2, F-DSF, F-STA, F-GAM, F-LST, F-REC-P2P e F-MOD para fechar o inventário dos dados criados no Período 2.
 - **Alternativa a avaliar, sem mudar o desenho atual:** verificar se o recibo `exclusao_conta` pode reutilizar a infraestrutura do ledger idempotente sem perder o estado dos 30 dias.
-- Stack de cada serviço ainda pendente (P0-INFRA).
+- Stack de cada serviço definida (arquitetura §2.1): `identidade`/`social` em Spring, `acervo`/`leitura` em NestJS.
 
 ## Timeline
 

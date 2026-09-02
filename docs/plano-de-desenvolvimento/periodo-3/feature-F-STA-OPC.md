@@ -94,7 +94,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Alternativa a avaliar, sem mudar o desenho atual:** persistir os onze buckets junto dos agregados de `estatistica_usuario` e mantê-los pelo mesmo recálculo de RF-STA-05. Só compensa se a medição em DES mostrar custo real da agregação; exigiria acrescentar o campo ao DER **antes** da migration, e passa a demandar sincronia com o ciclo da nota que hoje é automática.
 - **Fronteira:** a distribuição de notas **de um livro** (RF-ACV-04) é de [F-ACV-NOTA](../periodo-2/feature-F-ACV-NOTA.md), em `acervo`, derivada da projeção de notas dos leitores. Não confundir os dois histogramas nem tentar reaproveitar um para o outro.
 - **Compartilha `leitura`** com as demais features de leitura — sinalizar no grupo (plano §6). As notas que alimentam a distribuição são limpas por [F-CONTA-2](../periodo-2/feature-F-CONTA-2.md) na exclusão de conta.
-- Stack de `leitura` ainda pendente (P0-INFRA).
+- Stack de `leitura` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
 ## Timeline
 

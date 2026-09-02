@@ -102,7 +102,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Alternativa a avaliar, sem mudar o desenho atual:** aplicar expiração apenas por `expira_em` nas consultas e adiar a remoção física para manutenção, sem job próprio da feature.
 - **Fronteira:** recomendação **algorítmica** (RF-REC-08..12), **motivo/aba algorítmica** e **descarte em lote** (RF-REC-17, RN-22.12/13) são Opcionais → **F-REC-ALG** (Período 3); a **decisão de opt-out** de leituras nas recomendações (§10.7) é pendência do período-0/grupo.
 - **Compartilha `social`** com as demais features sociais; recomendações limpas por [F-CONTA-2](feature-F-CONTA-2.md) na exclusão — sinalizar no grupo (plano §6).
-- Stack de `social` ainda pendente (P0-INFRA).
+- Stack de `social` definida: **Spring (Java)** (arquitetura §2.1).
 
 ## Timeline
 

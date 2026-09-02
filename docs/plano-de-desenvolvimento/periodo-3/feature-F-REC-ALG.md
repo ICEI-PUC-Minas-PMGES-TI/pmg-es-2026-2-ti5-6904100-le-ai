@@ -113,7 +113,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Assunto de livro pessoal como sinal de gosto:** [F-ACV-OPC](feature-F-ACV-OPC.md) permite assuntos em livro pessoal; se contam como sinal na estante **do próprio leitor** é decisão do grupo. Livro pessoal de terceiro continua excluído por RF-REC-10.
 - **Desempenho:** as duas consultas são as mais pesadas de `social` e correm sobre um plano gratuito que hiberna (RNF-ERR-09). Limite fixo por seção e os índices de RNF-DES-03 são a mitigação; medir em DES antes do congelamento de 17/11.
 - **Compartilha `social`** com as demais features sociais — sinalizar no grupo (plano §6). Sugestões descartadas são limpas por [F-CONTA-2](../periodo-2/feature-F-CONTA-2.md) na exclusão de conta.
-- Stack de `social` e de `acervo` ainda pendentes (P0-INFRA).
+- Stack definida (arquitetura §2.1): `social` em Spring, `acervo` em NestJS.
 
 ## Timeline
 

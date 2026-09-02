@@ -97,7 +97,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Compartilha `social` com [F-FEED](feature-F-FEED.md)** — sinalizar no grupo antes de mexer (plano §6).
 - **Eventos futuros sem contrato:** recomendação recebida e lembrete de sequência não constam nas listas fechadas de mensageria dos documentos-mestre. F-REC-P2P/F-GAM-OPC devem propor os contratos e donos dos testes pelo controle de mudança antes de estender este consumidor.
 - **Ficam fora:** preferências de categoria (RF-NOT-05, Período 3), **tempo real** (RF-NOT-06, **F-NOT-2** Período 2), **push FCM** (RF-NOT-07, Período 3).
-- Stack de `social` ainda pendente (P0-INFRA).
+- Stack de `social` definida: **Spring (Java)** (arquitetura §2.1).
 
 ## Timeline
 

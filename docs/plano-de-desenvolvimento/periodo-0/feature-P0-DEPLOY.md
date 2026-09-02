@@ -123,7 +123,7 @@ O app não é hospedado no Render: o **APK de DES é artefato do CI** a cada mer
 ## Pendências
 
 - **Depende de [P0-INFRA](feature-P0-INFRA.md)** (projetos deployáveis) e de [P0-CI](feature-P0-CI.md) (pipeline que dispara o deploy versionado — RNF-SEC-34).
-- **Runtime de cada serviço no Render** (`docker` vs `node`/`java` nativo) depende da stack alocada (pendência de P0-INFRA) e da disponibilidade no free tier.
+- **Runtime de cada serviço no Render** (`docker` vs `node`/`java` nativo) — com a stack decidida (02/09/2026), `identidade`/`social` rodam runtime Java e `acervo`/`leitura` runtime Node; a escolha docker vs nativo ainda depende da disponibilidade no free tier.
 - **Confirmar limites vigentes do plano gratuito do Neon** (armazenamento, horas de compute, nº de branches) — parte dos "itens a validar no período-0" (arquitetura §8); ver também [P0-MSG](feature-P0-MSG.md).
 - Avaliar necessidade de um **gateway/entrada única** vs 4 URLs distintas para o cliente (afeta `VITE_API_BASE_URL` e CORS). Não bloqueia DES; decidir com [P0-NAV](feature-P0-NAV.md).
 - Estratégia de **keep-alive** contra hibernação em dia de demonstração (ex.: ping agendado) — opcional, avaliar com o `schedule` de [P0-MSG](feature-P0-MSG.md).

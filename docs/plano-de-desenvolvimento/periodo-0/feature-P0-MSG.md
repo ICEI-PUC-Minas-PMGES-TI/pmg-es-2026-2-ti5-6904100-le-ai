@@ -112,7 +112,7 @@ Cada item vira um teste mínimo que prova viabilidade **no ambiente real**, não
 
 - **Depende de [P0-INFRA](feature-P0-INFRA.md)** (serviços de pé, log/correlation-id) e conversa com [P0-CI](feature-P0-CI.md) (o workflow `schedule` vive no mesmo `.github/`).
 - **Viabilidade das Actions `schedule` no GitHub Classroom não confirmada** (P-08) — se restrita, adotar cron-job.org.
-- Cliente AMQP concreto por serviço depende da stack alocada (pendência de P0-INFRA): Spring AMQP ou `amqplib`.
+- Cliente AMQP por serviço definido com a stack (02/09/2026): **Spring AMQP** em `identidade` e `social`; **`amqplib`** em `acervo` e `leitura`.
 - Definir a **biblioteca de validação de schema de mensagem** por stack (ex.: JSON Schema com validador Java/Node) — RNF-SEC-32.
 - Limites vigentes dos planos gratuitos a confirmar e anotar (Cloudinary, CloudAMQP, Brevo, Neon).
 

@@ -1,8 +1,8 @@
 # REQUISITOS
 
-**Versão:** v1.3 — 01/09/2026
+**Versão:** v1.4 — 02/09/2026
 **Baseline:** fechada em 25/08/2026
-**Status:** baseline fechada — permanecem explícitas a alocação de stack por serviço e a decisão de opt-out de recomendações
+**Status:** baseline fechada — permanece explícita a decisão de opt-out de recomendações (alocação de stack por serviço decidida em 02/09/2026 — ver Documento de Arquitetura §2.1)
 
 Este documento é a **fonte de verdade** do projeto. Toda decisão de produto, modelo de dados e regra de negócio mora aqui. Arquivos de feature, specs OpenAPI, diagramas e código derivam deste documento — nunca o contrário.
 
@@ -28,7 +28,7 @@ A tese de produto é que o hábito de leitura se sustenta por três mecanismos: 
 |---|---|---|
 | Mobile | Flutter (nativo) | **Produto principal** — escopo funcional completo |
 | Web | **Vue** (SPA) com **Tailwind CSS** | **Subconjunto** de funcionalidades |
-| Backend | Microsserviços em **Spring + NestJS**; alocação por serviço pendente no Documento de Arquitetura; FastAPI descartado | Web services consumidos por ambos os clientes |
+| Backend | Microsserviços em **Spring + NestJS** (identidade/social em Spring, acervo/leitura em NestJS — Documento de Arquitetura §2.1); FastAPI descartado | Web services consumidos por ambos os clientes |
 
 O professor vetou o uso de Flutter Web, portanto web e mobile são aplicações separadas com bases de código independentes, consumindo os mesmos serviços.
 
@@ -1067,6 +1067,11 @@ Registrado explicitamente para evitar reabertura de discussão:
 ---
 
 ## 12. Timeline
+
+### v1.4 — 02/09/2026
+
+- **Alocação de stack por serviço decidida** (encerra pendência da baseline): `identidade` e `social` em **Spring (Java)**; `acervo` e `leitura` em **NestJS (TypeScript)** — mantendo `acervo` e `leitura` na mesma stack, como a arquitetura recomendava.
+- **Impacto:** registrada no Documento de Arquitetura §2.1 (P-11) e no `AGENTS.md` de cada serviço; pendências correlatas fechadas nas features de P0 (INFRA, CI, MSG, DEPLOY) e nas features de produto que citavam a stack pendente. Sem mudança de requisito, dados ou decomposição.
 
 ### v1.3 — 01/09/2026
 

@@ -89,7 +89,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Sessão de leitura cronometrada** (RF-PRG-05..12, RN-16) fica **fora** — é **F-SESSAO** (Período 2). A entrada de página desta feature é a mesma que a sessão usará ao encerrar; manter o contrato compatível.
 - **Decisão da feature:** definir como progresso offline, capturado no dia correto e sincronizado depois, afeta streak e janelas já encerradas; distinguir esse caso de registro retroativo, que continua proibido por RN-18.
 - Persistir a **data local** da atualização (RN-18.2) desde já, para a sequência diária (Período 2) não exigir retrabalho.
-- Stack de `leitura` ainda pendente (P0-INFRA).
+- Stack de `leitura` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
 - **Prompts de tela em [`docs/design/periodo-1/F-PRG/`](../../design/periodo-1/F-PRG/):** `registrar-progresso.md` e `atualizacoes-de-progresso.md`. **RF-PRG-02 não tem prompt próprio:** a página atual e o percentual aparecem como barra de progresso em [`F-EST/estante.md`](../../design/periodo-1/F-EST/estante.md) e em [`F-ACV-BUSCA/pagina-do-livro.md`](../../design/periodo-1/F-ACV-BUSCA/pagina-do-livro.md), conforme a regra de recorte do [`docs/design/AGENTS.md`](../../design/AGENTS.md) §2.
 - **Componentes que nascem no protótipo e ainda não estão na fonte:** o **aviso de registro enfileirado offline** (RNF-ERR-05; desenhado como linha em `ambar` no contexto, porque o design §7.6 proíbe toast com fundo saturado), a **linha de três valores com divisor vertical** (o §7.3 diz o que não fazer, mas não desenha a alternativa) e a **tabela de dados da web**, que o documento não tem em nenhuma seção. Incorporar ao `documento-de-design.md` pelo controle de mudança do plano §3.

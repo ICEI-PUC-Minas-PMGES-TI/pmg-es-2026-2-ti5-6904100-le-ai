@@ -99,7 +99,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Delta diário de ingestão continua sem feature:** consta em `REQUISITOS.md` §10.2 e na arquitetura §2.4, mas não está alocado em nenhum período. Conforme [F-ACV-INGESTAO](../periodo-1/feature-F-ACV-INGESTAO.md), **não presumir que F-ACV-OPC o cobre** — esta feature trata recarga **manual**. Registrar para decisão e alocação pelo grupo.
 - **Assuntos de livro pessoal na recomendação algorítmica:** [F-REC-ALG](feature-F-REC-ALG.md) exclui livro pessoal de terceiros (RF-REC-10); resta ao grupo decidir se os assuntos do livro pessoal **do próprio leitor** contam como sinal de gosto na seção "Do seu gosto". Não decidir aqui.
 - **Compartilha `acervo`** com as demais features de acervo — sinalizar no grupo antes de mexer (plano §6).
-- Stack de `acervo` ainda pendente (P0-INFRA).
+- Stack de `acervo` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
 ## Timeline
 

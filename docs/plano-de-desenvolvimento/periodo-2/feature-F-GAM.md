@@ -82,7 +82,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Alternativa a avaliar, sem mudar o desenho atual:** derivar sequência diretamente das datas locais de progresso e adicionar cache apenas se houver necessidade medida.
 - **Fronteira:** **calendário de dias com progresso** (RF-GAM-04) e **lembrete push** (RF-GAM-05, depende de push/P-04) são Opcionais → **F-GAM-OPC** (Período 3).
 - **Compartilha `leitura`** com as demais features de leitura — sinalizar no grupo (plano §6). A sequência é limpa por [F-CONTA-2](feature-F-CONTA-2.md) na exclusão.
-- Stack de `leitura` ainda pendente (P0-INFRA).
+- Stack de `leitura` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
 ## Timeline
 

@@ -8,7 +8,7 @@ Feed e atividades, curtidas de atividade, comentários, listas, recomendações 
 
 ## Stack e dados
 
-- **Stack:** Spring ou NestJS — **a definir pela equipe**. Até a decisão, não escolher framework nem criar scaffolding por conta própria. Registrar aqui quando decidido.
+- **Stack:** **Spring (Java)** — decidido pela equipe em 02/09/2026 (arquitetura §2.1). Versão do JDK e build (Gradle ou Maven) a fixar no arranque do scaffolding (P0-INFRA).
 - **Schema:** `social`, no PostgreSQL único do Neon.
 - **Recomendação algorítmica** é hospedada aqui, lendo **VIEWs** de `leitura` (estante, nota), `identidade` (seguir) e `acervo` (assunto) — nunca tabelas cruas. Calculada em tempo de consulta, sem estrutura derivada (`REQUISITOS.md` §10.7).
 - **Feed guarda snapshot** no evento de atividade (nome do usuário, título e capa do livro no momento), em vez de hidratar por join a cada scroll.

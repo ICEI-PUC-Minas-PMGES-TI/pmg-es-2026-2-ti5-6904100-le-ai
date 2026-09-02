@@ -77,7 +77,7 @@ Favoritos e histórico permanecem recursos do próprio usuário neste escopo; a 
 
 - **Depende de** [F-EST](../periodo-1/feature-F-EST.md) (estante, máquina de estados e favorito adiado), [F-PRG](../periodo-1/feature-F-PRG.md) (modelo, endpoint e tela de atualizações), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md).
 - **Compartilha `leitura` com [F-EST](../periodo-1/feature-F-EST.md)/[F-PRG](../periodo-1/feature-F-PRG.md)/[F-AVA](../periodo-1/feature-F-AVA.md)** e será limpo por [F-CONTA-2](feature-F-CONTA-2.md) na exclusão — sinalizar no grupo antes de mexer no serviço (plano §6).
-- Stack de `leitura` ainda pendente (P0-INFRA).
+- Stack de `leitura` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 - **Alternativa a avaliar, sem mudar o desenho atual:** reutilizar uma única ação/componente de favorito nos pontos de entrada antes de duplicar estado entre telas.
 - **Prompts de tela a criar em `docs/design/periodo-2/F-EST-2/`:** `historico-de-leituras.md` para o destino geral e `atualizacoes-de-progresso.md` como prompt de edição da tela de F-PRG, acrescentando o modo histórico somente leitura.
 

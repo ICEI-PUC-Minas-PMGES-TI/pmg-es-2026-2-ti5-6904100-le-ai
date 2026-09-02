@@ -84,7 +84,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Alternativa a avaliar, sem mudar o desenho atual:** calcular a janela corrente consultando progresso/leitura e persistir apenas snapshots históricos no P3.
 - **Histórico de janelas** (RF-DSF-05) é Opcional → **F-DSF-OPC** (Período 3); aqui só a janela corrente.
 - **Compartilha `leitura`** com as demais features de leitura — sinalizar no grupo (plano §6). Desafios são limpos por [F-CONTA-2](feature-F-CONTA-2.md) na exclusão.
-- Stack de `leitura` ainda pendente (P0-INFRA).
+- Stack de `leitura` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
 ## Timeline
 

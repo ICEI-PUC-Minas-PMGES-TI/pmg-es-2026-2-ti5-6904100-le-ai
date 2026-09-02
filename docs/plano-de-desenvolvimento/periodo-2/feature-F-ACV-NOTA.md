@@ -87,7 +87,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Depende de** [F-AVA](../periodo-1/feature-F-AVA.md) (`nota.alterada`, `v_nota_publicacao_v1`), [F-EST](../periodo-1/feature-F-EST.md) (`livro.adicionado_a_estante`, `v_estante_publica_v1`), [F-ACV-BUSCA](../periodo-1/feature-F-ACV-BUSCA.md) (página do livro e resolução de capa), [F-ACV-INGESTAO](../periodo-1/feature-F-ACV-INGESTAO.md) (chaves de dedup para o import; `v_livro_referencia_v1`), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md) e [P0-MSG](../periodo-0/feature-P0-MSG.md) (broker; Cloudinary/P-09 para o cache).
 - **Fonte da nota geral:** confirmar o formato concreto do `ol_dump_ratings`; a semântica por obra já está decidida e usa `ol_work_key`.
 - **Alternativa a avaliar, sem mudar o desenho atual:** manter somente a projeção individual e calcular média/contagem por VIEW SQL antes de materializar `nota_livro_agregada`.
-- Stack de `acervo` ainda pendente (P0-INFRA).
+- Stack de `acervo` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
 ## Timeline
 

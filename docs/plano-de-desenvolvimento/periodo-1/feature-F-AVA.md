@@ -96,7 +96,7 @@ O feed não consome VIEW de resenha; consome exclusivamente `resenha.publicada`.
 - **Compartilha `leitura` com [F-EST](feature-F-EST.md) e [F-PRG](feature-F-PRG.md)** — sinalizar no grupo antes de mexer no serviço (plano §6).
 - **Ficam fora (Período 2):** curtir/descurtir e contadores de resenha (RF-AVA-05/08), frases/trechos (RF-AVA-06/07, RN-11), **Markdown** (RF-AVA-09, RN-13) — todos **F-AVA-2**. No Período 1 a resenha é **texto puro**; nada de parser Markdown ainda.
 - A **projeção nota dos leitores** e a **nota geral** (RF-ACV-15/16) são **F-ACV-NOTA** (Período 2). Antes de consumir novos `nota.alterada`, essa feature deve fazer backfill de `v_nota_publicacao_v1`, pois eventos do Período 1 não são presumidos retidos.
-- Stack de `leitura` ainda pendente (P0-INFRA).
+- Stack de `leitura` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
 - **Prompts de tela em [`docs/design/periodo-1/F-AVA/`](../../design/periodo-1/F-AVA/):** `avaliar-livro.md` e `escrever-resenha.md`. **A exibição da nota e das resenhas não tem prompt próprio:** ela é elemento que esta feature acrescenta a [`F-ACV-BUSCA/pagina-do-livro.md`](../../design/periodo-1/F-ACV-BUSCA/pagina-do-livro.md), incluindo o estado de resenha de terceiro com spoiler oculto, conforme a regra de recorte do [`docs/design/AGENTS.md`](../../design/AGENTS.md) §2.
 - **Nota ausente e nota zero são estados distintos na interface, por RN-06.** Ausente é o texto `Sem nota`; `0` é uma nota válida e aparece como `0`. O protótipo traz os dois artboards lado a lado justamente porque as estrelas são idênticas nos dois casos e só o texto distingue. Ausente nunca é representado como `0,0` nem como traço.

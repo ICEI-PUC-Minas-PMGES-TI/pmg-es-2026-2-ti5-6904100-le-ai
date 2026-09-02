@@ -1,7 +1,7 @@
 # Documento de Arquitetura de Software
 
-**Versão:** v1.2 — 01/09/2026
-**Status:** macroarquitetura fechada — permanece pendente para o período-0 a alocação de stack por serviço
+**Versão:** v1.3 — 02/09/2026
+**Status:** macroarquitetura fechada — alocação de stack por serviço decidida em 02/09/2026 (§2.1)
 
 > Este documento descreve **como o sistema é construído**. O *o que* mora em `docs/orquestador/REQUISITOS.md`, que continua sendo a fonte de verdade. Em caso de conflito, o `REQUISITOS.md` vence, e a divergência segue o controle de mudança do `docs/orquestador/plano-de-projeto.md` §3.
 
@@ -33,7 +33,7 @@ Cada decisão registra a escolha, a justificativa e as consequências aceitas. A
 - Padrões transversais precisam ser implementados **duas vezes**: corpo de erro padronizado (RNF-ERR-01), log estruturado com `correlation-id` (RNF-OBS-01), health check (RNF-OBS-02), rate limiting (RNF-SEC-17/18). O documento trata cada um como contrato de comportamento (formato de saída), não como biblioteca compartilhada, para que as duas implementações fiquem equivalentes.
 - Cada serviço declara sua stack no seu `AGENTS.md`, e a divisão vertical (um dev dono da feature de ponta a ponta) considera a linguagem do serviço tocado.
 
-**Alocação de stack por serviço** — a definir pela equipe conforme a força de cada dupla; a arquitetura não depende de qual serviço fica em qual stack. Recomendação: manter `acervo` e `leitura` na mesma stack, por serem os dois que mais trocam dados (nota agregada), reduzindo o atrito de quem transita entre eles.
+**Alocação de stack por serviço** — **decidida pela equipe em 02/09/2026**: `identidade` e `social` em **Spring (Java)**; `acervo` e `leitura` em **NestJS (TypeScript)**. Segue a recomendação de manter `acervo` e `leitura` na mesma stack, por serem os dois que mais trocam dados (nota agregada). A arquitetura não depende de qual serviço fica em qual stack; cada serviço declara a sua no respectivo `AGENTS.md`.
 
 ### 2.2 P-12 — Decomposição em microsserviços e estratégia de banco
 
@@ -228,7 +228,7 @@ Ambientes conforme o plano §4: local (branch de banco por dev), DES/HML (branch
 
 | Pendência | Decisão | Requisitos afetados | Seção |
 |---|---|---|---|
-| P-11 | Spring + NestJS; alocação por serviço pendente | RNF-ARQ-02 | §2.1 |
+| P-11 | Spring + NestJS; identidade/social em Spring, acervo/leitura em NestJS (02/09/2026) | RNF-ARQ-02 | §2.1 |
 | P-12 | 4 serviços; PostgreSQL/Neon, schema por serviço | RNF-ARQ-02, RNF-ARQ-07 | §2.2, §3, §4 |
 | P-06 | RabbitMQ (CloudAMQP) | §7.2, RNF-ARQ-06 | §2.3, §5.2 |
 | P-08 | GitHub Actions `schedule` (fallback cron-job.org) | RNF-ARQ-09, RF-EST-11/12, RN-23 | §2.4 |
@@ -243,4 +243,3 @@ Nenhuma decisão remove requisito do escopo. As duas que o `REQUISITOS.md` marca
 - Viabilidade do GitHub Actions `schedule` no repositório do GitHub Classroom (P-08).
 - Limites vigentes dos planos gratuitos de Cloudinary, CloudAMQP, Brevo e Neon.
 - Emissão de push FCM em dispositivo Android real de demonstração (P-04).
-- Alocação de Spring e NestJS entre os quatro serviços, sem alterar a decomposição definida (§2.1).

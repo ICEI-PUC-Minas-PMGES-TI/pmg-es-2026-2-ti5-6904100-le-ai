@@ -8,7 +8,7 @@ Livro (oficial e pessoal), autor, editora, série, busca e filtros, ingestão, s
 
 ## Stack e dados
 
-- **Stack:** Spring ou NestJS — **a definir pela equipe** (recomendação da arquitetura: mesma stack que `leitura`). Até a decisão, não escolher framework nem criar scaffolding por conta própria. Registrar aqui quando decidido.
+- **Stack:** **NestJS (TypeScript)** — decidido pela equipe em 02/09/2026 (arquitetura §2.1); mesma stack que `leitura`, como recomendado. Versão do Node e gerenciador de pacote (pnpm/npm) a fixar no arranque do scaffolding (P0-INFRA).
 - **Schema:** `acervo`, no PostgreSQL único do Neon. É o serviço **mais dependente de busca e filtro relacional** — índices sobre título, autor e ISBN (RNF-DES-03).
 - **Nota dos leitores (agregada)** é uma projeção local alimentada pelo evento `nota.alterada`; nunca lê a tabela privada `leitura.nota`.
 

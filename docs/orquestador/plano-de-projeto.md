@@ -12,7 +12,7 @@
 |---|---|
 | Mobile | App nativo em Flutter |
 | Web | SPA em Vue + Tailwind CSS |
-| Backend | Microsserviços em Spring e NestJS; alocação por serviço pendente no Documento de Arquitetura |
+| Backend | Microsserviços em Spring e NestJS; identidade/social em Spring, acervo/leitura em NestJS (Documento de Arquitetura §2.1) |
 | Banco | PostgreSQL no Neon |
 | Repositório | Único, criado pela faculdade via GitHub Classroom |
 | Equipe | 5 integrantes, todos atuando como full-stack |

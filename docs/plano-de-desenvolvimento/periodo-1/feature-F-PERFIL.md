@@ -123,7 +123,7 @@ As duas VIEWs omitem contas com `exclusao_solicitada_em` preenchido. Durante os 
 - **Divergência de baseline em RF-SOC-02:** estante/resenhas vêm de `leitura` ([F-EST](feature-F-EST.md)/[F-AVA](feature-F-AVA.md)), mas listas pertencem a F-LST no Período 2. No Período 1, o perfil compõe identidade, contadores, estante e resenhas disponíveis; RF-SOC-02 não é marcado integralmente fechado até o grupo resolver a alocação das listas pelo controle de mudança.
 - **Depende futuramente de F-CONTA-2:** as VIEWs devem ocultar conta com exclusão pendente sem remover dados durante os 30 dias.
 - Definir o **preset Cloudinary de avatar** (pasta/tipos/tamanho) com [P0-MSG](../periodo-0/feature-P0-MSG.md).
-- Stack do serviço `identidade` ainda pendente (Spring vs NestJS — P0-INFRA).
+- Stack do serviço `identidade` definida: **Spring (Java)** (arquitetura §2.1).
 
 ## Timeline
 

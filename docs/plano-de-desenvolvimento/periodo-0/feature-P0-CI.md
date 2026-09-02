@@ -59,7 +59,7 @@ jobs:
 | `ci-front` | `code/front/**` | lint · build · test · `npm audit` |
 | `ci-mobile` | `code/mobile/**` | `flutter analyze` · `flutter test` · auditoria a definir · (APK só em `main`) |
 
-> A depender da alocação de stack (pendência em [P0-INFRA](feature-P0-INFRA.md)), o job de backend usa **um** dos dois caminhos abaixo por serviço. Ambos ficam prontos como template.
+> Com a stack alocada (02/09/2026): `identidade` e `social` usam o caminho **Spring**; `acervo` e `leitura` usam o caminho **NestJS**. Os dois templates abaixo permanecem, um por stack.
 
 **Backend — Spring:**
 ```yaml
@@ -150,7 +150,7 @@ jobs:
 
 ## Pendências
 
-- **Depende de [P0-INFRA](feature-P0-INFRA.md):** os jobs de backend só ficam concretos quando a stack de cada serviço estiver alocada; até lá os dois templates (Spring/Nest) convivem.
+- **Depende de [P0-INFRA](feature-P0-INFRA.md):** stack alocada em 02/09/2026 — `identidade`/`social` em Spring, `acervo`/`leitura` em NestJS; cada job de backend usa o caminho da sua stack.
 - **Depende de [P0-DEPLOY](feature-P0-DEPLOY.md)** para o gancho de deploy a partir de `main` (RNF-SEC-34).
 - Confirmar se o repositório do **GitHub Classroom** permite Actions sem restrição (mesma validação de [P0-MSG](feature-P0-MSG.md) para o `schedule`); se houver limite de minutos, priorizar caminho por filtro.
 - Ferramenta de auditoria do Spring a fixar (OWASP Dependency-Check, `gradle`/`mvn` plugin, ou equivalente).

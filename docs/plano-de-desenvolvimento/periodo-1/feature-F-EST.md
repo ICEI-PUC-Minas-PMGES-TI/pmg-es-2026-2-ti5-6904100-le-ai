@@ -124,7 +124,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Compartilha `leitura` com [F-PRG](feature-F-PRG.md) e [F-AVA](feature-F-AVA.md)** — quem chegar primeiro fixa a estrutura de `leitura`; sinalizar no grupo (plano §6). O "registrar progresso" que zera a inatividade é de F-PRG.
 - **Favoritos (RF-EST-09) e histórico por ano (RF-EST-10)** ficam **fora** — são **F-EST-2** (Período 2).
 - Viabilidade do `schedule` no GitHub Classroom **não confirmada** (P-08) — se restrita, cron-job.org sem mudar o desenho.
-- Stack de `leitura` ainda pendente (recomendação: mesma de `acervo` — P0-INFRA).
+- Stack de `leitura` definida: **NestJS** — mesma de `acervo` (arquitetura §2.1).
 
 - **Prompts de tela em [`docs/design/periodo-1/F-EST/`](../../design/periodo-1/F-EST/):** `estante.md` e `acoes-de-leitura.md`. **RF-EST-08 (número de conclusões) e o status na estante não têm prompt próprio:** eles são elementos que esta feature acrescenta a [`F-ACV-BUSCA/pagina-do-livro.md`](../../design/periodo-1/F-ACV-BUSCA/pagina-do-livro.md), conforme a regra de recorte do [`docs/design/AGENTS.md`](../../design/AGENTS.md) §2, que manda o prompt morar junto da tela e não junto da feature que pediu o dado. Alteração no desenho da página do livro precisa ser combinada com o dono de F-ACV-BUSCA.
 - **A copy das duas confirmações de abandono carrega uma regra de negócio, não uma variação de texto.** Abandonar primeira leitura deixa a leitura retomável; abandonar releitura salva como incompleta, volta a Lido, não incrementa conclusões e não é retomável (RN-04). Os dois textos estão fixados na seção 8 de `acoes-de-leitura.md` e não podem ser unificados na implementação.

@@ -40,10 +40,10 @@ code/
 ├── mobile/                # Flutter
 ├── front/                 # Vue (SPA) + Tailwind
 └── back/
-    ├── identidade/        # Spring OU NestJS (a definir — ver Pendências)
-    ├── acervo/
-    ├── leitura/
-    └── social/
+    ├── identidade/        # Spring (Java)
+    ├── acervo/            # NestJS (TypeScript)
+    ├── leitura/           # NestJS (TypeScript)
+    └── social/            # Spring (Java)
 ```
 
 **Inicialização de cada projeto** (uma vez, pelo dono da frente):
@@ -156,14 +156,16 @@ Os transversais são **contratos de saída**, não biblioteca compartilhada: cad
 - [ ] Divergência protótipo × implementação registrada, se houver (N/A — feature sem UI de produto)
 
 **Itens próprios desta feature:**
-- [ ] `AGENTS.md` de cada serviço atualizado com stack decidida, estrutura interna, padrão de teste e comandos de build (hoje esses campos estão como "a definir").
+- [ ] `AGENTS.md` de cada serviço atualizado com estrutura interna, padrão de teste e comandos de build (a stack já foi decidida em 02/09/2026: identidade/social em Spring, acervo/leitura em NestJS).
 
 ## Pendências
 
-- **Alocação de stack por serviço (Spring vs NestJS)** — decisão do grupo, ainda "a definir" nos `AGENTS.md` (arquitetura §2.1). Recomendação da arquitetura: manter **`acervo` e `leitura` na mesma stack** (mais troca de dados entre eles). Enquanto não decidida, os specs deste arquivo valem para as duas stacks. Registrar a decisão no `AGENTS.md` de cada serviço quando fechada.
+- **Alocação de stack por serviço — decidida em 02/09/2026** (arquitetura §2.1): `identidade` e `social` em **Spring**; `acervo` e `leitura` em **NestJS** (mantendo `acervo` e `leitura` na mesma stack). Já registrada no `AGENTS.md` de cada serviço. Falta apenas fixar, no arranque, as versões de SDK/build por serviço (ver item abaixo).
 - Versões exatas de SDK/linguagem/ferramenta de build (Node, JDK, Flutter SDK, gerenciador de pacote) a fixar em cada `AGENTS.md` no arranque.
 - Gerenciamento de estado do Flutter e da web a definir (não bloqueia o scaffolding).
 
 ## Timeline
+
+### Decisão de stack 02/09/2026: alocação por serviço fechada pela equipe — `identidade` e `social` em Spring, `acervo` e `leitura` em NestJS (arquitetura §2.1). Pendência de stack encerrada; permanece a fixação de versões de SDK/build no arranque.
 
 ### Criação 25/08/2026: arquivo criado a partir do escopo de P0-INFRA no [periodo-0/README.md](README.md) e do [`documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §2–§8. Stack por serviço mantida como pendência (decisão do grupo).

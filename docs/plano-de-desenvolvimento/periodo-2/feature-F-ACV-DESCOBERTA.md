@@ -79,7 +79,7 @@ Sem novos eventos e sem VIEW cross-schema: a feature lê e serve dados do própr
 - **Origem da biografia curta do autor (RF-ACV-10)** não está definida e bloqueia o fechamento desse requisito. A ingestão não carrega bio; o grupo deve aprovar uma fonte/estratégia simples antes da implementação. Exibir ausência permanentemente não fecha RF-ACV-10; não inventar integração nem alterar a baseline sem decisão.
 - **Decisão do dono:** validar `paginasMin <= paginasMax`, faixas positivas e combinações de filtros no schema de entrada antes de atualizar o OpenAPI.
 - **Curadoria de editoras** (RF-ACV-11): ~13% da amostra são editoras **portuguesas** (§10.1) e a normalização usa a tabela de sinônimos de [F-ACV-INGESTAO](../periodo-1/feature-F-ACV-INGESTAO.md) — a página de editora depende da qualidade dessa normalização.
-- Stack de `acervo` ainda pendente (P0-INFRA).
+- Stack de `acervo` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 - **Alternativa a avaliar, sem mudar o desenho atual:** reutilizar um componente de página de catálogo para autor/editora/série e criar índices adicionais somente após validar o plano de execução das consultas.
 
 ## Timeline

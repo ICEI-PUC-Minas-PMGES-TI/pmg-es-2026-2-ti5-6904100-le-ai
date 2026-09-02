@@ -80,7 +80,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Alternativa a avaliar, sem mudar o desenho atual:** persistir buckets mensais e derivar totais anuais, evitando agregados redundantes.
 - **Fronteira:** a distribuição das notas dadas pelo leitor (RF-STA-04) é F-STA-OPC. A distribuição de notas do livro é distinta e foi alocada a F-ACV-NOTA.
 - **Compartilha `leitura`** com as demais features de leitura — sinalizar no grupo (plano §6).
-- Stack de `leitura` ainda pendente (P0-INFRA).
+- Stack de `leitura` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
 ## Timeline
 

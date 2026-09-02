@@ -91,7 +91,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Depende de** [F-PERFIL](feature-F-PERFIL.md) (`v_seguimento_aceito_v1`), [F-EST](feature-F-EST.md)/[F-AVA](feature-F-AVA.md) (eventos que viram atividade), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md) e [P0-MSG](../periodo-0/feature-P0-MSG.md) (broker, envelope, DLQ, idempotência).
 - **Compartilha `social` com [F-NOT](feature-F-NOT.md)** — quem chegar primeiro fixa a estrutura; sinalizar no grupo (plano §6).
 - **Ficam fora (Período 2):** editar/excluir o próprio comentário (RF-SOC-13) e menção arbitrária resolvida como link (RF-SOC-15) — **F-SOCIAL-2**. Denúncia é F-MOD. **Notificações** em tempo real pertencem a RF-NOT-06/F-NOT-2; feed em tempo real não possui RF.
-- Stack de `social` ainda pendente (P0-INFRA).
+- Stack de `social` definida: **Spring (Java)** (arquitetura §2.1).
 
 ## Timeline
 

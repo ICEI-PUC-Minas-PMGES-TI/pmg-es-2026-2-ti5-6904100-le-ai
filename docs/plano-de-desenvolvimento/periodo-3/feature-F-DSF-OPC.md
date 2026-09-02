@@ -102,7 +102,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Recorte de período de `janela_desafio`:** a entidade é do Período 2 (janela corrente de RF-DSF-03); só `cumprida` e a retenção são do Período 3. Confirmar essa leitura com o dono de F-DSF para que o corte desta feature não deixe RN-20.7 sem referente.
 - **Alternativa a avaliar, sem mudar o desenho atual:** a alternativa já registrada em [F-DSF](../periodo-2/feature-F-DSF.md) — calcular a janela corrente por consulta a progresso/leitura e persistir **apenas** os snapshots históricos — cai exatamente sobre esta feature; avaliar junto, não em separado.
 - **Compartilha `leitura`** com as demais features de leitura — sinalizar no grupo (plano §6). Desafios e histórico são limpos por [F-CONTA-2](../periodo-2/feature-F-CONTA-2.md) na exclusão de conta.
-- Stack de `leitura` ainda pendente (P0-INFRA).
+- Stack de `leitura` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
 ## Timeline
 
