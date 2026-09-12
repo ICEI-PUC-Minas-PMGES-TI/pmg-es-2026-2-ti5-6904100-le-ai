@@ -28,7 +28,7 @@ services:
     plan: free
     branch: main
     rootDir: code/back/acervo
-    buildCommand: npm ci && npm run build
+    buildCommand: npm ci --include=dev && npm run build
     startCommand: node dist/main.js
     healthCheckPath: /health
     autoDeploy: true
@@ -53,7 +53,7 @@ services:
     plan: free
     branch: main
     rootDir: code/back/leitura
-    buildCommand: npm ci && npm run build
+    buildCommand: npm ci --include=dev && npm run build
     startCommand: node dist/main.js
     healthCheckPath: /health
     autoDeploy: true
@@ -133,7 +133,7 @@ services:
     runtime: static
     branch: main
     rootDir: code/front
-    buildCommand: npm ci && npm run build
+    buildCommand: npm ci --include=dev && npm run build
     staticPublishPath: dist
     autoDeploy: true
     envVars:
