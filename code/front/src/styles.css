@@ -1,6 +1,18 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&family=Newsreader:ital,wght@0,400;0,500;1,400;1,500&family=Space+Grotesk:wght@500;600;700&display=swap');
+@config '../tailwind.config.js';
 @import 'tailwindcss';
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  :root.dark {
+    color-scheme: dark;
+  }
+
   html,
   body,
   #app {
@@ -9,5 +21,18 @@
 
   body {
     margin: 0;
+    background-color: var(--color-papel);
+    color: var(--color-tinta);
+    font-family: var(--font-body);
+    transition: background-color var(--duration-fast) var(--easing-out), color var(--duration-fast) var(--easing-out);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      scroll-behavior: auto !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }

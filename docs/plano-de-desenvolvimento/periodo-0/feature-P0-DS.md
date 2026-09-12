@@ -17,9 +17,9 @@ Requisitos atendidos: **RNF-USA-06** (tokens definidos uma vez, traduzidos para 
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | não iniciado | `docs/design-system/tokens.json` + script de geração inexistentes |
+| Infra | parcial | `docs/design-system/tokens.json` existe; a estratégia Web consome o JSON diretamente, sem script ou arquivo intermediário |
 | Backend | não aplicável | design system não tem backend |
-| Web | não iniciado | `tailwind.config` gerado do JSON + CSS vars de tema (claro/escuro) |
+| Web | concluído | Tailwind 4 lê diretamente o JSON, CSS vars de tema claro/escuro, fontes, Phosphor e título centralizado aplicados |
 | Mobile | não iniciado | `lib/design/tokens.dart` + extensão `ThemeData` (claro/escuro) |
 
 ## Especificação
@@ -56,7 +56,7 @@ Exemplo do formato (design §9.1):
 
 ### Web (`code/front`) — Tailwind consumindo o JSON (design §9.1)
 
-- **Script de geração** que lê `docs/design-system/tokens.json` e produz o `tailwind.config` (cores, `spacing`, `borderRadius`, `boxShadow`, `fontFamily`, `fontSize`, `transitionDuration`, `transitionTimingFunction`) — nomes semânticos, nunca `text-4xl`/`slate-500`. Rodar o script é parte do build; o config não é editado à mão.
+- **Configuração direta**: `code/front/tailwind.config.js` lê `docs/design-system/tokens.json` em tempo de build e mapeia `colors`, `spacing`, `borderRadius`, `boxShadow`, `fontFamily`, `fontSize`, `transitionDuration` e `transitionTimingFunction`. Não há `code/front/scripts` nem arquivo intermediário; nomes são semânticos, nunca `text-4xl`/`slate-500`.
 - **Modo escuro** via `prefers-color-scheme` por padrão + **toggle manual** que salva a preferência local (design §3.1.2). Estratégia Tailwind `darkMode: 'class'` com CSS vars por tema (claro/escuro), lock de página inteira (nenhuma seção inverte no meio da rolagem).
 - **Fontes** via Google Fonts (Space Grotesk, Manrope, Newsreader, JetBrains Mono), com fallback `system-ui, -apple-system, "Segoe UI", sans-serif` para Space Grotesk (design §3.2).
 - **CSP** restritivo já previsto (RNF-SEC-16) precisa permitir a origem das fontes.
@@ -80,13 +80,13 @@ Anotadas aqui para que quem implementar componentes não reintroduza: um único 
 ## Critérios de aceite
 
 - [ ] `docs/design-system/tokens.json` existe com **todos** os tokens de §3.1–3.6 (claro + escuro).
-- [ ] O `tailwind.config` da web é **gerado** do JSON; não há cor/valor no config que não venha dele.
+- [x] O `tailwind.config.js` da web **consome diretamente** o JSON; não há cor/valor de design duplicado no config.
 - [ ] `lib/design/tokens.dart` + extensão `ThemeData` são **gerados** do JSON; não há cor hardcoded fora do gerado.
 - [ ] As quatro famílias de fonte carregam em web e mobile, com fallback definido.
 - [ ] Modo escuro funciona nos dois lados (`prefers-color-scheme` + toggle salvo), como lock de página inteira.
 - [ ] Uma tela/exemplo de cada lado renderiza usando **só** tokens por nome semântico, com contraste WCAG AA verificado (`tinta` sobre `papel`, `grafite` sobre `papel`).
 - [ ] Phosphor Icons disponível e funcionando nas duas stacks.
-- [ ] Regenerar (rodar o script) após editar o JSON reflete a mudança nos dois lados sem edição manual.
+- [x] Alterar o JSON e executar o build reflete a mudança na Web sem etapa de geração ou edição manual.
 
 ## Definition of Done
 
@@ -94,7 +94,7 @@ Anotadas aqui para que quem implementar componentes não reintroduza: um único 
 
 - [ ] Código (tokens.json + scripts + config/tema) mergeado em `desenvolvimento`
 - [ ] CI verde ([P0-CI](feature-P0-CI.md)) — web/mobile buildam com os tokens aplicados
-- [ ] Testes automatizados dos casos de uso — teste do **script de geração** (JSON → config/Dart correto) e, se houver componente-piloto, teste dele
+- [ ] Testes automatizados dos casos de uso — a Web possui teste do consumo direto do JSON pelo Tailwind; o teste de geração Dart permanece pendente com o mobile
 - [ ] Spec OpenAPI do serviço atualizado em `docs/api/` — **N/A**: feature de front/mobile, sem serviço de backend. Justificativa registrada aqui em vez de remover o item.
 - [ ] Fluxo funcionando em DES/HML — os tokens aparecem no site em DES ([P0-DEPLOY](feature-P0-DEPLOY.md)); o APK de DES ([P0-CI](feature-P0-CI.md)) usa o tema
 - [ ] Arquivo da feature atualizado: status, pendências, timeline
@@ -105,12 +105,14 @@ Anotadas aqui para que quem implementar componentes não reintroduza: um único 
 ## Pendências
 
 - **Depende de [P0-INFRA](feature-P0-INFRA.md)** (projetos web/mobile scaffoldados e compilando).
-- Linguagem do **script de geração** (Node/Dart/etc.) a definir — deve rodar no CI e localmente.
-- Confirmar pacotes Phosphor exatos disponíveis para Vue e Flutter no arranque.
+- **Estratégia Web decidida em 12/09/2026:** consumo direto do JSON pelo `tailwind.config.js`, por solicitação do responsável pela frente. A previsão de um script separado não se aplica ao frontend Web.
+- Pacote Phosphor da Web fixado em `@phosphor-icons/vue` 2.2.1; o pacote Flutter continua a definir no arranque mobile.
 - Alinhar com [P0-NAV](feature-P0-NAV.md): as primeiras telas navegáveis já devem consumir os tokens (não hardcodar cor no shell de auth).
 - Os **componentes** de §4 (botão, input, estrela, card, status pill, progresso, streak, feed, modo de foco) e os protótipos ficam para depois; aqui entra no máximo um componente-piloto para validar o contrato dos dois lados.
 
 ## Timeline
+
+### Web concluída em 12/09/2026: Tailwind 4 passou a consumir diretamente `docs/design-system/tokens.json` via `@config`, sem `code/front/scripts` ou arquivos intermediários. Foram aplicados CSS vars claro/escuro, preferência do sistema, toggle persistido no `localStorage`, quatro famílias tipográficas, Phosphor Icons e o título centralizado `Lê Ai`. `npm run lint`, `npm test` e `npm run build` passam; a camada mobile permanece pendente.
 
 ### Revisão 31/08/2026: caminhos de prompt e protótipo atualizados para `docs/design/`, acompanhando a atualização do [`documento-de-design.md`](../../orquestador/documento-de-design.md) §9.1/§9.3 de 31/08/2026. `docs/design-system/tokens.json` continua sendo a entrega desta feature, sem mudança de escopo.
 

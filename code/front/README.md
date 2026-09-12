@@ -24,6 +24,8 @@ npm test
 npm run build
 ```
 
-O projeto usa Vue 3, TypeScript, Vite, Tailwind CSS 4, Vue Router, Vitest e ESLint. O cliente HTTP central fica em `src/services/api.ts` e trata `X-Correlation-Id`, erros padronizados e o cold start dos serviços no Render.
+O projeto usa Vue 3, TypeScript, Vite, Tailwind CSS 4, Vue Router, Vitest, ESLint e Phosphor Icons. O cliente HTTP central fica em `src/services/api.ts` e trata `X-Correlation-Id`, erros padronizados e o cold start dos serviços no Render.
+
+O Tailwind lê diretamente `../../docs/design-system/tokens.json` por `tailwind.config.js`; não existe etapa de geração nem cópia intermediária de tokens. A tela inicial já aplica o tema claro/escuro, fontes do design system e o título centralizado `Lê Ai`.
 
 Fora do escopo web: desafios, gamificação e notificações. A coluna **Web** de cada requisito funcional em [`../../docs/orquestador/REQUISITOS.md`](../../docs/orquestador/REQUISITOS.md) diz o que entra. Convenções da stack em [`AGENTS.md`](AGENTS.md); regras gerais em [`../../AGENTS.md`](../../AGENTS.md).
