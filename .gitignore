@@ -1,0 +1,30 @@
+# ==========================================================================
+# .gitignore raiz — Lê Ai
+# Segredos NUNCA são versionados (RNF-SEC-11): só .env.example entra no repo.
+# ==========================================================================
+
+# Variáveis de ambiente / segredos
+.env
+.env.*
+!.env.example
+
+# Dependências e artefatos de build (Node / Nest / Vue)
+node_modules/
+dist/
+build/
+coverage/
+
+# Flutter / Dart (code/mobile)
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+**/build/
+
+# Logs e temporários
+*.log
+*.local
+.DS_Store
+
+# Editores
+.idea/
+*.swp

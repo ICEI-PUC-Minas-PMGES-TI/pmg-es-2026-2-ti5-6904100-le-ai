@@ -1,0 +1,14 @@
+# dependências e build
+/node_modules
+/dist
+/build
+/coverage
+
+# variáveis de ambiente — nunca versionar segredos (RNF-SEC-11)
+.env
+.env.*
+!.env.example
+
+# logs e temporários
+*.log
+*.local

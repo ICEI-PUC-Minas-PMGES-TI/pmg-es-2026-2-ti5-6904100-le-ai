@@ -24,8 +24,8 @@ Requisitos não funcionais atendidos: **RNF-ARQ-01/02/03/04/07** (microsserviço
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | não iniciado | árvore `code/` só com pastas e `AGENTS.md`; falta inicializar cada projeto |
-| Backend | não iniciado | 4 serviços; transversais (health/erro/log) por implementar nas 2 stacks |
+| Infra | parcial | `acervo` e `leitura` (Nest) e `front` (Vue) inicializados; `.gitignore`/`.env.example` raiz criados; Spring e mobile por inicializar |
+| Backend | parcial | **acervo** e **leitura** (NestJS) scaffoldados com transversais (health/erro/correlation-id); **identidade** e **social** (Spring) por iniciar |
 | Web | concluído | Vue 3 + TypeScript + Vite 8 + Tailwind 4, Router, Vitest e cliente HTTP central validados localmente em 12/09/2026 |
 | Mobile | não iniciado | `code/mobile` a inicializar (`flutter create`) |
 
@@ -161,13 +161,16 @@ Os transversais são **contratos de saída**, não biblioteca compartilhada: cad
 ## Pendências
 
 - **Alocação de stack por serviço — decidida em 02/09/2026** (arquitetura §2.1): `identidade` e `social` em **Spring**; `acervo` e `leitura` em **NestJS** (mantendo `acervo` e `leitura` na mesma stack). Já registrada no `AGENTS.md` de cada serviço. Falta apenas fixar, no arranque, as versões de SDK/build por serviço (ver item abaixo).
-- Versões exatas de JDK/build dos serviços e Flutter SDK/gerenciador de pacote ainda devem ser fixadas nos respectivos `AGENTS.md`. Na web, foram fixados Node 24.19.0 LTS, npm 12.0.2, Vue 3.5, TypeScript 6, Vite 8 e Tailwind CSS 4.
+- Versões de SDK/build por serviço já fixadas: **Nest (`acervo`, `leitura`) em 11/09/2026 — Node 22 LTS, npm, Drizzle ORM**; **web (`front`) em 12/09/2026 — Node 24.19.0 LTS, npm 12.0.2, Vue 3.5, TypeScript 6, Vite 8, Tailwind CSS 4** (ambos registrados nos respectivos `AGENTS.md`). Falta fixar JDK/ferramenta de build do Spring (`identidade`, `social`) e o Flutter SDK/gerenciador do mobile no arranque de cada um.
+- **ORM/migration do Nest decidido — Drizzle ORM + drizzle-kit** (11/09/2026), divergindo dos exemplos "TypeORM (ou Prisma)" citados nesta spec (que os lista como exemplo, não imposição). O restante (TypeORM/Prisma) fica descartado para o Nest.
 - Gerenciamento de estado do Flutter e da web a definir (não bloqueia o scaffolding).
 - **Compatibilidade P0-DS com Tailwind 4:** a web usa o plugin oficial `@tailwindcss/vite` e a abordagem CSS-first. Como [P0-DS](feature-P0-DS.md) prevê gerar `tailwind.config`, sua implementação deve gerar tokens no formato CSS-first do Tailwind 4 ou carregar o config gerado por meio de `@config`, preservando `docs/design-system/tokens.json` como fonte única. Nenhum token foi antecipado nesta feature.
 
 ## Timeline
 
 ### Web concluída em 12/09/2026: `code/front` inicializado com Node 24.19.0 LTS, npm 12.0.2, Vue 3 + TypeScript, Vite 8, Tailwind CSS 4, Vue Router, Vitest e ESLint. Incluídos cliente HTTP central com `X-Correlation-Id`, timeout de 90 segundos para cold start, `.env.example`, lockfile e cinco testes automatizados. `npm run lint`, `npm test` e `npm run build` passam localmente. A compatibilidade de P0-DS com o modelo CSS-first do Tailwind 4 foi registrada como pendência; as demais camadas de P0-INFRA permanecem inalteradas.
+
+### Scaffolding Nest 11/09/2026: `acervo` e `leitura` scaffoldados (NestJS + **Node 22 LTS** + **npm** + **Drizzle ORM**/drizzle-kit). Drizzle é divergência dos exemplos "TypeORM (ou Prisma)" da spec — decisão da equipe, registrada nos `AGENTS.md` locais. Entregue por serviço: esqueleto executável (build/lint/test verdes), `GET /health` (terminus + indicador Drizzle), corpo de erro padrão `{ codigo, mensagem, correlationId }`, correlation-id via middleware+ALS, log JSON (pino), CORS restrito + helmet, config validada por zod, e migration inicial que cria **só o schema** do serviço. Também criados: `.gitignore` e `.env.example` (raiz + por serviço) e esqueleto `docs/api/{acervo,leitura}.yaml`. Pendente para fechar a feature nesses dois: subir em DES (P0-DEPLOY) e entrar no pipeline (P0-CI). `identidade` e `social` (Spring) e web/mobile seguem por iniciar.
 
 ### Decisão de stack 02/09/2026: alocação por serviço fechada pela equipe — `identidade` e `social` em Spring, `acervo` e `leitura` em NestJS (arquitetura §2.1). Pendência de stack encerrada; permanece a fixação de versões de SDK/build no arranque.
 

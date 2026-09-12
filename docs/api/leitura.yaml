@@ -1,0 +1,53 @@
+openapi: 3.0.3
+info:
+  title: Lê Ai — leitura
+  version: 0.0.1
+  description: >-
+    Contrato do serviço **leitura** (esqueleto — P0-INFRA). Domínio: estante,
+    leitura, progresso, sessão, nota, resenha, frases, desafios, streak,
+    estatísticas e histórico (EST/PRG/AVA/DSF/STA/GAM). As rotas de domínio
+    entram com as features; por ora só health + info. Spec gerado em runtime
+    por `@nestjs/swagger` (`/docs`) e commitado aqui (RNF-ARQ-03; AGENTS §10)
+    — um spec por serviço, nunca por feature.
+servers:
+  - url: http://localhost:3000
+    description: local
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Health check do serviço (RNF-OBS-02)
+      description: Retorna 200 quando o serviço está de pé e o banco responde.
+      responses:
+        '200':
+          description: Serviço e banco saudáveis.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, service, time]
+                properties:
+                  status: { type: string, example: ok }
+                  service: { type: string, example: leitura }
+                  time: { type: string, format: date-time }
+        '503':
+          description: Serviço indisponível (ex.: banco fora do ar).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+components:
+  schemas:
+    Erro:
+      type: object
+      description: Corpo de erro padronizado (RNF-ERR-01) — pt-BR, sem detalhe técnico.
+      required: [codigo, mensagem, correlationId]
+      properties:
+        codigo:
+          type: string
+          example: RECURSO_NAO_ENCONTRADO
+        mensagem:
+          type: string
+          example: Não encontramos o que você procura.
+        correlationId:
+          type: string
+          format: uuid
