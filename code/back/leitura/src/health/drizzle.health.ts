@@ -22,8 +22,9 @@ export class DrizzleHealthIndicator {
     try {
       await this.db.execute(sql`SELECT 1`);
       return indicator.up();
-    } catch {
-      return indicator.down({ message: 'Banco indisponível' });
+    } catch (e) {
+      const detalhe = e instanceof Error ? e.message : String(e);
+      return indicator.down({ message: `Banco indisponível: ${detalhe}` });
     }
   }
 }

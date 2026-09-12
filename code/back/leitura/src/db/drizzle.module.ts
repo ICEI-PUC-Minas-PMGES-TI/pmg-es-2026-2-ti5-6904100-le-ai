@@ -20,9 +20,20 @@ export type DrizzleDB = NodePgDatabase<typeof schema>;
       provide: DRIZZLE,
       inject: [ConfigService],
       useFactory: (config: ConfigService): DrizzleDB => {
+        const connectionString = config.getOrThrow<string>('DATABASE_URL');
+        // Neon (e o Postgres gerenciado do Render) exigem TLS. Em Postgres
+        // local sem SSL, desliga para não quebrar o dev.
+        const needsSsl =
+          /sslmode=require|neon\.tech|\.render\.com/i.test(connectionString) ||
+          config.get<string>('NODE_ENV') === 'production';
         const pool = new Pool({
-          connectionString: config.getOrThrow<string>('DATABASE_URL'),
+          connectionString,
+          ssl: needsSsl ? { rejectUnauthorized: false } : false,
         });
+        // Erro em conexão ociosa é logado sem derrubar o processo.
+        pool.on('error', (err) =>
+          console.error('[pg] erro no pool de conexão:', err.message),
+        );
         return drizzle(pool, { schema });
       },
     },
