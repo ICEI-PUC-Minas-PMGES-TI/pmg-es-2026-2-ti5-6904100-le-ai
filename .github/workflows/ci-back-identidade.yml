@@ -1,0 +1,46 @@
+name: ci-back-identidade
+
+on:
+  push:
+    paths:
+      - 'code/back/identidade/**'
+      - '.github/workflows/ci-back-identidade.yml'
+  pull_request:
+    paths:
+      - 'code/back/identidade/**'
+      - '.github/workflows/ci-back-identidade.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-back-identidade-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: code/back/identidade
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: code/back/identidade/pom.xml
+
+      - name: Enable Maven wrapper
+        run: chmod +x mvnw
+
+      - name: Build and test
+        run: ./mvnw -B verify

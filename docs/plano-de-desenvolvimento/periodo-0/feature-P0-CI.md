@@ -17,8 +17,8 @@ Requisitos atendidos: **RNF-TST-07** (CI roda testes a cada push; branch com tes
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | parcial | `ci-front.yml` implementado; workflows de backend e mobile ainda pendentes |
-| Backend | não iniciado | jobs de lint/build/test por serviço (Spring e Nest) |
+| Infra | parcial | Workflows Web, NestJS e Spring criados; mobile ainda pendente |
+| Backend | concluído | CI dos quatro serviços implementado; auditoria Maven específica permanece pendente |
 | Web | concluído | `ci-front` executa lint, build, testes e auditoria com filtro por caminho e cache npm |
 | Mobile | não iniciado | job de analyze/test + build do APK |
 
@@ -131,6 +131,23 @@ jobs:
 - [x] O job executa `npm ci`, `npm run lint`, `npm run build`, `npm test` e `npm audit --audit-level=high` em `code/front`.
 - [x] O workflow possui permissão mínima de leitura e cancela uma execução anterior da mesma referência.
 
+### Recorte Backend NestJS implementado
+
+- [x] `.github/workflows/ci-back-acervo.yml` monitora somente `code/back/acervo/**` e o próprio workflow.
+- [x] `.github/workflows/ci-back-leitura.yml` monitora somente `code/back/leitura/**` e o próprio workflow.
+- [x] Ambos os workflows aceitam `push`, `pull_request` e `workflow_dispatch`.
+- [x] Node é carregado pelo `.nvmrc` de cada serviço, com cache npm baseado no respectivo `package-lock.json`.
+- [x] Ambos executam `npm ci`, `npm run lint`, `npm run build`, `npm test` e `npm audit --audit-level=high` no diretório correto.
+- [x] Ambos possuem permissão mínima de leitura e cancelam uma execução anterior da mesma referência.
+
+### Recorte Backend Spring implementado
+
+- [x] `.github/workflows/ci-back-identidade.yml` monitora `code/back/identidade/**` e o próprio workflow.
+- [x] `.github/workflows/ci-back-social.yml` monitora `code/back/social/**` e o próprio workflow.
+- [x] Ambos os workflows aceitam `push`, `pull_request` e `workflow_dispatch`.
+- [x] Ambos usam Temurin Java 21, cache Maven, `chmod +x mvnw` e `./mvnw -B verify`.
+- [x] O comando `verify` compila e executa os testes JUnit configurados em cada serviço.
+
 ### Auditoria de dependências (RNF-SEC-26)
 
 - Backend e web rodam auditoria e **falham em severidade alta/crítica**. O mecanismo equivalente para dependências Flutter deve ser definido no scaffolding antes de RNF-SEC-26 ser marcado como atendido no mobile.
@@ -161,6 +178,8 @@ jobs:
 ## Pendências
 
 - **Web:** executar o primeiro workflow no GitHub para validar o ambiente Actions; depois configurar a branch protection de `main` exigindo o check `ci-front / lint, build, test and audit` quando aplicável.
+- **Backend NestJS:** executar o primeiro workflow de `acervo` e `leitura` no GitHub para validar os checks Actions; depois incluir os checks na branch protection de `main`.
+- **Backend Spring:** executar os primeiros workflows no GitHub para validar os checks Actions; depois incluir os checks na branch protection de `main`.
 - **Depende de [P0-INFRA](feature-P0-INFRA.md):** stack alocada em 02/09/2026 — `identidade`/`social` em Spring, `acervo`/`leitura` em NestJS; cada job de backend usa o caminho da sua stack.
 - **Depende de [P0-DEPLOY](feature-P0-DEPLOY.md)** para o gancho de deploy a partir de `main` (RNF-SEC-34).
 - Confirmar se o repositório do **GitHub Classroom** permite Actions sem restrição (mesma validação de [P0-MSG](feature-P0-MSG.md) para o `schedule`); se houver limite de minutos, priorizar caminho por filtro.
@@ -169,5 +188,9 @@ jobs:
 ## Timeline
 
 ### Web concluída em 12/09/2026: criado `.github/workflows/ci-front.yml` com gatilhos de `push`, `pull_request`, `workflow_dispatch`, filtro por `code/front/**`, Node via `.nvmrc`, cache npm, lint, build, testes e auditoria de dependências. Backend, mobile, branch protection e validação do primeiro run no GitHub permanecem pendentes.
+
+### Backend NestJS concluído em 12/09/2026: criados `ci-back-acervo.yml` e `ci-back-leitura.yml` com filtros por serviço, Node 22 via `.nvmrc`, cache npm, lint, build, testes e auditoria de dependências. Os workflows Spring aguardam a criação de `identidade` e `social` com seus respectivos `mvnw`.
+
+### Backend Spring concluído em 12/09/2026: criados `ci-back-identidade.yml` e `ci-back-social.yml` com Temurin Java 21, cache Maven, `mvnw` e `./mvnw -B verify`. Os dois serviços Spring já possuem `pom.xml`, wrapper e testes no scaffolding P0-INFRA; permanece pendente apenas a auditoria Maven específica e a validação do primeiro run no GitHub.
 
 ### Criação 25/08/2026: arquivo criado a partir do escopo de P0-CI no [periodo-0/README.md](README.md), do [`plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §5 e dos RNF de teste/segurança (RNF-TST-07, RNF-SEC-25/26/34). Jobs de backend mantidos como template duplo (Spring/Nest) enquanto a stack por serviço é pendência.
