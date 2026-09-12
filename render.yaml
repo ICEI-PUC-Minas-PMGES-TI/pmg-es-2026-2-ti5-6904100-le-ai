@@ -1,0 +1,158 @@
+# ==========================================================================
+# render.yaml — Blueprint do ambiente DES/HML do Lê Ai (P0-DEPLOY)
+#
+# Infraestrutura como código: o Render cria/atualiza estes serviços a partir
+# deste arquivo. Deploy só de código versionado, a cada push na `main`
+# (RNF-SEC-34). SEGREDOS NÃO FICAM AQUI: use `sync: false` e preencha o valor
+# no painel do Render (RNF-SEC-11). HTTPS é terminado pelo Render (RNF-SEC-08).
+#
+# Banco: um projeto único no Neon, um schema por serviço (arquitetura §4.1).
+# Cada serviço aponta para o SEU schema via `search_path` na própria
+# DATABASE_URL (ex.: ...?sslmode=require&options=-csearch_path%3Dacervo).
+#
+# NOTAS IMPORTANTES:
+#  - `identidade` e `social` (Spring/Java) usam runtime `docker` — o Render NÃO
+#    tem runtime Java nativo. Cada um precisa de um `Dockerfile` (ver rootDir).
+#  - `acervo` e `leitura` (NestJS) usam runtime `node` nativo.
+#  - Migrations Nest: rodar `node dist/db/migrate.js` uma vez após o 1º deploy
+#    (ou como Pre-Deploy Command em plano pago). Spring roda Flyway no boot.
+#  - Free tier hiberna após ~15 min; a 1ª chamada leva 30-60 s (tratado nos
+#    clientes como carregamento, RNF-ERR-09).
+# ==========================================================================
+
+services:
+  # ---------------------------------------------------------------- acervo
+  - type: web
+    name: leai-acervo
+    runtime: node
+    plan: free
+    branch: main
+    rootDir: code/back/acervo
+    buildCommand: npm ci && npm run build
+    startCommand: node dist/main.js
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SERVICE_NAME
+        value: acervo
+      - key: DB_SCHEMA
+        value: acervo
+      - key: DATABASE_URL # Neon com ?sslmode=require&options=-csearch_path%3Dacervo
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS # origem do site em DES (sem curinga, RNF-SEC-21)
+        value: https://leai-web.onrender.com
+      - key: AMQP_URL # CloudAMQP (P0-MSG) — pode ficar vazio por ora
+        sync: false
+
+  # --------------------------------------------------------------- leitura
+  - type: web
+    name: leai-leitura
+    runtime: node
+    plan: free
+    branch: main
+    rootDir: code/back/leitura
+    buildCommand: npm ci && npm run build
+    startCommand: node dist/main.js
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SERVICE_NAME
+        value: leitura
+      - key: DB_SCHEMA
+        value: leitura
+      - key: DATABASE_URL # ...options=-csearch_path%3Dleitura
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://leai-web.onrender.com
+      - key: AMQP_URL
+        sync: false
+
+  # ------------------------------------------------------------ identidade
+  # Spring Boot (Java) — requer Dockerfile em code/back/identidade/Dockerfile.
+  - type: web
+    name: leai-identidade
+    runtime: docker
+    plan: free
+    branch: main
+    rootDir: code/back/identidade
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: SERVICE_NAME
+        value: identidade
+      - key: DB_SCHEMA
+        value: identidade
+      - key: DATABASE_URL # ...options=-csearch_path%3Didentidade
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://leai-web.onrender.com
+      - key: AMQP_URL
+        sync: false
+      - key: JWT_SECRET # segredo forte, aleatório
+        sync: false
+      - key: ADMIN_EMAIL # admin fixo provisionado por ambiente (RF-AUT-08)
+        sync: false
+      - key: ADMIN_PASSWORD # senha forte, distinta de qualquer default (RNF-SEC-31)
+        sync: false
+
+  # ---------------------------------------------------------------- social
+  # Spring Boot (Java) — requer Dockerfile em code/back/social/Dockerfile.
+  - type: web
+    name: leai-social
+    runtime: docker
+    plan: free
+    branch: main
+    rootDir: code/back/social
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: SERVICE_NAME
+        value: social
+      - key: DB_SCHEMA
+        value: social
+      - key: DATABASE_URL # ...options=-csearch_path%3Dsocial
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://leai-web.onrender.com
+      - key: AMQP_URL
+        sync: false
+
+  # ------------------------------------------------------- site estático web
+  - type: web
+    name: leai-web
+    runtime: static
+    branch: main
+    rootDir: code/front
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    autoDeploy: true
+    envVars:
+      # Build-time (embutida no bundle). Decidir gateway único vs URL por
+      # serviço; por ora aponte para o backend de DES desejado.
+      - key: VITE_API_BASE_URL
+        sync: false
+    routes:
+      # SPA: toda rota cai no index.html (Vue Router em history mode).
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: SAMEORIGIN
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: no-referrer
