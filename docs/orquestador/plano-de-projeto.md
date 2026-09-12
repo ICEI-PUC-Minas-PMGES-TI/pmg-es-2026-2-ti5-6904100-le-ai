@@ -183,12 +183,12 @@ Toda feature é classificada em `prioritaria`, `desejavel` ou `opcional` no Plan
 
 | Ambiente | Origem | Propósito |
 |---|---|---|
-| Local | máquina do dev | desenvolvimento; banco em branch própria do Neon |
+| Local | máquina do dev | desenvolvimento; banco Postgres local do dev |
 | **DES/HML** | branch `main` | ambiente rodando de verdade a cada merge; é o que demonstramos e o que vale como "release" da sprint |
 | **PROD** | tag `vX.Y.Z` | só a partir de 24/11 |
 
 - Hospedagem: Render (ou equivalente), conectado ao repo da faculdade. Detalhes de provisionamento vão para `docs/orquestador/REQUISITOS.md` / Documento de Arquitetura.
-- Banco: um projeto Neon; **branch de banco por desenvolvedor** para o local, uma branch fixa para DES/HML. Isolamento entre serviços (schema ou database por serviço) é decisão de `docs/orquestador/REQUISITOS.md`.
+- Banco: um projeto Neon com **uma branch fixa para DES/HML** — **não há branch de banco por dev** (decisão da equipe em 12/09/2026); o desenvolvimento local usa Postgres local. Isolamento entre serviços (schema ou database por serviço) é decisão de `docs/orquestador/REQUISITOS.md`.
 - Mobile em DES: APK gerado como artefato do CI a cada merge em `main`. Nada de "funciona na minha máquina".
 - Segredos: `.env.example` versionado, `.env` nunca. Variáveis reais só no painel do provedor e no GitHub Secrets.
 

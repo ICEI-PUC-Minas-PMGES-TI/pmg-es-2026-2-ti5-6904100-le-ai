@@ -129,7 +129,7 @@ Estrutura mínima do arquivo de feature: objetivo (referenciando a seção de `R
 - **Conventional Commits:** `feat:`, `fix:`, `docs:`, `chore:`, `test:`, `refactor:` — alimenta o relatório de contribuição semanal.
 - **CI filtra por caminho:** mudança em `code/front/` não roda o pipeline do Flutter; mudança em `docs/` não roda nada.
 
-**Ambientes:** local (branch de banco por dev no Neon) · **DES/HML** (branch `main`, deploy a cada merge — é o que vale como "release" da sprint) · **PROD** (tag `vX.Y.Z`, só a partir de 24/11). Segredos por variável de ambiente e GitHub Secrets: `.env.example` versionado, `.env` **nunca**.
+**Ambientes:** local (Postgres local) · **DES/HML** (branch `main`, deploy a cada merge — é o que vale como "release" da sprint) · **PROD** (tag `vX.Y.Z`, só a partir de 24/11). Segredos por variável de ambiente e GitHub Secrets: `.env.example` versionado, `.env` **nunca**.
 
 ---
 

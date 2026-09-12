@@ -1,7 +1,9 @@
 # Documento de Arquitetura de Software
 
-**Versão:** v1.3 — 02/09/2026
+**Versão:** v1.4 — 12/09/2026
 **Status:** macroarquitetura fechada — alocação de stack por serviço decidida em 02/09/2026 (§2.1)
+
+> **v1.4 (12/09/2026):** ambiente local passa a usar **Postgres local** — **removida a branch de banco por dev no Neon** (o Neon mantém só a branch de DES/HML). Decisão da equipe; reflexo em §6 e no plano §4.
 
 > Este documento descreve **como o sistema é construído**. O *o que* mora em `docs/orquestador/REQUISITOS.md`, que continua sendo a fonte de verdade. Em caso de conflito, o `REQUISITOS.md` vence, e a divergência segue o controle de mudança do `docs/orquestador/plano-de-projeto.md` §3.
 
@@ -203,7 +205,7 @@ Timeout e retentativa com backoff em toda chamada externa, com circuit breaker (
 |---|---|---|---|
 | Serviços de backend (×4) | Render | gratuito | hibernam após ~15 min; *cold start* tratado em RNF-ERR-09 |
 | Site estático (web Vue) | Render | gratuito | build da SPA |
-| Banco de dados | Neon (PostgreSQL) | gratuito | um projeto, schema por serviço, branch de banco por dev |
+| Banco de dados | Neon (PostgreSQL) | gratuito | um projeto, schema por serviço, branch única de DES/HML (sem branch por dev) |
 | Mensageria | CloudAMQP (RabbitMQ) | gratuito | limite de conexões — uma por serviço |
 | Imagens | Cloudinary | gratuito | transformação por URL + cache de capas |
 | E-mail transacional | Brevo | gratuito | 300 e-mails/dia |
@@ -211,7 +213,7 @@ Timeout e retentativa com backoff em toda chamada externa, com circuit breaker (
 | Agendador de jobs | GitHub Actions (`schedule`) | gratuito | fallback cron-job.org; validar no repo da faculdade |
 | CI/CD | GitHub Actions | gratuito | lint, build, testes, deploy a partir de `main` |
 
-Ambientes conforme o plano §4: local (branch de banco por dev), DES/HML (branch `main`, deploy a cada merge), PROD (tag `vX.Y.Z`, a partir de 24/11). Deploy só a partir de código versionado, por pipeline automatizado (RNF-SEC-34). Segredos por variável de ambiente e GitHub Secrets, nunca versionados (RNF-SEC-11).
+Ambientes conforme o plano §4: local (Postgres local), DES/HML (branch `main`, deploy a cada merge), PROD (tag `vX.Y.Z`, a partir de 24/11). Deploy só a partir de código versionado, por pipeline automatizado (RNF-SEC-34). Segredos por variável de ambiente e GitHub Secrets, nunca versionados (RNF-SEC-11).
 
 ---
 
