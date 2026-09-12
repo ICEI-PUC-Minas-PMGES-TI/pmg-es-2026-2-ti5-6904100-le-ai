@@ -8,18 +8,36 @@ Feed e atividades, curtidas de atividade, comentários, listas, recomendações 
 
 ## Stack e dados
 
-- **Stack:** **Spring (Java)** — decidido pela equipe em 02/09/2026 (arquitetura §2.1). Versão do JDK e build (Gradle ou Maven) a fixar no arranque do scaffolding (P0-INFRA).
+- **Stack:** **Spring (Java)** — decidido pela equipe em 02/09/2026 (arquitetura §2.1). Fixado no scaffolding P0-INFRA (12/09/2026): **JDK 21 LTS**, build **Maven** com wrapper (`mvnw`) e **Spring Boot 4.1.1** — mesma stack e mesmas versões de `identidade`.
 - **Schema:** `social`, no PostgreSQL único do Neon.
 - **Recomendação algorítmica** é hospedada aqui, lendo **VIEWs** de `leitura` (estante, nota), `identidade` (seguir) e `acervo` (assunto) — nunca tabelas cruas. Calculada em tempo de consulta, sem estrutura derivada (`REQUISITOS.md` §10.7).
 - **Feed guarda snapshot** no evento de atividade (nome do usuário, título e capa do livro no momento), em vez de hidratar por join a cada scroll.
 
-> Projeto **ainda não iniciado** — apenas a estrutura de pastas.
+> **Scaffolding concluído (P0-INFRA, 12/09/2026):** esqueleto Spring Boot executável com health, corpo de erro padrão, correlation-id, CORS restrito, cabeçalhos de segurança, config validada no boot e migration inicial do schema. Sem tabelas de domínio ainda.
+
+## Estrutura, comandos e ferramentas (P0-INFRA)
+
+Idêntica à de [`identidade`](../identidade/AGENTS.md) — os dois serviços Spring são o mesmo esqueleto com os nomes trocados, como `acervo` e `leitura` são do lado NestJS. O resumo:
+
+- **Runtime:** **JDK 21 LTS** (Temurin no CI). O `maven-enforcer-plugin` recusa o build em outro JDK.
+- **Build:** **Maven** com wrapper — `mvnw` / `mvnw.cmd` / `.mvn/wrapper/maven-wrapper.properties` versionados, tipo `only-script` (**sem jar no repositório**).
+- **Versões fixadas (RNF-SEC-25):** o BOM `spring-boot-starter-parent:4.1.1` faz o papel do lockfile, mais `springdoc-openapi 3.1.1` declarado à mão (está fora do BOM) e a regra `banDynamicVersions` do enforcer.
+- **ORM/migrations:** **Flyway** (`flyway-core` + `flyway-database-postgresql` + o módulo `spring-boot-flyway`), migrations em `src/main/resources/db/migration/V<timestamp>__<descricao>.sql`, só do schema `social`, cada uma revisada por humano (plano §5). `spring.flyway.default-schema` mantém a `flyway_schema_history` dentro do schema do serviço. **Spring Data JPA** presente, ainda sem `@Entity`; `ddl-auto: none`.
+- **Config:** `application.yml` + `config/AppProperties` validado — não sobe com env inválida. `.env` local lido por `spring.config.import: optional:file:.env[.properties]` (formato `.properties`, não dotenv). `.env.example` versionado, `.env` nunca (RNF-SEC-11).
+- **Estrutura** (`src/main/java/br/com/leai/social/`): `SocialApplication`, `common/` (correlation-id, cabeçalhos de segurança, corpo de erro padrão, `/error`), `config/` (env, CORS, OpenAPI), `health/`.
+- **Comandos:** `./mvnw spring-boot:run` · `./mvnw verify` · `./mvnw test` · `./mvnw clean package` · `java -jar target/leai-social-0.0.1.jar`. Sempre **a partir desta pasta** — é onde o `.env` é procurado.
+- **Testes:** JUnit 5 + AssertJ + Mockito, `@DisplayName` em pt-BR, **sem banco e sem rede**.
+- **OpenAPI:** spec em `/v3/api-docs`, Swagger UI em `/docs`; esqueleto commitado em [`docs/api/social.yaml`](../../../docs/api/social.yaml).
+- **Log:** legível em dev; **JSON ECS** no perfil `prod` (`logging.structured.format.console`), com o MDC — e portanto o `correlationId` — dentro do JSON.
+- **Porta:** `8081` (o `identidade` fica na `8080`, para os dois subirem juntos em local).
+- **Armadilhas do Boot 4.x** (starter `webmvc`, módulo `spring-boot-flyway`, `spring-boot-starter-webmvc-test`, pacotes movidos, Jackson 3): a lista está no [`AGENTS.md` do `identidade`](../identidade/AGENTS.md#armadilhas-do-spring-boot-4x-a-maior-parte-do-material-na-internet-ainda-é-3x).
 
 ## Pontos de atenção (ver `REQUISITOS.md`)
 
-- É o **consumidor** do fluxo de **notificações in-app** (fan-out); adiciona FCM em Android (arquitetura §5.2). Curtida de **atividade de feed** fica aqui; curtida de **resenha** fica em `leitura`.
+- É o **consumidor** do fluxo de **notificações in-app** (fan-out); adiciona FCM em Android (arquitetura §5.2). Curtida de **atividade de feed** fica aqui; curtida de **resenha** fica em `leitura`. **Spring AMQP ainda não entrou** — mensageria é [P0-MSG](../../../docs/plano-de-desenvolvimento/periodo-0/feature-P0-MSG.md).
 - **Comentários (RN-10):** um nível de aninhamento; resposta a resposta é irmã, com menção `@username`. Menção resolve só se o username existir; sujeita a rate limiting.
 - **Recomendação P2P (RN-22):** só entre seguimento mútuo; sem aceitar/recusar; expira em 90 dias; limite de 50 ativas por par; quatro vias de remoção convergem para a mesma operação. Livro pessoal não é recomendável.
 - **Moderação (RF-MOD):** apenas resenhas e comentários são denunciáveis; painel restrito ao administrador (verificação no servidor); toda ação em **log de auditoria**.
 - Todo consumidor de mensagem é **idempotente** e valida schema; falha após o máximo de tentativas vai para **DLQ**.
 - **Rate limiting** em ações sociais — seguir, curtir, comentar, mencionar, denunciar (RNF-SEC-18).
+- **Spring Security ainda não entrou** — chega com F-AUT. Hoje os cabeçalhos de segurança vêm de um filtro próprio.

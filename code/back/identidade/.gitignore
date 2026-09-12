@@ -1,0 +1,19 @@
+# build
+/target
+
+# wrapper: o script é versionado; o jar baixado, não
+.mvn/wrapper/maven-wrapper.jar
+
+# variáveis de ambiente — nunca versionar segredos (RNF-SEC-11)
+.env
+.env.*
+!.env.example
+
+# logs e temporários
+*.log
+*.local
+
+# editores
+*.iml
+/.idea
+/.vscode

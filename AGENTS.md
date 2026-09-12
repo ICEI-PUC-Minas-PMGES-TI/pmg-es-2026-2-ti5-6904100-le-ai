@@ -53,7 +53,7 @@ Aplicativo social de leitura (modelo Skoob/Letterboxd) para **aumentar a adesão
 | `leitura` | Estante, leitura, progresso, sessão, nota, resenha, frases, desafios, streak, estatísticas |
 | `social` | Feed, atividades, comentários, listas, recomendações, notificações, moderação |
 
-Alocação de stack por serviço **decidida pela equipe em 02/09/2026**: `identidade` e `social` em **Spring (Java)**; `acervo` e `leitura` em **NestJS (TypeScript)** — mantendo `acervo` e `leitura` na mesma stack, como a arquitetura recomendava. Registrada no `AGENTS.md` de cada serviço e na arquitetura §2.1. O scaffolding de cada serviço ainda depende de dono designado (P0-INFRA); versões e build ficam nos `AGENTS.md` locais.
+Alocação de stack por serviço **decidida pela equipe em 02/09/2026**: `identidade` e `social` em **Spring (Java)**; `acervo` e `leitura` em **NestJS (TypeScript)** — mantendo `acervo` e `leitura` na mesma stack, como a arquitetura recomendava. Registrada no `AGENTS.md` de cada serviço e na arquitetura §2.1. Os quatro serviços já estão **scaffoldados** (P0-INFRA): Nest em 11/09/2026 (Node 22, npm, Drizzle), Spring em 12/09/2026 (JDK 21, Maven, Spring Boot 4.1, Flyway). Versões, estrutura e comandos ficam nos `AGENTS.md` locais.
 
 **Acesso entre schemas:** nenhum serviço lê a tabela crua de outro schema. Leitura entre schemas ocorre exclusivamente por **VIEW que o serviço dono expõe e mantém como contrato**, versionada junto do spec OpenAPI.
 

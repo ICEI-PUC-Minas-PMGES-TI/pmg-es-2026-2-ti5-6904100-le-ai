@@ -1,0 +1,131 @@
+# ==========================================================================
+# identidade — configuração base (P0-INFRA).
+# Nenhum segredo aqui: tudo vem do ambiente (RNF-SEC-11). Em local, o .env é
+# lido pelo spring.config.import abaixo; em DES/PROD, das variáveis do Render.
+# ==========================================================================
+spring:
+  application:
+    name: ${SERVICE_NAME:identidade}
+
+  # Lê o .env local, se existir, como arquivo .properties. O caminho é relativo
+  # ao diretório de execução (code/back/identidade) — rodar da raiz do repo não
+  # encontra o arquivo, e o "optional:" faz isso passar em silêncio.
+  # Variável de ambiente real TEM PRECEDÊNCIA sobre este arquivo: é assim que
+  # DES/HML sobrescrevem sem editar nada.
+  config:
+    import: "optional:file:.env[.properties]"
+
+  datasource:
+    # Forma JDBC — o driver não aceita usuário:senha na URL (ver .env.example).
+    url: ${DATABASE_URL:}
+    username: ${DATABASE_USERNAME:}
+    password: ${DATABASE_PASSWORD:}
+    hikari:
+      pool-name: identidade-pool
+      # O free tier do Neon tem poucas conexões e o Render hiberna o serviço.
+      maximum-pool-size: 5
+      minimum-idle: 1
+      connection-timeout: 30000
+      validation-timeout: 5000
+      # Fixa o search_path na sessão: este serviço só enxerga o próprio schema
+      # (arquitetura §4.1/§4.2).
+      schema: ${DB_SCHEMA:identidade}
+
+  flyway:
+    # Aplica a migration no boot. FLYWAY_ENABLED=false sobe sem banco, útil em dev.
+    enabled: ${FLYWAY_ENABLED:true}
+    locations: classpath:db/migration
+    # default-schema define ONDE mora a flyway_schema_history: no schema do
+    # próprio serviço, nunca em public.
+    default-schema: ${DB_SCHEMA:identidade}
+    schemas: ${DB_SCHEMA:identidade}
+    create-schemas: true
+    baseline-on-migrate: false
+    validate-on-migrate: true
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      # O Flyway é o dono do schema; o Hibernate nunca escreve DDL. "validate"
+      # foi descartado de propósito: ele abre conexão já no boot, e o serviço
+      # deixaria de subir com FLYWAY_ENABLED=false. Reavaliar quando as
+      # entidades chegarem (F-AUT).
+      ddl-auto: none
+    # Dialeto explícito: sem ele o Hibernate precisa do banco no ar já no boot,
+    # e FLYWAY_ENABLED=false deixaria de subir.
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    properties:
+      hibernate:
+        default_schema: ${DB_SCHEMA:identidade}
+        boot:
+          allow_jdbc_metadata_access: false
+
+server:
+  port: ${PORT:8080}
+  error:
+    # Nunca vazar stack trace, mensagem interna ou classe de exceção (RNF-SEC-22/23).
+    include-stacktrace: never
+    include-message: never
+    include-exception: false
+  # Respeita X-Forwarded-* do proxy do Render (RNF-SEC-08).
+  forward-headers-strategy: framework
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      # Não mudar para "/": GET /health é controller próprio, com o corpo que o
+      # critério de aceite de P0-INFRA fixa.
+      base-path: /actuator
+      exposure:
+        include: health
+  endpoint:
+    health:
+      # Não expor detalhe de driver, schema ou versão do banco (RNF-SEC-22).
+      show-details: never
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /docs
+    disable-swagger-default-url: true
+  # O despacho de erro não é rota de contrato.
+  paths-to-exclude: /error
+
+logging:
+  level:
+    root: ${LOG_LEVEL:info}
+  # Em dev o log é legível e já carrega o correlation-id (o nome do serviço o
+  # Boot já imprime sozinho).
+  pattern:
+    level: "%5p [%X{correlationId:-}]"
+
+# Contrato de ambiente, validado no boot por AppProperties (@Validated).
+# Os defaults vazios são propositais: quem reclama é o validador, com a lista
+# completa do que falta, e não o resolvedor de placeholder no primeiro erro.
+leai:
+  service-name: ${SERVICE_NAME:identidade}
+  db-schema: ${DB_SCHEMA:identidade}
+  database-url: ${DATABASE_URL:}
+  cors-allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  amqp-url: ${AMQP_URL:}
+  jwt-secret: ${JWT_SECRET:}
+  admin-email: ${ADMIN_EMAIL:}
+  admin-password: ${ADMIN_PASSWORD:}
+
+---
+# --- perfil prod ----------------------------------------------------------
+# Log estruturado JSON, nativo do Spring Boot (sem encoder extra). O formato
+# ECS serializa todo o MDC, então o correlationId entra sozinho (RNF-OBS-01/03).
+spring:
+  config:
+    activate:
+      on-profile: prod
+logging:
+  structured:
+    format:
+      console: ecs
+  level:
+    root: ${LOG_LEVEL:info}
+    org.springframework.web: warn
