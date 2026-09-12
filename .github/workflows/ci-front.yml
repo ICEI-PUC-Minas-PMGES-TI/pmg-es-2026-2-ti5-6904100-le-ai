@@ -1,0 +1,54 @@
+name: ci-front
+
+on:
+  push:
+    paths:
+      - 'code/front/**'
+      - '.github/workflows/ci-front.yml'
+  pull_request:
+    paths:
+      - 'code/front/**'
+      - '.github/workflows/ci-front.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-front-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: lint, build, test and audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: code/front
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: code/front/.nvmrc
+          cache: npm
+          cache-dependency-path: code/front/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
