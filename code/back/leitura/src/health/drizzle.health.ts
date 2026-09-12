@@ -4,6 +4,7 @@ import {
   HealthIndicatorService,
 } from '@nestjs/terminus';
 import { sql } from 'drizzle-orm';
+import { PinoLogger } from 'nestjs-pino';
 import { DRIZZLE, DrizzleDB } from '../db/drizzle.module';
 
 /**
@@ -15,7 +16,10 @@ export class DrizzleHealthIndicator {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly healthIndicatorService: HealthIndicatorService,
-  ) {}
+    private readonly logger: PinoLogger,
+  ) {
+    this.logger.setContext(DrizzleHealthIndicator.name);
+  }
 
   async isHealthy(key: string): Promise<HealthIndicatorResult> {
     const indicator = this.healthIndicatorService.check(key);
@@ -23,8 +27,17 @@ export class DrizzleHealthIndicator {
       await this.db.execute(sql`SELECT 1`);
       return indicator.up();
     } catch (e) {
-      const detalhe = e instanceof Error ? e.message : String(e);
-      return indicator.down({ message: `Banco indisponível: ${detalhe}` });
+      // A causa real (o Drizzle embrulha o erro do pg em `e.cause`) vai só
+      // para o log — nunca para a resposta pública (RNF-SEC-22). O corpo
+      // devolve uma mensagem genérica.
+      const causa =
+        e instanceof Error && e.cause instanceof Error
+          ? e.cause.message
+          : e instanceof Error
+            ? e.message
+            : String(e);
+      this.logger.error({ err: e, causa }, 'Health check do banco falhou');
+      return indicator.down({ message: 'Banco indisponível' });
     }
   }
 }
