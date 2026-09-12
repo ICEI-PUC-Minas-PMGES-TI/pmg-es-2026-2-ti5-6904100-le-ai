@@ -17,9 +17,9 @@ Requisitos atendidos: **RNF-TST-07** (CI roda testes a cada push; branch com tes
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | não iniciado | `.github/workflows/` inexistente |
+| Infra | parcial | `ci-front.yml` implementado; workflows de backend e mobile ainda pendentes |
 | Backend | não iniciado | jobs de lint/build/test por serviço (Spring e Nest) |
-| Web | não iniciado | job de lint/build/test do Vue |
+| Web | concluído | `ci-front` executa lint, build, testes e auditoria com filtro por caminho e cache npm |
 | Mobile | não iniciado | job de analyze/test + build do APK |
 
 ## Especificação
@@ -121,6 +121,16 @@ jobs:
 - **`desenvolvimento` → `main` só por Pull Request com CI verde** — único portão obrigatório; ninguém commita direto em `main`. Configurar **branch protection** em `main` exigindo os checks de CI aplicáveis (status checks required).
 - Review formal não é exigido; quem estiver de plantão faz o merge.
 
+### Recorte Web implementado
+
+- [x] `.github/workflows/ci-front.yml` é descoberto automaticamente pelo GitHub Actions.
+- [x] `push` e `pull_request` em `code/front/**` executam somente o workflow Web; alterações apenas em `docs/**` não o disparam.
+- [x] Alterações no próprio `.github/workflows/ci-front.yml` também disparam o workflow.
+- [x] `workflow_dispatch` permite execução manual pelo botão **Run workflow** na aba Actions.
+- [x] Node é carregado pelo `code/front/.nvmrc`, com cache npm baseado em `code/front/package-lock.json`.
+- [x] O job executa `npm ci`, `npm run lint`, `npm run build`, `npm test` e `npm audit --audit-level=high` em `code/front`.
+- [x] O workflow possui permissão mínima de leitura e cancela uma execução anterior da mesma referência.
+
 ### Auditoria de dependências (RNF-SEC-26)
 
 - Backend e web rodam auditoria e **falham em severidade alta/crítica**. O mecanismo equivalente para dependências Flutter deve ser definido no scaffolding antes de RNF-SEC-26 ser marcado como atendido no mobile.
@@ -150,11 +160,14 @@ jobs:
 
 ## Pendências
 
+- **Web:** executar o primeiro workflow no GitHub para validar o ambiente Actions; depois configurar a branch protection de `main` exigindo o check `ci-front / lint, build, test and audit` quando aplicável.
 - **Depende de [P0-INFRA](feature-P0-INFRA.md):** stack alocada em 02/09/2026 — `identidade`/`social` em Spring, `acervo`/`leitura` em NestJS; cada job de backend usa o caminho da sua stack.
 - **Depende de [P0-DEPLOY](feature-P0-DEPLOY.md)** para o gancho de deploy a partir de `main` (RNF-SEC-34).
 - Confirmar se o repositório do **GitHub Classroom** permite Actions sem restrição (mesma validação de [P0-MSG](feature-P0-MSG.md) para o `schedule`); se houver limite de minutos, priorizar caminho por filtro.
 - Ferramenta de auditoria do Spring a fixar (OWASP Dependency-Check, `gradle`/`mvn` plugin, ou equivalente).
 
 ## Timeline
+
+### Web concluída em 12/09/2026: criado `.github/workflows/ci-front.yml` com gatilhos de `push`, `pull_request`, `workflow_dispatch`, filtro por `code/front/**`, Node via `.nvmrc`, cache npm, lint, build, testes e auditoria de dependências. Backend, mobile, branch protection e validação do primeiro run no GitHub permanecem pendentes.
 
 ### Criação 25/08/2026: arquivo criado a partir do escopo de P0-CI no [periodo-0/README.md](README.md), do [`plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §5 e dos RNF de teste/segurança (RNF-TST-07, RNF-SEC-25/26/34). Jobs de backend mantidos como template duplo (Spring/Nest) enquanto a stack por serviço é pendência.
