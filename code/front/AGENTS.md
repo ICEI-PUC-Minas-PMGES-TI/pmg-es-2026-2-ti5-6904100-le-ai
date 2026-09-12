@@ -4,11 +4,34 @@ Convenções da SPA web. Complementa o [`AGENTS.md`](../../AGENTS.md) da raiz �
 
 ## Stack
 
-- **Vue** (SPA) + **Tailwind CSS**. Site estático hospedado no Render.
+- **Node 24.19.0 LTS** + **npm 12.0.2**, fixados em `.nvmrc`, `package.json` e `package-lock.json`.
+- **Vue 3.5 + TypeScript 6 + Vite 8** para a SPA; **Vue Router 5** para navegação.
+- **Tailwind CSS 4** pelo plugin oficial `@tailwindcss/vite`. Site estático hospedado no Render.
+- **Vitest 5 + Vue Test Utils + jsdom** para testes; **ESLint 10** para análise estática.
 - Cobre um **subconjunto** de funcionalidades — sem paridade com o mobile. A coluna **Web** de cada RF em `REQUISITOS.md` define o que entra.
 - **Fora do escopo web:** desafios, gamificação e notificações.
 
-> Versão do Node, ferramenta de build, gerenciamento de estado, estrutura de pastas, padrão de teste e comandos serão fixados aqui quando o projeto arrancar. Por ora, apenas a estrutura de pastas existe.
+Gerenciamento de estado global permanece a definir quando uma feature demonstrar necessidade concreta. Estado local e Vue Router são suficientes para o scaffold.
+
+## Estrutura
+
+- `src/router/`: rotas e guards de navegação.
+- `src/views/`: componentes associados a rotas.
+- `src/components/`: componentes reutilizáveis; componentes do design system ficam em `src/components/ui/`.
+- `src/services/`: integrações externas, incluindo o cliente HTTP central.
+- Testes unitários ficam junto do arquivo testado, com sufixo `.spec.ts`.
+
+## Comandos
+
+- `npm ci`: instala exatamente as dependências do lockfile.
+- `npm run dev`: inicia o servidor Vite local.
+- `npm run lint`: executa o ESLint.
+- `npm test`: executa os testes uma vez.
+- `npm run test:watch`: executa os testes em modo interativo.
+- `npm run build`: verifica os tipos e gera o build de produção em `dist/`.
+- `npm run preview`: serve localmente o build de produção.
+
+Use `VITE_API_BASE_URL` para configurar a entrada HTTP do ambiente. O cliente central em `src/services/api.ts` adiciona `X-Correlation-Id` e tolera até 90 segundos de cold start antes de informar timeout.
 
 ## Pontos de atenção do produto (ver `REQUISITOS.md`)
 
@@ -17,4 +40,5 @@ Convenções da SPA web. Complementa o [`AGENTS.md`](../../AGENTS.md) da raiz �
 - Tratar hibernação do Render (RNF-ERR-09) e indisponibilidade/timeout com API simulada nos testes (RNF-TST-06).
 - Ao implementar a partir de um protótipo, seguir [`docs/design/AGENTS.md`](../../docs/design/AGENTS.md) §10: copiar a **estrutura** do protótipo e chegar visualmente muito próximo dele, reconstruindo com CSS Grid, flexbox e unidades relativas. Nada de `position: absolute` para montar layout, nada de largura fixa em px para reproduzir o artboard. As convenções de escrita do prompt de tela estão no mesmo arquivo.
 - O [`documento-de-design.md`](../../docs/orquestador/documento-de-design.md) define o sistema; quando criado por P0-DS, `docs/design-system/tokens.json` será a fonte canônica consumida pela configuração do Tailwind e pelo `ThemeData` do Flutter (RNF-USA-06).
+- P0-DS deve integrar seus tokens ao Tailwind 4 pela abordagem CSS-first ou carregar um config gerado com `@config`; não substituir o Tailwind 4 nem duplicar tokens manualmente.
 - Testes unitários de componentes com lógica e de serviços de acesso à API (RNF-TST-05).

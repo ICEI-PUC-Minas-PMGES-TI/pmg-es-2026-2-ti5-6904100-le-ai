@@ -26,7 +26,7 @@ Requisitos não funcionais atendidos: **RNF-ARQ-01/02/03/04/07** (microsserviço
 |---|---|---|
 | Infra | não iniciado | árvore `code/` só com pastas e `AGENTS.md`; falta inicializar cada projeto |
 | Backend | não iniciado | 4 serviços; transversais (health/erro/log) por implementar nas 2 stacks |
-| Web | não iniciado | `code/front` a inicializar (Vite + Vue + Tailwind) |
+| Web | concluído | Vue 3 + TypeScript + Vite 8 + Tailwind 4, Router, Vitest e cliente HTTP central validados localmente em 12/09/2026 |
 | Mobile | não iniciado | `code/mobile` a inicializar (`flutter create`) |
 
 ## Especificação
@@ -161,10 +161,13 @@ Os transversais são **contratos de saída**, não biblioteca compartilhada: cad
 ## Pendências
 
 - **Alocação de stack por serviço — decidida em 02/09/2026** (arquitetura §2.1): `identidade` e `social` em **Spring**; `acervo` e `leitura` em **NestJS** (mantendo `acervo` e `leitura` na mesma stack). Já registrada no `AGENTS.md` de cada serviço. Falta apenas fixar, no arranque, as versões de SDK/build por serviço (ver item abaixo).
-- Versões exatas de SDK/linguagem/ferramenta de build (Node, JDK, Flutter SDK, gerenciador de pacote) a fixar em cada `AGENTS.md` no arranque.
+- Versões exatas de JDK/build dos serviços e Flutter SDK/gerenciador de pacote ainda devem ser fixadas nos respectivos `AGENTS.md`. Na web, foram fixados Node 24.19.0 LTS, npm 12.0.2, Vue 3.5, TypeScript 6, Vite 8 e Tailwind CSS 4.
 - Gerenciamento de estado do Flutter e da web a definir (não bloqueia o scaffolding).
+- **Compatibilidade P0-DS com Tailwind 4:** a web usa o plugin oficial `@tailwindcss/vite` e a abordagem CSS-first. Como [P0-DS](feature-P0-DS.md) prevê gerar `tailwind.config`, sua implementação deve gerar tokens no formato CSS-first do Tailwind 4 ou carregar o config gerado por meio de `@config`, preservando `docs/design-system/tokens.json` como fonte única. Nenhum token foi antecipado nesta feature.
 
 ## Timeline
+
+### Web concluída em 12/09/2026: `code/front` inicializado com Node 24.19.0 LTS, npm 12.0.2, Vue 3 + TypeScript, Vite 8, Tailwind CSS 4, Vue Router, Vitest e ESLint. Incluídos cliente HTTP central com `X-Correlation-Id`, timeout de 90 segundos para cold start, `.env.example`, lockfile e cinco testes automatizados. `npm run lint`, `npm test` e `npm run build` passam localmente. A compatibilidade de P0-DS com o modelo CSS-first do Tailwind 4 foi registrada como pendência; as demais camadas de P0-INFRA permanecem inalteradas.
 
 ### Decisão de stack 02/09/2026: alocação por serviço fechada pela equipe — `identidade` e `social` em Spring, `acervo` e `leitura` em NestJS (arquitetura §2.1). Pendência de stack encerrada; permanece a fixação de versões de SDK/build no arranque.
 
