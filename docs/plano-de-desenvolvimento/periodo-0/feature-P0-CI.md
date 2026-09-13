@@ -17,10 +17,10 @@ Requisitos atendidos: **RNF-TST-07** (CI roda testes a cada push; branch com tes
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | parcial | Workflows Web, NestJS e Spring criados; mobile ainda pendente |
+| Infra | parcial | Workflows Web, NestJS, Spring e mobile criados; branch protection ainda pendente |
 | Backend | concluído | CI dos quatro serviços implementado; auditoria Maven específica permanece pendente |
 | Web | concluído | `ci-front` executa lint, build, testes e auditoria com filtro por caminho e cache npm |
-| Mobile | não iniciado | job de analyze/test + build do APK |
+| Mobile | implementado | `ci-mobile` executa geração, analyze e testes; gera APK release em `main` |
 
 ## Especificação
 
@@ -148,6 +148,14 @@ jobs:
 - [x] Ambos usam Temurin Java 21, cache Maven, `chmod +x mvnw` e `./mvnw -B verify`.
 - [x] O comando `verify` compila e executa os testes JUnit configurados em cada serviço.
 
+### Recorte Mobile implementado
+
+- [x] `.github/workflows/ci-mobile.yml` monitora somente `code/mobile/**` e o próprio workflow.
+- [x] O workflow aceita `push`, `pull_request` e `workflow_dispatch`, com permissão mínima e cancelamento de execução anterior.
+- [x] Flutter é fixado em `3.47.4` na stable, com cache do SDK, Pub e Gradle.
+- [x] O job `analyze-test` executa `flutter pub get`, `dart run tool/generate_tokens.dart --check`, `flutter analyze` e `flutter test`.
+- [x] O job `apk` depende do `analyze-test`, executa somente em `main`, gera `flutter build apk --release` e publica `app-des-apk` por 7 dias.
+
 ### Auditoria de dependências (RNF-SEC-26)
 
 - Backend e web rodam auditoria e **falham em severidade alta/crítica**. O mecanismo equivalente para dependências Flutter deve ser definido no scaffolding antes de RNF-SEC-26 ser marcado como atendido no mobile.
@@ -180,6 +188,7 @@ jobs:
 - **Web:** executar o primeiro workflow no GitHub para validar o ambiente Actions; depois configurar a branch protection de `main` exigindo o check `ci-front / lint, build, test and audit` quando aplicável.
 - **Backend NestJS:** executar o primeiro workflow de `acervo` e `leitura` no GitHub para validar os checks Actions; depois incluir os checks na branch protection de `main`.
 - **Backend Spring:** executar os primeiros workflows no GitHub para validar os checks Actions; depois incluir os checks na branch protection de `main`.
+- **Mobile:** executar o primeiro workflow no GitHub para validar os checks e o artefato APK; depois incluir `ci-mobile / analyze and test` e `ci-mobile / build APK` na branch protection de `main`.
 - **Depende de [P0-INFRA](feature-P0-INFRA.md):** stack alocada em 02/09/2026 — `identidade`/`social` em Spring, `acervo`/`leitura` em NestJS; cada job de backend usa o caminho da sua stack.
 - **Depende de [P0-DEPLOY](feature-P0-DEPLOY.md)** para o gancho de deploy a partir de `main` (RNF-SEC-34).
 - Confirmar se o repositório do **GitHub Classroom** permite Actions sem restrição (mesma validação de [P0-MSG](feature-P0-MSG.md) para o `schedule`); se houver limite de minutos, priorizar caminho por filtro.
@@ -192,5 +201,7 @@ jobs:
 ### Backend NestJS concluído em 12/09/2026: criados `ci-back-acervo.yml` e `ci-back-leitura.yml` com filtros por serviço, Node 22 via `.nvmrc`, cache npm, lint, build, testes e auditoria de dependências. Os workflows Spring aguardam a criação de `identidade` e `social` com seus respectivos `mvnw`.
 
 ### Backend Spring concluído em 12/09/2026: criados `ci-back-identidade.yml` e `ci-back-social.yml` com Temurin Java 21, cache Maven, `mvnw` e `./mvnw -B verify`. Os dois serviços Spring já possuem `pom.xml`, wrapper e testes no scaffolding P0-INFRA; permanece pendente apenas a auditoria Maven específica e a validação do primeiro run no GitHub.
+
+### Mobile concluído em 13/09/2026: criado `.github/workflows/ci-mobile.yml` com Flutter 3.47.4, cache do SDK/Pub/Gradle, verificação dos artefatos gerados, análise estática e testes. Em `main`, o job dependente gera o APK release e publica o artefato `app-des-apk`; permanece pendente a validação do primeiro run, branch protection e definição da auditoria Flutter.
 
 ### Criação 25/08/2026: arquivo criado a partir do escopo de P0-CI no [periodo-0/README.md](README.md), do [`plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §5 e dos RNF de teste/segurança (RNF-TST-07, RNF-SEC-25/26/34). Jobs de backend mantidos como template duplo (Spring/Nest) enquanto a stack por serviço é pendência.

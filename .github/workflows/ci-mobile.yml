@@ -1,0 +1,111 @@
+name: ci-mobile
+
+on:
+  push:
+    paths:
+      - 'code/mobile/**'
+      - '.github/workflows/ci-mobile.yml'
+  pull_request:
+    paths:
+      - 'code/mobile/**'
+      - '.github/workflows/ci-mobile.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-mobile-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: '3.47.4'
+
+jobs:
+  analyze-test:
+    name: analyze and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: code/mobile
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: flutter-dependencies-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-${{ hashFiles('code/mobile/pubspec.lock', 'code/mobile/android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            flutter-dependencies-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-
+            flutter-dependencies-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Check generated design artifacts
+        run: dart run tool/generate_tokens.dart --check
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+  apk:
+    name: build APK
+    needs: analyze-test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: code/mobile
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: flutter-dependencies-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-${{ hashFiles('code/mobile/pubspec.lock', 'code/mobile/android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            flutter-dependencies-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-
+            flutter-dependencies-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-des-apk
+          path: code/mobile/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 7
