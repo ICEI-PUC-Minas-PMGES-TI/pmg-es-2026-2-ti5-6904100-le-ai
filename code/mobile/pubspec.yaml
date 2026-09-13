@@ -1,0 +1,24 @@
+name: le_ai_mobile
+description: Aplicativo mobile do Lê Ai.
+publish_to: none
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.10.0 <4.0.0"
+  flutter: ">=3.47.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  google_fonts: 8.2.1
+  http: 1.6.0
+  phosphor_icons: 3.0.1
+  shared_preferences: 2.5.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: 6.0.0
+
+flutter:
+  uses-material-design: true

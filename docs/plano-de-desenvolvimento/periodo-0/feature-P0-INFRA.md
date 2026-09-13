@@ -24,10 +24,10 @@ Requisitos não funcionais atendidos: **RNF-ARQ-01/02/03/04/07** (microsserviço
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | parcial | os 4 serviços de backend e o `front` (Vue) inicializados; `.gitignore`/`.env.example` raiz e por serviço criados; mobile por inicializar |
+| Infra | parcial | os 4 serviços de backend, o `front` (Vue) e o `mobile` (Flutter) inicializados; `.gitignore`/`.env.example` raiz e por serviço criados; Android validado e iOS gerado |
 | Backend | concluído | os **4 serviços** scaffoldados com os transversais (health/erro/correlation-id/CORS/headers): **acervo** e **leitura** (NestJS, 11/09/2026), **identidade** e **social** (Spring Boot, 12/09/2026). Falta apenas subir em DES ([P0-DEPLOY](feature-P0-DEPLOY.md)) e entrar no pipeline ([P0-CI](feature-P0-CI.md)) |
 | Web | concluído | Vue 3 + TypeScript + Vite 8 + Tailwind 4, Router, Vitest e cliente HTTP central validados localmente em 12/09/2026 |
-| Mobile | não iniciado | `code/mobile` a inicializar (`flutter create`) |
+| Mobile | concluído (Android) | scaffold Flutter nativo, plataformas, lockfile, testes, build e execução no AVD validados; iOS gerado, mas depende de macOS/Xcode para build |
 
 ## Especificação
 
@@ -52,7 +52,7 @@ code/
   - *Spring:* projeto Spring Boot (Web, Validation, Actuator, Data JPA, PostgreSQL driver, Spring AMQP, springdoc-openapi, Flyway). Build Gradle ou Maven — fixar no `AGENTS.md` do serviço.
   - *NestJS:* `nest new`, com `@nestjs/config`, `class-validator`/`class-transformer`, driver `pg` + TypeORM (ou Prisma), `@nestjs/swagger`, `@nestjs/terminus` (health), `amqplib`. Gerenciador de pacote fixo (`pnpm`/`npm`) com lockfile.
 - **Web (`code/front`):** `npm create vite@latest` com template Vue, Tailwind CSS instalado e configurado, Vue Router, ferramenta de teste (Vitest). Node LTS fixado no `AGENTS.md`.
-- **Mobile (`code/mobile`):** `flutter create` (Android + iOS), SDK fixado no `AGENTS.md`; dependências base (`http`/`dio`, gerenciador de estado a definir).
+- **Mobile (`code/mobile`):** `flutter create` (Android + iOS), Flutter/Dart fixados no `AGENTS.md`; dependências base (`http`, `google_fonts`, `phosphor_icons` e `shared_preferences`), com gerenciamento de estado de domínio a definir.
 
 Cada projeto deve **compilar e subir** com um endpoint/tela mínima antes de fechar esta feature.
 
@@ -161,14 +161,15 @@ Os transversais são **contratos de saída**, não biblioteca compartilhada: cad
 ## Pendências
 
 - **Alocação de stack por serviço — decidida em 02/09/2026** (arquitetura §2.1): `identidade` e `social` em **Spring**; `acervo` e `leitura` em **NestJS** (mantendo `acervo` e `leitura` na mesma stack). Já registrada no `AGENTS.md` de cada serviço. **Pendência encerrada.**
-- Versões de SDK/build por serviço já fixadas: **Nest (`acervo`, `leitura`) em 11/09/2026 — Node 22 LTS, npm, Drizzle ORM**; **web (`front`) em 12/09/2026 — Node 24.19.0 LTS, npm 12.0.2, Vue 3.5, TypeScript 6, Vite 8, Tailwind CSS 4**; **Spring (`identidade`, `social`) em 12/09/2026 — JDK 21 LTS, Maven com wrapper, Spring Boot 4.1.1, Flyway** (todos registrados nos respectivos `AGENTS.md`). Falta fixar o Flutter SDK/gerenciador do mobile no arranque dele.
+- Versões de SDK/build por serviço já fixadas: **Nest (`acervo`, `leitura`) em 11/09/2026 — Node 22 LTS, npm, Drizzle ORM**; **web (`front`) em 12/09/2026 — Node 24.19.0 LTS, npm 12.0.2, Vue 3.5, TypeScript 6, Vite 8, Tailwind CSS 4**; **Spring (`identidade`, `social`) em 12/09/2026 — JDK 21 LTS, Maven com wrapper, Spring Boot 4.1.1, Flyway**; **mobile em 13/09/2026 — Flutter 3.47.4, Dart 3.13.3, JDK 24, Android SDK 36, Build Tools 36.0.0, NDK 28.2.13676358 e CMake 3.22.1** (todos registrados nos respectivos `AGENTS.md`).
 - **ORM/migration do Nest decidido — Drizzle ORM + drizzle-kit** (11/09/2026), divergindo dos exemplos "TypeORM (ou Prisma)" citados nesta spec (que os lista como exemplo, não imposição). O restante (TypeORM/Prisma) fica descartado para o Nest.
 - **Build do Spring é Maven, não Gradle** (12/09/2026). O template de pipeline em [P0-CI](feature-P0-CI.md) assume `./gradlew build` e `cache: gradle` para a trilha Spring. Como o pipeline ainda não existe (não há `.github/`), não houve quebra — mas o template precisa passar a `cache: maven` e `./mvnw -B verify` quando P0-CI for implementada. **Decisão do dono de P0-CI**; esta feature não edita o arquivo dela (AGENTS §5.3).
 - **Ferramenta de auditoria de dependências do Spring continua a fixar** (item aberto em P0-CI). O lado Nest fecha com `npm audit --audit-level=high`; o Maven não tem equivalente embutido, e o OWASP Dependency-Check exige chave da NVD e deixa o pipeline lento. Nada foi adicionado ao `pom.xml` por conta própria.
 - **Spring AMQP ficou fora do scaffold**, apesar de constar na lista de starters da spec acima. Motivo: paridade com o scaffold Nest, que também não trouxe cliente de mensageria, e porque o starter ativa um health contributor de RabbitMQ que marcaria `/actuator/health` como DOWN sem broker no ar. Entra em [P0-MSG](feature-P0-MSG.md), junto com a conexão real.
 - **`DATABASE_URL` do Spring tem formato diferente do Nest.** O driver JDBC não aceita usuário e senha embutidos na URL, então os serviços Spring usam `DATABASE_URL=jdbc:postgresql://...` mais `DATABASE_USERNAME` e `DATABASE_PASSWORD`, divergindo do modelo de `.env.example` desta spec. O nome da variável e o `search_path`/schema por serviço foram preservados.
 - **Spring Security ficou fora do scaffold** (também não está na lista de starters da spec). Os cabeçalhos de segurança de RNF-SEC-24 vêm de um filtro próprio; quando F-AUT entrar, o Security assume e os cabeçalhos migram para `HttpSecurity#headers`.
-- Gerenciamento de estado do Flutter e da web a definir (não bloqueia o scaffolding).
+- O gerenciamento de estado de domínio do Flutter e da web continua a ser definido pelas features correspondentes; o controlador de tema usa `ChangeNotifier` nativo e não bloqueia o scaffolding.
+- O scaffold iOS foi gerado, mas a validação do build permanece condicionada a macOS/Xcode; o Android é o alvo validado neste ambiente.
 - **Compatibilidade P0-DS com Tailwind 4:** a web usa o plugin oficial `@tailwindcss/vite` e a abordagem CSS-first. Como [P0-DS](feature-P0-DS.md) prevê gerar `tailwind.config`, sua implementação deve gerar tokens no formato CSS-first do Tailwind 4 ou carregar o config gerado por meio de `@config`, preservando `docs/design-system/tokens.json` como fonte única. Nenhum token foi antecipado nesta feature.
 
 ## Timeline
@@ -184,3 +185,7 @@ Os transversais são **contratos de saída**, não biblioteca compartilhada: cad
 ### Decisão de stack 02/09/2026: alocação por serviço fechada pela equipe — `identidade` e `social` em Spring, `acervo` e `leitura` em NestJS (arquitetura §2.1). Pendência de stack encerrada; permanece a fixação de versões de SDK/build no arranque.
 
 ### Criação 25/08/2026: arquivo criado a partir do escopo de P0-INFRA no [periodo-0/README.md](README.md) e do [`documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §2–§8. Stack por serviço mantida como pendência (decisão do grupo).
+
+### Implementação mobile 12/09/2026: criada a base Dart/Flutter em `code/mobile`, com configuração por `API_BASE_URL`, cliente HTTP com `X-Correlation-Id`, timeout de 90 segundos classificado como cold start, tela inicial e testes. A geração das pastas nativas, `pubspec.lock` e a execução do build foram concluídas após a instalação do Flutter; os demais recortes de infraestrutura permanecem inalterados.
+
+### Finalização mobile 13/09/2026: scaffold Android/iOS gerado com Flutter 3.47.4 e Dart 3.13.3. `flutter pub get`, `flutter analyze` e `flutter test` passaram; `flutter build apk --debug` gerou o APK. O AVD `Pixel_8_API_35` (Android 15/API 35, Google APIs, x86_64) foi criado, o APK foi instalado e o app iniciou com `API_BASE_URL=http://10.0.2.2:8080`. A validação iOS permanece condicionada a macOS/Xcode. O aviso sobre `devices.xml` na criação do AVD foi não-fatal.
