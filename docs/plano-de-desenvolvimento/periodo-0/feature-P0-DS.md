@@ -20,7 +20,7 @@ Requisitos atendidos: **RNF-USA-06** (tokens definidos uma vez, traduzidos para 
 | Infra | parcial | `docs/design-system/tokens.json` existe; a estratégia Web consome o JSON diretamente, sem script ou arquivo intermediário |
 | Backend | não aplicável | design system não tem backend |
 | Web | concluído | Tailwind 4 lê diretamente o JSON, CSS vars de tema claro/escuro, fontes, Phosphor e título centralizado aplicados |
-| Mobile | não iniciado | `lib/design/tokens.dart` + extensão `ThemeData` (claro/escuro) |
+| Mobile | concluído | tokens e tema são gerados do JSON, fontes, Phosphor, claro/escuro persistente, tela-piloto e testes implementados |
 
 ## Especificação
 
@@ -79,13 +79,13 @@ Anotadas aqui para que quem implementar componentes não reintroduza: um único 
 
 ## Critérios de aceite
 
-- [ ] `docs/design-system/tokens.json` existe com **todos** os tokens de §3.1–3.6 (claro + escuro).
+- [x] `docs/design-system/tokens.json` existe com **todos** os tokens de §3.1–3.6 (claro + escuro).
 - [x] O `tailwind.config.js` da web **consome diretamente** o JSON; não há cor/valor de design duplicado no config.
-- [ ] `lib/design/tokens.dart` + extensão `ThemeData` são **gerados** do JSON; não há cor hardcoded fora do gerado.
-- [ ] As quatro famílias de fonte carregam em web e mobile, com fallback definido.
-- [ ] Modo escuro funciona nos dois lados (`prefers-color-scheme` + toggle salvo), como lock de página inteira.
-- [ ] Uma tela/exemplo de cada lado renderiza usando **só** tokens por nome semântico, com contraste WCAG AA verificado (`tinta` sobre `papel`, `grafite` sobre `papel`).
-- [ ] Phosphor Icons disponível e funcionando nas duas stacks.
+- [x] `lib/design/tokens.dart` + extensão `ThemeData` são **gerados** do JSON; não há cor hardcoded fora do gerado.
+- [x] As quatro famílias de fonte carregam em web e mobile, com fallback definido.
+- [x] Modo escuro funciona nos dois lados (`prefers-color-scheme` + toggle salvo), como lock de página inteira.
+- [x] Uma tela/exemplo de cada lado renderiza usando **só** tokens por nome semântico, com contraste WCAG AA verificado (`tinta` sobre `papel`, `grafite` sobre `papel`).
+- [x] Phosphor Icons disponível e funcionando nas duas stacks.
 - [x] Alterar o JSON e executar o build reflete a mudança na Web sem etapa de geração ou edição manual.
 
 ## Definition of Done
@@ -106,14 +106,18 @@ Anotadas aqui para que quem implementar componentes não reintroduza: um único 
 
 - **Depende de [P0-INFRA](feature-P0-INFRA.md)** (projetos web/mobile scaffoldados e compilando).
 - **Estratégia Web decidida em 12/09/2026:** consumo direto do JSON pelo `tailwind.config.js`, por solicitação do responsável pela frente. A previsão de um script separado não se aplica ao frontend Web.
-- Pacote Phosphor da Web fixado em `@phosphor-icons/vue` 2.2.1; o pacote Flutter continua a definir no arranque mobile.
+- Pacote Phosphor da Web fixado em `@phosphor-icons/vue` 2.2.1 e pacote Flutter fixado em `phosphor_icons` 3.0.1.
 - Alinhar com [P0-NAV](feature-P0-NAV.md): as primeiras telas navegáveis já devem consumir os tokens (não hardcodar cor no shell de auth).
 - Os **componentes** de §4 (botão, input, estrela, card, status pill, progresso, streak, feed, modo de foco) e os protótipos ficam para depois; aqui entra no máximo um componente-piloto para validar o contrato dos dois lados.
 
 ## Timeline
 
-### Web concluída em 12/09/2026: Tailwind 4 passou a consumir diretamente `docs/design-system/tokens.json` via `@config`, sem `code/front/scripts` ou arquivos intermediários. Foram aplicados CSS vars claro/escuro, preferência do sistema, toggle persistido no `localStorage`, quatro famílias tipográficas, Phosphor Icons e o título centralizado `Lê Ai`. `npm run lint`, `npm test` e `npm run build` passam; a camada mobile permanece pendente.
+### Web concluída em 12/09/2026: Tailwind 4 passou a consumir diretamente `docs/design-system/tokens.json` via `@config`, sem `code/front/scripts` ou arquivos intermediários. Foram aplicados CSS vars claro/escuro, preferência do sistema, toggle persistido no `localStorage`, quatro famílias tipográficas, Phosphor Icons e o título centralizado `Lê Ai`. `npm run lint`, `npm test` e `npm run build` passam; a camada mobile foi concluída em 13/09/2026.
 
 ### Revisão 31/08/2026: caminhos de prompt e protótipo atualizados para `docs/design/`, acompanhando a atualização do [`documento-de-design.md`](../../orquestador/documento-de-design.md) §9.1/§9.3 de 31/08/2026. `docs/design-system/tokens.json` continua sendo a entrega desta feature, sem mudança de escopo.
 
 ### Criação 25/08/2026: arquivo criado a partir do escopo de P0-DS no [periodo-0/README.md](README.md) e do [`documento-de-design.md`](../../orquestador/documento-de-design.md) §3 e §9. Fonte canônica fixada em `docs/design-system/tokens.json`; caminhos de código alinhados a `code/front`/`code/mobile`. Componentes de produto deliberadamente fora de escopo desta feature.
+
+### Implementação mobile 12/09/2026: `code/mobile/lib/design/tokens.dart` e o tema claro/escuro foram derivados de `docs/design-system/tokens.json`, incluindo tipografia Google Fonts, espaçamento, raios, elevação e motion. Incluídos controlador persistente de `ThemeMode`, tela-piloto e testes. Por decisão do escopo, nenhum gerador foi criado; a parte web e a regeneração automática continuam pendentes.
+
+### Finalização mobile 13/09/2026: criado `code/mobile/tool/generate_tokens.dart`, com validação de contrato e modo `--check`, gerando `tokens.dart` e `theme.g.dart`. O mobile passou a usar `phosphor_icons` 3.0.1, com ícones regular/fill no piloto. `flutter pub get`, geração, análise, 10 testes e `flutter build apk --debug` passaram. A execução iOS continua condicionada a macOS/Xcode; o build Android foi validado e o AVD depende de estar disponível no ambiente.
