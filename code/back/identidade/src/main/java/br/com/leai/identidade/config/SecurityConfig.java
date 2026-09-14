@@ -56,7 +56,21 @@ public class SecurityConfig {
         .sessionManagement(sessao -> sessao.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(
             rotas -> rotas.requestMatchers(ROTAS_PUBLICAS).permitAll().anyRequest().authenticated())
-        .oauth2ResourceServer(oauth -> oauth.jwt(Customizer.withDefaults()))
+        .oauth2ResourceServer(
+            oauth ->
+                oauth
+                    .jwt(Customizer.withDefaults())
+                    // O resource server instala um entry point próprio, que ganha do global
+                    // abaixo quando o token existe mas é inválido ou expirou. Sem esta linha,
+                    // esse 401 sai com corpo vazio e quebra o contrato de erro (RNF-ERR-01):
+                    // o cliente receberia um 401 que não sabe exibir.
+                    .authenticationEntryPoint(
+                        (requisicao, resposta, excecao) ->
+                            escritorDeErro.escrever(resposta, CodigoErro.NAO_AUTENTICADO))
+                    .accessDeniedHandler(
+                        (requisicao, resposta, excecao) ->
+                            escritorDeErro.escrever(resposta, CodigoErro.ACESSO_NEGADO)))
+        // Cobre o caso sem Authorization nenhum, que nem chega ao filtro de bearer token.
         .exceptionHandling(
             erros ->
                 erros

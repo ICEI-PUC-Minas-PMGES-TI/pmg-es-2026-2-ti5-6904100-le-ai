@@ -7,9 +7,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
+import org.springframework.http.HttpInputMessage;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -102,5 +104,32 @@ class GlobalExceptionHandlerTest {
 
     assertThat(resposta.getBody()).isNotNull();
     assertThat(resposta.getBody().correlationId()).isEqualTo("desconhecido");
+  }
+
+  @Test
+  @DisplayName("corpo ilegível vira 400, não 500: o erro é de quem enviou")
+  void corpoIlegivelVira400() {
+    ResponseEntity<ErroResposta> resposta =
+        handler.tratar(new HttpMessageNotReadableException("JSON malformado", (HttpInputMessage) null));
+
+    assertThat(resposta.getStatusCode().value()).isEqualTo(400);
+    assertThat(resposta.getBody()).isNotNull();
+    assertThat(resposta.getBody().codigo()).isEqualTo("REQUISICAO_INVALIDA");
+  }
+
+  @Test
+  @DisplayName("erro de negócio leva a mensagem específica, mantendo o formato do corpo")
+  void erroDeNegocioLevaMensagemPropria() {
+    ResponseEntity<ErroResposta> resposta =
+        handler.tratar(
+            new ErroDeNegocioException(
+                CodigoErro.CONFLITO, "Esse nome de usuário já está em uso. Escolha outro."));
+
+    assertThat(resposta.getStatusCode().value()).isEqualTo(409);
+    assertThat(resposta.getBody()).isNotNull();
+    assertThat(resposta.getBody().codigo()).isEqualTo("CONFLITO");
+    assertThat(resposta.getBody().mensagem())
+        .isEqualTo("Esse nome de usuário já está em uso. Escolha outro.");
+    assertThat(resposta.getBody().correlationId()).isEqualTo("teste-123");
   }
 }
