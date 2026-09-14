@@ -1,7 +1,7 @@
 # P0-NAV — Navegabilidade + shell de auth + docs de API
 
 **Período:** 0 · **Prioridade:** fundação
-**Dono:** a definir · **Serviços afetados:** `identidade` (backend) + web + mobile + `docs/api` (Swagger UI agregado)
+**Dono:** Henrique Carvalho · **Serviços afetados:** `identidade` (backend) + web + mobile + `docs/api` (Swagger UI agregado)
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md). Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md). Processo: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §8. Em caso de conflito, o `REQUISITOS.md` ganha; protótipo é referência visual, não spec de pixel (plano §7).
 
