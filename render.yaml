@@ -141,6 +141,11 @@ services:
       # serviço; por ora aponte para o backend de DES desejado.
       - key: VITE_API_BASE_URL
         sync: false
+      # URL por serviço (decisão de 12/09, P0-NAV) — cadastro, login e /me.
+      # Não é segredo: é a URL pública do serviço em DES, mesmo padrão do
+      # CORS_ALLOWED_ORIGINS acima.
+      - key: VITE_IDENTIDADE_BASE_URL
+        value: https://leai-identidade.onrender.com
     routes:
       # SPA: toda rota cai no index.html (Vue Router em history mode).
       - type: rewrite
