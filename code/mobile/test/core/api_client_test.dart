@@ -43,4 +43,79 @@ void main() {
       ),
     );
   });
+
+  test('post monta o corpo em JSON e o cabeçalho Content-Type', () async {
+    final client = MockClient((request) async {
+      expect(request.method, 'POST');
+      expect(request.url.toString(), 'https://api.example.com/auth/login');
+      expect(request.headers['Content-Type'], 'application/json');
+      expect(request.body, '{"identificador":"marinableu","senha":"segredo"}');
+      return http.Response('{"accessToken":"jwt"}', 200);
+    });
+    final api = ApiClient(baseUrl: 'https://api.example.com', client: client);
+
+    final response = await api.post(
+      '/auth/login',
+      body: {'identificador': 'marinableu', 'senha': 'segredo'},
+    );
+
+    expect(response.statusCode, 200);
+  });
+
+  test('injeta Authorization quando getToken devolve um token', () async {
+    final client = MockClient((request) async {
+      expect(request.headers['Authorization'], 'Bearer token-fixo');
+      return http.Response('{}', 200);
+    });
+    final api = ApiClient(
+      baseUrl: 'https://api.example.com',
+      client: client,
+      getToken: () => 'token-fixo',
+    );
+
+    await api.get('/me');
+  });
+
+  test('não envia Authorization quando getToken devolve null', () async {
+    final client = MockClient((request) async {
+      expect(request.headers.containsKey('Authorization'), isFalse);
+      return http.Response('{}', 200);
+    });
+    final api = ApiClient(
+      baseUrl: 'https://api.example.com',
+      client: client,
+      getToken: () => null,
+    );
+
+    await api.get('/health');
+  });
+
+  test('preserva um Authorization explícito da chamada em vez do getToken', () async {
+    final client = MockClient((request) async {
+      expect(request.headers['Authorization'], 'Bearer token-explicito');
+      return http.Response('{}', 200);
+    });
+    final api = ApiClient(
+      baseUrl: 'https://api.example.com',
+      client: client,
+      getToken: () => 'token-da-sessao',
+    );
+
+    await api.get('/me', headers: {'Authorization': 'Bearer token-explicito'});
+  });
+
+  test('postJson decodifica a resposta em Map', () async {
+    final client = MockClient((request) async {
+      return http.Response('{"accessToken":"jwt","expiresIn":900}', 200);
+    });
+    final api = ApiClient(baseUrl: 'https://api.example.com', client: client);
+
+    final json = await api.postJson(
+      '/auth/login',
+      body: {'identificador': 'marinableu', 'senha': 'segredo'},
+    );
+
+    expect(json['accessToken'], 'jwt');
+    expect(json['expiresIn'], 900);
+  });
 }
