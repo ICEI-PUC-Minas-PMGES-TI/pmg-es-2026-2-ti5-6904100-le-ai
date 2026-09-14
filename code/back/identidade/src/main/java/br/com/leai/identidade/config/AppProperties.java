@@ -1,6 +1,7 @@
 package br.com.leai.identidade.config;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import java.util.Arrays;
 import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -24,7 +25,12 @@ public record AppProperties(
     @NotBlank(message = "CORS_ALLOWED_ORIGINS é obrigatório") String corsAllowedOrigins,
     // Integrações e segredos usados pelas features de domínio (opcionais no P0).
     String amqpUrl,
-    String jwtSecret,
+    // Segredo de assinatura do token de acesso. Passou a ser obrigatório em P0-NAV: sem ele o
+    // serviço não emite nem valida login, e subir assim só adiaria a falha para a primeira
+    // requisição. O mínimo de 32 caracteres é exigência do HS256 (chave de 256 bits).
+    @NotBlank(message = "JWT_SECRET é obrigatório")
+        @Size(min = 32, message = "JWT_SECRET precisa de pelo menos 32 caracteres (HS256)")
+        String jwtSecret,
     String adminEmail,
     String adminPassword) {
 
