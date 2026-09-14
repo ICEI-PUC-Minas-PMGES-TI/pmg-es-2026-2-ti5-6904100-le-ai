@@ -1,0 +1,25 @@
+# Swagger UI agregado dos 4 contratos de docs/api/ (plano-de-projeto.md §8; feature P0-NAV).
+# Sobe offline, sem os serviços no ar: só lê os specs versionados.
+#
+#   docker compose -f docker-compose.docs.yml up
+#
+# -> http://localhost:8080, com dropdown para trocar de serviço.
+#
+# A porta 8080 colide com o `identidade` rodando local (mesma porta). É uma pendência
+# conhecida e registrada no arquivo da feature: o critério de aceite exige localhost:8080
+# para o Swagger UI, então a porta fica — não suba os dois ao mesmo tempo.
+services:
+  api-docs:
+    image: swaggerapi/swagger-ui
+    ports: ["8080:8080"]
+    volumes:
+      - ./docs/api:/usr/share/nginx/html/specs:ro
+    environment:
+      URLS: >
+        [
+          {"url":"/specs/identidade.yaml","name":"identidade"},
+          {"url":"/specs/acervo.yaml","name":"acervo"},
+          {"url":"/specs/leitura.yaml","name":"leitura"},
+          {"url":"/specs/social.yaml","name":"social"}
+        ]
+      URLS_PRIMARY_NAME: identidade
