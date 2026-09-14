@@ -11,10 +11,18 @@ class ApiException implements Exception {
   final String correlationId;
   final String message;
 
+  /// Código do corpo de erro padrão do backend (`ErroResposta.codigo`: `CONFLITO`,
+  /// `NAO_AUTENTICADO`, `MUITAS_REQUISICOES`...), quando a resposta seguiu o contrato
+  /// (RNF-ERR-01). Nulo para timeout, falha de rede, ou corpo que não seguiu o contrato — é o
+  /// que permite uma tela distinguir credencial inválida de bloqueio de conflito, em vez de um
+  /// "status inesperado" genérico para tudo.
+  final String? codigo;
+
   const ApiException({
     required this.kind,
     required this.correlationId,
     required this.message,
+    this.codigo,
   });
 
   @override
@@ -158,12 +166,7 @@ class ApiClient {
     String requestCorrelationId,
   ) {
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw ApiException(
-        kind: ApiFailureKind.invalidResponse,
-        correlationId:
-            response.headers['x-correlation-id'] ?? requestCorrelationId,
-        message: 'O serviço respondeu com um status inesperado.',
-      );
+      throw _erroDoCorpo(response, requestCorrelationId);
     }
 
     try {
@@ -176,6 +179,36 @@ class ApiClient {
         message: 'O serviço retornou uma resposta inválida.',
       );
     }
+  }
+
+  /// Corpo de erro padrão do backend (RNF-ERR-01): `{ codigo, mensagem, correlationId }`.
+  /// Quando a resposta segue o contrato, a exceção carrega a mensagem e o código de verdade;
+  /// quando não segue (corpo vazio, HTML de um proxy, JSON de outro formato), cai na mensagem
+  /// genérica de sempre — nunca lança por causa de um corpo inesperado.
+  ApiException _erroDoCorpo(http.Response response, String requestCorrelationId) {
+    final correlationIdDoCabecalho =
+        response.headers['x-correlation-id'] ?? requestCorrelationId;
+    try {
+      final corpo = jsonDecode(response.body);
+      if (corpo is Map<String, dynamic> &&
+          corpo['codigo'] is String &&
+          corpo['mensagem'] is String) {
+        return ApiException(
+          kind: ApiFailureKind.invalidResponse,
+          correlationId:
+              corpo['correlationId'] as String? ?? correlationIdDoCabecalho,
+          message: corpo['mensagem'] as String,
+          codigo: corpo['codigo'] as String,
+        );
+      }
+    } on FormatException {
+      // Corpo não é JSON: cai na mensagem genérica abaixo.
+    }
+    return ApiException(
+      kind: ApiFailureKind.invalidResponse,
+      correlationId: correlationIdDoCabecalho,
+      message: 'O serviço respondeu com um status inesperado.',
+    );
   }
 
   Uri _resolve(String path) {

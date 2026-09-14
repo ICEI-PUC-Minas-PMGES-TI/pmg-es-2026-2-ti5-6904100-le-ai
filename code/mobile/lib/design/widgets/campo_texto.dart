@@ -34,6 +34,15 @@ class CampoTexto extends StatelessWidget {
   final Iterable<String>? autofillHints;
   final ValueChanged<String>? onChanged;
 
+  /// Bloqueia a digitação sem desabilitar o campo — para um valor escolhido por outra
+  /// interação, como o seletor de data (cadastro.md §4: `CalendarBlank` abre o calendário, o
+  /// campo em si não aceita teclado).
+  final bool readOnly;
+
+  /// Chamado a cada toque no campo, inclusive quando [readOnly]. É o que abre o seletor de
+  /// data em vez do teclado.
+  final VoidCallback? onTap;
+
   const CampoTexto({
     super.key,
     required this.controller,
@@ -47,6 +56,8 @@ class CampoTexto extends StatelessWidget {
     this.trailing,
     this.autofillHints,
     this.onChanged,
+    this.readOnly = false,
+    this.onTap,
   });
 
   @override
@@ -68,6 +79,8 @@ class CampoTexto extends StatelessWidget {
           keyboardType: keyboardType,
           autofillHints: autofillHints,
           onChanged: onChanged,
+          readOnly: readOnly,
+          onTap: onTap,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: enabled ? null : theme.tertiaryText,
           ),

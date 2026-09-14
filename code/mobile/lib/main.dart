@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 
 import 'design/theme.dart';
@@ -27,6 +28,16 @@ class LeAiApp extends StatelessWidget {
         theme: AppTheme.light(),
         darkTheme: AppTheme.dark(),
         themeMode: themeController.mode,
+        // Sem isto, os textos que o próprio Flutter desenha (botões do seletor de data,
+        // formato de data "Enter Date" / mm/dd/yyyy) saem em inglês — o app é pt-BR por
+        // decisão de produto (AGENTS.md §2), não só a cópia que este projeto escreve à mão.
+        locale: const Locale('pt', 'BR'),
+        supportedLocales: const <Locale>[Locale('pt', 'BR')],
+        localizationsDelegates: const <LocalizationsDelegate<Object?>>[
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
         home: DesignSystemHomePage(themeController: themeController),
       ),
     );

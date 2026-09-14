@@ -118,4 +118,48 @@ void main() {
     expect(json['accessToken'], 'jwt');
     expect(json['expiresIn'], 900);
   });
+
+  test('erro 4xx/5xx com corpo padrão carrega codigo, mensagem e correlationId do servidor', () async {
+    final client = MockClient((request) async {
+      return http.Response(
+        '{"codigo":"CONFLITO","mensagem":"Esse nome de usuário já está em uso. Escolha outro.","correlationId":"c-1"}',
+        409,
+      );
+    });
+    final api = ApiClient(baseUrl: 'https://api.example.com', client: client);
+
+    await expectLater(
+      () => api.postJson('/auth/register', body: {}),
+      throwsA(
+        isA<ApiException>()
+            .having((erro) => erro.codigo, 'codigo', 'CONFLITO')
+            .having(
+              (erro) => erro.message,
+              'message',
+              'Esse nome de usuário já está em uso. Escolha outro.',
+            )
+            .having((erro) => erro.correlationId, 'correlationId', 'c-1'),
+      ),
+    );
+  });
+
+  test('erro sem corpo reconhecível cai na mensagem genérica, sem codigo', () async {
+    final client = MockClient((request) async {
+      return http.Response('<html>502 Bad Gateway</html>', 502);
+    });
+    final api = ApiClient(baseUrl: 'https://api.example.com', client: client);
+
+    await expectLater(
+      () => api.postJson('/auth/login', body: {}),
+      throwsA(
+        isA<ApiException>()
+            .having((erro) => erro.codigo, 'codigo', isNull)
+            .having(
+              (erro) => erro.message,
+              'message',
+              'O serviço respondeu com um status inesperado.',
+            ),
+      ),
+    );
+  });
 }
