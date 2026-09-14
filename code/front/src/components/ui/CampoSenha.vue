@@ -14,6 +14,7 @@ defineProps<{
   label: string
   id?: string
   erro?: string
+  bordaDeErro?: boolean
   helper?: string
   placeholder?: string
   disabled?: boolean
@@ -39,6 +40,7 @@ function alternarVisibilidade(): void {
     :label="label"
     :type="mostrando ? 'text' : 'password'"
     :erro="erro"
+    :borda-de-erro="bordaDeErro"
     :helper="helper"
     :placeholder="placeholder"
     :disabled="disabled"

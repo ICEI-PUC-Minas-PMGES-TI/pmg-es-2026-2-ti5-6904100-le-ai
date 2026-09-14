@@ -28,7 +28,7 @@ describe('CampoTexto', () => {
     expect(wrapper.get('input').attributes('aria-invalid')).toBeUndefined()
   })
 
-  it('estado de erro substitui o helper, marca aria-invalid e muda a borda', () => {
+  it('erro marca aria-invalid, muda a borda e coexiste com o helper (cadastro.md §4.3)', () => {
     const wrapper = mount(CampoTexto, {
       props: {
         modelValue: '',
@@ -39,11 +39,25 @@ describe('CampoTexto', () => {
     })
 
     const input = wrapper.get('input')
+    // O helper não some: a regra continua valendo, só a senha digitada é que está errada.
+    expect(wrapper.text()).toContain('Mínimo de 8 caracteres.')
     expect(wrapper.text()).toContain('Use pelo menos 8 caracteres.')
-    expect(wrapper.text()).not.toContain('Mínimo de 8 caracteres.')
     expect(input.attributes('aria-invalid')).toBe('true')
-    expect(input.attributes('aria-describedby')).toBe(input.attributes('id') + '-erro')
+    expect(input.attributes('aria-describedby')).toBe(
+      `${input.attributes('id')}-helper ${input.attributes('id')}-erro`,
+    )
     expect(input.classes()).toContain('border-rubi')
+  })
+
+  it('bordaDeErro aplica a borda rubi sem legenda própria (login.md §4.2)', () => {
+    const wrapper = mount(CampoTexto, {
+      props: { modelValue: 'marinableu', label: 'E-mail ou nome de usuário', bordaDeErro: true },
+    })
+
+    const input = wrapper.get('input')
+    expect(input.classes()).toContain('border-rubi')
+    expect(input.attributes('aria-invalid')).toBe('true')
+    expect(wrapper.findAll('p')).toHaveLength(0)
   })
 
   it('repassa disabled para o input nativo', () => {
