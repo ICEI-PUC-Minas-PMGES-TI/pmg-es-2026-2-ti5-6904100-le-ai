@@ -499,6 +499,9 @@ extension DesignThemeData on ThemeData {
 
   Color get warningColor => isDark ? DesignTokens.ambarClaro : DesignTokens.ambar;
 
+  Color get warningTint =>
+      isDark ? DesignTokens.ambarFundoEscuro : DesignTokens.ambarFundo;
+
   TextStyle get displayHero => textTheme.displayLarge!;
 
   TextStyle get displayTitle => textTheme.displayMedium!;
