@@ -16,6 +16,37 @@ Conteúdo consolidado no TAP: objetivo e persona (Marina Torres), escopo e contr
 
 > Pendência: as duas versões assinadas estão em diretórios diferentes (`gerencia/` e `atas/`). Consolidar em um único arquivo canônico neste diretório.
 
+## Declaração de Escopo
+
+Elaborada em **14/09/2026** a partir do TAP nº 01 e da baseline de requisitos. Delimita o que o projeto
+entrega e o que não entrega, sob quais restrições e premissas, e contra quais marcos a entrega é medida.
+É o documento que a EAP decompõe.
+
+| Arquivo | Conteúdo |
+| --- | --- |
+| [`declaracao_de_escopo.md`](declaracao_de_escopo.md) | **Versão canônica**, em Markdown e versionada. Toda alteração começa aqui. |
+| [`declaracao_de_escopo.docx`](declaracao_de_escopo.docx) | Template da disciplina (`templates/Template - Declaracao de escopo.docx`) preenchido, com os oito campos e os dez marcos. **Derivado** do `.md`. |
+| [`declaracao_de_escopo.pdf`](declaracao_de_escopo.pdf) | Versão para leitura e coleta de assinaturas, com o bloco de aprovação do gerente e dos três patrocinadores. **Derivado** do `.docx`. |
+
+## Estrutura Analítica do Projeto (EAP)
+
+Atende ao marco de **15/09** do [`plano-de-projeto.md`](../../docs/orquestador/plano-de-projeto.md) §3
+que prevê a EAP junto das funcionalidades prioritárias do Período 1, e ao item 2.3 do TAP. Construída pela estratégia
+*top-down* por fases do ciclo de vida do guia [`templates/Criar_EAP.pdf`](../../templates/Criar_EAP.pdf):
+nível 2 abrindo com Gerenciamento do Projeto e fechando com Encerramento, **71 pacotes de trabalho**,
+dicionário completo e verificação contra os dez mandamentos.
+
+| Arquivo | Conteúdo |
+| --- | --- |
+| [`eap.md`](eap.md) | **Versão canônica**: representação hierárquica com códigos de conta, dicionário da EAP, conformidade com os dez mandamentos e controle de mudança. |
+| [`eap.docx`](eap.docx) | Gerado a partir do `.md`, em paisagem para caber o dicionário. **Derivado**. |
+| [`eap.pdf`](eap.pdf) | Versão para leitura e entrega. **Derivado** do `.docx`. |
+
+> Os nove nós de nível 2 da EAP são, um a um, as nove etapas do ciclo de vida declaradas na Declaração
+> de Escopo §2. Mudança em um dos documentos exige a mesma mudança no outro, na mesma passada.
+>
+> Os `.docx` e `.pdf` são **derivados**: nunca edite um deles diretamente. Altere o `.md` e regenere.
+
 ## Processo e planejamento
 
 O processo de trabalho (branches, Definition of Done, rituais, prazos e períodos) não vive aqui — é fonte de verdade em [`../../docs/orquestador/plano-de-projeto.md`](../../docs/orquestador/plano-de-projeto.md). O acompanhamento das 37 features está no quadro Kanban do projeto: https://github.com/orgs/ICEI-PUC-Minas-PMGES-TI/projects/738
@@ -23,4 +54,3 @@ O processo de trabalho (branches, Definition of Done, rituais, prazos e período
 ## Artefatos ainda planejados
 
 - Registro das partes interessadas (detalhamento do TAP item 5).
-- Declaração de escopo.
