@@ -25,6 +25,7 @@ public class ServicoDeAutenticacao {
   private final UsuarioRepositorio repositorio;
   private final PasswordEncoder codificadorDeSenha;
   private final EmissorDeToken emissorDeToken;
+  private final ControleDeTentativas controleDeTentativas;
 
   /**
    * Hash descartável, calculado uma vez no arranque. Serve para o login gastar o mesmo tempo
@@ -36,10 +37,12 @@ public class ServicoDeAutenticacao {
   public ServicoDeAutenticacao(
       UsuarioRepositorio repositorio,
       PasswordEncoder codificadorDeSenha,
-      EmissorDeToken emissorDeToken) {
+      EmissorDeToken emissorDeToken,
+      ControleDeTentativas controleDeTentativas) {
     this.repositorio = repositorio;
     this.codificadorDeSenha = codificadorDeSenha;
     this.emissorDeToken = emissorDeToken;
+    this.controleDeTentativas = controleDeTentativas;
     this.hashDeComparacaoFalsa = codificadorDeSenha.encode("conta-inexistente");
   }
 
@@ -78,6 +81,12 @@ public class ServicoDeAutenticacao {
   @Transactional(readOnly = true)
   public TokenResposta entrar(LoginRequisicao requisicao) {
     String identificador = requisicao.identificador().trim();
+
+    // Antes de qualquer consulta ou comparação de hash: enquanto o bloqueio vale, nem a senha
+    // certa entra (RNF-SEC-29). Sai 429, e não 401, porque a tela trata bloqueio como alerta e
+    // credencial inválida como erro — são banners diferentes (login.md §4.2 e §4.3).
+    controleDeTentativas.verificar(identificador);
+
     Optional<Usuario> encontrado =
         repositorio.findByEmailIgnoreCaseOrUsernameIgnoreCase(identificador, identificador);
 
@@ -85,9 +94,11 @@ public class ServicoDeAutenticacao {
     boolean senhaConfere = codificadorDeSenha.matches(requisicao.senha(), hash);
 
     if (encontrado.isEmpty() || !senhaConfere) {
+      controleDeTentativas.registrarFalha(identificador);
       throw new ErroDeNegocioException(CodigoErro.NAO_AUTENTICADO, CREDENCIAL_INVALIDA);
     }
 
+    controleDeTentativas.registrarSucesso(identificador);
     Usuario usuario = encontrado.get();
     return TokenResposta.de(
         emissorDeToken.emitir(usuario.id(), usuario.username()), emissorDeToken.validadeEmSegundos());

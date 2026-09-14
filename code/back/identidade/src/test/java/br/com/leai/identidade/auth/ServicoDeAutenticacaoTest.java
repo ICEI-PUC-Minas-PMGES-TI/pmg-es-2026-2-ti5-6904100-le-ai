@@ -6,8 +6,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 
+import br.com.leai.identidade.RelogioDeTeste;
 import br.com.leai.identidade.common.CodigoErro;
 import br.com.leai.identidade.common.ErroDeNegocioException;
+import br.com.leai.identidade.common.RateLimitFilter;
 import br.com.leai.identidade.config.AppProperties;
 import br.com.leai.identidade.config.JwtConfig;
 import br.com.leai.identidade.usuario.Usuario;
@@ -43,6 +45,9 @@ class ServicoDeAutenticacaoTest {
   void montar() {
     repositorio = Mockito.mock(UsuarioRepositorio.class);
     PasswordEncoder codificador = new BCryptPasswordEncoder(4);
+    // Relógio parado: nenhum teste daqui depende de janela de tempo, e um controle novo por
+    // teste garante que o bloqueio de um não vaze para o seguinte.
+    ControleDeTentativas controleDeTentativas = new ControleDeTentativas(new RelogioDeTeste());
 
     JwtConfig jwtConfig = new JwtConfig();
     AppProperties propriedades =
@@ -58,7 +63,7 @@ class ServicoDeAutenticacaoTest {
     EmissorDeToken emissor =
         new EmissorDeToken(jwtConfig.jwtEncoder(jwtConfig.chaveDeAssinatura(propriedades)));
 
-    servico = new ServicoDeAutenticacao(repositorio, codificador, emissor);
+    servico = new ServicoDeAutenticacao(repositorio, codificador, emissor, controleDeTentativas);
   }
 
   private static CadastroRequisicao cadastro() {
@@ -155,6 +160,44 @@ class ServicoDeAutenticacaoTest {
     assertThat(((ErroDeNegocioException) senhaErrada).codigo())
         .isEqualTo(((ErroDeNegocioException) contaInexistente).codigo())
         .isEqualTo(CodigoErro.NAO_AUTENTICADO);
+  }
+
+  @Test
+  @DisplayName("falhas sucessivas bloqueiam a identidade: a senha certa passa a devolver 429")
+  void falhasSucessivasBloqueiamAIdentidade() {
+    given(repositorio.findByEmailIgnoreCaseOrUsernameIgnoreCase("marinableu", "marinableu"))
+        .willReturn(Optional.of(usuarioSalvo()));
+
+    for (int i = 0; i < ControleDeTentativas.FALHAS_ATE_BLOQUEIO; i++) {
+      catchErro(() -> servico.entrar(new LoginRequisicao("marinableu", "senha-errada")));
+    }
+
+    Mockito.clearInvocations(repositorio);
+    Throwable bloqueado = catchErro(() -> servico.entrar(new LoginRequisicao("marinableu", SENHA)));
+
+    assertThat(bloqueado).hasMessage(RateLimitFilter.MUITAS_TENTATIVAS);
+    assertThat(((ErroDeNegocioException) bloqueado).codigo())
+        .isEqualTo(CodigoErro.MUITAS_REQUISICOES);
+    // A recusa acontece antes da consulta: bloqueio que ainda gasta banco e bcrypt não protege
+    // de força bruta, só muda a resposta.
+    Mockito.verifyNoInteractions(repositorio);
+  }
+
+  @Test
+  @DisplayName("login bem-sucedido zera as falhas anteriores da identidade")
+  void loginBemSucedidoZeraAsFalhas() {
+    given(repositorio.findByEmailIgnoreCaseOrUsernameIgnoreCase("marinableu", "marinableu"))
+        .willReturn(Optional.of(usuarioSalvo()));
+
+    for (int i = 0; i < ControleDeTentativas.FALHAS_ATE_BLOQUEIO - 1; i++) {
+      catchErro(() -> servico.entrar(new LoginRequisicao("marinableu", "senha-errada")));
+    }
+    servico.entrar(new LoginRequisicao("marinableu", SENHA));
+    for (int i = 0; i < ControleDeTentativas.FALHAS_ATE_BLOQUEIO - 1; i++) {
+      catchErro(() -> servico.entrar(new LoginRequisicao("marinableu", "senha-errada")));
+    }
+
+    assertThat(servico.entrar(new LoginRequisicao("marinableu", SENHA)).accessToken()).isNotBlank();
   }
 
   @Test

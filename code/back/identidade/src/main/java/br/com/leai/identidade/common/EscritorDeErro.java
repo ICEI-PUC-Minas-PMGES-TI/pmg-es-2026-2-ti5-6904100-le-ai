@@ -13,7 +13,8 @@ import tools.jackson.databind.ObjectMapper;
  * <p>Existe porque os pontos de recusa do Spring Security ({@code AuthenticationEntryPoint} e
  * {@code AccessDeniedHandler}) rodam na cadeia de filtros, antes do {@code DispatcherServlet},
  * onde o {@code @RestControllerAdvice} não alcança. Sem isto, um 401 sairia com corpo vazio e
- * quebraria o contrato de erro que P0-INFRA fixou para as duas stacks.
+ * quebraria o contrato de erro que P0-INFRA fixou para as duas stacks. O mesmo vale para o
+ * {@link RateLimitFilter}, que recusa antes de qualquer controller existir.
  */
 @Component
 public class EscritorDeErro {
@@ -25,6 +26,16 @@ public class EscritorDeErro {
   }
 
   public void escrever(HttpServletResponse resposta, CodigoErro codigo) throws IOException {
+    escrever(resposta, codigo, codigo.mensagem());
+  }
+
+  /**
+   * Mesma coisa com mensagem própria, para o caso em que a frase genérica do código não é a que
+   * a tela espera. A mensagem vai inteira para o cliente: nunca pode conter detalhe técnico
+   * (RNF-SEC-22), como no {@link ErroDeNegocioException}.
+   */
+  public void escrever(HttpServletResponse resposta, CodigoErro codigo, String mensagem)
+      throws IOException {
     if (resposta.isCommitted()) {
       return;
     }
@@ -32,6 +43,7 @@ public class EscritorDeErro {
     resposta.setContentType(MediaType.APPLICATION_JSON_VALUE);
     resposta.setCharacterEncoding(StandardCharsets.UTF_8.name());
     objectMapper.writeValue(
-        resposta.getOutputStream(), ErroResposta.de(codigo, CorrelationIdFilter.atual()));
+        resposta.getOutputStream(),
+        new ErroResposta(codigo.name(), mensagem, CorrelationIdFilter.atual()));
   }
 }

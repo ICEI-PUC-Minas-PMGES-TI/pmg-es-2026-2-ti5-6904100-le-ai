@@ -41,6 +41,10 @@ public class AutenticacaoController {
       responseCode = "409",
       description = "E-mail ou nome de usuário já em uso.",
       content = @Content(schema = @Schema(ref = "#/components/schemas/Erro")))
+  @ApiResponse(
+      responseCode = "429",
+      description = "Limite de requisições por IP excedido (RNF-SEC-17).",
+      content = @Content(schema = @Schema(ref = "#/components/schemas/Erro")))
   public UsuarioResposta cadastrar(@Valid @RequestBody CadastroRequisicao requisicao) {
     return servico.cadastrar(requisicao);
   }
@@ -55,6 +59,12 @@ public class AutenticacaoController {
   @ApiResponse(
       responseCode = "401",
       description = "Credencial inválida.",
+      content = @Content(schema = @Schema(ref = "#/components/schemas/Erro")))
+  @ApiResponse(
+      responseCode = "429",
+      description =
+          "Limite por IP excedido (RNF-SEC-17) ou identidade em bloqueio temporário "
+              + "progressivo por falhas sucessivas (RNF-SEC-29).",
       content = @Content(schema = @Schema(ref = "#/components/schemas/Erro")))
   public TokenResposta entrar(@Valid @RequestBody LoginRequisicao requisicao) {
     return servico.entrar(requisicao);
