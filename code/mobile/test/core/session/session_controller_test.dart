@@ -21,6 +21,17 @@ class _FakeTokenStore implements TokenStore {
 }
 
 void main() {
+  test('comeca carregando e para de carregar apos load()', () async {
+    final store = _FakeTokenStore();
+    final controller = SessionController(store);
+
+    expect(controller.carregando, isTrue);
+
+    await controller.load();
+
+    expect(controller.carregando, isFalse);
+  });
+
   test('sem token salvo, começa deslogado', () async {
     final store = _FakeTokenStore();
     final controller = SessionController(store);

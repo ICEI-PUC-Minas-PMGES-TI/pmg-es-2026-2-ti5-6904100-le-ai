@@ -7,10 +7,17 @@ import 'token_store.dart';
 /// `notifyListeners()` roda antes de persistir para a UI reagir sem esperar a escrita em disco.
 ///
 /// Só o token, ainda. Dado de usuário (nome de exibição etc.) fica para quando uma tela de
-/// verdade precisar dele (Etapa 12) — sem isso hoje, guardar mais que o token é estado sem uso.
+/// verdade precisar dele — sem isso hoje, guardar mais que o token é estado sem uso.
+///
+/// [carregando] existe porque, ao contrário da web (`localStorage` é síncrono), ler
+/// `flutter_secure_storage` é assíncrono (canal de plataforma até o Keystore/Keychain): há um
+/// intervalo real entre o app abrir e a sessão ser conhecida. É esse intervalo que a guarda de
+/// rota (Etapa 13) usa para decidir se mostra a tela de verificação de sessão em vez de já
+/// redirecionar para `/login` ou `/estante`.
 class SessionController extends ChangeNotifier {
   final TokenStore store;
   String? _token;
+  bool _carregando = true;
 
   SessionController(this.store);
 
@@ -18,8 +25,11 @@ class SessionController extends ChangeNotifier {
 
   bool get estaAutenticado => _token != null;
 
+  bool get carregando => _carregando;
+
   Future<void> load() async {
     _token = await store.read();
+    _carregando = false;
     notifyListeners();
   }
 

@@ -35,4 +35,15 @@ void main() {
     await tester.pumpWidget(_wrap(const LogoLeAi(somenteSimbolo: true)));
     expect(find.text('Lê Ai'), findsNothing);
   });
+
+  // TomLogo.neutro (shell-de-navegacao.md §3.7, "variante esmaecida"): a única tela que usa é
+  // VerificandoSessaoPage, mas o mapeamento de cor é lógica do componente, não da tela.
+  testWidgets('tom neutro usa a cor secundaria do tema, nao o acento', (tester) async {
+    await tester.pumpWidget(_wrap(const LogoLeAi(tom: TomLogo.neutro)));
+
+    final texto = tester.widget<Text>(find.text('Lê Ai'));
+    final theme = AppTheme.light();
+    expect(texto.style?.color, theme.secondaryText);
+    expect(texto.style?.color, isNot(theme.primaryAccent));
+  });
 }
