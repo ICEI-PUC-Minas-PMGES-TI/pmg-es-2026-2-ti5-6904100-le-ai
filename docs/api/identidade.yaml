@@ -1,18 +1,126 @@
-openapi: 3.0.3
+openapi: 3.1.0
 info:
   title: Lê Ai — identidade
   version: 0.0.1
   description: >-
-    Contrato do serviço **identidade** (esqueleto — P0-INFRA). Domínio: usuário,
-    autenticação, perfil, privacidade, seguidores e solicitações de seguir (AUT,
-    SOC-01 a 08). As rotas de domínio entram com as features; por ora só health +
-    info. Spec gerado em runtime por `springdoc-openapi` (`/v3/api-docs`, UI em
-    `/docs`) e commitado aqui (RNF-ARQ-03; AGENTS §10) — um spec por serviço,
-    nunca por feature.
+    Contrato do serviço **identidade**. Domínio: usuário, autenticação, perfil,
+    privacidade, seguidores e solicitações de seguir (AUT, SOC-01 a 08).
+
+    P0-NAV entrega o esqueleto navegável de autenticação: cadastro, login e uma
+    rota protegida de exemplo (`/me`), com rate limiting por IP e bloqueio
+    progressivo por identidade (RNF-SEC-17/29). Fora do escopo desta feature —
+    entram com F-AUT (Período 1): recuperação de senha, troca de senha, logout
+    com invalidação de refresh, refresh token rotativo/revogável e login de
+    administrador. `POST /auth/login` hoje emite só o `accessToken` (RF-AUT-03,
+    subconjunto).
+
+    Spec gerado em runtime por `springdoc-openapi` (`/v3/api-docs`, Swagger UI
+    em `/docs`) e commitado aqui (RNF-ARQ-03; AGENTS §10) — um spec por
+    serviço, nunca por feature.
 servers:
   - url: http://localhost:8080
     description: local
+  - url: https://leai-identidade.onrender.com
+    description: DES (Render, free tier — primeira chamada leva 30 a 60s por hibernação)
+tags:
+  - name: auth
+    description: Cadastro e autenticação
+  - name: usuario
+    description: Identidade do leitor autenticado
+  - name: health
+    description: Sondagem de disponibilidade
 paths:
+  /auth/register:
+    post:
+      tags: [auth]
+      summary: Cria uma conta de leitor (RF-AUT-01)
+      description: >-
+        Senha com hash bcrypt custo 12 (RNF-SEC-09), nunca gravada em claro;
+        mínimo de 8 caracteres (RNF-SEC-27). Recusa menores de 18 anos a
+        partir da data de nascimento (RNF-SEC-43). Sujeito a rate limiting
+        por IP (RNF-SEC-17).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CadastroRequisicao' }
+      responses:
+        '201':
+          description: Conta criada.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Usuario' }
+        '400':
+          description: Dados inválidos — senha curta, menor de 18 anos ou e-mail malformado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+        '409':
+          description: E-mail ou nome de usuário já em uso.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+        '429':
+          description: Limite de requisições por IP excedido (RNF-SEC-17).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Autentica por e-mail ou nome de usuário (RF-AUT-02)
+      description: >-
+        Resolve o identificador como e-mail ou username numa consulta só e
+        emite um token de acesso de curta duração (RF-AUT-03, subconjunto: só
+        `accessToken`, sem renovação — o refresh rotativo e revogável é de
+        F-AUT). Credencial inválida devolve **a mesma mensagem** nos três
+        casos — usuário inexistente, e-mail que não confere e senha errada —
+        sem revelar qual deles falhou (RNF-SEC-28). Sujeito a rate limiting
+        por IP e a bloqueio temporário progressivo por identidade após
+        falhas sucessivas (RNF-SEC-17/29).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequisicao' }
+      responses:
+        '200':
+          description: Token emitido.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Token' }
+        '401':
+          description: Credencial inválida.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+        '429':
+          description: >-
+            Limite por IP excedido (RNF-SEC-17) ou identidade em bloqueio
+            temporário progressivo por falhas sucessivas (RNF-SEC-29).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+  /me:
+    get:
+      tags: [usuario]
+      summary: Devolve o leitor dono do token de acesso
+      description: >-
+        Rota protegida de exemplo: prova o middleware de autenticação de
+        ponta a ponta. Exige `Authorization: Bearer <token>`.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Identidade do leitor autenticado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Usuario' }
+        '401':
+          description: Sem token, token inválido, expirado ou assinado com outro segredo.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
   /health:
     get:
       tags: [health]
@@ -36,7 +144,77 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Erro' }
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token de acesso emitido por POST /auth/login.
   schemas:
+    CadastroRequisicao:
+      type: object
+      required: [email, username, displayName, dataNascimento, senha]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          example: marina.beltrao@gmail.com
+        username:
+          type: string
+          pattern: '^[A-Za-z0-9._]{3,30}$'
+          example: marinableu
+          description: 3 a 30 caracteres, sem espaço — letras, números, ponto ou traço baixo.
+        displayName:
+          type: string
+          maxLength: 60
+          example: Marina Beltrão
+        dataNascimento:
+          type: string
+          format: date
+          example: '1999-03-14'
+          description: Precisa corresponder a 18 anos ou mais (RNF-SEC-43).
+        senha:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 72
+          description: >-
+            Mínimo de 8 caracteres (RNF-SEC-27). O limite de 72 é o próprio
+            bcrypt: além disso o algoritmo ignora o excedente.
+    LoginRequisicao:
+      type: object
+      required: [identificador, senha]
+      properties:
+        identificador:
+          type: string
+          description: E-mail ou nome de usuário.
+          example: marinableu
+        senha:
+          type: string
+          format: password
+    Usuario:
+      type: object
+      description: Identidade pública do leitor — nunca carrega e-mail, nascimento ou hash de senha.
+      properties:
+        id: { type: string, format: uuid }
+        username: { type: string, example: marinableu }
+        displayName: { type: string, example: Marina Beltrão }
+    Token:
+      type: object
+      description: Resposta do login (RF-AUT-03, subconjunto — só o token de acesso).
+      properties:
+        accessToken:
+          type: string
+          description: JWT assinado em HS256.
+        tokenType:
+          type: string
+          example: Bearer
+        expiresIn:
+          type: integer
+          format: int64
+          description: Validade do token em segundos.
+          example: 900
     Erro:
       type: object
       description: Corpo de erro padronizado (RNF-ERR-01) — pt-BR, sem detalhe técnico.
