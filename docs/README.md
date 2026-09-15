@@ -59,6 +59,8 @@ _**Resumo**. O Lê Ai é um aplicativo social de leitura, no modelo Skoob/Letter
 
 6. [Avaliação Heurística](6.avaliacao_heuristica.md#avaliação-heurística "Avaliação Heurística") <br />
 
+6.1. [Avaliação Heurística — Protótipos do Lê Ai](6.1.avaliacao_heuristica_leai.md#avaliação-heurística--protótipos-do-lê-ai "Avaliação Heurística dos protótipos do próprio produto") <br />
+
 7. [Solução](7.solucao.md#solucao "Projeto da Solução") <br />
 
 8. [Avaliação Arquitetura](8.avaliacao_arquitetura.md#avaliacao "Avaliação da Arquitetura") <br />
