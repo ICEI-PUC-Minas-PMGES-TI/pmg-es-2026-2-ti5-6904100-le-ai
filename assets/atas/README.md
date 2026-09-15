@@ -7,6 +7,7 @@ Registro das reuniões do grupo. Cada ata fica em Markdown neste diretório; qua
 | Data | Reunião | Markdown | Template da disciplina |
 | --- | --- | --- | --- |
 | 23/08/2026 | Reunião de abertura (kickoff) — aprovação do TAP nº 01, escopo, prazo, custo, papéis, ferramenta de Kanban e atribuição da Sprint 3 / Período 0 | [`ATA-2026-08-23.md`](ATA-2026-08-23.md) | [`.docx`](ATA-2026-08-23-kickoff.docx) · [`.pdf`](ATA-2026-08-23-kickoff.pdf) |
+| 11/09/2026 | Reunião semanal — Sprint 3 / Período 0: divisão das frentes, deploy em DES e fluxo de branches | [`ATA-2026-09-11.md`](ATA-2026-09-11.md) | [`.docx`](ATA-2026-09-11.docx) · [`.pdf`](ATA-2026-09-11.pdf) |
 
 ## Anexos
 
