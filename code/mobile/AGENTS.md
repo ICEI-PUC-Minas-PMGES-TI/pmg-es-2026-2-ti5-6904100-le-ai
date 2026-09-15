@@ -14,18 +14,24 @@ Convenções do app mobile. Complementa o [`AGENTS.md`](../../AGENTS.md) da raiz
 - JDK 24 (`JAVA_HOME=C:\Program Files\Java\jdk-24`) para o build Android.
 - HTTP: `package:http` 1.6.0.
 - Preferência local: `shared_preferences` 2.5.5, usando `SharedPreferencesAsync`.
+- Persistência segura: `flutter_secure_storage` 11.1.1 (Keystore/Keychain) — decidido em P0-NAV (14/09/2026) para o token de sessão, que não pode viver em preferência comum.
 - Tipografia: `google_fonts` 8.2.1.
 - Iconografia: `phosphor_icons` 3.0.1; use Phosphor regular por padrão e fill somente para estados ativos.
-- Gerenciamento de estado: `ChangeNotifier` nativo apenas para o controlador de tema nesta fundação; biblioteca adicional será decidida pela feature que precisar de estado de domínio.
-- Testes: `flutter_test`, com clientes HTTP e stores de preferência injetáveis.
+- SVG: `flutter_svg` 2.3.0, para a logo (`assets/imagens/logo-leai.svg`) via `SvgPicture.asset` + `ColorFilter.mode(cor, BlendMode.srcIn)`.
+- Navegação: `go_router` 18.0.1, decidido em P0-NAV (14/09/2026) — `StatefulShellRoute.indexedStack` para as abas principais, `redirect` no nível do `GoRouter` fazendo a guarda de sessão, `refreshListenable` reagindo ao controlador de sessão.
+- **Gerenciamento de estado: `ChangeNotifier` nativo — decidido em P0-NAV (14/09/2026), não só para tema.** `SessionController` segue o mesmo molde de `ThemeController` (store injetável, testável com fake escrito à mão). Nenhuma biblioteca de estado (Provider, Riverpod, Bloc) entrou; reavaliar só se uma feature futura precisar de estado de domínio mais complexo que sessão/tema.
+- Testes: `flutter_test`, com clientes HTTP e stores de preferência/token injetáveis; `http/testing.dart` (`MockClient`) para simular respostas do servidor.
 
 ## Estrutura atual
 
-- `lib/design/`: tokens, tema e preferência de tema.
+- `lib/design/`: tokens, tema, preferência de tema e widgets do design system (`lib/design/widgets/`: campo de texto, campo de senha, botão primário, banner de aviso, logo).
 - `lib/core/config/`: configuração por `--dart-define`.
 - `lib/core/network/`: cliente HTTP compartilhado.
+- `lib/core/session/`: `SessionController` (`ChangeNotifier`) e `TokenStore`/`SecureTokenStore` — sessão do usuário, ver "Gerenciamento de estado" acima.
+- `lib/app/`: composição do app — `router.dart` (`GoRouter` e a guarda de sessão), `shell_autenticado.dart`, `barra_inferior.dart`, `cabecalho_tela.dart`, `verificando_sessao_page.dart`.
+- `lib/features/<nome>/`: uma pasta por área de produto (ex.: `auth/`, `estante/`, `descobrir/`, `feed/`, `perfil/`), cada uma com suas páginas e serviços.
 - `android/` e `ios/`: plataformas nativas geradas pelo Flutter; o build iOS depende de macOS/Xcode.
-- `test/`: testes unitários e widget.
+- `test/`: testes unitários e widget, espelhando a árvore de `lib/`.
 
 ## Comandos
 

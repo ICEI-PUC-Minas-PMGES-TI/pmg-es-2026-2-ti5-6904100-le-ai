@@ -12,14 +12,16 @@ Convenções da SPA web. Complementa o [`AGENTS.md`](../../AGENTS.md) da raiz �
 - Cobre um **subconjunto** de funcionalidades — sem paridade com o mobile. A coluna **Web** de cada RF em `REQUISITOS.md` define o que entra.
 - **Fora do escopo web:** desafios, gamificação e notificações.
 
-Gerenciamento de estado global permanece a definir quando uma feature demonstrar necessidade concreta. Estado local e Vue Router são suficientes para o scaffold.
+**Gerenciamento de estado — decidido em P0-NAV (14/09/2026): sem biblioteca nova.** Estado de sessão (token do usuário) é um **singleton de módulo**: `src/session.ts` exporta `ref`s no escopo do módulo e funções (`iniciarSessao`, `encerrarSessao`, `getToken`) em vez de instanciar um store — mesmo padrão já usado por `src/theme.ts` (P0-DS). Reavaliar para um store de verdade (Pinia) só se uma feature futura precisar de estado mais complexo que sessão/tema.
 
 ## Estrutura
 
-- `src/router/`: rotas e guards de navegação.
+- `src/router/`: rotas (`index.ts`, incluindo o shell autenticado com rotas filhas) e a guarda de sessão (`guardaDeSessao`, exportada separada do router para ser testável isolada, sem montar componente nenhum).
+- `src/layouts/`: layouts de página — hoje só `ShellAutenticado.vue`, o quadro das telas autenticadas (sidebar retrátil na web ≥768px, barra inferior abaixo disso, header padrão).
 - `src/views/`: componentes associados a rotas.
-- `src/components/`: componentes reutilizáveis; componentes do design system ficam em `src/components/ui/`.
-- `src/services/`: integrações externas, incluindo o cliente HTTP central.
+- `src/components/`: componentes reutilizáveis de aplicação (ex.: `SidebarNavegacao.vue`, `CabecalhoTela.vue`); componentes do design system (formulário, botão, banner, logo) ficam em `src/components/ui/`.
+- `src/services/`: integrações externas — cliente HTTP central (`api.ts`) e serviços por domínio (ex.: `auth.ts`).
+- `src/session.ts`: estado de sessão, ver "Gerenciamento de estado" acima.
 - Testes unitários ficam junto do arquivo testado, com sufixo `.spec.ts`.
 
 ## Comandos

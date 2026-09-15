@@ -1,7 +1,7 @@
 # P0-NAV — Navegabilidade + shell de auth + docs de API
 
 **Período:** 0 · **Prioridade:** fundação
-**Dono:** a definir · **Serviços afetados:** `identidade` (backend) + web + mobile + `docs/api` (Swagger UI agregado)
+**Dono:** Henrique Carvalho · **Serviços afetados:** `identidade` (backend) + web + mobile + `docs/api` (Swagger UI agregado)
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md). Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md). Processo: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §8. Em caso de conflito, o `REQUISITOS.md` ganha; protótipo é referência visual, não spec de pixel (plano §7).
 
@@ -17,10 +17,12 @@ O valor desta feature é de integração, não de produto: um usuário consegue 
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | não iniciado | `docker-compose.docs.yml` (Swagger UI agregado) inexistente |
-| Backend | não iniciado | `identidade`: `register`/`login`/`me` mínimos + middleware de auth |
-| Web | não iniciado | telas de cadastro/login + shell de navegação (Vue) |
-| Mobile | não iniciado | telas de cadastro/login + navegação entre telas principais (Flutter) |
+| Infra | concluído localmente | `docker-compose.docs.yml` (Swagger UI agregado) criado e validado; falta confirmar em DES depois do merge |
+| Backend | concluído localmente | `identidade`: tabela `usuario`, Spring Security + JWT HS256, `register`/`login`/`me`, rate limiting por IP e bloqueio progressivo por identidade; falta validar em DES |
+| Web | concluído localmente | fluxo completo: sessão, cliente autenticado, telas de cadastro/login, shell com sidebar retrátil e guarda de rota |
+| Mobile | concluído localmente | fluxo completo: sessão com secure storage, cliente autenticado, telas de cadastro/login, shell de 4 abas com `go_router` e guarda de sessão |
+
+Código pronto e testado localmente nas quatro camadas (14/09/2026), aguardando PR `desenvolvimento` → `main` e validação em DES (critério de aceite explícito, ver abaixo).
 
 ## Especificação
 
@@ -86,42 +88,57 @@ Endpoints mínimos, todos com **corpo de erro padrão + correlation-id** herdado
 
 ## Critérios de aceite
 
-- [ ] Cadastro cria usuário com senha **hasheada**; senha < 8 caracteres é recusada; **menor de 18** é recusado (RNF-SEC-09/27/43).
-- [ ] Login por e-mail **ou** username retorna token de acesso; credencial inválida → `401` sem revelar se e-mail/username existe; rate limiting e bloqueio progressivo estão ativos.
-- [ ] `GET /me` responde `200` com token válido e `401` sem token / com token inválido.
-- [ ] Na web e no mobile é possível **cadastrar, entrar e navegar** entre as telas principais; sem sessão, a guarda redireciona ao login.
-- [ ] As telas usam os tokens de design ([P0-DS](feature-P0-DS.md)); cold start é tratado como carregamento, não erro (RNF-ERR-09).
-- [ ] `docker compose -f docker-compose.docs.yml up` abre o Swagger UI em `localhost:8080` com os 4 specs no dropdown.
-- [ ] `docs/api/identidade.yaml` documenta `register`, `login` e `me`.
-- [ ] Fluxo cadastro→login→`/me` funciona **em DES** (não só local).
+- [x] Cadastro cria usuário com senha **hasheada**; senha < 8 caracteres é recusada; **menor de 18** é recusado (RNF-SEC-09/27/43).
+- [x] Login por e-mail **ou** username retorna token de acesso; credencial inválida → `401` sem revelar se e-mail/username existe; rate limiting e bloqueio progressivo estão ativos.
+- [x] `GET /me` responde `200` com token válido e `401` sem token / com token inválido.
+- [x] Na web e no mobile é possível **cadastrar, entrar e navegar** entre as telas principais; sem sessão, a guarda redireciona ao login. (validado local nas duas plataformas; falta DES)
+- [x] As telas usam os tokens de design ([P0-DS](feature-P0-DS.md)); cold start é tratado como carregamento, não erro (RNF-ERR-09).
+- [x] `docker compose -f docker-compose.docs.yml up` abre o Swagger UI em `localhost:8080` com os 4 specs no dropdown.
+- [x] `docs/api/identidade.yaml` documenta `register`, `login` e `me`.
+- [ ] Fluxo cadastro→login→`/me` funciona **em DES** (não só local). Só pode ser conferido depois do merge em `main` (auto-deploy do P0-DEPLOY).
 
 ## Definition of Done
 
 (plano §10)
 
-- [ ] Código (backend `identidade`, web, mobile, `docker-compose.docs.yml`) mergeado em `desenvolvimento`
-- [ ] CI verde ([P0-CI](feature-P0-CI.md))
-- [ ] Testes automatizados dos casos de uso (mínimo backend): register (hash, 18+, mínimo 8), login (e-mail/username, credencial inválida), middleware de auth em `/me`
-- [ ] **Spec OpenAPI do serviço atualizado em `docs/api/identidade.yaml`** (rotas de auth)
-- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](feature-P0-DEPLOY.md))
-- [ ] Arquivo da feature atualizado: status, pendências, timeline
-- [ ] Divergência protótipo × implementação registrada, se houver
+- [ ] Código (backend `identidade`, web, mobile, `docker-compose.docs.yml`) mergeado em `desenvolvimento` — pronto na branch, PR para `main` ainda não aberto
+- [ ] CI verde ([P0-CI](feature-P0-CI.md)) — a confirmar quando o PR abrir
+- [x] Testes automatizados dos casos de uso (mínimo backend): register (hash, 18+, mínimo 8), login (e-mail/username, credencial inválida), middleware de auth em `/me`
+- [x] **Spec OpenAPI do serviço atualizado em `docs/api/identidade.yaml`** (rotas de auth)
+- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](feature-P0-DEPLOY.md)) — pendente do merge
+- [x] Arquivo da feature atualizado: status, pendências, timeline
+- [x] Divergência protótipo × implementação registrada (logo, pendência abaixo)
+- [x] Registrado o que ficou de fora para F-AUT retomar
 
-**Item próprio:** deixar registrado no arquivo o que ficou de fora (recuperação/troca de senha, logout revogável e admin) para F-AUT retomar sem retrabalho.
+**Item próprio:** deixar registrado no arquivo o que ficou de fora (recuperação/troca de senha, logout revogável e admin) para F-AUT retomar sem retrabalho — ver a última entrada da lista de pendências abaixo.
 
 ## Pendências
 
 - **Depende de [P0-INFRA](feature-P0-INFRA.md)** (serviço `identidade` de pé, erro/health/correlation-id, esqueleto `docs/api/`), **[P0-DS](feature-P0-DS.md)** (tokens das telas), **[P0-DEPLOY](feature-P0-DEPLOY.md)** (rodar em DES) e **[P0-CI](feature-P0-CI.md)** (pipeline).
 - **Coordenar com F-AUT** para não divergir: o formato de token e o modelo de `usuario` escolhidos aqui são o ponto de partida de F-AUT; qualquer decisão que F-AUT precise mudar vira pendência lá.
 - **Entrada única (gateway) × URLs por serviço — decidido (12/09/2026): URL por serviço** (sem gateway). A base URL dos clientes é por serviço e o CORS de cada backend fica restrito à origem do site (ver [P0-DEPLOY](feature-P0-DEPLOY.md)).
-- Biblioteca de token por stack (JWT) e de secure storage no Flutter a fixar no arranque.
-- Gerenciamento de estado de sessão (web e mobile) a definir junto do scaffolding.
+- ~~Biblioteca de token por stack (JWT) e de secure storage no Flutter a fixar no arranque.~~ — **decidido (14/09/2026):** backend com Spring Security + `oauth2-resource-server` (Nimbus, JWT HS256, 15 min), antecipando a entrada do Security que estava prevista só para F-AUT; mobile com `flutter_secure_storage` (Keystore/Keychain).
+- ~~Gerenciamento de estado de sessão (web e mobile) a definir junto do scaffolding.~~ — **decidido (14/09/2026):** sem biblioteca nova nas duas plataformas. Web: singleton de módulo, no molde de `src/theme.ts` (P0-DS). Mobile: `ChangeNotifier`, no molde de `theme_controller.dart`.
 - **Shell de navegação nasce no protótipo desta feature.** O [`documento-de-design.md`](../../orquestador/documento-de-design.md) §5 define os headers de cada tela mas **nunca define barra de navegação**. O protótipo em [`docs/design/periodo-0/P0-NAV/`](../../design/periodo-0/P0-NAV/) fixa: barra inferior de **quatro** itens no mobile (Estante, Descobrir, Feed, Perfil), sidebar fixa e retrátil na web (expandida por padrão, sem sino porque notificações estão fora do escopo web) e um padrão de header com `Bell` e badge de não lidas. O **badge no sino** também não está na fonte: o §5.6 só define o ponto de não lida dentro da lista. Incorporar ao documento pelo controle de mudança (plano §3) depois de aprovado; até lá, o shell vale como decisão do protótipo e é herdado pelas telas do Período 1.
 - **A quarta área `Descobrir` foi incorporada ao `documento-de-design.md` em 01/09/2026.** O §5 ganhou a declaração das quatro áreas de navegação na abertura, o §5.1 passou a dizer que a lupa da estante filtra a estante, e a §5.7 `Descobrir` foi criada ao fim do capítulo para não renumerar §5.2 a §5.6. A busca dentro da estante virou **RF-EST-13** (`REQUISITOS.md` v1.2), Desejável, alocada em [F-EST-2](../periodo-2/feature-F-EST-2.md). **Continua pendente de incorporação** o que sempre esteve: a barra inferior, a sidebar retrátil e o badge do sino permanecem como decisão de protótipo.
 - **Teto de quatro áreas, decidido junto.** RF-REC-13 pede uma "aba Recomendações" no Período 2. Ela entra como **seção dentro de `Descobrir`**, não como quinto item da barra. Registrado em [F-REC-P2P](../periodo-2/feature-F-REC-P2P.md) e [F-REC-ALG](../periodo-3/feature-F-REC-ALG.md).
-- **Logo do produto em aberto.** O design §10 fixa o nome `Lê Ai` mas não define marca gráfica. As telas de cadastro e login usam o **wordmark tipográfico** em Space Grotesk 600, e nenhum símbolo é desenhado (§7.6 proíbe SVG decorativo à mão). Revisar os três prompts quando a marca existir.
+- **Logo do produto: implementação divergiu dos prompts, não do design.** O §3.7 do `documento-de-design.md` (adicionado depois dos três prompts de protótipo, ver Timeline) define um lockup com símbolo + wordmark; a implementação segue o §3.7. Os prompts (`cadastro.md`, `login.md`, `shell-de-navegacao.md`, todos de 31/08–01/09) continuam pedindo só o wordmark tipográfico e proibindo símbolo — ficaram desatualizados em relação ao design, que é a fonte (plano §7 regra 5). Revisar os três prompts quando alguém mexer neles de novo.
+- **`RNF-SEC-28` e `RNF-SEC-29` estão com a atribuição trocada** entre `login.md`/este arquivo e o `REQUISITOS.md` (linhas 814–815). Os dois comportamentos (mensagem anti-enumeração e bloqueio progressivo) foram implementados corretamente; só o número de cada um diverge entre as fontes. Não editar `REQUISITOS.md`: é decisão do grupo.
+- **Rate limiting e bloqueio progressivo são em memória**, nos dois controles (por IP e por identidade). Tensiona RNF-ARQ-04 (serviço stateless) — aceitável enquanto o Render free roda uma instância só do `identidade`. F-AUT decide se migra para Redis ou banco quando houver mais de uma instância.
+- **Token de acesso em `localStorage` na web** é superfície de XSS. Sem refresh token não há alternativa boa no Período 0 (`httpOnly` cookie exigiria trocar o modelo de emissão). F-AUT deve reavaliar com cookie `httpOnly` e rotação de refresh token.
+- **RNF-SEC-27 pede verificação contra lista de senhas comuns**, além do mínimo de 8 caracteres. Implementado só o mínimo de 8; nenhum dos protótipos desenhou copy para o erro de senha comum. Registrado como lacuna, não como decisão.
+- **Porta 8080 colide** entre o Swagger UI agregado (`docker-compose.docs.yml`) e o `identidade` rodando local — não dá para subir os dois ao mesmo tempo com a config padrão. Documentado como comentário no próprio `docker-compose.docs.yml`.
+- **RF-AUT-03 (sessão persistente) fica pela metade.** Só `accessToken` (JWT HS256, 15 min) — sem refresh token, sem renovação automática, sem revogação no logout. É o próximo item de F-AUT.
+- **`render.yaml` (P0-DEPLOY) provavelmente precisa de `DATABASE_USERNAME`/`DATABASE_PASSWORD` no serviço `leai-identidade`**, que o `application.yml` do Spring exige separado de `DATABASE_URL` e o `render.yaml` hoje não declara. Nota cruzada — o arquivo é de outra feature, não editado aqui.
+- **`flutter_secure_storage` é plugin nativo e toca o build Android.** `flutter build apk --debug` local terminou sem erro; falta confirmar que o job `apk` do `ci-mobile.yml` (rodando em outra máquina) continua verde.
+- ~~Telas-piloto do P0-DS saem de cena~~ — **feito.** `HomeView.vue` (Etapa 9, web) e `DesignSystemHomePage` de `main.dart` (Etapa 13, mobile) foram removidas junto com os testes que dependiam delas (`App.spec.ts`, `widget_test.dart`), como o P0-DS já previa que aconteceria quando uma feature entregasse telas reais.
+- **Este arquivo de acompanhamento local contraria a regra de raiz limpa do `AGENTS.md` §4.** Exceção consciente, registrada — arquivo nunca versionado (excluído via `.git/info/exclude`), existe só para o dono da feature acompanhar o próprio trabalho.
+- **A branch `desenvolvimento` passa a existir a partir desta feature**, encerrando a exceção que o P0-DEPLOY tinha registrado (decisão do grupo de commitar direto em `main` durante a base do Período 0).
+- **O que fica de fora, para [F-AUT](../periodo-1/README.md) retomar sem retrabalho:** recuperação de senha, troca de senha, logout com invalidação de refresh, refresh token rotativo e revogável, e login de administrador. O formato de token (JWT HS256) e o modelo de `usuario` decididos aqui são o ponto de partida.
 
 ## Timeline
+
+### Fechamento 14/09/2026: as 14 etapas do plano de execução concluídas e commitadas em `desenvolvimento` (backend: tabela `usuario`, Spring Security + JWT, `register`/`login`/`me`, rate limiting e bloqueio progressivo, spec OpenAPI e Swagger UI agregado; web: sessão, cliente autenticado, componentes, telas de cadastro/login, shell com sidebar retrátil e guarda de rota; mobile: sessão com secure storage, cliente autenticado, widgets, telas de cadastro/login, shell de 4 abas com `go_router` e guarda de sessão). Status, critérios de aceite, DoD e pendências atualizados neste arquivo; os três `AGENTS.md` locais (`identidade`, `front`, `mobile`) atualizados para refletir as decisões tomadas durante a feature. Falta abrir o PR `desenvolvimento` → `main` e validar o fluxo em DES — só isso separa o código pronto do critério de aceite "funciona em DES", que é o único portão obrigatório do fluxo.
 
 ### Revisão 01/09/2026: o shell passou de três para **quatro** itens de navegação, com a aba `Descobrir` (`Compass`) entre `Estante` e `Feed`. A mudança saiu da escrita de `F-ACV-BUSCA/descobrir.md`, que deixou visível que a busca do acervo não cabia dentro da estante sem a aba mentir sobre o conteúdo. `shell-de-navegacao.md` foi atualizado (barra inferior, sidebar, tabela de copy, componentes que nascem no protótipo) e a proibição "não desenhe uma quarta área" virou "não desenhe uma quinta área", com o teto justificado por RF-REC-13 entrar como seção de `Descobrir`. O bloco de shell replicado nos cinco prompts do Período 1 foi atualizado junto. Nada em `docs/orquestador/` foi tocado: as duas mudanças de fonte (§5.1 do design e o RF novo de busca na estante) ficaram como pendência para a decisão do grupo.
 

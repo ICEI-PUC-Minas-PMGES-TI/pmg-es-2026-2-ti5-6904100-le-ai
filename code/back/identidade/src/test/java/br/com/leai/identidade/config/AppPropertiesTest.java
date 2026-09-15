@@ -25,6 +25,9 @@ class AppPropertiesTest {
   @EnableConfigurationProperties(AppProperties.class)
   static class Habilita {}
 
+  /** 32 caracteres: o mínimo que o HS256 aceita como chave. */
+  private static final String SEGREDO_VALIDO = "segredo-de-teste-com-32-caracteres";
+
   @Test
   @DisplayName("não sobe sem DATABASE_URL")
   void naoSobeSemDatabaseUrl() {
@@ -33,7 +36,34 @@ class AppPropertiesTest {
             "leai.service-name=identidade",
             "leai.db-schema=identidade",
             "leai.database-url=",
-            "leai.cors-allowed-origins=http://localhost:5173")
+            "leai.cors-allowed-origins=http://localhost:5173",
+            "leai.jwt-secret=" + SEGREDO_VALIDO)
+        .run(contexto -> assertThat(contexto).hasFailed());
+  }
+
+  @Test
+  @DisplayName("não sobe sem JWT_SECRET")
+  void naoSobeSemJwtSecret() {
+    runner
+        .withPropertyValues(
+            "leai.service-name=identidade",
+            "leai.db-schema=identidade",
+            "leai.database-url=jdbc:postgresql://localhost:5432/leai",
+            "leai.cors-allowed-origins=http://localhost:5173",
+            "leai.jwt-secret=")
+        .run(contexto -> assertThat(contexto).hasFailed());
+  }
+
+  @Test
+  @DisplayName("não sobe com JWT_SECRET curto demais para HS256")
+  void naoSobeComJwtSecretCurto() {
+    runner
+        .withPropertyValues(
+            "leai.service-name=identidade",
+            "leai.db-schema=identidade",
+            "leai.database-url=jdbc:postgresql://localhost:5432/leai",
+            "leai.cors-allowed-origins=http://localhost:5173",
+            "leai.jwt-secret=curto-demais")
         .run(contexto -> assertThat(contexto).hasFailed());
   }
 
@@ -45,7 +75,8 @@ class AppPropertiesTest {
             "leai.service-name=identidade",
             "leai.db-schema=identidade",
             "leai.database-url=jdbc:postgresql://localhost:5432/leai",
-            "leai.cors-allowed-origins=http://localhost:5173")
+            "leai.cors-allowed-origins=http://localhost:5173",
+            "leai.jwt-secret=" + SEGREDO_VALIDO)
         .run(
             contexto -> {
               assertThat(contexto).hasNotFailed();

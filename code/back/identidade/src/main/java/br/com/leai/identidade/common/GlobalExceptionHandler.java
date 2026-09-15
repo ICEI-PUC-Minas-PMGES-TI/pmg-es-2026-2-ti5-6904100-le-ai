@@ -25,14 +25,10 @@ public class GlobalExceptionHandler {
       // 5xx: registra o erro real (com stack) no log; nunca na resposta.
       log.error("Erro não tratado", erro);
     } else {
-      log.warn(
-          "{} ({}): {}",
-          mapeado.codigo().name(),
-          mapeado.status().value(),
-          mapeado.codigo().mensagem());
+      log.warn("{} ({}): {}", mapeado.codigo().name(), mapeado.status().value(), mapeado.mensagem());
     }
 
     return ResponseEntity.status(mapeado.status())
-        .body(ErroResposta.de(mapeado.codigo(), correlationId));
+        .body(new ErroResposta(mapeado.codigo().name(), mapeado.mensagem(), correlationId));
   }
 }

@@ -48,7 +48,7 @@ Granularidade atual: features "maiores" — cerca de uma por módulo de RF, por 
 | P0-DEPLOY | Deploy em DES (Render + Neon) | — | 0 | fundação | — | a definir |
 | P0-MSG | Mensageria e integrações base | — | 0 | fundação | — | a definir |
 | P0-DS | Design system base | — | 0 | fundação | — | a definir |
-| P0-NAV | Navegabilidade + shell de auth + docs de API | — | 0 | fundação | — | a definir |
+| P0-NAV | Navegabilidade + shell de auth + docs de API | — | 0 | fundação | — | Henrique Carvalho |
 | F-AUT | Autenticação e conta | identidade | 1 | prioritaria | RF-AUT-01..06, 08 | a definir |
 | F-PERFIL | Perfil, privacidade e seguidores | identidade | 1 | prioritaria | RF-SOC-01..08 | a definir |
 | F-ACV-BUSCA | Busca e página do livro | acervo | 1 | prioritaria | RF-ACV-01, 02, 04, 18, 19 | a definir |

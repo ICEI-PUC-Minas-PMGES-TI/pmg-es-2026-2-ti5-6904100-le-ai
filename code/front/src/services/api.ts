@@ -5,6 +5,8 @@ export interface ApiClientOptions {
   timeoutMs?: number
   fetch?: typeof globalThis.fetch
   createCorrelationId?: () => string
+  /** Token da sessão atual, se houver. Injetado como `Authorization: Bearer <token>`. */
+  getToken?: () => string | null
 }
 
 export interface ApiRequestOptions extends RequestInit {
@@ -42,6 +44,13 @@ export function createApiClient(options: ApiClientOptions = {}) {
 
     headers.set('Accept', 'application/json')
     headers.set('X-Correlation-Id', createCorrelationId())
+
+    // Só preenche quando a chamada não trouxe Authorization própria — é o que permite
+    // o login buscar /me com o token recém-emitido antes de a sessão global existir.
+    const token = options.getToken?.()
+    if (token && !headers.has('Authorization')) {
+      headers.set('Authorization', `Bearer ${token}`)
+    }
 
     try {
       const response = await fetchImplementation(`${baseUrl}/${path.replace(/^\//, '')}`, {

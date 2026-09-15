@@ -46,6 +46,20 @@
       <artifactId>spring-boot-starter-actuator</artifactId>
     </dependency>
 
+    <!-- Autenticação (P0-NAV). Antecipa a entrada do Security, que este AGENTS.md previa só
+         para F-AUT: cadastro, login e /me precisam de hash de senha, validação de token e
+         autorização por rota na mesma cadeia, e escrever isso à mão seria descartado depois. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-security</artifactId>
+    </dependency>
+    <!-- Traz o suporte a JWT (nimbus-jose-jwt + spring-security-oauth2-jose). Usamos só o lado
+         de resource server: validação do token que nós mesmos emitimos, sem provedor externo. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+    </dependency>
+
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-data-jpa</artifactId>

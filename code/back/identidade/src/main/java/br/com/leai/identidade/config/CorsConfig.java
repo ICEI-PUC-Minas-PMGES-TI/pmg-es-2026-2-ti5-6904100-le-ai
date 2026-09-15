@@ -5,8 +5,10 @@ import br.com.leai.identidade.common.CorrelationIdFilter;
 import br.com.leai.identidade.common.ErroResposta;
 import java.io.IOException;
 import java.util.List;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.server.ServerHttpResponse;
@@ -22,12 +24,26 @@ import tools.jackson.databind.ObjectMapper;
  * <p>Um {@link CorsFilter} e não {@code WebMvcConfigurer#addCorsMappings}: o filtro também cobre
  * o despacho para {@code /error} e qualquer resposta produzida antes do
  * {@code DispatcherServlet}.
+ *
+ * <p>E um filtro próprio, não o {@code cors()} do Spring Security (que fica desligado em
+ * {@link SecurityConfig}), por duas razões: o processador default do Security responde recusa de
+ * origem em texto puro, fora do corpo de erro padrão; e a ordem abaixo garante que o preflight
+ * seja resolvido <b>antes</b> da autorização, senão um {@code OPTIONS} sem credencial viraria 401
+ * e o navegador bloquearia a chamada real.
  */
 @Configuration
 public class CorsConfig {
 
+  /**
+   * Registrado por {@link FilterRegistrationBean} e não devolvido como {@code CorsFilter} solto:
+   * {@code @Order} em método {@code @Bean} não é lido pelo registro de filtros do servlet, e sem a
+   * ordem explícita o filtro cai em {@code LOWEST_PRECEDENCE}, ou seja, <b>depois</b> da cadeia do
+   * Spring Security (ordem {@code -100}). O sintoma é um preflight {@code OPTIONS} em rota
+   * protegida virando 401, o que faz o navegador bloquear a chamada real.
+   */
   @Bean
-  public CorsFilter corsFilter(AppProperties propriedades, ObjectMapper objectMapper) {
+  public FilterRegistrationBean<CorsFilter> corsFilter(
+      AppProperties propriedades, ObjectMapper objectMapper) {
     List<String> origens = propriedades.originsPermitidas();
 
     CorsConfiguration configuracao = new CorsConfiguration();
@@ -43,7 +59,12 @@ public class CorsConfig {
 
     CorsFilter filtro = new CorsFilter(fonte);
     filtro.setCorsProcessor(new CorsProcessorPadrao(objectMapper));
-    return filtro;
+
+    FilterRegistrationBean<CorsFilter> registro = new FilterRegistrationBean<>(filtro);
+    // Depois do CorrelationIdFilter, para a recusa de CORS já sair com id de correlação no corpo,
+    // e antes do Spring Security, para o preflight ser resolvido antes da autorização.
+    registro.setOrder(Ordered.HIGHEST_PRECEDENCE + 10);
+    return registro;
   }
 
   /**
