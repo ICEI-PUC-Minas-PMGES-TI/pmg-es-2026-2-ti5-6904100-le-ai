@@ -142,11 +142,13 @@ aplicacao administrativa manual, preferir a URL `direct` do Neon.
 ## Checklist do Neon
 
 - [ ] Revisao humana dos quatro conjuntos de migrations
-- [ ] Inventario somente leitura do estado atual
-- [ ] Backup/ponto de restauracao confirmado
+- [x] Inventario somente leitura do estado atual
+- [ ] Backup/ponto de restauracao confirmado (dispensado nesta aplicacao por
+  decisao do grupo — o banco continha apenas o usuario de teste)
 - [x] Teste integral em PostgreSQL 17 real
-- [ ] Aplicacao no Neon pela conexao apropriada
-- [ ] Contagem de 59 tabelas de dominio confirmada
-- [ ] Nove views de contrato confirmadas
-- [ ] Usuarios de teste preservados e com `privacidade = publico`
+- [x] Aplicacao no Neon pela conexao apropriada (2026-09-16, PostgreSQL 17.11:
+  Drizzle em acervo/leitura, Flyway no boot em identidade/social)
+- [x] Contagem de 59 tabelas de dominio confirmada
+- [x] Nove views de contrato confirmadas
+- [x] Usuarios de teste preservados e com `privacidade = publico`
 - [ ] Cadastro, login e health checks validados em DES
