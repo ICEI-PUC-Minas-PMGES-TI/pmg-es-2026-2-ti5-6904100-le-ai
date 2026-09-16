@@ -35,7 +35,7 @@ RNF atendidos: **RNF-DES-02** (listagens paginadas com teto server-side), **RNF-
 Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + correlation-id e mensagens pt-BR. Acesso a dados por ORM/consulta parametrizada (SEC-12). IDs não sequenciais (SEC-05). **Livro pessoal nunca aparece** em busca, filtros ou páginas de autor/editora/série (SEC-06, RN-03). Lê as tabelas `Autor/Editora/Serie/Assunto` e associações do **próprio** schema `acervo`, criadas por [F-ACV-INGESTAO](../periodo-1/feature-F-ACV-INGESTAO.md).
 
 - **`GET /livros`** — estende a busca de [F-ACV-BUSCA](../periodo-1/feature-F-ACV-BUSCA.md) com os **filtros de RF-ACV-03**: `autor`, `editora`, `serie`, `ano` e **faixa de nº de páginas** (`paginasMin`/`paginasMax`), combináveis com o filtro por assunto já existente (RF-ACV-02). Paginado com teto (RNF-DES-02) e índices adequados (RNF-DES-03).
-- **`GET /autores/{id}`** (RF-ACV-10) — página de autor: **biografia curta** (ver Pendências quanto à origem) + lista **paginada** de livros oficiais daquele autor.
+- **`GET /autores/{id}`** (RF-ACV-10) — biografia curta da **OpenLibrary**, quando disponível, e livros oficiais paginados. Sem biografia na fonte (ou sem identificador de autor), omitir a seção e manter a lista utilizável. Não inventar texto nem consultar fonte alternativa para a biografia.
 - **`GET /editoras/{id}`** (RF-ACV-11) — página de editora: lista **paginada** de livros oficiais daquela editora.
 - **`GET /series/{id}?page=`** (RF-ACV-12) — página de série paginada com teto server-side; livros oficiais ordenados por número de ordem (RN-12).
 - **Assunto acionável (RF-ACV-21):** `GET /livros/{id}` (de [F-ACV-BUSCA](../periodo-1/feature-F-ACV-BUSCA.md)) passa a expor os **assuntos** do livro como itens **acionáveis** que apontam para `GET /livros?assunto=<id>` (RN-21: assunto é filtro de busca). Os assuntos já existem desde a ingestão.
@@ -76,13 +76,15 @@ Sem novos eventos e sem VIEW cross-schema: a feature lê e serve dados do própr
 
 - **Esta feature preenche a aba `Descobrir`, criada em 01/09/2026.** A busca do acervo deixou de ser tela filha da estante e virou o quarto item da navegação ([P0-NAV](../periodo-0/feature-P0-NAV.md), [`descobrir.md`](../../design/periodo-1/F-ACV-BUSCA/descobrir.md)). No Período 1 a aba aterrissa magra de propósito: campo de busca e faixa de assuntos, sem destaques e sem histórico. Os filtros avançados de RF-ACV-03 e os links para as páginas de autor, editora e série entram **nesta aba**, e junto com a seção de recomendações de [F-REC-P2P](feature-F-REC-P2P.md) são o que dá corpo à aterrissagem. **Atenção ao nome:** `descobrir.md` corrige a afirmação de que esta feature entregaria "descoberta aberta" com livros em destaque ou mais lidos. Ela entrega filtros e páginas de consulta; curadoria de destaques não é escopo de nenhum RF.
 - **Depende de** [F-ACV-BUSCA](../periodo-1/feature-F-ACV-BUSCA.md) (busca e página do livro que esta feature estende) e [F-ACV-INGESTAO](../periodo-1/feature-F-ACV-INGESTAO.md) (autor/editora/série/assunto normalizados e número de ordem), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md).
-- **Origem da biografia curta do autor (RF-ACV-10)** não está definida e bloqueia o fechamento desse requisito. A ingestão não carrega bio; o grupo deve aprovar uma fonte/estratégia simples antes da implementação. Exibir ausência permanentemente não fecha RF-ACV-10; não inventar integração nem alterar a baseline sem decisão.
+- **Decisão encerrada em 15/09/2026:** biografia vem da OpenLibrary; na ausência, a seção não é exibida. Testar com/sem biografia. Esta escolha é específica da biografia e não remove o fallback Google Books de ISBN/sinopse.
 - **Decisão do dono:** validar `paginasMin <= paginasMax`, faixas positivas e combinações de filtros no schema de entrada antes de atualizar o OpenAPI.
 - **Curadoria de editoras** (RF-ACV-11): ~13% da amostra são editoras **portuguesas** (§10.1) e a normalização usa a tabela de sinônimos de [F-ACV-INGESTAO](../periodo-1/feature-F-ACV-INGESTAO.md) — a página de editora depende da qualidade dessa normalização.
 - Stack de `acervo` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 - **Alternativa a avaliar, sem mudar o desenho atual:** reutilizar um componente de página de catálogo para autor/editora/série e criar índices adicionais somente após validar o plano de execução das consultas.
 
 ## Timeline
+
+### Revisão 15/09/2026: grupo definiu OpenLibrary como fonte de biografia e omissão quando ausente. DER atualizado; implementação não iniciada.
 
 ### Revisão 01/09/2026: reúso de página de catálogo e índices orientados por medição registrados apenas como alternativas de implementação.
 

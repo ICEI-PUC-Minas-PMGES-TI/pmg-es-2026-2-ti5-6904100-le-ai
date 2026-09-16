@@ -33,12 +33,12 @@ Template em `../../orquestador/plano-de-projeto.md` §9. As **regras de implemen
 | `v_livro_recomendacao_v1` | `acervo` | `social` / F-REC-ALG | previsto no DER e em `docs/4.modelagem.md` §4.2 como item do Período 3; **conteúdo a fechar com `acervo` no arquivo de F-REC-ALG, antes da migration** |
 | `sequencia.lembrete` | `leitura` / F-GAM-OPC | `social` / extensão do consumidor de F-NOT | contrato futuro ainda não aprovado; F-GAM-OPC deve fechar nome, schema, chave, consumidor e DLQ antes de ativar o tipo |
 | entrega push (FCM Android) | `social` / F-NOT-OPC | — | a arquitetura §5.2 já prevê o consumidor como "social (+ FCM em Android)"; novo é o **registro de dispositivo**, não o fluxo |
-| mapa tipo→categoria de notificação | `social` / F-NOT-OPC | — | **PENDENTE** no DER; F-NOT-OPC propõe o agrupamento dos 12 tipos, o grupo decide, e só então a migration do enum sobe |
-| suspensão de conta | `social` / F-MOD-OPC | `identidade` | comando autenticado proposto, no mesmo desenho da remoção de resenha de F-MOD; depende de decisão de baseline |
-| `opt_out_recomendacao` | `identidade` | `social` / F-REC-ALG | **PENDENTE** §10.7 — "não migrar antes da decisão"; F-REC-ALG consome o sinal social sem o filtro até o grupo resolver |
-| alvo vigente na janela selada | `leitura` / F-DSF-OPC | — | extensão de DER **proposta**: `janela_desafio` não guarda o valor-alvo da janela, e editar o desafio falsificaria a razão exibida no histórico (RN-20.7); `cumprida` já atende à letra de RF-DSF-05 — não migrar antes da decisão |
+| preferência por tipo de notificação | `social` / F-NOT-OPC | — | incorporado em 15/09/2026: cada tipo configurável individualmente, sem agrupamento |
+| suspensão e reativação | `social` / F-MOD-OPC | `identidade` | aprovado: comando HTTP autenticado/idempotente; conteúdo suspenso oculto; consulta administrativa permite reativar |
+| `opt_out_recomendacao` | `identidade` | `social` / F-REC-ALG | incorporado em 15/09/2026: configuração no perfil e filtro do sinal social |
+| configuração histórica da janela | `leitura` / F-DSF | F-DSF-OPC | aprovado: snapshot de unidade/periodicidade/alvo/fuso desde P2 para offline; P3 expõe histórico incluindo vazios |
 
-**Escopo enxuto do período:** as opcionais são o colchão de corte (plano §3). Nenhuma delas cria tabela derivada, evento ou job que o requisito não peça — F-REC-ALG calcula em tempo de consulta (§10.7), F-NOT-OPC estende o consumidor existente em vez de criar outro fluxo, F-GAM-OPC lê o dado que F-GAM já persiste, F-ACV-OPC reaproveita o script de F-ACV-INGESTAO, F-STA-OPC deriva o histograma por agrupamento sem entidade nova e F-DSF-OPC apenas retém e sela a janela que F-DSF já cria.
+**Escopo enxuto do período:** as opcionais são o colchão de corte (plano §3). F-REC-ALG calcula em consulta, F-NOT-OPC estende o fluxo existente, F-GAM-OPC lê dias persistidos, F-ACV-OPC reaproveita a carga manual, F-STA-OPC agrega notas e F-DSF-OPC expõe os snapshots já mantidos por F-DSF.
 
 As 7 features do Período 3 estão detalhadas:
 

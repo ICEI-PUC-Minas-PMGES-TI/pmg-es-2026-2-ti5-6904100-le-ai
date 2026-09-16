@@ -64,10 +64,12 @@ Mudar de **público para privado não remove** seguidores existentes.
 **Eventos produzidos** (§5.2, consumidos por [F-NOT](feature-F-NOT.md) via broker): `seguidor.novo`, `solicitacao.criada`, `solicitacao.aceita`. Publicados **após** a escrita confirmada (arquitetura §5.1). Cada payload versionado contém `destinatarioId`, os ids dos participantes, `eventId`, `occurredAt`, `correlationId` e uma chave de negócio estável: seguimento ou solicitação. O critério desta feature termina na publicação conforme o contrato; a criação da notificação é critério de F-NOT.
 
 **VIEWs expostas por `identidade`** (arquitetura §4.2), com nomes distintos das tabelas:
-- `v_perfil_referencia_v1` — id, username, nome de exibição, avatar e privacidade; permite distinguir perfil público de privado e montar snapshots sem ler `usuario`.
+- `v_perfil_referencia_v1` — id, username, nome de exibição, avatar e privacidade; permite distinguir perfil público de privado e montar snapshots sem ler `usuario`. F-REC-ALG/P3 acrescenta `opt_out_recomendacao` para filtrar o uso das leituras nas sugestões alheias.
 - `v_seguimento_aceito_v1` — pares seguidor → seguido **somente com seguimento aceito**.
 
 As duas VIEWs omitem contas com `exclusao_solicitada_em` preenchido. Durante os 30 dias de recuperação, perfil, conteúdo e relações deixam de ser visíveis sem apagar os dados; cancelar a exclusão restaura automaticamente as linhas contratuais.
+
+F-MOD-OPC/P3 também omite contas suspensas e seus seguimentos das VIEWs públicas; reativar restaura a visibilidade sob RN-08. Consulta administrativa autorizada de identidade permite ao painel localizar alvos suspensos. Serviços revalidam a presença do perfil antes de exibir conteúdo/snapshot; conhecer ids não contorna ocultação.
 
 `acervo`, `leitura` e `social` combinam os dois contratos para aplicar RN-08: conteúdo é visível se o perfil for público, se o solicitante for o próprio dono ou se houver seguimento aceito. As VIEWs são versionadas e documentadas junto do spec OpenAPI.
 
@@ -126,6 +128,8 @@ As duas VIEWs omitem contas com `exclusao_solicitada_em` preenchido. Durante os 
 - Stack do serviço `identidade` definida: **Spring (Java)** (arquitetura §2.1).
 
 ## Timeline
+
+### Revisão 15/09/2026: impacto das decisões do grupo registrado — extensão de opt-out em F-REC-ALG e ocultação/restauração por suspensão em F-MOD-OPC. Contratos derivados atualizados; implementação não iniciada.
 
 ### Revisão 01/09/2026: auto-seguimento/auto-solicitação explicitamente proibidos e protegidos por CHECK no DER.
 

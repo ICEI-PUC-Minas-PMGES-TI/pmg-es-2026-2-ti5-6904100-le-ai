@@ -33,11 +33,11 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 - **`GET /me/estatisticas`** (RF-STA-01/02):
   - **Totais** por **ano** e **acumulado**: livros concluídos, **páginas lidas** e **tempo de leitura**. Páginas de leituras **abandonadas contam** (RN-04, invariante 2); páginas lidas derivam das atualizações de progresso (RN-17).
-  - **Médias**: páginas por dia, dias por livro e **nota média atribuída** (das notas de [F-AVA](../periodo-1/feature-F-AVA.md)).
+  - **Médias**: páginas por dia = páginas registradas / dias locais distintos com progresso no período (manual ou cronometrado); dias sem leitura ficam fora do denominador. Dias por livro = soma de `(data_fim - data_inicio + 1)` / quantidade de leituras concluídas: inclui início/fim, dias sem leitura e abandono, com releituras como ocorrências independentes. Sem denominador, retorna ausente. **Nota média atribuída** vem das notas de [F-AVA](../periodo-1/feature-F-AVA.md).
 - **`GET /me/estatisticas/graficos`** (RF-STA-03) — séries de **páginas por mês** e **livros concluídos por mês** para os gráficos de evolução.
 - **`GET /perfis/{usuarioId}/estatisticas`** — recorte necessário à composição do perfil. Perfil público é visível a todos; privado exige próprio usuário ou seguidor aceito (RN-08). A mesma camada de cálculo/consulta de `/me` é reutilizada, evitando fórmulas divergentes; o DTO público pode omitir métricas privadas.
 - **Recálculo assíncrono (RF-STA-05):** consome os contratos aprovados **`progresso.registrado`** e **`leitura.finalizada`**; consumidor idempotente + DLQ. A base histórica vem do próprio schema por backfill.
-- **Coerência nas demais mutações locais:** como F-PRG, F-AVA e F-STA vivem no mesmo serviço, excluir progresso marca os agregados de páginas/tempo para recálculo local, e criar/editar/remover nota atualiza a nota média localmente. Não são criados eventos de broker apenas para comunicação interna.
+- **Coerência nas demais mutações locais:** editar o último progresso ou excluir um trecho final recalcula páginas/tempo e os dias com leitura; sincronização offline atribui o registro à data local original. Criar/editar/remover nota atualiza a média localmente. Não são criados eventos de broker apenas para comunicação interna.
 
 **Modelo de dados** (schema `leitura`): agregados de estatística por usuário (totais por ano/acumulado, séries mensais) mantidos por recálculo assíncrono; nenhuma leitura cruzada de outro schema.
 
@@ -76,13 +76,15 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 ## Pendências
 
 - **Depende de** [F-PRG](../periodo-1/feature-F-PRG.md) (`progresso.registrado`), [F-EST](../periodo-1/feature-F-EST.md) (`leitura.finalizada`), [F-AVA](../periodo-1/feature-F-AVA.md) (notas), [F-PERFIL](../periodo-1/feature-F-PERFIL.md) (RN-08), P0-INFRA, P0-DS, P0-DEPLOY, P0-CI e P0-MSG.
-- **Decisões do dono:** fixar denominadores de páginas/dia e dias/livro, tratamento de releituras e campos do DTO público antes da implementação.
+- **Decisão do grupo incorporada em 15/09/2026:** denominadores definidos acima. Testar dia com vários progressos/livros, progresso manual, sincronização tardia, conclusão no mesmo dia, releituras e intervalo abandonado. Permanecem para implementação os campos do DTO público sob RN-08.
 - **Alternativa a avaliar, sem mudar o desenho atual:** persistir buckets mensais e derivar totais anuais, evitando agregados redundantes.
 - **Fronteira:** a distribuição das notas dadas pelo leitor (RF-STA-04) é F-STA-OPC. A distribuição de notas do livro é distinta e foi alocada a F-ACV-NOTA.
 - **Compartilha `leitura`** com as demais features de leitura — sinalizar no grupo (plano §6).
 - Stack de `leitura` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
 ## Timeline
+
+### Revisão 15/09/2026: médias definidas pelo grupo — dias com progresso para páginas/dia, toda a duração para dias/livro; recálculo inclui edição/exclusão e offline. Implementação permanece não iniciada.
 
 ### Revisão 01/09/2026: endpoint público de estatísticas sob RN-08 acrescentado com lógica compartilhada; eventos de recálculo aprovados e fórmulas/DTO público deixados como decisões do dono.
 

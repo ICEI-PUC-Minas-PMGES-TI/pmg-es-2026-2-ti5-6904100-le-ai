@@ -1,0 +1,192 @@
+---
+title: Modelo de dados — acervo
+config:
+  layout: elk
+  theme: neutral
+---
+erDiagram
+  direction LR
+  %% Fonte: REQUISITOS v1.5, arquitetura §3/4 e docs/4.modelagem.md.
+  %% PK/FK/UK; P2/P3 = período. Referências externas sem FK física.
+
+  EDITORA o|..o{ LIVRO : "publica"
+  SERIE o|..o{ LIVRO : "agrupa"
+  LIVRO ||--o{ LIVRO_AUTOR : "tem"
+  AUTOR ||--o{ LIVRO_AUTOR : "escreve"
+  LIVRO ||--o{ LIVRO_ASSUNTO : "classificado"
+  ASSUNTO ||--o{ LIVRO_ASSUNTO : "classifica"
+  LIVRO ||--o{ NOTA_LEITOR_PROJECAO : "recebe"
+  LIVRO ||--o| NOTA_LIVRO_AGREGADA : "agrega"
+  LIVRO o|..o{ IMPORTACAO_LIVRO : "resultado"
+  EDITORA ||..o{ SINONIMO_EDITORA : "normaliza"
+  ASSUNTO ||..o{ MAPA_ASSUNTO_EXTERNO : "mapeia"
+
+  LIVRO {
+    uuid id PK "edição, não obra"
+    string isbn13 UK "oficial; nullable em pessoal"
+    string ol_edition_key UK "dedup externa; nullable"
+    string ol_work_key "referência externa; nullable"
+    string titulo
+    string autor_informado "obrigatório em pessoal"
+    int ano_publicacao "nullable"
+    int paginas "maior que zero"
+    string sinopse "texto puro até 4000; nullable"
+    enum sinopse_status "estados no comentário RN-19"
+    string capa_url_externa "oficial; ausente em pessoal"
+    string capa_url_propria "cache ou upload; nullable"
+    string capa_asset_id "privado; nullable"
+    decimal nota_geral "externa 0 a 5; nullable (P2)"
+    int nota_geral_qtd "nullable (P2)"
+    enum tipo "oficial ou pessoal"
+    uuid dono_id "→ identidade.usuario; só pessoal"
+    uuid editora_id FK "nullable"
+    uuid serie_id FK "nullable"
+    int numero_serie "ordem opcional"
+    bool ativo "exclusão lógica de pessoal"
+    timestamp criado_em
+    timestamp atualizado_em
+  }
+  AUTOR {
+    uuid id PK
+    string nome
+    string nome_normalizado "dedup fallback (RN-12)"
+    string ol_author_key UK "nullable"
+    string biografia "OpenLibrary; nullable (P2)"
+  }
+  EDITORA {
+    uuid id PK
+    string nome
+    string nome_normalizado UK
+  }
+  SERIE {
+    uuid id PK
+    string nome
+    string nome_normalizado UK
+  }
+  ASSUNTO {
+    uuid id PK
+    string nome "conjunto curado de cerca de 30"
+    string slug UK
+  }
+  LIVRO_AUTOR {
+    uuid livro_id PK, FK "somente oficial"
+    uuid autor_id PK, FK
+  }
+  LIVRO_ASSUNTO {
+    uuid livro_id PK, FK
+    uuid assunto_id PK, FK "pessoal escolhe do curado (P3)"
+  }
+  NOTA_LEITOR_PROJECAO {
+    uuid usuario_id PK "→ identidade.usuario (P2)"
+    uuid livro_id PK, FK "somente oficial"
+    decimal valor "0 a 5; passo 0,5"
+    timestamp atualizado_em
+  }
+  NOTA_LIVRO_AGREGADA {
+    uuid livro_id PK, FK "somente oficial (P2)"
+    decimal media
+    int quantidade
+    timestamp atualizado_em
+  }
+  IMPORTACAO_LIVRO {
+    uuid id PK
+    uuid solicitante_id "→ identidade.usuario"
+    string isbn13 "normalizado e validado"
+    enum estado "estados no comentário ACV-05"
+    uuid livro_id FK "nullable até concluir"
+    string erro "nullable"
+    timestamp criado_em
+    timestamp atualizado_em
+  }
+  SINONIMO_EDITORA {
+    string forma_externa PK
+    uuid editora_id FK
+  }
+  MAPA_ASSUNTO_EXTERNO {
+    string tag_externa PK
+    uuid assunto_id FK
+  }
+  INGESTAO_EXECUCAO {
+    uuid id PK
+    enum tipo "carga_inicial ou recarga"
+    enum status "contrato do script de carga"
+    int total_processados
+    int total_descartados
+    int total_inseridos
+    timestamp iniciado_em
+    timestamp finalizado_em "nullable em execução"
+  }
+  IDEMPOTENCIA_ACERVO {
+    uuid id PK
+    uuid subject_ref "nullable após anonimizar"
+    string operacao
+    string chave "nullable após anonimizar"
+    string payload_hash "nullable após anonimizar"
+    int status_http
+    json resposta "nullable após anonimizar"
+    timestamp criado_em
+    timestamp replay_ate "validade da resposta, não da linha"
+    timestamp anonimizado_em "nullable; retenção sem prazo"
+  }
+  OUTBOX_ACERVO {
+    uuid event_id PK
+    string tipo
+    int versao
+    string chave_negocio "nullable após anonimizar"
+    uuid correlation_id "nullable após anonimizar"
+    json payload "nullable após publicar e anonimizar"
+    enum status "pendente ou publicado"
+    int tentativas
+    timestamp criado_em
+    timestamp publicado_em "nullable"
+    timestamp anonimizado_em "nullable; retenção sem prazo"
+  }
+
+  %% Subgraphs são agrupamentos visuais, não novas tabelas ou schemas.
+  subgraph catalogo ["Catálogo, importação e notas"]
+    direction LR
+    LIVRO
+    AUTOR
+    EDITORA
+    SERIE
+    ASSUNTO
+    LIVRO_AUTOR
+    LIVRO_ASSUNTO
+    NOTA_LEITOR_PROJECAO
+    NOTA_LIVRO_AGREGADA
+    IMPORTACAO_LIVRO
+    SINONIMO_EDITORA
+    MAPA_ASSUNTO_EXTERNO
+  end
+  subgraph tecnico ["Execução e registros técnicos"]
+    direction TB
+    INGESTAO_EXECUCAO
+    IDEMPOTENCIA_ACERVO
+    OUTBOX_ACERVO
+  end
+
+  classDef grupo fill:transparent,stroke:#aaa
+  class catalogo,tecnico grupo
+
+  %% RN-19 sinopse_status: nao_consultada|pendente|disponivel|ausente|falha_transitoria.
+  %% ACV-05 estado de importação: pendente|concluida|nao_encontrado|falha_transitoria.
+  %% Oficial exige ISBN13/capa externa, dono ausente; pessoal exige dono e autor
+  %% informado, ISBN ausente. ISBN/ol_edition_key têm UK parcial quando não nulos.
+  %% Pessoal não usa LIVRO_AUTOR, editora, série nem indicadores agregados;
+  %% fica fora do catálogo. RN-15 exige via feed/lista e autorização do dono.
+  %% RN-12: AUTOR dedup por chave externa, fallback de nome normalizado quando
+  %% chave ausente; homônimos com chaves distintas não são fundidos por nome.
+  %% Biografia somente OpenLibrary: sem dado, omitir seção; demais fallbacks
+  %% de ISBN/sinopse continuam conforme requisitos. Não criar entidade Obra.
+  %% RN-06: rating externo por ol_work_key replicado em edições; notas locais
+  %% independentes. nota.alterada consulta v_nota_publicacao_v1 atual e converge
+  %% por usuário/livro mesmo fora de ordem; histograma deriva da projeção.
+  %% RN-14: cache de capa único por livro, com backfill e URL externa preservada.
+  %% Busca indexa título, autor, editora, ISBN e assuntos; sinopse não indexada.
+  %% Contadores >= 0; importação concluída exige livro; concorrência converge ISBN.
+  %% Sem delta automático: apenas carga inicial e recarga manual (ACV-13/14).
+  %% Expõe v_livro_referencia_v1; v_livro_recomendacao_v1 é contrato de P3
+  %% com livro oficial, autor, série e assuntos, a versionar em F-REC-ALG.
+  %% UK ledger: (subject_ref,operacao,chave). RN-23.7: logs técnicos sem prazo,
+  %% após remover referências, chaves, hashes, correlação e conteúdo identificáveis.
+  %% Replay/confirm de outbox são operacionais; anonimizar não perde limpeza.

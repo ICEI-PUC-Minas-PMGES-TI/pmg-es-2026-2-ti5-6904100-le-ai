@@ -11,7 +11,7 @@ Dar memória aos desafios de [F-DSF](../periodo-2/feature-F-DSF.md). Hoje o leit
 
 - **RF-DSF-05** manter o **histórico de janelas concluídas** de cada desafio, indicando **cumprimento ou não**.
 
-A feature **retém e expõe**; não modela do zero. A entidade `janela_desafio` já existe desde o Período 2, porque a janela corrente de RF-DSF-03 depende dela, e o campo **`cumprida` já está marcado como P3** no DER, com a anotação "histórico retido em DSF-05/P3". O que muda é que a janela deixa de ser descartada ao encerrar: passa a ser **selada** e listável. Nenhuma tabela nova, nenhum job novo, nenhum evento novo e nenhum consumidor adicional — a selagem viaja no consumidor de `progresso.registrado`/`leitura.finalizada` que F-DSF já tem, ambos **contratos aprovados** (arquitetura §5.2).
+A feature **expõe o histórico** já persistido por F-DSF desde P2 para permitir recomposição offline (decisão do grupo incorporada em 15/09/2026). `janela_desafio` guarda configuração do período, acumulado, cumprimento e encerramento, inclusive nas janelas sem progresso. Nenhuma tabela, job, evento ou consumidor novo: a materialização é feita nos fluxos existentes e na consulta.
 
 RNF atendidos: **RNF-SEC-02** (histórico exclusivo do dono), **RNF-SEC-12** (consulta parametrizada), **RNF-DES-02** (listagem paginada com limite do servidor), **RNF-ERR-06/07** (selagem idempotente no consumidor existente + DLQ), **RNF-ARQ-05** (concorrência resolvida no banco).
 
@@ -19,7 +19,7 @@ RNF atendidos: **RNF-SEC-02** (histórico exclusivo do dono), **RNF-SEC-12** (co
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | não iniciado | retenção de `janela_desafio` + uso do campo `cumprida` (P3); nenhuma tabela nova |
+| Infra | não iniciado | reuso de snapshots e pausas retidos em F-DSF; nenhuma tabela nova |
 | Backend | não iniciado | `leitura`: selagem da janela encerrada e listagem do histórico por desafio |
 | Web | **não aplicável** | desafios estão **fora do escopo web** (`REQUISITOS.md` §2.1) |
 | Mobile | não iniciado | histórico de janelas de cada desafio, com cumprimento |
@@ -32,26 +32,26 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 **Selagem da janela encerrada (RF-DSF-05, RN-20.8)**
 
-- Quando uma janela deixa de ser a corrente, ela é **selada**: o `acumulado` que tinha é congelado e `cumprida` recebe o resultado da comparação com o valor-alvo vigente **naquela janela** (RN-20.8 — cumprida quando o acumulado atinge o alvo, ainda que o registro que a completou pertença a leitura iniciada em janela anterior).
+- Quando uma janela deixa de ser corrente, registra-se seu encerramento. Unidade, periodicidade, alvo e fuso históricos são preservados; `cumprida` compara acumulado com o alvo daquele snapshot. **O resultado é corrigível** por captura offline e correções de progresso autorizadas, sem reescrever a configuração histórica (RN-20.7/10).
 - A selagem é **preguiçosa**: acontece quando chega uma contribuição posicionada em janela posterior — pelo **consumidor que F-DSF já mantém** — ou na consulta do histórico. **Sem job agendado e sem evento próprio**, na mesma disciplina que [F-GAM](../periodo-2/feature-F-GAM.md) usou para derivar o zeramento da sequência.
-- A selagem é **idempotente**: reprocessar o mesmo fato não sela duas vezes nem altera janela já selada; falha após o máximo de tentativas vai para **DLQ** sem travar a fila (RNF-ERR-06/07).
+- A selagem e o recálculo são **idempotentes**: repetir o mesmo fato não duplica contribuição nem altera o resultado já convergido; captura tardia válida pode corrigir o resultado. Falhas seguem DLQ (RNF-ERR-06/07).
 - **Imutabilidade (RN-20.7):** alterar unidade, janela ou valor-alvo recalcula **apenas a janela corrente**. Janela já selada **não é reescrita** por edição posterior do desafio — é essa garantia que dá sentido ao histórico.
 
 **O que entra no histórico**
 
-- Entram as janelas em que **houve contribuição** — que é como `janela_desafio` já nasce hoje, pelo vínculo com `contribuicao_desafio`. Janela sem nenhuma contribuição **não vira linha** e não aparece na listagem.
-- **Consequência a declarar, não a esconder:** a listagem **não distingue** "janela vazia" de "o desafio ainda não existia", e a taxa de cumprimento lida do histórico fica **otimista**, porque o denominador ignora as janelas em branco. O ganho é não materializar linha especulativa — um desafio diário produziria cerca de 365 registros por ano, quase todos vazios. Ver Pendências: a escolha está registrada para **confirmação de quem for implementar**.
+- Entram **todos os períodos encerrados desde a janela de criação**, inclusive sem contribuição: acumulado zero e não cumprido. Não criar períodos anteriores à janela de criação. Backfill da primeira janela considera os fatos já registrados nela (RN-20.2).
+- Antes de editar a configuração, F-DSF materializa os períodos decorridos com a configuração anterior, incluindo vazios; a consulta não tenta reconstruí-los usando o desafio atual.
 - A janela é posicionada pela **data local do fato** (RN-20.1), o mesmo critério de `contribuicao_desafio.data_local` que F-DSF já usa; o histórico não depende do fuso de quem consulta.
-- **Pausa (RN-20.6):** desafio pausado não acumula e sua janela corrente não é avaliada. Com o recorte acima, uma janela inteiramente contida numa pausa simplesmente não gera linha e não é lançada como não cumprida.
+- **Pausa (RN-20.6):** registros capturados durante a pausa não contam, ainda que sincronizados depois. A janela corrente não é avaliada enquanto pausada; períodos encerrados sem progresso aparecem com zero e não cumpridos conforme RN-20.9. Retomar não inclui fatos da pausa.
 
 **Listagem (RF-DSF-05)**
 
-- **`GET /desafios/{id}/janelas?page=`** — janelas seladas do desafio, **mais recentes primeiro**, cada uma com início, fim, acumulado e **cumprida ou não**. **Paginada com limite imposto pelo servidor** (RNF-DES-02) e **exclusiva do dono** do desafio (SEC-02); id conhecido por terceiro retorna negação.
+- **`GET /desafios/{id}/janelas?page=`** — janelas encerradas, mais recentes primeiro, com início, fim, unidade, periodicidade, meta, acumulado e cumprimento do snapshot histórico. Paginada com limite server-side e exclusiva do dono. A razão acumulado/meta nunca usa a configuração atual do desafio.
 - **Excluir o desafio** (RF-DSF-04) remove seu histórico junto: sem o desafio não sobra superfície por onde acessar a listagem, e um histórico órfão só ocuparia espaço.
 
-**Modelo de dados** (schema `leitura`): **nenhuma tabela nova**. Usa `janela_desafio` — já existente para a janela corrente — passando a **retê-la** após o encerramento e a preencher o campo `cumprida`, que o DER marca como P3. As constraints já previstas (`uma janela por desafio+intervalo`, `valor_alvo > 0`, `inicio <= fim`, contadores não negativos) sustentam a integridade do histórico sem regra adicional.
+**Modelo de dados** (schema `leitura`): nenhuma tabela nova. Usa os snapshots, contribuições únicas por janela/fato e pausas retidas de F-DSF. O encerramento de uma janela não impede corrigir seu resultado pela chegada offline ou correção autorizada da origem.
 
-**Recorte de período a declarar:** `janela_desafio` é entidade do **Período 2** — RF-DSF-03 depende dela para a janela corrente. Do Período 3 são apenas **o campo `cumprida` e a retenção**. Sem esse recorte, RN-20.7 estaria mandando preservar um histórico que só existiria numa feature opcional, e o corte de F-DSF-OPC deixaria a regra sem referente.
+**Recorte de período:** dados de recálculo, configuração histórica e cumprimento pertencem a F-DSF/P2; somente a listagem e a interface do histórico são P3. Cortar esta opcional não pode eliminar a correção offline aprovada.
 
 **Eventos:** **nenhum evento novo**. A selagem é efeito local dentro do consumidor aprovado de F-DSF, coerente com o escopo enxuto do período: não se cria evento para separar funções internas ao mesmo serviço.
 
@@ -65,16 +65,16 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 ## Critérios de aceite
 
-- [ ] Janela encerrada é **selada** com o acumulado congelado e `cumprida` conforme RN-20.8 (RF-DSF-05).
+- [ ] Janela encerrada preserva configuração histórica; acumulado/cumprimento refletem correções offline idempotentes (RF-DSF-05, RN-20.10).
 - [ ] A selagem ocorre **sem job e sem evento novo**, dentro do consumidor de `progresso.registrado`/`leitura.finalizada` que F-DSF já mantém.
-- [ ] Reprocessar o mesmo fato **não sela duas vezes** nem altera janela já selada; falha repetida vai para **DLQ** sem travar a fila (RNF-ERR-06/07).
+- [ ] Reprocessar o mesmo fato não duplica efeitos; chegada tardia atualiza o resultado da janela original com seu snapshot e suas pausas; falhas seguem DLQ.
 - [ ] Editar unidade, janela ou valor-alvo recalcula **só a janela corrente**; janelas seladas permanecem intactas (RN-20.7).
-- [ ] Só janelas **com contribuição** entram no histórico; janela inteiramente pausada não é lançada como não cumprida (RN-20.6).
+- [ ] Períodos sem progresso aparecem como não cumpridos; não existem períodos anteriores à janela de criação; pausa exclui fatos capturados em seu intervalo.
 - [ ] A janela é posicionada pela **data local do fato** (RN-20.1) e o histórico independe do fuso de quem consulta.
 - [ ] A listagem é **paginada com limite do servidor**, ordenada da mais recente para a mais antiga (RF-DSF-05, RNF-DES-02).
 - [ ] O histórico é **exclusivo do dono** do desafio; terceiro com o id recebe negação (SEC-02).
 - [ ] Excluir o desafio remove seu histórico (RF-DSF-04); a exclusão de conta o limpa por F-CONTA-2.
-- [ ] Nenhuma tabela nova é criada — o histórico usa `janela_desafio` e o campo `cumprida`.
+- [ ] Nenhuma tabela nova é criada — o histórico usa os snapshots de `janela_desafio` de F-DSF.
 - [ ] O histórico funciona no app **em DES**.
 
 ## Definition of Done
@@ -83,27 +83,26 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 - [ ] Código (backend `leitura`, mobile) mergeado em `desenvolvimento`
 - [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
-- [ ] Testes unitários e de integração com banco real/container: selagem no encerramento, cumprida/não cumprida no limite exato do alvo, imutabilidade frente a edição do desafio, janela sem contribuição ausente do histórico, janela dentro de pausa, data local, paginação, propriedade e exclusão em cascata (RNF-TST-02)
-- [ ] Testes assíncronos: selagem disparada pelo consumidor existente com entrega duplicada, reprocessamento e DLQ, sem segunda selagem nem alteração de janela já selada (RNF-TST-03)
+- [ ] Testes unitários/integração: snapshots após edição, vazios não cumpridos, pausas, criação no meio do período, conclusão pelo dia da ação, paginação, propriedade e exclusão do desafio
+- [ ] Testes assíncronos: captura offline corrige histórico, duplicação não duplica contribuição, correção de origem usa o estado atual, retry/DLQ (RNF-TST-03)
 - [ ] Testes mobile cobrem a lista de janelas, a marcação de cumprimento, o estado sem histórico e indisponibilidade/timeout com API simulada (RNF-TST-04/06)
 - [ ] **Spec OpenAPI de `leitura` atualizado em `docs/api/leitura.yaml`** com a listagem de janelas do desafio
 - [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)) — **web N/A** (desafios fora do escopo web, §2.1); justificativa registrada aqui em vez de remover o item
 - [ ] Arquivo da feature atualizado: status, pendências, timeline
 - [ ] Divergência protótipo × implementação registrada, se houver
 
-**Item próprio:** levar ao grupo a **extensão de DER** descrita nas Pendências — selar o valor-alvo vigente junto da janela — e registrar na Timeline a confirmação (ou a troca) do recorte "só janelas com atividade" por quem implementar a feature.
+**Item próprio:** validar que a interface usa unidade/periodicidade/meta do snapshot e distingue período sem progresso de histórico inexistente.
 
 ## Pendências
 
 - **Depende de** [F-DSF](../periodo-2/feature-F-DSF.md) (desafios, janela corrente, consumidor de progresso/finalização, registro de pausas), [F-PRG](../periodo-1/feature-F-PRG.md) (`progresso.registrado` e a data local do fato), [F-EST](../periodo-1/feature-F-EST.md) (`leitura.finalizada`, RN-04), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md), [P0-MSG](../periodo-0/feature-P0-MSG.md).
-- **Decisões do dono — recorte do histórico, pendente de confirmação de quem implementar:** o desenho acima registra **apenas janelas com contribuição**. A alternativa é materializar **todas** as janelas decorridas, inclusive as vazias como não cumpridas, o que dá uma taxa de cumprimento honesta e um calendário sem buracos, ao custo de linha especulativa (cerca de 365 por ano num desafio diário) e de uma regra explícita para janelas anteriores à criação do desafio. Confirmar antes de implementar.
-- **Extensão de DER proposta — alvo vigente na janela:** `janela_desafio` guarda `inicio`, `fim`, `acumulado` e `cumprida`, mas **não** o valor-alvo daquela janela. Como editar o desafio altera o alvo (RF-DSF-04), renderizar a razão "acumulado/alvo" a partir do alvo **atual** falsificaria retroativamente o histórico que RN-20.7 manda preservar. O booleano `cumprida` sozinho já atende à letra de RF-DSF-05; exibir a razão exige selar também o alvo. Propor o campo pelo controle de mudança (plano §3) e **não migrar antes da decisão**; até lá, a listagem mostra cumprimento sem a razão.
-- **Decisão do dono herdada de F-DSF:** tratamento de pausa que começa numa janela e termina em outra, ou que atravessa mudança de fuso. Afeta quais janelas chegam a ser seladas.
-- **Recorte de período de `janela_desafio`:** a entidade é do Período 2 (janela corrente de RF-DSF-03); só `cumprida` e a retenção são do Período 3. Confirmar essa leitura com o dono de F-DSF para que o corte desta feature não deixe RN-20.7 sem referente.
+- **Decisões encerradas em 15/09/2026:** snapshots aprovados; vazios aparecem como não cumpridos; pausas excluem fatos por ocorrência; offline corrige resultados encerrados. Exposição do histórico permanece P3, preservação necessária ao offline fica em P2.
 - **Alternativa a avaliar, sem mudar o desenho atual:** a alternativa já registrada em [F-DSF](../periodo-2/feature-F-DSF.md) — calcular a janela corrente por consulta a progresso/leitura e persistir **apenas** os snapshots históricos — cai exatamente sobre esta feature; avaliar junto, não em separado.
 - **Compartilha `leitura`** com as demais features de leitura — sinalizar no grupo (plano §6). Desafios e histórico são limpos por [F-CONTA-2](../periodo-2/feature-F-CONTA-2.md) na exclusão de conta.
 - Stack de `leitura` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
 ## Timeline
+
+### Revisão 15/09/2026: grupo aprovou configuração histórica, períodos vazios e correções offline. Substituído o recorte de apenas janelas com contribuição; encerramento não congela resultados contra sincronização legítima. Planejamento/DER atualizados; implementação não iniciada.
 
 ### Criação 01/09/2026: arquivo criado a partir do escopo de F-DSF-OPC no [periodo-3/README.md](README.md), de RF-DSF-05 do [`REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.7 e da RN-20 (1, 6, 7, 8). Histórico fixado como retenção e selagem de `janela_desafio`, que já existe para a janela corrente, com `cumprida` preenchido no encerramento; selagem preguiçosa dentro do consumidor aprovado de F-DSF, sem job, evento ou tabela nova. O recorte "só janelas com atividade" foi adotado e registrado para confirmação de quem implementar, e a ausência do alvo vigente na janela selada foi levantada como extensão de DER a propor pelo controle de mudança, sem migration antecipada.

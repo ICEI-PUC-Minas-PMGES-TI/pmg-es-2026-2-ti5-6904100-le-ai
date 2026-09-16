@@ -1,0 +1,151 @@
+---
+title: Modelo de dados — identidade
+config:
+  layout: elk
+  theme: neutral
+---
+erDiagram
+  direction LR
+  %% Fonte: REQUISITOS v1.5, arquitetura §3/4 e docs/4.modelagem.md.
+  %% Visão lógica: PK/FK/UK; P2/P3 indicam extensões futuras.
+  %% Arestas apenas neste schema; referências externas não são FKs físicas.
+  %% Linha sólida = FK integra PK; tracejada = relação não identificadora.
+
+  USUARIO ||..o{ REFRESH_TOKEN : "usuario_id"
+  USUARIO ||..o{ RESET_TOKEN : "usuario_id"
+  USUARIO ||..o{ SEGUIDOR : "seguidor_id"
+  USUARIO ||..o{ SEGUIDOR : "seguido_id"
+  USUARIO ||..o{ SOLICITACAO_SEGUIR : "solicitante_id"
+  USUARIO ||..o{ SOLICITACAO_SEGUIR : "alvo_id"
+
+  USUARIO {
+    uuid id PK "opaco, não sequencial"
+    citext username UK
+    citext email UK
+    string senha_hash "Argon2, bcrypt ou scrypt"
+    string nome_exibicao
+    string biografia "nullable"
+    string avatar_url "Cloudinary; nullable"
+    string avatar_asset_id "privado; nullable"
+    date data_nascimento "cadastro a partir de 18 anos"
+    enum privacidade "publico ou privado"
+    bool suspenso "oculta conteúdo; reversível (P3)"
+    bool opt_out_recomendacao "exclui sinal para terceiros (P3)"
+    int qtd_seguidores
+    int qtd_seguidos
+    timestamp exclusao_solicitada_em "nullable (P2)"
+    timestamp exclusao_prevista_em "solicitação + 30 dias; nullable"
+    timestamp criado_em
+    timestamp atualizado_em
+  }
+  REFRESH_TOKEN {
+    uuid id PK
+    uuid usuario_id FK
+    string token_hash UK "nunca armazenar token raw"
+    bool revogado "logout, rotação ou troca de senha"
+    timestamp expira_em
+    timestamp criado_em
+  }
+  RESET_TOKEN {
+    uuid id PK
+    uuid usuario_id FK
+    string token_hash UK "aleatório cripto; só hash"
+    bool consumido "uso único"
+    timestamp expira_em "validade máxima de 1 hora"
+    timestamp criado_em
+  }
+  SEGUIDOR {
+    uuid id PK
+    uuid seguidor_id FK
+    uuid seguido_id FK "UK com seguidor_id"
+    timestamp criado_em
+  }
+  SOLICITACAO_SEGUIR {
+    uuid id PK
+    uuid solicitante_id FK
+    uuid alvo_id FK "UK do par enquanto pendente"
+    enum status "pendente, aceita ou recusada"
+    timestamp criado_em
+    timestamp resolvido_em "nullable"
+  }
+  TENTATIVA_LOGIN {
+    string identidade PK "e-mail ou username alvo"
+    int falhas
+    timestamp bloqueado_ate "bloqueio progressivo"
+    timestamp ultima_tentativa
+  }
+  EXCLUSAO_CONTA {
+    uuid id PK "recibo técnico (P2)"
+    uuid usuario_ref "sem FK; nullable após anonimizar"
+    string chave_idempotencia "UK com usuario_ref; nullable"
+    enum status "pendente, cancelada ou concluida"
+    timestamp criado_em
+    timestamp prevista_em "remoção definitiva em 30 dias"
+    timestamp cancelada_em "nullable"
+    timestamp concluida_em "nullable"
+    timestamp replay_ate "validade operacional; não é TTL"
+    timestamp anonimizado_em "nullable; retenção sem prazo"
+  }
+  IDEMPOTENCIA_IDENTIDADE {
+    uuid id PK
+    uuid subject_ref "nullable após anonimizar"
+    string operacao "rota e ação"
+    string chave "nullable após anonimizar"
+    string payload_hash "nullable após anonimizar"
+    int status_http
+    json resposta "nullable após anonimizar"
+    timestamp criado_em
+    timestamp replay_ate "validade da resposta, não da linha"
+    timestamp anonimizado_em "nullable; retenção sem prazo"
+  }
+  OUTBOX_IDENTIDADE {
+    uuid event_id PK
+    string tipo
+    int versao
+    string chave_negocio "nullable após anonimizar"
+    uuid correlation_id "nullable após anonimizar"
+    json payload "nullable após publicar e anonimizar"
+    enum status "pendente ou publicado"
+    int tentativas
+    timestamp criado_em
+    timestamp publicado_em "nullable"
+    timestamp anonimizado_em "nullable; retenção sem prazo"
+  }
+
+  %% Subgraphs são agrupamentos visuais, não novas tabelas ou schemas.
+  subgraph conta ["Conta, autenticação e seguidores"]
+    direction TB
+    USUARIO
+    REFRESH_TOKEN
+    RESET_TOKEN
+    SEGUIDOR
+    SOLICITACAO_SEGUIR
+  end
+  subgraph controle ["Controle e recuperação"]
+    direction TB
+    TENTATIVA_LOGIN
+    EXCLUSAO_CONTA
+  end
+  subgraph tecnico ["Registros técnicos"]
+    direction TB
+    IDEMPOTENCIA_IDENTIDADE
+    OUTBOX_IDENTIDADE
+  end
+
+  classDef grupo fill:transparent,stroke:#aaa
+  class conta,controle,tecnico grupo
+
+  %% RN-08: v_perfil_referencia_v1 e v_seguimento_aceito_v1 omitem contas
+  %% suspensas ou em exclusão pendente; reativar/cancelar restaura visibilidade.
+  %% v_perfil_referencia_v1 inclui opt_out_recomendacao para F-REC-ALG/P3.
+  %% Consulta administrativa do alvo suspenso é HTTP autorizado em identidade.
+  %% RN-23: login pendente só cancela exclusão, sem refresh. Job confirma
+  %% remoção + recibo + conta.excluida em uma transação, com outbox.
+  %% CHECK: seguidor_id != seguido_id; solicitante_id != alvo_id; contadores >= 0.
+  %% UK parcial das solicitações: (solicitante_id,alvo_id) WHERE status=pendente.
+  %% Ledger HTTP: UK(subject_ref,operacao,chave); hash divergente gera conflito.
+  %% Tokens têm índice de hash/expiração; são removidos, não arquivados raw.
+  %% RN-23.7: antes da retenção indeterminada, limpar referências, chaves,
+  %% hashes, correlação, payloads/respostas e texto identificáveis. UUID opaco
+  %% não é anonimização. Replay expira normalmente; a linha anônima permanece.
+  %% Outbox pendente não pode perder o evento de limpeza nem recriar conteúdo.

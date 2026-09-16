@@ -39,13 +39,15 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - Um dia **conta** quando há **≥1 atualização de progresso com ≥1 página lida** (RN-18.1) — concluir/iniciar/abandonar **não** conta por si.
 - Contada em **dias de calendário no fuso do dispositivo** no momento do registro (RN-18.2).
 - Incrementa **no máximo 1×/dia**, independentemente de quantas atualizações (RN-18.3).
-- **Zerada (RF-GAM-03, RN-18.4)** quando um dia de calendário **se encerra sem registro** — sem congelamento, recuperação ou compensação (RN-18.5, coerente com não haver registro retroativo — RN-17).
+- **Zerada (RF-GAM-03, RN-18.4)** quando um dia de calendário **se encerra sem registro**. Capturas offline sincronizadas depois recompõem os dias e recalculam a sequência atual e a maior; não há compensação por dia sem leitura nem registro manual retroativo.
 - **Maior sequência preservada** (RN-18.6), ainda que a atual zere.
 - Medida em **dias com leitura**, nunca em tempo (RN-18.7).
 
 **Zeramento — implementação enxuta:** é derivado ao consultar/atualizar a sequência, sem job novo. O serviço compara o último dia com leitura ao dia corrente calculado no **último fuso registrado pelo dispositivo**; havendo dia vazio, a atual é 0 e a maior permanece. Novo progresso atualiza o fuso conhecido. Isso usa apenas os dados persistidos por F-PRG e não depende do fuso de quem consulta.
 
 **Modelo de dados** (schema `leitura`): dias com leitura por usuário (data local), último fuso do dispositivo, sequência atual e maior sequência. Sem leitura cruzada de outro schema.
+
+**Chegada tardia e correções:** derivar os dias qualificáveis dos progressos atuais, inclusive depois de edição/exclusão permitida. Captura antiga sincronizada depois não substitui o último fuso por um fuso obsoleto: persistir também o instante de referência do último fuso. Recalcular as sequências pelas datas ordenadas; não simplesmente incrementar um contador por chegada de mensagem.
 
 ### App Flutter (`code/mobile`)
 
@@ -55,7 +57,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 - [ ] Um dia conta para a sequência só com **≥1 progresso com ≥1 página lida** (RN-18.1); concluir/iniciar/abandonar não conta.
 - [ ] A sequência usa **data local** do dispositivo (RN-18.2) e incrementa **1×/dia** no máximo (RN-18.3).
-- [ ] A sequência **zera** quando um dia de calendário se encerra sem registro (RF-GAM-03, RN-18.4); sem recuperação retroativa (RN-18.5).
+- [ ] A sequência zera sem registro, mas sincronização offline recompõe os dias e a sequência atual/maior sem duplicação; continua proibida criação manual retroativa (RN-18.5).
 - [ ] **Sequência atual** e **maior alcançada** aparecem corretamente; a maior é preservada quando a atual zera (RF-GAM-02, RN-18.6).
 - [ ] Consumo é idempotente e cobre retentativa/DLQ.
 - [ ] Zeramento derivado usa o último fuso registrado e não cria job próprio.
@@ -78,13 +80,15 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 ## Pendências
 
 - **Depende de** [F-PRG](../periodo-1/feature-F-PRG.md) (`progresso.registrado` **com data local persistida** — RN-18.2), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md), [P0-MSG](../periodo-0/feature-P0-MSG.md).
-- **Decisão do dono:** definir se progresso capturado offline no dia correto e sincronizado após o zeramento recompõe a sequência; não confundir com registro retroativo manual, que é proibido.
+- **Decisão do grupo incorporada em 15/09/2026:** sincronização recompõe a sequência pelas datas capturadas; testar múltiplos dias, mudança de fuso e correção/exclusão do progresso. Nenhuma tabela de sessão remota é necessária.
 - **Alternativa a avaliar, sem mudar o desenho atual:** derivar sequência diretamente das datas locais de progresso e adicionar cache apenas se houver necessidade medida.
 - **Fronteira:** **calendário de dias com progresso** (RF-GAM-04) e **lembrete push** (RF-GAM-05, depende de push/P-04) são Opcionais → **F-GAM-OPC** (Período 3).
 - **Compartilha `leitura`** com as demais features de leitura — sinalizar no grupo (plano §6). A sequência é limpa por [F-CONTA-2](feature-F-CONTA-2.md) na exclusão.
 - Stack de `leitura` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
 ## Timeline
+
+### Revisão 15/09/2026: recomposição offline aprovada, inclusive após zeramento; critérios e modelo temporal ajustados. Implementação permanece não iniciada.
 
 ### Revisão 01/09/2026: `progresso.registrado` aprovado; chegada tardia offline registrada para decisão do dono e derivação direta mantida apenas como alternativa de avaliação.
 

@@ -36,7 +36,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
   - `PUT /resenhas/{id}/reacao` (`curtida | descurtida`) e `DELETE /resenhas/{id}/reacao` — **uma reação por usuário+resenha**, alternável; idempotente (RNF-ERR-04). RF-AVA-05 limita a reação a resenha **de outro**: o servidor rejeita a própria. Rate limiting (SEC-18).
   - **Acesso revalidado no servidor:** para resenha de **livro oficial**, sob **RN-08** (autor público ou privado seguido). Para **livro pessoal**, a escrita recebe `via=feed|lista` e `referenciaId`, valida a via pelas VIEWs de F-FEED/F-LST e reaplica RN-08/RN-15; conhecer resenha/livro não autoriza (SEC-06). Usa os contratos versionados, sem ler tabelas cruas externas.
   - **Contagens separadas (RF-AVA-08):** `curtidas` e `descurtidas` por resenha, expostas a quem tem acesso — **adição compatível** ao contrato `v_resenha_publicacao_v1` e ao endpoint que serve resenhas na página do livro ([F-ACV-BUSCA](../periodo-1/feature-F-ACV-BUSCA.md)) e no perfil, documentada junto do spec.
-  - Publica **`resenha.curtida`** (§7.2, fluxo fechado) somente na transição para curtida, com `destinatarioId` (autor), reator, resenha e chave semântica `(resenhaId, reatorId)`. F-AVA-2 também acrescenta ao consumidor de [F-NOT](../periodo-1/feature-F-NOT.md) o mapeamento que grava a notificação em `social`, com schema, idempotência e DLQ; descurtida não notifica.
+  - Publica **`resenha.curtida`** apenas na primeira curtida do par resenha/reator, com destinatário = autor e chave semântica `(resenhaId, reatorId)`. Retirar/recurtir ou alternar descurtida/curtida não renotifica. A reação retém `primeira_curtida_em` mesmo inativa; contagens ignoram reações inativas. F-AVA-2 entrega o mapeamento consumidor em social, com schema, idempotência e DLQ; descurtida não notifica.
 - **Frases/trechos (RF-AVA-06/07, RN-11):** `POST /livros/{id}/frases` — texto **≤500 caracteres**, **página de referência obrigatória**, **máximo de 10 por usuário+livro** (`422` ao exceder). `GET /livros/{id}/frases?page=` — lista **paginada** (RNF-DES-02). `DELETE /frases/{id}` — exclui a **própria** frase (SEC-02, confirmação — RNF-USA-04). Livro oficial segue o fluxo normal; em livro pessoal, somente o dono cadastra/consulta frases, pois o modo consulta de RN-15 expõe a terceiros apenas metadados, capa, nota e resenha. Frases são removíveis diretamente pela moderação, sem denúncia (RN-11 → [F-MOD](feature-F-MOD.md)). Conteúdo tratado como texto/escape (SEC-14).
 - **Markdown na resenha (RF-AVA-09, RN-13, SEC-15):** a resenha (texto cru de [F-AVA](../periodo-1/feature-F-AVA.md)) passa a aceitar o **subconjunto**: negrito, itálico, tachado, lista ordenada, lista não ordenada e citação em bloco. **Proibidos:** HTML embutido, links, imagens, blocos de código e tabelas. Continua **armazenada como texto cru** (≤5.000 — RN-07), **renderizada no cliente**; nenhum HTML gerado/persistido no servidor. O limite de 5.000 conta sobre o texto cru **incluindo a marcação** (RN-07).
 
@@ -53,6 +53,8 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - Mesmas telas com `ThemeData` de [P0-DS](../periodo-0/feature-P0-DS.md); **mesmo subconjunto Markdown** que a web (RN-13.4), renderizado sem HTML embutido. Alvo de demonstração Android.
 
 ## Critérios de aceite
+
+- [ ] Curtir, retirar e recurtir não gera outra notificação para a mesma resenha/reator, mesmo se a primeira foi suprimida por preferência; contagens consideram somente reações ativas.
 
 - [ ] Reação é **uma por usuário+resenha**, alternável e idempotente (RF-AVA-05, RNF-ERR-04); acesso revalidado sob **RN-08** (oficial) e **RN-15** (pessoal); rate limiting ativo (SEC-18).
 - [ ] O servidor recusa reação à própria resenha; livro pessoal exige via feed/lista válida e referência forjada é negada.
@@ -84,10 +86,12 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Compartilha `leitura` com [F-EST](../periodo-1/feature-F-EST.md)/[F-PRG](../periodo-1/feature-F-PRG.md)/[F-AVA](../periodo-1/feature-F-AVA.md)** e demais features de leitura desta leva — sinalizar no grupo (plano §6).
 - **Denúncia de resenha** e **remoção direta de frase pela moderação** (RN-11) são de **F-MOD** — frase não possui fluxo de denúncia.
 - `resenha.curtida` **já é** fluxo fechado de §7.2 — sem divergência de baseline.
-- **Decisão do dono:** definir se retirar uma curtida e curtir novamente deve gerar nova notificação; a chave semântica deve distinguir reentrega do mesmo fato de uma nova transição legítima.
+- **Decisão do grupo incorporada em 15/09/2026:** recurtir não renotifica. Preservar o marco da primeira curtida e a chave semântica mesmo após retirada da reação; excluir a resenha limpa suas reações. Preferência desabilitada não pode ser contornada por recurtida.
 - Stack de `leitura` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
 ## Timeline
+
+### Revisão 15/09/2026: recurtida sem nova notificação aprovada; DER prevê marco da primeira curtida e reação inativa sem contagem. Implementação não iniciada.
 
 ### Revisão 01/09/2026: semântica de nova curtida após remoção registrada para decisão do dono da feature.
 

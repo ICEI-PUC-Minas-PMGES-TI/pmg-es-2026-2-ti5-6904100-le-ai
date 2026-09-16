@@ -1,0 +1,291 @@
+---
+title: Modelo de dados — leitura
+config:
+  layout: elk
+  theme: neutral
+---
+erDiagram
+  direction LR
+  %% Fonte: REQUISITOS v1.5, arquitetura §3/4 e docs/4.modelagem.md.
+  %% PK/FK/UK; P2/P3 = período. Referências externas sem FK física.
+
+  ESTANTE ||..o{ LEITURA : "histórico"
+  LEITURA ||..o{ ATUALIZACAO_PROGRESSO : "registra"
+  LEITURA ||..o{ LIMIAR_INATIVIDADE : "processa"
+  RESENHA ||..o{ REACAO_RESENHA : "recebe"
+  DESAFIO ||..o{ JANELA_DESAFIO : "períodos"
+  DESAFIO ||..o{ PAUSA_DESAFIO : "pausas"
+  JANELA_DESAFIO ||..o{ CONTRIBUICAO_DESAFIO : "acumula"
+
+  ESTANTE {
+    uuid id PK
+    uuid usuario_id "→ identidade.usuario"
+    uuid livro_id "→ acervo.livro; UK com usuario_id"
+    enum status "estados RN-04 no comentário"
+    int vezes_lido "somente conclusões"
+    timestamp adicionado_em
+    timestamp atualizado_em
+  }
+  LEITURA {
+    uuid id PK
+    uuid estante_id FK
+    uuid usuario_id "→ identidade.usuario"
+    uuid livro_id "→ acervo.livro"
+    enum status "lendo, lido ou abandonado"
+    bool releitura
+    bool incompleta "releitura abandonada"
+    date data_inicio "editável"
+    date data_fim "editável; nullable"
+    timestamp finalizada_em "instante da ação; nullable"
+    string finalizacao_fuso_horario "IANA da ação; nullable"
+    date finalizacao_data_local "dia da ação; nullable"
+    int pagina_atual "máxima registrada; zero se vazio"
+    timestamp ultima_atividade_em
+    int inatividade_versao "ciclo de inatividade"
+    timestamp criado_em
+  }
+  LIMIAR_INATIVIDADE {
+    uuid id PK
+    uuid leitura_id FK
+    int inatividade_versao
+    int limiar_dias "20, 30 ou 40"
+    enum tipo "risco ou expiracao"
+    uuid event_id "nullable"
+    timestamp processado_em
+  }
+  ATUALIZACAO_PROGRESSO {
+    uuid id PK
+    uuid leitura_id FK
+    int ordem "UK com leitura_id; ordem de inserção"
+    int pagina "absoluta; validação RN-17"
+    int paginas_lidas "diferença da página anterior"
+    int minutos "manual ou cronometrado"
+    timestamp registrado_em_dispositivo "captura original imutável"
+    string fuso_horario_dispositivo "IANA"
+    date data_local "derivada da captura"
+    string chave_idempotencia UK
+    timestamp criado_em
+    timestamp atualizado_em "edição só do último"
+  }
+  FAVORITO {
+    uuid id PK "P2; independente da estante"
+    uuid usuario_id "→ identidade.usuario"
+    uuid livro_id "→ acervo.livro; UK com usuario_id"
+    timestamp criado_em
+  }
+  NOTA {
+    uuid id PK
+    uuid usuario_id "→ identidade.usuario"
+    uuid livro_id "→ acervo.livro; UK com usuario_id"
+    decimal valor "0 a 5; passo 0,5"
+    timestamp criado_em
+    timestamp atualizado_em
+  }
+  RESENHA {
+    uuid id PK
+    uuid usuario_id "→ identidade.usuario"
+    uuid livro_id "→ acervo.livro; UK com usuario_id"
+    string texto "Markdown cru até 5000"
+    bool spoiler
+    timestamp criado_em
+    timestamp atualizado_em
+  }
+  REACAO_RESENHA {
+    uuid id PK "P2"
+    uuid resenha_id FK
+    uuid usuario_id "→ identidade.usuario"
+    enum tipo "curtida ou descurtida"
+    bool ativa "retirada não conta na resenha"
+    timestamp primeira_curtida_em "nullable; impede renotificar"
+    timestamp criado_em
+    timestamp atualizado_em
+  }
+  FRASE {
+    uuid id PK "P2"
+    uuid usuario_id "→ identidade.usuario"
+    uuid livro_id "→ acervo.livro"
+    string texto "até 500 caracteres"
+    int pagina "obrigatória"
+    timestamp criado_em
+  }
+  DESAFIO {
+    uuid id PK "P2"
+    uuid usuario_id "→ identidade.usuario"
+    enum unidade "paginas, minutos ou livros"
+    enum janela "diaria, semanal, mensal ou anual"
+    int valor_alvo
+    string fuso_horario "IANA; materialização de períodos"
+    bool pausado
+    timestamp criado_em
+    timestamp atualizado_em
+  }
+  JANELA_DESAFIO {
+    uuid id PK "P2; interface histórica em P3"
+    uuid desafio_id FK
+    date inicio
+    date fim
+    enum unidade "snapshot da unidade"
+    enum periodicidade "snapshot da janela"
+    int valor_alvo "snapshot da meta"
+    string fuso_horario "snapshot IANA"
+    int acumulado "zero em período sem progresso"
+    bool cumprida "corrigível por captura offline"
+    timestamp encerrada_em "nullable na corrente"
+    timestamp recalculada_em
+  }
+  CONTRIBUICAO_DESAFIO {
+    uuid id PK "P2"
+    uuid janela_id FK
+    enum origem_tipo "progresso ou leitura_finalizada"
+    uuid origem_id "referência local polimórfica"
+    int valor
+    timestamp ocorrido_em
+    date data_local
+    timestamp criado_em
+  }
+  PAUSA_DESAFIO {
+    uuid id PK "P2; intervalos retidos para offline"
+    uuid desafio_id FK
+    timestamp inicio_em
+    timestamp fim_em "nullable enquanto pausado"
+  }
+  SEQUENCIA_LEITURA {
+    uuid usuario_id PK "→ identidade.usuario (P2)"
+    int sequencia_atual
+    int maior_sequencia
+    date ultimo_dia
+    string ultimo_fuso_horario "IANA"
+    timestamp ultimo_fuso_registrado_em "captura, não chegada do evento"
+    timestamp atualizado_em
+  }
+  DIA_LEITURA {
+    uuid usuario_id PK "→ identidade.usuario (P2)"
+    date data PK "local; ao menos um progresso"
+  }
+  ESTATISTICA_ANUAL {
+    uuid usuario_id PK "→ identidade.usuario (P2)"
+    int ano PK
+    int livros_concluidos
+    int paginas_lidas
+    int minutos_lidos
+    timestamp recalculado_em
+  }
+  ESTATISTICA_MENSAL {
+    uuid usuario_id PK "→ identidade.usuario (P2)"
+    int ano PK
+    int mes PK "1 a 12"
+    int livros_concluidos
+    int paginas_lidas
+    int minutos_lidos
+    timestamp recalculado_em
+  }
+  ESTATISTICA_USUARIO {
+    uuid usuario_id PK "→ identidade.usuario (P2)"
+    int livros_concluidos
+    int paginas_lidas
+    int minutos_lidos
+    int dias_com_leitura "dias distintos com progresso"
+    int dias_em_livros_concluidos "duração total, inclusive abandono"
+    decimal nota_media "nullable sem notas"
+    timestamp recalculado_em
+  }
+  IDEMPOTENCIA_LEITURA {
+    uuid id PK
+    uuid subject_ref "nullable após anonimizar"
+    string operacao
+    string chave "nullable após anonimizar"
+    string payload_hash "nullable após anonimizar"
+    int status_http
+    json resposta "nullable após anonimizar"
+    timestamp criado_em
+    timestamp replay_ate "validade da resposta, não da linha"
+    timestamp anonimizado_em "nullable; retenção sem prazo"
+  }
+  OUTBOX_LEITURA {
+    uuid event_id PK
+    string tipo
+    int versao
+    string chave_negocio "nullable após anonimizar"
+    uuid correlation_id "nullable após anonimizar"
+    json payload "nullable após publicar e anonimizar"
+    enum status "pendente ou publicado"
+    int tentativas
+    timestamp criado_em
+    timestamp publicado_em "nullable"
+    timestamp anonimizado_em "nullable; retenção sem prazo"
+  }
+
+  %% Subgraphs são agrupamentos visuais, não novas tabelas ou schemas.
+  subgraph ciclo ["Estante e progresso"]
+    direction LR
+    ESTANTE
+    LEITURA
+    ATUALIZACAO_PROGRESSO
+    LIMIAR_INATIVIDADE
+  end
+  subgraph conteudo ["Avaliações e conteúdo"]
+    direction TB
+    FAVORITO
+    NOTA
+    RESENHA
+    REACAO_RESENHA
+    FRASE
+  end
+  subgraph metas ["Desafios e períodos"]
+    direction LR
+    DESAFIO
+    JANELA_DESAFIO
+    CONTRIBUICAO_DESAFIO
+    PAUSA_DESAFIO
+  end
+  subgraph acompanhamento ["Sequência e estatísticas"]
+    direction TB
+    SEQUENCIA_LEITURA
+    DIA_LEITURA
+    ESTATISTICA_ANUAL
+    ESTATISTICA_MENSAL
+    ESTATISTICA_USUARIO
+  end
+  subgraph tecnico ["Registros técnicos"]
+    direction TB
+    IDEMPOTENCIA_LEITURA
+    OUTBOX_LEITURA
+  end
+
+  classDef grupo fill:transparent,stroke:#aaa
+  class ciclo,conteudo,metas,acompanhamento,tecnico grupo
+
+  %% RN-04 ESTANTE.status: quero_ler|lendo|lido|relendo|abandonado.
+  %% UK parcial: uma leitura em andamento por usuário/livro. LEITURA exige
+  %% o mesmo usuário/livro da estante. Lendo: fim/finalização ausentes e não
+  %% incompleta; releitura abandonada: releitura=true, incompleta=true, sem
+  %% incremento de conclusões e não retomável. Transições atômicas com estante.
+  %% RN-05: UK(leitura,inatividade_versao,limiar_dias); risco 20/30, expiração 40.
+  %% RN-17: ordem > 0 e única por leitura, atribuída sob lock. POST exige
+  %% página > atual e <= total; PATCH só do último e página > penúltima (ou 0).
+  %% Captura/data/fuso não são editáveis. DELETE só do último ou do trecho final
+  %% inteiro, com confirmação e lock; não deixar posteriores com base excluída.
+  %% Consumidores leem fato atual: não ressuscitam excluído nem usam payload velho.
+  %% Corrigir progresso recalcula página, contribuições, estatísticas e streak.
+  %% RN-18: offline recompõe dias/sequências; último fuso acompanha captura mais
+  %% recente, não ordem de chegada. Sessão cancelada/sem progresso não cria dia.
+  %% RN-20: conclusão usa finalizacao_data_local, nunca data_fim editável.
+  %% UK janela: (desafio_id,inicio,fim); snapshots congelam configuração, não
+  %% resultados. Materializar períodos decorridos antes de editar, inclusive
+  %% vazios desde a janela de criação. Corrente recalcula com nova configuração.
+  %% UK contribuição: (janela_id,origem_tipo,origem_id). Desafio deriva da janela;
+  %% origem é ATUALIZACAO_PROGRESSO.id ou LEITURA.id do mesmo dono, sem FK dupla.
+  %% Pausa [inicio_em,fim_em) exclui fatos pela ocorrência, não pela sincronização.
+  %% Reter pausas/snapshots desde P2; offline corrige períodos encerrados e vazios.
+  %% Enquanto corrente pausada não avaliar; períodos encerrados sem progresso
+  %% aparecem não cumpridos. Excluir desafio remove janelas/contribuições/pausas.
+  %% RN-06/07: nota/resenha independentes de leitura. UK reação: (resenha,usuario);
+  %% primeira curtida gera evento uma vez; retirada mantém marco mas não conta.
+  %% RN-11: máximo 10 frases por usuário/livro; pessoal somente do próprio dono.
+  %% Médias: páginas / dias com progresso; dias/livro = soma(fim-inicio+1) /
+  %% conclusões, incluindo abandono/releituras; ausência de denominador = ausente.
+  %% Positivos: pagina, paginas_lidas, valor_alvo; minutos e contadores >= 0.
+  %% Expõe v_estante_publica_v1, v_resenha_publicacao_v1 e v_nota_publicacao_v1.
+  %% RN-16: sessão cronometrada e fila offline ficam no dispositivo, sem tabela.
+  %% UK ledger: (subject_ref,operacao,chave). RN-23.7: registros técnicos retidos
+  %% sem prazo após anonimização; dados de domínio da conta são removidos.

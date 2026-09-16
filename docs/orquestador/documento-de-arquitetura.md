@@ -1,9 +1,11 @@
 # Documento de Arquitetura de Software
 
-**Versão:** v1.4 — 12/09/2026
+**Versão:** v1.5 — 15/09/2026
 **Status:** macroarquitetura fechada — alocação de stack por serviço decidida em 02/09/2026 (§2.1)
 
 > **v1.4 (12/09/2026):** ambiente local passa a usar **Postgres local** — **removida a branch de banco por dev no Neon** (o Neon mantém só a branch de DES/HML). Decisão da equipe; reflexo em §6 e no plano §4.
+
+> **v1.5 (15/09/2026):** decisões do grupo registradas em `REQUISITOS.md` v1.5: delta automático do acervo removido, projeções corrigíveis por sincronização offline, retenção de configurações/pausas de desafio, suspensão com ocultação e retenção técnica anonimizada sem prazo. Sem mudança de stacks ou fronteiras dos serviços.
 
 > Este documento descreve **como o sistema é construído**. O *o que* mora em `docs/orquestador/REQUISITOS.md`, que continua sendo a fonte de verdade. Em caso de conflito, o `REQUISITOS.md` vence, e a divergência segue o controle de mudança do `docs/orquestador/plano-de-projeto.md` §3.
 
@@ -62,7 +64,7 @@ O acervo permanece no PostgreSQL — e não em banco de documentos — porque é
 
 **Decisão.** **GitHub Actions com `schedule`** como agendador dos jobs diários. Fallback: **cron-job.org**.
 
-**Justificativa.** Os Cron Jobs do Render são pagos e indisponíveis no free tier. O GitHub Actions já existe no repositório, é versionado e auditável, e o `schedule` cobre bem os três jobs diários — verificação de inatividade de leituras (RN-05, RF-EST-11/12), exclusão definitiva de contas após 30 dias (RN-23) e delta de ingestão —, que o próprio `docs/orquestador/REQUISITOS.md` descreve como tolerantes a imprecisão de horário. O job dispara uma chamada autenticada ao serviço responsável.
+**Justificativa.** Os Cron Jobs do Render são pagos e indisponíveis no free tier. O GitHub Actions já existe no repositório, é versionado e auditável, e o `schedule` cobre os jobs diários de verificação de inatividade de leituras (RN-05, RF-EST-11/12) e exclusão definitiva de contas após 30 dias (RN-23), tolerantes a imprecisão de horário. O job dispara uma chamada autenticada ao serviço responsável. O delta automático do acervo foi retirado do escopo nesta revisão; carga inicial e recarga manual continuam como script.
 
 **Consequências aceitas / riscos.**
 
@@ -158,6 +160,10 @@ Sem essa regra, o schema por serviço degenera em banco compartilhado e a divis�
 - Acesso sempre por consultas parametrizadas ou ORM (RNF-SEC-12).
 - Cada schema produtor mantém uma **outbox transacional**. A alteração de domínio e o evento são gravados na mesma transação; um dispatcher publica com confirmação do broker e retry, fechando RNF-ERR-10 sem transformar falha de publicação em falha da operação síncrona.
 
+**Decisões de dados incorporadas em 15/09/2026:** `leitura` persiste instante/fuso/data local da ação de finalizar separadamente da data de fim editável. Janelas de desafio guardam configuração histórica e pausas são retidas para recálculo por captura offline. Edição/exclusão de progresso seguem RN-17 e recalculam efeitos no próprio serviço, sem novo serviço ou evento de broker apenas para comunicação interna. Eventos de progresso acionam leitura do estado atual do fato, evitando reaplicar payload anterior à sua correção/exclusão. Retenção de registros técnicos/auditoria é indeterminada após anonimização de RN-23; validade de tokens e replay HTTP não são estendidos.
+
+**Visibilidade e recomendação:** contratos de identidade permitem revalidar suspensão, exclusão pendente e opt-out. Serviços ocultam conteúdo de conta suspensa em toda superfície, inclusive snapshots e notificações; a consulta administrativa autorizada ocorre pelo serviço dono, sem expor dados suspensos nas VIEWs públicas. Reativação restaura a visibilidade sob RN-08. O opt-out afeta apenas o uso das leituras como sinal para outras pessoas.
+
 ### 4.4 Firebase
 
 Fora do PostgreSQL, o sistema usa o **Firebase apenas para FCM** (§2.7). Nenhuma entidade de domínio é persistida no Firestore ou em qualquer outro produto Firebase.
@@ -195,7 +201,7 @@ Filas duráveis, *publisher confirms* e DLQ protegem mensagens já recebidas pel
 
 ### 5.3 Resiliência
 
-Timeout e retentativa com backoff em toda chamada externa, com circuit breaker (RNF-ERR-03/08); fila offline no cliente móvel para registros de progresso (RNF-ERR-05); tratamento explícito da hibernação do Render, com estado de carregamento prolongado na primeira chamada (RNF-ERR-09).
+Timeout e retentativa com backoff em toda chamada externa, com circuit breaker (RNF-ERR-03/08); fila offline no cliente móvel para registros de progresso (RNF-ERR-05), preservando a captura original para recompor desafios e streak, inclusive períodos encerrados; tratamento explícito da hibernação do Render, com estado de carregamento prolongado na primeira chamada (RNF-ERR-09).
 
 ---
 

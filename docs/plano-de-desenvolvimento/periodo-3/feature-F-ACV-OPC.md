@@ -29,7 +29,7 @@ RNF atendidos: **RNF-SEC-33** (dado externo validado e normalizado antes de pers
 
 ### Script de carga — recarga manual (RF-ACV-14, RN-12, RN-21, §10.1)
 
-A recarga é o **mesmo script utilitário** de [F-ACV-INGESTAO](../periodo-1/feature-F-ACV-INGESTAO.md), executado em modo `recarga`. Não é endpoint, não é serviço e não é o job diário de delta (ver Pendências).
+A recarga é o **mesmo script utilitário** de [F-ACV-INGESTAO](../periodo-1/feature-F-ACV-INGESTAO.md), executado manualmente em modo `recarga`. Não é endpoint nem serviço; atualização automática está fora do escopo.
 
 - **Registro da execução:** cada rodada grava uma linha em `ingestao_execucao` com `tipo=recarga`, status e os totais de processados, descartados e inseridos, para que a recarga seja auditável e comparável à carga inicial.
 - **Idempotência (RNF-ARQ-05):** upsert por **ISBN-13** e por **`ol_edition_key`** (RN-02). Reexecutar a mesma amostra **não duplica** livro, autor, editora, série nem assunto; a normalização e a tabela de sinônimos de editoras são as mesmas de RN-12, para que a recarga não crie variantes que a carga inicial já unificou.
@@ -96,11 +96,13 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 ## Pendências
 
 - **Depende de** [F-ACV-INGESTAO](../periodo-1/feature-F-ACV-INGESTAO.md) (script, tabelas, conjunto curado, tabelas de mapeamento e de sinônimos), [F-ACV-CADASTRO](../periodo-1/feature-F-ACV-CADASTRO.md) (endpoints de livro pessoal), [F-ACV-BUSCA](../periodo-1/feature-F-ACV-BUSCA.md) (exibição na página do livro), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md). Não depende de mensageria.
-- **Delta diário de ingestão continua sem feature:** consta em `REQUISITOS.md` §10.2 e na arquitetura §2.4, mas não está alocado em nenhum período. Conforme [F-ACV-INGESTAO](../periodo-1/feature-F-ACV-INGESTAO.md), **não presumir que F-ACV-OPC o cobre** — esta feature trata recarga **manual**. Registrar para decisão e alocação pelo grupo.
+- **Decisão encerrada em 15/09/2026:** atualização automática removida; esta feature mantém somente a recarga manual já planejada.
 - **Assuntos de livro pessoal na recomendação algorítmica:** [F-REC-ALG](feature-F-REC-ALG.md) exclui livro pessoal de terceiros (RF-REC-10); resta ao grupo decidir se os assuntos do livro pessoal **do próprio leitor** contam como sinal de gosto na seção "Do seu gosto". Não decidir aqui.
 - **Compartilha `acervo`** com as demais features de acervo — sinalizar no grupo antes de mexer (plano §6).
 - Stack de `acervo` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
 ## Timeline
+
+### Revisão 15/09/2026: delta removido pelo grupo; recarga manual preservada. Planejamento atualizado; implementação não iniciada.
 
 ### Criação 01/09/2026: arquivo criado a partir do escopo de F-ACV-OPC no [periodo-3/README.md](README.md), de RF-ACV-14/22 do [`REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.2 e das RN-03/RN-12/RN-14/RN-19/RN-21. Recarga fixada como modo do script existente, com regra explícita de preservação do dado local; assuntos em livro pessoal fixados como extensão dos endpoints de F-ACV-CADASTRO, restritos ao conjunto curado e fora dos índices públicos. O delta diário de ingestão foi mantido como pendência separada, sem ser absorvido por esta feature.

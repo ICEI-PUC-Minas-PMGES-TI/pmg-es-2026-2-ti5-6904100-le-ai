@@ -1,7 +1,7 @@
 # F-REC-ALG — Recomendação algorítmica + descarte em lote
 
 **Período:** 3 · **Prioridade:** opcional
-**Dono:** a definir · **Serviços afetados:** `social` (backend) + `acervo` (VIEW de contrato) + web + mobile
+**Dono:** a definir · **Serviços afetados:** `social` (backend) + `acervo` (VIEW) + `identidade` (opt-out) + web + mobile
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.13 (RF-REC-08..12, 17), RN-08, RN-15, RN-21, RN-22.12/13, §10.7, §10.8. Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §2.2, §3.2 (ajuste 3), §4.2. Processo e template: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §9. Regras compartilhadas do projeto: [`../periodo-1/README.md#regras-de-implementação-compartilhadas`](../periodo-1/README.md#regras-de-implementação-compartilhadas). Em caso de conflito, o `REQUISITOS.md` ganha; protótipo é referência visual, não spec de pixel (plano §7).
 
@@ -51,9 +51,11 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **`POST /recomendacoes/sugestoes/{livroId}/descartar`** (RF-REC-12) — grava `sugestao_descartada` com **unicidade por `(usuario, livro)`**, tornando a operação naturalmente idempotente; o livro **não reaparece** em nenhuma das duas seções. Exclusivo do próprio leitor (SEC-02); repetir o descarte não é erro.
 - **`POST /recomendacoes/descartar-lote`** (RF-REC-17, RN-22.12) — **descarte em lote das recomendações P2P** de um livro: recebe `livroId` e remove **todas as recomendações daquele livro recebidas pelo autenticado**, convergindo para a mesma operação de remoção de [F-REC-P2P](../periodo-2/feature-F-REC-P2P.md) (§10.8: as quatro vias de remoção são a mesma operação). Restrito ao **destinatário** (SEC-02), **sem** avisar os remetentes (RN-22.11), **sem** restauração (RN-22.14) e idempotente (lote já vazio responde sucesso).
 
-**Gatilho e supressão da pergunta de lote (RN-22.12/13) — regra de fronteira cliente/servidor.** A pergunta *"Deseja remover todas as recomendações atuais do livro X?"* é oferecida ao **terceiro descarte individual** de recomendações do **mesmo livro**, havendo outras pendentes daquele livro. O servidor apenas informa, na resposta do descarte individual, quantas recomendações **daquele livro** restam ativas; **a decisão de perguntar e a supressão da pergunta são estado local do cliente** (RN-22.13, §10.8): recusada, a pergunta não volta para aquele livro **durante a sessão corrente do aplicativo**, e volta a ser elegível ao reabrir. O servidor **não** persiste essa supressão — comportamento deliberado, não simplificação.
+**Gatilho e supressão (RN-22.12/13):** a pergunta é oferecida ao terceiro descarte individual do mesmo livro **na sessão corrente**, havendo recomendações restantes. O servidor informa quantas restam; contador e supressão vivem apenas no cliente. Fechar/reabrir zera ambos: são necessários três novos descartes para voltar a perguntar. Reenvio da mesma operação não incrementa o contador duas vezes.
 
 **Privacidade (RN-08, §10.7).** O sinal social considera **apenas leitores que o usuário segue com solicitação aceita**, o que satisfaz RN-08 por construção. A contagem exibida no motivo exige a mesma verificação, e **identificar quem leu** está sujeito a RN-08 — perfil privado não é exposto por atribuição de sugestão. A verificação ocorre no servidor, a cada consulta, e não em estado copiado.
+
+**Opt-out aprovado:** `identidade` persiste `opt_out_recomendacao`; esta feature estende GET/PUT do próprio perfil e configurações web/mobile. O contrato de perfil expõe o campo para social excluir essas leituras de sinal, contagem e atribuição das sugestões alheias. Suspensão/exclusão pendente também excluem o sinal. Opt-out não altera a visibilidade normal do perfil nem as sugestões recebidas pelo próprio leitor.
 
 **Contrato novo a fechar nesta feature:** **`v_livro_recomendacao_v1`**, exposta e mantida por **`acervo`** (§4.2), com **livro oficial** (id, título, autor de exibição, capa resolvida, estado ativo), **série** e **assuntos normalizados** (RN-21). É a única via pela qual `social` alcança os atributos de catálogo necessários à seção "Do seu gosto"; o DER e `docs/4.modelagem.md` §4.2 já a preveem para o Período 3 e mandam **fechar o contrato aqui, antes da migration**. A view **não** expõe livro pessoal.
 
@@ -83,7 +85,8 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [ ] O sinal social usa **somente seguimento aceito**; perfil privado não é exposto pela atribuição (RN-08, SEC-03).
 - [ ] `v_livro_recomendacao_v1` existe, é exposta por `acervo`, **não** inclui livro pessoal e não expõe campo desnecessário (§4.2).
 - [ ] O **descarte em lote** remove todas as recomendações P2P daquele livro recebidas pelo autenticado, sem avisar remetentes e sem restauração (RF-REC-17, RN-22.11/12/14).
-- [ ] A pergunta de lote é oferecida ao **terceiro** descarte do mesmo livro; recusada, **não volta na sessão** e **volta** após reabrir o aplicativo (RN-22.12/13); o servidor não guarda essa supressão.
+- [ ] A pergunta ocorre ao terceiro descarte do mesmo livro na sessão; recusada, não volta nela; reabrir zera contagem/supressão e exige três novos descartes. Nada disso é persistido no servidor.
+- [ ] Opt-out é configurável pelo dono em web/mobile e exclui suas leituras do sinal e da atribuição nas sugestões alheias, sem ocultar o perfil.
 - [ ] A aba continua funcionando com a seção algorítmica vazia (RF-REC-14).
 - [ ] Sugestões e descarte em lote funcionam **em DES**.
 
@@ -108,7 +111,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **A "aba Recomendações" é seção da aba `Descobrir`.** Espelha a pendência de [F-REC-P2P](../periodo-2/feature-F-REC-P2P.md), decidida em 01/09/2026: a barra de navegação tem quatro itens e a recomendação vive dentro de `Descobrir`. Esta feature preenche a **subseção algorítmica** dessa seção, não uma área nova.
 - **Depende de** [F-REC-P2P](../periodo-2/feature-F-REC-P2P.md) (aba, tabela de recomendação, operação de remoção), [F-PERFIL](../periodo-1/feature-F-PERFIL.md) (`v_seguimento_aceito_v1`, RN-08), [F-EST](../periodo-1/feature-F-EST.md) (`v_estante_publica_v1`), [F-AVA](../periodo-1/feature-F-AVA.md) (`v_nota_publicacao_v1`), [F-ACV-INGESTAO](../periodo-1/feature-F-ACV-INGESTAO.md)/[F-ACV-DESCOBERTA](../periodo-2/feature-F-ACV-DESCOBERTA.md) (assuntos, autor e série normalizados), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md).
 - **Divergência de baseline — novo contrato entre schemas:** `v_livro_recomendacao_v1` está prevista no DER e em `docs/4.modelagem.md` §4.2 como item do Período 3, mas seu conteúdo ainda não foi acordado com o dono (`acervo`). Fechar pelo controle de mudança do plano §3 antes de migrar.
-- **Pendência aberta — opt-out de recomendações:** `REQUISITOS.md` §10.7 deixa em aberto se o leitor pode optar por não ter suas leituras usadas nas recomendações de outros (recomendação registrada lá: sim, como chave no perfil). O DER marca `usuario.opt_out_recomendacao` como `PENDENTE`, com instrução de **não migrar antes da decisão**. Esta feature **não decide**: consome o sinal social sem o filtro até que o grupo resolva, e registra que o filtro entra como um `AND` na primeira seção quando a decisão sair.
+- **Decisão encerrada em 15/09/2026:** opt-out aprovado; esta feature entrega campo/configuração em identidade e filtro em social. Atualizar também `docs/api/identidade.yaml` ao implementar o contrato.
 - **Qualidade depende de RN-21:** sem a normalização de assuntos, a seção "Do seu gosto" degenera em "mais livros do mesmo autor" (§10.7). O conjunto curado e a tabela de mapeamento são entregáveis de [F-ACV-INGESTAO](../periodo-1/feature-F-ACV-INGESTAO.md).
 - **Assunto de livro pessoal como sinal de gosto:** [F-ACV-OPC](feature-F-ACV-OPC.md) permite assuntos em livro pessoal; se contam como sinal na estante **do próprio leitor** é decisão do grupo. Livro pessoal de terceiro continua excluído por RF-REC-10.
 - **Desempenho:** as duas consultas são as mais pesadas de `social` e correm sobre um plano gratuito que hiberna (RNF-ERR-09). Limite fixo por seção e os índices de RNF-DES-03 são a mitigação; medir em DES antes do congelamento de 17/11.
@@ -116,5 +119,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - Stack definida (arquitetura §2.1): `social` em Spring, `acervo` em NestJS.
 
 ## Timeline
+
+### Revisão 15/09/2026: grupo aprovou opt-out e zeramento de contagem/supressão de descartes ao reabrir. Modelo e critérios atualizados; implementação não iniciada.
 
 ### Criação 01/09/2026: arquivo criado a partir do escopo de F-REC-ALG no [periodo-3/README.md](README.md), de RF-REC-08..12/17 do [`REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.13, das decisões registradas em §10.7/§10.8 e das RN-08/RN-15/RN-21/RN-22.12/13. Cálculo em tempo de consulta e ausência de estrutura derivada reafirmados; `v_livro_recomendacao_v1` registrada como contrato a fechar com `acervo`; descarte em lote fixado como quarta via da mesma operação de remoção de F-REC-P2P, com a supressão da pergunta explicitamente local ao cliente; opt-out de §10.7 mantido como pendência, sem antecipar a decisão do grupo.

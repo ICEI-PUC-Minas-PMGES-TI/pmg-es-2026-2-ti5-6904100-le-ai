@@ -85,11 +85,13 @@ Modelo mínimo do catálogo oficial (schema `acervo`, migration revisada por hum
 - **Depende de** [P0-INFRA](../periodo-0/feature-P0-INFRA.md) (schema `acervo`, ferramenta de migration) e [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md) (branch Neon de DES). Não depende de mensageria.
 - **Conjunto curado de assuntos (~30)** e as **tabelas de mapeamento/sinônimos** precisam ser definidos pelo grupo — bloqueiam a qualidade da normalização, não o começo do script.
 - **Recarga manual do dump** (RF-ACV-14) fica fora e está alocada a **F-ACV-OPC** (Período 3).
-- **Delta diário de ingestão:** consta no `REQUISITOS.md` §10.2 e na arquitetura §2.4, mas não possui feature no mapa dos períodos 2/3. Registrar para decisão e alocação pelo grupo; não presumir que F-ACV-OPC o cobre, pois ela trata recarga manual.
+- **Decisão encerrada em 15/09/2026:** delta/atualização automática removido do escopo. Permanecem carga inicial e recarga manual em F-ACV-OPC; `ingestao_execucao.tipo` não possui delta.
 - **Importação de nota geral** (RF-ACV-15) é **F-ACV-NOTA** (Período 2).
 - Linguagem do script (Python recomendado) e ambiente de execução (rodar localmente / job) a fixar no arranque.
 
 ## Timeline
+
+### Revisão 15/09/2026: grupo removeu delta automático; DER e fronteira de ingestão atualizados, sem novo job. Implementação não iniciada.
 
 ### Revisão 01/09/2026: `ol_work_key` incorporado como identificador externo não único para associar ratings por obra às edições, sem criar entidade Obra.
 

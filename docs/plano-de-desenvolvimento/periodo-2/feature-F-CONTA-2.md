@@ -41,13 +41,13 @@ A exclusão definitiva atravessa os quatro schemas, e **nenhum serviço lê/escr
 
 | Serviço | Dados do usuário | Ação |
 |---|---|---|
-| `leitura` | estante/favoritos, leituras, progresso, notas, resenhas, reações, frases, desafios, estatísticas, streak, idempotência e outbox publicada | remover definitivamente |
-| `social` | atividades, comentários/respostas, curtidas, notificações, listas, recomendações, denúncias, idempotência e snapshots | remover definitivamente; auditoria só permanece sem identificação pessoal |
-| `acervo` | livros pessoais/capas, `nota_leitor_projecao`, importações solicitadas, idempotência e outbox publicada | remover definitivamente; livro oficial não é afetado |
+| `leitura` | estante/favoritos, leituras, progresso, notas, resenhas, reações, frases, desafios, estatísticas e streak | remover definitivamente; anonimizar ledgers/outbox para retenção técnica |
+| `social` | atividades, comentários/respostas, curtidas, notificações, listas, recomendações, denúncias e snapshots | remover definitivamente; reter auditoria/ledgers/outbox somente anonimizados |
+| `acervo` | livros pessoais/capas, `nota_leitor_projecao` e importações solicitadas | remover definitivamente; anonimizar ledgers/outbox; livro oficial não é afetado |
 
 Cada consumidor é **idempotente** (RNF-ERR-06) e com **DLQ** (RNF-ERR-07); a mensagem é validada por schema (SEC-32). Payload versionado com `usuarioId`, `eventId`, `occurredAt`, `correlationId` e chave de negócio `usuarioId`.
 
-Ledgers e outboxes só permanecem pelo prazo técnico necessário e sem payload/resposta que identifique o leitor. A matriz final por tabela é item obrigatório antes das migrations.
+**Retenção aprovada, incorporada em 15/09/2026:** recibos, ledgers, outboxes e auditoria técnica permanecem por prazo indeterminado **após anonimização**. A limpeza remove referências pessoais, chaves/payloads/respostas/hashes correlacionáveis e texto livre identificável; UUID opaco não basta. Dados de domínio, denúncias e conteúdo da conta continuam sendo removidos após os 30 dias. Expiração de tokens e prazo operacional de replay não mudam: `replay_ate` limita reutilização da resposta, não a retenção do registro anônimo. Outbox pendente é tratada sem perder o evento de limpeza nem republicar conteúdo excluído; publicar/confirmar a limpeza e então anonimizar seu envelope. A matriz final por tabela é item obrigatório antes das migrations.
 
 ### Frontend Web (`code/front`)
 
@@ -81,7 +81,7 @@ Ledgers e outboxes só permanecem pelo prazo técnico necessário e sem payload/
 - [ ] Arquivo da feature atualizado: status, pendências, timeline
 - [ ] Divergência protótipo × implementação registrada, se houver
 
-**Item próprio:** documentar exatamente o que é removido por tabela e a retenção técnica de recibos, ledgers e outbox, sem armazenamento histórico de PII.
+**Item próprio:** documentar a matriz de remoção/anonimização, incluindo `anonimizado_em`, FKs opcionais de auditoria e saneamento de eventos pendentes; testar retenção indeterminada sem PII nem conteúdo da conta.
 
 ## Pendências
 
@@ -92,6 +92,8 @@ Ledgers e outboxes só permanecem pelo prazo técnico necessário e sem payload/
 - Stack de cada serviço definida (arquitetura §2.1): `identidade`/`social` em Spring, `acervo`/`leitura` em NestJS.
 
 ## Timeline
+
+### Revisão 15/09/2026: grupo aprovou retenção técnica/auditoria sem prazo, exclusivamente anonimizada; mantidos os 30 dias e a remoção de conteúdo/dados pessoais. DER e critérios de limpeza ajustados; implementação não iniciada.
 
 ### Revisão 01/09/2026: janela de recuperação fixada em 30 dias, login restrito e cancelamento definidos; remoção passou a ocorrer somente após o prazo, por job + `conta.excluida` em outbox, com limpeza física nos quatro schemas.
 

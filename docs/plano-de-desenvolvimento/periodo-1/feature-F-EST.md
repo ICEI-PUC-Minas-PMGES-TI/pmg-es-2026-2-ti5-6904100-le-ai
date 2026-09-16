@@ -70,7 +70,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - `leitura.iniciada`, `leitura.retomada`, `leitura.finalizada` e `leitura.abandonada` para [F-FEED](feature-F-FEED.md). O payload versionado contém autor e snapshot mínimo de usuário/livro obtido de `v_perfil_referencia_v1` e `v_livro_referencia_v1`, além de leitura/livro, tipo e chave do fato. O critério de F-EST termina na publicação; criar a atividade é critério de F-FEED.
 - `livro.adicionado_a_estante` → o consumidor de cache pertence a **F-ACV-NOTA** (Período 2, RF-ACV-17). F-ACV-NOTA deve fazer backfill dos livros já presentes em estantes antes de consumir eventos novos; o Período 1 não presume retenção histórica no broker.
 - `leitura.em_risco` / `leitura.expirada` (do job) → consumidos por [F-NOT](feature-F-NOT.md).
-- `leitura.finalizada` também alimenta desafios e estatísticas no próprio serviço `leitura`.
+- `leitura.finalizada` também alimenta desafios e estatísticas no próprio serviço `leitura`. Persiste `finalizada_em`, `finalizacao_fuso_horario` e `finalizacao_data_local`, independentes de `data_fim` editável: desafios de livros usam o dia da ação, inclusive em backfill; histórico por ano e dias/livro continuam usando as datas informadas. O envelope publica esses campos temporais.
 
 **VIEW exposta por `leitura`** (arquitetura §4.2): `v_estante_publica_v1` (usuário, livro, status, nº de conclusões), com nome distinto da tabela `estante`. F-ACV-NOTA usa a VIEW para backfill dos livros que já entraram em estantes antes do cache, e a recomendação a usa futuramente. A composição do perfil usa o endpoint autorizado de `leitura`, não a VIEW diretamente.
 
@@ -87,6 +87,8 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - Mesmas telas com `ThemeData` de [P0-DS](../periodo-0/feature-P0-DS.md); alvo de demonstração Android. É no mobile que a notificação de leitura em risco ganha a ação de abandonar ([F-NOT](feature-F-NOT.md), RF-NOT-04).
 
 ## Critérios de aceite
+
+- [ ] Finalizar hoje com data de fim anterior conta no desafio de hoje; evento e backfill chegam à mesma janela pela data local persistida da ação, sem alterar a data editável do histórico.
 
 - [ ] Todas as transições de **RN-04** funcionam com os efeitos corretos (nº de vezes lido só em finalização; releitura abandonada vira Lido incompleto **não retomável**; abandono de 1ª leitura é retomável).
 - [ ] **Uma única leitura em andamento** por usuário+livro é garantida sob concorrência (RNF-ARQ-05).
@@ -133,6 +135,8 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Componentes que nascem no protótipo e ainda não estão na fonte:** a **contagem dentro do pill de filtro** e o **controle de ordenação** (`estante.md`, RF-EST-02 exige ordenação e o design §5.1 não desenha o controle), e a **lista de ações do sheet** com ação neutra, principal e destrutiva (`acoes-de-leitura.md`; o §5.4 desenha o sheet de progresso, que é formulário, não menu de transições). Incorporar ao `documento-de-design.md` pelo controle de mudança do plano §3.
 
 ## Timeline
+
+### Revisão 15/09/2026: grupo definiu a data da ação de finalizar como referência para desafios; metadados temporais persistidos e critério de backfill incorporados. Implementação não iniciada.
 
 ### Revisão 01/09/2026: eventos `leitura.*` aprovados; `leitura.finalizada` passou a alimentar feed, desafios e estatísticas pela outbox transacional.
 

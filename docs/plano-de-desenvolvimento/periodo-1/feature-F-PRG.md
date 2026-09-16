@@ -11,7 +11,7 @@ Entregar o **registro manual de progresso** — o "acompanhar progresso" do cicl
 
 - **RF-PRG-01** registrar uma atualização informando **em qual página parou** e **quanto tempo gastou**;
 - **RF-PRG-02** calcular e exibir a **página atual** e o **percentual concluído**, derivados;
-- **RF-PRG-03** visualizar e **excluir** atualizações de uma leitura em andamento, **recalculando** a página atual;
+- **RF-PRG-03** visualizar atualizações, **editar somente a última** e excluir um registro somente com todos os posteriores, **recalculando** a página e os efeitos derivados;
 - **RF-PRG-04** **rejeitar** atualização cuja página seja **≤ página atual** ou **> total de páginas** do livro.
 
 O registro sempre usa **a página em que o leitor parou** (valor absoluto e monotônico — RN-17); páginas lidas e percentual são sempre **derivados**, nunca informados. Cada registro **zera o contador de inatividade** da leitura (RN-05), interligando com [F-EST](feature-F-EST.md).
@@ -23,7 +23,7 @@ RNF atendidos: **RNF-ERR-04** (chave de idempotência na escrita — retentativa
 | Camada | Status | Observação |
 |---|---|---|
 | Infra | não iniciado | tabela `atualizacao_progresso` no schema `leitura` |
-| Backend | não iniciado | `leitura`: registrar/listar/excluir progresso + cálculo derivado |
+| Backend | não iniciado | `leitura`: registrar/listar, editar último e excluir trecho final; planejamento atualizado em 15/09/2026 |
 | Web | não iniciado | registrar progresso + barra de página atual/percentual |
 | Mobile | não iniciado | mesmas telas + **fila offline** (RNF-ERR-05) |
 
@@ -37,7 +37,9 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - Na mesma transação, grava `progresso.registrado` na outbox com atualização, páginas derivadas, minutos, instante e data/fuso locais. F-DSF, F-STA e F-GAM consomem o contrato aprovado; eventos anteriores ao início dos consumidores são cobertos por backfill.
 - Registros concorrentes da mesma leitura são serializados por lock/controle otimista sobre a leitura. Página anterior e páginas lidas são calculadas dentro da mesma transação; a segunda escrita revalida contra a página já confirmada, evitando duas atualizações derivadas da mesma base (RNF-ARQ-05).
 - **`GET /leituras/{id}/progresso?page=`** (RF-PRG-02 e RF-PRG-03) — lista paginada, ordenada e com limite máximo imposto pelo servidor (RNF-DES-02). Cada resposta inclui metadados de resumo independentes da página: `paginaAtual`, `totalPaginas` e `percentualConcluido`.
-- **`DELETE /progresso/{id}`** (RF-PRG-03, RN-17.4) — exclui uma atualização de leitura em andamento, **recalcula a página atual** a partir das restantes e retorna o resumo derivado atualizado. É **Essencial** justamente porque, com entrada absoluta e monotônica, um valor digitado alto demais bloqueia os registros seguintes (RN-17.4). Exige confirmação explícita no cliente (RNF-USA-04).
+- **`PATCH /progresso/{id}`** (RF-PRG-03, RN-17.4) — edita página/tempo **somente do último registro** da leitura em andamento. Revalida a ordem sob lock; usa a página do penúltimo (zero se ausente) como base e exige página corrigida maior que essa base e não superior ao total. Preserva instante/fuso/data local originais; grava `atualizado_em` e recalcula os efeitos do mesmo fato.
+- **`DELETE /progresso/{id}`** (RF-PRG-03, RN-17.6) — exclui o último registro; um intermediário só é removível junto com todos os posteriores. O contrato exige confirmação explícita do trecho final selecionado e remove esse conjunto atomicamente, ou recusa com conflito se houver posteriores não incluídos. Revalida a ordem sob o mesmo lock; retorna o resumo recalculado (página zero sem registros). A confirmação informa o alcance da remoção (RNF-USA-04). PATCH e DELETE aceitam `Idempotency-Key`.
+- **Efeitos de correção:** edição/exclusão recalculam contribuições, estatísticas e dias/sequências locais. O consumidor de `progresso.registrado` consulta o estado atual pelo id do fato e não ressuscita registros excluídos nem aplica valores antigos. A ordem usa uma posição sequencial por leitura, única e atribuída sob lock; timestamps de edição não determinam o último registro.
 
 **Valores derivados (RN-17), calculados pelo sistema e só exibidos:**
 - **Páginas lidas** de uma atualização = `página informada − página atual anterior` (RN-17.1).
@@ -47,6 +49,8 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 **Modelo de dados** (schema `leitura`): `atualizacao_progresso` (leitura, página informada, tempo gasto, instante/fuso informados automaticamente pelo dispositivo, data local derivada — para streak futuro, RN-18.2 —, chave de idempotência, timestamps).
 
 ### Frontend Web (`code/front`)
+
+- Edição disponível apenas no último registro; exclusão de intermediário informa e confirma todos os posteriores. A mesma regra vale no Flutter e no servidor. Histórico de leituras finalizadas continua somente leitura.
 
 - **Registrar progresso** (página + tempo) na leitura em andamento; exibir **página atual** e **percentual** (barra de progresso), lista paginada e **excluir com confirmação** e recálculo. Validação no cliente **reforça** a do servidor (RF-PRG-04). Só tokens de [P0-DS](../periodo-0/feature-P0-DS.md) (componente de progresso). Cliente HTTP usa timeout/backoff apenas em operações idempotentes e preserva a chave em reenvio.
 
@@ -59,7 +63,8 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [ ] Registrar progresso grava página + tempo e **recusa** página ≤ atual ou > total (RF-PRG-04, RN-17.2) com mensagem clara.
 - [ ] **Página atual** e **percentual** são derivados corretamente (RN-17) e exibidos; o leitor nunca informa páginas lidas nem percentual.
 - [ ] POST, DELETE e a listagem expõem resumo coerente (`paginaAtual`, `totalPaginas`, `percentualConcluido`), inclusive em nova sessão e após recálculo.
-- [ ] Excluir uma atualização **recalcula** a página atual a partir das restantes (RF-PRG-03, RN-17.4).
+- [ ] Só o último progresso pode ser editado; página/tempo corrigidos preservam a captura original e recalculam os efeitos. Edição de intermediário é recusada sob concorrência.
+- [ ] Excluir intermediário exige excluir todos os posteriores, com confirmação do alcance e transação atômica; sem registros, a página atual é zero (RF-PRG-03, RN-17.6).
 - [ ] A lista de atualizações é paginada com teto server-side; exclusão exige confirmação (RNF-DES-02, RNF-USA-04).
 - [ ] Reenvio com a **mesma chave de idempotência** não cria registro duplicado (RNF-ERR-04).
 - [ ] Escritas concorrentes da mesma leitura não derivam da mesma página anterior; fila offline reenvia FIFO por leitura (RNF-ARQ-05, RNF-ERR-05).
@@ -87,7 +92,8 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 - **Depende de** [F-EST](feature-F-EST.md) (leitura em andamento e máquina de estados; compartilham o serviço `leitura` — sinalizar no grupo antes de mexer, plano §6), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md).
 - **Sessão de leitura cronometrada** (RF-PRG-05..12, RN-16) fica **fora** — é **F-SESSAO** (Período 2). A entrada de página desta feature é a mesma que a sessão usará ao encerrar; manter o contrato compatível.
-- **Decisão da feature:** definir como progresso offline, capturado no dia correto e sincronizado depois, afeta streak e janelas já encerradas; distinguir esse caso de registro retroativo, que continua proibido por RN-18.
+- **Decisão do grupo incorporada em 15/09/2026:** progresso offline recompõe desafios e sequência pela data de captura, inclusive janelas encerradas. Registro manual retroativo continua proibido. Testar captura anterior a pausa/edição de desafio, sincronização tardia, edição do último e exclusão do trecho final, incluindo eventos entregues depois da correção.
+- **Impacto visual pendente:** os prompts/protótipos de `registrar-progresso.md` e `atualizacoes-de-progresso.md` precisam refletir a edição do último e a confirmação do trecho final. Até essa atualização, a implementação segue RN-17 v1.5; não reproduzir a exclusão isolada de intermediários do protótipo antigo.
 - Persistir a **data local** da atualização (RN-18.2) desde já, para a sequência diária (Período 2) não exigir retrabalho.
 - Stack de `leitura` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
@@ -96,6 +102,8 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **A confirmação de exclusão de atualização informa o resultado do recálculo**, não uma frase genérica sobre irreversibilidade, porque é esse número que o leitor precisa para decidir (RN-17.4). Fixado na seção 8 de `atualizacoes-de-progresso.md`.
 
 ## Timeline
+
+### Revisão 15/09/2026: decisões do grupo incorporadas à especificação — edição só do último, exclusão de intermediário com posteriores, ordem explícita e recomposição offline. DER atualizado; implementação e atualização dos protótipos permanecem pendentes.
 
 ### Revisão 01/09/2026: `progresso.registrado` aprovado e ligado à outbox; chegada tardia da fila offline registrada para decisão do dono da feature.
 

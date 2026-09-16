@@ -1,8 +1,8 @@
 # REQUISITOS
 
-**Versão:** v1.4 — 02/09/2026
+**Versão:** v1.5 — 15/09/2026
 **Baseline:** fechada em 25/08/2026
-**Status:** baseline fechada — permanece explícita a decisão de opt-out de recomendações (alocação de stack por serviço decidida em 02/09/2026 — ver Documento de Arquitetura §2.1)
+**Status:** baseline fechada — decisões de dados aprovadas pelo grupo incorporadas em 15/09/2026 (ver Timeline)
 
 Este documento é a **fonte de verdade** do projeto. Toda decisão de produto, modelo de dados e regra de negócio mora aqui. Arquivos de feature, specs OpenAPI, diagramas e código derivam deste documento — nunca o contrário.
 
@@ -111,7 +111,7 @@ O critério de priorização: é Essencial o que sustenta o ciclo mínimo de val
 | RF-ACV-07 | Se o ISBN informado já existir na base oficial, o sistema deve bloquear o cadastro e direcionar o leitor à página do livro existente. | E | ✅ |
 | RF-ACV-08 | O leitor deve poder **cadastrar um livro pessoal** informando manualmente título, autor, nº de páginas e, opcionalmente, sinopse e capa por upload de imagem. | E | ✅ |
 | RF-ACV-09 | O leitor deve poder editar e excluir os livros pessoais que cadastrou. | E | ✅ |
-| RF-ACV-10 | O leitor deve poder visualizar a **página de autor**, com biografia curta e lista de livros oficiais daquele autor. | D | ✅ |
+| RF-ACV-10 | O leitor deve poder visualizar a **página de autor**, com biografia curta obtida da OpenLibrary, quando disponível, e lista de livros oficiais daquele autor. Na ausência de biografia na fonte, a seção não é exibida. | D | ✅ |
 | RF-ACV-11 | O leitor deve poder visualizar a **página de editora**, com lista de livros oficiais daquela editora. | D | ✅ |
 | RF-ACV-12 | O leitor deve poder visualizar a **página de série**, com os livros oficiais da série ordenados por número de ordem. | D | ✅ |
 | RF-ACV-13 | O sistema deve permitir carga inicial da base oficial a partir de data dump externo, com normalização de autor, editora e série. | E | — |
@@ -151,7 +151,7 @@ Páginas de autor, editora e série **não são perfis**: não têm dono, não r
 |---|---|---|---|
 | RF-PRG-01 | O leitor deve poder registrar uma atualização de progresso informando **em qual página parou** e **quanto tempo gastou**. | E | ✅ |
 | RF-PRG-02 | O sistema deve calcular e exibir a **página atual** e o **percentual concluído** da leitura a partir das atualizações registradas. | E | ✅ |
-| RF-PRG-03 | O leitor deve poder visualizar e excluir suas atualizações de progresso de uma leitura em andamento, recalculando-se a página atual. | E | ✅ |
+| RF-PRG-03 | O leitor deve poder visualizar suas atualizações de progresso de uma leitura em andamento, **editar somente a última** e excluir um registro intermediário **somente junto de todos os posteriores**, recalculando-se a página atual e os efeitos derivados (RN-17). | E | ✅ |
 | RF-PRG-04 | O sistema deve rejeitar atualização cuja página informada seja **menor ou igual à página atual** da leitura ou **maior que o total de páginas** do livro. | E | ✅ |
 | RF-PRG-05 | O leitor deve poder **iniciar uma sessão de leitura cronometrada** a partir de uma leitura em andamento, com o tempo medido pelo aplicativo. | D | ❌ |
 | RF-PRG-06 | Durante a sessão ativa, o aplicativo deve operar em **modo de foco**, bloqueando o acesso a todas as demais áreas do aplicativo até que a sessão seja encerrada ou cancelada, conforme RN-16. O modo de foco **não é configurável nem contornável** pelo leitor. | D | ❌ |
@@ -206,7 +206,7 @@ Resenhas **não recebem comentários** — apenas curtida/descurtida.
 | RF-DSF-02 | O sistema deve atualizar o progresso dos desafios de páginas e de minutos a partir de cada **atualização de progresso** de leitura. | D | ❌ |
 | RF-DSF-03 | O leitor deve poder visualizar o progresso de cada desafio na janela corrente. | D | ❌ |
 | RF-DSF-04 | O leitor deve poder editar, pausar e excluir seus desafios. | D | ❌ |
-| RF-DSF-05 | O sistema deve manter o histórico de janelas concluídas de cada desafio, indicando cumprimento ou não. | O | ❌ |
+| RF-DSF-05 | O sistema deve exibir o histórico de janelas concluídas de cada desafio com unidade, periodicidade e meta vigentes em cada período, indicando cumprimento ou não; períodos sem progresso aparecem como não cumpridos (RN-20). | O | ❌ |
 | RF-DSF-06 | O sistema deve atualizar o progresso dos desafios de livros a partir de cada **leitura finalizada**. | D | ❌ |
 
 ### 5.8 Estatísticas (STA)
@@ -218,6 +218,8 @@ Resenhas **não recebem comentários** — apenas curtida/descurtida.
 | RF-STA-03 | O leitor deve poder visualizar gráficos de evolução: páginas por mês e livros concluídos por mês. | D | ✅ |
 | RF-STA-04 | O leitor deve poder visualizar a distribuição das notas que atribuiu. | O | ✅ |
 | RF-STA-05 | O sistema deve recalcular as estatísticas de forma assíncrona a partir dos eventos de progresso e de conclusão de leitura. | D | — |
+
+**Cálculo das médias (decisão incorporada em 15/09/2026):** páginas/dia e médias similares por dia usam somente os **dias com leitura registrada**, contados uma vez por data local. Registro manual e sessão cronometrada encerrada com progresso qualificam igualmente; sessão cancelada ou sem progresso não cria dia de leitura. **Dias por livro** usa todos os dias de calendário entre início e fim de cada leitura concluída, inclusive dias sem leitura e intervalos de abandono; releituras concluídas são ocorrências independentes. O contrato de F-STA explicita a contagem inclusiva das datas de início e fim. Sem denominador, a média é ausente.
 
 ### 5.9 Perfil e social (SOC)
 
@@ -249,20 +251,22 @@ Não há busca exploratória de pessoas, sugestão de perfis ou diretório de us
 | RF-NOT-02 | O leitor deve poder visualizar suas notificações em lista paginada, com indicação de não lidas. | E | ❌ |
 | RF-NOT-03 | O leitor deve poder marcar notificações como lidas, individualmente e em lote. | E | ❌ |
 | RF-NOT-04 | A notificação de **leitura em risco** deve conter ação direta de **abandonar a leitura**. | E | ❌ |
-| RF-NOT-05 | O leitor deve poder configurar quais categorias de notificação deseja receber. | O | ❌ |
+| RF-NOT-05 | O leitor deve poder habilitar ou desabilitar **individualmente cada tipo de notificação** de RF-NOT-01, sem agrupamento obrigatório em categorias. | O | ❌ |
 | RF-NOT-06 | O sistema deve entregar notificações ao cliente em tempo real, sem necessidade de recarga manual. | D | ❌ |
 | RF-NOT-07 | O sistema deve entregar notificações por **push** em dispositivo móvel. | O | — |
 
 > ℹ️ **P-04 decidida: FCM em Android, in-app no iOS.** O sistema base é in-app; push é extensão do mesmo fluxo assíncrono e não exige remodelagem. Justificativa no Documento de Arquitetura §2.7.
 
+**Preferências e repetição:** todos os tipos começam habilitados. Desabilitar um tipo impede novas notificações in-app e push daquele tipo, sem apagar as existentes; reabilitar não recupera as suprimidas. Retirar uma curtida de resenha e curtir novamente **não gera nova notificação** para o mesmo par resenha/reator. A deduplicação semântica independe de um novo `eventId`.
+
 ### 5.11 Moderação (MOD)
 
 | ID | Requisito | Pri | Web |
 |---|---|---|---|
-| RF-MOD-01 | O leitor deve poder **denunciar resenhas e comentários**, escolhendo um motivo e opcionalmente descrevendo. Resenhas de livros pessoais são denunciáveis nas mesmas condições. | D | ✅ |
+| RF-MOD-01 | O leitor deve poder **denunciar resenhas e comentários**, informando o motivo em **um único campo de texto livre**, sem enum de motivos nem descrição separada. Resenhas de livros pessoais são denunciáveis nas mesmas condições. | D | ✅ |
 | RF-MOD-02 | O administrador deve poder visualizar um painel com as denúncias pendentes, ordenadas por data. | D | ✅ |
 | RF-MOD-03 | O administrador deve poder **remover** o conteúdo denunciado ou **arquivar** a denúncia como improcedente. | D | ✅ |
-| RF-MOD-04 | O administrador deve poder **suspender** a conta de um leitor. | O | ✅ |
+| RF-MOD-04 | O administrador deve poder **suspender e reativar** a conta de um leitor. A suspensão bloqueia o acesso e oculta o perfil e seu conteúdo para os demais leitores, preservando os dados; a reativação restaura acesso e visibilidade sob RN-08. | O | ✅ |
 | RF-MOD-05 | O sistema deve registrar em log de auditoria toda ação de moderação, com autor, alvo, ação e timestamp. | D | — |
 
 Apenas resenhas e comentários são denunciáveis. Listas, frases, perfis e livros não possuem fluxo de denúncia; a possibilidade de remoção direta de trechos pela moderação permanece definida em RN-11.
@@ -444,6 +448,8 @@ A resenha é armazenada como **texto cru** e renderizada no cliente. Nenhum HTML
 
 Alterar o perfil de público para privado **não remove** seguidores existentes.
 
+**Suspensão (RF-MOD-04):** perfil e conteúdo de conta suspensa não são visíveis aos demais leitores, mesmo com seguimento aceito. Reativar não recria conteúdos nem desfaz o grafo social: restaura a visibilidade conforme a privacidade vigente. Consultas administrativas autorizadas continuam permitindo moderação e reativação.
+
 ### RN-09 — Feed
 
 - O feed de um leitor contém atividades dos leitores que ele segue, em ordem cronológica decrescente.
@@ -520,8 +526,8 @@ A capa de um livro oficial é **cacheada sob demanda**, não na ingestão.
 9. **Expiração:** toda recomendação tem prazo de **90 dias** a partir do envio, após o qual deixa de ser exibida.
 10. **Adição à estante:** ao adicionar o livro à estante, em qualquer status, **todas** as recomendações daquele livro recebidas pelo leitor são removidas — a recomendação perdeu a finalidade.
 11. **Descarte individual:** o leitor pode descartar qualquer recomendação recebida. O descarte não exige motivo e **não é comunicado ao remetente**.
-12. **Descarte em lote:** ao descartar a **terceira** recomendação de um mesmo livro, havendo outras pendentes daquele livro, o sistema pergunta "Deseja remover todas as recomendações atuais do livro *X*?". Em caso afirmativo, todas as demais daquele livro são descartadas.
-13. Recusada a pergunta de RN-22.12, ela **não volta a ser exibida para aquele livro durante a sessão corrente do aplicativo**. A supressão é estado local do cliente: ao fechar e reabrir o aplicativo, a pergunta volta a ser elegível para aquele livro.
+12. **Descarte em lote:** ao descartar a **terceira** recomendação de um mesmo livro **na sessão corrente do cliente**, havendo outras pendentes daquele livro, o sistema pergunta "Deseja remover todas as recomendações atuais do livro *X*?". Em caso afirmativo, todas as demais daquele livro são descartadas.
+13. Recusada a pergunta de RN-22.12, ela **não volta a ser exibida para aquele livro durante a sessão corrente do aplicativo**. Tanto a contagem de descartes quanto a supressão são estado local temporário: ao fechar e reabrir, a contagem volta a zero e a pergunta só volta a ser elegível após três novos descartes daquele livro.
 14. Recomendação removida por qualquer via não é restaurável.
 15. **Recomendações já enviadas permanecem** ainda que o seguimento mútuo se desfaça depois do envio. O seguimento mútuo é condição de envio (RN-22.1), não de permanência.
 
@@ -533,7 +539,7 @@ A capa de um livro oficial é **cacheada sob demanda**, não na ingestão.
 4. Cancelar dentro do prazo restaura a conta e sua visibilidade sem recriar dados nem publicar evento de restauração.
 5. Vencido o prazo, um job diário remove definitivamente identidade, dados e conteúdo nos quatro schemas. A remoção nos demais serviços é disparada por `conta.excluida`.
 6. Username e e-mail permanecem reservados durante a janela de recuperação. Depois da exclusão definitiva, deixam de identificar uma conta existente.
-7. A exclusão definitiva remove também projeções, importações solicitadas, tentativas de login, respostas idempotentes e assets associados. Registros técnicos obrigatórios só podem permanecer sem dados que identifiquem o leitor.
+7. A exclusão definitiva remove também projeções, importações solicitadas, tentativas de login, respostas idempotentes e assets associados. **Registros técnicos e de auditoria permanecem por prazo indeterminado, sem dados que identifiquem o leitor.** Referências pessoais, payloads, hashes correlacionáveis e texto livre identificável são removidos ou anonimizados; UUID opaco, sozinho, não é anonimização. Isso não autoriza reter o conteúdo da conta nem prolonga os 30 dias de recuperação. Validade de tokens e prazo de replay de idempotência continuam operacionais, distintos da retenção do registro anonimizado.
 
 ### RN-21 — Assuntos
 
@@ -567,12 +573,14 @@ Assunto é o gênero literário do livro, usado como **filtro de busca** (RF-ACV
 
 1. Janelas são de **calendário**, não períodos móveis contados a partir da criação do desafio, e seguem o fuso horário do dispositivo, como em RN-18.2.
 2. Desafio criado no meio de uma janela **considera o que já foi registrado nela**. Um desafio anual criado em agosto conta as leituras do ano corrente desde janeiro. Sem isso, desafios de janela longa só fariam sentido se criados no primeiro dia do período.
-3. **Livros** contam ao serem **finalizados**, não ao serem iniciados, e apenas leituras finalizadas — releitura finalizada conta; releitura incompleta ou leitura abandonada não contam (RN-04).
+3. **Livros** contam ao serem **finalizados**, não ao serem iniciados, e apenas leituras finalizadas — releitura finalizada conta; releitura incompleta ou leitura abandonada não contam (RN-04). O desafio usa o **dia local da ação de finalizar**, persistido com instante e fuso, nunca a data de fim editável informada pelo leitor.
 4. Livros pessoais contam nos desafios, coerentemente com sua contagem nas estatísticas (RN-03).
 5. Uma mesma atualização de progresso alimenta **todos** os desafios ativos compatíveis com sua unidade, simultaneamente.
-6. Desafio pausado não acumula progresso e sua janela corrente não é avaliada.
-7. Alterar unidade, janela ou valor-alvo de um desafio recalcula a janela corrente; janelas anteriores já registradas no histórico não são alteradas (RF-DSF-05).
+6. Desafio pausado não acumula progresso e sua janela corrente não é avaliada enquanto estiver pausado. Registros feitos durante a pausa **não contam para aquele desafio**, mesmo se sincronizados ou recalculados depois; retomar só permite contar os registros a partir da retomada. Os intervalos de pausa são preservados para essa verificação, inclusive quando atravessam janelas.
+7. Alterar unidade, janela ou valor-alvo de um desafio recalcula somente a janela corrente. Cada janela preserva **unidade, periodicidade, valor-alvo e fuso** vigentes: editar o desafio não modifica a configuração de períodos encerrados (RF-DSF-05). A correção por sincronização offline de RN-20.10 pode atualizar o resultado de um período encerrado, mas usa sua configuração histórica.
 8. A janela é considerada cumprida quando o acumulado atinge o valor-alvo, ainda que o registro que a completou pertença a uma leitura iniciada em janela anterior.
+9. O histórico inclui os períodos decorridos desde a janela de criação do desafio, **inclusive sem progresso**, com acumulado zero e resultado não cumprido. Não são criados períodos anteriores à janela de criação; o backfill da primeira janela continua obedecendo RN-20.2. A materialização pode ocorrer na consulta, no consumo ou antes de editar o desafio, sem exigir job adicional. A exposição do histórico é P3; os dados necessários ao recálculo offline são preservados desde P2.
+10. Registros feitos offline são contabilizados nas **datas locais em que foram registrados**, ainda que a sincronização aconteça após o encerramento do período. O resultado e o cumprimento são recalculados idempotentemente com a configuração e as pausas daquele período. Edição/exclusão permitidas por RN-17 também corrigem os efeitos do fato sem mudar a configuração histórica.
 
 ### RN-19 — Sinopse
 
@@ -593,8 +601,8 @@ A sinopse é conteúdo essencial da página do livro: sustenta a decisão de "qu
 1. Um dia **conta para a sequência** quando houver ao menos uma atualização de progresso registrada nele, com pelo menos uma página lida. Concluir, iniciar ou abandonar leitura não conta por si só — a sequência mede leitura efetiva, não interação com o aplicativo.
 2. A sequência é **contada em dias de calendário no fuso horário do dispositivo** no momento do registro. A data local é derivada e persistida junto à atualização de progresso, para que a apuração não dependa do fuso de quem consulta.
 3. A sequência **incrementa no máximo uma vez por dia**, independentemente de quantas atualizações sejam registradas.
-4. A sequência **é zerada** quando um dia de calendário se encerra sem registro. Não há congelamento, recuperação ou compensação retroativa.
-5. Como não existe registro retroativo de progresso (RN-17), não é possível recuperar sequência perdida.
+4. A sequência **é zerada** quando um dia de calendário se encerra sem registro. Não há congelamento nem compensação por dias em que não houve leitura.
+5. A sincronização de progresso realmente registrado offline **recompõe os dias e recalcula a sequência atual e a maior sequência**, mesmo após zeramento por falta de sincronização. Isso não permite criar registro manual retroativo nem alterar a data de captura de um progresso (RN-17).
 6. A **maior sequência já alcançada** é preservada, ainda que a sequência atual seja zerada.
 7. A sequência é medida em **dias com leitura**, nunca em tempo lido, justamente porque o tempo de sessão não é verificável pelo servidor (RN-16.7) e seria trivialmente manipulável.
 
@@ -605,8 +613,10 @@ O leitor informa sempre **a página em que parou**, nunca quantas páginas leu. 
 1. **Páginas lidas em uma atualização** são derivadas: `página informada − página atual antes da atualização`. É esse valor derivado que alimenta desafios e estatísticas.
 2. A página informada deve ser **maior que a página atual** e **não superior ao total do livro** (RF-PRG-04). Progresso não retrocede.
 3. A **página atual** da leitura é a maior página informada até o momento.
-4. Excluir uma atualização recalcula a página atual a partir das atualizações restantes (RF-PRG-03). Por isso a exclusão é Essencial e não Desejável: com entrada absoluta e monotônica, um valor digitado errado para cima bloqueia os registros seguintes, e a exclusão é o único remédio.
+4. Somente a **última atualização** de uma leitura em andamento pode ser editada (página e tempo). A página corrigida deve ser maior que a página-base (a do registro anterior, ou zero se não existir anterior) e não superar o total do livro. A edição preserva instante/fuso/data local originais e recalcula páginas derivadas e demais efeitos.
 5. O **percentual concluído** é derivado da página atual sobre o total do livro.
+6. A exclusão da última atualização recalcula a página atual a partir das restantes, ou zero se nenhuma restar. Um registro intermediário só pode ser excluído **se todos os registros posteriores também forem excluídos**: remover do mais recente para trás ou confirmar a exclusão conjunta do trecho final, de forma atômica. Nunca se deixa um registro posterior apoiado numa base excluída. A confirmação informa quais registros serão removidos; cada efeito em desafios, estatísticas e sequência é recalculado.
+7. Edição/exclusão validam a ordem dentro da mesma transação/lock da leitura; a ordem é a de inserção dos progressos, não a última edição. Leituras finalizadas continuam com progresso somente para consulta. A fila offline preserva a ordem por leitura, a chave de idempotência e os metadados automáticos de captura; sincronizar depois não muda o dia em que a leitura ocorreu.
 
 ### RN-16 — Sessão de leitura cronometrada
 
@@ -925,7 +935,7 @@ Se nenhuma fonte retornar o ISBN, o fluxo termina em erro com oferta de cadastro
 
 ### 10.2 Agendamento
 
-Jobs diários: verificação de inatividade de leituras (RN-05), exclusão definitiva de contas cujo prazo de 30 dias venceu (RN-23) e delta de ingestão.
+Jobs diários: verificação de inatividade de leituras (RN-05) e exclusão definitiva de contas cujo prazo de 30 dias venceu (RN-23). **Atualização automática/delta do acervo está fora de escopo**: permanecem carga inicial e recarga manual do dump, além do cadastro individual por ISBN e dos caches sob demanda já especificados.
 
 Cron Jobs do Render são recurso pago e **não estão disponíveis** no plano gratuito. Candidatos: **GitHub Actions com `schedule`** (preferido — já existe repositório, é versionado e auditável), Cloudflare Workers Cron Triggers, cron-job.org.
 
@@ -1001,7 +1011,7 @@ As duas seções são consultas paginadas com limite fixo de resultados, apoiada
 
 **Assuntos são o insumo principal.** Sem a normalização definida em RN-21, a seção "Do seu gosto" fica restrita a autor e série e degenera em "mais livros do mesmo autor", informação que o leitor já obtém na página do autor.
 
-**Pendência real do período-0:** decidir se o leitor pode optar por não ter suas leituras utilizadas nas recomendações de outros. Recomendação: sim, como chave no perfil — custo baixo e alinhado à LGPD.
+**Opt-out aprovado, incorporado em 15/09/2026:** o leitor pode impedir o uso de suas leituras nas recomendações de outras pessoas, por `opt_out_recomendacao` em seu perfil. F-REC-ALG entrega a configuração em web/mobile e o filtro server-side do sinal social, consumindo o campo pelo contrato de `identidade`. A opção não oculta o perfil nem desativa as recomendações recebidas pelo próprio leitor.
 
 **Terminologia.** O pedido original mencionou "leituras dos seguidores". O sinal forte é o inverso — **quem o usuário segue** —, por ser escolha deliberada do usuário. RF-REC-09 está redigido nesse sentido.
 
@@ -1027,7 +1037,7 @@ Resumo das decisões, no modelo de compartilhamento de conteúdo em redes sociai
 
 - A ausência de aceitação elimina qualquer máquina de estados: a recomendação existe ou não existe. As quatro vias de remoção — expiração, adição à estante, descarte individual e descarte em lote — convergem para a mesma operação.
 - A expiração de 90 dias pode ser aplicada por filtro na consulta, com remoção física em rotina periódica, sem exigir precisão de horário.
-- A supressão da pergunta de descarte em lote (RN-22.13) é estado do cliente, não do servidor, e se perde ao reiniciar o aplicativo — comportamento deliberado.
+- A contagem de três descartes e a supressão da pergunta de descarte em lote (RN-22.12/13) são estado do cliente, não do servidor, e ambas se perdem ao reiniciar o aplicativo.
 - O limite de RN-22.4 conta recomendações **ativas**, não o total já enviado historicamente.
 
 ### 10.9 Sessão cronometrada — decisão registrada (P-18)
@@ -1063,10 +1073,21 @@ Registrado explicitamente para evitar reabertura de discussão:
 - Internacionalização e múltiplos idiomas
 - Aplicativo desktop
 - Monetização
+- Atualização automática/delta do acervo (apenas carga inicial e recarga manual do dump)
 
 ---
 
 ## 12. Timeline
+
+### v1.5 — Alteração 15/09/2026: decisões do grupo após revisão do DER
+
+- **Autorização:** decisões debatidas pelo grupo e comunicadas pelo solicitante nesta data para atualização do DER e de suas fontes.
+- Desafios preservam configuração por período e incluem períodos sem progresso. Conclusões contam no dia da ação; sincronização offline recompõe desafios e streak pela data de captura. Pausas excluem somente os fatos ocorridos durante seus intervalos.
+- RF-PRG-03/RN-17 passam a permitir edição apenas do último progresso e exclusão de um intermediário somente com todos os posteriores. As correções recalculam os efeitos derivados.
+- Médias diárias usam dias com leitura registrada; dias/livro usa toda a duração entre início e fim, inclusive abandono. Opt-out de recomendações aprovado; contador e supressão de descarte em lote são temporários por sessão.
+- Denúncia usa motivo textual único. Suspensão oculta conteúdo e admite reativação. Preferências são individuais por tipo; recurtir a mesma resenha não renotifica. Biografia de autor vem da OpenLibrary e é omitida na ausência.
+- Registros técnicos/auditoria anonimizados têm retenção indeterminada, preservando a exclusão de dados pessoais e conteúdo. Delta automático do acervo removido do escopo.
+- **Impacto:** arquitetura §2.4/§4/§5, documentos derivados 3 e 4, DER por schema e features F-PRG, F-EST, F-DSF/OPC, F-GAM, F-STA, F-PERFIL, F-REC-ALG/P2P, F-AVA-2, F-NOT-OPC, F-MOD/OPC, F-CONTA-2, F-ACV-DESCOBERTA/INGESTAO/OPC. Contratos OpenAPI de domínio serão implementados nas features; os specs de scaffold não passam a prometer endpoints inexistentes. A divergência dos protótipos de progresso fica registrada em F-PRG.
 
 ### v1.4 — 02/09/2026
 

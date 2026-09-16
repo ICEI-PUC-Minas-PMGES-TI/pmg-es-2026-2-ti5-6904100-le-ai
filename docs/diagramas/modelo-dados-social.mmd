@@ -1,0 +1,230 @@
+---
+title: Modelo de dados — social
+config:
+  layout: elk
+  theme: neutral
+---
+erDiagram
+  direction LR
+  %% Fonte: REQUISITOS v1.5, arquitetura §3/4 e docs/4.modelagem.md.
+  %% PK/FK/UK; P2/P3 = período. Referências externas sem FK física.
+
+  ATIVIDADE ||..o{ CURTIDA_ATIVIDADE : "recebe"
+  ATIVIDADE ||..o{ COMENTARIO : "recebe"
+  COMENTARIO o|..o{ COMENTARIO : "raiz opcional"
+  COMENTARIO ||..o{ COMENTARIO_MENCAO : "resolve"
+  LISTA ||..o{ LISTA_ITEM : "contém"
+  DENUNCIA o|..o{ LOG_MODERACAO : "resolução opcional"
+
+  ATIVIDADE {
+    uuid id PK
+    uuid autor_id "→ identidade.usuario"
+    enum tipo "tipos RN-09 no comentário"
+    uuid livro_id "→ acervo.livro"
+    uuid event_id UK
+    string chave_fato "UK com tipo"
+    enum origem_tipo "leitura ou resenha"
+    uuid origem_id "→ leitura.leitura ou leitura.resenha"
+    string snap_usuario_nome
+    string snap_usuario_username
+    string snap_usuario_avatar
+    string snap_livro_titulo
+    string snap_livro_autor
+    string snap_livro_capa
+    bool ativo "livro/atividade removidos"
+    timestamp criado_em
+  }
+  CURTIDA_ATIVIDADE {
+    uuid id PK
+    uuid atividade_id FK
+    uuid usuario_id "→ identidade.usuario"
+    timestamp criado_em
+  }
+  COMENTARIO {
+    uuid id PK
+    uuid atividade_id FK
+    uuid autor_id "→ identidade.usuario"
+    uuid comentario_raiz_id FK "nullable; um nível de resposta"
+    uuid respondido_usuario_id "→ identidade.usuario; nullable"
+    string texto "cru; menções com username"
+    timestamp criado_em
+    timestamp atualizado_em "edição em P2"
+  }
+  COMENTARIO_MENCAO {
+    uuid id PK "ocorrência resolvida (P2)"
+    uuid comentario_id FK
+    uuid mencionado_id "→ identidade.usuario"
+    int posicao "UK com comentario_id"
+    timestamp criado_em
+  }
+  LISTA {
+    uuid id PK "P2"
+    uuid usuario_id "→ identidade.usuario"
+    string titulo
+    string descricao "nullable"
+    bool ativo
+    timestamp criado_em
+    timestamp atualizado_em
+  }
+  LISTA_ITEM {
+    uuid id PK
+    uuid lista_id FK
+    uuid livro_id "→ acervo.livro; UK com lista_id"
+    int ordem "UK com lista_id"
+    timestamp adicionado_em
+  }
+  RECOMENDACAO {
+    uuid id PK "P2"
+    uuid remetente_id "→ identidade.usuario"
+    uuid destinatario_id "→ identidade.usuario"
+    uuid livro_id "→ acervo.livro; só oficial"
+    string mensagem "nullable"
+    uuid event_id UK "evento de notificação; nullable"
+    timestamp criado_em
+    timestamp expira_em "90 dias; sem aceitação"
+  }
+  SUGESTAO_DESCARTADA {
+    uuid id PK "P3"
+    uuid usuario_id "→ identidade.usuario"
+    uuid livro_id "→ acervo.livro; UK com usuario_id"
+    timestamp descartado_em
+  }
+  NOTIFICACAO {
+    uuid id PK
+    uuid destinatario_id "→ identidade.usuario"
+    enum tipo "12 tipos NOT-01 no comentário"
+    json dados "snapshot e referências"
+    uuid leitura_ref "→ leitura.leitura; nullable"
+    timestamp lida_em "nullable significa não lida"
+    uuid event_id UK
+    string chave_negocio "UK com destinatario_id e tipo"
+    timestamp criado_em
+  }
+  PREFERENCIA_NOTIFICACAO {
+    uuid usuario_id PK "→ identidade.usuario (P3)"
+    enum tipo PK "mesmos tipos de NOTIFICACAO"
+    bool habilitada "padrão true; individual por tipo"
+  }
+  DISPOSITIVO_PUSH {
+    uuid id PK "P3"
+    uuid usuario_id "→ identidade.usuario"
+    string fcm_token UK
+    enum plataforma "android"
+    bool ativo
+    timestamp criado_em
+    timestamp atualizado_em
+    timestamp revogado_em "nullable"
+  }
+  DENUNCIA {
+    uuid id PK "P2"
+    uuid denunciante_id "→ identidade.usuario"
+    enum alvo_tipo "resenha ou comentario"
+    uuid alvo_id "referência polimórfica"
+    string motivo "texto livre obrigatório; sem enum"
+    enum estado "pendente, removida ou arquivada"
+    timestamp criado_em
+    timestamp resolvido_em "nullable"
+  }
+  LOG_MODERACAO {
+    uuid id PK "P2"
+    string admin "identificador admin; sem credencial"
+    enum acao "ações no comentário MOD-05"
+    enum alvo_tipo "resenha, comentario, frase ou usuario"
+    uuid alvo_id "nullable após anonimizar"
+    uuid denuncia_id FK "nullable; ON DELETE SET NULL"
+    string detalhe "nullable; limpar texto identificável"
+    timestamp criado_em
+    timestamp anonimizado_em "nullable; retenção sem prazo"
+  }
+  IDEMPOTENCIA_SOCIAL {
+    uuid id PK
+    uuid subject_ref "nullable após anonimizar"
+    string operacao
+    string chave "nullable após anonimizar"
+    string payload_hash "nullable após anonimizar"
+    int status_http
+    json resposta "nullable após anonimizar"
+    timestamp criado_em
+    timestamp replay_ate "validade da resposta, não da linha"
+    timestamp anonimizado_em "nullable; retenção sem prazo"
+  }
+  OUTBOX_SOCIAL {
+    uuid event_id PK
+    string tipo
+    int versao
+    string chave_negocio "nullable após anonimizar"
+    uuid correlation_id "nullable após anonimizar"
+    json payload "nullable após publicar e anonimizar"
+    enum status "pendente ou publicado"
+    int tentativas
+    timestamp criado_em
+    timestamp publicado_em "nullable"
+    timestamp anonimizado_em "nullable; retenção sem prazo"
+  }
+
+  %% Subgraphs são agrupamentos visuais, não novas tabelas ou schemas.
+  subgraph feed ["Feed e interações"]
+    direction LR
+    ATIVIDADE
+    CURTIDA_ATIVIDADE
+    COMENTARIO
+    COMENTARIO_MENCAO
+  end
+  subgraph descoberta ["Listas e recomendações"]
+    direction TB
+    LISTA
+    LISTA_ITEM
+    RECOMENDACAO
+    SUGESTAO_DESCARTADA
+  end
+  subgraph avisos ["Notificações"]
+    direction TB
+    NOTIFICACAO
+    PREFERENCIA_NOTIFICACAO
+    DISPOSITIVO_PUSH
+  end
+  subgraph moderacao ["Moderação e auditoria"]
+    direction LR
+    DENUNCIA
+    LOG_MODERACAO
+  end
+  subgraph tecnico ["Registros técnicos"]
+    direction TB
+    IDEMPOTENCIA_SOCIAL
+    OUTBOX_SOCIAL
+  end
+
+  classDef grupo fill:transparent,stroke:#aaa
+  class feed,descoberta,avisos,moderacao,tecnico grupo
+
+  %% RN-09 ATIVIDADE.tipo: leitura_iniciada|leitura_retomada|leitura_concluida|
+  %% leitura_abandonada|resenha_publicada. Chave do fato distingue cada retomada.
+  %% NOT-01 NOTIFICACAO.tipo e PREFERENCIA_NOTIFICACAO.tipo:
+  %% novo_seguidor|solicitacao_seguir|solicitacao_aceita|atividade_curtida|
+  %% atividade_comentada|comentario_respondido|usuario_mencionado|
+  %% recomendacao_recebida|lembrete_sequencia|resenha_curtida|
+  %% leitura_em_risco|leitura_expirada. Cada tipo tem sua preferência.
+  %% MOD-05 LOG_MODERACAO.acao: remover_conteudo|arquivar_denuncia|
+  %% suspender_conta|reativar_conta (as duas últimas em P3).
+  %% UK: atividade(tipo,chave_fato); curtida(atividade_id,usuario_id);
+  %% notificação(destinatario_id,tipo,chave_negocio); lista_item(lista_id,livro_id)
+  %% e (lista_id,ordem). Reordenação atômica; pessoal só na lista do próprio dono.
+  %% RN-10: raiz e resposta na mesma atividade, raiz sem pai; excluir raiz usa
+  %% CASCADE nas respostas/menções; resposta a resposta permanece no mesmo nível.
+  %% resenha.excluida remove atividade e interações; republicação antiga não
+  %% pode recriá-las. Consumidor revalida existência da origem pelo contrato.
+  %% RN-08/MOD-04: revalidar suspensão e exclusão pendente em consultas,
+  %% snapshots e entrega de notificações. Reativar restaura sob RN-08.
+  %% RN-22: mútuo só no envio; um registro por destinatário; lock do par para
+  %% limite de 50 ativas; destinatário não pode ter livro na estante. Descarte,
+  %% expiração e adição à estante removem recomendação. Contador de três descartes
+  %% e supressão da pergunta são locais por sessão, zerados ao fechar/reabrir.
+  %% REC-ALG: sugestões calculadas em consulta por VIEWs; exclui pessoais,
+  %% estante própria, descartes, contas ocultas e opt-out do sinal de terceiros.
+  %% NOT-05: tipo desabilitado suprime in-app/push, sem apagar anteriores nem
+  %% recuperar suprimidas ao habilitar. Recurtida usa chave resenha/reator estável;
+  %% leitura só publica a primeira curtida, inclusive se houve supressão.
+  %% Expõe v_atividade_livro_pessoal_v1 e v_lista_livro_pessoal_v1.
+  %% RN-23.7: auditoria/ledgers/outbox ficam sem prazo após anonimização de
+  %% referências e conteúdo; não manter cópia da denúncia ou de dados da conta.
+  %% UK ledger: (subject_ref,operacao,chave); expiração de replay não apaga a linha.

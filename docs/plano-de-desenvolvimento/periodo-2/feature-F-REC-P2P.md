@@ -100,11 +100,13 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Depende de** [F-PERFIL](../periodo-1/feature-F-PERFIL.md) (mútuo), [F-EST](../periodo-1/feature-F-EST.md) (`v_estante_publica_v1`, `livro.adicionado_a_estante`), [F-ACV-BUSCA](../periodo-1/feature-F-ACV-BUSCA.md)/[F-ACV-CADASTRO](../periodo-1/feature-F-ACV-CADASTRO.md) (`v_livro_referencia_v1`, página do livro), [F-NOT](../periodo-1/feature-F-NOT.md) (consumo da notificação), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md), [P0-MSG](../periodo-0/feature-P0-MSG.md).
 - **Decisões do dono:** definir semântica de falha parcial e formato de resposta por destinatário no envio múltiplo, além dos limites de destinatários e caracteres da mensagem.
 - **Alternativa a avaliar, sem mudar o desenho atual:** aplicar expiração apenas por `expira_em` nas consultas e adiar a remoção física para manutenção, sem job próprio da feature.
-- **Fronteira:** recomendação **algorítmica** (RF-REC-08..12), **motivo/aba algorítmica** e **descarte em lote** (RF-REC-17, RN-22.12/13) são Opcionais → **F-REC-ALG** (Período 3); a **decisão de opt-out** de leituras nas recomendações (§10.7) é pendência do período-0/grupo.
+- **Fronteira:** recomendação algorítmica e descarte em lote são F-REC-ALG/P3. Opt-out aprovado, incorporado em 15/09/2026, pertence àquela feature; contador de três descartes e supressão da pergunta são temporários por sessão do cliente.
 - **Compartilha `social`** com as demais features sociais; recomendações limpas por [F-CONTA-2](feature-F-CONTA-2.md) na exclusão — sinalizar no grupo (plano §6).
 - Stack de `social` definida: **Spring (Java)** (arquitetura §2.1).
 
 ## Timeline
+
+### Revisão 15/09/2026: fronteira atualizada com opt-out aprovado e estado local temporário de descartes em F-REC-ALG. P2P continua sem novas tabelas ou máquina de aceitação.
 
 ### Revisão 01/09/2026: `recomendacao.recebida` e consumo de `livro.adicionado_a_estante` por `social` aprovados; falha parcial/limites ficaram como decisões do dono.
 

@@ -9,7 +9,7 @@
 
 Entregar a **moderação de conteúdo** — a denúncia pelos leitores e o painel do administrador. Fecha os requisitos **Desejáveis**:
 
-- **RF-MOD-01** **denunciar resenhas e comentários**, com **motivo** e descrição opcional; resenhas de **livros pessoais** são denunciáveis nas mesmas condições (RN-15.4);
+- **RF-MOD-01** denunciar resenhas e comentários com **um campo obrigatório de motivo em texto livre**, sem enum nem descrição separada; livros pessoais seguem RN-15.4;
 - **RF-MOD-02** o administrador visualiza um painel com as **denúncias pendentes**, ordenadas por data;
 - **RF-MOD-03** o administrador **remove** o conteúdo denunciado ou **arquiva** a denúncia como improcedente;
 - **RF-MOD-05** o sistema registra em **log de auditoria** toda ação de moderação (autor, alvo, ação, timestamp).
@@ -31,7 +31,7 @@ RNF atendidos: **RNF-SEC-04** (painel e operações restritos ao **administrador
 
 Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + correlation-id e mensagens pt-BR. Acesso a dados por ORM/consulta parametrizada (SEC-12). IDs não sequenciais (SEC-05). Escritas aceitam `Idempotency-Key` conforme as [regras compartilhadas](../periodo-1/README.md#regras-de-implementação-compartilhadas).
 
-- **`POST /denuncias`** (RF-MOD-01) — denuncia um alvo `resenha | comentario` (id), com **motivo** (enum), descrição opcional e, para livro pessoal, `via=feed|lista` + `referenciaId`. Antes de gravar, o servidor comprova que o solicitante vê o comentário/atividade sob RN-08/RN-09 ou a resenha sob RN-08/RN-15; conhecer o id não autoriza denúncia. **Rate limiting** (SEC-18). Conteúdo da descrição tratado como texto/escape (SEC-14).
+- **`POST /denuncias`** (RF-MOD-01) — alvo `resenha | comentario` (id), `motivo` textual obrigatório, não vazio, e contexto `via/referenciaId` para livro pessoal. Sem enum ou descrição separada. Servidor comprova acesso atual sob RN-08/RN-15; conhecer id não autoriza denúncia. Rate limiting, limite de texto no schema e escape na renderização (SEC-13/14/18).
 - **Painel do administrador (RF-MOD-02)** — `GET /admin/denuncias?page=` lista as **pendentes ordenadas por data** (paginado — RNF-DES-02). **Restrito ao administrador, verificado no servidor** (SEC-04; a conta admin vem de [F-AUT](../periodo-1/feature-F-AUT.md), RF-AUT-08). O painel exibe o conteúdo denunciado: comentário local + resenha via `v_resenha_publicacao_v1`.
 - **Ação de moderação (RF-MOD-03)** — `POST /admin/denuncias/{id}/remover` ou `/arquivar` (admin, SEC-04):
   - **arquivar** → marca a denúncia como improcedente;
@@ -42,7 +42,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 **Escopo da denúncia:** apenas resenhas e comentários (RF-MOD-01). Listas, frases, perfis e livros não têm fluxo de denúncia; frases usam a remoção direta de RN-11.
 
-**Modelo de dados** (schema `social`): `denuncia` (denunciante, alvo tipo+id, motivo, descrição opcional, estado pendente/removida/arquivada, timestamps) e `log_moderacao` (admin, alvo, ação, timestamp). A remoção de resenha em `leitura` é registrada no log ainda que a escrita ocorra lá.
+**Modelo de dados** (schema `social`): `denuncia` (denunciante, alvo tipo+id, motivo textual, estado, timestamps) e `log_moderacao` (admin, alvo, ação, timestamp). Auditoria permanece sem prazo; na exclusão definitiva da conta, referências e texto identificáveis são removidos/anonimizados. `denuncia_id` é FK opcional com SET NULL ao remover a denúncia, preservando a linha anônima de auditoria (RN-23).
 
 **Contratos consumidos para autorização:** `v_resenha_publicacao_v1`, `v_perfil_referencia_v1`/`v_seguimento_aceito_v1`, `v_atividade_livro_pessoal_v1` e `v_lista_livro_pessoal_v1`. Comentário é validado localmente contra a visibilidade da atividade.
 
@@ -55,6 +55,8 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Denunciar** resenha/comentário com `ThemeData` de [P0-DS](../periodo-0/feature-P0-DS.md). O **painel de moderação** é da web (admin) — o mobile não o expõe. Alvo de demonstração Android.
 
 ## Critérios de aceite
+
+- [ ] Denúncia usa somente motivo textual obrigatório; a auditoria anonimizada permanece após exclusão da conta, sem referência pessoal nem cópia do conteúdo removido.
 
 - [ ] Denunciar resenha/comentário exige acesso atual ao alvo; resenha de livro pessoal exige via válida de RN-15; rate limiting ativo (SEC-18).
 - [ ] Enviar denúncia exige confirmação explícita no cliente (RNF-USA-04).
@@ -84,13 +86,15 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 ## Pendências
 
 - **Depende de** [F-AUT](../periodo-1/feature-F-AUT.md) (admin), [F-PERFIL](../periodo-1/feature-F-PERFIL.md) (RN-08), [F-FEED](../periodo-1/feature-F-FEED.md) (comentários/via feed), [F-LST](feature-F-LST.md) (via lista), [F-AVA](../periodo-1/feature-F-AVA.md)/[F-AVA-2](feature-F-AVA-2.md) (resenhas/frases), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md).
-- **Decisão do dono:** fixar enum de motivos e limite da descrição antes da migration.
+- **Decisão do grupo incorporada em 15/09/2026:** motivo em textbox único; permanece definir o limite de caracteres no schema de entrada. Auditoria anonimizada tem retenção indeterminada.
 - **Alternativa avaliada e adotada:** comando HTTP interno autenticado/idempotente para remoção; não criar evento ou saga para um comando administrativo que precisa de resposta.
 - **Fronteira:** **suspender conta** (RF-MOD-04) é Opcional → **F-MOD-OPC** (Período 3).
 - **Compartilha `social`** com as demais features sociais — sinalizar no grupo (plano §6).
 - Stack definida (arquitetura §2.1): `social` em Spring, `leitura` em NestJS.
 
 ## Timeline
+
+### Revisão 15/09/2026: motivo textual e retenção anônima sem prazo aprovados; DER e critérios atualizados. Implementação não iniciada.
 
 ### Revisão 01/09/2026: remoção cross-service fechada por HTTP interno autenticado/idempotente; mobile corrigido no escopo; limites de denúncia ficaram para o dono.
 

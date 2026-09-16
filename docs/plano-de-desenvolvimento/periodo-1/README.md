@@ -53,7 +53,7 @@ Estas divergências não podem ser decididas pelos arquivos de feature e devem s
 
 - **Exclusão de conta:** RF-AUT-07 está como Desejável e alocado a F-CONTA-2, mas RNF-SEC-41 pertence ao conjunto de segurança declarado Essencial. F-AUT não marca RNF-SEC-41 como atendido enquanto o grupo não resolver a prioridade.
 - **Composição de RF-SOC-02:** o RF Essencial exige listas no perfil, mas F-LST está no Período 2. F-PERFIL entrega no Período 1 identidade, contadores, estante e resenhas disponíveis; não declara RF-SOC-02 integralmente fechado até a decisão do grupo.
-- **Delta de ingestão:** o job diário consta nos documentos-mestre, mas não possui feature alocada. RF-ACV-14/F-ACV-OPC cobre somente recarga manual.
+- **Delta de ingestão — encerrado em 15/09/2026:** removido do escopo pelo grupo. Carga inicial e recarga manual continuam nas features de acervo.
 
 ## Arquivos de feature
 
