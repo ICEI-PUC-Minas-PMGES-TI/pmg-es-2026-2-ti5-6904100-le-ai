@@ -7,15 +7,15 @@
 # no painel do Render (RNF-SEC-11). HTTPS é terminado pelo Render (RNF-SEC-08).
 #
 # Banco: um projeto único no Neon, um schema por serviço (arquitetura §4.1).
-# Cada serviço aponta para o SEU schema via `search_path` na própria
-# DATABASE_URL (ex.: ...?sslmode=require&options=-csearch_path%3Dacervo).
+# O Drizzle qualifica tabelas pelo pgSchema e o Spring fixa DB_SCHEMA. A URL
+# do Neon nao precisa carregar `options=-csearch_path`, rejeitado pelo pooler.
 #
 # NOTAS IMPORTANTES:
 #  - `identidade` e `social` (Spring/Java) usam runtime `docker` — o Render NÃO
 #    tem runtime Java nativo. Cada um precisa de um `Dockerfile` (ver rootDir).
 #  - `acervo` e `leitura` (NestJS) usam runtime `node` nativo.
-#  - Migrations Nest: rodar `node dist/db/migrate.js` uma vez após o 1º deploy
-#    (ou como Pre-Deploy Command em plano pago). Spring roda Flyway no boot.
+#  - Migrations Nest rodam antes da API em `npm run start:prod`; Spring roda
+#    Flyway no boot. Todo SQL continua sujeito a revisao humana antes do merge.
 #  - Free tier hiberna após ~15 min; a 1ª chamada leva 30-60 s (tratado nos
 #    clientes como carregamento, RNF-ERR-09).
 # ==========================================================================
@@ -29,7 +29,7 @@ services:
     branch: main
     rootDir: code/back/acervo
     buildCommand: npm ci --include=dev && npm run build
-    startCommand: node dist/main.js
+    startCommand: npm run start:prod
     healthCheckPath: /health
     autoDeploy: true
     envVars:
@@ -39,7 +39,7 @@ services:
         value: acervo
       - key: DB_SCHEMA
         value: acervo
-      - key: DATABASE_URL # Neon com ?sslmode=require&options=-csearch_path%3Dacervo
+      - key: DATABASE_URL # Neon com ?sslmode=require
         sync: false
       - key: CORS_ALLOWED_ORIGINS # origem do site em DES (sem curinga, RNF-SEC-21)
         value: https://leai-web.onrender.com
@@ -54,7 +54,7 @@ services:
     branch: main
     rootDir: code/back/leitura
     buildCommand: npm ci --include=dev && npm run build
-    startCommand: node dist/main.js
+    startCommand: npm run start:prod
     healthCheckPath: /health
     autoDeploy: true
     envVars:
@@ -64,7 +64,7 @@ services:
         value: leitura
       - key: DB_SCHEMA
         value: leitura
-      - key: DATABASE_URL # ...options=-csearch_path%3Dleitura
+      - key: DATABASE_URL # Neon com ?sslmode=require
         sync: false
       - key: CORS_ALLOWED_ORIGINS
         value: https://leai-web.onrender.com
@@ -89,7 +89,7 @@ services:
         value: identidade
       - key: DB_SCHEMA
         value: identidade
-      - key: DATABASE_URL # ...options=-csearch_path%3Didentidade
+      - key: DATABASE_URL # URL JDBC; schema definido por DB_SCHEMA
         sync: false
       - key: CORS_ALLOWED_ORIGINS
         value: https://leai-web.onrender.com
@@ -120,7 +120,7 @@ services:
         value: social
       - key: DB_SCHEMA
         value: social
-      - key: DATABASE_URL # ...options=-csearch_path%3Dsocial
+      - key: DATABASE_URL # URL JDBC; schema definido por DB_SCHEMA
         sync: false
       - key: CORS_ALLOWED_ORIGINS
         value: https://leai-web.onrender.com

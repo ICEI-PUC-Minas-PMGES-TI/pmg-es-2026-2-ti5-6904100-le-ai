@@ -15,6 +15,12 @@ Usuário, autenticação, perfil, privacidade, seguidores e solicitações de se
 > **Scaffolding concluído (P0-INFRA, 12/09/2026):** esqueleto Spring Boot executável com health, corpo de erro padrão, correlation-id, CORS restrito, cabeçalhos de segurança, config validada no boot e migration inicial do schema. Sem tabelas de domínio ainda.
 >
 > **P0-NAV (14/09/2026):** primeira tabela de domínio (`usuario`), Spring Security + JWT HS256, `POST /auth/register`, `POST /auth/login`, `GET /me`, rate limiting por IP e bloqueio progressivo por identidade. Ver "Pontos de atenção" abaixo, que estava desatualizado nesses itens.
+>
+> **Modelo físico do DER (16/09/2026):** `usuario` foi ampliada sem perder os
+> usuários existentes; tabelas de autenticação, seguidores, exclusão,
+> idempotência e outbox, além das VIEWs de contrato, foram versionadas. A
+> existência da estrutura não significa que as features correspondentes estejam
+> implementadas.
 
 ## Estrutura, comandos e ferramentas (P0-INFRA)
 

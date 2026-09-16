@@ -2,6 +2,9 @@
 
 Modelo lógico derivado de [REQUISITOS.md v1.5](../orquestador/REQUISITOS.md), da [arquitetura](../orquestador/documento-de-arquitetura.md) e das features. Decisões do grupo incorporadas em 15/09/2026. A apresentação e os contratos entre schemas estão em [4.modelagem.md](../4.modelagem.md#43-modelo-de-dados).
 
+A materializacao no PostgreSQL, as migrations e o checklist do Neon estao em
+[`DER.md`](DER.md).
+
 | Schema | Fonte editável | PNG | SVG ampliável |
 |---|---|---|---|
 | identidade | [Mermaid](modelo-dados-identidade.mmd) | [PNG](../imagens/modelo-dados-identidade.png) | [SVG](../imagens/modelo-dados-identidade.svg) |

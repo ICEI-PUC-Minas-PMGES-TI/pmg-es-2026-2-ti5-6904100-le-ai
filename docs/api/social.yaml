@@ -9,12 +9,18 @@ info:
     domínio entram com as features; por ora só health + info. Spec gerado em
     runtime por `springdoc-openapi` (`/v3/api-docs`, UI em `/docs`) e commitado
     aqui (RNF-ARQ-03; AGENTS §10) — um spec por serviço, nunca por feature.
+x-database-contracts:
+  - name: v_atividade_livro_pessoal_v1
+    columns: [atividade_id, dono_id, livro_id]
+  - name: v_lista_livro_pessoal_v1
+    columns: [lista_id, dono_id, livro_id]
 servers:
   - url: http://localhost:8081
     description: local
 paths:
   /health:
     get:
+      security: []
       tags: [health]
       summary: Health check do serviço (RNF-OBS-02)
       description: Retorna 200 quando o serviço está de pé e o banco responde.
@@ -31,7 +37,7 @@ paths:
                   service: { type: string, example: social }
                   time: { type: string, format: date-time }
         '503':
-          description: Serviço indisponível (ex.: banco fora do ar).
+          description: "Serviço indisponível (ex.: banco fora do ar)."
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Erro' }

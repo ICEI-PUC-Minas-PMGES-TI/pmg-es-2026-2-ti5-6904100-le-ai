@@ -8,12 +8,20 @@ info:
     (ACV). As rotas de domínio entram com as features; por ora só health + info.
     Spec gerado em runtime por `@nestjs/swagger` (`/docs`) e commitado aqui
     (RNF-ARQ-03; AGENTS §10) — um spec por serviço, nunca por feature.
+x-database-contracts:
+  - name: v_livro_referencia_v1
+    description: Referencia estavel de livro para leitura e social.
+    columns: [livro_id, tipo, dono_id, paginas, titulo, autor_exibicao, capa_resolvida, ativo]
+  - name: v_livro_recomendacao_v1
+    description: Uma linha por livro oficial ativo e assunto; assunto pode ser nulo.
+    columns: [livro_id, titulo, autor_exibicao, capa_resolvida, serie_id, serie_nome, assunto_id, assunto_nome]
 servers:
   - url: http://localhost:3000
     description: local
 paths:
   /health:
     get:
+      security: []
       tags: [health]
       summary: Health check do serviço (RNF-OBS-02)
       description: Retorna 200 quando o serviço está de pé e o banco responde.
@@ -30,7 +38,7 @@ paths:
                   service: { type: string, example: acervo }
                   time: { type: string, format: date-time }
         '503':
-          description: Serviço indisponível (ex.: banco fora do ar).
+          description: "Serviço indisponível (ex.: banco fora do ar)."
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Erro' }
