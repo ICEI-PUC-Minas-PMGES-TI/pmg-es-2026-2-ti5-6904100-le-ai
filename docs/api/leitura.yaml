@@ -9,12 +9,20 @@ info:
     entram com as features; por ora só health + info. Spec gerado em runtime
     por `@nestjs/swagger` (`/docs`) e commitado aqui (RNF-ARQ-03; AGENTS §10)
     — um spec por serviço, nunca por feature.
+x-database-contracts:
+  - name: v_estante_publica_v1
+    columns: [usuario_id, livro_id, status, vezes_lido]
+  - name: v_resenha_publicacao_v1
+    columns: [resenha_id, usuario_id, livro_id, texto, spoiler, criado_em, atualizado_em, curtidas, descurtidas]
+  - name: v_nota_publicacao_v1
+    columns: [usuario_id, livro_id, valor]
 servers:
   - url: http://localhost:3000
     description: local
 paths:
   /health:
     get:
+      security: []
       tags: [health]
       summary: Health check do serviço (RNF-OBS-02)
       description: Retorna 200 quando o serviço está de pé e o banco responde.
@@ -31,7 +39,7 @@ paths:
                   service: { type: string, example: leitura }
                   time: { type: string, format: date-time }
         '503':
-          description: Serviço indisponível (ex.: banco fora do ar).
+          description: "Serviço indisponível (ex.: banco fora do ar)."
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Erro' }

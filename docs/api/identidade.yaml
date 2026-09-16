@@ -17,6 +17,13 @@ info:
     Spec gerado em runtime por `springdoc-openapi` (`/v3/api-docs`, Swagger UI
     em `/docs`) e commitado aqui (RNF-ARQ-03; AGENTS §10) — um spec por
     serviço, nunca por feature.
+x-database-contracts:
+  - name: v_perfil_referencia_v1
+    description: Perfil de referencia; omite conta suspensa ou com exclusao pendente.
+    columns: [id, username, nome_exibicao, avatar_url, privacidade, opt_out_recomendacao]
+  - name: v_seguimento_aceito_v1
+    description: Pares de seguimento visiveis; omite contas suspensas ou com exclusao pendente.
+    columns: [seguidor_id, seguido_id]
 servers:
   - url: http://localhost:8080
     description: local
@@ -32,6 +39,7 @@ tags:
 paths:
   /auth/register:
     post:
+      security: []
       tags: [auth]
       summary: Cria uma conta de leitor (RF-AUT-01)
       description: >-
@@ -67,6 +75,7 @@ paths:
               schema: { $ref: '#/components/schemas/Erro' }
   /auth/login:
     post:
+      security: []
       tags: [auth]
       summary: Autentica por e-mail ou nome de usuário (RF-AUT-02)
       description: >-
@@ -123,6 +132,7 @@ paths:
               schema: { $ref: '#/components/schemas/Erro' }
   /health:
     get:
+      security: []
       tags: [health]
       summary: Health check do serviço (RNF-OBS-02)
       description: Retorna 200 quando o serviço está de pé e o banco responde.
@@ -139,7 +149,7 @@ paths:
                   service: { type: string, example: identidade }
                   time: { type: string, format: date-time }
         '503':
-          description: Serviço indisponível (ex.: banco fora do ar).
+          description: "Serviço indisponível (ex.: banco fora do ar)."
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Erro' }

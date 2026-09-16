@@ -13,7 +13,9 @@ Feed e atividades, curtidas de atividade, comentários, listas, recomendações 
 - **Recomendação algorítmica** é hospedada aqui, lendo **VIEWs** de `leitura` (estante, nota), `identidade` (seguir) e `acervo` (assunto) — nunca tabelas cruas. Calculada em tempo de consulta, sem estrutura derivada (`REQUISITOS.md` §10.7).
 - **Feed guarda snapshot** no evento de atividade (nome do usuário, título e capa do livro no momento), em vez de hidratar por join a cada scroll.
 
-> **Scaffolding concluído (P0-INFRA, 12/09/2026):** esqueleto Spring Boot executável com health, corpo de erro padrão, correlation-id, CORS restrito, cabeçalhos de segurança, config validada no boot e migration inicial do schema. Sem tabelas de domínio ainda.
+> **Modelo físico do DER (16/09/2026):** as 15 tabelas e as VIEWs de contrato
+> de `social` foram versionadas em Flyway. A existência da estrutura não
+> significa que as features de domínio estejam implementadas.
 
 ## Estrutura, comandos e ferramentas (P0-INFRA)
 

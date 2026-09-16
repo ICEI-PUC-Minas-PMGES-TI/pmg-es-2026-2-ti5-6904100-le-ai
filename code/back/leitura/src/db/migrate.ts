@@ -15,7 +15,13 @@ async function main(): Promise<void> {
   }
   const migrationsSchema = process.env.DB_SCHEMA ?? 'leitura';
 
-  const pool = new Pool({ connectionString });
+  const needsSsl =
+    /sslmode=require|neon\.tech|\.render\.com/i.test(connectionString) ||
+    process.env.NODE_ENV === 'production';
+  const pool = new Pool({
+    connectionString,
+    ssl: needsSsl,
+  });
   try {
     // Garante o schema antes de criar a tabela de controle das migrations nele.
     await pool.query(`CREATE SCHEMA IF NOT EXISTS "${migrationsSchema}"`);

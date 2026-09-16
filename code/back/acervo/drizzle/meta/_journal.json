@@ -8,6 +8,13 @@
       "when": 1757635200000,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789567666753,
+      "tag": "0001_20260916110700_modelo_der",
+      "breakpoints": true
     }
   ]
 }
