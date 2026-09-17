@@ -26,7 +26,8 @@ RNF atendidos: **RNF-SEC-01/02/03** (controle de acesso e propriedade no servido
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | não iniciado | tabelas `seguidor`/`solicitacao_seguir`; VIEWs `v_perfil_referencia_v1`/`v_seguimento_aceito_v1`; preset Cloudinary de avatar |
+| Infra | em andamento | schema/objetos no Neon implantados; preset/prova Cloudinary P-09 e runtime RabbitMQ de P0-MSG ainda pendentes |
+| Dados | concluído | campos de perfil, `seguidor`, `solicitacao_seguir`, `idempotencia_identidade`, `outbox_identidade` e VIEWs `v_perfil_referencia_v1`/`v_seguimento_aceito_v1` versionados e aplicados no Neon em 16/09; estrutura pronta não implica casos de uso implementados |
 | Backend | não iniciado | `identidade`: perfil, privacidade, seguir/solicitar, listas, busca por username |
 | Web | não iniciado | tela de perfil (próprio/de outro), edição, busca por username, seguidores/seguidos |
 | Mobile | não iniciado | mesmas telas + upload de avatar direto ao Cloudinary |
@@ -36,6 +37,25 @@ RNF atendidos: **RNF-SEC-01/02/03** (controle de acesso e propriedade no servido
 ### Backend / API — `identidade`
 
 Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) o corpo de erro padrão + correlation-id e mensagens pt-BR (RNF-USA-05). Todo acesso a conteúdo restrito de perfil privado revalida **relação de seguidor aceita no servidor** (RNF-SEC-03), em **todos** os endpoints de conteúdo, inclusive listagens. A busca exata continua retornando apenas os campos públicos definidos em RN-08. IDs de recurso **não sequenciais** (SEC-05). Escritas aceitam `Idempotency-Key` conforme o [README do período](README.md#regras-de-implementação-compartilhadas).
+
+**Contrato HTTP canônico:** [`docs/api/identidade.yaml`](../../api/identidade.yaml). Os nomes de operação, parâmetros, schemas, respostas e `x-implementation-status` daquele arquivo prevalecem sobre exemplos resumidos desta feature. Todas as operações abaixo estão `planned` em 17/09; sua presença no OpenAPI e a existência das tabelas não declaram implementação.
+
+| Operação canônica | Entrada canônica | Saída de sucesso canônica |
+|---|---|---|
+| `GET /me/perfil` | `bearerAuth` | `200` `Perfil` |
+| `PUT /me/perfil` | `bearerAuth`, `IdempotencyKey`, `EditarPerfilRequisicao` | `200` `Perfil` |
+| `GET /perfis` | `bearerAuth`, query `UsernameExato` | `200` array de zero ou um `PerfilResumo` |
+| `GET /perfis/{username}` | `bearerAuth`, path `UsernamePath` | `200` `Perfil` |
+| `POST /perfis/{username}/seguir` | `bearerAuth`, `UsernamePath`, `IdempotencyKey` | `201` `ResultadoSeguir` |
+| `DELETE /perfis/{username}/seguir` | `bearerAuth`, `UsernamePath`, `IdempotencyKey` | `204`, sem corpo |
+| `GET /solicitacoes` | `bearerAuth`, `Page`, `Size` | `200` `PaginaSolicitacoes` |
+| `POST /solicitacoes/{id}/aceitar` | `bearerAuth`, `SolicitacaoId`, `IdempotencyKey` | `204`, sem corpo |
+| `POST /solicitacoes/{id}/recusar` | `bearerAuth`, `SolicitacaoId`, `IdempotencyKey` | `204`, sem corpo |
+| `DELETE /seguidores/{username}` | `bearerAuth`, `UsernamePath`, `IdempotencyKey` | `204`, sem corpo |
+| `GET /me/seguidores` | `bearerAuth`, `Page`, `Size` | `200` `PaginaPerfis` |
+| `GET /me/seguidos` | `bearerAuth`, `Page`, `Size` | `200` `PaginaPerfis` |
+
+Componentes compartilhados deste recorte: schemas `Privacidade`, `RelacaoPerfil`, `Avatar`, `ContadoresPerfil`, `PerfilResumo`, `Perfil`, `ResultadoSeguir`, `SolicitacaoSeguir`, `PaginaSolicitacoes`, `PaginaPerfis` e `Erro`; respostas `RequisicaoInvalida`, `PaginacaoInvalida`, `NaoAutenticado`, `NaoAutorizado`, `NaoEncontrado`, `IdempotenciaEmConflito`, `LimiteExcedido` e `ServicoIndisponivel`. Implementação e testes devem usar exatamente esses componentes, inclusive página baseada em zero e `size` máximo 50.
 
 - **`GET /me/perfil`** e **`PUT /me/perfil`** (RF-SOC-01) — edita nome de exibição, **biografia**, **avatar** e **privacidade** (`publico`/`privado`, RF-SOC-04). Biografia tratada como texto na renderização (escape — SEC-14). Avatar por **Cloudinary unsigned upload** (P-09): o cliente envia direto ao Cloudinary e manda a URL/ID; o servidor **valida tipo real, tamanho e dimensões** (SEC-20) e fixa pasta/tipos/tamanho no preset.
 - **`GET /perfis/{username}`** (RF-SOC-02, RN-08) — retorna o perfil de outro leitor. **Nome, avatar e biografia são visíveis a todos**; estante, leituras, listas, estatísticas, resenhas e notas seguem RN-08 (públicos a todos **ou** só a seguidores aceitos, conforme a privacidade). O conteúdo de estante/resenha vem de `leitura` e listas de `social`; **este endpoint entrega a identidade + contadores**, e os clientes compõem o resto chamando os serviços donos, que **revalidam** a privacidade. Perfil privado a não-seguidor → identidade pública + indicação de conteúdo restrito (não `403` do perfil inteiro).
@@ -61,10 +81,18 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) o corpo de erro padrão + 
 
 Mudar de **público para privado não remove** seguidores existentes.
 
-**Eventos produzidos** (§5.2, consumidos por [F-NOT](feature-F-NOT.md) via broker): `seguidor.novo`, `solicitacao.criada`, `solicitacao.aceita`. Publicados **após** a escrita confirmada (arquitetura §5.1). Cada payload versionado contém `destinatarioId`, os ids dos participantes, `eventId`, `occurredAt`, `correlationId` e uma chave de negócio estável: seguimento ou solicitação. O critério desta feature termina na publicação conforme o contrato; a criação da notificação é critério de F-NOT.
+**Eventos produzidos e ownership:** F-PERFIL/`identidade` é dona da escrita do fato, da linha em `outbox_identidade`, dos schemas de `data` e da publicação no exchange `leai.events.identidade`; [F-NOT](feature-F-NOT.md)/`social` é dona da fila `leai.social.notificacoes`, do consumo idempotente e da criação da notificação. [P0-MSG](../periodo-0/feature-P0-MSG.md) é pré-requisito e dono do [envelope v1](../../mensageria/schemas/envelope-v1.schema.json), dispatcher, publisher confirms, conexão/topologia, retry e DLQ. A outbox já está implantada, mas o runtime de P0-MSG ainda não está implementado.
+
+| Evento `(type, version)` | Quando F-PERFIL grava na outbox | `businessKey` | Schema canônico de `data` | Campos de `data` |
+|---|---|---|---|---|
+| `seguidor.novo`, `1` | seguimento imediato de perfil público ou aceite de solicitação, na mesma transação do `seguidor` | `seguimento:<seguimentoId>` | [`seguidor.novo.v1`](../../mensageria/schemas/seguidor.novo.v1.schema.json) | `destinatarioId`, `seguimentoId`, `seguidor` (`UsuarioSnapshot`) |
+| `solicitacao.criada`, `1` | criação de solicitação pendente para perfil privado, na mesma transação | `solicitacao:<solicitacaoId>` | [`solicitacao.criada.v1`](../../mensageria/schemas/solicitacao.criada.v1.schema.json) | `destinatarioId`, `solicitacaoId`, `solicitante` (`UsuarioSnapshot`) |
+| `solicitacao.aceita`, `1` | aceite e criação do seguimento, na mesma transação | `solicitacao:<solicitacaoId>` | [`solicitacao.aceita.v1`](../../mensageria/schemas/solicitacao.aceita.v1.schema.json) | `destinatarioId`, `solicitacaoId`, `seguimentoId`, `perfilAceitante` (`UsuarioSnapshot`) |
+
+`eventId`, `type`, `version`, `occurredAt`, `correlationId` e `businessKey` pertencem ao envelope, não ao `data`; a outbox persiste somente o `data` em `payload`, e o dispatcher monta o envelope. `UsuarioSnapshot` é definido em [`common-v1.schema.json`](../../mensageria/schemas/common-v1.schema.json). O [catálogo](../../mensageria/catalogo.md) é a fonte canônica de produtor, consumidor e business key. A criação da notificação e os recibos de consumo são critérios de F-NOT, não desta feature.
 
 **VIEWs expostas por `identidade`** (arquitetura §4.2), com nomes distintos das tabelas:
-- `v_perfil_referencia_v1` — id, username, nome de exibição, avatar e privacidade; permite distinguir perfil público de privado e montar snapshots sem ler `usuario`. F-REC-ALG/P3 acrescenta `opt_out_recomendacao` para filtrar o uso das leituras nas sugestões alheias.
+- `v_perfil_referencia_v1` — colunas físicas e contratuais `id`, `username`, `nome_exibicao`, `avatar_url`, `privacidade` e `opt_out_recomendacao`; permite distinguir perfil público de privado, montar snapshots sem ler `usuario` e dá a F-REC-ALG/P3 o sinal de opt-out já previsto no contrato.
 - `v_seguimento_aceito_v1` — pares seguidor → seguido **somente com seguimento aceito**.
 
 As duas VIEWs omitem contas com `exclusao_solicitada_em` preenchido. Durante os 30 dias de recuperação, perfil, conteúdo e relações deixam de ser visíveis sem apagar os dados; cancelar a exclusão restaura automaticamente as linhas contratuais.
@@ -73,7 +101,7 @@ F-MOD-OPC/P3 também omite contas suspensas e seus seguimentos das VIEWs públic
 
 `acervo`, `leitura` e `social` combinam os dois contratos para aplicar RN-08: conteúdo é visível se o perfil for público, se o solicitante for o próprio dono ou se houver seguimento aceito. As VIEWs são versionadas e documentadas junto do spec OpenAPI.
 
-**Modelo de dados** (schema `identidade`): `seguidor` (seguidor, seguido, criado_em) e `solicitacao_seguir` (solicitante, alvo, status, timestamps). `usuario` ganha o campo de **privacidade** (coordenar com [F-AUT](feature-F-AUT.md)).
+**Modelo de dados** (schema `identidade`): a migration [`V20260915120000__completa_schema_identidade.sql`](../../../code/back/identidade/src/main/resources/db/migration/V20260915120000__completa_schema_identidade.sql) já foi versionada, validada em PostgreSQL 17 e aplicada no Neon em 16/09, conforme o [`DER`](../../diagramas/DER.md#checklist-do-neon). Ela amplia `usuario`, cria `seguidor`, `solicitacao_seguir`, `idempotencia_identidade`, `outbox_identidade` e as duas VIEWs. F-PERFIL implementa o uso dessas estruturas; não deve recriá-las nem editar migration aplicada. Qualquer ajuste exige nova migration timestampada e revisão humana.
 
 ### Frontend Web (`code/front`)
 
@@ -109,7 +137,10 @@ F-MOD-OPC/P3 também omite contas suspensas e seus seguimentos das VIEWs públic
 - [ ] Código (backend `identidade`, web, mobile) mergeado em `desenvolvimento`
 - [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
 - [ ] Testes unitários e de integração com banco real/container, **com prioridade obrigatória para RN-08 (RNF-TST-01 e RNF-TST-02)**: seguir público/privado, inbox paginada e exclusiva do destinatário, aceitar/recusar, deixar de seguir/remover, listas próprias, busca exata, idempotência e negativa de conteúdo privado por não-seguidor
-- [ ] Teste de publisher cobre schema/publicação de `seguidor.novo`, `solicitacao.criada` e `solicitacao.aceita`, inclusive repetição sem segundo efeito (RNF-TST-03)
+- [ ] Matriz RN-08 cobre público, privado com dono, seguidor aceito e não-seguidor em perfil, busca e cada leitura/listagem de conteúdo; suspensão e exclusão pendente não vazam pelas VIEWs; mudança público→privado preserva seguidores
+- [ ] Testes de contrato HTTP validam requisições/respostas, `401`/`403`/`404` sem IDOR, paginação zero-based/limite 50 e todos os componentes canônicos de [`identidade.yaml`](../../api/identidade.yaml)
+- [ ] Teste do produtor cobre, para os três eventos, validação do envelope + schema de `data`, `businessKey`, destinatário/snapshot corretos e atomicidade domínio+outbox; replay da mesma `Idempotency-Key` não cria segunda relação, solicitação ou linha de outbox (RNF-TST-03/ERR-10)
+- [ ] Testes genéricos de dispatcher, publisher confirm, broker indisponível, retry e DLQ são entregues por P0-MSG; testes de consumo duplicado/recibo e criação da notificação são entregues por F-NOT
 - [ ] Testes web/mobile cobrem estado dos botões, conteúdo restrito e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
 - [ ] **Spec OpenAPI de `identidade` atualizado em `docs/api/identidade.yaml`** com perfil/seguidores/solicitações e as VIEWs `v_perfil_referencia_v1`/`v_seguimento_aceito_v1` documentadas como contratos
 - [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
@@ -120,14 +151,16 @@ F-MOD-OPC/P3 também omite contas suspensas e seus seguimentos das VIEWs públic
 
 ## Pendências
 
-- **Depende de** [F-AUT](feature-F-AUT.md)/[P0-NAV](../periodo-0/feature-P0-NAV.md) (sessão e modelo `usuario`), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md) e [P0-MSG](../periodo-0/feature-P0-MSG.md) (broker para os eventos; Cloudinary/P-09 para avatar).
-- **Compartilha o serviço `identidade` com [F-AUT](feature-F-AUT.md)** — alinhar o campo de privacidade e contadores no `usuario` antes de mexer (plano §6).
+- **Depende de** [F-AUT](feature-F-AUT.md)/[P0-NAV](../periodo-0/feature-P0-NAV.md) (identidade autenticada; P0-NAV já fornece access token e middleware, F-AUT completa a sessão), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md) e [P0-MSG](../periodo-0/feature-P0-MSG.md). P0-MSG ainda precisa entregar Cloudinary/P-09 para avatar e conexão/dispatcher/confirms/retry/DLQ para os eventos; as tabelas de outbox implantadas não satisfazem esse pré-requisito funcional.
+- **Compartilha o serviço `identidade` com [F-AUT](feature-F-AUT.md)** — privacidade e contadores já estão fixados na migration implantada; coordenar qualquer nova migration ou alteração de entidades/DTOs compartilhados (plano §6).
 - **Divergência de baseline em RF-SOC-02:** estante/resenhas vêm de `leitura` ([F-EST](feature-F-EST.md)/[F-AVA](feature-F-AVA.md)), mas listas pertencem a F-LST no Período 2. No Período 1, o perfil compõe identidade, contadores, estante e resenhas disponíveis; RF-SOC-02 não é marcado integralmente fechado até o grupo resolver a alocação das listas pelo controle de mudança.
 - **Depende futuramente de F-CONTA-2:** as VIEWs devem ocultar conta com exclusão pendente sem remover dados durante os 30 dias.
 - Definir o **preset Cloudinary de avatar** (pasta/tipos/tamanho) com [P0-MSG](../periodo-0/feature-P0-MSG.md).
 - Stack do serviço `identidade` definida: **Spring (Java)** (arquitetura §2.1).
 
 ## Timeline
+
+### Consolidação 17/09/2026: operações e componentes HTTP alinhados ao contrato canônico expandido de `identidade`; estado físico de tabelas, VIEWs e outbox implantadas separado do estado funcional; schemas de evento ligados diretamente ao catálogo, com envelope, produtor/consumidor e fronteiras de P0-MSG/F-NOT explicitados; dependências e matriz mínima de testes consolidadas sem declarar backend ou clientes implementados.
 
 ### Revisão 15/09/2026: impacto das decisões do grupo registrado — extensão de opt-out em F-REC-ALG e ocultação/restauração por suspensão em F-MOD-OPC. Contratos derivados atualizados; implementação não iniciada.
 

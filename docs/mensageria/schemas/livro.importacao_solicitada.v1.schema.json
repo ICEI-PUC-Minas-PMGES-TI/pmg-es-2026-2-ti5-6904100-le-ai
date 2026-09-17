@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://leai.app/schemas/mensageria/livro.importacao_solicitada.v1.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["importacaoId", "solicitanteId", "isbn13"],
+  "properties": {
+    "importacaoId": { "type": "string", "format": "uuid" },
+    "solicitanteId": { "type": "string", "format": "uuid" },
+    "isbn13": { "type": "string", "pattern": "^[0-9]{13}$" }
+  }
+}

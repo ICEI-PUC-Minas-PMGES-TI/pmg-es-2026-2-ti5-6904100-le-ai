@@ -48,6 +48,7 @@ A faculdade impõe a estrutura de alto nível do repositório. Neste repositóri
 │   ├── imagens/                    # figuras renderizadas (.png) dos documentos da disciplina
 │   ├── evidencias/                 # evidências (avaliação heurística etc.)
 │   ├── api/                        # specs OpenAPI: um .yaml por serviço (ver §8)
+│   ├── mensageria/                 # catálogo e JSON Schemas dos eventos (ver §8)
 │   ├── plano-de-desenvolvimento/       # features por período (ver §9) — FORA do orquestrador
 │   │   ├── README.md                   # índice + tabela-mestre de features
 │   │   ├── periodo-0/
@@ -103,12 +104,12 @@ Mapa de origem → destino, para saber o que atualizar:
 | `docs/README.md` (capa, resumo, ferramentas) | `docs/orquestador/REQUISITOS.md` §1 |
 | `docs/1.apresentacao.md` (problema, objetivos, definições) | `docs/orquestador/REQUISITOS.md` §1, §3 |
 | `docs/2.nosso_produto.md` (visão, produto, personas) | `docs/orquestador/REQUISITOS.md` §1, §4 |
-| `docs/3.requisitos.md` (RF, RNF, restrições, mecanismos) | `docs/orquestador/REQUISITOS.md` §2, §5, §7, §8 + `docs/orquestador/documento-de-arquitetura.md` §2 |
-| `docs/4.modelagem.md` (visão geral, histórias, visão lógica, dados) | `docs/orquestador/documento-de-arquitetura.md` §1, §3, §4 + `docs/orquestador/REQUISITOS.md` §3, §5 |
+| `docs/3.requisitos.md` (RF, RNF, restrições, mecanismos) | `docs/orquestador/REQUISITOS.md` §2, §5, §7, §8 + `docs/orquestador/documento-de-arquitetura.md` §2, §5 |
+| `docs/4.modelagem.md` (visão geral, histórias, visão lógica, dados) | `docs/orquestador/documento-de-arquitetura.md` §1, §3, §4, §5 + `docs/orquestador/REQUISITOS.md` §3, §5 |
 | `docs/5.wireframe.md` | `docs/orquestador/documento-de-design.md` + protótipos |
 | `6.avaliacao_heuristica.md` | **exceção:** avaliação de aplicação externa, exercício da disciplina — **não deriva do orquestador** |
 | `docs/7.solucao.md` (telas construídas) | telas reais do sistema (a partir do período-0) |
-| `docs/8.avaliacao_arquitetura.md` (ATAM) | `docs/orquestador/documento-de-arquitetura.md` §7 + `docs/orquestador/REQUISITOS.md` §7, §8 (cenários); medições a partir do sistema em DES |
+| `docs/8.avaliacao_arquitetura.md` (ATAM) | `docs/orquestador/documento-de-arquitetura.md` §5, §7 + `docs/orquestador/REQUISITOS.md` §7, §8 (cenários); medições a partir do sistema em DES |
 
 **Consequência prática:** ao terminar uma sessão que mexeu no orquestador, verifique a coluna de destino e atualize o(s) documento(s) da disciplina afetado(s), ou registre a pendência de atualização no arquivo da feature. Documento da disciplina desatualizado em relação ao orquestador é o mesmo tipo de dívida que spec OpenAPI desatualizado (§8). Como qualquer artefato, gerar/atualizar os documentos da disciplina pode ser delegado a um agente, que lê o orquestador e reescreve o derivado — mas o agente nunca inventa conteúdo que não esteja na fonte.
 
@@ -169,7 +170,7 @@ Imprevisto vai acontecer, e alterar o `docs/orquestador/REQUISITOS.md` é um cam
 1. Quem detectou registra a divergência como **pendência no arquivo da feature** onde ela apareceu. Nunca edita o `docs/orquestador/REQUISITOS.md` na hora, e nunca deixa o agente editar.
 2. O grupo decide na reunião semanal (ou no chat, se for urgente e pequeno).
 3. Se aprovada, a alteração entra no `docs/orquestador/REQUISITOS.md` com registro no `## Timeline` do arquivo, no formato `## Alteração DD/MM: ...`.
-4. Quem fez a alteração verifica o impacto: quais features já implementadas ou já especificadas mudam de comportamento, quais diagramas e specs OpenAPI precisam de atualização, e se o Documento de Arquitetura é afetado. Cada impacto vira pendência no arquivo da feature correspondente.
+4. Quem fez a alteração verifica o impacto: quais features já implementadas ou já especificadas mudam de comportamento, quais diagramas, specs OpenAPI, schemas/catálogo de mensageria e documentos da disciplina precisam de atualização, e se o Documento de Arquitetura é afetado. Cada impacto vira pendência no arquivo da feature correspondente.
 
 O passo 4 é o que dá o custo real da mudança — e é justamente por isso que ele desencoraja mudanças de conveniência sem bloquear as necessárias.
 
@@ -253,9 +254,11 @@ Regras de uso:
 
 ---
 
-## 8. Contratos de API
+## 8. Contratos de integração
 
-Mesmo com divisão vertical, o contrato existe — e ele não é cerimônia prévia, é **subproduto do DoD**.
+Mesmo com divisão vertical, os contratos existem — e não são cerimônia prévia, são **subproduto do DoD**.
+
+### 8.1 HTTP
 
 - Cada serviço expõe seu spec em runtime: `/v3/api-docs` no Spring e pelo endpoint configurado com `@nestjs/swagger` no NestJS.
 - O spec é **commitado** em `docs/api/<servico>.yaml`. Atualizar é item obrigatório do Definition of Done da feature.
@@ -288,6 +291,14 @@ services:
 Para a entrega final, gerar o HTML estático dos specs e anexar ao Documento de Arquitetura.
 
 Por que isso importa mesmo sendo a mesma pessoa nas 3 camadas: você escreve o backend na segunda e consome no Flutter na quinta. O spec é a sua própria memória — e a do agente, que para de adivinhar formato de payload.
+
+### 8.2 Mensageria
+
+- Envelope, catálogo e schemas canônicos ficam em `docs/mensageria/`, neutros entre Java e TypeScript.
+- P0-MSG possui transporte, topologia, dispatcher, recibo, retry e DLQ; a feature produtora possui o schema de `data` e a gravação domínio+outbox.
+- Granularidade: um arquivo por `(type, version)`. Schema publicado é imutável; mudança incompatível cria nova versão.
+- A feature que produz ou passa a consumir evento atualiza catálogo/schema e testes de contrato na mesma passada. Evento futuro não cria fila acumuladora; o consumidor executa backfill antes do binding.
+- A cópia runtime de um schema deve ser comparada no CI com a fonte canônica para impedir divergência.
 
 ---
 
@@ -348,6 +359,7 @@ Este plano define o Definition of Done do processo; `docs/orquestador/REQUISITOS
 - [ ] CI verde (lint, build, testes)
 - [ ] Testes automatizados dos casos de uso da feature (mínimo: backend)
 - [ ] Spec OpenAPI do serviço atualizado em `docs/api/`
+- [ ] Se produz ou consome evento, catálogo/schema em `docs/mensageria/` atualizado e testado
 - [ ] Fluxo funcionando **em DES/HML**, não só localmente
 - [ ] Arquivo da feature atualizado: status, pendências, timeline
 - [ ] Se o protótipo divergiu da implementação, a divergência está registrada
@@ -385,7 +397,7 @@ A disciplina cobra semanalmente, e isso precisa custar pouco:
 | Prototipagem consumir mais de 1 semana | Só caminho crítico e telas prioritárias |
 | Deploy descoberto tarde | Período-0 entrega as 3 peças em DES antes de qualquer feature |
 | `main` quebrada | PR com CI verde obrigatório no merge `desenvolvimento` → `main`; ninguém commita direto |
-| Conflito em serviço compartilhado por 2 features | Spec OpenAPI versionado + aviso no grupo antes de mexer |
+| Conflito em serviço compartilhado por 2 features | Spec OpenAPI e schema de evento versionados + aviso no grupo antes de mexer |
 | Sessão de agente perdida | Arquivo da feature atualizado ao final de toda sessão |
 | Escopo não caber | Classificação prioritaria/desejavel/opcional e desce de nível no fechamento do período |
 | `desenvolvimento` quebrada travando os 5 | Quem quebrou conserta ou reverte na hora; mudança arriscada vai para branch `feat/` |

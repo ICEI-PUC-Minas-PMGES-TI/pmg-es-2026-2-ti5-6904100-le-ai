@@ -22,7 +22,8 @@ RNF atendidos: **RNF-ERR-04** (chave de idempotência na escrita — retentativa
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | não iniciado | tabela `atualizacao_progresso` no schema `leitura` |
+| Dados | concluído (baseline DER) | `atualizacao_progresso`, `leitura`, `idempotencia_leitura` e `outbox_leitura`, constraints/índices/FKs versionados e aplicados no Neon em 16/09/2026; isso não implementa o domínio |
+| Infra | não iniciado | conexão/dispatcher AMQP e recibos/retry/DLQ dependem de P0-MSG; eventos sem consumidor atual não criam fila acumuladora |
 | Backend | não iniciado | `leitura`: registrar/listar, editar último e excluir trecho final; planejamento atualizado em 15/09/2026 |
 | Web | não iniciado | registrar progresso + barra de página atual/percentual |
 | Mobile | não iniciado | mesmas telas + **fila offline** (RNF-ERR-05) |
@@ -31,22 +32,24 @@ RNF atendidos: **RNF-ERR-04** (chave de idempotência na escrita — retentativa
 
 ### Backend / API — `leitura`
 
-Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + correlation-id e mensagens pt-BR. Operação **síncrona** (§7.2: registro de progresso não é assíncrono; confirma ao autor). Valida **propriedade** da leitura (SEC-02), **esquema** de entrada (SEC-13) e obtém o total de páginas por `v_livro_referencia_v1`, sem ler tabela crua de `acervo`. IDs não sequenciais (SEC-05). POST e DELETE aceitam `Idempotency-Key`.
+Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + correlation-id e mensagens pt-BR. A operação é **síncrona** (§7.2: confirma ao autor); a publicação assíncrona posterior não muda o resultado HTTP. Todo endpoint valida no servidor que a ocorrência pertence ao autenticado (SEC-02), sem acesso público por perfil; conhecer `leituraId`/`progressoId` não concede acesso. Valida o esquema de entrada (SEC-13) e obtém o total de páginas por `v_livro_referencia_v1`, sem ler tabela crua de `acervo`. IDs são não sequenciais (SEC-05). POST, PATCH e DELETE exigem `Idempotency-Key` UUID com escopo `(ator autenticado, método, caminho canônico)`: mesma chave/payload reproduz status e corpo; payload diferente retorna `409`.
 
-- **`POST /leituras/{id}/progresso`** (RF-PRG-01, RF-PRG-04, RN-17) — recebe **página em que parou** (absoluta), **tempo gasto** e metadados automáticos `registradoEmDispositivo` + `fusoHorarioDispositivo` (IANA, não editáveis no formulário). O servidor valida esses metadados e deriva/persiste a data local de RN-18.2, inclusive quando uma fila offline envia depois. Valida (RN-17.2, RF-PRG-04): página **> página atual** e **≤ total de páginas** do livro; violação → `422` com mensagem clara (pt-BR). Aceita **chave de idempotência** (RNF-ERR-04): reenvio da mesma chave não cria registro duplicado. A leitura precisa estar em **Lendo** ou **Relendo** ([F-EST](feature-F-EST.md), RN-04). O registro **zera o contador de inatividade** (RN-05) e retorna o resumo derivado atualizado.
-- Na mesma transação, grava `progresso.registrado` na outbox com atualização, páginas derivadas, minutos, instante e data/fuso locais. F-DSF, F-STA e F-GAM consomem o contrato aprovado; eventos anteriores ao início dos consumidores são cobertos por backfill.
+- **`POST /leituras/{leituraId}/progresso`** (RF-PRG-01, RF-PRG-04, RN-17) — recebe exatamente `{ pagina, minutos, registradoEmDispositivo, fusoHorarioDispositivo }`. Página é absoluta; captura e fuso IANA são automáticos e não editáveis. O servidor deriva/persiste `dataLocal`, inclusive no reenvio offline, exige página **> página atual** e **≤ total de páginas** (`422` em violação), e aceita somente ocorrência própria em **Lendo** ou **Relendo**. Sob o mesmo lock/transação, cria o progresso, atualiza `leitura.pagina_atual`, `ultima_atividade_em` e `inatividade_versao` para iniciar novo ciclo de RN-05, e retorna `201` com `{ progresso, resumo }`.
+- Na mesma transação, grava `progresso.registrado` na outbox. O contrato canônico v1 usa `businessKey=progresso:<atualizacaoProgressoId>` e `data` exato `{ atualizacaoProgressoId, usuarioId, leituraId, livroId, pagina, paginasLidas, minutos, percentual, registradoEm, fusoHorario, dataLocal }`. Eventos anteriores ao início dos consumidores futuros não ficam acumulados: F-DSF/F-STA/F-GAM fazem backfill antes de criar bindings.
 - Registros concorrentes da mesma leitura são serializados por lock/controle otimista sobre a leitura. Página anterior e páginas lidas são calculadas dentro da mesma transação; a segunda escrita revalida contra a página já confirmada, evitando duas atualizações derivadas da mesma base (RNF-ARQ-05).
-- **`GET /leituras/{id}/progresso?page=`** (RF-PRG-02 e RF-PRG-03) — lista paginada, ordenada e com limite máximo imposto pelo servidor (RNF-DES-02). Cada resposta inclui metadados de resumo independentes da página: `paginaAtual`, `totalPaginas` e `percentualConcluido`.
-- **`PATCH /progresso/{id}`** (RF-PRG-03, RN-17.4) — edita página/tempo **somente do último registro** da leitura em andamento. Revalida a ordem sob lock; usa a página do penúltimo (zero se ausente) como base e exige página corrigida maior que essa base e não superior ao total. Preserva instante/fuso/data local originais; grava `atualizado_em` e recalcula os efeitos do mesmo fato.
-- **`DELETE /progresso/{id}`** (RF-PRG-03, RN-17.6) — exclui o último registro; um intermediário só é removível junto com todos os posteriores. O contrato exige confirmação explícita do trecho final selecionado e remove esse conjunto atomicamente, ou recusa com conflito se houver posteriores não incluídos. Revalida a ordem sob o mesmo lock; retorna o resumo recalculado (página zero sem registros). A confirmação informa o alcance da remoção (RNF-USA-04). PATCH e DELETE aceitam `Idempotency-Key`.
-- **Efeitos de correção:** edição/exclusão recalculam contribuições, estatísticas e dias/sequências locais. O consumidor de `progresso.registrado` consulta o estado atual pelo id do fato e não ressuscita registros excluídos nem aplica valores antigos. A ordem usa uma posição sequencial por leitura, única e atribuída sob lock; timestamps de edição não determinam o último registro.
+- **`GET /leituras/{leituraId}/progresso?page=&limite=`** (RF-PRG-02/03) — lista com `limite` máximo 50 e resposta `{ itens, paginacao, resumo, somenteLeitura }`; `resumo` contém `paginaAtual`, `totalPaginas` e `percentualConcluido` independentemente da página. Ocorrências encerradas são somente leitura.
+- **`PATCH /progresso/{progressoId}`** recebe `{ pagina?, minutos? }`, com ao menos um campo, e edita **somente o último registro** da ocorrência em andamento. Revalida sob lock contra a página do penúltimo (zero se ausente), preserva captura/fuso/data local originais, atualiza `atualizado_em` e retorna `{ progresso, resumo }`.
+- **`DELETE /progresso/{progressoId}`** recebe `{ ultimoProgressoIdConfirmado }`; remove atomicamente o registro indicado e todos os posteriores. Se o ID confirmado não for o último atual, retorna `409` para não apagar escrita concorrente. Retorna `{ idsRemovidos, resumo }`, com página zero se não restar registro; o cliente confirma previamente o alcance e o resultado do recálculo (RNF-USA-04).
+- **Efeitos de correção:** PATCH/DELETE recalculam página, contribuições, estatísticas e dias/sequências dentro do próprio serviço `leitura`, sem criar novo tipo/evento de broker apenas para comunicação interna. Uma entrega tardia de `progresso.registrado` consulta o estado atual por `atualizacaoProgressoId`: não ressuscita registro excluído nem aplica payload anterior à correção. Consumidores deduplicam a entrega por `(consumidor, eventId)` e o efeito semanticamente pelo ID do fato. A ordem usa `atualizacao_progresso.ordem`, única por leitura e atribuída sob lock; timestamps de edição não definem o último.
+
+**Fronteira compartilhada com F-EST/P0-MSG:** F-PRG possui `atualizacao_progresso` e suas mutações; F-EST possui a máquina de estados, a estante e o ciclo de inatividade. F-PRG só altera os campos compartilhados de `leitura` necessários a RN-17/RN-05, na mesma transação e sob o mesmo lock. P0-MSG possui envelope, dispatcher, publisher confirm, recibo, validação, retry e DLQ; F-PRG possui o `data`, a business key e a gravação domínio+outbox. A baseline física já aplicada não deve ser reescrita; ajuste exige nova migration revisada e coordenação com F-EST/F-AVA.
 
 **Valores derivados (RN-17), calculados pelo sistema e só exibidos:**
 - **Páginas lidas** de uma atualização = `página informada − página atual anterior` (RN-17.1).
 - **Página atual** = maior página informada até o momento (RN-17.3).
 - **Percentual concluído** = página atual ÷ total do livro (RN-17.5).
 
-**Modelo de dados** (schema `leitura`): `atualizacao_progresso` (leitura, página informada, tempo gasto, instante/fuso informados automaticamente pelo dispositivo, data local derivada — para streak futuro, RN-18.2 —, chave de idempotência, timestamps).
+**Modelo de dados** (schema `leitura`, baseline já implantada): `atualizacao_progresso` contém `leitura_id`, `ordem`, `pagina`, `paginas_lidas`, `minutos`, captura/fuso/data local, `chave_idempotencia` e timestamps; FK para `leitura`, unicidade `(leitura_id, ordem)` e unicidade da chave estão aplicadas. `leitura.pagina_atual` guarda o resumo corrente; `idempotencia_leitura` guarda replay HTTP e `outbox_leitura` o evento. A regra de domínio continua no backend: constraint física não substitui propriedade, estado, total de páginas, monotonicidade ou lock.
 
 ### Frontend Web (`code/front`)
 
@@ -62,16 +65,16 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 - [ ] Registrar progresso grava página + tempo e **recusa** página ≤ atual ou > total (RF-PRG-04, RN-17.2) com mensagem clara.
 - [ ] **Página atual** e **percentual** são derivados corretamente (RN-17) e exibidos; o leitor nunca informa páginas lidas nem percentual.
-- [ ] POST, DELETE e a listagem expõem resumo coerente (`paginaAtual`, `totalPaginas`, `percentualConcluido`), inclusive em nova sessão e após recálculo.
+- [ ] POST, PATCH, DELETE e a listagem expõem resumo coerente (`paginaAtual`, `totalPaginas`, `percentualConcluido`), inclusive em nova sessão e após recálculo.
 - [ ] Só o último progresso pode ser editado; página/tempo corrigidos preservam a captura original e recalculam os efeitos. Edição de intermediário é recusada sob concorrência.
 - [ ] Excluir intermediário exige excluir todos os posteriores, com confirmação do alcance e transação atômica; sem registros, a página atual é zero (RF-PRG-03, RN-17.6).
 - [ ] A lista de atualizações é paginada com teto server-side; exclusão exige confirmação (RNF-DES-02, RNF-USA-04).
-- [ ] Reenvio com a **mesma chave de idempotência** não cria registro duplicado (RNF-ERR-04).
+- [ ] Reenvio com a **mesma chave de idempotência** e payload reproduz status/corpo sem repetir efeito; reutilizá-la com payload diferente retorna `409` (RNF-ERR-04).
 - [ ] Escritas concorrentes da mesma leitura não derivam da mesma página anterior; fila offline reenvia FIFO por leitura (RNF-ARQ-05, RNF-ERR-05).
 - [ ] No mobile, registros feitos **offline** são enfileirados e reenviados ao voltar a conexão, sem duplicar (RNF-ERR-05).
 - [ ] Cada registro **zera o contador de inatividade** da leitura (RN-05, integra [F-EST](feature-F-EST.md)).
 - [ ] Data local é derivada do instante/fuso capturados automaticamente no dispositivo e preservada no reenvio offline (RN-18.2).
-- [ ] `progresso.registrado` é gravado atomicamente na outbox e publicado com os campos necessários a DSF, STA e GAM.
+- [ ] POST grava atomicamente a outbox com `businessKey=progresso:<atualizacaoProgressoId>` e payload estritamente compatível com o schema v1; PATCH/DELETE recalculam os efeitos locais e uma entrega tardia consulta o estado atual sem ressuscitar exclusões.
 - [ ] Operações validam **propriedade** da leitura (SEC-02).
 - [ ] Registrar/exibir/excluir progresso funciona **em DES**.
 
@@ -81,7 +84,8 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 - [ ] Código (backend `leitura`, web, mobile) mergeado em `desenvolvimento`
 - [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
-- [ ] Testes unitários e de integração com banco real/container: propriedade, total de páginas, validação, cálculo/resumo, paginação, recálculo, fuso/data local, idempotência e POSTs concorrentes na mesma leitura (RNF-TST-02)
+- [ ] Testes unitários e de integração com PostgreSQL real/container: propriedade/ID alheio, estado em andamento versus encerrado, total de páginas, monotonicidade, cálculo/resumo, paginação/teto 50, edição só do último, exclusão atômica e conflito do ID confirmado, captura/fuso/data local, idempotência HTTP e POSTs/PATCH/DELETE concorrentes na mesma leitura (RNF-TST-02)
+- [ ] Testes assíncronos do produtor cobrem domínio+outbox atômicos no POST, schema/business key, entrega tardia após edição/exclusão e falha do broker sem desfazer a escrita; recibo, deduplicação semântica, backfill e DLQ são critérios das features consumidoras (RNF-TST-03)
 - [ ] Testes web/mobile cobrem estado, confirmação, paginação e indisponibilidade/timeout; mobile cobre a **fila offline** e reenvio com a mesma chave (RNF-TST-04/05/06)
 - [ ] **Spec OpenAPI de `leitura` atualizado em `docs/api/leitura.yaml`** com os endpoints de progresso
 - [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
@@ -90,9 +94,10 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 ## Pendências
 
-- **Depende de** [F-EST](feature-F-EST.md) (leitura em andamento e máquina de estados; compartilham o serviço `leitura` — sinalizar no grupo antes de mexer, plano §6), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md).
+- **Depende de** [F-EST](feature-F-EST.md) (leitura em andamento, lock e ciclo de inatividade; a baseline física compartilhada já está aplicada, e nova migration exige coordenação), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md) e [P0-MSG](../periodo-0/feature-P0-MSG.md). P0-MSG ainda não iniciou dispatcher/consumo/retry/DLQ: F-PRG pode implementar domínio+outbox, mas não concluir a publicação em DES antes dessa fundação.
 - **Sessão de leitura cronometrada** (RF-PRG-05..12, RN-16) fica **fora** — é **F-SESSAO** (Período 2). A entrada de página desta feature é a mesma que a sessão usará ao encerrar; manter o contrato compatível.
 - **Decisão do grupo incorporada em 15/09/2026:** progresso offline recompõe desafios e sequência pela data de captura, inclusive janelas encerradas. Registro manual retroativo continua proibido. Testar captura anterior a pausa/edição de desafio, sincronização tardia, edição do último e exclusão do trecho final, incluindo eventos entregues depois da correção.
+- **Divergências físicas preservadas:** o OpenAPI exige `minutos` entre 1 e 720, enquanto a constraint implantada permite zero e não limita 720; além disso, o contrato HTTP escopa `Idempotency-Key` por ator+método+caminho, enquanto `atualizacao_progresso.chave_idempotencia` está globalmente única. A implementação segue o OpenAPI e o ledger `idempotencia_leitura`; qualquer ajuste físico entra em nova migration revisada, sem reescrever `0001`/`0002`.
 - **Impacto visual pendente:** os prompts/protótipos de `registrar-progresso.md` e `atualizacoes-de-progresso.md` precisam refletir a edição do último e a confirmação do trecho final. Até essa atualização, a implementação segue RN-17 v1.5; não reproduzir a exclusão isolada de intermediários do protótipo antigo.
 - Persistir a **data local** da atualização (RN-18.2) desde já, para a sequência diária (Período 2) não exigir retrabalho.
 - Stack de `leitura` definida: **NestJS (TypeScript)** (arquitetura §2.1).
@@ -102,6 +107,8 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **A confirmação de exclusão de atualização informa o resultado do recálculo**, não uma frase genérica sobre irreversibilidade, porque é esse número que o leitor precisa para decidir (RN-17.4). Fixado na seção 8 de `atualizacoes-de-progresso.md`.
 
 ## Timeline
+
+### Revisão 17/09/2026: HTTP alinhado ao OpenAPI e evento alinhado ao catálogo/schema v1; business key, correções e responsabilidades de deduplicação delimitadas. O payload inclui páginas lidas, minutos, fuso e data local necessários aos consumidores futuros. Baseline de dados marcada como concluída no Neon; backend, AMQP, web e mobile permanecem não iniciados.
 
 ### Revisão 15/09/2026: decisões do grupo incorporadas à especificação — edição só do último, exclusão de intermediário com posteriores, ordem explícita e recomposição offline. DER atualizado; implementação e atualização dos protótipos permanecem pendentes.
 

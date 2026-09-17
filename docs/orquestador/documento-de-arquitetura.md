@@ -1,11 +1,13 @@
 # Documento de Arquitetura de Software
 
-**Versão:** v1.5 — 15/09/2026
+**Versão:** v1.6 — 17/09/2026
 **Status:** macroarquitetura fechada — alocação de stack por serviço decidida em 02/09/2026 (§2.1)
 
 > **v1.4 (12/09/2026):** ambiente local passa a usar **Postgres local** — **removida a branch de banco por dev no Neon** (o Neon mantém só a branch de DES/HML). Decisão da equipe; reflexo em §6 e no plano §4.
 
 > **v1.5 (15/09/2026):** decisões do grupo registradas em `REQUISITOS.md` v1.5: delta automático do acervo removido, projeções corrigíveis por sincronização offline, retenção de configurações/pausas de desafio, suspensão com ocultação e retenção técnica anonimizada sem prazo. Sem mudança de stacks ou fronteiras dos serviços.
+
+> **v1.6 (17/09/2026):** contratos executáveis do Período 1 consolidados: quatro OpenAPI com estado por operação, envelope/eventos em `docs/mensageria/`, topologia RabbitMQ, recibo transacional, retry/DLQ e baseline física de 59 tabelas/9 VIEWs. Sem mudança de requisito, stack ou fronteira de serviço.
 
 > Este documento descreve **como o sistema é construído**. O *o que* mora em `docs/orquestador/REQUISITOS.md`, que continua sendo a fonte de verdade. Em caso de conflito, o `REQUISITOS.md` vence, e a divergência segue o controle de mudança do `docs/orquestador/plano-de-projeto.md` §3.
 
@@ -59,6 +61,8 @@ O acervo permanece no PostgreSQL — e não em banco de documentos — porque é
 
 - O plano gratuito do CloudAMQP limita conexões simultâneas (na ordem de 20) e mensagens/mês. Com quatro serviços, cada um mantém **uma conexão e vários channels**, em vez de conexão por consumidor. É um risco de capacidade registrado, mitigável dentro do free tier no volume de uma demo.
 - Todo consumidor é idempotente (RNF-ERR-06) e tolera entrega duplicada; mensagem que falhar após o máximo de tentativas vai para DLQ sem bloquear a fila principal (RNF-ERR-07).
+- `identidade` e `social` usam `spring-boot-starter-amqp` e `networknt json-schema-validator`; `acervo` e `leitura` usam `amqplib`, `ajv` e `ajv-formats`. Os contratos permanecem JSON Schema neutro, sem pacote compartilhado entre stacks.
+- `AMQP_ENABLED=false` permite subir local/teste sem broker; quando habilitado, `AMQP_URL` é obrigatório. Indisponibilidade do broker não desfaz operação síncrona já confirmada nem torna `/health` indisponível se API e banco estiverem saudáveis; a outbox preserva a publicação pendente.
 
 ### 2.4 P-08 — Agendador de jobs: GitHub Actions (`schedule`)
 
@@ -142,6 +146,8 @@ O plano gratuito do Render **hiberna cada serviço após ~15 min de inatividade*
 
 A persistência usa **um projeto PostgreSQL no Neon** (RNF-ARQ-07), com **um schema por serviço**: `identidade`, `acervo`, `leitura`, `social`. A separação é **lógica**, não física — todos os schemas vivem no mesmo cluster.
 
+A baseline física foi aplicada no Neon em 16/09/2026, com **59 tabelas de domínio e 9 VIEWs de contrato**. Flyway versiona `identidade`/`social`; Drizzle versiona `acervo`/`leitura`. Essa implantação não declara as features funcionais: código de domínio, clientes e mensageria seguem os status dos respectivos arquivos de feature.
+
 Essa escolha preserva o encapsulamento de microsserviço **e** mantém possíveis as junções que os requisitos assumem (recomendação, nota agregada), que seriam inviáveis se os dados estivessem em bancos de paradigmas diferentes. É também o que respeita o teto de armazenamento do plano gratuito (RNF-DES-04): o acervo não deve consumir mais de 20% do limite, com o índice de busca dimensionado como custo dominante (RNF-DES-05).
 
 ### 4.2 Regra de acesso entre schemas
@@ -159,6 +165,7 @@ Sem essa regra, o schema por serviço degenera em banco compartilhado e a divis�
 - Cada serviço só cria migration das tabelas do **seu** schema; migration é revisada por humano antes de subir (plano §5).
 - Acesso sempre por consultas parametrizadas ou ORM (RNF-SEC-12).
 - Cada schema produtor mantém uma **outbox transacional**. A alteração de domínio e o evento são gravados na mesma transação; um dispatcher publica com confirmação do broker e retry, fechando RNF-ERR-10 sem transformar falha de publicação em falha da operação síncrona.
+- Cada schema consumidor recebe por migration incremental a tabela técnica `mensagem_processada(consumidor, event_id, processado_em)`, com chave primária `(consumidor, event_id)`. Efeito de domínio e recibo são gravados na mesma transação. As migrations da baseline já aplicada não são reescritas e toda nova migration mantém revisão humana obrigatória.
 
 **Decisões de dados incorporadas em 15/09/2026:** `leitura` persiste instante/fuso/data local da ação de finalizar separadamente da data de fim editável. Janelas de desafio guardam configuração histórica e pausas são retidas para recálculo por captura offline. Edição/exclusão de progresso seguem RN-17 e recalculam efeitos no próprio serviço, sem novo serviço ou evento de broker apenas para comunicação interna. Eventos de progresso acionam leitura do estado atual do fato, evitando reaplicar payload anterior à sua correção/exclusão. Retenção de registros técnicos/auditoria é indeterminada após anonimização de RN-23; validade de tokens e replay HTTP não são estendidos.
 
@@ -174,7 +181,7 @@ Fora do PostgreSQL, o sistema usa o **Firebase apenas para FCM** (§2.7). Nenhum
 
 ### 5.1 Síncrono
 
-Os clientes consomem os serviços por **HTTP/JSON**. Cada serviço publica seu contrato em **OpenAPI** (RNF-ARQ-03), versionado em `docs/api/<servico>.yaml` e agregado num Swagger UI único (plano §8). Operações que confirmam ao autor — status na estante, progresso, nota, resenha — são **síncronas**; o evento é publicado **depois** da escrita confirmada (§7.2 do `REQUISITOS.md`).
+Os clientes consomem os serviços por **HTTP/JSON**. Cada serviço publica seu contrato em **OpenAPI 3.0.3** (RNF-ARQ-03), versionado em `docs/api/<servico>.yaml` e agregado num Swagger UI único (plano §8). Cada operação identifica se está implementada ou planejada; existir no spec não significa existir no runtime. Em 17/09/2026, os quatro contratos consolidados somam 66 operações: 21 em `identidade`, 11 em `acervo`, 23 em `leitura` e 11 em `social`. Operações que confirmam ao autor — status na estante, progresso, nota, resenha — são **síncronas**; o evento é publicado **depois** da escrita confirmada (§7.2 do `REQUISITOS.md`).
 
 ### 5.2 Assíncrono (RabbitMQ)
 
@@ -195,7 +202,41 @@ Os fluxos assíncronos de `REQUISITOS.md` §7.2 e seus serviços produtores/cons
 
 `livro.adicionado_a_estante` passa a ter dois consumidores: `acervo`, para cache de capa, e `social`, para remover recomendações recebidas do livro.
 
-Todo consumidor é idempotente e tolera duplicação (RNF-ERR-06); falha após o máximo de tentativas vai para DLQ (RNF-ERR-07). Mensagens são validadas por schema antes do processamento (RNF-SEC-32).
+#### Contrato canônico
+
+Os contratos assíncronos ficam em `docs/mensageria/`: `README.md`, catálogo e JSON Schemas Draft 2020-12. O conjunto inicial possui **22 schemas**: envelope, tipos comuns, `ping.teste` e 19 eventos de negócio produzidos no Período 1. Eventos de períodos futuros listados acima recebem schema quando sua feature produtora entrar; não se cria fila acumuladora antes de existir consumidor, e o consumidor futuro executa backfill da fonte contratual antes de ativar o binding.
+
+Todo evento usa o envelope v1:
+
+```json
+{
+  "eventId": "uuid",
+  "type": "leitura.iniciada",
+  "version": 1,
+  "occurredAt": "2026-09-16T12:00:00Z",
+  "correlationId": "uuid",
+  "businessKey": "leitura:<leituraId>:iniciada",
+  "data": {}
+}
+```
+
+`eventId` identifica a entrega técnica; `businessKey` identifica o fato/agregado, mas não impõe unicidade genérica. A outbox persiste somente `data`, e o dispatcher monta o envelope. O par `(type, version)` seleciona o schema; schema publicado é imutável e alteração incompatível cria nova versão. Header AMQP e corpo divergentes tornam a mensagem inválida.
+
+#### Topologia e entrega
+
+| Exchange | Tipo | Eventos do domínio |
+|---|---|---|
+| `leai.events.identidade` | `topic` | identidade |
+| `leai.events.acervo` | `topic` | acervo |
+| `leai.events.leitura` | `topic` | leitura |
+| `leai.events.social` | `topic` | social |
+| `leai.dead-letter` | `direct` | DLQs |
+
+A routing key é o `type` exato. As filas do Período 1 são `leai.acervo.importacao`, `leai.acervo.sinopse`, `leai.social.feed` e `leai.social.notificacoes`; cada uma possui `<fila>.dlq` ligada a `leai.dead-letter` pela routing key do nome da fila. `leai.p0.ping`/`.dlq` existem apenas para a prova técnica entre stacks.
+
+O dispatcher busca até 50 linhas pendentes por ciclo de 1 segundo, usa `SKIP LOCKED`, publica mensagem persistente e marca `publicado` somente após *publisher confirm*. Falha incrementa `tentativas`, mantém a linha pendente e usa backoff limitado a 60 segundos; outbox não é descartada por quantidade de tentativas.
+
+Todo consumidor valida envelope, versão e `data` antes do domínio. Schema/versão inválida ou erro permanente vai diretamente à DLQ. Erro transitório mantém a entrega não confirmada e tenta novamente após 1, 5 e 15 segundos, com `prefetch=1` por channel; após a tentativa inicial e as três retentativas, envia `nack(requeue=false)`. O redrive é manual após correção da causa. Efeito e recibo transacionais tornam entrega duplicada um ACK sem novo efeito.
 
 Filas duráveis, *publisher confirms* e DLQ protegem mensagens já recebidas pelo broker. A janela anterior ao broker é coberta pela outbox transacional: o evento permanece no PostgreSQL até a confirmação da publicação, com retry seguro e observável.
 
@@ -238,7 +279,7 @@ Ambientes conforme o plano §4: local (Postgres local), DES/HML (branch `main`, 
 |---|---|---|---|
 | P-11 | Spring + NestJS; identidade/social em Spring, acervo/leitura em NestJS (02/09/2026) | RNF-ARQ-02 | §2.1 |
 | P-12 | 4 serviços; PostgreSQL/Neon, schema por serviço | RNF-ARQ-02, RNF-ARQ-07 | §2.2, §3, §4 |
-| P-06 | RabbitMQ (CloudAMQP) | §7.2, RNF-ARQ-06 | §2.3, §5.2 |
+| P-06 | RabbitMQ (CloudAMQP), envelope/schema v1, outbox+confirm, recibo transacional, retry e DLQ | §7.2, RNF-ARQ-06, RNF-ERR-06/07/10, RNF-SEC-32 | §2.3, §4.3, §5.2 |
 | P-08 | GitHub Actions `schedule` (fallback cron-job.org) | RNF-ARQ-09, RF-EST-11/12, RN-23 | §2.4 |
 | P-09 | Cloudinary | RF-ACV-08, RF-ACV-17, RF-SOC-01, RN-14 | §2.5 |
 | P-02 | Brevo | RF-AUT-04 | §2.6 |

@@ -13,12 +13,13 @@ As frentes abaixo são a base sobre a qual toda feature de domínio roda. Fecham
 | P0-INFRA | Scaffolding do monorepo e serviços | — | fundação | `code/{mobile,front,back/{identidade,acervo,leitura,social}}`; `AGENTS.md` por serviço; `.env.example`; esqueleto de cada serviço com health check (RNF-OBS-02), corpo de erro padrão (RNF-ERR-01) e correlation-id no log (RNF-OBS-01) |
 | P0-CI | Pipeline CI/CD | — | fundação | GitHub Actions com filtro por caminho; lint/build/test por serviço; artefato APK do Flutter a cada merge em `main` |
 | P0-DEPLOY | Deploy em DES | — | fundação | Render (4 serviços + site estático Vue) + Neon (projeto único, schema por serviço, branch única de DES) |
-| P0-MSG | Mensageria e integrações base | — | fundação | RabbitMQ/CloudAMQP conectado (uma conexão por serviço); validar viabilidade free-tier: GitHub Actions `schedule` (fallback cron-job.org), Cloudinary, Brevo, FCM |
+| P0-MSG | Mensageria e integrações base | — | fundação | Envelope v1, outbox/dispatcher, publisher confirm, consumidor idempotente, JSON Schema, retry/DLQ e CloudAMQP; validar `schedule`, Cloudinary, Brevo e FCM |
 | P0-DS | Design system base | — | fundação | Tokens do `../../orquestador/documento-de-design.md` traduzidos para web (Tailwind config/CSS vars) e Flutter `ThemeData` |
 | P0-NAV | Navegabilidade + shell de auth + docs de API | — | fundação | Cadastro/login mínimos ligando web+mobile ao `identidade`; navegação entre as telas principais; Swagger UI agregado (`docker-compose.docs.yml`) + scaffolding de `docs/api/` |
 
 **Notas**
 - `P0-NAV` entrega apenas o esqueleto navegável de autenticação; a feature completa `F-AUT` (Período 1) implementa o fluxo inteiro de AUT.
+- `P0-MSG` está especificada para execução em [`feature-P0-MSG.md`](feature-P0-MSG.md), com contratos canônicos em [`../../mensageria/`](../../mensageria/README.md); as outboxes implantadas ainda não equivalem ao runtime de mensageria.
 - Serviço marcado `—` porque estas frentes são transversais (não pertencem a um único serviço de domínio). O dono é registrado quando a frente é assumida.
 
 ## Arquivos de feature

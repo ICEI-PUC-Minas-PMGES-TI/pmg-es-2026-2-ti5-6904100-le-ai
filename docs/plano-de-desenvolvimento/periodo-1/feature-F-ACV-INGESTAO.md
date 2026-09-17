@@ -20,8 +20,9 @@ RNF atendidos: **RNF-DES-04** (acervo ≤20% do limite do plano Neon — carga d
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | não iniciado | tabelas de catálogo, índices e VIEW `v_livro_referencia_v1` no schema `acervo` |
-| Backend | não aplicável | ingestão é script de carga, não endpoint (ver DoD) |
+| Infra / Dados | em andamento | baseline do DER versionada e implantada no Neon em 16/09/2026; faltam dados curados, carga e validação de capacidade |
+| Script de carga | não iniciado | filtragem local em streaming, normalização e `COPY` ainda não implementados |
+| Backend | não aplicável | carga inicial não é endpoint, consumidor ou fluxo de mensageria |
 | Web | não aplicável | RF-ACV-13/20 são de sistema, sem UI |
 | Mobile | não aplicável | idem |
 
@@ -29,15 +30,18 @@ RNF atendidos: **RNF-DES-04** (acervo ≤20% do limite do plano Neon — carga d
 
 ### Infra / Dados — schema `acervo`
 
-Modelo mínimo do catálogo oficial (schema `acervo`, migration revisada por humano — plano §5), reaproveitado por [F-ACV-CADASTRO](feature-F-ACV-CADASTRO.md):
+O modelo físico está versionado em `code/back/acervo/drizzle/0001_20260916110700_modelo_der.sql` e foi implantado no Neon em 16/09/2026. Isso entrega apenas a estrutura de dados; não implementa o script nem significa que o catálogo foi carregado. A baseline, reaproveitada por [F-ACV-CADASTRO](feature-F-ACV-CADASTRO.md), contém:
 
 - `Livro` (edição — RN-01): ISBN-13 **único** (RN-02), `ol_edition_key` (id secundário de dedup — RN-02), título, ano, nº de páginas, **duas URLs de capa** (externa preenchida na ingestão, própria inicialmente ausente — RN-14.1), flag oficial/pessoal.
 - `Autor`, `Editora`, `Serie` (com número de ordem opcional por livro), `Assunto` (conjunto curado), e as associações livro↔autor/editora/serie/assunto.
 - **Índices** de busca sobre título, autor e ISBN (RNF-DES-03), dimensionados no custo de armazenamento (RNF-DES-05).
 - **Identificadores externos:** persiste `ol_edition_key` para deduplicação da edição e `ol_work_key` como referência externa não única. `ol_work_key` não cria camada de obra; permite a F-ACV-NOTA replicar ratings de obra nas edições associadas.
-- **Contrato entre schemas:** `v_livro_referencia_v1` expõe somente `livro_id`, tipo oficial/pessoal, `dono_id`, total de páginas, título, autor para exibição, capa resolvida e estado ativo. `leitura` usa o contrato para validar página, tipo e dono; `social` usa livro/estado para snapshots e para ocultar atividade de alvo excluído. [F-ACV-CADASTRO](feature-F-ACV-CADASTRO.md) completa o mesmo contrato para livros pessoais. Nenhum consumidor lê as tabelas cruas de `acervo`.
+- **Contrato entre schemas:** `v_livro_referencia_v1` expõe somente `livro_id`, tipo oficial/pessoal, `dono_id`, total de páginas, título, autor para exibição, capa resolvida e estado ativo. A VIEW implantada já contempla os dois tipos; [F-ACV-CADASTRO](feature-F-ACV-CADASTRO.md) implementará o ciclo de vida dos livros pessoais. `leitura` usa o contrato para validar página, tipo e dono; `social` usa livro/estado para snapshots e para ocultar atividade de alvo excluído. Nenhum consumidor lê as tabelas cruas de `acervo`.
+- **Objetos já implantados relevantes à carga:** `ingestao_execucao` (`tipo=carga_inicial|recarga`), `sinonimo_editora`, `mapa_assunto_externo`, as tabelas de catálogo e associações, os índices de unicidade de ISBN-13/`ol_edition_key` e de consulta, `v_livro_referencia_v1` e `v_livro_recomendacao_v1`. O conjunto curado, os sinônimos e os mapeamentos ainda precisam ser populados por entregáveis versionados desta feature.
 
 ### Script de carga (RF-ACV-13, RN-12, §10.1)
+
+**Fronteira operacional:** esta feature cobre exclusivamente a **carga inicial em lote** do dump. O script é operado pelo grupo fora dos quatro serviços, filtra localmente e grava diretamente no schema `acervo` por `COPY`/SQL parametrizado. Não há rota HTTP, outbox, publicação, fila ou consumidor; portanto ela não depende de [P0-MSG](../periodo-0/feature-P0-MSG.md). O fluxo `livro.importacao_solicitada` pertence exclusivamente à importação **individual e on-line por ISBN** de [F-ACV-CADASTRO](feature-F-ACV-CADASTRO.md), não à carga ou recarga do dump.
 
 - **Fonte:** data dump de edições do OpenLibrary (domínio público, CC0), na ordem de dezenas de GB — **exige filtragem prévia** processada **localmente em streaming** e carregada por **`COPY`** (§10.1). Nada do dump bruto vai ao Neon sem filtro.
 - **Filtros aplicados no nível da EDIÇÃO** (ressalva §10.1: `language:por` de obra é pouco confiável): **edição em português**, com **ISBN-13**, com **total de páginas** e com **capa**. Livros sem ISBN-13, sem total de páginas ou sem capa são **descartados** (RN-12) — progresso por página exige total de páginas.
@@ -60,8 +64,8 @@ Modelo mínimo do catálogo oficial (schema `acervo`, migration revisada por hum
 - [ ] Assuntos são mapeados para o **conjunto curado (~30)** pela tabela de mapeamento; tags sem correspondência são **descartadas** e não criam assunto novo (RN-21).
 - [ ] Livros sem ISBN-13/páginas/capa são **descartados** (RN-12).
 - [ ] O acervo carregado respeita o **teto de 20%** do plano Neon (RNF-DES-04), com o índice de busca contabilizado (RNF-DES-05).
-- [ ] Índices de busca (título/autor/ISBN) criados (RNF-DES-03).
-- [ ] `v_livro_referencia_v1` existe com os campos mínimos, nome distinto das tabelas e sem expor dados desnecessários.
+- [x] Índices físicos de título/autor/ISBN e unicidade de ISBN-13/`ol_edition_key` estão versionados e implantados (RNF-DES-03); a eficácia com o volume real ainda será validada pela carga.
+- [x] `v_livro_referencia_v1` está versionada e implantada com exatamente `livro_id`, `tipo`, `dono_id`, `paginas`, `titulo`, `autor_exibicao`, `capa_resolvida`, `ativo`, sem expor tabelas cruas.
 - [ ] Reexecutar a mesma amostra não duplica livro, autor, editora, série ou assunto; ISBN-13 e `ol_edition_key` sustentam a deduplicação.
 - [ ] A amostra reproduzível fornece ao menos livros oficiais suficientes para o seed transversal de RNF-TST-08, sem depender do dump completo.
 - [ ] A base carregada é consultável por [F-ACV-BUSCA](feature-F-ACV-BUSCA.md) **em DES**.
@@ -70,9 +74,10 @@ Modelo mínimo do catálogo oficial (schema `acervo`, migration revisada por hum
 
 (plano §10)
 
-- [ ] Script de carga + migrations do schema `acervo` mergeados em `desenvolvimento`
+- [ ] Script de carga mergeado em `desenvolvimento`; a migration baseline do schema `acervo` já está versionada e implantada, sem representar implementação do script
 - [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)) — o CI não roda o dump inteiro; valida o script contra uma **amostra reproduzível** (RNF-TST-08)
 - [ ] Testes unitários e de integração contra banco real/container: normalização de editora/autor/série (RN-12), mapeamento de assuntos (RN-21), descarte de registro inválido, deduplicação em recarga da amostra e contrato da VIEW (RNF-TST-02/08)
+- [ ] Teste operacional da amostra cobre registro de `ingestao_execucao`, totais coerentes, falha sem carga parcial silenciosa e reexecução idempotente; testes de broker são **N/A**, pois o dump não usa mensageria
 - [ ] **Spec OpenAPI de `acervo` atualizado em `docs/api/acervo.yaml`** — não há endpoint de ingestão, mas `v_livro_referencia_v1` é documentada como contrato entre schemas; os endpoints ficam em [F-ACV-BUSCA](feature-F-ACV-BUSCA.md)/[F-ACV-CADASTRO](feature-F-ACV-CADASTRO.md)
 - [ ] Fluxo funcionando em DES/HML — acervo carregado na branch de DES ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
 - [ ] Arquivo da feature atualizado: status, pendências, timeline
@@ -82,7 +87,8 @@ Modelo mínimo do catálogo oficial (schema `acervo`, migration revisada por hum
 
 ## Pendências
 
-- **Depende de** [P0-INFRA](../periodo-0/feature-P0-INFRA.md) (schema `acervo`, ferramenta de migration) e [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md) (branch Neon de DES). Não depende de mensageria.
+- **Depende de** [P0-INFRA](../periodo-0/feature-P0-INFRA.md) (schema `acervo`, Drizzle e runner) e [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md) (branch Neon de DES). A baseline física já foi implantada, mas a carga em DES ainda depende do ambiente operacional. **Não depende de P0-MSG nem produz `livro.importacao_solicitada`.**
+- **Dependências entre features:** [F-ACV-BUSCA](feature-F-ACV-BUSCA.md) depende desta feature para catálogo oficial, assuntos e volume de teste; [F-ACV-CADASTRO](feature-F-ACV-CADASTRO.md) reutiliza o mesmo modelo e normalização, mas sua importação individual é um fluxo separado; [F-ACV-NOTA](../periodo-2/feature-F-ACV-NOTA.md) reutiliza `ol_work_key`; [F-ACV-OPC](../periodo-3/feature-F-ACV-OPC.md) estende o mesmo script com `tipo=recarga`.
 - **Conjunto curado de assuntos (~30)** e as **tabelas de mapeamento/sinônimos** precisam ser definidos pelo grupo — bloqueiam a qualidade da normalização, não o começo do script.
 - **Recarga manual do dump** (RF-ACV-14) fica fora e está alocada a **F-ACV-OPC** (Período 3).
 - **Decisão encerrada em 15/09/2026:** delta/atualização automática removido do escopo. Permanecem carga inicial e recarga manual em F-ACV-OPC; `ingestao_execucao.tipo` não possui delta.
@@ -90,6 +96,8 @@ Modelo mínimo do catálogo oficial (schema `acervo`, migration revisada por hum
 - Linguagem do script (Python recomendado) e ambiente de execução (rodar localmente / job) a fixar no arranque.
 
 ## Timeline
+
+### Alinhamento 17/09/2026: status corrigido para registrar a baseline física de `acervo` versionada e implantada sem declarar o script implementado. Fixada a fronteira operacional entre carga inicial direta por script, sem HTTP/mensageria/P0-MSG, e importação individual por ISBN de F-ACV-CADASTRO; testes e dependências cruzadas foram alinhados ao DER implantado.
 
 ### Revisão 15/09/2026: grupo removeu delta automático; DER e fronteira de ingestão atualizados, sem novo job. Implementação não iniciada.
 

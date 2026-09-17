@@ -2,7 +2,7 @@
 
 > **O que este documento é:** o mapa de **todas as features** do projeto, cada uma classificada em `prioritaria`/`desejavel`/`opcional` e alocada a um período (0–3). É a entrega "Plano de Desenvolvimento (features por período)" do `../orquestador/plano-de-projeto.md` §3 (marco de 25/08).
 >
-> **O que este documento NÃO é:** a especificação de cada feature. O detalhamento (endpoints, payloads, regras, critérios de aceite) vive em um arquivo por feature — `periodo-N/feature-*.md` — no template do `../orquestador/plano-de-projeto.md` §9. Os arquivos do período-0 já existem; os demais ainda estão em desenvolvimento e serão criados pela equipe no momento adequado.
+> **O que este documento NÃO é:** a especificação de cada feature. O detalhamento (endpoints, payloads, regras, critérios de aceite) vive em um arquivo por feature — `periodo-N/feature-*.md` — no template do `../orquestador/plano-de-projeto.md` §9. Todos os períodos já possuem seus arquivos; o estado real fica na tabela de status de cada feature.
 
 ## Fontes
 
@@ -36,6 +36,15 @@ Cada feature pertence a um serviço, definido pela decomposição de `../orquest
 | **acervo** | ACV |
 | **leitura** | EST, PRG, AVA, DSF, STA, GAM |
 | **social** | SOC-09..15, LST, REC, NOT, MOD |
+
+## Contratos de implementação
+
+- [OpenAPI por serviço](../api/README.md): contratos HTTP implementados e planejados, com estado explícito por operação.
+- [Mensageria](../mensageria/README.md): envelope, catálogo e JSON Schemas canônicos dos eventos.
+- [DER implantado](../diagramas/DER.md): 59 tabelas de domínio e 9 VIEWs de contrato aplicadas no Neon em 16/09/2026.
+- [Período 1](periodo-1/README.md): divisão recomendada das dez features em cinco frentes verticais e ordem de execução.
+
+A baseline de dados e a existência do contrato não significam que a feature está implementada.
 
 ## Tabela-mestre de features
 

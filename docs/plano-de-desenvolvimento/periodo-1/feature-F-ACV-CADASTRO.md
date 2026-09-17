@@ -21,7 +21,7 @@ RNF atendidos: **RNF-SEC-38** (ISBN validado por formato + dígito verificador; 
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | não iniciado | consumidor de `livro.importacao_solicitada`; tabela de solicitação; allowlist; preset Cloudinary |
+| Infra / Dados | em andamento | `livro`, `importacao_livro`, `idempotencia_acervo`, `outbox_acervo` e `v_livro_referencia_v1` versionados e implantados; faltam recibo, broker, fila, allowlist e preset Cloudinary |
 | Backend | não iniciado | `acervo`: importação assíncrona por ISBN + CRUD e consulta autorizada de livro pessoal |
 | Web | não iniciado | fluxo assíncrono por ISBN + formulário e página de livro pessoal |
 | Mobile | não iniciado | mesmas telas + upload de capa direto ao Cloudinary |
@@ -30,27 +30,29 @@ RNF atendidos: **RNF-SEC-38** (ISBN validado por formato + dígito verificador; 
 
 ### Backend / API — `acervo`
 
-Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + correlation-id e mensagens pt-BR. Acesso a dados por ORM/consulta parametrizada (SEC-12). IDs não sequenciais (SEC-05). Todas as escritas aceitam `Idempotency-Key` conforme o [README do período](README.md#regras-de-implementação-compartilhadas).
+Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + correlation-id e mensagens pt-BR. Acesso a dados por ORM/consulta parametrizada (SEC-12). IDs não sequenciais (SEC-05). Todas as escritas aceitam `Idempotency-Key` conforme o [README do período](README.md#regras-de-implementação-compartilhadas). O contrato HTTP canônico é `docs/api/acervo.yaml`, atualmente marcado como `planned`; a existência das tabelas e VIEWs não torna estas operações implementadas.
 
-- **`POST /livros/oficial`** (RF-ACV-05, RF-ACV-06, RF-ACV-07) — recebe **apenas o ISBN** (nunca uma URL — SEC-38). Fluxo:
+- **`POST /livros/oficial`** (`operationId: solicitarImportacaoPorIsbn`; RF-ACV-05, RF-ACV-06, RF-ACV-07) — recebe `SolicitarImportacao`, com **apenas o ISBN** (nunca uma URL — SEC-38), e exige `Idempotency-Key`. Fluxo:
   1. **Valida** formato e **dígito verificador** do ISBN-13 (SEC-38);
   2. Se o ISBN **já existe** na base oficial (RN-02: ISBN-13 é chave natural única) → **`409`** com o id do livro existente, para o cliente **redirecionar à página** (RF-ACV-07);
-  3. Senão, cria uma solicitação idempotente, publica obrigatoriamente **`livro.importacao_solicitada`** (§7.2) e responde **`202`** com `importacaoId` e estado `pendente`;
+  3. Senão, grava `importacao_livro` e a linha de `outbox_acervo` de **`livro.importacao_solicitada`** na mesma transação e responde **`202`** com `ImportacaoAceita { importacaoId, status: pendente }` e header `Location`, sem aguardar o broker ou as fontes externas;
   4. O consumidor busca metadados na ordem **OpenLibrary → Google Books**, com URL construída pelo servidor a partir de allowlist (SEC-38/39), `User-Agent`, timeout, limite de resposta, retentativa com backoff, circuit breaker e proibição de redirect fora da allowlist (SEC-39, RNF-ERR-08);
   5. Dados externos são **validados e normalizados antes de persistir** (SEC-33), como na ingestão (RN-12);
   6. Se nenhuma fonte conhecer o ISBN, encerra como `nao_encontrado`. Durante retentativas por indisponibilidade, permanece `pendente`; somente após esgotar a política passa a `falha_transitoria`, sem confundir ausência com falha do provedor.
-  - **`GET /livros/importacoes/{id}`** retorna `pendente | concluida | nao_encontrado | falha_transitoria`; em `concluida`, inclui o id do livro; em `nao_encontrado`, oferece cadastro pessoal. Só o solicitante consulta sua solicitação.
-  - **`POST /livros/importacoes/{id}/reprocessar`** — somente o solicitante pode reenfileirar uma solicitação em `falha_transitoria`. Responde `202`, mantém o mesmo `importacaoId`/ISBN normalizado e converge para o livro existente se outra execução tiver concluído. Estado diferente retorna `409`; `Idempotency-Key` impede reenvio duplicado.
+  - **`GET /livros/importacoes/{id}`** (`operationId: obterImportacaoPorIsbn`) retorna `Importacao` com `pendente | concluida | nao_encontrado | falha_transitoria`; em `concluida`, `livroId` é preenchido; `permiteCadastroPessoal=true` somente em `nao_encontrado`. Só o solicitante consulta (`403` para acesso negado; `404` para recurso inexistente/indisponível).
+  - **`POST /livros/importacoes/{id}/reprocessar`** (`operationId: reprocessarImportacaoPorIsbn`) — somente o solicitante pode reenfileirar uma solicitação em `falha_transitoria`. Exige `Idempotency-Key`, responde `202` com `ImportacaoAceita`, mantém o mesmo `importacaoId`/ISBN normalizado e grava a mudança para `pendente` e a nova outbox na mesma transação. Converge para o livro existente se outra execução já o criou; estado diferente ou chave reutilizada com outro corpo retorna `409`.
   - **Rate limiting** por IP e identidade (SEC-18).
-- **`POST /livros/pessoal`** (RF-ACV-08) — cria **livro pessoal** do dono: título, autor, **nº de páginas** (obrigatório — progresso por página exige total), e **opcionalmente** sinopse (texto puro, digitada, sem busca externa — RN-19.8) e **capa por upload** (Cloudinary unsigned, validada por tipo/tamanho/dimensões — SEC-20, RN-14.7). **Sem ISBN** (RN-02: campo ausente, não vazio). Fica **fora** de busca, catálogo, filtros e páginas de autor/editora/série (RN-03, SEC-06).
-- **`PATCH /livros/pessoal/{id}`** e **`DELETE /livros/pessoal/{id}`** (RF-ACV-09) — editar/excluir, **exclusivo do dono** (RN-03, validado no servidor — SEC-02). Exclusão é ação destrutiva → confirmação no cliente (RNF-USA-04); ao excluir, cessa o acesso de terceiros que chegavam por feed/lista (RN-15.6).
-- **`GET /livros/pessoal/{id}`** — o dono acessa diretamente. Terceiro só acessa no Período 1 com `via=feed&referenciaId=<atividadeId>`; o servidor prova que a atividade está ativa, pertence ao dono, referencia o livro **e integra o feed do solicitante por seguimento aceito**, mesmo quando o perfil do dono é público (RN-08/RN-09/RN-15). A página combina as VIEWs de F-AVA para mostrar a nota e a resenha atuais do dono. Conhecer o id, forjar `via` ou usar atividade de outro livro retorna negação. A via por lista será acrescentada por F-LST sem enfraquecer esta checagem.
+- **`POST /livros/pessoal`** (`operationId: criarLivroPessoal`) — exige `Idempotency-Key`, recebe `LivroPessoalEntrada` e responde `201` com `LivroPessoalDetalhe` e `Location`. Cria **livro pessoal** do dono: título, autor, **nº de páginas** e, opcionalmente, sinopse em texto puro e `capaUrl` do asset já enviado diretamente ao Cloudinary e validado (SEC-20, RN-14.7). **Sem ISBN** (RN-02: campo ausente, não vazio). Fica **fora** de busca, catálogo, filtros e páginas de autor/editora/série (RN-03, SEC-06).
+- **`PATCH /livros/pessoal/{id}`** (`operationId: atualizarLivroPessoal`) e **`DELETE /livros/pessoal/{id}`** (`operationId: excluirLivroPessoal`, resposta `204` sem corpo) — exigem `Idempotency-Key`; editar/excluir é **exclusivo do dono** (RN-03, validado no servidor — SEC-02). Exclusão é ação destrutiva, com confirmação no cliente (RNF-USA-04); ao excluir, `ativo=false` faz o livro deixar de ser utilizável pelos contratos e cessa o acesso de terceiros (RN-15.6).
+- **`GET /livros/pessoal/{id}`** (`operationId: obterLivroPessoal`) — o dono acessa sem `via`. Terceiro só acessa no Período 1 com `via=feed&referenciaId=<atividadeId>`; o servidor prova que a atividade está ativa, pertence ao dono, referencia o mesmo livro **e integra o feed do solicitante por seguimento aceito**, mesmo quando o perfil do dono é público (RN-08/RN-09/RN-15). A página combina as VIEWs de F-AVA para mostrar a nota e a resenha atuais do dono. Conhecer o id, forjar `via` ou usar atividade de outro livro retorna negação. A via por lista será acrescentada por F-LST sem enfraquecer esta checagem.
 
-**Evento produzido e consumido:** `livro.importacao_solicitada` (produtor e consumidor em `acervo`, §5.2). O payload versionado contém `importacaoId`, `solicitanteId`, ISBN-13 normalizado e a chave de negócio baseada no ISBN/solicitante, além do envelope de P0-MSG. O consumidor valida o schema, é idempotente e usa retentativa/DLQ; reentrega não cria segundo livro nem segunda solicitação.
+**Contrato assíncrono canônico:** `livro.importacao_solicitada`, versão `1`, produzido e consumido por `acervo`. Publicação em `leai.events.acervo`, routing key exata `livro.importacao_solicitada`; consumo pela fila `leai.acervo.importacao`, com DLQ `leai.acervo.importacao.dlq`. A `businessKey` do envelope é exatamente `importacao:<importacaoId>`. O `data` segue `docs/mensageria/schemas/livro.importacao_solicitada.v1.schema.json` e contém **somente** `importacaoId`, `solicitanteId` e `isbn13` normalizado; a chave de negócio não é repetida no `data`. `outbox_acervo.payload` persiste somente esse `data`, e o dispatcher de P0-MSG monta o envelope v1.
+
+**Propriedade do fluxo:** F-ACV-CADASTRO é dona da transação que grava `importacao_livro` + `outbox_acervo`, do schema de `data` e do consumidor de domínio que consulta as fontes e converge o livro/estado. [P0-MSG](../periodo-0/feature-P0-MSG.md) é dono do dispatcher, envelope, publisher confirm, conexão/topologia, validação genérica, recibo `mensagem_processada`, ACK, retry `1/5/15 s` e DLQ. O efeito do consumidor e seu recibo são atômicos; reentrega por `eventId` não repete efeito, e a unicidade de ISBN-13 garante convergência semântica entre solicitações distintas. A tabela de recibo e todo o runtime AMQP ainda não estão implementados.
 
 **Contratos consumidos:** `v_atividade_livro_pessoal_v1` de [F-FEED](feature-F-FEED.md), `v_perfil_referencia_v1`/`v_seguimento_aceito_v1` de [F-PERFIL](feature-F-PERFIL.md) e `v_nota_publicacao_v1`/`v_resenha_publicacao_v1` de [F-AVA](feature-F-AVA.md). Servem somente à autorização e ao modo consulta da página pessoal; nenhuma tabela crua externa é lida.
 
-**Modelo de dados** (schema `acervo`): reaproveita a entidade `Livro` da ingestão ([F-ACV-INGESTAO](feature-F-ACV-INGESTAO.md)), com **flag oficial/pessoal**, `dono` (só pessoal), ISBN **ausente** em pessoal, URLs de capa (externa/própria) conforme RN-14; adiciona `importacao_livro` com solicitante, ISBN, estado, livro resultante/erro e timestamps. A feature completa `v_livro_referencia_v1` para livros pessoais e exclusão/estado ativo.
+**Modelo de dados** (schema `acervo`): a migration baseline implantada em 16/09/2026 já contém `livro` com `tipo=oficial|pessoal`, dono, ISBN ausente em pessoal, capas e estado ativo; `importacao_livro` com os quatro estados canônicos; `idempotencia_acervo`; `outbox_acervo`; e `v_livro_referencia_v1` com exatamente `livro_id`, `tipo`, `dono_id`, `paginas`, `titulo`, `autor_exibicao`, `capa_resolvida`, `ativo`. Esses objetos são infraestrutura habilitadora, não implementação dos handlers, produtor ou consumidor.
 
 **Concorrência por ISBN:** solicitações simultâneas, ainda que tenham chaves de idempotência diferentes, convergem por ISBN-13 normalizado. A criação usa upsert/controle de concorrência; se outro consumidor criar primeiro, a solicitação restante termina `concluida` apontando para o mesmo livro, nunca em DLQ por violação da unicidade (RNF-ARQ-05).
 
@@ -69,6 +71,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [ ] Cadastro por ISBN valida **formato + dígito verificador** e nunca aceita URL do usuário (SEC-38).
 - [ ] ISBN **já existente** → `409` que leva à **página do livro existente** (RF-ACV-07, RN-02).
 - [ ] ISBN novo cria solicitação e responde `202`; `livro.importacao_solicitada` é obrigatório, idempotente e leva aos estados documentados.
+- [ ] A criação/reprocessamento grava estado e outbox atomicamente; falha do broker não desfaz o `202`, e replay da mesma `Idempotency-Key` não cria segunda solicitação/outbox.
 - [ ] ISBN **não encontrado** em nenhuma fonte é distinguido de fonte indisponível e oferece cadastro pessoal; `falha_transitoria` permite reprocessamento autenticado e idempotente da mesma solicitação (RF-ACV-06).
 - [ ] A busca externa usa allowlist, timeout, limite, backoff, circuit breaker e sem redirect externo (SEC-39, RNF-ERR-08); dados são normalizados antes de persistir (SEC-33).
 - [ ] Rate limiting ativo no cadastro por ISBN (SEC-18).
@@ -79,6 +82,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [ ] Exclusão do livro invalida imediatamente a página e a atividade deixa de ser exibível pelo contrato `v_livro_referencia_v1`.
 - [ ] Repetir escritas com a mesma `Idempotency-Key` não repete importação, upload lógico, edição ou exclusão (RNF-ERR-04).
 - [ ] Solicitações concorrentes do mesmo ISBN convergem para um único livro e todas terminam apontando ao mesmo id (RNF-ARQ-05).
+- [ ] O evento usa exchange/routing/fila/DLQ, `businessKey=importacao:<importacaoId>` e `data { importacaoId, solicitanteId, isbn13 }` exatamente como os contratos canônicos; schema/envelope inválido vai à DLQ sem executar domínio.
 - [ ] Seed reproduzível contém ao menos um livro pessoal ligado ao dono e referências válidas/inválidas de acesso (RNF-TST-08).
 - [ ] Fluxos de cadastro (oficial e pessoal) funcionam **em DES**.
 
@@ -88,8 +92,8 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 - [ ] Código (backend `acervo`, web, mobile) mergeado em `desenvolvimento`
 - [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
-- [ ] Testes unitários e de integração com banco real/container: ISBN inválido/duplicado/inexistente/indisponível; concorrência do mesmo ISBN; estados/retry; URL por allowlist; CRUD e consulta pessoal com dono, nota/resenha, feed válido, não-seguidor, perfil privado, referência forjada e livro excluído (RNF-TST-02)
-- [ ] Teste assíncrono cobre publicação, consumo, duplicação e DLQ de `livro.importacao_solicitada` (RNF-TST-03)
+- [ ] Testes unitários e de integração com banco real/container: contratos HTTP e códigos `201/202/204/400/401/403/404/409/429/503` aplicáveis; ISBN inválido/duplicado/inexistente/indisponível; concorrência do mesmo ISBN; estados; URL por allowlist; CRUD e consulta pessoal com dono, nota/resenha, feed válido, não-seguidor, perfil privado, referência forjada e livro excluído (RNF-TST-02)
+- [ ] Teste assíncrono cobre atomicidade solicitação+outbox, envelope/data canônicos, publisher confirm, consumo+recibo atômicos, duplicação por `eventId`, convergência por ISBN entre eventos distintos, retry `1/5/15 s`, ACK pós-commit e DLQ de `livro.importacao_solicitada` (RNF-TST-03)
 - [ ] Testes web/mobile cobrem acompanhamento da importação, autorização da página pessoal e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
 - [ ] **Spec OpenAPI de `acervo` atualizado em `docs/api/acervo.yaml`** com cadastro, acompanhamento de importação, livro pessoal e `v_livro_referencia_v1`
 - [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
@@ -100,14 +104,18 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 ## Pendências
 
-- **Depende de** [F-ACV-INGESTAO](feature-F-ACV-INGESTAO.md) (entidade `Livro` e normalização RN-12 reaproveitadas), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md) e [P0-MSG](../periodo-0/feature-P0-MSG.md) (broker/backoff da importação; Cloudinary/P-09 para capa).
-- **Compartilha `acervo` com [F-ACV-BUSCA](feature-F-ACV-BUSCA.md) e [F-ACV-INGESTAO](feature-F-ACV-INGESTAO.md)** — quem chegar primeiro fixa a entidade `Livro`; sinalizar no grupo (plano §6).
+- **Depende de** [F-ACV-INGESTAO](feature-F-ACV-INGESTAO.md) para o modelo compartilhado e a normalização RN-12, não para executar o dump; a baseline física comum já existe. Depende ainda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md) e Cloudinary/P-09 para capa.
+- **Dependência bloqueante do ISBN assíncrono:** [P0-MSG](../periodo-0/feature-P0-MSG.md) ainda tem somente as outboxes implantadas; faltam `mensagem_processada`, conexão, dispatcher, consumer genérico, retry e DLQ. O CRUD de livro pessoal pode avançar sem broker, mas o fluxo oficial por ISBN não pode ser declarado concluído nem demonstrado em DES antes dessa entrega.
+- **Dependências de composição:** [F-ACV-BUSCA](feature-F-ACV-BUSCA.md) fornece a página oficial usada no redirecionamento do `409`; [F-FEED](feature-F-FEED.md) fornece `v_atividade_livro_pessoal_v1`; [F-PERFIL](feature-F-PERFIL.md) fornece `v_perfil_referencia_v1`/`v_seguimento_aceito_v1`; [F-AVA](feature-F-AVA.md) fornece `v_nota_publicacao_v1`/`v_resenha_publicacao_v1`. As VIEWs já existem na baseline do DER, mas os comportamentos das features donas não estão implementados. A via por lista continua dependente de [F-LST](../periodo-2/feature-F-LST.md).
+- **Compartilha `acervo` com [F-ACV-BUSCA](feature-F-ACV-BUSCA.md) e [F-ACV-INGESTAO](feature-F-ACV-INGESTAO.md)** — a baseline já fixou a entidade física `livro`; mudanças posteriores devem ser coordenadas e feitas por migration incremental (plano §6).
 - A via por lista para livro pessoal depende de F-LST (Período 2). O endpoint deve aceitar nova via somente após existir contrato equivalente ao de atividade; não aceitar mero `listaId` sem validação server-side.
 - **Assuntos em livro pessoal** (RF-ACV-22) ficam **fora** — são **F-ACV-OPC** (Período 3, opcional).
 - Confirmar cobertura da **fonte secundária Google Books** por ISBN (medição pendente registrada no `REQUISITOS.md` §10.1) — não bloqueia, mas afeta a taxa de acerto.
 - Stack de `acervo` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
 ## Timeline
+
+### Alinhamento 17/09/2026: contratos HTTP foram alinhados ao OpenAPI planejado de `acervo`; evento alinhado ao catálogo/schema canônico (`businessKey`, `data`, exchange, fila e DLQ). Registradas a divisão de propriedade entre F-ACV-CADASTRO e P0-MSG, a dependência bloqueante do runtime AMQP, os testes de outbox/consumo e as dependências de composição. Status de dados corrigido para reconhecer o DER implantado sem declarar backend implementado.
 
 ### Revisão 28/08/2026: importação por ISBN fixada como fluxo assíncrono obrigatório com acompanhamento e rota explícita de reprocessamento; resiliência externa, idempotência e testes foram completados. A consulta de livro pessoal ganhou autorização explícita pela via feed e contratos entre schemas, mantendo a via por lista para F-LST.
 

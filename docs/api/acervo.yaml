@@ -1,26 +1,55 @@
 openapi: 3.0.3
 info:
-  title: Lê Ai — acervo
-  version: 0.0.1
+  title: Lê Ai - acervo
+  version: 0.1.0
   description: >-
-    Contrato do serviço **acervo** (esqueleto — P0-INFRA). Domínio: livro,
-    autor, editora, série, busca, ingestão, sinopse, capas e nota agregada
-    (ACV). As rotas de domínio entram com as features; por ora só health + info.
-    Spec gerado em runtime por `@nestjs/swagger` (`/docs`) e commitado aqui
-    (RNF-ARQ-03; AGENTS §10) — um spec por serviço, nunca por feature.
+    Contrato planejado do serviço acervo para o Período 1
+    (F-ACV-BUSCA, F-ACV-CADASTRO e F-ACV-INGESTAO). As operações de domínio
+    descritas neste documento ainda não estão implementadas. A ingestão inicial
+    do dump é um script utilitário, não uma API HTTP; por isso não há rotas
+    administrativas de ingestão, recarga ou associação de assuntos neste
+    período. O contrato é publicado em runtime por @nestjs/swagger em /docs e
+    versionado aqui conforme RNF-ARQ-03.
+x-contract-status: planned
+x-planned-features: [F-ACV-BUSCA, F-ACV-CADASTRO, F-ACV-INGESTAO]
 x-database-contracts:
   - name: v_livro_referencia_v1
-    description: Referencia estavel de livro para leitura e social.
-    columns: [livro_id, tipo, dono_id, paginas, titulo, autor_exibicao, capa_resolvida, ativo]
+    owner: acervo
+    status: implemented
+    description: >-
+      Referência estável de livro exposta a leitura e social. Livro pessoal
+      excluído deixa de ser ativo. Consumidores não leem tabelas cruas de acervo.
+    consumers: [leitura, social]
+    columns:
+      - { name: livro_id, type: uuid, nullable: false }
+      - { name: tipo, type: varchar, nullable: false, values: [oficial, pessoal] }
+      - { name: dono_id, type: uuid, nullable: true }
+      - { name: paginas, type: integer, nullable: false }
+      - { name: titulo, type: varchar, nullable: false }
+      - { name: autor_exibicao, type: varchar, nullable: false }
+      - { name: capa_resolvida, type: varchar, nullable: true }
+      - { name: ativo, type: boolean, nullable: false }
   - name: v_livro_recomendacao_v1
+    owner: acervo
+    status: implemented
     description: Uma linha por livro oficial ativo e assunto; assunto pode ser nulo.
+    consumers: [social]
     columns: [livro_id, titulo, autor_exibicao, capa_resolvida, serie_id, serie_nome, assunto_id, assunto_nome]
 servers:
   - url: http://localhost:3000
     description: local
+tags:
+  - name: health
+  - name: livros
+  - name: importacoes
+  - name: livros-pessoais
+security:
+  - bearerAuth: []
 paths:
   /health:
     get:
+      operationId: consultarSaude
+      x-contract-status: implemented
       security: []
       tags: [health]
       summary: Health check do serviço (RNF-OBS-02)
@@ -30,31 +59,642 @@ paths:
           description: Serviço e banco saudáveis.
           content:
             application/json:
-              schema:
-                type: object
-                required: [status, service, time]
-                properties:
-                  status: { type: string, example: ok }
-                  service: { type: string, example: acervo }
-                  time: { type: string, format: date-time }
-        '503':
-          description: "Serviço indisponível (ex.: banco fora do ar)."
+              schema: { $ref: '#/components/schemas/Saude' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
+  /livros:
+    get:
+      operationId: buscarLivrosOficiais
+      x-contract-status: planned
+      tags: [livros]
+      summary: Busca livros oficiais
+      description: >-
+        Busca somente livros oficiais por título, autor, editora ou ISBN-13 e,
+        opcionalmente, filtra por um assunto do conjunto curado. A sinopse não é
+        pesquisada. Livros pessoais nunca aparecem. Os resultados são ordenados
+        por relevância e cada registro continua representando uma edição (RN-01).
+      parameters:
+        - name: q
+          in: query
+          description: Texto para título, autor, editora ou ISBN-13.
+          schema: { type: string, minLength: 1, maxLength: 200 }
+          example: Machado de Assis
+        - name: assunto
+          in: query
+          description: Identificador do assunto curado.
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Página de livros oficiais.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Erro' }
+              schema: { $ref: '#/components/schemas/PaginaLivros' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
+  /livros/{id}:
+    get:
+      operationId: obterLivroOficial
+      x-contract-status: planned
+      tags: [livros]
+      summary: Obtém a página de um livro oficial
+      description: >-
+        Retorna imediatamente os metadados, a capa resolvida e a primeira página
+        de resenhas autorizadas. Na primeira abertura, se a sinopse ainda estiver
+        nao_consultada, o serviço muda seu estado para pendente e publica uma
+        única mensagem livro.pagina_aberta de forma concorrente e idempotente.
+        A consulta externa ocorre depois, na ordem OpenLibrary, Google Books e
+        ausência. A resposta nunca aguarda essa consulta. disponivel e ausente
+        são estados terminais da busca automática; falha_transitoria pode ser
+        reenfileirada de forma controlada em abertura posterior. Sinopse ausente
+        é resposta normal, não erro. Nota geral, nota dos leitores e distribuição
+        não fazem parte deste contrato do Período 1.
+      parameters:
+        - $ref: '#/components/parameters/LivroId'
+      responses:
+        '200':
+          description: Detalhe do livro, inclusive enquanto a sinopse é carregada ou está ausente.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LivroOficialDetalhe' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
+  /livros/{id}/resenhas:
+    get:
+      operationId: listarResenhasDoLivro
+      x-contract-status: planned
+      tags: [livros]
+      summary: Lista as próximas resenhas autorizadas de um livro oficial
+      description: >-
+        Usa cursor opaco e aplica no servidor a privacidade de RN-08 por meio dos
+        contratos versionados de leitura e identidade.
+      parameters:
+        - $ref: '#/components/parameters/LivroId'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/CursorLimit'
+      responses:
+        '200':
+          description: Página de resenhas visíveis ao solicitante.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaResenhas' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
+  /livros/oficial:
+    post:
+      operationId: solicitarImportacaoPorIsbn
+      x-contract-status: planned
+      tags: [importacoes]
+      summary: Solicita a importação assíncrona de um livro oficial por ISBN-13
+      description: >-
+        Aceita somente ISBN-13 válido, nunca URL. Para ISBN novo, cria uma
+        solicitação idempotente, grava a outbox de livro.importacao_solicitada e
+        responde 202 sem aguardar OpenLibrary ou Google Books. ISBN já existente
+        responde 409 com livroId. A operação tem rate limiting por IP e identidade.
+        Repetir a mesma Idempotency-Key com o mesmo corpo devolve a resposta
+        original; reutilizá-la com corpo diferente responde 409.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SolicitarImportacao' }
+      responses:
+        '202':
+          description: Solicitação persistida e publicação assíncrona aceita.
+          headers:
+            Location:
+              description: URL de acompanhamento da importação.
+              schema: { type: string, format: uri-reference }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImportacaoAceita' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '409':
+          description: ISBN já cadastrado ou chave de idempotência reutilizada com outro corpo.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ErroLivroExistente'
+                  - $ref: '#/components/schemas/Erro'
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
+  /livros/importacoes/{id}:
+    get:
+      operationId: obterImportacaoPorIsbn
+      x-contract-status: planned
+      tags: [importacoes]
+      summary: Consulta uma importação por ISBN
+      description: >-
+        Somente o solicitante pode consultar. nao_encontrado significa que ambas
+        as fontes responderam sem o ISBN e habilita o cadastro pessoal;
+        falha_transitoria significa indisponibilidade após as retentativas e não
+        deve ser confundida com ausência do livro.
+      parameters:
+        - $ref: '#/components/parameters/ImportacaoId'
+      responses:
+        '200':
+          description: Estado atual da importação.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Importacao' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/AcessoNegado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
+  /livros/importacoes/{id}/reprocessar:
+    post:
+      operationId: reprocessarImportacaoPorIsbn
+      x-contract-status: planned
+      tags: [importacoes]
+      summary: Reprocessa uma importação com falha transitória
+      description: >-
+        Somente o solicitante pode reenfileirar uma solicitação em
+        falha_transitoria. Mantém importacaoId e ISBN normalizado e converge para
+        o livro oficial existente se outra execução já o criou. Repetição e
+        conflito da Idempotency-Key seguem a mesma semântica das demais escritas.
+      parameters:
+        - $ref: '#/components/parameters/ImportacaoId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '202':
+          description: Reprocessamento aceito.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImportacaoAceita' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/AcessoNegado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
+  /livros/pessoal:
+    post:
+      operationId: criarLivroPessoal
+      x-contract-status: planned
+      tags: [livros-pessoais]
+      summary: Cria um livro pessoal
+      description: >-
+        Cria um livro sem ISBN, pertencente ao usuário autenticado. A capa já
+        enviada diretamente ao Cloudinary é opcional e deve ter passado pelas
+        validações de tipo real, tamanho e dimensões. O livro não entra na busca,
+        catálogo nem páginas de autor, editora ou série. Repetição e conflito da
+        Idempotency-Key seguem a semântica comum das escritas.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LivroPessoalEntrada' }
+      responses:
+        '201':
+          description: Livro pessoal criado.
+          headers:
+            Location:
+              description: URL do livro pessoal criado.
+              schema: { type: string, format: uri-reference }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LivroPessoalDetalhe' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
+  /livros/pessoal/{id}:
+    get:
+      operationId: obterLivroPessoal
+      x-contract-status: planned
+      tags: [livros-pessoais]
+      summary: Obtém um livro pessoal com autorização RN-15
+      description: >-
+        O dono acessa diretamente, sem via. No Período 1, terceiro deve informar
+        via=feed e referenciaId de uma atividade ativa do dono que referencia o
+        mesmo livro e integra seu feed por seguimento aceito. A autorização e a
+        privacidade do perfil são revalidadas nesta requisição, inclusive para
+        perfil público. Conhecer o ID, forjar a referência ou omitir a via não
+        concede acesso. A via por lista não integra este contrato do Período 1.
+      parameters:
+        - $ref: '#/components/parameters/LivroPessoalId'
+        - name: via
+          in: query
+          description: Prova de origem exigida somente para acesso de terceiro.
+          schema: { type: string, enum: [feed] }
+        - name: referenciaId
+          in: query
+          description: UUID da atividade de feed que comprova a via RN-15.
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Detalhe autorizado; para terceiro, sempre em modo consulta.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LivroPessoalDetalhe' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/AcessoNegado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+    patch:
+      operationId: atualizarLivroPessoal
+      x-contract-status: planned
+      tags: [livros-pessoais]
+      summary: Atualiza um livro pessoal do próprio usuário
+      description: >-
+        Propriedade é validada no servidor; acesso RN-15 de terceiro é somente
+        leitura e nunca autoriza esta operação. Repetição e conflito da
+        Idempotency-Key seguem a semântica comum das escritas.
+      parameters:
+        - $ref: '#/components/parameters/LivroPessoalId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LivroPessoalAtualizacao' }
+      responses:
+        '200':
+          description: Livro pessoal atualizado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LivroPessoalDetalhe' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/AcessoNegado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+    delete:
+      operationId: excluirLivroPessoal
+      x-contract-status: planned
+      tags: [livros-pessoais]
+      summary: Exclui um livro pessoal do próprio usuário
+      description: >-
+        Propriedade é validada no servidor; acesso RN-15 de terceiro é somente
+        leitura. A confirmação explícita ocorre no cliente. Após a exclusão, o
+        livro fica inativo em v_livro_referencia_v1 e todo acesso de terceiro
+        cessa imediatamente. Repetição e conflito da Idempotency-Key seguem a
+        semântica comum das escritas.
+      parameters:
+        - $ref: '#/components/parameters/LivroPessoalId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: Livro pessoal excluído; resposta sem corpo.
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/AcessoNegado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    LivroId:
+      name: id
+      in: path
+      required: true
+      description: Identificador não sequencial do livro oficial.
+      schema: { type: string, format: uuid }
+    LivroPessoalId:
+      name: id
+      in: path
+      required: true
+      description: Identificador não sequencial do livro pessoal.
+      schema: { type: string, format: uuid }
+    ImportacaoId:
+      name: id
+      in: path
+      required: true
+      description: Identificador não sequencial da solicitação de importação.
+      schema: { type: string, format: uuid }
+    Page:
+      name: page
+      in: query
+      description: Página iniciada em 1.
+      schema: { type: integer, minimum: 1, default: 1 }
+    Limit:
+      name: limit
+      in: query
+      description: Itens por página; o servidor impõe o teto de 50.
+      schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+    Cursor:
+      name: cursor
+      in: query
+      description: Cursor opaco retornado na página anterior.
+      schema: { type: string, minLength: 1, maxLength: 500 }
+    CursorLimit:
+      name: limit
+      in: query
+      description: Itens por página; o servidor impõe o teto de 50.
+      schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: >-
+        UUID gerado pelo cliente. O escopo é usuário autenticado + operação.
+        Repetir a chave com o mesmo payload devolve a resposta original sem novo
+        efeito; reutilizá-la com payload diferente responde 409.
+      schema: { type: string, format: uuid }
+  responses:
+    RequisicaoInvalida:
+      description: Parâmetros ou corpo inválidos.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErroValidacao' }
+    NaoAutenticado:
+      description: Token ausente, inválido ou expirado.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
+    AcessoNegado:
+      description: Usuário sem propriedade ou sem uma via RN-15 válida.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
+    NaoEncontrado:
+      description: Recurso inexistente ou indisponível ao solicitante.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
+    Conflito:
+      description: Estado atual impede a operação ou a chave de idempotência conflita.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
+    LimiteExcedido:
+      description: Limite de requisições excedido.
+      headers:
+        Retry-After:
+          description: Segundos até uma nova tentativa.
+          schema: { type: integer, minimum: 1 }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
+    ServicoIndisponivel:
+      description: Serviço, banco ou dependência temporariamente indisponível.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
   schemas:
+    Saude:
+      type: object
+      additionalProperties: false
+      required: [status, service, time]
+      properties:
+        status: { type: string, enum: [ok], example: ok }
+        service: { type: string, enum: [acervo], example: acervo }
+        time: { type: string, format: date-time }
     Erro:
       type: object
-      description: Corpo de erro padronizado (RNF-ERR-01) — pt-BR, sem detalhe técnico.
+      additionalProperties: false
+      description: Corpo de erro padronizado (RNF-ERR-01), em pt-BR e sem detalhe técnico.
       required: [codigo, mensagem, correlationId]
       properties:
-        codigo:
+        codigo: { type: string, example: RECURSO_NAO_ENCONTRADO }
+        mensagem: { type: string, example: Não encontramos o que você procura. }
+        correlationId: { type: string, format: uuid }
+    ErroValidacao:
+      allOf:
+        - $ref: '#/components/schemas/Erro'
+        - type: object
+          properties:
+            campos:
+              type: array
+              items:
+                type: object
+                additionalProperties: false
+                required: [campo, mensagem]
+                properties:
+                  campo: { type: string, example: isbn }
+                  mensagem: { type: string, example: Informe um ISBN-13 válido. }
+    ErroLivroExistente:
+      allOf:
+        - $ref: '#/components/schemas/Erro'
+        - type: object
+          required: [livroId]
+          properties:
+            livroId: { type: string, format: uuid }
+    AutorResumo:
+      type: object
+      additionalProperties: false
+      required: [id, nome]
+      properties:
+        id: { type: string, format: uuid }
+        nome: { type: string, minLength: 1, maxLength: 200 }
+    AssuntoResumo:
+      type: object
+      additionalProperties: false
+      required: [id, nome]
+      properties:
+        id: { type: string, format: uuid }
+        nome: { type: string, minLength: 1, maxLength: 100 }
+    Capa:
+      type: object
+      additionalProperties: false
+      required: [origem]
+      description: Resolução na ordem cópia própria, URL externa e placeholder.
+      properties:
+        url: { type: string, format: uri, nullable: true }
+        origem: { type: string, enum: [propria, externa, placeholder] }
+    LivroOficialResumo:
+      type: object
+      additionalProperties: false
+      required: [id, titulo, autores, editora, anoPublicacao, paginas, capa, assuntos]
+      properties:
+        id: { type: string, format: uuid }
+        titulo: { type: string, minLength: 1, maxLength: 500 }
+        autores:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/AutorResumo' }
+        editora: { type: string, minLength: 1, maxLength: 200 }
+        anoPublicacao: { type: integer, minimum: 1, maximum: 9999 }
+        paginas: { type: integer, minimum: 1 }
+        capa: { $ref: '#/components/schemas/Capa' }
+        assuntos:
+          type: array
+          items: { $ref: '#/components/schemas/AssuntoResumo' }
+    PaginaLivros:
+      type: object
+      additionalProperties: false
+      required: [itens, page, limit, totalItens, totalPaginas]
+      properties:
+        itens:
+          type: array
+          items: { $ref: '#/components/schemas/LivroOficialResumo' }
+        page: { type: integer, minimum: 1 }
+        limit: { type: integer, minimum: 1, maximum: 50 }
+        totalItens: { type: integer, minimum: 0 }
+        totalPaginas: { type: integer, minimum: 0 }
+    ResenhaResumo:
+      type: object
+      additionalProperties: false
+      required: [id, autorId, autorNome, texto, spoiler, criadoEm, atualizadoEm]
+      properties:
+        id: { type: string, format: uuid }
+        autorId: { type: string, format: uuid }
+        autorNome: { type: string, minLength: 1, maxLength: 200 }
+        autorAvatarUrl: { type: string, format: uri, nullable: true }
+        texto: { type: string }
+        spoiler: { type: boolean }
+        criadoEm: { type: string, format: date-time }
+        atualizadoEm: { type: string, format: date-time }
+    PaginaResenhas:
+      type: object
+      additionalProperties: false
+      required: [itens, limit, proximoCursor]
+      properties:
+        itens:
+          type: array
+          items: { $ref: '#/components/schemas/ResenhaResumo' }
+        limit: { type: integer, minimum: 1, maximum: 50 }
+        proximoCursor: { type: string, nullable: true }
+    Sinopse:
+      type: object
+      additionalProperties: false
+      required: [status, texto]
+      description: >-
+        texto só é preenchido em disponivel. null em nao_consultada, pendente,
+        ausente e falha_transitoria; ausente não representa erro.
+      properties:
+        status:
           type: string
-          example: RECURSO_NAO_ENCONTRADO
-        mensagem:
+          enum: [nao_consultada, pendente, disponivel, ausente, falha_transitoria]
+        texto: { type: string, maxLength: 4000, nullable: true }
+    LivroOficialDetalhe:
+      allOf:
+        - $ref: '#/components/schemas/LivroOficialResumo'
+        - type: object
+          required: [isbn, sinopse, resenhas]
+          properties:
+            isbn:
+              type: string
+              pattern: '^97[89][0-9]{10}$'
+              example: '9788535914849'
+            sinopse: { $ref: '#/components/schemas/Sinopse' }
+            resenhas: { $ref: '#/components/schemas/PaginaResenhas' }
+    SolicitarImportacao:
+      type: object
+      additionalProperties: false
+      required: [isbn]
+      properties:
+        isbn:
           type: string
-          example: Não encontramos o que você procura.
-        correlationId:
+          description: ISBN-13; separadores podem ser normalizados pelo servidor.
+          minLength: 13
+          maxLength: 17
+          example: '978-85-359-1484-9'
+    ImportacaoStatus:
+      type: string
+      enum: [pendente, concluida, nao_encontrado, falha_transitoria]
+    ImportacaoAceita:
+      type: object
+      additionalProperties: false
+      required: [importacaoId, status]
+      properties:
+        importacaoId: { type: string, format: uuid }
+        status: { type: string, enum: [pendente] }
+    Importacao:
+      type: object
+      additionalProperties: false
+      required: [importacaoId, isbn, status, livroId, permiteCadastroPessoal, criadoEm, atualizadoEm]
+      properties:
+        importacaoId: { type: string, format: uuid }
+        isbn:
+          type: string
+          pattern: '^97[89][0-9]{10}$'
+        status: { $ref: '#/components/schemas/ImportacaoStatus' }
+        livroId:
           type: string
           format: uuid
+          nullable: true
+          description: Preenchido somente quando status é concluida.
+        permiteCadastroPessoal:
+          type: boolean
+          description: true somente quando status é nao_encontrado.
+        criadoEm: { type: string, format: date-time }
+        atualizadoEm: { type: string, format: date-time }
+    LivroPessoalEntrada:
+      type: object
+      additionalProperties: false
+      required: [titulo, autor, paginas]
+      properties:
+        titulo: { type: string, minLength: 1, maxLength: 500 }
+        autor: { type: string, minLength: 1, maxLength: 200 }
+        paginas: { type: integer, minimum: 1 }
+        sinopse: { type: string, maxLength: 4000, nullable: true }
+        capaUrl:
+          type: string
+          format: uri
+          nullable: true
+          description: URL do asset validado enviado diretamente ao Cloudinary.
+    LivroPessoalAtualizacao:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        titulo: { type: string, minLength: 1, maxLength: 500 }
+        autor: { type: string, minLength: 1, maxLength: 200 }
+        paginas: { type: integer, minimum: 1 }
+        sinopse: { type: string, maxLength: 4000, nullable: true }
+        capaUrl: { type: string, format: uri, nullable: true }
+    NotaDoDono:
+      type: object
+      additionalProperties: false
+      required: [valor]
+      description: Nota individual do dono; nunca média nem contagem.
+      properties:
+        valor:
+          type: number
+          minimum: 0
+          maximum: 5
+          multipleOf: 0.5
+    LivroPessoalDetalhe:
+      type: object
+      additionalProperties: false
+      required: [id, tipo, donoId, titulo, autor, paginas, sinopse, capaUrl, modoConsulta, notaDoDono, resenhaDoDono]
+      properties:
+        id: { type: string, format: uuid }
+        tipo: { type: string, enum: [pessoal] }
+        donoId: { type: string, format: uuid }
+        titulo: { type: string, minLength: 1, maxLength: 500 }
+        autor: { type: string, minLength: 1, maxLength: 200 }
+        paginas: { type: integer, minimum: 1 }
+        sinopse: { type: string, maxLength: 4000, nullable: true }
+        capaUrl: { type: string, format: uri, nullable: true }
+        modoConsulta:
+          type: boolean
+          description: true para terceiro autorizado por RN-15; false para o dono.
+        notaDoDono:
+          allOf:
+            - $ref: '#/components/schemas/NotaDoDono'
+          nullable: true
+        resenhaDoDono:
+          allOf:
+            - $ref: '#/components/schemas/ResenhaResumo'
+          nullable: true

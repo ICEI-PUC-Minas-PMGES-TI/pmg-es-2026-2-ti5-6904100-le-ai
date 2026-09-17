@@ -1,168 +1,947 @@
-openapi: 3.1.0
+openapi: 3.0.3
 info:
-  title: Lê Ai — identidade
-  version: 0.0.1
-  description: >-
-    Contrato do serviço **identidade**. Domínio: usuário, autenticação, perfil,
-    privacidade, seguidores e solicitações de seguir (AUT, SOC-01 a 08).
+  title: Lê Ai - identidade
+  version: 0.1.0
+  description: |-
+    Contrato do serviço **identidade**, responsável por usuário, autenticação,
+    perfil, privacidade, seguidores e solicitações de seguir.
 
-    P0-NAV entrega o esqueleto navegável de autenticação: cadastro, login e uma
-    rota protegida de exemplo (`/me`), com rate limiting por IP e bloqueio
-    progressivo por identidade (RNF-SEC-17/29). Fora do escopo desta feature —
-    entram com F-AUT (Período 1): recuperação de senha, troca de senha, logout
-    com invalidação de refresh, refresh token rotativo/revogável e login de
-    administrador. `POST /auth/login` hoje emite só o `accessToken` (RF-AUT-03,
-    subconjunto).
+    **Estado de implementação em 17/09/2026:** estão implementados pelo P0-NAV
+    somente `POST /auth/register`, `POST /auth/login`, `GET /me` e `GET /health`.
+    O login implementado ainda retorna apenas o token de acesso. As demais rotas,
+    o refresh token rotativo/revogável, o login da conta administradora pelo mesmo
+    fluxo e os campos adicionais indicados neste contrato estão **planejados para
+    F-AUT e F-PERFIL no Período 1**; sua presença aqui não declara implementação.
+    Cada operação também traz `x-implementation-status` com `implemented` ou
+    `planned`.
 
-    Spec gerado em runtime por `springdoc-openapi` (`/v3/api-docs`, Swagger UI
-    em `/docs`) e commitado aqui (RNF-ARQ-03; AGENTS §10) — um spec por
-    serviço, nunca por feature.
+    A conta administradora é fixa, única e provisionada por variáveis de ambiente.
+    Ela usa `POST /auth/login`; não existe cadastro nem endpoint de login separado
+    para administradores. Exclusão e recuperação de conta (RF-AUT-07) pertencem ao
+    Período 2 e não fazem parte deste contrato.
+
+    Recursos protegidos exigem `Authorization: Bearer <token>`. Escritas aceitam
+    `Idempotency-Key`: repetir chave e payload devolve o resultado original sem
+    repetir efeitos; reutilizar a chave com payload diferente retorna `409`.
+    Respostas de erro seguem o corpo padronizado em pt-BR com `correlationId`.
+    Listagens usam páginas indexadas a partir de zero, com no máximo 50 itens.
 x-database-contracts:
   - name: v_perfil_referencia_v1
-    description: Perfil de referencia; omite conta suspensa ou com exclusao pendente.
-    columns: [id, username, nome_exibicao, avatar_url, privacidade, opt_out_recomendacao]
+    description: >-
+      Contrato de leitura entre schemas já implantado no Neon. Expõe somente a identidade
+      pública necessária para aplicar RN-08 e omite contas suspensas ou com
+      exclusão pendente. `opt_out_recomendacao` é extensão prevista para
+      F-REC-ALG, fora das rotas HTTP do Período 1.
+    columns:
+      - id
+      - username
+      - nome_exibicao
+      - avatar_url
+      - privacidade
+      - opt_out_recomendacao
   - name: v_seguimento_aceito_v1
-    description: Pares de seguimento visiveis; omite contas suspensas ou com exclusao pendente.
+    description: >-
+      Contrato de leitura entre schemas já implantado no Neon. Expõe apenas pares de
+      seguimento aceito e omite relações envolvendo contas suspensas ou com
+      exclusão pendente.
     columns: [seguidor_id, seguido_id]
 servers:
   - url: http://localhost:8080
-    description: local
+    description: Local
   - url: https://leai-identidade.onrender.com
-    description: DES (Render, free tier — primeira chamada leva 30 a 60s por hibernação)
+    description: DES no Render; a primeira chamada pode levar 30 a 60 segundos por hibernação
 tags:
   - name: auth
-    description: Cadastro e autenticação
+    description: Cadastro, autenticação e gerenciamento de credenciais
   - name: usuario
     description: Identidade do leitor autenticado
+  - name: perfil
+    description: Perfil público, edição e busca exata
+  - name: seguimento
+    description: Seguidores, seguidos e solicitações de seguir
   - name: health
     description: Sondagem de disponibilidade
 paths:
   /auth/register:
     post:
+      operationId: cadastrarUsuario
+      x-implementation-status: implemented
       security: []
       tags: [auth]
-      summary: Cria uma conta de leitor (RF-AUT-01)
+      summary: Cria uma conta de leitor
       description: >-
-        Senha com hash bcrypt custo 12 (RNF-SEC-09), nunca gravada em claro;
-        mínimo de 8 caracteres (RNF-SEC-27). Recusa menores de 18 anos a
-        partir da data de nascimento (RNF-SEC-43). Sujeito a rate limiting
-        por IP (RNF-SEC-17).
+        Implementado em P0-NAV e consolidado por F-AUT (RF-AUT-01). O servidor
+        recusa menores de 18 anos, e-mail ou username duplicado, senha com menos
+        de 8 caracteres ou presente na lista de senhas comuns. A senha é
+        armazenada somente como hash resistente. Não cria contas administradoras.
+        Sujeito a rate limiting por IP e identidade.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/CadastroRequisicao' }
+            schema:
+              $ref: '#/components/schemas/CadastroRequisicao'
       responses:
         '201':
           description: Conta criada.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Usuario' }
+              schema:
+                $ref: '#/components/schemas/Usuario'
         '400':
-          description: Dados inválidos — senha curta, menor de 18 anos ou e-mail malformado.
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/Erro' }
+          $ref: '#/components/responses/RequisicaoInvalida'
         '409':
-          description: E-mail ou nome de usuário já em uso.
+          description: E-mail, username ou chave de idempotência em conflito.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Erro' }
+              schema:
+                $ref: '#/components/schemas/Erro'
         '429':
-          description: Limite de requisições por IP excedido (RNF-SEC-17).
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/Erro' }
+          $ref: '#/components/responses/LimiteExcedido'
+        '503':
+          $ref: '#/components/responses/ServicoIndisponivel'
+
   /auth/login:
     post:
+      operationId: autenticarUsuario
+      x-implementation-status: implemented
       security: []
       tags: [auth]
-      summary: Autentica por e-mail ou nome de usuário (RF-AUT-02)
+      summary: Autentica leitor ou administrador por e-mail ou username
       description: >-
-        Resolve o identificador como e-mail ou username numa consulta só e
-        emite um token de acesso de curta duração (RF-AUT-03, subconjunto: só
-        `accessToken`, sem renovação — o refresh rotativo e revogável é de
-        F-AUT). Credencial inválida devolve **a mesma mensagem** nos três
-        casos — usuário inexistente, e-mail que não confere e senha errada —
-        sem revelar qual deles falhou (RNF-SEC-28). Sujeito a rate limiting
-        por IP e a bloqueio temporário progressivo por identidade após
-        falhas sucessivas (RNF-SEC-17/29).
+        Implementado em P0-NAV com token de acesso; F-AUT planeja completar a
+        resposta com refresh token rotativo e revogável. Credenciais inválidas
+        sempre produzem a mesma resposta, sem revelar se a identidade existe.
+        Falhas sucessivas causam bloqueio temporário progressivo. A conta
+        administradora fixa usa este mesmo fluxo com credenciais fortes vindas do
+        ambiente; usuários comuns não podem adquirir esse papel.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/LoginRequisicao' }
+            schema:
+              $ref: '#/components/schemas/LoginRequisicao'
       responses:
         '200':
-          description: Token emitido.
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/Token' }
-        '401':
-          description: Credencial inválida.
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/Erro' }
-        '429':
           description: >-
-            Limite por IP excedido (RNF-SEC-17) ou identidade em bloqueio
-            temporário progressivo por falhas sucessivas (RNF-SEC-29).
+            Sessão emitida. Enquanto F-AUT não estiver implementada, a resposta
+            real contém apenas `accessToken`, `tokenType` e `expiresIn`.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Erro' }
+              schema:
+                $ref: '#/components/schemas/Sessao'
+        '400':
+          $ref: '#/components/responses/RequisicaoInvalida'
+        '401':
+          description: Credencial inválida, sem indicar qual dado falhou.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '409':
+          $ref: '#/components/responses/IdempotenciaEmConflito'
+        '429':
+          $ref: '#/components/responses/LimiteExcedido'
+        '503':
+          $ref: '#/components/responses/ServicoIndisponivel'
+
+  /auth/refresh:
+    post:
+      operationId: renovarSessao
+      x-implementation-status: planned
+      security: []
+      tags: [auth]
+      summary: Rotaciona o refresh token e emite uma nova sessão
+      description: >-
+        Planejado em F-AUT (RF-AUT-03). O refresh token apresentado é invalidado
+        no mesmo ato e um novo par acesso+refresh é emitido. Token expirado,
+        revogado, já utilizado ou desconhecido retorna `401`.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequisicao'
+      responses:
+        '200':
+          description: Refresh rotacionado e nova sessão emitida.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sessao'
+        '400':
+          $ref: '#/components/responses/RequisicaoInvalida'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '409':
+          $ref: '#/components/responses/IdempotenciaEmConflito'
+        '429':
+          $ref: '#/components/responses/LimiteExcedido'
+        '503':
+          $ref: '#/components/responses/ServicoIndisponivel'
+
+  /auth/logout:
+    post:
+      operationId: encerrarSessao
+      x-implementation-status: planned
+      security: []
+      tags: [auth]
+      summary: Encerra a sessão revogando o refresh token
+      description: >-
+        Planejado em F-AUT (RF-AUT-06). Revoga o refresh token informado. A
+        operação é idempotente: repetir a mesma chave e payload não cria novo
+        efeito e não revela se o token já estava revogado.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequisicao'
+      responses:
+        '204':
+          description: Sessão encerrada ou já encerrada.
+        '400':
+          $ref: '#/components/responses/RequisicaoInvalida'
+        '409':
+          $ref: '#/components/responses/IdempotenciaEmConflito'
+        '429':
+          $ref: '#/components/responses/LimiteExcedido'
+        '503':
+          $ref: '#/components/responses/ServicoIndisponivel'
+
+  /auth/password/forgot:
+    post:
+      operationId: solicitarRecuperacaoSenha
+      x-implementation-status: planned
+      security: []
+      tags: [auth]
+      summary: Solicita recuperação de senha por e-mail
+      description: >-
+        Planejado em F-AUT (RF-AUT-04). Sempre retorna o mesmo `202`, exista ou
+        não a conta e independentemente do resultado individual do provedor de
+        e-mail. Quando aplicável, gera token criptograficamente aleatório, de uso
+        único, válido por no máximo uma hora e persistido somente como hash. A
+        mesma chave de idempotência não reenvia o e-mail.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EsqueciSenhaRequisicao'
+      responses:
+        '202':
+          description: Solicitação recebida, sem confirmar conta ou entrega do e-mail.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MensagemResposta'
+        '400':
+          $ref: '#/components/responses/RequisicaoInvalida'
+        '409':
+          $ref: '#/components/responses/IdempotenciaEmConflito'
+        '429':
+          $ref: '#/components/responses/LimiteExcedido'
+
+  /auth/password/reset:
+    post:
+      operationId: redefinirSenha
+      x-implementation-status: planned
+      security: []
+      tags: [auth]
+      summary: Redefine a senha com token de recuperação
+      description: >-
+        Planejado em F-AUT (RF-AUT-04). Valida uso único e prazo máximo de uma
+        hora, troca a senha, consome o token e revoga todos os refresh tokens da
+        conta. A nova senha segue a política de senha comum e mínimo de 8
+        caracteres. Erros não revelam dados da conta.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RedefinirSenhaRequisicao'
+      responses:
+        '204':
+          description: Senha redefinida, token consumido e sessões renováveis revogadas.
+        '400':
+          description: Dados inválidos ou token inválido, com mensagem genérica.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '409':
+          $ref: '#/components/responses/IdempotenciaEmConflito'
+        '410':
+          description: Token expirado ou já consumido, sem revelar dados da conta.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          $ref: '#/components/responses/LimiteExcedido'
+
+  /auth/password/change:
+    post:
+      operationId: alterarSenha
+      x-implementation-status: planned
+      tags: [auth]
+      summary: Altera a senha do usuário autenticado
+      description: >-
+        Planejado em F-AUT (RF-AUT-05). Somente o dono do token pode alterar sua
+        senha e precisa informar a senha atual. O sucesso revoga todos os refresh
+        tokens da conta e é registrado em auditoria sem senha, token ou hash.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlterarSenhaRequisicao'
+      responses:
+        '204':
+          description: Senha alterada e sessões renováveis revogadas.
+        '400':
+          $ref: '#/components/responses/RequisicaoInvalida'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '409':
+          $ref: '#/components/responses/IdempotenciaEmConflito'
+        '422':
+          description: Senha atual incorreta ou nova senha rejeitada pela política.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          $ref: '#/components/responses/LimiteExcedido'
+
   /me:
     get:
+      operationId: obterUsuarioAutenticado
+      x-implementation-status: implemented
       tags: [usuario]
       summary: Devolve o leitor dono do token de acesso
       description: >-
-        Rota protegida de exemplo: prova o middleware de autenticação de
-        ponta a ponta. Exige `Authorization: Bearer <token>`.
+        Implementado em P0-NAV. A identidade é obtida exclusivamente do token de
+        acesso validado no servidor; outro usuário não pode ser escolhido por
+        parâmetro. Esta rota preserva o contrato mínimo já implementado.
       security:
         - bearerAuth: []
       responses:
         '200':
-          description: Identidade do leitor autenticado.
+          description: Identidade do usuário autenticado.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Usuario' }
+              schema:
+                $ref: '#/components/schemas/Usuario'
         '401':
-          description: Sem token, token inválido, expirado ou assinado com outro segredo.
+          $ref: '#/components/responses/NaoAutenticado'
+        '503':
+          $ref: '#/components/responses/ServicoIndisponivel'
+
+  /me/perfil:
+    get:
+      operationId: obterMeuPerfil
+      x-implementation-status: planned
+      tags: [perfil]
+      summary: Consulta o próprio perfil
+      description: >-
+        Planejado em F-PERFIL (RF-SOC-01). Retorna ao dono os dados editáveis,
+        contadores e o estado da relação consigo mesmo. A propriedade é derivada
+        do token, nunca de um identificador enviado pelo cliente.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Perfil do usuário autenticado.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Erro' }
+              schema:
+                $ref: '#/components/schemas/Perfil'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '503':
+          $ref: '#/components/responses/ServicoIndisponivel'
+    put:
+      operationId: atualizarMeuPerfil
+      x-implementation-status: planned
+      tags: [perfil]
+      summary: Substitui os campos editáveis do próprio perfil
+      description: >-
+        Planejado em F-PERFIL (RF-SOC-01/04). Permite alterar nome de exibição,
+        biografia, avatar e privacidade. A biografia é texto, não HTML. O cliente
+        envia a URL e o identificador do upload direto ao Cloudinary; o servidor
+        revalida tipo real, tamanho, dimensões e preset. Mudar de público para
+        privado não remove seguidores existentes.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EditarPerfilRequisicao'
+      responses:
+        '200':
+          description: Perfil atualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Perfil'
+        '400':
+          $ref: '#/components/responses/RequisicaoInvalida'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '409':
+          $ref: '#/components/responses/IdempotenciaEmConflito'
+        '422':
+          description: Avatar recusado por tipo real, tamanho, dimensões ou origem.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '503':
+          $ref: '#/components/responses/ServicoIndisponivel'
+
+  /perfis:
+    get:
+      operationId: buscarPerfilPorUsername
+      x-implementation-status: planned
+      tags: [perfil]
+      summary: Busca um perfil por username exato
+      description: >-
+        Planejado em F-PERFIL (RF-SOC-03). Aceita somente username completo e
+        exato. Não há busca por prefixo, correspondência parcial, listagem,
+        sugestão ou diretório de pessoas. Perfil público e privado podem ser
+        encontrados, mas a resposta contém apenas identidade pública e estado de
+        acesso segundo RN-08. Sem correspondência, retorna lista vazia.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/UsernameExato'
+      responses:
+        '200':
+          description: Zero ou um perfil correspondente ao username exato.
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 1
+                items:
+                  $ref: '#/components/schemas/PerfilResumo'
+        '400':
+          $ref: '#/components/responses/RequisicaoInvalida'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '429':
+          $ref: '#/components/responses/LimiteExcedido'
+        '503':
+          $ref: '#/components/responses/ServicoIndisponivel'
+
+  /perfis/{username}:
+    get:
+      operationId: obterPerfil
+      x-implementation-status: planned
+      tags: [perfil]
+      summary: Consulta o perfil de outro leitor
+      description: >-
+        Planejado em F-PERFIL (RF-SOC-02, RN-08). Username, nome, avatar e
+        biografia são públicos. Em perfil público, o conteúdo social pode ser
+        consultado por qualquer usuário autenticado; em perfil privado, somente
+        pelo dono ou por seguidor aceito. Um não-seguidor recebe a identidade
+        pública com `conteudoRestrito: true`, não `403` para o perfil inteiro.
+        Estante, leituras, listas, estatísticas, resenhas e notas são obtidas nos
+        serviços donos, que devem revalidar a mesma regra no servidor. Conta
+        suspensa ou com exclusão pendente não é exposta a leitores.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/UsernamePath'
+      responses:
+        '200':
+          description: Identidade pública e estado de acesso ao conteúdo do perfil.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Perfil'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '503':
+          $ref: '#/components/responses/ServicoIndisponivel'
+
+  /perfis/{username}/seguir:
+    post:
+      operationId: seguirPerfil
+      x-implementation-status: planned
+      tags: [seguimento]
+      summary: Segue um perfil público ou solicita seguir um perfil privado
+      description: >-
+        Planejado em F-PERFIL (RF-SOC-05/06). Perfil público cria seguimento
+        aceito imediatamente; perfil privado cria solicitação pendente. O
+        servidor recusa auto-seguimento, duplicidade e conta indisponível, aplica
+        rate limiting e publica o evento correspondente por outbox após a escrita
+        confirmada. Conhecer o username não contorna privacidade.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/UsernamePath'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '201':
+          description: Seguimento imediato ou solicitação pendente criada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultadoSeguir'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          description: >-
+            Auto-seguimento, relação já existente, solicitação já pendente ou
+            chave de idempotência reutilizada com outro payload.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          $ref: '#/components/responses/LimiteExcedido'
+        '503':
+          $ref: '#/components/responses/ServicoIndisponivel'
+    delete:
+      operationId: deixarDeSeguirPerfil
+      x-implementation-status: planned
+      tags: [seguimento]
+      summary: Deixa de seguir outro leitor
+      description: >-
+        Planejado em F-PERFIL (RF-SOC-07). Remove somente o seguimento em que o
+        usuário autenticado é o seguidor. O cliente deve pedir confirmação, mas
+        propriedade e autorização são validadas pelo servidor.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/UsernamePath'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: Seguimento removido ou já ausente.
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          $ref: '#/components/responses/IdempotenciaEmConflito'
+        '503':
+          $ref: '#/components/responses/ServicoIndisponivel'
+
+  /solicitacoes:
+    get:
+      operationId: listarSolicitacoesRecebidas
+      x-implementation-status: planned
+      tags: [seguimento]
+      summary: Lista solicitações de seguir recebidas
+      description: >-
+        Planejado em F-PERFIL. Inbox paginada e exclusiva do destinatário
+        autenticado. Não permite consultar solicitações de terceiros e não expõe
+        um diretório de usuários.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Página de solicitações pendentes recebidas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaSolicitacoes'
+        '400':
+          $ref: '#/components/responses/PaginacaoInvalida'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '503':
+          $ref: '#/components/responses/ServicoIndisponivel'
+
+  /solicitacoes/{id}/aceitar:
+    post:
+      operationId: aceitarSolicitacao
+      x-implementation-status: planned
+      tags: [seguimento]
+      summary: Aceita uma solicitação de seguir recebida
+      description: >-
+        Planejado em F-PERFIL (RF-SOC-06). Somente o destinatário autenticado
+        pode aceitar. A operação cria o seguimento aceito, encerra a solicitação e
+        publica `solicitacao.aceita` por outbox. Trocar o UUID não concede acesso
+        a solicitação alheia.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SolicitacaoId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: Solicitação aceita e seguimento criado.
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/NaoAutorizado'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          description: Solicitação já decidida, relação incompatível ou idempotência em conflito.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '503':
+          $ref: '#/components/responses/ServicoIndisponivel'
+
+  /solicitacoes/{id}/recusar:
+    post:
+      operationId: recusarSolicitacao
+      x-implementation-status: planned
+      tags: [seguimento]
+      summary: Recusa uma solicitação de seguir recebida
+      description: >-
+        Planejado em F-PERFIL (RF-SOC-06). Somente o destinatário autenticado
+        pode recusar. A solicitação é encerrada sem criar seguimento; identificador
+        conhecido não concede acesso a solicitação alheia.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SolicitacaoId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: Solicitação recusada.
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/NaoAutorizado'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          description: Solicitação já decidida ou chave de idempotência em conflito.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '503':
+          $ref: '#/components/responses/ServicoIndisponivel'
+
+  /seguidores/{username}:
+    delete:
+      operationId: removerSeguidor
+      x-implementation-status: planned
+      tags: [seguimento]
+      summary: Remove um seguidor do usuário autenticado
+      description: >-
+        Planejado em F-PERFIL (RF-SOC-07). Remove somente a relação cujo perfil
+        seguido é o usuário autenticado e cujo seguidor corresponde ao username.
+        O cliente deve pedir confirmação; propriedade é validada no servidor.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/UsernamePath'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: Seguidor removido ou relação já ausente.
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          $ref: '#/components/responses/IdempotenciaEmConflito'
+        '503':
+          $ref: '#/components/responses/ServicoIndisponivel'
+
+  /me/seguidores:
+    get:
+      operationId: listarMeusSeguidores
+      x-implementation-status: planned
+      tags: [seguimento]
+      summary: Lista os seguidores do usuário autenticado
+      description: >-
+        Planejado em F-PERFIL (RF-SOC-08). Lista owner-only, paginada e limitada
+        a 50 itens por página. Não existe endpoint equivalente para expor a lista
+        de seguidores de terceiros.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Página de seguidores aceitos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaPerfis'
+        '400':
+          $ref: '#/components/responses/PaginacaoInvalida'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '503':
+          $ref: '#/components/responses/ServicoIndisponivel'
+
+  /me/seguidos:
+    get:
+      operationId: listarPerfisSeguidos
+      x-implementation-status: planned
+      tags: [seguimento]
+      summary: Lista os perfis seguidos pelo usuário autenticado
+      description: >-
+        Planejado em F-PERFIL (RF-SOC-08). Lista owner-only, paginada e limitada
+        a 50 itens por página. Não existe endpoint equivalente para expor a lista
+        de seguidos de terceiros.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Página de perfis seguidos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaPerfis'
+        '400':
+          $ref: '#/components/responses/PaginacaoInvalida'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '503':
+          $ref: '#/components/responses/ServicoIndisponivel'
+
   /health:
     get:
+      operationId: consultarSaude
+      x-implementation-status: implemented
       security: []
       tags: [health]
-      summary: Health check do serviço (RNF-OBS-02)
-      description: Retorna 200 quando o serviço está de pé e o banco responde.
+      summary: Verifica a disponibilidade do serviço e do banco
+      description: Implementado em P0-INFRA (RNF-OBS-02).
       responses:
         '200':
           description: Serviço e banco saudáveis.
           content:
             application/json:
               schema:
-                type: object
-                required: [status, service, time]
-                properties:
-                  status: { type: string, example: ok }
-                  service: { type: string, example: identidade }
-                  time: { type: string, format: date-time }
+                $ref: '#/components/schemas/Health'
         '503':
-          description: "Serviço indisponível (ex.: banco fora do ar)."
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/Erro' }
+          $ref: '#/components/responses/ServicoIndisponivel'
+
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: Token de acesso emitido por POST /auth/login.
+      description: Token de acesso curto emitido por `POST /auth/login` ou `/auth/refresh`.
+
+  headers:
+    CorrelationId:
+      description: Identificador da requisição para correlação de logs.
+      schema:
+        type: string
+        format: uuid
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: >-
+        Chave opaca única no escopo do usuário e da operação. Repetir chave e
+        payload devolve o resultado original; reutilizar a chave com payload
+        diferente retorna `409`.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+      example: 8e2b3272-26d7-4684-a979-a5ef6d4a35ea
+    Page:
+      name: page
+      in: query
+      required: false
+      description: Índice da página, começando em zero.
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    Size:
+      name: size
+      in: query
+      required: false
+      description: Itens por página; o servidor recusa valores acima de 50.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 20
+    UsernameExato:
+      name: username
+      in: query
+      required: true
+      description: Username completo; prefixos e correspondências parciais não são aceitos.
+      schema:
+        $ref: '#/components/schemas/Username'
+    UsernamePath:
+      name: username
+      in: path
+      required: true
+      description: Username exato do outro leitor.
+      schema:
+        $ref: '#/components/schemas/Username'
+    SolicitacaoId:
+      name: id
+      in: path
+      required: true
+      description: Identificador não sequencial da solicitação recebida.
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    RequisicaoInvalida:
+      description: Entrada inválida segundo o schema ou regra de validação.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+    PaginacaoInvalida:
+      description: Página negativa, tamanho fora de 1 a 50 ou parâmetro malformado.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+    NaoAutenticado:
+      description: Token ausente, inválido, expirado, revogado quando aplicável ou assinado por outro segredo.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+    NaoAutorizado:
+      description: Usuário autenticado sem propriedade ou permissão sobre o recurso.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+    NaoEncontrado:
+      description: Recurso inexistente ou oculto pelas regras de acesso.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+    IdempotenciaEmConflito:
+      description: Idempotency-Key já utilizada com payload diferente.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+    LimiteExcedido:
+      description: Limite por IP ou identidade excedido, ou bloqueio temporário ativo.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/CorrelationId'
+        Retry-After:
+          description: Segundos recomendados antes de nova tentativa, quando conhecido.
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+    ServicoIndisponivel:
+      description: Serviço ou dependência temporariamente indisponível.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+
   schemas:
+    Username:
+      type: string
+      pattern: '^[A-Za-z0-9._]{3,30}$'
+      minLength: 3
+      maxLength: 30
+      example: marinableu
+      description: Username completo, sem espaço; letras, números, ponto ou traço baixo.
+
     CadastroRequisicao:
       type: object
+      additionalProperties: false
       required: [email, username, displayName, dataNascimento, senha]
       properties:
         email:
@@ -171,63 +950,382 @@ components:
           maxLength: 254
           example: marina.beltrao@gmail.com
         username:
-          type: string
-          pattern: '^[A-Za-z0-9._]{3,30}$'
-          example: marinableu
-          description: 3 a 30 caracteres, sem espaço — letras, números, ponto ou traço baixo.
+          $ref: '#/components/schemas/Username'
         displayName:
           type: string
+          minLength: 1
           maxLength: 60
           example: Marina Beltrão
         dataNascimento:
           type: string
           format: date
           example: '1999-03-14'
-          description: Precisa corresponder a 18 anos ou mais (RNF-SEC-43).
+          description: Deve comprovar idade mínima de 18 anos na data do cadastro.
         senha:
           type: string
           format: password
           minLength: 8
           maxLength: 72
-          description: >-
-            Mínimo de 8 caracteres (RNF-SEC-27). O limite de 72 é o próprio
-            bcrypt: além disso o algoritmo ignora o excedente.
+          writeOnly: true
+          description: Mínimo de 8 caracteres e não pode constar na lista de senhas comuns.
+
     LoginRequisicao:
       type: object
+      additionalProperties: false
       required: [identificador, senha]
       properties:
         identificador:
           type: string
-          description: E-mail ou nome de usuário.
+          minLength: 1
+          maxLength: 254
+          description: E-mail ou username, inclusive para a conta administradora provisionada.
           example: marinableu
         senha:
           type: string
           format: password
+          minLength: 1
+          writeOnly: true
+
+    RefreshRequisicao:
+      type: object
+      additionalProperties: false
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+          minLength: 1
+          writeOnly: true
+          description: Token opaco de renovação emitido no login ou na rotação anterior.
+
+    EsqueciSenhaRequisicao:
+      type: object
+      additionalProperties: false
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          example: marina.beltrao@gmail.com
+
+    RedefinirSenhaRequisicao:
+      type: object
+      additionalProperties: false
+      required: [token, novaSenha]
+      properties:
+        token:
+          type: string
+          minLength: 1
+          writeOnly: true
+          description: Token de uso único recebido no link de recuperação.
+        novaSenha:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 72
+          writeOnly: true
+          description: Deve atender à política de senha e não constar na lista de senhas comuns.
+
+    AlterarSenhaRequisicao:
+      type: object
+      additionalProperties: false
+      required: [senhaAtual, novaSenha]
+      properties:
+        senhaAtual:
+          type: string
+          format: password
+          minLength: 1
+          writeOnly: true
+        novaSenha:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 72
+          writeOnly: true
+          description: Deve atender à política de senha e não constar na lista de senhas comuns.
+
     Usuario:
       type: object
-      description: Identidade pública do leitor — nunca carrega e-mail, nascimento ou hash de senha.
+      description: Contrato mínimo já implementado; nunca contém e-mail, nascimento ou hash de senha.
+      additionalProperties: false
+      required: [id, username, displayName]
       properties:
-        id: { type: string, format: uuid }
-        username: { type: string, example: marinableu }
-        displayName: { type: string, example: Marina Beltrão }
+        id:
+          type: string
+          format: uuid
+        username:
+          $ref: '#/components/schemas/Username'
+        displayName:
+          type: string
+          maxLength: 60
+          example: Marina Beltrão
+
     Token:
       type: object
-      description: Resposta do login (RF-AUT-03, subconjunto — só o token de acesso).
+      description: Parte da sessão já implementada em P0-NAV.
+      required: [accessToken, tokenType, expiresIn]
       properties:
         accessToken:
           type: string
-          description: JWT assinado em HS256.
+          description: JWT de acesso de curta duração, atualmente assinado em HS256.
         tokenType:
           type: string
+          enum: [Bearer]
           example: Bearer
         expiresIn:
           type: integer
           format: int64
-          description: Validade do token em segundos.
+          minimum: 1
+          description: Validade do token de acesso em segundos.
           example: 900
+
+    Sessao:
+      allOf:
+        - $ref: '#/components/schemas/Token'
+        - type: object
+          description: Contrato alvo de F-AUT; `refreshToken` ainda não é emitido pela implementação atual.
+          required: [refreshToken]
+          properties:
+            refreshToken:
+              type: string
+              writeOnly: true
+              description: Token opaco, rotativo e revogável.
+
+    MensagemResposta:
+      type: object
+      additionalProperties: false
+      required: [mensagem]
+      properties:
+        mensagem:
+          type: string
+          example: Se o e-mail estiver cadastrado, você receberá as instruções em breve.
+
+    Privacidade:
+      type: string
+      enum: [publico, privado]
+      description: Público libera conteúdo; privado exige seguimento aceito segundo RN-08.
+
+    RelacaoPerfil:
+      type: string
+      enum:
+        - proprio
+        - nenhuma
+        - seguindo
+        - solicitacao_enviada
+        - solicitacao_recebida
+      description: Relação do usuário autenticado com o perfil consultado.
+
+    Avatar:
+      type: object
+      nullable: true
+      additionalProperties: false
+      required: [url, publicId]
+      properties:
+        url:
+          type: string
+          format: uri
+          maxLength: 2048
+          description: URL HTTPS resultante do upload direto ao Cloudinary.
+        publicId:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Identificador do asset dentro da pasta/preset permitido.
+
+    EditarPerfilRequisicao:
+      type: object
+      additionalProperties: false
+      required: [displayName, biografia, avatar, privacidade]
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 60
+          example: Marina Beltrão
+        biografia:
+          type: string
+          description: Texto simples; deve ser escapado na renderização e nunca interpretado como HTML.
+          example: Leitora de ficção científica e literatura brasileira.
+        avatar:
+          $ref: '#/components/schemas/Avatar'
+        privacidade:
+          $ref: '#/components/schemas/Privacidade'
+
+    ContadoresPerfil:
+      type: object
+      additionalProperties: false
+      required: [seguidores, seguidos]
+      properties:
+        seguidores:
+          type: integer
+          format: int64
+          minimum: 0
+        seguidos:
+          type: integer
+          format: int64
+          minimum: 0
+
+    PerfilResumo:
+      type: object
+      description: Campos públicos visíveis independentemente da privacidade do perfil.
+      required: [id, username, displayName, privacidade, conteudoRestrito, relacao]
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          $ref: '#/components/schemas/Username'
+        displayName:
+          type: string
+          maxLength: 60
+          example: Marina Beltrão
+        avatarUrl:
+          type: string
+          format: uri
+          nullable: true
+        privacidade:
+          $ref: '#/components/schemas/Privacidade'
+        conteudoRestrito:
+          type: boolean
+          description: >-
+            `true` quando RN-08 impede o solicitante de consultar conteúdo social
+            nos serviços donos; identidade pública continua visível.
+        relacao:
+          $ref: '#/components/schemas/RelacaoPerfil'
+
+    Perfil:
+      allOf:
+        - $ref: '#/components/schemas/PerfilResumo'
+        - type: object
+          required: [biografia, contadores]
+          properties:
+            biografia:
+              type: string
+              nullable: true
+              description: Texto público, inclusive em perfil privado.
+            contadores:
+              $ref: '#/components/schemas/ContadoresPerfil'
+
+    ResultadoSeguir:
+      type: object
+      additionalProperties: false
+      required: [estado]
+      properties:
+        estado:
+          type: string
+          enum: [seguindo, solicitacao_pendente]
+          description: "`seguindo` para perfil público; `solicitacao_pendente` para privado."
+        solicitacaoId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Presente somente quando foi criada uma solicitação pendente.
+
+    SolicitacaoSeguir:
+      type: object
+      additionalProperties: false
+      required: [id, solicitante, criadaEm]
+      properties:
+        id:
+          type: string
+          format: uuid
+        solicitante:
+          $ref: '#/components/schemas/PerfilResumo'
+        criadaEm:
+          type: string
+          format: date-time
+
+    MetadadosPagina:
+      type: object
+      additionalProperties: false
+      required: [page, size, totalElements, totalPages]
+      properties:
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 50
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+
+    PaginaPerfis:
+      type: object
+      additionalProperties: false
+      required: [items, page, size, totalElements, totalPages]
+      properties:
+        items:
+          type: array
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/PerfilResumo'
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 50
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+
+    PaginaSolicitacoes:
+      type: object
+      additionalProperties: false
+      required: [items, page, size, totalElements, totalPages]
+      properties:
+        items:
+          type: array
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/SolicitacaoSeguir'
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 50
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+
+    Health:
+      type: object
+      additionalProperties: false
+      required: [status, service, time]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+          example: ok
+        service:
+          type: string
+          enum: [identidade]
+          example: identidade
+        time:
+          type: string
+          format: date-time
+
     Erro:
       type: object
-      description: Corpo de erro padronizado (RNF-ERR-01) — pt-BR, sem detalhe técnico.
+      description: Corpo padronizado em pt-BR, sem stack trace nem detalhe técnico.
+      additionalProperties: false
       required: [codigo, mensagem, correlationId]
       properties:
         codigo:

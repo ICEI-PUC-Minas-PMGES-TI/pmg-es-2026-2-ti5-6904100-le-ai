@@ -74,7 +74,8 @@ Alocação de stack por serviço **decidida pela equipe em 02/09/2026**: `identi
 │   │   └── documento-de-design.md
 │   ├── README.md             # capa/SUMÁRIO do documento da disciplina
 │   ├── 1.apresentacao.md … 8.avaliacao_arquitetura.md  # docs da disciplina (DERIVADOS)
-│   ├── api/                  # planejado no período-0: um spec OpenAPI por serviço
+│   ├── api/                  # um spec OpenAPI por serviço
+│   ├── mensageria/           # envelope, catálogo e JSON Schemas canônicos
 │   ├── design/               # prompts de tela e protótipos — + AGENTS.md e CLAUDE.md
 │   │   └── periodo-N/<FEATURE>/<tela>.md + prototipos/<tela>.html
 │   └── ...
@@ -139,6 +140,7 @@ Estrutura mínima do arquivo de feature: objetivo (referenciando a seção de `R
 - [ ] CI verde (lint, build, testes)
 - [ ] Testes automatizados dos casos de uso da feature (mínimo: backend)
 - [ ] **Spec OpenAPI do serviço atualizado em `docs/api/`** (um spec por serviço, nunca por feature)
+- [ ] Se produz ou consome evento, **catálogo/schema em `docs/mensageria/` atualizado e testado**
 - [ ] Fluxo funcionando **em DES/HML**, não só localmente
 - [ ] Arquivo da feature atualizado: status, pendências, timeline
 - [ ] Divergência protótipo × implementação registrada, se houver
@@ -164,8 +166,15 @@ O `REQUISITOS.md` §8 organiza a segurança pelo **OWASP Top 10 (2021)**; todos 
 
 ---
 
-## 10. Contratos de API
+## 10. Contratos de integração
 
 - Cada serviço expõe seu spec em runtime (`/v3/api-docs` no Spring, `@nestjs/swagger` no Nest) e **commita** em `docs/api/<servico>.yaml`. Atualizar é item do DoD.
 - **Um spec por serviço**, nunca por feature. A feature atualiza o spec do serviço que mexeu.
 - Um Swagger UI único agregará todos os specs quando `docs/api/` e `docker-compose.docs.yml` forem criados no período-0 (`docker compose -f docker-compose.docs.yml up` → `localhost:8080`).
+
+Contratos assíncronos:
+
+- Envelope, catálogo e schemas JSON canônicos ficam em `docs/mensageria/`.
+- P0-MSG possui transporte, topologia, dispatcher, recibo, retry e DLQ; a feature produtora possui o schema de `data` e a gravação domínio+outbox.
+- Um arquivo por `(type, version)`; schema publicado é imutável e mudança incompatível cria nova versão.
+- Evento sem consumidor atual não cria fila acumuladora; a feature consumidora futura faz backfill antes de ativar o binding.
