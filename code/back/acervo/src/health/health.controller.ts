@@ -3,12 +3,14 @@ import { ConfigService } from '@nestjs/config';
 import { HealthCheckService } from '@nestjs/terminus';
 import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { DrizzleHealthIndicator } from './drizzle.health';
+import { Publico } from '../auth/publico.decorator';
 
 /**
  * `GET /health` (RNF-OBS-02): 200 quando o serviço está de pé e o banco
  * responde. Se o banco cair, `health.check` lança e o corpo de erro padrão
  * (503) é devolvido pelo AllExceptionsFilter.
  */
+@Publico()
 @ApiTags('health')
 @Controller('health')
 export class HealthController {
