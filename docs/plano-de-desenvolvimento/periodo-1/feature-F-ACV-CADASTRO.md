@@ -1,7 +1,7 @@
 # F-ACV-CADASTRO — Cadastro de livros (ISBN + pessoal)
 
 **Período:** 1 · **Prioridade:** prioritaria
-**Dono:** a definir · **Serviços afetados:** `acervo` (backend) + web + mobile
+**Dono:** Vicenzo Fonseca · **Serviços afetados:** `acervo` (backend) + web + mobile
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.2 (RF-ACV-05..09), RN-02, RN-03. Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §2.2, §2.5, §3.2, §5.2. Processo e template: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §9. Em caso de conflito, o `REQUISITOS.md` ganha; protótipo é referência visual, não spec de pixel (plano §7).
 
@@ -21,10 +21,11 @@ RNF atendidos: **RNF-SEC-38** (ISBN validado por formato + dígito verificador; 
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra / Dados | em andamento | `livro`, `importacao_livro`, `idempotencia_acervo`, `outbox_acervo` e `v_livro_referencia_v1` versionados e implantados; faltam recibo, broker, fila, allowlist e preset Cloudinary |
-| Backend | não iniciado | `acervo`: importação assíncrona por ISBN + CRUD e consulta autorizada de livro pessoal |
-| Web | não iniciado | fluxo assíncrono por ISBN + formulário e página de livro pessoal |
-| Mobile | não iniciado | mesmas telas + upload de capa direto ao Cloudinary |
+| Infra / Dados | em andamento | tabelas e VIEWs implantadas; allowlist de fontes externas e de hosts de capa versionada em 18/09/2026. Faltam o recibo `mensagem_processada`, o broker e a fila (P0-MSG), e o preset Cloudinary (P-09) |
+| Backend | implementado | `acervo`: produtor da importação por ISBN, CRUD e consulta autorizada de livro pessoal, autenticação, idempotência e rate limiting. **O consumidor de domínio existe e é testado, mas sem acionador** — a importação fica em `pendente` até P0-MSG |
+| Web | não iniciado | prompts de tela escritos em 18/09/2026; implementação não começou |
+| Mobile | não iniciado | idem |
+| Design | em andamento | quatro prompts em `docs/design/periodo-1/F-ACV-CADASTRO/`; os protótipos HTML são export do Claude Design e não foram gerados |
 
 ## Especificação
 
@@ -68,21 +69,21 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 ## Critérios de aceite
 
-- [ ] Cadastro por ISBN valida **formato + dígito verificador** e nunca aceita URL do usuário (SEC-38).
-- [ ] ISBN **já existente** → `409` que leva à **página do livro existente** (RF-ACV-07, RN-02).
-- [ ] ISBN novo cria solicitação e responde `202`; `livro.importacao_solicitada` é obrigatório, idempotente e leva aos estados documentados.
-- [ ] A criação/reprocessamento grava estado e outbox atomicamente; falha do broker não desfaz o `202`, e replay da mesma `Idempotency-Key` não cria segunda solicitação/outbox.
-- [ ] ISBN **não encontrado** em nenhuma fonte é distinguido de fonte indisponível e oferece cadastro pessoal; `falha_transitoria` permite reprocessamento autenticado e idempotente da mesma solicitação (RF-ACV-06).
-- [ ] A busca externa usa allowlist, timeout, limite, backoff, circuit breaker e sem redirect externo (SEC-39, RNF-ERR-08); dados são normalizados antes de persistir (SEC-33).
-- [ ] Rate limiting ativo no cadastro por ISBN (SEC-18).
-- [ ] Livro pessoal é criado **sem ISBN**, com nº de páginas obrigatório; capa opcional passa por validação de tipo/tamanho/dimensões (SEC-20); fica **fora** da busca (SEC-06).
-- [ ] Editar/excluir livro pessoal é **exclusivo do dono** (SEC-02) e a exclusão pede confirmação (RNF-USA-04).
-- [ ] O dono abre seu livro pessoal diretamente; terceiro abre somente por atividade válida e visível do feed, com RN-08/RN-15 revalidadas. ID ou referência forjada não concede acesso.
-- [ ] Página pessoal em modo consulta mostra nota/resenha atuais do dono e não oferece estante, favorito, leitura ou progresso ao terceiro.
-- [ ] Exclusão do livro invalida imediatamente a página e a atividade deixa de ser exibível pelo contrato `v_livro_referencia_v1`.
-- [ ] Repetir escritas com a mesma `Idempotency-Key` não repete importação, upload lógico, edição ou exclusão (RNF-ERR-04).
-- [ ] Solicitações concorrentes do mesmo ISBN convergem para um único livro e todas terminam apontando ao mesmo id (RNF-ARQ-05).
-- [ ] O evento usa exchange/routing/fila/DLQ, `businessKey=importacao:<importacaoId>` e `data { importacaoId, solicitanteId, isbn13 }` exatamente como os contratos canônicos; schema/envelope inválido vai à DLQ sem executar domínio.
+- [x] Cadastro por ISBN valida **formato + dígito verificador** e nunca aceita URL do usuário (SEC-38).
+- [x] ISBN **já existente** → `409` que leva à **página do livro existente** (RF-ACV-07, RN-02); o corpo carrega `livroId`.
+- [ ] ISBN novo cria solicitação e responde `202`; `livro.importacao_solicitada` é obrigatório, idempotente e leva aos estados documentados. *O `202` e a gravação do evento estão implementados; a transição de estado depende do acionador de P0-MSG.*
+- [x] A criação/reprocessamento grava estado e outbox atomicamente; falha do broker não desfaz o `202`, e replay da mesma `Idempotency-Key` não cria segunda solicitação/outbox. *A atomicidade real exige teste com banco — ver pendências.*
+- [x] ISBN **não encontrado** em nenhuma fonte é distinguido de fonte indisponível e oferece cadastro pessoal; `falha_transitoria` permite reprocessamento autenticado e idempotente da mesma solicitação (RF-ACV-06).
+- [x] A busca externa usa allowlist, timeout, limite, backoff, circuit breaker e sem redirect externo (SEC-39, RNF-ERR-08); dados são normalizados antes de persistir (SEC-33).
+- [x] Rate limiting ativo no cadastro por ISBN (SEC-18), por IP e por identidade.
+- [ ] Livro pessoal é criado **sem ISBN**, com nº de páginas obrigatório; capa opcional passa por validação de tipo/tamanho/dimensões (SEC-20); fica **fora** da busca (SEC-06). *Criação sem ISBN e páginas obrigatórias, feito. A validação de **tipo real, tamanho e dimensões** depende do preset Cloudinary de P-09: o servidor valida host, caminho e extensão da URL, e deliberadamente nunca baixa a imagem.*
+- [x] Editar/excluir livro pessoal é **exclusivo do dono** (SEC-02); a confirmação está especificada nos prompts de tela e entra com o cliente (RNF-USA-04).
+- [x] O dono abre seu livro pessoal diretamente; terceiro abre somente por atividade válida e visível do feed, com RN-08/RN-15 revalidadas. ID ou referência forjada não concede acesso.
+- [x] Página pessoal em modo consulta mostra nota/resenha atuais do dono e não oferece estante, favorito, leitura ou progresso ao terceiro. *As VIEWs de F-AVA retornam vazio hoje, e os campos saem `null`.*
+- [x] Exclusão do livro invalida imediatamente a página e a atividade deixa de ser exibível pelo contrato `v_livro_referencia_v1`.
+- [x] Repetir escritas com a mesma `Idempotency-Key` não repete importação, upload lógico, edição ou exclusão (RNF-ERR-04).
+- [ ] Solicitações concorrentes do mesmo ISBN convergem para um único livro e todas terminam apontando ao mesmo id (RNF-ARQ-05). *A convergência está implementada no consumidor e coberta por teste unitário; provar de ponta a ponta exige o broker.*
+- [ ] O evento usa exchange/routing/fila/DLQ, `businessKey=importacao:<importacaoId>` e `data { importacaoId, solicitanteId, isbn13 }` exatamente como os contratos canônicos; schema/envelope inválido vai à DLQ sem executar domínio. *O `data` e a `businessKey` gravados na outbox conferem com o schema canônico; exchange, fila e DLQ são de P0-MSG.*
 - [ ] Seed reproduzível contém ao menos um livro pessoal ligado ao dono e referências válidas/inválidas de acesso (RNF-TST-08).
 - [ ] Fluxos de cadastro (oficial e pessoal) funcionam **em DES**.
 
@@ -90,17 +91,17 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 (plano §10)
 
-- [ ] Código (backend `acervo`, web, mobile) mergeado em `desenvolvimento`
-- [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
+- [ ] Código (backend `acervo`, web, mobile) mergeado em `desenvolvimento` — backend implementado em `vicenzo-features`; web e mobile não iniciados
+- [x] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)) — lint, build e 125 testes de `acervo`
 - [ ] Testes unitários e de integração com banco real/container: contratos HTTP e códigos `201/202/204/400/401/403/404/409/429/503` aplicáveis; ISBN inválido/duplicado/inexistente/indisponível; concorrência do mesmo ISBN; estados; URL por allowlist; CRUD e consulta pessoal com dono, nota/resenha, feed válido, não-seguidor, perfil privado, referência forjada e livro excluído (RNF-TST-02)
 - [ ] Teste assíncrono cobre atomicidade solicitação+outbox, envelope/data canônicos, publisher confirm, consumo+recibo atômicos, duplicação por `eventId`, convergência por ISBN entre eventos distintos, retry `1/5/15 s`, ACK pós-commit e DLQ de `livro.importacao_solicitada` (RNF-TST-03)
 - [ ] Testes web/mobile cobrem acompanhamento da importação, autorização da página pessoal e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
-- [ ] **Spec OpenAPI de `acervo` atualizado em `docs/api/acervo.yaml`** com cadastro, acompanhamento de importação, livro pessoal e `v_livro_referencia_v1`
+- [x] **Spec OpenAPI de `acervo` atualizado em `docs/api/acervo.yaml`** — as sete operações desta feature passaram a `implemented`, com notas sobre o que ainda depende de P0-MSG, F-FEED, F-PERFIL e F-AVA
 - [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
-- [ ] Arquivo da feature atualizado: status, pendências, timeline
-- [ ] Divergência protótipo × implementação registrada, se houver
+- [x] Arquivo da feature atualizado: status, pendências, timeline
+- [ ] Divergência protótipo × implementação registrada, se houver — **não há protótipo**: os quatro prompts de tela foram escritos em 18/09/2026, mas os HTML do Claude Design não foram gerados. Registrado em pendências
 
-**Item próprio:** manter a **allowlist de domínios** de fontes externas (OpenLibrary, Google Books) versionada e por ambiente; documentar a política de retentativa/circuit breaker da chamada externa.
+**Item próprio:** ~~manter a **allowlist de domínios** de fontes externas versionada e por ambiente; documentar a política de retentativa/circuit breaker~~ — **feito (18/09/2026):** `FONTES_HOSTS_PERMITIDOS` no `.env.example` e no schema de env, com padrão `openlibrary.org,covers.openlibrary.org,www.googleapis.com`; política de 1/5/15 s com circuit breaker por fonte documentada em `dominio/politica-resiliencia.ts` e coberta por teste.
 
 ## Pendências
 
@@ -110,10 +111,17 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Compartilha `acervo` com [F-ACV-BUSCA](feature-F-ACV-BUSCA.md) e [F-ACV-INGESTAO](feature-F-ACV-INGESTAO.md)** — a baseline já fixou a entidade física `livro`; mudanças posteriores devem ser coordenadas e feitas por migration incremental (plano §6).
 - A via por lista para livro pessoal depende de F-LST (Período 2). O endpoint deve aceitar nova via somente após existir contrato equivalente ao de atividade; não aceitar mero `listaId` sem validação server-side.
 - **Assuntos em livro pessoal** (RF-ACV-22) ficam **fora** — são **F-ACV-OPC** (Período 3, opcional).
-- Confirmar cobertura da **fonte secundária Google Books** por ISBN (medição pendente registrada no `REQUISITOS.md` §10.1) — não bloqueia, mas afeta a taxa de acerto.
+- Confirmar cobertura da **fonte secundária Google Books** por ISBN (medição pendente registrada no `REQUISITOS.md` §10.1) — não bloqueia, mas afeta a taxa de acerto. O cliente já aceita `GOOGLE_BOOKS_API_KEY`, que amplia a cota e tornaria a medição viável.
+- **Testes de integração com banco real não existem** (RNF-TST-02). Os 125 testes entregues são unitários e rodam sem banco e sem rede. Quatro coisas só se provam contra Postgres: a atomicidade de solicitação + outbox, a corrida de duas requisições com a mesma `Idempotency-Key`, os CHECKs de livro pessoal e da máquina de estados da importação, e a autorização RN-15 com massa nas VIEWs externas. Exige um service container de Postgres no `ci-back-acervo.yml` e um fixture que crie as VIEWs de `leitura`, `social` e `identidade`, que não existem num banco só de `acervo`.
+- **Seed reproduzível de RNF-TST-08 não existe** do lado de `acervo`: falta o livro pessoal com dono e as referências de acesso válida e forjada. Os livros oficiais saem da amostra de [F-ACV-INGESTAO](feature-F-ACV-INGESTAO.md).
+- **Protótipos HTML das quatro telas não foram gerados.** Os prompts estão em `docs/design/periodo-1/F-ACV-CADASTRO/`, prontos para o Claude Design. O `docs/design/AGENTS.md` pede prompt e HTML no mesmo commit, e essa divergência é consciente.
+- **Componentes novos nascidos nos prompts** precisam de incorporação ao `documento-de-design.md` pelo controle de mudança do plano §3: área de upload de imagem com seus quatro estados, cartão de progresso de operação longa, faixa informativa neutra, etiqueta `Livro pessoal`, linha de atribuição de dono, zona de exclusão e o modo consulta como variante de página — este último será reaproveitado por F-LST na via por lista.
+- **GRANT entre schemas no Neon.** `acervo` consulta VIEWs de `leitura`, `social` e `identidade` em runtime. Se o grupo separar roles por serviço, é preciso `GRANT USAGE` nos três schemas e `GRANT SELECT` nas VIEWs. Falha de permissão é tratada como 503, mas continua sendo falha, e o GRANT não pode entrar em migration de `acervo` porque os objetos são de outros donos.
 - Stack de `acervo` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
 ## Timeline
+
+### Implementação 18/09/2026: backend de `acervo` implementado em `vicenzo-features`, com as sete operações do contrato entregues e marcadas `implemented` em [`acervo.yaml`](../../api/acervo.yaml). Como esta é a primeira feature com endpoint autenticado no serviço, três transversais nasceram aqui: validação do JWT HS256 emitido pelo `identidade` com guard **global** (rota nova nasce protegida, `/health` se libera com `@Publico()`); idempotência sobre `idempotencia_acervo` como **serviço chamado pelo handler**, e não interceptor, porque o recibo precisa ser a última operação da mesma transação do efeito; e o porte do padrão de erro de negócio do `identidade`, que permitiu o `409` de ISBN existente carregar `livroId` (RF-ACV-07) e o `400` carregar `campos`. O correlation-id passou a exigir UUID, porque `outbox_acervo.correlation_id` é `uuid NOT NULL` e um header malformado derrubaria a transação inteira do `202`. A importação por ISBN grava `importacao_livro` e a linha de outbox na mesma transação (RNF-ERR-10), com `data` e `businessKey` conferindo com o schema canônico; a corrida do mesmo ISBN **não** é serializada, porque a convergência é do consumidor por unicidade de ISBN-13 (RNF-ARQ-05). A autorização RN-15 do livro pessoal verifica as quatro condições em uma consulta só — atividade ativa, do dono, do mesmo livro, com seguimento aceito — e exige o seguimento **mesmo com perfil público**, que é mais restritivo e não tem ramo condicional para furar. O consumidor que consulta OpenLibrary e depois Google Books está implementado com allowlist, timeout, limite de resposta lido em streaming, recusa de redirect, backoff 1/5/15 s e circuit breaker, e distingue ausência de indisponibilidade; **não tem acionador**, por decisão registrada: o dispatcher é de [P0-MSG](../periodo-0/feature-P0-MSG.md), e até lá a importação fica em `pendente`. Lint, build e 125 testes verdes, todos sem banco e sem rede. `JWT_SECRET` e `CLOUDINARY_CLOUD_NAME` declarados no [`render.yaml`](../../../render.yaml) — o primeiro precisa ser idêntico ao do `identidade`, sob pena de todo token válido dar 401 em DES. Escritos também os quatro prompts de tela em `docs/design/periodo-1/F-ACV-CADASTRO/`, que não existiam. Web, mobile, testes de integração com banco e os protótipos HTML seguem pendentes. Status, critérios, DoD e pendências atualizados.
 
 ### Alinhamento 17/09/2026: contratos HTTP foram alinhados ao OpenAPI planejado de `acervo`; evento alinhado ao catálogo/schema canônico (`businessKey`, `data`, exchange, fila e DLQ). Registradas a divisão de propriedade entre F-ACV-CADASTRO e P0-MSG, a dependência bloqueante do runtime AMQP, os testes de outbox/consumo e as dependências de composição. Status de dados corrigido para reconhecer o DER implantado sem declarar backend implementado.
 

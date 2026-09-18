@@ -45,6 +45,10 @@ services:
         value: https://leai-web.onrender.com
       - key: AMQP_URL # CloudAMQP (P0-MSG) — pode ficar vazio por ora
         sync: false
+      - key: JWT_SECRET # MESMO valor do leai-identidade; sem ele toda rota autenticada dá 401
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME # valida a URL de capa de livro pessoal (RNF-SEC-20)
+        sync: false
 
   # --------------------------------------------------------------- leitura
   - type: web

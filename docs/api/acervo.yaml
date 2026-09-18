@@ -3,14 +3,32 @@ info:
   title: Lê Ai - acervo
   version: 0.1.0
   description: >-
-    Contrato planejado do serviço acervo para o Período 1
-    (F-ACV-BUSCA, F-ACV-CADASTRO e F-ACV-INGESTAO). As operações de domínio
-    descritas neste documento ainda não estão implementadas. A ingestão inicial
-    do dump é um script utilitário, não uma API HTTP; por isso não há rotas
-    administrativas de ingestão, recarga ou associação de assuntos neste
-    período. O contrato é publicado em runtime por @nestjs/swagger em /docs e
-    versionado aqui conforme RNF-ARQ-03.
-x-contract-status: planned
+    Contrato do serviço acervo para o Período 1 (F-ACV-BUSCA, F-ACV-CADASTRO e
+    F-ACV-INGESTAO). As operações de cadastro por ISBN e de livro pessoal foram
+    implementadas por F-ACV-CADASTRO em 18/09/2026; busca e página do livro
+    seguem planejadas com F-ACV-BUSCA. A ingestão inicial do dump é um script
+    utilitário, não uma API HTTP; por isso não há rotas administrativas de
+    ingestão, recarga ou associação de assuntos neste período. O contrato é
+    publicado em runtime por @nestjs/swagger em /docs e versionado aqui
+    conforme RNF-ARQ-03.
+x-contract-status: partial
+x-implementation-notes:
+  - >-
+    O produtor de livro.importacao_solicitada está implementado: a solicitação e
+    a linha de outbox são gravadas na mesma transação. O dispatcher, o envelope,
+    o recibo, o retry e a DLQ são de P0-MSG e ainda não existem, então a
+    importação permanece em `pendente` até aquela entrega. O consumidor de
+    domínio que consulta OpenLibrary e Google Books está implementado e testado,
+    mas sem acionador.
+  - >-
+    GET /livros/pessoal/{id} com via=feed depende de
+    social.v_atividade_livro_pessoal_v1 e identidade.v_seguimento_aceito_v1, que
+    existem fisicamente mas ainda não são alimentadas por F-FEED e F-PERFIL.
+    Enquanto isso nenhum terceiro obtém acesso, que é o comportamento
+    fail-closed correto.
+  - >-
+    notaDoDono e resenhaDoDono vêm das VIEWs de leitura e saem null enquanto
+    F-AVA não entrega. Ausência é resposta normal, nunca erro.
 x-planned-features: [F-ACV-BUSCA, F-ACV-CADASTRO, F-ACV-INGESTAO]
 x-database-contracts:
   - name: v_livro_referencia_v1
@@ -152,7 +170,8 @@ paths:
   /livros/oficial:
     post:
       operationId: solicitarImportacaoPorIsbn
-      x-contract-status: planned
+      x-contract-status: implemented
+      x-implemented-by: F-ACV-CADASTRO
       tags: [importacoes]
       summary: Solicita a importação assíncrona de um livro oficial por ISBN-13
       description: >-
@@ -195,7 +214,8 @@ paths:
   /livros/importacoes/{id}:
     get:
       operationId: obterImportacaoPorIsbn
-      x-contract-status: planned
+      x-contract-status: implemented
+      x-implemented-by: F-ACV-CADASTRO
       tags: [importacoes]
       summary: Consulta uma importação por ISBN
       description: >-
@@ -220,7 +240,8 @@ paths:
   /livros/importacoes/{id}/reprocessar:
     post:
       operationId: reprocessarImportacaoPorIsbn
-      x-contract-status: planned
+      x-contract-status: implemented
+      x-implemented-by: F-ACV-CADASTRO
       tags: [importacoes]
       summary: Reprocessa uma importação com falha transitória
       description: >-
@@ -248,7 +269,8 @@ paths:
   /livros/pessoal:
     post:
       operationId: criarLivroPessoal
-      x-contract-status: planned
+      x-contract-status: implemented
+      x-implemented-by: F-ACV-CADASTRO
       tags: [livros-pessoais]
       summary: Cria um livro pessoal
       description: >-
@@ -282,7 +304,8 @@ paths:
   /livros/pessoal/{id}:
     get:
       operationId: obterLivroPessoal
-      x-contract-status: planned
+      x-contract-status: implemented
+      x-implemented-by: F-ACV-CADASTRO
       tags: [livros-pessoais]
       summary: Obtém um livro pessoal com autorização RN-15
       description: >-
@@ -315,7 +338,8 @@ paths:
         '503': { $ref: '#/components/responses/ServicoIndisponivel' }
     patch:
       operationId: atualizarLivroPessoal
-      x-contract-status: planned
+      x-contract-status: implemented
+      x-implemented-by: F-ACV-CADASTRO
       tags: [livros-pessoais]
       summary: Atualiza um livro pessoal do próprio usuário
       description: >-
@@ -344,7 +368,8 @@ paths:
         '503': { $ref: '#/components/responses/ServicoIndisponivel' }
     delete:
       operationId: excluirLivroPessoal
-      x-contract-status: planned
+      x-contract-status: implemented
+      x-implemented-by: F-ACV-CADASTRO
       tags: [livros-pessoais]
       summary: Exclui um livro pessoal do próprio usuário
       description: >-

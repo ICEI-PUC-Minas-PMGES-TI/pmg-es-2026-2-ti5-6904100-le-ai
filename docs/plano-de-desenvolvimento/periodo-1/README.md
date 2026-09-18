@@ -57,7 +57,7 @@ Tabelas e VIEWs usam nomes distintos porque compartilham o mesmo namespace no Po
 
 ## Divisão vertical recomendada para 5 pessoas
 
-Esta divisão reduz sobreposição dentro de cada serviço e mantém as integrações mais próximas sob a mesma pessoa. É uma recomendação de trabalho; os campos **Dono** permanecem `a definir` até a equipe fazer a atribuição real.
+Esta divisão reduz sobreposição dentro de cada serviço e mantém as integrações mais próximas sob a mesma pessoa. É uma recomendação de trabalho, e cada feature só passa a ter dono quando alguém assume: em 18/09/2026, **F-ACV-INGESTAO e F-ACV-CADASTRO foram assumidas por Vicenzo Fonseca**; as demais seguem com **Dono** `a definir`.
 
 | Pessoa | Features | Coesão principal |
 |---|---|---|
