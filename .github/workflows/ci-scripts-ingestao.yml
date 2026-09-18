@@ -1,0 +1,51 @@
+name: ci-scripts-ingestao
+
+on:
+  push:
+    paths:
+      - 'code/scripts/ingestao/**'
+      - '.github/workflows/ci-scripts-ingestao.yml'
+  pull_request:
+    paths:
+      - 'code/scripts/ingestao/**'
+      - '.github/workflows/ci-scripts-ingestao.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-scripts-ingestao-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: conferir dados curados and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: code/scripts/ingestao
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -e .[dev]
+
+      # Os tres CSV curados sao entregaveis de dados da feature. Slug que nao
+      # deriva do nome, tag fora da forma normalizada ou mapeamento apontando
+      # para assunto inexistente violariam CHECK ou FK so no meio da carga real.
+      - name: Conferir dados curados
+        run: python -m leai_ingestao conferir
+
+      # O CI nao roda o dump inteiro: valida o script contra a amostra
+      # reproduzivel versionada (DoD da F-ACV-INGESTAO, RNF-TST-08).
+      - name: Test
+        run: python -m pytest -q

@@ -82,6 +82,8 @@ Alocação de stack por serviço **decidida pela equipe em 02/09/2026**: `identi
 ├── code/                     # código (equivale a src/ do guideline)
 │   ├── mobile/               # Flutter — + AGENTS.md
 │   ├── front/                # Vue + Tailwind — + AGENTS.md
+│   ├── scripts/              # utilitários fora dos 4 serviços
+│   │   └── ingestao/         # carga do dump OpenLibrary (Python) — + AGENTS.md
 │   └── back/                 # microsserviços
 │       ├── identidade/       # + AGENTS.md
 │       ├── acervo/           # + AGENTS.md

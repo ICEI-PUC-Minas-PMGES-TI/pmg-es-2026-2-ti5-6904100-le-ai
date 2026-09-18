@@ -1,0 +1,7 @@
+# Saídas intermediárias das fases 1 e 2. São derivadas do dump e chegam a
+# dezenas de GB — nunca entram no repositório.
+trabalho/
+dumps/
+*.egg-info/
+__pycache__/
+.pytest_cache/

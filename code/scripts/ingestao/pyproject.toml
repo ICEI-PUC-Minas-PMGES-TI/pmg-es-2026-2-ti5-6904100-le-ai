@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "leai-ingestao"
+version = "0.1.0"
+description = "Carga inicial da base oficial do Lê Ai a partir do data dump do OpenLibrary (F-ACV-INGESTAO)"
+requires-python = ">=3.11"
+dependencies = []
+
+# `psycopg` é extra, não dependência: só as fases que falam com o Postgres
+# precisam dele, e mantê-lo fora do núcleo é o que permite rodar a suíte inteira
+# (e o CI) sem banco e sem libpq.
+[project.optional-dependencies]
+banco = ["psycopg[binary]==3.2.3"]
+dev = ["pytest==9.1.1"]
+
+[project.scripts]
+leai-ingestao = "leai_ingestao.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["leai_ingestao*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

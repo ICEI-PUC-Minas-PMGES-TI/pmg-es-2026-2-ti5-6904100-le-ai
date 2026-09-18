@@ -1,0 +1,7 @@
+# Versões fixadas (RNF-SEC-25: dependências com lock versionado no repositório).
+# O núcleo do script não tem dependência nenhuma — só a biblioteca padrão.
+# Instale os extras conforme o uso:
+#   pip install -e .[dev]     # testes (CI e local)
+#   pip install -e .[banco]   # semear e carregar, precisa de Postgres
+psycopg[binary]==3.2.3
+pytest==9.1.1

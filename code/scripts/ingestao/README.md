@@ -1,0 +1,115 @@
+# Ingestão do acervo — carga inicial do dump do OpenLibrary
+
+Implementa **RF-ACV-13** (carga inicial com normalização, RN-12) e **RF-ACV-20** (assuntos normalizados, RN-21) da feature [F-ACV-INGESTAO](../../../docs/plano-de-desenvolvimento/periodo-1/feature-F-ACV-INGESTAO.md).
+
+É um **script utilitário**, rodado na mão por alguém do grupo. Não é serviço, não sobe no Render, não usa fila.
+
+## Por que o pipeline tem três fases
+
+O dump de edições não é autossuficiente. A edição referencia o autor por `/authors/OL…A` e a obra por `/works/OL…W`, mas o **nome** do autor mora em `ol_dump_authors` e os **assuntos** moram na obra, em `ol_dump_works`. Somando os três, são dezenas de GB — não cabem na memória nem no plano gratuito do Neon (RNF-DES-04). Por isso a carga é dividida:
+
+| Fase | Comando | Lê | Escreve |
+|---|---|---|---|
+| 1 | `filtrar` | dump de edições | candidatos elegíveis + chaves de autor/obra a resolver |
+| 2 | `resolver` | dumps de autores e obras | nomes de autor e assuntos já mapeados |
+| 3 | `carregar` | as saídas das fases 1 e 2 | `COPY` para staging e upsert no schema `acervo` |
+
+Cada fase é streaming. **Nada do dump bruto vai para o Neon.**
+
+## Roteiro completo
+
+### 1. Preparar o ambiente
+
+```bash
+cd code/scripts/ingestao
+python -m venv .venv && source .venv/bin/activate
+pip install -e .[banco,dev]
+```
+
+### 2. Baixar os dumps
+
+Os dumps ficam em <https://openlibrary.org/developers/dumps> (domínio público, CC0). Baixe os três mais recentes para `dumps/` — o diretório está no `.gitignore`:
+
+```bash
+mkdir -p dumps
+curl -L -o dumps/ol_dump_editions.txt.gz https://openlibrary.org/data/ol_dump_editions_latest.txt.gz
+curl -L -o dumps/ol_dump_authors.txt.gz  https://openlibrary.org/data/ol_dump_authors_latest.txt.gz
+curl -L -o dumps/ol_dump_works.txt.gz    https://openlibrary.org/data/ol_dump_works_latest.txt.gz
+```
+
+São dezenas de GB comprimidos. Reserve banda e disco: contam o download, o descompactado em streaming e os arquivos intermediários de `trabalho/`.
+
+### 3. Conferir os dados curados
+
+```bash
+python -m leai_ingestao conferir
+```
+
+Valida os três CSV de `dados/` entre si, sem tocar o banco. Falhar aqui é muito melhor do que falhar depois de horas de carga.
+
+### 4. Semear os dados curados
+
+```bash
+export DATABASE_URL='postgresql://...'   # branch de DES; nunca versionar
+python -m leai_ingestao semear
+```
+
+Popula `acervo.assunto` (os ~30 gêneros de RN-21.1), `acervo.sinonimo_editora` e `acervo.mapa_assunto_externo`. **Rode antes da carga:** `livro_assunto` só casa com assunto que já existe.
+
+### 5. Filtrar (fase 1)
+
+```bash
+python -m leai_ingestao filtrar --dump dumps/ol_dump_editions.txt.gz
+```
+
+Aplica RN-12 no nível da edição: português, com ISBN-13 válido, com total de páginas e com capa. Descarta autopublicação (§10.1). Imprime os totais por motivo de descarte — guarde esse JSON, ele alimenta o passo 7.
+
+Para dimensionar a carga ao teto de 20% do plano Neon (RNF-DES-04), use `--limite N`.
+
+### 6. Resolver (fase 2)
+
+```bash
+python -m leai_ingestao resolver \
+  --dump-autores dumps/ol_dump_authors.txt.gz \
+  --dump-obras   dumps/ol_dump_works.txt.gz
+```
+
+Lê os dois dumps uma vez cada, guardando só o que as chaves da fase 1 pedem. As tags livres da origem já saem traduzidas para o conjunto curado — elas nunca chegam ao banco (RN-12).
+
+### 7. Carregar (fase 3)
+
+```bash
+python -m leai_ingestao carregar --processados 1234567 --descartados 1200000
+```
+
+`--processados` e `--descartados` vêm do JSON da fase 1 e alimentam `acervo.ingestao_execucao`. A carga é **uma transação**: ou o lote inteiro entra, ou nada entra.
+
+No fim, o comando imprime o tamanho de dados e de índice por tabela. **Esse número vai para a Timeline da feature** — é item próprio do DoD registrar o volume real carregado e a fração do plano Neon consumida (RNF-DES-04, RNF-DES-05).
+
+### 8. Conferir o resultado
+
+```sql
+SELECT * FROM acervo.ingestao_execucao ORDER BY iniciado_em DESC LIMIT 1;
+SELECT count(*) FROM acervo.livro WHERE tipo = 'oficial';
+SELECT count(*) FROM acervo.livro WHERE tipo = 'oficial' AND capa_url_externa IS NULL;  -- deve ser 0
+SELECT a.nome, count(*) FROM acervo.livro_assunto la
+  JOIN acervo.assunto a ON a.id = la.assunto_id GROUP BY a.nome ORDER BY 2 DESC;
+```
+
+Reexecutar a mesma carga não deve mudar as contagens: a deduplicação por ISBN-13 e `ol_edition_key` torna a operação idempotente.
+
+## Testes
+
+```bash
+python -m pytest
+```
+
+Roda sem banco e sem rede, contra `amostra/`. A amostra tem 14 edições aceitas e 8 descartadas, uma por motivo de descarte. É o que o CI executa — o DoD da feature diz que o CI não roda o dump inteiro.
+
+## O que este script deliberadamente não faz
+
+- **Não busca sinopse** (RN-19.1 — sob demanda, em F-ACV-BUSCA).
+- **Não importa nota geral** (RF-ACV-15 é F-ACV-NOTA, Período 2).
+- **Não baixa capas** (RN-14 — cache sob demanda, disparado pela entrada na estante).
+- **Não cria assuntos** (RN-21.1 — conjunto curado e fechado).
+- **Não publica evento nenhum.** Recarga manual do dump é RF-ACV-14, alocada a F-ACV-OPC no Período 3; o `tipo=recarga` já existe na tabela, mas a operação é daquela feature.
