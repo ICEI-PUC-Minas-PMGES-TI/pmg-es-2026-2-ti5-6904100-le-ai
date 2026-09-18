@@ -17,8 +17,8 @@ Requisitos atendidos: **RNF-TST-07** (CI roda testes a cada push; branch com tes
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | parcial | Workflows Web, NestJS, Spring e mobile criados; branch protection ainda pendente |
-| Backend | concluído | CI dos quatro serviços implementado; auditoria Maven específica permanece pendente |
+| Infra | parcial | Os 6 workflows validados no GitHub (runs verdes em `push` e `pull_request`); branch protection ativa em `main`, mas **sem required status checks** — ver pendência abaixo |
+| Backend | concluído | CI dos quatro serviços implementado e verde no GitHub; auditoria Maven específica permanece pendente |
 | Web | concluído | `ci-front` executa lint, build, testes e auditoria com filtro por caminho e cache npm |
 | Mobile | implementado | `ci-mobile` executa geração, analyze e testes; gera APK release em `main` |
 
@@ -163,38 +163,38 @@ jobs:
 
 ## Critérios de aceite
 
-- [ ] Push em `code/front/**` roda só `ci-front`; push em `code/mobile/**` roda só `ci-mobile`; push só em `docs/**` não dispara nenhum pipeline.
-- [ ] Cada workflow roda lint, build e testes do seu subprojeto (RNF-TST-07).
-- [ ] Um teste falhando **impede** a integração (o check fica vermelho no PR).
+- [x] Push em `code/front/**` roda só `ci-front`; push em `code/mobile/**` roda só `ci-mobile`; push só em `docs/**` não dispara nenhum pipeline. (verificado em 17/09/2026: os commits só de documentação em `desenvolvimento` não geraram nenhum run)
+- [x] Cada workflow roda lint, build e testes do seu subprojeto (RNF-TST-07). (runs verdes dos 6 workflows em `push` e `pull_request`)
+- [ ] Um teste falhando **impede** a integração (o check fica vermelho no PR). — **não vale hoje:** o check fica vermelho, mas nada bloqueia o merge enquanto não houver required status checks (ver pendência).
 - [ ] Auditoria de dependências roda e falha o build em vulnerabilidade alta/crítica; o mecanismo aplicável ao Flutter está definido (RNF-SEC-26).
-- [ ] Merge em `main` produz o **APK** como artefato baixável do run.
-- [ ] `main` tem branch protection exigindo CI verde; PR é o único caminho para `main`.
-- [ ] Cache de dependências ativo em todos os jobs.
+- [x] Merge em `main` produz o **APK** como artefato baixável do run. (artefato `app-des-apk` publicado nos builds de 13/09 e 15/09)
+- [~] `main` tem branch protection exigindo CI verde; PR é o único caminho para `main`. — **PR é obrigatório** (1 aprovação, `enforce_admins` ativo, sem force push nem deleção); **exigência de CI verde não está ativa**.
+- [x] Cache de dependências ativo em todos os jobs.
 
 ## Definition of Done
 
 (plano §10)
 
-- [ ] Workflows mergeados em `desenvolvimento`
-- [ ] CI verde (o próprio pipeline se auto-valida)
-- [ ] Testes automatizados dos casos de uso da feature — **N/A de teste de aplicação**: a "prova" desta feature é o pipeline passar/reprovar corretamente (validar com um PR de teste que quebra um teste de propósito)
+- [x] Workflows mergeados em `desenvolvimento` e promovidos a `main`
+- [x] CI verde (o próprio pipeline se auto-valida) — runs verdes dos 6 workflows em `main`, `desenvolvimento` e branch de feature
+- [ ] Testes automatizados dos casos de uso da feature — **N/A de teste de aplicação**: a "prova" desta feature é o pipeline passar/reprovar corretamente (validar com um PR de teste que quebra um teste de propósito) — **não executado**; só faz sentido depois que o required status check estiver ativo
 - [ ] Spec OpenAPI do serviço atualizado em `docs/api/` — **N/A**: feature de pipeline, não expõe API. Justificativa registrada aqui em vez de remover o item.
-- [ ] Fluxo funcionando em DES/HML — o disparo do deploy a partir de `main` é validado junto de [P0-DEPLOY](feature-P0-DEPLOY.md)
-- [ ] Arquivo da feature atualizado: status, pendências, timeline
+- [x] Fluxo funcionando em DES/HML — o disparo do deploy a partir de `main` é validado junto de [P0-DEPLOY](feature-P0-DEPLOY.md): os 5 serviços respondem em DES
+- [x] Arquivo da feature atualizado: status, pendências, timeline
 - [ ] Divergência protótipo × implementação registrada, se houver (N/A)
 
 ## Pendências
 
-- **Web:** executar o primeiro workflow no GitHub para validar o ambiente Actions; depois configurar a branch protection de `main` exigindo o check `ci-front / lint, build, test and audit` quando aplicável.
-- **Backend NestJS:** executar o primeiro workflow de `acervo` e `leitura` no GitHub para validar os checks Actions; depois incluir os checks na branch protection de `main`.
-- **Backend Spring:** executar os primeiros workflows no GitHub para validar os checks Actions; depois incluir os checks na branch protection de `main`.
-- **Mobile:** executar o primeiro workflow no GitHub para validar os checks e o artefato APK; depois incluir `ci-mobile / analyze and test` e `ci-mobile / build APK` na branch protection de `main`.
+- ~~**Web / Backend NestJS / Backend Spring / Mobile:** executar o primeiro workflow no GitHub para validar o ambiente Actions e os checks.~~ — **feito (verificado em 17/09/2026):** os 6 workflows já rodaram no GitHub, todos verdes, em `push` e `pull_request`, incluindo `main`, `desenvolvimento` e branch de feature. O `ci-mobile` publicou o artefato `app-des-apk` em `main`.
+- **`main` sem required status checks — pendência aberta e a mais relevante desta feature.** A branch protection existe e exige PR com 1 aprovação, com `enforce_admins` ativo e sem force push nem deleção, mas `required_status_checks` está desligado (`contexts` e `checks` vazios). Consequência: **um PR com CI vermelho pode ser mergeado em `main` desde que alguém aprove** — o "portão obrigatório" do plano §5 hoje é só o PR, não o CI verde. Adicionar como checks obrigatórios `ci-front`, `ci-mobile` e os quatro `ci-back-*`; como os workflows filtram por caminho, marcar cada check como obrigatório só vale se estiver configurado para não travar PR que não toca aquele subprojeto (usar os checks aplicáveis ou jobs de convergência). Decisão de configuração do repositório, não de código.
 - **Depende de [P0-INFRA](feature-P0-INFRA.md):** stack alocada em 02/09/2026 — `identidade`/`social` em Spring, `acervo`/`leitura` em NestJS; cada job de backend usa o caminho da sua stack.
 - **Depende de [P0-DEPLOY](feature-P0-DEPLOY.md)** para o gancho de deploy a partir de `main` (RNF-SEC-34).
-- Confirmar se o repositório do **GitHub Classroom** permite Actions sem restrição (mesma validação de [P0-MSG](feature-P0-MSG.md) para o `schedule`); se houver limite de minutos, priorizar caminho por filtro.
+- ~~Confirmar se o repositório do **GitHub Classroom** permite Actions sem restrição.~~ — **confirmado na prática (17/09/2026):** dezenas de runs executaram sem bloqueio nem estrangulamento de minutos. O `schedule` continua a ser validado por [P0-MSG](feature-P0-MSG.md), que é um gatilho diferente e pode ser desativado por inatividade do repositório.
 - Ferramenta de auditoria do Spring a fixar (OWASP Dependency-Check, `gradle`/`mvn` plugin, ou equivalente).
 
 ## Timeline
+
+### Verificação 17/09/2026: auditoria do estado real no GitHub. Os 6 workflows (`ci-front`, `ci-mobile`, `ci-back-identidade`, `ci-back-acervo`, `ci-back-leitura`, `ci-back-social`) já rodaram e estão **todos verdes**, em `push` e `pull_request`, cobrindo `main`, `desenvolvimento` e branch de feature — o que encerra as quatro pendências de "executar o primeiro run" e a dúvida sobre restrição de Actions no GitHub Classroom. O filtro por caminho está comprovado: os commits só de documentação não dispararam nenhum run. O artefato `app-des-apk` foi publicado em `main`. **Divergência encontrada:** a branch protection de `main` exige PR com 1 aprovação, mas **não** exige status checks — o portão de "CI verde" do plano §5 não está efetivamente ativo. Registrada como pendência aberta; é configuração de repositório e não foi alterada por conta própria.
 
 ### Web concluída em 12/09/2026: criado `.github/workflows/ci-front.yml` com gatilhos de `push`, `pull_request`, `workflow_dispatch`, filtro por `code/front/**`, Node via `.nvmrc`, cache npm, lint, build, testes e auditoria de dependências. Backend, mobile, branch protection e validação do primeiro run no GitHub permanecem pendentes.
 

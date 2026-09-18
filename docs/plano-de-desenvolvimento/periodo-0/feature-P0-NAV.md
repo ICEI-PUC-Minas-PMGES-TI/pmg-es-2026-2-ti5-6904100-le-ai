@@ -17,12 +17,12 @@ O valor desta feature é de integração, não de produto: um usuário consegue 
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | concluído localmente | `docker-compose.docs.yml` (Swagger UI agregado) criado e validado; falta confirmar em DES depois do merge |
-| Backend | concluído localmente | `identidade`: tabela `usuario`, Spring Security + JWT HS256, `register`/`login`/`me`, rate limiting por IP e bloqueio progressivo por identidade; falta validar em DES |
-| Web | concluído localmente | fluxo completo: sessão, cliente autenticado, telas de cadastro/login, shell com sidebar retrátil e guarda de rota |
-| Mobile | concluído localmente | fluxo completo: sessão com secure storage, cliente autenticado, telas de cadastro/login, shell de 4 abas com `go_router` e guarda de sessão |
+| Infra | concluído | `docker-compose.docs.yml` (Swagger UI agregado) criado e validado |
+| Backend | concluído | `identidade`: tabela `usuario`, Spring Security + JWT HS256, `register`/`login`/`me`, rate limiting por IP e bloqueio progressivo por identidade; **em DES** |
+| Web | concluído | fluxo completo: sessão, cliente autenticado, telas de cadastro/login, shell com sidebar retrátil e guarda de rota |
+| Mobile | concluído | fluxo completo: sessão com secure storage, cliente autenticado, telas de cadastro/login, shell de 4 abas com `go_router` e guarda de sessão |
 
-Código pronto e testado localmente nas quatro camadas (14/09/2026), aguardando PR `desenvolvimento` → `main` e validação em DES (critério de aceite explícito, ver abaixo).
+Código mergeado em `main` pelo **PR #38** e no ar em DES. Verificação de 17/09/2026 contra `https://leai-identidade.onrender.com`: `GET /health` → `200`; `POST /auth/register` recusa menor de 18 e senha < 8 → `400` com corpo de erro padrão e `correlationId`; `POST /auth/login` com credencial inexistente → `401` com mensagem anti-enumeração; `GET /me` sem token → `401`. Falta apenas um cadastro de caminho feliz pela interface para fechar o critério (ver abaixo).
 
 ## Especificação
 
@@ -91,21 +91,21 @@ Endpoints mínimos, todos com **corpo de erro padrão + correlation-id** herdado
 - [x] Cadastro cria usuário com senha **hasheada**; senha < 8 caracteres é recusada; **menor de 18** é recusado (RNF-SEC-09/27/43).
 - [x] Login por e-mail **ou** username retorna token de acesso; credencial inválida → `401` sem revelar se e-mail/username existe; rate limiting e bloqueio progressivo estão ativos.
 - [x] `GET /me` responde `200` com token válido e `401` sem token / com token inválido.
-- [x] Na web e no mobile é possível **cadastrar, entrar e navegar** entre as telas principais; sem sessão, a guarda redireciona ao login. (validado local nas duas plataformas; falta DES)
+- [x] Na web e no mobile é possível **cadastrar, entrar e navegar** entre as telas principais; sem sessão, a guarda redireciona ao login. (validado local nas duas plataformas)
 - [x] As telas usam os tokens de design ([P0-DS](feature-P0-DS.md)); cold start é tratado como carregamento, não erro (RNF-ERR-09).
 - [x] `docker compose -f docker-compose.docs.yml up` abre o Swagger UI em `localhost:8080` com os 4 specs no dropdown.
 - [x] `docs/api/identidade.yaml` documenta `register`, `login` e `me`.
-- [ ] Fluxo cadastro→login→`/me` funciona **em DES** (não só local). Só pode ser conferido depois do merge em `main` (auto-deploy do P0-DEPLOY).
+- [~] Fluxo cadastro→login→`/me` funciona **em DES**. Verificado em 17/09/2026: serviço no ar (`/health` `200`), `register` aplicando as regras de 18+ e mínimo de 8 (`400` com corpo padrão), `login` recusando credencial inexistente (`401` anti-enumeração) e `/me` exigindo token (`401`). O **caminho feliz** (cadastro real → login → `/me` `200`) não foi executado nesta verificação para não deixar conta permanente em DES — não há exclusão de conta até [F-CONTA-2](../periodo-2/feature-F-CONTA-2.md). Fechar com um cadastro único pela web, registrando a evidência aqui.
 
 ## Definition of Done
 
 (plano §10)
 
-- [ ] Código (backend `identidade`, web, mobile, `docker-compose.docs.yml`) mergeado em `desenvolvimento` — pronto na branch, PR para `main` ainda não aberto
-- [ ] CI verde ([P0-CI](feature-P0-CI.md)) — a confirmar quando o PR abrir
+- [x] Código (backend `identidade`, web, mobile, `docker-compose.docs.yml`) mergeado em `desenvolvimento` e promovido a `main` pelo **PR #38**
+- [x] CI verde ([P0-CI](feature-P0-CI.md)) — `ci-back-identidade`, `ci-front` e `ci-mobile` verdes no PR e no push para `main`
 - [x] Testes automatizados dos casos de uso (mínimo backend): register (hash, 18+, mínimo 8), login (e-mail/username, credencial inválida), middleware de auth em `/me`
 - [x] **Spec OpenAPI do serviço atualizado em `docs/api/identidade.yaml`** (rotas de auth)
-- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](feature-P0-DEPLOY.md)) — pendente do merge
+- [~] Fluxo funcionando em DES/HML ([P0-DEPLOY](feature-P0-DEPLOY.md)) — serviço, validações e guarda de rota verificados em DES (17/09/2026); falta só o caminho feliz de cadastro
 - [x] Arquivo da feature atualizado: status, pendências, timeline
 - [x] Divergência protótipo × implementação registrada (logo, pendência abaixo)
 - [x] Registrado o que ficou de fora para F-AUT retomar
@@ -130,13 +130,15 @@ Endpoints mínimos, todos com **corpo de erro padrão + correlation-id** herdado
 - **Porta 8080 colide** entre o Swagger UI agregado (`docker-compose.docs.yml`) e o `identidade` rodando local — não dá para subir os dois ao mesmo tempo com a config padrão. Documentado como comentário no próprio `docker-compose.docs.yml`.
 - **RF-AUT-03 (sessão persistente) fica pela metade.** Só `accessToken` (JWT HS256, 15 min) — sem refresh token, sem renovação automática, sem revogação no logout. É o próximo item de F-AUT.
 - **`render.yaml` (P0-DEPLOY) provavelmente precisa de `DATABASE_USERNAME`/`DATABASE_PASSWORD` no serviço `leai-identidade`**, que o `application.yml` do Spring exige separado de `DATABASE_URL` e o `render.yaml` hoje não declara. Nota cruzada — o arquivo é de outra feature, não editado aqui.
-- **`flutter_secure_storage` é plugin nativo e toca o build Android.** `flutter build apk --debug` local terminou sem erro; falta confirmar que o job `apk` do `ci-mobile.yml` (rodando em outra máquina) continua verde.
+- ~~**`flutter_secure_storage` é plugin nativo e toca o build Android.** `flutter build apk --debug` local terminou sem erro; falta confirmar que o job `apk` do `ci-mobile.yml` (rodando em outra máquina) continua verde.~~ — **confirmado (17/09/2026):** `ci-mobile` verde em `main` e o artefato `app-des-apk` publicado (builds de 13/09 e 15/09).
 - ~~Telas-piloto do P0-DS saem de cena~~ — **feito.** `HomeView.vue` (Etapa 9, web) e `DesignSystemHomePage` de `main.dart` (Etapa 13, mobile) foram removidas junto com os testes que dependiam delas (`App.spec.ts`, `widget_test.dart`), como o P0-DS já previa que aconteceria quando uma feature entregasse telas reais.
 - **Este arquivo de acompanhamento local contraria a regra de raiz limpa do `AGENTS.md` §4.** Exceção consciente, registrada — arquivo nunca versionado (excluído via `.git/info/exclude`), existe só para o dono da feature acompanhar o próprio trabalho.
 - **A branch `desenvolvimento` passa a existir a partir desta feature**, encerrando a exceção que o P0-DEPLOY tinha registrado (decisão do grupo de commitar direto em `main` durante a base do Período 0).
 - **O que fica de fora, para [F-AUT](../periodo-1/README.md) retomar sem retrabalho:** recuperação de senha, troca de senha, logout com invalidação de refresh, refresh token rotativo e revogável, e login de administrador. O formato de token (JWT HS256) e o modelo de `usuario` decididos aqui são o ponto de partida.
 
 ## Timeline
+
+### Verificação em DES 17/09/2026: o PR `desenvolvimento` → `main` (**#38**) foi mergeado e o auto-deploy do [P0-DEPLOY](feature-P0-DEPLOY.md) colocou o `identidade` em DES. Auditoria contra `https://leai-identidade.onrender.com`: `GET /health` → `200`; `POST /auth/register` com data de nascimento de menor e com senha de 3 caracteres → `400` nos dois casos, com `codigo`/`mensagem`/`correlationId` (RNF-SEC-43, RNF-SEC-27, RNF-ERR-01); `POST /auth/login` com identificador inexistente → `401` com "E-mail, nome de usuário ou senha incorretos." (RNF-SEC-29, anti-enumeração); `GET /me` sem token → `401` (RNF-ARQ-04). CI verde no PR e no push para `main`, com o artefato `app-des-apk` publicado. Status, critérios e DoD atualizados. Fica só o cadastro de caminho feliz, deliberadamente não executado para não criar conta permanente em DES enquanto não existe exclusão de conta.
 
 ### Fechamento 14/09/2026: as 14 etapas do plano de execução concluídas e commitadas em `desenvolvimento` (backend: tabela `usuario`, Spring Security + JWT, `register`/`login`/`me`, rate limiting e bloqueio progressivo, spec OpenAPI e Swagger UI agregado; web: sessão, cliente autenticado, componentes, telas de cadastro/login, shell com sidebar retrátil e guarda de rota; mobile: sessão com secure storage, cliente autenticado, widgets, telas de cadastro/login, shell de 4 abas com `go_router` e guarda de sessão). Status, critérios de aceite, DoD e pendências atualizados neste arquivo; os três `AGENTS.md` locais (`identidade`, `front`, `mobile`) atualizados para refletir as decisões tomadas durante a feature. Falta abrir o PR `desenvolvimento` → `main` e validar o fluxo em DES — só isso separa o código pronto do critério de aceite "funciona em DES", que é o único portão obrigatório do fluxo.
 

@@ -101,17 +101,17 @@ O app não é hospedado no Render: o **APK de DES é artefato do CI** a cada mer
 - [x] O site Vue é buildado e servido como static site no Render (rewrite de SPA validado).
 - [x] Merge em `main` dispara deploy automático dos serviços/site (`autoDeploy: true`).
 - [x] Projeto Neon criado com os 4 schemas; branch de DES ok. **Sem branch por dev (decisão de 12/09/2026).**
-- [ ] Cada serviço conecta ao **seu** schema e roda suas migrations no deploy — conexão ok; **migrations de domínio ainda não rodadas** (não há tabelas no P0).
+- [x] Cada serviço conecta ao **seu** schema e roda suas migrations no deploy — fechado em 16/09/2026 com o modelo físico do DER (59 tabelas + 9 VIEWs) aplicado no Neon. O Flyway (`identidade`, `social`) roda no boot e o Drizzle (`acervo`, `leitura`) antes da API; como os 4 serviços sobem e respondem `/health` `200` em `main`, as migrations aplicaram sem falha.
 - [x] Nenhum segredo em `render.yaml` nem no repositório; todos no painel (`sync: false`).
 - [x] HTTPS ativo; CORS restrito à origem do site de DES.
-- [~] Web trata o cold start como carregamento (timeout de 90 s no cliente); **mobile ainda não iniciado**.
+- [x] Web trata o cold start como carregamento (timeout de 90 s no cliente); o mobile passou a tratá-lo também em [P0-NAV](feature-P0-NAV.md). Medido em 17/09/2026, o cold start real ficou entre ~44 s (Node) e ~135–195 s (Spring em Docker) — acima dos 30–60 s estimados, o que torna o keep-alive relevante para dia de demonstração.
 
 ## Definition of Done
 
 (plano §10)
 
 - [x] Configuração (`render.yaml`, Dockerfiles dos serviços Spring) mergeada — **em `main`** (a branch `desenvolvimento` ainda não foi criada; decisão do grupo de commitar na `main` nesta base do P0).
-- [ ] CI verde ([P0-CI](feature-P0-CI.md))
+- [x] CI verde ([P0-CI](feature-P0-CI.md)) — workflows validados e verdes no GitHub (17/09/2026)
 - [x] Testes automatizados dos casos de uso — **N/A de teste unitário**: validação operacional. Evidência: `GET /health` 200 nas 4 URLs + site 200 (12/09/2026, ver Timeline).
 - [x] Spec OpenAPI do serviço atualizado em `docs/api/` — **N/A**: feature de infraestrutura, não altera contrato.
 - [x] **Fluxo funcionando em DES/HML** — os 4 serviços e o site estão de pé em DES.
@@ -144,11 +144,13 @@ O app não é hospedado no Render: o **APK de DES é artefato do CI** a cada mer
 - **Confirmar limites vigentes do plano gratuito do Neon** (armazenamento, horas de compute, nº de branches) — parte dos "itens a validar no período-0" (arquitetura §8); ver também [P0-MSG](feature-P0-MSG.md).
 - **Gateway × URL por serviço — decidido (12/09/2026): URL por serviço** (sem gateway). O front usa a URL de cada serviço em DES e o CORS de cada backend fica restrito à origem do site; o cliente passa a ter uma base URL por serviço.
 - Estratégia de **keep-alive** contra hibernação em dia de demonstração (ex.: ping agendado) — opcional, avaliar com o `schedule` de [P0-MSG](feature-P0-MSG.md).
-- **Migrations de domínio ainda não rodadas** — não há tabelas no P0; quando entrarem, rodar via URL **direct** do Neon, revisadas por humano (plano §5).
+- ~~**Migrations de domínio ainda não rodadas** — não há tabelas no P0.~~ — **feito (16/09/2026):** modelo físico do DER aplicado no Neon (59 tabelas + 9 VIEWs), via URL **direct**, com revisão humana (plano §5). A baseline física existir não implica feature de Período 1 implementada.
 - **`AMQP_URL` vazio** nos 4 serviços até o [P0-MSG](feature-P0-MSG.md) criar a fila no CloudAMQP (hoje nenhum serviço conecta ao broker no boot).
 - **Sem branch de banco por dev — decidido (12/09/2026):** o Neon mantém só a branch de DES/HML; o local usa Postgres local. Já incorporado ao orquestrador (plano §4, arquitetura §6 / v1.4) e ao `AGENTS.md` raiz.
 
 ## Timeline
+
+### Reverificação 17/09/2026: DES conferido de novo, agora com o modelo físico do DER já aplicado. `GET /health` `200` nos quatro serviços (`acervo`, `leitura`, `identidade`, `social`) e `200` no site `leai-web`. Como os serviços Spring rodam Flyway no boot e os Nest rodam as migrations antes da API, o fato de os quatro subirem em `main` comprova que as migrations do DER aplicaram sem falha — o critério de "cada serviço roda suas migrations no deploy" foi fechado. Cold start medido: ~44 s nos serviços Node e ~135–195 s nos Spring em Docker, acima da estimativa de 30–60 s registrada no `render.yaml`. Pendência remanescente de infraestrutura: `AMQP_URL` continua vazio nos quatro serviços, aguardando [P0-MSG](feature-P0-MSG.md).
 
 ### DES no ar 12/09/2026: os 4 serviços de backend e o site estático subiram em DES no Render, sobre o Neon (banco único, 4 schemas). Verificado: `GET /health` 200 em `leai-{acervo,leitura,identidade,social}.onrender.com` (corpo `{status,service,time}` + correlation-id ecoado), 404 com corpo de erro padrão, e `leai-web.onrender.com` servindo o SPA (rewrite de rota ok). Entregues: `render.yaml` (blueprint), `Dockerfile` dos serviços Spring, segredos só no painel (`sync: false`). Percalços resolvidos no caminho: (1) build falhava com `nest: not found` porque `NODE_ENV=production` pulava as devDependencies → `npm ci --include=dev`; (2) conexão ao Neon caía → TLS explícito no pool `pg` e `DATABASE_URL` sem `options=-csearch_path` (rejeitado pelo pooler) nem `channel_binding=require` (não suportado pelo `node-postgres`); (3) o health mascarava o erro → passou a logar a causa real (`e.cause`) e devolver corpo genérico (RNF-SEC-22). Pendências: migrations de domínio e `AMQP_URL` (P0-MSG).
 
