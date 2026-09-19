@@ -27,7 +27,7 @@ RNF atendidos: **RNF-SEC-08** (HTTPS), **RNF-SEC-09** (hash Argon2/bcrypt/scrypt
 |---|---|---|
 | Infra | em andamento | serviço/Neon e migration implantados; prova/configuração Brevo (P-02) e, se o envio for assíncrono, runtime de [P0-MSG](../periodo-0/feature-P0-MSG.md) ainda pendentes |
 | Dados | concluído | `usuario` ampliada e `refresh_token`, `reset_token`, `tentativa_login`, `idempotencia_identidade` e `outbox_identidade` versionadas e aplicadas no Neon em 16/09; estrutura pronta não implica casos de uso implementados |
-| Backend | não iniciado | escopo próprio de F-AUT (refresh/logout/troca e recuperação de senha + admin) não iniciado; `register`/`login` com access token e `/me` já existem como base de P0-NAV |
+| Backend | parcial | cliente Brevo para e-mail de recuperação preparado; refresh/logout/troca, tokens, endpoint de recuperação e admin ainda não iniciados; `register`/`login` com access token e `/me` já existem como base de P0-NAV |
 | Web | não iniciado | escopo próprio de recuperação/troca, refresh rotativo, renovação silenciosa e logout não iniciado; cadastro/login base pertencem a P0-NAV |
 | Mobile | não iniciado | escopo próprio de recuperação/troca, refresh rotativo e sessão persistente não iniciado; cadastro/login e secure storage do access token pertencem a P0-NAV |
 
@@ -137,5 +137,7 @@ Componentes compartilhados usados por este recorte: `bearerAuth`, parâmetro `Id
 ### Revisão 01/09/2026: extensão de login restrito para recuperação de conta em F-CONTA-2 registrada, sem ampliar o escopo do Período 1.
 
 ### Revisão 28/08/2026: idempotência de escritas, resposta anti-enumeração uniforme, resiliência do Brevo, política de privacidade nas duas plataformas e testes obrigatórios explicitados. A topologia de e-mail e a contradição RF-AUT-07 × RNF-SEC-41 foram registradas como decisões de baseline, sem reclassificação autônoma.
+
+### Implementação parcial 19/09/2026: criado `EmailNotificationService` com cliente HTTP da API transacional do Brevo, timeout de conexão/leitura, corpo texto para recuperação de senha e tratamento neutro de falhas. O endpoint `forgot`, o token persistido e retry/circuit breaker permanecem pendentes desta feature.
 
 ### Criação 27/08/2026: arquivo criado a partir do escopo de F-AUT no [periodo-1/README.md](README.md), de RF-AUT-01..06/08 do [`REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.1 e dos RNF de segurança §8. Fronteira com [P0-NAV](../periodo-0/feature-P0-NAV.md) (esqueleto) e com F-CONTA-2 (exclusão de conta, Período 2) explicitada.

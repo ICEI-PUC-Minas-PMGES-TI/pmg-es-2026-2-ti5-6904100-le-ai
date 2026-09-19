@@ -31,7 +31,7 @@ Requisitos atendidos: **RNF-ARQ-06**, **RNF-ERR-03/06/07/10**, **RNF-SEC-32**, *
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | não iniciado | conta CloudAMQP e provas das integrações ainda sem evidência registrada neste arquivo |
+| Infra | parcial | contrato do Brevo preparado no `identidade`; conta CloudAMQP e demais provas das integrações ainda sem evidência registrada neste arquivo |
 | Dados | em andamento | as quatro tabelas de outbox já foram versionadas e implantadas com o DER em 16/09/2026; faltam as tabelas de recibo de consumo |
 | Backend | não iniciado | conexão, dispatcher, consumer, retry, validação e DLQ ainda ausentes nas duas stacks |
 | Web | não aplicável | mensageria é server-side |
@@ -48,6 +48,8 @@ Requisitos atendidos: **RNF-ARQ-06**, **RNF-ERR-03/06/07/10**, **RNF-SEC-32**, *
 - Validação JSON Schema usa `networknt json-schema-validator` no Java e `ajv` + `ajv-formats` no TypeScript.
 - `AMQP_ENABLED=false` permite subir local/teste sem broker. Com `AMQP_ENABLED=true`, `AMQP_URL` é obrigatório. DES/HML usa mensageria habilitada.
 - Indisponibilidade do broker não transforma uma operação síncrona confirmada em erro nem derruba `/health`; a outbox preserva e republica o evento.
+- Credenciais (`AMQP_URL`) só por variável de ambiente / GitHub Secrets (RNF-SEC-11), previstas no `.env.example` de [P0-INFRA](feature-P0-INFRA.md).
+- Contas/credenciais das integrações (Cloudinary, Brevo, Firebase/FCM) provisionadas e guardadas como segredo. Para o Brevo, `BREVO_API_KEY` e `BREVO_SMTP_KEY` ficam exclusivamente no `identidade`; `BREVO_SENDER_EMAIL` deve ser um remetente verificado.
 
 ### Envelope v1
 
@@ -242,6 +244,11 @@ OpenAPI é N/A para o broker. O endpoint interno do agendador entra no spec de `
 - Provisionamento e evidências das contas gratuitas precisam ser registrados; informação verbal de que estão configuradas não substitui a prova do critério de aceite.
 - A revisão humana das novas migrations de recibo é obrigatória.
 - Payloads de negócio não são pendência desta feature: ficam nos schemas das features produtoras.
+- **Viabilidade das Actions `schedule` no GitHub Classroom não confirmada** (P-08) — se restrita, adotar cron-job.org.
+- Cliente AMQP por serviço definido com a stack (02/09/2026): **Spring AMQP** em `identidade` e `social`; **`amqplib`** em `acervo` e `leitura`.
+- Definir a **biblioteca de validação de schema de mensagem** por stack (ex.: JSON Schema com validador Java/Node) — RNF-SEC-32.
+- Limites vigentes dos planos gratuitos a confirmar e anotar (Cloudinary, CloudAMQP, Brevo, Neon).
+- Contrato de ambiente do Brevo preparado em `code/back/identidade/.env.example`, `application.yml`, `AppProperties` e `render.yaml`; as chaves reais não são versionadas.
 
 ## Timeline
 
@@ -252,3 +259,4 @@ OpenAPI é N/A para o broker. O endpoint interno do agendador entra no spec de `
 ### Revisão 01/09/2026: outbox transacional aprovada como garantia de RNF-ERR-10; mapa atualizado com atividades, progresso/conclusão, exclusão de resenha/conta e recomendação P2P.
 
 ### Criação 25/08/2026: arquivo criado a partir do escopo de P0-MSG e da arquitetura §2.3–2.7, §5 e §8.
+### Configuração de ambiente 19/09/2026: variáveis do Brevo preparadas no serviço `identidade` e no blueprint do Render. A prova real de envio permanece pendente até preencher as chaves no ambiente e confirmar o remetente verificado.

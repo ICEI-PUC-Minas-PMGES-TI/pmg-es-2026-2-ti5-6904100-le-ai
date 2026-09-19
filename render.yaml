@@ -99,6 +99,18 @@ services:
         value: https://leai-web.onrender.com
       - key: AMQP_URL
         sync: false
+      - key: BREVO_API_KEY # segredo da API do Brevo; preencher no painel
+        sync: false
+      - key: BREVO_SMTP_KEY # segredo SMTP do Brevo; preencher no painel
+        sync: false
+      - key: BREVO_SMTP_HOST
+        value: smtp-relay.brevo.com
+      - key: BREVO_SMTP_PORT
+        value: "587"
+      - key: BREVO_SENDER_EMAIL # remetente verificado no Brevo
+        sync: false
+      - key: BREVO_SENDER_NAME
+        value: Lê Ai
       - key: JWT_SECRET # segredo forte, aleatório
         sync: false
       - key: ADMIN_EMAIL # admin fixo provisionado por ambiente (RF-AUT-08)
