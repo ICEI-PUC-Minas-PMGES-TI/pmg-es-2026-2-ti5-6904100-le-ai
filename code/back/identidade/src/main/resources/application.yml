@@ -109,7 +109,9 @@ leai:
   db-schema: ${DB_SCHEMA:identidade}
   database-url: ${DATABASE_URL:}
   cors-allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  amqp-enabled: ${AMQP_ENABLED:false}
   amqp-url: ${AMQP_URL:}
+  p0-ping-enabled: ${P0_PING_ENABLED:false}
   brevo-api-key: ${BREVO_API_KEY:}
   brevo-smtp-key: ${BREVO_SMTP_KEY:}
   brevo-smtp-host: ${BREVO_SMTP_HOST:smtp-relay.brevo.com}

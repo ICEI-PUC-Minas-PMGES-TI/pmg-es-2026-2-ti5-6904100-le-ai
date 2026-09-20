@@ -22,6 +22,20 @@
       "when": 1789568086890,
       "tag": "0002_20260916111400_ajusta_invariantes",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789852751778,
+      "tag": "0003_agenda_retry_outbox",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789852784016,
+      "tag": "0004_cria_mensagem_processada",
+      "breakpoints": true
     }
   ]
 }
