@@ -137,9 +137,15 @@ erDiagram
     json payload "nullable após publicar e anonimizar"
     enum status "pendente ou publicado"
     int tentativas
+    timestamp proxima_tentativa_em "nullable; backoff do retry"
     timestamp criado_em
     timestamp publicado_em "nullable"
     timestamp anonimizado_em "nullable; retenção sem prazo"
+  }
+  MENSAGEM_PROCESSADA {
+    string consumidor PK "parte da PK composta"
+    uuid event_id PK "parte da PK composta"
+    timestamp processado_em
   }
 
   %% Subgraphs são agrupamentos visuais, não novas tabelas ou schemas.
@@ -163,6 +169,7 @@ erDiagram
     INGESTAO_EXECUCAO
     IDEMPOTENCIA_ACERVO
     OUTBOX_ACERVO
+    MENSAGEM_PROCESSADA
   end
 
   classDef grupo fill:transparent,stroke:#aaa

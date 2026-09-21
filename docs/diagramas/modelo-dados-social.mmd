@@ -44,7 +44,7 @@ erDiagram
     uuid id PK
     uuid atividade_id FK
     uuid autor_id "→ identidade.usuario"
-    uuid comentario_raiz_id FK "nullable; um nível de resposta"
+    uuid comentario_raiz_id FK "nullable; FK composta com atividade_id; um nível de resposta"
     uuid respondido_usuario_id "→ identidade.usuario; nullable"
     string texto "cru; menções com username"
     timestamp criado_em
@@ -157,9 +157,15 @@ erDiagram
     json payload "nullable após publicar e anonimizar"
     enum status "pendente ou publicado"
     int tentativas
+    timestamp proxima_tentativa_em "nullable; backoff do retry"
     timestamp criado_em
     timestamp publicado_em "nullable"
     timestamp anonimizado_em "nullable; retenção sem prazo"
+  }
+  MENSAGEM_PROCESSADA {
+    string consumidor PK "parte da PK composta"
+    uuid event_id PK "parte da PK composta"
+    timestamp processado_em
   }
 
   %% Subgraphs são agrupamentos visuais, não novas tabelas ou schemas.
@@ -192,6 +198,7 @@ erDiagram
     direction TB
     IDEMPOTENCIA_SOCIAL
     OUTBOX_SOCIAL
+    MENSAGEM_PROCESSADA
   end
 
   classDef grupo fill:transparent,stroke:#aaa
