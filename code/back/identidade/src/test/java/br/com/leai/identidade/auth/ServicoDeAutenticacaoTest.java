@@ -54,12 +54,18 @@ class ServicoDeAutenticacaoTest {
         new AppProperties(
             "identidade",
             "identidade",
-            "jdbc:postgresql://localhost:5432/leai",
-            "http://localhost:5173",
-            null,
-            "segredo-de-teste-com-32-caracteres",
-            null,
-            null);
+             "jdbc:postgresql://localhost:5432/leai",
+             "http://localhost:5173",
+             null,
+             null,
+             null,
+             null,
+             null,
+             null,
+             null,
+             "segredo-de-teste-com-32-caracteres",
+             null,
+             null);
     EmissorDeToken emissor =
         new EmissorDeToken(jwtConfig.jwtEncoder(jwtConfig.chaveDeAssinatura(propriedades)));
 

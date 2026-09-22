@@ -31,9 +31,9 @@ Requisitos atendidos: **RNF-ARQ-06**, **RNF-ERR-03/06/07/10**, **RNF-SEC-32**, *
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | não iniciado | conta CloudAMQP e provas das integrações ainda sem evidência registrada neste arquivo |
-| Dados | em andamento | as quatro tabelas de outbox já foram versionadas e implantadas com o DER em 16/09/2026; faltam as tabelas de recibo de consumo |
-| Backend | não iniciado | conexão, dispatcher, consumer, retry, validação e DLQ ainda ausentes nas duas stacks |
+| Infra | implementado localmente | clientes AMQP, topologia, configuração condicional e conexão real com CloudAMQP validados; DES/HML ainda não foi executado |
+| Dados | aplicado no Neon | colunas de backoff e tabelas de recibo estão aplicadas nos quatro schemas; revisão humana formal das migrations permanece obrigatória |
+| Backend | implementado | conexão, dispatcher, publisher confirm, validação, consumer, retry e DLQ implementados nas duas stacks; prova real Spring → Nest concluída |
 | Web | não aplicável | mensageria é server-side |
 | Mobile | não iniciado | somente a prova de recebimento de push FCM em Android real (P-04) |
 
@@ -48,6 +48,8 @@ Requisitos atendidos: **RNF-ARQ-06**, **RNF-ERR-03/06/07/10**, **RNF-SEC-32**, *
 - Validação JSON Schema usa `networknt json-schema-validator` no Java e `ajv` + `ajv-formats` no TypeScript.
 - `AMQP_ENABLED=false` permite subir local/teste sem broker. Com `AMQP_ENABLED=true`, `AMQP_URL` é obrigatório. DES/HML usa mensageria habilitada.
 - Indisponibilidade do broker não transforma uma operação síncrona confirmada em erro nem derruba `/health`; a outbox preserva e republica o evento.
+- Credenciais (`AMQP_URL`) só por variável de ambiente / GitHub Secrets (RNF-SEC-11), previstas no `.env.example` de [P0-INFRA](feature-P0-INFRA.md).
+- Contas/credenciais das integrações (Cloudinary, Brevo, Firebase/FCM) provisionadas e guardadas como segredo. Para o Brevo, `BREVO_API_KEY` e `BREVO_SMTP_KEY` ficam exclusivamente no `identidade`; `BREVO_SENDER_EMAIL` deve ser um remetente verificado.
 
 ### Envelope v1
 
@@ -207,29 +209,29 @@ P0-MSG entrega o envelope, os tipos comuns, `ping.teste` e os validadores. Cada 
 
 ## Critérios de aceite
 
-- [ ] Cada serviço conecta ao CloudAMQP com uma conexão e channels separados.
-- [ ] Envelope v1 é validado antes do domínio, incluindo versão e business key.
-- [ ] Dispatcher publica outbox com confirm e só então marca `publicado`.
-- [ ] Falha do broker mantém a operação síncrona confirmada e a linha pendente.
-- [ ] Recibo e efeito são atômicos; entrega duplicada não duplica efeito.
-- [ ] Schema inválido vai diretamente à DLQ.
-- [ ] Falha transitória tenta em 1/5/15 segundos e, depois, vai à DLQ.
-- [ ] `ping.teste` funciona de `identidade` para `acervo`, inclusive duplicação e DLQ.
-- [ ] `correlationId` atravessa o broker e aparece nos logs.
-- [ ] Exchanges, filas e DLQs usam exatamente os nomes documentados.
-- [ ] Eventos sem consumidor atual não criam fila acumuladora.
+- [x] Cada serviço conecta ao CloudAMQP com uma conexão e channels separados.
+- [x] Envelope v1 é validado antes do domínio, incluindo versão e business key.
+- [x] Dispatcher publica outbox com confirm e só então marca `publicado`.
+- [x] Falha do broker mantém a operação síncrona confirmada e a linha pendente.
+- [x] Recibo e efeito são atômicos; entrega duplicada não duplica efeito.
+- [x] Schema inválido vai diretamente à DLQ.
+- [x] Falha transitória tenta em 1/5/15 segundos e, depois, vai à DLQ.
+- [x] `ping.teste` funciona de `identidade` para `acervo`, inclusive duplicação e DLQ.
+- [x] `correlationId` atravessa o broker e aparece nos logs.
+- [x] Exchanges, filas e DLQs usam exatamente os nomes documentados.
+- [x] Eventos sem consumidor atual não criam fila acumuladora.
 - [ ] `schedule` ou fallback foi validado em ambiente real.
 - [ ] Cloudinary, Brevo, FCM, CloudAMQP e Neon tiveram limites/provas registrados.
 
 ## Definition of Done
 
-- [ ] Dependências AMQP e JSON Schema fixadas nas duas stacks
+- [x] Dependências AMQP e JSON Schema fixadas nas duas stacks
 - [ ] Migrations de `mensagem_processada` revisadas por humano e aplicadas nos quatro schemas
-- [ ] Dispatcher, publisher, consumer, retry e DLQ reutilizáveis nos quatro serviços
-- [ ] Envelope, schemas comuns e `ping.teste` em `docs/mensageria/`
-- [ ] Testes automatizados de outbox, confirm, duplicação, validação, retry e DLQ
+- [x] Dispatcher, publisher, consumer, retry e DLQ reutilizáveis nos quatro serviços
+- [x] Envelope, schemas comuns e `ping.teste` em `docs/mensageria/`
+- [x] Testes automatizados de outbox, confirm, duplicação, validação, retry e DLQ
 - [ ] Prova Spring → Node funcionando em DES/HML
-- [ ] Variáveis e segredos configurados sem valor versionado
+- [x] Variáveis e segredos configurados sem valor versionado
 - [ ] Limites e provas das integrações registrados na Timeline
 - [ ] CI verde
 - [ ] Arquivo da feature atualizado com status e pendências finais
@@ -242,6 +244,16 @@ OpenAPI é N/A para o broker. O endpoint interno do agendador entra no spec de `
 - Provisionamento e evidências das contas gratuitas precisam ser registrados; informação verbal de que estão configuradas não substitui a prova do critério de aceite.
 - A revisão humana das novas migrations de recibo é obrigatória.
 - Payloads de negócio não são pendência desta feature: ficam nos schemas das features produtoras.
+- **Viabilidade das Actions `schedule` no GitHub Classroom não confirmada** (P-08) — se restrita, adotar cron-job.org.
+- Cliente AMQP por serviço definido com a stack (02/09/2026): **Spring AMQP** em `identidade` e `social`; **`amqplib`** em `acervo` e `leitura`.
+- Bibliotecas de validação definidas e implementadas: `networknt json-schema-validator` no Java e `ajv` + `ajv-formats` no TypeScript — RNF-SEC-32.
+- Limites vigentes dos planos gratuitos a confirmar e anotar (Cloudinary, CloudAMQP, Brevo, Neon).
+- Contrato de ambiente do Brevo preparado em `code/back/identidade/.env.example`, `application.yml`, `AppProperties` e `render.yaml`; as chaves reais não são versionadas.
+- Clientes AMQP implementados em 19/09/2026: Spring AMQP em `identidade`/`social` e `amqplib` em `acervo`/`leitura`, com `AMQP_ENABLED=false` por padrão local.
+- Validadores Draft 2020-12, envelope v1, `ping.teste`, dispatcher de outbox, publisher confirm, recibo idempotente, retry e DLQ implementados em 19/09/2026. Testes locais atuais: `acervo` 13/13, `leitura` 12/12; testes Java direcionados de mensageria: `identidade` 5/5 e `social` 4/4.
+- Migrations aplicadas no Neon em 19/09/2026; as quatro tabelas `mensagem_processada` e as colunas `proxima_tentativa_em` foram confirmadas nos schemas corretos.
+- Prova real concluída em 19/09/2026: o evento `b546119f-3916-4f82-b2fa-04a628f4c5de` foi publicado por `identidade`, recebido por `acervo` e gravado como `acervo.p0.ping`; três eventos pendentes anteriores também foram drenados.
+- Validação local 20/09/2026: testes de consumidor NestJS cobrem topologia, recibo idempotente, validação, retry e DLQ; ESLint focado nos arquivos RabbitMQ não apresentou erros. O lint global ainda possui falhas preexistentes de fim de linha em arquivos fora desta alteração.
 
 ## Timeline
 
@@ -252,3 +264,8 @@ OpenAPI é N/A para o broker. O endpoint interno do agendador entra no spec de `
 ### Revisão 01/09/2026: outbox transacional aprovada como garantia de RNF-ERR-10; mapa atualizado com atividades, progresso/conclusão, exclusão de resenha/conta e recomendação P2P.
 
 ### Criação 25/08/2026: arquivo criado a partir do escopo de P0-MSG e da arquitetura §2.3–2.7, §5 e §8.
+### Implementação 19/09/2026: clientes AMQP, topologia, envelope/validação, dispatcher de outbox, publisher confirm, consumer idempotente, retry e DLQ foram implementados nas duas stacks. Os testes unitários existentes passaram nos quatro serviços; a prova real foi registrada na validação abaixo.
+
+### Validação real 19/09/2026: migrations aplicadas no Neon e conexão CloudAMQP confirmada. Após corrigir a serialização Java de `OffsetDateTime` para `string` ISO-8601 no envelope, a prova `identidade` → `acervo` passou; a outbox ficou `publicado` e o recibo idempotente foi gravado.
+
+### Configuração de ambiente 19/09/2026: variáveis do Brevo preparadas no serviço `identidade` e no blueprint do Render. A prova real de envio permanece pendente até preencher as chaves no ambiente e confirmar o remetente verificado.

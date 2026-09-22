@@ -11,6 +11,7 @@ import { IdempotenciaModule } from './common/idempotencia/idempotencia.module';
 import { DrizzleModule } from './db/drizzle.module';
 import { HealthModule } from './health/health.module';
 import { LivrosModule } from './livros/livros.module';
+import { MessagingModule } from './messaging/messaging.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { LivrosModule } from './livros/livros.module';
     AuthModule,
     IdempotenciaModule,
     HealthModule,
+    MessagingModule,
     LivrosModule,
   ],
   providers: [

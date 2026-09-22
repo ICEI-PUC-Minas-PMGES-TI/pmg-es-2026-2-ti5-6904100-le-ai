@@ -24,6 +24,12 @@ export const envSchema = z
     CORS_ALLOWED_ORIGINS: z.string().default('http://localhost:5173'),
 
     // Integrações e segredos usados pelas features de domínio (opcionais no P0).
+    // Runtime AMQP de P0-MSG. Desligado por padrão para que dev e testes subam
+    // sem broker; quando ligado, a URL passa a ser obrigatória.
+    AMQP_ENABLED: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((value) => value === 'true'),
     AMQP_URL: z.string().optional(),
 
     // Mesmo segredo do `identidade`, que emite o token HS256 (F-ACV-CADASTRO).
@@ -63,6 +69,13 @@ export const envSchema = z
         path: ['JWT_SECRET'],
         message:
           'obrigatório em produção — precisa ser o mesmo segredo do serviço identidade',
+      });
+    }
+    if (config.AMQP_ENABLED && !config.AMQP_URL) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['AMQP_URL'],
+        message: 'AMQP_URL é obrigatória quando AMQP_ENABLED=true',
       });
     }
   });

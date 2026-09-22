@@ -47,6 +47,18 @@ services:
         sync: false
       - key: CORS_ALLOWED_ORIGINS
         value: https://leai-web.onrender.com
+      - key: BREVO_API_KEY # segredo do Brevo, somente no identidade
+        sync: false
+      - key: BREVO_SMTP_KEY # segredo do Brevo, somente no identidade
+        sync: false
+      - key: BREVO_SMTP_HOST
+        value: smtp-relay.brevo.com
+      - key: BREVO_SMTP_PORT
+        value: "587"
+      - key: BREVO_SENDER_EMAIL # remetente verificado no Brevo
+        sync: false
+      - key: BREVO_SENDER_NAME
+        value: Lê Ai
       - key: JWT_SECRET
         sync: false
       - key: ADMIN_EMAIL
@@ -132,7 +144,7 @@ O app não é hospedado no Render: o **APK de DES é artefato do CI** a cada mer
 1. New → Blueprint → conectar o repo; o Render cria os 5 serviços.
 2. Serviços Node (`acervo`, `leitura`): runtime `node`, build `npm ci --include=dev && npm run build` (as CLIs de build são devDependencies), start `node dist/main.js`.
 3. Serviços Spring (`identidade`, `social`): runtime `docker` — cada um tem um `Dockerfile` (o Render não tem runtime Java nativo).
-4. Preencher no painel os `sync: false`: `DATABASE_URL` (por serviço), `JWT_SECRET`/`ADMIN_EMAIL`/`ADMIN_PASSWORD` (identidade), `VITE_API_BASE_URL` (web). `AMQP_URL` fica vazio até o P0-MSG criar a fila.
+4. Preencher no painel os `sync: false`: `DATABASE_URL` (por serviço), `JWT_SECRET`/`ADMIN_EMAIL`/`ADMIN_PASSWORD` e as credenciais do Brevo (`BREVO_API_KEY`, `BREVO_SMTP_KEY`, `BREVO_SENDER_EMAIL`) no `identidade`, além de `VITE_API_BASE_URL` (web). `AMQP_URL` fica vazio até o P0-MSG criar a fila.
 5. Ajustar `CORS_ALLOWED_ORIGINS`/`VITE_API_BASE_URL` para as URLs reais do Render após a criação.
 
 **URLs em DES:** `https://leai-{acervo,leitura,identidade,social}.onrender.com` (health em `/health`) e o site `https://leai-web.onrender.com`.
