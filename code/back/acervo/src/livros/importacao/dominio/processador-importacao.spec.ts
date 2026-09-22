@@ -20,7 +20,7 @@ function metadados(mudancas: Partial<MetadadosLivro> = {}): MetadadosLivro {
   return {
     isbn13: SOLICITACAO.isbn13,
     titulo: 'Memórias Póstumas de Brás Cubas',
-    autores: ['OL10000003A'],
+    autores: [{ nome: 'Machado de Assis', olAuthorKey: 'OL10000003A' }],
     editora: 'Penguin-Companhia',
     anoPublicacao: 2014,
     paginas: 288,

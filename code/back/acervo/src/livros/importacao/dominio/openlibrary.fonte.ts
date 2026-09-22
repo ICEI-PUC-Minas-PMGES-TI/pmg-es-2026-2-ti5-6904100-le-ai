@@ -1,4 +1,8 @@
-import { FonteDeMetadados, MetadadosLivro } from './fonte-metadados';
+import {
+  AutorExterno,
+  FonteDeMetadados,
+  MetadadosLivro,
+} from './fonte-metadados';
 import { HttpExterno } from './http-externo';
 import { PoliticaDeResiliencia } from './politica-resiliencia';
 
@@ -15,6 +19,14 @@ import { PoliticaDeResiliencia } from './politica-resiliencia';
  */
 const BASE = 'https://openlibrary.org';
 const CAPA = 'https://covers.openlibrary.org/b/id/{id}-L.jpg';
+
+/**
+ * Teto de autores resolvidos por edição. Cada um custa uma ida a
+ * `/authors/{key}.json`; edição com mais que isso é coletânea, e os primeiros
+ * bastam para a exibição.
+ */
+const MAX_AUTORES = 5;
+const CHAVE_AUTOR = /^OL[0-9]+A$/;
 
 interface EdicaoOpenLibrary {
   key?: string;
@@ -53,11 +65,7 @@ export class OpenLibraryFonte implements FonteDeMetadados {
     return {
       isbn13,
       titulo: bruto.title.trim(),
-      // Só as chaves; resolver o nome exigiria uma consulta por autor, e o
-      // consumidor decide se vale a ida extra.
-      autores: (bruto.authors ?? [])
-        .map((autor) => autor.key?.split('/').pop())
-        .filter((chave): chave is string => Boolean(chave)),
+      autores: await this.resolverAutores(bruto.authors ?? []),
       editora: bruto.publishers?.[0]?.trim() ?? null,
       anoPublicacao: extrairAno(bruto.publish_date),
       paginas:
@@ -68,6 +76,32 @@ export class OpenLibraryFonte implements FonteDeMetadados {
       olEditionKey: bruto.key?.split('/').pop() ?? null,
       olWorkKey: bruto.works?.[0]?.key?.split('/').pop() ?? null,
     };
+  }
+
+  /**
+   * A edição só traz a chave do autor; o nome vive em `/authors/{key}.json`.
+   * A chave é validada antes de virar caminho de URL (RNF-SEC-38), e autor que
+   * a fonte não conhece é omitido em vez de derrubar a importação inteira.
+   * Indisponibilidade propaga: meia resposta não é resposta.
+   */
+  private async resolverAutores(
+    referencias: { key?: string }[],
+  ): Promise<AutorExterno[]> {
+    const chaves = referencias
+      .map((autor) => autor.key?.split('/').pop())
+      .filter((chave): chave is string => !!chave && CHAVE_AUTOR.test(chave))
+      .slice(0, MAX_AUTORES);
+
+    const autores: AutorExterno[] = [];
+    for (const chave of chaves) {
+      const url = new URL(`${BASE}/authors/${chave}.json`);
+      const bruto = (await this.resiliencia.executar(this.nome, () =>
+        this.http.buscarJson(this.nome, url),
+      )) as { name?: string } | null;
+      const nome = bruto?.name?.trim();
+      if (nome) autores.push({ nome, olAuthorKey: chave });
+    }
+    return autores;
   }
 }
 

@@ -13,10 +13,19 @@
  * esperar por um livro que nunca vai aparecer.
  */
 
+/**
+ * Autor como a fonte o conhece. RN-12 deduplica pela chave da fonte quando ela
+ * existe (OpenLibrary) e pelo nome normalizado quando não existe (Google Books).
+ */
+export interface AutorExterno {
+  nome: string;
+  olAuthorKey: string | null;
+}
+
 export interface MetadadosLivro {
   isbn13: string;
   titulo: string;
-  autores: string[];
+  autores: AutorExterno[];
   editora: string | null;
   anoPublicacao: number | null;
   paginas: number | null;

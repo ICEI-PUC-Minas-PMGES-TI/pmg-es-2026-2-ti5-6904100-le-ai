@@ -52,6 +52,13 @@ export const envSchema = z
       .int()
       .positive()
       .default(1_048_576),
+    // A OpenLibrary exige um User-Agent que identifique a aplicação (§10.1).
+    FONTES_USER_AGENT: z
+      .string()
+      .min(1)
+      .default(
+        'LeAi/0.1 (+https://github.com/ICEI-PUC-Minas-PMGES-TI/pmg-es-2026-2-ti5-6904100-le-ai)',
+      ),
     GOOGLE_BOOKS_API_KEY: z.string().optional(),
 
     // Capa de livro pessoal: o upload vai direto do cliente ao Cloudinary e o

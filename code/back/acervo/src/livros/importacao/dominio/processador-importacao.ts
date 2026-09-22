@@ -7,14 +7,9 @@ import {
 /**
  * Consumidor de domínio de `livro.importacao_solicitada`.
  *
- * **Esta classe não tem acionador nesta entrega, de propósito.** O runtime AMQP
- * — conexão, dispatcher, envelope, recibo, retry e DLQ — é de P0-MSG e ainda não
- * existe. Quando existir, o consumidor genérico chama `processar()` e nada aqui
- * precisa mudar: por isso ela não conhece broker, mensagem nem envelope, e
- * recebe só o `data` do evento.
- *
- * Enquanto isso, a importação fica em `pendente`, que é o estado correto: a
- * solicitação foi aceita e ninguém a processou ainda.
+ * Não conhece broker, mensagem nem envelope, e recebe só o `data` do evento: o
+ * acionador é `ImportacaoConsumer`, registrado no runtime AMQP de P0-MSG, que
+ * instancia esta classe por mensagem com um repositório preso ao `tx` do recibo.
  *
  * A convergência por ISBN-13 é o que sustenta RNF-ARQ-05: duas solicitações
  * concorrentes do mesmo ISBN, de usuários diferentes, terminam as duas
@@ -114,7 +109,9 @@ export class ProcessadorImportacao {
       Boolean(metadados.titulo?.trim()) &&
       typeof metadados.paginas === 'number' &&
       metadados.paginas > 0 &&
-      Boolean(metadados.capaUrl)
+      // Capa em https: é a URL que o cliente vai carregar, e o CHECK de livro
+      // oficial exige capa externa (RN-12, RN-14.1).
+      /^https:\/\/[^\s]+$/.test(metadados.capaUrl ?? '')
     );
   }
 }

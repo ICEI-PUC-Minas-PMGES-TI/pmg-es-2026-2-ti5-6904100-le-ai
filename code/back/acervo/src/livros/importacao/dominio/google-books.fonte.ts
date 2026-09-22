@@ -56,7 +56,10 @@ export class GoogleBooksFonte implements FonteDeMetadados {
     return {
       isbn13,
       titulo: info.title.trim(),
-      autores: (info.authors ?? []).map((nome) => nome.trim()).filter(Boolean),
+      autores: (info.authors ?? [])
+        .map((nome) => nome.trim())
+        .filter(Boolean)
+        .map((nome) => ({ nome, olAuthorKey: null })),
       editora: info.publisher?.trim() ?? null,
       anoPublicacao: extrairAno(info.publishedDate),
       paginas: typeof info.pageCount === 'number' ? info.pageCount : null,
