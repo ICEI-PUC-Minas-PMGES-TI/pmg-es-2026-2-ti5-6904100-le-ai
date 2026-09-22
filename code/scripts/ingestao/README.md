@@ -106,6 +106,17 @@ python -m pytest
 
 Roda sem banco e sem rede, contra `amostra/`. A amostra tem 14 edições aceitas e 8 descartadas, uma por motivo de descarte. É o que o CI executa — o DoD da feature diz que o CI não roda o dump inteiro.
 
+Os testes marcados `banco` (`tests/test_carga_banco.py`) passam a amostra pelo roteiro inteiro — `semear`, `filtrar`, `resolver`, `carregar` — contra um Postgres descartável, com as migrations reais de `acervo`. Provam o registro em `ingestao_execucao`, a transação única (falha no meio não deixa carga parcial e fica registrada como `falha`) e a reexecução sem duplicar. Sem `DATABASE_URL_TESTE` eles são pulados:
+
+```bash
+docker run -d --name leai-pg-teste -e POSTGRES_PASSWORD=teste -e POSTGRES_DB=leai_teste \
+  -p 55432:5432 postgres:17-alpine
+pip install -e .[banco,dev]
+DATABASE_URL_TESTE=postgresql://postgres:teste@localhost:55432/leai_teste python -m pytest
+```
+
+**Nunca aponte `DATABASE_URL_TESTE` para o Neon:** o fixture derruba e recria o schema `acervo`, e recusa URL de banco gerenciado.
+
 ## O que este script deliberadamente não faz
 
 - **Não busca sinopse** (RN-19.1 — sob demanda, em F-ACV-BUSCA).

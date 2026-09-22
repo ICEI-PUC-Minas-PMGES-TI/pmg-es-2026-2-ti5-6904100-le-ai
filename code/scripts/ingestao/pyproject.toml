@@ -13,7 +13,7 @@ dependencies = []
 # precisam dele, e mantê-lo fora do núcleo é o que permite rodar a suíte inteira
 # (e o CI) sem banco e sem libpq.
 [project.optional-dependencies]
-banco = ["psycopg[binary]==3.2.3"]
+banco = ["psycopg[binary]==3.2.13"]
 dev = ["pytest==9.1.1"]
 
 [project.scripts]
@@ -24,3 +24,6 @@ include = ["leai_ingestao*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+  "banco: exige Postgres descartável em DATABASE_URL_TESTE; pulado sem ele",
+]

@@ -39,7 +39,7 @@ Consequências que valem como regra:
 ## Comandos
 
 ```
-pip install -e .[dev]                # testes
+pip install -e .[dev]                # testes sem banco
 pip install -e .[banco]              # semear e carregar
 
 python -m leai_ingestao conferir     # valida os CSV curados, sem banco
@@ -49,7 +49,9 @@ python -m leai_ingestao resolver --dump-autores dumps/ol_dump_authors.txt.gz \
                                  --dump-obras   dumps/ol_dump_works.txt.gz
 python -m leai_ingestao carregar
 
-python -m pytest                     # suíte completa, sem banco
+python -m pytest                     # suíte completa; os testes `banco` pulam sem Postgres
+DATABASE_URL_TESTE=postgresql://postgres:teste@localhost:55432/leai_teste python -m pytest
+                                     # inclui a carga da amostra em Postgres descartável
 ```
 
 `DATABASE_URL` vem do ambiente e **nunca** é versionada (RNF-SEC-11).

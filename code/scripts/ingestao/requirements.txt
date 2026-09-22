@@ -3,5 +3,5 @@
 # Instale os extras conforme o uso:
 #   pip install -e .[dev]     # testes (CI e local)
 #   pip install -e .[banco]   # semear e carregar, precisa de Postgres
-psycopg[binary]==3.2.3
+psycopg[binary]==3.2.13
 pytest==9.1.1

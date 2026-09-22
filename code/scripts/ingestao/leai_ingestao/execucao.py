@@ -33,7 +33,9 @@ def abrir(conexao, tipo: str = TIPO_CARGA_INICIAL) -> str:
             "INSERT INTO acervo.ingestao_execucao (tipo) VALUES (%s) RETURNING id",
             (tipo,),
         )
-        execucao_id = cursor.fetchone()[0]
+        # `psycopg` devolve `uuid.UUID`; texto é o que o resto do script (e o
+        # JSON impresso ao fim da carga) sabe usar.
+        execucao_id = str(cursor.fetchone()[0])
     conexao.commit()
     return execucao_id
 
@@ -85,14 +87,24 @@ def registrada(conexao, tipo: str = TIPO_CARGA_INICIAL):
     try:
         yield acumulador
     except BaseException:
-        fechar(
-            conexao,
-            execucao_id,
-            status="falha",
-            processados=acumulador.processados,
-            descartados=acumulador.descartados,
-            inseridos=acumulador.inseridos,
-        )
+        # A transação da carga está abortada: sem o rollback, o UPDATE de
+        # fechamento seria recusado ("current transaction is aborted"), a
+        # execução ficaria `em_execucao` para sempre e o erro original sumiria
+        # atrás desse. O rollback desfaz só a carga — a abertura já foi
+        # commitada em `abrir`. Nada foi inserido, então `inseridos` é zero.
+        conexao.rollback()
+        try:
+            fechar(
+                conexao,
+                execucao_id,
+                status="falha",
+                processados=acumulador.processados,
+                descartados=acumulador.descartados,
+                inseridos=0,
+            )
+        except Exception:  # pragma: no cover - banco fora do ar no fechamento
+            # Registrar a falha é melhor-esforço; o erro que importa é o da carga.
+            pass
         raise
     else:
         fechar(
