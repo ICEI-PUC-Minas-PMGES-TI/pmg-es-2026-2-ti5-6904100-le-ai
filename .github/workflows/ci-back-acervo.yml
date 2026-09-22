@@ -4,10 +4,14 @@ on:
   push:
     paths:
       - 'code/back/acervo/**'
+      # A copia runtime de cada schema e comparada com o canonico em teste.
+      - 'docs/mensageria/schemas/**'
       - '.github/workflows/ci-back-acervo.yml'
   pull_request:
     paths:
       - 'code/back/acervo/**'
+      # A copia runtime de cada schema e comparada com o canonico em teste.
+      - 'docs/mensageria/schemas/**'
       - '.github/workflows/ci-back-acervo.yml'
   workflow_dispatch:
 
@@ -26,6 +30,22 @@ jobs:
     defaults:
       run:
         working-directory: code/back/acervo
+
+    # Postgres descartavel para os testes de integracao. Nunca o Neon: o
+    # fixture derruba e recria os schemas a cada arquivo (test/integracao/).
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: teste
+          POSTGRES_DB: leai_teste
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
 
     steps:
       - name: Checkout
@@ -49,6 +69,14 @@ jobs:
 
       - name: Test
         run: npm test
+
+      # Atomicidade de dominio + outbox, corrida de Idempotency-Key, CHECKs,
+      # RN-15 com massa, recibo transacional do consumidor e convergencia por
+      # ISBN: o que so se prova contra Postgres real (RNF-TST-02/03).
+      - name: Integration test
+        run: npm run test:integration
+        env:
+          DATABASE_URL_TESTE: postgresql://postgres:teste@localhost:5432/leai_teste
 
       - name: Audit dependencies
         run: npm audit --audit-level=high
