@@ -1,7 +1,10 @@
 import type { Channel, ConsumeMessage } from 'amqplib';
 import { als } from '../common/als';
 import type { DrizzleDB } from '../db/drizzle.module';
-import { AmqpConsumerService } from './amqp-consumer.service';
+import {
+  AmqpConsumerService,
+  type MessageHandler,
+} from './amqp-consumer.service';
 import type { AmqpConnectionService } from './amqp-connection.service';
 import {
   InvalidMessageError,
@@ -43,16 +46,22 @@ function makeChannel(): jest.Mocked<Channel> {
 
 function makeDb(rows: unknown[] = [{ event_id: envelope.eventId }]) {
   const execute = jest.fn().mockResolvedValue({ rows });
+  const tx = { execute };
   const transaction = jest.fn(
     async (callback: (tx: { execute: typeof execute }) => Promise<void>) =>
-      callback({ execute }),
+      callback(tx),
   );
-  return { execute, transaction } as unknown as DrizzleDB & {
+  return { execute, transaction, tx } as unknown as DrizzleDB & {
     transaction: jest.Mock;
+    tx: typeof tx;
   };
 }
 
-async function registeredConsumer(db: DrizzleDB, validator: ValidatorLike) {
+async function registeredConsumer(
+  db: DrizzleDB,
+  validator: ValidatorLike,
+  handler: MessageHandler = async () => undefined,
+) {
   const channel = makeChannel();
   const connection = {
     isEnabled: () => true,
@@ -72,7 +81,7 @@ async function registeredConsumer(db: DrizzleDB, validator: ValidatorLike) {
       exchange: 'leai.events.identidade',
       routingKeys: ['ping.teste'],
     },
-    async () => undefined,
+    handler,
   );
   const ready = (connection.onConsumerReady as jest.Mock).mock.calls[0][0] as (
     channel: Channel,
@@ -148,7 +157,9 @@ describe('AmqpConsumerService', () => {
 
     await secondCallback(message);
 
-    expect(handler).toHaveBeenCalledWith(envelope);
+    // O handler recebe o mesmo `tx` que gravou o recibo: efeito e recibo
+    // commitam juntos (P0-MSG, "Consumo e recibo transacional").
+    expect(handler).toHaveBeenCalledWith(envelope, db.tx);
     expect(channel.ack).toHaveBeenCalledWith(message);
     expect(channel.nack).not.toHaveBeenCalled();
   });
@@ -156,12 +167,48 @@ describe('AmqpConsumerService', () => {
   it('ACKs duplicate delivery without executing the handler again', async () => {
     const db = makeDb([]);
     const validator = { parse: jest.fn(() => envelope) };
-    const { channel, callback } = await registeredConsumer(db, validator);
+    const handler = jest.fn(async () => undefined);
+    const { channel, callback } = await registeredConsumer(
+      db,
+      validator,
+      handler,
+    );
 
     await callback(message);
 
+    expect(handler).not.toHaveBeenCalled();
     expect(channel.ack).toHaveBeenCalledWith(message);
     expect(channel.nack).not.toHaveBeenCalled();
+  });
+
+  it('a failing handler rolls back its transaction and never ACKs', async () => {
+    const db = makeDb();
+    const validator = { parse: jest.fn(() => envelope) };
+    const handler = jest.fn(async () => {
+      throw new Error('efeito falhou');
+    });
+    const { channel, callback } = await registeredConsumer(
+      db,
+      validator,
+      handler,
+    );
+    jest.useFakeTimers();
+    const processing = callback(message);
+
+    await Promise.resolve();
+    await jest.advanceTimersByTimeAsync(1);
+    await jest.advanceTimersByTimeAsync(2);
+    await jest.advanceTimersByTimeAsync(3);
+    await processing;
+
+    // O erro sai de dentro do callback de `db.transaction`, que é o que faz o
+    // Drizzle dar rollback do recibo junto com o efeito.
+    expect(handler).toHaveBeenCalledTimes(4);
+    await expect(db.transaction.mock.results[0].value).rejects.toThrow(
+      'efeito falhou',
+    );
+    expect(channel.ack).not.toHaveBeenCalled();
+    expect(channel.nack).toHaveBeenCalledWith(message, false, false);
   });
 
   it('sends invalid messages directly to the DLQ', async () => {

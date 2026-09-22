@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm';
 import type { Channel, ConsumeMessage } from 'amqplib';
 import { als } from '../common/als';
 import { DRIZZLE, type DrizzleDB } from '../db/drizzle.module';
+import type { Tx } from '../db/tipos';
 import { AmqpConnectionService } from './amqp-connection.service';
 import {
   deadLetterArguments,
@@ -22,8 +23,16 @@ export interface ConsumerDefinition {
   routingKeys: readonly string[];
 }
 
+/**
+ * Handler de domínio de um consumidor. Recebe o `tx` da mesma transação que
+ * grava o recibo em `mensagem_processada`: todo efeito precisa ser escrito com
+ * ele, nunca com o `db` global, para que efeito e recibo commitem juntos e um
+ * rollback desfaça os dois (P0-MSG, "Consumo e recibo transacional"). Lançar
+ * aqui desfaz a transação, não deixa recibo e aciona o retry/DLQ.
+ */
 export type MessageHandler = (
   envelope: MessageEnvelope,
+  tx: Tx,
 ) => Promise<void> | void;
 
 interface Registration {
@@ -194,7 +203,7 @@ export class AmqpConsumerService implements OnModuleInit {
         RETURNING event_id
       `);
       const rows = (result as unknown as { rows: unknown[] }).rows;
-      if (rows.length === 1) await registration.handler(envelope);
+      if (rows.length === 1) await registration.handler(envelope, tx);
     });
   }
 

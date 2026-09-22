@@ -15,6 +15,6 @@ import { PingConsumerService } from './ping-consumer.service';
     OutboxDispatcherService,
     PingConsumerService,
   ],
-  exports: [AmqpPublisherService, AmqpConsumerService],
+  exports: [AmqpPublisherService, AmqpConsumerService, MessageValidator],
 })
 export class MessagingModule {}

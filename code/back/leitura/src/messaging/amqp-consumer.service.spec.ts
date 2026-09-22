@@ -1,7 +1,10 @@
 import type { Channel, ConsumeMessage } from 'amqplib';
 import { als } from '../common/als';
 import type { DrizzleDB } from '../db/drizzle.module';
-import { AmqpConsumerService } from './amqp-consumer.service';
+import {
+  AmqpConsumerService,
+  type MessageHandler,
+} from './amqp-consumer.service';
 import type { AmqpConnectionService } from './amqp-connection.service';
 import {
   InvalidMessageError,
@@ -43,16 +46,22 @@ function makeChannel(): jest.Mocked<Channel> {
 
 function makeDb(rows: unknown[] = [{ event_id: envelope.eventId }]) {
   const execute = jest.fn().mockResolvedValue({ rows });
+  const tx = { execute };
   const transaction = jest.fn(
     async (callback: (tx: { execute: typeof execute }) => Promise<void>) =>
-      callback({ execute }),
+      callback(tx),
   );
-  return { execute, transaction } as unknown as DrizzleDB & {
+  return { execute, transaction, tx } as unknown as DrizzleDB & {
     transaction: jest.Mock;
+    tx: typeof tx;
   };
 }
 
-async function registeredConsumer(db: DrizzleDB, validator: ValidatorLike) {
+async function registeredConsumer(
+  db: DrizzleDB,
+  validator: ValidatorLike,
+  handler: MessageHandler = async () => undefined,
+) {
   const channel = makeChannel();
   const connection = {
     isEnabled: () => true,
@@ -72,7 +81,7 @@ async function registeredConsumer(db: DrizzleDB, validator: ValidatorLike) {
       exchange: 'leai.events.identidade',
       routingKeys: ['ping.teste'],
     },
-    async () => undefined,
+    handler,
   );
   const ready = (connection.onConsumerReady as jest.Mock).mock.calls[0][0] as (
     channel: Channel,
@@ -89,6 +98,24 @@ describe('AmqpConsumerService', () => {
   afterEach(() => {
     jest.useRealTimers();
     als.disable();
+  });
+
+  it('runs the handler with the same tx that records the receipt', async () => {
+    const db = makeDb();
+    const validator = { parse: jest.fn(() => envelope) };
+    const handler = jest.fn(async () => undefined);
+    const { channel, callback } = await registeredConsumer(
+      db,
+      validator,
+      handler,
+    );
+
+    await callback(message);
+
+    // Efeito e recibo na mesma transação (P0-MSG, "Consumo e recibo
+    // transacional"): o handler escreve com este `tx`, nunca com o `db` global.
+    expect(handler).toHaveBeenCalledWith(envelope, db.tx);
+    expect(channel.ack).toHaveBeenCalledWith(message);
   });
 
   it('declares a durable queue and DLQ with dead-letter arguments', async () => {
