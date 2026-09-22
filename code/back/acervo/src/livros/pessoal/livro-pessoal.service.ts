@@ -132,8 +132,6 @@ export class LivroPessoalService {
     entrada: LivroPessoalAtualizacaoDto,
     camposPresentes: Set<string>,
   ) {
-    const atual = await this.exigirPropriedade(id, donoId);
-
     // `capaUrl: null` limpa a capa; `capaUrl` ausente preserva. São coisas
     // diferentes, e só o corpo cru distingue as duas.
     const capa = camposPresentes.has('capaUrl')
@@ -150,6 +148,10 @@ export class LivroPessoalService {
         payload: { id, ...this.somentePresentes(entrada, camposPresentes) },
       },
       async (tx) => {
+        // Propriedade verificada DENTRO do efeito, depois da leitura do recibo:
+        // o replay de uma chave já processada devolve a resposta original, em
+        // vez de reavaliar um estado que a própria operação mudou (RNF-ERR-04).
+        const atual = await this.exigirPropriedade(id, donoId);
         const atualizado = await this.repositorio.atualizar(tx, atual.id, {
           titulo: camposPresentes.has('titulo') ? entrada.titulo : undefined,
           autor: camposPresentes.has('autor') ? entrada.autor : undefined,
@@ -178,8 +180,6 @@ export class LivroPessoalService {
   }
 
   async excluir(id: string, donoId: string, chave: string) {
-    const atual = await this.exigirPropriedade(id, donoId);
-
     return this.idempotencia.executar<Record<string, never>>(
       {
         subjectRef: donoId,
@@ -188,6 +188,10 @@ export class LivroPessoalService {
         payload: { id },
       },
       async (tx) => {
+        // Dentro do efeito pelo mesmo motivo de `atualizar`: sem isso, o reenvio
+        // da exclusão bem-sucedida responderia 404, porque o livro já está
+        // inativo, e o cliente trataria como falha uma exclusão que aconteceu.
+        const atual = await this.exigirPropriedade(id, donoId);
         await this.repositorio.excluir(tx, atual.id);
         // 204 não tem corpo, mas o CHECK de `idempotencia_acervo` exige
         // `resposta` não nula em linha viva — grava `{}` e o replay responde

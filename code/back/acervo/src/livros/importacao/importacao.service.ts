@@ -102,19 +102,6 @@ export class ImportacaoService {
    * existe — o caminho dali é o cadastro pessoal (RF-ACV-06), não insistir.
    */
   async reprocessar(id: string, solicitanteId: string, chave: string) {
-    const atual = await this.repositorio.buscarPorId(id);
-    if (!atual) {
-      throw new NaoEncontrado();
-    }
-    if (atual.solicitanteId !== solicitanteId) {
-      throw new AcessoNegado();
-    }
-    if (atual.estado !== 'falha_transitoria') {
-      throw new EstadoInvalido(
-        'Só é possível reprocessar uma solicitação que falhou por indisponibilidade.',
-      );
-    }
-
     return this.idempotencia.executar<ImportacaoAceitaDto>(
       {
         subjectRef: solicitanteId,
@@ -123,6 +110,22 @@ export class ImportacaoService {
         payload: { importacaoId: id },
       },
       async (tx) => {
+        // As checagens ficam dentro do efeito, depois da leitura do recibo: o
+        // reenvio de um reprocessamento aceito precisa devolver o mesmo `202`,
+        // e não um `409` por a importação já ter voltado a `pendente`.
+        const atual = await this.repositorio.buscarPorId(id);
+        if (!atual) {
+          throw new NaoEncontrado();
+        }
+        if (atual.solicitanteId !== solicitanteId) {
+          throw new AcessoNegado();
+        }
+        if (atual.estado !== 'falha_transitoria') {
+          throw new EstadoInvalido(
+            'Só é possível reprocessar uma solicitação que falhou por indisponibilidade.',
+          );
+        }
+
         const reaberta = await this.repositorio.reabrir(tx, id, solicitanteId);
         if (!reaberta) {
           // Outra requisição mudou o estado entre a leitura e o UPDATE.

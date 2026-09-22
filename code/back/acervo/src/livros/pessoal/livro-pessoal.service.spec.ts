@@ -47,7 +47,14 @@ function montar(
     resenha: jest.fn().mockResolvedValue(null),
   } as unknown as LeituraDoDonoRepository;
 
-  const idempotencia = {} as IdempotenciaService;
+  // Sem recibo anterior, o serviço real só executa o efeito numa transação; o
+  // replay e a corrida são provados contra Postgres em `test/integracao/`.
+  const idempotencia = {
+    executar: jest.fn(
+      (_contexto: unknown, efeito: (tx: unknown) => Promise<unknown>) =>
+        efeito({}),
+    ),
+  } as unknown as IdempotenciaService;
   const config = {
     get: (chave: string) =>
       chave === 'CAPA_HOSTS_PERMITIDOS' ? 'res.cloudinary.com' : 'leai',
