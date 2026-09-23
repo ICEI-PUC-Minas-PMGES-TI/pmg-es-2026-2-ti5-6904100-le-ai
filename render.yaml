@@ -178,6 +178,15 @@ services:
       # CORS_ALLOWED_ORIGINS acima.
       - key: VITE_IDENTIDADE_BASE_URL
         value: https://leai-identidade.onrender.com
+      # F-ACV-CADASTRO: cadastro por ISBN e livro pessoal.
+      - key: VITE_ACERVO_BASE_URL
+        value: https://leai-acervo.onrender.com
+      # Capa de livro pessoal direto ao Cloudinary. Não é segredo: o preset é
+      # UNSIGNED e público por natureza (P-09); o cloud é o mesmo do acervo.
+      - key: VITE_CLOUDINARY_CLOUD_NAME
+        value: leai
+      - key: VITE_CLOUDINARY_UPLOAD_PRESET
+        value: leai_capas
     routes:
       # SPA: toda rota cai no index.html (Vue Router em history mode).
       - type: rewrite

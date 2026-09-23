@@ -34,7 +34,19 @@ Convenções da SPA web. Complementa o [`AGENTS.md`](../../AGENTS.md) da raiz �
 - `npm run build`: verifica os tipos e gera o build de produção em `dist/`.
 - `npm run preview`: serve localmente o build de produção.
 
-Use `VITE_API_BASE_URL` para configurar a entrada HTTP do ambiente. O cliente central em `src/services/api.ts` adiciona `X-Correlation-Id` e tolera até 90 segundos de cold start antes de informar timeout.
+Uma URL por serviço, sem gateway: `VITE_IDENTIDADE_BASE_URL` e `VITE_ACERVO_BASE_URL` (`VITE_API_BASE_URL` é o padrão legado do cliente). A capa de livro pessoal sobe direto ao Cloudinary com `VITE_CLOUDINARY_CLOUD_NAME` (o mesmo `CLOUDINARY_CLOUD_NAME` do `acervo`) e o preset unsigned `VITE_CLOUDINARY_UPLOAD_PRESET` (`leai_capas`, só jpg/png/webp). Localmente, ponha os valores em `.env.local`, que o `.gitignore` já ignora.
+
+**Cliente HTTP central (`src/services/api.ts`)** — regras que valem para toda feature:
+
+- Adiciona `X-Correlation-Id` e tolera até 90 segundos de cold start antes de informar timeout. Timeout **não** se repete.
+- `Idempotency-Key` só vai quando a chamada passa `idempotencyKey`. A chave é da **intenção**: quem chama a guarda e a repete no reenvio da mesma intenção (mesmo ISBN, mesmo corpo serializado), e o cliente a repete nas próprias retentativas, com o mesmo correlation-id. O `acervo` recusa escrita sem chave com `400`; o CORS do `identidade` não aceita o header, então nunca o mande para lá.
+- Retentativa com espera de 1 s e 3 s (três tentativas) **só** em GET ou escrita com chave, e só em falha de rede ou 502/503/504. 4xx e 500 voltam na hora.
+- `ApiError` traz `status`, `code`, `correlationId`, `corpo`, `livroId` (409 de ISBN existente) e `campos` (400, `{ campo: mensagem }`). `204` e corpo vazio viram `undefined`.
+- O CORS do `acervo` não expõe headers: `Location` e `Retry-After` não chegam ao JS. Use o corpo.
+
+**Abas e telas de detalhe:** a aba ativa do shell vem de `router/abas.ts` (`meta.aba`, texto ou função da rota, e depois prefixo do caminho). Tela de detalhe declara `meta.voltar` para ganhar a seta no header, e põe ações contextuais no header com `<Teleport to="#cabecalho-acoes" defer>`. O fluxo de cadastro carrega a origem no caminho (`/descobrir/adicionar`, `/estante/adicionar`) para a aba certa ficar ativa o fluxo inteiro.
+
+**Componentes de F-ACV-CADASTRO:** `ui/` ganhou `CampoAreaTexto`, `BotaoDestrutivo` (outline `rubi`), `FaixaInformativa`, `EstadoVazio`, `SobreposicaoModal` (base de modal: bottom sheet abaixo de 768px, dialog de 480px acima, foco preso, `Esc`, foco devolvido), `DialogoConfirmacao` e `FolhaAcoes`; `CampoTexto` ganhou `inputmode`, `mono`, `larguraDoCampo` e `somenteLeitura`, e `BotaoTextual`, `tom`. Os da feature ficam em `components/livros/`. Lógica com estado e tempo (polling da importação) fica fora da tela, em `src/livros/useCadastroIsbn.ts`, testada com relógio simulado.
 
 ## Pontos de atenção do produto (ver `REQUISITOS.md`)
 

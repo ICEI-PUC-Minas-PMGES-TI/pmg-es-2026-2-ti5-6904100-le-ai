@@ -30,6 +30,20 @@ const props = withDefaults(
     disabled?: boolean
     autocomplete?: string
     required?: boolean
+    /** Teclado virtual sugerido (`numeric` no ISBN e nas páginas). */
+    inputmode?: 'text' | 'numeric'
+    /** Numeral tabular da JetBrains Mono, para conferir dígito a dígito (ISBN). */
+    mono?: boolean
+    /**
+     * Largura só do campo, não do helper (cadastro-pessoal.md §4.1: o campo de páginas é
+     * estreito para comunicar o tamanho da entrada, e o helper segue a largura da coluna).
+     */
+    larguraDoCampo?: string
+    /**
+     * Travado sem virar cinza ilegível: mantém o fundo e troca o texto para `grafite`
+     * (cadastro-por-isbn.md §4.3, o ISBN continua legível enquanto a busca corre).
+     */
+    somenteLeitura?: boolean
   }>(),
   {
     id: undefined,
@@ -41,6 +55,10 @@ const props = withDefaults(
     disabled: false,
     autocomplete: undefined,
     required: false,
+    inputmode: undefined,
+    mono: false,
+    larguraDoCampo: undefined,
+    somenteLeitura: false,
   },
 )
 
@@ -69,23 +87,31 @@ const idDescricao = computed(() => {
       :for="idCampo"
       class="text-label text-grafite"
     >{{ label }}</label>
-    <div class="relative">
+    <div
+      class="relative"
+      :class="larguraDoCampo"
+    >
       <input
         :id="idCampo"
         :type="type"
         :value="modelValue"
         :placeholder="placeholder"
         :disabled="disabled"
+        :readonly="somenteLeitura"
         :autocomplete="autocomplete"
         :required="required"
+        :aria-required="required ? 'true' : undefined"
+        :inputmode="inputmode"
         :aria-invalid="erro || bordaDeErro ? 'true' : undefined"
         :aria-describedby="idDescricao"
-        class="h-11 w-full rounded-base bg-papel-elevado px-space-4 text-body text-tinta outline-none transition-colors duration-dur-fast placeholder:text-grafite-suave disabled:cursor-not-allowed disabled:bg-linha disabled:text-grafite-suave"
+        class="h-11 w-full rounded-base bg-papel-elevado px-space-4 text-body outline-none transition-colors duration-dur-fast placeholder:text-grafite-suave disabled:cursor-not-allowed disabled:bg-linha disabled:text-grafite-suave"
         :class="[
           erro || bordaDeErro
             ? 'border-[1.5px] border-rubi'
             : 'border border-linha focus:border-[1.5px] focus:border-musgo',
           $slots.trailing ? 'pr-space-10' : '',
+          mono ? 'font-mono tabular-nums' : '',
+          somenteLeitura ? 'text-grafite' : 'text-tinta',
         ]"
         @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
       >

@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { PhBooks, PhCompass, PhNewspaper, PhUserCircle } from '@phosphor-icons/vue'
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 
 import CabecalhoTela from '../components/CabecalhoTela.vue'
 import SidebarNavegacao from '../components/SidebarNavegacao.vue'
+import { ABAS, abaAtiva } from '../router/abas'
 
 /**
  * Quadro de toda tela autenticada (shell-de-navegacao.md). Sidebar retrátil a partir de 768px
@@ -16,18 +16,14 @@ import SidebarNavegacao from '../components/SidebarNavegacao.vue'
  * Sem menu hamburguer em size nenhum (§10): acima de 768px é sidebar, abaixo é barra inferior.
  */
 
-const ITENS = [
-  { rota: '/estante', rotulo: 'Estante', icone: PhBooks },
-  { rota: '/descobrir', rotulo: 'Descobrir', icone: PhCompass },
-  { rota: '/feed', rotulo: 'Feed', icone: PhNewspaper },
-  { rota: '/perfil', rotulo: 'Perfil', icone: PhUserCircle },
-] as const
-
 const route = useRoute()
 const titulo = computed(() => (typeof route.meta.titulo === 'string' ? route.meta.titulo : ''))
+const ativa = computed(() => abaAtiva(route))
+// Tela de detalhe (meta.voltar) ganha a seta; sem histórico, ela leva à aba de origem.
+const voltarPara = computed(() => (route.meta.voltar ? (ativa.value ?? '/estante') : null))
 
 function itemAtivo(rota: string): boolean {
-  return route.path === rota
+  return ativa.value === rota
 }
 </script>
 
@@ -36,7 +32,10 @@ function itemAtivo(rota: string): boolean {
     <SidebarNavegacao />
 
     <div class="flex min-w-0 flex-1 flex-col">
-      <CabecalhoTela :titulo="titulo" />
+      <CabecalhoTela
+        :titulo="titulo"
+        :voltar-para="voltarPara"
+      />
       <main class="flex-1 overflow-y-auto px-space-5 pb-[calc(64px+env(safe-area-inset-bottom))] md:px-space-8 md:pb-0">
         <RouterView />
       </main>
@@ -47,7 +46,7 @@ function itemAtivo(rota: string): boolean {
       aria-label="Navegação principal"
     >
       <RouterLink
-        v-for="item in ITENS"
+        v-for="item in ABAS"
         :key="item.rota"
         :to="item.rota"
         class="flex flex-1 flex-col items-center justify-center gap-space-1"

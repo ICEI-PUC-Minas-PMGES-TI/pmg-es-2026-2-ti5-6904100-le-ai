@@ -1,4 +1,10 @@
-import { createRouter, createWebHistory, type NavigationGuard, type RouteRecordRaw } from 'vue-router'
+import {
+  createRouter,
+  createWebHistory,
+  type NavigationGuard,
+  type RouteLocationNormalizedLoaded,
+  type RouteRecordRaw,
+} from 'vue-router'
 
 import ShellAutenticado from '../layouts/ShellAutenticado.vue'
 import { getToken } from '../session'
@@ -8,6 +14,11 @@ import EstanteView from '../views/EstanteView.vue'
 import FeedView from '../views/FeedView.vue'
 import LoginView from '../views/LoginView.vue'
 import PerfilView from '../views/PerfilView.vue'
+import CadastroIsbnView from '../views/livros/CadastroIsbnView.vue'
+import IsbnNaoEncontradoView from '../views/livros/IsbnNaoEncontradoView.vue'
+import LivroOficialPlaceholderView from '../views/livros/LivroOficialPlaceholderView.vue'
+import LivroPessoalFormView from '../views/livros/LivroPessoalFormView.vue'
+import LivroPessoalView from '../views/livros/LivroPessoalView.vue'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -17,8 +28,21 @@ declare module 'vue-router' {
     semSessao?: boolean
     /** Título mostrado no header do shell (CabecalhoTela). */
     titulo?: string
+    /** Tela de detalhe: o header ganha a seta de voltar (cadastro-por-isbn.md §4). */
+    voltar?: boolean
+    /**
+     * Aba do shell que fica ativa. Detalhe não é aba, mas pertence à de onde veio; sem isto,
+     * vale o prefixo do caminho (`router/abas.ts`).
+     */
+    aba?: string | ((rota: RouteLocationNormalizedLoaded) => string)
   }
 }
+
+/** Origem do fluxo de cadastro: a estante vazia ou a busca sem resultado (cadastro-por-isbn.md §1). */
+const ORIGEM = ':origem(descobrir|estante)'
+
+/** Livro pessoal aberto pelo feed é do Feed; pela estante do dono, da Estante. */
+const abaDoLivroPessoal = (rota: RouteLocationNormalizedLoaded) => (rota.query.via === 'feed' ? '/feed' : '/estante')
 
 export const routes: RouteRecordRaw[] = [
   {
@@ -62,6 +86,48 @@ export const routes: RouteRecordRaw[] = [
         name: 'perfil',
         component: PerfilView,
         meta: { titulo: 'Meu perfil' },
+      },
+      // F-ACV-CADASTRO. O prefixo carrega a origem para a aba certa ficar ativa o fluxo inteiro.
+      {
+        path: `${ORIGEM}/adicionar`,
+        name: 'cadastro-isbn',
+        component: CadastroIsbnView,
+        meta: { titulo: 'Adicionar livro', voltar: true },
+      },
+      {
+        path: `${ORIGEM}/adicionar/nao-encontrado`,
+        name: 'isbn-nao-encontrado',
+        component: IsbnNaoEncontradoView,
+        meta: { titulo: 'Adicionar livro', voltar: true },
+      },
+      {
+        path: `${ORIGEM}/adicionar/pessoal`,
+        name: 'livro-pessoal-novo',
+        component: LivroPessoalFormView,
+        meta: { titulo: 'Novo livro pessoal', voltar: true },
+      },
+      {
+        path: 'livros/pessoal/:id',
+        name: 'livro-pessoal',
+        component: LivroPessoalView,
+        // Título vazio de propósito: o título do livro está no hero logo abaixo (livro-pessoal.md §4).
+        meta: { titulo: '', voltar: true, aba: abaDoLivroPessoal },
+      },
+      {
+        path: 'livros/pessoal/:id/editar',
+        name: 'livro-pessoal-editar',
+        component: LivroPessoalFormView,
+        meta: { titulo: 'Editar livro', voltar: true, aba: '/estante' },
+      },
+      {
+        path: 'livros/:id',
+        name: 'livro-oficial',
+        component: LivroOficialPlaceholderView,
+        meta: {
+          titulo: '',
+          voltar: true,
+          aba: (rota) => (rota.query.origem === 'estante' ? '/estante' : '/descobrir'),
+        },
       },
     ],
   },
