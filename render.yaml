@@ -43,7 +43,9 @@ services:
         sync: false
       - key: CORS_ALLOWED_ORIGINS # origem do site em DES (sem curinga, RNF-SEC-21)
         value: https://leai-web.onrender.com
-      - key: AMQP_URL # CloudAMQP (P0-MSG) — pode ficar vazio por ora
+      - key: AMQP_ENABLED
+        value: "true"
+      - key: AMQP_URL # preencher no painel antes do deploy da main
         sync: false
       - key: JWT_SECRET # MESMO valor do leai-identidade; sem ele toda rota autenticada dá 401
         sync: false
@@ -72,6 +74,8 @@ services:
         sync: false
       - key: CORS_ALLOWED_ORIGINS
         value: https://leai-web.onrender.com
+      - key: AMQP_ENABLED
+        value: "true"
       - key: AMQP_URL
         sync: false
 
@@ -101,6 +105,8 @@ services:
         sync: false
       - key: CORS_ALLOWED_ORIGINS
         value: https://leai-web.onrender.com
+      - key: AMQP_ENABLED
+        value: "true"
       - key: AMQP_URL
         sync: false
       - key: BREVO_API_KEY # segredo da API do Brevo; preencher no painel
@@ -148,6 +154,8 @@ services:
         sync: false
       - key: CORS_ALLOWED_ORIGINS
         value: https://leai-web.onrender.com
+      - key: AMQP_ENABLED
+        value: "true"
       - key: AMQP_URL
         sync: false
 
