@@ -13,11 +13,22 @@ import 'apoio.dart';
 const _importacao = 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa';
 const _livro = 'cccccccc-3333-4333-8333-cccccccccccc';
 
+const _resumo = <String, Object?>{
+  'id': _livro,
+  'titulo': 'Memórias Póstumas de Brás Cubas',
+  'autores': 'Machado de Assis',
+  'editora': 'Penguin-Companhia',
+  'anoPublicacao': 2014,
+  'paginas': 288,
+  'capaUrl': null,
+};
+
 Map<String, Object?> _estado(String status, {String? livroId}) => <String, Object?>{
   'importacaoId': _importacao,
   'isbn': '9788535914849',
   'status': status,
   'livroId': livroId,
+  'livro': status == 'concluida' ? _resumo : null,
   'permiteCadastroPessoal': status == 'nao_encontrado',
   'criadoEm': '2026-09-22T12:00:00.000Z',
   'atualizadoEm': '2026-09-22T12:00:00.000Z',
@@ -135,8 +146,61 @@ void main() {
     await tester.pump();
 
     expect(find.text('Livro adicionado ao acervo.'), findsOneWidget);
+    // O card confirma QUAL livro entrou (§4.4).
+    expect(find.text('Memórias Póstumas de Brás Cubas'), findsOneWidget);
+    expect(find.text('Machado de Assis'), findsOneWidget);
+    expect(find.text('Penguin-Companhia · 2014'), findsOneWidget);
+    expect(find.text('288 páginas'), findsOneWidget);
     await tocar(tester, find.text('Abrir página do livro'));
     expect(aberto, _livro);
+  });
+
+  testWidgets('buscar de novo o ISBN que acabou de entrar vira faixa de já cadastrado, com chave nova', (
+    tester,
+  ) async {
+    var posts = 0;
+    await montar(tester, (pedido) async {
+      if (pedido.method == 'POST') {
+        posts++;
+        if (posts == 1) {
+          return json(<String, Object>{'importacaoId': _importacao, 'status': 'pendente'}, 202);
+        }
+        return erro(409, 'LIVRO_JA_CADASTRADO', 'Este livro já está no acervo.', <String, Object>{
+          'livroId': _livro,
+          'livro': _resumo,
+        });
+      }
+      return json(_estado('concluida', livroId: _livro), 200);
+    });
+
+    await tester.enterText(find.byType(TextField), '9788535914849');
+    await tester.pump();
+    await tocar(tester, botaoBuscar());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
+    await tester.pump();
+    expect(find.text('Livro adicionado ao acervo.'), findsOneWidget);
+
+    await tocar(tester, botaoBuscar());
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Este livro já está no acervo.'), findsOneWidget);
+    expect(find.text('Memórias Póstumas de Brás Cubas'), findsOneWidget);
+    final chaves = pedidos.where((p) => p.method == 'POST').map((p) => p.headers['Idempotency-Key']);
+    expect(chaves.toSet(), hasLength(2));
+  });
+
+  testWidgets('máscara: com ou sem hífen dá o mesmo valor e nada passa de 13 dígitos', (tester) async {
+    await montar(tester, (_) async => json(<String, Object>{}, 200));
+    String texto() => tester.widget<TextField>(find.byType(TextField)).controller!.text;
+
+    await tester.enterText(find.byType(TextField), '9788535914849');
+    expect(texto(), '978-85-359-1484-9');
+    await tester.enterText(find.byType(TextField), '978 85 359 1484 9 123');
+    expect(texto(), '978-85-359-1484-9');
+    await tester.enterText(find.byType(TextField), 'isbn');
+    expect(texto(), isEmpty);
   });
 
   testWidgets('ISBN já cadastrado não é erro: faixa informativa e caminho para o livro', (
@@ -216,7 +280,8 @@ void main() {
       find.text('Não conseguimos consultar nossas fontes agora. Seu pedido foi guardado.'),
       findsOneWidget,
     );
-    expect(botaoBuscar(), findsNothing);
+    // Buscar livro continua na tela em todos os estados, como no protótipo.
+    expect(botaoBuscar(), findsOneWidget);
 
     await tocar(tester, find.text('Tentar de novo'));
     await tester.pump();

@@ -59,6 +59,10 @@ class CadastroIsbnController extends ChangeNotifier {
   String? _livroId;
   String? get livroId => _livroId;
 
+  /// O que o card mostra: capa, título, autor, editora, ano e páginas.
+  LivroImportadoResumo? _livro;
+  LivroImportadoResumo? get livro => _livro;
+
   /// ISBN normalizado do último envio, para a tela de não encontrado conferir.
   String? _isbn;
   String? get isbn => _isbn;
@@ -69,8 +73,11 @@ class CadastroIsbnController extends ChangeNotifier {
   String? _importacaoId;
   bool _reprocessavel = false;
 
-  // A chave é da intenção "buscar este ISBN": reenviar o mesmo ISBN reaproveita, e o servidor
-  // devolve a mesma solicitação em vez de criar outra (RNF-ERR-04).
+  // A chave é da intenção "buscar este ISBN" e vive só até o servidor responder o POST:
+  // reenviar depois de falha de rede, 5xx ou timeout reaproveita, e o servidor devolve a mesma
+  // solicitação em vez de criar outra (RNF-ERR-04). Depois de um 202 ou de um 4xx a intenção
+  // acabou, e buscar de novo usa chave nova; reaproveitar ali fazia o servidor devolver o 202
+  // guardado, e o ISBN recém-importado nunca virava a faixa de "já está no acervo".
   String? _chave;
   String? _isbnDaChave;
 
@@ -107,17 +114,25 @@ class CadastroIsbnController extends ChangeNotifier {
       );
       _coldStartTimer?.cancel();
       _coldStart = false;
+      _esquecerChave();
       switch (resultado) {
         case SolicitacaoAceita(:final importacaoId):
           _importacaoId = importacaoId;
           _acompanhar();
-        case LivroJaCadastrado(:final livroId):
+        case LivroJaCadastrado(:final livroId, :final livro):
           _livroId = livroId;
+          _livro = livro;
           _encerrar(FaseDoCadastroIsbn.duplicata);
       }
     } on ApiException catch (erro) {
       _coldStartTimer?.cancel();
       _coldStart = false;
+      // Resposta definitiva do servidor encerra a intenção; sem resposta ou com 5xx, o próximo
+      // envio do mesmo ISBN ainda é reenvio.
+      final status = erro.status ?? 0;
+      if (status >= 400 && status < 500) {
+        _esquecerChave();
+      }
       if (erro.status == 400) {
         _encerrar(FaseDoCadastroIsbn.invalido);
       } else if (erro.status == 429) {
@@ -161,6 +176,7 @@ class CadastroIsbnController extends ChangeNotifier {
   void recomecar() {
     _cancelarTimers();
     _livroId = null;
+    _livro = null;
     _importacaoId = null;
     _mensagemDoServidor = null;
     _lento = false;
@@ -177,8 +193,14 @@ class CadastroIsbnController extends ChangeNotifier {
     }
   }
 
+  void _esquecerChave() {
+    _chave = null;
+    _isbnDaChave = null;
+  }
+
   void _iniciarEspera() {
     _cancelarTimers();
+    _livro = null;
     _lento = false;
     _coldStart = false;
     _mensagemDoServidor = null;
@@ -211,6 +233,7 @@ class CadastroIsbnController extends ChangeNotifier {
       switch (importacao.estado) {
         case EstadoImportacao.concluida:
           _livroId = importacao.livroId;
+          _livro = importacao.livro;
           _encerrar(FaseDoCadastroIsbn.encontrado);
           return;
         case EstadoImportacao.naoEncontrado:

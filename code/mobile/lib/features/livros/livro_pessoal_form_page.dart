@@ -483,6 +483,7 @@ class _LivroPessoalFormPageState extends State<LivroPessoalFormPage> {
                             ? 'Salvar alterações'
                             : 'Salvar livro',
                         carregando: _salvando,
+                        desabilitadoNeutro: true,
                         onPressed: _podeSalvar ? _salvar : null,
                       ),
                       if (_coldStart) ...<Widget>[

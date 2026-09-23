@@ -18,11 +18,51 @@ EstadoImportacao _estadoDe(String bruto) {
   }
 }
 
+/// Resumo da edição para o card de confirmação (cadastro-por-isbn.md §4.4 e §4.5): vem na
+/// importação concluída e no `409` de ISBN já cadastrado.
+class LivroImportadoResumo {
+  final String id;
+  final String titulo;
+  final String? autores;
+  final String? editora;
+  final int? anoPublicacao;
+  final int paginas;
+  final String? capaUrl;
+
+  const LivroImportadoResumo({
+    required this.id,
+    required this.titulo,
+    required this.autores,
+    required this.editora,
+    required this.anoPublicacao,
+    required this.paginas,
+    required this.capaUrl,
+  });
+
+  static LivroImportadoResumo? deJson(Object? bruto) {
+    if (bruto is! Map<String, dynamic>) {
+      return null;
+    }
+    return LivroImportadoResumo(
+      id: bruto['id'] as String,
+      titulo: bruto['titulo'] as String,
+      autores: bruto['autores'] as String?,
+      editora: bruto['editora'] as String?,
+      anoPublicacao: bruto['anoPublicacao'] as int?,
+      paginas: bruto['paginas'] as int,
+      capaUrl: bruto['capaUrl'] as String?,
+    );
+  }
+}
+
 class Importacao {
   final String importacaoId;
   final String isbn;
   final EstadoImportacao estado;
   final String? livroId;
+
+  /// Só em `concluida`.
+  final LivroImportadoResumo? livro;
   final bool permiteCadastroPessoal;
 
   const Importacao({
@@ -30,6 +70,7 @@ class Importacao {
     required this.isbn,
     required this.estado,
     required this.livroId,
+    this.livro,
     required this.permiteCadastroPessoal,
   });
 
@@ -39,6 +80,7 @@ class Importacao {
       isbn: json['isbn'] as String,
       estado: _estadoDe(json['status'] as String),
       livroId: json['livroId'] as String?,
+      livro: LivroImportadoResumo.deJson(json['livro']),
       permiteCadastroPessoal: json['permiteCadastroPessoal'] as bool? ?? false,
     );
   }
@@ -57,7 +99,8 @@ class SolicitacaoAceita extends ResultadoDaSolicitacao {
 
 class LivroJaCadastrado extends ResultadoDaSolicitacao {
   final String livroId;
-  const LivroJaCadastrado(this.livroId);
+  final LivroImportadoResumo? livro;
+  const LivroJaCadastrado(this.livroId, [this.livro]);
 }
 
 class ResenhaDoDono {
@@ -182,7 +225,7 @@ class AcervoService {
     } on ApiException catch (erro) {
       final livroId = erro.livroId;
       if (erro.status == 409 && livroId != null) {
-        return LivroJaCadastrado(livroId);
+        return LivroJaCadastrado(livroId, LivroImportadoResumo.deJson(erro.corpo?['livro']));
       }
       rethrow;
     }

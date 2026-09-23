@@ -35,4 +35,19 @@ void main() {
     expect(formatarPaginas(288), '288 páginas');
     expect(formatarPaginas(1), '1 página');
   });
+
+  group('mascararIsbn', () {
+    test('agrupa só os dígitos e limita a 13', () {
+      expect(mascararIsbn('9788535914849', 13).valor, '978-85-359-1484-9');
+      expect(mascararIsbn('ISBN: 978-85-359-1484-9', 23).valor, '978-85-359-1484-9');
+      expect(mascararIsbn('97885', 5).valor, '978-85');
+      expect(mascararIsbn('97885359148490000', 17).valor, '978-85-359-1484-9');
+    });
+
+    test('apagar um hífen apaga o dígito antes dele', () {
+      final r = mascararIsbn('978-85359', 6, '978-85-359');
+      expect(r.valor, '978-83-59');
+      expect(r.valor.substring(0, r.cursor), '978-8');
+    });
+  });
 }

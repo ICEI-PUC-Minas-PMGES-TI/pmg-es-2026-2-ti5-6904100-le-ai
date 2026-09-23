@@ -14,6 +14,8 @@ import '../../design/widgets/cartao_progresso.dart';
 import '../../design/widgets/faixa_informativa.dart';
 import 'acervo_service.dart';
 import 'cadastro_isbn_controller.dart';
+import 'formatos.dart';
+import 'mascara_isbn.dart';
 
 /// Cadastro por ISBN (RF-ACV-05, RF-ACV-07). Estrutura e cópia de
 /// docs/design/periodo-1/F-ACV-CADASTRO/cadastro-por-isbn.md §4 e §8.
@@ -127,14 +129,12 @@ class _CadastroIsbnPageState extends State<CadastroIsbnPage> {
                   label: 'ISBN',
                   placeholder: '978-85-359-1484-9',
                   keyboardType: TextInputType.number,
-                  // Aceita colar com separadores; a normalização é do servidor, e o cliente não
-                  // reescreve o que a pessoa digita (cadastro-por-isbn.md §9).
-                  inputFormatters: <TextInputFormatter>[
-                    FilteringTextInputFormatter.allow(RegExp(r'[0-9\- ]')),
-                    LengthLimitingTextInputFormatter(20),
-                  ],
+                  // Máscara pedida pelo dono da feature em 23/09/2026: digitar com ou sem hífen,
+                  // ou colar, dá o mesmo valor, e nada passa de 13 dígitos. O prompt (§9) pedia
+                  // o contrário; a divergência está registrada no arquivo da feature.
+                  inputFormatters: const <TextInputFormatter>[MascaraIsbn()],
                   estiloDoTexto: theme.numInline,
-                  enabled: !buscando && !temResultado,
+                  enabled: !buscando,
                   erro: fase == FaseDoCadastroIsbn.invalido
                       ? 'Esse ISBN não confere. Verifique os 13 dígitos impressos no livro.'
                       : null,
@@ -143,17 +143,17 @@ class _CadastroIsbnPageState extends State<CadastroIsbnPage> {
                       : 'Só o ISBN. Links e títulos não funcionam aqui.',
                 ),
                 const SizedBox(height: DesignTokens.space6),
-                // No indisponível o CTA é `Tentar de novo`, que reaproveita o pedido guardado.
-                if (!temResultado && fase != FaseDoCadastroIsbn.indisponivel)
-                  BotaoPrimario(
-                    texto: buscando ? 'Buscando' : 'Buscar livro',
-                    carregando: buscando,
-                    onPressed:
-                        _controller.podeEnviar(_campo.text) &&
-                            fase != FaseDoCadastroIsbn.invalido
-                        ? () => _controller.buscar(_campo.text)
-                        : null,
-                  ),
+                // Presente em todos os estados, como no protótipo: depois do resultado a pessoa
+                // pode buscar outro ISBN direto.
+                BotaoPrimario(
+                  texto: buscando ? 'Buscando' : 'Buscar livro',
+                  carregando: buscando,
+                  desabilitadoNeutro: true,
+                  onPressed:
+                      _controller.podeEnviar(_campo.text) && fase != FaseDoCadastroIsbn.invalido
+                      ? () => _controller.buscar(_campo.text)
+                      : null,
+                ),
                 ..._resultado(theme, fase),
                 if (!temResultado && fase != FaseDoCadastroIsbn.indisponivel)
                   _saidaAlternativa(theme),
@@ -235,11 +235,11 @@ class _CadastroIsbnPageState extends State<CadastroIsbnPage> {
     }
   }
 
-  /// Card do livro em variante de confirmação (§4.4 e §4.5). O `acervo` ainda não expõe
-  /// `GET /livros/{id}` (F-ACV-BUSCA), então o card mostra o ISBN no lugar da ficha: é a
-  /// divergência registrada no arquivo da feature.
+  /// Card do livro em variante de confirmação (§4.4 e §4.5): capa, título, autor, editora e
+  /// ano, páginas. O resumo vem da importação concluída ou do `409`; sem ele, cai para o ISBN.
   List<Widget> _livro(ThemeData theme, {required Widget cabecalho}) {
     final livroId = _controller.livroId;
+    final resumo = _controller.livro;
     return <Widget>[
       const SizedBox(height: DesignTokens.space5),
       cabecalho,
@@ -254,17 +254,19 @@ class _CadastroIsbnPageState extends State<CadastroIsbnPage> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            const CapaLivro(largura: 60, altura: 90),
+            CapaLivro(largura: 60, altura: 90, url: resumo?.capaUrl),
             const SizedBox(width: DesignTokens.space4),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text('ISBN', style: theme.textTheme.labelMedium),
-                  const SizedBox(height: DesignTokens.space1),
-                  Text(_controller.isbn ?? '', style: theme.numInline),
-                ],
-              ),
+              child: resumo == null
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text('ISBN', style: theme.textTheme.labelMedium),
+                        const SizedBox(height: DesignTokens.space1),
+                        Text(_controller.isbn ?? '', style: theme.numInline),
+                      ],
+                    )
+                  : _fichaDoLivro(theme, resumo),
             ),
           ],
         ),
@@ -303,6 +305,38 @@ class _CadastroIsbnPageState extends State<CadastroIsbnPage> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _fichaDoLivro(ThemeData theme, LivroImportadoResumo resumo) {
+    final editoraEAno = <String>[
+      ?resumo.editora,
+      if (resumo.anoPublicacao != null) '${resumo.anoPublicacao}',
+    ].join(' · ');
+    final metadado = theme.textTheme.bodySmall?.copyWith(color: theme.tertiaryText);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          resumo.titulo,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.titleSmall,
+        ),
+        if (resumo.autores != null) ...<Widget>[
+          const SizedBox(height: DesignTokens.space1),
+          Text(
+            resumo.autores!,
+            style: theme.textTheme.bodyMedium?.copyWith(color: theme.secondaryText),
+          ),
+        ],
+        if (editoraEAno.isNotEmpty) ...<Widget>[
+          const SizedBox(height: DesignTokens.space1),
+          Text(editoraEAno, style: metadado),
+        ],
+        const SizedBox(height: DesignTokens.space1),
+        Text(formatarPaginas(resumo.paginas), style: metadado),
+      ],
     );
   }
 }
