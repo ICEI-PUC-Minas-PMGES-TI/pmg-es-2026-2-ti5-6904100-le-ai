@@ -10,8 +10,8 @@ O dump de edições não é autossuficiente. A edição referencia o autor por `
 
 | Fase | Comando | Lê | Escreve |
 |---|---|---|---|
-| 1 | `filtrar` | dump de edições | candidatos elegíveis + chaves de autor/obra a resolver |
-| 2 | `resolver` | dumps de autores e obras | nomes de autor e assuntos já mapeados |
+| 1 | `filtrar` | dump de edições | candidatos elegíveis + chaves de autor/obra a resolver (e as obras cuja edição veio sem autor) |
+| 2 | `resolver` | dumps de obras e autores, nessa ordem | assuntos já mapeados, autor herdado da obra e nomes de autor |
 | 3 | `carregar` | as saídas das fases 1 e 2 | `COPY` para staging e upsert no schema `acervo` |
 
 Cada fase é streaming. **Nada do dump bruto vai para o Neon.**
@@ -76,13 +76,15 @@ python -m leai_ingestao resolver \
 
 Lê os dois dumps uma vez cada, guardando só o que as chaves da fase 1 pedem. As tags livres da origem já saem traduzidas para o conjunto curado — elas nunca chegam ao banco (RN-12).
 
+**O dump de obras é lido antes do de autores.** Muitas edições brasileiras da OpenLibrary não têm `authors`; só a obra tem, e a lista da obra mistura o autor com tradutor e prefaciador. Para essas edições vale o **primeiro** autor da obra — o mesmo critério do importador por ISBN do serviço `acervo` —, e a passada pelas obras grava `trabalho/autor_obra.jsonl` (`ol_work_key` → `ol_author_key`). Essas chaves também precisam de nome, por isso entram no conjunto da passada pelos autores. Com os dois dumps na mesma chamada, a ordem é garantida pelo comando. Em chamadas separadas, rode `--dump-obras` primeiro: `--dump-autores` sozinho é recusado enquanto houver obra sem autor e `autor_obra.jsonl` não existir.
+
 ### 7. Carregar (fase 3)
 
 ```bash
 python -m leai_ingestao carregar --processados 1234567 --descartados 1200000
 ```
 
-`--processados` e `--descartados` vêm do JSON da fase 1 e alimentam `acervo.ingestao_execucao`. A carga é **uma transação**: ou o lote inteiro entra, ou nada entra.
+Lê `trabalho/candidatos.jsonl`, `autores.jsonl`, `assuntos.jsonl` e `autor_obra.jsonl` (caminhos em `--candidatos`, `--autores`, `--assuntos` e `--autor-obra`). `--processados` e `--descartados` vêm do JSON da fase 1 e alimentam `acervo.ingestao_execucao`. A carga é **uma transação**: ou o lote inteiro entra, ou nada entra.
 
 No fim, o comando imprime o tamanho de dados e de índice por tabela. **Esse número vai para a Timeline da feature** — é item próprio do DoD registrar o volume real carregado e a fração do plano Neon consumida (RNF-DES-04, RNF-DES-05).
 
@@ -104,7 +106,7 @@ Reexecutar a mesma carga não deve mudar as contagens: a deduplicação por ISBN
 python -m pytest
 ```
 
-Roda sem banco e sem rede, contra `amostra/`. A amostra tem 14 edições aceitas e 8 descartadas, uma por motivo de descarte. É o que o CI executa — o DoD da feature diz que o CI não roda o dump inteiro.
+Roda sem banco e sem rede, contra `amostra/`. A amostra tem 15 edições aceitas e 8 descartadas, uma por motivo de descarte. Uma das aceitas (`OL30000015M`) vem sem `authors`, e a obra dela lista o autor seguido da tradutora: prova que o autor herdado da obra é só o primeiro. É o que o CI executa — o DoD da feature diz que o CI não roda o dump inteiro.
 
 Os testes marcados `banco` (`tests/test_carga_banco.py`) passam a amostra pelo roteiro inteiro — `semear`, `filtrar`, `resolver`, `carregar` — contra um Postgres descartável, com as migrations reais de `acervo`. Provam o registro em `ingestao_execucao`, a transação única (falha no meio não deixa carga parcial e fica registrada como `falha`) e a reexecução sem duplicar. Sem `DATABASE_URL_TESTE` eles são pulados:
 

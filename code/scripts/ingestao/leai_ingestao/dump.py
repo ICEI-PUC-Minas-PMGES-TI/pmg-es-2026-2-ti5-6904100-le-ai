@@ -12,10 +12,14 @@ from __future__ import annotations
 
 import gzip
 import json
+import re
 from collections.abc import Iterator
 from pathlib import Path
 
 COLUNAS_DO_DUMP = 5
+
+# Mesma validação do importador por ISBN do serviço `acervo` (`CHAVE_AUTOR`).
+_CHAVE_AUTOR = re.compile(r"^OL[0-9]+A$")
 
 
 def _abrir(caminho: Path):
@@ -80,3 +84,21 @@ def chaves_de(edicao: dict, campo: str) -> list[str]:
         if chave and chave not in chaves:
             chaves.append(chave)
     return chaves
+
+
+def primeiro_autor_da_obra(obra: dict) -> str | None:
+    """Chave do PRIMEIRO autor da obra, o plano B da edição sem `authors`.
+
+    Na obra, cada item é `{"type": {"key": "/type/author_role"}, "author":
+    {"key": "/authors/OL...A"}}`, e a lista mistura autor com tradutor e
+    prefaciador cadastrados como autor. Por isso só o primeiro vale, na ordem da
+    fonte e sem olhar o papel — o mesmo critério do importador por ISBN do
+    serviço `acervo`. Primeiro item malformado dá `None`: pular para o segundo
+    poderia promover o tradutor a autor.
+    """
+    autores = obra.get("authors")
+    if not isinstance(autores, list) or not autores:
+        return None
+    primeiro = autores[0]
+    chave = chave_curta(primeiro.get("author")) if isinstance(primeiro, dict) else None
+    return chave if chave and _CHAVE_AUTOR.fullmatch(chave) else None

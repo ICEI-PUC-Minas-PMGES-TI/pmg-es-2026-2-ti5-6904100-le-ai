@@ -29,6 +29,8 @@ MIGRATIONS = RAIZ.parent.parent / "back" / "acervo" / "drizzle"
 
 URL = os.environ.get("DATABASE_URL_TESTE")
 
+ACEITOS_NA_AMOSTRA = 15
+
 
 @pytest.fixture
 def conexao():
@@ -72,6 +74,7 @@ def _carga_da_amostra(capsys, trabalho: Path) -> dict:
         "--dump-obras", str(AMOSTRA / "obras_amostra.jsonl"),
         "--saida-autores", str(trabalho / "autores.jsonl"),
         "--saida-assuntos", str(trabalho / "assuntos.jsonl"),
+        "--saida-autor-obra", str(trabalho / "autor_obra.jsonl"),
     )
     totais = _rodar(
         capsys, "carregar",
@@ -79,6 +82,7 @@ def _carga_da_amostra(capsys, trabalho: Path) -> dict:
         "--candidatos", str(trabalho / "candidatos.jsonl"),
         "--autores", str(trabalho / "autores.jsonl"),
         "--assuntos", str(trabalho / "assuntos.jsonl"),
+        "--autor-obra", str(trabalho / "autor_obra.jsonl"),
         "--processados", str(resumo["lidos"]),
         "--descartados", str(resumo["descartados"]),
     )
@@ -106,7 +110,7 @@ def test_carga_da_amostra_registra_execucao_com_totais_coerentes(conexao, capsys
     carga = _carga_da_amostra(capsys, tmp_path)
 
     resumo, totais = carga["resumo"], carga["totais"]
-    assert totais["livros"] == resumo["aceitos"] == 14
+    assert totais["livros"] == resumo["aceitos"] == ACEITOS_NA_AMOSTRA
     status, tipo, processados, descartados, inseridos, finalizado = _um(
         conexao,
         """SELECT status, tipo, total_processados, total_descartados, total_inseridos,
@@ -115,7 +119,9 @@ def test_carga_da_amostra_registra_execucao_com_totais_coerentes(conexao, capsys
         totais["execucao"],
     )
     assert (status, tipo) == ("concluida", "carga_inicial")
-    assert (processados, descartados, inseridos) == (resumo["lidos"], resumo["descartados"], 14)
+    assert (processados, descartados, inseridos) == (
+        resumo["lidos"], resumo["descartados"], ACEITOS_NA_AMOSTRA
+    )
     assert finalizado
 
 
@@ -145,6 +151,34 @@ def test_livros_carregados_respeitam_rn12_e_rn21(conexao, capsys, tmp_path):
         """SELECT count(*) FROM acervo.v_livro_referencia_v1
             WHERE tipo = 'oficial' AND ativo AND autor_exibicao IS NOT NULL""",
     )[0] > 0
+
+
+def test_edicao_sem_authors_herda_so_o_primeiro_autor_da_obra(conexao, capsys, tmp_path):
+    """OL30000015M não tem `authors`; a obra lista o autor e depois a tradutora.
+
+    Mesmo critério do importador por ISBN do serviço `acervo`: da obra vem só
+    o primeiro, e o livro entra no contrato entre schemas com autor.
+    """
+    _rodar(capsys, "semear", "--database-url", URL)
+    _carga_da_amostra(capsys, tmp_path)
+
+    with conexao.cursor() as cursor:
+        cursor.execute(
+            """SELECT a.ol_author_key
+                 FROM acervo.livro l
+                 JOIN acervo.livro_autor la ON la.livro_id = l.id
+                 JOIN acervo.autor a ON a.id = la.autor_id
+                WHERE l.ol_edition_key = 'OL30000015M'"""
+        )
+        assert cursor.fetchall() == [("OL10000015A",)]
+    # A tradutora nem vira autor: não é vinculada a livro nenhum.
+    assert _um(conexao, "SELECT count(*) FROM acervo.autor WHERE ol_author_key = 'OL10000016A'")[0] == 0
+    assert _um(
+        conexao,
+        """SELECT autor_exibicao FROM acervo.v_livro_referencia_v1 v
+             JOIN acervo.livro l ON l.id = v.livro_id
+            WHERE l.ol_edition_key = 'OL30000015M'""",
+    )[0] == "George Orwell"
 
 
 def test_reexecutar_a_mesma_amostra_nao_duplica_nada(conexao, capsys, tmp_path):
@@ -183,7 +217,7 @@ def test_falha_no_meio_nao_deixa_carga_parcial(conexao, capsys, tmp_path):
     ultimo["paginas"] = 0
     linhas[-1] = json.dumps(ultimo, ensure_ascii=False)
     (tmp_path / "candidatos.jsonl").write_text("\n".join(linhas) + "\n", encoding="utf-8")
-    for nome in ("autores.jsonl", "assuntos.jsonl"):
+    for nome in ("autores.jsonl", "assuntos.jsonl", "autor_obra.jsonl"):
         (tmp_path / nome).write_text("", encoding="utf-8")
 
     with pytest.raises(Exception, match="livro_paginas_positivas_ck"):
@@ -192,6 +226,7 @@ def test_falha_no_meio_nao_deixa_carga_parcial(conexao, capsys, tmp_path):
             "--candidatos", str(tmp_path / "candidatos.jsonl"),
             "--autores", str(tmp_path / "autores.jsonl"),
             "--assuntos", str(tmp_path / "assuntos.jsonl"),
+            "--autor-obra", str(tmp_path / "autor_obra.jsonl"),
             "--processados", str(resumo["lidos"]),
             "--descartados", str(resumo["descartados"]),
         ])

@@ -4,7 +4,7 @@ Quatro subcomandos, na ordem em que se usa:
 
     semear    popula os dados curados versionados no schema `acervo`
     filtrar   fase 1: seleciona edições elegíveis do dump (RN-12)
-    resolver  fase 2: resolve nome de autor e assuntos da obra (RN-21)
+    resolver  fase 2: resolve assuntos e autor da obra (RN-21), depois nome de autor
     carregar  fase 3: COPY para staging e upsert nas tabelas reais
 
 `conferir` existe à parte e não toca o banco: valida os três CSV curados entre
@@ -94,19 +94,35 @@ def comando_filtrar(args) -> int:
 
 def comando_resolver(args) -> int:
     autores, obras = pipeline.carregar_chaves(args.chaves)
+    obras_sem_autor = pipeline.carregar_obras_sem_autor(args.chaves)
     resultado = {}
 
-    if args.dump_autores:
-        resultado["autores"] = pipeline.resolver_autores(
-            args.dump_autores, autores, args.saida_autores, formato=args.formato
-        )
+    # Obras ANTES de autores: a edição sem `authors` herda o primeiro autor da
+    # obra, e essa chave só entra no conjunto de autores depois desta passada.
     if args.dump_obras:
-        resultado["obras_com_assunto"] = pipeline.resolver_assuntos(
+        com_assunto, com_autor = pipeline.resolver_obras(
             args.dump_obras,
             obras,
+            obras_sem_autor,
             carregar_mapa_de_assuntos(args.dados),
             args.saida_assuntos,
+            args.saida_autor_obra,
             formato=args.formato,
+        )
+        resultado["obras_com_assunto"] = com_assunto
+        resultado["obras_com_autor"] = com_autor
+
+    if args.dump_autores:
+        if obras_sem_autor and not args.saida_autor_obra.exists():
+            raise SystemExit(
+                f"{len(obras_sem_autor)} obra(s) de edição sem autor ainda não foram "
+                f"resolvidas: {args.saida_autor_obra} não existe.\n"
+                "Rode `resolver` com --dump-obras antes (ou junto) de --dump-autores."
+            )
+        if args.saida_autor_obra.exists():
+            autores |= set(pipeline.carregar_autor_obra(args.saida_autor_obra).values())
+        resultado["autores"] = pipeline.resolver_autores(
+            args.dump_autores, autores, args.saida_autores, formato=args.formato
         )
 
     print(json.dumps(resultado, ensure_ascii=False, indent=2))
@@ -125,6 +141,7 @@ def comando_carregar(args) -> int:
                 args.candidatos,
                 args.autores,
                 args.assuntos,
+                args.autor_obra,
                 sinonimos,
                 limite=args.limite,
             )
@@ -171,6 +188,7 @@ def construir_parser() -> argparse.ArgumentParser:
     p.add_argument("--dump-obras", type=Path, default=None)
     p.add_argument("--saida-autores", type=Path, default=Path("trabalho/autores.jsonl"))
     p.add_argument("--saida-assuntos", type=Path, default=Path("trabalho/assuntos.jsonl"))
+    p.add_argument("--saida-autor-obra", type=Path, default=Path("trabalho/autor_obra.jsonl"))
     p.add_argument("--formato", choices=("auto", "tsv", "jsonl"), default="auto")
     p.set_defaults(func=comando_resolver)
 
@@ -179,6 +197,7 @@ def construir_parser() -> argparse.ArgumentParser:
     p.add_argument("--candidatos", type=Path, default=Path("trabalho/candidatos.jsonl"))
     p.add_argument("--autores", type=Path, default=Path("trabalho/autores.jsonl"))
     p.add_argument("--assuntos", type=Path, default=Path("trabalho/assuntos.jsonl"))
+    p.add_argument("--autor-obra", type=Path, default=Path("trabalho/autor_obra.jsonl"))
     p.add_argument("--tipo", choices=("carga_inicial", "recarga"), default="carga_inicial")
     p.add_argument("--limite", type=int, default=None)
     p.add_argument("--processados", type=int, default=None, help="total lido na fase 1")

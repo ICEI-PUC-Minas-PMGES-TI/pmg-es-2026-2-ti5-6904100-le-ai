@@ -163,6 +163,7 @@ def carregar(
     candidatos: Path,
     autores: Path,
     assuntos: Path,
+    autor_obra: Path,
     sinonimos: dict[str, str],
     limite: int | None = None,
 ) -> TotaisDaCarga:
@@ -174,6 +175,7 @@ def carregar(
     totais = TotaisDaCarga()
     assuntos_por_obra = _ler_assuntos_por_obra(assuntos)
     nomes_de_autor = _ler_nomes_de_autor(autores)
+    autor_por_obra = _ler_autor_por_obra(autor_obra)
 
     with conexao.cursor() as cursor:
         cursor.execute(SQL_STAGING)
@@ -188,7 +190,13 @@ def carregar(
                     break
                 isbn13 = registro["isbn13"]
 
-                for chave in registro.get("autores_ol") or []:
+                # Edição sem `authors` usa o primeiro autor da obra, o mesmo
+                # plano B do importador por ISBN do serviço `acervo`.
+                chaves_de_autor = registro.get("autores_ol") or []
+                if not chaves_de_autor and registro.get("ol_work_key") in autor_por_obra:
+                    chaves_de_autor = [autor_por_obra[registro["ol_work_key"]]]
+
+                for chave in chaves_de_autor:
                     if chave in nomes_de_autor:
                         vinculos_autor.append((isbn13, chave))
                         autores_usados.add(chave)
@@ -339,6 +347,10 @@ def _ler_jsonl(caminho: Path):
 
 def _ler_nomes_de_autor(caminho: Path) -> dict[str, str]:
     return {r["ol_author_key"]: r["nome"] for r in _ler_jsonl(caminho)}
+
+
+def _ler_autor_por_obra(caminho: Path) -> dict[str, str]:
+    return {r["ol_work_key"]: r["ol_author_key"] for r in _ler_jsonl(caminho)}
 
 
 def _ler_assuntos_por_obra(caminho: Path) -> dict[str, list[str]]:
