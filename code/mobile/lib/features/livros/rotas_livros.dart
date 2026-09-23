@@ -1,0 +1,147 @@
+import 'package:flutter/widgets.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../core/config/app_config.dart';
+import '../../core/network/api_client.dart';
+import 'acervo_service.dart';
+import 'cadastro_isbn_page.dart';
+import 'capa.dart';
+import 'isbn_nao_encontrado_page.dart';
+import 'livro_oficial_placeholder_page.dart';
+import 'livro_pessoal_form_page.dart';
+import 'livro_pessoal_page.dart';
+
+const String rotaAdicionarLivro = '/descobrir/adicionar-livro';
+const String rotaEstanteRaiz = '/estante';
+const String rotaFeedRaiz = '/feed';
+
+String rotaLivroPessoalNaEstante(String id) => '/estante/livro-pessoal/$id';
+String rotaLivroOficial(String id) => '/descobrir/livro/$id';
+
+/// O que as telas de F-ACV-CADASTRO precisam do mundo lá fora. Construído uma vez em `main.dart`
+/// e injetado no roteador; os testes montam o seu com clientes simulados.
+class DependenciasDeLivros {
+  final AcervoService acervo;
+  final SeletorDeImagem seletor;
+  final EnviadorDeCapa enviador;
+
+  const DependenciasDeLivros({
+    required this.acervo,
+    required this.seletor,
+    required this.enviador,
+  });
+
+  factory DependenciasDeLivros.padrao({required String? Function() getToken}) {
+    return DependenciasDeLivros(
+      acervo: AcervoService(ApiClient(baseUrl: AppConfig.acervoBaseUrl, getToken: getToken)),
+      seletor: SeletorDaGaleria(),
+      enviador: EnviadorCloudinary(
+        cloudName: AppConfig.cloudinaryCloudName,
+        uploadPreset: AppConfig.cloudinaryUploadPreset,
+      ),
+    );
+  }
+}
+
+void _voltar(BuildContext context, String raiz) {
+  if (context.canPop()) {
+    context.pop();
+  } else {
+    context.go(raiz);
+  }
+}
+
+/// Sub-rotas da aba Descobrir: o fluxo que começa pelo ISBN.
+List<RouteBase> rotasDeDescobrir(DependenciasDeLivros deps) => <RouteBase>[
+  GoRoute(
+    path: 'adicionar-livro',
+    builder: (context, state) => CadastroIsbnPage(
+      servico: deps.acervo,
+      aoVoltar: () => _voltar(context, '/descobrir'),
+      aoNaoEncontrar: (isbn) => context.push<bool>(
+        Uri(
+          path: '$rotaAdicionarLivro/nao-encontrado',
+          queryParameters: <String, String>{'isbn': isbn},
+        ).toString(),
+      ),
+      aoAbrirLivro: (id) => context.push(rotaLivroOficial(id)),
+      aoCadastrarPessoal: () => context.push('$rotaAdicionarLivro/pessoal'),
+    ),
+    routes: <RouteBase>[
+      GoRoute(
+        path: 'nao-encontrado',
+        builder: (context, state) => IsbnNaoEncontradoPage(
+          isbn: state.uri.queryParameters['isbn'],
+          aoConferirIsbn: () => context.pop(true),
+          aoCadastrarPessoal: () =>
+              context.pushReplacement('$rotaAdicionarLivro/pessoal'),
+        ),
+      ),
+      GoRoute(
+        path: 'pessoal',
+        builder: (context, state) => LivroPessoalFormPage(
+          servico: deps.acervo,
+          seletor: deps.seletor,
+          enviador: deps.enviador,
+          aoCancelar: () => _voltar(context, rotaAdicionarLivro),
+          // O livro nasce na estante do dono: a página dele mora na aba Estante.
+          aoSalvar: (livro) => context.go(rotaLivroPessoalNaEstante(livro.id)),
+        ),
+      ),
+    ],
+  ),
+  GoRoute(
+    path: 'livro/:id',
+    builder: (context, state) => LivroOficialPlaceholderPage(
+      aoVoltar: () => _voltar(context, '/descobrir'),
+    ),
+  ),
+];
+
+GoRoute _paginaDoLivroPessoal(DependenciasDeLivros deps, {required String raiz}) {
+  return GoRoute(
+    path: 'livro-pessoal/:id',
+    builder: (context, state) {
+      final id = state.pathParameters['id']!;
+      return LivroPessoalPage(
+        // A chave pelo id faz a página recarregar se a rota trocar de livro sem desmontar.
+        key: ValueKey<String>('livro-pessoal-$id-${state.uri.query}'),
+        servico: deps.acervo,
+        livroId: id,
+        via: state.uri.queryParameters['via'],
+        referenciaId: state.uri.queryParameters['referenciaId'],
+        aoVoltar: () => _voltar(context, raiz),
+        aoEditar: (id) async {
+          await context.push<void>('$raiz/livro-pessoal/$id/editar');
+        },
+        aoExcluir: () => context.go(rotaEstanteRaiz),
+        aoVoltarAoFeed: () => context.go(rotaFeedRaiz),
+      );
+    },
+    routes: <RouteBase>[
+      GoRoute(
+        path: 'editar',
+        builder: (context, state) => LivroPessoalFormPage(
+          servico: deps.acervo,
+          seletor: deps.seletor,
+          enviador: deps.enviador,
+          livroId: state.pathParameters['id'],
+          aoCancelar: () => _voltar(context, raiz),
+          aoSalvar: (_) => _voltar(context, raiz),
+          aoExcluir: () => context.go(rotaEstanteRaiz),
+        ),
+      ),
+    ],
+  );
+}
+
+/// O dono chega ao livro pessoal pela própria estante.
+List<RouteBase> rotasDaEstante(DependenciasDeLivros deps) => <RouteBase>[
+  _paginaDoLivroPessoal(deps, raiz: rotaEstanteRaiz),
+];
+
+/// O terceiro chega **exclusivamente** pelo feed, com `via=feed&referenciaId=` (RN-15). F-FEED
+/// monta o link; esta rota só o recebe.
+List<RouteBase> rotasDoFeed(DependenciasDeLivros deps) => <RouteBase>[
+  _paginaDoLivroPessoal(deps, raiz: rotaFeedRaiz),
+];

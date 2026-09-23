@@ -6,6 +6,7 @@ import 'barra_inferior.dart';
 import 'cabecalho_tela.dart';
 
 const List<String> _titulosPorAba = <String>['Minha estante', 'Descobrir', 'Feed', 'Meu perfil'];
+const List<String> _raizesDasAbas = <String>['/estante', '/descobrir', '/feed', '/perfil'];
 
 /// O quadro em que as 4 áreas autenticadas vivem (shell-de-navegacao.md §1 e §4). `router.dart`
 /// entrega um `navigationShell` do `StatefulShellRoute.indexedStack`, que preserva a pilha de
@@ -14,10 +15,17 @@ const List<String> _titulosPorAba = <String>['Minha estante', 'Descobrir', 'Feed
 ///
 /// P0 não tem contagem real de não lidas (não existe RF de notificação ainda): o sino fica sem
 /// badge até F-NOTIF existir.
+///
+/// Abaixo da raiz de uma aba (ex.: `/descobrir/adicionar-livro`), o cabeçalho da aba sai e a
+/// própria tela desenha o seu, com seta de voltar e título próprio — o título da aba não diz
+/// onde a pessoa está, e o protótipo de cada sub-tela pede o dela.
 class ShellAutenticado extends StatelessWidget {
   final StatefulNavigationShell navigationShell;
 
-  const ShellAutenticado({super.key, required this.navigationShell});
+  /// Caminho atual. Nulo mantém o cabeçalho da aba, que era o comportamento antes das sub-rotas.
+  final String? caminhoAtual;
+
+  const ShellAutenticado({super.key, required this.navigationShell, this.caminhoAtual});
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +34,8 @@ class ShellAutenticado extends StatelessWidget {
       backgroundColor: theme.pageBackground,
       body: Column(
         children: <Widget>[
-          CabecalhoTela(titulo: _titulosPorAba[navigationShell.currentIndex]),
+          if (caminhoAtual == null || _raizesDasAbas.contains(caminhoAtual))
+            CabecalhoTela(titulo: _titulosPorAba[navigationShell.currentIndex]),
           Expanded(child: navigationShell),
         ],
       ),

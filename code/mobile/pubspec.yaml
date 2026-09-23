@@ -17,6 +17,7 @@ dependencies:
   go_router: 18.0.1
   google_fonts: 8.2.1
   http: 1.6.0
+  image_picker: 1.2.3
   phosphor_icons: 3.0.1
   shared_preferences: 2.5.5
 
