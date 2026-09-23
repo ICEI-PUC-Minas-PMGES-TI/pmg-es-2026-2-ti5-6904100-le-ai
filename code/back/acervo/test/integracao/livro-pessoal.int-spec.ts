@@ -51,6 +51,7 @@ describe('livro pessoal (integração)', () => {
     dono: string,
     livroId: string,
     seguidor?: string,
+    privacidade: 'publico' | 'privado' = 'publico',
   ) {
     const atividadeId = randomUUID();
     await pool.query(
@@ -59,8 +60,8 @@ describe('livro pessoal (integração)', () => {
     );
     await pool.query(
       `INSERT INTO identidade.v_perfil_referencia_v1
-       VALUES ($1, 'ana', 'Ana Leitora', NULL, 'publico', false)`,
-      [dono],
+       VALUES ($1, 'ana', 'Ana Leitora', NULL, $2, false)`,
+      [dono, privacidade],
     );
     if (seguidor) {
       await pool.query(
@@ -220,6 +221,41 @@ describe('livro pessoal (integração)', () => {
     expect(segunda.status).toBe(204);
   });
 
+  /**
+   * Renomeia uma VIEW externa durante `corpo` e devolve o nome no `finally`:
+   * `limpar()` trunca pelo nome original, e um teste que falhe no meio não pode
+   * quebrar os seguintes. O efeito é o mesmo da VIEW ainda não criada: 42P01.
+   */
+  async function semRelacao(tabela: string, corpo: () => Promise<void>) {
+    const [schema, nome] = tabela.split('.');
+    await pool.query(`ALTER TABLE ${tabela} RENAME TO ${nome}_fora`);
+    try {
+      await corpo();
+    } finally {
+      await pool.query(`ALTER TABLE ${schema}.${nome}_fora RENAME TO ${nome}`);
+    }
+  }
+
+  it('dono abre a página com nota nula quando a VIEW de nota falha (degrada, não derruba)', async () => {
+    const dono = novoUsuario();
+    const { id } = await criar(dono);
+    await pool.query(
+      `INSERT INTO leitura.v_nota_publicacao_v1 VALUES ($1, $2, 4.5)`,
+      [dono, id],
+    );
+
+    await semRelacao('leitura.v_nota_publicacao_v1', async () => {
+      const pagina = await http().get(`/livros/pessoal/${id}`).set(como(dono));
+
+      expect(pagina.status).toBe(200);
+      expect(pagina.body).toMatchObject({
+        id,
+        modoConsulta: false,
+        notaDoDono: null,
+      });
+    });
+  });
+
   describe('terceiro (RN-15)', () => {
     it('seguidor com atividade válida do feed abre em modo consulta, com nota e resenha do dono', async () => {
       const dono = novoUsuario();
@@ -282,6 +318,46 @@ describe('livro pessoal (integração)', () => {
         .get(`/livros/pessoal/${id}?via=feed&referenciaId=${atividadeDoOutro}`)
         .set(como(seguidor));
       expect(pagina.status).toBe(403);
+    });
+
+    it('seguidor aceito de perfil privado abre em modo consulta', async () => {
+      const dono = novoUsuario();
+      const seguidor = novoUsuario();
+      const { id } = await criar(dono);
+      const atividade = await publicarNoFeed(dono, id, seguidor, 'privado');
+
+      const pagina = await http()
+        .get(`/livros/pessoal/${id}?via=feed&referenciaId=${atividade}`)
+        .set(como(seguidor));
+      expect(pagina.status).toBe(200);
+      expect(pagina.body).toMatchObject({ id, modoConsulta: true });
+    });
+
+    it('não seguidor de perfil privado é negado', async () => {
+      const dono = novoUsuario();
+      const { id } = await criar(dono);
+      const atividade = await publicarNoFeed(dono, id, undefined, 'privado');
+
+      const pagina = await http()
+        .get(`/livros/pessoal/${id}?via=feed&referenciaId=${atividade}`)
+        .set(como(novoUsuario()));
+      expect(pagina.status).toBe(403);
+    });
+
+    it('VIEW de seguimento indisponível responde 503, nunca 500 nem 403', async () => {
+      const dono = novoUsuario();
+      const seguidor = novoUsuario();
+      const { id } = await criar(dono);
+      const atividade = await publicarNoFeed(dono, id, seguidor);
+
+      await semRelacao('identidade.v_seguimento_aceito_v1', async () => {
+        const pagina = await http()
+          .get(`/livros/pessoal/${id}?via=feed&referenciaId=${atividade}`)
+          .set(como(seguidor));
+
+        expect(pagina.status).toBe(503);
+        expect(pagina.body).toMatchObject({ codigo: 'SERVICO_INDISPONIVEL' });
+      });
     });
 
     it('referência forjada é negada', async () => {

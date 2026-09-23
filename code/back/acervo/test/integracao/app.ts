@@ -18,11 +18,25 @@ export async function criarApp(): Promise<NestExpressApplication> {
   return app;
 }
 
+/**
+ * Variações do token para os testes de recusa: outro segredo ou outro emissor.
+ * Sem opções, o token sai exatamente como o `identidade` emite.
+ */
+export interface OpcoesDoToken {
+  segredo?: string;
+  issuer?: string;
+}
+
 /** Token no formato que o `identidade` emite (HS256, `sub`, `username`). */
-export function tokenDe(usuarioId: string, username = 'leitora'): string {
-  return jwt.sign({ username }, process.env.JWT_SECRET as string, {
+export function tokenDe(
+  usuarioId: string,
+  username = 'leitora',
+  opcoes: OpcoesDoToken = {},
+): string {
+  const segredo = opcoes.segredo ?? (process.env.JWT_SECRET as string);
+  return jwt.sign({ username }, segredo, {
     algorithm: 'HS256',
-    issuer: 'identidade',
+    issuer: opcoes.issuer ?? 'identidade',
     subject: usuarioId,
     expiresIn: '15m',
   });
