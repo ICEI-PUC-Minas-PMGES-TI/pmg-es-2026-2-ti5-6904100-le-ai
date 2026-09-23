@@ -14,12 +14,13 @@ info:
 x-contract-status: partial
 x-implementation-notes:
   - >-
-    O produtor de livro.importacao_solicitada está implementado: a solicitação e
-    a linha de outbox são gravadas na mesma transação. O dispatcher, o envelope,
-    o recibo, o retry e a DLQ são de P0-MSG e ainda não existem, então a
-    importação permanece em `pendente` até aquela entrega. O consumidor de
-    domínio que consulta OpenLibrary e Google Books está implementado e testado,
-    mas sem acionador.
+    livro.importacao_solicitada está ligado ponta a ponta desde 22/09/2026: a
+    solicitação e a linha de outbox são gravadas na mesma transação, o
+    dispatcher de P0-MSG publica, e o consumidor acervo.importacao (fila
+    leai.acervo.importacao) consulta OpenLibrary e Google Books e converge o
+    livro com o mesmo tx do recibo. Com AMQP_ENABLED=false (padrão local) a
+    importação permanece em `pendente`. Em DES/HML depende de AMQP_URL do
+    CloudAMQP estar preenchida no painel do Render.
   - >-
     GET /livros/pessoal/{id} com via=feed depende de
     social.v_atividade_livro_pessoal_v1 e identidade.v_seguimento_aceito_v1, que
