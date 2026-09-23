@@ -37,7 +37,7 @@ Convenções do app mobile. Complementa o [`AGENTS.md`](../../AGENTS.md) da raiz
 ## Comandos
 
 Executar na pasta `code/mobile`: `flutter pub get`, `dart run tool/generate_tokens.dart --check`, `flutter analyze`, `flutter test` e `flutter build apk --debug`. Quando `tokens.json` mudar, rode `dart run tool/generate_tokens.dart` antes da validação.
-Para validação ponta a ponta Android, iniciar o AVD `Pixel_8_API_35` e executar `flutter run -d emulator-5554`, com uma `--dart-define` por serviço: `IDENTIDADE_BASE_URL=http://10.0.2.2:8080`, `ACERVO_BASE_URL=http://10.0.2.2:3000` e, para a capa, `CLOUDINARY_UPLOAD_PRESET=<preset unsigned>` (ver `.env.example`).
+Para validação ponta a ponta Android, iniciar o AVD `Pixel_8_API_35` e executar `flutter run -d emulator-5554`, com uma `--dart-define` por serviço: `IDENTIDADE_BASE_URL=http://10.0.2.2:8080`, `ACERVO_BASE_URL=http://10.0.2.2:3000` e, para a capa, `CLOUDINARY_UPLOAD_PRESET=leai_capas` (preset unsigned do cloud `leai`, ver `.env.example`).
 
 ## Pontos de atenção do produto (ver `REQUISITOS.md`)
 
