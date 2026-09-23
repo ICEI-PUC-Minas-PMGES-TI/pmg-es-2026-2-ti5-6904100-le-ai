@@ -2,6 +2,7 @@ import {
   normalizarEditora,
   normalizarNome,
   normalizarNomeAutor,
+  nomeDeAutorUtilizavel,
 } from './normalizacao';
 
 // Os mesmos casos de `code/scripts/ingestao/tests/test_normalizacao.py`, de
@@ -46,4 +47,21 @@ describe('normalização RN-12', () => {
       normalizarNomeAutor('JOSE  saramago'),
     );
   });
+
+  it.each([
+    '[author not identified]',
+    '[Unknown]',
+    'Unknown',
+    'Autor desconhecido',
+    '   ',
+  ])('marcador de catálogo não é nome de autor: "%s"', (nome) => {
+    expect(nomeDeAutorUtilizavel(nome)).toBe(false);
+  });
+
+  it.each(['Austin Kleon', 'Anônimo', 'Machado de Assis'])(
+    'nome real continua valendo: %s',
+    (nome) => {
+      expect(nomeDeAutorUtilizavel(nome)).toBe(true);
+    },
+  );
 });

@@ -115,3 +115,32 @@ export function normalizarEditora(texto: string | null | undefined): string {
 export function normalizarNomeAutor(texto: string | null | undefined): string {
   return removerAcentos(normalizarNome(texto));
 }
+
+/**
+ * Nomes que a fonte usa como marcador de "autor não identificado", sem acento e em minúsculas.
+ * "Anônimo" fica de fora de propósito: é atribuição real de obra (As Mil e Uma Noites).
+ */
+const MARCADORES_DE_AUTOR_DESCONHECIDO = new Set([
+  'unknown',
+  'unknown author',
+  'author unknown',
+  'desconhecido',
+  'autor desconhecido',
+]);
+
+/**
+ * Nome de autor que dá para exibir (RNF-SEC-33). A OpenLibrary tem registros de autor que são só
+ * marcador de catálogo, como `[author not identified]`: nome inteiro entre colchetes é a
+ * convenção de catalogação para informação que não consta da obra. Um desses vinculado à edição
+ * esconde o autor verdadeiro que a obra conhece, então ele é descartado e o plano B pela obra
+ * entra (ex.: `9788532528421`, de Austin Kleon).
+ */
+export function nomeDeAutorUtilizavel(
+  nome: string | null | undefined,
+): boolean {
+  const limpo = (nome ?? '').trim();
+  if (!limpo || /^\[.*\]$/.test(limpo)) {
+    return false;
+  }
+  return !MARCADORES_DE_AUTOR_DESCONHECIDO.has(normalizarNomeAutor(limpo));
+}

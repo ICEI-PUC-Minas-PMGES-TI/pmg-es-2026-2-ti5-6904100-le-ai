@@ -15,7 +15,11 @@ import {
   DadosImportacaoSolicitada,
 } from '../outbox/eventos';
 import { OutboxRepository } from '../outbox/outbox.repository';
-import { ImportacaoAceitaDto, ImportacaoDto } from './dto/importacao.dto';
+import {
+  ImportacaoAceitaDto,
+  ImportacaoDto,
+  LivroImportadoResumoDto,
+} from './dto/importacao.dto';
 import {
   ImportacaoRegistro,
   ImportacaoRepository,
@@ -64,7 +68,9 @@ export class ImportacaoService {
           isbn13,
         );
         if (existente) {
-          throw new LivroJaCadastrado(existente);
+          // O resumo leva a tela a mostrar QUAL livro já existe (§4.5), não só o id.
+          const resumo = await this.repositorio.resumoDoLivro(existente, tx);
+          throw new LivroJaCadastrado(existente, resumo ?? undefined);
         }
 
         const solicitacao = await this.repositorio.criar(
@@ -91,7 +97,11 @@ export class ImportacaoService {
     if (encontrada.solicitanteId !== solicitanteId) {
       throw new AcessoNegado();
     }
-    return this.montar(encontrada);
+    const livro =
+      encontrada.estado === 'concluida' && encontrada.livroId
+        ? await this.repositorio.resumoDoLivro(encontrada.livroId)
+        : null;
+    return this.montar(encontrada, livro);
   }
 
   /**
@@ -164,7 +174,10 @@ export class ImportacaoService {
     });
   }
 
-  private montar(registro: ImportacaoRegistro): ImportacaoDto {
+  private montar(
+    registro: ImportacaoRegistro,
+    livro: LivroImportadoResumoDto | null = null,
+  ): ImportacaoDto {
     return {
       importacaoId: registro.id,
       isbn: registro.isbn13,
@@ -172,6 +185,7 @@ export class ImportacaoService {
       // O CHECK do banco já garante isto, mas repetir aqui deixa o contrato
       // explícito para quem lê a resposta.
       livroId: registro.estado === 'concluida' ? registro.livroId : null,
+      livro: registro.estado === 'concluida' ? livro : null,
       permiteCadastroPessoal: registro.estado === 'nao_encontrado',
       criadoEm: registro.criadoEm.toISOString(),
       atualizadoEm: registro.atualizadoEm.toISOString(),

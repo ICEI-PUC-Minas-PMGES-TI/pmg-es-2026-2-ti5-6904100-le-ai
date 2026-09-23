@@ -95,6 +95,26 @@ describe('OpenLibraryFonte', () => {
     ]);
   });
 
+  it('autor da edição que é marcador de catálogo cede lugar ao autor da obra', async () => {
+    const { fonte } = fonteCom({
+      [`/isbn/${ISBN}.json`]: {
+        ...EDICAO,
+        authors: [{ key: '/authors/OL2965820A' }],
+      },
+      '/authors/OL2965820A.json': { name: '[author not identified]' },
+      '/works/OL9W.json': {
+        authors: [{ author: { key: '/authors/OL6789787A' } }],
+      },
+      '/authors/OL6789787A.json': { name: 'Austin Kleon' },
+    });
+
+    const metadados = await fonte.buscarPorIsbn(ISBN);
+
+    expect(metadados?.autores).toEqual([
+      { nome: 'Austin Kleon', olAuthorKey: 'OL6789787A' },
+    ]);
+  });
+
   it('propaga indisponibilidade na consulta do autor', async () => {
     const { fonte } = fonteCom({
       [`/isbn/${ISBN}.json`]: EDICAO,

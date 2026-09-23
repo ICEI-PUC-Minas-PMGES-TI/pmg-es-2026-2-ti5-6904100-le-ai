@@ -3,6 +3,7 @@ import {
   FonteDeMetadados,
   MetadadosLivro,
 } from './fonte-metadados';
+import { nomeDeAutorUtilizavel } from '../../../common/normalizacao';
 import { HttpExterno } from './http-externo';
 import { PoliticaDeResiliencia } from './politica-resiliencia';
 
@@ -129,7 +130,10 @@ export class OpenLibraryFonte implements FonteDeMetadados {
         this.http.buscarJson(this.nome, url),
       )) as { name?: string } | null;
       const nome = bruto?.name?.trim();
-      if (nome) autores.push({ nome, olAuthorKey: chave });
+      // Marcador como `[author not identified]` conta como ausência, e aí a obra entra.
+      if (nome && nomeDeAutorUtilizavel(nome)) {
+        autores.push({ nome, olAuthorKey: chave });
+      }
     }
     return autores;
   }

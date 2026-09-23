@@ -148,8 +148,63 @@ describe('importação por ISBN (integração)', () => {
     });
 
     expect(resposta.status).toBe(409);
-    expect(resposta.body).toMatchObject({ livroId });
+    expect(resposta.body).toMatchObject({
+      livroId,
+      livro: { id: livroId, titulo: 'Livro oficial de teste', paginas: 200 },
+    });
     expect(await contar(pool, 'acervo.outbox_acervo')).toBe(0);
+  });
+
+  it('importação concluída traz o resumo do livro para o card de confirmação', async () => {
+    const dono = novoUsuario();
+    const alvo = isbn('978853591484');
+    const livroId = await inserirLivroOficial(pool, alvo, '1984');
+    const {
+      rows: [editora],
+    } = await pool.query<{ id: string }>(
+      `INSERT INTO acervo.editora (nome, nome_normalizado)
+       VALUES ('Companhia das Letras', 'companhia das letras') RETURNING id`,
+    );
+    const {
+      rows: [autor],
+    } = await pool.query<{ id: string }>(
+      `INSERT INTO acervo.autor (nome, nome_normalizado, ol_author_key)
+       VALUES ('George Orwell', 'george orwell', 'OL118077A') RETURNING id`,
+    );
+    await pool.query(
+      `UPDATE acervo.livro SET editora_id = $2, ano_publicacao = 2009 WHERE id = $1`,
+      [livroId, editora.id],
+    );
+    await pool.query(`INSERT INTO acervo.livro_autor VALUES ($1, $2)`, [
+      livroId,
+      autor.id,
+    ]);
+    const {
+      rows: [importacao],
+    } = await pool.query<{ id: string }>(
+      `INSERT INTO acervo.importacao_livro (solicitante_id, isbn13, estado, livro_id)
+       VALUES ($1, $2, 'concluida', $3) RETURNING id`,
+      [dono, alvo, livroId],
+    );
+
+    const resposta = await request(app.getHttpServer())
+      .get(`/livros/importacoes/${importacao.id}`)
+      .set('Authorization', `Bearer ${tokenDe(dono)}`);
+
+    expect(resposta.status).toBe(200);
+    expect(resposta.body).toMatchObject({
+      status: 'concluida',
+      livroId,
+      livro: {
+        id: livroId,
+        titulo: '1984',
+        autores: 'George Orwell',
+        editora: 'Companhia das Letras',
+        anoPublicacao: 2009,
+        paginas: 200,
+        capaUrl: 'https://covers.openlibrary.org/b/id/1-L.jpg',
+      },
+    });
   });
 
   it('só o solicitante consulta a importação', async () => {
@@ -168,6 +223,7 @@ describe('importação por ISBN (integração)', () => {
     expect(propria.body).toMatchObject({
       importacaoId: id,
       status: 'pendente',
+      livro: null,
       permiteCadastroPessoal: false,
     });
     expect((await consultar(novoUsuario())).status).toBe(403);

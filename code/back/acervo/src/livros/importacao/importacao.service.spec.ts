@@ -15,6 +15,15 @@ const OUTRO = 'bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb';
 const IMPORTACAO = 'cccccccc-3333-4333-8333-cccccccccccc';
 const LIVRO = 'dddddddd-4444-4444-8444-dddddddddddd';
 const ISBN = '9788535914849';
+const RESUMO = {
+  id: LIVRO,
+  titulo: '1984',
+  autores: 'George Orwell',
+  editora: 'Companhia das Letras',
+  anoPublicacao: 2009,
+  paginas: 416,
+  capaUrl: 'https://covers.openlibrary.org/b/id/1-L.jpg',
+};
 
 function registro(mudancas: Record<string, unknown> = {}) {
   return {
@@ -44,6 +53,7 @@ function montar(
       .fn()
       .mockResolvedValue('atual' in opcoes ? opcoes.atual : registro()),
     reabrir: jest.fn().mockResolvedValue(registro()),
+    resumoDoLivro: jest.fn().mockResolvedValue(RESUMO),
   } as unknown as ImportacaoRepository;
 
   const outbox = {
@@ -98,6 +108,8 @@ describe('ImportacaoService.solicitar', () => {
     ).rejects.toMatchObject({
       codigo: 'LIVRO_JA_CADASTRADO',
       livroId: LIVRO,
+      // O resumo leva a tela a mostrar qual livro já existe (§4.5).
+      extras: { livroId: LIVRO, livro: RESUMO },
     });
   });
 
@@ -195,6 +207,21 @@ describe('ImportacaoService.obter', () => {
       atual: registro({ estado: 'concluida', livroId: LIVRO }),
     });
     expect((await servico.obter(IMPORTACAO, SOLICITANTE)).livroId).toBe(LIVRO);
+  });
+
+  it('concluida traz o resumo do livro; os outros estados, não', async () => {
+    const concluida = montar({
+      atual: registro({ estado: 'concluida', livroId: LIVRO }),
+    });
+    expect(
+      (await concluida.servico.obter(IMPORTACAO, SOLICITANTE)).livro,
+    ).toEqual(RESUMO);
+
+    const pendente = montar();
+    expect(
+      (await pendente.servico.obter(IMPORTACAO, SOLICITANTE)).livro,
+    ).toBeNull();
+    expect(pendente.repositorio.resumoDoLivro).not.toHaveBeenCalled();
   });
 });
 

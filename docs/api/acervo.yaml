@@ -179,7 +179,8 @@ paths:
         Aceita somente ISBN-13 válido, nunca URL. Para ISBN novo, cria uma
         solicitação idempotente, grava a outbox de livro.importacao_solicitada e
         responde 202 sem aguardar OpenLibrary ou Google Books. ISBN já existente
-        responde 409 com livroId. A operação tem rate limiting por IP e identidade.
+        responde 409 com livroId e o resumo do livro existente. A operação tem
+        rate limiting por IP e identidade.
         Repetir a mesma Idempotency-Key com o mesmo corpo devolve a resposta
         original; reutilizá-la com corpo diferente responde 409.
       parameters:
@@ -525,6 +526,31 @@ components:
           required: [livroId]
           properties:
             livroId: { type: string, format: uuid }
+            livro:
+              $ref: '#/components/schemas/LivroImportadoResumo'
+    LivroImportadoResumo:
+      type: object
+      additionalProperties: false
+      description: >-
+        Resumo da edição para o card de confirmação do cadastro por ISBN
+        (livro encontrado ou já existente). Não substitui a página do livro,
+        que é de F-ACV-BUSCA.
+      required: [id, titulo, autores, editora, anoPublicacao, paginas, capaUrl]
+      properties:
+        id: { type: string, format: uuid }
+        titulo: { type: string, minLength: 1, maxLength: 500 }
+        autores:
+          type: string
+          nullable: true
+          description: Autores para exibição, separados por vírgula.
+        editora: { type: string, nullable: true }
+        anoPublicacao: { type: integer, minimum: 1, maximum: 9999, nullable: true }
+        paginas: { type: integer, minimum: 1 }
+        capaUrl:
+          type: string
+          format: uri
+          nullable: true
+          description: Capa resolvida, cópia própria e depois URL externa.
     AutorResumo:
       type: object
       additionalProperties: false
@@ -648,7 +674,7 @@ components:
     Importacao:
       type: object
       additionalProperties: false
-      required: [importacaoId, isbn, status, livroId, permiteCadastroPessoal, criadoEm, atualizadoEm]
+      required: [importacaoId, isbn, status, livroId, livro, permiteCadastroPessoal, criadoEm, atualizadoEm]
       properties:
         importacaoId: { type: string, format: uuid }
         isbn:
@@ -660,6 +686,11 @@ components:
           format: uuid
           nullable: true
           description: Preenchido somente quando status é concluida.
+        livro:
+          allOf:
+            - $ref: '#/components/schemas/LivroImportadoResumo'
+          nullable: true
+          description: Resumo do livro, somente quando status é concluida.
         permiteCadastroPessoal:
           type: boolean
           description: true somente quando status é nao_encontrado.

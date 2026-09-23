@@ -30,6 +30,34 @@ export class ImportacaoAceitaDto {
   @ApiProperty({ enum: ['pendente'] }) status!: 'pendente';
 }
 
+/**
+ * O que a tela precisa para confirmar **qual** livro entrou ou já existia
+ * (cadastro-por-isbn.md §4.4 e §4.5): capa, título, autor, editora, ano e
+ * páginas. É um resumo da edição, não a página do livro, que é de F-ACV-BUSCA.
+ */
+export class LivroImportadoResumoDto {
+  @ApiProperty({ format: 'uuid' }) id!: string;
+  @ApiProperty() titulo!: string;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description: 'Autores para exibição, separados por vírgula.',
+  })
+  autores!: string | null;
+
+  @ApiProperty({ nullable: true, type: String }) editora!: string | null;
+  @ApiProperty({ nullable: true, type: Number }) anoPublicacao!: number | null;
+  @ApiProperty({ minimum: 1 }) paginas!: number;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description: 'Capa resolvida: cópia própria, senão URL externa.',
+  })
+  capaUrl!: string | null;
+}
+
 export class ImportacaoDto {
   @ApiProperty({ format: 'uuid' }) importacaoId!: string;
   @ApiProperty({ pattern: '^97[89][0-9]{10}$' }) isbn!: string;
@@ -47,6 +75,13 @@ export class ImportacaoDto {
     description: 'Preenchido somente quando status é concluida.',
   })
   livroId!: string | null;
+
+  @ApiProperty({
+    type: LivroImportadoResumoDto,
+    nullable: true,
+    description: 'Resumo do livro, somente quando status é concluida.',
+  })
+  livro!: LivroImportadoResumoDto | null;
 
   @ApiProperty({ description: 'true somente quando status é nao_encontrado.' })
   permiteCadastroPessoal!: boolean;

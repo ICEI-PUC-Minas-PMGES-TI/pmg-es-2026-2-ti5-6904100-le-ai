@@ -70,12 +70,20 @@ export class NaoEncontrado extends ErroDeNegocio {
  * 409 seria um beco sem saída.
  */
 export class LivroJaCadastrado extends ErroDeNegocio {
-  constructor(readonly livroId: string) {
+  /**
+   * `livro` é o resumo que a tela mostra no card de duplicata
+   * (cadastro-por-isbn.md §4.5); o `livroId` continua sendo o que o contrato
+   * garante.
+   */
+  constructor(
+    readonly livroId: string,
+    livro?: object,
+  ) {
     super(
       HttpStatus.CONFLICT,
       'LIVRO_JA_CADASTRADO',
       'Este livro já está no acervo.',
-      { livroId },
+      livro ? { livroId, livro } : { livroId },
     );
   }
 }
