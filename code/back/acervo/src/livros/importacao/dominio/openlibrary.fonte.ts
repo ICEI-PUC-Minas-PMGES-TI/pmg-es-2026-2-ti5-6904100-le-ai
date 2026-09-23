@@ -27,6 +27,7 @@ const CAPA = 'https://covers.openlibrary.org/b/id/{id}-L.jpg';
  */
 const MAX_AUTORES = 5;
 const CHAVE_AUTOR = /^OL[0-9]+A$/;
+const CHAVE_OBRA = /^OL[0-9]+W$/;
 
 interface EdicaoOpenLibrary {
   key?: string;
@@ -65,7 +66,7 @@ export class OpenLibraryFonte implements FonteDeMetadados {
     return {
       isbn13,
       titulo: bruto.title.trim(),
-      autores: await this.resolverAutores(bruto.authors ?? []),
+      autores: await this.autoresDaEdicao(bruto),
       editora: bruto.publishers?.[0]?.trim() ?? null,
       anoPublicacao: extrairAno(bruto.publish_date),
       paginas:
@@ -76,6 +77,35 @@ export class OpenLibraryFonte implements FonteDeMetadados {
       olEditionKey: bruto.key?.split('/').pop() ?? null,
       olWorkKey: bruto.works?.[0]?.key?.split('/').pop() ?? null,
     };
+  }
+
+  /**
+   * Autor da edição, com a obra como plano B. Muitas edições brasileiras na
+   * OpenLibrary não têm `authors` — só a obra tem, e a lista da obra mistura o
+   * autor com tradutor e prefaciador cadastrados como autor. Por isso da obra
+   * vem **só o primeiro**, que é o autor principal na prática da fonte.
+   */
+  private async autoresDaEdicao(
+    edicao: EdicaoOpenLibrary,
+  ): Promise<AutorExterno[]> {
+    const daEdicao = await this.resolverAutores(edicao.authors ?? []);
+    if (daEdicao.length > 0) {
+      return daEdicao;
+    }
+
+    const chaveObra = edicao.works?.[0]?.key?.split('/').pop();
+    if (!chaveObra || !CHAVE_OBRA.test(chaveObra)) {
+      return [];
+    }
+    const url = new URL(`${BASE}/works/${chaveObra}.json`);
+    const obra = (await this.resiliencia.executar(this.nome, () =>
+      this.http.buscarJson(this.nome, url),
+    )) as { authors?: { author?: { key?: string } }[] } | null;
+
+    const principal = (obra?.authors ?? [])
+      .map((autor) => ({ key: autor.author?.key }))
+      .slice(0, 1);
+    return this.resolverAutores(principal);
   }
 
   /**

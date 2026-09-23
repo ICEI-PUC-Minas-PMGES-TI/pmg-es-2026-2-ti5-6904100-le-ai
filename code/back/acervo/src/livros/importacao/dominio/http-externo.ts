@@ -12,10 +12,15 @@ import { FonteIndisponivel } from './fonte-metadados';
  * 2. **Timeout.** Sem ele, uma fonte lenta segura a conexão indefinidamente.
  * 3. **Limite de tamanho da resposta**, lido em streaming e abortado ao estourar.
  *    Sem isso, uma resposta gigante derruba o serviço por memória.
- * 4. **Redirect nunca seguido** (`redirect: 'manual'`). Seguir redirecionamento
- *    é o caminho clássico de escapar da allowlist: o host permitido responde 302
- *    para um destino interno.
+ * 4. **Redirect só dentro da allowlist**, seguido à mão (`redirect: 'manual'`).
+ *    Seguir redirecionamento às cegas é o caminho clássico de escapar da
+ *    allowlist: o host permitido responde 302 para um destino interno. Mas
+ *    recusar todo redirect quebra a fonte primária — `openlibrary.org/isbn/{isbn}.json`
+ *    **sempre** responde 302 para `/books/{olid}.json`. RNF-SEC-39 proíbe o
+ *    redirect *fora* da allowlist; cada salto é revalidado como a URL original,
+ *    com teto de saltos e o mesmo timeout para a cadeia inteira.
  */
+const MAX_REDIRECTS = 3;
 export interface ConfiguracaoHttpExterno {
   hostsPermitidos: string[];
   timeoutMs: number;
@@ -51,21 +56,31 @@ export class HttpExterno {
     );
 
     try {
-      const resposta = await executar(url.toString(), {
-        method: 'GET',
-        headers: {
-          Accept: 'application/json',
-          'User-Agent': this.configuracao.userAgent,
-        },
-        redirect: 'manual',
-        signal: controle.signal,
-      });
+      let alvo = url;
+      let resposta: Response;
+      for (let saltos = 0; ; saltos += 1) {
+        resposta = await executar(alvo.toString(), {
+          method: 'GET',
+          headers: {
+            Accept: 'application/json',
+            'User-Agent': this.configuracao.userAgent,
+          },
+          redirect: 'manual',
+          signal: controle.signal,
+        });
+        if (resposta.status < 300 || resposta.status >= 400) {
+          break;
+        }
+
+        const destino = this.destinoDoRedirect(alvo, resposta);
+        if (!destino || saltos >= MAX_REDIRECTS) {
+          throw new FonteIndisponivel(fonte, 'redirecionamento recusado');
+        }
+        alvo = destino;
+      }
 
       if (resposta.status === 404) {
         return null;
-      }
-      if (resposta.status >= 300 && resposta.status < 400) {
-        throw new FonteIndisponivel(fonte, 'redirecionamento recusado');
       }
       if (!resposta.ok) {
         throw new FonteIndisponivel(fonte, `resposta ${resposta.status}`);
@@ -88,6 +103,31 @@ export class HttpExterno {
     } finally {
       clearTimeout(expira);
     }
+  }
+
+  /**
+   * Destino do redirect, só se ele passaria pelas mesmas regras da URL original:
+   * https e host da allowlist por igualdade exata. Caminho relativo resolve
+   * contra a URL atual. Qualquer outra coisa é `null`, e o chamador recusa.
+   */
+  private destinoDoRedirect(atual: URL, resposta: Response): URL | null {
+    const location = resposta.headers.get('location');
+    if (!location) {
+      return null;
+    }
+    let destino: URL;
+    try {
+      destino = new URL(location, atual);
+    } catch {
+      return null;
+    }
+    if (destino.protocol !== 'https:' || !this.hostPermitido(destino)) {
+      return null;
+    }
+    if (destino.username || destino.password || destino.port) {
+      return null;
+    }
+    return destino;
   }
 
   /**

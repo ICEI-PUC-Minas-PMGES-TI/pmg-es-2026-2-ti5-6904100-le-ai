@@ -62,7 +62,8 @@ describe('OpenLibraryFonte', () => {
     const metadados = await fonte.buscarPorIsbn(ISBN);
 
     expect(metadados?.autores).toEqual([]);
-    expect(buscarJson).toHaveBeenCalledTimes(1);
+    const caminhos = buscarJson.mock.calls.map(([, url]) => url.pathname);
+    expect(caminhos).toEqual([`/isbn/${ISBN}.json`, '/works/OL9W.json']);
   });
 
   it('omite autor que a fonte não conhece sem perder o livro', async () => {
@@ -72,6 +73,26 @@ describe('OpenLibraryFonte', () => {
 
     expect(metadados?.titulo).toBe(EDICAO.title);
     expect(metadados?.autores).toEqual([]);
+  });
+
+  it('sem autor na edição, usa só o primeiro autor da obra', async () => {
+    const { fonte } = fonteCom({
+      [`/isbn/${ISBN}.json`]: { ...EDICAO, authors: undefined },
+      '/works/OL9W.json': {
+        authors: [
+          { author: { key: '/authors/OL118077A' } },
+          { author: { key: '/authors/OL16029200A' } },
+        ],
+      },
+      '/authors/OL118077A.json': { name: 'George Orwell' },
+      '/authors/OL16029200A.json': { name: 'Prefaciador' },
+    });
+
+    const metadados = await fonte.buscarPorIsbn(ISBN);
+
+    expect(metadados?.autores).toEqual([
+      { nome: 'George Orwell', olAuthorKey: 'OL118077A' },
+    ]);
   });
 
   it('propaga indisponibilidade na consulta do autor', async () => {

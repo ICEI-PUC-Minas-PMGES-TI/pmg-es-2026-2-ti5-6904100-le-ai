@@ -100,8 +100,8 @@ describe('HttpExterno', () => {
     ).rejects.toBeInstanceOf(FonteIndisponivel);
   });
 
-  // Seguir redirect é o caminho clássico de escapar da allowlist.
-  it('não segue redirecionamento', async () => {
+  // Seguir redirect às cegas é o caminho clássico de escapar da allowlist.
+  it('não segue redirecionamento para fora da allowlist', async () => {
     const http = new HttpExterno({
       ...BASE,
       fetch: async () =>
@@ -113,6 +113,74 @@ describe('HttpExterno', () => {
         new URL('https://openlibrary.org/isbn/1.json'),
       ),
     ).rejects.toThrow(/redirecionamento/);
+  });
+
+  // `openlibrary.org/isbn/{isbn}.json` sempre responde 302 para `/books/{olid}.json`.
+  it('segue redirecionamento dentro da allowlist, inclusive relativo', async () => {
+    const pedidos: string[] = [];
+    const http = new HttpExterno({
+      ...BASE,
+      fetch: async (url) => {
+        pedidos.push(String(url));
+        if (String(url).endsWith('/isbn/1.json')) {
+          return resposta('', {
+            status: 302,
+            headers: { location: '/books/OL1M.json' },
+          });
+        }
+        return resposta('{"title":"x"}');
+      },
+    });
+
+    await expect(
+      http.buscarJson(
+        'openlibrary',
+        new URL('https://openlibrary.org/isbn/1.json'),
+      ),
+    ).resolves.toEqual({ title: 'x' });
+    expect(pedidos).toEqual([
+      'https://openlibrary.org/isbn/1.json',
+      'https://openlibrary.org/books/OL1M.json',
+    ]);
+  });
+
+  it.each([
+    ['http, mesmo no host permitido', 'http://openlibrary.org/books/OL1M.json'],
+    ['host com sufixo do permitido', 'https://openlibrary.org.invasor.com/x'],
+    ['credencial embutida', 'https://u:p@openlibrary.org/x'],
+    ['porta explícita', 'https://openlibrary.org:8443/x'],
+  ])('recusa redirecionamento: %s', async (_caso, location) => {
+    const http = new HttpExterno({
+      ...BASE,
+      fetch: async () => resposta('', { status: 302, headers: { location } }),
+    });
+    await expect(
+      http.buscarJson(
+        'openlibrary',
+        new URL('https://openlibrary.org/isbn/1.json'),
+      ),
+    ).rejects.toThrow(/redirecionamento/);
+  });
+
+  it('recusa cadeia longa de redirecionamentos', async () => {
+    let chamadas = 0;
+    const http = new HttpExterno({
+      ...BASE,
+      fetch: async () => {
+        chamadas += 1;
+        return resposta('', {
+          status: 302,
+          headers: { location: `https://openlibrary.org/${chamadas}` },
+        });
+      },
+    });
+    await expect(
+      http.buscarJson(
+        'openlibrary',
+        new URL('https://openlibrary.org/isbn/1.json'),
+      ),
+    ).rejects.toThrow(/redirecionamento/);
+    expect(chamadas).toBe(4);
   });
 
   it('pede redirect manual ao fetch', async () => {
