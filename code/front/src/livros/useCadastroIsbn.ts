@@ -1,6 +1,6 @@
 import { getCurrentScope, onScopeDispose, readonly, ref } from 'vue'
 
-import { acervoService, type AcervoService } from '../services/acervo'
+import { acervoService, type AcervoService, type LivroImportadoResumo } from '../services/acervo'
 import { ApiError, novaChaveIdempotencia } from '../services/api'
 import { normalizarIsbn13 } from './isbn'
 
@@ -51,14 +51,20 @@ export function useCadastroIsbn(opcoes: OpcoesDoCadastroIsbn = {}) {
   const lento = ref(false)
   const coldStart = ref(false)
   const livroId = ref<string | null>(null)
+  /** O que o card mostra: capa, título, autor, editora, ano e páginas. */
+  const livro = ref<LivroImportadoResumo | null>(null)
   /** ISBN normalizado do último envio, para a tela de não encontrado conferir. */
   const isbn = ref<string | null>(null)
   const mensagemDoServidor = ref<string | null>(null)
 
   let importacaoId: string | null = null
   let reprocessavel = false
-  // A chave é da intenção "buscar este ISBN": reenviar o mesmo ISBN reaproveita, e o servidor
-  // devolve a mesma solicitação em vez de criar outra (RNF-ERR-04).
+  // A chave é da intenção "buscar este ISBN" e vive só até o servidor responder o POST:
+  // reenviar depois de uma falha de rede, 5xx ou timeout reaproveita, e o servidor devolve a
+  // mesma solicitação em vez de criar outra (RNF-ERR-04). Depois de um 202 ou de um 4xx a
+  // intenção acabou; buscar de novo é outra intenção, com chave nova. Reaproveitar ali fazia o
+  // servidor devolver o 202 guardado, e o ISBN recém-importado nunca virava a faixa de
+  // "já está no acervo".
   let chave: string | null = null
   let isbnDaChave: string | null = null
 
@@ -95,11 +101,13 @@ export function useCadastroIsbn(opcoes: OpcoesDoCadastroIsbn = {}) {
       }
       clearTimeout(coldStartTimer)
       coldStart.value = false
+      esquecerChave()
       if (resultado.tipo === 'aceita') {
         importacaoId = resultado.importacaoId
         acompanhar(minha)
       } else {
         livroId.value = resultado.livroId
+        livro.value = resultado.livro
         encerrar('duplicata')
       }
     } catch (erro) {
@@ -110,6 +118,11 @@ export function useCadastroIsbn(opcoes: OpcoesDoCadastroIsbn = {}) {
       coldStart.value = false
       const status = erro instanceof ApiError ? erro.status : 0
       mensagemDoServidor.value = erro instanceof ApiError ? erro.message : null
+      // Resposta definitiva do servidor encerra a intenção; sem resposta (rede, timeout) ou com
+      // 5xx, o próximo envio do mesmo ISBN ainda é reenvio.
+      if (status >= 400 && status < 500) {
+        esquecerChave()
+      }
       if (status === 400) {
         encerrar('invalido')
       } else if (status === 429) {
@@ -153,6 +166,7 @@ export function useCadastroIsbn(opcoes: OpcoesDoCadastroIsbn = {}) {
     geracao++
     cancelarTimers()
     livroId.value = null
+    livro.value = null
     importacaoId = null
     mensagemDoServidor.value = null
     lento.value = false
@@ -167,8 +181,14 @@ export function useCadastroIsbn(opcoes: OpcoesDoCadastroIsbn = {}) {
     }
   }
 
+  function esquecerChave(): void {
+    chave = null
+    isbnDaChave = null
+  }
+
   function iniciarEspera(): number {
     geracao++
+    livro.value = null
     cancelarTimers()
     lento.value = false
     coldStart.value = false
@@ -202,6 +222,7 @@ export function useCadastroIsbn(opcoes: OpcoesDoCadastroIsbn = {}) {
       switch (importacao.status) {
         case 'concluida':
           livroId.value = importacao.livroId
+          livro.value = importacao.livro ?? null
           encerrar('encontrado')
           return
         case 'nao_encontrado':
@@ -258,6 +279,7 @@ export function useCadastroIsbn(opcoes: OpcoesDoCadastroIsbn = {}) {
     lento: readonly(lento),
     coldStart: readonly(coldStart),
     livroId: readonly(livroId),
+    livro: readonly(livro),
     isbn: readonly(isbn),
     mensagemDoServidor: readonly(mensagemDoServidor),
     buscar,

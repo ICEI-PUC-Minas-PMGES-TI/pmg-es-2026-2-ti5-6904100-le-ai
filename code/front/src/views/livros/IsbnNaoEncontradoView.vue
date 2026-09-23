@@ -65,7 +65,7 @@ function conferir(): void {
       </p>
       <div class="mt-space-5 flex justify-center">
         <BotaoPrimario
-          class="md:w-auto md:px-space-8 md:hover:bg-musgo-vivo"
+          class="md:w-auto md:px-space-8"
           @click="cadastrarPessoal"
         >
           Cadastrar livro pessoal

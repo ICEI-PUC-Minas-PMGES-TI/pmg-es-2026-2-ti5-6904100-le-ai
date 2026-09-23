@@ -44,6 +44,11 @@ const props = withDefaults(
      * (cadastro-por-isbn.md §4.3, o ISBN continua legível enquanto a busca corre).
      */
     somenteLeitura?: boolean
+    /**
+     * Reescreve o valor a cada digitação e diz onde o cursor fica (ex.: máscara de ISBN). Recebe
+     * o texto novo, a posição do cursor nele e o valor anterior.
+     */
+    mascara?: (bruto: string, cursor: number, anterior: string) => { valor: string; cursor: number }
   }>(),
   {
     id: undefined,
@@ -59,12 +64,27 @@ const props = withDefaults(
     mono: false,
     larguraDoCampo: undefined,
     somenteLeitura: false,
+    mascara: undefined,
   },
 )
 
-defineEmits<{
+const emit = defineEmits<{
   'update:modelValue': [valor: string]
 }>()
+
+function aoDigitar(evento: Event): void {
+  const campo = evento.target as HTMLInputElement
+  if (!props.mascara) {
+    emit('update:modelValue', campo.value)
+    return
+  }
+  const { valor, cursor } = props.mascara(campo.value, campo.selectionStart ?? campo.value.length, props.modelValue)
+  // Escreve direto no elemento: se o valor mascarado for igual ao anterior (ex.: letra
+  // descartada), o Vue não re-renderiza e o caractere recusado ficaria na tela.
+  campo.value = valor
+  campo.setSelectionRange(cursor, cursor)
+  emit('update:modelValue', valor)
+}
 
 // useId() (Vue 3.5) em vez de gerar aleatório à mão: estável entre re-renders e seguro para SSR.
 const idGerado = useId()
@@ -113,7 +133,7 @@ const idDescricao = computed(() => {
           mono ? 'font-mono tabular-nums' : '',
           somenteLeitura ? 'text-grafite' : 'text-tinta',
         ]"
-        @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
+        @input="aoDigitar"
       >
       <!-- Espaço para um controle dentro do campo (ex.: alternar visibilidade da senha em
            CampoSenha). Ocupa a altura inteira do campo para dar folga de alvo de toque. -->

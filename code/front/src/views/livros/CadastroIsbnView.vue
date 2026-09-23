@@ -10,7 +10,7 @@ import BotaoPrimario from '../../components/ui/BotaoPrimario.vue'
 import BotaoTextual from '../../components/ui/BotaoTextual.vue'
 import CampoTexto from '../../components/ui/CampoTexto.vue'
 import FaixaInformativa from '../../components/ui/FaixaInformativa.vue'
-import { digitosDoIsbn } from '../../livros/isbn'
+import { digitosDoIsbn, mascararIsbn } from '../../livros/isbn'
 import { useCadastroIsbn } from '../../livros/useCadastroIsbn'
 
 /**
@@ -24,15 +24,15 @@ import { useCadastroIsbn } from '../../livros/useCadastroIsbn'
 const route = useRoute()
 const router = useRouter()
 const cadastro = useCadastroIsbn()
-const { fase, lento, coldStart, livroId, isbn, mensagemDoServidor } = cadastro
+const { fase, lento, coldStart, livroId, livro, isbn, mensagemDoServidor } = cadastro
 
 const origem = computed(() => String(route.params.origem ?? 'descobrir'))
-const digitado = ref(typeof route.query.isbn === 'string' ? route.query.isbn : '')
+// Vindo de "Conferir o ISBN", o valor chega já passado pela máscara, como se tivesse sido digitado.
+const digitado = ref(typeof route.query.isbn === 'string' ? mascararIsbn(route.query.isbn, route.query.isbn.length).valor : '')
 
 const buscando = computed(() => fase.value === 'buscando')
 const comLivro = computed(() => fase.value === 'encontrado' || fase.value === 'duplicata')
 const podeBuscar = computed(() => digitosDoIsbn(digitado.value).length === 13 && !buscando.value)
-const mostraBuscar = computed(() => !comLivro.value && fase.value !== 'indisponivel')
 
 const linhaDoCartao = computed(() => {
   if (coldStart.value) {
@@ -97,14 +97,17 @@ function cadastrarPessoal(): void {
         inputmode="numeric"
         autocomplete="off"
         mono
-        :somente-leitura="buscando || comLivro"
+        :mascara="mascararIsbn"
+        :somente-leitura="buscando"
         :helper="fase === 'invalido' ? undefined : 'Só o ISBN. Links e títulos não funcionam aqui.'"
         :erro="fase === 'invalido' ? 'Esse ISBN não confere. Verifique os 13 dígitos impressos no livro.' : undefined"
       />
+      <!-- Largura da coluna também na web, e presente em todos os estados: é o desenho do
+           protótipo (o prompt pedia largura automática). -->
       <BotaoPrimario
-        v-if="mostraBuscar"
         tipo="submit"
-        class="mt-space-6 md:w-auto md:px-space-8 md:hover:bg-musgo-vivo"
+        class="mt-space-6"
+        aparencia-desabilitada="neutra"
         :disabled="!podeBuscar || fase === 'invalido'"
         :carregando="buscando"
       >
@@ -139,11 +142,14 @@ function cadastrarPessoal(): void {
         </FaixaInformativa>
         <CardLivroConfirmacao
           class="mt-space-4"
+          :livro="livro"
           :isbn="isbn"
         />
-        <div class="mt-space-5 flex flex-col items-center gap-space-3 md:flex-row md:gap-space-4">
+        <!-- Empilhados, como no protótipo: no mobile o primário ocupa a largura e o textual
+             centraliza; na web os dois alinham à esquerda. -->
+        <div class="mt-space-5 flex flex-col items-center gap-space-3 md:items-start">
           <BotaoPrimario
-            class="md:w-auto md:px-space-8 md:hover:bg-musgo-vivo"
+            class="md:w-auto md:px-space-8"
             @click="abrirLivro"
           >
             Abrir página do livro
@@ -161,9 +167,9 @@ function cadastrarPessoal(): void {
         <BannerAviso variante="alerta">
           Não conseguimos consultar nossas fontes agora. Seu pedido foi guardado.
         </BannerAviso>
-        <div class="mt-space-4 flex flex-col items-center gap-space-3 md:flex-row md:gap-space-4">
+        <div class="mt-space-4 flex flex-col items-center gap-space-3 md:items-start">
           <BotaoPrimario
-            class="md:w-auto md:px-space-8 md:hover:bg-musgo-vivo"
+            class="md:w-auto md:px-space-8"
             @click="cadastro.tentarDeNovo()"
           >
             Tentar de novo
@@ -192,7 +198,12 @@ function cadastrarPessoal(): void {
       </BannerAviso>
     </div>
 
-    <div class="mt-space-8 border-t border-linha pt-space-6">
+    <!-- Some com o livro na tela (o protótipo não a desenha ali) e no indisponível, que já
+         oferece o cadastro pessoal ao lado de "Tentar de novo". -->
+    <div
+      v-if="!comLivro && fase !== 'indisponivel'"
+      class="mt-space-8 border-t border-linha pt-space-6"
+    >
       <p class="text-caption text-grafite">
         Não tem o ISBN em mãos?
       </p>

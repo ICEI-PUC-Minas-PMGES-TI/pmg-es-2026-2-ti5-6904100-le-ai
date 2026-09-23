@@ -8,11 +8,24 @@ import { ApiError, createApiClient, type ApiClientOptions } from './api'
  */
 export type EstadoImportacao = 'pendente' | 'concluida' | 'nao_encontrado' | 'falha_transitoria'
 
+/** Resumo da edição para o card de confirmação (cadastro-por-isbn.md §4.4 e §4.5). */
+export interface LivroImportadoResumo {
+  id: string
+  titulo: string
+  autores: string | null
+  editora: string | null
+  anoPublicacao: number | null
+  paginas: number
+  capaUrl: string | null
+}
+
 export interface Importacao {
   importacaoId: string
   isbn: string
   status: EstadoImportacao
   livroId: string | null
+  /** Só em `concluida`. */
+  livro?: LivroImportadoResumo | null
   permiteCadastroPessoal: boolean
 }
 
@@ -22,7 +35,7 @@ export interface Importacao {
  */
 export type ResultadoDaSolicitacao =
   | { tipo: 'aceita'; importacaoId: string }
-  | { tipo: 'existente'; livroId: string }
+  | { tipo: 'existente'; livroId: string; livro: LivroImportadoResumo | null }
 
 export interface ResenhaDoDono {
   id: string
@@ -101,7 +114,8 @@ export function createAcervoService(options: ApiClientOptions = {}) {
       return { tipo: 'aceita', importacaoId: aceita.importacaoId }
     } catch (erro) {
       if (erro instanceof ApiError && erro.status === 409 && erro.livroId) {
-        return { tipo: 'existente', livroId: erro.livroId }
+        const livro = (erro.corpo as { livro?: LivroImportadoResumo } | undefined)?.livro ?? null
+        return { tipo: 'existente', livroId: erro.livroId, livro }
       }
       throw erro
     }

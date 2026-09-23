@@ -423,7 +423,8 @@ async function excluir(): Promise<void> {
           <div class="mt-space-8 flex flex-col items-center gap-space-3 md:flex-row md:gap-space-4">
             <BotaoPrimario
               tipo="submit"
-              class="md:w-auto md:px-space-8 md:hover:bg-musgo-vivo"
+              class="md:w-auto md:px-space-8"
+              aparencia-desabilitada="neutra"
               :disabled="!podeSalvar"
               :carregando="salvando"
             >

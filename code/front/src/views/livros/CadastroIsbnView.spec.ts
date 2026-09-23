@@ -15,6 +15,16 @@ vi.mock('../../services/acervo', () => ({
 
 const servico = vi.mocked(acervoService)
 
+const RESUMO = {
+  id: 'livro-1',
+  titulo: 'Memórias Póstumas de Brás Cubas',
+  autores: 'Machado de Assis',
+  editora: 'Penguin-Companhia',
+  anoPublicacao: 2014,
+  paginas: 288,
+  capaUrl: 'https://covers.openlibrary.org/b/id/1-L.jpg',
+}
+
 async function digitarEBuscar(wrapper: Awaited<ReturnType<typeof montarNaRota>>['wrapper'], isbn = '978-85-359-1484-9') {
   await wrapper.get('input').setValue(isbn)
   await wrapper.get('form').trigger('submit')
@@ -54,6 +64,7 @@ describe('CadastroIsbnView', () => {
       isbn: '9788535914849',
       status: 'concluida',
       livroId: 'livro-1',
+      livro: RESUMO,
       permiteCadastroPessoal: false,
     })
     const { wrapper, router } = await montarNaRota('/descobrir/adicionar')
@@ -64,7 +75,14 @@ describe('CadastroIsbnView', () => {
 
     await vi.advanceTimersByTimeAsync(2_000)
     expect(wrapper.text()).toContain('Livro adicionado ao acervo.')
-    expect(wrapper.text()).toContain('9788535914849')
+    // O card confirma QUAL livro entrou: capa, título, autor, editora e ano, páginas (§4.4).
+    expect(wrapper.text()).toContain('Memórias Póstumas de Brás Cubas')
+    expect(wrapper.text()).toContain('Machado de Assis')
+    expect(wrapper.text()).toContain('Penguin-Companhia · 2014')
+    expect(wrapper.text()).toContain('288 páginas')
+    expect(wrapper.get('img').attributes('src')).toBe(RESUMO.capaUrl)
+    // Buscar livro continua na tela, como no protótipo.
+    expect(wrapper.get('button[type="submit"]').text()).toBe('Buscar livro')
 
     await wrapper.findAll('button').find((b) => b.text() === 'Abrir página do livro')!.trigger('click')
     await flushPromises()
@@ -72,12 +90,13 @@ describe('CadastroIsbnView', () => {
   })
 
   it('ISBN já cadastrado é faixa informativa, sem rubi (RF-ACV-07)', async () => {
-    servico.solicitarImportacao.mockResolvedValue({ tipo: 'existente', livroId: 'livro-9' })
+    servico.solicitarImportacao.mockResolvedValue({ tipo: 'existente', livroId: 'livro-9', livro: { ...RESUMO, id: 'livro-9' } })
     const { wrapper } = await montarNaRota('/descobrir/adicionar')
 
     await digitarEBuscar(wrapper)
 
     expect(wrapper.text()).toContain('Este livro já está no acervo.')
+    expect(wrapper.text()).toContain('Memórias Póstumas de Brás Cubas')
     expect(wrapper.find('.bg-rubi-fundo').exists()).toBe(false)
     expect(wrapper.find('[role="alert"]').exists()).toBe(false)
   })
@@ -145,5 +164,52 @@ describe('CadastroIsbnView', () => {
     const links = barra.findAll('a')
     expect(links[0]!.get('span').classes()).toContain('text-musgo')
     expect(links[1]!.get('span').classes()).not.toContain('text-musgo')
+  })
+
+  it('máscara: digitar com ou sem hífen dá o mesmo valor, e passa de 13 dígitos não entra', async () => {
+    const { wrapper } = await montarNaRota('/descobrir/adicionar')
+    const campo = wrapper.get('input')
+
+    await campo.setValue('9788535914849')
+    expect((campo.element as HTMLInputElement).value).toBe('978-85-359-1484-9')
+    await campo.setValue('978 85 359 1484 9 123')
+    expect((campo.element as HTMLInputElement).value).toBe('978-85-359-1484-9')
+    await campo.setValue('isbn')
+    expect((campo.element as HTMLInputElement).value).toBe('')
+  })
+
+  it('botão desabilitado é neutro (linha e grafite-suave); buscando mantém o musgo', async () => {
+    servico.solicitarImportacao.mockReturnValue(new Promise(() => {}))
+    const { wrapper } = await montarNaRota('/descobrir/adicionar')
+    const botao = () => wrapper.get('button[type="submit"]')
+
+    expect(botao().classes()).toEqual(expect.arrayContaining(['bg-linha', 'text-grafite-suave']))
+    await digitarEBuscar(wrapper)
+    expect(botao().classes()).toContain('bg-musgo')
+    expect(botao().classes()).not.toContain('opacity-60')
+  })
+
+  it('buscar de novo o ISBN que acabou de entrar mostra a faixa de já cadastrado, com chave nova', async () => {
+    servico.obterImportacao.mockResolvedValue({
+      importacaoId: 'imp-1',
+      isbn: '9788535914849',
+      status: 'concluida',
+      livroId: 'livro-1',
+      livro: RESUMO,
+      permiteCadastroPessoal: false,
+    })
+    const { wrapper } = await montarNaRota('/descobrir/adicionar')
+
+    await digitarEBuscar(wrapper)
+    await vi.advanceTimersByTimeAsync(2_000)
+    expect(wrapper.text()).toContain('Livro adicionado ao acervo.')
+
+    servico.solicitarImportacao.mockResolvedValue({ tipo: 'existente', livroId: 'livro-1', livro: RESUMO })
+    await wrapper.findAll('button').find((b) => b.text() === 'Cadastrar outro ISBN')!.trigger('click')
+    await digitarEBuscar(wrapper)
+
+    expect(wrapper.text()).toContain('Este livro já está no acervo.')
+    const [primeira, segunda] = servico.solicitarImportacao.mock.calls.map((chamada) => chamada[1])
+    expect(segunda).not.toBe(primeira)
   })
 })

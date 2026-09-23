@@ -71,15 +71,36 @@ describe('useCadastroIsbn', () => {
     expect(cadastro.fase.value).toBe('semConexao')
   })
 
-  it('409 com livroId é duplicata, não erro', async () => {
+  it('depois de uma resposta do servidor, buscar o mesmo ISBN é outra intenção, com chave nova', async () => {
     const servico = servicoFalso()
-    servico.solicitarImportacao.mockResolvedValue({ tipo: 'existente', livroId: 'livro-9' })
+    servico.solicitarImportacao
+      .mockResolvedValueOnce({ tipo: 'aceita', importacaoId: 'imp-1' })
+      .mockResolvedValueOnce({ tipo: 'existente', livroId: 'livro-1', livro: null })
+      .mockRejectedValueOnce(new ApiError('Muitas.', 429, 'MUITAS_REQUISICOES'))
+      .mockResolvedValue({ tipo: 'existente', livroId: 'livro-1', livro: null })
+    const cadastro = useCadastroIsbn({ servico })
+
+    await cadastro.buscar(ISBN)
+    await cadastro.buscar(ISBN)
+    await cadastro.buscar(ISBN)
+    await cadastro.buscar(ISBN)
+
+    const chaves = servico.solicitarImportacao.mock.calls.map((chamada) => chamada[1])
+    expect(new Set(chaves).size).toBe(4)
+    expect(cadastro.fase.value).toBe('duplicata')
+  })
+
+  it('409 com livroId é duplicata, não erro, e traz o resumo do livro', async () => {
+    const servico = servicoFalso()
+    const livro = { id: 'livro-9', titulo: '1984', autores: 'George Orwell', editora: null, anoPublicacao: null, paginas: 416, capaUrl: null }
+    servico.solicitarImportacao.mockResolvedValue({ tipo: 'existente', livroId: 'livro-9', livro })
     const cadastro = useCadastroIsbn({ servico })
 
     await cadastro.buscar(ISBN)
 
     expect(cadastro.fase.value).toBe('duplicata')
     expect(cadastro.livroId.value).toBe('livro-9')
+    expect(cadastro.livro.value?.titulo).toBe('1984')
   })
 
   it('nao_encontrado encerra no estado da tela seguinte', async () => {

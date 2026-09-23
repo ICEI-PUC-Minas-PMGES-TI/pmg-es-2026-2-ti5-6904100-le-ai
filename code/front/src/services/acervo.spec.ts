@@ -19,6 +19,16 @@ function servico(fetchMock: typeof fetch) {
   })
 }
 
+const RESUMO = {
+  id: 'livro-9',
+  titulo: '1984',
+  autores: 'George Orwell',
+  editora: 'Companhia das Letras',
+  anoPublicacao: 2009,
+  paginas: 416,
+  capaUrl: 'https://covers.openlibrary.org/b/id/1-L.jpg',
+}
+
 const dados = { titulo: 'Cartas de um sertanejo', autor: 'Marina Albuquerque', paginas: 184, sinopse: null, capaUrl: null }
 
 describe('createAcervoService', () => {
@@ -42,11 +52,14 @@ describe('createAcervoService', () => {
   it('409 com livroId vira resultado, não exceção (RF-ACV-07)', async () => {
     const fetchMock = vi
       .fn<typeof fetch>()
-      .mockResolvedValue(resposta(409, { codigo: 'LIVRO_JA_CADASTRADO', mensagem: 'Já existe.', livroId: 'livro-9' }))
+      .mockResolvedValue(
+        resposta(409, { codigo: 'LIVRO_JA_CADASTRADO', mensagem: 'Já existe.', livroId: 'livro-9', livro: RESUMO }),
+      )
 
     await expect(servico(fetchMock).solicitarImportacao('9788535914849', 'k')).resolves.toEqual({
       tipo: 'existente',
       livroId: 'livro-9',
+      livro: RESUMO,
     })
   })
 
