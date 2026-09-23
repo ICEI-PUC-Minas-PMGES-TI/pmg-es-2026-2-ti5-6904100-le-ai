@@ -47,6 +47,21 @@ def test_autor_deduplica_por_caixa_e_acento():
     assert n.normalizar_nome_autor("José Saramago") == n.normalizar_nome_autor("JOSE  saramago")
 
 
+# Os mesmos casos de `code/back/acervo/src/common/normalizacao.spec.ts`, de
+# propósito: se as duas implementações divergirem, uma das suítes quebra.
+@pytest.mark.parametrize(
+    "nome",
+    ["[author not identified]", "[Unknown]", "Unknown", "Autor desconhecido", "   "],
+)
+def test_marcador_de_catalogo_nao_e_nome_de_autor(nome):
+    assert n.nome_de_autor_utilizavel(nome) is False
+
+
+@pytest.mark.parametrize("nome", ["Austin Kleon", "Anônimo", "Machado de Assis"])
+def test_nome_real_continua_valendo(nome):
+    assert n.nome_de_autor_utilizavel(nome) is True
+
+
 def test_slug_respeita_o_check_do_banco():
     import re
 

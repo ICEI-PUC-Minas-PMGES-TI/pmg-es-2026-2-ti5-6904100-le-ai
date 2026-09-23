@@ -29,7 +29,7 @@ MIGRATIONS = RAIZ.parent.parent / "back" / "acervo" / "drizzle"
 
 URL = os.environ.get("DATABASE_URL_TESTE")
 
-ACEITOS_NA_AMOSTRA = 15
+ACEITOS_NA_AMOSTRA = 16
 
 
 @pytest.fixture
@@ -179,6 +179,37 @@ def test_edicao_sem_authors_herda_so_o_primeiro_autor_da_obra(conexao, capsys, t
              JOIN acervo.livro l ON l.id = v.livro_id
             WHERE l.ol_edition_key = 'OL30000015M'""",
     )[0] == "George Orwell"
+
+
+def test_autor_marcador_de_catalogo_cede_ao_autor_da_obra(conexao, capsys, tmp_path):
+    """OL30000016M vincula `[author not identified]`; a obra conhece Austin Kleon.
+
+    Mesma regra do importador por ISBN do serviço `acervo`
+    (`nomeDeAutorUtilizavel`): nome que é só marcador de catálogo conta como
+    ausente, e aí entra o primeiro autor da obra.
+    """
+    _rodar(capsys, "semear", "--database-url", URL)
+    _carga_da_amostra(capsys, tmp_path)
+
+    with conexao.cursor() as cursor:
+        cursor.execute(
+            """SELECT a.ol_author_key
+                 FROM acervo.livro l
+                 JOIN acervo.livro_autor la ON la.livro_id = l.id
+                 JOIN acervo.autor a ON a.id = la.autor_id
+                WHERE l.ol_edition_key = 'OL30000016M'"""
+        )
+        assert cursor.fetchall() == [("OL10000018A",)]
+    # O marcador não vira autor de ninguém.
+    assert _um(
+        conexao, "SELECT count(*) FROM acervo.autor WHERE nome = '[author not identified]'"
+    )[0] == 0
+    assert _um(
+        conexao,
+        """SELECT autor_exibicao FROM acervo.v_livro_referencia_v1 v
+             JOIN acervo.livro l ON l.id = v.livro_id
+            WHERE l.ol_edition_key = 'OL30000016M'""",
+    )[0] == "Austin Kleon"
 
 
 def test_reexecutar_a_mesma_amostra_nao_duplica_nada(conexao, capsys, tmp_path):

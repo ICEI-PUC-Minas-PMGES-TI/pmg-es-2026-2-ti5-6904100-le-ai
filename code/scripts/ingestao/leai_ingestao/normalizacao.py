@@ -109,6 +109,40 @@ def normalizar_nome_autor(texto: str | None) -> str:
     return remover_acentos(base)
 
 
+# Nomes que a fonte usa como marcador de "autor não identificado", já na forma
+# de `normalizar_nome_autor`. "Anônimo" fica de fora de propósito: é atribuição
+# real de obra (As Mil e Uma Noites).
+_MARCADORES_DE_AUTOR_DESCONHECIDO = {
+    "unknown",
+    "unknown author",
+    "author unknown",
+    "desconhecido",
+    "autor desconhecido",
+}
+
+_ENTRE_COLCHETES = re.compile(r"\[.*\]")
+
+
+def nome_de_autor_utilizavel(nome: str | None) -> bool:
+    """Nome de autor que dá para exibir (RNF-SEC-33).
+
+    A OpenLibrary tem registros de autor que são só marcador de catálogo, como
+    `[author not identified]` (`/authors/OL2965820A`): nome inteiro entre
+    colchetes é a convenção de catalogação para informação que não consta da
+    obra. Um desses vinculado à edição esconde o autor verdadeiro que a obra
+    conhece, então ele conta como ausente e o plano B pela obra entra (ex.:
+    `9788532528421`, de Austin Kleon).
+
+    Gêmeo TypeScript: `nomeDeAutorUtilizavel`, em
+    `code/back/acervo/src/common/normalizacao.ts`. Os dois caminhos de entrada
+    de livro oficial precisam descartar os mesmos nomes; mude nos dois.
+    """
+    limpo = (nome or "").strip()
+    if not limpo or _ENTRE_COLCHETES.fullmatch(limpo):
+        return False
+    return normalizar_nome_autor(limpo) not in _MARCADORES_DE_AUTOR_DESCONHECIDO
+
+
 def normalizar_tag(texto: str | None) -> str:
     """Chave de busca em `acervo.mapa_assunto_externo` (RN-21.3).
 

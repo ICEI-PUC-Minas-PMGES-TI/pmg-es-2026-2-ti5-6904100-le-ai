@@ -97,13 +97,13 @@ def comando_resolver(args) -> int:
     obras_sem_autor = pipeline.carregar_obras_sem_autor(args.chaves)
     resultado = {}
 
-    # Obras ANTES de autores: a edição sem `authors` herda o primeiro autor da
-    # obra, e essa chave só entra no conjunto de autores depois desta passada.
+    # Obras ANTES de autores: a edição sem autor utilizável herda o primeiro
+    # autor da obra, e essa chave só entra no conjunto de autores depois desta
+    # passada.
     if args.dump_obras:
         com_assunto, com_autor = pipeline.resolver_obras(
             args.dump_obras,
             obras,
-            obras_sem_autor,
             carregar_mapa_de_assuntos(args.dados),
             args.saida_assuntos,
             args.saida_autor_obra,
@@ -113,10 +113,14 @@ def comando_resolver(args) -> int:
         resultado["obras_com_autor"] = com_autor
 
     if args.dump_autores:
-        if obras_sem_autor and not args.saida_autor_obra.exists():
+        # Qualquer edição pode precisar do autor da obra, não só as que vieram
+        # sem `authors`: o autor da edição pode ser marcador de catálogo, e
+        # isso só aparece nesta passada. Por isso basta haver obra a resolver.
+        if obras and not args.saida_autor_obra.exists():
             raise SystemExit(
-                f"{len(obras_sem_autor)} obra(s) de edição sem autor ainda não foram "
-                f"resolvidas: {args.saida_autor_obra} não existe.\n"
+                f"{len(obras)} obra(s) ainda não foram resolvidas "
+                f"({len(obras_sem_autor)} de edição sem autor): "
+                f"{args.saida_autor_obra} não existe.\n"
                 "Rode `resolver` com --dump-obras antes (ou junto) de --dump-autores."
             )
         if args.saida_autor_obra.exists():

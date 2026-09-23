@@ -23,7 +23,7 @@ from leai_ingestao.pipeline import (
 
 AMOSTRA = Path(__file__).resolve().parent.parent / "amostra"
 
-ACEITOS_NA_AMOSTRA = 15
+ACEITOS_NA_AMOSTRA = 16
 DESCARTADOS_NA_AMOSTRA = 8
 
 
@@ -104,22 +104,46 @@ def _resolver_obras(saida: Path, mapa=None) -> tuple[int, int]:
     return resolver_obras(
         AMOSTRA / "obras_amostra.jsonl",
         obras,
-        carregar_obras_sem_autor(saida / "chaves.json"),
         mapa or carregar_mapa_de_assuntos(),
         saida / "s.jsonl",
         saida / "autor_obra.jsonl",
     )
 
 
-def test_so_a_edicao_sem_authors_pede_o_autor_da_obra(filtrada):
+def test_autor_da_obra_e_anotado_para_toda_obra_que_tem_autor(filtrada):
     _, saida = filtrada
+    # A fase 1 ainda separa a obra cuja edição veio sem `authors`...
     assert carregar_obras_sem_autor(saida / "chaves.json") == {"OL20000015W"}
 
     _, com_autor = _resolver_obras(saida)
 
-    # Da obra vem só o primeiro autor; o tradutor que vem depois fica de fora.
-    assert com_autor == 1
-    assert carregar_autor_obra(saida / "autor_obra.jsonl") == {"OL20000015W": "OL10000015A"}
+    # ...mas a fase 2 anota o primeiro autor de TODA obra que tem autor: o da
+    # edição OL30000016M é marcador de catálogo, e isso só se descobre na
+    # passada pelos autores. Da obra vem só o primeiro; o tradutor fica de fora.
+    assert com_autor == 2
+    assert carregar_autor_obra(saida / "autor_obra.jsonl") == {
+        "OL20000015W": "OL10000015A",
+        "OL20000016W": "OL10000018A",
+    }
+
+
+def test_marcador_de_catalogo_nao_e_resolvido_como_autor(filtrada):
+    """`[author not identified]` não ganha linha; o autor da obra ganha."""
+    _, saida = filtrada
+    autores, _ = carregar_chaves(saida / "chaves.json")
+    _resolver_obras(saida)
+    chaves = autores | set(carregar_autor_obra(saida / "autor_obra.jsonl").values())
+    assert {"OL10000017A", "OL10000018A"} <= chaves
+
+    resolver_autores(AMOSTRA / "autores_amostra.jsonl", chaves, saida / "a.jsonl")
+
+    nomes = {
+        json.loads(l)["ol_author_key"]: json.loads(l)["nome"]
+        for l in (saida / "a.jsonl").read_text(encoding="utf-8").splitlines()
+    }
+    assert "OL10000017A" not in nomes
+    assert "[author not identified]" not in nomes.values()
+    assert nomes["OL10000018A"] == "Austin Kleon"
 
 
 def test_resolve_apenas_os_autores_que_a_carga_precisa(filtrada):
@@ -130,13 +154,17 @@ def test_resolve_apenas_os_autores_que_a_carga_precisa(filtrada):
     chaves = autores | set(autor_por_obra.values())
     encontrados = resolver_autores(AMOSTRA / "autores_amostra.jsonl", chaves, saida / "a.jsonl")
 
-    # O que a carga vincula: o autor da edição ou, sem ele, o primeiro da obra.
+    # O que a carga vincula: o autor da edição ou, sem autor utilizável, o
+    # primeiro da obra. OL10000017A é o marcador `[author not identified]`.
+    marcadores = {"OL10000017A"}
     precisa = set()
     for linha in (saida / "candidatos.jsonl").read_text(encoding="utf-8").splitlines():
         registro = json.loads(linha)
-        precisa.update(registro["autores_ol"] or [autor_por_obra[registro["ol_work_key"]]])
+        da_edicao = [k for k in registro["autores_ol"] if k not in marcadores]
+        precisa.update(da_edicao or [autor_por_obra[registro["ol_work_key"]]])
 
-    assert encontrados == len(chaves)
+    # Toda chave pedida resolve, menos o marcador, que não ganha linha.
+    assert encontrados == len(chaves) - len(marcadores)
     resolvidos = {json.loads(l)["ol_author_key"] for l in (saida / "a.jsonl").read_text().splitlines()}
     assert resolvidos == precisa
     assert "OL10000015A" in resolvidos
@@ -170,7 +198,7 @@ def test_cli_resolve_obras_antes_de_autores(filtrada):
     assert "OL10000016A" not in resolvidos
 
 
-def test_cli_recusa_autores_antes_das_obras_sem_autor(filtrada):
+def test_cli_recusa_autores_antes_das_obras(filtrada):
     _, saida = filtrada
     with pytest.raises(SystemExit, match="--dump-obras"):
         _resolver_pela_cli(saida, "autores")
@@ -180,6 +208,21 @@ def test_cli_recusa_autores_antes_das_obras_sem_autor(filtrada):
     _resolver_pela_cli(saida, "obras")
     _resolver_pela_cli(saida, "autores")
     assert "OL10000015A" in (saida / "a.jsonl").read_text()
+
+
+def test_cli_recusa_autores_sem_autor_obra_mesmo_sem_obra_sem_autor(tmp_path):
+    """Toda edição pode precisar do autor da obra, não só a que veio sem `authors`.
+
+    O autor da edição pode ser marcador de catálogo, e isso só aparece na
+    passada pelos autores; sem `autor_obra.jsonl`, o plano B dela se perderia.
+    """
+    (tmp_path / "chaves.json").write_text(
+        json.dumps({"autores": ["OL10000017A"], "obras": ["OL20000016W"], "obras_sem_autor": []}),
+        encoding="utf-8",
+    )
+    with pytest.raises(SystemExit, match="--dump-obras"):
+        _resolver_pela_cli(tmp_path, "autores")
+    assert not (tmp_path / "a.jsonl").exists()
 
 
 def test_assuntos_saem_mapeados_e_dentro_do_teto(filtrada):

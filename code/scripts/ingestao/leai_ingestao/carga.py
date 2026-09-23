@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .dados import resolver_editora
-from .normalizacao import normalizar_editora, normalizar_nome_autor
+from .normalizacao import nome_de_autor_utilizavel, normalizar_editora, normalizar_nome_autor
 
 # Staging temporário: morre no fim da transação, nunca polui o schema.
 SQL_STAGING = """
@@ -190,16 +190,22 @@ def carregar(
                     break
                 isbn13 = registro["isbn13"]
 
-                # Edição sem `authors` usa o primeiro autor da obra, o mesmo
-                # plano B do importador por ISBN do serviço `acervo`.
-                chaves_de_autor = registro.get("autores_ol") or []
-                if not chaves_de_autor and registro.get("ol_work_key") in autor_por_obra:
-                    chaves_de_autor = [autor_por_obra[registro["ol_work_key"]]]
+                # Vale só a chave que resolveu para nome utilizável: autor sem
+                # nome ou marcador de catálogo (`[author not identified]`)
+                # conta como ausente. Sem nenhuma, entra o primeiro autor da
+                # obra, o mesmo plano B do importador por ISBN do serviço
+                # `acervo`; se ele também não resolver, o livro fica sem autor.
+                chaves_de_autor = [
+                    chave for chave in registro.get("autores_ol") or [] if chave in nomes_de_autor
+                ]
+                if not chaves_de_autor:
+                    da_obra = autor_por_obra.get(registro.get("ol_work_key") or "")
+                    if da_obra in nomes_de_autor:
+                        chaves_de_autor = [da_obra]
 
                 for chave in chaves_de_autor:
-                    if chave in nomes_de_autor:
-                        vinculos_autor.append((isbn13, chave))
-                        autores_usados.add(chave)
+                    vinculos_autor.append((isbn13, chave))
+                    autores_usados.add(chave)
 
                 for slug in assuntos_por_obra.get(registro.get("ol_work_key") or "", ()):
                     vinculos_assunto.append((isbn13, slug))
@@ -346,7 +352,13 @@ def _ler_jsonl(caminho: Path):
 
 
 def _ler_nomes_de_autor(caminho: Path) -> dict[str, str]:
-    return {r["ol_author_key"]: r["nome"] for r in _ler_jsonl(caminho)}
+    # `resolver_autores` já não grava marcador de catálogo; filtrar de novo aqui
+    # protege a carga de um `autores.jsonl` gerado antes dessa regra.
+    return {
+        r["ol_author_key"]: r["nome"]
+        for r in _ler_jsonl(caminho)
+        if nome_de_autor_utilizavel(r["nome"])
+    }
 
 
 def _ler_autor_por_obra(caminho: Path) -> dict[str, str]:

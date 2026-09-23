@@ -13,4 +13,5 @@
 {"type": {"key": "/type/work"}, "key": "/works/OL20000013W", "subjects": ["History", "Anthropology", "Popular science"]}
 {"type": {"key": "/type/work"}, "key": "/works/OL20000014W", "subjects": ["Juvenile fiction", "Fantasy", "Fairy tales"]}
 {"type": {"key": "/type/work"}, "key": "/works/OL20000015W", "subjects": ["Dystopias", "Politics", "Totalitarianism"], "authors": [{"type": {"key": "/type/author_role"}, "author": {"key": "/authors/OL10000015A"}}, {"type": {"key": "/type/author_role"}, "author": {"key": "/authors/OL10000016A"}}]}
+{"type": {"key": "/type/work"}, "key": "/works/OL20000016W", "subjects": ["Creativity", "Self-help", "Self-actualization (Psychology)"], "authors": [{"type": {"key": "/type/author_role"}, "author": {"key": "/authors/OL10000018A"}}]}
 {"type": {"key": "/type/work"}, "key": "/works/OL29000001W", "subjects": ["Uncategorized", "Miscellaneous"]}

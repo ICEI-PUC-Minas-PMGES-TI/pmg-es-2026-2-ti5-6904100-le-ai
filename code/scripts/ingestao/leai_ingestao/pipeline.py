@@ -8,8 +8,8 @@ em memória é inviável — daí duas fases de arquivo para arquivo, cada uma e
 streaming, antes de qualquer coisa tocar o banco.
 
 Na fase 2 a ordem importa: o dump de obras é lido antes do de autores. Edição
-sem `authors` herda o primeiro autor da obra, e essa chave também precisa de
-nome.
+sem autor utilizável herda o primeiro autor da obra, e essa chave também
+precisa de nome.
 
 Tudo aqui é I/O de arquivo e lógica pura: roda sem banco e sem `psycopg`, que é
 o que permite o CI validar a carga contra a amostra reproduzível.
@@ -25,6 +25,7 @@ from pathlib import Path
 from .assuntos import MapaDeAssuntos
 from .dump import chave_curta, ler_registros, primeiro_autor_da_obra
 from .edicao import normalizar
+from .normalizacao import nome_de_autor_utilizavel
 
 
 @dataclass
@@ -125,6 +126,10 @@ def resolver_autores(caminho_dump: Path, chaves: set[str], saida: Path, formato:
 
     `chaves` são as da edição somadas às que `resolver_obras` tirou da obra —
     por isso o dump de obras é lido antes deste.
+
+    Autor cujo nome é só marcador de catálogo (`[author not identified]`) não
+    ganha linha: sem nome utilizável ele conta como ausente, e a carga cai no
+    primeiro autor da obra (`nome_de_autor_utilizavel`).
     """
     encontrados = 0
     saida.parent.mkdir(parents=True, exist_ok=True)
@@ -135,7 +140,7 @@ def resolver_autores(caminho_dump: Path, chaves: set[str], saida: Path, formato:
             if chave not in chaves:
                 continue
             nome = (bruto.get("name") or bruto.get("personal_name") or "").strip()
-            if not nome:
+            if not nome_de_autor_utilizavel(nome):
                 continue
             destino.write(
                 json.dumps({"ol_author_key": chave, "nome": nome}, ensure_ascii=False) + "\n"
@@ -148,7 +153,6 @@ def resolver_autores(caminho_dump: Path, chaves: set[str], saida: Path, formato:
 def resolver_obras(
     caminho_dump: Path,
     chaves: set[str],
-    obras_sem_autor: set[str],
     mapa: MapaDeAssuntos,
     saida_assuntos: Path,
     saida_autor_obra: Path,
@@ -161,9 +165,12 @@ def resolver_obras(
     sai com o conjunto fechado, e as tags livres da origem nunca chegam perto do
     banco — RN-12 é explícito que elas não são armazenadas.
 
-    Autor da obra: para as obras cuja edição veio sem `authors`, grava a chave
-    do primeiro autor (`primeiro_autor_da_obra`). Essas chaves ainda precisam
-    de nome, então entram no conjunto de `resolver_autores`, que roda depois.
+    Autor da obra: grava a chave do primeiro autor (`primeiro_autor_da_obra`)
+    de TODA obra pedida, não só das obras cuja edição veio sem `authors`. O
+    autor da edição pode ser marcador de catálogo (`[author not identified]`),
+    e isso só se descobre na passada pelos autores, que roda depois desta;
+    quando acontece, a carga precisa do autor da obra já anotado. Essas chaves
+    ainda precisam de nome, então entram no conjunto de `resolver_autores`.
 
     Devolve `(obras_com_assunto, obras_com_autor)`.
     """
@@ -177,18 +184,16 @@ def resolver_obras(
     ) as autor_obra:
         for bruto in ler_registros(caminho_dump, formato):
             chave = chave_curta(bruto.get("key"))
-            # `obras_sem_autor` é subconjunto de `chaves`: a fase 1 anota as duas.
             if chave not in chaves:
                 continue
 
-            if chave in obras_sem_autor:
-                autor = primeiro_autor_da_obra(bruto)
-                if autor:
-                    autor_obra.write(
-                        json.dumps({"ol_work_key": chave, "ol_author_key": autor}, ensure_ascii=False)
-                        + "\n"
-                    )
-                    com_autor += 1
+            autor = primeiro_autor_da_obra(bruto)
+            if autor:
+                autor_obra.write(
+                    json.dumps({"ol_work_key": chave, "ol_author_key": autor}, ensure_ascii=False)
+                    + "\n"
+                )
+                com_autor += 1
 
             slugs = mapa.mapear(_tags_da_obra(bruto))
             if not slugs:
