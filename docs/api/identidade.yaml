@@ -6,14 +6,17 @@ info:
     Contrato do serviço **identidade**, responsável por usuário, autenticação,
     perfil, privacidade, seguidores e solicitações de seguir.
 
-    **Estado de implementação em 17/09/2026:** estão implementados pelo P0-NAV
-    somente `POST /auth/register`, `POST /auth/login`, `GET /me` e `GET /health`.
-    O login implementado ainda retorna apenas o token de acesso. As demais rotas,
-    o refresh token rotativo/revogável, o login da conta administradora pelo mesmo
-    fluxo e os campos adicionais indicados neste contrato estão **planejados para
-    F-AUT e F-PERFIL no Período 1**; sua presença aqui não declara implementação.
-    Cada operação também traz `x-implementation-status` com `implemented` ou
-    `planned`.
+    **Estado de implementação em 24/09/2026:** o backend de F-AUT está
+    implementado: cadastro, login com sessão renovável, `refresh`, `logout`,
+    troca de senha, recuperação por e-mail (`forgot`/`reset`) e o login da conta
+    administradora pelo mesmo fluxo, além de `GET /me` e `GET /health`. As rotas
+    de perfil, privacidade e seguimento seguem **planejadas para F-PERFIL**; sua
+    presença aqui não declara implementação. Cada operação traz
+    `x-implementation-status` com `implemented` ou `planned`.
+
+    Transição: `register` e `login` ainda aceitam requisição sem
+    `Idempotency-Key`, porque os clientes de P0-NAV não enviam o header; a
+    exigência passa a valer no fechamento de F-AUT. As demais escritas já exigem.
 
     A conta administradora é fixa, única e provisionada por variáveis de ambiente.
     Ela usa `POST /auth/login`; não existe cadastro nem endpoint de login separado
@@ -114,12 +117,13 @@ paths:
       tags: [auth]
       summary: Autentica leitor ou administrador por e-mail ou username
       description: >-
-        Implementado em P0-NAV com token de acesso; F-AUT planeja completar a
-        resposta com refresh token rotativo e revogável. Credenciais inválidas
-        sempre produzem a mesma resposta, sem revelar se a identidade existe.
-        Falhas sucessivas causam bloqueio temporário progressivo. A conta
-        administradora fixa usa este mesmo fluxo com credenciais fortes vindas do
-        ambiente; usuários comuns não podem adquirir esse papel.
+        Implementado em P0-NAV e completado por F-AUT (RF-AUT-02, 03 e 08):
+        devolve token de acesso de 15 minutos e token de renovação rotativo.
+        Credenciais inválidas sempre produzem a mesma resposta, sem revelar se a
+        identidade existe. Falhas sucessivas causam bloqueio temporário
+        progressivo (`429`). A conta administradora fixa usa este mesmo fluxo com
+        credenciais fortes vindas do ambiente e recebe `papel: admin` no token de
+        acesso; usuários comuns não podem adquirir esse papel.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -130,9 +134,7 @@ paths:
               $ref: '#/components/schemas/LoginRequisicao'
       responses:
         '200':
-          description: >-
-            Sessão emitida. Enquanto F-AUT não estiver implementada, a resposta
-            real contém apenas `accessToken`, `tokenType` e `expiresIn`.
+          description: Sessão emitida, com token de acesso e token de renovação.
           content:
             application/json:
               schema:
@@ -158,14 +160,19 @@ paths:
   /auth/refresh:
     post:
       operationId: renovarSessao
-      x-implementation-status: planned
+      x-implementation-status: implemented
       security: []
       tags: [auth]
       summary: Rotaciona o refresh token e emite uma nova sessão
       description: >-
-        Planejado em F-AUT (RF-AUT-03). O refresh token apresentado é invalidado
-        no mesmo ato e um novo par acesso+refresh é emitido. Token expirado,
-        revogado, já utilizado ou desconhecido retorna `401`.
+        Implementado em F-AUT (RF-AUT-03, RNF-SEC-30). O refresh token
+        apresentado é invalidado no mesmo ato e um novo par acesso+refresh é
+        emitido; cada refresh vale 30 dias. Token expirado, revogado, já utilizado
+        ou desconhecido retorna `401` com a mesma mensagem. Reapresentar um token
+        já rotacionado é tratado como vazamento e revoga todas as renovações do
+        usuário. Repetir a mesma `Idempotency-Key` devolve a mesma sessão sem
+        contar como reuso; renovações simultâneas com chaves diferentes contam, e
+        por isso o cliente deve serializá-las (por exemplo, entre abas).
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -195,14 +202,15 @@ paths:
   /auth/logout:
     post:
       operationId: encerrarSessao
-      x-implementation-status: planned
+      x-implementation-status: implemented
       security: []
       tags: [auth]
       summary: Encerra a sessão revogando o refresh token
       description: >-
-        Planejado em F-AUT (RF-AUT-06). Revoga o refresh token informado. A
-        operação é idempotente: repetir a mesma chave e payload não cria novo
-        efeito e não revela se o token já estava revogado.
+        Implementado em F-AUT (RF-AUT-06). Revoga só o refresh token informado;
+        as outras sessões do usuário continuam. Responde sempre `204`, inclusive
+        para token desconhecido ou já revogado, sem revelar o estado dele. O token
+        de acesso já emitido vale até expirar (15 minutos); o cliente o descarta.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -226,16 +234,21 @@ paths:
   /auth/password/forgot:
     post:
       operationId: solicitarRecuperacaoSenha
-      x-implementation-status: planned
+      x-implementation-status: implemented
       security: []
       tags: [auth]
       summary: Solicita recuperação de senha por e-mail
       description: >-
-        Planejado em F-AUT (RF-AUT-04). Sempre retorna o mesmo `202`, exista ou
-        não a conta e independentemente do resultado individual do provedor de
-        e-mail. Quando aplicável, gera token criptograficamente aleatório, de uso
-        único, válido por no máximo uma hora e persistido somente como hash. A
-        mesma chave de idempotência não reenvia o e-mail.
+        Implementado em F-AUT (RF-AUT-04, RNF-SEC-10/28). Sempre retorna o mesmo
+        `202`, exista ou não a conta e independentemente do resultado do provedor
+        de e-mail: a requisição não consulta a conta, só agenda o processamento
+        para depois de responder. Quando a conta existe, gera token
+        criptograficamente aleatório, de uso único, válido por uma hora e
+        persistido somente como hash, e envia o link
+        `<web>/redefinir-senha#token=<token>` (o token vai no fragmento). A mesma
+        chave de idempotência não reenvia o e-mail. Mais de 5 pedidos por conta em
+        uma hora, ou pedido para a conta administradora, recebem o mesmo `202` sem
+        envio.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -257,19 +270,23 @@ paths:
           $ref: '#/components/responses/IdempotenciaEmConflito'
         '429':
           $ref: '#/components/responses/LimiteExcedido'
+        '503':
+          $ref: '#/components/responses/ServicoIndisponivel'
 
   /auth/password/reset:
     post:
       operationId: redefinirSenha
-      x-implementation-status: planned
+      x-implementation-status: implemented
       security: []
       tags: [auth]
       summary: Redefine a senha com token de recuperação
       description: >-
-        Planejado em F-AUT (RF-AUT-04). Valida uso único e prazo máximo de uma
-        hora, troca a senha, consome o token e revoga todos os refresh tokens da
-        conta. A nova senha segue a política de senha comum e mínimo de 8
-        caracteres. Erros não revelam dados da conta.
+        Implementado em F-AUT (RF-AUT-04, RNF-SEC-10/30). Consome o token de forma
+        atômica (duas requisições com o mesmo token não redefinem as duas), troca
+        a senha, consome os demais links ainda válidos da conta e revoga todos os
+        refresh tokens dela. A nova senha segue o mínimo de 8 caracteres e a lista
+        de senhas comuns. Token desconhecido, adulterado, vencido ou já usado
+        produz sempre o mesmo `410` com a mesma mensagem, sem dado da conta.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -282,7 +299,9 @@ paths:
         '204':
           description: Senha redefinida, token consumido e sessões renováveis revogadas.
         '400':
-          description: Dados inválidos ou token inválido, com mensagem genérica.
+          description: >-
+            Corpo inválido, `Idempotency-Key` ausente ou senha nova curta ou
+            presente na lista de senhas comuns. O token não é consumido.
           headers:
             X-Correlation-Id:
               $ref: '#/components/headers/CorrelationId'
@@ -293,7 +312,9 @@ paths:
         '409':
           $ref: '#/components/responses/IdempotenciaEmConflito'
         '410':
-          description: Token expirado ou já consumido, sem revelar dados da conta.
+          description: >-
+            Token desconhecido, adulterado, vencido ou já consumido, sempre com o
+            código `RECURSO_EXPIRADO` e a mesma mensagem, sem revelar dados da conta.
           headers:
             X-Correlation-Id:
               $ref: '#/components/headers/CorrelationId'
@@ -303,17 +324,22 @@ paths:
                 $ref: '#/components/schemas/Erro'
         '429':
           $ref: '#/components/responses/LimiteExcedido'
+        '503':
+          $ref: '#/components/responses/ServicoIndisponivel'
 
   /auth/password/change:
     post:
       operationId: alterarSenha
-      x-implementation-status: planned
+      x-implementation-status: implemented
       tags: [auth]
       summary: Altera a senha do usuário autenticado
       description: >-
-        Planejado em F-AUT (RF-AUT-05). Somente o dono do token pode alterar sua
-        senha e precisa informar a senha atual. O sucesso revoga todos os refresh
-        tokens da conta e é registrado em auditoria sem senha, token ou hash.
+        Implementado em F-AUT (RF-AUT-05, RNF-SEC-30/35/36). Somente o dono do
+        token pode alterar sua senha e precisa informar a senha atual. O sucesso
+        revoga todos os refresh tokens da conta, inclusive o do aparelho que pediu
+        a troca (o cliente que quiser continuar conectado entra de novo com a
+        senha nova), e é registrado em auditoria sem senha, token ou hash. A conta
+        administradora não altera senha por aqui: a dela vem do ambiente.
       security:
         - bearerAuth: []
       parameters:
@@ -331,10 +357,22 @@ paths:
           $ref: '#/components/responses/RequisicaoInvalida'
         '401':
           $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          description: Conta administradora, cuja senha é definida pelo ambiente.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
         '409':
           $ref: '#/components/responses/IdempotenciaEmConflito'
         '422':
-          description: Senha atual incorreta ou nova senha rejeitada pela política.
+          description: >-
+            Senha atual incorreta ou nova senha na lista de senhas comuns, com o
+            código `ENTIDADE_NAO_PROCESSAVEL` e mensagem específica de cada caso.
+            Senha nova curta é `400`.
           headers:
             X-Correlation-Id:
               $ref: '#/components/headers/CorrelationId'
@@ -344,6 +382,8 @@ paths:
                 $ref: '#/components/schemas/Erro'
         '429':
           $ref: '#/components/responses/LimiteExcedido'
+        '503':
+          $ref: '#/components/responses/ServicoIndisponivel'
 
   /me:
     get:
@@ -786,7 +826,12 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: Token de acesso curto emitido por `POST /auth/login` ou `/auth/refresh`.
+      description: >-
+        Token de acesso de 15 minutos emitido por `POST /auth/login` ou
+        `/auth/refresh`, JWT HS256 com `iss: identidade`, `sub` (id do usuário),
+        `username` e `papel` (`leitor` ou `admin`, sempre presente). Os demais
+        serviços validam a assinatura com o mesmo segredo e leem `papel` para
+        restringir rotas ao administrador.
 
   headers:
     CorrelationId:
@@ -994,6 +1039,7 @@ components:
         refreshToken:
           type: string
           minLength: 1
+          maxLength: 512
           writeOnly: true
           description: Token opaco de renovação emitido no login ou na rotação anterior.
 
@@ -1016,6 +1062,7 @@ components:
         token:
           type: string
           minLength: 1
+          maxLength: 512
           writeOnly: true
           description: Token de uso único recebido no link de recuperação.
         novaSenha:
@@ -1035,6 +1082,7 @@ components:
           type: string
           format: password
           minLength: 1
+          maxLength: 72
           writeOnly: true
         novaSenha:
           type: string
@@ -1062,7 +1110,7 @@ components:
 
     Token:
       type: object
-      description: Parte da sessão já implementada em P0-NAV.
+      description: Parte de acesso da sessão, implementada em P0-NAV.
       required: [accessToken, tokenType, expiresIn]
       properties:
         accessToken:
@@ -1083,13 +1131,14 @@ components:
       allOf:
         - $ref: '#/components/schemas/Token'
         - type: object
-          description: Contrato alvo de F-AUT; `refreshToken` ainda não é emitido pela implementação atual.
+          description: Completada por F-AUT com o token de renovação.
           required: [refreshToken]
           properties:
             refreshToken:
               type: string
-              writeOnly: true
-              description: Token opaco, rotativo e revogável.
+              description: >-
+                Token opaco, rotativo e revogável, de 43 caracteres base64url,
+                válido por 30 dias. Cada uso em `/auth/refresh` o invalida.
 
     MensagemResposta:
       type: object
