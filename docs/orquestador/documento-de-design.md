@@ -347,13 +347,14 @@ RF-ACV-16 e RN-06 exigem que os dois indicadores sejam **exibidos como distintos
 
 ### 4.5 Card de livro
 
-Três variantes, escolhidas por contexto:
+Quatro variantes, escolhidas por contexto:
 
 | Variante | Uso | Altura | Elementos |
 |---|---|---|---|
 | **Estante** | Grid de livros na estante | 240px capa + 60px meta | Capa (proporção 2:3), título, autor, status pill. |
 | **Feed** | Atividade no feed | Depende do texto | Capa 80x120, título, autor, avatar do autor da atividade + verbo ("terminou de ler", "começou a reler"). |
 | **Busca** | Resultado de busca | 120px de altura | Capa 80x120 à esquerda, título + autor + editora + nota, status pill se já está na estante. |
+| **Confirmação** | Livro que acabou de entrar no acervo, ou que já estava nele (cadastro por ISBN) | Depende do texto | Card em `papel-elevado` / `noite-elevada`, `radius-md`, padding `space-5`, sem sombra. Capa 60x90 no mobile e 80x120 na web à esquerda; à direita, `space-4` de gap, título em `title-sm` `tinta` (duas linhas no máximo, com reticências), autor em `body` `grafite`, editora e ano separados por ponto médio e total de páginas, ambos em `caption` `grafite-suave`. Sem nota, sem status e sem ação dentro do card: a ação vem abaixo dele, fora. |
 
 **Todas as variantes:**
 
@@ -432,6 +433,90 @@ Este é o componente mais especial do sistema, e o mais rigorosamente calmo.
 
 **Motion no modo de foco: zero.** O cronômetro atualiza o dígito com transição `dur-instant`, e ponto. Botão "Encerrar" tem `active: scale(0.98)`, e ponto.
 
+### 4.11 Sobreposição modal (bottom sheet e dialog)
+
+Base única de todo conteúdo que se sobrepõe à tela: confirmação destrutiva (§7.8), menu de ações e formulários curtos como o de §5.4.
+
+- **Abaixo de 768px:** bottom sheet ancorado embaixo, largura total, fundo `papel` no claro e `noite-elevada` no escuro, `radius-lg` só no topo, padding `space-6`, `elev-3`. Alça de 32x4px em `linha` / `linha-noite`, centralizada, `space-5` acima do conteúdo. O padding inferior soma a área segura do aparelho.
+- **A partir de 768px:** dialog centrado, 480px de largura, `radius-xl` nos quatro cantos (§3.4), sem alça. Menu que só existe no mobile continua bottom sheet em qualquer largura.
+- **Scrim:** `tinta` (`#171512`) a 40% no claro e preto a 60% no escuro. É cor fixa, e não o token `tinta`, que no escuro vira `papel-suave` e clarearia a tela.
+- **Motion (§3.6):** o sheet sobe de baixo em `dur-slow` com `ease-out`; o dialog entra em `dur-base` com deslize curto (16px) e fade. Os dois saem em `dur-base` com `ease-in`, com o scrim acompanhando. Sob `prefers-reduced-motion`, entram e saem sem deslizar.
+- **Interação:** o foco fica preso dentro enquanto aberto, `Esc` e toque no scrim fecham, e o foco volta ao elemento que abriu. Na confirmação destrutiva o foco entra em `Cancelar`, nunca no destrutivo.
+- **Menu de ações:** itens de 56px com ícone Phosphor `regular` de 20px e rótulo em `body`, `space-4` de gap, divisor `linha` entre eles, item destrutivo em `rubi` / `rubi-claro`, e `space-4` depois um botão textual `grafite` de largura total, `Cancelar`.
+- **Confirmação destrutiva:** título em `title-sm`, consequência em `body` `grafite` nomeando o que se perde. Na web os botões ficam lado a lado, alinhados à direita, `Cancelar` primeiro; no mobile empilham em largura total, destrutivo em cima.
+
+### 4.12 Área de upload de imagem
+
+Escolha de uma imagem do aparelho (hoje, a capa de livro pessoal, RN-14.7), com quatro estados:
+
+| Estado | Especificação |
+|---|---|
+| **Vazio** | Retângulo 120x160 no mobile e 200x267 na web, `radius`, borda tracejada 1px `linha`, fundo `papel-elevado`; `ImageSquare` (Phosphor, `regular`, 24px, `grafite-suave`) centralizado e, abaixo, `caption` `grafite` com a ação (`Adicionar capa`). Hover na web em `linha`. |
+| **Enviando** | A imagem já posicionada, coberta por `papel` a 60%, com a barra de progresso determinada (§4.13) no centro; abaixo, `caption` `grafite` com o estado (`Enviando capa`). O resto do formulário continua editável. |
+| **Preenchido** | A imagem, com botão circular de 28px em `papel` a 90% e `X` de 16px no canto superior direito (área tocável de 48px) para remover, e abaixo o link textual `caption` `musgo` peso 600 para trocar. |
+| **Erro** | Volta ao vazio com borda tracejada 1.5px `rubi` e a mensagem abaixo em `caption` `rubi`, acionável (RNF-USA-05). Nada do que foi digitado nos outros campos se perde. |
+
+- A regra do arquivo (formatos e tamanho máximo) fica sempre visível ao lado da área em `caption` `grafite-suave`, não só depois do erro (§7.9).
+- No mobile a área fica à esquerda com a regra à direita, `space-4` de gap; na web a regra fica abaixo, `space-3`.
+- A imagem é validada no cliente pelos bytes (tipo real, tamanho e dimensões) antes de subir.
+
+### 4.13 Barra de progresso determinada
+
+Quanto de uma transferência já terminou, com o servidor informando o total (upload). **Não é** a barra de progresso de leitura do §4.7, que mostra quanto do livro foi lido.
+
+- Trilha `linha` / `linha-noite`, altura 4px, largura 80px, `radius-full`; preenchimento `musgo` / `musgo-claro`, mesma altura e raio, crescendo em `dur-fast`.
+- Sem número ao lado: o percentual vai só para leitor de tela (`progressbar` com valor atual, mínimo e máximo).
+- Só existe quando o progresso é real. Espera sem progresso informado é o cartão do §4.14, nunca uma barra inventada (§7.10).
+
+### 4.14 Cartão de progresso de operação longa
+
+Espera de vários segundos sem progresso informado (a importação por ISBN consulta fontes externas com timeout e retentativa, RNF-ERR-08).
+
+- Card `papel-elevado` / `noite-elevada`, `radius-md`, padding `space-5`, sem sombra, no lugar em que o resultado vai aparecer.
+- Três barras de skeleton estáticas em `linha` / `linha-noite`, `radius-sm`, alturas de 16, 14 e 14px e larguras de 70%, 45% e 35%, `space-3` de gap: a forma do resultado que vem.
+- `space-4` abaixo, uma linha de estado em `caption` `grafite`. Quando a espera passa de um limiar (oito segundos na importação), o texto troca sem trocar o layout, por crossfade em `dur-base`.
+- Um único fade de entrada em `dur-base` (§3.6). Sem spinner, sem barra, sem porcentagem e sem contagem regressiva.
+- Quando o resultado chega, ele substitui o cartão no mesmo lugar, sem trocar de tela.
+
+### 4.15 Faixa informativa neutra
+
+Informação que não é erro nem alerta, como "este livro já está no acervo". O banner de alerta em `ambar` passaria a ideia errada.
+
+- Fundo `musgo-fundo` / `musgo-fundo-escuro`, `radius`, padding `space-4`, sem borda.
+- `Info` (Phosphor, `regular`, 20px, `musgo` / `musgo-claro`) à esquerda, `space-3` de gap, texto em `body`: `tinta` no claro e `musgo-claro` no escuro, como o ícone.
+- É conteúdo, não notificação: não fecha, não some sozinha e não tem ação dentro.
+
+### 4.16 Card de decisão
+
+Explica uma consequência e carrega o CTA que a aceita. É diferente do estado vazio (§5.1), que convida a uma ação óbvia: este pede uma escolha informada (hoje, cadastrar como livro pessoal um ISBN que nenhuma fonte conhece).
+
+- Card `papel-elevado` / `noite-elevada`, `radius-md`, padding `space-5`, alinhado à esquerda.
+- Título em forma de pergunta, `body-strong` `tinta`; `space-3`; a consequência em `body` `grafite`, dizendo o que muda e o que continua valendo; `space-5`; botão primário pill com a ação, largura total no mobile e largura do rótulo na web.
+- A alternativa (voltar, conferir) fica **fora** do card, como botão textual abaixo: o card carrega só a escolha que ele explica.
+
+### 4.17 Etiqueta de natureza do registro
+
+Diz o que o registro **é**, não em que estado está (isso é o status pill do §4.6) nem do que trata (isso é o chip de assunto). Hoje, só `Livro pessoal`, na página do livro, para o dono não confundi-lo com um do acervo.
+
+- Pill de 24px de altura, `radius-full`, padding horizontal `space-3`, fundo `musgo-fundo` / `musgo-fundo-escuro`, texto em `label` `musgo` / `musgo-claro`. Sem ícone e sem ação.
+- Não substitui o badge `PESSOAL` na capa das variantes de card (§4.5): a etiqueta vive na página, o badge vive no card.
+
+### 4.18 Linha de atribuição de dono
+
+Diz de quem é o conteúdo quando quem vê não é o dono (modo consulta, §5.8).
+
+- Avatar circular de 24px, `space-2` de gap, texto em `caption` `grafite`: `Livro pessoal de <nome>`, com o nome em `musgo` / `musgo-claro`. O nome é link para o perfil do dono quando essa rota existir; o resto da frase não é.
+- Sem avatar, o círculo mostra a inicial do nome em `label` `grafite` sobre `papel-elevado`.
+- Centralizada abaixo da etiqueta no mobile; na web, alinhada à esquerda logo abaixo do autor.
+
+### 4.19 Zona de exclusão
+
+Rodapé de um formulário de **edição** onde fica a ação destrutiva do registro, para ela não disputar espaço com salvar e cancelar.
+
+- `space-8` depois das ações do formulário, divisor de 1px `linha`, `space-5`.
+- Título em `caption` `grafite` nomeando a ação (`Excluir este livro`); abaixo, `space-3`, botão destrutivo em outline (§4.1), largura total com 48px no mobile e largura do rótulo com 40px na web.
+- O botão abre a confirmação do §4.11; a zona nunca exclui direto (RNF-USA-04). Não existe no formulário de criação.
+
 ---
 
 ## 5. Padrões de tela
@@ -472,7 +557,7 @@ Layout mobile:
 
 ### 5.4 Registrar progresso
 
-Tela simples, bottom sheet em mobile, dialog centrado em web:
+Tela simples, bottom sheet em mobile, dialog centrado em web, sobre a base do §4.11:
 
 - Título: "Registrar progresso"
 - Livro sendo lido: card compacto com capa 60×90 + título + autor.
@@ -513,6 +598,15 @@ A área de busca do acervo (RF-ACV-01/02). Separada da estante porque o escopo d
 - **Vazio da consulta:** o vazio tem saída, e a saída é o cadastro (RF-ACV-05/08), não uma mensagem de ausência.
 - **Aterrissagem, sem consulta:** campo e chips, sem foco automático no campo. Sem destaques e sem histórico: curadoria de descoberta não é escopo de nenhum RF.
 - **Web:** título e campo na mesma linha do header, painel de assuntos em coluna fixa à esquerda e resultados em grid de duas colunas.
+
+### 5.8 Modo consulta
+
+Variante de uma página de conteúdo aberta por quem não é o dono (hoje, o livro pessoal visto por terceiro pelo feed, RN-15; F-LST vai precisar do mesmo na via por lista).
+
+- **É a mesma página, com um conjunto de ações ausente.** As ações do dono (editar, excluir, estante, favorito, leitura, progresso) **não existem** no modo consulta: não aparecem desabilitadas, em cinza nem escondidas atrás de menu. A restrição é validada no servidor; a interface só não desenha o que não pode ser feito.
+- A linha de atribuição (§4.18) entra para dizer de quem é o conteúdo.
+- Os rótulos passam da segunda para a terceira pessoa: `Sua nota` vira `Nota de <primeiro nome>`, `Sua resenha` vira `Resenha de <primeiro nome>`.
+- Seção sem conteúdo some por completo, sem bloco substituto e sem convite: o convite (`Você ainda não avaliou este livro.`) é só do dono, porque só ele pode agir. A página não pode ficar com buraco quando tudo some.
 
 **Decidido (25/08/2026): Phosphor Icons.** Fechada sem pendência.
 
@@ -751,6 +845,18 @@ O nome definitivo do aplicativo é **Lê Ai**. A linguagem visual definida neste
 ---
 
 ## 11. Timeline
+
+### Atualização 23/09/2026
+
+Componentes que nasceram nos prompts de tela de F-ACV-CADASTRO (`docs/design/periodo-1/F-ACV-CADASTRO/`) e já estavam implementados na web e no mobile, incorporados com aprovação do grupo. A especificação segue a implementação, que já resolvia as divergências entre prompt e protótipo registradas na feature.
+
+- **§4.5:** quarta variante do card de livro, **Confirmação**.
+- **§4.11 Sobreposição modal:** a base que o §5.4 só nomeava ("bottom sheet em mobile, dialog centrado em web") ganhou medidas, scrim por tema, motion, foco e as duas composições em uso, menu de ações e confirmação destrutiva. O §5.4 passou a apontar para ela.
+- **§4.12 a §4.19, novos:** área de upload de imagem, barra de progresso determinada, cartão de progresso de operação longa, faixa informativa neutra, card de decisão, etiqueta de natureza do registro, linha de atribuição de dono e zona de exclusão.
+- **§5.8 Modo consulta, novo**, como variante de página.
+- Numeração acrescentada ao fim de cada capítulo para não renumerar seções já citadas por prompts e arquivos de feature.
+- Nenhum token, valor existente, nome de componente ou decisão tipográfica foi alterado.
+- **Impacto:** F-PRG usa a base do §4.11 no registro de progresso; F-LST reutiliza o §5.8 na via por lista; quem precisar de upload de imagem (o avatar de F-PERFIL, por exemplo) parte do §4.12. `docs/5.wireframe.md`, o documento da disciplina derivado deste, não enumera componentes e não muda.
 
 ### Atualização 02/09/2026
 

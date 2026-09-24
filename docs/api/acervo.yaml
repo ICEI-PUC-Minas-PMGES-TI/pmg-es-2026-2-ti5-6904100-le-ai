@@ -3,14 +3,33 @@ info:
   title: Lê Ai - acervo
   version: 0.1.0
   description: >-
-    Contrato planejado do serviço acervo para o Período 1
-    (F-ACV-BUSCA, F-ACV-CADASTRO e F-ACV-INGESTAO). As operações de domínio
-    descritas neste documento ainda não estão implementadas. A ingestão inicial
-    do dump é um script utilitário, não uma API HTTP; por isso não há rotas
-    administrativas de ingestão, recarga ou associação de assuntos neste
-    período. O contrato é publicado em runtime por @nestjs/swagger em /docs e
-    versionado aqui conforme RNF-ARQ-03.
-x-contract-status: planned
+    Contrato do serviço acervo para o Período 1 (F-ACV-BUSCA, F-ACV-CADASTRO e
+    F-ACV-INGESTAO). As operações de cadastro por ISBN e de livro pessoal foram
+    implementadas por F-ACV-CADASTRO em 18/09/2026; busca e página do livro
+    seguem planejadas com F-ACV-BUSCA. A ingestão inicial do dump é um script
+    utilitário, não uma API HTTP; por isso não há rotas administrativas de
+    ingestão, recarga ou associação de assuntos neste período. O contrato é
+    publicado em runtime por @nestjs/swagger em /docs e versionado aqui
+    conforme RNF-ARQ-03.
+x-contract-status: partial
+x-implementation-notes:
+  - >-
+    livro.importacao_solicitada está ligado ponta a ponta desde 22/09/2026: a
+    solicitação e a linha de outbox são gravadas na mesma transação, o
+    dispatcher de P0-MSG publica, e o consumidor acervo.importacao (fila
+    leai.acervo.importacao) consulta OpenLibrary e Google Books e converge o
+    livro com o mesmo tx do recibo. Com AMQP_ENABLED=false (padrão local) a
+    importação permanece em `pendente`. Em DES/HML depende de AMQP_URL do
+    CloudAMQP estar preenchida no painel do Render.
+  - >-
+    GET /livros/pessoal/{id} com via=feed depende de
+    social.v_atividade_livro_pessoal_v1 e identidade.v_seguimento_aceito_v1, que
+    existem fisicamente mas ainda não são alimentadas por F-FEED e F-PERFIL.
+    Enquanto isso nenhum terceiro obtém acesso, que é o comportamento
+    fail-closed correto.
+  - >-
+    notaDoDono e resenhaDoDono vêm das VIEWs de leitura e saem null enquanto
+    F-AVA não entrega. Ausência é resposta normal, nunca erro.
 x-planned-features: [F-ACV-BUSCA, F-ACV-CADASTRO, F-ACV-INGESTAO]
 x-database-contracts:
   - name: v_livro_referencia_v1
@@ -152,14 +171,16 @@ paths:
   /livros/oficial:
     post:
       operationId: solicitarImportacaoPorIsbn
-      x-contract-status: planned
+      x-contract-status: implemented
+      x-implemented-by: F-ACV-CADASTRO
       tags: [importacoes]
       summary: Solicita a importação assíncrona de um livro oficial por ISBN-13
       description: >-
         Aceita somente ISBN-13 válido, nunca URL. Para ISBN novo, cria uma
         solicitação idempotente, grava a outbox de livro.importacao_solicitada e
         responde 202 sem aguardar OpenLibrary ou Google Books. ISBN já existente
-        responde 409 com livroId. A operação tem rate limiting por IP e identidade.
+        responde 409 com livroId e o resumo do livro existente. A operação tem
+        rate limiting por IP e identidade.
         Repetir a mesma Idempotency-Key com o mesmo corpo devolve a resposta
         original; reutilizá-la com corpo diferente responde 409.
       parameters:
@@ -195,7 +216,8 @@ paths:
   /livros/importacoes/{id}:
     get:
       operationId: obterImportacaoPorIsbn
-      x-contract-status: planned
+      x-contract-status: implemented
+      x-implemented-by: F-ACV-CADASTRO
       tags: [importacoes]
       summary: Consulta uma importação por ISBN
       description: >-
@@ -220,7 +242,8 @@ paths:
   /livros/importacoes/{id}/reprocessar:
     post:
       operationId: reprocessarImportacaoPorIsbn
-      x-contract-status: planned
+      x-contract-status: implemented
+      x-implemented-by: F-ACV-CADASTRO
       tags: [importacoes]
       summary: Reprocessa uma importação com falha transitória
       description: >-
@@ -248,7 +271,8 @@ paths:
   /livros/pessoal:
     post:
       operationId: criarLivroPessoal
-      x-contract-status: planned
+      x-contract-status: implemented
+      x-implemented-by: F-ACV-CADASTRO
       tags: [livros-pessoais]
       summary: Cria um livro pessoal
       description: >-
@@ -282,7 +306,8 @@ paths:
   /livros/pessoal/{id}:
     get:
       operationId: obterLivroPessoal
-      x-contract-status: planned
+      x-contract-status: implemented
+      x-implemented-by: F-ACV-CADASTRO
       tags: [livros-pessoais]
       summary: Obtém um livro pessoal com autorização RN-15
       description: >-
@@ -315,7 +340,8 @@ paths:
         '503': { $ref: '#/components/responses/ServicoIndisponivel' }
     patch:
       operationId: atualizarLivroPessoal
-      x-contract-status: planned
+      x-contract-status: implemented
+      x-implemented-by: F-ACV-CADASTRO
       tags: [livros-pessoais]
       summary: Atualiza um livro pessoal do próprio usuário
       description: >-
@@ -344,7 +370,8 @@ paths:
         '503': { $ref: '#/components/responses/ServicoIndisponivel' }
     delete:
       operationId: excluirLivroPessoal
-      x-contract-status: planned
+      x-contract-status: implemented
+      x-implemented-by: F-ACV-CADASTRO
       tags: [livros-pessoais]
       summary: Exclui um livro pessoal do próprio usuário
       description: >-
@@ -499,6 +526,31 @@ components:
           required: [livroId]
           properties:
             livroId: { type: string, format: uuid }
+            livro:
+              $ref: '#/components/schemas/LivroImportadoResumo'
+    LivroImportadoResumo:
+      type: object
+      additionalProperties: false
+      description: >-
+        Resumo da edição para o card de confirmação do cadastro por ISBN
+        (livro encontrado ou já existente). Não substitui a página do livro,
+        que é de F-ACV-BUSCA.
+      required: [id, titulo, autores, editora, anoPublicacao, paginas, capaUrl]
+      properties:
+        id: { type: string, format: uuid }
+        titulo: { type: string, minLength: 1, maxLength: 500 }
+        autores:
+          type: string
+          nullable: true
+          description: Autores para exibição, separados por vírgula.
+        editora: { type: string, nullable: true }
+        anoPublicacao: { type: integer, minimum: 1, maximum: 9999, nullable: true }
+        paginas: { type: integer, minimum: 1 }
+        capaUrl:
+          type: string
+          format: uri
+          nullable: true
+          description: Capa resolvida, cópia própria e depois URL externa.
     AutorResumo:
       type: object
       additionalProperties: false
@@ -622,7 +674,7 @@ components:
     Importacao:
       type: object
       additionalProperties: false
-      required: [importacaoId, isbn, status, livroId, permiteCadastroPessoal, criadoEm, atualizadoEm]
+      required: [importacaoId, isbn, status, livroId, livro, permiteCadastroPessoal, criadoEm, atualizadoEm]
       properties:
         importacaoId: { type: string, format: uuid }
         isbn:
@@ -634,6 +686,11 @@ components:
           format: uuid
           nullable: true
           description: Preenchido somente quando status é concluida.
+        livro:
+          allOf:
+            - $ref: '#/components/schemas/LivroImportadoResumo'
+          nullable: true
+          description: Resumo do livro, somente quando status é concluida.
         permiteCadastroPessoal:
           type: boolean
           description: true somente quando status é nao_encontrado.
@@ -674,10 +731,21 @@ components:
           minimum: 0
           maximum: 5
           multipleOf: 0.5
+    DonoResumo:
+      type: object
+      additionalProperties: false
+      required: [nome, avatarUrl]
+      description: >-
+        Quem cadastrou o livro pessoal, lido de `identidade.v_perfil_referencia_v1`, para a
+        linha de atribuição do modo consulta. Antes o nome só chegava dentro de
+        `resenhaDoDono`, e o terceiro não sabia de quem era um livro sem resenha.
+      properties:
+        nome: { type: string, minLength: 1, maxLength: 200 }
+        avatarUrl: { type: string, format: uri, nullable: true }
     LivroPessoalDetalhe:
       type: object
       additionalProperties: false
-      required: [id, tipo, donoId, titulo, autor, paginas, sinopse, capaUrl, modoConsulta, notaDoDono, resenhaDoDono]
+      required: [id, tipo, donoId, titulo, autor, paginas, sinopse, capaUrl, modoConsulta, notaDoDono, resenhaDoDono, dono]
       properties:
         id: { type: string, format: uuid }
         tipo: { type: string, enum: [pessoal] }
@@ -698,3 +766,10 @@ components:
           allOf:
             - $ref: '#/components/schemas/ResenhaResumo'
           nullable: true
+        dono:
+          allOf:
+            - $ref: '#/components/schemas/DonoResumo'
+          nullable: true
+          description: >-
+            `null` quando o perfil do dono não está na VIEW (conta suspensa ou com exclusão
+            pendente) ou quando a VIEW falha; a página não inventa um nome.

@@ -33,7 +33,16 @@ export class MessageValidator {
     this.ajv = new Ajv2020({ allErrors: true, strict: false });
     addFormats(this.ajv);
     this.envelope = this.ajv.compile(envelopeSchema);
-    this.dataSchemas.set('ping.teste:1', this.ajv.compile(pingSchema));
+    this.registerDataSchema('ping.teste', 1, pingSchema);
+  }
+
+  /**
+   * Registra o schema de `data` aceito para um `(type, version)`. Cada
+   * consumidor registra os seus no próprio `onModuleInit`, com a cópia runtime
+   * do schema canônico de `docs/mensageria/schemas/`, sem editar este arquivo.
+   */
+  registerDataSchema(type: string, version: number, schema: object): void {
+    this.dataSchemas.set(`${type}:${version}`, this.ajv.compile(schema));
   }
 
   parse(message: ConsumeMessage): MessageEnvelope {

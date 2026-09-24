@@ -10,6 +10,9 @@ import 'package:le_ai_mobile/core/session/session_controller.dart';
 import 'package:le_ai_mobile/core/session/token_store.dart';
 import 'package:le_ai_mobile/design/theme.dart';
 import 'package:le_ai_mobile/features/auth/auth_service.dart';
+import 'package:le_ai_mobile/features/livros/acervo_service.dart';
+import 'package:le_ai_mobile/features/livros/capa.dart';
+import 'package:le_ai_mobile/features/livros/rotas_livros.dart';
 
 /// Testa a guarda através de um `GoRouter` de verdade dirigido por `router.go()`, em vez de
 /// montar um `GoRouterState` à mão: o construtor dele exige uma `RouteConfiguration` interna do
@@ -32,6 +35,17 @@ class _FakeTokenStore implements TokenStore {
   }
 }
 
+class _SemImagem implements SeletorDeImagem {
+  @override
+  Future<ImagemEscolhida?> escolher() async => null;
+}
+
+class _SemEnvio implements EnviadorDeCapa {
+  @override
+  Future<String> enviar(ImagemEscolhida imagem, {void Function(double)? aoProgredir}) async =>
+      throw const FalhaNoEnvioDaCapa();
+}
+
 Widget _wrap(GoRouter router) {
   return MaterialApp.router(theme: AppTheme.light(), routerConfig: router);
 }
@@ -50,6 +64,16 @@ void main() {
     router = buildRouter(
       sessionController: sessionController,
       authService: AuthService(apiClient),
+      livros: DependenciasDeLivros(
+        acervo: AcervoService(
+          ApiClient(
+            baseUrl: 'http://localhost:3000',
+            client: MockClient((request) async => http.Response('{}', 200)),
+          ),
+        ),
+        seletor: _SemImagem(),
+        enviador: _SemEnvio(),
+      ),
     );
   });
 
@@ -95,5 +119,42 @@ void main() {
     await tester.tap(find.text('Estante'));
     await tester.pumpAndSettle();
     expect(find.text('Sua estante aparece aqui.'), findsOneWidget);
+  });
+
+  testWidgets('Descobrir leva ao cadastro por ISBN, que troca o cabeçalho da aba pelo da tela', (
+    tester,
+  ) async {
+    await sessionController.entrar('jwt-valido');
+    await tester.pumpWidget(_wrap(router));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Descobrir'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cadastrar por ISBN'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Adicionar livro'), findsOneWidget);
+    // Só a barra inferior diz "Descobrir"; o título da aba saiu do cabeçalho.
+    expect(find.text('Descobrir'), findsOneWidget);
+    expect(find.bySemanticsLabel('Voltar'), findsOneWidget);
+
+    await tester.tap(find.bySemanticsLabel('Voltar'));
+    await tester.pumpAndSettle();
+    expect(find.text('A busca do acervo aparece aqui.'), findsOneWidget);
+  });
+
+  testWidgets('a saída pessoal do ISBN abre o formulário sem campo de ISBN', (tester) async {
+    await sessionController.entrar('jwt-valido');
+    await tester.pumpWidget(_wrap(router));
+    await tester.pumpAndSettle();
+
+    router.go('/descobrir/adicionar-livro');
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Cadastrar livro pessoal'));
+    await tester.tap(find.text('Cadastrar livro pessoal'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Novo livro pessoal'), findsOneWidget);
+    expect(find.text('ISBN'), findsNothing);
   });
 }

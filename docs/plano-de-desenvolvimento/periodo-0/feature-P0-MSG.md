@@ -269,3 +269,5 @@ OpenAPI é N/A para o broker. O endpoint interno do agendador entra no spec de `
 ### Validação real 19/09/2026: migrations aplicadas no Neon e conexão CloudAMQP confirmada. Após corrigir a serialização Java de `OffsetDateTime` para `string` ISO-8601 no envelope, a prova `identidade` → `acervo` passou; a outbox ficou `publicado` e o recibo idempotente foi gravado.
 
 ### Configuração de ambiente 19/09/2026: variáveis do Brevo preparadas no serviço `identidade` e no blueprint do Render. A prova real de envio permanece pendente até preencher as chaves no ambiente e confirmar o remetente verificado.
+
+### Blueprint 22/09/2026: `AMQP_ENABLED=true` declarado nos quatro serviços do `render.yaml`; `AMQP_URL` permanece como segredo `sync: false` e deve ser preenchido no painel antes do deploy da `main` ao fim do Período 1. O status de DES/HML permanece pendente até esse deploy.

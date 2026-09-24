@@ -12,6 +12,7 @@ import 'core/session/token_store.dart';
 import 'design/theme.dart';
 import 'design/theme_controller.dart';
 import 'features/auth/auth_service.dart';
+import 'features/livros/rotas_livros.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,6 +36,7 @@ Future<void> main() async {
       themeController: themeController,
       sessionController: sessionController,
       authService: AuthService(apiClient),
+      livros: DependenciasDeLivros.padrao(getToken: () => sessionController.token),
     ),
   );
 }
@@ -43,11 +45,13 @@ class LeAiApp extends StatefulWidget {
   final ThemeController themeController;
   final SessionController sessionController;
   final AuthService authService;
+  final DependenciasDeLivros? livros;
 
   const LeAiApp({
     required this.themeController,
     required this.sessionController,
     required this.authService,
+    this.livros,
     super.key,
   });
 
@@ -61,6 +65,7 @@ class _LeAiAppState extends State<LeAiApp> {
   late final GoRouter _router = buildRouter(
     sessionController: widget.sessionController,
     authService: widget.authService,
+    livros: widget.livros,
   );
 
   @override

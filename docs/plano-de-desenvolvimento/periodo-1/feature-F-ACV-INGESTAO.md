@@ -1,7 +1,7 @@
 # F-ACV-INGESTAO — Ingestão do acervo (dump + assuntos)
 
 **Período:** 1 · **Prioridade:** prioritaria
-**Dono:** a definir · **Serviços afetados:** `acervo` (base de dados) + **script utilitário de carga** (fora dos 4 serviços)
+**Dono:** Vicenzo Fonseca · **Serviços afetados:** `acervo` (base de dados) + **script utilitário de carga** (fora dos 4 serviços)
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.2 (RF-ACV-13, 20), RN-12, RN-21, §10.1. Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §2.1, §2.2, §4.1. Processo e template: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §9. Em caso de conflito, o `REQUISITOS.md` ganha.
 
@@ -20,8 +20,8 @@ RNF atendidos: **RNF-DES-04** (acervo ≤20% do limite do plano Neon — carga d
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra / Dados | em andamento | baseline do DER versionada e implantada no Neon em 16/09/2026; faltam dados curados, carga e validação de capacidade |
-| Script de carga | não iniciado | filtragem local em streaming, normalização e `COPY` ainda não implementados |
+| Infra / Dados | em andamento | baseline do DER implantada em 16/09/2026; dados curados versionados em 18/09/2026 (30 assuntos, 104 sinônimos de editora, 208 mapeamentos de tag). Falta executar a carga e validar a capacidade contra RNF-DES-04 |
+| Script de carga | implementado | `code/scripts/ingestao/` (Python): filtragem em streaming, normalização RN-12, mapeamento RN-21, `COPY` para staging com upsert e registro em `ingestao_execucao`. Desde 22/09/2026 a **amostra** roda o roteiro inteiro contra Postgres real no CI, e edição sem `authors` herda o primeiro autor da obra. **Nunca executado contra o dump real** — ver pendências |
 | Backend | não aplicável | carga inicial não é endpoint, consumidor ou fluxo de mensageria |
 | Web | não aplicável | RF-ACV-13/20 são de sistema, sem UI |
 | Mobile | não aplicável | idem |
@@ -58,32 +58,32 @@ O modelo físico está versionado em `code/back/acervo/drizzle/0001_202609161107
 
 ## Critérios de aceite
 
-- [ ] O script filtra o dump **no nível da edição** (português, ISBN-13, total de páginas, capa) e carrega por `COPY` em streaming, sem subir o dump bruto ao Neon.
-- [ ] Autor, editora e série são **normalizados** (RN-12), com a **tabela de sinônimos** de editoras aplicada.
-- [ ] URL de capa **externa** é persistida em todo livro; sinopse e nota geral **não** são carregadas.
-- [ ] Assuntos são mapeados para o **conjunto curado (~30)** pela tabela de mapeamento; tags sem correspondência são **descartadas** e não criam assunto novo (RN-21).
-- [ ] Livros sem ISBN-13/páginas/capa são **descartados** (RN-12).
-- [ ] O acervo carregado respeita o **teto de 20%** do plano Neon (RNF-DES-04), com o índice de busca contabilizado (RNF-DES-05).
+- [x] O script filtra o dump **no nível da edição** (português, ISBN-13, total de páginas, capa) e carrega por `COPY` em streaming, sem subir o dump bruto ao Neon. *Implementado e testado contra a amostra; a execução contra o dump real ainda não aconteceu.*
+- [x] Autor, editora e série são **normalizados** (RN-12), com a **tabela de sinônimos** de editoras aplicada. Edição sem `authors` recebe o primeiro autor da obra, com o mesmo critério do importador por ISBN.
+- [x] URL de capa **externa** é persistida em todo livro; sinopse e nota geral **não** são carregadas.
+- [x] Assuntos são mapeados para o **conjunto curado (30)** pela tabela de mapeamento; tags sem correspondência são **descartadas** e não criam assunto novo (RN-21). O teto de 5 por livro é aplicado na fase de resolução.
+- [x] Livros sem ISBN-13/páginas/capa são **descartados** (RN-12), com o motivo contabilizado por categoria.
+- [ ] O acervo carregado respeita o **teto de 20%** do plano Neon (RNF-DES-04), com o índice de busca contabilizado (RNF-DES-05). *O script aceita `--limite` e mede dados e índice por tabela ao fim da carga; o número real depende da execução.*
 - [x] Índices físicos de título/autor/ISBN e unicidade de ISBN-13/`ol_edition_key` estão versionados e implantados (RNF-DES-03); a eficácia com o volume real ainda será validada pela carga.
 - [x] `v_livro_referencia_v1` está versionada e implantada com exatamente `livro_id`, `tipo`, `dono_id`, `paginas`, `titulo`, `autor_exibicao`, `capa_resolvida`, `ativo`, sem expor tabelas cruas.
-- [ ] Reexecutar a mesma amostra não duplica livro, autor, editora, série ou assunto; ISBN-13 e `ol_edition_key` sustentam a deduplicação.
-- [ ] A amostra reproduzível fornece ao menos livros oficiais suficientes para o seed transversal de RNF-TST-08, sem depender do dump completo.
+- [x] Reexecutar a mesma amostra não duplica livro, autor, editora, série ou assunto; ISBN-13 e `ol_edition_key` sustentam a deduplicação. *Provado contra Postgres em 22/09/2026: a segunda carga da amostra insere zero livros e todas as contagens ficam iguais.*
+- [x] A amostra reproduzível fornece ao menos livros oficiais suficientes para o seed transversal de RNF-TST-08, sem depender do dump completo. *16 edições aceitas e 8 descartadas, uma por motivo de descarte; a 15ª é uma edição sem `authors` cuja obra lista autora e tradutor, e a 16ª tem como autor só o marcador `[author not identified]`.*
 - [ ] A base carregada é consultável por [F-ACV-BUSCA](feature-F-ACV-BUSCA.md) **em DES**.
 
 ## Definition of Done
 
 (plano §10)
 
-- [ ] Script de carga mergeado em `desenvolvimento`; a migration baseline do schema `acervo` já está versionada e implantada, sem representar implementação do script
-- [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)) — o CI não roda o dump inteiro; valida o script contra uma **amostra reproduzível** (RNF-TST-08)
-- [ ] Testes unitários e de integração contra banco real/container: normalização de editora/autor/série (RN-12), mapeamento de assuntos (RN-21), descarte de registro inválido, deduplicação em recarga da amostra e contrato da VIEW (RNF-TST-02/08)
-- [ ] Teste operacional da amostra cobre registro de `ingestao_execucao`, totais coerentes, falha sem carga parcial silenciosa e reexecução idempotente; testes de broker são **N/A**, pois o dump não usa mensageria
-- [ ] **Spec OpenAPI de `acervo` atualizado em `docs/api/acervo.yaml`** — não há endpoint de ingestão, mas `v_livro_referencia_v1` é documentada como contrato entre schemas; os endpoints ficam em [F-ACV-BUSCA](feature-F-ACV-BUSCA.md)/[F-ACV-CADASTRO](feature-F-ACV-CADASTRO.md)
+- [ ] Script de carga mergeado em `desenvolvimento` — implementado em `vicenzo-features`, ainda não mergeado
+- [x] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)) — `ci-scripts-ingestao.yml` confere os dados curados e roda a suíte contra a **amostra reproduzível**, sem baixar dump (RNF-TST-08)
+- [x] Testes unitários e de integração contra banco real/container: normalização de editora/autor/série (RN-12), mapeamento de assuntos (RN-21), descarte de registro inválido, deduplicação em recarga da amostra e contrato da VIEW (RNF-TST-02/08) — 96 unitários e 7 de banco (`tests/test_carga_banco.py`, marcados `banco`), com Postgres descartável no CI e as migrations reais de `acervo`; os dois últimos provam que a edição sem autor vincula só a autora da obra, nunca o tradutor, e que o marcador de catálogo cede lugar ao autor da obra
+- [x] Teste operacional da amostra cobre registro de `ingestao_execucao`, totais coerentes, falha sem carga parcial silenciosa e reexecução idempotente; testes de broker são **N/A**, pois o dump não usa mensageria — um candidato corrompido depois da fase 1 derruba a carga no INSERT de livro, nada entra (nem as editoras gravadas antes) e a execução fica registrada como `falha`
+- [x] **Spec OpenAPI de `acervo` atualizado em `docs/api/acervo.yaml`** — não há endpoint de ingestão; o contrato desta feature é `v_livro_referencia_v1`, conferido em 22/09/2026 em `x-database-contracts` de `acervo.yaml` com `status: implemented`, consumidores `leitura` e `social` e exatamente as oito colunas da VIEW implantada. Os endpoints ficam em [F-ACV-BUSCA](feature-F-ACV-BUSCA.md)/[F-ACV-CADASTRO](feature-F-ACV-CADASTRO.md)
 - [ ] Fluxo funcionando em DES/HML — acervo carregado na branch de DES ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
-- [ ] Arquivo da feature atualizado: status, pendências, timeline
+- [x] Arquivo da feature atualizado: status, pendências, timeline
 - [ ] Divergência protótipo × implementação registrada, se houver (N/A — sem UI)
 
-**Itens próprios:** versionar a **tabela de sinônimos de editoras** e a **tabela de mapeamento de assuntos** (entregáveis desta feature) e o **conjunto curado de ~30 assuntos**; registrar em Timeline o **volume real carregado** e a fração do plano Neon consumida (validação de RNF-DES-04).
+**Itens próprios:** ~~versionar a **tabela de sinônimos de editoras** e a **tabela de mapeamento de assuntos** (entregáveis desta feature) e o **conjunto curado de ~30 assuntos**~~ — **feito (18/09/2026):** `code/scripts/ingestao/dados/{assuntos,sinonimos_editora,mapa_assunto}.csv`, com conferência de consistência no CI. Falta registrar em Timeline o **volume real carregado** e a fração do plano Neon consumida (validação de RNF-DES-04).
 
 ## Pendências
 
@@ -93,9 +93,26 @@ O modelo físico está versionado em `code/back/acervo/drizzle/0001_202609161107
 - **Recarga manual do dump** (RF-ACV-14) fica fora e está alocada a **F-ACV-OPC** (Período 3).
 - **Decisão encerrada em 15/09/2026:** delta/atualização automática removido do escopo. Permanecem carga inicial e recarga manual em F-ACV-OPC; `ingestao_execucao.tipo` não possui delta.
 - **Importação de nota geral** (RF-ACV-15) é **F-ACV-NOTA** (Período 2).
-- Linguagem do script (Python recomendado) e ambiente de execução (rodar localmente / job) a fixar no arranque.
+- ~~Linguagem do script (Python recomendado) e ambiente de execução a fixar no arranque.~~ — **fechado em 18/09/2026:** Python 3.11+, em `code/scripts/ingestao/`, executado à mão a partir da máquina de alguém do grupo. Não é job agendado e não sobe no Render.
+- **A carga nunca foi executada contra o dump real.** O script está implementado e testado contra a amostra versionada, mas os três dumps (edições, autores, obras) somam dezenas de GB e o download não cabia na sessão em que ele foi escrito. O roteiro completo está em `code/scripts/ingestao/README.md`. Enquanto isso não acontecer, o acervo em DES continua vazio e **F-ACV-BUSCA não tem o que buscar**.
+- **Dois bugs que só apareceriam no fim da carga real foram corrigidos em 22/09/2026**, achados pelos testes de banco: `execucao.abrir` devolvia o `uuid.UUID` do psycopg e o `json.dumps` do resumo do `carregar` quebrava depois do commit, sem imprimir as medidas de RNF-DES-04; e `registrada()` tentava fechar a execução como `falha` dentro da transação já abortada, o que escondia o erro original e deixava a linha `em_execucao` para sempre.
+- **O pin do `psycopg` subiu de 3.2.3 para 3.2.13** (mesma série): 3.2.3 não tem wheel para Python 3.14.
+- **Edição sem autor: fallback implementado, falta medir.** Desde 22/09/2026 o `resolver` lê o dump de obras antes do de autores e grava `autor_obra.jsonl` com o primeiro autor da obra das edições sem `authors`, e a carga usa esse autor. O critério é o mesmo do importador por ISBN de F-ACV-CADASTRO: primeiro da lista, na ordem da fonte, sem filtrar papel, e primeiro item malformado sem autor. "Primeiro" é uma aposta: a lista da obra mistura tradutor e prefaciador, e nada no dump diz quem é quem. Desde 23/09/2026 o plano B vale também quando a edição só tem autor que é **marcador de catálogo** (`[author not identified]`, nome entre colchetes, "unknown", "autor desconhecido"), achado no teste real do importador; por isso `autor_obra.jsonl` guarda o primeiro autor de toda obra, e não só das edições sem `authors`. Na carga real, contar quantas edições caíram no fallback e conferir uma amostra à mão. Mudar o critério exige mudar os dois lados (`nomeDeAutorUtilizavel` no `acervo`, `nome_de_autor_utilizavel` aqui, com os mesmos casos de teste).
+- **Duplicação consciente das funções de normalização.** As regras de RN-12 e RN-21 existem em Python (o script) e em TypeScript (o importador por ISBN de F-ACV-CADASTRO), porque são linguagens diferentes. Os **dados** não estão duplicados: os CSV são a fonte versionada e as tabelas `assunto`, `sinonimo_editora` e `mapa_assunto_externo` são a fonte de runtime dos dois lados. O que pode divergir são as funções — slug, sufixos societários, dígito verificador — e os dois conjuntos de teste usam os mesmos casos de propósito. A versão TypeScript de editora e autor passou a existir de fato em 22/09/2026, em `code/back/acervo/src/common/normalizacao.ts`.
+- **Conjunto curado, sinônimos e mapeamento entram como proposta do dono**, não como decisão do grupo. RN-21.1 diz que os ~30 gêneros são definidos pelo grupo; os arquivos versionados precisam de ratificação. Mudar um slug depois da carga exige migração dos vínculos em `livro_assunto`.
+- **A conferência dos dados curados é a primeira coisa a rodar.** `python -m leai_ingestao conferir` valida os três CSV entre si sem tocar o banco: slug que não deriva do nome violaria o CHECK, tag fora da forma normalizada nunca casaria em runtime, e mapeamento apontando para assunto inexistente violaria a FK — os três só apareceriam no meio de uma carga de horas.
 
 ## Timeline
+
+### Marcador de catálogo 23/09/2026 (noite): o importador por ISBN de [F-ACV-CADASTRO](feature-F-ACV-CADASTRO.md) achou outro "autor" que é só marcador, `invalid author ID` (`/authors/OL9958049A`), nas edições brasileiras do Diário de um Banana. Entrou em `_MARCADORES_DE_AUTOR_DESCONHECIDO` (`normalizacao.py`) junto com o gêmeo TS, com o caso nas duas suítes. `9788535932843` já está no Neon com esse autor, e a correção não reescreve dado gravado.
+
+### Marcador de catálogo 23/09/2026: o teste real da web importou `9788532528421` com o "autor" `[author not identified]`, um registro da OpenLibrary que é só marcador de catálogo; a obra conhece Austin Kleon. A regra de nome utilizável entrou no importador e aqui, com os mesmos casos: marcador conta como ausência, e o autor vem da obra. Como o marcador só aparece na passada de autores, depois da de obras, o `resolver` passou a anotar o primeiro autor de toda obra, e rodar `--dump-autores` sem `autor_obra.jsonl` é recusado sempre que há obra a resolver. A amostra ganhou `OL30000016M` para o caso; 96 unitários e 7 de banco.
+
+### Fallback de autor 22/09/2026 (noite): muitas edições brasileiras da OpenLibrary não têm `authors`, e só a obra tem, com a lista misturando tradutor; o importador por ISBN já tratava isso, e o teste real pela web confirmou (`9788571646858` entrou como "A Metamorfose", de Franz Kafka, com o autor vindo da obra). O script passou a fazer o mesmo: `filtrar` anota as obras das edições sem autor, `resolver` lê o dump de obras antes do de autores e grava `autor_obra.jsonl` com o primeiro autor de cada uma, e `carregar` usa esse autor quando a edição veio sem. A amostra ganhou uma edição sem `authors` (`OL30000015M`) cuja obra lista autora e tradutor, e os testes de banco provam que só a autora é vinculada e que a recarga continua idempotente: 86 unitários e 6 de banco. O item "Spec OpenAPI" do DoD foi conferido e marcado, porque `v_livro_referencia_v1` está em `x-database-contracts` de `acervo.yaml`. A carga do dump e RNF-DES-04 seguem pendentes para a máquina de casa.
+
+### Testes de banco 22/09/2026: sem acesso ao dump nesta sessão, a amostra versionada passou a rodar o roteiro inteiro do README — `semear`, `filtrar`, `resolver`, `carregar` — contra um Postgres descartável com as migrations reais de `acervo`, no CI e localmente. Os cinco testes provam `ingestao_execucao` com totais coerentes, os 30 assuntos sem tag criando assunto novo, o teto de cinco assuntos por livro, a VIEW de referência enxergando o que foi carregado, a reexecução sem duplicar nada e a falha no meio sem carga parcial. Eles acharam dois bugs que só apareceriam no fim da carga real (UUID no `json.dumps` e fechamento de execução em transação abortada), ambos corrigidos. A carga do dump e a medição de RNF-DES-04 continuam pendentes para a máquina de casa.
+
+### Implementação 18/09/2026: script de carga implementado em Python, em `code/scripts/ingestao/`, fora dos quatro serviços como a arquitetura §2.1 exige — sem HTTP, sem outbox e sem dependência de [P0-MSG](../periodo-0/feature-P0-MSG.md). O pipeline tem três fases porque o dump de edições não é autossuficiente: a edição referencia autor e obra por chave, mas o nome do autor vive em `ol_dump_authors` e os assuntos vivem na obra, em `ol_dump_works`. `filtrar` aplica RN-12 no nível da **edição** (§10.1 mediu 26% de falso positivo em `language:por` de obra), exigindo português, ISBN-13 com dígito verificador, total de páginas e capa, e excluindo autopublicação; `resolver` lê os dumps de autores e obras uma vez cada, guardando só as chaves necessárias e já traduzindo as tags livres para o conjunto curado, que nunca chegam ao banco (RN-12); `carregar` faz `COPY` para staging temporário e upsert com `ON CONFLICT DO NOTHING` em uma transação só, deduplicando por ISBN-13 e `ol_edition_key` (RNF-SEC-12). Entregues os três dados curados versionados: 30 assuntos (RN-21.1), 104 sinônimos de editora e 208 mapeamentos de tag externa — os CSV são a fonte versionada e as tabelas do schema são a fonte de runtime, lidas também pelo importador por ISBN de F-ACV-CADASTRO. Duas decisões de normalização ficaram travadas por teste: editora **preserva acento**, porque RN-12 cita "Intrinseca"/"Intrínseca" como caso da tabela de sinônimos e remover acento tornaria o exemplo da regra sem sentido; e palavra de ramo só é removida do início, porque no fim ela é parte da marca ("Globo Livros", "Universo dos Livros"). `psycopg` é extra opcional e só `carga.py` o importa, o que permite rodar a suíte inteira sem banco. Novo `ci-scripts-ingestao.yml` confere os dados curados e roda 70 testes contra a amostra reproduzível de 14 edições aceitas e 8 descartadas, uma por motivo (RNF-TST-08), sem baixar dump. **A carga contra o dump real não foi executada** e continua como pendência principal. Status, critérios, DoD e pendências atualizados.
 
 ### Alinhamento 17/09/2026: status corrigido para registrar a baseline física de `acervo` versionada e implantada sem declarar o script implementado. Fixada a fronteira operacional entre carga inicial direta por script, sem HTTP/mensageria/P0-MSG, e importação individual por ISBN de F-ACV-CADASTRO; testes e dependências cruzadas foram alinhados ao DER implantado.
 

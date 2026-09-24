@@ -7,6 +7,7 @@ import '../features/auth/login_page.dart';
 import '../features/descobrir/descobrir_page.dart';
 import '../features/estante/estante_page.dart';
 import '../features/feed/feed_page.dart';
+import '../features/livros/rotas_livros.dart';
 import '../features/perfil/perfil_page.dart';
 import 'shell_autenticado.dart';
 import 'verificando_sessao_page.dart';
@@ -21,7 +22,17 @@ const List<String> _rotasPublicas = <String>[rotaLogin, rotaCadastro];
 /// faz o `redirect` reavaliar sozinho sempre que `entrar()`/`sair()`/`load()` chamam
 /// `notifyListeners()` — por isso `LoginPage`/`CadastroPage` não precisam navegar depois de
 /// autenticar: só muda a sessão, e a guarda reage.
-GoRouter buildRouter({required SessionController sessionController, required AuthService authService}) {
+///
+/// [livros] traz os serviços das telas de F-ACV-CADASTRO. Sem ele, o padrão aponta para o
+/// `acervo` de `AppConfig` com o token da sessão — os testes que não passam por essas telas não
+/// precisam montar nada.
+GoRouter buildRouter({
+  required SessionController sessionController,
+  required AuthService authService,
+  DependenciasDeLivros? livros,
+}) {
+  final deps =
+      livros ?? DependenciasDeLivros.padrao(getToken: () => sessionController.token);
   return GoRouter(
     initialLocation: rotaVerificandoSessao,
     refreshListenable: sessionController,
@@ -48,22 +59,38 @@ GoRouter buildRouter({required SessionController sessionController, required Aut
         ),
       ),
       StatefulShellRoute.indexedStack(
-        builder: (context, state, navigationShell) =>
-            ShellAutenticado(navigationShell: navigationShell),
+        builder: (context, state, navigationShell) => ShellAutenticado(
+          navigationShell: navigationShell,
+          caminhoAtual: state.uri.path,
+        ),
         branches: <StatefulShellBranch>[
           StatefulShellBranch(
             routes: <RouteBase>[
-              GoRoute(path: rotaEstante, builder: (context, state) => const EstantePage()),
+              GoRoute(
+                path: rotaEstante,
+                builder: (context, state) =>
+                    EstantePage(aoCadastrarLivro: () => context.go(rotaAdicionarLivro)),
+                routes: rotasDaEstante(deps),
+              ),
             ],
           ),
           StatefulShellBranch(
             routes: <RouteBase>[
-              GoRoute(path: '/descobrir', builder: (context, state) => const DescobrirPage()),
+              GoRoute(
+                path: '/descobrir',
+                builder: (context, state) =>
+                    DescobrirPage(aoCadastrarPorIsbn: () => context.go(rotaAdicionarLivro)),
+                routes: rotasDeDescobrir(deps),
+              ),
             ],
           ),
           StatefulShellBranch(
             routes: <RouteBase>[
-              GoRoute(path: '/feed', builder: (context, state) => const FeedPage()),
+              GoRoute(
+                path: '/feed',
+                builder: (context, state) => const FeedPage(),
+                routes: rotasDoFeed(deps),
+              ),
             ],
           ),
           StatefulShellBranch(

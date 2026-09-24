@@ -14,4 +14,26 @@ class AppConfig {
     'IDENTIDADE_BASE_URL',
     defaultValue: 'http://localhost:8080',
   );
+
+  /// Base URL do serviço `acervo` (F-ACV-CADASTRO): importação por ISBN e livro pessoal. No AVD,
+  /// `--dart-define=ACERVO_BASE_URL=http://10.0.2.2:3000`.
+  static const String acervoBaseUrl = String.fromEnvironment(
+    'ACERVO_BASE_URL',
+    defaultValue: 'http://localhost:3000',
+  );
+
+  /// Cloud do Cloudinary (P-09). Precisa ser a mesma de `CLOUDINARY_CLOUD_NAME` no `acervo`: o
+  /// servidor só aceita capa hospedada em `res.cloudinary.com/<cloud>/image/upload/`.
+  static const String cloudinaryCloudName = String.fromEnvironment(
+    'CLOUDINARY_CLOUD_NAME',
+    defaultValue: 'leai',
+  );
+
+  /// Preset **unsigned** de upload do Cloudinary. É o preset que limita tipo, tamanho e
+  /// dimensões do lado do Cloudinary (RNF-SEC-20); o cliente valida antes para dar a mensagem
+  /// certa sem gastar o upload. Vazio desliga o envio de capa, com mensagem de falha no envio.
+  static const String cloudinaryUploadPreset = String.fromEnvironment(
+    'CLOUDINARY_UPLOAD_PRESET',
+    defaultValue: '',
+  );
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../theme.dart';
 import '../tokens.dart';
@@ -43,6 +44,20 @@ class CampoTexto extends StatelessWidget {
   /// data em vez do teclado.
   final VoidCallback? onTap;
 
+  /// Exemplo dentro do campo. Nunca substitui o [label] (documento-de-design §4.2).
+  final String? placeholder;
+
+  /// Área de texto: com [maxLines] maior que 1 o campo cresce até esse limite (sinopse do livro
+  /// pessoal). O padrão é uma linha, como todo campo que já existia.
+  final int? minLines;
+  final int maxLines;
+  final List<TextInputFormatter>? inputFormatters;
+
+  /// Estilo do texto digitado, quando o campo pede outra fonte: o ISBN usa numeral tabular da
+  /// JetBrains Mono, porque a pessoa confere dígito a dígito contra o livro.
+  final TextStyle? estiloDoTexto;
+  final FocusNode? focusNode;
+
   const CampoTexto({
     super.key,
     required this.controller,
@@ -58,6 +73,12 @@ class CampoTexto extends StatelessWidget {
     this.onChanged,
     this.readOnly = false,
     this.onTap,
+    this.placeholder,
+    this.minLines,
+    this.maxLines = 1,
+    this.inputFormatters,
+    this.estiloDoTexto,
+    this.focusNode,
   });
 
   @override
@@ -81,10 +102,15 @@ class CampoTexto extends StatelessWidget {
           onChanged: onChanged,
           readOnly: readOnly,
           onTap: onTap,
-          style: theme.textTheme.bodyMedium?.copyWith(
+          focusNode: focusNode,
+          minLines: minLines,
+          maxLines: maxLines,
+          inputFormatters: inputFormatters,
+          style: (estiloDoTexto ?? theme.textTheme.bodyMedium)?.copyWith(
             color: enabled ? null : theme.tertiaryText,
           ),
           decoration: InputDecoration(
+            hintText: placeholder,
             filled: true,
             fillColor: enabled ? theme.elevatedSurface : theme.divider,
             hintStyle: theme.textTheme.bodyMedium?.copyWith(

@@ -66,5 +66,7 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>O Lê Ai usa a galeria só para você escolher a capa de um livro pessoal.</string>
 </dict>
 </plist>
