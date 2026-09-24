@@ -1,7 +1,7 @@
 # P0-INFRA — Scaffolding do monorepo e serviços
 
 **Período:** 0 · **Prioridade:** fundação
-**Dono:** a definir · **Serviços afetados:** transversal (os 4 serviços de backend + web + mobile)
+**Dono:** Kayke, Vicenzo Fonseca, Henrique Carvalho, Ana Luiza de Freitas, Renato Douglas · **Serviços afetados:** transversal (os 4 serviços de backend + web + mobile)
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md). Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md). Processo e template: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §9. Em caso de conflito, o `REQUISITOS.md` ganha.
 
