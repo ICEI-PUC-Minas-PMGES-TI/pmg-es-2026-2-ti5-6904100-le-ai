@@ -268,4 +268,42 @@ describe('createApiClient: idempotência e retentativa (RNF-ERR-03/04)', () => {
       campos: { titulo: 'Informe o título do livro.', capaUrl: 'URL de capa não aceita.' },
     })
   })
+
+  describe('renovação no 401', () => {
+    const naoAutenticado = () =>
+      new Response(JSON.stringify({ codigo: 'NAO_AUTENTICADO', mensagem: 'Sessão expirada.' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+    it('não renova quando o Authorization veio de quem chamou', async () => {
+      const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(naoAutenticado())
+      const renovarSessao = vi.fn()
+      const request = createApiClient({ fetch: fetchMock, getToken: () => 'da-sessao', renovarSessao })
+
+      await expect(request('/me', { headers: { Authorization: 'Bearer explicito' } })).rejects.toMatchObject({
+        status: 401,
+      })
+      expect(renovarSessao).not.toHaveBeenCalled()
+    })
+
+    it('renovação recusada devolve o 401 original sem repetir', async () => {
+      const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(naoAutenticado())
+      const renovarSessao = vi.fn().mockResolvedValue(false)
+      const request = createApiClient({ fetch: fetchMock, getToken: () => 'vencido', renovarSessao })
+
+      await expect(request('/me')).rejects.toMatchObject({ status: 401 })
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('repete uma vez só: 401 depois de renovar volta como erro', async () => {
+      const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => naoAutenticado())
+      const renovarSessao = vi.fn().mockResolvedValue(true)
+      const request = createApiClient({ fetch: fetchMock, getToken: () => 'sempre-recusado', renovarSessao })
+
+      await expect(request('/me')).rejects.toMatchObject({ status: 401 })
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      expect(renovarSessao).toHaveBeenCalledTimes(1)
+    })
+  })
 })

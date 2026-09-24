@@ -1,5 +1,6 @@
 import { getToken } from '../session'
 import { ApiError, createApiClient, type ApiClientOptions } from './api'
+import { renovarSessao } from './renovacao'
 
 /**
  * Contrato do serviço `acervo` usado por F-ACV-CADASTRO. Espelha `docs/api/acervo.yaml`: mesmos
@@ -103,6 +104,7 @@ export function createAcervoService(options: ApiClientOptions = {}) {
     ...options,
     baseUrl: options.baseUrl ?? import.meta.env.VITE_ACERVO_BASE_URL,
     getToken: options.getToken ?? getToken,
+    renovarSessao: options.renovarSessao ?? renovarSessao,
   })
 
   /** `POST /livros/oficial`. O `409` de ISBN já cadastrado vira resultado, não exceção. */

@@ -85,7 +85,7 @@ async function enviar(): Promise<void> {
       identificador: identificador.value.trim(),
       senha: senha.value,
     })
-    iniciarSessao(resultado.token.accessToken, resultado.usuario)
+    iniciarSessao(resultado.sessao, resultado.usuario)
     await router.push('/estante')
   } catch (erro) {
     tratarErro(erro)

@@ -1,6 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { encerrarSessao, getToken, initializeSession, iniciarSessao, useSession } from './session'
+import {
+  atualizarTokens,
+  encerrarSessao,
+  getRefreshToken,
+  getToken,
+  initializeSession,
+  iniciarSessao,
+  useSession,
+} from './session'
 
 const USUARIO = { id: 'u1', username: 'marinableu', displayName: 'Marina Beltrão' }
 
@@ -19,19 +27,53 @@ describe('session', () => {
   })
 
   it('iniciarSessao grava o token e o usuário, e persiste no localStorage', () => {
-    iniciarSessao('jwt-novo', USUARIO)
+    iniciarSessao({ accessToken: 'jwt-novo', refreshToken: 'renovacao' }, USUARIO)
 
     const { usuario, autenticado } = useSession()
     expect(autenticado.value).toBe(true)
     expect(usuario.value).toEqual(USUARIO)
     expect(getToken()).toBe('jwt-novo')
+    expect(getRefreshToken()).toBe('renovacao')
     expect(localStorage.getItem('le-ai-sessao')).toBe(
-      JSON.stringify({ token: 'jwt-novo', usuario: USUARIO }),
+      JSON.stringify({ token: 'jwt-novo', refreshToken: 'renovacao', usuario: USUARIO }),
     )
   })
 
+  it('atualizarTokens troca o par e mantém o usuário', () => {
+    iniciarSessao({ accessToken: 'jwt-velho', refreshToken: 'renovacao-velha' }, USUARIO)
+
+    atualizarTokens({ accessToken: 'jwt-novo', refreshToken: 'renovacao-nova' })
+
+    expect(getToken()).toBe('jwt-novo')
+    expect(getRefreshToken()).toBe('renovacao-nova')
+    expect(useSession().usuario.value).toEqual(USUARIO)
+  })
+
+  it('restaura sessão gravada antes de F-AUT, sem refresh', () => {
+    localStorage.setItem('le-ai-sessao', JSON.stringify({ token: 'jwt-antigo', usuario: USUARIO }))
+
+    initializeSession()
+
+    expect(getToken()).toBe('jwt-antigo')
+    expect(getRefreshToken()).toBeNull()
+  })
+
+  it('acompanha as outras abas: renovação e saída feitas lá chegam aqui', () => {
+    initializeSession()
+    const gravada = JSON.stringify({ token: 'jwt-da-outra-aba', refreshToken: 'r2', usuario: USUARIO })
+    localStorage.setItem('le-ai-sessao', gravada)
+    window.dispatchEvent(new StorageEvent('storage', { key: 'le-ai-sessao', newValue: gravada }))
+
+    expect(getToken()).toBe('jwt-da-outra-aba')
+
+    localStorage.removeItem('le-ai-sessao')
+    window.dispatchEvent(new StorageEvent('storage', { key: 'le-ai-sessao', newValue: null }))
+
+    expect(useSession().autenticado.value).toBe(false)
+  })
+
   it('encerrarSessao limpa o estado e o localStorage', () => {
-    iniciarSessao('jwt-novo', USUARIO)
+    iniciarSessao({ accessToken: 'jwt-novo', refreshToken: 'renovacao' }, USUARIO)
 
     encerrarSessao()
 

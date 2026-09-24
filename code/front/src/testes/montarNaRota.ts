@@ -17,7 +17,10 @@ export async function montarNaRota(caminho: string) {
     'matchMedia',
     vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }),
   )
-  iniciarSessao('jwt', { id: 'u1', username: 'marinableu', displayName: 'Marina Beltrão' })
+  iniciarSessao(
+    { accessToken: 'jwt', refreshToken: 'renovacao' },
+    { id: 'u1', username: 'marinableu', displayName: 'Marina Beltrão' },
+  )
   const router = createRouter({ history: createMemoryHistory(), routes })
   await router.push(caminho)
   await router.isReady()

@@ -1,13 +1,15 @@
+import { watch } from 'vue'
 import {
   createRouter,
   createWebHistory,
   type NavigationGuard,
+  type Router,
   type RouteLocationNormalizedLoaded,
   type RouteRecordRaw,
 } from 'vue-router'
 
 import ShellAutenticado from '../layouts/ShellAutenticado.vue'
-import { getToken } from '../session'
+import { getToken, useSession } from '../session'
 import CadastroView from '../views/CadastroView.vue'
 import DescobrirView from '../views/DescobrirView.vue'
 import EstanteView from '../views/EstanteView.vue'
@@ -154,11 +156,26 @@ export const guardaDeSessao: NavigationGuard = (to) => {
   return true
 }
 
+/**
+ * A guarda só roda em navegação. Sessão que acaba com a tela aberta (renovação recusada pelo
+ * servidor, saída em outra aba) precisa levar ao login sozinha, preservando onde a pessoa estava.
+ */
+export function reagirAoFimDaSessao(alvo: Router): void {
+  const { autenticado } = useSession()
+  watch(autenticado, (agora) => {
+    const atual = alvo.currentRoute.value
+    if (!agora && atual.meta.requerSessao) {
+      void alvo.replace({ path: '/login', query: { destino: atual.fullPath } })
+    }
+  })
+}
+
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes,
 })
 
 router.beforeEach(guardaDeSessao)
+reagirAoFimDaSessao(router)
 
 export default router

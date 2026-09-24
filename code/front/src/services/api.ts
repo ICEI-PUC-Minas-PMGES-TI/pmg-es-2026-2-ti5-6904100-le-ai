@@ -15,6 +15,11 @@ export interface ApiClientOptions {
   getToken?: () => string | null
   /** Esperas entre tentativas. Os testes passam `[0, 0]` para não depender do relógio. */
   esperasDeRetentativaMs?: readonly number[]
+  /**
+   * Chamado quando uma requisição que levou o token da sessão recebe `401`. Devolve se a
+   * sessão foi renovada; se sim, a requisição é repetida uma vez com o token novo.
+   */
+  renovarSessao?: (tokenQueFalhou: string) => Promise<boolean>
 }
 
 export interface ApiRequestOptions extends RequestInit {
@@ -22,7 +27,7 @@ export interface ApiRequestOptions extends RequestInit {
   /**
    * Chave de idempotência da **intenção** (RNF-ERR-04). Quem chama guarda a chave e a repete ao
    * reenviar a mesma intenção; o cliente a repete nas próprias retentativas. Só vai no header
-   * quando presente: o CORS do `identidade` não aceita `Idempotency-Key`.
+   * quando presente.
    */
   idempotencyKey?: string
   /** Corpo JSON. O cliente serializa e põe `Content-Type`. */
@@ -100,9 +105,12 @@ export function createApiClient(options: ApiClientOptions = {}) {
 
     // Só preenche quando a chamada não trouxe Authorization própria — é o que permite
     // o login buscar /me com o token recém-emitido antes de a sessão global existir.
+    // Só o token da sessão é renovável; o Authorization explícito de quem chamou não é.
+    let tokenDaSessao: string | null = null
     const token = options.getToken?.()
     if (token && !headers.has('Authorization')) {
       headers.set('Authorization', `Bearer ${token}`)
+      tokenDaSessao = token
     }
 
     const corpo = json !== undefined ? JSON.stringify(json) : init.body
@@ -110,11 +118,43 @@ export function createApiClient(options: ApiClientOptions = {}) {
     const podeRetentar = metodo === 'GET' || idempotencyKey !== undefined
     const esperasDaChamada = podeRetentar ? esperas : []
     const url = `${baseUrl}/${path.replace(/^\//, '')}`
+    const enviar = (comHeaders: Headers) =>
+      enviarComRetentativa<T>(url, { ...init, headers: comHeaders, body: corpo }, timeoutMs, esperasDaChamada)
 
+    try {
+      return await enviar(headers)
+    } catch (error) {
+      // 401 com o token da sessão: ele venceu ou foi revogado. Repetir uma vez depois de
+      // renovar é seguro mesmo em escrita sem chave, porque o 401 garante que nada foi feito.
+      if (
+        !(error instanceof ApiError)
+        || error.status !== 401
+        || tokenDaSessao === null
+        || !options.renovarSessao
+        || !(await options.renovarSessao(tokenDaSessao))
+      ) {
+        throw error
+      }
+      const renovado = options.getToken?.()
+      if (!renovado) {
+        throw error
+      }
+      const comTokenNovo = new Headers(headers)
+      comTokenNovo.set('Authorization', `Bearer ${renovado}`)
+      return await enviar(comTokenNovo)
+    }
+  }
+
+  async function enviarComRetentativa<T>(
+    url: string,
+    init: RequestInit,
+    timeoutMs: number,
+    esperasDaChamada: readonly number[],
+  ): Promise<T> {
     for (let tentativa = 0; ; tentativa++) {
       const ultima = tentativa >= esperasDaChamada.length
       try {
-        const response = await tentar(url, { ...init, headers, body: corpo }, timeoutMs)
+        const response = await tentar(url, init, timeoutMs)
         if (!response.ok) {
           if (!ultima && statusRetentavel(response.status)) {
             await esperar(esperasDaChamada[tentativa]!)

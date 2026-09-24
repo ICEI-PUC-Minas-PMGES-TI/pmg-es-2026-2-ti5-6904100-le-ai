@@ -8,8 +8,8 @@ import BotaoTextual from '../components/ui/BotaoTextual.vue'
 import CampoSenha from '../components/ui/CampoSenha.vue'
 import CampoTexto from '../components/ui/CampoTexto.vue'
 import LogoLeAi from '../components/ui/LogoLeAi.vue'
-import { ApiError } from '../services/api'
-import { authService } from '../services/auth'
+import { ApiError, novaChaveIdempotencia } from '../services/api'
+import { authService, type CadastroRequisicao } from '../services/auth'
 import { iniciarSessao } from '../session'
 
 /**
@@ -140,6 +140,21 @@ function tratarErro(erro: unknown): void {
   bannerErro.value = erro.message
 }
 
+/**
+ * A chave é da intenção (RNF-ERR-04): o mesmo formulário reenviado repete a chave, e um cadastro
+ * que deu certo no servidor mas perdeu a resposta volta como replay, não como `409` de e-mail em
+ * uso. Qualquer campo alterado é outra intenção e ganha chave nova.
+ */
+let ultimaIntencao: { corpo: string; chave: string } | null = null
+
+function chaveDoCadastro(dados: CadastroRequisicao): string {
+  const corpo = JSON.stringify(dados)
+  if (ultimaIntencao?.corpo !== corpo) {
+    ultimaIntencao = { corpo, chave: novaChaveIdempotencia() }
+  }
+  return ultimaIntencao.chave
+}
+
 async function enviar(): Promise<void> {
   limparErros()
   if (!validarCliente()) {
@@ -148,13 +163,14 @@ async function enviar(): Promise<void> {
 
   enviando.value = true
   try {
-    const usuarioCriado = await authService.cadastrar({
+    const dados = {
       email: email.value.trim(),
       username: username.value.trim(),
       displayName: displayName.value.trim(),
       dataNascimento: dataNascimento.value,
       senha: senha.value,
-    })
+    }
+    const usuarioCriado = await authService.cadastrar(dados, chaveDoCadastro(dados))
     // O cadastro não emite token (RF-AUT-03 é do login). Entrar na sequência é o que faz a tela
     // "sair autenticada, dentro do shell de navegação", como o prompt pede (cadastro.md §1),
     // sem obrigar quem acabou de se cadastrar a preencher a senha de novo.
@@ -162,7 +178,7 @@ async function enviar(): Promise<void> {
       identificador: usuarioCriado.username,
       senha: senha.value,
     })
-    iniciarSessao(resultado.token.accessToken, resultado.usuario)
+    iniciarSessao(resultado.sessao, resultado.usuario)
     await router.push('/estante')
   } catch (erro) {
     tratarErro(erro)

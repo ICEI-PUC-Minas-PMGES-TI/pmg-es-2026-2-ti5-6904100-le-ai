@@ -50,7 +50,7 @@ describe('LoginView', () => {
     await wrapper.get('input').setValue('marinableu')
     await wrapper.findAll('input')[1]!.setValue('senha-bem-comprida')
     vi.mocked(authService.entrar).mockResolvedValue({
-      token: { accessToken: 'jwt-novo', tokenType: 'Bearer', expiresIn: 900 },
+      sessao: { accessToken: 'jwt-novo', tokenType: 'Bearer', expiresIn: 900, refreshToken: 'renovacao' },
       usuario: { id: 'u1', username: 'marinableu', displayName: 'Marina Beltrão' },
     })
 
@@ -119,7 +119,7 @@ describe('LoginView', () => {
     await campos[0]!.setValue('marinableu')
     await campos[1]!.setValue('senha-bem-comprida')
     let resolver!: (valor: {
-      token: { accessToken: string, tokenType: string, expiresIn: number }
+      sessao: { accessToken: string, tokenType: string, expiresIn: number, refreshToken: string }
       usuario: { id: string, username: string, displayName: string }
     }) => void
     vi.mocked(authService.entrar).mockReturnValue(
@@ -135,7 +135,7 @@ describe('LoginView', () => {
     expect(wrapper.text()).toContain('O servidor está iniciando. Isso pode levar alguns segundos.')
 
     resolver({
-      token: { accessToken: 'jwt', tokenType: 'Bearer', expiresIn: 900 },
+      sessao: { accessToken: 'jwt', tokenType: 'Bearer', expiresIn: 900, refreshToken: 'renovacao' },
       usuario: { id: 'u1', username: 'marinableu', displayName: 'Marina Beltrão' },
     })
     await flushPromises()

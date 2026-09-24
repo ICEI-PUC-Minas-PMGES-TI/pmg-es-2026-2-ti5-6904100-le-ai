@@ -12,7 +12,10 @@ import { iniciarSessao } from '../session'
 const Host = { template: '<RouterView />' }
 
 async function montarNaRota(caminho: string) {
-  iniciarSessao('jwt', { id: 'u1', username: 'marinableu', displayName: 'Marina Beltrão' })
+  iniciarSessao(
+    { accessToken: 'jwt', refreshToken: 'renovacao' },
+    { id: 'u1', username: 'marinableu', displayName: 'Marina Beltrão' },
+  )
   const router = createRouter({ history: createMemoryHistory(), routes })
   await router.push(caminho)
   await router.isReady()

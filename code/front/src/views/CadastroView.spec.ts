@@ -90,7 +90,7 @@ describe('CadastroView', () => {
       displayName: 'Marina Beltrão',
     })
     vi.mocked(authService.entrar).mockResolvedValue({
-      token: { accessToken: 'jwt', tokenType: 'Bearer', expiresIn: 900 },
+      sessao: { accessToken: 'jwt', tokenType: 'Bearer', expiresIn: 900, refreshToken: 'renovacao' },
       usuario: { id: 'u1', username: 'marinableu', displayName: 'Marina Beltrão' },
     })
 
@@ -111,7 +111,7 @@ describe('CadastroView', () => {
       displayName: 'Marina Beltrão',
     })
     vi.mocked(authService.entrar).mockResolvedValue({
-      token: { accessToken: 'jwt-novo', tokenType: 'Bearer', expiresIn: 900 },
+      sessao: { accessToken: 'jwt-novo', tokenType: 'Bearer', expiresIn: 900, refreshToken: 'renovacao' },
       usuario: { id: 'u1', username: 'marinableu', displayName: 'Marina Beltrão' },
     })
 
@@ -166,7 +166,7 @@ describe('CadastroView', () => {
 
     resolver({ id: 'u1', username: 'marinableu', displayName: 'Marina Beltrão' })
     vi.mocked(authService.entrar).mockResolvedValue({
-      token: { accessToken: 'jwt', tokenType: 'Bearer', expiresIn: 900 },
+      sessao: { accessToken: 'jwt', tokenType: 'Bearer', expiresIn: 900, refreshToken: 'renovacao' },
       usuario: { id: 'u1', username: 'marinableu', displayName: 'Marina Beltrão' },
     })
     await flushPromises()
