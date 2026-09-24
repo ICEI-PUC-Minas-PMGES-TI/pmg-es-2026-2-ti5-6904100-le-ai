@@ -7,6 +7,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
+import org.springframework.beans.TypeMismatchException;
 import org.springframework.http.HttpInputMessage;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
@@ -111,6 +112,17 @@ class GlobalExceptionHandlerTest {
   void corpoIlegivelVira400() {
     ResponseEntity<ErroResposta> resposta =
         handler.tratar(new HttpMessageNotReadableException("JSON malformado", (HttpInputMessage) null));
+
+    assertThat(resposta.getStatusCode().value()).isEqualTo(400);
+    assertThat(resposta.getBody()).isNotNull();
+    assertThat(resposta.getBody().codigo()).isEqualTo("REQUISICAO_INVALIDA");
+  }
+
+  @Test
+  @DisplayName("parâmetro que não converte vira 400, não 500: page=abc, UUID malformado")
+  void parametroQueNaoConverteVira400() {
+    ResponseEntity<ErroResposta> resposta =
+        handler.tratar(new TypeMismatchException("nao-e-uuid", java.util.UUID.class));
 
     assertThat(resposta.getStatusCode().value()).isEqualTo(400);
     assertThat(resposta.getBody()).isNotNull();

@@ -381,6 +381,11 @@ class SeguimentoIntegracaoTest extends IntegracaoComPostgres {
     assertThat(deOutro.get("totalElements").asLong()).isZero();
     assertThat(requisicao("GET", "/me/seguidos?size=51", eu, null).statusCode()).isEqualTo(400);
     assertThat(requisicao("GET", "/me/seguidores?page=-1", eu, null).statusCode()).isEqualTo(400);
+    assertThat(requisicao("GET", "/me/seguidores?page=abc", eu, null).statusCode()).isEqualTo(400);
+    assertThat(
+            requisicao("POST", "/solicitacoes/nao-e-uuid/aceitar", eu, UUID.randomUUID().toString())
+                .statusCode())
+        .isEqualTo(400);
     assertThat(
             enviar(HttpRequest.newBuilder(uri("/me/seguidos")).GET().build()).statusCode())
         .isEqualTo(401);
