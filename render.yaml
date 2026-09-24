@@ -128,6 +128,8 @@ services:
         sync: false
       - key: BREVO_SENDER_NAME
         value: Lê Ai
+      - key: WEB_BASE_URL # base do link de recuperação de senha enviado por e-mail
+        value: https://leai-web.onrender.com
       - key: JWT_SECRET # segredo forte, aleatório
         sync: false
       - key: ADMIN_EMAIL # admin fixo provisionado por ambiente (RF-AUT-08)
