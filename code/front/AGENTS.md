@@ -41,7 +41,7 @@ Uma URL por serviço, sem gateway: `VITE_IDENTIDADE_BASE_URL` e `VITE_ACERVO_BAS
 **Cliente HTTP central (`src/services/api.ts`)** — regras que valem para toda feature:
 
 - Adiciona `X-Correlation-Id` e tolera até 90 segundos de cold start antes de informar timeout. Timeout **não** se repete.
-- `Idempotency-Key` só vai quando a chamada passa `idempotencyKey`. A chave é da **intenção**: quem chama a guarda e a repete no reenvio da mesma intenção (mesmo ISBN, mesmo corpo serializado), e o cliente a repete nas próprias retentativas, com o mesmo correlation-id. O `acervo` e o `identidade` recusam escrita sem chave com `400` (no `identidade`, `register` e `login` ainda aceitam ausência até o fechamento de F-AUT, mas o site já manda).
+- `Idempotency-Key` só vai quando a chamada passa `idempotencyKey`. A chave é da **intenção**: quem chama a guarda e a repete no reenvio da mesma intenção (mesmo ISBN, mesmo corpo serializado), e o cliente a repete nas próprias retentativas, com o mesmo correlation-id. O `acervo` e o `identidade` recusam escrita sem chave com `400`.
 - Retentativa com espera de 1 s e 3 s (três tentativas) **só** em GET ou escrita com chave, e só em falha de rede ou 502/503/504. 4xx e 500 voltam na hora.
 - `ApiError` traz `status`, `code`, `correlationId`, `corpo`, `livroId` (409 de ISBN existente) e `campos` (400, `{ campo: mensagem }`). `204` e corpo vazio viram `undefined`.
 - O CORS do `acervo` não expõe headers: `Location` e `Retry-After` não chegam ao JS. Use o corpo.

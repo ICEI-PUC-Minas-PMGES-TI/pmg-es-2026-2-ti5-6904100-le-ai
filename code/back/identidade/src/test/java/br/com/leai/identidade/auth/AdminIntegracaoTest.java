@@ -54,7 +54,9 @@ class AdminIntegracaoTest extends IntegracaoComPostgres {
         """
         {"identificador":"%s","senha":"%s"}
         """
-            .formatted(identificador, senha));
+            .formatted(identificador, senha),
+            "Idempotency-Key",
+            UUID.randomUUID().toString());
   }
 
   private JsonNode sessao(String identificador, String senha) {
@@ -98,7 +100,9 @@ class AdminIntegracaoTest extends IntegracaoComPostgres {
         {"email":"leitor.%1$s@exemplo.com","username":"leitor_%1$s","displayName":"Leitora",
          "dataNascimento":"1990-01-01","senha":"senha-bem-comprida"}
         """
-            .formatted(s));
+            .formatted(s),
+            "Idempotency-Key",
+            UUID.randomUUID().toString());
 
     assertThat(papelDo(sessao("leitor_" + s, "senha-bem-comprida"))).isEqualTo("leitor");
   }

@@ -14,9 +14,8 @@ info:
     presença aqui não declara implementação. Cada operação traz
     `x-implementation-status` com `implemented` ou `planned`.
 
-    Transição: `register` e `login` ainda aceitam requisição sem
-    `Idempotency-Key`, porque os clientes de P0-NAV não enviam o header; a
-    exigência passa a valer no fechamento de F-AUT. As demais escritas já exigem.
+    Toda escrita exige `Idempotency-Key`, inclusive `register` e `login`: sem
+    ela, ou com a chave vazia ou acima de 128 caracteres, a resposta é `400`.
 
     A conta administradora é fixa, única e provisionada por variáveis de ambiente.
     Ela usa `POST /auth/login`; não existe cadastro nem endpoint de login separado

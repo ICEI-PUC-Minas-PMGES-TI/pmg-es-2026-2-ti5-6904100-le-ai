@@ -60,7 +60,7 @@ public class AutenticacaoController {
       responseCode = "400",
       description =
           "Dados inválidos: senha curta ou comum, menor de 18, e-mail malformado, "
-              + "Idempotency-Key vazia ou longa demais.",
+              + "Idempotency-Key ausente, vazia ou longa demais.",
       content = @Content(schema = @Schema(ref = "#/components/schemas/Erro")))
   @ApiResponse(
       responseCode = "409",
@@ -73,11 +73,7 @@ public class AutenticacaoController {
   public ResponseEntity<UsuarioResposta> cadastrar(
       @RequestHeader(name = ChaveDeIdempotencia.CABECALHO, required = false) String chaveBruta,
       @Valid @RequestBody CadastroRequisicao requisicao) {
-    String chave = ChaveDeIdempotencia.validarOpcional(chaveBruta);
-    if (chave == null) {
-      return ResponseEntity.status(HttpStatus.CREATED).body(servico.cadastrar(requisicao));
-    }
-
+    String chave = ChaveDeIdempotencia.exigir(chaveBruta);
     RespostaIdempotente<UsuarioResposta> resposta =
         idempotencia.executar(
             idempotencia.sujeitoAnonimo(requisicao.email()),
@@ -112,10 +108,7 @@ public class AutenticacaoController {
   public SessaoResposta entrar(
       @RequestHeader(name = ChaveDeIdempotencia.CABECALHO, required = false) String chaveBruta,
       @Valid @RequestBody LoginRequisicao requisicao) {
-    String chave = ChaveDeIdempotencia.validarOpcional(chaveBruta);
-    if (chave == null) {
-      return servico.entrar(requisicao);
-    }
+    String chave = ChaveDeIdempotencia.exigir(chaveBruta);
     return idempotencia
         .executar(
             idempotencia.sujeitoAnonimo(requisicao.identificador()),

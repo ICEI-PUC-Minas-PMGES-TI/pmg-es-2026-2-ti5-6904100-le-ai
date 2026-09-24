@@ -57,14 +57,15 @@ class IdempotenciaCadastroIntegracaoTest extends IntegracaoComPostgres {
   }
 
   @Test
-  @DisplayName("sem Idempotency-Key o cadastro segue como em P0-NAV")
-  void semChaveCadastra() {
+  @DisplayName("sem Idempotency-Key o cadastro é 400 e não cria conta (fechamento de F-AUT)")
+  void semChaveRecusa() {
     String s = sufixo();
 
     HttpResponse<String> resposta = postJson("/auth/register", cadastro(s, "Leitora"));
 
-    assertThat(resposta.statusCode()).isEqualTo(201);
-    assertThat(usuariosCom(s)).isEqualTo(1);
+    assertThat(resposta.statusCode()).isEqualTo(400);
+    assertThat(resposta.body()).contains("REQUISICAO_INVALIDA");
+    assertThat(usuariosCom(s)).isZero();
   }
 
   @Test

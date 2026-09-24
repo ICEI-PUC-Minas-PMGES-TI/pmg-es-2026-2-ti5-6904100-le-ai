@@ -19,27 +19,13 @@ public final class ChaveDeIdempotencia {
   private ChaveDeIdempotencia() {}
 
   /**
-   * Devolve a chave sem espaços nas pontas, ou {@code null} quando o header não veio.
-   *
-   * <p>Ausência não é erro aqui: {@code register} e {@code login} ainda são chamados sem o header
-   * pelos clientes de P0-NAV, e a exigência entra quando web e mobile passarem a enviá-lo. Quem
-   * exige a chave é a rota, não este método.
+   * Devolve a chave sem espaços nas pontas. Ausente, vazia ou longa demais é {@code 400}: desde o
+   * fechamento de F-AUT toda escrita do serviço exige a chave, inclusive {@code register} e
+   * {@code login}, que aceitavam ausência enquanto os clientes de P0-NAV não a mandavam.
    */
-  public static String validarOpcional(String bruta) {
-    if (bruta == null) {
-      return null;
-    }
-    String chave = bruta.trim();
-    if (chave.isEmpty() || chave.length() > TAMANHO_MAXIMO) {
-      throw invalida();
-    }
-    return chave;
-  }
-
-  /** Para as rotas que já nascem exigindo a chave, como o contrato pede. */
   public static String exigir(String bruta) {
-    String chave = validarOpcional(bruta);
-    if (chave == null) {
+    String chave = bruta == null ? "" : bruta.trim();
+    if (chave.isEmpty() || chave.length() > TAMANHO_MAXIMO) {
       throw invalida();
     }
     return chave;

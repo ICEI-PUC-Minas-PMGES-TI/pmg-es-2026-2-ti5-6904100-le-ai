@@ -69,7 +69,9 @@ class RecuperacaoIntegracaoTest extends IntegracaoComPostgres {
             {"email":"%s","username":"recupera_%s","displayName":"Leitora",
              "dataNascimento":"1990-01-01","senha":"%s"}
             """
-                .formatted(emailDoLeitor, s, SENHA));
+                .formatted(emailDoLeitor, s, SENHA),
+            "Idempotency-Key",
+            UUID.randomUUID().toString());
     assertThat(cadastro.statusCode()).isEqualTo(201);
     return new Leitor("recupera_" + s, emailDoLeitor);
   }
@@ -107,7 +109,9 @@ class RecuperacaoIntegracaoTest extends IntegracaoComPostgres {
         """
         {"identificador":"%s","senha":"%s"}
         """
-            .formatted(username, senha));
+            .formatted(username, senha),
+            "Idempotency-Key",
+            UUID.randomUUID().toString());
   }
 
   /** Espera o trabalho em segundo plano chegar ao Brevo e devolve o token do link. */

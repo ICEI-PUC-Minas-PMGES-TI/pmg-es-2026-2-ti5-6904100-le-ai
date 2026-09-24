@@ -36,7 +36,9 @@ class AlterarSenhaIntegracaoTest extends IntegracaoComPostgres {
             {"email":"troca.%1$s@exemplo.com","username":"troca_%1$s","displayName":"Leitora",
              "dataNascimento":"1990-01-01","senha":"%2$s"}
             """
-                .formatted(s, SENHA));
+                .formatted(s, SENHA),
+            "Idempotency-Key",
+            UUID.randomUUID().toString());
     assertThat(cadastro.statusCode()).isEqualTo(201);
     return "troca_" + s;
   }
@@ -47,7 +49,9 @@ class AlterarSenhaIntegracaoTest extends IntegracaoComPostgres {
         """
         {"identificador":"%s","senha":"%s"}
         """
-            .formatted(username, senha));
+            .formatted(username, senha),
+            "Idempotency-Key",
+            UUID.randomUUID().toString());
   }
 
   private JsonNode sessao(String username) {

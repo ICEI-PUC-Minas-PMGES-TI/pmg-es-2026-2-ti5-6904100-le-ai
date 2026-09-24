@@ -44,7 +44,9 @@ class RenovacaoIntegracaoTest extends IntegracaoComPostgres {
             {"email":"renova.%1$s@exemplo.com","username":"renova_%1$s","displayName":"Leitora",
              "dataNascimento":"1990-01-01","senha":"%2$s"}
             """
-                .formatted(s, SENHA));
+                .formatted(s, SENHA),
+            "Idempotency-Key",
+            UUID.randomUUID().toString());
     assertThat(cadastro.statusCode()).isEqualTo(201);
     return "renova_" + s;
   }
@@ -56,7 +58,9 @@ class RenovacaoIntegracaoTest extends IntegracaoComPostgres {
             """
             {"identificador":"%s","senha":"%s"}
             """
-                .formatted(username, SENHA));
+                .formatted(username, SENHA),
+            "Idempotency-Key",
+            UUID.randomUUID().toString());
     assertThat(login.statusCode()).isEqualTo(200);
     return objectMapper.readTree(login.body());
   }
