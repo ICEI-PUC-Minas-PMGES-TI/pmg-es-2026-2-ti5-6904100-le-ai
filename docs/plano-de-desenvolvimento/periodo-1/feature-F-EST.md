@@ -1,7 +1,7 @@
 # F-EST — Estante e ciclo de leitura
 
 **Período:** 1 · **Prioridade:** prioritaria
-**Dono:** a definir · **Serviços afetados:** `leitura` (backend) + web + mobile + job diário (agendador)
+**Dono:** Ana Luiza de Freitas · **Serviços afetados:** `leitura` (backend) + web + mobile + job diário (agendador)
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.3 (RF-EST-01..08, 11, 12), RN-04, RN-05. Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §3.1, §4.2, §5.2, §2.4. Processo e template: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §9. Em caso de conflito, o `REQUISITOS.md` ganha; protótipo é referência visual, não spec de pixel (plano §7).
 

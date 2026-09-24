@@ -52,22 +52,22 @@ Granularidade atual: features "maiores" — cerca de uma por módulo de RF, por 
 
 | ID | Feature | Serviço | Período | Prioridade | RFs | Dono |
 |---|---|---|---|---|---|---|
-| P0-INFRA | Scaffolding do monorepo e serviços | — | 0 | fundação | — | a definir |
-| P0-CI | Pipeline CI/CD | — | 0 | fundação | — | a definir |
-| P0-DEPLOY | Deploy em DES (Render + Neon) | — | 0 | fundação | — | a definir |
-| P0-MSG | Mensageria e integrações base | — | 0 | fundação | — | a definir |
-| P0-DS | Design system base | — | 0 | fundação | — | a definir |
-| P0-NAV | Navegabilidade + shell de auth + docs de API | — | 0 | fundação | — | Henrique Carvalho |
-| F-AUT | Autenticação e conta | identidade | 1 | prioritaria | RF-AUT-01..06, 08 | a definir |
-| F-PERFIL | Perfil, privacidade e seguidores | identidade | 1 | prioritaria | RF-SOC-01..08 | a definir |
-| F-ACV-BUSCA | Busca e página do livro | acervo | 1 | prioritaria | RF-ACV-01, 02, 04, 18, 19 | a definir |
-| F-ACV-CADASTRO | Cadastro de livros (ISBN + pessoal) | acervo | 1 | prioritaria | RF-ACV-05, 06, 07, 08, 09 | a definir |
-| F-ACV-INGESTAO | Ingestão do acervo (dump + assuntos) | acervo | 1 | prioritaria | RF-ACV-13, 20 | a definir |
-| F-EST | Estante e ciclo de leitura | leitura | 1 | prioritaria | RF-EST-01..08, 11, 12 | a definir |
-| F-PRG | Progresso manual | leitura | 1 | prioritaria | RF-PRG-01..04 | a definir |
-| F-AVA | Nota e resenha | leitura | 1 | prioritaria | RF-AVA-01..04 | a definir |
-| F-FEED | Feed e interações sociais | social | 1 | prioritaria | RF-SOC-09, 10, 11, 12, 14 | a definir |
-| F-NOT | Notificações in-app | social | 1 | prioritaria | RF-NOT-01..04 | a definir |
+| P0-INFRA | Scaffolding do monorepo e serviços | — | 0 | fundação | — | Kayke, Vicenzo Fonseca, Henrique Carvalho, Ana Luiza de Freitas, Renato Douglas |
+| P0-CI | Pipeline CI/CD | — | 0 | fundação | — | Kayke |
+| P0-DEPLOY | Deploy em DES (Render + Neon) | — | 0 | fundação | — | Renato Douglas |
+| P0-MSG | Mensageria e integrações base | — | 0 | fundação | — | Kayke, Ana Luiza de Freitas |
+| P0-DS | Design system base | — | 0 | fundação | — | Kayke, Ana Luiza de Freitas |
+| P0-NAV | Navegabilidade + shell de auth + docs de API | — | 0 | fundação | — | Henrique Carvalho, Ana Luiza de Freitas |
+| F-AUT | Autenticação e conta | identidade | 1 | prioritaria | RF-AUT-01..06, 08 | Henrique Carvalho |
+| F-PERFIL | Perfil, privacidade e seguidores | identidade | 1 | prioritaria | RF-SOC-01..08 | Henrique Carvalho |
+| F-ACV-BUSCA | Busca e página do livro | acervo | 1 | prioritaria | RF-ACV-01, 02, 04, 18, 19 | Renato Douglas |
+| F-ACV-CADASTRO | Cadastro de livros (ISBN + pessoal) | acervo | 1 | prioritaria | RF-ACV-05, 06, 07, 08, 09 | Vicenzo Fonseca |
+| F-ACV-INGESTAO | Ingestão do acervo (dump + assuntos) | acervo | 1 | prioritaria | RF-ACV-13, 20 | Vicenzo Fonseca |
+| F-EST | Estante e ciclo de leitura | leitura | 1 | prioritaria | RF-EST-01..08, 11, 12 | Ana Luiza de Freitas |
+| F-PRG | Progresso manual | leitura | 1 | prioritaria | RF-PRG-01..04 | Ana Luiza de Freitas |
+| F-AVA | Nota e resenha | leitura | 1 | prioritaria | RF-AVA-01..04 | Renato Douglas |
+| F-FEED | Feed e interações sociais | social | 1 | prioritaria | RF-SOC-09, 10, 11, 12, 14 | Kayke |
+| F-NOT | Notificações in-app | social | 1 | prioritaria | RF-NOT-01..04 | Kayke |
 | F-CONTA-2 | Exclusão de conta | identidade | 2 | desejavel | RF-AUT-07 | a definir |
 | F-SOCIAL-2 | Comentários (edição) e menções-link | social | 2 | desejavel | RF-SOC-13, 15 | a definir |
 | F-ACV-DESCOBERTA | Filtros e páginas de autor/editora/série | acervo | 2 | desejavel | RF-ACV-03, 10, 11, 12, 21 | a definir |
