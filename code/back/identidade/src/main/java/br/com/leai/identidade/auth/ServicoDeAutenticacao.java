@@ -30,6 +30,9 @@ public class ServicoDeAutenticacao {
   /** Cópia de alterar-senha.md §4.2. */
   static final String SENHA_ATUAL_INCORRETA = "Senha atual incorreta.";
 
+  static final String SENHA_DO_ADMIN =
+      "A senha da conta administradora é definida pelo ambiente e não muda por aqui.";
+
   private static final Logger log = LoggerFactory.getLogger(ServicoDeAutenticacao.class);
 
   private final UsuarioRepositorio repositorio;
@@ -38,6 +41,7 @@ public class ServicoDeAutenticacao {
   private final ControleDeTentativas controleDeTentativas;
   private final PoliticaDeSenha politicaDeSenha;
   private final GestorDeRenovacao gestorDeRenovacao;
+  private final ContaAdministradora contaAdministradora;
 
   /**
    * Hash descartável, calculado uma vez no arranque. Serve para o login gastar o mesmo tempo
@@ -52,13 +56,15 @@ public class ServicoDeAutenticacao {
       EmissorDeToken emissorDeToken,
       ControleDeTentativas controleDeTentativas,
       PoliticaDeSenha politicaDeSenha,
-      GestorDeRenovacao gestorDeRenovacao) {
+      GestorDeRenovacao gestorDeRenovacao,
+      ContaAdministradora contaAdministradora) {
     this.repositorio = repositorio;
     this.codificadorDeSenha = codificadorDeSenha;
     this.emissorDeToken = emissorDeToken;
     this.controleDeTentativas = controleDeTentativas;
     this.politicaDeSenha = politicaDeSenha;
     this.gestorDeRenovacao = gestorDeRenovacao;
+    this.contaAdministradora = contaAdministradora;
     this.hashDeComparacaoFalsa = codificadorDeSenha.encode("conta-inexistente");
   }
 
@@ -73,7 +79,10 @@ public class ServicoDeAutenticacao {
 
     // Checagem antecipada para a mensagem ser específica. Ela não substitui o índice único:
     // entre esta consulta e o insert cabe outra requisição, e quem decide é o banco.
-    if (repositorio.existsByUsernameIgnoreCase(username)) {
+    // O username do admin é reservado mesmo antes de a conta existir: sem isto, um leitor que
+    // o pegasse primeiro impediria o provisionamento e se passaria pela administração.
+    if (username.equalsIgnoreCase(ProvisionamentoDoAdmin.USERNAME)
+        || repositorio.existsByUsernameIgnoreCase(username)) {
       throw conflitoDeUsername();
     }
     if (repositorio.existsByEmailIgnoreCase(email)) {
@@ -158,6 +167,10 @@ public class ServicoDeAutenticacao {
    */
   @Transactional
   public void alterarSenha(UUID usuarioId, AlterarSenhaRequisicao requisicao) {
+    if (contaAdministradora.eh(usuarioId)) {
+      // A senha do admin é a do ambiente; trocada aqui, voltaria no próximo arranque.
+      throw new ErroDeNegocioException(CodigoErro.ACESSO_NEGADO, SENHA_DO_ADMIN);
+    }
     politicaDeSenha.recusarSeComum(requisicao.novaSenha(), CodigoErro.ENTIDADE_NAO_PROCESSAVEL);
 
     Usuario usuario =
@@ -191,7 +204,8 @@ public class ServicoDeAutenticacao {
 
   private SessaoResposta sessaoPara(Usuario usuario) {
     return SessaoResposta.de(
-        emissorDeToken.emitir(usuario.id(), usuario.username()),
+        emissorDeToken.emitir(
+            usuario.id(), usuario.username(), contaAdministradora.papelDe(usuario.id())),
         emissorDeToken.validadeEmSegundos(),
         gestorDeRenovacao.emitir(usuario.id()));
   }

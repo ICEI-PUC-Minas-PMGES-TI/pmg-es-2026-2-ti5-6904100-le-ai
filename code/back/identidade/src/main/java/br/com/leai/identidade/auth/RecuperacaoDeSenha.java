@@ -67,6 +67,7 @@ public class RecuperacaoDeSenha {
   private final PoliticaDeSenha politicaDeSenha;
   private final GestorDeRenovacao gestorDeRenovacao;
   private final EnvioDeRecuperacao envio;
+  private final ContaAdministradora contaAdministradora;
   private final String urlDaWeb;
   private final SecureRandom aleatorio = new SecureRandom();
 
@@ -78,6 +79,7 @@ public class RecuperacaoDeSenha {
       PoliticaDeSenha politicaDeSenha,
       GestorDeRenovacao gestorDeRenovacao,
       EnvioDeRecuperacao envio,
+      ContaAdministradora contaAdministradora,
       @Value("${leai.web-base-url}") String urlDaWeb) {
     this.repositorio = repositorio;
     this.jdbc = jdbc;
@@ -86,6 +88,7 @@ public class RecuperacaoDeSenha {
     this.politicaDeSenha = politicaDeSenha;
     this.gestorDeRenovacao = gestorDeRenovacao;
     this.envio = envio;
+    this.contaAdministradora = contaAdministradora;
     this.urlDaWeb = urlDaWeb.replaceAll("/+$", "");
   }
 
@@ -113,6 +116,12 @@ public class RecuperacaoDeSenha {
       return;
     }
     Usuario usuario = conta.get();
+    if (contaAdministradora.eh(usuario.id())) {
+      // A senha do admin vem do ambiente (RNF-SEC-31): um link por e-mail seria um segundo
+      // caminho até ela, que só depende de a caixa de entrada estar segura.
+      log.warn("Recuperação de senha pedida para a conta administradora; ignorada");
+      return;
+    }
 
     String token = transacao.execute(status -> emitir(usuario.id()));
     if (token == null) {

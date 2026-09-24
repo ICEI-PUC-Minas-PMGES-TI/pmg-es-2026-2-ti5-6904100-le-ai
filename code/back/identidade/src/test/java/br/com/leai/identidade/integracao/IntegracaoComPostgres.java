@@ -58,6 +58,9 @@ public abstract class IntegracaoComPostgres {
     // O .env local pode ter a chave real do Brevo: sem isto, a suíte mandaria e-mail de verdade.
     registro.add("leai.brevo-api-key", () -> "");
     registro.add("leai.web-base-url", () -> ORIGEM_WEB);
+    // Sem admin por padrão; AdminIntegracaoTest define o seu.
+    registro.add("leai.admin-email", () -> "");
+    registro.add("leai.admin-password", () -> "");
     // Tudo sai de 127.0.0.1: com o limite de produção (60/min em /auth/**), a suíte bateria no
     // 429 no meio. O limite em si é coberto pelo RateLimitFilterTest.
     registro.add("leai.rate-limit.auth-por-minuto", () -> "100000");

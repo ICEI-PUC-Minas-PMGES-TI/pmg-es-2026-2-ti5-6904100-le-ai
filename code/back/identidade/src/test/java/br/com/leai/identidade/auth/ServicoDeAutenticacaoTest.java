@@ -80,7 +80,8 @@ class ServicoDeAutenticacaoTest {
             emissor,
             controleDeTentativas,
             new PoliticaDeSenha(),
-            gestorDeRenovacao);
+            gestorDeRenovacao,
+            new ContaAdministradora());
   }
 
   private static CadastroRequisicao cadastro() {
@@ -136,6 +137,29 @@ class ServicoDeAutenticacaoTest {
         .hasMessage("Esse nome de usuário já está em uso. Escolha outro.")
         .extracting(erro -> ((ErroDeNegocioException) erro).codigo())
         .isEqualTo(CodigoErro.CONFLITO);
+  }
+
+  @Test
+  @DisplayName("username do admin é reservado mesmo sem a conta existir, em qualquer caixa")
+  void usernameDoAdminEhReservado() {
+    CadastroRequisicao comoAdmin =
+        new CadastroRequisicao("outra@gmail.com", "AdMin", "Impostora", NASCIMENTO, SENHA);
+
+    assertThatErroDeNegocio(() -> servico.cadastrar(comoAdmin))
+        .extracting(erro -> ((ErroDeNegocioException) erro).codigo())
+        .isEqualTo(CodigoErro.CONFLITO);
+  }
+
+  @Test
+  @DisplayName("senha do admin: curta ou comum não sobe, 16+ incomum passa")
+  void senhaDoAdminPrecisaSerForte() {
+    PoliticaDeSenha politica = new PoliticaDeSenha();
+
+    assertThatThrownBy(() -> ProvisionamentoDoAdmin.exigirSenhaForte("curta-de-15-car", politica))
+        .isInstanceOf(IllegalStateException.class);
+    assertThatThrownBy(() -> ProvisionamentoDoAdmin.exigirSenhaForte("films+pic+galeries", politica))
+        .isInstanceOf(IllegalStateException.class);
+    ProvisionamentoDoAdmin.exigirSenhaForte("frase-longa-do-admin-2026", politica);
   }
 
   @Test
