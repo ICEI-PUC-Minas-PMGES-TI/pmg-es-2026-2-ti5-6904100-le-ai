@@ -17,6 +17,8 @@ public enum CodigoErro {
   ACESSO_NEGADO(HttpStatus.FORBIDDEN, "Você não tem permissão para esta ação."),
   RECURSO_NAO_ENCONTRADO(HttpStatus.NOT_FOUND, "Não encontramos o que você procura."),
   CONFLITO(HttpStatus.CONFLICT, "Este recurso conflita com um já existente."),
+  /** Só no {@code identidade}, para o link de recuperação vencido, usado ou adulterado. */
+  RECURSO_EXPIRADO(HttpStatus.GONE, "Este recurso não está mais disponível."),
   ENTIDADE_NAO_PROCESSAVEL(
       HttpStatus.UNPROCESSABLE_ENTITY, "Não foi possível processar os dados enviados."),
   MUITAS_REQUISICOES(

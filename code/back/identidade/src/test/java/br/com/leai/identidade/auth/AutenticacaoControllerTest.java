@@ -46,7 +46,9 @@ class AutenticacaoControllerTest {
     // é exercitado contra Postgres real em IdempotenciaCadastroIntegracaoTest.
     idempotencia = Mockito.mock(ServicoDeIdempotencia.class);
     mockMvc =
-        MockMvcBuilders.standaloneSetup(new AutenticacaoController(servico, idempotencia))
+        MockMvcBuilders.standaloneSetup(
+                new AutenticacaoController(
+                    servico, Mockito.mock(RecuperacaoDeSenha.class), idempotencia))
             // Sem a cadeia do Security o principal é nulo; sem o resolver, o Spring tentaria
             // montar o Jwt como model attribute. A troca de senha autenticada está na integração.
             .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
@@ -175,14 +177,25 @@ class AutenticacaoControllerTest {
   }
 
   @Test
-  @DisplayName("refresh e logout sem Idempotency-Key viram 400 sem tocar o serviço")
-  void refreshELogoutSemChaveViram400() throws Exception {
+  @DisplayName("refresh, logout, forgot e reset sem Idempotency-Key viram 400 sem tocar o serviço")
+  void rotasSemChaveViram400() throws Exception {
     for (String rota : new String[] {"/auth/refresh", "/auth/logout"}) {
       mockMvc
           .perform(
               post(rota)
                   .contentType(MediaType.APPLICATION_JSON)
                   .content("{\"refreshToken\":\"qualquer\"}"))
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.codigo").value("REQUISICAO_INVALIDA"));
+    }
+    String[][] recuperacao = {
+      {"/auth/password/forgot", "{\"email\":\"leitor@exemplo.com\"}"},
+      {"/auth/password/reset", "{\"token\":\"qualquer\",\"novaSenha\":\"senha-nova-longa\"}"}
+    };
+    for (String[] rotaECorpo : recuperacao) {
+      mockMvc
+          .perform(
+              post(rotaECorpo[0]).contentType(MediaType.APPLICATION_JSON).content(rotaECorpo[1]))
           .andExpect(status().isBadRequest())
           .andExpect(jsonPath("$.codigo").value("REQUISICAO_INVALIDA"));
     }

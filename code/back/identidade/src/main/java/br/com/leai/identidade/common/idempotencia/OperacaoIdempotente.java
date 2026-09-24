@@ -17,7 +17,9 @@ public enum OperacaoIdempotente {
   AUTENTICAR_USUARIO("autenticarUsuario", true),
   RENOVAR_SESSAO("renovarSessao", true),
   ENCERRAR_SESSAO("encerrarSessao", false),
-  ALTERAR_SENHA("alterarSenha", false);
+  ALTERAR_SENHA("alterarSenha", false),
+  SOLICITAR_RECUPERACAO("solicitarRecuperacaoSenha", false),
+  REDEFINIR_SENHA("redefinirSenha", false);
 
   private final String operationId;
   private final boolean respostaSensivel;

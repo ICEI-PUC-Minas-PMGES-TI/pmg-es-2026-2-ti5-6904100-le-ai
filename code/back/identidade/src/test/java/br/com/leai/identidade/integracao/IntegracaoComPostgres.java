@@ -55,6 +55,9 @@ public abstract class IntegracaoComPostgres {
     // CloudAMQP. Os testes deste pacote não dependem do broker.
     registro.add("leai.amqp-enabled", () -> "false");
     registro.add("leai.p0-ping-enabled", () -> "false");
+    // O .env local pode ter a chave real do Brevo: sem isto, a suíte mandaria e-mail de verdade.
+    registro.add("leai.brevo-api-key", () -> "");
+    registro.add("leai.web-base-url", () -> ORIGEM_WEB);
     // Tudo sai de 127.0.0.1: com o limite de produção (60/min em /auth/**), a suíte bateria no
     // 429 no meio. O limite em si é coberto pelo RateLimitFilterTest.
     registro.add("leai.rate-limit.auth-por-minuto", () -> "100000");

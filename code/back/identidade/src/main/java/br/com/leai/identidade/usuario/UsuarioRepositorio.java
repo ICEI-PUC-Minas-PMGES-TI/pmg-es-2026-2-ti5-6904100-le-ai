@@ -25,6 +25,9 @@ public interface UsuarioRepositorio extends JpaRepository<Usuario, UUID> {
 
   boolean existsByEmailIgnoreCase(String email);
 
+  /** Recuperação de senha: só por e-mail, porque o link vai para ele (RF-AUT-04). */
+  Optional<Usuario> findByEmailIgnoreCase(String email);
+
   boolean existsByUsernameIgnoreCase(String username);
 
   /**

@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
@@ -23,14 +24,18 @@ public class EmailNotificationService {
     this.brevoClient = brevoClient;
   }
 
-  public void enviarRecuperacaoSenha(String destinatario, String nome, String link) {
+  /**
+   * Uma tentativa de envio, sem retentativa: quem repete e com que intervalo é o {@code
+   * EnvioDeRecuperacao}. Nunca propaga exceção; o desfecho vem no retorno.
+   */
+  public ResultadoDeEnvio enviarRecuperacaoSenha(String destinatario, String nome, String link) {
     if (!temTexto(destinatario) || !temTexto(link)) {
       log.warn("Envio de recuperação de senha ignorado: destinatário ou link ausente");
-      return;
+      return ResultadoDeEnvio.IGNORADO;
     }
     if (!configurado()) {
       log.warn("Envio de recuperação de senha desabilitado: credenciais ou remetente ausentes");
-      return;
+      return ResultadoDeEnvio.IGNORADO;
     }
 
     Map<String, Object> mensagem =
@@ -53,10 +58,24 @@ public class EmailNotificationService {
           .retrieve()
           .toBodilessEntity();
       log.info("E-mail de recuperação de senha aceito pelo provedor");
-    } catch (RestClientException | IllegalArgumentException exception) {
+      return ResultadoDeEnvio.ACEITO;
+    } catch (HttpClientErrorException recusa) {
+      log.error(
+          "Brevo recusou o e-mail de recuperação de senha: HTTP {}",
+          recusa.getStatusCode().value());
+      return recusa.getStatusCode().value() == 429
+          ? ResultadoDeEnvio.FALHA_TEMPORARIA
+          : ResultadoDeEnvio.FALHA_DEFINITIVA;
+    } catch (IllegalArgumentException exception) {
+      log.error(
+          "Falha ao montar o e-mail de recuperação de senha: {}",
+          exception.getClass().getSimpleName());
+      return ResultadoDeEnvio.FALHA_DEFINITIVA;
+    } catch (RestClientException exception) {
       log.error(
           "Falha ao enviar e-mail de recuperação de senha: {}",
           exception.getClass().getSimpleName());
+      return ResultadoDeEnvio.FALHA_TEMPORARIA;
     }
   }
 

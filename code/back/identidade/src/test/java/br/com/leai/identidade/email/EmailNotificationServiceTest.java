@@ -1,13 +1,16 @@
 package br.com.leai.identidade.email;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.springframework.http.HttpMethod.POST;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withBadRequest;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withTooManyRequests;
 
 import br.com.leai.identidade.config.AppProperties;
 import org.junit.jupiter.api.AfterEach;
@@ -64,6 +67,25 @@ class EmailNotificationServiceTest {
                 servico.enviarRecuperacaoSenha(
                     "leitor@example.com", "Leitor", "https://leai.example/reset?token=token-123"))
         .doesNotThrowAnyException();
+  }
+
+  @Test
+  @DisplayName("classifica o desfecho: 2xx aceito, 5xx e 429 temporários, outro 4xx definitivo")
+  void classificaODesfecho() {
+    servidor.expect(requestTo(URL)).andRespond(withSuccess());
+    servidor.expect(requestTo(URL)).andRespond(withServerError());
+    servidor.expect(requestTo(URL)).andRespond(withTooManyRequests());
+    servidor.expect(requestTo(URL)).andRespond(withBadRequest());
+
+    String link = "https://leai.example/redefinir-senha#token=token-123";
+    assertThat(servico.enviarRecuperacaoSenha("leitor@example.com", "Leitor", link))
+        .isEqualTo(ResultadoDeEnvio.ACEITO);
+    assertThat(servico.enviarRecuperacaoSenha("leitor@example.com", "Leitor", link))
+        .isEqualTo(ResultadoDeEnvio.FALHA_TEMPORARIA);
+    assertThat(servico.enviarRecuperacaoSenha("leitor@example.com", "Leitor", link))
+        .isEqualTo(ResultadoDeEnvio.FALHA_TEMPORARIA);
+    assertThat(servico.enviarRecuperacaoSenha("leitor@example.com", "Leitor", link))
+        .isEqualTo(ResultadoDeEnvio.FALHA_DEFINITIVA);
   }
 
   @Test

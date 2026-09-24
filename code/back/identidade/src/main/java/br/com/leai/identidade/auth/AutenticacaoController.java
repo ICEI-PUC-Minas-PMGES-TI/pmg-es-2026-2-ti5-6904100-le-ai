@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Cadastro, login, renovação, logout e troca de senha (RF-AUT-01, 02, 03, 05 e 06). Todas
+ * Cadastro, login, renovação, logout, recuperação e troca de senha (RF-AUT-01 a 06). Todas
  * públicas, menos a troca de senha, que exige token (a lista fica no {@code SecurityConfig}).
  */
 @RestController
@@ -31,12 +31,20 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "auth", description = "Cadastro e autenticação")
 public class AutenticacaoController {
 
+  /** Frase do contrato: confirma o recebimento, nunca a conta nem o envio (RNF-SEC-28). */
+  static final String PEDIDO_RECEBIDO =
+      "Se o e-mail estiver cadastrado, você receberá as instruções em breve.";
+
   private final ServicoDeAutenticacao servico;
+  private final RecuperacaoDeSenha recuperacao;
   private final ServicoDeIdempotencia idempotencia;
 
   public AutenticacaoController(
-      ServicoDeAutenticacao servico, ServicoDeIdempotencia idempotencia) {
+      ServicoDeAutenticacao servico,
+      RecuperacaoDeSenha recuperacao,
+      ServicoDeIdempotencia idempotencia) {
     this.servico = servico;
+    this.recuperacao = recuperacao;
     this.idempotencia = idempotencia;
   }
 
@@ -188,6 +196,78 @@ public class AutenticacaoController {
         Void.class,
         () -> {
           servico.sair(requisicao);
+          return new RespostaIdempotente<>(HttpStatus.NO_CONTENT.value(), null);
+        });
+    return ResponseEntity.noContent().build();
+  }
+
+  @PostMapping("/password/forgot")
+  @Operation(
+      summary = "Pede o link de recuperação de senha por e-mail (RF-AUT-04)",
+      description =
+          "Sempre 202 com o mesmo corpo, exista ou não a conta e qualquer que seja o resultado "
+              + "do envio (RNF-SEC-28). O link vale 1 hora e um uso (RNF-SEC-10). A mesma "
+              + "Idempotency-Key não reenvia o e-mail. Exige Idempotency-Key.")
+  @ApiResponse(responseCode = "202", description = "Pedido recebido, sem confirmar conta ou envio.")
+  @ApiResponse(
+      responseCode = "400",
+      description = "E-mail inválido ou Idempotency-Key ausente.",
+      content = @Content(schema = @Schema(ref = "#/components/schemas/Erro")))
+  @ApiResponse(
+      responseCode = "409",
+      description = "Idempotency-Key já usada com outro e-mail.",
+      content = @Content(schema = @Schema(ref = "#/components/schemas/Erro")))
+  public ResponseEntity<MensagemResposta> solicitarRecuperacao(
+      @RequestHeader(name = ChaveDeIdempotencia.CABECALHO, required = false) String chaveBruta,
+      @Valid @RequestBody EsqueciSenhaRequisicao requisicao) {
+    String chave = ChaveDeIdempotencia.exigir(chaveBruta);
+    RespostaIdempotente<MensagemResposta> resposta =
+        idempotencia.executar(
+            idempotencia.sujeitoAnonimo(requisicao.email()),
+            OperacaoIdempotente.SOLICITAR_RECUPERACAO,
+            chave,
+            requisicao,
+            MensagemResposta.class,
+            () -> {
+              recuperacao.solicitar(requisicao.email());
+              return new RespostaIdempotente<>(
+                  HttpStatus.ACCEPTED.value(), new MensagemResposta(PEDIDO_RECEBIDO));
+            });
+    return ResponseEntity.status(resposta.status()).body(resposta.corpo());
+  }
+
+  @PostMapping("/password/reset")
+  @Operation(
+      summary = "Redefine a senha pelo link de recuperação (RF-AUT-04)",
+      description =
+          "Consome o link, troca a senha (RNF-SEC-27) e revoga todas as renovações da conta "
+              + "(RNF-SEC-30). Link desconhecido, vencido ou já usado é sempre 410 com a mesma "
+              + "mensagem, sem dado da conta. Exige Idempotency-Key.")
+  @ApiResponse(responseCode = "204", description = "Senha redefinida e renovações revogadas.")
+  @ApiResponse(
+      responseCode = "400",
+      description = "Senha nova curta ou comum, corpo inválido ou Idempotency-Key ausente.",
+      content = @Content(schema = @Schema(ref = "#/components/schemas/Erro")))
+  @ApiResponse(
+      responseCode = "409",
+      description = "Idempotency-Key já usada com outro corpo.",
+      content = @Content(schema = @Schema(ref = "#/components/schemas/Erro")))
+  @ApiResponse(
+      responseCode = "410",
+      description = "Link desconhecido, vencido ou já usado.",
+      content = @Content(schema = @Schema(ref = "#/components/schemas/Erro")))
+  public ResponseEntity<Void> redefinirSenha(
+      @RequestHeader(name = ChaveDeIdempotencia.CABECALHO, required = false) String chaveBruta,
+      @Valid @RequestBody RedefinirSenhaRequisicao requisicao) {
+    String chave = ChaveDeIdempotencia.exigir(chaveBruta);
+    idempotencia.executar(
+        idempotencia.sujeitoAnonimo(GestorDeRenovacao.hash(requisicao.token())),
+        OperacaoIdempotente.REDEFINIR_SENHA,
+        chave,
+        requisicao,
+        Void.class,
+        () -> {
+          recuperacao.redefinir(requisicao);
           return new RespostaIdempotente<>(HttpStatus.NO_CONTENT.value(), null);
         });
     return ResponseEntity.noContent().build();
