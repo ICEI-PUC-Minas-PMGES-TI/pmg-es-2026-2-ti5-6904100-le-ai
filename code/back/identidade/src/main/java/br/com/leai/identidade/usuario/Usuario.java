@@ -49,6 +49,30 @@ public class Usuario {
   @Column(name = "criado_em", nullable = false, updatable = false)
   private Instant criadoEm;
 
+  // Perfil (F-PERFIL). Colunas da migration de 15/09; todas têm default no banco, por isso não
+  // entram no insert do cadastro.
+  @Column(name = "biografia")
+  private String biografia;
+
+  @Column(name = "avatar_url")
+  private String avatarUrl;
+
+  /** `publicId` do Cloudinary; vem junto de `avatarUrl`, nunca sozinho. */
+  @Column(name = "avatar_asset_id")
+  private String avatarAssetId;
+
+  /** `publico` ou `privado` (CHECK `usuario_privacidade_valida`). */
+  @Column(name = "privacidade", nullable = false)
+  private String privacidade = "publico";
+
+  // Só leitura aqui: quem mantém é o SQL de seguir e deixar de seguir, com a linha travada. Se o
+  // Hibernate regravasse o valor carregado, uma troca de senha simultânea desfaria um incremento.
+  @Column(name = "qtd_seguidores", nullable = false, insertable = false, updatable = false)
+  private int qtdSeguidores;
+
+  @Column(name = "qtd_seguidos", nullable = false, insertable = false, updatable = false)
+  private int qtdSeguidos;
+
   /** Preenchido pelo default do banco no insert; só as escritas desta classe o avançam. */
   @Column(name = "atualizado_em", nullable = false, insertable = false)
   private Instant atualizadoEm;
@@ -115,6 +139,52 @@ public class Usuario {
 
   public Instant criadoEm() {
     return criadoEm;
+  }
+
+  public String biografia() {
+    return biografia;
+  }
+
+  public String avatarUrl() {
+    return avatarUrl;
+  }
+
+  public String avatarAssetId() {
+    return avatarAssetId;
+  }
+
+  public String privacidade() {
+    return privacidade;
+  }
+
+  public boolean ehPrivado() {
+    return "privado".equals(privacidade());
+  }
+
+  public int qtdSeguidores() {
+    return qtdSeguidores;
+  }
+
+  public int qtdSeguidos() {
+    return qtdSeguidos;
+  }
+
+  /**
+   * Substitui os campos editáveis do perfil (RF-SOC-01/04). O avatar vem validado pelo chamador,
+   * URL e `publicId` juntos ou os dois nulos. Mudar para privado não mexe nos seguidores.
+   */
+  public void editarPerfil(
+      String nomeExibicao,
+      String biografia,
+      String avatarUrl,
+      String avatarAssetId,
+      String privacidade) {
+    this.nomeExibicao = nomeExibicao;
+    this.biografia = biografia;
+    this.avatarUrl = avatarUrl;
+    this.avatarAssetId = avatarAssetId;
+    this.privacidade = privacidade;
+    this.atualizadoEm = Instant.now();
   }
 
   /**

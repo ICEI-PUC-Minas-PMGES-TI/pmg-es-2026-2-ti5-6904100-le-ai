@@ -130,6 +130,8 @@ services:
         value: Lê Ai
       - key: WEB_BASE_URL # base do link de recuperação de senha enviado por e-mail
         value: https://leai-web.onrender.com
+      - key: CLOUDINARY_CLOUD_NAME # valida a URL do avatar (RNF-SEC-20); nome público do cloud
+        value: leai
       - key: JWT_SECRET # segredo forte, aleatório
         sync: false
       - key: ADMIN_EMAIL # admin fixo provisionado por ambiente (RF-AUT-08)

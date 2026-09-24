@@ -58,6 +58,7 @@ public abstract class IntegracaoComPostgres {
     // O .env local pode ter a chave real do Brevo: sem isto, a suíte mandaria e-mail de verdade.
     registro.add("leai.brevo-api-key", () -> "");
     registro.add("leai.web-base-url", () -> ORIGEM_WEB);
+    registro.add("leai.cloudinary-cloud-name", () -> "leai");
     // Sem admin por padrão; AdminIntegracaoTest define o seu.
     registro.add("leai.admin-email", () -> "");
     registro.add("leai.admin-password", () -> "");
