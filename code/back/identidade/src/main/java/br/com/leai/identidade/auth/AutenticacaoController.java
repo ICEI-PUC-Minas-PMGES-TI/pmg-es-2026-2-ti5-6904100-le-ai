@@ -1,5 +1,9 @@
 package br.com.leai.identidade.auth;
 
+import br.com.leai.identidade.common.idempotencia.ChaveDeIdempotencia;
+import br.com.leai.identidade.common.idempotencia.OperacaoIdempotente;
+import br.com.leai.identidade.common.idempotencia.RespostaIdempotente;
+import br.com.leai.identidade.common.idempotencia.ServicoDeIdempotencia;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -7,10 +11,11 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /** Cadastro e login (RF-AUT-01, RF-AUT-02, RF-AUT-03). Rotas públicas por definição. */
@@ -20,13 +25,15 @@ import org.springframework.web.bind.annotation.RestController;
 public class AutenticacaoController {
 
   private final ServicoDeAutenticacao servico;
+  private final ServicoDeIdempotencia idempotencia;
 
-  public AutenticacaoController(ServicoDeAutenticacao servico) {
+  public AutenticacaoController(
+      ServicoDeAutenticacao servico, ServicoDeIdempotencia idempotencia) {
     this.servico = servico;
+    this.idempotencia = idempotencia;
   }
 
   @PostMapping("/register")
-  @ResponseStatus(HttpStatus.CREATED)
   @Operation(
       summary = "Cria uma conta de leitor (RF-AUT-01)",
       description =
@@ -45,8 +52,25 @@ public class AutenticacaoController {
       responseCode = "429",
       description = "Limite de requisições por IP excedido (RNF-SEC-17).",
       content = @Content(schema = @Schema(ref = "#/components/schemas/Erro")))
-  public UsuarioResposta cadastrar(@Valid @RequestBody CadastroRequisicao requisicao) {
-    return servico.cadastrar(requisicao);
+  public ResponseEntity<UsuarioResposta> cadastrar(
+      @RequestHeader(name = ChaveDeIdempotencia.CABECALHO, required = false) String chaveBruta,
+      @Valid @RequestBody CadastroRequisicao requisicao) {
+    String chave = ChaveDeIdempotencia.validarOpcional(chaveBruta);
+    if (chave == null) {
+      return ResponseEntity.status(HttpStatus.CREATED).body(servico.cadastrar(requisicao));
+    }
+
+    RespostaIdempotente<UsuarioResposta> resposta =
+        idempotencia.executar(
+            idempotencia.sujeitoAnonimo(requisicao.email()),
+            OperacaoIdempotente.CADASTRAR_USUARIO,
+            chave,
+            requisicao,
+            UsuarioResposta.class,
+            () ->
+                new RespostaIdempotente<>(
+                    HttpStatus.CREATED.value(), servico.cadastrar(requisicao)));
+    return ResponseEntity.status(resposta.status()).body(resposta.corpo());
   }
 
   @PostMapping("/login")

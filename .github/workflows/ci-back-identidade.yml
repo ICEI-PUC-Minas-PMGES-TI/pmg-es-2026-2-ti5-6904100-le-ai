@@ -27,6 +27,22 @@ jobs:
       run:
         working-directory: code/back/identidade
 
+    # Postgres descartavel para os testes de integracao (src/test/.../integracao/).
+    # Nunca o Neon: a base de integracao apaga e recria o schema a cada contexto.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: teste
+          POSTGRES_DB: leai_teste
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -42,5 +58,11 @@ jobs:
       - name: Enable Maven wrapper
         run: chmod +x mvnw
 
+      # Os testes de integracao so rodam com DATABASE_URL_TESTE definida; sem ela
+      # sao ignorados e o verify continua valendo sem banco (RNF-TST-02).
       - name: Build and test
         run: ./mvnw -B verify
+        env:
+          DATABASE_URL_TESTE: jdbc:postgresql://localhost:5432/leai_teste
+          DATABASE_USERNAME_TESTE: postgres
+          DATABASE_PASSWORD_TESTE: teste

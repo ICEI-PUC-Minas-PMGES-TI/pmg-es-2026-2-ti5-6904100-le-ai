@@ -11,6 +11,7 @@ import br.com.leai.identidade.common.CodigoErro;
 import br.com.leai.identidade.common.CorrelationIdFilter;
 import br.com.leai.identidade.common.ErroDeNegocioException;
 import br.com.leai.identidade.common.GlobalExceptionHandler;
+import br.com.leai.identidade.common.idempotencia.ServicoDeIdempotencia;
 import java.time.LocalDate;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,13 +35,17 @@ class AutenticacaoControllerTest {
   private static final String MENOR_DE_IDADE = LocalDate.now().minusYears(16).toString();
 
   private ServicoDeAutenticacao servico;
+  private ServicoDeIdempotencia idempotencia;
   private MockMvc mockMvc;
 
   @BeforeEach
   void montar() {
     servico = Mockito.mock(ServicoDeAutenticacao.class);
+    // Sem Idempotency-Key o controller não toca o serviço de idempotência; o caminho com chave
+    // é exercitado contra Postgres real em IdempotenciaCadastroIntegracaoTest.
+    idempotencia = Mockito.mock(ServicoDeIdempotencia.class);
     mockMvc =
-        MockMvcBuilders.standaloneSetup(new AutenticacaoController(servico))
+        MockMvcBuilders.standaloneSetup(new AutenticacaoController(servico, idempotencia))
             .setControllerAdvice(new GlobalExceptionHandler())
             .addFilters(new CorrelationIdFilter())
             .build();
@@ -77,6 +82,25 @@ class AutenticacaoControllerTest {
         .andExpect(jsonPath("$.id").isNotEmpty())
         .andExpect(jsonPath("$.email").doesNotExist())
         .andExpect(jsonPath("$.senha").doesNotExist());
+
+    Mockito.verifyNoInteractions(idempotencia);
+  }
+
+  @Test
+  @DisplayName("Idempotency-Key vazia ou acima de 128 caracteres vira 400 sem tocar o serviço")
+  void chaveDeIdempotenciaInvalidaVira400() throws Exception {
+    for (String chave : new String[] {"   ", "k".repeat(129)}) {
+      mockMvc
+          .perform(
+              post("/auth/register")
+                  .header("Idempotency-Key", chave)
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content(corpoDeCadastro("senha-bem-comprida", MAIOR_DE_IDADE)))
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.codigo").value("REQUISICAO_INVALIDA"));
+    }
+
+    Mockito.verifyNoInteractions(servico, idempotencia);
   }
 
   @Test
