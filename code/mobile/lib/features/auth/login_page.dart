@@ -23,12 +23,16 @@ class LoginPage extends StatefulWidget {
   /// Chamado ao tocar em "Criar conta", no rodapé.
   final VoidCallback? aoIrParaCadastro;
 
+  /// Chamado ao tocar em "Esqueci minha senha", abaixo do campo de senha (F-AUT, login.md).
+  final VoidCallback? aoEsquecerSenha;
+
   const LoginPage({
     super.key,
     required this.authService,
     required this.sessionController,
     this.aoEntrar,
     this.aoIrParaCadastro,
+    this.aoEsquecerSenha,
   });
 
   @override
@@ -197,6 +201,19 @@ class _LoginPageState extends State<LoginPage> {
                         enabled: !_enviando,
                       ),
                     ],
+                  ),
+                ),
+              ),
+              // Edição de F-AUT (login.md): abaixo da senha, à direita, antes do botão principal.
+              const SizedBox(height: DesignTokens.space3),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: widget.aoEsquecerSenha,
+                  style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+                  child: Text(
+                    'Esqueci minha senha',
+                    style: theme.textTheme.labelLarge?.copyWith(color: theme.primaryAccent),
                   ),
                 ),
               ),

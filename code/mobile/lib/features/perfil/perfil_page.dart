@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../design/theme.dart';
 
-/// Placeholder (P0-NAV): conteúdo real entra com F-PERFIL no Período 1. Sem botão de sair: a
-/// fronteira da feature deixa logout com invalidação de refresh para F-AUT (plano de execução) —
-/// verificação manual é limpar o secure storage, como no fluxo local documentado.
+/// Placeholder (P0-NAV): conteúdo real entra com F-PERFIL no Período 1. A saída da conta fica em
+/// Configurações, pela engrenagem do header da aba (`ShellAutenticado`, F-AUT).
 class PerfilPage extends StatelessWidget {
   const PerfilPage({super.key});
 

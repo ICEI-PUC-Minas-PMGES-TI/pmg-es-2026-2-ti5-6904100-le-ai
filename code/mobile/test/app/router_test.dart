@@ -157,4 +157,65 @@ void main() {
     expect(find.text('Novo livro pessoal'), findsOneWidget);
     expect(find.text('ISBN'), findsNothing);
   });
+
+  testWidgets('recuperar senha abre sem sessão, pelo login', (tester) async {
+    await tester.pumpWidget(_wrap(router));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Esqueci minha senha'));
+    await tester.tap(find.text('Esqueci minha senha'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Recuperar senha'), findsOneWidget);
+  });
+
+  testWidgets('o link de redefinição abre sem sessão e com o token do fragmento', (tester) async {
+    await tester.pumpWidget(_wrap(router));
+    await tester.pumpAndSettle();
+
+    router.go('/redefinir-senha#token=abc123');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Criar uma senha nova'), findsOneWidget);
+  });
+
+  testWidgets('o link de redefinição não passa pela verificação de sessão', (tester) async {
+    // Sessão ainda carregando: qualquer outra rota iria para /verificando-sessao e perderia o
+    // fragmento.
+    final carregando = SessionController(_FakeTokenStore());
+    final roteador = buildRouter(
+      sessionController: carregando,
+      authService: AuthService(
+        ApiClient(
+          baseUrl: 'http://localhost:8080',
+          client: MockClient((request) async => http.Response('{}', 200)),
+        ),
+      ),
+      livros: DependenciasDeLivros(
+        acervo: AcervoService(ApiClient(baseUrl: 'http://localhost:3000')),
+        seletor: _SemImagem(),
+        enviador: _SemEnvio(),
+      ),
+    );
+    await tester.pumpWidget(_wrap(roteador));
+    roteador.go('/redefinir-senha#token=abc123');
+    await tester.pumpAndSettle();
+
+    expect(carregando.carregando, isTrue);
+    expect(find.text('Criar uma senha nova'), findsOneWidget);
+  });
+
+  testWidgets('a engrenagem do Perfil leva às configurações', (tester) async {
+    await sessionController.entrar('jwt-valido');
+    await tester.pumpWidget(_wrap(router));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Perfil'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Configurações'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Alterar senha'), findsOneWidget);
+    expect(find.text('Sair da conta'), findsOneWidget);
+  });
 }

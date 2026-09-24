@@ -9,11 +9,15 @@ class BotaoDestrutivo extends StatelessWidget {
   final VoidCallback? onPressed;
   final bool carregando;
 
+  /// Ícone de 20px à esquerda do texto, como o `SignOut` de "Sair da conta" (configuracoes.md).
+  final IconData? icone;
+
   const BotaoDestrutivo({
     super.key,
     required this.texto,
     required this.onPressed,
     this.carregando = false,
+    this.icone,
   });
 
   @override
@@ -34,7 +38,16 @@ class BotaoDestrutivo extends StatelessWidget {
           ),
           splashFactory: NoSplash.splashFactory,
         ),
-        child: Text(texto),
+        child: icone == null
+            ? Text(texto)
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Icon(icone, size: 20),
+                  const SizedBox(width: DesignTokens.space2),
+                  Text(texto),
+                ],
+              ),
       ),
     );
   }

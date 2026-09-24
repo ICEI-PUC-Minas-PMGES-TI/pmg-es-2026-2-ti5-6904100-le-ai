@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 
 import '../design/theme.dart';
 import 'barra_inferior.dart';
@@ -7,6 +8,7 @@ import 'cabecalho_tela.dart';
 
 const List<String> _titulosPorAba = <String>['Minha estante', 'Descobrir', 'Feed', 'Meu perfil'];
 const List<String> _raizesDasAbas = <String>['/estante', '/descobrir', '/feed', '/perfil'];
+const int _indiceDoPerfil = 3;
 
 /// O quadro em que as 4 áreas autenticadas vivem (shell-de-navegacao.md §1 e §4). `router.dart`
 /// entrega um `navigationShell` do `StatefulShellRoute.indexedStack`, que preserva a pilha de
@@ -25,7 +27,16 @@ class ShellAutenticado extends StatelessWidget {
   /// Caminho atual. Nulo mantém o cabeçalho da aba, que era o comportamento antes das sub-rotas.
   final String? caminhoAtual;
 
-  const ShellAutenticado({super.key, required this.navigationShell, this.caminhoAtual});
+  /// Engrenagem no header da aba Perfil, que leva às configurações de F-AUT
+  /// (configuracoes.md §1). Ausente, o header do Perfil fica só com o sino.
+  final VoidCallback? aoAbrirConfiguracoes;
+
+  const ShellAutenticado({
+    super.key,
+    required this.navigationShell,
+    this.caminhoAtual,
+    this.aoAbrirConfiguracoes,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +46,23 @@ class ShellAutenticado extends StatelessWidget {
       body: Column(
         children: <Widget>[
           if (caminhoAtual == null || _raizesDasAbas.contains(caminhoAtual))
-            CabecalhoTela(titulo: _titulosPorAba[navigationShell.currentIndex]),
+            CabecalhoTela(
+              titulo: _titulosPorAba[navigationShell.currentIndex],
+              acoes: <Widget>[
+                if (navigationShell.currentIndex == _indiceDoPerfil && aoAbrirConfiguracoes != null)
+                  IconButton(
+                    onPressed: aoAbrirConfiguracoes,
+                    tooltip: 'Configurações',
+                    constraints: const BoxConstraints.tightFor(width: 48, height: 48),
+                    padding: EdgeInsets.zero,
+                    icon: Icon(
+                      PhosphorIconsRegular.gear,
+                      size: 24,
+                      color: theme.textTheme.bodyMedium?.color,
+                    ),
+                  ),
+              ],
+            ),
           Expanded(child: navigationShell),
         ],
       ),
