@@ -69,9 +69,18 @@ class ServicoDeAutenticacaoTest {
     EmissorDeToken emissor =
         new EmissorDeToken(jwtConfig.jwtEncoder(jwtConfig.chaveDeAssinatura(propriedades)));
 
+    // A rotação e o reuso dependem do UPDATE ... RETURNING e ficam na integração com Postgres
+    // (RenovacaoIntegracaoTest); aqui basta a emissão.
+    GestorDeRenovacao gestorDeRenovacao = Mockito.mock(GestorDeRenovacao.class);
+    given(gestorDeRenovacao.emitir(any())).willReturn("renovacao-de-teste");
     servico =
         new ServicoDeAutenticacao(
-            repositorio, codificador, emissor, controleDeTentativas, new PoliticaDeSenha());
+            repositorio,
+            codificador,
+            emissor,
+            controleDeTentativas,
+            new PoliticaDeSenha(),
+            gestorDeRenovacao);
   }
 
   private static CadastroRequisicao cadastro() {
@@ -156,11 +165,12 @@ class ServicoDeAutenticacaoTest {
     given(repositorio.findByEmailIgnoreCaseOrUsernameIgnoreCase("marinableu", "marinableu"))
         .willReturn(Optional.of(usuario));
 
-    TokenResposta resposta = servico.entrar(new LoginRequisicao("marinableu", SENHA));
+    SessaoResposta resposta = servico.entrar(new LoginRequisicao("marinableu", SENHA));
 
     assertThat(resposta.tokenType()).isEqualTo("Bearer");
     assertThat(resposta.expiresIn()).isEqualTo(900L);
     assertThat(resposta.accessToken()).isNotBlank();
+    assertThat(resposta.refreshToken()).isEqualTo("renovacao-de-teste");
   }
 
   @Test

@@ -31,10 +31,23 @@ public final class ChaveDeIdempotencia {
     }
     String chave = bruta.trim();
     if (chave.isEmpty() || chave.length() > TAMANHO_MAXIMO) {
-      throw new ErroDeNegocioException(
-          CodigoErro.REQUISICAO_INVALIDA,
-          "Informe uma chave de idempotência (Idempotency-Key) com até 128 caracteres.");
+      throw invalida();
     }
     return chave;
+  }
+
+  /** Para as rotas que já nascem exigindo a chave, como o contrato pede. */
+  public static String exigir(String bruta) {
+    String chave = validarOpcional(bruta);
+    if (chave == null) {
+      throw invalida();
+    }
+    return chave;
+  }
+
+  private static ErroDeNegocioException invalida() {
+    return new ErroDeNegocioException(
+        CodigoErro.REQUISICAO_INVALIDA,
+        "Informe uma chave de idempotência (Idempotency-Key) com até 128 caracteres.");
   }
 }

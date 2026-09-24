@@ -153,10 +153,10 @@ class AutenticacaoControllerTest {
   }
 
   @Test
-  @DisplayName("login válido responde 200 com accessToken, tokenType e expiresIn")
+  @DisplayName("login válido responde 200 com a sessão: acesso, tipo, validade e renovação")
   void loginValidoResponde200() throws Exception {
     given(servico.entrar(any(LoginRequisicao.class)))
-        .willReturn(TokenResposta.de("jwt-de-teste", 900L));
+        .willReturn(SessaoResposta.de("jwt-de-teste", 900L, "renovacao-de-teste"));
 
     mockMvc
         .perform(
@@ -166,7 +166,22 @@ class AutenticacaoControllerTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.accessToken").value("jwt-de-teste"))
         .andExpect(jsonPath("$.tokenType").value("Bearer"))
-        .andExpect(jsonPath("$.expiresIn").value(900));
+        .andExpect(jsonPath("$.expiresIn").value(900))
+        .andExpect(jsonPath("$.refreshToken").value("renovacao-de-teste"));
+  }
+
+  @Test
+  @DisplayName("refresh sem Idempotency-Key vira 400 sem tocar o serviço")
+  void refreshSemChaveVira400() throws Exception {
+    mockMvc
+        .perform(
+            post("/auth/refresh")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"refreshToken\":\"qualquer\"}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.codigo").value("REQUISICAO_INVALIDA"));
+
+    Mockito.verifyNoInteractions(servico, idempotencia);
   }
 
   @Test

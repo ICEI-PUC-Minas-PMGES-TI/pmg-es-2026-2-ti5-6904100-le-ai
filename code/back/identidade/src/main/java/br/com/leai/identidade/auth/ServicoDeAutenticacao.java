@@ -11,7 +11,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Cadastro, login e leitura da identidade do token (RF-AUT-01, 02 e 03). */
+/** Cadastro, login, renovação e leitura da identidade do token (RF-AUT-01, 02 e 03). */
 @Service
 public class ServicoDeAutenticacao {
 
@@ -27,6 +27,7 @@ public class ServicoDeAutenticacao {
   private final EmissorDeToken emissorDeToken;
   private final ControleDeTentativas controleDeTentativas;
   private final PoliticaDeSenha politicaDeSenha;
+  private final GestorDeRenovacao gestorDeRenovacao;
 
   /**
    * Hash descartável, calculado uma vez no arranque. Serve para o login gastar o mesmo tempo
@@ -40,12 +41,14 @@ public class ServicoDeAutenticacao {
       PasswordEncoder codificadorDeSenha,
       EmissorDeToken emissorDeToken,
       ControleDeTentativas controleDeTentativas,
-      PoliticaDeSenha politicaDeSenha) {
+      PoliticaDeSenha politicaDeSenha,
+      GestorDeRenovacao gestorDeRenovacao) {
     this.repositorio = repositorio;
     this.codificadorDeSenha = codificadorDeSenha;
     this.emissorDeToken = emissorDeToken;
     this.controleDeTentativas = controleDeTentativas;
     this.politicaDeSenha = politicaDeSenha;
+    this.gestorDeRenovacao = gestorDeRenovacao;
     this.hashDeComparacaoFalsa = codificadorDeSenha.encode("conta-inexistente");
   }
 
@@ -85,8 +88,9 @@ public class ServicoDeAutenticacao {
     }
   }
 
-  @Transactional(readOnly = true)
-  public TokenResposta entrar(LoginRequisicao requisicao) {
+  /** Não é mais só leitura: o login grava o token de renovação que emite. */
+  @Transactional
+  public SessaoResposta entrar(LoginRequisicao requisicao) {
     String identificador = requisicao.identificador().trim();
 
     // Antes de qualquer consulta ou comparação de hash: enquanto o bloqueio vale, nem a senha
@@ -106,9 +110,37 @@ public class ServicoDeAutenticacao {
     }
 
     controleDeTentativas.registrarSucesso(identificador);
-    Usuario usuario = encontrado.get();
-    return TokenResposta.de(
-        emissorDeToken.emitir(usuario.id(), usuario.username()), emissorDeToken.validadeEmSegundos());
+    return sessaoPara(encontrado.get());
+  }
+
+  /**
+   * Troca um token de renovação válido por um par novo, revogando o apresentado (RF-AUT-03,
+   * RNF-SEC-30). Rotação e emissão na mesma transação: se a emissão falhar, o token antigo
+   * continua valendo.
+   */
+  @Transactional
+  public SessaoResposta renovar(RefreshRequisicao requisicao) {
+    UUID usuarioId = gestorDeRenovacao.consumir(requisicao.refreshToken());
+    Usuario usuario =
+        repositorio
+            .findById(usuarioId)
+            .orElseThrow(
+                () ->
+                    new ErroDeNegocioException(
+                        CodigoErro.NAO_AUTENTICADO, GestorDeRenovacao.SESSAO_EXPIRADA));
+    return sessaoPara(usuario);
+  }
+
+  /** Resposta ao reuso de token revogado, depois que a idempotência descartou o replay. */
+  public void encerrarRenovacoesPorReuso(UUID usuarioId) {
+    gestorDeRenovacao.revogarPorReuso(usuarioId);
+  }
+
+  private SessaoResposta sessaoPara(Usuario usuario) {
+    return SessaoResposta.de(
+        emissorDeToken.emitir(usuario.id(), usuario.username()),
+        emissorDeToken.validadeEmSegundos(),
+        gestorDeRenovacao.emitir(usuario.id()));
   }
 
   /**

@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Cadastro e login (RF-AUT-01, RF-AUT-02, RF-AUT-03). Rotas públicas por definição. */
+/** Cadastro, login e renovação (RF-AUT-01, RF-AUT-02, RF-AUT-03). Rotas públicas por definição. */
 @RestController
 @RequestMapping("/auth")
 @Tag(name = "auth", description = "Cadastro e autenticação")
@@ -80,9 +80,10 @@ public class AutenticacaoController {
   @Operation(
       summary = "Autentica por e-mail ou nome de usuário (RF-AUT-02)",
       description =
-          "Emite token de acesso de curta duração (RF-AUT-03). A resposta de credencial "
-              + "inválida é a mesma para conta inexistente e senha errada (RNF-SEC-28).")
-  @ApiResponse(responseCode = "200", description = "Token emitido.")
+          "Emite token de acesso de curta duração e token de renovação rotativo (RF-AUT-03). A "
+              + "resposta de credencial inválida é a mesma para conta inexistente e senha errada "
+              + "(RNF-SEC-28).")
+  @ApiResponse(responseCode = "200", description = "Sessão emitida.")
   @ApiResponse(
       responseCode = "401",
       description = "Credencial inválida.",
@@ -93,7 +94,62 @@ public class AutenticacaoController {
           "Limite por IP excedido (RNF-SEC-17) ou identidade em bloqueio temporário "
               + "progressivo por falhas sucessivas (RNF-SEC-29).",
       content = @Content(schema = @Schema(ref = "#/components/schemas/Erro")))
-  public TokenResposta entrar(@Valid @RequestBody LoginRequisicao requisicao) {
-    return servico.entrar(requisicao);
+  public SessaoResposta entrar(
+      @RequestHeader(name = ChaveDeIdempotencia.CABECALHO, required = false) String chaveBruta,
+      @Valid @RequestBody LoginRequisicao requisicao) {
+    String chave = ChaveDeIdempotencia.validarOpcional(chaveBruta);
+    if (chave == null) {
+      return servico.entrar(requisicao);
+    }
+    return idempotencia
+        .executar(
+            idempotencia.sujeitoAnonimo(requisicao.identificador()),
+            OperacaoIdempotente.AUTENTICAR_USUARIO,
+            chave,
+            requisicao,
+            SessaoResposta.class,
+            () -> new RespostaIdempotente<>(HttpStatus.OK.value(), servico.entrar(requisicao)))
+        .corpo();
+  }
+
+  @PostMapping("/refresh")
+  @Operation(
+      summary = "Rotaciona o token de renovação e emite uma nova sessão (RF-AUT-03)",
+      description =
+          "O token apresentado é revogado no mesmo ato. Reapresentar um token já revogado "
+              + "revoga todas as renovações do usuário (RNF-SEC-30). Exige Idempotency-Key: "
+              + "repetir a mesma chave devolve a mesma sessão, sem contar como reuso.")
+  @ApiResponse(responseCode = "200", description = "Sessão renovada.")
+  @ApiResponse(
+      responseCode = "400",
+      description = "Corpo inválido ou Idempotency-Key ausente.",
+      content = @Content(schema = @Schema(ref = "#/components/schemas/Erro")))
+  @ApiResponse(
+      responseCode = "401",
+      description = "Token desconhecido, expirado, revogado ou já usado.",
+      content = @Content(schema = @Schema(ref = "#/components/schemas/Erro")))
+  @ApiResponse(
+      responseCode = "409",
+      description = "Idempotency-Key já usada com outro token.",
+      content = @Content(schema = @Schema(ref = "#/components/schemas/Erro")))
+  public SessaoResposta renovar(
+      @RequestHeader(name = ChaveDeIdempotencia.CABECALHO, required = false) String chaveBruta,
+      @Valid @RequestBody RefreshRequisicao requisicao) {
+    String chave = ChaveDeIdempotencia.exigir(chaveBruta);
+    try {
+      return idempotencia
+          .executar(
+              idempotencia.sujeitoAnonimo(GestorDeRenovacao.hash(requisicao.refreshToken())),
+              OperacaoIdempotente.RENOVAR_SESSAO,
+              chave,
+              requisicao,
+              SessaoResposta.class,
+              () -> new RespostaIdempotente<>(HttpStatus.OK.value(), servico.renovar(requisicao)))
+          .corpo();
+    } catch (RenovacaoReusadaException reuso) {
+      // Só chega aqui sem recibo a devolver: não é a repetição desta requisição, é reuso.
+      servico.encerrarRenovacoesPorReuso(reuso.usuarioId());
+      throw reuso;
+    }
   }
 }

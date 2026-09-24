@@ -6,6 +6,8 @@ import br.com.leai.identidade.config.AppProperties;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
+import java.security.SecureRandom;
+import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
@@ -13,7 +15,9 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.function.Supplier;
+import javax.crypto.Cipher;
 import javax.crypto.Mac;
+import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -22,7 +26,7 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * Idempotência das escritas HTTP (RNF-ERR-04), sobre {@code identidade.idempotencia_identidade}.
- * Porte do {@code IdempotenciaService} do {@code acervo}, com duas diferenças que vêm do serviço.
+ * Porte do {@code IdempotenciaService} do {@code acervo}, com três diferenças que vêm do serviço.
  *
  * <p><b>O escopo nem sempre é um usuário autenticado.</b> {@code register}, {@code login},
  * {@code refresh} e a recuperação de senha são públicas, mas {@code subject_ref} é NOT NULL. Para
@@ -34,6 +38,10 @@ import tools.jackson.databind.ObjectMapper;
  * anularia o bcrypt (RNF-SEC-09). Com a chave derivada do {@code JWT_SECRET}, quem lê a tabela
  * não consegue testar palpites. Trocar o segredo só faz os recibos vivos responderem 409 no
  * replay, dentro da janela de 24 horas.
+ *
+ * <p><b>Resposta com token é gravada cifrada</b> (AES-GCM), nas operações marcadas em {@link
+ * OperacaoIdempotente#respostaSensivel()}: o replay precisa devolver a mesma sessão, mas o refresh
+ * em claro no recibo anularia o hash de {@code refresh_token}.
  *
  * <p>É serviço chamado pelo controller, não filtro nem interceptor: o recibo tem de ser gravado
  * na mesma transação do efeito. Se ficasse fora, um crash entre os dois commits deixaria o efeito
@@ -49,11 +57,17 @@ public class ServicoDeIdempotencia {
   static final int JANELA_REPLAY_HORAS = 24;
 
   private static final String ALGORITMO = "HmacSHA256";
+  private static final String CIFRA = "AES/GCM/NoPadding";
+  private static final int TAMANHO_IV = 12;
+  private static final int TAG_BITS = 128;
+  private static final String CAMPO_CIFRADO = "cifrado";
 
   private final JdbcTemplate jdbc;
   private final TransactionTemplate transacao;
   private final ObjectMapper objectMapper;
   private final SecretKeySpec chaveHmac;
+  private final SecretKeySpec chaveCifra;
+  private final SecureRandom aleatorio = new SecureRandom();
 
   public ServicoDeIdempotencia(
       JdbcTemplate jdbc,
@@ -70,6 +84,9 @@ public class ServicoDeIdempotencia {
             new SecretKeySpec(propriedades.jwtSecret().getBytes(StandardCharsets.UTF_8), ALGORITMO),
             "leai-identidade/idempotencia/v1");
     this.chaveHmac = new SecretKeySpec(derivada, ALGORITMO);
+    // Terceira chave, também derivada e distinta das outras duas: cifra a resposta das
+    // operações que devolvem token (OperacaoIdempotente#respostaSensivel).
+    this.chaveCifra = new SecretKeySpec(hmac(chaveHmac, "cifra-de-resposta/v1"), "AES");
   }
 
   /**
@@ -90,7 +107,7 @@ public class ServicoDeIdempotencia {
 
     Recibo anterior = buscarRecibo(sujeito, operacao, chave);
     if (anterior != null) {
-      return replayOuConflito(anterior, payloadHash, tipoDoCorpo);
+      return replayOuConflito(anterior, operacao, chave, payloadHash, tipoDoCorpo);
     }
 
     try {
@@ -110,7 +127,7 @@ public class ServicoDeIdempotencia {
       if (vencedor == null) {
         throw erro;
       }
-      return replayOuConflito(vencedor, payloadHash, tipoDoCorpo);
+      return replayOuConflito(vencedor, operacao, chave, payloadHash, tipoDoCorpo);
     }
   }
 
@@ -150,15 +167,66 @@ public class ServicoDeIdempotencia {
   }
 
   private <T> RespostaIdempotente<T> replayOuConflito(
-      Recibo recibo, String payloadHash, Class<T> tipoDoCorpo) {
+      Recibo recibo,
+      OperacaoIdempotente operacao,
+      String chave,
+      String payloadHash,
+      Class<T> tipoDoCorpo) {
     // Chave certa e payload certo, mas fora da janela: reexecutar seria pior do que recusar,
     // porque a resposta original já não é devolvível. O cliente gera uma chave nova.
     if (!recibo.payloadHash().equals(payloadHash) || recibo.vencido()) {
       throw new ErroDeNegocioException(
           CodigoErro.CONFLITO, "Essa chave de idempotência já foi usada com outros dados.");
     }
-    T corpo = objectMapper.readValue(recibo.resposta(), tipoDoCorpo);
+    String json = recibo.resposta();
+    if (operacao.respostaSensivel()) {
+      String cifrado = objectMapper.readTree(json).get(CAMPO_CIFRADO).asString();
+      json = decifrar(cifrado, operacao, chave);
+    }
+    T corpo = objectMapper.readValue(json, tipoDoCorpo);
     return new RespostaIdempotente<>(recibo.statusHttp(), corpo);
+  }
+
+  /**
+   * AES-GCM com IV aleatório de 96 bits. Operação e chave entram como dado associado: um recibo
+   * copiado para outra linha não decifra, e o replay de uma chave nunca devolve a sessão de outra.
+   */
+  private String cifrar(String json, OperacaoIdempotente operacao, String chave) {
+    try {
+      byte[] iv = new byte[TAMANHO_IV];
+      aleatorio.nextBytes(iv);
+      Cipher cifra = Cipher.getInstance(CIFRA);
+      cifra.init(Cipher.ENCRYPT_MODE, chaveCifra, new GCMParameterSpec(TAG_BITS, iv));
+      cifra.updateAAD(dadoAssociado(operacao, chave));
+      byte[] texto = cifra.doFinal(json.getBytes(StandardCharsets.UTF_8));
+      byte[] saida = ByteBuffer.allocate(iv.length + texto.length).put(iv).put(texto).array();
+      return Base64.getEncoder().encodeToString(saida);
+    } catch (GeneralSecurityException erro) {
+      throw new IllegalStateException("Falha ao cifrar recibo de idempotência", erro);
+    }
+  }
+
+  private String decifrar(String base64, OperacaoIdempotente operacao, String chave) {
+    try {
+      ByteBuffer entrada = ByteBuffer.wrap(Base64.getDecoder().decode(base64));
+      byte[] iv = new byte[TAMANHO_IV];
+      entrada.get(iv);
+      byte[] texto = new byte[entrada.remaining()];
+      entrada.get(texto);
+      Cipher cifra = Cipher.getInstance(CIFRA);
+      cifra.init(Cipher.DECRYPT_MODE, chaveCifra, new GCMParameterSpec(TAG_BITS, iv));
+      cifra.updateAAD(dadoAssociado(operacao, chave));
+      return new String(cifra.doFinal(texto), StandardCharsets.UTF_8);
+    } catch (GeneralSecurityException erro) {
+      // Recibo gravado com outro JWT_SECRET: sem como devolver a resposta original, recusa como
+      // chave já usada, o mesmo tratamento da janela vencida.
+      throw new ErroDeNegocioException(
+          CodigoErro.CONFLITO, "Essa chave de idempotência já foi usada com outros dados.");
+    }
+  }
+
+  private static byte[] dadoAssociado(OperacaoIdempotente operacao, String chave) {
+    return (operacao.operationId() + "\n" + chave).getBytes(StandardCharsets.UTF_8);
   }
 
   private Recibo buscarRecibo(UUID sujeito, OperacaoIdempotente operacao, String chave) {
@@ -192,6 +260,10 @@ public class ServicoDeIdempotencia {
     // (204) grava `{}`.
     String corpo =
         resposta.corpo() == null ? "{}" : objectMapper.writeValueAsString(resposta.corpo());
+    if (operacao.respostaSensivel()) {
+      corpo =
+          objectMapper.writeValueAsString(Map.of(CAMPO_CIFRADO, cifrar(corpo, operacao, chave)));
+    }
     jdbc.update(
         """
         INSERT INTO idempotencia_identidade
