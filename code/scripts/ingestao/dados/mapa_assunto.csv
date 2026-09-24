@@ -44,10 +44,10 @@ ghost stories,terror
 vampires,terror
 zombies,terror
 suspense,suspense
-thrillers,suspense
-thriller,suspense
+thrillers,thriller
+thriller,thriller
 suspense fiction,suspense
-psychological thriller,suspense
+psychological thriller,thriller
 mystery fiction,policial
 mystery and detective stories,policial
 detective and mystery stories,policial
@@ -110,8 +110,8 @@ brazilian essays,cronica
 biography,biografia
 biografia,biografia
 biographies,biografia
-autobiography,memorias
-autobiografia,memorias
+autobiography,biografia
+autobiografia,biografia
 memoirs,memorias
 memorias,memorias
 personal narratives,memorias

@@ -1,7 +1,7 @@
 # P0-DEPLOY — Deploy em DES (Render + Neon)
 
 **Período:** 0 · **Prioridade:** fundação
-**Dono:** a definir · **Serviços afetados:** transversal (4 serviços + site estático Vue) + banco Neon
+**Dono:** Renato Douglas · **Serviços afetados:** transversal (4 serviços + site estático Vue) + banco Neon
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md). Ambientes: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §4. Infra: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §6. Em caso de conflito, o `REQUISITOS.md` ganha.
 

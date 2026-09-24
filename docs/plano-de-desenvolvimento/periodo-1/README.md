@@ -57,15 +57,15 @@ Tabelas e VIEWs usam nomes distintos porque compartilham o mesmo namespace no Po
 
 ## Divisão vertical recomendada para 5 pessoas
 
-Esta divisão reduz sobreposição dentro de cada serviço e mantém as integrações mais próximas sob a mesma pessoa. É uma recomendação de trabalho, e cada feature só passa a ter dono quando alguém assume: em 18/09/2026, **F-ACV-INGESTAO e F-ACV-CADASTRO foram assumidas por Vicenzo Fonseca**; em 24/09/2026, **F-AUT e F-PERFIL foram assumidas por Henrique Carvalho**; as demais seguem com **Dono** `a definir`.
+Esta divisão reduz sobreposição dentro de cada serviço e mantém as integrações mais próximas sob a mesma pessoa. A divisão recomendada abaixo foi de fato adotada: em 18/09/2026 **F-ACV-INGESTAO e F-ACV-CADASTRO foram assumidas por Vicenzo Fonseca**, em 24/09/2026 **F-AUT e F-PERFIL foram assumidas por Henrique Carvalho**, e as demais frentes também já têm dono, conforme as issues do GitHub e a [tabela-mestre](../README.md#tabela-mestre-de-features).
 
 | Pessoa | Features | Coesão principal |
 |---|---|---|
-| 1 | F-AUT + F-PERFIL | serviço `identidade`, sessão, usuário, privacidade e grafo de seguidores |
-| 2 | F-ACV-INGESTAO + F-ACV-CADASTRO | modelo e escrita do catálogo no serviço `acervo` |
-| 3 | F-ACV-BUSCA + F-AVA | página do livro e sua avaliação, incluindo a fronteira `acervo` ↔ `leitura` |
-| 4 | F-EST + F-PRG | máquina de estados, leitura em andamento, progresso e inatividade no serviço `leitura` |
-| 5 | F-FEED + F-NOT | projeções, interações e notificações no serviço `social` |
+| 1 — Henrique Carvalho | F-AUT + F-PERFIL | serviço `identidade`, sessão, usuário, privacidade e grafo de seguidores |
+| 2 — Vicenzo Fonseca | F-ACV-INGESTAO + F-ACV-CADASTRO | modelo e escrita do catálogo no serviço `acervo` |
+| 3 — Renato Douglas | F-ACV-BUSCA + F-AVA | página do livro e sua avaliação, incluindo a fronteira `acervo` ↔ `leitura` |
+| 4 — Ana Luiza de Freitas | F-EST + F-PRG | máquina de estados, leitura em andamento, progresso e inatividade no serviço `leitura` |
+| 5 — Kayke | F-FEED + F-NOT | projeções, interações e notificações no serviço `social` |
 
 ### Ordem de implementação recomendada
 

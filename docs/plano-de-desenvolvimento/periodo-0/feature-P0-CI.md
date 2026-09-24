@@ -1,7 +1,7 @@
 # P0-CI — Pipeline CI/CD
 
 **Período:** 0 · **Prioridade:** fundação
-**Dono:** a definir · **Serviços afetados:** transversal (todos os subprojetos de `code/`)
+**Dono:** Kayke · **Serviços afetados:** transversal (todos os subprojetos de `code/`)
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md). Processo: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §5. Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §6. Em caso de conflito, o `REQUISITOS.md` ganha.
 

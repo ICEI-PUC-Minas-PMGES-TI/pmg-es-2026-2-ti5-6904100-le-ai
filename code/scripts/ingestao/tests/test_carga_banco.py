@@ -98,8 +98,8 @@ def _um(conexao, consulta: str, *parametros):
 def test_semear_popula_o_conjunto_curado(conexao, capsys):
     contagem = _rodar(capsys, "semear", "--database-url", URL)
 
-    assert contagem["assuntos"] == 30
-    assert _um(conexao, "SELECT count(*) FROM acervo.assunto")[0] == 30
+    assert contagem["assuntos"] == 31
+    assert _um(conexao, "SELECT count(*) FROM acervo.assunto")[0] == 31
     assert _um(conexao, "SELECT count(*) FROM acervo.sinonimo_editora")[0] == contagem["sinonimos"]
     assert _um(conexao, "SELECT count(*) FROM acervo.mapa_assunto_externo")[0] == contagem["mapeamentos"]
 
@@ -138,7 +138,7 @@ def test_livros_carregados_respeitam_rn12_e_rn21(conexao, capsys, tmp_path):
                    OR sinopse_status <> 'nao_consultada')""",
     )[0] == 0
     # Tag sem correspondência não cria assunto (RN-21.3/4) e o teto é 5 (RN-21.2).
-    assert _um(conexao, "SELECT count(*) FROM acervo.assunto")[0] == 30
+    assert _um(conexao, "SELECT count(*) FROM acervo.assunto")[0] == 31
     assert _um(
         conexao,
         """SELECT coalesce(max(n), 0) FROM (

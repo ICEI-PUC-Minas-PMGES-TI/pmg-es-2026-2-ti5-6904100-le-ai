@@ -1,7 +1,7 @@
 # P0-MSG — Mensageria e integrações base
 
 **Período:** 0 · **Prioridade:** fundação
-**Dono:** a definir · **Serviços afetados:** transversal (os 4 serviços conectam ao broker) + integrações externas
+**Dono:** Kayke, Ana Luiza de Freitas · **Serviços afetados:** transversal (os 4 serviços conectam ao broker) + integrações externas
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md). Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §2.3–2.7, §5, §8. Em caso de conflito, o `REQUISITOS.md` ganha.
 

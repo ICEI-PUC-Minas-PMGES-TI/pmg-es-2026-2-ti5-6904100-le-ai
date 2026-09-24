@@ -1,7 +1,7 @@
 # F-NOT — Notificações in-app
 
 **Período:** 1 · **Prioridade:** prioritaria
-**Dono:** a definir · **Serviços afetados:** `social` (backend) + mobile (sem web — ver Status)
+**Dono:** Kayke · **Serviços afetados:** `social` (backend) + mobile (sem web — ver Status)
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.10 (RF-NOT-01..04) e §2.1 (escopo web). Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §3.1, §5.2, §2.7. Processo e template: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §9. Em caso de conflito, o `REQUISITOS.md` ganha; protótipo é referência visual, não spec de pixel (plano §7).
 
