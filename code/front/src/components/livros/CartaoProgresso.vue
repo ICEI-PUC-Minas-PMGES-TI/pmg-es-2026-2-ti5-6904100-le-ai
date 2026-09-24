@@ -9,7 +9,7 @@ defineProps<{ mensagem: string }>()
 </script>
 
 <template>
-  <div class="rounded-md bg-papel-elevado p-space-5 motion-safe:animate-[aparecer_var(--duration-base)_var(--easing-out)]">
+  <div class="aparecer rounded-md bg-papel-elevado p-space-5">
     <div
       class="flex flex-col gap-space-3"
       aria-hidden="true"
@@ -36,6 +36,20 @@ defineProps<{ mensagem: string }>()
 </template>
 
 <style scoped>
+/*
+ * A animação fica aqui, e não numa classe arbitrária do Tailwind no template: o CSS com escopo
+ * renomeia o `@keyframes` e só reescreve o nome nas declarações deste bloco.
+ */
+.aparecer {
+  animation: aparecer var(--duration-base) var(--easing-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aparecer {
+    animation: none;
+  }
+}
+
 @keyframes aparecer {
   from {
     opacity: 0;

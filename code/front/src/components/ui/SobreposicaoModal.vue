@@ -74,40 +74,98 @@ function aoTeclar(evento: KeyboardEvent): void {
 
 <template>
   <Teleport to="body">
-    <div
-      v-if="aberta"
-      class="fixed inset-0 z-30 flex items-end justify-center bg-tinta/40"
-      :class="somenteFolha ? '' : 'md:items-center md:p-space-8'"
-      @click.self="emit('fechar')"
-    >
+    <Transition name="sobreposicao">
       <div
-        ref="painel"
-        role="dialog"
-        aria-modal="true"
-        :aria-label="rotulo"
-        class="w-full rounded-t-lg bg-papel p-space-6 shadow-3 motion-safe:animate-[entrar_var(--duration-base)_var(--easing-out)]"
-        :class="somenteFolha ? 'pb-[calc(var(--spacing-space-6)+env(safe-area-inset-bottom))]' : 'md:w-[480px] md:max-w-full md:rounded-lg'"
-        @keydown="aoTeclar"
+        v-if="aberta"
+        class="scrim fixed inset-0 z-30 flex items-end justify-center"
+        :class="somenteFolha ? '' : 'md:items-center md:p-space-8'"
+        @click.self="emit('fechar')"
       >
         <div
-          class="mx-auto mb-space-5 h-1 w-8 rounded-full bg-linha"
-          :class="somenteFolha ? '' : 'md:hidden'"
-          aria-hidden="true"
-        />
-        <slot />
+          ref="painel"
+          role="dialog"
+          aria-modal="true"
+          :aria-label="rotulo"
+          class="painel w-full rounded-t-lg bg-papel p-space-6 shadow-3 dark:bg-papel-elevado"
+          :class="somenteFolha ? 'pb-[calc(var(--spacing-space-6)+env(safe-area-inset-bottom))]' : 'vira-dialogo md:w-[480px] md:max-w-full md:rounded-lg'"
+          @keydown="aoTeclar"
+        >
+          <div
+            class="mx-auto mb-space-5 h-1 w-8 rounded-full bg-linha"
+            :class="somenteFolha ? '' : 'md:hidden'"
+            aria-hidden="true"
+          />
+          <slot />
+        </div>
       </div>
-    </div>
+    </Transition>
   </Teleport>
 </template>
 
 <style scoped>
-@keyframes entrar {
-  from {
+/*
+ * Scrim `tinta` a 40% no claro e preto a 60% no escuro (livro-pessoal.md §6). Não usa
+ * `bg-tinta/40`: no escuro `tinta` vira `papel-suave` e o scrim clareia a tela em vez de escurecer.
+ */
+.scrim {
+  background-color: rgb(23 21 18 / 0.4);
+}
+
+.dark .scrim {
+  background-color: rgb(0 0 0 / 0.6);
+}
+
+/*
+ * Sheet sobe de baixo em `dur-slow` (documento-de-design §3.6); dialog, da web, entra com
+ * `dur-base` e um deslize curto. Saída em `dur-base` com `easing-in`. O scrim acompanha a
+ * duração do painel para o `<Transition>` medir o tempo certo pelo elemento raiz.
+ */
+.sobreposicao-enter-active {
+  transition: opacity var(--duration-slow) var(--easing-out);
+}
+
+.sobreposicao-enter-active .painel {
+  transition: transform var(--duration-slow) var(--easing-out);
+}
+
+.sobreposicao-leave-active {
+  transition: opacity var(--duration-base) var(--easing-in);
+}
+
+.sobreposicao-leave-active .painel {
+  transition: transform var(--duration-base) var(--easing-in);
+}
+
+.sobreposicao-enter-from,
+.sobreposicao-leave-to {
+  opacity: 0;
+}
+
+.sobreposicao-enter-from .painel,
+.sobreposicao-leave-to .painel {
+  transform: translateY(100%);
+}
+
+@media (min-width: 768px) {
+  .sobreposicao-enter-active:has(.vira-dialogo) {
+    transition-duration: var(--duration-base);
+  }
+
+  .sobreposicao-enter-active .vira-dialogo {
+    transition: transform var(--duration-base) var(--easing-out), opacity var(--duration-base) var(--easing-out);
+  }
+
+  .sobreposicao-enter-from .vira-dialogo,
+  .sobreposicao-leave-to .vira-dialogo {
     opacity: 0;
     transform: translateY(16px);
   }
-  to {
-    opacity: 1;
+}
+
+/* Sob `reduce`, sheet e dialog entram sem deslizar (livro-pessoal.md §9). */
+@media (prefers-reduced-motion: reduce) {
+  .sobreposicao-enter-from .painel,
+  .sobreposicao-leave-to .painel {
     transform: none;
   }
 }
