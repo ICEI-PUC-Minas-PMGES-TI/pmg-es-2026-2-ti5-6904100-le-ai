@@ -74,7 +74,7 @@ O modelo físico está versionado em `code/back/acervo/drizzle/0001_202609161107
 
 (plano §10)
 
-- [ ] Script de carga mergeado em `desenvolvimento` — implementado em `vicenzo-features`, ainda não mergeado
+- [x] Script de carga mergeado em `desenvolvimento` — via PR #41 em 24/09/2026
 - [x] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)) — `ci-scripts-ingestao.yml` confere os dados curados e roda a suíte contra a **amostra reproduzível**, sem baixar dump (RNF-TST-08)
 - [x] Testes unitários e de integração contra banco real/container: normalização de editora/autor/série (RN-12), mapeamento de assuntos (RN-21), descarte de registro inválido, deduplicação em recarga da amostra e contrato da VIEW (RNF-TST-02/08) — 96 unitários e 7 de banco (`tests/test_carga_banco.py`, marcados `banco`), com Postgres descartável no CI e as migrations reais de `acervo`; os dois últimos provam que a edição sem autor vincula só a autora da obra, nunca o tradutor, e que o marcador de catálogo cede lugar ao autor da obra
 - [x] Teste operacional da amostra cobre registro de `ingestao_execucao`, totais coerentes, falha sem carga parcial silenciosa e reexecução idempotente; testes de broker são **N/A**, pois o dump não usa mensageria — um candidato corrompido depois da fase 1 derruba a carga no INSERT de livro, nada entra (nem as editoras gravadas antes) e a execução fica registrada como `falha`
