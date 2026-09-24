@@ -1,7 +1,7 @@
 # F-PERFIL — Perfil, privacidade e seguidores
 
 **Período:** 1 · **Prioridade:** prioritaria
-**Dono:** a definir · **Serviços afetados:** `identidade` (backend) + web + mobile
+**Dono:** Henrique Carvalho · **Serviços afetados:** `identidade` (backend) + web + mobile
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.9 (RF-SOC-01..08) e RN-08. Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §3.1, §4.2, §5.2, §2.5. Processo e template: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §9. Em caso de conflito, o `REQUISITOS.md` ganha; protótipo é referência visual, não spec de pixel (plano §7).
 
@@ -26,7 +26,7 @@ RNF atendidos: **RNF-SEC-01/02/03** (controle de acesso e propriedade no servido
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | em andamento | schema/objetos no Neon implantados; preset/prova Cloudinary P-09 e runtime RabbitMQ de P0-MSG ainda pendentes |
+| Infra | em andamento | schema/objetos no Neon implantados; runtime RabbitMQ de [P0-MSG](../periodo-0/feature-P0-MSG.md) implementado localmente em 20/09, sem prova em DES; Cloudinary provado por F-ACV-CADASTRO com o preset `leai_capas` (22/09), mas o preset de avatar ainda não existe |
 | Dados | concluído | campos de perfil, `seguidor`, `solicitacao_seguir`, `idempotencia_identidade`, `outbox_identidade` e VIEWs `v_perfil_referencia_v1`/`v_seguimento_aceito_v1` versionados e aplicados no Neon em 16/09; estrutura pronta não implica casos de uso implementados |
 | Backend | não iniciado | `identidade`: perfil, privacidade, seguir/solicitar, listas, busca por username |
 | Web | não iniciado | tela de perfil (próprio/de outro), edição, busca por username, seguidores/seguidos |
@@ -81,7 +81,7 @@ Componentes compartilhados deste recorte: schemas `Privacidade`, `RelacaoPerfil`
 
 Mudar de **público para privado não remove** seguidores existentes.
 
-**Eventos produzidos e ownership:** F-PERFIL/`identidade` é dona da escrita do fato, da linha em `outbox_identidade`, dos schemas de `data` e da publicação no exchange `leai.events.identidade`; [F-NOT](feature-F-NOT.md)/`social` é dona da fila `leai.social.notificacoes`, do consumo idempotente e da criação da notificação. [P0-MSG](../periodo-0/feature-P0-MSG.md) é pré-requisito e dono do [envelope v1](../../mensageria/schemas/envelope-v1.schema.json), dispatcher, publisher confirms, conexão/topologia, retry e DLQ. A outbox já está implantada, mas o runtime de P0-MSG ainda não está implementado.
+**Eventos produzidos e ownership:** F-PERFIL/`identidade` é dona da escrita do fato, da linha em `outbox_identidade`, dos schemas de `data` e da publicação no exchange `leai.events.identidade`; [F-NOT](feature-F-NOT.md)/`social` é dona da fila `leai.social.notificacoes`, do consumo idempotente e da criação da notificação. [P0-MSG](../periodo-0/feature-P0-MSG.md) é pré-requisito e dono do [envelope v1](../../mensageria/schemas/envelope-v1.schema.json), dispatcher, publisher confirms, conexão/topologia, retry e DLQ. A outbox já está implantada e o runtime de P0-MSG (dispatcher, confirms, retry e DLQ) foi implementado nas duas stacks em 20/09/2026, provado localmente de `identidade` para `acervo`; falta a prova em DES/HML.
 
 | Evento `(type, version)` | Quando F-PERFIL grava na outbox | `businessKey` | Schema canônico de `data` | Campos de `data` |
 |---|---|---|---|---|
@@ -151,7 +151,9 @@ F-MOD-OPC/P3 também omite contas suspensas e seus seguimentos das VIEWs públic
 
 ## Pendências
 
-- **Depende de** [F-AUT](feature-F-AUT.md)/[P0-NAV](../periodo-0/feature-P0-NAV.md) (identidade autenticada; P0-NAV já fornece access token e middleware, F-AUT completa a sessão), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md) e [P0-MSG](../periodo-0/feature-P0-MSG.md). P0-MSG ainda precisa entregar Cloudinary/P-09 para avatar e conexão/dispatcher/confirms/retry/DLQ para os eventos; as tabelas de outbox implantadas não satisfazem esse pré-requisito funcional.
+- **Depende de** [F-AUT](feature-F-AUT.md)/[P0-NAV](../periodo-0/feature-P0-NAV.md) (identidade autenticada; P0-NAV já fornece access token e middleware, F-AUT completa a sessão), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md) e [P0-MSG](../periodo-0/feature-P0-MSG.md). Conexão, dispatcher, confirms, retry e DLQ de P0-MSG já existem localmente; falta a prova em DES/HML. O Cloudinary/P-09 foi provado por F-ACV-CADASTRO para capas; o avatar ainda precisa do próprio preset.
+- **CORS do `identidade` não aceita `Idempotency-Key`** (ver [F-AUT](feature-F-AUT.md#pendências)); as escritas desta feature dependem do mesmo ajuste.
+- **Protótipos disponíveis** desde 18 e 19/09/2026 em [`docs/design/periodo-1/F-PERFIL/`](../../design/periodo-1/F-PERFIL/): `buscar-leitor`, `editar-perfil`, `meu-perfil`, `perfil-de-outro-leitor`, `seguidores-e-seguidos` e `solicitacoes-de-seguir`, com prompt e HTML.
 - **Compartilha o serviço `identidade` com [F-AUT](feature-F-AUT.md)** — privacidade e contadores já estão fixados na migration implantada; coordenar qualquer nova migration ou alteração de entidades/DTOs compartilhados (plano §6).
 - **Divergência de baseline em RF-SOC-02:** estante/resenhas vêm de `leitura` ([F-EST](feature-F-EST.md)/[F-AVA](feature-F-AVA.md)), mas listas pertencem a F-LST no Período 2. No Período 1, o perfil compõe identidade, contadores, estante e resenhas disponíveis; RF-SOC-02 não é marcado integralmente fechado até o grupo resolver a alocação das listas pelo controle de mudança.
 - **Depende futuramente de F-CONTA-2:** as VIEWs devem ocultar conta com exclusão pendente sem remover dados durante os 30 dias.
@@ -159,6 +161,8 @@ F-MOD-OPC/P3 também omite contas suspensas e seus seguimentos das VIEWs públic
 - Stack do serviço `identidade` definida: **Spring (Java)** (arquitetura §2.1).
 
 ## Timeline
+
+### Atribuição e verificação 24/09/2026: feature assumida por Henrique Carvalho, junto de [F-AUT](feature-F-AUT.md). Estado conferido no código de `desenvolvimento` (`d7b1a3f`): o `identidade` não tem controller, entidade nem repositório de perfil, seguidor ou solicitação; as doze operações de perfil do OpenAPI seguem `planned`; web e mobile têm só a aba Perfil placeholder de P0-NAV. Corrigidos o estado de P0-MSG e do Cloudinary, e registrados o CORS sem `Idempotency-Key` e os protótipos disponíveis.
 
 ### Consolidação 17/09/2026: operações e componentes HTTP alinhados ao contrato canônico expandido de `identidade`; estado físico de tabelas, VIEWs e outbox implantadas separado do estado funcional; schemas de evento ligados diretamente ao catálogo, com envelope, produtor/consumidor e fronteiras de P0-MSG/F-NOT explicitados; dependências e matriz mínima de testes consolidadas sem declarar backend ou clientes implementados.
 

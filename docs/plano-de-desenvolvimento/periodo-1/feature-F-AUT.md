@@ -1,7 +1,7 @@
 # F-AUT — Autenticação e conta
 
 **Período:** 1 · **Prioridade:** prioritaria
-**Dono:** a definir · **Serviços afetados:** `identidade` (backend) + web + mobile
+**Dono:** Henrique Carvalho · **Serviços afetados:** `identidade` (backend) + web + mobile
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.1. Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §2.6, §7. Processo e template: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §9. Em caso de conflito, o `REQUISITOS.md` ganha; protótipo é referência visual, não spec de pixel (plano §7).
 
@@ -25,11 +25,11 @@ RNF atendidos: **RNF-SEC-08** (HTTPS), **RNF-SEC-09** (hash Argon2/bcrypt/scrypt
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | em andamento | serviço/Neon e migration implantados; prova/configuração Brevo (P-02) e, se o envio for assíncrono, runtime de [P0-MSG](../periodo-0/feature-P0-MSG.md) ainda pendentes |
+| Infra | em andamento | serviço/Neon e migrations implantados; `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` e as variáveis do Brevo declaradas no `render.yaml` como `sync: false`; prova real do Brevo (P-02: remetente verificado e entrega) ainda pendente; runtime de [P0-MSG](../periodo-0/feature-P0-MSG.md) implementado localmente, sem validação em DES |
 | Dados | concluído | `usuario` ampliada e `refresh_token`, `reset_token`, `tentativa_login`, `idempotencia_identidade` e `outbox_identidade` versionadas e aplicadas no Neon em 16/09; estrutura pronta não implica casos de uso implementados |
-| Backend | parcial | cliente Brevo para e-mail de recuperação preparado; refresh/logout/troca, tokens, endpoint de recuperação e admin ainda não iniciados; `register`/`login` com access token e `/me` já existem como base de P0-NAV |
-| Web | não iniciado | escopo próprio de recuperação/troca, refresh rotativo, renovação silenciosa e logout não iniciado; cadastro/login base pertencem a P0-NAV |
-| Mobile | não iniciado | escopo próprio de recuperação/troca, refresh rotativo e sessão persistente não iniciado; cadastro/login e secure storage do access token pertencem a P0-NAV |
+| Backend | parcial | verificado no código em 24/09: existem `register`, `login` (só `accessToken`, schema `Token`) e `/me` de P0-NAV, mais `EmailNotificationService` (Brevo) sem chamador; `ADMIN_EMAIL`/`ADMIN_PASSWORD` são lidos em `AppProperties` mas não usados; não há `refresh`, `logout`, `password/*`, lista de senhas comuns, papel de admin nem tratamento de `Idempotency-Key` |
+| Web | não iniciado | escopo próprio de recuperação/troca, refresh rotativo, renovação silenciosa e logout não iniciado; cadastro/login base pertencem a P0-NAV; o cliente HTTP central já tem `Idempotency-Key` e retentativa (entregues por F-ACV-CADASTRO) |
+| Mobile | não iniciado | escopo próprio de recuperação/troca, refresh rotativo e sessão persistente não iniciado; cadastro/login e secure storage do access token pertencem a P0-NAV; o `ApiClient` já tem `Idempotency-Key` e retentativa (entregues por F-ACV-CADASTRO) |
 
 ## Especificação
 
@@ -123,7 +123,10 @@ Componentes compartilhados usados por este recorte: `bearerAuth`, parâmetro `Id
 
 ## Pendências
 
-- **Depende de** [P0-NAV](../periodo-0/feature-P0-NAV.md) (base implementada de register/login/me, JWT HS256 de 15 min e clientes), [P0-INFRA](../periodo-0/feature-P0-INFRA.md) (serviço, erro/health/correlation-id), [P0-DS](../periodo-0/feature-P0-DS.md) (tokens), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md) (DES) e [P0-CI](../periodo-0/feature-P0-CI.md). O envio de e-mail depende da prova/configuração **Brevo P-02** de [P0-MSG](../periodo-0/feature-P0-MSG.md); se a topologia assíncrona for aprovada, depende também do runtime de outbox/dispatcher/broker/retry/DLQ, ainda não iniciado em P0-MSG.
+- **Depende de** [P0-NAV](../periodo-0/feature-P0-NAV.md) (base implementada de register/login/me, JWT HS256 de 15 min e clientes), [P0-INFRA](../periodo-0/feature-P0-INFRA.md) (serviço, erro/health/correlation-id), [P0-DS](../periodo-0/feature-P0-DS.md) (tokens), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md) (DES) e [P0-CI](../periodo-0/feature-P0-CI.md). O envio de e-mail depende da prova/configuração **Brevo P-02** de [P0-MSG](../periodo-0/feature-P0-MSG.md); se a topologia assíncrona for aprovada, depende também do runtime de outbox/dispatcher/broker/retry/DLQ, implementado em P0-MSG em 20/09/2026 e provado localmente (Spring → Nest), mas ainda sem prova em DES/HML.
+- **CORS do `identidade` não aceita `Idempotency-Key`.** `CorsConfig` libera só `Authorization`, `Content-Type` e `X-Correlation-Id`; o cliente web já registra essa restrição em `code/front/src/services/api.ts` e só envia o header quando a chamada o pede. Toda escrita desta feature exige o header, então o preflight da web falharia: incluir `Idempotency-Key` nos cabeçalhos permitidos junto do primeiro endpoint idempotente.
+- **Lacunas herdadas de P0-NAV que esta feature fecha:** login devolve o schema `Token` sem `refreshToken`; cadastro valida só o mínimo de 8 caracteres, sem a lista de senhas comuns de RNF-SEC-27; a web guarda o access token em `localStorage` e o logout é apenas local, sem chamada ao servidor.
+- **Protótipos disponíveis** desde 18 e 19/09/2026 em [`docs/design/periodo-1/F-AUT/`](../../design/periodo-1/F-AUT/): `alterar-senha`, `cadastro`, `configuracoes`, `login`, `recuperar-senha` e `redefinir-senha`, com prompt e HTML.
 - **Divergência de baseline:** exclusão de conta (RF-AUT-07) está alocada a **F-CONTA-2** (Período 2, desejável), mas RNF-SEC-41 pertence ao conjunto de segurança declarado Essencial. O grupo precisa resolver a prioridade pelo controle de mudança; esta feature não declara RNF-SEC-41 atendido nem altera a baseline.
 - Decisões herdadas de P0-NAV, já fixadas: `identidade` em **Spring (Java)**, JWT HS256 de 15 min via Spring Security e `flutter_secure_storage` no mobile. F-AUT ainda deve decidir e documentar no contrato de segurança onde o refresh será transportado/armazenado na web; não deve manter refresh em `localStorage` sem decisão explícita sobre a superfície de XSS já registrada em P0-NAV.
 - **Decisão bloqueante do envio de e-mail:** o fluxo é candidato assíncrono em §7.2, mas não foi aprovado. Antes de implementar, o grupo deve escolher entre aceite durável assíncrono (por exemplo, outbox/worker) ou chamada síncrona. Em ambos, `forgot` preserva `202` uniforme; no modo síncrono, falha do Brevo fica apenas em log/métrica e o usuário pode repetir a solicitação, pois expor `503` somente para conta existente violaria SEC-28. A escolha e o tratamento da tensão com a mensagem clara de RNF-ERR-08 devem ser registrados pelo controle de mudança.
@@ -131,6 +134,8 @@ Componentes compartilhados usados por este recorte: `bearerAuth`, parâmetro `Id
 - **Depende futuramente de F-CONTA-2:** preservar um ponto de extensão no login/middleware para o acesso restrito de recuperação de conta, sem antecipar sua implementação no Período 1.
 
 ## Timeline
+
+### Atribuição e verificação 24/09/2026: feature assumida por Henrique Carvalho, junto de [F-PERFIL](feature-F-PERFIL.md). Estado conferido no código de `desenvolvimento` (`d7b1a3f`): no backend só existem as operações `implemented` do OpenAPI (`register`, `login`, `/me`); as cinco operações próprias de F-AUT seguem `planned`. CI do `identidade` verde no último push (`2c01f63`, 20/09). Em DES, `leai-identidade` responde `/health` 200 após cold start de ~165 s, ainda com a versão de `main` (16/09). Registrados o CORS sem `Idempotency-Key`, as lacunas herdadas de P0-NAV e os protótipos disponíveis; corrigido o estado de P0-MSG, cujo runtime não está mais "não iniciado".
 
 ### Consolidação 17/09/2026: operações e componentes HTTP alinhados ao contrato canônico expandido de `identidade`; estado físico das tabelas e outbox implantadas separado do estado funcional; ownership de eventual mensageria de e-mail, pré-requisito P0-MSG, dependências e matriz mínima de testes explicitados sem declarar o escopo F-AUT implementado.
 
