@@ -53,6 +53,7 @@ describe('normalização RN-12', () => {
     '[Unknown]',
     'Unknown',
     'Autor desconhecido',
+    'invalid author ID',
     '   ',
   ])('marcador de catálogo não é nome de autor: "%s"', (nome) => {
     expect(nomeDeAutorUtilizavel(nome)).toBe(false);

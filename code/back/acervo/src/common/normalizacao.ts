@@ -126,6 +126,8 @@ const MARCADORES_DE_AUTOR_DESCONHECIDO = new Set([
   'author unknown',
   'desconhecido',
   'autor desconhecido',
+  // `/authors/OL9958049A`, vinculado às edições brasileiras do Diário de um Banana.
+  'invalid author id',
 ]);
 
 /**

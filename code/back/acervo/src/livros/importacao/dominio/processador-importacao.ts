@@ -52,6 +52,8 @@ export class ProcessadorImportacao {
   ): Promise<ResultadoDoProcessamento> {
     let alguemFalhou = false;
     let ultimaFalha = '';
+    // O que as fontes já disseram sobre este ISBN, somado na ordem delas.
+    let acumulado: MetadadosLivro | null = null;
 
     for (const fonte of this.fontes) {
       let metadados: MetadadosLivro | null;
@@ -73,17 +75,21 @@ export class ProcessadorImportacao {
         continue;
       }
 
+      // É o mesmo ISBN, então uma fonte completa a outra: a OpenLibrary costuma
+      // ter a capa e não ter o total de páginas, e o Google Books o contrário.
+      acumulado = acumulado ? completar(acumulado, metadados) : metadados;
+
       // Dado externo validado antes de persistir (RNF-SEC-33). Sem total de
       // páginas não há progresso por página, e o CHECK `livro_paginas_positivas_ck`
       // recusaria a linha; sem capa, o CHECK de livro oficial também recusa. RN-12
       // manda descartar nos dois casos — e descarte aqui é `nao_encontrado`, não
       // erro: o leitor pode cadastrar o livro como pessoal.
-      if (!this.utilizavel(metadados)) {
+      if (!this.utilizavel(acumulado)) {
         continue;
       }
 
       const livroId =
-        await this.repositorio.criarOuObterLivroOficial(metadados);
+        await this.repositorio.criarOuObterLivroOficial(acumulado);
       await this.repositorio.concluir(dados.importacaoId, livroId);
       return { estado: 'concluida', livroId };
     }
@@ -114,4 +120,27 @@ export class ProcessadorImportacao {
       /^https:\/\/[^\s]+$/.test(metadados.capaUrl ?? '')
     );
   }
+}
+
+/**
+ * Preenche o que falta em `base` com o que `extra` sabe. `base` vem da fonte
+ * anterior na ordem e prevalece em tudo o que já tem, inclusive nas chaves da
+ * OpenLibrary que RN-12 usa para deduplicar autor.
+ */
+function completar(
+  base: MetadadosLivro,
+  extra: MetadadosLivro,
+): MetadadosLivro {
+  return {
+    ...base,
+    titulo: base.titulo?.trim() ? base.titulo : extra.titulo,
+    autores: base.autores.length > 0 ? base.autores : extra.autores,
+    editora: base.editora ?? extra.editora,
+    anoPublicacao: base.anoPublicacao ?? extra.anoPublicacao,
+    paginas:
+      typeof base.paginas === 'number' && base.paginas > 0
+        ? base.paginas
+        : extra.paginas,
+    capaUrl: base.capaUrl ?? extra.capaUrl,
+  };
 }

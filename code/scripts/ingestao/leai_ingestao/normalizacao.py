@@ -118,6 +118,8 @@ _MARCADORES_DE_AUTOR_DESCONHECIDO = {
     "author unknown",
     "desconhecido",
     "autor desconhecido",
+    # `/authors/OL9958049A`, vinculado às edições brasileiras do Diário de um Banana.
+    "invalid author id",
 }
 
 _ENTRE_COLCHETES = re.compile(r"\[.*\]")

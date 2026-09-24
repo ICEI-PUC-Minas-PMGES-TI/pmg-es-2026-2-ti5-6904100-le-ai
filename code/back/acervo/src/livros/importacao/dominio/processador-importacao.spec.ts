@@ -186,6 +186,52 @@ describe('ProcessadorImportacao', () => {
     },
   );
 
+  // Caso real (Diário de um Banana, 9788576833932): a OpenLibrary tem capa e não
+  // tem páginas, o Google Books tem páginas e não tem capa. Somadas, passam.
+  it('completa a primária com o que só a secundária sabe', async () => {
+    const repo = repositorio();
+    const processador = new ProcessadorImportacao(
+      [
+        fonte('openlibrary', async () => metadados({ paginas: null })),
+        fonte('google-books', async () =>
+          metadados({
+            titulo: 'Memorias Postumas',
+            autores: [{ nome: 'Machado de Assis', olAuthorKey: null }],
+            paginas: 256,
+            capaUrl: null,
+            olEditionKey: null,
+            olWorkKey: null,
+          }),
+        ),
+      ],
+      repo,
+    );
+
+    expect((await processador.processar(SOLICITACAO)).estado).toBe('concluida');
+    // A primária prevalece no que já tinha; da secundária vêm só as páginas.
+    expect(repo.criarOuObterLivroOficial).toHaveBeenCalledWith(
+      metadados({ paginas: 256 }),
+    );
+  });
+
+  it('fontes que juntas ainda não completam o livro seguem para nao_encontrado', async () => {
+    const repo = repositorio();
+    const processador = new ProcessadorImportacao(
+      [
+        fonte('openlibrary', async () =>
+          metadados({ paginas: null, capaUrl: null }),
+        ),
+        fonte('google-books', async () => metadados({ capaUrl: null })),
+      ],
+      repo,
+    );
+
+    expect((await processador.processar(SOLICITACAO)).estado).toBe(
+      'nao_encontrado',
+    );
+    expect(repo.criarOuObterLivroOficial).not.toHaveBeenCalled();
+  });
+
   // RNF-ARQ-05: duas execuções do mesmo ISBN convergem para o mesmo livro. Quem
   // garante é o upsert do repositório, não um lock.
   it('duas execuções do mesmo ISBN convergem para o mesmo livro', async () => {

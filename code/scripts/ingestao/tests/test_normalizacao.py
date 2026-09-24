@@ -51,7 +51,14 @@ def test_autor_deduplica_por_caixa_e_acento():
 # propósito: se as duas implementações divergirem, uma das suítes quebra.
 @pytest.mark.parametrize(
     "nome",
-    ["[author not identified]", "[Unknown]", "Unknown", "Autor desconhecido", "   "],
+    [
+        "[author not identified]",
+        "[Unknown]",
+        "Unknown",
+        "Autor desconhecido",
+        "invalid author ID",
+        "   ",
+    ],
 )
 def test_marcador_de_catalogo_nao_e_nome_de_autor(nome):
     assert n.nome_de_autor_utilizavel(nome) is False
