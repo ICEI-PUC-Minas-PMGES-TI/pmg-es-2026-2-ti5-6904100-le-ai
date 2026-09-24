@@ -19,6 +19,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.http.MediaType;
+import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -46,6 +47,9 @@ class AutenticacaoControllerTest {
     idempotencia = Mockito.mock(ServicoDeIdempotencia.class);
     mockMvc =
         MockMvcBuilders.standaloneSetup(new AutenticacaoController(servico, idempotencia))
+            // Sem a cadeia do Security o principal é nulo; sem o resolver, o Spring tentaria
+            // montar o Jwt como model attribute. A troca de senha autenticada está na integração.
+            .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
             .setControllerAdvice(new GlobalExceptionHandler())
             .addFilters(new CorrelationIdFilter())
             .build();
@@ -182,6 +186,28 @@ class AutenticacaoControllerTest {
           .andExpect(status().isBadRequest())
           .andExpect(jsonPath("$.codigo").value("REQUISICAO_INVALIDA"));
     }
+
+    Mockito.verifyNoInteractions(servico, idempotencia);
+  }
+
+  @Test
+  @DisplayName("troca de senha sem Idempotency-Key ou com senha nova curta vira 400")
+  void trocaDeSenhaInvalidaVira400() throws Exception {
+    mockMvc
+        .perform(
+            post("/auth/password/change")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"senhaAtual\":\"senha-atual\",\"novaSenha\":\"senha-nova-longa\"}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.codigo").value("REQUISICAO_INVALIDA"));
+    mockMvc
+        .perform(
+            post("/auth/password/change")
+                .header("Idempotency-Key", UUID.randomUUID().toString())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"senhaAtual\":\"senha-atual\",\"novaSenha\":\"1234567\"}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.codigo").value("REQUISICAO_INVALIDA"));
 
     Mockito.verifyNoInteractions(servico, idempotencia);
   }

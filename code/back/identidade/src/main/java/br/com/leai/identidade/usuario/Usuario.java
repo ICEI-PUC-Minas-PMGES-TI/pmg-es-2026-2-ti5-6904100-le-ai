@@ -49,6 +49,10 @@ public class Usuario {
   @Column(name = "criado_em", nullable = false, updatable = false)
   private Instant criadoEm;
 
+  /** Preenchido pelo default do banco no insert; só as escritas desta classe o avançam. */
+  @Column(name = "atualizado_em", nullable = false, insertable = false)
+  private Instant atualizadoEm;
+
   /** Exigido pelo JPA. Não usar no código de domínio: prefira {@link #novo}. */
   protected Usuario() {}
 
@@ -111,5 +115,15 @@ public class Usuario {
 
   public Instant criadoEm() {
     return criadoEm;
+  }
+
+  /**
+   * Troca o hash da senha (RF-AUT-05).
+   *
+   * @param novoHash já hasheado pelo chamador. Este método nunca recebe senha em claro.
+   */
+  public void trocarSenha(String novoHash) {
+    this.senhaHash = novoHash;
+    this.atualizadoEm = Instant.now();
   }
 }

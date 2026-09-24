@@ -6,12 +6,17 @@ import br.com.leai.identidade.usuario.Usuario;
 import br.com.leai.identidade.usuario.UsuarioRepositorio;
 import java.util.Optional;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Cadastro, login, renovação e leitura da identidade do token (RF-AUT-01, 02 e 03). */
+/**
+ * Cadastro, login, renovação, logout, troca de senha e leitura da identidade do token (RF-AUT-01,
+ * 02, 03, 05 e 06).
+ */
 @Service
 public class ServicoDeAutenticacao {
 
@@ -21,6 +26,11 @@ public class ServicoDeAutenticacao {
    * quem tem conta (RNF-SEC-28).
    */
   static final String CREDENCIAL_INVALIDA = "E-mail, nome de usuário ou senha incorretos.";
+
+  /** Cópia de alterar-senha.md §4.2. */
+  static final String SENHA_ATUAL_INCORRETA = "Senha atual incorreta.";
+
+  private static final Logger log = LoggerFactory.getLogger(ServicoDeAutenticacao.class);
 
   private final UsuarioRepositorio repositorio;
   private final PasswordEncoder codificadorDeSenha;
@@ -135,6 +145,43 @@ public class ServicoDeAutenticacao {
   @Transactional
   public void sair(RefreshRequisicao requisicao) {
     gestorDeRenovacao.revogar(requisicao.refreshToken());
+  }
+
+  /**
+   * Troca a senha do dono do token (RF-AUT-05) e derruba todas as renovações da conta
+   * (RNF-SEC-30), inclusive a do aparelho que pediu a troca: o contrato não recebe o token de
+   * renovação dele, então quem quiser continuar conectado entra de novo com a senha nova.
+   *
+   * <p>A política roda antes da senha atual, porque não depende do banco nem gasta bcrypt. A
+   * leitura da conta trava a linha: duas trocas simultâneas com a mesma senha atual não passam
+   * as duas.
+   */
+  @Transactional
+  public void alterarSenha(UUID usuarioId, AlterarSenhaRequisicao requisicao) {
+    politicaDeSenha.recusarSeComum(requisicao.novaSenha(), CodigoErro.ENTIDADE_NAO_PROCESSAVEL);
+
+    Usuario usuario =
+        repositorio
+            .buscarParaAtualizar(usuarioId)
+            .orElseThrow(
+                () ->
+                    new ErroDeNegocioException(
+                        CodigoErro.NAO_AUTENTICADO, GestorDeRenovacao.SESSAO_EXPIRADA));
+
+    if (!codificadorDeSenha.matches(requisicao.senhaAtual(), usuario.senhaHash())) {
+      // RNF-SEC-35: falha de autenticação registrada; RNF-SEC-36: nunca a senha tentada.
+      log.warn("Troca de senha recusada: senha atual incorreta para o usuário {}", usuarioId);
+      // 422 e não 401: o token é válido, e um 401 aqui faria o cliente tentar renovar a sessão.
+      throw new ErroDeNegocioException(
+          CodigoErro.ENTIDADE_NAO_PROCESSAVEL, SENHA_ATUAL_INCORRETA);
+    }
+
+    usuario.trocarSenha(codificadorDeSenha.encode(requisicao.novaSenha()));
+    int revogadas = gestorDeRenovacao.revogarAtivos(usuarioId);
+    log.info(
+        "Senha alterada pelo usuário {}; {} renovação(ões) ativa(s) revogada(s)",
+        usuarioId,
+        revogadas);
   }
 
   /** Resposta ao reuso de token revogado, depois que a idempotência descartou o replay. */

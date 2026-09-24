@@ -1,8 +1,12 @@
 package br.com.leai.identidade.usuario;
 
+import jakarta.persistence.LockModeType;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 /**
  * Acesso à tabela {@code usuario}. Consultas derivadas, nunca SQL concatenado (RNF-SEC-12).
@@ -22,4 +26,13 @@ public interface UsuarioRepositorio extends JpaRepository<Usuario, UUID> {
   boolean existsByEmailIgnoreCase(String email);
 
   boolean existsByUsernameIgnoreCase(String username);
+
+  /**
+   * Lê a conta com {@code SELECT ... FOR UPDATE}, para a troca de senha. Duas trocas simultâneas
+   * com a mesma senha atual não podem as duas passar: a segunda espera a primeira commitar e
+   * compara com o hash novo.
+   */
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query("SELECT u FROM Usuario u WHERE u.id = :id")
+  Optional<Usuario> buscarParaAtualizar(@Param("id") UUID id);
 }

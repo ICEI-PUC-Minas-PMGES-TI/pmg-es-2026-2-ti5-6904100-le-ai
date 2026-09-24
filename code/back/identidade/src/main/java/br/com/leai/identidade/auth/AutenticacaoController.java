@@ -8,10 +8,14 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -19,7 +23,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Cadastro, login, renovação e logout (RF-AUT-01, 02, 03 e 06). Rotas públicas por definição.
+ * Cadastro, login, renovação, logout e troca de senha (RF-AUT-01, 02, 03, 05 e 06). Todas
+ * públicas, menos a troca de senha, que exige token (a lista fica no {@code SecurityConfig}).
  */
 @RestController
 @RequestMapping("/auth")
@@ -183,6 +188,51 @@ public class AutenticacaoController {
         Void.class,
         () -> {
           servico.sair(requisicao);
+          return new RespostaIdempotente<>(HttpStatus.NO_CONTENT.value(), null);
+        });
+    return ResponseEntity.noContent().build();
+  }
+
+  @PostMapping("/password/change")
+  @SecurityRequirement(name = "bearerAuth")
+  @Operation(
+      summary = "Altera a senha do usuário autenticado (RF-AUT-05)",
+      description =
+          "Exige a senha atual. A nova segue a mesma política do cadastro (RNF-SEC-27). O "
+              + "sucesso revoga todas as renovações da conta, inclusive a deste aparelho "
+              + "(RNF-SEC-30), e é registrado em log sem senha, token ou hash (RNF-SEC-35/36). "
+              + "Exige Idempotency-Key.")
+  @ApiResponse(responseCode = "204", description = "Senha alterada e renovações revogadas.")
+  @ApiResponse(
+      responseCode = "400",
+      description = "Corpo inválido, senha nova curta ou Idempotency-Key ausente.",
+      content = @Content(schema = @Schema(ref = "#/components/schemas/Erro")))
+  @ApiResponse(
+      responseCode = "401",
+      description = "Token de acesso ausente, inválido ou expirado.",
+      content = @Content(schema = @Schema(ref = "#/components/schemas/Erro")))
+  @ApiResponse(
+      responseCode = "409",
+      description = "Idempotency-Key já usada com outro corpo.",
+      content = @Content(schema = @Schema(ref = "#/components/schemas/Erro")))
+  @ApiResponse(
+      responseCode = "422",
+      description = "Senha atual incorreta ou senha nova na lista de senhas comuns.",
+      content = @Content(schema = @Schema(ref = "#/components/schemas/Erro")))
+  public ResponseEntity<Void> alterarSenha(
+      @AuthenticationPrincipal Jwt token,
+      @RequestHeader(name = ChaveDeIdempotencia.CABECALHO, required = false) String chaveBruta,
+      @Valid @RequestBody AlterarSenhaRequisicao requisicao) {
+    String chave = ChaveDeIdempotencia.exigir(chaveBruta);
+    UUID usuarioId = UUID.fromString(token.getSubject());
+    idempotencia.executar(
+        usuarioId,
+        OperacaoIdempotente.ALTERAR_SENHA,
+        chave,
+        requisicao,
+        Void.class,
+        () -> {
+          servico.alterarSenha(usuarioId, requisicao);
           return new RespostaIdempotente<>(HttpStatus.NO_CONTENT.value(), null);
         });
     return ResponseEntity.noContent().build();

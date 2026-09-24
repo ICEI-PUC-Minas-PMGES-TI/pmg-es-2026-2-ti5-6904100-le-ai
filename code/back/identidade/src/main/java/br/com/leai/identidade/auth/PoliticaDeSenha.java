@@ -41,8 +41,16 @@ public class PoliticaDeSenha {
 
   /** Recusa a senha se ela estiver na lista. Não loga nem devolve a senha (RNF-SEC-36). */
   public void recusarSeComum(String senha) {
+    recusarSeComum(senha, CodigoErro.REQUISICAO_INVALIDA);
+  }
+
+  /**
+   * Mesma recusa, com o código que o contrato da rota pede: o cadastro responde 400, a troca de
+   * senha 422, como está em {@code docs/api/identidade.yaml}.
+   */
+  public void recusarSeComum(String senha, CodigoErro codigo) {
     if (comuns.contains(senha.toLowerCase(Locale.ROOT))) {
-      throw new ErroDeNegocioException(CodigoErro.REQUISICAO_INVALIDA, SENHA_COMUM);
+      throw new ErroDeNegocioException(codigo, SENHA_COMUM);
     }
   }
 
