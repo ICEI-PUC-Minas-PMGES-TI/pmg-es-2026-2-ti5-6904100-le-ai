@@ -25,11 +25,11 @@ RNF atendidos: **RNF-SEC-08** (HTTPS), **RNF-SEC-09** (hash Argon2/bcrypt/scrypt
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | em andamento | serviço/Neon e migrations implantados; `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` e as variáveis do Brevo declaradas no `render.yaml` como `sync: false`; prova real do Brevo (P-02: remetente verificado e entrega) ainda pendente; runtime de [P0-MSG](../periodo-0/feature-P0-MSG.md) implementado localmente, sem validação em DES |
-| Dados | concluído | `usuario` ampliada e `refresh_token`, `reset_token`, `tentativa_login`, `idempotencia_identidade` e `outbox_identidade` versionadas e aplicadas no Neon em 16/09; estrutura pronta não implica casos de uso implementados |
-| Backend | parcial | verificado no código em 24/09: existem `register`, `login` (só `accessToken`, schema `Token`) e `/me` de P0-NAV, mais `EmailNotificationService` (Brevo) sem chamador; `ADMIN_EMAIL`/`ADMIN_PASSWORD` são lidos em `AppProperties` mas não usados; não há `refresh`, `logout`, `password/*`, lista de senhas comuns, papel de admin nem tratamento de `Idempotency-Key` |
-| Web | não iniciado | escopo próprio de recuperação/troca, refresh rotativo, renovação silenciosa e logout não iniciado; cadastro/login base pertencem a P0-NAV; o cliente HTTP central já tem `Idempotency-Key` e retentativa (entregues por F-ACV-CADASTRO) |
-| Mobile | não iniciado | escopo próprio de recuperação/troca, refresh rotativo e sessão persistente não iniciado; cadastro/login e secure storage do access token pertencem a P0-NAV; o `ApiClient` já tem `Idempotency-Key` e retentativa (entregues por F-ACV-CADASTRO) |
+| Infra | em andamento | `WEB_BASE_URL` entrou no `render.yaml` (base do link de recuperação); `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` e o Brevo seguem `sync: false`. **Antes do deploy:** `ADMIN_PASSWORD` em DES precisa ter 16+ caracteres e vir junto de `ADMIN_EMAIL`, senão o serviço não sobe. Prova real do Brevo (P-02) pendente. CI com Postgres 17 para a integração |
+| Dados | concluído | tabelas de 16/09 em uso, sem migration nova: `refresh_token`, `reset_token`, `idempotencia_identidade`; `usuario.atualizado_em` passou a ser gravado na troca de senha |
+| Backend | concluído localmente | as 7 operações de F-AUT implementadas e `implemented` no OpenAPI; `Idempotency-Key` obrigatória em todas as escritas; admin provisionado no arranque; 132 testes (unitários e integração com Postgres real). Não está em DES |
+| Web | concluído localmente | sessão com refresh e renovação no `401` serializada entre abas (Web Locks), logout, telas de recuperar, redefinir e alterar senha, configurações, política de privacidade no cadastro e nas configurações; 205 testes. Não está em DES |
+| Mobile | concluído localmente | refresh no secure storage, renovação deduplicada, logout, as mesmas telas, app link declarado (verificação pendente); 131 testes, APK de debug gerado. Não testado em emulador |
 
 ## Especificação
 
@@ -41,15 +41,15 @@ Todas as escritas aceitam `Idempotency-Key` conforme a convenção do [README do
 
 **Contrato HTTP canônico:** [`docs/api/identidade.yaml`](../../api/identidade.yaml). Os nomes de operação, parâmetros, schemas, respostas e `x-implementation-status` daquele arquivo prevalecem sobre exemplos resumidos desta feature. A presença de uma operação planejada no OpenAPI não declara implementação.
 
-| Operação canônica | Segurança | Entrada canônica | Saída de sucesso canônica | Situação em 17/09 |
+| Operação canônica | Segurança | Entrada canônica | Saída de sucesso canônica | Situação em 24/09 |
 |---|---|---|---|---|
-| `POST /auth/register` | pública | header `IdempotencyKey`; schema `CadastroRequisicao` | `201` `Usuario` | implementada por P0-NAV; F-AUT consolida política completa |
-| `POST /auth/login` | pública | header `IdempotencyKey`; schema `LoginRequisicao` | `200` `Sessao` | base implementada por P0-NAV ainda sem `refreshToken`; resposta-alvo é F-AUT |
-| `POST /auth/refresh` | pública | header `IdempotencyKey`; schema `RefreshRequisicao` | `200` `Sessao` | planejada |
-| `POST /auth/logout` | pública | header `IdempotencyKey`; schema `RefreshRequisicao` | `204`, sem corpo | planejada |
-| `POST /auth/password/forgot` | pública | header `IdempotencyKey`; schema `EsqueciSenhaRequisicao` | `202` `MensagemResposta` | planejada |
-| `POST /auth/password/reset` | pública | header `IdempotencyKey`; schema `RedefinirSenhaRequisicao` | `204`, sem corpo | planejada |
-| `POST /auth/password/change` | `bearerAuth` | header `IdempotencyKey`; schema `AlterarSenhaRequisicao` | `204`, sem corpo | planejada |
+| `POST /auth/register` | pública | header `IdempotencyKey`; schema `CadastroRequisicao` | `201` `Usuario` | implementada; lista de senhas comuns e chave obrigatória por F-AUT |
+| `POST /auth/login` | pública | header `IdempotencyKey`; schema `LoginRequisicao` | `200` `Sessao` | implementada, com `refreshToken` e claim `papel` |
+| `POST /auth/refresh` | pública | header `IdempotencyKey`; schema `RefreshRequisicao` | `200` `Sessao` | implementada |
+| `POST /auth/logout` | pública | header `IdempotencyKey`; schema `RefreshRequisicao` | `204`, sem corpo | implementada |
+| `POST /auth/password/forgot` | pública | header `IdempotencyKey`; schema `EsqueciSenhaRequisicao` | `202` `MensagemResposta` | implementada |
+| `POST /auth/password/reset` | pública | header `IdempotencyKey`; schema `RedefinirSenhaRequisicao` | `204`, sem corpo | implementada |
+| `POST /auth/password/change` | `bearerAuth` | header `IdempotencyKey`; schema `AlterarSenhaRequisicao` | `204`, sem corpo | implementada |
 | `GET /me` | `bearerAuth` | sem corpo | `200` `Usuario` | implementada por P0-NAV |
 
 Componentes compartilhados usados por este recorte: `bearerAuth`, parâmetro `IdempotencyKey`; respostas `RequisicaoInvalida`, `NaoAutenticado`, `IdempotenciaEmConflito`, `LimiteExcedido` e `ServicoIndisponivel`; schemas `Erro`, `Token` e `Sessao`. Implementação e testes devem usar exatamente os nomes e limites do OpenAPI, sem criar DTO paralelo incompatível.
@@ -63,9 +63,9 @@ Componentes compartilhados usados por este recorte: `bearerAuth`, parâmetro `Id
   Token de acesso **curto** (SEC-30). Credencial inválida → `401` **sem revelar** se o identificador existe (SEC-28). **Bloqueio temporário progressivo por identidade** após falhas sucessivas (SEC-29) e **rate limiting por IP e identidade** (SEC-17). Login serve **também ao administrador** (RF-AUT-08): a conta admin é fixa e única, provisionada por `ADMIN_EMAIL`/`ADMIN_PASSWORD` (SEC-31), sem tela de criação.
 - **`POST /auth/refresh`** (RF-AUT-03, SEC-30) — troca um **refresh token** válido por um novo par acesso+refresh, com **rotação** (o refresh usado é invalidado). Refresh armazenado como registro **revogável** na tabela `refresh_token`. Refresh inválido/revogado → `401`.
 - **`POST /auth/logout`** (RF-AUT-06, SEC-30) — invalida o refresh token corrente (revoga o registro). Idempotente.
-- **`POST /auth/password/change`** (RF-AUT-05, SEC-30) — exige `Authorization` + **senha atual** + nova senha (mesma política SEC-27). Em sucesso, **invalida todos os refresh tokens** do usuário (força novo login nos demais dispositivos). Senha atual incorreta → `401`/`422`. Registrado em log de auditoria (SEC-35), sem expor a senha (SEC-36).
+- **`POST /auth/password/change`** (RF-AUT-05, SEC-30) — exige `Authorization` + **senha atual** + nova senha (mesma política SEC-27). Em sucesso, **invalida todos os refresh tokens** do usuário (força novo login nos demais dispositivos). Senha atual incorreta ou senha nova comum → `422`; conta administradora → `403`. Registrado em log de auditoria (SEC-35), sem expor a senha (SEC-36).
 - **`POST /auth/password/forgot`** (RF-AUT-04, SEC-10) — recebe e-mail; **sempre responde `202` com o mesmo corpo** exista ou não a conta (anti-enumeração, SEC-28). Se existir, gera **token aleatório criptográfico, de uso único, validade máxima de 1h, armazenado como hash** (`reset_token`) e envia link por **Brevo** (P-02, remetente verificado). Timeout, retentativa com backoff e circuit breaker são obrigatórios; status, corpo e tempo observável não podem revelar existência da conta ou resultado individual do provedor. A resposta confirma apenas o recebimento da solicitação, não a entrega do e-mail. Rate limiting (SEC-17).
-- **`POST /auth/password/reset`** (RF-AUT-04) — recebe token + nova senha; valida hash/validade/uso único, troca a senha (SEC-27), **consome o token** e **invalida os refresh tokens** do usuário. Token inválido/expirado → `400`/`410` com mensagem genérica.
+- **`POST /auth/password/reset`** (RF-AUT-04) — recebe token + nova senha; valida hash/validade/uso único, troca a senha (SEC-27), **consome o token** e **invalida os refresh tokens** do usuário. Token desconhecido, adulterado, vencido ou usado → sempre `410 RECURSO_EXPIRADO` com a mesma mensagem (o protótipo exige tratamento igual para os três); `400` fica para a senha nova.
 
 **Middleware de auth** — herdado de P0-NAV: valida o token de acesso, injeta a identidade, `401` quando ausente/inválido; serviço **stateless** (RNF-ARQ-04). Falhas de autenticação e autorização são **logadas** (SEC-35), nunca com senha/token/hash (SEC-36).
 
@@ -73,7 +73,7 @@ Componentes compartilhados usados por este recorte: `bearerAuth`, parâmetro `Id
 
 **Modelo de dados** (schema `identidade`): a migration [`V20260915120000__completa_schema_identidade.sql`](../../../code/back/identidade/src/main/resources/db/migration/V20260915120000__completa_schema_identidade.sql) já foi versionada, validada em PostgreSQL 17 e aplicada no Neon em 16/09, conforme o [`DER`](../../diagramas/DER.md#checklist-do-neon). Ela amplia `usuario` e cria `refresh_token`, `reset_token`, `tentativa_login`, `idempotencia_identidade` e `outbox_identidade`. F-AUT implementa o uso dessas estruturas; não deve recriá-las nem editar migration aplicada. Qualquer ajuste exige nova migration timestampada e revisão humana.
 
-**Mensageria e ownership:** esta feature **não** produz nem consome evento de domínio do [catálogo canônico](../../mensageria/catalogo.md); `seguidor.novo` e `solicitacao.*` pertencem a [F-PERFIL](feature-F-PERFIL.md). [P0-MSG](../periodo-0/feature-P0-MSG.md) é pré-requisito apenas se o grupo aprovar o envio assíncrono do e-mail: P0-MSG possui envelope, topologia, dispatcher, retry e DLQ; F-AUT possuiria o contrato e o produtor do eventual evento de e-mail. Nenhum schema desse evento existe hoje, portanto ele não pode ser inventado na implementação sem decisão pelo controle de mudança. A tabela `outbox_identidade` já implantada é infraestrutura de dados, não evidência de publisher funcional.
+**Mensageria e ownership:** esta feature **não** produz nem consome evento de domínio do [catálogo canônico](../../mensageria/catalogo.md); `seguidor.novo` e `solicitacao.*` pertencem a [F-PERFIL](feature-F-PERFIL.md). [P0-MSG](../periodo-0/feature-P0-MSG.md) é pré-requisito apenas se o grupo aprovar o envio assíncrono do e-mail: P0-MSG possui envelope, topologia, dispatcher, retry e DLQ; F-AUT possuiria o contrato e o produtor do eventual evento de e-mail. Nenhum schema desse evento existe hoje, portanto ele não pode ser inventado na implementação sem decisão pelo controle de mudança. A tabela `outbox_identidade` já implantada é infraestrutura de dados, não evidência de publisher funcional. **Decidido em 24/09/2026:** envio assíncrono em processo, sem evento, sem outbox e sem P0-MSG (ver pendências); a dependência de P0-MSG deixa de valer para esta feature.
 
 ### Frontend Web (`code/front`)
 
@@ -91,49 +91,71 @@ Componentes compartilhados usados por este recorte: `bearerAuth`, parâmetro `Id
 
 ## Critérios de aceite
 
-- [ ] Cadastro cria usuário com senha **hasheada** (SEC-09), ≥8 e fora da lista de comuns (SEC-27); **menor de 18** recusado (SEC-43); conflito de e-mail/username → `409`.
-- [ ] Login por e-mail **ou** username emite acesso curto + refresh; credencial inválida → `401` **sem revelar** existência (SEC-28); após N falhas, **bloqueio progressivo** por identidade (SEC-29); rate limiting ativo (SEC-17).
-- [ ] Admin entra pelo mesmo login com credenciais de ambiente (SEC-31); não há tela de criação de admin.
-- [ ] `POST /auth/refresh` rotaciona o par e **invalida** o refresh usado; refresh revogado → `401`.
-- [ ] `POST /auth/logout` invalida o refresh; repetir é idempotente.
-- [ ] Troca de senha exige senha atual e **invalida os refresh** existentes (SEC-30).
-- [ ] `forgot` responde igual exista ou não a conta (SEC-28); quando existe, envia link Brevo com token **hash, uso único, ≤1h** (SEC-10); `reset` troca a senha, consome o token e invalida os refresh.
-- [ ] Web e mobile mantêm **sessão persistente** com renovação silenciosa; cold start é carregamento, não erro (RNF-ERR-09).
-- [ ] Logs registram falhas de auth e troca de senha (SEC-35) **sem** senha/token/hash (SEC-36).
-- [ ] Política de privacidade versionada informa dados coletados, finalidade e retenção e está acessível no cadastro e nas configurações de web e mobile (SEC-42).
-- [ ] Repetir uma escrita com a mesma `Idempotency-Key` não repete efeito; chave reutilizada com payload diferente retorna conflito (RNF-ERR-04).
+Marcado = verificado localmente por teste em 24/09/2026. Nada foi verificado em DES ainda.
+
+- [x] Cadastro cria usuário com senha **hasheada** (SEC-09), ≥8 e fora da lista de comuns (SEC-27); **menor de 18** recusado (SEC-43); conflito de e-mail/username → `409`.
+- [x] Login por e-mail **ou** username emite acesso curto + refresh; credencial inválida → `401` **sem revelar** existência (SEC-28); após N falhas, **bloqueio progressivo** por identidade (SEC-29); rate limiting ativo (SEC-17).
+- [x] Admin entra pelo mesmo login com credenciais de ambiente (SEC-31); não há tela de criação de admin.
+- [x] `POST /auth/refresh` rotaciona o par e **invalida** o refresh usado; refresh revogado → `401`.
+- [x] `POST /auth/logout` invalida o refresh; repetir é idempotente.
+- [x] Troca de senha exige senha atual e **invalida os refresh** existentes (SEC-30).
+- [ ] `forgot` responde igual exista ou não a conta (SEC-28); quando existe, envia link Brevo com token **hash, uso único, ≤1h** (SEC-10); `reset` troca a senha, consome o token e invalida os refresh. *Tudo testado com o Brevo simulado; falta a entrega real (P-02).*
+- [x] Web e mobile mantêm **sessão persistente** com renovação silenciosa; cold start é carregamento, não erro (RNF-ERR-09).
+- [x] Logs registram falhas de auth e troca de senha (SEC-35) **sem** senha/token/hash (SEC-36).
+- [ ] Política de privacidade versionada informa dados coletados, finalidade e retenção e está acessível no cadastro e nas configurações de web e mobile (SEC-42). *Acesso feito nos quatro lugares; o texto ainda é o mock do protótipo, o final é do grupo.*
+- [x] Repetir uma escrita com a mesma `Idempotency-Key` não repete efeito; chave reutilizada com payload diferente retorna conflito (RNF-ERR-04).
 - [ ] Fluxo cadastro→login→refresh→troca de senha→logout e recuperação por e-mail funcionam **em DES**.
 
 ## Definition of Done
 
 (plano §10 — obrigatórios para toda feature)
 
-- [ ] Código (backend `identidade`, web, mobile) mergeado em `desenvolvimento`
-- [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
-- [ ] Testes unitários e de integração com banco real/container: register (hash/18+/mínimo/lista de comuns), login (e-mail/username, inválido anti-enumeração, bloqueio progressivo e admin de ambiente), refresh (rotação atômica, replay e revogação), logout repetido, troca de senha (senha atual e invalidação de todos os refresh), forgot/reset (resposta indistinguível para conta existente/inexistente, token somente em hash, uso único, expiração em 1h, concorrência de consumo e invalidação de refresh) e replay/conflito de `Idempotency-Key` (RNF-TST-02)
-- [ ] Testes de contrato validam requisições/respostas e códigos contra os componentes canônicos de [`identidade.yaml`](../../api/identidade.yaml), inclusive que login atual evolui de `Token` para `Sessao` sem uma rota administrativa paralela
-- [ ] Se o e-mail for síncrono, testes simulam timeout, backoff e circuit breaker do Brevo sem quebrar o `202` uniforme; se for assíncrono, testes adicionais cobrem gravação atômica da outbox e schema do evento, e os testes genéricos de confirm/retry/DLQ permanecem responsabilidade de P0-MSG
-- [ ] Testes dos serviços/estado web e mobile cobrem sessão, logout, política de privacidade e tratamento de indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
-- [ ] **Spec OpenAPI de `identidade` atualizado em `docs/api/identidade.yaml`** com as rotas de conta/sessão (sobre o esqueleto de P0-NAV)
+- [x] Código (backend `identidade`, web, mobile) em `desenvolvimento` (commits locais de 24/09; push pendente)
+- [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)): depende do push
+- [x] Testes unitários e de integração com banco real/container: register (hash/18+/mínimo/lista de comuns), login (e-mail/username, inválido anti-enumeração, bloqueio progressivo e admin de ambiente), refresh (rotação atômica, replay e revogação), logout repetido, troca de senha (senha atual e invalidação de todos os refresh), forgot/reset (resposta indistinguível para conta existente/inexistente, token somente em hash, uso único, expiração em 1h, concorrência de consumo e invalidação de refresh) e replay/conflito de `Idempotency-Key` (RNF-TST-02)
+- [ ] Testes de contrato validam requisições/respostas e códigos contra os componentes canônicos de [`identidade.yaml`](../../api/identidade.yaml), inclusive que login atual evolui de `Token` para `Sessao` sem uma rota administrativa paralela. *Não há teste de contrato automatizado; o spec foi alinhado à mão e passa no `redocly lint`*
+- [x] E-mail assíncrono em processo (decisão de 24/09, sem evento nem outbox): testes simulam retentativa com backoff e o disjuntor do Brevo sem quebrar o `202` uniforme
+- [x] Testes dos serviços/estado web e mobile cobrem sessão, logout, política de privacidade e tratamento de indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
+- [x] **Spec OpenAPI de `identidade` atualizado em `docs/api/identidade.yaml`** com as rotas de conta/sessão (sobre o esqueleto de P0-NAV)
 - [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
-- [ ] Arquivo da feature atualizado: status, pendências, timeline
-- [ ] Divergência protótipo × implementação registrada, se houver
+- [x] Arquivo da feature atualizado: status, pendências, timeline
+- [x] Divergência protótipo × implementação registrada, se houver
 
 **Item próprio:** o modelo físico compartilhado de `usuario` (privacidade e contadores incluídos) já foi fixado pela migration de 15/09. F-AUT e [F-PERFIL](feature-F-PERFIL.md) devem reutilizá-lo e coordenar qualquer nova migration no serviço `identidade` (plano §6).
 
 ## Pendências
 
-- **Depende de** [P0-NAV](../periodo-0/feature-P0-NAV.md) (base implementada de register/login/me, JWT HS256 de 15 min e clientes), [P0-INFRA](../periodo-0/feature-P0-INFRA.md) (serviço, erro/health/correlation-id), [P0-DS](../periodo-0/feature-P0-DS.md) (tokens), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md) (DES) e [P0-CI](../periodo-0/feature-P0-CI.md). O envio de e-mail depende da prova/configuração **Brevo P-02** de [P0-MSG](../periodo-0/feature-P0-MSG.md); se a topologia assíncrona for aprovada, depende também do runtime de outbox/dispatcher/broker/retry/DLQ, implementado em P0-MSG em 20/09/2026 e provado localmente (Spring → Nest), mas ainda sem prova em DES/HML.
-- **CORS do `identidade` não aceita `Idempotency-Key`.** `CorsConfig` libera só `Authorization`, `Content-Type` e `X-Correlation-Id`; o cliente web já registra essa restrição em `code/front/src/services/api.ts` e só envia o header quando a chamada o pede. Toda escrita desta feature exige o header, então o preflight da web falharia: incluir `Idempotency-Key` nos cabeçalhos permitidos junto do primeiro endpoint idempotente.
-- **Lacunas herdadas de P0-NAV que esta feature fecha:** login devolve o schema `Token` sem `refreshToken`; cadastro valida só o mínimo de 8 caracteres, sem a lista de senhas comuns de RNF-SEC-27; a web guarda o access token em `localStorage` e o logout é apenas local, sem chamada ao servidor.
-- **Protótipos disponíveis** desde 18 e 19/09/2026 em [`docs/design/periodo-1/F-AUT/`](../../design/periodo-1/F-AUT/): `alterar-senha`, `cadastro`, `configuracoes`, `login`, `recuperar-senha` e `redefinir-senha`, com prompt e HTML.
+**Decisões de projeto tomadas em 24/09/2026** (registradas aqui por serem da feature; nenhuma altera `docs/orquestador/`):
+
+1. **Refresh na web em `localStorage`**, com rotação e detecção de reuso: token revogado reapresentado derruba todas as renovações do usuário. Cookie `httpOnly` seria de terceiro entre `leai-web` e `leai-identidade` (`onrender.com` está na Public Suffix List). Superfície de XSS aceita e compensada pela rotação.
+2. **E-mail de recuperação assíncrono em processo**: a requisição só grava o recibo e agenda, depois do commit, a busca da conta, o token e o envio (executor com 3 tentativas, backoff 2 s/8 s e disjuntor). Não é durável: reinício perde o que estava na fila e a pessoa pede de novo. Não cria evento no catálogo nem usa P0-MSG. Outbox/worker fica como evolução.
+3. **Admin provisionado no arranque** a partir de `ADMIN_EMAIL`/`ADMIN_PASSWORD`, sem coluna de papel: o papel sai do id da linha provisionada e vai na claim `papel` do token. Senha do admin com 16+ caracteres; configuração pela metade impede o boot; o admin não troca nem recupera senha pela API.
+4. Validade do refresh de **30 dias** (os documentos não fixavam valor); teto de **5 links de recuperação por conta por hora**; link com o token no **fragmento** (`#token=`).
+
+**Divergências protótipo × implementação:**
+
+- **Configurações sem e-mail** na identificação: nenhuma resposta do `identidade` expõe e-mail (`Usuario` diz que nunca expõe). Mostrar exige decisão de contrato (`/me` com e-mail ou F-PERFIL).
+- **Alterar senha mantém a sessão do aparelho refazendo o login** com a senha nova depois do `204`, porque o contrato revoga todas as renovações, inclusive a do aparelho que pediu. Se esse login falhar, a sessão local cai quando o acesso vencer (15 min).
+- **Renovação reativa**, no primeiro `401`, e não antes de expirar como a especificação da web descreve: um `401` a mais por sessão parada há mais de 15 min.
+- `reset` usa `410` para todo token inválido (a especificação original falava em `400`/`410`); `change` usa `422` para os dois erros de senha.
+
+**Em aberto:**
+
+- **Texto final da política de privacidade** (SEC-42) é entrega do grupo. Hoje web e mobile mostram o mock do protótipo, num componente só por plataforma (`PoliticaDePrivacidade.vue`, `politica_de_privacidade.dart`).
+- **Prova real do Brevo** (P-02): remetente verificado e entrega em DES. Até lá o critério de `forgot` fica aberto.
+- **App link do Android:** o intent-filter de `https://leai-web.onrender.com/redefinir-senha` está no manifesto, mas abrir direto no app exige `assetlinks.json` no `leai-web` com a SHA-256 da chave de release, que não existe. Sem ele o link abre no navegador e a tela web resolve.
+- **Testes de contrato** automatizados contra `identidade.yaml` não existem (item do DoD).
+- **`ControleDeTentativas` em memória** (RNF-ARQ-04): aceitável com uma instância no Render; migrar para `tentativa_login` se escalar. A senha atual da troca de senha não passa por ele, só pelo limite por IP.
+- **Filtro de bearer do Spring Security recusa token vencido com `401` mesmo em rota pública.** Web e mobile contornam mandando as rotas públicas sem `Authorization`; ignorar o bearer nessas rotas no servidor fica como melhoria.
+- **Formatação do mobile:** o código não segue o `dart format` padrão e o CI não confere; rodar o formatador em lote reformata dezenas de arquivos. Decisão do grupo.
 - **Divergência de baseline:** exclusão de conta (RF-AUT-07) está alocada a **F-CONTA-2** (Período 2, desejável), mas RNF-SEC-41 pertence ao conjunto de segurança declarado Essencial. O grupo precisa resolver a prioridade pelo controle de mudança; esta feature não declara RNF-SEC-41 atendido nem altera a baseline.
-- Decisões herdadas de P0-NAV, já fixadas: `identidade` em **Spring (Java)**, JWT HS256 de 15 min via Spring Security e `flutter_secure_storage` no mobile. F-AUT ainda deve decidir e documentar no contrato de segurança onde o refresh será transportado/armazenado na web; não deve manter refresh em `localStorage` sem decisão explícita sobre a superfície de XSS já registrada em P0-NAV.
-- **Decisão bloqueante do envio de e-mail:** o fluxo é candidato assíncrono em §7.2, mas não foi aprovado. Antes de implementar, o grupo deve escolher entre aceite durável assíncrono (por exemplo, outbox/worker) ou chamada síncrona. Em ambos, `forgot` preserva `202` uniforme; no modo síncrono, falha do Brevo fica apenas em log/métrica e o usuário pode repetir a solicitação, pois expor `503` somente para conta existente violaria SEC-28. A escolha e o tratamento da tensão com a mensagem clara de RNF-ERR-08 devem ser registrados pelo controle de mudança.
-- Compartilhamento do serviço `identidade` com [F-PERFIL](feature-F-PERFIL.md): o modelo físico comum já está implantado; sinalizar no grupo antes de propor nova migration ou alterar entidades/DTOs compartilhados (plano §6).
+- Compartilhamento do serviço `identidade` com [F-PERFIL](feature-F-PERFIL.md): sinalizar no grupo antes de propor nova migration ou alterar entidades/DTOs compartilhados (plano §6).
 - **Depende futuramente de F-CONTA-2:** preservar um ponto de extensão no login/middleware para o acesso restrito de recuperação de conta, sem antecipar sua implementação no Período 1.
+- **Depende de** [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md) para DES e de [P0-CI](../periodo-0/feature-P0-CI.md) para o CI.
 
 ## Timeline
+
+### Implementação 24/09/2026: backend, web e mobile de F-AUT implementados em 14 etapas (plano de execução do dono), commits de `b5cc565` a este fechamento em `desenvolvimento`. Backend: idempotência sobre `idempotencia_identidade` com recibo cifrado para respostas com token, lista de senhas comuns, refresh rotativo com detecção de reuso, logout, troca de senha, recuperação com envio assíncrono em processo, admin provisionado pelo ambiente e `Idempotency-Key` obrigatória em todas as escritas; CI ganhou Postgres para a integração. OpenAPI alinhado (7 operações `implemented`). Web e mobile: sessão com refresh e renovação no `401` (serializada entre abas na web), logout e as telas de recuperar, redefinir e alterar senha, configurações e política de privacidade no cadastro e nas configurações. Testes: `identidade` 132, web 205, mobile 131. Não verificado em DES; texto final da política e prova do Brevo pendentes. Decisões e divergências na seção de pendências.
 
 ### Atribuição e verificação 24/09/2026: feature assumida por Henrique Carvalho, junto de [F-PERFIL](feature-F-PERFIL.md). Estado conferido no código de `desenvolvimento` (`d7b1a3f`): no backend só existem as operações `implemented` do OpenAPI (`register`, `login`, `/me`); as cinco operações próprias de F-AUT seguem `planned`. CI do `identidade` verde no último push (`2c01f63`, 20/09). Em DES, `leai-identidade` responde `/health` 200 após cold start de ~165 s, ainda com a versão de `main` (16/09). Registrados o CORS sem `Idempotency-Key`, as lacunas herdadas de P0-NAV e os protótipos disponíveis; corrigido o estado de P0-MSG, cujo runtime não está mais "não iniciado".
 
