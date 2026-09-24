@@ -3,10 +3,9 @@ import { PhImageSquare, PhX } from '@phosphor-icons/vue'
 import { computed, ref, useId } from 'vue'
 
 /**
- * Área de upload de capa com seus quatro estados (cadastro-pessoal.md §4.1 a §4.4): vazia,
- * enviando (barra determinada), preenchida e erro. Nasceu no prompt e está pendente de
- * incorporação ao documento-de-design. A validação e o envio são de quem usa: aqui só se escolhe
- * o arquivo e se desenha o estado.
+ * Área de upload de capa com seus quatro estados (documento-de-design §4.12): vazia, enviando
+ * (barra determinada, §4.13), preenchida e erro. A validação e o envio são de quem usa: aqui só
+ * se escolhe o arquivo e se desenha o estado.
  */
 export type EstadoDaCapa = 'vazia' | 'enviando' | 'preenchida' | 'erro'
 

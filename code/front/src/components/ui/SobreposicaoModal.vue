@@ -2,7 +2,7 @@
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 
 /**
- * Base de modal (documento-de-design §5.4): bottom sheet abaixo de 768px e, a partir dali,
+ * Base de modal (documento-de-design §4.11): bottom sheet abaixo de 768px e, a partir dali,
  * dialog centrado de 480px, a menos que `somenteFolha` fixe a folha (menu que só existe no
  * mobile). Scrim `tinta` a 40%. Enquanto aberta, o foco fica preso dentro dela, `Esc` fecha e,
  * ao fechar, o foco volta para quem a abriu (cadastro-pessoal.md §9).
@@ -87,7 +87,7 @@ function aoTeclar(evento: KeyboardEvent): void {
           aria-modal="true"
           :aria-label="rotulo"
           class="painel w-full rounded-t-lg bg-papel p-space-6 shadow-3 dark:bg-papel-elevado"
-          :class="somenteFolha ? 'pb-[calc(var(--spacing-space-6)+env(safe-area-inset-bottom))]' : 'vira-dialogo md:w-[480px] md:max-w-full md:rounded-lg'"
+          :class="somenteFolha ? 'pb-[calc(var(--spacing-space-6)+env(safe-area-inset-bottom))]' : 'vira-dialogo md:w-[480px] md:max-w-full md:rounded-xl'"
           @keydown="aoTeclar"
         >
           <div

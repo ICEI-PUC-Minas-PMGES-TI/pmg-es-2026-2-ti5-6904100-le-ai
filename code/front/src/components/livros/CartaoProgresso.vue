@@ -1,9 +1,8 @@
 <script setup lang="ts">
 /**
- * Cartão de progresso de operação longa (cadastro-por-isbn.md §4.3): skeleton estático com um
+ * Cartão de progresso de operação longa (documento-de-design §4.14): skeleton estático com um
  * único fade de entrada e uma linha de estado que troca de texto sem trocar o layout. Sem
- * spinner, sem porcentagem: o servidor não informa progresso. Nasceu no prompt e está pendente
- * de incorporação ao documento-de-design.
+ * spinner, sem porcentagem: o servidor não informa progresso.
  */
 defineProps<{ mensagem: string }>()
 </script>
