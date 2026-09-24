@@ -30,12 +30,17 @@ class CabecalhoTela extends StatelessWidget {
   /// Ações da tela antes do sino, como o `DotsThreeVertical` do dono na página do livro pessoal.
   final List<Widget> acoes;
 
+  /// Falso só fora do shell, onde não há sessão e portanto não há notificação (a política de
+  /// privacidade aberta pelo cadastro, cadastro.md §5).
+  final bool comSino;
+
   const CabecalhoTela({
     super.key,
     required this.titulo,
     this.naoLidas = 0,
     this.aoVoltar,
     this.acoes = const <Widget>[],
+    this.comSino = true,
   });
 
   @override
@@ -85,8 +90,8 @@ class CabecalhoTela extends StatelessWidget {
                   ),
                 ),
                 ...acoes,
-                if (acoes.isNotEmpty) const SizedBox(width: DesignTokens.space3),
-                _Sino(naoLidas: naoLidas),
+                if (acoes.isNotEmpty && comSino) const SizedBox(width: DesignTokens.space3),
+                if (comSino) _Sino(naoLidas: naoLidas),
               ],
             ),
           ),

@@ -13,7 +13,11 @@ import '../../design/tokens.dart';
 class PoliticaDePrivacidadePage extends StatelessWidget {
   final VoidCallback? aoVoltar;
 
-  const PoliticaDePrivacidadePage({super.key, this.aoVoltar});
+  /// Aberta pelo cadastro, fora do shell (cadastro.md §5): sem sino e com `Scaffold` próprio.
+  /// Mesmo conteúdo e estrutura da versão das configurações.
+  final bool semSessao;
+
+  const PoliticaDePrivacidadePage({super.key, this.aoVoltar, this.semSessao = false});
 
   static const String versao = 'Versão 1.0, de 15 de setembro de 2026';
 
@@ -46,9 +50,9 @@ class PoliticaDePrivacidadePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Column(
+    final conteudo = Column(
       children: <Widget>[
-        CabecalhoTela(titulo: 'Política de privacidade', aoVoltar: aoVoltar),
+        CabecalhoTela(titulo: 'Política de privacidade', aoVoltar: aoVoltar, comSino: !semSessao),
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(
@@ -79,5 +83,8 @@ class PoliticaDePrivacidadePage extends StatelessWidget {
         ),
       ],
     );
+    return semSessao
+        ? Scaffold(backgroundColor: theme.pageBackground, body: conteudo)
+        : conteudo;
   }
 }

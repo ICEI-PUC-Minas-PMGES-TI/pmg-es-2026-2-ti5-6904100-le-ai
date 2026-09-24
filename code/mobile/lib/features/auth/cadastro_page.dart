@@ -30,12 +30,17 @@ class CadastroPage extends StatefulWidget {
   /// Chamado ao tocar em "Entrar", no rodapé.
   final VoidCallback? aoIrParaLogin;
 
+  /// Chamado ao tocar em "Política de privacidade" (RNF-SEC-42). Quem chama empilha a tela da
+  /// política sobre esta, para o formulário continuar preenchido na volta.
+  final VoidCallback? aoAbrirPolitica;
+
   const CadastroPage({
     super.key,
     required this.authService,
     required this.sessionController,
     this.aoCadastrar,
     this.aoIrParaLogin,
+    this.aoAbrirPolitica,
   });
 
   @override
@@ -366,6 +371,41 @@ class _CadastroPageState extends State<CadastroPage> {
                   ),
                 ),
               ],
+              // RNF-SEC-42 (edição de F-AUT, cadastro.md §4): informação, não aceite. Sem checkbox.
+              const SizedBox(height: DesignTokens.space5),
+              IgnorePointer(
+                ignoring: _enviando,
+                child: AnimatedOpacity(
+                  opacity: _enviando ? 0.6 : 1,
+                  duration: DesignTokens.durFast,
+                  child: Wrap(
+                    alignment: WrapAlignment.center,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: <Widget>[
+                      Text(
+                        'Coletamos o mínimo de dados para manter sua conta. Veja o que guardamos e '
+                        'por quanto tempo na ',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.secondaryText),
+                      ),
+                      TextButton(
+                        onPressed: widget.aoAbrirPolitica,
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: const Size(48, 48),
+                        ),
+                        child: Text(
+                          'Política de privacidade',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.primaryAccent,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
               const SizedBox(height: DesignTokens.space5),
               Wrap(
                 crossAxisAlignment: WrapCrossAlignment.center,

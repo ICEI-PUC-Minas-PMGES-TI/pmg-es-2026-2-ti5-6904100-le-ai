@@ -173,4 +173,21 @@ describe('CadastroView', () => {
 
     expect(wrapper.get('button[type="submit"]').text()).toBe('Criar conta')
   })
+
+  it('a política abre na própria tela, sem aceite, e volta com o formulário preenchido', async () => {
+    const { wrapper } = montarComRouter()
+    await preencherFormularioValido(wrapper)
+
+    await wrapper.get('a[href="#politica-de-privacidade"]').trigger('click')
+
+    expect(wrapper.text()).toContain('Dados que coletamos')
+    expect(wrapper.text()).toContain('Versão 1.0')
+    expect(wrapper.find('input[type="checkbox"]').exists()).toBe(false)
+    expect(wrapper.find('form').exists()).toBe(false)
+
+    await wrapper.get('button[aria-label="Voltar para o cadastro"]').trigger('click')
+    await flushPromises()
+
+    expect((wrapper.findAll('input')[1]!.element as HTMLInputElement).value).toBe('marinableu')
+  })
 })

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
+import 'package:phosphor_icons/phosphor_icons.dart';
 import 'package:http/testing.dart';
 
 import 'package:le_ai_mobile/app/router.dart';
@@ -217,5 +218,27 @@ void main() {
 
     expect(find.text('Alterar senha'), findsOneWidget);
     expect(find.text('Sair da conta'), findsOneWidget);
+  });
+
+  testWidgets('a política abre pelo cadastro, sem sino, e volta com o formulário preenchido', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_wrap(router));
+    await tester.pumpAndSettle();
+    router.go('/cadastro');
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'marina.beltrao@gmail.com');
+
+    await tester.ensureVisible(find.text('Política de privacidade'));
+    await tester.tap(find.text('Política de privacidade'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Dados que coletamos'), findsOneWidget);
+    expect(find.byIcon(PhosphorIconsRegular.bell), findsNothing);
+
+    await tester.tap(find.bySemanticsLabel('Voltar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('marina.beltrao@gmail.com'), findsOneWidget);
   });
 }

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { nextTick, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
+import PoliticaPublica from '../components/PoliticaPublica.vue'
 import BannerAviso from '../components/ui/BannerAviso.vue'
 import BotaoPrimario from '../components/ui/BotaoPrimario.vue'
 import BotaoTextual from '../components/ui/BotaoTextual.vue'
@@ -23,6 +24,22 @@ import { iniciarSessao } from '../session'
  */
 
 const router = useRouter()
+
+// Política de privacidade (RNF-SEC-42) como estado de tela inteira do próprio cadastro, e não
+// outra rota: navegar desmontaria o formulário e a pessoa perderia o que digitou. Ao voltar, o
+// foco retorna ao link que abriu (cadastro.md §9).
+const vendoPolitica = ref(false)
+const linkDaPolitica = ref<HTMLAnchorElement | null>(null)
+
+function abrirPolitica(): void {
+  vendoPolitica.value = true
+}
+
+async function fecharPolitica(): Promise<void> {
+  vendoPolitica.value = false
+  await nextTick()
+  linkDaPolitica.value?.focus()
+}
 
 const email = ref('')
 const username = ref('')
@@ -190,7 +207,11 @@ async function enviar(): Promise<void> {
 </script>
 
 <template>
-  <LayoutAutenticacao>
+  <PoliticaPublica
+    v-if="vendoPolitica"
+    @voltar="fecharPolitica"
+  />
+  <LayoutAutenticacao v-else>
     <div class="md:hidden">
       <LogoLeAi :altura="24" />
     </div>
@@ -270,6 +291,21 @@ async function enviar(): Promise<void> {
         O servidor está iniciando. Isso pode levar alguns segundos.
       </p>
     </form>
+
+    <!-- RNF-SEC-42 (edição de F-AUT, cadastro.md §4): informação, não aceite. Sem checkbox. -->
+    <p
+      class="mt-space-5 text-center text-caption text-grafite md:text-left"
+      :class="enviando ? 'pointer-events-none opacity-60' : ''"
+    >
+      Coletamos o mínimo de dados para manter sua conta. Veja o que guardamos e por quanto tempo na
+      <a
+        ref="linkDaPolitica"
+        href="#politica-de-privacidade"
+        class="inline-flex min-h-12 items-center font-semibold text-musgo underline-offset-2 transition-colors duration-dur-fast hover:underline focus-visible:underline md:min-h-0"
+        :tabindex="enviando ? -1 : undefined"
+        @click.prevent="abrirPolitica"
+      >Política de privacidade</a>.
+    </p>
 
     <p class="mt-space-5 text-body text-grafite">
       Já tem conta?

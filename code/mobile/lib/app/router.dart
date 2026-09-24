@@ -24,6 +24,7 @@ const String rotaEstante = '/estante';
 const String rotaRecuperarSenha = '/recuperar-senha';
 const String rotaRedefinirSenha = '/redefinir-senha';
 const String rotaConfiguracoes = '/perfil/configuracoes';
+const String rotaPoliticaPublica = '/privacidade';
 const List<String> _rotasPublicas = <String>[rotaLogin, rotaCadastro, rotaRecuperarSenha];
 
 /// Monta o `GoRouter` do app (shell-de-navegacao.md). `refreshListenable: sessionController`
@@ -88,6 +89,16 @@ GoRouter buildRouter({
           authService: authService,
           sessionController: sessionController,
           aoIrParaLogin: () => context.go(rotaLogin),
+          // `push`, não `go`: o cadastro fica montado por baixo e o formulário continua
+          // preenchido na volta (cadastro.md §9).
+          aoAbrirPolitica: () => context.push(rotaPoliticaPublica),
+        ),
+      ),
+      GoRoute(
+        path: rotaPoliticaPublica,
+        builder: (context, state) => PoliticaDePrivacidadePage(
+          semSessao: true,
+          aoVoltar: () => context.canPop() ? context.pop() : context.go(rotaCadastro),
         ),
       ),
       StatefulShellRoute.indexedStack(
@@ -188,6 +199,10 @@ String? _guardaDeSessao(SessionController sessionController, GoRouterState state
   // O link do e-mail vale com ou sem sessão, e não pode passar pela verificação de sessão: o
   // redirecionamento perderia o token do fragmento.
   if (indo == rotaRedefinirSenha) {
+    return null;
+  }
+  // A política é leitura pública (RNF-SEC-42): vale com ou sem sessão, sem redirecionar.
+  if (indo == rotaPoliticaPublica && !sessionController.carregando) {
     return null;
   }
 
