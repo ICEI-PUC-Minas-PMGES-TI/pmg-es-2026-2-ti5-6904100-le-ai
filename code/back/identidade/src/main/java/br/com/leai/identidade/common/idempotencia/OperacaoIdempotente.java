@@ -20,7 +20,12 @@ public enum OperacaoIdempotente {
   ALTERAR_SENHA("alterarSenha", false),
   SOLICITAR_RECUPERACAO("solicitarRecuperacaoSenha", false),
   REDEFINIR_SENHA("redefinirSenha", false),
-  ATUALIZAR_PERFIL("atualizarMeuPerfil", false);
+  ATUALIZAR_PERFIL("atualizarMeuPerfil", false),
+  SEGUIR_PERFIL("seguirPerfil", false),
+  DEIXAR_DE_SEGUIR("deixarDeSeguirPerfil", false),
+  REMOVER_SEGUIDOR("removerSeguidor", false),
+  ACEITAR_SOLICITACAO("aceitarSolicitacao", false),
+  RECUSAR_SOLICITACAO("recusarSolicitacao", false);
 
   private final String operationId;
   private final boolean respostaSensivel;

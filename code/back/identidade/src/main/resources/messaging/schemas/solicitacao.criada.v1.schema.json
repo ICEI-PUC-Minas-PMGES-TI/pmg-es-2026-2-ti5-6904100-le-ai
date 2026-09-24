@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://leai.app/schemas/mensageria/solicitacao.criada.v1.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["destinatarioId", "solicitacaoId", "solicitante"],
+  "properties": {
+    "destinatarioId": { "type": "string", "format": "uuid" },
+    "solicitacaoId": { "type": "string", "format": "uuid" },
+    "solicitante": { "$ref": "common-v1.schema.json#/$defs/UsuarioSnapshot" }
+  }
+}

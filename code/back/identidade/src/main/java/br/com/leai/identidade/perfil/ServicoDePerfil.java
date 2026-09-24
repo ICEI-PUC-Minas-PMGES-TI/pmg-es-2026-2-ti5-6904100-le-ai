@@ -2,10 +2,12 @@ package br.com.leai.identidade.perfil;
 
 import br.com.leai.identidade.common.CodigoErro;
 import br.com.leai.identidade.common.ErroDeNegocioException;
+import br.com.leai.identidade.common.LimitePorUsuario;
 import br.com.leai.identidade.usuario.Usuario;
 import br.com.leai.identidade.usuario.UsuarioRepositorio;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,13 +22,13 @@ public class ServicoDePerfil {
   private final UsuarioRepositorio repositorio;
   private final ValidadorDeAvatar validadorDeAvatar;
   private final RelacaoEntrePerfis relacoes;
-  private final LimiteDeBusca limiteDeBusca;
+  private final LimitePorUsuario limiteDeBusca;
 
   public ServicoDePerfil(
       UsuarioRepositorio repositorio,
       ValidadorDeAvatar validadorDeAvatar,
       RelacaoEntrePerfis relacoes,
-      LimiteDeBusca limiteDeBusca) {
+      @Qualifier("limiteDeBusca") LimitePorUsuario limiteDeBusca) {
     this.repositorio = repositorio;
     this.validadorDeAvatar = validadorDeAvatar;
     this.relacoes = relacoes;
