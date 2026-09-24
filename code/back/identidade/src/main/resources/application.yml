@@ -125,6 +125,8 @@ leai:
   web-base-url: ${WEB_BASE_URL:http://localhost:5173}
   # Idem, lido só pelo ValidadorDeAvatar. Vazio recusa todo avatar, sem derrubar o serviço.
   cloudinary-cloud-name: ${CLOUDINARY_CLOUD_NAME:}
+  # Idem, lido só pelo ExecucaoDoSeed (perfil seed). Senha das quatro contas do seed.
+  seed-senha: ${SEED_SENHA:}
 
 ---
 # --- perfil prod ----------------------------------------------------------
@@ -141,3 +143,17 @@ logging:
   level:
     root: ${LOG_LEVEL:info}
     org.springframework.web: warn
+
+---
+# --- perfil seed ----------------------------------------------------------
+# Aplica as migrations, roda o seed de RNF-TST-08 (ExecucaoDoSeed) e encerra.
+# Sem servidor HTTP e sem broker: semear não publica evento.
+spring:
+  config:
+    activate:
+      on-profile: seed
+  main:
+    web-application-type: none
+leai:
+  amqp-enabled: false
+  p0-ping-enabled: false

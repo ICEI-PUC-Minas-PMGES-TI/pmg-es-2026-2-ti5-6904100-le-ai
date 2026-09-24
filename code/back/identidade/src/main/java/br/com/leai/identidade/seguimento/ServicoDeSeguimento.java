@@ -145,6 +145,47 @@ public class ServicoDeSeguimento {
     return Pagina.de(itens, page, size, total == null ? 0 : total);
   }
 
+  /** Quem segue o autenticado (RF-SOC-08), mais recentes primeiro. Só do próprio dono. */
+  @Transactional(readOnly = true)
+  public Pagina<PerfilResumoResposta> seguidores(UUID eu, int page, int size) {
+    return relacionados(eu, "seguido_id", "seguidor_id", page, size);
+  }
+
+  /** Quem o autenticado segue (RF-SOC-08), mais recentes primeiro. Só do próprio dono. */
+  @Transactional(readOnly = true)
+  public Pagina<PerfilResumoResposta> seguidos(UUID eu, int page, int size) {
+    return relacionados(eu, "seguidor_id", "seguido_id", page, size);
+  }
+
+  /**
+   * Página de um lado do grafo do autenticado. Não há versão para terceiros (SEC-19/44): o dono
+   * vem sempre do token. Conta suspensa ou com exclusão pendente some, como nas VIEWs, e por isso
+   * o total pode ser menor que o contador do perfil. As colunas vêm só das duas chamadas acima.
+   */
+  private Pagina<PerfilResumoResposta> relacionados(
+      UUID eu, String colunaDoDono, String colunaDoOutro, int page, int size) {
+    Pagina.validar(page, size);
+    String deQuem =
+        " FROM seguidor s JOIN usuario u ON u.id = s."
+            + colunaDoOutro
+            + " WHERE s."
+            + colunaDoDono
+            + " = ? AND u.suspenso = false AND u.exclusao_solicitada_em IS NULL";
+    Long total = jdbc.queryForObject("SELECT count(*)" + deQuem, Long.class, eu);
+    List<UUID> ids =
+        jdbc.queryForList(
+            "SELECT u.id" + deQuem + " ORDER BY s.criado_em DESC, s.id LIMIT ? OFFSET ?",
+            UUID.class,
+            eu,
+            size,
+            (long) page * size);
+    List<PerfilResumoResposta> itens =
+        ids.stream()
+            .map(id -> PerfilResumoResposta.de(conta(id), relacoes.entre(eu, id)))
+            .toList();
+    return Pagina.de(itens, page, size, total == null ? 0 : total);
+  }
+
   /** Aceitar (RF-SOC-06): encerra o pedido e cria o seguimento, com evento para quem pediu. */
   @Transactional
   public void aceitar(UUID eu, UUID solicitacaoId) {

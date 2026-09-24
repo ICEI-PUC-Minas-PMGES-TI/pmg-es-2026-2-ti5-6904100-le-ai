@@ -319,6 +319,74 @@ class SeguimentoIntegracaoTest extends IntegracaoComPostgres {
   }
 
   @Test
+  @DisplayName("listas próprias: paginadas, mais recentes primeiro, com a relação de quem pergunta")
+  void listasProprias() {
+    Leitor eu = novoLeitor();
+    Leitor um = novoLeitor();
+    Leitor dois = novoLeitorPrivado();
+    Leitor segueDeVolta = novoLeitor();
+    seguir(um, eu);
+    seguir(segueDeVolta, eu);
+    seguir(eu, segueDeVolta);
+    pedir(eu, dois);
+    seguir(eu, um);
+
+    JsonNode seguidores =
+        objectMapper.readTree(requisicao("GET", "/me/seguidores?page=0&size=1", eu, null).body());
+    JsonNode segunda =
+        objectMapper.readTree(requisicao("GET", "/me/seguidores?page=1&size=1", eu, null).body());
+    JsonNode seguidos = objectMapper.readTree(requisicao("GET", "/me/seguidos", eu, null).body());
+
+    assertThat(seguidores.get("totalElements").asLong()).isEqualTo(2);
+    assertThat(seguidores.get("totalPages").asInt()).isEqualTo(2);
+    assertThat(seguidores.get("items")).hasSize(1);
+    assertThat(seguidores.get("items").get(0).get("username").asString())
+        .isEqualTo(segueDeVolta.username());
+    assertThat(seguidores.get("items").get(0).get("relacao").asString()).isEqualTo("seguindo");
+    assertThat(segunda.get("items").get(0).get("username").asString()).isEqualTo(um.username());
+    assertThat(segunda.get("page").asInt()).isEqualTo(1);
+    // O pedido pendente para `dois` não é seguimento: não aparece nos seguidos.
+    assertThat(seguidos.get("totalElements").asLong()).isEqualTo(2);
+    assertThat(seguidos.get("size").asInt()).isEqualTo(20);
+    assertThat(seguidos.get("items").get(0).get("username").asString()).isEqualTo(um.username());
+    assertThat(seguidos.get("items").get(1).get("username").asString())
+        .isEqualTo(segueDeVolta.username());
+    // Resumo sem biografia nem contadores, como o PerfilResumo.
+    assertThat(seguidos.get("items").get(0).has("biografia")).isFalse();
+  }
+
+  @Test
+  @DisplayName("listas são só do dono, escondem conta oculta e recusam paginação inválida")
+  void listasRestritas() {
+    Leitor eu = novoLeitor();
+    Leitor visivel = novoLeitor();
+    Leitor suspenso = novoLeitor();
+    Leitor saindo = novoLeitor();
+    Leitor outro = novoLeitor();
+    seguir(visivel, eu);
+    seguir(suspenso, eu);
+    seguir(saindo, eu);
+    jdbc.update("UPDATE usuario SET suspenso = true WHERE id = ?", suspenso.id());
+    jdbc.update(
+        "UPDATE usuario SET exclusao_solicitada_em = now(),"
+            + " exclusao_prevista_em = now() + interval '30 days' WHERE id = ?",
+        saindo.id());
+
+    JsonNode seguidores = objectMapper.readTree(requisicao("GET", "/me/seguidores", eu, null).body());
+    JsonNode deOutro = objectMapper.readTree(requisicao("GET", "/me/seguidores", outro, null).body());
+
+    assertThat(seguidores.get("totalElements").asLong()).isEqualTo(1);
+    assertThat(seguidores.get("items").get(0).get("username").asString())
+        .isEqualTo(visivel.username());
+    assertThat(deOutro.get("totalElements").asLong()).isZero();
+    assertThat(requisicao("GET", "/me/seguidos?size=51", eu, null).statusCode()).isEqualTo(400);
+    assertThat(requisicao("GET", "/me/seguidores?page=-1", eu, null).statusCode()).isEqualTo(400);
+    assertThat(
+            enviar(HttpRequest.newBuilder(uri("/me/seguidos")).GET().build()).statusCode())
+        .isEqualTo(401);
+  }
+
+  @Test
   @DisplayName("mudar de público para privado não remove seguidores (RN-08)")
   void privadoPreservaSeguidores() {
     Leitor eu = novoLeitor();

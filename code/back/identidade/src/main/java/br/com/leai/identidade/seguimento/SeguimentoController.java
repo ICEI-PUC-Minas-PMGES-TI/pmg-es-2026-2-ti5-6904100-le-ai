@@ -4,6 +4,7 @@ import br.com.leai.identidade.common.idempotencia.ChaveDeIdempotencia;
 import br.com.leai.identidade.common.idempotencia.OperacaoIdempotente;
 import br.com.leai.identidade.common.idempotencia.RespostaIdempotente;
 import br.com.leai.identidade.common.idempotencia.ServicoDeIdempotencia;
+import br.com.leai.identidade.perfil.PerfilResumoResposta;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -111,6 +112,30 @@ public class SeguimentoController {
       @RequestParam(defaultValue = "0") int page,
       @RequestParam(defaultValue = "" + Pagina.TAMANHO_PADRAO) int size) {
     return servico.solicitacoes(autenticado(token), page, size);
+  }
+
+  @GetMapping("/me/seguidores")
+  @Operation(
+      summary = "Lista os seguidores do usuário autenticado (RF-SOC-08)",
+      description = "Só do próprio dono: não existe lista de seguidores de terceiros (SEC-19/44).")
+  @ApiResponse(responseCode = "200", description = "Página de seguidores, mais recentes primeiro.")
+  public Pagina<PerfilResumoResposta> seguidores(
+      @AuthenticationPrincipal Jwt token,
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "" + Pagina.TAMANHO_PADRAO) int size) {
+    return servico.seguidores(autenticado(token), page, size);
+  }
+
+  @GetMapping("/me/seguidos")
+  @Operation(
+      summary = "Lista os perfis seguidos pelo usuário autenticado (RF-SOC-08)",
+      description = "Só do próprio dono: não existe lista de seguidos de terceiros (SEC-19/44).")
+  @ApiResponse(responseCode = "200", description = "Página de seguidos, mais recentes primeiro.")
+  public Pagina<PerfilResumoResposta> seguidos(
+      @AuthenticationPrincipal Jwt token,
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "" + Pagina.TAMANHO_PADRAO) int size) {
+    return servico.seguidos(autenticado(token), page, size);
   }
 
   @PostMapping("/solicitacoes/{id}/aceitar")
