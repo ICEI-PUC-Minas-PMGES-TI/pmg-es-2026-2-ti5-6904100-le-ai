@@ -111,6 +111,11 @@ services:
         value: "true"
       - key: AMQP_URL
         sync: false
+      # Dispara o ping de prova `identidade` -> `acervo` do DoD de P0-MSG.
+      # Gateado por @ConditionalOnProperty; só vale com AMQP_ENABLED=true.
+      # Desligar de volta depois de registrar a evidência.
+      - key: P0_PING_ENABLED
+        sync: false
       - key: BREVO_API_KEY # segredo da API do Brevo; preencher no painel
         sync: false
       - key: BREVO_SMTP_KEY # segredo SMTP do Brevo; preencher no painel
