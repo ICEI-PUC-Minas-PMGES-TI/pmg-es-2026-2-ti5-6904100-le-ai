@@ -73,6 +73,14 @@ public class Usuario {
   @Column(name = "qtd_seguidos", nullable = false, insertable = false, updatable = false)
   private int qtdSeguidos;
 
+  // Visibilidade (F-MOD-OPC e F-CONTA-2 escrevem; aqui só se lê). Conta suspensa ou com exclusão
+  // pendente some para os outros leitores, como nas VIEWs `v_perfil_referencia_v1`.
+  @Column(name = "suspenso", nullable = false, insertable = false, updatable = false)
+  private boolean suspenso;
+
+  @Column(name = "exclusao_solicitada_em", insertable = false, updatable = false)
+  private Instant exclusaoSolicitadaEm;
+
   /** Preenchido pelo default do banco no insert; só as escritas desta classe o avançam. */
   @Column(name = "atualizado_em", nullable = false, insertable = false)
   private Instant atualizadoEm;

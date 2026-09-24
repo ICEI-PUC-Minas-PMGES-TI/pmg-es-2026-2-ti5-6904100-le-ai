@@ -35,6 +35,16 @@ public interface UsuarioRepositorio extends JpaRepository<Usuario, UUID> {
    * com a mesma senha atual não podem as duas passar: a segunda espera a primeira commitar e
    * compara com o hash novo.
    */
+  /**
+   * Perfil de outro leitor pelo username completo, ignorando caixa, e só se a conta estiver
+   * visível: suspensa ou com exclusão pendente não existe para os outros (mesmo filtro das VIEWs).
+   * Igualdade, nunca prefixo: não há busca parcial (RNF-SEC-19/44).
+   */
+  @Query(
+      "SELECT u FROM Usuario u WHERE lower(u.username) = lower(:username)"
+          + " AND u.suspenso = false AND u.exclusaoSolicitadaEm IS NULL")
+  Optional<Usuario> buscarVisivelPorUsername(@Param("username") String username);
+
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @Query("SELECT u FROM Usuario u WHERE u.id = :id")
   Optional<Usuario> buscarParaAtualizar(@Param("id") UUID id);
