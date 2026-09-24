@@ -272,9 +272,7 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
   Widget _conteudo(ThemeData theme, LivroPessoal livro) {
     final consulta = livro.modoConsulta;
     final resenha = livro.resenhaDoDono;
-    // O contrato só traz o nome do dono junto da resenha. Sem resenha, o terceiro vê a etiqueta
-    // sem a linha de atribuição — divergência registrada no arquivo da feature.
-    final nomeDoDono = resenha?.autorNome;
+    final nomeDoDono = livro.dono?.nome;
     final primeiroNome = nomeDoDono?.split(' ').first;
     final semAvaliacao = livro.notaDoDono == null && resenha == null;
 
@@ -331,7 +329,7 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
-                _Avatar(url: resenha?.autorAvatarUrl),
+                _Avatar(url: livro.dono?.avatarUrl),
                 const SizedBox(width: DesignTokens.space2),
                 Flexible(
                   child: Text(
@@ -378,7 +376,7 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
             divisor(),
             secao(<Widget>[
               Text(
-                consulta ? 'Resenha de $primeiroNome' : 'Sua resenha',
+                consulta ? 'Resenha de ${primeiroNome ?? 'quem cadastrou'}' : 'Sua resenha',
                 style: theme.textTheme.titleMedium,
               ),
               const SizedBox(height: DesignTokens.space3),

@@ -129,6 +129,18 @@ class ResenhaDoDono {
   }
 }
 
+/// Quem cadastrou o livro pessoal, para a linha de atribuição do modo consulta.
+class DonoResumo {
+  final String nome;
+  final String? avatarUrl;
+
+  const DonoResumo({required this.nome, required this.avatarUrl});
+
+  factory DonoResumo.fromJson(Map<String, dynamic> json) {
+    return DonoResumo(nome: json['nome'] as String, avatarUrl: json['avatarUrl'] as String?);
+  }
+}
+
 class LivroPessoal {
   final String id;
   final String donoId;
@@ -144,6 +156,9 @@ class LivroPessoal {
   final double? notaDoDono;
   final ResenhaDoDono? resenhaDoDono;
 
+  /// `null` quando o perfil do dono não está disponível; a página não inventa um nome.
+  final DonoResumo? dono;
+
   const LivroPessoal({
     required this.id,
     required this.donoId,
@@ -155,11 +170,13 @@ class LivroPessoal {
     required this.modoConsulta,
     required this.notaDoDono,
     required this.resenhaDoDono,
+    required this.dono,
   });
 
   factory LivroPessoal.fromJson(Map<String, dynamic> json) {
     final nota = json['notaDoDono'] as Map<String, dynamic>?;
     final resenha = json['resenhaDoDono'] as Map<String, dynamic>?;
+    final dono = json['dono'] as Map<String, dynamic>?;
     return LivroPessoal(
       id: json['id'] as String,
       donoId: json['donoId'] as String,
@@ -171,6 +188,7 @@ class LivroPessoal {
       modoConsulta: json['modoConsulta'] as bool? ?? false,
       notaDoDono: (nota?['valor'] as num?)?.toDouble(),
       resenhaDoDono: resenha == null ? null : ResenhaDoDono.fromJson(resenha),
+      dono: dono == null ? null : DonoResumo.fromJson(dono),
     );
   }
 }

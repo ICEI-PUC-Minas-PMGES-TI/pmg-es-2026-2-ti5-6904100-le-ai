@@ -119,6 +119,16 @@ export class ResenhaResumoDto {
 }
 
 /**
+ * Quem cadastrou o livro, lido de `v_perfil_referencia_v1`. Existe para a linha
+ * de atribuição do modo consulta (documento-de-design §4.18), que antes só
+ * aparecia quando havia resenha, porque o nome só chegava dentro dela.
+ */
+export class DonoResumoDto {
+  @ApiProperty() nome!: string;
+  @ApiPropertyOptional({ nullable: true }) avatarUrl!: string | null;
+}
+
+/**
  * Saída das quatro operações de livro pessoal.
  *
  * `notaDoDono` e `resenhaDoDono` são `required` **e** `nullable` no contrato:
@@ -147,4 +157,7 @@ export class LivroPessoalDetalheDto {
 
   @ApiProperty({ type: ResenhaResumoDto, nullable: true })
   resenhaDoDono!: ResenhaResumoDto | null;
+
+  @ApiProperty({ type: DonoResumoDto, nullable: true })
+  dono!: DonoResumoDto | null;
 }

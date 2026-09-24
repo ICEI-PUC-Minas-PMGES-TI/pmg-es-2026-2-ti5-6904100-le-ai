@@ -23,11 +23,13 @@ const DO_DONO: LivroPessoalDetalhe = {
   modoConsulta: false,
   notaDoDono: null,
   resenhaDoDono: null,
+  dono: { nome: 'Marina Albuquerque', avatarUrl: null },
 }
 
 const EM_CONSULTA: LivroPessoalDetalhe = {
   ...DO_DONO,
   modoConsulta: true,
+  dono: { nome: 'Rafaela Siqueira', avatarUrl: null },
   notaDoDono: { valor: 4.5 },
   resenhaDoDono: {
     id: 'r1',
@@ -90,6 +92,18 @@ describe('LivroPessoalView', () => {
     // Aberto pelo feed, o Feed fica ativo no shell.
     const barra = wrapper.findAll('nav[aria-label="Navegação principal"]')[1]!
     expect(barra.findAll('a')[2]!.get('span').classes()).toContain('text-musgo')
+  })
+
+  // O nome vinha só dentro da resenha; sem ela, a página ficava sem dizer de quem era o livro.
+  it('terceiro vê a atribuição mesmo sem nota e sem resenha, e as seções somem', async () => {
+    servico.obterLivroPessoal.mockResolvedValue({ ...EM_CONSULTA, notaDoDono: null, resenhaDoDono: null })
+    const { wrapper } = await montarNaRota('/livros/pessoal/l1?via=feed&referenciaId=atv-1')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Livro pessoal de Rafaela Siqueira')
+    expect(wrapper.text()).not.toContain('Nota de')
+    expect(wrapper.text()).not.toContain('Resenha de')
+    expect(wrapper.text()).not.toContain('Você ainda não avaliou')
   })
 
   it.each([403, 404])('%i cai no mesmo estado, sem confirmar que o livro existe', async (status) => {

@@ -45,6 +45,7 @@ function montar(
   const leituraDoDono = {
     nota: jest.fn().mockResolvedValue(null),
     resenha: jest.fn().mockResolvedValue(null),
+    dono: jest.fn().mockResolvedValue({ nome: 'Ana Leitora', avatarUrl: null }),
   } as unknown as LeituraDoDonoRepository;
 
   // Sem recibo anterior, o serviço real só executa o efeito numa transação; o
@@ -168,6 +169,20 @@ describe('LivroPessoalService.obter — autorização RN-15', () => {
 
     expect(leituraDoDono.nota).toHaveBeenCalledWith(DONO, LIVRO);
     expect(leituraDoDono.resenha).toHaveBeenCalledWith(DONO, LIVRO);
+    expect(leituraDoDono.dono).toHaveBeenCalledWith(DONO);
+  });
+
+  // O nome do dono vinha só dentro da resenha: sem ela, o terceiro não sabia de
+  // quem era o livro. Agora vem sempre.
+  it('traz o dono mesmo sem resenha', async () => {
+    const { servico } = montar({ terceiroAutorizado: true });
+    const detalhe = await servico.obter(LIVRO, TERCEIRO, {
+      via: 'feed',
+      referenciaId: ATIVIDADE,
+    });
+
+    expect(detalhe.resenhaDoDono).toBeNull();
+    expect(detalhe.dono).toEqual({ nome: 'Ana Leitora', avatarUrl: null });
   });
 
   // Enquanto F-AVA não entrega, as VIEWs de `leitura` retornam vazio. Os campos

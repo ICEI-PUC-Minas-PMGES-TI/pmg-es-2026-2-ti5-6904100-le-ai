@@ -7,7 +7,11 @@ import {
   vResenhaPublicacao,
 } from '../../db/contratos-externos';
 import { ehFalhaDeContratoExterno } from '../../common/pg-erros';
-import { NotaDoDonoDto, ResenhaResumoDto } from './dto/livro-pessoal.dto';
+import {
+  DonoResumoDto,
+  NotaDoDonoDto,
+  ResenhaResumoDto,
+} from './dto/livro-pessoal.dto';
 
 /**
  * Nota e resenha **do dono** do livro pessoal, para a página em modo consulta
@@ -27,6 +31,29 @@ import { NotaDoDonoDto, ResenhaResumoDto } from './dto/livro-pessoal.dto';
 @Injectable()
 export class LeituraDoDonoRepository {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
+
+  /**
+   * Nome e avatar do dono, para a linha de atribuição. Sem linha na VIEW (conta
+   * suspensa ou em exclusão) sai `null`: a página não inventa um nome.
+   */
+  async dono(donoId: string): Promise<DonoResumoDto | null> {
+    const linhas = await this.executar(() =>
+      this.db
+        .select({
+          nome: vPerfilReferencia.nomeExibicao,
+          avatarUrl: vPerfilReferencia.avatarUrl,
+        })
+        .from(vPerfilReferencia)
+        .where(eq(vPerfilReferencia.id, donoId))
+        .limit(1),
+    );
+
+    const linha = linhas[0];
+    if (!linha?.nome) {
+      return null;
+    }
+    return { nome: linha.nome, avatarUrl: linha.avatarUrl ?? null };
+  }
 
   async nota(donoId: string, livroId: string): Promise<NotaDoDonoDto | null> {
     const linhas = await this.executar(() =>
@@ -100,9 +127,11 @@ export class LeituraDoDonoRepository {
   }
 
   /**
-   * As VIEWs pertencem a `leitura`. Enquanto F-AVA não entrega, e enquanto os
-   * GRANTs entre schemas não estiverem no lugar, a falta delas não pode derrubar
-   * a página inteira do livro pessoal: a nota e a resenha degradam para `null`.
+   * As VIEWs pertencem a `leitura` e a `identidade`. Enquanto F-AVA não entrega,
+   * e enquanto os GRANTs entre schemas não estiverem no lugar, a falta delas não
+   * pode derrubar a página inteira do livro pessoal: nota, resenha e dono
+   * degradam para `null`. A autorização de RN-15, que lê as mesmas VIEWs de
+   * `identidade`, continua respondendo 503 — lá a falta é falha, não ausência.
    */
   private async executar<T>(consulta: () => Promise<T[]>): Promise<T[]> {
     try {

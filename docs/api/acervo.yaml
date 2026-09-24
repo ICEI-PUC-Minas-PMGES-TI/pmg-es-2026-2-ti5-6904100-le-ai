@@ -731,10 +731,21 @@ components:
           minimum: 0
           maximum: 5
           multipleOf: 0.5
+    DonoResumo:
+      type: object
+      additionalProperties: false
+      required: [nome, avatarUrl]
+      description: >-
+        Quem cadastrou o livro pessoal, lido de `identidade.v_perfil_referencia_v1`, para a
+        linha de atribuição do modo consulta. Antes o nome só chegava dentro de
+        `resenhaDoDono`, e o terceiro não sabia de quem era um livro sem resenha.
+      properties:
+        nome: { type: string, minLength: 1, maxLength: 200 }
+        avatarUrl: { type: string, format: uri, nullable: true }
     LivroPessoalDetalhe:
       type: object
       additionalProperties: false
-      required: [id, tipo, donoId, titulo, autor, paginas, sinopse, capaUrl, modoConsulta, notaDoDono, resenhaDoDono]
+      required: [id, tipo, donoId, titulo, autor, paginas, sinopse, capaUrl, modoConsulta, notaDoDono, resenhaDoDono, dono]
       properties:
         id: { type: string, format: uuid }
         tipo: { type: string, enum: [pessoal] }
@@ -755,3 +766,10 @@ components:
           allOf:
             - $ref: '#/components/schemas/ResenhaResumo'
           nullable: true
+        dono:
+          allOf:
+            - $ref: '#/components/schemas/DonoResumo'
+          nullable: true
+          description: >-
+            `null` quando o perfil do dono não está na VIEW (conta suspensa ou com exclusão
+            pendente) ou quando a VIEW falha; a página não inventa um nome.

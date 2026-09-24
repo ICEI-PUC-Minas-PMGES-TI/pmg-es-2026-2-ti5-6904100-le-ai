@@ -30,6 +30,7 @@ const LIVRO: LivroPessoalDetalhe = {
   modoConsulta: false,
   notaDoDono: null,
   resenhaDoDono: null,
+  dono: { nome: 'Marina Albuquerque', avatarUrl: null },
 }
 
 type Wrapper = Awaited<ReturnType<typeof montarNaRota>>['wrapper']

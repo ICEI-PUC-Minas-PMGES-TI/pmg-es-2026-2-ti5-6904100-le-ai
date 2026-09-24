@@ -64,6 +64,8 @@ export interface LivroPessoalDetalhe {
   modoConsulta: boolean
   notaDoDono: { valor: number } | null
   resenhaDoDono: ResenhaDoDono | null
+  /** `null` quando o perfil do dono não está disponível; a página não inventa um nome. */
+  dono: { nome: string; avatarUrl: string | null } | null
 }
 
 /** Campos do formulário. Sem ISBN: em livro pessoal o campo é ausente, não vazio (RN-02). */

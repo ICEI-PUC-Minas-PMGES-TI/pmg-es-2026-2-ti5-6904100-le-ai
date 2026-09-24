@@ -47,11 +47,7 @@ const acesso = computed<ViaDeAcesso | undefined>(() =>
 )
 
 const ehDono = computed(() => livro.value !== null && !livro.value.modoConsulta)
-/**
- * O contrato só traz o nome do dono dentro da resenha (pendência de `dono { nome, avatarUrl }` no
- * arquivo da feature). Sem resenha, o terceiro vê a página sem a linha de atribuição.
- */
-const nomeDoDono = computed(() => livro.value?.resenhaDoDono?.autorNome ?? null)
+const nomeDoDono = computed(() => livro.value?.dono?.nome ?? null)
 const primeiroNome = computed(() => nomeDoDono.value?.split(/\s+/)[0] ?? null)
 const avaliado = computed(() => livro.value !== null && (livro.value.notaDoDono !== null || livro.value.resenhaDoDono !== null))
 
@@ -221,8 +217,8 @@ async function excluir(): Promise<void> {
           class="order-4 mt-space-3 flex items-center justify-center gap-space-2 text-caption text-grafite md:order-none md:justify-start"
         >
           <img
-            v-if="livro.resenhaDoDono?.autorAvatarUrl"
-            :src="livro.resenhaDoDono.autorAvatarUrl"
+            v-if="livro.dono?.avatarUrl"
+            :src="livro.dono.avatarUrl"
             alt=""
             class="size-6 rounded-full object-cover"
           >
@@ -268,7 +264,7 @@ async function excluir(): Promise<void> {
               class="py-space-5"
             >
               <h3 class="text-title-sm text-tinta">
-                {{ ehDono ? 'Sua resenha' : `Resenha de ${primeiroNome}` }}
+                {{ ehDono ? 'Sua resenha' : `Resenha de ${primeiroNome ?? 'quem cadastrou'}` }}
               </h3>
               <p
                 lang="pt-BR"

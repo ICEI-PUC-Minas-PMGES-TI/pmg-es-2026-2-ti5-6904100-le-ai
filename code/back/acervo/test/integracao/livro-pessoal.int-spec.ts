@@ -281,6 +281,26 @@ describe('livro pessoal (integração)', () => {
         modoConsulta: true,
         notaDoDono: { valor: 4.5 },
         resenhaDoDono: { texto: 'Muito bom.', autorNome: 'Ana Leitora' },
+        dono: { nome: 'Ana Leitora', avatarUrl: null },
+      });
+    });
+
+    it('sem nota nem resenha, o terceiro ainda sabe de quem é o livro', async () => {
+      const dono = novoUsuario();
+      const seguidor = novoUsuario();
+      const { id } = await criar(dono);
+      const atividade = await publicarNoFeed(dono, id, seguidor);
+
+      const pagina = await http()
+        .get(`/livros/pessoal/${id}?via=feed&referenciaId=${atividade}`)
+        .set(como(seguidor));
+
+      expect(pagina.status).toBe(200);
+      expect(pagina.body).toMatchObject({
+        modoConsulta: true,
+        notaDoDono: null,
+        resenhaDoDono: null,
+        dono: { nome: 'Ana Leitora', avatarUrl: null },
       });
     });
 

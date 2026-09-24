@@ -61,13 +61,14 @@ export class LivroPessoalService {
         });
 
         // Livro recém-criado não tem nota nem resenha: não vale ir ao banco
-        // buscar o que necessariamente não existe.
+        // buscar o que necessariamente não existe. O dono existe.
         return {
           status: 201,
           corpo: this.montarDetalhe(criado, {
             modoConsulta: false,
             nota: null,
             resenha: null,
+            dono: await this.leituraDoDono.dono(donoId),
           }),
         };
       },
@@ -113,15 +114,17 @@ export class LivroPessoalService {
     }
 
     // A página mostra a avaliação do DONO, inclusive para o terceiro (RN-03).
-    const [nota, resenha] = await Promise.all([
+    const [nota, resenha, dono] = await Promise.all([
       this.leituraDoDono.nota(encontrado.donoId, encontrado.id),
       this.leituraDoDono.resenha(encontrado.donoId, encontrado.id),
+      this.leituraDoDono.dono(encontrado.donoId),
     ]);
 
     return this.montarDetalhe(encontrado, {
       modoConsulta: !ehDono,
       nota,
       resenha,
+      dono,
     });
   }
 
@@ -162,9 +165,10 @@ export class LivroPessoalService {
           capa,
         });
 
-        const [nota, resenha] = await Promise.all([
+        const [nota, resenha, dono] = await Promise.all([
           this.leituraDoDono.nota(donoId, atualizado.id),
           this.leituraDoDono.resenha(donoId, atualizado.id),
+          this.leituraDoDono.dono(donoId),
         ]);
 
         return {
@@ -173,6 +177,7 @@ export class LivroPessoalService {
             modoConsulta: false,
             nota,
             resenha,
+            dono,
           }),
         };
       },
@@ -247,9 +252,10 @@ export class LivroPessoalService {
       modoConsulta: boolean;
       nota: LivroPessoalDetalheDto['notaDoDono'];
       resenha: LivroPessoalDetalheDto['resenhaDoDono'];
+      dono: LivroPessoalDetalheDto['dono'];
     },
   ): LivroPessoalDetalheDto {
-    // Objeto literal e não `plainToInstance`: `notaDoDono` e `resenhaDoDono` são
+    // Objeto literal e não `plainToInstance`: `notaDoDono`, `resenhaDoDono` e `dono` são
     // `required` e `nullable` no contrato, então precisam aparecer com `null`,
     // nunca sumir da resposta.
     return {
@@ -264,6 +270,7 @@ export class LivroPessoalService {
       modoConsulta: extras.modoConsulta,
       notaDoDono: extras.nota,
       resenhaDoDono: extras.resenha,
+      dono: extras.dono,
     };
   }
 }

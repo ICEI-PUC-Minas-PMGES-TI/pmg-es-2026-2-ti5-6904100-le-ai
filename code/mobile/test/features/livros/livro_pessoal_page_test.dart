@@ -37,6 +37,7 @@ Map<String, Object?> _livro({
           'atualizadoEm': '2026-09-12T12:00:00.000Z',
         }
       : null,
+  'dono': <String, Object?>{'nome': 'Rafaela Siqueira', 'avatarUrl': null},
 };
 
 void main() {
@@ -129,8 +130,11 @@ void main() {
     );
 
     expect(find.textContaining('Nota de'), findsNothing);
+    expect(find.textContaining('Resenha de'), findsNothing);
     expect(find.text('Você ainda não avaliou este livro.'), findsNothing);
     expect(find.text('184 páginas'), findsOneWidget);
+    // O nome vinha só dentro da resenha; agora a atribuição aparece mesmo sem ela.
+    expect(find.text('Livro pessoal de Rafaela Siqueira'), findsOneWidget);
   });
 
   for (final status in <int>[403, 404]) {
