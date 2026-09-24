@@ -32,7 +32,11 @@ GoRouter buildRouter({
   DependenciasDeLivros? livros,
 }) {
   final deps =
-      livros ?? DependenciasDeLivros.padrao(getToken: () => sessionController.token);
+      livros ??
+      DependenciasDeLivros.padrao(
+        getToken: () => sessionController.token,
+        renovarSessao: (token) => sessionController.renovar(token, authService.renovar),
+      );
   return GoRouter(
     initialLocation: rotaVerificandoSessao,
     refreshListenable: sessionController,

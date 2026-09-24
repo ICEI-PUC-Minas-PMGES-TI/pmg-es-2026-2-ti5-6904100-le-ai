@@ -122,11 +122,14 @@ class _LoginPageState extends State<LoginPage> {
 
     setState(() => _enviando = true);
     try {
-      final token = await widget.authService.entrar(
+      final sessao = await widget.authService.entrar(
         identificador: _identificadorController.text.trim(),
         senha: _senhaController.text,
       );
-      await widget.sessionController.entrar(token.accessToken);
+      await widget.sessionController.entrar(
+        sessao.accessToken,
+        refreshToken: sessao.refreshToken,
+      );
       if (!mounted) {
         return;
       }

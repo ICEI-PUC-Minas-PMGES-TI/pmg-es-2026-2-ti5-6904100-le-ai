@@ -195,6 +195,20 @@ class _CadastroPageState extends State<CadastroPage> {
     });
   }
 
+  /// A chave é da intenção (RNF-ERR-04): o mesmo formulário reenviado repete a chave, e um
+  /// cadastro que deu certo no servidor mas perdeu a resposta volta como replay, não como `409`.
+  /// Qualquer campo alterado é outra intenção e ganha chave nova.
+  String? _ultimoCorpo;
+  String? _ultimaChave;
+
+  String _chaveDaIntencao(String corpo) {
+    if (_ultimoCorpo != corpo || _ultimaChave == null) {
+      _ultimoCorpo = corpo;
+      _ultimaChave = ApiClient.newIdempotencyKey();
+    }
+    return _ultimaChave!;
+  }
+
   Future<void> _enviar() async {
     setState(() {
       _bannerErro = null;
@@ -207,21 +221,32 @@ class _CadastroPageState extends State<CadastroPage> {
 
     setState(() => _enviando = true);
     try {
+      final email = _emailController.text.trim();
+      final username = _usernameController.text.trim();
+      final displayName = _displayNameController.text.trim();
+      final dataNascimento = _dataParaIso(_dataNascimento!);
       final usuarioCriado = await widget.authService.cadastrar(
-        email: _emailController.text.trim(),
-        username: _usernameController.text.trim(),
-        displayName: _displayNameController.text.trim(),
-        dataNascimento: _dataParaIso(_dataNascimento!),
+        email: email,
+        username: username,
+        displayName: displayName,
+        dataNascimento: dataNascimento,
         senha: _senhaController.text,
+        idempotencyKey: _chaveDaIntencao(
+          <String>[email, username, displayName, dataNascimento, _senhaController.text]
+              .join('\u0000'),
+        ),
       );
       // O cadastro não emite token (RF-AUT-03 é do login). Entrar na sequência é o que faz a
       // tela "sair autenticada", como o prompt pede (cadastro.md §1), sem pedir a senha de
       // novo.
-      final token = await widget.authService.entrar(
+      final sessao = await widget.authService.entrar(
         identificador: usuarioCriado.username,
         senha: _senhaController.text,
       );
-      await widget.sessionController.entrar(token.accessToken);
+      await widget.sessionController.entrar(
+        sessao.accessToken,
+        refreshToken: sessao.refreshToken,
+      );
       if (!mounted) {
         return;
       }

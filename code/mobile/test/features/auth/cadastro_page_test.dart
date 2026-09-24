@@ -163,7 +163,7 @@ void main() {
               );
             }
             return http.Response(
-              '{"accessToken":"jwt-novo","tokenType":"Bearer","expiresIn":900}',
+              '{"accessToken":"jwt-novo","tokenType":"Bearer","expiresIn":900,"refreshToken":"renovacao"}',
               200,
             );
           }),
@@ -227,7 +227,7 @@ void main() {
               );
             }
             return http.Response(
-              '{"accessToken":"jwt","tokenType":"Bearer","expiresIn":900}',
+              '{"accessToken":"jwt","tokenType":"Bearer","expiresIn":900,"refreshToken":"renovacao"}',
               200,
             );
           }),

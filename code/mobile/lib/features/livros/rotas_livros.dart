@@ -31,9 +31,18 @@ class DependenciasDeLivros {
     required this.enviador,
   });
 
-  factory DependenciasDeLivros.padrao({required String? Function() getToken}) {
+  factory DependenciasDeLivros.padrao({
+    required String? Function() getToken,
+    Future<bool> Function(String tokenQueFalhou)? renovarSessao,
+  }) {
     return DependenciasDeLivros(
-      acervo: AcervoService(ApiClient(baseUrl: AppConfig.acervoBaseUrl, getToken: getToken)),
+      acervo: AcervoService(
+        ApiClient(
+          baseUrl: AppConfig.acervoBaseUrl,
+          getToken: getToken,
+          renovarSessao: renovarSessao,
+        ),
+      ),
       seletor: SeletorDaGaleria(),
       enviador: EnviadorCloudinary(
         cloudName: AppConfig.cloudinaryCloudName,

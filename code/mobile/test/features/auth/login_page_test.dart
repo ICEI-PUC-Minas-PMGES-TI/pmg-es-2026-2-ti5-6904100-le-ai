@@ -96,7 +96,7 @@ void main() {
         LoginPage(
           authService: servico(
             (request) async => http.Response(
-              '{"accessToken":"jwt-novo","tokenType":"Bearer","expiresIn":900}',
+              '{"accessToken":"jwt-novo","tokenType":"Bearer","expiresIn":900,"refreshToken":"renovacao"}',
               200,
             ),
           ),
@@ -113,6 +113,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(sessionController.token, 'jwt-novo');
+    expect(sessionController.refreshToken, 'renovacao');
     expect(aoEntrarChamado, isTrue);
   });
 
@@ -211,7 +212,7 @@ void main() {
           authService: servico((request) async {
             await Future<void>.delayed(const Duration(milliseconds: 50));
             return http.Response(
-              '{"accessToken":"jwt","tokenType":"Bearer","expiresIn":900}',
+              '{"accessToken":"jwt","tokenType":"Bearer","expiresIn":900,"refreshToken":"renovacao"}',
               200,
             );
           }),

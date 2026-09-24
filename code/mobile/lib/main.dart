@@ -26,17 +26,28 @@ Future<void> main() async {
   // (shell-de-navegacao.md §4.4) e reage sozinho via `refreshListenable` quando `load()` termina.
   unawaited(sessionController.load());
 
+  // `late`: o cliente precisa renovar pela `AuthService`, que precisa do cliente. A renovação
+  // vai anônima (`anonimo: true`), então não há recursão: ela nunca passa pelo próprio 401.
+  late final AuthService authService;
+  Future<bool> renovarSessao(String token) =>
+      sessionController.renovar(token, authService.renovar);
+
   final apiClient = ApiClient(
     baseUrl: AppConfig.identidadeBaseUrl,
     getToken: () => sessionController.token,
+    renovarSessao: renovarSessao,
   );
+  authService = AuthService(apiClient);
 
   runApp(
     LeAiApp(
       themeController: themeController,
       sessionController: sessionController,
-      authService: AuthService(apiClient),
-      livros: DependenciasDeLivros.padrao(getToken: () => sessionController.token),
+      authService: authService,
+      livros: DependenciasDeLivros.padrao(
+        getToken: () => sessionController.token,
+        renovarSessao: renovarSessao,
+      ),
     ),
   );
 }

@@ -73,11 +73,16 @@ class ApiClient {
   /// timeout já esperou 90 s de cold start, e um `4xx` vai responder a mesma coisa de novo.
   final List<Duration> esperasDeRetentativa;
 
+  /// Chamado quando uma requisição que levou o token da sessão recebe `401`. Devolve se a sessão
+  /// foi renovada; se sim, a requisição é repetida uma vez com o token novo (F-AUT).
+  final Future<bool> Function(String tokenQueFalhou)? renovarSessao;
+
   ApiClient({
     required String baseUrl,
     http.Client? client,
     this.timeout = const Duration(seconds: 90),
     this.getToken,
+    this.renovarSessao,
     this.esperasDeRetentativa = const <Duration>[
       Duration(seconds: 1),
       Duration(seconds: 3),
@@ -102,12 +107,17 @@ class ApiClient {
 
   /// POST com corpo JSON opcional. Só é retentado quando traz [idempotencyKey]: sem a chave, um
   /// reenvio depois de uma resposta perdida criaria o recurso duas vezes (RNF-ERR-04).
+  ///
+  /// [anonimo] manda sem o token da sessão, para as rotas públicas do `identidade`: o filtro de
+  /// bearer do Spring Security recusa token vencido com `401` mesmo em rota aberta, e o logout é
+  /// chamado justamente quando o acesso pode ter vencido.
   Future<http.Response> post(
     String path, {
     Object? body,
     Map<String, String> headers = const <String, String>{},
     String? correlationId,
     String? idempotencyKey,
+    bool anonimo = false,
   }) {
     return _enviar(
       'POST',
@@ -116,6 +126,7 @@ class ApiClient {
       headers: headers,
       correlationId: correlationId,
       idempotencyKey: idempotencyKey,
+      anonimo: anonimo,
     );
   }
 
@@ -171,6 +182,7 @@ class ApiClient {
     Map<String, String> headers = const <String, String>{},
     String? correlationId,
     String? idempotencyKey,
+    bool anonimo = false,
   }) async {
     final requestCorrelationId = correlationId ?? newCorrelationId();
     final response = await post(
@@ -179,6 +191,7 @@ class ApiClient {
       headers: headers,
       correlationId: requestCorrelationId,
       idempotencyKey: idempotencyKey,
+      anonimo: anonimo,
     );
     return _decodeJson(response, requestCorrelationId);
   }
@@ -230,17 +243,57 @@ class ApiClient {
     String? correlationId,
     String? idempotencyKey,
     bool idempotente = false,
+    bool anonimo = false,
   }) async {
     final requestCorrelationId = correlationId ?? newCorrelationId();
-    final mergedHeaders = _headersFor(
-      <String, String>{
-        'Idempotency-Key': ?idempotencyKey,
-        ...headers,
-      },
-      requestCorrelationId,
-      hasBody: body != null,
+    final comChave = <String, String>{
+      'Idempotency-Key': ?idempotencyKey,
+      ...headers,
+    };
+    // Só o token da sessão é renovável; o Authorization explícito de quem chamou não é.
+    final tokenDaSessao = anonimo || headers.containsKey('Authorization')
+        ? null
+        : getToken?.call();
+
+    Future<http.Response> enviarCom(String? token) => _enviarComRetentativa(
+      metodo,
+      path,
+      body: body,
+      requestCorrelationId: requestCorrelationId,
+      mergedHeaders: _headersFor(
+        comChave,
+        requestCorrelationId,
+        hasBody: body != null,
+        token: token,
+      ),
+      podeRetentar: idempotente || idempotencyKey != null,
     );
-    final podeRetentar = idempotente || idempotencyKey != null;
+
+    final response = await enviarCom(tokenDaSessao);
+    // 401 com o token da sessão: ele venceu ou foi revogado. Repetir uma vez depois de renovar
+    // é seguro até em escrita sem chave, porque o 401 garante que nada foi feito.
+    if (response.statusCode != 401 ||
+        tokenDaSessao == null ||
+        tokenDaSessao.isEmpty ||
+        renovarSessao == null ||
+        !await renovarSessao!(tokenDaSessao)) {
+      return response;
+    }
+    final renovado = getToken?.call();
+    if (renovado == null || renovado.isEmpty) {
+      return response;
+    }
+    return enviarCom(renovado);
+  }
+
+  Future<http.Response> _enviarComRetentativa(
+    String metodo,
+    String path, {
+    Object? body,
+    required String requestCorrelationId,
+    required Map<String, String> mergedHeaders,
+    required bool podeRetentar,
+  }) async {
     final esperas = podeRetentar ? esperasDeRetentativa : const <Duration>[];
 
     for (var tentativa = 0; ; tentativa++) {
@@ -276,8 +329,8 @@ class ApiClient {
     Map<String, String> headers,
     String correlationId, {
     required bool hasBody,
+    required String? token,
   }) {
-    final token = getToken?.call();
     return <String, String>{
       'Accept': 'application/json',
       'X-Correlation-Id': correlationId,

@@ -301,4 +301,121 @@ void main() {
       ),
     );
   });
+
+  group('renovação no 401', () {
+    http.Response naoAutenticado() => http.Response(
+      '{"codigo":"NAO_AUTENTICADO","mensagem":"Sessão expirada.","correlationId":"c1"}',
+      401,
+    );
+
+    test('renova e repete uma vez com o token novo', () async {
+      var token = 'jwt-vencido';
+      final autorizacoes = <String?>[];
+      final client = MockClient((request) async {
+        autorizacoes.add(request.headers['Authorization']);
+        return autorizacoes.length == 1 ? naoAutenticado() : http.Response('{"ok":true}', 200);
+      });
+      final api = ApiClient(
+        baseUrl: 'https://api.example.com',
+        client: client,
+        getToken: () => token,
+        renovarSessao: (tokenQueFalhou) async {
+          expect(tokenQueFalhou, 'jwt-vencido');
+          token = 'jwt-renovado';
+          return true;
+        },
+      );
+
+      expect(await api.getJson('/me'), <String, dynamic>{'ok': true});
+      expect(autorizacoes, <String?>['Bearer jwt-vencido', 'Bearer jwt-renovado']);
+    });
+
+    test('renovação recusada devolve o 401 sem repetir', () async {
+      var chamadas = 0;
+      final client = MockClient((request) async {
+        chamadas++;
+        return naoAutenticado();
+      });
+      final api = ApiClient(
+        baseUrl: 'https://api.example.com',
+        client: client,
+        getToken: () => 'jwt-vencido',
+        renovarSessao: (_) async => false,
+      );
+
+      await expectLater(
+        api.getJson('/me'),
+        throwsA(isA<ApiException>().having((erro) => erro.status, 'status', 401)),
+      );
+      expect(chamadas, 1);
+    });
+
+    test('repete uma vez só: 401 depois de renovar volta como erro', () async {
+      var chamadas = 0;
+      var renovacoes = 0;
+      final client = MockClient((request) async {
+        chamadas++;
+        return naoAutenticado();
+      });
+      final api = ApiClient(
+        baseUrl: 'https://api.example.com',
+        client: client,
+        getToken: () => 'sempre-recusado',
+        renovarSessao: (_) async {
+          renovacoes++;
+          return true;
+        },
+      );
+
+      await expectLater(api.getJson('/me'), throwsA(isA<ApiException>()));
+      expect(chamadas, 2);
+      expect(renovacoes, 1);
+    });
+
+    test('Authorization explícito não renova', () async {
+      var renovacoes = 0;
+      final api = ApiClient(
+        baseUrl: 'https://api.example.com',
+        client: MockClient((request) async => naoAutenticado()),
+        getToken: () => 'da-sessao',
+        renovarSessao: (_) async {
+          renovacoes++;
+          return true;
+        },
+      );
+
+      await expectLater(
+        api.getJson('/me', headers: <String, String>{'Authorization': 'Bearer explicito'}),
+        throwsA(isA<ApiException>()),
+      );
+      expect(renovacoes, 0);
+    });
+  });
+
+  test('anonimo manda sem o token da sessão e não renova', () async {
+    String? autorizacao = 'não chamado';
+    var renovacoes = 0;
+    final api = ApiClient(
+      baseUrl: 'https://api.example.com',
+      client: MockClient((request) async {
+        autorizacao = request.headers['Authorization'];
+        return http.Response(
+          '{"codigo":"NAO_AUTENTICADO","mensagem":"x","correlationId":"c1"}',
+          401,
+        );
+      }),
+      getToken: () => 'jwt-vencido',
+      renovarSessao: (_) async {
+        renovacoes++;
+        return true;
+      },
+    );
+
+    await expectLater(
+      api.postJson('/auth/logout', body: <String, String>{'refreshToken': 'r'}, anonimo: true),
+      throwsA(isA<ApiException>()),
+    );
+    expect(autorizacao, isNull);
+    expect(renovacoes, 0);
+  });
 }
