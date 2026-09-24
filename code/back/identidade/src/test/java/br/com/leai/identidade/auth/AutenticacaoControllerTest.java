@@ -171,15 +171,17 @@ class AutenticacaoControllerTest {
   }
 
   @Test
-  @DisplayName("refresh sem Idempotency-Key vira 400 sem tocar o serviço")
-  void refreshSemChaveVira400() throws Exception {
-    mockMvc
-        .perform(
-            post("/auth/refresh")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"refreshToken\":\"qualquer\"}"))
-        .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.codigo").value("REQUISICAO_INVALIDA"));
+  @DisplayName("refresh e logout sem Idempotency-Key viram 400 sem tocar o serviço")
+  void refreshELogoutSemChaveViram400() throws Exception {
+    for (String rota : new String[] {"/auth/refresh", "/auth/logout"}) {
+      mockMvc
+          .perform(
+              post(rota)
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content("{\"refreshToken\":\"qualquer\"}"))
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.codigo").value("REQUISICAO_INVALIDA"));
+    }
 
     Mockito.verifyNoInteractions(servico, idempotencia);
   }

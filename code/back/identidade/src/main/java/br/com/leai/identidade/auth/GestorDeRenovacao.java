@@ -123,6 +123,17 @@ public class GestorDeRenovacao {
         usuarioId);
   }
 
+  /**
+   * Logout (RF-AUT-06): revoga o token apresentado, se ele ainda estiver ativo. Desconhecido ou
+   * já revogado não é erro nem reuso: sair de uma sessão que já acabou não pode derrubar as outras
+   * nem revelar o estado do token.
+   */
+  public void revogar(String token) {
+    jdbc.update(
+        "UPDATE refresh_token SET revogado = true WHERE token_hash = ? AND revogado = false",
+        hash(token));
+  }
+
   /** Revoga todas as renovações ativas do usuário. Devolve quantas estavam ativas. */
   public int revogarAtivos(UUID usuarioId) {
     return jdbc.update(

@@ -183,7 +183,8 @@ public class ServicoDeIdempotencia {
       String cifrado = objectMapper.readTree(json).get(CAMPO_CIFRADO).asString();
       json = decifrar(cifrado, operacao, chave);
     }
-    T corpo = objectMapper.readValue(json, tipoDoCorpo);
+    // Resposta sem corpo (204) foi gravada como `{}` e volta como corpo nulo.
+    T corpo = tipoDoCorpo == Void.class ? null : objectMapper.readValue(json, tipoDoCorpo);
     return new RespostaIdempotente<>(recibo.statusHttp(), corpo);
   }
 

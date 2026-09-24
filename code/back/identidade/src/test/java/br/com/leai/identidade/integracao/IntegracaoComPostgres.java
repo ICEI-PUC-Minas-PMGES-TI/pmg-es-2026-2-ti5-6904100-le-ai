@@ -55,6 +55,9 @@ public abstract class IntegracaoComPostgres {
     // CloudAMQP. Os testes deste pacote não dependem do broker.
     registro.add("leai.amqp-enabled", () -> "false");
     registro.add("leai.p0-ping-enabled", () -> "false");
+    // Tudo sai de 127.0.0.1: com o limite de produção (60/min em /auth/**), a suíte bateria no
+    // 429 no meio. O limite em si é coberto pelo RateLimitFilterTest.
+    registro.add("leai.rate-limit.auth-por-minuto", () -> "100000");
   }
 
   private static void exigirHostLocal(String url) {

@@ -34,25 +34,36 @@ class RenovacaoIntegracaoTest extends IntegracaoComPostgres {
 
   @Autowired private ObjectMapper objectMapper;
 
-  /** Cadastra um leitor novo e devolve a sessão do primeiro login. */
-  private JsonNode leitorComSessao() {
+  /** Cadastra um leitor novo e devolve o username. */
+  private String novoLeitor() {
     String s = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
-    postJson(
-        "/auth/register",
-        """
-        {"email":"renova.%1$s@exemplo.com","username":"renova_%1$s","displayName":"Leitora",
-         "dataNascimento":"1990-01-01","senha":"%2$s"}
-        """
-            .formatted(s, SENHA));
+    HttpResponse<String> cadastro =
+        postJson(
+            "/auth/register",
+            """
+            {"email":"renova.%1$s@exemplo.com","username":"renova_%1$s","displayName":"Leitora",
+             "dataNascimento":"1990-01-01","senha":"%2$s"}
+            """
+                .formatted(s, SENHA));
+    assertThat(cadastro.statusCode()).isEqualTo(201);
+    return "renova_" + s;
+  }
+
+  private JsonNode entrar(String username) {
     HttpResponse<String> login =
         postJson(
             "/auth/login",
             """
-            {"identificador":"renova_%s","senha":"%s"}
+            {"identificador":"%s","senha":"%s"}
             """
-                .formatted(s, SENHA));
+                .formatted(username, SENHA));
     assertThat(login.statusCode()).isEqualTo(200);
     return objectMapper.readTree(login.body());
+  }
+
+  /** Cadastra um leitor novo e devolve a sessão do primeiro login. */
+  private JsonNode leitorComSessao() {
+    return entrar(novoLeitor());
   }
 
   private HttpResponse<String> renovar(String refreshToken, String chave) {
@@ -200,6 +211,53 @@ class RenovacaoIntegracaoTest extends IntegracaoComPostgres {
     assertThat(respostas).allSatisfy(r -> assertThat(r.statusCode()).isEqualTo(200));
     assertThat(respostas.stream().map(HttpResponse::body).distinct()).hasSize(1);
     assertThat(renovar(refreshDe(respostas.getFirst())).statusCode()).isEqualTo(200);
+  }
+
+  private HttpResponse<String> sair(String refreshToken, String chave) {
+    return postJson(
+        "/auth/logout",
+        "{\"refreshToken\":\"" + refreshToken + "\"}",
+        "Idempotency-Key",
+        chave);
+  }
+
+  @Test
+  @DisplayName("logout responde 204 e o token deixa de renovar")
+  void logoutRevogaOToken() {
+    String refresh = leitorComSessao().get("refreshToken").asString();
+
+    HttpResponse<String> resposta = sair(refresh, UUID.randomUUID().toString());
+
+    assertThat(resposta.statusCode()).isEqualTo(204);
+    assertThat(resposta.body()).isEmpty();
+    assertThat(renovar(refresh).statusCode()).isEqualTo(401);
+  }
+
+  @Test
+  @DisplayName("logout repetido, com a mesma chave ou outra, e de token desconhecido é sempre 204")
+  void logoutEhIdempotenteENaoRevelaEstado() {
+    String refresh = leitorComSessao().get("refreshToken").asString();
+    String chave = UUID.randomUUID().toString();
+
+    assertThat(sair(refresh, chave).statusCode()).isEqualTo(204);
+    assertThat(sair(refresh, chave).statusCode()).isEqualTo(204);
+    assertThat(sair(refresh, UUID.randomUUID().toString()).statusCode()).isEqualTo(204);
+    assertThat(sair("token-que-nunca-existiu", UUID.randomUUID().toString()).statusCode())
+        .isEqualTo(204);
+  }
+
+  @Test
+  @DisplayName("logout encerra só a sessão do token: o outro aparelho do mesmo usuário continua")
+  void logoutNaoDerrubaOutrasSessoes() {
+    String username = novoLeitor();
+    String celular = entrar(username).get("refreshToken").asString();
+    String navegador = entrar(username).get("refreshToken").asString();
+
+    assertThat(sair(celular, UUID.randomUUID().toString()).statusCode()).isEqualTo(204);
+    // Logout de token já revogado não conta como reuso e não derruba o navegador.
+    assertThat(sair(celular, UUID.randomUUID().toString()).statusCode()).isEqualTo(204);
+
+    assertThat(renovar(navegador).statusCode()).isEqualTo(200);
   }
 
   @Test

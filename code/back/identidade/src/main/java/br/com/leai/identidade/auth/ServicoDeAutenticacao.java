@@ -131,6 +131,12 @@ public class ServicoDeAutenticacao {
     return sessaoPara(usuario);
   }
 
+  /** Encerra a sessão revogando o token de renovação dela (RF-AUT-06, RNF-SEC-30). */
+  @Transactional
+  public void sair(RefreshRequisicao requisicao) {
+    gestorDeRenovacao.revogar(requisicao.refreshToken());
+  }
+
   /** Resposta ao reuso de token revogado, depois que a idempotência descartou o replay. */
   public void encerrarRenovacoesPorReuso(UUID usuarioId) {
     gestorDeRenovacao.revogarPorReuso(usuarioId);

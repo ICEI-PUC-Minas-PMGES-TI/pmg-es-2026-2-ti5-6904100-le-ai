@@ -14,6 +14,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
@@ -78,9 +79,17 @@ public class RateLimitFilter extends OncePerRequestFilter {
   private final Clock relogio;
   private final ConcurrentHashMap<String, Janela> janelas = new ConcurrentHashMap<>();
 
+  /**
+   * O limite vem de {@code leai.rate-limit.auth-por-minuto}, com 60 como padrão e sem variável de
+   * ambiente em {@code application.yml}: produção usa o padrão. A propriedade existe para a base de
+   * integração, em que dezenas de chamadas a {@code /auth/**} saem do mesmo 127.0.0.1 em segundos
+   * e bateriam no limite antes do que está sendo testado.
+   */
   @Autowired
-  public RateLimitFilter(EscritorDeErro escritorDeErro) {
-    this(escritorDeErro, LIMITE_PADRAO, JANELA_PADRAO, Clock.systemUTC());
+  public RateLimitFilter(
+      EscritorDeErro escritorDeErro,
+      @Value("${leai.rate-limit.auth-por-minuto:" + LIMITE_PADRAO + "}") int limite) {
+    this(escritorDeErro, limite, JANELA_PADRAO, Clock.systemUTC());
   }
 
   RateLimitFilter(EscritorDeErro escritorDeErro, int limite, Duration janela, Clock relogio) {

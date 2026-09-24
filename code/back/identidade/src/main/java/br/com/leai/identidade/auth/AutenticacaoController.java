@@ -18,7 +18,9 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Cadastro, login e renovação (RF-AUT-01, RF-AUT-02, RF-AUT-03). Rotas públicas por definição. */
+/**
+ * Cadastro, login, renovação e logout (RF-AUT-01, 02, 03 e 06). Rotas públicas por definição.
+ */
 @RestController
 @RequestMapping("/auth")
 @Tag(name = "auth", description = "Cadastro e autenticação")
@@ -151,5 +153,38 @@ public class AutenticacaoController {
       servico.encerrarRenovacoesPorReuso(reuso.usuarioId());
       throw reuso;
     }
+  }
+
+  @PostMapping("/logout")
+  @Operation(
+      summary = "Encerra a sessão revogando o token de renovação (RF-AUT-06)",
+      description =
+          "Sempre 204: token desconhecido ou já revogado não é erro, para não revelar o estado "
+              + "do token. O token de acesso emitido antes continua válido até expirar (15 min), "
+              + "por ser stateless (RNF-ARQ-04); o cliente o descarta. Exige Idempotency-Key.")
+  @ApiResponse(responseCode = "204", description = "Sessão encerrada ou já encerrada.")
+  @ApiResponse(
+      responseCode = "400",
+      description = "Corpo inválido ou Idempotency-Key ausente.",
+      content = @Content(schema = @Schema(ref = "#/components/schemas/Erro")))
+  @ApiResponse(
+      responseCode = "409",
+      description = "Idempotency-Key já usada com outro token.",
+      content = @Content(schema = @Schema(ref = "#/components/schemas/Erro")))
+  public ResponseEntity<Void> sair(
+      @RequestHeader(name = ChaveDeIdempotencia.CABECALHO, required = false) String chaveBruta,
+      @Valid @RequestBody RefreshRequisicao requisicao) {
+    String chave = ChaveDeIdempotencia.exigir(chaveBruta);
+    idempotencia.executar(
+        idempotencia.sujeitoAnonimo(GestorDeRenovacao.hash(requisicao.refreshToken())),
+        OperacaoIdempotente.ENCERRAR_SESSAO,
+        chave,
+        requisicao,
+        Void.class,
+        () -> {
+          servico.sair(requisicao);
+          return new RespostaIdempotente<>(HttpStatus.NO_CONTENT.value(), null);
+        });
+    return ResponseEntity.noContent().build();
   }
 }

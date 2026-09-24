@@ -15,7 +15,8 @@ package br.com.leai.identidade.common.idempotencia;
 public enum OperacaoIdempotente {
   CADASTRAR_USUARIO("cadastrarUsuario", false),
   AUTENTICAR_USUARIO("autenticarUsuario", true),
-  RENOVAR_SESSAO("renovarSessao", true);
+  RENOVAR_SESSAO("renovarSessao", true),
+  ENCERRAR_SESSAO("encerrarSessao", false);
 
   private final String operationId;
   private final boolean respostaSensivel;
