@@ -10,11 +10,16 @@ import {
 
 import ShellAutenticado from '../layouts/ShellAutenticado.vue'
 import { getToken, useSession } from '../session'
+import AlterarSenhaView from '../views/AlterarSenhaView.vue'
 import CadastroView from '../views/CadastroView.vue'
+import ConfiguracoesView from '../views/ConfiguracoesView.vue'
 import DescobrirView from '../views/DescobrirView.vue'
 import EstanteView from '../views/EstanteView.vue'
 import FeedView from '../views/FeedView.vue'
 import LoginView from '../views/LoginView.vue'
+import PoliticaPrivacidadeView from '../views/PoliticaPrivacidadeView.vue'
+import RecuperarSenhaView from '../views/RecuperarSenhaView.vue'
+import RedefinirSenhaView from '../views/RedefinirSenhaView.vue'
 import PerfilView from '../views/PerfilView.vue'
 import CadastroIsbnView from '../views/livros/CadastroIsbnView.vue'
 import IsbnNaoEncontradoView from '../views/livros/IsbnNaoEncontradoView.vue'
@@ -60,6 +65,19 @@ export const routes: RouteRecordRaw[] = [
     meta: { semSessao: true },
   },
   {
+    path: '/recuperar-senha',
+    name: 'recuperar-senha',
+    component: RecuperarSenhaView,
+    meta: { semSessao: true },
+  },
+  // Sem `semSessao`: o link do e-mail pode ser aberto num navegador que já tem sessão, e mesmo
+  // assim a redefinição tem de acontecer (a tela encerra a sessão local ao salvar).
+  {
+    path: '/redefinir-senha',
+    name: 'redefinir-senha',
+    component: RedefinirSenhaView,
+  },
+  {
     path: '/',
     component: ShellAutenticado,
     meta: { requerSessao: true },
@@ -88,6 +106,25 @@ export const routes: RouteRecordRaw[] = [
         name: 'perfil',
         component: PerfilView,
         meta: { titulo: 'Meu perfil' },
+      },
+      // F-AUT. Empilhadas sobre Perfil, que fica ativa pelo prefixo do caminho.
+      {
+        path: 'perfil/configuracoes',
+        name: 'configuracoes',
+        component: ConfiguracoesView,
+        meta: { titulo: 'Configurações', voltar: true },
+      },
+      {
+        path: 'perfil/configuracoes/alterar-senha',
+        name: 'alterar-senha',
+        component: AlterarSenhaView,
+        meta: { titulo: 'Alterar senha', voltar: true },
+      },
+      {
+        path: 'perfil/configuracoes/privacidade',
+        name: 'politica-de-privacidade',
+        component: PoliticaPrivacidadeView,
+        meta: { titulo: 'Política de privacidade', voltar: true },
       },
       // F-ACV-CADASTRO. O prefixo carrega a origem para a aba certa ficar ativa o fluxo inteiro.
       {

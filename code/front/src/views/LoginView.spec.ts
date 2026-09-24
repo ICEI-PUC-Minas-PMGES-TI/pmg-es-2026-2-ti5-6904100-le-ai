@@ -21,6 +21,7 @@ function montarComRouter() {
     routes: [
       { path: '/login', component: LoginView },
       { path: '/cadastro', component: { template: '<div>cadastro</div>' } },
+      { path: '/recuperar-senha', component: { template: '<div>recuperar</div>' } },
       { path: '/estante', component: { template: '<div>estante</div>' } },
     ],
   })
@@ -141,5 +142,15 @@ describe('LoginView', () => {
     await flushPromises()
 
     expect(wrapper.get('button[type="submit"]').text()).toBe('Entrar')
+  })
+
+  it('"Esqueci minha senha" leva à recuperação', async () => {
+    const { wrapper, router } = montarComRouter()
+    await router.push('/login')
+
+    await wrapper.get('a[href="/recuperar-senha"]').trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.path).toBe('/recuperar-senha')
   })
 })

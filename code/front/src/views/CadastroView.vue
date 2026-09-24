@@ -8,6 +8,7 @@ import BotaoTextual from '../components/ui/BotaoTextual.vue'
 import CampoSenha from '../components/ui/CampoSenha.vue'
 import CampoTexto from '../components/ui/CampoTexto.vue'
 import LogoLeAi from '../components/ui/LogoLeAi.vue'
+import LayoutAutenticacao from '../layouts/LayoutAutenticacao.vue'
 import { ApiError, novaChaveIdempotencia } from '../services/api'
 import { authService, type CadastroRequisicao } from '../services/auth'
 import { iniciarSessao } from '../session'
@@ -189,110 +190,95 @@ async function enviar(): Promise<void> {
 </script>
 
 <template>
-  <div class="flex min-h-screen w-full bg-papel">
-    <!-- Coluna esquerda: só na web (cadastro.md §5). Desaparece, não empilha, abaixo de 768px. -->
-    <div class="hidden w-[44%] flex-col justify-center bg-papel-elevado px-space-16 md:flex">
-      <LogoLeAi :altura="32" />
-      <p class="mt-space-6 text-title-lg text-tinta">
-        Registre suas leituras e acompanhe as de quem você segue.
-      </p>
-      <p class="mt-space-4 text-body text-grafite">
-        Estante, progresso, resenhas e feed em um lugar só.
-      </p>
+  <LayoutAutenticacao>
+    <div class="md:hidden">
+      <LogoLeAi :altura="24" />
     </div>
 
-    <div class="flex w-full flex-col items-center px-space-5 py-space-10 md:w-[56%] md:justify-center">
-      <div class="w-full max-w-[420px]">
-        <div class="md:hidden">
-          <LogoLeAi :altura="24" />
+    <h1 class="mt-space-10 text-display text-tinta md:mt-0">
+      Criar conta
+    </h1>
+
+    <BannerAviso
+      v-if="bannerErro"
+      variante="erro"
+      class="mt-space-6"
+    >
+      {{ bannerErro }}
+    </BannerAviso>
+
+    <form
+      novalidate
+      class="mt-space-8 md:mt-space-6"
+      @submit.prevent="enviar"
+    >
+      <fieldset
+        :disabled="enviando"
+        class="m-0 min-w-0 border-0 p-0"
+        :class="enviando ? 'opacity-60' : ''"
+      >
+        <div class="flex flex-col gap-space-5">
+          <CampoTexto
+            v-model="email"
+            type="email"
+            label="E-mail"
+            autocomplete="email"
+            :erro="erros.email"
+            :borda-de-erro="bordaDeErroEmail"
+          />
+          <CampoTexto
+            v-model="username"
+            label="Nome de usuário"
+            autocomplete="username"
+            :erro="erros.username"
+            :borda-de-erro="bordaDeErroUsername"
+          />
+          <CampoTexto
+            v-model="displayName"
+            label="Nome de exibição"
+            autocomplete="name"
+            :erro="erros.displayName"
+          />
+          <CampoTexto
+            v-model="dataNascimento"
+            type="date"
+            label="Data de nascimento"
+            autocomplete="bday"
+            :erro="erros.dataNascimento"
+          />
+          <CampoSenha
+            v-model="senha"
+            label="Senha"
+            autocomplete="new-password"
+            helper="Mínimo de 8 caracteres"
+            :erro="erros.senha"
+          />
         </div>
+      </fieldset>
 
-        <h1 class="mt-space-10 text-display text-tinta md:mt-0">
-          Criar conta
-        </h1>
+      <BotaoPrimario
+        tipo="submit"
+        class="mt-space-8"
+        :carregando="enviando"
+      >
+        {{ enviando ? 'Criando conta' : 'Criar conta' }}
+      </BotaoPrimario>
+      <p
+        v-if="enviando"
+        class="mt-space-3 text-caption text-grafite"
+      >
+        O servidor está iniciando. Isso pode levar alguns segundos.
+      </p>
+    </form>
 
-        <BannerAviso
-          v-if="bannerErro"
-          variante="erro"
-          class="mt-space-6"
-        >
-          {{ bannerErro }}
-        </BannerAviso>
-
-        <form
-          novalidate
-          class="mt-space-8 md:mt-space-6"
-          @submit.prevent="enviar"
-        >
-          <fieldset
-            :disabled="enviando"
-            class="m-0 min-w-0 border-0 p-0"
-            :class="enviando ? 'opacity-60' : ''"
-          >
-            <div class="flex flex-col gap-space-5">
-              <CampoTexto
-                v-model="email"
-                type="email"
-                label="E-mail"
-                autocomplete="email"
-                :erro="erros.email"
-                :borda-de-erro="bordaDeErroEmail"
-              />
-              <CampoTexto
-                v-model="username"
-                label="Nome de usuário"
-                autocomplete="username"
-                :erro="erros.username"
-                :borda-de-erro="bordaDeErroUsername"
-              />
-              <CampoTexto
-                v-model="displayName"
-                label="Nome de exibição"
-                autocomplete="name"
-                :erro="erros.displayName"
-              />
-              <CampoTexto
-                v-model="dataNascimento"
-                type="date"
-                label="Data de nascimento"
-                autocomplete="bday"
-                :erro="erros.dataNascimento"
-              />
-              <CampoSenha
-                v-model="senha"
-                label="Senha"
-                autocomplete="new-password"
-                helper="Mínimo de 8 caracteres"
-                :erro="erros.senha"
-              />
-            </div>
-          </fieldset>
-
-          <BotaoPrimario
-            tipo="submit"
-            class="mt-space-8"
-            :carregando="enviando"
-          >
-            {{ enviando ? 'Criando conta' : 'Criar conta' }}
-          </BotaoPrimario>
-          <p
-            v-if="enviando"
-            class="mt-space-3 text-caption text-grafite"
-          >
-            O servidor está iniciando. Isso pode levar alguns segundos.
-          </p>
-        </form>
-
-        <p class="mt-space-5 text-body text-grafite">
-          Já tem conta?
-          <BotaoTextual
-            href="/login"
-            @click.prevent="router.push('/login')"
-          >
-            Entrar
-          </BotaoTextual>
-        </p>
-      </div>
-    </div>
-  </div>
+    <p class="mt-space-5 text-body text-grafite">
+      Já tem conta?
+      <BotaoTextual
+        href="/login"
+        @click.prevent="router.push('/login')"
+      >
+        Entrar
+      </BotaoTextual>
+    </p>
+  </LayoutAutenticacao>
 </template>

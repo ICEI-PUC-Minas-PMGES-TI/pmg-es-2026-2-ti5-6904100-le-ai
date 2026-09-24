@@ -130,7 +130,48 @@ export function createAuthService(options: AuthServiceOptions = {}) {
     })
   }
 
-  return { cadastrar, entrar, buscarUsuarioAtual, sair }
+  /**
+   * Pede o link de recuperação (RF-AUT-04). O servidor responde o mesmo `202` exista ou não a
+   * conta; a tela também não pode diferenciar (RNF-SEC-28), então não há retorno a interpretar.
+   * Chave nova por pedido: "Enviar de novo" é outra intenção, e a mesma chave não reenviaria.
+   */
+  async function solicitarRecuperacao(email: string): Promise<void> {
+    await requestPublico<unknown>('/auth/password/forgot', {
+      method: 'POST',
+      json: { email },
+      idempotencyKey: novaChaveIdempotencia(),
+    })
+  }
+
+  /**
+   * Redefine a senha pelo token do link. `410` é link desconhecido, vencido ou usado, sempre com
+   * a mesma mensagem; `400` é a senha nova. A chave é de quem chama, como no cadastro.
+   */
+  async function redefinirSenha(dados: { token: string; novaSenha: string }, idempotencyKey: string): Promise<void> {
+    await requestPublico<void>('/auth/password/reset', { method: 'POST', json: dados, idempotencyKey })
+  }
+
+  /**
+   * Troca a senha (RF-AUT-05). O servidor revoga **todas** as renovações da conta, inclusive a
+   * deste navegador, então a sessão daqui é refeita com um login pela senha nova, que quem chama
+   * ainda tem em mãos: é o que cumpre o "aqui você continua conectado" de alterar-senha.md §4.6
+   * sem mudar o contrato. Se esse login falhar, a troca já aconteceu e não é desfeita; a sessão
+   * daqui termina quando o token de acesso vencer.
+   */
+  async function alterarSenha(
+    dados: { senhaAtual: string; novaSenha: string },
+    usuario: UsuarioResposta,
+    idempotencyKey: string,
+  ): Promise<LoginResultado | null> {
+    await request<void>('/auth/password/change', { method: 'POST', json: dados, idempotencyKey })
+    try {
+      return await entrar({ identificador: usuario.username, senha: dados.novaSenha })
+    } catch {
+      return null
+    }
+  }
+
+  return { cadastrar, entrar, buscarUsuarioAtual, sair, solicitarRecuperacao, redefinirSenha, alterarSenha }
 }
 
 export const authService = createAuthService()

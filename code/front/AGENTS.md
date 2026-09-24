@@ -19,7 +19,7 @@ Convenções da SPA web. Complementa o [`AGENTS.md`](../../AGENTS.md) da raiz �
 ## Estrutura
 
 - `src/router/`: rotas (`index.ts`, incluindo o shell autenticado com rotas filhas) e a guarda de sessão (`guardaDeSessao`, exportada separada do router para ser testável isolada, sem montar componente nenhum).
-- `src/layouts/`: layouts de página — hoje só `ShellAutenticado.vue`, o quadro das telas autenticadas (sidebar retrátil na web ≥768px, barra inferior abaixo disso, header padrão).
+- `src/layouts/`: layouts de página — `ShellAutenticado.vue`, o quadro das telas autenticadas (sidebar retrátil na web ≥768px, barra inferior abaixo disso, header padrão), e `LayoutAutenticacao.vue`, o das telas sem sessão (entrar, criar conta, recuperar e redefinir senha: coluna da marca só na web, coluna de 420px à direita).
 - `src/views/`: componentes associados a rotas.
 - `src/components/`: componentes reutilizáveis de aplicação (ex.: `SidebarNavegacao.vue`, `CabecalhoTela.vue`); componentes do design system (formulário, botão, banner, logo) ficam em `src/components/ui/`.
 - `src/services/`: integrações externas — cliente HTTP central (`api.ts`), renovação de sessão (`renovacao.ts`) e serviços por domínio (ex.: `auth.ts`).
@@ -45,6 +45,8 @@ Uma URL por serviço, sem gateway: `VITE_IDENTIDADE_BASE_URL` e `VITE_ACERVO_BAS
 - Retentativa com espera de 1 s e 3 s (três tentativas) **só** em GET ou escrita com chave, e só em falha de rede ou 502/503/504. 4xx e 500 voltam na hora.
 - `ApiError` traz `status`, `code`, `correlationId`, `corpo`, `livroId` (409 de ISBN existente) e `campos` (400, `{ campo: mensagem }`). `204` e corpo vazio viram `undefined`.
 - O CORS do `acervo` não expõe headers: `Location` e `Retry-After` não chegam ao JS. Use o corpo.
+
+**Telas de conta (F-AUT):** `ui/EstadoTerminal` é o bloco de tela inteira que substitui um formulário (confirmação neutra, senha alterada, link que não vale mais), com o foco indo para o título. O link de redefinição traz o token no fragmento (`#token=`), lido uma vez e apagado da URL. A política de privacidade mora num lugar só, `components/PoliticaDePrivacidade.vue`, hoje com o texto mock do protótipo (o final é do grupo).
 
 **Abas e telas de detalhe:** a aba ativa do shell vem de `router/abas.ts` (`meta.aba`, texto ou função da rota, e depois prefixo do caminho). Tela de detalhe declara `meta.voltar` para ganhar a seta no header, e põe ações contextuais no header com `<Teleport to="#cabecalho-acoes" defer>`. O fluxo de cadastro carrega a origem no caminho (`/descobrir/adicionar`, `/estante/adicionar`) para a aba certa ficar ativa o fluxo inteiro.
 
