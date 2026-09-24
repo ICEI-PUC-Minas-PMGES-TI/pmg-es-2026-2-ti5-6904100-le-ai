@@ -69,7 +69,9 @@ class ServicoDeAutenticacaoTest {
     EmissorDeToken emissor =
         new EmissorDeToken(jwtConfig.jwtEncoder(jwtConfig.chaveDeAssinatura(propriedades)));
 
-    servico = new ServicoDeAutenticacao(repositorio, codificador, emissor, controleDeTentativas);
+    servico =
+        new ServicoDeAutenticacao(
+            repositorio, codificador, emissor, controleDeTentativas, new PoliticaDeSenha());
   }
 
   private static CadastroRequisicao cadastro() {
@@ -100,6 +102,20 @@ class ServicoDeAutenticacaoTest {
 
     assertThat(gravado.senhaHash()).isNotEqualTo(SENHA).startsWith("$2");
     assertThat(new BCryptPasswordEncoder(4).matches(SENHA, gravado.senhaHash())).isTrue();
+  }
+
+  @Test
+  @DisplayName("senha da lista de comuns vira 400 com a mensagem da tela, sem consultar o banco")
+  void senhaComumVira400() {
+    CadastroRequisicao comSenhaComum =
+        new CadastroRequisicao(
+            "marina.beltrao@gmail.com", "marinableu", "Marina Beltrão", NASCIMENTO, "Senha123");
+
+    assertThatErroDeNegocio(() -> servico.cadastrar(comSenhaComum))
+        .hasMessage(PoliticaDeSenha.SENHA_COMUM)
+        .extracting(erro -> ((ErroDeNegocioException) erro).codigo())
+        .isEqualTo(CodigoErro.REQUISICAO_INVALIDA);
+    Mockito.verifyNoInteractions(repositorio);
   }
 
   @Test

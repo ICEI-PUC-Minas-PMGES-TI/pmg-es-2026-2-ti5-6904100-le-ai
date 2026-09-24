@@ -26,6 +26,7 @@ public class ServicoDeAutenticacao {
   private final PasswordEncoder codificadorDeSenha;
   private final EmissorDeToken emissorDeToken;
   private final ControleDeTentativas controleDeTentativas;
+  private final PoliticaDeSenha politicaDeSenha;
 
   /**
    * Hash descartável, calculado uma vez no arranque. Serve para o login gastar o mesmo tempo
@@ -38,11 +39,13 @@ public class ServicoDeAutenticacao {
       UsuarioRepositorio repositorio,
       PasswordEncoder codificadorDeSenha,
       EmissorDeToken emissorDeToken,
-      ControleDeTentativas controleDeTentativas) {
+      ControleDeTentativas controleDeTentativas,
+      PoliticaDeSenha politicaDeSenha) {
     this.repositorio = repositorio;
     this.codificadorDeSenha = codificadorDeSenha;
     this.emissorDeToken = emissorDeToken;
     this.controleDeTentativas = controleDeTentativas;
+    this.politicaDeSenha = politicaDeSenha;
     this.hashDeComparacaoFalsa = codificadorDeSenha.encode("conta-inexistente");
   }
 
@@ -50,6 +53,10 @@ public class ServicoDeAutenticacao {
   public UsuarioResposta cadastrar(CadastroRequisicao requisicao) {
     String email = requisicao.email().trim();
     String username = requisicao.username().trim();
+
+    // Antes de qualquer consulta: a política não depende do banco e não revela nada sobre
+    // contas existentes.
+    politicaDeSenha.recusarSeComum(requisicao.senha());
 
     // Checagem antecipada para a mensagem ser específica. Ela não substitui o índice único:
     // entre esta consulta e o insert cabe outra requisição, e quem decide é o banco.

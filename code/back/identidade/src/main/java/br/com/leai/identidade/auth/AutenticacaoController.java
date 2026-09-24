@@ -37,12 +37,15 @@ public class AutenticacaoController {
   @Operation(
       summary = "Cria uma conta de leitor (RF-AUT-01)",
       description =
-          "Senha com hash bcrypt (RNF-SEC-09) e mínimo de 8 caracteres (RNF-SEC-27). "
+          "Senha com hash bcrypt (RNF-SEC-09), mínimo de 8 caracteres e fora da lista de "
+              + "senhas comuns (RNF-SEC-27). "
               + "Recusa menores de 18 anos (RNF-SEC-43).")
   @ApiResponse(responseCode = "201", description = "Conta criada.")
   @ApiResponse(
       responseCode = "400",
-      description = "Dados inválidos: senha curta, menor de 18, e-mail malformado.",
+      description =
+          "Dados inválidos: senha curta ou comum, menor de 18, e-mail malformado, "
+              + "Idempotency-Key vazia ou longa demais.",
       content = @Content(schema = @Schema(ref = "#/components/schemas/Erro")))
   @ApiResponse(
       responseCode = "409",
