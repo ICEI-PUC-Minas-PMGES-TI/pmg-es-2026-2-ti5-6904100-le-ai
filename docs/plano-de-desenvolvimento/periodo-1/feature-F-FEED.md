@@ -23,9 +23,9 @@ RNF atendidos: **RNF-SEC-03** (acesso a conteúdo de perfil privado validado no 
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | bloqueado por P0-MSG | fila `leai.social.feed`, bindings, retry/DLQ e runtime consumidor ainda não implementados |
+| Infra | **corrigido em 25/09**: P0-MSG já entrega conexão/dispatcher, envelope/validador, `mensagem_processada`, publisher confirms e retry/DLQ (comprovado cross-serviço com `ping.teste`, 19/09). O bloqueio real não é a infra, e sim `leitura` (F-PRG/F-AVA) ainda não publicar `leitura.*`/`resenha.*` — o consumidor de `social` fica pronto para os 6 bindings, mas ocioso até `leitura` existir. | fila `leai.social.feed`, bindings, retry/DLQ e o registro do `ConsumerDefinition` em `social` entram na implementação em andamento (ver Backend) |
 | Dados | concluído (baseline físico) | DER implantado no Neon em 16/09: `atividade`, `curtida_atividade`, `comentario`, `idempotencia_social`, `outbox_social` e `v_atividade_livro_pessoal_v1`; migrations incrementais ainda constam em Pendências |
-| Backend | não iniciado | `social` possui somente scaffold/health; feed, projeção de atividade e interações não estão implementados |
+| Backend | **em andamento desde 25/09** | Concluído: segurança JWT (validação, sem emissão), idempotência (`Idempotency-Key` sobre `idempotencia_social`) e rate limiting portados de `identidade` para `social`; entidades JPA/repositórios/DTOs de feed, curtida e comentário mapeando o schema já migrado (join nativo com `v_seguimento_aceito_v1`/`v_livro_referencia_v1` para RN-08/09). Em implementação: `GET /feed`/`GET /atividades/{id}`. Pendentes: curtir/descurtir, comentar/responder (RN-10), listagem de comentários/respostas, consumidor de `leitura.*`/`resenha.*` (RF-SOC-10) |
 | Web | não iniciado | feed + curtir + comentar/responder com menção pré-preenchida |
 | Mobile | não iniciado | mesmas telas |
 
@@ -104,6 +104,8 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - Stack de `social` definida: **Spring (Java)** (arquitetura §2.1).
 
 ## Timeline
+
+### Início da implementação 25/09/2026: corrigido o status de Infra — a infraestrutura genérica de mensageria de P0-MSG já está entregue e comprovada (evento `ping.teste`, `identidade`→`acervo`, 19/09); o bloqueio real do consumidor de atividade é `leitura` (F-PRG/F-AVA) ainda não publicar os eventos de origem. Entregues em `social`: segurança JWT, idempotência (`Idempotency-Key`) e rate limiting portados de `identidade`; entidades JPA, repositórios e DTOs de feed/curtida/comentário sobre o schema já migrado. `GET /feed`/`GET /atividades/{id}` em implementação.
 
 ### Alinhamento 17/09/2026: rotas foram igualadas ao `docs/api/social.yaml`; eventos, exchanges, fila `leai.social.feed`, recibo/efeito transacional e retry/DLQ foram igualados ao catálogo e ao P0-MSG. O status passou a reconhecer o DER implantado no Neon sem confundi-lo com implementação do serviço, e o refinamento de `comentarioRespondidoId` foi registrado como pendência incremental.
 
