@@ -105,6 +105,8 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 ## Timeline
 
+### Decisão de produto 25/09/2026: o autor pode curtir, comentar e ver o detalhe/comentários da própria atividade, sem precisar se seguir. `GET /feed` continua listando só atividades de quem o leitor segue (RN-09); atividade inativa ou de livro excluído segue invisível também para o autor.
+
 ### Migration incremental 25/09/2026: `V20260925140000__adiciona_comentario_respondido_id.sql` fecha a pendência de `comentarioRespondidoId` registrada em 17/09 — a coluna nova guarda o id do comentário-alvo (raiz ou resposta), com revisão humana antes do commit e sem alterar a migration já aplicada. `Comentario`, `ServicoDeInteracao` e `ComentarioResposta` foram ajustados; suite de `social` (105 testes) verde contra Postgres real depois da mudança.
 
 ### Início da implementação 25/09/2026: corrigido o status de Infra — a infraestrutura genérica de mensageria de P0-MSG já está entregue e comprovada (evento `ping.teste`, `identidade`→`acervo`, 19/09); o bloqueio real do consumidor de atividade é `leitura` (F-PRG/F-AVA) ainda não publicar os eventos de origem. Entregues em `social`: segurança JWT, idempotência (`Idempotency-Key`) e rate limiting portados de `identidade`; entidades JPA, repositórios e DTOs de feed/curtida/comentário sobre o schema já migrado. `GET /feed`/`GET /atividades/{id}` em implementação.

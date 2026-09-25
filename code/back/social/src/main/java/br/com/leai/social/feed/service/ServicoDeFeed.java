@@ -98,9 +98,9 @@ public class ServicoDeFeed {
   }
 
   /**
-   * Detalhe de uma atividade (RN-08/RN-09): reusa exatamente o mesmo critério de visibilidade do
-   * feed — se a atividade não apareceria em {@link #listar}, responde como inexistente (nunca
-   * {@code 403}), para não confirmar a terceiros a existência de conteúdo alheio.
+   * Detalhe de uma atividade (RN-08/RN-09): visível a quem segue o autor ou ao próprio autor; fora
+   * disso responde como inexistente (nunca {@code 403}), para não confirmar a terceiros a
+   * existência de conteúdo alheio.
    */
   @Transactional(readOnly = true)
   public AtividadeResposta obter(UUID usuarioId, UUID atividadeId) {
@@ -128,7 +128,7 @@ public class ServicoDeFeed {
             .orElseThrow(
                 () -> new ErroDeNegocioException(CodigoErro.RECURSO_NAO_ENCONTRADO, NAO_ENCONTRADO));
 
-    if (!atividadeRepository.visivelNoFeed(usuarioId, atividadeId)) {
+    if (!atividadeRepository.visivelPara(usuarioId, atividadeId)) {
       throw new ErroDeNegocioException(CodigoErro.RECURSO_NAO_ENCONTRADO, NAO_ENCONTRADO);
     }
     return atividade;

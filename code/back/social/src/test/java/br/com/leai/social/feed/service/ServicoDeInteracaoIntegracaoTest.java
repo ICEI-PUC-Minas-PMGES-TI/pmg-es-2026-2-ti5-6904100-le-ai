@@ -210,6 +210,36 @@ class ServicoDeInteracaoIntegracaoTest extends IntegracaoComPostgres {
   }
 
   // ---------------------------------------------------------------------------------------
+  // autor interagindo com a propria atividade
+  // ---------------------------------------------------------------------------------------
+
+  @Test
+  @DisplayName("autor curte, comenta e lista comentarios da propria atividade sem se seguir")
+  void autorInterageComAPropriaAtividade() {
+    UUID autor = UUID.randomUUID();
+    usuario(autor, "autor_" + autor, "Autora");
+    Atividade atividade = novaAtividade(autor, livroAtivo());
+
+    assertThat(servico.curtir(autor, atividade.id()).totalCurtidas()).isEqualTo(1);
+    ComentarioResposta comentario = servico.comentar(autor, atividade.id(), "Meu livro!", null);
+    assertThat(comentario.pertenceAoSolicitante()).isTrue();
+    assertThat(servico.listarComentariosRaiz(autor, atividade.id(), 0, 20).itens()).hasSize(1);
+  }
+
+  @Test
+  @DisplayName("autor nao interage com a propria atividade se o livro foi excluido (RN-09)")
+  void autorNaoInterageComAtividadeDeLivroExcluido() {
+    UUID autor = UUID.randomUUID();
+    usuario(autor, "autor_" + autor, "Autora");
+    UUID livroId = livroAtivo();
+    Atividade atividade = novaAtividade(autor, livroId);
+    jdbc.update("UPDATE acervo.livro SET ativo = false WHERE id = ?", livroId);
+
+    assertThatThrownBy(() -> servico.curtir(autor, atividade.id()))
+        .isInstanceOf(ErroDeNegocioException.class);
+  }
+
+  // ---------------------------------------------------------------------------------------
   // curtir / descurtir
   // ---------------------------------------------------------------------------------------
 
