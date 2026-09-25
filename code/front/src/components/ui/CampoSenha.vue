@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PhEye, PhEyeSlash } from '@phosphor-icons/vue'
+import { PhEye, PhEyeSlash, PhLock } from '@phosphor-icons/vue'
 import { ref } from 'vue'
 
 import CampoTexto from './CampoTexto.vue'
@@ -20,10 +20,13 @@ defineProps<{
   disabled?: boolean
   autocomplete?: string
   required?: boolean
+  /** Cadeado à esquerda, como nos protótipos de login e cadastro de F-AUT. */
+  comIcone?: boolean
 }>()
 
 defineEmits<{
   'update:modelValue': [valor: string]
+  blur: []
 }>()
 
 const mostrando = ref(false)
@@ -46,7 +49,9 @@ function alternarVisibilidade(): void {
     :disabled="disabled"
     :autocomplete="autocomplete"
     :required="required"
+    :icone="comIcone ? PhLock : undefined"
     @update:model-value="$emit('update:modelValue', $event)"
+    @blur="$emit('blur')"
   >
     <template #trailing>
       <button

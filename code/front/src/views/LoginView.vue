@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { PhUser } from '@phosphor-icons/vue'
 import { ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
@@ -15,7 +16,9 @@ import { iniciarSessao } from '../session'
 
 /**
  * Login (RF-AUT-02/03). Layout e cópia de docs/design/periodo-0/P0-NAV/login.md, com a edição de
- * F-AUT em docs/design/periodo-1/F-AUT/login.md (só o "Esqueci minha senha").
+ * F-AUT em docs/design/periodo-1/F-AUT/login.md ("Esqueci minha senha"). A coluna ilustrada, o
+ * selo e os ícones nos campos vêm do protótipo de F-AUT, que é o desenho aprovado e foi além do
+ * prompt (divergência registrada em feature-F-AUT.md).
  */
 
 const router = useRouter()
@@ -100,7 +103,7 @@ async function enviar(): Promise<void> {
 </script>
 
 <template>
-  <LayoutAutenticacao>
+  <LayoutAutenticacao ilustrada>
     <div class="md:hidden">
       <LogoLeAi :altura="24" />
     </div>
@@ -132,6 +135,7 @@ async function enviar(): Promise<void> {
             v-model="identificador"
             label="E-mail ou nome de usuário"
             autocomplete="username"
+            :icone="PhUser"
             :erro="erroIdentificador"
             :borda-de-erro="bordaDeErroCredencial"
           />
@@ -139,6 +143,7 @@ async function enviar(): Promise<void> {
             v-model="senha"
             label="Senha"
             autocomplete="current-password"
+            com-icone
             :erro="erroSenha"
             :borda-de-erro="bordaDeErroCredencial"
           />
