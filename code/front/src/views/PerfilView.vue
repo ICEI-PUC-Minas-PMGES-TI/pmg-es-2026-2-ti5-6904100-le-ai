@@ -1,25 +1,31 @@
 <script setup lang="ts">
-import { PhGear, PhGlobe, PhLock, PhWarningCircle } from '@phosphor-icons/vue'
+import { PhCaretRight, PhGear, PhMagnifyingGlass, PhUserPlus, PhWarningCircle } from '@phosphor-icons/vue'
 import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 
 import AvatarLeitor from '../components/perfil/AvatarLeitor.vue'
+import ChipPrivacidade from '../components/perfil/ChipPrivacidade.vue'
 import BotaoTextual from '../components/ui/BotaoTextual.vue'
+import { contagem } from '../perfil/textos'
 import { perfilService, type Perfil } from '../services/perfil'
 
 /**
- * Meu perfil (RF-SOC-01, RF-SOC-04), a partir de docs/design/periodo-1/F-PERFIL/meu-perfil.md.
- * Mobile: bloco de identidade centralizado e os contadores numa linha com divisor. Web: coluna
- * de identidade de 300px, com os contadores empilhados.
+ * Meu perfil (RF-SOC-01, RF-SOC-04, RF-SOC-08), a partir de
+ * docs/design/periodo-1/F-PERFIL/meu-perfil.md. Mobile: identidade centralizada e contadores numa
+ * linha com divisor. Web: coluna de identidade de 300px com os contadores empilhados, e a linha
+ * de solicitações no topo da coluna direita.
  *
  * **Sem estante, resenhas e o contador `livros lidos`** nesta entrega: vêm de `leitura`
  * (`listarEstantePerfil`, `listarResenhasPerfil`), ainda `planned`. Desenhar o vazio diria "você
- * não tem livros" a quem tem. A coluna direita da web e as duas seções entram com F-EST e F-AVA.
- * Busca de leitor, listas e solicitações chegam na etapa seguinte de F-PERFIL.
+ * não tem livros" a quem tem. As abas da coluna direita entram com F-EST e F-AVA.
+ *
+ * Sem sino na web, o perfil é o único lugar em que um pedido para seguir aparece (§1): a contagem
+ * vem de uma página de um item da caixa, e falhar nela só esconde a linha.
  */
 const perfil = ref<Perfil | null>(null)
 const carregando = ref(true)
 const falhou = ref(false)
+const pedidosPendentes = ref(0)
 
 async function carregar(): Promise<void> {
   carregando.value = true
@@ -33,11 +39,21 @@ async function carregar(): Promise<void> {
   }
 }
 
-onMounted(carregar)
-
-function contagem(valor: number, singular: string, plural: string): string {
-  return `${valor} ${valor === 1 ? singular : plural}`
+async function contarPedidos(): Promise<void> {
+  try {
+    pedidosPendentes.value = (await perfilService.listarSolicitacoes(0, 1)).totalElements
+  } catch {
+    pedidosPendentes.value = 0
+  }
 }
+
+onMounted(() => {
+  void carregar()
+  void contarPedidos()
+})
+
+const LINK_DE_CONTADOR =
+  'flex min-h-12 flex-col-reverse items-center justify-center rounded-base transition-colors duration-dur-fast hover:bg-linha focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo md:min-h-0 md:flex-row-reverse md:justify-end md:gap-space-3 md:py-space-3'
 </script>
 
 <template>
@@ -76,121 +92,167 @@ function contagem(valor: number, singular: string, plural: string): string {
       </div>
     </div>
 
-    <section
+    <div
       v-else
-      class="flex flex-col items-center text-center md:w-[300px] md:items-start md:text-left"
-      aria-label="Seu perfil"
+      class="flex flex-col gap-space-6 md:grid md:grid-cols-[300px_minmax(0,720px)] md:gap-space-12"
     >
-      <AvatarLeitor
-        class="md:hidden"
-        :url="perfil.avatarUrl"
-        :tamanho="96"
-      />
-      <AvatarLeitor
-        class="hidden md:flex"
-        :url="perfil.avatarUrl"
-        :tamanho="120"
-      />
-      <h2 class="mt-space-4 text-display text-tinta md:text-title-lg">
-        {{ perfil.displayName }}
-      </h2>
-      <p class="mt-space-1 text-caption text-grafite-suave">
-        @{{ perfil.username }}
-      </p>
-
-      <p
-        v-if="perfil.privacidade === 'publico'"
-        class="mt-space-3 inline-flex items-center gap-space-1 rounded-full bg-musgo-fundo px-space-3 py-space-1 text-caption font-semibold text-musgo"
+      <section
+        class="flex flex-col items-center text-center md:items-start md:text-left"
+        aria-label="Seu perfil"
       >
-        <PhGlobe
-          :size="16"
-          weight="regular"
-          aria-hidden="true"
+        <AvatarLeitor
+          class="md:hidden"
+          :url="perfil.avatarUrl"
+          :tamanho="96"
         />
-        Perfil público
-      </p>
-      <template v-else>
-        <p class="mt-space-3 inline-flex items-center gap-space-1 rounded-full border border-linha bg-papel-elevado px-space-3 py-space-1 text-caption font-semibold text-grafite">
-          <PhLock
-            :size="16"
-            weight="regular"
-            aria-hidden="true"
-          />
-          Perfil privado
+        <AvatarLeitor
+          class="hidden md:flex"
+          :url="perfil.avatarUrl"
+          :tamanho="120"
+        />
+        <h2 class="mt-space-4 text-display text-tinta md:text-title-lg">
+          {{ perfil.displayName }}
+        </h2>
+        <p class="mt-space-1 text-caption text-grafite-suave">
+          @{{ perfil.username }}
         </p>
-        <p class="mt-space-2 text-caption text-grafite">
+        <ChipPrivacidade
+          class="mt-space-3"
+          :privacidade="perfil.privacidade"
+        />
+        <p
+          v-if="perfil.privacidade === 'privado'"
+          class="mt-space-2 text-caption text-grafite"
+        >
           Só quem você aceita vê sua estante e suas resenhas.
         </p>
-      </template>
 
-      <!-- Texto de usuário: interpolação do Vue, com escape (RNF-SEC-14). -->
-      <p
-        v-if="perfil.biografia"
-        class="mt-space-4 line-clamp-3 whitespace-pre-line text-body text-grafite"
-      >
-        {{ perfil.biografia }}
-      </p>
-
-      <RouterLink
-        to="/perfil/editar"
-        class="mt-space-5 flex h-12 w-full max-w-[240px] items-center justify-center rounded-base border border-linha text-body-strong text-tinta transition-colors duration-dur-fast hover:bg-linha focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo md:h-10 md:max-w-none"
-      >
-        Editar perfil
-      </RouterLink>
-
-      <!-- Mobile: três números numa linha com divisor (§4); web: empilhados (§5). Aqui, dois. -->
-      <dl class="mt-space-6 grid w-full grid-cols-2 divide-x divide-linha border-b border-linha pb-space-4 md:mt-space-6 md:grid-cols-1 md:divide-x-0 md:divide-y md:border-b-0 md:pb-0">
-        <div
-          class="flex flex-col-reverse items-center md:flex-row-reverse md:justify-end md:gap-space-3 md:py-space-3"
-          :aria-label="contagem(perfil.contadores.seguidores, 'seguidor', 'seguidores')"
+        <!-- Texto de usuário: interpolação do Vue, com escape (RNF-SEC-14). -->
+        <p
+          v-if="perfil.biografia"
+          class="mt-space-4 line-clamp-3 whitespace-pre-line text-body text-grafite"
         >
-          <dt class="text-caption text-grafite md:text-body">
-            {{ perfil.contadores.seguidores === 1 ? 'seguidor' : 'seguidores' }}
-          </dt>
-          <dd class="font-mono text-num-inline tabular-nums text-tinta">
-            {{ perfil.contadores.seguidores }}
-          </dd>
-        </div>
-        <div
-          class="flex flex-col-reverse items-center md:flex-row-reverse md:justify-end md:gap-space-3 md:py-space-3"
-          :aria-label="`${perfil.contadores.seguidos} seguindo`"
+          {{ perfil.biografia }}
+        </p>
+
+        <RouterLink
+          to="/perfil/editar"
+          class="mt-space-5 flex h-12 w-full max-w-[240px] items-center justify-center rounded-base border border-linha text-body-strong text-tinta transition-colors duration-dur-fast hover:bg-linha focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo md:h-10 md:max-w-none"
         >
-          <dt class="text-caption text-grafite md:text-body">
-            seguindo
-          </dt>
-          <dd class="font-mono text-num-inline tabular-nums text-tinta">
-            {{ perfil.contadores.seguidos }}
-          </dd>
-        </div>
-      </dl>
-    </section>
+          Editar perfil
+        </RouterLink>
+
+        <!-- Mobile: números numa linha com divisor (§4); web: empilhados (§5). Levam às listas. -->
+        <nav
+          class="mt-space-6 grid w-full grid-cols-2 divide-x divide-linha border-b border-linha pb-space-4 md:grid-cols-1 md:divide-x-0 md:divide-y md:border-b-0 md:pb-0"
+          aria-label="Conexões"
+        >
+          <RouterLink
+            to="/perfil/conexoes?aba=seguidores"
+            :class="LINK_DE_CONTADOR"
+            :aria-label="contagem(perfil.contadores.seguidores, 'seguidor', 'seguidores')"
+          >
+            <span class="text-caption text-grafite md:text-body">
+              {{ perfil.contadores.seguidores === 1 ? 'seguidor' : 'seguidores' }}
+            </span>
+            <span class="font-mono text-num-inline tabular-nums text-tinta">
+              {{ perfil.contadores.seguidores }}
+            </span>
+          </RouterLink>
+          <RouterLink
+            to="/perfil/conexoes?aba=seguidos"
+            :class="LINK_DE_CONTADOR"
+            :aria-label="`${perfil.contadores.seguidos} seguindo`"
+          >
+            <span class="text-caption text-grafite md:text-body">
+              seguindo
+            </span>
+            <span class="font-mono text-num-inline tabular-nums text-tinta">
+              {{ perfil.contadores.seguidos }}
+            </span>
+          </RouterLink>
+        </nav>
+      </section>
+
+      <div>
+        <!-- §4.3: sem badge vermelho nem ponto pulsando; o número está escrito com unidade. -->
+        <RouterLink
+          v-if="pedidosPendentes > 0"
+          to="/perfil/solicitacoes"
+          class="flex items-center gap-space-3 rounded-base bg-musgo-fundo p-space-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo"
+        >
+          <PhUserPlus
+            :size="20"
+            weight="regular"
+            class="shrink-0 text-musgo"
+            aria-hidden="true"
+          />
+          <span class="flex-1 text-body text-tinta">
+            {{ contagem(pedidosPendentes, 'solicitação', 'solicitações') }} para seguir você
+          </span>
+          <PhCaretRight
+            :size="20"
+            weight="regular"
+            class="shrink-0 text-musgo"
+            aria-hidden="true"
+          />
+        </RouterLink>
+      </div>
+    </div>
   </div>
 
   <Teleport
     to="#cabecalho-acoes"
     defer
   >
-    <RouterLink
-      to="/perfil/configuracoes"
-      class="-mr-space-3 flex size-12 items-center justify-center rounded-base text-tinta transition-colors duration-dur-fast hover:bg-linha focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-musgo md:hidden"
-      aria-label="Configurações"
-    >
-      <PhGear
-        :size="24"
-        weight="regular"
-        aria-hidden="true"
-      />
-    </RouterLink>
-    <RouterLink
-      to="/perfil/configuracoes"
-      class="hidden h-10 items-center gap-space-2 rounded-base border border-linha px-space-5 text-body-strong text-tinta transition-colors duration-dur-fast hover:bg-linha focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo md:flex"
-    >
-      <PhGear
-        :size="20"
-        weight="regular"
-        aria-hidden="true"
-      />
-      Configurações
-    </RouterLink>
+    <!-- Mobile: lupa e engrenagem (§4); web: dois botões secundários (§5). A lupa busca pessoas. -->
+    <div class="-mr-space-3 flex items-center md:hidden">
+      <RouterLink
+        to="/perfil/buscar"
+        class="flex size-12 items-center justify-center rounded-base text-tinta transition-colors duration-dur-fast hover:bg-linha focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-musgo"
+        aria-label="Buscar leitor"
+      >
+        <PhMagnifyingGlass
+          :size="24"
+          weight="regular"
+          aria-hidden="true"
+        />
+      </RouterLink>
+      <RouterLink
+        to="/perfil/configuracoes"
+        class="flex size-12 items-center justify-center rounded-base text-tinta transition-colors duration-dur-fast hover:bg-linha focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-musgo"
+        aria-label="Configurações"
+      >
+        <PhGear
+          :size="24"
+          weight="regular"
+          aria-hidden="true"
+        />
+      </RouterLink>
+    </div>
+    <div class="hidden items-center gap-space-3 md:flex">
+      <RouterLink
+        to="/perfil/buscar"
+        class="flex h-10 items-center gap-space-2 rounded-base border border-linha px-space-5 text-body-strong text-tinta transition-colors duration-dur-fast hover:bg-linha focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo"
+      >
+        <PhMagnifyingGlass
+          :size="20"
+          weight="regular"
+          aria-hidden="true"
+        />
+        Buscar leitor
+      </RouterLink>
+      <RouterLink
+        to="/perfil/configuracoes"
+        class="flex h-10 items-center gap-space-2 rounded-base border border-linha px-space-5 text-body-strong text-tinta transition-colors duration-dur-fast hover:bg-linha focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo"
+      >
+        <PhGear
+          :size="20"
+          weight="regular"
+          aria-hidden="true"
+        />
+        Configurações
+      </RouterLink>
+    </div>
   </Teleport>
 </template>

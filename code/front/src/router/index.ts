@@ -11,7 +11,9 @@ import {
 import ShellAutenticado from '../layouts/ShellAutenticado.vue'
 import { getToken, useSession } from '../session'
 import AlterarSenhaView from '../views/AlterarSenhaView.vue'
+import BuscarLeitorView from '../views/BuscarLeitorView.vue'
 import CadastroView from '../views/CadastroView.vue'
+import ConexoesView from '../views/ConexoesView.vue'
 import ConfiguracoesView from '../views/ConfiguracoesView.vue'
 import DescobrirView from '../views/DescobrirView.vue'
 import EditarPerfilView from '../views/EditarPerfilView.vue'
@@ -21,7 +23,9 @@ import LoginView from '../views/LoginView.vue'
 import PoliticaPrivacidadeView from '../views/PoliticaPrivacidadeView.vue'
 import RecuperarSenhaView from '../views/RecuperarSenhaView.vue'
 import RedefinirSenhaView from '../views/RedefinirSenhaView.vue'
+import PerfilDeOutroView from '../views/PerfilDeOutroView.vue'
 import PerfilView from '../views/PerfilView.vue'
+import SolicitacoesView from '../views/SolicitacoesView.vue'
 import CadastroIsbnView from '../views/livros/CadastroIsbnView.vue'
 import IsbnNaoEncontradoView from '../views/livros/IsbnNaoEncontradoView.vue'
 import LivroOficialPlaceholderView from '../views/livros/LivroOficialPlaceholderView.vue'
@@ -117,6 +121,32 @@ export const routes: RouteRecordRaw[] = [
         name: 'editar-perfil',
         component: EditarPerfilView,
         meta: { titulo: 'Editar perfil', voltar: true, fechar: true },
+      },
+      {
+        path: 'perfil/buscar',
+        name: 'buscar-leitor',
+        component: BuscarLeitorView,
+        meta: { titulo: 'Buscar leitor', voltar: true },
+      },
+      {
+        path: 'perfil/conexoes',
+        name: 'conexoes',
+        component: ConexoesView,
+        meta: { titulo: 'Conexões', voltar: true },
+      },
+      {
+        path: 'perfil/solicitacoes',
+        name: 'solicitacoes',
+        component: SolicitacoesView,
+        meta: { titulo: 'Solicitações', voltar: true },
+      },
+      {
+        path: 'leitores/:username',
+        name: 'perfil-de-outro',
+        component: PerfilDeOutroView,
+        // Sem título: o nome está grande no bloco de identidade. Chega da busca, das listas e da
+        // caixa (aba Perfil) e, com F-FEED, do feed (`?via=feed`).
+        meta: { titulo: '', voltar: true, aba: (rota) => (rota.query.via === 'feed' ? '/feed' : '/perfil') },
       },
       // F-AUT. Empilhadas sobre Perfil, que fica ativa pelo prefixo do caminho.
       {

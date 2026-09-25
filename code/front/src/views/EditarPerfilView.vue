@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { PhCamera, PhGlobe, PhLock } from '@phosphor-icons/vue'
 import { computed, onBeforeUnmount, onMounted, reactive, ref, type Component } from 'vue'
-import { onBeforeRouteLeave, useRouter, type RouteLocationRaw } from 'vue-router'
+import { onBeforeRouteLeave, RouterLink, useRouter, type RouteLocationRaw } from 'vue-router'
 
 import AvatarLeitor from '../components/perfil/AvatarLeitor.vue'
 import BannerAviso from '../components/ui/BannerAviso.vue'
@@ -512,6 +512,13 @@ async function descartar(): Promise<void> {
         class="mt-space-4"
       >
         {{ avisoDePrivado }}
+        <!-- Sai pela guarda de saída: com a privacidade trocada, o modal de descarte aparece. -->
+        <RouterLink
+          to="/perfil/conexoes?aba=seguidores"
+          class="mt-space-3 flex min-h-12 items-center text-body-strong text-musgo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo md:min-h-10"
+        >
+          Ver seguidores
+        </RouterLink>
       </BannerAviso>
       <p
         v-if="coldStart"

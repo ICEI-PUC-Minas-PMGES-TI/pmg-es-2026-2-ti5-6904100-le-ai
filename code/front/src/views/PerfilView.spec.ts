@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { perfilService, type Perfil } from '../services/perfil'
 import { montarNaRota } from '../testes/montarNaRota'
 
-vi.mock('../services/perfil', () => ({ perfilService: { obterMeuPerfil: vi.fn() } }))
+vi.mock('../services/perfil', () => ({ perfilService: { obterMeuPerfil: vi.fn(), listarSolicitacoes: vi.fn() } }))
 
 const servico = vi.mocked(perfilService)
 
@@ -24,6 +24,30 @@ describe('PerfilView', () => {
   beforeEach(() => {
     localStorage.clear()
     servico.obterMeuPerfil.mockReset().mockResolvedValue(PERFIL)
+    servico.listarSolicitacoes
+      .mockReset()
+      .mockResolvedValue({ items: [], page: 0, size: 1, totalElements: 0, totalPages: 0 })
+  })
+
+  it('contadores levam às listas, a lupa à busca, e pedidos pendentes têm linha própria', async () => {
+    servico.listarSolicitacoes.mockResolvedValue({ items: [], page: 0, size: 1, totalElements: 3, totalPages: 3 })
+    const { wrapper } = await montarNaRota('/perfil')
+    await flushPromises()
+
+    expect(servico.listarSolicitacoes).toHaveBeenCalledWith(0, 1)
+    expect(wrapper.get('a[href="/perfil/conexoes?aba=seguidores"]').attributes('aria-label')).toBe('84 seguidores')
+    expect(wrapper.get('a[href="/perfil/conexoes?aba=seguidos"]').attributes('aria-label')).toBe('1 seguindo')
+    expect(wrapper.get('a[href="/perfil/solicitacoes"]').text()).toBe('3 solicitações para seguir você')
+    expect(wrapper.find('a[aria-label="Buscar leitor"]').exists()).toBe(true)
+  })
+
+  it('sem pedidos, ou se a contagem falhar, a linha não aparece', async () => {
+    servico.listarSolicitacoes.mockRejectedValue(new Error('rede'))
+    const { wrapper } = await montarNaRota('/perfil')
+    await flushPromises()
+
+    expect(wrapper.find('a[href="/perfil/solicitacoes"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Marina Beltrão')
   })
   afterEach(() => {
     document.body.innerHTML = ''
