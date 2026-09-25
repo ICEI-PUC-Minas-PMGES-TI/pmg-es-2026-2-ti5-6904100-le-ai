@@ -14,6 +14,9 @@ import 'package:le_ai_mobile/features/auth/auth_service.dart';
 import 'package:le_ai_mobile/features/livros/acervo_service.dart';
 import 'package:le_ai_mobile/features/livros/capa.dart';
 import 'package:le_ai_mobile/features/livros/rotas_livros.dart';
+import 'package:le_ai_mobile/features/perfil/avatar.dart';
+import 'package:le_ai_mobile/features/perfil/perfil_service.dart';
+import 'package:le_ai_mobile/features/perfil/rotas_perfil.dart';
 
 /// Testa a guarda através de um `GoRouter` de verdade dirigido por `router.go()`, em vez de
 /// montar um `GoRouterState` à mão: o construtor dele exige uma `RouteConfiguration` interna do
@@ -47,6 +50,31 @@ class _SemEnvio implements EnviadorDeCapa {
       throw const FalhaNoEnvioDaCapa();
 }
 
+class _SemAvatar implements EnviadorDeAvatar {
+  @override
+  Future<Avatar> enviar(ImagemEscolhida imagem) async => throw const FalhaNoEnvioDoAvatar();
+}
+
+/// `identidade` simulado para a aba Perfil: sempre o mesmo perfil próprio.
+DependenciasDePerfil _perfilSimulado() => DependenciasDePerfil(
+  servico: PerfilService(
+    ApiClient(
+      baseUrl: 'http://localhost:8080',
+      client: MockClient(
+        (request) async => http.Response(
+          '{"id":"u1","username":"marinableu","displayName":"Marina Beltrão","avatarUrl":null,'
+          '"privacidade":"publico","conteudoRestrito":false,"relacao":"proprio","biografia":null,'
+          '"contadores":{"seguidores":0,"seguidos":0}}',
+          200,
+          headers: <String, String>{'content-type': 'application/json; charset=utf-8'},
+        ),
+      ),
+    ),
+  ),
+  seletor: _SemImagem(),
+  enviador: _SemAvatar(),
+);
+
 Widget _wrap(GoRouter router) {
   return MaterialApp.router(theme: AppTheme.light(), routerConfig: router);
 }
@@ -65,6 +93,7 @@ void main() {
     router = buildRouter(
       sessionController: sessionController,
       authService: AuthService(apiClient),
+      perfil: _perfilSimulado(),
       livros: DependenciasDeLivros(
         acervo: AcervoService(
           ApiClient(
@@ -93,7 +122,7 @@ void main() {
       await sessionController.entrar('jwt-valido');
       await tester.pumpAndSettle();
       // refreshListenable reavalia a guarda sozinho: com sessão, /login vira o destino salvo.
-      expect(find.text('Seu perfil aparece aqui.'), findsOneWidget);
+      expect(find.text('Marina Beltrão'), findsOneWidget);
     },
   );
 
@@ -115,7 +144,7 @@ void main() {
 
     await tester.tap(find.text('Perfil'));
     await tester.pumpAndSettle();
-    expect(find.text('Seu perfil aparece aqui.'), findsOneWidget);
+    expect(find.text('Marina Beltrão'), findsOneWidget);
 
     await tester.tap(find.text('Estante'));
     await tester.pumpAndSettle();
@@ -192,6 +221,7 @@ void main() {
           client: MockClient((request) async => http.Response('{}', 200)),
         ),
       ),
+      perfil: _perfilSimulado(),
       livros: DependenciasDeLivros(
         acervo: AcervoService(ApiClient(baseUrl: 'http://localhost:3000')),
         seletor: _SemImagem(),

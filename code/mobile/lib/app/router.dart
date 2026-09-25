@@ -14,6 +14,7 @@ import '../features/estante/estante_page.dart';
 import '../features/feed/feed_page.dart';
 import '../features/livros/rotas_livros.dart';
 import '../features/perfil/perfil_page.dart';
+import '../features/perfil/rotas_perfil.dart';
 import 'shell_autenticado.dart';
 import 'verificando_sessao_page.dart';
 
@@ -34,18 +35,20 @@ const List<String> _rotasPublicas = <String>[rotaLogin, rotaCadastro, rotaRecupe
 ///
 /// [livros] traz os serviços das telas de F-ACV-CADASTRO. Sem ele, o padrão aponta para o
 /// `acervo` de `AppConfig` com o token da sessão — os testes que não passam por essas telas não
-/// precisam montar nada.
+/// precisam montar nada. [perfil] faz o mesmo para F-PERFIL, com o `identidade`.
 GoRouter buildRouter({
   required SessionController sessionController,
   required AuthService authService,
   DependenciasDeLivros? livros,
+  DependenciasDePerfil? perfil,
 }) {
+  Future<bool> renovar(String token) => sessionController.renovar(token, authService.renovar);
   final deps =
       livros ??
-      DependenciasDeLivros.padrao(
-        getToken: () => sessionController.token,
-        renovarSessao: (token) => sessionController.renovar(token, authService.renovar),
-      );
+      DependenciasDeLivros.padrao(getToken: () => sessionController.token, renovarSessao: renovar);
+  final depsDePerfil =
+      perfil ??
+      DependenciasDePerfil.padrao(getToken: () => sessionController.token, renovarSessao: renovar);
   return GoRouter(
     initialLocation: rotaVerificandoSessao,
     refreshListenable: sessionController,
@@ -141,8 +144,12 @@ GoRouter buildRouter({
             routes: <RouteBase>[
               GoRoute(
                 path: '/perfil',
-                builder: (context, state) => const PerfilPage(),
+                builder: (context, state) => PerfilPage(
+                  servico: depsDePerfil.servico,
+                  aoEditar: () => context.push<void>(rotaEditarPerfil),
+                ),
                 routes: <RouteBase>[
+                  ...rotasDoPerfil(depsDePerfil),
                   GoRoute(
                     path: 'configuracoes',
                     builder: (context, state) => ConfiguracoesPage(

@@ -147,6 +147,24 @@ class ApiClient {
     );
   }
 
+  /// PUT de substituição (`PUT /me/perfil`, F-PERFIL). Mesma regra do PATCH: só retenta com chave.
+  Future<http.Response> put(
+    String path, {
+    Object? body,
+    Map<String, String> headers = const <String, String>{},
+    String? correlationId,
+    String? idempotencyKey,
+  }) {
+    return _enviar(
+      'PUT',
+      path,
+      body: body,
+      headers: headers,
+      correlationId: correlationId,
+      idempotencyKey: idempotencyKey,
+    );
+  }
+
   Future<http.Response> delete(
     String path, {
     Map<String, String> headers = const <String, String>{},
@@ -205,6 +223,24 @@ class ApiClient {
   }) async {
     final requestCorrelationId = correlationId ?? newCorrelationId();
     final response = await patch(
+      path,
+      body: body,
+      headers: headers,
+      correlationId: requestCorrelationId,
+      idempotencyKey: idempotencyKey,
+    );
+    return _decodeJson(response, requestCorrelationId);
+  }
+
+  Future<Map<String, dynamic>> putJson(
+    String path, {
+    Object? body,
+    Map<String, String> headers = const <String, String>{},
+    String? correlationId,
+    String? idempotencyKey,
+  }) async {
+    final requestCorrelationId = correlationId ?? newCorrelationId();
+    final response = await put(
       path,
       body: body,
       headers: headers,

@@ -6,7 +6,7 @@ import '../design/theme.dart';
 import 'barra_inferior.dart';
 import 'cabecalho_tela.dart';
 
-const List<String> _titulosPorAba = <String>['Minha estante', 'Descobrir', 'Feed', 'Meu perfil'];
+const List<String> _titulosPorAba = <String>['Minha estante', 'Descobrir', 'Feed', 'Perfil'];
 const List<String> _raizesDasAbas = <String>['/estante', '/descobrir', '/feed', '/perfil'];
 const int _indiceDoPerfil = 3;
 

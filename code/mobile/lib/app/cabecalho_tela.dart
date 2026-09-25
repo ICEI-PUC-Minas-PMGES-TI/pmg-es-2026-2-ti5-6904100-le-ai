@@ -34,6 +34,9 @@ class CabecalhoTela extends StatelessWidget {
   /// privacidade aberta pelo cadastro, cadastro.md §5).
   final bool comSino;
 
+  /// Com [aoVoltar]: formulário que se abandona (editar-perfil.md §4), com `X` no lugar da seta.
+  final bool fechar;
+
   const CabecalhoTela({
     super.key,
     required this.titulo,
@@ -41,6 +44,7 @@ class CabecalhoTela extends StatelessWidget {
     this.aoVoltar,
     this.acoes = const <Widget>[],
     this.comSino = true,
+    this.fechar = false,
   });
 
   @override
@@ -63,7 +67,7 @@ class CabecalhoTela extends StatelessWidget {
                   // Área tocável de 48px em volta do ícone de 24px (alvo mínimo de toque).
                   Semantics(
                     button: true,
-                    label: 'Voltar',
+                    label: fechar ? 'Fechar' : 'Voltar',
                     child: GestureDetector(
                       onTap: aoVoltar,
                       behavior: HitTestBehavior.opaque,
@@ -73,7 +77,7 @@ class CabecalhoTela extends StatelessWidget {
                         child: Align(
                           alignment: Alignment.centerLeft,
                           child: Icon(
-                            PhosphorIconsRegular.arrowLeft,
+                            fechar ? PhosphorIconsRegular.x : PhosphorIconsRegular.arrowLeft,
                             size: 24,
                             color: theme.colorScheme.onSurface,
                           ),

@@ -36,4 +36,11 @@ class AppConfig {
     'CLOUDINARY_UPLOAD_PRESET',
     defaultValue: '',
   );
+
+  /// Preset **unsigned** do avatar (F-PERFIL): `leai_avatares`, que grava na pasta `avatares`,
+  /// a única que o `identidade` aceita na URL. Vazio desliga o envio de foto, como o da capa.
+  static const String cloudinaryAvatarPreset = String.fromEnvironment(
+    'CLOUDINARY_AVATAR_PRESET',
+    defaultValue: '',
+  );
 }
