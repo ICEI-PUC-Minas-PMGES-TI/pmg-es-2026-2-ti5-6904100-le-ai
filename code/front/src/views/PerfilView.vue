@@ -52,8 +52,14 @@ onMounted(() => {
   void contarPedidos()
 })
 
+// Célula: dá a folga entre o hover e o divisor (mobile, dos dois lados; web, em cima e embaixo).
+const CELULA_DE_CONTADOR = 'flex p-space-1 md:px-0'
+
+// Link: no mobile, número sobre o rótulo, centralizado; na web, número à esquerda e rótulo à
+// direita nas pontas da coluna. O `-mx-space-3` com `px-space-3` mantém o texto alinhado à
+// coluna e deixa o hover respirar para fora dela.
 const LINK_DE_CONTADOR =
-  'flex min-h-12 flex-col-reverse items-center justify-center rounded-base transition-colors duration-dur-fast hover:bg-linha focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo md:min-h-0 md:flex-row-reverse md:justify-end md:gap-space-3 md:py-space-3'
+  'flex min-h-12 flex-1 flex-col-reverse items-center justify-center gap-0.5 rounded-base px-space-2 py-space-2 transition-colors duration-dur-fast hover:bg-linha focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo md:-mx-space-3 md:min-h-0 md:flex-row-reverse md:items-baseline md:justify-between md:px-space-3'
 </script>
 
 <template>
@@ -142,35 +148,42 @@ const LINK_DE_CONTADOR =
           Editar perfil
         </RouterLink>
 
-        <!-- Mobile: números numa linha com divisor (§4); web: empilhados (§5). Levam às listas. -->
+        <!-- Mobile: números numa linha com divisor vertical (§4); web: empilhados, número à
+             esquerda e rótulo à direita, com divisor horizontal (§5). O divisor fica na célula,
+             que não tem raio; o link dentro dela tem padding e hover arredondado próprios, sem
+             encostar no separador. -->
         <nav
-          class="mt-space-6 grid w-full grid-cols-2 divide-x divide-linha border-b border-linha pb-space-4 md:grid-cols-1 md:divide-x-0 md:divide-y md:border-b-0 md:pb-0"
+          class="mt-space-6 grid w-full grid-cols-2 border-b border-linha md:grid-cols-1 md:border-b-0"
           aria-label="Conexões"
         >
-          <RouterLink
-            to="/perfil/conexoes?aba=seguidores"
-            :class="LINK_DE_CONTADOR"
-            :aria-label="contagem(perfil.contadores.seguidores, 'seguidor', 'seguidores')"
-          >
-            <span class="text-caption text-grafite md:text-body">
-              {{ perfil.contadores.seguidores === 1 ? 'seguidor' : 'seguidores' }}
-            </span>
-            <span class="font-mono text-num-inline tabular-nums text-tinta">
-              {{ perfil.contadores.seguidores }}
-            </span>
-          </RouterLink>
-          <RouterLink
-            to="/perfil/conexoes?aba=seguidos"
-            :class="LINK_DE_CONTADOR"
-            :aria-label="`${perfil.contadores.seguidos} seguindo`"
-          >
-            <span class="text-caption text-grafite md:text-body">
-              seguindo
-            </span>
-            <span class="font-mono text-num-inline tabular-nums text-tinta">
-              {{ perfil.contadores.seguidos }}
-            </span>
-          </RouterLink>
+          <div :class="CELULA_DE_CONTADOR">
+            <RouterLink
+              to="/perfil/conexoes?aba=seguidores"
+              :class="LINK_DE_CONTADOR"
+              :aria-label="contagem(perfil.contadores.seguidores, 'seguidor', 'seguidores')"
+            >
+              <span class="text-caption text-grafite md:text-body">
+                {{ perfil.contadores.seguidores === 1 ? 'seguidor' : 'seguidores' }}
+              </span>
+              <span class="font-mono text-num-inline tabular-nums text-tinta">
+                {{ perfil.contadores.seguidores }}
+              </span>
+            </RouterLink>
+          </div>
+          <div :class="[CELULA_DE_CONTADOR, 'border-l border-linha md:border-l-0 md:border-t']">
+            <RouterLink
+              to="/perfil/conexoes?aba=seguidos"
+              :class="LINK_DE_CONTADOR"
+              :aria-label="`${perfil.contadores.seguidos} seguindo`"
+            >
+              <span class="text-caption text-grafite md:text-body">
+                seguindo
+              </span>
+              <span class="font-mono text-num-inline tabular-nums text-tinta">
+                {{ perfil.contadores.seguidos }}
+              </span>
+            </RouterLink>
+          </div>
         </nav>
       </section>
 
