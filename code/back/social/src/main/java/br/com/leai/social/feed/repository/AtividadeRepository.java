@@ -1,6 +1,8 @@
 package br.com.leai.social.feed.repository;
 
 import br.com.leai.social.feed.entity.Atividade;
+import br.com.leai.social.feed.entity.TipoAtividade;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -77,4 +79,11 @@ public interface AtividadeRepository extends JpaRepository<Atividade, UUID> {
           """,
       nativeQuery = true)
   boolean visivelPara(@Param("usuarioId") UUID usuarioId, @Param("atividadeId") UUID atividadeId);
+
+  /**
+   * Localiza a atividade originada de uma resenha/leitura específica (RF-SOC-10): usado pelo
+   * consumidor de eventos para achar a atividade de {@code resenha.publicada} a remover quando
+   * chega {@code resenha.excluida}.
+   */
+  Optional<Atividade> findByTipoAndOrigemId(TipoAtividade tipo, UUID origemId);
 }

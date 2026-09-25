@@ -15,6 +15,25 @@ public final class MessagingConstants {
       List.of(IDENTIDADE_EXCHANGE, ACERVO_EXCHANGE, LEITURA_EXCHANGE, SOCIAL_EXCHANGE);
   public static final List<Long> RETRY_DELAYS_MILLIS = List.of(1_000L, 5_000L, 15_000L);
 
+  /** Topologia do consumidor de {@code leitura}/{@code resenha} do feed (RF-SOC-10). */
+  public static final String FEED_CONSUMER_NAME = "social.feed";
+
+  public static final String FEED_QUEUE = "leai.social.feed";
+  public static final String EVENTO_LEITURA_INICIADA = "leitura.iniciada";
+  public static final String EVENTO_LEITURA_RETOMADA = "leitura.retomada";
+  public static final String EVENTO_LEITURA_FINALIZADA = "leitura.finalizada";
+  public static final String EVENTO_LEITURA_ABANDONADA = "leitura.abandonada";
+  public static final String EVENTO_RESENHA_PUBLICADA = "resenha.publicada";
+  public static final String EVENTO_RESENHA_EXCLUIDA = "resenha.excluida";
+  public static final List<String> FEED_ROUTING_KEYS =
+      List.of(
+          EVENTO_LEITURA_INICIADA,
+          EVENTO_LEITURA_RETOMADA,
+          EVENTO_LEITURA_FINALIZADA,
+          EVENTO_LEITURA_ABANDONADA,
+          EVENTO_RESENHA_PUBLICADA,
+          EVENTO_RESENHA_EXCLUIDA);
+
   private MessagingConstants() {}
 
   public static Map<String, Object> deadLetterArguments(String queue) {

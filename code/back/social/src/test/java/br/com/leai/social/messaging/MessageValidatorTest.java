@@ -32,6 +32,120 @@ class MessageValidatorTest {
   }
 
   @Test
+  @DisplayName("valida os 6 eventos de leitura/resenha consumidos pelo feed (RF-SOC-10)")
+  void validaEventosDoFeed() {
+    UUID leituraId = UUID.randomUUID();
+    UUID resenhaId = UUID.randomUUID();
+    Map<String, Object> usuario =
+        Map.of(
+            "id", UUID.randomUUID().toString(),
+            "username", "autora1",
+            "displayName", "Autora Um",
+            "avatarUrl", "https://cdn.leai.app/a.png");
+    Map<String, Object> livro =
+        Map.of(
+            "id", UUID.randomUUID().toString(),
+            "tipo", "oficial",
+            "titulo", "Livro Um",
+            "autor", "Escritor Um",
+            "capaUrl", "https://cdn.leai.app/l.png");
+
+    validaTipo(
+        "leitura.iniciada",
+        Map.of(
+            "usuarioId", UUID.randomUUID().toString(),
+            "leituraId", leituraId.toString(),
+            "livroId", UUID.randomUUID().toString(),
+            "releitura", false,
+            "usuario", usuario,
+            "livro", livro));
+    validaTipo(
+        "leitura.retomada",
+        Map.of(
+            "usuarioId", UUID.randomUUID().toString(),
+            "leituraId", leituraId.toString(),
+            "livroId", UUID.randomUUID().toString(),
+            "paginaRetomada", 10,
+            "usuario", usuario,
+            "livro", livro));
+    validaTipo(
+        "leitura.finalizada",
+        Map.of(
+            "usuarioId", UUID.randomUUID().toString(),
+            "leituraId", leituraId.toString(),
+            "livroId", UUID.randomUUID().toString(),
+            "releitura", false,
+            "dataFim", "2026-09-20",
+            "finalizadaEm", "2026-09-20T12:00:00Z",
+            "finalizacaoFusoHorario", "America/Sao_Paulo",
+            "finalizacaoDataLocal", "2026-09-20",
+            "usuario", usuario,
+            "livro", livro));
+    validaTipo(
+        "leitura.abandonada",
+        Map.of(
+            "usuarioId", UUID.randomUUID().toString(),
+            "leituraId", leituraId.toString(),
+            "livroId", UUID.randomUUID().toString(),
+            "releitura", false,
+            "incompleta", true,
+            "paginaParada", 5,
+            "usuario", usuario,
+            "livro", livro));
+    validaTipo(
+        "resenha.publicada",
+        Map.of(
+            "usuarioId", UUID.randomUUID().toString(),
+            "resenhaId", resenhaId.toString(),
+            "livroId", UUID.randomUUID().toString(),
+            "atualizacao", false,
+            "usuario", usuario,
+            "livro", livro));
+    validaTipo(
+        "resenha.excluida",
+        Map.of(
+            "usuarioId", UUID.randomUUID().toString(),
+            "resenhaId", resenhaId.toString(),
+            "livroId", UUID.randomUUID().toString()));
+  }
+
+  @Test
+  @DisplayName("rejeita leitura.iniciada sem o snapshot de usuario exigido pelo schema")
+  void rejeitaLeituraIniciadaSemUsuario() {
+    MessageEnvelope envelope =
+        new MessageEnvelope(
+            EVENT_ID,
+            "leitura.iniciada",
+            1,
+            OffsetDateTime.parse("2026-09-16T12:00:00Z"),
+            CORRELATION_ID,
+            "leitura:" + UUID.randomUUID() + ":iniciada",
+            Map.of(
+                "usuarioId", UUID.randomUUID().toString(),
+                "leituraId", UUID.randomUUID().toString(),
+                "livroId", UUID.randomUUID().toString(),
+                "releitura", false));
+
+    assertThatThrownBy(() -> new MessageValidator().validate(envelope))
+        .isInstanceOf(InvalidMessageException.class)
+        .hasMessageContaining("Schema invalido");
+  }
+
+  private static void validaTipo(String tipo, Map<String, Object> dados) {
+    MessageEnvelope envelope =
+        new MessageEnvelope(
+            UUID.randomUUID(),
+            tipo,
+            1,
+            OffsetDateTime.parse("2026-09-16T12:00:00Z"),
+            CORRELATION_ID,
+            "teste:" + tipo + ":" + UUID.randomUUID(),
+            dados);
+
+    new MessageValidator().validate(envelope);
+  }
+
+  @Test
   @DisplayName("rejeita schema de dados desconhecido")
   void rejeitaSchemaDesconhecido() {
     MessageEnvelope envelope =
