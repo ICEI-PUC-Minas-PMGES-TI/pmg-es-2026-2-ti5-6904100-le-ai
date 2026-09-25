@@ -242,7 +242,7 @@ class ServicoDeFeedIntegracaoTest extends IntegracaoComPostgres {
     UUID livroId = UUID.randomUUID();
     seguir(solicitante, autor);
     livro(livroId, "oficial", true);
-    Atividade atividade = leitura(autor, livroId, "chave-1");
+    Atividade atividade = leitura(autor, livroId, "servico-chave-1");
 
     PaginaAtividadesResposta pagina = servico.listar(solicitante, 0, 20);
 
@@ -266,7 +266,7 @@ class ServicoDeFeedIntegracaoTest extends IntegracaoComPostgres {
     UUID livroId = UUID.randomUUID();
     seguir(solicitante, autor);
     livro(livroId, "pessoal", true);
-    Atividade atividade = leitura(autor, livroId, "chave-2");
+    Atividade atividade = leitura(autor, livroId, "servico-chave-2");
 
     PaginaAtividadesResposta pagina = servico.listar(solicitante, 0, 20);
 
@@ -285,7 +285,7 @@ class ServicoDeFeedIntegracaoTest extends IntegracaoComPostgres {
     seguir(solicitante, autor);
     livro(livroId, "oficial", true);
     UUID resenhaId = resenha(autor, livroId, "Um livro que dói e cura ao mesmo tempo.", true);
-    resenhaPublicada(autor, livroId, resenhaId, "chave-resenha-1");
+    resenhaPublicada(autor, livroId, resenhaId, "servico-chave-resenha-1");
 
     PaginaAtividadesResposta pagina = servico.listar(solicitante, 0, 20);
 
@@ -306,7 +306,7 @@ class ServicoDeFeedIntegracaoTest extends IntegracaoComPostgres {
     jdbc.update("INSERT INTO identidade.usuario (id) VALUES (?)", solicitante);
     jdbc.update("INSERT INTO identidade.usuario (id) VALUES (?)", autor);
     livro(livroId, "oficial", true);
-    leitura(autor, livroId, "chave-3");
+    leitura(autor, livroId, "servico-chave-3");
 
     PaginaAtividadesResposta pagina = servico.listar(solicitante, 0, 20);
 
@@ -322,7 +322,7 @@ class ServicoDeFeedIntegracaoTest extends IntegracaoComPostgres {
     UUID livroId = UUID.randomUUID();
     seguir(solicitante, autor);
     livro(livroId, "oficial", true);
-    leitura(autor, livroId, "chave-4");
+    leitura(autor, livroId, "servico-chave-4");
     assertThat(servico.listar(solicitante, 0, 20).totalItens()).isEqualTo(1);
 
     deixarDeSeguir(solicitante, autor);
@@ -338,7 +338,7 @@ class ServicoDeFeedIntegracaoTest extends IntegracaoComPostgres {
     UUID livroId = UUID.randomUUID();
     seguir(solicitante, autor);
     livro(livroId, "oficial", false);
-    leitura(autor, livroId, "chave-5");
+    leitura(autor, livroId, "servico-chave-5");
 
     PaginaAtividadesResposta pagina = servico.listar(solicitante, 0, 20);
 
@@ -353,11 +353,11 @@ class ServicoDeFeedIntegracaoTest extends IntegracaoComPostgres {
     UUID livroId = UUID.randomUUID();
     seguir(solicitante, autor);
     livro(livroId, "oficial", true);
-    leitura(autor, livroId, "chave-6a");
+    leitura(autor, livroId, "servico-chave-6a");
     Thread.sleep(5);
-    leitura(autor, livroId, "chave-6b");
+    leitura(autor, livroId, "servico-chave-6b");
     Thread.sleep(5);
-    leitura(autor, livroId, "chave-6c");
+    leitura(autor, livroId, "servico-chave-6c");
 
     PaginaAtividadesResposta paginaUm = servico.listar(solicitante, 0, 2);
     PaginaAtividadesResposta paginaDois = servico.listar(solicitante, 1, 2);
@@ -390,7 +390,7 @@ class ServicoDeFeedIntegracaoTest extends IntegracaoComPostgres {
     UUID livroId = UUID.randomUUID();
     seguir(solicitante, autor);
     livro(livroId, "oficial", true);
-    Atividade atividade = leitura(autor, livroId, "chave-7");
+    Atividade atividade = leitura(autor, livroId, "servico-chave-7");
     curtidaRepository.save(CurtidaAtividade.nova(atividade.id(), solicitante));
 
     AtividadeResposta resposta = servico.obter(solicitante, atividade.id());
@@ -410,7 +410,7 @@ class ServicoDeFeedIntegracaoTest extends IntegracaoComPostgres {
     jdbc.update("INSERT INTO identidade.usuario (id) VALUES (?)", solicitante);
     jdbc.update("INSERT INTO identidade.usuario (id) VALUES (?)", autor);
     livro(livroId, "oficial", true);
-    Atividade atividade = leitura(autor, livroId, "chave-8");
+    Atividade atividade = leitura(autor, livroId, "servico-chave-8");
 
     assertThatThrownBy(() -> servico.obter(solicitante, atividade.id()))
         .isInstanceOf(ErroDeNegocioException.class)

@@ -75,6 +75,14 @@ public class ServicoDeIdempotencia {
    * <p>Repetir chave e payload devolve a resposta gravada sem executar de novo; mesma chave com
    * payload diferente, ou fora da janela de replay, é 409. Falha do efeito não grava recibo: a
    * repetição executa de novo, como se fosse a primeira vez.
+   *
+   * <p><b>Corrida entre duas requisições com a mesma chave</b> é serializada por um advisory lock
+   * transacional do Postgres ({@code pg_advisory_xact_lock}), tomado antes de olhar o recibo e
+   * liberado sozinho no fim da transação (commit ou rollback). Sem ele, duas requisições
+   * simultâneas leriam "sem recibo" ao mesmo tempo e as duas rodariam o efeito antes de qualquer
+   * uma chegar ao {@code INSERT} do recibo — o índice único de {@code idempotencia_social} evita
+   * duas linhas, mas não evita o efeito rodar duas vezes. Com o lock, a segunda requisição só
+   * prossegue depois que a primeira já comitou o recibo, e encontra o replay normalmente.
    */
   public <T> RespostaIdempotente<T> executar(
       UUID sujeito,
@@ -85,30 +93,31 @@ public class ServicoDeIdempotencia {
       Supplier<RespostaIdempotente<T>> efeito) {
     String payloadHash = hashDoPayload(payload);
 
-    Recibo anterior = buscarRecibo(sujeito, operacao, chave);
-    if (anterior != null) {
-      return replayOuConflito(anterior, payloadHash, tipoDoCorpo);
-    }
+    return transacao.execute(
+        status -> {
+          travar(sujeito, operacao, chave);
 
-    try {
-      return transacao.execute(
-          status -> {
-            RespostaIdempotente<T> resposta = efeito.get();
-            gravarRecibo(sujeito, operacao, chave, payloadHash, resposta);
-            return resposta;
-          });
-    } catch (RuntimeException erro) {
-      // Duas requisições com a mesma chave passaram juntas pela leitura acima. A perdedora bate
-      // num índice único: o do recibo ou, antes dele, o do próprio domínio. Nos dois casos o
-      // Postgres a faz esperar o commit da vencedora, então quando o erro chega aqui o recibo
-      // vencedor já está visível e basta devolvê-lo. Sem recibo, o erro é do próprio efeito e
-      // sobe como veio.
-      Recibo vencedor = buscarRecibo(sujeito, operacao, chave);
-      if (vencedor == null) {
-        throw erro;
-      }
-      return replayOuConflito(vencedor, payloadHash, tipoDoCorpo);
-    }
+          Recibo anterior = buscarRecibo(sujeito, operacao, chave);
+          if (anterior != null) {
+            return replayOuConflito(anterior, payloadHash, tipoDoCorpo);
+          }
+
+          RespostaIdempotente<T> resposta = efeito.get();
+          gravarRecibo(sujeito, operacao, chave, payloadHash, resposta);
+          return resposta;
+        });
+  }
+
+  /**
+   * Bloqueia até que nenhuma outra transação segure o lock da mesma tripla. {@code
+   * hashtextextended} evita hashear a chave composta no lado do Java (uma colisão de hash só
+   * serializaria triplas diferentes por um instante, nunca causaria efeito duplicado, porque o
+   * recibo depois do lock ainda é conferido pela tripla exata).
+   */
+  private void travar(UUID sujeito, OperacaoIdempotente operacao, String chave) {
+    jdbc.queryForList(
+        "SELECT pg_advisory_xact_lock(hashtextextended(?, 0))",
+        sujeito + "\n" + operacao.operationId() + "\n" + chave);
   }
 
   /**

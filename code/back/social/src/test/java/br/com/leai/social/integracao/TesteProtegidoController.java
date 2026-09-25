@@ -1,5 +1,6 @@
 package br.com.leai.social.integracao;
 
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -13,7 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 class TesteProtegidoController {
 
   @GetMapping("/__teste/protegido")
-  public String subject(Jwt jwt) {
+  public String subject(@AuthenticationPrincipal Jwt jwt) {
     return jwt.getSubject();
   }
 }
