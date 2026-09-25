@@ -325,10 +325,9 @@ class ServicoDeInteracaoIntegracaoTest extends IntegracaoComPostgres {
 
     assertThat(resposta.nivel()).isEqualTo("RESPOSTA");
     assertThat(resposta.comentarioRaizId()).isEqualTo(raiz.id());
-    // comentarioRespondidoId espelha o respondido_usuario_id derivado (autor do alvo), mesmo
-    // valor exposto em usuarioRespondido.id() — a entidade nao guarda o id do comentario-alvo em
-    // si (so raiz + usuario respondido; ver Comentario.java, Task 2).
-    assertThat(resposta.comentarioRespondidoId()).isEqualTo(solicitante.toString());
+    // comentarioRespondidoId e o id do comentario-alvo em si (a raiz, neste caso); o autor do
+    // alvo vem separado em usuarioRespondido.
+    assertThat(resposta.comentarioRespondidoId()).isEqualTo(raiz.id());
     assertThat(resposta.usuarioRespondido()).isNotNull();
     assertThat(resposta.usuarioRespondido().id()).isEqualTo(solicitante.toString());
 
@@ -368,8 +367,9 @@ class ServicoDeInteracaoIntegracaoTest extends IntegracaoComPostgres {
     assertThat(respostaDaResposta.nivel()).isEqualTo("RESPOSTA");
     // A raiz continua sendo a raiz original, nunca a resposta que foi respondida.
     assertThat(respostaDaResposta.comentarioRaizId()).isEqualTo(raiz.id());
-    // O alvo contextual (quem foi respondido) e o autor da resposta (terceiro), nao da raiz.
-    assertThat(respostaDaResposta.comentarioRespondidoId()).isEqualTo(terceiro.toString());
+    // O alvo contextual e a resposta respondida em si (primeiraResposta), nao a raiz; quem a
+    // respondeu (terceiro) aparece em usuarioRespondido.
+    assertThat(respostaDaResposta.comentarioRespondidoId()).isEqualTo(primeiraResposta.id());
     assertThat(respostaDaResposta.usuarioRespondido().id()).isEqualTo(terceiro.toString());
 
     // As duas respostas sao irmas sob a mesma raiz no banco: nunca um terceiro nivel.

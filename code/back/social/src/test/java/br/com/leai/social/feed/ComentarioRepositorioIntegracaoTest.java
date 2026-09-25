@@ -56,11 +56,11 @@ class ComentarioRepositorioIntegracaoTest extends IntegracaoComPostgres {
   void buscarRaizesPorAtividadePaginaCorretamente() {
     UUID atividadeId = novaAtividade("chave-raizes-1");
     UUID autor = UUID.randomUUID();
-    Comentario raiz1 = comentarioRepository.save(Comentario.novo(atividadeId, autor, null, null, "primeiro"));
+    Comentario raiz1 = comentarioRepository.save(Comentario.novo(atividadeId, autor, null, null, null, "primeiro"));
     espacarRelogio();
-    Comentario raiz2 = comentarioRepository.save(Comentario.novo(atividadeId, autor, null, null, "segundo"));
+    Comentario raiz2 = comentarioRepository.save(Comentario.novo(atividadeId, autor, null, null, null, "segundo"));
     espacarRelogio();
-    Comentario raiz3 = comentarioRepository.save(Comentario.novo(atividadeId, autor, null, null, "terceiro"));
+    Comentario raiz3 = comentarioRepository.save(Comentario.novo(atividadeId, autor, null, null, null, "terceiro"));
 
     Page<Comentario> primeiraPagina =
         comentarioRepository.buscarRaizesPorAtividade(atividadeId, PageRequest.of(0, 2));
@@ -79,8 +79,8 @@ class ComentarioRepositorioIntegracaoTest extends IntegracaoComPostgres {
   void buscarRaizesPorAtividadeIgnoraRespostas() {
     UUID atividadeId = novaAtividade("chave-raizes-2");
     UUID autor = UUID.randomUUID();
-    Comentario raiz = comentarioRepository.save(Comentario.novo(atividadeId, autor, null, null, "raiz"));
-    comentarioRepository.save(Comentario.novo(atividadeId, autor, raiz.id(), autor, "resposta"));
+    Comentario raiz = comentarioRepository.save(Comentario.novo(atividadeId, autor, null, null, null, "raiz"));
+    comentarioRepository.save(Comentario.novo(atividadeId, autor, raiz.id(), autor, null, "resposta"));
 
     Page<Comentario> pagina = comentarioRepository.buscarRaizesPorAtividade(atividadeId, PageRequest.of(0, 10));
 
@@ -93,8 +93,8 @@ class ComentarioRepositorioIntegracaoTest extends IntegracaoComPostgres {
   void findByAtividadeIdAndComentarioRaizIdIsNullDevolveSoRaizes() {
     UUID atividadeId = novaAtividade("chave-raizes-3");
     UUID autor = UUID.randomUUID();
-    Comentario raiz = comentarioRepository.save(Comentario.novo(atividadeId, autor, null, null, "raiz"));
-    comentarioRepository.save(Comentario.novo(atividadeId, autor, raiz.id(), autor, "resposta"));
+    Comentario raiz = comentarioRepository.save(Comentario.novo(atividadeId, autor, null, null, null, "raiz"));
+    comentarioRepository.save(Comentario.novo(atividadeId, autor, raiz.id(), autor, null, "resposta"));
 
     List<Comentario> raizes = comentarioRepository.findByAtividadeIdAndComentarioRaizIdIsNull(atividadeId);
 
@@ -106,11 +106,11 @@ class ComentarioRepositorioIntegracaoTest extends IntegracaoComPostgres {
   void buscarRespostasPorRaizAvancaComCursor() {
     UUID atividadeId = novaAtividade("chave-cursor-1");
     UUID autor = UUID.randomUUID();
-    Comentario raiz = comentarioRepository.save(Comentario.novo(atividadeId, autor, null, null, "raiz"));
+    Comentario raiz = comentarioRepository.save(Comentario.novo(atividadeId, autor, null, null, null, "raiz"));
     List<UUID> respostasIds = new ArrayList<>();
     for (int i = 0; i < 5; i++) {
       Comentario resposta =
-          comentarioRepository.save(Comentario.novo(atividadeId, autor, raiz.id(), autor, "resposta " + i));
+          comentarioRepository.save(Comentario.novo(atividadeId, autor, raiz.id(), autor, null, "resposta " + i));
       respostasIds.add(resposta.id());
       espacarRelogio();
     }
@@ -143,11 +143,11 @@ class ComentarioRepositorioIntegracaoTest extends IntegracaoComPostgres {
   void countByComentarioRaizIdContaRespostas() {
     UUID atividadeId = novaAtividade("chave-cursor-2");
     UUID autor = UUID.randomUUID();
-    Comentario raiz = comentarioRepository.save(Comentario.novo(atividadeId, autor, null, null, "raiz"));
-    Comentario outraRaiz = comentarioRepository.save(Comentario.novo(atividadeId, autor, null, null, "outra raiz"));
-    comentarioRepository.save(Comentario.novo(atividadeId, autor, raiz.id(), autor, "r1"));
-    comentarioRepository.save(Comentario.novo(atividadeId, autor, raiz.id(), autor, "r2"));
-    comentarioRepository.save(Comentario.novo(atividadeId, autor, outraRaiz.id(), autor, "r-outra"));
+    Comentario raiz = comentarioRepository.save(Comentario.novo(atividadeId, autor, null, null, null, "raiz"));
+    Comentario outraRaiz = comentarioRepository.save(Comentario.novo(atividadeId, autor, null, null, null, "outra raiz"));
+    comentarioRepository.save(Comentario.novo(atividadeId, autor, raiz.id(), autor, null, "r1"));
+    comentarioRepository.save(Comentario.novo(atividadeId, autor, raiz.id(), autor, null, "r2"));
+    comentarioRepository.save(Comentario.novo(atividadeId, autor, outraRaiz.id(), autor, null, "r-outra"));
 
     assertThat(comentarioRepository.countByComentarioRaizId(raiz.id())).isEqualTo(2);
     assertThat(comentarioRepository.countByComentarioRaizId(outraRaiz.id())).isEqualTo(1);

@@ -34,9 +34,19 @@ public class Comentario {
   @Column(name = "comentario_raiz_id", updatable = false)
   private UUID comentarioRaizId;
 
-  /** Alvo contextual da resposta (pode ser outra resposta, não só a raiz). Nulo em raiz. */
+  /** Autor do alvo contextual da resposta. Nulo em raiz. */
   @Column(name = "respondido_usuario_id", updatable = false)
   private UUID respondidoUsuarioId;
+
+  /**
+   * Id do comentário-alvo da resposta (pode ser outra resposta, não só a raiz). Nulo em raiz.
+   * Coluna simples, sem {@code @ManyToOne}: a FK composta {@code
+   * comentario_respondido_mesma_atividade_fk} (migration {@code
+   * V20260925140000__adiciona_comentario_respondido_id.sql}) já garante que o alvo pertence à
+   * mesma atividade.
+   */
+  @Column(name = "comentario_respondido_id", updatable = false)
+  private UUID comentarioRespondidoId;
 
   @Column(name = "texto", nullable = false)
   private String texto;
@@ -56,6 +66,7 @@ public class Comentario {
       UUID autorId,
       UUID comentarioRaizId,
       UUID respondidoUsuarioId,
+      UUID comentarioRespondidoId,
       String texto,
       Instant criadoEm) {
     this.id = id;
@@ -63,20 +74,23 @@ public class Comentario {
     this.autorId = autorId;
     this.comentarioRaizId = comentarioRaizId;
     this.respondidoUsuarioId = respondidoUsuarioId;
+    this.comentarioRespondidoId = comentarioRespondidoId;
     this.texto = texto;
     this.criadoEm = criadoEm;
   }
 
   /**
    * Cria um comentário-raiz ou resposta pronto para persistir. {@code comentarioRaizId} nulo
-   * identifica um comentário-raiz; caso contrário é uma resposta, e {@code respondidoUsuarioId}
-   * deve vir preenchido pelo chamador (derivado da raiz ou da resposta-alvo).
+   * identifica um comentário-raiz; caso contrário é uma resposta, e {@code respondidoUsuarioId}/
+   * {@code comentarioRespondidoId} devem vir preenchidos pelo chamador (derivados do
+   * comentário-alvo, nunca confiados ao cliente).
    */
   public static Comentario novo(
       UUID atividadeId,
       UUID autorId,
       UUID comentarioRaizId,
       UUID respondidoUsuarioId,
+      UUID comentarioRespondidoId,
       String texto) {
     return new Comentario(
         UUID.randomUUID(),
@@ -84,6 +98,7 @@ public class Comentario {
         autorId,
         comentarioRaizId,
         respondidoUsuarioId,
+        comentarioRespondidoId,
         texto,
         Instant.now());
   }
@@ -110,6 +125,10 @@ public class Comentario {
 
   public UUID respondidoUsuarioId() {
     return respondidoUsuarioId;
+  }
+
+  public UUID comentarioRespondidoId() {
+    return comentarioRespondidoId;
   }
 
   public String texto() {

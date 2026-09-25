@@ -128,7 +128,8 @@ public class ServicoDeInteracao {
     }
 
     Comentario novo =
-        Comentario.novo(atividadeId, usuarioId, comentarioRaizId, respondidoUsuarioId, texto);
+        Comentario.novo(
+            atividadeId, usuarioId, comentarioRaizId, respondidoUsuarioId, comentarioRespondidoId, texto);
     try {
       comentarioRepository.saveAndFlush(novo);
     } catch (DataIntegrityViolationException erro) {
@@ -272,7 +273,7 @@ public class ServicoDeInteracao {
         comentario.id().toString(),
         comentario.atividadeId().toString(),
         comentario.comentarioRaizId() == null ? null : comentario.comentarioRaizId().toString(),
-        comentario.respondidoUsuarioId() == null ? null : comentario.respondidoUsuarioId().toString(),
+        comentario.comentarioRespondidoId() == null ? null : comentario.comentarioRespondidoId().toString(),
         usuarioRespondido,
         autor,
         comentario.texto(),
