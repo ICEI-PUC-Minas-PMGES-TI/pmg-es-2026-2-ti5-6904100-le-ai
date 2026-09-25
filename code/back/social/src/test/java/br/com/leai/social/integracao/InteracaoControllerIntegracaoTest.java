@@ -205,7 +205,7 @@ class InteracaoControllerIntegracaoTest extends IntegracaoComPostgres {
         jdbc.queryForObject(
             "SELECT count(*) FROM outbox_social WHERE tipo = 'atividade.curtida' AND chave_negocio LIKE ?",
             Long.class,
-            "curtida:" + atividadeId + ":%");
+            "atividade:" + atividadeId + ":curtida:%");
     assertThat(totalEventos).isEqualTo(1L);
   }
 

@@ -36,7 +36,7 @@ class EventosDeInteracao {
     data.put("destinatarioId", destinatarioId.toString());
     data.put("atividadeId", atividadeId.toString());
     data.put("autorAcao", snapshot(autorAcaoId));
-    gravar("atividade.curtida", "curtida:" + atividadeId + ":" + autorAcaoId, data);
+    gravar("atividade.curtida", "atividade:" + atividadeId + ":curtida:" + autorAcaoId, data);
   }
 
   /** Comentário-raiz novo em uma atividade: avisa o autor da atividade. */

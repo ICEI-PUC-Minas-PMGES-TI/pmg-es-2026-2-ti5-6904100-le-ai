@@ -259,7 +259,7 @@ class ServicoDeInteracaoIntegracaoTest extends IntegracaoComPostgres {
         jdbc.queryForList(
             "SELECT tipo, chave_negocio FROM outbox_social WHERE tipo = 'atividade.curtida'"
                 + " AND chave_negocio LIKE ?",
-            "curtida:" + atividade.id() + ":%");
+            "atividade:" + atividade.id() + ":curtida:%");
     assertThat(eventos).hasSize(1);
   }
 
@@ -280,7 +280,7 @@ class ServicoDeInteracaoIntegracaoTest extends IntegracaoComPostgres {
         jdbc.queryForObject(
             "SELECT count(*) FROM outbox_social WHERE tipo = 'atividade.curtida' AND chave_negocio LIKE ?",
             Long.class,
-            "curtida:" + atividade.id() + ":%");
+            "atividade:" + atividade.id() + ":curtida:%");
     assertThat(totalEventos).isEqualTo(1L);
   }
 
