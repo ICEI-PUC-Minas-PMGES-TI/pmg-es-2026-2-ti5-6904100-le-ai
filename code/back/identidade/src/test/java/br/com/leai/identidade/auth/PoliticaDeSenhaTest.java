@@ -33,6 +33,15 @@ class PoliticaDeSenhaTest {
   }
 
   @ParameterizedTest
+  @ValueSource(strings = {"leai2026 ", " leai2026", "\tLeai2026\n", "password  "})
+  @DisplayName("recusa senha da lista com espaço nas pontas (teclado e autofill acrescentam)")
+  void recusaSenhaComumComEspaco(String senha) {
+    assertThatThrownBy(() -> politica.recusarSeComum(senha))
+        .isInstanceOf(ErroDeNegocioException.class)
+        .hasMessage(PoliticaDeSenha.SENHA_COMUM);
+  }
+
+  @ParameterizedTest
   @ValueSource(strings = {"senha-bem-comprida", "cavalo correto bateria", "Xk9#mQ2!vLp"})
   @DisplayName("aceita senha fora da lista")
   void aceitaSenhaIncomum(String senha) {
