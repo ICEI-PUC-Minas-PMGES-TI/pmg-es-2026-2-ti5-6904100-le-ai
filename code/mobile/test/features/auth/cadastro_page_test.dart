@@ -115,6 +115,35 @@ void main() {
     expect(chamado, isFalse);
   });
 
+  testWidgets('mostra o erro ao sair do campo, antes do envio, e o tira quando é corrigido', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _wrap(
+        CadastroPage(
+          authService: servico((request) async => http.Response('{}', 201)),
+          sessionController: sessionController,
+        ),
+      ),
+    );
+    final campos = find.byType(TextField);
+
+    await tester.enterText(campos.at(0), 'marina@');
+    await tester.pump();
+    expect(find.text('Informe um e-mail válido.'), findsNothing);
+
+    // Ir para o próximo campo tira o foco do e-mail: é o "sair do campo".
+    await tester.tap(campos.at(1));
+    await tester.pump();
+    expect(find.text('Informe um e-mail válido.'), findsOneWidget);
+    // Só o campo que a pessoa deixou; o username acabou de receber o foco.
+    expect(find.text('Escolha um nome de usuário.'), findsNothing);
+
+    await tester.enterText(campos.at(0), 'marina@gmail.com');
+    await tester.pump();
+    expect(find.text('Informe um e-mail válido.'), findsNothing);
+  });
+
   testWidgets('recusa senha curta e menor de idade com as mensagens do protótipo', (
     tester,
   ) async {

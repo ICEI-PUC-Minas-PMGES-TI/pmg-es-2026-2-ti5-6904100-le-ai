@@ -12,7 +12,9 @@ import '../../design/widgets/campo_texto.dart';
 import '../../design/widgets/logo_leai.dart';
 import 'auth_service.dart';
 
-/// Cadastro (RF-AUT-01). Estrutura e cópia de docs/design/periodo-0/P0-NAV/cadastro.md §4.
+/// Cadastro (RF-AUT-01). Estrutura e cópia de docs/design/periodo-0/P0-NAV/cadastro.md §4. Os
+/// ícones nos campos vêm do protótipo de F-AUT (desenho aprovado) e a validação ao sair do
+/// campo, do teste de aceite de 25/09; divergências do prompt registradas em feature-F-AUT.md.
 ///
 /// Validação do cliente espelha exatamente a do servidor (mesmas regras e mensagens de
 /// `CadastroRequisicao.java`, mesmo raciocínio da `CadastroView.vue`): reforço, não
@@ -73,6 +75,33 @@ class _CadastroPageState extends State<CadastroPage> {
   String? _bannerErro;
   bool _enviando = false;
 
+  /// Validação ao sair do campo (pedida no teste de aceite de 25/09): o erro aparece quando o
+  /// campo perde o foco, não só no envio. Depois de tocado, o campo revalida a cada digitação,
+  /// para o erro sumir assim que é corrigido. O botão continua ativo (cadastro.md §4.1).
+  final _focoEmail = FocusNode();
+  final _focoUsername = FocusNode();
+  final _focoDisplayName = FocusNode();
+  final _focoSenha = FocusNode();
+  final Set<_Campo> _tocados = <_Campo>{};
+
+  @override
+  void initState() {
+    super.initState();
+    void aoPerderFoco(FocusNode foco, _Campo campo) {
+      foco.addListener(() {
+        if (!foco.hasFocus && mounted) {
+          _tocados.add(campo);
+          setState(() => _aplicar(campo));
+        }
+      });
+    }
+
+    aoPerderFoco(_focoEmail, _Campo.email);
+    aoPerderFoco(_focoUsername, _Campo.username);
+    aoPerderFoco(_focoDisplayName, _Campo.displayName);
+    aoPerderFoco(_focoSenha, _Campo.senha);
+  }
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -80,7 +109,18 @@ class _CadastroPageState extends State<CadastroPage> {
     _displayNameController.dispose();
     _dataNascimentoController.dispose();
     _senhaController.dispose();
+    _focoEmail.dispose();
+    _focoUsername.dispose();
+    _focoDisplayName.dispose();
+    _focoSenha.dispose();
     super.dispose();
+  }
+
+  /// Revalida, a cada digitação, só o campo que já foi tocado.
+  void _aoDigitar(_Campo campo) {
+    if (_tocados.contains(campo)) {
+      setState(() => _aplicar(campo));
+    }
   }
 
   /// Mesma regra do MaiorDeIdadeValidator do backend: diferença em anos, fronteira inclusiva.
@@ -125,53 +165,87 @@ class _CadastroPageState extends State<CadastroPage> {
       // melhor para uma data de nascimento do que para "hoje" ou "próxima semana".
       initialEntryMode: DatePickerEntryMode.input,
     );
-    if (selecionada != null) {
-      setState(() {
+    if (!mounted) {
+      return;
+    }
+    // Fechar o seletor é o "sair do campo" da data: escolhida ou cancelada, ela é validada.
+    _tocados.add(_Campo.dataNascimento);
+    setState(() {
+      if (selecionada != null) {
         _dataNascimento = selecionada;
         _dataNascimentoController.text = _dataParaExibicao(selecionada);
-      });
+      }
+      _aplicar(_Campo.dataNascimento);
+    });
+  }
+
+  String? _validar(_Campo campo) {
+    switch (campo) {
+      case _Campo.email:
+        final aparado = _emailController.text.trim();
+        if (aparado.isEmpty) {
+          return 'Informe seu e-mail.';
+        }
+        return aparado.length > 254 || !_emailRegex.hasMatch(aparado)
+            ? 'Informe um e-mail válido.'
+            : null;
+      case _Campo.username:
+        final aparado = _usernameController.text.trim();
+        if (aparado.isEmpty) {
+          return 'Escolha um nome de usuário.';
+        }
+        return _usernameRegex.hasMatch(aparado)
+            ? null
+            : 'Use de 3 a 30 caracteres, sem espaço: letras, números, ponto ou traço baixo.';
+      case _Campo.displayName:
+        final aparado = _displayNameController.text.trim();
+        if (aparado.isEmpty) {
+          return 'Informe seu nome de exibição.';
+        }
+        return aparado.length > 60 ? 'Use no máximo 60 caracteres.' : null;
+      case _Campo.dataNascimento:
+        if (_dataNascimento == null) {
+          return 'Informe sua data de nascimento.';
+        }
+        return _maiorDeIdade(_dataNascimento!)
+            ? null
+            : 'É necessário ter 18 anos ou mais para criar uma conta.';
+      case _Campo.senha:
+        final senha = _senhaController.text;
+        if (senha.isEmpty) {
+          return 'Escolha uma senha.';
+        }
+        if (senha.length < 8) {
+          return 'Use pelo menos 8 caracteres.';
+        }
+        return senha.length > 72 ? 'A senha pode ter no máximo 72 caracteres.' : null;
+    }
+  }
+
+  /// Grava o erro do campo no estado. Chamado dentro de um `setState`.
+  void _aplicar(_Campo campo) {
+    final erro = _validar(campo);
+    switch (campo) {
+      case _Campo.email:
+        _erroEmail = erro;
+      case _Campo.username:
+        _erroUsername = erro;
+      case _Campo.displayName:
+        _erroDisplayName = erro;
+      case _Campo.dataNascimento:
+        _erroDataNascimento = erro;
+      case _Campo.senha:
+        _erroSenha = erro;
     }
   }
 
   bool _validarCliente() {
-    final emailAparado = _emailController.text.trim();
-    final usernameAparado = _usernameController.text.trim();
-    final displayNameAparado = _displayNameController.text.trim();
-
+    _tocados.addAll(_Campo.values);
     setState(() {
-      _erroEmail = emailAparado.isEmpty
-          ? 'Informe seu e-mail.'
-          : (emailAparado.length > 254 || !_emailRegex.hasMatch(emailAparado))
-          ? 'Informe um e-mail válido.'
-          : null;
-
-      _erroUsername = usernameAparado.isEmpty
-          ? 'Escolha um nome de usuário.'
-          : !_usernameRegex.hasMatch(usernameAparado)
-          ? 'Use de 3 a 30 caracteres, sem espaço: letras, números, ponto ou traço baixo.'
-          : null;
-
-      _erroDisplayName = displayNameAparado.isEmpty
-          ? 'Informe seu nome de exibição.'
-          : displayNameAparado.length > 60
-          ? 'Use no máximo 60 caracteres.'
-          : null;
-
-      _erroDataNascimento = _dataNascimento == null
-          ? 'Informe sua data de nascimento.'
-          : !_maiorDeIdade(_dataNascimento!)
-          ? 'É necessário ter 18 anos ou mais para criar uma conta.'
-          : null;
-
-      _erroSenha = _senhaController.text.isEmpty
-          ? 'Escolha uma senha.'
-          : _senhaController.text.length < 8
-          ? 'Use pelo menos 8 caracteres.'
-          : _senhaController.text.length > 72
-          ? 'A senha pode ter no máximo 72 caracteres.'
-          : null;
+      for (final campo in _Campo.values) {
+        _aplicar(campo);
+      }
     });
-
     return _erroEmail == null &&
         _erroUsername == null &&
         _erroDisplayName == null &&
@@ -304,6 +378,9 @@ class _CadastroPageState extends State<CadastroPage> {
                         label: 'E-mail',
                         keyboardType: TextInputType.emailAddress,
                         autofillHints: const <String>[AutofillHints.email],
+                        icone: PhosphorIconsRegular.envelopeSimple,
+                        focusNode: _focoEmail,
+                        onChanged: (_) => _aoDigitar(_Campo.email),
                         erro: _erroEmail,
                         bordaDeErro: _bordaDeErroEmail,
                         enabled: !_enviando,
@@ -315,6 +392,9 @@ class _CadastroPageState extends State<CadastroPage> {
                         autofillHints: const <String>[
                           AutofillHints.newUsername,
                         ],
+                        icone: PhosphorIconsRegular.at,
+                        focusNode: _focoUsername,
+                        onChanged: (_) => _aoDigitar(_Campo.username),
                         erro: _erroUsername,
                         bordaDeErro: _bordaDeErroUsername,
                         enabled: !_enviando,
@@ -324,6 +404,9 @@ class _CadastroPageState extends State<CadastroPage> {
                         controller: _displayNameController,
                         label: 'Nome de exibição',
                         autofillHints: const <String>[AutofillHints.name],
+                        icone: PhosphorIconsRegular.user,
+                        focusNode: _focoDisplayName,
+                        onChanged: (_) => _aoDigitar(_Campo.displayName),
                         erro: _erroDisplayName,
                         enabled: !_enviando,
                       ),
@@ -346,6 +429,9 @@ class _CadastroPageState extends State<CadastroPage> {
                         controller: _senhaController,
                         label: 'Senha',
                         helper: 'Mínimo de 8 caracteres',
+                        comIcone: true,
+                        focusNode: _focoSenha,
+                        onChanged: (_) => _aoDigitar(_Campo.senha),
                         erro: _erroSenha,
                         enabled: !_enviando,
                         autofillHints: const <String>[
@@ -439,3 +525,6 @@ class _CadastroPageState extends State<CadastroPage> {
     );
   }
 }
+
+/// Campos do formulário de cadastro, para validar um de cada vez ao sair dele.
+enum _Campo { email, username, displayName, dataNascimento, senha }
