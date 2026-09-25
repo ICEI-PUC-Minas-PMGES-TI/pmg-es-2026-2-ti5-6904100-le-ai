@@ -202,7 +202,7 @@ class ServicoDeFeedIntegracaoTest extends IntegracaoComPostgres {
     return atividadeRepository.save(
         Atividade.nova(
             autor,
-            TipoAtividade.LEITURA_CONCLUIDA,
+            TipoAtividade.LEITURA_FINALIZADA,
             livroId,
             UUID.randomUUID(),
             chaveFato,

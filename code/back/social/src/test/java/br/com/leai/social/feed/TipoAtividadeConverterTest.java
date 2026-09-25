@@ -28,7 +28,7 @@ class TipoAtividadeConverterTest {
   void literaisBatemExatamenteComOCheckDaMigration() {
     assertThat(TipoAtividade.LEITURA_INICIADA.literal()).isEqualTo("leitura_iniciada");
     assertThat(TipoAtividade.LEITURA_RETOMADA.literal()).isEqualTo("leitura_retomada");
-    assertThat(TipoAtividade.LEITURA_CONCLUIDA.literal()).isEqualTo("leitura_concluida");
+    assertThat(TipoAtividade.LEITURA_FINALIZADA.literal()).isEqualTo("leitura_concluida");
     assertThat(TipoAtividade.LEITURA_ABANDONADA.literal()).isEqualTo("leitura_abandonada");
     assertThat(TipoAtividade.RESENHA_PUBLICADA.literal()).isEqualTo("resenha_publicada");
   }

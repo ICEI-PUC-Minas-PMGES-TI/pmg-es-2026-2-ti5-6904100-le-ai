@@ -9,7 +9,9 @@ package br.com.leai.social.feed;
 public enum TipoAtividade {
   LEITURA_INICIADA("leitura_iniciada"),
   LEITURA_RETOMADA("leitura_retomada"),
-  LEITURA_CONCLUIDA("leitura_concluida"),
+  // Nome segue docs/api/social.yaml (LEITURA_FINALIZADA); o literal do banco, ja migrado,
+  // continua "leitura_concluida" (V20260916024928__cria_modelo_social.sql).
+  LEITURA_FINALIZADA("leitura_concluida"),
   LEITURA_ABANDONADA("leitura_abandonada"),
   RESENHA_PUBLICADA("resenha_publicada");
 

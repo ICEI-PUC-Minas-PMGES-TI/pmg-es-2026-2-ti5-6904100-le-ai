@@ -139,7 +139,7 @@ class FeedRepositorioIntegracaoTest extends IntegracaoComPostgres {
   private Atividade novaAtividade(UUID autor, UUID livroId, String chaveFato) {
     return Atividade.nova(
         autor,
-        TipoAtividade.LEITURA_CONCLUIDA,
+        TipoAtividade.LEITURA_FINALIZADA,
         livroId,
         UUID.randomUUID(),
         chaveFato,
