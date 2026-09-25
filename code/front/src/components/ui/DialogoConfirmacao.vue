@@ -16,8 +16,10 @@ withDefaults(
     rotuloConfirmar: string
     processando?: boolean
     erro?: string
+    /** `Continuar editando` no descarte de formulário (editar-perfil.md §4.7). */
+    rotuloCancelar?: string
   }>(),
-  { processando: false, erro: undefined },
+  { processando: false, erro: undefined, rotuloCancelar: 'Cancelar' },
 )
 
 const emit = defineEmits<{ confirmar: []; cancelar: [] }>()
@@ -51,7 +53,7 @@ const emit = defineEmits<{ confirmar: []; cancelar: [] }>()
         :disabled="processando"
         @click="emit('cancelar')"
       >
-        Cancelar
+        {{ rotuloCancelar }}
       </BotaoTextual>
       <BotaoDestrutivo
         class="h-12 w-full md:h-10 md:w-auto"

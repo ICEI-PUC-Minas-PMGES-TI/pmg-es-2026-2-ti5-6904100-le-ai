@@ -36,7 +36,7 @@ Convenções da SPA web. Complementa o [`AGENTS.md`](../../AGENTS.md) da raiz �
 - `npm run build`: verifica os tipos e gera o build de produção em `dist/`.
 - `npm run preview`: serve localmente o build de produção.
 
-Uma URL por serviço, sem gateway: `VITE_IDENTIDADE_BASE_URL` e `VITE_ACERVO_BASE_URL` (`VITE_API_BASE_URL` é o padrão legado do cliente). A capa de livro pessoal sobe direto ao Cloudinary com `VITE_CLOUDINARY_CLOUD_NAME` (o mesmo `CLOUDINARY_CLOUD_NAME` do `acervo`) e o preset unsigned `VITE_CLOUDINARY_UPLOAD_PRESET` (`leai_capas`, só jpg/png/webp). Localmente, ponha os valores em `.env.local`, que o `.gitignore` já ignora.
+Uma URL por serviço, sem gateway: `VITE_IDENTIDADE_BASE_URL` e `VITE_ACERVO_BASE_URL` (`VITE_API_BASE_URL` é o padrão legado do cliente). A capa de livro pessoal sobe direto ao Cloudinary com `VITE_CLOUDINARY_CLOUD_NAME` (o mesmo `CLOUDINARY_CLOUD_NAME` do `acervo`) e o preset unsigned `VITE_CLOUDINARY_UPLOAD_PRESET` (`leai_capas`, só jpg/png/webp). O avatar do perfil usa o mesmo caminho com `VITE_CLOUDINARY_AVATAR_PRESET` (`leai_avatares`, pasta `avatares`). Localmente, ponha os valores em `.env.local`, que o `.gitignore` já ignora.
 
 **Cliente HTTP central (`src/services/api.ts`)** — regras que valem para toda feature:
 
@@ -51,6 +51,8 @@ Uma URL por serviço, sem gateway: `VITE_IDENTIDADE_BASE_URL` e `VITE_ACERVO_BAS
 **Abas e telas de detalhe:** a aba ativa do shell vem de `router/abas.ts` (`meta.aba`, texto ou função da rota, e depois prefixo do caminho). Tela de detalhe declara `meta.voltar` para ganhar a seta no header, e põe ações contextuais no header com `<Teleport to="#cabecalho-acoes" defer>`. O fluxo de cadastro carrega a origem no caminho (`/descobrir/adicionar`, `/estante/adicionar`) para a aba certa ficar ativa o fluxo inteiro.
 
 **Componentes de F-ACV-CADASTRO:** `ui/` ganhou `CampoAreaTexto`, `BotaoDestrutivo` (outline `rubi`), `FaixaInformativa`, `EstadoVazio`, `SobreposicaoModal` (base de modal: bottom sheet abaixo de 768px, dialog de 480px acima, foco preso, `Esc`, foco devolvido), `DialogoConfirmacao` e `FolhaAcoes`; `CampoTexto` ganhou `inputmode`, `mono`, `larguraDoCampo` e `somenteLeitura`, e `BotaoTextual`, `tom`. Os da feature ficam em `components/livros/`. Lógica com estado e tempo (polling da importação) fica fora da tela, em `src/livros/useCadastroIsbn.ts`, testada com relógio simulado.
+
+**Perfil (F-PERFIL):** `services/perfil.ts` fala com o `identidade` (`/me/perfil`); `services/avatar.ts` valida e envia a foto reaproveitando `validarCapa`/`enviarCapa` de `capa.ts` com o preset de avatar, e tira o `publicId` da URL devolvida (o servidor confere igual). `components/perfil/AvatarLeitor` é o círculo de avatar, com miniatura por transformação de URL. Formulário que se abandona declara `meta.fechar` (o header troca a seta pelo `X`) e confirma o descarte num `onBeforeRouteLeave`, que pega o `X`, as abas e o voltar do navegador de uma vez. `atualizarUsuario` (`session.ts`) troca o nome da sessão depois de editar o perfil.
 
 ## Pontos de atenção do produto (ver `REQUISITOS.md`)
 

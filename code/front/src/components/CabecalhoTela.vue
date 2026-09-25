@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PhArrowLeft } from '@phosphor-icons/vue'
+import { PhArrowLeft, PhX } from '@phosphor-icons/vue'
 import { useRouter } from 'vue-router'
 
 /**
@@ -20,8 +20,13 @@ const props = withDefaults(
     titulo: string
     /** Destino da seta quando não há histórico para voltar (link aberto direto). */
     voltarPara?: string | null
+    /**
+     * Tela de formulário que se abandona (editar-perfil.md §4): `X` em vez da seta, com o mesmo
+     * destino. Quem confirma o descarte é a guarda de saída da própria tela.
+     */
+    fechar?: boolean
   }>(),
-  { voltarPara: null },
+  { voltarPara: null, fechar: false },
 )
 
 const router = useRouter()
@@ -41,10 +46,11 @@ function voltar(): void {
       v-if="voltarPara"
       type="button"
       class="-ml-space-3 flex size-12 shrink-0 items-center justify-center rounded-base text-tinta transition-colors duration-dur-fast hover:bg-linha focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-musgo"
-      aria-label="Voltar"
+      :aria-label="fechar ? 'Fechar' : 'Voltar'"
       @click="voltar"
     >
-      <PhArrowLeft
+      <component
+        :is="fechar ? PhX : PhArrowLeft"
         :size="24"
         weight="regular"
         aria-hidden="true"

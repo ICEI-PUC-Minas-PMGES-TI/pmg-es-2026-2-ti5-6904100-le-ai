@@ -14,6 +14,7 @@ import AlterarSenhaView from '../views/AlterarSenhaView.vue'
 import CadastroView from '../views/CadastroView.vue'
 import ConfiguracoesView from '../views/ConfiguracoesView.vue'
 import DescobrirView from '../views/DescobrirView.vue'
+import EditarPerfilView from '../views/EditarPerfilView.vue'
 import EstanteView from '../views/EstanteView.vue'
 import FeedView from '../views/FeedView.vue'
 import LoginView from '../views/LoginView.vue'
@@ -37,6 +38,8 @@ declare module 'vue-router' {
     titulo?: string
     /** Tela de detalhe: o header ganha a seta de voltar (cadastro-por-isbn.md §4). */
     voltar?: boolean
+    /** Com `voltar`: formulário que se abandona, com `X` no lugar da seta (editar-perfil.md §4). */
+    fechar?: boolean
     /**
      * Aba do shell que fica ativa. Detalhe não é aba, mas pertence à de onde veio; sem isto,
      * vale o prefixo do caminho (`router/abas.ts`).
@@ -105,7 +108,15 @@ export const routes: RouteRecordRaw[] = [
         path: 'perfil',
         name: 'perfil',
         component: PerfilView,
-        meta: { titulo: 'Meu perfil' },
+        // meu-perfil.md §4: o título é `Perfil`; o nome aparece grande logo abaixo.
+        meta: { titulo: 'Perfil' },
+      },
+      // F-PERFIL. Empilhada sobre Perfil, como as configurações.
+      {
+        path: 'perfil/editar',
+        name: 'editar-perfil',
+        component: EditarPerfilView,
+        meta: { titulo: 'Editar perfil', voltar: true, fechar: true },
       },
       // F-AUT. Empilhadas sobre Perfil, que fica ativa pelo prefixo do caminho.
       {

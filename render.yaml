@@ -198,6 +198,9 @@ services:
         value: leai
       - key: VITE_CLOUDINARY_UPLOAD_PRESET
         value: leai_capas
+      # F-PERFIL: avatar direto ao Cloudinary, preset unsigned da pasta avatares.
+      - key: VITE_CLOUDINARY_AVATAR_PRESET
+        value: leai_avatares
     routes:
       # SPA: toda rota cai no index.html (Vue Router em history mode).
       - type: rewrite

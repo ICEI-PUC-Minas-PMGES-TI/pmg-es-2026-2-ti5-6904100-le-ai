@@ -10,6 +10,8 @@ interface ImportMetaEnv {
   readonly VITE_CLOUDINARY_CLOUD_NAME: string
   /** Preset UNSIGNED de capa de livro pessoal (P-09). Público por natureza. */
   readonly VITE_CLOUDINARY_UPLOAD_PRESET: string
+  /** Preset UNSIGNED de avatar (F-PERFIL): `leai_avatares`, pasta `avatares`. */
+  readonly VITE_CLOUDINARY_AVATAR_PRESET: string
 }
 
 interface ImportMeta {

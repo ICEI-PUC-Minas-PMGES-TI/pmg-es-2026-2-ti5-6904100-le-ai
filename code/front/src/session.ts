@@ -139,6 +139,14 @@ export function atualizarTokens(tokens: TokensDaSessao): void {
   iniciarSessao(tokens, usuario.value)
 }
 
+/** Troca os dados do usuário mantendo os tokens (nome de exibição editado no perfil). */
+export function atualizarUsuario(novoUsuario: UsuarioSessao): void {
+  if (token.value === null) {
+    return
+  }
+  gravar({ token: token.value, refreshToken: refreshToken.value ?? undefined, usuario: novoUsuario })
+}
+
 /**
  * Relê o `localStorage` para a memória desta aba. O evento `storage` já faz isso, mas chega
  * depois; quem acabou de pegar o lock de renovação precisa do valor de agora.
