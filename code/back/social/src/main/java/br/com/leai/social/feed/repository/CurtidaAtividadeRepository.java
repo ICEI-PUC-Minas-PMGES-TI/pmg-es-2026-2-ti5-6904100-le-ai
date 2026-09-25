@@ -1,5 +1,6 @@
-package br.com.leai.social.feed;
+package br.com.leai.social.feed.repository;
 
+import br.com.leai.social.feed.entity.CurtidaAtividade;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;

@@ -1,4 +1,4 @@
-package br.com.leai.social.feed;
+package br.com.leai.social.feed.service;
 
 import br.com.leai.social.common.CorrelationIdFilter;
 import java.util.LinkedHashMap;

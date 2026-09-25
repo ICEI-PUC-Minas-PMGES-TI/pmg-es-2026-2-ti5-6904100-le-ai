@@ -1,4 +1,4 @@
-package br.com.leai.social.feed;
+package br.com.leai.social.feed.service;
 
 import br.com.leai.social.common.CodigoErro;
 import br.com.leai.social.common.ErroDeNegocioException;
@@ -8,6 +8,11 @@ import br.com.leai.social.feed.dto.LinkLivroResposta;
 import br.com.leai.social.feed.dto.LivroSnapshotResposta;
 import br.com.leai.social.feed.dto.PaginaAtividadesResposta;
 import br.com.leai.social.feed.dto.ResenhaSnapshotResposta;
+import br.com.leai.social.feed.entity.Atividade;
+import br.com.leai.social.feed.entity.TipoAtividade;
+import br.com.leai.social.feed.repository.AtividadeRepository;
+import br.com.leai.social.feed.repository.ComentarioRepository;
+import br.com.leai.social.feed.repository.CurtidaAtividadeRepository;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;

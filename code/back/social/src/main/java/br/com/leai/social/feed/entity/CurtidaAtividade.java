@@ -1,4 +1,4 @@
-package br.com.leai.social.feed;
+package br.com.leai.social.feed.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

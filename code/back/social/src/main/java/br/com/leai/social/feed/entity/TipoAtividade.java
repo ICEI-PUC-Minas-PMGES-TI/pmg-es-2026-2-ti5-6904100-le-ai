@@ -1,4 +1,4 @@
-package br.com.leai.social.feed;
+package br.com.leai.social.feed.entity;
 
 /**
  * Tipos de fato do feed (RF-SOC-08..12), espelhando o CHECK {@code atividade_tipo_valido} da

@@ -28,7 +28,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * ServicoDeInteracaoIntegracaoTest} chama o serviço diretamente, sem passar pela idempotência.
  *
  * <p>Recria só o mínimo de {@code identidade}/{@code acervo} necessário para uma atividade visível
- * (mesmo racional de {@link br.com.leai.social.feed.ServicoDeFeedIntegracaoTest}).
+ * (mesmo racional de {@link br.com.leai.social.feed.service.ServicoDeFeedIntegracaoTest}).
  */
 @EnabledIfEnvironmentVariable(named = "DATABASE_URL_TESTE", matches = ".+")
 class InteracaoControllerIntegracaoTest extends IntegracaoComPostgres {

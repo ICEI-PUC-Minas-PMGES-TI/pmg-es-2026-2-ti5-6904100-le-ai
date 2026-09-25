@@ -1,19 +1,29 @@
-package br.com.leai.social.feed;
+package br.com.leai.social.feed.service;
 
 import br.com.leai.social.common.CodigoErro;
 import br.com.leai.social.common.ErroDeNegocioException;
 import br.com.leai.social.common.LimitePorUsuario;
+import br.com.leai.social.feed.controller.InteracaoController;
 import br.com.leai.social.feed.dto.AutorSnapshotResposta;
 import br.com.leai.social.feed.dto.ComentarioResposta;
 import br.com.leai.social.feed.dto.EstadoCurtidaResposta;
 import br.com.leai.social.feed.dto.ListaRespostasResposta;
 import br.com.leai.social.feed.dto.PaginaComentariosResposta;
+import br.com.leai.social.feed.entity.Atividade;
+import br.com.leai.social.feed.entity.Comentario;
+import br.com.leai.social.feed.repository.ComentarioRepository;
+import br.com.leai.social.feed.repository.CursorComentario;
+import br.com.leai.social.feed.repository.CursorInvalidoException;
+import br.com.leai.social.feed.repository.CurtidaAtividadeRepository;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.Stream;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
@@ -146,7 +156,7 @@ public class ServicoDeInteracao {
     // Arrays.asList (nunca List.of): respondidoUsuarioId vem nulo no comentario-raiz, e List.of
     // rejeita elemento nulo — buscarAutores() ja filtra nulos antes de montar o IN (...).
     Map<UUID, AutorSnapshotResposta> autores =
-        buscarAutores(java.util.Arrays.asList(novo.autorId(), respondidoUsuarioId));
+        buscarAutores(Arrays.asList(novo.autorId(), respondidoUsuarioId));
     return mapear(novo, usuarioId, autores, novo.ehRaiz() ? 0 : null);
   }
 
@@ -204,8 +214,8 @@ public class ServicoDeInteracao {
     Map<UUID, AutorSnapshotResposta> autores =
         buscarAutores(
             respostas.stream()
-                .flatMap(c -> java.util.stream.Stream.of(c.autorId(), c.respondidoUsuarioId()))
-                .filter(java.util.Objects::nonNull)
+                .flatMap(c -> Stream.of(c.autorId(), c.respondidoUsuarioId()))
+                .filter(Objects::nonNull)
                 .distinct()
                 .toList());
 
@@ -287,7 +297,7 @@ public class ServicoDeInteracao {
   /** {@code AutorSnapshot} de cada autor/respondido em lote, batido contra {@code
    * identidade.v_perfil_referencia_v1} — mesmo racional de {@link ServicoDeFeed#buscarTiposLivro}. */
   private Map<UUID, AutorSnapshotResposta> buscarAutores(Collection<UUID> usuarioIds) {
-    List<UUID> ids = usuarioIds.stream().filter(java.util.Objects::nonNull).distinct().toList();
+    List<UUID> ids = usuarioIds.stream().filter(Objects::nonNull).distinct().toList();
     if (ids.isEmpty()) {
       return Map.of();
     }

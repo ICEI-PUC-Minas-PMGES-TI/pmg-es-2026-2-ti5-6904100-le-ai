@@ -1,4 +1,4 @@
-package br.com.leai.social.feed;
+package br.com.leai.social.feed.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -8,6 +8,12 @@ import br.com.leai.social.feed.dto.ComentarioResposta;
 import br.com.leai.social.feed.dto.EstadoCurtidaResposta;
 import br.com.leai.social.feed.dto.ListaRespostasResposta;
 import br.com.leai.social.feed.dto.PaginaComentariosResposta;
+import br.com.leai.social.feed.entity.Atividade;
+import br.com.leai.social.feed.entity.Comentario;
+import br.com.leai.social.feed.entity.TipoAtividade;
+import br.com.leai.social.feed.repository.AtividadeRepository;
+import br.com.leai.social.feed.repository.ComentarioRepository;
+import br.com.leai.social.feed.repository.CurtidaAtividadeRepository;
 import br.com.leai.social.integracao.IntegracaoComPostgres;
 import java.util.List;
 import java.util.Map;

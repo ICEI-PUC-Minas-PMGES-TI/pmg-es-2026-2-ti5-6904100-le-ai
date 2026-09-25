@@ -1,5 +1,6 @@
-package br.com.leai.social.feed;
+package br.com.leai.social.feed.repository;
 
+import br.com.leai.social.feed.entity.Atividade;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

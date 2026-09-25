@@ -1,5 +1,6 @@
-package br.com.leai.social.feed;
+package br.com.leai.social.feed.repository;
 
+import br.com.leai.social.feed.entity.Comentario;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;

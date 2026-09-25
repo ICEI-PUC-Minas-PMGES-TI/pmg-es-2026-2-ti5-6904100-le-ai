@@ -1,7 +1,8 @@
-package br.com.leai.social.feed;
+package br.com.leai.social.feed.controller;
 
 import br.com.leai.social.feed.dto.AtividadeResposta;
 import br.com.leai.social.feed.dto.PaginaAtividadesResposta;
+import br.com.leai.social.feed.service.ServicoDeFeed;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;

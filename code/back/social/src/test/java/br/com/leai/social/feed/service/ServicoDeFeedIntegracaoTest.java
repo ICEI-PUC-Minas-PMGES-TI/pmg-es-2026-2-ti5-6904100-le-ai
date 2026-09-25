@@ -1,4 +1,4 @@
-package br.com.leai.social.feed;
+package br.com.leai.social.feed.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -6,6 +6,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import br.com.leai.social.common.ErroDeNegocioException;
 import br.com.leai.social.feed.dto.AtividadeResposta;
 import br.com.leai.social.feed.dto.PaginaAtividadesResposta;
+import br.com.leai.social.feed.entity.Atividade;
+import br.com.leai.social.feed.entity.CurtidaAtividade;
+import br.com.leai.social.feed.entity.TipoAtividade;
+import br.com.leai.social.feed.repository.AtividadeRepository;
+import br.com.leai.social.feed.repository.CurtidaAtividadeRepository;
 import br.com.leai.social.integracao.IntegracaoComPostgres;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,7 +22,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
  * {@link ServicoDeFeed} contra Postgres real, incluindo as views cross-schema de verdade (mesmo
- * racional de {@link FeedRepositorioIntegracaoTest}: recria, com o mesmo SQL de produção,
+ * racional de {@code FeedRepositorioIntegracaoTest}: recria, com o mesmo SQL de produção,
  * {@code identidade.v_seguimento_aceito_v1}, {@code acervo.v_livro_referencia_v1} e {@code
  * leitura.v_resenha_publicacao_v1}, já que o Postgres efêmero do CI só recebe as migrations do
  * próprio `social`).

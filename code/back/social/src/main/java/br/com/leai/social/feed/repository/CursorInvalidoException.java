@@ -1,4 +1,4 @@
-package br.com.leai.social.feed;
+package br.com.leai.social.feed.repository;
 
 /** Cursor opaco de paginação de respostas malformado ou adulterado (RF-SOC-18). */
 public class CursorInvalidoException extends RuntimeException {

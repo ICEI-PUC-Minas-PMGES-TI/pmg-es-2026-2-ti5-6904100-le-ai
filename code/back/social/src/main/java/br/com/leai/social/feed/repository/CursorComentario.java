@@ -1,4 +1,4 @@
-package br.com.leai.social.feed;
+package br.com.leai.social.feed.repository;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;

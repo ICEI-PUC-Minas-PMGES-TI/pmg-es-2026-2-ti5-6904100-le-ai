@@ -1,7 +1,10 @@
-package br.com.leai.social.feed;
+package br.com.leai.social.feed.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import br.com.leai.social.feed.entity.Atividade;
+import br.com.leai.social.feed.entity.Comentario;
+import br.com.leai.social.feed.entity.TipoAtividade;
 import br.com.leai.social.integracao.IntegracaoComPostgres;
 import java.util.ArrayList;
 import java.util.List;
