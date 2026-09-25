@@ -59,6 +59,23 @@ describe('CadastroView', () => {
     expect(authService.cadastrar).not.toHaveBeenCalled()
   })
 
+  it('mostra o erro ao sair do campo, antes do envio, e o tira assim que o valor é corrigido', async () => {
+    const { wrapper } = montarComRouter()
+    const email = wrapper.findAll('input')[0]!
+
+    await email.setValue('marina@')
+    expect(wrapper.text()).not.toContain('Informe um e-mail válido.')
+
+    await email.trigger('blur')
+    expect(wrapper.text()).toContain('Informe um e-mail válido.')
+    // Só o campo que a pessoa deixou: os outros ainda não foram tocados.
+    expect(wrapper.text()).not.toContain('Escolha um nome de usuário.')
+
+    await email.setValue('marina@gmail.com')
+    expect(wrapper.text()).not.toContain('Informe um e-mail válido.')
+    expect(authService.cadastrar).not.toHaveBeenCalled()
+  })
+
   it('recusa senha curta e menor de idade com as mensagens do protótipo, sem limpar o formulário', async () => {
     const { wrapper } = montarComRouter()
     await preencherFormularioValido(wrapper)

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, useId } from 'vue'
+import { type Component, computed, useId } from 'vue'
 
 /**
  * Campo de formulário com label acima (documento-de-design §4.2): nunca placeholder no lugar do
@@ -49,6 +49,11 @@ const props = withDefaults(
      * o texto novo, a posição do cursor nele e o valor anterior.
      */
     mascara?: (bruto: string, cursor: number, anterior: string) => { valor: string; cursor: number }
+    /**
+     * Ícone Phosphor à esquerda, dentro do campo (protótipos de F-AUT/login e cadastro: 20px,
+     * `grafite-suave`). Decorativo: o label já diz o que o campo é.
+     */
+    icone?: Component
   }>(),
   {
     id: undefined,
@@ -65,11 +70,15 @@ const props = withDefaults(
     larguraDoCampo: undefined,
     somenteLeitura: false,
     mascara: undefined,
+    icone: undefined,
   },
 )
 
 const emit = defineEmits<{
   'update:modelValue': [valor: string]
+  // Explícito: `blur` não borbulha, então o listener passado ao componente cairia no <div> raiz
+  // e nunca dispararia.
+  blur: []
 }>()
 
 function aoDigitar(evento: Event): void {
@@ -111,6 +120,14 @@ const idDescricao = computed(() => {
       class="relative"
       :class="larguraDoCampo"
     >
+      <component
+        :is="icone"
+        v-if="icone"
+        :size="20"
+        weight="regular"
+        aria-hidden="true"
+        class="pointer-events-none absolute left-space-4 top-1/2 -translate-y-1/2 text-grafite-suave"
+      />
       <input
         :id="idCampo"
         :type="type"
@@ -130,10 +147,12 @@ const idDescricao = computed(() => {
             ? 'border-[1.5px] border-rubi'
             : 'border border-linha focus:border-[1.5px] focus:border-musgo',
           $slots.trailing ? 'pr-space-10' : '',
+          icone ? 'pl-11' : '',
           mono ? 'font-mono tabular-nums' : '',
           somenteLeitura ? 'text-grafite' : 'text-tinta',
         ]"
         @input="aoDigitar"
+        @blur="emit('blur')"
       >
       <!-- Espaço para um controle dentro do campo (ex.: alternar visibilidade da senha em
            CampoSenha). Ocupa a altura inteira do campo para dar folga de alvo de toque. -->

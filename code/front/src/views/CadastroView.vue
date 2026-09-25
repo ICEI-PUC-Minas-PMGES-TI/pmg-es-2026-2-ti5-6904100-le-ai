@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { nextTick, reactive, ref } from 'vue'
+import { PhAt, PhEnvelopeSimple, PhUser } from '@phosphor-icons/vue'
+import { nextTick, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import PoliticaPublica from '../components/PoliticaPublica.vue'
@@ -15,7 +16,10 @@ import { authService, type CadastroRequisicao } from '../services/auth'
 import { iniciarSessao } from '../session'
 
 /**
- * Cadastro (RF-AUT-01). Layout e cópia de docs/design/periodo-0/P0-NAV/cadastro.md.
+ * Cadastro (RF-AUT-01). Layout e cópia de docs/design/periodo-0/P0-NAV/cadastro.md. A coluna
+ * ilustrada, o selo e os ícones nos campos vêm do protótipo de F-AUT (desenho aprovado); a
+ * validação ao sair do campo foi pedida no teste de aceite de 25/09. As duas divergências do
+ * prompt estão registradas em feature-F-AUT.md.
  *
  * Regras de validação do cliente espelham exatamente as do servidor (CadastroRequisicao.java):
  * mesmos campos, mesmas mensagens. "Validação no cliente reforça a do servidor, nunca
@@ -95,45 +99,77 @@ function limparErros(): void {
   bannerErro.value = ''
 }
 
+type Campo = 'email' | 'username' | 'displayName' | 'dataNascimento' | 'senha'
+
+const validadores: Record<Campo, () => string | undefined> = {
+  email: () => {
+    const aparado = email.value.trim()
+    if (!aparado) {
+      return 'Informe seu e-mail.'
+    }
+    return aparado.length > 254 || !EMAIL_REGEX.test(aparado) ? 'Informe um e-mail válido.' : undefined
+  },
+  username: () => {
+    const aparado = username.value.trim()
+    if (!aparado) {
+      return 'Escolha um nome de usuário.'
+    }
+    return USERNAME_REGEX.test(aparado)
+      ? undefined
+      : 'Use de 3 a 30 caracteres, sem espaço: letras, números, ponto ou traço baixo.'
+  },
+  displayName: () => {
+    const aparado = displayName.value.trim()
+    if (!aparado) {
+      return 'Informe seu nome de exibição.'
+    }
+    return aparado.length > 60 ? 'Use no máximo 60 caracteres.' : undefined
+  },
+  dataNascimento: () => {
+    if (!dataNascimento.value) {
+      return 'Informe sua data de nascimento.'
+    }
+    return maiorDeIdade(dataNascimento.value)
+      ? undefined
+      : 'É necessário ter 18 anos ou mais para criar uma conta.'
+  },
+  senha: () => {
+    if (!senha.value) {
+      return 'Escolha uma senha.'
+    }
+    if (senha.value.length < 8) {
+      return 'Use pelo menos 8 caracteres.'
+    }
+    return senha.value.length > 72 ? 'A senha pode ter no máximo 72 caracteres.' : undefined
+  },
+}
+
+const CAMPOS = Object.keys(validadores) as Campo[]
+
+/**
+ * Validação ao sair do campo: o erro aparece quando a pessoa deixa o campo, não só no envio.
+ * Depois de tocado, o campo revalida a cada digitação, para o erro sumir assim que é corrigido
+ * (e não esperar outro blur). O botão continua ativo o tempo todo (cadastro.md §4.1).
+ */
+const tocados = new Set<Campo>()
+
+function aoSair(campo: Campo): void {
+  tocados.add(campo)
+  erros[campo] = validadores[campo]()
+}
+
+watch([email, username, displayName, dataNascimento, senha], () => {
+  for (const campo of tocados) {
+    erros[campo] = validadores[campo]()
+  }
+})
+
 function validarCliente(): boolean {
-  const emailAparado = email.value.trim()
-  if (!emailAparado) {
-    erros.email = 'Informe seu e-mail.'
-  } else if (emailAparado.length > 254 || !EMAIL_REGEX.test(emailAparado)) {
-    erros.email = 'Informe um e-mail válido.'
+  for (const campo of CAMPOS) {
+    tocados.add(campo)
+    erros[campo] = validadores[campo]()
   }
-
-  const usernameAparado = username.value.trim()
-  if (!usernameAparado) {
-    erros.username = 'Escolha um nome de usuário.'
-  } else if (!USERNAME_REGEX.test(usernameAparado)) {
-    erros.username = 'Use de 3 a 30 caracteres, sem espaço: letras, números, ponto ou traço baixo.'
-  }
-
-  const displayNameAparado = displayName.value.trim()
-  if (!displayNameAparado) {
-    erros.displayName = 'Informe seu nome de exibição.'
-  } else if (displayNameAparado.length > 60) {
-    erros.displayName = 'Use no máximo 60 caracteres.'
-  }
-
-  if (!dataNascimento.value) {
-    erros.dataNascimento = 'Informe sua data de nascimento.'
-  } else if (!maiorDeIdade(dataNascimento.value)) {
-    erros.dataNascimento = 'É necessário ter 18 anos ou mais para criar uma conta.'
-  }
-
-  if (!senha.value) {
-    erros.senha = 'Escolha uma senha.'
-  } else if (senha.value.length < 8) {
-    erros.senha = 'Use pelo menos 8 caracteres.'
-  } else if (senha.value.length > 72) {
-    erros.senha = 'A senha pode ter no máximo 72 caracteres.'
-  }
-
-  return (
-    !erros.email && !erros.username && !erros.displayName && !erros.dataNascimento && !erros.senha
-  )
+  return CAMPOS.every((campo) => !erros[campo])
 }
 
 function tratarErro(erro: unknown): void {
@@ -211,7 +247,10 @@ async function enviar(): Promise<void> {
     v-if="vendoPolitica"
     @voltar="fecharPolitica"
   />
-  <LayoutAutenticacao v-else>
+  <LayoutAutenticacao
+    v-else
+    ilustrada
+  >
     <div class="md:hidden">
       <LogoLeAi :altura="24" />
     </div>
@@ -244,21 +283,27 @@ async function enviar(): Promise<void> {
             type="email"
             label="E-mail"
             autocomplete="email"
+            :icone="PhEnvelopeSimple"
             :erro="erros.email"
             :borda-de-erro="bordaDeErroEmail"
+            @blur="aoSair('email')"
           />
           <CampoTexto
             v-model="username"
             label="Nome de usuário"
             autocomplete="username"
+            :icone="PhAt"
             :erro="erros.username"
             :borda-de-erro="bordaDeErroUsername"
+            @blur="aoSair('username')"
           />
           <CampoTexto
             v-model="displayName"
             label="Nome de exibição"
             autocomplete="name"
+            :icone="PhUser"
             :erro="erros.displayName"
+            @blur="aoSair('displayName')"
           />
           <CampoTexto
             v-model="dataNascimento"
@@ -266,13 +311,16 @@ async function enviar(): Promise<void> {
             label="Data de nascimento"
             autocomplete="bday"
             :erro="erros.dataNascimento"
+            @blur="aoSair('dataNascimento')"
           />
           <CampoSenha
             v-model="senha"
             label="Senha"
             autocomplete="new-password"
             helper="Mínimo de 8 caracteres"
+            com-icone
             :erro="erros.senha"
+            @blur="aoSair('senha')"
           />
         </div>
       </fieldset>

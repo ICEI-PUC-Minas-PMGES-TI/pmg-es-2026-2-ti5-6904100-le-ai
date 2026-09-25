@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 
 import '../../core/network/api_client.dart';
 import '../../core/session/session_controller.dart';
@@ -11,7 +12,8 @@ import '../../design/widgets/campo_texto.dart';
 import '../../design/widgets/logo_leai.dart';
 import 'auth_service.dart';
 
-/// Login (RF-AUT-02/03). Estrutura e cópia de docs/design/periodo-0/P0-NAV/login.md §4.
+/// Login (RF-AUT-02/03). Estrutura e cópia de docs/design/periodo-0/P0-NAV/login.md §4. Os ícones
+/// nos campos vêm do protótipo de F-AUT, que é o desenho aprovado.
 class LoginPage extends StatefulWidget {
   final AuthService authService;
   final SessionController sessionController;
@@ -185,6 +187,7 @@ class _LoginPageState extends State<LoginPage> {
                         controller: _identificadorController,
                         label: 'E-mail ou nome de usuário',
                         autofillHints: const <String>[AutofillHints.username],
+                        icone: PhosphorIconsRegular.user,
                         erro: _erroIdentificador,
                         bordaDeErro: _bordaDeErroCredencial,
                         enabled: !_enviando,
@@ -196,6 +199,7 @@ class _LoginPageState extends State<LoginPage> {
                         autofillHints: const <String>[
                           AutofillHints.password,
                         ],
+                        comIcone: true,
                         erro: _erroSenha,
                         bordaDeErro: _bordaDeErroCredencial,
                         enabled: !_enviando,

@@ -16,6 +16,10 @@ class CampoSenha extends StatefulWidget {
   final bool enabled;
   final Iterable<String>? autofillHints;
   final ValueChanged<String>? onChanged;
+  final FocusNode? focusNode;
+
+  /// Cadeado à esquerda, como nos protótipos de login e cadastro de F-AUT.
+  final bool comIcone;
 
   const CampoSenha({
     super.key,
@@ -27,6 +31,8 @@ class CampoSenha extends StatefulWidget {
     this.enabled = true,
     this.autofillHints,
     this.onChanged,
+    this.focusNode,
+    this.comIcone = false,
   });
 
   @override
@@ -54,6 +60,8 @@ class _CampoSenhaState extends State<CampoSenha> {
       obscureText: !_mostrando,
       autofillHints: widget.autofillHints,
       onChanged: widget.onChanged,
+      focusNode: widget.focusNode,
+      icone: widget.comIcone ? PhosphorIconsRegular.lock : null,
       trailing: IconButton(
         onPressed: widget.enabled ? _alternarVisibilidade : null,
         tooltip: _mostrando ? 'Ocultar senha' : 'Mostrar senha',
