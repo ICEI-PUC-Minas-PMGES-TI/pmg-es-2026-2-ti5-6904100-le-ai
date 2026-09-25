@@ -99,6 +99,24 @@ public class ServicoDeFeed {
    */
   @Transactional(readOnly = true)
   public AtividadeResposta obter(UUID usuarioId, UUID atividadeId) {
+    Atividade atividade = validarVisivel(usuarioId, atividadeId);
+
+    Map<UUID, String> tiposLivro = buscarTiposLivro(List.of(atividade.livroId()));
+    Map<UUID, ResenhaSnapshotResposta> resenhas =
+        atividade.tipo() == TipoAtividade.RESENHA_PUBLICADA
+            ? buscarResenhas(List.of(atividade.origemId()))
+            : Map.of();
+
+    return mapear(atividade, usuarioId, tiposLivro, resenhas);
+  }
+
+  /**
+   * Revalidação de visibilidade (RN-08/RN-09), reusada pelas escritas de {@code
+   * ServicoDeInteracao} (Task 4): curtir/comentar exigem a mesma checagem de {@link #obter} antes
+   * de gravar — atividade inexistente ou não visível respondem {@code 404}, nunca {@code 403},
+   * para não confirmar a terceiros a existência de conteúdo alheio.
+   */
+  Atividade validarVisivel(UUID usuarioId, UUID atividadeId) {
     Atividade atividade =
         atividadeRepository
             .findById(atividadeId)
@@ -108,14 +126,7 @@ public class ServicoDeFeed {
     if (!atividadeRepository.visivelNoFeed(usuarioId, atividadeId)) {
       throw new ErroDeNegocioException(CodigoErro.RECURSO_NAO_ENCONTRADO, NAO_ENCONTRADO);
     }
-
-    Map<UUID, String> tiposLivro = buscarTiposLivro(List.of(atividade.livroId()));
-    Map<UUID, ResenhaSnapshotResposta> resenhas =
-        atividade.tipo() == TipoAtividade.RESENHA_PUBLICADA
-            ? buscarResenhas(List.of(atividade.origemId()))
-            : Map.of();
-
-    return mapear(atividade, usuarioId, tiposLivro, resenhas);
+    return atividade;
   }
 
   private AtividadeResposta mapear(
