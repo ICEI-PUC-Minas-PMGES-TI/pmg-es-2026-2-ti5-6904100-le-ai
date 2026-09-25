@@ -23,6 +23,9 @@ public interface ComentarioRepository extends JpaRepository<Comentario, UUID> {
 
   List<Comentario> findByAtividadeIdAndComentarioRaizIdIsNull(UUID atividadeId);
 
+  /** Total de comentários (raiz + respostas) de uma atividade, para o campo `totalComentarios`. */
+  long countByAtividadeId(UUID atividadeId);
+
   /** Quantas respostas uma raiz já tem, para o campo {@code totalRespostas} do contrato. */
   long countByComentarioRaizId(UUID comentarioRaizId);
 

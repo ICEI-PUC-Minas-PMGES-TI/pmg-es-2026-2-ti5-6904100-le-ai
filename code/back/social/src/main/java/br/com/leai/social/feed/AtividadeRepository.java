@@ -47,4 +47,26 @@ public interface AtividadeRepository extends JpaRepository<Atividade, UUID> {
           """,
       nativeQuery = true)
   Page<Atividade> buscarFeed(@Param("usuarioId") UUID usuarioId, Pageable pageable);
+
+  /**
+   * Mesmo critério de visibilidade de {@link #buscarFeed}, para uma única atividade: usada pelo
+   * detalhe (RN-08/RN-09) para decidir entre 200 e o 404 disfarçado (nunca 403), sem duplicar a
+   * regra em dois lugares nem trazer a página inteira só para checar um id.
+   */
+  @Query(
+      value =
+          """
+          SELECT EXISTS (
+            SELECT 1
+              FROM atividade a
+              JOIN identidade.v_seguimento_aceito_v1 seg ON seg.seguido_id = a.autor_id
+              JOIN acervo.v_livro_referencia_v1 livro ON livro.livro_id = a.livro_id
+             WHERE a.id = :atividadeId
+               AND a.ativo = true
+               AND livro.ativo = true
+               AND seg.seguidor_id = :usuarioId
+          )
+          """,
+      nativeQuery = true)
+  boolean visivelNoFeed(@Param("usuarioId") UUID usuarioId, @Param("atividadeId") UUID atividadeId);
 }
