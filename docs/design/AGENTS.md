@@ -290,6 +290,8 @@ A assimetria que governa a escrita do prompt:
 | Arquivos do projeto (este `AGENTS.md`, arquivos de feature, `AGENTS.md` de cada stack) | **Apontar para a fonte.** Citar a seção do `documento-de-design.md` e seguir em frente. |
 | Arquivo de prompt em `docs/design/.../<tela>.md` | **Reescrever por extenso.** O Claude Design não lê este repositório: o que não estiver escrito no prompt não existe para ele. |
 
+**O prompt é o kickstart, não a fonte visual final.** Ele dá a partida no design dentro do Claude Design; a partir daí o desenho continua sendo trabalhado **lá dentro**, e o resultado aprovado passa a viver no **protótipo `.html`**, não no `.md`. O prompt fica desatualizado por natureza — cada nova iteração no Claude Design não volta para o repositório. Para **implementar** uma tela, a fonte é o protótipo renderizado, nunca o prompt (ver §10).
+
 Por isso todo prompt abre com um **bloco de contexto do design** na sua seção 2, transcrito do `documento-de-design.md` com os valores literais. O bloco precisa cobrir, no mínimo:
 
 | O bloco precisa dizer | Fonte |
@@ -361,9 +363,11 @@ Se um item falhar, corrija o **prompt** e gere de novo. Corrigir só o HTML queb
 
 ## 10. Do protótipo para a implementação
 
-Vale para quem for implementar a tela em [`code/front`](../../code/front/AGENTS.md) ou [`code/mobile`](../../code/mobile/AGENTS.md) usando o HTML exportado como referência.
+Vale para quem for implementar a tela em [`code/front`](../../code/front/AGENTS.md) ou [`code/mobile`](../../code/mobile/AGENTS.md). A referência é o **protótipo**, aberto no navegador.
 
-**O protótipo é o desenho aprovado.** "Referência visual" não é licença para redesenhar a tela na hora de codar. A tela implementada precisa ficar **visualmente muito próxima** do protótipo: mesma hierarquia, mesma ordem de blocos, mesmo agrupamento, mesma densidade, mesmos pesos tipográficos, mesmo uso de cor. Quem olhar o protótipo e a tela lado a lado deve reconhecer a mesma tela.
+**A fonte visual é o protótipo renderizado, não o prompt.** O `.md` é só o kickstart (ver §7): depois da geração, o desenho evolui **dentro do Claude Design** e o aprovado vai para o `.html`, não para o prompt. **Nunca implemente a partir do prompt** — ele está desatualizado por natureza. Abra o protótipo `.html` no navegador (ele se resolve sozinho: capas via `<image-slot>`, ilustrações e avatares viram imagem pelo runtime do Claude Design) e implemente contra o que vê ali. Ao terminar, ponha a tela rodando **lado a lado** com o protótipo e confira — passo obrigatório, não opcional.
+
+**O protótipo é o desenho aprovado.** "Referência visual" não é licença para redesenhar a tela na hora de codar. A tela implementada precisa ficar **visualmente muito próxima** do protótipo: mesma hierarquia, mesma ordem de blocos, mesmo agrupamento, mesma densidade, mesmos pesos tipográficos, mesmo uso de cor, **e as ilustrações e estados vazios que ele mostra** (por exemplo a arte de "nenhum resultado"). Quem olhar o protótipo e a tela lado a lado deve reconhecer a mesma tela.
 
 **O protótipo não é especificação de pixel** (regra 5 dos agentes, plano §7). O que se copia é a **estrutura**, não as coordenadas. O HTML exportado resolve o layout do jeito que dá para um artboard de largura fixa; a implementação resolve do jeito certo para a plataforma.
 
@@ -383,6 +387,7 @@ Vale para quem for implementar a tela em [`code/front`](../../code/front/AGENTS.
 
 - **Token nomeado, nunca valor copiado do HTML.** Cor, espaçamento, raio, sombra e duração entram pelo tema de P0-DS. Hex ou px lidos do protótipo e colados no código são bug de implementação.
 - **Alvo de toque e contraste vêm do requisito**, não do artboard: 48px de alvo no mobile e WCAG AA no corpo continuam valendo mesmo que o protótipo pareça permitir menos.
+- **Falta de contrato não poda o design.** Se implementar o protótipo aprovado exige um dado que a API ainda não devolve (por exemplo, a biografia no card de busca), **não corte o elemento em silêncio.** O protótipo continua sendo o alvo: leve o conflito à tona como **pergunta ao dono da feature / a quem decide** — pode ser o caso de mudar o contrato (spec OpenAPI + backend), e não a tela. Quem implementa decide junto; o proibido é omitir o elemento sem levantar a questão. A decisão (mudou o contrato ou cortou de propósito) fica registrada no arquivo da feature.
 - **Divergência é registrada, nunca silenciada.** Se a plataforma, um requisito ou a acessibilidade obrigarem a se afastar do protótipo, a divergência entra no arquivo da feature (item do Definition of Done). Não se altera o protótipo por fora nem se implementa diferente sem registro.
 
 ---

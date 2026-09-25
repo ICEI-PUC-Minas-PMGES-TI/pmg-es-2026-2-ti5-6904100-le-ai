@@ -250,7 +250,7 @@ Regras de uso:
 2. O agente atualiza o arquivo da feature **ao final da sessão de implementação**: status, pendências, decisões tomadas. Sessões exclusivamente de pesquisa, auditoria ou revisão somente leitura entregam o relatório solicitado e não alteram a feature.
 3. O agente não edita arquivos de features que não são a dele.
 4. O agente não altera nenhum arquivo de `docs/orquestador/` por conta própria. Divergência vira pendência no arquivo da feature e decisão do grupo; edição do orquestrador exige autorização humana explícita.
-5. Protótipo é referência visual, não especificação de pixel. Viewport fixo no protótipo não significa layout fixo na implementação.
+5. **O protótipo renderizado é a fonte visual da tela; o prompt de design é só o kickstart.** O prompt (`docs/design/.../<tela>.md`) dá a partida no Claude Design, mas o desenho continua evoluindo lá dentro e o resultado aprovado vive no protótipo `.html`, não no prompt — que fica desatualizado por natureza. Ao implementar, **abra o protótipo no navegador e trabalhe contra ele**, nunca a partir do prompt; ao terminar, confira a tela rodando lado a lado com o protótipo. É referência **visual**, não especificação de pixel: copia-se a estrutura (hierarquia, ordem, agrupamento, densidade, tipografia, cor, **e as ilustrações e estados vazios**), não as coordenadas, e viewport fixo não significa layout fixo. Se faltar dado no contrato para implementar o design aprovado, **traga o conflito como pergunta a quem decide** (pode ser caso de mudar o contrato) em vez de cortar o elemento em silêncio. Detalhamento por plataforma em [`docs/design/AGENTS.md`](../design/AGENTS.md) §10.
 
 ---
 
