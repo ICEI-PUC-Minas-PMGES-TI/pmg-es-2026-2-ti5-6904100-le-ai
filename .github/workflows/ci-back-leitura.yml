@@ -4,10 +4,12 @@ on:
   push:
     paths:
       - 'code/back/leitura/**'
+      - '!code/back/leitura/**.md'
       - '.github/workflows/ci-back-leitura.yml'
   pull_request:
     paths:
       - 'code/back/leitura/**'
+      - '!code/back/leitura/**.md'
       - '.github/workflows/ci-back-leitura.yml'
   workflow_dispatch:
 

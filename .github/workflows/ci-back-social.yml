@@ -4,10 +4,12 @@ on:
   push:
     paths:
       - 'code/back/social/**'
+      - '!code/back/social/**.md'
       - '.github/workflows/ci-back-social.yml'
   pull_request:
     paths:
       - 'code/back/social/**'
+      - '!code/back/social/**.md'
       - '.github/workflows/ci-back-social.yml'
   workflow_dispatch:
 
