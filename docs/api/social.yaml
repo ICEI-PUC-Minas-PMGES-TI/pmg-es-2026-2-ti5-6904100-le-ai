@@ -118,7 +118,7 @@ paths:
       tags: [feed]
       summary: Lista o feed cronológico do leitor (RF-SOC-09)
       operationId: listarFeed
-      x-implementation-status: planned-periodo-1
+      x-implementation-status: implemented
       description: >-
         Retorna atividades dos leitores que o solicitante segue, em ordem
         decrescente de criação. A autorização é revalidada a cada consulta:
@@ -145,7 +145,7 @@ paths:
       tags: [feed]
       summary: Obtém o detalhe de uma atividade visível
       operationId: obterAtividade
-      x-implementation-status: planned-periodo-1
+      x-implementation-status: implemented
       description: >-
         Revalida se a atividade ainda integra o feed do solicitante sob RN-08
         e RN-09. Para evitar enumeração, uma atividade existente mas não
@@ -166,7 +166,7 @@ paths:
       tags: [interacoes]
       summary: Curte uma atividade visível (RF-SOC-11)
       operationId: curtirAtividade
-      x-implementation-status: planned-periodo-1
+      x-implementation-status: implemented
       description: >-
         Cria no máximo uma curtida por leitor e atividade. Revalida que a
         atividade ainda integra o feed do solicitante e está sujeita a rate
@@ -190,7 +190,7 @@ paths:
       tags: [interacoes]
       summary: Remove a própria curtida de uma atividade (RF-SOC-11)
       operationId: descurtirAtividade
-      x-implementation-status: planned-periodo-1
+      x-implementation-status: implemented
       description: >-
         Remove somente a curtida pertencente ao leitor autenticado e revalida
         a visibilidade da atividade. Ausência da própria curtida mantém o
@@ -212,7 +212,7 @@ paths:
       tags: [interacoes]
       summary: Lista comentários-raiz de uma atividade
       operationId: listarComentariosRaiz
-      x-implementation-status: planned-periodo-1
+      x-implementation-status: implemented
       description: >-
         Lista somente comentários-raiz, paginados e ordenados do mais antigo
         para o mais recente. As respostas são consultadas pela rota própria. A
@@ -234,7 +234,7 @@ paths:
       tags: [interacoes]
       summary: Comenta uma atividade ou responde a um comentário (RF-SOC-12)
       operationId: criarComentario
-      x-implementation-status: planned-periodo-1
+      x-implementation-status: implemented
       description: >-
         Sem comentarioRespondidoId cria comentário-raiz. Com o campo, cria uma
         resposta. Se o alvo já for resposta, o novo registro fica como irmão
@@ -271,7 +271,7 @@ paths:
       tags: [interacoes]
       summary: Lista respostas diretas de um comentário-raiz
       operationId: listarRespostas
-      x-implementation-status: planned-periodo-1
+      x-implementation-status: implemented
       description: >-
         Paginação por cursor estável. Retorna apenas respostas irmãs sob a raiz,
         inclusive quando foram criadas em resposta a outra resposta. Revalida a
