@@ -184,7 +184,7 @@ export const routes: RouteRecordRaw[] = [
         path: `${ORIGEM}/adicionar/pessoal`,
         name: 'livro-pessoal-novo',
         component: LivroPessoalFormView,
-        meta: { titulo: 'Novo livro pessoal', voltar: true },
+        meta: { titulo: 'Cadastrar livro', voltar: true },
       },
       {
         path: 'livros/pessoal/:id',

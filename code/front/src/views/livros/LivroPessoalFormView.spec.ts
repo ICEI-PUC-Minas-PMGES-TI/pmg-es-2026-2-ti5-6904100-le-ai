@@ -68,7 +68,7 @@ describe('LivroPessoalFormView', () => {
   it('criação: sem campo de ISBN, salvar só com os três obrigatórios, e abre o livro criado', async () => {
     const { wrapper, router } = await montarNaRota('/descobrir/adicionar/pessoal')
 
-    expect(wrapper.get('h1').text()).toBe('Novo livro pessoal')
+    expect(wrapper.get('h1').text()).toBe('Cadastrar livro')
     expect(wrapper.text()).not.toContain('ISBN')
     expect(wrapper.text()).toContain('Opcional. JPG, PNG ou WEBP, até 5 MB.')
     const salvar = wrapper.get('button[type="submit"]')

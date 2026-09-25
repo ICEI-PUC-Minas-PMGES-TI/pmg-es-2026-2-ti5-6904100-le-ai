@@ -365,7 +365,7 @@ class _LivroPessoalFormPageState extends State<LivroPessoalFormPage> {
     return Column(
       children: <Widget>[
         CabecalhoTela(
-          titulo: _edicao ? 'Editar livro' : 'Novo livro pessoal',
+          titulo: _edicao ? 'Editar livro' : 'Cadastrar livro',
           aoVoltar: widget.aoCancelar,
         ),
         Expanded(

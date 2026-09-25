@@ -126,7 +126,7 @@ void main() {
       aoSalvar: (livro) => salvo = livro,
     );
 
-    expect(find.text('Novo livro pessoal'), findsOneWidget);
+    expect(find.text('Cadastrar livro'), findsOneWidget);
     expect(find.text('ISBN'), findsNothing);
     expect(find.text('Editora'), findsNothing);
     expect(find.text('Excluir livro'), findsNothing);
