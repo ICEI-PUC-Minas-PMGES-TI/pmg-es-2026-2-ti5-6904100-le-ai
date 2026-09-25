@@ -158,6 +158,271 @@ class LinhaDeContadores extends StatelessWidget {
   }
 }
 
+/// Leitor numa lista (seguidores-e-seguidos.md e solicitacoes-de-seguir.md §4): avatar de 48px,
+/// nome e `@username`. A área do nome leva ao perfil; a ação à direita é alvo separado. Sem a
+/// linha de biografia dos protótipos: o `PerfilResumo` do contrato não traz biografia.
+class LinhaDeLeitor extends StatelessWidget {
+  final PerfilResumo leitor;
+  final VoidCallback? aoAbrir;
+  final Widget? acao;
+
+  const LinhaDeLeitor({super.key, required this.leitor, this.aoAbrir, this.acao});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      children: <Widget>[
+        Expanded(
+          child: Semantics(
+            button: aoAbrir != null,
+            label: '${leitor.displayName}, arroba ${leitor.username}',
+            excludeSemantics: true,
+            child: InkWell(
+              onTap: aoAbrir,
+              splashFactory: NoSplash.splashFactory,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 48),
+                child: Row(
+                  children: <Widget>[
+                    AvatarLeitor(url: leitor.avatarUrl, tamanho: 48),
+                    const SizedBox(width: DesignTokens.space4),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          Text(
+                            leitor.displayName,
+                            style: theme.textTheme.titleMedium,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            '@${leitor.username}',
+                            style: theme.textTheme.bodySmall?.copyWith(color: theme.tertiaryText),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        if (acao != null) ...<Widget>[const SizedBox(width: DesignTokens.space3), acao!],
+      ],
+    );
+  }
+}
+
+/// Fim de uma lista paginada: `Carregar mais` enquanto houver página, ou o aviso de falha com
+/// `Tentar de novo`. A rolagem até perto do fim também carrega sozinha (quem monta a lista
+/// escuta o `ScrollNotification`); o botão cobre a lista curta que não rola.
+class FimDaLista extends StatelessWidget {
+  final bool temMais;
+  final bool carregandoMais;
+  final bool falhou;
+  final VoidCallback aoCarregar;
+
+  const FimDaLista({
+    super.key,
+    required this.temMais,
+    required this.carregandoMais,
+    required this.falhou,
+    required this.aoCarregar,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    if (carregandoMais) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: DesignTokens.space4),
+        child: SkeletonDeLinha(),
+      );
+    }
+    if (!temMais) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: DesignTokens.space4),
+      child: Column(
+        children: <Widget>[
+          if (falhou)
+            Text(
+              'Não foi possível carregar mais. Verifique sua conexão.',
+              style: theme.textTheme.bodySmall?.copyWith(color: theme.secondaryText),
+            ),
+          TextButton(
+            onPressed: aoCarregar,
+            style: TextButton.styleFrom(
+              foregroundColor: theme.primaryAccent,
+              minimumSize: const Size(48, 48),
+            ),
+            child: Text(falhou ? 'Tentar de novo' : 'Carregar mais'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Uma linha de lista em skeleton estático: círculo de 48px e duas barras.
+class SkeletonDeLinha extends StatelessWidget {
+  const SkeletonDeLinha({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    Widget barra(double altura, double fracao) => FractionallySizedBox(
+      widthFactor: fracao,
+      alignment: Alignment.centerLeft,
+      child: Container(
+        height: altura,
+        decoration: BoxDecoration(
+          color: theme.coverPlaceholder,
+          borderRadius: BorderRadius.circular(DesignTokens.radiusSm),
+        ),
+      ),
+    );
+    return ExcludeSemantics(
+      child: Row(
+        children: <Widget>[
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: theme.coverPlaceholder),
+          ),
+          const SizedBox(width: DesignTokens.space4),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                barra(17, 0.45),
+                const SizedBox(height: DesignTokens.space2),
+                barra(13, 0.30),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Botão da linha de lista (seguidores-e-seguidos.md e solicitacoes-de-seguir.md §4): outline
+/// `rubi` para remover e recusar, secundário com ícone para seguindo, preenchido `musgo` e pill
+/// para aceitar. O rótulo acessível nomeia a pessoa, para a decisão não depender da posição na
+/// lista. Área de toque de 48px.
+class BotaoDeLinha extends StatelessWidget {
+  final String texto;
+  final String rotuloAcessivel;
+  final VoidCallback? aoTocar;
+  final bool destrutivo;
+  final bool preenchido;
+  final IconData? icone;
+
+  const BotaoDeLinha({
+    super.key,
+    required this.texto,
+    required this.rotuloAcessivel,
+    required this.aoTocar,
+    this.destrutivo = false,
+    this.preenchido = false,
+    this.icone,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final filho = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        if (icone != null) ...<Widget>[
+          Icon(icone, size: 16, color: theme.primaryAccent),
+          const SizedBox(width: DesignTokens.space1),
+        ],
+        Text(texto),
+      ],
+    );
+    final estiloDoTexto = theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600);
+    const padding = EdgeInsets.symmetric(horizontal: DesignTokens.space5);
+    final botao = preenchido
+        ? FilledButton(
+            onPressed: aoTocar,
+            style: FilledButton.styleFrom(
+              backgroundColor: theme.primaryAccent,
+              foregroundColor: theme.colorScheme.onPrimary,
+              minimumSize: const Size(48, 40),
+              tapTargetSize: MaterialTapTargetSize.padded,
+              padding: padding,
+              shape: const StadiumBorder(),
+              textStyle: estiloDoTexto,
+            ),
+            child: filho,
+          )
+        : OutlinedButton(
+            onPressed: aoTocar,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: destrutivo ? theme.colorScheme.error : theme.colorScheme.onSurface,
+              minimumSize: const Size(48, 40),
+              tapTargetSize: MaterialTapTargetSize.padded,
+              padding: padding,
+              side: BorderSide(color: destrutivo ? theme.colorScheme.error : theme.divider),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(DesignTokens.radius),
+              ),
+              textStyle: estiloDoTexto,
+            ),
+            child: filho,
+          );
+    return Semantics(button: true, label: rotuloAcessivel, excludeSemantics: true, child: botao);
+  }
+}
+
+/// Linha de largura total em `musgo-fundo` com ícone, texto e `CaretRight` (meu-perfil.md §4.3,
+/// perfil-de-outro-leitor.md §4.8). Sem badge vermelho nem ponto pulsando.
+class LinhaDeAcento extends StatelessWidget {
+  final IconData icone;
+  final String texto;
+  final VoidCallback aoTocar;
+
+  const LinhaDeAcento({super.key, required this.icone, required this.texto, required this.aoTocar});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Semantics(
+      button: true,
+      label: texto,
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: aoTocar,
+        borderRadius: BorderRadius.circular(DesignTokens.radius),
+        splashFactory: NoSplash.splashFactory,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(DesignTokens.space4),
+          decoration: BoxDecoration(
+            color: theme.accentTint,
+            borderRadius: BorderRadius.circular(DesignTokens.radius),
+          ),
+          child: Row(
+            children: <Widget>[
+              Icon(icone, size: 20, color: theme.primaryAccent),
+              const SizedBox(width: DesignTokens.space3),
+              Expanded(child: Text(texto, style: theme.textTheme.bodyMedium)),
+              Icon(PhosphorIconsRegular.caretRight, size: 20, color: theme.primaryAccent),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Skeleton estático do bloco de identidade (§4.5): sem shimmer, sem spinner.
 class SkeletonDeIdentidade extends StatelessWidget {
   const SkeletonDeIdentidade({super.key});

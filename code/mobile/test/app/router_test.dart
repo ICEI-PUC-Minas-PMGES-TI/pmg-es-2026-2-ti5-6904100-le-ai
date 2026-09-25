@@ -250,6 +250,22 @@ void main() {
     expect(find.text('Sair da conta'), findsOneWidget);
   });
 
+  testWidgets('a lupa do Perfil abre a busca de leitor, com volta para o perfil', (tester) async {
+    await sessionController.entrar('jwt-valido');
+    await tester.pumpWidget(_wrap(router));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Perfil'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Buscar leitor'));
+    await tester.pumpAndSettle();
+    expect(find.text('Busque pelo nome de usuário'), findsOneWidget);
+
+    await tester.tap(find.bySemanticsLabel('Voltar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Marina Beltrão'), findsOneWidget);
+  });
+
   testWidgets('a política abre pelo cadastro, sem sino, e volta com o formulário preenchido', (
     tester,
   ) async {

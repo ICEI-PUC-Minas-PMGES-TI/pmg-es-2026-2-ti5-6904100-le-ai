@@ -38,12 +38,16 @@ class EditarPerfilPage extends StatefulWidget {
   final EnviadorDeAvatar enviador;
   final VoidCallback aoSair;
 
+  /// `Ver seguidores` no aviso de privado (§4.5).
+  final VoidCallback? aoVerSeguidores;
+
   const EditarPerfilPage({
     super.key,
     required this.servico,
     required this.seletor,
     required this.enviador,
     required this.aoSair,
+    this.aoVerSeguidores,
   });
 
   @override
@@ -447,6 +451,11 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
           if (aviso != null) ...<Widget>[
             const SizedBox(height: DesignTokens.space4),
             BannerAviso(variante: VarianteAviso.alerta, mensagem: aviso),
+            if (widget.aoVerSeguidores != null)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: BotaoTextual(texto: 'Ver seguidores', onPressed: widget.aoVerSeguidores),
+              ),
           ],
           if (_coldStart) ...<Widget>[
             const SizedBox(height: DesignTokens.space4),

@@ -31,11 +31,16 @@ class ShellAutenticado extends StatelessWidget {
   /// (configuracoes.md §1). Ausente, o header do Perfil fica só com o sino.
   final VoidCallback? aoAbrirConfiguracoes;
 
+  /// Lupa no header da aba Perfil, antes da engrenagem (meu-perfil.md §4): busca **pessoas**
+  /// por nome de usuário exato, nunca livros.
+  final VoidCallback? aoBuscarLeitor;
+
   const ShellAutenticado({
     super.key,
     required this.navigationShell,
     this.caminhoAtual,
     this.aoAbrirConfiguracoes,
+    this.aoBuscarLeitor,
   });
 
   @override
@@ -49,6 +54,18 @@ class ShellAutenticado extends StatelessWidget {
             CabecalhoTela(
               titulo: _titulosPorAba[navigationShell.currentIndex],
               acoes: <Widget>[
+                if (navigationShell.currentIndex == _indiceDoPerfil && aoBuscarLeitor != null)
+                  IconButton(
+                    onPressed: aoBuscarLeitor,
+                    tooltip: 'Buscar leitor',
+                    constraints: const BoxConstraints.tightFor(width: 48, height: 48),
+                    padding: EdgeInsets.zero,
+                    icon: Icon(
+                      PhosphorIconsRegular.magnifyingGlass,
+                      size: 24,
+                      color: theme.textTheme.bodyMedium?.color,
+                    ),
+                  ),
                 if (navigationShell.currentIndex == _indiceDoPerfil && aoAbrirConfiguracoes != null)
                   IconButton(
                     onPressed: aoAbrirConfiguracoes,

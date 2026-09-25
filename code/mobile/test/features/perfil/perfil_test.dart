@@ -22,6 +22,14 @@ const _avatarNovo = Avatar(
   publicId: 'avatares/novo',
 );
 
+const Map<String, Object?> _paginaVazia = <String, Object?>{
+  'items': <Object?>[],
+  'page': 0,
+  'size': 1,
+  'totalElements': 0,
+  'totalPages': 0,
+};
+
 Map<String, Object?> _perfil({
   String privacidade = 'publico',
   String? avatarUrl = _avatarAtual,
@@ -181,7 +189,10 @@ void main() {
       await tester.pumpWidget(
         envolver(
           PerfilPage(
-            servico: _servico((_) async {
+            servico: _servico((request) async {
+              if (request.url.path != '/me/perfil') {
+                return json(_paginaVazia, 200);
+              }
               chamadas++;
               return chamadas == 1 ? erro(500, 'ERRO_INTERNO', 'x') : json(_perfil(), 200);
             }),
@@ -202,7 +213,10 @@ void main() {
       await tester.pumpWidget(
         envolver(
           PerfilPage(
-            servico: _servico((_) async {
+            servico: _servico((request) async {
+              if (request.url.path != '/me/perfil') {
+                return json(_paginaVazia, 200);
+              }
               chamadas++;
               return json(_perfil(), 200);
             }),

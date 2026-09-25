@@ -1,11 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 
 import '../../core/network/api_client.dart';
 import '../../design/theme.dart';
 import '../../design/tokens.dart';
 import '../../design/widgets/banner_aviso.dart';
 import '../../design/widgets/botao_textual.dart';
+import 'conexoes_page.dart';
 import 'perfil_service.dart';
+import 'textos.dart';
 import 'widgets_de_perfil.dart';
 
 /// Meu perfil (RF-SOC-01, RF-SOC-04), a partir de docs/design/periodo-1/F-PERFIL/meu-perfil.md
@@ -22,7 +27,19 @@ class PerfilPage extends StatefulWidget {
   /// Abre a edição; ao voltar, o perfil é relido.
   final Future<void> Function()? aoEditar;
 
-  const PerfilPage({super.key, required this.servico, this.aoEditar});
+  /// Os contadores levam à aba correspondente de Conexões (§4 "Contadores").
+  final Future<void> Function(AbaDeConexoes aba)? aoAbrirConexoes;
+
+  /// A linha de pedidos pendentes leva à caixa (§4.3).
+  final Future<void> Function()? aoAbrirSolicitacoes;
+
+  const PerfilPage({
+    super.key,
+    required this.servico,
+    this.aoEditar,
+    this.aoAbrirConexoes,
+    this.aoAbrirSolicitacoes,
+  });
 
   @override
   State<PerfilPage> createState() => _PerfilPageState();
@@ -32,6 +49,7 @@ class _PerfilPageState extends State<PerfilPage> {
   Perfil? _perfil;
   bool _carregando = true;
   bool _falhou = false;
+  int _pedidosPendentes = 0;
 
   @override
   void initState() {
@@ -39,7 +57,30 @@ class _PerfilPageState extends State<PerfilPage> {
     _carregar();
   }
 
+  /// A contagem vem de uma página de um item da caixa; falhar nela só esconde a linha.
+  Future<void> _contarPedidos() async {
+    try {
+      final pagina = await widget.servico.listarSolicitacoes(0, tamanho: 1);
+      if (mounted) {
+        setState(() => _pedidosPendentes = pagina.totalElementos);
+      }
+    } on ApiException {
+      if (mounted) {
+        setState(() => _pedidosPendentes = 0);
+      }
+    }
+  }
+
+  /// Volta de qualquer tela empilhada relendo o perfil: contadores e pedidos podem ter mudado.
+  Future<void> _abrir(Future<void> Function()? destino) async {
+    await destino?.call();
+    if (mounted) {
+      await _carregar();
+    }
+  }
+
   Future<void> _carregar() async {
+    unawaited(_contarPedidos());
     setState(() {
       _carregando = true;
       _falhou = false;
@@ -62,11 +103,9 @@ class _PerfilPageState extends State<PerfilPage> {
     }
   }
 
-  Future<void> _editar() async {
-    await widget.aoEditar?.call();
-    if (mounted) {
-      await _carregar();
-    }
+  VoidCallback? _conexoes(AbaDeConexoes aba) {
+    final abrir = widget.aoAbrirConexoes;
+    return abrir == null ? null : () => _abrir(() => abrir(aba));
   }
 
   @override
@@ -131,7 +170,7 @@ class _PerfilPageState extends State<PerfilPage> {
                     width: double.infinity,
                     height: 48,
                     child: OutlinedButton(
-                      onPressed: widget.aoEditar == null ? null : _editar,
+                      onPressed: widget.aoEditar == null ? null : () => _abrir(widget.aoEditar),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: theme.colorScheme.onSurface,
                         side: BorderSide(color: theme.divider),
@@ -150,10 +189,24 @@ class _PerfilPageState extends State<PerfilPage> {
                     ContadorDePerfil(
                       valor: perfil.seguidores,
                       rotulo: perfil.seguidores == 1 ? 'seguidor' : 'seguidores',
+                      aoTocar: _conexoes(AbaDeConexoes.seguidores),
                     ),
-                    ContadorDePerfil(valor: perfil.seguidos, rotulo: 'seguindo'),
+                    ContadorDePerfil(
+                      valor: perfil.seguidos,
+                      rotulo: 'seguindo',
+                      aoTocar: _conexoes(AbaDeConexoes.seguidos),
+                    ),
                   ],
                 ),
+                if (_pedidosPendentes > 0) ...<Widget>[
+                  const SizedBox(height: DesignTokens.space6),
+                  LinhaDeAcento(
+                    icone: PhosphorIconsRegular.userPlus,
+                    texto:
+                        '${contagem(_pedidosPendentes, 'solicitação', 'solicitações')} para seguir você',
+                    aoTocar: () => _abrir(widget.aoAbrirSolicitacoes),
+                  ),
+                ],
               ],
             ),
     );

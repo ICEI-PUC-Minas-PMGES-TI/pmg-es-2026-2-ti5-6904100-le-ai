@@ -109,6 +109,7 @@ GoRouter buildRouter({
           navigationShell: navigationShell,
           caminhoAtual: state.uri.path,
           aoAbrirConfiguracoes: () => context.go(rotaConfiguracoes),
+          aoBuscarLeitor: () => context.go(rotaBuscarLeitor),
         ),
         branches: <StatefulShellBranch>[
           StatefulShellBranch(
@@ -147,6 +148,8 @@ GoRouter buildRouter({
                 builder: (context, state) => PerfilPage(
                   servico: depsDePerfil.servico,
                   aoEditar: () => context.push<void>(rotaEditarPerfil),
+                  aoAbrirConexoes: (aba) => context.push<void>(rotaConexoes(aba)),
+                  aoAbrirSolicitacoes: () => context.push<void>(rotaSolicitacoes),
                 ),
                 routes: <RouteBase>[
                   ...rotasDoPerfil(depsDePerfil),

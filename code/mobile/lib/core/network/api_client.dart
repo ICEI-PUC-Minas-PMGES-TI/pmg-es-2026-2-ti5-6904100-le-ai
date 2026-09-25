@@ -194,6 +194,29 @@ class ApiClient {
     return _decodeJson(response, requestCorrelationId);
   }
 
+  /// GET cujo corpo é uma lista JSON (a busca exata de perfis devolve `[]` ou `[perfil]`).
+  Future<List<dynamic>> getJsonLista(
+    String path, {
+    Map<String, String> headers = const <String, String>{},
+    String? correlationId,
+  }) async {
+    final requestCorrelationId = correlationId ?? newCorrelationId();
+    final response = await get(path, headers: headers, correlationId: requestCorrelationId);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw _erroDoCorpo(response, requestCorrelationId);
+    }
+    try {
+      return jsonDecode(response.body) as List<dynamic>;
+    } on Object {
+      throw ApiException(
+        kind: ApiFailureKind.invalidResponse,
+        correlationId: response.headers['x-correlation-id'] ?? requestCorrelationId,
+        message: 'O serviço retornou uma resposta inválida.',
+        status: response.statusCode,
+      );
+    }
+  }
+
   Future<Map<String, dynamic>> postJson(
     String path, {
     Object? body,
