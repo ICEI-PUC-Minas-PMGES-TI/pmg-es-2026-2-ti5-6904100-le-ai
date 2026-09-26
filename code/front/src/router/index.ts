@@ -28,7 +28,7 @@ import PerfilView from '../views/PerfilView.vue'
 import SolicitacoesView from '../views/SolicitacoesView.vue'
 import CadastroIsbnView from '../views/livros/CadastroIsbnView.vue'
 import IsbnNaoEncontradoView from '../views/livros/IsbnNaoEncontradoView.vue'
-import LivroOficialPlaceholderView from '../views/livros/LivroOficialPlaceholderView.vue'
+import LivroOficialView from '../views/livros/LivroOficialView.vue'
 import LivroPessoalFormView from '../views/livros/LivroPessoalFormView.vue'
 import LivroPessoalView from '../views/livros/LivroPessoalView.vue'
 
@@ -216,7 +216,7 @@ export const routes: RouteRecordRaw[] = [
       {
         path: 'livros/:id',
         name: 'livro-oficial',
-        component: LivroOficialPlaceholderView,
+        component: LivroOficialView,
         meta: {
           titulo: '',
           voltar: true,

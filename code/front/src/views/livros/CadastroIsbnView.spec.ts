@@ -10,6 +10,9 @@ vi.mock('../../services/acervo', () => ({
     solicitarImportacao: vi.fn(),
     obterImportacao: vi.fn(),
     reprocessarImportacao: vi.fn(),
+    // O "Abrir página do livro" leva à página real, que pede o livro ao montar.
+    obterLivroOficial: vi.fn().mockReturnValue(new Promise(() => undefined)),
+    listarResenhasDoLivro: vi.fn(),
   },
 }))
 
