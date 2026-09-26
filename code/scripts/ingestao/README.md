@@ -50,7 +50,7 @@ Valida os três CSV de `dados/` entre si, sem tocar o banco. Falhar aqui é muit
 ### 4. Semear os dados curados
 
 ```bash
-export DATABASE_URL='postgresql://...'   # branch de DES; nunca versionar
+export DATABASE_URL='postgresql://...'   # banco-alvo: dev (le-ai, São Paulo) ou DES (le-ai-oregon, Oregon); rode em cada um que precisar; nunca versionar
 python -m leai_ingestao semear
 ```
 
