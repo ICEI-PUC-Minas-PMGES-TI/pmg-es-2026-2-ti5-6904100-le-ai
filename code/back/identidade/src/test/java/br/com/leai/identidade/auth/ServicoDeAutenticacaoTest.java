@@ -54,16 +54,34 @@ class ServicoDeAutenticacaoTest {
         new AppProperties(
             "identidade",
             "identidade",
-            "jdbc:postgresql://localhost:5432/leai",
-            "http://localhost:5173",
-            null,
-            "segredo-de-teste-com-32-caracteres",
-            null,
-            null);
+             "jdbc:postgresql://localhost:5432/leai",
+             "http://localhost:5173",
+             null,
+             null,
+             null,
+             null,
+             null,
+             null,
+             null,
+             "segredo-de-teste-com-32-caracteres",
+             null,
+             null);
     EmissorDeToken emissor =
         new EmissorDeToken(jwtConfig.jwtEncoder(jwtConfig.chaveDeAssinatura(propriedades)));
 
-    servico = new ServicoDeAutenticacao(repositorio, codificador, emissor, controleDeTentativas);
+    // A rotação e o reuso dependem do UPDATE ... RETURNING e ficam na integração com Postgres
+    // (RenovacaoIntegracaoTest); aqui basta a emissão.
+    GestorDeRenovacao gestorDeRenovacao = Mockito.mock(GestorDeRenovacao.class);
+    given(gestorDeRenovacao.emitir(any())).willReturn("renovacao-de-teste");
+    servico =
+        new ServicoDeAutenticacao(
+            repositorio,
+            codificador,
+            emissor,
+            controleDeTentativas,
+            new PoliticaDeSenha(),
+            gestorDeRenovacao,
+            new ContaAdministradora());
   }
 
   private static CadastroRequisicao cadastro() {
@@ -97,6 +115,20 @@ class ServicoDeAutenticacaoTest {
   }
 
   @Test
+  @DisplayName("senha da lista de comuns vira 400 com a mensagem da tela, sem consultar o banco")
+  void senhaComumVira400() {
+    CadastroRequisicao comSenhaComum =
+        new CadastroRequisicao(
+            "marina.beltrao@gmail.com", "marinableu", "Marina Beltrão", NASCIMENTO, "Senha123");
+
+    assertThatErroDeNegocio(() -> servico.cadastrar(comSenhaComum))
+        .hasMessage(PoliticaDeSenha.SENHA_COMUM)
+        .extracting(erro -> ((ErroDeNegocioException) erro).codigo())
+        .isEqualTo(CodigoErro.REQUISICAO_INVALIDA);
+    Mockito.verifyNoInteractions(repositorio);
+  }
+
+  @Test
   @DisplayName("username já em uso vira 409 com a mensagem da tela")
   void usernameEmUsoVira409() {
     given(repositorio.existsByUsernameIgnoreCase("marinableu")).willReturn(true);
@@ -105,6 +137,29 @@ class ServicoDeAutenticacaoTest {
         .hasMessage("Esse nome de usuário já está em uso. Escolha outro.")
         .extracting(erro -> ((ErroDeNegocioException) erro).codigo())
         .isEqualTo(CodigoErro.CONFLITO);
+  }
+
+  @Test
+  @DisplayName("username do admin é reservado mesmo sem a conta existir, em qualquer caixa")
+  void usernameDoAdminEhReservado() {
+    CadastroRequisicao comoAdmin =
+        new CadastroRequisicao("outra@gmail.com", "AdMin", "Impostora", NASCIMENTO, SENHA);
+
+    assertThatErroDeNegocio(() -> servico.cadastrar(comoAdmin))
+        .extracting(erro -> ((ErroDeNegocioException) erro).codigo())
+        .isEqualTo(CodigoErro.CONFLITO);
+  }
+
+  @Test
+  @DisplayName("senha do admin: curta ou comum não sobe, 16+ incomum passa")
+  void senhaDoAdminPrecisaSerForte() {
+    PoliticaDeSenha politica = new PoliticaDeSenha();
+
+    assertThatThrownBy(() -> ProvisionamentoDoAdmin.exigirSenhaForte("curta-de-15-car", politica))
+        .isInstanceOf(IllegalStateException.class);
+    assertThatThrownBy(() -> ProvisionamentoDoAdmin.exigirSenhaForte("films+pic+galeries", politica))
+        .isInstanceOf(IllegalStateException.class);
+    ProvisionamentoDoAdmin.exigirSenhaForte("frase-longa-do-admin-2026", politica);
   }
 
   @Test
@@ -134,11 +189,12 @@ class ServicoDeAutenticacaoTest {
     given(repositorio.findByEmailIgnoreCaseOrUsernameIgnoreCase("marinableu", "marinableu"))
         .willReturn(Optional.of(usuario));
 
-    TokenResposta resposta = servico.entrar(new LoginRequisicao("marinableu", SENHA));
+    SessaoResposta resposta = servico.entrar(new LoginRequisicao("marinableu", SENHA));
 
     assertThat(resposta.tokenType()).isEqualTo("Bearer");
     assertThat(resposta.expiresIn()).isEqualTo(900L);
     assertThat(resposta.accessToken()).isNotBlank();
+    assertThat(resposta.refreshToken()).isEqualTo("renovacao-de-teste");
   }
 
   @Test
@@ -206,11 +262,12 @@ class ServicoDeAutenticacaoTest {
     Usuario usuario = usuarioSalvo();
     given(repositorio.findById(usuario.id())).willReturn(Optional.of(usuario));
 
-    UsuarioResposta resposta = servico.doToken(usuario.id());
+    UsuarioProprioResposta resposta = servico.doToken(usuario.id());
 
     assertThat(resposta.username()).isEqualTo("marinableu");
     assertThat(resposta.displayName()).isEqualTo("Marina Beltrão");
     assertThat(resposta.id()).isEqualTo(usuario.id().toString());
+    assertThat(resposta.email()).isEqualTo(usuario.email());
   }
 
   @Test

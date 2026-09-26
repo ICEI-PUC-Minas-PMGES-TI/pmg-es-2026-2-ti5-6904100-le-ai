@@ -518,6 +518,9 @@ export const outboxAcervo = acervoSchema.table(
     criadoEm: timestamp('criado_em', { withTimezone: true })
       .notNull()
       .defaultNow(),
+    proximaTentativaEm: timestamp('proxima_tentativa_em', {
+      withTimezone: true,
+    }),
     publicadoEm: timestamp('publicado_em', { withTimezone: true }),
     anonimizadoEm: timestamp('anonimizado_em', { withTimezone: true }),
   },

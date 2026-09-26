@@ -1,0 +1,117 @@
+import { flushPromises } from '@vue/test-utils'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { perfilService, type Perfil } from '../services/perfil'
+import { montarNaRota } from '../testes/montarNaRota'
+
+vi.mock('../services/perfil', () => ({ perfilService: { obterMeuPerfil: vi.fn(), listarSolicitacoes: vi.fn() } }))
+
+const servico = vi.mocked(perfilService)
+
+const PERFIL: Perfil = {
+  id: 'u1',
+  username: 'marinableu',
+  displayName: 'Marina Beltrão',
+  avatarUrl: null,
+  privacidade: 'publico',
+  conteudoRestrito: false,
+  relacao: 'proprio',
+  biografia: 'Leio ficção brasileira contemporânea.',
+  contadores: { seguidores: 84, seguidos: 1 },
+}
+
+describe('PerfilView', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    servico.obterMeuPerfil.mockReset().mockResolvedValue(PERFIL)
+    servico.listarSolicitacoes
+      .mockReset()
+      .mockResolvedValue({ items: [], page: 0, size: 1, totalElements: 0, totalPages: 0 })
+  })
+
+  it('contadores levam às listas, a lupa à busca, e pedidos pendentes têm linha própria', async () => {
+    servico.listarSolicitacoes.mockResolvedValue({ items: [], page: 0, size: 1, totalElements: 3, totalPages: 3 })
+    const { wrapper } = await montarNaRota('/perfil')
+    await flushPromises()
+
+    expect(servico.listarSolicitacoes).toHaveBeenCalledWith(0, 1)
+    expect(wrapper.get('a[href="/perfil/conexoes?aba=seguidores"]').attributes('aria-label')).toBe('84 seguidores')
+    expect(wrapper.get('a[href="/perfil/conexoes?aba=seguidos"]').attributes('aria-label')).toBe('1 seguindo')
+    expect(wrapper.get('a[href="/perfil/solicitacoes"]').text()).toBe('3 solicitações para seguir você')
+    expect(wrapper.find('a[aria-label="Buscar leitor"]').exists()).toBe(true)
+  })
+
+  it('sem pedidos, ou se a contagem falhar, a linha não aparece', async () => {
+    servico.listarSolicitacoes.mockRejectedValue(new Error('rede'))
+    const { wrapper } = await montarNaRota('/perfil')
+    await flushPromises()
+
+    expect(wrapper.find('a[href="/perfil/solicitacoes"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Marina Beltrão')
+  })
+  afterEach(() => {
+    document.body.innerHTML = ''
+  })
+
+  it('mostra identidade, chip público, biografia e os contadores com unidade', async () => {
+    const { wrapper } = await montarNaRota('/perfil')
+    await flushPromises()
+
+    expect(wrapper.get('h1').text()).toBe('Perfil')
+    expect(wrapper.text()).toContain('Marina Beltrão')
+    expect(wrapper.text()).toContain('@marinableu')
+    expect(wrapper.text()).toContain('Perfil público')
+    expect(wrapper.text()).toContain('Leio ficção brasileira contemporânea.')
+    expect(wrapper.find('[aria-label="84 seguidores"]').exists()).toBe(true)
+    expect(wrapper.find('[aria-label="1 seguindo"]').exists()).toBe(true)
+    expect(wrapper.get('a[href="/perfil/editar"]').text()).toBe('Editar perfil')
+    // Sem o dado de `leitura` ainda: nada de contador de livros lidos.
+    expect(wrapper.text()).not.toContain('livros lidos')
+  })
+
+  it('Estante e Resenhas aparecem no estado vazio, com o CTA para Descobrir e as abas na web', async () => {
+    const { wrapper } = await montarNaRota('/perfil')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Os livros que você adicionar aparecem aqui.')
+    expect(wrapper.findAll('a[href="/descobrir"]').some((link) => link.text() === 'Buscar livros')).toBe(true)
+    expect(wrapper.text()).toContain('Suas resenhas aparecem aqui depois que você escrever a primeira.')
+
+    const [estante, resenhas] = wrapper.findAll('[role="tab"]')
+    expect(estante.text()).toBe('Estante')
+    expect(estante.attributes('aria-selected')).toBe('true')
+    expect(resenhas.attributes('aria-selected')).toBe('false')
+    const [painelDaEstante, painelDasResenhas] = wrapper.findAll('[role="tabpanel"]')
+    expect(painelDasResenhas.classes()).toContain('md:hidden')
+
+    await resenhas.trigger('click')
+
+    expect(resenhas.attributes('aria-selected')).toBe('true')
+    expect(painelDaEstante.classes()).toContain('md:hidden')
+    expect(painelDasResenhas.classes()).not.toContain('md:hidden')
+  })
+
+  it('perfil privado troca o chip e explica quem vê o conteúdo', async () => {
+    servico.obterMeuPerfil.mockResolvedValue({ ...PERFIL, privacidade: 'privado' })
+    const { wrapper } = await montarNaRota('/perfil')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Perfil privado')
+    expect(wrapper.text()).toContain('Só quem você aceita vê sua estante e suas resenhas.')
+    expect(wrapper.text()).not.toContain('Perfil público')
+  })
+
+  it('falha de carga mostra o banner e tenta de novo', async () => {
+    servico.obterMeuPerfil.mockRejectedValueOnce(new Error('rede'))
+    const { wrapper } = await montarNaRota('/perfil')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Não foi possível carregar seu perfil.')
+    const tentar = wrapper.findAll('button').find((botao) => botao.text() === 'Tentar de novo')!
+    await tentar.trigger('click')
+    await flushPromises()
+
+    expect(servico.obterMeuPerfil).toHaveBeenCalledTimes(2)
+    expect(wrapper.text()).toContain('Marina Beltrão')
+  })
+})

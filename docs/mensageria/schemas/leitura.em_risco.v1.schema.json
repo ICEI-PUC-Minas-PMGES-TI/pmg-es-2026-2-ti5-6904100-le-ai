@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://leai.app/schemas/mensageria/leitura.em_risco.v1.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["destinatarioId", "leituraId", "inatividadeVersao", "limiarDias", "livro"],
+  "properties": {
+    "destinatarioId": { "type": "string", "format": "uuid" },
+    "leituraId": { "type": "string", "format": "uuid" },
+    "inatividadeVersao": { "type": "integer", "minimum": 1 },
+    "limiarDias": { "enum": [20, 30] },
+    "livro": { "$ref": "common-v1.schema.json#/$defs/LivroSnapshot" }
+  }
+}

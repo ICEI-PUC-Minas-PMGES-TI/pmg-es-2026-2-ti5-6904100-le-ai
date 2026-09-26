@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://leai.app/schemas/mensageria/nota.alterada.v1.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["usuarioId", "livroId", "operacao", "nota"],
+  "properties": {
+    "usuarioId": { "type": "string", "format": "uuid" },
+    "livroId": { "type": "string", "format": "uuid" },
+    "operacao": { "enum": ["criada", "atualizada", "excluida"] },
+    "nota": { "type": ["number", "null"], "minimum": 0, "maximum": 5, "multipleOf": 0.5 }
+  },
+  "allOf": [
+    { "if": { "properties": { "operacao": { "const": "excluida" } } }, "then": { "properties": { "nota": { "type": "null" } } } },
+    { "if": { "properties": { "operacao": { "enum": ["criada", "atualizada"] } } }, "then": { "properties": { "nota": { "type": "number" } } } }
+  ]
+}

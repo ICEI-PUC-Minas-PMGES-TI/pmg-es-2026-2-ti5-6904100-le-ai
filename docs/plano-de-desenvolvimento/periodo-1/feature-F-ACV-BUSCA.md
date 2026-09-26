@@ -1,7 +1,7 @@
 # F-ACV-BUSCA — Busca e página do livro
 
 **Período:** 1 · **Prioridade:** prioritaria
-**Dono:** a definir · **Serviços afetados:** `acervo` (backend) + web + mobile
+**Dono:** Renato Douglas · **Serviços afetados:** `acervo` (backend) + web + mobile
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.2 (RF-ACV-01, 02, 04, 18, 19), RN-19, RN-21, RN-14. Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §2.2, §3.2, §4.2, §5.2. Processo e template: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §9. Em caso de conflito, o `REQUISITOS.md` ganha; protótipo é referência visual, não spec de pixel (plano §7).
 
@@ -23,10 +23,11 @@ RNF atendidos: **RNF-DES-01** (leitura ≤1s p95, sem cold start), **RNF-DES-02*
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | não iniciado | índices de busca; estado de sinopse; consumidor de `livro.pagina_aberta` |
-| Backend | não iniciado | `acervo`: `GET /livros` (busca+filtro) e `GET /livros/{id}` (página) + busca de sinopse |
-| Web | não iniciado | tela de busca com filtro por assunto + página do livro |
-| Mobile | não iniciado | mesmas telas |
+| Infra | concluído (local) | consumidor `acervo.sinopse` na fila `leai.acervo.sinopse` sobre o runtime de P0-MSG, provado com o broker em memória; no broker de dev, a fila nasce quando um acervo com este código sobe com `AMQP_ENABLED=true`; falta a prova em DES |
+| Dados | concluído (dev) | migration `0004` (`pg_trgm`, `unaccent`, `acervo.f_busca_normalizar` e índices GIN de título, autor e editora) aplicada no banco de dev em 26/09, com ~2,2 MB de índices; o DES a recebe no deploy da `main` |
+| Backend | concluído (local) | `GET /assuntos`, `GET /livros`, `GET /livros/{id}` com sinopse sob demanda e `GET /livros/{id}/resenhas` com RN-08, em 26/09; falta DES |
+| Web | concluído (local) | Descobrir e página do livro, conferidos com os protótipos a 1440 e 390 px; falta DES |
+| Mobile | concluído (local) | Descobrir conferido no emulador com os dados do dev; página do livro conferida pelos testes de widget; falta DES |
 
 ## Especificação
 
@@ -34,18 +35,18 @@ RNF atendidos: **RNF-DES-01** (leitura ≤1s p95, sem cold start), **RNF-DES-02*
 
 Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + correlation-id e mensagens pt-BR. Acesso a dados por ORM/consulta parametrizada (SEC-12). IDs de livro **não sequenciais** (SEC-05). **Livro pessoal nunca aparece** em busca, catálogo, filtro ou páginas de autor/editora/série (SEC-06, RN-03); sua página autorizada pertence a [F-ACV-CADASTRO](feature-F-ACV-CADASTRO.md).
 
-- **`GET /livros`** (RF-ACV-01, RF-ACV-02) — busca **paginada** de livros oficiais por **título, autor, editora ou ISBN**, com **filtro por assunto** (RF-ACV-02, RN-21). Usa índices adequados (RNF-DES-03); teto de itens por página imposto pelo servidor (RNF-DES-02). Ordenação por relevância; **agrupamento visual por título+autor** é mitigação de interface de RN-01 (o modelo continua por edição). Retorno inclui, por item: id, título, autor(es), editora, ano, nº páginas, **capa resolvida** (ver ordem RN-14.4), assuntos.
-- **`GET /livros/{id}`** (RF-ACV-04) — página do livro oficial: metadados, capa, **sinopse** e resenhas paginadas. Assuntos acionáveis pertencem a F-ACV-DESCOBERTA. As resenhas vêm de `v_resenha_publicacao_v1` sob RN-08. Nota geral, nota dos leitores e distribuição ficam ausentes, nunca zero inventado, até F-ACV-NOTA.
-- **`GET /livros/{id}/resenhas?cursor=`** — pagina as resenhas permitidas pelo mesmo filtro server-side de RN-08, com teto de itens e cursor opaco; `GET /livros/{id}` pode incluir a primeira página e seu próximo cursor, mas as páginas seguintes usam esta rota (RNF-DES-02).
+- **`GET /livros?q={texto}&assunto={uuid}&page={n}&limit={n}`** (RF-ACV-01, RF-ACV-02; contrato em [`docs/api/acervo.yaml`](../../api/acervo.yaml)) — busca **paginada** de livros oficiais por **título, autor, editora ou ISBN-13**, com `q` e `assunto` opcionais, `page` iniciado em 1 e `limit` máximo 50. Usa índices adequados (RNF-DES-03); ordenação por relevância; **agrupamento visual por título+autor** é mitigação de interface de RN-01 (o modelo continua por edição). `PaginaLivros` retorna `itens`, `page`, `limit`, `totalItens` e `totalPaginas`; cada item traz id, título, autores, editora, ano, páginas, **capa resolvida** e assuntos.
+- **`GET /livros/{id}`** (RF-ACV-04; `id` UUID de livro oficial) — retorna `LivroOficialDetalhe`: metadados, capa, `sinopse { status, texto }` e a primeira `PaginaResenhas`, com `itens`, `limit` e `proximoCursor`. Assuntos acionáveis pertencem a F-ACV-DESCOBERTA. As resenhas vêm de `leitura.v_resenha_publicacao_v1` e são compostas com os contratos de identidade sob RN-08. Nota geral, nota dos leitores e distribuição não integram o contrato do Período 1.
+- **`GET /livros/{id}/resenhas?cursor={opaco}&limit={n}`** — pagina as resenhas permitidas pelo mesmo filtro server-side de RN-08; `cursor` tem até 500 caracteres e `limit` máximo 50. As páginas seguintes à incluída em `GET /livros/{id}` usam esta rota (RNF-DES-02).
 - **Sinopse sob demanda** (RF-ACV-18, RF-ACV-19, RN-19):
   - A sinopse **não** foi carregada na ingestão (RN-19.1). O livro mantém `sinopse_status = nao_consultada | pendente | disponivel | ausente | falha_transitoria`. Na primeira abertura, uma atualização concorrente segura muda para `pendente` e publica **uma** `livro.pagina_aberta`; estados `disponivel` e `ausente` são terminais para a busca automática.
   - O consumidor busca na ordem **OpenLibrary → Google Books → ausente** (RN-19.3), com allowlist, timeout, limite de resposta, backoff e circuit breaker (SEC-39, RNF-ERR-08). Em sucesso persiste texto puro ≤4.000 e marca `disponivel`; quando ambas as fontes respondem sem sinopse, marca `ausente`. Ao esgotar tentativas antes da DLQ, marca `falha_transitoria`; uma abertura posterior pode reenfileirar de forma controlada com nova chave, sem ficar eternamente `pendente`. Marcação externa é removida (RN-19.6).
   - A busca é **assíncrona e não bloqueia a renderização** (RN-19.5): a página abre já; a sinopse aparece quando disponível. **Ausência é estado válido** e não gera erro (RF-ACV-19, RN-19.4). Sinopse **não** integra o índice de busca (RN-19.7).
 - **Resolução da capa** na exibição (RN-14.4): **cópia própria (Cloudinary), se existir → URL externa → placeholder**. O cache da cópia própria é alimentado por outro fluxo (RN-14, disparado por `livro.adicionado_a_estante` de [F-EST](feature-F-EST.md)); aqui apenas se **consome** a ordem de resolução.
 
-**Eventos:** produz e consome **`livro.pagina_aberta`** (produtor e consumidor em `acervo`, §5.2). O payload versionado contém `livroId` e chave de negócio `livroId`, além do envelope de P0-MSG. Consumidor valida schema e é idempotente também pelo estado persistido, não apenas por `eventId`.
+**Evento:** `acervo` produz e consome **`livro.pagina_aberta`** (produtor e consumidor no mesmo domínio, §5.2). O `data` segue [`livro.pagina_aberta.v1`](../../mensageria/schemas/livro.pagina_aberta.v1.schema.json), contém somente `livroId`, e o envelope de P0-MSG usa `businessKey = livro:<livroId>:sinopse`. A mudança concorrente de `nao_consultada` para `pendente` e a linha de `outbox_acervo` são atômicas. O consumidor valida envelope e `data`, grava efeito e recibo na mesma transação e deduplica por `(consumidor, eventId)`; o estado persistido da sinopse fornece a idempotência semântica adicional. A fila é `leai.acervo.sinopse`, ligada a `leai.events.acervo` pela routing key `livro.pagina_aberta`, com `leai.acervo.sinopse.dlq`.
 
-**VIEWs consumidas** (arquitetura §4.2): `v_resenha_publicacao_v1` de `leitura` e `v_perfil_referencia_v1`/`v_seguimento_aceito_v1` de `identidade`, para compor a página sob RN-08. `v_nota_publicacao_v1` não atualiza a projeção de `acervo`; F-ACV-NOTA consome `nota.alterada`.
+**Contratos cross-schema da página do livro:** para livro oficial, `acervo` lê `leitura.v_resenha_publicacao_v1` (`resenha_id`, `usuario_id`, `livro_id`, `texto`, `spoiler`, `criado_em`, `atualizado_em`, `curtidas`, `descurtidas`) e compõe autor/visibilidade com `identidade.v_perfil_referencia_v1` e `identidade.v_seguimento_aceito_v1`; as VIEWs omitem contas suspensas/em exclusão, mas não substituem a autorização RN-08. A página de livro pessoal, pertencente a F-ACV-CADASTRO, acrescenta as vias `social.v_atividade_livro_pessoal_v1`/`social.v_lista_livro_pessoal_v1` e lê `leitura.v_nota_publicacao_v1`; conhecer o ID não autoriza acesso. `acervo.v_livro_referencia_v1` é exposta por este serviço a `leitura` e `social`, não é usada para ler o próprio livro. Nenhum serviço lê tabela crua de outro schema. As VIEWs já estão implantadas pelo DER, sem que a composição/autorização esteja implementada.
 
 ### Frontend Web (`code/front`)
 
@@ -58,32 +59,34 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 ## Critérios de aceite
 
-- [ ] Busca retorna livros oficiais por título/autor/editora/ISBN, **paginada** com teto de itens (RNF-DES-02) e usando índices (RNF-DES-03); **livro pessoal nunca** aparece (SEC-06).
-- [ ] Filtro por assunto restringe os resultados (RN-21).
-- [ ] Página do livro abre com metadados/capa e resenhas **paginadas**, filtradas server-side por RN-08 via contratos versionados, sem ler tabelas cruas.
-- [ ] Na 1ª abertura, `livro.pagina_aberta` é publicado uma vez; sinopse encontrada vira texto puro ≤4.000 e estado `disponivel`; resposta válida sem sinopse vira `ausente` e não repete consultas futuras; indisponibilidade continua reprocessável.
-- [ ] A página **abre sem esperar** a sinopse; **ausência de sinopse** é exibida sem erro (RF-ACV-19).
-- [ ] Capa resolve na ordem cópia própria → externa → placeholder (RN-14.4).
-- [ ] Nota geral/dos leitores aparecem como **ausentes** (não zero) enquanto F-ACV-NOTA não existir.
+- [x] Busca retorna livros oficiais por título/autor/editora/ISBN, **paginada** com teto de itens (RNF-DES-02) e usando índices (RNF-DES-03); **livro pessoal nunca** aparece (SEC-06).
+- [x] Filtro por assunto restringe os resultados (RN-21).
+- [x] Página do livro abre com metadados/capa e resenhas **paginadas**, filtradas server-side por RN-08 via contratos versionados, sem ler tabelas cruas.
+- [x] Na 1ª abertura, domínio e outbox de `livro.pagina_aberta.v1` são gravados atomicamente uma vez; sinopse encontrada vira texto puro ≤4.000 e estado `disponivel`; resposta válida sem sinopse vira `ausente` e não repete consultas futuras; indisponibilidade continua reprocessável.
+- [x] A página **abre sem esperar** a sinopse; **ausência de sinopse** é exibida sem erro (RF-ACV-19).
+- [x] Capa resolve na ordem cópia própria → externa → placeholder (RN-14.4).
+- [x] Nota geral/dos leitores aparecem como **ausentes** (não zero) enquanto F-ACV-NOTA não existir. Ausentes por inteiro, sem componente vazio: é o que o RF-ACV-04 ("aparecem quando as funcionalidades correspondentes estiverem disponíveis") e o `pagina-do-livro.md` §7 pedem.
 - [ ] Busca e página do livro funcionam **em DES**, com leitura ≤1s p95 desconsiderando cold start (RNF-DES-01).
 
 ## Definition of Done
 
 (plano §10)
 
-- [ ] Código (backend `acervo`, web, mobile) mergeado em `desenvolvimento`
-- [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
-- [ ] Testes unitários e de integração com banco real/container: busca/filtro/paginação; exclusão de livro pessoal; paginação e autorização de resenhas para perfil público, privado seguido e privado não seguido; estados concorrentes da sinopse (RNF-TST-02)
-- [ ] Fluxo assíncrono da sinopse testado em publicação, consumo, ausência terminal, falha pós-retentativa sem `pendente` órfão, duplicação e DLQ (RNF-TST-03)
-- [ ] Testes web/mobile cobrem paginação, polling limitado da sinopse, ausência/carregamento e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
-- [ ] **Spec OpenAPI de `acervo` atualizado em `docs/api/acervo.yaml`** com `GET /livros`, `GET /livros/{id}` e paginação de resenhas
+- [x] Código (backend `acervo`, web, mobile) mergeado em `desenvolvimento`
+- [x] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
+- [x] Testes unitários e de integração com banco real/container: parâmetros e forma exata de `PaginaLivros`/`PaginaResenhas`; busca por título/autor/editora/ISBN; filtro/paginação/teto; exclusão de livro pessoal; composição das VIEWs e autorização de resenhas para perfil público, privado seguido, privado não seguido, suspenso e em exclusão; estados concorrentes da sinopse (RNF-TST-02)
+- [x] Teste assíncrono da sinopse cobre schema canônico, atomicidade domínio+outbox, publicação e consumo pela topologia de P0-MSG, recibo+efeito atômicos, entrega duplicada sem novo efeito, ausência terminal, falha pós-retentativa sem `pendente` órfão e DLQ (RNF-TST-03); a suíte genérica de dispatcher/confirm/retry/DLQ continua pertencendo a P0-MSG
+- [x] Testes web/mobile cobrem paginação, polling limitado da sinopse, ausência/carregamento e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
+- [x] **Spec OpenAPI de `acervo` em `docs/api/acervo.yaml` implementado sem divergência** para `GET /livros`, `GET /livros/{id}` e `GET /livros/{id}/resenhas`; remover `x-contract-status: planned` somente após a implementação
 - [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
-- [ ] Arquivo da feature atualizado: status, pendências, timeline
-- [ ] Divergência protótipo × implementação registrada, se houver
+- [x] Arquivo da feature atualizado: status, pendências, timeline
+- [x] Divergência protótipo × implementação registrada, se houver
 
 ## Pendências
 
-- **Depende de** [F-ACV-INGESTAO](feature-F-ACV-INGESTAO.md) (acervo carregado com índices e assuntos), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md) e [P0-MSG](../periodo-0/feature-P0-MSG.md) (broker para `livro.pagina_aberta`; fontes externas OpenLibrary/Google Books).
+- **Depende de** [F-ACV-INGESTAO](feature-F-ACV-INGESTAO.md) (acervo carregado com índices e assuntos), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md) e [P0-MSG](../periodo-0/feature-P0-MSG.md). P0-MSG está pronto desde 19/09 (dispatcher com confirm, `mensagem_processada`, validação, retry e DLQ), e o consumidor da sinopse roda sobre ele. As fontes externas são OpenLibrary e Google Books.
+- **Falta DES.** O "funcionando em DES" do DoD e a latência de RNF-DES-01 (≤ 1 s p95) dependem do PR `desenvolvimento → main`, que é do time. No deploy, o `start:prod` aplica a migration `0004` no banco de Oregon (as extensões estão disponíveis lá, conferido em 25/09); depois, conferir `/health`, extensões, índices e a fila `leai.acervo.sinopse` no `Le-ai-oregon`, e medir a latência.
+- **Sem `GOOGLE_BOOKS_API_KEY` local**, o Google responde 429, que conta como indisponível: livros sem sinopse na OpenLibrary vão para `falha_transitoria` em vez de `ausente`. A chave está no painel do Render.
 - **Consome `v_resenha_publicacao_v1`** de [F-AVA](feature-F-AVA.md) e os contratos de privacidade de [F-PERFIL](feature-F-PERFIL.md) — coordenar colunas e índices antes de implementar.
 - **Nota geral, nota dos leitores, distribuição e projeção `nota.alterada`** ficam em **F-ACV-NOTA** (Período 2); aqui aparecem como ausentes.
 - **Filtro avançado** (autor/editora/série/ano/faixa de páginas, RF-ACV-03) e **páginas de autor/editora/série** (RF-ACV-10/11/12) e **assunto acionável** (RF-ACV-21) são **F-ACV-DESCOBERTA** (Período 2).
@@ -96,7 +99,37 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **A tela de busca virou raiz de aba, e isso muda o shell.** Escrever o prompt deixou visível que a busca do acervo não cabia dentro da estante: a barra marcava `Estante` como ativo numa tela de resultados de catálogo, e na web o campo do header de `Minha estante` devolvia o acervo inteiro. A tela passou a ser a aba **`Descobrir`** (`Compass`, quarto item da navegação), com header de duas linhas, sem botão de voltar e **com** o sino, que a versão anterior dispensava. O arquivo foi renomeado de `busca.md` para `descobrir.md`. A mudança do shell é pendência de [P0-NAV](../periodo-0/feature-P0-NAV.md) e a busca dentro da estante é pendência de [F-EST](feature-F-EST.md); nenhuma das duas foi escrita em `docs/orquestador/`.
 - **A aterrissagem da aba é magra no Período 1, por decisão.** Sem consulta, `Descobrir` mostra o campo e a faixa de assuntos e nada mais. Quem preenche a aba é [F-ACV-DESCOBERTA](../periodo-2/feature-F-ACV-DESCOBERTA.md) (filtros avançados, páginas de autor, editora e série) e [F-REC-P2P](../periodo-2/feature-F-REC-P2P.md) (seção de recomendações, RF-REC-13), as duas no Período 2. O prompt proíbe desenhar espaço reservado para elas.
 
+### Decisões de implementação (26/09/2026)
+
+- **Debounce de 350 ms com mínimo de 2 caracteres**, igual na web e no mobile. Nenhum requisito, design ou protótipo define; o contrato aceita `q` a partir de 1 caractere.
+- **"N livros encontrados" conta edições** (`totalItens`), que são livros pelo RN-01; o número de grupos só seria conhecido depois de carregar todas as páginas.
+- **Relevância:** o campo vem antes da semelhança (título > autor > editora > assunto), e `word_similarity` desempata dentro do campo. A busca casa por trecho; semelhança nunca casa.
+- **Reenfileiramento da sinopse:** `falha_transitoria` há mais de 10 minutos e `pendente` há mais de 15 minutos voltam a pedir a sinopse numa abertura; o relógio é `atualizado_em`.
+- **Política das fontes de sinopse:** uma retentativa de 1 s, com o circuit breaker, para a fila (um livro por vez) não ficar presa por minutos. Pior caso de ~35 s por livro.
+- **Polling dos clientes:** esperas de 2, 3, 5, 8, 13, 20, 30 e 40 s (~2 minutos), aproveitando só a sinopse de cada consulta.
+- **Rate limit da página do livro** (60 por minuto por identidade, 120 por IP), em escopo próprio: a abertura dispara consulta a fonte externa.
+- **Resenha do próprio leitor fora da lista**, seguindo o RF-ACV-04 ("de outros leitores"); ela volta à página em "Sua avaliação", com F-AVA.
+- **`resenhas` anulável** em `LivroOficialDetalhe`: `null` quando os contratos de `leitura` ou `identidade` falham, e a página abre mesmo assim; a rota de resenhas responde 503 nesse caso.
+
+### Divergências protótipo × implementação (26/09/2026)
+
+- **Card de resenha** sem `@username` e sem estrelas, e o título "Resenhas" sem a contagem "28 resenhas": o contrato do Período 1 não traz esses dados (`ResenhaResumo`, compartilhado com o livro pessoal, não mudou).
+- **Blocos de outras features ficam de fora**, sem espaço reservado: status pill da busca e ações de estante (F-EST), barra de progresso (F-PRG), "Sua avaliação" e "Escrever a primeira" (F-AVA).
+- **Chips de assunto** vêm do banco (31 do conjunto curado), não os 9 do protótipo. No mobile e na faixa da web, o chip ativo é `musgo` cheio com texto `papel`, como no protótipo; o `descobrir.md` fala em `musgo-fundo`.
+- **"N edições" expande as outras edições** logo abaixo do card; o protótipo não desenha o estado expandido.
+- **Textos que o design não prevê:** sinopse em `falha_transitoria` ("Não conseguimos buscar a sinopse agora. Ela deve aparecer numa próxima visita."), polling encerrado ainda pendente ("A sinopse ainda está a caminho. Volte daqui a pouco."), livro não encontrado ("Não encontramos este livro") e resenhas indisponíveis ("Não foi possível carregar as resenhas.", com "Tentar de novo").
+- **"Ver todas as resenhas"** carrega a página seguinte na própria tela, por cursor.
+- **Header:** em Descobrir e na página do livro, sem divisor. O design o mostra quando o conteúdo rola por baixo, e o app não acompanha a rolagem para desenhá-lo. No mobile, o campo de busca fica fixo no topo da página, como segunda linha do header da aba.
+- **Na web, voltar da página do livro** refaz a busca a partir de `q` e `assunto` na URL, mas a rolagem recomeça do topo.
+- **Testes de RN-08:** conta suspensa e em exclusão são o mesmo caso, "sem linha na `v_perfil_referencia_v1`", porque a VIEW já as omite.
+
 ## Timeline
+
+### Implementação 26/09/2026, fatia 2 (página do livro): `GET /livros/{id}` com a sinopse pedida na primeira abertura (UPDATE condicional e outbox na mesma transação, `lock_timeout` de 1 s) e as regras de reenfileiramento; `GET /livros/{id}/resenhas` com RN-08 no SQL e cursor keyset com microssegundos; consumidor `acervo.sinopse` com OpenLibrary (obra, edição, ISBN) e Google Books, texto puro de até 4.000 caracteres; `@RateLimit` com escopo; página do livro no mobile e na web, com polling limitado da sinopse e o spoiler fora da árvore até revelar. Contrato marcado como implementado e conferido com o `/docs` em runtime. Decisões e divergências consolidadas acima.
+
+### Implementação 26/09/2026, fatia 1 (busca): contrato com `GET /assuntos` e `editora`, `anoPublicacao` e `autores` anuláveis; migration `0004` de busca, aplicada no dev; `GET /assuntos` e `GET /livros` no `acervo`, por trecho, sem acento, nos quatro campos e por ISBN exato, com as edições de uma obra contíguas; Descobrir no mobile e na web com o protótipo como fonte visual; seed com editora e assunto. Conferido com os dados do dev: `guimaraes rossa` volta vazio e as buscas responderam entre 34 e 225 ms a partir do acervo local. Decisões e divergências desta fatia estão em [`plano-F-ACV-BUSCA.md`](plano-F-ACV-BUSCA.md) e entram consolidadas aqui na fatia 3.
+
+### Revisão 17/09/2026: contrato alinhado ao OpenAPI (`q`, `assunto`, `page`, `limit`, cursor e formas de resposta), ao schema/catálogo de `livro.pagina_aberta.v1` e às VIEWs cross-schema implantadas. O status passou a distinguir baseline físico do DER no Neon de implementação funcional; P0-MSG foi registrado como bloqueio explícito, com idempotência e testes separados entre domínio e infraestrutura genérica.
 
 ### Revisão 01/09/2026: distribuição das notas do livro alocada a F-ACV-NOTA e vinculada ao contrato da página do livro.
 

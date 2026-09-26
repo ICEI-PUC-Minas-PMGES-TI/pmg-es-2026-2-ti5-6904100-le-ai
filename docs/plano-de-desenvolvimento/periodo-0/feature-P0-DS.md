@@ -1,7 +1,7 @@
 # P0-DS — Design system base
 
 **Período:** 0 · **Prioridade:** fundação
-**Dono:** a definir · **Serviços afetados:** `code/front` (web) e `code/mobile` (Flutter) — nenhum serviço de backend
+**Dono:** Kayke, Ana Luiza de Freitas · **Serviços afetados:** `code/front` (web) e `code/mobile` (Flutter) — nenhum serviço de backend
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md). Design: [`../../orquestador/documento-de-design.md`](../../orquestador/documento-de-design.md) §3 (fundamentos) e §9 (conexão com o código). Em caso de conflito, o `REQUISITOS.md` ganha; protótipo é referência visual, não spec de pixel (plano §7).
 

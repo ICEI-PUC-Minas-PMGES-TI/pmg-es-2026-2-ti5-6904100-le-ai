@@ -136,8 +136,8 @@ aplicacao administrativa manual, preferir a URL `direct` do Neon.
   bancos limpos separados. A segunda execucao nao repetiu DDL.
 - Foram exercitadas a unicidade sem diferenca de caixa e a trigger que recusa a
   decima primeira frase para o mesmo usuario/livro.
-- O Neon nao foi alterado nesta sessao. Inventario, backup, revisao humana e
-  aplicacao no ambiente remoto continuam obrigatorios.
+- O ensaio local inicial não alterou o Neon. A aplicação remota ocorreu depois,
+  em 16/09/2026, e está registrada no checklist abaixo.
 
 ## Checklist do Neon
 

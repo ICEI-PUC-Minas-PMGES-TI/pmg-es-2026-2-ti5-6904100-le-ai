@@ -11,13 +11,16 @@ import br.com.leai.identidade.common.CodigoErro;
 import br.com.leai.identidade.common.CorrelationIdFilter;
 import br.com.leai.identidade.common.ErroDeNegocioException;
 import br.com.leai.identidade.common.GlobalExceptionHandler;
+import br.com.leai.identidade.common.idempotencia.ServicoDeIdempotencia;
 import java.time.LocalDate;
 import java.util.UUID;
+import java.util.function.Supplier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.http.MediaType;
+import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -34,13 +37,24 @@ class AutenticacaoControllerTest {
   private static final String MENOR_DE_IDADE = LocalDate.now().minusYears(16).toString();
 
   private ServicoDeAutenticacao servico;
+  private ServicoDeIdempotencia idempotencia;
   private MockMvc mockMvc;
 
   @BeforeEach
   void montar() {
     servico = Mockito.mock(ServicoDeAutenticacao.class);
+    // Aqui a idempotência só executa o efeito: replay, conflito e corrida são exercitados contra
+    // Postgres real em IdempotenciaCadastroIntegracaoTest e RenovacaoIntegracaoTest.
+    idempotencia = Mockito.mock(ServicoDeIdempotencia.class);
+    given(idempotencia.executar(any(), any(), any(), any(), any(), any()))
+        .willAnswer(invocacao -> invocacao.<Supplier<?>>getArgument(5).get());
     mockMvc =
-        MockMvcBuilders.standaloneSetup(new AutenticacaoController(servico))
+        MockMvcBuilders.standaloneSetup(
+                new AutenticacaoController(
+                    servico, Mockito.mock(RecuperacaoDeSenha.class), idempotencia))
+            // Sem a cadeia do Security o principal é nulo; sem o resolver, o Spring tentaria
+            // montar o Jwt como model attribute. A troca de senha autenticada está na integração.
+            .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
             .setControllerAdvice(new GlobalExceptionHandler())
             .addFilters(new CorrelationIdFilter())
             .build();
@@ -69,6 +83,7 @@ class AutenticacaoControllerTest {
     mockMvc
         .perform(
             post("/auth/register")
+                .header("Idempotency-Key", "chave-de-teste")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(corpoDeCadastro("senha-bem-comprida", MAIOR_DE_IDADE)))
         .andExpect(status().isCreated())
@@ -80,11 +95,29 @@ class AutenticacaoControllerTest {
   }
 
   @Test
+  @DisplayName("Idempotency-Key vazia ou acima de 128 caracteres vira 400 sem tocar o serviço")
+  void chaveDeIdempotenciaInvalidaVira400() throws Exception {
+    for (String chave : new String[] {"   ", "k".repeat(129)}) {
+      mockMvc
+          .perform(
+              post("/auth/register")
+                  .header("Idempotency-Key", chave)
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content(corpoDeCadastro("senha-bem-comprida", MAIOR_DE_IDADE)))
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.codigo").value("REQUISICAO_INVALIDA"));
+    }
+
+    Mockito.verifyNoInteractions(servico, idempotencia);
+  }
+
+  @Test
   @DisplayName("senha com 7 caracteres é recusada antes de chegar ao serviço (RNF-SEC-27)")
   void senhaCurtaVira400() throws Exception {
     mockMvc
         .perform(
             post("/auth/register")
+                .header("Idempotency-Key", "chave-de-teste")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(corpoDeCadastro("1234567", MAIOR_DE_IDADE)))
         .andExpect(status().isBadRequest())
@@ -99,6 +132,7 @@ class AutenticacaoControllerTest {
     mockMvc
         .perform(
             post("/auth/register")
+                .header("Idempotency-Key", "chave-de-teste")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(corpoDeCadastro("senha-bem-comprida", MENOR_DE_IDADE)))
         .andExpect(status().isBadRequest())
@@ -119,6 +153,7 @@ class AutenticacaoControllerTest {
     mockMvc
         .perform(
             post("/auth/register")
+                .header("Idempotency-Key", "chave-de-teste")
                 .header(CorrelationIdFilter.HEADER, "teste-409")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(corpoDeCadastro("senha-bem-comprida", MAIOR_DE_IDADE)))
@@ -129,20 +164,86 @@ class AutenticacaoControllerTest {
   }
 
   @Test
-  @DisplayName("login válido responde 200 com accessToken, tokenType e expiresIn")
+  @DisplayName("login válido responde 200 com a sessão: acesso, tipo, validade e renovação")
   void loginValidoResponde200() throws Exception {
     given(servico.entrar(any(LoginRequisicao.class)))
-        .willReturn(TokenResposta.de("jwt-de-teste", 900L));
+        .willReturn(SessaoResposta.de("jwt-de-teste", 900L, "renovacao-de-teste"));
 
     mockMvc
         .perform(
             post("/auth/login")
+                .header("Idempotency-Key", "chave-de-teste")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"identificador\":\"marinableu\",\"senha\":\"senha-bem-comprida\"}"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.accessToken").value("jwt-de-teste"))
         .andExpect(jsonPath("$.tokenType").value("Bearer"))
-        .andExpect(jsonPath("$.expiresIn").value(900));
+        .andExpect(jsonPath("$.expiresIn").value(900))
+        .andExpect(jsonPath("$.refreshToken").value("renovacao-de-teste"));
+  }
+
+  @Test
+  @DisplayName("toda escrita de /auth sem Idempotency-Key vira 400 sem tocar o serviço")
+  void rotasSemChaveViram400() throws Exception {
+    for (String rota : new String[] {"/auth/refresh", "/auth/logout"}) {
+      mockMvc
+          .perform(
+              post(rota)
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content("{\"refreshToken\":\"qualquer\"}"))
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.codigo").value("REQUISICAO_INVALIDA"));
+    }
+    // register e login deixaram de aceitar ausência no fechamento de F-AUT.
+    mockMvc
+        .perform(
+            post("/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(corpoDeCadastro("senha-bem-comprida", MAIOR_DE_IDADE)))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.codigo").value("REQUISICAO_INVALIDA"));
+    mockMvc
+        .perform(
+            post("/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"identificador\":\"marinableu\",\"senha\":\"senha-bem-comprida\"}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.codigo").value("REQUISICAO_INVALIDA"));
+    String[][] recuperacao = {
+      {"/auth/password/forgot", "{\"email\":\"leitor@exemplo.com\"}"},
+      {"/auth/password/reset", "{\"token\":\"qualquer\",\"novaSenha\":\"senha-nova-longa\"}"}
+    };
+    for (String[] rotaECorpo : recuperacao) {
+      mockMvc
+          .perform(
+              post(rotaECorpo[0]).contentType(MediaType.APPLICATION_JSON).content(rotaECorpo[1]))
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.codigo").value("REQUISICAO_INVALIDA"));
+    }
+
+    Mockito.verifyNoInteractions(servico, idempotencia);
+  }
+
+  @Test
+  @DisplayName("troca de senha sem Idempotency-Key ou com senha nova curta vira 400")
+  void trocaDeSenhaInvalidaVira400() throws Exception {
+    mockMvc
+        .perform(
+            post("/auth/password/change")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"senhaAtual\":\"senha-atual\",\"novaSenha\":\"senha-nova-longa\"}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.codigo").value("REQUISICAO_INVALIDA"));
+    mockMvc
+        .perform(
+            post("/auth/password/change")
+                .header("Idempotency-Key", UUID.randomUUID().toString())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"senhaAtual\":\"senha-atual\",\"novaSenha\":\"1234567\"}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.codigo").value("REQUISICAO_INVALIDA"));
+
+    Mockito.verifyNoInteractions(servico, idempotencia);
   }
 
   @Test
@@ -157,6 +258,7 @@ class AutenticacaoControllerTest {
     mockMvc
         .perform(
             post("/auth/login")
+                .header("Idempotency-Key", "chave-de-teste")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"identificador\":\"fantasma\",\"senha\":\"seja-o-que-for\"}"))
         .andExpect(status().isUnauthorized())

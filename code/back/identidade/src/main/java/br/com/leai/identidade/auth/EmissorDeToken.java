@@ -29,6 +29,11 @@ public class EmissorDeToken {
   }
 
   public String emitir(UUID usuarioId, String username) {
+    return emitir(usuarioId, username, Papel.LEITOR);
+  }
+
+  /** A claim {@code papel} vai sempre, inclusive para leitor: ausência não é papel. */
+  public String emitir(UUID usuarioId, String username, Papel papel) {
     Instant agora = Instant.now().truncatedTo(ChronoUnit.SECONDS);
 
     JwtClaimsSet reivindicacoes =
@@ -38,6 +43,7 @@ public class EmissorDeToken {
             .issuedAt(agora)
             .expiresAt(agora.plus(JwtConfig.VALIDADE_DO_ACESSO))
             .claim("username", username)
+            .claim(Papel.CLAIM, papel.valor())
             .build();
 
     JwsHeader cabecalho = JwsHeader.with(JwtConfig.ALGORITMO).build();

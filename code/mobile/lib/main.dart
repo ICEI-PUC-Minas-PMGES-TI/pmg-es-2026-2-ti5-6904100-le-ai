@@ -12,6 +12,7 @@ import 'core/session/token_store.dart';
 import 'design/theme.dart';
 import 'design/theme_controller.dart';
 import 'features/auth/auth_service.dart';
+import 'features/livros/rotas_livros.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,16 +26,28 @@ Future<void> main() async {
   // (shell-de-navegacao.md §4.4) e reage sozinho via `refreshListenable` quando `load()` termina.
   unawaited(sessionController.load());
 
+  // `late`: o cliente precisa renovar pela `AuthService`, que precisa do cliente. A renovação
+  // vai anônima (`anonimo: true`), então não há recursão: ela nunca passa pelo próprio 401.
+  late final AuthService authService;
+  Future<bool> renovarSessao(String token) =>
+      sessionController.renovar(token, authService.renovar);
+
   final apiClient = ApiClient(
     baseUrl: AppConfig.identidadeBaseUrl,
     getToken: () => sessionController.token,
+    renovarSessao: renovarSessao,
   );
+  authService = AuthService(apiClient);
 
   runApp(
     LeAiApp(
       themeController: themeController,
       sessionController: sessionController,
-      authService: AuthService(apiClient),
+      authService: authService,
+      livros: DependenciasDeLivros.padrao(
+        getToken: () => sessionController.token,
+        renovarSessao: renovarSessao,
+      ),
     ),
   );
 }
@@ -43,11 +56,13 @@ class LeAiApp extends StatefulWidget {
   final ThemeController themeController;
   final SessionController sessionController;
   final AuthService authService;
+  final DependenciasDeLivros? livros;
 
   const LeAiApp({
     required this.themeController,
     required this.sessionController,
     required this.authService,
+    this.livros,
     super.key,
   });
 
@@ -61,6 +76,7 @@ class _LeAiAppState extends State<LeAiApp> {
   late final GoRouter _router = buildRouter(
     sessionController: widget.sessionController,
     authService: widget.authService,
+    livros: widget.livros,
   );
 
   @override

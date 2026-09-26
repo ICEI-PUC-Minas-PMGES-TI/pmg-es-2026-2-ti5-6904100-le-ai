@@ -36,4 +36,28 @@ void main() {
     expect(botao.onPressed, isNull);
     expect(find.text('Entrando'), findsOneWidget);
   });
+
+  testWidgets('carregando mantém o musgo pleno; desabilitado neutro usa linha', (tester) async {
+    await tester.pumpWidget(
+      _wrap(
+        Column(
+          children: <Widget>[
+            BotaoPrimario(texto: 'Buscando', onPressed: () {}, carregando: true),
+            const BotaoPrimario(texto: 'Buscar livro', onPressed: null, desabilitadoNeutro: true),
+          ],
+        ),
+      ),
+    );
+
+    Color? fundo(String texto) {
+      final material = tester.widget<Material>(
+        find.descendant(of: find.widgetWithText(ElevatedButton, texto), matching: find.byType(Material)),
+      );
+      return material.color;
+    }
+
+    final theme = AppTheme.light();
+    expect(fundo('Buscando'), theme.colorScheme.primary);
+    expect(fundo('Buscar livro'), theme.divider);
+  });
 }

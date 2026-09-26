@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { PhUser } from '@phosphor-icons/vue'
 import { ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
@@ -8,11 +9,17 @@ import BotaoTextual from '../components/ui/BotaoTextual.vue'
 import CampoSenha from '../components/ui/CampoSenha.vue'
 import CampoTexto from '../components/ui/CampoTexto.vue'
 import LogoLeAi from '../components/ui/LogoLeAi.vue'
+import LayoutAutenticacao from '../layouts/LayoutAutenticacao.vue'
 import { ApiError } from '../services/api'
 import { authService } from '../services/auth'
 import { iniciarSessao } from '../session'
 
-/** Login (RF-AUT-02/03). Layout e cópia de docs/design/periodo-0/P0-NAV/login.md. */
+/**
+ * Login (RF-AUT-02/03). Layout e cópia de docs/design/periodo-0/P0-NAV/login.md, com a edição de
+ * F-AUT em docs/design/periodo-1/F-AUT/login.md ("Esqueci minha senha"). A coluna ilustrada, o
+ * selo e os ícones nos campos vêm do protótipo de F-AUT, que é o desenho aprovado e foi além do
+ * prompt (divergência registrada em feature-F-AUT.md).
+ */
 
 const router = useRouter()
 
@@ -85,7 +92,7 @@ async function enviar(): Promise<void> {
       identificador: identificador.value.trim(),
       senha: senha.value,
     })
-    iniciarSessao(resultado.token.accessToken, resultado.usuario)
+    iniciarSessao(resultado.sessao, resultado.usuario)
     await router.push('/estante')
   } catch (erro) {
     tratarErro(erro)
@@ -96,90 +103,104 @@ async function enviar(): Promise<void> {
 </script>
 
 <template>
-  <div class="flex min-h-screen w-full bg-papel">
-    <!-- Coluna esquerda: só na web (login.md §5), mesma estrutura do cadastro de propósito. -->
-    <div class="hidden w-[44%] flex-col justify-center bg-papel-elevado px-space-16 md:flex">
-      <LogoLeAi :altura="32" />
-      <p class="mt-space-6 text-title-lg text-tinta">
-        Registre suas leituras e acompanhe as de quem você segue.
-      </p>
-      <p class="mt-space-4 text-body text-grafite">
-        Estante, progresso, resenhas e feed em um lugar só.
-      </p>
+  <LayoutAutenticacao ilustrada>
+    <div class="md:hidden">
+      <LogoLeAi :altura="24" />
     </div>
 
-    <div class="flex w-full flex-col items-center px-space-5 py-space-10 md:w-[56%] md:justify-center">
-      <div class="w-full max-w-[420px]">
-        <div class="md:hidden">
-          <LogoLeAi :altura="24" />
+    <h1 class="mt-space-10 text-display text-tinta md:mt-0">
+      Entrar
+    </h1>
+
+    <BannerAviso
+      v-if="bannerErro"
+      :variante="bloqueado ? 'alerta' : 'erro'"
+      class="mt-space-6"
+    >
+      {{ bannerErro }}
+    </BannerAviso>
+
+    <form
+      novalidate
+      class="mt-space-8 md:mt-space-6"
+      @submit.prevent="enviar"
+    >
+      <fieldset
+        :disabled="enviando"
+        class="m-0 min-w-0 border-0 p-0"
+        :class="enviando ? 'opacity-50' : ''"
+      >
+        <div class="flex flex-col gap-space-5">
+          <CampoTexto
+            v-model="identificador"
+            label="E-mail ou nome de usuário"
+            autocomplete="username"
+            :icone="PhUser"
+            :erro="erroIdentificador"
+            :borda-de-erro="bordaDeErroCredencial"
+          />
+          <CampoSenha
+            v-model="senha"
+            label="Senha"
+            autocomplete="current-password"
+            com-icone
+            :erro="erroSenha"
+            :borda-de-erro="bordaDeErroCredencial"
+          />
         </div>
+      </fieldset>
 
-        <h1 class="mt-space-10 text-display text-tinta md:mt-0">
-          Entrar
-        </h1>
-
-        <BannerAviso
-          v-if="bannerErro"
-          :variante="bloqueado ? 'alerta' : 'erro'"
-          class="mt-space-6"
+      <!-- Edição de F-AUT (login.md): abaixo da senha, à direita, antes do botão principal. Encosta
+           na borda direita da coluna, como no protótipo, por isso sem o padding do BotaoTextual. -->
+      <div
+        class="mt-space-3 flex justify-end"
+        :class="enviando ? 'pointer-events-none opacity-50' : ''"
+      >
+        <BotaoTextual
+          class="min-h-12 px-0! md:min-h-0"
+          href="/recuperar-senha"
+          :tabindex="enviando ? -1 : undefined"
+          @click.prevent="router.push('/recuperar-senha')"
         >
-          {{ bannerErro }}
-        </BannerAviso>
-
-        <form
-          novalidate
-          class="mt-space-8 md:mt-space-6"
-          @submit.prevent="enviar"
-        >
-          <fieldset
-            :disabled="enviando"
-            class="m-0 min-w-0 border-0 p-0"
-            :class="enviando ? 'opacity-60' : ''"
-          >
-            <div class="flex flex-col gap-space-5">
-              <CampoTexto
-                v-model="identificador"
-                label="E-mail ou nome de usuário"
-                autocomplete="username"
-                :erro="erroIdentificador"
-                :borda-de-erro="bordaDeErroCredencial"
-              />
-              <CampoSenha
-                v-model="senha"
-                label="Senha"
-                autocomplete="current-password"
-                :erro="erroSenha"
-                :borda-de-erro="bordaDeErroCredencial"
-              />
-            </div>
-          </fieldset>
-
-          <BotaoPrimario
-            tipo="submit"
-            class="mt-space-8"
-            :carregando="enviando"
-            :disabled="bloqueado"
-          >
-            {{ enviando ? 'Entrando' : 'Entrar' }}
-          </BotaoPrimario>
-          <p
-            v-if="enviando"
-            class="mt-space-3 text-caption text-grafite"
-          >
-            O servidor está iniciando. Isso pode levar alguns segundos.
-          </p>
-        </form>
-
-        <p class="mt-space-5 text-body text-grafite">
-          Ainda não tem conta?
-          <BotaoTextual
-            href="/cadastro"
-            @click.prevent="router.push('/cadastro')"
-          >
-            Criar conta
-          </BotaoTextual>
-        </p>
+          Esqueci minha senha
+        </BotaoTextual>
       </div>
-    </div>
-  </div>
+
+      <!-- Indicador do envio acima do botão, como no protótipo (Login · Entrando). -->
+      <div
+        v-if="enviando"
+        class="mt-space-6 flex justify-center"
+        aria-hidden="true"
+      >
+        <span class="size-[28px] animate-spin rounded-full border-3 border-musgo-fundo border-t-musgo motion-reduce:animate-none" />
+      </div>
+
+      <BotaoPrimario
+        tipo="submit"
+        :class="enviando ? 'mt-space-6' : 'mt-space-8'"
+        :carregando="enviando"
+        carregando-esmaecido
+        :disabled="bloqueado"
+      >
+        {{ enviando ? 'Entrando' : 'Entrar' }}
+      </BotaoPrimario>
+      <p
+        v-if="enviando"
+        class="mt-space-3 text-center text-caption text-grafite"
+      >
+        O servidor está iniciando. Isso pode levar alguns segundos.
+      </p>
+    </form>
+
+    <p class="mt-space-5 flex flex-wrap justify-center gap-space-1 text-body text-grafite md:justify-start">
+      <span>Ainda não tem conta?</span>
+      <BotaoTextual
+        class="p-0!"
+        href="/cadastro"
+        @click.prevent="router.push('/cadastro')"
+      >
+        Criar conta
+      </BotaoTextual>
+    </p>
+  </LayoutAutenticacao>
 </template>

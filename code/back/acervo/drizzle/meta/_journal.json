@@ -15,6 +15,27 @@
       "when": 1789567666753,
       "tag": "0001_20260916110700_modelo_der",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789852703776,
+      "tag": "0002_youthful_newton_destine",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789852783961,
+      "tag": "0003_cria_mensagem_processada",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790439499222,
+      "tag": "0004_20260926131817_indices_busca",
+      "breakpoints": true
     }
   ]
 }

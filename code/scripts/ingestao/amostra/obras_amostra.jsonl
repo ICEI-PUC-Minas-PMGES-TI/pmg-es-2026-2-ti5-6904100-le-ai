@@ -1,0 +1,17 @@
+{"type": {"key": "/type/work"}, "key": "/works/OL20000001W", "subjects": ["Brazilian literature", "Literary fiction", "Fiction", "Rural life"]}
+{"type": {"key": "/type/work"}, "key": "/works/OL20000002W", "subjects": ["Autobiography", "Brazilian literature", "Social conditions", "Poverty"]}
+{"type": {"key": "/type/work"}, "key": "/works/OL20000003W", "subjects": ["Brazilian literature", "Literary fiction", "Satire"]}
+{"type": {"key": "/type/work"}, "key": "/works/OL20000004W", "subjects": ["Brazilian literature", "Literary fiction"]}
+{"type": {"key": "/type/work"}, "key": "/works/OL20000005W", "subjects": ["Brazilian literature", "Psychological fiction"]}
+{"type": {"key": "/type/work"}, "key": "/works/OL20000006W", "subjects": ["Brazilian literature", "Literary fiction", "Drought"]}
+{"type": {"key": "/type/work"}, "key": "/works/OL20000007W", "subjects": ["Brazilian literature", "Crime", "Literary fiction"]}
+{"type": {"key": "/type/work"}, "key": "/works/OL20000008W", "subjects": ["Short stories", "Brazilian literature", "Satire"]}
+{"type": {"key": "/type/work"}, "key": "/works/OL20000009W", "subjects": ["Science fiction", "Fantasy", "Space opera", "Adventure stories", "Dystopias", "Politics", "Ecology", "Desert", "Nonsense tag", "Bestseller"]}
+{"type": {"key": "/type/work"}, "key": "/works/OL20000010W", "subjects": ["Fantasy", "Literary fiction", "Satire"]}
+{"type": {"key": "/type/work"}, "key": "/works/OL20000011W", "subjects": ["Portuguese literature", "Dystopias", "Literary fiction"]}
+{"type": {"key": "/type/work"}, "key": "/works/OL20000012W", "subjects": ["Dystopias", "Science fiction", "Feminism"]}
+{"type": {"key": "/type/work"}, "key": "/works/OL20000013W", "subjects": ["History", "Anthropology", "Popular science"]}
+{"type": {"key": "/type/work"}, "key": "/works/OL20000014W", "subjects": ["Juvenile fiction", "Fantasy", "Fairy tales"]}
+{"type": {"key": "/type/work"}, "key": "/works/OL20000015W", "subjects": ["Dystopias", "Politics", "Totalitarianism"], "authors": [{"type": {"key": "/type/author_role"}, "author": {"key": "/authors/OL10000015A"}}, {"type": {"key": "/type/author_role"}, "author": {"key": "/authors/OL10000016A"}}]}
+{"type": {"key": "/type/work"}, "key": "/works/OL20000016W", "subjects": ["Creativity", "Self-help", "Self-actualization (Psychology)"], "authors": [{"type": {"key": "/type/author_role"}, "author": {"key": "/authors/OL10000018A"}}]}
+{"type": {"key": "/type/work"}, "key": "/works/OL29000001W", "subjects": ["Uncategorized", "Miscellaneous"]}

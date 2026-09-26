@@ -1,0 +1,1 @@
+ALTER TABLE "acervo"."outbox_acervo" ADD COLUMN "proxima_tentativa_em" timestamp with time zone;

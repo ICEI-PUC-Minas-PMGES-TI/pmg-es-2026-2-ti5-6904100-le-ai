@@ -29,12 +29,18 @@ class EmissorDeTokenTest {
     return new AppProperties(
         "identidade",
         "identidade",
-        "jdbc:postgresql://localhost:5432/leai",
-        "http://localhost:5173",
-        null,
-        segredo,
-        null,
-        null);
+         "jdbc:postgresql://localhost:5432/leai",
+         "http://localhost:5173",
+         null,
+         null,
+         null,
+         null,
+         null,
+         null,
+         null,
+         segredo,
+         null,
+         null);
   }
 
   private EmissorDeToken emissorCom(String segredo) {

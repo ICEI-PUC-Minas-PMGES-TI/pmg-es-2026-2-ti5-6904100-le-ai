@@ -18,15 +18,45 @@ class ApiException implements Exception {
   /// "status inesperado" genérico para tudo.
   final String? codigo;
 
+  /// Status HTTP da resposta, quando houve resposta. Nulo para timeout e falha de rede. Dois
+  /// `409` de `acervo` têm códigos iguais e desfechos opostos — ISBN já cadastrado leva à página
+  /// do livro, chave de idempotência reutilizada é erro do cliente —, e é o corpo que os separa.
+  final int? status;
+
+  /// Corpo de erro inteiro, para os campos que o contrato acrescenta ao padrão: `livroId` em
+  /// `ErroLivroExistente` e `campos` em `ErroValidacao` (docs/api/acervo.yaml).
+  final Map<String, dynamic>? corpo;
+
   const ApiException({
     required this.kind,
     required this.correlationId,
     required this.message,
     this.codigo,
+    this.status,
+    this.corpo,
   });
 
+  /// Id do livro oficial já existente no `409` de RF-ACV-07.
+  String? get livroId => corpo?['livroId'] as String?;
+
+  /// Mensagem por campo do `400` de validação, na forma `campo → mensagem`.
+  Map<String, String> get campos {
+    final brutos = corpo?['campos'];
+    if (brutos is! List) {
+      return const <String, String>{};
+    }
+    return <String, String>{
+      for (final item in brutos)
+        if (item is Map &&
+            item['campo'] is String &&
+            item['mensagem'] is String)
+          item['campo'] as String: item['mensagem'] as String,
+    };
+  }
+
   @override
-  String toString() => 'ApiException($kind, correlationId: $correlationId)';
+  String toString() =>
+      'ApiException($kind, status: $status, correlationId: $correlationId)';
 }
 
 class ApiClient {
@@ -38,55 +68,115 @@ class ApiClient {
   /// chamada não define o cabeçalho por conta própria (P0-NAV).
   final String? Function()? getToken;
 
+  /// Esperas entre tentativas de uma operação idempotente (RNF-ERR-03). Retentar só faz sentido
+  /// para falha de rede e para `502/503/504`, que são o proxy ou o serviço dizendo "agora não";
+  /// timeout já esperou 90 s de cold start, e um `4xx` vai responder a mesma coisa de novo.
+  final List<Duration> esperasDeRetentativa;
+
+  /// Chamado quando uma requisição que levou o token da sessão recebe `401`. Devolve se a sessão
+  /// foi renovada; se sim, a requisição é repetida uma vez com o token novo (F-AUT).
+  final Future<bool> Function(String tokenQueFalhou)? renovarSessao;
+
   ApiClient({
     required String baseUrl,
     http.Client? client,
     this.timeout = const Duration(seconds: 90),
     this.getToken,
+    this.renovarSessao,
+    this.esperasDeRetentativa = const <Duration>[
+      Duration(seconds: 1),
+      Duration(seconds: 3),
+    ],
   }) : baseUri = Uri.parse(baseUrl),
        _client = client ?? http.Client();
 
+  /// GET é idempotente por definição, então sempre pode ser retentado.
   Future<http.Response> get(
     String path, {
     Map<String, String> headers = const <String, String>{},
     String? correlationId,
-  }) async {
-    final requestCorrelationId = correlationId ?? newCorrelationId();
-    final mergedHeaders = _headersFor(
-      headers,
-      requestCorrelationId,
-      hasBody: false,
-    );
-
-    return _guarded(
-      requestCorrelationId,
-      () => _client.get(_resolve(path), headers: mergedHeaders),
+  }) {
+    return _enviar(
+      'GET',
+      path,
+      headers: headers,
+      correlationId: correlationId,
+      idempotente: true,
     );
   }
 
-  /// POST com corpo JSON opcional. Reusa a mesma montagem de cabeçalhos, o mesmo timeout de
-  /// 90s e o mesmo mapeamento de `TimeoutException` para cold start que `get` já tinha —
-  /// `_headersFor` e `_guarded` existem para os dois não divergirem com o tempo.
+  /// POST com corpo JSON opcional. Só é retentado quando traz [idempotencyKey]: sem a chave, um
+  /// reenvio depois de uma resposta perdida criaria o recurso duas vezes (RNF-ERR-04).
+  ///
+  /// [anonimo] manda sem o token da sessão, para as rotas públicas do `identidade`: o filtro de
+  /// bearer do Spring Security recusa token vencido com `401` mesmo em rota aberta, e o logout é
+  /// chamado justamente quando o acesso pode ter vencido.
   Future<http.Response> post(
     String path, {
     Object? body,
     Map<String, String> headers = const <String, String>{},
     String? correlationId,
-  }) async {
-    final requestCorrelationId = correlationId ?? newCorrelationId();
-    final mergedHeaders = _headersFor(
-      headers,
-      requestCorrelationId,
-      hasBody: body != null,
+    String? idempotencyKey,
+    bool anonimo = false,
+  }) {
+    return _enviar(
+      'POST',
+      path,
+      body: body,
+      headers: headers,
+      correlationId: correlationId,
+      idempotencyKey: idempotencyKey,
+      anonimo: anonimo,
     );
+  }
 
-    return _guarded(
-      requestCorrelationId,
-      () => _client.post(
-        _resolve(path),
-        headers: mergedHeaders,
-        body: body == null ? null : jsonEncode(body),
-      ),
+  Future<http.Response> patch(
+    String path, {
+    Object? body,
+    Map<String, String> headers = const <String, String>{},
+    String? correlationId,
+    String? idempotencyKey,
+  }) {
+    return _enviar(
+      'PATCH',
+      path,
+      body: body,
+      headers: headers,
+      correlationId: correlationId,
+      idempotencyKey: idempotencyKey,
+    );
+  }
+
+  /// PUT de substituição (`PUT /me/perfil`, F-PERFIL). Mesma regra do PATCH: só retenta com chave.
+  Future<http.Response> put(
+    String path, {
+    Object? body,
+    Map<String, String> headers = const <String, String>{},
+    String? correlationId,
+    String? idempotencyKey,
+  }) {
+    return _enviar(
+      'PUT',
+      path,
+      body: body,
+      headers: headers,
+      correlationId: correlationId,
+      idempotencyKey: idempotencyKey,
+    );
+  }
+
+  Future<http.Response> delete(
+    String path, {
+    Map<String, String> headers = const <String, String>{},
+    String? correlationId,
+    String? idempotencyKey,
+  }) {
+    return _enviar(
+      'DELETE',
+      path,
+      headers: headers,
+      correlationId: correlationId,
+      idempotencyKey: idempotencyKey,
     );
   }
 
@@ -104,11 +194,36 @@ class ApiClient {
     return _decodeJson(response, requestCorrelationId);
   }
 
+  /// GET cujo corpo é uma lista JSON (a busca exata de perfis devolve `[]` ou `[perfil]`).
+  Future<List<dynamic>> getJsonLista(
+    String path, {
+    Map<String, String> headers = const <String, String>{},
+    String? correlationId,
+  }) async {
+    final requestCorrelationId = correlationId ?? newCorrelationId();
+    final response = await get(path, headers: headers, correlationId: requestCorrelationId);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw _erroDoCorpo(response, requestCorrelationId);
+    }
+    try {
+      return jsonDecode(response.body) as List<dynamic>;
+    } on Object {
+      throw ApiException(
+        kind: ApiFailureKind.invalidResponse,
+        correlationId: response.headers['x-correlation-id'] ?? requestCorrelationId,
+        message: 'O serviço retornou uma resposta inválida.',
+        status: response.statusCode,
+      );
+    }
+  }
+
   Future<Map<String, dynamic>> postJson(
     String path, {
     Object? body,
     Map<String, String> headers = const <String, String>{},
     String? correlationId,
+    String? idempotencyKey,
+    bool anonimo = false,
   }) async {
     final requestCorrelationId = correlationId ?? newCorrelationId();
     final response = await post(
@@ -116,19 +231,165 @@ class ApiClient {
       body: body,
       headers: headers,
       correlationId: requestCorrelationId,
+      idempotencyKey: idempotencyKey,
+      anonimo: anonimo,
     );
     return _decodeJson(response, requestCorrelationId);
   }
 
-  /// Cabeçalhos comuns a `get` e `post`. `Authorization` só entra quando há token e a chamada
+  Future<Map<String, dynamic>> patchJson(
+    String path, {
+    Object? body,
+    Map<String, String> headers = const <String, String>{},
+    String? correlationId,
+    String? idempotencyKey,
+  }) async {
+    final requestCorrelationId = correlationId ?? newCorrelationId();
+    final response = await patch(
+      path,
+      body: body,
+      headers: headers,
+      correlationId: requestCorrelationId,
+      idempotencyKey: idempotencyKey,
+    );
+    return _decodeJson(response, requestCorrelationId);
+  }
+
+  Future<Map<String, dynamic>> putJson(
+    String path, {
+    Object? body,
+    Map<String, String> headers = const <String, String>{},
+    String? correlationId,
+    String? idempotencyKey,
+  }) async {
+    final requestCorrelationId = correlationId ?? newCorrelationId();
+    final response = await put(
+      path,
+      body: body,
+      headers: headers,
+      correlationId: requestCorrelationId,
+      idempotencyKey: idempotencyKey,
+    );
+    return _decodeJson(response, requestCorrelationId);
+  }
+
+  /// DELETE que responde `204` sem corpo. Lança [ApiException] para qualquer status fora de 2xx.
+  Future<void> deleteVazio(
+    String path, {
+    Map<String, String> headers = const <String, String>{},
+    String? correlationId,
+    String? idempotencyKey,
+  }) async {
+    final requestCorrelationId = correlationId ?? newCorrelationId();
+    final response = await delete(
+      path,
+      headers: headers,
+      correlationId: requestCorrelationId,
+      idempotencyKey: idempotencyKey,
+    );
+    _decodeJson(response, requestCorrelationId);
+  }
+
+  /// Um só caminho para todos os métodos: cabeçalhos, timeout, mapeamento de falha e retentativa
+  /// não podem divergir entre `get`, `post`, `patch` e `delete` com o tempo. O correlation-id e a
+  /// chave de idempotência são os mesmos em todas as tentativas — é a mesma operação, e é a
+  /// chave repetida que faz o servidor devolver a resposta original em vez de refazer o efeito.
+  Future<http.Response> _enviar(
+    String metodo,
+    String path, {
+    Object? body,
+    required Map<String, String> headers,
+    String? correlationId,
+    String? idempotencyKey,
+    bool idempotente = false,
+    bool anonimo = false,
+  }) async {
+    final requestCorrelationId = correlationId ?? newCorrelationId();
+    final comChave = <String, String>{
+      'Idempotency-Key': ?idempotencyKey,
+      ...headers,
+    };
+    // Só o token da sessão é renovável; o Authorization explícito de quem chamou não é.
+    final tokenDaSessao = anonimo || headers.containsKey('Authorization')
+        ? null
+        : getToken?.call();
+
+    Future<http.Response> enviarCom(String? token) => _enviarComRetentativa(
+      metodo,
+      path,
+      body: body,
+      requestCorrelationId: requestCorrelationId,
+      mergedHeaders: _headersFor(
+        comChave,
+        requestCorrelationId,
+        hasBody: body != null,
+        token: token,
+      ),
+      podeRetentar: idempotente || idempotencyKey != null,
+    );
+
+    final response = await enviarCom(tokenDaSessao);
+    // 401 com o token da sessão: ele venceu ou foi revogado. Repetir uma vez depois de renovar
+    // é seguro até em escrita sem chave, porque o 401 garante que nada foi feito.
+    if (response.statusCode != 401 ||
+        tokenDaSessao == null ||
+        tokenDaSessao.isEmpty ||
+        renovarSessao == null ||
+        !await renovarSessao!(tokenDaSessao)) {
+      return response;
+    }
+    final renovado = getToken?.call();
+    if (renovado == null || renovado.isEmpty) {
+      return response;
+    }
+    return enviarCom(renovado);
+  }
+
+  Future<http.Response> _enviarComRetentativa(
+    String metodo,
+    String path, {
+    Object? body,
+    required String requestCorrelationId,
+    required Map<String, String> mergedHeaders,
+    required bool podeRetentar,
+  }) async {
+    final esperas = podeRetentar ? esperasDeRetentativa : const <Duration>[];
+
+    for (var tentativa = 0; ; tentativa++) {
+      final ultima = tentativa >= esperas.length;
+      try {
+        final response = await _guarded(requestCorrelationId, () {
+          final request = http.Request(metodo, _resolve(path))
+            ..headers.addAll(mergedHeaders);
+          if (body != null) {
+            request.body = jsonEncode(body);
+          }
+          return _client.send(request).then(http.Response.fromStream);
+        });
+        if (ultima || !_statusRetentavel(response.statusCode)) {
+          return response;
+        }
+      } on ApiException catch (erro) {
+        if (ultima || erro.kind != ApiFailureKind.network) {
+          rethrow;
+        }
+      }
+      await Future<void>.delayed(esperas[tentativa]);
+    }
+  }
+
+  static bool _statusRetentavel(int status) =>
+      status == 502 || status == 503 || status == 504;
+
+  /// Cabeçalhos comuns a todos os métodos. `Authorization` só entra quando há token e a chamada
   /// não trouxe um cabeçalho próprio — `headers` é aplicado por último e sobrepõe o que vier
   /// antes, então um `Authorization` explícito da chamada sempre vence o do `getToken`.
   Map<String, String> _headersFor(
     Map<String, String> headers,
     String correlationId, {
     required bool hasBody,
+    required String? token,
   }) {
-    final token = getToken?.call();
     return <String, String>{
       'Accept': 'application/json',
       'X-Correlation-Id': correlationId,
@@ -139,7 +400,7 @@ class ApiClient {
   }
 
   /// Timeout e erro de rede em um lugar só (RNF-ERR-09): timeout vira `coldStart`, o resto vira
-  /// `network`. `get` e `post` só fornecem a chamada HTTP em si.
+  /// `network`.
   Future<http.Response> _guarded(
     String correlationId,
     Future<http.Response> Function() request,
@@ -168,6 +429,10 @@ class ApiClient {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw _erroDoCorpo(response, requestCorrelationId);
     }
+    // `204` de exclusão não tem corpo, e isso é sucesso, não resposta inválida.
+    if (response.statusCode == 204 || response.body.trim().isEmpty) {
+      return <String, dynamic>{};
+    }
 
     try {
       return jsonDecode(response.body) as Map<String, dynamic>;
@@ -177,6 +442,7 @@ class ApiClient {
         correlationId:
             response.headers['x-correlation-id'] ?? requestCorrelationId,
         message: 'O serviço retornou uma resposta inválida.',
+        status: response.statusCode,
       );
     }
   }
@@ -185,7 +451,10 @@ class ApiClient {
   /// Quando a resposta segue o contrato, a exceção carrega a mensagem e o código de verdade;
   /// quando não segue (corpo vazio, HTML de um proxy, JSON de outro formato), cai na mensagem
   /// genérica de sempre — nunca lança por causa de um corpo inesperado.
-  ApiException _erroDoCorpo(http.Response response, String requestCorrelationId) {
+  ApiException _erroDoCorpo(
+    http.Response response,
+    String requestCorrelationId,
+  ) {
     final correlationIdDoCabecalho =
         response.headers['x-correlation-id'] ?? requestCorrelationId;
     try {
@@ -199,6 +468,8 @@ class ApiClient {
               corpo['correlationId'] as String? ?? correlationIdDoCabecalho,
           message: corpo['mensagem'] as String,
           codigo: corpo['codigo'] as String,
+          status: response.statusCode,
+          corpo: corpo,
         );
       }
     } on FormatException {
@@ -208,6 +479,7 @@ class ApiClient {
       kind: ApiFailureKind.invalidResponse,
       correlationId: correlationIdDoCabecalho,
       message: 'O serviço respondeu com um status inesperado.',
+      status: response.statusCode,
     );
   }
 
@@ -217,6 +489,10 @@ class ApiClient {
   }
 
   void close() => _client.close();
+
+  /// Chave de idempotência nova para uma intenção do usuário. É gerada uma vez por intenção
+  /// (tocar em "Salvar livro") e reaproveitada em todo reenvio da mesma intenção.
+  static String newIdempotencyKey() => newCorrelationId();
 
   static String newCorrelationId() {
     final random = Random.secure();

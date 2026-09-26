@@ -1,9 +1,18 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
+import { ErroDeNegocio } from './erros-de-negocio';
 
 export interface MappedError {
   status: number;
   codigo: string;
   mensagem: string;
+  /**
+   * Campos que o contrato define para respostas específicas — `livroId` em
+   * `ErroLivroExistente`, `campos` em `ErroValidacao`. Mesclados no corpo sem
+   * alterar `{ codigo, mensagem, correlationId }` (RNF-ERR-01).
+   */
+  extras?: Record<string, unknown>;
+  /** Cabeçalhos exigidos pelo contrato, como `Retry-After` no 429. */
+  cabecalhos?: Record<string, string>;
 }
 
 /**
@@ -53,6 +62,18 @@ const BY_STATUS: Record<number, { codigo: string; mensagem: string }> = {
 };
 
 export function mapError(exception: unknown): MappedError {
+  // Antes do ramo de HttpException: ErroDeNegocio É uma HttpException, e o
+  // mapa por status descartaria o código e a mensagem próprios dela.
+  if (exception instanceof ErroDeNegocio) {
+    return {
+      status: exception.getStatus(),
+      codigo: exception.codigo,
+      mensagem: exception.message,
+      extras: exception.extras,
+      cabecalhos: exception.cabecalhos,
+    };
+  }
+
   if (exception instanceof HttpException) {
     const status = exception.getStatus();
     const known = BY_STATUS[status];

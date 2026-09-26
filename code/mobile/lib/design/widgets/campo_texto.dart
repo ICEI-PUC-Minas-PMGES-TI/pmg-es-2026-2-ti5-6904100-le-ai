@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../theme.dart';
 import '../tokens.dart';
@@ -43,6 +44,28 @@ class CampoTexto extends StatelessWidget {
   /// data em vez do teclado.
   final VoidCallback? onTap;
 
+  /// Exemplo dentro do campo. Nunca substitui o [label] (documento-de-design §4.2).
+  final String? placeholder;
+
+  /// Área de texto: com [maxLines] maior que 1 o campo cresce até esse limite (sinopse do livro
+  /// pessoal). O padrão é uma linha, como todo campo que já existia.
+  final int? minLines;
+  final int maxLines;
+  final List<TextInputFormatter>? inputFormatters;
+
+  /// Estilo do texto digitado, quando o campo pede outra fonte: o ISBN usa numeral tabular da
+  /// JetBrains Mono, porque a pessoa confere dígito a dígito contra o livro.
+  final TextStyle? estiloDoTexto;
+  final FocusNode? focusNode;
+
+  /// Ícone Phosphor à esquerda, dentro do campo (protótipos de F-AUT/login e cadastro: 20px,
+  /// `grafite-suave`). Decorativo: o label já diz o que o campo é, então fica fora da semântica.
+  final IconData? icone;
+
+  /// Mensagem de erro logo abaixo do campo e o helper depois dela (alterar-senha.md §4.3 e os
+  /// protótipos de recuperar e redefinir senha). O padrão é o do cadastro.md §4.3: helper, erro.
+  final bool erroAntesDoHelper;
+
   const CampoTexto({
     super.key,
     required this.controller,
@@ -58,6 +81,14 @@ class CampoTexto extends StatelessWidget {
     this.onChanged,
     this.readOnly = false,
     this.onTap,
+    this.placeholder,
+    this.minLines,
+    this.maxLines = 1,
+    this.inputFormatters,
+    this.estiloDoTexto,
+    this.focusNode,
+    this.icone,
+    this.erroAntesDoHelper = false,
   });
 
   @override
@@ -81,10 +112,15 @@ class CampoTexto extends StatelessWidget {
           onChanged: onChanged,
           readOnly: readOnly,
           onTap: onTap,
-          style: theme.textTheme.bodyMedium?.copyWith(
+          focusNode: focusNode,
+          minLines: minLines,
+          maxLines: maxLines,
+          inputFormatters: inputFormatters,
+          style: (estiloDoTexto ?? theme.textTheme.bodyMedium)?.copyWith(
             color: enabled ? null : theme.tertiaryText,
           ),
           decoration: InputDecoration(
+            hintText: placeholder,
             filled: true,
             fillColor: enabled ? theme.elevatedSurface : theme.divider,
             hintStyle: theme.textTheme.bodyMedium?.copyWith(
@@ -94,6 +130,18 @@ class CampoTexto extends StatelessWidget {
               horizontal: DesignTokens.space4,
               vertical: DesignTokens.space3,
             ),
+            prefixIcon: icone == null
+                ? null
+                : ExcludeSemantics(
+                    child: Padding(
+                      padding: const EdgeInsetsDirectional.only(
+                        start: DesignTokens.space4,
+                        end: DesignTokens.space2,
+                      ),
+                      child: Icon(icone, size: 20, color: theme.tertiaryText),
+                    ),
+                  ),
+            prefixIconConstraints: const BoxConstraints(),
             suffixIcon: trailing,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(DesignTokens.radius),
@@ -119,6 +167,15 @@ class CampoTexto extends StatelessWidget {
             ),
           ),
         ),
+        if (erro != null && erroAntesDoHelper) ...<Widget>[
+          const SizedBox(height: DesignTokens.space2),
+          Text(
+            erro!,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.error,
+            ),
+          ),
+        ],
         if (helper != null) ...<Widget>[
           const SizedBox(height: DesignTokens.space2),
           Text(
@@ -128,7 +185,7 @@ class CampoTexto extends StatelessWidget {
             ),
           ),
         ],
-        if (erro != null) ...<Widget>[
+        if (erro != null && !erroAntesDoHelper) ...<Widget>[
           const SizedBox(height: DesignTokens.space2),
           Text(
             erro!,

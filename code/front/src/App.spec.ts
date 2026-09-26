@@ -44,7 +44,7 @@ describe('App', () => {
   })
 
   it('com sessão, / redireciona para /estante dentro do shell autenticado', async () => {
-    iniciarSessao('jwt-de-teste', USUARIO)
+    iniciarSessao({ accessToken: 'jwt-de-teste', refreshToken: 'renovacao' }, USUARIO)
     const { router, wrapper } = await montarApp('/')
 
     expect(router.currentRoute.value.path).toBe('/estante')
@@ -59,7 +59,7 @@ describe('App', () => {
   })
 
   it('/login e /cadastro com sessão ativa redirecionam para /estante', async () => {
-    iniciarSessao('jwt-de-teste', USUARIO)
+    iniciarSessao({ accessToken: 'jwt-de-teste', refreshToken: 'renovacao' }, USUARIO)
 
     const { router: routerLogin } = await montarApp('/login')
     expect(routerLogin.currentRoute.value.path).toBe('/estante')

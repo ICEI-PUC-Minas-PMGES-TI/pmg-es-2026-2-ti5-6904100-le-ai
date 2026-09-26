@@ -1,0 +1,1729 @@
+{
+  "id": "da6a707c-37cf-40e1-b180-83e3beed00f3",
+  "prevId": "2b9fdab9-608d-4538-8024-04da640a47d7",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "acervo.assunto": {
+      "name": "assunto",
+      "schema": "acervo",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "nome": {
+          "name": "nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "assunto_slug_uidx": {
+          "name": "assunto_slug_uidx",
+          "columns": [
+            {
+              "expression": "slug",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "assunto_nome_normalizado_idx": {
+          "name": "assunto_nome_normalizado_idx",
+          "columns": [
+            {
+              "expression": "lower(\"nome\")",
+              "isExpression": true,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "assunto_nome_nao_vazio_ck": {
+          "name": "assunto_nome_nao_vazio_ck",
+          "value": "btrim(\"acervo\".\"assunto\".\"nome\") <> ''"
+        },
+        "assunto_slug_formato_ck": {
+          "name": "assunto_slug_formato_ck",
+          "value": "\"acervo\".\"assunto\".\"slug\" ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "acervo.autor": {
+      "name": "autor",
+      "schema": "acervo",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "nome": {
+          "name": "nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nome_normalizado": {
+          "name": "nome_normalizado",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ol_author_key": {
+          "name": "ol_author_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "biografia": {
+          "name": "biografia",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "autor_ol_author_key_uidx": {
+          "name": "autor_ol_author_key_uidx",
+          "columns": [
+            {
+              "expression": "ol_author_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "with": {},
+          "method": "btree",
+          "where": "\"acervo\".\"autor\".\"ol_author_key\" IS NOT NULL",
+          "concurrently": false
+        },
+        "autor_nome_normalizado_sem_chave_uidx": {
+          "name": "autor_nome_normalizado_sem_chave_uidx",
+          "columns": [
+            {
+              "expression": "nome_normalizado",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "with": {},
+          "method": "btree",
+          "where": "\"acervo\".\"autor\".\"ol_author_key\" IS NULL",
+          "concurrently": false
+        },
+        "autor_nome_normalizado_idx": {
+          "name": "autor_nome_normalizado_idx",
+          "columns": [
+            {
+              "expression": "nome_normalizado",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "autor_nome_nao_vazio_ck": {
+          "name": "autor_nome_nao_vazio_ck",
+          "value": "btrim(\"acervo\".\"autor\".\"nome\") <> ''"
+        },
+        "autor_nome_normalizado_nao_vazio_ck": {
+          "name": "autor_nome_normalizado_nao_vazio_ck",
+          "value": "btrim(\"acervo\".\"autor\".\"nome_normalizado\") <> ''"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "acervo.editora": {
+      "name": "editora",
+      "schema": "acervo",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "nome": {
+          "name": "nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nome_normalizado": {
+          "name": "nome_normalizado",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "editora_nome_normalizado_uidx": {
+          "name": "editora_nome_normalizado_uidx",
+          "columns": [
+            {
+              "expression": "nome_normalizado",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "editora_nome_nao_vazio_ck": {
+          "name": "editora_nome_nao_vazio_ck",
+          "value": "btrim(\"acervo\".\"editora\".\"nome\") <> ''"
+        },
+        "editora_nome_normalizado_nao_vazio_ck": {
+          "name": "editora_nome_normalizado_nao_vazio_ck",
+          "value": "btrim(\"acervo\".\"editora\".\"nome_normalizado\") <> ''"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "acervo.idempotencia_acervo": {
+      "name": "idempotencia_acervo",
+      "schema": "acervo",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "subject_ref": {
+          "name": "subject_ref",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "operacao": {
+          "name": "operacao",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "chave": {
+          "name": "chave",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "payload_hash": {
+          "name": "payload_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status_http": {
+          "name": "status_http",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "resposta": {
+          "name": "resposta",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "replay_ate": {
+          "name": "replay_ate",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "anonimizado_em": {
+          "name": "anonimizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "idempotencia_acervo_ledger_uidx": {
+          "name": "idempotencia_acervo_ledger_uidx",
+          "columns": [
+            {
+              "expression": "subject_ref",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "operacao",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "chave",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "with": {},
+          "method": "btree",
+          "where": "\"acervo\".\"idempotencia_acervo\".\"anonimizado_em\" IS NULL",
+          "concurrently": false
+        },
+        "idempotencia_acervo_replay_ate_idx": {
+          "name": "idempotencia_acervo_replay_ate_idx",
+          "columns": [
+            {
+              "expression": "replay_ate",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "where": "\"acervo\".\"idempotencia_acervo\".\"anonimizado_em\" IS NULL",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "idempotencia_acervo_operacao_nao_vazia_ck": {
+          "name": "idempotencia_acervo_operacao_nao_vazia_ck",
+          "value": "btrim(\"acervo\".\"idempotencia_acervo\".\"operacao\") <> ''"
+        },
+        "idempotencia_acervo_status_http_ck": {
+          "name": "idempotencia_acervo_status_http_ck",
+          "value": "\"acervo\".\"idempotencia_acervo\".\"status_http\" BETWEEN 100 AND 599"
+        },
+        "idempotencia_acervo_replay_ck": {
+          "name": "idempotencia_acervo_replay_ck",
+          "value": "\"acervo\".\"idempotencia_acervo\".\"replay_ate\" >= \"acervo\".\"idempotencia_acervo\".\"criado_em\""
+        },
+        "idempotencia_acervo_anonimizacao_ck": {
+          "name": "idempotencia_acervo_anonimizacao_ck",
+          "value": "(\n        \"acervo\".\"idempotencia_acervo\".\"anonimizado_em\" IS NULL\n        AND \"acervo\".\"idempotencia_acervo\".\"subject_ref\" IS NOT NULL\n        AND \"acervo\".\"idempotencia_acervo\".\"chave\" IS NOT NULL\n        AND btrim(\"acervo\".\"idempotencia_acervo\".\"chave\") <> ''\n        AND \"acervo\".\"idempotencia_acervo\".\"payload_hash\" IS NOT NULL\n        AND btrim(\"acervo\".\"idempotencia_acervo\".\"payload_hash\") <> ''\n        AND \"acervo\".\"idempotencia_acervo\".\"resposta\" IS NOT NULL\n      ) OR (\n        \"acervo\".\"idempotencia_acervo\".\"anonimizado_em\" IS NOT NULL\n        AND \"acervo\".\"idempotencia_acervo\".\"anonimizado_em\" >= \"acervo\".\"idempotencia_acervo\".\"criado_em\"\n        AND \"acervo\".\"idempotencia_acervo\".\"subject_ref\" IS NULL\n        AND \"acervo\".\"idempotencia_acervo\".\"chave\" IS NULL\n        AND \"acervo\".\"idempotencia_acervo\".\"payload_hash\" IS NULL\n        AND \"acervo\".\"idempotencia_acervo\".\"resposta\" IS NULL\n      )"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "acervo.importacao_livro": {
+      "name": "importacao_livro",
+      "schema": "acervo",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "solicitante_id": {
+          "name": "solicitante_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "isbn13": {
+          "name": "isbn13",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "estado": {
+          "name": "estado",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pendente'"
+        },
+        "livro_id": {
+          "name": "livro_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "erro": {
+          "name": "erro",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "importacao_livro_solicitante_id_idx": {
+          "name": "importacao_livro_solicitante_id_idx",
+          "columns": [
+            {
+              "expression": "solicitante_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "importacao_livro_isbn13_idx": {
+          "name": "importacao_livro_isbn13_idx",
+          "columns": [
+            {
+              "expression": "isbn13",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "importacao_livro_estado_criado_em_idx": {
+          "name": "importacao_livro_estado_criado_em_idx",
+          "columns": [
+            {
+              "expression": "estado",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "criado_em",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "importacao_livro_livro_id_livro_id_fk": {
+          "name": "importacao_livro_livro_id_livro_id_fk",
+          "tableFrom": "importacao_livro",
+          "columnsFrom": [
+            "livro_id"
+          ],
+          "tableTo": "livro",
+          "schemaTo": "acervo",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "restrict"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "importacao_livro_isbn13_formato_ck": {
+          "name": "importacao_livro_isbn13_formato_ck",
+          "value": "\"acervo\".\"importacao_livro\".\"isbn13\" ~ '^[0-9]{13}$'"
+        },
+        "importacao_livro_estado_ck": {
+          "name": "importacao_livro_estado_ck",
+          "value": "\"acervo\".\"importacao_livro\".\"estado\" IN ('pendente', 'concluida', 'nao_encontrado', 'falha_transitoria')"
+        },
+        "importacao_livro_resultado_ck": {
+          "name": "importacao_livro_resultado_ck",
+          "value": "(\n        \"acervo\".\"importacao_livro\".\"estado\" = 'pendente'\n        AND \"acervo\".\"importacao_livro\".\"livro_id\" IS NULL\n        AND \"acervo\".\"importacao_livro\".\"erro\" IS NULL\n      ) OR (\n        \"acervo\".\"importacao_livro\".\"estado\" = 'concluida'\n        AND \"acervo\".\"importacao_livro\".\"livro_id\" IS NOT NULL\n        AND \"acervo\".\"importacao_livro\".\"erro\" IS NULL\n      ) OR (\n        \"acervo\".\"importacao_livro\".\"estado\" = 'nao_encontrado'\n        AND \"acervo\".\"importacao_livro\".\"livro_id\" IS NULL\n      ) OR (\n        \"acervo\".\"importacao_livro\".\"estado\" = 'falha_transitoria'\n        AND \"acervo\".\"importacao_livro\".\"livro_id\" IS NULL\n        AND \"acervo\".\"importacao_livro\".\"erro\" IS NOT NULL\n        AND btrim(\"acervo\".\"importacao_livro\".\"erro\") <> ''\n      )"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "acervo.ingestao_execucao": {
+      "name": "ingestao_execucao",
+      "schema": "acervo",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tipo": {
+          "name": "tipo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'em_execucao'"
+        },
+        "total_processados": {
+          "name": "total_processados",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "total_descartados": {
+          "name": "total_descartados",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "total_inseridos": {
+          "name": "total_inseridos",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "iniciado_em": {
+          "name": "iniciado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "finalizado_em": {
+          "name": "finalizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "ingestao_execucao_status_iniciado_em_idx": {
+          "name": "ingestao_execucao_status_iniciado_em_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "iniciado_em",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "ingestao_execucao_tipo_ck": {
+          "name": "ingestao_execucao_tipo_ck",
+          "value": "\"acervo\".\"ingestao_execucao\".\"tipo\" IN ('carga_inicial', 'recarga')"
+        },
+        "ingestao_execucao_status_ck": {
+          "name": "ingestao_execucao_status_ck",
+          "value": "\"acervo\".\"ingestao_execucao\".\"status\" IN ('em_execucao', 'concluida', 'falha')"
+        },
+        "ingestao_execucao_totais_ck": {
+          "name": "ingestao_execucao_totais_ck",
+          "value": "\"acervo\".\"ingestao_execucao\".\"total_processados\" >= 0\n        AND \"acervo\".\"ingestao_execucao\".\"total_descartados\" >= 0\n        AND \"acervo\".\"ingestao_execucao\".\"total_inseridos\" >= 0\n        AND \"acervo\".\"ingestao_execucao\".\"total_descartados\" + \"acervo\".\"ingestao_execucao\".\"total_inseridos\" <= \"acervo\".\"ingestao_execucao\".\"total_processados\""
+        },
+        "ingestao_execucao_finalizacao_ck": {
+          "name": "ingestao_execucao_finalizacao_ck",
+          "value": "(\n        \"acervo\".\"ingestao_execucao\".\"status\" = 'em_execucao' AND \"acervo\".\"ingestao_execucao\".\"finalizado_em\" IS NULL\n      ) OR (\n        \"acervo\".\"ingestao_execucao\".\"status\" IN ('concluida', 'falha')\n        AND \"acervo\".\"ingestao_execucao\".\"finalizado_em\" IS NOT NULL\n        AND \"acervo\".\"ingestao_execucao\".\"finalizado_em\" >= \"acervo\".\"ingestao_execucao\".\"iniciado_em\"\n      )"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "acervo.livro": {
+      "name": "livro",
+      "schema": "acervo",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "isbn13": {
+          "name": "isbn13",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ol_edition_key": {
+          "name": "ol_edition_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ol_work_key": {
+          "name": "ol_work_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "titulo": {
+          "name": "titulo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "autor_informado": {
+          "name": "autor_informado",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ano_publicacao": {
+          "name": "ano_publicacao",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "paginas": {
+          "name": "paginas",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sinopse": {
+          "name": "sinopse",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sinopse_status": {
+          "name": "sinopse_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'nao_consultada'"
+        },
+        "capa_url_externa": {
+          "name": "capa_url_externa",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "capa_url_propria": {
+          "name": "capa_url_propria",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "capa_asset_id": {
+          "name": "capa_asset_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nota_geral": {
+          "name": "nota_geral",
+          "type": "numeric(2, 1)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nota_geral_qtd": {
+          "name": "nota_geral_qtd",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tipo": {
+          "name": "tipo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "dono_id": {
+          "name": "dono_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "editora_id": {
+          "name": "editora_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "serie_id": {
+          "name": "serie_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "numero_serie": {
+          "name": "numero_serie",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ativo": {
+          "name": "ativo",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "livro_isbn13_uidx": {
+          "name": "livro_isbn13_uidx",
+          "columns": [
+            {
+              "expression": "isbn13",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "with": {},
+          "method": "btree",
+          "where": "\"acervo\".\"livro\".\"isbn13\" IS NOT NULL",
+          "concurrently": false
+        },
+        "livro_ol_edition_key_uidx": {
+          "name": "livro_ol_edition_key_uidx",
+          "columns": [
+            {
+              "expression": "ol_edition_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "with": {},
+          "method": "btree",
+          "where": "\"acervo\".\"livro\".\"ol_edition_key\" IS NOT NULL",
+          "concurrently": false
+        },
+        "livro_titulo_normalizado_idx": {
+          "name": "livro_titulo_normalizado_idx",
+          "columns": [
+            {
+              "expression": "lower(\"titulo\")",
+              "isExpression": true,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "where": "\"acervo\".\"livro\".\"tipo\" = 'oficial' AND \"acervo\".\"livro\".\"ativo\"",
+          "concurrently": false
+        },
+        "livro_editora_id_idx": {
+          "name": "livro_editora_id_idx",
+          "columns": [
+            {
+              "expression": "editora_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "where": "\"acervo\".\"livro\".\"editora_id\" IS NOT NULL",
+          "concurrently": false
+        },
+        "livro_serie_id_numero_idx": {
+          "name": "livro_serie_id_numero_idx",
+          "columns": [
+            {
+              "expression": "serie_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "numero_serie",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "where": "\"acervo\".\"livro\".\"serie_id\" IS NOT NULL",
+          "concurrently": false
+        },
+        "livro_ol_work_key_idx": {
+          "name": "livro_ol_work_key_idx",
+          "columns": [
+            {
+              "expression": "ol_work_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "where": "\"acervo\".\"livro\".\"ol_work_key\" IS NOT NULL",
+          "concurrently": false
+        },
+        "livro_dono_id_idx": {
+          "name": "livro_dono_id_idx",
+          "columns": [
+            {
+              "expression": "dono_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "where": "\"acervo\".\"livro\".\"dono_id\" IS NOT NULL",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "livro_editora_id_editora_id_fk": {
+          "name": "livro_editora_id_editora_id_fk",
+          "tableFrom": "livro",
+          "columnsFrom": [
+            "editora_id"
+          ],
+          "tableTo": "editora",
+          "schemaTo": "acervo",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
+        },
+        "livro_serie_id_serie_id_fk": {
+          "name": "livro_serie_id_serie_id_fk",
+          "tableFrom": "livro",
+          "columnsFrom": [
+            "serie_id"
+          ],
+          "tableTo": "serie",
+          "schemaTo": "acervo",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "livro_tipo_ck": {
+          "name": "livro_tipo_ck",
+          "value": "\"acervo\".\"livro\".\"tipo\" IN ('oficial', 'pessoal')"
+        },
+        "livro_sinopse_status_ck": {
+          "name": "livro_sinopse_status_ck",
+          "value": "\"acervo\".\"livro\".\"sinopse_status\" IN ('nao_consultada', 'pendente', 'disponivel', 'ausente', 'falha_transitoria')"
+        },
+        "livro_titulo_nao_vazio_ck": {
+          "name": "livro_titulo_nao_vazio_ck",
+          "value": "btrim(\"acervo\".\"livro\".\"titulo\") <> ''"
+        },
+        "livro_paginas_positivas_ck": {
+          "name": "livro_paginas_positivas_ck",
+          "value": "\"acervo\".\"livro\".\"paginas\" > 0"
+        },
+        "livro_ano_publicacao_ck": {
+          "name": "livro_ano_publicacao_ck",
+          "value": "\"acervo\".\"livro\".\"ano_publicacao\" IS NULL OR \"acervo\".\"livro\".\"ano_publicacao\" > 0"
+        },
+        "livro_numero_serie_ck": {
+          "name": "livro_numero_serie_ck",
+          "value": "\"acervo\".\"livro\".\"numero_serie\" IS NULL OR \"acervo\".\"livro\".\"numero_serie\" > 0"
+        },
+        "livro_numero_serie_exige_serie_ck": {
+          "name": "livro_numero_serie_exige_serie_ck",
+          "value": "\"acervo\".\"livro\".\"numero_serie\" IS NULL OR \"acervo\".\"livro\".\"serie_id\" IS NOT NULL"
+        },
+        "livro_sinopse_limite_ck": {
+          "name": "livro_sinopse_limite_ck",
+          "value": "\"acervo\".\"livro\".\"sinopse\" IS NULL OR char_length(\"acervo\".\"livro\".\"sinopse\") <= 4000"
+        },
+        "livro_sinopse_conteudo_status_ck": {
+          "name": "livro_sinopse_conteudo_status_ck",
+          "value": "(\"acervo\".\"livro\".\"sinopse_status\" = 'disponivel') = (\"acervo\".\"livro\".\"sinopse\" IS NOT NULL)"
+        },
+        "livro_nota_geral_ck": {
+          "name": "livro_nota_geral_ck",
+          "value": "\"acervo\".\"livro\".\"nota_geral\" IS NULL OR (\"acervo\".\"livro\".\"nota_geral\" >= 0 AND \"acervo\".\"livro\".\"nota_geral\" <= 5)"
+        },
+        "livro_nota_geral_qtd_ck": {
+          "name": "livro_nota_geral_qtd_ck",
+          "value": "\"acervo\".\"livro\".\"nota_geral_qtd\" IS NULL OR \"acervo\".\"livro\".\"nota_geral_qtd\" >= 0"
+        },
+        "livro_nota_geral_par_ck": {
+          "name": "livro_nota_geral_par_ck",
+          "value": "(\"acervo\".\"livro\".\"nota_geral\" IS NULL) = (\"acervo\".\"livro\".\"nota_geral_qtd\" IS NULL)"
+        },
+        "livro_isbn13_formato_ck": {
+          "name": "livro_isbn13_formato_ck",
+          "value": "\"acervo\".\"livro\".\"isbn13\" IS NULL OR \"acervo\".\"livro\".\"isbn13\" ~ '^[0-9]{13}$'"
+        },
+        "livro_oficial_pessoal_ck": {
+          "name": "livro_oficial_pessoal_ck",
+          "value": "(\n        \"acervo\".\"livro\".\"tipo\" = 'oficial'\n        AND \"acervo\".\"livro\".\"isbn13\" IS NOT NULL\n        AND \"acervo\".\"livro\".\"dono_id\" IS NULL\n        AND \"acervo\".\"livro\".\"autor_informado\" IS NULL\n        AND \"acervo\".\"livro\".\"capa_url_externa\" IS NOT NULL\n        AND btrim(\"acervo\".\"livro\".\"capa_url_externa\") <> ''\n        AND \"acervo\".\"livro\".\"ativo\"\n      ) OR (\n        \"acervo\".\"livro\".\"tipo\" = 'pessoal'\n        AND \"acervo\".\"livro\".\"isbn13\" IS NULL\n        AND \"acervo\".\"livro\".\"ol_edition_key\" IS NULL\n        AND \"acervo\".\"livro\".\"ol_work_key\" IS NULL\n        AND \"acervo\".\"livro\".\"dono_id\" IS NOT NULL\n        AND \"acervo\".\"livro\".\"autor_informado\" IS NOT NULL\n        AND btrim(\"acervo\".\"livro\".\"autor_informado\") <> ''\n        AND \"acervo\".\"livro\".\"capa_url_externa\" IS NULL\n        AND \"acervo\".\"livro\".\"editora_id\" IS NULL\n        AND \"acervo\".\"livro\".\"serie_id\" IS NULL\n        AND \"acervo\".\"livro\".\"numero_serie\" IS NULL\n        AND \"acervo\".\"livro\".\"nota_geral\" IS NULL\n        AND \"acervo\".\"livro\".\"nota_geral_qtd\" IS NULL\n        AND \"acervo\".\"livro\".\"sinopse_status\" IN ('disponivel', 'ausente')\n      )"
+        },
+        "livro_capa_propria_asset_ck": {
+          "name": "livro_capa_propria_asset_ck",
+          "value": "(\"acervo\".\"livro\".\"capa_url_propria\" IS NULL) = (\"acervo\".\"livro\".\"capa_asset_id\" IS NULL)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "acervo.livro_assunto": {
+      "name": "livro_assunto",
+      "schema": "acervo",
+      "columns": {
+        "livro_id": {
+          "name": "livro_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "assunto_id": {
+          "name": "assunto_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "livro_assunto_assunto_id_idx": {
+          "name": "livro_assunto_assunto_id_idx",
+          "columns": [
+            {
+              "expression": "assunto_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "livro_assunto_livro_id_livro_id_fk": {
+          "name": "livro_assunto_livro_id_livro_id_fk",
+          "tableFrom": "livro_assunto",
+          "columnsFrom": [
+            "livro_id"
+          ],
+          "tableTo": "livro",
+          "schemaTo": "acervo",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "livro_assunto_assunto_id_assunto_id_fk": {
+          "name": "livro_assunto_assunto_id_assunto_id_fk",
+          "tableFrom": "livro_assunto",
+          "columnsFrom": [
+            "assunto_id"
+          ],
+          "tableTo": "assunto",
+          "schemaTo": "acervo",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "restrict"
+        }
+      },
+      "compositePrimaryKeys": {
+        "livro_assunto_pk": {
+          "name": "livro_assunto_pk",
+          "columns": [
+            "livro_id",
+            "assunto_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "acervo.livro_autor": {
+      "name": "livro_autor",
+      "schema": "acervo",
+      "columns": {
+        "livro_id": {
+          "name": "livro_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "autor_id": {
+          "name": "autor_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "livro_autor_autor_id_idx": {
+          "name": "livro_autor_autor_id_idx",
+          "columns": [
+            {
+              "expression": "autor_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "livro_autor_livro_id_livro_id_fk": {
+          "name": "livro_autor_livro_id_livro_id_fk",
+          "tableFrom": "livro_autor",
+          "columnsFrom": [
+            "livro_id"
+          ],
+          "tableTo": "livro",
+          "schemaTo": "acervo",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "livro_autor_autor_id_autor_id_fk": {
+          "name": "livro_autor_autor_id_autor_id_fk",
+          "tableFrom": "livro_autor",
+          "columnsFrom": [
+            "autor_id"
+          ],
+          "tableTo": "autor",
+          "schemaTo": "acervo",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "restrict"
+        }
+      },
+      "compositePrimaryKeys": {
+        "livro_autor_pk": {
+          "name": "livro_autor_pk",
+          "columns": [
+            "livro_id",
+            "autor_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "acervo.mapa_assunto_externo": {
+      "name": "mapa_assunto_externo",
+      "schema": "acervo",
+      "columns": {
+        "tag_externa": {
+          "name": "tag_externa",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "assunto_id": {
+          "name": "assunto_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "mapa_assunto_externo_assunto_id_idx": {
+          "name": "mapa_assunto_externo_assunto_id_idx",
+          "columns": [
+            {
+              "expression": "assunto_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "mapa_assunto_externo_assunto_id_assunto_id_fk": {
+          "name": "mapa_assunto_externo_assunto_id_assunto_id_fk",
+          "tableFrom": "mapa_assunto_externo",
+          "columnsFrom": [
+            "assunto_id"
+          ],
+          "tableTo": "assunto",
+          "schemaTo": "acervo",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "mapa_assunto_externo_tag_externa_nao_vazia_ck": {
+          "name": "mapa_assunto_externo_tag_externa_nao_vazia_ck",
+          "value": "btrim(\"acervo\".\"mapa_assunto_externo\".\"tag_externa\") <> ''"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "acervo.nota_leitor_projecao": {
+      "name": "nota_leitor_projecao",
+      "schema": "acervo",
+      "columns": {
+        "usuario_id": {
+          "name": "usuario_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "livro_id": {
+          "name": "livro_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valor": {
+          "name": "valor",
+          "type": "numeric(2, 1)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "nota_leitor_projecao_livro_id_idx": {
+          "name": "nota_leitor_projecao_livro_id_idx",
+          "columns": [
+            {
+              "expression": "livro_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "nota_leitor_projecao_livro_id_livro_id_fk": {
+          "name": "nota_leitor_projecao_livro_id_livro_id_fk",
+          "tableFrom": "nota_leitor_projecao",
+          "columnsFrom": [
+            "livro_id"
+          ],
+          "tableTo": "livro",
+          "schemaTo": "acervo",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {
+        "nota_leitor_projecao_pk": {
+          "name": "nota_leitor_projecao_pk",
+          "columns": [
+            "usuario_id",
+            "livro_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "nota_leitor_projecao_valor_ck": {
+          "name": "nota_leitor_projecao_valor_ck",
+          "value": "\"acervo\".\"nota_leitor_projecao\".\"valor\" >= 0 AND \"acervo\".\"nota_leitor_projecao\".\"valor\" <= 5 AND mod(\"acervo\".\"nota_leitor_projecao\".\"valor\" * 2, 1) = 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "acervo.nota_livro_agregada": {
+      "name": "nota_livro_agregada",
+      "schema": "acervo",
+      "columns": {
+        "livro_id": {
+          "name": "livro_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "media": {
+          "name": "media",
+          "type": "numeric(3, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quantidade": {
+          "name": "quantidade",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "nota_livro_agregada_livro_id_livro_id_fk": {
+          "name": "nota_livro_agregada_livro_id_livro_id_fk",
+          "tableFrom": "nota_livro_agregada",
+          "columnsFrom": [
+            "livro_id"
+          ],
+          "tableTo": "livro",
+          "schemaTo": "acervo",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "nota_livro_agregada_media_ck": {
+          "name": "nota_livro_agregada_media_ck",
+          "value": "\"acervo\".\"nota_livro_agregada\".\"media\" >= 0 AND \"acervo\".\"nota_livro_agregada\".\"media\" <= 5"
+        },
+        "nota_livro_agregada_quantidade_ck": {
+          "name": "nota_livro_agregada_quantidade_ck",
+          "value": "\"acervo\".\"nota_livro_agregada\".\"quantidade\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "acervo.outbox_acervo": {
+      "name": "outbox_acervo",
+      "schema": "acervo",
+      "columns": {
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tipo": {
+          "name": "tipo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "versao": {
+          "name": "versao",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "chave_negocio": {
+          "name": "chave_negocio",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "correlation_id": {
+          "name": "correlation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "payload": {
+          "name": "payload",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pendente'"
+        },
+        "tentativas": {
+          "name": "tentativas",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "proxima_tentativa_em": {
+          "name": "proxima_tentativa_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "publicado_em": {
+          "name": "publicado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "anonimizado_em": {
+          "name": "anonimizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "outbox_acervo_pendente_idx": {
+          "name": "outbox_acervo_pendente_idx",
+          "columns": [
+            {
+              "expression": "criado_em",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "where": "\"acervo\".\"outbox_acervo\".\"status\" = 'pendente'",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "outbox_acervo_tipo_nao_vazio_ck": {
+          "name": "outbox_acervo_tipo_nao_vazio_ck",
+          "value": "btrim(\"acervo\".\"outbox_acervo\".\"tipo\") <> ''"
+        },
+        "outbox_acervo_versao_ck": {
+          "name": "outbox_acervo_versao_ck",
+          "value": "\"acervo\".\"outbox_acervo\".\"versao\" > 0"
+        },
+        "outbox_acervo_status_ck": {
+          "name": "outbox_acervo_status_ck",
+          "value": "\"acervo\".\"outbox_acervo\".\"status\" IN ('pendente', 'publicado')"
+        },
+        "outbox_acervo_tentativas_ck": {
+          "name": "outbox_acervo_tentativas_ck",
+          "value": "\"acervo\".\"outbox_acervo\".\"tentativas\" >= 0"
+        },
+        "outbox_acervo_publicacao_ck": {
+          "name": "outbox_acervo_publicacao_ck",
+          "value": "(\n        \"acervo\".\"outbox_acervo\".\"status\" = 'pendente' AND \"acervo\".\"outbox_acervo\".\"publicado_em\" IS NULL\n      ) OR (\n        \"acervo\".\"outbox_acervo\".\"status\" = 'publicado'\n        AND \"acervo\".\"outbox_acervo\".\"publicado_em\" IS NOT NULL\n        AND \"acervo\".\"outbox_acervo\".\"publicado_em\" >= \"acervo\".\"outbox_acervo\".\"criado_em\"\n      )"
+        },
+        "outbox_acervo_anonimizacao_ck": {
+          "name": "outbox_acervo_anonimizacao_ck",
+          "value": "(\n        \"acervo\".\"outbox_acervo\".\"anonimizado_em\" IS NULL\n        AND \"acervo\".\"outbox_acervo\".\"chave_negocio\" IS NOT NULL\n        AND btrim(\"acervo\".\"outbox_acervo\".\"chave_negocio\") <> ''\n        AND \"acervo\".\"outbox_acervo\".\"correlation_id\" IS NOT NULL\n        AND \"acervo\".\"outbox_acervo\".\"payload\" IS NOT NULL\n      ) OR (\n        \"acervo\".\"outbox_acervo\".\"anonimizado_em\" IS NOT NULL\n        AND \"acervo\".\"outbox_acervo\".\"anonimizado_em\" >= \"acervo\".\"outbox_acervo\".\"criado_em\"\n        AND \"acervo\".\"outbox_acervo\".\"chave_negocio\" IS NULL\n        AND \"acervo\".\"outbox_acervo\".\"correlation_id\" IS NULL\n        AND \"acervo\".\"outbox_acervo\".\"payload\" IS NULL\n      )"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "acervo.serie": {
+      "name": "serie",
+      "schema": "acervo",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "nome": {
+          "name": "nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nome_normalizado": {
+          "name": "nome_normalizado",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "serie_nome_normalizado_uidx": {
+          "name": "serie_nome_normalizado_uidx",
+          "columns": [
+            {
+              "expression": "nome_normalizado",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "serie_nome_nao_vazio_ck": {
+          "name": "serie_nome_nao_vazio_ck",
+          "value": "btrim(\"acervo\".\"serie\".\"nome\") <> ''"
+        },
+        "serie_nome_normalizado_nao_vazio_ck": {
+          "name": "serie_nome_normalizado_nao_vazio_ck",
+          "value": "btrim(\"acervo\".\"serie\".\"nome_normalizado\") <> ''"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "acervo.sinonimo_editora": {
+      "name": "sinonimo_editora",
+      "schema": "acervo",
+      "columns": {
+        "forma_externa": {
+          "name": "forma_externa",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "editora_id": {
+          "name": "editora_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "sinonimo_editora_editora_id_idx": {
+          "name": "sinonimo_editora_editora_id_idx",
+          "columns": [
+            {
+              "expression": "editora_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "sinonimo_editora_editora_id_editora_id_fk": {
+          "name": "sinonimo_editora_editora_id_editora_id_fk",
+          "tableFrom": "sinonimo_editora",
+          "columnsFrom": [
+            "editora_id"
+          ],
+          "tableTo": "editora",
+          "schemaTo": "acervo",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "sinonimo_editora_forma_externa_nao_vazia_ck": {
+          "name": "sinonimo_editora_forma_externa_nao_vazia_ck",
+          "value": "btrim(\"acervo\".\"sinonimo_editora\".\"forma_externa\") <> ''"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {
+    "acervo": "acervo"
+  },
+  "views": {
+    "acervo.v_livro_recomendacao_v1": {
+      "name": "v_livro_recomendacao_v1",
+      "schema": "acervo",
+      "columns": {
+        "livro_id": {
+          "name": "livro_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "titulo": {
+          "name": "titulo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "autor_exibicao": {
+          "name": "autor_exibicao",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "capa_resolvida": {
+          "name": "capa_resolvida",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "serie_id": {
+          "name": "serie_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "serie_nome": {
+          "name": "serie_nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "assunto_id": {
+          "name": "assunto_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "assunto_nome": {
+          "name": "assunto_nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "definition": "\n    SELECT\n      l.id AS livro_id,\n      l.titulo,\n      (\n        SELECT string_agg(a.nome, ', ' ORDER BY a.nome)\n        FROM \"acervo\".\"livro_autor\" la\n        JOIN \"acervo\".\"autor\" a ON a.id = la.autor_id\n        WHERE la.livro_id = l.id\n      ) AS autor_exibicao,\n      coalesce(l.capa_url_propria, l.capa_url_externa) AS capa_resolvida,\n      l.serie_id,\n      s.nome AS serie_nome,\n      la.assunto_id,\n      a.nome AS assunto_nome\n    FROM \"acervo\".\"livro\" l\n    LEFT JOIN \"acervo\".\"serie\" s ON s.id = l.serie_id\n    LEFT JOIN \"acervo\".\"livro_assunto\" la ON la.livro_id = l.id\n    LEFT JOIN \"acervo\".\"assunto\" a ON a.id = la.assunto_id\n    WHERE l.tipo = 'oficial' AND l.ativo\n  ",
+      "materialized": false,
+      "isExisting": false
+    },
+    "acervo.v_livro_referencia_v1": {
+      "name": "v_livro_referencia_v1",
+      "schema": "acervo",
+      "columns": {
+        "livro_id": {
+          "name": "livro_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tipo": {
+          "name": "tipo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "dono_id": {
+          "name": "dono_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "paginas": {
+          "name": "paginas",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "titulo": {
+          "name": "titulo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "autor_exibicao": {
+          "name": "autor_exibicao",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "capa_resolvida": {
+          "name": "capa_resolvida",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ativo": {
+          "name": "ativo",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "definition": "\n    SELECT\n      l.id AS livro_id,\n      l.tipo,\n      l.dono_id,\n      l.paginas,\n      l.titulo,\n      CASE\n        WHEN l.tipo = 'pessoal' THEN l.autor_informado\n        ELSE (\n          SELECT string_agg(a.nome, ', ' ORDER BY a.nome)\n          FROM \"acervo\".\"livro_autor\" la\n          JOIN \"acervo\".\"autor\" a ON a.id = la.autor_id\n          WHERE la.livro_id = l.id\n        )\n      END AS autor_exibicao,\n      coalesce(l.capa_url_propria, l.capa_url_externa) AS capa_resolvida,\n      l.ativo\n    FROM \"acervo\".\"livro\" l\n  ",
+      "materialized": false,
+      "isExisting": false
+    }
+  },
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

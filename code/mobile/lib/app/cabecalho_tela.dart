@@ -23,7 +23,38 @@ class CabecalhoTela extends StatelessWidget {
   final String titulo;
   final int naoLidas;
 
-  const CabecalhoTela({super.key, required this.titulo, this.naoLidas = 0});
+  /// Presente nas telas abaixo da raiz de uma aba: `ArrowLeft` à esquerda do título, com
+  /// `space-3` de gap (cadastro-por-isbn.md §4). Ausente nas quatro raízes do shell.
+  final VoidCallback? aoVoltar;
+
+  /// Ações da tela antes do sino, como o `DotsThreeVertical` do dono na página do livro pessoal.
+  final List<Widget> acoes;
+
+  /// Falso só fora do shell, onde não há sessão e portanto não há notificação (a política de
+  /// privacidade aberta pelo cadastro, cadastro.md §5).
+  final bool comSino;
+
+  /// Com [aoVoltar]: formulário que se abandona (editar-perfil.md §4), com `X` no lugar da seta.
+  final bool fechar;
+
+  /// Sem o divisor inferior, como nos protótipos de F-AUT e F-PERFIL.
+  final bool semDivisor;
+
+  /// Título que quebra em até duas linhas, com o header crescendo além dos 72px ("Política de
+  /// privacidade", configuracoes.md).
+  final bool tituloEmDuasLinhas;
+
+  const CabecalhoTela({
+    super.key,
+    required this.titulo,
+    this.naoLidas = 0,
+    this.aoVoltar,
+    this.acoes = const <Widget>[],
+    this.comSino = true,
+    this.fechar = false,
+    this.semDivisor = false,
+    this.tituloEmDuasLinhas = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -31,24 +62,55 @@ class CabecalhoTela extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: theme.pageBackground,
-        border: Border(bottom: BorderSide(color: theme.divider)),
+        border: semDivisor ? null : Border(bottom: BorderSide(color: theme.divider)),
       ),
       child: SafeArea(
         bottom: false,
-        child: SizedBox(
-          height: altura,
+        child: ConstrainedBox(
+          constraints: tituloEmDuasLinhas
+              ? const BoxConstraints(minHeight: altura)
+              : const BoxConstraints.tightFor(height: altura),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: DesignTokens.space5),
+            padding: EdgeInsets.symmetric(
+              horizontal: DesignTokens.space5,
+              vertical: tituloEmDuasLinhas ? DesignTokens.space3 : 0,
+            ),
             child: Row(
               children: <Widget>[
+                if (aoVoltar != null) ...<Widget>[
+                  // Área tocável de 48px em volta do ícone de 24px (alvo mínimo de toque).
+                  Semantics(
+                    button: true,
+                    label: fechar ? 'Fechar' : 'Voltar',
+                    child: GestureDetector(
+                      onTap: aoVoltar,
+                      behavior: HitTestBehavior.opaque,
+                      child: SizedBox(
+                        width: 48,
+                        height: 48,
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Icon(
+                            fechar ? PhosphorIconsRegular.x : PhosphorIconsRegular.arrowLeft,
+                            size: 24,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
                 Expanded(
                   child: Text(
                     titulo,
                     style: theme.displayTitle,
+                    maxLines: tituloEmDuasLinhas ? 2 : 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                _Sino(naoLidas: naoLidas),
+                ...acoes,
+                if (acoes.isNotEmpty && comSino) const SizedBox(width: DesignTokens.space3),
+                if (comSino) _Sino(naoLidas: naoLidas),
               ],
             ),
           ),

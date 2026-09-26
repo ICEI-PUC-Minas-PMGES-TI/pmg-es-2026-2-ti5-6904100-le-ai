@@ -19,19 +19,27 @@
 | F-FEED | Feed e interações sociais | social | prioritaria | RF-SOC-09, 10, 11, 12, 14 | Feed cronológico, publicação de atividades (início/retomada/conclusão/abandono/resenha), curtir, comentar e responder (RN-10), menção pré-preenchida ao responder |
 | F-NOT | Notificações in-app | social | prioritaria | RF-NOT-01..04 | Geração de notificações in-app, lista paginada com não lidas, marcar lidas (individual/lote), ação de abandonar na notificação de leitura em risco |
 
+O DER implantado contém **59 tabelas e 9 VIEWs** como baseline física compartilhada. Essa implantação não implica que qualquer uma das dez features esteja implementada: prevalecem os status registrados em cada arquivo. O recorte de cadastro/login/`me` herdado de P0-NAV já existe; o restante do escopo funcional do Período 1 permanece por implementar.
+
 ## Contratos transversais do período
 
-As features abaixo compartilham serviços e dados, mas continuam obedecendo à regra da arquitetura: nenhum serviço lê tabela crua de outro schema. Antes de implementar um consumidor, o produtor e o consumidor devem fechar o contrato correspondente no grupo e registrá-lo nos dois arquivos de feature.
+As features abaixo compartilham serviços e dados, mas continuam obedecendo à regra da arquitetura: nenhum serviço lê tabela crua de outro schema. Os contratos canônicos já estão definidos e devem ser implementados diretamente a partir destas fontes:
 
-| Dono | Contrato de leitura entre schemas | Consumidores no Período 1 | Conteúdo mínimo |
+- **HTTP e VIEWs entre schemas:** [`identidade.yaml`](../../api/identidade.yaml), [`acervo.yaml`](../../api/acervo.yaml), [`leitura.yaml`](../../api/leitura.yaml) e [`social.yaml`](../../api/social.yaml). Cada spec distingue contrato planejado de operação implementada.
+- **Eventos e payloads:** [catálogo de eventos](../../mensageria/catalogo.md) e [schemas JSON canônicos](../../mensageria/README.md), selecionados pelo par `(type, version)`.
+- **Envelope, outbox, recibo, retry, DLQ e topologia:** [P0-MSG](../periodo-0/feature-P0-MSG.md).
+
+Os arquivos de feature registram responsabilidades e critérios de aceite, mas não substituem essas fontes canônicas. Mudança de contrato deve ser coordenada pelos envolvidos e refletida primeiro no spec ou schema correspondente; não se cria contrato paralelo dentro da implementação.
+
+| Dono | Contrato canônico de leitura entre schemas | Consumidores no Período 1 | Conteúdo mínimo |
 |---|---|---|---|
-| `identidade` | `v_perfil_referencia_v1` | `acervo`, `leitura`, `social` | id, username, nome de exibição, avatar e privacidade |
-| `identidade` | `v_seguimento_aceito_v1` | `acervo`, `leitura`, `social` | seguidor, seguido e estado aceito |
-| `acervo` | `v_livro_referencia_v1` | `leitura`, `social` | livro, tipo oficial/pessoal, dono, total de páginas, título, autor para exibição, capa resolvida e estado ativo |
-| `leitura` | `v_estante_publica_v1` | backfill do cache em F-ACV-NOTA e recomendação futura | usuário, livro, status e nº de conclusões; o perfil usa endpoint autorizado de `leitura` |
-| `leitura` | `v_resenha_publicacao_v1` | página do livro em `acervo` | resenha, autor, livro, texto, spoiler e timestamps |
-| `leitura` | `v_nota_publicacao_v1` | página de livro pessoal e recomendação/backfill futuros | autor, livro e valor; a atualização incremental da projeção de `acervo` usa `nota.alterada` |
-| `social` | `v_atividade_livro_pessoal_v1` | página de livro pessoal em `acervo` | atividade ativa, autor/dono e livro referenciado, comprovando a via feed de RN-15 |
+| `identidade` | [`v_perfil_referencia_v1`](../../api/identidade.yaml) | `acervo`, `leitura`, `social` | id, username, nome de exibição, avatar e privacidade |
+| `identidade` | [`v_seguimento_aceito_v1`](../../api/identidade.yaml) | `acervo`, `leitura`, `social` | seguidor e seguido com seguimento aceito |
+| `acervo` | [`v_livro_referencia_v1`](../../api/acervo.yaml) | `leitura`, `social` | livro, tipo oficial/pessoal, dono, total de páginas, título, autor para exibição, capa resolvida e estado ativo |
+| `leitura` | [`v_estante_publica_v1`](../../api/leitura.yaml) | backfill do cache em F-ACV-NOTA e recomendação futura | usuário, livro, status e nº de conclusões; o perfil usa endpoint autorizado de `leitura` |
+| `leitura` | [`v_resenha_publicacao_v1`](../../api/leitura.yaml) | página do livro em `acervo` | resenha, autor, livro, texto, spoiler e timestamps |
+| `leitura` | [`v_nota_publicacao_v1`](../../api/leitura.yaml) | página de livro pessoal e recomendação/backfill futuros | autor, livro e valor; a atualização incremental da projeção de `acervo` usa `nota.alterada` |
+| `social` | [`v_atividade_livro_pessoal_v1`](../../api/social.yaml) | página de livro pessoal em `acervo` | atividade ativa, autor/dono e livro referenciado, comprovando a via feed de RN-15 |
 
 Tabelas e VIEWs usam nomes distintos porque compartilham o mesmo namespace no PostgreSQL. Os contratos são versionados, documentados junto do spec do serviço dono e só expõem os campos necessários ao consumidor.
 
@@ -39,13 +47,33 @@ Tabelas e VIEWs usam nomes distintos porque compartilham o mesmo namespace no Po
 
 - Toda escrita HTTP aplicável aceita `Idempotency-Key` conforme RNF-ERR-04; o spec define escopo, repetição com mesmo payload e conflito quando a chave é reutilizada com payload diferente.
 - Toda listagem é paginada e tem limite máximo imposto pelo servidor (RNF-DES-02), inclusive progresso, resenhas, seguidores, feed e notificações.
-- Eventos usam o envelope de P0-MSG e um schema versionado do payload. O produtor é aceito pela publicação conforme o contrato; o consumidor é aceito pelo efeito idempotente e pela DLQ, evitando dependência circular no DoD.
+- Eventos usam o [envelope de P0-MSG](../periodo-0/feature-P0-MSG.md#envelope-v1) e o schema versionado indicado no [catálogo canônico](../../mensageria/catalogo.md). O produtor é aceito pela publicação conforme o contrato; o consumidor é aceito pelo efeito idempotente e pela DLQ, evitando dependência circular no DoD.
 - Produtores gravam a alteração de domínio e o evento na mesma transação pela outbox de P0-MSG; publicação direta após commit não atende RNF-ERR-10.
-- Deduplicação assíncrona considera `eventId` e uma chave de negócio estável quando o mesmo fato puder ser republicado, como `(leituraId, limiarDias)` nos alertas de inatividade.
+- Deduplicação técnica usa sempre `eventId`, pelo recibo transacional de P0-MSG. Deduplicação semântica não é regra genérica de `businessKey`: só existe quando a feature consumidora a define, como `(leituraId, inatividadeVersao, limiarDias)` nos alertas de inatividade.
 - Clientes web e mobile usam o cliente HTTP central com timeout e retentativa com backoff apenas para operações idempotentes; indisponibilidade e timeout têm testes com API simulada (RNF-ERR-03, RNF-TST-06).
 - Cada feature inclui testes unitários de regra, integração dos endpoints com banco real/container (RNF-TST-02), testes dos clientes aplicáveis (RNF-TST-04/05) e dos fluxos assíncronos que possuir (RNF-TST-03). O checkpoint do Período 2 revisa esses testes; não adia o DoD do Período 1.
 - A massa reproduzível de RNF-TST-08 é entregável transversal: F-PERFIL fornece perfis público/privado e relações, as features de acervo fornecem livro oficial/pessoal, e F-EST fornece todos os estados de leitura. O seed é pequeno e executável em CI/local, sem depender do dump completo.
 - Quando o produtor entra antes do consumidor futuro, a feature futura deve executar backfill da fonte contratual antes de consumir novos eventos. Isso se aplica à nota agregada e ao cache de capas; não se presume que mensagens antigas ainda estarão disponíveis no broker.
+
+## Divisão vertical recomendada para 5 pessoas
+
+Esta divisão reduz sobreposição dentro de cada serviço e mantém as integrações mais próximas sob a mesma pessoa. A divisão recomendada abaixo foi de fato adotada: em 18/09/2026 **F-ACV-INGESTAO e F-ACV-CADASTRO foram assumidas por Vicenzo Fonseca**, em 24/09/2026 **F-AUT e F-PERFIL foram assumidas por Henrique Carvalho**, e as demais frentes também já têm dono, conforme as issues do GitHub e a [tabela-mestre](../README.md#tabela-mestre-de-features).
+
+| Pessoa | Features | Coesão principal |
+|---|---|---|
+| 1 — Henrique Carvalho | F-AUT + F-PERFIL | serviço `identidade`, sessão, usuário, privacidade e grafo de seguidores |
+| 2 — Vicenzo Fonseca | F-ACV-INGESTAO + F-ACV-CADASTRO | modelo e escrita do catálogo no serviço `acervo` |
+| 3 — Renato Douglas | F-ACV-BUSCA + F-AVA | página do livro e sua avaliação, incluindo a fronteira `acervo` ↔ `leitura` |
+| 4 — Ana Luiza de Freitas | F-EST + F-PRG | máquina de estados, leitura em andamento, progresso e inatividade no serviço `leitura` |
+| 5 — Kayke | F-FEED + F-NOT | projeções, interações e notificações no serviço `social` |
+
+### Ordem de implementação recomendada
+
+1. **Destravar a fundação transversal:** concluir o runtime pendente de [P0-MSG](../periodo-0/feature-P0-MSG.md) (dispatcher, recibo, validação, retry e DLQ). As tabelas de outbox já implantadas não substituem esse runtime.
+2. **Fixar produtores e referências básicas em paralelo:** Pessoa 1 implementa F-AUT antes de F-PERFIL; Pessoa 2 implementa F-ACV-INGESTAO antes de F-ACV-CADASTRO; Pessoa 4 implementa o núcleo de F-EST antes de F-PRG. Isso estabiliza sessão, `v_perfil_referencia_v1`, `v_seguimento_aceito_v1`, `v_livro_referencia_v1` e a entidade de leitura sem troca constante entre responsáveis.
+3. **Construir a página do livro e seus dados:** Pessoa 3 implementa primeiro o backend/contratos de F-AVA contra `v_livro_referencia_v1` e depois integra F-ACV-BUSCA à `v_resenha_publicacao_v1`; busca e UI podem avançar com o seed reproduzível enquanto a carga completa não termina. Uma única pessoa cuida da principal fronteira visual e de dados da página do livro.
+4. **Ligar os consumidores sociais depois dos produtores:** Pessoa 5 prepara a infraestrutura comum de `social`, implementa F-FEED quando os eventos de F-EST/F-AVA e os contratos de F-PERFIL estiverem disponíveis e conclui F-NOT após os produtores de perfil, interação e inatividade. Assim, produtores não ficam bloqueados esperando o efeito consumidor, e cada lado testa sua própria responsabilidade.
+5. **Fechar fluxos verticais em DES/HML:** validar na ordem autenticação/perfil → catálogo/página → estante/progresso/avaliação → feed/notificações, usando os contratos canônicos para integrar sem reuniões de redefinição. Falha ou mudança real de contrato volta aos responsáveis pelo produtor e consumidor; implementação normal segue os arquivos já versionados.
 
 ### Pendências de consistência da baseline
 

@@ -28,9 +28,9 @@ erDiagram
   }
   LEITURA {
     uuid id PK
-    uuid estante_id FK
-    uuid usuario_id "→ identidade.usuario"
-    uuid livro_id "→ acervo.livro"
+    uuid estante_id FK "FK composta com usuario_id e livro_id"
+    uuid usuario_id "→ identidade.usuario; parte da FK composta da estante"
+    uuid livro_id "→ acervo.livro; parte da FK composta da estante"
     enum status "lendo, lido ou abandonado"
     bool releitura
     bool incompleta "releitura abandonada"
@@ -210,9 +210,15 @@ erDiagram
     json payload "nullable após publicar e anonimizar"
     enum status "pendente ou publicado"
     int tentativas
+    timestamp proxima_tentativa_em "nullable; backoff do retry"
     timestamp criado_em
     timestamp publicado_em "nullable"
     timestamp anonimizado_em "nullable; retenção sem prazo"
+  }
+  MENSAGEM_PROCESSADA {
+    string consumidor PK "parte da PK composta"
+    uuid event_id PK "parte da PK composta"
+    timestamp processado_em
   }
 
   %% Subgraphs são agrupamentos visuais, não novas tabelas ou schemas.
@@ -250,6 +256,7 @@ erDiagram
     direction TB
     IDEMPOTENCIA_LEITURA
     OUTBOX_LEITURA
+    MENSAGEM_PROCESSADA
   end
 
   classDef grupo fill:transparent,stroke:#aaa

@@ -609,6 +609,9 @@ export const outboxLeitura = leituraSchema.table(
     status: text('status').notNull().default('pendente'),
     tentativas: integer('tentativas').notNull().default(0),
     criadoEm: criadoEm(),
+    proximaTentativaEm: timestamp('proxima_tentativa_em', {
+      withTimezone: true,
+    }),
     publicadoEm: timestamp('publicado_em', { withTimezone: true }),
     anonimizadoEm: timestamp('anonimizado_em', { withTimezone: true }),
   },

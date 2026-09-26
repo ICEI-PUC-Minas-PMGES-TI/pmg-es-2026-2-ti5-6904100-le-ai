@@ -4,6 +4,7 @@
 **Requisitos:** RF-AUT-02 (autenticar por e-mail ou nome de usuário), RF-AUT-03 (emissão de token, subconjunto)
 **Não funcionais:** RNF-SEC-17 (rate limiting em autenticação), RNF-SEC-28 (bloqueio progressivo após falhas), RNF-SEC-29 (resposta que não revela se a conta existe), RNF-USA-03, RNF-USA-05, RNF-ERR-09
 **Regras de negócio:** nenhuma RN se aplica a esta tela
+**Editada por:** ../../periodo-1/F-AUT/login.md, que acrescenta o botão textual `Esqueci minha senha` (RF-AUT-04)
 **Versão web:** sim (RF-AUT-02 e RF-AUT-03 têm marcação na coluna Web de REQUISITOS.md §5.1)
 
 ---

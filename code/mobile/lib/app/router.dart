@@ -4,10 +4,17 @@ import '../core/session/session_controller.dart';
 import '../features/auth/auth_service.dart';
 import '../features/auth/cadastro_page.dart';
 import '../features/auth/login_page.dart';
+import '../features/conta/alterar_senha_page.dart';
+import '../features/conta/configuracoes_page.dart';
+import '../features/conta/politica_de_privacidade.dart';
+import '../features/conta/recuperar_senha_page.dart';
+import '../features/conta/redefinir_senha_page.dart';
 import '../features/descobrir/descobrir_page.dart';
 import '../features/estante/estante_page.dart';
 import '../features/feed/feed_page.dart';
+import '../features/livros/rotas_livros.dart';
 import '../features/perfil/perfil_page.dart';
+import '../features/perfil/rotas_perfil.dart';
 import 'shell_autenticado.dart';
 import 'verificando_sessao_page.dart';
 
@@ -15,13 +22,33 @@ const String rotaVerificandoSessao = '/verificando-sessao';
 const String rotaLogin = '/login';
 const String rotaCadastro = '/cadastro';
 const String rotaEstante = '/estante';
-const List<String> _rotasPublicas = <String>[rotaLogin, rotaCadastro];
+const String rotaRecuperarSenha = '/recuperar-senha';
+const String rotaRedefinirSenha = '/redefinir-senha';
+const String rotaConfiguracoes = '/perfil/configuracoes';
+const String rotaPoliticaPublica = '/privacidade';
+const List<String> _rotasPublicas = <String>[rotaLogin, rotaCadastro, rotaRecuperarSenha];
 
 /// Monta o `GoRouter` do app (shell-de-navegacao.md). `refreshListenable: sessionController`
 /// faz o `redirect` reavaliar sozinho sempre que `entrar()`/`sair()`/`load()` chamam
 /// `notifyListeners()` — por isso `LoginPage`/`CadastroPage` não precisam navegar depois de
 /// autenticar: só muda a sessão, e a guarda reage.
-GoRouter buildRouter({required SessionController sessionController, required AuthService authService}) {
+///
+/// [livros] traz os serviços das telas de F-ACV-CADASTRO. Sem ele, o padrão aponta para o
+/// `acervo` de `AppConfig` com o token da sessão — os testes que não passam por essas telas não
+/// precisam montar nada. [perfil] faz o mesmo para F-PERFIL, com o `identidade`.
+GoRouter buildRouter({
+  required SessionController sessionController,
+  required AuthService authService,
+  DependenciasDeLivros? livros,
+  DependenciasDePerfil? perfil,
+}) {
+  Future<bool> renovar(String token) => sessionController.renovar(token, authService.renovar);
+  final deps =
+      livros ??
+      DependenciasDeLivros.padrao(getToken: () => sessionController.token, renovarSessao: renovar);
+  final depsDePerfil =
+      perfil ??
+      DependenciasDePerfil.padrao(getToken: () => sessionController.token, renovarSessao: renovar);
   return GoRouter(
     initialLocation: rotaVerificandoSessao,
     refreshListenable: sessionController,
@@ -37,6 +64,26 @@ GoRouter buildRouter({required SessionController sessionController, required Aut
           authService: authService,
           sessionController: sessionController,
           aoIrParaCadastro: () => context.go(rotaCadastro),
+          aoEsquecerSenha: () => context.go(rotaRecuperarSenha),
+        ),
+      ),
+      GoRoute(
+        path: rotaRecuperarSenha,
+        builder: (context, state) => RecuperarSenhaPage(
+          authService: authService,
+          aoVoltarParaLogin: () => context.go(rotaLogin),
+        ),
+      ),
+      // O token vem no fragmento do link (`#token=...`), como na web: o mesmo link do e-mail abre
+      // o app quando os app links estão verificados, e o navegador quando não.
+      GoRoute(
+        path: rotaRedefinirSenha,
+        builder: (context, state) => RedefinirSenhaPage(
+          token: _tokenDoFragmento(state.uri),
+          authService: authService,
+          sessionController: sessionController,
+          aoIrParaLogin: () => context.go(rotaLogin),
+          aoPedirNovoLink: () => context.go(rotaRecuperarSenha),
         ),
       ),
       GoRoute(
@@ -45,30 +92,110 @@ GoRouter buildRouter({required SessionController sessionController, required Aut
           authService: authService,
           sessionController: sessionController,
           aoIrParaLogin: () => context.go(rotaLogin),
+          // `push`, não `go`: o cadastro fica montado por baixo e o formulário continua
+          // preenchido na volta (cadastro.md §9).
+          aoAbrirPolitica: () => context.push(rotaPoliticaPublica),
+        ),
+      ),
+      GoRoute(
+        path: rotaPoliticaPublica,
+        builder: (context, state) => PoliticaDePrivacidadePage(
+          semSessao: true,
+          aoVoltar: () => context.canPop() ? context.pop() : context.go(rotaCadastro),
         ),
       ),
       StatefulShellRoute.indexedStack(
-        builder: (context, state, navigationShell) =>
-            ShellAutenticado(navigationShell: navigationShell),
+        builder: (context, state, navigationShell) => ShellAutenticado(
+          navigationShell: navigationShell,
+          caminhoAtual: state.uri.path,
+          aoAbrirConfiguracoes: () => context.go(rotaConfiguracoes),
+          aoBuscarLeitor: () => context.go(rotaBuscarLeitor),
+        ),
         branches: <StatefulShellBranch>[
           StatefulShellBranch(
             routes: <RouteBase>[
-              GoRoute(path: rotaEstante, builder: (context, state) => const EstantePage()),
+              GoRoute(
+                path: rotaEstante,
+                builder: (context, state) =>
+                    EstantePage(aoCadastrarLivro: () => context.go(rotaAdicionarLivro)),
+                routes: rotasDaEstante(deps),
+              ),
             ],
           ),
           StatefulShellBranch(
             routes: <RouteBase>[
-              GoRoute(path: '/descobrir', builder: (context, state) => const DescobrirPage()),
+              GoRoute(
+                path: '/descobrir',
+                builder: (context, state) => DescobrirPage(
+                  servico: deps.acervo,
+                  aoAbrirLivro: (id) => context.push(rotaLivroOficial(id)),
+                  aoCadastrarPorIsbn: () => context.go(rotaAdicionarLivro),
+                  // `push`, não `go`: cancelar o cadastro pessoal volta aos resultados, e não
+                  // para a tela de ISBN que `go` montaria por baixo.
+                  aoCadastrarPessoal: () => context.push('$rotaAdicionarLivro/pessoal'),
+                ),
+                routes: rotasDeDescobrir(deps),
+              ),
             ],
           ),
           StatefulShellBranch(
             routes: <RouteBase>[
-              GoRoute(path: '/feed', builder: (context, state) => const FeedPage()),
+              GoRoute(
+                path: '/feed',
+                builder: (context, state) => const FeedPage(),
+                routes: rotasDoFeed(deps),
+              ),
             ],
           ),
           StatefulShellBranch(
             routes: <RouteBase>[
-              GoRoute(path: '/perfil', builder: (context, state) => const PerfilPage()),
+              GoRoute(
+                path: '/perfil',
+                builder: (context, state) => PerfilPage(
+                  servico: depsDePerfil.servico,
+                  aoEditar: () => context.push<void>(rotaEditarPerfil),
+                  aoAbrirConexoes: (aba) => context.push<void>(rotaConexoes(aba)),
+                  aoAbrirSolicitacoes: () => context.push<void>(rotaSolicitacoes),
+                  aoBuscarLivros: () => context.go('/descobrir'),
+                  aoVerEstante: () => context.go(rotaEstante),
+                ),
+                routes: <RouteBase>[
+                  ...rotasDoPerfil(depsDePerfil),
+                  GoRoute(
+                    path: 'configuracoes',
+                    builder: (context, state) => ConfiguracoesPage(
+                      authService: authService,
+                      aoVoltar: () => context.go('/perfil'),
+                      aoAlterarSenha: () => context.go('$rotaConfiguracoes/alterar-senha'),
+                      aoAbrirPolitica: () => context.go('$rotaConfiguracoes/privacidade'),
+                      aoSair: () async {
+                        await sessionController.sairRevogando(authService.revogar);
+                        // A guarda já levou ao login com `?destino=`; saída voluntária não volta
+                        // para cá depois de entrar.
+                        if (context.mounted) {
+                          context.go(rotaLogin);
+                        }
+                      },
+                    ),
+                    routes: <RouteBase>[
+                      GoRoute(
+                        path: 'alterar-senha',
+                        builder: (context, state) => AlterarSenhaPage(
+                          authService: authService,
+                          sessionController: sessionController,
+                          aoVoltar: () => context.go(rotaConfiguracoes),
+                        ),
+                      ),
+                      GoRoute(
+                        path: 'privacidade',
+                        builder: (context, state) => PoliticaDePrivacidadePage(
+                          aoVoltar: () => context.go(rotaConfiguracoes),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ],
           ),
         ],
@@ -87,6 +214,16 @@ GoRouter buildRouter({required SessionController sessionController, required Aut
 String? _guardaDeSessao(SessionController sessionController, GoRouterState state) {
   final indo = state.matchedLocation;
 
+  // O link do e-mail vale com ou sem sessão, e não pode passar pela verificação de sessão: o
+  // redirecionamento perderia o token do fragmento.
+  if (indo == rotaRedefinirSenha) {
+    return null;
+  }
+  // A política é leitura pública (RNF-SEC-42): vale com ou sem sessão, sem redirecionar.
+  if (indo == rotaPoliticaPublica && !sessionController.carregando) {
+    return null;
+  }
+
   if (sessionController.carregando) {
     return indo == rotaVerificandoSessao ? null : rotaVerificandoSessao;
   }
@@ -104,4 +241,13 @@ String? _guardaDeSessao(SessionController sessionController, GoRouterState state
     return destino ?? rotaEstante;
   }
   return null;
+}
+
+/// Token do link de redefinição, no fragmento (`#token=...`). Nulo sem fragmento ou sem token.
+String? _tokenDoFragmento(Uri uri) {
+  if (uri.fragment.isEmpty) {
+    return null;
+  }
+  final token = Uri.splitQueryString(uri.fragment)['token'];
+  return token == null || token.isEmpty ? null : token;
 }

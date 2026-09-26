@@ -1,51 +1,875 @@
 openapi: 3.0.3
 info:
-  title: Lê Ai — social
-  version: 0.0.1
+  title: Lê Ai - social
+  version: 0.1.0
   description: >-
-    Contrato do serviço **social** (esqueleto — P0-INFRA). Domínio: feed e
-    atividades, curtidas de atividade, comentários, listas, recomendações,
-    notificações e moderação (SOC-09 a 15, LST, REC, NOT, MOD). As rotas de
-    domínio entram com as features; por ora só health + info. Spec gerado em
-    runtime por `springdoc-openapi` (`/v3/api-docs`, UI em `/docs`) e commitado
-    aqui (RNF-ARQ-03; AGENTS §10) — um spec por serviço, nunca por feature.
+    Contrato do serviço **social**. O serviço mantém a projeção do feed,
+    interações em atividades e notificações in-app. No estado atual somente a
+    infraestrutura e o health check estão implementados; as operações de
+    F-FEED e F-NOT estão planejadas para o Período 1. A exclusão de comentário
+    pertence a F-SOCIAL-2 (Período 2) e aparece apenas para tornar explícito o
+    contrato futuro e sua regra de propriedade.
+
+    Atividades e notificações são criadas exclusivamente por consumidores
+    idempotentes de eventos do broker. Não há endpoint HTTP público de ingestão.
+    Todas as rotas de domínio exigem JWT e validam autorização, visibilidade e
+    propriedade no servidor; conhecer um UUID não concede acesso.
+  x-implementation-status:
+    implemented: [GET /health]
+    planned-periodo-1:
+      - GET /feed
+      - GET /atividades/{atividadeId}
+      - POST /atividades/{atividadeId}/curtir
+      - DELETE /atividades/{atividadeId}/curtir
+      - POST /atividades/{atividadeId}/comentarios
+      - GET /atividades/{atividadeId}/comentarios
+      - GET /comentarios/{comentarioRaizId}/respostas
+      - GET /notificacoes
+      - POST /notificacoes/marcar-lidas
+    planned-periodo-2:
+      - DELETE /comentarios/{comentarioId}
 x-database-contracts:
   - name: v_atividade_livro_pessoal_v1
+    x-implementation-status: implemented
+    description: >-
+      Comprova a via feed para livro pessoal. Expõe somente atividades ativas;
+      o consumidor ainda precisa revalidar seguimento aceito, autoria e vínculo
+      entre atividade e livro.
     columns: [atividade_id, dono_id, livro_id]
-  - name: v_lista_livro_pessoal_v1
-    columns: [lista_id, dono_id, livro_id]
+x-event-consumers:
+  description: >-
+    Registros de atividade e notificação são projeções criadas por consumidores
+    RabbitMQ. Todo payload é validado por schema versionado antes do
+     processamento; a entrega é deduplicada pelo recibo de eventId e o efeito
+     usa a unicidade semântica definida pela feature; falhas após as retentativas seguem para DLQ. Estes contratos não
+    representam endpoints HTTP.
+  atividades:
+    x-implementation-status: planned-periodo-1
+    events:
+      - leitura.iniciada
+      - leitura.retomada
+      - leitura.finalizada
+      - leitura.abandonada
+      - resenha.publicada
+      - resenha.excluida
+    effect: >-
+      Os cinco eventos de publicação criam uma atividade com snapshot mínimo
+      de usuário e livro. resenha.excluida remove fisicamente a atividade da
+      resenha e, por cascade, suas curtidas e comentários.
+    required-envelope-fields:
+      [eventId, type, version, occurredAt, correlationId, businessKey, data]
+  notificacoes:
+    x-implementation-status: planned-periodo-1
+    events:
+      - seguidor.novo
+      - solicitacao.criada
+      - solicitacao.aceita
+      - atividade.curtida
+      - atividade.comentada
+      - comentario.respondido
+      - leitura.em_risco
+      - leitura.expirada
+    effect: >-
+      Cria uma notificação para destinatarioId. A deduplicação semântica usa
+      destinatário, tipo e chave de negócio; para inatividade, inclui leitura,
+      versão do ciclo e limiar de 20, 30 ou 40 dias.
+    required-envelope-fields:
+      [eventId, type, version, occurredAt, correlationId, businessKey, data]
+    required-data-fields: [destinatarioId]
+  planned-future-events:
+    x-implementation-status: planned-after-periodo-1
+    events:
+      - usuario.mencionado
+      - resenha.curtida
+      - recomendacao.recebida
+      - lembrete.sequencia
+    description: >-
+      Só entram no consumidor quando a feature produtora definir nome, schema,
+      chave de negócio, retentativa, DLQ e testes. Não são gerados no Período 1.
+x-external-actions:
+  abandonar-leitura-em-risco:
+    x-implementation-status: planned-periodo-1
+    service: leitura
+    method: POST
+    path: /leituras/{leituraId}/abandonar
+    description: >-
+      A notificação LEITURA_EM_RISCO fornece leituraId e esta ação. Após
+      confirmação explícita no cliente, ele chama diretamente o serviço
+      leitura com JWT e a mesma Idempotency-Key. O serviço leitura revalida
+      propriedade e estado. O serviço social não altera nem lê tabelas de
+      leitura e, portanto, não expõe uma rota de abandono.
 servers:
   - url: http://localhost:8081
     description: local
+tags:
+  - name: feed
+    description: Feed cronológico e detalhe de atividade
+  - name: interacoes
+    description: Curtidas, comentários e respostas
+  - name: notificacoes
+    description: Notificações in-app do leitor autenticado
+  - name: health
+    description: Sondagem de disponibilidade
+security:
+  - bearerAuth: []
 paths:
+  /feed:
+    get:
+      tags: [feed]
+      summary: Lista o feed cronológico do leitor (RF-SOC-09)
+      operationId: listarFeed
+      x-implementation-status: implemented
+      description: >-
+        Retorna atividades dos leitores que o solicitante segue, em ordem
+        decrescente de criação. A autorização é revalidada a cada consulta:
+        deixar de seguir remove as atividades do resultado; perfil suspenso,
+        conteúdo privado sem seguimento aceito e atividade cujo livro esteja
+        ausente ou inativo não são exibidos. Para livro pessoal, a atividade
+        retornada é a referência que habilita a via feed de RN-15.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Página do feed em ordem cronológica decrescente.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaAtividades' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /atividades/{atividadeId}:
+    parameters:
+      - $ref: '#/components/parameters/AtividadeId'
+    get:
+      tags: [feed]
+      summary: Obtém o detalhe de uma atividade visível
+      operationId: obterAtividade
+      x-implementation-status: implemented
+      description: >-
+        Revalida se a atividade ainda integra o feed do solicitante sob RN-08
+        e RN-09. Para evitar enumeração, uma atividade existente mas não
+        visível responde como não encontrada.
+      responses:
+        '200':
+          description: Atividade visível com snapshot e contadores atuais.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Atividade' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /atividades/{atividadeId}/curtir:
+    parameters:
+      - $ref: '#/components/parameters/AtividadeId'
+    post:
+      tags: [interacoes]
+      summary: Curte uma atividade visível (RF-SOC-11)
+      operationId: curtirAtividade
+      x-implementation-status: implemented
+      description: >-
+        Cria no máximo uma curtida por leitor e atividade. Revalida que a
+        atividade ainda integra o feed do solicitante e está sujeita a rate
+        limiting. Repetir a mesma chave com o mesmo payload devolve o mesmo
+        efeito; reutilizá-la em outra operação ou payload responde 409. Após a
+        escrita, atividade.curtida é gravado na outbox na mesma transação.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '201':
+          description: Curtida criada, ou resposta reproduzida pela mesma chave.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EstadoCurtida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+    delete:
+      tags: [interacoes]
+      summary: Remove a própria curtida de uma atividade (RF-SOC-11)
+      operationId: descurtirAtividade
+      x-implementation-status: implemented
+      description: >-
+        Remove somente a curtida pertencente ao leitor autenticado e revalida
+        a visibilidade da atividade. Ausência da própria curtida mantém o
+        resultado idempotente. Não remove curtida de outro leitor.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: Curtida própria ausente após a operação.
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /atividades/{atividadeId}/comentarios:
+    parameters:
+      - $ref: '#/components/parameters/AtividadeId'
+    get:
+      tags: [interacoes]
+      summary: Lista comentários-raiz de uma atividade
+      operationId: listarComentariosRaiz
+      x-implementation-status: implemented
+      description: >-
+        Lista somente comentários-raiz, paginados e ordenados do mais antigo
+        para o mais recente. As respostas são consultadas pela rota própria. A
+        atividade precisa continuar visível ao solicitante.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Página de comentários-raiz.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaComentarios' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+    post:
+      tags: [interacoes]
+      summary: Comenta uma atividade ou responde a um comentário (RF-SOC-12)
+      operationId: criarComentario
+      x-implementation-status: implemented
+      description: >-
+        Sem comentarioRespondidoId cria comentário-raiz. Com o campo, cria uma
+        resposta. Se o alvo já for resposta, o novo registro fica como irmão
+        sob a mesma raiz; o servidor deriva a raiz e usuarioRespondido do alvo,
+        sem confiar no texto. No Período 1 o cliente pré-preenche @username,
+        mas menção arbitrária ainda não é resolvida. Revalida visibilidade,
+        trata o conteúdo como texto e aplica rate limiting. Publica pela outbox
+        atividade.comentada ou comentario.respondido, nunca os dois para uma
+        resposta ao mesmo destinatário.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CriarComentario' }
+      responses:
+        '201':
+          description: Comentário ou resposta criado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Comentario' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '422': { $ref: '#/components/responses/RegraNegocioInvalida' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /comentarios/{comentarioRaizId}/respostas:
+    parameters:
+      - $ref: '#/components/parameters/ComentarioRaizId'
+    get:
+      tags: [interacoes]
+      summary: Lista respostas diretas de um comentário-raiz
+      operationId: listarRespostas
+      x-implementation-status: implemented
+      description: >-
+        Paginação por cursor estável. Retorna apenas respostas irmãs sob a raiz,
+        inclusive quando foram criadas em resposta a outra resposta. Revalida a
+        visibilidade da atividade antes de retornar qualquer comentário.
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/CursorLimit'
+      responses:
+        '200':
+          description: Segmento de respostas e cursor para o próximo segmento.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ListaRespostas' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /comentarios/{comentarioId}:
+    parameters:
+      - $ref: '#/components/parameters/ComentarioId'
+    delete:
+      tags: [interacoes]
+      summary: Exclui um comentário pertencente ao leitor (RF-SOC-13)
+      operationId: excluirComentario
+      x-implementation-status: planned-periodo-2
+      description: >-
+        Contrato futuro de F-SOCIAL-2, não implementado por F-FEED no Período
+        1. Somente o autor pode excluir. Excluir comentário-raiz remove suas
+        respostas por cascade; excluir resposta remove somente ela. O cliente
+        exige confirmação explícita e o servidor não aceita autoria informada
+        pelo cliente.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: Comentário próprio excluído.
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/Proibido' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /notificacoes:
+    get:
+      tags: [notificacoes]
+      summary: Lista as notificações do leitor (RF-NOT-02)
+      operationId: listarNotificacoes
+      x-implementation-status: planned-periodo-1
+      description: >-
+        Lista somente notificações cujo destinatário é o leitor autenticado, em
+        ordem cronológica decrescente. Inclui estado lida/não lida e a contagem
+        total de não lidas para o badge. Notificações de conta suspensa ou
+        conteúdo que perdeu visibilidade não expõem o snapshot ao cliente.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Página de notificações do leitor autenticado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaNotificacoes' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /notificacoes/marcar-lidas:
+    post:
+      tags: [notificacoes]
+      summary: Marca notificações como lidas, individualmente ou em lote (RF-NOT-03)
+      operationId: marcarNotificacoesLidas
+      x-implementation-status: planned-periodo-1
+      description: >-
+        Com modo SELECIONADAS, ids pode conter um ou vários UUIDs; um UUID cobre
+        a marcação individual. Com modo TODAS, ids deve ser omitido e todas as
+        notificações ainda não lidas do leitor são marcadas. O servidor ignora
+        ids pertencentes a outro destinatário sem alterá-los e responde 404
+        para não revelar sua existência. A operação é idempotente.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MarcarLidas' }
+      responses:
+        '200':
+          description: Estado de leitura atualizado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ResultadoMarcarLidas' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
   /health:
     get:
       security: []
       tags: [health]
       summary: Health check do serviço (RNF-OBS-02)
+      operationId: verificarSaude
+      x-implementation-status: implemented
       description: Retorna 200 quando o serviço está de pé e o banco responde.
       responses:
         '200':
           description: Serviço e banco saudáveis.
           content:
             application/json:
-              schema:
-                type: object
-                required: [status, service, time]
-                properties:
-                  status: { type: string, example: ok }
-                  service: { type: string, example: social }
-                  time: { type: string, format: date-time }
-        '503':
-          description: "Serviço indisponível (ex.: banco fora do ar)."
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/Erro' }
+              schema: { $ref: '#/components/schemas/Health' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token de acesso de curta duração emitido pelo serviço identidade.
+  parameters:
+    AtividadeId:
+      name: atividadeId
+      in: path
+      required: true
+      description: UUID não sequencial da atividade.
+      schema: { type: string, format: uuid }
+    ComentarioRaizId:
+      name: comentarioRaizId
+      in: path
+      required: true
+      description: UUID de um comentário-raiz da atividade.
+      schema: { type: string, format: uuid }
+    ComentarioId:
+      name: comentarioId
+      in: path
+      required: true
+      description: UUID não sequencial do comentário ou resposta.
+      schema: { type: string, format: uuid }
+    Page:
+      name: page
+      in: query
+      required: false
+      description: Número da página, iniciado em zero.
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    PageSize:
+      name: size
+      in: query
+      required: false
+      description: Itens por página. O servidor impõe máximo de 50 (RNF-DES-02).
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 20
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: Cursor opaco retornado em proximoCursor; omita na primeira consulta.
+      schema:
+        type: string
+        maxLength: 512
+    CursorLimit:
+      name: limit
+      in: query
+      required: false
+      description: Itens por segmento. O servidor impõe máximo de 50 (RNF-DES-02).
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 20
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: >-
+        UUID único por intenção de escrita. A mesma chave e o mesmo payload
+        reproduzem a resposta original; a chave reutilizada com payload ou
+        operação diferente responde 409. A chave não substitui autenticação,
+        autorização, propriedade ou rate limiting.
+      schema:
+        type: string
+        format: uuid
+  responses:
+    RequisicaoInvalida:
+      description: Parâmetro, corpo ou combinação de campos inválida.
+      headers:
+        X-Correlation-Id: { $ref: '#/components/headers/CorrelationId' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErroValidacao' }
+    NaoAutenticado:
+      description: Token ausente, inválido ou expirado.
+      headers:
+        X-Correlation-Id: { $ref: '#/components/headers/CorrelationId' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
+    Proibido:
+      description: O leitor está autenticado, mas não é dono do recurso.
+      headers:
+        X-Correlation-Id: { $ref: '#/components/headers/CorrelationId' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
+    NaoEncontrado:
+      description: >-
+        Recurso inexistente, não pertencente ao leitor ou não visível. A
+        resposta não confirma a existência de recurso alheio.
+      headers:
+        X-Correlation-Id: { $ref: '#/components/headers/CorrelationId' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
+    ConflitoIdempotencia:
+      description: Idempotency-Key já usada com outro payload ou operação.
+      headers:
+        X-Correlation-Id: { $ref: '#/components/headers/CorrelationId' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
+    RegraNegocioInvalida:
+      description: A entrada é válida, mas viola uma regra de negócio.
+      headers:
+        X-Correlation-Id: { $ref: '#/components/headers/CorrelationId' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErroValidacao' }
+    LimiteExcedido:
+      description: Limite de ação social excedido (RNF-SEC-18).
+      headers:
+        Retry-After:
+          description: Segundos até uma nova tentativa.
+          schema: { type: integer, minimum: 1 }
+        X-Correlation-Id: { $ref: '#/components/headers/CorrelationId' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
+    Indisponivel:
+      description: Serviço ou dependência temporariamente indisponível.
+      headers:
+        X-Correlation-Id: { $ref: '#/components/headers/CorrelationId' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
+  headers:
+    CorrelationId:
+      description: UUID de correlação da requisição, propagado entre serviços e eventos.
+      schema: { type: string, format: uuid }
   schemas:
+    Health:
+      type: object
+      required: [status, service, time]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+          example: ok
+        service:
+          type: string
+          enum: [social]
+          example: social
+        time: { type: string, format: date-time }
+    AutorSnapshot:
+      type: object
+      description: Snapshot capturado no evento; não exige hidratação síncrona do perfil.
+      required: [id, username, nomeExibicao]
+      properties:
+        id: { type: string, format: uuid }
+        username: { type: string, example: marinableu }
+        nomeExibicao: { type: string, example: Marina Beltrão }
+        avatarUrl:
+          type: string
+          format: uri
+          nullable: true
+    LivroSnapshot:
+      type: object
+      description: Snapshot mínimo do livro no momento do fato de leitura.
+      required: [id, tipo, titulo, autor]
+      properties:
+        id: { type: string, format: uuid }
+        tipo:
+          type: string
+          enum: [OFICIAL, PESSOAL]
+        titulo: { type: string, example: Torto arado }
+        autor: { type: string, example: Itamar Vieira Junior }
+        capaUrl:
+          type: string
+          format: uri
+          nullable: true
+        link:
+          allOf:
+            - $ref: '#/components/schemas/LinkLivro'
+          description: >-
+            Em livro pessoal contém via=feed e referenciaId igual à atividade;
+            o serviço acervo revalida a autorização ao abrir a página.
+    LinkLivro:
+      type: object
+      required: [livroId, via]
+      properties:
+        livroId: { type: string, format: uuid }
+        via:
+          type: string
+          enum: [catalogo, feed]
+        referenciaId:
+          type: string
+          format: uuid
+          nullable: true
+    ResenhaSnapshot:
+      type: object
+      nullable: true
+      required: [id, texto, spoiler]
+      properties:
+        id: { type: string, format: uuid }
+        texto:
+          type: string
+          maxLength: 5000
+          description: Texto cru; o cliente aplica escape ao renderizar.
+        spoiler: { type: boolean }
+        nota:
+          type: number
+          nullable: true
+          minimum: 0
+          maximum: 5
+          multipleOf: 0.5
+          description: Nota atual do autor para o livro resenhado; nula quando ele não deu nota.
+    Atividade:
+      type: object
+      required:
+        - id
+        - tipo
+        - autor
+        - livro
+        - criadoEm
+        - totalCurtidas
+        - totalComentarios
+        - curtidaPeloSolicitante
+      properties:
+        id: { type: string, format: uuid }
+        tipo:
+          type: string
+          enum:
+            - LEITURA_INICIADA
+            - LEITURA_RETOMADA
+            - LEITURA_FINALIZADA
+            - LEITURA_ABANDONADA
+            - RESENHA_PUBLICADA
+        autor: { $ref: '#/components/schemas/AutorSnapshot' }
+        livro: { $ref: '#/components/schemas/LivroSnapshot' }
+        resenha: { $ref: '#/components/schemas/ResenhaSnapshot' }
+        criadoEm: { type: string, format: date-time }
+        totalCurtidas: { type: integer, minimum: 0 }
+        totalComentarios: { type: integer, minimum: 0 }
+        curtidaPeloSolicitante: { type: boolean }
+    PaginaAtividades:
+      type: object
+      required: [itens, pagina, tamanho, totalItens, totalPaginas, ultima]
+      properties:
+        itens:
+          type: array
+          items: { $ref: '#/components/schemas/Atividade' }
+        pagina: { type: integer, minimum: 0 }
+        tamanho: { type: integer, minimum: 1, maximum: 50 }
+        totalItens: { type: integer, format: int64, minimum: 0 }
+        totalPaginas: { type: integer, minimum: 0 }
+        ultima: { type: boolean }
+    EstadoCurtida:
+      type: object
+      required: [atividadeId, curtida, totalCurtidas]
+      properties:
+        atividadeId: { type: string, format: uuid }
+        curtida: { type: boolean, enum: [true] }
+        totalCurtidas: { type: integer, minimum: 1 }
+    CriarComentario:
+      type: object
+      required: [texto]
+      additionalProperties: false
+      properties:
+        texto:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: Texto puro. HTML não é interpretado.
+          example: '@marinableu Também gostei muito desse final.'
+        comentarioRespondidoId:
+          type: string
+          format: uuid
+          description: >-
+            Omitido para comentário-raiz. Pode apontar para raiz ou resposta; o
+            servidor deriva a raiz e o usuário respondido.
+    Comentario:
+      type: object
+      required:
+        - id
+        - atividadeId
+        - autor
+        - texto
+        - nivel
+        - criadoEm
+        - pertenceAoSolicitante
+      properties:
+        id: { type: string, format: uuid }
+        atividadeId: { type: string, format: uuid }
+        comentarioRaizId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Ausente em raiz; nas respostas identifica a única raiz.
+        comentarioRespondidoId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Alvo contextual da resposta, mesmo quando é outra resposta.
+        usuarioRespondido:
+          allOf:
+            - $ref: '#/components/schemas/AutorSnapshot'
+          nullable: true
+        autor: { $ref: '#/components/schemas/AutorSnapshot' }
+        texto:
+          type: string
+          description: Texto puro; deve ser renderizado com escape.
+        nivel:
+          type: string
+          enum: [RAIZ, RESPOSTA]
+        totalRespostas:
+          type: integer
+          minimum: 0
+          description: Presente em comentário-raiz.
+        pertenceAoSolicitante:
+          type: boolean
+          description: Informa se o leitor pode usar a futura exclusão owner-only.
+        criadoEm: { type: string, format: date-time }
+        atualizadoEm:
+          type: string
+          format: date-time
+          nullable: true
+    PaginaComentarios:
+      type: object
+      required: [itens, pagina, tamanho, totalItens, totalPaginas, ultima]
+      properties:
+        itens:
+          type: array
+          items: { $ref: '#/components/schemas/Comentario' }
+        pagina: { type: integer, minimum: 0 }
+        tamanho: { type: integer, minimum: 1, maximum: 50 }
+        totalItens: { type: integer, format: int64, minimum: 0 }
+        totalPaginas: { type: integer, minimum: 0 }
+        ultima: { type: boolean }
+    ListaRespostas:
+      type: object
+      required: [itens, temMais]
+      properties:
+        itens:
+          type: array
+          maxItems: 50
+          items: { $ref: '#/components/schemas/Comentario' }
+        proximoCursor:
+          type: string
+          nullable: true
+          description: Cursor opaco; ausente quando temMais é falso.
+        temMais: { type: boolean }
+    TipoNotificacao:
+      type: string
+      description: >-
+        Tipos produzidos no Período 1. Menção, curtida em resenha,
+        recomendação e lembrete de sequência dependem de features posteriores.
+      enum:
+        - NOVO_SEGUIDOR
+        - SOLICITACAO_CRIADA
+        - SOLICITACAO_ACEITA
+        - ATIVIDADE_CURTIDA
+        - ATIVIDADE_COMENTADA
+        - COMENTARIO_RESPONDIDO
+        - LEITURA_EM_RISCO
+        - LEITURA_EXPIRADA
+      x-planned-future-values:
+        - USUARIO_MENCIONADO
+        - RESENHA_CURTIDA
+        - RECOMENDACAO_RECEBIDA
+        - LEMBRETE_SEQUENCIA
+    AcaoNotificacao:
+      type: object
+      nullable: true
+      description: Presente somente quando a notificação oferece ação direta.
+      required: [tipo, rotulo, service, method, path, recursoId, requerConfirmacao]
+      properties:
+        tipo:
+          type: string
+          enum: [ABANDONAR_LEITURA]
+        rotulo:
+          type: string
+          example: Abandonar leitura
+        service:
+          type: string
+          enum: [leitura]
+        method:
+          type: string
+          enum: [POST]
+        path:
+          type: string
+          enum: ['/leituras/{leituraId}/abandonar']
+        recursoId:
+          type: string
+          format: uuid
+          description: leituraId que substitui o parâmetro do path.
+        requerConfirmacao:
+          type: boolean
+          enum: [true]
+    Notificacao:
+      type: object
+      required: [id, tipo, mensagem, lida, criadoEm]
+      properties:
+        id: { type: string, format: uuid }
+        tipo: { $ref: '#/components/schemas/TipoNotificacao' }
+        mensagem:
+          type: string
+          description: Texto em pt-BR sem detalhe técnico.
+          example: Sua leitura está sem atividade há 20 dias.
+        ator:
+          allOf:
+            - $ref: '#/components/schemas/AutorSnapshot'
+          nullable: true
+        atividadeId:
+          type: string
+          format: uuid
+          nullable: true
+        comentarioId:
+          type: string
+          format: uuid
+          nullable: true
+        leituraId:
+          type: string
+          format: uuid
+          nullable: true
+        limiarDias:
+          type: integer
+          enum: [20, 30, 40]
+          nullable: true
+        acao: { $ref: '#/components/schemas/AcaoNotificacao' }
+        lida: { type: boolean }
+        lidaEm:
+          type: string
+          format: date-time
+          nullable: true
+        criadoEm: { type: string, format: date-time }
+    PaginaNotificacoes:
+      type: object
+      required:
+        [itens, pagina, tamanho, totalItens, totalPaginas, ultima, totalNaoLidas]
+      properties:
+        itens:
+          type: array
+          items: { $ref: '#/components/schemas/Notificacao' }
+        pagina: { type: integer, minimum: 0 }
+        tamanho: { type: integer, minimum: 1, maximum: 50 }
+        totalItens: { type: integer, format: int64, minimum: 0 }
+        totalPaginas: { type: integer, minimum: 0 }
+        ultima: { type: boolean }
+        totalNaoLidas: { type: integer, format: int64, minimum: 0 }
+    MarcarLidas:
+      type: object
+      required: [modo]
+      additionalProperties: false
+      properties:
+        modo:
+          type: string
+          enum: [SELECIONADAS, TODAS]
+        ids:
+          type: array
+          minItems: 1
+          maxItems: 100
+          uniqueItems: true
+          items: { type: string, format: uuid }
+          description: >-
+            Obrigatório em SELECIONADAS e proibido em TODAS. Um item representa
+            marcação individual; até 100 itens formam o lote selecionado.
+      description: >-
+        Regra condicional validada pelo servidor: SELECIONADAS exige ids;
+        TODAS não aceita ids.
+    ResultadoMarcarLidas:
+      type: object
+      required: [marcadas, totalNaoLidas]
+      properties:
+        marcadas:
+          type: integer
+          minimum: 0
+          description: Quantidade alterada nesta operação.
+        totalNaoLidas: { type: integer, format: int64, minimum: 0 }
+    ViolacaoCampo:
+      type: object
+      required: [campo, mensagem]
+      properties:
+        campo: { type: string, example: size }
+        mensagem: { type: string, example: deve ser menor ou igual a 50 }
     Erro:
       type: object
-      description: Corpo de erro padronizado (RNF-ERR-01) — pt-BR, sem detalhe técnico.
+      description: Corpo de erro padronizado (RNF-ERR-01), em pt-BR e sem detalhe técnico.
       required: [codigo, mensagem, correlationId]
       properties:
         codigo:
@@ -53,7 +877,15 @@ components:
           example: RECURSO_NAO_ENCONTRADO
         mensagem:
           type: string
-          example: Não encontramos o que você procura.
+          example: Não encontramos o recurso solicitado ou você não pode acessá-lo.
         correlationId:
           type: string
           format: uuid
+    ErroValidacao:
+      allOf:
+        - $ref: '#/components/schemas/Erro'
+        - type: object
+          properties:
+            violacoes:
+              type: array
+              items: { $ref: '#/components/schemas/ViolacaoCampo' }

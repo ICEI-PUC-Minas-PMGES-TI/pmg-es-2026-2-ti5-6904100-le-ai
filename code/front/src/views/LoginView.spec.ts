@@ -21,6 +21,7 @@ function montarComRouter() {
     routes: [
       { path: '/login', component: LoginView },
       { path: '/cadastro', component: { template: '<div>cadastro</div>' } },
+      { path: '/recuperar-senha', component: { template: '<div>recuperar</div>' } },
       { path: '/estante', component: { template: '<div>estante</div>' } },
     ],
   })
@@ -50,7 +51,7 @@ describe('LoginView', () => {
     await wrapper.get('input').setValue('marinableu')
     await wrapper.findAll('input')[1]!.setValue('senha-bem-comprida')
     vi.mocked(authService.entrar).mockResolvedValue({
-      token: { accessToken: 'jwt-novo', tokenType: 'Bearer', expiresIn: 900 },
+      sessao: { accessToken: 'jwt-novo', tokenType: 'Bearer', expiresIn: 900, refreshToken: 'renovacao' },
       usuario: { id: 'u1', username: 'marinableu', displayName: 'Marina Beltrão' },
     })
 
@@ -119,7 +120,7 @@ describe('LoginView', () => {
     await campos[0]!.setValue('marinableu')
     await campos[1]!.setValue('senha-bem-comprida')
     let resolver!: (valor: {
-      token: { accessToken: string, tokenType: string, expiresIn: number }
+      sessao: { accessToken: string, tokenType: string, expiresIn: number, refreshToken: string }
       usuario: { id: string, username: string, displayName: string }
     }) => void
     vi.mocked(authService.entrar).mockReturnValue(
@@ -133,13 +134,28 @@ describe('LoginView', () => {
     expect(wrapper.get('button[type="submit"]').text()).toBe('Entrando')
     expect(wrapper.get('fieldset').attributes('disabled')).toBeDefined()
     expect(wrapper.text()).toContain('O servidor está iniciando. Isso pode levar alguns segundos.')
+    // Protótipo (Login · Entrando): indicador acima do botão, botão e link esmaecidos.
+    expect(wrapper.find('.animate-spin').exists()).toBe(true)
+    expect(wrapper.get('button[type="submit"]').classes()).toContain('opacity-45')
+    expect(wrapper.get('a[href="/recuperar-senha"]').attributes('tabindex')).toBe('-1')
 
     resolver({
-      token: { accessToken: 'jwt', tokenType: 'Bearer', expiresIn: 900 },
+      sessao: { accessToken: 'jwt', tokenType: 'Bearer', expiresIn: 900, refreshToken: 'renovacao' },
       usuario: { id: 'u1', username: 'marinableu', displayName: 'Marina Beltrão' },
     })
     await flushPromises()
 
     expect(wrapper.get('button[type="submit"]').text()).toBe('Entrar')
+    expect(wrapper.find('.animate-spin').exists()).toBe(false)
+  })
+
+  it('"Esqueci minha senha" leva à recuperação', async () => {
+    const { wrapper, router } = montarComRouter()
+    await router.push('/login')
+
+    await wrapper.get('a[href="/recuperar-senha"]').trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.path).toBe('/recuperar-senha')
   })
 })

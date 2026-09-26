@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://leai.app/schemas/mensageria/ping.teste.v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["mensagem"],
+  "properties": { "mensagem": { "const": "ping" } }
+}

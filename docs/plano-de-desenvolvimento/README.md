@@ -2,7 +2,7 @@
 
 > **O que este documento é:** o mapa de **todas as features** do projeto, cada uma classificada em `prioritaria`/`desejavel`/`opcional` e alocada a um período (0–3). É a entrega "Plano de Desenvolvimento (features por período)" do `../orquestador/plano-de-projeto.md` §3 (marco de 25/08).
 >
-> **O que este documento NÃO é:** a especificação de cada feature. O detalhamento (endpoints, payloads, regras, critérios de aceite) vive em um arquivo por feature — `periodo-N/feature-*.md` — no template do `../orquestador/plano-de-projeto.md` §9. Os arquivos do período-0 já existem; os demais ainda estão em desenvolvimento e serão criados pela equipe no momento adequado.
+> **O que este documento NÃO é:** a especificação de cada feature. O detalhamento (endpoints, payloads, regras, critérios de aceite) vive em um arquivo por feature — `periodo-N/feature-*.md` — no template do `../orquestador/plano-de-projeto.md` §9. Todos os períodos já possuem seus arquivos; o estado real fica na tabela de status de cada feature.
 
 ## Fontes
 
@@ -37,28 +37,37 @@ Cada feature pertence a um serviço, definido pela decomposição de `../orquest
 | **leitura** | EST, PRG, AVA, DSF, STA, GAM |
 | **social** | SOC-09..15, LST, REC, NOT, MOD |
 
+## Contratos de implementação
+
+- [OpenAPI por serviço](../api/README.md): contratos HTTP implementados e planejados, com estado explícito por operação.
+- [Mensageria](../mensageria/README.md): envelope, catálogo e JSON Schemas canônicos dos eventos.
+- [DER implantado](../diagramas/DER.md): 59 tabelas de domínio e 9 VIEWs de contrato aplicadas no Neon em 16/09/2026.
+- [Período 1](periodo-1/README.md): divisão recomendada das dez features em cinco frentes verticais e ordem de execução.
+
+A baseline de dados e a existência do contrato não significam que a feature está implementada.
+
 ## Tabela-mestre de features
 
 Granularidade atual: features "maiores" — cerca de uma por módulo de RF, por banda de prioridade, dentro de um serviço. Um módulo cujos RFs cruzam bandas de prioridade vira mais de uma feature (uma por período). Poderemos granularizar mais adiante.
 
 | ID | Feature | Serviço | Período | Prioridade | RFs | Dono |
 |---|---|---|---|---|---|---|
-| P0-INFRA | Scaffolding do monorepo e serviços | — | 0 | fundação | — | a definir |
-| P0-CI | Pipeline CI/CD | — | 0 | fundação | — | a definir |
-| P0-DEPLOY | Deploy em DES (Render + Neon) | — | 0 | fundação | — | a definir |
-| P0-MSG | Mensageria e integrações base | — | 0 | fundação | — | a definir |
-| P0-DS | Design system base | — | 0 | fundação | — | a definir |
-| P0-NAV | Navegabilidade + shell de auth + docs de API | — | 0 | fundação | — | Henrique Carvalho |
-| F-AUT | Autenticação e conta | identidade | 1 | prioritaria | RF-AUT-01..06, 08 | a definir |
-| F-PERFIL | Perfil, privacidade e seguidores | identidade | 1 | prioritaria | RF-SOC-01..08 | a definir |
-| F-ACV-BUSCA | Busca e página do livro | acervo | 1 | prioritaria | RF-ACV-01, 02, 04, 18, 19 | a definir |
-| F-ACV-CADASTRO | Cadastro de livros (ISBN + pessoal) | acervo | 1 | prioritaria | RF-ACV-05, 06, 07, 08, 09 | a definir |
-| F-ACV-INGESTAO | Ingestão do acervo (dump + assuntos) | acervo | 1 | prioritaria | RF-ACV-13, 20 | a definir |
-| F-EST | Estante e ciclo de leitura | leitura | 1 | prioritaria | RF-EST-01..08, 11, 12 | a definir |
-| F-PRG | Progresso manual | leitura | 1 | prioritaria | RF-PRG-01..04 | a definir |
-| F-AVA | Nota e resenha | leitura | 1 | prioritaria | RF-AVA-01..04 | a definir |
-| F-FEED | Feed e interações sociais | social | 1 | prioritaria | RF-SOC-09, 10, 11, 12, 14 | a definir |
-| F-NOT | Notificações in-app | social | 1 | prioritaria | RF-NOT-01..04 | a definir |
+| P0-INFRA | Scaffolding do monorepo e serviços | — | 0 | fundação | — | Kayke, Vicenzo Fonseca, Henrique Carvalho, Ana Luiza de Freitas, Renato Douglas |
+| P0-CI | Pipeline CI/CD | — | 0 | fundação | — | Kayke |
+| P0-DEPLOY | Deploy em DES (Render + Neon) | — | 0 | fundação | — | Renato Douglas |
+| P0-MSG | Mensageria e integrações base | — | 0 | fundação | — | Kayke, Ana Luiza de Freitas |
+| P0-DS | Design system base | — | 0 | fundação | — | Kayke, Ana Luiza de Freitas |
+| P0-NAV | Navegabilidade + shell de auth + docs de API | — | 0 | fundação | — | Henrique Carvalho, Ana Luiza de Freitas |
+| F-AUT | Autenticação e conta | identidade | 1 | prioritaria | RF-AUT-01..06, 08 | Henrique Carvalho |
+| F-PERFIL | Perfil, privacidade e seguidores | identidade | 1 | prioritaria | RF-SOC-01..08 | Henrique Carvalho |
+| F-ACV-BUSCA | Busca e página do livro | acervo | 1 | prioritaria | RF-ACV-01, 02, 04, 18, 19 | Renato Douglas |
+| F-ACV-CADASTRO | Cadastro de livros (ISBN + pessoal) | acervo | 1 | prioritaria | RF-ACV-05, 06, 07, 08, 09 | Vicenzo Fonseca |
+| F-ACV-INGESTAO | Ingestão do acervo (dump + assuntos) | acervo | 1 | prioritaria | RF-ACV-13, 20 | Vicenzo Fonseca |
+| F-EST | Estante e ciclo de leitura | leitura | 1 | prioritaria | RF-EST-01..08, 11, 12 | Ana Luiza de Freitas |
+| F-PRG | Progresso manual | leitura | 1 | prioritaria | RF-PRG-01..04 | Ana Luiza de Freitas |
+| F-AVA | Nota e resenha | leitura | 1 | prioritaria | RF-AVA-01..04 | Renato Douglas |
+| F-FEED | Feed e interações sociais | social | 1 | prioritaria | RF-SOC-09, 10, 11, 12, 14 | Kayke |
+| F-NOT | Notificações in-app | social | 1 | prioritaria | RF-NOT-01..04 | Kayke |
 | F-CONTA-2 | Exclusão de conta | identidade | 2 | desejavel | RF-AUT-07 | a definir |
 | F-SOCIAL-2 | Comentários (edição) e menções-link | social | 2 | desejavel | RF-SOC-13, 15 | a definir |
 | F-ACV-DESCOBERTA | Filtros e páginas de autor/editora/série | acervo | 2 | desejavel | RF-ACV-03, 10, 11, 12, 21 | a definir |

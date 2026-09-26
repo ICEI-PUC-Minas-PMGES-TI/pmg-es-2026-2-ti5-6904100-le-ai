@@ -6,12 +6,17 @@ import br.com.leai.identidade.usuario.Usuario;
 import br.com.leai.identidade.usuario.UsuarioRepositorio;
 import java.util.Optional;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Cadastro, login e leitura da identidade do token (RF-AUT-01, 02 e 03). */
+/**
+ * Cadastro, login, renovação, logout, troca de senha e leitura da identidade do token (RF-AUT-01,
+ * 02, 03, 05 e 06).
+ */
 @Service
 public class ServicoDeAutenticacao {
 
@@ -22,10 +27,21 @@ public class ServicoDeAutenticacao {
    */
   static final String CREDENCIAL_INVALIDA = "E-mail, nome de usuário ou senha incorretos.";
 
+  /** Cópia de alterar-senha.md §4.2. */
+  static final String SENHA_ATUAL_INCORRETA = "Senha atual incorreta.";
+
+  static final String SENHA_DO_ADMIN =
+      "A senha da conta administradora é definida pelo ambiente e não muda por aqui.";
+
+  private static final Logger log = LoggerFactory.getLogger(ServicoDeAutenticacao.class);
+
   private final UsuarioRepositorio repositorio;
   private final PasswordEncoder codificadorDeSenha;
   private final EmissorDeToken emissorDeToken;
   private final ControleDeTentativas controleDeTentativas;
+  private final PoliticaDeSenha politicaDeSenha;
+  private final GestorDeRenovacao gestorDeRenovacao;
+  private final ContaAdministradora contaAdministradora;
 
   /**
    * Hash descartável, calculado uma vez no arranque. Serve para o login gastar o mesmo tempo
@@ -38,11 +54,17 @@ public class ServicoDeAutenticacao {
       UsuarioRepositorio repositorio,
       PasswordEncoder codificadorDeSenha,
       EmissorDeToken emissorDeToken,
-      ControleDeTentativas controleDeTentativas) {
+      ControleDeTentativas controleDeTentativas,
+      PoliticaDeSenha politicaDeSenha,
+      GestorDeRenovacao gestorDeRenovacao,
+      ContaAdministradora contaAdministradora) {
     this.repositorio = repositorio;
     this.codificadorDeSenha = codificadorDeSenha;
     this.emissorDeToken = emissorDeToken;
     this.controleDeTentativas = controleDeTentativas;
+    this.politicaDeSenha = politicaDeSenha;
+    this.gestorDeRenovacao = gestorDeRenovacao;
+    this.contaAdministradora = contaAdministradora;
     this.hashDeComparacaoFalsa = codificadorDeSenha.encode("conta-inexistente");
   }
 
@@ -51,9 +73,16 @@ public class ServicoDeAutenticacao {
     String email = requisicao.email().trim();
     String username = requisicao.username().trim();
 
+    // Antes de qualquer consulta: a política não depende do banco e não revela nada sobre
+    // contas existentes.
+    politicaDeSenha.recusarSeComum(requisicao.senha());
+
     // Checagem antecipada para a mensagem ser específica. Ela não substitui o índice único:
     // entre esta consulta e o insert cabe outra requisição, e quem decide é o banco.
-    if (repositorio.existsByUsernameIgnoreCase(username)) {
+    // O username do admin é reservado mesmo antes de a conta existir: sem isto, um leitor que
+    // o pegasse primeiro impediria o provisionamento e se passaria pela administração.
+    if (username.equalsIgnoreCase(ProvisionamentoDoAdmin.USERNAME)
+        || repositorio.existsByUsernameIgnoreCase(username)) {
       throw conflitoDeUsername();
     }
     if (repositorio.existsByEmailIgnoreCase(email)) {
@@ -78,8 +107,9 @@ public class ServicoDeAutenticacao {
     }
   }
 
-  @Transactional(readOnly = true)
-  public TokenResposta entrar(LoginRequisicao requisicao) {
+  /** Não é mais só leitura: o login grava o token de renovação que emite. */
+  @Transactional
+  public SessaoResposta entrar(LoginRequisicao requisicao) {
     String identificador = requisicao.identificador().trim();
 
     // Antes de qualquer consulta ou comparação de hash: enquanto o bloqueio vale, nem a senha
@@ -99,9 +129,85 @@ public class ServicoDeAutenticacao {
     }
 
     controleDeTentativas.registrarSucesso(identificador);
-    Usuario usuario = encontrado.get();
-    return TokenResposta.de(
-        emissorDeToken.emitir(usuario.id(), usuario.username()), emissorDeToken.validadeEmSegundos());
+    return sessaoPara(encontrado.get());
+  }
+
+  /**
+   * Troca um token de renovação válido por um par novo, revogando o apresentado (RF-AUT-03,
+   * RNF-SEC-30). Rotação e emissão na mesma transação: se a emissão falhar, o token antigo
+   * continua valendo.
+   */
+  @Transactional
+  public SessaoResposta renovar(RefreshRequisicao requisicao) {
+    UUID usuarioId = gestorDeRenovacao.consumir(requisicao.refreshToken());
+    Usuario usuario =
+        repositorio
+            .findById(usuarioId)
+            .orElseThrow(
+                () ->
+                    new ErroDeNegocioException(
+                        CodigoErro.NAO_AUTENTICADO, GestorDeRenovacao.SESSAO_EXPIRADA));
+    return sessaoPara(usuario);
+  }
+
+  /** Encerra a sessão revogando o token de renovação dela (RF-AUT-06, RNF-SEC-30). */
+  @Transactional
+  public void sair(RefreshRequisicao requisicao) {
+    gestorDeRenovacao.revogar(requisicao.refreshToken());
+  }
+
+  /**
+   * Troca a senha do dono do token (RF-AUT-05) e derruba todas as renovações da conta
+   * (RNF-SEC-30), inclusive a do aparelho que pediu a troca: o contrato não recebe o token de
+   * renovação dele, então quem quiser continuar conectado entra de novo com a senha nova.
+   *
+   * <p>A política roda antes da senha atual, porque não depende do banco nem gasta bcrypt. A
+   * leitura da conta trava a linha: duas trocas simultâneas com a mesma senha atual não passam
+   * as duas.
+   */
+  @Transactional
+  public void alterarSenha(UUID usuarioId, AlterarSenhaRequisicao requisicao) {
+    if (contaAdministradora.eh(usuarioId)) {
+      // A senha do admin é a do ambiente; trocada aqui, voltaria no próximo arranque.
+      throw new ErroDeNegocioException(CodigoErro.ACESSO_NEGADO, SENHA_DO_ADMIN);
+    }
+    politicaDeSenha.recusarSeComum(requisicao.novaSenha(), CodigoErro.ENTIDADE_NAO_PROCESSAVEL);
+
+    Usuario usuario =
+        repositorio
+            .buscarParaAtualizar(usuarioId)
+            .orElseThrow(
+                () ->
+                    new ErroDeNegocioException(
+                        CodigoErro.NAO_AUTENTICADO, GestorDeRenovacao.SESSAO_EXPIRADA));
+
+    if (!codificadorDeSenha.matches(requisicao.senhaAtual(), usuario.senhaHash())) {
+      // RNF-SEC-35: falha de autenticação registrada; RNF-SEC-36: nunca a senha tentada.
+      log.warn("Troca de senha recusada: senha atual incorreta para o usuário {}", usuarioId);
+      // 422 e não 401: o token é válido, e um 401 aqui faria o cliente tentar renovar a sessão.
+      throw new ErroDeNegocioException(
+          CodigoErro.ENTIDADE_NAO_PROCESSAVEL, SENHA_ATUAL_INCORRETA);
+    }
+
+    usuario.trocarSenha(codificadorDeSenha.encode(requisicao.novaSenha()));
+    int revogadas = gestorDeRenovacao.revogarAtivos(usuarioId);
+    log.info(
+        "Senha alterada pelo usuário {}; {} renovação(ões) ativa(s) revogada(s)",
+        usuarioId,
+        revogadas);
+  }
+
+  /** Resposta ao reuso de token revogado, depois que a idempotência descartou o replay. */
+  public void encerrarRenovacoesPorReuso(UUID usuarioId) {
+    gestorDeRenovacao.revogarPorReuso(usuarioId);
+  }
+
+  private SessaoResposta sessaoPara(Usuario usuario) {
+    return SessaoResposta.de(
+        emissorDeToken.emitir(
+            usuario.id(), usuario.username(), contaAdministradora.papelDe(usuario.id())),
+        emissorDeToken.validadeEmSegundos(),
+        gestorDeRenovacao.emitir(usuario.id()));
   }
 
   /**
@@ -109,10 +215,10 @@ public class ServicoDeAutenticacao {
    * pode ter mudado depois da emissão e o token vale 15 minutos.
    */
   @Transactional(readOnly = true)
-  public UsuarioResposta doToken(UUID usuarioId) {
+  public UsuarioProprioResposta doToken(UUID usuarioId) {
     return repositorio
         .findById(usuarioId)
-        .map(UsuarioResposta::de)
+        .map(UsuarioProprioResposta::de)
         // Token válido de conta que não existe mais: a sessão acabou, não é erro de permissão.
         .orElseThrow(
             () ->

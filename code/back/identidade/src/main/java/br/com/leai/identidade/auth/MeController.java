@@ -28,7 +28,7 @@ public class MeController {
   @GetMapping("/me")
   @SecurityRequirement(name = "bearerAuth")
   @Operation(summary = "Devolve o leitor dono do token de acesso")
-  public UsuarioResposta eu(@AuthenticationPrincipal Jwt token) {
+  public UsuarioProprioResposta eu(@AuthenticationPrincipal Jwt token) {
     return servico.doToken(UUID.fromString(token.getSubject()));
   }
 }

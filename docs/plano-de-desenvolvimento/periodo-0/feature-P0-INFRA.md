@@ -1,7 +1,7 @@
 # P0-INFRA — Scaffolding do monorepo e serviços
 
 **Período:** 0 · **Prioridade:** fundação
-**Dono:** a definir · **Serviços afetados:** transversal (os 4 serviços de backend + web + mobile)
+**Dono:** Kayke, Vicenzo Fonseca, Henrique Carvalho, Ana Luiza de Freitas, Renato Douglas · **Serviços afetados:** transversal (os 4 serviços de backend + web + mobile)
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md). Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md). Processo e template: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §9. Em caso de conflito, o `REQUISITOS.md` ganha.
 
@@ -68,6 +68,14 @@ Cada projeto deve **compilar e subir** com um endpoint/tela mínima antes de fec
 
   # Mensageria (ver P0-MSG)
   AMQP_URL=amqps://<user>:<pass>@<host>/<vhost>
+
+  # Brevo — somente o serviço identidade usa estas credenciais (P-02)
+  BREVO_API_KEY=
+  BREVO_SMTP_KEY=
+  BREVO_SMTP_HOST=smtp-relay.brevo.com
+  BREVO_SMTP_PORT=587
+  BREVO_SENDER_EMAIL=
+  BREVO_SENDER_NAME=Lê Ai
 
   # Observabilidade / erro
   LOG_LEVEL=info
