@@ -154,10 +154,17 @@ paths:
         única mensagem livro.pagina_aberta de forma concorrente e idempotente.
         A consulta externa ocorre depois, na ordem OpenLibrary, Google Books e
         ausência. A resposta nunca aguarda essa consulta. disponivel e ausente
-        são estados terminais da busca automática; falha_transitoria pode ser
-        reenfileirada de forma controlada em abertura posterior. Sinopse ausente
-        é resposta normal, não erro. Nota geral, nota dos leitores e distribuição
-        não fazem parte deste contrato do Período 1.
+        são estados terminais da busca automática. Uma abertura posterior
+        reenfileira, também uma vez só, a falha_transitoria com mais de 10
+        minutos e a pendente com mais de 15 minutos (mensagem perdida ou que foi
+        para a DLQ); o relógio é o atualizado_em do livro. Sinopse ausente é
+        resposta normal, não erro. A primeira página traz até 10 resenhas de
+        outros leitores (RF-ACV-04): a do próprio solicitante não entra. Quando
+        os contratos de leitura ou identidade estão indisponíveis, resenhas vem
+        null e a página abre mesmo assim. Nota geral, nota dos leitores e
+        distribuição não fazem parte deste contrato do Período 1. A rota tem
+        rate limiting por identidade e IP, porque a abertura dispara consulta a
+        fonte externa.
       parameters:
         - $ref: '#/components/parameters/LivroId'
       responses:
@@ -169,6 +176,7 @@ paths:
         '400': { $ref: '#/components/responses/RequisicaoInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
         '503': { $ref: '#/components/responses/ServicoIndisponivel' }
 
   /livros/{id}/resenhas:
@@ -179,7 +187,11 @@ paths:
       summary: Lista as próximas resenhas autorizadas de um livro oficial
       description: >-
         Usa cursor opaco e aplica no servidor a privacidade de RN-08 por meio dos
-        contratos versionados de leitura e identidade.
+        contratos versionados de leitura e identidade: autor público, ou privado
+        que o solicitante segue com seguimento aceito; conta suspensa ou em
+        exclusão não aparece. A resenha do próprio solicitante não entra. Ordem
+        da mais recente para a mais antiga. Livro inexistente, pessoal ou
+        inativo responde 404; cursor que não veio de uma página anterior, 400.
       parameters:
         - $ref: '#/components/parameters/LivroId'
         - $ref: '#/components/parameters/Cursor'
@@ -678,17 +690,39 @@ components:
           enum: [nao_consultada, pendente, disponivel, ausente, falha_transitoria]
         texto: { type: string, maxLength: 4000, nullable: true }
     LivroOficialDetalhe:
-      allOf:
-        - $ref: '#/components/schemas/LivroOficialResumo'
-        - type: object
-          required: [isbn, sinopse, resenhas]
-          properties:
-            isbn:
-              type: string
-              pattern: '^97[89][0-9]{10}$'
-              example: '9788535914849'
-            sinopse: { $ref: '#/components/schemas/Sinopse' }
-            resenhas: { $ref: '#/components/schemas/PaginaResenhas' }
+      type: object
+      additionalProperties: false
+      description: >-
+        Os campos de LivroOficialResumo mais ISBN, sinopse e a primeira página de
+        resenhas. Declarado por extenso, e não como allOf, porque o resumo tem
+        additionalProperties false e recusaria os campos a mais.
+      required: [id, titulo, autores, editora, anoPublicacao, paginas, capa, assuntos, isbn, sinopse, resenhas]
+      properties:
+        id: { type: string, format: uuid }
+        titulo: { type: string, minLength: 1, maxLength: 500 }
+        autores:
+          type: array
+          minItems: 0
+          items: { $ref: '#/components/schemas/AutorResumo' }
+        editora: { type: string, minLength: 1, maxLength: 200, nullable: true }
+        anoPublicacao: { type: integer, minimum: 1, maximum: 9999, nullable: true }
+        paginas: { type: integer, minimum: 1 }
+        capa: { $ref: '#/components/schemas/Capa' }
+        assuntos:
+          type: array
+          items: { $ref: '#/components/schemas/AssuntoResumo' }
+        isbn:
+          type: string
+          pattern: '^97[89][0-9]{10}$'
+          example: '9788535914849'
+        sinopse: { $ref: '#/components/schemas/Sinopse' }
+        resenhas:
+          allOf:
+            - $ref: '#/components/schemas/PaginaResenhas'
+          nullable: true
+          description: >-
+            null quando os contratos de leitura ou identidade estão
+            indisponíveis; a página abre mesmo assim.
     SolicitarImportacao:
       type: object
       additionalProperties: false
