@@ -34,7 +34,7 @@ function atividade(sobrescreve: Partial<Atividade> = {}): Atividade {
     tipo: 'RESENHA_PUBLICADA',
     autor: AUTOR_ATIVIDADE,
     livro: { id: 'l1', tipo: 'OFICIAL', titulo: 'Os Sertões', autor: 'Euclides da Cunha', capaUrl: null },
-    resenha: { id: 'r1', texto: 'texto', spoiler: false },
+    resenha: { id: 'r1', texto: 'texto', spoiler: false, nota: null },
     criadoEm: new Date().toISOString(),
     totalCurtidas: 0,
     totalComentarios: 3,

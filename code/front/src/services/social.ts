@@ -38,6 +38,7 @@ export interface ResenhaSnapshot {
   id: string
   texto: string
   spoiler: boolean
+  nota: number | null
 }
 
 export interface Atividade {

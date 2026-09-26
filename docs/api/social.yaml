@@ -592,6 +592,13 @@ components:
           maxLength: 5000
           description: Texto cru; o cliente aplica escape ao renderizar.
         spoiler: { type: boolean }
+        nota:
+          type: number
+          nullable: true
+          minimum: 0
+          maximum: 5
+          multipleOf: 0.5
+          description: Nota atual do autor para o livro resenhado; nula quando ele não deu nota.
     Atividade:
       type: object
       required:

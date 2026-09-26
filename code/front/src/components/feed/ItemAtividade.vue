@@ -9,6 +9,7 @@ import { verboDeAtividade } from '../../feed/verbos'
 import { contagem, tempoDeEspera } from '../../perfil/textos'
 import type { Atividade } from '../../services/social'
 import CapaLivro from '../livros/CapaLivro.vue'
+import EstrelasNota from '../livros/EstrelasNota.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -138,6 +139,11 @@ watch(
       v-if="atividade.tipo === 'RESENHA_PUBLICADA' && atividade.resenha"
       class="mt-space-3 flex flex-col gap-space-2"
     >
+      <EstrelasNota
+        v-if="atividade.resenha.nota !== null"
+        :valor="atividade.resenha.nota"
+        tamanho="sm"
+      />
       <p class="line-clamp-3 font-serif text-body text-grafite md:line-clamp-4">
         {{ atividade.resenha.texto }}
       </p>

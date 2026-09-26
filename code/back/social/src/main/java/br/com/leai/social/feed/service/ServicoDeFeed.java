@@ -43,9 +43,10 @@ import org.springframework.transaction.annotation.Transactional;
  * OFICIAL} como default seguro — pendência a reavaliar apenas se essa lacuna vier a se manifestar
  * de fato em produção.
  *
- * <p>Pelo mesmo racional, o texto/spoiler de uma resenha (schema {@code Atividade.resenha}) não têm
- * coluna própria em {@code atividade}: vêm de {@code leitura.v_resenha_publicacao_v1}, resolvidos
- * em lote por {@code origemId} apenas quando {@code tipo == RESENHA_PUBLICADA}.
+ * <p>Pelo mesmo racional, texto, spoiler e nota de uma resenha (schema {@code Atividade.resenha})
+ * não têm coluna própria em {@code atividade}: vêm de {@code leitura.v_resenha_publicacao_v1} e
+ * {@code leitura.v_nota_publicacao_v1}, resolvidos em lote por {@code origemId} apenas quando
+ * {@code tipo == RESENHA_PUBLICADA}.
  */
 @Service
 public class ServicoDeFeed {
@@ -213,7 +214,7 @@ public class ServicoDeFeed {
         livroIds.toArray());
   }
 
-  /** Texto/spoiler de cada resenha em lote, batido contra {@code leitura.v_resenha_publicacao_v1}. */
+  /** Texto/spoiler/nota de cada resenha em lote; a nota é a do autor para o livro resenhado. */
   private Map<UUID, ResenhaSnapshotResposta> buscarResenhas(Collection<UUID> resenhaIds) {
     if (resenhaIds.isEmpty()) {
       return Map.of();
@@ -221,8 +222,11 @@ public class ServicoDeFeed {
     String placeholders = "?, ".repeat(resenhaIds.size());
     placeholders = placeholders.substring(0, placeholders.length() - 2);
     String sql =
-        "SELECT resenha_id, texto, spoiler FROM leitura.v_resenha_publicacao_v1"
-            + " WHERE resenha_id IN ("
+        "SELECT r.resenha_id, r.texto, r.spoiler, n.valor AS nota"
+            + " FROM leitura.v_resenha_publicacao_v1 r"
+            + " LEFT JOIN leitura.v_nota_publicacao_v1 n"
+            + " ON n.usuario_id = r.usuario_id AND n.livro_id = r.livro_id"
+            + " WHERE r.resenha_id IN ("
             + placeholders
             + ")";
     return jdbc.query(
@@ -231,7 +235,10 @@ public class ServicoDeFeed {
           Map<UUID, ResenhaSnapshotResposta> mapa = new HashMap<>();
           while (rs.next()) {
             UUID id = rs.getObject("resenha_id", UUID.class);
-            mapa.put(id, new ResenhaSnapshotResposta(id.toString(), rs.getString("texto"), rs.getBoolean("spoiler")));
+            mapa.put(
+                id,
+                new ResenhaSnapshotResposta(
+                    id.toString(), rs.getString("texto"), rs.getBoolean("spoiler"), rs.getBigDecimal("nota")));
           }
           return mapa;
         },

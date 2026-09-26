@@ -167,7 +167,24 @@ class ServicoDeFeedIntegracaoTest extends IntegracaoComPostgres {
         """);
 
     jdbc.execute(
-        "TRUNCATE identidade.seguidor, identidade.usuario, acervo.livro, leitura.resenha CASCADE");
+        """
+        CREATE TABLE IF NOT EXISTS leitura.nota (
+          usuario_id uuid NOT NULL,
+          livro_id uuid NOT NULL,
+          valor numeric(2, 1) NOT NULL,
+          UNIQUE (usuario_id, livro_id)
+        )
+        """);
+    jdbc.execute(
+        """
+        CREATE OR REPLACE VIEW leitura.v_nota_publicacao_v1 AS (
+          SELECT n.usuario_id, n.livro_id, n.valor FROM leitura.nota n
+        )
+        """);
+
+    jdbc.execute(
+        "TRUNCATE identidade.seguidor, identidade.usuario, acervo.livro, leitura.resenha,"
+            + " leitura.nota CASCADE");
   }
 
   private void seguir(UUID seguidor, UUID seguido) {
@@ -300,6 +317,26 @@ class ServicoDeFeedIntegracaoTest extends IntegracaoComPostgres {
     assertThat(resposta.resenha().id()).isEqualTo(resenhaId.toString());
     assertThat(resposta.resenha().texto()).isEqualTo("Um livro que dói e cura ao mesmo tempo.");
     assertThat(resposta.resenha().spoiler()).isTrue();
+    assertThat(resposta.resenha().nota()).isNull();
+  }
+
+  @Test
+  @DisplayName("listar traz a nota do autor para o livro resenhado (estrelas do item de resenha)")
+  void listarTrazNotaDaResenha() {
+    UUID solicitante = UUID.randomUUID();
+    UUID autor = UUID.randomUUID();
+    UUID livroId = UUID.randomUUID();
+    seguir(solicitante, autor);
+    livro(livroId, "oficial", true);
+    UUID resenhaId =
+        resenha(autor, livroId, "Euclides escreve geologia e termina escrevendo gente.", false);
+    jdbc.update(
+        "INSERT INTO leitura.nota (usuario_id, livro_id, valor) VALUES (?, ?, 4.5)", autor, livroId);
+    resenhaPublicada(autor, livroId, resenhaId, "servico-chave-resenha-nota");
+
+    AtividadeResposta resposta = servico.listar(solicitante, 0, 20).itens().get(0);
+
+    assertThat(resposta.resenha().nota()).isEqualByComparingTo("4.5");
   }
 
   @Test

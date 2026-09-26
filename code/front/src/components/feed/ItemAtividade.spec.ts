@@ -78,7 +78,7 @@ describe('ItemAtividade', () => {
     expect(semResenha.text()).not.toContain('Ler resenha')
 
     const comResenha = await montar({
-      atividade: atividade({ tipo: 'RESENHA_PUBLICADA', resenha: { id: 'r1', texto: 'Um livro grandioso.', spoiler: false } }),
+      atividade: atividade({ tipo: 'RESENHA_PUBLICADA', resenha: { id: 'r1', texto: 'Um livro grandioso.', spoiler: false, nota: null } }),
     })
     expect(comResenha.text()).toContain('Um livro grandioso.')
     expect(comResenha.text()).toContain('Ler resenha')
