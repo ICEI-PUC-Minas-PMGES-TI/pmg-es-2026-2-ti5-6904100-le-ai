@@ -94,6 +94,16 @@ Future<http.Response> _acervoPorRota(http.Request request) async {
       headers: cabecalhos,
     );
   }
+  if (request.url.path == '/livros/livro-1') {
+    return http.Response(
+      '{"id":"livro-1","titulo":"Torto Arado","autores":[],"editora":null,'
+      '"anoPublicacao":2019,"paginas":264,"capa":{"url":null,"origem":"placeholder"},'
+      '"assuntos":[],"isbn":"9788588808911","sinopse":{"status":"ausente","texto":null},'
+      '"resenhas":{"itens":[],"limit":10,"proximoCursor":null}}',
+      200,
+      headers: cabecalhos,
+    );
+  }
   return http.Response('{}', 200);
 }
 
@@ -208,6 +218,26 @@ void main() {
     await tester.pumpAndSettle();
     // A busca continua onde estava: o shell preserva a pilha da aba.
     expect(find.text('Nenhum livro encontrado'), findsOneWidget);
+  });
+
+  testWidgets('a página do livro oficial abre dentro da aba Descobrir e volta para ela', (
+    tester,
+  ) async {
+    await sessionController.entrar('jwt-valido');
+    await tester.pumpWidget(_wrap(router));
+    await tester.pumpAndSettle();
+
+    router.go('/descobrir');
+    await tester.pumpAndSettle();
+    router.push('/descobrir/livro/livro-1');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Este livro ainda não tem sinopse no acervo.'), findsOneWidget);
+    expect(find.bySemanticsLabel('Voltar'), findsOneWidget);
+
+    await tester.tap(find.bySemanticsLabel('Voltar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Título, autor, editora ou ISBN'), findsOneWidget);
   });
 
   testWidgets('o cadastro pessoal aberto pelo vazio da busca volta aos resultados ao cancelar', (
