@@ -220,6 +220,8 @@ export const routes: RouteRecordRaw[] = [
         meta: {
           titulo: '',
           voltar: true,
+          // Sem divisor: com a página no topo, o protótipo não tem linha sob o header.
+          semDivisor: true,
           aba: (rota) => (rota.query.origem === 'estante' ? '/estante' : '/descobrir'),
         },
       },
