@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.rabbitmq.client.AMQP.BasicProperties;
 import com.rabbitmq.client.Delivery;
 import com.rabbitmq.client.Envelope;
+import com.rabbitmq.client.impl.LongStringHelper;
 import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.util.Map;
@@ -27,6 +28,24 @@ class MessageValidatorTest {
     MessageValidator validator = new MessageValidator();
     validator.validate(envelope);
     MessageEnvelope parsed = validator.parse(delivery(envelope, properties()));
+
+    assertThat(parsed).isEqualTo(envelope);
+  }
+
+  @Test
+  @DisplayName("aceita x-business-key como LongString, que é como o broker entrega headers de texto")
+  void aceitaBusinessKeyComoLongString() {
+    MessageEnvelope envelope = envelope();
+    BasicProperties comoDoBroker =
+        properties()
+            .builder()
+            .headers(
+                Map.of(
+                    "x-event-version", 1L,
+                    "x-business-key", LongStringHelper.asLongString(BUSINESS_KEY)))
+            .build();
+
+    MessageEnvelope parsed = new MessageValidator().parse(delivery(envelope, comoDoBroker));
 
     assertThat(parsed).isEqualTo(envelope);
   }

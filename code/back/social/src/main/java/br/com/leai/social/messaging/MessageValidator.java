@@ -81,7 +81,8 @@ public final class MessageValidator {
         || !"application/json".equals(properties.getContentType())
         || !Integer.valueOf(2).equals(properties.getDeliveryMode())
         || !(version instanceof Number number && number.intValue() == envelope.version())
-        || !envelope.businessKey().equals(businessKey)) {
+        || businessKey == null
+        || !envelope.businessKey().equals(businessKey.toString())) {
       throw new InvalidMessageException("Headers AMQP divergem do envelope");
     }
   }
