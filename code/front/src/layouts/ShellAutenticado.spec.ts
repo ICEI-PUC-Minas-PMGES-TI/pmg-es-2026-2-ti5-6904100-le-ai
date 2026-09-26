@@ -5,6 +5,11 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import { routes } from '../router'
 import { iniciarSessao } from '../session'
 
+// `/descobrir` pede os assuntos ao montar; sem o mock, o teste do shell faria rede de verdade.
+vi.mock('../services/acervo', () => ({
+  acervoService: { listarAssuntos: vi.fn().mockResolvedValue([]), buscarLivros: vi.fn() },
+}))
+
 // ShellAutenticado é a própria rota de profundidade 0 e tem um <RouterView> interno para a
 // filha (depth 1). Montá-lo direto faria esse <RouterView> interno resolver de novo a rota de
 // depth 0 — ele mesmo — e duplicar tudo. Um host com <RouterView> no topo, no molde do
