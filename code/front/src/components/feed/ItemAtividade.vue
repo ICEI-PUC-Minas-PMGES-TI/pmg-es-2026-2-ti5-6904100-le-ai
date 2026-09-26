@@ -10,15 +10,9 @@ import { contagem, tempoDeEspera } from '../../perfil/textos'
 import type { Atividade } from '../../services/social'
 import CapaLivro from '../livros/CapaLivro.vue'
 
-/**
- * Item do feed (feed.md §4, §4.9): estrutura fixa para os cinco tipos de atividade. O componente
- * só emite a intenção de curtir/descurtir/comentar; quem chama o serviço e decide o estado é a
- * `FeedView` (sem otimismo, RF-SOC-11).
- */
 const props = withDefaults(
   defineProps<{
     atividade: Atividade
-    /** A `FeedView` marca a curtida em andamento (guarda contra clique duplo, RNF-ERR-04). */
     curtidaPendente?: boolean
   }>(),
   { curtidaPendente: false },
@@ -38,7 +32,6 @@ const perfilDoAutor = computed<RouteLocationRaw>(() => ({
   query: { via: 'feed' },
 }))
 
-/** RN-15: livro pessoal só abre pela via autorizada da atividade; oficial vai direto pelo id. */
 const linkDoLivro = computed<RouteLocationRaw>(() => {
   const { livro, id } = props.atividade
   if (livro.tipo === 'PESSOAL') {
@@ -65,6 +58,9 @@ function alternarCurtida(): void {
     emit('curtir', props.atividade.id)
   }
 }
+/** O `after` estende a área de toque para 48px no mobile sem mudar o tamanho visual. */
+const CLASSE_BOTAO_DE_ACAO =
+  'relative flex h-8 cursor-pointer items-center gap-space-1 rounded-full border border-linha px-space-3 text-caption transition-colors duration-dur-fast after:absolute after:inset-x-0 after:-inset-y-2 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 md:h-9 md:after:hidden md:hover:bg-musgo-fundo'
 </script>
 
 <template>
@@ -131,14 +127,9 @@ function alternarCurtida(): void {
       <p class="line-clamp-3 font-serif text-body text-grafite md:line-clamp-4">
         {{ atividade.resenha.texto }}
       </p>
-      <!--
-        Sem navegação real: a página de resenha (F-AVA) não existe nesta entrega. O controle é
-        renderizado conforme feed.md §4.9/§9 (anuncia que o trecho está truncado), mas o clique
-        não faz nada até F-AVA existir — documentado no relatório da Task 7.
-      -->
       <button
         type="button"
-        class="w-fit text-caption text-musgo hover:underline focus-visible:underline"
+        class="w-fit cursor-pointer text-caption text-musgo hover:underline focus-visible:underline"
       >
         Ler resenha
       </button>
@@ -147,8 +138,7 @@ function alternarCurtida(): void {
     <div class="mt-space-4 flex items-center gap-space-3">
       <button
         type="button"
-        class="flex min-h-12 items-center gap-space-1 rounded-full px-space-3 text-caption disabled:cursor-not-allowed disabled:opacity-60 md:min-h-9 md:hover:bg-musgo-fundo"
-        :class="atividade.curtidaPeloSolicitante ? 'text-musgo' : 'text-grafite'"
+        :class="[CLASSE_BOTAO_DE_ACAO, atividade.curtidaPeloSolicitante ? 'text-musgo' : 'text-grafite']"
         :disabled="curtidaPendente"
         :aria-label="rotuloCurtir"
         @click="alternarCurtida"
@@ -162,7 +152,7 @@ function alternarCurtida(): void {
       </button>
       <button
         type="button"
-        class="flex min-h-12 items-center gap-space-1 rounded-full px-space-3 text-caption text-grafite md:min-h-9"
+        :class="[CLASSE_BOTAO_DE_ACAO, 'text-grafite']"
         :aria-label="rotuloComentar"
         @click="emit('comentar', atividade)"
       >

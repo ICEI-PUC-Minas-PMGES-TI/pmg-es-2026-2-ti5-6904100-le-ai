@@ -3,11 +3,6 @@ import { createApiClient, type ApiClientOptions } from './api'
 import { TAMANHO_DA_PAGINA, type Pagina } from './perfil'
 import { renovarSessao } from './renovacao'
 
-/**
- * Feed e interações sociais no serviço `social` (F-FEED, RF-SOC-09..13). Espelha os schemas de
- * `docs/api/social.yaml`. Toda escrita exige `Idempotency-Key`, e quem guarda a chave da
- * intenção é a tela.
- */
 export type TipoAtividade =
   | 'LEITURA_INICIADA'
   | 'LEITURA_RETOMADA'

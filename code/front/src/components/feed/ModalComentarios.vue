@@ -13,11 +13,6 @@ import BannerAviso from '../ui/BannerAviso.vue'
 import CapaLivro from '../livros/CapaLivro.vue'
 import SobreposicaoModal from '../ui/SobreposicaoModal.vue'
 
-/**
- * Modal de comentários (comentarios.md §4/§5, RF-SOC-12/14): bottom sheet no mobile, dialog de
- * 640px na web, sobre `SobreposicaoModal`. Autocontido: recebe `atividade`/`aberto`, emite
- * `fechar` e `comentario-criado` (a `FeedView` decide o que fazer com a contagem, Task 8 §3).
- */
 const props = defineProps<{
   atividade: Atividade
   aberto: boolean
@@ -70,7 +65,6 @@ async function alternarRespostas(estado: EstadoRaiz): Promise<void> {
   estado.expandida = true
 }
 
-/** Avatar do leitor logado, para o campo de escrita (perfil.ts, sem novo estado global). */
 const avatarDoLeitor = ref<string | null>(null)
 
 onMounted(async () => {
@@ -79,7 +73,7 @@ onMounted(async () => {
     const meuPerfil = await perfilService.obterMeuPerfil()
     avatarDoLeitor.value = meuPerfil.avatarUrl
   } catch {
-    // Sem avatar, `AvatarLeitor` cai no ícone padrão: não impede comentar.
+    avatarDoLeitor.value = null
   }
 })
 
@@ -166,7 +160,7 @@ async function enviar(): Promise<void> {
     @fechar="emit('fechar')"
   >
     <div class="flex max-h-[80vh] flex-col md:max-h-[calc(80vh-var(--spacing-space-12))]">
-      <header class="flex items-center justify-between gap-space-4 border-b border-linha pb-space-4">
+      <header class="-mx-space-6 flex items-center justify-between gap-space-4 border-b border-linha px-space-6 pb-space-4">
         <div>
           <h2 class="text-title text-tinta">
             Comentários
@@ -182,7 +176,7 @@ async function enviar(): Promise<void> {
           type="button"
           data-fechar-comentarios
           aria-label="Fechar comentários"
-          class="flex size-12 shrink-0 items-center justify-center text-tinta"
+          class="flex size-12 shrink-0 cursor-pointer items-center justify-center text-tinta"
           @click="emit('fechar')"
         >
           <PhX
@@ -193,7 +187,7 @@ async function enviar(): Promise<void> {
         </button>
       </header>
 
-      <div class="flex items-center gap-space-3 border-b border-linha bg-papel py-space-3">
+      <div class="-mx-space-6 flex items-center gap-space-3 border-b border-linha bg-papel-elevado px-space-6 py-space-3 dark:bg-papel">
         <CapaLivro
           class="h-12 w-8"
           :url="atividade.livro.capaUrl"
@@ -231,7 +225,7 @@ async function enviar(): Promise<void> {
           Não foi possível carregar os comentários. Verifique sua conexão e tente de novo.
           <button
             type="button"
-            class="mt-space-2 block text-body-strong text-musgo hover:underline focus-visible:underline"
+            class="mt-space-2 block cursor-pointer text-body-strong text-musgo hover:underline focus-visible:underline"
             @click="carregarComentarios"
           >
             Tentar de novo
@@ -276,7 +270,7 @@ async function enviar(): Promise<void> {
         </template>
       </div>
 
-      <div class="border-t border-linha pt-space-3">
+      <div class="-mx-space-6 border-t border-linha px-space-6 pt-space-3">
         <p
           v-if="enviando"
           class="px-space-1 pb-space-2 text-caption text-grafite"
@@ -301,7 +295,7 @@ async function enviar(): Promise<void> {
           <button
             type="button"
             aria-label="Cancelar resposta"
-            class="flex size-12 shrink-0 items-center justify-center text-musgo"
+            class="flex size-12 shrink-0 cursor-pointer items-center justify-center text-musgo"
             @click="cancelarResposta"
           >
             <PhX
@@ -336,7 +330,7 @@ async function enviar(): Promise<void> {
             type="button"
             aria-label="Enviar comentário"
             :disabled="!podeEnviar"
-            class="flex size-12 shrink-0 items-center justify-center rounded-full"
+            class="flex size-12 shrink-0 cursor-pointer items-center justify-center rounded-full disabled:cursor-not-allowed"
             :class="podeEnviar ? 'text-musgo hover:text-musgo-vivo' : 'text-grafite-suave'"
             @click="enviar"
           >

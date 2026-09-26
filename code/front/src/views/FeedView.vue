@@ -13,19 +13,11 @@ import { perfilService } from '../services/perfil'
 import { mensagemDeErro, novaChaveIdempotencia } from '../services/api'
 import { socialService, type Atividade } from '../services/social'
 
-/**
- * Tela do feed (F-FEED, feed.md §4/§5): lista cronológica das atividades de quem o leitor segue,
- * com curtir/descurtir e o gatilho para abrir os comentários (Task 8).
- */
 const { itens, carregando, falhou, temMais, carregar, carregarMais, falhouMais } = usePaginacao<Atividade>((pagina) =>
   socialService.listarFeed(pagina),
 )
 
-/**
- * Os dois vazios (feed.md §4.4/§4.5) dependem de saber se o leitor segue alguém, e `Atividade`
- * não carrega essa informação: busca-se `contadores.seguidos` do próprio perfil só quando a
- * lista vem vazia, sem custo extra no caminho comum de feed com conteúdo.
- */
+/** `Atividade` não diz se o leitor segue alguém; o perfil só é buscado quando a lista vem vazia. */
 const segueAlguem = ref<boolean | null>(null)
 
 async function carregarSeAlguemSegue(): Promise<void> {
@@ -42,14 +34,12 @@ async function carregarSeAlguemSegue(): Promise<void> {
 
 onMounted(carregarSeAlguemSegue)
 
-/** Atividade com o modal de comentários aberto (Task 8), definida pelo botão "comentar". */
 const atividadeEmComentario = ref<Atividade | null>(null)
 
 function abrirComentarios(atividade: Atividade): void {
   atividadeEmComentario.value = atividade
 }
 
-/** RN-10/§3: um comentário ou resposta criado incrementa a contagem do item, sem recarregar a lista. */
 function aoComentar(): void {
   const id = atividadeEmComentario.value?.id
   if (!id) {
@@ -59,7 +49,6 @@ function aoComentar(): void {
   atividadeEmComentario.value = { ...atividadeEmComentario.value!, totalComentarios: atividadeEmComentario.value!.totalComentarios + 1 }
 }
 
-/** Ids com curtir/descurtir em andamento: guarda contra clique duplo antes da resposta. */
 const curtidasPendentes = ref<Set<string>>(new Set())
 const erroDeCurtida = ref<string | null>(null)
 
@@ -105,8 +94,7 @@ function atualizarCurtida(id: string, curtida: boolean, totalCurtidas: number): 
 </script>
 
 <template>
-  <!-- feed.md §5: coluna única de no máximo 760px, alinhada à esquerda. -->
-  <div class="max-w-[760px]">
+  <div class="mx-auto max-w-[760px]">
     <div
       v-if="carregando"
       class="flex flex-col"
