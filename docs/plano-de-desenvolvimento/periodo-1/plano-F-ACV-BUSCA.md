@@ -4,6 +4,17 @@
 >
 > **Conferência de 26/09/2026**, depois do merge dos 10 commits de F-AUT/F-PERFIL na `renato-features` (`1ba6de3`): linhas e componentes que mudaram foram atualizados, afirmações erradas corrigidas e lacunas incluídas. F-AVA fica para depois desta feature, com plano próprio; o que já se sabe dela está no fim deste arquivo.
 
+## Andamento
+
+- **Fatia 1 (busca): concluída em 26/09/2026.** Contrato, migration `0004` (aplicada no banco de dev), `GET /assuntos` e `GET /livros`, Descobrir no mobile e na web, e o seed. CI verde na `renato-features`. Conferido com os dados do dev na web (1440 e 390 px) e no emulador.
+- **Fatia 2 (página do livro, sinopse e resenhas):** próxima.
+- **Fatia 3 (contrato, docs e DES):** depois da 2.
+- **Diferenças do que foi implementado em relação ao texto abaixo:**
+  - **Header do Descobrir no mobile:** não precisou do slot `inferior`. O shell desenha o header da aba sem divisor (`semDivisor`, como o Perfil), e o campo fica fixo no topo da própria página. Visualmente é a segunda linha do header do protótipo.
+  - **Capa:** a função se chama `resolverCapa()` (`src/livros/capa.ts`) e devolve `{ url, origem }`.
+  - **Web:** um composable só, `useBuscaDeLivros`, com a paginação dentro (base 1); não existe `usePaginacaoDoAcervo`.
+  - **Chip de assunto ativo:** `musgo` cheio com texto `papel`, como no protótipo; o `.md` fala em `musgo-fundo`. No painel da web, o ativo é `musgo-fundo`, também como no protótipo.
+
 ## Contexto
 
 F-ACV-BUSCA é o "encontrar um livro" do ciclo de valor:
@@ -64,7 +75,7 @@ Dono: Renato. É a hospedeira da UI de F-AVA, a próxima feature do Renato.
   - **`resenhas` anulável em `LivroOficialDetalhe`**, onde `null` significa indisponível (VIEW de outro serviço falhando).
 - **Ajustes não aprovados, que viram divergência registrada:** `@username` e estrelas no card de resenha, e a contagem "28 resenhas".
 - **A resenha do próprio leitor fica fora da lista** da página, seguindo o RF-ACV-04 ("resenhas de outros leitores"). O `pagina-do-livro.md:7` diz que ela aparece; registrar como divergência. Ela volta à página no bloco "Sua avaliação", quando F-AVA existir.
-- **Mobile:** em `/descobrir` o shell deixa de desenhar o header, e a página monta o próprio `CabecalhoTela` com um parâmetro opcional novo, `inferior`, para o campo de busca (detalhes na 1.5). O slot não vai no shell porque o campo precisa do controller da página. As outras abas não mudam.
+- **Mobile:** o header da aba Descobrir sai sem divisor, e o campo de busca fica fixo no topo da página, como segunda linha do header (ver Andamento).
 - **Debounce de 350 ms com mínimo de 2 caracteres, igual na web e no mobile.** É decisão nova: nenhum requisito, design ou protótipo define, e o contrato aceita `q` a partir de 1 caractere. Registrar no arquivo da feature.
 - **"N livros encontrados" conta `totalItens`**, ou seja, edições, que são livros pelo RN-01. O número de grupos só seria conhecido depois de carregar todas as páginas. Registrar.
 - **Node:** 24.19 com npm 12 no front, e 22 no acervo (`.nvmrc` de cada um), via fnm ou nvm. **Não usar Node 25**: ele fica fora do `engines` do front e expõe `localStorage` global, com risco no jsdom.
@@ -179,12 +190,12 @@ Dono: Renato. É a hospedeira da UI de F-AVA, a próxima feature do Renato.
 
 *Resposta:*
 - `autores` e `assuntos` via `json_agg`, com autores **ordenados por nome**, como a `v_livro_referencia_v1`.
-- **Capa (RN-14.4):** a URL resolvida já existe em SQL, `coalesce(capa_url_propria, capa_url_externa)`, como nas VIEWs e no `ImportacaoRepository.resumoDoLivro`. Falta só o campo `origem` do schema `Capa`, calculado por uma função pequena, `origemDaCapa()`, em `src/livros/capa.ts`: `propria` ou `externa`.
+- **Capa (RN-14.4):** a URL resolvida já existe em SQL, `coalesce(capa_url_propria, capa_url_externa)`, como nas VIEWs e no `ImportacaoRepository.resumoDoLivro`. Falta só o campo `origem` do schema `Capa`, calculado por uma função pequena, `resolverCapa()`, em `src/livros/capa.ts`: `propria` ou `externa`.
   - Livro oficial sempre tem capa externa (CHECK), então o servidor nunca devolve `placeholder` para ele. O placeholder é o fallback do cliente quando a imagem não carrega.
 
 ### 1.4 Testes do backend
 
-**Unitários:** DTO, `origemDaCapa` e o mapeamento.
+**Unitários:** DTO, `resolverCapa` e o mapeamento.
 
 **Integração** (`test/integracao/busca.int-spec.ts`):
 - busca por título, autor, editora, assunto e ISBN;
