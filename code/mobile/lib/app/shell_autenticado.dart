@@ -53,6 +53,8 @@ class ShellAutenticado extends StatelessWidget {
           if (caminhoAtual == null || _raizesDasAbas.contains(caminhoAtual))
             CabecalhoTela(
               titulo: _titulosPorAba[navigationShell.currentIndex],
+              // Perfil sem divisor, como no protótipo de meu-perfil; as outras abas ficam como estão.
+              semDivisor: navigationShell.currentIndex == _indiceDoPerfil,
               acoes: <Widget>[
                 if (navigationShell.currentIndex == _indiceDoPerfil && aoBuscarLeitor != null)
                   IconButton(

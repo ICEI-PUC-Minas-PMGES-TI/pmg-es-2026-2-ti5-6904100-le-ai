@@ -62,6 +62,10 @@ class CampoTexto extends StatelessWidget {
   /// `grafite-suave`). Decorativo: o label já diz o que o campo é, então fica fora da semântica.
   final IconData? icone;
 
+  /// Mensagem de erro logo abaixo do campo e o helper depois dela (alterar-senha.md §4.3 e os
+  /// protótipos de recuperar e redefinir senha). O padrão é o do cadastro.md §4.3: helper, erro.
+  final bool erroAntesDoHelper;
+
   const CampoTexto({
     super.key,
     required this.controller,
@@ -84,6 +88,7 @@ class CampoTexto extends StatelessWidget {
     this.estiloDoTexto,
     this.focusNode,
     this.icone,
+    this.erroAntesDoHelper = false,
   });
 
   @override
@@ -162,6 +167,15 @@ class CampoTexto extends StatelessWidget {
             ),
           ),
         ),
+        if (erro != null && erroAntesDoHelper) ...<Widget>[
+          const SizedBox(height: DesignTokens.space2),
+          Text(
+            erro!,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.error,
+            ),
+          ),
+        ],
         if (helper != null) ...<Widget>[
           const SizedBox(height: DesignTokens.space2),
           Text(
@@ -171,7 +185,7 @@ class CampoTexto extends StatelessWidget {
             ),
           ),
         ],
-        if (erro != null) ...<Widget>[
+        if (erro != null && !erroAntesDoHelper) ...<Widget>[
           const SizedBox(height: DesignTokens.space2),
           Text(
             erro!,

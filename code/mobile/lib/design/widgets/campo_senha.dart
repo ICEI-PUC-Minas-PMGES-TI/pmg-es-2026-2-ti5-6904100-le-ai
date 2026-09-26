@@ -21,6 +21,8 @@ class CampoSenha extends StatefulWidget {
   /// Cadeado à esquerda, como nos protótipos de login e cadastro de F-AUT.
   final bool comIcone;
 
+  final bool erroAntesDoHelper;
+
   const CampoSenha({
     super.key,
     required this.controller,
@@ -33,6 +35,7 @@ class CampoSenha extends StatefulWidget {
     this.onChanged,
     this.focusNode,
     this.comIcone = false,
+    this.erroAntesDoHelper = false,
   });
 
   @override
@@ -62,6 +65,7 @@ class _CampoSenhaState extends State<CampoSenha> {
       onChanged: widget.onChanged,
       focusNode: widget.focusNode,
       icone: widget.comIcone ? PhosphorIconsRegular.lock : null,
+      erroAntesDoHelper: widget.erroAntesDoHelper,
       trailing: IconButton(
         onPressed: widget.enabled ? _alternarVisibilidade : null,
         tooltip: _mostrando ? 'Ocultar senha' : 'Mostrar senha',
