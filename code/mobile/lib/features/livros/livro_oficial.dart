@@ -139,3 +139,130 @@ List<T> _lista<T>(Object? bruto, T? Function(Object?) item) {
   }
   return <T>[for (final elemento in bruto) ?item(elemento)];
 }
+
+enum StatusDaSinopse { naoConsultada, pendente, disponivel, ausente, falhaTransitoria }
+
+StatusDaSinopse _statusDe(Object? bruto) {
+  switch (bruto) {
+    case 'disponivel':
+      return StatusDaSinopse.disponivel;
+    case 'ausente':
+      return StatusDaSinopse.ausente;
+    case 'falha_transitoria':
+      return StatusDaSinopse.falhaTransitoria;
+    case 'nao_consultada':
+      return StatusDaSinopse.naoConsultada;
+    default:
+      return StatusDaSinopse.pendente;
+  }
+}
+
+/// Sinopse do livro oficial (RN-19): o texto só vem em `disponivel`.
+class SinopseDoLivro {
+  final StatusDaSinopse status;
+  final String? texto;
+
+  const SinopseDoLivro({required this.status, required this.texto});
+
+  static SinopseDoLivro deJson(Object? bruto) {
+    if (bruto is! Map<String, dynamic>) {
+      return const SinopseDoLivro(status: StatusDaSinopse.pendente, texto: null);
+    }
+    final status = _statusDe(bruto['status']);
+    final texto = bruto['texto'];
+    return SinopseDoLivro(
+      status: status,
+      texto: status == StatusDaSinopse.disponivel && texto is String ? texto : null,
+    );
+  }
+}
+
+/// Resenha de outro leitor, já filtrada por RN-08 no servidor.
+class ResenhaDoLivro {
+  final String id;
+  final String autorNome;
+  final String? autorAvatarUrl;
+  final String texto;
+  final bool spoiler;
+  final DateTime criadoEm;
+
+  const ResenhaDoLivro({
+    required this.id,
+    required this.autorNome,
+    required this.autorAvatarUrl,
+    required this.texto,
+    required this.spoiler,
+    required this.criadoEm,
+  });
+
+  static ResenhaDoLivro? deJson(Object? bruto) {
+    if (bruto is! Map<String, dynamic>) {
+      return null;
+    }
+    final id = bruto['id'];
+    final nome = bruto['autorNome'];
+    final criadoEm = DateTime.tryParse('${bruto['criadoEm']}');
+    if (id is! String || nome is! String || criadoEm == null) {
+      return null;
+    }
+    final avatar = bruto['autorAvatarUrl'];
+    final texto = bruto['texto'];
+    return ResenhaDoLivro(
+      id: id,
+      autorNome: nome,
+      autorAvatarUrl: avatar is String ? avatar : null,
+      texto: texto is String ? texto : '',
+      spoiler: bruto['spoiler'] == true,
+      criadoEm: criadoEm,
+    );
+  }
+}
+
+class PaginaDeResenhas {
+  final List<ResenhaDoLivro> itens;
+  final String? proximoCursor;
+
+  const PaginaDeResenhas({required this.itens, required this.proximoCursor});
+
+  /// Nulo quando o corpo não é uma página.
+  static PaginaDeResenhas? deJson(Object? bruto) {
+    if (bruto is! Map<String, dynamic> || bruto['itens'] is! List) {
+      return null;
+    }
+    final cursor = bruto['proximoCursor'];
+    return PaginaDeResenhas(
+      itens: _lista(bruto['itens'], ResenhaDoLivro.deJson),
+      proximoCursor: cursor is String ? cursor : null,
+    );
+  }
+}
+
+/// Página do livro oficial (`LivroOficialDetalhe`). [resenhas] nulo quer dizer que os contratos de
+/// `leitura` ou `identidade` estavam indisponíveis: a página abre mesmo assim.
+class LivroOficialDetalhe {
+  final LivroOficialResumo resumo;
+  final String isbn;
+  final SinopseDoLivro sinopse;
+  final PaginaDeResenhas? resenhas;
+
+  const LivroOficialDetalhe({
+    required this.resumo,
+    required this.isbn,
+    required this.sinopse,
+    required this.resenhas,
+  });
+
+  static LivroOficialDetalhe? deJson(Map<String, dynamic> json) {
+    final resumo = LivroOficialResumo.deJson(json);
+    final isbn = json['isbn'];
+    if (resumo == null || isbn is! String) {
+      return null;
+    }
+    return LivroOficialDetalhe(
+      resumo: resumo,
+      isbn: isbn,
+      sinopse: SinopseDoLivro.deJson(json['sinopse']),
+      resenhas: PaginaDeResenhas.deJson(json['resenhas']),
+    );
+  }
+}

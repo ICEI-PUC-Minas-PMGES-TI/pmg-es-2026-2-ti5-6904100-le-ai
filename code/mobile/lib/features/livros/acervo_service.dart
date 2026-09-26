@@ -258,14 +258,47 @@ class AcervoService {
     final json = await client.getJson(caminho, correlationId: correlationId);
     final pagina = PaginaLivros.deJson(json);
     if (pagina == null) {
-      throw ApiException(
-        kind: ApiFailureKind.invalidResponse,
-        correlationId: correlationId,
-        message: 'O serviço retornou uma resposta inválida.',
-      );
+      throw _respostaInvalida(correlationId);
     }
     return pagina;
   }
+
+  /// `GET /livros/{id}`: a página do livro oficial. A primeira abertura pede a sinopse, e a
+  /// resposta nunca espera a fonte externa.
+  Future<LivroOficialDetalhe> obterLivroOficial(String id) async {
+    final correlationId = ApiClient.newCorrelationId();
+    final json = await client.getJson(
+      '/livros/${Uri.encodeComponent(id)}',
+      correlationId: correlationId,
+    );
+    final livro = LivroOficialDetalhe.deJson(json);
+    if (livro == null) {
+      throw _respostaInvalida(correlationId);
+    }
+    return livro;
+  }
+
+  /// `GET /livros/{id}/resenhas`: as próximas resenhas, por cursor.
+  Future<PaginaDeResenhas> listarResenhasDoLivro(String id, {String? cursor}) async {
+    final caminho = Uri(
+      path: '/livros/${Uri.encodeComponent(id)}/resenhas',
+      queryParameters: cursor == null ? null : <String, String>{'cursor': cursor},
+    ).toString();
+    final correlationId = ApiClient.newCorrelationId();
+    final pagina = PaginaDeResenhas.deJson(
+      await client.getJson(caminho, correlationId: correlationId),
+    );
+    if (pagina == null) {
+      throw _respostaInvalida(correlationId);
+    }
+    return pagina;
+  }
+
+  ApiException _respostaInvalida(String correlationId) => ApiException(
+    kind: ApiFailureKind.invalidResponse,
+    correlationId: correlationId,
+    message: 'O serviço retornou uma resposta inválida.',
+  );
 
   /// `POST /livros/oficial`. O `409` de ISBN já cadastrado vira resultado, não exceção.
   Future<ResultadoDaSolicitacao> solicitarImportacao({
