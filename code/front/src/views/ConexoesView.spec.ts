@@ -16,7 +16,7 @@ vi.mock('../services/perfil', () => ({
 const servico = vi.mocked(perfilService)
 
 function leitor(id: string, displayName: string, privacidade: 'publico' | 'privado' = 'publico'): PerfilResumo {
-  return { id, username: id, displayName, avatarUrl: null, privacidade, conteudoRestrito: false, relacao: 'nenhuma' }
+  return { id, username: id, displayName, biografia: null, avatarUrl: null, privacidade, conteudoRestrito: false, relacao: 'nenhuma' }
 }
 
 function pagina(items: PerfilResumo[], totalElements = items.length): Pagina<PerfilResumo> {
@@ -51,6 +51,19 @@ describe('ConexoesView', () => {
     expect(abas[1]!.text()).toBe('Seguindo 97')
     expect(wrapper.get('a[href="/leitores/caio"]').text()).toContain('Caio Ferraz')
     expect(wrapper.findAll('button').filter((b) => b.text() === 'Remover')).toHaveLength(2)
+  })
+
+  it('a linha mostra a biografia numa linha só, e nada quando não há', async () => {
+    servico.listarSeguidores.mockResolvedValue(
+      pagina([{ ...leitor('caio', 'Caio Ferraz'), biografia: 'Leio no busão. Terror nacional e crônica.' }, leitor('nadia', 'Nadia Sampaio')]),
+    )
+    const { wrapper } = await montarNaRota('/perfil/conexoes')
+    await flushPromises()
+
+    const bio = wrapper.get('a[href="/leitores/caio"] [data-teste="biografia"]')
+    expect(bio.text()).toBe('Leio no busão. Terror nacional e crônica.')
+    expect(bio.classes()).toContain('truncate')
+    expect(wrapper.find('a[href="/leitores/nadia"] [data-teste="biografia"]').exists()).toBe(false)
   })
 
   it('remover pede confirmação com a consequência própria e tira da lista', async () => {

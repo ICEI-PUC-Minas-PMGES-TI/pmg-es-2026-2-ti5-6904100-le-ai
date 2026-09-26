@@ -5,6 +5,7 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import AvatarLeitor from '../components/perfil/AvatarLeitor.vue'
 import ChipPrivacidade from '../components/perfil/ChipPrivacidade.vue'
+import SecoesDeLeitura from '../components/perfil/SecoesDeLeitura.vue'
 import BannerAviso from '../components/ui/BannerAviso.vue'
 import BotaoPrimario from '../components/ui/BotaoPrimario.vue'
 import BotaoTextual from '../components/ui/BotaoTextual.vue'
@@ -20,8 +21,9 @@ import { perfilService, type Perfil } from '../services/perfil'
  * contadores são públicos; o botão de relação muda com a privacidade e com `relacao`. Quem decide
  * o que é restrito é o servidor (`conteudoRestrito`), e os serviços donos revalidam (RNF-SEC-03).
  *
- * - **Sem estante nem resenhas** quando o conteúdo é visível: `leitura` ainda não expõe as rotas
- *   de perfil. O bloco de restrição, que não depende delas, já existe.
+ * - **Estante e Resenhas sempre no estado vazio** quando o conteúdo é visível (decisão do dono de
+ *   25/09/2026): `leitura` ainda não expõe as rotas de perfil. Com `conteudoRestrito` (RN-08), as
+ *   seções não aparecem, e sim o bloco "Este perfil é privado".
  * - Os contadores não são acionáveis: não há lista do grafo de terceiros (RNF-SEC-19/44).
  * - Username do próprio leitor abre o próprio perfil.
  */
@@ -122,6 +124,10 @@ async function deixarDeSeguir(): Promise<void> {
   }
 }
 
+// Célula de contador: 12 em cima e embaixo nas duas larguras, com o divisor encostando na borda.
+const CONTADOR =
+  'flex flex-col-reverse items-center gap-0.5 py-space-3 md:flex-row-reverse md:items-baseline md:justify-between md:gap-0'
+
 const textoDaConfirmacao = computed(() =>
   privado.value
     ? 'As atividades dessa pessoa saem do seu feed, e você perde o acesso à estante e às resenhas. Seguir de novo exige uma solicitação nova.'
@@ -144,34 +150,44 @@ const textoDaConfirmacao = computed(() =>
       <span class="mt-space-4 h-12 w-full max-w-[240px] rounded-full bg-capa-placeholder md:max-w-none" />
     </div>
 
-    <EstadoVazio
+    <!-- O protótipo centraliza o bloco na vertical da área de conteúdo. -->
+    <div
       v-else-if="naoEncontrado"
-      :icone="PhUserCircle"
-      titulo="Perfil não encontrado"
-      class="mx-auto max-w-[320px] pt-space-4"
+      class="flex min-h-[70vh] flex-col items-center justify-center"
     >
-      <p class="mt-space-3 text-body text-grafite">
-        Confira o nome de usuário e tente de novo.
-      </p>
-      <RouterLink
-        to="/perfil/buscar"
-        class="mt-space-6 flex h-12 items-center justify-center rounded-full bg-musgo px-space-8 text-body-strong text-papel transition-colors duration-dur-fast hover:bg-musgo-vivo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo md:h-10"
+      <EstadoVazio
+        :icone="PhUserCircle"
+        solto
+        titulo="Perfil não encontrado"
+        class="max-w-[280px]"
       >
-        Buscar leitor
-      </RouterLink>
-    </EstadoVazio>
+        <p class="mt-space-6 text-body text-grafite">
+          Confira o nome de usuário e tente de novo.
+        </p>
+        <RouterLink
+          to="/perfil/buscar"
+          class="mt-space-6 flex h-12 items-center justify-center rounded-full bg-musgo px-space-6 text-body-strong text-papel transition-colors duration-dur-fast hover:bg-musgo-vivo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo md:h-10"
+        >
+          Buscar leitor
+        </RouterLink>
+      </EstadoVazio>
+    </div>
 
     <BannerAviso
       v-else-if="falhou || !perfil"
       variante="erro"
+      triangulo
     >
       Não foi possível carregar este perfil. Verifique sua conexão e tente de novo.
-      <BotaoTextual
-        class="mt-space-2"
-        @click="carregar"
-      >
-        Tentar de novo
-      </BotaoTextual>
+      <!-- 8 mais o `py-space-1` do botão textual dão os 12 do protótipo. -->
+      <span class="mt-space-2 block">
+        <BotaoTextual
+          class="-mx-space-1"
+          @click="carregar"
+        >
+          Tentar de novo
+        </BotaoTextual>
+      </span>
     </BannerAviso>
 
     <div
@@ -185,11 +201,13 @@ const textoDaConfirmacao = computed(() =>
         <AvatarLeitor
           class="md:hidden"
           :url="perfil.avatarUrl"
+          :nome="perfil.displayName"
           :tamanho="96"
         />
         <AvatarLeitor
           class="hidden md:flex"
           :url="perfil.avatarUrl"
+          :nome="perfil.displayName"
           :tamanho="120"
         />
         <h2 class="mt-space-4 text-display text-tinta md:text-title-lg">
@@ -220,7 +238,7 @@ const textoDaConfirmacao = computed(() =>
         <RouterLink
           v-if="perfil.relacao === 'solicitacao_recebida'"
           to="/perfil/solicitacoes"
-          class="mt-space-4 flex w-full items-center gap-space-3 rounded-base bg-musgo-fundo p-space-4 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo"
+          class="mt-space-4 flex w-full items-center gap-space-3 rounded-base bg-musgo-fundo p-space-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo md:text-left"
         >
           <PhUserPlus
             :size="20"
@@ -286,9 +304,11 @@ const textoDaConfirmacao = computed(() =>
           {{ erroDaAcao }}
         </BannerAviso>
 
-        <dl class="mt-space-6 grid w-full grid-cols-2 divide-x divide-linha border-b border-linha pb-space-4 md:grid-cols-1 md:divide-x-0 md:divide-y md:border-b-0 md:pb-0">
+        <!-- Mesmo arranjo do meu perfil, sem link: mobile numa linha com divisor vertical de
+             altura total; web empilhados, número à esquerda e rótulo encostado na direita. -->
+        <dl class="mt-space-6 grid w-full grid-cols-2 divide-x divide-linha border-b border-linha md:grid-cols-1 md:divide-x-0 md:divide-y md:border-b-0">
           <div
-            class="flex flex-col-reverse items-center md:flex-row-reverse md:justify-end md:gap-space-3 md:py-space-3"
+            :class="CONTADOR"
             :aria-label="contagem(perfil.contadores.seguidores, 'seguidor', 'seguidores')"
           >
             <dt class="text-caption text-grafite md:text-body">
@@ -299,7 +319,7 @@ const textoDaConfirmacao = computed(() =>
             </dd>
           </div>
           <div
-            class="flex flex-col-reverse items-center md:flex-row-reverse md:justify-end md:gap-space-3 md:py-space-3"
+            :class="CONTADOR"
             :aria-label="`${perfil.contadores.seguidos} seguindo`"
           >
             <dt class="text-caption text-grafite md:text-body">
@@ -316,10 +336,11 @@ const textoDaConfirmacao = computed(() =>
       <EstadoVazio
         v-if="perfil.conteudoRestrito"
         :icone="PhLock"
+        solto
         titulo="Este perfil é privado"
-        class="mx-auto mt-space-10 max-w-[280px] md:mt-space-16"
+        class="mx-auto mt-space-10 max-w-[280px] md:mt-space-16 md:max-w-[360px]"
       >
-        <p class="mt-space-3 text-body text-grafite">
+        <p class="mt-space-6 text-body text-grafite">
           <template v-if="perfil.relacao === 'solicitacao_enviada'">
             Sua solicitação está aguardando resposta.
           </template>
@@ -328,9 +349,16 @@ const textoDaConfirmacao = computed(() =>
           </template>
         </p>
       </EstadoVazio>
+      <SecoesDeLeitura
+        v-else
+        :proprio="false"
+        :nome="nome"
+        class="mt-space-12 md:mt-0"
+      />
     </div>
 
     <DialogoConfirmacao
+      compacto
       :aberta="confirmando"
       :titulo="`Deixar de seguir ${nome}?`"
       rotulo-confirmar="Deixar de seguir"
