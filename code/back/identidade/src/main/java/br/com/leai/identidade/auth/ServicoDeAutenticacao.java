@@ -215,10 +215,10 @@ public class ServicoDeAutenticacao {
    * pode ter mudado depois da emissão e o token vale 15 minutos.
    */
   @Transactional(readOnly = true)
-  public UsuarioResposta doToken(UUID usuarioId) {
+  public UsuarioProprioResposta doToken(UUID usuarioId) {
     return repositorio
         .findById(usuarioId)
-        .map(UsuarioResposta::de)
+        .map(UsuarioProprioResposta::de)
         // Token válido de conta que não existe mais: a sessão acabou, não é erro de permissão.
         .orElseThrow(
             () ->
