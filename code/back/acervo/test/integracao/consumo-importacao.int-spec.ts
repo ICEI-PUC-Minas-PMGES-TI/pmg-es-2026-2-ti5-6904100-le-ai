@@ -10,22 +10,16 @@ import {
   type MetadadosLivro,
 } from '../../src/livros/importacao/dominio/fonte-metadados';
 import { ImportacaoConsumer } from '../../src/livros/importacao/importacao.consumer';
-import { AmqpConsumerService } from '../../src/messaging/amqp-consumer.service';
 import { AmqpPublisherService } from '../../src/messaging/amqp-publisher.service';
 import { MessageValidator } from '../../src/messaging/message-validator';
 import { OutboxDispatcherService } from '../../src/messaging/outbox-dispatcher.service';
 import { criarApp, novoUsuario, tokenDe } from './app';
 import { BrokerEmMemoria } from './broker-em-memoria';
+import { ConsumidorSemEspera } from './consumidor-sem-espera';
 import { contar, limpar, prepararBanco } from './banco';
 import { isbn } from './massa';
 
 const FILA = 'leai.acervo.importacao';
-
-class ConsumidorSemEspera extends AmqpConsumerService {
-  protected override retryDelays(): readonly number[] {
-    return [1, 1, 1];
-  }
-}
 
 function metadados(isbn13: string, mudancas: Partial<MetadadosLivro> = {}) {
   return {
