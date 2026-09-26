@@ -11,6 +11,9 @@ vi.mock('../services/social', () => ({
     listarFeed: vi.fn(),
     curtir: vi.fn(),
     descurtir: vi.fn(),
+    listarComentariosRaiz: vi.fn(),
+    listarRespostas: vi.fn(),
+    comentar: vi.fn(),
   },
 }))
 
@@ -64,6 +67,8 @@ describe('FeedView', () => {
     social.listarFeed.mockReset()
     social.curtir.mockReset()
     social.descurtir.mockReset()
+    social.listarComentariosRaiz.mockReset()
+    social.comentar.mockReset()
     perfil.obterMeuPerfil.mockReset()
   })
 
@@ -202,5 +207,46 @@ describe('FeedView', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('Nada por aqui ainda')
+  })
+
+  it('comentar abre o modal, e um comentário criado incrementa a contagem do item sem recarregar o feed', async () => {
+    social.listarFeed.mockResolvedValue(pagina([atividade({ totalComentarios: 2 })]))
+    social.listarComentariosRaiz.mockResolvedValue({ items: [], page: 0, size: 20, totalElements: 0, totalPages: 1 })
+    perfil.obterMeuPerfil.mockResolvedValue(perfilComSeguidos(1))
+
+    const { wrapper } = await montarNaRota('/feed')
+    await flushPromises()
+
+    await wrapper.get('[aria-label="2 comentários"]').trigger('click')
+    await flushPromises()
+
+    expect(document.body.textContent).toContain('Comentários')
+
+    social.comentar.mockResolvedValue({
+      id: 'novo',
+      atividadeId: 'a1',
+      comentarioRaizId: null,
+      comentarioRespondidoId: null,
+      usuarioRespondido: null,
+      autor: AUTOR,
+      texto: 'Comentário',
+      nivel: 'RAIZ',
+      totalRespostas: 0,
+      pertenceAoSolicitante: true,
+      criadoEm: new Date().toISOString(),
+      atualizadoEm: null,
+    })
+    const campo = document.body.querySelector('textarea')!
+    await campo.dispatchEvent(new Event('focus'))
+    ;(campo as HTMLTextAreaElement).value = 'Comentário'
+    campo.dispatchEvent(new Event('input'))
+    await flushPromises()
+
+    const enviar = document.body.querySelector('button[aria-label="Enviar comentário"]') as HTMLButtonElement
+    enviar.click()
+    await flushPromises()
+
+    expect(social.listarFeed).toHaveBeenCalledTimes(1)
+    expect(wrapper.get('[aria-label="3 comentários"]')).toBeTruthy()
   })
 })

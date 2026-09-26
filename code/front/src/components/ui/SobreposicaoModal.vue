@@ -14,8 +14,10 @@ const props = withDefaults(
     /** Seletor, dentro da sobreposição, do elemento que recebe o foco ao abrir. */
     focoInicial?: string
     somenteFolha?: boolean
+    /** Largura do dialog na web (`md:` e acima); o bottom sheet mobile ignora este valor. */
+    larguraDialogo?: string
   }>(),
-  { focoInicial: undefined, somenteFolha: false },
+  { focoInicial: undefined, somenteFolha: false, larguraDialogo: '480px' },
 )
 
 const emit = defineEmits<{ fechar: [] }>()
@@ -87,7 +89,8 @@ function aoTeclar(evento: KeyboardEvent): void {
           aria-modal="true"
           :aria-label="rotulo"
           class="painel w-full rounded-t-lg bg-papel p-space-6 shadow-3 dark:bg-papel-elevado"
-          :class="somenteFolha ? 'pb-[calc(var(--spacing-space-6)+env(safe-area-inset-bottom))]' : 'vira-dialogo md:w-[480px] md:max-w-full md:rounded-xl'"
+          :class="somenteFolha ? 'pb-[calc(var(--spacing-space-6)+env(safe-area-inset-bottom))]' : 'vira-dialogo md:w-[var(--largura-dialogo)] md:max-w-full md:rounded-xl'"
+          :style="somenteFolha ? undefined : { '--largura-dialogo': larguraDialogo }"
           @keydown="aoTeclar"
         >
           <div

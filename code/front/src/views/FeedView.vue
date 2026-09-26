@@ -4,12 +4,13 @@ import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 
 import ItemAtividade from '../components/feed/ItemAtividade.vue'
+import ModalComentarios from '../components/feed/ModalComentarios.vue'
 import FimDaLista from '../components/perfil/FimDaLista.vue'
 import BannerAviso from '../components/ui/BannerAviso.vue'
 import EstadoVazio from '../components/ui/EstadoVazio.vue'
 import { usePaginacao } from '../perfil/usePaginacao'
 import { perfilService } from '../services/perfil'
-import { ApiError, novaChaveIdempotencia } from '../services/api'
+import { mensagemDeErro, novaChaveIdempotencia } from '../services/api'
 import { socialService, type Atividade } from '../services/social'
 
 /**
@@ -41,20 +42,26 @@ async function carregarSeAlguemSegue(): Promise<void> {
 
 onMounted(carregarSeAlguemSegue)
 
-/** Consumido pela Task 8 (modal de comentários); aqui só o botão "comentar" a define. */
+/** Atividade com o modal de comentários aberto (Task 8), definida pelo botão "comentar". */
 const atividadeEmComentario = ref<Atividade | null>(null)
 
 function abrirComentarios(atividade: Atividade): void {
   atividadeEmComentario.value = atividade
 }
 
+/** RN-10/§3: um comentário ou resposta criado incrementa a contagem do item, sem recarregar a lista. */
+function aoComentar(): void {
+  const id = atividadeEmComentario.value?.id
+  if (!id) {
+    return
+  }
+  itens.value = itens.value.map((item) => (item.id === id ? { ...item, totalComentarios: item.totalComentarios + 1 } : item))
+  atividadeEmComentario.value = { ...atividadeEmComentario.value!, totalComentarios: atividadeEmComentario.value!.totalComentarios + 1 }
+}
+
 /** Ids com curtir/descurtir em andamento: guarda contra clique duplo antes da resposta. */
 const curtidasPendentes = ref<Set<string>>(new Set())
 const erroDeCurtida = ref<string | null>(null)
-
-function mensagemDeErro(erro: unknown): string {
-  return erro instanceof ApiError ? erro.message : 'Não foi possível acessar o servidor. Tente novamente.'
-}
 
 async function curtir(id: string): Promise<void> {
   if (curtidasPendentes.value.has(id)) {
@@ -98,106 +105,115 @@ function atualizarCurtida(id: string, curtida: boolean, totalCurtidas: number): 
 </script>
 
 <template>
-  <div
-    v-if="carregando"
-    class="flex flex-col"
-  >
+  <!-- feed.md §5: coluna única de no máximo 760px, alinhada à esquerda. -->
+  <div class="max-w-[760px]">
     <div
-      v-for="indice in 3"
-      :key="indice"
-      class="flex animate-[fade-in_var(--dur-base)_var(--ease-out)] gap-space-4 border-b border-linha py-space-5"
+      v-if="carregando"
+      class="flex flex-col"
     >
-      <div class="size-10 shrink-0 rounded-full bg-papel-elevado" />
-      <div class="flex flex-1 flex-col gap-space-2">
-        <div class="h-[17px] w-32 rounded-sm bg-papel-elevado" />
-        <div class="h-[15px] w-48 rounded-sm bg-papel-elevado" />
-        <div class="flex gap-space-4">
-          <div class="h-[120px] w-20 bg-capa-placeholder md:h-[150px] md:w-[100px]" />
-          <div class="flex flex-1 flex-col gap-space-2">
-            <div class="h-[15px] w-full rounded-sm bg-papel-elevado" />
-            <div class="h-[15px] w-2/3 rounded-sm bg-papel-elevado" />
+      <div
+        v-for="indice in 3"
+        :key="indice"
+        class="flex animate-[fade-in_var(--dur-base)_var(--ease-out)] gap-space-4 border-b border-linha py-space-5"
+      >
+        <div class="size-10 shrink-0 rounded-full bg-papel-elevado" />
+        <div class="flex flex-1 flex-col gap-space-2">
+          <div class="h-[17px] w-32 rounded-sm bg-papel-elevado" />
+          <div class="h-[15px] w-48 rounded-sm bg-papel-elevado" />
+          <div class="flex gap-space-4">
+            <div class="h-[120px] w-20 bg-capa-placeholder md:h-[150px] md:w-[100px]" />
+            <div class="flex flex-1 flex-col gap-space-2">
+              <div class="h-[15px] w-full rounded-sm bg-papel-elevado" />
+              <div class="h-[15px] w-2/3 rounded-sm bg-papel-elevado" />
+            </div>
           </div>
-        </div>
-        <div class="flex gap-space-3">
-          <div class="h-8 w-16 rounded-full bg-papel-elevado" />
-          <div class="h-8 w-16 rounded-full bg-papel-elevado" />
+          <div class="flex gap-space-3">
+            <div class="h-8 w-16 rounded-full bg-papel-elevado" />
+            <div class="h-8 w-16 rounded-full bg-papel-elevado" />
+          </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <BannerAviso
-    v-else-if="falhou"
-    variante="erro"
-    class="mt-space-5"
-  >
-    Não foi possível carregar seu feed. Verifique sua conexão e tente de novo.
-    <button
-      type="button"
-      class="mt-space-2 block text-body-strong text-musgo hover:underline focus-visible:underline"
-      @click="carregarSeAlguemSegue"
-    >
-      Tentar de novo
-    </button>
-  </BannerAviso>
-
-  <EstadoVazio
-    v-else-if="itens.length === 0 && segueAlguem === false"
-    :icone="PhNewspaper"
-    titulo="Comece seguindo leitores"
-    class="mt-space-16"
-  >
-    <p class="mt-space-2 max-w-[280px] text-body text-grafite">
-      As atividades de quem você segue aparecem aqui, da mais recente para a mais antiga.
-    </p>
-    <RouterLink
-      :to="{ name: 'buscar-leitor' }"
-      class="mt-space-6 inline-flex h-12 items-center justify-center whitespace-nowrap rounded-full bg-musgo px-space-5 text-body-strong text-papel transition-all duration-dur-fast hover:bg-musgo-vivo active:scale-[0.98] md:h-10"
-    >
-      Buscar por nome de usuário
-    </RouterLink>
-  </EstadoVazio>
-
-  <EstadoVazio
-    v-else-if="itens.length === 0"
-    :icone="PhClock"
-    titulo="Nada por aqui ainda"
-    class="mt-space-16"
-  >
-    <p class="mt-space-2 text-body text-grafite">
-      Quando quem você segue começar, terminar ou resenhar um livro, aparece aqui.
-    </p>
-    <RouterLink
-      :to="{ name: 'estante' }"
-      class="mt-space-6 inline-flex min-h-12 items-center text-body-strong text-musgo underline-offset-2 hover:underline focus-visible:underline md:min-h-10"
-    >
-      Ver minha estante
-    </RouterLink>
-  </EstadoVazio>
-
-  <div v-else>
     <BannerAviso
-      v-if="erroDeCurtida"
+      v-else-if="falhou"
       variante="erro"
-      class="mb-space-4"
+      class="mt-space-5"
     >
-      {{ erroDeCurtida }}
+      Não foi possível carregar seu feed. Verifique sua conexão e tente de novo.
+      <button
+        type="button"
+        class="mt-space-2 block text-body-strong text-musgo hover:underline focus-visible:underline"
+        @click="carregarSeAlguemSegue"
+      >
+        Tentar de novo
+      </button>
     </BannerAviso>
-    <ItemAtividade
-      v-for="atividade in itens"
-      :key="atividade.id"
-      :atividade="atividade"
-      :curtida-pendente="curtidasPendentes.has(atividade.id)"
-      @curtir="curtir"
-      @descurtir="descurtir"
-      @comentar="abrirComentarios"
-    />
-    <FimDaLista
-      v-if="temMais"
-      :falhou="falhouMais"
-      @carregar="carregarMais"
+
+    <EstadoVazio
+      v-else-if="itens.length === 0 && segueAlguem === false"
+      :icone="PhNewspaper"
+      titulo="Comece seguindo leitores"
+      class="mt-space-16"
+    >
+      <p class="mt-space-2 max-w-[280px] text-body text-grafite">
+        As atividades de quem você segue aparecem aqui, da mais recente para a mais antiga.
+      </p>
+      <RouterLink
+        :to="{ name: 'buscar-leitor' }"
+        class="mt-space-6 inline-flex h-12 items-center justify-center whitespace-nowrap rounded-full bg-musgo px-space-5 text-body-strong text-papel transition-all duration-dur-fast hover:bg-musgo-vivo active:scale-[0.98] md:h-10"
+      >
+        Buscar por nome de usuário
+      </RouterLink>
+    </EstadoVazio>
+
+    <EstadoVazio
+      v-else-if="itens.length === 0"
+      :icone="PhClock"
+      titulo="Nada por aqui ainda"
+      class="mt-space-16"
+    >
+      <p class="mt-space-2 text-body text-grafite">
+        Quando quem você segue começar, terminar ou resenhar um livro, aparece aqui.
+      </p>
+      <RouterLink
+        :to="{ name: 'estante' }"
+        class="mt-space-6 inline-flex min-h-12 items-center text-body-strong text-musgo underline-offset-2 hover:underline focus-visible:underline md:min-h-10"
+      >
+        Ver minha estante
+      </RouterLink>
+    </EstadoVazio>
+
+    <div v-else>
+      <BannerAviso
+        v-if="erroDeCurtida"
+        variante="erro"
+        class="mb-space-4"
+      >
+        {{ erroDeCurtida }}
+      </BannerAviso>
+      <ItemAtividade
+        v-for="atividade in itens"
+        :key="atividade.id"
+        :atividade="atividade"
+        :curtida-pendente="curtidasPendentes.has(atividade.id)"
+        @curtir="curtir"
+        @descurtir="descurtir"
+        @comentar="abrirComentarios"
+      />
+      <FimDaLista
+        v-if="temMais"
+        :falhou="falhouMais"
+        @carregar="carregarMais"
+      />
+    </div>
+
+    <ModalComentarios
+      v-if="atividadeEmComentario"
+      :atividade="atividadeEmComentario"
+      :aberto="true"
+      @fechar="atividadeEmComentario = null"
+      @comentario-criado="aoComentar"
     />
   </div>
-
-  <!-- TODO(Task 8): renderizar o modal de comentários a partir de `atividadeEmComentario`. -->
 </template>

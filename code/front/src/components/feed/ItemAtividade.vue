@@ -5,8 +5,9 @@ import type { RouteLocationRaw } from 'vue-router'
 import { RouterLink } from 'vue-router'
 
 import AvatarLeitor from '../perfil/AvatarLeitor.vue'
+import { verboDeAtividade } from '../../feed/verbos'
 import { contagem, tempoDeEspera } from '../../perfil/textos'
-import type { Atividade, TipoAtividade } from '../../services/social'
+import type { Atividade } from '../../services/social'
 import CapaLivro from '../livros/CapaLivro.vue'
 
 /**
@@ -29,16 +30,7 @@ const emit = defineEmits<{
   comentar: [atividade: Atividade]
 }>()
 
-/** Mapa fixo de tipo para verbo (feed.md §8). Abandono não leva estilo diferente (feed.md §4). */
-const VERBOS: Record<TipoAtividade, string> = {
-  LEITURA_INICIADA: 'começou a ler',
-  LEITURA_RETOMADA: 'retomou a leitura',
-  LEITURA_FINALIZADA: 'terminou de ler',
-  LEITURA_ABANDONADA: 'abandonou a leitura',
-  RESENHA_PUBLICADA: 'publicou uma resenha',
-}
-
-const verbo = computed(() => VERBOS[props.atividade.tipo])
+const verbo = computed(() => verboDeAtividade(props.atividade.tipo))
 
 const perfilDoAutor = computed<RouteLocationRaw>(() => ({
   name: 'perfil-de-outro',
