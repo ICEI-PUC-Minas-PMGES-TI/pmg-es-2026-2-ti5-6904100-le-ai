@@ -7,8 +7,8 @@
 ## Andamento
 
 - **Fatia 1 (busca): concluída em 26/09/2026.** Contrato, migration `0004` (aplicada no banco de dev), `GET /assuntos` e `GET /livros`, Descobrir no mobile e na web, e o seed. CI verde na `renato-features`. Conferido com os dados do dev na web (1440 e 390 px) e no emulador.
-- **Fatia 2 (página do livro, sinopse e resenhas):** próxima.
-- **Fatia 3 (contrato, docs e DES):** depois da 2.
+- **Fatia 2 (página do livro, sinopse e resenhas): concluída em 26/09/2026.** `GET /livros/{id}`, `/resenhas`, o consumidor `acervo.sinopse` e a página no mobile e na web. CI verde. A sinopse ponta a ponta no broker de dev depende de ligar o `AMQP_ENABLED` do acervo local, combinado com o time.
+- **Fatia 3 (contrato, docs e DES):** docs concluídos em 26/09 (contrato marcado como implementado e conferido com o `/docs`, `AGENTS.md` do acervo, arquivo da feature). **Falta DES**, que depende do PR `desenvolvimento → main` do time.
 - **Diferenças do que foi implementado em relação ao texto abaixo:**
   - **Header do Descobrir no mobile:** não precisou do slot `inferior`. O shell desenha o header da aba sem divisor (`semDivisor`, como o Perfil), e o campo fica fixo no topo da própria página. Visualmente é a segunda linha do header do protótipo.
   - **Capa:** a função se chama `resolverCapa()` (`src/livros/capa.ts`) e devolve `{ url, origem }`.
