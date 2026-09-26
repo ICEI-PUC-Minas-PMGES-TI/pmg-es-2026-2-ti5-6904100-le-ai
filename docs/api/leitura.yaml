@@ -4,8 +4,9 @@ info:
   version: 0.1.0
   description: >-
     Contrato do serviço leitura. O health check está implementado pelo
-    scaffolding P0-INFRA. Os contratos de F-EST, F-PRG e F-AVA do Período 1
-    estão planejados e são identificados por `x-implementation-status`.
+    scaffolding P0-INFRA. Os contratos de F-EST estão implementados; os de
+    F-PRG e F-AVA do Período 1 estão planejados. A situação de cada operação
+    é identificada por `x-implementation-status`.
     Nota e resenha pertencem ao livro, não a uma ocorrência de leitura.
     Sessões cronometradas, favoritos, histórico, reações e Markdown não fazem
     parte deste contrato do Período 1.
@@ -70,7 +71,7 @@ paths:
       tags: [estante]
       summary: Adiciona um livro à estante como Quero ler
       operationId: adicionarLivroEstante
-      x-implementation-status: planned
+      x-implementation-status: implemented
       parameters:
         - { $ref: '#/components/parameters/IdempotencyKey' }
       description: >-
@@ -98,7 +99,7 @@ paths:
       tags: [estante]
       summary: Lista a estante do leitor autenticado
       operationId: listarMinhaEstante
-      x-implementation-status: planned
+      x-implementation-status: implemented
       description: >-
         Lista paginada para agrupamento por status. O filtro de status pode ser
         combinado com a ordenação. Busca textual pertence ao Período 2.
@@ -121,7 +122,7 @@ paths:
       tags: [estante]
       summary: Remove um livro em Quero ler sem histórico
       operationId: removerLivroEstante
-      x-implementation-status: planned
+      x-implementation-status: implemented
       parameters:
         - { $ref: '#/components/parameters/LivroId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
@@ -140,7 +141,7 @@ paths:
       tags: [perfis, estante]
       summary: Lista a estante autorizada de um perfil
       operationId: listarEstantePerfil
-      x-implementation-status: planned
+      x-implementation-status: implemented
       description: >-
         Autoriza o próprio usuário e perfis públicos. Perfil privado exige
         seguimento aceito. Conteúdo de conta suspensa ou em exclusão pendente
@@ -167,7 +168,7 @@ paths:
       tags: [leituras]
       summary: Inicia a primeira leitura de um livro
       operationId: iniciarLeitura
-      x-implementation-status: planned
+      x-implementation-status: implemented
       parameters:
         - { $ref: '#/components/parameters/IdempotencyKey' }
       description: >-
@@ -198,7 +199,7 @@ paths:
       tags: [leituras]
       summary: Inicia uma releitura de livro já concluído
       operationId: iniciarReleitura
-      x-implementation-status: planned
+      x-implementation-status: implemented
       parameters:
         - { $ref: '#/components/parameters/IdempotencyKey' }
       description: >-
@@ -227,7 +228,7 @@ paths:
       tags: [leituras]
       summary: Consulta os detalhes de uma leitura própria
       operationId: detalharLeitura
-      x-implementation-status: planned
+      x-implementation-status: implemented
       parameters:
         - { $ref: '#/components/parameters/LeituraId' }
       description: >-
@@ -248,7 +249,7 @@ paths:
       tags: [leituras]
       summary: Finaliza uma leitura ou releitura em andamento
       operationId: finalizarLeitura
-      x-implementation-status: planned
+      x-implementation-status: implemented
       parameters:
         - { $ref: '#/components/parameters/LeituraId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
@@ -257,7 +258,7 @@ paths:
         `vezesLido`. A data de fim é editável; o instante, fuso e data local da
         ação são persistidos separadamente para desafios e eventos.
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema: { $ref: '#/components/schemas/FinalizarLeituraEntrada' }
@@ -279,7 +280,7 @@ paths:
       tags: [leituras]
       summary: Abandona manualmente uma leitura em andamento
       operationId: abandonarLeitura
-      x-implementation-status: planned
+      x-implementation-status: implemented
       parameters:
         - { $ref: '#/components/parameters/LeituraId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
@@ -304,7 +305,7 @@ paths:
       tags: [leituras]
       summary: Retoma uma primeira leitura abandonada
       operationId: retomarLeitura
-      x-implementation-status: planned
+      x-implementation-status: implemented
       parameters:
         - { $ref: '#/components/parameters/LeituraId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
@@ -327,7 +328,7 @@ paths:
       tags: [leituras]
       summary: Consulta quantas vezes o leitor concluiu o livro
       operationId: consultarConclusoesLivro
-      x-implementation-status: planned
+      x-implementation-status: implemented
       parameters:
         - { $ref: '#/components/parameters/LivroId' }
       responses:
@@ -600,7 +601,7 @@ paths:
       tags: [interno]
       summary: Processa diariamente a inatividade das leituras
       operationId: processarInatividadeLeituras
-      x-implementation-status: planned
+      x-implementation-status: implemented
       security:
         - schedulerToken: []
       parameters:
@@ -675,8 +676,13 @@ components:
       required: false
       schema:
         type: string
-        enum: [adicionado_desc, adicionado_asc, titulo_asc, titulo_desc]
+        enum: [adicionado_desc, adicionado_asc, titulo_asc, titulo_desc, autor_asc, autor_desc, progresso_asc, progresso_desc]
         default: adicionado_desc
+      description: >-
+        `autor_*` ordena por `autor_exibicao` com autor nulo por último e desempate
+        por título. `progresso_*` ordena por `paginaAtual / totalPaginas` da leitura
+        em andamento; itens sem leitura em andamento ficam por último. O último
+        critério é sempre o id do vínculo, então a ordem é estável entre páginas.
     LivroId:
       name: livroId
       in: path
@@ -790,9 +796,18 @@ components:
     ItemEstante:
       type: object
       additionalProperties: false
-      required: [livroId, status, vezesLido, adicionadoEm]
+      required: [livroId, livro, status, vezesLido, adicionadoEm]
       properties:
         livroId: { type: string, format: uuid }
+        livro:
+          type: object
+          additionalProperties: false
+          required: [titulo, autor, capaUrl]
+          description: Snapshot de `v_livro_referencia_v1`.
+          properties:
+            titulo: { type: string }
+            autor: { type: string, nullable: true }
+            capaUrl: { type: string, format: uri, nullable: true }
         status: { $ref: '#/components/schemas/StatusEstante' }
         vezesLido: { type: integer, minimum: 0 }
         leituraEmAndamentoId:
