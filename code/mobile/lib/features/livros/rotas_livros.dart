@@ -7,7 +7,7 @@ import 'acervo_service.dart';
 import 'cadastro_isbn_page.dart';
 import 'capa.dart';
 import 'isbn_nao_encontrado_page.dart';
-import 'livro_oficial_placeholder_page.dart';
+import 'livro_oficial_page.dart';
 import 'livro_pessoal_form_page.dart';
 import 'livro_pessoal_page.dart';
 
@@ -110,13 +110,27 @@ List<RouteBase> rotasDeDescobrir(DependenciasDeLivros deps) => <RouteBase>[
       ),
     ],
   ),
-  GoRoute(
-    path: 'livro/:id',
-    builder: (context, state) => LivroOficialPlaceholderPage(
-      aoVoltar: () => _voltar(context, '/descobrir'),
-    ),
-  ),
+  rotaDoLivroOficial(deps, raiz: '/descobrir'),
 ];
+
+/// Página do livro oficial dentro da aba de origem (pagina-do-livro.md §4.1: o item ativo da barra
+/// é sempre a aba de onde se chegou). Descobrir usa agora; Estante e Feed montam a mesma rota sob a
+/// raiz delas quando F-EST e F-FEED linkarem o livro.
+GoRoute rotaDoLivroOficial(DependenciasDeLivros deps, {required String raiz}) {
+  return GoRoute(
+    path: 'livro/:id',
+    builder: (context, state) {
+      final id = state.pathParameters['id']!;
+      return LivroOficialPage(
+        // A chave pelo id faz a página recarregar se a rota trocar de livro sem desmontar.
+        key: ValueKey<String>('livro-oficial-$id'),
+        servico: deps.acervo,
+        livroId: id,
+        aoVoltar: () => _voltar(context, raiz),
+      );
+    },
+  );
+}
 
 GoRoute _paginaDoLivroPessoal(DependenciasDeLivros deps, {required String raiz}) {
   return GoRoute(
