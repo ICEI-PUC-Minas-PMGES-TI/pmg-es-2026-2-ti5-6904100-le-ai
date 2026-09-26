@@ -48,6 +48,25 @@ class SegurancaIntegracaoTest extends IntegracaoComPostgres {
   }
 
   @Test
+  @DisplayName("preflight CORS em rota protegida é resolvido antes da autorização e aceita Idempotency-Key")
+  void preflightEmRotaProtegidaNaoViraNaoAutenticado() {
+    HttpRequest preflight =
+        HttpRequest.newBuilder(uri("/atividades/" + UUID.randomUUID() + "/curtir"))
+            .method("OPTIONS", HttpRequest.BodyPublishers.noBody())
+            .header("Origin", ORIGEM_WEB)
+            .header("Access-Control-Request-Method", "POST")
+            .header("Access-Control-Request-Headers", "authorization,idempotency-key,x-correlation-id")
+            .build();
+
+    HttpResponse<String> resposta = enviar(preflight);
+
+    assertThat(resposta.statusCode()).isEqualTo(200);
+    assertThat(resposta.headers().firstValue("Access-Control-Allow-Origin")).contains(ORIGEM_WEB);
+    assertThat(resposta.headers().firstValue("Access-Control-Allow-Headers").orElse("").toLowerCase())
+        .contains("idempotency-key");
+  }
+
+  @Test
   @DisplayName("/health continua pública mesmo com o Security ligado")
   void healthContinuaPublica() {
     HttpResponse<String> resposta = chamar("/health", null);
