@@ -114,6 +114,33 @@ export interface PaginaLivros {
   totalPaginas: number
 }
 
+export type StatusDaSinopse = 'nao_consultada' | 'pendente' | 'disponivel' | 'ausente' | 'falha_transitoria'
+
+/** Sinopse do livro oficial (RN-19): o texto só vem em `disponivel`. */
+export interface SinopseDoLivro {
+  status: StatusDaSinopse
+  texto: string | null
+}
+
+/** Resenha de outro leitor, já filtrada por RN-08 no servidor. Mesma forma de `ResenhaDoDono`. */
+export type ResenhaDoLivro = ResenhaDoDono
+
+export interface PaginaResenhas {
+  itens: ResenhaDoLivro[]
+  limit: number
+  proximoCursor: string | null
+}
+
+/**
+ * Página do livro oficial. `resenhas` nulo quer dizer que os contratos de `leitura` ou
+ * `identidade` estavam indisponíveis: a página abre mesmo assim.
+ */
+export interface LivroOficialDetalhe extends LivroOficialResumo {
+  isbn: string
+  sinopse: SinopseDoLivro
+  resenhas: PaginaResenhas | null
+}
+
 export interface CriteriosDaBusca {
   q?: string | null
   assunto?: string | null
@@ -230,9 +257,25 @@ export function createAcervoService(options: ApiClientOptions = {}) {
     return request<PaginaLivros>(`/livros?${consulta}`)
   }
 
+  /**
+   * `GET /livros/{id}`: a página do livro oficial. A primeira abertura pede a sinopse, e a resposta
+   * nunca espera a fonte externa.
+   */
+  function obterLivroOficial(id: string): Promise<LivroOficialDetalhe> {
+    return request<LivroOficialDetalhe>(`/livros/${encodeURIComponent(id)}`)
+  }
+
+  /** `GET /livros/{id}/resenhas`: as próximas resenhas, por cursor. */
+  function listarResenhasDoLivro(id: string, cursor?: string | null): Promise<PaginaResenhas> {
+    const consulta = cursor ? `?${new URLSearchParams({ cursor })}` : ''
+    return request<PaginaResenhas>(`/livros/${encodeURIComponent(id)}/resenhas${consulta}`)
+  }
+
   return {
     listarAssuntos,
     buscarLivros,
+    obterLivroOficial,
+    listarResenhasDoLivro,
     solicitarImportacao,
     obterImportacao,
     reprocessarImportacao,
