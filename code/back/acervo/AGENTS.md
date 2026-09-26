@@ -28,7 +28,7 @@ Livro (oficial e pessoal), autor, editora, série, busca e filtros, ingestão, s
   - `src/auth/` — validação do token HS256 emitido pelo `identidade`, guard global e `@UsuarioAtual()`.
   - `src/db/` — `drizzle.module.ts` (provider `DRIZZLE`; encerra o pool no shutdown), `schema.ts` (`pgSchema`), `migrate.ts`, `seed.ts` (massa de RNF-TST-08), `tipos.ts` (`Tx`), `contratos-externos.ts` (VIEWs de outros schemas).
   - `src/messaging/` — runtime AMQP de P0-MSG: conexão, dispatcher da outbox, publisher, consumidor genérico com recibo em `mensagem_processada`, retry `1/5/15 s` e DLQ, validador de envelope e de `data`. O handler recebe o `tx` do recibo.
-  - `src/livros/` — domínio de F-ACV-CADASTRO: `importacao/` (por ISBN, com `dominio/` das fontes externas, o consumidor `importacao.consumer.ts` e a convergência `convergencia.repository.ts`), `pessoal/` (CRUD e consulta autorizada) e `outbox/`.
+  - `src/livros/` — domínio de F-ACV-CADASTRO: `importacao/` (por ISBN, com `dominio/` das fontes externas, o consumidor `importacao.consumer.ts` e a convergência `convergencia.repository.ts`), `pessoal/` (CRUD e consulta autorizada) e `outbox/`. De F-ACV-BUSCA: `busca/` (`GET /assuntos`, `GET /livros`, a página `GET /livros/{id}` e `GET /livros/{id}/resenhas`), `sinopse/` (consumidor de `livro.pagina_aberta` e as fontes de sinopse) e `capa.ts`.
   - `src/health/` — `GET /health` via `@nestjs/terminus` + indicador Drizzle (`SELECT 1`) (RNF-OBS-02).
 - **Comandos:** `npm run start:dev` · `npm run build` · `npm test` · `npm run test:integration` · `npm run lint` · `npm run db:generate` · `npm run db:migrate` · `npm run db:seed`. `npm run start:prod` aplica migrations antes de iniciar a API.
 - **Testes unitários:** Jest + ts-jest; specs em `src/**/*.spec.ts`, ao lado do arquivo testado. Rodam sem banco e sem rede: `fetch`, relógio e repositórios são injetados.
@@ -68,9 +68,23 @@ Implementado em 18/09/2026. Ao mexer nestes pontos, mexa sabendo por que estão 
 - **A OpenLibrary redireciona `/isbn/{isbn}.json` para `/books/{olid}.json`.** O `HttpExterno` segue redirect só dentro da allowlist, revalidando cada salto. Muitas edições não têm `authors`; a fonte usa o primeiro autor da obra.
 - **Schema de mensageria é cópia do canônico.** Cada consumidor copia de `docs/mensageria/schemas/` só o que aceita para `src/messaging/schemas/`, e `schemas.spec.ts` falha se a cópia divergir.
 
+## Decisões de F-ACV-BUSCA que valem como regra
+
+Implementado em 26/09/2026.
+
+- **Os objetos de busca ficam na migration `0004`, fora do `schema.ts`**, como `mensagem_processada`: as extensões `pg_trgm` e `unaccent` em `public`, a função `acervo.f_busca_normalizar` (IMMUTABLE, com o dicionário do `unaccent` explícito) e os índices GIN de título, autor e editora. O drizzle-kit não os conhece e não os recria nem os derruba.
+- **Tudo qualificado por schema**, na migration e na consulta (`public.word_similarity`, `public.gin_trgm_ops`). A CI **não** pega o esquecimento: o `prepararBanco` roda as migrations com `public` no `search_path`. Confira por `grep` antes de revisar uma migration.
+- **A busca casa só por trecho (`LIKE` sobre o texto normalizado); `word_similarity` só ordena.** Com a semelhança no filtro, "guimaraes rossa" traria Guimarães Rosa, e o design pede vazio. Os candidatos saem de um `UNION ALL` por campo, cada um indexável, e o predicado `tipo = 'oficial' AND ativo` é literal, para casar o índice parcial.
+- **As edições de uma obra chegam contíguas** (título normalizado + autores; livro sem autor usa o próprio id). O cliente agrupa só vizinhos.
+- **Toda transição de sinopse grava `atualizado_em = now()`**, na `GET /livros/{id}` e no consumidor. Ele é o relógio do reenfileiramento: `falha_transitoria` há mais de 10 minutos e `pendente` há mais de 15 minutos voltam a pedir a sinopse. `atualizado_em` não tem trigger.
+- **O pedido da sinopse é um UPDATE condicional com `lock_timeout` de 1 s**, na mesma transação da outbox. O estouro (`55P03`) aborta a transação e é tratado fora dela, como no-op: a página não espera o consumidor.
+- **A política das fontes de sinopse é mais curta que a da importação** (uma retentativa de 1 s, mesmo circuit breaker): a fila processa um livro por vez, e `falha_transitoria` já é reprocessável na próxima abertura.
+- **`@RateLimit` com `escopo`.** O guard é uma instância só por módulo, e sem escopo as rotas dividem os contadores de `ip:` e `sub:`. A página do livro usa o escopo `pagina-do-livro`.
+- **Resenhas da página filtradas por RN-08 no SQL**: autor público ou privado seguido, sem a resenha do próprio leitor. Cursor keyset `(criado_em, resenha_id)` com o instante em texto do Postgres, com microssegundos. VIEW de outro serviço inacessível vira `resenhas: null` na página e 503 na rota de resenhas.
+
 ## Pendências do serviço
 
 - A busca externa roda dentro da transação do recibo do consumidor: no pior caso (timeouts e backoff `1/5/15 s` nas duas fontes) a transação fica aberta por dezenas de segundos no Neon. Aceitável no volume do MVP; se pesar, separar a consulta às fontes do efeito exige recibo em duas fases.
 - O Google Books sem `GOOGLE_BOOKS_API_KEY` responde 429 por cota (medido em 22/09/2026, como na P-14).
 - As VIEWs de `leitura`, `social` e `identidade` são consultadas em runtime. Se o grupo separar roles por serviço no Neon, `acervo` precisa de `GRANT USAGE` nos três schemas e `GRANT SELECT` nas VIEWs. Falha de permissão vira 503, não 500, mas continua sendo falha.
-- Índice de busca de RNF-DES-03 tem só `lower(titulo)` em btree; busca por autor e por ISBN entra com F-ACV-BUSCA.
+- A fila da sinopse processa um livro por vez (`prefetch(1)`), com até ~35 s por livro no pior caso. Livros abertos em sequência esperam; o polling de ~2 minutos dos clientes cobre alguns na fila à frente.
