@@ -151,6 +151,28 @@ describe('busca do acervo', () => {
   })
 })
 
+describe('página do livro oficial', () => {
+  it('pede a página pelo id', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(resposta(200, { id: 'livro-1' }))
+
+    await servico(fetchMock).obterLivroOficial('livro-1')
+
+    expect(fetchMock.mock.calls[0]![0]).toBe('https://acervo.example.com/livros/livro-1')
+  })
+
+  it('pede as resenhas seguintes pelo cursor, e a primeira página sem ele', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockImplementation(async () => resposta(200, { itens: [], limit: 20, proximoCursor: null }))
+
+    await servico(fetchMock).listarResenhasDoLivro('livro-1', 'abc=')
+    await servico(fetchMock).listarResenhasDoLivro('livro-1')
+
+    expect(fetchMock.mock.calls[0]![0]).toBe('https://acervo.example.com/livros/livro-1/resenhas?cursor=abc%3D')
+    expect(fetchMock.mock.calls[1]![0]).toBe('https://acervo.example.com/livros/livro-1/resenhas')
+  })
+})
+
 describe('corpoDoLivroPessoal', () => {
   it('na criação, opcional ausente não vai no corpo', () => {
     expect(corpoDoLivroPessoal(dados, false)).toEqual({ titulo: dados.titulo, autor: dados.autor, paginas: 184 })
