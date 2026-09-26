@@ -113,16 +113,20 @@ function voltarParaConfiguracoes(): void {
 </script>
 
 <template>
-  <div class="max-w-[480px] pb-space-10 pt-space-6">
+  <div class="max-w-[480px] pb-space-10 pt-space-6 md:pt-space-16">
     <EstadoTerminal
       v-if="alterada"
-      class="pt-space-4"
+      class="pt-space-4 md:pt-0"
       :icone="PhCheckCircle"
       titulo="Senha alterada"
+      acoes-a-esquerda-na-web
     >
       <p>Sua senha foi trocada. Encerramos a sessão nos outros aparelhos, e aqui você continua conectado.</p>
       <template #acoes>
-        <BotaoPrimario @click="voltarParaConfiguracoes">
+        <BotaoPrimario
+          class="md:w-auto"
+          @click="voltarParaConfiguracoes"
+        >
           Voltar para configurações
         </BotaoPrimario>
       </template>
@@ -141,15 +145,16 @@ function voltarParaConfiguracoes(): void {
         {{ bannerErro }}
       </BannerAviso>
 
+      <!-- Durante o salvamento os campos esmaecem a 50%, e o aviso de sessões não (protótipo 05). -->
       <fieldset
         :disabled="salvando"
         class="m-0 min-w-0 border-0 p-0"
-        :class="salvando ? 'opacity-60' : ''"
       >
         <CampoSenha
           v-model="senhaAtual"
           label="Senha atual"
           autocomplete="current-password"
+          :class="salvando ? 'opacity-50' : ''"
           :borda-de-erro="bordaDeErroAtual"
           @update:model-value="bordaDeErroAtual = false"
         />
@@ -157,12 +162,16 @@ function voltarParaConfiguracoes(): void {
         <!-- Separa provar quem você é de escolher a senha nova (§4). -->
         <hr class="my-space-8 border-0 border-t border-linha">
 
-        <div class="flex flex-col gap-space-5">
+        <div
+          class="flex flex-col gap-space-5"
+          :class="salvando ? 'opacity-50' : ''"
+        >
           <CampoSenha
             v-model="novaSenha"
             label="Nova senha"
             autocomplete="new-password"
             :erro="erroNova"
+            erro-antes-do-helper
             helper="Mínimo de 8 caracteres. Evite senhas comuns, como sequências e o seu nome."
             @update:model-value="erroNova = ''"
           />
@@ -186,30 +195,34 @@ function voltarParaConfiguracoes(): void {
         </p>
       </fieldset>
 
-      <BotaoPrimario
-        tipo="submit"
-        class="mt-space-8"
-        :carregando="salvando"
-        :disabled="botaoDesabilitado"
-      >
-        {{ salvando ? 'Salvando' : 'Salvar nova senha' }}
-      </BotaoPrimario>
-      <p
-        v-if="salvando"
-        class="mt-space-3 text-caption text-grafite"
-      >
-        O servidor está iniciando. Isso pode levar alguns segundos.
-      </p>
-      <div class="mt-space-4 flex justify-center">
+      <!-- Mobile: pill de largura total e `Cancelar` centralizado abaixo. Web: os dois na mesma
+           linha, à esquerda, com o pill na largura do conteúdo (protótipos 01 e 07). `Cancelar`
+           some durante o salvamento (protótipo 05). -->
+      <div class="mt-space-8 flex flex-col gap-space-4 md:flex-row md:items-center">
+        <BotaoPrimario
+          tipo="submit"
+          class="md:w-auto"
+          :carregando="salvando"
+          carregando-esmaecido
+          :disabled="botaoDesabilitado"
+        >
+          {{ salvando ? 'Salvando' : 'Salvar nova senha' }}
+        </BotaoPrimario>
         <BotaoTextual
-          class="min-h-12 md:min-h-0"
+          v-if="!salvando"
+          class="min-h-12 self-center md:min-h-10 md:px-space-3"
           tom="grafite"
-          :disabled="salvando"
           @click="voltarParaConfiguracoes"
         >
           Cancelar
         </BotaoTextual>
       </div>
+      <p
+        v-if="salvando"
+        class="mt-space-3 text-center text-caption text-grafite md:text-left"
+      >
+        O servidor está iniciando. Isso pode levar alguns segundos.
+      </p>
     </form>
   </div>
 </template>

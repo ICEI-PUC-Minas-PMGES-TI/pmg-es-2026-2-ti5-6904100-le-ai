@@ -4,10 +4,12 @@ on:
   push:
     paths:
       - 'code/back/identidade/**'
+      - '!code/back/identidade/**.md'
       - '.github/workflows/ci-back-identidade.yml'
   pull_request:
     paths:
       - 'code/back/identidade/**'
+      - '!code/back/identidade/**.md'
       - '.github/workflows/ci-back-identidade.yml'
   workflow_dispatch:
 

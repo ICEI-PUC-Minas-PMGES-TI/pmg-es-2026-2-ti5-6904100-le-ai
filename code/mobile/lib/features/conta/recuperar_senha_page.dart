@@ -122,14 +122,20 @@ class _RecuperarSenhaPageState extends State<RecuperarSenhaPage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
               const SizedBox(height: DesignTokens.space6),
+              // A seta compensa o padding lateral, como no protótipo (margem -12, ícone à esquerda
+              // da caixa): fica perto da borda e o alvo de 48 continua inteiro.
               Align(
                 alignment: Alignment.centerLeft,
-                child: IconButton(
-                  onPressed: widget.aoVoltarParaLogin,
-                  tooltip: 'Voltar para entrar',
-                  constraints: const BoxConstraints.tightFor(width: 48, height: 48),
-                  padding: EdgeInsets.zero,
-                  icon: Icon(PhosphorIconsRegular.arrowLeft, size: 24, color: theme.textTheme.bodyMedium?.color),
+                child: Transform.translate(
+                  offset: const Offset(-DesignTokens.space3, 0),
+                  child: IconButton(
+                    onPressed: widget.aoVoltarParaLogin,
+                    tooltip: 'Voltar para entrar',
+                    constraints: const BoxConstraints.tightFor(width: 48, height: 48),
+                    padding: EdgeInsets.zero,
+                    alignment: Alignment.centerLeft,
+                    icon: Icon(PhosphorIconsRegular.arrowLeft, size: 24, color: theme.textTheme.bodyMedium?.color),
+                  ),
                 ),
               ),
               const SizedBox(height: DesignTokens.space10),
@@ -183,7 +189,7 @@ class _RecuperarSenhaPageState extends State<RecuperarSenhaPage> {
         const SizedBox(height: DesignTokens.space6),
       ],
       AnimatedOpacity(
-        opacity: _enviando ? 0.6 : 1,
+        opacity: _enviando ? 0.5 : 1,
         duration: DesignTokens.durFast,
         child: CampoTexto(
           controller: _emailController,
@@ -192,6 +198,7 @@ class _RecuperarSenhaPageState extends State<RecuperarSenhaPage> {
           keyboardType: TextInputType.emailAddress,
           autofillHints: const <String>[AutofillHints.email],
           erro: _erroEmail,
+          erroAntesDoHelper: true,
           helper: 'O link vale por 1 hora e só pode ser usado uma vez.',
           enabled: !_enviando,
           onChanged: _aoDigitar,
@@ -201,17 +208,24 @@ class _RecuperarSenhaPageState extends State<RecuperarSenhaPage> {
       BotaoPrimario(
         texto: _enviando ? 'Enviando' : 'Enviar link',
         carregando: _enviando,
+        carregandoEsmaecido: true,
         onPressed: _erroEmail != null || _limiteExcedido ? null : _enviar,
       ),
       if (_enviando) ...<Widget>[
         const SizedBox(height: DesignTokens.space3),
-        Text(
-          'O servidor está iniciando. Isso pode levar alguns segundos.',
-          style: theme.textTheme.bodySmall?.copyWith(color: theme.secondaryText),
+        SizedBox(
+          width: double.infinity,
+          child: Text(
+            'O servidor está iniciando. Isso pode levar alguns segundos.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall?.copyWith(color: theme.secondaryText),
+          ),
         ),
+      ] else ...<Widget>[
+        // Some durante o envio, como no protótipo (Recuperar senha · Enviando).
+        const SizedBox(height: DesignTokens.space5),
+        BotaoTextual(texto: 'Voltar para entrar', larguraTotal: true, onPressed: widget.aoVoltarParaLogin),
       ],
-      const SizedBox(height: DesignTokens.space5),
-      BotaoTextual(texto: 'Voltar para entrar', larguraTotal: true, onPressed: widget.aoVoltarParaLogin),
     ];
   }
 }

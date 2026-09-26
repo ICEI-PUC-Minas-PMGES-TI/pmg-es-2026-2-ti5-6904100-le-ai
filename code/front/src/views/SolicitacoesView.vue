@@ -5,6 +5,7 @@ import { RouterLink } from 'vue-router'
 
 import FimDaLista from '../components/perfil/FimDaLista.vue'
 import LinhaDeLeitor from '../components/perfil/LinhaDeLeitor.vue'
+import SkeletonDeLeitor from '../components/perfil/SkeletonDeLeitor.vue'
 import BannerAviso from '../components/ui/BannerAviso.vue'
 import BotaoTextual from '../components/ui/BotaoTextual.vue'
 import DialogoConfirmacao from '../components/ui/DialogoConfirmacao.vue'
@@ -107,27 +108,22 @@ async function recusar(): Promise<void> {
 </script>
 
 <template>
-  <div class="max-w-[720px] pb-space-10 pt-space-4">
+  <div class="flex min-h-full max-w-[720px] flex-col pb-space-10 pt-space-4">
     <ul
       v-if="pedidos.carregando.value"
       aria-busy="true"
       aria-label="Carregando solicitações"
+      class="md:flex md:flex-col md:gap-space-3"
     >
       <li
         v-for="n in 3"
         :key="n"
-        class="flex flex-col gap-space-3 border-b border-linha py-space-4"
+        class="flex flex-col gap-space-3 border-b border-linha py-space-4 md:flex-row md:items-center md:rounded-base md:border md:p-space-4"
       >
-        <span class="flex items-center gap-space-4">
-          <span class="size-12 shrink-0 rounded-full bg-capa-placeholder" />
-          <span class="flex flex-1 flex-col gap-space-2">
-            <span class="h-[17px] w-[40%] rounded-sm bg-capa-placeholder" />
-            <span class="h-[13px] w-[25%] rounded-sm bg-capa-placeholder" />
-          </span>
-        </span>
-        <span class="flex justify-end gap-space-3">
-          <span class="h-10 w-24 rounded-base bg-capa-placeholder" />
-          <span class="h-10 w-24 rounded-full bg-capa-placeholder" />
+        <SkeletonDeLeitor />
+        <span class="flex shrink-0 justify-end gap-space-3">
+          <span class="h-10 w-24 rounded-base bg-capa-placeholder md:h-9" />
+          <span class="h-10 w-24 rounded-full bg-capa-placeholder md:h-9" />
         </span>
       </li>
     </ul>
@@ -135,6 +131,7 @@ async function recusar(): Promise<void> {
     <BannerAviso
       v-else-if="pedidos.falhou.value"
       variante="erro"
+      triangulo
     >
       Não foi possível carregar suas solicitações. Verifique sua conexão e tente de novo.
       <BotaoTextual
@@ -148,23 +145,24 @@ async function recusar(): Promise<void> {
     <EstadoVazio
       v-else-if="pedidos.itens.value.length === 0"
       :icone="PhUserPlus"
+      solto
       titulo="Nenhuma solicitação pendente"
-      class="mx-auto mt-space-6 max-w-[280px]"
+      class="m-auto py-space-10"
     >
       <template v-if="privacidade === 'publico'">
-        <p class="mt-space-3 text-body text-grafite">
+        <p class="mt-space-3 max-w-[300px] text-body text-grafite">
           Seu perfil é público, então quem quiser seguir você segue na hora. Pedidos só existem em perfil privado.
         </p>
         <RouterLink
           to="/perfil/editar"
-          class="mt-space-4 flex min-h-12 items-center text-body-strong text-musgo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo md:min-h-10"
+          class="mt-space-6 flex min-h-12 items-center text-body-strong text-musgo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo md:min-h-10"
         >
           Editar perfil
         </RouterLink>
       </template>
       <p
         v-else
-        class="mt-space-3 text-body text-grafite"
+        class="mt-space-3 max-w-[300px] text-body text-grafite"
       >
         Pedidos para seguir seu perfil privado aparecem aqui.
       </p>
@@ -172,7 +170,7 @@ async function recusar(): Promise<void> {
 
     <template v-else>
       <div
-        class="border-b border-linha pb-space-4"
+        class="border-b border-linha pb-space-4 md:border-b-0 md:pb-space-2"
         aria-live="polite"
       >
         <p class="text-caption text-grafite">
@@ -243,14 +241,29 @@ async function recusar(): Promise<void> {
           </p>
         </li>
       </ul>
+      <ul
+        v-if="pedidos.carregandoMais.value"
+        aria-busy="true"
+        aria-label="Carregando mais"
+        class="md:mt-space-3"
+      >
+        <li class="flex flex-col gap-space-3 border-b border-linha py-space-4 md:flex-row md:items-center md:rounded-base md:border md:p-space-4">
+          <SkeletonDeLeitor />
+          <span class="flex shrink-0 justify-end gap-space-3">
+            <span class="h-10 w-24 rounded-base bg-capa-placeholder md:h-9" />
+            <span class="h-10 w-24 rounded-full bg-capa-placeholder md:h-9" />
+          </span>
+        </li>
+      </ul>
       <FimDaLista
-        v-if="pedidos.temMais.value && !pedidos.carregandoMais.value"
+        v-else-if="pedidos.temMais.value"
         :falhou="pedidos.falhouMais.value"
         @carregar="pedidos.carregarMais()"
       />
     </template>
 
     <DialogoConfirmacao
+      compacto
       :aberta="recusando !== null"
       :titulo="recusando ? `Recusar a solicitação de ${primeiroNome(recusando.solicitante.displayName)}?` : ''"
       rotulo-confirmar="Recusar"

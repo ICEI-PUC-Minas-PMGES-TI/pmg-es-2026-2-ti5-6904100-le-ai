@@ -94,7 +94,18 @@ List<RouteBase> rotasDeDescobrir(DependenciasDeLivros deps) => <RouteBase>[
           enviador: deps.enviador,
           aoCancelar: () => _voltar(context, rotaAdicionarLivro),
           // O livro nasce na estante do dono: a página dele mora na aba Estante.
-          aoSalvar: (livro) => context.go(rotaLivroPessoalNaEstante(livro.id)),
+          // Antes de trocar de aba, esvazia a pilha da aba Descobrir com `pop()`: como o shell é
+          // um `indexedStack`, o formulário preenchido continuaria vivo aqui e reapareceria ao
+          // voltar para Descobrir. Não dá para fazer isso com `go('/descobrir')` + `go(estante)`
+          // no mesmo frame — o go_router funde as duas navegações e só a última vale, deixando
+          // Descobrir intacta. Os `pop()` são imperativos e imediatos na pilha da aba.
+          aoSalvar: (livro) {
+            final router = GoRouter.of(context);
+            while (router.canPop()) {
+              router.pop();
+            }
+            router.go(rotaLivroPessoalNaEstante(livro.id));
+          },
         ),
       ),
     ],

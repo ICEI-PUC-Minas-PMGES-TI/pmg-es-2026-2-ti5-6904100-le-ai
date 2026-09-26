@@ -58,6 +58,14 @@ class CampoTexto extends StatelessWidget {
   final TextStyle? estiloDoTexto;
   final FocusNode? focusNode;
 
+  /// Ícone Phosphor à esquerda, dentro do campo (protótipos de F-AUT/login e cadastro: 20px,
+  /// `grafite-suave`). Decorativo: o label já diz o que o campo é, então fica fora da semântica.
+  final IconData? icone;
+
+  /// Mensagem de erro logo abaixo do campo e o helper depois dela (alterar-senha.md §4.3 e os
+  /// protótipos de recuperar e redefinir senha). O padrão é o do cadastro.md §4.3: helper, erro.
+  final bool erroAntesDoHelper;
+
   const CampoTexto({
     super.key,
     required this.controller,
@@ -79,6 +87,8 @@ class CampoTexto extends StatelessWidget {
     this.inputFormatters,
     this.estiloDoTexto,
     this.focusNode,
+    this.icone,
+    this.erroAntesDoHelper = false,
   });
 
   @override
@@ -120,6 +130,18 @@ class CampoTexto extends StatelessWidget {
               horizontal: DesignTokens.space4,
               vertical: DesignTokens.space3,
             ),
+            prefixIcon: icone == null
+                ? null
+                : ExcludeSemantics(
+                    child: Padding(
+                      padding: const EdgeInsetsDirectional.only(
+                        start: DesignTokens.space4,
+                        end: DesignTokens.space2,
+                      ),
+                      child: Icon(icone, size: 20, color: theme.tertiaryText),
+                    ),
+                  ),
+            prefixIconConstraints: const BoxConstraints(),
             suffixIcon: trailing,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(DesignTokens.radius),
@@ -145,6 +167,15 @@ class CampoTexto extends StatelessWidget {
             ),
           ),
         ),
+        if (erro != null && erroAntesDoHelper) ...<Widget>[
+          const SizedBox(height: DesignTokens.space2),
+          Text(
+            erro!,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.error,
+            ),
+          ),
+        ],
         if (helper != null) ...<Widget>[
           const SizedBox(height: DesignTokens.space2),
           Text(
@@ -154,7 +185,7 @@ class CampoTexto extends StatelessWidget {
             ),
           ),
         ],
-        if (erro != null) ...<Widget>[
+        if (erro != null && !erroAntesDoHelper) ...<Widget>[
           const SizedBox(height: DesignTokens.space2),
           Text(
             erro!,

@@ -144,7 +144,8 @@ class _ConexoesPageState extends State<ConexoesPage> {
     final theme = Theme.of(context);
     return Column(
       children: <Widget>[
-        CabecalhoTela(titulo: 'Conexões', aoVoltar: widget.aoVoltar),
+        // Sem divisor: a borda das abas logo abaixo já separa, como no protótipo.
+        CabecalhoTela(titulo: 'Conexões', aoVoltar: widget.aoVoltar, semDivisor: true),
         _faixaDeAbas(theme),
         Expanded(
           child: NotificationListener<ScrollNotification>(
@@ -207,16 +208,17 @@ class _ConexoesPageState extends State<ConexoesPage> {
 
   Widget _conteudo(ThemeData theme) {
     final lista = _lista;
-    const margem = EdgeInsets.symmetric(horizontal: DesignTokens.space5);
+    // Os divisores vão de ponta a ponta, como nos protótipos: o recuo lateral fica dentro de
+    // cada linha, não no padding da lista.
+    const recuo = EdgeInsets.symmetric(
+      horizontal: DesignTokens.space5,
+      vertical: DesignTokens.space4,
+    );
     if (lista.carregando) {
       return ListView(
-        padding: margem,
         children: List<Widget>.generate(
           6,
-          (_) => const Padding(
-            padding: EdgeInsets.symmetric(vertical: DesignTokens.space4),
-            child: SkeletonDeLinha(),
-          ),
+          (_) => const SkeletonDeLinha(botoes: BotoesDoSkeleton.aDireita, comDivisor: true),
         ),
       );
     }
@@ -224,43 +226,50 @@ class _ConexoesPageState extends State<ConexoesPage> {
       return ListView(
         padding: const EdgeInsets.all(DesignTokens.space5),
         children: <Widget>[
-          const BannerAviso(
+          BannerAviso(
             variante: VarianteAviso.erro,
+            triangulo: true,
             mensagem: 'Não foi possível carregar suas conexões. Verifique sua conexão e tente de novo.',
+            acao: BotaoTextual(texto: 'Tentar de novo', onPressed: lista.carregar),
           ),
-          const SizedBox(height: DesignTokens.space2),
-          BotaoTextual(texto: 'Tentar de novo', onPressed: lista.carregar),
         ],
       );
     }
     if (lista.itens.isEmpty) {
       final seguidores = _aba == AbaDeConexoes.seguidores;
-      return ListView(
-        padding: const EdgeInsets.fromLTRB(
-          DesignTokens.space5,
-          DesignTokens.space10,
-          DesignTokens.space5,
-          DesignTokens.space5,
-        ),
-        children: <Widget>[
-          EstadoVazio(
-            icone: PhosphorIconsRegular.users,
-            titulo: seguidores ? 'Ninguém segue você ainda' : 'Você ainda não segue ninguém',
-            texto: seguidores
-                ? 'Quando alguém começar a seguir você, aparece aqui.'
-                : 'Busque um leitor pelo nome de usuário para começar a montar seu feed.',
-            // Na aba Seguidores não há o que fazer para ganhar seguidores; sem CTA inventado.
-            rodape: seguidores
-                ? null
-                : BotaoPrimario(texto: 'Buscar leitor', onPressed: widget.aoBuscarLeitor),
+      // Centrado na vertical da área abaixo das abas, como nos protótipos; rola se não couber.
+      return CustomScrollView(
+        slivers: <Widget>[
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Padding(
+              padding: const EdgeInsets.all(DesignTokens.space5),
+              child: Center(
+                child: EstadoVazio(
+                  icone: PhosphorIconsRegular.users,
+                  solto: true,
+                  titulo: seguidores ? 'Ninguém segue você ainda' : 'Você ainda não segue ninguém',
+                  texto: seguidores
+                      ? 'Quando alguém começar a seguir você, aparece aqui.'
+                      : 'Busque um leitor pelo nome de usuário para começar a montar seu feed.',
+                  // Na aba Seguidores não há o que fazer para ganhar seguidores; sem CTA inventado.
+                  rodape: seguidores
+                      ? null
+                      : BotaoPrimario(
+                          texto: 'Buscar leitor',
+                          larguraTotal: false,
+                          onPressed: widget.aoBuscarLeitor,
+                        ),
+                ),
+              ),
+            ),
           ),
         ],
       );
     }
     return ListView.separated(
-      padding: margem,
       itemCount: lista.itens.length + 1,
-      separatorBuilder: (_, _) => Divider(height: 1, color: theme.divider),
+      separatorBuilder: (_, _) => Divider(height: 1, thickness: 1, color: theme.divider),
       itemBuilder: (context, indice) {
         if (indice == lista.itens.length) {
           return FimDaLista(
@@ -268,11 +277,17 @@ class _ConexoesPageState extends State<ConexoesPage> {
             carregandoMais: lista.carregandoMais,
             falhou: lista.falhouMais,
             aoCarregar: lista.carregarMais,
+            esqueleto: const Column(
+              children: <Widget>[
+                SkeletonDeLinha(botoes: BotoesDoSkeleton.aDireita, comDivisor: true),
+                SkeletonDeLinha(botoes: BotoesDoSkeleton.aDireita, comDivisor: true),
+              ],
+            ),
           );
         }
         final leitor = lista.itens[indice];
         return Padding(
-          padding: const EdgeInsets.symmetric(vertical: DesignTokens.space4),
+          padding: recuo,
           child: LinhaDeLeitor(
             leitor: leitor,
             aoAbrir: () => widget.aoAbrirPerfil(leitor.username),
@@ -280,12 +295,14 @@ class _ConexoesPageState extends State<ConexoesPage> {
                 ? BotaoDeLinha(
                     texto: 'Remover',
                     destrutivo: true,
+                    compacto: true,
                     rotuloAcessivel: 'Remover ${leitor.displayName} dos seus seguidores',
                     aoTocar: () => _remover(leitor),
                   )
                 : BotaoDeLinha(
                     texto: 'Seguindo',
                     icone: PhosphorIconsBold.check,
+                    compacto: true,
                     rotuloAcessivel: 'Seguindo ${leitor.displayName}. Deixar de seguir',
                     aoTocar: () => _deixarDeSeguir(leitor),
                   ),

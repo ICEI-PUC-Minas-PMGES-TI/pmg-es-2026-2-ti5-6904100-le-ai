@@ -184,12 +184,18 @@ Toda feature é classificada em `prioritaria`, `desejavel` ou `opcional` no Plan
 
 | Ambiente | Origem | Propósito |
 |---|---|---|
-| Local | máquina do dev | desenvolvimento; banco Postgres local do dev |
-| **DES/HML** | branch `main` | ambiente rodando de verdade a cada merge; é o que demonstramos e o que vale como "release" da sprint |
+| Local | máquina do dev | desenvolvimento, contra o banco e o broker **de desenvolvimento** (Neon `le-ai` e CloudAMQP `Le-ai`, em São Paulo); testes de integração em Postgres descartável (Docker ou CI) |
+| **DES/HML** | branch `main` | ambiente rodando de verdade a cada merge; é o que demonstramos e o que vale como "release" da sprint. Banco e broker próprios (Neon `le-ai-oregon` e CloudAMQP `Le-ai-oregon`, em Oregon, mesma região do Render) |
 | **PROD** | tag `vX.Y.Z` | só a partir de 24/11 |
 
 - Hospedagem: Render (ou equivalente), conectado ao repo da faculdade. Detalhes de provisionamento vão para `docs/orquestador/REQUISITOS.md` / Documento de Arquitetura.
-- Banco: um projeto Neon com **uma branch fixa para DES/HML** — **não há branch de banco por dev** (decisão da equipe em 12/09/2026); o desenvolvimento local usa Postgres local. Isolamento entre serviços (schema ou database por serviço) é decisão de `docs/orquestador/REQUISITOS.md`.
+- **Banco e broker: um par por ambiente**, decidido em 25/09/2026 e revisando a decisão de 12/09/2026.
+  - **Projetos:** o DES/HML tem projeto Neon e instância CloudAMQP próprios em Oregon (`aws-us-west-2`), junto do Render. O desenvolvimento usa o projeto Neon e a instância CloudAMQP de São Paulo (`aws-sa-east-1`).
+  - **Sem replicação:** o que se grava num ambiente não aparece no outro. Levar dados de um para o outro é cópia manual e completa (`pg_dump`/`pg_restore`), que substitui o destino e é combinada com o grupo.
+  - **Sem branch por dev:** não há branch de banco por dev dentro de cada projeto.
+  - **Migrations:** as aplicadas localmente só alteram o banco de dev. O DES as recebe no deploy da `main`.
+  - Detalhes e evidência em [P0-DEPLOY](../plano-de-desenvolvimento/periodo-0/feature-P0-DEPLOY.md).
+  - Isolamento entre serviços (schema ou database por serviço) é decisão de `docs/orquestador/REQUISITOS.md`.
 - Mobile em DES: APK gerado como artefato do CI a cada merge em `main`. Nada de "funciona na minha máquina".
 - Segredos: `.env.example` versionado, `.env` nunca. Variáveis reais só no painel do provedor e no GitHub Secrets.
 
@@ -250,7 +256,7 @@ Regras de uso:
 2. O agente atualiza o arquivo da feature **ao final da sessão de implementação**: status, pendências, decisões tomadas. Sessões exclusivamente de pesquisa, auditoria ou revisão somente leitura entregam o relatório solicitado e não alteram a feature.
 3. O agente não edita arquivos de features que não são a dele.
 4. O agente não altera nenhum arquivo de `docs/orquestador/` por conta própria. Divergência vira pendência no arquivo da feature e decisão do grupo; edição do orquestrador exige autorização humana explícita.
-5. Protótipo é referência visual, não especificação de pixel. Viewport fixo no protótipo não significa layout fixo na implementação.
+5. **O protótipo renderizado é a fonte visual da tela; o prompt de design é só o kickstart.** O prompt (`docs/design/.../<tela>.md`) dá a partida no Claude Design, mas o desenho continua evoluindo lá dentro e o resultado aprovado vive no protótipo `.html`, não no prompt — que fica desatualizado por natureza. Ao implementar, **abra o protótipo no navegador e trabalhe contra ele**, nunca a partir do prompt; ao terminar, confira a tela rodando lado a lado com o protótipo. É referência **visual**, não especificação de pixel: copia-se a estrutura (hierarquia, ordem, agrupamento, densidade, tipografia, cor, **e as ilustrações e estados vazios**), não as coordenadas, e viewport fixo não significa layout fixo. Se faltar dado no contrato para implementar o design aprovado, **traga o conflito como pergunta a quem decide** (pode ser caso de mudar o contrato) em vez de cortar o elemento em silêncio. Detalhamento por plataforma em [`docs/design/AGENTS.md`](../design/AGENTS.md) §10.
 
 ---
 

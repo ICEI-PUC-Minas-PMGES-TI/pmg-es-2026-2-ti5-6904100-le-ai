@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { nextTick, reactive, ref } from 'vue'
+import { PhAt, PhEnvelopeSimple, PhUser } from '@phosphor-icons/vue'
+import { nextTick, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import PoliticaPublica from '../components/PoliticaPublica.vue'
@@ -13,9 +14,13 @@ import LayoutAutenticacao from '../layouts/LayoutAutenticacao.vue'
 import { ApiError, novaChaveIdempotencia } from '../services/api'
 import { authService, type CadastroRequisicao } from '../services/auth'
 import { iniciarSessao } from '../session'
+import { SENHAS_DIFERENTES } from './validacaoDeSenha'
 
 /**
- * Cadastro (RF-AUT-01). Layout e cópia de docs/design/periodo-0/P0-NAV/cadastro.md.
+ * Cadastro (RF-AUT-01). Layout e cópia de docs/design/periodo-0/P0-NAV/cadastro.md. A coluna
+ * ilustrada, o selo e os ícones nos campos vêm do protótipo de F-AUT (desenho aprovado); a
+ * validação ao sair do campo foi pedida no teste de aceite de 25/09. As duas divergências do
+ * prompt estão registradas em feature-F-AUT.md.
  *
  * Regras de validação do cliente espelham exatamente as do servidor (CadastroRequisicao.java):
  * mesmos campos, mesmas mensagens. "Validação no cliente reforça a do servidor, nunca
@@ -46,6 +51,9 @@ const username = ref('')
 const displayName = ref('')
 const dataNascimento = ref('')
 const senha = ref('')
+// Confirmação só no cliente (decisão do dono de 25/09, protótipo de F-AUT): não vai no corpo do
+// POST /auth/register, que continua o mesmo contrato.
+const confirmacaoSenha = ref('')
 
 const erros = reactive<{
   email?: string
@@ -53,6 +61,7 @@ const erros = reactive<{
   displayName?: string
   dataNascimento?: string
   senha?: string
+  confirmacaoSenha?: string
 }>({})
 // Conflito de e-mail/username (409) explica o erro no banner; o campo só ganha a borda, sem
 // repetir a mensagem (login.md §4.2 vale aqui também: dizer a mesma coisa duas vezes não ajuda).
@@ -90,50 +99,86 @@ function limparErros(): void {
   erros.displayName = undefined
   erros.dataNascimento = undefined
   erros.senha = undefined
+  erros.confirmacaoSenha = undefined
   bordaDeErroUsername.value = false
   bordaDeErroEmail.value = false
   bannerErro.value = ''
 }
 
+type Campo = 'email' | 'username' | 'displayName' | 'dataNascimento' | 'senha' | 'confirmacaoSenha'
+
+const validadores: Record<Campo, () => string | undefined> = {
+  email: () => {
+    const aparado = email.value.trim()
+    if (!aparado) {
+      return 'Informe seu e-mail.'
+    }
+    return aparado.length > 254 || !EMAIL_REGEX.test(aparado) ? 'Informe um e-mail válido.' : undefined
+  },
+  username: () => {
+    const aparado = username.value.trim()
+    if (!aparado) {
+      return 'Escolha um nome de usuário.'
+    }
+    return USERNAME_REGEX.test(aparado)
+      ? undefined
+      : 'Use de 3 a 30 caracteres, sem espaço: letras, números, ponto ou traço baixo.'
+  },
+  displayName: () => {
+    const aparado = displayName.value.trim()
+    if (!aparado) {
+      return 'Informe seu nome de exibição.'
+    }
+    return aparado.length > 60 ? 'Use no máximo 60 caracteres.' : undefined
+  },
+  dataNascimento: () => {
+    if (!dataNascimento.value) {
+      return 'Informe sua data de nascimento.'
+    }
+    return maiorDeIdade(dataNascimento.value)
+      ? undefined
+      : 'É necessário ter 18 anos ou mais para criar uma conta.'
+  },
+  senha: () => {
+    if (!senha.value) {
+      return 'Escolha uma senha.'
+    }
+    if (senha.value.length < 8) {
+      return 'Use pelo menos 8 caracteres.'
+    }
+    return senha.value.length > 72 ? 'A senha pode ter no máximo 72 caracteres.' : undefined
+  },
+  // Mesma mensagem de redefinir senha. Com a senha vazia o erro fica só nela, não nas duas.
+  confirmacaoSenha: () =>
+    senha.value && confirmacaoSenha.value !== senha.value ? SENHAS_DIFERENTES : undefined,
+}
+
+const CAMPOS = Object.keys(validadores) as Campo[]
+
+/**
+ * Validação ao sair do campo: o erro aparece quando a pessoa deixa o campo, não só no envio.
+ * Depois de tocado, o campo revalida a cada digitação, para o erro sumir assim que é corrigido
+ * (e não esperar outro blur). O botão continua ativo o tempo todo (cadastro.md §4.1).
+ */
+const tocados = new Set<Campo>()
+
+function aoSair(campo: Campo): void {
+  tocados.add(campo)
+  erros[campo] = validadores[campo]()
+}
+
+watch([email, username, displayName, dataNascimento, senha, confirmacaoSenha], () => {
+  for (const campo of tocados) {
+    erros[campo] = validadores[campo]()
+  }
+})
+
 function validarCliente(): boolean {
-  const emailAparado = email.value.trim()
-  if (!emailAparado) {
-    erros.email = 'Informe seu e-mail.'
-  } else if (emailAparado.length > 254 || !EMAIL_REGEX.test(emailAparado)) {
-    erros.email = 'Informe um e-mail válido.'
+  for (const campo of CAMPOS) {
+    tocados.add(campo)
+    erros[campo] = validadores[campo]()
   }
-
-  const usernameAparado = username.value.trim()
-  if (!usernameAparado) {
-    erros.username = 'Escolha um nome de usuário.'
-  } else if (!USERNAME_REGEX.test(usernameAparado)) {
-    erros.username = 'Use de 3 a 30 caracteres, sem espaço: letras, números, ponto ou traço baixo.'
-  }
-
-  const displayNameAparado = displayName.value.trim()
-  if (!displayNameAparado) {
-    erros.displayName = 'Informe seu nome de exibição.'
-  } else if (displayNameAparado.length > 60) {
-    erros.displayName = 'Use no máximo 60 caracteres.'
-  }
-
-  if (!dataNascimento.value) {
-    erros.dataNascimento = 'Informe sua data de nascimento.'
-  } else if (!maiorDeIdade(dataNascimento.value)) {
-    erros.dataNascimento = 'É necessário ter 18 anos ou mais para criar uma conta.'
-  }
-
-  if (!senha.value) {
-    erros.senha = 'Escolha uma senha.'
-  } else if (senha.value.length < 8) {
-    erros.senha = 'Use pelo menos 8 caracteres.'
-  } else if (senha.value.length > 72) {
-    erros.senha = 'A senha pode ter no máximo 72 caracteres.'
-  }
-
-  return (
-    !erros.email && !erros.username && !erros.displayName && !erros.dataNascimento && !erros.senha
-  )
+  return CAMPOS.every((campo) => !erros[campo])
 }
 
 function tratarErro(erro: unknown): void {
@@ -211,7 +256,10 @@ async function enviar(): Promise<void> {
     v-if="vendoPolitica"
     @voltar="fecharPolitica"
   />
-  <LayoutAutenticacao v-else>
+  <LayoutAutenticacao
+    v-else
+    ilustrada
+  >
     <div class="md:hidden">
       <LogoLeAi :altura="24" />
     </div>
@@ -233,10 +281,18 @@ async function enviar(): Promise<void> {
       class="mt-space-8 md:mt-space-6"
       @submit.prevent="enviar"
     >
+      <!-- Durante o envio o formulário dá lugar a um indicador centralizado, como no protótipo
+           (Cadastro · Enviando). Os valores ficam nos refs e voltam se o envio falhar. -->
+      <div
+        v-if="enviando"
+        class="flex justify-center py-space-12"
+        aria-hidden="true"
+      >
+        <span class="size-[36px] animate-spin rounded-full border-3 border-musgo-fundo border-t-musgo motion-reduce:animate-none" />
+      </div>
       <fieldset
-        :disabled="enviando"
+        v-else
         class="m-0 min-w-0 border-0 p-0"
-        :class="enviando ? 'opacity-60' : ''"
       >
         <div class="flex flex-col gap-space-5">
           <CampoTexto
@@ -244,21 +300,27 @@ async function enviar(): Promise<void> {
             type="email"
             label="E-mail"
             autocomplete="email"
+            :icone="PhEnvelopeSimple"
             :erro="erros.email"
             :borda-de-erro="bordaDeErroEmail"
+            @blur="aoSair('email')"
           />
           <CampoTexto
             v-model="username"
             label="Nome de usuário"
             autocomplete="username"
+            :icone="PhAt"
             :erro="erros.username"
             :borda-de-erro="bordaDeErroUsername"
+            @blur="aoSair('username')"
           />
           <CampoTexto
             v-model="displayName"
             label="Nome de exibição"
             autocomplete="name"
+            :icone="PhUser"
             :erro="erros.displayName"
+            @blur="aoSair('displayName')"
           />
           <CampoTexto
             v-model="dataNascimento"
@@ -266,13 +328,24 @@ async function enviar(): Promise<void> {
             label="Data de nascimento"
             autocomplete="bday"
             :erro="erros.dataNascimento"
+            @blur="aoSair('dataNascimento')"
           />
           <CampoSenha
             v-model="senha"
             label="Senha"
             autocomplete="new-password"
             helper="Mínimo de 8 caracteres"
+            com-icone
             :erro="erros.senha"
+            @blur="aoSair('senha')"
+          />
+          <CampoSenha
+            v-model="confirmacaoSenha"
+            label="Confirmar senha"
+            autocomplete="new-password"
+            com-icone
+            :erro="erros.confirmacaoSenha"
+            @blur="aoSair('confirmacaoSenha')"
           />
         </div>
       </fieldset>
@@ -281,35 +354,38 @@ async function enviar(): Promise<void> {
         tipo="submit"
         class="mt-space-8"
         :carregando="enviando"
+        carregando-esmaecido
       >
         {{ enviando ? 'Criando conta' : 'Criar conta' }}
       </BotaoPrimario>
       <p
         v-if="enviando"
-        class="mt-space-3 text-caption text-grafite"
+        class="mt-space-3 text-center text-caption text-grafite"
       >
         O servidor está iniciando. Isso pode levar alguns segundos.
       </p>
     </form>
 
-    <!-- RNF-SEC-42 (edição de F-AUT, cadastro.md §4): informação, não aceite. Sem checkbox. -->
+    <!-- RNF-SEC-42 (edição de F-AUT, cadastro.md §4): informação, não aceite. Sem checkbox. O link
+         fica inline no fim da frase, como no protótipo; o padding vertical só aumenta o alvo de toque. -->
     <p
       class="mt-space-5 text-center text-caption text-grafite md:text-left"
-      :class="enviando ? 'pointer-events-none opacity-60' : ''"
+      :class="enviando ? 'pointer-events-none opacity-40' : ''"
     >
       Coletamos o mínimo de dados para manter sua conta. Veja o que guardamos e por quanto tempo na
       <a
         ref="linkDaPolitica"
         href="#politica-de-privacidade"
-        class="inline-flex min-h-12 items-center font-semibold text-musgo underline-offset-2 transition-colors duration-dur-fast hover:underline focus-visible:underline md:min-h-0"
+        class="py-space-3 font-semibold text-musgo underline-offset-2 transition-colors duration-dur-fast hover:underline focus-visible:underline md:py-0"
         :tabindex="enviando ? -1 : undefined"
         @click.prevent="abrirPolitica"
       >Política de privacidade</a>.
     </p>
 
-    <p class="mt-space-5 text-body text-grafite">
-      Já tem conta?
+    <p class="mt-space-5 flex flex-wrap justify-center gap-space-1 text-body text-grafite md:justify-start">
+      <span>Já tem conta?</span>
       <BotaoTextual
+        class="p-0!"
         href="/login"
         @click.prevent="router.push('/login')"
       >

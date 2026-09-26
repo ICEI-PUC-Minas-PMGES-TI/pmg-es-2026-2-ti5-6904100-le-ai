@@ -20,7 +20,6 @@ import 'widgets_de_perfil.dart';
 
 const int _limiteDoNome = 60;
 const int _limiteDaBiografia = 1000;
-const int _avisoDaBiografia = 900;
 
 /// Editar perfil (RF-SOC-01/04), a partir de docs/design/periodo-1/F-PERFIL/editar-perfil.md §4.
 /// Nome de exibição, biografia, avatar e privacidade; o username não muda. Mesma lógica da web
@@ -30,8 +29,10 @@ const int _avisoDaBiografia = 900;
 ///   `identidade`. O upload não trava os campos; recusa, falha ou `422` voltam a foto anterior.
 /// - **Sair com alterações** pelo `X` ou pelo voltar do sistema passa pelo modal de descarte.
 ///   Trocar de aba não perde a edição: o shell preserva a pilha de cada aba.
-/// - **Biografia com contador de 1000**, o teto técnico do servidor; o protótipo dispensava
-///   contador por falta de limite.
+/// - **Biografia sem contador**, como no protótipo. O teto técnico de 1000 do servidor continua
+///   na validação: passou dele, o erro aparece no campo e o salvar trava.
+/// - **Contador do nome** fora do helper, à direita e em mono; com erro, vem depois da mensagem
+///   e em `rubi` (protótipo, artboards padrão e nome vazio).
 class EditarPerfilPage extends StatefulWidget {
   final PerfilService servico;
   final SeletorDeImagem seletor;
@@ -147,6 +148,16 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
     }
     if (_nomeLimpo.length > _limiteDoNome) {
       return 'Use no máximo $_limiteDoNome caracteres.';
+    }
+    return null;
+  }
+
+  String? get _erroDaBiografia {
+    if (_erroDoServidorBiografia != null) {
+      return _erroDoServidorBiografia;
+    }
+    if (_biografia.text.length > _limiteDaBiografia) {
+      return 'Use no máximo $_limiteDaBiografia caracteres.';
     }
     return null;
   }
@@ -336,13 +347,14 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
             titulo: 'Editar perfil',
             aoVoltar: _sair,
             fechar: true,
+            semDivisor: true,
             // §4: tela de edição com ação de salvar, e o sino competiria com ela.
             comSino: false,
             acoes: <Widget>[
               _salvando
                   ? Text(
                       'Salvando',
-                      style: theme.textTheme.bodySmall?.copyWith(color: theme.secondaryText),
+                      style: theme.textTheme.labelLarge?.copyWith(color: theme.secondaryText),
                     )
                   : BotaoTextual(texto: 'Salvar', onPressed: _podeSalvar ? _salvar : null),
             ],
@@ -355,10 +367,7 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
 
   Widget _corpo(ThemeData theme) {
     if (_carregando) {
-      return const Padding(
-        padding: EdgeInsets.all(DesignTokens.space5),
-        child: SkeletonDeIdentidade(),
-      );
+      return const _SkeletonDoFormulario();
     }
     final original = _original;
     if (_falhouCarga || original == null) {
@@ -392,70 +401,88 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
           const SizedBox(height: DesignTokens.space6),
           Divider(height: 1, color: theme.divider),
           const SizedBox(height: DesignTokens.space6),
-          _usernameFixo(theme, original.username),
-          const SizedBox(height: DesignTokens.space6),
-          CampoTexto(
-            controller: _nome,
-            label: 'Nome de exibição',
-            helper: '${_nomeLimpo.length}/$_limiteDoNome',
-            erro: _erroDoNome,
-            enabled: !_salvando,
-            autofillHints: const <String>[AutofillHints.name],
-          ),
-          const SizedBox(height: DesignTokens.space6),
-          CampoTexto(
-            controller: _biografia,
-            label: 'Biografia',
-            helper: 'Aparece no seu perfil em até três linhas.',
-            erro: _erroDoServidorBiografia,
-            minLines: 4,
-            maxLines: 8,
-            keyboardType: TextInputType.multiline,
-            enabled: !_salvando,
-          ),
-          const SizedBox(height: DesignTokens.space1),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              '${_biografia.text.length}/$_limiteDaBiografia',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: _biografia.text.length > _avisoDaBiografia
-                    ? theme.warningColor
-                    : theme.tertiaryText,
-              ),
+          // Durante o salvamento, campos e privacidade esmaecem a 50% (protótipo 06).
+          AnimatedOpacity(
+            opacity: _salvando ? 0.5 : 1,
+            duration: DesignTokens.durFast,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                _usernameFixo(theme, original.username),
+                const SizedBox(height: DesignTokens.space6),
+                CampoTexto(
+                  controller: _nome,
+                  label: 'Nome de exibição',
+                  erro: _erroDoNome,
+                  enabled: !_salvando,
+                  autofillHints: const <String>[AutofillHints.name],
+                ),
+                // Contador fora do helper: à direita, em mono, e depois do erro quando há um.
+                const SizedBox(height: DesignTokens.space2),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    '${_nomeLimpo.length}/$_limiteDoNome',
+                    key: const Key('contador-do-nome'),
+                    style: theme.numInline.copyWith(
+                      fontSize: theme.textTheme.bodySmall?.fontSize,
+                      height: theme.textTheme.bodySmall?.height,
+                      color: _erroDoNome != null ? theme.colorScheme.error : theme.tertiaryText,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: DesignTokens.space6),
+                CampoTexto(
+                  controller: _biografia,
+                  label: 'Biografia',
+                  helper: 'Aparece no seu perfil em até três linhas.',
+                  erro: _erroDaBiografia,
+                  erroAntesDoHelper: true,
+                  minLines: 4,
+                  maxLines: 8,
+                  keyboardType: TextInputType.multiline,
+                  enabled: !_salvando,
+                ),
+                const SizedBox(height: DesignTokens.space8),
+                Divider(height: 1, color: theme.divider),
+                const SizedBox(height: DesignTokens.space6),
+                Semantics(
+                  header: true,
+                  child: Text('Privacidade', style: theme.textTheme.headlineSmall),
+                ),
+                const SizedBox(height: DesignTokens.space4),
+                _OpcaoDePrivacidade(
+                  icone: PhosphorIconsRegular.globe,
+                  titulo: 'Público',
+                  descricao: 'Qualquer leitor vê sua estante, suas notas e suas resenhas.',
+                  selecionada: _privacidade == Privacidade.publico,
+                  aoTocar: _salvando
+                      ? null
+                      : () => setState(() => _privacidade = Privacidade.publico),
+                ),
+                const SizedBox(height: DesignTokens.space3),
+                _OpcaoDePrivacidade(
+                  icone: PhosphorIconsRegular.lock,
+                  titulo: 'Privado',
+                  descricao: 'Só quem você aceitar vê sua estante, suas notas e suas resenhas.',
+                  selecionada: _privacidade == Privacidade.privado,
+                  aoTocar: _salvando
+                      ? null
+                      : () => setState(() => _privacidade = Privacidade.privado),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: DesignTokens.space8),
-          Divider(height: 1, color: theme.divider),
-          const SizedBox(height: DesignTokens.space6),
-          Semantics(
-            header: true,
-            child: Text('Privacidade', style: theme.textTheme.headlineSmall),
-          ),
-          const SizedBox(height: DesignTokens.space4),
-          _OpcaoDePrivacidade(
-            icone: PhosphorIconsRegular.globe,
-            titulo: 'Público',
-            descricao: 'Qualquer leitor vê sua estante, suas notas e suas resenhas.',
-            selecionada: _privacidade == Privacidade.publico,
-            aoTocar: _salvando ? null : () => setState(() => _privacidade = Privacidade.publico),
-          ),
-          const SizedBox(height: DesignTokens.space3),
-          _OpcaoDePrivacidade(
-            icone: PhosphorIconsRegular.lock,
-            titulo: 'Privado',
-            descricao: 'Só quem você aceitar vê sua estante, suas notas e suas resenhas.',
-            selecionada: _privacidade == Privacidade.privado,
-            aoTocar: _salvando ? null : () => setState(() => _privacidade = Privacidade.privado),
           ),
           if (aviso != null) ...<Widget>[
             const SizedBox(height: DesignTokens.space4),
-            BannerAviso(variante: VarianteAviso.alerta, mensagem: aviso),
-            if (widget.aoVerSeguidores != null)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: BotaoTextual(texto: 'Ver seguidores', onPressed: widget.aoVerSeguidores),
-              ),
+            // `Ver seguidores` dentro do cartão âmbar, 12 abaixo do texto (protótipo 05).
+            BannerAviso(
+              variante: VarianteAviso.alerta,
+              mensagem: aviso,
+              acao: widget.aoVerSeguidores == null
+                  ? null
+                  : BotaoTextual(texto: 'Ver seguidores', onPressed: widget.aoVerSeguidores),
+            ),
           ],
           if (_coldStart) ...<Widget>[
             const SizedBox(height: DesignTokens.space4),
@@ -477,7 +504,7 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
         Stack(
           alignment: Alignment.center,
           children: <Widget>[
-            AvatarLeitor(url: _avatar?.url, bytes: _previa, tamanho: 96),
+            AvatarLeitor(url: _avatar?.url, bytes: _previa, tamanho: 96, nome: _nome.text),
             if (_enviandoAvatar)
               Container(
                 width: 96,
@@ -507,12 +534,24 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
           label: const Text('Trocar foto'),
           style: TextButton.styleFrom(
             foregroundColor: theme.primaryAccent,
+            disabledForegroundColor: theme.primaryAccent.withValues(alpha: 0.45),
             minimumSize: const Size(48, 48),
             textStyle: theme.textTheme.labelLarge,
           ),
         ),
-        if (_avatar != null && !_enviandoAvatar)
-          BotaoTextual(texto: 'Remover foto', neutro: true, onPressed: _salvando ? null : _removerFoto),
+        // Durante o envio, `Remover foto` continua no lugar, esmaecido a 45% (protótipo 02).
+        if (_avatar != null || _enviandoAvatar)
+          TextButton(
+            onPressed: _salvando || _enviandoAvatar ? null : _removerFoto,
+            style: TextButton.styleFrom(
+              foregroundColor: theme.secondaryText,
+              disabledForegroundColor: theme.secondaryText.withValues(alpha: 0.45),
+              minimumSize: const Size(48, 48),
+              textStyle: theme.textTheme.bodySmall,
+              splashFactory: NoSplash.splashFactory,
+            ),
+            child: const Text('Remover foto'),
+          ),
         if (_erroDoAvatar != null) ...<Widget>[
           const SizedBox(height: DesignTokens.space3),
           BannerAviso(variante: VarianteAviso.erro, mensagem: _erroDoAvatar!),
@@ -601,6 +640,8 @@ class _OpcaoDePrivacidade extends StatelessWidget {
               width: selecionada ? 1.5 : 1,
             ),
           ),
+          // Rádio à esquerda; na coluna de texto, ícone e título numa linha e a descrição abaixo,
+          // começando sob o ícone (protótipo, artboards padrão e privado).
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
@@ -610,13 +651,17 @@ class _OpcaoDePrivacidade extends StatelessWidget {
                 color: selecionada ? theme.primaryAccent : theme.secondaryText,
               ),
               const SizedBox(width: DesignTokens.space3),
-              Icon(icone, size: 20, color: theme.colorScheme.onSurface),
-              const SizedBox(width: DesignTokens.space3),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Text(titulo, style: theme.textTheme.labelLarge),
+                    Row(
+                      children: <Widget>[
+                        Icon(icone, size: 20, color: theme.colorScheme.onSurface),
+                        const SizedBox(width: DesignTokens.space2),
+                        Flexible(child: Text(titulo, style: theme.textTheme.labelLarge)),
+                      ],
+                    ),
                     const SizedBox(height: DesignTokens.space1),
                     Text(
                       descricao,
@@ -627,6 +672,53 @@ class _OpcaoDePrivacidade extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Skeleton com a forma do formulário (protótipo 08): círculo de 96, barra curta no lugar de
+/// `Trocar foto`, divisor e um bloco de largura total por campo, nas alturas deles (username e
+/// nome 48, biografia 112, os dois cards de privacidade 72). Estático, sem shimmer.
+class _SkeletonDoFormulario extends StatelessWidget {
+  const _SkeletonDoFormulario();
+
+  static const List<double> _alturas = <double>[48, 48, 112, 72, 72];
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    BoxDecoration forma(double raio) => BoxDecoration(
+          color: theme.coverPlaceholder,
+          borderRadius: BorderRadius.circular(raio),
+        );
+    return Semantics(
+      label: 'Carregando perfil',
+      excludeSemantics: true,
+      child: SingleChildScrollView(
+        physics: const NeverScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: DesignTokens.space5),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            const SizedBox(height: DesignTokens.space6),
+            Center(
+              child: Container(
+                width: 96,
+                height: 96,
+                decoration: BoxDecoration(color: theme.coverPlaceholder, shape: BoxShape.circle),
+              ),
+            ),
+            const SizedBox(height: DesignTokens.space3),
+            Center(child: Container(width: 120, height: 16, decoration: forma(DesignTokens.radiusSm))),
+            const SizedBox(height: DesignTokens.space6),
+            Divider(height: 1, color: theme.divider),
+            for (final altura in _alturas) ...<Widget>[
+              const SizedBox(height: DesignTokens.space6),
+              Container(height: altura, decoration: forma(DesignTokens.radius)),
+            ],
+          ],
         ),
       ),
     );

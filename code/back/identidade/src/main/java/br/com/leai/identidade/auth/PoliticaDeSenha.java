@@ -49,7 +49,10 @@ public class PoliticaDeSenha {
    * senha 422, como está em {@code docs/api/identidade.yaml}.
    */
   public void recusarSeComum(String senha, CodigoErro codigo) {
-    if (comuns.contains(senha.toLowerCase(Locale.ROOT))) {
+    // strip() só na comparação: a senha gravada continua exatamente a digitada, mas o espaço
+    // que o teclado do celular ou o preenchimento automático acrescenta no fim não tira
+    // "leai2026 " da lista.
+    if (comuns.contains(senha.strip().toLowerCase(Locale.ROOT))) {
       throw new ErroDeNegocioException(codigo, SENHA_COMUM);
     }
   }

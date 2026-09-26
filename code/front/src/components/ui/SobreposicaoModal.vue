@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 
 /**
  * Base de modal (documento-de-design §4.11): bottom sheet abaixo de 768px e, a partir dali,
  * dialog centrado de 480px, a menos que `somenteFolha` fixe a folha (menu que só existe no
  * mobile). Scrim `tinta` a 40%. Enquanto aberta, o foco fica preso dentro dela, `Esc` fecha e,
- * ao fechar, o foco volta para quem a abriu (cadastro-pessoal.md §9).
+ * ao fechar, o foco volta para quem a abriu (cadastro-pessoal.md §9). `compacto` é o dialog de
+ * 360px em `papel-elevado` dos protótipos de F-AUT e F-PERFIL.
  */
 const props = withDefaults(
   defineProps<{
@@ -14,13 +15,16 @@ const props = withDefaults(
     /** Seletor, dentro da sobreposição, do elemento que recebe o foco ao abrir. */
     focoInicial?: string
     somenteFolha?: boolean
-    /** Largura do dialog na web (`md:` e acima); o bottom sheet mobile ignora este valor. */
+    compacto?: boolean
+    /** Largura do dialog na web; sem ela, 360px no compacto e 480px no padrão. */
     larguraDialogo?: string
   }>(),
-  { focoInicial: undefined, somenteFolha: false, larguraDialogo: '480px' },
+  { focoInicial: undefined, somenteFolha: false, compacto: false, larguraDialogo: undefined },
 )
 
 const emit = defineEmits<{ fechar: [] }>()
+
+const larguraEfetiva = computed(() => props.larguraDialogo ?? (props.compacto ? '360px' : '480px'))
 
 const painel = ref<HTMLElement | null>(null)
 let quemAbriu: HTMLElement | null = null
@@ -88,9 +92,14 @@ function aoTeclar(evento: KeyboardEvent): void {
           role="dialog"
           aria-modal="true"
           :aria-label="rotulo"
-          class="painel w-full rounded-t-lg bg-papel p-space-6 shadow-3 dark:bg-papel-elevado"
-          :class="somenteFolha ? 'pb-[calc(var(--spacing-space-6)+env(safe-area-inset-bottom))]' : 'vira-dialogo md:w-[var(--largura-dialogo)] md:max-w-full md:rounded-xl'"
-          :style="somenteFolha ? undefined : { '--largura-dialogo': larguraDialogo }"
+          class="painel w-full rounded-t-lg p-space-6 shadow-3 dark:bg-papel-elevado"
+          :class="[
+            compacto ? 'bg-papel-elevado' : 'bg-papel',
+            somenteFolha
+              ? 'pb-[calc(var(--spacing-space-6)+env(safe-area-inset-bottom))]'
+              : 'vira-dialogo md:w-[var(--largura-dialogo)] md:max-w-full md:rounded-xl',
+          ]"
+          :style="somenteFolha ? undefined : { '--largura-dialogo': larguraEfetiva }"
           @keydown="aoTeclar"
         >
           <div

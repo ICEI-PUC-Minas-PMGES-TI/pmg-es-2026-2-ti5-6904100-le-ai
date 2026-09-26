@@ -21,6 +21,11 @@ export interface UsuarioResposta {
   displayName: string
 }
 
+/** `UsuarioProprio` de `GET /me`: a identidade mais o e-mail do próprio dono (Configurações). */
+export interface UsuarioProprio extends UsuarioResposta {
+  email: string
+}
+
 export interface LoginRequisicao {
   /** E-mail ou nome de usuário — o servidor resolve qual dos dois é (RF-AUT-02). */
   identificador: string
@@ -98,8 +103,8 @@ export function createAuthService(options: AuthServiceOptions = {}) {
   }
 
   /** Identidade do portador da sessão atual — usado para restaurar o usuário ao recarregar. */
-  async function buscarUsuarioAtual(): Promise<UsuarioResposta> {
-    return request<UsuarioResposta>('/me')
+  async function buscarUsuarioAtual(): Promise<UsuarioProprio> {
+    return request<UsuarioProprio>('/me')
   }
 
   /**

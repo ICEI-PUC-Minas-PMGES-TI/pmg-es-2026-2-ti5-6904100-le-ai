@@ -262,11 +262,12 @@ class ServicoDeAutenticacaoTest {
     Usuario usuario = usuarioSalvo();
     given(repositorio.findById(usuario.id())).willReturn(Optional.of(usuario));
 
-    UsuarioResposta resposta = servico.doToken(usuario.id());
+    UsuarioProprioResposta resposta = servico.doToken(usuario.id());
 
     assertThat(resposta.username()).isEqualTo("marinableu");
     assertThat(resposta.displayName()).isEqualTo("Marina Beltrão");
     assertThat(resposta.id()).isEqualTo(usuario.id().toString());
+    assertThat(resposta.email()).isEqualTo(usuario.email());
   }
 
   @Test

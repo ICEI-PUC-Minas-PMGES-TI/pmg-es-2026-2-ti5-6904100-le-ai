@@ -119,9 +119,40 @@ describe('EditarPerfilView', () => {
     await wrapper.get('#campo-nome').setValue('')
 
     expect(wrapper.text()).toContain('Informe um nome de exibição.')
+    const contador = wrapper.get('[data-contador-nome]')
+    expect(contador.text()).toBe('0/60')
+    expect(contador.classes()).toContain('text-rubi')
     expect(botao(wrapper, 'Salvar').attributes('disabled')).toBeDefined()
     await wrapper.get('form').trigger('submit')
     expect(servico.atualizarMeuPerfil).not.toHaveBeenCalled()
+  })
+
+  it('contador do nome à direita em mono, fora do helper; biografia sem contador', async () => {
+    const { wrapper } = await abrir()
+
+    const contador = wrapper.get('[data-contador-nome]')
+    expect(contador.text()).toBe('14/60')
+    expect(contador.classes()).toEqual(expect.arrayContaining(['self-end', 'font-mono', 'text-grafite-suave']))
+    expect(wrapper.get('#campo-nome').attributes('aria-describedby')).toBeUndefined()
+    expect(wrapper.text()).not.toContain('/1000')
+    expect(wrapper.get('#campo-biografia').classes()).toContain('resize-none')
+  })
+
+  it('biografia acima de 1000 caracteres mostra o erro e trava o salvar', async () => {
+    const { wrapper } = await abrir()
+
+    await wrapper.get('#campo-biografia').setValue('a'.repeat(1001))
+
+    expect(wrapper.text()).toContain('Use no máximo 1000 caracteres.')
+    expect(botao(wrapper, 'Salvar').attributes('disabled')).toBeDefined()
+  })
+
+  it('o rádio da privacidade é desenhado, com o nativo só para teclado e leitor de tela', async () => {
+    const { wrapper } = await abrir()
+
+    expect(wrapper.get('input[value="publico"]').classes()).toContain('sr-only')
+    await wrapper.get('input[value="privado"]').setValue()
+    expect((wrapper.get('input[value="privado"]').element as HTMLInputElement).checked).toBe(true)
   })
 
   it('trocar para privado avisa que os seguidores continuam, sem bloquear', async () => {

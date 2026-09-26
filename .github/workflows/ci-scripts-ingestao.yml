@@ -4,12 +4,14 @@ on:
   push:
     paths:
       - 'code/scripts/ingestao/**'
+      - '!code/scripts/ingestao/**.md'
       # Os testes de banco aplicam as migrations reais de acervo.
       - 'code/back/acervo/drizzle/**'
       - '.github/workflows/ci-scripts-ingestao.yml'
   pull_request:
     paths:
       - 'code/scripts/ingestao/**'
+      - '!code/scripts/ingestao/**.md'
       # Os testes de banco aplicam as migrations reais de acervo.
       - 'code/back/acervo/drizzle/**'
       - '.github/workflows/ci-scripts-ingestao.yml'

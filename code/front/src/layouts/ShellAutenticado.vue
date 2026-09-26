@@ -36,6 +36,8 @@ function itemAtivo(rota: string): boolean {
         :titulo="titulo"
         :voltar-para="voltarPara"
         :fechar="route.meta.fechar === true"
+        :rotulo-voltar="route.meta.voltarComRotulo ?? null"
+        :sem-divisor="route.meta.semDivisor === true"
       />
       <main class="flex-1 overflow-y-auto px-space-5 pb-[calc(64px+env(safe-area-inset-bottom))] md:px-space-8 md:pb-0">
         <RouterView />

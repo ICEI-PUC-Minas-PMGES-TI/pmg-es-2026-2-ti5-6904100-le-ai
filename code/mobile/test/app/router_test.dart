@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:phosphor_icons/phosphor_icons.dart';
 import 'package:http/testing.dart';
 
+import 'package:le_ai_mobile/app/barra_inferior.dart';
 import 'package:le_ai_mobile/app/router.dart';
 import 'package:le_ai_mobile/core/network/api_client.dart';
 import 'package:le_ai_mobile/core/session/session_controller.dart';
@@ -146,7 +147,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Marina Beltrão'), findsOneWidget);
 
-    await tester.tap(find.text('Estante'));
+    // O perfil agora também tem uma seção "Estante"; o toque é na aba da barra inferior.
+    await tester.tap(
+      find.descendant(of: find.byType(BarraInferior), matching: find.text('Estante')),
+    );
     await tester.pumpAndSettle();
     expect(find.text('Sua estante aparece aqui.'), findsOneWidget);
   });
@@ -184,9 +188,96 @@ void main() {
     await tester.tap(find.text('Cadastrar livro pessoal'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Novo livro pessoal'), findsOneWidget);
+    expect(find.text('Cadastrar livro'), findsOneWidget);
     expect(find.text('ISBN'), findsNothing);
   });
+
+  testWidgets(
+    'após salvar o livro pessoal, a aba Descobrir volta limpa (sem o formulário preenchido)',
+    (tester) async {
+      // O shell é um indexedStack: sem zerar a pilha da aba Descobrir ao salvar, o formulário
+      // preenchido continuaria vivo e reapareceria ao voltar para a aba. Regressão do bug.
+      const idLivro = 'dddddddd-4444-4444-8444-dddddddddddd';
+      const livroJson =
+          '{"id":"$idLivro","donoId":"eeeeeeee-5555-4555-8555-eeeeeeeeeeee",'
+          '"titulo":"Cartas de um sertanejo","autor":"Marina Albuquerque","paginas":184,'
+          '"sinopse":null,"capaUrl":null,"modoConsulta":false,"notaDoDono":null,'
+          '"resenhaDoDono":null,"dono":null}';
+
+      final roteador = buildRouter(
+        sessionController: sessionController,
+        authService: AuthService(
+          ApiClient(
+            baseUrl: 'http://localhost:8080',
+            client: MockClient((request) async => http.Response('{}', 200)),
+          ),
+        ),
+        perfil: _perfilSimulado(),
+        livros: DependenciasDeLivros(
+          acervo: AcervoService(
+            ApiClient(
+              baseUrl: 'http://localhost:3000',
+              client: MockClient((request) async {
+                final ehLivroPessoal = request.url.path.contains('/livros/pessoal');
+                if (ehLivroPessoal &&
+                    (request.method == 'POST' || request.method == 'GET')) {
+                  return http.Response(
+                    livroJson,
+                    request.method == 'POST' ? 201 : 200,
+                    headers: const <String, String>{
+                      'content-type': 'application/json; charset=utf-8',
+                    },
+                  );
+                }
+                return http.Response('{}', 200);
+              }),
+            ),
+          ),
+          seletor: _SemImagem(),
+          enviador: _SemEnvio(),
+        ),
+      );
+
+      await sessionController.entrar('jwt-valido');
+      await tester.pumpWidget(_wrap(roteador));
+      await tester.pumpAndSettle();
+
+      roteador.go('/descobrir/adicionar-livro');
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Cadastrar livro pessoal'));
+      await tester.tap(find.text('Cadastrar livro pessoal'));
+      await tester.pumpAndSettle();
+
+      Future<void> preencher(String label, String valor) async {
+        final campo = find
+            .ancestor(of: find.text(label), matching: find.byType(Column))
+            .first;
+        await tester.enterText(
+          find.descendant(of: campo, matching: find.byType(TextField)),
+          valor,
+        );
+        await tester.pump();
+      }
+
+      await preencher('Título', 'Cartas de um sertanejo');
+      await preencher('Autor', 'Marina Albuquerque');
+      await preencher('Número de páginas', '184');
+
+      final salvar = find.widgetWithText(ElevatedButton, 'Salvar livro');
+      await tester.ensureVisible(salvar);
+      await tester.tap(salvar);
+      await tester.pumpAndSettle();
+
+      // Saiu do formulário e abriu a página do livro na aba Estante.
+      expect(find.text('Cadastrar livro'), findsNothing);
+
+      // Voltar para Descobrir mostra a raiz limpa, não o formulário preenchido.
+      await tester.tap(find.text('Descobrir'));
+      await tester.pumpAndSettle();
+      expect(find.text('A busca do acervo aparece aqui.'), findsOneWidget);
+      expect(find.text('Cadastrar livro'), findsNothing);
+    },
+  );
 
   testWidgets('recuperar senha abre sem sessão, pelo login', (tester) async {
     await tester.pumpWidget(_wrap(router));
@@ -275,8 +366,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'marina.beltrao@gmail.com');
 
-    await tester.ensureVisible(find.text('Política de privacidade'));
-    await tester.tap(find.text('Política de privacidade'));
+    // O link está dentro do parágrafo do aviso (Text.rich), e o parágrafo inteiro abre a política.
+    final aviso = find.textContaining('Política de privacidade', findRichText: true);
+    await tester.ensureVisible(aviso);
+    await tester.tap(aviso);
     await tester.pumpAndSettle();
 
     expect(find.text('Dados que coletamos'), findsOneWidget);

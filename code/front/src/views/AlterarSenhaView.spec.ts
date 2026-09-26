@@ -94,4 +94,28 @@ describe('AlterarSenhaView', () => {
     expect(wrapper.text()).toContain('As duas senhas precisam ser iguais.')
     expect(authService.alterarSenha).not.toHaveBeenCalled()
   })
+
+  it('salvando esmaece o botão, esconde Cancelar e avisa do cold start', async () => {
+    vi.mocked(authService.alterarSenha).mockReturnValue(new Promise(() => {}))
+    const { wrapper } = montar()
+    expect(wrapper.findAll('button').some((b) => b.text() === 'Cancelar')).toBe(true)
+
+    await enviar(wrapper, 'senha-atual-longa', 'senha-nova-longa')
+
+    const salvando = wrapper.findAll('button').find((b) => b.text() === 'Salvando')!
+    expect(salvando.classes()).toContain('opacity-45')
+    expect(wrapper.findAll('button').some((b) => b.text() === 'Cancelar')).toBe(false)
+    expect(wrapper.text()).toContain('O servidor está iniciando.')
+  })
+
+  it('erro da política vem logo abaixo do campo, antes do helper', async () => {
+    const { wrapper } = montar()
+
+    await enviar(wrapper, 'senha-atual-longa', 'curta')
+
+    const erro = wrapper.findAll('p').find((p) => p.text().includes('pelo menos 8 caracteres'))!
+    const helper = wrapper.findAll('p').find((p) => p.text().startsWith('Mínimo de 8 caracteres'))!
+    expect(erro.classes()).toContain('order-1')
+    expect(helper.classes()).toContain('order-2')
+  })
 })

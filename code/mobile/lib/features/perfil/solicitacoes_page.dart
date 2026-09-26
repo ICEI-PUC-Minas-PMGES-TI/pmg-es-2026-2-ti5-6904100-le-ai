@@ -164,30 +164,55 @@ class _SolicitacoesPageState extends State<SolicitacoesPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final comLista = !_pedidos.carregando && !_pedidos.falhou && _pedidos.itens.isNotEmpty;
     return Column(
       children: <Widget>[
-        CabecalhoTela(titulo: 'Solicitações', aoVoltar: widget.aoVoltar),
+        CabecalhoTela(titulo: 'Solicitações', aoVoltar: widget.aoVoltar, semDivisor: true),
+        // A introdução fica fixa acima da lista, fora da rolagem, como no protótipo.
+        if (comLista) _introducao(theme),
         Expanded(
           child: NotificationListener<ScrollNotification>(
             onNotification: _pertoDoFim,
-            child: _conteudo(Theme.of(context)),
+            child: _conteudo(theme),
           ),
         ),
       ],
     );
   }
 
+  Widget _introducao(ThemeData theme) {
+    final estilo = theme.textTheme.bodySmall?.copyWith(color: theme.secondaryText);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: DesignTokens.space5,
+        vertical: DesignTokens.space4,
+      ),
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: theme.divider))),
+      child: Semantics(
+        liveRegion: true,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(contagem(_pendentes, 'solicitação', 'solicitações'), style: estilo),
+            const SizedBox(height: DesignTokens.space1),
+            Text(
+              'Quem você aceitar passa a ver sua estante, suas notas e suas resenhas.',
+              style: estilo,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _conteudo(ThemeData theme) {
-    const margem = EdgeInsets.symmetric(horizontal: DesignTokens.space5);
     if (_pedidos.carregando) {
       return ListView(
-        padding: margem,
         children: List<Widget>.generate(
           3,
-          (_) => const Padding(
-            padding: EdgeInsets.symmetric(vertical: DesignTokens.space4),
-            child: SkeletonDeLinha(),
-          ),
+          (_) => const SkeletonDeLinha(botoes: BotoesDoSkeleton.doisAbaixo, comDivisor: true),
         ),
       );
     }
@@ -195,76 +220,61 @@ class _SolicitacoesPageState extends State<SolicitacoesPage> {
       return ListView(
         padding: const EdgeInsets.all(DesignTokens.space5),
         children: <Widget>[
-          const BannerAviso(
+          BannerAviso(
             variante: VarianteAviso.erro,
+            triangulo: true,
             mensagem:
                 'Não foi possível carregar suas solicitações. Verifique sua conexão e tente de novo.',
+            acao: BotaoTextual(texto: 'Tentar de novo', onPressed: _pedidos.carregar),
           ),
-          const SizedBox(height: DesignTokens.space2),
-          BotaoTextual(texto: 'Tentar de novo', onPressed: _pedidos.carregar),
         ],
       );
     }
     if (_pedidos.itens.isEmpty) {
       final publico = _privacidade == Privacidade.publico;
-      return ListView(
-        padding: const EdgeInsets.fromLTRB(
-          DesignTokens.space5,
-          DesignTokens.space10,
-          DesignTokens.space5,
-          DesignTokens.space5,
-        ),
-        children: <Widget>[
-          EstadoVazio(
-            icone: PhosphorIconsRegular.userPlus,
-            titulo: 'Nenhuma solicitação pendente',
-            texto: publico
-                ? 'Seu perfil é público, então quem quiser seguir você segue na hora. Pedidos só '
-                      'existem em perfil privado.'
-                : 'Pedidos para seguir seu perfil privado aparecem aqui.',
-            rodape: publico
-                ? BotaoTextual(texto: 'Editar perfil', onPressed: widget.aoEditarPerfil)
-                : null,
+      // Centrado na vertical da área útil, como no protótipo; rola se não couber.
+      return CustomScrollView(
+        slivers: <Widget>[
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Padding(
+              padding: const EdgeInsets.all(DesignTokens.space5),
+              child: Center(
+                child: EstadoVazio(
+                  icone: PhosphorIconsRegular.userPlus,
+                  solto: true,
+                  titulo: 'Nenhuma solicitação pendente',
+                  texto: publico
+                      ? 'Seu perfil é público, então quem quiser seguir você segue na hora. '
+                            'Pedidos só existem em perfil privado.'
+                      : 'Pedidos para seguir seu perfil privado aparecem aqui.',
+                  rodape: publico
+                      ? BotaoTextual(texto: 'Editar perfil', onPressed: widget.aoEditarPerfil)
+                      : null,
+                ),
+              ),
+            ),
           ),
         ],
       );
     }
     return ListView.separated(
-      padding: margem,
-      itemCount: _pedidos.itens.length + 2,
-      separatorBuilder: (_, _) => Divider(height: 1, color: theme.divider),
+      itemCount: _pedidos.itens.length + 1,
+      separatorBuilder: (_, _) => Divider(height: 1, thickness: 1, color: theme.divider),
       itemBuilder: (context, indice) {
-        if (indice == 0) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: DesignTokens.space4),
-            child: Semantics(
-              liveRegion: true,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    contagem(_pendentes, 'solicitação', 'solicitações'),
-                    style: theme.textTheme.bodySmall?.copyWith(color: theme.secondaryText),
-                  ),
-                  const SizedBox(height: DesignTokens.space1),
-                  Text(
-                    'Quem você aceitar passa a ver sua estante, suas notas e suas resenhas.',
-                    style: theme.textTheme.bodySmall?.copyWith(color: theme.secondaryText),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-        if (indice == _pedidos.itens.length + 1) {
+        if (indice == _pedidos.itens.length) {
           return FimDaLista(
             temMais: _pedidos.temMais,
             carregandoMais: _pedidos.carregandoMais,
             falhou: _pedidos.falhouMais,
             aoCarregar: _pedidos.carregarMais,
+            esqueleto: const SkeletonDeLinha(
+              botoes: BotoesDoSkeleton.doisAbaixo,
+              comDivisor: true,
+            ),
           );
         }
-        return _item(theme, _pedidos.itens[indice - 1]);
+        return _item(theme, _pedidos.itens[indice]);
       },
     );
   }
@@ -276,13 +286,18 @@ class _SolicitacoesPageState extends State<SolicitacoesPage> {
     return Opacity(
       opacity: aceito ? 0.6 : 1,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: DesignTokens.space4),
+        padding: const EdgeInsets.symmetric(
+          horizontal: DesignTokens.space5,
+          vertical: DesignTokens.space4,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             LinhaDeLeitor(
               leitor: pedido.solicitante,
               aoAbrir: () => widget.aoAbrirPerfil(pedido.solicitante.username),
+              // O tempo acompanha a linha do nome, no topo, como no protótipo.
+              acaoNoTopo: true,
               acao: Text(
                 tempoDeEspera(pedido.criadaEm),
                 style: theme.textTheme.bodySmall?.copyWith(color: theme.tertiaryText),

@@ -28,11 +28,13 @@ export interface Avatar {
   publicId: string
 }
 
-/** Schema `PerfilResumo`: o que busca, listas e caixa de pedidos devolvem. Sem biografia. */
+/** Schema `PerfilResumo`: o que busca, listas e caixa de pedidos devolvem. */
 export interface PerfilResumo {
   id: string
   username: string
   displayName: string
+  /** Pública em qualquer privacidade (RN-08); no resumo desde 25/09/2026 para busca e listas. */
+  biografia: string | null
   avatarUrl: string | null
   privacidade: Privacidade
   conteudoRestrito: boolean

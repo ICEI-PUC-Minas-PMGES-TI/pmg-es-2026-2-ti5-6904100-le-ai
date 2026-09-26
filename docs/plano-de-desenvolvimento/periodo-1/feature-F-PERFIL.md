@@ -163,16 +163,21 @@ Marcado = verificado localmente por teste em 24/09/2026. Nada foi verificado em 
 6. **Contadores mantidos por `UPDATE` atômico** na transação, sempre na mesma ordem de id, em vez de `COUNT` na leitura. As listas escondem contas suspensas ou com exclusão pendente, então `totalElements` pode ficar abaixo do contador do perfil.
 7. **Seed reproduzível, não só idempotente**: cada execução devolve as quatro contas (`seed.ana`, `seed.bruno`, `seed.caio`, `seed.duda`) e as relações entre elas ao estado fixo, com os ids de `SEED_ACERVO`. A senha vem de `SEED_SENHA` e não fica no repositório, porque a massa pode ir para o Neon de DES. Recusa o perfil `prod`.
 
+**Decisões do dono em 25/09/2026**, na revisão contra os protótipos renderizados (regra nova de `docs/design/AGENTS.md` §10: o protótipo `.html` é a fonte visual, e falta de contrato vira pergunta ao dono, não corte):
+
+8. **Biografia no `PerfilResumo`**: a busca e as listas (seguidores, seguindo, solicitações) mostram a bio, como no protótipo. Contrato alterado em `identidade.yaml` e no backend; a bio já era pública em qualquer privacidade (RN-08), então nada novo fica exposto.
+9. **Estante e Resenhas desenhadas no estado vazio** (artboard 04 de meu-perfil) no meu perfil e no perfil de outro leitor, com as abas da web, até `leitura` expor os dados. Sem "livros lidos" nos contadores enquanto o dado não existir. Com `conteudoRestrito`, as seções não aparecem (RN-08).
+
 **Divergências protótipo × implementação** (web e mobile):
 
-- **Sem estante, resenhas e "livros lidos"** em nenhum perfil: `listarEstantePerfil` e `listarResenhasPerfil` de `leitura` seguem `planned`, e desenhar o vazio diria "você não tem livros" a quem tem. As abas da coluna direita da web também esperam. Entram com [F-EST](feature-F-EST.md)/[F-AVA](feature-F-AVA.md).
-- **Sem pronome de gênero.** Os prompts escrevem "ele"/"ela" deduzindo pelo nome ("As atividades dela saem do seu feed"). O produto não guarda gênero, e adivinhar pelo nome erra com gente real; as frases usam "essa pessoa" e o primeiro nome. **Sugestão para o grupo:** corrigir os prompts na passada de incorporação do lote de design.
-- "Você vê este perfil porque Beatriz aceitou sua solicitação" virou "porque segue Beatriz": quem seguiu com o perfil ainda público não teve pedido aceito.
-- **Sem biografia** no card da busca, nas listas e na caixa de pedidos: o schema `PerfilResumo` não traz biografia. O perfil de outro leitor mostra.
-- **Sem o estado "consulta parcial"** da busca: distinguir `rafa` de um nome inexistente exigiria o servidor revelar que existem nomes começando assim.
-- **Biografia com contador `n/1000`**, onde o prompt dispensava contador por falta de limite. Imagem recusada mostra o motivo real no lugar do mock "JPG ou PNG de até 5 MB". Leitor sem foto aparece como círculo com ícone de pessoa (nenhum protótipo define).
-- O campo de busca fica abaixo do header (o prompt mobile o põe no lugar do header, o web à direita do título). Na web, o `X` do header faz o retorno da edição, sem o botão textual "Perfil" acima do título.
-- Skeletons sem o fade de entrada: o projeto não tem animação de entrada em skeleton nenhum.
+- **Estante e Resenhas sempre vazias** até [F-EST](feature-F-EST.md)/[F-AVA](feature-F-AVA.md) entregarem `listarEstantePerfil` e `listarResenhasPerfil`; sem "Ver todas" nas resenhas (não há destino) e sem a grade de capas no skeleton.
+- **Sem pronome de gênero.** Os protótipos escrevem "ele"/"ela" deduzindo pelo nome ("As atividades dela saem do seu feed"). O produto não guarda gênero, e adivinhar pelo nome erra com gente real; as frases usam "essa pessoa" e o primeiro nome. **Sugestão para o grupo:** corrigir os prompts e protótipos.
+- "Você vê este perfil porque Beatriz aceitou sua solicitação" segue como "porque segue Beatriz": quem seguiu com o perfil ainda público não teve pedido aceito, e a frase do protótipo seria falsa nesse caso (mantida na revisão de 25/09).
+- **Sem o estado "consulta parcial"** da busca: distinguir `rafa` de um nome inexistente exigiria o servidor revelar que existem nomes começando assim (RNF-SEC-19). A ilustração do vazio comum entrou.
+- Imagem recusada mostra o motivo real no lugar do mock "JPG ou PNG de até 5 MB". A biografia perdeu o contador `n/1000` (o protótipo não tem), mas o teto técnico de 1000 continua validado.
+- **Estado vazio "solto"**: os protótipos de F-PERFIL usam ícone de 32px sem círculo e bloco centralizado na vertical; o componente compartilhado ganhou essa variante, e o círculo de 72px "alinhado ao topo" continua para os livros. A regra do topo estava só nos comentários do componente, não no `documento-de-design.md`.
+- **Header sem divisor** nas telas de F-PERFIL e na aba Perfil; as outras abas do shell mantêm o divisor fixo (simplificação de P0-NAV). A ilustração "leitor encontrado" ganhou variante escura (a sombra do chão em `#f2f2f2` fazia uma mancha clara no escuro, também presente no protótipo).
+- Skeleton web de Conexões com 6 cards, contra 8 no protótipo. Skeletons sem o fade de entrada: o projeto não tem animação de entrada em skeleton nenhum.
 - Depois de aceitar um pedido, o foco não vai para o item seguinte; a mudança é anunciada pela contagem.
 
 **Em aberto:**
@@ -191,6 +196,10 @@ Marcado = verificado localmente por teste em 24/09/2026. Nada foi verificado em 
 - **Depende de** [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md) para DES, [P0-CI](../periodo-0/feature-P0-CI.md) para o CI e [P0-MSG](../periodo-0/feature-P0-MSG.md) para a publicação dos eventos.
 
 ## Timeline
+
+### Revisão contra os protótipos 25/09/2026: telas de F-PERFIL conferidas lado a lado com os protótipos renderizados (web e app, cerca de 100 artboards) depois da mudança do §10 de `docs/design/AGENTS.md`. Contrato: `biografia` no `PerfilResumo` (backend, `identidade.yaml`, clientes). Web e app: avatar sem foto com as iniciais sobre `musgo-fundo` (os protótipos definem esse estado, ao contrário do registrado antes), Estante e Resenhas no vazio, abas da web, busca com o campo no header, chip de privacidade, biografia e as duas ilustrações do unDraw, estados vazios com ícone solto, skeletons, banners de erro com a ação dentro, diálogos de 360px, header web com o link `← Perfil`, contadores com divisor de altura total, edição de perfil em duas colunas com o contador do nome à direita. Componentes compartilhados ganharam as variantes como opção, sem mudar as telas de livros. Testes: `identidade` 190 (com integração, 0 ignorados), web 286, mobile 201.
+
+### Teste de aceite 25/09/2026: contadores de seguidores e seguindo do Meu perfil na web corrigidos. O divisor era borda do próprio link (`divide-x`/`divide-y`), que tem `rounded-base`, e se curvava com o raio; no desktop o link também não tinha padding horizontal, então o hover encostava no texto. O divisor passou para a célula, sem raio, e o link ganhou padding e hover arredondado recuados do separador. Na web, número à esquerda e rótulo na ponta direita da coluna (`justify-between`), como no protótipo. Conferido em screenshot nos dois tamanhos, com e sem hover. Web 265 testes.
 
 ### Implementação 24/09/2026: backend, web e mobile de F-PERFIL implementados em 10 etapas (plano de execução do dono), de `5d7772d` a este fechamento em `desenvolvimento`. Backend: perfil próprio com avatar validado pela origem, perfil de outro leitor e busca exata (RN-08 com `relacao` e `conteudoRestrito`), seguir/pedir/aceitar/recusar/desfazer com contadores atômicos e os três eventos na outbox (o `MessageValidator` passou a conhecer os schemas, que antes prenderiam os eventos), listas próprias paginadas e seed reproduzível; correção de parâmetro malformado que respondia `500`. OpenAPI com as 12 operações `implemented` e as duas VIEWs documentadas como contrato. Web e mobile: meu perfil, editar perfil com avatar direto ao Cloudinary, buscar leitor, perfil de outro leitor, conexões e solicitações; o mobile ganhou `PUT` e um modal de confirmação compartilhado. Testes: `identidade` 186, web 264, mobile 167. Não verificado em DES. Decisões e divergências na seção de pendências.
 

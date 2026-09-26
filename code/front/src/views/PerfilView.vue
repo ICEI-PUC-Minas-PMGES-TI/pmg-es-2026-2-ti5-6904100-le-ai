@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { PhCaretRight, PhGear, PhMagnifyingGlass, PhUserPlus, PhWarningCircle } from '@phosphor-icons/vue'
+import { PhCaretRight, PhGear, PhMagnifyingGlass, PhUserPlus, PhWarning } from '@phosphor-icons/vue'
 import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 
 import AvatarLeitor from '../components/perfil/AvatarLeitor.vue'
 import ChipPrivacidade from '../components/perfil/ChipPrivacidade.vue'
+import SecoesDeLeitura from '../components/perfil/SecoesDeLeitura.vue'
 import BotaoTextual from '../components/ui/BotaoTextual.vue'
 import { contagem } from '../perfil/textos'
 import { perfilService, type Perfil } from '../services/perfil'
@@ -13,11 +14,11 @@ import { perfilService, type Perfil } from '../services/perfil'
  * Meu perfil (RF-SOC-01, RF-SOC-04, RF-SOC-08), a partir de
  * docs/design/periodo-1/F-PERFIL/meu-perfil.md. Mobile: identidade centralizada e contadores numa
  * linha com divisor. Web: coluna de identidade de 300px com os contadores empilhados, e a linha
- * de solicitações no topo da coluna direita.
+ * de solicitações no topo da coluna direita, sobre as abas Estante/Resenhas.
  *
- * **Sem estante, resenhas e o contador `livros lidos`** nesta entrega: vêm de `leitura`
- * (`listarEstantePerfil`, `listarResenhasPerfil`), ainda `planned`. Desenhar o vazio diria "você
- * não tem livros" a quem tem. As abas da coluna direita entram com F-EST e F-AVA.
+ * **Estante e Resenhas sempre no estado vazio** (decisão do dono de 25/09/2026): o conteúdo vem de
+ * `leitura` (`listarEstantePerfil`, `listarResenhasPerfil`), ainda `planned`. Pelo mesmo motivo,
+ * sem o contador `livros lidos` até existir o dado.
  *
  * Sem sino na web, o perfil é o único lugar em que um pedido para seguir aparece (§1): a contagem
  * vem de uma página de um item da caixa, e falhar nela só esconde a linha.
@@ -52,8 +53,14 @@ onMounted(() => {
   void contarPedidos()
 })
 
+// Célula: dá a folga entre o hover e o divisor (mobile, dos dois lados; web, em cima e embaixo).
+const CELULA_DE_CONTADOR = 'flex p-space-1 md:px-0'
+
+// Link: no mobile, número sobre o rótulo, centralizado; na web, número à esquerda e rótulo à
+// direita nas pontas da coluna. O `-mx-space-3` com `px-space-3` mantém o texto alinhado à
+// coluna e deixa o hover respirar para fora dela.
 const LINK_DE_CONTADOR =
-  'flex min-h-12 flex-col-reverse items-center justify-center rounded-base transition-colors duration-dur-fast hover:bg-linha focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo md:min-h-0 md:flex-row-reverse md:justify-end md:gap-space-3 md:py-space-3'
+  'flex min-h-12 flex-1 flex-col-reverse items-center justify-center gap-0.5 rounded-base px-space-2 py-space-2 transition-colors duration-dur-fast hover:bg-linha focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo md:-mx-space-3 md:min-h-0 md:flex-row-reverse md:items-baseline md:justify-between md:px-space-3'
 </script>
 
 <template>
@@ -68,7 +75,8 @@ const LINK_DE_CONTADOR =
       <span class="mt-space-1 h-8 w-[55%] rounded-sm bg-capa-placeholder" />
       <span class="h-[13px] w-[30%] rounded-sm bg-capa-placeholder" />
       <span class="h-[15px] w-[80%] rounded-sm bg-capa-placeholder" />
-      <span class="mt-space-4 h-12 w-full rounded-base bg-capa-placeholder" />
+      <!-- A barra do botão só existe no skeleton web; o mobile do protótipo não tem. -->
+      <span class="mt-space-4 hidden h-10 w-full rounded-base bg-capa-placeholder md:block" />
     </div>
 
     <div
@@ -76,17 +84,21 @@ const LINK_DE_CONTADOR =
       class="flex items-start gap-space-3 rounded-base bg-rubi-fundo p-space-4"
       role="alert"
     >
-      <PhWarningCircle
+      <PhWarning
         :size="20"
         weight="regular"
         class="mt-0.5 shrink-0 text-rubi"
         aria-hidden="true"
       />
+      <!-- 8 de gap mais o `py-space-1` do botão textual dão os 12 do protótipo. -->
       <div class="flex flex-col items-start gap-space-2">
         <p class="text-body text-tinta">
           Não foi possível carregar seu perfil. Verifique sua conexão e tente de novo.
         </p>
-        <BotaoTextual @click="carregar">
+        <BotaoTextual
+          class="-mx-space-1"
+          @click="carregar"
+        >
           Tentar de novo
         </BotaoTextual>
       </div>
@@ -94,7 +106,7 @@ const LINK_DE_CONTADOR =
 
     <div
       v-else
-      class="flex flex-col gap-space-6 md:grid md:grid-cols-[300px_minmax(0,720px)] md:gap-space-12"
+      class="flex flex-col gap-space-6 md:grid md:grid-cols-[300px_minmax(0,1fr)] md:gap-space-12"
     >
       <section
         class="flex flex-col items-center text-center md:items-start md:text-left"
@@ -103,11 +115,13 @@ const LINK_DE_CONTADOR =
         <AvatarLeitor
           class="md:hidden"
           :url="perfil.avatarUrl"
+          :nome="perfil.displayName"
           :tamanho="96"
         />
         <AvatarLeitor
           class="hidden md:flex"
           :url="perfil.avatarUrl"
+          :nome="perfil.displayName"
           :tamanho="120"
         />
         <h2 class="mt-space-4 text-display text-tinta md:text-title-lg">
@@ -142,35 +156,42 @@ const LINK_DE_CONTADOR =
           Editar perfil
         </RouterLink>
 
-        <!-- Mobile: números numa linha com divisor (§4); web: empilhados (§5). Levam às listas. -->
+        <!-- Mobile: números numa linha com divisor vertical (§4); web: empilhados, número à
+             esquerda e rótulo à direita, com divisor horizontal (§5). O divisor fica na célula,
+             que não tem raio; o link dentro dela tem padding e hover arredondado próprios, sem
+             encostar no separador. -->
         <nav
-          class="mt-space-6 grid w-full grid-cols-2 divide-x divide-linha border-b border-linha pb-space-4 md:grid-cols-1 md:divide-x-0 md:divide-y md:border-b-0 md:pb-0"
+          class="mt-space-6 grid w-full grid-cols-2 border-b border-linha md:grid-cols-1 md:border-b-0"
           aria-label="Conexões"
         >
-          <RouterLink
-            to="/perfil/conexoes?aba=seguidores"
-            :class="LINK_DE_CONTADOR"
-            :aria-label="contagem(perfil.contadores.seguidores, 'seguidor', 'seguidores')"
-          >
-            <span class="text-caption text-grafite md:text-body">
-              {{ perfil.contadores.seguidores === 1 ? 'seguidor' : 'seguidores' }}
-            </span>
-            <span class="font-mono text-num-inline tabular-nums text-tinta">
-              {{ perfil.contadores.seguidores }}
-            </span>
-          </RouterLink>
-          <RouterLink
-            to="/perfil/conexoes?aba=seguidos"
-            :class="LINK_DE_CONTADOR"
-            :aria-label="`${perfil.contadores.seguidos} seguindo`"
-          >
-            <span class="text-caption text-grafite md:text-body">
-              seguindo
-            </span>
-            <span class="font-mono text-num-inline tabular-nums text-tinta">
-              {{ perfil.contadores.seguidos }}
-            </span>
-          </RouterLink>
+          <div :class="CELULA_DE_CONTADOR">
+            <RouterLink
+              to="/perfil/conexoes?aba=seguidores"
+              :class="LINK_DE_CONTADOR"
+              :aria-label="contagem(perfil.contadores.seguidores, 'seguidor', 'seguidores')"
+            >
+              <span class="text-caption text-grafite md:text-body">
+                {{ perfil.contadores.seguidores === 1 ? 'seguidor' : 'seguidores' }}
+              </span>
+              <span class="font-mono text-num-inline tabular-nums text-tinta">
+                {{ perfil.contadores.seguidores }}
+              </span>
+            </RouterLink>
+          </div>
+          <div :class="[CELULA_DE_CONTADOR, 'border-l border-linha md:border-l-0 md:border-t']">
+            <RouterLink
+              to="/perfil/conexoes?aba=seguidos"
+              :class="LINK_DE_CONTADOR"
+              :aria-label="`${perfil.contadores.seguidos} seguindo`"
+            >
+              <span class="text-caption text-grafite md:text-body">
+                seguindo
+              </span>
+              <span class="font-mono text-num-inline tabular-nums text-tinta">
+                {{ perfil.contadores.seguidos }}
+              </span>
+            </RouterLink>
+          </div>
         </nav>
       </section>
 
@@ -197,6 +218,13 @@ const LINK_DE_CONTADOR =
             aria-hidden="true"
           />
         </RouterLink>
+
+        <!-- Mobile: 48 abaixo do divisor dos contadores (ou da linha de pedidos); web: as abas
+             logo no topo da coluna, ou 24 abaixo da linha de pedidos. -->
+        <SecoesDeLeitura
+          :proprio="true"
+          :class="pedidosPendentes > 0 ? 'mt-space-12 md:mt-space-6' : 'mt-space-6 md:mt-0'"
+        />
       </div>
     </div>
   </div>

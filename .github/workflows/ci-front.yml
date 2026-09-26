@@ -4,10 +4,12 @@ on:
   push:
     paths:
       - 'code/front/**'
+      - '!code/front/**.md'
       - '.github/workflows/ci-front.yml'
   pull_request:
     paths:
       - 'code/front/**'
+      - '!code/front/**.md'
       - '.github/workflows/ci-front.yml'
   workflow_dispatch:
 

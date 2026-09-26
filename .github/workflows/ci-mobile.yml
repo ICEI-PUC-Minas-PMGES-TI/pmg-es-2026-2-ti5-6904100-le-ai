@@ -4,10 +4,12 @@ on:
   push:
     paths:
       - 'code/mobile/**'
+      - '!code/mobile/**.md'
       - '.github/workflows/ci-mobile.yml'
   pull_request:
     paths:
       - 'code/mobile/**'
+      - '!code/mobile/**.md'
       - '.github/workflows/ci-mobile.yml'
   workflow_dispatch:
 

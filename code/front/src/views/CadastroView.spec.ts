@@ -36,6 +36,7 @@ async function preencherFormularioValido(wrapper: ReturnType<typeof mount>) {
   await campos[2]!.setValue('Marina Beltrão') // nome de exibição
   await campos[3]!.setValue('1999-03-14') // data de nascimento
   await campos[4]!.setValue('senha-bem-comprida') // senha
+  await campos[5]!.setValue('senha-bem-comprida') // confirmar senha
 }
 
 describe('CadastroView', () => {
@@ -56,6 +57,23 @@ describe('CadastroView', () => {
     expect(wrapper.text()).toContain('Informe seu nome de exibição.')
     expect(wrapper.text()).toContain('Informe sua data de nascimento.')
     expect(wrapper.text()).toContain('Escolha uma senha.')
+    expect(authService.cadastrar).not.toHaveBeenCalled()
+  })
+
+  it('mostra o erro ao sair do campo, antes do envio, e o tira assim que o valor é corrigido', async () => {
+    const { wrapper } = montarComRouter()
+    const email = wrapper.findAll('input')[0]!
+
+    await email.setValue('marina@')
+    expect(wrapper.text()).not.toContain('Informe um e-mail válido.')
+
+    await email.trigger('blur')
+    expect(wrapper.text()).toContain('Informe um e-mail válido.')
+    // Só o campo que a pessoa deixou: os outros ainda não foram tocados.
+    expect(wrapper.text()).not.toContain('Escolha um nome de usuário.')
+
+    await email.setValue('marina@gmail.com')
+    expect(wrapper.text()).not.toContain('Informe um e-mail válido.')
     expect(authService.cadastrar).not.toHaveBeenCalled()
   })
 
@@ -161,7 +179,10 @@ describe('CadastroView', () => {
     await wrapper.get('form').trigger('submit')
 
     expect(wrapper.get('button[type="submit"]').text()).toBe('Criando conta')
-    expect(wrapper.get('fieldset').attributes('disabled')).toBeDefined()
+    // Como no protótipo: o formulário dá lugar ao indicador centralizado e o botão esmaece.
+    expect(wrapper.find('fieldset').exists()).toBe(false)
+    expect(wrapper.find('.animate-spin').exists()).toBe(true)
+    expect(wrapper.get('button[type="submit"]').classes()).toContain('opacity-45')
     expect(wrapper.text()).toContain('O servidor está iniciando. Isso pode levar alguns segundos.')
 
     resolver({ id: 'u1', username: 'marinableu', displayName: 'Marina Beltrão' })
@@ -172,6 +193,63 @@ describe('CadastroView', () => {
     await flushPromises()
 
     expect(wrapper.get('button[type="submit"]').text()).toBe('Criar conta')
+  })
+
+  it('volta com o formulário preenchido quando o envio falha', async () => {
+    const { wrapper } = montarComRouter()
+    await preencherFormularioValido(wrapper)
+    vi.mocked(authService.cadastrar).mockRejectedValue(new TypeError('rede'))
+
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Não foi possível acessar o servidor. Tente novamente.')
+    const campos = wrapper.findAll('input')
+    expect(campos).toHaveLength(6)
+    expect((campos[1]!.element as HTMLInputElement).value).toBe('marinableu')
+    expect((campos[5]!.element as HTMLInputElement).value).toBe('senha-bem-comprida')
+  })
+
+  it('confirmar senha diferente mostra o erro ao sair do campo e bloqueia o envio', async () => {
+    const { wrapper } = montarComRouter()
+    await preencherFormularioValido(wrapper)
+    const confirmacao = wrapper.findAll('input')[5]!
+
+    await confirmacao.setValue('outra-senha-qualquer')
+    expect(wrapper.text()).not.toContain('As duas senhas precisam ser iguais.')
+    await confirmacao.trigger('blur')
+    expect(wrapper.text()).toContain('As duas senhas precisam ser iguais.')
+
+    await wrapper.get('form').trigger('submit')
+    expect(authService.cadastrar).not.toHaveBeenCalled()
+
+    await confirmacao.setValue('senha-bem-comprida')
+    expect(wrapper.text()).not.toContain('As duas senhas precisam ser iguais.')
+  })
+
+  it('a confirmação não vai no corpo do cadastro', async () => {
+    const { wrapper } = montarComRouter()
+    await preencherFormularioValido(wrapper)
+    vi.mocked(authService.cadastrar).mockResolvedValue({
+      id: 'u1',
+      username: 'marinableu',
+      displayName: 'Marina Beltrão',
+    })
+    vi.mocked(authService.entrar).mockResolvedValue({
+      sessao: { accessToken: 'jwt', tokenType: 'Bearer', expiresIn: 900, refreshToken: 'renovacao' },
+      usuario: { id: 'u1', username: 'marinableu', displayName: 'Marina Beltrão' },
+    })
+
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(vi.mocked(authService.cadastrar).mock.calls[0]![0]).toEqual({
+      email: 'marina.beltrao@gmail.com',
+      username: 'marinableu',
+      displayName: 'Marina Beltrão',
+      dataNascimento: '1999-03-14',
+      senha: 'senha-bem-comprida',
+    })
   })
 
   it('a política abre na própria tela, sem aceite, e volta com o formulário preenchido', async () => {

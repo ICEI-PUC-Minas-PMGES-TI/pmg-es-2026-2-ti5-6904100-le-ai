@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 
 import '../../core/network/api_client.dart';
 import '../../core/session/session_controller.dart';
@@ -10,8 +11,11 @@ import '../../design/widgets/campo_senha.dart';
 import '../../design/widgets/campo_texto.dart';
 import '../../design/widgets/logo_leai.dart';
 import 'auth_service.dart';
+import 'indicador_de_envio.dart';
+import 'link_do_rodape.dart';
 
-/// Login (RF-AUT-02/03). Estrutura e cópia de docs/design/periodo-0/P0-NAV/login.md §4.
+/// Login (RF-AUT-02/03). Estrutura e cópia de docs/design/periodo-0/P0-NAV/login.md §4. Os ícones
+/// nos campos vêm do protótipo de F-AUT, que é o desenho aprovado.
 class LoginPage extends StatefulWidget {
   final AuthService authService;
   final SessionController sessionController;
@@ -177,7 +181,7 @@ class _LoginPageState extends State<LoginPage> {
               IgnorePointer(
                 ignoring: _enviando,
                 child: AnimatedOpacity(
-                  opacity: _enviando ? 0.6 : 1,
+                  opacity: _enviando ? 0.5 : 1,
                   duration: DesignTokens.durFast,
                   child: Column(
                     children: <Widget>[
@@ -185,6 +189,7 @@ class _LoginPageState extends State<LoginPage> {
                         controller: _identificadorController,
                         label: 'E-mail ou nome de usuário',
                         autofillHints: const <String>[AutofillHints.username],
+                        icone: PhosphorIconsRegular.user,
                         erro: _erroIdentificador,
                         bordaDeErro: _bordaDeErroCredencial,
                         enabled: !_enviando,
@@ -196,6 +201,7 @@ class _LoginPageState extends State<LoginPage> {
                         autofillHints: const <String>[
                           AutofillHints.password,
                         ],
+                        comIcone: true,
                         erro: _erroSenha,
                         bordaDeErro: _bordaDeErroCredencial,
                         enabled: !_enviando,
@@ -205,55 +211,74 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
               // Edição de F-AUT (login.md): abaixo da senha, à direita, antes do botão principal.
+              // Encosta na borda direita, como no protótipo; a altura de 48 segue como alvo.
               const SizedBox(height: DesignTokens.space3),
               Align(
                 alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: widget.aoEsquecerSenha,
-                  style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
-                  child: Text(
-                    'Esqueci minha senha',
-                    style: theme.textTheme.labelLarge?.copyWith(color: theme.primaryAccent),
+                child: IgnorePointer(
+                  ignoring: _enviando,
+                  child: AnimatedOpacity(
+                    opacity: _enviando ? 0.5 : 1,
+                    duration: DesignTokens.durFast,
+                    child: TextButton(
+                      onPressed: widget.aoEsquecerSenha,
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: const Size(48, 48),
+                      ),
+                      child: Text(
+                        'Esqueci minha senha',
+                        style: theme.textTheme.labelLarge?.copyWith(color: theme.primaryAccent),
+                      ),
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(height: DesignTokens.space8),
+              // Protótipo (Login · Entrando): indicador entre o link e o botão.
+              if (_enviando) ...const <Widget>[
+                SizedBox(height: DesignTokens.space6),
+                IndicadorDeEnvio(),
+                SizedBox(height: DesignTokens.space6),
+              ] else
+                const SizedBox(height: DesignTokens.space8),
               BotaoPrimario(
                 texto: _enviando ? 'Entrando' : 'Entrar',
                 carregando: _enviando,
+                carregandoEsmaecido: true,
                 onPressed: _bloqueado ? null : _enviar,
               ),
               if (_enviando) ...<Widget>[
                 const SizedBox(height: DesignTokens.space3),
-                Text(
-                  'O servidor está iniciando. Isso pode levar alguns segundos.',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.secondaryText,
+                SizedBox(
+                  width: double.infinity,
+                  child: Text(
+                    'O servidor está iniciando. Isso pode levar alguns segundos.',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.secondaryText,
+                    ),
                   ),
                 ),
               ],
               const SizedBox(height: DesignTokens.space5),
-              Wrap(
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: <Widget>[
-                  Text(
-                    'Ainda não tem conta? ',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.secondaryText,
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: widget.aoIrParaCadastro,
-                    style: TextButton.styleFrom(padding: EdgeInsets.zero),
-                    child: Text(
-                      'Criar conta',
+              Center(
+                child: Wrap(
+                  alignment: WrapAlignment.center,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: DesignTokens.space1,
+                  children: <Widget>[
+                    Text(
+                      'Ainda não tem conta?',
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.primaryAccent,
-                        fontWeight: FontWeight.w600,
+                        color: theme.secondaryText,
                       ),
                     ),
-                  ),
-                ],
+                    LinkDoRodape(
+                      texto: 'Criar conta',
+                      onPressed: widget.aoIrParaCadastro,
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: DesignTokens.space10),
             ],

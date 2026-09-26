@@ -4,12 +4,14 @@ on:
   push:
     paths:
       - 'code/back/acervo/**'
+      - '!code/back/acervo/**.md'
       # A copia runtime de cada schema e comparada com o canonico em teste.
       - 'docs/mensageria/schemas/**'
       - '.github/workflows/ci-back-acervo.yml'
   pull_request:
     paths:
       - 'code/back/acervo/**'
+      - '!code/back/acervo/**.md'
       # A copia runtime de cada schema e comparada com o canonico em teste.
       - 'docs/mensageria/schemas/**'
       - '.github/workflows/ci-back-acervo.yml'

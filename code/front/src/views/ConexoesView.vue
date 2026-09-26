@@ -5,6 +5,7 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import FimDaLista from '../components/perfil/FimDaLista.vue'
 import LinhaDeLeitor from '../components/perfil/LinhaDeLeitor.vue'
+import SkeletonDeLeitor from '../components/perfil/SkeletonDeLeitor.vue'
 import BannerAviso from '../components/ui/BannerAviso.vue'
 import BotaoTextual from '../components/ui/BotaoTextual.vue'
 import DialogoConfirmacao from '../components/ui/DialogoConfirmacao.vue'
@@ -108,7 +109,7 @@ function totalDa(valor: Aba): number | null {
 </script>
 
 <template>
-  <div class="-mx-space-5 max-w-[1040px] pb-space-10 md:mx-0">
+  <div class="-mx-space-5 flex min-h-full max-w-[1040px] flex-col pb-space-10 md:mx-0">
     <div
       class="flex border-b border-linha md:gap-space-8"
       role="tablist"
@@ -134,7 +135,7 @@ function totalDa(valor: Aba): number | null {
 
     <div
       role="tabpanel"
-      class="px-space-5 pt-space-2 md:px-0 md:pt-space-6"
+      class="flex flex-1 flex-col px-space-5 pt-space-2 md:px-0 md:pt-space-6"
     >
       <ul
         v-if="lista.carregando.value"
@@ -147,18 +148,15 @@ function totalDa(valor: Aba): number | null {
           :key="n"
           class="flex items-center gap-space-4 border-b border-linha py-space-4 md:rounded-base md:border md:p-space-4"
         >
-          <span class="size-12 shrink-0 rounded-full bg-capa-placeholder" />
-          <span class="flex flex-1 flex-col gap-space-2">
-            <span class="h-[17px] w-[40%] rounded-sm bg-capa-placeholder" />
-            <span class="h-[13px] w-[25%] rounded-sm bg-capa-placeholder" />
-          </span>
-          <span class="h-9 w-24 rounded-base bg-capa-placeholder" />
+          <SkeletonDeLeitor />
+          <span class="h-9 w-24 shrink-0 rounded-base bg-capa-placeholder" />
         </li>
       </ul>
 
       <BannerAviso
         v-else-if="lista.falhou.value"
         variante="erro"
+        triangulo
         class="mt-space-4"
       >
         Não foi possível carregar suas conexões. Verifique sua conexão e tente de novo.
@@ -173,8 +171,9 @@ function totalDa(valor: Aba): number | null {
       <EstadoVazio
         v-else-if="lista.itens.value.length === 0 && aba === 'seguidores'"
         :icone="PhUsers"
+        solto
         titulo="Ninguém segue você ainda"
-        class="mx-auto mt-space-10 max-w-[280px]"
+        class="m-auto max-w-[360px] py-space-10"
       >
         <p class="mt-space-3 text-body text-grafite">
           Quando alguém começar a seguir você, aparece aqui.
@@ -184,15 +183,16 @@ function totalDa(valor: Aba): number | null {
       <EstadoVazio
         v-else-if="lista.itens.value.length === 0"
         :icone="PhUsers"
+        solto
         titulo="Você ainda não segue ninguém"
-        class="mx-auto mt-space-10 max-w-[280px]"
+        class="m-auto max-w-[360px] py-space-10"
       >
         <p class="mt-space-3 text-body text-grafite">
           Busque um leitor pelo nome de usuário para começar a montar seu feed.
         </p>
         <RouterLink
           to="/perfil/buscar"
-          class="mt-space-6 flex h-12 items-center justify-center rounded-full bg-musgo px-space-8 text-body-strong text-papel transition-colors duration-dur-fast hover:bg-musgo-vivo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo md:h-10"
+          class="mt-space-6 flex h-12 items-center justify-center rounded-full bg-musgo px-space-6 text-body-strong text-papel transition-colors duration-dur-fast hover:bg-musgo-vivo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo md:h-10"
         >
           Buscar leitor
         </RouterLink>
@@ -244,8 +244,8 @@ function totalDa(valor: Aba): number | null {
             :key="n"
             class="flex items-center gap-space-4 border-b border-linha py-space-4 md:rounded-base md:border md:p-space-4"
           >
-            <span class="size-12 shrink-0 rounded-full bg-capa-placeholder" />
-            <span class="h-[17px] w-[40%] rounded-sm bg-capa-placeholder" />
+            <SkeletonDeLeitor />
+            <span class="h-9 w-24 shrink-0 rounded-base bg-capa-placeholder" />
           </li>
         </ul>
         <FimDaLista
@@ -258,6 +258,7 @@ function totalDa(valor: Aba): number | null {
     </div>
 
     <DialogoConfirmacao
+      compacto
       :aberta="acao !== null"
       :titulo="tituloDaAcao"
       :rotulo-confirmar="acao?.tipo === 'remover' ? 'Remover' : 'Deixar de seguir'"

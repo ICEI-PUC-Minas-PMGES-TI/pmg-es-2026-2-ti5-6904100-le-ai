@@ -18,8 +18,10 @@ withDefaults(
     erro?: string
     /** `Continuar editando` no descarte de formulário (editar-perfil.md §4.7). */
     rotuloCancelar?: string
+    /** Dialog de 360px com título `title`, como nos protótipos de F-AUT e F-PERFIL. */
+    compacto?: boolean
   }>(),
-  { processando: false, erro: undefined, rotuloCancelar: 'Cancelar' },
+  { processando: false, erro: undefined, rotuloCancelar: 'Cancelar', compacto: false },
 )
 
 const emit = defineEmits<{ confirmar: []; cancelar: [] }>()
@@ -29,10 +31,14 @@ const emit = defineEmits<{ confirmar: []; cancelar: [] }>()
   <SobreposicaoModal
     :aberta="aberta"
     :rotulo="titulo"
+    :compacto="compacto"
     foco-inicial="[data-cancelar]"
     @fechar="!processando && emit('cancelar')"
   >
-    <h2 class="text-title-sm text-tinta">
+    <h2
+      class="text-tinta"
+      :class="compacto ? 'text-title' : 'text-title-sm'"
+    >
       {{ titulo }}
     </h2>
     <p class="mt-space-3 text-body text-grafite">

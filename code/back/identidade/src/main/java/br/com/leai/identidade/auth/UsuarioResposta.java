@@ -4,8 +4,8 @@ import br.com.leai.identidade.usuario.Usuario;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
- * Identidade pública do leitor. Serve ao 201 do cadastro e ao 200 de {@code GET /me}, porque as
- * duas respostas são a mesma coisa: quem é este usuário.
+ * Identidade pública do leitor, no 201 do cadastro. {@code GET /me} devolve {@link
+ * UsuarioProprioResposta}, que acrescenta o e-mail para o próprio dono.
  *
  * <p>Nunca carrega e-mail, data de nascimento ou hash de senha. O que não precisa sair, não sai.
  */
