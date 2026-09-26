@@ -1,13 +1,21 @@
 import { Module } from '@nestjs/common';
-import { APP_FILTER } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { LoggerModule } from 'nestjs-pino';
 import { validateEnv } from './config/env';
 import { getCorrelationId } from './common/als';
 import { AllExceptionsFilter } from './common/all-exceptions.filter';
+import { AuthModule } from './auth/auth.module';
+import { JwtAuthGuard } from './auth/jwt-auth.guard';
+import { IdempotenciaModule } from './common/idempotencia/idempotencia.module';
 import { DrizzleModule } from './db/drizzle.module';
+import { EstanteModule } from './estante/estante.module';
 import { HealthModule } from './health/health.module';
+import { InatividadeModule } from './jobs/inatividade/inatividade.module';
+import { LeiturasModule } from './leituras/leituras.module';
 import { MessagingModule } from './messaging/messaging.module';
+import { OutboxModule } from './outbox/outbox.module';
+import { ReferenciasModule } from './referencias/referencias.module';
 
 @Module({
   imports: [
@@ -42,9 +50,21 @@ import { MessagingModule } from './messaging/messaging.module';
       },
     }),
     DrizzleModule,
+    AuthModule,
+    IdempotenciaModule,
+    ReferenciasModule,
+    OutboxModule,
+    EstanteModule,
+    LeiturasModule,
+    InatividadeModule,
     HealthModule,
     MessagingModule,
   ],
-  providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
+  providers: [
+    { provide: APP_FILTER, useClass: AllExceptionsFilter },
+    // Guard global: rota nova nasce protegida. `/health` se libera com
+    // `@Publico()` — o custo de esquecer o decorator é um 401, não um vazamento.
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+  ],
 })
 export class AppModule {}

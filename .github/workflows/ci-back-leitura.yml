@@ -29,6 +29,22 @@ jobs:
       run:
         working-directory: code/back/leitura
 
+    # Postgres descartavel para os testes de integracao. Nunca o Neon: o
+    # fixture derruba e recria os schemas a cada arquivo (test/integracao/).
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: teste
+          POSTGRES_DB: leai_teste
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -51,6 +67,13 @@ jobs:
 
       - name: Test
         run: npm test
+
+      # Idempotencia, outbox na transacao, VIEWs de contrato e job de
+      # inatividade RN-05: o que so se prova contra Postgres real.
+      - name: Integration test
+        run: npm run test:int
+        env:
+          DATABASE_URL_TESTE: postgresql://postgres:teste@localhost:5432/leai_teste
 
       - name: Audit dependencies
         run: npm audit --audit-level=high

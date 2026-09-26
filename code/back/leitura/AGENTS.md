@@ -27,6 +27,12 @@ Núcleo do produto. Estante, leitura, progresso, sessão cronometrada, nota, res
   - `src/common/` — `correlation.middleware.ts` + `als.ts` (RNF-OBS-01); `all-exceptions.filter.ts` + `error-codes.ts` → corpo `{ codigo, mensagem, correlationId }` (RNF-ERR-01, pt-BR, sem stack trace).
   - `src/db/` — `drizzle.module.ts` (provider `DRIZZLE`), `schema.ts` (`pgSchema`), `migrate.ts`.
   - `src/health/` — `GET /health` via `@nestjs/terminus` + indicador Drizzle (`SELECT 1`) (RNF-OBS-02).
+  - Módulos de feature (`src/estante/`, `src/leituras/`, `src/jobs/inatividade/`) em camadas, com `<modulo>.module.ts` na raiz do módulo e specs ao lado do arquivo:
+    - `dominio/` — regras puras (ex.: `maquina-estados.ts`, builders de `eventos.ts`); não importa nada de `@nestjs/*` nem de `drizzle-orm`.
+    - `aplicacao/` — services/casos de uso: transação, domínio, outbox, idempotência.
+    - `infraestrutura/` — repositories Drizzle.
+    - `api/` — controllers, guards HTTP e `dto/` (validação, Swagger).
+    - Dependência só para dentro: `api → aplicacao → dominio` e `aplicacao → infraestrutura`. `aplicacao` pode usar os tipos de `api/dto` como contrato de entrada/saída; `dominio` e `infraestrutura` nunca importam `api/`. `common/`, `auth/`, `outbox/`, `referencias/`, `db/` e `messaging/` são transversais e ficam planos.
 - **Comandos:** `npm run start:dev` · `npm run build` · `npm test` · `npm run lint` · `npm run db:generate` · `npm run db:migrate`. `npm run start:prod` aplica migrations antes de iniciar a API.
 - **Testes:** Jest + ts-jest; specs em `src/**/*.spec.ts`. Mínimo atual: health e filtro de erro/correlation-id. **A máquina de estados (RN-04) e a inatividade/abandono (RN-05) são teste obrigatório e prioritário (RNF-TST-01)** — entram com as features de domínio; escritas idempotentes (RNF-ERR-04) idem.
 - **OpenAPI:** `@nestjs/swagger` em runtime (`/docs`); esqueleto commitado em [`docs/api/leitura.yaml`](../../../docs/api/leitura.yaml) (RNF-ARQ-03).
