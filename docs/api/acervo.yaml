@@ -5,13 +5,13 @@ info:
   description: >-
     Contrato do serviço acervo para o Período 1 (F-ACV-BUSCA, F-ACV-CADASTRO e
     F-ACV-INGESTAO). As operações de cadastro por ISBN e de livro pessoal foram
-    implementadas por F-ACV-CADASTRO em 18/09/2026; busca e página do livro
-    seguem planejadas com F-ACV-BUSCA. A ingestão inicial do dump é um script
+    implementadas por F-ACV-CADASTRO em 18/09/2026; a busca, os assuntos e a
+    página do livro, por F-ACV-BUSCA em 26/09/2026. A ingestão inicial do dump é um script
     utilitário, não uma API HTTP; por isso não há rotas administrativas de
     ingestão, recarga ou associação de assuntos neste período. O contrato é
     publicado em runtime por @nestjs/swagger em /docs e versionado aqui
     conforme RNF-ARQ-03.
-x-contract-status: partial
+x-contract-status: implemented
 x-implementation-notes:
   - >-
     livro.importacao_solicitada está ligado ponta a ponta desde 22/09/2026: a
@@ -30,7 +30,19 @@ x-implementation-notes:
   - >-
     notaDoDono e resenhaDoDono vêm das VIEWs de leitura e saem null enquanto
     F-AVA não entrega. Ausência é resposta normal, nunca erro.
-x-planned-features: [F-ACV-BUSCA, F-ACV-CADASTRO, F-ACV-INGESTAO]
+  - >-
+    livro.pagina_aberta está ligado ponta a ponta desde 26/09/2026: a primeira
+    abertura de GET /livros/{id} grava sinopse pendente e a outbox na mesma
+    transação, e o consumidor acervo.sinopse (fila leai.acervo.sinopse) consulta
+    OpenLibrary e Google Books e grava disponivel, ausente ou
+    falha_transitoria. Com AMQP_ENABLED=false (padrão local) a sinopse fica em
+    pendente, e uma abertura depois de 15 minutos pede de novo.
+  - >-
+    As resenhas da página vêm de leitura.v_resenha_publicacao_v1 e saem vazias
+    enquanto F-AVA não entrega; com a VIEW inacessível, resenhas vem null em
+    GET /livros/{id} e GET /livros/{id}/resenhas responde 503.
+x-planned-features: [F-ACV-INGESTAO]
+x-implemented-features: [F-ACV-CADASTRO, F-ACV-BUSCA]
 x-database-contracts:
   - name: v_livro_referencia_v1
     owner: acervo
@@ -84,7 +96,8 @@ paths:
   /livros:
     get:
       operationId: buscarLivrosOficiais
-      x-contract-status: planned
+      x-contract-status: implemented
+      x-implemented-by: F-ACV-BUSCA
       tags: [livros]
       summary: Busca livros oficiais
       description: >-
@@ -125,7 +138,8 @@ paths:
   /assuntos:
     get:
       operationId: listarAssuntos
-      x-contract-status: planned
+      x-contract-status: implemented
+      x-implemented-by: F-ACV-BUSCA
       tags: [livros]
       summary: Lista os assuntos do conjunto curado
       description: >-
@@ -144,7 +158,8 @@ paths:
   /livros/{id}:
     get:
       operationId: obterLivroOficial
-      x-contract-status: planned
+      x-contract-status: implemented
+      x-implemented-by: F-ACV-BUSCA
       tags: [livros]
       summary: Obtém a página de um livro oficial
       description: >-
@@ -182,7 +197,8 @@ paths:
   /livros/{id}/resenhas:
     get:
       operationId: listarResenhasDoLivro
-      x-contract-status: planned
+      x-contract-status: implemented
+      x-implemented-by: F-ACV-BUSCA
       tags: [livros]
       summary: Lista as próximas resenhas autorizadas de um livro oficial
       description: >-
