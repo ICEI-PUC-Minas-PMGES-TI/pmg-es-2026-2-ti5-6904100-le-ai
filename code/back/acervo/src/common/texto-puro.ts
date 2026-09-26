@@ -51,7 +51,7 @@ export function textoPuro(
     // Link e ênfase em Markdown: fica o texto.
     .replace(/\[([^\]]+)\]\((?:[^)]+)\)/g, '$1')
     .replace(/(\*\*|__)(.+?)\1/g, '$2')
-    .replace(/[ \t ]+/g, ' ')
+    .replace(/[ \t\u00a0]+/g, ' ')
     .replace(/ *\n */g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();

@@ -32,3 +32,23 @@ export interface DadosImportacaoSolicitada {
 export function chaveDeNegocioDaImportacao(importacaoId: string): string {
   return `importacao:${importacaoId}`;
 }
+
+/**
+ * Evento de F-ACV-BUSCA: a primeira abertura da página de um livro oficial pede
+ * a sinopse (RN-19.2). Produtor e consumidor são o próprio `acervo`
+ * (`docs/mensageria/catalogo.md`); `data` segue
+ * `livro.pagina_aberta.v1.schema.json` e leva só o `livroId`.
+ */
+export const LIVRO_PAGINA_ABERTA = {
+  tipo: 'livro.pagina_aberta',
+  versao: 1,
+} as const;
+
+export interface DadosPaginaAberta {
+  livroId: string;
+}
+
+/** `businessKey` do envelope: `livro:<livroId>:sinopse`. */
+export function chaveDeNegocioDaSinopse(livroId: string): string {
+  return `livro:${livroId}:sinopse`;
+}
