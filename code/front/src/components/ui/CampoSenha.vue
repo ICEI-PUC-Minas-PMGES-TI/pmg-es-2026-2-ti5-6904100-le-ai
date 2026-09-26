@@ -22,6 +22,7 @@ defineProps<{
   required?: boolean
   /** Cadeado à esquerda, como nos protótipos de login e cadastro de F-AUT. */
   comIcone?: boolean
+  erroAntesDoHelper?: boolean
 }>()
 
 defineEmits<{
@@ -50,6 +51,7 @@ function alternarVisibilidade(): void {
     :autocomplete="autocomplete"
     :required="required"
     :icone="comIcone ? PhLock : undefined"
+    :erro-antes-do-helper="erroAntesDoHelper"
     @update:model-value="$emit('update:modelValue', $event)"
     @blur="$emit('blur')"
   >
