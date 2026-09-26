@@ -34,9 +34,9 @@ Aplicativo social de leitura (modelo Skoob/Letterboxd) para **aumentar a adesão
 | Mobile (produto principal) | **Flutter** nativo — escopo funcional completo |
 | Web (subconjunto) | **Vue** (SPA) + **Tailwind CSS** — sem Flutter Web (vetado) |
 | Backend | **Microsserviços** em **Spring (Java)** e **NestJS (TypeScript)**; FastAPI descartado |
-| Banco | **PostgreSQL** único no **Neon**, um **schema por serviço** (separação lógica) |
-| Mensageria | **RabbitMQ** (CloudAMQP) para os fluxos assíncronos |
-| Hospedagem | **Render** (plano gratuito) para serviços e site estático |
+| Banco | **PostgreSQL** único no **Neon** por ambiente, um **schema por serviço** (separação lógica). Um projeto de dev (São Paulo) e um de DES (Oregon), sem replicação — ver §7 |
+| Mensageria | **RabbitMQ** (CloudAMQP) para os fluxos assíncronos; uma instância por ambiente — ver §7 |
+| Hospedagem | **Render** (plano gratuito, região Oregon) para serviços e site estático |
 | Imagens | **Cloudinary** (transformação por URL + cache de capas) |
 | E-mail transacional | **Brevo** (recuperação de senha) |
 | Push (Android) | **Firebase Cloud Messaging** — Firebase usado **só** para FCM; iOS fica em in-app |
@@ -132,7 +132,20 @@ Estrutura mínima do arquivo de feature: objetivo (referenciando a seção de `R
 - **Conventional Commits:** `feat:`, `fix:`, `docs:`, `chore:`, `test:`, `refactor:` — alimenta o relatório de contribuição semanal.
 - **CI filtra por caminho:** mudança em `code/front/` não roda o pipeline do Flutter; mudança em `docs/` não roda nada.
 
-**Ambientes:** local (Postgres local) · **DES/HML** (branch `main`, deploy a cada merge — é o que vale como "release" da sprint) · **PROD** (tag `vX.Y.Z`, só a partir de 24/11). Segredos por variável de ambiente e GitHub Secrets: `.env.example` versionado, `.env` **nunca**.
+**Ambientes:** **local** · **DES/HML** (branch `main`, deploy a cada merge — é o que vale como "release" da sprint) · **PROD** (tag `vX.Y.Z`, só a partir de 24/11). Segredos por variável de ambiente e GitHub Secrets: `.env.example` versionado, `.env` **nunca**.
+
+**Dois bancos e dois brokers, um par por ambiente** (desde 25/09/2026):
+
+| | Local (dev) | DES/HML (Render) |
+|---|---|---|
+| Neon | projeto `le-ai`, São Paulo (`aws-sa-east-1`) | projeto `le-ai-oregon`, Oregon (`aws-us-west-2`), junto do Render |
+| CloudAMQP | instância `Le-ai`, São Paulo | instância `Le-ai-oregon`, Oregon |
+
+- **Os dados não são replicados:** o que se grava num ambiente não aparece no outro. Copiar de um para o outro é operação manual e completa, combinada com o grupo.
+- **Migrations:** as que você aplica localmente só alteram o banco de dev. O DES as recebe no deploy da `main`.
+- **O `.env` local nunca aponta para o DES.**
+- **Testes de integração** rodam em Postgres descartável (Docker ou CI), nunca no Neon.
+- Detalhes em [`P0-DEPLOY`](docs/plano-de-desenvolvimento/periodo-0/feature-P0-DEPLOY.md#ambientes-de-dados-desde-25092026).
 
 ---
 
