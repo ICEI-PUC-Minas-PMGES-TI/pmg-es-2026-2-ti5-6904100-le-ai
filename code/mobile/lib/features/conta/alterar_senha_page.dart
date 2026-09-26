@@ -129,7 +129,7 @@ class _AlterarSenhaPageState extends State<AlterarSenhaPage> {
     final theme = Theme.of(context);
     return Column(
       children: <Widget>[
-        CabecalhoTela(titulo: 'Alterar senha', aoVoltar: widget.aoVoltar),
+        CabecalhoTela(titulo: 'Alterar senha', aoVoltar: widget.aoVoltar, semDivisor: true),
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(
@@ -165,8 +165,9 @@ class _AlterarSenhaPageState extends State<AlterarSenhaPage> {
           BannerAviso(variante: VarianteAviso.erro, mensagem: _bannerErro!),
           const SizedBox(height: DesignTokens.space6),
         ],
+        // Durante o salvamento os campos esmaecem a 50%, e o aviso de sessões não (protótipo 05).
         AnimatedOpacity(
-          opacity: _salvando ? 0.6 : 1,
+          opacity: _salvando ? 0.5 : 1,
           duration: DesignTokens.durFast,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -192,6 +193,7 @@ class _AlterarSenhaPageState extends State<AlterarSenhaPage> {
                 label: 'Nova senha',
                 autofillHints: const <String>[AutofillHints.newPassword],
                 erro: _erroNova,
+                erroAntesDoHelper: true,
                 helper: 'Mínimo de 8 caracteres. Evite senhas comuns, como sequências e o seu nome.',
                 enabled: !_salvando,
                 onChanged: (_) {
@@ -213,31 +215,35 @@ class _AlterarSenhaPageState extends State<AlterarSenhaPage> {
                   }
                 },
               ),
-              const SizedBox(height: DesignTokens.space4),
-              AvisoDeSessoes(theme: theme),
             ],
           ),
         ),
+        const SizedBox(height: DesignTokens.space4),
+        AvisoDeSessoes(theme: theme),
         const SizedBox(height: DesignTokens.space8),
         BotaoPrimario(
           texto: _salvando ? 'Salvando' : 'Salvar nova senha',
           carregando: _salvando,
+          carregandoEsmaecido: true,
           onPressed: _erroNova != null ? null : _salvar,
         ),
+        // `Cancelar` some durante o salvamento; no lugar dele, o aviso de cold start (protótipo 05).
         if (_salvando) ...<Widget>[
           const SizedBox(height: DesignTokens.space3),
           Text(
             'O servidor está iniciando. Isso pode levar alguns segundos.',
+            textAlign: TextAlign.center,
             style: theme.textTheme.bodySmall?.copyWith(color: theme.secondaryText),
           ),
+        ] else ...<Widget>[
+          const SizedBox(height: DesignTokens.space4),
+          BotaoTextual(
+            texto: 'Cancelar',
+            neutro: true,
+            larguraTotal: true,
+            onPressed: widget.aoVoltar,
+          ),
         ],
-        const SizedBox(height: DesignTokens.space4),
-        BotaoTextual(
-          texto: 'Cancelar',
-          neutro: true,
-          larguraTotal: true,
-          onPressed: _salvando ? null : widget.aoVoltar,
-        ),
       ],
     );
   }

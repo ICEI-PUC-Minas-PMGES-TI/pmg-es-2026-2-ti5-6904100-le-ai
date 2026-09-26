@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'package:le_ai_mobile/app/cabecalho_tela.dart';
 import 'package:le_ai_mobile/core/network/api_client.dart';
 import 'package:le_ai_mobile/core/session/session_controller.dart';
 import 'package:le_ai_mobile/core/session/token_store.dart';
@@ -13,6 +15,7 @@ import 'package:le_ai_mobile/design/theme.dart';
 import 'package:le_ai_mobile/features/auth/auth_service.dart';
 import 'package:le_ai_mobile/features/conta/alterar_senha_page.dart';
 import 'package:le_ai_mobile/features/conta/configuracoes_page.dart';
+import 'package:le_ai_mobile/features/conta/politica_de_privacidade.dart';
 import 'package:le_ai_mobile/features/conta/recuperar_senha_page.dart';
 import 'package:le_ai_mobile/features/conta/redefinir_senha_page.dart';
 
@@ -238,6 +241,61 @@ void main() {
 
       expect(find.text(comum), findsOneWidget);
     });
+
+    testWidgets('fora da política, o erro vem logo abaixo do campo e o helper depois', (tester) async {
+      await alterar(tester, _servico((_) async => http.Response('', 204)), 'senha-atual-longa', 'curta');
+
+      final erro = tester.getTopLeft(find.text('Escolha uma senha com pelo menos 8 caracteres.'));
+      final helper = tester.getTopLeft(find.textContaining('Mínimo de 8 caracteres.'));
+      expect(erro.dy, lessThan(helper.dy));
+    });
+
+    testWidgets('salvando esconde Cancelar e centraliza o aviso de cold start', (tester) async {
+      final troca = Completer<http.Response>();
+      await tester.pumpWidget(
+        _wrap(
+          AlterarSenhaPage(
+            authService: _servico((request) async {
+              return switch (request.url.path) {
+                '/me' => http.Response('{"id":"u1","username":"marinableu","displayName":"Marina"}', 200),
+                '/auth/password/change' => await troca.future,
+                _ => http.Response(
+                  '{"accessToken":"jwt-novo","tokenType":"Bearer","expiresIn":900,"refreshToken":"r-nova"}',
+                  200,
+                ),
+              };
+            }),
+            sessionController: sessao,
+          ),
+        ),
+      );
+      expect(find.text('Cancelar'), findsOneWidget);
+      await tester.enterText(find.byType(TextField).at(0), 'senha-atual-longa');
+      await tester.enterText(find.byType(TextField).at(1), 'senha-nova-longa');
+      await tester.enterText(find.byType(TextField).at(2), 'senha-nova-longa');
+      await tester.ensureVisible(find.text('Salvar nova senha'));
+      await tester.tap(find.text('Salvar nova senha'));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.text('Salvando'), findsOneWidget);
+      expect(find.text('Cancelar'), findsNothing);
+      final aviso = tester.widget<Text>(find.text('O servidor está iniciando. Isso pode levar alguns segundos.'));
+      expect(aviso.textAlign, TextAlign.center);
+
+      troca.complete(http.Response('', 204));
+      await tester.pumpAndSettle();
+      expect(find.text('Senha alterada'), findsOneWidget);
+    });
+  });
+
+  group('PoliticaDePrivacidade', () {
+    testWidgets('título do header em duas linhas, com divisor', (tester) async {
+      await tester.pumpWidget(_wrap(const PoliticaDePrivacidadePage()));
+
+      final cabecalho = tester.widget<CabecalhoTela>(find.byType(CabecalhoTela));
+      expect(cabecalho.tituloEmDuasLinhas, isTrue);
+      expect(cabecalho.semDivisor, isFalse);
+    });
   });
 
   group('ConfiguracoesPage', () {
@@ -267,6 +325,37 @@ void main() {
       await _tocar(tester, 'Sair da conta');
       await _tocar(tester, 'Sair');
       expect(saiu, isTrue);
+    });
+
+    testWidgets('mostra o e-mail do /me sob o username, e o skeleton tem três barras', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          ConfiguracoesPage(
+            authService: _servico((_) async {
+              await Future<void>.delayed(const Duration(milliseconds: 50));
+              return http.Response(
+                '{"id":"u1","username":"marinableu","displayName":"Marina",'
+                '"email":"marina.beltrao@gmail.com"}',
+                200,
+              );
+            }),
+            aoSair: () async {},
+          ),
+        ),
+      );
+
+      expect(find.byType(FractionallySizedBox), findsNWidgets(3));
+      expect(find.text('@marinableu'), findsNothing);
+
+      await tester.pumpAndSettle();
+
+      expect(find.byType(FractionallySizedBox), findsNothing);
+      expect(find.text('marina.beltrao@gmail.com'), findsOneWidget);
+      final handle = tester.getBottomLeft(find.text('@marinableu'));
+      final email = tester.getTopLeft(find.text('marina.beltrao@gmail.com'));
+      expect(email.dy - handle.dy, 4);
+      final cabecalho = tester.widget<CabecalhoTela>(find.byType(CabecalhoTela));
+      expect(cabecalho.semDivisor, isTrue);
     });
   });
 }
