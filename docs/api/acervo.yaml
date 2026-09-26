@@ -89,13 +89,21 @@ paths:
       summary: Busca livros oficiais
       description: >-
         Busca somente livros oficiais por título, autor, editora ou ISBN-13 e,
-        opcionalmente, filtra por um assunto do conjunto curado. A sinopse não é
-        pesquisada. Livros pessoais nunca aparecem. Os resultados são ordenados
-        por relevância e cada registro continua representando uma edição (RN-01).
+        opcionalmente, filtra por um assunto do conjunto curado. O texto também
+        casa com o nome do assunto (RN-21.6). A sinopse não é pesquisada. Livros
+        pessoais nunca aparecem. `q` ou `assunto` é obrigatório; sem nenhum dos
+        dois a resposta é 400. A comparação ignora acentos e maiúsculas e casa
+        por trecho; um ISBN-13 válido casa também exatamente com o ISBN. Com `q`,
+        a ordem é por relevância (título, depois autor, editora e assunto); só
+        com `assunto`, por título. Cada registro continua representando uma
+        edição (RN-01), e as edições de mesmo título e mesmos autores chegam
+        contíguas, para o cliente agrupá-las. `limit` acima de 50 é 400.
       parameters:
         - name: q
           in: query
-          description: Texto para título, autor, editora ou ISBN-13.
+          description: >-
+            Texto para título, autor, editora, assunto ou ISBN-13. Espaços nas
+            pontas são descartados antes da validação; só espaços é 400.
           schema: { type: string, minLength: 1, maxLength: 200 }
           example: Machado de Assis
         - name: assunto
@@ -111,6 +119,25 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/PaginaLivros' }
         '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
+  /assuntos:
+    get:
+      operationId: listarAssuntos
+      x-contract-status: planned
+      tags: [livros]
+      summary: Lista os assuntos do conjunto curado
+      description: >-
+        Assuntos para o filtro da busca (RF-ACV-02, RN-21), ordenados por nome.
+        O conjunto é curado e fechado, com cerca de 30 itens; o servidor impõe
+        o teto de 100 (RNF-DES-02).
+      responses:
+        '200':
+          description: Assuntos disponíveis para o filtro.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ListaAssuntos' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '503': { $ref: '#/components/responses/ServicoIndisponivel' }
 
@@ -565,6 +592,15 @@ components:
       properties:
         id: { type: string, format: uuid }
         nome: { type: string, minLength: 1, maxLength: 100 }
+    ListaAssuntos:
+      type: object
+      additionalProperties: false
+      required: [itens]
+      properties:
+        itens:
+          type: array
+          maxItems: 100
+          items: { $ref: '#/components/schemas/AssuntoResumo' }
     Capa:
       type: object
       additionalProperties: false
@@ -582,10 +618,13 @@ components:
         titulo: { type: string, minLength: 1, maxLength: 500 }
         autores:
           type: array
-          minItems: 1
+          minItems: 0
+          description: >-
+            Ordenados por nome. Pode vir vazio: parte do acervo carregado não
+            tem autor na fonte.
           items: { $ref: '#/components/schemas/AutorResumo' }
-        editora: { type: string, minLength: 1, maxLength: 200 }
-        anoPublicacao: { type: integer, minimum: 1, maximum: 9999 }
+        editora: { type: string, minLength: 1, maxLength: 200, nullable: true }
+        anoPublicacao: { type: integer, minimum: 1, maximum: 9999, nullable: true }
         paginas: { type: integer, minimum: 1 }
         capa: { $ref: '#/components/schemas/Capa' }
         assuntos:
