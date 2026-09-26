@@ -14,6 +14,7 @@ import LayoutAutenticacao from '../layouts/LayoutAutenticacao.vue'
 import { ApiError, novaChaveIdempotencia } from '../services/api'
 import { authService, type CadastroRequisicao } from '../services/auth'
 import { iniciarSessao } from '../session'
+import { SENHAS_DIFERENTES } from './validacaoDeSenha'
 
 /**
  * Cadastro (RF-AUT-01). Layout e cópia de docs/design/periodo-0/P0-NAV/cadastro.md. A coluna
@@ -50,6 +51,9 @@ const username = ref('')
 const displayName = ref('')
 const dataNascimento = ref('')
 const senha = ref('')
+// Confirmação só no cliente (decisão do dono de 25/09, protótipo de F-AUT): não vai no corpo do
+// POST /auth/register, que continua o mesmo contrato.
+const confirmacaoSenha = ref('')
 
 const erros = reactive<{
   email?: string
@@ -57,6 +61,7 @@ const erros = reactive<{
   displayName?: string
   dataNascimento?: string
   senha?: string
+  confirmacaoSenha?: string
 }>({})
 // Conflito de e-mail/username (409) explica o erro no banner; o campo só ganha a borda, sem
 // repetir a mensagem (login.md §4.2 vale aqui também: dizer a mesma coisa duas vezes não ajuda).
@@ -94,12 +99,13 @@ function limparErros(): void {
   erros.displayName = undefined
   erros.dataNascimento = undefined
   erros.senha = undefined
+  erros.confirmacaoSenha = undefined
   bordaDeErroUsername.value = false
   bordaDeErroEmail.value = false
   bannerErro.value = ''
 }
 
-type Campo = 'email' | 'username' | 'displayName' | 'dataNascimento' | 'senha'
+type Campo = 'email' | 'username' | 'displayName' | 'dataNascimento' | 'senha' | 'confirmacaoSenha'
 
 const validadores: Record<Campo, () => string | undefined> = {
   email: () => {
@@ -142,6 +148,9 @@ const validadores: Record<Campo, () => string | undefined> = {
     }
     return senha.value.length > 72 ? 'A senha pode ter no máximo 72 caracteres.' : undefined
   },
+  // Mesma mensagem de redefinir senha. Com a senha vazia o erro fica só nela, não nas duas.
+  confirmacaoSenha: () =>
+    senha.value && confirmacaoSenha.value !== senha.value ? SENHAS_DIFERENTES : undefined,
 }
 
 const CAMPOS = Object.keys(validadores) as Campo[]
@@ -158,7 +167,7 @@ function aoSair(campo: Campo): void {
   erros[campo] = validadores[campo]()
 }
 
-watch([email, username, displayName, dataNascimento, senha], () => {
+watch([email, username, displayName, dataNascimento, senha, confirmacaoSenha], () => {
   for (const campo of tocados) {
     erros[campo] = validadores[campo]()
   }
@@ -272,10 +281,18 @@ async function enviar(): Promise<void> {
       class="mt-space-8 md:mt-space-6"
       @submit.prevent="enviar"
     >
+      <!-- Durante o envio o formulário dá lugar a um indicador centralizado, como no protótipo
+           (Cadastro · Enviando). Os valores ficam nos refs e voltam se o envio falhar. -->
+      <div
+        v-if="enviando"
+        class="flex justify-center py-space-12"
+        aria-hidden="true"
+      >
+        <span class="size-[36px] animate-spin rounded-full border-3 border-musgo-fundo border-t-musgo motion-reduce:animate-none" />
+      </div>
       <fieldset
-        :disabled="enviando"
+        v-else
         class="m-0 min-w-0 border-0 p-0"
-        :class="enviando ? 'opacity-60' : ''"
       >
         <div class="flex flex-col gap-space-5">
           <CampoTexto
@@ -322,6 +339,14 @@ async function enviar(): Promise<void> {
             :erro="erros.senha"
             @blur="aoSair('senha')"
           />
+          <CampoSenha
+            v-model="confirmacaoSenha"
+            label="Confirmar senha"
+            autocomplete="new-password"
+            com-icone
+            :erro="erros.confirmacaoSenha"
+            @blur="aoSair('confirmacaoSenha')"
+          />
         </div>
       </fieldset>
 
@@ -329,35 +354,38 @@ async function enviar(): Promise<void> {
         tipo="submit"
         class="mt-space-8"
         :carregando="enviando"
+        carregando-esmaecido
       >
         {{ enviando ? 'Criando conta' : 'Criar conta' }}
       </BotaoPrimario>
       <p
         v-if="enviando"
-        class="mt-space-3 text-caption text-grafite"
+        class="mt-space-3 text-center text-caption text-grafite"
       >
         O servidor está iniciando. Isso pode levar alguns segundos.
       </p>
     </form>
 
-    <!-- RNF-SEC-42 (edição de F-AUT, cadastro.md §4): informação, não aceite. Sem checkbox. -->
+    <!-- RNF-SEC-42 (edição de F-AUT, cadastro.md §4): informação, não aceite. Sem checkbox. O link
+         fica inline no fim da frase, como no protótipo; o padding vertical só aumenta o alvo de toque. -->
     <p
       class="mt-space-5 text-center text-caption text-grafite md:text-left"
-      :class="enviando ? 'pointer-events-none opacity-60' : ''"
+      :class="enviando ? 'pointer-events-none opacity-40' : ''"
     >
       Coletamos o mínimo de dados para manter sua conta. Veja o que guardamos e por quanto tempo na
       <a
         ref="linkDaPolitica"
         href="#politica-de-privacidade"
-        class="inline-flex min-h-12 items-center font-semibold text-musgo underline-offset-2 transition-colors duration-dur-fast hover:underline focus-visible:underline md:min-h-0"
+        class="py-space-3 font-semibold text-musgo underline-offset-2 transition-colors duration-dur-fast hover:underline focus-visible:underline md:py-0"
         :tabindex="enviando ? -1 : undefined"
         @click.prevent="abrirPolitica"
       >Política de privacidade</a>.
     </p>
 
-    <p class="mt-space-5 text-body text-grafite">
-      Já tem conta?
+    <p class="mt-space-5 flex flex-wrap justify-center gap-space-1 text-body text-grafite md:justify-start">
+      <span>Já tem conta?</span>
       <BotaoTextual
+        class="p-0!"
         href="/login"
         @click.prevent="router.push('/login')"
       >

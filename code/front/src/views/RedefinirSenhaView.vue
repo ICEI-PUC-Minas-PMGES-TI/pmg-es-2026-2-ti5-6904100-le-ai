@@ -178,49 +178,51 @@ async function salvar(): Promise<void> {
         <fieldset
           :disabled="salvando"
           class="m-0 min-w-0 border-0 p-0"
-          :class="salvando ? 'opacity-60' : ''"
+          :class="salvando ? 'opacity-50' : ''"
         >
           <div class="flex flex-col gap-space-5">
-            <div>
-              <CampoSenha
-                :model-value="novaSenha"
-                label="Nova senha"
-                autocomplete="new-password"
-                :erro="erroNova"
-                helper="Mínimo de 8 caracteres. Evite senhas comuns, como sequências e o seu nome."
-                @update:model-value="aoDigitarNova"
-              />
-              <p class="mt-space-4 flex items-start gap-space-2 text-caption text-grafite">
-                <PhInfo
-                  :size="16"
-                  weight="regular"
-                  class="mt-0.5 shrink-0"
-                  aria-hidden="true"
-                />
-                Ao salvar, você sai do aplicativo nos outros aparelhos.
-              </p>
-            </div>
+            <CampoSenha
+              :model-value="novaSenha"
+              label="Nova senha"
+              autocomplete="new-password"
+              :erro="erroNova"
+              erro-antes-do-helper
+              helper="Mínimo de 8 caracteres. Evite senhas comuns, como sequências e o seu nome."
+              @update:model-value="aoDigitarNova"
+            />
             <CampoSenha
               :model-value="confirmacao"
               label="Confirmar nova senha"
               autocomplete="new-password"
               :erro="erroConfirmacao"
+              erro-antes-do-helper
               @update:model-value="aoDigitarConfirmacao"
             />
           </div>
         </fieldset>
+        <!-- Depois da confirmação e fora do esmaecido do envio, como no protótipo. -->
+        <p class="mt-space-4 flex items-start gap-space-2 text-caption text-grafite">
+          <PhInfo
+            :size="16"
+            weight="regular"
+            class="mt-0.5 shrink-0"
+            aria-hidden="true"
+          />
+          Ao salvar, você sai do aplicativo nos outros aparelhos.
+        </p>
 
         <BotaoPrimario
           tipo="submit"
           class="mt-space-8"
           :carregando="salvando"
+          carregando-esmaecido
           :disabled="botaoDesabilitado"
         >
           {{ salvando ? 'Salvando' : 'Salvar senha' }}
         </BotaoPrimario>
         <p
           v-if="salvando"
-          class="mt-space-3 text-caption text-grafite"
+          class="mt-space-3 text-center text-caption text-grafite"
         >
           O servidor está iniciando. Isso pode levar alguns segundos.
         </p>
