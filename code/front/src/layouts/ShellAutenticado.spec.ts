@@ -33,10 +33,10 @@ describe('ShellAutenticado', () => {
   })
 
   it('mostra o título da rota ativa no cabeçalho e renderiza a view da rota', async () => {
-    const wrapper = await montarNaRota('/feed')
+    const wrapper = await montarNaRota('/estante')
 
-    expect(wrapper.get('h1').text()).toBe('Feed')
-    expect(wrapper.text()).toContain('As atividades de quem você segue aparecem aqui.')
+    expect(wrapper.get('h1').text()).toBe('Minha estante')
+    expect(wrapper.text()).toContain('Sua estante aparece aqui.')
   })
 
   it('a barra inferior tem os quatro itens e destaca só o ativo', async () => {
