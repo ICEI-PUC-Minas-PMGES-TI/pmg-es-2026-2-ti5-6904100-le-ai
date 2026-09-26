@@ -1,7 +1,8 @@
 import '../../core/network/api_client.dart';
+import 'livro_oficial.dart';
 
-/// Contrato do serviço `acervo` usado por F-ACV-CADASTRO. Espelha `docs/api/acervo.yaml`:
-/// mesmos campos, mesmas rotas, mesmos estados.
+/// Contrato do serviço `acervo` usado por F-ACV-CADASTRO e F-ACV-BUSCA. Espelha
+/// `docs/api/acervo.yaml`: mesmos campos, mesmas rotas, mesmos estados.
 
 enum EstadoImportacao { pendente, concluida, naoEncontrado, falhaTransitoria }
 
@@ -102,6 +103,9 @@ class LivroJaCadastrado extends ResultadoDaSolicitacao {
   final LivroImportadoResumo? livro;
   const LivroJaCadastrado(this.livroId, [this.livro]);
 }
+
+/// Padrão do contrato; o servidor aceita até 50.
+const int tamanhoDaPaginaDeLivros = 20;
 
 class ResenhaDoDono {
   final String autorNome;
@@ -227,6 +231,41 @@ class AcervoService {
   final ApiClient client;
 
   const AcervoService(this.client);
+
+  /// `GET /assuntos`: o conjunto curado para o filtro da busca (RN-21).
+  Future<List<AssuntoResumo>> listarAssuntos() async {
+    final json = await client.getJson('/assuntos');
+    final itens = json['itens'];
+    if (itens is! List) {
+      return const <AssuntoResumo>[];
+    }
+    return <AssuntoResumo>[for (final item in itens) ?AssuntoResumo.deJson(item)];
+  }
+
+  /// `GET /livros`: busca paginada de livros oficiais, com `page` a partir de 1. O servidor
+  /// exige `q` ou `assunto`; quem chama nunca manda os dois vazios.
+  Future<PaginaLivros> buscarLivros({String? q, String? assuntoId, int page = 1}) async {
+    final caminho = Uri(
+      path: '/livros',
+      queryParameters: <String, String>{
+        'q': ?q,
+        'assunto': ?assuntoId,
+        'page': '$page',
+        'limit': '$tamanhoDaPaginaDeLivros',
+      },
+    ).toString();
+    final correlationId = ApiClient.newCorrelationId();
+    final json = await client.getJson(caminho, correlationId: correlationId);
+    final pagina = PaginaLivros.deJson(json);
+    if (pagina == null) {
+      throw ApiException(
+        kind: ApiFailureKind.invalidResponse,
+        correlationId: correlationId,
+        message: 'O serviço retornou uma resposta inválida.',
+      );
+    }
+    return pagina;
+  }
 
   /// `POST /livros/oficial`. O `409` de ISBN já cadastrado vira resultado, não exceção.
   Future<ResultadoDaSolicitacao> solicitarImportacao({

@@ -107,7 +107,8 @@ export const routes: RouteRecordRaw[] = [
         path: 'descobrir',
         name: 'descobrir',
         component: DescobrirView,
-        meta: { titulo: 'Descobrir' },
+        // Sem divisor: o campo de busca, logo abaixo, é a segunda linha do header (descobrir.md).
+        meta: { titulo: 'Descobrir', semDivisor: true },
       },
       {
         path: 'feed',

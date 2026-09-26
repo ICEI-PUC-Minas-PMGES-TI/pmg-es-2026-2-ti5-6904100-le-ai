@@ -23,11 +23,11 @@ RNF atendidos: **RNF-DES-01** (leitura ≤1s p95, sem cold start), **RNF-DES-02*
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | não iniciado | broker, dispatcher, recibo, retry e DLQ dependem de P0-MSG; nenhum consumidor de `livro.pagina_aberta` foi implementado |
-| Dados | concluído (baseline físico) | DER implantado no Neon em 16/09: `livro.sinopse_status`, índices de título/autor/editora/ISBN, `outbox_acervo` e `v_livro_referencia_v1`; isso não implementa busca, página ou sinopse |
-| Backend | não iniciado | `acervo`: `GET /livros` (busca+filtro) e `GET /livros/{id}` (página) + busca de sinopse |
-| Web | não iniciado | tela de busca com filtro por assunto + página do livro |
-| Mobile | não iniciado | mesmas telas |
+| Infra | não iniciado | P0-MSG está pronto desde 19/09 (dispatcher com confirm, recibo, validação, retry e DLQ); falta o consumidor de `livro.pagina_aberta`, que entra na fatia 2 |
+| Dados | em andamento | migration `0004` (`pg_trgm`, `unaccent`, `acervo.f_busca_normalizar` e índices GIN de título, autor e editora) aplicada no banco de dev em 26/09; o DES a recebe no deploy da `main` |
+| Backend | em andamento | `GET /assuntos` e `GET /livros` implementados em 26/09 (fatia 1); `GET /livros/{id}`, `/resenhas` e o consumidor da sinopse na fatia 2 |
+| Web | em andamento | Descobrir implementado em 26/09 (fatia 1); página do livro na fatia 2 |
+| Mobile | em andamento | Descobrir implementado em 26/09 (fatia 1); página do livro na fatia 2 |
 
 ## Especificação
 
@@ -98,6 +98,8 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **A aterrissagem da aba é magra no Período 1, por decisão.** Sem consulta, `Descobrir` mostra o campo e a faixa de assuntos e nada mais. Quem preenche a aba é [F-ACV-DESCOBERTA](../periodo-2/feature-F-ACV-DESCOBERTA.md) (filtros avançados, páginas de autor, editora e série) e [F-REC-P2P](../periodo-2/feature-F-REC-P2P.md) (seção de recomendações, RF-REC-13), as duas no Período 2. O prompt proíbe desenhar espaço reservado para elas.
 
 ## Timeline
+
+### Implementação 26/09/2026, fatia 1 (busca): contrato com `GET /assuntos` e `editora`, `anoPublicacao` e `autores` anuláveis; migration `0004` de busca, aplicada no dev; `GET /assuntos` e `GET /livros` no `acervo`, por trecho, sem acento, nos quatro campos e por ISBN exato, com as edições de uma obra contíguas; Descobrir no mobile e na web com o protótipo como fonte visual; seed com editora e assunto. Conferido com os dados do dev: `guimaraes rossa` volta vazio e as buscas responderam entre 34 e 225 ms a partir do acervo local. Decisões e divergências desta fatia estão em [`plano-F-ACV-BUSCA.md`](plano-F-ACV-BUSCA.md) e entram consolidadas aqui na fatia 3.
 
 ### Revisão 17/09/2026: contrato alinhado ao OpenAPI (`q`, `assunto`, `page`, `limit`, cursor e formas de resposta), ao schema/catálogo de `livro.pagina_aberta.v1` e às VIEWs cross-schema implantadas. O status passou a distinguir baseline físico do DER no Neon de implementação funcional; P0-MSG foi registrado como bloqueio explícito, com idempotência e testes separados entre domínio e infraestrutura genérica.
 

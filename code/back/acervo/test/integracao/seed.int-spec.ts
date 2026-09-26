@@ -30,6 +30,31 @@ describe('seed de acervo (integração)', () => {
     expect(await contar(pool, 'acervo.livro', 'NOT ativo')).toBe(1);
     expect(await contar(pool, 'acervo.autor')).toBe(2);
     expect(await contar(pool, 'acervo.livro_autor')).toBe(3);
+    expect(await contar(pool, 'acervo.editora')).toBe(2);
+    expect(await contar(pool, 'acervo.assunto')).toBe(2);
+    expect(await contar(pool, 'acervo.livro_assunto')).toBe(4);
+  });
+
+  it('a busca e o filtro de F-ACV-BUSCA funcionam só com o seed', async () => {
+    await semear(drizzle(pool));
+    const { rows } = await pool.query<{ id: string }>(
+      `SELECT id FROM acervo.assunto WHERE slug = 'romance'`,
+    );
+    const buscar = (query: Record<string, string>) =>
+      request(app.getHttpServer())
+        .get('/livros')
+        .query(query)
+        .set('Authorization', `Bearer ${tokenDe(SEED_ACERVO.seguidor)}`);
+
+    const porAutor = await buscar({ q: 'machado' });
+    expect(porAutor.body.totalItens).toBe(2);
+    const porEditora = await buscar({ q: 'todavia' });
+    expect(porEditora.body.itens[0]).toMatchObject({
+      titulo: 'Torto Arado',
+      editora: 'Todavia',
+    });
+    const porAssunto = await buscar({ assunto: rows[0].id });
+    expect(porAssunto.body.totalItens).toBe(3);
   });
 
   it('as referências fixas cobrem acesso válido, forjado e livro excluído', async () => {

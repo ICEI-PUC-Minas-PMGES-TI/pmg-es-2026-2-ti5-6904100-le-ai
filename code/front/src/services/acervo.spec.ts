@@ -102,6 +102,55 @@ describe('createAcervoService', () => {
   })
 })
 
+describe('busca do acervo', () => {
+  it('busca com q, assunto, página e o limite do contrato', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      resposta(200, { itens: [], page: 2, limit: 20, totalItens: 0, totalPaginas: 0 }),
+    )
+
+    await servico(fetchMock).buscarLivros({ q: 'conceição evaristo', assunto: 'romance', page: 2 })
+
+    const url = new URL(fetchMock.mock.calls[0]![0] as string)
+    expect(url.pathname).toBe('/livros')
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      q: 'conceição evaristo',
+      assunto: 'romance',
+      page: '2',
+      limit: '20',
+    })
+  })
+
+  it('omite q e assunto ausentes e começa pela página 1', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      resposta(200, { itens: [], page: 1, limit: 20, totalItens: 0, totalPaginas: 0 }),
+    )
+
+    await servico(fetchMock).buscarLivros({ q: null, assunto: 'terror' })
+
+    const url = new URL(fetchMock.mock.calls[0]![0] as string)
+    expect(Object.fromEntries(url.searchParams)).toEqual({ assunto: 'terror', page: '1', limit: '20' })
+  })
+
+  it('lista os assuntos de dentro de itens, e corpo sem itens vira lista vazia', async () => {
+    const assuntos = [{ id: 'romance', nome: 'Romance' }]
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(resposta(200, { itens: assuntos }))
+      .mockResolvedValueOnce(resposta(200, {}))
+
+    await expect(servico(fetchMock).listarAssuntos()).resolves.toEqual(assuntos)
+    await expect(servico(fetchMock).listarAssuntos()).resolves.toEqual([])
+    expect(fetchMock.mock.calls[0]![0]).toBe('https://acervo.example.com/assuntos')
+  })
+
+  it('503 é retentado e, persistindo, chega como ApiError', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => resposta(503, { codigo: 'SERVICO_INDISPONIVEL' }))
+
+    await expect(servico(fetchMock).buscarLivros({ q: 'poncia' })).rejects.toBeInstanceOf(ApiError)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
+})
+
 describe('corpoDoLivroPessoal', () => {
   it('na criação, opcional ausente não vai no corpo', () => {
     expect(corpoDoLivroPessoal(dados, false)).toEqual({ titulo: dados.titulo, autor: dados.autor, paginas: 184 })

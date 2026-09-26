@@ -1,6 +1,9 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { MessagingModule } from '../messaging/messaging.module';
+import { BuscaController } from './busca/busca.controller';
+import { BuscaRepository } from './busca/busca.repository';
+import { BuscaService } from './busca/busca.service';
 import { GoogleBooksFonte } from './importacao/dominio/google-books.fonte';
 import { HttpExterno } from './importacao/dominio/http-externo';
 import { OpenLibraryFonte } from './importacao/dominio/openlibrary.fonte';
@@ -20,7 +23,8 @@ import { LivroPessoalRepository } from './pessoal/livro-pessoal.repository';
 import { LivroPessoalService } from './pessoal/livro-pessoal.service';
 
 /**
- * Domínio de livro de F-ACV-CADASTRO: importação por ISBN e livro pessoal.
+ * Domínio de livro: importação por ISBN e livro pessoal (F-ACV-CADASTRO) e
+ * busca do acervo oficial (F-ACV-BUSCA).
  *
  * `ImportacaoConsumer` registra o consumidor de `livro.importacao_solicitada` no
  * runtime AMQP de P0-MSG. Com `AMQP_ENABLED=false` o registro acontece mas
@@ -28,8 +32,10 @@ import { LivroPessoalService } from './pessoal/livro-pessoal.service';
  */
 @Module({
   imports: [MessagingModule],
-  controllers: [ImportacaoController, LivroPessoalController],
+  controllers: [ImportacaoController, LivroPessoalController, BuscaController],
   providers: [
+    BuscaService,
+    BuscaRepository,
     ImportacaoService,
     ImportacaoRepository,
     OutboxRepository,

@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { sql } from 'drizzle-orm';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
-import { normalizarNomeAutor } from '../common/normalizacao';
+import { normalizarEditora, normalizarNomeAutor } from '../common/normalizacao';
 
 /**
  * Massa reproduzível de `acervo` para RNF-TST-08.
@@ -21,6 +21,10 @@ import { normalizarNomeAutor } from '../common/normalizacao';
  * Idempotente: rodar duas vezes não duplica nada. Os livros oficiais completos
  * vêm da amostra de F-ACV-INGESTAO (`code/scripts/ingestao/amostra/`); os três
  * daqui existem para que `acervo` tenha massa sem depender do script Python.
+ * Eles têm editora e assunto para a busca e o filtro de F-ACV-BUSCA
+ * funcionarem só com o seed. Os assuntos são do conjunto curado
+ * (`code/scripts/ingestao/dados/assuntos.csv`), pelo slug: num banco já
+ * carregado, o seed reaproveita o assunto existente em vez de criar outro.
  *
  * Uso: `npm run db:seed` (lê DATABASE_URL do ambiente). Recusa produção.
  */
@@ -48,6 +52,8 @@ const OFICIAIS = [
     paginas: 288,
     ano: 2014,
     autor: { nome: 'Machado de Assis', chave: 'OL10000003A' },
+    editora: 'Companhia das Letras',
+    assuntos: ['romance'],
     capa: 'https://covers.openlibrary.org/b/id/10520483-L.jpg',
   },
   {
@@ -57,6 +63,8 @@ const OFICIAIS = [
     paginas: 256,
     ano: 1997,
     autor: { nome: 'Machado de Assis', chave: 'OL10000003A' },
+    editora: 'Companhia das Letras',
+    assuntos: ['romance'],
     capa: 'https://covers.openlibrary.org/b/id/8231856-L.jpg',
   },
   {
@@ -66,9 +74,17 @@ const OFICIAIS = [
     paginas: 264,
     ano: 2019,
     autor: { nome: 'Itamar Vieira Junior', chave: null },
+    editora: 'Todavia',
+    assuntos: ['romance', 'ficcao-literaria'],
     capa: 'https://covers.openlibrary.org/b/id/10909258-L.jpg',
   },
 ];
+
+/** Nomes do conjunto curado, pelo slug. */
+const ASSUNTOS: Record<string, string> = {
+  romance: 'Romance',
+  'ficcao-literaria': 'Ficção literária',
+};
 
 const PESSOAIS = [
   {
@@ -99,13 +115,34 @@ const PESSOAIS = [
 
 export async function semear(db: NodePgDatabase): Promise<void> {
   await db.transaction(async (tx) => {
-    for (const livro of OFICIAIS) {
+    for (const [slug, nome] of Object.entries(ASSUNTOS)) {
       await tx.execute(sql`
-        INSERT INTO acervo.livro (id, isbn13, titulo, paginas, ano_publicacao, capa_url_externa, tipo)
+        INSERT INTO acervo.assunto (nome, slug) VALUES (${nome}, ${slug})
+        ON CONFLICT (slug) DO NOTHING
+      `);
+    }
+
+    for (const livro of OFICIAIS) {
+      const editora = normalizarEditora(livro.editora);
+      await tx.execute(sql`
+        INSERT INTO acervo.editora (nome, nome_normalizado)
+        VALUES (${livro.editora}, ${editora})
+        ON CONFLICT (nome_normalizado) DO NOTHING
+      `);
+      await tx.execute(sql`
+        INSERT INTO acervo.livro (id, isbn13, titulo, paginas, ano_publicacao, capa_url_externa, tipo, editora_id)
         VALUES (${livro.id}, ${livro.isbn13}, ${livro.titulo}, ${livro.paginas},
-                ${livro.ano}, ${livro.capa}, 'oficial')
+                ${livro.ano}, ${livro.capa}, 'oficial',
+                (SELECT id FROM acervo.editora WHERE nome_normalizado = ${editora}))
         ON CONFLICT DO NOTHING
       `);
+      for (const slug of livro.assuntos) {
+        await tx.execute(sql`
+          INSERT INTO acervo.livro_assunto (livro_id, assunto_id)
+          SELECT ${livro.id}, id FROM acervo.assunto WHERE slug = ${slug}
+          ON CONFLICT DO NOTHING
+        `);
+      }
 
       const normalizado = normalizarNomeAutor(livro.autor.nome);
       if (livro.autor.chave) {
