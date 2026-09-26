@@ -76,6 +76,37 @@ DependenciasDePerfil _perfilSimulado() => DependenciasDePerfil(
   enviador: _SemAvatar(),
 );
 
+/// `acervo` simulado por rota: um assunto para a faixa, e toda busca volta vazia, que é o estado
+/// que leva aos dois cadastros.
+Future<http.Response> _acervoPorRota(http.Request request) async {
+  const cabecalhos = <String, String>{'content-type': 'application/json; charset=utf-8'};
+  if (request.url.path == '/assuntos') {
+    return http.Response(
+      '{"itens":[{"id":"a1","nome":"Romance"}]}',
+      200,
+      headers: cabecalhos,
+    );
+  }
+  if (request.url.path == '/livros') {
+    return http.Response(
+      '{"itens":[],"page":1,"limit":20,"totalItens":0,"totalPaginas":0}',
+      200,
+      headers: cabecalhos,
+    );
+  }
+  return http.Response('{}', 200);
+}
+
+/// Digita na busca do Descobrir e espera o debounce até o estado vazio aparecer.
+Future<void> _buscarSemResultado(WidgetTester tester) async {
+  await tester.tap(find.text('Descobrir'));
+  await tester.pumpAndSettle();
+  await tester.enterText(find.byType(TextField), 'guimaraes rossa');
+  await tester.pump(const Duration(milliseconds: 400));
+  await tester.pumpAndSettle();
+  expect(find.text('Nenhum livro encontrado'), findsOneWidget);
+}
+
 Widget _wrap(GoRouter router) {
   return MaterialApp.router(theme: AppTheme.light(), routerConfig: router);
 }
@@ -99,7 +130,7 @@ void main() {
         acervo: AcervoService(
           ApiClient(
             baseUrl: 'http://localhost:3000',
-            client: MockClient((request) async => http.Response('{}', 200)),
+            client: MockClient(_acervoPorRota),
           ),
         ),
         seletor: _SemImagem(),
@@ -162,8 +193,9 @@ void main() {
     await tester.pumpWidget(_wrap(router));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Descobrir'));
-    await tester.pumpAndSettle();
+    // "Cadastrar por ISBN" só existe no vazio da busca (descobrir.md §4.4), não na aterrissagem.
+    await _buscarSemResultado(tester);
+    await tester.ensureVisible(find.text('Cadastrar por ISBN'));
     await tester.tap(find.text('Cadastrar por ISBN'));
     await tester.pumpAndSettle();
 
@@ -174,7 +206,30 @@ void main() {
 
     await tester.tap(find.bySemanticsLabel('Voltar'));
     await tester.pumpAndSettle();
-    expect(find.text('A busca do acervo aparece aqui.'), findsOneWidget);
+    // A busca continua onde estava: o shell preserva a pilha da aba.
+    expect(find.text('Nenhum livro encontrado'), findsOneWidget);
+  });
+
+  testWidgets('o cadastro pessoal aberto pelo vazio da busca volta aos resultados ao cancelar', (
+    tester,
+  ) async {
+    await sessionController.entrar('jwt-valido');
+    await tester.pumpWidget(_wrap(router));
+    await tester.pumpAndSettle();
+
+    await _buscarSemResultado(tester);
+    await tester.ensureVisible(find.text('Cadastrar livro pessoal'));
+    await tester.tap(find.text('Cadastrar livro pessoal'));
+    await tester.pumpAndSettle();
+    expect(find.text('Cadastrar livro'), findsOneWidget);
+
+    final cancelar = find.text('Cancelar');
+    await tester.ensureVisible(cancelar);
+    await tester.tap(cancelar);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Nenhum livro encontrado'), findsOneWidget);
+    expect(find.text('Adicionar livro'), findsNothing);
   });
 
   testWidgets('a saída pessoal do ISBN abre o formulário sem campo de ISBN', (tester) async {
@@ -274,7 +329,7 @@ void main() {
       // Voltar para Descobrir mostra a raiz limpa, não o formulário preenchido.
       await tester.tap(find.text('Descobrir'));
       await tester.pumpAndSettle();
-      expect(find.text('A busca do acervo aparece aqui.'), findsOneWidget);
+      expect(find.text('Título, autor, editora ou ISBN'), findsOneWidget);
       expect(find.text('Cadastrar livro'), findsNothing);
     },
   );

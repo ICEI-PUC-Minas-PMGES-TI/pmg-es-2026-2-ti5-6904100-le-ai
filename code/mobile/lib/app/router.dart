@@ -126,8 +126,14 @@ GoRouter buildRouter({
             routes: <RouteBase>[
               GoRoute(
                 path: '/descobrir',
-                builder: (context, state) =>
-                    DescobrirPage(aoCadastrarPorIsbn: () => context.go(rotaAdicionarLivro)),
+                builder: (context, state) => DescobrirPage(
+                  servico: deps.acervo,
+                  aoAbrirLivro: (id) => context.push(rotaLivroOficial(id)),
+                  aoCadastrarPorIsbn: () => context.go(rotaAdicionarLivro),
+                  // `push`, não `go`: cancelar o cadastro pessoal volta aos resultados, e não
+                  // para a tela de ISBN que `go` montaria por baixo.
+                  aoCadastrarPessoal: () => context.push('$rotaAdicionarLivro/pessoal'),
+                ),
                 routes: rotasDeDescobrir(deps),
               ),
             ],
