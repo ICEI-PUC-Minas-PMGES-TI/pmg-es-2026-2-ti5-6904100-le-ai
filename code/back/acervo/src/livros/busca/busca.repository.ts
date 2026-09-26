@@ -30,6 +30,41 @@ const normalizar = (valor: SQL | string): SQL =>
   sql`acervo.f_busca_normalizar(${valor})`;
 
 /**
+ * Colunas do `LivroOficialResumo` sobre `acervo.livro l` e `acervo.editora ed`,
+ * com autores ordenados por nome e assuntos em JSON. A busca e a página do livro
+ * montam o resumo pelo mesmo trecho.
+ */
+export const COLUNAS_DO_RESUMO = sql`
+  l.id,
+  l.titulo,
+  l.ano_publicacao AS "anoPublicacao",
+  l.paginas,
+  ed.nome AS editora,
+  l.capa_url_propria AS "capaUrlPropria",
+  l.capa_url_externa AS "capaUrlExterna",
+  coalesce(
+    (
+      SELECT json_agg(json_build_object('id', a.id, 'nome', a.nome)
+                      ORDER BY a.nome, a.id)
+      FROM acervo.livro_autor la
+      JOIN acervo.autor a ON a.id = la.autor_id
+      WHERE la.livro_id = l.id
+    ),
+    '[]'::json
+  ) AS autores,
+  coalesce(
+    (
+      SELECT json_agg(json_build_object('id', s.id, 'nome', s.nome)
+                      ORDER BY s.nome, s.id)
+      FROM acervo.livro_assunto ls
+      JOIN acervo.assunto s ON s.id = ls.assunto_id
+      WHERE ls.livro_id = l.id
+    ),
+    '[]'::json
+  ) AS assuntos
+`;
+
+/**
  * Busca de livros oficiais (RF-ACV-01, RF-ACV-02, RN-21.6).
  *
  * O texto casa **só por trecho** (`LIKE`) em quatro campos, normalizados pela
@@ -111,34 +146,7 @@ export class BuscaRepository {
         ORDER BY posicao
         LIMIT ${criterios.limit} OFFSET ${criterios.offset}
       )
-      SELECT
-        l.id,
-        l.titulo,
-        l.ano_publicacao AS "anoPublicacao",
-        l.paginas,
-        ed.nome AS editora,
-        l.capa_url_propria AS "capaUrlPropria",
-        l.capa_url_externa AS "capaUrlExterna",
-        coalesce(
-          (
-            SELECT json_agg(json_build_object('id', a.id, 'nome', a.nome)
-                            ORDER BY a.nome, a.id)
-            FROM acervo.livro_autor la
-            JOIN acervo.autor a ON a.id = la.autor_id
-            WHERE la.livro_id = l.id
-          ),
-          '[]'::json
-        ) AS autores,
-        coalesce(
-          (
-            SELECT json_agg(json_build_object('id', s.id, 'nome', s.nome)
-                            ORDER BY s.nome, s.id)
-            FROM acervo.livro_assunto ls
-            JOIN acervo.assunto s ON s.id = ls.assunto_id
-            WHERE ls.livro_id = l.id
-          ),
-          '[]'::json
-        ) AS assuntos
+      SELECT ${COLUNAS_DO_RESUMO}
       FROM pagina p
       JOIN acervo.livro l ON l.id = p.livro_id
       LEFT JOIN acervo.editora ed ON ed.id = l.editora_id

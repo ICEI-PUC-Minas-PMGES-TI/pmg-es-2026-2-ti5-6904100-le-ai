@@ -4,6 +4,10 @@ import { MessagingModule } from '../messaging/messaging.module';
 import { BuscaController } from './busca/busca.controller';
 import { BuscaRepository } from './busca/busca.repository';
 import { BuscaService } from './busca/busca.service';
+import { LivroOficialController } from './busca/livro-oficial.controller';
+import { LivroOficialRepository } from './busca/livro-oficial.repository';
+import { LivroOficialService } from './busca/livro-oficial.service';
+import { ResenhasRepository } from './busca/resenhas.repository';
 import { GoogleBooksFonte } from './importacao/dominio/google-books.fonte';
 import { HttpExterno } from './importacao/dominio/http-externo';
 import { OpenLibraryFonte } from './importacao/dominio/openlibrary.fonte';
@@ -57,10 +61,18 @@ const ESPERAS_DA_SINOPSE_MS = [1_000];
  */
 @Module({
   imports: [MessagingModule],
-  controllers: [ImportacaoController, LivroPessoalController, BuscaController],
+  controllers: [
+    ImportacaoController,
+    LivroPessoalController,
+    BuscaController,
+    LivroOficialController,
+  ],
   providers: [
     BuscaService,
     BuscaRepository,
+    LivroOficialService,
+    LivroOficialRepository,
+    ResenhasRepository,
     ImportacaoService,
     ImportacaoRepository,
     OutboxRepository,
