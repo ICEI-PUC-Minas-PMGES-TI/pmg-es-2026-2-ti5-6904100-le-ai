@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:phosphor_icons/phosphor_icons.dart';
 import 'package:http/testing.dart';
 
+import 'package:le_ai_mobile/app/barra_inferior.dart';
 import 'package:le_ai_mobile/app/router.dart';
 import 'package:le_ai_mobile/core/network/api_client.dart';
 import 'package:le_ai_mobile/core/session/session_controller.dart';
@@ -146,7 +147,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Marina Beltrão'), findsOneWidget);
 
-    await tester.tap(find.text('Estante'));
+    // O perfil agora também tem uma seção "Estante"; o toque é na aba da barra inferior.
+    await tester.tap(
+      find.descendant(of: find.byType(BarraInferior), matching: find.text('Estante')),
+    );
     await tester.pumpAndSettle();
     expect(find.text('Sua estante aparece aqui.'), findsOneWidget);
   });
@@ -362,8 +366,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'marina.beltrao@gmail.com');
 
-    await tester.ensureVisible(find.text('Política de privacidade'));
-    await tester.tap(find.text('Política de privacidade'));
+    // O link está dentro do parágrafo do aviso (Text.rich), e o parágrafo inteiro abre a política.
+    final aviso = find.textContaining('Política de privacidade', findRichText: true);
+    await tester.ensureVisible(aviso);
+    await tester.tap(aviso);
     await tester.pumpAndSettle();
 
     expect(find.text('Dados que coletamos'), findsOneWidget);

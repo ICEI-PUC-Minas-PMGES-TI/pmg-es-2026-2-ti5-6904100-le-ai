@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PhCamera, PhGlobe, PhLock } from '@phosphor-icons/vue'
+import { PhCamera, PhCircle, PhGlobe, PhLock, PhRadioButton } from '@phosphor-icons/vue'
 import { computed, onBeforeUnmount, onMounted, reactive, ref, type Component } from 'vue'
 import { onBeforeRouteLeave, RouterLink, useRouter, type RouteLocationRaw } from 'vue-router'
 
@@ -7,7 +7,6 @@ import AvatarLeitor from '../components/perfil/AvatarLeitor.vue'
 import BannerAviso from '../components/ui/BannerAviso.vue'
 import BotaoPrimario from '../components/ui/BotaoPrimario.vue'
 import BotaoTextual from '../components/ui/BotaoTextual.vue'
-import CampoAreaTexto from '../components/ui/CampoAreaTexto.vue'
 import CampoTexto from '../components/ui/CampoTexto.vue'
 import DialogoConfirmacao from '../components/ui/DialogoConfirmacao.vue'
 import { ApiError, novaChaveIdempotencia } from '../services/api'
@@ -24,9 +23,11 @@ import { atualizarUsuario } from '../session'
  *   campos de texto; recusa ou falha volta a foto anterior (§4.3).
  * - **Sair com alterações** passa sempre pelo modal (§4.7), pela guarda de saída da rota: vale
  *   para o `X`, para `Cancelar`, para as abas e para o voltar do navegador.
- * - **Biografia com contador de 1000**, divergindo do protótipo, que dispensava contador por
- *   falta de limite: o servidor tem teto técnico de 1000, e esconder o limite deixaria a pessoa
- *   descobrir no erro. O limite de produto continua pendente.
+ * - **Biografia sem contador**, como no protótipo. O teto técnico de 1000 do servidor continua
+ *   valendo na validação: passou dele, o erro aparece no campo e o salvar trava. O limite de
+ *   produto continua pendente.
+ * - **Contador do nome** fora do helper, à direita e em mono; com erro, vem depois da mensagem
+ *   e em `rubi` (protótipo, artboards padrão e nome vazio).
  */
 const LIMITE_DO_NOME = 60
 const LIMITE_DA_BIOGRAFIA = 1000
@@ -71,6 +72,16 @@ const erroDoNome = computed(() => {
   }
   if (campos.nome.trim().length > LIMITE_DO_NOME) {
     return `Use no máximo ${LIMITE_DO_NOME} caracteres.`
+  }
+  return undefined
+})
+
+const erroDaBiografia = computed(() => {
+  if (errosDoServidor.biografia) {
+    return errosDoServidor.biografia
+  }
+  if (campos.biografia.length > LIMITE_DA_BIOGRAFIA) {
+    return `Use no máximo ${LIMITE_DA_BIOGRAFIA} caracteres.`
   }
   return undefined
 })
@@ -307,18 +318,23 @@ async function descartar(): Promise<void> {
 </script>
 
 <template>
-  <div class="pb-space-16 pt-space-6">
+  <div class="pb-space-16 pt-space-6 md:pt-space-10">
+    <!-- Skeleton com a forma do formulário: círculo, barra de `Trocar foto`, divisor no mobile e
+         um bloco por campo (protótipo, artboard carregando). -->
     <div
       v-if="carregando"
-      class="flex max-w-[560px] flex-col gap-space-6 md:grid md:grid-cols-[160px_1fr] md:gap-space-8"
+      class="flex max-w-[752px] flex-col gap-space-6 md:grid md:grid-cols-[160px_minmax(0,560px)] md:gap-space-8"
       aria-busy="true"
       aria-label="Carregando perfil"
     >
-      <span class="mx-auto size-24 rounded-full bg-capa-placeholder md:mx-0 md:size-[120px]" />
-      <div class="flex flex-col gap-space-5">
-        <span class="h-11 rounded-base bg-capa-placeholder" />
-        <span class="h-11 rounded-base bg-capa-placeholder" />
-        <span class="h-[120px] rounded-base bg-capa-placeholder" />
+      <div class="flex flex-col items-center gap-space-3 border-b border-linha pb-space-6 md:items-start md:border-0 md:pb-0">
+        <span class="size-24 rounded-full bg-capa-placeholder md:size-[120px]" />
+        <span class="h-4 w-28 rounded-sm bg-capa-placeholder" />
+      </div>
+      <div class="flex flex-col gap-space-6">
+        <span class="h-12 rounded-base bg-capa-placeholder md:h-11" />
+        <span class="h-12 rounded-base bg-capa-placeholder md:h-11" />
+        <span class="h-28 rounded-base bg-capa-placeholder md:h-[120px]" />
         <span class="h-[72px] rounded-base bg-capa-placeholder" />
         <span class="h-[72px] rounded-base bg-capa-placeholder" />
       </div>
@@ -340,7 +356,7 @@ async function descartar(): Promise<void> {
     <form
       v-else-if="original"
       novalidate
-      class="max-w-[560px]"
+      class="max-w-[752px]"
       @submit.prevent="salvar"
     >
       <BannerAviso
@@ -351,18 +367,21 @@ async function descartar(): Promise<void> {
         {{ banner }}
       </BannerAviso>
 
-      <div class="flex flex-col gap-space-6 md:grid md:grid-cols-[160px_1fr] md:gap-space-8">
+      <!-- Web: avatar em 160px e, ao lado, a coluna de 560px com os campos e a privacidade. -->
+      <div class="flex flex-col gap-space-6 md:grid md:grid-cols-[160px_minmax(0,560px)] md:items-start md:gap-space-8">
         <!-- Avatar: centralizado no mobile, coluna de 160px na web (§5). -->
         <div class="flex flex-col items-center border-b border-linha pb-space-6 md:items-start md:border-0 md:pb-0">
           <div class="relative">
             <AvatarLeitor
               class="md:hidden"
               :url="previa ?? avatar?.url ?? null"
+              :nome="campos.nome.trim() || original?.displayName"
               :tamanho="96"
             />
             <AvatarLeitor
               class="hidden md:flex"
               :url="previa ?? avatar?.url ?? null"
+              :nome="campos.nome.trim() || original?.displayName"
               :tamanho="120"
             />
             <span
@@ -383,7 +402,7 @@ async function descartar(): Promise<void> {
             @change="aoEscolherArquivo"
           >
           <BotaoTextual
-            class="mt-space-3 min-h-12 gap-space-2 md:min-h-10"
+            class="mt-space-3 min-h-12 gap-space-2 md:mt-space-2 md:min-h-0"
             :disabled="enviandoAvatar || salvando"
             @click="escolherFoto"
           >
@@ -396,7 +415,7 @@ async function descartar(): Promise<void> {
           </BotaoTextual>
           <BotaoTextual
             v-if="avatar && !enviandoAvatar"
-            class="min-h-12 text-caption md:min-h-10"
+            class="min-h-12 text-caption md:mt-space-1 md:min-h-0"
             tom="grafite"
             :disabled="salvando"
             @click="removerFoto"
@@ -405,132 +424,176 @@ async function descartar(): Promise<void> {
           </BotaoTextual>
         </div>
 
-        <fieldset
-          :disabled="salvando"
-          class="m-0 flex min-w-0 flex-col gap-space-6 border-0 p-0"
-        >
-          <BannerAviso
-            v-if="erroDoAvatar"
-            variante="erro"
-            class="md:-mt-space-2"
+        <div class="flex min-w-0 flex-col">
+          <fieldset
+            :disabled="salvando"
+            class="m-0 flex min-w-0 flex-col gap-space-6 border-0 p-0 transition-opacity duration-dur-fast"
+            :class="salvando ? 'opacity-50' : ''"
           >
-            {{ erroDoAvatar }}
-          </BannerAviso>
-
-          <div class="flex flex-col gap-space-2">
-            <span
-              id="rotulo-username"
-              class="text-label text-grafite"
-            >Nome de usuário</span>
-            <p
-              class="flex h-12 items-center justify-between rounded-base border border-linha bg-papel-elevado px-space-4 text-body text-grafite-suave md:h-11"
-              aria-labelledby="rotulo-username"
-              aria-describedby="helper-username"
+            <BannerAviso
+              v-if="erroDoAvatar"
+              variante="erro"
             >
-              @{{ original.username }}
-              <PhLock
-                :size="20"
-                weight="regular"
-                aria-hidden="true"
+              {{ erroDoAvatar }}
+            </BannerAviso>
+
+            <div class="flex flex-col gap-space-2">
+              <span
+                id="rotulo-username"
+                class="text-label text-grafite"
+              >Nome de usuário</span>
+              <p
+                class="flex h-12 items-center justify-between rounded-base border border-linha bg-papel-elevado px-space-4 text-body text-grafite-suave md:h-11"
+                aria-labelledby="rotulo-username"
+                aria-describedby="helper-username"
+              >
+                @{{ original.username }}
+                <PhLock
+                  :size="20"
+                  weight="regular"
+                  aria-hidden="true"
+                />
+              </p>
+              <p
+                id="helper-username"
+                class="text-caption text-grafite"
+              >
+                O nome de usuário não muda.
+              </p>
+            </div>
+
+            <!-- Contador fora do helper: à direita, em mono, e depois do erro quando há um. -->
+            <div class="flex flex-col gap-space-2">
+              <CampoTexto
+                id="campo-nome"
+                v-model="campos.nome"
+                label="Nome de exibição"
+                required
+                autocomplete="name"
+                :erro="erroDoNome"
+                @update:model-value="nomeTocado = true; errosDoServidor.nome = undefined"
               />
-            </p>
-            <p
-              id="helper-username"
-              class="text-caption text-grafite"
-            >
-              O nome de usuário não muda.
-            </p>
-          </div>
+              <p
+                class="self-end font-mono text-caption tabular-nums"
+                :class="erroDoNome ? 'text-rubi' : 'text-grafite-suave'"
+                data-contador-nome
+              >
+                {{ campos.nome.trim().length }}/{{ LIMITE_DO_NOME }}
+              </p>
+            </div>
 
-          <CampoTexto
-            id="campo-nome"
-            v-model="campos.nome"
-            label="Nome de exibição"
-            required
-            autocomplete="name"
-            :helper="`${campos.nome.trim().length}/${LIMITE_DO_NOME}`"
-            :erro="erroDoNome"
-            @update:model-value="nomeTocado = true; errosDoServidor.nome = undefined"
-          />
+            <!-- Área de texto própria: o protótipo não tem contador nem alça de redimensionar. -->
+            <div class="flex flex-col gap-space-2">
+              <label
+                for="campo-biografia"
+                class="text-label text-grafite"
+              >Biografia</label>
+              <textarea
+                id="campo-biografia"
+                v-model="campos.biografia"
+                :aria-invalid="erroDaBiografia ? 'true' : undefined"
+                :aria-describedby="erroDaBiografia ? 'erro-biografia helper-biografia' : 'helper-biografia'"
+                class="field-sizing-content min-h-28 max-h-[240px] w-full resize-none rounded-base bg-papel-elevado px-space-4 py-space-3 text-body text-tinta outline-none transition-colors duration-dur-fast placeholder:text-grafite-suave md:min-h-[120px]"
+                :class="erroDaBiografia ? 'border-[1.5px] border-rubi' : 'border border-linha focus:border-[1.5px] focus:border-musgo'"
+                @input="errosDoServidor.biografia = undefined"
+              />
+              <p
+                v-if="erroDaBiografia"
+                id="erro-biografia"
+                class="text-caption text-rubi"
+              >
+                {{ erroDaBiografia }}
+              </p>
+              <p
+                id="helper-biografia"
+                class="text-caption text-grafite"
+              >
+                Aparece no seu perfil em até três linhas.
+              </p>
+            </div>
+          </fieldset>
 
-          <CampoAreaTexto
-            id="campo-biografia"
-            v-model="campos.biografia"
-            label="Biografia"
-            helper="Aparece no seu perfil em até três linhas."
-            :erro="errosDoServidor.biografia"
-            :limite="LIMITE_DA_BIOGRAFIA"
-            :aviso="LIMITE_DA_BIOGRAFIA - 100"
-          />
-        </fieldset>
-      </div>
-
-      <fieldset
-        :disabled="salvando"
-        class="m-0 mt-space-8 border-0 border-t border-linha p-0 pt-space-6"
-        role="radiogroup"
-        aria-labelledby="titulo-privacidade"
-      >
-        <h2
-          id="titulo-privacidade"
-          class="text-title-lg text-tinta"
-        >
-          Privacidade
-        </h2>
-        <div class="mt-space-4 grid gap-space-3 md:grid-cols-2 md:gap-space-4">
-          <label
-            v-for="opcao in opcoes"
-            :key="opcao.valor"
-            class="flex cursor-pointer items-start gap-space-3 rounded-base p-space-4 transition-colors duration-dur-fast has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-musgo"
-            :class="campos.privacidade === opcao.valor ? 'border-[1.5px] border-musgo bg-musgo-fundo' : 'border border-linha hover:bg-linha'"
+          <fieldset
+            :disabled="salvando"
+            class="m-0 mt-space-8 border-0 border-t border-linha p-0 pt-space-6 transition-opacity duration-dur-fast"
+            :class="salvando ? 'opacity-50' : ''"
+            role="radiogroup"
+            aria-labelledby="titulo-privacidade"
           >
-            <input
-              v-model="campos.privacidade"
-              type="radio"
-              name="privacidade"
-              :value="opcao.valor"
-              class="mt-0.5 size-5 shrink-0 accent-musgo"
+            <h2
+              id="titulo-privacidade"
+              class="text-title-lg text-tinta"
             >
-            <component
-              :is="opcao.icone"
-              :size="20"
-              weight="regular"
-              class="mt-0.5 shrink-0 text-tinta"
-              aria-hidden="true"
-            />
-            <span class="flex flex-col gap-space-1">
-              <span class="text-body-strong text-tinta">{{ opcao.titulo }}</span>
-              <span class="text-caption text-grafite">{{ opcao.descricao }}</span>
-            </span>
-          </label>
-        </div>
-      </fieldset>
+              Privacidade
+            </h2>
+            <div class="mt-space-4 grid gap-space-3 md:grid-cols-2 md:gap-space-4">
+              <label
+                v-for="opcao in opcoes"
+                :key="opcao.valor"
+                class="flex cursor-pointer items-start gap-space-3 rounded-base p-space-4 transition-colors duration-dur-fast has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-musgo"
+                :class="campos.privacidade === opcao.valor ? 'border-[1.5px] border-musgo bg-musgo-fundo' : 'border border-linha hover:bg-linha'"
+              >
+                <!-- Rádio nativo só para teclado e leitor de tela; o desenho é o Phosphor. -->
+                <input
+                  v-model="campos.privacidade"
+                  type="radio"
+                  name="privacidade"
+                  :value="opcao.valor"
+                  class="sr-only"
+                >
+                <component
+                  :is="campos.privacidade === opcao.valor ? PhRadioButton : PhCircle"
+                  :size="20"
+                  :weight="campos.privacidade === opcao.valor ? 'fill' : 'regular'"
+                  class="shrink-0"
+                  :class="campos.privacidade === opcao.valor ? 'text-musgo' : 'text-grafite'"
+                  aria-hidden="true"
+                />
+                <span class="flex min-w-0 flex-1 flex-col gap-space-1">
+                  <span class="flex items-center gap-space-2">
+                    <component
+                      :is="opcao.icone"
+                      :size="20"
+                      weight="regular"
+                      class="shrink-0 text-tinta"
+                      aria-hidden="true"
+                    />
+                    <span class="text-body-strong text-tinta">{{ opcao.titulo }}</span>
+                  </span>
+                  <span class="text-caption text-pretty text-grafite">{{ opcao.descricao }}</span>
+                </span>
+              </label>
+            </div>
+          </fieldset>
 
-      <BannerAviso
-        v-if="avisoDePrivado"
-        variante="alerta"
-        class="mt-space-4"
-      >
-        {{ avisoDePrivado }}
-        <!-- Sai pela guarda de saída: com a privacidade trocada, o modal de descarte aparece. -->
-        <RouterLink
-          to="/perfil/conexoes?aba=seguidores"
-          class="mt-space-3 flex min-h-12 items-center text-body-strong text-musgo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo md:min-h-10"
-        >
-          Ver seguidores
-        </RouterLink>
-      </BannerAviso>
-      <p
-        v-if="coldStart"
-        class="mt-space-4 text-caption text-grafite"
-        role="status"
-      >
-        O servidor está iniciando. Isso pode levar alguns segundos.
-      </p>
+          <BannerAviso
+            v-if="avisoDePrivado"
+            variante="alerta"
+            class="mt-space-4"
+          >
+            {{ avisoDePrivado }}
+            <!-- Sai pela guarda de saída: com a privacidade trocada, o modal de descarte aparece. -->
+            <RouterLink
+              to="/perfil/conexoes?aba=seguidores"
+              class="mt-space-3 flex min-h-12 items-center text-body-strong text-musgo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo md:min-h-0"
+            >
+              Ver seguidores
+            </RouterLink>
+          </BannerAviso>
+          <p
+            v-if="coldStart"
+            class="mt-space-4 text-caption text-grafite"
+            role="status"
+          >
+            O servidor está iniciando. Isso pode levar alguns segundos.
+          </p>
+        </div>
+      </div>
     </form>
 
     <DialogoConfirmacao
       :aberta="confirmandoDescarte"
+      compacto
       titulo="Descartar alterações?"
       rotulo-confirmar="Descartar"
       rotulo-cancelar="Continuar editando"
@@ -556,7 +619,7 @@ async function descartar(): Promise<void> {
     </BotaoTextual>
     <div class="hidden items-center gap-space-4 md:flex">
       <BotaoTextual
-        class="min-h-10"
+        class="min-h-10 px-space-3"
         tom="grafite"
         :disabled="salvando"
         @click="voltarAoPerfil"
@@ -564,9 +627,10 @@ async function descartar(): Promise<void> {
         Cancelar
       </BotaoTextual>
       <BotaoPrimario
-        class="w-auto px-space-8"
+        class="w-auto px-space-6"
         :disabled="!podeSalvar && !salvando"
         :carregando="salvando"
+        carregando-esmaecido
         @click="salvar"
       >
         {{ salvando ? 'Salvando' : 'Salvar' }}

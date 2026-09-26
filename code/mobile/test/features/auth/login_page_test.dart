@@ -9,6 +9,7 @@ import 'package:le_ai_mobile/core/session/session_controller.dart';
 import 'package:le_ai_mobile/core/session/token_store.dart';
 import 'package:le_ai_mobile/design/theme.dart';
 import 'package:le_ai_mobile/features/auth/auth_service.dart';
+import 'package:le_ai_mobile/features/auth/indicador_de_envio.dart';
 import 'package:le_ai_mobile/features/auth/login_page.dart';
 
 class _FakeTokenStore implements TokenStore {
@@ -234,7 +235,10 @@ void main() {
     );
     final identificador = tester.widget<TextField>(campos.at(0));
     expect(identificador.enabled, isFalse);
+    // Protótipo (Login · Entrando): indicador entre o link e o botão.
+    expect(find.byType(IndicadorDeEnvio), findsOneWidget);
 
     await tester.pumpAndSettle();
+    expect(find.byType(IndicadorDeEnvio), findsNothing);
   });
 }

@@ -13,6 +13,7 @@ const RAFAEL: PerfilResumo = {
   id: 'u2',
   username: 'rafaokamoto',
   displayName: 'Rafael Okamoto',
+  biografia: null,
   avatarUrl: null,
   privacidade: 'publico',
   conteudoRestrito: false,
@@ -54,6 +55,41 @@ describe('BuscarLeitorView', () => {
     const card = wrapper.get('a[href="/leitores/rafaokamoto"]')
     expect(card.attributes('aria-label')).toBe('Rafael Okamoto, arroba rafaokamoto')
     expect(wrapper.text()).not.toContain('Seguir')
+  })
+
+  it('o card traz chip de privacidade, biografia e a ilustração do leitor abaixo', async () => {
+    servico.buscarPorUsername.mockResolvedValue([
+      { ...RAFAEL, privacidade: 'privado', biografia: 'Professor de história. Anoto tudo na margem.' },
+    ])
+    const { wrapper } = await montarNaRota('/perfil/buscar')
+
+    await buscar(wrapper, 'rafaokamoto')
+
+    const card = wrapper.get('a[href="/leitores/rafaokamoto"]')
+    expect(card.text()).toContain('Perfil privado')
+    const bio = card.get('[data-teste="biografia"]')
+    expect(bio.text()).toBe('Professor de história. Anoto tudo na margem.')
+    expect(bio.classes()).toContain('line-clamp-2')
+    expect(wrapper.find('[data-teste="ilustracao-encontrado"]').exists()).toBe(true)
+  })
+
+  it('sem biografia o card não deixa linha vazia', async () => {
+    const { wrapper } = await montarNaRota('/perfil/buscar')
+
+    await buscar(wrapper, 'rafaokamoto')
+
+    expect(wrapper.text()).toContain('Perfil público')
+    expect(wrapper.find('[data-teste="biografia"]').exists()).toBe(false)
+  })
+
+  it('sem resultado mostra a ilustração no lugar do ícone', async () => {
+    servico.buscarPorUsername.mockResolvedValue([])
+    const { wrapper } = await montarNaRota('/perfil/buscar')
+
+    await buscar(wrapper, 'rafaokamoto')
+
+    expect(wrapper.find('img[src*="nenhum-leitor"]').exists()).toBe(true)
+    expect(wrapper.find('[data-teste="ilustracao-encontrado"]').exists()).toBe(false)
   })
 
   it('sem resultado a frase é sobre a busca, não sobre a conta', async () => {

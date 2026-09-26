@@ -86,6 +86,9 @@ class PerfilResumo {
   final String id;
   final String username;
   final String displayName;
+
+  /// Pública em qualquer privacidade (RN-08); no resumo desde 25/09/2026 para busca e listas.
+  final String? biografia;
   final String? avatarUrl;
   final Privacidade privacidade;
   final bool conteudoRestrito;
@@ -95,6 +98,7 @@ class PerfilResumo {
     required this.id,
     required this.username,
     required this.displayName,
+    this.biografia,
     required this.avatarUrl,
     required this.privacidade,
     required this.conteudoRestrito,
@@ -105,6 +109,7 @@ class PerfilResumo {
     id: json['id'] as String,
     username: json['username'] as String,
     displayName: json['displayName'] as String,
+    biografia: json['biografia'] as String?,
     avatarUrl: json['avatarUrl'] as String?,
     privacidade: Privacidade.deJson(json['privacidade']),
     conteudoRestrito: json['conteudoRestrito'] as bool? ?? false,

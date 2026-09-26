@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { PhCalendarBlank } from '@phosphor-icons/vue'
 import { type Component, computed, useId } from 'vue'
 
 /**
@@ -54,6 +55,11 @@ const props = withDefaults(
      * `grafite-suave`). Decorativo: o label já diz o que o campo é.
      */
     icone?: Component
+    /**
+     * Mensagem de erro logo abaixo do campo e o helper depois dela (alterar-senha.md §4.3 e os
+     * protótipos de recuperar e redefinir senha). O padrão é o do cadastro.md §4.3: helper, erro.
+     */
+    erroAntesDoHelper?: boolean
   }>(),
   {
     id: undefined,
@@ -71,6 +77,7 @@ const props = withDefaults(
     somenteLeitura: false,
     mascara: undefined,
     icone: undefined,
+    erroAntesDoHelper: false,
   },
 )
 
@@ -146,7 +153,8 @@ const idDescricao = computed(() => {
           erro || bordaDeErro
             ? 'border-[1.5px] border-rubi'
             : 'border border-linha focus:border-[1.5px] focus:border-musgo',
-          $slots.trailing ? 'pr-space-10' : '',
+          $slots.trailing || type === 'date' ? 'pr-space-10' : '',
+          type === 'date' ? 'campo-data' : '',
           icone ? 'pl-11' : '',
           mono ? 'font-mono tabular-nums' : '',
           somenteLeitura ? 'text-grafite' : 'text-tinta',
@@ -154,6 +162,15 @@ const idDescricao = computed(() => {
         @input="aoDigitar"
         @blur="emit('blur')"
       >
+      <!-- Data: o ícone do protótipo (`CalendarBlank`, `grafite-suave`) por cima do indicador nativo,
+           que fica transparente mas continua abrindo o seletor ao clique. -->
+      <PhCalendarBlank
+        v-if="type === 'date'"
+        :size="20"
+        weight="regular"
+        aria-hidden="true"
+        class="pointer-events-none absolute right-space-4 top-1/2 -translate-y-1/2 text-grafite-suave"
+      />
       <!-- Espaço para um controle dentro do campo (ex.: alternar visibilidade da senha em
            CampoSenha). Ocupa a altura inteira do campo para dar folga de alvo de toque. -->
       <div
@@ -167,6 +184,7 @@ const idDescricao = computed(() => {
       v-if="helper"
       :id="idHelper"
       class="text-caption text-grafite"
+      :class="erroAntesDoHelper ? 'order-2' : ''"
     >
       {{ helper }}
     </p>
@@ -174,8 +192,17 @@ const idDescricao = computed(() => {
       v-if="erro"
       :id="idErro"
       class="text-caption text-rubi"
+      :class="erroAntesDoHelper ? 'order-1' : ''"
     >
       {{ erro }}
     </p>
   </div>
 </template>
+
+<style scoped>
+/* O indicador nativo do input de data some, mas continua clicável sob o ícone Phosphor. */
+.campo-data::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  cursor: pointer;
+}
+</style>

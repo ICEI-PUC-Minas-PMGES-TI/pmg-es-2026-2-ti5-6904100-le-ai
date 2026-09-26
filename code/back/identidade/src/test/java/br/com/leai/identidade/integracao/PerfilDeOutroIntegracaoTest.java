@@ -174,7 +174,9 @@ class PerfilDeOutroIntegracaoTest extends IntegracaoComPostgres {
     assertThat(achado).hasSize(1);
     assertThat(achado.get(0).get("username").asString()).isEqualTo(outro.username());
     assertThat(achado.get(0).get("conteudoRestrito").asBoolean()).isTrue();
-    assertThat(achado.get(0).has("biografia")).isFalse();
+    // Biografia é pública mesmo em perfil privado (RN-08); está no resumo desde 25/09.
+    assertThat(achado.get(0).has("biografia")).isTrue();
+    assertThat(achado.get(0).has("contadores")).isFalse();
     assertThat(prefixo.statusCode()).isEqualTo(200);
     assertThat(prefixo.body()).isEqualTo("[]");
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -27,10 +28,12 @@ Map<String, Object?> _resumo(
   String displayName, {
   String privacidade = 'publico',
   String relacao = 'nenhuma',
+  String? biografia,
 }) => <String, Object?>{
   'id': 'id-$username',
   'username': username,
   'displayName': displayName,
+  'biografia': ?biografia,
   'avatarUrl': null,
   'privacidade': privacidade,
   'conteudoRestrito': false,
@@ -129,6 +132,49 @@ void main() {
       await tester.testTextInput.receiveAction(TextInputAction.search);
       await tester.pumpAndSettle();
       expect(find.text('Nenhum leitor com esse nome de usuário'), findsOneWidget);
+    });
+
+    testWidgets('card traz chip, biografia em duas linhas e a ilustração do leitor', (tester) async {
+      await montar(
+        tester,
+        () => json(<Object?>[
+          _resumo(
+            'rafaokamoto',
+            'Rafael Okamoto',
+            privacidade: 'privado',
+            biografia: 'Professor de história. Anoto tudo na margem.',
+          ),
+        ], 200),
+      );
+
+      await tester.enterText(find.byType(TextField), 'rafaokamoto');
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Perfil privado'), findsOneWidget);
+      final bio = tester.widget<Text>(find.text('Professor de história. Anoto tudo na margem.'));
+      expect(bio.maxLines, 2);
+      expect(bio.overflow, TextOverflow.ellipsis);
+      expect(find.byKey(const ValueKey<String>('ilustracao-leitor-encontrado')), findsOneWidget);
+    });
+
+    testWidgets('nenhum leitor mostra a arte no lugar do ícone', (tester) async {
+      await montar(tester, () => json(<Object?>[], 200));
+
+      await tester.enterText(find.byType(TextField), 'rafaokamoto');
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byWidgetPredicate(
+          (w) =>
+              w is SvgPicture &&
+              w.bytesLoader is SvgAssetLoader &&
+              (w.bytesLoader as SvgAssetLoader).assetName == 'assets/ilustracoes/nenhum-leitor.svg',
+        ),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey<String>('ilustracao-leitor-encontrado')), findsNothing);
     });
 
     testWidgets('limite de buscas mostra a frase do servidor', (tester) async {
@@ -307,6 +353,36 @@ void main() {
       expect(pedidos.last.url.path, '/seguidores/caio');
       expect(find.text('Caio Ferraz'), findsNothing);
       expect(find.bySemanticsLabel('Seguidores 83'), findsOneWidget);
+    });
+
+    testWidgets('a linha mostra a biografia numa linha só, e nada quando não há', (tester) async {
+      usarTelaDeCelular(tester);
+      await tester.pumpWidget(
+        envolver(
+          ConexoesPage(
+            servico: _servico((request) async {
+              if (request.url.path == '/me/seguidores') {
+                return json(
+                  _pagina(<Map<String, Object?>>[
+                    _resumo('caio', 'Caio Ferraz', biografia: 'Leio no busão. Terror nacional.'),
+                    _resumo('nadia', 'Nadia Sampaio'),
+                  ]),
+                  200,
+                );
+              }
+              return json(_pagina(<Map<String, Object?>>[]), 200);
+            }),
+            aoAbrirPerfil: (_) {},
+            aoBuscarLeitor: () {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final bio = tester.widget<Text>(find.text('Leio no busão. Terror nacional.'));
+      expect(bio.maxLines, 1);
+      expect(bio.overflow, TextOverflow.ellipsis);
+      expect(find.byKey(const ValueKey<String>('biografia-da-linha')), findsOneWidget);
     });
 
     testWidgets('aba seguidos vazia oferece Buscar leitor', (tester) async {

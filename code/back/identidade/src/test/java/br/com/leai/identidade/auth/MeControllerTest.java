@@ -100,11 +100,13 @@ class MeControllerTest {
   }
 
   @Test
-  @DisplayName("token válido responde 200 com o usuário do token")
+  @DisplayName("token válido responde 200 com o usuário do token e o e-mail dele")
   void tokenValidoResponde200() throws Exception {
     given(jwtDecoder.decode(any())).willReturn(tokenDe(USUARIO_ID));
     given(servico.doToken(USUARIO_ID))
-        .willReturn(new UsuarioResposta(USUARIO_ID.toString(), "marinableu", "Marina Beltrão"));
+        .willReturn(
+            new UsuarioProprioResposta(
+                USUARIO_ID.toString(), "marinableu", "Marina Beltrão", "marina@exemplo.com"));
 
     mockMvc
         .perform(get("/me").header("Authorization", "Bearer token-de-teste"))
@@ -112,6 +114,9 @@ class MeControllerTest {
         .andExpect(jsonPath("$.id").value(USUARIO_ID.toString()))
         .andExpect(jsonPath("$.username").value("marinableu"))
         .andExpect(jsonPath("$.displayName").value("Marina Beltrão"))
-        .andExpect(jsonPath("$.email").doesNotExist());
+        // Só o próprio dono vê o e-mail (Configurações); o cadastro continua sem ele.
+        .andExpect(jsonPath("$.email").value("marina@exemplo.com"))
+        .andExpect(jsonPath("$.dataNascimento").doesNotExist())
+        .andExpect(jsonPath("$.senhaHash").doesNotExist());
   }
 }

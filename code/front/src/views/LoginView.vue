@@ -128,7 +128,7 @@ async function enviar(): Promise<void> {
       <fieldset
         :disabled="enviando"
         class="m-0 min-w-0 border-0 p-0"
-        :class="enviando ? 'opacity-60' : ''"
+        :class="enviando ? 'opacity-50' : ''"
       >
         <div class="flex flex-col gap-space-5">
           <CampoTexto
@@ -150,36 +150,52 @@ async function enviar(): Promise<void> {
         </div>
       </fieldset>
 
-      <!-- Edição de F-AUT (login.md): abaixo da senha, à direita, antes do botão principal. -->
-      <div class="mt-space-3 flex justify-end">
+      <!-- Edição de F-AUT (login.md): abaixo da senha, à direita, antes do botão principal. Encosta
+           na borda direita da coluna, como no protótipo, por isso sem o padding do BotaoTextual. -->
+      <div
+        class="mt-space-3 flex justify-end"
+        :class="enviando ? 'pointer-events-none opacity-50' : ''"
+      >
         <BotaoTextual
-          class="min-h-12 md:min-h-0"
+          class="min-h-12 px-0! md:min-h-0"
           href="/recuperar-senha"
+          :tabindex="enviando ? -1 : undefined"
           @click.prevent="router.push('/recuperar-senha')"
         >
           Esqueci minha senha
         </BotaoTextual>
       </div>
 
+      <!-- Indicador do envio acima do botão, como no protótipo (Login · Entrando). -->
+      <div
+        v-if="enviando"
+        class="mt-space-6 flex justify-center"
+        aria-hidden="true"
+      >
+        <span class="size-[28px] animate-spin rounded-full border-3 border-musgo-fundo border-t-musgo motion-reduce:animate-none" />
+      </div>
+
       <BotaoPrimario
         tipo="submit"
-        class="mt-space-8"
+        :class="enviando ? 'mt-space-6' : 'mt-space-8'"
         :carregando="enviando"
+        carregando-esmaecido
         :disabled="bloqueado"
       >
         {{ enviando ? 'Entrando' : 'Entrar' }}
       </BotaoPrimario>
       <p
         v-if="enviando"
-        class="mt-space-3 text-caption text-grafite"
+        class="mt-space-3 text-center text-caption text-grafite"
       >
         O servidor está iniciando. Isso pode levar alguns segundos.
       </p>
     </form>
 
-    <p class="mt-space-5 text-body text-grafite">
-      Ainda não tem conta?
+    <p class="mt-space-5 flex flex-wrap justify-center gap-space-1 text-body text-grafite md:justify-start">
+      <span>Ainda não tem conta?</span>
       <BotaoTextual
+        class="p-0!"
         href="/cadastro"
         @click.prevent="router.push('/cadastro')"
       >

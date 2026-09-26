@@ -65,8 +65,30 @@ describe('PerfilView', () => {
     expect(wrapper.find('[aria-label="84 seguidores"]').exists()).toBe(true)
     expect(wrapper.find('[aria-label="1 seguindo"]').exists()).toBe(true)
     expect(wrapper.get('a[href="/perfil/editar"]').text()).toBe('Editar perfil')
-    // Sem conteúdo de `leitura` ainda: nada de estante vazia fingindo que não há livros.
+    // Sem o dado de `leitura` ainda: nada de contador de livros lidos.
     expect(wrapper.text()).not.toContain('livros lidos')
+  })
+
+  it('Estante e Resenhas aparecem no estado vazio, com o CTA para Descobrir e as abas na web', async () => {
+    const { wrapper } = await montarNaRota('/perfil')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Os livros que você adicionar aparecem aqui.')
+    expect(wrapper.findAll('a[href="/descobrir"]').some((link) => link.text() === 'Buscar livros')).toBe(true)
+    expect(wrapper.text()).toContain('Suas resenhas aparecem aqui depois que você escrever a primeira.')
+
+    const [estante, resenhas] = wrapper.findAll('[role="tab"]')
+    expect(estante.text()).toBe('Estante')
+    expect(estante.attributes('aria-selected')).toBe('true')
+    expect(resenhas.attributes('aria-selected')).toBe('false')
+    const [painelDaEstante, painelDasResenhas] = wrapper.findAll('[role="tabpanel"]')
+    expect(painelDasResenhas.classes()).toContain('md:hidden')
+
+    await resenhas.trigger('click')
+
+    expect(resenhas.attributes('aria-selected')).toBe('true')
+    expect(painelDaEstante.classes()).toContain('md:hidden')
+    expect(painelDasResenhas.classes()).not.toContain('md:hidden')
   })
 
   it('perfil privado troca o chip e explica quem vê o conteúdo', async () => {

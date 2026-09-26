@@ -12,8 +12,8 @@ import '../auth/auth_service.dart';
 /// docs/design/periodo-1/F-AUT/configuracoes.md §4.
 ///
 /// O bloco de identificação vem do `GET /me` (§4.5): enquanto carrega, e se falhar, fica o
-/// skeleton, e o resto da tela continua utilizável, inclusive sair. **Sem e-mail**, como na web:
-/// nenhuma resposta do `identidade` expõe o e-mail.
+/// skeleton de três barras, e o resto da tela continua utilizável, inclusive sair. O e-mail vem
+/// no mesmo `GET /me`, que só o devolve ao próprio dono (decisão de 25/09/2026).
 ///
 /// Sair sempre funciona do lado do aparelho (§4.3): quem recebe [aoSair] revoga no servidor como
 /// melhor esforço e limpa a sessão; a guarda de rota leva ao login sozinha.
@@ -78,7 +78,7 @@ class _ConfiguracoesPageState extends State<ConfiguracoesPage> {
     final theme = Theme.of(context);
     return Column(
       children: <Widget>[
-        CabecalhoTela(titulo: 'Configurações', aoVoltar: widget.aoVoltar),
+        CabecalhoTela(titulo: 'Configurações', aoVoltar: widget.aoVoltar, semDivisor: true),
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.only(top: DesignTokens.space6, bottom: DesignTokens.space10),
@@ -106,6 +106,7 @@ class _ConfiguracoesPageState extends State<ConfiguracoesPage> {
                     texto: _saindo ? 'Saindo' : 'Sair da conta',
                     icone: PhosphorIconsRegular.signOut,
                     carregando: _saindo,
+                    carregandoEsmaecido: true,
                     onPressed: _confirmarSaida,
                   ),
                 ),
@@ -115,6 +116,7 @@ class _ConfiguracoesPageState extends State<ConfiguracoesPage> {
                     padding: const EdgeInsets.symmetric(horizontal: DesignTokens.space5),
                     child: Text(
                       'O servidor está iniciando. Isso pode levar alguns segundos.',
+                      textAlign: TextAlign.center,
                       style: theme.textTheme.bodySmall?.copyWith(color: theme.secondaryText),
                     ),
                   ),
@@ -144,6 +146,8 @@ class _ConfiguracoesPageState extends State<ConfiguracoesPage> {
             _Barra(altura: 17, fracao: 0.45, theme: theme),
             const SizedBox(height: DesignTokens.space2),
             _Barra(altura: 13, fracao: 0.30, theme: theme),
+            const SizedBox(height: DesignTokens.space2),
+            _Barra(altura: 13, fracao: 0.55, theme: theme),
           ],
         ),
       );
@@ -152,7 +156,13 @@ class _ConfiguracoesPageState extends State<ConfiguracoesPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Text(usuario.displayName, style: theme.textTheme.titleMedium),
+        const SizedBox(height: 2),
         Text('@${usuario.username}', style: theme.textTheme.bodySmall),
+        // E-mail em `caption` grafite, 4px abaixo do handle (protótipo, artboard padrão).
+        if (usuario.email case final email?) ...<Widget>[
+          const SizedBox(height: DesignTokens.space1),
+          Text(email, style: theme.textTheme.bodySmall?.copyWith(color: theme.secondaryText)),
+        ],
       ],
     );
   }

@@ -108,4 +108,23 @@ describe('RedefinirSenhaView', () => {
     expect(wrapper.text()).toContain('Escolha uma senha com pelo menos 8 caracteres.')
     expect(authService.redefinirSenha).not.toHaveBeenCalled()
   })
+
+  it('o aviso de sessões vem depois do campo de confirmação, como no protótipo', async () => {
+    const { wrapper } = await montarEm('/redefinir-senha#token=abc123')
+
+    const texto = wrapper.text()
+    expect(texto.indexOf('Confirmar nova senha')).toBeLessThan(texto.indexOf('Ao salvar, você sai'))
+  })
+
+  it('o erro de política vem antes do helper da nova senha', async () => {
+    const { wrapper } = await montarEm('/redefinir-senha#token=abc123')
+
+    await preencher(wrapper, 'curta', 'curta')
+
+    // A ordem visual é por order do flex (CampoTexto erroAntesDoHelper), não pela do DOM.
+    const erro = wrapper.findAll('p').find((p) => p.text().startsWith('Escolha uma senha com pelo menos 8'))!
+    const helper = wrapper.findAll('p').find((p) => p.text().startsWith('Mínimo de 8 caracteres.'))!
+    expect(erro.classes()).toContain('order-1')
+    expect(helper.classes()).toContain('order-2')
+  })
 })

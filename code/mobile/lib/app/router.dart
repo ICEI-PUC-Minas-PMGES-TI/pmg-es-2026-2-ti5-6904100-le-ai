@@ -150,6 +150,8 @@ GoRouter buildRouter({
                   aoEditar: () => context.push<void>(rotaEditarPerfil),
                   aoAbrirConexoes: (aba) => context.push<void>(rotaConexoes(aba)),
                   aoAbrirSolicitacoes: () => context.push<void>(rotaSolicitacoes),
+                  aoBuscarLivros: () => context.go('/descobrir'),
+                  aoVerEstante: () => context.go(rotaEstante),
                 ),
                 routes: <RouteBase>[
                   ...rotasDoPerfil(depsDePerfil),

@@ -134,6 +134,10 @@ describe('LoginView', () => {
     expect(wrapper.get('button[type="submit"]').text()).toBe('Entrando')
     expect(wrapper.get('fieldset').attributes('disabled')).toBeDefined()
     expect(wrapper.text()).toContain('O servidor está iniciando. Isso pode levar alguns segundos.')
+    // Protótipo (Login · Entrando): indicador acima do botão, botão e link esmaecidos.
+    expect(wrapper.find('.animate-spin').exists()).toBe(true)
+    expect(wrapper.get('button[type="submit"]').classes()).toContain('opacity-45')
+    expect(wrapper.get('a[href="/recuperar-senha"]').attributes('tabindex')).toBe('-1')
 
     resolver({
       sessao: { accessToken: 'jwt', tokenType: 'Bearer', expiresIn: 900, refreshToken: 'renovacao' },
@@ -142,6 +146,7 @@ describe('LoginView', () => {
     await flushPromises()
 
     expect(wrapper.get('button[type="submit"]').text()).toBe('Entrar')
+    expect(wrapper.find('.animate-spin').exists()).toBe(false)
   })
 
   it('"Esqueci minha senha" leva à recuperação', async () => {

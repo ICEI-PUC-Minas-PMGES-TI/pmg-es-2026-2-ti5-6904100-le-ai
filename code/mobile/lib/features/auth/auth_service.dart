@@ -8,10 +8,15 @@ class UsuarioResposta {
   final String username;
   final String displayName;
 
+  /// Só em `GET /me` (`UsuarioProprio`): o e-mail do próprio dono, que Configurações mostra. O
+  /// 201 do cadastro não o traz.
+  final String? email;
+
   const UsuarioResposta({
     required this.id,
     required this.username,
     required this.displayName,
+    this.email,
   });
 
   factory UsuarioResposta.fromJson(Map<String, dynamic> json) {
@@ -19,6 +24,7 @@ class UsuarioResposta {
       id: json['id'] as String,
       username: json['username'] as String,
       displayName: json['displayName'] as String,
+      email: json['email'] as String?,
     );
   }
 }

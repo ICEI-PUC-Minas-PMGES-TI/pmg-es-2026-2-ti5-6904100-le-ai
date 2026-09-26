@@ -23,18 +23,24 @@ const props = withDefaults(
      */
     aparenciaDesabilitada?: 'esmaecida' | 'neutra'
     tipo?: 'button' | 'submit'
+    /**
+     * Envio esmaecido (opacidade 45%), como nos protótipos de F-AUT e F-PERFIL, em vez do `musgo`
+     * pleno dos prompts de P0-NAV. Pelo §10 de docs/design/AGENTS.md o protótipo prevalece.
+     */
+    carregandoEsmaecido?: boolean
   }>(),
   {
     carregando: false,
     disabled: false,
     aparenciaDesabilitada: 'esmaecida',
     tipo: 'button',
+    carregandoEsmaecido: false,
   },
 )
 
 const estado = computed(() => {
   if (props.carregando) {
-    return 'cursor-progress bg-musgo text-papel'
+    return props.carregandoEsmaecido ? 'cursor-progress bg-musgo text-papel opacity-45' : 'cursor-progress bg-musgo text-papel'
   }
   if (props.disabled) {
     return props.aparenciaDesabilitada === 'neutra'

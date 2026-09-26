@@ -93,8 +93,11 @@ function irParaLogin(): void {
 
 <template>
   <LayoutAutenticacao>
+    <!-- Na confirmação neutra da web o protótipo começa pelo ícone: voltar já é o botão primário.
+         No celular a seta fica, como no artboard mobile. -->
     <BotaoTextual
-      class="-ml-space-3 min-h-12 gap-space-2 md:ml-0 md:min-h-0"
+      class="-ml-space-3 min-h-12 gap-space-2 md:ml-0 md:min-h-0 md:px-0!"
+      :class="enviadoPara !== null ? 'md:hidden' : ''"
       href="/login"
       aria-label="Voltar para entrar"
       @click.prevent="irParaLogin"
@@ -109,7 +112,7 @@ function irParaLogin(): void {
 
     <EstadoTerminal
       v-if="enviadoPara !== null"
-      class="mt-space-10 md:mt-space-6"
+      class="mt-space-10 md:mt-0"
       :icone="PhEnvelopeSimple"
       titulo="Verifique seu e-mail"
     >
@@ -163,7 +166,7 @@ function irParaLogin(): void {
         <fieldset
           :disabled="enviando"
           class="m-0 min-w-0 border-0 p-0"
-          :class="enviando ? 'opacity-60' : ''"
+          :class="enviando ? 'opacity-50' : ''"
           @focusout="aoSairDoCampo"
         >
           <CampoTexto
@@ -172,6 +175,7 @@ function irParaLogin(): void {
             type="email"
             autocomplete="email"
             :erro="erroEmail"
+            erro-antes-do-helper
             helper="O link vale por 1 hora e só pode ser usado uma vez."
             @update:model-value="aoDigitar"
           />
@@ -181,19 +185,24 @@ function irParaLogin(): void {
           tipo="submit"
           class="mt-space-8"
           :carregando="enviando"
+          carregando-esmaecido
           :disabled="botaoDesabilitado"
         >
           {{ enviando ? 'Enviando' : 'Enviar link' }}
         </BotaoPrimario>
         <p
           v-if="enviando"
-          class="mt-space-3 text-caption text-grafite"
+          class="mt-space-3 text-center text-caption text-grafite"
         >
           O servidor está iniciando. Isso pode levar alguns segundos.
         </p>
       </form>
 
-      <div class="mt-space-5 flex justify-center md:hidden">
+      <!-- Some durante o envio, como no protótipo (Recuperar senha · Enviando). -->
+      <div
+        v-if="!enviando"
+        class="mt-space-5 flex justify-center md:hidden"
+      >
         <BotaoTextual
           class="min-h-12"
           href="/login"

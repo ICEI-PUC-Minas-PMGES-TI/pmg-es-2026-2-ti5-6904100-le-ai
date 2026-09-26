@@ -11,8 +11,8 @@ import LogoLeAi from '../components/ui/LogoLeAi.vue'
  *
  * `ilustrada` é a coluna dos protótipos de F-AUT para login e cadastro (frase editorial com os
  * dois acentos, linha de apoio e a leitora do unDraw sobre um círculo `musgo-fundo`), que é o
- * desenho aprovado (docs/design/AGENTS.md §10). Recuperar e redefinir senha continuam com a
- * frase curta, como nos protótipos delas.
+ * desenho aprovado (docs/design/AGENTS.md §10). Recuperar e redefinir senha usam a frase curta
+ * em Space Grotesk e a mesma leitora abaixo dela, mas sem o círculo, como nos protótipos delas.
  */
 withDefaults(defineProps<{ ilustrada?: boolean }>(), { ilustrada: false })
 </script>
@@ -56,12 +56,22 @@ withDefaults(defineProps<{ ilustrada?: boolean }>(), { ilustrada: false })
       class="hidden w-[44%] flex-col justify-center bg-papel-elevado px-space-16 md:flex"
     >
       <LogoLeAi :altura="32" />
-      <p class="mt-space-6 text-title-lg text-tinta">
+      <p class="mt-space-6 max-w-[420px] text-pretty text-title-lg text-tinta">
         Registre suas leituras e acompanhe as de quem você segue.
       </p>
       <p class="mt-space-4 text-body text-grafite">
         Estante, progresso, resenhas e feed em um lugar só.
       </p>
+      <img
+        :src="ilustracaoClara"
+        alt=""
+        class="mt-space-12 h-auto w-[320px] max-w-full dark:hidden"
+      >
+      <img
+        :src="ilustracaoEscura"
+        alt=""
+        class="mt-space-12 hidden h-auto w-[320px] max-w-full dark:block"
+      >
     </div>
 
     <div class="flex w-full flex-col items-center px-space-5 py-space-10 md:w-[56%] md:justify-center">

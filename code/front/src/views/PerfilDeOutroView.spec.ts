@@ -76,6 +76,28 @@ describe('PerfilDeOutroView', () => {
     expect(wrapper.find('[aria-label="213 seguidores"]').exists()).toBe(true)
   })
 
+  it('conteúdo visível: Estante e Resenhas vazias com texto neutro, sem o CTA do dono', async () => {
+    const { wrapper } = await montarNaRota('/leitores/rafaokamoto')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Rafael ainda não tem livros na estante.')
+    expect(wrapper.text()).toContain('Rafael ainda não escreveu resenhas.')
+    expect(wrapper.findAll('[role="tab"]').map((aba) => aba.text())).toEqual(['Estante', 'Resenhas'])
+    expect(wrapper.text()).not.toContain('Buscar livros')
+    expect(wrapper.text()).not.toContain('livros lidos')
+  })
+
+  it('RN-08: com conteúdo restrito, as seções de leitura não aparecem', async () => {
+    servico.obterPerfil.mockResolvedValue(PRIVADO)
+    const { wrapper } = await montarNaRota('/leitores/bia.nogueira')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Este perfil é privado')
+    expect(wrapper.find('[role="tablist"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('ainda não tem livros na estante')
+    expect(wrapper.text()).not.toContain('Resenhas')
+  })
+
   it('privado, não sigo: bloco de restrição que não é erro, e o pedido fica aguardando', async () => {
     servico.obterPerfil.mockResolvedValue(PRIVADO)
     servico.seguir.mockResolvedValue({ estado: 'solicitacao_pendente', solicitacaoId: 's1' })
