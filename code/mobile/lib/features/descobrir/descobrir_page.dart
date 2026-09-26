@@ -6,6 +6,7 @@ import '../../design/tokens.dart';
 import '../../design/widgets/banner_aviso.dart';
 import '../../design/widgets/botao_primario.dart';
 import '../../design/widgets/botao_textual.dart';
+import '../../design/widgets/entrada_suave.dart';
 import '../../design/widgets/estado_vazio.dart';
 import '../livros/acervo_service.dart';
 import 'busca_de_livros_controller.dart';
@@ -126,7 +127,7 @@ class _DescobrirPageState extends State<DescobrirPage> {
       case EstadoDaBusca.aterrissagem:
         return const SizedBox.shrink();
       case EstadoDaBusca.buscando:
-        return _EntradaSuave(child: _carregando(theme));
+        return EntradaSuave(child: _carregando(theme));
       case EstadoDaBusca.vazio:
         // Centrado no espaço que sobra e rolável quando não cabe (fonte ampliada, tela baixa).
         return LayoutBuilder(
@@ -268,27 +269,5 @@ class _DescobrirPageState extends State<DescobrirPage> {
       );
     }
     return const SizedBox.shrink();
-  }
-}
-
-/// Um único fade de entrada em `dur-base` com `ease-out`, estático sob movimento reduzido
-/// (descobrir.md §4.3). Nada de shimmer nem de pulso.
-class _EntradaSuave extends StatelessWidget {
-  final Widget child;
-
-  const _EntradaSuave({required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    if (MediaQuery.of(context).disableAnimations) {
-      return child;
-    }
-    return TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: 0, end: 1),
-      duration: DesignTokens.durBase,
-      curve: DesignTokens.easeOut,
-      builder: (context, opacidade, filho) => Opacity(opacity: opacidade, child: filho),
-      child: child,
-    );
   }
 }
