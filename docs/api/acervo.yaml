@@ -265,6 +265,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ImportacaoAceita' }
         '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '413': { $ref: '#/components/responses/CorpoMuitoGrande' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '409':
           description: ISBN já cadastrado ou chave de idempotência reutilizada com outro corpo.
@@ -363,6 +364,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/LivroPessoalDetalhe' }
         '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '413': { $ref: '#/components/responses/CorpoMuitoGrande' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '409': { $ref: '#/components/responses/Conflito' }
         '503': { $ref: '#/components/responses/ServicoIndisponivel' }
@@ -427,6 +429,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/LivroPessoalDetalhe' }
         '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '413': { $ref: '#/components/responses/CorpoMuitoGrande' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '403': { $ref: '#/components/responses/AcessoNegado' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
@@ -517,6 +520,13 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErroValidacao' }
+    CorpoMuitoGrande:
+      description: >-
+        Corpo da requisição acima do tamanho aceito pelo leitor de JSON (100 KB),
+        com o código `CORPO_MUITO_GRANDE`.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
     NaoAutenticado:
       description: Token ausente, inválido ou expirado.
       content:
