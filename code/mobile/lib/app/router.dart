@@ -18,6 +18,7 @@ import '../features/estante/estante_page.dart';
 import '../features/estante/estante_service.dart';
 import '../features/feed/rotas_feed.dart';
 import '../features/livros/rotas_livros.dart';
+import '../features/notificacoes/rotas_notificacoes.dart';
 import '../features/perfil/perfil_page.dart';
 import '../features/perfil/rotas_perfil.dart';
 import '../features/perfil/widgets_de_identidade.dart';
@@ -50,6 +51,7 @@ GoRouter buildRouter({
   DependenciasDePerfil? perfil,
   DependenciasDeFeed? feed,
   EstanteService? estante,
+  DependenciasDeNotificacoes? notificacoes,
 }) {
   Future<bool> renovar(String token) => sessionController.renovar(token, authService.renovar);
   final deps =
@@ -69,6 +71,12 @@ GoRouter buildRouter({
           getToken: () => sessionController.token,
           renovarSessao: renovar,
         ),
+      );
+  final depsDeNotificacoes =
+      notificacoes ??
+      DependenciasDeNotificacoes.padrao(
+        getToken: () => sessionController.token,
+        renovarSessao: renovar,
       );
   return GoRouter(
     initialLocation: rotaVerificandoSessao,
@@ -131,6 +139,8 @@ GoRouter buildRouter({
           caminhoAtual: state.uri.path,
           aoAbrirConfiguracoes: () => context.go(rotaConfiguracoes),
           aoBuscarLeitor: () => context.go(rotaBuscarLeitor),
+          contadorDeNaoLidas: depsDeNotificacoes.contador,
+          aoAbrirNotificacoes: (raiz) => context.push<void>(rotaNotificacoes(raiz)),
         ),
         branches: <StatefulShellBranch>[
           StatefulShellBranch(
@@ -142,7 +152,10 @@ GoRouter buildRouter({
                   aoBuscarLivros: () => context.go('/descobrir'),
                   aoCadastrarLivro: () => context.go(rotaAdicionarLivro),
                 ),
-                routes: rotasDaEstante(deps, servicoDeEstante),
+                routes: <RouteBase>[
+                  ...rotasDaEstante(deps, servicoDeEstante),
+                  rotaDeNotificacoes(depsDeNotificacoes, rotaEstante),
+                ],
               ),
             ],
           ),
@@ -158,13 +171,21 @@ GoRouter buildRouter({
                   // para a tela de ISBN que `go` montaria por baixo.
                   aoCadastrarPessoal: () => context.push('$rotaAdicionarLivro/pessoal'),
                 ),
-                routes: rotasDeDescobrir(deps),
+                routes: <RouteBase>[
+                  ...rotasDeDescobrir(deps),
+                  rotaDeNotificacoes(depsDeNotificacoes, '/descobrir'),
+                ],
               ),
             ],
           ),
           StatefulShellBranch(
             routes: <RouteBase>[
-              rotaDoFeed(depsDeFeed, perfil: depsDePerfil, livros: deps),
+              rotaDoFeed(
+                depsDeFeed,
+                perfil: depsDePerfil,
+                livros: deps,
+                rotasExtras: <RouteBase>[rotaDeNotificacoes(depsDeNotificacoes, rotaFeedRaiz)],
+              ),
             ],
           ),
           StatefulShellBranch(
@@ -178,12 +199,8 @@ GoRouter buildRouter({
                   aoAbrirSolicitacoes: () => context.push<void>(rotaSolicitacoes),
                   aoBuscarLivros: () => context.go('/descobrir'),
                   aoVerEstante: () => context.go(rotaEstante),
-                  resenhas: (usuarioId) => _resenhasDoPerfil(
-                    context,
-                    deps,
-                    usuarioId: usuarioId,
-                    proprio: true,
-                  ),
+                  resenhas: (usuarioId) =>
+                      _resenhasDoPerfil(context, deps, usuarioId: usuarioId, proprio: true),
                 ),
                 routes: <RouteBase>[
                   ...rotasDoPerfil(
@@ -200,6 +217,7 @@ GoRouter buildRouter({
                   // O livro aberto por uma resenha do perfil fica na aba Perfil (pagina-do-livro.md
                   // §4.1: o item ativo é a aba de origem).
                   rotaDoLivroOficial(deps, raiz: '/perfil'),
+                  rotaDeNotificacoes(depsDeNotificacoes, rotaPerfilRaiz),
                   GoRoute(
                     path: 'configuracoes',
                     builder: (context, state) => ConfiguracoesPage(

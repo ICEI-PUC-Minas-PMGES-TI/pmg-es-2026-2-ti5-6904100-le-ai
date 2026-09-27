@@ -11,7 +11,8 @@ import 'social_service.dart';
 
 /// Perfil de quem publicou, dentro da aba Feed: o toque no autor não troca de aba, e a seta
 /// volta ao feed.
-String rotaLeitorNoFeed(String username) => '$rotaFeedRaiz/leitores/${Uri.encodeComponent(username)}';
+String rotaLeitorNoFeed(String username) =>
+    '$rotaFeedRaiz/leitores/${Uri.encodeComponent(username)}';
 
 /// O que as telas de F-FEED precisam do mundo lá fora, no molde de `DependenciasDePerfil`.
 class DependenciasDeFeed {
@@ -49,6 +50,9 @@ GoRoute rotaDoFeed(
   DependenciasDeFeed deps, {
   required DependenciasDePerfil perfil,
   required DependenciasDeLivros livros,
+
+  /// Sub-rotas de outras features empilhadas na aba Feed, como as notificações (F-NOT).
+  List<RouteBase> rotasExtras = const <RouteBase>[],
 }) {
   return GoRoute(
     path: rotaFeedRaiz,
@@ -70,6 +74,7 @@ GoRoute rotaDoFeed(
     ),
     routes: <RouteBase>[
       ...rotasDoFeed(livros),
+      ...rotasExtras,
       GoRoute(
         path: 'leitores/:username',
         builder: (context, state) {

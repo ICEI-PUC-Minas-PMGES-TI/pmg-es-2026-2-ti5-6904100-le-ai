@@ -4,9 +4,8 @@ info:
   version: 0.1.0
   description: >-
     Contrato do serviço **social**. O serviço mantém a projeção do feed,
-    interações em atividades e notificações in-app. No estado atual somente a
-    infraestrutura e o health check estão implementados; as operações de
-    F-FEED e F-NOT estão planejadas para o Período 1. A exclusão de comentário
+    interações em atividades e notificações in-app. As operações de F-FEED e
+    F-NOT do Período 1 estão implementadas. A exclusão de comentário
     pertence a F-SOCIAL-2 (Período 2) e aparece apenas para tornar explícito o
     contrato futuro e sua regra de propriedade.
 
@@ -15,8 +14,8 @@ info:
     Todas as rotas de domínio exigem JWT e validam autorização, visibilidade e
     propriedade no servidor; conhecer um UUID não concede acesso.
   x-implementation-status:
-    implemented: [GET /health]
-    planned-periodo-1:
+    implemented:
+      - GET /health
       - GET /feed
       - GET /atividades/{atividadeId}
       - POST /atividades/{atividadeId}/curtir
@@ -59,7 +58,8 @@ x-event-consumers:
     required-envelope-fields:
       [eventId, type, version, occurredAt, correlationId, businessKey, data]
   notificacoes:
-    x-implementation-status: planned-periodo-1
+    x-implementation-status: implemented
+    queue: leai.social.notificacoes
     events:
       - seguidor.novo
       - solicitacao.criada
@@ -72,7 +72,10 @@ x-event-consumers:
     effect: >-
       Cria uma notificação para destinatarioId. A deduplicação semântica usa
       destinatário, tipo e chave de negócio; para inatividade, inclui leitura,
-      versão do ciclo e limiar de 20, 30 ou 40 dias.
+      versão do ciclo e limiar de 20, 30 ou 40 dias. A notificação guarda um
+      snapshot de quem agiu, do livro e da atividade alvo; a frase em pt-BR é
+      montada na leitura. O mapa evento → notificação está em
+      EventoDeNotificacao, no código do serviço.
     required-envelope-fields:
       [eventId, type, version, occurredAt, correlationId, businessKey, data]
     required-data-fields: [destinatarioId]
@@ -318,7 +321,7 @@ paths:
       tags: [notificacoes]
       summary: Lista as notificações do leitor (RF-NOT-02)
       operationId: listarNotificacoes
-      x-implementation-status: planned-periodo-1
+      x-implementation-status: implemented
       description: >-
         Lista somente notificações cujo destinatário é o leitor autenticado, em
         ordem cronológica decrescente. Inclui estado lida/não lida e a contagem
@@ -341,13 +344,14 @@ paths:
       tags: [notificacoes]
       summary: Marca notificações como lidas, individualmente ou em lote (RF-NOT-03)
       operationId: marcarNotificacoesLidas
-      x-implementation-status: planned-periodo-1
+      x-implementation-status: implemented
       description: >-
         Com modo SELECIONADAS, ids pode conter um ou vários UUIDs; um UUID cobre
         a marcação individual. Com modo TODAS, ids deve ser omitido e todas as
-        notificações ainda não lidas do leitor são marcadas. O servidor ignora
-        ids pertencentes a outro destinatário sem alterá-los e responde 404
-        para não revelar sua existência. A operação é idempotente.
+        notificações ainda não lidas do leitor são marcadas. Se algum id não
+        existe ou pertence a outro destinatário, o servidor responde 404, sem
+        alterar nenhuma notificação do lote e sem revelar qual id falhou. A
+        operação é idempotente: notificação já lida continua lida.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -817,6 +821,10 @@ components:
           type: integer
           enum: [20, 30, 40]
           nullable: true
+        livro:
+          allOf:
+            - $ref: '#/components/schemas/LivroDaNotificacao'
+          nullable: true
         acao: { $ref: '#/components/schemas/AcaoNotificacao' }
         lida: { type: boolean }
         lidaEm:
@@ -824,6 +832,19 @@ components:
           format: date-time
           nullable: true
         criadoEm: { type: string, format: date-time }
+    LivroDaNotificacao:
+      type: object
+      description: >-
+        Snapshot do livro nas notificações de inatividade (LEITURA_EM_RISCO e
+        LEITURA_EXPIRADA): título para a confirmação de abandono e id/tipo
+        para o destino da notificação.
+      required: [id, tipo, titulo]
+      properties:
+        id: { type: string, format: uuid }
+        tipo:
+          type: string
+          enum: [oficial, pessoal]
+        titulo: { type: string, example: O Avesso da Pele }
     PaginaNotificacoes:
       type: object
       required:

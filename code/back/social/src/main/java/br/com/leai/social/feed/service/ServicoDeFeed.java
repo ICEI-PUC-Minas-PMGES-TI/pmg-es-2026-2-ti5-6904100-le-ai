@@ -2,6 +2,7 @@ package br.com.leai.social.feed.service;
 
 import br.com.leai.social.common.CodigoErro;
 import br.com.leai.social.common.ErroDeNegocioException;
+import br.com.leai.social.common.Paginacao;
 import br.com.leai.social.feed.dto.AtividadeResposta;
 import br.com.leai.social.feed.dto.AutorSnapshotResposta;
 import br.com.leai.social.feed.dto.LinkLivroResposta;
@@ -51,8 +52,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class ServicoDeFeed {
 
-  public static final int TAMANHO_PADRAO = 20;
-  public static final int TAMANHO_MAXIMO = 50;
+  public static final int TAMANHO_PADRAO = Paginacao.TAMANHO_PADRAO;
+  public static final int TAMANHO_MAXIMO = Paginacao.TAMANHO_MAXIMO;
 
   private static final String NAO_ENCONTRADO = "Não encontramos o que você procura.";
   private static final String TIPO_LIVRO_PADRAO = "oficial";
@@ -76,7 +77,7 @@ public class ServicoDeFeed {
   /** Feed cronológico de quem {@code usuarioId} segue (RF-SOC-09), revalidado a cada consulta. */
   @Transactional(readOnly = true)
   public PaginaAtividadesResposta listar(UUID usuarioId, int page, int size) {
-    validarPaginacao(page, size);
+    Paginacao.validar(page, size);
 
     Page<Atividade> pagina = atividadeRepository.buscarFeed(usuarioId, PageRequest.of(page, size));
     List<Atividade> atividades = pagina.getContent();
@@ -184,14 +185,6 @@ public class ServicoDeFeed {
         curtidaPeloSolicitante);
   }
 
-  /** Resposta `PaginacaoInvalida`: página negativa ou tamanho fora de 1 a {@link #TAMANHO_MAXIMO}. */
-  private static void validarPaginacao(int page, int size) {
-    if (page < 0 || size < 1 || size > TAMANHO_MAXIMO) {
-      throw new ErroDeNegocioException(
-          CodigoErro.REQUISICAO_INVALIDA,
-          "Página a partir de 0 e tamanho de 1 a " + TAMANHO_MAXIMO + ".");
-    }
-  }
 
   /** {@code tipo} de cada livro em lote, batido contra {@code acervo.v_livro_referencia_v1}. */
   private Map<UUID, String> buscarTiposLivro(Collection<UUID> livroIds) {

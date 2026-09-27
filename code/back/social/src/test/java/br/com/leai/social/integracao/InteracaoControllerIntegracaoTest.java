@@ -2,16 +2,8 @@ package br.com.leai.social.integracao;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.nimbusds.jose.JWSAlgorithm;
-import com.nimbusds.jose.JWSHeader;
-import com.nimbusds.jose.crypto.MACSigner;
-import com.nimbusds.jwt.JWTClaimsSet;
-import com.nimbusds.jwt.SignedJWT;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
-import java.time.Instant;
-import java.util.Date;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -136,18 +128,6 @@ class InteracaoControllerIntegracaoTest extends IntegracaoComPostgres {
         """);
 
     jdbc.execute("TRUNCATE identidade.seguidor, identidade.usuario, acervo.livro CASCADE");
-  }
-
-  private String token(UUID subject) throws Exception {
-    JWTClaimsSet claims =
-        new JWTClaimsSet.Builder()
-            .subject(subject.toString())
-            .issueTime(Date.from(Instant.now().minusSeconds(1)))
-            .expirationTime(Date.from(Instant.now().plusSeconds(900)))
-            .build();
-    SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), claims);
-    jwt.sign(new MACSigner(JWT_SECRET_TESTE.getBytes(StandardCharsets.UTF_8)));
-    return jwt.serialize();
   }
 
   private UUID novaAtividadeVisivelPara(UUID solicitante) {

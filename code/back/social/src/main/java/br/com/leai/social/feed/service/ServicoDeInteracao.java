@@ -3,6 +3,7 @@ package br.com.leai.social.feed.service;
 import br.com.leai.social.common.CodigoErro;
 import br.com.leai.social.common.ErroDeNegocioException;
 import br.com.leai.social.common.LimitePorUsuario;
+import br.com.leai.social.common.Paginacao;
 import br.com.leai.social.feed.controller.InteracaoController;
 import br.com.leai.social.feed.dto.AutorSnapshotResposta;
 import br.com.leai.social.feed.dto.ComentarioResposta;
@@ -164,7 +165,7 @@ public class ServicoDeInteracao {
   @Transactional(readOnly = true)
   public PaginaComentariosResposta listarComentariosRaiz(
       UUID usuarioId, UUID atividadeId, int page, int size) {
-    validarPaginacao(page, size);
+    Paginacao.validar(page, size);
     servicoDeFeed.validarVisivel(usuarioId, atividadeId);
 
     Page<Comentario> pagina =
@@ -323,14 +324,6 @@ public class ServicoDeInteracao {
           return mapa;
         },
         ids.toArray());
-  }
-
-  private static void validarPaginacao(int page, int size) {
-    if (page < 0 || size < 1 || size > ServicoDeFeed.TAMANHO_MAXIMO) {
-      throw new ErroDeNegocioException(
-          CodigoErro.REQUISICAO_INVALIDA,
-          "Página a partir de 0 e tamanho de 1 a " + ServicoDeFeed.TAMANHO_MAXIMO + ".");
-    }
   }
 
   private static void validarLimite(int limit) {

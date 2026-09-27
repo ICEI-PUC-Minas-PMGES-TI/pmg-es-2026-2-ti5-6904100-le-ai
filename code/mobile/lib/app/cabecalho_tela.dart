@@ -3,6 +3,8 @@ import 'package:phosphor_icons/phosphor_icons.dart';
 
 import '../design/theme.dart';
 import '../design/tokens.dart';
+import '../features/notificacoes/contador_de_nao_lidas.dart';
+import '../features/perfil/textos.dart';
 
 /// Cabeçalho de 72px mais área segura, que toda tela autenticada herda (shell-de-navegacao.md
 /// §4 "Padrão de header"). Cuida da própria área segura com `SafeArea` interno em vez de virar
@@ -12,7 +14,8 @@ import '../design/tokens.dart';
 ///
 /// Sino fixo à direita (diferente da web, que não tem sino — REQUISITOS.md §2.1 tira
 /// notificações do escopo do cliente web, não do mobile). Sem badge quando não há não lidas:
-/// nada de círculo vazio.
+/// nada de círculo vazio. O total e a abertura da tela de notificações vêm do
+/// [EscopoDeNotificacoes] do shell (F-NOT); fora dele o sino não tem para onde levar.
 ///
 /// Divisor inferior sempre visível, não só quando o conteúdo rola por baixo: mesma
 /// simplificação assumida da web (`CabecalhoTela.vue`, pendência 28b), por consistência entre
@@ -21,7 +24,6 @@ class CabecalhoTela extends StatelessWidget {
   static const double altura = 72;
 
   final String titulo;
-  final int naoLidas;
 
   /// Presente nas telas abaixo da raiz de uma aba: `ArrowLeft` à esquerda do título, com
   /// `space-3` de gap (cadastro-por-isbn.md §4). Ausente nas quatro raízes do shell.
@@ -47,7 +49,6 @@ class CabecalhoTela extends StatelessWidget {
   const CabecalhoTela({
     super.key,
     required this.titulo,
-    this.naoLidas = 0,
     this.aoVoltar,
     this.acoes = const <Widget>[],
     this.comSino = true,
@@ -110,7 +111,7 @@ class CabecalhoTela extends StatelessWidget {
                 ),
                 ...acoes,
                 if (acoes.isNotEmpty && comSino) const SizedBox(width: DesignTokens.space3),
-                if (comSino) _Sino(naoLidas: naoLidas),
+                if (comSino) const _Sino(),
               ],
             ),
           ),
@@ -121,13 +122,33 @@ class CabecalhoTela extends StatelessWidget {
 }
 
 class _Sino extends StatelessWidget {
-  final int naoLidas;
-
-  const _Sino({required this.naoLidas});
+  const _Sino();
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final escopo = EscopoDeNotificacoes.maybeOf(context);
+    final naoLidas = escopo?.notifier?.total ?? 0;
+    // Área tocável de 48px em volta do ícone de 24px (alvo mínimo de toque).
+    return Semantics(
+      button: true,
+      label: naoLidas > 0
+          ? 'Notificações, ${contagem(naoLidas, 'não lida', 'não lidas')}'
+          : 'Notificações',
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: escopo?.aoAbrir,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          width: 48,
+          height: 48,
+          child: Align(alignment: Alignment.centerRight, child: _icone(theme, naoLidas)),
+        ),
+      ),
+    );
+  }
+
+  Widget _icone(ThemeData theme, int naoLidas) {
     return SizedBox(
       width: 24,
       height: 24,
@@ -143,10 +164,7 @@ class _Sino extends StatelessWidget {
                 width: 18,
                 height: 18,
                 alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: theme.primaryAccent,
-                  shape: BoxShape.circle,
-                ),
+                decoration: BoxDecoration(color: theme.primaryAccent, shape: BoxShape.circle),
                 child: Text(
                   naoLidas > 9 ? '9+' : '$naoLidas',
                   style: TextStyle(

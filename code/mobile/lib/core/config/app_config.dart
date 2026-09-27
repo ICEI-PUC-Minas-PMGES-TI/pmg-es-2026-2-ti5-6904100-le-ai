@@ -22,14 +22,15 @@ class AppConfig {
     defaultValue: 'http://localhost:3000',
   );
 
-  /// Base URL do serviço `social` (F-FEED): feed, curtidas e comentários. No AVD,
+  /// Base URL do serviço `social` (F-FEED, F-NOT): feed, curtidas, comentários e notificações. No AVD,
   /// `--dart-define=SOCIAL_BASE_URL=http://10.0.2.2:8081`.
   static const String socialBaseUrl = String.fromEnvironment(
     'SOCIAL_BASE_URL',
     defaultValue: 'http://localhost:8081',
   );
 
-  /// Base URL do serviço `leitura` (F-AVA, F-EST, F-PRG): nota, resenha, estante e progresso.
+  /// Base URL do serviço `leitura` (F-AVA, F-EST, F-PRG, F-NOT): nota, resenha, estante, progresso
+  /// e a ação de abandonar da notificação de leitura em risco (RF-NOT-04).
   /// Em local roda na 3001, porque a 3000 é do `acervo`. No AVD,
   /// `--dart-define=LEITURA_BASE_URL=http://10.0.2.2:3001`.
   static const String leituraBaseUrl = String.fromEnvironment(

@@ -15,7 +15,8 @@ package br.com.leai.social.common.idempotencia;
 public enum OperacaoIdempotente {
   CURTIR_ATIVIDADE("curtirAtividade"),
   DESCURTIR_ATIVIDADE("descurtirAtividade"),
-  CRIAR_COMENTARIO("criarComentario");
+  CRIAR_COMENTARIO("criarComentario"),
+  MARCAR_NOTIFICACOES_LIDAS("marcarNotificacoesLidas");
 
   private final String operationId;
 
