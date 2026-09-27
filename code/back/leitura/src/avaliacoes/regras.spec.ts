@@ -79,6 +79,17 @@ describe('validarTextoDaResenha (RN-07)', () => {
   it('recusa texto só com espaços', () => {
     expect(() => validarTextoDaResenha('   \n\t ')).toThrow(EntidadeInvalida);
   });
+
+  it('recusa texto só com caracteres invisíveis (largura zero, BOM)', () => {
+    expect(() => validarTextoDaResenha('\u200b \u2060\ufeff')).toThrow(
+      EntidadeInvalida,
+    );
+  });
+
+  // O Postgres não guarda o caractere nulo em `text`: sem esta regra, virava 500.
+  it('recusa o caractere nulo com 422', () => {
+    expect(() => validarTextoDaResenha('a\u0000b')).toThrow(EntidadeInvalida);
+  });
 });
 
 describe('urlOuNulo', () => {
@@ -88,10 +99,22 @@ describe('urlOuNulo', () => {
     );
   });
 
-  it.each([null, '', 'capa.jpg', 'ftp://x.org/a.jpg', 'https://x.org/a b.jpg'])(
-    'troca %p por null',
-    (valor) => {
-      expect(urlOuNulo(valor)).toBeNull();
-    },
-  );
+  // A outbox valida `format: uri` (RFC 3986, só ASCII): o que ela recusaria dava 500.
+  it('codifica acento em vez de deixar a outbox recusar o evento', () => {
+    expect(urlOuNulo('https://res.cloudinary.com/x/capa-ação.jpg')).toBe(
+      'https://res.cloudinary.com/x/capa-a%C3%A7%C3%A3o.jpg',
+    );
+  });
+
+  it.each([
+    null,
+    '',
+    'capa.jpg',
+    'ftp://x.org/a.jpg',
+    'https://x.org/a b.jpg',
+    'https://x.org/1|2.jpg',
+    'https://x.org/a%zz.jpg',
+  ])('troca %p por null', (valor) => {
+    expect(urlOuNulo(valor)).toBeNull();
+  });
 });

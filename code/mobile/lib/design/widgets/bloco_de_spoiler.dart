@@ -42,3 +42,37 @@ class BlocoDeSpoiler extends StatelessWidget {
     );
   }
 }
+
+/// Texto que acabou de ser revelado por "Mostrar mesmo assim": pede o foco ao aparecer, porque o
+/// botão deixa de existir e quem navega por leitor de tela ou teclado precisa continuar dali.
+class TextoRevelado extends StatefulWidget {
+  final Widget child;
+
+  const TextoRevelado({super.key, required this.child});
+
+  @override
+  State<TextoRevelado> createState() => _TextoReveladoState();
+}
+
+class _TextoReveladoState extends State<TextoRevelado> {
+  final FocusNode _foco = FocusNode(debugLabel: 'texto revelado');
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _foco.requestFocus();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _foco.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Focus(focusNode: _foco, child: widget.child);
+}

@@ -23,7 +23,7 @@ RNF atendidos: **RNF-SEC-02** (propriedade no servidor), **RNF-SEC-13** (valida�
 | Camada | Status | Observação |
 |---|---|---|
 | Infra | concluído | P0-MSG pronto desde 19/09. Fatia 0 (27/09) na `desenvolvimento`: JWT, idempotência HTTP, 422, correlation-id UUID, outbox com validação do `data` e `common-v1`, harness de integração e CI com Postgres no `leitura` |
-| Dados | concluído (baseline físico) | DER implantado no Neon em 16/09. F-AVA não cria migration no `leitura`; a do `social` (autor anulável) espera a revisão do Kayke |
+| Dados | concluído (baseline físico) | DER implantado no Neon em 16/09. F-AVA não cria migration no `leitura`; a do `social` (autor anulável) está na `desenvolvimento` desde 27/09, com a revisão do Kayke pendente |
 | Backend | concluído | Nota, resenha, `minha-avaliacao` e resenhas do perfil (27/09), com `nota.alterada`, `resenha.publicada` e `resenha.excluida` validados contra os schemas. Falta DES |
 | Web | concluído | Painel de nota, "Sua avaliação" com a resenha própria, editor de resenha, spoiler no livro pessoal e no feed, resenhas no perfil. Falta DES |
 | Mobile | concluído | Mesmo escopo da web, com o editor em tela cheia. Falta DES |
@@ -63,40 +63,42 @@ O feed não consome VIEW de resenha; consome exclusivamente `resenha.publicada`.
 
 ## Critérios de aceite
 
-- [ ] Nota aceita apenas os valores 0..5 em **passos de 0,5** (RN-06); fora da escala → `422`; é **uma por usuário+livro**, editável e removível.
-- [ ] Resenha é **uma por usuário+livro**, editável, **texto cru ≤5.000** (RN-07), **sem** exigir leitura concluída.
-- [ ] `minha-avaliacao` recupera nota/resenha atuais para edição e respeita propriedade.
-- [ ] **Spoiler** marca/desmarca e a resenha é exibida oculta até revelar (RF-AVA-03).
-- [ ] Excluir resenha é físico, usa confirmação irreversível e publica `resenha.excluida`; recriar gera nova resenha e nova atividade (RF-AVA-04, RNF-USA-04).
-- [ ] Remover nota exige confirmação; PUT/DELETE repetidos com a mesma chave não repetem efeitos (RNF-USA-04, RNF-ERR-04).
-- [ ] `nota.alterada.v1` distingue `criada`, `atualizada` e `excluida`; criação/exclusão publicam `resenha.publicada.v1` (`atualizacao=false`) e `resenha.excluida.v1` com os campos e business keys canônicos. Os efeitos consumidores são aceitos em F-ACV-NOTA/F-FEED.
-- [ ] As VIEWs permitem à página autorizada de livro pessoal mostrar somente nota/resenha do dono; `v_resenha_publicacao_v1` também atende a página oficial sob RN-08. Nenhuma alimenta o feed.
-- [ ] Resenhas do perfil são paginadas e negadas server-side a não seguidor de perfil privado (RNF-DES-02, SEC-03).
-- [ ] Em **livro pessoal**, só o dono escreve nota/resenha (RN-03).
+- [x] Nota aceita apenas os valores 0..5 em **passos de 0,5** (RN-06); fora da escala → `422`; é **uma por usuário+livro**, editável e removível.
+- [x] Resenha é **uma por usuário+livro**, editável, **texto cru ≤5.000** (RN-07), **sem** exigir leitura concluída.
+- [x] `minha-avaliacao` recupera nota/resenha atuais para edição e respeita propriedade.
+- [x] **Spoiler** marca/desmarca e a resenha é exibida oculta até revelar (RF-AVA-03).
+- [x] Excluir resenha é físico, usa confirmação irreversível e publica `resenha.excluida`; recriar gera nova resenha e nova atividade (RF-AVA-04, RNF-USA-04).
+- [x] Remover nota exige confirmação; PUT/DELETE repetidos com a mesma chave não repetem efeitos (RNF-USA-04, RNF-ERR-04).
+- [x] `nota.alterada.v1` distingue `criada`, `atualizada` e `excluida`; criação/exclusão publicam `resenha.publicada.v1` (`atualizacao=false`) e `resenha.excluida.v1` com os campos e business keys canônicos. Os efeitos consumidores são aceitos em F-ACV-NOTA/F-FEED.
+- [ ] As VIEWs permitem à página autorizada de livro pessoal mostrar somente nota/resenha do dono; `v_resenha_publicacao_v1` também atende a página oficial sob RN-08. Nenhuma alimenta o feed. *(Hoje o feed lê as duas VIEWs; decisão do grupo pendente, ver Pendências.)*
+- [x] Resenhas do perfil são paginadas e negadas server-side a não seguidor de perfil privado (RNF-DES-02, SEC-03).
+- [x] Em **livro pessoal**, só o dono escreve nota/resenha (RN-03).
 - [ ] Nota e resenha funcionam **em DES**.
 
 ## Definition of Done
 
 (plano §10)
 
-- [ ] Código (backend `leitura`, web, mobile) mergeado em `desenvolvimento`
-- [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
-- [ ] Testes unitários e de integração com banco real/container: faixa/passo incluindo nota `0`, unicidade, validação de `v_livro_referencia_v1` (oficial, pessoal do dono, pessoal alheio e inativo), limite/texto cru, spoiler, exclusões, formas exatas das respostas, paginação com `limite`, privacidade/suspensão e idempotência HTTP (mesma chave+payload reproduz resposta e não duplica domínio/outbox; payload diferente → `409`) (RNF-TST-02)
-- [ ] Testes assíncronos de F-AVA cobrem schemas canônicos, atomicidade domínio+outbox, operações/valores de `nota.alterada`, snapshots de `resenha.publicada`, repetição HTTP sem segunda linha de outbox e edição sem segunda `resenha.publicada`. O teste ponta a ponta de RNF-TST-03 para `resenha.*` inclui o consumidor F-FEED; consumo/backfill de `nota.alterada` pertence a F-ACV-NOTA. Dispatcher, confirm, recibo, retry e DLQ genéricos pertencem a P0-MSG.
-- [ ] Testes web/mobile cobrem estrelas, spoiler, confirmações, perfil privado e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
-- [ ] **Spec OpenAPI de `leitura` em `docs/api/leitura.yaml` implementado sem divergência** para nota/resenha/minha avaliação/perfil e contratos de VIEW; trocar `x-implementation-status: planned` somente após a implementação
+- [x] Código (backend `leitura`, web, mobile) mergeado em `desenvolvimento`
+- [x] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
+- [x] Testes unitários e de integração com banco real/container: faixa/passo incluindo nota `0`, unicidade, validação de `v_livro_referencia_v1` (oficial, pessoal do dono, pessoal alheio e inativo), limite/texto cru, spoiler, exclusões, formas exatas das respostas, paginação com `limite`, privacidade/suspensão e idempotência HTTP (mesma chave+payload reproduz resposta e não duplica domínio/outbox; payload diferente → `409`) (RNF-TST-02)
+- [x] Testes assíncronos de F-AVA cobrem schemas canônicos, atomicidade domínio+outbox, operações/valores de `nota.alterada`, snapshots de `resenha.publicada`, repetição HTTP sem segunda linha de outbox e edição sem segunda `resenha.publicada`. O teste ponta a ponta de RNF-TST-03 para `resenha.*` inclui o consumidor F-FEED; consumo/backfill de `nota.alterada` pertence a F-ACV-NOTA. *(O ponta a ponta com o consumidor do F-FEED está em Pendências.)* Dispatcher, confirm, recibo, retry e DLQ genéricos pertencem a P0-MSG.
+- [x] Testes web/mobile cobrem estrelas, spoiler, confirmações, perfil privado e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
+- [x] **Spec OpenAPI de `leitura` em `docs/api/leitura.yaml` implementado sem divergência** para nota/resenha/minha avaliação/perfil e contratos de VIEW; trocar `x-implementation-status: planned` somente após a implementação
 - [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
-- [ ] Arquivo da feature atualizado: status, pendências, timeline
-- [ ] Divergência protótipo × implementação registrada, se houver
+- [x] Arquivo da feature atualizado: status, pendências, timeline
+- [x] Divergência protótipo × implementação registrada, se houver
 
 **Item próprio:** publicar as VIEWs versionadas e os dois schemas de evento com responsabilidades não sobrepostas: página por VIEW de resenha, feed por evento de resenha e projeção por evento de nota.
 
 ## Pendências
 
 - **Plano de implementação:** [`plano-F-AVA.md`](plano-F-AVA.md) (fatias 0 a 4, decisões e divergências).
-- **Revisão do Kayke (bloqueia o merge da fatia 1 na `desenvolvimento`):** a migration `V20260927002000__snap_livro_autor_anulavel.sql`, `Atividade.java`, a cópia do `common-v1`, `docs/api/social.yaml` e `ItemAtividade.vue` (autor vazio e spoiler escondido no feed) foram feitos por F-AVA com autorização do Renato. Registro em `code/back/social/AGENTS.md`.
+- **Revisão do Kayke (não bloqueia mais: o Renato decidiu mergear na `desenvolvimento` em 27/09):** a migration `V20260927002000__snap_livro_autor_anulavel.sql`, `Atividade.java`, a cópia do `common-v1`, `docs/api/social.yaml` e `ItemAtividade.vue` (autor vazio e spoiler escondido no feed) foram feitos por F-AVA com autorização do Renato. Registro em `code/back/social/AGENTS.md`.
 - **Decisões do grupo pendentes:** correção do `common-v1` sem nova versão (feita em 26/09 por decisão do Renato, a comunicar); o feed lê as VIEWs do `leitura`, contra a arquitetura §3.2 item 4; resenhas de livro pessoal no perfil só para o dono (RN-15); componentes novos para o `documento-de-design.md`.
-- **DES:** `JWT_SECRET` do `leai-leitura` no painel do Render antes do merge na `main`; conferir `leai.social.feed` no `Le-ai-oregon` antes da primeira resenha.
+- **DES:** falta o PR `desenvolvimento → main`. O `JWT_SECRET` do `leai-leitura` foi configurado no Render em 27/09, com o mesmo valor do `leai-identidade`. Antes da primeira resenha, conferir `leai.social.feed` no `Le-ai-oregon`.
+- **`JWT_SECRET` no Render (achado em 27/09):** `leai-acervo` e `leai-social` não têm a variável. O acervo da `desenvolvimento` recusa subir em produção sem ela, e o social lê `JWT_SECRET` com valor vazio por padrão. Precisa estar configurado antes do PR para a `main`.
+- **Contas de teste no banco de dev:** `teste.fava.a` e `teste.fava.b` (e-mail `@teste.leai.invalid`), criadas no teste manual de 27/09. A conta A tem o livro pessoal "Diário FAVA" (dois, pelos reenvios do roteiro), nota e resenhas; as linhas da `outbox_leitura` dela ficaram `pendente`, porque o `leitura` local rodou com `AMQP_ENABLED=false`, e saem para a fila do feed quando alguém subir o `leitura` com mensageria no banco de dev.
 
 - **Depende de** [F-ACV-BUSCA](feature-F-ACV-BUSCA.md)/[F-ACV-CADASTRO](feature-F-ACV-CADASTRO.md) (livro para avaliar), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md) e [P0-MSG](../periodo-0/feature-P0-MSG.md). P0-MSG está pronto desde 19/09 (dispatcher com confirm, `mensagem_processada`, validação, retry e DLQ); falta só a prova em DES, que depende do PR `desenvolvimento → main`.
 - **RNF-TST-03 ponta a ponta de `resenha.*`:** F-AVA prova até o envelope válido no broker em memória (`resenha.int-spec.ts`); o consumo pelo F-FEED fica com o Kayke.
@@ -109,12 +111,25 @@ O feed não consome VIEW de resenha; consome exclusivamente `resenha.publicada`.
   - `Trash` também na web, na barra do editor (o artboard web de edição não desenha o gatilho).
   - Copy nova do descarte: "Descartar a resenha?", "O que você escreveu aqui não foi salvo e será perdido.", "Descartar" e "Continuar escrevendo". Copy nova do erro ao excluir: "Não foi possível excluir sua resenha. Tente de novo."
   - O limite no singular: "passou do limite em 1 caractere".
+  - Na web, o editor aberto direto pelo endereço fica só leitura até a resenha salva chegar; se ela não carregar, mostra "Não foi possível carregar sua resenha." com `Tentar de novo` (copy nova).
   - No mobile, o editor abre no navegador raiz (acima do shell) em vez de uma rota com `parentNavigatorKey`: esconde a barra inferior sem mexer no `router.dart`, mas não tem URL própria.
   - Na web, o editor ganhou a meta `semBarraInferior` e a meta `voltarPara` (o `X` sem histórico volta à página do livro).
   - Perfil: "Ver mais resenhas" carrega a próxima página na própria seção, no lugar de uma página "Ver todas" separada. Com spoiler, terceiros veem o bloco oculto com `Mostrar mesmo assim`.
   - Contagem de caracteres por code point: emoji composto (👍🏽, ❤️) conta mais de 1, igual nos três lados.
   - 404, nunca 403, para livro inacessível; DELETE sem nada para apagar responde 204 sem evento; nota com o mesmo valor não gera evento.
+  - **Os DELETE não conferem o livro** (27/09, depois da validação): apagam só o que é do leitor, e remover nota ou resenha continua possível depois que o livro fica inativo (RN-06, RF-AVA-04). Antes, um livro pessoal excluído deixava nota e resenha presas para sempre.
+  - Contrato do `leitura` com 413 (`CORPO_MUITO_GRANDE`), 429 e 503 nas operações de F-AVA; `page` de 1 a 10.000; texto só com caracteres invisíveis ou com o caractere nulo é 422; token sem `exp` é 401; ids de caminho em minúsculas.
+  - Copy nova, nos dois clientes: "Não foi possível remover sua nota. Verifique sua conexão e tente de novo."
+  - Resenhas do perfil: 5 por página, com "Ver mais resenhas" trazendo mais 5; o design mostra 2 e um "Ver todas".
+  - Com spoiler ligado e texto acima do limite, só o erro de limite aparece (ele é o que bloqueia).
+  - Web, componentes compartilhados do P0-DS usados como estão: o painel de nota (`SobreposicaoModal`) tem fundo `papel` e raio 24, não `papel-elevado` e raio 20; as confirmações (`DialogoConfirmacao`) têm 360px, não 400, e abaixo de 768px abrem como folha inferior, não como dialog de 320px; abaixo de 768px o título "Resenha" do editor (`CabecalhoTela`) sai em `display` à esquerda, não em `title` centralizado; e o `Publicar` desabilitado é `grafite` a 60%, não `grafite-suave`. Mudar esses componentes mexe no app inteiro, então fica para o grupo.
   - O texto `ambar` sobre `ambar-fundo` do toggle de spoiler fica abaixo do AA (RNF-USA-03); o peso 600 e o ícone reforçam o estado. Pendência de design.
+- **Validação independente (27/09):** três agentes de contexto limpo (backend, web, mobile) conferiram F-AVA contra requisitos, contrato e design. Corrigidos no mesmo dia: chave de idempotência reaproveitada depois de um sucesso nos dois clientes (dar a mesma nota depois de remover não gravava nada); editor web liberado vazio quando a resenha salva não carregou; `Esc` de modal saindo do editor; foco perdido depois de "Mostrar mesmo assim"; resenhas do perfil no mobile que não recarregavam; voltar do Android durante o envio; semântica sem ação de toque no toggle e na linha de estrelas; título em Roboto no mobile; exclusão em livro inativo; URL de capa com acento, caractere nulo, `page` enorme e corpo grande dando 500. Continuam em aberto:
+  - Conta suspensa (fora de `v_perfil_referencia_v1`) ainda dá nota durante a vida do token, enquanto a resenha já responde 403.
+  - `/docs` e `/docs-json` públicos também em produção, como no acervo.
+  - No card do perfil (web), o trecho truncado não é anunciado como truncado (`meu-perfil.md` §9).
+  - Testes de F-AVA no mobile cobrem 500 e 503, mas timeout e queda de rede só no `api_client_test`.
+  - Para outras features, só avisado: no feed (F-FEED, Kayke), o botão "Ler resenha" de `ItemAtividade.vue` não faz nada; em `cadastro_isbn_page.dart:324` (F-ACV-CADASTRO, Vicenzo), `textTheme.titleSmall` não existe no tema e sai em Roboto; no `acervo`, corpo acima de 100 KB dá 500 e token sem `exp` é aceito (mesma infra que o `leitura` corrigiu). O ajudante de teste `montarNaRota` ganhou o parâmetro opcional `historico: 'navegador'`.
 - **Compartilha `leitura` com [F-EST](feature-F-EST.md) e [F-PRG](feature-F-PRG.md)** — sinalizar no grupo antes de mexer no serviço (plano §6).
 - **Ficam fora (Período 2):** curtir/descurtir e contadores de resenha (RF-AVA-05/08), frases/trechos (RF-AVA-06/07, RN-11), **Markdown** (RF-AVA-09, RN-13) — todos **F-AVA-2**. No Período 1 a resenha é **texto puro**; nada de parser Markdown ainda.
 - A **projeção nota dos leitores** e a **nota geral** (RF-ACV-15/16) são **F-ACV-NOTA** (Período 2). Antes de consumir novos `nota.alterada`, essa feature deve fazer backfill de `v_nota_publicacao_v1`, pois eventos do Período 1 não são presumidos retidos.
@@ -126,6 +141,10 @@ O feed não consome VIEW de resenha; consome exclusivamente `resenha.publicada`.
 - **A área de texto da resenha é exceção declarada ao input do design §4.2:** sem borda e sem fundo próprio, em Newsreader, ocupando o corpo da tela. O §4.2 define o campo curto com borda e fundo `papel-elevado`, que não serve a texto de 5.000 caracteres.
 
 ## Timeline
+
+### 27/09/2026: validação independente. Três agentes de contexto limpo validaram backend, web e mobile; os defeitos confirmados foram corrigidos no mesmo dia (lista em Pendências). Testes: `leitura` 96 unitários e 92 de integração, web 452, mobile 302, todos passando.
+
+### 27/09/2026: teste manual e merge. Testado na web (Edge automatizado, desktop e celular) e no mobile (emulador Pixel 8), com identidade, acervo e leitura locais sobre o banco de dev: nota 0 distinta de "Sem nota", 4,5, remover com confirmação, resenha com spoiler, contador, descarte, edição sem segundo `resenha.publicada` (conferido na outbox), exclusão, recriação com id novo, perfil próprio com resenha de livro pessoal, perfil de outra conta com spoiler escondido até revelar. Três correções: o editor web ficava editável antes de a resenha salva chegar (o texto digitado era trocado por ela); no mobile, o painel de nota não cobria a barra inferior e a área de texto do editor tinha a borda do tema. `JWT_SECRET` do `leai-leitura` configurado no Render. Fatias 1 a 4 mergeadas na `desenvolvimento`.
 
 ### 27/09/2026: fatias 2, 3 e 4. Resenha pronta no backend (`PUT`/`DELETE /livros/{id}/resenha`, `resenha.publicada` só na criação, `resenha.excluida`), no mobile e na web (editor sem barra inferior, contador por code point, toggle de spoiler, confirmação ao sair, resenha própria em "Sua avaliação", "Escrever a primeira", spoiler escondido no modo consulta do livro pessoal e no feed). Resenhas do perfil (`GET /perfis/{id}/resenhas`, RN-08 e RN-15) com livro e nota, nos cards do Henrique. Contrato marcado como implementado e conferido contra o `/docs` em runtime. Falta DES e a revisão do Kayke no `social`.
 

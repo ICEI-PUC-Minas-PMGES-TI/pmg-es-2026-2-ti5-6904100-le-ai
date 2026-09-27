@@ -17,7 +17,9 @@ export interface LivroAvaliado {
  * estiver lento ou fora, a página abre igual e só o bloco "Sua avaliação" espera ou mostra erro.
  *
  * Uma chave de idempotência por intenção: reenviar a mesma nota depois de um erro repete a chave e
- * não cria uma segunda nota (RNF-ERR-04); trocar o valor é outra intenção.
+ * não cria uma segunda nota (RNF-ERR-04); trocar o valor é outra intenção. Depois do sucesso a
+ * chave é esquecida: dar 4 de novo depois de remover é uma intenção nova, e a chave antiga só
+ * repetiria a resposta guardada no servidor, sem gravar nada.
  *
  * O livro vem em `carregar(id)`, como na página: trocar de livro na mesma rota não remonta a view.
  * Uma resposta atrasada do livro anterior é descartada pelo contador de geração.
@@ -44,6 +46,20 @@ export function useMinhaAvaliacao(opcoes: { servico?: LeituraService } = {}) {
     return chave
   }
 
+  /**
+   * Depois de uma escrita: com a avaliação conhecida, atualiza no lugar. Sem ela (a carga falhou
+   * ou ainda não voltou), o resto continua desconhecido e vem do servidor — declarar `pronta` com
+   * a resenha nula liberaria o editor para sobrescrever uma resenha que existe.
+   */
+  function aplicar(intencao: string, parcial: Partial<MinhaAvaliacao>): void {
+    chaves.delete(intencao)
+    if (estado.value === 'pronta' && avaliacao.value) {
+      avaliacao.value = { ...avaliacao.value, ...parcial }
+    } else {
+      void carregar()
+    }
+  }
+
   async function carregar(id: string = livroId): Promise<void> {
     if (id !== livroId) {
       livroId = id
@@ -68,27 +84,25 @@ export function useMinhaAvaliacao(opcoes: { servico?: LeituraService } = {}) {
   /** Lança o erro da API para o painel mostrar a mensagem e continuar aberto. */
   async function salvarNota(valor: number): Promise<void> {
     const salva = await servico.salvarNota(livroId, valor, chaveDa('nota', String(valor)))
-    avaliacao.value = { livroId, resenha: resenha.value, nota: salva }
-    estado.value = 'pronta'
+    aplicar('nota', { nota: salva })
   }
 
   /** Remove a nota depois da confirmação da tela (RNF-USA-04). A resenha não é afetada. */
   async function removerNota(): Promise<void> {
     await servico.excluirNota(livroId, chaveDa('remocao', nota.value?.atualizadoEm ?? ''))
-    avaliacao.value = { livroId, resenha: resenha.value, nota: null }
+    aplicar('remocao', { nota: null })
   }
 
   /** Publica ou salva a resenha. Lança o erro da API para o editor preservar o texto. */
   async function salvarResenha(texto: string, spoiler: boolean): Promise<void> {
     const salva = await servico.salvarResenha(livroId, texto, spoiler, chaveDa('resenha', `${spoiler}|${texto}`))
-    avaliacao.value = { livroId, nota: nota.value, resenha: salva }
-    estado.value = 'pronta'
+    aplicar('resenha', { resenha: salva })
   }
 
   /** Exclui a resenha depois da confirmação irreversível (RNF-USA-04). A nota não é afetada. */
   async function excluirResenha(): Promise<void> {
     await servico.excluirResenha(livroId, chaveDa('exclusao', resenha.value?.id ?? ''))
-    avaliacao.value = { livroId, nota: nota.value, resenha: null }
+    aplicar('exclusao', { resenha: null })
   }
 
   return { estado, avaliacao, nota, resenha, carregar, salvarNota, removerNota, salvarResenha, excluirResenha }

@@ -120,9 +120,11 @@ class _LinhaDaNota extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final nota = valor;
+    // Com `excludeSemantics`, o toque do `InkWell` some da árvore; o `onTap` aqui o devolve.
     return Semantics(
       button: true,
       label: nota == null ? 'Sem nota. Dar nota' : 'Sua nota: ${formatarNota(nota)}. Alterar',
+      onTap: aoTocar,
       excludeSemantics: true,
       child: InkWell(
         onTap: aoTocar,

@@ -133,7 +133,10 @@ describe('PerfilDeOutroView', () => {
 
     expect(wrapper.html()).not.toContain('O final revela tudo.')
     await wrapper.findAll('button').find((b) => b.text() === 'Mostrar mesmo assim')!.trigger('click')
+    await flushPromises()
     expect(wrapper.text()).toContain('O final revela tudo.')
+    // O botão sai do DOM; o foco vai para o texto, para o leitor de tela continuar dali.
+    expect(document.activeElement?.textContent).toContain('O final revela tudo.')
   })
 
   it('"Ver mais resenhas" traz a página seguinte', async () => {

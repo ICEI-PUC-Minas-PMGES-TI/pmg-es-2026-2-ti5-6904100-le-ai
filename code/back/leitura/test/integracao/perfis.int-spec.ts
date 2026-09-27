@@ -232,13 +232,17 @@ describe('resenhas do perfil (integração)', () => {
       });
     });
 
-    it.each(['?limite=51', '?page=0', '?limite=abc'])(
-      '%s responde 400',
-      async (query) => {
-        const resposta = await listar(autora, leitora, query);
-        expect(resposta.status).toBe(400);
-      },
-    );
+    // Sem teto, `page=1e20` estourava o OFFSET do banco e virava 500.
+    it.each([
+      '?limite=51',
+      '?page=0',
+      '?limite=abc',
+      '?page=10001',
+      '?page=1e20',
+    ])('%s responde 400', async (query) => {
+      const resposta = await listar(autora, leitora, query);
+      expect(resposta.status).toBe(400);
+    });
 
     it('usuarioId malformado responde 400 no campo usuarioId', async () => {
       const resposta = await listar('nao-e-uuid', leitora);

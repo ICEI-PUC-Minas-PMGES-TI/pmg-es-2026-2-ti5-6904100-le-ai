@@ -22,7 +22,7 @@ const emit = defineEmits<{ 'update:modelValue': [valor: boolean] }>()
     :aria-pressed="props.modelValue"
     :disabled="desabilitado"
     class="inline-flex min-h-12 cursor-pointer items-center gap-space-2 rounded-full px-space-3 text-caption transition-colors duration-dur-fast focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo disabled:cursor-not-allowed disabled:opacity-60 md:min-h-10"
-    :class="modelValue ? 'bg-ambar-fundo font-semibold text-ambar md:hover:bg-ambar md:hover:text-papel' : 'text-grafite md:hover:bg-linha'"
+    :class="modelValue ? 'bg-ambar-fundo font-semibold text-ambar md:hover:bg-ambar/25' : 'text-grafite md:hover:bg-linha'"
     @click="emit('update:modelValue', !modelValue)"
   >
     <PhEyeSlash

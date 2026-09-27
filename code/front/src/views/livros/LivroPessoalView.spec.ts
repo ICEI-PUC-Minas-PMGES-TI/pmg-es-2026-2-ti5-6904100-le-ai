@@ -123,8 +123,10 @@ describe('LivroPessoalView', () => {
     expect(wrapper.html()).not.toContain('Comprei numa feira e li em duas noites.')
 
     await wrapper.findAll('button').find((b) => b.text() === 'Mostrar mesmo assim')!.trigger('click')
+    await flushPromises()
 
     expect(wrapper.text()).toContain('Comprei numa feira e li em duas noites.')
+    expect(document.activeElement?.textContent).toContain('Comprei numa feira e li em duas noites.')
   })
 
   // O nome vinha só dentro da resenha; sem ela, a página ficava sem dizer de quem era o livro.

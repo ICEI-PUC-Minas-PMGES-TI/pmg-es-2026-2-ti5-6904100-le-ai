@@ -184,6 +184,17 @@ describe('infra comum do leitura (integração)', () => {
       ]);
     });
 
+    it('corpo acima do limite do leitor de JSON responde 413', async () => {
+      const resposta = await eco(randomUUID(), {
+        valor: 1,
+        texto: 'a'.repeat(110_000),
+      });
+
+      expect(resposta.status).toBe(413);
+      expect(resposta.body.codigo).toBe('CORPO_MUITO_GRANDE');
+      expect(resposta.body.correlationId).toMatch(UUID);
+    });
+
     it('regra de negócio violada responde 422 com campos', async () => {
       const resposta = await eco(randomUUID(), { valor: 6 });
 

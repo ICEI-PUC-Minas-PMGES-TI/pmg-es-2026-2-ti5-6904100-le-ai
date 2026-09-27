@@ -20,10 +20,14 @@ class ToggleSpoiler extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cor = ligado ? theme.warningColor : theme.secondaryText;
+    // `excludeSemantics` descarta o toque do `InkWell`: sem o `onTap` aqui, Switch Access e Voice
+    // Access não acionam o toggle.
     return Semantics(
       toggled: ligado,
       button: true,
+      enabled: aoMudar != null,
       label: 'Contém spoiler',
+      onTap: aoMudar == null ? null : () => aoMudar!(!ligado),
       excludeSemantics: true,
       child: InkWell(
         onTap: aoMudar == null ? null : () => aoMudar!(!ligado),

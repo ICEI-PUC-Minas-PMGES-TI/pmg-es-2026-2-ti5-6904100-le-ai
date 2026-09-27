@@ -41,13 +41,16 @@ Future<void> abrirPainelDeNota(
   required LivroAvaliado livro,
   VoidCallback? aoEscreverResenha,
 }) async {
+  // Pelo navegador raiz, o scrim cobre a viewport inteira, barra inferior incluída
+  // ("Anatomia do bottom sheet").
+  final raiz = Navigator.of(context, rootNavigator: true).context;
   String? erro;
   while (true) {
-    if (!context.mounted) {
+    if (!context.mounted || !raiz.mounted) {
       return;
     }
     final saida = await mostrarFolhaInferior<_SaidaDoPainel>(
-      context,
+      raiz,
       builder: (_) => PainelDeNota(
         avaliacao: avaliacao,
         livro: livro,
@@ -157,7 +160,7 @@ class _PainelDeNotaState extends State<PainelDeNota> {
                 children: <Widget>[
                   Text(
                     widget.livro.titulo,
-                    style: theme.textTheme.titleSmall,
+                    style: theme.textTheme.titleMedium,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),

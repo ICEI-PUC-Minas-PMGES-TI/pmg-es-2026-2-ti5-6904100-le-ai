@@ -77,6 +77,7 @@ class _EscreverResenhaPageState extends State<EscreverResenhaPage> {
   );
   late bool _spoiler = widget.avaliacao.resenha?.spoiler ?? false;
   bool _enviando = false;
+  bool _excluindo = false;
   String? _erro;
   late _Faixa _faixa = _faixaDe(contarCaracteres(_texto.text));
 
@@ -106,6 +107,8 @@ class _EscreverResenhaPageState extends State<EscreverResenhaPage> {
       : _Faixa.normal;
 
   void _aoDigitar() {
+    // Mexer no texto depois de uma falha: o erro, já lido, sai de cima do aviso de limite.
+    _erro = null;
     final faixa = _faixaDe(contarCaracteres(_texto.text));
     if (faixa != _faixa) {
       _faixa = faixa;
@@ -157,6 +160,7 @@ class _EscreverResenhaPageState extends State<EscreverResenhaPage> {
     }
     setState(() {
       _enviando = true;
+      _excluindo = true;
       _erro = null;
     });
     try {
@@ -168,6 +172,7 @@ class _EscreverResenhaPageState extends State<EscreverResenhaPage> {
       if (mounted) {
         setState(() {
           _enviando = false;
+          _excluindo = false;
           _erro = 'Não foi possível excluir sua resenha. Tente de novo.';
         });
       }
@@ -176,6 +181,10 @@ class _EscreverResenhaPageState extends State<EscreverResenhaPage> {
 
   /// Fechar com texto não salvo pede confirmação (escrever-resenha.md §9).
   Future<void> _fechar() async {
+    // Durante o envio, sair perderia o texto se a publicação falhar.
+    if (_enviando) {
+      return;
+    }
     if (!_sujo) {
       Navigator.of(context).pop();
       return;
@@ -202,10 +211,12 @@ class _EscreverResenhaPageState extends State<EscreverResenhaPage> {
       _Faixa.aviso => theme.warningColor,
       _Faixa.normal => theme.secondaryText,
     };
-    final rotuloDaAcao = _enviando ? 'Publicando' : (_editando ? 'Salvar' : 'Publicar');
+    final rotuloDaAcao = _enviando && !_excluindo
+        ? 'Publicando'
+        : (_editando ? 'Salvar' : 'Publicar');
 
     return PopScope(
-      canPop: !_sujo || _enviando,
+      canPop: !_sujo && !_enviando,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) {
           _fechar();
@@ -226,7 +237,11 @@ class _EscreverResenhaPageState extends State<EscreverResenhaPage> {
                       IconButton(
                         tooltip: 'Fechar',
                         onPressed: _enviando ? null : _fechar,
-                        icon: Icon(PhosphorIconsRegular.x, size: 24, color: theme.colorScheme.onSurface),
+                        icon: Icon(
+                          PhosphorIconsRegular.x,
+                          size: 24,
+                          color: theme.colorScheme.onSurface,
+                        ),
                       ),
                       Expanded(
                         child: Text(
@@ -255,7 +270,11 @@ class _EscreverResenhaPageState extends State<EscreverResenhaPage> {
                 livro: widget.livro,
                 aoDarNota: _enviando
                     ? null
-                    : () => abrirPainelDeNota(context, avaliacao: widget.avaliacao, livro: widget.livro),
+                    : () => abrirPainelDeNota(
+                        context,
+                        avaliacao: widget.avaliacao,
+                        livro: widget.livro,
+                      ),
               ),
               Divider(height: 1, color: theme.divider),
               Expanded(
@@ -275,7 +294,15 @@ class _EscreverResenhaPageState extends State<EscreverResenhaPage> {
                     textCapitalization: TextCapitalization.sentences,
                     cursorColor: theme.primaryAccent,
                     style: theme.editorialBody,
-                    decoration: InputDecoration.collapsed(
+                    // Área de texto sem borda nem fundo ("Área de texto"): o tema dá contorno e
+                    // preenchimento a todo campo, e o `collapsed` não os desliga.
+                    decoration: InputDecoration(
+                      isCollapsed: true,
+                      filled: false,
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      disabledBorder: InputBorder.none,
                       hintText:
                           'Escreva sobre o livro. O que ficou, o que incomodou, para quem você '
                           'indicaria.',
@@ -421,7 +448,7 @@ class _CabecalhoDoLivro extends StatelessWidget {
                       children: <Widget>[
                         Text(
                           livro.titulo,
-                          style: theme.textTheme.titleSmall,
+                          style: theme.textTheme.titleMedium,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),

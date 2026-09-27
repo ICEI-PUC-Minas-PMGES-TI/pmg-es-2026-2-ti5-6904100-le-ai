@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 
@@ -12,10 +14,7 @@ import '../livros/apoio.dart';
 
 const String _id = 'b0a1c2d3-0000-4000-8000-000000000001';
 
-const LivroAvaliado _livro = LivroAvaliado(
-  titulo: 'Torto Arado',
-  autor: 'Itamar Vieira Junior',
-);
+const LivroAvaliado _livro = LivroAvaliado(titulo: 'Torto Arado', autor: 'Itamar Vieira Junior');
 
 Map<String, Object?> _resenha(String texto, {bool spoiler = false}) => <String, Object?>{
   'id': 'r1',
@@ -90,6 +89,16 @@ void main() {
     expect(find.text('Dar nota'), findsOneWidget);
   });
 
+  // O tema dá contorno e fundo a todo campo; a área de texto da resenha é o corpo da tela.
+  testWidgets('a área de texto não tem borda nem fundo', (tester) async {
+    await montar(tester);
+
+    final decoracao = tester.widget<TextField>(find.byType(TextField)).decoration!;
+    expect(decoracao.filled, isFalse);
+    expect(decoracao.enabledBorder, InputBorder.none);
+    expect(decoracao.focusedBorder, InputBorder.none);
+  });
+
   testWidgets('escrever e publicar envia texto e spoiler e fecha o editor', (tester) async {
     await montar(tester);
 
@@ -152,6 +161,17 @@ void main() {
 
     final put = pedidos.singleWhere((p) => p.method == 'PUT');
     expect((jsonDecode(put.body) as Map<String, dynamic>)['spoiler'], isTrue);
+  });
+
+  // Com `excludeSemantics`, o toque do `InkWell` sumia da árvore: Switch Access e Voice Access
+  // não acionavam o toggle.
+  testWidgets('o toggle de spoiler tem ação de toque na semântica', (tester) async {
+    final semantica = tester.ensureSemantics();
+    await montar(tester);
+
+    final dados = tester.getSemantics(find.bySemanticsLabel('Contém spoiler'));
+    expect(dados.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+    semantica.dispose();
   });
 
   testWidgets('erro ao publicar: banner, texto preservado e reenvio com a mesma chave', (
@@ -223,6 +243,56 @@ void main() {
 
     expect(find.byType(EscreverResenhaPage), findsOneWidget);
     expect(find.text('Rascunho.'), findsOneWidget);
+  });
+
+  // Se a publicação falhasse depois do voltar, o texto sumia sem aviso.
+  testWidgets('o voltar do sistema durante o envio não fecha o editor', (tester) async {
+    final resposta = Completer<http.Response>();
+    await montar(tester, escrita: (_) => resposta.future);
+
+    await tester.enterText(find.byType(TextField), 'Levei três dias.');
+    await tester.pump();
+    await tester.tap(publicar('Publicar'));
+    await tester.pump();
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+
+    expect(find.byType(EscreverResenhaPage), findsOneWidget);
+    expect(find.text('Descartar a resenha?'), findsNothing);
+    resposta.complete(http.Response('', 500));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('durante a exclusão o cabeçalho não diz Publicando', (tester) async {
+    final resposta = Completer<http.Response>();
+    await montar(tester, resenha: _resenha('Um.'), escrita: (_) => resposta.future);
+
+    await tester.tap(find.byTooltip('Excluir resenha'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Excluir resenha'));
+    await tester.pump();
+
+    expect(find.text('Publicando'), findsNothing);
+    resposta.complete(http.Response('', 204));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('mexer no texto depois de uma falha tira o erro de cima do aviso de limite', (
+    tester,
+  ) async {
+    await montar(tester, escrita: (_) async => erro(500, 'ERRO_INTERNO', 'Erro.'));
+
+    await tester.enterText(find.byType(TextField), 'Curto.');
+    await tester.pump();
+    await tester.tap(publicar('Publicar'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Não foi possível publicar'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'a' * 5001);
+    await tester.pump();
+
+    expect(find.textContaining('Não foi possível publicar'), findsNothing);
+    expect(find.textContaining('passou do limite em 1 caractere'), findsOneWidget);
   });
 
   testWidgets('fechar sem mudanças sai direto', (tester) async {

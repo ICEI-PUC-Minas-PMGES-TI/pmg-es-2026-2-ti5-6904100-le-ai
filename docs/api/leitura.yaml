@@ -493,7 +493,10 @@ paths:
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
         '409': { $ref: '#/components/responses/Conflito' }
+        '413': { $ref: '#/components/responses/CorpoMuitoGrande' }
         '422': { $ref: '#/components/responses/EntidadeInvalida' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
     delete:
       tags: [avaliacoes]
       summary: Remove a nota do leitor para o livro
@@ -506,14 +509,16 @@ paths:
       description: >-
         A confirmação da remoção é responsabilidade do cliente. Remover grava
         `nota.alterada` com `operacao=excluida` e `nota` nula. Sem nota para
-        remover, responde 204 sem evento. Livro inexistente, inativo ou pessoal
-        de outra pessoa é 404.
+        remover, responde 204 sem evento. Não confere o livro: apaga só a nota
+        do próprio leitor, e remover continua possível depois que o livro fica
+        inativo (RN-06). Livro inexistente ou de outra pessoa responde 204 sem
+        evento, porque o leitor não tem nota ali.
       responses:
         '204': { description: Nota removida, já ausente ou repetição idempotente concluída. }
         '400': { $ref: '#/components/responses/RequisicaoInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
-        '404': { $ref: '#/components/responses/NaoEncontrado' }
         '409': { $ref: '#/components/responses/Conflito' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
 
   /livros/{livroId}/resenha:
     put:
@@ -530,8 +535,9 @@ paths:
         Período 1 o conteúdo é texto cru de até 5.000 caracteres; Markdown é
         escopo posterior. Alterar `spoiler` é reversível. Em livro pessoal,
         somente o dono pode escrever. `texto` que não é string ou `spoiler`
-        que não é booleano é 400; texto só com espaços ou com mais de 5.000
-        caracteres é 422. A contagem é por caractere Unicode (code point),
+        que não é booleano é 400; texto só com espaços ou caracteres invisíveis
+        (largura zero, BOM), com o caractere nulo (`\u0000`, que o banco não
+        guarda) ou com mais de 5.000 caracteres é 422. A contagem é por caractere Unicode (code point),
         igual ao `char_length` do banco: emoji de um code point conta 1, emoji
         composto (como 👍🏽 ou ❤️) conta mais. O texto é guardado como chegou.
         Livro inexistente, inativo ou pessoal de outra pessoa é 404. Conta
@@ -553,7 +559,10 @@ paths:
         '403': { $ref: '#/components/responses/Proibido' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
         '409': { $ref: '#/components/responses/Conflito' }
+        '413': { $ref: '#/components/responses/CorpoMuitoGrande' }
         '422': { $ref: '#/components/responses/EntidadeInvalida' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
     delete:
       tags: [avaliacoes]
       summary: Exclui fisicamente a resenha do leitor
@@ -567,13 +576,15 @@ paths:
         A confirmação irreversível é responsabilidade do cliente. Excluir grava
         `resenha.excluida`. Sem resenha para excluir, responde 204 sem evento.
         Recriar depois da exclusão gera novo identificador e nova publicação.
-        Livro inexistente, inativo ou pessoal de outra pessoa é 404.
+        Não confere o livro: apaga só a resenha do próprio leitor, e excluir
+        continua possível depois que o livro fica inativo (RF-AVA-04). Livro
+        inexistente ou de outra pessoa responde 204 sem evento.
       responses:
         '204': { description: Resenha removida, já ausente ou repetição idempotente concluída. }
         '400': { $ref: '#/components/responses/RequisicaoInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
-        '404': { $ref: '#/components/responses/NaoEncontrado' }
         '409': { $ref: '#/components/responses/Conflito' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
 
   /livros/{livroId}/minha-avaliacao:
     get:
@@ -596,6 +607,7 @@ paths:
         '400': { $ref: '#/components/responses/RequisicaoInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
 
   /perfis/{usuarioId}/resenhas:
     get:
@@ -627,6 +639,7 @@ paths:
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '403': { $ref: '#/components/responses/Proibido' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
 
   /internal/jobs/inatividade:
     post:
@@ -691,8 +704,8 @@ components:
       name: page
       in: query
       required: false
-      description: Página iniciada em 1.
-      schema: { type: integer, minimum: 1, default: 1 }
+      description: Página iniciada em 1; o servidor impõe o máximo de 10.000.
+      schema: { type: integer, minimum: 1, maximum: 10000, default: 1 }
     Limite:
       name: limite
       in: query
@@ -763,6 +776,20 @@ components:
           schema: { $ref: '#/components/schemas/Erro' }
     EntidadeInvalida:
       description: Dados bem formados violam uma regra de negócio.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
+    CorpoMuitoGrande:
+      description: Corpo da requisição acima do tamanho aceito (100 KB).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
+    LimiteExcedido:
+      description: Limite de requisições excedido.
+      headers:
+        Retry-After:
+          description: Segundos até uma nova tentativa.
+          schema: { type: integer, minimum: 1 }
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Erro' }

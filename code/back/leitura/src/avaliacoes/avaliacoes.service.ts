@@ -118,8 +118,8 @@ export class AvaliacoesService {
           payload: {},
         },
         async (tx) => {
-          await this.exigirLivroAcessivel(tx, livroId, usuarioId);
-
+          // Sem conferir o livro: apaga só a nota do próprio leitor, e remover
+          // tem de continuar possível depois que o livro fica inativo (RN-06).
           const removida = await this.repositorio.excluirNota(
             tx,
             usuarioId,
@@ -225,8 +225,8 @@ export class AvaliacoesService {
           payload: {},
         },
         async (tx) => {
-          await this.exigirLivroAcessivel(tx, livroId, usuarioId);
-
+          // Sem conferir o livro: apaga só a resenha do próprio leitor, e excluir
+          // tem de continuar possível depois que o livro fica inativo (RF-AVA-04).
           const resenhaId = await this.repositorio.excluirResenha(
             tx,
             usuarioId,
@@ -268,7 +268,8 @@ export class AvaliacoesService {
   /**
    * Livro inexistente, inativo ou pessoal de outra pessoa é 404, nunca 403:
    * conhecer o id não revela que o livro existe (RNF-SEC-06). Em livro pessoal
-   * só o dono avalia (RN-03).
+   * só o dono avalia (RN-03). Vale para escrever e consultar; os DELETE não
+   * passam por aqui.
    */
   private async exigirLivroAcessivel(
     leitor: DrizzleDB | Tx,

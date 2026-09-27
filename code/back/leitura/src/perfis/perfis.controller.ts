@@ -8,6 +8,7 @@ import {
 import { UsuarioAtual } from '../auth/usuario-atual.decorator';
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado';
 import { ErroDeValidacao } from '../common/erros-de-negocio';
+import { emMinusculas } from '../common/minusculas.pipe';
 import {
   PaginaResenhasPerfilDto,
   PaginacaoQueryDto,
@@ -15,7 +16,7 @@ import {
 import { PerfisService } from './perfis.service';
 
 @ApiTags('perfis')
-@ApiBearerAuth()
+@ApiBearerAuth('bearerAuth')
 @Controller('perfis/:usuarioId')
 export class PerfisController {
   constructor(private readonly servico: PerfisService) {}
@@ -40,6 +41,7 @@ export class PerfisController {
             },
           ]),
       }),
+      emMinusculas,
     )
     usuarioId: string,
     @UsuarioAtual() usuario: UsuarioAutenticado,

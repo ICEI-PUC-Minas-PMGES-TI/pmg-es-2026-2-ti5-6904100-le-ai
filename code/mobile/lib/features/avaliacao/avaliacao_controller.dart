@@ -18,11 +18,13 @@ class AvaliacaoController extends ChangeNotifier {
   MinhaAvaliacao? avaliacao;
 
   /// Uma chave por intenção: reenviar a mesma nota depois de um erro repete a chave e não cria
-  /// uma segunda nota (RNF-ERR-04); trocar o valor é outra intenção.
-  final ChaveDaIntencao _chaveDaNota = ChaveDaIntencao();
-  final ChaveDaIntencao _chaveDaRemocao = ChaveDaIntencao();
-  final ChaveDaIntencao _chaveDaResenha = ChaveDaIntencao();
-  final ChaveDaIntencao _chaveDaExclusao = ChaveDaIntencao();
+  /// uma segunda nota (RNF-ERR-04); trocar o valor é outra intenção. Depois do sucesso a chave é
+  /// trocada: dar 4 de novo depois de remover é uma intenção nova, e a chave antiga só repetiria
+  /// a resposta guardada no servidor, sem gravar nada.
+  ChaveDaIntencao _chaveDaNota = ChaveDaIntencao();
+  ChaveDaIntencao _chaveDaRemocao = ChaveDaIntencao();
+  ChaveDaIntencao _chaveDaResenha = ChaveDaIntencao();
+  ChaveDaIntencao _chaveDaExclusao = ChaveDaIntencao();
 
   bool _descartado = false;
 
@@ -47,9 +49,8 @@ class AvaliacaoController extends ChangeNotifier {
   Future<void> salvarNota(double valor) async {
     final chave = _chaveDaNota.para('$valor', ApiClient.newIdempotencyKey);
     final salva = await _servico.salvarNota(livroId, valor, idempotencyKey: chave);
-    avaliacao = (avaliacao ?? MinhaAvaliacao(livroId: livroId)).comNota(salva);
-    estado = EstadoDaAvaliacao.pronta;
-    _avisar();
+    _chaveDaNota = ChaveDaIntencao();
+    _aplicar((atual) => atual.comNota(salva));
   }
 
   /// Remove a nota, depois da confirmação da tela (RNF-USA-04). A resenha não é afetada.
@@ -59,8 +60,8 @@ class AvaliacaoController extends ChangeNotifier {
       ApiClient.newIdempotencyKey,
     );
     await _servico.excluirNota(livroId, idempotencyKey: chave);
-    avaliacao = (avaliacao ?? MinhaAvaliacao(livroId: livroId)).comNota(null);
-    _avisar();
+    _chaveDaRemocao = ChaveDaIntencao();
+    _aplicar((atual) => atual.comNota(null));
   }
 
   /// Publica ou salva a resenha. Lança [ApiException] para o editor mostrar o erro com o texto
@@ -73,17 +74,29 @@ class AvaliacaoController extends ChangeNotifier {
       spoiler: spoiler,
       idempotencyKey: chave,
     );
-    avaliacao = (avaliacao ?? MinhaAvaliacao(livroId: livroId)).comResenha(salva);
-    estado = EstadoDaAvaliacao.pronta;
-    _avisar();
+    _chaveDaResenha = ChaveDaIntencao();
+    _aplicar((atual) => atual.comResenha(salva));
   }
 
   /// Exclui a resenha depois da confirmação irreversível (RNF-USA-04). A nota não é afetada.
   Future<void> excluirResenha() async {
     final chave = _chaveDaExclusao.para(resenha?.id ?? '', ApiClient.newIdempotencyKey);
     await _servico.excluirResenha(livroId, idempotencyKey: chave);
-    avaliacao = (avaliacao ?? MinhaAvaliacao(livroId: livroId)).comResenha(null);
-    _avisar();
+    _chaveDaExclusao = ChaveDaIntencao();
+    _aplicar((atual) => atual.comResenha(null));
+  }
+
+  /// Depois de uma escrita: com a avaliação conhecida, atualiza no lugar. Sem ela (a carga falhou
+  /// ou ainda não voltou), o resto continua desconhecido e vem do servidor — declarar `pronta` com
+  /// a resenha nula abriria o editor vazio sobre uma resenha que existe.
+  void _aplicar(MinhaAvaliacao Function(MinhaAvaliacao atual) mudanca) {
+    final atual = avaliacao;
+    if (estado == EstadoDaAvaliacao.pronta && atual != null) {
+      avaliacao = mudanca(atual);
+      _avisar();
+    } else {
+      carregar();
+    }
   }
 
   void _avisar() {

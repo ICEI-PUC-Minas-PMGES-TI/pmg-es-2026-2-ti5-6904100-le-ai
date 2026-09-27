@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { PhBookOpen, PhDotsThreeVertical, PhPencilSimple, PhTrash } from '@phosphor-icons/vue'
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import BlocoDeSpoiler from '../../components/livros/BlocoDeSpoiler.vue'
@@ -63,6 +63,14 @@ const rotaDoEditor = computed(() => ({ name: 'escrever-resenha-pessoal', params:
 
 /** Resenha do dono com spoiler, vista por terceiro: fora do DOM até a ação (RF-AVA-03). */
 const spoilerRevelado = ref(false)
+const textoDaResenhaDoDono = useTemplateRef<HTMLParagraphElement>('textoDaResenhaDoDono')
+
+/** Ao revelar o spoiler, o foco vai para o texto, para o leitor de tela continuar dali. */
+async function revelarSpoiler(): Promise<void> {
+  spoilerRevelado.value = true
+  await nextTick()
+  textoDaResenhaDoDono.value?.focus()
+}
 const livroAvaliado = computed(() => ({
   titulo: livro.value?.titulo ?? '',
   autor: livro.value?.autor ?? null,
@@ -297,12 +305,14 @@ async function excluir(): Promise<void> {
               <BlocoDeSpoiler
                 v-if="livro.resenhaDoDono.spoiler && !spoilerRevelado"
                 class="mt-space-3"
-                @revelar="spoilerRevelado = true"
+                @revelar="revelarSpoiler"
               />
               <p
                 v-else
+                ref="textoDaResenhaDoDono"
+                tabindex="-1"
                 lang="pt-BR"
-                class="mt-space-3 max-w-[68ch] whitespace-pre-line font-editorial text-body-lg text-tinta"
+                class="mt-space-3 max-w-[68ch] outline-none whitespace-pre-line font-editorial text-body-lg text-tinta"
               >
                 {{ livro.resenhaDoDono.texto }}
               </p>

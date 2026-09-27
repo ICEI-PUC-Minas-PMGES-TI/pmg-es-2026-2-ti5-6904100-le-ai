@@ -54,11 +54,33 @@ class _ResenhasDoPerfilState extends State<ResenhasDoPerfil> {
   @override
   void initState() {
     super.initState();
+    widget.leitura.alteracoes.addListener(_aoAlterar);
     _carregar();
   }
 
-  Future<void> _carregar() async {
-    setState(() => _carga = _Carga.carregando);
+  @override
+  void didUpdateWidget(ResenhasDoPerfil antigo) {
+    super.didUpdateWidget(antigo);
+    if (antigo.leitura != widget.leitura) {
+      antigo.leitura.alteracoes.removeListener(_aoAlterar);
+      widget.leitura.alteracoes.addListener(_aoAlterar);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.leitura.alteracoes.removeListener(_aoAlterar);
+    super.dispose();
+  }
+
+  /// Nota ou resenha mudou em outra tela: a aba do perfil continua montada, então recarrega sem
+  /// voltar ao skeleton, para a lista não piscar.
+  void _aoAlterar() => _carregar(silencioso: true);
+
+  Future<void> _carregar({bool silencioso = false}) async {
+    if (!silencioso || _carga != _Carga.pronta) {
+      setState(() => _carga = _Carga.carregando);
+    }
     try {
       final pagina = await widget.leitura.listarResenhasPerfil(
         widget.usuarioId,
@@ -105,6 +127,8 @@ class _ResenhasDoPerfilState extends State<ResenhasDoPerfil> {
       });
     } on ApiException {
       // Fica na página atual; o botão continua disponível para tentar de novo.
+    } on FormatException {
+      // Idem.
     } finally {
       if (mounted) {
         setState(() => _carregandoMais = false);
@@ -186,6 +210,16 @@ class _CardDaResenha extends StatefulWidget {
 class _CardDaResenhaState extends State<_CardDaResenha> {
   bool _revelada = false;
 
+  Widget _trecho(ThemeData theme, ResenhaDoPerfil item) => Text(
+    item.resenha.texto,
+    maxLines: 3,
+    overflow: TextOverflow.ellipsis,
+    style: theme.editorialBody.copyWith(
+      fontSize: theme.textTheme.bodyMedium?.fontSize,
+      color: theme.secondaryText,
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -220,7 +254,7 @@ class _CardDaResenhaState extends State<_CardDaResenha> {
                       children: <Widget>[
                         Text(
                           item.livro.titulo,
-                          style: theme.textTheme.titleSmall,
+                          style: theme.textTheme.titleMedium,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -238,7 +272,13 @@ class _CardDaResenhaState extends State<_CardDaResenha> {
                               children: <Widget>[
                                 EstrelasDeNota(valor: nota, tamanho: 16),
                                 const SizedBox(width: DesignTokens.space2),
-                                Text(formatarNota(nota), style: theme.numInline),
+                                Text(
+                                  formatarNota(nota),
+                                  style: theme.numInline.copyWith(
+                                    fontSize: theme.textTheme.bodySmall?.fontSize,
+                                    color: theme.secondaryText,
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -253,16 +293,10 @@ class _CardDaResenhaState extends State<_CardDaResenha> {
           const SizedBox(height: DesignTokens.space3),
           if (oculta)
             BlocoDeSpoiler(aoRevelar: () => setState(() => _revelada = true))
+          else if (_revelada)
+            TextoRevelado(child: _trecho(theme, item))
           else
-            Text(
-              item.resenha.texto,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-              style: theme.editorialBody.copyWith(
-                fontSize: theme.textTheme.bodyMedium?.fontSize,
-                color: theme.secondaryText,
-              ),
-            ),
+            _trecho(theme, item),
         ],
       ),
     );
