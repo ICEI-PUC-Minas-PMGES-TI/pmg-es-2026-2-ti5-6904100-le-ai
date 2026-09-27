@@ -213,6 +213,82 @@ describe('busca de livros oficiais (integração)', () => {
         'Pelo assunto',
       ]);
     });
+
+    it('casa palavra por palavra, sem depender da pontuação nem das palavras do meio', async () => {
+      await inserirLivroOficial(pool, novoIsbn(), 'Grande sertão: veredas');
+      await inserirLivroOficial(pool, novoIsbn(), 'O Senhor dos Anéis');
+      await inserirLivroOficial(pool, novoIsbn(), 'Torto arado');
+
+      expect(
+        titulos((await buscar({ q: 'grande sertao veredas' })).body),
+      ).toEqual(['Grande sertão: veredas']);
+      expect(
+        titulos((await buscar({ q: 'grande sertão - veredas' })).body),
+      ).toEqual(['Grande sertão: veredas']);
+      expect(titulos((await buscar({ q: 'senhor aneis' })).body)).toEqual([
+        'O Senhor dos Anéis',
+      ]);
+      expect(titulos((await buscar({ q: 'torto   arado' })).body)).toEqual([
+        'Torto arado',
+      ]);
+      // Todas as palavras no mesmo campo: nenhuma edição tem as duas.
+      expect(titulos((await buscar({ q: 'torto veredas' })).body)).toEqual([]);
+    });
+
+    it('põe o título ou o autor idêntico ao texto antes de quem só o contém', async () => {
+      const machado = await inserirAutor(pool, 'Machado de Assis');
+      const estudiosa = await inserirAutor(pool, 'Estudiosa Qualquer');
+      await inserirLivroOficial(
+        pool,
+        novoIsbn(),
+        'Dom Casmurro e os discos voadores',
+        {
+          autores: [estudiosa],
+        },
+      );
+      await inserirLivroOficial(pool, novoIsbn(), 'Dom Casmurro (Clássicos)', {
+        autores: [machado],
+      });
+      await inserirLivroOficial(pool, novoIsbn(), 'Dom Casmurro', {
+        autores: [machado],
+      });
+      await inserirLivroOficial(
+        pool,
+        novoIsbn(),
+        'O mundo de Machado de Assis',
+        {
+          autores: [estudiosa],
+        },
+      );
+
+      expect(titulos((await buscar({ q: 'dom casmurro' })).body)[0]).toBe(
+        'Dom Casmurro',
+      );
+      // Mais curto antes, entre os que só contêm o texto.
+      expect(titulos((await buscar({ q: 'dom casmurro' })).body)[1]).toBe(
+        'Dom Casmurro (Clássicos)',
+      );
+      // As obras do autor antes do livro sobre ele.
+      const porAutor = titulos((await buscar({ q: 'machado de assis' })).body);
+      expect(porAutor.at(-1)).toBe('O mundo de Machado de Assis');
+      expect(porAutor).toHaveLength(3);
+    });
+
+    it('casa ISBN-10, convertido para o ISBN-13 da edição', async () => {
+      await inserirLivroOficial(pool, '9788535914849', 'Dom Casmurro');
+
+      expect(titulos((await buscar({ q: '85-359-1484-6' })).body)).toEqual([
+        'Dom Casmurro',
+      ]);
+    });
+
+    it('caractere de controle no texto vira espaço, em vez de derrubar a busca', async () => {
+      await inserirLivroOficial(pool, novoIsbn(), 'Torto arado');
+
+      const resposta = await buscar({ q: 'torto\u0000arado' });
+      expect(resposta.status).toBe(200);
+      expect(titulos(resposta.body)).toEqual(['Torto arado']);
+    });
   });
 
   describe('livro pessoal', () => {
@@ -395,15 +471,27 @@ describe('busca de livros oficiais (integração)', () => {
       [{ q: '   ' }, 'q'],
       [{ q: 'a', limit: 51 }, 'limit'],
       [{ q: 'a', page: 0 }, 'page'],
+      [{ q: 'a', page: '1000000000000000000' }, 'page'],
       [{ assunto: 'nao-e-uuid' }, 'assunto'],
       [{ q: 'a', ordem: 'titulo' }, 'ordem'],
-    ])('%j → 400 no campo %s', async (query, campo) => {
-      const resposta = await buscar(query);
-      expect(resposta.status).toBe(400);
-      expect(resposta.body.codigo).toBe('REQUISICAO_INVALIDA');
-      expect(
-        resposta.body.campos.map((c: { campo: string }) => c.campo),
-      ).toContain(campo);
+    ])(
+      '%j → 400 no campo %s',
+      async (query: Record<string, string | number>, campo) => {
+        const resposta = await buscar(query);
+        expect(resposta.status).toBe(400);
+        expect(resposta.body.codigo).toBe('REQUISICAO_INVALIDA');
+        expect(
+          resposta.body.campos.map((c: { campo: string }) => c.campo),
+        ).toContain(campo);
+      },
+    );
+
+    it('parâmetro fora do contrato responde em pt-BR', async () => {
+      const resposta = await buscar({ q: 'a', ordem: 'titulo' });
+      expect(resposta.body.campos).toContainEqual({
+        campo: 'ordem',
+        mensagem: 'Este campo não é aceito.',
+      });
     });
   });
 });

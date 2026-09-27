@@ -6,7 +6,9 @@ import { assunto } from '../../db/schema';
 export interface CriteriosDeBusca {
   /** Texto já aparado; ausente na busca só por assunto. */
   q?: string;
-  /** ISBN-13 normalizado, quando o `q` é um ISBN válido. */
+  /** As palavras de `q` (`palavrasDaBusca`); todas casam no mesmo campo. */
+  palavras?: string[];
+  /** ISBN-13 normalizado, quando o `q` é um ISBN-13 ou ISBN-10 válido. */
   isbn13?: string | null;
   assuntoId?: string;
   limit: number;
@@ -64,13 +66,18 @@ export const COLUNAS_DO_RESUMO = sql`
   ) AS assuntos
 `;
 
+/** O campo só com letras e números, separados por um espaço. */
+const soPalavras = (valor: SQL): SQL =>
+  sql`btrim(regexp_replace(${valor}, '[^[:alnum:]]+', ' ', 'g'))`;
+
 /**
  * Busca de livros oficiais (RF-ACV-01, RF-ACV-02, RN-21.6).
  *
  * O texto casa **só por trecho** (`LIKE`) em quatro campos, normalizados pela
- * mesma função dos índices GIN. `word_similarity` só ordena, nunca casa: com
- * ele no filtro, "guimaraes rossa" traria Guimarães Rosa, e o design pede
- * "nenhum resultado" nesse caso.
+ * mesma função dos índices GIN, e **palavra por palavra**: todas as palavras
+ * precisam aparecer no mesmo campo, em qualquer posição (`palavrasDaBusca`).
+ * `word_similarity` só ordena, nunca casa: com ele no filtro, "guimaraes rossa"
+ * traria Guimarães Rosa, e o design pede "nenhum resultado" nesse caso.
  *
  * Os candidatos saem de um `UNION ALL` com uma subconsulta por campo, cada uma
  * indexável. Um `OR` entre quatro tabelas faria o planner escolher seq scan.
@@ -160,9 +167,17 @@ export class BuscaRepository {
    * atende os critérios.
    *
    * A pontuação põe o campo antes da semelhança (título > autor > editora >
-   * assunto): cada campo soma um degrau de 2, e `word_similarity` vai de 0 a 1,
-   * então um degrau nunca é alcançado pelo de baixo. O ISBN exato fica acima de
-   * todos. Sem `q`, todos empatam e a ordem é a do grupo, ou seja, por título.
+   * assunto): cada campo soma um degrau de 2, e a semelhança vai de 0 a 1, então
+   * um degrau nunca é alcançado pelo de baixo. Acima deles, o **casamento
+   * integral**: título ou autor que, sem pontuação, é exatamente o texto
+   * buscado. É o que põe "Dom Casmurro" antes de "Dom Casmurro e os discos
+   * voadores" e os livros de Machado de Assis antes dos livros sobre ele. O ISBN
+   * exato fica acima de todos. Sem `q`, todos empatam e a ordem é a do grupo, ou
+   * seja, por título.
+   *
+   * A semelhança é `word_similarity` com desempate por `similarity`, que pesa o
+   * tamanho do campo: entre dois títulos que contêm o texto, o mais curto vem
+   * antes.
    */
   private encontrados(criterios: CriteriosDeBusca): SQL {
     const filtroDeAssunto = criterios.assuntoId
@@ -181,39 +196,59 @@ export class BuscaRepository {
     }
 
     const termo = normalizar(criterios.q);
+    const palavras = criterios.palavras?.length
+      ? criterios.palavras
+      : [criterios.q];
     // `%`, `_` e `\` do texto viram literais, escapados depois de normalizar:
     // o LIKE usa `\` como escape por padrão.
-    const padrao = sql`'%' || replace(replace(replace(${termo}, '\\', '\\\\'), '%', '\\%'), '_', '\\_') || '%'`;
+    const padrao = (palavra: string): SQL =>
+      sql`'%' || replace(replace(replace(${normalizar(palavra)}, '\\', '\\\\'), '%', '\\%'), '_', '\\_') || '%'`;
+    // Um `LIKE` por palavra, cada um indexável pelo GIN do campo.
+    const contemTodas = (campo: SQL): SQL =>
+      sql.join(
+        palavras.map(
+          (palavra) => sql`${normalizar(campo)} LIKE ${padrao(palavra)}`,
+        ),
+        sql` AND `,
+      );
     const semelhanca = (campo: SQL): SQL =>
-      sql`public.word_similarity(${termo}, ${normalizar(campo)})::float8`;
+      sql`(0.75 * public.word_similarity(${termo}, ${normalizar(campo)})
+         + 0.25 * public.similarity(${termo}, ${normalizar(campo)}))::float8`;
+    const integral = (campo: SQL): SQL =>
+      sql`(${soPalavras(normalizar(campo))} = ${soPalavras(termo)}
+         AND ${soPalavras(termo)} <> '')`;
 
     const porIsbn = criterios.isbn13
       ? sql`UNION ALL
-        SELECT l.id, 8::float8
+        SELECT l.id, 20::float8
         FROM acervo.livro l
         WHERE l.isbn13 = ${criterios.isbn13} AND l.tipo = 'oficial' AND l.ativo`
       : sql``;
 
     return sql`candidatos (livro_id, pontuacao) AS (
-        SELECT l.id, 6 + ${semelhanca(sql`l.titulo`)}
+        SELECT l.id,
+               CASE WHEN ${integral(sql`l.titulo`)} THEN 12 ELSE 6 END
+               + ${semelhanca(sql`l.titulo`)}
         FROM acervo.livro l
         WHERE l.tipo = 'oficial' AND l.ativo
-          AND ${normalizar(sql`l.titulo`)} LIKE ${padrao}
+          AND ${contemTodas(sql`l.titulo`)}
         UNION ALL
-        SELECT la.livro_id, 4 + ${semelhanca(sql`a.nome`)}
+        SELECT la.livro_id,
+               CASE WHEN ${integral(sql`a.nome`)} THEN 10 ELSE 4 END
+               + ${semelhanca(sql`a.nome`)}
         FROM acervo.autor a
         JOIN acervo.livro_autor la ON la.autor_id = a.id
-        WHERE ${normalizar(sql`a.nome`)} LIKE ${padrao}
+        WHERE ${contemTodas(sql`a.nome`)}
         UNION ALL
         SELECT l.id, 2 + ${semelhanca(sql`e.nome`)}
         FROM acervo.editora e
         JOIN acervo.livro l ON l.editora_id = e.id
-        WHERE ${normalizar(sql`e.nome`)} LIKE ${padrao}
+        WHERE ${contemTodas(sql`e.nome`)}
         UNION ALL
         SELECT ls.livro_id, ${semelhanca(sql`s.nome`)}
         FROM acervo.assunto s
         JOIN acervo.livro_assunto ls ON ls.assunto_id = s.id
-        WHERE ${normalizar(sql`s.nome`)} LIKE ${padrao}
+        WHERE ${contemTodas(sql`s.nome`)}
         ${porIsbn}
       ),
       encontrados AS (
