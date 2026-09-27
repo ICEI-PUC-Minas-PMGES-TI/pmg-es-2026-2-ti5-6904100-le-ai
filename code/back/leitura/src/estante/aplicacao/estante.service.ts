@@ -20,12 +20,14 @@ import { ehViolacaoDeUnicidade } from '../../common/pg-erros';
 import {
   STATUS_ESTANTE,
   type ResultadoTransicao,
+  type StatusEstante,
   type Transicao,
   type TransicaoInvalida,
   aplicarEvento,
 } from '../../leituras/dominio/maquina-estados';
 import { livroAdicionadoAEstante } from '../../leituras/dominio/eventos';
 import { OutboxRepository } from '../../outbox/outbox.repository';
+import { resumo } from '../../progresso/dominio/progresso';
 import { ReferenciasExternas } from '../../referencias/referencias-externas.service';
 import {
   type ConclusoesLivro,
@@ -48,7 +50,6 @@ import {
 } from '../infraestrutura/estante.repository';
 
 const UNICIDADE_ESTANTE = 'estante_usuario_livro_uk';
-const PERCENTUAL_MAXIMO = 100;
 const LIVRO_FORA_DA_ESTANTE = 'Este livro não está na sua estante.';
 
 @Injectable()
@@ -260,9 +261,12 @@ function erroDaTransicao({ erro }: { erro: TransicaoInvalida }): ErroDeNegocio {
   }
 }
 
+const STATUS_COM_PROGRESSO: readonly StatusEstante[] = ['lendo', 'abandonado'];
+
 function paraItem(linha: LinhaEstante): ItemEstante {
-  const emAndamento = linha.leituraEmAndamentoId !== null;
-  const paginaAtual = emAndamento ? linha.paginaAtual : null;
+  const paginaAtual = STATUS_COM_PROGRESSO.includes(linha.status)
+    ? linha.paginaAtual
+    : null;
   return {
     livroId: linha.livroId,
     livro: linha.livro,
@@ -277,10 +281,7 @@ function paraItem(linha: LinhaEstante): ItemEstante {
     totalPaginas: linha.totalPaginas,
     percentualConcluido:
       paginaAtual !== null && linha.totalPaginas
-        ? Math.min(
-            PERCENTUAL_MAXIMO,
-            (paginaAtual / linha.totalPaginas) * PERCENTUAL_MAXIMO,
-          )
+        ? resumo(paginaAtual, linha.totalPaginas).percentualConcluido
         : null,
     adicionadoEm: linha.adicionadoEm.toISOString(),
   };
