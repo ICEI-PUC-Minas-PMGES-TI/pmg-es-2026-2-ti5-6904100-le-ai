@@ -38,7 +38,7 @@ Idêntica à de [`identidade`](../identidade/AGENTS.md) — os dois serviços Sp
 
 ### 27/09/2026 — F-AVA (Renato): autor nulo no feed e spoiler escondido
 
-Feitas por F-AVA com autorização do Renato, **pendentes da revisão do Kayke** antes de irem para a `desenvolvimento`. Motivo e decisão em [`docs/mensageria/README.md`](../../../docs/mensageria/README.md) (Histórico) e no [plano de F-AVA](../../../docs/plano-de-desenvolvimento/periodo-1/plano-F-AVA.md), fatia 2.4.
+Feitas por F-AVA com autorização do Renato e **mergeadas na `desenvolvimento` em 27/09/2026 por decisão dele**, para F-AVA fechar a sprint. **A revisão do Kayke continua pendente**; qualquer ajuste entra num commit novo. Motivo e decisão em [`docs/mensageria/README.md`](../../../docs/mensageria/README.md) (Histórico) e no [plano de F-AVA](../../../docs/plano-de-desenvolvimento/periodo-1/plano-F-AVA.md), fatia 2.4.
 
 - **Por quê:** 701 livros oficiais do acervo não têm autor. `LivroSnapshot.autor` do `common-v1` passou a aceitar `null` (26/09), e os eventos `resenha.publicada` e `leitura.*` desses livros chegam com `autor: null`.
 - **Migration** `V20260927002000__snap_livro_autor_anulavel.sql`: só `DROP NOT NULL` em `atividade.snap_livro_autor`. O CHECK `atividade_snap_livro_autor_preenchido` não mudou: aceita `NULL` e continua proibindo texto vazio.
@@ -48,6 +48,7 @@ Feitas por F-AVA com autorização do Renato, **pendentes da revisão do Kayke**
 - **Web (`ItemAtividade.vue`):** a linha do autor some quando ele vem vazio, e a resenha com spoiler fica **fora do DOM** até "Mostrar mesmo assim" (RF-AVA-03; antes o texto aparecia aberto no feed).
 - **Teste:** `ConsumidorDeAtividadeIntegracaoTest.livroSemAutorGravaAtividade` confere que a linha foi gravada.
 - **Armadilha que continua aberta:** o `catch (DataIntegrityViolationException)` de `ConsumidorDeAtividade.criarAtividade` existe para o replay (`atividade_event_id_unico`, `atividade_fato_unico`), mas engole **qualquer** violação de integridade: um NOT NULL ou CHECK furado faz a atividade sumir sem erro e sem ir para a DLQ. Sugestão: estreitar o `catch` para as duas unicidades.
+- **Flyway no banco de dev:** a migration é aplicada na próxima vez que alguém subir o `social` local a partir da `desenvolvimento`. Migration nova no `social` precisa de versão maior que `V20260927002000`, ou o Flyway recusa a ordem.
 - **Ordem dos eventos:** o despachante do `leitura` segura só a linha que falhou, então um `resenha.excluida` pode chegar antes do `resenha.publicada` da mesma resenha. Hoje o `excluida` vira no-op e o `publicada` cria a atividade depois. É raro; fica registrado.
 
 ## Pontos de atenção (ver `REQUISITOS.md`)
