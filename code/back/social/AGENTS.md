@@ -34,6 +34,22 @@ Idêntica à de [`identidade`](../identidade/AGENTS.md) — os dois serviços Sp
 - **Porta:** `8081` (o `identidade` fica na `8080`, para os dois subirem juntos em local).
 - **Armadilhas do Boot 4.x** (starter `webmvc`, módulo `spring-boot-flyway`, `spring-boot-starter-webmvc-test`, pacotes movidos, Jackson 3): a lista está no [`AGENTS.md` do `identidade`](../identidade/AGENTS.md#armadilhas-do-spring-boot-4x-a-maior-parte-do-material-na-internet-ainda-é-3x).
 
+## Mudanças feitas por outras features
+
+### 27/09/2026 — F-AVA (Renato): autor nulo no feed e spoiler escondido
+
+Feitas por F-AVA com autorização do Renato, **pendentes da revisão do Kayke** antes de irem para a `desenvolvimento`. Motivo e decisão em [`docs/mensageria/README.md`](../../../docs/mensageria/README.md) (Histórico) e no [plano de F-AVA](../../../docs/plano-de-desenvolvimento/periodo-1/plano-F-AVA.md), fatia 2.4.
+
+- **Por quê:** 701 livros oficiais do acervo não têm autor. `LivroSnapshot.autor` do `common-v1` passou a aceitar `null` (26/09), e os eventos `resenha.publicada` e `leitura.*` desses livros chegam com `autor: null`.
+- **Migration** `V20260927002000__snap_livro_autor_anulavel.sql`: só `DROP NOT NULL` em `atividade.snap_livro_autor`. O CHECK `atividade_snap_livro_autor_preenchido` não mudou: aceita `NULL` e continua proibindo texto vazio.
+- **`Atividade.java`:** a coluna `snap_livro_autor` perdeu o `nullable = false`.
+- **Cópia do schema:** `src/main/resources/messaging/schemas/common-v1.schema.json` igual à de `docs/mensageria`.
+- **Contrato:** `LivroSnapshot.autor` anulável em `docs/api/social.yaml`.
+- **Web (`ItemAtividade.vue`):** a linha do autor some quando ele vem vazio, e a resenha com spoiler fica **fora do DOM** até "Mostrar mesmo assim" (RF-AVA-03; antes o texto aparecia aberto no feed).
+- **Teste:** `ConsumidorDeAtividadeIntegracaoTest.livroSemAutorGravaAtividade` confere que a linha foi gravada.
+- **Armadilha que continua aberta:** o `catch (DataIntegrityViolationException)` de `ConsumidorDeAtividade.criarAtividade` existe para o replay (`atividade_event_id_unico`, `atividade_fato_unico`), mas engole **qualquer** violação de integridade: um NOT NULL ou CHECK furado faz a atividade sumir sem erro e sem ir para a DLQ. Sugestão: estreitar o `catch` para as duas unicidades.
+- **Ordem dos eventos:** o despachante do `leitura` segura só a linha que falhou, então um `resenha.excluida` pode chegar antes do `resenha.publicada` da mesma resenha. Hoje o `excluida` vira no-op e o `publicada` cria a atividade depois. É raro; fica registrado.
+
 ## Pontos de atenção (ver `REQUISITOS.md`)
 
 - É o **consumidor** do fluxo de **notificações in-app** (fan-out); adiciona FCM em Android (arquitetura §5.2). Curtida de **atividade de feed** fica aqui; curtida de **resenha** fica em `leitura`. **Spring AMQP ainda não entrou** — mensageria é [P0-MSG](../../../docs/plano-de-desenvolvimento/periodo-0/feature-P0-MSG.md).
