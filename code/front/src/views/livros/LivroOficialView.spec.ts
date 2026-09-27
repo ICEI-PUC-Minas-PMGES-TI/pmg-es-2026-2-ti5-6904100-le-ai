@@ -244,4 +244,41 @@ describe('LivroOficialView', () => {
     expect(servico.obterLivroOficial).toHaveBeenLastCalledWith('livro-2')
     expect(wrapper.get('article h1').text()).toBe('Vidas secas')
   })
+
+  it('a falha de "Ver todas as resenhas" avisa, e o botão vira "Tentar de novo"', async () => {
+    servico.obterLivroOficial.mockResolvedValue(
+      livroOficial({ resenhas: paginaDeResenhas([resenha('r1', 'Marina', 'Primeira.')], 'c1') }),
+    )
+    servico.listarResenhasDoLivro
+      .mockRejectedValueOnce(new ApiError('Indisponível', 503, 'SERVICO_INDISPONIVEL'))
+      .mockResolvedValueOnce(paginaDeResenhas([resenha('r2', 'Letícia', 'Segunda.')]))
+    const { wrapper } = await abrir()
+
+    await wrapper.findAll('button').find((botao) => botao.text() === 'Ver todas as resenhas')!.trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[role="alert"]').text()).toBe('Não foi possível carregar mais resenhas. Verifique sua conexão.')
+    expect(wrapper.text()).toContain('Primeira.')
+
+    await wrapper.findAll('button').find((botao) => botao.text() === 'Tentar de novo')!.trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Segunda.')
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+  })
+
+  it('o título vem antes da ficha no DOM, para o leitor de tela começar pelo h1', async () => {
+    const { wrapper } = await abrir()
+
+    const html = wrapper.get('article').html()
+    expect(html.indexOf('<h1')).toBeLessThan(html.indexOf('Ficha'))
+  })
+
+  it('o 429 mostra a mensagem do servidor, não a de conexão', async () => {
+    servico.obterLivroOficial.mockRejectedValue(
+      new ApiError('Muitas requisições em pouco tempo. Tente novamente em instantes.', 429, 'MUITAS_REQUISICOES'),
+    )
+    const { wrapper } = await abrir()
+
+    expect(wrapper.text()).toContain('Muitas requisições em pouco tempo.')
+    expect(wrapper.text()).not.toContain('A conexão falhou')
+  })
 })

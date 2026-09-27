@@ -155,4 +155,96 @@ describe('useLivroOficial', () => {
     expect(pagina.coldStart.value).toBe(false)
     expect(pagina.estado.value).toBe('pronta')
   })
+
+  it.each(['ausente', 'falha_transitoria'] as const)('o polling também para em %s', async (status) => {
+    const servico = servicoFalso()
+    servico.obterLivroOficial
+      .mockResolvedValueOnce(livroOficial({ sinopse: pendente }))
+      .mockResolvedValue(livroOficial({ sinopse: { status, texto: null } }))
+    const pagina = useLivroOficial({ servico })
+
+    await pagina.carregar('livro-1')
+    await vi.advanceTimersByTimeAsync(totalDasEsperas)
+
+    expect(servico.obterLivroOficial).toHaveBeenCalledTimes(2)
+    expect(pagina.sinopse.value.status).toBe(status)
+    expect(pagina.sinopseDemorou.value).toBe(false)
+  })
+
+  it('uma consulta de polling que falha não para o polling', async () => {
+    const servico = servicoFalso()
+    servico.obterLivroOficial
+      .mockResolvedValueOnce(livroOficial({ sinopse: pendente }))
+      .mockRejectedValueOnce(new ApiError('Indisponível', 503, 'SERVICO_INDISPONIVEL'))
+      .mockResolvedValue(livroOficial())
+    const pagina = useLivroOficial({ servico })
+
+    await pagina.carregar('livro-1')
+    await vi.advanceTimersByTimeAsync(2_000 + 3_000)
+
+    expect(pagina.sinopse.value.status).toBe('disponivel')
+    expect(pagina.estado.value).toBe('pronta')
+  })
+
+  it('a falha de "Ver todas as resenhas" avisa e mantém as que já estavam', async () => {
+    const servico = servicoFalso()
+    servico.obterLivroOficial.mockResolvedValue(
+      livroOficial({ resenhas: paginaDeResenhas([resenha('r1', 'Marina', 'A terra.')], 'c1') }),
+    )
+    servico.listarResenhasDoLivro
+      .mockRejectedValueOnce(new ApiError('Indisponível', 503, 'SERVICO_INDISPONIVEL'))
+      .mockResolvedValueOnce(paginaDeResenhas([resenha('r2', 'Rafael', 'O rio.')]))
+    const pagina = useLivroOficial({ servico })
+
+    await pagina.carregar('livro-1')
+    await pagina.carregarResenhas()
+
+    expect(pagina.falhouMaisResenhas.value).toBe(true)
+    expect(pagina.resenhasIndisponiveis.value).toBe(false)
+    expect(pagina.resenhas.value.map((r) => r.id)).toEqual(['r1'])
+
+    await pagina.carregarResenhas()
+    expect(pagina.falhouMaisResenhas.value).toBe(false)
+    expect(pagina.resenhas.value.map((r) => r.id)).toEqual(['r1', 'r2'])
+  })
+
+  it('id que não é de livro (400) é "não encontrada", e o 429 traz a mensagem do servidor', async () => {
+    const servico = servicoFalso()
+    servico.obterLivroOficial
+      .mockRejectedValueOnce(new ApiError('Os dados enviados são inválidos.', 400, 'REQUISICAO_INVALIDA'))
+      .mockRejectedValueOnce(new ApiError('Muitas requisições em pouco tempo.', 429, 'MUITAS_REQUISICOES'))
+    const pagina = useLivroOficial({ servico })
+
+    await pagina.carregar('nao-e-uuid')
+    expect(pagina.estado.value).toBe('nao-encontrada')
+
+    await pagina.carregar('livro-1')
+    expect(pagina.estado.value).toBe('erro')
+    expect(pagina.mensagemDoErro.value).toBe('Muitas requisições em pouco tempo.')
+  })
+
+  it('erro que não é da API vira erro de tela, em vez de ficar carregando', async () => {
+    const servico = servicoFalso()
+    servico.obterLivroOficial.mockRejectedValueOnce(new SyntaxError('Unexpected token <'))
+    const pagina = useLivroOficial({ servico })
+
+    await expect(pagina.carregar('livro-1')).rejects.toThrow(SyntaxError)
+    expect(pagina.estado.value).toBe('erro')
+  })
+
+  it('trocar de livro no meio de "Ver todas as resenhas" não deixa o botão travado', async () => {
+    const servico = servicoFalso()
+    servico.obterLivroOficial.mockResolvedValue(
+      livroOficial({ resenhas: paginaDeResenhas([resenha('r1', 'Marina', 'A terra.')], 'c1') }),
+    )
+    servico.listarResenhasDoLivro.mockImplementationOnce(() => new Promise(() => undefined))
+    const pagina = useLivroOficial({ servico })
+
+    await pagina.carregar('livro-1')
+    void pagina.carregarResenhas()
+    expect(pagina.carregandoResenhas.value).toBe(true)
+
+    await pagina.carregar('livro-2')
+    expect(pagina.carregandoResenhas.value).toBe(false)
+  })
 })

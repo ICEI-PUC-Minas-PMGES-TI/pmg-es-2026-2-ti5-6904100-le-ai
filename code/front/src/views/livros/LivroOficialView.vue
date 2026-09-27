@@ -38,6 +38,8 @@ const {
   resenhas,
   resenhasIndisponiveis,
   carregandoResenhas,
+  falhouMaisResenhas,
+  mensagemDoErro,
   temMaisResenhas,
 } = pagina
 
@@ -144,7 +146,7 @@ function voltar(): void {
       <p class="text-body text-grafite">
         {{
           estado === 'erro'
-            ? 'A conexão falhou antes de carregar os dados. Tente de novo em alguns instantes.'
+            ? mensagemDoErro ?? 'A conexão falhou antes de carregar os dados. Tente de novo em alguns instantes.'
             : 'Ele pode ter saído do acervo. Volte e busque de novo.'
         }}
       </p>
@@ -165,11 +167,28 @@ function voltar(): void {
 
     <article
       v-else-if="livro"
-      class="flex flex-col lg:grid lg:grid-cols-[320px_minmax(0,1fr)] lg:items-start lg:gap-x-space-10"
+      class="flex flex-col lg:grid lg:grid-cols-[320px_minmax(0,1fr)] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-x-space-10"
     >
+      <!-- O título vem primeiro no DOM, para o leitor de tela começar pelo h1; a ordem visual vem de
+           `order` abaixo de 1024px e da posição no grid acima. -->
+      <header class="order-2 mt-space-5 text-center lg:order-none lg:col-start-2 lg:row-start-1 lg:mt-0 lg:text-left">
+        <h1 class="text-display text-tinta lg:text-display-hero">
+          {{ livro.titulo }}
+        </h1>
+        <p
+          v-if="autores"
+          class="mt-space-2 text-body text-grafite lg:text-title-sm"
+        >
+          {{ autores }}
+        </p>
+        <p class="mt-space-1 text-caption text-grafite-suave">
+          {{ metadados }}
+        </p>
+      </header>
+
       <!-- Abaixo de 1024px a coluna se desfaz (`contents`) e a ordem vem de `order`: capa, título,
            sinopse, ficha e resenhas, como no mobile. -->
-      <aside class="contents lg:sticky lg:top-space-8 lg:flex lg:flex-col lg:self-start">
+      <aside class="contents lg:sticky lg:top-space-8 lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:flex lg:flex-col lg:self-start">
         <CapaLivro
           :url="livro.capa.url"
           :rotulo="`Capa de ${livro.titulo}`"
@@ -198,22 +217,7 @@ function voltar(): void {
         </section>
       </aside>
 
-      <div class="contents lg:flex lg:flex-col">
-        <header class="order-2 mt-space-5 text-center lg:order-none lg:mt-0 lg:text-left">
-          <h1 class="text-display text-tinta lg:text-display-hero">
-            {{ livro.titulo }}
-          </h1>
-          <p
-            v-if="autores"
-            class="mt-space-2 text-body text-grafite lg:text-title-sm"
-          >
-            {{ autores }}
-          </p>
-          <p class="mt-space-1 text-caption text-grafite-suave">
-            {{ metadados }}
-          </p>
-        </header>
-
+      <div class="contents lg:col-start-2 lg:row-start-2 lg:flex lg:flex-col">
         <BlocoSuaAvaliacao
           class="order-3 mt-space-8 lg:order-none"
           :avaliacao="minhaAvaliacao"
@@ -244,9 +248,12 @@ function voltar(): void {
           >
             {{ sinopse.texto }}
           </p>
+          <!-- Só a ausência usa grafite-suave (design): ela não pede nada ao leitor. Os outros dois
+               avisos dizem o que fazer, e precisam do contraste AA do grafite. -->
           <p
             v-else
-            class="mt-space-3 text-body text-grafite-suave"
+            class="mt-space-3 text-body"
+            :class="sinopse.status === 'ausente' ? 'text-grafite-suave' : 'text-grafite'"
           >
             {{
               sinopse.status === 'ausente'
@@ -258,10 +265,7 @@ function voltar(): void {
           </p>
         </section>
 
-        <section
-          class="order-6 mt-space-6 lg:order-none lg:mt-space-8"
-          aria-live="polite"
-        >
+        <section class="order-6 mt-space-6 lg:order-none lg:mt-space-8">
           <div class="flex flex-wrap items-baseline gap-x-space-3">
             <h2 class="text-title-lg text-tinta">
               Resenhas
@@ -272,7 +276,10 @@ function voltar(): void {
             >Nenhuma resenha ainda</span>
           </div>
           <template v-if="resenhasIndisponiveis">
-            <p class="mt-space-3 text-body text-grafite">
+            <p
+              class="mt-space-3 text-body text-grafite"
+              role="alert"
+            >
               Não foi possível carregar as resenhas.
             </p>
             <BotaoTextual
@@ -309,13 +316,21 @@ function voltar(): void {
                 <CardResenha :resenha="resenha" />
               </li>
             </ul>
+            <p
+              v-if="falhouMaisResenhas"
+              class="mt-space-4 text-caption text-grafite"
+              role="alert"
+            >
+              Não foi possível carregar mais resenhas. Verifique sua conexão.
+            </p>
             <BotaoTextual
               v-if="temMaisResenhas"
-              class="mt-space-4 min-h-12 md:min-h-10"
+              :class="falhouMaisResenhas ? 'mt-space-1' : 'mt-space-4'"
+              class="min-h-12 md:min-h-10"
               :disabled="carregandoResenhas"
               @click="pagina.carregarResenhas()"
             >
-              Ver todas as resenhas
+              {{ falhouMaisResenhas ? 'Tentar de novo' : 'Ver todas as resenhas' }}
             </BotaoTextual>
           </template>
         </section>
