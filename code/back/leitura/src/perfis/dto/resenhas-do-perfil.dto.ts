@@ -4,14 +4,19 @@ import { IsInt, IsOptional, Max, Min } from 'class-validator';
 
 export const LIMITE_MAXIMO = 50;
 export const LIMITE_PADRAO = 20;
+/** Teto da página: sem ele, `page=1e20` estoura o `OFFSET` do banco e vira 500. */
+export const PAGINA_MAXIMA = 10000;
 
 /** `page` e `limite` do contrato: página iniciada em 1, limite imposto pelo servidor (RNF-DES-02). */
 export class PaginacaoQueryDto {
-  @ApiPropertyOptional({ minimum: 1, default: 1 })
+  @ApiPropertyOptional({ minimum: 1, maximum: PAGINA_MAXIMA, default: 1 })
   @IsOptional()
   @Type(() => Number)
   @IsInt({ message: 'A página deve ser um número inteiro.' })
   @Min(1, { message: 'A página começa em 1.' })
+  @Max(PAGINA_MAXIMA, {
+    message: `A página deve ser no máximo ${PAGINA_MAXIMA}.`,
+  })
   page?: number;
 
   @ApiPropertyOptional({
