@@ -95,7 +95,13 @@ export function useLivroOficial(opcoes: OpcoesDaPagina = {}) {
         throw erro
       }
       estado.value = erro.status === 404 || erro.status === 400 ? 'nao-encontrada' : 'erro'
-      mensagemDoErro.value = erro.status === 429 ? erro.message : null
+      // A mensagem do servidor só quando o corpo seguiu o contrato; um 429 do proxy vem sem ele.
+      mensagemDoErro.value =
+        erro.status !== 429
+          ? null
+          : erro.code === 'MUITAS_REQUISICOES'
+            ? erro.message
+            : 'Muitas requisições em pouco tempo. Tente novamente em instantes.'
     } finally {
       if (minha === geracao) {
         clearTimeout(limiteDoColdStart)

@@ -448,4 +448,16 @@ void main() {
     expect(find.text('Esta resenha contém spoiler'), findsOneWidget);
     expect(find.text('O final revela tudo.'), findsNothing);
   });
+
+  testWidgets('429 sem o corpo do contrato (proxy) ainda diz que foram requisições demais', (
+    tester,
+  ) async {
+    await montar(tester, (request) async => http.Response('Too Many Requests', 429));
+    await tester.pump();
+
+    expect(
+      find.text('Muitas requisições em pouco tempo. Tente novamente em instantes.'),
+      findsOneWidget,
+    );
+  });
 }

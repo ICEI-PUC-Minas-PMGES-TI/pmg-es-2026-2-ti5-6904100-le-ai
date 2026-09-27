@@ -97,7 +97,12 @@ class LivroOficialController extends ChangeNotifier {
       estado = erro.status == 404 || erro.status == 400
           ? EstadoDaPagina.naoEncontrada
           : EstadoDaPagina.erro;
-      mensagemDoErro = erro.status == 429 ? erro.message : null;
+      // A mensagem do servidor só quando o corpo seguiu o contrato; um 429 do proxy vem sem ele.
+      mensagemDoErro = erro.status != 429
+          ? null
+          : erro.codigo == 'MUITAS_REQUISICOES'
+          ? erro.message
+          : 'Muitas requisições em pouco tempo. Tente novamente em instantes.';
     } finally {
       _timerDoColdStart?.cancel();
       coldStart = false;

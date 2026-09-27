@@ -247,4 +247,14 @@ describe('useLivroOficial', () => {
     await pagina.carregar('livro-2')
     expect(pagina.carregandoResenhas.value).toBe(false)
   })
+
+  it('429 sem o corpo do contrato (proxy) ainda diz que foram requisições demais', async () => {
+    const servico = servicoFalso()
+    servico.obterLivroOficial.mockRejectedValueOnce(new ApiError('Status inesperado', 429, 'ERRO_HTTP'))
+    const pagina = useLivroOficial({ servico })
+
+    await pagina.carregar('livro-1')
+
+    expect(pagina.mensagemDoErro.value).toBe('Muitas requisições em pouco tempo. Tente novamente em instantes.')
+  })
 })
