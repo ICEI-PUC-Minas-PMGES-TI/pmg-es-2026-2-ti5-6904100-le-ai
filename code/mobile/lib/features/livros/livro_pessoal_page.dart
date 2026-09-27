@@ -424,6 +424,8 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
               const SizedBox(height: DesignTokens.space3),
               if (resenha.spoiler && !_spoilerRevelado)
                 BlocoDeSpoiler(aoRevelar: () => setState(() => _spoilerRevelado = true))
+              else if (resenha.spoiler)
+                TextoRevelado(child: Text(resenha.texto, style: theme.editorialBody))
               else
                 Text(resenha.texto, style: theme.editorialBody),
               const SizedBox(height: DesignTokens.space3),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 
+import 'package:le_ai_mobile/design/widgets/cartao_progresso.dart';
 import 'package:le_ai_mobile/design/widgets/estrelas_de_nota.dart';
 import 'package:le_ai_mobile/features/avaliacao/leitura_service.dart';
 import 'package:le_ai_mobile/features/avaliacao/resenhas_do_perfil.dart';
@@ -41,6 +42,7 @@ Map<String, Object?> _pagina(List<Map<String, Object?>> itens, {int page = 1, in
 void main() {
   late List<Uri> pedidas;
   late List<LivroDaResenha> abertos;
+  late LeituraService servico;
 
   Future<void> montar(
     WidgetTester tester,
@@ -50,14 +52,15 @@ void main() {
     usarTelaDeCelular(tester);
     pedidas = <Uri>[];
     abertos = <LivroDaResenha>[];
+    servico = leituraSimulada((request) {
+      pedidas.add(request.url);
+      return responder(request);
+    });
     await tester.pumpWidget(
       envolver(
         SingleChildScrollView(
           child: ResenhasDoPerfil(
-            leitura: leituraSimulada((request) {
-              pedidas.add(request.url);
-              return responder(request);
-            }),
+            leitura: servico,
             usuarioId: 'u2',
             proprio: proprio,
             textoVazio: 'Rafael ainda não escreveu resenhas.',
@@ -102,6 +105,28 @@ void main() {
     await tester.pump();
 
     expect(find.text('O final revela tudo.'), findsOneWidget);
+    // O botão sai da árvore; o foco vai para o texto, para o leitor de tela continuar dali.
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'texto revelado');
+  });
+
+  // A aba do perfil continua montada: sem ouvir as escritas, a resenha excluída ficava na lista.
+  testWidgets('escrita em outra tela recarrega a lista sem voltar ao skeleton', (tester) async {
+    var versao = 1;
+    await montar(
+      tester,
+      (_) async =>
+          json(_pagina(<Map<String, Object?>>[if (versao == 1) _item('r1', 'Antes.')]), 200),
+    );
+    expect(find.text('Antes.'), findsOneWidget);
+
+    versao = 2;
+    servico.alteracoes.value++;
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byType(BarraSkeleton), findsNothing, reason: 'recarrega sem piscar o skeleton');
+    expect(find.text('Antes.'), findsNothing);
+    expect(find.text('Rafael ainda não escreveu resenhas.'), findsOneWidget);
   });
 
   testWidgets('o dono vê o próprio texto mesmo com spoiler', (tester) async {
