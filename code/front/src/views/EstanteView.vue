@@ -8,6 +8,7 @@ import CardEstante from '../components/estante/CardEstante.vue'
 import EsqueletoEstante from '../components/estante/EsqueletoEstante.vue'
 import StatusPill from '../components/estante/StatusPill.vue'
 import FimDaLista from '../components/perfil/FimDaLista.vue'
+import RegistrarProgresso from '../components/progresso/RegistrarProgresso.vue'
 import BannerAviso from '../components/ui/BannerAviso.vue'
 import BotaoTextual from '../components/ui/BotaoTextual.vue'
 import EstadoVazio from '../components/ui/EstadoVazio.vue'
@@ -27,6 +28,8 @@ import {
 import { APARENCIA_DO_STATUS } from '../estante/aparenciaDoStatus'
 import { useEstante } from '../estante/useEstante'
 import { usePainelDeAcoes } from '../estante/usePainelDeAcoes'
+import { caminhoDoProgresso } from '../progresso/caminhos'
+import { useDialogoDeRegistro } from '../progresso/useDialogoDeRegistro'
 import { leituraService, type ItemEstante, type OrdenacaoEstante, type StatusEstante } from '../services/leitura'
 
 const route = useRoute()
@@ -102,6 +105,22 @@ function seguirVazio(destino: DestinoDoVazio): void {
 }
 
 const painel = usePainelDeAcoes((leituraId) => leituraService.detalharLeitura(leituraId))
+const registro = useDialogoDeRegistro()
+
+function abrirRegistro(): void {
+  painel.fechar()
+  registro.abrir(painel.livro.value, painel.estado.value)
+}
+
+function aoSalvarProgresso(): void {
+  registro.fechar()
+  void estante.carregar()
+}
+
+function verAtualizacoes(leituraId: string): void {
+  painel.fechar()
+  void router.push(caminhoDoProgresso(leituraId))
+}
 
 function abrirAcoes(item: ItemEstante): void {
   void painel.abrir({ livroId: item.livroId, ...item.livro }, item)
@@ -273,13 +292,22 @@ function abrirAcoes(item: ItemEstante): void {
       :livro="painel.livro.value"
       :estado="painel.estado.value"
       @fechar="painel.fechar()"
-      @registrar-progresso="painel.fechar()"
+      @registrar-progresso="abrirRegistro"
+      @ver-atualizacoes="verAtualizacoes"
       @atualizado="estante.carregar()"
     >
       <template #status="{ status: statusAtual }">
         <StatusPill :status="statusAtual" />
       </template>
     </AcoesLeitura>
+
+    <RegistrarProgresso
+      v-if="registro.contexto.value"
+      :aberta="registro.aberto.value"
+      :leitura="registro.contexto.value"
+      @fechar="registro.fechar()"
+      @salvo="aoSalvarProgresso"
+    />
 
     <SobreposicaoModal
       :aberta="folhaDeOrdenacao"

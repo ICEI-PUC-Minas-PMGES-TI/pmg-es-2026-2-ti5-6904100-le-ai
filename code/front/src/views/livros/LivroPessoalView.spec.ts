@@ -15,6 +15,10 @@ vi.mock('../../services/leitura', () => ({
   leituraService: {
     consultarItemEstante: vi.fn(),
     consultarConclusoes: vi.fn(),
+    registrarProgresso: vi.fn(),
+    listarProgresso: vi.fn(),
+    editarUltimoProgresso: vi.fn(),
+    excluirTrechoProgresso: vi.fn(),
     detalharLeitura: vi.fn(),
     obterMinhaAvaliacao: vi.fn(),
     salvarNota: vi.fn(),
@@ -272,5 +276,53 @@ describe('LivroPessoalView', () => {
     expect(leituras.consultarItemEstante).not.toHaveBeenCalled()
     expect(botao('Alterar status')).toBeUndefined()
     expect(botao('Adicionar à estante')).toBeUndefined()
+  })
+
+  it('Registrar progresso pelo painel edita a página no dialog e recarrega a situação do livro', async () => {
+    leituras.consultarItemEstante.mockResolvedValue(
+      itemEstante('l1', 'Cartas de um sertanejo', { status: 'LENDO', leituraEmAndamentoId: 'lei-1', ultimaLeituraId: 'lei-1' }),
+    )
+    leituras.detalharLeitura.mockResolvedValue(leitura({ livroId: 'l1' }))
+    leituras.registrarProgresso.mockReset().mockResolvedValue({
+      progresso: {
+        id: 'p-1',
+        leituraId: 'lei-1',
+        posicao: 1,
+        pagina: 200,
+        paginaAnterior: 148,
+        paginasLidas: 52,
+        minutos: 90,
+        registradoEmDispositivo: '2026-09-27T10:00:00Z',
+        fusoHorarioDispositivo: 'America/Sao_Paulo',
+        dataLocal: '2026-09-27',
+        criadoEm: '2026-09-27T10:00:00Z',
+      },
+      resumo: { paginaAtual: 200, totalPaginas: 264, percentualConcluido: 75.76, minutosTotais: 260 },
+    })
+    await montarNaRota('/livros/pessoal/l1')
+    await flushPromises()
+    botao('Alterar status')!.click()
+    await flushPromises()
+    botao('Registrar progresso')!.click()
+    await flushPromises()
+
+    const dialogo = document.body.querySelector('[role="dialog"]')!
+    const [pagina, horas] = [...dialogo.querySelectorAll('input')]
+    pagina!.value = '200'
+    pagina!.dispatchEvent(new Event('input'))
+    horas!.value = '1'
+    horas!.dispatchEvent(new Event('input'))
+    await flushPromises()
+    leituras.consultarItemEstante.mockClear()
+    dialogo.querySelector('form')!.dispatchEvent(new Event('submit'))
+    await flushPromises()
+
+    expect(leituras.registrarProgresso).toHaveBeenCalledWith(
+      'lei-1',
+      expect.objectContaining({ pagina: 200, minutos: 60 }),
+      expect.any(String),
+    )
+    expect(leituras.consultarItemEstante).toHaveBeenCalledWith('l1')
+    expect(document.body.querySelector('[role="dialog"]')).toBeNull()
   })
 })
