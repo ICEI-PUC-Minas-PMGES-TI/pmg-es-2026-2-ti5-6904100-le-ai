@@ -45,7 +45,7 @@ Feitas por F-AVA com autorização do Renato e **mergeadas na `desenvolvimento` 
 - **`Atividade.java`:** a coluna `snap_livro_autor` perdeu o `nullable = false`.
 - **Cópia do schema:** `src/main/resources/messaging/schemas/common-v1.schema.json` igual à de `docs/mensageria`.
 - **Contrato:** `LivroSnapshot.autor` anulável em `docs/api/social.yaml`.
-- **Web (`ItemAtividade.vue`):** a linha do autor some quando ele vem vazio, e a resenha com spoiler fica **fora do DOM** até "Mostrar mesmo assim" (RF-AVA-03; antes o texto aparecia aberto no feed).
+- **Web (`ItemAtividade.vue`):** a linha do autor some quando ele vem vazio, e a resenha com spoiler fica **fora do DOM** até "Mostrar mesmo assim" (RF-AVA-03; antes o texto aparecia aberto no feed). Na validação de 27/09, o texto da resenha passou de `font-serif` (Georgia/Times do Tailwind) para `font-editorial` (Newsreader, a fonte do design). Achado sem mexer: o botão "Ler resenha" logo abaixo não faz nada.
 - **Teste:** `ConsumidorDeAtividadeIntegracaoTest.livroSemAutorGravaAtividade` confere que a linha foi gravada.
 - **Armadilha que continua aberta:** o `catch (DataIntegrityViolationException)` de `ConsumidorDeAtividade.criarAtividade` existe para o replay (`atividade_event_id_unico`, `atividade_fato_unico`), mas engole **qualquer** violação de integridade: um NOT NULL ou CHECK furado faz a atividade sumir sem erro e sem ir para a DLQ. Sugestão: estreitar o `catch` para as duas unicidades.
 - **Flyway no banco de dev:** a migration é aplicada na próxima vez que alguém subir o `social` local a partir da `desenvolvimento`. Migration nova no `social` precisa de versão maior que `V20260927002000`, ou o Flyway recusa a ordem.
