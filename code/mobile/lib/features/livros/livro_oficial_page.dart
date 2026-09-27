@@ -8,6 +8,10 @@ import '../../design/widgets/botao_primario.dart';
 import '../../design/widgets/botao_textual.dart';
 import '../../design/widgets/capa_livro.dart';
 import '../../design/widgets/entrada_suave.dart';
+import '../avaliacao/avaliacao_controller.dart';
+import '../avaliacao/bloco_sua_avaliacao.dart';
+import '../avaliacao/leitura_service.dart';
+import '../avaliacao/painel_de_nota.dart';
 import '../perfil/widgets_de_perfil.dart';
 import 'acervo_service.dart';
 import 'formatos.dart';
@@ -20,18 +24,21 @@ import 'livro_oficial_controller.dart';
 /// - O header não repete o título: ele aparece grande no hero.
 /// - A página abre inteira e utilizável enquanto a sinopse chega (RN-19.5); só a seção dela fica
 ///   em skeleton. Ausência é estado válido e aparece como texto neutro, nunca como erro.
-/// - Os blocos de estante, progresso e "Sua avaliação" são de F-EST, F-PRG e F-AVA e entram com
+/// - "Sua avaliação" (F-AVA) fica entre o hero e a sinopse e carrega à parte, no `leitura`: se ele
+///   estiver lento, a página abre igual. Estante e progresso são de F-EST e F-PRG e entram com
 ///   elas; aqui não há espaço reservado para eles.
 /// - Resenhas de outros leitores, filtradas por RN-08 no servidor. O texto de spoiler só entra na
 ///   árvore depois de revelado.
 class LivroOficialPage extends StatefulWidget {
   final AcervoService servico;
+  final LeituraService leitura;
   final String livroId;
   final VoidCallback aoVoltar;
 
   const LivroOficialPage({
     super.key,
     required this.servico,
+    required this.leitura,
     required this.livroId,
     required this.aoVoltar,
   });
@@ -46,15 +53,19 @@ class _LivroOficialPageState extends State<LivroOficialPage> {
     widget.livroId,
   );
 
+  late final AvaliacaoController _avaliacao = AvaliacaoController(widget.leitura, widget.livroId);
+
   @override
   void initState() {
     super.initState();
     _pagina.carregar();
+    _avaliacao.carregar();
   }
 
   @override
   void dispose() {
     _pagina.dispose();
+    _avaliacao.dispose();
     super.dispose();
   }
 
@@ -114,6 +125,15 @@ class _LivroOficialPageState extends State<LivroOficialPage> {
         children: <Widget>[
           _Hero(livro: livro.resumo),
           const SizedBox(height: DesignTokens.space8),
+          BlocoSuaAvaliacao(
+            avaliacao: _avaliacao,
+            livro: LivroAvaliado(
+              titulo: livro.resumo.titulo,
+              autor: livro.resumo.autoresParaExibir,
+              capaUrl: livro.resumo.capaUrl,
+            ),
+          ),
+          const SizedBox(height: DesignTokens.space6),
           _Secao(titulo: 'Sinopse', child: _sinopse(theme)),
           const SizedBox(height: DesignTokens.space6),
           _Secao(titulo: 'Ficha', child: _Ficha(livro: livro)),

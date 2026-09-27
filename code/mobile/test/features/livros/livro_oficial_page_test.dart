@@ -57,8 +57,9 @@ void main() {
 
   Future<void> montar(
     WidgetTester tester,
-    Future<http.Response> Function(http.Request request) responder,
-  ) async {
+    Future<http.Response> Function(http.Request request) responder, {
+    Future<http.Response> Function(http.Request request)? leitura,
+  }) async {
     usarTelaDeCelular(tester);
     pedidas = <Uri>[];
     voltas = 0;
@@ -69,6 +70,7 @@ void main() {
             pedidas.add(request.url);
             return responder(request);
           }),
+          leitura: leituraSimulada(leitura ?? (_) async => json(semAvaliacao(_id), 200)),
           livroId: _id,
           aoVoltar: () => voltas++,
         ),
@@ -79,7 +81,7 @@ void main() {
 
   int consultasDaPagina() => pedidas.where((uri) => uri.path == '/livros/$_id').length;
 
-  testWidgets('pronta: hero, sinopse em texto, ficha e sem nota nem espaço reservado', (
+  testWidgets('pronta: hero, sinopse em texto, ficha e "Sua avaliação" sem nota', (
     tester,
   ) async {
     await montar(tester, (request) async => json(_livro(), 200));
@@ -90,8 +92,42 @@ void main() {
     expect(find.text('Bibiana e Belonísia crescem no interior da Bahia.'), findsOneWidget);
     expect(find.text('Ficha'), findsOneWidget);
     expect(find.text('9788588808911'), findsOneWidget);
-    expect(find.text('Sua avaliação'), findsNothing);
+    // F-AVA: o bloco existe e, sem nota, diz "Sem nota" (nunca 0,0). Estante e progresso são de
+    // F-EST e F-PRG e ainda não aparecem.
+    expect(find.text('Sua avaliação'), findsOneWidget);
+    expect(find.text('Sem nota'), findsOneWidget);
+    expect(find.bySemanticsLabel('Sem nota. Dar nota'), findsOneWidget);
     expect(find.textContaining('Registrar progresso'), findsNothing);
+  });
+
+  testWidgets('Sua avaliação mostra a nota salva, inclusive zero', (tester) async {
+    await montar(
+      tester,
+      (request) async => json(_livro(), 200),
+      leitura: (_) async => json(
+        <String, Object?>{'livroId': _id, 'nota': notaJson(_id, 0), 'resenha': null},
+        200,
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('0'), findsOneWidget);
+    expect(find.text('Sem nota'), findsNothing);
+    expect(find.bySemanticsLabel('Sua nota: 0. Alterar'), findsOneWidget);
+  });
+
+  testWidgets('leitura fora do ar: a página abre e só o bloco mostra o erro', (tester) async {
+    await montar(
+      tester,
+      (request) async => json(_livro(), 200),
+      leitura: (_) async => erro(503, 'SERVICO_INDISPONIVEL', 'Serviço indisponível.'),
+    );
+    // O 503 é retentado pelo cliente HTTP antes de virar erro.
+    await tester.pumpAndSettle();
+
+    expect(find.text('Bibiana e Belonísia crescem no interior da Bahia.'), findsOneWidget);
+    expect(find.text('Não foi possível carregar sua avaliação.'), findsOneWidget);
+    expect(find.text('Tentar de novo'), findsOneWidget);
   });
 
   testWidgets('sinopse ausente aparece sem erro', (tester) async {

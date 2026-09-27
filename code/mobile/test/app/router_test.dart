@@ -11,6 +11,7 @@ import 'package:le_ai_mobile/core/network/api_client.dart';
 import 'package:le_ai_mobile/core/session/session_controller.dart';
 import 'package:le_ai_mobile/core/session/token_store.dart';
 import 'package:le_ai_mobile/design/theme.dart';
+import 'package:le_ai_mobile/features/avaliacao/leitura_service.dart';
 import 'package:le_ai_mobile/features/auth/auth_service.dart';
 import 'package:le_ai_mobile/features/livros/acervo_service.dart';
 import 'package:le_ai_mobile/features/livros/capa.dart';
@@ -143,6 +144,7 @@ void main() {
             client: MockClient(_acervoPorRota),
           ),
         ),
+        leitura: _leituraSimulada(),
         seletor: _SemImagem(),
         enviador: _SemEnvio(),
       ),
@@ -318,6 +320,7 @@ void main() {
               }),
             ),
           ),
+          leitura: _leituraSimulada(),
           seletor: _SemImagem(),
           enviador: _SemEnvio(),
         ),
@@ -400,6 +403,7 @@ void main() {
       perfil: _perfilSimulado(),
       livros: DependenciasDeLivros(
         acervo: AcervoService(ApiClient(baseUrl: 'http://localhost:3000')),
+        leitura: _leituraSimulada(),
         seletor: _SemImagem(),
         enviador: _SemEnvio(),
       ),
@@ -466,3 +470,21 @@ void main() {
     expect(find.text('marina.beltrao@gmail.com'), findsOneWidget);
   });
 }
+
+/// `leitura` que responde "sem avaliação" a qualquer livro: o roteador só precisa da página abrir.
+LeituraService _leituraSimulada() => LeituraService(
+  ApiClient(
+    baseUrl: 'http://localhost:3001',
+    client: MockClient((request) async {
+      final partes = request.url.pathSegments;
+      if (partes.length == 3 && partes[2] == 'minha-avaliacao') {
+        return http.Response(
+          '{"livroId":"${partes[1]}","nota":null,"resenha":null}',
+          200,
+          headers: const <String, String>{'content-type': 'application/json; charset=utf-8'},
+        );
+      }
+      return http.Response('{}', 200);
+    }),
+  ),
+);

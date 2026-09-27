@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/config/app_config.dart';
 import '../../core/network/api_client.dart';
+import '../avaliacao/leitura_service.dart';
 import 'acervo_service.dart';
 import 'cadastro_isbn_page.dart';
 import 'capa.dart';
@@ -18,15 +19,19 @@ const String rotaFeedRaiz = '/feed';
 String rotaLivroPessoalNaEstante(String id) => '/estante/livro-pessoal/$id';
 String rotaLivroOficial(String id) => '/descobrir/livro/$id';
 
-/// O que as telas de F-ACV-CADASTRO precisam do mundo lá fora. Construído uma vez em `main.dart`
-/// e injetado no roteador; os testes montam o seu com clientes simulados.
+/// O que as telas de livro precisam do mundo lá fora. Construído uma vez em `main.dart` e
+/// injetado no roteador; os testes montam o seu com clientes simulados.
 class DependenciasDeLivros {
   final AcervoService acervo;
+
+  /// Nota e resenha do leitor (F-AVA), no serviço `leitura`.
+  final LeituraService leitura;
   final SeletorDeImagem seletor;
   final EnviadorDeCapa enviador;
 
   const DependenciasDeLivros({
     required this.acervo,
+    required this.leitura,
     required this.seletor,
     required this.enviador,
   });
@@ -39,6 +44,13 @@ class DependenciasDeLivros {
       acervo: AcervoService(
         ApiClient(
           baseUrl: AppConfig.acervoBaseUrl,
+          getToken: getToken,
+          renovarSessao: renovarSessao,
+        ),
+      ),
+      leitura: LeituraService(
+        ApiClient(
+          baseUrl: AppConfig.leituraBaseUrl,
           getToken: getToken,
           renovarSessao: renovarSessao,
         ),
@@ -125,6 +137,7 @@ GoRoute rotaDoLivroOficial(DependenciasDeLivros deps, {required String raiz}) {
         // A chave pelo id faz a página recarregar se a rota trocar de livro sem desmontar.
         key: ValueKey<String>('livro-oficial-$id'),
         servico: deps.acervo,
+        leitura: deps.leitura,
         livroId: id,
         aoVoltar: () => _voltar(context, raiz),
       );
@@ -141,6 +154,7 @@ GoRoute _paginaDoLivroPessoal(DependenciasDeLivros deps, {required String raiz})
         // A chave pelo id faz a página recarregar se a rota trocar de livro sem desmontar.
         key: ValueKey<String>('livro-pessoal-$id-${state.uri.query}'),
         servico: deps.acervo,
+        leitura: deps.leitura,
         livroId: id,
         via: state.uri.queryParameters['via'],
         referenciaId: state.uri.queryParameters['referenciaId'],
