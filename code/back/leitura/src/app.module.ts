@@ -6,6 +6,7 @@ import { validateEnv } from './config/env';
 import { getCorrelationId } from './common/als';
 import { AllExceptionsFilter } from './common/all-exceptions.filter';
 import { AuthModule } from './auth/auth.module';
+import { AvaliacoesModule } from './avaliacoes/avaliacoes.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { IdempotenciaModule } from './common/idempotencia/idempotencia.module';
 import { DrizzleModule } from './db/drizzle.module';
@@ -51,6 +52,7 @@ import { OutboxModule } from './outbox/outbox.module';
     HealthModule,
     MessagingModule,
     OutboxModule,
+    AvaliacoesModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
