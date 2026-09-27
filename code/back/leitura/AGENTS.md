@@ -27,9 +27,37 @@ Núcleo do produto. Estante, leitura, progresso, sessão cronometrada, nota, res
   - `src/common/` — `correlation.middleware.ts` + `als.ts` (RNF-OBS-01); `all-exceptions.filter.ts` + `error-codes.ts` → corpo `{ codigo, mensagem, correlationId }` (RNF-ERR-01, pt-BR, sem stack trace).
   - `src/db/` — `drizzle.module.ts` (provider `DRIZZLE`), `schema.ts` (`pgSchema`), `migrate.ts`.
   - `src/health/` — `GET /health` via `@nestjs/terminus` + indicador Drizzle (`SELECT 1`) (RNF-OBS-02).
-- **Comandos:** `npm run start:dev` · `npm run build` · `npm test` · `npm run lint` · `npm run db:generate` · `npm run db:migrate`. `npm run start:prod` aplica migrations antes de iniciar a API.
-- **Testes:** Jest + ts-jest; specs em `src/**/*.spec.ts`. Mínimo atual: health e filtro de erro/correlation-id. **A máquina de estados (RN-04) e a inatividade/abandono (RN-05) são teste obrigatório e prioritário (RNF-TST-01)** — entram com as features de domínio; escritas idempotentes (RNF-ERR-04) idem.
-- **OpenAPI:** `@nestjs/swagger` em runtime (`/docs`); esqueleto commitado em [`docs/api/leitura.yaml`](../../../docs/api/leitura.yaml) (RNF-ARQ-03).
+- **Comandos:** `npm run start:dev` · `npm run build` · `npm test` · `npm run test:integration` · `npm run lint` · `npm run db:generate` · `npm run db:migrate`. `npm run start:prod` aplica migrations antes de iniciar a API.
+- **Porta local: 3001.** O `acervo` usa a 3000 e os dois sobem juntos. No Render a porta vem do ambiente.
+- **Testes:** Jest + ts-jest; unitários em `src/**/*.spec.ts`, integração em `test/integracao/*.int-spec.ts`. **A máquina de estados (RN-04) e a inatividade/abandono (RN-05) são teste obrigatório e prioritário (RNF-TST-01)** — entram com as features de domínio.
+- **OpenAPI:** `@nestjs/swagger` em runtime (`/docs`); commitado em [`docs/api/leitura.yaml`](../../../docs/api/leitura.yaml) (RNF-ARQ-03).
+
+## Infra comum das features (F-AVA, fatia 0, 26/09/2026)
+
+Copiada do `acervo` e pronta para F-AVA, F-EST e F-PRG. Não existe pacote compartilhado entre serviços: a regra é copiar e adaptar. Plano: [`plano-F-AVA.md`](../../../docs/plano-de-desenvolvimento/periodo-1/plano-F-AVA.md), fatia 0.
+
+- **Autenticação (`src/auth/`):** `JwtAuthGuard` global (`APP_GUARD`): toda rota nasce protegida. `@Publico()` libera (só `/health`). `@UsuarioAtual()` dá `{ id, username }` do token — nunca aceite o id do solicitante pelo corpo. HS256, issuer `identidade`, `JWT_SECRET` igual ao do `identidade` (mínimo de 32 caracteres, obrigatório em produção; sem ele o serviço não sobe).
+- **Pipeline HTTP (`src/configurar-app.ts`):** `trust proxy`, correlation-id, helmet, CORS e `ValidationPipe` com `forbidNonWhitelisted` e `exceptionFactory`. O `main.ts` e os testes usam o mesmo.
+- **Correlation-id só UUID.** `outbox_leitura.correlation_id` é `uuid NOT NULL`; um header malformado é trocado por um UUID gerado, senão derrubaria a escrita com 500.
+- **Erros (`src/common/erros-de-negocio.ts`):** corpo `{ codigo, mensagem, correlationId }`, com `campos` quando houver.
+  - **400** (`ErroDeValidacao`): corpo malformado — tipo errado, campo faltando ou sobrando, UUID inválido, `Idempotency-Key` ausente.
+  - **422** (`EntidadeInvalida`, código `ENTIDADE_NAO_PROCESSAVEL`): dado bem formado que fere regra de negócio (nota fora da escala, resenha vazia ou longa demais).
+  - 401, 403, 404, 409, 429 (com `Retry-After`) e 503 têm classe própria.
+  - VIEW de outro serviço inacessível (`ehFalhaDeContratoExterno`, em `pg-erros.ts`) vira 503.
+- **Idempotência (`src/common/idempotencia/`):** `IdempotenciaService.executar(contexto, efeito)` roda o efeito e grava o recibo **na mesma transação**; é serviço, não interceptor. `@IdempotencyKey()` exige UUID (400 se faltar).
+  - **Escopo diferente do `acervo`:** `operacao = operacaoNoCaminho(OPERACOES.X, idsDoCaminho)`, por exemplo `salvarNota:<livroId>`, porque o `leitura.yaml` define o escopo como ator + método + **caminho canônico**. A mesma chave em outro livro é outra operação (no `acervo` seria 409). Mesma chave com outro corpo: 409. Janela de replay: 24 h.
+  - Acrescente as operações da sua feature em `OPERACOES`, com o `operationId` do contrato.
+  - O índice único é `idempotencia_leitura_subject_operacao_chave_uk` (predicado `subject_ref is not null and chave is not null`).
+- **Limite de requisições (`src/common/rate-limit/`):** `@UseGuards(RateLimitGuard)` + `@RateLimit({ porIdentidade, porIp, janelaSegundos, escopo })` nas escritas que viram atividade ou evento. **Um `escopo` por rota**, senão as rotas dividem o contador.
+- **VIEWs de outros serviços (`src/db/contratos-externos.ts`):** `acervo.v_livro_referencia_v1`, `identidade.v_perfil_referencia_v1` e `identidade.v_seguimento_aceito_v1`, todas `.existing()` e fora do `schema.ts`. `autor_exibicao` é `NULL` em livro oficial sem autor (701 livros no dev).
+- **Outbox (`src/outbox/`):** `OutboxRepository.inserir(tx, { tipo, versao, chaveNegocio, payload })`, sempre com o `tx` da transação do domínio. O `payload` é só o `data` do schema; o despachante de P0-MSG monta o envelope. **O `data` é validado antes do INSERT:** evento fora do contrato desfaz a transação (500) em vez de cair na DLQ de outro serviço. Por isso:
+  - registre o schema do seu evento no `onModuleInit` do módulo com `MessageValidator.registerDataSchema(tipo, versao, schema)`, usando a cópia em `src/messaging/schemas/` (idêntica à de `docs/mensageria`, conferida por `schemas.spec.ts`);
+  - o `common-v1` já está registrado, então `$ref: "common-v1.schema.json#/..."` resolve;
+  - limpe o que vem de fora antes de montar o evento: URL de capa ou avatar malformada vira `null`, e ausência de autor é `null`, nunca texto inventado (`LivroSnapshot.autor` aceita `null` desde 26/09/2026, ver `docs/mensageria/README.md`).
+- **Testes de integração (`test/integracao/`):** Postgres descartável, nunca o Neon (`ambiente.ts` recusa). As VIEWs de `acervo` e `identidade` viram **tabelas** no fixture (`banco.ts`), com massa em `massa.ts` (`inserirLivro`, `inserirPerfil`, `seguir`). Nelas, "suspenso" e "em exclusão" são o mesmo caso: sem linha. `limpar()` zera todas as tabelas dos três schemas pelo catálogo, então tabela nova entra sozinha. `broker-em-memoria.ts` prova outbox → despachante → envelope válido. `criarApp([Controller])` aceita rotas só de teste (ver `rota-de-teste.ts`).
+  - Local: `DATABASE_URL_TESTE=postgresql://postgres:teste@localhost:55432/leai_teste_leitura npm run test:integration`, com um banco **separado** do usado pelo acervo (`createdb -U postgres leai_teste_leitura` no container), porque os dois fixtures recriam os mesmos schemas.
+  - A CI (`ci-back-leitura.yml`) sobe Postgres 17 e roda o mesmo comando.
+- **Lint no Windows:** com `core.autocrlf=true`, o checkout vem em CRLF e o `prettier/prettier` acusa todo arquivo. O Git grava LF; para conferir o resto localmente, rode `npx eslint "src/**/*.ts" --rule '{"prettier/prettier": ["error", {"endOfLine": "auto"}]}'`.
 
 ## Pontos de atenção (ver `REQUISITOS.md`) — prioridade de teste
 
