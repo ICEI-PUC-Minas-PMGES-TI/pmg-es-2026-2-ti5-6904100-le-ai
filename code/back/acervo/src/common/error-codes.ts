@@ -42,6 +42,10 @@ const BY_STATUS: Record<number, { codigo: string; mensagem: string }> = {
     codigo: 'CONFLITO',
     mensagem: 'Este recurso conflita com um já existente.',
   },
+  [HttpStatus.PAYLOAD_TOO_LARGE]: {
+    codigo: 'CORPO_MUITO_GRANDE',
+    mensagem: 'Os dados enviados passam do tamanho permitido.',
+  },
   [HttpStatus.UNPROCESSABLE_ENTITY]: {
     codigo: 'ENTIDADE_NAO_PROCESSAVEL',
     mensagem: 'Não foi possível processar os dados enviados.',
@@ -96,9 +100,36 @@ export function mapError(exception: unknown): MappedError {
     };
   }
 
+  // Erro do leitor de corpo do Express (body-parser): corpo acima do limite (413),
+  // codificação não suportada (415). Não é HttpException, mas traz o status certo.
+  // Mesma correção do `leitura`.
+  const doCorpo = erroDoLeitorDeCorpo(exception);
+  if (doCorpo !== null) {
+    return {
+      status: doCorpo,
+      ...(BY_STATUS[doCorpo] ?? BY_STATUS[HttpStatus.BAD_REQUEST]),
+    };
+  }
+
   return {
     status: HttpStatus.INTERNAL_SERVER_ERROR,
     codigo: 'ERRO_INTERNO',
     mensagem: 'Ocorreu um erro inesperado. Tente novamente mais tarde.',
   };
+}
+
+function erroDoLeitorDeCorpo(exception: unknown): number | null {
+  if (typeof exception !== 'object' || exception === null) {
+    return null;
+  }
+  const { type, status } = exception as { type?: unknown; status?: unknown };
+  const doBodyParser =
+    typeof type === 'string' &&
+    /^(entity|request|encoding|charset|parameters)\./.test(type);
+  return doBodyParser &&
+    typeof status === 'number' &&
+    status >= 400 &&
+    status < 500
+    ? status
+    : null;
 }
