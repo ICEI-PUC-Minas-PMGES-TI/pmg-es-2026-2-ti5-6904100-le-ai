@@ -75,7 +75,7 @@ Implementado em 26/09/2026.
 - **Os objetos de busca ficam na migration `0004`, fora do `schema.ts`**, como `mensagem_processada`: as extensões `pg_trgm` e `unaccent` em `public`, a função `acervo.f_busca_normalizar` (IMMUTABLE, com o dicionário do `unaccent` explícito) e os índices GIN de título, autor e editora. O drizzle-kit não os conhece e não os recria nem os derruba.
 - **Tudo qualificado por schema**, na migration e na consulta (`public.word_similarity`, `public.gin_trgm_ops`). A CI **não** pega o esquecimento: o `prepararBanco` roda as migrations com `public` no `search_path`. Confira por `grep` antes de revisar uma migration.
 - **A busca casa só por trecho (`LIKE` sobre o texto normalizado); a semelhança só ordena.** Com a semelhança no filtro, "guimaraes rossa" traria Guimarães Rosa, e o design pede vazio. Os candidatos saem de um `UNION ALL` por campo, cada um indexável, e o predicado `tipo = 'oficial' AND ativo` é literal, para casar o índice parcial.
-- **Palavra por palavra, no mesmo campo (27/09/2026).** `palavrasDaBusca` quebra o `q` por espaço, e cada palavra vira um `LIKE` no campo (todas com AND). É o que faz "grande sertao veredas" achar "Grande sertão: veredas" sem migration nova. Palavra só de pontuação sai quando há outra com letra; sem nenhuma, fica (`%` acha "100% amor").
+- **Palavra por palavra, no mesmo campo (27/09/2026).** `palavrasDaBusca` quebra o `q` por espaço, e cada palavra vira um `LIKE` no campo (todas com AND). É o que faz "grande sertao veredas" achar "Grande sertão: veredas" sem migration nova. Pontuação nas pontas sai; palavra só de pontuação sai quando há outra com letra; sem nenhuma, fica (`%` acha "100% amor"). Repetida ou contida em outra sai, e o teto é `MAXIMO_DE_PALAVRAS` (8), as mais longas: cada palavra é um `LIKE` em cada um dos quatro campos, duas vezes (contagem e página).
 - **Ordem: casamento integral, depois campo, depois semelhança.** Título idêntico ao texto (sem pontuação) vale 12, autor idêntico 10, e só então título 6, autor 4, editora 2 e assunto 0 que *contêm* o texto; a semelhança (`0.75 * word_similarity + 0.25 * similarity`) soma até 1 dentro do degrau. ISBN exato vale 20. Mexer nesses pesos muda a ordem que os testes de integração fixam.
 - **ISBN-10 só na busca:** `isbn13DeIsbn10` converte para o ISBN-13 da edição. `normalizarIsbn13`, do cadastro, continua recusando ISBN-10.
 - **As edições de uma obra chegam contíguas** (título normalizado + autores; livro sem autor usa o próprio id). O cliente agrupa só vizinhos.
@@ -89,10 +89,10 @@ Implementado em 26/09/2026.
 
 Para quem mexe no cadastro e na importação saber que isto mudou por baixo:
 
-- **`mapError` (`error-codes.ts`)** agora devolve **503 `SERVICO_INDISPONIVEL`** para banco fora do ar (`ehBancoIndisponivel` em `pg-erros.ts`: classe `08`, `57P01` a `57P03`, `53300`, erros de rede e o pool sem conexão) e **413 `CORPO_MUITO_GRANDE`** para o erro do body-parser, que não é `HttpException`. Antes os dois saíam 500. Mesma correção do `leitura`.
+- **`mapError` (`error-codes.ts`)** agora devolve **503 `SERVICO_INDISPONIVEL`** para banco fora do ar (`ehBancoIndisponivel` em `pg-erros.ts`: falhas de conexão da classe `08` exceto o `08P01`, que é violação de protocolo e costuma ser bug; `57P01` a `57P03`, `53300`, erros de rede e o pool sem conexão) e **413 `CORPO_MUITO_GRANDE`** para o erro do body-parser, que não é `HttpException`. Antes os dois saíam 500. Mesma correção do `leitura`.
 - **`montarErroDeValidacao` (`validacao.ts`)** troca a mensagem do `forbidNonWhitelisted` ("property x should not exist") por "Este campo não é aceito.".
 - **`VerificadorJwt`** recusa token sem `exp`: o `jwt.verify` só confere a expiração quando ela existe.
-- **`textoPuro`** decodifica as entidades e tira as tags de novo (HTML escapado virava tag gravada) e remove caracteres de controle. Hoje só a sinopse usa.
+- **`textoPuro`** decodifica as entidades e tira de novo só os nomes de tag HTML conhecidos (HTML escapado virava tag gravada; "&lt;&lt;O Guarani&gt;&gt;" e "&lt;e-mail&gt;" são texto e ficam) e remove caracteres de controle. Hoje só a sinopse usa.
 - **`isbn.ts`** ganhou `isbn13DeIsbn10`; `normalizarIsbn13` não mudou.
 
 ## Pendências do serviço
