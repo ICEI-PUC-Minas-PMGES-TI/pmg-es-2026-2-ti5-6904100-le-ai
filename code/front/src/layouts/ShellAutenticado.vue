@@ -19,8 +19,12 @@ import { ABAS, abaAtiva } from '../router/abas'
 const route = useRoute()
 const titulo = computed(() => (typeof route.meta.titulo === 'string' ? route.meta.titulo : ''))
 const ativa = computed(() => abaAtiva(route))
-// Tela de detalhe (meta.voltar) ganha a seta; sem histórico, ela leva à aba de origem.
-const voltarPara = computed(() => (route.meta.voltar ? (ativa.value ?? '/estante') : null))
+// Tela de detalhe (meta.voltar) ganha a seta; sem histórico, ela leva à aba de origem ou ao destino
+// que a rota declarar (o editor de resenha volta à página do livro).
+const voltarPara = computed(() =>
+  route.meta.voltar ? (route.meta.voltarPara?.(route) ?? ativa.value ?? '/estante') : null,
+)
+const semBarraInferior = computed(() => route.meta.semBarraInferior === true)
 
 function itemAtivo(rota: string): boolean {
   return ativa.value === rota
@@ -39,12 +43,16 @@ function itemAtivo(rota: string): boolean {
         :rotulo-voltar="route.meta.voltarComRotulo ?? null"
         :sem-divisor="route.meta.semDivisor === true"
       />
-      <main class="flex-1 overflow-y-auto px-space-5 pb-[calc(64px+env(safe-area-inset-bottom))] md:px-space-8 md:pb-0">
+      <main
+        class="flex-1 overflow-y-auto px-space-5 md:px-space-8 md:pb-0"
+        :class="semBarraInferior ? '' : 'pb-[calc(64px+env(safe-area-inset-bottom))]'"
+      >
         <RouterView />
       </main>
     </div>
 
     <nav
+      v-if="!semBarraInferior"
       class="fixed inset-x-0 bottom-0 z-10 flex h-16 border-t border-linha bg-papel-elevado pb-[env(safe-area-inset-bottom)] md:hidden"
       aria-label="Navegação principal"
     >

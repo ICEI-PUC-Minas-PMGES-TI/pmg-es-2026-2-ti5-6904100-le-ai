@@ -28,6 +28,7 @@ import PerfilView from '../views/PerfilView.vue'
 import SolicitacoesView from '../views/SolicitacoesView.vue'
 import CadastroIsbnView from '../views/livros/CadastroIsbnView.vue'
 import IsbnNaoEncontradoView from '../views/livros/IsbnNaoEncontradoView.vue'
+import EscreverResenhaView from '../views/livros/EscreverResenhaView.vue'
 import LivroOficialView from '../views/livros/LivroOficialView.vue'
 import LivroPessoalFormView from '../views/livros/LivroPessoalFormView.vue'
 import LivroPessoalView from '../views/livros/LivroPessoalView.vue'
@@ -51,6 +52,13 @@ declare module 'vue-router' {
     voltarComRotulo?: string
     /** Header sem o divisor inferior (protótipos de F-AUT e F-PERFIL). */
     semDivisor?: boolean
+    /**
+     * Abaixo de 768px, sem a barra inferior: o editor de resenha é um fluxo com salvamento e a
+     * saída é pelo `X` (escrever-resenha.md §4; abaixo de 768px vale o desenho mobile).
+     */
+    semBarraInferior?: boolean
+    /** Destino da seta ou do `X` sem histórico, quando não é a raiz da aba. */
+    voltarPara?: (rota: RouteLocationNormalizedLoaded) => string
     /**
      * Aba do shell que fica ativa. Detalhe não é aba, mas pertence à de onde veio; sem isto,
      * vale o prefixo do caminho (`router/abas.ts`).
@@ -212,6 +220,33 @@ export const routes: RouteRecordRaw[] = [
         name: 'livro-pessoal-editar',
         component: LivroPessoalFormView,
         meta: { titulo: 'Editar livro', voltar: true, aba: '/estante' },
+      },
+      {
+        path: 'livros/pessoal/:id/resenha',
+        name: 'escrever-resenha-pessoal',
+        component: EscreverResenhaView,
+        meta: {
+          titulo: 'Resenha',
+          voltar: true,
+          fechar: true,
+          semBarraInferior: true,
+          aba: '/estante',
+          voltarPara: (rota) => `/livros/pessoal/${String(rota.params.id)}`,
+        },
+      },
+      {
+        path: 'livros/:id/resenha',
+        name: 'escrever-resenha',
+        component: EscreverResenhaView,
+        meta: {
+          titulo: 'Resenha',
+          voltar: true,
+          fechar: true,
+          semBarraInferior: true,
+          aba: (rota) => (rota.query.origem === 'estante' ? '/estante' : '/descobrir'),
+          voltarPara: (rota) =>
+            `/livros/${String(rota.params.id)}${rota.query.origem ? `?origem=${String(rota.query.origem)}` : ''}`,
+        },
       },
       {
         path: 'livros/:id',
