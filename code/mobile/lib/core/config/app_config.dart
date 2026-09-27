@@ -22,6 +22,13 @@ class AppConfig {
     defaultValue: 'http://localhost:3000',
   );
 
+  /// Base URL do serviço `social` (F-FEED): feed, curtidas e comentários. No AVD,
+  /// `--dart-define=SOCIAL_BASE_URL=http://10.0.2.2:8081`.
+  static const String socialBaseUrl = String.fromEnvironment(
+    'SOCIAL_BASE_URL',
+    defaultValue: 'http://localhost:8081',
+  );
+
   /// Cloud do Cloudinary (P-09). Precisa ser a mesma de `CLOUDINARY_CLOUD_NAME` no `acervo`: o
   /// servidor só aceita capa hospedada em `res.cloudinary.com/<cloud>/image/upload/`.
   static const String cloudinaryCloudName = String.fromEnvironment(
