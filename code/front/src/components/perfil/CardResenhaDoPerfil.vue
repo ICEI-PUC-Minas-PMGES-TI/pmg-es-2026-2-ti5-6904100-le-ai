@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref, useTemplateRef } from 'vue'
 import { RouterLink } from 'vue-router'
 
 import type { ResenhaDoPerfil } from '../../services/leitura'
@@ -10,12 +10,20 @@ import EstrelasNota from '../livros/EstrelasNota.vue'
 /**
  * Resenha no perfil (meu-perfil.md §4 e §5): capa, título, autor, estrelas com o valor e o trecho
  * de três linhas em Newsreader. Com spoiler, quem não é o autor vê o bloco oculto e revela por
- * ação; o texto não está no DOM antes disso (RF-AVA-03). O livro abre na aba Perfil.
+ * ação; o texto não está no DOM antes disso (RF-AVA-03). Ao revelar, o foco vai para o texto,
+ * para o leitor de tela continuar dali. O livro abre na aba Perfil.
  */
 const props = defineProps<{ resenha: ResenhaDoPerfil; proprio: boolean }>()
 
 const revelada = ref(false)
 const oculta = computed(() => props.resenha.spoiler && !props.proprio && !revelada.value)
+const textoDaResenha = useTemplateRef<HTMLParagraphElement>('textoDaResenha')
+
+async function revelar(): Promise<void> {
+  revelada.value = true
+  await nextTick()
+  textoDaResenha.value?.focus()
+}
 
 const destino = computed(() =>
   props.resenha.livro.tipo === 'pessoal'
@@ -61,11 +69,13 @@ const destino = computed(() =>
       <BlocoDeSpoiler
         v-if="oculta"
         class="mt-space-3"
-        @revelar="revelada = true"
+        @revelar="revelar"
       />
       <p
         v-else
-        class="mt-space-2 line-clamp-3 whitespace-pre-line font-editorial text-body text-grafite"
+        ref="textoDaResenha"
+        tabindex="-1"
+        class="mt-space-2 line-clamp-3 outline-none whitespace-pre-line font-editorial text-body text-grafite"
       >
         {{ resenha.texto }}
       </p>
