@@ -35,10 +35,13 @@ export class LivroOficialController {
   // A abertura dispara consulta a fonte externa: sem limite, um script que
   // abrisse o acervo inteiro geraria milhares de consultas à OpenLibrary. Mais
   // folgado que o do cadastro, porque o polling da sinopse também chama esta
-  // rota, e em escopo próprio para não gastar o limite do cadastro.
+  // rota, e em escopo próprio para não gastar o limite do cadastro. O teto por
+  // IP é bem maior que o por identidade: uma turma inteira atrás do NAT da
+  // faculdade sai pelo mesmo IP, e cada abertura soma até 7 consultas de
+  // polling no primeiro minuto.
   @RateLimit({
     porIdentidade: 60,
-    porIp: 120,
+    porIp: 600,
     janelaSegundos: 60,
     escopo: 'pagina-do-livro',
   })
