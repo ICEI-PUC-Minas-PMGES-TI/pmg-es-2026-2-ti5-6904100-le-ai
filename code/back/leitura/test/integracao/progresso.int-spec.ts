@@ -18,6 +18,7 @@ interface Resumo {
   paginaAtual: number;
   totalPaginas: number;
   percentualConcluido: number;
+  minutosTotais: number;
 }
 
 interface Progresso {
@@ -133,6 +134,7 @@ describe('progresso manual (integração)', () => {
         paginaAtual: 100,
         totalPaginas: TOTAL,
         percentualConcluido: (100 / TOTAL) * 100,
+        minutosTotais: 60,
       });
       expect(await leituraNoBanco(leituraId)).toEqual({
         pagina_atual: 100,
@@ -188,11 +190,56 @@ describe('progresso manual (integração)', () => {
       expect(await contar(pool, 'leitura.atualizacao_progresso')).toBe(1);
     });
 
+    it('tempo é opcional: ausente ou zero grava 0 e a outbox continua válida', async () => {
+      const { usuario, leituraId } = await leituraEmAndamento();
+      const semMinutos: Record<string, unknown> = corpo(10);
+      delete semMinutos.minutos;
+
+      const semTempo = await autenticado(
+        'post',
+        usuario,
+        `/leituras/${leituraId}/progresso`,
+      )
+        .send(semMinutos)
+        .expect(201);
+      expect(semTempo.body.progresso.minutos).toBe(0);
+      expect(semTempo.body.resumo.minutosTotais).toBe(0);
+
+      const zero = await autenticado(
+        'post',
+        usuario,
+        `/leituras/${leituraId}/progresso`,
+      )
+        .send(corpo(20, { minutos: 0 }))
+        .expect(201);
+      expect(zero.body.progresso.minutos).toBe(0);
+
+      const { resumo } = await registrar(usuario, leituraId, 30);
+      expect(resumo.minutosTotais).toBe(30);
+
+      const { rows } = await pool.query<{ payload: Record<string, unknown> }>(
+        `SELECT payload FROM leitura.outbox_leitura
+          WHERE tipo = $1 AND payload->>'atualizacaoProgressoId' = $2`,
+        [TIPO_EVENTO.PROGRESSO_REGISTRADO, semTempo.body.progresso.id],
+      );
+      expect(rows[0].payload.minutos).toBe(0);
+      expect(() =>
+        app
+          .get(MessageValidator)
+          .validarDados(
+            TIPO_EVENTO.PROGRESSO_REGISTRADO,
+            EVENTO_VERSAO_V1,
+            rows[0].payload,
+          ),
+      ).not.toThrow();
+    });
+
     it('recusa corpo malformado com 400', async () => {
       const { usuario, leituraId } = await leituraEmAndamento();
       for (const extras of [
-        { minutos: 0 },
+        { minutos: -1 },
         { minutos: 721 },
+        { minutos: 1.5 },
         { fusoHorarioDispositivo: 'Marte/Olympus' },
         { registradoEmDispositivo: 'ontem' },
         { extra: true },
@@ -362,6 +409,7 @@ describe('progresso manual (integração)', () => {
       expect(segunda.body.itens).toHaveLength(10);
       expect(segunda.body.resumo).toEqual(primeira.body.resumo);
       expect(segunda.body.resumo.paginaAtual).toBe(60);
+      expect(segunda.body.resumo.minutosTotais).toBe(300);
     });
   });
 
@@ -393,7 +441,10 @@ describe('progresso manual (integração)', () => {
         criadoEm: progresso.criadoEm,
       });
       expect(res.body.progresso.atualizadoEm).not.toBeNull();
-      expect(res.body.resumo.paginaAtual).toBe(80);
+      expect(res.body.resumo).toMatchObject({
+        paginaAtual: 80,
+        minutosTotais: 45,
+      });
       expect(await leituraNoBanco(leituraId)).toEqual({
         pagina_atual: 80,
         inatividade_versao: antes.inatividade_versao + 1,
@@ -472,6 +523,7 @@ describe('progresso manual (integração)', () => {
           paginaAtual: 10,
           totalPaginas: TOTAL,
           percentualConcluido: (10 / TOTAL) * 100,
+          minutosTotais: 30,
         },
       });
       expect(await leituraNoBanco(leituraId)).toEqual({
@@ -510,6 +562,7 @@ describe('progresso manual (integração)', () => {
         paginaAtual: 0,
         totalPaginas: TOTAL,
         percentualConcluido: 0,
+        minutosTotais: 0,
       });
       expect((await leituraNoBanco(leituraId)).pagina_atual).toBe(0);
 

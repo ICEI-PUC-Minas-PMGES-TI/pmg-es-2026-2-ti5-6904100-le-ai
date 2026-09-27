@@ -27,7 +27,7 @@ import {
 } from '../../leituras/dominio/maquina-estados';
 import { livroAdicionadoAEstante } from '../../leituras/dominio/eventos';
 import { OutboxRepository } from '../../outbox/outbox.repository';
-import { resumo } from '../../progresso/dominio/progresso';
+import { percentualConcluido } from '../../progresso/dominio/progresso';
 import { ReferenciasExternas } from '../../referencias/referencias-externas.service';
 import {
   type ConclusoesLivro,
@@ -281,7 +281,7 @@ function paraItem(linha: LinhaEstante): ItemEstante {
     totalPaginas: linha.totalPaginas,
     percentualConcluido:
       paginaAtual !== null && linha.totalPaginas
-        ? resumo(paginaAtual, linha.totalPaginas).percentualConcluido
+        ? percentualConcluido(paginaAtual, linha.totalPaginas)
         : null,
     adicionadoEm: linha.adicionadoEm.toISOString(),
   };

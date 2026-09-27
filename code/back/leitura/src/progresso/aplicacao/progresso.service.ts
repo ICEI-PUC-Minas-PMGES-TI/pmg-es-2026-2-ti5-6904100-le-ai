@@ -47,6 +47,7 @@ import {
   PAGINA_SEM_PROGRESSO,
   type ProgressoInvalido,
   resumo,
+  SEM_TEMPO,
   validarEdicaoDoUltimo,
   validarMinutos,
   validarNovaPagina,
@@ -145,15 +146,17 @@ export class ProgressoService {
     const page = consulta.page ?? PAGINA_PADRAO;
     const limite = Math.min(consulta.limite ?? LIMITE_PADRAO, LIMITE_MAXIMO);
 
-    const [{ linhas, totalItens }, totalPaginas] = await Promise.all([
-      this.repositorio.listarPagina(
-        this.db,
-        leituraId,
-        (page - 1) * limite,
-        limite,
-      ),
-      this.totalDePaginas(this.db, alvo.livroId),
-    ]);
+    const [{ linhas, totalItens }, totalPaginas, minutosTotais] =
+      await Promise.all([
+        this.repositorio.listarPagina(
+          this.db,
+          leituraId,
+          (page - 1) * limite,
+          limite,
+        ),
+        this.totalDePaginas(this.db, alvo.livroId),
+        this.repositorio.somarMinutos(this.db, leituraId),
+      ]);
 
     return {
       itens: linhas.map(paraDto),
@@ -163,7 +166,7 @@ export class ProgressoService {
         totalItens,
         totalPaginas: Math.ceil(totalItens / limite),
       },
-      resumo: resumo(alvo.paginaAtual, totalPaginas),
+      resumo: resumo(alvo.paginaAtual, totalPaginas, minutosTotais),
       somenteLeitura: !emAndamento(alvo),
     };
   }
@@ -228,7 +231,11 @@ export class ProgressoService {
           status: HttpStatus.OK,
           corpo: {
             progresso: paraDto(corrigido),
-            resumo: resumo(pagina, totalPaginas),
+            resumo: resumo(
+              pagina,
+              totalPaginas,
+              await this.repositorio.somarMinutos(tx, alvo.id),
+            ),
           },
         };
       },
@@ -280,7 +287,11 @@ export class ProgressoService {
           status: HttpStatus.OK,
           corpo: {
             idsRemovidos: alcance.idsRemovidos,
-            resumo: resumo(alcance.paginaAtual, totalPaginas),
+            resumo: resumo(
+              alcance.paginaAtual,
+              totalPaginas,
+              await this.repositorio.somarMinutos(tx, alvo.id),
+            ),
           },
         };
       },
@@ -316,7 +327,8 @@ export class ProgressoService {
     if (!validacao.ok) {
       throw paginaRecusada(validacao.erro);
     }
-    exigirMinutos(entrada.minutos);
+    const minutos = entrada.minutos ?? SEM_TEMPO;
+    exigirMinutos(minutos);
 
     const registradoEm = new Date(entrada.registradoEmDispositivo);
     const fuso = entrada.fusoHorarioDispositivo;
@@ -325,7 +337,7 @@ export class ProgressoService {
       ordem: (await this.repositorio.maiorOrdem(tx, alvo.id)) + 1,
       pagina: entrada.pagina,
       paginasLidas: validacao.paginasLidas,
-      minutos: entrada.minutos,
+      minutos,
       registradoEmDispositivo: registradoEm,
       fusoHorarioDispositivo: fuso,
       dataLocal: dataLocal(registradoEm, fuso),
@@ -333,7 +345,11 @@ export class ProgressoService {
     });
     await this.repositorio.registrarAtividade(tx, alvo.id, progresso.pagina);
 
-    const resumoAtual = resumo(progresso.pagina, totalPaginas);
+    const resumoAtual = resumo(
+      progresso.pagina,
+      totalPaginas,
+      await this.repositorio.somarMinutos(tx, alvo.id),
+    );
     await this.outbox.inserir(
       tx,
       progressoRegistrado({

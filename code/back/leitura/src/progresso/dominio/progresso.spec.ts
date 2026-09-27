@@ -1,7 +1,7 @@
 import {
   MINUTOS_MAXIMOS,
-  MINUTOS_MINIMOS,
   RegistroOrdenado,
+  SEM_TEMPO,
   alcanceDaExclusao,
   dataLocal,
   paginasLidas,
@@ -108,11 +108,11 @@ describe('validarEdicaoDoUltimo', () => {
 });
 
 describe('validarMinutos', () => {
-  it.each([MINUTOS_MINIMOS, MINUTOS_MAXIMOS, 60])('aceita %i', (minutos) => {
+  it.each([SEM_TEMPO, MINUTOS_MAXIMOS, 60])('aceita %i', (minutos) => {
     expect(validarMinutos(minutos)).toEqual({ ok: true });
   });
 
-  it.each([MINUTOS_MINIMOS - 1, MINUTOS_MAXIMOS + 1, 1.5])(
+  it.each([SEM_TEMPO - 1, MINUTOS_MAXIMOS + 1, 1.5])(
     'rejeita %d',
     (minutos) => {
       expect(validarMinutos(minutos)).toMatchObject({
@@ -125,20 +125,21 @@ describe('validarMinutos', () => {
 
 describe('resumo', () => {
   it('calcula o percentual sem arredondar, como o serviço de leituras', () => {
-    expect(resumo(1, 3)).toEqual({
+    expect(resumo(1, 3, 45)).toEqual({
       paginaAtual: 1,
       totalPaginas: 3,
       percentualConcluido: (1 / 3) * 100,
+      minutosTotais: 45,
     });
   });
 
   it('retorna zero sem registros e cem no total', () => {
-    expect(resumo(0, 250).percentualConcluido).toBe(0);
-    expect(resumo(250, 250).percentualConcluido).toBe(100);
+    expect(resumo(0, 250, 0).percentualConcluido).toBe(0);
+    expect(resumo(250, 250, 0).percentualConcluido).toBe(100);
   });
 
   it('limita o percentual a cem', () => {
-    expect(resumo(300, 250).percentualConcluido).toBe(100);
+    expect(resumo(300, 250, 0).percentualConcluido).toBe(100);
   });
 });
 

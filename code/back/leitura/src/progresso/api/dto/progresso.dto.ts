@@ -20,12 +20,12 @@ import {
 } from '../../../perfis/dto/resenhas-do-perfil.dto';
 import {
   MINUTOS_MAXIMOS,
-  MINUTOS_MINIMOS,
   PERCENTUAL_MAXIMO,
+  SEM_TEMPO,
 } from '../../dominio/progresso';
 
 const MENSAGEM_PAGINA = 'Informe uma página inteira a partir de 1.';
-const MENSAGEM_MINUTOS = `Informe os minutos como inteiro entre ${MINUTOS_MINIMOS} e ${MINUTOS_MAXIMOS}.`;
+const MENSAGEM_MINUTOS = `Informe os minutos como inteiro entre ${SEM_TEMPO} e ${MINUTOS_MAXIMOS}.`;
 
 export class CriarProgressoEntradaDto {
   @ApiProperty({
@@ -36,11 +36,17 @@ export class CriarProgressoEntradaDto {
   @Min(1, { message: MENSAGEM_PAGINA })
   pagina!: number;
 
-  @ApiProperty({ minimum: MINUTOS_MINIMOS, maximum: MINUTOS_MAXIMOS })
+  @ApiPropertyOptional({
+    minimum: SEM_TEMPO,
+    maximum: MINUTOS_MAXIMOS,
+    default: SEM_TEMPO,
+    description: 'Tempo gasto; ausente é registrado como 0 (não informado).',
+  })
+  @IsOptional()
   @IsInt({ message: MENSAGEM_MINUTOS })
-  @Min(MINUTOS_MINIMOS, { message: MENSAGEM_MINUTOS })
+  @Min(SEM_TEMPO, { message: MENSAGEM_MINUTOS })
   @Max(MINUTOS_MAXIMOS, { message: MENSAGEM_MINUTOS })
-  minutos!: number;
+  minutos?: number;
 
   @ApiProperty({ format: 'date-time' })
   @IsISO8601(
@@ -64,10 +70,10 @@ export class EditarProgressoEntradaDto {
   @Min(1, { message: MENSAGEM_PAGINA })
   pagina?: number;
 
-  @ApiPropertyOptional({ minimum: MINUTOS_MINIMOS, maximum: MINUTOS_MAXIMOS })
+  @ApiPropertyOptional({ minimum: SEM_TEMPO, maximum: MINUTOS_MAXIMOS })
   @IsOptional()
   @IsInt({ message: MENSAGEM_MINUTOS })
-  @Min(MINUTOS_MINIMOS, { message: MENSAGEM_MINUTOS })
+  @Min(SEM_TEMPO, { message: MENSAGEM_MINUTOS })
   @Max(MINUTOS_MAXIMOS, { message: MENSAGEM_MINUTOS })
   minutos?: number;
 }
@@ -127,7 +133,7 @@ export class ProgressoDto {
   @ApiProperty({ minimum: 1 })
   paginasLidas!: number;
 
-  @ApiProperty({ minimum: MINUTOS_MINIMOS, maximum: MINUTOS_MAXIMOS })
+  @ApiProperty({ minimum: SEM_TEMPO, maximum: MINUTOS_MAXIMOS })
   minutos!: number;
 
   @ApiProperty({ format: 'date-time' })
@@ -155,6 +161,9 @@ export class ResumoProgressoDto {
 
   @ApiProperty({ format: 'float', minimum: 0, maximum: PERCENTUAL_MAXIMO })
   percentualConcluido!: number;
+
+  @ApiProperty({ minimum: 0 })
+  minutosTotais!: number;
 }
 
 export class ProgressoComResumoDto {

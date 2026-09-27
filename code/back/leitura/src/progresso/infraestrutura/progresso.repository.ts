@@ -103,6 +103,16 @@ export class ProgressoRepository {
     return linha?.ordem ?? 0;
   }
 
+  async somarMinutos(executor: Executor, leituraId: string): Promise<number> {
+    const [linha] = await executor
+      .select({
+        total: sql<number>`coalesce(sum(${atualizacaoProgresso.minutos}), 0)::int`,
+      })
+      .from(atualizacaoProgresso)
+      .where(eq(atualizacaoProgresso.leituraId, leituraId));
+    return linha?.total ?? 0;
+  }
+
   listarDaLeitura(tx: Tx, leituraId: string): Promise<ProgressoRegistro[]> {
     return tx
       .select()

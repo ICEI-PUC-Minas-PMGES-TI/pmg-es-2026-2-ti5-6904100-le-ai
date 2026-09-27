@@ -1,4 +1,4 @@
-export const MINUTOS_MINIMOS = 1;
+export const SEM_TEMPO = 0;
 export const MINUTOS_MAXIMOS = 720;
 export const PAGINA_SEM_PROGRESSO = 0;
 export const PERCENTUAL_MAXIMO = 100;
@@ -35,13 +35,14 @@ export interface ResumoProgresso {
   paginaAtual: number;
   totalPaginas: number;
   percentualConcluido: number;
+  minutosTotais: number;
 }
 
 const MOTIVOS: Record<CodigoProgressoInvalido, string> = {
   PAGINA_NAO_AVANCA: 'A página informada deve ser maior que a página anterior.',
   PAGINA_ACIMA_DO_TOTAL:
     'A página informada não pode superar o total de páginas do livro.',
-  MINUTOS_FORA_DO_INTERVALO: `Os minutos devem ser um inteiro entre ${MINUTOS_MINIMOS} e ${MINUTOS_MAXIMOS}.`,
+  MINUTOS_FORA_DO_INTERVALO: `Os minutos devem ser um inteiro entre ${SEM_TEMPO} e ${MINUTOS_MAXIMOS}.`,
   PROGRESSO_NAO_ENCONTRADO: 'Progresso não encontrado nesta leitura.',
   ULTIMO_PROGRESSO_DIVERGENTE:
     'O último progresso mudou desde a confirmação; revise antes de excluir.',
@@ -87,22 +88,31 @@ export function validarEdicaoDoUltimo(
 export function validarMinutos(minutos: number): ResultadoMinutos {
   const valido =
     Number.isInteger(minutos) &&
-    minutos >= MINUTOS_MINIMOS &&
+    minutos >= SEM_TEMPO &&
     minutos <= MINUTOS_MAXIMOS;
   return valido ? { ok: true } : falha('MINUTOS_FORA_DO_INTERVALO');
+}
+
+export function percentualConcluido(
+  paginaAtual: number,
+  totalPaginas: number,
+): number {
+  return Math.min(
+    PERCENTUAL_MAXIMO,
+    (paginaAtual / totalPaginas) * PERCENTUAL_MAXIMO,
+  );
 }
 
 export function resumo(
   paginaAtual: number,
   totalPaginas: number,
+  minutosTotais: number,
 ): ResumoProgresso {
   return {
     paginaAtual,
     totalPaginas,
-    percentualConcluido: Math.min(
-      PERCENTUAL_MAXIMO,
-      (paginaAtual / totalPaginas) * PERCENTUAL_MAXIMO,
-    ),
+    percentualConcluido: percentualConcluido(paginaAtual, totalPaginas),
+    minutosTotais,
   };
 }
 

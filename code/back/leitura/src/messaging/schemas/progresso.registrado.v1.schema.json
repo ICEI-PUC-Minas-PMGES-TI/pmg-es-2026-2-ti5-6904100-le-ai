@@ -10,7 +10,7 @@
     "livroId": { "type": "string", "format": "uuid" },
     "pagina": { "type": "integer", "minimum": 0 },
     "paginasLidas": { "type": "integer", "minimum": 1 },
-    "minutos": { "type": "integer", "minimum": 1, "maximum": 720 },
+    "minutos": { "type": "integer", "minimum": 0, "maximum": 720 },
     "percentual": { "type": "number", "minimum": 0, "maximum": 100 },
     "registradoEm": { "type": "string", "format": "date-time" },
     "fusoHorario": { "type": "string", "minLength": 1 },
