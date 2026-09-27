@@ -224,8 +224,11 @@ describe('LivroOficialView', () => {
     const { wrapper } = await abrir()
 
     expect(wrapper.find('[aria-busy="true"]').exists()).toBe(true)
+    const status = wrapper.get('p[role="status"]')
+    expect(status.text()).toBe('')
     await vi.advanceTimersByTimeAsync(3_000)
-    expect(wrapper.get('[role="status"]').text()).toBe('O servidor está iniciando. Isso pode levar alguns segundos.')
+    expect(wrapper.get('p[role="status"]').element).toBe(status.element)
+    expect(status.text()).toBe('O servidor está iniciando. Isso pode levar alguns segundos.')
 
     responder(livroOficial())
     await flushPromises()

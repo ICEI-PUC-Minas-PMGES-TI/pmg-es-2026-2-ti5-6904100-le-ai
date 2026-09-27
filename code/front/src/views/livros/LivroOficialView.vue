@@ -106,6 +106,13 @@ function voltar(): void {
 
 <template>
   <div class="mx-auto w-full max-w-[1120px] pb-space-12 pt-space-2 md:pt-space-6">
+    <!-- Região fixa: a que nasce junto com o texto do cold start não é lida pelo leitor de tela. -->
+    <p
+      role="status"
+      class="sr-only"
+    >
+      {{ estado === 'carregando' && coldStart ? 'O servidor está iniciando. Isso pode levar alguns segundos.' : '' }}
+    </p>
     <div
       v-if="estado === 'carregando'"
       class="entrada flex flex-col items-center gap-space-3 lg:grid lg:grid-cols-[320px_minmax(0,1fr)] lg:items-start lg:gap-space-10"
@@ -121,7 +128,7 @@ function voltar(): void {
         <p
           v-if="coldStart"
           class="mt-space-3 text-caption text-grafite"
-          role="status"
+          aria-hidden="true"
         >
           O servidor está iniciando. Isso pode levar alguns segundos.
         </p>

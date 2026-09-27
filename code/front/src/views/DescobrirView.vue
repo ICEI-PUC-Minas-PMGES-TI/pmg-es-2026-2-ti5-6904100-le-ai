@@ -104,6 +104,9 @@ function limpar(): void {
 }
 
 const anuncio = computed(() => {
+  if (estado.value === 'buscando' && coldStart.value) {
+    return 'O servidor está iniciando. Isso pode levar alguns segundos.'
+  }
   if (estado.value === 'resultados') {
     return totalItens.value === 1 ? '1 livro encontrado' : `${totalItens.value} livros encontrados`
   }
@@ -211,10 +214,10 @@ const anuncio = computed(() => {
           class="entrada mt-space-2 md:mt-0"
           aria-busy="true"
         >
+          <!-- Anunciado pela região de status fixa: esta nasce com o texto e não seria lida. -->
           <p
             v-if="coldStart"
             class="mb-space-3 text-caption text-grafite"
-            role="status"
           >
             O servidor está iniciando. Isso pode levar alguns segundos.
           </p>
