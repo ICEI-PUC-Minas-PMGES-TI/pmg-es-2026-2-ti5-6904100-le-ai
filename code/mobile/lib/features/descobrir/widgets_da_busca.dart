@@ -104,6 +104,8 @@ class ChipDeAssunto extends StatelessWidget {
       selected: ativo,
       label: ativo ? '$nome, filtro ativo. Toque para remover.' : nome,
       excludeSemantics: true,
+      // Com `excludeSemantics`, a ação de toque do GestureDetector some da árvore: vai aqui.
+      onTap: aoTocar,
       child: GestureDetector(
         onTap: aoTocar,
         behavior: HitTestBehavior.opaque,
@@ -256,11 +258,15 @@ class _IndicacaoDeEdicoes extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // `container`: sem ele o nó se funde ao do card, e o toque duplo do leitor de tela abriria o
+    // livro em vez de expandir as edições.
     return Semantics(
+      container: true,
       button: true,
       expanded: expandido,
       label: expandido ? 'Esconder as outras edições' : 'Ver as $quantidade edições',
       excludeSemantics: true,
+      onTap: aoAlternar,
       child: GestureDetector(
         onTap: aoAlternar,
         behavior: HitTestBehavior.opaque,
@@ -306,6 +312,7 @@ class _LinhaDeEdicao extends StatelessWidget {
       button: true,
       label: 'Edição $descricao',
       excludeSemantics: true,
+      onTap: aoAbrir,
       child: InkWell(
         onTap: aoAbrir,
         splashFactory: NoSplash.splashFactory,

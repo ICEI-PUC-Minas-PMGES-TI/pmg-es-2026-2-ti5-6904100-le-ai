@@ -1,0 +1,9 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": ".",
+  "testRegex": ".*\\.int-spec\\.ts$",
+  "transform": { "^.+\\.(t|j)s$": "ts-jest" },
+  "setupFiles": ["<rootDir>/ambiente.ts"],
+  "testEnvironment": "node",
+  "testTimeout": 30000
+}

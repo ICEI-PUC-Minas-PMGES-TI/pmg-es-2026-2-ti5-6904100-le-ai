@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { acervoService } from '../../services/acervo'
 import { ApiError } from '../../services/api'
+import { leituraService } from '../../services/leitura'
 import { livroOficial, paginaDeResenhas, resenha } from '../../testes/massaDoLivro'
 import { montarNaRota } from '../../testes/montarNaRota'
 
@@ -15,7 +16,16 @@ vi.mock('../../services/acervo', () => ({
   },
 }))
 
+vi.mock('../../services/leitura', () => ({
+  leituraService: {
+    obterMinhaAvaliacao: vi.fn(),
+    salvarNota: vi.fn(),
+    excluirNota: vi.fn(),
+  },
+}))
+
 const servico = vi.mocked(acervoService)
+const leitura = vi.mocked(leituraService)
 
 describe('LivroOficialView', () => {
   beforeEach(() => {
@@ -23,6 +33,7 @@ describe('LivroOficialView', () => {
     localStorage.clear()
     servico.obterLivroOficial.mockReset().mockResolvedValue(livroOficial())
     servico.listarResenhasDoLivro.mockReset().mockResolvedValue(paginaDeResenhas([]))
+    leitura.obterMinhaAvaliacao.mockReset().mockResolvedValue({ livroId: 'livro-1', nota: null, resenha: null })
   })
   afterEach(() => {
     vi.useRealTimers()
@@ -35,7 +46,7 @@ describe('LivroOficialView', () => {
     return montagem
   }
 
-  it('pronta: título, metadados, sinopse, ficha e sem espaço reservado de outras features', async () => {
+  it('pronta: título, metadados, sinopse, ficha e "Sua avaliação" sem nota', async () => {
     const { wrapper } = await abrir()
 
     expect(servico.obterLivroOficial).toHaveBeenCalledWith('livro-1')
@@ -43,8 +54,67 @@ describe('LivroOficialView', () => {
     expect(wrapper.text()).toContain('Todavia · 2019 · 264 páginas')
     expect(wrapper.text()).toContain('Bibiana e Belonísia crescem no interior da Bahia.')
     expect(wrapper.text()).toContain('9788588808911')
-    expect(wrapper.text()).not.toContain('Sua avaliação')
+    // F-AVA: o bloco existe e, sem nota, diz "Sem nota". Estante e progresso ainda não aparecem.
+    expect(leitura.obterMinhaAvaliacao).toHaveBeenCalledWith('livro-1')
+    expect(wrapper.text()).toContain('Sua avaliação')
+    expect(wrapper.find('button[aria-label="Sem nota. Dar nota"]').exists()).toBe(true)
     expect(wrapper.text()).not.toContain('Registrar progresso')
+  })
+
+  it('Sua avaliação mostra a nota salva, inclusive zero', async () => {
+    leitura.obterMinhaAvaliacao.mockResolvedValue({
+      livroId: 'livro-1',
+      nota: { livroId: 'livro-1', valor: 0, criadoEm: '2026-09-12T12:00:00Z', atualizadoEm: '2026-09-12T12:00:00Z' },
+      resenha: null,
+    })
+    const { wrapper } = await abrir()
+
+    expect(wrapper.find('button[aria-label="Sua nota: 0. Alterar"]').exists()).toBe(true)
+  })
+
+  it('sem resenha própria: "Escrever resenha" no bloco e "Escrever a primeira" na lista vazia', async () => {
+    const { wrapper } = await abrir()
+
+    const links = wrapper.findAll('a').map((a) => [a.text(), a.attributes('href')])
+    expect(links).toContainEqual(['Escrever resenha', '/livros/livro-1/resenha?origem=descobrir'])
+    expect(links).toContainEqual(['Escrever a primeira', '/livros/livro-1/resenha?origem=descobrir'])
+  })
+
+  it('com resenha própria: texto, marca de spoiler e "Editar resenha"', async () => {
+    leitura.obterMinhaAvaliacao.mockResolvedValue({
+      livroId: 'livro-1',
+      nota: null,
+      resenha: {
+        id: 'r1',
+        usuarioId: 'u1',
+        livroId: 'livro-1',
+        texto: 'Minha leitura do livro.',
+        spoiler: true,
+        criadoEm: '2026-08-22T12:00:00Z',
+        atualizadoEm: '2026-08-22T12:00:00Z',
+      },
+    })
+    const { wrapper } = await abrir()
+
+    // O dono vê o próprio texto mesmo com spoiler.
+    expect(wrapper.text()).toContain('Minha leitura do livro.')
+    expect(wrapper.text()).toContain('Publicada em 22 de agosto de 2026')
+    expect(wrapper.text()).toContain('Contém spoiler')
+    expect(wrapper.text()).toContain('Editar resenha')
+    expect(wrapper.text()).not.toContain('Escrever a primeira')
+  })
+
+  it('leitura fora do ar: a página abre e só o bloco mostra o erro', async () => {
+    leitura.obterMinhaAvaliacao.mockRejectedValue(new ApiError('x', 503, 'SERVICO_INDISPONIVEL'))
+    const { wrapper } = await abrir()
+
+    expect(wrapper.get('article h1').text()).toBe('Torto Arado')
+    expect(wrapper.text()).toContain('Não foi possível carregar sua avaliação.')
+    leitura.obterMinhaAvaliacao.mockResolvedValue({ livroId: 'livro-1', nota: null, resenha: null })
+    const tentar = wrapper.findAll('button').find((b) => b.text() === 'Tentar de novo')
+    await tentar!.trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('Não foi possível carregar sua avaliação.')
   })
 
   it('a aba ativa é a de origem', async () => {
@@ -154,8 +224,11 @@ describe('LivroOficialView', () => {
     const { wrapper } = await abrir()
 
     expect(wrapper.find('[aria-busy="true"]').exists()).toBe(true)
+    const status = wrapper.get('p[role="status"]')
+    expect(status.text()).toBe('')
     await vi.advanceTimersByTimeAsync(3_000)
-    expect(wrapper.get('[role="status"]').text()).toBe('O servidor está iniciando. Isso pode levar alguns segundos.')
+    expect(wrapper.get('p[role="status"]').element).toBe(status.element)
+    expect(status.text()).toBe('O servidor está iniciando. Isso pode levar alguns segundos.')
 
     responder(livroOficial())
     await flushPromises()
@@ -173,5 +246,42 @@ describe('LivroOficialView', () => {
 
     expect(servico.obterLivroOficial).toHaveBeenLastCalledWith('livro-2')
     expect(wrapper.get('article h1').text()).toBe('Vidas secas')
+  })
+
+  it('a falha de "Ver todas as resenhas" avisa, e o botão vira "Tentar de novo"', async () => {
+    servico.obterLivroOficial.mockResolvedValue(
+      livroOficial({ resenhas: paginaDeResenhas([resenha('r1', 'Marina', 'Primeira.')], 'c1') }),
+    )
+    servico.listarResenhasDoLivro
+      .mockRejectedValueOnce(new ApiError('Indisponível', 503, 'SERVICO_INDISPONIVEL'))
+      .mockResolvedValueOnce(paginaDeResenhas([resenha('r2', 'Letícia', 'Segunda.')]))
+    const { wrapper } = await abrir()
+
+    await wrapper.findAll('button').find((botao) => botao.text() === 'Ver todas as resenhas')!.trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[role="alert"]').text()).toBe('Não foi possível carregar mais resenhas. Verifique sua conexão.')
+    expect(wrapper.text()).toContain('Primeira.')
+
+    await wrapper.findAll('button').find((botao) => botao.text() === 'Tentar de novo')!.trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Segunda.')
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+  })
+
+  it('o título vem antes da ficha no DOM, para o leitor de tela começar pelo h1', async () => {
+    const { wrapper } = await abrir()
+
+    const html = wrapper.get('article').html()
+    expect(html.indexOf('<h1')).toBeLessThan(html.indexOf('Ficha'))
+  })
+
+  it('o 429 mostra a mensagem do servidor, não a de conexão', async () => {
+    servico.obterLivroOficial.mockRejectedValue(
+      new ApiError('Muitas requisições em pouco tempo. Tente novamente em instantes.', 429, 'MUITAS_REQUISICOES'),
+    )
+    const { wrapper } = await abrir()
+
+    expect(wrapper.text()).toContain('Muitas requisições em pouco tempo.')
+    expect(wrapper.text()).not.toContain('A conexão falhou')
   })
 })

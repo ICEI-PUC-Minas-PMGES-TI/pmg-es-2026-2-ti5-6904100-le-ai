@@ -27,7 +27,7 @@ RNF atendidos: **RNF-SEC-03** (acesso a conteúdo de perfil privado validado no 
 | Dados | parcial | Pendente: aplicar no Neon a migration `V20260925140000__adiciona_comentario_respondido_id.sql` |
 | Backend | concluído | Pendente: rodar em DES |
 | Web | concluído | Pendente: rodar em DES |
-| Mobile | não iniciado | mesmas telas |
+| Mobile | parcial | Pendente: validar no emulador Android contra o ambiente de dev e rodar em DES |
 
 ## Especificação
 
@@ -102,10 +102,14 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Migration incremental:** `V20260925140000__adiciona_comentario_respondido_id.sql` adiciona `comentario_respondido_id` (FK composta com `atividade_id`, `ON DELETE SET NULL`); falta aplicar no Neon.
 - **Ficam fora (Período 2):** editar/excluir o próprio comentário (RF-SOC-13) e menção arbitrária resolvida como link (RF-SOC-15) — **F-SOCIAL-2**. Denúncia é F-MOD. **Notificações** em tempo real pertencem a RF-NOT-06/F-NOT-2; feed em tempo real não possui RF.
 - Stack de `social` definida: **Spring (Java)** (arquitetura §2.1).
-- **Divergências protótipo × implementação (web, 26/09):** o bloco de resenha não mostra estrelas, porque `ResenhaSnapshot` não traz a nota; "Ler resenha" não navega, porque a página de resenha é de F-AVA; o carregamento mostra 3 itens de skeleton em vez dos 4 da web (§5.4); o modal carrega só a primeira página de comentários-raiz, sem "carregar mais". Por decisão do produto (26/09), a coluna de 760px da web fica centralizada na área de conteúdo, e não alinhada à esquerda como pede o §5. Também por decisão do produto (26/09), curtir mostra o coração pulsando e 8 partículas em musgo, contrariando o §4.2 e o §10 (sem animação no curtir); o efeito roda mesmo com `prefers-reduced-motion`, também por decisão do produto.
-- **Falta para fechar:** validar fila, retry e DLQ contra RabbitMQ real; merge em `desenvolvimento` com CI verde; aplicar a migration incremental no Neon e rodar em DES; app mobile.
+- **Nota da resenha (26/09):** `ResenhaSnapshot` ganhou `nota` (anulável), lida de `leitura.v_nota_publicacao_v1`, e o item de resenha mostra as estrelas como pede o §4.
+- **Divergências protótipo × implementação (mobile, 27/09):** as mesmas decisões de produto da web valem no app — curtir pulsa o coração e solta 6 partículas em musgo, e "Ler resenha" não navega. Falha ao curtir aparece num `SnackBar`, em vez do banner da web. Respostas além da primeira página carregam por "Ver mais respostas", pelo cursor da API.
+- **Divergências protótipo × implementação (web, 26/09):** "Ler resenha" não navega, porque a página de resenha é de F-AVA; o carregamento mostra 3 itens de skeleton em vez dos 4 da web (§5.4); o modal carrega só a primeira página de comentários-raiz, sem "carregar mais". Por decisão do produto (26/09), a coluna de 760px da web fica centralizada na área de conteúdo, e não alinhada à esquerda como pede o §5. Também por decisão do produto (26/09), curtir mostra o coração pulsando e 8 partículas em musgo, contrariando o §4.2 e o §10 (sem animação no curtir); o efeito roda mesmo com `prefers-reduced-motion`, também por decisão do produto.
+- **Falta para fechar:** validar fila, retry e DLQ contra RabbitMQ real; merge em `desenvolvimento` com CI verde; aplicar a migration incremental no Neon e rodar em DES; validar o app mobile no emulador.
 
 ## Timeline
+
+### 27/09/2026: app mobile de F-FEED implementado em `code/mobile/lib/features/feed/` — feed paginado, os cinco tipos, curtir, comentários em bottom sheet com resposta em um nível e menção pré-preenchida, e os estados de carregamento, vazio, erro, cold start e 429, com testes de serviço, widget e roteador. Falta validar no emulador.
 
 ### 26/09/2026: backend `social` e web de F-FEED implementados, com validação E2E via HTTP e checagem no navegador (web e mobile). Pendências de broker, DES e mobile registradas acima.
 

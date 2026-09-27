@@ -29,7 +29,8 @@ export interface LivroSnapshot {
   id: string
   tipo: TipoLivro
   titulo: string
-  autor: string
+  /** `null` em livro oficial sem autor (common-v1, 27/09/2026). */
+  autor: string | null
   capaUrl: string | null
   link?: LinkLivro
 }

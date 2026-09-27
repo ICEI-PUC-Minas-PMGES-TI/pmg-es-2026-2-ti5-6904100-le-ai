@@ -1,4 +1,8 @@
-import { digitoVerificadorConfere, normalizarIsbn13 } from './isbn';
+import {
+  digitoVerificadorConfere,
+  isbn13DeIsbn10,
+  normalizarIsbn13,
+} from './isbn';
 
 describe('normalizarIsbn13', () => {
   it.each([
@@ -40,5 +44,26 @@ describe('normalizarIsbn13', () => {
 
   it('aceita o prefixo 979', () => {
     expect(digitoVerificadorConfere('9791234567896')).toBe(true);
+  });
+});
+
+describe('isbn13DeIsbn10', () => {
+  it.each(['8535914846', '85-359-1484-6', ' 85 359 1484 6 '])(
+    'converte %s no ISBN-13 da mesma edição',
+    (entrada) => {
+      expect(isbn13DeIsbn10(entrada)).toBe('9788535914849');
+    },
+  );
+
+  it('aceita o X como dígito verificador, em qualquer caixa', () => {
+    expect(isbn13DeIsbn10('080442957X')).toBe('9780804429573');
+    expect(isbn13DeIsbn10('080442957x')).toBe('9780804429573');
+  });
+
+  it('recusa dígito verificador errado, ISBN-13 e URL', () => {
+    expect(isbn13DeIsbn10('8535914849')).toBeNull();
+    expect(isbn13DeIsbn10('9788535914849')).toBeNull();
+    expect(isbn13DeIsbn10('http://x/8535914846')).toBeNull();
+    expect(isbn13DeIsbn10(null)).toBeNull();
   });
 });

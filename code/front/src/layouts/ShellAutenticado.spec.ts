@@ -1,4 +1,4 @@
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
@@ -8,6 +8,16 @@ import { iniciarSessao } from '../session'
 // `/descobrir` pede os assuntos ao montar; sem o mock, o teste do shell faria rede de verdade.
 vi.mock('../services/acervo', () => ({
   acervoService: { listarAssuntos: vi.fn().mockResolvedValue([]), buscarLivros: vi.fn() },
+}))
+
+vi.mock('../services/leitura', () => ({
+  leituraService: {
+    listarEstante: vi.fn().mockResolvedValue({
+      itens: [],
+      paginacao: { page: 1, limite: 20, totalItens: 0, totalPaginas: 0 },
+      totaisPorStatus: { QUERO_LER: 0, LENDO: 0, LIDO: 0, RELENDO: 0, ABANDONADO: 0 },
+    }),
+  },
 }))
 
 // ShellAutenticado é a própria rota de profundidade 0 e tem um <RouterView> interno para a
@@ -39,9 +49,10 @@ describe('ShellAutenticado', () => {
 
   it('mostra o título da rota ativa no cabeçalho e renderiza a view da rota', async () => {
     const wrapper = await montarNaRota('/estante')
+    await flushPromises()
 
     expect(wrapper.get('h1').text()).toBe('Minha estante')
-    expect(wrapper.text()).toContain('Sua estante aparece aqui.')
+    expect(wrapper.text()).toContain('Sua estante está vazia')
   })
 
   it('a barra inferior tem os quatro itens e destaca só o ativo', async () => {

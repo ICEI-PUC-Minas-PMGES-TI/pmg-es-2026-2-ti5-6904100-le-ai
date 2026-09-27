@@ -42,6 +42,20 @@ describe('AllExceptionsFilter', () => {
     });
   });
 
+  // O leitor de corpo do Express não lança HttpException, mas traz status e tipo.
+  it('corpo acima do limite vira 413, não 500', () => {
+    const { host, status, json } = mockHost('grande');
+    const erro = Object.assign(new Error('request entity too large'), {
+      type: 'entity.too.large',
+      status: 413,
+    });
+
+    filter.catch(erro, host);
+
+    expect(status).toHaveBeenCalledWith(413);
+    expect(json.mock.calls[0][0].codigo).toBe('CORPO_MUITO_GRANDE');
+  });
+
   it('erro desconhecido vira 500 e não vaza detalhe técnico', () => {
     const { host, status, json } = mockHost('abc');
 

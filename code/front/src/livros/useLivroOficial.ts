@@ -28,7 +28,10 @@ export interface OpcoesDaPagina {
  *   sinopse**: a `GET /livros/{id}` devolve de novo a primeira página de resenhas, e sobrescrever
  *   apagaria as já carregadas e os spoilers revelados.
  * - **Resenhas por cursor**, acumuladas. `resenhas: null` vira `resenhasIndisponiveis`, com
- *   "Tentar de novo".
+ *   "Tentar de novo"; a falha de "Ver todas as resenhas" vira `falhouMaisResenhas`, sem apagar as
+ *   já carregadas.
+ * - **Erro da página:** 404 e 400 (id que não é de livro) são "não encontrado"; 429 traz a
+ *   mensagem do servidor em `mensagemDoErro`, porque "a conexão falhou" seria falso.
  * - **Troca de livro** na mesma rota recomeça tudo, e a resposta do livro anterior é descartada.
  */
 export function useLivroOficial(opcoes: OpcoesDaPagina = {}) {
@@ -43,6 +46,8 @@ export function useLivroOficial(opcoes: OpcoesDaPagina = {}) {
   const proximoCursor = ref<string | null>(null)
   const resenhasIndisponiveis = ref(false)
   const carregandoResenhas = ref(false)
+  const falhouMaisResenhas = ref(false)
+  const mensagemDoErro = ref<string | null>(null)
 
   let livroId = ''
   let geracao = 0
@@ -59,6 +64,9 @@ export function useLivroOficial(opcoes: OpcoesDaPagina = {}) {
     clearTimeout(limiteDoColdStart)
     estado.value = 'carregando'
     coldStart.value = false
+    carregandoResenhas.value = false
+    falhouMaisResenhas.value = false
+    mensagemDoErro.value = null
     limiteDoColdStart = setTimeout(() => {
       if (minha === geracao && estado.value === 'carregando') {
         coldStart.value = true
@@ -83,9 +91,17 @@ export function useLivroOficial(opcoes: OpcoesDaPagina = {}) {
         return
       }
       if (!(erro instanceof ApiError)) {
+        estado.value = 'erro'
         throw erro
       }
-      estado.value = erro.status === 404 ? 'nao-encontrada' : 'erro'
+      estado.value = erro.status === 404 || erro.status === 400 ? 'nao-encontrada' : 'erro'
+      // A mensagem do servidor só quando o corpo seguiu o contrato; um 429 do proxy vem sem ele.
+      mensagemDoErro.value =
+        erro.status !== 429
+          ? null
+          : erro.code === 'MUITAS_REQUISICOES'
+            ? erro.message
+            : 'Muitas requisições em pouco tempo. Tente novamente em instantes.'
     } finally {
       if (minha === geracao) {
         clearTimeout(limiteDoColdStart)
@@ -105,6 +121,7 @@ export function useLivroOficial(opcoes: OpcoesDaPagina = {}) {
     }
     const minha = geracao
     carregandoResenhas.value = true
+    falhouMaisResenhas.value = false
     try {
       const pagina = await servico.listarResenhasDoLivro(livroId, continuacao ? proximoCursor.value : null)
       if (minha !== geracao) {
@@ -117,11 +134,15 @@ export function useLivroOficial(opcoes: OpcoesDaPagina = {}) {
       proximoCursor.value = pagina.proximoCursor
       resenhasIndisponiveis.value = false
     } catch (erro) {
+      if (minha === geracao) {
+        if (continuacao) {
+          falhouMaisResenhas.value = true
+        } else {
+          resenhasIndisponiveis.value = true
+        }
+      }
       if (!(erro instanceof ApiError)) {
         throw erro
-      }
-      if (minha === geracao && !continuacao) {
-        resenhasIndisponiveis.value = true
       }
     } finally {
       if (minha === geracao) {
@@ -181,6 +202,8 @@ export function useLivroOficial(opcoes: OpcoesDaPagina = {}) {
     resenhas,
     resenhasIndisponiveis,
     carregandoResenhas,
+    falhouMaisResenhas,
+    mensagemDoErro,
     temMaisResenhas,
     carregar,
     carregarResenhas,

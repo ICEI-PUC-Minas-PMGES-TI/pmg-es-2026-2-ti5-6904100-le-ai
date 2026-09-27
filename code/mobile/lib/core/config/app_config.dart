@@ -22,16 +22,16 @@ class AppConfig {
     defaultValue: 'http://localhost:3000',
   );
 
-  /// Base URL do serviço `social` (F-NOT): lista e marcação de notificações. No AVD,
+  /// Base URL do serviço `social` (F-FEED, F-NOT): feed, curtidas, comentários e notificações. No AVD,
   /// `--dart-define=SOCIAL_BASE_URL=http://10.0.2.2:8081`.
   static const String socialBaseUrl = String.fromEnvironment(
     'SOCIAL_BASE_URL',
     defaultValue: 'http://localhost:8081',
   );
 
-  /// Base URL do serviço `leitura`: a ação de abandonar da notificação de leitura em risco
-  /// (RF-NOT-04) chama `POST /leituras/{id}/abandonar` direto nele. `leitura` e `acervo` nascem os
-  /// dois na 3000; em local, suba o `leitura` com `PORT=3001`. No AVD,
+  /// Base URL do serviço `leitura` (F-AVA, F-EST, F-PRG, F-NOT): nota, resenha, estante, progresso
+  /// e a ação de abandonar da notificação de leitura em risco (RF-NOT-04).
+  /// Em local roda na 3001, porque a 3000 é do `acervo`. No AVD,
   /// `--dart-define=LEITURA_BASE_URL=http://10.0.2.2:3001`.
   static const String leituraBaseUrl = String.fromEnvironment(
     'LEITURA_BASE_URL',

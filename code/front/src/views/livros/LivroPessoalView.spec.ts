@@ -3,13 +3,27 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { acervoService, type LivroPessoalDetalhe } from '../../services/acervo'
 import { ApiError } from '../../services/api'
+import { leituraService } from '../../services/leitura'
+import { itemEstante, leitura } from '../../testes/estante'
 import { montarNaRota } from '../../testes/montarNaRota'
 
 vi.mock('../../services/acervo', () => ({
   acervoService: { obterLivroPessoal: vi.fn(), excluirLivroPessoal: vi.fn() },
 }))
 
+vi.mock('../../services/leitura', () => ({
+  leituraService: {
+    consultarItemEstante: vi.fn(),
+    consultarConclusoes: vi.fn(),
+    detalharLeitura: vi.fn(),
+    obterMinhaAvaliacao: vi.fn(),
+    salvarNota: vi.fn(),
+    excluirNota: vi.fn(),
+  },
+}))
+
 const servico = vi.mocked(acervoService)
+const leituras = vi.mocked(leituraService)
 
 const DO_DONO: LivroPessoalDetalhe = {
   id: 'l1',
@@ -52,12 +66,16 @@ describe('LivroPessoalView', () => {
     localStorage.clear()
     servico.obterLivroPessoal.mockReset().mockResolvedValue(DO_DONO)
     servico.excluirLivroPessoal.mockReset().mockResolvedValue(undefined)
+    leituras.consultarItemEstante.mockReset().mockResolvedValue(null)
+    leituras.consultarConclusoes.mockReset().mockResolvedValue({ livroId: 'l1', vezesLido: 0 })
+    leituras.detalharLeitura.mockReset()
+    leituras.obterMinhaAvaliacao.mockReset().mockResolvedValue({ livroId: 'l1', nota: null, resenha: null })
   })
   afterEach(() => {
     document.body.innerHTML = ''
   })
 
-  it('dono: hero, etiqueta, ficha sem ISBN, convite de avaliação e ações de editar e excluir', async () => {
+  it('dono: hero, etiqueta, ficha sem ISBN, "Sua avaliação" e ações de editar e excluir', async () => {
     const { wrapper } = await montarNaRota('/livros/pessoal/l1')
     await flushPromises()
 
@@ -67,7 +85,10 @@ describe('LivroPessoalView', () => {
     expect(wrapper.text()).toContain('Livro pessoal')
     expect(wrapper.text()).toContain('184 páginas')
     expect(wrapper.text()).not.toContain('ISBN')
-    expect(wrapper.text()).toContain('Você ainda não avaliou este livro.')
+    // F-AVA: o dono avalia o próprio livro pessoal pelo bloco (RN-03), carregado do `leitura`.
+    expect(leituras.obterMinhaAvaliacao).toHaveBeenCalledWith('l1')
+    expect(wrapper.text()).toContain('Sua avaliação')
+    expect(wrapper.find('button[aria-label="Sem nota. Dar nota"]').exists()).toBe(true)
     expect(botao('Editar')).toBeDefined()
     expect(botao('Excluir')).toBeDefined()
     expect(document.body.querySelector('button[aria-label="Ações do livro"]')).not.toBeNull()
@@ -89,9 +110,30 @@ describe('LivroPessoalView', () => {
     expect(botao('Excluir')).toBeUndefined()
     expect(document.body.querySelector('button[aria-label="Ações do livro"]')).toBeNull()
     expect(wrapper.text()).not.toContain('Você ainda não avaliou')
+    // Em livro pessoal só o dono avalia (RN-03): o terceiro nem consulta o `leitura`.
+    expect(wrapper.text()).not.toContain('Sua avaliação')
+    expect(leituras.obterMinhaAvaliacao).not.toHaveBeenCalled()
     // Aberto pelo feed, o Feed fica ativo no shell.
     const barra = wrapper.findAll('nav[aria-label="Navegação principal"]')[1]!
     expect(barra.findAll('a')[2]!.get('span').classes()).toContain('text-musgo')
+  })
+
+  it('terceiro: resenha do dono com spoiler fica fora do DOM até a ação', async () => {
+    servico.obterLivroPessoal.mockResolvedValue({
+      ...EM_CONSULTA,
+      resenhaDoDono: { ...EM_CONSULTA.resenhaDoDono!, spoiler: true },
+    })
+    const { wrapper } = await montarNaRota('/livros/pessoal/l1?via=feed&referenciaId=atv-1')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Esta resenha contém spoiler')
+    expect(wrapper.html()).not.toContain('Comprei numa feira e li em duas noites.')
+
+    await wrapper.findAll('button').find((b) => b.text() === 'Mostrar mesmo assim')!.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Comprei numa feira e li em duas noites.')
+    expect(document.activeElement?.textContent).toContain('Comprei numa feira e li em duas noites.')
   })
 
   // O nome vinha só dentro da resenha; sem ela, a página ficava sem dizer de quem era o livro.
@@ -167,5 +209,68 @@ describe('LivroPessoalView', () => {
 
     expect(document.body.querySelector('[role="dialog"]')).toBeNull()
     expect(servico.excluirLivroPessoal).not.toHaveBeenCalled()
+  })
+
+  it('dono com o livro fora da estante: sem status, Adicionar à estante abre as ações de entrada', async () => {
+    await montarNaRota('/livros/pessoal/l1')
+    await flushPromises()
+
+    expect(leituras.consultarConclusoes).toHaveBeenCalledWith('l1')
+    expect(leituras.consultarItemEstante).toHaveBeenCalledWith('l1')
+    botao('Adicionar à estante')!.click()
+    await flushPromises()
+
+    const acoes = [...document.body.querySelectorAll('[role="dialog"] ul button')].map((b) => b.textContent!.trim())
+    expect(acoes).toEqual(['Adicionar como Quero ler', 'Iniciar leitura'])
+  })
+
+  it('dono com leitura em andamento: status, Lido N vezes e Alterar status com a leitura atual', async () => {
+    leituras.consultarItemEstante.mockResolvedValue(
+      itemEstante('l1', 'Cartas de um sertanejo', {
+        status: 'RELENDO',
+        leituraEmAndamentoId: 'lei-1',
+        ultimaLeituraId: 'lei-1',
+      }),
+    )
+    leituras.consultarConclusoes.mockResolvedValue({ livroId: 'l1', vezesLido: 2 })
+    leituras.detalharLeitura.mockResolvedValue(leitura({ livroId: 'l1', status: 'RELENDO', releitura: true }))
+    const { wrapper } = await montarNaRota('/livros/pessoal/l1')
+    await flushPromises()
+
+    expect(leituras.consultarItemEstante).toHaveBeenCalledWith('l1')
+    expect(wrapper.text()).toContain('Relendo')
+    expect(wrapper.text()).toContain('Lido 2 vezes')
+    botao('Alterar status')!.click()
+    await flushPromises()
+
+    expect(leituras.detalharLeitura).toHaveBeenCalledWith('lei-1')
+    const acoes = [...document.body.querySelectorAll('[role="dialog"] ul button')].map((b) => b.textContent!.trim())
+    expect(acoes).toEqual(['Registrar progresso', 'Finalizar releitura', 'Abandonar releitura'])
+  })
+
+  it('dono com primeira leitura abandonada: Alterar status oferece Retomar leitura', async () => {
+    leituras.consultarItemEstante.mockResolvedValue(
+      itemEstante('l1', 'Cartas de um sertanejo', { status: 'ABANDONADO', ultimaLeituraId: 'lei-2', retomavel: true }),
+    )
+    leituras.detalharLeitura.mockResolvedValue(leitura({ id: 'lei-2', livroId: 'l1', status: 'ABANDONADO', retomavel: true }))
+    await montarNaRota('/livros/pessoal/l1')
+    await flushPromises()
+
+    botao('Alterar status')!.click()
+    await flushPromises()
+
+    expect(leituras.detalharLeitura).toHaveBeenCalledWith('lei-2')
+    const acoes = [...document.body.querySelectorAll('[role="dialog"] ul button')].map((b) => b.textContent!.trim())
+    expect(acoes).toEqual(['Retomar leitura'])
+  })
+
+  it('modo consulta não consulta a estante de quem vê', async () => {
+    servico.obterLivroPessoal.mockResolvedValue(EM_CONSULTA)
+    await montarNaRota('/livros/pessoal/l1?via=feed&referenciaId=atv-1')
+    await flushPromises()
+
+    expect(leituras.consultarItemEstante).not.toHaveBeenCalled()
+    expect(botao('Alterar status')).toBeUndefined()
+    expect(botao('Adicionar à estante')).toBeUndefined()
   })
 })

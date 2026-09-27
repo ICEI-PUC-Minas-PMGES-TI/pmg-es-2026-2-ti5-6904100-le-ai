@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { PhBookOpen, PhWarning } from '@phosphor-icons/vue'
 import { computed, onBeforeUnmount, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 
+import BlocoSuaAvaliacao from '../../components/livros/BlocoSuaAvaliacao.vue'
 import CapaLivro from '../../components/livros/CapaLivro.vue'
 import CardResenha from '../../components/livros/CardResenha.vue'
 import BotaoPrimario from '../../components/ui/BotaoPrimario.vue'
 import BotaoTextual from '../../components/ui/BotaoTextual.vue'
 import { formatarPaginas } from '../../livros/formatos'
 import { useLivroOficial } from '../../livros/useLivroOficial'
+import { useMinhaAvaliacao } from '../../livros/useMinhaAvaliacao'
 
 /**
  * Página do livro oficial (RF-ACV-04, RF-ACV-18, RF-ACV-19), a partir do protótipo
@@ -19,12 +21,14 @@ import { useLivroOficial } from '../../livros/useLivroOficial'
  *   uma coluna com a capa de 200px no topo. **Abaixo de 768px**, o desenho do mobile.
  * - A página abre inteira enquanto a sinopse chega (RN-19.5); só a seção dela fica em skeleton.
  *   Ausência é texto neutro, nunca erro.
- * - Estante, progresso e "Sua avaliação" são de F-EST, F-PRG e F-AVA e entram com elas, sem espaço
- *   reservado aqui. Trocar de livro na mesma rota recarrega a página.
+ * - "Sua avaliação" (F-AVA) fica entre o cabeçalho e a sinopse e carrega à parte, do `leitura`: se
+ *   ele estiver lento, a página abre igual. Estante e progresso são de F-EST e F-PRG e entram com
+ *   elas, sem espaço reservado aqui. Trocar de livro na mesma rota recarrega a página.
  */
 const route = useRoute()
 const router = useRouter()
 const pagina = useLivroOficial()
+const minhaAvaliacao = useMinhaAvaliacao()
 const {
   estado,
   coldStart,
@@ -34,6 +38,8 @@ const {
   resenhas,
   resenhasIndisponiveis,
   carregandoResenhas,
+  falhouMaisResenhas,
+  mensagemDoErro,
   temMaisResenhas,
 } = pagina
 
@@ -42,6 +48,7 @@ watch(
   (id) => {
     if (typeof id === 'string') {
       void pagina.carregar(id)
+      void minhaAvaliacao.carregar(id)
     }
   },
   { immediate: true },
@@ -49,6 +56,16 @@ watch(
 onBeforeUnmount(() => pagina.descartar())
 
 const autores = computed(() => livro.value?.autores.map((autor) => autor.nome).join(', ') || null)
+const rotaDoEditor = computed(() => ({
+  name: 'escrever-resenha',
+  params: { id: String(route.params.id) },
+  query: route.query.origem ? { origem: String(route.query.origem) } : {},
+}))
+const livroAvaliado = computed(() => ({
+  titulo: livro.value?.titulo ?? '',
+  autor: autores.value,
+  capaUrl: livro.value?.capa.url ?? null,
+}))
 /** `Todavia · 2019 · 264 páginas`: só o que existe. */
 const metadados = computed(() => {
   if (!livro.value) {
@@ -89,6 +106,13 @@ function voltar(): void {
 
 <template>
   <div class="mx-auto w-full max-w-[1120px] pb-space-12 pt-space-2 md:pt-space-6">
+    <!-- Região fixa: a que nasce junto com o texto do cold start não é lida pelo leitor de tela. -->
+    <p
+      role="status"
+      class="sr-only"
+    >
+      {{ estado === 'carregando' && coldStart ? 'O servidor está iniciando. Isso pode levar alguns segundos.' : '' }}
+    </p>
     <div
       v-if="estado === 'carregando'"
       class="entrada flex flex-col items-center gap-space-3 lg:grid lg:grid-cols-[320px_minmax(0,1fr)] lg:items-start lg:gap-space-10"
@@ -104,7 +128,7 @@ function voltar(): void {
         <p
           v-if="coldStart"
           class="mt-space-3 text-caption text-grafite"
-          role="status"
+          aria-hidden="true"
         >
           O servidor está iniciando. Isso pode levar alguns segundos.
         </p>
@@ -129,7 +153,7 @@ function voltar(): void {
       <p class="text-body text-grafite">
         {{
           estado === 'erro'
-            ? 'A conexão falhou antes de carregar os dados. Tente de novo em alguns instantes.'
+            ? mensagemDoErro ?? 'A conexão falhou antes de carregar os dados. Tente de novo em alguns instantes.'
             : 'Ele pode ter saído do acervo. Volte e busque de novo.'
         }}
       </p>
@@ -150,11 +174,28 @@ function voltar(): void {
 
     <article
       v-else-if="livro"
-      class="flex flex-col lg:grid lg:grid-cols-[320px_minmax(0,1fr)] lg:items-start lg:gap-x-space-10"
+      class="flex flex-col lg:grid lg:grid-cols-[320px_minmax(0,1fr)] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-x-space-10"
     >
+      <!-- O título vem primeiro no DOM, para o leitor de tela começar pelo h1; a ordem visual vem de
+           `order` abaixo de 1024px e da posição no grid acima. -->
+      <header class="order-2 mt-space-5 text-center lg:order-none lg:col-start-2 lg:row-start-1 lg:mt-0 lg:text-left">
+        <h1 class="text-display text-tinta lg:text-display-hero">
+          {{ livro.titulo }}
+        </h1>
+        <p
+          v-if="autores"
+          class="mt-space-2 text-body text-grafite lg:text-title-sm"
+        >
+          {{ autores }}
+        </p>
+        <p class="mt-space-1 text-caption text-grafite-suave">
+          {{ metadados }}
+        </p>
+      </header>
+
       <!-- Abaixo de 1024px a coluna se desfaz (`contents`) e a ordem vem de `order`: capa, título,
            sinopse, ficha e resenhas, como no mobile. -->
-      <aside class="contents lg:sticky lg:top-space-8 lg:flex lg:flex-col lg:self-start">
+      <aside class="contents lg:sticky lg:top-space-8 lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:flex lg:flex-col lg:self-start">
         <CapaLivro
           :url="livro.capa.url"
           :rotulo="`Capa de ${livro.titulo}`"
@@ -162,7 +203,7 @@ function voltar(): void {
           :autor="autores"
           class="order-1 mx-auto aspect-[2/3] w-[40%] shadow-2 md:w-[200px] lg:order-none lg:mx-0 lg:w-[280px]"
         />
-        <section class="order-4 mt-space-6 lg:order-none">
+        <section class="order-5 mt-space-6 lg:order-none">
           <h2 class="text-title-lg text-tinta">
             Ficha
           </h2>
@@ -183,24 +224,16 @@ function voltar(): void {
         </section>
       </aside>
 
-      <div class="contents lg:flex lg:flex-col">
-        <header class="order-2 mt-space-5 text-center lg:order-none lg:mt-0 lg:text-left">
-          <h1 class="text-display text-tinta lg:text-display-hero">
-            {{ livro.titulo }}
-          </h1>
-          <p
-            v-if="autores"
-            class="mt-space-2 text-body text-grafite lg:text-title-sm"
-          >
-            {{ autores }}
-          </p>
-          <p class="mt-space-1 text-caption text-grafite-suave">
-            {{ metadados }}
-          </p>
-        </header>
+      <div class="contents lg:col-start-2 lg:row-start-2 lg:flex lg:flex-col">
+        <BlocoSuaAvaliacao
+          class="order-3 mt-space-8 lg:order-none"
+          :avaliacao="minhaAvaliacao"
+          :livro="livroAvaliado"
+          :rota-do-editor="rotaDoEditor"
+        />
 
         <section
-          class="order-3 mt-space-8 lg:order-none"
+          class="order-4 mt-space-6 lg:order-none lg:mt-space-8"
           aria-live="polite"
         >
           <h2 class="text-title-lg text-tinta">
@@ -222,9 +255,12 @@ function voltar(): void {
           >
             {{ sinopse.texto }}
           </p>
+          <!-- Só a ausência usa grafite-suave (design): ela não pede nada ao leitor. Os outros dois
+               avisos dizem o que fazer, e precisam do contraste AA do grafite. -->
           <p
             v-else
-            class="mt-space-3 text-body text-grafite-suave"
+            class="mt-space-3 text-body"
+            :class="sinopse.status === 'ausente' ? 'text-grafite-suave' : 'text-grafite'"
           >
             {{
               sinopse.status === 'ausente'
@@ -236,10 +272,7 @@ function voltar(): void {
           </p>
         </section>
 
-        <section
-          class="order-5 mt-space-6 lg:order-none lg:mt-space-8"
-          aria-live="polite"
-        >
+        <section class="order-6 mt-space-6 lg:order-none lg:mt-space-8">
           <div class="flex flex-wrap items-baseline gap-x-space-3">
             <h2 class="text-title-lg text-tinta">
               Resenhas
@@ -250,7 +283,10 @@ function voltar(): void {
             >Nenhuma resenha ainda</span>
           </div>
           <template v-if="resenhasIndisponiveis">
-            <p class="mt-space-3 text-body text-grafite">
+            <p
+              class="mt-space-3 text-body text-grafite"
+              role="alert"
+            >
               Não foi possível carregar as resenhas.
             </p>
             <BotaoTextual
@@ -262,12 +298,22 @@ function voltar(): void {
             </BotaoTextual>
           </template>
           <!-- A lista é filtrada por RN-08: "sem resenhas" pode ser "nenhuma para você". -->
-          <p
+          <div
             v-else-if="semResenhas"
-            class="mt-space-3 text-body text-grafite"
+            class="mt-space-3"
           >
-            Ninguém que você segue escreveu sobre este livro.
-          </p>
+            <p class="text-body text-grafite">
+              Ninguém que você segue escreveu sobre este livro.
+            </p>
+            <!-- Só para quem ainda não escreveu: a resenha própria fica em "Sua avaliação". -->
+            <RouterLink
+              v-if="minhaAvaliacao.estado.value === 'pronta' && !minhaAvaliacao.resenha.value"
+              :to="rotaDoEditor"
+              class="mt-space-1 inline-flex min-h-12 items-center text-body-strong text-musgo underline-offset-2 hover:underline focus-visible:underline md:min-h-10"
+            >
+              Escrever a primeira
+            </RouterLink>
+          </div>
           <template v-else>
             <ul class="mt-space-4 flex flex-col gap-space-6 lg:grid lg:grid-cols-2">
               <li
@@ -277,13 +323,21 @@ function voltar(): void {
                 <CardResenha :resenha="resenha" />
               </li>
             </ul>
+            <p
+              v-if="falhouMaisResenhas"
+              class="mt-space-4 text-caption text-grafite"
+              role="alert"
+            >
+              Não foi possível carregar mais resenhas. Verifique sua conexão.
+            </p>
             <BotaoTextual
               v-if="temMaisResenhas"
-              class="mt-space-4 min-h-12 md:min-h-10"
+              :class="falhouMaisResenhas ? 'mt-space-1' : 'mt-space-4'"
+              class="min-h-12 md:min-h-10"
               :disabled="carregandoResenhas"
               @click="pagina.carregarResenhas()"
             >
-              Ver todas as resenhas
+              {{ falhouMaisResenhas ? 'Tentar de novo' : 'Ver todas as resenhas' }}
             </BotaoTextual>
           </template>
         </section>

@@ -223,6 +223,7 @@ const LINK_DE_CONTADOR =
              logo no topo da coluna, ou 24 abaixo da linha de pedidos. -->
         <SecoesDeLeitura
           :proprio="true"
+          :usuario-id="perfil.id"
           :class="pedidosPendentes > 0 ? 'mt-space-12 md:mt-space-6' : 'mt-space-6 md:mt-0'"
         />
       </div>

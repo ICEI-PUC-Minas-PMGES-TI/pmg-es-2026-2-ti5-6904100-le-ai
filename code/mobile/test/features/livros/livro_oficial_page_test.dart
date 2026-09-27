@@ -57,8 +57,9 @@ void main() {
 
   Future<void> montar(
     WidgetTester tester,
-    Future<http.Response> Function(http.Request request) responder,
-  ) async {
+    Future<http.Response> Function(http.Request request) responder, {
+    Future<http.Response> Function(http.Request request)? leitura,
+  }) async {
     usarTelaDeCelular(tester);
     pedidas = <Uri>[];
     voltas = 0;
@@ -69,6 +70,7 @@ void main() {
             pedidas.add(request.url);
             return responder(request);
           }),
+          leitura: leituraSimulada(leitura ?? (_) async => json(semAvaliacao(_id), 200)),
           livroId: _id,
           aoVoltar: () => voltas++,
         ),
@@ -79,7 +81,7 @@ void main() {
 
   int consultasDaPagina() => pedidas.where((uri) => uri.path == '/livros/$_id').length;
 
-  testWidgets('pronta: hero, sinopse em texto, ficha e sem nota nem espaço reservado', (
+  testWidgets('pronta: hero, sinopse em texto, ficha e "Sua avaliação" sem nota', (
     tester,
   ) async {
     await montar(tester, (request) async => json(_livro(), 200));
@@ -90,8 +92,80 @@ void main() {
     expect(find.text('Bibiana e Belonísia crescem no interior da Bahia.'), findsOneWidget);
     expect(find.text('Ficha'), findsOneWidget);
     expect(find.text('9788588808911'), findsOneWidget);
-    expect(find.text('Sua avaliação'), findsNothing);
+    // F-AVA: o bloco existe e, sem nota, diz "Sem nota" (nunca 0,0). Estante e progresso são de
+    // F-EST e F-PRG e ainda não aparecem.
+    expect(find.text('Sua avaliação'), findsOneWidget);
+    expect(find.text('Sem nota'), findsOneWidget);
+    expect(find.bySemanticsLabel('Sem nota. Dar nota'), findsOneWidget);
     expect(find.textContaining('Registrar progresso'), findsNothing);
+  });
+
+  testWidgets('Sua avaliação mostra a nota salva, inclusive zero', (tester) async {
+    await montar(
+      tester,
+      (request) async => json(_livro(), 200),
+      leitura: (_) async => json(
+        <String, Object?>{'livroId': _id, 'nota': notaJson(_id, 0), 'resenha': null},
+        200,
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('0'), findsOneWidget);
+    expect(find.text('Sem nota'), findsNothing);
+    expect(find.bySemanticsLabel('Sua nota: 0. Alterar'), findsOneWidget);
+  });
+
+  testWidgets('sem resenha própria: "Escrever resenha" no bloco e "Escrever a primeira" na lista', (
+    tester,
+  ) async {
+    await montar(tester, (request) async => json(_livro(), 200));
+    await tester.pump();
+
+    expect(find.text('Escrever resenha'), findsOneWidget);
+    expect(find.text('Escrever a primeira'), findsOneWidget);
+  });
+
+  testWidgets('com resenha própria: texto, marca de spoiler e "Editar resenha"', (tester) async {
+    await montar(
+      tester,
+      (request) async => json(_livro(), 200),
+      leitura: (_) async => json(<String, Object?>{
+        'livroId': _id,
+        'nota': null,
+        'resenha': <String, Object?>{
+          'id': 'r1',
+          'usuarioId': 'u1',
+          'livroId': _id,
+          'texto': 'Minha leitura do livro.',
+          'spoiler': true,
+          'criadoEm': '2026-08-22T12:00:00.000Z',
+          'atualizadoEm': '2026-08-22T12:00:00.000Z',
+        },
+      }, 200),
+    );
+    await tester.pump();
+
+    // O dono vê o próprio texto mesmo com spoiler.
+    expect(find.text('Minha leitura do livro.'), findsOneWidget);
+    expect(find.text('Publicada em 22 de agosto de 2026'), findsOneWidget);
+    expect(find.text('Contém spoiler'), findsOneWidget);
+    expect(find.text('Editar resenha'), findsOneWidget);
+    expect(find.text('Escrever a primeira'), findsNothing);
+  });
+
+  testWidgets('leitura fora do ar: a página abre e só o bloco mostra o erro', (tester) async {
+    await montar(
+      tester,
+      (request) async => json(_livro(), 200),
+      leitura: (_) async => erro(503, 'SERVICO_INDISPONIVEL', 'Serviço indisponível.'),
+    );
+    // O 503 é retentado pelo cliente HTTP antes de virar erro.
+    await tester.pumpAndSettle();
+
+    expect(find.text('Bibiana e Belonísia crescem no interior da Bahia.'), findsOneWidget);
+    expect(find.text('Não foi possível carregar sua avaliação.'), findsOneWidget);
+    expect(find.text('Tentar de novo'), findsOneWidget);
   });
 
   testWidgets('sinopse ausente aparece sem erro', (tester) async {
@@ -288,5 +362,102 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(find.text('Ficha'), findsOneWidget);
+  });
+
+  testWidgets('"Ver todas as resenhas" que falha avisa, mantém a lista e vira "Tentar de novo"', (
+    tester,
+  ) async {
+    var tentativas = 0;
+    await montar(tester, (request) async {
+      if (request.url.path.endsWith('/resenhas')) {
+        tentativas++;
+        if (tentativas == 1) {
+          return json(<String, Object?>{'codigo': 'ERRO_INTERNO', 'mensagem': 'Falhou.'}, 500);
+        }
+        return json(_pagina(<Map<String, Object?>>[_resenha('r2', 'Letícia', 'Segunda.')]), 200);
+      }
+      return json(
+        _livro(
+          resenhas: _pagina(<Map<String, Object?>>[
+            _resenha('r1', 'Marina', 'Primeira.'),
+          ], cursor: 'cursor-1'),
+        ),
+        200,
+      );
+    });
+
+    await tocar(tester, find.text('Ver todas as resenhas'));
+    await tester.pump();
+    await tester.pump();
+    expect(
+      find.text('Não foi possível carregar mais resenhas. Verifique sua conexão.'),
+      findsOneWidget,
+    );
+    expect(find.text('Primeira.'), findsOneWidget);
+
+    await tocar(tester, find.text('Tentar de novo'));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Segunda.'), findsOneWidget);
+    expect(find.textContaining('Não foi possível carregar mais resenhas'), findsNothing);
+  });
+
+  testWidgets('o 429 mostra a mensagem do servidor, não a de conexão', (tester) async {
+    await montar(
+      tester,
+      (request) async => json(<String, Object?>{
+        'codigo': 'MUITAS_REQUISICOES',
+        'mensagem': 'Muitas requisições em pouco tempo. Tente novamente em instantes.',
+        'correlationId': '00000000-0000-4000-8000-000000000000',
+      }, 429),
+    );
+    await tester.pump();
+    expect(
+      find.text('Muitas requisições em pouco tempo. Tente novamente em instantes.'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('A conexão falhou'), findsNothing);
+  });
+
+  testWidgets('id que não é de livro (400) é "não encontrado", sem "Tentar de novo"', (
+    tester,
+  ) async {
+    await montar(
+      tester,
+      (request) async => json(<String, Object?>{
+        'codigo': 'REQUISICAO_INVALIDA',
+        'mensagem': 'Os dados enviados são inválidos.',
+        'correlationId': '00000000-0000-4000-8000-000000000000',
+      }, 400),
+    );
+    await tester.pump();
+    expect(find.text('Não encontramos este livro'), findsOneWidget);
+  });
+
+  testWidgets('resenha sem o campo spoiler fica fechada, por segurança', (tester) async {
+    final semCampo = Map<String, Object?>.of(_resenha('r1', 'Rafael', 'O final revela tudo.'))
+      ..remove('spoiler');
+    await montar(
+      tester,
+      (request) async => json(
+        _livro(resenhas: _pagina(<Map<String, Object?>>[semCampo])),
+        200,
+      ),
+    );
+
+    expect(find.text('Esta resenha contém spoiler'), findsOneWidget);
+    expect(find.text('O final revela tudo.'), findsNothing);
+  });
+
+  testWidgets('429 sem o corpo do contrato (proxy) ainda diz que foram requisições demais', (
+    tester,
+  ) async {
+    await montar(tester, (request) async => http.Response('Too Many Requests', 429));
+    await tester.pump();
+
+    expect(
+      find.text('Muitas requisições em pouco tempo. Tente novamente em instantes.'),
+      findsOneWidget,
+    );
   });
 }

@@ -50,6 +50,9 @@ x-database-contracts:
     description: >-
       Referência estável de livro exposta a leitura e social. Livro pessoal
       excluído deixa de ser ativo. Consumidores não leem tabelas cruas de acervo.
+      autor_exibicao é NULL em livro oficial sem autor (string_agg sobre zero
+      linhas); livro pessoal sempre traz o autor informado. Corrigido em
+      26/09/2026: o contrato declarava a coluna não anulável.
     consumers: [leitura, social]
     columns:
       - { name: livro_id, type: uuid, nullable: false }
@@ -57,7 +60,7 @@ x-database-contracts:
       - { name: dono_id, type: uuid, nullable: true }
       - { name: paginas, type: integer, nullable: false }
       - { name: titulo, type: varchar, nullable: false }
-      - { name: autor_exibicao, type: varchar, nullable: false }
+      - { name: autor_exibicao, type: varchar, nullable: true }
       - { name: capa_resolvida, type: varchar, nullable: true }
       - { name: ativo, type: boolean, nullable: false }
   - name: v_livro_recomendacao_v1
@@ -101,22 +104,28 @@ paths:
       tags: [livros]
       summary: Busca livros oficiais
       description: >-
-        Busca somente livros oficiais por título, autor, editora ou ISBN-13 e,
+        Busca somente livros oficiais por título, autor, editora ou ISBN e,
         opcionalmente, filtra por um assunto do conjunto curado. O texto também
         casa com o nome do assunto (RN-21.6). A sinopse não é pesquisada. Livros
         pessoais nunca aparecem. `q` ou `assunto` é obrigatório; sem nenhum dos
         dois a resposta é 400. A comparação ignora acentos e maiúsculas e casa
-        por trecho; um ISBN-13 válido casa também exatamente com o ISBN. Com `q`,
-        a ordem é por relevância (título, depois autor, editora e assunto); só
-        com `assunto`, por título. Cada registro continua representando uma
-        edição (RN-01), e as edições de mesmo título e mesmos autores chegam
-        contíguas, para o cliente agrupá-las. `limit` acima de 50 é 400.
+        por trecho, palavra por palavra: todas as palavras de `q` precisam
+        aparecer no mesmo campo, em qualquer ordem e sem depender da pontuação
+        ("grande sertao veredas" acha "Grande sertão: veredas"). Um ISBN-13
+        válido, ou um ISBN-10 convertido para o ISBN-13 da edição, casa também
+        exatamente com o ISBN. Com `q`, a ordem é por relevância: primeiro o
+        título ou o autor idêntico ao texto, depois título, autor, editora e
+        assunto que o contêm; só com `assunto`, por título. Cada registro
+        continua representando uma edição (RN-01), e as edições de mesmo título
+        e mesmos autores chegam contíguas, para o cliente agrupá-las. `limit`
+        acima de 50 é 400.
       parameters:
         - name: q
           in: query
           description: >-
-            Texto para título, autor, editora, assunto ou ISBN-13. Espaços nas
-            pontas são descartados antes da validação; só espaços é 400.
+            Texto para título, autor, editora, assunto ou ISBN. Caracteres de
+            controle viram espaço e os espaços nas pontas são descartados antes
+            da validação; só espaços é 400.
           schema: { type: string, minLength: 1, maxLength: 200 }
           example: Machado de Assis
         - name: assunto
@@ -256,6 +265,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ImportacaoAceita' }
         '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '413': { $ref: '#/components/responses/CorpoMuitoGrande' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '409':
           description: ISBN já cadastrado ou chave de idempotência reutilizada com outro corpo.
@@ -354,6 +364,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/LivroPessoalDetalhe' }
         '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '413': { $ref: '#/components/responses/CorpoMuitoGrande' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '409': { $ref: '#/components/responses/Conflito' }
         '503': { $ref: '#/components/responses/ServicoIndisponivel' }
@@ -418,6 +429,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/LivroPessoalDetalhe' }
         '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '413': { $ref: '#/components/responses/CorpoMuitoGrande' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '403': { $ref: '#/components/responses/AcessoNegado' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
@@ -476,8 +488,8 @@ components:
     Page:
       name: page
       in: query
-      description: Página iniciada em 1.
-      schema: { type: integer, minimum: 1, default: 1 }
+      description: Página iniciada em 1, com teto de 100000.
+      schema: { type: integer, minimum: 1, maximum: 100000, default: 1 }
     Limit:
       name: limit
       in: query
@@ -508,6 +520,13 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErroValidacao' }
+    CorpoMuitoGrande:
+      description: >-
+        Corpo da requisição acima do tamanho aceito pelo leitor de JSON (100 KB),
+        com o código `CORPO_MUITO_GRANDE`.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
     NaoAutenticado:
       description: Token ausente, inválido ou expirado.
       content:

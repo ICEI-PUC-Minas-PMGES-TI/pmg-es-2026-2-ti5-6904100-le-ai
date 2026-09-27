@@ -10,6 +10,8 @@ import '../../design/widgets/botao_primario.dart';
 import '../../design/widgets/botao_textual.dart';
 import '../../design/widgets/dialogo_confirmacao.dart';
 import '../../design/widgets/estado_vazio.dart';
+import '../estante/estante_de_perfil.dart';
+import '../estante/estante_service.dart';
 import 'perfil_service.dart';
 import 'textos.dart';
 import 'widgets_de_identidade.dart';
@@ -21,8 +23,8 @@ import 'widgets_de_perfil.dart';
 /// relação muda com a privacidade e com `relacao`. Quem decide o que é restrito é o servidor
 /// (`conteudoRestrito`), e os serviços donos revalidam (RNF-SEC-03).
 ///
-/// Estante e Resenhas sempre no estado vazio quando o conteúdo é visível (decisão do dono de
-/// 25/09/2026: `leitura` ainda não expõe as rotas de perfil). Com `conteudoRestrito` (RN-08), as
+/// Estante (`GET /perfis/{id}/estante`, F-EST) e Resenhas (F-AVA) quando o conteúdo é visível; o
+/// `403` da estante também leva ao bloco de restrição. Com `conteudoRestrito` (RN-08), as
 /// seções não aparecem, e sim o bloco "Este perfil é privado". Contadores não acionáveis: não há
 /// lista do grafo de terceiros (RNF-SEC-19/44).
 class PerfilDeOutroPage extends StatefulWidget {
@@ -32,6 +34,10 @@ class PerfilDeOutroPage extends StatefulWidget {
   final VoidCallback aoAbrirProprioPerfil;
   final VoidCallback aoBuscarLeitor;
   final VoidCallback aoAbrirSolicitacoes;
+  final EstanteService? estante;
+
+  /// Lista de resenhas do perfil (F-AVA), montada com o id e o primeiro nome do leitor.
+  final Widget Function(String usuarioId, String nome)? resenhas;
 
   const PerfilDeOutroPage({
     super.key,
@@ -41,6 +47,8 @@ class PerfilDeOutroPage extends StatefulWidget {
     required this.aoAbrirProprioPerfil,
     required this.aoBuscarLeitor,
     required this.aoAbrirSolicitacoes,
+    this.estante,
+    this.resenhas,
   });
 
   @override
@@ -54,6 +62,7 @@ class _PerfilDeOutroPageState extends State<PerfilDeOutroPage> {
   bool _falhou = false;
   bool _agindo = false;
   String? _erroDaAcao;
+  bool _estanteRestrita = false;
 
   @override
   void initState() {
@@ -251,6 +260,7 @@ class _PerfilDeOutroPageState extends State<PerfilDeOutroPage> {
     }
     final nome = primeiroNome(perfil.displayName);
     final privado = perfil.privacidade == Privacidade.privado;
+    final estante = widget.estante;
     return SingleChildScrollView(
       padding: margem,
       child: Column(
@@ -311,7 +321,7 @@ class _PerfilDeOutroPageState extends State<PerfilDeOutroPage> {
               DadoDeContador(valor: perfil.seguidos, rotulo: 'seguindo'),
             ],
           ),
-          if (perfil.conteudoRestrito) ...<Widget>[
+          if (perfil.conteudoRestrito || _estanteRestrita) ...<Widget>[
             const SizedBox(height: DesignTokens.space10),
             // §4.3: restrito não é erro. Nenhuma capa nem trecho aparece, nem desfocado.
             EstadoVazio(
@@ -324,7 +334,20 @@ class _PerfilDeOutroPageState extends State<PerfilDeOutroPage> {
             ),
           ] else ...<Widget>[
             const SizedBox(height: DesignTokens.space12),
-            SecoesDeLeitura(proprio: false, nome: nome),
+            SecoesDeLeitura(
+              proprio: false,
+              nome: nome,
+              resenhas: widget.resenhas?.call(perfil.id, nome),
+              estante: estante == null
+                  ? null
+                  : EstanteDePerfil(
+                      key: ValueKey<String>('estante-de-${perfil.id}'),
+                      servico: estante,
+                      usuarioId: perfil.id,
+                      primeiroNome: nome,
+                      aoMudarRestricao: (restrita) => setState(() => _estanteRestrita = restrita),
+                    ),
+            ),
           ],
         ],
       ),
@@ -332,7 +355,12 @@ class _PerfilDeOutroPageState extends State<PerfilDeOutroPage> {
   }
 
   Widget _botaoDeRelacao(ThemeData theme, Perfil perfil) {
-    Widget secundario({required IconData icone, required String texto, VoidCallback? aoTocar, Color? corIcone}) {
+    Widget secundario({
+      required IconData icone,
+      required String texto,
+      VoidCallback? aoTocar,
+      Color? corIcone,
+    }) {
       return SizedBox(
         width: double.infinity,
         height: 48,

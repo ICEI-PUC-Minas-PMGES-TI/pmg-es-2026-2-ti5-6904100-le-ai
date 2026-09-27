@@ -8,6 +8,7 @@ import br.com.leai.social.feed.repository.AtividadeRepository;
 import br.com.leai.social.integracao.IntegracaoComPostgres;
 import br.com.leai.social.messaging.MessageEnvelope;
 import java.time.OffsetDateTime;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -65,6 +66,32 @@ class ConsumidorDeAtividadeIntegracaoTest extends IntegracaoComPostgres {
     assertThat(atividade.snapLivroTitulo()).isEqualTo("Livro Um");
     assertThat(atividade.snapLivroAutor()).isEqualTo("Escritor Um");
     assertThat(atividade.ativo()).isTrue();
+  }
+
+  /**
+   * Livro oficial sem autor: {@code LivroSnapshot.autor} chega {@code null} (common-v1, 27/09).
+   * O teste confere que a linha foi gravada, e não só que não houve exceção: o catch de
+   * {@code DataIntegrityViolationException} do consumidor engoliria um NOT NULL em silêncio.
+   */
+  @Test
+  @DisplayName("resenha de livro sem autor grava a atividade com autor nulo")
+  void livroSemAutorGravaAtividade() {
+    UUID eventId = UUID.randomUUID();
+    UUID resenhaId = UUID.randomUUID();
+    Map<String, Object> dados =
+        new HashMap<>(
+            dados(EventoDeCriacao.RESENHA_PUBLICADA, UUID.randomUUID(), UUID.randomUUID(), resenhaId));
+    Map<String, Object> livro = new HashMap<>(mapa(dados, "livro"));
+    livro.put("autor", null);
+    dados.put("livro", livro);
+
+    consumidor.handle(envelope("resenha.publicada", eventId, dados));
+
+    Atividade atividade =
+        atividades.findByTipoAndOrigemId(TipoAtividade.RESENHA_PUBLICADA, resenhaId).orElseThrow();
+    assertThat(atividade.eventId()).isEqualTo(eventId);
+    assertThat(atividade.snapLivroTitulo()).isEqualTo("Livro Um");
+    assertThat(atividade.snapLivroAutor()).isNull();
   }
 
   @Test
@@ -224,6 +251,11 @@ class ConsumidorDeAtividadeIntegracaoTest extends IntegracaoComPostgres {
               "usuario", usuario,
               "livro", livro);
     };
+  }
+
+  @SuppressWarnings("unchecked")
+  private static Map<String, Object> mapa(Map<String, Object> dados, String campo) {
+    return (Map<String, Object>) dados.get(campo);
   }
 
   private static MessageEnvelope envelope(String tipo, UUID eventId, Map<String, Object> dados) {

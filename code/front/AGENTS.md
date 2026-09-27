@@ -54,6 +54,12 @@ Uma URL por serviço, sem gateway: `VITE_IDENTIDADE_BASE_URL` e `VITE_ACERVO_BAS
 
 **Perfil (F-PERFIL):** `services/perfil.ts` fala com o `identidade` (`/me/perfil`); `services/avatar.ts` valida e envia a foto reaproveitando `validarCapa`/`enviarCapa` de `capa.ts` com o preset de avatar, e tira o `publicId` da URL devolvida (o servidor confere igual). `components/perfil/AvatarLeitor` é o círculo de avatar, com miniatura por transformação de URL. Formulário que se abandona declara `meta.fechar` (o header troca a seta pelo `X`) e confirma o descarte num `onBeforeRouteLeave`, que pega o `X`, as abas e o voltar do navegador de uma vez. `atualizarUsuario` (`session.ts`) troca o nome da sessão depois de editar o perfil. Rotas: `/perfil/editar`, `/perfil/buscar`, `/perfil/conexoes?aba=seguidores|seguidos`, `/perfil/solicitacoes` e `/leitores/:username` (aba Perfil; `?via=feed` para o feed). Listas paginadas por rolagem usam `src/perfil/usePaginacao.ts` com `components/perfil/FimDaLista` (`IntersectionObserver`, com `Carregar mais` quando não há). Textos com o nome de outra pessoa ficam em `src/perfil/textos.ts`: **primeiro nome, nunca pronome de gênero** ("essa pessoa"), porque o produto não sabe o gênero de ninguém.
 
+## Componentes compartilhados que mudaram
+
+- **`components/perfil/FimDaLista.vue` (27/09/2026, F-ACV-BUSCA).** Ganhou a prop opcional `carregando`. O `IntersectionObserver` só avisa quando a marca *entra* na tela; se a página nova não a empurrar para fora (lista curta, edições agrupadas, monitor alto), a paginação parava sem botão. Com `carregando`, cada carga que termina reobserva a marca, e ela pede a seguinte se continuar visível. Sem a prop, o comportamento é o de antes: Conexões, Solicitações e Feed ainda não a passam, e deveriam (é só `:carregando="<flag de carregando mais>"`).
+
+- **`styles.css`, movimento reduzido (27/09/2026, F-ACV-BUSCA).** A regra global de `prefers-reduced-motion` só zerava transições; agora zera também a duração das animações, e o fade `.entrada` dos skeletons fica estático no app todo, como os comentários das telas já diziam.
+
 ## Pontos de atenção do produto (ver `REQUISITOS.md`)
 
 - **Segurança de renderização:** conteúdo de usuário tratado como texto com escape (RNF-SEC-14). Resenha em Markdown com HTML embutido desabilitado no parser **e** sanitização antes do DOM (RNF-SEC-15). Enviar `Content-Security-Policy` restritivo (RNF-SEC-16).

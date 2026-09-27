@@ -251,4 +251,98 @@ void main() {
     await digitar(tester, 'conceição evaristo');
     expect(find.text('12 livros encontrados'), findsOneWidget);
   });
+
+  testWidgets('falha da página seguinte não vira laço de pedidos: só o botão tenta de novo', (
+    tester,
+  ) async {
+    final paginasPedidas = <String>[];
+    await montar(tester, (request) async {
+      final page = request.url.queryParameters['page']!;
+      paginasPedidas.add(page);
+      if (page == '1') {
+        return json(
+          paginaJson(
+            <Map<String, Object?>>[
+              for (var i = 0; i < 20; i++) livroJson('l$i', 'Livro $i', autores: const []),
+            ],
+            totalItens: 40,
+            totalPaginas: 2,
+          ),
+          200,
+        );
+      }
+      return json(<String, Object?>{'codigo': 'ERRO_INTERNO', 'mensagem': 'Falhou.'}, 500);
+    });
+    await digitar(tester, 'livro');
+
+    await tester.drag(find.byType(ListView).last, const Offset(0, -6000));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 400));
+    }
+
+    expect(paginasPedidas.where((page) => page == '2'), hasLength(1));
+    expect(find.text('Não foi possível carregar mais resultados.'), findsOneWidget);
+
+    await tocar(tester, find.text('Tentar de novo'));
+    await tester.pump();
+    await tester.pump();
+    expect(paginasPedidas.where((page) => page == '2'), hasLength(2));
+  });
+
+  testWidgets('lista que não enche a tela, por edições agrupadas, carrega as páginas seguintes', (
+    tester,
+  ) async {
+    final paginasPedidas = <String>[];
+    await montar(tester, (request) async {
+      final page = int.parse(request.url.queryParameters['page']!);
+      paginasPedidas.add('$page');
+      return json(
+        paginaJson(
+          <Map<String, Object?>>[
+            for (var i = 0; i < 20; i++)
+              livroJson('p$page-$i', 'Dom Casmurro', ano: 2020 - (page - 1) * 20 - i),
+          ],
+          page: page,
+          totalItens: 60,
+          totalPaginas: 3,
+        ),
+        200,
+      );
+    });
+    await digitar(tester, 'dom casmurro');
+    for (var i = 0; i < 6; i++) {
+      await tester.pump();
+    }
+
+    expect(paginasPedidas, <String>['1', '2', '3']);
+    expect(find.text('60 edições'), findsOneWidget);
+  });
+
+  testWidgets('lista curta pelo chip, sem foco no campo, também carrega até a última página', (
+    tester,
+  ) async {
+    final paginasPedidas = <String>[];
+    await montar(tester, (request) async {
+      final page = int.parse(request.url.queryParameters['page']!);
+      paginasPedidas.add('$page');
+      return json(
+        paginaJson(
+          <Map<String, Object?>>[
+            for (var i = 0; i < 20; i++)
+              livroJson('p$page-$i', 'Dom Casmurro', ano: 2020 - (page - 1) * 20 - i),
+          ],
+          page: page,
+          totalItens: 60,
+          totalPaginas: 3,
+        ),
+        200,
+      );
+    });
+
+    // Sem cursor piscando, nada pede quadro novo: `pumpAndSettle` para quando o app para.
+    await tester.tap(find.text('Romance'));
+    await tester.pumpAndSettle();
+
+    expect(paginasPedidas, <String>['1', '2', '3']);
+  });
 }

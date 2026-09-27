@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { sql } from 'drizzle-orm';
 import {
   NaoEncontrado,
@@ -31,6 +31,8 @@ const TRAVA_OCUPADA = '55P03';
 
 @Injectable()
 export class LivroOficialService {
+  private readonly logger = new Logger(LivroOficialService.name);
+
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly livros: LivroOficialRepository,
@@ -119,8 +121,15 @@ export class LivroOficialService {
         });
       });
     } catch (erro) {
+      // Trava ocupada é o consumidor trabalhando: no-op. Qualquer outra falha
+      // também não derruba a página (RF-ACV-19): ela abre com `pendente`, e a
+      // próxima consulta do polling pede de novo, porque o estado não mudou.
       if (codigoDoPostgres(erro) !== TRAVA_OCUPADA) {
-        throw erro;
+        // O `message` do Drizzle é só a consulta; o erro do Postgres está no `cause`.
+        this.logger.error(
+          { livroId: id, codigo: codigoDoPostgres(erro), err: erro },
+          'Falha ao pedir a sinopse; a página abre sem ela',
+        );
       }
     }
   }

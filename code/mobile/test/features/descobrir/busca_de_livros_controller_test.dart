@@ -225,4 +225,33 @@ void main() {
 
     expect(busca.assuntos.map((assunto) => assunto.nome), <String>['Romance', 'Conto', 'Terror']);
   });
+
+  testWidgets('a página seguinte continua a busca feita, não o texto que ainda espera o debounce', (
+    tester,
+  ) async {
+    final busca = controlador(
+      (request) async => json(
+        paginaJson(
+          <Map<String, Object?>>[livroJson('l1', 'Ponciá Vicêncio')],
+          totalItens: 2,
+          totalPaginas: 2,
+        ),
+        200,
+      ),
+    );
+
+    busca.alterarConsulta('ab');
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    busca.alterarConsulta('abc');
+    await busca.carregarMais();
+
+    expect(pedidas.last.queryParameters['q'], 'ab');
+    expect(pedidas.last.queryParameters['page'], '2');
+
+    // O debounce de "abc" ainda sai, como busca nova.
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(pedidas.last.queryParameters['q'], 'abc');
+  });
 }

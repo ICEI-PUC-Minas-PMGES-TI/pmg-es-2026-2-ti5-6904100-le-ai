@@ -57,6 +57,7 @@ export class SinopseDto {
   status!: string;
 
   @ApiProperty({
+    type: String,
     nullable: true,
     maxLength: 4000,
     description: 'Só em disponivel.',
@@ -66,8 +67,10 @@ export class SinopseDto {
 
 export class PaginaResenhasDto {
   @ApiProperty({ type: [ResenhaResumoDto] }) itens!: ResenhaResumoDto[];
-  @ApiProperty({ minimum: 1, maximum: LIMITE_MAXIMO }) limit!: number;
-  @ApiProperty({ nullable: true }) proximoCursor!: string | null;
+  @ApiProperty({ type: 'integer', minimum: 1, maximum: LIMITE_MAXIMO })
+  limit!: number;
+  @ApiProperty({ type: String, nullable: true })
+  proximoCursor!: string | null;
 }
 
 /**

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { PhMagnifyingGlass, PhX } from '@phosphor-icons/vue'
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import CardLivroBusca from '../components/livros/CardLivroBusca.vue'
@@ -23,7 +23,12 @@ import { useBuscaDeLivros } from '../livros/useBuscaDeLivros'
  * - `q` e `assunto` ficam na URL (`router.replace`), para a busca voltar igual ao sair da página
  *   do livro e ao recarregar. A rolagem, essa, recomeça do topo.
  * - A aterrissagem é magra no Período 1, por decisão (§5.5): sem foco automático, sem bloco de
- *   vazio, sem espaço reservado.
+ *   vazio, sem espaço reservado. Os assuntos têm skeleton enquanto chegam e "Tentar de novo" se
+ *   falharem, para a aba não parecer quebrada no cold start.
+ * - A URL também manda: tocar na aba Descobrir já estando nela (`/descobrir` sem `q`) volta à
+ *   aterrissagem, em vez de deixar a tela com uma busca que a URL não tem.
+ * - Um único `role="status"` fixo anuncia a contagem e o "Nenhum livro encontrado" (§9): região
+ *   que nasce junto com o texto não é lida.
  */
 const route = useRoute()
 const router = useRouter()
@@ -41,9 +46,13 @@ function textoDaQuery(valor: unknown): string | null {
   return typeof valor === 'string' && valor !== '' ? valor : null
 }
 
+/** O que a própria tela pôs na URL, para o `watch` da rota não tratar isso como navegação. */
+let criteriosNaUrl = { q: textoDaQuery(route.query.q), assunto: textoDaQuery(route.query.assunto) }
+
 const busca = useBuscaDeLivros({
-  inicial: { q: textoDaQuery(route.query.q), assunto: textoDaQuery(route.query.assunto) },
+  inicial: criteriosNaUrl,
   aoBuscar: ({ q, assunto }) => {
+    criteriosNaUrl = { q, assunto }
     void router.replace({ query: { ...route.query, q: q ?? undefined, assunto: assunto ?? undefined } })
   },
 })
@@ -51,6 +60,7 @@ const {
   consulta,
   assunto,
   assuntos,
+  estadoDosAssuntos,
   estado,
   grupos,
   totalItens,
@@ -70,9 +80,38 @@ onBeforeUnmount(() => {
   busca.descartar()
 })
 
+watch(
+  () => [textoDaQuery(route.query.q), textoDaQuery(route.query.assunto)] as const,
+  ([q, assuntoDaUrl]) => {
+    if (q === criteriosNaUrl.q && assuntoDaUrl === criteriosNaUrl.assunto) {
+      return
+    }
+    criteriosNaUrl = { q, assunto: assuntoDaUrl }
+    busca.aplicarCriterios({ q, assunto: assuntoDaUrl })
+  },
+)
+
+const campo = ref<HTMLInputElement | null>(null)
+
 function aoDigitar(evento: Event): void {
   busca.alterarConsulta((evento.target as HTMLInputElement).value)
 }
+
+/** O botão some com o texto: o foco volta ao campo, e não cai no `body`. */
+function limpar(): void {
+  busca.limparConsulta()
+  void nextTick(() => campo.value?.focus())
+}
+
+const anuncio = computed(() => {
+  if (estado.value === 'buscando' && coldStart.value) {
+    return 'O servidor está iniciando. Isso pode levar alguns segundos.'
+  }
+  if (estado.value === 'resultados') {
+    return totalItens.value === 1 ? '1 livro encontrado' : `${totalItens.value} livros encontrados`
+  }
+  return estado.value === 'vazio' ? 'Nenhum livro encontrado' : ''
+})
 </script>
 
 <template>
@@ -95,8 +134,10 @@ function aoDigitar(evento: Event): void {
             aria-hidden="true"
           />
           <input
+            ref="campo"
             :value="consulta"
             type="search"
+            maxlength="200"
             enterkeyhint="search"
             autocomplete="off"
             placeholder="Título, autor, editora ou ISBN"
@@ -109,7 +150,7 @@ function aoDigitar(evento: Event): void {
             type="button"
             class="-mr-space-3 flex size-12 shrink-0 items-center justify-center rounded-base text-grafite focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-musgo md:size-10"
             aria-label="Limpar busca"
-            @click="busca.limparConsulta()"
+            @click="limpar"
           >
             <PhX
               :size="20"
@@ -129,13 +170,39 @@ function aoDigitar(evento: Event): void {
         class="md:col-start-1 md:row-start-2 md:self-start"
         @alternar="busca.alternarAssunto"
       />
+      <ul
+        v-else-if="estadoDosAssuntos === 'carregando'"
+        class="entrada -mx-space-5 flex gap-space-2 overflow-hidden px-space-5 py-space-1 md:col-start-1 md:row-start-2 md:mx-0 md:mt-space-7 md:flex-col md:gap-space-1 md:px-0 md:py-0"
+        aria-hidden="true"
+      >
+        <li
+          v-for="n in 8"
+          :key="n"
+          class="h-10 w-24 shrink-0 rounded-full bg-capa-placeholder md:h-9 md:w-full md:rounded-base"
+        />
+      </ul>
+      <div
+        v-else-if="estadoDosAssuntos === 'erro'"
+        class="flex flex-wrap items-center gap-x-space-3 md:col-start-1 md:row-start-2 md:flex-col md:items-start md:px-space-3"
+      >
+        <p class="text-caption text-grafite">
+          Não foi possível carregar os assuntos.
+        </p>
+        <BotaoTextual
+          class="min-h-12 md:min-h-10"
+          @click="busca.carregarAssuntos()"
+        >
+          Tentar de novo
+        </BotaoTextual>
+      </div>
 
       <p
-        v-if="estado === 'resultados'"
-        class="mt-space-2 text-caption text-grafite md:col-span-2 md:row-start-1 md:mt-0 md:text-right"
-        aria-live="polite"
+        role="status"
+        :class="estado === 'resultados'
+          ? 'mt-space-2 text-caption text-grafite md:col-span-2 md:row-start-1 md:mt-0 md:text-right'
+          : 'sr-only'"
       >
-        {{ totalItens === 1 ? '1 livro encontrado' : `${totalItens} livros encontrados` }}
+        {{ anuncio }}
       </p>
 
       <section
@@ -146,16 +213,18 @@ function aoDigitar(evento: Event): void {
           v-if="estado === 'buscando'"
           class="entrada mt-space-2 md:mt-0"
           aria-busy="true"
-          aria-label="Buscando"
         >
+          <!-- Anunciado pela região de status fixa: esta nasce com o texto e não seria lida. -->
           <p
             v-if="coldStart"
             class="mb-space-3 text-caption text-grafite"
-            role="status"
           >
             O servidor está iniciando. Isso pode levar alguns segundos.
           </p>
-          <ul class="divide-y divide-linha md:grid md:grid-cols-2 md:gap-space-5 md:divide-y-0">
+          <ul
+            class="divide-y divide-linha md:grid md:grid-cols-2 md:gap-space-5 md:divide-y-0"
+            aria-hidden="true"
+          >
             <li
               v-for="n in 6"
               :key="n"
@@ -187,6 +256,7 @@ function aoDigitar(evento: Event): void {
           <FimDaLista
             v-if="temMais || falhouMais || carregandoMais"
             :falhou="falhouMais"
+            :carregando="carregandoMais"
             @carregar="busca.carregarMais()"
           />
         </template>

@@ -10,6 +10,7 @@ import { ApiError } from '../services/api'
 import { agruparEdicoes } from './agruparEdicoes'
 
 export type EstadoDaBusca = 'aterrissagem' | 'buscando' | 'resultados' | 'vazio' | 'erro'
+export type EstadoDosAssuntos = 'carregando' | 'pronto' | 'erro'
 
 /** Debounce e mínimo iguais aos do app. Decisão de F-ACV-BUSCA: o contrato aceita 1 caractere. */
 export const ESPERA_DA_BUSCA_MS = 350
@@ -41,6 +42,7 @@ export function useBuscaDeLivros(opcoes: OpcoesDaBusca = {}) {
   const consulta = ref(opcoes.inicial?.q ?? '')
   const assunto = ref<string | null>(opcoes.inicial?.assunto ?? null)
   const assuntos = shallowRef<AssuntoResumo[]>([])
+  const estadoDosAssuntos = ref<EstadoDosAssuntos>('carregando')
   const estado = ref<EstadoDaBusca>('aterrissagem')
   const livros = shallowRef<LivroOficialResumo[]>([])
   const grupos = computed(() => agruparEdicoes(livros.value))
@@ -54,6 +56,8 @@ export function useBuscaDeLivros(opcoes: OpcoesDaBusca = {}) {
   const proximaPagina = ref(1)
   const totalPaginas = ref(0)
   let termoBuscado: string | null = null
+  /** O que a busca atual pediu: a página seguinte continua ela, não o que está digitado agora. */
+  let criteriosBuscados: { q: string | null; assunto: string | null } = { q: null, assunto: null }
   let espera: ReturnType<typeof setTimeout> | undefined
   let limiteDoColdStart: ReturnType<typeof setTimeout> | undefined
   let carregandoAssuntos = false
@@ -69,15 +73,30 @@ export function useBuscaDeLivros(opcoes: OpcoesDaBusca = {}) {
     totalPaginas.value = total
   }
 
-  async function carregarAssuntos(): Promise<void> {
-    if (carregandoAssuntos || assuntos.value.length > 0) {
+  /** O início e o "Tentar de novo" dos assuntos: mostram o skeleton enquanto carregam. */
+  function carregarAssuntos(): Promise<void> {
+    return buscarAssuntos(true)
+  }
+
+  /**
+   * A retentativa automática, a cada busca, não mexe no que a tela mostra: depois de uma falha,
+   * trocar o aviso pelo skeleton e voltar a cada busca faria a faixa piscar.
+   */
+  async function buscarAssuntos(mostrarCarregando: boolean): Promise<void> {
+    if (carregandoAssuntos || estadoDosAssuntos.value === 'pronto') {
       return
     }
     carregandoAssuntos = true
+    if (mostrarCarregando) {
+      estadoDosAssuntos.value = 'carregando'
+    }
     try {
       assuntos.value = await servico.listarAssuntos()
+      estadoDosAssuntos.value = 'pronto'
     } catch (erro) {
-      // Sem a faixa de assuntos a busca por texto continua; a próxima busca tenta de novo.
+      // Sem a faixa de assuntos a busca por texto continua; a tela oferece "Tentar de novo", e a
+      // próxima busca também tenta.
+      estadoDosAssuntos.value = 'erro'
       if (!(erro instanceof ApiError)) {
         throw erro
       }
@@ -127,6 +146,13 @@ export function useBuscaDeLivros(opcoes: OpcoesDaBusca = {}) {
     }
   }
 
+  /** Consulta e assunto que chegaram pela URL com a tela aberta (a aba tocada de novo, por exemplo). */
+  function aplicarCriterios(criterios: { q: string | null; assunto: string | null }): void {
+    consulta.value = criterios.q ?? ''
+    assunto.value = criterios.assunto
+    buscarAgora()
+  }
+
   function buscarAgora(): void {
     clearTimeout(espera)
     if (termo.value === null && assunto.value === null) {
@@ -139,13 +165,14 @@ export function useBuscaDeLivros(opcoes: OpcoesDaBusca = {}) {
   async function buscar(): Promise<void> {
     const minha = ++geracao.value
     termoBuscado = termo.value
+    criteriosBuscados = { q: termo.value, assunto: assunto.value }
     clearTimeout(limiteDoColdStart)
     estado.value = 'buscando'
     coldStart.value = false
     carregandoMais.value = false
     falhouMais.value = false
     opcoes.aoBuscar?.({ q: termo.value, assunto: assunto.value })
-    void carregarAssuntos()
+    void buscarAssuntos(false)
     limiteDoColdStart = setTimeout(() => {
       if (minha === geracao.value && estado.value === 'buscando') {
         coldStart.value = true
@@ -164,10 +191,12 @@ export function useBuscaDeLivros(opcoes: OpcoesDaBusca = {}) {
       if (minha !== geracao.value) {
         return
       }
+      // Erro que não é da API (corpo que não é JSON, por exemplo) também é erro de tela: sem isso
+      // a busca ficaria em `buscando` para sempre.
+      estado.value = 'erro'
       if (!(erro instanceof ApiError)) {
         throw erro
       }
-      estado.value = 'erro'
     } finally {
       if (minha === geracao.value) {
         clearTimeout(limiteDoColdStart)
@@ -184,11 +213,7 @@ export function useBuscaDeLivros(opcoes: OpcoesDaBusca = {}) {
     carregandoMais.value = true
     falhouMais.value = false
     try {
-      const pagina = await servico.buscarLivros({
-        q: termo.value,
-        assunto: assunto.value,
-        page: proximaPagina.value,
-      })
+      const pagina = await servico.buscarLivros({ ...criteriosBuscados, page: proximaPagina.value })
       if (minha !== geracao.value) {
         return
       }
@@ -197,11 +222,11 @@ export function useBuscaDeLivros(opcoes: OpcoesDaBusca = {}) {
       totalItens.value = pagina.totalItens
       definirPaginacao(pagina.page + 1, pagina.totalPaginas)
     } catch (erro) {
-      if (!(erro instanceof ApiError)) {
-        throw erro
-      }
       if (minha === geracao.value) {
         falhouMais.value = true
+      }
+      if (!(erro instanceof ApiError)) {
+        throw erro
       }
     } finally {
       if (minha === geracao.value) {
@@ -238,6 +263,7 @@ export function useBuscaDeLivros(opcoes: OpcoesDaBusca = {}) {
     consulta,
     assunto,
     assuntos,
+    estadoDosAssuntos,
     estado,
     livros,
     grupos,
@@ -248,6 +274,7 @@ export function useBuscaDeLivros(opcoes: OpcoesDaBusca = {}) {
     geracao,
     temMais,
     iniciar,
+    aplicarCriterios,
     carregarAssuntos,
     alterarConsulta,
     alternarAssunto,

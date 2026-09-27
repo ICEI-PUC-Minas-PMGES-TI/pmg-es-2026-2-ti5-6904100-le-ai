@@ -1,0 +1,50 @@
+name: job-inatividade
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      dataReferencia:
+        description: 'Data de referencia AAAA-MM-DD (vazio = hoje). So para execucao controlada.'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: job-inatividade
+  cancel-in-progress: false
+
+jobs:
+  inatividade:
+    name: processar inatividade das leituras
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: POST /internal/jobs/inatividade
+        env:
+          LEITURA_URL: ${{ secrets.LEITURA_URL }}
+          SCHEDULER_TOKEN: ${{ secrets.LEITURA_SCHEDULER_TOKEN }}
+          DATA_REFERENCIA: ${{ inputs.dataReferencia }}
+        run: |
+          set -euo pipefail
+          if [ -z "${LEITURA_URL}" ] || [ -z "${SCHEDULER_TOKEN}" ]; then
+            echo "::error::Configure os secrets LEITURA_URL e LEITURA_SCHEDULER_TOKEN."
+            exit 1
+          fi
+          if [ -n "${DATA_REFERENCIA:-}" ]; then
+            corpo="{\"dataReferencia\":\"${DATA_REFERENCIA}\"}"
+          else
+            corpo='{}'
+          fi
+          chave="$(uuidgen)"
+          curl --fail-with-body --silent --show-error \
+            --retry 3 --retry-delay 30 --max-time 300 \
+            -X POST "${LEITURA_URL%/}/internal/jobs/inatividade" \
+            -H "Content-Type: application/json" \
+            -H "X-Scheduler-Token: ${SCHEDULER_TOKEN}" \
+            -H "Idempotency-Key: ${chave}" \
+            -d "${corpo}"
+          echo

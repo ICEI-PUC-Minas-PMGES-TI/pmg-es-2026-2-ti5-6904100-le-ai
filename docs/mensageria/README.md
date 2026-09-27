@@ -19,3 +19,15 @@ Fonte canônica dos contratos JSON transportados pelo RabbitMQ. A infraestrutura
 ## Runtime
 
 `docs/mensageria` é a fonte canônica. Cada consumidor copia para seus recursos runtime apenas os schemas que aceita; o CI deve comparar a cópia com estes arquivos. Não há pacote compartilhado entre Java e TypeScript.
+
+## Histórico
+
+### 26/09/2026 — `LivroSnapshot.autor` passa a aceitar `null` no `common-v1`
+
+- **O que mudou:** em `common-v1.schema.json`, `LivroSnapshot.autor` passou de `{ "type": "string", "minLength": 1 }` para `{ "type": ["string", "null"], "minLength": 1 }`. O campo continua obrigatório (chave presente); `null` significa livro sem autor. Texto vazio continua proibido.
+- **Por quê:** 701 livros oficiais do acervo não têm autor, e `acervo.v_livro_referencia_v1.autor_exibicao` sai `NULL` para eles. Com o schema antigo, qualquer evento sobre esses livros (`resenha.publicada` de F-AVA e os `leitura.*` de F-EST) seria inválido.
+- **Exceção à imutabilidade:** a regra "schema publicado é imutável" (arquitetura §5.2, "Contrato canônico"; plano de projeto §8.2) pediria um `common-v2`. A correção foi feita no próprio v1 porque **nenhum evento que carrega `LivroSnapshot` tinha sido publicado** até esta data: o `leitura` ainda não produzia eventos. Decisão do Renato (F-AVA) em 26/09/2026, a comunicar ao grupo.
+- **Cópias atualizadas no mesmo commit:** `code/back/identidade/src/main/resources/messaging/schemas/` e `code/back/social/src/main/resources/messaging/schemas/`. O `leitura` recebeu a cópia em 26/09, na infra comum de F-AVA, e já produz os eventos.
+- **Consumidor (`social`, F-FEED), 27/09/2026:** a migration `V20260927002000__snap_livro_autor_anulavel.sql` torna `atividade.snap_livro_autor` anulável (`Atividade.java` junto), `docs/api/social.yaml` passou a declarar `autor` anulável e o feed esconde a linha do autor quando ele vem vazio. Feito por F-AVA com autorização do Renato e mergeado na `desenvolvimento` em 27/09/2026 por decisão dele; **a revisão do Kayke continua pendente**. Registro para o agente dele em `code/back/social/AGENTS.md`.
+- **Enquanto a migration não estiver aplicada num ambiente, nenhum evento com `autor: null` pode ser publicado nele:** o `catch (DataIntegrityViolationException)` do `ConsumidorDeAtividade` engoliria o erro de NOT NULL e a atividade sumiria sem ir para a DLQ.
+- **Produtores (`leitura`, F-AVA e F-EST):** montam `autor` a partir de `autor_exibicao` e mandam `null` quando o livro não tem autor. Nunca um texto inventado.

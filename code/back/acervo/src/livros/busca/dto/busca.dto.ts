@@ -13,6 +13,7 @@ import {
 
 export const LIMITE_PADRAO = 20;
 export const LIMITE_MAXIMO = 50;
+export const PAGINA_MAXIMA = 100_000;
 
 /**
  * Query de `GET /livros` (RF-ACV-01, RF-ACV-02).
@@ -28,8 +29,10 @@ export const LIMITE_MAXIMO = 50;
 export class BuscaLivrosQueryDto {
   @ApiPropertyOptional({ minLength: 1, maxLength: 200 })
   @IsOptional()
+  // Caractere de controle vira espaço: o NUL o Postgres recusa (500), e os
+  // outros só chegam por texto colado, onde valiam como separador.
   @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.trim() : value,
+    typeof value === 'string' ? value.replace(/\p{Cc}/gu, ' ').trim() : value,
   )
   @IsString({ message: 'Informe um texto de busca.' })
   @MinLength(1, { message: 'Informe um texto de busca.' })
@@ -43,11 +46,15 @@ export class BuscaLivrosQueryDto {
   @IsUUID('all', { message: 'Informe um assunto válido.' })
   assunto?: string;
 
-  @ApiPropertyOptional({ minimum: 1, default: 1 })
+  @ApiPropertyOptional({ minimum: 1, maximum: PAGINA_MAXIMA, default: 1 })
   @IsOptional()
   @Type(() => Number)
   @IsInt({ message: 'A página deve ser um número inteiro.' })
   @Min(1, { message: 'A página começa em 1.' })
+  // Sem teto, o offset de `page=1e18` estoura o bigint do Postgres (500).
+  @Max(PAGINA_MAXIMA, {
+    message: `A página deve ser no máximo ${PAGINA_MAXIMA}.`,
+  })
   page?: number;
 
   @ApiPropertyOptional({
@@ -81,7 +88,8 @@ export class ListaAssuntosDto {
 }
 
 export class CapaDto {
-  @ApiProperty({ format: 'uri', nullable: true }) url!: string | null;
+  @ApiProperty({ type: String, format: 'uri', nullable: true, required: false })
+  url!: string | null;
   @ApiProperty({ enum: ['propria', 'externa', 'placeholder'] })
   origem!: 'propria' | 'externa' | 'placeholder';
 }
@@ -95,9 +103,10 @@ export class LivroOficialResumoDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty() titulo!: string;
   @ApiProperty({ type: [AutorResumoDto] }) autores!: AutorResumoDto[];
-  @ApiProperty({ nullable: true }) editora!: string | null;
-  @ApiProperty({ nullable: true }) anoPublicacao!: number | null;
-  @ApiProperty({ minimum: 1 }) paginas!: number;
+  @ApiProperty({ type: String, nullable: true }) editora!: string | null;
+  @ApiProperty({ type: 'integer', nullable: true })
+  anoPublicacao!: number | null;
+  @ApiProperty({ type: 'integer', minimum: 1 }) paginas!: number;
   @ApiProperty({ type: CapaDto }) capa!: CapaDto;
   @ApiProperty({ type: [AssuntoResumoDto] }) assuntos!: AssuntoResumoDto[];
 }
@@ -105,8 +114,9 @@ export class LivroOficialResumoDto {
 export class PaginaLivrosDto {
   @ApiProperty({ type: [LivroOficialResumoDto] })
   itens!: LivroOficialResumoDto[];
-  @ApiProperty({ minimum: 1 }) page!: number;
-  @ApiProperty({ minimum: 1, maximum: LIMITE_MAXIMO }) limit!: number;
-  @ApiProperty({ minimum: 0 }) totalItens!: number;
-  @ApiProperty({ minimum: 0 }) totalPaginas!: number;
+  @ApiProperty({ type: 'integer', minimum: 1 }) page!: number;
+  @ApiProperty({ type: 'integer', minimum: 1, maximum: LIMITE_MAXIMO })
+  limit!: number;
+  @ApiProperty({ type: 'integer', minimum: 0 }) totalItens!: number;
+  @ApiProperty({ type: 'integer', minimum: 0 }) totalPaginas!: number;
 }

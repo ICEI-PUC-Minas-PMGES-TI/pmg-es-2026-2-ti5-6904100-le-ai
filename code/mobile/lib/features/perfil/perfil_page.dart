@@ -42,6 +42,9 @@ class PerfilPage extends StatefulWidget {
   /// "Ver tudo" da seção Estante leva à aba Estante; mesmo padrão de [aoBuscarLivros].
   final VoidCallback? aoVerEstante;
 
+  /// Lista de resenhas do perfil (F-AVA), montada com o id do leitor.
+  final Widget Function(String usuarioId)? resenhas;
+
   const PerfilPage({
     super.key,
     required this.servico,
@@ -50,6 +53,7 @@ class PerfilPage extends StatefulWidget {
     this.aoAbrirSolicitacoes,
     this.aoBuscarLivros,
     this.aoVerEstante,
+    this.resenhas,
   });
 
   @override
@@ -229,6 +233,7 @@ class _PerfilPageState extends State<PerfilPage> {
                   proprio: true,
                   aoBuscarLivros: _destino(widget.aoBuscarLivros, '/descobrir'),
                   aoVerEstante: _destino(widget.aoVerEstante, '/estante'),
+                  resenhas: widget.resenhas?.call(perfil.id),
                 ),
               ],
             ),

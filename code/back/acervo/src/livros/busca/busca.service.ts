@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { ErroDeValidacao } from '../../common/erros-de-negocio';
-import { normalizarIsbn13 } from '../../common/isbn';
+import { isbn13DeIsbn10, normalizarIsbn13 } from '../../common/isbn';
 import { resolverCapa } from '../capa';
+import { palavrasDaBusca } from './palavras-da-busca';
 import {
   CriteriosDeBusca,
   BuscaRepository,
@@ -39,7 +40,10 @@ export class BuscaService {
     const limit = query.limit ?? LIMITE_PADRAO;
     const criterios: CriteriosDeBusca = {
       q: query.q,
-      isbn13: query.q ? normalizarIsbn13(query.q) : null,
+      palavras: query.q ? palavrasDaBusca(query.q) : undefined,
+      isbn13: query.q
+        ? (normalizarIsbn13(query.q) ?? isbn13DeIsbn10(query.q))
+        : null,
       assuntoId: query.assunto,
       limit,
       offset: (page - 1) * limit,

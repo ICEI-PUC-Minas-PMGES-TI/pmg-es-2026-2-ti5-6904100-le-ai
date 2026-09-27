@@ -50,6 +50,12 @@ class LivroOficialController extends ChangeNotifier {
   bool resenhasIndisponiveis = false;
   bool carregandoResenhas = false;
 
+  /// A falha de "Ver todas as resenhas": avisa sem apagar as já carregadas.
+  bool falhouMaisResenhas = false;
+
+  /// A mensagem do servidor no 429, porque "a conexão falhou" seria falso.
+  String? mensagemDoErro;
+
   bool _descartado = false;
   int _consultasDaSinopse = 0;
   Timer? _proximaConsulta;
@@ -60,6 +66,7 @@ class LivroOficialController extends ChangeNotifier {
   Future<void> carregar() async {
     estado = EstadoDaPagina.carregando;
     coldStart = false;
+    mensagemDoErro = null;
     _avisar();
     _timerDoColdStart?.cancel();
     _timerDoColdStart = Timer(limiteDoColdStart, () {
@@ -86,7 +93,16 @@ class LivroOficialController extends ChangeNotifier {
       if (_descartado) {
         return;
       }
-      estado = erro.status == 404 ? EstadoDaPagina.naoEncontrada : EstadoDaPagina.erro;
+      // 400 é id que não é de livro (deep link malformado): "não encontrado", não "tente de novo".
+      estado = erro.status == 404 || erro.status == 400
+          ? EstadoDaPagina.naoEncontrada
+          : EstadoDaPagina.erro;
+      // A mensagem do servidor só quando o corpo seguiu o contrato; um 429 do proxy vem sem ele.
+      mensagemDoErro = erro.status != 429
+          ? null
+          : erro.codigo == 'MUITAS_REQUISICOES'
+          ? erro.message
+          : 'Muitas requisições em pouco tempo. Tente novamente em instantes.';
     } finally {
       _timerDoColdStart?.cancel();
       coldStart = false;
@@ -104,6 +120,7 @@ class LivroOficialController extends ChangeNotifier {
       return;
     }
     carregandoResenhas = true;
+    falhouMaisResenhas = false;
     _avisar();
     try {
       final pagina = await _servico.listarResenhasDoLivro(
@@ -121,7 +138,9 @@ class LivroOficialController extends ChangeNotifier {
       _proximoCursor = pagina.proximoCursor;
       resenhasIndisponiveis = false;
     } on ApiException {
-      if (!continuacao) {
+      if (continuacao) {
+        falhouMaisResenhas = true;
+      } else {
         resenhasIndisponiveis = true;
       }
     } finally {

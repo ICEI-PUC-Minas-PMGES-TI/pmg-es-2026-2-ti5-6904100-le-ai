@@ -41,6 +41,9 @@
     *::after {
       scroll-behavior: auto !important;
       transition-duration: 0.01ms !important;
+      /* O fade de entrada dos skeletons (`.entrada`) também fica estático. */
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
     }
   }
 }

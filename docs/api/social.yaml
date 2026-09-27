@@ -562,7 +562,13 @@ components:
           type: string
           enum: [OFICIAL, PESSOAL]
         titulo: { type: string, example: Torto arado }
-        autor: { type: string, example: Itamar Vieira Junior }
+        autor:
+          type: string
+          nullable: true
+          example: Itamar Vieira Junior
+          description: >-
+            Nulo em livro oficial sem autor (LivroSnapshot.autor do common-v1,
+            desde 27/09/2026). O cliente esconde a linha do autor.
         capaUrl:
           type: string
           format: uri

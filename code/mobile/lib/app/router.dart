@@ -1,7 +1,9 @@
+import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/session/session_controller.dart';
 import '../features/auth/auth_service.dart';
+import '../features/avaliacao/resenhas_do_perfil.dart';
 import '../features/auth/cadastro_page.dart';
 import '../features/auth/login_page.dart';
 import '../features/conta/alterar_senha_page.dart';
@@ -10,12 +12,16 @@ import '../features/conta/politica_de_privacidade.dart';
 import '../features/conta/recuperar_senha_page.dart';
 import '../features/conta/redefinir_senha_page.dart';
 import '../features/descobrir/descobrir_page.dart';
+import '../core/config/app_config.dart';
+import '../core/network/api_client.dart';
 import '../features/estante/estante_page.dart';
-import '../features/feed/feed_page.dart';
+import '../features/estante/estante_service.dart';
+import '../features/feed/rotas_feed.dart';
 import '../features/livros/rotas_livros.dart';
 import '../features/notificacoes/rotas_notificacoes.dart';
 import '../features/perfil/perfil_page.dart';
 import '../features/perfil/rotas_perfil.dart';
+import '../features/perfil/widgets_de_identidade.dart';
 import 'shell_autenticado.dart';
 import 'verificando_sessao_page.dart';
 
@@ -36,12 +42,15 @@ const List<String> _rotasPublicas = <String>[rotaLogin, rotaCadastro, rotaRecupe
 ///
 /// [livros] traz os serviços das telas de F-ACV-CADASTRO. Sem ele, o padrão aponta para o
 /// `acervo` de `AppConfig` com o token da sessão — os testes que não passam por essas telas não
-/// precisam montar nada. [perfil] faz o mesmo para F-PERFIL, com o `identidade`.
+/// precisam montar nada. [perfil] faz o mesmo para F-PERFIL, com o `identidade`, e [feed] para
+/// F-FEED, com o `social`.
 GoRouter buildRouter({
   required SessionController sessionController,
   required AuthService authService,
   DependenciasDeLivros? livros,
   DependenciasDePerfil? perfil,
+  DependenciasDeFeed? feed,
+  EstanteService? estante,
   DependenciasDeNotificacoes? notificacoes,
 }) {
   Future<bool> renovar(String token) => sessionController.renovar(token, authService.renovar);
@@ -51,6 +60,18 @@ GoRouter buildRouter({
   final depsDePerfil =
       perfil ??
       DependenciasDePerfil.padrao(getToken: () => sessionController.token, renovarSessao: renovar);
+  final depsDeFeed =
+      feed ??
+      DependenciasDeFeed.padrao(getToken: () => sessionController.token, renovarSessao: renovar);
+  final servicoDeEstante =
+      estante ??
+      EstanteService(
+        ApiClient(
+          baseUrl: AppConfig.leituraBaseUrl,
+          getToken: () => sessionController.token,
+          renovarSessao: renovar,
+        ),
+      );
   final depsDeNotificacoes =
       notificacoes ??
       DependenciasDeNotificacoes.padrao(
@@ -126,10 +147,13 @@ GoRouter buildRouter({
             routes: <RouteBase>[
               GoRoute(
                 path: rotaEstante,
-                builder: (context, state) =>
-                    EstantePage(aoCadastrarLivro: () => context.go(rotaAdicionarLivro)),
+                builder: (context, state) => EstantePage(
+                  servico: servicoDeEstante,
+                  aoBuscarLivros: () => context.go('/descobrir'),
+                  aoCadastrarLivro: () => context.go(rotaAdicionarLivro),
+                ),
                 routes: <RouteBase>[
-                  ...rotasDaEstante(deps),
+                  ...rotasDaEstante(deps, servicoDeEstante),
                   rotaDeNotificacoes(depsDeNotificacoes, rotaEstante),
                 ],
               ),
@@ -156,13 +180,11 @@ GoRouter buildRouter({
           ),
           StatefulShellBranch(
             routes: <RouteBase>[
-              GoRoute(
-                path: '/feed',
-                builder: (context, state) => const FeedPage(),
-                routes: <RouteBase>[
-                  ...rotasDoFeed(deps),
-                  rotaDeNotificacoes(depsDeNotificacoes, rotaFeedRaiz),
-                ],
+              rotaDoFeed(
+                depsDeFeed,
+                perfil: depsDePerfil,
+                livros: deps,
+                rotasExtras: <RouteBase>[rotaDeNotificacoes(depsDeNotificacoes, rotaFeedRaiz)],
               ),
             ],
           ),
@@ -177,9 +199,24 @@ GoRouter buildRouter({
                   aoAbrirSolicitacoes: () => context.push<void>(rotaSolicitacoes),
                   aoBuscarLivros: () => context.go('/descobrir'),
                   aoVerEstante: () => context.go(rotaEstante),
+                  resenhas: (usuarioId) =>
+                      _resenhasDoPerfil(context, deps, usuarioId: usuarioId, proprio: true),
                 ),
                 routes: <RouteBase>[
-                  ...rotasDoPerfil(depsDePerfil),
+                  ...rotasDoPerfil(
+                    depsDePerfil,
+                    estante: servicoDeEstante,
+                    resenhasDeOutro: (context, usuarioId, nome) => _resenhasDoPerfil(
+                      context,
+                      deps,
+                      usuarioId: usuarioId,
+                      proprio: false,
+                      nome: nome,
+                    ),
+                  ),
+                  // O livro aberto por uma resenha do perfil fica na aba Perfil (pagina-do-livro.md
+                  // §4.1: o item ativo é a aba de origem).
+                  rotaDoLivroOficial(deps, raiz: '/perfil'),
                   rotaDeNotificacoes(depsDeNotificacoes, rotaPerfilRaiz),
                   GoRoute(
                     path: 'configuracoes',
@@ -270,4 +307,25 @@ String? _tokenDoFragmento(Uri uri) {
   }
   final token = Uri.splitQueryString(uri.fragment)['token'];
   return token == null || token.isEmpty ? null : token;
+}
+
+/// Resenhas do perfil (F-AVA): o livro oficial abre dentro da aba Perfil; o pessoal, só visível ao
+/// dono, abre na Estante, onde a página dele mora.
+Widget _resenhasDoPerfil(
+  BuildContext context,
+  DependenciasDeLivros deps, {
+  required String usuarioId,
+  required bool proprio,
+  String? nome,
+}) {
+  return ResenhasDoPerfil(
+    key: ValueKey<String>('resenhas-do-perfil-$usuarioId'),
+    leitura: deps.leitura,
+    usuarioId: usuarioId,
+    proprio: proprio,
+    textoVazio: textoSemResenhas(proprio: proprio, nome: nome),
+    aoAbrirLivro: (livro) => livro.pessoal
+        ? context.go(rotaLivroPessoalNaEstante(livro.id))
+        : context.push('/perfil/livro/${livro.id}'),
+  );
 }

@@ -212,7 +212,8 @@ class ResenhaDoLivro {
       autorNome: nome,
       autorAvatarUrl: avatar is String ? avatar : null,
       texto: texto is String ? texto : '',
-      spoiler: bruto['spoiler'] == true,
+      // Só `false` explícito abre o texto: campo ausente fica fechado, na dúvida.
+      spoiler: bruto['spoiler'] != false,
       criadoEm: criadoEm,
     );
   }

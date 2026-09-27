@@ -205,4 +205,85 @@ describe('useBuscaDeLivros', () => {
 
     expect(servico.buscarLivros).not.toHaveBeenCalled()
   })
+
+  it('a página seguinte continua a busca feita, não o texto que ainda espera o debounce', async () => {
+    const servico = servicoFalso()
+    servico.buscarLivros.mockResolvedValueOnce(pagina([livro('a', 'Um')], { totalItens: 2, totalPaginas: 2 }))
+    const busca = useBuscaDeLivros({ servico })
+
+    busca.alterarConsulta('ab')
+    await vi.advanceTimersByTimeAsync(400)
+    busca.alterarConsulta('abc')
+    await busca.carregarMais()
+
+    expect(servico.buscarLivros).toHaveBeenLastCalledWith({ q: 'ab', assunto: null, page: 2 })
+  })
+
+  it('os assuntos têm estado próprio, e a falha deles pode ser repetida', async () => {
+    const servico = servicoFalso()
+    servico.listarAssuntos.mockRejectedValueOnce(falha())
+    const busca = useBuscaDeLivros({ servico })
+
+    expect(busca.estadoDosAssuntos.value).toBe('carregando')
+    busca.iniciar()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(busca.estadoDosAssuntos.value).toBe('erro')
+
+    await busca.carregarAssuntos()
+    expect(busca.estadoDosAssuntos.value).toBe('pronto')
+    expect(busca.assuntos.value).toEqual(ASSUNTOS)
+  })
+
+  it('erro que não é da API na página seguinte também aparece na tela', async () => {
+    const servico = servicoFalso()
+    servico.buscarLivros
+      .mockResolvedValueOnce(pagina([livro('a', 'Um')], { totalItens: 2, totalPaginas: 2 }))
+      .mockRejectedValueOnce(new SyntaxError('Unexpected token <'))
+    const busca = useBuscaDeLivros({ servico })
+
+    busca.alterarConsulta('livro')
+    await vi.advanceTimersByTimeAsync(400)
+    await expect(busca.carregarMais()).rejects.toThrow(SyntaxError)
+
+    expect(busca.falhouMais.value).toBe(true)
+    expect(busca.carregandoMais.value).toBe(false)
+  })
+
+  it('critérios vindos da URL com a tela aberta buscam na hora, e sem nada voltam à aterrissagem', async () => {
+    const servico = servicoFalso()
+    const busca = useBuscaDeLivros({ servico, inicial: { q: 'livro' } })
+    busca.iniciar()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(busca.estado.value).toBe('resultados')
+
+    busca.aplicarCriterios({ q: null, assunto: null })
+    expect(busca.estado.value).toBe('aterrissagem')
+    expect(busca.consulta.value).toBe('')
+
+    busca.aplicarCriterios({ q: null, assunto: 'terror' })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(servico.buscarLivros).toHaveBeenLastCalledWith({ q: null, assunto: 'terror' })
+  })
+
+  it('a retentativa automática dos assuntos, a cada busca, não troca o aviso de falha pelo skeleton', async () => {
+    const servico = servicoFalso()
+    let responder: (valor: typeof ASSUNTOS) => void = () => undefined
+    servico.listarAssuntos
+      .mockRejectedValueOnce(falha())
+      .mockImplementationOnce(() => new Promise((resolver) => (responder = resolver)))
+    const busca = useBuscaDeLivros({ servico })
+
+    busca.iniciar()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(busca.estadoDosAssuntos.value).toBe('erro')
+
+    busca.alterarConsulta('livro')
+    await vi.advanceTimersByTimeAsync(400)
+    expect(servico.listarAssuntos).toHaveBeenCalledTimes(2)
+    expect(busca.estadoDosAssuntos.value).toBe('erro')
+
+    responder(ASSUNTOS)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(busca.estadoDosAssuntos.value).toBe('pronto')
+  })
 })

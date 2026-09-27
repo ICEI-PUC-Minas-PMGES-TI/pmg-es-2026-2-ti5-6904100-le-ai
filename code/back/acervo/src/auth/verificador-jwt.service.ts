@@ -72,6 +72,12 @@ export class VerificadorJwt implements OnModuleInit {
       throw new NaoAutenticado();
     }
 
+    // O `jwt.verify` só confere a expiração quando `exp` existe. O emissor sempre
+    // põe; token sem ele nunca venceria.
+    if (typeof conteudo.exp !== 'number') {
+      throw new NaoAutenticado();
+    }
+
     const id = conteudo.sub;
     const username = conteudo.username;
 

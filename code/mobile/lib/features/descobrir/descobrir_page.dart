@@ -41,6 +41,8 @@ class DescobrirPage extends StatefulWidget {
 class _DescobrirPageState extends State<DescobrirPage> {
   late final BuscaDeLivrosController _busca = BuscaDeLivrosController(widget.servico);
   final _consulta = TextEditingController();
+  final _rolagem = ScrollController();
+  bool _cargaAgendada = false;
 
   @override
   void initState() {
@@ -52,6 +54,7 @@ class _DescobrirPageState extends State<DescobrirPage> {
   void dispose() {
     _busca.dispose();
     _consulta.dispose();
+    _rolagem.dispose();
     super.dispose();
   }
 
@@ -61,10 +64,45 @@ class _DescobrirPageState extends State<DescobrirPage> {
   }
 
   bool _pertoDoFim(ScrollNotification notificacao) {
-    if (notificacao.metrics.extentAfter < 300) {
-      _busca.carregarMais();
-    }
+    _talvezCarregarMais(notificacao.metrics);
     return false;
+  }
+
+  /// Pede a página seguinte quando o fim da lista está a menos de 300px.
+  ///
+  /// - **Depois de uma falha, só o botão tenta de novo.** Sem isso, trocar o skeleton do rodapé
+  ///   pela mensagem de falha, mais baixa, corrige a rolagem, a correção notifica, e a página
+  ///   seguinte é pedida de novo em laço, sem o leitor tocar em nada.
+  /// - **A chamada vai para depois do quadro:** a notificação chega durante o layout, e o
+  ///   `notifyListeners` do controller ali agendaria um build no meio do quadro.
+  void _talvezCarregarMais(ScrollMetrics metricas) {
+    if (metricas.extentAfter >= 300 ||
+        _cargaAgendada ||
+        !_busca.temMais ||
+        _busca.carregandoMais ||
+        _busca.falhouMais) {
+      return;
+    }
+    _cargaAgendada = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _cargaAgendada = false;
+      if (mounted) {
+        _busca.carregarMais();
+      }
+    });
+    // Chamado de dentro de outro post-frame (`_conferirFimVisivel`), o callback só roda no
+    // quadro seguinte, e sem nada animando (campo sem foco, busca pelo chip) ninguém o pediria.
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
+  /// Lista que não enche a tela (edições agrupadas num card só) não rola, e sem rolagem não há
+  /// notificação: depois de cada página, confere se o fim já está à vista.
+  void _conferirFimVisivel() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _rolagem.hasClients) {
+        _talvezCarregarMais(_rolagem.position);
+      }
+    });
   }
 
   @override
@@ -215,11 +253,13 @@ class _DescobrirPageState extends State<DescobrirPage> {
 
   Widget _resultados(ThemeData theme) {
     final grupos = _busca.grupos;
+    _conferirFimVisivel();
     return NotificationListener<ScrollNotification>(
       onNotification: _pertoDoFim,
       child: ListView.separated(
         // Busca nova volta ao topo; a página seguinte da mesma busca, não.
         key: ValueKey<int>(_busca.geracao),
+        controller: _rolagem,
         padding: const EdgeInsets.fromLTRB(
           DesignTokens.space5,
           0,

@@ -2,6 +2,7 @@ import { type ErrorObject, type ValidateFunction } from 'ajv';
 import Ajv2020 from 'ajv/dist/2020';
 import addFormats from 'ajv-formats';
 import type { ConsumeMessage, MessageProperties } from 'amqplib';
+import commonSchema from './schemas/common-v1.schema.json';
 import envelopeSchema from './schemas/envelope-v1.schema.json';
 
 export interface MessageEnvelope {
@@ -24,12 +25,45 @@ export class InvalidMessageError extends Error {
 }
 
 export class MessageValidator {
+  private readonly ajv: Ajv2020;
   private readonly envelope: ValidateFunction;
+  private readonly dataSchemas = new Map<string, ValidateFunction>();
 
   constructor() {
-    const ajv = new Ajv2020({ allErrors: true, strict: false });
-    addFormats(ajv);
-    this.envelope = ajv.compile(envelopeSchema);
+    this.ajv = new Ajv2020({ allErrors: true, strict: false });
+    addFormats(this.ajv);
+    // Os eventos de `leitura` referenciam `UsuarioSnapshot` e `LivroSnapshot`
+    // por `$ref: "common-v1.schema.json#/$defs/..."`. O `$ref` é relativo ao
+    // `$id` do schema do evento (`https://leai.app/schemas/mensageria/...`) e
+    // resolve para o `$id` do common, registrado aqui uma vez.
+    this.ajv.addSchema(commonSchema);
+    this.envelope = this.ajv.compile(envelopeSchema);
+  }
+
+  /**
+   * Registra o schema de `data` de um `(type, version)`, com a cópia runtime
+   * do schema canônico de `docs/mensageria/schemas/`. Quem produz o evento
+   * registra o seu no próprio `onModuleInit`, sem editar este arquivo.
+   */
+  registerDataSchema(type: string, version: number, schema: object): void {
+    this.dataSchemas.set(`${type}:${version}`, this.ajv.compile(schema));
+  }
+
+  /**
+   * Valida o `data` de um evento contra o schema registrado. Usado pelo
+   * produtor antes de gravar na outbox: evento fora do contrato é bug nosso e
+   * não pode chegar à DLQ do serviço de outra pessoa.
+   */
+  validarDados(type: string, version: number, data: unknown): void {
+    const validador = this.dataSchemas.get(`${type}:${version}`);
+    if (!validador) {
+      throw new InvalidMessageError(
+        `Schema não registrado para ${type} v${version}`,
+      );
+    }
+    if (!validador(data)) {
+      throw new InvalidMessageError(this.errors(validador.errors));
+    }
   }
 
   validateMessage(

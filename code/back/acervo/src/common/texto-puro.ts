@@ -34,15 +34,16 @@ export function textoPuro(
   bruto: string,
   limite = LIMITE_DA_SINOPSE,
 ): string | null {
-  const texto = decodificarEntidades(
-    bruto
-      .replace(/\r\n?/g, '\n')
-      // Quebras e fim de bloco do HTML viram quebra de linha antes de as tags
-      // saírem, para os parágrafos não colarem.
-      .replace(/<br\s*\/?>/gi, '\n')
-      .replace(/<\/(p|div|li|h[1-6])\s*>/gi, '\n\n')
-      .replace(/<[^>]*>/g, ''),
+  const texto = semTags(
+    decodificarEntidades(semTags(bruto.replace(/\r\n?/g, '\n'), QUALQUER_TAG)),
+    // HTML escapado (`&lt;b&gt;`) volta a ser tag ao decodificar, e sai de novo.
+    // Aqui só nomes de tag HTML conhecidos: "5 &lt; 7", "&lt;&lt;O Guarani&gt;&gt;"
+    // e "&lt;editora@exemplo.com&gt;" são texto e ficam.
+    TAG_DECODIFICADA,
   )
+    // Caractere de controle da fonte (o NUL o Postgres recusa, e a mensagem iria
+    // para a DLQ). Ficam a quebra de linha e a tabulação, que colapsa abaixo.
+    .replace(/(?![\n\t])\p{Cc}/gu, '')
     // Markdown de referência da OpenLibrary.
     .replace(/\(\s*\[[^\]]*\]\s*\[\d+\]\s*\)/g, '')
     .replace(/\[([^\]]+)\]\s*\[\d+\]/g, '$1')
@@ -60,6 +61,21 @@ export function textoPuro(
     return null;
   }
   return cortar(texto, limite);
+}
+
+const QUALQUER_TAG = /<[^>]*>/g;
+const TAG_DECODIFICADA =
+  /<\/?(?:p|br|b|i|em|strong|u|s|small|span|div|li|ul|ol|h[1-6]|a|blockquote|font|sup|sub)\b[^<>]*>|<!--[\s\S]*?-->/gi;
+
+/**
+ * Quebras e fim de bloco do HTML viram quebra de linha antes de as tags saírem,
+ * para os parágrafos não colarem.
+ */
+function semTags(texto: string, tag: RegExp): string {
+  return texto
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|li|h[1-6])\s*>/gi, '\n\n')
+    .replace(tag, '');
 }
 
 function decodificarEntidades(texto: string): string {

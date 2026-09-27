@@ -170,7 +170,9 @@ describe('DescobrirView', () => {
     expect(wrapper.find('[aria-busy="true"]').exists()).toBe(true)
     expect(wrapper.text()).not.toContain('servidor está iniciando')
     await vi.advanceTimersByTimeAsync(3_000)
-    expect(wrapper.get('[role="status"]').text()).toBe('O servidor está iniciando. Isso pode levar alguns segundos.')
+    expect(wrapper.findAll('[role="status"]').map((status) => status.text())).toContain(
+      'O servidor está iniciando. Isso pode levar alguns segundos.',
+    )
 
     responder(RESULTADOS)
     await flushPromises()
@@ -211,5 +213,49 @@ describe('DescobrirView', () => {
 
     expect(servico.buscarLivros).toHaveBeenLastCalledWith({ q: 'livro', assunto: null, page: 2 })
     expect(wrapper.text()).toContain('2 edições')
+  })
+
+  it('tocar na aba Descobrir já estando nela volta à aterrissagem', async () => {
+    const montagem = await montarNaRota('/descobrir')
+    await digitar(montagem, 'conceição evaristo')
+    const { wrapper, router } = montagem
+    expect(wrapper.text()).toContain('12 livros encontrados')
+
+    await router.push('/descobrir')
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('livros encontrados')
+    expect((wrapper.get('input[type="search"]').element as HTMLInputElement).value).toBe('')
+    expect(router.currentRoute.value.query).toEqual({})
+  })
+
+  it('a contagem e o vazio saem na mesma região de status, que já existia antes', async () => {
+    servico.buscarLivros.mockResolvedValueOnce(pagina([]))
+    const montagem = await montarNaRota('/descobrir')
+    const regiao = montagem.wrapper.get('p[role="status"]')
+    expect(regiao.text()).toBe('')
+
+    await digitar(montagem, 'guimaraes rossa')
+    expect(montagem.wrapper.get('p[role="status"]').element).toBe(regiao.element)
+    expect(regiao.text()).toBe('Nenhum livro encontrado')
+  })
+
+  it('os assuntos que falham oferecem "Tentar de novo"', async () => {
+    servico.listarAssuntos
+      .mockReset()
+      .mockRejectedValueOnce(new ApiError('Falhou', 503, 'SERVICO_INDISPONIVEL'))
+      .mockResolvedValueOnce(ASSUNTOS)
+    const { wrapper } = await montarNaRota('/descobrir')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Não foi possível carregar os assuntos.')
+    await wrapper.findAll('button').find((botao) => botao.text() === 'Tentar de novo')!.trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Romance')
+  })
+
+  it('o campo aceita no máximo 200 caracteres, como o contrato', async () => {
+    const { wrapper } = await montarNaRota('/descobrir')
+    expect(wrapper.get('input[type="search"]').attributes('maxlength')).toBe('200')
   })
 })

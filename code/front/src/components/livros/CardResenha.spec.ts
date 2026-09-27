@@ -1,5 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
+import { nextTick } from 'vue'
 
 import { resenha } from '../../testes/massaDoLivro'
 import CardResenha from './CardResenha.vue'
@@ -34,5 +35,25 @@ describe('CardResenha', () => {
 
     expect(wrapper.find('img').exists()).toBe(false)
     expect(wrapper.text()).toContain('<img src=x onerror=alert(1)>')
+  })
+
+  it('sem o campo spoiler, o texto fica fechado por segurança', () => {
+    const semCampo = { ...resenha('r1', 'Rafael', 'O final revela tudo.'), spoiler: undefined as unknown as boolean }
+    const wrapper = mount(CardResenha, { props: { resenha: semCampo } })
+
+    expect(wrapper.html()).not.toContain('O final revela tudo.')
+  })
+
+  it('revelar leva o foco para o texto, porque o botão sai do DOM', async () => {
+    const wrapper = mount(CardResenha, {
+      props: { resenha: resenha('r1', 'Rafael', 'O final revela tudo.', true) },
+      attachTo: document.body,
+    })
+
+    await wrapper.get('button').trigger('click')
+    await nextTick()
+
+    expect(document.activeElement?.textContent?.trim()).toBe('O final revela tudo.')
+    wrapper.unmount()
   })
 })
