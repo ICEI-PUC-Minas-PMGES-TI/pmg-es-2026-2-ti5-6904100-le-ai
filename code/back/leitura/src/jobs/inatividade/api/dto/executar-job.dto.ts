@@ -2,7 +2,6 @@ import { IsISO8601, IsOptional, Matches } from 'class-validator';
 
 const DATA = /^\d{4}-\d{2}-\d{2}$/;
 
-/** `ExecutarJobEntrada` de `docs/api/leitura.yaml`. */
 export class ExecutarJobDto {
   @IsOptional()
   @Matches(DATA, {

@@ -1,9 +1,3 @@
-/**
- * Máquina de estados da leitura (RN-04) e regra de inatividade (RN-05).
- * Domínio puro: sem I/O e sem Nest. Os valores espelham os CHECKs de
- * `estante.status` e `leitura.status` em `src/db/schema.ts`.
- */
-
 export const STATUS_ESTANTE = [
   'quero_ler',
   'lendo',
@@ -40,28 +34,19 @@ export interface OcorrenciaLeitura {
 }
 
 export interface SnapshotEstante {
-  /** `null` quando o livro não está na estante do usuário. */
   status: StatusEstante | null;
   vezesLido: number;
-  /** Ocorrência de leitura mais recente, se houver. */
   leituraAtual: OcorrenciaLeitura | null;
   possuiHistorico: boolean;
 }
 
 export type MudancaLeitura =
   | { acao: 'criar'; releitura: boolean }
-  /** status `lido`, grava data de fim/finalização. */
   | { acao: 'finalizar' }
-  /**
-   * Primeira leitura: status `abandonado`, retomável.
-   * Releitura: status `lido` com `incompleta`, sem data de fim, não retomável.
-   */
   | { acao: 'abandonar'; incompleta: boolean; retomavel: boolean }
-  /** status volta a `lendo`, preservando a página registrada. */
   | { acao: 'retomar'; paginaAtual: number };
 
 export interface Transicao {
-  /** `null` = vínculo de estante removido. */
   statusEstante: StatusEstante | null;
   deltaVezesLido: 0 | 1;
   leitura: MudancaLeitura | null;
@@ -270,8 +255,6 @@ export function aplicarEvento(
   return TRANSICOES[evento](snapshot);
 }
 
-// ---------------------------------------------------------------- RN-05
-
 export const LIMIARES_RISCO_DIAS = [20, 30] as const;
 export const LIMIAR_EXPIRACAO_DIAS = 40;
 const MS_POR_DIA = 24 * 60 * 60 * 1000;
@@ -295,9 +278,7 @@ export interface EntradaInatividade {
 }
 
 export interface ResultadoInatividade {
-  /** Dias completos desde a última atividade (ou desde o início). */
   diasInativo: number;
-  /** Limiares já atingidos, em ordem crescente; o job filtra os já processados. */
   limiaresDevidos: LimiarInatividade[];
 }
 

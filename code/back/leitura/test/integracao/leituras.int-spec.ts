@@ -41,10 +41,6 @@ interface LinhaOutbox {
   payload: Record<string, unknown>;
 }
 
-/**
- * Ciclo de leitura (RN-04) ponta a ponta: HTTP real, Postgres real, ocorrência
- * e estante mudando juntas e o evento gravado na outbox da mesma transação.
- */
 describe('ciclo de leitura (integração)', () => {
   let pool: Pool;
   let app: NestExpressApplication;
@@ -221,7 +217,6 @@ describe('ciclo de leitura (integração)', () => {
         vezesLido: 1,
         retomavel: false,
         finalizacaoFusoHorario: 'Asia/Tokyo',
-        // A data da ação no fuso do dispositivo, nunca a dataFim.
         finalizacaoDataLocal: dataNoFuso(new Date(), 'Asia/Tokyo'),
       });
       expect(
@@ -473,7 +468,6 @@ describe('ciclo de leitura (integração)', () => {
       });
 
       await post(usuario, `/leituras/${releitura.id}/retomar`).expect(409);
-      // Nova releitura continua possível a partir de Lido.
       await post(usuario, '/releituras', { livroId }).expect(201);
     });
 

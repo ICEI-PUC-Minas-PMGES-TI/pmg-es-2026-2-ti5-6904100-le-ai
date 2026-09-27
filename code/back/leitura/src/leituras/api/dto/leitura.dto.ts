@@ -11,11 +11,9 @@ import {
   type StatusEstanteApi,
 } from '../../../common/status-estante-api';
 
-/** `format: date` do contrato: só a data, sem hora nem fuso. */
 const DATA_ISO = /^\d{4}-\d{2}-\d{2}$/;
 const MENSAGEM_DATA = 'Informe a data no formato AAAA-MM-DD.';
 
-/** `IniciarLeituraEntrada` — usado por `POST /leituras` e `POST /releituras`. */
 export class IniciarLeituraEntradaDto {
   @ApiProperty({ format: 'uuid' })
   @IsUUID('all', { message: 'Informe um identificador de livro válido.' })
@@ -31,7 +29,6 @@ export class IniciarLeituraEntradaDto {
   dataInicio?: string;
 }
 
-/** `FinalizarLeituraEntrada`. */
 export class FinalizarLeituraEntradaDto {
   @ApiPropertyOptional({
     format: 'date',
@@ -50,7 +47,6 @@ export class FinalizarLeituraEntradaDto {
   fusoHorarioDispositivo!: string;
 }
 
-/** Schema `Leitura` do contrato. */
 export class LeituraDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty({ format: 'uuid' }) livroId!: string;

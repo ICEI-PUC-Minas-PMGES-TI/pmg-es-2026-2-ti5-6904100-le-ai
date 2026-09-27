@@ -29,8 +29,6 @@ jobs:
       run:
         working-directory: code/back/leitura
 
-    # Postgres descartavel para os testes de integracao. Nunca o Neon: o
-    # fixture derruba e recria os schemas a cada arquivo (test/integracao/).
     services:
       postgres:
         image: postgres:17-alpine
@@ -68,8 +66,6 @@ jobs:
       - name: Test
         run: npm test
 
-      # Idempotencia, outbox na transacao, VIEWs de contrato e job de
-      # inatividade RN-05: o que so se prova contra Postgres real.
       - name: Integration test
         run: npm run test:int
         env:

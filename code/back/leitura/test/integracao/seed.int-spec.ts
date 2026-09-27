@@ -9,10 +9,6 @@ import { inserirLivro, inserirPerfil } from './massa';
 
 const { usuarios, livros, leituras } = SEED_LEITURA;
 
-/**
- * O seed de RNF-TST-08 roda sem violar CHECK, é idempotente e a API lê dele os
- * cinco estados da estante e a releitura incompleta.
- */
 describe('seed de leitura (integração)', () => {
   let pool: Pool;
   let app: NestExpressApplication;
@@ -27,7 +23,6 @@ describe('seed de leitura (integração)', () => {
   });
   beforeEach(() => limpar(pool));
 
-  /** O que os seeds de acervo e identidade expõem pelas VIEWs de contrato. */
   async function semearContratosExternos(): Promise<void> {
     const paginas: Record<string, number> = {
       [livros.memoriasPostumas]: 288,

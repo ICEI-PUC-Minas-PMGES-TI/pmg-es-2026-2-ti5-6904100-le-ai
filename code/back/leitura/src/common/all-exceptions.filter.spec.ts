@@ -87,7 +87,6 @@ describe('AllExceptionsFilter com erro de negócio', () => {
     );
   });
 
-  // Os extras nunca podem sobrescrever o corpo padrão de RNF-ERR-01.
   it('não deixa extras sobrescreverem codigo, mensagem ou correlationId', () => {
     const res = cenario(
       new ErroDeNegocio(409, 'MEU_CODIGO', 'minha mensagem', {

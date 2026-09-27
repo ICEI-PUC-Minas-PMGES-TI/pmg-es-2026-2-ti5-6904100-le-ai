@@ -1,12 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
 
-/**
- * Massa das VIEWs de contrato, que no fixture são tabelas comuns
- * (`banco.ts`). Os valores padrão descrevem o caso comum: livro oficial ativo e
- * perfil público.
- */
-
 export interface LivroDeTeste {
   id?: string;
   tipo?: 'oficial' | 'pessoal';

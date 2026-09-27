@@ -23,7 +23,6 @@ import {
 const MS_POR_DIA = 24 * 60 * 60 * 1000;
 const MENOR_LIMIAR_DIAS = Math.min(...LIMIARES_RISCO_DIAS);
 
-/** `ResultadoJobInatividade` de `docs/api/leitura.yaml`. */
 export interface ResultadoJobInatividade {
   dataReferencia: string;
   alertasDia20: number;
@@ -39,7 +38,6 @@ const CONTAGEM_POR_LIMIAR: Record<number, ChaveContagem> = {
   [LIMIAR_EXPIRACAO_DIAS]: 'abandonosDia40',
 };
 
-/** Meia-noite UTC do dia do instante: a inatividade conta dias de calendário. */
 function inicioDoDia(instante: Date): Date {
   return new Date(
     Date.UTC(
@@ -54,20 +52,6 @@ export function dataDeHoje(): string {
   return inicioDoDia(new Date()).toISOString().slice(0, 10);
 }
 
-/**
- * Job diário de inatividade (RN-05, RF-EST-11/12).
- *
- * Cada leitura é processada na **própria** transação: a falha de uma não
- * desfaz o que já foi confirmado para as outras, e a reexecução do lote é
- * segura porque a UK de `limiar_inatividade` deduplica o fato.
- *
- * Só o **maior** limiar devido no ciclo é registrado. Uma leitura que chega ao
- * job já no dia 40 (job parado, massa antiga) é abandonada sem receber antes
- * os alertas de risco vencidos, e uma que chega no dia 30 recebe só o segundo
- * alerta: RN-05 descreve avisos com ação de abandonar, e um aviso atrasado
- * sobre um prazo já superado não tem ação possível. Como o maior limiar só
- * cresce dentro do ciclo, um limiar menor pulado nunca é emitido depois.
- */
 @Injectable()
 export class InatividadeService {
   private readonly logger = new Logger(InatividadeService.name);
@@ -89,8 +73,6 @@ export class InatividadeService {
       abandonosDia40: 0,
     };
 
-    // Atividade em qualquer instante do dia D conta como dia D: é candidata
-    // quem não tem atividade desde o fim do dia `referencia - menor limiar`.
     const semAtividadeDesde = new Date(
       referencia.getTime() - (MENOR_LIMIAR_DIAS - 1) * MS_POR_DIA,
     );
@@ -105,8 +87,6 @@ export class InatividadeService {
           resultado[CONTAGEM_POR_LIMIAR[limiar.dias]] += 1;
         }
       } catch (erro) {
-        // Isolada por transação: registra e segue com as demais. A próxima
-        // execução tenta de novo, porque nada desta leitura foi confirmado.
         this.logger.error(
           { err: erro, leituraId },
           'falha ao processar inatividade da leitura',
@@ -117,7 +97,6 @@ export class InatividadeService {
     return resultado;
   }
 
-  /** O limiar registrado nesta execução, ou `null` se não havia o que fazer. */
   private async processarLeitura(
     tx: Tx,
     leituraId: string,
@@ -172,12 +151,6 @@ export class InatividadeService {
     return novo;
   }
 
-  /**
-   * Dia 40: registra o limiar primeiro — se já existia, o ciclo já expirou e
-   * nada mais acontece —, aplica o abandono de RN-04 pelo mesmo caminho do
-   * abandono manual (`leitura.abandonada` incluso) e só então grava
-   * `leitura.expirada`, que descreve o fato já consumado.
-   */
   private async expirar(tx: Tx, atual: LeituraEmAndamento): Promise<boolean> {
     const livro = await this.snapshotDoLivro(tx, atual.livroId);
     const evento = leituraExpirada({

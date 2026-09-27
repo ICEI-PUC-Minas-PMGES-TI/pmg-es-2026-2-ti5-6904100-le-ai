@@ -62,8 +62,6 @@ import { ReferenciasModule } from './referencias/referencias.module';
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
-    // Guard global: rota nova nasce protegida. `/health` se libera com
-    // `@Publico()` — o custo de esquecer o decorator é um 401, não um vazamento.
     { provide: APP_GUARD, useClass: JwtAuthGuard },
   ],
 })

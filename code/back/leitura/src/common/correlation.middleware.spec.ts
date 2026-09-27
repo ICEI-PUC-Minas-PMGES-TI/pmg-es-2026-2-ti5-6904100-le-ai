@@ -1,8 +1,6 @@
 import { ehCorrelationIdValido } from './correlation.middleware';
 
 describe('ehCorrelationIdValido', () => {
-  // A regra existe por causa de `outbox_leitura.correlation_id`, que é
-  // `uuid NOT NULL`: um header fora do formato derrubaria a transação da escrita.
   it('aceita UUID', () => {
     expect(ehCorrelationIdValido('16aa3308-daee-4638-b220-c306484f6a9c')).toBe(
       true,

@@ -37,11 +37,6 @@ const COLUNAS = {
 export class InatividadeRepository {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
-  /**
-   * Ids das leituras em andamento cuja última atividade é anterior a `limite`. Usa o índice
-   * `leitura_inatividade_idx (status, ultima_atividade_em)`; o estado é relido
-   * com lock em `bloquearEmAndamento`.
-   */
   async idsInativosAntesDe(limite: Date): Promise<string[]> {
     const linhas = await this.db
       .select({ id: leitura.id })
@@ -56,10 +51,6 @@ export class InatividadeRepository {
     return linhas.map(({ id }) => id);
   }
 
-  /**
-   * Relê e trava a leitura. Uma atividade concorrente espera o job terminar, e
-   * uma leitura que deixou de estar em andamento desde a varredura é ignorada.
-   */
   async bloquearEmAndamento(
     tx: Tx,
     leituraId: string,
@@ -74,11 +65,6 @@ export class InatividadeRepository {
     return linha ?? null;
   }
 
-  /**
-   * Registra o limiar do ciclo. `false` quando já existia: a UK
-   * `(leitura_id, inatividade_versao, limiar_dias)` é a deduplicação semântica
-   * do job, independente da `Idempotency-Key`.
-   */
   async registrarLimiar(tx: Tx, limiar: NovoLimiar): Promise<boolean> {
     const inseridas = await tx
       .insert(limiarInatividade)

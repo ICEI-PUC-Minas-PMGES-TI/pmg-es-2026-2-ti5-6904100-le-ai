@@ -10,14 +10,6 @@ function digest(valor: string): Buffer {
   return createHash('sha256').update(valor, 'utf8').digest();
 }
 
-/**
- * Autenticação do agendador (`schedulerToken` em `docs/api/leitura.yaml`).
- *
- * A rota é `@Publico()` para o guard JWT global; este guard é quem a protege.
- * Sem `SCHEDULER_TOKEN` configurado, toda chamada é recusada. A comparação é
- * feita sobre os digests SHA-256, de tamanho fixo, com `timingSafeEqual`: nem o
- * tempo de resposta nem o tamanho do segredo vazam.
- */
 @Injectable()
 export class SchedulerTokenGuard implements CanActivate {
   constructor(private readonly config: ConfigService) {}

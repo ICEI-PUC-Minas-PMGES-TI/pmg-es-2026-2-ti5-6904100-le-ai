@@ -1,19 +1,6 @@
-/**
- * Leitura dos códigos de erro do PostgreSQL por baixo do Drizzle.
- *
- * O Drizzle embrulha o erro do driver e põe o original em `cause` — é o mesmo
- * cuidado que `src/health/drizzle.health.ts` já tem ao logar a causa real. Quem
- * checar `err.code` direto não encontra nada e trata uma violação de unicidade
- * como erro interno.
- */
-
-/** Violação de constraint única. */
 export const VIOLACAO_DE_UNICIDADE = '23505';
-/** Violação de CHECK: sempre bug nosso, nunca erro do cliente. */
 export const VIOLACAO_DE_CHECK = '23514';
-/** Permissão insuficiente — típico de GRANT faltando em schema de outro serviço. */
 export const PERMISSAO_INSUFICIENTE = '42501';
-/** Relação inexistente — VIEW de contrato de outro schema ainda não criada. */
 export const RELACAO_INEXISTENTE = '42P01';
 
 interface ErroDoPostgres {
@@ -59,13 +46,6 @@ export function ehViolacaoDeUnicidade(
   return constraint === undefined || detalhe.constraint === constraint;
 }
 
-/**
- * Erro de acesso a contrato de outro schema (`acervo`, `identidade`).
- *
- * As VIEWs de contrato pertencem a outros serviços, e o `leitura` só as lê. GRANT
- * faltando ou VIEW ainda não criada é indisponibilidade de dependência, não erro
- * do cliente: vira 503, nunca um 500 cru.
- */
 export function ehFalhaDeContratoExterno(erro: unknown): boolean {
   const codigo = codigoDoPostgres(erro);
   return codigo === PERMISSAO_INSUFICIENTE || codigo === RELACAO_INEXISTENTE;

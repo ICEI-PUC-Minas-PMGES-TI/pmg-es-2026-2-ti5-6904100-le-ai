@@ -24,11 +24,6 @@ import { criarApp, novoUsuario } from './app';
 import { contar, limpar, prepararBanco } from './banco';
 import { inserirLivro, inserirPerfil, inserirSeguimentoAceito } from './massa';
 
-/**
- * Fundação de F-EST contra Postgres real: idempotência sobre
- * `idempotencia_leitura`, outbox na transação da escrita e leitura das VIEWs de
- * contrato. As fatias de estante e leitura só compõem estas peças.
- */
 describe('fundação de F-EST (integração)', () => {
   let pool: Pool;
   let app: NestExpressApplication;
@@ -49,7 +44,6 @@ describe('fundação de F-EST (integração)', () => {
   });
   beforeEach(() => limpar(pool));
 
-  /** Efeito real: um vínculo de estante, para contar se repetiu. */
   function adicionarNaEstante(usuarioId: string, livroId: string) {
     return async (tx: Tx) => {
       const [linha] = await tx
@@ -112,8 +106,6 @@ describe('fundação de F-EST (integração)', () => {
       expect(await contar(pool, 'leitura.estante')).toBe(1);
     });
 
-    // O escopo é (ator, método, caminho canônico): a mesma chave em outro
-    // ator ou em outro caminho é outra operação, não conflito.
     it('isola a chave por ator e por caminho canônico', async () => {
       const chave = randomUUID();
       const livroId = randomUUID();
@@ -142,8 +134,6 @@ describe('fundação de F-EST (integração)', () => {
       expect(await contar(pool, 'leitura.idempotencia_leitura')).toBe(3);
     });
 
-    // Duas requisições com a mesma chave em paralelo: a perdedora bate no
-    // índice único, tem o efeito desfeito pelo rollback e devolve o replay.
     it('requisições concorrentes com a mesma chave produzem um único efeito', async () => {
       const usuario = novoUsuario();
       const livroId = randomUUID();
@@ -153,8 +143,6 @@ describe('fundação de F-EST (integração)', () => {
         chave: randomUUID(),
         payload: { livroId },
       };
-      // Sem o índice único de `estante`, as duas passam no INSERT; é o recibo
-      // que decide a vencedora.
       const efeito = async (tx: Tx) => {
         const [linha] = await tx
           .insert(estante)
@@ -354,7 +342,6 @@ describe('fundação de F-EST (integração)', () => {
       });
     });
 
-    // A VIEW omite conta suspensa ou em exclusão: para `leitura`, é inexistente.
     it('perfil fora da VIEW volta null', async () => {
       expect(await referencias.buscarPerfil(novoUsuario())).toBeNull();
     });
@@ -371,7 +358,6 @@ describe('fundação de F-EST (integração)', () => {
       );
     });
 
-    // GRANT faltando ou VIEW ainda não criada é dependência fora, não 500.
     it('VIEW de contrato ausente vira ServicoIndisponivel', async () => {
       await pool.query(
         'ALTER TABLE identidade.v_seguimento_aceito_v1 RENAME TO v_seguimento_fora',

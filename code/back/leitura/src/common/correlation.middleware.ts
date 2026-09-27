@@ -4,18 +4,6 @@ import { als } from './als';
 
 export const CORRELATION_HEADER = 'x-correlation-id';
 
-/**
- * O correlation-id precisa ser UUID, não qualquer string.
- *
- * Não é preciosismo de formato: `outbox_leitura.correlation_id` é `uuid NOT NULL`
- * quando a linha não está anonimizada (CHECK `outbox_leitura_anonimizacao_ck`).
- * Um cliente mandando `X-Correlation-Id: abc` faria o INSERT da outbox falhar
- * com `invalid input syntax for type uuid` e derrubaria a transação inteira da
- * escrita que grava o evento — um erro 500 causado por um header.
- *
- * Header fora do formato é substituído por um id gerado, em silêncio: o id é
- * de rastreio, e recusar a requisição por causa dele seria pior do que ignorá-lo.
- */
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function ehCorrelationIdValido(valor: string | undefined): boolean {

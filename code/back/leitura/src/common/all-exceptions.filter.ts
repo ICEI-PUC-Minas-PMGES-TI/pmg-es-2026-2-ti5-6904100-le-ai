@@ -36,8 +36,6 @@ export class AllExceptionsFilter implements ExceptionFilter {
       this.logger.warn({ correlationId, codigo, status }, mensagem);
     }
 
-    // `codigo`, `mensagem` e `correlationId` vêm por último de propósito: os
-    // extras nunca podem sobrescrever o corpo de erro padrão (RNF-ERR-01).
     res.status(status).json({ ...extras, codigo, mensagem, correlationId });
   }
 }

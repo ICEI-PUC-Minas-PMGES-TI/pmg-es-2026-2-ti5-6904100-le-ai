@@ -1,6 +1,5 @@
 import type { StatusEstante } from '../leituras/dominio/maquina-estados';
 
-/** `StatusEstante` do contrato: maiúsculo na API, minúsculo no banco. */
 export const STATUS_ESTANTE_API = [
   'QUERO_LER',
   'LENDO',

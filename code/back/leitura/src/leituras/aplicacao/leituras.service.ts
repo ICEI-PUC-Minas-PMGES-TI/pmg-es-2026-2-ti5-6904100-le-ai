@@ -47,17 +47,12 @@ import {
   LeiturasRepository,
 } from '../infraestrutura/leituras.repository';
 
-/**
- * Fuso para a data de início padrão: `IniciarLeituraEntrada` não traz o fuso do
- * dispositivo, e o produto atende leitores no Brasil.
- */
 export const FUSO_HORARIO_PADRAO = 'America/Sao_Paulo';
 
 const INDICE_LEITURA_EM_ANDAMENTO = 'leitura_em_andamento_usuario_livro_uk';
 const PERCENTUAL_MAXIMO = 100;
 
 export interface OpcoesDeAbandono {
-  /** Abandono do job de inatividade (RN-05), e não do leitor. */
   automatico: boolean;
 }
 
@@ -76,9 +71,7 @@ interface TransicaoAplicada {
   transicao: Transicao;
 }
 
-/** Data `YYYY-MM-DD` do instante no fuso IANA informado. */
 export function dataNoFuso(instante: Date, fusoHorario: string): string {
-  // `en-CA` formata como AAAA-MM-DD.
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: fusoHorario,
     year: 'numeric',
@@ -87,14 +80,6 @@ export function dataNoFuso(instante: Date, fusoHorario: string): string {
   }).format(instante);
 }
 
-/**
- * Ciclo de leitura (RN-04): iniciar, reler, finalizar, abandonar e retomar.
- *
- * Toda escrita segue o mesmo roteiro, numa única transação: bloqueia estante e
- * ocorrência mais recente, monta o snapshot, pede a transição à máquina de
- * estados pura, grava ocorrência e estante e escreve o evento na outbox. O
- * recibo de idempotência fecha a mesma transação (`IdempotenciaService`).
- */
 @Injectable()
 export class LeiturasService {
   constructor(
@@ -177,8 +162,6 @@ export class LeiturasService {
           dataFim,
           finalizadaEm: agora,
           finalizacaoFusoHorario: fuso,
-          // Data local da ação, nunca a `dataFim` editável: é a referência
-          // de desafios e estatísticas (revisão de 15/09/2026).
           finalizacaoDataLocal: hojeNoFuso,
           ultimaAtividadeEm: agora,
         });
@@ -227,13 +210,6 @@ export class LeiturasService {
     );
   }
 
-  /**
-   * Abandono dentro de uma transação aberta pelo chamador: o endpoint manual
-   * (depois de checar a propriedade) e o job de inatividade no dia 40 (RN-05),
-   * que registra o limiar na mesma transação.
-   *
-   * Não valida propriedade: quem chama já o fez, ou é o próprio sistema.
-   */
   async abandonarEmTransacao(
     tx: Tx,
     leituraId: string,
@@ -256,8 +232,6 @@ export class LeiturasService {
     await this.repositorio.atualizarLeitura(tx, alvo.id, {
       status: incompleta ? 'lido' : 'abandonado',
       incompleta,
-      // O abandono manual é atividade do leitor; o automático não é, e
-      // preserva a última atividade real que o provocou.
       ...(opcoes.automatico ? {} : { ultimaAtividadeEm: new Date() }),
     });
     await this.aplicarNaEstante(tx, estante, transicao);
@@ -299,8 +273,6 @@ export class LeiturasService {
         const paginaRetomada =
           mudanca?.acao === 'retomar' ? mudanca.paginaAtual : alvo.paginaAtual;
 
-        // Retomar é atividade: zera a inatividade e abre um novo ciclo de
-        // limiares (RN-05), sem herdar alertas da ocorrência abandonada.
         const leitura = await this.emAndamentoUnica(() =>
           this.repositorio.atualizarLeitura(tx, alvo.id, {
             status: 'lendo',
@@ -354,9 +326,6 @@ export class LeiturasService {
           );
         }
 
-        // Iniciar a primeira leitura de livro fora da estante cria o vínculo
-        // (RN-04). O evento do fato é só `leitura.iniciada`:
-        // `livro.adicionado_a_estante` é da adição em Quero ler.
         await this.repositorio.garantirEstante(tx, usuarioId, livro.id);
         const estante = await this.repositorio.bloquearEstante(
           tx,
@@ -409,11 +378,6 @@ export class LeiturasService {
     );
   }
 
-  /**
-   * Bloqueia estante e ocorrência mais recente e pede a transição à máquina.
-   * Só a ocorrência mais recente admite transição: uma leitura antiga já
-   * encerrada não volta a mudar.
-   */
   private async transicionar(
     tx: Tx,
     alvo: LeituraRegistro,
@@ -472,7 +436,6 @@ export class LeiturasService {
     estante: EstanteRegistro,
     transicao: Transicao,
   ): Promise<EstanteRegistro> {
-    // Nenhuma transição do ciclo de leitura remove o vínculo.
     const status = transicao.statusEstante ?? estante.status;
     return this.repositorio.atualizarEstante(
       tx,
@@ -482,11 +445,6 @@ export class LeiturasService {
     );
   }
 
-  /**
-   * A máquina já recusa a segunda leitura em andamento; o índice parcial
-   * `leitura_em_andamento_usuario_livro_uk` é a última barreira quando duas
-   * transações escapam da serialização da estante (RNF-ARQ-05).
-   */
   private async emAndamentoUnica<T>(escrita: () => Promise<T>): Promise<T> {
     try {
       return await escrita();
@@ -547,10 +505,6 @@ export class LeiturasService {
     return livro;
   }
 
-  /**
-   * `v_perfil_referencia_v1` omite conta suspensa ou em exclusão pendente
-   * (RN-08, SEC-03): essa conta não produz atividade para o feed.
-   */
   private async snapshotDoUsuario(
     tx: Tx,
     usuarioId: string,
@@ -593,10 +547,6 @@ export class LeiturasService {
   }
 }
 
-/**
- * Estado visível da ocorrência (`StatusEstante` no contrato): a releitura em
- * andamento é Relendo; a releitura abandonada já está gravada como `lido`.
- */
 function statusVisivel(leitura: LeituraRegistro): StatusEstante {
   if (leitura.status === 'lendo' && leitura.releitura) {
     return 'relendo';

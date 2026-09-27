@@ -30,22 +30,14 @@ export const envSchema = z
       .transform((value) => value === 'true'),
     AMQP_URL: z.string().optional(),
 
-    // Mesmo segredo do `identidade`, que emite o token HS256. Nimbus recusa
-    // chave HMAC-SHA256 com menos de 256 bits, então o emissor falharia com
-    // segredo curto — recusar aqui também evita descobrir isso só no login.
     JWT_SECRET: z.string().min(32).optional(),
 
-    // Segredo do agendador do job de inatividade (`X-Scheduler-Token`). Sem ele,
-    // `POST /internal/jobs/inatividade` responde 401 a qualquer chamada.
     SCHEDULER_TOKEN: z.string().min(32).optional(),
 
     ADMIN_EMAIL: z.string().optional(),
     ADMIN_PASSWORD: z.string().optional(),
   })
   .superRefine((config, context) => {
-    // Em produção, subir sem `JWT_SECRET` significaria um serviço no ar em que
-    // toda rota autenticada responde 401 — pior que não subir, porque o health
-    // fica verde e o problema só aparece para o usuário.
     if (config.NODE_ENV === 'production' && !config.JWT_SECRET) {
       context.addIssue({
         code: z.ZodIssueCode.custom,

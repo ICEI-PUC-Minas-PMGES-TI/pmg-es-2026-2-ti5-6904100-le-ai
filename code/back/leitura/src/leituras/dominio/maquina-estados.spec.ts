@@ -1,17 +1,3 @@
-/*
- * Formas de falha cobertas (RN-04 / RN-05):
- * - transição válida da tabela gera status, delta de vezesLido, mudança de
- *   ocorrência ou evento errados;
- * - releitura abandonada incrementa vezesLido, fica retomável ou vira
- *   "abandonado" na estante;
- * - iniciar leitura em livro já concluído (deveria exigir releitura) ou
- *   releitura em livro nunca concluído;
- * - segunda leitura em andamento para o mesmo livro;
- * - remover da estante com histórico ou fora de "quero_ler";
- * - retomar releitura incompleta ou algo que não está abandonado;
- * - limiares de inatividade disparando um dia antes/depois; ausência de
- *   atividade não usando a data de início.
- */
 import {
   aplicarEvento,
   avaliarInatividade,

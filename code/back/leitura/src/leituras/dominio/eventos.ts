@@ -1,18 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { LIMIAR_EXPIRACAO_DIAS, LIMIARES_RISCO_DIAS } from './maquina-estados';
 
-/**
- * Catálogo dos eventos produzidos por F-EST.
- *
- * Tipos, `businessKey` e `data` v1 vêm da tabela "Eventos produzidos" de
- * `feature-F-EST.md` e dos schemas canônicos em `docs/mensageria/schemas/`
- * (cópia runtime em `src/messaging/schemas/`). Schema publicado é imutável.
- *
- * Cada builder devolve a linha de `outbox_leitura` sem o que é do dispatcher
- * (P0-MSG monta o envelope). O `eventId` é gerado aqui, e não pelo default do
- * banco, porque duas chaves de negócio (retomada/abandonada) o contêm.
- */
-
 export const EVENTO_VERSAO_V1 = 1;
 
 export const TIPO_EVENTO = {
@@ -27,12 +15,10 @@ export const TIPO_EVENTO = {
 
 export type TipoEvento = (typeof TIPO_EVENTO)[keyof typeof TIPO_EVENTO];
 
-/** Limiares de inatividade (RF-EST-11/12, RN-05): a fonte é o domínio. */
 export { LIMIARES_RISCO_DIAS, LIMIAR_EXPIRACAO_DIAS };
 
 export type LimiarRiscoDias = (typeof LIMIARES_RISCO_DIAS)[number];
 
-/** `common-v1.schema.json#/$defs/UsuarioSnapshot` (de `v_perfil_referencia_v1`). */
 export interface UsuarioSnapshot {
   id: string;
   username: string;
@@ -40,7 +26,6 @@ export interface UsuarioSnapshot {
   avatarUrl: string | null;
 }
 
-/** `common-v1.schema.json#/$defs/LivroSnapshot` (de `v_livro_referencia_v1`). */
 export interface LivroSnapshot {
   id: string;
   tipo: 'oficial' | 'pessoal';
@@ -49,7 +34,6 @@ export interface LivroSnapshot {
   capaUrl: string | null;
 }
 
-/** Linha de outbox: `payload` é somente o `data` do envelope. */
 export interface EventoOutbox<TData> {
   eventId: string;
   tipo: TipoEvento;
@@ -76,12 +60,9 @@ export interface DadosLeituraRetomada extends DadosAtividadeBase {
 
 export interface DadosLeituraFinalizada extends DadosAtividadeBase {
   releitura: boolean;
-  /** `YYYY-MM-DD` */
   dataFim: string;
-  /** ISO 8601 date-time */
   finalizadaEm: string;
   finalizacaoFusoHorario: string;
-  /** `YYYY-MM-DD` */
   finalizacaoDataLocal: string;
 }
 

@@ -1,11 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-/**
- * `docs/mensageria/schemas/` é a fonte canônica; cada consumidor copia para o
- * runtime só os schemas que aceita, e a cópia não pode divergir (README de
- * `docs/mensageria`, "Runtime"). Este teste é essa comparação no CI.
- */
 const RUNTIME = join(__dirname, 'schemas');
 const CANONICO = join(__dirname, '../../../../../docs/mensageria/schemas');
 

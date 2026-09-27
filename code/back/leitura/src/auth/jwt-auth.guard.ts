@@ -6,14 +6,6 @@ import { PUBLICO } from './publico.decorator';
 import { UsuarioAutenticado } from './usuario-autenticado';
 import { VerificadorJwt } from './verificador-jwt.service';
 
-/**
- * Guard global: exige `Authorization: Bearer <token>` em toda rota que não
- * esteja marcada com `@Publico()`.
- *
- * Global e não por controller porque o custo do esquecimento é assimétrico: com
- * guard global, esquecer o decorator numa rota pública dá 401 e alguém reclama;
- * com guard por rota, esquecer numa rota protegida expõe dados.
- */
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   constructor(

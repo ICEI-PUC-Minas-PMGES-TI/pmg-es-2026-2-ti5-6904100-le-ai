@@ -161,7 +161,6 @@ export class LeiturasController {
   }
 }
 
-/** O replay de idempotência devolve o status original, não o padrão da rota. */
 function responder<T>(res: Response, resposta: RespostaIdempotente<T>): T {
   res.status(resposta.status);
   return resposta.corpo;

@@ -14,11 +14,6 @@ import {
 } from '../aplicacao/inatividade.service';
 import { SchedulerTokenGuard } from './scheduler-token.guard';
 
-/**
- * Ator do agendador em `idempotencia_leitura.subject_ref` (coluna `uuid`). Não
- * há usuário por trás do segredo de ambiente; um id fixo e fora do espaço de
- * UUIDs v4 separa o escopo das chaves do job do escopo de qualquer leitor.
- */
 export const SUJEITO_AGENDADOR = '00000000-0000-0000-0000-000000000001';
 
 const STATUS_OK = 200;
@@ -30,14 +25,6 @@ export class InatividadeController {
     private readonly inatividade: InatividadeService,
   ) {}
 
-  /**
-   * `POST /internal/jobs/inatividade` (`processarInatividadeLeituras`).
-   *
-   * O recibo da `Idempotency-Key` fica na transação do `IdempotenciaService`,
-   * mas cada leitura é confirmada na própria transação pelo serviço: um recibo
-   * perdido só faz a repetição reprocessar, e a UK de `limiar_inatividade`
-   * impede o fato repetido.
-   */
   @Post()
   @Publico()
   @UseGuards(SchedulerTokenGuard)

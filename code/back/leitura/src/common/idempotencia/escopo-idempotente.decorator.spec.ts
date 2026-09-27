@@ -7,8 +7,6 @@ describe('operacaoCanonica', () => {
     expect(operacaoCanonica('post', '/estante')).toBe('POST /estante');
   });
 
-  // A query não identifica o efeito de uma escrita; se entrasse, o mesmo
-  // pedido reenviado com outro parâmetro de rastreio escaparia do replay.
   it('descarta a query', () => {
     expect(operacaoCanonica('POST', '/estante?origem=feed')).toBe(
       'POST /estante',
@@ -27,8 +25,6 @@ describe('operacaoCanonica', () => {
     ).toBe(`POST /leituras/${LEITURA}/abandonar`);
   });
 
-  // O id do recurso faz parte do escopo: a mesma chave em outra leitura é
-  // outra operação, não um conflito.
   it('mantém recursos diferentes em escopos diferentes', () => {
     expect(operacaoCanonica('POST', '/leituras/a/finalizar')).not.toBe(
       operacaoCanonica('POST', '/leituras/b/finalizar'),

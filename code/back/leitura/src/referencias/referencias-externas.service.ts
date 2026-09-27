@@ -18,10 +18,6 @@ import type {
   UsuarioSnapshot,
 } from '../leituras/dominio/eventos';
 
-/**
- * Onde a consulta roda: dentro da transação da escrita (para o snapshot do
- * evento ver o mesmo instante do fato) ou no pool, em leitura avulsa.
- */
 export type Executor = DrizzleDB | Tx;
 
 export type TipoLivro = LivroSnapshot['tipo'];
@@ -29,12 +25,9 @@ export type TipoLivro = LivroSnapshot['tipo'];
 export interface LivroReferencia {
   id: string;
   tipo: TipoLivro;
-  /** Só em livro pessoal. */
   donoId: string | null;
   paginas: number;
-  /** Livro pessoal excluído continua na VIEW, inativo. */
   ativo: boolean;
-  /** `livro` dos eventos de F-EST. */
   snapshot: LivroSnapshot;
 }
 
@@ -42,18 +35,9 @@ export type Privacidade = 'publico' | 'privado';
 
 export interface PerfilReferencia {
   privacidade: Privacidade;
-  /** `usuario` dos eventos de F-EST. */
   snapshot: UsuarioSnapshot;
 }
 
-/**
- * Leitura das VIEWs de contrato de `acervo` e `identidade` (arquitetura §4.2).
- *
- * É o único ponto de `leitura` que toca outro schema. Concentrar aqui mantém a
- * tradução coluna → modelo e o tratamento de falha de contrato num lugar só:
- * GRANT faltando ou VIEW ainda não criada é indisponibilidade de dependência,
- * não erro do cliente, e vira 503 em vez de 500 cru (RNF-ERR-01).
- */
 @Injectable()
 export class ReferenciasExternas {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
@@ -91,12 +75,6 @@ export class ReferenciasExternas {
     };
   }
 
-  /**
-   * Livro que o solicitante pode pôr na estante ou ler (SEC-07, RN-15).
-   *
-   * Inexistente e inativo respondem igual; livro pessoal de outro dono é
-   * recusado mesmo que exista, inclusive em Quero ler.
-   */
   async buscarLivroAcessivel(
     livroId: string,
     solicitanteId: string,
@@ -112,11 +90,6 @@ export class ReferenciasExternas {
     return livro;
   }
 
-  /**
-   * Perfil público de um usuário. `null` quando não existe **ou** está suspenso
-   * ou em exclusão pendente — a VIEW já omite esses casos, e o chamador os
-   * trata como inexistentes (RN-08, SEC-03).
-   */
   async buscarPerfil(
     usuarioId: string,
     executor: Executor = this.db,
@@ -143,7 +116,6 @@ export class ReferenciasExternas {
     };
   }
 
-  /** Seguimento aceito `seguidor → seguido` (RN-08). Pendentes não contam. */
   async existeSeguimentoAceito(
     seguidorId: string,
     seguidoId: string,

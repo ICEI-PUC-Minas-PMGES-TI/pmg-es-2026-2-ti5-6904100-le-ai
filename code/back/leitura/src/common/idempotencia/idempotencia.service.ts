@@ -12,33 +12,16 @@ import {
   JANELA_REPLAY_HORAS,
 } from './idempotencia.constantes';
 
-/** O que o handler devolve e o que fica gravado para o replay. */
 export interface RespostaIdempotente<T> {
   status: number;
   corpo: T;
 }
 
 export interface ContextoIdempotente extends EscopoIdempotente {
-  /** Ator autenticado: o escopo da chave é ator + método + caminho canônico. */
   subjectRef: string;
-  /**
-   * O que identifica o efeito: o corpo já validado e normalizado. Os parâmetros
-   * de rota já estão na operação canônica. Reusar a chave com payload diferente
-   * é 409.
-   */
   payload: unknown;
 }
 
-/**
- * Idempotência das escritas HTTP (RNF-ERR-04), sobre `leitura.idempotencia_leitura`.
- *
- * É um serviço chamado pelo handler, **não** um interceptor. Um interceptor
- * global só enxerga a resposta depois do `return`, ou seja, fora da transação:
- * um crash entre o commit do efeito e a gravação do recibo deixaria o efeito
- * aplicado sem recibo, e a repetição da chave produziria um segundo efeito. O
- * recibo precisa ser a última operação da mesma transação, e isso obriga o
- * handler a entregar a função que roda dentro dela.
- */
 @Injectable()
 export class IdempotenciaService {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
@@ -61,11 +44,6 @@ export class IdempotenciaService {
         return resposta;
       });
     } catch (erro) {
-      // Duas requisições com a mesma chave passaram juntas pela leitura acima e
-      // as duas executaram. O segundo INSERT bate no índice único — e, como o
-      // Postgres o faz esperar a transação vencedora commitar, quando o 23505
-      // chega aqui a linha vencedora já está visível. O rollback desfez o efeito
-      // duplicado; basta reler e devolver o replay.
       if (!ehViolacaoDeUnicidade(erro, INDICE_UNICO_IDEMPOTENCIA)) {
         throw erro;
       }
@@ -113,9 +91,6 @@ export class IdempotenciaService {
       throw new ChaveIdempotenciaConflitante();
     }
 
-    // Chave certa, payload certo, mas fora da janela de replay: reexecutar seria
-    // pior do que recusar, porque a resposta original já não existe para ser
-    // devolvida. O cliente gera uma chave nova.
     if (recibo.replayAte.getTime() < Date.now()) {
       throw new ChaveIdempotenciaConflitante();
     }
@@ -135,8 +110,6 @@ export class IdempotenciaService {
       chave: contexto.chave,
       payloadHash,
       statusHttp: resposta.status,
-      // O CHECK `idempotencia_leitura_anonimizacao_ck` exige `resposta` não nula
-      // em linha viva. O 204 de remoção não tem corpo, e grava `{}`.
       resposta: (resposta.corpo ?? {}) as Record<string, unknown>,
       replayAte: sql`now() + interval '${sql.raw(String(JANELA_REPLAY_HORAS))} hours'`,
     });

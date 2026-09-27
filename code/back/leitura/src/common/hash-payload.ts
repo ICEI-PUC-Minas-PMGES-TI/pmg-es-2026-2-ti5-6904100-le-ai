@@ -1,17 +1,5 @@
 import { createHash } from 'node:crypto';
 
-/**
- * Hash canônico do payload de uma escrita idempotente (RNF-ERR-04).
- *
- * `JSON.stringify` puro não serve: ele preserva a ordem de inserção das chaves,
- * então `{a:1,b:2}` e `{b:2,a:1}` — o mesmo pedido, serializado por dois
- * clientes diferentes — gerariam hashes diferentes e o replay viraria um 409
- * espúrio. Aqui as chaves são ordenadas recursivamente antes de serializar.
- *
- * `undefined` e uma chave ausente colapsam no mesmo valor, como no JSON; já
- * `null` é distinto de ausente, e precisa ser: no PATCH de livro pessoal,
- * `sinopse: null` limpa a sinopse e `sinopse` ausente a preserva.
- */
 export function hashDoPayload(payload: unknown): string {
   return `sha256:${createHash('sha256').update(canonicalizar(payload)).digest('hex')}`;
 }

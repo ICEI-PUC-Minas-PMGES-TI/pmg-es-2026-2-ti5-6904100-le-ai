@@ -3,15 +3,6 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { Pool } from 'pg';
 
-/**
- * Fixture de banco: schema `leitura` pelas migrations reais e as VIEWs de
- * contrato dos outros serviços como **tabelas comuns**.
- *
- * As VIEWs de `acervo` e `identidade` não existem num banco que só tem as
- * migrations de `leitura`. Como tabela, a leitura é idêntica — o Drizzle não
- * distingue view de tabela num SELECT — e a massa entra por INSERT direto. As
- * colunas são as de `src/db/contratos-externos.ts`.
- */
 const CONTRATOS_EXTERNOS = `
   CREATE SCHEMA acervo;
   CREATE SCHEMA identidade;
@@ -59,7 +50,6 @@ export async function prepararBanco(): Promise<Pool> {
   return new Pool({ connectionString: process.env.DATABASE_URL });
 }
 
-/** Zera os dados entre testes, mantendo estrutura e migrations. */
 export async function limpar(pool: Pool): Promise<void> {
   await pool.query(`TRUNCATE ${TABELAS_DE_DADOS.join(', ')} CASCADE`);
 }

@@ -1,11 +1,7 @@
 name: job-inatividade
 
-# Agendador do job diario de inatividade (RN-05, P-08): chama o endpoint
-# interno do servico leitura. Fallback, se o schedule nao rodar no Classroom:
-# cron-job.org chamando o mesmo endpoint, sem mudanca no servico.
 on:
   schedule:
-    # 06:00 UTC = 03:00 em Brasilia.
     - cron: '0 6 * * *'
   workflow_dispatch:
     inputs:
@@ -43,8 +39,6 @@ jobs:
           else
             corpo='{}'
           fi
-          # Chave nova por execucao; a retentativa do curl reaproveita a mesma
-          # e recebe o replay em vez de reprocessar.
           chave="$(uuidgen)"
           curl --fail-with-body --silent --show-error \
             --retry 3 --retry-delay 30 --max-time 300 \

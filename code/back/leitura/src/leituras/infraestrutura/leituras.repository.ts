@@ -30,12 +30,10 @@ export interface NovaLeitura {
   usuarioId: string;
   livroId: string;
   releitura: boolean;
-  /** `YYYY-MM-DD` */
   dataInicio: string;
   ultimaAtividadeEm: Date;
 }
 
-/** Campos que as transições de RN-04 alteram na ocorrência. */
 export interface MudancaDeLeitura {
   status: StatusLeitura;
   incompleta?: boolean;
@@ -44,25 +42,11 @@ export interface MudancaDeLeitura {
   finalizacaoFusoHorario?: string;
   finalizacaoDataLocal?: string;
   ultimaAtividadeEm?: Date;
-  /** Atividade que abre um novo ciclo de inatividade (RN-05). */
   novoCicloDeInatividade?: boolean;
 }
 
-/**
- * Acesso a `estante` e `leitura`. Toda escrita recebe `tx`: ocorrência e
- * estante mudam juntas, na transação do recibo de idempotência e da outbox.
- *
- * A ordem de bloqueio é sempre estante → leitura, em todas as operações, para
- * que duas transições concorrentes do mesmo livro se enfileirem em vez de
- * entrarem em deadlock.
- */
 @Injectable()
 export class LeiturasRepository {
-  /**
-   * Cria o vínculo em Quero ler quando ainda não existe. `ON CONFLICT DO
-   * NOTHING` faz a requisição concorrente esperar o commit da outra e seguir
-   * sem erro; o `SELECT ... FOR UPDATE` seguinte já enxerga a linha vencedora.
-   */
   async garantirEstante(
     tx: Tx,
     usuarioId: string,
@@ -101,7 +85,6 @@ export class LeiturasRepository {
     return (linha as EstanteRegistro | undefined) ?? null;
   }
 
-  /** Ocorrência mais recente da estante: é a única que admite transição. */
   async bloquearLeituraMaisRecente(
     tx: Tx,
     estanteId: string,
@@ -128,7 +111,6 @@ export class LeiturasRepository {
     return linha ?? null;
   }
 
-  /** Ocorrência do próprio usuário; a de outro leitor não existe para ele (SEC-02). */
   async buscarLeituraDoUsuario(
     executor: Executor,
     leituraId: string,

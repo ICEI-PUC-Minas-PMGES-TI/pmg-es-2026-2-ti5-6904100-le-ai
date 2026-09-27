@@ -1,11 +1,3 @@
-/**
- * Ambiente dos testes de integração. Roda antes de qualquer import do app,
- * porque `schema.ts` lê `DB_SCHEMA` no carregamento do módulo.
- *
- * `DATABASE_URL_TESTE` aponta para um Postgres descartável — o container local
- * (`docker run ... postgres:17-alpine`) ou o service container do CI. **Nunca**
- * para o Neon: o fixture derruba e recria os schemas a cada arquivo de teste.
- */
 const base = process.env.DATABASE_URL_TESTE;
 if (!base) {
   throw new Error(

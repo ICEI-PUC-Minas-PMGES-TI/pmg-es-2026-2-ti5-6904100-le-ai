@@ -13,9 +13,6 @@ async function bootstrap(): Promise<void> {
 
   configurarApp(app);
 
-  // Contrato OpenAPI em runtime (RNF-ARQ-03), equivalente ao arquivo
-  // versionado em `docs/api/leitura.yaml`, que declara `bearerAuth` como
-  // segurança global.
   const openApi = new DocumentBuilder()
     .setTitle(`Lê Ai — ${config.get<string>('SERVICE_NAME') ?? 'leitura'}`)
     .setDescription('Contrato do serviço leitura.')

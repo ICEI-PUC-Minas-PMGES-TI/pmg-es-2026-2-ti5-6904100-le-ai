@@ -3,24 +3,6 @@ import { sql } from 'drizzle-orm';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 
-/**
- * Massa reproduzível de `leitura` para RNF-TST-08 (parte de F-EST).
- *
- * Cobre os cinco estados visíveis da estante e a releitura incompleta, e grava
- * **somente** no schema `leitura`. Usuários e livros são os ids fixos do seed de
- * `acervo` (`code/back/acervo/src/db/seed.ts`, `SEED_ACERVO`): serviços não
- * importam código um do outro, então os valores são repetidos aqui e precisam
- * continuar iguais aos de lá.
- *
- * - `dono`: Quero ler, Lendo, Lido, Relendo e Abandonado (retomável);
- * - `seguidor`: Lido com uma releitura incompleta (não retomável).
- *
- * Cada linha respeita `leitura_estado_ck` e `leitura_finalizacao_campos_ck`.
- * O seed não grava outbox: é estado inicial, não fato de domínio.
- *
- * Idempotente: rodar duas vezes não duplica nada. Uso: `npm run db:seed` (lê
- * DATABASE_URL do ambiente). Recusa produção.
- */
 export const SEED_LEITURA = {
   usuarios: {
     dono: '5eed0000-0000-4000-8000-000000000001',
@@ -66,11 +48,6 @@ interface EstanteSeed {
   adicionadoEm: string;
 }
 
-/**
- * Ocorrência de leitura. `dataFim` presente significa leitura finalizada: os
- * três campos de finalização são derivados dela, como exige
- * `leitura_finalizacao_campos_ck`.
- */
 interface LeituraSeed {
   id: string;
   estanteId: string;
@@ -224,7 +201,6 @@ const LEITURAS: LeituraSeed[] = [
   },
 ];
 
-/** Fim de tarde em São Paulo do dia `dataFim`, para a data local bater. */
 function instanteDaFinalizacao(dataFim: string): string {
   return `${dataFim}T18:00:00-03:00`;
 }
@@ -242,8 +218,6 @@ export async function semear(db: NodePgDatabase): Promise<void> {
 
     for (const l of LEITURAS) {
       const finalizadaEm = l.dataFim && instanteDaFinalizacao(l.dataFim);
-      // Ocorrência em andamento tem atividade agora, para o job de
-      // inatividade não abandoná-la logo depois do seed em DES.
       const ultimaAtividadeEm =
         l.status === 'lendo'
           ? sql`now()`

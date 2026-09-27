@@ -5,11 +5,6 @@ export interface MappedError {
   status: number;
   codigo: string;
   mensagem: string;
-  /**
-   * Campos que o contrato define para respostas específicas, como `campos` em
-   * `Erro` para falhas de validação. Mesclados no corpo sem
-   * alterar `{ codigo, mensagem, correlationId }` (RNF-ERR-01).
-   */
   extras?: Record<string, unknown>;
 }
 
@@ -60,8 +55,6 @@ const BY_STATUS: Record<number, { codigo: string; mensagem: string }> = {
 };
 
 export function mapError(exception: unknown): MappedError {
-  // Antes do ramo de HttpException: ErroDeNegocio É uma HttpException, e o
-  // mapa por status descartaria o código e a mensagem próprios dela.
   if (exception instanceof ErroDeNegocio) {
     return {
       status: exception.getStatus(),

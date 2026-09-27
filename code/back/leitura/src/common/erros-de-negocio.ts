@@ -1,21 +1,5 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
 
-/**
- * Falha esperada de regra de negócio, com código e mensagem próprios.
- *
- * Porte de `ErroDeNegocio` do serviço `acervo`, pelo mesmo motivo: as mensagens
- * genéricas por status HTTP não servem para todo caso. "Este recurso conflita
- * com um já existente" não ajuda quem tentou finalizar uma leitura já
- * abandonada — a resposta útil diz qual regra de RN-04 barrou a ação.
- *
- * O formato do corpo **não** muda: continua `{ codigo, mensagem, correlationId }`
- * (RNF-ERR-01). `extras` acrescenta campos que o contrato de
- * `docs/api/leitura.yaml` define para respostas específicas — `campos` em
- * `Erro` — e nada mais.
- *
- * **A mensagem é pública.** Ela vai inteira para o cliente, então nunca pode
- * conter stack trace, nome de tabela, SQL ou caminho de arquivo (RNF-SEC-22).
- */
 export class ErroDeNegocio extends HttpException {
   constructor(
     status: number,
@@ -27,7 +11,6 @@ export class ErroDeNegocio extends HttpException {
   }
 }
 
-/** Um campo rejeitado pela validação, no formato de `Erro.campos`. */
 export interface CampoInvalido {
   campo: string;
   mensagem: string;
@@ -60,11 +43,6 @@ export class NaoEncontrado extends ErroDeNegocio {
   }
 }
 
-/**
- * Livro inexistente em `v_livro_referencia_v1` ou inativo (livro pessoal
- * excluído). Os dois casos respondem igual: distinguir diria a um terceiro que
- * aquele id já existiu.
- */
 export class LivroNaoEncontrado extends ErroDeNegocio {
   constructor() {
     super(
@@ -75,10 +53,6 @@ export class LivroNaoEncontrado extends ErroDeNegocio {
   }
 }
 
-/**
- * Livro pessoal de outro leitor (SEC-07, RN-15): não entra na estante nem ganha
- * leitura, mesmo em Quero ler.
- */
 export class LivroPessoalDeTerceiro extends ErroDeNegocio {
   constructor() {
     super(
@@ -89,10 +63,6 @@ export class LivroPessoalDeTerceiro extends ErroDeNegocio {
   }
 }
 
-/**
- * Leitura inexistente **ou de outro leitor** (SEC-02). Responder 403 para a
- * leitura alheia confirmaria que o id existe.
- */
 export class LeituraNaoEncontrada extends ErroDeNegocio {
   constructor() {
     super(
@@ -103,7 +73,6 @@ export class LeituraNaoEncontrada extends ErroDeNegocio {
   }
 }
 
-/** O estado atual da leitura não admite o evento pedido (RN-04). */
 export class TransicaoDeLeituraInvalida extends ErroDeNegocio {
   constructor(
     mensagem = 'Esta leitura não pode realizar essa ação no estado atual.',
@@ -112,11 +81,6 @@ export class TransicaoDeLeituraInvalida extends ErroDeNegocio {
   }
 }
 
-/**
- * Já existe leitura em andamento para o mesmo usuário e livro (RN-04,
- * invariante 1). É o que o índice parcial `leitura_em_andamento_usuario_livro_uk`
- * devolve quando duas requisições concorrentes tentam iniciar (RNF-ARQ-05).
- */
 export class LeituraEmAndamento extends ErroDeNegocio {
   constructor() {
     super(
@@ -127,7 +91,6 @@ export class LeituraEmAndamento extends ErroDeNegocio {
   }
 }
 
-/** Só sai da estante o livro em Quero ler que nunca teve leitura (RN-04). */
 export class EstanteComHistorico extends ErroDeNegocio {
   constructor() {
     super(
@@ -138,7 +101,6 @@ export class EstanteComHistorico extends ErroDeNegocio {
   }
 }
 
-/** Dados bem formados que violam uma regra de negócio (422 do contrato). */
 export class RegraDeNegocioViolada extends ErroDeNegocio {
   constructor(mensagem: string) {
     super(
@@ -149,12 +111,6 @@ export class RegraDeNegocioViolada extends ErroDeNegocio {
   }
 }
 
-/**
- * Mesma `Idempotency-Key` reaproveitada com outro corpo (RNF-ERR-04).
- *
- * Diferente de repetir a chave com o mesmo corpo, que devolve a resposta
- * original sem novo efeito.
- */
 export class ChaveIdempotenciaConflitante extends ErroDeNegocio {
   constructor() {
     super(

@@ -9,7 +9,6 @@ import { inserirLivro, inserirPerfil } from './massa';
 const ROTA = '/internal/jobs/inatividade';
 const TOKEN = process.env.SCHEDULER_TOKEN as string;
 const INICIO = '2026-01-01';
-/** Atividade no meio do dia: a contagem é por dia de calendário. */
 const ATIVIDADE = '2026-01-01T15:30:00Z';
 
 function dia(base: string, deslocamento: number): string {
@@ -18,11 +17,6 @@ function dia(base: string, deslocamento: number): string {
   return data.toISOString().slice(0, 10);
 }
 
-/**
- * Job de inatividade RN-05 contra Postgres real, pela rota HTTP: limiares
- * 20/30/40, deduplicação semântica por `limiar_inatividade`, novo ciclo após
- * atividade e abandono automático de primeira leitura e de releitura.
- */
 describe('job de inatividade RN-05 (integração)', () => {
   let pool: Pool;
   let app: NestExpressApplication;
@@ -42,7 +36,6 @@ describe('job de inatividade RN-05 (integração)', () => {
     ultimaAtividadeEm?: string;
   }
 
-  /** Estante + ocorrência em andamento, como a fatia de leitura as grava. */
   async function leituraEmAndamento(semente: Semente = {}) {
     const usuarioId = novoUsuario();
     const livroId = await inserirLivro(pool);
@@ -217,7 +210,6 @@ describe('job de inatividade RN-05 (integração)', () => {
         limiarDias: 20,
         livro: { id: livroId, tipo: 'oficial' },
       });
-      // Risco não muda a leitura.
       const {
         rows: [leitura],
       } = await pool.query('SELECT status FROM leitura.leitura WHERE id = $1', [
