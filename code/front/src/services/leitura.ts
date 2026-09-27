@@ -64,7 +64,22 @@ export function createLeituraService(options: ApiClientOptions = {}) {
     })
   }
 
-  return { obterMinhaAvaliacao, salvarNota, excluirNota }
+  function salvarResenha(livroId: string, texto: string, spoiler: boolean, chave: string): Promise<Resenha> {
+    return request<Resenha>(`${caminhoDoLivro(livroId)}/resenha`, {
+      method: 'PUT',
+      json: { texto, spoiler },
+      idempotencyKey: chave,
+    })
+  }
+
+  async function excluirResenha(livroId: string, chave: string): Promise<void> {
+    await request<void>(`${caminhoDoLivro(livroId)}/resenha`, {
+      method: 'DELETE',
+      idempotencyKey: chave,
+    })
+  }
+
+  return { obterMinhaAvaliacao, salvarNota, excluirNota, salvarResenha, excluirResenha }
 }
 
 export type LeituraService = ReturnType<typeof createLeituraService>

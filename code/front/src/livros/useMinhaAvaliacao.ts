@@ -78,7 +78,20 @@ export function useMinhaAvaliacao(opcoes: { servico?: LeituraService } = {}) {
     avaliacao.value = { livroId, resenha: resenha.value, nota: null }
   }
 
-  return { estado, avaliacao, nota, resenha, carregar, salvarNota, removerNota }
+  /** Publica ou salva a resenha. Lança o erro da API para o editor preservar o texto. */
+  async function salvarResenha(texto: string, spoiler: boolean): Promise<void> {
+    const salva = await servico.salvarResenha(livroId, texto, spoiler, chaveDa('resenha', `${spoiler}|${texto}`))
+    avaliacao.value = { livroId, nota: nota.value, resenha: salva }
+    estado.value = 'pronta'
+  }
+
+  /** Exclui a resenha depois da confirmação irreversível (RNF-USA-04). A nota não é afetada. */
+  async function excluirResenha(): Promise<void> {
+    await servico.excluirResenha(livroId, chaveDa('exclusao', resenha.value?.id ?? ''))
+    avaliacao.value = { livroId, nota: nota.value, resenha: null }
+  }
+
+  return { estado, avaliacao, nota, resenha, carregar, salvarNota, removerNota, salvarResenha, excluirResenha }
 }
 
 export type MinhaAvaliacaoDoLivro = ReturnType<typeof useMinhaAvaliacao>

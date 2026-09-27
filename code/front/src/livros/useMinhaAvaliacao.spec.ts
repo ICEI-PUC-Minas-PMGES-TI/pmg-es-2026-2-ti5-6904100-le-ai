@@ -13,6 +13,16 @@ function servicoFalso(inicial: MinhaAvaliacao = { livroId: 'l1', nota: null, res
     obterMinhaAvaliacao: vi.fn().mockResolvedValue(inicial),
     salvarNota: vi.fn<LeituraService['salvarNota']>(async (livroId, valor) => nota(valor, livroId)),
     excluirNota: vi.fn().mockResolvedValue(undefined),
+    salvarResenha: vi.fn<LeituraService['salvarResenha']>(async (livroId, texto, spoiler) => ({
+      id: 'r1',
+      usuarioId: 'u1',
+      livroId,
+      texto,
+      spoiler,
+      criadoEm: '2026-09-12T12:00:00Z',
+      atualizadoEm: '2026-09-12T12:00:00Z',
+    })),
+    excluirResenha: vi.fn().mockResolvedValue(undefined),
   } satisfies LeituraService
 }
 
