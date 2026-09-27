@@ -297,6 +297,10 @@ Estado exclusivo do mobile, de RNF-ERR-05. Não existe na web.
 
 ---
 
+### 4.9 Modo edição · incorporado em 27/09/2026
+
+A mesma sobreposição serve para editar a atualização mais recente, e só ela. Abre com os campos preenchidos com a página e o tempo do registro, o título `Editar progresso` e o botão `Salvar alterações`. A faixa válida da página parte da página anterior ao registro, e o helper cita essa página. O tempo continua opcional; registro sem tempo abre com os dois campos vazios. Uma lista alterada em outro lugar recarrega as atualizações e mostra o aviso de lista desatualizada.
+
 ## 5. Artboards web (1440 x 900)
 
 Na web o painel é **dialog centrado**, conforme `documento-de-design.md` §5.4.
@@ -375,11 +379,18 @@ Nos três, os shadows ficam com **metade da opacidade**: no escuro a hierarquia 
 | Derivado | `Você leu 24 páginas` |
 | Erro, página baixa demais | `Você já está na página 148. Informe uma página maior.` |
 | Erro, página alta demais | `O livro tem 264 páginas. Informe uma página até 264.` |
+| Erro, página ausente · incorporado em 27/09/2026 | `Informe a página em que parou, em número inteiro.` |
+| Erro, tempo inválido · incorporado em 27/09/2026 | `Informe o tempo em horas e minutos inteiros.` |
+| Erro, tempo acima do máximo · incorporado em 27/09/2026 | `Informe até 12 horas de leitura por registro.` |
+| Erro, lista desatualizada · incorporado em 27/09/2026 | `Suas atualizações mudaram em outro lugar. Recarregamos a lista para você conferir.` |
 | Erro de envio | `Não foi possível salvar. Verifique sua conexão e tente de novo.` |
 | Aviso offline | `Registro salvo no aparelho. Será enviado quando você voltar a ficar online.` |
 | Botão primário | `Salvar` |
 | Botão primário em salvamento | `Salvando` |
 | Botão textual | `Cancelar` |
+| Título, modo edição · incorporado em 27/09/2026 | `Editar progresso` |
+| Helper do campo 1, modo edição · incorporado em 27/09/2026 | `Entre 149 e 264. O registro anterior é da página 148.` |
+| Botão primário, modo edição · incorporado em 27/09/2026 | `Salvar alterações` |
 
 Zero em-dash em toda a copy. Zero emoji. Nenhum número aparece sem unidade, e as duas mensagens de erro citam o número concreto do caso em vez de descrever a regra no abstrato.
 

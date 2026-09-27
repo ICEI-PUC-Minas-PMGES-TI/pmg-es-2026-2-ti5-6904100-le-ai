@@ -1,6 +1,6 @@
 # REQUISITOS
 
-**Versão:** v1.5 — 15/09/2026
+**Versão:** v1.6 — 27/09/2026
 **Baseline:** fechada em 25/08/2026
 **Status:** baseline fechada — decisões de dados aprovadas pelo grupo incorporadas em 15/09/2026 (ver Timeline)
 
@@ -149,7 +149,7 @@ Páginas de autor, editora e série **não são perfis**: não têm dono, não r
 
 | ID | Requisito | Pri | Web |
 |---|---|---|---|
-| RF-PRG-01 | O leitor deve poder registrar uma atualização de progresso informando **em qual página parou** e **quanto tempo gastou**. | E | ✅ |
+| RF-PRG-01 | O leitor deve poder registrar uma atualização de progresso informando **em qual página parou** e, opcionalmente, **quanto tempo gastou**. | E | ✅ |
 | RF-PRG-02 | O sistema deve calcular e exibir a **página atual** e o **percentual concluído** da leitura a partir das atualizações registradas. | E | ✅ |
 | RF-PRG-03 | O leitor deve poder visualizar suas atualizações de progresso de uma leitura em andamento, **editar somente a última** e excluir um registro intermediário **somente junto de todos os posteriores**, recalculando-se a página atual e os efeitos derivados (RN-17). | E | ✅ |
 | RF-PRG-04 | O sistema deve rejeitar atualização cuja página informada seja **menor ou igual à página atual** da leitura ou **maior que o total de páginas** do livro. | E | ✅ |
@@ -166,7 +166,7 @@ Há **duas formas de registrar progresso**. Ambas usam a mesma entrada de págin
 
 | Forma | Página | Tempo |
 |---|---|---|
-| **Manual** (RF-PRG-01) | Informada pelo leitor | Informado pelo leitor |
+| **Manual** (RF-PRG-01) | Informada pelo leitor | Informado pelo leitor (opcional) |
 | **Sessão cronometrada** (RF-PRG-05 a RF-PRG-10) | Informada pelo leitor ao encerrar | Medido pelo aplicativo |
 
 **Páginas lidas** e **percentual concluído** são sempre valores **derivados**, calculados pelo sistema e apenas exibidos, nunca informados pelo leitor (RN-17). O percentual não é entrada porque o cálculo dos desafios depende de páginas e de minutos.
@@ -1078,6 +1078,12 @@ Registrado explicitamente para evitar reabertura de discussão:
 ---
 
 ## 12. Timeline
+
+### v1.6 — Alteração 27/09/2026: tempo opcional no progresso manual
+
+- **RF-PRG-01:** o tempo gasto passa a ser opcional, conforme o protótipo; ausente é registrado como 0 (não informado), e o resumo do progresso expõe o total de minutos da leitura.
+- **Aviso de ritmo:** o limiar fica em 40 páginas acima da média de páginas lidas por registro do leitor naquela leitura, calculado no cliente.
+- **Impacto:** F-PRG (OpenAPI de `leitura`, schema `progresso.registrado.v1` com `minutos` a partir de 0); sem mudança de dados.
 
 ### v1.5 — Alteração 15/09/2026: decisões do grupo após revisão do DER
 

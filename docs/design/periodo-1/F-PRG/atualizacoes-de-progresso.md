@@ -291,6 +291,7 @@ O caso que justifica RN-17.4 existir. É o artboard mais importante desta tela.
 - Abaixo desse item, dentro da mesma linha e antes do divisor, um aviso em `caption` `ambar`, com `Warning` (Phosphor, `regular`, 16px, `ambar`) à esquerda: `102 páginas em 15 minutos. Se você digitou errado, exclua este registro para voltar à página 148.`
 - O aviso aparece quando o ritmo do registro é muito acima da média do leitor, e é **informativo, não bloqueante**: nada impede que ele tenha lido rápido mesmo. Por isso `ambar` e não `rubi`, e por isso a copy pergunta em vez de afirmar.
 - O ícone `Trash` daquele item recebe cor `ambar` no lugar de `grafite`, para ligar o aviso à ação que o resolve.
+- Regra do limiar · incorporado em 27/09/2026: o aviso aparece quando as páginas lidas do registro passam em 40 páginas ou mais a média de páginas lidas dos outros registros carregados da mesma leitura (média zero quando não há outros). Registro sem tempo informado usa a variante sem minutos do aviso.
 
 ### 4.3 Confirmação de exclusão
 
@@ -433,6 +434,12 @@ Nos três, os shadows ficam com **metade da opacidade**: no escuro a hierarquia 
 | Vazio, botão | `Registrar progresso` |
 | Erro, texto | `Não foi possível carregar suas atualizações. Verifique sua conexão e tente de novo.` |
 | Erro, botão | `Tentar de novo` |
+| Aviso de ritmo, registro sem tempo · incorporado em 27/09/2026 | `102 páginas de uma vez. Se você digitou errado, exclua este registro para voltar à página 148.` |
+| Item sem tempo informado · incorporado em 27/09/2026 | `24 páginas` no item da lista; célula de tempo vazia na tabela |
+| Rótulo do botão excluir · incorporado em 27/09/2026 | `Excluir a atualização da página 172` |
+| Ação de editar, só na atualização mais recente · incorporado em 27/09/2026 | ícone `PencilSimple` com o rótulo `Editar a atualização da página 172` |
+| Confirmação, alcance · incorporado em 27/09/2026 | `Esta atualização e a seguinte serão excluídas.`, `Esta atualização e as 2 seguintes serão excluídas.` |
+| Link a partir da estante e da página do livro · incorporado em 27/09/2026 | `Ver atualizações` |
 
 Zero em-dash em toda a copy. Zero emoji. Todo número traz a unidade, inclusive os zeros do estado vazio, que são contagens reais e não valores ausentes.
 
