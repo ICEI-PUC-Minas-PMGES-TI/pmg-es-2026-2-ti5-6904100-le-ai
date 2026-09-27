@@ -2,6 +2,7 @@
 
 **Período:** 1 · **Prioridade:** prioritaria
 **Dono:** Vicenzo Fonseca · **Serviços afetados:** `acervo` (base de dados) + **script utilitário de carga** (fora dos 4 serviços)
+**Situação:** entregue, **em revisão** (aguarda o aval dos professores para ser marcada como concluída no GitHub Projects) desde 27/09/2026
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.2 (RF-ACV-13, 20), RN-12, RN-21, §10.1. Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §2.1, §2.2, §4.1. Processo e template: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §9. Em caso de conflito, o `REQUISITOS.md` ganha.
 
@@ -58,7 +59,7 @@ O modelo físico está versionado em `code/back/acervo/drizzle/0001_202609161107
 
 ## Critérios de aceite
 
-- [x] O script filtra o dump **no nível da edição** (português, ISBN-13, total de páginas, capa) e carrega por `COPY` em streaming, sem subir o dump bruto ao Neon. *Implementado e testado contra a amostra; a execução contra o dump real ainda não aconteceu.*
+- [x] O script filtra o dump **no nível da edição** (português, ISBN-13, total de páginas, capa) e carrega por `COPY` em streaming, sem subir o dump bruto ao Neon. *Implementado, testado contra a amostra e executado contra o dump real em 24/09/2026.*
 - [x] Autor, editora e série são **normalizados** (RN-12), com a **tabela de sinônimos** de editoras aplicada. Edição sem `authors` recebe o primeiro autor da obra, com o mesmo critério do importador por ISBN.
 - [x] URL de capa **externa** é persistida em todo livro; sinopse e nota geral **não** são carregadas.
 - [x] Assuntos são mapeados para o **conjunto curado (31)** pela tabela de mapeamento; tags sem correspondência são **descartadas** e não criam assunto novo (RN-21). O teto de 5 por livro é aplicado na fase de resolução.
@@ -68,7 +69,7 @@ O modelo físico está versionado em `code/back/acervo/drizzle/0001_202609161107
 - [x] `v_livro_referencia_v1` está versionada e implantada com exatamente `livro_id`, `tipo`, `dono_id`, `paginas`, `titulo`, `autor_exibicao`, `capa_resolvida`, `ativo`, sem expor tabelas cruas.
 - [x] Reexecutar a mesma amostra não duplica livro, autor, editora, série ou assunto; ISBN-13 e `ol_edition_key` sustentam a deduplicação. *Provado contra Postgres em 22/09/2026: a segunda carga da amostra insere zero livros e todas as contagens ficam iguais.*
 - [x] A amostra reproduzível fornece ao menos livros oficiais suficientes para o seed transversal de RNF-TST-08, sem depender do dump completo. *16 edições aceitas e 8 descartadas, uma por motivo de descarte; a 15ª é uma edição sem `authors` cuja obra lista autora e tradutor, e a 16ª tem como autor só o marcador `[author not identified]`.*
-- [ ] A base carregada é consultável por [F-ACV-BUSCA](feature-F-ACV-BUSCA.md) **em DES**.
+- [ ] A base carregada é consultável por [F-ACV-BUSCA](feature-F-ACV-BUSCA.md) **em DES**. *Entra no merge de fechamento do Período 1: a `main` só recebe o período fechado, e o DES sobe da `main`.*
 
 ## Definition of Done
 
@@ -79,7 +80,7 @@ O modelo físico está versionado em `code/back/acervo/drizzle/0001_202609161107
 - [x] Testes unitários e de integração contra banco real/container: normalização de editora/autor/série (RN-12), mapeamento de assuntos (RN-21), descarte de registro inválido, deduplicação em recarga da amostra e contrato da VIEW (RNF-TST-02/08) — 96 unitários e 7 de banco (`tests/test_carga_banco.py`, marcados `banco`), com Postgres descartável no CI e as migrations reais de `acervo`; os dois últimos provam que a edição sem autor vincula só a autora da obra, nunca o tradutor, e que o marcador de catálogo cede lugar ao autor da obra
 - [x] Teste operacional da amostra cobre registro de `ingestao_execucao`, totais coerentes, falha sem carga parcial silenciosa e reexecução idempotente; testes de broker são **N/A**, pois o dump não usa mensageria — um candidato corrompido depois da fase 1 derruba a carga no INSERT de livro, nada entra (nem as editoras gravadas antes) e a execução fica registrada como `falha`
 - [x] **Spec OpenAPI de `acervo` atualizado em `docs/api/acervo.yaml`** — não há endpoint de ingestão; o contrato desta feature é `v_livro_referencia_v1`, conferido em 22/09/2026 em `x-database-contracts` de `acervo.yaml` com `status: implemented`, consumidores `leitura` e `social` e exatamente as oito colunas da VIEW implantada. Os endpoints ficam em [F-ACV-BUSCA](feature-F-ACV-BUSCA.md)/[F-ACV-CADASTRO](feature-F-ACV-CADASTRO.md)
-- [~] Fluxo funcionando em DES/HML — **acervo carregado em 24/09/2026** no Neon `leai-db-prd` que os serviços usam (~11 k livros); falta o consumo em DES por [F-ACV-BUSCA](feature-F-ACV-BUSCA.md), ainda não implementada ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
+- [~] Fluxo funcionando em DES/HML — entra no merge de fechamento do Período 1, não é pendência da feature. **Acervo carregado em 24/09/2026** no Neon `leai-db-prd` que os serviços usam (~11 k livros); falta o consumo em DES por [F-ACV-BUSCA](feature-F-ACV-BUSCA.md), ainda não implementada ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
 - [x] Arquivo da feature atualizado: status, pendências, timeline
 - [ ] Divergência protótipo × implementação registrada, se houver (N/A — sem UI)
 
@@ -103,6 +104,8 @@ O modelo físico está versionado em `code/back/acervo/drizzle/0001_202609161107
 - **A conferência dos dados curados é a primeira coisa a rodar.** `python -m leai_ingestao conferir` valida os três CSV entre si sem tocar o banco: slug que não deriva do nome violaria o CHECK, tag fora da forma normalizada nunca casaria em runtime, e mapeamento apontando para assunto inexistente violaria a FK — os três só apareceriam no meio de uma carga de horas.
 
 ## Timeline
+
+### Em revisão 27/09/2026: com a carga real concluída e a validação visual de [F-ACV-CADASTRO](feature-F-ACV-CADASTRO.md) no mobile, a feature foi movida para **Em revisão** no GitHub Projects; só passa a concluída com o aval dos professores. O consumo em DES fica para o merge de fechamento do Período 1, porque a `main` só recebe o período fechado.
 
 ### Carga real 24/09/2026: primeira execução contra o dump real do OpenLibrary, na máquina de casa. Os três dumps foram baixados (edições 11,7 GB, obras 3,8 GB, autores 0,7 GB) e processados em streaming, sem subir nada bruto ao Neon. O `filtrar` leu as **56.728.501** edições do dump completo e aceitou **11.010** (descarte por motivo: 56.253.539 outro idioma, 280.111 sem ISBN-13, 91.175 sem capa, 88.223 sem páginas, 3.825 sem título, 455 autopublicação, 163 duplicadas). **Isso é o universo elegível inteiro** — o `--limite 25000` nunca foi atingido, então não há "resto" a carregar. A carga saiu em duas execuções idempotentes (`ingestao_execucao`): uma de fumaça com 1.000 e a do restante, terminando com **11.011 livros oficiais** no `leai-db-prd`, **8.126 autores, 2.692 editoras, 1.374 séries**; zero livros sem capa ou sem páginas e o teto de 5 assuntos por livro respeitado. **RNF-DES-04 validado:** o schema `acervo` ficou em **~11 MB** (dados+índice, `livro` 2,6+2,8 MB, o índice já sendo o custo dominante — RNF-DES-05), ~11% do teto de 20% do plano de 500 MB (~2,2% do plano) — muito abaixo do limite. **Curadoria de assuntos ajustada antes da carga** a pedido do grupo (Ana Luiza; commit `chore(ingestao)`): **Thriller** virou assunto próprio, separado de Suspense (31 no total), e **autobiografia** passou de Memórias para **Biografia**; a distribuição resultante inclui Biografia 486, Suspense 88, Thriller 73, Memórias 44, com História no topo. Falta apenas o consumo por [F-ACV-BUSCA](feature-F-ACV-BUSCA.md), que ainda não foi implementada.
 
