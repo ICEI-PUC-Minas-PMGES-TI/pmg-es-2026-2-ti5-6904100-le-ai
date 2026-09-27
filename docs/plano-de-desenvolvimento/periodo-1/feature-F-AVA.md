@@ -117,7 +117,19 @@ O feed não consome VIEW de resenha; consome exclusivamente `resenha.publicada`.
   - Perfil: "Ver mais resenhas" carrega a próxima página na própria seção, no lugar de uma página "Ver todas" separada. Com spoiler, terceiros veem o bloco oculto com `Mostrar mesmo assim`.
   - Contagem de caracteres por code point: emoji composto (👍🏽, ❤️) conta mais de 1, igual nos três lados.
   - 404, nunca 403, para livro inacessível; DELETE sem nada para apagar responde 204 sem evento; nota com o mesmo valor não gera evento.
+  - **Os DELETE não conferem o livro** (27/09, depois da validação): apagam só o que é do leitor, e remover nota ou resenha continua possível depois que o livro fica inativo (RN-06, RF-AVA-04). Antes, um livro pessoal excluído deixava nota e resenha presas para sempre.
+  - Contrato do `leitura` com 413 (`CORPO_MUITO_GRANDE`), 429 e 503 nas operações de F-AVA; `page` de 1 a 10.000; texto só com caracteres invisíveis ou com o caractere nulo é 422; token sem `exp` é 401; ids de caminho em minúsculas.
+  - Copy nova, nos dois clientes: "Não foi possível remover sua nota. Verifique sua conexão e tente de novo."
+  - Resenhas do perfil: 5 por página, com "Ver mais resenhas" trazendo mais 5; o design mostra 2 e um "Ver todas".
+  - Com spoiler ligado e texto acima do limite, só o erro de limite aparece (ele é o que bloqueia).
+  - Web, componentes compartilhados do P0-DS usados como estão: o painel de nota (`SobreposicaoModal`) tem fundo `papel` e raio 24, não `papel-elevado` e raio 20; as confirmações (`DialogoConfirmacao`) têm 360px, não 400, e abaixo de 768px abrem como folha inferior, não como dialog de 320px; abaixo de 768px o título "Resenha" do editor (`CabecalhoTela`) sai em `display` à esquerda, não em `title` centralizado; e o `Publicar` desabilitado é `grafite` a 60%, não `grafite-suave`. Mudar esses componentes mexe no app inteiro, então fica para o grupo.
   - O texto `ambar` sobre `ambar-fundo` do toggle de spoiler fica abaixo do AA (RNF-USA-03); o peso 600 e o ícone reforçam o estado. Pendência de design.
+- **Validação independente (27/09):** três agentes de contexto limpo (backend, web, mobile) conferiram F-AVA contra requisitos, contrato e design. Corrigidos no mesmo dia: chave de idempotência reaproveitada depois de um sucesso nos dois clientes (dar a mesma nota depois de remover não gravava nada); editor web liberado vazio quando a resenha salva não carregou; `Esc` de modal saindo do editor; foco perdido depois de "Mostrar mesmo assim"; resenhas do perfil no mobile que não recarregavam; voltar do Android durante o envio; semântica sem ação de toque no toggle e na linha de estrelas; título em Roboto no mobile; exclusão em livro inativo; URL de capa com acento, caractere nulo, `page` enorme e corpo grande dando 500. Continuam em aberto:
+  - Conta suspensa (fora de `v_perfil_referencia_v1`) ainda dá nota durante a vida do token, enquanto a resenha já responde 403.
+  - `/docs` e `/docs-json` públicos também em produção, como no acervo.
+  - No card do perfil (web), o trecho truncado não é anunciado como truncado (`meu-perfil.md` §9).
+  - Testes de F-AVA no mobile cobrem 500 e 503, mas timeout e queda de rede só no `api_client_test`.
+  - Para outras features, só avisado: no feed (F-FEED, Kayke), o botão "Ler resenha" de `ItemAtividade.vue` não faz nada; em `cadastro_isbn_page.dart:324` (F-ACV-CADASTRO, Vicenzo), `textTheme.titleSmall` não existe no tema e sai em Roboto; no `acervo`, corpo acima de 100 KB dá 500 e token sem `exp` é aceito (mesma infra que o `leitura` corrigiu). O ajudante de teste `montarNaRota` ganhou o parâmetro opcional `historico: 'navegador'`.
 - **Compartilha `leitura` com [F-EST](feature-F-EST.md) e [F-PRG](feature-F-PRG.md)** — sinalizar no grupo antes de mexer no serviço (plano §6).
 - **Ficam fora (Período 2):** curtir/descurtir e contadores de resenha (RF-AVA-05/08), frases/trechos (RF-AVA-06/07, RN-11), **Markdown** (RF-AVA-09, RN-13) — todos **F-AVA-2**. No Período 1 a resenha é **texto puro**; nada de parser Markdown ainda.
 - A **projeção nota dos leitores** e a **nota geral** (RF-ACV-15/16) são **F-ACV-NOTA** (Período 2). Antes de consumir novos `nota.alterada`, essa feature deve fazer backfill de `v_nota_publicacao_v1`, pois eventos do Período 1 não são presumidos retidos.
@@ -129,6 +141,8 @@ O feed não consome VIEW de resenha; consome exclusivamente `resenha.publicada`.
 - **A área de texto da resenha é exceção declarada ao input do design §4.2:** sem borda e sem fundo próprio, em Newsreader, ocupando o corpo da tela. O §4.2 define o campo curto com borda e fundo `papel-elevado`, que não serve a texto de 5.000 caracteres.
 
 ## Timeline
+
+### 27/09/2026: validação independente. Três agentes de contexto limpo validaram backend, web e mobile; os defeitos confirmados foram corrigidos no mesmo dia (lista em Pendências). Testes: `leitura` 96 unitários e 92 de integração, web 452, mobile 302, todos passando.
 
 ### 27/09/2026: teste manual e merge. Testado na web (Edge automatizado, desktop e celular) e no mobile (emulador Pixel 8), com identidade, acervo e leitura locais sobre o banco de dev: nota 0 distinta de "Sem nota", 4,5, remover com confirmação, resenha com spoiler, contador, descarte, edição sem segundo `resenha.publicada` (conferido na outbox), exclusão, recriação com id novo, perfil próprio com resenha de livro pessoal, perfil de outra conta com spoiler escondido até revelar. Três correções: o editor web ficava editável antes de a resenha salva chegar (o texto digitado era trocado por ela); no mobile, o painel de nota não cobria a barra inferior e a área de texto do editor tinha a borda do tema. `JWT_SECRET` do `leai-leitura` configurado no Render. Fatias 1 a 4 mergeadas na `desenvolvimento`.
 
