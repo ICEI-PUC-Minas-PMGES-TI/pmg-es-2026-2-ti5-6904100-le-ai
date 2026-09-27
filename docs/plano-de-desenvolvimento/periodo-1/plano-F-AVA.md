@@ -5,8 +5,8 @@
 ## Andamento
 
 - **Fatia 0 (infra do `leitura`): concluída e na `desenvolvimento` em 27/09/2026.** CI verde.
-- **Fatias 1, 2 e 3 (nota, resenha, perfil): concluídas em 27/09 na `renato-features`**, nos três lados, com CI verde. O merge na `desenvolvimento` espera a revisão do Kayke nos commits do `social` (migration de autor anulável e feed).
-- **Fatia 4:** contrato marcado como implementado e conferido contra o `/docs`; `AGENTS.md` do `leitura` e do `social`, histórico da mensageria e arquivo da feature atualizados. **Falta DES**, que depende do PR `desenvolvimento → main` e do `JWT_SECRET` do `leai-leitura` no Render.
+- **Fatias 1, 2 e 3 (nota, resenha, perfil): concluídas e na `desenvolvimento` em 27/09**, nos três lados, com CI verde e teste manual na web e no mobile. O Renato decidiu mergear sem esperar a revisão do Kayke nos commits do `social` (migration de autor anulável e feed); a revisão continua pendente.
+- **Fatia 4:** contrato marcado como implementado e conferido contra o `/docs`; `AGENTS.md` do `leitura` e do `social`, histórico da mensageria e arquivo da feature atualizados. **Falta DES**, que depende do PR `desenvolvimento → main`. O `JWT_SECRET` do `leai-leitura` já está no Render (27/09); o do `leai-acervo` e o do `leai-social` faltam.
 - **`common-v1`:** corrigido em 26/09 por decisão do Renato (autor anulável), a comunicar ao grupo; cópias do identidade e do social atualizadas no mesmo commit.
 - **Diferenças do que foi implementado em relação ao texto abaixo:**
   - **Editor no mobile:** abre no navegador raiz, acima do shell, em vez de uma rota com `parentNavigatorKey`. Esconde a barra inferior sem mexer no `router.dart`.
