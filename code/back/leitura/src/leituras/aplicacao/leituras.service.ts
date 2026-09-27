@@ -45,6 +45,10 @@ import {
   type UsuarioSnapshot,
 } from '../dominio/eventos';
 import {
+  dataLocal,
+  PERCENTUAL_MAXIMO,
+} from '../../progresso/dominio/progresso';
+import {
   type EstanteRegistro,
   type LeituraRegistro,
   LeiturasRepository,
@@ -53,7 +57,6 @@ import {
 export const FUSO_HORARIO_PADRAO = 'America/Sao_Paulo';
 
 const INDICE_LEITURA_EM_ANDAMENTO = 'leitura_em_andamento_usuario_livro_uk';
-const PERCENTUAL_MAXIMO = 100;
 
 export interface OpcoesDeAbandono {
   automatico: boolean;
@@ -72,15 +75,6 @@ interface TransicaoAplicada {
   estante: EstanteRegistro;
   atual: LeituraRegistro;
   transicao: Transicao;
-}
-
-export function dataNoFuso(instante: Date, fusoHorario: string): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: fusoHorario,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(instante);
 }
 
 @Injectable()
@@ -147,7 +141,7 @@ export class LeiturasService {
         const alvo = await this.leituraPropria(tx, leituraId, usuarioId);
         const agora = new Date();
         const fuso = entrada.fusoHorarioDispositivo;
-        const hojeNoFuso = dataNoFuso(agora, fuso);
+        const hojeNoFuso = dataLocal(agora, fuso);
         const dataFim = entrada.dataFim ?? hojeNoFuso;
         if (dataFim < alvo.dataInicio) {
           throw new EntidadeInvalida([
@@ -352,8 +346,8 @@ export class LeiturasService {
         );
         const agora = new Date();
         const dataInicio =
-          entrada.dataInicio ?? dataNoFuso(agora, FUSO_HORARIO_PADRAO);
-        if (dataInicio > dataNoFuso(agora, FUSO_HORARIO_PADRAO)) {
+          entrada.dataInicio ?? dataLocal(agora, FUSO_HORARIO_PADRAO);
+        if (dataInicio > dataLocal(agora, FUSO_HORARIO_PADRAO)) {
           throw new EntidadeInvalida([
             {
               campo: 'dataInicio',

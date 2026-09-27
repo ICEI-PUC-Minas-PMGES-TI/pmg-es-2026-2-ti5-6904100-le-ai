@@ -5,10 +5,8 @@ import request from 'supertest';
 import { als } from '../../src/common/als';
 import { DRIZZLE, type DrizzleDB } from '../../src/db/drizzle.module';
 import { TIPO_EVENTO } from '../../src/leituras/dominio/eventos';
-import {
-  dataNoFuso,
-  LeiturasService,
-} from '../../src/leituras/aplicacao/leituras.service';
+import { LeiturasService } from '../../src/leituras/aplicacao/leituras.service';
+import { dataLocal } from '../../src/progresso/dominio/progresso';
 import { criarApp, novoUsuario, tokenDe } from './app';
 import { contar, limpar, prepararBanco } from './banco';
 import { inserirLivro, inserirPerfil } from './massa';
@@ -142,7 +140,7 @@ describe('ciclo de leitura (integração)', () => {
         dataFim: null,
         finalizadaEm: null,
       });
-      expect(leitura.dataInicio).toBe(dataNoFuso(new Date(), FUSO));
+      expect(leitura.dataInicio).toBe(dataLocal(new Date(), FUSO));
       expect(await estanteDe(usuario, livroId)).toEqual({
         status: 'lendo',
         vezes_lido: 0,
@@ -217,7 +215,7 @@ describe('ciclo de leitura (integração)', () => {
         vezesLido: 1,
         retomavel: false,
         finalizacaoFusoHorario: 'Asia/Tokyo',
-        finalizacaoDataLocal: dataNoFuso(new Date(), 'Asia/Tokyo'),
+        finalizacaoDataLocal: dataLocal(new Date(), 'Asia/Tokyo'),
       });
       expect(
         new Date(lida.finalizadaEm as string).getTime(),
@@ -248,7 +246,7 @@ describe('ciclo de leitura (integração)', () => {
 
       const lida = await finalizar(usuario, iniciada.id);
 
-      expect(lida.dataFim).toBe(dataNoFuso(new Date(), FUSO));
+      expect(lida.dataFim).toBe(dataLocal(new Date(), FUSO));
     });
 
     it('recusa data de fim anterior ao início com 422, sem transição', async () => {
