@@ -127,7 +127,8 @@ class ResenhaDoDono {
       autorNome: json['autorNome'] as String,
       autorAvatarUrl: json['autorAvatarUrl'] as String?,
       texto: json['texto'] as String,
-      spoiler: json['spoiler'] as bool? ?? false,
+      // Campo ausente fica fechado: abrir um spoiler por engano não tem volta.
+      spoiler: json['spoiler'] as bool? ?? true,
       atualizadoEm: DateTime.parse(json['atualizadoEm'] as String),
     );
   }
