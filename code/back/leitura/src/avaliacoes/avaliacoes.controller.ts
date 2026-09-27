@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiHeader,
   ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
@@ -20,6 +21,7 @@ import type { Response } from 'express';
 import { UsuarioAtual } from '../auth/usuario-atual.decorator';
 import type { UsuarioAutenticado } from '../auth/usuario-autenticado';
 import { ErroDeValidacao } from '../common/erros-de-negocio';
+import { emMinusculas } from '../common/minusculas.pipe';
 import { IdempotencyKey } from '../common/idempotencia/idempotency-key.decorator';
 import { RateLimit } from '../common/rate-limit/rate-limit.decorator';
 import { RateLimitGuard } from '../common/rate-limit/rate-limit.guard';
@@ -32,6 +34,13 @@ import {
   ResenhaEntradaDto,
 } from './dto/avaliacao.dto';
 
+/** Escritas exigem a chave (RNF-ERR-04); o contrato versionado declara o mesmo cabeçalho. */
+const CABECALHO_IDEMPOTENCIA = {
+  name: 'Idempotency-Key',
+  required: true,
+  description: 'Chave da intenção, reenviada igual numa nova tentativa.',
+};
+
 const livroIdValido = new ParseUUIDPipe({
   exceptionFactory: () =>
     new ErroDeValidacao([
@@ -40,12 +49,13 @@ const livroIdValido = new ParseUUIDPipe({
 });
 
 @ApiTags('avaliacoes')
-@ApiBearerAuth()
+@ApiBearerAuth('bearerAuth')
 @Controller('livros/:livroId')
 export class AvaliacoesController {
   constructor(private readonly servico: AvaliacoesService) {}
 
   @Put('nota')
+  @ApiHeader(CABECALHO_IDEMPOTENCIA)
   @UseGuards(RateLimitGuard)
   @RateLimit({
     porIdentidade: 60,
@@ -61,7 +71,7 @@ export class AvaliacoesController {
   })
   @ApiOkResponse({ type: NotaDto })
   async salvarNota(
-    @Param('livroId', livroIdValido) livroId: string,
+    @Param('livroId', livroIdValido, emMinusculas) livroId: string,
     @UsuarioAtual() usuario: UsuarioAutenticado,
     @IdempotencyKey() chave: string,
     @Body() entrada: NotaEntradaDto,
@@ -78,6 +88,7 @@ export class AvaliacoesController {
   }
 
   @Delete('nota')
+  @ApiHeader(CABECALHO_IDEMPOTENCIA)
   @UseGuards(RateLimitGuard)
   @RateLimit({
     porIdentidade: 60,
@@ -93,7 +104,7 @@ export class AvaliacoesController {
   })
   @ApiNoContentResponse({ description: 'Nota removida ou já ausente.' })
   async excluirNota(
-    @Param('livroId', livroIdValido) livroId: string,
+    @Param('livroId', livroIdValido, emMinusculas) livroId: string,
     @UsuarioAtual() usuario: UsuarioAutenticado,
     @IdempotencyKey() chave: string,
     @Res({ passthrough: true }) res: Response,
@@ -103,6 +114,7 @@ export class AvaliacoesController {
   }
 
   @Put('resenha')
+  @ApiHeader(CABECALHO_IDEMPOTENCIA)
   @UseGuards(RateLimitGuard)
   @RateLimit({
     porIdentidade: 30,
@@ -118,7 +130,7 @@ export class AvaliacoesController {
   })
   @ApiOkResponse({ type: ResenhaDto })
   async salvarResenha(
-    @Param('livroId', livroIdValido) livroId: string,
+    @Param('livroId', livroIdValido, emMinusculas) livroId: string,
     @UsuarioAtual() usuario: UsuarioAutenticado,
     @IdempotencyKey() chave: string,
     @Body() entrada: ResenhaEntradaDto,
@@ -135,6 +147,7 @@ export class AvaliacoesController {
   }
 
   @Delete('resenha')
+  @ApiHeader(CABECALHO_IDEMPOTENCIA)
   @UseGuards(RateLimitGuard)
   @RateLimit({
     porIdentidade: 30,
@@ -150,7 +163,7 @@ export class AvaliacoesController {
   })
   @ApiNoContentResponse({ description: 'Resenha removida ou já ausente.' })
   async excluirResenha(
-    @Param('livroId', livroIdValido) livroId: string,
+    @Param('livroId', livroIdValido, emMinusculas) livroId: string,
     @UsuarioAtual() usuario: UsuarioAutenticado,
     @IdempotencyKey() chave: string,
     @Res({ passthrough: true }) res: Response,
@@ -167,7 +180,7 @@ export class AvaliacoesController {
   })
   @ApiOkResponse({ type: MinhaAvaliacaoDto })
   async minhaAvaliacao(
-    @Param('livroId', livroIdValido) livroId: string,
+    @Param('livroId', livroIdValido, emMinusculas) livroId: string,
     @UsuarioAtual() usuario: UsuarioAutenticado,
   ): Promise<MinhaAvaliacaoDto> {
     return this.servico.minhaAvaliacao(usuario.id, livroId);

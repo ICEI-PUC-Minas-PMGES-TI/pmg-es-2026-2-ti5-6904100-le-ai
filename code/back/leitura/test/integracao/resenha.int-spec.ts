@@ -194,10 +194,19 @@ describe('resenha (integração)', () => {
   describe('edição', () => {
     it('editar texto e spoiler não publica de novo', async () => {
       const livroId = await inserirLivro(pool);
-      const criada = await salvar(livroId, { texto: 'Primeira.', spoiler: false });
+      const criada = await salvar(livroId, {
+        texto: 'Primeira.',
+        spoiler: false,
+      });
 
-      const editada = await salvar(livroId, { texto: 'Segunda.', spoiler: true });
-      const desmarcada = await salvar(livroId, { texto: 'Segunda.', spoiler: false });
+      const editada = await salvar(livroId, {
+        texto: 'Segunda.',
+        spoiler: true,
+      });
+      const desmarcada = await salvar(livroId, {
+        texto: 'Segunda.',
+        spoiler: false,
+      });
 
       expect(editada.status).toBe(200);
       expect(editada.body.id).toBe(criada.body.id);
@@ -251,7 +260,10 @@ describe('resenha (integração)', () => {
 
   describe('acesso', () => {
     it.each([
-      ['pessoal de outra pessoa', { tipo: 'pessoal' as const, donoId: randomUUID() }],
+      [
+        'pessoal de outra pessoa',
+        { tipo: 'pessoal' as const, donoId: randomUUID() },
+      ],
       ['inativo', { ativo: false }],
     ])('livro %s responde 404, sem gravar', async (_caso, livro) => {
       const livroId = await inserirLivro(pool, livro);
@@ -303,6 +315,22 @@ describe('resenha (integração)', () => {
 
       expect(resposta.status).toBe(204);
       expect(await contar(pool, 'leitura.outbox_leitura')).toBe(0);
+    });
+
+    // Excluir tem de continuar possível depois que o livro fica inativo (RF-AVA-04).
+    it('livro que ficou inativo: exclui e publica resenha.excluida', async () => {
+      const livroId = await inserirLivro(pool);
+      await salvar(livroId, { texto: 'Bom.', spoiler: false });
+      await pool.query(
+        'UPDATE acervo.v_livro_referencia_v1 SET ativo = false WHERE livro_id = $1',
+        [livroId],
+      );
+
+      const resposta = await excluir(livroId);
+
+      expect(resposta.status).toBe(204);
+      expect(await contar(pool, 'leitura.resenha')).toBe(0);
+      expect(await eventos('resenha.excluida')).toHaveLength(1);
     });
 
     it('recriar depois de excluir gera novo id e nova publicação', async () => {

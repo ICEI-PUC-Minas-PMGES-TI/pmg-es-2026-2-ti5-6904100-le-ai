@@ -170,6 +170,18 @@ describe('nota (integração)', () => {
       expect(resposta.status).toBe(404);
     });
 
+    // Sem normalizar, o mesmo livro sairia com outra chave de negócio no evento.
+    it('id do livro em maiúsculas sai em minúsculas na resposta e no evento', async () => {
+      const livroId = await inserirLivro(pool);
+
+      const resposta = await salvar(livroId.toUpperCase(), { valor: 2 });
+
+      expect(resposta.status).toBe(200);
+      expect(resposta.body.livroId).toBe(livroId);
+      const [evento] = await eventos();
+      expect(evento.chave_negocio).toBe(`nota:${usuario}:${livroId}`);
+    });
+
     it.each([5.5, -0.5, 4.3])(
       'valor %d fora da escala responde 422 com o campo',
       async (valor) => {
@@ -301,13 +313,38 @@ describe('nota (integração)', () => {
       ).toBe(1);
     });
 
-    it('livro pessoal de outra pessoa responde 404', async () => {
-      const livroId = await inserirLivro(pool, {
-        tipo: 'pessoal',
-        donoId: randomUUID(),
-      });
+    // Remover tem de continuar possível depois que o livro fica inativo (RN-06).
+    it('livro que ficou inativo: remove a nota e grava o evento', async () => {
+      const livroId = await inserirLivro(pool);
+      await salvar(livroId, { valor: 3 });
+      await pool.query(
+        'UPDATE acervo.v_livro_referencia_v1 SET ativo = false WHERE livro_id = $1',
+        [livroId],
+      );
+
       const resposta = await excluir(livroId);
-      expect(resposta.status).toBe(404);
+
+      expect(resposta.status).toBe(204);
+      expect(await contar(pool, 'leitura.nota')).toBe(0);
+      expect((await eventos()).at(-1)?.payload).toMatchObject({
+        operacao: 'excluida',
+      });
+    });
+
+    // O DELETE não confere o livro: apaga só o que é do leitor, e ele não tem nota ali.
+    it.each([
+      [
+        'pessoal de outra pessoa',
+        { tipo: 'pessoal' as const, donoId: randomUUID() },
+      ],
+      ['inexistente', null],
+    ])('livro %s responde 204 sem evento', async (_caso, livro) => {
+      const livroId = livro ? await inserirLivro(pool, livro) : randomUUID();
+
+      const resposta = await excluir(livroId);
+
+      expect(resposta.status).toBe(204);
+      expect(await contar(pool, 'leitura.outbox_leitura')).toBe(0);
     });
   });
 
@@ -352,7 +389,11 @@ describe('nota (integração)', () => {
 
     const broker = new BrokerEmMemoria();
     await broker.canal.assertQueue('fila.nota');
-    await broker.canal.bindQueue('fila.nota', EXCHANGES.leitura, 'nota.alterada');
+    await broker.canal.bindQueue(
+      'fila.nota',
+      EXCHANGES.leitura,
+      'nota.alterada',
+    );
     const validador = app.get(MessageValidator);
     await new OutboxDispatcherService(
       app.get<DrizzleDB>(DRIZZLE),
