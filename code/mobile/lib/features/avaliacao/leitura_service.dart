@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../../core/network/api_client.dart';
 
 /// Contrato do serviço `leitura` usado por F-AVA. Espelha `docs/api/leitura.yaml`: mesmos
@@ -169,9 +171,13 @@ class LeituraService {
 
   LeituraService(this._api);
 
+  /// Conta as escritas que deram certo. Quem mostra nota ou resenha fora da página do livro (as
+  /// resenhas do perfil, numa aba que continua montada) escuta e recarrega.
+  final ValueNotifier<int> alteracoes = ValueNotifier<int>(0);
+
   Future<MinhaAvaliacao> obterMinhaAvaliacao(String livroId) async {
     final json = await _api.getJson('/livros/$livroId/minha-avaliacao');
-    return MinhaAvaliacao.fromJson(json);
+    return _ler(() => MinhaAvaliacao.fromJson(json));
   }
 
   /// Cria ou atualiza a nota. A mesma [idempotencyKey] em cada reenvio da mesma intenção não
@@ -182,11 +188,14 @@ class LeituraService {
       body: <String, Object?>{'valor': valor},
       idempotencyKey: idempotencyKey,
     );
-    return Nota.fromJson(json);
+    final nota = _ler(() => Nota.fromJson(json));
+    alteracoes.value++;
+    return nota;
   }
 
-  Future<void> excluirNota(String livroId, {required String idempotencyKey}) {
-    return _api.deleteVazio('/livros/$livroId/nota', idempotencyKey: idempotencyKey);
+  Future<void> excluirNota(String livroId, {required String idempotencyKey}) async {
+    await _api.deleteVazio('/livros/$livroId/nota', idempotencyKey: idempotencyKey);
+    alteracoes.value++;
   }
 
   /// Cria ou atualiza a resenha: texto cru, até 5.000 caracteres (RN-07).
@@ -201,7 +210,9 @@ class LeituraService {
       body: <String, Object?>{'texto': texto, 'spoiler': spoiler},
       idempotencyKey: idempotencyKey,
     );
-    return Resenha.fromJson(json);
+    final resenha = _ler(() => Resenha.fromJson(json));
+    alteracoes.value++;
+    return resenha;
   }
 
   /// Resenhas autorizadas de um perfil (RN-08): página iniciada em 1, até 50 por página.
@@ -211,12 +222,28 @@ class LeituraService {
     int limite = 5,
   }) async {
     final json = await _api.getJson('/perfis/$usuarioId/resenhas?page=$page&limite=$limite');
-    return PaginaResenhasPerfil.fromJson(json);
+    return _ler(() => PaginaResenhasPerfil.fromJson(json));
   }
 
   /// Exclui a resenha de forma física, depois da confirmação da tela (RF-AVA-04).
-  Future<void> excluirResenha(String livroId, {required String idempotencyKey}) {
-    return _api.deleteVazio('/livros/$livroId/resenha', idempotencyKey: idempotencyKey);
+  Future<void> excluirResenha(String livroId, {required String idempotencyKey}) async {
+    await _api.deleteVazio('/livros/$livroId/resenha', idempotencyKey: idempotencyKey);
+    alteracoes.value++;
+  }
+
+  /// Resposta 2xx fora do contrato vira a mesma [ApiException] de resposta inválida do
+  /// [ApiClient]: as telas já tratam essa, e uma [FormatException] solta deixava o painel preso
+  /// em "Salvando".
+  T _ler<T>(T Function() ler) {
+    try {
+      return ler();
+    } on FormatException {
+      throw const ApiException(
+        kind: ApiFailureKind.invalidResponse,
+        correlationId: '',
+        message: 'O serviço retornou uma resposta inválida.',
+      );
+    }
   }
 }
 
