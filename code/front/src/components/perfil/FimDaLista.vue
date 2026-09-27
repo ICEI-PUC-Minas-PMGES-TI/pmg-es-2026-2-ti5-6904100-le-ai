@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import BotaoTextual from '../ui/BotaoTextual.vue'
 
@@ -7,8 +7,13 @@ import BotaoTextual from '../ui/BotaoTextual.vue'
  * Marca do fim da lista paginada: quando entra na tela, pede a próxima página. Sem
  * `IntersectionObserver` (navegador antigo, teste), vira o botão `Carregar mais`, e o botão também
  * aparece quando a página seguinte falhou, para a pessoa tentar de novo.
+ *
+ * O observador só avisa quando a marca **entra** na tela. Se a página nova não a empurrar para
+ * fora (lista curta, edições agrupadas num card só, monitor alto), ele não avisaria de novo e a
+ * paginação pararia. Com `carregando`, cada carga que termina reobserva a marca, o que gera um
+ * aviso com o estado atual: ainda visível, pede a seguinte.
  */
-const props = defineProps<{ falhou: boolean }>()
+const props = defineProps<{ falhou: boolean; carregando?: boolean }>()
 const emit = defineEmits<{ carregar: [] }>()
 
 const marca = ref<HTMLElement | null>(null)
@@ -26,6 +31,16 @@ onMounted(() => {
   })
   observador.observe(marca.value)
 })
+
+watch(
+  () => props.carregando,
+  (agora, antes) => {
+    if (antes && !agora && observador && marca.value) {
+      observador.unobserve(marca.value)
+      observador.observe(marca.value)
+    }
+  },
+)
 
 onBeforeUnmount(() => observador?.disconnect())
 </script>

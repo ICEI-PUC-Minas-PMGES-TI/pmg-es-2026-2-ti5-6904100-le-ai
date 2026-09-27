@@ -37,11 +37,15 @@ export class RateLimitGuard implements CanActivate {
       .switchToHttp()
       .getRequest<Request & { usuario?: UsuarioAutenticado }>();
 
+    const prefixo = configuracao.escopo ? `${configuracao.escopo}:` : '';
     const alvos: Array<[string, number]> = [
-      [`ip:${req.ip ?? 'desconhecido'}`, configuracao.porIp],
+      [`${prefixo}ip:${req.ip ?? 'desconhecido'}`, configuracao.porIp],
     ];
     if (req.usuario) {
-      alvos.push([`sub:${req.usuario.id}`, configuracao.porIdentidade]);
+      alvos.push([
+        `${prefixo}sub:${req.usuario.id}`,
+        configuracao.porIdentidade,
+      ]);
     }
 
     for (const [chave, limite] of alvos) {

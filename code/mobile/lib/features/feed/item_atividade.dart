@@ -6,7 +6,8 @@ import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../design/theme.dart';
 import '../../design/tokens.dart';
 import '../../design/widgets/capa_livro.dart';
-import '../../design/widgets/estrelas_nota.dart';
+import '../../design/widgets/estrelas_de_nota.dart';
+import '../livros/formatos.dart';
 import '../perfil/textos.dart';
 import '../perfil/widgets_de_perfil.dart';
 import 'social_service.dart';
@@ -121,7 +122,23 @@ class ItemAtividade extends StatelessWidget {
           if (resenha != null) ...<Widget>[
             const SizedBox(height: DesignTokens.space3),
             if (resenha.nota != null) ...<Widget>[
-              EstrelasNota(nota: resenha.nota!, tamanho: TamanhoDeEstrela.sm),
+              Semantics(
+                label: '${formatarNota(resenha.nota!)} de 5',
+                excludeSemantics: true,
+                child: Row(
+                  children: <Widget>[
+                    EstrelasDeNota(valor: resenha.nota, tamanho: 16),
+                    const SizedBox(width: DesignTokens.space2),
+                    Text(
+                      formatarNota(resenha.nota!),
+                      style: theme.numInline.copyWith(
+                        fontSize: theme.textTheme.bodySmall?.fontSize,
+                        color: theme.secondaryText,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: DesignTokens.space2),
             ],
             Semantics(

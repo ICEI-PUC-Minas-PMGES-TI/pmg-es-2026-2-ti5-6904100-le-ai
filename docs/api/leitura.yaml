@@ -4,8 +4,10 @@ info:
   version: 0.1.0
   description: >-
     Contrato do serviço leitura. O health check está implementado pelo
-    scaffolding P0-INFRA. Os contratos de F-EST, F-PRG e F-AVA do Período 1
-    estão planejados e são identificados por `x-implementation-status`.
+    scaffolding P0-INFRA. Nota, resenha, minha avaliação e as resenhas do
+    perfil estão implementadas por F-AVA (27/09/2026); os contratos de F-EST
+    estão implementados e os de F-PRG seguem planejados. Cada operação traz
+    `x-implementation-status`.
     Nota e resenha pertencem ao livro, não a uma ocorrência de leitura.
     Sessões cronometradas, favoritos, histórico, reações e Markdown não fazem
     parte deste contrato do Período 1.
@@ -19,8 +21,11 @@ x-database-contracts:
   - name: v_resenha_publicacao_v1
     x-implementation-status: implemented
     description: >-
-      Projeção consumida pela página autorizada de livro oficial ou pessoal;
-      não alimenta o feed.
+      Projeção consumida pela página autorizada de livro oficial ou pessoal.
+      Desde 26/09/2026 o feed (social) também lê texto, spoiler e nota por
+      esta VIEW, o que contraria a arquitetura §3.2 item 4 ("o feed guarda
+      snapshot"); a decisão está pendente com o grupo (feature-F-AVA.md).
+      As colunas não mudam enquanto isso.
     columns: [resenha_id, usuario_id, livro_id, texto, spoiler, criado_em, atualizado_em, curtidas, descurtidas]
   - name: v_nota_publicacao_v1
     x-implementation-status: implemented
@@ -29,8 +34,8 @@ x-database-contracts:
       projeção incremental do acervo usa o evento nota.alterada.
     columns: [usuario_id, livro_id, valor]
 servers:
-  - url: http://localhost:3000
-    description: local
+  - url: http://localhost:3001
+    description: local (a 3000 é do acervo)
 tags:
   - name: health
     description: Sondagem de disponibilidade
@@ -70,7 +75,7 @@ paths:
       tags: [estante]
       summary: Adiciona um livro à estante como Quero ler
       operationId: adicionarLivroEstante
-      x-implementation-status: planned
+      x-implementation-status: implemented
       parameters:
         - { $ref: '#/components/parameters/IdempotencyKey' }
       description: >-
@@ -98,7 +103,7 @@ paths:
       tags: [estante]
       summary: Lista a estante do leitor autenticado
       operationId: listarMinhaEstante
-      x-implementation-status: planned
+      x-implementation-status: implemented
       description: >-
         Lista paginada para agrupamento por status. O filtro de status pode ser
         combinado com a ordenação. Busca textual pertence ao Período 2.
@@ -117,11 +122,31 @@ paths:
         '401': { $ref: '#/components/responses/NaoAutenticado' }
 
   /estante/{livroId}:
+    get:
+      tags: [estante]
+      summary: Consulta um livro na estante do leitor autenticado
+      operationId: consultarItemEstante
+      x-implementation-status: implemented
+      parameters:
+        - { $ref: '#/components/parameters/LivroId' }
+      description: >-
+        Devolve o item da estante do leitor autenticado para o livro, com a
+        mesma forma dos itens da listagem. Responde 404 quando o livro não está
+        na estante do leitor.
+      responses:
+        '200':
+          description: Item da estante do livro.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ItemEstante' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
     delete:
       tags: [estante]
       summary: Remove um livro em Quero ler sem histórico
       operationId: removerLivroEstante
-      x-implementation-status: planned
+      x-implementation-status: implemented
       parameters:
         - { $ref: '#/components/parameters/LivroId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
@@ -140,7 +165,7 @@ paths:
       tags: [perfis, estante]
       summary: Lista a estante autorizada de um perfil
       operationId: listarEstantePerfil
-      x-implementation-status: planned
+      x-implementation-status: implemented
       description: >-
         Autoriza o próprio usuário e perfis públicos. Perfil privado exige
         seguimento aceito. Conteúdo de conta suspensa ou em exclusão pendente
@@ -167,7 +192,7 @@ paths:
       tags: [leituras]
       summary: Inicia a primeira leitura de um livro
       operationId: iniciarLeitura
-      x-implementation-status: planned
+      x-implementation-status: implemented
       parameters:
         - { $ref: '#/components/parameters/IdempotencyKey' }
       description: >-
@@ -198,7 +223,7 @@ paths:
       tags: [leituras]
       summary: Inicia uma releitura de livro já concluído
       operationId: iniciarReleitura
-      x-implementation-status: planned
+      x-implementation-status: implemented
       parameters:
         - { $ref: '#/components/parameters/IdempotencyKey' }
       description: >-
@@ -227,7 +252,7 @@ paths:
       tags: [leituras]
       summary: Consulta os detalhes de uma leitura própria
       operationId: detalharLeitura
-      x-implementation-status: planned
+      x-implementation-status: implemented
       parameters:
         - { $ref: '#/components/parameters/LeituraId' }
       description: >-
@@ -248,7 +273,7 @@ paths:
       tags: [leituras]
       summary: Finaliza uma leitura ou releitura em andamento
       operationId: finalizarLeitura
-      x-implementation-status: planned
+      x-implementation-status: implemented
       parameters:
         - { $ref: '#/components/parameters/LeituraId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
@@ -257,7 +282,7 @@ paths:
         `vezesLido`. A data de fim é editável; o instante, fuso e data local da
         ação são persistidos separadamente para desafios e eventos.
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema: { $ref: '#/components/schemas/FinalizarLeituraEntrada' }
@@ -279,7 +304,7 @@ paths:
       tags: [leituras]
       summary: Abandona manualmente uma leitura em andamento
       operationId: abandonarLeitura
-      x-implementation-status: planned
+      x-implementation-status: implemented
       parameters:
         - { $ref: '#/components/parameters/LeituraId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
@@ -304,7 +329,7 @@ paths:
       tags: [leituras]
       summary: Retoma uma primeira leitura abandonada
       operationId: retomarLeitura
-      x-implementation-status: planned
+      x-implementation-status: implemented
       parameters:
         - { $ref: '#/components/parameters/LeituraId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
@@ -327,7 +352,7 @@ paths:
       tags: [leituras]
       summary: Consulta quantas vezes o leitor concluiu o livro
       operationId: consultarConclusoesLivro
-      x-implementation-status: planned
+      x-implementation-status: implemented
       parameters:
         - { $ref: '#/components/parameters/LivroId' }
       responses:
@@ -460,14 +485,20 @@ paths:
       tags: [avaliacoes]
       summary: Cria ou atualiza a nota do leitor para o livro
       operationId: salvarNota
-      x-implementation-status: planned
+      x-implementation-status: implemented
+      x-implemented-by: F-AVA
       parameters:
         - { $ref: '#/components/parameters/LivroId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
       description: >-
         Uma nota por usuário e livro. Aceita 0 a 5 em passos de 0,5. Nota zero
         é válida e distinta de nota ausente. Em livro pessoal, somente o dono
-        pode escrever.
+        pode escrever. `valor` que não é número (texto, nulo, ausente) é 400;
+        número fora de 0..5 ou fora do passo de 0,5 é 422, com `campos`.
+        Livro inexistente, inativo ou pessoal de outra pessoa é 404, nunca 403:
+        conhecer o id não revela que o livro existe (RNF-SEC-06). Criar grava
+        `nota.alterada` com `operacao=criada`; mudar o valor grava `atualizada`;
+        repetir o mesmo valor responde 200 sem gravar e sem evento.
       requestBody:
         required: true
         content:
@@ -481,32 +512,42 @@ paths:
               schema: { $ref: '#/components/schemas/Nota' }
         '400': { $ref: '#/components/responses/RequisicaoInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
-        '403': { $ref: '#/components/responses/Proibido' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
         '409': { $ref: '#/components/responses/Conflito' }
+        '413': { $ref: '#/components/responses/CorpoMuitoGrande' }
         '422': { $ref: '#/components/responses/EntidadeInvalida' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
     delete:
       tags: [avaliacoes]
       summary: Remove a nota do leitor para o livro
       operationId: excluirNota
-      x-implementation-status: planned
+      x-implementation-status: implemented
+      x-implemented-by: F-AVA
       parameters:
         - { $ref: '#/components/parameters/LivroId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
-      description: A confirmação da remoção é responsabilidade do cliente.
+      description: >-
+        A confirmação da remoção é responsabilidade do cliente. Remover grava
+        `nota.alterada` com `operacao=excluida` e `nota` nula. Sem nota para
+        remover, responde 204 sem evento. Não confere o livro: apaga só a nota
+        do próprio leitor, e remover continua possível depois que o livro fica
+        inativo (RN-06). Livro inexistente ou de outra pessoa responde 204 sem
+        evento, porque o leitor não tem nota ali.
       responses:
-        '204': { description: Nota removida ou repetição idempotente concluída. }
+        '204': { description: Nota removida, já ausente ou repetição idempotente concluída. }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
-        '403': { $ref: '#/components/responses/Proibido' }
-        '404': { $ref: '#/components/responses/NaoEncontrado' }
         '409': { $ref: '#/components/responses/Conflito' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
 
   /livros/{livroId}/resenha:
     put:
       tags: [avaliacoes]
       summary: Cria ou atualiza a resenha do leitor para o livro
       operationId: salvarResenha
-      x-implementation-status: planned
+      x-implementation-status: implemented
+      x-implemented-by: F-AVA
       parameters:
         - { $ref: '#/components/parameters/LivroId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
@@ -514,7 +555,15 @@ paths:
         Uma resenha por usuário e livro, sem exigir leitura concluída. No
         Período 1 o conteúdo é texto cru de até 5.000 caracteres; Markdown é
         escopo posterior. Alterar `spoiler` é reversível. Em livro pessoal,
-        somente o dono pode escrever.
+        somente o dono pode escrever. `texto` que não é string ou `spoiler`
+        que não é booleano é 400; texto só com espaços ou caracteres invisíveis
+        (largura zero, BOM), com o caractere nulo (`\u0000`, que o banco não
+        guarda) ou com mais de 5.000 caracteres é 422. A contagem é por caractere Unicode (code point),
+        igual ao `char_length` do banco: emoji de um code point conta 1, emoji
+        composto (como 👍🏽 ou ❤️) conta mais. O texto é guardado como chegou.
+        Livro inexistente, inativo ou pessoal de outra pessoa é 404. Conta
+        suspensa ou em exclusão é 403. Criar grava `resenha.publicada` com
+        `atualizacao=false`; editar não publica nada.
       requestBody:
         required: true
         content:
@@ -531,55 +580,72 @@ paths:
         '403': { $ref: '#/components/responses/Proibido' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
         '409': { $ref: '#/components/responses/Conflito' }
+        '413': { $ref: '#/components/responses/CorpoMuitoGrande' }
         '422': { $ref: '#/components/responses/EntidadeInvalida' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
     delete:
       tags: [avaliacoes]
       summary: Exclui fisicamente a resenha do leitor
       operationId: excluirResenha
-      x-implementation-status: planned
+      x-implementation-status: implemented
+      x-implemented-by: F-AVA
       parameters:
         - { $ref: '#/components/parameters/LivroId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
       description: >-
-        A confirmação irreversível é responsabilidade do cliente. Recriar
-        depois da exclusão gera novo identificador e nova publicação.
+        A confirmação irreversível é responsabilidade do cliente. Excluir grava
+        `resenha.excluida`. Sem resenha para excluir, responde 204 sem evento.
+        Recriar depois da exclusão gera novo identificador e nova publicação.
+        Não confere o livro: apaga só a resenha do próprio leitor, e excluir
+        continua possível depois que o livro fica inativo (RF-AVA-04). Livro
+        inexistente ou de outra pessoa responde 204 sem evento.
       responses:
-        '204': { description: Resenha removida ou repetição idempotente concluída. }
+        '204': { description: Resenha removida, já ausente ou repetição idempotente concluída. }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
-        '403': { $ref: '#/components/responses/Proibido' }
-        '404': { $ref: '#/components/responses/NaoEncontrado' }
         '409': { $ref: '#/components/responses/Conflito' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
 
   /livros/{livroId}/minha-avaliacao:
     get:
       tags: [avaliacoes]
       summary: Consulta a nota e a resenha atuais do leitor
       operationId: consultarMinhaAvaliacao
-      x-implementation-status: planned
+      x-implementation-status: implemented
+      x-implemented-by: F-AVA
       parameters:
         - { $ref: '#/components/parameters/LivroId' }
-      description: Nota e resenha ausentes são nulas, nunca valores inventados.
+      description: >-
+        Nota e resenha ausentes são nulas, nunca valores inventados. Livro
+        inexistente, inativo ou pessoal de outra pessoa é 404.
       responses:
         '200':
           description: Avaliação atual, ainda que ambos os campos estejam ausentes.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/MinhaAvaliacao' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
-        '403': { $ref: '#/components/responses/Proibido' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
 
   /perfis/{usuarioId}/resenhas:
     get:
       tags: [perfis, avaliacoes]
       summary: Lista as resenhas autorizadas de um perfil
       operationId: listarResenhasPerfil
-      x-implementation-status: planned
+      x-implementation-status: implemented
+      x-implemented-by: F-AVA
       description: >-
         Autoriza o próprio usuário e perfis públicos. Perfil privado exige
-        seguimento aceito. Conteúdo de conta suspensa ou em exclusão pendente
-        não é exposto. Resenhas com spoiler permanecem marcadas para ocultação
-        pelo cliente até ação explícita de revelar.
+        seguimento aceito (403 sem ele). Conta inexistente, suspensa ou em
+        exclusão pendente é 404. Resenhas com spoiler permanecem marcadas para
+        ocultação pelo cliente até ação explícita de revelar. Cada item traz o
+        livro (título, autor, capa) e a nota do autor, que o card do perfil
+        mostra. Mais recentes primeiro. Livro inativo não aparece. Resenha de
+        livro pessoal só aparece para o próprio dono: terceiros só chegam ao
+        livro pessoal pelo feed ou pela lista do dono (RN-15).
       parameters:
         - { $ref: '#/components/parameters/UsuarioId' }
         - { $ref: '#/components/parameters/Pagina' }
@@ -589,18 +655,19 @@ paths:
           description: Página de resenhas autorizadas.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/PaginaResenhas' }
+              schema: { $ref: '#/components/schemas/PaginaResenhasPerfil' }
         '400': { $ref: '#/components/responses/RequisicaoInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '403': { $ref: '#/components/responses/Proibido' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
 
   /internal/jobs/inatividade:
     post:
       tags: [interno]
       summary: Processa diariamente a inatividade das leituras
       operationId: processarInatividadeLeituras
-      x-implementation-status: planned
+      x-implementation-status: implemented
       security:
         - schedulerToken: []
       parameters:
@@ -646,9 +713,11 @@ components:
       in: header
       required: true
       description: >-
-        UUID opaco. O escopo é ator autenticado, método e caminho canônico. A
-        mesma chave com o mesmo payload reproduz status e corpo originais sem
-        repetir efeitos; a mesma chave com payload diferente retorna 409.
+        UUID opaco. O escopo é ator autenticado, método e caminho canônico: o
+        id do recurso no caminho faz parte do escopo, então a mesma chave em
+        outro livro é outra operação. A mesma chave com o mesmo payload
+        reproduz status e corpo originais sem repetir efeitos por 24 horas; a
+        mesma chave com payload diferente retorna 409.
       schema:
         type: string
         format: uuid
@@ -656,8 +725,8 @@ components:
       name: page
       in: query
       required: false
-      description: Página iniciada em 1.
-      schema: { type: integer, minimum: 1, default: 1 }
+      description: Página iniciada em 1; o servidor impõe o máximo de 10.000.
+      schema: { type: integer, minimum: 1, maximum: 10000, default: 1 }
     Limite:
       name: limite
       in: query
@@ -675,8 +744,13 @@ components:
       required: false
       schema:
         type: string
-        enum: [adicionado_desc, adicionado_asc, titulo_asc, titulo_desc]
+        enum: [adicionado_desc, adicionado_asc, titulo_asc, titulo_desc, autor_asc, autor_desc, progresso_asc, progresso_desc]
         default: adicionado_desc
+      description: >-
+        `autor_*` ordena por `autor_exibicao` com autor nulo por último e desempate
+        por título. `progresso_*` ordena por `paginaAtual / totalPaginas` da leitura
+        em andamento; itens sem leitura em andamento ficam por último. O último
+        critério é sempre o id do vínculo, então a ordem é estável entre páginas.
     LivroId:
       name: livroId
       in: path
@@ -728,6 +802,20 @@ components:
           schema: { $ref: '#/components/schemas/Erro' }
     EntidadeInvalida:
       description: Dados bem formados violam uma regra de negócio.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
+    CorpoMuitoGrande:
+      description: Corpo da requisição acima do tamanho aceito (100 KB).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
+    LimiteExcedido:
+      description: Limite de requisições excedido.
+      headers:
+        Retry-After:
+          description: Segundos até uma nova tentativa.
+          schema: { type: integer, minimum: 1 }
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Erro' }
@@ -790,15 +878,34 @@ components:
     ItemEstante:
       type: object
       additionalProperties: false
-      required: [livroId, status, vezesLido, adicionadoEm]
+      required: [livroId, livro, status, vezesLido, ultimaLeituraId, retomavel, adicionadoEm]
       properties:
         livroId: { type: string, format: uuid }
+        livro:
+          type: object
+          additionalProperties: false
+          required: [titulo, autor, capaUrl]
+          description: Snapshot de `v_livro_referencia_v1`.
+          properties:
+            titulo: { type: string }
+            autor: { type: string, nullable: true }
+            capaUrl: { type: string, format: uri, nullable: true }
         status: { $ref: '#/components/schemas/StatusEstante' }
         vezesLido: { type: integer, minimum: 0 }
         leituraEmAndamentoId:
           type: string
           format: uuid
           nullable: true
+        ultimaLeituraId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Leitura mais recente do livro nesta estante, em qualquer status.
+        retomavel:
+          type: boolean
+          description: >-
+            Verdadeiro somente quando a leitura mais recente é a primeira
+            leitura abandonada (status abandonado e releitura falsa).
         paginaAtual: { type: integer, minimum: 0, nullable: true }
         totalPaginas: { type: integer, minimum: 1, nullable: true }
         percentualConcluido: { type: number, format: float, minimum: 0, maximum: 100, nullable: true }
@@ -1038,8 +1145,10 @@ components:
           type: string
           minLength: 1
           maxLength: 5000
-          description: Texto cru; HTML e Markdown não são interpretados no Período 1.
-        spoiler: { type: boolean, default: false }
+          description: >-
+            Texto cru; HTML e Markdown não são interpretados no Período 1. O
+            limite conta caracteres Unicode (code points), não unidades UTF-16.
+        spoiler: { type: boolean }
 
     Resenha:
       type: object
@@ -1069,14 +1178,50 @@ components:
             - { $ref: '#/components/schemas/Resenha' }
           nullable: true
 
-    PaginaResenhas:
+    LivroDaResenha:
+      type: object
+      additionalProperties: false
+      required: [id, tipo, titulo, autor, capaUrl]
+      properties:
+        id: { type: string, format: uuid }
+        tipo: { type: string, enum: [oficial, pessoal] }
+        titulo: { type: string }
+        autor:
+          type: string
+          nullable: true
+          description: Nulo em livro oficial sem autor.
+        capaUrl: { type: string, format: uri, nullable: true }
+
+    ResenhaDoPerfil:
+      type: object
+      additionalProperties: false
+      required: [id, usuarioId, livroId, texto, spoiler, criadoEm, atualizadoEm, livro, nota]
+      properties:
+        id: { type: string, format: uuid }
+        usuarioId: { type: string, format: uuid }
+        livroId: { type: string, format: uuid }
+        texto: { type: string, maxLength: 5000 }
+        spoiler: { type: boolean }
+        criadoEm: { type: string, format: date-time }
+        atualizadoEm: { type: string, format: date-time }
+        livro: { $ref: '#/components/schemas/LivroDaResenha' }
+        nota:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 5
+          multipleOf: 0.5
+          nullable: true
+          description: Nota do autor para o livro; nula quando ele não deu nota.
+
+    PaginaResenhasPerfil:
       type: object
       additionalProperties: false
       required: [itens, paginacao]
       properties:
         itens:
           type: array
-          items: { $ref: '#/components/schemas/Resenha' }
+          items: { $ref: '#/components/schemas/ResenhaDoPerfil' }
         paginacao: { $ref: '#/components/schemas/Paginacao' }
 
     ExecutarJobEntrada:

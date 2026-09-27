@@ -1,7 +1,8 @@
 import { Controller, Get } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HealthCheckService } from '@nestjs/terminus';
-import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Publico } from '../auth/publico.decorator';
 import { DrizzleHealthIndicator } from './drizzle.health';
 
 /**
@@ -10,6 +11,7 @@ import { DrizzleHealthIndicator } from './drizzle.health';
  * (503) é devolvido pelo AllExceptionsFilter.
  */
 @ApiTags('health')
+@Publico()
 @Controller('health')
 export class HealthController {
   constructor(
@@ -19,6 +21,10 @@ export class HealthController {
   ) {}
 
   @Get()
+  @ApiOperation({
+    operationId: 'consultarSaude',
+    summary: 'Health check do serviço (RNF-OBS-02)',
+  })
   @ApiOkResponse({
     description: 'Serviço e banco saudáveis.',
     schema: {

@@ -28,7 +28,8 @@ import PerfilView from '../views/PerfilView.vue'
 import SolicitacoesView from '../views/SolicitacoesView.vue'
 import CadastroIsbnView from '../views/livros/CadastroIsbnView.vue'
 import IsbnNaoEncontradoView from '../views/livros/IsbnNaoEncontradoView.vue'
-import LivroOficialPlaceholderView from '../views/livros/LivroOficialPlaceholderView.vue'
+import EscreverResenhaView from '../views/livros/EscreverResenhaView.vue'
+import LivroOficialView from '../views/livros/LivroOficialView.vue'
 import LivroPessoalFormView from '../views/livros/LivroPessoalFormView.vue'
 import LivroPessoalView from '../views/livros/LivroPessoalView.vue'
 
@@ -52,6 +53,13 @@ declare module 'vue-router' {
     /** Header sem o divisor inferior (protótipos de F-AUT e F-PERFIL). */
     semDivisor?: boolean
     /**
+     * Abaixo de 768px, sem a barra inferior: o editor de resenha é um fluxo com salvamento e a
+     * saída é pelo `X` (escrever-resenha.md §4; abaixo de 768px vale o desenho mobile).
+     */
+    semBarraInferior?: boolean
+    /** Destino da seta ou do `X` sem histórico, quando não é a raiz da aba. */
+    voltarPara?: (rota: RouteLocationNormalizedLoaded) => string
+    /**
      * Aba do shell que fica ativa. Detalhe não é aba, mas pertence à de onde veio; sem isto,
      * vale o prefixo do caminho (`router/abas.ts`).
      */
@@ -61,6 +69,10 @@ declare module 'vue-router' {
 
 /** Origem do fluxo de cadastro: a estante vazia ou a busca sem resultado (cadastro-por-isbn.md §1). */
 const ORIGEM = ':origem(descobrir|estante)'
+
+/** Livro oficial pertence à aba de onde se veio: estante, perfil ou, por padrão, Descobrir. */
+const abaDoLivroOficial = (rota: RouteLocationNormalizedLoaded) =>
+  rota.query.origem === 'estante' ? '/estante' : rota.query.origem === 'perfil' ? '/perfil' : '/descobrir'
 
 /** Livro pessoal aberto pelo feed é do Feed; pela estante do dono, da Estante. */
 const abaDoLivroPessoal = (rota: RouteLocationNormalizedLoaded) => (rota.query.via === 'feed' ? '/feed' : '/estante')
@@ -107,7 +119,8 @@ export const routes: RouteRecordRaw[] = [
         path: 'descobrir',
         name: 'descobrir',
         component: DescobrirView,
-        meta: { titulo: 'Descobrir' },
+        // Sem divisor: o campo de busca, logo abaixo, é a segunda linha do header (descobrir.md).
+        meta: { titulo: 'Descobrir', semDivisor: true },
       },
       {
         path: 'feed',
@@ -213,13 +226,42 @@ export const routes: RouteRecordRaw[] = [
         meta: { titulo: 'Editar livro', voltar: true, aba: '/estante' },
       },
       {
+        path: 'livros/pessoal/:id/resenha',
+        name: 'escrever-resenha-pessoal',
+        component: EscreverResenhaView,
+        meta: {
+          titulo: 'Resenha',
+          voltar: true,
+          fechar: true,
+          semBarraInferior: true,
+          aba: '/estante',
+          voltarPara: (rota) => `/livros/pessoal/${String(rota.params.id)}`,
+        },
+      },
+      {
+        path: 'livros/:id/resenha',
+        name: 'escrever-resenha',
+        component: EscreverResenhaView,
+        meta: {
+          titulo: 'Resenha',
+          voltar: true,
+          fechar: true,
+          semBarraInferior: true,
+          aba: abaDoLivroOficial,
+          voltarPara: (rota) =>
+            `/livros/${String(rota.params.id)}${rota.query.origem ? `?origem=${String(rota.query.origem)}` : ''}`,
+        },
+      },
+      {
         path: 'livros/:id',
         name: 'livro-oficial',
-        component: LivroOficialPlaceholderView,
+        component: LivroOficialView,
         meta: {
           titulo: '',
           voltar: true,
-          aba: (rota) => (rota.query.origem === 'estante' ? '/estante' : '/descobrir'),
+          // Sem divisor: com a página no topo, o protótipo não tem linha sob o header.
+          semDivisor: true,
+          aba: abaDoLivroOficial,
         },
       },
     ],

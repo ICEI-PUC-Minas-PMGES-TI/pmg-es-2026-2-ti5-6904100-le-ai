@@ -10,6 +10,18 @@ vi.mock('../../services/acervo', () => ({
     solicitarImportacao: vi.fn(),
     obterImportacao: vi.fn(),
     reprocessarImportacao: vi.fn(),
+    // O "Abrir página do livro" leva à página real, que pede o livro ao montar.
+    obterLivroOficial: vi.fn().mockReturnValue(new Promise(() => undefined)),
+    listarResenhasDoLivro: vi.fn(),
+  },
+}))
+
+// A página do livro, aberta ao fim do cadastro, carrega "Sua avaliação" do `leitura`.
+vi.mock('../../services/leitura', () => ({
+  leituraService: {
+    obterMinhaAvaliacao: vi.fn().mockResolvedValue({ livroId: 'livro-1', nota: null, resenha: null }),
+    salvarNota: vi.fn(),
+    excluirNota: vi.fn(),
   },
 }))
 

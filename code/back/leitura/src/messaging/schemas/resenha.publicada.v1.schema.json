@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://leai.app/schemas/mensageria/resenha.publicada.v1.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["usuarioId", "resenhaId", "livroId", "atualizacao", "usuario", "livro"],
+  "properties": {
+    "usuarioId": { "type": "string", "format": "uuid" },
+    "resenhaId": { "type": "string", "format": "uuid" },
+    "livroId": { "type": "string", "format": "uuid" },
+    "atualizacao": { "type": "boolean" },
+    "usuario": { "$ref": "common-v1.schema.json#/$defs/UsuarioSnapshot" },
+    "livro": { "$ref": "common-v1.schema.json#/$defs/LivroSnapshot" }
+  }
+}

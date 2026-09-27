@@ -23,11 +23,11 @@ RNF atendidos: **RNF-DES-01** (leitura ≤1s p95, sem cold start), **RNF-DES-02*
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | não iniciado | broker, dispatcher, recibo, retry e DLQ dependem de P0-MSG; nenhum consumidor de `livro.pagina_aberta` foi implementado |
-| Dados | concluído (baseline físico) | DER implantado no Neon em 16/09: `livro.sinopse_status`, índices de título/autor/editora/ISBN, `outbox_acervo` e `v_livro_referencia_v1`; isso não implementa busca, página ou sinopse |
-| Backend | não iniciado | `acervo`: `GET /livros` (busca+filtro) e `GET /livros/{id}` (página) + busca de sinopse |
-| Web | não iniciado | tela de busca com filtro por assunto + página do livro |
-| Mobile | não iniciado | mesmas telas |
+| Infra | concluído (dev) | consumidor `acervo.sinopse` na fila `leai.acervo.sinopse` sobre o runtime de P0-MSG, provado com o broker em memória e, em 27/09, no broker de dev (`Le-ai`): a fila e a DLQ foram criadas e as sinopses pendentes viraram `disponivel`; falta a prova em DES |
+| Dados | concluído (dev) | migration `0004` (`pg_trgm`, `unaccent`, `acervo.f_busca_normalizar` e índices GIN de título, autor e editora) aplicada no banco de dev em 26/09, com ~2,2 MB de índices; o DES a recebe no deploy da `main` |
+| Backend | concluído (local) | `GET /assuntos`, `GET /livros`, `GET /livros/{id}` com sinopse sob demanda e `GET /livros/{id}/resenhas` com RN-08, em 26/09; validado e corrigido em 27/09 (busca por palavras, relevância, ISBN-10, entradas malformadas); falta DES |
+| Web | concluído (local) | Descobrir e página do livro, conferidos com os protótipos a 1440 e 390 px; paginação, falhas e acessibilidade corrigidas na validação de 27/09; falta DES |
+| Mobile | concluído (local) | Descobrir conferido no emulador com os dados do dev; página do livro conferida pelos testes de widget; laço de pedidos na falha, lista curta e acessibilidade corrigidos na validação de 27/09; falta DES |
 
 ## Especificação
 
@@ -59,32 +59,34 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 ## Critérios de aceite
 
-- [ ] Busca retorna livros oficiais por título/autor/editora/ISBN, **paginada** com teto de itens (RNF-DES-02) e usando índices (RNF-DES-03); **livro pessoal nunca** aparece (SEC-06).
-- [ ] Filtro por assunto restringe os resultados (RN-21).
-- [ ] Página do livro abre com metadados/capa e resenhas **paginadas**, filtradas server-side por RN-08 via contratos versionados, sem ler tabelas cruas.
-- [ ] Na 1ª abertura, domínio e outbox de `livro.pagina_aberta.v1` são gravados atomicamente uma vez; sinopse encontrada vira texto puro ≤4.000 e estado `disponivel`; resposta válida sem sinopse vira `ausente` e não repete consultas futuras; indisponibilidade continua reprocessável.
-- [ ] A página **abre sem esperar** a sinopse; **ausência de sinopse** é exibida sem erro (RF-ACV-19).
-- [ ] Capa resolve na ordem cópia própria → externa → placeholder (RN-14.4).
-- [ ] Nota geral/dos leitores aparecem como **ausentes** (não zero) enquanto F-ACV-NOTA não existir.
+- [x] Busca retorna livros oficiais por título/autor/editora/ISBN, **paginada** com teto de itens (RNF-DES-02) e usando índices (RNF-DES-03); **livro pessoal nunca** aparece (SEC-06).
+- [x] Filtro por assunto restringe os resultados (RN-21).
+- [x] Página do livro abre com metadados/capa e resenhas **paginadas**, filtradas server-side por RN-08 via contratos versionados, sem ler tabelas cruas.
+- [x] Na 1ª abertura, domínio e outbox de `livro.pagina_aberta.v1` são gravados atomicamente uma vez; sinopse encontrada vira texto puro ≤4.000 e estado `disponivel`; resposta válida sem sinopse vira `ausente` e não repete consultas futuras; indisponibilidade continua reprocessável.
+- [x] A página **abre sem esperar** a sinopse; **ausência de sinopse** é exibida sem erro (RF-ACV-19).
+- [x] Capa resolve na ordem cópia própria → externa → placeholder (RN-14.4).
+- [x] Nota geral/dos leitores aparecem como **ausentes** (não zero) enquanto F-ACV-NOTA não existir. Ausentes por inteiro, sem componente vazio: é o que o RF-ACV-04 ("aparecem quando as funcionalidades correspondentes estiverem disponíveis") e o `pagina-do-livro.md` §7 pedem.
 - [ ] Busca e página do livro funcionam **em DES**, com leitura ≤1s p95 desconsiderando cold start (RNF-DES-01).
 
 ## Definition of Done
 
 (plano §10)
 
-- [ ] Código (backend `acervo`, web, mobile) mergeado em `desenvolvimento`
-- [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
-- [ ] Testes unitários e de integração com banco real/container: parâmetros e forma exata de `PaginaLivros`/`PaginaResenhas`; busca por título/autor/editora/ISBN; filtro/paginação/teto; exclusão de livro pessoal; composição das VIEWs e autorização de resenhas para perfil público, privado seguido, privado não seguido, suspenso e em exclusão; estados concorrentes da sinopse (RNF-TST-02)
-- [ ] Teste assíncrono da sinopse cobre schema canônico, atomicidade domínio+outbox, publicação e consumo pela topologia de P0-MSG, recibo+efeito atômicos, entrega duplicada sem novo efeito, ausência terminal, falha pós-retentativa sem `pendente` órfão e DLQ (RNF-TST-03); a suíte genérica de dispatcher/confirm/retry/DLQ continua pertencendo a P0-MSG
-- [ ] Testes web/mobile cobrem paginação, polling limitado da sinopse, ausência/carregamento e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
-- [ ] **Spec OpenAPI de `acervo` em `docs/api/acervo.yaml` implementado sem divergência** para `GET /livros`, `GET /livros/{id}` e `GET /livros/{id}/resenhas`; remover `x-contract-status: planned` somente após a implementação
+- [x] Código (backend `acervo`, web, mobile) mergeado em `desenvolvimento`
+- [x] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
+- [x] Testes unitários e de integração com banco real/container: parâmetros e forma exata de `PaginaLivros`/`PaginaResenhas`; busca por título/autor/editora/ISBN; filtro/paginação/teto; exclusão de livro pessoal; composição das VIEWs e autorização de resenhas para perfil público, privado seguido, privado não seguido, suspenso e em exclusão; estados concorrentes da sinopse (RNF-TST-02)
+- [x] Teste assíncrono da sinopse cobre schema canônico, atomicidade domínio+outbox, publicação e consumo pela topologia de P0-MSG, recibo+efeito atômicos, entrega duplicada sem novo efeito, ausência terminal, falha pós-retentativa sem `pendente` órfão e DLQ (RNF-TST-03); a suíte genérica de dispatcher/confirm/retry/DLQ continua pertencendo a P0-MSG
+- [x] Testes web/mobile cobrem paginação, polling limitado da sinopse, ausência/carregamento e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
+- [x] **Spec OpenAPI de `acervo` em `docs/api/acervo.yaml` implementado sem divergência** para `GET /livros`, `GET /livros/{id}` e `GET /livros/{id}/resenhas`; remover `x-contract-status: planned` somente após a implementação
 - [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
-- [ ] Arquivo da feature atualizado: status, pendências, timeline
-- [ ] Divergência protótipo × implementação registrada, se houver
+- [x] Arquivo da feature atualizado: status, pendências, timeline
+- [x] Divergência protótipo × implementação registrada, se houver
 
 ## Pendências
 
-- **Depende de** [F-ACV-INGESTAO](feature-F-ACV-INGESTAO.md) (acervo carregado com índices e assuntos), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md) e [P0-MSG](../periodo-0/feature-P0-MSG.md). **P0-MSG é pré-requisito bloqueante do fluxo de sinopse:** outbox física já existe, mas conexão CloudAMQP, dispatcher com confirm, `mensagem_processada`, validação runtime dos schemas, fila/retry/DLQ e prova em DES ainda não existem. As fontes externas são OpenLibrary e Google Books.
+- **Depende de** [F-ACV-INGESTAO](feature-F-ACV-INGESTAO.md) (acervo carregado com índices e assuntos), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md) e [P0-MSG](../periodo-0/feature-P0-MSG.md). P0-MSG está pronto desde 19/09 (dispatcher com confirm, `mensagem_processada`, validação, retry e DLQ), e o consumidor da sinopse roda sobre ele. As fontes externas são OpenLibrary e Google Books.
+- **Falta DES.** O "funcionando em DES" do DoD e a latência de RNF-DES-01 (≤ 1 s p95) dependem do PR `desenvolvimento → main`, que é do time. No deploy, o `start:prod` aplica a migration `0004` no banco de Oregon (as extensões estão disponíveis lá, conferido em 25/09); depois, conferir `/health`, extensões, índices e a fila `leai.acervo.sinopse` no `Le-ai-oregon`, e medir a latência.
+- **Sem `GOOGLE_BOOKS_API_KEY` local**, o Google responde 429, que conta como indisponível: livros sem sinopse na OpenLibrary vão para `falha_transitoria` em vez de `ausente`. A chave está no painel do Render.
 - **Consome `v_resenha_publicacao_v1`** de [F-AVA](feature-F-AVA.md) e os contratos de privacidade de [F-PERFIL](feature-F-PERFIL.md) — coordenar colunas e índices antes de implementar.
 - **Nota geral, nota dos leitores, distribuição e projeção `nota.alterada`** ficam em **F-ACV-NOTA** (Período 2); aqui aparecem como ausentes.
 - **Filtro avançado** (autor/editora/série/ano/faixa de páginas, RF-ACV-03) e **páginas de autor/editora/série** (RF-ACV-10/11/12) e **assunto acionável** (RF-ACV-21) são **F-ACV-DESCOBERTA** (Período 2).
@@ -97,7 +99,48 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **A tela de busca virou raiz de aba, e isso muda o shell.** Escrever o prompt deixou visível que a busca do acervo não cabia dentro da estante: a barra marcava `Estante` como ativo numa tela de resultados de catálogo, e na web o campo do header de `Minha estante` devolvia o acervo inteiro. A tela passou a ser a aba **`Descobrir`** (`Compass`, quarto item da navegação), com header de duas linhas, sem botão de voltar e **com** o sino, que a versão anterior dispensava. O arquivo foi renomeado de `busca.md` para `descobrir.md`. A mudança do shell é pendência de [P0-NAV](../periodo-0/feature-P0-NAV.md) e a busca dentro da estante é pendência de [F-EST](feature-F-EST.md); nenhuma das duas foi escrita em `docs/orquestador/`.
 - **A aterrissagem da aba é magra no Período 1, por decisão.** Sem consulta, `Descobrir` mostra o campo e a faixa de assuntos e nada mais. Quem preenche a aba é [F-ACV-DESCOBERTA](../periodo-2/feature-F-ACV-DESCOBERTA.md) (filtros avançados, páginas de autor, editora e série) e [F-REC-P2P](../periodo-2/feature-F-REC-P2P.md) (seção de recomendações, RF-REC-13), as duas no Período 2. O prompt proíbe desenhar espaço reservado para elas.
 
+### Achados da validação de 27/09/2026 que ficam para depois
+
+- **Evento publicado antes de a fila existir se perde (P0-MSG).** Na subida, o dispatcher da outbox começa assim que o canal de publicação fica pronto, e as filas dos consumidores são declaradas em paralelo, sem `mandatory`. Na primeira subida com pedidos de sinopse acumulados, um deles saiu antes de `leai.acervo.sinopse` existir e foi descartado pelo broker. O livro se recupera sozinho: fica `pendente`, e a abertura depois de 15 minutos pede de novo (conferido). Só acontece com backlog na primeira subida; correção possível no runtime de P0-MSG é esperar a topologia dos consumidores do próprio serviço antes de despachar.
+- **`<h1>` vazio no shell da web (P0-NAV).** Rotas com `titulo: ''` (página do livro oficial, livro pessoal, perfil de outro leitor) deixam um `<h1>` sem texto no `CabecalhoTela`. Na página do livro oficial o título do livro é outro `<h1>`; no livro pessoal e no perfil de outro leitor o título é `<h2>` e conta com esse `<h1>`. Corrigir mexe em três telas de donos diferentes, por isso não entrou aqui.
+- **Dados da ingestão ([F-ACV-INGESTAO](feature-F-ACV-INGESTAO.md)).** Títulos que são só pontuação ("," e ".MENSAGEM.") abrem o filtro só por assunto, que ordena por título; e há nomes com acento decomposto ("Presenc̦a", com U+0326), que não casam com a busca digitada. Os dois são do dump da OpenLibrary e pedem limpeza na carga, não na busca.
+- **Latência do termo de uma letra.** Buscar "a" ou "o" (cerca de 11 mil edições) leva ~650 ms no dev, contra ~450 ms antes da relevância nova: o casamento integral e a semelhança rodam em todos os candidatos. Os clientes só buscam a partir de 2 caracteres ("de" leva ~360 ms) e o p95 medido ficou em ~690 ms, dentro de RNF-DES-01; se pesar no DES, limitar a pontuação aos candidatos da página.
+
+### Decisões de implementação (26/09/2026)
+
+- **Debounce de 350 ms com mínimo de 2 caracteres**, igual na web e no mobile. Nenhum requisito, design ou protótipo define; o contrato aceita `q` a partir de 1 caractere.
+- **"N livros encontrados" conta edições** (`totalItens`), que são livros pelo RN-01; o número de grupos só seria conhecido depois de carregar todas as páginas.
+- **Relevância:** o campo vem antes da semelhança (título > autor > editora > assunto), e a semelhança desempata dentro do campo. A busca casa por trecho; semelhança nunca casa. *Revista em 27/09:* acima dos campos vem o **casamento integral**, título ou autor que, sem pontuação, é exatamente o texto buscado (título antes de autor); a semelhança passou a ser `word_similarity` com desempate por `similarity`, que favorece o campo mais curto. Antes, "dom casmurro" trazia "Dom Casmurro (Clássicos...)" antes do título exato, e "machado de assis" trazia cinco livros *sobre* o autor antes das obras dele.
+- **Busca palavra por palavra (27/09):** todas as palavras do texto precisam aparecer, por trecho, no mesmo campo, em qualquer ordem. Resolve pontuação e palavras do meio ("grande sertao veredas" acha "Grande sertão: veredas", "senhor aneis" acha "O Senhor dos Anéis") e espaço duplo, sem migration nova. A pontuação nas pontas da palavra sai ("casmurro." vira "casmurro"); palavra só de pontuação sai quando há outra com letra; sem nenhuma, fica, e `%` continua achando "100% amor". Palavra repetida ou contida em outra sai, e ficam no máximo 8, as mais longas: sem teto, 100 palavras de uma letra virariam 400 `LIKE`. "guimaraes rossa" continua vazio.
+- **ISBN-10 na busca (27/09):** convertido para o ISBN-13 da edição (prefixo `978`, novo dígito verificador). O RF-ACV-01 fala em "ISBN", e livro antigo traz só o ISBN-10 impresso. O cadastro continua exigindo ISBN-13.
+- **Reenfileiramento da sinopse:** `falha_transitoria` há mais de 10 minutos e `pendente` há mais de 15 minutos voltam a pedir a sinopse numa abertura; o relógio é `atualizado_em`.
+- **Política das fontes de sinopse:** uma retentativa de 1 s, com o circuit breaker, para a fila (um livro por vez) não ficar presa por minutos. Pior caso de ~35 s por livro.
+- **Polling dos clientes:** esperas de 2, 3, 5, 8, 13, 20, 30 e 40 s (~2 minutos), aproveitando só a sinopse de cada consulta.
+- **Rate limit da página do livro** (60 por minuto por identidade, 600 por IP), em escopo próprio: a abertura dispara consulta a fonte externa. O teto por IP era 120 e subiu em 27/09: uma turma inteira atrás do NAT da faculdade sai pelo mesmo IP, e cada abertura soma até 7 consultas de polling no primeiro minuto, então a demonstração em sala esbarraria no 429.
+- **Resenha do próprio leitor fora da lista**, seguindo o RF-ACV-04 ("de outros leitores"); ela volta à página em "Sua avaliação", com F-AVA.
+- **`resenhas` anulável** em `LivroOficialDetalhe`: `null` quando os contratos de `leitura` ou `identidade` falham, e a página abre mesmo assim; a rota de resenhas responde 503 nesse caso.
+
+### Divergências protótipo × implementação (26/09/2026)
+
+- **Card de resenha** sem `@username` e sem estrelas, e o título "Resenhas" sem a contagem "28 resenhas": o contrato do Período 1 não traz esses dados (`ResenhaResumo`, compartilhado com o livro pessoal, não mudou).
+- **Blocos de outras features ficam de fora**, sem espaço reservado: status pill da busca e ações de estante (F-EST), barra de progresso (F-PRG), "Sua avaliação" e "Escrever a primeira" (F-AVA).
+- **Chips de assunto** vêm do banco (31 do conjunto curado), não os 9 do protótipo. No mobile e na faixa da web, o chip ativo é `musgo` cheio com texto `papel`, como no protótipo; o `descobrir.md` fala em `musgo-fundo`. O chip **inativo** tem texto `tinta`, também como no protótipo; o `descobrir.md` pede `caption grafite` (registrado na validação de 27/09).
+- **"N edições" expande as outras edições** logo abaixo do card; o protótipo não desenha o estado expandido.
+- **Textos que o design não prevê:** sinopse em `falha_transitoria` ("Não conseguimos buscar a sinopse agora. Ela deve aparecer numa próxima visita."), polling encerrado ainda pendente ("A sinopse ainda está a caminho. Volte daqui a pouco."), livro não encontrado ("Não encontramos este livro") e resenhas indisponíveis ("Não foi possível carregar as resenhas.", com "Tentar de novo").
+- **"Ver todas as resenhas"** carrega a página seguinte na própria tela, por cursor.
+- **Header:** em Descobrir e na página do livro, sem divisor. O design o mostra quando o conteúdo rola por baixo, e o app não acompanha a rolagem para desenhá-lo. No mobile, o campo de busca fica fixo no topo da página, como segunda linha do header da aba.
+- **Na web, voltar da página do livro** refaz a busca a partir de `q` e `assunto` na URL, mas a rolagem recomeça do topo.
+- **Testes de RN-08:** conta suspensa e em exclusão são o mesmo caso, "sem linha na `v_perfil_referencia_v1`", porque a VIEW já as omite.
+
 ## Timeline
+
+### Validação 27/09/2026, segunda rodada: nova revisão de contexto limpo, só sobre as correções da primeira. **Backend:** palavras sem repetição, sem pontuação nas pontas e com teto de 8; o texto puro da sinopse tira só nomes de tag HTML conhecidos ("&lt;&lt;O Guarani&gt;&gt;" ficava vazio); 503 só para falha de conexão (o `08P01` é bug nosso, não indisponibilidade); o log do pedido de sinopse com a causa do Postgres, e teste do caminho em que ele falha; 413 declarado no contrato. **Mobile:** a lista curta parava na 2ª página quando nada pedia quadro novo (busca pelo chip, campo sem foco); o teste novo pega o defeito. **Web:** movimento reduzido também zera o fade dos skeletons (a regra global só zerava transições); a faixa de assuntos não pisca na retentativa automática; o aviso de cold start passou para uma região de status fixa. **Web e mobile:** 429 sem o corpo do contrato (vindo de proxy) ainda explica o limite.
+
+### Validação 27/09/2026: revisão independente das três camadas e teste real contra o banco e o broker de dev. **Backend:** busca palavra por palavra e casamento integral de título e autor (decisões acima), ISBN-10 convertido, `page` com teto de 100000, caractere de controle no texto e cursor com data impossível passaram de 500 a 400, sinopse sem HTML escapado nem caractere de controle, página do livro que abre mesmo se o pedido da sinopse falhar, banco indisponível como 503, corpo acima do limite como 413, token sem `exp` recusado, parâmetro fora do contrato com mensagem em pt-BR, Swagger de runtime com os tipos do contrato e teto por IP de 600 na página do livro. Fluxo assíncrono provado no broker de dev. **Web:** a marca do fim da lista pede a página seguinte se continuar visível; a falha de "Ver todas as resenhas" avisa; a aba Descobrir tocada de novo volta à aterrissagem; contagem e vazio numa região de status fixa; assuntos com skeleton e "Tentar de novo"; 400 como "não encontrado" e 429 com a mensagem do servidor; `h1` antes da ficha no DOM; campo com `maxlength` 200; spoiler sem o campo fica fechado e revelar leva o foco ao texto. **Mobile:** a falha da página seguinte não vira mais laço de pedidos (eram 10 em 4 s); lista curta por agrupamento carrega as páginas seguintes; página seguinte com o termo buscado; ação de toque para leitor de tela em chip, "N edições" e linha de edição; seção de resenhas sem `liveRegion`; falha do "Ver todas", 400 e 429 como na web; movimento reduzido no spoiler; spoiler sem o campo fica fechado. Pendências novas acima.
+
+### Implementação 26/09/2026, fatia 2 (página do livro): `GET /livros/{id}` com a sinopse pedida na primeira abertura (UPDATE condicional e outbox na mesma transação, `lock_timeout` de 1 s) e as regras de reenfileiramento; `GET /livros/{id}/resenhas` com RN-08 no SQL e cursor keyset com microssegundos; consumidor `acervo.sinopse` com OpenLibrary (obra, edição, ISBN) e Google Books, texto puro de até 4.000 caracteres; `@RateLimit` com escopo; página do livro no mobile e na web, com polling limitado da sinopse e o spoiler fora da árvore até revelar. Contrato marcado como implementado e conferido com o `/docs` em runtime. Decisões e divergências consolidadas acima.
+
+### Implementação 26/09/2026, fatia 1 (busca): contrato com `GET /assuntos` e `editora`, `anoPublicacao` e `autores` anuláveis; migration `0004` de busca, aplicada no dev; `GET /assuntos` e `GET /livros` no `acervo`, por trecho, sem acento, nos quatro campos e por ISBN exato, com as edições de uma obra contíguas; Descobrir no mobile e na web com o protótipo como fonte visual; seed com editora e assunto. Conferido com os dados do dev: `guimaraes rossa` volta vazio e as buscas responderam entre 34 e 225 ms a partir do acervo local. Decisões e divergências desta fatia estão em [`plano-F-ACV-BUSCA.md`](plano-F-ACV-BUSCA.md) e entram consolidadas aqui na fatia 3.
 
 ### Revisão 17/09/2026: contrato alinhado ao OpenAPI (`q`, `assunto`, `page`, `limit`, cursor e formas de resposta), ao schema/catálogo de `livro.pagina_aberta.v1` e às VIEWs cross-schema implantadas. O status passou a distinguir baseline físico do DER no Neon de implementação funcional; P0-MSG foi registrado como bloqueio explícito, com idempotência e testes separados entre domínio e infraestrutura genérica.
 

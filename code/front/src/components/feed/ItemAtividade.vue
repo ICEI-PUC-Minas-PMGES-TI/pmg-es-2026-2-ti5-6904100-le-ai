@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { PhBookmarkSimple, PhChatCircle, PhHeart } from '@phosphor-icons/vue'
-import { computed, ref, watch } from 'vue'
+import { PhBookmarkSimple, PhChatCircle, PhEyeSlash, PhHeart } from '@phosphor-icons/vue'
+import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
 import { RouterLink } from 'vue-router'
 
@@ -10,6 +10,7 @@ import { contagem, tempoDeEspera } from '../../perfil/textos'
 import type { Atividade } from '../../services/social'
 import CapaLivro from '../livros/CapaLivro.vue'
 import EstrelasNota from '../livros/EstrelasNota.vue'
+import BotaoTextual from '../ui/BotaoTextual.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -68,6 +69,20 @@ const ANGULOS_DAS_PARTICULAS = Array.from({ length: TOTAL_DE_PARTICULAS }, (_, i
 
 const celebrando = ref(false)
 
+/**
+ * Resenha com spoiler (RF-AVA-03): o texto **não está no DOM** até "Mostrar mesmo assim", como
+ * no `CardResenha` da página do livro. Ao revelar, o foco vai para o texto, para o leitor de tela
+ * continuar dali.
+ */
+const spoilerRevelado = ref(false)
+const textoDaResenha = useTemplateRef<HTMLParagraphElement>('textoDaResenha')
+
+async function revelarSpoiler(): Promise<void> {
+  spoilerRevelado.value = true
+  await nextTick()
+  textoDaResenha.value?.focus()
+}
+
 watch(
   () => props.atividade.curtidaPeloSolicitante,
   (curtida, antes) => {
@@ -118,7 +133,10 @@ watch(
         <p class="line-clamp-2 text-title-sm text-tinta md:text-title">
           {{ atividade.livro.titulo }}
         </p>
-        <p class="mt-space-1 text-caption text-grafite md:text-body">
+        <p
+          v-if="atividade.livro.autor"
+          class="mt-space-1 text-caption text-grafite md:text-body"
+        >
           {{ atividade.livro.autor }}
         </p>
         <span
@@ -144,7 +162,31 @@ watch(
         :valor="atividade.resenha.nota"
         tamanho="sm"
       />
-      <p class="line-clamp-3 font-serif text-body text-grafite md:line-clamp-4">
+      <div
+        v-if="atividade.resenha.spoiler && !spoilerRevelado"
+        class="flex flex-col items-start gap-space-2 rounded-base border border-linha bg-papel-elevado p-space-4"
+      >
+        <p class="flex items-center gap-space-2 text-caption text-grafite">
+          <PhEyeSlash
+            :size="20"
+            weight="regular"
+            aria-hidden="true"
+          />
+          Esta resenha contém spoiler
+        </p>
+        <BotaoTextual
+          class="min-h-12 md:min-h-10"
+          @click="revelarSpoiler"
+        >
+          Mostrar mesmo assim
+        </BotaoTextual>
+      </div>
+      <p
+        v-else
+        ref="textoDaResenha"
+        tabindex="-1"
+        class="line-clamp-3 font-editorial text-body text-grafite outline-none md:line-clamp-4"
+      >
         {{ atividade.resenha.texto }}
       </p>
       <button

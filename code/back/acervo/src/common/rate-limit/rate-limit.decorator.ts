@@ -8,6 +8,12 @@ export interface ConfiguracaoDeLimite {
   /** Requisições permitidas por IP dentro da janela. */
   porIp: number;
   janelaSegundos: number;
+  /**
+   * Conta à parte. O guard é uma instância só por módulo, e sem escopo todas as
+   * rotas marcadas dividem os contadores de `ip:` e `sub:`: abrir páginas de
+   * livro consumiria o limite do cadastro por ISBN.
+   */
+  escopo?: string;
 }
 
 /**

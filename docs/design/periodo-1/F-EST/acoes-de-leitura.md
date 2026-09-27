@@ -385,7 +385,7 @@ Nos três, os shadows ficam com **metade da opacidade**: no escuro a hierarquia 
 | Espaçamento, raio, elevação e motion | documento-de-design §3.3 a §3.6 |
 | Iconografia Phosphor | documento-de-design §6 |
 
-**Componentes que ainda não existem na fonte.** A **lista de ações dentro do sheet**, com ação neutra, ação principal e ação destrutiva separada por divisor, não está no `documento-de-design.md`: o §5.4 desenha o sheet de registrar progresso, que é um formulário, não um menu de transições. O desenho nasce aqui e vira pendência de incorporação ao documento pelo controle de mudança do plano §3.
+**Componentes que ainda não existem na fonte.** A **lista de ações dentro do sheet**, com ação neutra, ação principal e ação destrutiva separada por divisor, não está no `documento-de-design.md`: o §5.4 desenha o sheet de registrar progresso, que é um formulário, não um menu de transições. O desenho nasceu aqui e foi incorporado ao `documento-de-design.md` §5.4 em 26/09/2026 pelo controle de mudança do plano §3.
 
 **Também nasce aqui o campo de data.** O §4.2 define input de texto, não seletor de data. O campo desenhado é o input padrão com o valor formatado e o ícone `Calendar`; o seletor de data em si é o do sistema operacional no mobile e o nativo do browser na web, e não é redesenhado.
 

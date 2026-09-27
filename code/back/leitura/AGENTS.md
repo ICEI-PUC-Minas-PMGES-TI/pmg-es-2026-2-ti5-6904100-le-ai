@@ -23,13 +23,69 @@ Núcleo do produto. Estante, leitura, progresso, sessão cronometrada, nota, res
 - **ORM/migrations:** **Drizzle** (`drizzle-orm`) + **drizzle-kit**; schema-por-serviço via `pgSchema('leitura')`, com nomes qualificados no SQL e sem depender de `search_path` na `DATABASE_URL`. Migrations em `drizzle/*.sql` (SQL revisável), aplicadas por `npm run db:migrate` — **cada migration revisada por humano** antes de subir (plano §5); só tabelas do schema `leitura`. As **VIEWs de contrato** (estante, nota) para `social` também vivem aqui (arquitetura §4.2).
 - **Config:** `@nestjs/config` + validação `zod` (`src/config/env.ts`) — não sobe com env inválida. `.env.example` versionado, `.env` nunca (RNF-SEC-11).
 - **Estrutura:**
-  - `src/main.ts` — bootstrap: correlation-id, `helmet` (RNF-SEC-24), CORS restrito (RNF-SEC-21), `ValidationPipe`, Swagger em `/docs`.
+  - `src/main.ts` — bootstrap: aplica o pipeline de `src/configurar-app.ts` (correlation-id, `helmet` RNF-SEC-24, CORS restrito RNF-SEC-21, `ValidationPipe`) e o Swagger em `/docs`.
   - `src/common/` — `correlation.middleware.ts` + `als.ts` (RNF-OBS-01); `all-exceptions.filter.ts` + `error-codes.ts` → corpo `{ codigo, mensagem, correlationId }` (RNF-ERR-01, pt-BR, sem stack trace).
   - `src/db/` — `drizzle.module.ts` (provider `DRIZZLE`), `schema.ts` (`pgSchema`), `migrate.ts`.
   - `src/health/` — `GET /health` via `@nestjs/terminus` + indicador Drizzle (`SELECT 1`) (RNF-OBS-02).
-- **Comandos:** `npm run start:dev` · `npm run build` · `npm test` · `npm run lint` · `npm run db:generate` · `npm run db:migrate`. `npm run start:prod` aplica migrations antes de iniciar a API.
-- **Testes:** Jest + ts-jest; specs em `src/**/*.spec.ts`. Mínimo atual: health e filtro de erro/correlation-id. **A máquina de estados (RN-04) e a inatividade/abandono (RN-05) são teste obrigatório e prioritário (RNF-TST-01)** — entram com as features de domínio; escritas idempotentes (RNF-ERR-04) idem.
-- **OpenAPI:** `@nestjs/swagger` em runtime (`/docs`); esqueleto commitado em [`docs/api/leitura.yaml`](../../../docs/api/leitura.yaml) (RNF-ARQ-03).
+  - Módulos de feature (`src/estante/`, `src/leituras/`, `src/jobs/inatividade/`) em camadas, com `<modulo>.module.ts` na raiz do módulo e specs ao lado do arquivo:
+    - `dominio/` — regras puras (ex.: `maquina-estados.ts`, builders de `eventos.ts`); não importa nada de `@nestjs/*` nem de `drizzle-orm`.
+    - `aplicacao/` — services/casos de uso: transação, domínio, outbox, idempotência.
+    - `infraestrutura/` — repositories Drizzle.
+    - `api/` — controllers, guards HTTP e `dto/` (validação, Swagger).
+    - Dependência só para dentro: `api → aplicacao → dominio` e `aplicacao → infraestrutura`. `aplicacao` pode usar os tipos de `api/dto` como contrato de entrada/saída; `dominio` e `infraestrutura` nunca importam `api/`. `common/`, `auth/`, `outbox/`, `referencias/`, `db/` e `messaging/` são transversais e ficam planos. `src/avaliacoes/` e `src/perfis/` (F-AVA) seguem a estrutura plana própria.
+- **Comandos:** `npm run start:dev` · `npm run build` · `npm test` · `npm run test:integration` · `npm run lint` · `npm run db:generate` · `npm run db:migrate` · `npm run db:seed`. `npm run start:prod` aplica migrations antes de iniciar a API.
+- **Porta local: 3001.** O `acervo` usa a 3000 e os dois sobem juntos. No Render a porta vem do ambiente.
+- **Testes:** Jest + ts-jest; unitários em `src/**/*.spec.ts`, integração em `test/integracao/*.int-spec.ts`. **A máquina de estados (RN-04) e a inatividade/abandono (RN-05) são teste obrigatório e prioritário (RNF-TST-01)** — entram com as features de domínio.
+- **OpenAPI:** `@nestjs/swagger` em runtime (`/docs`); commitado em [`docs/api/leitura.yaml`](../../../docs/api/leitura.yaml) (RNF-ARQ-03).
+
+## Infra comum das features (F-AVA, fatia 0, 26/09/2026)
+
+Copiada do `acervo` e pronta para F-AVA, F-EST e F-PRG. Não existe pacote compartilhado entre serviços: a regra é copiar e adaptar. Plano: [`plano-F-AVA.md`](../../../docs/plano-de-desenvolvimento/periodo-1/plano-F-AVA.md), fatia 0.
+
+- **Autenticação (`src/auth/`):** `JwtAuthGuard` global (`APP_GUARD`): toda rota nasce protegida. `@Publico()` libera (só `/health`); o Swagger (`/docs`, `/docs-json`) também responde sem token. `@UsuarioAtual()` dá `{ id, username }` do token — nunca aceite o id do solicitante pelo corpo. HS256, issuer `identidade`, `exp` obrigatório (o `jwt.verify` só confere a expiração quando ela existe), `JWT_SECRET` igual ao do `identidade` (mínimo de 32 caracteres, obrigatório em produção; sem ele o serviço não sobe).
+- **Pipeline HTTP (`src/configurar-app.ts`):** `trust proxy`, correlation-id, helmet, CORS e `ValidationPipe` com `forbidNonWhitelisted` e `exceptionFactory`. O `main.ts` e os testes usam o mesmo.
+- **Correlation-id só UUID.** `outbox_leitura.correlation_id` é `uuid NOT NULL`; um header malformado é trocado por um UUID gerado, senão derrubaria a escrita com 500.
+- **Erros (`src/common/erros-de-negocio.ts`):** corpo `{ codigo, mensagem, correlationId }`, com `campos` quando houver.
+  - **400** (`ErroDeValidacao`): corpo malformado — tipo errado, campo faltando ou sobrando, UUID inválido, `Idempotency-Key` ausente.
+  - **422** (`EntidadeInvalida`, código `ENTIDADE_NAO_PROCESSAVEL`): dado bem formado que fere regra de negócio (nota fora da escala, resenha vazia ou longa demais).
+  - 401, 403, 404, 409, 429 (com `Retry-After`) e 503 têm classe própria.
+  - Erro do leitor de corpo do Express (não é `HttpException`) sai com o status dele: corpo acima de 100 KB é 413 `CORPO_MUITO_GRANDE`, nunca 500.
+  - VIEW de outro serviço inacessível (`ehFalhaDeContratoExterno`, em `pg-erros.ts`) vira 503.
+- **Idempotência (`src/common/idempotencia/`):** `IdempotenciaService.executar(contexto, efeito)` roda o efeito e grava o recibo **na mesma transação**; é serviço, não interceptor. `@IdempotencyKey()` exige UUID (400 se faltar).
+  - **Escopo diferente do `acervo`:** `operacao = operacaoNoCaminho(OPERACOES.X, idsDoCaminho)`, por exemplo `salvarNota:<livroId>`, porque o `leitura.yaml` define o escopo como ator + método + **caminho canônico**. A mesma chave em outro livro é outra operação (no `acervo` seria 409). Mesma chave com outro corpo: 409. Janela de replay: 24 h.
+  - Acrescente as operações da sua feature em `OPERACOES`, com o `operationId` do contrato.
+  - O índice único é `idempotencia_leitura_subject_operacao_chave_uk` (predicado `subject_ref is not null and chave is not null`).
+- **Limite de requisições (`src/common/rate-limit/`):** `@UseGuards(RateLimitGuard)` + `@RateLimit({ porIdentidade, porIp, janelaSegundos, escopo })` nas escritas que viram atividade ou evento. **Um `escopo` por rota**, senão as rotas dividem o contador.
+- **VIEWs de outros serviços (`src/db/contratos-externos.ts`):** `acervo.v_livro_referencia_v1`, `identidade.v_perfil_referencia_v1` e `identidade.v_seguimento_aceito_v1`, todas `.existing()` e fora do `schema.ts`. `autor_exibicao` é `NULL` em livro oficial sem autor (701 livros no dev).
+- **Outbox (`src/outbox/`):** `OutboxRepository.inserir(tx, { tipo, versao, chaveNegocio, payload })`, sempre com o `tx` da transação do domínio. O `payload` é só o `data` do schema; o despachante de P0-MSG monta o envelope. **O `data` é validado antes do INSERT:** evento fora do contrato desfaz a transação (500) em vez de cair na DLQ de outro serviço. Por isso:
+  - registre o schema do seu evento no `onModuleInit` do módulo com `MessageValidator.registerDataSchema(tipo, versao, schema)`, usando a cópia em `src/messaging/schemas/` (idêntica à de `docs/mensageria`, conferida por `schemas.spec.ts`);
+  - o `common-v1` já está registrado, então `$ref: "common-v1.schema.json#/..."` resolve;
+  - limpe o que vem de fora antes de montar o evento: URL de capa ou avatar malformada vira `null`, e ausência de autor é `null`, nunca texto inventado (`LivroSnapshot.autor` aceita `null` desde 26/09/2026, ver `docs/mensageria/README.md`).
+- **Testes de integração (`test/integracao/`):** Postgres descartável, nunca o Neon (`ambiente.ts` recusa). As VIEWs de `acervo` e `identidade` viram **tabelas** no fixture (`banco.ts`), com massa em `massa.ts` (`inserirLivro`, `inserirPerfil`, `seguir`). Nelas, "suspenso" e "em exclusão" são o mesmo caso: sem linha. `limpar()` zera todas as tabelas dos três schemas pelo catálogo, então tabela nova entra sozinha. `broker-em-memoria.ts` prova outbox → despachante → envelope válido. `criarApp([Controller])` aceita rotas só de teste (ver `rota-de-teste.ts`).
+  - Local: `DATABASE_URL_TESTE=postgresql://postgres:teste@localhost:55432/leai_teste_leitura npm run test:integration`, com um banco **separado** do usado pelo acervo (`createdb -U postgres leai_teste_leitura` no container), porque os dois fixtures recriam os mesmos schemas.
+  - A CI (`ci-back-leitura.yml`) sobe Postgres 17 e roda o mesmo comando.
+- **Lint no Windows:** com `core.autocrlf=true`, o checkout vem em CRLF e o `prettier/prettier` acusa todo arquivo. O Git grava LF; para conferir o resto localmente, rode `npx eslint "src/**/*.ts" --rule '{"prettier/prettier": ["error", {"endOfLine": "auto"}]}'`.
+
+## F-AVA — nota e resenha (27/09/2026)
+
+Módulos `src/avaliacoes/` (nota, resenha, minha avaliação) e `src/perfis/` (resenhas do perfil). Contrato em `docs/api/leitura.yaml`; plano em [`plano-F-AVA.md`](../../../docs/plano-de-desenvolvimento/periodo-1/plano-F-AVA.md).
+
+- **Livro:** lido de `acervo.v_livro_referencia_v1`. Inexistente, inativo ou pessoal de outra pessoa é **404, nunca 403**: conhecer o id não revela que o livro existe (RNF-SEC-06). Em livro pessoal só o dono avalia (RN-03). **Os DELETE não conferem o livro:** apagam só o que é do leitor, e remover nota ou resenha continua possível depois que o livro fica inativo.
+- **Ids de caminho em minúsculas** (`emMinusculas`, depois do `ParseUUIDPipe`): o mesmo livro sempre com o mesmo `livroId` na resposta e a mesma chave de negócio no evento; no perfil, o dono de perfil privado continua reconhecido.
+- **Nota:** `valor` que não é número é 400; fora de 0..5 ou do passo de 0,5 é 422 (`regras.ts`). `INSERT … ON CONFLICT … WHERE nota.valor IS DISTINCT FROM excluded.valor RETURNING (xmax = 0)`: criada, atualizada ou, sem linha, mesmo valor — 200 sem gravar e sem evento.
+- **Resenha:** texto cru de 1 a 5.000 **code points** (`[...texto].length`, igual ao `char_length` do CHECK; nunca `@MaxLength`, que conta UTF-16). Só espaços ou caracteres invisíveis (largura zero, BOM) é 422, e o caractere nulo também (o `text` do Postgres não o guarda); o 23514 do `resenha_texto_ck` também vira 422. O texto é guardado como chegou; o escape é do cliente. Conta fora de `v_perfil_referencia_v1` (suspensa ou em exclusão) não publica: 403.
+- **DELETE sem nada para apagar:** 204 sem evento, inclusive em livro inexistente ou de outra pessoa.
+- **Eventos:** `nota.alterada` (criada, atualizada, excluida; publicado sem consumidor, de propósito), `resenha.publicada` **só na criação** (`atualizacao=false`) e `resenha.excluida`. Schemas registrados no `onModuleInit` do `AvaliacoesModule`. Os snapshots vêm das VIEWs de perfil e de livro; URL de capa ou avatar passa pelo `urlOuNulo`: sai o `href` normalizado (acento vira `%C3%A7`), e o que não for http(s) nem passar no mesmo `format: uri` do validador da outbox vira `null`, e livro sem autor manda `autor: null`.
+- **Resenhas do perfil:** RN-08 (próprio, público ou seguidor aceito; senão 403; perfil fora da VIEW é 404). Livro inativo não aparece; resenha de livro pessoal só para o próprio dono (RN-15). Página base 1, de 1 a 10.000 (sem teto, `page=1e20` estourava o `OFFSET`), e `limite` até 50.
+- **O feed lê `v_resenha_publicacao_v1` e `v_nota_publicacao_v1`** (`ServicoDeFeed`): não mude as colunas dessas VIEWs sem falar com o dono de F-FEED. A decisão sobre esse consumo está pendente com o grupo.
+
+## F-EST — estante e ciclo de leitura
+
+Módulos `src/estante/`, `src/leituras/` e `src/jobs/inatividade/`, com `src/referencias/` (livro e perfil pelas VIEWs de contrato). Contrato em `docs/api/leitura.yaml`.
+
+- **Idempotência:** as escritas usam o mesmo `@IdempotencyKey()` e `IdempotenciaService` de F-AVA; o escopo gravado é `operacaoNoCaminho(OPERACOES.<operationId>, ...idsDoCaminho)`.
+- **Eventos:** `leitura.*` e `livro.adicionado_a_estante`, com `eventId` gerado no domínio (a chave de negócio e o registro de limiares de inatividade o usam) e passado a `OutboxRepository.inserir`. Schemas registrados no `onModuleInit` do `LeiturasModule`.
+- **Job de inatividade:** `POST /internal/jobs/inatividade` é `@Publico()` e exige `X-Scheduler-Token` igual a `SCHEDULER_TOKEN` (32+ caracteres).
 
 ## Pontos de atenção (ver `REQUISITOS.md`) — prioridade de teste
 

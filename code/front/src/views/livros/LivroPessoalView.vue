@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { PhBookOpen, PhDotsThreeVertical, PhPencilSimple, PhTrash } from '@phosphor-icons/vue'
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import AcoesLeitura from '../../components/estante/AcoesLeitura.vue'
+import StatusPill from '../../components/estante/StatusPill.vue'
+import BlocoDeSpoiler from '../../components/livros/BlocoDeSpoiler.vue'
+import BlocoSuaAvaliacao from '../../components/livros/BlocoSuaAvaliacao.vue'
 import CapaLivro from '../../components/livros/CapaLivro.vue'
 import EstrelasNota from '../../components/livros/EstrelasNota.vue'
 import BannerAviso from '../../components/ui/BannerAviso.vue'
@@ -10,9 +14,13 @@ import BotaoTextual from '../../components/ui/BotaoTextual.vue'
 import DialogoConfirmacao from '../../components/ui/DialogoConfirmacao.vue'
 import EstadoVazio from '../../components/ui/EstadoVazio.vue'
 import FolhaAcoes, { type AcaoDaFolha } from '../../components/ui/FolhaAcoes.vue'
+import { TEXTOS_DO_PAINEL, textoVezesLido } from '../../estante/textos'
+import { usePainelDeAcoes } from '../../estante/usePainelDeAcoes'
 import { formatarData, formatarPaginas } from '../../livros/formatos'
+import { useMinhaAvaliacao } from '../../livros/useMinhaAvaliacao'
 import { acervoService, type LivroPessoalDetalhe, type ViaDeAcesso } from '../../services/acervo'
 import { ApiError, novaChaveIdempotencia } from '../../services/api'
+import { leituraService, type ItemEstante } from '../../services/leitura'
 
 /**
  * Página do livro pessoal (RF-ACV-09, RN-03, RN-15). Estrutura e copy de
@@ -51,6 +59,29 @@ const nomeDoDono = computed(() => livro.value?.dono?.nome ?? null)
 const primeiroNome = computed(() => nomeDoDono.value?.split(/\s+/)[0] ?? null)
 const avaliado = computed(() => livro.value !== null && (livro.value.notaDoDono !== null || livro.value.resenhaDoDono !== null))
 
+/**
+ * O dono avalia o próprio livro pessoal pelo bloco "Sua avaliação" (F-AVA, RN-03), carregado do
+ * `leitura`. O terceiro vê a nota e a resenha do dono que o `acervo` já traz, sem ação nenhuma.
+ */
+const minhaAvaliacao = useMinhaAvaliacao()
+const rotaDoEditor = computed(() => ({ name: 'escrever-resenha-pessoal', params: { id: String(route.params.id) } }))
+
+/** Resenha do dono com spoiler, vista por terceiro: fora do DOM até a ação (RF-AVA-03). */
+const spoilerRevelado = ref(false)
+const textoDaResenhaDoDono = useTemplateRef<HTMLParagraphElement>('textoDaResenhaDoDono')
+
+/** Ao revelar o spoiler, o foco vai para o texto, para o leitor de tela continuar dali. */
+async function revelarSpoiler(): Promise<void> {
+  spoilerRevelado.value = true
+  await nextTick()
+  textoDaResenhaDoDono.value?.focus()
+}
+const livroAvaliado = computed(() => ({
+  titulo: livro.value?.titulo ?? '',
+  autor: livro.value?.autor ?? null,
+  capaUrl: livro.value?.capaUrl ?? null,
+}))
+
 const acoesDoMenu: AcaoDaFolha[] = [
   { id: 'editar', rotulo: 'Editar livro', icone: PhPencilSimple },
   { id: 'excluir', rotulo: 'Excluir livro', icone: PhTrash, destrutiva: true },
@@ -62,12 +93,45 @@ watch(
   { immediate: true },
 )
 
+const naEstante = ref<ItemEstante | null>(null)
+const vezesLido = ref(0)
+const situacaoCarregada = ref(false)
+const situacaoFalhou = ref(false)
+const painel = usePainelDeAcoes((leituraId) => leituraService.detalharLeitura(leituraId))
+
+async function carregarSituacao(): Promise<void> {
+  const livroId = String(route.params.id)
+  situacaoCarregada.value = false
+  situacaoFalhou.value = false
+  try {
+    const [item, conclusoes] = await Promise.all([
+      leituraService.consultarItemEstante(livroId),
+      leituraService.consultarConclusoes(livroId),
+    ])
+    naEstante.value = item
+    vezesLido.value = conclusoes.vezesLido
+    situacaoCarregada.value = true
+  } catch {
+    situacaoFalhou.value = true
+  }
+}
+
+function abrirAcoes(): void {
+  if (!livro.value) return
+  const { titulo, autor, capaUrl } = livro.value
+  void painel.abrir({ livroId: String(route.params.id), titulo, autor, capaUrl }, naEstante.value)
+}
+
 async function carregar(): Promise<void> {
   carregando.value = true
   indisponivel.value = false
   erroDeCarga.value = null
   try {
     livro.value = await acervoService.obterLivroPessoal(String(route.params.id), acesso.value)
+    if (ehDono.value) {
+      void carregarSituacao()
+      void minhaAvaliacao.carregar(livro.value.id)
+    }
   } catch (erro) {
     livro.value = null
     if (erro instanceof ApiError && (erro.status === 403 || erro.status === 404)) {
@@ -212,6 +276,48 @@ async function excluir(): Promise<void> {
           </div>
         </header>
 
+        <section
+          v-if="ehDono"
+          class="order-4 mt-space-5 flex flex-col items-center gap-space-3 md:order-none md:items-start"
+        >
+          <template v-if="situacaoCarregada">
+            <div
+              v-if="naEstante || vezesLido > 0"
+              class="flex items-center gap-space-3"
+            >
+              <StatusPill
+                v-if="naEstante"
+                :status="naEstante.status"
+              />
+              <span
+                v-if="vezesLido > 0"
+                class="text-caption text-grafite"
+              >{{ textoVezesLido(vezesLido) }}</span>
+            </div>
+            <button
+              type="button"
+              class="flex h-12 w-full items-center justify-center rounded-full bg-musgo px-space-8 text-body-strong text-papel transition-colors duration-dur-fast hover:bg-musgo-vivo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo disabled:opacity-60 md:h-10 md:w-auto"
+              :disabled="painel.preparando.value"
+              @click="abrirAcoes"
+            >
+              {{ naEstante ? TEXTOS_DO_PAINEL.alterarStatus : TEXTOS_DO_PAINEL.adicionarNaEstante }}
+            </button>
+          </template>
+          <BannerAviso
+            v-if="situacaoFalhou || painel.falhou.value"
+            variante="erro"
+          >
+            {{ TEXTOS_DO_PAINEL.erroAoAbrir }}
+            <BotaoTextual
+              v-if="situacaoFalhou"
+              class="mt-space-2"
+              @click="carregarSituacao"
+            >
+              {{ TEXTOS_DO_PAINEL.tentarDeNovo }}
+            </BotaoTextual>
+          </BannerAviso>
+        </section>
+
         <p
           v-if="!ehDono && nomeDoDono"
           class="order-4 mt-space-3 flex items-center justify-center gap-space-2 text-caption text-grafite md:order-none md:justify-start"
@@ -246,13 +352,20 @@ async function excluir(): Promise<void> {
             </p>
           </section>
 
-          <template v-if="avaliado">
+          <BlocoSuaAvaliacao
+            v-if="ehDono"
+            class="py-space-5"
+            :avaliacao="minhaAvaliacao"
+            :livro="livroAvaliado"
+            :rota-do-editor="rotaDoEditor"
+          />
+          <template v-else-if="avaliado">
             <section
               v-if="livro.notaDoDono"
               class="py-space-5"
             >
               <h3 class="text-title-sm text-tinta">
-                {{ ehDono ? 'Sua nota' : `Nota de ${primeiroNome ?? 'quem cadastrou'}` }}
+                {{ `Nota de ${primeiroNome ?? 'quem cadastrou'}` }}
               </h3>
               <EstrelasNota
                 class="mt-space-3"
@@ -264,11 +377,19 @@ async function excluir(): Promise<void> {
               class="py-space-5"
             >
               <h3 class="text-title-sm text-tinta">
-                {{ ehDono ? 'Sua resenha' : `Resenha de ${primeiroNome ?? 'quem cadastrou'}` }}
+                {{ `Resenha de ${primeiroNome ?? 'quem cadastrou'}` }}
               </h3>
+              <BlocoDeSpoiler
+                v-if="livro.resenhaDoDono.spoiler && !spoilerRevelado"
+                class="mt-space-3"
+                @revelar="revelarSpoiler"
+              />
               <p
+                v-else
+                ref="textoDaResenhaDoDono"
+                tabindex="-1"
                 lang="pt-BR"
-                class="mt-space-3 max-w-[68ch] whitespace-pre-line font-editorial text-body-lg text-tinta"
+                class="mt-space-3 max-w-[68ch] outline-none whitespace-pre-line font-editorial text-body-lg text-tinta"
               >
                 {{ livro.resenhaDoDono.texto }}
               </p>
@@ -277,15 +398,7 @@ async function excluir(): Promise<void> {
               </p>
             </section>
           </template>
-          <!-- Sem avaliação, o dono vê o convite; o terceiro não vê nada (§4.2 e §4.6). -->
-          <section
-            v-else-if="ehDono"
-            class="py-space-5"
-          >
-            <p class="text-body text-grafite">
-              Você ainda não avaliou este livro.
-            </p>
-          </section>
+          <!-- Sem avaliação do dono, o terceiro não vê nada (§4.6). -->
         </div>
       </div>
     </article>
@@ -309,6 +422,20 @@ async function excluir(): Promise<void> {
         />
       </button>
     </Teleport>
+
+    <AcoesLeitura
+      v-if="painel.livro.value"
+      :aberta="painel.aberto.value"
+      :livro="painel.livro.value"
+      :estado="painel.estado.value"
+      @fechar="painel.fechar()"
+      @registrar-progresso="painel.fechar()"
+      @atualizado="carregarSituacao()"
+    >
+      <template #status="{ status }">
+        <StatusPill :status="status" />
+      </template>
+    </AcoesLeitura>
 
     <FolhaAcoes
       :aberta="menuAberto"

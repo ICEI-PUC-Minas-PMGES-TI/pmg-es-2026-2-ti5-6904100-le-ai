@@ -1,12 +1,16 @@
 import { flushPromises } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { leituraService } from '../services/leitura'
 import { perfilService, type Perfil } from '../services/perfil'
 import { montarNaRota } from '../testes/montarNaRota'
 
 vi.mock('../services/perfil', () => ({ perfilService: { obterMeuPerfil: vi.fn(), listarSolicitacoes: vi.fn() } }))
 
+vi.mock('../services/leitura', () => ({ leituraService: { listarResenhasPerfil: vi.fn() } }))
+
 const servico = vi.mocked(perfilService)
+const leitura = vi.mocked(leituraService)
 
 const PERFIL: Perfil = {
   id: 'u1',
@@ -21,9 +25,36 @@ const PERFIL: Perfil = {
 }
 
 describe('PerfilView', () => {
+  // O dono vê o próprio texto mesmo com spoiler.
+  it('as próprias resenhas aparecem com o texto, mesmo com spoiler', async () => {
+    leitura.listarResenhasPerfil.mockResolvedValue({
+      itens: [
+        {
+          id: 'r1',
+          usuarioId: 'u1',
+          livroId: 'livro-1',
+          texto: 'Minha leitura com spoiler.',
+          spoiler: true,
+          criadoEm: '2026-09-12T12:00:00Z',
+          atualizadoEm: '2026-09-12T12:00:00Z',
+          livro: { id: 'livro-1', tipo: 'oficial', titulo: 'Torto Arado', autor: null, capaUrl: null },
+          nota: null,
+        },
+      ],
+      paginacao: { page: 1, limite: 5, totalItens: 1, totalPaginas: 1 },
+    })
+    const { wrapper } = await montarNaRota('/perfil')
+    await flushPromises()
+
+    expect(leitura.listarResenhasPerfil).toHaveBeenCalledWith('u1', 1, 5)
+    expect(wrapper.text()).toContain('Minha leitura com spoiler.')
+    expect(wrapper.text()).not.toContain('Esta resenha contém spoiler')
+  })
+
   beforeEach(() => {
     localStorage.clear()
     servico.obterMeuPerfil.mockReset().mockResolvedValue(PERFIL)
+    leitura.listarResenhasPerfil.mockReset().mockResolvedValue({ itens: [], paginacao: { page: 1, limite: 5, totalItens: 0, totalPaginas: 0 } })
     servico.listarSolicitacoes
       .mockReset()
       .mockResolvedValue({ items: [], page: 0, size: 1, totalElements: 0, totalPages: 0 })

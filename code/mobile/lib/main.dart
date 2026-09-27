@@ -12,6 +12,7 @@ import 'core/session/token_store.dart';
 import 'design/theme.dart';
 import 'design/theme_controller.dart';
 import 'features/auth/auth_service.dart';
+import 'features/estante/estante_service.dart';
 import 'features/livros/rotas_livros.dart';
 
 Future<void> main() async {
@@ -29,8 +30,7 @@ Future<void> main() async {
   // `late`: o cliente precisa renovar pela `AuthService`, que precisa do cliente. A renovação
   // vai anônima (`anonimo: true`), então não há recursão: ela nunca passa pelo próprio 401.
   late final AuthService authService;
-  Future<bool> renovarSessao(String token) =>
-      sessionController.renovar(token, authService.renovar);
+  Future<bool> renovarSessao(String token) => sessionController.renovar(token, authService.renovar);
 
   final apiClient = ApiClient(
     baseUrl: AppConfig.identidadeBaseUrl,
@@ -57,12 +57,14 @@ class LeAiApp extends StatefulWidget {
   final SessionController sessionController;
   final AuthService authService;
   final DependenciasDeLivros? livros;
+  final EstanteService? estante;
 
   const LeAiApp({
     required this.themeController,
     required this.sessionController,
     required this.authService,
     this.livros,
+    this.estante,
     super.key,
   });
 
@@ -77,6 +79,7 @@ class _LeAiAppState extends State<LeAiApp> {
     sessionController: widget.sessionController,
     authService: widget.authService,
     livros: widget.livros,
+    estante: widget.estante,
   );
 
   @override

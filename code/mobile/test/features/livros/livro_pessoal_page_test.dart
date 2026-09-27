@@ -42,8 +42,12 @@ Map<String, Object?> _livro({
 
 void main() {
   late List<http.Request> pedidos;
+  late List<http.Request> pedidosDeLeitura;
 
-  setUp(() => pedidos = <http.Request>[]);
+  setUp(() {
+    pedidos = <http.Request>[];
+    pedidosDeLeitura = <http.Request>[];
+  });
 
   Future<void> montar(
     WidgetTester tester,
@@ -61,6 +65,10 @@ void main() {
             pedidos.add(pedido);
             return handler(pedido);
           }),
+          leitura: leituraSimulada((pedido) async {
+            pedidosDeLeitura.add(pedido);
+            return json(semAvaliacao(_id), 200);
+          }),
           livroId: _id,
           via: via,
           referenciaId: referenciaId,
@@ -75,7 +83,7 @@ void main() {
 
   Finder menu() => find.bySemanticsLabel('Ações do livro');
 
-  testWidgets('dono: hero, etiqueta, ficha, sinopse e o convite sem avaliação', (tester) async {
+  testWidgets('dono: hero, etiqueta, ficha, sinopse e "Sua avaliação" sem nota', (tester) async {
     await montar(tester, (_) async => json(_livro(), 200));
 
     expect(pedidos.single.url.query, isEmpty);
@@ -84,7 +92,10 @@ void main() {
     expect(find.text('Livro pessoal'), findsOneWidget);
     expect(find.text('184 páginas'), findsOneWidget);
     expect(find.text('Sinopse'), findsOneWidget);
-    expect(find.text('Você ainda não avaliou este livro.'), findsOneWidget);
+    // F-AVA: o dono avalia o próprio livro pessoal pelo bloco (RN-03), carregado do `leitura`.
+    expect(find.text('Sua avaliação'), findsOneWidget);
+    expect(find.text('Sem nota'), findsOneWidget);
+    expect(pedidosDeLeitura.single.url.path, '/livros/$_id/minha-avaliacao');
     expect(menu(), findsOneWidget);
     // Nada do que não existe em livro pessoal (RN-02, RN-03).
     expect(find.text('ISBN'), findsNothing);
@@ -119,6 +130,30 @@ void main() {
     expect(find.text('Resenha de Rafaela'), findsOneWidget);
     expect(find.text('12 de setembro de 2026'), findsOneWidget);
     expect(find.text('Você ainda não avaliou este livro.'), findsNothing);
+    // Em livro pessoal só o dono avalia (RN-03): o terceiro nem consulta o `leitura`.
+    expect(find.text('Sua avaliação'), findsNothing);
+    expect(pedidosDeLeitura, isEmpty);
+  });
+
+  testWidgets('terceiro: resenha do dono com spoiler fica fora da árvore até o toque', (
+    tester,
+  ) async {
+    final comSpoiler = _livro(consulta: true, comAvaliacao: true);
+    (comSpoiler['resenhaDoDono'] as Map<String, Object?>)['spoiler'] = true;
+    await montar(
+      tester,
+      (_) async => json(comSpoiler, 200),
+      via: 'feed',
+      referenciaId: _atividade,
+    );
+
+    expect(find.text('Esta resenha contém spoiler'), findsOneWidget);
+    expect(find.text('Comprei numa feira e li em duas noites.'), findsNothing);
+
+    await tocar(tester, find.text('Mostrar mesmo assim'));
+    await tester.pump();
+
+    expect(find.text('Comprei numa feira e li em duas noites.'), findsOneWidget);
   });
 
   testWidgets('terceiro com dono sem avaliação: sem seção e sem convite', (tester) async {

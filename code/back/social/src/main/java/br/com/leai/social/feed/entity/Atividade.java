@@ -59,7 +59,8 @@ public class Atividade {
   @Column(name = "snap_livro_titulo", nullable = false, updatable = false)
   private String snapLivroTitulo;
 
-  @Column(name = "snap_livro_autor", nullable = false, updatable = false)
+  // Anulável desde 27/09/2026: livro oficial sem autor chega com autor null (common-v1).
+  @Column(name = "snap_livro_autor", updatable = false)
   private String snapLivroAutor;
 
   @Column(name = "snap_livro_capa", updatable = false)

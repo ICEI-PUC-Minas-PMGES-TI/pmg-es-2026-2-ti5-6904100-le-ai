@@ -13,6 +13,7 @@ import 'package:le_ai_mobile/core/network/api_client.dart';
 import 'package:le_ai_mobile/core/session/session_controller.dart';
 import 'package:le_ai_mobile/core/session/token_store.dart';
 import 'package:le_ai_mobile/design/theme.dart';
+import 'package:le_ai_mobile/features/avaliacao/leitura_service.dart';
 import 'package:le_ai_mobile/features/auth/auth_service.dart';
 import 'package:le_ai_mobile/features/feed/rotas_feed.dart';
 import 'package:le_ai_mobile/features/feed/social_service.dart';
@@ -22,6 +23,8 @@ import 'package:le_ai_mobile/features/livros/rotas_livros.dart';
 import 'package:le_ai_mobile/features/perfil/avatar.dart';
 import 'package:le_ai_mobile/features/perfil/perfil_service.dart';
 import 'package:le_ai_mobile/features/perfil/rotas_perfil.dart';
+
+import '../features/estante/apoio_estante.dart';
 
 /// Testa a guarda através de um `GoRouter` de verdade dirigido por `router.go()`, em vez de
 /// montar um `GoRouterState` à mão: o construtor dele exige uma `RouteConfiguration` interna do
@@ -136,6 +139,55 @@ DependenciasDeFeed _feedSimulado() => DependenciasDeFeed(
   ),
 );
 
+/// `acervo` simulado por rota: um assunto para a faixa, e toda busca volta vazia, que é o estado
+/// que leva aos dois cadastros.
+Future<http.Response> _acervoPorRota(http.Request request) async {
+  const cabecalhos = <String, String>{'content-type': 'application/json; charset=utf-8'};
+  if (request.url.path == '/assuntos') {
+    return http.Response(
+      '{"itens":[{"id":"a1","nome":"Romance"}]}',
+      200,
+      headers: cabecalhos,
+    );
+  }
+  if (request.url.path == '/livros') {
+    return http.Response(
+      '{"itens":[],"page":1,"limit":20,"totalItens":0,"totalPaginas":0}',
+      200,
+      headers: cabecalhos,
+    );
+  }
+  if (request.url.path == '/livros/livro-1') {
+    return http.Response(
+      '{"id":"livro-1","titulo":"Torto Arado","autores":[],"editora":null,'
+      '"anoPublicacao":2019,"paginas":264,"capa":{"url":null,"origem":"placeholder"},'
+      '"assuntos":[],"isbn":"9788588808911","sinopse":{"status":"ausente","texto":null},'
+      '"resenhas":{"itens":[],"limit":10,"proximoCursor":null}}',
+      200,
+      headers: cabecalhos,
+    );
+  }
+  // O livro pessoal aberto pelo feed não faz parte do que se testa aqui: responde como livro
+  // inexistente, que a tela sabe mostrar.
+  if (request.url.path.startsWith('/livros/pessoal/')) {
+    return http.Response(
+      '{"codigo":"RECURSO_NAO_ENCONTRADO","mensagem":"Não encontrado."}',
+      404,
+      headers: cabecalhos,
+    );
+  }
+  return http.Response('{}', 200);
+}
+
+/// Digita na busca do Descobrir e espera o debounce até o estado vazio aparecer.
+Future<void> _buscarSemResultado(WidgetTester tester) async {
+  await tester.tap(find.text('Descobrir'));
+  await tester.pumpAndSettle();
+  await tester.enterText(find.byType(TextField), 'guimaraes rossa');
+  await tester.pump(const Duration(milliseconds: 400));
+  await tester.pumpAndSettle();
+  expect(find.text('Nenhum livro encontrado'), findsOneWidget);
+}
 
 Widget _wrap(GoRouter router) {
   return MaterialApp.router(theme: AppTheme.light(), routerConfig: router);
@@ -157,47 +209,38 @@ void main() {
       authService: AuthService(apiClient),
       perfil: _perfilSimulado(),
       feed: _feedSimulado(),
+      estante: estanteVazia(),
       livros: DependenciasDeLivros(
         acervo: AcervoService(
           ApiClient(
             baseUrl: 'http://localhost:3000',
-            // A página de livro aberta pela navegação não faz parte do que se testa aqui: a
-            // leitura responde como livro inexistente, que a tela sabe mostrar.
-            client: MockClient(
-              (request) async => request.method == 'GET'
-                  ? http.Response(
-                      '{"codigo":"RECURSO_NAO_ENCONTRADO","mensagem":"Não encontrado."}',
-                      404,
-                      headers: <String, String>{'content-type': 'application/json; charset=utf-8'},
-                    )
-                  : http.Response('{}', 200),
-            ),
+            client: MockClient(_acervoPorRota),
           ),
         ),
+        leitura: _leituraSimulada(),
         seletor: _SemImagem(),
         enviador: _SemEnvio(),
       ),
     );
   });
 
-  testWidgets(
-    'sem sessao, deep link para rota protegida preserva o destino ate o login resolver',
-    (tester) async {
-      await tester.pumpWidget(_wrap(router));
-      await tester.pumpAndSettle();
-      expect(find.text('Criar conta'), findsOneWidget);
+  testWidgets('sem sessao, deep link para rota protegida preserva o destino ate o login resolver', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_wrap(router));
+    await tester.pumpAndSettle();
+    expect(find.text('Criar conta'), findsOneWidget);
 
-      router.go('/perfil');
-      await tester.pumpAndSettle();
-      // Ainda sem sessão: a guarda manda de volta para /login, preservando ?destino=/perfil.
-      expect(find.text('Criar conta'), findsOneWidget);
+    router.go('/perfil');
+    await tester.pumpAndSettle();
+    // Ainda sem sessão: a guarda manda de volta para /login, preservando ?destino=/perfil.
+    expect(find.text('Criar conta'), findsOneWidget);
 
-      await sessionController.entrar('jwt-valido');
-      await tester.pumpAndSettle();
-      // refreshListenable reavalia a guarda sozinho: com sessão, /login vira o destino salvo.
-      expect(find.text('Marina Beltrão'), findsOneWidget);
-    },
-  );
+    await sessionController.entrar('jwt-valido');
+    await tester.pumpAndSettle();
+    // refreshListenable reavalia a guarda sozinho: com sessão, /login vira o destino salvo.
+    expect(find.text('Marina Beltrão'), findsOneWidget);
+  });
 
   testWidgets('com sessao ativa, ir para /login redireciona para /estante', (tester) async {
     await sessionController.entrar('jwt-valido');
@@ -207,7 +250,7 @@ void main() {
     router.go('/login');
     await tester.pumpAndSettle();
 
-    expect(find.text('Sua estante aparece aqui.'), findsOneWidget);
+    expect(find.text('Sua estante está vazia'), findsOneWidget);
   });
 
   testWidgets('trocar de aba preserva a pilha de cada branch', (tester) async {
@@ -224,7 +267,7 @@ void main() {
       find.descendant(of: find.byType(BarraInferior), matching: find.text('Estante')),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Sua estante aparece aqui.'), findsOneWidget);
+    expect(find.text('Sua estante está vazia'), findsOneWidget);
   });
 
   testWidgets('Descobrir leva ao cadastro por ISBN, que troca o cabeçalho da aba pelo da tela', (
@@ -234,8 +277,9 @@ void main() {
     await tester.pumpWidget(_wrap(router));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Descobrir'));
-    await tester.pumpAndSettle();
+    // "Cadastrar por ISBN" só existe no vazio da busca (descobrir.md §4.4), não na aterrissagem.
+    await _buscarSemResultado(tester);
+    await tester.ensureVisible(find.text('Cadastrar por ISBN'));
     await tester.tap(find.text('Cadastrar por ISBN'));
     await tester.pumpAndSettle();
 
@@ -246,7 +290,50 @@ void main() {
 
     await tester.tap(find.bySemanticsLabel('Voltar'));
     await tester.pumpAndSettle();
-    expect(find.text('A busca do acervo aparece aqui.'), findsOneWidget);
+    // A busca continua onde estava: o shell preserva a pilha da aba.
+    expect(find.text('Nenhum livro encontrado'), findsOneWidget);
+  });
+
+  testWidgets('a página do livro oficial abre dentro da aba Descobrir e volta para ela', (
+    tester,
+  ) async {
+    await sessionController.entrar('jwt-valido');
+    await tester.pumpWidget(_wrap(router));
+    await tester.pumpAndSettle();
+
+    router.go('/descobrir');
+    await tester.pumpAndSettle();
+    router.push('/descobrir/livro/livro-1');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Este livro ainda não tem sinopse no acervo.'), findsOneWidget);
+    expect(find.bySemanticsLabel('Voltar'), findsOneWidget);
+
+    await tester.tap(find.bySemanticsLabel('Voltar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Título, autor, editora ou ISBN'), findsOneWidget);
+  });
+
+  testWidgets('o cadastro pessoal aberto pelo vazio da busca volta aos resultados ao cancelar', (
+    tester,
+  ) async {
+    await sessionController.entrar('jwt-valido');
+    await tester.pumpWidget(_wrap(router));
+    await tester.pumpAndSettle();
+
+    await _buscarSemResultado(tester);
+    await tester.ensureVisible(find.text('Cadastrar livro pessoal'));
+    await tester.tap(find.text('Cadastrar livro pessoal'));
+    await tester.pumpAndSettle();
+    expect(find.text('Cadastrar livro'), findsOneWidget);
+
+    final cancelar = find.text('Cancelar');
+    await tester.ensureVisible(cancelar);
+    await tester.tap(cancelar);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Nenhum livro encontrado'), findsOneWidget);
+    expect(find.text('Adicionar livro'), findsNothing);
   });
 
   testWidgets('a saída pessoal do ISBN abre o formulário sem campo de ISBN', (tester) async {
@@ -285,14 +372,14 @@ void main() {
           ),
         ),
         perfil: _perfilSimulado(),
+        estante: estanteVazia(),
         livros: DependenciasDeLivros(
           acervo: AcervoService(
             ApiClient(
               baseUrl: 'http://localhost:3000',
               client: MockClient((request) async {
                 final ehLivroPessoal = request.url.path.contains('/livros/pessoal');
-                if (ehLivroPessoal &&
-                    (request.method == 'POST' || request.method == 'GET')) {
+                if (ehLivroPessoal && (request.method == 'POST' || request.method == 'GET')) {
                   return http.Response(
                     livroJson,
                     request.method == 'POST' ? 201 : 200,
@@ -305,6 +392,7 @@ void main() {
               }),
             ),
           ),
+          leitura: _leituraSimulada(),
           seletor: _SemImagem(),
           enviador: _SemEnvio(),
         ),
@@ -321,13 +409,8 @@ void main() {
       await tester.pumpAndSettle();
 
       Future<void> preencher(String label, String valor) async {
-        final campo = find
-            .ancestor(of: find.text(label), matching: find.byType(Column))
-            .first;
-        await tester.enterText(
-          find.descendant(of: campo, matching: find.byType(TextField)),
-          valor,
-        );
+        final campo = find.ancestor(of: find.text(label), matching: find.byType(Column)).first;
+        await tester.enterText(find.descendant(of: campo, matching: find.byType(TextField)), valor);
         await tester.pump();
       }
 
@@ -346,7 +429,7 @@ void main() {
       // Voltar para Descobrir mostra a raiz limpa, não o formulário preenchido.
       await tester.tap(find.text('Descobrir'));
       await tester.pumpAndSettle();
-      expect(find.text('A busca do acervo aparece aqui.'), findsOneWidget);
+      expect(find.text('Título, autor, editora ou ISBN'), findsOneWidget);
       expect(find.text('Cadastrar livro'), findsNothing);
     },
   );
@@ -385,8 +468,10 @@ void main() {
         ),
       ),
       perfil: _perfilSimulado(),
+      estante: estanteVazia(),
       livros: DependenciasDeLivros(
         acervo: AcervoService(ApiClient(baseUrl: 'http://localhost:3000')),
+        leitura: _leituraSimulada(),
         seletor: _SemImagem(),
         enviador: _SemEnvio(),
       ),
@@ -478,3 +563,28 @@ void main() {
     );
   });
 }
+
+/// `leitura` que responde "sem avaliação" a qualquer livro: o roteador só precisa da página abrir.
+LeituraService _leituraSimulada() => LeituraService(
+  ApiClient(
+    baseUrl: 'http://localhost:3001',
+    client: MockClient((request) async {
+      final partes = request.url.pathSegments;
+      if (partes.length == 3 && partes[0] == 'perfis' && partes[2] == 'resenhas') {
+        return http.Response(
+          '{"itens":[],"paginacao":{"page":1,"limite":5,"totalItens":0,"totalPaginas":0}}',
+          200,
+          headers: const <String, String>{'content-type': 'application/json; charset=utf-8'},
+        );
+      }
+      if (partes.length == 3 && partes[2] == 'minha-avaliacao') {
+        return http.Response(
+          '{"livroId":"${partes[1]}","nota":null,"resenha":null}',
+          200,
+          headers: const <String, String>{'content-type': 'application/json; charset=utf-8'},
+        );
+      }
+      return http.Response('{}', 200);
+    }),
+  ),
+);

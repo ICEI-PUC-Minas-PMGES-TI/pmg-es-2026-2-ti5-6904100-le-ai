@@ -56,3 +56,41 @@ export function digitoVerificadorConfere(isbn13: string): boolean {
   const esperado = (10 - (soma % 10)) % 10;
   return esperado === Number(isbn13[12]);
 }
+
+/**
+ * O ISBN-13 equivalente a um ISBN-10 válido (prefixo `978` e novo dígito
+ * verificador), ou `null`.
+ *
+ * Só a busca usa (RF-ACV-01): livro mais antigo traz apenas o ISBN-10
+ * impresso, e o acervo guarda o ISBN-13 (RN-02). O cadastro continua exigindo
+ * ISBN-13 por `normalizarIsbn13`.
+ */
+export function isbn13DeIsbn10(
+  bruto: string | null | undefined,
+): string | null {
+  if (!bruto) {
+    return null;
+  }
+
+  const limpo = bruto.trim().replace(SEPARADORES, '').toUpperCase();
+  if (!/^[0-9]{9}[0-9X]$/.test(limpo)) {
+    return null;
+  }
+
+  // Pesos de 10 a 1; o `X` final vale 10.
+  let soma = 0;
+  for (let posicao = 0; posicao < 10; posicao += 1) {
+    const digito = limpo[posicao] === 'X' ? 10 : Number(limpo[posicao]);
+    soma += digito * (10 - posicao);
+  }
+  if (soma % 11 !== 0) {
+    return null;
+  }
+
+  const base = `978${limpo.slice(0, 9)}`;
+  let soma13 = 0;
+  for (let posicao = 0; posicao < 12; posicao += 1) {
+    soma13 += Number(base[posicao]) * (posicao % 2 === 0 ? 1 : 3);
+  }
+  return `${base}${(10 - (soma13 % 10)) % 10}`;
+}

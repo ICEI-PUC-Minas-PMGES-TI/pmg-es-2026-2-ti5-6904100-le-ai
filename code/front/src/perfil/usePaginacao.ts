@@ -14,24 +14,35 @@ export function usePaginacao<T extends { id: string }>(buscar: (pagina: number) 
   const carregandoMais = ref(false)
   const falhou = ref(false)
   const falhouMais = ref(false)
-  let proxima = 0
-  let paginas = 0
+  const proxima = ref(0)
+  const paginas = ref(0)
+  let geracao = 0
 
-  const temMais = computed(() => proxima < paginas)
+  const temMais = computed(() => proxima.value < paginas.value)
 
   async function carregar(): Promise<void> {
+    const minha = ++geracao
     carregando.value = true
+    carregandoMais.value = false
     falhou.value = false
+    falhouMais.value = false
     try {
       const pagina = await buscar(0)
+      if (minha !== geracao) {
+        return
+      }
       itens.value = pagina.items
       total.value = pagina.totalElements
-      paginas = pagina.totalPages
-      proxima = 1
+      paginas.value = pagina.totalPages
+      proxima.value = 1
     } catch {
-      falhou.value = true
+      if (minha === geracao) {
+        falhou.value = true
+      }
     } finally {
-      carregando.value = false
+      if (minha === geracao) {
+        carregando.value = false
+      }
     }
   }
 
@@ -39,21 +50,29 @@ export function usePaginacao<T extends { id: string }>(buscar: (pagina: number) 
     if (!temMais.value || carregando.value || carregandoMais.value) {
       return
     }
+    const minha = geracao
     carregandoMais.value = true
     falhouMais.value = false
     try {
-      const pagina = await buscar(proxima)
+      const pagina = await buscar(proxima.value)
+      if (minha !== geracao) {
+        return
+      }
       // Um item removido entre duas páginas empurra os seguintes uma posição para trás; o id
       // evita mostrar duas vezes o que escorregou para a página já carregada.
       const vistos = new Set(itens.value.map((item) => item.id))
       itens.value = [...itens.value, ...pagina.items.filter((item) => !vistos.has(item.id))]
       total.value = pagina.totalElements
-      paginas = pagina.totalPages
-      proxima += 1
+      paginas.value = pagina.totalPages
+      proxima.value += 1
     } catch {
-      falhouMais.value = true
+      if (minha === geracao) {
+        falhouMais.value = true
+      }
     } finally {
-      carregandoMais.value = false
+      if (minha === geracao) {
+        carregandoMais.value = false
+      }
     }
   }
 
