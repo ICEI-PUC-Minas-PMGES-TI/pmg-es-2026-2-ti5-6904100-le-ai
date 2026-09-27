@@ -11,7 +11,7 @@ import '../features/conta/recuperar_senha_page.dart';
 import '../features/conta/redefinir_senha_page.dart';
 import '../features/descobrir/descobrir_page.dart';
 import '../features/estante/estante_page.dart';
-import '../features/feed/feed_page.dart';
+import '../features/feed/rotas_feed.dart';
 import '../features/livros/rotas_livros.dart';
 import '../features/perfil/perfil_page.dart';
 import '../features/perfil/rotas_perfil.dart';
@@ -35,12 +35,14 @@ const List<String> _rotasPublicas = <String>[rotaLogin, rotaCadastro, rotaRecupe
 ///
 /// [livros] traz os serviços das telas de F-ACV-CADASTRO. Sem ele, o padrão aponta para o
 /// `acervo` de `AppConfig` com o token da sessão — os testes que não passam por essas telas não
-/// precisam montar nada. [perfil] faz o mesmo para F-PERFIL, com o `identidade`.
+/// precisam montar nada. [perfil] faz o mesmo para F-PERFIL, com o `identidade`, e [feed] para
+/// F-FEED, com o `social`.
 GoRouter buildRouter({
   required SessionController sessionController,
   required AuthService authService,
   DependenciasDeLivros? livros,
   DependenciasDePerfil? perfil,
+  DependenciasDeFeed? feed,
 }) {
   Future<bool> renovar(String token) => sessionController.renovar(token, authService.renovar);
   final deps =
@@ -49,6 +51,9 @@ GoRouter buildRouter({
   final depsDePerfil =
       perfil ??
       DependenciasDePerfil.padrao(getToken: () => sessionController.token, renovarSessao: renovar);
+  final depsDeFeed =
+      feed ??
+      DependenciasDeFeed.padrao(getToken: () => sessionController.token, renovarSessao: renovar);
   return GoRouter(
     initialLocation: rotaVerificandoSessao,
     refreshListenable: sessionController,
@@ -134,11 +139,7 @@ GoRouter buildRouter({
           ),
           StatefulShellBranch(
             routes: <RouteBase>[
-              GoRoute(
-                path: '/feed',
-                builder: (context, state) => const FeedPage(),
-                routes: rotasDoFeed(deps),
-              ),
+              rotaDoFeed(depsDeFeed, perfil: depsDePerfil, livros: deps),
             ],
           ),
           StatefulShellBranch(

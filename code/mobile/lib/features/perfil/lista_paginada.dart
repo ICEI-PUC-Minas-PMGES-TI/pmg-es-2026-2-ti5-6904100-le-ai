@@ -63,6 +63,14 @@ class ListaPaginada<T> extends ChangeNotifier {
     }
   }
 
+  /// Troca um item pela versão nova depois de uma ação que deu certo (curtir, comentar), sem
+  /// recarregar a lista nem mover a rolagem.
+  void substituir(T novo) {
+    final id = _idDe(novo);
+    itens = itens.map((item) => _idDe(item) == id ? novo : item).toList();
+    notifyListeners();
+  }
+
   /// Tira da lista depois de uma ação que deu certo (remover, deixar de seguir, decidir).
   void retirar(String id) {
     final antes = itens.length;
