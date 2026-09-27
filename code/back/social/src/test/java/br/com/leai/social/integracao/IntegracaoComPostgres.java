@@ -1,10 +1,20 @@
 package br.com.leai.social.integracao;
 
+import com.nimbusds.jose.JOSEException;
+import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jose.JWSHeader;
+import com.nimbusds.jose.crypto.MACSigner;
+import com.nimbusds.jwt.JWTClaimsSet;
+import com.nimbusds.jwt.SignedJWT;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.util.Date;
 import java.util.Set;
+import java.util.UUID;
 import org.springframework.boot.flyway.autoconfigure.FlywayMigrationStrategy;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -87,6 +97,19 @@ public abstract class IntegracaoComPostgres {
         flyway.migrate();
       };
     }
+  }
+
+  /** Access token HS256 válido por 15 minutos, assinado com o segredo do contexto de teste. */
+  protected static String token(UUID subject) throws JOSEException {
+    JWTClaimsSet claims =
+        new JWTClaimsSet.Builder()
+            .subject(subject.toString())
+            .issueTime(Date.from(Instant.now().minusSeconds(1)))
+            .expirationTime(Date.from(Instant.now().plusSeconds(900)))
+            .build();
+    SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), claims);
+    jwt.sign(new MACSigner(JWT_SECRET_TESTE.getBytes(StandardCharsets.UTF_8)));
+    return jwt.serialize();
   }
 
   protected URI uri(String caminho) {
