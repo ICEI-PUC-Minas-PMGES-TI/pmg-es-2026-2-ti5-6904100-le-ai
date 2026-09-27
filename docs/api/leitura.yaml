@@ -596,9 +596,13 @@ paths:
       x-implementation-status: planned
       description: >-
         Autoriza o próprio usuário e perfis públicos. Perfil privado exige
-        seguimento aceito. Conteúdo de conta suspensa ou em exclusão pendente
-        não é exposto. Resenhas com spoiler permanecem marcadas para ocultação
-        pelo cliente até ação explícita de revelar.
+        seguimento aceito (403 sem ele). Conta inexistente, suspensa ou em
+        exclusão pendente é 404. Resenhas com spoiler permanecem marcadas para
+        ocultação pelo cliente até ação explícita de revelar. Cada item traz o
+        livro (título, autor, capa) e a nota do autor, que o card do perfil
+        mostra. Mais recentes primeiro. Livro inativo não aparece. Resenha de
+        livro pessoal só aparece para o próprio dono: terceiros só chegam ao
+        livro pessoal pelo feed ou pela lista do dono (RN-15).
       parameters:
         - { $ref: '#/components/parameters/UsuarioId' }
         - { $ref: '#/components/parameters/Pagina' }
@@ -608,7 +612,7 @@ paths:
           description: Página de resenhas autorizadas.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/PaginaResenhas' }
+              schema: { $ref: '#/components/schemas/PaginaResenhasPerfil' }
         '400': { $ref: '#/components/responses/RequisicaoInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '403': { $ref: '#/components/responses/Proibido' }
@@ -1092,14 +1096,50 @@ components:
             - { $ref: '#/components/schemas/Resenha' }
           nullable: true
 
-    PaginaResenhas:
+    LivroDaResenha:
+      type: object
+      additionalProperties: false
+      required: [id, tipo, titulo, autor, capaUrl]
+      properties:
+        id: { type: string, format: uuid }
+        tipo: { type: string, enum: [oficial, pessoal] }
+        titulo: { type: string }
+        autor:
+          type: string
+          nullable: true
+          description: Nulo em livro oficial sem autor.
+        capaUrl: { type: string, format: uri, nullable: true }
+
+    ResenhaDoPerfil:
+      type: object
+      additionalProperties: false
+      required: [id, usuarioId, livroId, texto, spoiler, criadoEm, atualizadoEm, livro, nota]
+      properties:
+        id: { type: string, format: uuid }
+        usuarioId: { type: string, format: uuid }
+        livroId: { type: string, format: uuid }
+        texto: { type: string, maxLength: 5000 }
+        spoiler: { type: boolean }
+        criadoEm: { type: string, format: date-time }
+        atualizadoEm: { type: string, format: date-time }
+        livro: { $ref: '#/components/schemas/LivroDaResenha' }
+        nota:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 5
+          multipleOf: 0.5
+          nullable: true
+          description: Nota do autor para o livro; nula quando ele não deu nota.
+
+    PaginaResenhasPerfil:
       type: object
       additionalProperties: false
       required: [itens, paginacao]
       properties:
         itens:
           type: array
-          items: { $ref: '#/components/schemas/Resenha' }
+          items: { $ref: '#/components/schemas/ResenhaDoPerfil' }
         paginacao: { $ref: '#/components/schemas/Paginacao' }
 
     ExecutarJobEntrada:
