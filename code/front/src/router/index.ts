@@ -70,6 +70,10 @@ declare module 'vue-router' {
 /** Origem do fluxo de cadastro: a estante vazia ou a busca sem resultado (cadastro-por-isbn.md §1). */
 const ORIGEM = ':origem(descobrir|estante)'
 
+/** Livro oficial pertence à aba de onde se veio: estante, perfil ou, por padrão, Descobrir. */
+const abaDoLivroOficial = (rota: RouteLocationNormalizedLoaded) =>
+  rota.query.origem === 'estante' ? '/estante' : rota.query.origem === 'perfil' ? '/perfil' : '/descobrir'
+
 /** Livro pessoal aberto pelo feed é do Feed; pela estante do dono, da Estante. */
 const abaDoLivroPessoal = (rota: RouteLocationNormalizedLoaded) => (rota.query.via === 'feed' ? '/feed' : '/estante')
 
@@ -243,7 +247,7 @@ export const routes: RouteRecordRaw[] = [
           voltar: true,
           fechar: true,
           semBarraInferior: true,
-          aba: (rota) => (rota.query.origem === 'estante' ? '/estante' : '/descobrir'),
+          aba: abaDoLivroOficial,
           voltarPara: (rota) =>
             `/livros/${String(rota.params.id)}${rota.query.origem ? `?origem=${String(rota.query.origem)}` : ''}`,
         },
@@ -257,7 +261,7 @@ export const routes: RouteRecordRaw[] = [
           voltar: true,
           // Sem divisor: com a página no topo, o protótipo não tem linha sob o header.
           semDivisor: true,
-          aba: (rota) => (rota.query.origem === 'estante' ? '/estante' : '/descobrir'),
+          aba: abaDoLivroOficial,
         },
       },
     ],

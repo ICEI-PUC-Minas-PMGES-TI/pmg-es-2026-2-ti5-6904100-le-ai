@@ -353,6 +353,7 @@ const textoDaConfirmacao = computed(() =>
         v-else
         :proprio="false"
         :nome="nome"
+        :usuario-id="perfil?.id"
         class="mt-space-12 md:mt-0"
       />
     </div>

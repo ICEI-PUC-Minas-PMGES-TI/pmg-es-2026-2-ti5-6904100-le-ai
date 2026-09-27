@@ -23,6 +23,7 @@ function servicoFalso(inicial: MinhaAvaliacao = { livroId: 'l1', nota: null, res
       atualizadoEm: '2026-09-12T12:00:00Z',
     })),
     excluirResenha: vi.fn().mockResolvedValue(undefined),
+    listarResenhasPerfil: vi.fn(),
   } satisfies LeituraService
 }
 

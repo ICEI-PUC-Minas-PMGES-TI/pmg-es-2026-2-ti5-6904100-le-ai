@@ -29,6 +29,7 @@ async function montar(notaSalva: number | null, comEscreverResenha = false) {
       atualizadoEm: '2026-09-12T12:00:00Z',
     })),
     excluirResenha: vi.fn().mockResolvedValue(undefined),
+    listarResenhasPerfil: vi.fn(),
   } satisfies LeituraService
   const avaliacao = useMinhaAvaliacao({ servico })
   await avaliacao.carregar('l1')

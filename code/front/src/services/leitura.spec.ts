@@ -71,4 +71,14 @@ describe('createLeituraService', () => {
     expect(init?.method).toBe('DELETE')
     expect(new Headers(init?.headers).get('Idempotency-Key')).toBe('chave-2')
   })
+
+  it('lista as resenhas do perfil com page e limite', async () => {
+    const pagina = { itens: [], paginacao: { page: 2, limite: 5, totalItens: 6, totalPaginas: 2 } }
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(resposta(200, pagina))
+
+    await expect(servico(fetchMock).listarResenhasPerfil('u2', 2, 5)).resolves.toEqual(pagina)
+
+    const [url] = fetchMock.mock.calls[0]!
+    expect(url).toBe('https://leitura.example.com/perfis/u2/resenhas?page=2&limite=5')
+  })
 })

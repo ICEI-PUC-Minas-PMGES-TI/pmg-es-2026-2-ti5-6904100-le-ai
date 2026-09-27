@@ -34,6 +34,27 @@ export interface MinhaAvaliacao {
   resenha: Resenha | null
 }
 
+/** `LivroDaResenha` do contrato: o que o card do perfil mostra do livro. */
+export interface LivroDaResenha {
+  id: string
+  tipo: 'oficial' | 'pessoal'
+  titulo: string
+  /** `null` em livro oficial sem autor. */
+  autor: string | null
+  capaUrl: string | null
+}
+
+/** `ResenhaDoPerfil` do contrato: a resenha com o livro e a nota do autor. */
+export interface ResenhaDoPerfil extends Resenha {
+  livro: LivroDaResenha
+  nota: number | null
+}
+
+export interface PaginaResenhasPerfil {
+  itens: ResenhaDoPerfil[]
+  paginacao: { page: number; limite: number; totalItens: number; totalPaginas: number }
+}
+
 /** Fábrica no molde de `createAcervoService`, para os testes injetarem um `fetch` falso. */
 export function createLeituraService(options: ApiClientOptions = {}) {
   const request = createApiClient({
@@ -79,7 +100,20 @@ export function createLeituraService(options: ApiClientOptions = {}) {
     })
   }
 
-  return { obterMinhaAvaliacao, salvarNota, excluirNota, salvarResenha, excluirResenha }
+  /** Resenhas autorizadas de um perfil (RN-08): página iniciada em 1, até 50 por página. */
+  function listarResenhasPerfil(usuarioId: string, page = 1, limite = 20): Promise<PaginaResenhasPerfil> {
+    const query = new URLSearchParams({ page: String(page), limite: String(limite) })
+    return request<PaginaResenhasPerfil>(`/perfis/${encodeURIComponent(usuarioId)}/resenhas?${query}`)
+  }
+
+  return {
+    obterMinhaAvaliacao,
+    salvarNota,
+    excluirNota,
+    salvarResenha,
+    excluirResenha,
+    listarResenhasPerfil,
+  }
 }
 
 export type LeituraService = ReturnType<typeof createLeituraService>

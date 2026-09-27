@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import { PhBooks } from '@phosphor-icons/vue'
-import { ref, useId } from 'vue'
+import { onMounted, ref, useId, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 
+import { useResenhasDoPerfil } from '../../perfil/useResenhasDoPerfil'
+import BotaoTextual from '../ui/BotaoTextual.vue'
+import CardResenhaDoPerfil from './CardResenhaDoPerfil.vue'
+
 /**
- * Estante e Resenhas do perfil (meu-perfil.md e perfil-de-outro-leitor.md), sempre no estado
- * vazio do artboard "sem estante e sem resenhas": o serviço `leitura` ainda não expõe
- * `listarEstantePerfil` nem `listarResenhasPerfil` (decisão do dono de 25/09/2026). Quando ele
- * existir, as capas e as resenhas entram no lugar dos vazios, sem mexer na estrutura.
+ * Estante e Resenhas do perfil (meu-perfil.md e perfil-de-outro-leitor.md). As resenhas vêm do
+ * `leitura` (`listarResenhasPerfil`, F-AVA, 27/09/2026), com "Ver mais resenhas" em vez de uma
+ * página "Ver todas" separada. A estante continua no estado vazio até F-EST expor
+ * `listarEstantePerfil`.
  *
  * Abaixo de 768px, as duas seções empilhadas, cada uma com o próprio título; a partir de 768px,
  * as abas Estante/Resenhas da coluna direita, com uma seção visível por vez.
@@ -20,7 +24,24 @@ const props = defineProps<{
   proprio: boolean
   /** Primeiro nome do dono do perfil, para os textos do perfil de outro leitor. */
   nome?: string
+  /** Dono do perfil: com ele, as resenhas são carregadas do `leitura`. */
+  usuarioId?: string
 }>()
+
+const resenhas = useResenhasDoPerfil()
+onMounted(() => {
+  if (props.usuarioId) {
+    void resenhas.carregar(props.usuarioId)
+  }
+})
+watch(
+  () => props.usuarioId,
+  (id, anterior) => {
+    if (id && id !== anterior) {
+      void resenhas.carregar(id)
+    }
+  },
+)
 
 type Aba = 'estante' | 'resenhas'
 
@@ -124,7 +145,50 @@ function aoTeclar(evento: KeyboardEvent): void {
       <h2 class="text-title-lg text-tinta md:hidden">
         Resenhas
       </h2>
-      <p class="mx-auto mt-space-4 max-w-[360px] text-center text-body text-grafite md:mt-0 md:pt-space-12">
+      <div
+        v-if="usuarioId && resenhas.estado.value === 'carregando'"
+        class="mt-space-4 flex flex-col gap-space-3 md:pt-space-6"
+        aria-hidden="true"
+      >
+        <div class="h-5 w-2/3 rounded-sm bg-capa-placeholder" />
+        <div class="h-5 w-1/2 rounded-sm bg-capa-placeholder" />
+      </div>
+      <div
+        v-else-if="usuarioId && resenhas.estado.value === 'erro'"
+        class="mt-space-4 flex flex-col items-center gap-space-2 text-center md:pt-space-12"
+      >
+        <p class="text-body text-grafite">
+          Não foi possível carregar as resenhas.
+        </p>
+        <BotaoTextual @click="resenhas.carregar()">
+          Tentar de novo
+        </BotaoTextual>
+      </div>
+      <template v-else-if="usuarioId && resenhas.itens.value.length > 0">
+        <ul class="mt-space-2 max-w-[720px] divide-y divide-linha md:mt-space-4">
+          <li
+            v-for="item in resenhas.itens.value"
+            :key="item.id"
+          >
+            <CardResenhaDoPerfil
+              :resenha="item"
+              :proprio="proprio"
+            />
+          </li>
+        </ul>
+        <BotaoTextual
+          v-if="resenhas.temMais.value"
+          class="mt-space-2 min-h-12 md:min-h-10"
+          :disabled="resenhas.carregandoMais.value"
+          @click="resenhas.carregarMais()"
+        >
+          Ver mais resenhas
+        </BotaoTextual>
+      </template>
+      <p
+        v-else
+        class="mx-auto mt-space-4 max-w-[360px] text-center text-body text-grafite md:mt-0 md:pt-space-12"
+      >
         {{ textoDasResenhas }}
       </p>
     </section>

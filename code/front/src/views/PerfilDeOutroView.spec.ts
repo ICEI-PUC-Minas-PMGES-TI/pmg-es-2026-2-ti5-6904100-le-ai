@@ -2,6 +2,7 @@ import { flushPromises } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ApiError } from '../services/api'
+import { leituraService, type ResenhaDoPerfil } from '../services/leitura'
 import { perfilService, type Perfil } from '../services/perfil'
 import { montarNaRota } from '../testes/montarNaRota'
 
@@ -9,7 +10,25 @@ vi.mock('../services/perfil', () => ({
   perfilService: { obterPerfil: vi.fn(), seguir: vi.fn(), deixarDeSeguir: vi.fn() },
 }))
 
+vi.mock('../services/leitura', () => ({ leituraService: { listarResenhasPerfil: vi.fn() } }))
+
 const servico = vi.mocked(perfilService)
+const leitura = vi.mocked(leituraService)
+
+function resenhaDoPerfil(extras: Partial<ResenhaDoPerfil> = {}): ResenhaDoPerfil {
+  return {
+    id: 'r1',
+    usuarioId: 'u2',
+    livroId: 'livro-1',
+    texto: 'A terra e a fala são a mesma disputa.',
+    spoiler: false,
+    criadoEm: '2026-09-12T12:00:00Z',
+    atualizadoEm: '2026-09-12T12:00:00Z',
+    livro: { id: 'livro-1', tipo: 'oficial', titulo: 'Torto Arado', autor: 'Itamar Vieira Junior', capaUrl: null },
+    nota: 4.5,
+    ...extras,
+  }
+}
 
 const PUBLICO: Perfil = {
   id: 'u2',
@@ -46,6 +65,7 @@ function botaoNoCorpo(texto: string) {
 
 describe('PerfilDeOutroView', () => {
   beforeEach(() => {
+    leitura.listarResenhasPerfil.mockReset().mockResolvedValue({ itens: [], paginacao: { page: 1, limite: 5, totalItens: 0, totalPaginas: 0 } })
     localStorage.clear()
     servico.obterPerfil.mockReset().mockResolvedValue(PUBLICO)
     servico.seguir.mockReset()
@@ -85,6 +105,56 @@ describe('PerfilDeOutroView', () => {
     expect(wrapper.findAll('[role="tab"]').map((aba) => aba.text())).toEqual(['Estante', 'Resenhas'])
     expect(wrapper.text()).not.toContain('Buscar livros')
     expect(wrapper.text()).not.toContain('livros lidos')
+  })
+
+  it('resenhas do perfil: card com livro, estrelas e trecho, e o livro abre na aba Perfil', async () => {
+    leitura.listarResenhasPerfil.mockResolvedValue({
+      itens: [resenhaDoPerfil()],
+      paginacao: { page: 1, limite: 5, totalItens: 1, totalPaginas: 1 },
+    })
+    const { wrapper } = await montarNaRota('/leitores/rafaokamoto')
+    await flushPromises()
+
+    expect(leitura.listarResenhasPerfil).toHaveBeenCalledWith('u2', 1, 5)
+    expect(wrapper.text()).toContain('Torto Arado')
+    expect(wrapper.text()).toContain('A terra e a fala são a mesma disputa.')
+    expect(wrapper.find('[aria-label="4,5 de 5"]').exists()).toBe(true)
+    expect(wrapper.find('a[href="/livros/livro-1?origem=perfil"]').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('Rafael ainda não escreveu resenhas.')
+  })
+
+  it('resenha com spoiler de outro leitor fica fora do DOM até a ação', async () => {
+    leitura.listarResenhasPerfil.mockResolvedValue({
+      itens: [resenhaDoPerfil({ spoiler: true, texto: 'O final revela tudo.' })],
+      paginacao: { page: 1, limite: 5, totalItens: 1, totalPaginas: 1 },
+    })
+    const { wrapper } = await montarNaRota('/leitores/rafaokamoto')
+    await flushPromises()
+
+    expect(wrapper.html()).not.toContain('O final revela tudo.')
+    await wrapper.findAll('button').find((b) => b.text() === 'Mostrar mesmo assim')!.trigger('click')
+    expect(wrapper.text()).toContain('O final revela tudo.')
+  })
+
+  it('"Ver mais resenhas" traz a página seguinte', async () => {
+    leitura.listarResenhasPerfil
+      .mockResolvedValueOnce({
+        itens: [resenhaDoPerfil()],
+        paginacao: { page: 1, limite: 5, totalItens: 2, totalPaginas: 2 },
+      })
+      .mockResolvedValueOnce({
+        itens: [resenhaDoPerfil({ id: 'r2', texto: 'Segunda resenha.' })],
+        paginacao: { page: 2, limite: 5, totalItens: 2, totalPaginas: 2 },
+      })
+    const { wrapper } = await montarNaRota('/leitores/rafaokamoto')
+    await flushPromises()
+
+    await wrapper.findAll('button').find((b) => b.text() === 'Ver mais resenhas')!.trigger('click')
+    await flushPromises()
+
+    expect(leitura.listarResenhasPerfil).toHaveBeenLastCalledWith('u2', 2, 5)
+    expect(wrapper.text()).toContain('Segunda resenha.')
+    expect(wrapper.findAll('button').some((b) => b.text() === 'Ver mais resenhas')).toBe(false)
   })
 
   it('RN-08: com conteúdo restrito, as seções de leitura não aparecem', async () => {
