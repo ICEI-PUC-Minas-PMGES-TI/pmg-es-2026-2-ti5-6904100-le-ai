@@ -22,11 +22,11 @@ RNF atendidos: **RNF-SEC-02** (propriedade no servidor), **RNF-SEC-13** (valida�
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | não iniciado | P0-MSG ainda não entregou conexão, dispatcher, recibo, validação runtime, retry e DLQ; a outbox física isolada não implementa mensageria |
-| Dados | concluído (baseline físico) | DER implantado no Neon em 16/09: `nota`, `resenha`, índices/uniquidade, `idempotencia_leitura`, `outbox_leitura`, `v_nota_publicacao_v1` e `v_resenha_publicacao_v1`; isso não implementa os casos de uso |
-| Backend | não iniciado | `leitura`: CRUD de nota e resenha (uma por usuário+livro) |
-| Web | não iniciado | seletor de estrelas + editor de resenha (texto puro) + spoiler |
-| Mobile | não iniciado | mesmas telas |
+| Infra | concluído | P0-MSG pronto desde 19/09. Fatia 0 (27/09) na `desenvolvimento`: JWT, idempotência HTTP, 422, correlation-id UUID, outbox com validação do `data` e `common-v1`, harness de integração e CI com Postgres no `leitura` |
+| Dados | concluído (baseline físico) | DER implantado no Neon em 16/09: `nota`, `resenha`, índices/uniquidade, `idempotencia_leitura`, `outbox_leitura`, `v_nota_publicacao_v1` e `v_resenha_publicacao_v1`. F-AVA não cria migration no `leitura` |
+| Backend | parcial | Nota e `minha-avaliacao` prontos (fatia 1, 27/09), com `nota.alterada`. Falta resenha (fatia 2) e resenhas do perfil (fatia 3) |
+| Web | parcial | Painel de nota, seletor com meia estrela e "Sua avaliação" nas páginas do livro oficial e pessoal (dono). Falta editor de resenha, spoiler e perfil |
+| Mobile | parcial | Mesmo recorte da web. Falta editor de resenha, spoiler e perfil |
 
 ## Especificação
 
@@ -93,6 +93,11 @@ O feed não consome VIEW de resenha; consome exclusivamente `resenha.publicada`.
 
 ## Pendências
 
+- **Plano de implementação:** [`plano-F-AVA.md`](plano-F-AVA.md) (fatias 0 a 4, decisões e divergências).
+- **Revisão do Kayke (bloqueia o merge da fatia 1 na `desenvolvimento`):** a migration `V20260927002000__snap_livro_autor_anulavel.sql`, `Atividade.java`, a cópia do `common-v1`, `docs/api/social.yaml` e `ItemAtividade.vue` (autor vazio e spoiler escondido no feed) foram feitos por F-AVA com autorização do Renato. Registro em `code/back/social/AGENTS.md`.
+- **Decisões do grupo pendentes:** correção do `common-v1` sem nova versão (feita em 26/09 por decisão do Renato, a comunicar); o feed lê as VIEWs do `leitura`, contra a arquitetura §3.2 item 4; resenhas de livro pessoal no perfil só para o dono (RN-15); componentes novos para o `documento-de-design.md`.
+- **DES:** `JWT_SECRET` do `leai-leitura` no painel do Render antes do merge na `main`; conferir `leai.social.feed` no `Le-ai-oregon` antes da primeira resenha.
+
 - **Depende de** [F-ACV-BUSCA](feature-F-ACV-BUSCA.md)/[F-ACV-CADASTRO](feature-F-ACV-CADASTRO.md) (livro para avaliar), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md) e [P0-MSG](../periodo-0/feature-P0-MSG.md). **P0-MSG é pré-requisito bloqueante para concluir a publicação:** `outbox_leitura` já existe, mas conexão CloudAMQP, dispatcher com confirm, `mensagem_processada`, validação runtime dos schemas, retry/DLQ e prova em DES ainda não existem.
 - **Compartilha `leitura` com [F-EST](feature-F-EST.md) e [F-PRG](feature-F-PRG.md)** — sinalizar no grupo antes de mexer no serviço (plano §6).
 - **Ficam fora (Período 2):** curtir/descurtir e contadores de resenha (RF-AVA-05/08), frases/trechos (RF-AVA-06/07, RN-11), **Markdown** (RF-AVA-09, RN-13) — todos **F-AVA-2**. No Período 1 a resenha é **texto puro**; nada de parser Markdown ainda.
@@ -105,6 +110,8 @@ O feed não consome VIEW de resenha; consome exclusivamente `resenha.publicada`.
 - **A área de texto da resenha é exceção declarada ao input do design §4.2:** sem borda e sem fundo próprio, em Newsreader, ocupando o corpo da tela. O §4.2 define o campo curto com borda e fundo `papel-elevado`, que não serve a texto de 5.000 caracteres.
 
 ## Timeline
+
+### 27/09/2026: fatias 0 e 1. Infra comum do `leitura` na `desenvolvimento` (para F-AVA, F-EST e F-PRG). Nota pronta no backend (`PUT`/`DELETE /livros/{id}/nota`, `GET /livros/{id}/minha-avaliacao`, `nota.alterada` validado contra o schema), no mobile e na web (painel de nota com meia estrela, nota zero distinta de ausente, "Sua avaliação" nas páginas do livro). `LivroSnapshot.autor` passou a aceitar `null` no `common-v1` e o `social` foi ajustado para livro sem autor, aguardando a revisão do Kayke.
 
 ### Revisão 17/09/2026: endpoints e parâmetros alinhados a `docs/api/leitura.yaml`; operações, campos, business keys e ownership alinhados ao catálogo e aos schemas canônicos. Registrados os contratos exatos das VIEWs e do livro cross-schema, o baseline DER já implantado sem alegar implementação, P0-MSG como bloqueio, a semântica de idempotência e a divisão dos testes. `nota.alterada.v1` foi consolidado com a faixa completa de 0 a 5 de RN-06.
 
