@@ -477,6 +477,13 @@ LeituraService _leituraSimulada() => LeituraService(
     baseUrl: 'http://localhost:3001',
     client: MockClient((request) async {
       final partes = request.url.pathSegments;
+      if (partes.length == 3 && partes[0] == 'perfis' && partes[2] == 'resenhas') {
+        return http.Response(
+          '{"itens":[],"paginacao":{"page":1,"limite":5,"totalItens":0,"totalPaginas":0}}',
+          200,
+          headers: const <String, String>{'content-type': 'application/json; charset=utf-8'},
+        );
+      }
       if (partes.length == 3 && partes[2] == 'minha-avaliacao') {
         return http.Response(
           '{"livroId":"${partes[1]}","nota":null,"resenha":null}',

@@ -189,18 +189,26 @@ class SkeletonDoPerfil extends StatelessWidget {
   }
 }
 
-/// Estante e Resenhas do perfil, sempre no estado vazio do artboard "sem estante e sem resenhas"
-/// (decisão do dono de 25/09/2026): `leitura` ainda não expõe `listarEstantePerfil` nem
-/// `listarResenhasPerfil`. Quando expuser, capas e resenhas entram no lugar dos vazios.
+/// Estante e Resenhas do perfil. A estante segue no estado vazio até F-EST expor
+/// `listarEstantePerfil`. As resenhas entram por [resenhas] (F-AVA, 27/09/2026: a lista do
+/// `leitura`, com o próprio vazio); sem ele, fica o texto vazio de antes.
 ///
 /// [proprio] usa a segunda pessoa, o CTA "Buscar livros" ([aoBuscarLivros]) e o "Ver tudo" da
 /// estante ([aoVerEstante]); no perfil de outro leitor, os textos são neutros, com o [nome]. Quem
 /// usa decide se mostra: com conteúdo restrito (RN-08), vale o bloco "Este perfil é privado".
+/// Texto do perfil sem resenhas, na segunda pessoa para o próprio leitor.
+String textoSemResenhas({required bool proprio, String? nome}) => proprio
+    ? 'Suas resenhas aparecem aqui depois que você escrever a primeira.'
+    : '${nome ?? 'Este leitor'} ainda não escreveu resenhas.';
+
 class SecoesDeLeitura extends StatelessWidget {
   final bool proprio;
   final String? nome;
   final VoidCallback? aoBuscarLivros;
   final VoidCallback? aoVerEstante;
+
+  /// Conteúdo da seção "Resenhas" (a lista de F-AVA). Sem ele, o texto vazio.
+  final Widget? resenhas;
 
   const SecoesDeLeitura({
     super.key,
@@ -208,6 +216,7 @@ class SecoesDeLeitura extends StatelessWidget {
     this.nome,
     this.aoBuscarLivros,
     this.aoVerEstante,
+    this.resenhas,
   });
 
   @override
@@ -267,13 +276,12 @@ class SecoesDeLeitura extends StatelessWidget {
         const SizedBox(height: DesignTokens.space12),
         titulo('Resenhas'),
         const SizedBox(height: DesignTokens.space4),
-        Text(
-          proprio
-              ? 'Suas resenhas aparecem aqui depois que você escrever a primeira.'
-              : '$quem ainda não escreveu resenhas.',
-          style: textoMudo,
-          textAlign: TextAlign.center,
-        ),
+        resenhas ??
+            Text(
+              textoSemResenhas(proprio: proprio, nome: nome),
+              style: textoMudo,
+              textAlign: TextAlign.center,
+            ),
       ],
     );
   }

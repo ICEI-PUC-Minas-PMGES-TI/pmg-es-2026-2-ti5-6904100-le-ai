@@ -68,7 +68,12 @@ void _voltar(BuildContext context) {
 }
 
 /// Sub-rotas da aba Perfil de F-PERFIL. As de F-AUT (configurações) continuam em `router.dart`.
-List<RouteBase> rotasDoPerfil(DependenciasDePerfil deps) => <RouteBase>[
+///
+/// [resenhasDeOutro] monta a lista de resenhas do perfil de outro leitor (F-AVA).
+List<RouteBase> rotasDoPerfil(
+  DependenciasDePerfil deps, {
+  Widget Function(BuildContext context, String usuarioId, String nome)? resenhasDeOutro,
+}) => <RouteBase>[
   GoRoute(
     path: 'editar',
     builder: (context, state) => EditarPerfilPage(
@@ -122,6 +127,9 @@ List<RouteBase> rotasDoPerfil(DependenciasDePerfil deps) => <RouteBase>[
         aoAbrirProprioPerfil: () => context.go(rotaPerfilRaiz),
         aoBuscarLeitor: () => context.push(rotaBuscarLeitor),
         aoAbrirSolicitacoes: () => context.push(rotaSolicitacoes),
+        resenhas: resenhasDeOutro == null
+            ? null
+            : (usuarioId, nome) => resenhasDeOutro(context, usuarioId, nome),
       );
     },
   ),

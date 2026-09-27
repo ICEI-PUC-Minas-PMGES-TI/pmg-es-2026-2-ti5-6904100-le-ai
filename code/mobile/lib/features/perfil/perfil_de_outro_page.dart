@@ -33,6 +33,9 @@ class PerfilDeOutroPage extends StatefulWidget {
   final VoidCallback aoBuscarLeitor;
   final VoidCallback aoAbrirSolicitacoes;
 
+  /// Lista de resenhas do perfil (F-AVA), montada com o id e o primeiro nome do leitor.
+  final Widget Function(String usuarioId, String nome)? resenhas;
+
   const PerfilDeOutroPage({
     super.key,
     required this.servico,
@@ -41,6 +44,7 @@ class PerfilDeOutroPage extends StatefulWidget {
     required this.aoAbrirProprioPerfil,
     required this.aoBuscarLeitor,
     required this.aoAbrirSolicitacoes,
+    this.resenhas,
   });
 
   @override
@@ -324,7 +328,11 @@ class _PerfilDeOutroPageState extends State<PerfilDeOutroPage> {
             ),
           ] else ...<Widget>[
             const SizedBox(height: DesignTokens.space12),
-            SecoesDeLeitura(proprio: false, nome: nome),
+            SecoesDeLeitura(
+              proprio: false,
+              nome: nome,
+              resenhas: widget.resenhas?.call(perfil.id, nome),
+            ),
           ],
         ],
       ),

@@ -90,6 +90,80 @@ class MinhaAvaliacao {
       MinhaAvaliacao(livroId: livroId, nota: nota, resenha: novaResenha);
 }
 
+/// O livro de uma resenha do perfil: o que o card mostra.
+class LivroDaResenha {
+  final String id;
+  final bool pessoal;
+  final String titulo;
+
+  /// `null` em livro oficial sem autor.
+  final String? autor;
+  final String? capaUrl;
+
+  const LivroDaResenha({
+    required this.id,
+    required this.pessoal,
+    required this.titulo,
+    this.autor,
+    this.capaUrl,
+  });
+
+  factory LivroDaResenha.fromJson(Map<String, dynamic> json) {
+    return LivroDaResenha(
+      id: _texto(json, 'id'),
+      pessoal: json['tipo'] == 'pessoal',
+      titulo: _texto(json, 'titulo'),
+      autor: json['autor'] as String?,
+      capaUrl: json['capaUrl'] as String?,
+    );
+  }
+}
+
+/// `ResenhaDoPerfil` do contrato: a resenha com o livro e a nota do autor.
+class ResenhaDoPerfil {
+  final Resenha resenha;
+  final LivroDaResenha livro;
+  final double? nota;
+
+  const ResenhaDoPerfil({required this.resenha, required this.livro, this.nota});
+
+  factory ResenhaDoPerfil.fromJson(Map<String, dynamic> json) {
+    final livro = json['livro'];
+    if (livro is! Map<String, dynamic>) {
+      throw const FormatException('Resenha do perfil sem o livro.');
+    }
+    final nota = json['nota'];
+    return ResenhaDoPerfil(
+      resenha: Resenha.fromJson(json),
+      livro: LivroDaResenha.fromJson(livro),
+      nota: nota is num ? nota.toDouble() : null,
+    );
+  }
+}
+
+class PaginaResenhasPerfil {
+  final List<ResenhaDoPerfil> itens;
+  final int page;
+  final int totalPaginas;
+
+  const PaginaResenhasPerfil({required this.itens, required this.page, required this.totalPaginas});
+
+  bool get temMais => page < totalPaginas;
+
+  factory PaginaResenhasPerfil.fromJson(Map<String, dynamic> json) {
+    final itens = json['itens'];
+    final paginacao = json['paginacao'];
+    if (itens is! List || paginacao is! Map<String, dynamic>) {
+      throw const FormatException('Página de resenhas inválida.');
+    }
+    return PaginaResenhasPerfil(
+      itens: itens.whereType<Map<String, dynamic>>().map(ResenhaDoPerfil.fromJson).toList(),
+      page: (paginacao['page'] as num?)?.toInt() ?? 1,
+      totalPaginas: (paginacao['totalPaginas'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
 class LeituraService {
   final ApiClient _api;
 
@@ -128,6 +202,16 @@ class LeituraService {
       idempotencyKey: idempotencyKey,
     );
     return Resenha.fromJson(json);
+  }
+
+  /// Resenhas autorizadas de um perfil (RN-08): página iniciada em 1, até 50 por página.
+  Future<PaginaResenhasPerfil> listarResenhasPerfil(
+    String usuarioId, {
+    int page = 1,
+    int limite = 5,
+  }) async {
+    final json = await _api.getJson('/perfis/$usuarioId/resenhas?page=$page&limite=$limite');
+    return PaginaResenhasPerfil.fromJson(json);
   }
 
   /// Exclui a resenha de forma física, depois da confirmação da tela (RF-AVA-04).
