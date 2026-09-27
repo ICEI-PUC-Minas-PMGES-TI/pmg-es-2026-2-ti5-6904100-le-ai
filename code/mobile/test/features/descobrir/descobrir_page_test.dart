@@ -317,4 +317,32 @@ void main() {
     expect(paginasPedidas, <String>['1', '2', '3']);
     expect(find.text('60 edições'), findsOneWidget);
   });
+
+  testWidgets('lista curta pelo chip, sem foco no campo, também carrega até a última página', (
+    tester,
+  ) async {
+    final paginasPedidas = <String>[];
+    await montar(tester, (request) async {
+      final page = int.parse(request.url.queryParameters['page']!);
+      paginasPedidas.add('$page');
+      return json(
+        paginaJson(
+          <Map<String, Object?>>[
+            for (var i = 0; i < 20; i++)
+              livroJson('p$page-$i', 'Dom Casmurro', ano: 2020 - (page - 1) * 20 - i),
+          ],
+          page: page,
+          totalItens: 60,
+          totalPaginas: 3,
+        ),
+        200,
+      );
+    });
+
+    // Sem cursor piscando, nada pede quadro novo: `pumpAndSettle` para quando o app para.
+    await tester.tap(find.text('Romance'));
+    await tester.pumpAndSettle();
+
+    expect(paginasPedidas, <String>['1', '2', '3']);
+  });
 }

@@ -90,6 +90,9 @@ class _DescobrirPageState extends State<DescobrirPage> {
         _busca.carregarMais();
       }
     });
+    // Chamado de dentro de outro post-frame (`_conferirFimVisivel`), o callback só roda no
+    // quadro seguinte, e sem nada animando (campo sem foco, busca pelo chip) ninguém o pediria.
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   /// Lista que não enche a tela (edições agrupadas num card só) não rola, e sem rolagem não há
