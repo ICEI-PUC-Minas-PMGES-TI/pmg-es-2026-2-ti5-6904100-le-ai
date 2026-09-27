@@ -85,6 +85,10 @@ export function mensagemDeErro(erro: unknown): string {
   return erro instanceof ApiError ? erro.message : 'Não foi possível acessar o servidor. Tente novamente.'
 }
 
+export function erroDoCliente(erro: ApiError): boolean {
+  return erro.status >= 400 && erro.status < 500
+}
+
 function statusRetentavel(status: number): boolean {
   return status === 502 || status === 503 || status === 504
 }

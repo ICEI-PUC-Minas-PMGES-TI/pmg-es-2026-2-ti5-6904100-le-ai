@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { ApiError, createApiClient } from './api'
+import { ApiError, createApiClient, erroDoCliente } from './api'
 
 afterEach(() => {
   vi.useRealTimers()
@@ -305,5 +305,19 @@ describe('createApiClient: idempotência e retentativa (RNF-ERR-03/04)', () => {
       expect(fetchMock).toHaveBeenCalledTimes(2)
       expect(renovarSessao).toHaveBeenCalledTimes(1)
     })
+  })
+})
+
+describe('erroDoCliente', () => {
+  it.each([
+    [399, false],
+    [400, true],
+    [409, true],
+    [422, true],
+    [499, true],
+    [500, false],
+    [503, false],
+  ])('status %i é erro do cliente: %s', (status, esperado) => {
+    expect(erroDoCliente(new ApiError('falha', status, 'X'))).toBe(esperado)
   })
 })
