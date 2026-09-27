@@ -13,6 +13,6 @@ import { OutboxDispatcherService } from './outbox-dispatcher.service';
     MessageValidator,
     OutboxDispatcherService,
   ],
-  exports: [AmqpPublisherService, AmqpConsumerService],
+  exports: [AmqpPublisherService, AmqpConsumerService, MessageValidator],
 })
 export class MessagingModule {}
