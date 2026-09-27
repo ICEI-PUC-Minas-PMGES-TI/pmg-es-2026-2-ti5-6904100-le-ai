@@ -237,3 +237,102 @@ describe('createLeituraService', () => {
     expect(url).toBe('https://leitura.example.com/perfis/u2/resenhas?page=2&limite=5')
   })
 })
+
+const RESUMO = { paginaAtual: 172, totalPaginas: 264, percentualConcluido: 65.15, minutosTotais: 260 }
+const PROGRESSO = {
+  id: 'p2',
+  leituraId: 'lt1',
+  posicao: 2,
+  pagina: 172,
+  paginaAnterior: 148,
+  paginasLidas: 24,
+  minutos: 45,
+  registradoEmDispositivo: '2026-09-20T22:10:00-03:00',
+  fusoHorarioDispositivo: 'America/Sao_Paulo',
+  dataLocal: '2026-09-20',
+  criadoEm: '2026-09-21T01:10:02Z',
+  atualizadoEm: null,
+}
+
+describe('progresso', () => {
+  it('registra com POST na leitura, corpo completo e a chave da intenção', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(resposta(201, { progresso: PROGRESSO, resumo: RESUMO }))
+    const entrada = {
+      pagina: 172,
+      minutos: 45,
+      registradoEmDispositivo: '2026-09-20T22:10:00-03:00',
+      fusoHorarioDispositivo: 'America/Sao_Paulo',
+    }
+
+    await expect(servico(fetchMock).registrarProgresso('lt 1', entrada, 'k1')).resolves.toEqual({
+      progresso: PROGRESSO,
+      resumo: RESUMO,
+    })
+
+    const [url, init] = fetchMock.mock.calls[0]!
+    expect(url).toBe('https://leitura.example.com/leituras/lt%201/progresso')
+    expect(init?.method).toBe('POST')
+    expect(JSON.parse(String(init?.body))).toEqual(entrada)
+    expect(new Headers(init?.headers).get('Idempotency-Key')).toBe('k1')
+  })
+
+  it('lista por GET sem chave, com page e limite só quando presentes', async () => {
+    const pagina = {
+      itens: [PROGRESSO],
+      paginacao: { page: 2, limite: 10, totalItens: 11, totalPaginas: 2 },
+      resumo: RESUMO,
+      somenteLeitura: false,
+    }
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => resposta(200, pagina))
+    const leitura = servico(fetchMock)
+
+    await expect(leitura.listarProgresso('lt1', { page: 2, limite: 10 })).resolves.toEqual(pagina)
+    await leitura.listarProgresso('lt1')
+
+    expect(fetchMock.mock.calls[0]![0]).toBe('https://leitura.example.com/leituras/lt1/progresso?page=2&limite=10')
+    expect(fetchMock.mock.calls[1]![0]).toBe('https://leitura.example.com/leituras/lt1/progresso')
+    expect(new Headers(fetchMock.mock.calls[0]![1]?.headers).has('Idempotency-Key')).toBe(false)
+  })
+
+  it('edita o último com PATCH levando só os campos informados', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(resposta(200, { progresso: PROGRESSO, resumo: RESUMO }))
+
+    await servico(fetchMock).editarUltimoProgresso('p2', { minutos: 45 }, 'k2')
+
+    const [url, init] = fetchMock.mock.calls[0]!
+    expect(url).toBe('https://leitura.example.com/progresso/p2')
+    expect(init?.method).toBe('PATCH')
+    expect(JSON.parse(String(init?.body))).toEqual({ minutos: 45 })
+    expect(new Headers(init?.headers).get('Idempotency-Key')).toBe('k2')
+  })
+
+  it('exclui o trecho com DELETE levando o último confirmado no corpo', async () => {
+    const resultado = { idsRemovidos: ['p2'], resumo: { ...RESUMO, paginaAtual: 148, percentualConcluido: 56.06 } }
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(resposta(200, resultado))
+
+    await expect(
+      servico(fetchMock).excluirTrechoProgresso('p2', { ultimoProgressoIdConfirmado: 'p2' }, 'k3'),
+    ).resolves.toEqual(resultado)
+
+    const [url, init] = fetchMock.mock.calls[0]!
+    expect(url).toBe('https://leitura.example.com/progresso/p2')
+    expect(init?.method).toBe('DELETE')
+    expect(JSON.parse(String(init?.body))).toEqual({ ultimoProgressoIdConfirmado: 'p2' })
+    const headers = new Headers(init?.headers)
+    expect(headers.get('Content-Type')).toBe('application/json')
+    expect(headers.get('Idempotency-Key')).toBe('k3')
+  })
+
+  it('409 de exclusão concorrente chega como ApiError', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(resposta(409, { codigo: 'PROGRESSO_DESATUALIZADO', mensagem: 'Há registros mais recentes.' }))
+
+    const erro = await servico(fetchMock)
+      .excluirTrechoProgresso('p1', { ultimoProgressoIdConfirmado: 'p1' }, 'k4')
+      .catch((e: unknown) => e)
+
+    expect(erro).toBeInstanceOf(ApiError)
+    expect(erro).toMatchObject({ status: 409, code: 'PROGRESSO_DESATUALIZADO' })
+  })
+})

@@ -143,12 +143,76 @@ export interface FinalizarLeituraEntrada {
   fusoHorarioDispositivo: string
 }
 
+export interface Progresso {
+  id: string
+  leituraId: string
+  posicao: number
+  pagina: number
+  paginaAnterior: number
+  paginasLidas: number
+  minutos: number
+  registradoEmDispositivo: string
+  fusoHorarioDispositivo: string
+  dataLocal: string
+  criadoEm: string
+  atualizadoEm?: string | null
+}
+
+export interface ResumoProgresso {
+  paginaAtual: number
+  totalPaginas: number
+  percentualConcluido: number
+  minutosTotais: number
+}
+
+export interface PaginaProgresso {
+  itens: Progresso[]
+  paginacao: Paginacao
+  resumo: ResumoProgresso
+  somenteLeitura: boolean
+}
+
+export interface ProgressoComResumo {
+  progresso: Progresso
+  resumo: ResumoProgresso
+}
+
+export interface ExclusaoProgresso {
+  idsRemovidos: string[]
+  resumo: ResumoProgresso
+}
+
+export interface RegistrarProgressoEntrada {
+  pagina: number
+  minutos?: number
+  registradoEmDispositivo: string
+  fusoHorarioDispositivo: string
+}
+
+export interface EditarProgressoEntrada {
+  pagina?: number
+  minutos?: number
+}
+
+export interface ExcluirProgressoEntrada {
+  ultimoProgressoIdConfirmado: string
+}
+
+export interface FiltroProgresso {
+  page?: number
+  limite?: number
+}
+
 const NAO_ENCONTRADO = 404
 
 export function consultaDaEstante(filtro: FiltroEstante = {}): string {
   const parametros = new URLSearchParams()
   if (filtro.status) parametros.set('status', filtro.status)
   if (filtro.ordenacao) parametros.set('ordenacao', filtro.ordenacao)
+  return comPaginacao(parametros, filtro)
+}
+
+function comPaginacao(parametros: URLSearchParams, filtro: FiltroProgresso): string {
   if (filtro.page !== undefined) parametros.set('page', String(filtro.page))
   if (filtro.limite !== undefined) parametros.set('limite', String(filtro.limite))
   const consulta = parametros.toString()
@@ -219,6 +283,48 @@ export function createLeituraService(options: ApiClientOptions = {}) {
     return request<ConclusoesLivro>(`/livros/${encodeURIComponent(livroId)}/conclusoes`)
   }
 
+  const doProgresso = (progressoId: string) => `/progresso/${encodeURIComponent(progressoId)}`
+
+  function registrarProgresso(
+    leituraId: string,
+    entrada: RegistrarProgressoEntrada,
+    chave: string,
+  ): Promise<ProgressoComResumo> {
+    return request<ProgressoComResumo>(daLeitura(leituraId, '/progresso'), {
+      method: 'POST',
+      json: entrada,
+      idempotencyKey: chave,
+    })
+  }
+
+  function listarProgresso(leituraId: string, filtro: FiltroProgresso = {}): Promise<PaginaProgresso> {
+    return request<PaginaProgresso>(daLeitura(leituraId, `/progresso${comPaginacao(new URLSearchParams(), filtro)}`))
+  }
+
+  function editarUltimoProgresso(
+    progressoId: string,
+    entrada: EditarProgressoEntrada,
+    chave: string,
+  ): Promise<ProgressoComResumo> {
+    return request<ProgressoComResumo>(doProgresso(progressoId), {
+      method: 'PATCH',
+      json: entrada,
+      idempotencyKey: chave,
+    })
+  }
+
+  function excluirTrechoProgresso(
+    progressoId: string,
+    entrada: ExcluirProgressoEntrada,
+    chave: string,
+  ): Promise<ExclusaoProgresso> {
+    return request<ExclusaoProgresso>(doProgresso(progressoId), {
+      method: 'DELETE',
+      json: entrada,
+      idempotencyKey: chave,
+    })
+  }
+
   const caminhoDoLivro = (livroId: string) => `/livros/${encodeURIComponent(livroId)}`
 
   function obterMinhaAvaliacao(livroId: string): Promise<MinhaAvaliacao> {
@@ -280,6 +386,10 @@ export function createLeituraService(options: ApiClientOptions = {}) {
     retomarLeitura,
     detalharLeitura,
     consultarConclusoes,
+    registrarProgresso,
+    listarProgresso,
+    editarUltimoProgresso,
+    excluirTrechoProgresso,
   }
 }
 
