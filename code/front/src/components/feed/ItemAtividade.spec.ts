@@ -84,6 +84,33 @@ describe('ItemAtividade', () => {
     expect(comResenha.text()).toContain('Ler resenha')
   })
 
+  // RF-AVA-03: com spoiler, o texto não está no DOM até a ação de revelar.
+  it('resenha com spoiler fica fora do DOM até "Mostrar mesmo assim"', async () => {
+    const wrapper = await montar({
+      atividade: atividade({
+        tipo: 'RESENHA_PUBLICADA',
+        resenha: { id: 'r1', texto: 'O final surpreende.', spoiler: true, nota: 4 },
+      }),
+    })
+    expect(wrapper.text()).toContain('Esta resenha contém spoiler')
+    expect(wrapper.html()).not.toContain('O final surpreende.')
+
+    const revelar = wrapper.findAll('button').find((b) => b.text() === 'Mostrar mesmo assim')
+    await revelar!.trigger('click')
+
+    expect(wrapper.text()).toContain('O final surpreende.')
+    expect(wrapper.text()).not.toContain('Esta resenha contém spoiler')
+  })
+
+  // Livro oficial sem autor chega com autor null: a linha some, como na busca.
+  it('sem linha de autor quando o livro não tem autor', async () => {
+    const wrapper = await montar({
+      atividade: atividade({ livro: { id: 'l2', tipo: 'OFICIAL', titulo: 'Sem autor', autor: null, capaUrl: null } }),
+    })
+    expect(wrapper.text()).toContain('Sem autor')
+    expect(wrapper.text()).not.toContain('null')
+  })
+
   it('aria-label de curtir muda para descurtir conforme o estado, com a contagem', async () => {
     const naoCurtida = await montar({ atividade: atividade({ totalCurtidas: 4, curtidaPeloSolicitante: false }) })
     expect(naoCurtida.find('[aria-label="Curtir, 4 curtidas"]').exists()).toBe(true)
