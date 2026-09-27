@@ -6,10 +6,6 @@ import { criarApp, novoUsuario, tokenDe } from './app';
 import { contar, limpar, prepararBanco } from './banco';
 import { inserirLivro, inserirPerfil, inserirSeguimentoAceito } from './massa';
 
-/**
- * Estante (F-EST, fatias B e B2) pela API, contra Postgres real: RN-04 na
- * adição/remoção, SEC-07, idempotência, outbox, paginação e RN-08 no perfil.
- */
 describe('estante (integração)', () => {
   let pool: Pool;
   let app: NestExpressApplication;
@@ -47,7 +43,6 @@ describe('estante (integração)', () => {
       .set('Authorization', `Bearer ${tokenDe(usuarioId)}`);
   }
 
-  /** Vínculo direto no banco, com status e data de adição controlados. */
   async function inserirVinculo(
     usuarioId: string,
     livroId: string,
@@ -63,7 +58,6 @@ describe('estante (integração)', () => {
     return rows[0].id;
   }
 
-  /** Ocorrência de leitura: em andamento ou abandonada (primeira leitura). */
   async function inserirLeitura(
     estanteId: string,
     usuarioId: string,
@@ -97,6 +91,8 @@ describe('estante (integração)', () => {
         status: 'QUERO_LER',
         vezesLido: 0,
         leituraEmAndamentoId: null,
+        ultimaLeituraId: null,
+        retomavel: false,
         paginaAtual: null,
         totalPaginas: 320,
         percentualConcluido: null,
@@ -394,7 +390,6 @@ describe('estante (integração)', () => {
         capaUrl: 'https://covers.openlibrary.org/b/id/1-L.jpg',
       });
 
-      // Autor nulo por último nas duas direções; empate de autor por título.
       expect(await ordem('autor_asc')).toEqual([
         ids[3],
         ids[2],
@@ -407,7 +402,6 @@ describe('estante (integração)', () => {
         ids[3],
         ids[0],
       ]);
-      // Sem leitura em andamento por último nas duas direções.
       expect(await ordem('progresso_asc')).toEqual([
         ids[1],
         ids[3],
@@ -458,8 +452,159 @@ describe('estante (integração)', () => {
         .set('Idempotency-Key', randomUUID())
         .send({ livroId: randomUUID() })
         .expect(401);
+      await http().get(`/estante/${randomUUID()}`).expect(401);
       await http().get(`/perfis/${randomUUID()}/estante`).expect(401);
       await http().get(`/livros/${randomUUID()}/conclusoes`).expect(401);
+    });
+  });
+
+  describe('última leitura e retomada (RF-EST-07)', () => {
+    const FUSO = 'America/Sao_Paulo';
+
+    function acao(usuarioId: string, caminho: string, corpo?: object) {
+      const req = http()
+        .post(caminho)
+        .set('Authorization', `Bearer ${tokenDe(usuarioId)}`)
+        .set('Idempotency-Key', randomUUID());
+      return corpo ? req.send(corpo) : req;
+    }
+
+    async function iniciar(
+      usuarioId: string,
+      livroId: string,
+      caminho = '/leituras',
+    ) {
+      const res = await acao(usuarioId, caminho, { livroId }).expect(201);
+      return res.body.id as string;
+    }
+
+    async function item(usuarioId: string, livroId: string) {
+      const res = await consultar(usuarioId, `/estante/${livroId}`).expect(200);
+      return res.body;
+    }
+
+    async function leitora(): Promise<string> {
+      const id = novoUsuario();
+      await inserirPerfil(pool, id);
+      return id;
+    }
+
+    it('expõe ultimaLeituraId e retomavel em cada status, na lista e no item', async () => {
+      const usuario = await leitora();
+      const queroLer = await inserirLivro(pool);
+      const lendo = await inserirLivro(pool);
+      const lido = await inserirLivro(pool);
+      const abandonado = await inserirLivro(pool);
+      const releituraAbandonada = await inserirLivro(pool);
+
+      await adicionar(usuario, queroLer).expect(201);
+      const leituraLendo = await iniciar(usuario, lendo);
+      const leituraLido = await iniciar(usuario, lido);
+      await acao(usuario, `/leituras/${leituraLido}/finalizar`, {
+        fusoHorarioDispositivo: FUSO,
+      }).expect(200);
+      const leituraAbandonada = await iniciar(usuario, abandonado);
+      await acao(usuario, `/leituras/${leituraAbandonada}/abandonar`).expect(
+        200,
+      );
+      const primeira = await iniciar(usuario, releituraAbandonada);
+      await acao(usuario, `/leituras/${primeira}/finalizar`, {
+        fusoHorarioDispositivo: FUSO,
+      }).expect(200);
+      const releitura = await iniciar(
+        usuario,
+        releituraAbandonada,
+        '/releituras',
+      );
+      await acao(usuario, `/leituras/${releitura}/abandonar`).expect(200);
+
+      const esperado = new Map([
+        [
+          queroLer,
+          { status: 'QUERO_LER', ultimaLeituraId: null, retomavel: false },
+        ],
+        [
+          lendo,
+          { status: 'LENDO', ultimaLeituraId: leituraLendo, retomavel: false },
+        ],
+        [
+          lido,
+          { status: 'LIDO', ultimaLeituraId: leituraLido, retomavel: false },
+        ],
+        [
+          abandonado,
+          {
+            status: 'ABANDONADO',
+            ultimaLeituraId: leituraAbandonada,
+            retomavel: true,
+          },
+        ],
+        [
+          releituraAbandonada,
+          { status: 'LIDO', ultimaLeituraId: releitura, retomavel: false },
+        ],
+      ]);
+
+      const lista = await consultar(usuario, '/estante').expect(200);
+      expect(lista.body.itens).toHaveLength(esperado.size);
+      for (const itemLista of lista.body.itens) {
+        expect(itemLista).toMatchObject(esperado.get(itemLista.livroId)!);
+      }
+      for (const [livroId, campos] of esperado) {
+        expect(await item(usuario, livroId)).toEqual(
+          lista.body.itens.find(
+            (i: { livroId: string }) => i.livroId === livroId,
+          ),
+        );
+        expect(await item(usuario, livroId)).toMatchObject(campos);
+      }
+
+      const perfil = await consultar(
+        usuario,
+        `/perfis/${usuario}/estante`,
+      ).expect(200);
+      const doPerfil = perfil.body.itens.find(
+        (i: { livroId: string }) => i.livroId === abandonado,
+      );
+      expect(doPerfil).toMatchObject(esperado.get(abandonado)!);
+
+      await acao(usuario, `/leituras/${leituraAbandonada}/retomar`).expect(200);
+      expect(await item(usuario, abandonado)).toMatchObject({
+        status: 'LENDO',
+        ultimaLeituraId: leituraAbandonada,
+        leituraEmAndamentoId: leituraAbandonada,
+        retomavel: false,
+      });
+    });
+  });
+
+  describe('GET /estante/{livroId}', () => {
+    it('devolve o item do leitor autenticado', async () => {
+      const usuario = novoUsuario();
+      const livroId = await inserirLivro(pool, { paginas: 320 });
+      const criado = await adicionar(usuario, livroId).expect(201);
+
+      const resposta = await consultar(usuario, `/estante/${livroId}`).expect(
+        200,
+      );
+      expect(resposta.body).toEqual(criado.body);
+    });
+
+    it('livro fora da estante ou só na estante de outro leitor é 404', async () => {
+      const usuario = novoUsuario();
+      const outro = novoUsuario();
+      const livroId = await inserirLivro(pool);
+      await adicionar(outro, livroId).expect(201);
+
+      const resposta = await consultar(usuario, `/estante/${livroId}`).expect(
+        404,
+      );
+      expect(resposta.body.codigo).toBe('RECURSO_NAO_ENCONTRADO');
+      await consultar(usuario, `/estante/${randomUUID()}`).expect(404);
+    });
+
+    it('livroId fora do formato é 400', async () => {
+      await consultar(novoUsuario(), '/estante/nao-uuid').expect(400);
     });
   });
 

@@ -118,6 +118,26 @@ paths:
         '401': { $ref: '#/components/responses/NaoAutenticado' }
 
   /estante/{livroId}:
+    get:
+      tags: [estante]
+      summary: Consulta um livro na estante do leitor autenticado
+      operationId: consultarItemEstante
+      x-implementation-status: implemented
+      parameters:
+        - { $ref: '#/components/parameters/LivroId' }
+      description: >-
+        Devolve o item da estante do leitor autenticado para o livro, com a
+        mesma forma dos itens da listagem. Responde 404 quando o livro não está
+        na estante do leitor.
+      responses:
+        '200':
+          description: Item da estante do livro.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ItemEstante' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
     delete:
       tags: [estante]
       summary: Remove um livro em Quero ler sem histórico
@@ -796,7 +816,7 @@ components:
     ItemEstante:
       type: object
       additionalProperties: false
-      required: [livroId, livro, status, vezesLido, adicionadoEm]
+      required: [livroId, livro, status, vezesLido, ultimaLeituraId, retomavel, adicionadoEm]
       properties:
         livroId: { type: string, format: uuid }
         livro:
@@ -814,6 +834,16 @@ components:
           type: string
           format: uuid
           nullable: true
+        ultimaLeituraId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Leitura mais recente do livro nesta estante, em qualquer status.
+        retomavel:
+          type: boolean
+          description: >-
+            Verdadeiro somente quando a leitura mais recente é a primeira
+            leitura abandonada (status abandonado e releitura falsa).
         paginaAtual: { type: integer, minimum: 0, nullable: true }
         totalPaginas: { type: integer, minimum: 1, nullable: true }
         percentualConcluido: { type: number, format: float, minimum: 0, maximum: 100, nullable: true }

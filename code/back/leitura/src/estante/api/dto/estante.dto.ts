@@ -14,7 +14,6 @@ import {
 
 export const PAGINA_PADRAO = 1;
 export const LIMITE_PADRAO = 20;
-/** O servidor impõe o máximo (contrato `Limite`, RNF-DES-02). */
 export const LIMITE_MAXIMO = 50;
 
 export class AdicionarEstanteEntradaDto {
@@ -41,7 +40,6 @@ export class ConsultaEstanteDto {
   @Min(1, { message: 'A página começa em 1.' })
   page?: number;
 
-  /** Acima do máximo é reduzido para 50, não recusado. */
   @ApiPropertyOptional({
     minimum: 1,
     maximum: LIMITE_MAXIMO,
@@ -60,6 +58,8 @@ export interface ItemEstante {
   status: StatusEstanteApi;
   vezesLido: number;
   leituraEmAndamentoId: string | null;
+  ultimaLeituraId: string | null;
+  retomavel: boolean;
   paginaAtual: number | null;
   totalPaginas: number | null;
   percentualConcluido: number | null;

@@ -46,6 +46,7 @@ import {
 
 const UNICIDADE_ESTANTE = 'estante_usuario_livro_uk';
 const PERCENTUAL_MAXIMO = 100;
+const LIVRO_FORA_DA_ESTANTE = 'Este livro não está na sua estante.';
 
 @Injectable()
 export class EstanteService {
@@ -56,7 +57,6 @@ export class EstanteService {
     private readonly outbox: OutboxRepository,
   ) {}
 
-  /** Quero ler sem leitura, com o evento na mesma transação (RF-EST-01). */
   adicionar(
     usuarioId: string,
     livroId: string,
@@ -80,8 +80,6 @@ export class EstanteService {
         const vinculo = await this.repositorio
           .inserir(tx, usuarioId, livroId, transicao.statusEstante!)
           .catch((erro: unknown) => {
-            // Adição concorrente passou pelo snapshot vazio antes desta: o
-            // vínculo já existe, e a máquina recusa como JA_NA_ESTANTE.
             if (ehViolacaoDeUnicidade(erro, UNICIDADE_ESTANTE)) {
               exigirTransicao(
                 aplicarEvento(
@@ -102,6 +100,7 @@ export class EstanteService {
           corpo: paraItem({
             ...vinculo,
             leituraEmAndamentoId: null,
+            ultimaLeitura: null,
             paginaAtual: null,
             totalPaginas: livro.paginas,
             livro: {
@@ -115,7 +114,6 @@ export class EstanteService {
     );
   }
 
-  /** Só Quero ler sem histórico sai da estante (RN-04). */
   remover(
     usuarioId: string,
     livroId: string,
@@ -143,11 +141,6 @@ export class EstanteService {
     return this.listar(usuarioId, consulta);
   }
 
-  /**
-   * Estante de um perfil (RN-08, SEC-03): dono e perfil público consultam;
-   * privado exige seguimento aceito. Conta suspensa ou em exclusão pendente
-   * some da VIEW de perfil e responde como inexistente.
-   */
   async listarDoPerfil(
     solicitanteId: string,
     usuarioId: string,
@@ -171,10 +164,17 @@ export class EstanteService {
     return this.listar(usuarioId, consulta);
   }
 
-  /**
-   * Vezes que o leitor concluiu o livro (RF-EST-08); 0 fora da estante. Livro
-   * pessoal de terceiro responde como inexistente: o contrato não prevê 403.
-   */
+  async consultarItem(
+    usuarioId: string,
+    livroId: string,
+  ): Promise<ItemEstante> {
+    const linha = await this.repositorio.buscarItem(usuarioId, livroId);
+    if (!linha) {
+      throw new NaoEncontrado(LIVRO_FORA_DA_ESTANTE);
+    }
+    return paraItem(linha);
+  }
+
   async consultarConclusoes(
     usuarioId: string,
     livroId: string,
@@ -238,7 +238,7 @@ function exigirTransicao(resultado: ResultadoTransicao): Transicao {
 function erroDaTransicao({ erro }: { erro: TransicaoInvalida }): ErroDeNegocio {
   switch (erro.codigo) {
     case 'FORA_DA_ESTANTE':
-      return new NaoEncontrado('Este livro não está na sua estante.');
+      return new NaoEncontrado(LIVRO_FORA_DA_ESTANTE);
     case 'POSSUI_HISTORICO':
     case 'REMOCAO_NAO_PERMITIDA':
       return new EstanteComHistorico();
@@ -256,6 +256,10 @@ function paraItem(linha: LinhaEstante): ItemEstante {
     status: statusParaApi(linha.status),
     vezesLido: linha.vezesLido,
     leituraEmAndamentoId: linha.leituraEmAndamentoId,
+    ultimaLeituraId: linha.ultimaLeitura?.id ?? null,
+    retomavel:
+      linha.ultimaLeitura?.status === 'abandonado' &&
+      !linha.ultimaLeitura.releitura,
     paginaAtual,
     totalPaginas: linha.totalPaginas,
     percentualConcluido:

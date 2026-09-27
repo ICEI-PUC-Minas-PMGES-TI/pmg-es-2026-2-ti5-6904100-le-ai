@@ -34,7 +34,6 @@ import {
 } from './dto/estante.dto';
 import { EstanteService } from '../aplicacao/estante.service';
 
-/** Path param em UUID; formato errado é 400 com `campos`, não 500. */
 function uuidDe(campo: string): ParseUUIDPipe {
   return new ParseUUIDPipe({
     exceptionFactory: () =>
@@ -100,6 +99,19 @@ export class EstanteController {
     @Query() consulta: ConsultaEstanteDto,
   ): Promise<PaginaEstante> {
     return this.servico.listarMinha(usuario.id, consulta);
+  }
+
+  @Get('estante/:livroId')
+  @ApiOperation({
+    operationId: 'consultarItemEstante',
+    summary: 'Consulta um livro na estante do leitor autenticado',
+  })
+  @ApiOkResponse({ description: 'Item da estante do livro.' })
+  consultarItem(
+    @Param('livroId', uuidDe('livroId')) livroId: string,
+    @UsuarioAtual() usuario: UsuarioAutenticado,
+  ): Promise<ItemEstante> {
+    return this.servico.consultarItem(usuario.id, livroId);
   }
 
   @Get('perfis/:usuarioId/estante')

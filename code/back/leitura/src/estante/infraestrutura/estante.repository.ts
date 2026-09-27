@@ -13,16 +13,22 @@ import type {
 } from '../../leituras/dominio/maquina-estados';
 import type { LivroItemEstante, OrdenacaoEstante } from '../dominio/estante';
 
-/** Linha da estante como a listagem precisa, antes de virar `ItemEstante`. */
 export interface LinhaEstante {
   livroId: string;
   status: StatusEstante;
   vezesLido: number;
   adicionadoEm: Date;
   leituraEmAndamentoId: string | null;
+  ultimaLeitura: UltimaLeitura | null;
   paginaAtual: number | null;
   totalPaginas: number | null;
   livro: LivroItemEstante;
+}
+
+export interface UltimaLeitura {
+  id: string;
+  status: StatusLeitura;
+  releitura: boolean;
 }
 
 export interface VinculoEstante {
@@ -40,7 +46,6 @@ export interface FiltroEstante {
   limite: number;
 }
 
-/** Fração lida da leitura em andamento; sem leitura em andamento é NULL. */
 const progresso = sql`${leitura.paginaAtual}::numeric / nullif(${vLivroReferencia.paginas}, 0)`;
 
 const ORDENACOES: Record<OrdenacaoEstante, SQL[]> = {
@@ -78,7 +83,6 @@ const ORDENACOES: Record<OrdenacaoEstante, SQL[]> = {
   ],
 };
 
-/** Vínculo de estante inexistente: o livro está fora da estante (RN-04). */
 const FORA_DA_ESTANTE: SnapshotEstante = {
   status: null,
   vezesLido: 0,
@@ -90,11 +94,6 @@ const FORA_DA_ESTANTE: SnapshotEstante = {
 export class EstanteRepository {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
-  /**
-   * Estado do vínculo para a máquina de RN-04, com o vínculo travado até o fim
-   * da transação: duas remoções ou uma remoção e um início concorrentes não
-   * decidem sobre o mesmo snapshot.
-   */
   async travarSnapshot(
     tx: Tx,
     usuarioId: string,
@@ -166,14 +165,6 @@ export class EstanteRepository {
     await tx.delete(estante).where(eq(estante.id, estanteId));
   }
 
-  /**
-   * Página da estante de um usuário, também usada pela estante do perfil.
-   *
-   * O join direto com `v_livro_referencia_v1` é decisão registrada (F-EST,
-   * Timeline 26/09/2026): a arquitetura §4.2 permite ler VIEW de contrato, e
-   * ordenar por título, autor ou progresso com paginação só escala em SQL. É o
-   * único join com `acervo`: dá o snapshot `livro`, as páginas e a ordenação.
-   */
   async listar(
     usuarioId: string,
     filtro: FiltroEstante,
@@ -184,28 +175,7 @@ export class EstanteRepository {
     );
 
     return this.consultar(async () => {
-      const linhas = await this.db
-        .select({
-          livroId: estante.livroId,
-          status: estante.status,
-          vezesLido: estante.vezesLido,
-          adicionadoEm: estante.adicionadoEm,
-          leituraEmAndamentoId: leitura.id,
-          paginaAtual: leitura.paginaAtual,
-          totalPaginas: vLivroReferencia.paginas,
-          titulo: vLivroReferencia.titulo,
-          autor: vLivroReferencia.autorExibicao,
-          capaUrl: vLivroReferencia.capaResolvida,
-        })
-        .from(estante)
-        .leftJoin(
-          leitura,
-          and(eq(leitura.estanteId, estante.id), eq(leitura.status, 'lendo')),
-        )
-        .leftJoin(
-          vLivroReferencia,
-          eq(vLivroReferencia.livroId, estante.livroId),
-        )
+      const linhas = await this.selecionarLinhas()
         .where(onde)
         .orderBy(...ORDENACOES[filtro.ordenacao])
         .limit(filtro.limite)
@@ -216,18 +186,24 @@ export class EstanteRepository {
         .from(estante)
         .where(onde);
 
-      return {
-        linhas: linhas.map(({ titulo, autor, capaUrl, ...linha }) => ({
-          ...linha,
-          status: linha.status as StatusEstante,
-          livro: { titulo: titulo as string, autor, capaUrl },
-        })),
-        totalItens: total,
-      };
+      return { linhas: linhas.map(paraLinha), totalItens: total };
     });
   }
 
-  /** Contagem de cada status, independente do filtro (pill do protótipo). */
+  async buscarItem(
+    usuarioId: string,
+    livroId: string,
+  ): Promise<LinhaEstante | null> {
+    return this.consultar(async () => {
+      const [linha] = await this.selecionarLinhas()
+        .where(
+          and(eq(estante.usuarioId, usuarioId), eq(estante.livroId, livroId)),
+        )
+        .limit(1);
+      return linha ? paraLinha(linha) : null;
+    });
+  }
+
   async contarPorStatus(
     usuarioId: string,
   ): Promise<Map<StatusEstante, number>> {
@@ -252,7 +228,45 @@ export class EstanteRepository {
     return linha?.vezesLido ?? 0;
   }
 
-  /** A listagem lê VIEW de outro schema: falha de contrato é 503, não 500. */
+  private selecionarLinhas() {
+    const ultima = this.db
+      .select({
+        id: leitura.id,
+        status: leitura.status,
+        releitura: leitura.releitura,
+      })
+      .from(leitura)
+      .where(eq(leitura.estanteId, estante.id))
+      .orderBy(desc(leitura.criadoEm), desc(leitura.id))
+      .limit(1)
+      .as('ultima_leitura');
+
+    return this.db
+      .select({
+        livroId: estante.livroId,
+        status: estante.status,
+        vezesLido: estante.vezesLido,
+        adicionadoEm: estante.adicionadoEm,
+        leituraEmAndamentoId: leitura.id,
+        ultimaLeituraId: ultima.id,
+        ultimaLeituraStatus: ultima.status,
+        ultimaLeituraReleitura: ultima.releitura,
+        paginaAtual: leitura.paginaAtual,
+        totalPaginas: vLivroReferencia.paginas,
+        titulo: vLivroReferencia.titulo,
+        autor: vLivroReferencia.autorExibicao,
+        capaUrl: vLivroReferencia.capaResolvida,
+      })
+      .from(estante)
+      .leftJoin(
+        leitura,
+        and(eq(leitura.estanteId, estante.id), eq(leitura.status, 'lendo')),
+      )
+      .leftJoinLateral(ultima, sql`true`)
+      .leftJoin(vLivroReferencia, eq(vLivroReferencia.livroId, estante.livroId))
+      .$dynamic();
+  }
+
   private async consultar<T>(consulta: () => Promise<T>): Promise<T> {
     try {
       return await consulta();
@@ -263,4 +277,44 @@ export class EstanteRepository {
       throw erro;
     }
   }
+}
+
+interface LinhaConsultada {
+  livroId: string;
+  status: string;
+  vezesLido: number;
+  adicionadoEm: Date;
+  leituraEmAndamentoId: string | null;
+  ultimaLeituraId: string | null;
+  ultimaLeituraStatus: string | null;
+  ultimaLeituraReleitura: boolean | null;
+  paginaAtual: number | null;
+  totalPaginas: number | null;
+  titulo: string | null;
+  autor: string | null;
+  capaUrl: string | null;
+}
+
+function paraLinha({
+  titulo,
+  autor,
+  capaUrl,
+  ultimaLeituraId,
+  ultimaLeituraStatus,
+  ultimaLeituraReleitura,
+  ...linha
+}: LinhaConsultada): LinhaEstante {
+  return {
+    ...linha,
+    status: linha.status as StatusEstante,
+    ultimaLeitura:
+      ultimaLeituraId === null
+        ? null
+        : {
+            id: ultimaLeituraId,
+            status: ultimaLeituraStatus as StatusLeitura,
+            releitura: ultimaLeituraReleitura as boolean,
+          },
+    livro: { titulo: titulo as string, autor, capaUrl },
+  };
 }
