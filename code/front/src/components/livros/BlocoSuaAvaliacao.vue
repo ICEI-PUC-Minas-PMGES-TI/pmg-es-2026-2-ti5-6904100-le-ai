@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { PhEyeSlash } from '@phosphor-icons/vue'
 import { computed, ref } from 'vue'
+import { RouterLink, useRouter, type RouteLocationRaw } from 'vue-router'
 
 import { formatarData, formatarNota } from '../../livros/formatos'
 import type { LivroAvaliado, MinhaAvaliacaoDoLivro } from '../../livros/useMinhaAvaliacao'
@@ -17,9 +19,20 @@ import PainelDeNota from './PainelDeNota.vue'
  * - Carrega à parte: com o `leitura` lento ou fora, a página segue utilizável e só o bloco mostra
  *   o skeleton ou o erro com `Tentar de novo`.
  */
-const props = defineProps<{ avaliacao: MinhaAvaliacaoDoLivro; livro: LivroAvaliado }>()
+const props = defineProps<{
+  avaliacao: MinhaAvaliacaoDoLivro
+  livro: LivroAvaliado
+  /** Editor de resenha deste livro, na aba de origem. */
+  rotaDoEditor: RouteLocationRaw
+}>()
 
+const router = useRouter()
 const painelAberto = ref(false)
+
+function irParaOEditor(): void {
+  painelAberto.value = false
+  void router.push(props.rotaDoEditor)
+}
 
 const valor = computed(() => props.avaliacao.nota.value?.valor ?? null)
 
@@ -69,20 +82,47 @@ const rotuloDaNota = computed(() =>
         v-if="avaliacao.resenha.value"
         class="mt-space-3"
       >
-        <p class="whitespace-pre-line font-editorial text-body-lg text-tinta">
+        <!-- O dono vê o próprio texto mesmo com spoiler: o spoiler muda como quem lê a encontra. -->
+        <p class="max-w-[68ch] whitespace-pre-line font-editorial text-body-lg text-tinta">
           {{ avaliacao.resenha.value.texto }}
         </p>
-        <p class="mt-space-2 text-caption text-grafite-suave">
-          Publicada em {{ formatarData(avaliacao.resenha.value.criadoEm) }}
+        <p class="mt-space-2 flex flex-wrap items-center gap-x-space-2 text-caption text-grafite-suave">
+          <span>Publicada em {{ formatarData(avaliacao.resenha.value.criadoEm) }}</span>
+          <span
+            v-if="avaliacao.resenha.value.spoiler"
+            class="inline-flex items-center gap-space-1 text-grafite"
+          >
+            <PhEyeSlash
+              :size="16"
+              weight="regular"
+              aria-hidden="true"
+            />
+            Contém spoiler
+          </span>
         </p>
+        <RouterLink
+          :to="rotaDoEditor"
+          class="mt-space-2 inline-flex min-h-12 items-center text-body-strong text-musgo underline-offset-2 hover:underline focus-visible:underline md:min-h-10"
+        >
+          Editar resenha
+        </RouterLink>
       </div>
+      <RouterLink
+        v-else
+        :to="rotaDoEditor"
+        class="mt-space-1 inline-flex min-h-12 items-center text-body-strong text-musgo underline-offset-2 hover:underline focus-visible:underline md:min-h-10"
+      >
+        Escrever resenha
+      </RouterLink>
     </template>
 
     <PainelDeNota
       :aberta="painelAberto"
       :livro="livro"
       :avaliacao="avaliacao"
+      com-escrever-resenha
       @fechar="painelAberto = false"
+      @escrever-resenha="irParaOEditor"
     />
   </section>
 </template>

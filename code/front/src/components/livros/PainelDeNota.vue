@@ -19,13 +19,18 @@ import SeletorDeNota from './SeletorDeNota.vue'
  * em vez de abrir um segundo por cima: dois modais disputariam o foco, e o design diz que o painel
  * "dá lugar" ao diálogo (§4.5). `Cancelar` volta ao painel.
  */
-const props = defineProps<{
-  aberta: boolean
-  livro: LivroAvaliado
-  avaliacao: MinhaAvaliacaoDoLivro
-}>()
+const props = withDefaults(
+  defineProps<{
+    aberta: boolean
+    livro: LivroAvaliado
+    avaliacao: MinhaAvaliacaoDoLivro
+    /** Mostra `Escrever resenha` (§4 e §5). O editor não abre dentro de outro editor. */
+    comEscreverResenha?: boolean
+  }>(),
+  { comEscreverResenha: false },
+)
 
-const emit = defineEmits<{ fechar: [] }>()
+const emit = defineEmits<{ fechar: []; 'escrever-resenha': [] }>()
 
 const ERRO_AO_SALVAR = 'Não foi possível salvar sua nota. Verifique sua conexão e tente de novo.'
 const ERRO_AO_REMOVER = 'Não foi possível remover sua nota. Verifique sua conexão e tente de novo.'
@@ -69,6 +74,26 @@ async function salvar(): Promise<void> {
   } finally {
     salvando.value = false
   }
+}
+
+/**
+ * `Escrever resenha` salva a nota escolhida no caminho (§4). Se o salvamento falhar, o painel
+ * fica aberto com o erro e o editor não abre; sem mudança na nota, abre direto.
+ */
+async function escreverResenha(): Promise<void> {
+  if (escolhido.value !== null && escolhido.value !== salva.value) {
+    salvando.value = true
+    erro.value = null
+    try {
+      await props.avaliacao.salvarNota(escolhido.value)
+    } catch {
+      erro.value = ERRO_AO_SALVAR
+      return
+    } finally {
+      salvando.value = false
+    }
+  }
+  emit('escrever-resenha')
 }
 
 async function remover(): Promise<void> {
@@ -184,6 +209,14 @@ function fechar(): void {
         >
           {{ salvando ? 'Salvando' : 'Salvar nota' }}
         </BotaoPrimario>
+        <BotaoTextual
+          v-if="comEscreverResenha"
+          class="h-12 w-full justify-center md:h-10 md:w-auto"
+          :disabled="salvando"
+          @click="escreverResenha"
+        >
+          Escrever resenha
+        </BotaoTextual>
         <BotaoTextual
           v-if="salva !== null"
           class="h-12 w-full justify-center md:mr-auto md:h-10 md:w-auto"

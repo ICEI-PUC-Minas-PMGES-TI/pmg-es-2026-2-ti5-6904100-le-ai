@@ -111,6 +111,22 @@ describe('LivroPessoalView', () => {
     expect(barra.findAll('a')[2]!.get('span').classes()).toContain('text-musgo')
   })
 
+  it('terceiro: resenha do dono com spoiler fica fora do DOM até a ação', async () => {
+    servico.obterLivroPessoal.mockResolvedValue({
+      ...EM_CONSULTA,
+      resenhaDoDono: { ...EM_CONSULTA.resenhaDoDono!, spoiler: true },
+    })
+    const { wrapper } = await montarNaRota('/livros/pessoal/l1?via=feed&referenciaId=atv-1')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Esta resenha contém spoiler')
+    expect(wrapper.html()).not.toContain('Comprei numa feira e li em duas noites.')
+
+    await wrapper.findAll('button').find((b) => b.text() === 'Mostrar mesmo assim')!.trigger('click')
+
+    expect(wrapper.text()).toContain('Comprei numa feira e li em duas noites.')
+  })
+
   // O nome vinha só dentro da resenha; sem ela, a página ficava sem dizer de quem era o livro.
   it('terceiro vê a atribuição mesmo sem nota e sem resenha, e as seções somem', async () => {
     servico.obterLivroPessoal.mockResolvedValue({ ...EM_CONSULTA, notaDoDono: null, resenhaDoDono: null })

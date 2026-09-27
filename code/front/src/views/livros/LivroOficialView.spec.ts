@@ -72,6 +72,38 @@ describe('LivroOficialView', () => {
     expect(wrapper.find('button[aria-label="Sua nota: 0. Alterar"]').exists()).toBe(true)
   })
 
+  it('sem resenha própria: "Escrever resenha" no bloco e "Escrever a primeira" na lista vazia', async () => {
+    const { wrapper } = await abrir()
+
+    const links = wrapper.findAll('a').map((a) => [a.text(), a.attributes('href')])
+    expect(links).toContainEqual(['Escrever resenha', '/livros/livro-1/resenha?origem=descobrir'])
+    expect(links).toContainEqual(['Escrever a primeira', '/livros/livro-1/resenha?origem=descobrir'])
+  })
+
+  it('com resenha própria: texto, marca de spoiler e "Editar resenha"', async () => {
+    leitura.obterMinhaAvaliacao.mockResolvedValue({
+      livroId: 'livro-1',
+      nota: null,
+      resenha: {
+        id: 'r1',
+        usuarioId: 'u1',
+        livroId: 'livro-1',
+        texto: 'Minha leitura do livro.',
+        spoiler: true,
+        criadoEm: '2026-08-22T12:00:00Z',
+        atualizadoEm: '2026-08-22T12:00:00Z',
+      },
+    })
+    const { wrapper } = await abrir()
+
+    // O dono vê o próprio texto mesmo com spoiler.
+    expect(wrapper.text()).toContain('Minha leitura do livro.')
+    expect(wrapper.text()).toContain('Publicada em 22 de agosto de 2026')
+    expect(wrapper.text()).toContain('Contém spoiler')
+    expect(wrapper.text()).toContain('Editar resenha')
+    expect(wrapper.text()).not.toContain('Escrever a primeira')
+  })
+
   it('leitura fora do ar: a página abre e só o bloco mostra o erro', async () => {
     leitura.obterMinhaAvaliacao.mockRejectedValue(new ApiError('x', 503, 'SERVICO_INDISPONIVEL'))
     const { wrapper } = await abrir()

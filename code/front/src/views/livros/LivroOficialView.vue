@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { PhBookOpen, PhWarning } from '@phosphor-icons/vue'
 import { computed, onBeforeUnmount, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import BlocoSuaAvaliacao from '../../components/livros/BlocoSuaAvaliacao.vue'
 import CapaLivro from '../../components/livros/CapaLivro.vue'
@@ -54,6 +54,11 @@ watch(
 onBeforeUnmount(() => pagina.descartar())
 
 const autores = computed(() => livro.value?.autores.map((autor) => autor.nome).join(', ') || null)
+const rotaDoEditor = computed(() => ({
+  name: 'escrever-resenha',
+  params: { id: String(route.params.id) },
+  query: route.query.origem ? { origem: String(route.query.origem) } : {},
+}))
 const livroAvaliado = computed(() => ({
   titulo: livro.value?.titulo ?? '',
   autor: autores.value,
@@ -213,6 +218,7 @@ function voltar(): void {
           class="order-3 mt-space-8 lg:order-none"
           :avaliacao="minhaAvaliacao"
           :livro="livroAvaliado"
+          :rota-do-editor="rotaDoEditor"
         />
 
         <section
@@ -278,12 +284,22 @@ function voltar(): void {
             </BotaoTextual>
           </template>
           <!-- A lista é filtrada por RN-08: "sem resenhas" pode ser "nenhuma para você". -->
-          <p
+          <div
             v-else-if="semResenhas"
-            class="mt-space-3 text-body text-grafite"
+            class="mt-space-3"
           >
-            Ninguém que você segue escreveu sobre este livro.
-          </p>
+            <p class="text-body text-grafite">
+              Ninguém que você segue escreveu sobre este livro.
+            </p>
+            <!-- Só para quem ainda não escreveu: a resenha própria fica em "Sua avaliação". -->
+            <RouterLink
+              v-if="minhaAvaliacao.estado.value === 'pronta' && !minhaAvaliacao.resenha.value"
+              :to="rotaDoEditor"
+              class="mt-space-1 inline-flex min-h-12 items-center text-body-strong text-musgo underline-offset-2 hover:underline focus-visible:underline md:min-h-10"
+            >
+              Escrever a primeira
+            </RouterLink>
+          </div>
           <template v-else>
             <ul class="mt-space-4 flex flex-col gap-space-6 lg:grid lg:grid-cols-2">
               <li

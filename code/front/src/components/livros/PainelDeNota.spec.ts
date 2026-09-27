@@ -10,7 +10,7 @@ function nota(valor: number): Nota {
   return { livroId: 'l1', valor, criadoEm: '2026-09-12T12:00:00Z', atualizadoEm: '2026-09-12T12:00:00Z' }
 }
 
-async function montar(notaSalva: number | null) {
+async function montar(notaSalva: number | null, comEscreverResenha = false) {
   const servico = {
     obterMinhaAvaliacao: vi.fn().mockResolvedValue({
       livroId: 'l1',
@@ -19,6 +19,16 @@ async function montar(notaSalva: number | null) {
     }),
     salvarNota: vi.fn<LeituraService['salvarNota']>(async (_livroId, valor) => nota(valor)),
     excluirNota: vi.fn().mockResolvedValue(undefined),
+    salvarResenha: vi.fn<LeituraService['salvarResenha']>(async (livroId, texto, spoiler) => ({
+      id: 'r1',
+      usuarioId: 'u1',
+      livroId,
+      texto,
+      spoiler,
+      criadoEm: '2026-09-12T12:00:00Z',
+      atualizadoEm: '2026-09-12T12:00:00Z',
+    })),
+    excluirResenha: vi.fn().mockResolvedValue(undefined),
   } satisfies LeituraService
   const avaliacao = useMinhaAvaliacao({ servico })
   await avaliacao.carregar('l1')
@@ -27,6 +37,7 @@ async function montar(notaSalva: number | null) {
       aberta: true,
       avaliacao,
       livro: { titulo: 'Torto Arado', autor: 'Itamar Vieira Junior', capaUrl: null },
+      comEscreverResenha,
     },
     attachTo: document.body,
   })
@@ -123,5 +134,38 @@ describe('PainelDeNota', () => {
 
     expect(texto()).toContain('de 0 a 5, com meia estrela')
     expect(servico.excluirNota).not.toHaveBeenCalled()
+  })
+
+  it('"Escrever resenha" salva a nota escolhida no caminho e pede o editor', async () => {
+    const { wrapper, servico } = await montar(null, true)
+
+    await teclar('End')
+    botao('Escrever resenha')!.click()
+    await flushPromises()
+
+    expect(servico.salvarNota).toHaveBeenCalledWith('l1', 5, expect.any(String))
+    expect(wrapper.emitted('escrever-resenha')).toHaveLength(1)
+  })
+
+  it('"Escrever resenha" sem mudar a nota pede o editor direto', async () => {
+    const { wrapper, servico } = await montar(3, true)
+
+    botao('Escrever resenha')!.click()
+    await flushPromises()
+
+    expect(servico.salvarNota).not.toHaveBeenCalled()
+    expect(wrapper.emitted('escrever-resenha')).toHaveLength(1)
+  })
+
+  it('"Escrever resenha" com falha ao salvar fica no painel com o erro', async () => {
+    const { wrapper, servico } = await montar(null, true)
+    servico.salvarNota.mockRejectedValueOnce(new ApiError('x', 500, 'ERRO_INTERNO'))
+
+    await teclar('End')
+    botao('Escrever resenha')!.click()
+    await flushPromises()
+
+    expect(wrapper.emitted('escrever-resenha')).toBeUndefined()
+    expect(texto()).toContain('Não foi possível salvar sua nota. Verifique sua conexão e tente de novo.')
   })
 })

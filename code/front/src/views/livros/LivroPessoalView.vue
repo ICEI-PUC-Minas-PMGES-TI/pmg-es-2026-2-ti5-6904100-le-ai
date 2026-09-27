@@ -3,6 +3,7 @@ import { PhBookOpen, PhDotsThreeVertical, PhPencilSimple, PhTrash } from '@phosp
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import BlocoDeSpoiler from '../../components/livros/BlocoDeSpoiler.vue'
 import BlocoSuaAvaliacao from '../../components/livros/BlocoSuaAvaliacao.vue'
 import CapaLivro from '../../components/livros/CapaLivro.vue'
 import EstrelasNota from '../../components/livros/EstrelasNota.vue'
@@ -58,6 +59,10 @@ const avaliado = computed(() => livro.value !== null && (livro.value.notaDoDono 
  * `leitura`. O terceiro vê a nota e a resenha do dono que o `acervo` já traz, sem ação nenhuma.
  */
 const minhaAvaliacao = useMinhaAvaliacao()
+const rotaDoEditor = computed(() => ({ name: 'escrever-resenha-pessoal', params: { id: String(route.params.id) } }))
+
+/** Resenha do dono com spoiler, vista por terceiro: fora do DOM até a ação (RF-AVA-03). */
+const spoilerRevelado = ref(false)
 const livroAvaliado = computed(() => ({
   titulo: livro.value?.titulo ?? '',
   autor: livro.value?.autor ?? null,
@@ -267,6 +272,7 @@ async function excluir(): Promise<void> {
             class="py-space-5"
             :avaliacao="minhaAvaliacao"
             :livro="livroAvaliado"
+            :rota-do-editor="rotaDoEditor"
           />
           <template v-else-if="avaliado">
             <section
@@ -288,7 +294,13 @@ async function excluir(): Promise<void> {
               <h3 class="text-title-sm text-tinta">
                 {{ `Resenha de ${primeiroNome ?? 'quem cadastrou'}` }}
               </h3>
+              <BlocoDeSpoiler
+                v-if="livro.resenhaDoDono.spoiler && !spoilerRevelado"
+                class="mt-space-3"
+                @revelar="spoilerRevelado = true"
+              />
               <p
+                v-else
                 lang="pt-BR"
                 class="mt-space-3 max-w-[68ch] whitespace-pre-line font-editorial text-body-lg text-tinta"
               >
