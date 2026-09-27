@@ -4,8 +4,9 @@ info:
   version: 0.1.0
   description: >-
     Contrato do serviço leitura. O health check está implementado pelo
-    scaffolding P0-INFRA. Os contratos de F-EST, F-PRG e F-AVA do Período 1
-    estão planejados e são identificados por `x-implementation-status`.
+    scaffolding P0-INFRA. Nota, resenha, minha avaliação e as resenhas do
+    perfil estão implementadas por F-AVA (27/09/2026); os contratos de F-EST
+    e F-PRG seguem planejados. Cada operação traz `x-implementation-status`.
     Nota e resenha pertencem ao livro, não a uma ocorrência de leitura.
     Sessões cronometradas, favoritos, histórico, reações e Markdown não fazem
     parte deste contrato do Período 1.
@@ -19,8 +20,11 @@ x-database-contracts:
   - name: v_resenha_publicacao_v1
     x-implementation-status: implemented
     description: >-
-      Projeção consumida pela página autorizada de livro oficial ou pessoal;
-      não alimenta o feed.
+      Projeção consumida pela página autorizada de livro oficial ou pessoal.
+      Desde 26/09/2026 o feed (social) também lê texto, spoiler e nota por
+      esta VIEW, o que contraria a arquitetura §3.2 item 4 ("o feed guarda
+      snapshot"); a decisão está pendente com o grupo (feature-F-AVA.md).
+      As colunas não mudam enquanto isso.
     columns: [resenha_id, usuario_id, livro_id, texto, spoiler, criado_em, atualizado_em, curtidas, descurtidas]
   - name: v_nota_publicacao_v1
     x-implementation-status: implemented
@@ -460,7 +464,8 @@ paths:
       tags: [avaliacoes]
       summary: Cria ou atualiza a nota do leitor para o livro
       operationId: salvarNota
-      x-implementation-status: planned
+      x-implementation-status: implemented
+      x-implemented-by: F-AVA
       parameters:
         - { $ref: '#/components/parameters/LivroId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
@@ -493,7 +498,8 @@ paths:
       tags: [avaliacoes]
       summary: Remove a nota do leitor para o livro
       operationId: excluirNota
-      x-implementation-status: planned
+      x-implementation-status: implemented
+      x-implemented-by: F-AVA
       parameters:
         - { $ref: '#/components/parameters/LivroId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
@@ -514,7 +520,8 @@ paths:
       tags: [avaliacoes]
       summary: Cria ou atualiza a resenha do leitor para o livro
       operationId: salvarResenha
-      x-implementation-status: planned
+      x-implementation-status: implemented
+      x-implemented-by: F-AVA
       parameters:
         - { $ref: '#/components/parameters/LivroId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
@@ -551,7 +558,8 @@ paths:
       tags: [avaliacoes]
       summary: Exclui fisicamente a resenha do leitor
       operationId: excluirResenha
-      x-implementation-status: planned
+      x-implementation-status: implemented
+      x-implemented-by: F-AVA
       parameters:
         - { $ref: '#/components/parameters/LivroId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
@@ -572,7 +580,8 @@ paths:
       tags: [avaliacoes]
       summary: Consulta a nota e a resenha atuais do leitor
       operationId: consultarMinhaAvaliacao
-      x-implementation-status: planned
+      x-implementation-status: implemented
+      x-implemented-by: F-AVA
       parameters:
         - { $ref: '#/components/parameters/LivroId' }
       description: >-
@@ -593,7 +602,8 @@ paths:
       tags: [perfis, avaliacoes]
       summary: Lista as resenhas autorizadas de um perfil
       operationId: listarResenhasPerfil
-      x-implementation-status: planned
+      x-implementation-status: implemented
+      x-implemented-by: F-AVA
       description: >-
         Autoriza o próprio usuário e perfis públicos. Perfil privado exige
         seguimento aceito (403 sem ele). Conta inexistente, suspensa ou em
