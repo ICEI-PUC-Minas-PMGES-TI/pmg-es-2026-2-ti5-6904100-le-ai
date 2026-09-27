@@ -11,6 +11,7 @@ import '../../design/widgets/botao_textual.dart';
 import '../../design/widgets/capa_livro.dart';
 import '../../design/widgets/cartao_progresso.dart';
 import '../../design/widgets/estado_vazio.dart';
+import '../../design/widgets/estrelas_nota.dart';
 import '../../design/widgets/etiqueta.dart';
 import '../../design/widgets/folha_inferior.dart';
 import 'acervo_service.dart';
@@ -369,7 +370,7 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
                 style: theme.textTheme.titleMedium,
               ),
               const SizedBox(height: DesignTokens.space3),
-              _Estrelas(nota: livro.notaDoDono!),
+              EstrelasNota(nota: livro.notaDoDono!),
             ]),
           ],
           if (resenha != null) ...<Widget>[
@@ -397,38 +398,6 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
             ]),
           ],
           const SizedBox(height: DesignTokens.space12),
-        ],
-      ),
-    );
-  }
-}
-
-class _Estrelas extends StatelessWidget {
-  final double nota;
-
-  const _Estrelas({required this.nota});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final texto = formatarNota(nota);
-    return Semantics(
-      label: '$texto de 5',
-      excludeSemantics: true,
-      child: Row(
-        children: <Widget>[
-          for (var i = 1; i <= 5; i++)
-            Icon(
-              nota >= i
-                  ? PhosphorIconsFill.star
-                  : nota >= i - 0.5
-                  ? PhosphorIconsFill.starHalf
-                  : PhosphorIconsRegular.star,
-              size: 24,
-              color: nota >= i - 0.5 ? theme.primaryAccent : theme.tertiaryText,
-            ),
-          const SizedBox(width: DesignTokens.space2),
-          Text(texto, style: theme.numInline),
         ],
       ),
     );
