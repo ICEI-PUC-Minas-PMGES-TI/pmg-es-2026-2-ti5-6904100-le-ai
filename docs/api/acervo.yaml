@@ -50,6 +50,9 @@ x-database-contracts:
     description: >-
       Referência estável de livro exposta a leitura e social. Livro pessoal
       excluído deixa de ser ativo. Consumidores não leem tabelas cruas de acervo.
+      autor_exibicao é NULL em livro oficial sem autor (string_agg sobre zero
+      linhas); livro pessoal sempre traz o autor informado. Corrigido em
+      26/09/2026: o contrato declarava a coluna não anulável.
     consumers: [leitura, social]
     columns:
       - { name: livro_id, type: uuid, nullable: false }
@@ -57,7 +60,7 @@ x-database-contracts:
       - { name: dono_id, type: uuid, nullable: true }
       - { name: paginas, type: integer, nullable: false }
       - { name: titulo, type: varchar, nullable: false }
-      - { name: autor_exibicao, type: varchar, nullable: false }
+      - { name: autor_exibicao, type: varchar, nullable: true }
       - { name: capa_resolvida, type: varchar, nullable: true }
       - { name: ativo, type: boolean, nullable: false }
   - name: v_livro_recomendacao_v1
