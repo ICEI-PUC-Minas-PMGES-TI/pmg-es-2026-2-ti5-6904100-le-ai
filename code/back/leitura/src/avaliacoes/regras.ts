@@ -38,10 +38,11 @@ export function validarTextoDaResenha(texto: string): void {
   }
   const total = contarCaracteres(texto);
   if (total > LIMITE_DA_RESENHA) {
+    const excedente = total - LIMITE_DA_RESENHA;
     throw new EntidadeInvalida([
       {
         campo: 'texto',
-        mensagem: `A resenha passou do limite em ${total - LIMITE_DA_RESENHA} caracteres.`,
+        mensagem: `A resenha passou do limite em ${excedente} ${excedente === 1 ? 'caractere' : 'caracteres'}.`,
       },
     ]);
   }
