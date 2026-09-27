@@ -43,6 +43,9 @@ class BuscaDeLivrosController extends ChangeNotifier {
 
   int _geracao = 0;
   String? _termoBuscado;
+
+  /// O assunto da busca atual: a página seguinte continua ela, não o que mudou depois.
+  AssuntoResumo? _assuntoBuscado;
   int _proximaPagina = 1;
   int _totalPaginas = 0;
   bool _descartado = false;
@@ -122,8 +125,8 @@ class BuscaDeLivrosController extends ChangeNotifier {
     _avisar();
     try {
       final pagina = await _servico.buscarLivros(
-        q: _termo,
-        assuntoId: assunto?.id,
+        q: _termoBuscado,
+        assuntoId: _assuntoBuscado?.id,
         page: _proximaPagina,
       );
       if (minha != _geracao || _descartado) {
@@ -161,6 +164,7 @@ class BuscaDeLivrosController extends ChangeNotifier {
   Future<void> _buscar() async {
     final minha = ++_geracao;
     _termoBuscado = _termo;
+    _assuntoBuscado = assunto;
     _timerDoColdStart?.cancel();
     estado = EstadoDaBusca.buscando;
     coldStart = false;
