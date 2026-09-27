@@ -160,7 +160,7 @@ class _PainelDeNotaState extends State<PainelDeNota> {
                 children: <Widget>[
                   Text(
                     widget.livro.titulo,
-                    style: theme.textTheme.titleSmall,
+                    style: theme.textTheme.titleMedium,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
