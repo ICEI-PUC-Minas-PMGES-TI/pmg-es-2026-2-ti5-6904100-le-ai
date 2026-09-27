@@ -3,6 +3,8 @@ import { PhBookOpen, PhDotsThreeVertical, PhPencilSimple, PhTrash } from '@phosp
 import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import AcoesLeitura from '../../components/estante/AcoesLeitura.vue'
+import StatusPill from '../../components/estante/StatusPill.vue'
 import BlocoDeSpoiler from '../../components/livros/BlocoDeSpoiler.vue'
 import BlocoSuaAvaliacao from '../../components/livros/BlocoSuaAvaliacao.vue'
 import CapaLivro from '../../components/livros/CapaLivro.vue'
@@ -12,10 +14,13 @@ import BotaoTextual from '../../components/ui/BotaoTextual.vue'
 import DialogoConfirmacao from '../../components/ui/DialogoConfirmacao.vue'
 import EstadoVazio from '../../components/ui/EstadoVazio.vue'
 import FolhaAcoes, { type AcaoDaFolha } from '../../components/ui/FolhaAcoes.vue'
+import { TEXTOS_DO_PAINEL, textoVezesLido } from '../../estante/textos'
+import { usePainelDeAcoes } from '../../estante/usePainelDeAcoes'
 import { formatarData, formatarPaginas } from '../../livros/formatos'
 import { useMinhaAvaliacao } from '../../livros/useMinhaAvaliacao'
 import { acervoService, type LivroPessoalDetalhe, type ViaDeAcesso } from '../../services/acervo'
 import { ApiError, novaChaveIdempotencia } from '../../services/api'
+import { leituraService, type ItemEstante } from '../../services/leitura'
 
 /**
  * Página do livro pessoal (RF-ACV-09, RN-03, RN-15). Estrutura e copy de
@@ -88,13 +93,43 @@ watch(
   { immediate: true },
 )
 
+const naEstante = ref<ItemEstante | null>(null)
+const vezesLido = ref(0)
+const situacaoCarregada = ref(false)
+const situacaoFalhou = ref(false)
+const painel = usePainelDeAcoes((leituraId) => leituraService.detalharLeitura(leituraId))
+
+async function carregarSituacao(): Promise<void> {
+  const livroId = String(route.params.id)
+  situacaoCarregada.value = false
+  situacaoFalhou.value = false
+  try {
+    const [item, conclusoes] = await Promise.all([
+      leituraService.consultarItemEstante(livroId),
+      leituraService.consultarConclusoes(livroId),
+    ])
+    naEstante.value = item
+    vezesLido.value = conclusoes.vezesLido
+    situacaoCarregada.value = true
+  } catch {
+    situacaoFalhou.value = true
+  }
+}
+
+function abrirAcoes(): void {
+  if (!livro.value) return
+  const { titulo, autor, capaUrl } = livro.value
+  void painel.abrir({ livroId: String(route.params.id), titulo, autor, capaUrl }, naEstante.value)
+}
+
 async function carregar(): Promise<void> {
   carregando.value = true
   indisponivel.value = false
   erroDeCarga.value = null
   try {
     livro.value = await acervoService.obterLivroPessoal(String(route.params.id), acesso.value)
-    if (!livro.value.modoConsulta) {
+    if (ehDono.value) {
+      void carregarSituacao()
       void minhaAvaliacao.carregar(livro.value.id)
     }
   } catch (erro) {
@@ -241,6 +276,48 @@ async function excluir(): Promise<void> {
           </div>
         </header>
 
+        <section
+          v-if="ehDono"
+          class="order-4 mt-space-5 flex flex-col items-center gap-space-3 md:order-none md:items-start"
+        >
+          <template v-if="situacaoCarregada">
+            <div
+              v-if="naEstante || vezesLido > 0"
+              class="flex items-center gap-space-3"
+            >
+              <StatusPill
+                v-if="naEstante"
+                :status="naEstante.status"
+              />
+              <span
+                v-if="vezesLido > 0"
+                class="text-caption text-grafite"
+              >{{ textoVezesLido(vezesLido) }}</span>
+            </div>
+            <button
+              type="button"
+              class="flex h-12 w-full items-center justify-center rounded-full bg-musgo px-space-8 text-body-strong text-papel transition-colors duration-dur-fast hover:bg-musgo-vivo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo disabled:opacity-60 md:h-10 md:w-auto"
+              :disabled="painel.preparando.value"
+              @click="abrirAcoes"
+            >
+              {{ naEstante ? TEXTOS_DO_PAINEL.alterarStatus : TEXTOS_DO_PAINEL.adicionarNaEstante }}
+            </button>
+          </template>
+          <BannerAviso
+            v-if="situacaoFalhou || painel.falhou.value"
+            variante="erro"
+          >
+            {{ TEXTOS_DO_PAINEL.erroAoAbrir }}
+            <BotaoTextual
+              v-if="situacaoFalhou"
+              class="mt-space-2"
+              @click="carregarSituacao"
+            >
+              {{ TEXTOS_DO_PAINEL.tentarDeNovo }}
+            </BotaoTextual>
+          </BannerAviso>
+        </section>
+
         <p
           v-if="!ehDono && nomeDoDono"
           class="order-4 mt-space-3 flex items-center justify-center gap-space-2 text-caption text-grafite md:order-none md:justify-start"
@@ -345,6 +422,20 @@ async function excluir(): Promise<void> {
         />
       </button>
     </Teleport>
+
+    <AcoesLeitura
+      v-if="painel.livro.value"
+      :aberta="painel.aberto.value"
+      :livro="painel.livro.value"
+      :estado="painel.estado.value"
+      @fechar="painel.fechar()"
+      @registrar-progresso="painel.fechar()"
+      @atualizado="carregarSituacao()"
+    >
+      <template #status="{ status }">
+        <StatusPill :status="status" />
+      </template>
+    </AcoesLeitura>
 
     <FolhaAcoes
       :aberta="menuAberto"

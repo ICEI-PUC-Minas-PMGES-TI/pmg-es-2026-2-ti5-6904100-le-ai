@@ -30,6 +30,18 @@ async function montar(notaSalva: number | null, comEscreverResenha = false) {
     })),
     excluirResenha: vi.fn().mockResolvedValue(undefined),
     listarResenhasPerfil: vi.fn(),
+    listarEstante: vi.fn(),
+    listarEstantePerfil: vi.fn(),
+    consultarItemEstante: vi.fn(),
+    adicionarEstante: vi.fn(),
+    removerEstante: vi.fn(),
+    iniciarLeitura: vi.fn(),
+    iniciarReleitura: vi.fn(),
+    finalizarLeitura: vi.fn(),
+    abandonarLeitura: vi.fn(),
+    retomarLeitura: vi.fn(),
+    detalharLeitura: vi.fn(),
+    consultarConclusoes: vi.fn(),
   } satisfies LeituraService
   const avaliacao = useMinhaAvaliacao({ servico })
   await avaliacao.carregar('l1')

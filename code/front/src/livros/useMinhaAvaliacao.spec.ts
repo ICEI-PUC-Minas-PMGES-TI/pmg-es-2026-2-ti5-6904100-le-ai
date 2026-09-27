@@ -24,6 +24,18 @@ function servicoFalso(inicial: MinhaAvaliacao = { livroId: 'l1', nota: null, res
     })),
     excluirResenha: vi.fn().mockResolvedValue(undefined),
     listarResenhasPerfil: vi.fn(),
+    listarEstante: vi.fn(),
+    listarEstantePerfil: vi.fn(),
+    consultarItemEstante: vi.fn(),
+    adicionarEstante: vi.fn(),
+    removerEstante: vi.fn(),
+    iniciarLeitura: vi.fn(),
+    iniciarReleitura: vi.fn(),
+    finalizarLeitura: vi.fn(),
+    abandonarLeitura: vi.fn(),
+    retomarLeitura: vi.fn(),
+    detalharLeitura: vi.fn(),
+    consultarConclusoes: vi.fn(),
   } satisfies LeituraService
 }
 

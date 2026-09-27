@@ -39,6 +39,8 @@ export const envSchema = z
     // login.
     JWT_SECRET: z.string().min(32).optional(),
 
+    SCHEDULER_TOKEN: z.string().min(32).optional(),
+
     ADMIN_EMAIL: z.string().optional(),
     ADMIN_PASSWORD: z.string().optional(),
   })

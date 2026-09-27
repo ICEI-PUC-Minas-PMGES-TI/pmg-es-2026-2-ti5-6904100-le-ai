@@ -84,6 +84,64 @@ export class NaoEncontrado extends ErroDeNegocio {
   }
 }
 
+export class LivroNaoEncontrado extends ErroDeNegocio {
+  constructor() {
+    super(
+      HttpStatus.NOT_FOUND,
+      'LIVRO_NAO_ENCONTRADO',
+      'Não encontramos este livro.',
+    );
+  }
+}
+
+export class LivroPessoalDeTerceiro extends ErroDeNegocio {
+  constructor() {
+    super(
+      HttpStatus.FORBIDDEN,
+      'LIVRO_PESSOAL_DE_TERCEIRO',
+      'Este livro pessoal pertence a outro leitor.',
+    );
+  }
+}
+
+export class LeituraNaoEncontrada extends ErroDeNegocio {
+  constructor() {
+    super(
+      HttpStatus.NOT_FOUND,
+      'LEITURA_NAO_ENCONTRADA',
+      'Não encontramos esta leitura.',
+    );
+  }
+}
+
+export class TransicaoDeLeituraInvalida extends ErroDeNegocio {
+  constructor(
+    mensagem = 'Esta leitura não pode realizar essa ação no estado atual.',
+  ) {
+    super(HttpStatus.CONFLICT, 'TRANSICAO_DE_LEITURA_INVALIDA', mensagem);
+  }
+}
+
+export class LeituraEmAndamento extends ErroDeNegocio {
+  constructor() {
+    super(
+      HttpStatus.CONFLICT,
+      'LEITURA_EM_ANDAMENTO',
+      'Você já tem uma leitura em andamento deste livro.',
+    );
+  }
+}
+
+export class EstanteComHistorico extends ErroDeNegocio {
+  constructor() {
+    super(
+      HttpStatus.CONFLICT,
+      'ESTANTE_COM_HISTORICO',
+      'Só é possível remover livros em Quero ler que ainda não têm leituras.',
+    );
+  }
+}
+
 /**
  * Mesma `Idempotency-Key` reaproveitada com outro corpo (RNF-ERR-04).
  *

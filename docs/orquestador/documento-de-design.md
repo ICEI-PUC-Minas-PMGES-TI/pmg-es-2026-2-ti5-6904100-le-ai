@@ -528,8 +528,9 @@ Rodapé de um formulário de **edição** onde fica a ação destrutiva do regis
 Tela principal do app depois da autenticação. Layout:
 
 - **Header:** `display` "Minha estante" à esquerda, `MagnifyingGlass` (Phosphor, `regular`, 24px) à direita. **A lupa busca dentro da estante do leitor**, por título e autor, combinada com o filtro de status. Ela nunca traz resultado do acervo: encontrar livro novo é a área **Descobrir** (§5.7).
-- **Filtros por status:** faixa horizontal rolável com pills, um pill por status (RF-EST-02).
-- **Grid:** 2 colunas em mobile, 4 em `md`, 6 em `lg`. Gap `space-4`. Cards da variante Estante.
+- **Filtros por status:** faixa horizontal rolável com pills, um pill por status (RF-EST-02). O primeiro é `Todos`, seguido dos cinco status na ordem da máquina de estados. **Cada pill traz a contagem** do seu status junto do rótulo (`Lendo 2`): contagem em `num-inline`, rótulo em `caption`. Pill inativo com borda 1px `linha` e texto `grafite`; ativo com fundo `musgo-fundo`, sem borda, texto `musgo` peso 600. Seleção única. Na web os pills cabem numa linha e não rolam.
+- **Linha de ordenação:** abaixo da faixa, total de livros do filtro em `caption` `grafite` à esquerda (`10 livros`) e, à direita, o controle de ordenação (RF-EST-02): no mobile, botão textual `musgo` com `ArrowsDownUp` (Phosphor, `regular`, 16px) e o rótulo da ordenação atual, que abre um bottom sheet de opções (§4.11); na web, `select` de 44px. Opções: `Adicionados recentemente` (padrão) e `Adicionados há mais tempo`; `Título, A a Z` e `Título, Z a A`; `Autor, A a Z` e `Autor, Z a A` (livro sem autor por último, empate pelo título); `Maior progresso` e `Menor progresso` (percentual da leitura em andamento; livro sem leitura em andamento por último).
+- **Grid:** 2 colunas em mobile, 4 em `md`, 6 em `lg`. Gap `space-4`. Cards da variante Estante (capa, título, autor e status pill, todos vindos da própria listagem da estante).
 - **Vazio:** quando o filtro atual não tem livros, ilustração NEUTRA de linha (não fotografia, não emoji) + mensagem em `body` `grafite` + botão primário para ação relevante ("Adicionar livro" quando "Quero ler" está vazio).
 
 ### 5.2 Página do livro
@@ -566,6 +567,15 @@ Tela simples, bottom sheet em mobile, dialog centrado em web, sobre a base do §
 - Info derivada: "Você leu X páginas" (calculado, `caption` `grafite`).
 - Ações: "Salvar" (primário), "Cancelar" (textual).
 - Erros de validação (página menor ou igual à atual, página maior que o total) aparecem inline no campo, `caption` `rubi` abaixo.
+
+**Ações de leitura (lista de ações do sheet).** O registro de progresso é formulário; as transições de status do livro (RN-04) são um **menu de ações** sobre a mesma base do §4.11, aberto a partir do card ou da página do livro:
+
+- Cabeçalho com o card compacto do livro (capa 60×90 + título + autor) e o status atual.
+- A lista mostra **só as transições que a máquina de estados permite** a partir do status atual. Três papéis: **ação principal** (a transição esperada do status, ex.: `Iniciar leitura`, `Registrar progresso`, `Finalizar leitura`), rótulo em `musgo` peso 600; **ações neutras** (as demais transições válidas), rótulo em `tinta`; **ação destrutiva** (`Abandonar leitura`, `Abandonar releitura`, `Remover da estante`), em `rubi` / `rubi-claro`, **sempre a última**, separada por divisor.
+- Toda ação destrutiva passa pela confirmação destrutiva do §4.11 (RNF-USA-04). **As duas confirmações de abandono têm textos distintos e não se unificam**, porque as consequências diferem (RN-04):
+  - `Abandonar esta leitura?` / `A leitura fica salva na página 148 e você pode retomá-la depois, continuando de onde parou.`
+  - `Abandonar esta releitura?` / `A releitura será salva como incompleta e o livro volta para Lido. Ela não conta como nova conclusão e não pode ser retomada.`
+- Ações que pedem data (`Iniciar leitura`, `Finalizar leitura`) abrem o campo de data com padrão hoje e helper sempre visível. Nenhuma transição oferece desfazer.
 
 ### 5.5 Perfil
 
@@ -845,6 +855,15 @@ O nome definitivo do aplicativo é **Lê Ai**. A linguagem visual definida neste
 ---
 
 ## 11. Timeline
+
+### Atualização 26/09/2026
+
+Componentes que nasceram nos prompts de tela de F-EST (`docs/design/periodo-1/F-EST/estante.md` e `acoes-de-leitura.md`) e existiam só nos protótipos, incorporados com aprovação da dona do produto (Ana Luiza) pelo controle de mudança do plano §3.
+
+- **§5.1:** contagem dentro do pill de filtro, linha de ordenação com o controle de ordenação (bottom sheet no mobile, `select` na web) e as oito opções (adicionados, título, autor e progresso, cada uma nos dois sentidos). O card da estante passa a receber título, autor e capa da própria listagem.
+- **§5.4:** lista de ações do sheet (principal, neutras, destrutiva por último) para as transições de RN-04, com as duas confirmações de abandono de textos distintos.
+- Nenhum token, valor existente, nome de componente ou decisão tipográfica foi alterado.
+- **Impacto:** o contrato de `leitura` (`ItemEstante` com `livro { titulo, autor, capaUrl }` e `OrdenacaoEstante` com autor e progresso) acompanha esta mudança; registro em `docs/plano-de-desenvolvimento/periodo-1/feature-F-EST.md`.
 
 ### Atualização 23/09/2026
 

@@ -1,18 +1,24 @@
 <script setup lang="ts">
-import { PhCaretRight, PhCheck, PhClock, PhLock, PhUserCircle, PhUserPlus } from '@phosphor-icons/vue'
+import { PhBooks, PhCaretRight, PhCheck, PhClock, PhLock, PhUserCircle, PhUserPlus } from '@phosphor-icons/vue'
 import { computed, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 
+import CardEstante from '../components/estante/CardEstante.vue'
+import EsqueletoEstante from '../components/estante/EsqueletoEstante.vue'
 import AvatarLeitor from '../components/perfil/AvatarLeitor.vue'
 import ChipPrivacidade from '../components/perfil/ChipPrivacidade.vue'
+import FimDaLista from '../components/perfil/FimDaLista.vue'
 import SecoesDeLeitura from '../components/perfil/SecoesDeLeitura.vue'
 import BannerAviso from '../components/ui/BannerAviso.vue'
 import BotaoPrimario from '../components/ui/BotaoPrimario.vue'
 import BotaoTextual from '../components/ui/BotaoTextual.vue'
 import DialogoConfirmacao from '../components/ui/DialogoConfirmacao.vue'
 import EstadoVazio from '../components/ui/EstadoVazio.vue'
+import { TEXTOS_DA_ESTANTE_DE_PERFIL, textoEstanteDePerfilVazia } from '../estante/textos'
+import { useEstante } from '../estante/useEstante'
 import { contagem, primeiroNome } from '../perfil/textos'
 import { ApiError, novaChaveIdempotencia } from '../services/api'
+import { leituraService } from '../services/leitura'
 import { perfilService, type Perfil } from '../services/perfil'
 
 /**
@@ -21,9 +27,8 @@ import { perfilService, type Perfil } from '../services/perfil'
  * contadores são públicos; o botão de relação muda com a privacidade e com `relacao`. Quem decide
  * o que é restrito é o servidor (`conteudoRestrito`), e os serviços donos revalidam (RNF-SEC-03).
  *
- * - **Estante e Resenhas sempre no estado vazio** quando o conteúdo é visível (decisão do dono de
- *   25/09/2026): `leitura` ainda não expõe as rotas de perfil. Com `conteudoRestrito` (RN-08), as
- *   seções não aparecem, e sim o bloco "Este perfil é privado".
+ * - **Estante (F-EST) e Resenhas (F-AVA)** vêm do `leitura` quando o conteúdo é visível. Com
+ *   `conteudoRestrito` (RN-08), as seções não aparecem, e sim o bloco "Este perfil é privado".
  * - Os contadores não são acionáveis: não há lista do grafo de terceiros (RNF-SEC-19/44).
  * - Username do próprio leitor abre o próprio perfil.
  */
@@ -68,6 +73,17 @@ async function carregar(): Promise<void> {
 }
 
 watch(username, () => void carregar(), { immediate: true })
+
+const estante = useEstante((filtro) => leituraService.listarEstantePerfil(perfil.value?.id ?? '', filtro))
+
+const estanteVisivel = computed(() => (perfil.value && !perfil.value.conteudoRestrito ? perfil.value.id : null))
+watch(estanteVisivel, (id) => {
+  if (id) {
+    void estante.carregar()
+  }
+})
+
+const restrito = computed(() => Boolean(perfil.value?.conteudoRestrito) || estante.restrita.value)
 
 /** Seguir perfil público é imediato; em privado vira pedido (RF-SOC-05/06). Sem modal. */
 async function seguir(): Promise<void> {
@@ -334,7 +350,7 @@ const textoDaConfirmacao = computed(() =>
 
       <!-- §4.3: restrito não é erro. Nenhuma capa nem trecho aparece, nem desfocado. -->
       <EstadoVazio
-        v-if="perfil.conteudoRestrito"
+        v-if="restrito"
         :icone="PhLock"
         solto
         titulo="Este perfil é privado"
@@ -355,7 +371,56 @@ const textoDaConfirmacao = computed(() =>
         :nome="nome"
         :usuario-id="perfil?.id"
         class="mt-space-12 md:mt-0"
-      />
+      >
+        <template #estante>
+          <div
+            v-if="!estante.indisponivel.value"
+            class="mt-space-5 md:mt-0 md:pt-space-6"
+          >
+            <EsqueletoEstante
+              v-if="estante.carregando.value"
+              :rotulo="TEXTOS_DA_ESTANTE_DE_PERFIL.carregando"
+            />
+            <BannerAviso
+              v-else-if="estante.falhou.value"
+              variante="erro"
+            >
+              {{ TEXTOS_DA_ESTANTE_DE_PERFIL.erroTexto }}
+              <BotaoTextual
+                class="mt-space-2"
+                @click="estante.carregar()"
+              >
+                Tentar de novo
+              </BotaoTextual>
+            </BannerAviso>
+            <EstadoVazio
+              v-else-if="estante.itens.value.length === 0"
+              :icone="PhBooks"
+              :titulo="textoEstanteDePerfilVazia(nome)"
+              class="mx-auto max-w-[280px] pt-space-4"
+            />
+            <template v-else>
+              <ul class="grid grid-cols-2 gap-space-4 md:grid-cols-4 lg:grid-cols-6">
+                <li
+                  v-for="item in estante.itens.value"
+                  :key="item.id"
+                  class="flex"
+                >
+                  <CardEstante
+                    :item="item"
+                    :acionavel="false"
+                  />
+                </li>
+              </ul>
+              <FimDaLista
+                v-if="estante.temMais.value || estante.falhouMais.value"
+                :falhou="estante.falhouMais.value"
+                @carregar="estante.carregarMais()"
+              />
+            </template>
+          </div>
+        </template>
+      </SecoesDeLeitura>
     </div>
 
     <DialogoConfirmacao

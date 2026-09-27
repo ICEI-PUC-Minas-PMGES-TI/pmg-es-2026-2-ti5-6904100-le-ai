@@ -189,8 +189,8 @@ class SkeletonDoPerfil extends StatelessWidget {
   }
 }
 
-/// Estante e Resenhas do perfil. A estante segue no estado vazio até F-EST expor
-/// `listarEstantePerfil`. As resenhas entram por [resenhas] (F-AVA, 27/09/2026: a lista do
+/// Estante e Resenhas do perfil. A estante entra por [estante] (F-EST, `listarEstantePerfil`, com o
+/// próprio título); sem ele, fica o estado vazio. As resenhas entram por [resenhas] (F-AVA, 27/09/2026: a lista do
 /// `leitura`, com o próprio vazio); sem ele, fica o texto vazio de antes.
 ///
 /// [proprio] usa a segunda pessoa, o CTA "Buscar livros" ([aoBuscarLivros]) e o "Ver tudo" da
@@ -210,6 +210,8 @@ class SecoesDeLeitura extends StatelessWidget {
   /// Conteúdo da seção "Resenhas" (a lista de F-AVA). Sem ele, o texto vazio.
   final Widget? resenhas;
 
+  final Widget? estante;
+
   const SecoesDeLeitura({
     super.key,
     required this.proprio,
@@ -217,6 +219,7 @@ class SecoesDeLeitura extends StatelessWidget {
     this.aoBuscarLivros,
     this.aoVerEstante,
     this.resenhas,
+    this.estante,
   });
 
   @override
@@ -235,44 +238,48 @@ class SecoesDeLeitura extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        titulo(
-          'Estante',
-          acao: proprio && aoVerEstante != null
-              ? TextButton(
-                  onPressed: aoVerEstante,
-                  style: TextButton.styleFrom(
-                    foregroundColor: theme.primaryAccent,
-                    minimumSize: const Size(48, 48),
-                    padding: const EdgeInsets.symmetric(horizontal: DesignTokens.space1),
-                    textStyle: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
-                  ),
-                  child: const Text('Ver tudo'),
-                )
-              : null,
-        ),
-        const SizedBox(height: DesignTokens.space5),
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: DesignTokens.space4),
-          child: Column(
-            children: <Widget>[
-              ExcludeSemantics(
-                child: Icon(PhosphorIconsRegular.books, size: 32, color: theme.tertiaryText),
-              ),
-              const SizedBox(height: DesignTokens.space6),
-              Text(
-                proprio
-                    ? 'Os livros que você adicionar aparecem aqui.'
-                    : '$quem ainda não tem livros na estante.',
-                style: textoMudo,
-                textAlign: TextAlign.center,
-              ),
-              if (proprio && aoBuscarLivros != null) ...<Widget>[
-                const SizedBox(height: DesignTokens.space6),
-                BotaoPrimario(texto: 'Buscar livros', onPressed: aoBuscarLivros, larguraTotal: false),
-              ],
-            ],
+        if (estante case final estante?)
+          estante
+        else ...<Widget>[
+          titulo(
+            'Estante',
+            acao: proprio && aoVerEstante != null
+                ? TextButton(
+                    onPressed: aoVerEstante,
+                    style: TextButton.styleFrom(
+                      foregroundColor: theme.primaryAccent,
+                      minimumSize: const Size(48, 48),
+                      padding: const EdgeInsets.symmetric(horizontal: DesignTokens.space1),
+                      textStyle: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                    child: const Text('Ver tudo'),
+                  )
+                : null,
           ),
-        ),
+          const SizedBox(height: DesignTokens.space5),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: DesignTokens.space4),
+            child: Column(
+              children: <Widget>[
+                ExcludeSemantics(
+                  child: Icon(PhosphorIconsRegular.books, size: 32, color: theme.tertiaryText),
+                ),
+                const SizedBox(height: DesignTokens.space6),
+                Text(
+                  proprio
+                      ? 'Os livros que você adicionar aparecem aqui.'
+                      : '$quem ainda não tem livros na estante.',
+                  style: textoMudo,
+                  textAlign: TextAlign.center,
+                ),
+                if (proprio && aoBuscarLivros != null) ...<Widget>[
+                  const SizedBox(height: DesignTokens.space6),
+                  BotaoPrimario(texto: 'Buscar livros', onPressed: aoBuscarLivros, larguraTotal: false),
+                ],
+              ],
+            ),
+          ),
+        ],
         const SizedBox(height: DesignTokens.space12),
         titulo('Resenhas'),
         const SizedBox(height: DesignTokens.space4),

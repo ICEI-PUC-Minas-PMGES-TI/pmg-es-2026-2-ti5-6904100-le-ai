@@ -10,8 +10,8 @@ import CardResenhaDoPerfil from './CardResenhaDoPerfil.vue'
 /**
  * Estante e Resenhas do perfil (meu-perfil.md e perfil-de-outro-leitor.md). As resenhas vêm do
  * `leitura` (`listarResenhasPerfil`, F-AVA, 27/09/2026), com "Ver mais resenhas" em vez de uma
- * página "Ver todas" separada. A estante continua no estado vazio até F-EST expor
- * `listarEstantePerfil`.
+ * página "Ver todas" separada. A estante vem do slot `estante` quando quem usa a carrega
+ * (`listarEstantePerfil`, F-EST); sem o slot, fica o estado vazio.
  *
  * Abaixo de 768px, as duas seções empilhadas, cada uma com o próprio título; a partir de 768px,
  * as abas Estante/Resenhas da coluna direita, com uma seção visível por vez.
@@ -115,24 +115,26 @@ function aoTeclar(evento: KeyboardEvent): void {
           Ver tudo
         </RouterLink>
       </div>
-      <div class="mt-space-5 flex flex-col items-center gap-space-6 py-space-4 text-center md:mt-0 md:pt-space-12">
-        <PhBooks
-          :size="32"
-          weight="regular"
-          class="text-grafite-suave"
-          aria-hidden="true"
-        />
-        <p class="max-w-[360px] text-body text-grafite">
-          {{ textoDaEstante }}
-        </p>
-        <RouterLink
-          v-if="proprio"
-          to="/descobrir"
-          class="flex h-12 items-center justify-center rounded-full bg-musgo px-space-6 text-body-strong text-papel transition-colors duration-dur-fast hover:bg-musgo-vivo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo md:h-10"
-        >
-          Buscar livros
-        </RouterLink>
-      </div>
+      <slot name="estante">
+        <div class="mt-space-5 flex flex-col items-center gap-space-6 py-space-4 text-center md:mt-0 md:pt-space-12">
+          <PhBooks
+            :size="32"
+            weight="regular"
+            class="text-grafite-suave"
+            aria-hidden="true"
+          />
+          <p class="max-w-[360px] text-body text-grafite">
+            {{ textoDaEstante }}
+          </p>
+          <RouterLink
+            v-if="proprio"
+            to="/descobrir"
+            class="flex h-12 items-center justify-center rounded-full bg-musgo px-space-6 text-body-strong text-papel transition-colors duration-dur-fast hover:bg-musgo-vivo focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo md:h-10"
+          >
+            Buscar livros
+          </RouterLink>
+        </div>
+      </slot>
     </section>
 
     <section

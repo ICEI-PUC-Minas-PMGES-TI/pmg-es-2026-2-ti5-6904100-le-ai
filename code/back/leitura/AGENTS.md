@@ -27,7 +27,13 @@ Núcleo do produto. Estante, leitura, progresso, sessão cronometrada, nota, res
   - `src/common/` — `correlation.middleware.ts` + `als.ts` (RNF-OBS-01); `all-exceptions.filter.ts` + `error-codes.ts` → corpo `{ codigo, mensagem, correlationId }` (RNF-ERR-01, pt-BR, sem stack trace).
   - `src/db/` — `drizzle.module.ts` (provider `DRIZZLE`), `schema.ts` (`pgSchema`), `migrate.ts`.
   - `src/health/` — `GET /health` via `@nestjs/terminus` + indicador Drizzle (`SELECT 1`) (RNF-OBS-02).
-- **Comandos:** `npm run start:dev` · `npm run build` · `npm test` · `npm run test:integration` · `npm run lint` · `npm run db:generate` · `npm run db:migrate`. `npm run start:prod` aplica migrations antes de iniciar a API.
+  - Módulos de feature (`src/estante/`, `src/leituras/`, `src/jobs/inatividade/`) em camadas, com `<modulo>.module.ts` na raiz do módulo e specs ao lado do arquivo:
+    - `dominio/` — regras puras (ex.: `maquina-estados.ts`, builders de `eventos.ts`); não importa nada de `@nestjs/*` nem de `drizzle-orm`.
+    - `aplicacao/` — services/casos de uso: transação, domínio, outbox, idempotência.
+    - `infraestrutura/` — repositories Drizzle.
+    - `api/` — controllers, guards HTTP e `dto/` (validação, Swagger).
+    - Dependência só para dentro: `api → aplicacao → dominio` e `aplicacao → infraestrutura`. `aplicacao` pode usar os tipos de `api/dto` como contrato de entrada/saída; `dominio` e `infraestrutura` nunca importam `api/`. `common/`, `auth/`, `outbox/`, `referencias/`, `db/` e `messaging/` são transversais e ficam planos. `src/avaliacoes/` e `src/perfis/` (F-AVA) seguem a estrutura plana própria.
+- **Comandos:** `npm run start:dev` · `npm run build` · `npm test` · `npm run test:integration` · `npm run lint` · `npm run db:generate` · `npm run db:migrate` · `npm run db:seed`. `npm run start:prod` aplica migrations antes de iniciar a API.
 - **Porta local: 3001.** O `acervo` usa a 3000 e os dois sobem juntos. No Render a porta vem do ambiente.
 - **Testes:** Jest + ts-jest; unitários em `src/**/*.spec.ts`, integração em `test/integracao/*.int-spec.ts`. **A máquina de estados (RN-04) e a inatividade/abandono (RN-05) são teste obrigatório e prioritário (RNF-TST-01)** — entram com as features de domínio.
 - **OpenAPI:** `@nestjs/swagger` em runtime (`/docs`); commitado em [`docs/api/leitura.yaml`](../../../docs/api/leitura.yaml) (RNF-ARQ-03).
@@ -72,6 +78,14 @@ Módulos `src/avaliacoes/` (nota, resenha, minha avaliação) e `src/perfis/` (r
 - **Eventos:** `nota.alterada` (criada, atualizada, excluida; publicado sem consumidor, de propósito), `resenha.publicada` **só na criação** (`atualizacao=false`) e `resenha.excluida`. Schemas registrados no `onModuleInit` do `AvaliacoesModule`. Os snapshots vêm das VIEWs de perfil e de livro; URL de capa ou avatar passa pelo `urlOuNulo`: sai o `href` normalizado (acento vira `%C3%A7`), e o que não for http(s) nem passar no mesmo `format: uri` do validador da outbox vira `null`, e livro sem autor manda `autor: null`.
 - **Resenhas do perfil:** RN-08 (próprio, público ou seguidor aceito; senão 403; perfil fora da VIEW é 404). Livro inativo não aparece; resenha de livro pessoal só para o próprio dono (RN-15). Página base 1, de 1 a 10.000 (sem teto, `page=1e20` estourava o `OFFSET`), e `limite` até 50.
 - **O feed lê `v_resenha_publicacao_v1` e `v_nota_publicacao_v1`** (`ServicoDeFeed`): não mude as colunas dessas VIEWs sem falar com o dono de F-FEED. A decisão sobre esse consumo está pendente com o grupo.
+
+## F-EST — estante e ciclo de leitura
+
+Módulos `src/estante/`, `src/leituras/` e `src/jobs/inatividade/`, com `src/referencias/` (livro e perfil pelas VIEWs de contrato). Contrato em `docs/api/leitura.yaml`.
+
+- **Idempotência:** as escritas usam o mesmo `@IdempotencyKey()` e `IdempotenciaService` de F-AVA; o escopo gravado é `operacaoNoCaminho(OPERACOES.<operationId>, ...idsDoCaminho)`.
+- **Eventos:** `leitura.*` e `livro.adicionado_a_estante`, com `eventId` gerado no domínio (a chave de negócio e o registro de limiares de inatividade o usam) e passado a `OutboxRepository.inserir`. Schemas registrados no `onModuleInit` do `LeiturasModule`.
+- **Job de inatividade:** `POST /internal/jobs/inatividade` é `@Publico()` e exige `X-Scheduler-Token` igual a `SCHEDULER_TOKEN` (32+ caracteres).
 
 ## Pontos de atenção (ver `REQUISITOS.md`) — prioridade de teste
 

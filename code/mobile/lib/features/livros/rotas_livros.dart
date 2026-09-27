@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/config/app_config.dart';
 import '../../core/network/api_client.dart';
 import '../avaliacao/leitura_service.dart';
+import '../estante/estante_service.dart';
 import 'acervo_service.dart';
 import 'cadastro_isbn_page.dart';
 import 'capa.dart';
@@ -94,8 +95,7 @@ List<RouteBase> rotasDeDescobrir(DependenciasDeLivros deps) => <RouteBase>[
         builder: (context, state) => IsbnNaoEncontradoPage(
           isbn: state.uri.queryParameters['isbn'],
           aoConferirIsbn: () => context.pop(true),
-          aoCadastrarPessoal: () =>
-              context.pushReplacement('$rotaAdicionarLivro/pessoal'),
+          aoCadastrarPessoal: () => context.pushReplacement('$rotaAdicionarLivro/pessoal'),
         ),
       ),
       GoRoute(
@@ -145,7 +145,11 @@ GoRoute rotaDoLivroOficial(DependenciasDeLivros deps, {required String raiz}) {
   );
 }
 
-GoRoute _paginaDoLivroPessoal(DependenciasDeLivros deps, {required String raiz}) {
+GoRoute _paginaDoLivroPessoal(
+  DependenciasDeLivros deps, {
+  required String raiz,
+  EstanteService? estante,
+}) {
   return GoRoute(
     path: 'livro-pessoal/:id',
     builder: (context, state) {
@@ -164,6 +168,7 @@ GoRoute _paginaDoLivroPessoal(DependenciasDeLivros deps, {required String raiz})
         },
         aoExcluir: () => context.go(rotaEstanteRaiz),
         aoVoltarAoFeed: () => context.go(rotaFeedRaiz),
+        estante: estante,
       );
     },
     routes: <RouteBase>[
@@ -184,8 +189,8 @@ GoRoute _paginaDoLivroPessoal(DependenciasDeLivros deps, {required String raiz})
 }
 
 /// O dono chega ao livro pessoal pela própria estante.
-List<RouteBase> rotasDaEstante(DependenciasDeLivros deps) => <RouteBase>[
-  _paginaDoLivroPessoal(deps, raiz: rotaEstanteRaiz),
+List<RouteBase> rotasDaEstante(DependenciasDeLivros deps, EstanteService estante) => <RouteBase>[
+  _paginaDoLivroPessoal(deps, raiz: rotaEstanteRaiz, estante: estante),
 ];
 
 /// O terceiro chega **exclusivamente** pelo feed, com `via=feed&referenciaId=` (RN-15). F-FEED

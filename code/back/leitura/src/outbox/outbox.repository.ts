@@ -6,6 +6,7 @@ import { MessageValidator } from '../messaging/message-validator';
 
 /** Um evento a gravar: o `data` exato do schema do catálogo, sem envelope. */
 export interface EventoDaOutbox {
+  eventId?: string;
   tipo: string;
   versao: number;
   chaveNegocio: string;
@@ -38,6 +39,7 @@ export class OutboxRepository {
     const [linha] = await tx
       .insert(outboxLeitura)
       .values({
+        eventId: evento.eventId,
         tipo: evento.tipo,
         versao: evento.versao,
         chaveNegocio: evento.chaveNegocio,

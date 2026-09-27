@@ -9,6 +9,8 @@ import 'package:le_ai_mobile/design/theme_controller.dart';
 import 'package:le_ai_mobile/features/auth/auth_service.dart';
 import 'package:le_ai_mobile/main.dart';
 
+import 'features/estante/apoio_estante.dart';
+
 class _MemoryThemeStore implements ThemePreferenceStore {
   @override
   Future<String?> read() async => null;
@@ -55,6 +57,7 @@ Future<LeAiApp> _montarApp({String? tokenSalvo}) async {
     themeController: themeController,
     sessionController: sessionController,
     authService: AuthService(apiClient),
+    estante: estanteVazia(),
   );
 }
 
@@ -72,7 +75,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Minha estante'), findsOneWidget);
-    expect(find.text('Sua estante aparece aqui.'), findsOneWidget);
+    expect(find.text('Sua estante está vazia'), findsOneWidget);
     expect(find.text('Estante'), findsOneWidget);
     expect(find.text('Descobrir'), findsOneWidget);
     expect(find.text('Feed'), findsOneWidget);

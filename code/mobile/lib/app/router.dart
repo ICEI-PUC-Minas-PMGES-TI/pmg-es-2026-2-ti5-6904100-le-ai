@@ -12,7 +12,10 @@ import '../features/conta/politica_de_privacidade.dart';
 import '../features/conta/recuperar_senha_page.dart';
 import '../features/conta/redefinir_senha_page.dart';
 import '../features/descobrir/descobrir_page.dart';
+import '../core/config/app_config.dart';
+import '../core/network/api_client.dart';
 import '../features/estante/estante_page.dart';
+import '../features/estante/estante_service.dart';
 import '../features/feed/feed_page.dart';
 import '../features/livros/rotas_livros.dart';
 import '../features/perfil/perfil_page.dart';
@@ -44,6 +47,7 @@ GoRouter buildRouter({
   required AuthService authService,
   DependenciasDeLivros? livros,
   DependenciasDePerfil? perfil,
+  EstanteService? estante,
 }) {
   Future<bool> renovar(String token) => sessionController.renovar(token, authService.renovar);
   final deps =
@@ -52,6 +56,15 @@ GoRouter buildRouter({
   final depsDePerfil =
       perfil ??
       DependenciasDePerfil.padrao(getToken: () => sessionController.token, renovarSessao: renovar);
+  final servicoDeEstante =
+      estante ??
+      EstanteService(
+        ApiClient(
+          baseUrl: AppConfig.leituraBaseUrl,
+          getToken: () => sessionController.token,
+          renovarSessao: renovar,
+        ),
+      );
   return GoRouter(
     initialLocation: rotaVerificandoSessao,
     refreshListenable: sessionController,
@@ -119,9 +132,12 @@ GoRouter buildRouter({
             routes: <RouteBase>[
               GoRoute(
                 path: rotaEstante,
-                builder: (context, state) =>
-                    EstantePage(aoCadastrarLivro: () => context.go(rotaAdicionarLivro)),
-                routes: rotasDaEstante(deps),
+                builder: (context, state) => EstantePage(
+                  servico: servicoDeEstante,
+                  aoBuscarLivros: () => context.go('/descobrir'),
+                  aoCadastrarLivro: () => context.go(rotaAdicionarLivro),
+                ),
+                routes: rotasDaEstante(deps, servicoDeEstante),
               ),
             ],
           ),
@@ -171,6 +187,7 @@ GoRouter buildRouter({
                 routes: <RouteBase>[
                   ...rotasDoPerfil(
                     depsDePerfil,
+                    estante: servicoDeEstante,
                     resenhasDeOutro: (context, usuarioId, nome) => _resenhasDoPerfil(
                       context,
                       deps,

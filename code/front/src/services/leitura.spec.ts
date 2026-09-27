@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { createLeituraService } from './leitura'
+import { ApiError } from './api'
+import { consultaDaEstante, createLeituraService } from './leitura'
 
 function resposta(status: number, corpo?: unknown): Response {
   return new Response(corpo === undefined ? null : JSON.stringify(corpo), {
@@ -17,6 +18,160 @@ function servico(fetchMock: typeof fetch) {
     esperasDeRetentativaMs: [0, 0],
   })
 }
+
+const PAGINA_VAZIA = {
+  itens: [],
+  paginacao: { page: 1, limite: 20, totalItens: 0, totalPaginas: 0 },
+  totaisPorStatus: { QUERO_LER: 0, LENDO: 0, LIDO: 0, RELENDO: 0, ABANDONADO: 0 },
+}
+
+describe('consultaDaEstante', () => {
+  it('sem filtro não monta query', () => {
+    expect(consultaDaEstante()).toBe('')
+    expect(consultaDaEstante({})).toBe('')
+  })
+
+  it('leva só os filtros presentes, com status em maiúsculas', () => {
+    expect(consultaDaEstante({ status: 'RELENDO', ordenacao: 'progresso_desc', page: 2, limite: 50 })).toBe(
+      '?status=RELENDO&ordenacao=progresso_desc&page=2&limite=50',
+    )
+    expect(consultaDaEstante({ ordenacao: 'autor_asc' })).toBe('?ordenacao=autor_asc')
+  })
+})
+
+describe('createLeituraService', () => {
+  it('lista a própria estante com filtro e token', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(resposta(200, PAGINA_VAZIA))
+
+    await expect(servico(fetchMock).listarEstante({ status: 'LENDO', page: 1 })).resolves.toEqual(PAGINA_VAZIA)
+
+    const [url, init] = fetchMock.mock.calls[0]!
+    expect(url).toBe('https://leitura.example.com/estante?status=LENDO&page=1')
+    expect((init?.headers as Headers).get('Authorization')).toBe('Bearer jwt')
+  })
+
+  it('consulta um livro da própria estante pelo id codificado', async () => {
+    const item = {
+      livroId: 'l 1',
+      livro: { titulo: 'Torto Arado', autor: null, capaUrl: null },
+      status: 'ABANDONADO',
+      vezesLido: 0,
+      leituraEmAndamentoId: null,
+      ultimaLeituraId: 'lei-1',
+      retomavel: true,
+      paginaAtual: null,
+      totalPaginas: null,
+      percentualConcluido: null,
+      adicionadoEm: '2026-09-01T12:00:00Z',
+    }
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(resposta(200, item))
+
+    await expect(servico(fetchMock).consultarItemEstante('l 1')).resolves.toEqual(item)
+    expect(fetchMock.mock.calls[0]![0]).toBe('https://leitura.example.com/estante/l%201')
+  })
+
+  it('livro fora da estante (404) vira null e outras falhas propagam', async () => {
+    const naoEncontrado = { codigo: 'RECURSO_NAO_ENCONTRADO', mensagem: 'Este livro não está na sua estante.' }
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(resposta(404, naoEncontrado))
+    await expect(servico(fetchMock).consultarItemEstante('l1')).resolves.toBeNull()
+
+    const proibido = vi.fn<typeof fetch>().mockResolvedValue(resposta(403, { codigo: 'PROIBIDO', mensagem: 'Não.' }))
+    await expect(servico(proibido).consultarItemEstante('l1')).rejects.toBeInstanceOf(ApiError)
+  })
+
+  it('lista a estante de um perfil pelo id codificado', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(resposta(200, PAGINA_VAZIA))
+
+    await servico(fetchMock).listarEstantePerfil('u 1', { ordenacao: 'titulo_asc' })
+
+    expect(fetchMock.mock.calls[0]![0]).toBe('https://leitura.example.com/perfis/u%201/estante?ordenacao=titulo_asc')
+  })
+
+  it('adiciona à estante só com o livroId e a chave da intenção', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(resposta(201, { livroId: 'l1', status: 'QUERO_LER' }))
+
+    await servico(fetchMock).adicionarEstante('l1', 'chave-a')
+
+    const [url, init] = fetchMock.mock.calls[0]!
+    expect(url).toBe('https://leitura.example.com/estante')
+    expect(init?.method).toBe('POST')
+    expect(JSON.parse(init?.body as string)).toEqual({ livroId: 'l1' })
+    expect((init?.headers as Headers).get('Idempotency-Key')).toBe('chave-a')
+  })
+
+  it('remove com chave e aceita 204 sem corpo', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 204 }))
+
+    await expect(servico(fetchMock).removerEstante('l1', 'chave-r')).resolves.toBeUndefined()
+    const [url, init] = fetchMock.mock.calls[0]!
+    expect(url).toBe('https://leitura.example.com/estante/l1')
+    expect(init?.method).toBe('DELETE')
+    expect((init?.headers as Headers).get('Idempotency-Key')).toBe('chave-r')
+  })
+
+  it('inicia leitura e releitura em rotas distintas, sem data quando ausente', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => resposta(201, { id: 'lt1' }))
+    const leitura = servico(fetchMock)
+
+    await leitura.iniciarLeitura({ livroId: 'l1', dataInicio: '2026-09-01' }, 'k1')
+    await leitura.iniciarReleitura({ livroId: 'l1' }, 'k2')
+
+    expect(fetchMock.mock.calls[0]![0]).toBe('https://leitura.example.com/leituras')
+    expect(JSON.parse(fetchMock.mock.calls[0]![1]!.body as string)).toEqual({ livroId: 'l1', dataInicio: '2026-09-01' })
+    expect(fetchMock.mock.calls[1]![0]).toBe('https://leitura.example.com/releituras')
+    expect(JSON.parse(fetchMock.mock.calls[1]![1]!.body as string)).toEqual({ livroId: 'l1' })
+  })
+
+  it('finaliza com fuso do dispositivo e data de fim', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(resposta(200, { id: 'lt1', status: 'LIDO' }))
+
+    await servico(fetchMock).finalizarLeitura('lt1', { dataFim: '2026-09-20', fusoHorarioDispositivo: 'America/Sao_Paulo' }, 'k')
+
+    const [url, init] = fetchMock.mock.calls[0]!
+    expect(url).toBe('https://leitura.example.com/leituras/lt1/finalizar')
+    expect(JSON.parse(init?.body as string)).toEqual({ dataFim: '2026-09-20', fusoHorarioDispositivo: 'America/Sao_Paulo' })
+    expect((init?.headers as Headers).get('Idempotency-Key')).toBe('k')
+  })
+
+  it('abandona e retoma sem corpo, cada uma com sua chave', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => resposta(200, { id: 'lt1' }))
+    const leitura = servico(fetchMock)
+
+    await leitura.abandonarLeitura('lt1', 'k-ab')
+    await leitura.retomarLeitura('lt1', 'k-re')
+
+    const [urlAb, initAb] = fetchMock.mock.calls[0]!
+    const [urlRe, initRe] = fetchMock.mock.calls[1]!
+    expect(urlAb).toBe('https://leitura.example.com/leituras/lt1/abandonar')
+    expect(initAb?.body).toBeUndefined()
+    expect((initAb?.headers as Headers).get('Idempotency-Key')).toBe('k-ab')
+    expect(urlRe).toBe('https://leitura.example.com/leituras/lt1/retomar')
+    expect((initRe?.headers as Headers).get('Idempotency-Key')).toBe('k-re')
+  })
+
+  it('consulta detalhe e conclusões por GET, sem chave', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => resposta(200, { livroId: 'l1', vezesLido: 2 }))
+    const leitura = servico(fetchMock)
+
+    await leitura.detalharLeitura('lt1')
+    await expect(leitura.consultarConclusoes('l1')).resolves.toEqual({ livroId: 'l1', vezesLido: 2 })
+
+    expect(fetchMock.mock.calls[0]![0]).toBe('https://leitura.example.com/leituras/lt1')
+    expect(fetchMock.mock.calls[1]![0]).toBe('https://leitura.example.com/livros/l1/conclusoes')
+    expect((fetchMock.mock.calls[1]![1]!.headers as Headers).has('Idempotency-Key')).toBe(false)
+  })
+
+  it('409 de transição inválida chega como ApiError com código e status', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(resposta(409, { codigo: 'TRANSICAO_INVALIDA', mensagem: 'Leitura não está em andamento.' }))
+
+    const erro = await servico(fetchMock).retomarLeitura('lt1', 'k').catch((e: unknown) => e)
+
+    expect(erro).toBeInstanceOf(ApiError)
+    expect(erro).toMatchObject({ status: 409, code: 'TRANSICAO_INVALIDA', message: 'Leitura não está em andamento.' })
+  })
+})
 
 const NOTA = { livroId: 'l1', valor: 4.5, criadoEm: '2026-09-12T12:00:00Z', atualizadoEm: '2026-09-12T12:00:00Z' }
 

@@ -19,7 +19,8 @@
     "test:cov": "jest --coverage",
     "test:integration": "jest --config test/integracao/jest-integracao.json --runInBand",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "ts-node src/db/migrate.ts"
+    "db:migrate": "ts-node src/db/migrate.ts",
+    "db:seed": "ts-node src/db/seed.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",

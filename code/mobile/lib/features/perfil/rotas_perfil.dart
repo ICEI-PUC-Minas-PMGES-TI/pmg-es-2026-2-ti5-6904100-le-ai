@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/config/app_config.dart';
 import '../../core/network/api_client.dart';
+import '../estante/estante_service.dart';
 import '../livros/capa.dart';
 import 'avatar.dart';
 import 'buscar_leitor_page.dart';
@@ -72,6 +73,7 @@ void _voltar(BuildContext context) {
 /// [resenhasDeOutro] monta a lista de resenhas do perfil de outro leitor (F-AVA).
 List<RouteBase> rotasDoPerfil(
   DependenciasDePerfil deps, {
+  EstanteService? estante,
   Widget Function(BuildContext context, String usuarioId, String nome)? resenhasDeOutro,
 }) => <RouteBase>[
   GoRoute(
@@ -127,6 +129,7 @@ List<RouteBase> rotasDoPerfil(
         aoAbrirProprioPerfil: () => context.go(rotaPerfilRaiz),
         aoBuscarLeitor: () => context.push(rotaBuscarLeitor),
         aoAbrirSolicitacoes: () => context.push(rotaSolicitacoes),
+        estante: estante,
         resenhas: resenhasDeOutro == null
             ? null
             : (usuarioId, nome) => resenhasDeOutro(context, usuarioId, nome),

@@ -10,10 +10,14 @@ import { AvaliacoesModule } from './avaliacoes/avaliacoes.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { IdempotenciaModule } from './common/idempotencia/idempotencia.module';
 import { DrizzleModule } from './db/drizzle.module';
+import { EstanteModule } from './estante/estante.module';
 import { HealthModule } from './health/health.module';
+import { InatividadeModule } from './jobs/inatividade/inatividade.module';
+import { LeiturasModule } from './leituras/leituras.module';
 import { MessagingModule } from './messaging/messaging.module';
 import { OutboxModule } from './outbox/outbox.module';
 import { PerfisModule } from './perfis/perfis.module';
+import { ReferenciasModule } from './referencias/referencias.module';
 
 @Module({
   imports: [
@@ -53,8 +57,12 @@ import { PerfisModule } from './perfis/perfis.module';
     HealthModule,
     MessagingModule,
     OutboxModule,
+    ReferenciasModule,
     AvaliacoesModule,
     PerfisModule,
+    EstanteModule,
+    LeiturasModule,
+    InatividadeModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

@@ -4,13 +4,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '../services/api'
 import { leituraService, type ResenhaDoPerfil } from '../services/leitura'
 import { perfilService, type Perfil } from '../services/perfil'
+import { itemEstante, paginaEstante } from '../testes/estante'
 import { montarNaRota } from '../testes/montarNaRota'
 
 vi.mock('../services/perfil', () => ({
   perfilService: { obterPerfil: vi.fn(), seguir: vi.fn(), deixarDeSeguir: vi.fn() },
 }))
 
-vi.mock('../services/leitura', () => ({ leituraService: { listarResenhasPerfil: vi.fn() } }))
+vi.mock('../services/leitura', () => ({
+  leituraService: { listarEstantePerfil: vi.fn(), listarResenhasPerfil: vi.fn() },
+}))
 
 const servico = vi.mocked(perfilService)
 const leitura = vi.mocked(leituraService)
@@ -70,6 +73,9 @@ describe('PerfilDeOutroView', () => {
     servico.obterPerfil.mockReset().mockResolvedValue(PUBLICO)
     servico.seguir.mockReset()
     servico.deixarDeSeguir.mockReset().mockResolvedValue(undefined)
+    leitura.listarEstantePerfil
+      .mockReset()
+      .mockResolvedValue(paginaEstante([itemEstante('l1', 'Os Sertões', { status: 'LIDO', vezesLido: 1 })]))
   })
   afterEach(() => {
     document.body.innerHTML = ''
@@ -97,10 +103,11 @@ describe('PerfilDeOutroView', () => {
   })
 
   it('conteúdo visível: Estante e Resenhas vazias com texto neutro, sem o CTA do dono', async () => {
+    leitura.listarEstantePerfil.mockResolvedValue(paginaEstante([]))
     const { wrapper } = await montarNaRota('/leitores/rafaokamoto')
     await flushPromises()
 
-    expect(wrapper.text()).toContain('Rafael ainda não tem livros na estante.')
+    expect(wrapper.text()).toContain('Rafael ainda não adicionou livros à estante.')
     expect(wrapper.text()).toContain('Rafael ainda não escreveu resenhas.')
     expect(wrapper.findAll('[role="tab"]').map((aba) => aba.text())).toEqual(['Estante', 'Resenhas'])
     expect(wrapper.text()).not.toContain('Buscar livros')
@@ -248,5 +255,65 @@ describe('PerfilDeOutroView', () => {
 
     expect(servico.obterPerfil).toHaveBeenCalledTimes(2)
     expect(botao(wrapper, 'Seguindo')).toBeDefined()
+  })
+
+  it('estante visível: cards só leitura com a estante do perfil, paginada', async () => {
+    leitura.listarEstantePerfil
+      .mockResolvedValueOnce(paginaEstante([itemEstante('l1', 'Os Sertões', { status: 'LIDO', vezesLido: 1 })], { totalPaginas: 2, totalItens: 2 }))
+      .mockResolvedValueOnce(paginaEstante([itemEstante('l2', 'O Cortiço')], { page: 2, totalPaginas: 2, totalItens: 2 }))
+    const { wrapper } = await montarNaRota('/leitores/rafaokamoto')
+    await flushPromises()
+
+    expect(leitura.listarEstantePerfil).toHaveBeenCalledWith('u2', { page: 1 })
+    const secao = wrapper.get('section[id$="-painel-estante"]')
+    expect(secao.text()).toContain('Os Sertões')
+    expect(secao.text()).toContain('Lido 1 vez')
+    expect(secao.findAll('li button')).toHaveLength(0)
+
+    await botao(wrapper, 'Carregar mais').trigger('click')
+    await flushPromises()
+    expect(leitura.listarEstantePerfil).toHaveBeenLastCalledWith('u2', { page: 2 })
+    expect(secao.findAll('li')).toHaveLength(2)
+  })
+
+  it('perfil restrito não pede a estante; 403 do leitura vira o bloco de perfil privado', async () => {
+    servico.obterPerfil.mockResolvedValue(PRIVADO)
+    const { wrapper } = await montarNaRota('/leitores/bia.nogueira')
+    await flushPromises()
+    expect(leitura.listarEstantePerfil).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('Este perfil é privado')
+
+    document.body.innerHTML = ''
+    servico.obterPerfil.mockResolvedValue({ ...PRIVADO, conteudoRestrito: false })
+    leitura.listarEstantePerfil.mockRejectedValue(new ApiError('Proibido.', 403, 'PROIBIDO'))
+    const outra = await montarNaRota('/leitores/bia.nogueira')
+    await flushPromises()
+    expect(outra.wrapper.text()).toContain('Este perfil é privado')
+    expect(outra.wrapper.text()).not.toContain('Não foi possível carregar a estante')
+    expect(outra.wrapper.find('section[aria-labelledby="titulo-estante-do-perfil"]').exists()).toBe(false)
+  })
+
+  it('404 do leitura esconde a seção; outra falha mostra erro com Tentar de novo', async () => {
+    leitura.listarEstantePerfil.mockRejectedValueOnce(new ApiError('Não encontrado.', 404, 'NAO_ENCONTRADO'))
+    const { wrapper } = await montarNaRota('/leitores/rafaokamoto')
+    await flushPromises()
+    expect(wrapper.find('section[aria-labelledby="titulo-estante-do-perfil"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('Este perfil é privado')
+
+    document.body.innerHTML = ''
+    leitura.listarEstantePerfil.mockRejectedValueOnce(new ApiError('Falha.', 0, 'SERVICO_INDISPONIVEL'))
+    const outra = await montarNaRota('/leitores/rafaokamoto')
+    await flushPromises()
+    expect(outra.wrapper.text()).toContain('Não foi possível carregar a estante. Verifique sua conexão e tente de novo.')
+    await outra.wrapper.findAll('button').filter((b) => b.text() === 'Tentar de novo').at(-1)!.trigger('click')
+    await flushPromises()
+    expect(outra.wrapper.text()).toContain('Os Sertões')
+  })
+
+  it('estante vazia do perfil fala com o primeiro nome', async () => {
+    leitura.listarEstantePerfil.mockResolvedValue(paginaEstante([]))
+    const { wrapper } = await montarNaRota('/leitores/rafaokamoto')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Rafael ainda não adicionou livros à estante.')
   })
 })
