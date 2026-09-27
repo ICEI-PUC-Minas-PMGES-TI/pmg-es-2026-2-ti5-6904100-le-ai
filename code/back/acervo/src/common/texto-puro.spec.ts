@@ -17,6 +17,21 @@ describe('textoPuro', () => {
     ).toBe('Tom & Jerry — “clássico” É ç &xyz;');
   });
 
+  it('tira também o HTML que vinha escapado, sem comer o sinal de menor', () => {
+    expect(
+      textoPuro('&lt;p&gt;Um &lt;b&gt;clássico&lt;/b&gt;.&lt;/p&gt;'),
+    ).toBe('Um clássico.');
+    expect(textoPuro('Se 5 &lt; 7 e 9 &gt; 3, então...')).toBe(
+      'Se 5 < 7 e 9 > 3, então...',
+    );
+  });
+
+  it('remove caractere de controle e mantém a quebra de linha', () => {
+    expect(textoPuro('Um\u0000 livro\u0007.\nFim &#1;.')).toBe(
+      'Um livro.\nFim .',
+    );
+  });
+
   it('remove o Markdown de referência da OpenLibrary', () => {
     const bruto = [
       'Um romance sobre duas irmãs. ([source][1])',
