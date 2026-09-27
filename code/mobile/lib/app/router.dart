@@ -13,6 +13,7 @@ import '../features/descobrir/descobrir_page.dart';
 import '../features/estante/estante_page.dart';
 import '../features/feed/feed_page.dart';
 import '../features/livros/rotas_livros.dart';
+import '../features/notificacoes/rotas_notificacoes.dart';
 import '../features/perfil/perfil_page.dart';
 import '../features/perfil/rotas_perfil.dart';
 import 'shell_autenticado.dart';
@@ -41,6 +42,7 @@ GoRouter buildRouter({
   required AuthService authService,
   DependenciasDeLivros? livros,
   DependenciasDePerfil? perfil,
+  DependenciasDeNotificacoes? notificacoes,
 }) {
   Future<bool> renovar(String token) => sessionController.renovar(token, authService.renovar);
   final deps =
@@ -49,6 +51,12 @@ GoRouter buildRouter({
   final depsDePerfil =
       perfil ??
       DependenciasDePerfil.padrao(getToken: () => sessionController.token, renovarSessao: renovar);
+  final depsDeNotificacoes =
+      notificacoes ??
+      DependenciasDeNotificacoes.padrao(
+        getToken: () => sessionController.token,
+        renovarSessao: renovar,
+      );
   return GoRouter(
     initialLocation: rotaVerificandoSessao,
     refreshListenable: sessionController,
@@ -110,6 +118,8 @@ GoRouter buildRouter({
           caminhoAtual: state.uri.path,
           aoAbrirConfiguracoes: () => context.go(rotaConfiguracoes),
           aoBuscarLeitor: () => context.go(rotaBuscarLeitor),
+          contadorDeNaoLidas: depsDeNotificacoes.contador,
+          aoAbrirNotificacoes: (raiz) => context.push<void>(rotaNotificacoes(raiz)),
         ),
         branches: <StatefulShellBranch>[
           StatefulShellBranch(
@@ -118,7 +128,10 @@ GoRouter buildRouter({
                 path: rotaEstante,
                 builder: (context, state) =>
                     EstantePage(aoCadastrarLivro: () => context.go(rotaAdicionarLivro)),
-                routes: rotasDaEstante(deps),
+                routes: <RouteBase>[
+                  ...rotasDaEstante(deps),
+                  rotaDeNotificacoes(depsDeNotificacoes, rotaEstante),
+                ],
               ),
             ],
           ),
@@ -134,7 +147,10 @@ GoRouter buildRouter({
                   // para a tela de ISBN que `go` montaria por baixo.
                   aoCadastrarPessoal: () => context.push('$rotaAdicionarLivro/pessoal'),
                 ),
-                routes: rotasDeDescobrir(deps),
+                routes: <RouteBase>[
+                  ...rotasDeDescobrir(deps),
+                  rotaDeNotificacoes(depsDeNotificacoes, '/descobrir'),
+                ],
               ),
             ],
           ),
@@ -143,7 +159,10 @@ GoRouter buildRouter({
               GoRoute(
                 path: '/feed',
                 builder: (context, state) => const FeedPage(),
-                routes: rotasDoFeed(deps),
+                routes: <RouteBase>[
+                  ...rotasDoFeed(deps),
+                  rotaDeNotificacoes(depsDeNotificacoes, rotaFeedRaiz),
+                ],
               ),
             ],
           ),
@@ -161,6 +180,7 @@ GoRouter buildRouter({
                 ),
                 routes: <RouteBase>[
                   ...rotasDoPerfil(depsDePerfil),
+                  rotaDeNotificacoes(depsDeNotificacoes, rotaPerfilRaiz),
                   GoRoute(
                     path: 'configuracoes',
                     builder: (context, state) => ConfiguracoesPage(

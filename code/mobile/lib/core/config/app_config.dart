@@ -22,6 +22,22 @@ class AppConfig {
     defaultValue: 'http://localhost:3000',
   );
 
+  /// Base URL do serviço `social` (F-NOT): lista e marcação de notificações. No AVD,
+  /// `--dart-define=SOCIAL_BASE_URL=http://10.0.2.2:8081`.
+  static const String socialBaseUrl = String.fromEnvironment(
+    'SOCIAL_BASE_URL',
+    defaultValue: 'http://localhost:8081',
+  );
+
+  /// Base URL do serviço `leitura`: a ação de abandonar da notificação de leitura em risco
+  /// (RF-NOT-04) chama `POST /leituras/{id}/abandonar` direto nele. `leitura` e `acervo` nascem os
+  /// dois na 3000; em local, suba o `leitura` com `PORT=3001`. No AVD,
+  /// `--dart-define=LEITURA_BASE_URL=http://10.0.2.2:3001`.
+  static const String leituraBaseUrl = String.fromEnvironment(
+    'LEITURA_BASE_URL',
+    defaultValue: 'http://localhost:3001',
+  );
+
   /// Cloud do Cloudinary (P-09). Precisa ser a mesma de `CLOUDINARY_CLOUD_NAME` no `acervo`: o
   /// servidor só aceita capa hospedada em `res.cloudinary.com/<cloud>/image/upload/`.
   static const String cloudinaryCloudName = String.fromEnvironment(
