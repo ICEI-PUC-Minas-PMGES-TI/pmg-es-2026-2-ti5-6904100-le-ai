@@ -23,10 +23,10 @@ RNF atendidos: **RNF-SEC-02** (propriedade no servidor), **RNF-SEC-13** (valida�
 | Camada | Status | Observação |
 |---|---|---|
 | Infra | concluído | P0-MSG pronto desde 19/09. Fatia 0 (27/09) na `desenvolvimento`: JWT, idempotência HTTP, 422, correlation-id UUID, outbox com validação do `data` e `common-v1`, harness de integração e CI com Postgres no `leitura` |
-| Dados | concluído (baseline físico) | DER implantado no Neon em 16/09: `nota`, `resenha`, índices/uniquidade, `idempotencia_leitura`, `outbox_leitura`, `v_nota_publicacao_v1` e `v_resenha_publicacao_v1`. F-AVA não cria migration no `leitura` |
-| Backend | parcial | Nota e `minha-avaliacao` prontos (fatia 1, 27/09), com `nota.alterada`. Falta resenha (fatia 2) e resenhas do perfil (fatia 3) |
-| Web | parcial | Painel de nota, seletor com meia estrela e "Sua avaliação" nas páginas do livro oficial e pessoal (dono). Falta editor de resenha, spoiler e perfil |
-| Mobile | parcial | Mesmo recorte da web. Falta editor de resenha, spoiler e perfil |
+| Dados | concluído (baseline físico) | DER implantado no Neon em 16/09. F-AVA não cria migration no `leitura`; a do `social` (autor anulável) espera a revisão do Kayke |
+| Backend | concluído | Nota, resenha, `minha-avaliacao` e resenhas do perfil (27/09), com `nota.alterada`, `resenha.publicada` e `resenha.excluida` validados contra os schemas. Falta DES |
+| Web | concluído | Painel de nota, "Sua avaliação" com a resenha própria, editor de resenha, spoiler no livro pessoal e no feed, resenhas no perfil. Falta DES |
+| Mobile | concluído | Mesmo escopo da web, com o editor em tela cheia. Falta DES |
 
 ## Especificação
 
@@ -98,7 +98,23 @@ O feed não consome VIEW de resenha; consome exclusivamente `resenha.publicada`.
 - **Decisões do grupo pendentes:** correção do `common-v1` sem nova versão (feita em 26/09 por decisão do Renato, a comunicar); o feed lê as VIEWs do `leitura`, contra a arquitetura §3.2 item 4; resenhas de livro pessoal no perfil só para o dono (RN-15); componentes novos para o `documento-de-design.md`.
 - **DES:** `JWT_SECRET` do `leai-leitura` no painel do Render antes do merge na `main`; conferir `leai.social.feed` no `Le-ai-oregon` antes da primeira resenha.
 
-- **Depende de** [F-ACV-BUSCA](feature-F-ACV-BUSCA.md)/[F-ACV-CADASTRO](feature-F-ACV-CADASTRO.md) (livro para avaliar), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md) e [P0-MSG](../periodo-0/feature-P0-MSG.md). **P0-MSG é pré-requisito bloqueante para concluir a publicação:** `outbox_leitura` já existe, mas conexão CloudAMQP, dispatcher com confirm, `mensagem_processada`, validação runtime dos schemas, retry/DLQ e prova em DES ainda não existem.
+- **Depende de** [F-ACV-BUSCA](feature-F-ACV-BUSCA.md)/[F-ACV-CADASTRO](feature-F-ACV-CADASTRO.md) (livro para avaliar), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md) e [P0-MSG](../periodo-0/feature-P0-MSG.md). P0-MSG está pronto desde 19/09 (dispatcher com confirm, `mensagem_processada`, validação, retry e DLQ); falta só a prova em DES, que depende do PR `desenvolvimento → main`.
+- **RNF-TST-03 ponta a ponta de `resenha.*`:** F-AVA prova até o envelope válido no broker em memória (`resenha.int-spec.ts`); o consumo pelo F-FEED fica com o Kayke.
+- **Ordem dos eventos:** o despachante segura só a linha que falhou, então um `resenha.excluida` pode sair antes do `resenha.publicada` da mesma resenha. Raro; registrado em `code/back/social/AGENTS.md`.
+- **Divergências do protótipo e do plano, decididas na implementação:**
+  - "Sua avaliação" mostra a resenha do próprio leitor (texto, data, marca `Contém spoiler` e `Editar resenha`); nem o `.md` nem o `.html` desenham esse estado. O dono vê o próprio texto mesmo com spoiler. Copy nova: "Não foi possível carregar sua avaliação." com `Tentar de novo`.
+  - Dialog de nota com 460px (`.html`), não 420 (`.md`). Na web, a confirmação de remover troca o conteúdo do mesmo modal em vez de abrir um segundo.
+  - No mobile, o painel usa o bottom sheet do sistema (`mostrarFolhaInferior`: fundo `papel`, raio 20), não o `papel-elevado` com raio 24 do prompt.
+  - Aviso de spoiler e erro de limite ficam acima da barra do editor, como no `.html`.
+  - `Trash` também na web, na barra do editor (o artboard web de edição não desenha o gatilho).
+  - Copy nova do descarte: "Descartar a resenha?", "O que você escreveu aqui não foi salvo e será perdido.", "Descartar" e "Continuar escrevendo". Copy nova do erro ao excluir: "Não foi possível excluir sua resenha. Tente de novo."
+  - O limite no singular: "passou do limite em 1 caractere".
+  - No mobile, o editor abre no navegador raiz (acima do shell) em vez de uma rota com `parentNavigatorKey`: esconde a barra inferior sem mexer no `router.dart`, mas não tem URL própria.
+  - Na web, o editor ganhou a meta `semBarraInferior` e a meta `voltarPara` (o `X` sem histórico volta à página do livro).
+  - Perfil: "Ver mais resenhas" carrega a próxima página na própria seção, no lugar de uma página "Ver todas" separada. Com spoiler, terceiros veem o bloco oculto com `Mostrar mesmo assim`.
+  - Contagem de caracteres por code point: emoji composto (👍🏽, ❤️) conta mais de 1, igual nos três lados.
+  - 404, nunca 403, para livro inacessível; DELETE sem nada para apagar responde 204 sem evento; nota com o mesmo valor não gera evento.
+  - O texto `ambar` sobre `ambar-fundo` do toggle de spoiler fica abaixo do AA (RNF-USA-03); o peso 600 e o ícone reforçam o estado. Pendência de design.
 - **Compartilha `leitura` com [F-EST](feature-F-EST.md) e [F-PRG](feature-F-PRG.md)** — sinalizar no grupo antes de mexer no serviço (plano §6).
 - **Ficam fora (Período 2):** curtir/descurtir e contadores de resenha (RF-AVA-05/08), frases/trechos (RF-AVA-06/07, RN-11), **Markdown** (RF-AVA-09, RN-13) — todos **F-AVA-2**. No Período 1 a resenha é **texto puro**; nada de parser Markdown ainda.
 - A **projeção nota dos leitores** e a **nota geral** (RF-ACV-15/16) são **F-ACV-NOTA** (Período 2). Antes de consumir novos `nota.alterada`, essa feature deve fazer backfill de `v_nota_publicacao_v1`, pois eventos do Período 1 não são presumidos retidos.
@@ -110,6 +126,8 @@ O feed não consome VIEW de resenha; consome exclusivamente `resenha.publicada`.
 - **A área de texto da resenha é exceção declarada ao input do design §4.2:** sem borda e sem fundo próprio, em Newsreader, ocupando o corpo da tela. O §4.2 define o campo curto com borda e fundo `papel-elevado`, que não serve a texto de 5.000 caracteres.
 
 ## Timeline
+
+### 27/09/2026: fatias 2, 3 e 4. Resenha pronta no backend (`PUT`/`DELETE /livros/{id}/resenha`, `resenha.publicada` só na criação, `resenha.excluida`), no mobile e na web (editor sem barra inferior, contador por code point, toggle de spoiler, confirmação ao sair, resenha própria em "Sua avaliação", "Escrever a primeira", spoiler escondido no modo consulta do livro pessoal e no feed). Resenhas do perfil (`GET /perfis/{id}/resenhas`, RN-08 e RN-15) com livro e nota, nos cards do Henrique. Contrato marcado como implementado e conferido contra o `/docs` em runtime. Falta DES e a revisão do Kayke no `social`.
 
 ### 27/09/2026: fatias 0 e 1. Infra comum do `leitura` na `desenvolvimento` (para F-AVA, F-EST e F-PRG). Nota pronta no backend (`PUT`/`DELETE /livros/{id}/nota`, `GET /livros/{id}/minha-avaliacao`, `nota.alterada` validado contra o schema), no mobile e na web (painel de nota com meia estrela, nota zero distinta de ausente, "Sua avaliação" nas páginas do livro). `LivroSnapshot.autor` passou a aceitar `null` no `common-v1` e o `social` foi ajustado para livro sem autor, aguardando a revisão do Kayke.
 

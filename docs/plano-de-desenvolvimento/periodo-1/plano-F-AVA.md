@@ -2,6 +2,19 @@
 
 > **Versão de 26/09/2026**, já com os ajustes de uma revisão independente. Conferida contra o código de `leitura`, `acervo`, `social`, `identidade`, front, mobile, CI, `render.yaml` e os dois brokers (consulta só de leitura). Este arquivo é autossuficiente: a sessão que o produziu não estará disponível no próximo PC.
 
+## Andamento
+
+- **Fatia 0 (infra do `leitura`): concluída e na `desenvolvimento` em 27/09/2026.** CI verde.
+- **Fatias 1, 2 e 3 (nota, resenha, perfil): concluídas em 27/09 na `renato-features`**, nos três lados, com CI verde. O merge na `desenvolvimento` espera a revisão do Kayke nos commits do `social` (migration de autor anulável e feed).
+- **Fatia 4:** contrato marcado como implementado e conferido contra o `/docs`; `AGENTS.md` do `leitura` e do `social`, histórico da mensageria e arquivo da feature atualizados. **Falta DES**, que depende do PR `desenvolvimento → main` e do `JWT_SECRET` do `leai-leitura` no Render.
+- **`common-v1`:** corrigido em 26/09 por decisão do Renato (autor anulável), a comunicar ao grupo; cópias do identidade e do social atualizadas no mesmo commit.
+- **Diferenças do que foi implementado em relação ao texto abaixo:**
+  - **Editor no mobile:** abre no navegador raiz, acima do shell, em vez de uma rota com `parentNavigatorKey`. Esconde a barra inferior sem mexer no `router.dart`.
+  - **Serviço do `leitura` nos clientes:** nasceu na fatia 1, com as chamadas de verdade, e não vazio na fatia 0.
+  - **Perfil:** "Ver mais resenhas" na própria seção, no lugar da página "Ver todas". No mobile, a lista entra pela seção do Henrique por um parâmetro opcional (`resenhas`), e o livro oficial aberto pelo perfil fica na aba Perfil (`rotaDoLivroOficial(deps, raiz: '/perfil')`).
+  - **Migration do `social`:** `V20260927002000__snap_livro_autor_anulavel.sql`, só o `DROP NOT NULL`.
+  - Divergências de design registradas em `feature-F-AVA.md` (Pendências).
+
 ## Contexto
 
 F-AVA é o "dar nota e escrever sobre o livro" do ciclo de valor:
