@@ -41,6 +41,7 @@ const carregandoLivro = ref(true)
 const texto = ref('')
 const spoiler = ref(false)
 const enviando = ref(false)
+const excluindo = ref(false)
 const erro = ref<string | null>(null)
 const painelAberto = ref(false)
 const confirmandoExclusao = ref(false)
@@ -63,7 +64,9 @@ const podePublicar = computed(
 const sujo = computed(
   () => texto.value !== (resenha.value?.texto ?? '') || spoiler.value !== (resenha.value?.spoiler ?? false),
 )
-const rotuloDaAcao = computed(() => (enviando.value ? 'Publicando' : editando.value ? 'Salvar' : 'Publicar'))
+const rotuloDaAcao = computed(() =>
+  enviando.value && !excluindo.value ? 'Publicando' : editando.value ? 'Salvar' : 'Publicar',
+)
 const notaSalva = computed(() => avaliacao.nota.value?.valor ?? null)
 
 /** A página do livro de onde se veio, preservando a aba de origem. */
@@ -113,10 +116,24 @@ watch(
   { immediate: true },
 )
 
+/**
+ * Vindo da página do livro, volta a ela no histórico; senão troca o editor pela página. Um
+ * `replace` vindo do livro deixaria o livro duas vezes seguidas no histórico.
+ */
 async function sairParaOLivro(): Promise<void> {
   saidaLiberada = true
-  await router.replace(paginaDoLivro.value)
+  if (router.options.history.state.back === router.resolve(paginaDoLivro.value).fullPath) {
+    router.back()
+  } else {
+    await router.replace(paginaDoLivro.value)
+  }
 }
+
+// Mexer no texto depois de uma falha: o aviso de limite volta a aparecer, e o erro, que já foi
+// lido, sai de cima dele.
+watch(texto, () => {
+  erro.value = null
+})
 
 async function publicar(): Promise<void> {
   if (!podePublicar.value) {
@@ -136,6 +153,7 @@ async function publicar(): Promise<void> {
 
 async function excluir(): Promise<void> {
   enviando.value = true
+  excluindo.value = true
   erro.value = null
   try {
     await avaliacao.excluirResenha()
@@ -146,6 +164,7 @@ async function excluir(): Promise<void> {
     erro.value = 'Não foi possível excluir sua resenha. Tente de novo.'
   } finally {
     enviando.value = false
+    excluindo.value = false
   }
 }
 
@@ -182,9 +201,18 @@ function aoSairDaPagina(evento: BeforeUnloadEvent): void {
   }
 }
 
-/** `Esc` fora de um modal tenta sair, e a guarda de saída pergunta se houver texto. */
+/**
+ * `Esc` fora de um modal tenta sair, e a guarda de saída pergunta se houver texto. O modal trata o
+ * próprio `Esc` antes (e marca `defaultPrevented`); quando o evento chega aqui ele já fechou.
+ */
 function aoTeclar(evento: KeyboardEvent): void {
-  if (evento.key !== 'Escape' || painelAberto.value || confirmandoExclusao.value || confirmandoDescarte.value) {
+  if (
+    evento.key !== 'Escape' ||
+    evento.defaultPrevented ||
+    painelAberto.value ||
+    confirmandoExclusao.value ||
+    confirmandoDescarte.value
+  ) {
     return
   }
   cancelar()
@@ -237,7 +265,7 @@ onBeforeUnmount(() => {
             <span class="text-caption text-grafite-suave">Sem nota</span>
             <BotaoTextual
               class="min-h-12 md:min-h-10"
-              :disabled="enviando || !livro"
+              :disabled="enviando || !livro || !avaliacaoPronta"
               @click="painelAberto = true"
             >
               Dar nota

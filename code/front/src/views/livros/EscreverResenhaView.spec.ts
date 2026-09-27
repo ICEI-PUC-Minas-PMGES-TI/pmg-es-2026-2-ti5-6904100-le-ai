@@ -61,8 +61,8 @@ describe('EscreverResenhaView', () => {
     document.body.innerHTML = ''
   })
 
-  async function abrir(caminho = '/livros/livro-1/resenha?origem=descobrir') {
-    const montagem = await montarNaRota(caminho)
+  async function abrir(caminho = '/livros/livro-1/resenha?origem=descobrir', historico?: 'navegador') {
+    const montagem = await montarNaRota(caminho, { historico })
     await flushPromises()
     return montagem
   }
@@ -219,6 +219,60 @@ describe('EscreverResenhaView', () => {
 
     expect(wrapper.text()).not.toContain('Não foi possível carregar sua resenha.')
     expect(wrapper.get('textarea').attributes('readonly')).toBeUndefined()
+  })
+
+  // Salvar a nota com a resenha desconhecida liberaria o editor vazio para sobrescrevê-la.
+  it('com a resenha salva sem carregar, Dar nota fica bloqueado', async () => {
+    leitura.obterMinhaAvaliacao.mockRejectedValueOnce(new ApiError('x', 503, 'SERVICO_INDISPONIVEL'))
+    await abrir()
+
+    expect(botao('Dar nota')?.disabled).toBe(true)
+  })
+
+  // O modal fecha no próprio `Esc` e marca o evento; o editor não pode tratar o mesmo `Esc` como sair.
+  it('Esc no diálogo de descarte fecha só o diálogo, sem reabrir nem sair', async () => {
+    const { wrapper, router } = await abrir()
+    await digitar(wrapper, 'Rascunho.')
+    await router.push('/descobrir')
+    await flushPromises()
+    expect(document.body.textContent).toContain('Descartar a resenha?')
+
+    document.body
+      .querySelector('[role="dialog"], [role="alertdialog"]')!
+      .dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    await flushPromises()
+
+    expect(document.body.textContent).not.toContain('Descartar a resenha?')
+    expect(router.currentRoute.value.name).toBe('escrever-resenha')
+  })
+
+  it('durante a exclusão o botão do cabeçalho não diz Publicando', async () => {
+    leitura.obterMinhaAvaliacao.mockResolvedValue({ livroId: 'livro-1', nota: null, resenha: resenha('Um.') })
+    leitura.excluirResenha.mockReturnValue(new Promise(() => undefined))
+    const { wrapper } = await abrir()
+
+    await wrapper.get('button[aria-label="Excluir resenha"]').trigger('click')
+    await flushPromises()
+    botao('Excluir resenha')!.click()
+    await flushPromises()
+
+    expect(botao('Publicando')).toBeUndefined()
+  })
+
+  // Um `replace` vindo do livro deixaria o livro duas vezes seguidas no histórico.
+  it('vindo da página do livro, publicar volta no histórico em vez de empilhar o livro', async () => {
+    const { wrapper, router } = await abrir('/livros/livro-1?origem=descobrir', 'navegador')
+    await router.push('/livros/livro-1/resenha?origem=descobrir')
+    await flushPromises()
+    const voltar = vi.spyOn(router, 'back')
+    const substituir = vi.spyOn(router, 'replace')
+
+    await digitar(wrapper, 'Levei três dias.')
+    botao('Publicar')!.click()
+    await flushPromises()
+
+    expect(voltar).toHaveBeenCalled()
+    expect(substituir).not.toHaveBeenCalled()
   })
 
   it('sair sem mudanças não pergunta nada', async () => {
