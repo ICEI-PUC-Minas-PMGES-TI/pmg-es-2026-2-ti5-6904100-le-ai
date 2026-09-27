@@ -97,7 +97,9 @@ class _LivroOficialPageState extends State<LivroOficialPage> {
           icone: PhosphorIconsRegular.warning,
           corDoIcone: theme.colorScheme.error,
           titulo: 'Não foi possível abrir este livro',
-          texto: 'A conexão falhou antes de carregar os dados. Tente de novo em alguns instantes.',
+          texto:
+              _pagina.mensagemDoErro ??
+              'A conexão falhou antes de carregar os dados. Tente de novo em alguns instantes.',
           acao: BotaoPrimario(texto: 'Tentar de novo', onPressed: _pagina.carregar),
         );
       case EstadoDaPagina.naoEncontrada:
@@ -148,6 +150,9 @@ class _LivroOficialPageState extends State<LivroOficialPage> {
   Widget _sinopse(ThemeData theme) {
     final sinopse = _pagina.sinopse;
     final neutro = theme.textTheme.bodyMedium?.copyWith(color: theme.tertiaryText);
+    // Só a ausência usa o terciário (design): ela não pede nada ao leitor. Os outros avisos dizem o
+    // que fazer, e precisam do contraste AA do secundário.
+    final aviso = theme.textTheme.bodyMedium?.copyWith(color: theme.secondaryText);
     switch (sinopse.status) {
       case StatusDaSinopse.disponivel:
         return Text(sinopse.texto ?? '', style: theme.editorialBody);
@@ -156,12 +161,12 @@ class _LivroOficialPageState extends State<LivroOficialPage> {
       case StatusDaSinopse.falhaTransitoria:
         return Text(
           'Não conseguimos buscar a sinopse agora. Ela deve aparecer numa próxima visita.',
-          style: neutro,
+          style: aviso,
         );
       case StatusDaSinopse.pendente:
       case StatusDaSinopse.naoConsultada:
         if (_pagina.sinopseDemorou) {
-          return Text('A sinopse ainda está a caminho. Volte daqui a pouco.', style: neutro);
+          return Text('A sinopse ainda está a caminho. Volte daqui a pouco.', style: aviso);
         }
         return const EntradaSuave(child: _SkeletonDaSinopse());
     }
@@ -171,8 +176,9 @@ class _LivroOficialPageState extends State<LivroOficialPage> {
     final resenhas = _pagina.resenhas;
     final vazia = resenhas.isEmpty && !_pagina.resenhasIndisponiveis;
     final secundario = theme.textTheme.bodyMedium?.copyWith(color: theme.secondaryText);
+    // Sem `liveRegion` na seção: ela fundia as resenhas num nó só, lido inteiro ao abrir e a cada
+    // página nova. Só os avisos de falha são anunciados.
     return Semantics(
-      liveRegion: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -191,7 +197,10 @@ class _LivroOficialPageState extends State<LivroOficialPage> {
           ),
           const SizedBox(height: DesignTokens.space4),
           if (_pagina.resenhasIndisponiveis) ...<Widget>[
-            Text('Não foi possível carregar as resenhas.', style: secundario),
+            Semantics(
+              liveRegion: true,
+              child: Text('Não foi possível carregar as resenhas.', style: secundario),
+            ),
             BotaoTextual(
               texto: 'Tentar de novo',
               onPressed: _pagina.carregandoResenhas ? null : _pagina.carregarResenhas,
@@ -219,10 +228,22 @@ class _LivroOficialPageState extends State<LivroOficialPage> {
               if (indice > 0) const SizedBox(height: DesignTokens.space6),
               _Resenha(key: ValueKey<String>(resenha.id), resenha: resenha),
             ],
-            if (_pagina.temMaisResenhas) ...<Widget>[
+            if (_pagina.falhouMaisResenhas) ...<Widget>[
               const SizedBox(height: DesignTokens.space4),
+              Semantics(
+                liveRegion: true,
+                child: Text(
+                  'Não foi possível carregar mais resenhas. Verifique sua conexão.',
+                  style: theme.textTheme.bodySmall?.copyWith(color: theme.secondaryText),
+                ),
+              ),
+            ],
+            if (_pagina.temMaisResenhas) ...<Widget>[
+              SizedBox(
+                height: _pagina.falhouMaisResenhas ? DesignTokens.space1 : DesignTokens.space4,
+              ),
               BotaoTextual(
-                texto: 'Ver todas as resenhas',
+                texto: _pagina.falhouMaisResenhas ? 'Tentar de novo' : 'Ver todas as resenhas',
                 onPressed: _pagina.carregandoResenhas ? null : _pagina.carregarResenhas,
               ),
             ],
@@ -375,7 +396,8 @@ class _ResenhaState extends State<_Resenha> {
         ),
         const SizedBox(height: DesignTokens.space3),
         AnimatedSwitcher(
-          duration: DesignTokens.durFast,
+          // Movimento reduzido: a troca é estática (pagina-do-livro.md §9).
+          duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : DesignTokens.durFast,
           child: oculta
               ? BlocoDeSpoiler(aoRevelar: () => setState(() => _revelada = true))
               : Text(

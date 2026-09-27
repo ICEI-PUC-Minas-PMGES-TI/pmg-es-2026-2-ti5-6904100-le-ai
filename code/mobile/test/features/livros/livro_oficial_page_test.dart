@@ -363,4 +363,89 @@ void main() {
     await tester.pump();
     expect(find.text('Ficha'), findsOneWidget);
   });
+
+  testWidgets('"Ver todas as resenhas" que falha avisa, mantém a lista e vira "Tentar de novo"', (
+    tester,
+  ) async {
+    var tentativas = 0;
+    await montar(tester, (request) async {
+      if (request.url.path.endsWith('/resenhas')) {
+        tentativas++;
+        if (tentativas == 1) {
+          return json(<String, Object?>{'codigo': 'ERRO_INTERNO', 'mensagem': 'Falhou.'}, 500);
+        }
+        return json(_pagina(<Map<String, Object?>>[_resenha('r2', 'Letícia', 'Segunda.')]), 200);
+      }
+      return json(
+        _livro(
+          resenhas: _pagina(<Map<String, Object?>>[
+            _resenha('r1', 'Marina', 'Primeira.'),
+          ], cursor: 'cursor-1'),
+        ),
+        200,
+      );
+    });
+
+    await tocar(tester, find.text('Ver todas as resenhas'));
+    await tester.pump();
+    await tester.pump();
+    expect(
+      find.text('Não foi possível carregar mais resenhas. Verifique sua conexão.'),
+      findsOneWidget,
+    );
+    expect(find.text('Primeira.'), findsOneWidget);
+
+    await tocar(tester, find.text('Tentar de novo'));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Segunda.'), findsOneWidget);
+    expect(find.textContaining('Não foi possível carregar mais resenhas'), findsNothing);
+  });
+
+  testWidgets('o 429 mostra a mensagem do servidor, não a de conexão', (tester) async {
+    await montar(
+      tester,
+      (request) async => json(<String, Object?>{
+        'codigo': 'MUITAS_REQUISICOES',
+        'mensagem': 'Muitas requisições em pouco tempo. Tente novamente em instantes.',
+        'correlationId': '00000000-0000-4000-8000-000000000000',
+      }, 429),
+    );
+    await tester.pump();
+    expect(
+      find.text('Muitas requisições em pouco tempo. Tente novamente em instantes.'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('A conexão falhou'), findsNothing);
+  });
+
+  testWidgets('id que não é de livro (400) é "não encontrado", sem "Tentar de novo"', (
+    tester,
+  ) async {
+    await montar(
+      tester,
+      (request) async => json(<String, Object?>{
+        'codigo': 'REQUISICAO_INVALIDA',
+        'mensagem': 'Os dados enviados são inválidos.',
+        'correlationId': '00000000-0000-4000-8000-000000000000',
+      }, 400),
+    );
+    await tester.pump();
+    expect(find.text('Não encontramos este livro'), findsOneWidget);
+  });
+
+  testWidgets('resenha sem o campo spoiler fica fechada, por segurança', (tester) async {
+    final semCampo = Map<String, Object?>.of(_resenha('r1', 'Rafael', 'O final revela tudo.'))
+      ..remove('spoiler');
+    await montar(
+      tester,
+      (request) async => json(
+        _livro(resenhas: _pagina(<Map<String, Object?>>[semCampo])),
+        200,
+      ),
+    );
+
+    expect(find.text('Esta resenha contém spoiler'), findsOneWidget);
+    expect(find.text('O final revela tudo.'), findsNothing);
+  });
 }
