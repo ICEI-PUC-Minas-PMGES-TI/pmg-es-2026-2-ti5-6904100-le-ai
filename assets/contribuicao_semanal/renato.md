@@ -40,3 +40,9 @@ Realizado resenhas no perfil com livro, nota e spoiler
 Realizado contrato OpenAPI do leitura e documentação de F-AVA
 Realizado configuração do JWT_SECRET do leitura no Render e teste manual de F-AVA na web e no mobile
 Realizado merge de F-ACV-BUSCA e F-AVA na desenvolvimento
+Realizado validação independente de F-AVA no backend, na web e no mobile, com as correções dos defeitos encontrados
+Realizado validação independente de F-ACV-BUSCA nas três camadas, com teste real no banco e no broker de dev
+Realizado busca palavra por palavra, relevância por título e autor e busca por ISBN-10 no acervo
+Realizado correções de robustez no acervo: entradas malformadas, banco indisponível, corpo grande, token sem expiração e sinopse sem marcação
+Realizado correções de paginação, falhas e acessibilidade no Descobrir e na página do livro, na web e no mobile
+Realizado atualização da documentação de F-ACV-BUSCA, do contrato do acervo e dos AGENTS do acervo e do front
