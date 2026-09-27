@@ -522,7 +522,14 @@ paths:
         Uma resenha por usuário e livro, sem exigir leitura concluída. No
         Período 1 o conteúdo é texto cru de até 5.000 caracteres; Markdown é
         escopo posterior. Alterar `spoiler` é reversível. Em livro pessoal,
-        somente o dono pode escrever.
+        somente o dono pode escrever. `texto` que não é string ou `spoiler`
+        que não é booleano é 400; texto só com espaços ou com mais de 5.000
+        caracteres é 422. A contagem é por caractere Unicode (code point),
+        igual ao `char_length` do banco: emoji de um code point conta 1, emoji
+        composto (como 👍🏽 ou ❤️) conta mais. O texto é guardado como chegou.
+        Livro inexistente, inativo ou pessoal de outra pessoa é 404. Conta
+        suspensa ou em exclusão é 403. Criar grava `resenha.publicada` com
+        `atualizacao=false`; editar não publica nada.
       requestBody:
         required: true
         content:
@@ -549,12 +556,14 @@ paths:
         - { $ref: '#/components/parameters/LivroId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
       description: >-
-        A confirmação irreversível é responsabilidade do cliente. Recriar
-        depois da exclusão gera novo identificador e nova publicação.
+        A confirmação irreversível é responsabilidade do cliente. Excluir grava
+        `resenha.excluida`. Sem resenha para excluir, responde 204 sem evento.
+        Recriar depois da exclusão gera novo identificador e nova publicação.
+        Livro inexistente, inativo ou pessoal de outra pessoa é 404.
       responses:
-        '204': { description: Resenha removida ou repetição idempotente concluída. }
+        '204': { description: Resenha removida, já ausente ou repetição idempotente concluída. }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
-        '403': { $ref: '#/components/responses/Proibido' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
         '409': { $ref: '#/components/responses/Conflito' }
 
@@ -1050,8 +1059,10 @@ components:
           type: string
           minLength: 1
           maxLength: 5000
-          description: Texto cru; HTML e Markdown não são interpretados no Período 1.
-        spoiler: { type: boolean, default: false }
+          description: >-
+            Texto cru; HTML e Markdown não são interpretados no Período 1. O
+            limite conta caracteres Unicode (code points), não unidades UTF-16.
+        spoiler: { type: boolean }
 
     Resenha:
       type: object
