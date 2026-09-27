@@ -467,7 +467,12 @@ paths:
       description: >-
         Uma nota por usuário e livro. Aceita 0 a 5 em passos de 0,5. Nota zero
         é válida e distinta de nota ausente. Em livro pessoal, somente o dono
-        pode escrever.
+        pode escrever. `valor` que não é número (texto, nulo, ausente) é 400;
+        número fora de 0..5 ou fora do passo de 0,5 é 422, com `campos`.
+        Livro inexistente, inativo ou pessoal de outra pessoa é 404, nunca 403:
+        conhecer o id não revela que o livro existe (RNF-SEC-06). Criar grava
+        `nota.alterada` com `operacao=criada`; mudar o valor grava `atualizada`;
+        repetir o mesmo valor responde 200 sem gravar e sem evento.
       requestBody:
         required: true
         content:
@@ -481,7 +486,6 @@ paths:
               schema: { $ref: '#/components/schemas/Nota' }
         '400': { $ref: '#/components/responses/RequisicaoInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
-        '403': { $ref: '#/components/responses/Proibido' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
         '409': { $ref: '#/components/responses/Conflito' }
         '422': { $ref: '#/components/responses/EntidadeInvalida' }
@@ -493,11 +497,15 @@ paths:
       parameters:
         - { $ref: '#/components/parameters/LivroId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
-      description: A confirmação da remoção é responsabilidade do cliente.
+      description: >-
+        A confirmação da remoção é responsabilidade do cliente. Remover grava
+        `nota.alterada` com `operacao=excluida` e `nota` nula. Sem nota para
+        remover, responde 204 sem evento. Livro inexistente, inativo ou pessoal
+        de outra pessoa é 404.
       responses:
-        '204': { description: Nota removida ou repetição idempotente concluída. }
+        '204': { description: Nota removida, já ausente ou repetição idempotente concluída. }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
-        '403': { $ref: '#/components/responses/Proibido' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
         '409': { $ref: '#/components/responses/Conflito' }
 
@@ -558,15 +566,17 @@ paths:
       x-implementation-status: planned
       parameters:
         - { $ref: '#/components/parameters/LivroId' }
-      description: Nota e resenha ausentes são nulas, nunca valores inventados.
+      description: >-
+        Nota e resenha ausentes são nulas, nunca valores inventados. Livro
+        inexistente, inativo ou pessoal de outra pessoa é 404.
       responses:
         '200':
           description: Avaliação atual, ainda que ambos os campos estejam ausentes.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/MinhaAvaliacao' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
-        '403': { $ref: '#/components/responses/Proibido' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
 
   /perfis/{usuarioId}/resenhas:
@@ -646,9 +656,11 @@ components:
       in: header
       required: true
       description: >-
-        UUID opaco. O escopo é ator autenticado, método e caminho canônico. A
-        mesma chave com o mesmo payload reproduz status e corpo originais sem
-        repetir efeitos; a mesma chave com payload diferente retorna 409.
+        UUID opaco. O escopo é ator autenticado, método e caminho canônico: o
+        id do recurso no caminho faz parte do escopo, então a mesma chave em
+        outro livro é outra operação. A mesma chave com o mesmo payload
+        reproduz status e corpo originais sem repetir efeitos por 24 horas; a
+        mesma chave com payload diferente retorna 409.
       schema:
         type: string
         format: uuid
