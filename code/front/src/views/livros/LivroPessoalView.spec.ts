@@ -3,13 +3,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { acervoService, type LivroPessoalDetalhe } from '../../services/acervo'
 import { ApiError } from '../../services/api'
+import { leituraService } from '../../services/leitura'
+import { itemEstante, leitura } from '../../testes/estante'
 import { montarNaRota } from '../../testes/montarNaRota'
 
 vi.mock('../../services/acervo', () => ({
   acervoService: { obterLivroPessoal: vi.fn(), excluirLivroPessoal: vi.fn() },
 }))
 
+vi.mock('../../services/leitura', () => ({
+  leituraService: { consultarItemEstante: vi.fn(), consultarConclusoes: vi.fn(), detalharLeitura: vi.fn() },
+}))
+
 const servico = vi.mocked(acervoService)
+const leituras = vi.mocked(leituraService)
 
 const DO_DONO: LivroPessoalDetalhe = {
   id: 'l1',
@@ -52,6 +59,9 @@ describe('LivroPessoalView', () => {
     localStorage.clear()
     servico.obterLivroPessoal.mockReset().mockResolvedValue(DO_DONO)
     servico.excluirLivroPessoal.mockReset().mockResolvedValue(undefined)
+    leituras.consultarItemEstante.mockReset().mockResolvedValue(null)
+    leituras.consultarConclusoes.mockReset().mockResolvedValue({ livroId: 'l1', vezesLido: 0 })
+    leituras.detalharLeitura.mockReset()
   })
   afterEach(() => {
     document.body.innerHTML = ''
@@ -167,5 +177,68 @@ describe('LivroPessoalView', () => {
 
     expect(document.body.querySelector('[role="dialog"]')).toBeNull()
     expect(servico.excluirLivroPessoal).not.toHaveBeenCalled()
+  })
+
+  it('dono com o livro fora da estante: sem status, Adicionar à estante abre as ações de entrada', async () => {
+    await montarNaRota('/livros/pessoal/l1')
+    await flushPromises()
+
+    expect(leituras.consultarConclusoes).toHaveBeenCalledWith('l1')
+    expect(leituras.consultarItemEstante).toHaveBeenCalledWith('l1')
+    botao('Adicionar à estante')!.click()
+    await flushPromises()
+
+    const acoes = [...document.body.querySelectorAll('[role="dialog"] ul button')].map((b) => b.textContent!.trim())
+    expect(acoes).toEqual(['Adicionar como Quero ler', 'Iniciar leitura'])
+  })
+
+  it('dono com leitura em andamento: status, Lido N vezes e Alterar status com a leitura atual', async () => {
+    leituras.consultarItemEstante.mockResolvedValue(
+      itemEstante('l1', 'Cartas de um sertanejo', {
+        status: 'RELENDO',
+        leituraEmAndamentoId: 'lei-1',
+        ultimaLeituraId: 'lei-1',
+      }),
+    )
+    leituras.consultarConclusoes.mockResolvedValue({ livroId: 'l1', vezesLido: 2 })
+    leituras.detalharLeitura.mockResolvedValue(leitura({ livroId: 'l1', status: 'RELENDO', releitura: true }))
+    const { wrapper } = await montarNaRota('/livros/pessoal/l1')
+    await flushPromises()
+
+    expect(leituras.consultarItemEstante).toHaveBeenCalledWith('l1')
+    expect(wrapper.text()).toContain('Relendo')
+    expect(wrapper.text()).toContain('Lido 2 vezes')
+    botao('Alterar status')!.click()
+    await flushPromises()
+
+    expect(leituras.detalharLeitura).toHaveBeenCalledWith('lei-1')
+    const acoes = [...document.body.querySelectorAll('[role="dialog"] ul button')].map((b) => b.textContent!.trim())
+    expect(acoes).toEqual(['Registrar progresso', 'Finalizar releitura', 'Abandonar releitura'])
+  })
+
+  it('dono com primeira leitura abandonada: Alterar status oferece Retomar leitura', async () => {
+    leituras.consultarItemEstante.mockResolvedValue(
+      itemEstante('l1', 'Cartas de um sertanejo', { status: 'ABANDONADO', ultimaLeituraId: 'lei-2', retomavel: true }),
+    )
+    leituras.detalharLeitura.mockResolvedValue(leitura({ id: 'lei-2', livroId: 'l1', status: 'ABANDONADO', retomavel: true }))
+    await montarNaRota('/livros/pessoal/l1')
+    await flushPromises()
+
+    botao('Alterar status')!.click()
+    await flushPromises()
+
+    expect(leituras.detalharLeitura).toHaveBeenCalledWith('lei-2')
+    const acoes = [...document.body.querySelectorAll('[role="dialog"] ul button')].map((b) => b.textContent!.trim())
+    expect(acoes).toEqual(['Retomar leitura'])
+  })
+
+  it('modo consulta não consulta a estante de quem vê', async () => {
+    servico.obterLivroPessoal.mockResolvedValue(EM_CONSULTA)
+    await montarNaRota('/livros/pessoal/l1?via=feed&referenciaId=atv-1')
+    await flushPromises()
+
+    expect(leituras.consultarItemEstante).not.toHaveBeenCalled()
+    expect(botao('Alterar status')).toBeUndefined()
+    expect(botao('Adicionar à estante')).toBeUndefined()
   })
 })

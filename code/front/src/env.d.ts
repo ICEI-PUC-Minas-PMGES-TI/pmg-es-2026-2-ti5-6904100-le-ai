@@ -6,6 +6,7 @@ interface ImportMetaEnv {
   readonly VITE_IDENTIDADE_BASE_URL: string
   /** Base URL do serviço `acervo` (F-ACV-CADASTRO). */
   readonly VITE_ACERVO_BASE_URL: string
+  readonly VITE_LEITURA_BASE_URL: string
   /** Cloud do Cloudinary. Precisa ser o mesmo `CLOUDINARY_CLOUD_NAME` do `acervo`. */
   readonly VITE_CLOUDINARY_CLOUD_NAME: string
   /** Preset UNSIGNED de capa de livro pessoal (P-09). Público por natureza. */
