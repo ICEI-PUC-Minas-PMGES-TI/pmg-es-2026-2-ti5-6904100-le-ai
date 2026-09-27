@@ -135,6 +135,27 @@ void main() {
     expect(pedidosDeLeitura, isEmpty);
   });
 
+  testWidgets('terceiro: resenha do dono com spoiler fica fora da árvore até o toque', (
+    tester,
+  ) async {
+    final comSpoiler = _livro(consulta: true, comAvaliacao: true);
+    (comSpoiler['resenhaDoDono'] as Map<String, Object?>)['spoiler'] = true;
+    await montar(
+      tester,
+      (_) async => json(comSpoiler, 200),
+      via: 'feed',
+      referenciaId: _atividade,
+    );
+
+    expect(find.text('Esta resenha contém spoiler'), findsOneWidget);
+    expect(find.text('Comprei numa feira e li em duas noites.'), findsNothing);
+
+    await tocar(tester, find.text('Mostrar mesmo assim'));
+    await tester.pump();
+
+    expect(find.text('Comprei numa feira e li em duas noites.'), findsOneWidget);
+  });
+
   testWidgets('terceiro com dono sem avaliação: sem seção e sem convite', (tester) async {
     await montar(
       tester,

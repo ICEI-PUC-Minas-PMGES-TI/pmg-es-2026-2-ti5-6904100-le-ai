@@ -85,6 +85,9 @@ class MinhaAvaliacao {
 
   MinhaAvaliacao comNota(Nota? novaNota) =>
       MinhaAvaliacao(livroId: livroId, nota: novaNota, resenha: resenha);
+
+  MinhaAvaliacao comResenha(Resenha? novaResenha) =>
+      MinhaAvaliacao(livroId: livroId, nota: nota, resenha: novaResenha);
 }
 
 class LeituraService {
@@ -110,6 +113,26 @@ class LeituraService {
 
   Future<void> excluirNota(String livroId, {required String idempotencyKey}) {
     return _api.deleteVazio('/livros/$livroId/nota', idempotencyKey: idempotencyKey);
+  }
+
+  /// Cria ou atualiza a resenha: texto cru, até 5.000 caracteres (RN-07).
+  Future<Resenha> salvarResenha(
+    String livroId, {
+    required String texto,
+    required bool spoiler,
+    required String idempotencyKey,
+  }) async {
+    final json = await _api.putJson(
+      '/livros/$livroId/resenha',
+      body: <String, Object?>{'texto': texto, 'spoiler': spoiler},
+      idempotencyKey: idempotencyKey,
+    );
+    return Resenha.fromJson(json);
+  }
+
+  /// Exclui a resenha de forma física, depois da confirmação da tela (RF-AVA-04).
+  Future<void> excluirResenha(String livroId, {required String idempotencyKey}) {
+    return _api.deleteVazio('/livros/$livroId/resenha', idempotencyKey: idempotencyKey);
   }
 }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 
 import '../../design/theme.dart';
 import '../../design/tokens.dart';
@@ -7,6 +8,7 @@ import '../../design/widgets/cartao_progresso.dart';
 import '../../design/widgets/estrelas_de_nota.dart';
 import '../livros/formatos.dart';
 import 'avaliacao_controller.dart';
+import 'escrever_resenha_page.dart';
 import 'painel_de_nota.dart';
 
 /// Bloco "Sua avaliação" da página do livro (pagina-do-livro.md §4.1, item 4, e §4.2).
@@ -22,6 +24,9 @@ class BlocoSuaAvaliacao extends StatelessWidget {
   final LivroAvaliado livro;
 
   const BlocoSuaAvaliacao({super.key, required this.avaliacao, required this.livro});
+
+  void _escrever(BuildContext context) =>
+      abrirEditorDeResenha(context, avaliacao: avaliacao, livro: livro);
 
   @override
   Widget build(BuildContext context) {
@@ -61,16 +66,44 @@ class BlocoSuaAvaliacao extends StatelessWidget {
         return <Widget>[
           _LinhaDaNota(
             valor: avaliacao.nota?.valor,
-            aoTocar: () => abrirPainelDeNota(context, avaliacao: avaliacao, livro: livro),
+            aoTocar: () => abrirPainelDeNota(
+              context,
+              avaliacao: avaliacao,
+              livro: livro,
+              aoEscreverResenha: () => _escrever(context),
+            ),
           ),
-          if (resenha != null) ...<Widget>[
+          if (resenha == null)
+            BotaoTextual(texto: 'Escrever resenha', onPressed: () => _escrever(context))
+          else ...<Widget>[
             const SizedBox(height: DesignTokens.space3),
+            // O dono vê o próprio texto mesmo com spoiler: o spoiler muda como quem lê encontra a
+            // resenha, não como quem escreveu.
             Text(resenha.texto, style: theme.editorialBody),
             const SizedBox(height: DesignTokens.space2),
-            Text(
-              'Publicada em ${formatarData(resenha.criadoEm)}',
-              style: theme.textTheme.bodySmall?.copyWith(color: theme.tertiaryText),
+            Wrap(
+              spacing: DesignTokens.space2,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: <Widget>[
+                Text(
+                  'Publicada em ${formatarData(resenha.criadoEm)}',
+                  style: theme.textTheme.bodySmall?.copyWith(color: theme.tertiaryText),
+                ),
+                if (resenha.spoiler)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Icon(PhosphorIconsRegular.eyeSlash, size: 16, color: theme.secondaryText),
+                      const SizedBox(width: DesignTokens.space1),
+                      Text(
+                        'Contém spoiler',
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.secondaryText),
+                      ),
+                    ],
+                  ),
+              ],
             ),
+            BotaoTextual(texto: 'Editar resenha', onPressed: () => _escrever(context)),
           ],
         ];
     }

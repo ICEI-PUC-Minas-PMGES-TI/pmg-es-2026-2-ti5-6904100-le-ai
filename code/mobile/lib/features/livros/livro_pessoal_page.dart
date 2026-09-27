@@ -6,6 +6,7 @@ import '../../core/network/api_client.dart';
 import '../../design/theme.dart';
 import '../../design/tokens.dart';
 import '../../design/widgets/banner_aviso.dart';
+import '../../design/widgets/bloco_de_spoiler.dart';
 import '../../design/widgets/botao_primario.dart';
 import '../../design/widgets/botao_textual.dart';
 import '../../design/widgets/capa_livro.dart';
@@ -72,6 +73,9 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
 
   /// Só existe para o dono, e só depois que o servidor disse que não é modo consulta.
   AvaliacaoController? _avaliacao;
+
+  /// Resenha do dono com spoiler, vista por terceiro: fora da árvore até o toque (RF-AVA-03).
+  bool _spoilerRevelado = false;
 
   @override
   void initState() {
@@ -418,7 +422,10 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
                 style: theme.textTheme.titleMedium,
               ),
               const SizedBox(height: DesignTokens.space3),
-              Text(resenha.texto, style: theme.editorialBody),
+              if (resenha.spoiler && !_spoilerRevelado)
+                BlocoDeSpoiler(aoRevelar: () => setState(() => _spoilerRevelado = true))
+              else
+                Text(resenha.texto, style: theme.editorialBody),
               const SizedBox(height: DesignTokens.space3),
               Text(formatarData(resenha.atualizadoEm), style: theme.textTheme.bodySmall),
             ]),

@@ -21,7 +21,7 @@ class LivroAvaliado {
   const LivroAvaliado({required this.titulo, this.autor, this.capaUrl});
 }
 
-enum _SaidaDoPainel { salva, remover }
+enum _SaidaDoPainel { salva, remover, escreverResenha }
 
 const String _erroAoSalvar =
     'Não foi possível salvar sua nota. Verifique sua conexão e tente de novo.';
@@ -32,10 +32,14 @@ const String _erroAoRemover =
 ///
 /// Remover passa por confirmação em modal (RNF-USA-04): o sheet dá lugar ao dialog centrado
 /// (§4.5), e `Cancelar` volta ao painel.
+///
+/// Com [aoEscreverResenha], o painel mostra `Escrever resenha` (§4): a nota escolhida é salva no
+/// caminho e, se o salvamento falhar, o painel fica aberto com o erro, sem abrir o editor.
 Future<void> abrirPainelDeNota(
   BuildContext context, {
   required AvaliacaoController avaliacao,
   required LivroAvaliado livro,
+  VoidCallback? aoEscreverResenha,
 }) async {
   String? erro;
   while (true) {
@@ -44,8 +48,17 @@ Future<void> abrirPainelDeNota(
     }
     final saida = await mostrarFolhaInferior<_SaidaDoPainel>(
       context,
-      builder: (_) => PainelDeNota(avaliacao: avaliacao, livro: livro, erroInicial: erro),
+      builder: (_) => PainelDeNota(
+        avaliacao: avaliacao,
+        livro: livro,
+        erroInicial: erro,
+        comEscreverResenha: aoEscreverResenha != null,
+      ),
     );
+    if (saida == _SaidaDoPainel.escreverResenha) {
+      aoEscreverResenha?.call();
+      return;
+    }
     if (saida != _SaidaDoPainel.remover || !context.mounted) {
       return;
     }
@@ -74,7 +87,16 @@ class PainelDeNota extends StatefulWidget {
   final LivroAvaliado livro;
   final String? erroInicial;
 
-  const PainelDeNota({super.key, required this.avaliacao, required this.livro, this.erroInicial});
+  /// Mostra `Escrever resenha`. O editor não abre dentro de outro editor.
+  final bool comEscreverResenha;
+
+  const PainelDeNota({
+    super.key,
+    required this.avaliacao,
+    required this.livro,
+    this.erroInicial,
+    this.comEscreverResenha = false,
+  });
 
   @override
   State<PainelDeNota> createState() => _PainelDeNotaState();
@@ -85,7 +107,7 @@ class _PainelDeNotaState extends State<PainelDeNota> {
   bool _salvando = false;
   late String? _erro = widget.erroInicial;
 
-  Future<void> _salvar() async {
+  Future<void> _salvar({_SaidaDoPainel saida = _SaidaDoPainel.salva}) async {
     final valor = _escolhido;
     if (valor == null) {
       return;
@@ -97,7 +119,7 @@ class _PainelDeNotaState extends State<PainelDeNota> {
     try {
       await widget.avaliacao.salvarNota(valor);
       if (mounted) {
-        Navigator.of(context).pop(_SaidaDoPainel.salva);
+        Navigator.of(context).pop(saida);
       }
     } on ApiException {
       if (mounted) {
@@ -188,6 +210,19 @@ class _PainelDeNotaState extends State<PainelDeNota> {
         if (_erro != null) ...<Widget>[
           const SizedBox(height: DesignTokens.space2),
           Text(_erro!, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error)),
+        ],
+        if (widget.comEscreverResenha) ...<Widget>[
+          const SizedBox(height: DesignTokens.space2),
+          BotaoTextual(
+            texto: 'Escrever resenha',
+            larguraTotal: true,
+            // A nota escolhida e ainda não salva vai junto; sem mudança, abre direto.
+            onPressed: _salvando
+                ? null
+                : escolhido != null && escolhido != salva?.valor
+                ? () => _salvar(saida: _SaidaDoPainel.escreverResenha)
+                : () => Navigator.of(context).pop(_SaidaDoPainel.escreverResenha),
+          ),
         ],
         if (salva != null) ...<Widget>[
           const SizedBox(height: DesignTokens.space2),

@@ -21,6 +21,8 @@ class AvaliacaoController extends ChangeNotifier {
   /// uma segunda nota (RNF-ERR-04); trocar o valor é outra intenção.
   final ChaveDaIntencao _chaveDaNota = ChaveDaIntencao();
   final ChaveDaIntencao _chaveDaRemocao = ChaveDaIntencao();
+  final ChaveDaIntencao _chaveDaResenha = ChaveDaIntencao();
+  final ChaveDaIntencao _chaveDaExclusao = ChaveDaIntencao();
 
   bool _descartado = false;
 
@@ -58,6 +60,29 @@ class AvaliacaoController extends ChangeNotifier {
     );
     await _servico.excluirNota(livroId, idempotencyKey: chave);
     avaliacao = (avaliacao ?? MinhaAvaliacao(livroId: livroId)).comNota(null);
+    _avisar();
+  }
+
+  /// Publica ou salva a resenha. Lança [ApiException] para o editor mostrar o erro com o texto
+  /// preservado.
+  Future<void> salvarResenha(String texto, {required bool spoiler}) async {
+    final chave = _chaveDaResenha.para('$spoiler|$texto', ApiClient.newIdempotencyKey);
+    final salva = await _servico.salvarResenha(
+      livroId,
+      texto: texto,
+      spoiler: spoiler,
+      idempotencyKey: chave,
+    );
+    avaliacao = (avaliacao ?? MinhaAvaliacao(livroId: livroId)).comResenha(salva);
+    estado = EstadoDaAvaliacao.pronta;
+    _avisar();
+  }
+
+  /// Exclui a resenha depois da confirmação irreversível (RNF-USA-04). A nota não é afetada.
+  Future<void> excluirResenha() async {
+    final chave = _chaveDaExclusao.para(resenha?.id ?? '', ApiClient.newIdempotencyKey);
+    await _servico.excluirResenha(livroId, idempotencyKey: chave);
+    avaliacao = (avaliacao ?? MinhaAvaliacao(livroId: livroId)).comResenha(null);
     _avisar();
   }
 

@@ -4,12 +4,14 @@ import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../app/cabecalho_tela.dart';
 import '../../design/theme.dart';
 import '../../design/tokens.dart';
+import '../../design/widgets/bloco_de_spoiler.dart';
 import '../../design/widgets/botao_primario.dart';
 import '../../design/widgets/botao_textual.dart';
 import '../../design/widgets/capa_livro.dart';
 import '../../design/widgets/entrada_suave.dart';
 import '../avaliacao/avaliacao_controller.dart';
 import '../avaliacao/bloco_sua_avaliacao.dart';
+import '../avaliacao/escrever_resenha_page.dart';
 import '../avaliacao/leitura_service.dart';
 import '../avaliacao/painel_de_nota.dart';
 import '../perfil/widgets_de_perfil.dart';
@@ -125,14 +127,7 @@ class _LivroOficialPageState extends State<LivroOficialPage> {
         children: <Widget>[
           _Hero(livro: livro.resumo),
           const SizedBox(height: DesignTokens.space8),
-          BlocoSuaAvaliacao(
-            avaliacao: _avaliacao,
-            livro: LivroAvaliado(
-              titulo: livro.resumo.titulo,
-              autor: livro.resumo.autoresParaExibir,
-              capaUrl: livro.resumo.capaUrl,
-            ),
-          ),
+          BlocoSuaAvaliacao(avaliacao: _avaliacao, livro: _livroAvaliado(livro)),
           const SizedBox(height: DesignTokens.space6),
           _Secao(titulo: 'Sinopse', child: _sinopse(theme)),
           const SizedBox(height: DesignTokens.space6),
@@ -143,6 +138,12 @@ class _LivroOficialPageState extends State<LivroOficialPage> {
       ),
     );
   }
+
+  LivroAvaliado _livroAvaliado(LivroOficialDetalhe livro) => LivroAvaliado(
+    titulo: livro.resumo.titulo,
+    autor: livro.resumo.autoresParaExibir,
+    capaUrl: livro.resumo.capaUrl,
+  );
 
   Widget _sinopse(ThemeData theme) {
     final sinopse = _pagina.sinopse;
@@ -195,10 +196,25 @@ class _LivroOficialPageState extends State<LivroOficialPage> {
               texto: 'Tentar de novo',
               onPressed: _pagina.carregandoResenhas ? null : _pagina.carregarResenhas,
             ),
-          ] else if (vazia)
+          ] else if (vazia) ...<Widget>[
             // A lista é filtrada por RN-08: "sem resenhas" pode ser "nenhuma para você".
-            Text('Ninguém que você segue escreveu sobre este livro.', style: secundario)
-          else ...<Widget>[
+            Text('Ninguém que você segue escreveu sobre este livro.', style: secundario),
+            // Só para quem ainda não escreveu: a resenha própria fica em "Sua avaliação".
+            ListenableBuilder(
+              listenable: _avaliacao,
+              builder: (context, _) =>
+                  _avaliacao.estado == EstadoDaAvaliacao.pronta && _avaliacao.resenha == null
+                  ? BotaoTextual(
+                      texto: 'Escrever a primeira',
+                      onPressed: () => abrirEditorDeResenha(
+                        context,
+                        avaliacao: _avaliacao,
+                        livro: _livroAvaliado(_pagina.livro!),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+          ] else ...<Widget>[
             for (final (indice, resenha) in resenhas.indexed) ...<Widget>[
               if (indice > 0) const SizedBox(height: DesignTokens.space6),
               _Resenha(key: ValueKey<String>(resenha.id), resenha: resenha),
@@ -361,7 +377,7 @@ class _ResenhaState extends State<_Resenha> {
         AnimatedSwitcher(
           duration: DesignTokens.durFast,
           child: oculta
-              ? _BlocoDeSpoiler(aoRevelar: () => setState(() => _revelada = true))
+              ? BlocoDeSpoiler(aoRevelar: () => setState(() => _revelada = true))
               : Text(
                   resenha.texto,
                   key: const ValueKey<String>('texto'),
@@ -374,43 +390,6 @@ class _ResenhaState extends State<_Resenha> {
           style: theme.textTheme.bodySmall?.copyWith(color: theme.tertiaryText),
         ),
       ],
-    );
-  }
-}
-
-/// Resenha com spoiler (pagina-do-livro.md §4.6): o conteúdo simplesmente não está renderizado
-/// até o toque, nem borrado nem censurado por caractere.
-class _BlocoDeSpoiler extends StatelessWidget {
-  final VoidCallback aoRevelar;
-
-  const _BlocoDeSpoiler({required this.aoRevelar});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      key: const ValueKey<String>('spoiler'),
-      width: double.infinity,
-      constraints: const BoxConstraints(minHeight: 96),
-      padding: const EdgeInsets.all(DesignTokens.space4),
-      decoration: BoxDecoration(
-        color: theme.elevatedSurface,
-        borderRadius: BorderRadius.circular(DesignTokens.radius),
-        border: Border.all(color: theme.divider),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: <Widget>[
-          Icon(PhosphorIconsRegular.eyeSlash, size: 20, color: theme.secondaryText),
-          const SizedBox(height: DesignTokens.space2),
-          Text(
-            'Esta resenha contém spoiler',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall?.copyWith(color: theme.secondaryText),
-          ),
-          BotaoTextual(texto: 'Mostrar mesmo assim', onPressed: aoRevelar),
-        ],
-      ),
     );
   }
 }

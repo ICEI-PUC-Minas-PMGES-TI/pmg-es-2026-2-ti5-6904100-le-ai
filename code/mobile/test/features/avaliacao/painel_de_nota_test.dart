@@ -21,12 +21,16 @@ void main() {
   late List<http.Request> pedidos;
   late AvaliacaoController avaliacao;
 
+  late int escritasDeResenha;
+
   /// Página mínima com um botão que abre o painel, como a página do livro faz.
   Future<void> montar(
     WidgetTester tester, {
     double? notaSalva,
     Future<http.Response> Function(http.Request)? escrita,
+    bool comEscreverResenha = false,
   }) async {
+    escritasDeResenha = 0;
     usarTelaDeCelular(tester);
     pedidos = <http.Request>[];
     avaliacao = AvaliacaoController(
@@ -49,7 +53,12 @@ void main() {
       envolver(
         Builder(
           builder: (context) => ElevatedButton(
-            onPressed: () => abrirPainelDeNota(context, avaliacao: avaliacao, livro: _livro),
+            onPressed: () => abrirPainelDeNota(
+              context,
+              avaliacao: avaliacao,
+              livro: _livro,
+              aoEscreverResenha: comEscreverResenha ? () => escritasDeResenha++ : null,
+            ),
             child: const Text('Abrir painel'),
           ),
         ),
@@ -175,5 +184,44 @@ void main() {
 
     expect(find.byType(PainelDeNota), findsOneWidget);
     expect(pedidos.where((p) => p.method == 'DELETE'), isEmpty);
+  });
+
+  testWidgets('"Escrever resenha" salva a nota escolhida no caminho e abre o editor', (
+    tester,
+  ) async {
+    await montar(
+      tester,
+      comEscreverResenha: true,
+      escrita: (_) async => json(notaJson(_id, 4), 200),
+    );
+
+    await tocarEstrela(tester, 4);
+    await tester.tap(find.text('Escrever resenha'));
+    await tester.pumpAndSettle();
+
+    expect(pedidos.where((p) => p.method == 'PUT'), hasLength(1));
+    expect(escritasDeResenha, 1);
+    expect(find.byType(PainelDeNota), findsNothing);
+  });
+
+  testWidgets('"Escrever resenha" com falha ao salvar a nota fica no painel e não abre o editor', (
+    tester,
+  ) async {
+    await montar(
+      tester,
+      comEscreverResenha: true,
+      escrita: (_) async => erro(500, 'ERRO_INTERNO', 'Ocorreu um erro inesperado.'),
+    );
+
+    await tocarEstrela(tester, 4);
+    await tester.tap(find.text('Escrever resenha'));
+    await tester.pumpAndSettle();
+
+    expect(escritasDeResenha, 0);
+    expect(find.byType(PainelDeNota), findsOneWidget);
+    expect(
+      find.text('Não foi possível salvar sua nota. Verifique sua conexão e tente de novo.'),
+      findsOneWidget,
+    );
   });
 }

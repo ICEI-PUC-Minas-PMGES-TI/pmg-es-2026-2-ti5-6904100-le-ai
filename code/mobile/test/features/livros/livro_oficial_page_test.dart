@@ -116,6 +116,44 @@ void main() {
     expect(find.bySemanticsLabel('Sua nota: 0. Alterar'), findsOneWidget);
   });
 
+  testWidgets('sem resenha própria: "Escrever resenha" no bloco e "Escrever a primeira" na lista', (
+    tester,
+  ) async {
+    await montar(tester, (request) async => json(_livro(), 200));
+    await tester.pump();
+
+    expect(find.text('Escrever resenha'), findsOneWidget);
+    expect(find.text('Escrever a primeira'), findsOneWidget);
+  });
+
+  testWidgets('com resenha própria: texto, marca de spoiler e "Editar resenha"', (tester) async {
+    await montar(
+      tester,
+      (request) async => json(_livro(), 200),
+      leitura: (_) async => json(<String, Object?>{
+        'livroId': _id,
+        'nota': null,
+        'resenha': <String, Object?>{
+          'id': 'r1',
+          'usuarioId': 'u1',
+          'livroId': _id,
+          'texto': 'Minha leitura do livro.',
+          'spoiler': true,
+          'criadoEm': '2026-08-22T12:00:00.000Z',
+          'atualizadoEm': '2026-08-22T12:00:00.000Z',
+        },
+      }, 200),
+    );
+    await tester.pump();
+
+    // O dono vê o próprio texto mesmo com spoiler.
+    expect(find.text('Minha leitura do livro.'), findsOneWidget);
+    expect(find.text('Publicada em 22 de agosto de 2026'), findsOneWidget);
+    expect(find.text('Contém spoiler'), findsOneWidget);
+    expect(find.text('Editar resenha'), findsOneWidget);
+    expect(find.text('Escrever a primeira'), findsNothing);
+  });
+
   testWidgets('leitura fora do ar: a página abre e só o bloco mostra o erro', (tester) async {
     await montar(
       tester,
