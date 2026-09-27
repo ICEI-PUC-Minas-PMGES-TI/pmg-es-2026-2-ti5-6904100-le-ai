@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNumber } from 'class-validator';
+import { IsBoolean, IsNumber, IsString } from 'class-validator';
 
 /**
  * Entrada de `PUT /livros/{livroId}/nota` (`NotaEntrada` no contrato).
@@ -22,6 +22,23 @@ export class NotaEntradaDto {
     { message: 'Informe a nota como número.' },
   )
   valor!: number;
+}
+
+/**
+ * Entrada de `PUT /livros/{livroId}/resenha` (`ResenhaEntrada` no contrato).
+ *
+ * O DTO só garante os tipos: `texto` string e `spoiler` booleano, ambos obrigatórios (400). O
+ * limite de 5.000 caracteres conta code points e é regra de negócio (422) — por isso não há
+ * `@MaxLength`, que conta unidades UTF-16 e divergiria do `char_length` do banco.
+ */
+export class ResenhaEntradaDto {
+  @ApiProperty({ minLength: 1, maxLength: 5000 })
+  @IsString({ message: 'Informe o texto da resenha.' })
+  texto!: string;
+
+  @ApiProperty()
+  @IsBoolean({ message: 'Informe se a resenha contém spoiler.' })
+  spoiler!: boolean;
 }
 
 /** `Nota` do contrato. */

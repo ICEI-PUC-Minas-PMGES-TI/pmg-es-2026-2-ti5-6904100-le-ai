@@ -1,5 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { NaoEncontrado, ServicoIndisponivel } from '../common/erros-de-negocio';
+import {
+  AcessoNegado,
+  EntidadeInvalida,
+  NaoEncontrado,
+  ServicoIndisponivel,
+} from '../common/erros-de-negocio';
 import {
   OPERACOES,
   operacaoNoCaminho,
@@ -8,7 +13,11 @@ import {
   IdempotenciaService,
   RespostaIdempotente,
 } from '../common/idempotencia/idempotencia.service';
-import { ehFalhaDeContratoExterno } from '../common/pg-erros';
+import {
+  codigoDoPostgres,
+  ehFalhaDeContratoExterno,
+  VIOLACAO_DE_CHECK,
+} from '../common/pg-erros';
 import { DRIZZLE, DrizzleDB } from '../db/drizzle.module';
 import type { Tx } from '../db/tipos';
 import { OutboxRepository } from '../outbox/outbox.repository';
@@ -21,10 +30,15 @@ import {
 import { MinhaAvaliacaoDto, NotaDto, ResenhaDto } from './dto/avaliacao.dto';
 import {
   chaveDeNegocioDaNota,
+  chaveDeNegocioDaResenhaExcluida,
+  chaveDeNegocioDaResenhaPublicada,
   DadosNotaAlterada,
+  DadosResenhaPublicada,
   NOTA_ALTERADA,
+  RESENHA_EXCLUIDA,
+  RESENHA_PUBLICADA,
 } from './eventos';
-import { validarValorDaNota } from './regras';
+import { urlOuNulo, validarTextoDaResenha, validarValorDaNota } from './regras';
 
 /**
  * Nota e resenha do leitor para um livro (F-AVA). Pertencem ao **livro**, não à
@@ -127,6 +141,111 @@ export class AvaliacoesService {
     );
   }
 
+  async salvarResenha(
+    usuarioId: string,
+    livroId: string,
+    chave: string,
+    entrada: { texto: string; spoiler: boolean },
+  ): Promise<RespostaIdempotente<ResenhaDto>> {
+    validarTextoDaResenha(entrada.texto);
+
+    return this.comContratoExterno(() =>
+      this.idempotencia.executar<ResenhaDto>(
+        {
+          subjectRef: usuarioId,
+          operacao: operacaoNoCaminho(OPERACOES.SALVAR_RESENHA, livroId),
+          chave,
+          payload: entrada,
+        },
+        async (tx) => {
+          const livro = await this.exigirLivroAcessivel(tx, livroId, usuarioId);
+          // A VIEW de perfil já omite conta suspensa ou em exclusão: sem linha, não publica.
+          const perfil = await this.repositorio.perfilDeReferencia(
+            tx,
+            usuarioId,
+          );
+          if (!perfil) {
+            throw new AcessoNegado();
+          }
+
+          const gravada = await this.comLimiteDoBanco(() =>
+            this.repositorio.salvarResenha(
+              tx,
+              usuarioId,
+              livroId,
+              entrada.texto,
+              entrada.spoiler,
+            ),
+          );
+
+          // Só a criação vira atividade no feed; editar não publica nada.
+          if (gravada.criada) {
+            const dados: DadosResenhaPublicada = {
+              usuarioId,
+              resenhaId: gravada.id,
+              livroId,
+              atualizacao: false,
+              usuario: {
+                id: perfil.id,
+                username: perfil.username,
+                displayName: perfil.nomeExibicao,
+                avatarUrl: urlOuNulo(perfil.avatarUrl),
+              },
+              livro: {
+                id: livro.livroId,
+                tipo: livro.tipo === 'pessoal' ? 'pessoal' : 'oficial',
+                titulo: livro.titulo,
+                autor: livro.autorExibicao,
+                capaUrl: urlOuNulo(livro.capaResolvida),
+              },
+            };
+            await this.outbox.inserir(tx, {
+              ...RESENHA_PUBLICADA,
+              chaveNegocio: chaveDeNegocioDaResenhaPublicada(gravada.id),
+              payload: dados,
+            });
+          }
+          return { status: 200, corpo: paraResenha(gravada) };
+        },
+      ),
+    );
+  }
+
+  async excluirResenha(
+    usuarioId: string,
+    livroId: string,
+    chave: string,
+  ): Promise<RespostaIdempotente<null>> {
+    return this.comContratoExterno(() =>
+      this.idempotencia.executar<null>(
+        {
+          subjectRef: usuarioId,
+          operacao: operacaoNoCaminho(OPERACOES.EXCLUIR_RESENHA, livroId),
+          chave,
+          payload: {},
+        },
+        async (tx) => {
+          await this.exigirLivroAcessivel(tx, livroId, usuarioId);
+
+          const resenhaId = await this.repositorio.excluirResenha(
+            tx,
+            usuarioId,
+            livroId,
+          );
+          // Sem resenha para excluir: 204 sem evento.
+          if (resenhaId) {
+            await this.outbox.inserir(tx, {
+              ...RESENHA_EXCLUIDA,
+              chaveNegocio: chaveDeNegocioDaResenhaExcluida(resenhaId),
+              payload: { usuarioId, resenhaId, livroId },
+            });
+          }
+          return { status: 204, corpo: null };
+        },
+      ),
+    );
+  }
+
   async minhaAvaliacao(
     usuarioId: string,
     livroId: string,
@@ -177,6 +296,27 @@ export class AvaliacoesService {
       chaveNegocio: chaveDeNegocioDaNota(dados.usuarioId, dados.livroId),
       payload: dados,
     });
+  }
+
+  /**
+   * O CHECK `resenha_texto_ck` (`char_length` entre 1 e 5.000) é a última barreira. A regra já
+   * foi validada antes, com a mesma contagem; se ainda assim o banco recusar, o erro é do
+   * cliente (422), não um 500.
+   */
+  private async comLimiteDoBanco<T>(operacao: () => Promise<T>): Promise<T> {
+    try {
+      return await operacao();
+    } catch (erro) {
+      if (codigoDoPostgres(erro) === VIOLACAO_DE_CHECK) {
+        throw new EntidadeInvalida([
+          {
+            campo: 'texto',
+            mensagem: 'A resenha precisa ter de 1 a 5.000 caracteres.',
+          },
+        ]);
+      }
+      throw erro;
+    }
   }
 
   /**

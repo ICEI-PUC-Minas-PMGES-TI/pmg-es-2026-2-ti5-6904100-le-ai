@@ -28,6 +28,8 @@ import {
   MinhaAvaliacaoDto,
   NotaDto,
   NotaEntradaDto,
+  ResenhaDto,
+  ResenhaEntradaDto,
 } from './dto/avaliacao.dto';
 
 const livroIdValido = new ParseUUIDPipe({
@@ -97,6 +99,63 @@ export class AvaliacoesController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<void> {
     await this.servico.excluirNota(usuario.id, livroId, chave);
+    res.status(204);
+  }
+
+  @Put('resenha')
+  @UseGuards(RateLimitGuard)
+  @RateLimit({
+    porIdentidade: 30,
+    porIp: 120,
+    janelaSegundos: 60,
+    escopo: 'salvar-resenha',
+  })
+  @ApiOperation({
+    operationId: 'salvarResenha',
+    summary: 'Cria ou atualiza a resenha do leitor para o livro',
+    description:
+      'Uma resenha por usuário e livro, texto cru de até 5.000 caracteres (RN-07). Só a criação publica resenha.publicada.',
+  })
+  @ApiOkResponse({ type: ResenhaDto })
+  async salvarResenha(
+    @Param('livroId', livroIdValido) livroId: string,
+    @UsuarioAtual() usuario: UsuarioAutenticado,
+    @IdempotencyKey() chave: string,
+    @Body() entrada: ResenhaEntradaDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<ResenhaDto> {
+    const { status, corpo } = await this.servico.salvarResenha(
+      usuario.id,
+      livroId,
+      chave,
+      { texto: entrada.texto, spoiler: entrada.spoiler },
+    );
+    res.status(status);
+    return corpo;
+  }
+
+  @Delete('resenha')
+  @UseGuards(RateLimitGuard)
+  @RateLimit({
+    porIdentidade: 30,
+    porIp: 120,
+    janelaSegundos: 60,
+    escopo: 'excluir-resenha',
+  })
+  @ApiOperation({
+    operationId: 'excluirResenha',
+    summary: 'Exclui fisicamente a resenha do leitor',
+    description:
+      'A confirmação irreversível é do cliente (RNF-USA-04). Sem resenha, responde 204 sem evento.',
+  })
+  @ApiNoContentResponse({ description: 'Resenha removida ou já ausente.' })
+  async excluirResenha(
+    @Param('livroId', livroIdValido) livroId: string,
+    @UsuarioAtual() usuario: UsuarioAutenticado,
+    @IdempotencyKey() chave: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<void> {
+    await this.servico.excluirResenha(usuario.id, livroId, chave);
     res.status(204);
   }
 

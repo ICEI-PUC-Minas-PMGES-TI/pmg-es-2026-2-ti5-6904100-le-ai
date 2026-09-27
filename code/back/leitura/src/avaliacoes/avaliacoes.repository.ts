@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { and, eq, sql } from 'drizzle-orm';
-import { vLivroReferencia } from '../db/contratos-externos';
+import { vLivroReferencia, vPerfilReferencia } from '../db/contratos-externos';
 import type { DrizzleDB } from '../db/drizzle.module';
 import { nota, resenha } from '../db/schema';
 import type { Tx } from '../db/tipos';
@@ -16,6 +16,13 @@ export interface LivroDeReferencia {
   autorExibicao: string | null;
   capaResolvida: string | null;
   ativo: boolean;
+}
+
+export interface PerfilDeReferencia {
+  id: string;
+  username: string;
+  nomeExibicao: string;
+  avatarUrl: string | null;
 }
 
 export interface NotaGravada {
@@ -121,6 +128,77 @@ export class AvaliacoesRepository {
       .returning({ id: nota.id });
 
     return removidas.length > 0;
+  }
+
+  /**
+   * Linha de `identidade.v_perfil_referencia_v1`. A VIEW já omite conta suspensa ou em
+   * exclusão: sem linha, o leitor não publica.
+   */
+  async perfilDeReferencia(
+    leitor: Leitor,
+    usuarioId: string,
+  ): Promise<PerfilDeReferencia | null> {
+    const [linha] = await leitor
+      .select({
+        id: vPerfilReferencia.id,
+        username: vPerfilReferencia.username,
+        nomeExibicao: vPerfilReferencia.nomeExibicao,
+        avatarUrl: vPerfilReferencia.avatarUrl,
+      })
+      .from(vPerfilReferencia)
+      .where(eq(vPerfilReferencia.id, usuarioId))
+      .limit(1);
+
+    return (linha as PerfilDeReferencia | undefined) ?? null;
+  }
+
+  /**
+   * Cria ou atualiza a resenha numa instrução só: duas chaves diferentes criando a primeira
+   * resenha ao mesmo tempo geram uma linha e um evento (`ON CONFLICT` pelo índice único
+   * `resenha_usuario_livro_uk`). `xmax = 0` indica linha inserida.
+   */
+  async salvarResenha(
+    tx: Tx,
+    usuarioId: string,
+    livroId: string,
+    texto: string,
+    spoiler: boolean,
+  ): Promise<ResenhaGravada & { criada: boolean }> {
+    const [linha] = await tx
+      .insert(resenha)
+      .values({ usuarioId, livroId, texto, spoiler })
+      .onConflictDoUpdate({
+        target: [resenha.usuarioId, resenha.livroId],
+        set: { texto, spoiler, atualizadoEm: sql`now()` },
+      })
+      .returning({
+        id: resenha.id,
+        usuarioId: resenha.usuarioId,
+        livroId: resenha.livroId,
+        texto: resenha.texto,
+        spoiler: resenha.spoiler,
+        criadoEm: resenha.criadoEm,
+        atualizadoEm: resenha.atualizadoEm,
+        criada: sql<boolean>`(xmax = 0)`,
+      });
+
+    return linha;
+  }
+
+  /** Id da resenha removida, ou `null` quando não havia resenha. */
+  async excluirResenha(
+    tx: Tx,
+    usuarioId: string,
+    livroId: string,
+  ): Promise<string | null> {
+    const [removida] = await tx
+      .delete(resenha)
+      .where(
+        and(eq(resenha.usuarioId, usuarioId), eq(resenha.livroId, livroId)),
+      )
+      .returning({ id: resenha.id });
+
+    return removida?.id ?? null;
   }
 
   async resenhaAtual(
