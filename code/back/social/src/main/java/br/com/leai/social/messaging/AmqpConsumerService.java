@@ -74,7 +74,6 @@ public final class AmqpConsumerService {
   private void startRegistration(Channel channel, Registration registration) {
     try {
       ConsumerDefinition definition = registration.definition();
-      channel.exchangeDeclare(definition.exchange(), BuiltinExchangeType.TOPIC, true, false, null);
       channel.exchangeDeclare(
           MessagingConstants.DEAD_LETTER_EXCHANGE, BuiltinExchangeType.DIRECT, true, false, null);
       String dlq = definition.queue() + ".dlq";
@@ -82,8 +81,12 @@ public final class AmqpConsumerService {
       channel.queueBind(dlq, MessagingConstants.DEAD_LETTER_EXCHANGE, definition.queue());
       channel.queueDeclare(
           definition.queue(), true, false, false, MessagingConstants.deadLetterArguments(definition.queue()));
-      for (String routingKey : definition.routingKeys()) {
-        channel.queueBind(definition.queue(), definition.exchange(), routingKey);
+      for (Map.Entry<String, List<String>> binding :
+          definition.routingKeysByExchange().entrySet()) {
+        channel.exchangeDeclare(binding.getKey(), BuiltinExchangeType.TOPIC, true, false, null);
+        for (String routingKey : binding.getValue()) {
+          channel.queueBind(definition.queue(), binding.getKey(), routingKey);
+        }
       }
       channel.basicQos(1);
       channel.basicConsume(

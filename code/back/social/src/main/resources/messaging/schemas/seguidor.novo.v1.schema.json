@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://leai.app/schemas/mensageria/seguidor.novo.v1.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["destinatarioId", "seguimentoId", "seguidor"],
+  "properties": {
+    "destinatarioId": { "type": "string", "format": "uuid" },
+    "seguimentoId": { "type": "string", "format": "uuid" },
+    "seguidor": { "$ref": "common-v1.schema.json#/$defs/UsuarioSnapshot" }
+  }
+}
