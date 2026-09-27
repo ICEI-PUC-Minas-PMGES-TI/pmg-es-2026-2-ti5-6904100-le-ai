@@ -93,6 +93,16 @@ describe('VerificadorJwt', () => {
     expect(() => verificador().verificar(token)).toThrow(NaoAutenticado);
   });
 
+  // O `jwt.verify` só confere a expiração quando `exp` existe; sem ele, o token nunca venceria.
+  it('recusa token sem exp', () => {
+    const token = jwt.sign({ username: 'leitora' }, SEGREDO, {
+      algorithm: 'HS256',
+      issuer: 'identidade',
+      subject: ID,
+    });
+    expect(() => verificador().verificar(token)).toThrow(NaoAutenticado);
+  });
+
   it('recusa lixo no lugar do token', () => {
     expect(() => verificador().verificar('nao.e.um.token')).toThrow(
       NaoAutenticado,
