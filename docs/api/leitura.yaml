@@ -29,8 +29,8 @@ x-database-contracts:
       projeção incremental do acervo usa o evento nota.alterada.
     columns: [usuario_id, livro_id, valor]
 servers:
-  - url: http://localhost:3000
-    description: local
+  - url: http://localhost:3001
+    description: local (a 3000 é do acervo)
 tags:
   - name: health
     description: Sondagem de disponibilidade
