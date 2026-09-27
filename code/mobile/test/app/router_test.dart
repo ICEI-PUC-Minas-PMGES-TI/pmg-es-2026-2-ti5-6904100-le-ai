@@ -18,6 +18,8 @@ import 'package:le_ai_mobile/features/perfil/avatar.dart';
 import 'package:le_ai_mobile/features/perfil/perfil_service.dart';
 import 'package:le_ai_mobile/features/perfil/rotas_perfil.dart';
 
+import '../features/estante/apoio_estante.dart';
+
 /// Testa a guarda através de um `GoRouter` de verdade dirigido por `router.go()`, em vez de
 /// montar um `GoRouterState` à mão: o construtor dele exige uma `RouteConfiguration` interna do
 /// pacote, feita para ser montada pelo próprio `GoRouter`, não por um teste. Mais barato e menos
@@ -94,6 +96,7 @@ void main() {
       sessionController: sessionController,
       authService: AuthService(apiClient),
       perfil: _perfilSimulado(),
+      leitura: estanteVazia(),
       livros: DependenciasDeLivros(
         acervo: AcervoService(
           ApiClient(
@@ -107,24 +110,23 @@ void main() {
     );
   });
 
-  testWidgets(
-    'sem sessao, deep link para rota protegida preserva o destino ate o login resolver',
-    (tester) async {
-      await tester.pumpWidget(_wrap(router));
-      await tester.pumpAndSettle();
-      expect(find.text('Criar conta'), findsOneWidget);
+  testWidgets('sem sessao, deep link para rota protegida preserva o destino ate o login resolver', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_wrap(router));
+    await tester.pumpAndSettle();
+    expect(find.text('Criar conta'), findsOneWidget);
 
-      router.go('/perfil');
-      await tester.pumpAndSettle();
-      // Ainda sem sessão: a guarda manda de volta para /login, preservando ?destino=/perfil.
-      expect(find.text('Criar conta'), findsOneWidget);
+    router.go('/perfil');
+    await tester.pumpAndSettle();
+    // Ainda sem sessão: a guarda manda de volta para /login, preservando ?destino=/perfil.
+    expect(find.text('Criar conta'), findsOneWidget);
 
-      await sessionController.entrar('jwt-valido');
-      await tester.pumpAndSettle();
-      // refreshListenable reavalia a guarda sozinho: com sessão, /login vira o destino salvo.
-      expect(find.text('Marina Beltrão'), findsOneWidget);
-    },
-  );
+    await sessionController.entrar('jwt-valido');
+    await tester.pumpAndSettle();
+    // refreshListenable reavalia a guarda sozinho: com sessão, /login vira o destino salvo.
+    expect(find.text('Marina Beltrão'), findsOneWidget);
+  });
 
   testWidgets('com sessao ativa, ir para /login redireciona para /estante', (tester) async {
     await sessionController.entrar('jwt-valido');
@@ -134,7 +136,7 @@ void main() {
     router.go('/login');
     await tester.pumpAndSettle();
 
-    expect(find.text('Sua estante aparece aqui.'), findsOneWidget);
+    expect(find.text('Sua estante está vazia'), findsOneWidget);
   });
 
   testWidgets('trocar de aba preserva a pilha de cada branch', (tester) async {
@@ -148,7 +150,7 @@ void main() {
 
     await tester.tap(find.text('Estante'));
     await tester.pumpAndSettle();
-    expect(find.text('Sua estante aparece aqui.'), findsOneWidget);
+    expect(find.text('Sua estante está vazia'), findsOneWidget);
   });
 
   testWidgets('Descobrir leva ao cadastro por ISBN, que troca o cabeçalho da aba pelo da tela', (
@@ -209,14 +211,14 @@ void main() {
           ),
         ),
         perfil: _perfilSimulado(),
+        leitura: estanteVazia(),
         livros: DependenciasDeLivros(
           acervo: AcervoService(
             ApiClient(
               baseUrl: 'http://localhost:3000',
               client: MockClient((request) async {
                 final ehLivroPessoal = request.url.path.contains('/livros/pessoal');
-                if (ehLivroPessoal &&
-                    (request.method == 'POST' || request.method == 'GET')) {
+                if (ehLivroPessoal && (request.method == 'POST' || request.method == 'GET')) {
                   return http.Response(
                     livroJson,
                     request.method == 'POST' ? 201 : 200,
@@ -245,13 +247,8 @@ void main() {
       await tester.pumpAndSettle();
 
       Future<void> preencher(String label, String valor) async {
-        final campo = find
-            .ancestor(of: find.text(label), matching: find.byType(Column))
-            .first;
-        await tester.enterText(
-          find.descendant(of: campo, matching: find.byType(TextField)),
-          valor,
-        );
+        final campo = find.ancestor(of: find.text(label), matching: find.byType(Column)).first;
+        await tester.enterText(find.descendant(of: campo, matching: find.byType(TextField)), valor);
         await tester.pump();
       }
 
@@ -309,6 +306,7 @@ void main() {
         ),
       ),
       perfil: _perfilSimulado(),
+      leitura: estanteVazia(),
       livros: DependenciasDeLivros(
         acervo: AcervoService(ApiClient(baseUrl: 'http://localhost:3000')),
         seletor: _SemImagem(),

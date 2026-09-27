@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/config/app_config.dart';
 import '../../core/network/api_client.dart';
+import '../estante/leitura_service.dart';
 import 'acervo_service.dart';
 import 'cadastro_isbn_page.dart';
 import 'capa.dart';
@@ -25,11 +26,7 @@ class DependenciasDeLivros {
   final SeletorDeImagem seletor;
   final EnviadorDeCapa enviador;
 
-  const DependenciasDeLivros({
-    required this.acervo,
-    required this.seletor,
-    required this.enviador,
-  });
+  const DependenciasDeLivros({required this.acervo, required this.seletor, required this.enviador});
 
   factory DependenciasDeLivros.padrao({
     required String? Function() getToken,
@@ -82,8 +79,7 @@ List<RouteBase> rotasDeDescobrir(DependenciasDeLivros deps) => <RouteBase>[
         builder: (context, state) => IsbnNaoEncontradoPage(
           isbn: state.uri.queryParameters['isbn'],
           aoConferirIsbn: () => context.pop(true),
-          aoCadastrarPessoal: () =>
-              context.pushReplacement('$rotaAdicionarLivro/pessoal'),
+          aoCadastrarPessoal: () => context.pushReplacement('$rotaAdicionarLivro/pessoal'),
         ),
       ),
       GoRoute(
@@ -112,13 +108,16 @@ List<RouteBase> rotasDeDescobrir(DependenciasDeLivros deps) => <RouteBase>[
   ),
   GoRoute(
     path: 'livro/:id',
-    builder: (context, state) => LivroOficialPlaceholderPage(
-      aoVoltar: () => _voltar(context, '/descobrir'),
-    ),
+    builder: (context, state) =>
+        LivroOficialPlaceholderPage(aoVoltar: () => _voltar(context, '/descobrir')),
   ),
 ];
 
-GoRoute _paginaDoLivroPessoal(DependenciasDeLivros deps, {required String raiz}) {
+GoRoute _paginaDoLivroPessoal(
+  DependenciasDeLivros deps, {
+  required String raiz,
+  LeituraService? leitura,
+}) {
   return GoRoute(
     path: 'livro-pessoal/:id',
     builder: (context, state) {
@@ -136,6 +135,7 @@ GoRoute _paginaDoLivroPessoal(DependenciasDeLivros deps, {required String raiz})
         },
         aoExcluir: () => context.go(rotaEstanteRaiz),
         aoVoltarAoFeed: () => context.go(rotaFeedRaiz),
+        leitura: leitura,
       );
     },
     routes: <RouteBase>[
@@ -156,8 +156,8 @@ GoRoute _paginaDoLivroPessoal(DependenciasDeLivros deps, {required String raiz})
 }
 
 /// O dono chega ao livro pessoal pela própria estante.
-List<RouteBase> rotasDaEstante(DependenciasDeLivros deps) => <RouteBase>[
-  _paginaDoLivroPessoal(deps, raiz: rotaEstanteRaiz),
+List<RouteBase> rotasDaEstante(DependenciasDeLivros deps, LeituraService leitura) => <RouteBase>[
+  _paginaDoLivroPessoal(deps, raiz: rotaEstanteRaiz, leitura: leitura),
 ];
 
 /// O terceiro chega **exclusivamente** pelo feed, com `via=feed&referenciaId=` (RN-15). F-FEED

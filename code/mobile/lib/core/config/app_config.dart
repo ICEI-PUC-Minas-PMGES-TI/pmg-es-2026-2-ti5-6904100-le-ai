@@ -22,6 +22,11 @@ class AppConfig {
     defaultValue: 'http://localhost:3000',
   );
 
+  static const String leituraBaseUrl = String.fromEnvironment(
+    'LEITURA_BASE_URL',
+    defaultValue: 'http://localhost:3000',
+  );
+
   /// Cloud do Cloudinary (P-09). Precisa ser a mesma de `CLOUDINARY_CLOUD_NAME` no `acervo`: o
   /// servidor só aceita capa hospedada em `res.cloudinary.com/<cloud>/image/upload/`.
   static const String cloudinaryCloudName = String.fromEnvironment(

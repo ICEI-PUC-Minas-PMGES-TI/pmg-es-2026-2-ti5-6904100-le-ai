@@ -13,6 +13,10 @@ import '../../design/widgets/cartao_progresso.dart';
 import '../../design/widgets/estado_vazio.dart';
 import '../../design/widgets/etiqueta.dart';
 import '../../design/widgets/folha_inferior.dart';
+import '../estante/acoes_leitura.dart';
+import '../estante/cartao_estante.dart';
+import '../estante/leitura_service.dart';
+import '../estante/textos.dart';
 import 'acervo_service.dart';
 import 'formatos.dart';
 
@@ -36,6 +40,7 @@ class LivroPessoalPage extends StatefulWidget {
   final Future<void> Function(String livroId)? aoEditar;
   final VoidCallback? aoExcluir;
   final VoidCallback? aoVoltarAoFeed;
+  final LeituraService? leitura;
 
   const LivroPessoalPage({
     super.key,
@@ -47,6 +52,7 @@ class LivroPessoalPage extends StatefulWidget {
     this.aoEditar,
     this.aoExcluir,
     this.aoVoltarAoFeed,
+    this.leitura,
   });
 
   @override
@@ -59,6 +65,8 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
   _Carga _carga = _Carga.carregando;
   LivroPessoal? _livro;
   String? _mensagem;
+  ItemEstante? _naEstante;
+  bool _estanteConhecida = false;
 
   @override
   void initState() {
@@ -82,6 +90,9 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
           _livro = livro;
           _carga = _Carga.pronto;
         });
+        if (!livro.modoConsulta) {
+          await _carregarEstante();
+        }
       }
     } on ApiException catch (erro) {
       if (!mounted) {
@@ -97,6 +108,43 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
           _mensagem = erro.message;
         }
       });
+    }
+  }
+
+  Future<void> _carregarEstante() async {
+    final leitura = widget.leitura;
+    if (leitura == null) {
+      return;
+    }
+    try {
+      final item = await leitura.itemDaEstante(widget.livroId);
+      if (mounted) {
+        setState(() {
+          _naEstante = item;
+          _estanteConhecida = true;
+        });
+      }
+    } on ApiException {
+      if (mounted) {
+        setState(() => _estanteConhecida = false);
+      }
+    }
+  }
+
+  Future<void> _abrirAcoesDeLeitura(LeituraService leitura, LivroPessoal livro) async {
+    final item = _naEstante;
+    final novo = await abrirAcoesDeLeitura(
+      context,
+      servico: leitura,
+      livro: LivroDaAcao(
+        livroId: livro.id,
+        livro: LivroDaEstante(titulo: livro.titulo, autor: livro.autor, capaUrl: livro.capaUrl),
+        status: item?.status,
+        leituraId: item?.leituraParaAcoes,
+      ),
+    );
+    if (novo != null && mounted) {
+      await _carregarEstante();
     }
   }
 
@@ -269,6 +317,33 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
     }
   }
 
+  Widget _situacaoNaEstante(ThemeData theme, LeituraService leitura, LivroPessoal livro) {
+    final item = _naEstante;
+    return Column(
+      children: <Widget>[
+        if (item != null)
+          Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: DesignTokens.space3,
+            runSpacing: DesignTokens.space2,
+            children: <Widget>[
+              PillStatus(status: item.status),
+              if (item.vezesLido > 0)
+                Text(
+                  textoVezesLido(item.vezesLido),
+                  style: theme.textTheme.bodySmall?.copyWith(color: theme.secondaryText),
+                ),
+            ],
+          ),
+        BotaoTextual(
+          texto: AcoesDeLeitura.abrir,
+          onPressed: () => _abrirAcoesDeLeitura(leitura, livro),
+        ),
+      ],
+    );
+  }
+
   Widget _conteudo(ThemeData theme, LivroPessoal livro) {
     final consulta = livro.modoConsulta;
     final resenha = livro.resenhaDoDono;
@@ -324,6 +399,10 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
           ),
           const SizedBox(height: DesignTokens.space3),
           const Center(child: Etiqueta(texto: 'Livro pessoal')),
+          if (!consulta && _estanteConhecida && widget.leitura != null) ...<Widget>[
+            const SizedBox(height: DesignTokens.space4),
+            _situacaoNaEstante(theme, widget.leitura!, livro),
+          ],
           if (consulta && nomeDoDono != null) ...<Widget>[
             const SizedBox(height: DesignTokens.space3),
             Row(

@@ -10,6 +10,8 @@ import '../../design/widgets/botao_primario.dart';
 import '../../design/widgets/botao_textual.dart';
 import '../../design/widgets/dialogo_confirmacao.dart';
 import '../../design/widgets/estado_vazio.dart';
+import '../estante/estante_de_perfil.dart';
+import '../estante/leitura_service.dart';
 import 'perfil_service.dart';
 import 'textos.dart';
 import 'widgets_de_perfil.dart';
@@ -20,8 +22,8 @@ import 'widgets_de_perfil.dart';
 /// relação muda com a privacidade e com `relacao`. Quem decide o que é restrito é o servidor
 /// (`conteudoRestrito`), e os serviços donos revalidam (RNF-SEC-03).
 ///
-/// Sem estante nem resenhas quando o conteúdo é visível (`leitura` ainda não expõe as rotas de
-/// perfil); o bloco de restrição, que não depende delas, já existe. Contadores não acionáveis:
+/// Sem resenhas quando o conteúdo é visível; a estante vem de `GET /perfis/{id}/estante`, e o
+/// `403` dela também leva ao bloco de restrição. Contadores não acionáveis:
 /// não há lista do grafo de terceiros (RNF-SEC-19/44).
 class PerfilDeOutroPage extends StatefulWidget {
   final PerfilService servico;
@@ -30,6 +32,7 @@ class PerfilDeOutroPage extends StatefulWidget {
   final VoidCallback aoAbrirProprioPerfil;
   final VoidCallback aoBuscarLeitor;
   final VoidCallback aoAbrirSolicitacoes;
+  final LeituraService? leitura;
 
   const PerfilDeOutroPage({
     super.key,
@@ -39,6 +42,7 @@ class PerfilDeOutroPage extends StatefulWidget {
     required this.aoAbrirProprioPerfil,
     required this.aoBuscarLeitor,
     required this.aoAbrirSolicitacoes,
+    this.leitura,
   });
 
   @override
@@ -52,6 +56,7 @@ class _PerfilDeOutroPageState extends State<PerfilDeOutroPage> {
   bool _falhou = false;
   bool _agindo = false;
   String? _erroDaAcao;
+  bool _estanteRestrita = false;
 
   @override
   void initState() {
@@ -233,7 +238,8 @@ class _PerfilDeOutroPageState extends State<PerfilDeOutroPage> {
           children: <Widget>[
             const BannerAviso(
               variante: VarianteAviso.erro,
-              mensagem: 'Não foi possível carregar este perfil. Verifique sua conexão e tente de novo.',
+              mensagem:
+                  'Não foi possível carregar este perfil. Verifique sua conexão e tente de novo.',
             ),
             const SizedBox(height: DesignTokens.space2),
             BotaoTextual(texto: 'Tentar de novo', onPressed: _carregar),
@@ -243,6 +249,7 @@ class _PerfilDeOutroPageState extends State<PerfilDeOutroPage> {
     }
     final nome = primeiroNome(perfil.displayName);
     final privado = perfil.privacidade == Privacidade.privado;
+    final leitura = widget.leitura;
     return SingleChildScrollView(
       padding: margem,
       child: Column(
@@ -303,7 +310,7 @@ class _PerfilDeOutroPageState extends State<PerfilDeOutroPage> {
               ContadorDePerfil(valor: perfil.seguidos, rotulo: 'seguindo'),
             ],
           ),
-          if (perfil.conteudoRestrito) ...<Widget>[
+          if (perfil.conteudoRestrito || _estanteRestrita) ...<Widget>[
             const SizedBox(height: DesignTokens.space10),
             // §4.3: restrito não é erro. Nenhuma capa nem trecho aparece, nem desfocado.
             EstadoVazio(
@@ -314,13 +321,28 @@ class _PerfilDeOutroPageState extends State<PerfilDeOutroPage> {
                   : 'Envie uma solicitação para ver a estante e as resenhas de $nome.',
             ),
           ],
+          if (!perfil.conteudoRestrito && !_estanteRestrita && leitura != null) ...<Widget>[
+            const SizedBox(height: DesignTokens.space8),
+            EstanteDePerfil(
+              key: ValueKey<String>('estante-de-${perfil.id}'),
+              servico: leitura,
+              usuarioId: perfil.id,
+              primeiroNome: nome,
+              aoMudarRestricao: (restrita) => setState(() => _estanteRestrita = restrita),
+            ),
+          ],
         ],
       ),
     );
   }
 
   Widget _botaoDeRelacao(ThemeData theme, Perfil perfil) {
-    Widget secundario({required IconData icone, required String texto, VoidCallback? aoTocar, Color? corIcone}) {
+    Widget secundario({
+      required IconData icone,
+      required String texto,
+      VoidCallback? aoTocar,
+      Color? corIcone,
+    }) {
       return SizedBox(
         width: double.infinity,
         height: 48,
