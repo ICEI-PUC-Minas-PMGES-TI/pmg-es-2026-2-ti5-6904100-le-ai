@@ -12,10 +12,7 @@ import '../livros/apoio.dart';
 
 const String _id = 'b0a1c2d3-0000-4000-8000-000000000001';
 
-const LivroAvaliado _livro = LivroAvaliado(
-  titulo: 'Torto Arado',
-  autor: 'Itamar Vieira Junior',
-);
+const LivroAvaliado _livro = LivroAvaliado(titulo: 'Torto Arado', autor: 'Itamar Vieira Junior');
 
 void main() {
   late List<http.Request> pedidos;
@@ -77,6 +74,42 @@ void main() {
   }
 
   Finder salvar() => find.widgetWithText(ElevatedButton, 'Salvar nota');
+
+  // A página do livro vive no navegador do shell; o painel sobe ao raiz para o scrim cobrir
+  // também a barra inferior.
+  testWidgets('aberto de dentro do shell, o painel fica no navegador raiz', (tester) async {
+    usarTelaDeCelular(tester);
+    avaliacao = AvaliacaoController(
+      leituraSimulada(
+        (_) async => json(<String, Object?>{'livroId': _id, 'nota': null, 'resenha': null}, 200),
+      ),
+      _id,
+    );
+    addTearDown(avaliacao.dispose);
+    await avaliacao.carregar();
+    final shell = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(
+      envolver(
+        Navigator(
+          key: shell,
+          onGenerateRoute: (_) => MaterialPageRoute<void>(
+            builder: (context) => ElevatedButton(
+              onPressed: () => abrirPainelDeNota(context, avaliacao: avaliacao, livro: _livro),
+              child: const Text('Abrir painel'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Abrir painel'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SeletorDeNota), findsOneWidget);
+    expect(
+      find.descendant(of: find.byKey(shell), matching: find.byType(SeletorDeNota)),
+      findsNothing,
+    );
+  });
 
   testWidgets('sem nota: "Sem nota", Salvar desabilitado e sem Remover', (tester) async {
     await montar(tester);

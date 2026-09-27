@@ -12,10 +12,7 @@ import '../livros/apoio.dart';
 
 const String _id = 'b0a1c2d3-0000-4000-8000-000000000001';
 
-const LivroAvaliado _livro = LivroAvaliado(
-  titulo: 'Torto Arado',
-  autor: 'Itamar Vieira Junior',
-);
+const LivroAvaliado _livro = LivroAvaliado(titulo: 'Torto Arado', autor: 'Itamar Vieira Junior');
 
 Map<String, Object?> _resenha(String texto, {bool spoiler = false}) => <String, Object?>{
   'id': 'r1',
@@ -88,6 +85,16 @@ void main() {
     expect(habilitado(tester, publicar('Publicar')), isFalse);
     expect(find.text('Sem nota'), findsOneWidget);
     expect(find.text('Dar nota'), findsOneWidget);
+  });
+
+  // O tema dá contorno e fundo a todo campo; a área de texto da resenha é o corpo da tela.
+  testWidgets('a área de texto não tem borda nem fundo', (tester) async {
+    await montar(tester);
+
+    final decoracao = tester.widget<TextField>(find.byType(TextField)).decoration!;
+    expect(decoracao.filled, isFalse);
+    expect(decoracao.enabledBorder, InputBorder.none);
+    expect(decoracao.focusedBorder, InputBorder.none);
   });
 
   testWidgets('escrever e publicar envia texto e spoiler e fecha o editor', (tester) async {

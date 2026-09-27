@@ -226,7 +226,11 @@ class _EscreverResenhaPageState extends State<EscreverResenhaPage> {
                       IconButton(
                         tooltip: 'Fechar',
                         onPressed: _enviando ? null : _fechar,
-                        icon: Icon(PhosphorIconsRegular.x, size: 24, color: theme.colorScheme.onSurface),
+                        icon: Icon(
+                          PhosphorIconsRegular.x,
+                          size: 24,
+                          color: theme.colorScheme.onSurface,
+                        ),
                       ),
                       Expanded(
                         child: Text(
@@ -255,7 +259,11 @@ class _EscreverResenhaPageState extends State<EscreverResenhaPage> {
                 livro: widget.livro,
                 aoDarNota: _enviando
                     ? null
-                    : () => abrirPainelDeNota(context, avaliacao: widget.avaliacao, livro: widget.livro),
+                    : () => abrirPainelDeNota(
+                        context,
+                        avaliacao: widget.avaliacao,
+                        livro: widget.livro,
+                      ),
               ),
               Divider(height: 1, color: theme.divider),
               Expanded(
@@ -275,7 +283,15 @@ class _EscreverResenhaPageState extends State<EscreverResenhaPage> {
                     textCapitalization: TextCapitalization.sentences,
                     cursorColor: theme.primaryAccent,
                     style: theme.editorialBody,
-                    decoration: InputDecoration.collapsed(
+                    // Área de texto sem borda nem fundo ("Área de texto"): o tema dá contorno e
+                    // preenchimento a todo campo, e o `collapsed` não os desliga.
+                    decoration: InputDecoration(
+                      isCollapsed: true,
+                      filled: false,
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      disabledBorder: InputBorder.none,
                       hintText:
                           'Escreva sobre o livro. O que ficou, o que incomodou, para quem você '
                           'indicaria.',
