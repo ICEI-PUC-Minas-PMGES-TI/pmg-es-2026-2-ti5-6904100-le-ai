@@ -187,7 +187,7 @@ class _RedefinirSenhaPageState extends State<RedefinirSenhaPage> {
         const SizedBox(height: DesignTokens.space6),
       ],
       AnimatedOpacity(
-        opacity: _salvando ? 0.6 : 1,
+        opacity: _salvando ? 0.5 : 1,
         duration: DesignTokens.durFast,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -197,6 +197,7 @@ class _RedefinirSenhaPageState extends State<RedefinirSenhaPage> {
               label: 'Nova senha',
               autofillHints: const <String>[AutofillHints.newPassword],
               erro: _erroNova,
+              erroAntesDoHelper: true,
               helper: 'Mínimo de 8 caracteres. Evite senhas comuns, como sequências e o seu nome.',
               enabled: !_salvando,
               onChanged: (_) {
@@ -205,14 +206,13 @@ class _RedefinirSenhaPageState extends State<RedefinirSenhaPage> {
                 }
               },
             ),
-            const SizedBox(height: DesignTokens.space4),
-            AvisoDeSessoes(theme: theme),
             const SizedBox(height: DesignTokens.space5),
             CampoSenha(
               controller: _confirmacaoController,
               label: 'Confirmar nova senha',
               autofillHints: const <String>[AutofillHints.newPassword],
               erro: _erroConfirmacao,
+              erroAntesDoHelper: true,
               enabled: !_salvando,
               onChanged: (_) {
                 if (_erroConfirmacao != null) {
@@ -223,18 +223,26 @@ class _RedefinirSenhaPageState extends State<RedefinirSenhaPage> {
           ],
         ),
       ),
+      // Depois da confirmação e fora do esmaecido do envio, como no protótipo.
+      const SizedBox(height: DesignTokens.space4),
+      AvisoDeSessoes(theme: theme),
       const SizedBox(height: DesignTokens.space8),
       BotaoPrimario(
         texto: _salvando ? 'Salvando' : 'Salvar senha',
         carregando: _salvando,
+        carregandoEsmaecido: true,
         // Com erro de política o botão fica desabilitado até a pessoa mexer na senha (§4.2).
         onPressed: _erroNova != null ? null : _salvar,
       ),
       if (_salvando) ...<Widget>[
         const SizedBox(height: DesignTokens.space3),
-        Text(
-          'O servidor está iniciando. Isso pode levar alguns segundos.',
-          style: theme.textTheme.bodySmall?.copyWith(color: theme.secondaryText),
+        SizedBox(
+          width: double.infinity,
+          child: Text(
+            'O servidor está iniciando. Isso pode levar alguns segundos.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall?.copyWith(color: theme.secondaryText),
+          ),
         ),
       ],
     ];

@@ -46,6 +46,8 @@ const TABELAS_DE_DADOS = [
   'acervo.livro_assunto',
   'acervo.livro',
   'acervo.autor',
+  'acervo.assunto',
+  'acervo.serie',
   'acervo.sinonimo_editora',
   'acervo.editora',
   'social.v_atividade_livro_pessoal_v1',

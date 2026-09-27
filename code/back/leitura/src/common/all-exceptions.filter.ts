@@ -27,7 +27,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     const correlationId =
       req?.correlationId ?? getCorrelationId() ?? 'desconhecido';
-    const { status, codigo, mensagem, extras } = mapError(exception);
+    const { status, codigo, mensagem, extras, cabecalhos } =
+      mapError(exception);
 
     if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
       // 5xx: registra o erro real (com stack) no log; nunca na resposta.
@@ -36,6 +37,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
       this.logger.warn({ correlationId, codigo, status }, mensagem);
     }
 
+    for (const [nome, valor] of Object.entries(cabecalhos ?? {})) {
+      res.setHeader(nome, valor);
+    }
+
+    // `codigo`, `mensagem` e `correlationId` vêm por último de propósito: os
+    // extras nunca podem sobrescrever o corpo de erro padrão (RNF-ERR-01).
     res.status(status).json({ ...extras, codigo, mensagem, correlationId });
   }
 }

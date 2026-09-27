@@ -76,6 +76,15 @@ export function novaChaveIdempotencia(): string {
   return crypto.randomUUID()
 }
 
+/**
+ * Mensagem de erro para exibir depois de uma escrita que falhou (curtir, comentar): a do
+ * servidor quando veio uma `ApiError`, senão a mensagem genérica de conexão. Compartilhada entre
+ * telas para não repetir o mesmo `instanceof` em cada uma (`FeedView.vue`, `ModalComentarios.vue`).
+ */
+export function mensagemDeErro(erro: unknown): string {
+  return erro instanceof ApiError ? erro.message : 'Não foi possível acessar o servidor. Tente novamente.'
+}
+
 function statusRetentavel(status: number): boolean {
   return status === 502 || status === 503 || status === 504
 }

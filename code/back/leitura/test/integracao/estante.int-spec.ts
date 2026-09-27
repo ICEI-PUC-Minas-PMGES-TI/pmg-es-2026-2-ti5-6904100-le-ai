@@ -4,7 +4,7 @@ import type { Pool } from 'pg';
 import request from 'supertest';
 import { criarApp, novoUsuario, tokenDe } from './app';
 import { contar, limpar, prepararBanco } from './banco';
-import { inserirLivro, inserirPerfil, inserirSeguimentoAceito } from './massa';
+import { inserirLivro, inserirPerfil, seguir } from './massa';
 
 describe('estante (integração)', () => {
   let pool: Pool;
@@ -84,8 +84,8 @@ describe('estante (integração)', () => {
       expect(resposta.body).toEqual({
         livroId,
         livro: {
-          titulo: 'Livro de teste',
-          autor: 'Autora de Teste',
+          titulo: 'Torto Arado',
+          autor: 'Itamar Vieira Junior',
           capaUrl: 'https://covers.openlibrary.org/b/id/1-L.jpg',
         },
         status: 'QUERO_LER',
@@ -343,7 +343,7 @@ describe('estante (integração)', () => {
         const livroId = await inserirLivro(pool, {
           titulo: livro.titulo,
           autor: livro.autor,
-          capaUrl: livro.capaUrl,
+          capa: livro.capaUrl,
           paginas: 200,
         });
         ids.push(livroId);
@@ -485,7 +485,7 @@ describe('estante (integração)', () => {
 
     async function leitora(): Promise<string> {
       const id = novoUsuario();
-      await inserirPerfil(pool, id);
+      await inserirPerfil(pool, { id: id });
       return id;
     }
 
@@ -613,7 +613,7 @@ describe('estante (integração)', () => {
       privacidade: 'publico' | 'privado',
     ): Promise<string> {
       const dono = novoUsuario();
-      await inserirPerfil(pool, dono, privacidade);
+      await inserirPerfil(pool, { id: dono, privacidade: privacidade });
       await inserirVinculo(dono, await inserirLivro(pool));
       return dono;
     }
@@ -633,7 +633,7 @@ describe('estante (integração)', () => {
     it('perfil privado exige seguimento aceito', async () => {
       const dono = await perfilComLivro('privado');
       const seguidor = novoUsuario();
-      await inserirSeguimentoAceito(pool, seguidor, dono);
+      await seguir(pool, seguidor, dono);
 
       const negado = await consultar(
         novoUsuario(),
@@ -656,7 +656,7 @@ describe('estante (integração)', () => {
       const dono = novoUsuario();
       await inserirVinculo(dono, await inserirLivro(pool));
       const seguidor = novoUsuario();
-      await inserirSeguimentoAceito(pool, seguidor, dono);
+      await seguir(pool, seguidor, dono);
 
       await consultar(seguidor, `/perfis/${dono}/estante`).expect(404);
     });

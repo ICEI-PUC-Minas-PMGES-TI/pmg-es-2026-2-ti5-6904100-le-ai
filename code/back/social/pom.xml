@@ -46,6 +46,19 @@
       <artifactId>spring-boot-starter-actuator</artifactId>
     </dependency>
 
+    <!-- Segurança (Task 1): todas as rotas de domínio do feed exigem JWT (bearerAuth em
+         docs/api/social.yaml). -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-security</artifactId>
+    </dependency>
+    <!-- Traz o suporte a JWT (nimbus-jose-jwt + spring-security-oauth2-jose). `social` só
+         valida o token emitido por `identidade`, sem provedor externo. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+    </dependency>
+
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-data-jpa</artifactId>

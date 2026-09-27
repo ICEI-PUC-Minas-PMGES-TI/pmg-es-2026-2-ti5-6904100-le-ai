@@ -3,12 +3,13 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/config/app_config.dart';
 import '../../core/network/api_client.dart';
-import '../estante/leitura_service.dart';
+import '../avaliacao/leitura_service.dart';
+import '../estante/estante_service.dart';
 import 'acervo_service.dart';
 import 'cadastro_isbn_page.dart';
 import 'capa.dart';
 import 'isbn_nao_encontrado_page.dart';
-import 'livro_oficial_placeholder_page.dart';
+import 'livro_oficial_page.dart';
 import 'livro_pessoal_form_page.dart';
 import 'livro_pessoal_page.dart';
 
@@ -19,14 +20,22 @@ const String rotaFeedRaiz = '/feed';
 String rotaLivroPessoalNaEstante(String id) => '/estante/livro-pessoal/$id';
 String rotaLivroOficial(String id) => '/descobrir/livro/$id';
 
-/// O que as telas de F-ACV-CADASTRO precisam do mundo lá fora. Construído uma vez em `main.dart`
-/// e injetado no roteador; os testes montam o seu com clientes simulados.
+/// O que as telas de livro precisam do mundo lá fora. Construído uma vez em `main.dart` e
+/// injetado no roteador; os testes montam o seu com clientes simulados.
 class DependenciasDeLivros {
   final AcervoService acervo;
+
+  /// Nota e resenha do leitor (F-AVA), no serviço `leitura`.
+  final LeituraService leitura;
   final SeletorDeImagem seletor;
   final EnviadorDeCapa enviador;
 
-  const DependenciasDeLivros({required this.acervo, required this.seletor, required this.enviador});
+  const DependenciasDeLivros({
+    required this.acervo,
+    required this.leitura,
+    required this.seletor,
+    required this.enviador,
+  });
 
   factory DependenciasDeLivros.padrao({
     required String? Function() getToken,
@@ -36,6 +45,13 @@ class DependenciasDeLivros {
       acervo: AcervoService(
         ApiClient(
           baseUrl: AppConfig.acervoBaseUrl,
+          getToken: getToken,
+          renovarSessao: renovarSessao,
+        ),
+      ),
+      leitura: LeituraService(
+        ApiClient(
+          baseUrl: AppConfig.leituraBaseUrl,
           getToken: getToken,
           renovarSessao: renovarSessao,
         ),
@@ -106,17 +122,33 @@ List<RouteBase> rotasDeDescobrir(DependenciasDeLivros deps) => <RouteBase>[
       ),
     ],
   ),
-  GoRoute(
-    path: 'livro/:id',
-    builder: (context, state) =>
-        LivroOficialPlaceholderPage(aoVoltar: () => _voltar(context, '/descobrir')),
-  ),
+  rotaDoLivroOficial(deps, raiz: '/descobrir'),
 ];
+
+/// Página do livro oficial dentro da aba de origem (pagina-do-livro.md §4.1: o item ativo da barra
+/// é sempre a aba de onde se chegou). Descobrir usa agora; Estante e Feed montam a mesma rota sob a
+/// raiz delas quando F-EST e F-FEED linkarem o livro.
+GoRoute rotaDoLivroOficial(DependenciasDeLivros deps, {required String raiz}) {
+  return GoRoute(
+    path: 'livro/:id',
+    builder: (context, state) {
+      final id = state.pathParameters['id']!;
+      return LivroOficialPage(
+        // A chave pelo id faz a página recarregar se a rota trocar de livro sem desmontar.
+        key: ValueKey<String>('livro-oficial-$id'),
+        servico: deps.acervo,
+        leitura: deps.leitura,
+        livroId: id,
+        aoVoltar: () => _voltar(context, raiz),
+      );
+    },
+  );
+}
 
 GoRoute _paginaDoLivroPessoal(
   DependenciasDeLivros deps, {
   required String raiz,
-  LeituraService? leitura,
+  EstanteService? estante,
 }) {
   return GoRoute(
     path: 'livro-pessoal/:id',
@@ -126,6 +158,7 @@ GoRoute _paginaDoLivroPessoal(
         // A chave pelo id faz a página recarregar se a rota trocar de livro sem desmontar.
         key: ValueKey<String>('livro-pessoal-$id-${state.uri.query}'),
         servico: deps.acervo,
+        leitura: deps.leitura,
         livroId: id,
         via: state.uri.queryParameters['via'],
         referenciaId: state.uri.queryParameters['referenciaId'],
@@ -135,7 +168,7 @@ GoRoute _paginaDoLivroPessoal(
         },
         aoExcluir: () => context.go(rotaEstanteRaiz),
         aoVoltarAoFeed: () => context.go(rotaFeedRaiz),
-        leitura: leitura,
+        estante: estante,
       );
     },
     routes: <RouteBase>[
@@ -156,8 +189,8 @@ GoRoute _paginaDoLivroPessoal(
 }
 
 /// O dono chega ao livro pessoal pela própria estante.
-List<RouteBase> rotasDaEstante(DependenciasDeLivros deps, LeituraService leitura) => <RouteBase>[
-  _paginaDoLivroPessoal(deps, raiz: rotaEstanteRaiz, leitura: leitura),
+List<RouteBase> rotasDaEstante(DependenciasDeLivros deps, EstanteService estante) => <RouteBase>[
+  _paginaDoLivroPessoal(deps, raiz: rotaEstanteRaiz, estante: estante),
 ];
 
 /// O terceiro chega **exclusivamente** pelo feed, com `via=feed&referenciaId=` (RN-15). F-FEED

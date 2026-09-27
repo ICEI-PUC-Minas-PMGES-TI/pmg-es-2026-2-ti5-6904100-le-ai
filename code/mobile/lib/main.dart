@@ -12,7 +12,7 @@ import 'core/session/token_store.dart';
 import 'design/theme.dart';
 import 'design/theme_controller.dart';
 import 'features/auth/auth_service.dart';
-import 'features/estante/leitura_service.dart';
+import 'features/estante/estante_service.dart';
 import 'features/livros/rotas_livros.dart';
 
 Future<void> main() async {
@@ -57,14 +57,14 @@ class LeAiApp extends StatefulWidget {
   final SessionController sessionController;
   final AuthService authService;
   final DependenciasDeLivros? livros;
-  final LeituraService? leitura;
+  final EstanteService? estante;
 
   const LeAiApp({
     required this.themeController,
     required this.sessionController,
     required this.authService,
     this.livros,
-    this.leitura,
+    this.estante,
     super.key,
   });
 
@@ -79,7 +79,7 @@ class _LeAiAppState extends State<LeAiApp> {
     sessionController: widget.sessionController,
     authService: widget.authService,
     livros: widget.livros,
-    leitura: widget.leitura,
+    estante: widget.estante,
   );
 
   @override

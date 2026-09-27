@@ -1,14 +1,21 @@
 import { randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
 
+/**
+ * Massa dos testes de integração, gravada nas tabelas que fazem papel das VIEWs
+ * de `acervo` e `identidade` (ver `banco.ts`).
+ */
+
 export interface LivroDeTeste {
   id?: string;
   tipo?: 'oficial' | 'pessoal';
+  /** Obrigatório em livro pessoal; em oficial fica `null`. */
   donoId?: string | null;
-  paginas?: number;
   titulo?: string;
+  /** `null` reproduz os livros oficiais sem autor do acervo. */
   autor?: string | null;
-  capaUrl?: string | null;
+  capa?: string | null;
+  paginas?: number;
   ativo?: boolean;
 }
 
@@ -17,45 +24,59 @@ export async function inserirLivro(
   livro: LivroDeTeste = {},
 ): Promise<string> {
   const id = livro.id ?? randomUUID();
+  const tipo = livro.tipo ?? 'oficial';
   await pool.query(
     `INSERT INTO acervo.v_livro_referencia_v1
-       (livro_id, tipo, dono_id, paginas, titulo, autor_exibicao, capa_resolvida, ativo)
+       (livro_id, tipo, dono_id, paginas, titulo, autor_exibicao,
+        capa_resolvida, ativo)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
     [
       id,
-      livro.tipo ?? 'oficial',
+      tipo,
       livro.donoId ?? null,
       livro.paginas ?? 200,
-      livro.titulo ?? 'Livro de teste',
-      livro.autor === undefined ? 'Autora de Teste' : livro.autor,
-      livro.capaUrl === undefined
+      livro.titulo ?? 'Torto Arado',
+      livro.autor === undefined ? 'Itamar Vieira Junior' : livro.autor,
+      livro.capa === undefined
         ? 'https://covers.openlibrary.org/b/id/1-L.jpg'
-        : livro.capaUrl,
+        : livro.capa,
       livro.ativo ?? true,
     ],
   );
   return id;
 }
 
-export async function inserirPerfil(
-  pool: Pool,
-  usuarioId: string,
-  privacidade: 'publico' | 'privado' = 'publico',
-): Promise<void> {
-  await pool.query(
-    `INSERT INTO identidade.v_perfil_referencia_v1
-       (id, username, nome_exibicao, avatar_url, privacidade, opt_out_recomendacao)
-     VALUES ($1, $2, $3, NULL, $4, false)`,
-    [
-      usuarioId,
-      `leitora_${usuarioId.slice(0, 8)}`,
-      'Leitora de Teste',
-      privacidade,
-    ],
-  );
+export interface PerfilDeTeste {
+  id?: string;
+  username?: string;
+  nomeExibicao?: string;
+  avatarUrl?: string | null;
+  privacidade?: 'publico' | 'privado';
 }
 
-export async function inserirSeguimentoAceito(
+export async function inserirPerfil(
+  pool: Pool,
+  perfil: PerfilDeTeste = {},
+): Promise<string> {
+  const id = perfil.id ?? randomUUID();
+  await pool.query(
+    `INSERT INTO identidade.v_perfil_referencia_v1
+       (id, username, nome_exibicao, avatar_url, privacidade,
+        opt_out_recomendacao)
+     VALUES ($1, $2, $3, $4, $5, false)`,
+    [
+      id,
+      perfil.username ?? `leitora_${id.slice(0, 8)}`,
+      perfil.nomeExibicao ?? 'Leitora de Teste',
+      perfil.avatarUrl ?? null,
+      perfil.privacidade ?? 'publico',
+    ],
+  );
+  return id;
+}
+
+/** Seguimento aceito: `seguidorId` passa a ver o conteúdo de `seguidoId`. */
+export async function seguir(
   pool: Pool,
   seguidorId: string,
   seguidoId: string,

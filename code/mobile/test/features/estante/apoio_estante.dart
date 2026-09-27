@@ -2,15 +2,15 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'package:le_ai_mobile/core/network/api_client.dart';
-import 'package:le_ai_mobile/features/estante/leitura_service.dart';
+import 'package:le_ai_mobile/features/estante/estante_service.dart';
 
 import '../livros/apoio.dart';
 
-LeituraService leituraSimulada(
+EstanteService estanteSimulada(
   Future<http.Response> Function(http.Request) handler, {
   Duration timeout = const Duration(seconds: 90),
 }) {
-  return LeituraService(
+  return EstanteService(
     ApiClient(
       baseUrl: 'https://leitura.example.com',
       client: MockClient(handler),
@@ -102,7 +102,7 @@ Map<String, Object?> leituraJson(
   'ultimaAtividadeEm': '2026-09-20T10:00:00.000Z',
 };
 
-LeituraService estanteVazia() => leituraSimulada((request) async {
+EstanteService estanteVazia() => estanteSimulada((request) async {
   if (request.url.pathSegments.length > 1) {
     return erro(404, 'NAO_ENCONTRADO', 'Livro fora da estante.');
   }

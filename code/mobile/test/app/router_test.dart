@@ -5,11 +5,13 @@ import 'package:http/http.dart' as http;
 import 'package:phosphor_icons/phosphor_icons.dart';
 import 'package:http/testing.dart';
 
+import 'package:le_ai_mobile/app/barra_inferior.dart';
 import 'package:le_ai_mobile/app/router.dart';
 import 'package:le_ai_mobile/core/network/api_client.dart';
 import 'package:le_ai_mobile/core/session/session_controller.dart';
 import 'package:le_ai_mobile/core/session/token_store.dart';
 import 'package:le_ai_mobile/design/theme.dart';
+import 'package:le_ai_mobile/features/avaliacao/leitura_service.dart';
 import 'package:le_ai_mobile/features/auth/auth_service.dart';
 import 'package:le_ai_mobile/features/livros/acervo_service.dart';
 import 'package:le_ai_mobile/features/livros/capa.dart';
@@ -77,6 +79,47 @@ DependenciasDePerfil _perfilSimulado() => DependenciasDePerfil(
   enviador: _SemAvatar(),
 );
 
+/// `acervo` simulado por rota: um assunto para a faixa, e toda busca volta vazia, que é o estado
+/// que leva aos dois cadastros.
+Future<http.Response> _acervoPorRota(http.Request request) async {
+  const cabecalhos = <String, String>{'content-type': 'application/json; charset=utf-8'};
+  if (request.url.path == '/assuntos') {
+    return http.Response(
+      '{"itens":[{"id":"a1","nome":"Romance"}]}',
+      200,
+      headers: cabecalhos,
+    );
+  }
+  if (request.url.path == '/livros') {
+    return http.Response(
+      '{"itens":[],"page":1,"limit":20,"totalItens":0,"totalPaginas":0}',
+      200,
+      headers: cabecalhos,
+    );
+  }
+  if (request.url.path == '/livros/livro-1') {
+    return http.Response(
+      '{"id":"livro-1","titulo":"Torto Arado","autores":[],"editora":null,'
+      '"anoPublicacao":2019,"paginas":264,"capa":{"url":null,"origem":"placeholder"},'
+      '"assuntos":[],"isbn":"9788588808911","sinopse":{"status":"ausente","texto":null},'
+      '"resenhas":{"itens":[],"limit":10,"proximoCursor":null}}',
+      200,
+      headers: cabecalhos,
+    );
+  }
+  return http.Response('{}', 200);
+}
+
+/// Digita na busca do Descobrir e espera o debounce até o estado vazio aparecer.
+Future<void> _buscarSemResultado(WidgetTester tester) async {
+  await tester.tap(find.text('Descobrir'));
+  await tester.pumpAndSettle();
+  await tester.enterText(find.byType(TextField), 'guimaraes rossa');
+  await tester.pump(const Duration(milliseconds: 400));
+  await tester.pumpAndSettle();
+  expect(find.text('Nenhum livro encontrado'), findsOneWidget);
+}
+
 Widget _wrap(GoRouter router) {
   return MaterialApp.router(theme: AppTheme.light(), routerConfig: router);
 }
@@ -96,14 +139,15 @@ void main() {
       sessionController: sessionController,
       authService: AuthService(apiClient),
       perfil: _perfilSimulado(),
-      leitura: estanteVazia(),
+      estante: estanteVazia(),
       livros: DependenciasDeLivros(
         acervo: AcervoService(
           ApiClient(
             baseUrl: 'http://localhost:3000',
-            client: MockClient((request) async => http.Response('{}', 200)),
+            client: MockClient(_acervoPorRota),
           ),
         ),
+        leitura: _leituraSimulada(),
         seletor: _SemImagem(),
         enviador: _SemEnvio(),
       ),
@@ -148,7 +192,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Marina Beltrão'), findsOneWidget);
 
-    await tester.tap(find.text('Estante'));
+    // O perfil agora também tem uma seção "Estante"; o toque é na aba da barra inferior.
+    await tester.tap(
+      find.descendant(of: find.byType(BarraInferior), matching: find.text('Estante')),
+    );
     await tester.pumpAndSettle();
     expect(find.text('Sua estante está vazia'), findsOneWidget);
   });
@@ -160,8 +207,9 @@ void main() {
     await tester.pumpWidget(_wrap(router));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Descobrir'));
-    await tester.pumpAndSettle();
+    // "Cadastrar por ISBN" só existe no vazio da busca (descobrir.md §4.4), não na aterrissagem.
+    await _buscarSemResultado(tester);
+    await tester.ensureVisible(find.text('Cadastrar por ISBN'));
     await tester.tap(find.text('Cadastrar por ISBN'));
     await tester.pumpAndSettle();
 
@@ -172,7 +220,50 @@ void main() {
 
     await tester.tap(find.bySemanticsLabel('Voltar'));
     await tester.pumpAndSettle();
-    expect(find.text('A busca do acervo aparece aqui.'), findsOneWidget);
+    // A busca continua onde estava: o shell preserva a pilha da aba.
+    expect(find.text('Nenhum livro encontrado'), findsOneWidget);
+  });
+
+  testWidgets('a página do livro oficial abre dentro da aba Descobrir e volta para ela', (
+    tester,
+  ) async {
+    await sessionController.entrar('jwt-valido');
+    await tester.pumpWidget(_wrap(router));
+    await tester.pumpAndSettle();
+
+    router.go('/descobrir');
+    await tester.pumpAndSettle();
+    router.push('/descobrir/livro/livro-1');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Este livro ainda não tem sinopse no acervo.'), findsOneWidget);
+    expect(find.bySemanticsLabel('Voltar'), findsOneWidget);
+
+    await tester.tap(find.bySemanticsLabel('Voltar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Título, autor, editora ou ISBN'), findsOneWidget);
+  });
+
+  testWidgets('o cadastro pessoal aberto pelo vazio da busca volta aos resultados ao cancelar', (
+    tester,
+  ) async {
+    await sessionController.entrar('jwt-valido');
+    await tester.pumpWidget(_wrap(router));
+    await tester.pumpAndSettle();
+
+    await _buscarSemResultado(tester);
+    await tester.ensureVisible(find.text('Cadastrar livro pessoal'));
+    await tester.tap(find.text('Cadastrar livro pessoal'));
+    await tester.pumpAndSettle();
+    expect(find.text('Cadastrar livro'), findsOneWidget);
+
+    final cancelar = find.text('Cancelar');
+    await tester.ensureVisible(cancelar);
+    await tester.tap(cancelar);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Nenhum livro encontrado'), findsOneWidget);
+    expect(find.text('Adicionar livro'), findsNothing);
   });
 
   testWidgets('a saída pessoal do ISBN abre o formulário sem campo de ISBN', (tester) async {
@@ -211,7 +302,7 @@ void main() {
           ),
         ),
         perfil: _perfilSimulado(),
-        leitura: estanteVazia(),
+        estante: estanteVazia(),
         livros: DependenciasDeLivros(
           acervo: AcervoService(
             ApiClient(
@@ -231,6 +322,7 @@ void main() {
               }),
             ),
           ),
+          leitura: _leituraSimulada(),
           seletor: _SemImagem(),
           enviador: _SemEnvio(),
         ),
@@ -267,7 +359,7 @@ void main() {
       // Voltar para Descobrir mostra a raiz limpa, não o formulário preenchido.
       await tester.tap(find.text('Descobrir'));
       await tester.pumpAndSettle();
-      expect(find.text('A busca do acervo aparece aqui.'), findsOneWidget);
+      expect(find.text('Título, autor, editora ou ISBN'), findsOneWidget);
       expect(find.text('Cadastrar livro'), findsNothing);
     },
   );
@@ -306,9 +398,10 @@ void main() {
         ),
       ),
       perfil: _perfilSimulado(),
-      leitura: estanteVazia(),
+      estante: estanteVazia(),
       livros: DependenciasDeLivros(
         acervo: AcervoService(ApiClient(baseUrl: 'http://localhost:3000')),
+        leitura: _leituraSimulada(),
         seletor: _SemImagem(),
         enviador: _SemEnvio(),
       ),
@@ -360,8 +453,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'marina.beltrao@gmail.com');
 
-    await tester.ensureVisible(find.text('Política de privacidade'));
-    await tester.tap(find.text('Política de privacidade'));
+    // O link está dentro do parágrafo do aviso (Text.rich), e o parágrafo inteiro abre a política.
+    final aviso = find.textContaining('Política de privacidade', findRichText: true);
+    await tester.ensureVisible(aviso);
+    await tester.tap(aviso);
     await tester.pumpAndSettle();
 
     expect(find.text('Dados que coletamos'), findsOneWidget);
@@ -373,3 +468,28 @@ void main() {
     expect(find.text('marina.beltrao@gmail.com'), findsOneWidget);
   });
 }
+
+/// `leitura` que responde "sem avaliação" a qualquer livro: o roteador só precisa da página abrir.
+LeituraService _leituraSimulada() => LeituraService(
+  ApiClient(
+    baseUrl: 'http://localhost:3001',
+    client: MockClient((request) async {
+      final partes = request.url.pathSegments;
+      if (partes.length == 3 && partes[0] == 'perfis' && partes[2] == 'resenhas') {
+        return http.Response(
+          '{"itens":[],"paginacao":{"page":1,"limite":5,"totalItens":0,"totalPaginas":0}}',
+          200,
+          headers: const <String, String>{'content-type': 'application/json; charset=utf-8'},
+        );
+      }
+      if (partes.length == 3 && partes[2] == 'minha-avaliacao') {
+        return http.Response(
+          '{"livroId":"${partes[1]}","nota":null,"resenha":null}',
+          200,
+          headers: const <String, String>{'content-type': 'application/json; charset=utf-8'},
+        );
+      }
+      return http.Response('{}', 200);
+    }),
+  ),
+);

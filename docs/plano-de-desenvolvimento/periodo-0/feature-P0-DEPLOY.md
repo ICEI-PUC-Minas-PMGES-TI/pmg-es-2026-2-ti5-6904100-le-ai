@@ -7,7 +7,7 @@
 
 ## Objetivo
 
-Colocar o sistema **rodando de verdade em DES/HML** a cada merge em `main` (plano §4): os 4 serviços de backend e o site estático Vue hospedados no **Render (plano gratuito)**, sobre o **PostgreSQL no Neon** (projeto único, schema por serviço, branch única de DES/HML — sem branch por dev). É a peça que garante que "release da sprint" seja algo que roda, não código na máquina de alguém — e a que descobre problemas de deploy no período-0, antes de qualquer feature (plano §13, risco "Deploy descoberto tarde").
+Colocar o sistema **rodando de verdade em DES/HML** a cada merge em `main` (plano §4): os 4 serviços de backend e o site estático Vue hospedados no **Render (plano gratuito)**, sobre o **PostgreSQL no Neon**, com um schema por serviço. Desde 25/09/2026 o DES/HML tem **projeto Neon e broker próprios em Oregon**, na mesma região do Render, separados dos de desenvolvimento em São Paulo (ver [Ambientes de dados](#ambientes-de-dados-desde-25092026)). É a peça que garante que "release da sprint" seja algo que roda, não código na máquina de alguém — e a que descobre problemas de deploy no período-0, antes de qualquer feature (plano §13, risco "Deploy descoberto tarde").
 
 O deploy acontece **só de código versionado, por pipeline automatizado** (RNF-SEC-34), com **segredos apenas no painel do Render e no GitHub Secrets** (RNF-SEC-11). Os clientes já tratam a **hibernação/cold start** do free tier como carregamento prolongado, não erro (RNF-ERR-09).
 
@@ -17,7 +17,7 @@ Requisitos atendidos: **RNF-ARQ-07** (PostgreSQL/Neon), **RNF-ARQ-08** (Render f
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | concluído | `render.yaml` (blueprint) na raiz; projeto Neon provisionado com os 4 schemas; segredos só no painel (`sync: false`) |
+| Infra | concluído | `render.yaml` (blueprint) na raiz; segredos só no painel (`sync: false`). Desde 25/09/2026 são dois projetos Neon e dois CloudAMQP: dev em São Paulo e DES em Oregon |
 | Backend | concluído | os **4 serviços no ar em DES** respondendo `GET /health` 200 (acervo, leitura, identidade, social); auto-deploy a cada push na `main` |
 | Web | concluído | site estático `leai-web` no ar, com rewrite de SPA funcionando |
 | Mobile | não aplicável | não é deployado no Render; APK virá do CI ([P0-CI](feature-P0-CI.md)) |
@@ -90,10 +90,33 @@ Pontos:
 - **CORS** de cada serviço restrito à origem do site em DES (RNF-SEC-21), sem curinga.
 - **Deploy a cada merge em `main`** (auto-deploy do Render conectado ao repo, ou disparado pelo pipeline de [P0-CI](feature-P0-CI.md)) — só código versionado (RNF-SEC-34). Nada de deploy manual de branch local.
 
+### Ambientes de dados (desde 25/09/2026)
+
+Existem **dois bancos e dois brokers**, um par por ambiente. **Não há replicação entre eles**: o que se grava num não aparece no outro.
+
+| | Desenvolvimento (local) | DES/HML (Render, branch `main`) |
+|---|---|---|
+| Banco Neon | projeto `le-ai` (`quiet-meadow-93392126`), **AWS São Paulo** (`aws-sa-east-1`) | projeto `le-ai-oregon` (`jolly-art-87595662`), **AWS Oregon** (`aws-us-west-2`) |
+| Broker CloudAMQP | instância `Le-ai` (403307), **São Paulo** | instância `Le-ai-oregon` (404379), **Oregon** (`us-west-2`) |
+| Quem conecta | os serviços rodando na máquina de cada dev | os 4 serviços do Render, também em Oregon |
+
+- **Credenciais:** nos dois bancos a role é `leaidb_prd` e o banco é `leai-db-prd`. Só mudam o host e a senha, que ficam fora do repositório: no painel do Render para o DES e no `.env` de cada dev para o local.
+- **Por que Oregon:** o Render roda em Oregon e não tem região na América do Sul. Com o banco em São Paulo, cada consulta do DES pagava cerca de 170 ms de ida e volta, o que ameaçava os 1 s de RNF-DES-01. Na mesma região da AWS a latência é de ~1 ms.
+- **Por que manter São Paulo:** o dev local, a partir do Brasil, continua perto do banco.
+- **Dados divergem:** o banco de Oregon nasceu de uma cópia única do de São Paulo (ver Timeline de 25/09). Contas criadas num ambiente não existem no outro, e uma recarga de ingestão precisa rodar em cada banco-alvo.
+- **Levar dados de um ambiente para o outro:** é cópia manual, única e completa (`pg_dump` + `pg_restore`), que substitui o destino. Precisa ser combinada com o time. Replicação contínua foi descartada porque:
+  - os dois recebem escrita, e a replicação lógica para no primeiro conflito;
+  - ela não replica DDL nem sequences;
+  - no Neon, a replicação lógica não pode ser desligada depois de ligada e impede a hibernação do compute.
+- **Migrations:** as que um dev aplica localmente só alteram o banco de dev. O DES recebe as migrations quando a `main` é deployada (Drizzle no `start:prod` dos serviços Nest; Flyway no boot dos serviços Spring).
+- **Testes de integração** continuam em Postgres descartável no Docker ou no service container do CI, nunca no Neon.
+
 ### Infra — Neon (PostgreSQL)
 
-- **Um projeto Neon**, com **um schema por serviço** (`identidade`, `acervo`, `leitura`, `social`) — separação lógica no mesmo cluster (arquitetura §4.1).
-- **Uma branch fixa para DES/HML** (plano §4; arquitetura §6). **Não há branch de banco por dev** (decisão de 12/09/2026): o desenvolvimento local usa Postgres local, e o Neon serve só o DES/HML.
+- **Um schema por serviço** (`identidade`, `acervo`, `leitura`, `social`) em cada projeto — separação lógica no mesmo cluster (arquitetura §4.1).
+- **Uma branch por projeto** (`production`). Não há branch de banco por dev dentro do projeto; o que separa os ambientes são os dois projetos da seção acima.
+- **Conexão do DES:** usa o **host direto** do endpoint, sem `-pooler`. No host direto o `options=-csearch_path%3D<schema>` é aceito, e as migrations do Flyway e do Drizzle dispensam o pooler em modo transação.
+- **Janela de manutenção:** o plano gratuito não permite editá-la. A do projeto de Oregon é segunda-feira, 12h–13h UTC (9h–10h em Brasília); a de São Paulo é sábado, 04h–05h UTC.
 - Migrations rodam por serviço no deploy (a ferramenta é configurada em [P0-INFRA](feature-P0-INFRA.md)); cada serviço migra só o seu schema, e migration é revisada por humano antes de subir (plano §5).
 - Dimensionamento: o **acervo não deve passar de 20% do limite** do plano, com o índice de busca como custo dominante (RNF-DES-04/05) — a monitorar quando a ingestão entrar (feature F-ACV-INGESTAO, Período 1).
 
@@ -135,9 +158,9 @@ O app não é hospedado no Render: o **APK de DES é artefato do CI** a cada mer
 ## Provisionamento (como reproduzir)
 
 **Neon (banco):**
-1. Um projeto único; a branch default é a de DES/HML.
+1. Um projeto por ambiente: o de DES/HML na mesma região do Render (`aws-us-west-2`) e o de desenvolvimento em `aws-sa-east-1` (ver [Ambientes de dados](#ambientes-de-dados-desde-25092026)). Em cada um, a branch default é a `production`.
 2. Criar os 4 schemas no SQL Editor: `CREATE SCHEMA IF NOT EXISTS identidade; ...acervo; ...leitura; ...social;`
-3. `DATABASE_URL` por serviço = mesma URL, mudando só o schema-alvo (não é necessário `search_path` na URL — o Drizzle qualifica pelo `pgSchema()`; o Spring, pelo `DB_SCHEMA`). **Formato compatível com o driver:** `postgresql://<user>:<pass>@<host-pooler>/<db>?sslmode=require` — **sem** `options=-csearch_path` (o pooler do Neon rejeita) e **sem** `channel_binding=require` (o `node-postgres` não suporta).
+3. `DATABASE_URL` por serviço = mesma URL, mudando só o schema-alvo (não é necessário `search_path` na URL — o Drizzle qualifica pelo `pgSchema()`; o Spring, pelo `DB_SCHEMA`). **Formato compatível com o driver:** `postgresql://<user>:<pass>@<host>/<db>?sslmode=require`, **sem** `channel_binding=require` (o `node-postgres` não suporta). Com o host `-pooler`, **sem** `options=-csearch_path`, que o pooler rejeita. Com o host direto, que é o que o DES usa desde 25/09/2026, o `options=-csearch_path%3D<schema>` é aceito.
 4. Migrations de domínio (quando existirem): rodar apontando para a URL **direct** do Neon.
 
 **Render (via blueprint `render.yaml` na raiz):**
@@ -157,10 +180,39 @@ O app não é hospedado no Render: o **APK de DES é artefato do CI** a cada mer
 - **Gateway × URL por serviço — decidido (12/09/2026): URL por serviço** (sem gateway). O front usa a URL de cada serviço em DES e o CORS de cada backend fica restrito à origem do site; o cliente passa a ter uma base URL por serviço.
 - Estratégia de **keep-alive** contra hibernação em dia de demonstração (ex.: ping agendado) — opcional, avaliar com o `schedule` de [P0-MSG](feature-P0-MSG.md).
 - ~~**Migrations de domínio ainda não rodadas** — não há tabelas no P0.~~ — **feito (16/09/2026):** modelo físico do DER aplicado no Neon (59 tabelas + 9 VIEWs), via URL **direct**, com revisão humana (plano §5). A baseline física existir não implica feature de Período 1 implementada.
-- **`AMQP_URL` vazio** nos 4 serviços até o [P0-MSG](feature-P0-MSG.md) criar a fila no CloudAMQP (hoje nenhum serviço conecta ao broker no boot).
-- **Sem branch de banco por dev — decidido (12/09/2026):** o Neon mantém só a branch de DES/HML; o local usa Postgres local. Já incorporado ao orquestrador (plano §4, arquitetura §6 / v1.4) e ao `AGENTS.md` raiz.
+- ~~**`AMQP_URL` vazio** nos 4 serviços até o [P0-MSG](feature-P0-MSG.md) criar a fila no CloudAMQP~~. **Feito (25/09/2026):** os 4 serviços do Render apontam para o broker `Le-ai-oregon`. O código deployado na `main` (`0dfb8d0`) ainda não tem runtime AMQP, então nenhum serviço conecta ao broker. O primeiro uso real vem com o merge `desenvolvimento` → `main`.
+- **Sem branch de banco por dev — decidido (12/09/2026), revisto em 25/09/2026:** na prática o time desenvolvia localmente contra o próprio banco de DES. Desde 25/09 o DES tem projeto próprio em Oregon, e o projeto antigo, em São Paulo, virou o banco de desenvolvimento (ver [Ambientes de dados](#ambientes-de-dados-desde-25092026)). **Incorporação ao orquestrador (plano §4, arquitetura §6) e ao `AGENTS.md` raiz: feita em 25/09/2026, com autorização explícita do dono.**
+  - Arquivos atualizados: plano §4, arquitetura v1.7 (§1, §4.1 e §6), `AGENTS.md` raiz (§3 e §7), `.env.example` raiz e README da ingestão.
+  - Os documentos da disciplina (`docs/1.`–`8.`) foram conferidos e não mudam: nenhum projeta o plano §4 nem a arquitetura §6, e "PostgreSQL no Neon com schema por serviço" continua verdadeiro.
 
 ## Timeline
+
+### Ambientes separados e DES em Oregon 25/09/2026
+
+**Motivação.** O Render roda em Oregon e o banco estava em São Paulo, a cerca de 170 ms por consulta, o que ameaçava RNF-DES-01. O Neon não muda a região de um projeto existente.
+
+**Decisão do dono.** Criar um projeto para o DES em Oregon e manter o de São Paulo como banco de desenvolvimento, sem replicação.
+
+**Execução.**
+- Projeto `le-ai-oregon` criado com PG 17, role `leaidb_prd`, banco `leai-db-prd` e autoscaling de 0,25 a 2 CU.
+- Cópia com `pg_dump -Fc --no-owner --no-acl` e `pg_restore --single-transaction --exit-on-error`, ambos na versão 17.11. O restore terminou sem erro nem aviso.
+- O banco de origem só tinha as ACLs padrão do Neon, e o único dono de objetos era o `leaidb_prd`, então descartar dono e ACL não perdeu nada.
+
+**Conferência.**
+- As 101 linhas de conferência são idênticas nos dois bancos: contagem exata de cada uma das 67 tabelas (40.854 linhas, 11.019 livros), valores das 6 sequences, objetos por schema, constraints, as 2 funções, os 2 triggers e as extensões.
+- As tabelas de controle vieram junto: `acervo` com 4 migrations, `identidade` com 6, `leitura` com 5 e `social` com 4.
+- Nada foi gravado em São Paulo entre o dump e a troca.
+
+**Troca no Render.**
+- `DATABASE_URL`, e `DATABASE_PASSWORD` nos serviços Spring, foram trocados um serviço por vez, com host direto. O `AMQP_URL` dos 4 aponta para o broker novo `Le-ai-oregon`.
+- O redeploy usou o commit `0dfb8d0` da `main`, que em relação ao anterior (`5a93950`) só altera o `CITATION.cff`.
+- **Evidência:**
+  - os 4 serviços `live`, com `GET /health` 200 e o site 200;
+  - o Flyway do `identidade` e do `social` loga `Database: jdbc:postgresql://ep-lively-bread-ar07oy7t.c-4.us-west-2...` e "up to date";
+  - `pg_stat_activity` mostra, em Oregon, 4 conexões JDBC mais 2 do `node-postgres`, e **zero** conexões em São Paulo.
+- O aviso do Flyway "schema has a version newer than the latest available migration" já existia antes: o banco tem migrations da `desenvolvimento` que ainda não chegaram à `main`.
+
+**Não saiu como planejado.** Igualar a janela de manutenção à antiga foi recusado pelo plano gratuito. O projeto de São Paulo continua ativo como banco de dev, sem nenhuma mudança de credencial.
 
 ### Reverificação 17/09/2026: DES conferido de novo, agora com o modelo físico do DER já aplicado. `GET /health` `200` nos quatro serviços (`acervo`, `leitura`, `identidade`, `social`) e `200` no site `leai-web`. Como os serviços Spring rodam Flyway no boot e os Nest rodam as migrations antes da API, o fato de os quatro subirem em `main` comprova que as migrations do DER aplicaram sem falha — o critério de "cada serviço roda suas migrations no deploy" foi fechado. Cold start medido: ~44 s nos serviços Node e ~135–195 s nos Spring em Docker, acima da estimativa de 30–60 s registrada no `render.yaml`. Pendência remanescente de infraestrutura: `AMQP_URL` continua vazio nos quatro serviços, aguardando [P0-MSG](feature-P0-MSG.md).
 

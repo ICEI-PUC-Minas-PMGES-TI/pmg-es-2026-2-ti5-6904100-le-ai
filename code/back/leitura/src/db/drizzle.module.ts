@@ -1,10 +1,11 @@
-import { Global, Module } from '@nestjs/common';
+import { Global, Inject, Module, OnApplicationShutdown } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { drizzle, NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import * as schema from './schema';
 
 export const DRIZZLE = Symbol('DRIZZLE');
+const PG_POOL = Symbol('PG_POOL');
 export type DrizzleDB = NodePgDatabase<typeof schema>;
 
 /**
@@ -17,9 +18,9 @@ export type DrizzleDB = NodePgDatabase<typeof schema>;
 @Module({
   providers: [
     {
-      provide: DRIZZLE,
+      provide: PG_POOL,
       inject: [ConfigService],
-      useFactory: (config: ConfigService): DrizzleDB => {
+      useFactory: (config: ConfigService): Pool => {
         const connectionString = config.getOrThrow<string>('DATABASE_URL');
         // Neon (e o Postgres gerenciado do Render) exigem TLS. Em Postgres
         // local sem SSL, desliga para não quebrar o dev.
@@ -34,10 +35,26 @@ export type DrizzleDB = NodePgDatabase<typeof schema>;
         pool.on('error', (err) =>
           console.error('[pg] erro no pool de conexão:', err.message),
         );
-        return drizzle(pool, { schema });
+        return pool;
       },
+    },
+    {
+      provide: DRIZZLE,
+      inject: [PG_POOL],
+      useFactory: (pool: Pool): DrizzleDB => drizzle(pool, { schema }),
     },
   ],
   exports: [DRIZZLE],
 })
-export class DrizzleModule {}
+export class DrizzleModule implements OnApplicationShutdown {
+  constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
+
+  /**
+   * Fecha as conexões no desligamento. Sem isto, as conexões ociosas seguram o
+   * processo aberto depois de `app.close()`, e cada deploy no Render deixa
+   * conexões penduradas no Neon até o timeout do lado do servidor.
+   */
+  async onApplicationShutdown(): Promise<void> {
+    await this.pool.end();
+  }
+}

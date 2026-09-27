@@ -11,7 +11,7 @@ import 'package:le_ai_mobile/features/estante/acoes_disponiveis.dart';
 import 'package:le_ai_mobile/features/estante/acoes_leitura.dart';
 import 'package:le_ai_mobile/features/estante/datas_de_leitura.dart';
 import 'package:le_ai_mobile/features/estante/estante_page.dart';
-import 'package:le_ai_mobile/features/estante/leitura_service.dart';
+import 'package:le_ai_mobile/features/estante/estante_service.dart';
 import 'package:le_ai_mobile/features/estante/textos.dart';
 import 'package:le_ai_mobile/features/perfil/perfil_de_outro_page.dart';
 import 'package:le_ai_mobile/features/perfil/perfil_service.dart';
@@ -65,7 +65,7 @@ void main() {
       final chaves = <String?>[];
       var falhar = true;
       final controller = AcaoLeituraController(
-        leituraSimulada((request) async {
+        estanteSimulada((request) async {
           chaves.add(request.headers['Idempotency-Key']);
           if (falhar) {
             throw const SocketExceptionSimulada();
@@ -89,7 +89,7 @@ void main() {
     test('409 mostra o conflito e descarta a chave', () async {
       final chaves = <String?>[];
       final controller = AcaoLeituraController(
-        leituraSimulada((request) async {
+        estanteSimulada((request) async {
           chaves.add(request.headers['Idempotency-Key']);
           return erro(409, 'TRANSICAO_INVALIDA', 'Transição inválida.');
         }),
@@ -104,7 +104,7 @@ void main() {
     test('timeout mostra a mensagem de salvar e mantém a chave', () async {
       final chaves = <String?>[];
       final controller = AcaoLeituraController(
-        leituraSimulada((request) {
+        estanteSimulada((request) {
           chaves.add(request.headers['Idempotency-Key']);
           return Completer<http.Response>().future;
         }, timeout: const Duration(milliseconds: 10)),
@@ -119,7 +119,7 @@ void main() {
     test('finalizar manda dataFim e fuso; releitura abandonada volta a Lido', () async {
       Map<String, dynamic>? corpo;
       final controller = AcaoLeituraController(
-        leituraSimulada((request) async {
+        estanteSimulada((request) async {
           if (request.url.path.endsWith('/finalizar')) {
             corpo = jsonDecode(request.body) as Map<String, dynamic>;
             return json(leituraJson('le1', status: 'LIDO', dataFim: '2026-09-08'), 200);
@@ -154,7 +154,7 @@ void main() {
     testWidgets('pills com contagem, Todos soma, ordenação e segunda página', (tester) async {
       usarTelaDeCelular(tester);
       final consultas = <Map<String, String>>[];
-      final servico = leituraSimulada((request) async {
+      final servico = estanteSimulada((request) async {
         consultas.add(request.url.queryParameters);
         final pagina = int.parse(request.url.queryParameters['page'] ?? '1');
         return json(
@@ -204,7 +204,7 @@ void main() {
       usarTelaDeCelular(tester);
       var falhar = true;
       var buscou = false;
-      final servico = leituraSimulada((request) async {
+      final servico = estanteSimulada((request) async {
         if (falhar) {
           return erro(500, 'ERRO_INTERNO', 'Falha.');
         }
@@ -226,7 +226,7 @@ void main() {
 
     testWidgets('filtro vazio mostra o CTA do filtro', (tester) async {
       usarTelaDeCelular(tester);
-      final servico = leituraSimulada((request) async {
+      final servico = estanteSimulada((request) async {
         final status = request.url.queryParameters['status'];
         return json(
           paginaJson(
@@ -250,7 +250,7 @@ void main() {
   });
 
   group('Folha de ações', () {
-    Future<void> abrir(WidgetTester tester, LeituraService servico, LivroDaAcao livro) async {
+    Future<void> abrir(WidgetTester tester, EstanteService servico, LivroDaAcao livro) async {
       usarTelaDeCelular(tester);
       await tester.pumpWidget(
         envolver(
@@ -276,7 +276,7 @@ void main() {
     testWidgets('abandonar leitura e releitura têm confirmações distintas', (tester) async {
       await abrir(
         tester,
-        leituraSimulada((request) async => json(leituraJson('le1'), 200)),
+        estanteSimulada((request) async => json(leituraJson('le1'), 200)),
         livro(StatusEstante.lendo),
       );
       expect(find.text('Página 148 de 264'), findsOneWidget);
@@ -290,7 +290,7 @@ void main() {
     testWidgets('abandonar releitura usa a copy de releitura', (tester) async {
       await abrir(
         tester,
-        leituraSimulada(
+        estanteSimulada(
           (request) async => json(leituraJson('le1', status: 'RELENDO', releitura: true), 200),
         ),
         livro(StatusEstante.relendo),
@@ -304,7 +304,7 @@ void main() {
     testWidgets('abandonado retomável mostra Retomar e a página', (tester) async {
       await abrir(
         tester,
-        leituraSimulada(
+        estanteSimulada(
           (request) async => json(
             leituraJson(
               'le1',
@@ -327,7 +327,7 @@ void main() {
       Map<String, dynamic>? corpo;
       await abrir(
         tester,
-        leituraSimulada((request) async {
+        estanteSimulada((request) async {
           corpo = jsonDecode(request.body) as Map<String, dynamic>;
           return json(leituraJson('le1'), 201);
         }),
@@ -367,7 +367,7 @@ void main() {
       ),
     );
 
-    Future<void> montar(WidgetTester tester, LeituraService leitura) async {
+    Future<void> montar(WidgetTester tester, EstanteService estante) async {
       usarTelaDeCelular(tester);
       await tester.pumpWidget(
         envolver(
@@ -377,7 +377,7 @@ void main() {
             aoAbrirProprioPerfil: () {},
             aoBuscarLeitor: () {},
             aoAbrirSolicitacoes: () {},
-            leitura: leitura,
+            estante: estante,
           ),
         ),
       );
@@ -387,7 +387,7 @@ void main() {
     testWidgets('mostra os livros sem ações', (tester) async {
       await montar(
         tester,
-        leituraSimulada((request) async {
+        estanteSimulada((request) async {
           expect(request.url.path, '/perfis/u2/estante');
           return json(paginaJson(<Map<String, Object?>>[itemJson(_livroId)]), 200);
         }),
@@ -397,14 +397,14 @@ void main() {
     });
 
     testWidgets('403 vira o estado privado', (tester) async {
-      await montar(tester, leituraSimulada((request) async => erro(403, 'PROIBIDO', 'Privado.')));
+      await montar(tester, estanteSimulada((request) async => erro(403, 'PROIBIDO', 'Privado.')));
       expect(find.text('Este perfil é privado'), findsOneWidget);
     });
 
     testWidgets('404 esconde a seção', (tester) async {
       await montar(
         tester,
-        leituraSimulada((request) async => erro(404, 'NAO_ENCONTRADO', 'Não encontrado.')),
+        estanteSimulada((request) async => erro(404, 'NAO_ENCONTRADO', 'Não encontrado.')),
       );
       expect(find.text('Estante'), findsNothing);
       expect(find.text('Este perfil é privado'), findsNothing);

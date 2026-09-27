@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { MessageProperties } from 'amqplib';
 import { InvalidMessageError, MessageValidator } from './message-validator';
 
@@ -39,6 +41,80 @@ describe('MessageValidator', () => {
         { ...({} as object), type: 'leitura.iniciada' },
         properties,
       ),
+    ).toThrow(InvalidMessageError);
+  });
+});
+
+describe('MessageValidator — schema de data', () => {
+  // Lido direto da fonte canônica: o teste prova que o `$ref` relativo para o
+  // `common-v1` resolve, sem depender de uma cópia runtime deste evento.
+  const resenhaPublicada = JSON.parse(
+    readFileSync(
+      join(
+        __dirname,
+        '../../../../../docs/mensageria/schemas/resenha.publicada.v1.schema.json',
+      ),
+      'utf8',
+    ),
+  ) as object;
+
+  const dados = (livro: Record<string, unknown> = {}) => ({
+    usuarioId: correlationId,
+    resenhaId: eventId,
+    livroId: eventId,
+    atualizacao: false,
+    usuario: {
+      id: correlationId,
+      username: 'leitora',
+      displayName: 'Leitora',
+      avatarUrl: null,
+    },
+    livro: {
+      id: eventId,
+      tipo: 'oficial',
+      titulo: 'Torto Arado',
+      autor: 'Itamar Vieira Junior',
+      capaUrl: null,
+      ...livro,
+    },
+  });
+
+  const validador = () => {
+    const v = new MessageValidator();
+    v.registerDataSchema('resenha.publicada', 1, resenhaPublicada);
+    return v;
+  };
+
+  it('aceita data válido, resolvendo o $ref para o common-v1', () => {
+    expect(() =>
+      validador().validarDados('resenha.publicada', 1, dados()),
+    ).not.toThrow();
+  });
+
+  // Livro oficial sem autor: `autor_exibicao` sai NULL da VIEW do acervo.
+  it('aceita livro sem autor (autor null)', () => {
+    expect(() =>
+      validador().validarDados('resenha.publicada', 1, dados({ autor: null })),
+    ).not.toThrow();
+  });
+
+  it('recusa autor vazio: ausência é null, nunca texto vazio', () => {
+    expect(() =>
+      validador().validarDados('resenha.publicada', 1, dados({ autor: '' })),
+    ).toThrow(InvalidMessageError);
+  });
+
+  it('recusa data fora do contrato', () => {
+    const semUsuario: Record<string, unknown> = { ...dados() };
+    delete semUsuario.usuario;
+    expect(() =>
+      validador().validarDados('resenha.publicada', 1, semUsuario),
+    ).toThrow(InvalidMessageError);
+  });
+
+  it('recusa evento sem schema registrado', () => {
+    expect(() =>
+      new MessageValidator().validarDados('resenha.publicada', 1, dados()),
     ).toThrow(InvalidMessageError);
   });
 });

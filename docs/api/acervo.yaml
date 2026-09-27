@@ -5,13 +5,13 @@ info:
   description: >-
     Contrato do serviço acervo para o Período 1 (F-ACV-BUSCA, F-ACV-CADASTRO e
     F-ACV-INGESTAO). As operações de cadastro por ISBN e de livro pessoal foram
-    implementadas por F-ACV-CADASTRO em 18/09/2026; busca e página do livro
-    seguem planejadas com F-ACV-BUSCA. A ingestão inicial do dump é um script
+    implementadas por F-ACV-CADASTRO em 18/09/2026; a busca, os assuntos e a
+    página do livro, por F-ACV-BUSCA em 26/09/2026. A ingestão inicial do dump é um script
     utilitário, não uma API HTTP; por isso não há rotas administrativas de
     ingestão, recarga ou associação de assuntos neste período. O contrato é
     publicado em runtime por @nestjs/swagger em /docs e versionado aqui
     conforme RNF-ARQ-03.
-x-contract-status: partial
+x-contract-status: implemented
 x-implementation-notes:
   - >-
     livro.importacao_solicitada está ligado ponta a ponta desde 22/09/2026: a
@@ -30,7 +30,19 @@ x-implementation-notes:
   - >-
     notaDoDono e resenhaDoDono vêm das VIEWs de leitura e saem null enquanto
     F-AVA não entrega. Ausência é resposta normal, nunca erro.
-x-planned-features: [F-ACV-BUSCA, F-ACV-CADASTRO, F-ACV-INGESTAO]
+  - >-
+    livro.pagina_aberta está ligado ponta a ponta desde 26/09/2026: a primeira
+    abertura de GET /livros/{id} grava sinopse pendente e a outbox na mesma
+    transação, e o consumidor acervo.sinopse (fila leai.acervo.sinopse) consulta
+    OpenLibrary e Google Books e grava disponivel, ausente ou
+    falha_transitoria. Com AMQP_ENABLED=false (padrão local) a sinopse fica em
+    pendente, e uma abertura depois de 15 minutos pede de novo.
+  - >-
+    As resenhas da página vêm de leitura.v_resenha_publicacao_v1 e saem vazias
+    enquanto F-AVA não entrega; com a VIEW inacessível, resenhas vem null em
+    GET /livros/{id} e GET /livros/{id}/resenhas responde 503.
+x-planned-features: [F-ACV-INGESTAO]
+x-implemented-features: [F-ACV-CADASTRO, F-ACV-BUSCA]
 x-database-contracts:
   - name: v_livro_referencia_v1
     owner: acervo
@@ -38,6 +50,9 @@ x-database-contracts:
     description: >-
       Referência estável de livro exposta a leitura e social. Livro pessoal
       excluído deixa de ser ativo. Consumidores não leem tabelas cruas de acervo.
+      autor_exibicao é NULL em livro oficial sem autor (string_agg sobre zero
+      linhas); livro pessoal sempre traz o autor informado. Corrigido em
+      26/09/2026: o contrato declarava a coluna não anulável.
     consumers: [leitura, social]
     columns:
       - { name: livro_id, type: uuid, nullable: false }
@@ -45,7 +60,7 @@ x-database-contracts:
       - { name: dono_id, type: uuid, nullable: true }
       - { name: paginas, type: integer, nullable: false }
       - { name: titulo, type: varchar, nullable: false }
-      - { name: autor_exibicao, type: varchar, nullable: false }
+      - { name: autor_exibicao, type: varchar, nullable: true }
       - { name: capa_resolvida, type: varchar, nullable: true }
       - { name: ativo, type: boolean, nullable: false }
   - name: v_livro_recomendacao_v1
@@ -84,18 +99,33 @@ paths:
   /livros:
     get:
       operationId: buscarLivrosOficiais
-      x-contract-status: planned
+      x-contract-status: implemented
+      x-implemented-by: F-ACV-BUSCA
       tags: [livros]
       summary: Busca livros oficiais
       description: >-
-        Busca somente livros oficiais por título, autor, editora ou ISBN-13 e,
-        opcionalmente, filtra por um assunto do conjunto curado. A sinopse não é
-        pesquisada. Livros pessoais nunca aparecem. Os resultados são ordenados
-        por relevância e cada registro continua representando uma edição (RN-01).
+        Busca somente livros oficiais por título, autor, editora ou ISBN e,
+        opcionalmente, filtra por um assunto do conjunto curado. O texto também
+        casa com o nome do assunto (RN-21.6). A sinopse não é pesquisada. Livros
+        pessoais nunca aparecem. `q` ou `assunto` é obrigatório; sem nenhum dos
+        dois a resposta é 400. A comparação ignora acentos e maiúsculas e casa
+        por trecho, palavra por palavra: todas as palavras de `q` precisam
+        aparecer no mesmo campo, em qualquer ordem e sem depender da pontuação
+        ("grande sertao veredas" acha "Grande sertão: veredas"). Um ISBN-13
+        válido, ou um ISBN-10 convertido para o ISBN-13 da edição, casa também
+        exatamente com o ISBN. Com `q`, a ordem é por relevância: primeiro o
+        título ou o autor idêntico ao texto, depois título, autor, editora e
+        assunto que o contêm; só com `assunto`, por título. Cada registro
+        continua representando uma edição (RN-01), e as edições de mesmo título
+        e mesmos autores chegam contíguas, para o cliente agrupá-las. `limit`
+        acima de 50 é 400.
       parameters:
         - name: q
           in: query
-          description: Texto para título, autor, editora ou ISBN-13.
+          description: >-
+            Texto para título, autor, editora, assunto ou ISBN. Caracteres de
+            controle viram espaço e os espaços nas pontas são descartados antes
+            da validação; só espaços é 400.
           schema: { type: string, minLength: 1, maxLength: 200 }
           example: Machado de Assis
         - name: assunto
@@ -114,10 +144,31 @@ paths:
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '503': { $ref: '#/components/responses/ServicoIndisponivel' }
 
+  /assuntos:
+    get:
+      operationId: listarAssuntos
+      x-contract-status: implemented
+      x-implemented-by: F-ACV-BUSCA
+      tags: [livros]
+      summary: Lista os assuntos do conjunto curado
+      description: >-
+        Assuntos para o filtro da busca (RF-ACV-02, RN-21), ordenados por nome.
+        O conjunto é curado e fechado, com cerca de 30 itens; o servidor impõe
+        o teto de 100 (RNF-DES-02).
+      responses:
+        '200':
+          description: Assuntos disponíveis para o filtro.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ListaAssuntos' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
   /livros/{id}:
     get:
       operationId: obterLivroOficial
-      x-contract-status: planned
+      x-contract-status: implemented
+      x-implemented-by: F-ACV-BUSCA
       tags: [livros]
       summary: Obtém a página de um livro oficial
       description: >-
@@ -127,10 +178,17 @@ paths:
         única mensagem livro.pagina_aberta de forma concorrente e idempotente.
         A consulta externa ocorre depois, na ordem OpenLibrary, Google Books e
         ausência. A resposta nunca aguarda essa consulta. disponivel e ausente
-        são estados terminais da busca automática; falha_transitoria pode ser
-        reenfileirada de forma controlada em abertura posterior. Sinopse ausente
-        é resposta normal, não erro. Nota geral, nota dos leitores e distribuição
-        não fazem parte deste contrato do Período 1.
+        são estados terminais da busca automática. Uma abertura posterior
+        reenfileira, também uma vez só, a falha_transitoria com mais de 10
+        minutos e a pendente com mais de 15 minutos (mensagem perdida ou que foi
+        para a DLQ); o relógio é o atualizado_em do livro. Sinopse ausente é
+        resposta normal, não erro. A primeira página traz até 10 resenhas de
+        outros leitores (RF-ACV-04): a do próprio solicitante não entra. Quando
+        os contratos de leitura ou identidade estão indisponíveis, resenhas vem
+        null e a página abre mesmo assim. Nota geral, nota dos leitores e
+        distribuição não fazem parte deste contrato do Período 1. A rota tem
+        rate limiting por identidade e IP, porque a abertura dispara consulta a
+        fonte externa.
       parameters:
         - $ref: '#/components/parameters/LivroId'
       responses:
@@ -142,17 +200,23 @@ paths:
         '400': { $ref: '#/components/responses/RequisicaoInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
         '503': { $ref: '#/components/responses/ServicoIndisponivel' }
 
   /livros/{id}/resenhas:
     get:
       operationId: listarResenhasDoLivro
-      x-contract-status: planned
+      x-contract-status: implemented
+      x-implemented-by: F-ACV-BUSCA
       tags: [livros]
       summary: Lista as próximas resenhas autorizadas de um livro oficial
       description: >-
         Usa cursor opaco e aplica no servidor a privacidade de RN-08 por meio dos
-        contratos versionados de leitura e identidade.
+        contratos versionados de leitura e identidade: autor público, ou privado
+        que o solicitante segue com seguimento aceito; conta suspensa ou em
+        exclusão não aparece. A resenha do próprio solicitante não entra. Ordem
+        da mais recente para a mais antiga. Livro inexistente, pessoal ou
+        inativo responde 404; cursor que não veio de uma página anterior, 400.
       parameters:
         - $ref: '#/components/parameters/LivroId'
         - $ref: '#/components/parameters/Cursor'
@@ -421,8 +485,8 @@ components:
     Page:
       name: page
       in: query
-      description: Página iniciada em 1.
-      schema: { type: integer, minimum: 1, default: 1 }
+      description: Página iniciada em 1, com teto de 100000.
+      schema: { type: integer, minimum: 1, maximum: 100000, default: 1 }
     Limit:
       name: limit
       in: query
@@ -565,6 +629,15 @@ components:
       properties:
         id: { type: string, format: uuid }
         nome: { type: string, minLength: 1, maxLength: 100 }
+    ListaAssuntos:
+      type: object
+      additionalProperties: false
+      required: [itens]
+      properties:
+        itens:
+          type: array
+          maxItems: 100
+          items: { $ref: '#/components/schemas/AssuntoResumo' }
     Capa:
       type: object
       additionalProperties: false
@@ -582,10 +655,13 @@ components:
         titulo: { type: string, minLength: 1, maxLength: 500 }
         autores:
           type: array
-          minItems: 1
+          minItems: 0
+          description: >-
+            Ordenados por nome. Pode vir vazio: parte do acervo carregado não
+            tem autor na fonte.
           items: { $ref: '#/components/schemas/AutorResumo' }
-        editora: { type: string, minLength: 1, maxLength: 200 }
-        anoPublicacao: { type: integer, minimum: 1, maximum: 9999 }
+        editora: { type: string, minLength: 1, maxLength: 200, nullable: true }
+        anoPublicacao: { type: integer, minimum: 1, maximum: 9999, nullable: true }
         paginas: { type: integer, minimum: 1 }
         capa: { $ref: '#/components/schemas/Capa' }
         assuntos:
@@ -639,17 +715,39 @@ components:
           enum: [nao_consultada, pendente, disponivel, ausente, falha_transitoria]
         texto: { type: string, maxLength: 4000, nullable: true }
     LivroOficialDetalhe:
-      allOf:
-        - $ref: '#/components/schemas/LivroOficialResumo'
-        - type: object
-          required: [isbn, sinopse, resenhas]
-          properties:
-            isbn:
-              type: string
-              pattern: '^97[89][0-9]{10}$'
-              example: '9788535914849'
-            sinopse: { $ref: '#/components/schemas/Sinopse' }
-            resenhas: { $ref: '#/components/schemas/PaginaResenhas' }
+      type: object
+      additionalProperties: false
+      description: >-
+        Os campos de LivroOficialResumo mais ISBN, sinopse e a primeira página de
+        resenhas. Declarado por extenso, e não como allOf, porque o resumo tem
+        additionalProperties false e recusaria os campos a mais.
+      required: [id, titulo, autores, editora, anoPublicacao, paginas, capa, assuntos, isbn, sinopse, resenhas]
+      properties:
+        id: { type: string, format: uuid }
+        titulo: { type: string, minLength: 1, maxLength: 500 }
+        autores:
+          type: array
+          minItems: 0
+          items: { $ref: '#/components/schemas/AutorResumo' }
+        editora: { type: string, minLength: 1, maxLength: 200, nullable: true }
+        anoPublicacao: { type: integer, minimum: 1, maximum: 9999, nullable: true }
+        paginas: { type: integer, minimum: 1 }
+        capa: { $ref: '#/components/schemas/Capa' }
+        assuntos:
+          type: array
+          items: { $ref: '#/components/schemas/AssuntoResumo' }
+        isbn:
+          type: string
+          pattern: '^97[89][0-9]{10}$'
+          example: '9788535914849'
+        sinopse: { $ref: '#/components/schemas/Sinopse' }
+        resenhas:
+          allOf:
+            - $ref: '#/components/schemas/PaginaResenhas'
+          nullable: true
+          description: >-
+            null quando os contratos de leitura ou identidade estão
+            indisponíveis; a página abre mesmo assim.
     SolicitarImportacao:
       type: object
       additionalProperties: false

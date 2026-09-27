@@ -3,7 +3,7 @@ import { ApiError, createApiClient, type ApiClientOptions } from './api'
 import { renovarSessao } from './renovacao'
 
 /**
- * Contrato do serviço `acervo` usado por F-ACV-CADASTRO. Espelha `docs/api/acervo.yaml`: mesmos
+ * Contrato do serviço `acervo` usado por F-ACV-CADASTRO e F-ACV-BUSCA. Espelha `docs/api/acervo.yaml`: mesmos
  * campos, mesmas rotas, mesmos estados. Toda escrita exige `Idempotency-Key` (o servidor recusa
  * sem ela com `400`), e quem guarda a chave da intenção é a tela, não este serviço.
  */
@@ -77,6 +77,78 @@ export interface DadosLivroPessoal {
   sinopse: string | null
   capaUrl: string | null
 }
+
+export interface AssuntoResumo {
+  id: string
+  nome: string
+}
+
+export interface AutorResumo {
+  id: string
+  nome: string
+}
+
+/**
+ * Uma edição (RN-01), como a busca devolve. Editora, ano e autores podem faltar: parte do acervo
+ * carregado não os tem, e a tela omite o que falta em vez de inventar.
+ */
+export interface LivroOficialResumo {
+  id: string
+  titulo: string
+  /** Na ordem do servidor, por nome. Pode vir vazio. */
+  autores: AutorResumo[]
+  editora: string | null
+  anoPublicacao: number | null
+  paginas: number
+  /** Resolvida pelo servidor: cópia própria, depois URL externa (RN-14.4). */
+  capa: { url: string | null; origem: 'propria' | 'externa' | 'placeholder' }
+  assuntos: AssuntoResumo[]
+}
+
+/** Página da busca, **a partir de 1**, ao contrário das listas de F-PERFIL. */
+export interface PaginaLivros {
+  itens: LivroOficialResumo[]
+  page: number
+  limit: number
+  totalItens: number
+  totalPaginas: number
+}
+
+export type StatusDaSinopse = 'nao_consultada' | 'pendente' | 'disponivel' | 'ausente' | 'falha_transitoria'
+
+/** Sinopse do livro oficial (RN-19): o texto só vem em `disponivel`. */
+export interface SinopseDoLivro {
+  status: StatusDaSinopse
+  texto: string | null
+}
+
+/** Resenha de outro leitor, já filtrada por RN-08 no servidor. Mesma forma de `ResenhaDoDono`. */
+export type ResenhaDoLivro = ResenhaDoDono
+
+export interface PaginaResenhas {
+  itens: ResenhaDoLivro[]
+  limit: number
+  proximoCursor: string | null
+}
+
+/**
+ * Página do livro oficial. `resenhas` nulo quer dizer que os contratos de `leitura` ou
+ * `identidade` estavam indisponíveis: a página abre mesmo assim.
+ */
+export interface LivroOficialDetalhe extends LivroOficialResumo {
+  isbn: string
+  sinopse: SinopseDoLivro
+  resenhas: PaginaResenhas | null
+}
+
+export interface CriteriosDaBusca {
+  q?: string | null
+  assunto?: string | null
+  page?: number
+}
+
+/** Padrão do contrato; o servidor aceita até 50. */
+export const TAMANHO_DA_PAGINA_DE_LIVROS = 20
 
 export interface ViaDeAcesso {
   via: 'feed'
@@ -162,7 +234,48 @@ export function createAcervoService(options: ApiClientOptions = {}) {
     return request<LivroPessoalDetalhe>(`/livros/pessoal/${encodeURIComponent(id)}${consulta}`)
   }
 
+  /** `GET /assuntos`: o conjunto curado para o filtro da busca (RN-21). */
+  async function listarAssuntos(): Promise<AssuntoResumo[]> {
+    const lista = await request<{ itens?: AssuntoResumo[] }>('/assuntos')
+    return lista?.itens ?? []
+  }
+
+  /**
+   * `GET /livros`: busca paginada de livros oficiais. O servidor exige `q` ou `assunto`; quem chama
+   * nunca manda os dois vazios.
+   */
+  function buscarLivros({ q, assunto, page = 1 }: CriteriosDaBusca): Promise<PaginaLivros> {
+    const consulta = new URLSearchParams()
+    if (q) {
+      consulta.set('q', q)
+    }
+    if (assunto) {
+      consulta.set('assunto', assunto)
+    }
+    consulta.set('page', String(page))
+    consulta.set('limit', String(TAMANHO_DA_PAGINA_DE_LIVROS))
+    return request<PaginaLivros>(`/livros?${consulta}`)
+  }
+
+  /**
+   * `GET /livros/{id}`: a página do livro oficial. A primeira abertura pede a sinopse, e a resposta
+   * nunca espera a fonte externa.
+   */
+  function obterLivroOficial(id: string): Promise<LivroOficialDetalhe> {
+    return request<LivroOficialDetalhe>(`/livros/${encodeURIComponent(id)}`)
+  }
+
+  /** `GET /livros/{id}/resenhas`: as próximas resenhas, por cursor. */
+  function listarResenhasDoLivro(id: string, cursor?: string | null): Promise<PaginaResenhas> {
+    const consulta = cursor ? `?${new URLSearchParams({ cursor })}` : ''
+    return request<PaginaResenhas>(`/livros/${encodeURIComponent(id)}/resenhas${consulta}`)
+  }
+
   return {
+    listarAssuntos,
+    buscarLivros,
+    obterLivroOficial,
+    listarResenhasDoLivro,
     solicitarImportacao,
     obterImportacao,
     reprocessarImportacao,

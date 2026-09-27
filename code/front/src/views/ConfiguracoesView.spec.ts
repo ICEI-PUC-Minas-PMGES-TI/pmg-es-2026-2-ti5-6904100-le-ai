@@ -8,13 +8,16 @@ import { montarNaRota } from '../testes/montarNaRota'
 
 vi.mock('../services/auth', async (original) => {
   const real = await original<typeof import('../services/auth')>()
-  return { ...real, authService: { ...real.authService, sair: vi.fn() } }
+  return { ...real, authService: { ...real.authService, sair: vi.fn(), buscarUsuarioAtual: vi.fn() } }
 })
 
 describe('ConfiguracoesView', () => {
   beforeEach(() => {
     localStorage.clear()
     vi.mocked(authService.sair).mockReset()
+    vi.mocked(authService.buscarUsuarioAtual)
+      .mockReset()
+      .mockResolvedValue({ id: 'u1', username: 'marinableu', displayName: 'Marina Beltrão', email: 'marina.beltrao@gmail.com' })
     vi.mocked(authService.sair).mockImplementation(async () => {
       encerrarSessao()
     })
@@ -24,14 +27,35 @@ describe('ConfiguracoesView', () => {
     document.body.innerHTML = ''
   })
 
-  it('mostra nome e username da sessão, as duas linhas e a política', async () => {
+  it('mostra nome, username e o e-mail de GET /me, as duas linhas e a política', async () => {
     const { wrapper } = await montarNaRota('/perfil/configuracoes')
+    await flushPromises()
 
     expect(wrapper.text()).toContain('Marina Beltrão')
     expect(wrapper.text()).toContain('@marinableu')
+    expect(wrapper.text()).toContain('marina.beltrao@gmail.com')
     expect(wrapper.text()).toContain('Alterar senha')
     expect(wrapper.text()).toContain('Dados que coletamos')
     expect(wrapper.text()).toContain('Lê Ai · versão 1.0.0')
+  })
+
+  it('enquanto GET /me não volta, mostra o skeleton de três barras', async () => {
+    vi.mocked(authService.buscarUsuarioAtual).mockReturnValue(new Promise(() => {}))
+    const { wrapper } = await montarNaRota('/perfil/configuracoes')
+
+    const skeleton = wrapper.get('[aria-label="Carregando conta"]')
+    expect(skeleton.findAll('span')).toHaveLength(3)
+    expect(wrapper.text()).not.toContain('@marinableu')
+  })
+
+  it('se GET /me falhar, fica com nome e username da sessão, sem e-mail', async () => {
+    vi.mocked(authService.buscarUsuarioAtual).mockRejectedValue(new Error('rede'))
+    const { wrapper } = await montarNaRota('/perfil/configuracoes')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Marina Beltrão')
+    expect(wrapper.text()).toContain('@marinableu')
+    expect(wrapper.text()).not.toContain('@gmail.com')
   })
 
   it('sair pede confirmação, revoga e vai ao login sem destino', async () => {

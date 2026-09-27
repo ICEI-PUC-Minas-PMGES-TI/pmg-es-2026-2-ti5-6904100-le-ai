@@ -42,4 +42,14 @@ describe('montarErroDeValidacao', () => {
 
     expect((resultado.extras.campos as unknown[]).length).toBe(2);
   });
+
+  it('campo fora do contrato recebe mensagem em pt-BR', () => {
+    const resultado = montarErroDeValidacao([
+      erro('ordem', { whitelistValidation: 'property ordem should not exist' }),
+    ]);
+
+    expect(resultado.extras).toEqual({
+      campos: [{ campo: 'ordem', mensagem: 'Este campo não é aceito.' }],
+    });
+  });
 });

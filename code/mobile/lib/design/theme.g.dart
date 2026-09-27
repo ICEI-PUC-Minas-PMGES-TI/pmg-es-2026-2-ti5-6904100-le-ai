@@ -114,6 +114,8 @@ class GeneratedAppTheme {
         labelStyle: _style(DesignTokens.label, color: secondaryText),
         hintStyle: _style(DesignTokens.body, color: tertiaryText),
         enabledBorder: _outline(divider),
+        // Sem isto, o campo desabilitado perde o contorno e ganha o sublinhado do Material.
+        disabledBorder: _outline(divider),
         focusedBorder: _outline(primary, width: 2),
         errorBorder: _outline(error),
         focusedErrorBorder: _outline(error, width: 2),
@@ -122,6 +124,11 @@ class GeneratedAppTheme {
         style: ElevatedButton.styleFrom(
           backgroundColor: primary,
           foregroundColor: onPrimary,
+          // Botão plano, sem a sombra do M3, e desabilitado como `musgo` esmaecido (protótipos).
+          elevation: 0,
+          shadowColor: Colors.transparent,
+          disabledBackgroundColor: primary.withValues(alpha: 0.45),
+          disabledForegroundColor: onPrimary,
           shape: const StadiumBorder(),
           minimumSize: const Size(48, 48),
           textStyle: _style(DesignTokens.bodyStrong),

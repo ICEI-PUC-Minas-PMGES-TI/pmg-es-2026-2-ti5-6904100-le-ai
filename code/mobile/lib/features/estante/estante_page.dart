@@ -11,14 +11,14 @@ import '../../design/widgets/folha_inferior.dart';
 import '../perfil/widgets_de_perfil.dart';
 import 'acoes_leitura.dart';
 import 'cartao_estante.dart';
-import 'leitura_service.dart';
+import 'estante_service.dart';
 import 'lista_da_estante.dart';
 import 'textos.dart';
 
 const double _distanciaParaCarregarMais = 300;
 
 class EstantePage extends StatefulWidget {
-  final LeituraService servico;
+  final EstanteService servico;
   final VoidCallback aoBuscarLivros;
   final VoidCallback? aoCadastrarLivro;
 

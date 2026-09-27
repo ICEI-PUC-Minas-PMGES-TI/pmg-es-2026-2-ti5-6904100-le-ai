@@ -1,7 +1,7 @@
 import '../../core/network/api_client.dart';
 import '../perfil/lista_paginada.dart';
 import '../perfil/perfil_service.dart';
-import 'leitura_service.dart';
+import 'estante_service.dart';
 
 const int _proibido = 403;
 const int _naoEncontrado = 404;

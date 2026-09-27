@@ -12,13 +12,13 @@ function erro(
 describe('montarErroDeValidacao', () => {
   it('devolve o corpo de erro padrão com os campos rejeitados', () => {
     const resultado = montarErroDeValidacao([
-      erro('isbn', { isString: 'Informe um ISBN-13 válido.' }),
+      erro('texto', { isString: 'Informe o texto da resenha.' }),
     ]);
 
     expect(resultado.getStatus()).toBe(400);
     expect(resultado.codigo).toBe('REQUISICAO_INVALIDA');
     expect(resultado.extras).toEqual({
-      campos: [{ campo: 'isbn', mensagem: 'Informe um ISBN-13 válido.' }],
+      campos: [{ campo: 'texto', mensagem: 'Informe o texto da resenha.' }],
     });
   });
 

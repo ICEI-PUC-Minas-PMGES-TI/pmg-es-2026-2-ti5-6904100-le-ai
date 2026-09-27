@@ -146,7 +146,7 @@ export class InatividadeService {
       eventId: evento.eventId,
     });
     if (novo) {
-      await this.outbox.gravar(tx, evento);
+      await this.outbox.inserir(tx, evento);
     }
     return novo;
   }
@@ -175,7 +175,7 @@ export class InatividadeService {
     await this.leituras.abandonarEmTransacao(tx, atual.id, {
       automatico: true,
     });
-    await this.outbox.gravar(tx, evento);
+    await this.outbox.inserir(tx, evento);
     return true;
   }
 

@@ -1,10 +1,11 @@
 import { Body, Controller, Post, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 import { Publico } from '../../../auth/publico.decorator';
+import { IdempotencyKey } from '../../../common/idempotencia/idempotency-key.decorator';
 import {
-  type EscopoIdempotente,
-  Idempotente,
-} from '../../../common/idempotencia/escopo-idempotente.decorator';
+  OPERACOES,
+  operacaoNoCaminho,
+} from '../../../common/idempotencia/idempotencia.constantes';
 import { IdempotenciaService } from '../../../common/idempotencia/idempotencia.service';
 import { ExecutarJobDto } from './dto/executar-job.dto';
 import {
@@ -29,14 +30,15 @@ export class InatividadeController {
   @Publico()
   @UseGuards(SchedulerTokenGuard)
   async executar(
-    @Idempotente() escopo: EscopoIdempotente,
+    @IdempotencyKey() chave: string,
     @Body() entrada: ExecutarJobDto,
     @Res({ passthrough: true }) res: Response,
   ): Promise<ResultadoJobInatividade> {
     const dataReferencia = entrada.dataReferencia ?? dataDeHoje();
     const resposta = await this.idempotencia.executar(
       {
-        ...escopo,
+        operacao: operacaoNoCaminho(OPERACOES.PROCESSAR_INATIVIDADE_LEITURAS),
+        chave,
         subjectRef: SUJEITO_AGENDADOR,
         payload: { dataReferencia: entrada.dataReferencia ?? null },
       },

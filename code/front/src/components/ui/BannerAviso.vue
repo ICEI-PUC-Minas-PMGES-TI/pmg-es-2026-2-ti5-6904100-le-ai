@@ -5,13 +5,16 @@ import { computed } from 'vue'
 /**
  * Duas variantes, nunca confundidas (login.md §4.2/§4.3 e §10): `erro` é `rubi` — o usuário
  * mandou algo inválido. `alerta` é `ambar` — bloqueio temporário, o usuário não errou nada.
- * Ícone e texto juntos: a diferença não pode depender só de cor (§9 acessibilidade).
+ * Ícone e texto juntos: a diferença não pode depender só de cor (§9 acessibilidade). `triangulo`
+ * põe o `Warning` também no erro, como os banners de falha de carregamento dos protótipos de
+ * F-PERFIL.
  */
 const props = defineProps<{
   variante: 'erro' | 'alerta'
+  triangulo?: boolean
 }>()
 
-const Icone = computed(() => (props.variante === 'erro' ? PhWarningCircle : PhWarning))
+const Icone = computed(() => (props.variante === 'erro' && !props.triangulo ? PhWarningCircle : PhWarning))
 </script>
 
 <template>

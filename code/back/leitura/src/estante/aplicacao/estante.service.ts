@@ -8,7 +8,10 @@ import {
   NaoEncontrado,
   TransicaoDeLeituraInvalida,
 } from '../../common/erros-de-negocio';
-import type { EscopoIdempotente } from '../../common/idempotencia/escopo-idempotente.decorator';
+import {
+  OPERACOES,
+  operacaoNoCaminho,
+} from '../../common/idempotencia/idempotencia.constantes';
 import {
   IdempotenciaService,
   type RespostaIdempotente,
@@ -60,10 +63,15 @@ export class EstanteService {
   adicionar(
     usuarioId: string,
     livroId: string,
-    escopo: EscopoIdempotente,
+    chave: string,
   ): Promise<RespostaIdempotente<ItemEstante>> {
     return this.idempotencia.executar(
-      { ...escopo, subjectRef: usuarioId, payload: { livroId } },
+      {
+        subjectRef: usuarioId,
+        operacao: operacaoNoCaminho(OPERACOES.ADICIONAR_LIVRO_ESTANTE),
+        chave,
+        payload: { livroId },
+      },
       async (tx) => {
         const livro = await this.referencias.buscarLivroAcessivel(
           livroId,
@@ -90,7 +98,7 @@ export class EstanteService {
             }
             throw erro;
           });
-        await this.outbox.gravar(
+        await this.outbox.inserir(
           tx,
           livroAdicionadoAEstante({ usuarioId, livroId }),
         );
@@ -117,10 +125,15 @@ export class EstanteService {
   remover(
     usuarioId: string,
     livroId: string,
-    escopo: EscopoIdempotente,
+    chave: string,
   ): Promise<RespostaIdempotente<undefined>> {
     return this.idempotencia.executar(
-      { ...escopo, subjectRef: usuarioId, payload: {} },
+      {
+        subjectRef: usuarioId,
+        operacao: operacaoNoCaminho(OPERACOES.REMOVER_LIVRO_ESTANTE, livroId),
+        chave,
+        payload: {},
+      },
       async (tx) => {
         const { vinculo, snapshot } = await this.repositorio.travarSnapshot(
           tx,

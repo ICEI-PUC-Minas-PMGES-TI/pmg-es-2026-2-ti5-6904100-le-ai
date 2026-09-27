@@ -1,6 +1,6 @@
 # Documento de Arquitetura de Software
 
-**Versão:** v1.6 — 17/09/2026
+**Versão:** v1.7 — 25/09/2026
 **Status:** macroarquitetura fechada — alocação de stack por serviço decidida em 02/09/2026 (§2.1)
 
 > **v1.4 (12/09/2026):** ambiente local passa a usar **Postgres local** — **removida a branch de banco por dev no Neon** (o Neon mantém só a branch de DES/HML). Decisão da equipe; reflexo em §6 e no plano §4.
@@ -8,6 +8,12 @@
 > **v1.5 (15/09/2026):** decisões do grupo registradas em `REQUISITOS.md` v1.5: delta automático do acervo removido, projeções corrigíveis por sincronização offline, retenção de configurações/pausas de desafio, suspensão com ocultação e retenção técnica anonimizada sem prazo. Sem mudança de stacks ou fronteiras dos serviços.
 
 > **v1.6 (17/09/2026):** contratos executáveis do Período 1 consolidados: quatro OpenAPI com estado por operação, envelope/eventos em `docs/mensageria/`, topologia RabbitMQ, recibo transacional, retry/DLQ e baseline física de 59 tabelas/9 VIEWs. Sem mudança de requisito, stack ou fronteira de serviço.
+
+> **v1.7 (25/09/2026):** banco e broker separados por ambiente, revisando a v1.4.
+> - **DES/HML:** passa a ter projeto Neon e instância CloudAMQP próprios em **Oregon** (`aws-us-west-2`), a mesma região do Render. Com o banco em São Paulo, cada consulta do DES pagava cerca de 170 ms de ida e volta (RNF-DES-01).
+> - **Desenvolvimento:** usa o projeto e a instância de **São Paulo**.
+> - **Sem replicação** entre os dois. Reflexo em §1, §4.1 e §6 e no plano §4.
+> - Autorizado pelo dono de P0-DEPLOY. Sem mudança de requisito, stack ou fronteira de serviço.
 
 > Este documento descreve **como o sistema é construído**. O *o que* mora em `docs/orquestador/REQUISITOS.md`, que continua sendo a fonte de verdade. Em caso de conflito, o `REQUISITOS.md` vence, e a divergência segue o controle de mudança do `docs/orquestador/plano-de-projeto.md` §3.
 
@@ -17,7 +23,7 @@
 
 O sistema é um backend de **microsserviços** (RNF-ARQ-02) consumido por HTTP/JSON (RNF-ARQ-01) por dois clientes independentes: o aplicativo móvel em Flutter (produto principal) e a SPA web em Vue + Tailwind (subconjunto). Não há paridade funcional entre os clientes; o corte de escopo recai sobre a web antes do mobile.
 
-São **quatro serviços de backend** — `identidade`, `acervo`, `leitura` e `social` —, um **broker de mensageria** para os fluxos assíncronos (RNF-ARQ-06), um **banco PostgreSQL único no Neon** com separação lógica por schema (RNF-ARQ-07), e um conjunto de **serviços de apoio gratuitos** (e-mail, imagens, push, agendador). Todos os serviços e o site estático são hospedados no Render em plano gratuito (RNF-ARQ-08).
+São **quatro serviços de backend** — `identidade`, `acervo`, `leitura` e `social` —, um **broker de mensageria** para os fluxos assíncronos (RNF-ARQ-06), um **banco PostgreSQL único no Neon** por ambiente, com separação lógica por schema (RNF-ARQ-07), e um conjunto de **serviços de apoio gratuitos** (e-mail, imagens, push, agendador). Todos os serviços e o site estático são hospedados no Render em plano gratuito (RNF-ARQ-08).
 
 A decomposição segue o ciclo de valor do produto (encontrar livro → registrar leitura → acompanhar progresso → ver amigos), mantendo na mesma fronteira tudo o que participa do mesmo caminho crítico, para não transformar operação de usuário em cadeia de chamadas síncronas entre serviços.
 
@@ -46,7 +52,7 @@ Cada decisão registra a escolha, a justificativa e as consequências aceitas. A
 Esta é a decisão estruturante e está detalhada na **§3** (serviços) e **§4** (dados). Resumo:
 
 - **Quatro serviços:** `identidade`, `acervo`, `leitura`, `social`.
-- **Banco único PostgreSQL no Neon**, com **um schema por serviço**. Separação **lógica**, não física.
+- **Banco único PostgreSQL no Neon** por ambiente, com **um schema por serviço**. Separação **lógica**, não física.
 - **Firebase é usado exclusivamente para FCM** (P-04). Nenhum dado de domínio vive no Firestore.
 
 O acervo permanece no PostgreSQL — e não em banco de documentos — porque é o serviço **mais dependente de busca e filtro relacional** de todo o sistema (RF-ACV-01/02/03, RNF-DES-03), e porque a recomendação algorítmica (§10.7 do `REQUISITOS.md`) é especificada como junção entre estante, nota, seguidor e assunto, o que exige um mesmo mecanismo relacional. Ver §4.
@@ -144,7 +150,7 @@ O plano gratuito do Render **hiberna cada serviço após ~15 min de inatividade*
 
 ### 4.1 Banco único, schema por serviço
 
-A persistência usa **um projeto PostgreSQL no Neon** (RNF-ARQ-07), com **um schema por serviço**: `identidade`, `acervo`, `leitura`, `social`. A separação é **lógica**, não física — todos os schemas vivem no mesmo cluster.
+A persistência usa, em cada ambiente, **um projeto PostgreSQL no Neon** (RNF-ARQ-07), com **um schema por serviço**: `identidade`, `acervo`, `leitura`, `social`. A separação é **lógica**, não física — todos os schemas de um ambiente vivem no mesmo cluster. Os ambientes de desenvolvimento e DES/HML têm projetos distintos e não replicados (§6).
 
 A baseline física foi aplicada no Neon em 16/09/2026, com **59 tabelas de domínio e 9 VIEWs de contrato**. Flyway versiona `identidade`/`social`; Drizzle versiona `acervo`/`leitura`. Essa implantação não declara as features funcionais: código de domínio, clientes e mensageria seguem os status dos respectivos arquivos de feature.
 
@@ -250,17 +256,22 @@ Timeout e retentativa com backoff em toda chamada externa, com circuit breaker (
 
 | Componente | Provedor | Plano | Observação |
 |---|---|---|---|
-| Serviços de backend (×4) | Render | gratuito | hibernam após ~15 min; *cold start* tratado em RNF-ERR-09 |
+| Serviços de backend (×4) | Render | gratuito | região Oregon; hibernam após ~15 min; *cold start* tratado em RNF-ERR-09 |
 | Site estático (web Vue) | Render | gratuito | build da SPA |
-| Banco de dados | Neon (PostgreSQL) | gratuito | um projeto, schema por serviço, branch única de DES/HML (sem branch por dev) |
-| Mensageria | CloudAMQP (RabbitMQ) | gratuito | limite de conexões — uma por serviço |
+| Banco de dados | Neon (PostgreSQL) | gratuito | um projeto por ambiente, schema por serviço, sem branch por dev: DES/HML `le-ai-oregon` em `aws-us-west-2` (Oregon, junto do Render) e desenvolvimento `le-ai` em `aws-sa-east-1` (São Paulo); sem replicação entre eles |
+| Mensageria | CloudAMQP (RabbitMQ) | gratuito | uma instância por ambiente: DES/HML `Le-ai-oregon` (Oregon) e desenvolvimento `Le-ai` (São Paulo); limite de conexões — uma por serviço |
 | Imagens | Cloudinary | gratuito | transformação por URL + cache de capas |
 | E-mail transacional | Brevo | gratuito | 300 e-mails/dia |
 | Push (Android) | Firebase Cloud Messaging | gratuito | somente FCM |
 | Agendador de jobs | GitHub Actions (`schedule`) | gratuito | fallback cron-job.org; validar no repo da faculdade |
 | CI/CD | GitHub Actions | gratuito | lint, build, testes, deploy a partir de `main` |
 
-Ambientes conforme o plano §4: local (Postgres local), DES/HML (branch `main`, deploy a cada merge), PROD (tag `vX.Y.Z`, a partir de 24/11). Deploy só a partir de código versionado, por pipeline automatizado (RNF-SEC-34). Segredos por variável de ambiente e GitHub Secrets, nunca versionados (RNF-SEC-11).
+Ambientes conforme o plano §4:
+- **local:** banco e broker de desenvolvimento, em São Paulo; testes de integração em Postgres descartável;
+- **DES/HML:** branch `main`, deploy a cada merge, com banco e broker próprios em Oregon;
+- **PROD:** tag `vX.Y.Z`, a partir de 24/11.
+
+As migrations aplicadas localmente só alteram o banco de desenvolvimento; o DES/HML as recebe no deploy da `main`. Deploy só a partir de código versionado, por pipeline automatizado (RNF-SEC-34). Segredos por variável de ambiente e GitHub Secrets, nunca versionados (RNF-SEC-11).
 
 ---
 

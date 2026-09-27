@@ -27,6 +27,14 @@
     transition: background-color var(--duration-fast) var(--easing-out), color var(--duration-fast) var(--easing-out);
   }
 
+  /* O Tailwind v4 só aplica lineHeight, letterSpacing e fontWeight da tupla de fontSize do
+     tailwind.config.js: a família dos tokens de display (Space Grotesk) se perdia, e todo título
+     saía na fonte do corpo. Na camada base, uma font-* explícita na tela continua vencendo. */
+  [class*='text-display'],
+  [class*='text-title'] {
+    font-family: var(--font-display);
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,

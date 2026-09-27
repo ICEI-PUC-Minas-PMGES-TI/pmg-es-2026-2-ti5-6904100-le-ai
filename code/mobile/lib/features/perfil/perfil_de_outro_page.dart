@@ -11,9 +11,10 @@ import '../../design/widgets/botao_textual.dart';
 import '../../design/widgets/dialogo_confirmacao.dart';
 import '../../design/widgets/estado_vazio.dart';
 import '../estante/estante_de_perfil.dart';
-import '../estante/leitura_service.dart';
+import '../estante/estante_service.dart';
 import 'perfil_service.dart';
 import 'textos.dart';
+import 'widgets_de_identidade.dart';
 import 'widgets_de_perfil.dart';
 
 /// Perfil de outro leitor (RF-SOC-02, RF-SOC-05..07, RN-08), a partir de
@@ -22,9 +23,10 @@ import 'widgets_de_perfil.dart';
 /// relação muda com a privacidade e com `relacao`. Quem decide o que é restrito é o servidor
 /// (`conteudoRestrito`), e os serviços donos revalidam (RNF-SEC-03).
 ///
-/// Sem resenhas quando o conteúdo é visível; a estante vem de `GET /perfis/{id}/estante`, e o
-/// `403` dela também leva ao bloco de restrição. Contadores não acionáveis:
-/// não há lista do grafo de terceiros (RNF-SEC-19/44).
+/// Estante (`GET /perfis/{id}/estante`, F-EST) e Resenhas (F-AVA) quando o conteúdo é visível; o
+/// `403` da estante também leva ao bloco de restrição. Com `conteudoRestrito` (RN-08), as
+/// seções não aparecem, e sim o bloco "Este perfil é privado". Contadores não acionáveis: não há
+/// lista do grafo de terceiros (RNF-SEC-19/44).
 class PerfilDeOutroPage extends StatefulWidget {
   final PerfilService servico;
   final String username;
@@ -32,7 +34,10 @@ class PerfilDeOutroPage extends StatefulWidget {
   final VoidCallback aoAbrirProprioPerfil;
   final VoidCallback aoBuscarLeitor;
   final VoidCallback aoAbrirSolicitacoes;
-  final LeituraService? leitura;
+  final EstanteService? estante;
+
+  /// Lista de resenhas do perfil (F-AVA), montada com o id e o primeiro nome do leitor.
+  final Widget Function(String usuarioId, String nome)? resenhas;
 
   const PerfilDeOutroPage({
     super.key,
@@ -42,7 +47,8 @@ class PerfilDeOutroPage extends StatefulWidget {
     required this.aoAbrirProprioPerfil,
     required this.aoBuscarLeitor,
     required this.aoAbrirSolicitacoes,
-    this.leitura,
+    this.estante,
+    this.resenhas,
   });
 
   @override
@@ -202,30 +208,41 @@ class _PerfilDeOutroPageState extends State<PerfilDeOutroPage> {
     return Column(
       children: <Widget>[
         // Sem título: o nome está grande no bloco de identidade (§4).
-        CabecalhoTela(titulo: '', aoVoltar: widget.aoVoltar),
+        CabecalhoTela(titulo: '', aoVoltar: widget.aoVoltar, semDivisor: true),
         Expanded(child: _corpo(Theme.of(context))),
       ],
     );
   }
 
   Widget _corpo(ThemeData theme) {
+    // 32 acima do avatar, como no protótipo.
     const margem = EdgeInsets.fromLTRB(
       DesignTokens.space5,
-      DesignTokens.space6,
+      DesignTokens.space8,
       DesignTokens.space5,
       DesignTokens.space10,
     );
     if (_carregando) {
-      return const Padding(padding: margem, child: SkeletonDeIdentidade());
+      return const SingleChildScrollView(padding: margem, child: SkeletonDoPerfil(comBotao: true));
     }
     if (_naoEncontrado) {
+      // O protótipo centraliza o bloco na vertical da área de conteúdo.
       return Padding(
-        padding: margem,
-        child: EstadoVazio(
-          icone: PhosphorIconsRegular.userCircle,
-          titulo: 'Perfil não encontrado',
-          texto: 'Confira o nome de usuário e tente de novo.',
-          rodape: BotaoPrimario(texto: 'Buscar leitor', onPressed: widget.aoBuscarLeitor),
+        padding: const EdgeInsets.symmetric(horizontal: DesignTokens.space10),
+        child: Center(
+          child: SingleChildScrollView(
+            child: EstadoVazio(
+              icone: PhosphorIconsRegular.userCircle,
+              solto: true,
+              titulo: 'Perfil não encontrado',
+              texto: 'Confira o nome de usuário e tente de novo.',
+              rodape: BotaoPrimario(
+                texto: 'Buscar leitor',
+                onPressed: widget.aoBuscarLeitor,
+                larguraTotal: false,
+              ),
+            ),
+          ),
         ),
       );
     }
@@ -233,28 +250,22 @@ class _PerfilDeOutroPageState extends State<PerfilDeOutroPage> {
     if (_falhou || perfil == null) {
       return Padding(
         padding: margem,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            const BannerAviso(
-              variante: VarianteAviso.erro,
-              mensagem:
-                  'Não foi possível carregar este perfil. Verifique sua conexão e tente de novo.',
-            ),
-            const SizedBox(height: DesignTokens.space2),
-            BotaoTextual(texto: 'Tentar de novo', onPressed: _carregar),
-          ],
+        child: BannerAviso(
+          variante: VarianteAviso.erro,
+          triangulo: true,
+          mensagem: 'Não foi possível carregar este perfil. Verifique sua conexão e tente de novo.',
+          acao: BotaoTextual(texto: 'Tentar de novo', onPressed: _carregar),
         ),
       );
     }
     final nome = primeiroNome(perfil.displayName);
     final privado = perfil.privacidade == Privacidade.privado;
-    final leitura = widget.leitura;
+    final estante = widget.estante;
     return SingleChildScrollView(
       padding: margem,
       child: Column(
         children: <Widget>[
-          AvatarLeitor(url: perfil.avatarUrl, tamanho: 96),
+          AvatarLeitor(url: perfil.avatarUrl, tamanho: 96, nome: perfil.displayName),
           const SizedBox(height: DesignTokens.space4),
           Text(perfil.displayName, style: theme.displayTitle, textAlign: TextAlign.center),
           const SizedBox(height: DesignTokens.space1),
@@ -285,10 +296,10 @@ class _PerfilDeOutroPageState extends State<PerfilDeOutroPage> {
           if (perfil.relacao == Relacao.solicitacaoRecebida) ...<Widget>[
             const SizedBox(height: DesignTokens.space3),
             // §4.8: o pedido recebido tem um lugar, mas a decisão mora na caixa.
-            LinhaDeAcento(
-              icone: PhosphorIconsRegular.userPlus,
+            LinhaDePedido(
               texto: '$nome pediu para seguir você.',
               aoTocar: widget.aoAbrirSolicitacoes,
+              centralizada: true,
             ),
           ],
           const SizedBox(height: DesignTokens.space5),
@@ -301,13 +312,13 @@ class _PerfilDeOutroPageState extends State<PerfilDeOutroPage> {
             BannerAviso(variante: VarianteAviso.erro, mensagem: _erroDaAcao!),
           ],
           const SizedBox(height: DesignTokens.space6),
-          LinhaDeContadores(
-            contadores: <ContadorDePerfil>[
-              ContadorDePerfil(
+          ContadoresDoPerfil(
+            contadores: <DadoDeContador>[
+              DadoDeContador(
                 valor: perfil.seguidores,
                 rotulo: perfil.seguidores == 1 ? 'seguidor' : 'seguidores',
               ),
-              ContadorDePerfil(valor: perfil.seguidos, rotulo: 'seguindo'),
+              DadoDeContador(valor: perfil.seguidos, rotulo: 'seguindo'),
             ],
           ),
           if (perfil.conteudoRestrito || _estanteRestrita) ...<Widget>[
@@ -315,20 +326,27 @@ class _PerfilDeOutroPageState extends State<PerfilDeOutroPage> {
             // §4.3: restrito não é erro. Nenhuma capa nem trecho aparece, nem desfocado.
             EstadoVazio(
               icone: PhosphorIconsRegular.lock,
+              solto: true,
               titulo: 'Este perfil é privado',
               texto: perfil.relacao == Relacao.solicitacaoEnviada
                   ? 'Sua solicitação está aguardando resposta.'
                   : 'Envie uma solicitação para ver a estante e as resenhas de $nome.',
             ),
-          ],
-          if (!perfil.conteudoRestrito && !_estanteRestrita && leitura != null) ...<Widget>[
-            const SizedBox(height: DesignTokens.space8),
-            EstanteDePerfil(
-              key: ValueKey<String>('estante-de-${perfil.id}'),
-              servico: leitura,
-              usuarioId: perfil.id,
-              primeiroNome: nome,
-              aoMudarRestricao: (restrita) => setState(() => _estanteRestrita = restrita),
+          ] else ...<Widget>[
+            const SizedBox(height: DesignTokens.space12),
+            SecoesDeLeitura(
+              proprio: false,
+              nome: nome,
+              resenhas: widget.resenhas?.call(perfil.id, nome),
+              estante: estante == null
+                  ? null
+                  : EstanteDePerfil(
+                      key: ValueKey<String>('estante-de-${perfil.id}'),
+                      servico: estante,
+                      usuarioId: perfil.id,
+                      primeiroNome: nome,
+                      aoMudarRestricao: (restrita) => setState(() => _estanteRestrita = restrita),
+                    ),
             ),
           ],
         ],
@@ -374,6 +392,7 @@ class _PerfilDeOutroPageState extends State<PerfilDeOutroPage> {
       default:
         return BotaoPrimario(
           texto: perfil.privacidade == Privacidade.privado ? 'Solicitar para seguir' : 'Seguir',
+          icone: PhosphorIconsRegular.userPlus,
           carregando: _agindo,
           onPressed: _seguir,
         );

@@ -9,7 +9,10 @@ import {
   LivroPessoalDeTerceiro,
   ServicoIndisponivel,
 } from '../../src/common/erros-de-negocio';
-import { operacaoCanonica } from '../../src/common/idempotencia/escopo-idempotente.decorator';
+import {
+  OPERACOES,
+  operacaoNoCaminho,
+} from '../../src/common/idempotencia/idempotencia.constantes';
 import { IdempotenciaService } from '../../src/common/idempotencia/idempotencia.service';
 import { estante } from '../../src/db/schema';
 import type { Tx } from '../../src/db/tipos';
@@ -22,7 +25,7 @@ import { OutboxRepository } from '../../src/outbox/outbox.repository';
 import { ReferenciasExternas } from '../../src/referencias/referencias-externas.service';
 import { criarApp, novoUsuario } from './app';
 import { contar, limpar, prepararBanco } from './banco';
-import { inserirLivro, inserirPerfil, inserirSeguimentoAceito } from './massa';
+import { inserirLivro, inserirPerfil, seguir } from './massa';
 
 describe('fundação de F-EST (integração)', () => {
   let pool: Pool;
@@ -55,7 +58,7 @@ describe('fundação de F-EST (integração)', () => {
   }
 
   describe('IdempotenciaService', () => {
-    const operacao = operacaoCanonica('POST', '/estante');
+    const operacao = operacaoNoCaminho(OPERACOES.ADICIONAR_LIVRO_ESTANTE);
 
     it('mesma chave e mesmo payload reproduzem status e corpo sem repetir o efeito', async () => {
       const usuario = novoUsuario();
@@ -123,7 +126,7 @@ describe('fundação de F-EST (integração)', () => {
       await idempotencia.executar(
         {
           subjectRef: ana,
-          operacao: operacaoCanonica('POST', '/outro-caminho'),
+          operacao: operacaoNoCaminho(OPERACOES.REMOVER_LIVRO_ESTANTE),
           chave,
           payload: { livroId: outroLivro },
         },
@@ -212,12 +215,12 @@ describe('fundação de F-EST (integração)', () => {
         idempotencia.executar(
           {
             subjectRef: usuario,
-            operacao: operacaoCanonica('POST', '/estante'),
+            operacao: operacaoNoCaminho(OPERACOES.ADICIONAR_LIVRO_ESTANTE),
             chave: randomUUID(),
             payload: { livroId },
           },
           async (tx) => {
-            await outbox.gravar(tx, gravado);
+            await outbox.inserir(tx, gravado);
             return adicionarNaEstante(usuario, livroId)(tx);
           },
         ),
@@ -249,12 +252,12 @@ describe('fundação de F-EST (integração)', () => {
           idempotencia.executar(
             {
               subjectRef: usuario,
-              operacao: operacaoCanonica('POST', '/estante'),
+              operacao: operacaoNoCaminho(OPERACOES.ADICIONAR_LIVRO_ESTANTE),
               chave: randomUUID(),
               payload: { livroId },
             },
             async (tx) => {
-              await outbox.gravar(tx, evento(usuario, livroId));
+              await outbox.inserir(tx, evento(usuario, livroId));
               throw new Error('falha depois do evento');
             },
           ),
@@ -329,7 +332,7 @@ describe('fundação de F-EST (integração)', () => {
 
     it('monta o snapshot `usuario` e a privacidade a partir de v_perfil_referencia_v1', async () => {
       const usuario = novoUsuario();
-      await inserirPerfil(pool, usuario, 'privado');
+      await inserirPerfil(pool, { id: usuario, privacidade: 'privado' });
 
       expect(await referencias.buscarPerfil(usuario)).toEqual({
         privacidade: 'privado',
@@ -348,7 +351,7 @@ describe('fundação de F-EST (integração)', () => {
 
     it('seguimento aceito tem direção', async () => {
       const [seguidor, seguido] = [novoUsuario(), novoUsuario()];
-      await inserirSeguimentoAceito(pool, seguidor, seguido);
+      await seguir(pool, seguidor, seguido);
 
       expect(await referencias.existeSeguimentoAceito(seguidor, seguido)).toBe(
         true,

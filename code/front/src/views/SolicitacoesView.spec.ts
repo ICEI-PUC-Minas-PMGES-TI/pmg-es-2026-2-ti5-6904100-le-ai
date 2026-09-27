@@ -23,6 +23,7 @@ function pedido(id: string, displayName: string): SolicitacaoSeguir {
       id: `u-${id}`,
       username: id,
       displayName,
+      biografia: null,
       avatarUrl: null,
       privacidade: 'publico',
       conteudoRestrito: false,

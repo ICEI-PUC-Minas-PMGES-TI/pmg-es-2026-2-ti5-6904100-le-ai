@@ -8,6 +8,7 @@ import 'cabecalho_tela.dart';
 
 const List<String> _titulosPorAba = <String>['Minha estante', 'Descobrir', 'Feed', 'Perfil'];
 const List<String> _raizesDasAbas = <String>['/estante', '/descobrir', '/feed', '/perfil'];
+const int _indiceDeDescobrir = 1;
 const int _indiceDoPerfil = 3;
 
 /// O quadro em que as 4 áreas autenticadas vivem (shell-de-navegacao.md §1 e §4). `router.dart`
@@ -53,6 +54,12 @@ class ShellAutenticado extends StatelessWidget {
           if (caminhoAtual == null || _raizesDasAbas.contains(caminhoAtual))
             CabecalhoTela(
               titulo: _titulosPorAba[navigationShell.currentIndex],
+              // Perfil e Descobrir sem divisor, como nos protótipos de meu-perfil e descobrir: em
+              // Descobrir o campo de busca, logo abaixo, é a segunda linha do header. As outras abas
+              // ficam como estão.
+              semDivisor:
+                  navigationShell.currentIndex == _indiceDoPerfil ||
+                  navigationShell.currentIndex == _indiceDeDescobrir,
               acoes: <Widget>[
                 if (navigationShell.currentIndex == _indiceDoPerfil && aoBuscarLeitor != null)
                   IconButton(

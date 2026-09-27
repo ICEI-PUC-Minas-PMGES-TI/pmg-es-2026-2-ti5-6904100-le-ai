@@ -8,24 +8,48 @@ import '../../design/tokens.dart';
 import 'avatar.dart';
 import 'perfil_service.dart';
 
+/// Primeira letra do primeiro e do último nome, em maiúsculas: "Marina Beltrão" vira "MB".
+String iniciaisDoNome(String nome) {
+  final partes = nome.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+  if (partes.isEmpty) {
+    return '';
+  }
+  String primeiraLetra(String palavra) => String.fromCharCode(palavra.runes.first);
+  final primeira = primeiraLetra(partes.first);
+  final ultima = partes.length > 1 ? primeiraLetra(partes.last) : '';
+  return (primeira + ultima).toUpperCase();
+}
+
 /// Avatar circular de leitor (meu-perfil.md §4, editar-perfil.md §4): borda de 1px `linha`. Sem
-/// foto, o círculo fica em `papel-elevado` com o ícone de pessoa (nenhum protótipo define esse
-/// estado). A prévia do upload vem em [bytes]; a foto do Cloudinary vai como miniatura.
+/// foto, os protótipos de F-PERFIL mostram as iniciais do [nome] em `musgo`, peso 600, sobre
+/// `musgo-fundo`, em cerca de um terço do lado (31 no avatar de 96, 38 no de 120). Sem nome, fica
+/// o ícone de pessoa. A prévia do upload vem em [bytes]; a foto do Cloudinary vai como miniatura.
 class AvatarLeitor extends StatelessWidget {
   final String? url;
   final Uint8List? bytes;
   final double tamanho;
 
-  const AvatarLeitor({super.key, this.url, this.bytes, required this.tamanho});
+  /// Nome de exibição, de onde saem as iniciais quando não há foto.
+  final String? nome;
+
+  const AvatarLeitor({super.key, this.url, this.bytes, required this.tamanho, this.nome});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final vazio = Icon(
-      PhosphorIconsRegular.user,
-      size: tamanho / 2,
-      color: theme.tertiaryText,
-    );
+    final iniciais = iniciaisDoNome(nome ?? '');
+    final semFoto = bytes == null && url == null;
+    final vazio = iniciais.isEmpty
+        ? Icon(PhosphorIconsRegular.user, size: tamanho / 2, color: theme.tertiaryText)
+        : Text(
+            iniciais,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontSize: (tamanho * 0.32).roundToDouble(),
+              fontWeight: FontWeight.w600,
+              height: 1,
+              color: theme.primaryAccent,
+            ),
+          );
     Widget conteudo;
     if (bytes != null) {
       conteudo = Image.memory(bytes!, fit: BoxFit.cover, width: tamanho, height: tamanho);
@@ -51,7 +75,7 @@ class AvatarLeitor extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: theme.elevatedSurface,
+          color: semFoto && iniciais.isNotEmpty ? theme.accentTint : theme.elevatedSurface,
           border: Border.all(color: theme.divider),
         ),
         child: conteudo,
@@ -100,78 +124,35 @@ class ChipPrivacidade extends StatelessWidget {
   }
 }
 
-/// Um contador com unidade: número em `num-inline` acima, rótulo abaixo. Anunciado por extenso,
-/// no formato `84 seguidores` (meu-perfil.md §9).
-class ContadorDePerfil extends StatelessWidget {
-  final int valor;
-  final String rotulo;
-  final VoidCallback? aoTocar;
-
-  const ContadorDePerfil({super.key, required this.valor, required this.rotulo, this.aoTocar});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final corpo = Semantics(
-      button: aoTocar != null,
-      label: '$valor $rotulo',
-      excludeSemantics: true,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 48),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Text('$valor', style: theme.numInline),
-            Text(rotulo, style: theme.textTheme.bodySmall?.copyWith(color: theme.secondaryText)),
-          ],
-        ),
-      ),
-    );
-    if (aoTocar == null) {
-      return corpo;
-    }
-    return InkWell(onTap: aoTocar, splashFactory: NoSplash.splashFactory, child: corpo);
-  }
-}
-
-/// Os contadores numa linha, com divisor vertical e o divisor de largura total abaixo (§4).
-class LinhaDeContadores extends StatelessWidget {
-  final List<ContadorDePerfil> contadores;
-
-  const LinhaDeContadores({super.key, required this.contadores});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final filhos = <Widget>[];
-    for (var i = 0; i < contadores.length; i++) {
-      if (i > 0) {
-        filhos.add(SizedBox(height: 40, child: VerticalDivider(width: 1, color: theme.divider)));
-      }
-      filhos.add(Expanded(child: contadores[i]));
-    }
-    return Container(
-      padding: const EdgeInsets.only(bottom: DesignTokens.space4),
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: theme.divider))),
-      child: Row(children: filhos),
-    );
-  }
-}
-
-/// Leitor numa lista (seguidores-e-seguidos.md e solicitacoes-de-seguir.md §4): avatar de 48px,
-/// nome e `@username`. A área do nome leva ao perfil; a ação à direita é alvo separado. Sem a
-/// linha de biografia dos protótipos: o `PerfilResumo` do contrato não traz biografia.
+/// Leitor numa lista (protótipos seguidores-e-seguidos e solicitacoes-de-seguir): avatar de 48px,
+/// nome, `@username` e a biografia em `caption` `grafite`, numa linha com reticências nas listas
+/// e em duas no card da busca ([linhasDaBiografia]). A área do nome leva ao perfil; a ação à
+/// direita é alvo separado, centrada na linha ou no topo ([acaoNoTopo], o tempo da solicitação).
+/// [abaixoDoUsername] entra entre o `@username` e a biografia (o chip de privacidade da busca).
 class LinhaDeLeitor extends StatelessWidget {
   final PerfilResumo leitor;
   final VoidCallback? aoAbrir;
   final Widget? acao;
+  final bool acaoNoTopo;
+  final int linhasDaBiografia;
+  final Widget? abaixoDoUsername;
 
-  const LinhaDeLeitor({super.key, required this.leitor, this.aoAbrir, this.acao});
+  const LinhaDeLeitor({
+    super.key,
+    required this.leitor,
+    this.aoAbrir,
+    this.acao,
+    this.acaoNoTopo = false,
+    this.linhasDaBiografia = 1,
+    this.abaixoDoUsername,
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final biografia = leitor.biografia?.trim();
     return Row(
+      crossAxisAlignment: acaoNoTopo ? CrossAxisAlignment.start : CrossAxisAlignment.center,
       children: <Widget>[
         Expanded(
           child: Semantics(
@@ -185,7 +166,7 @@ class LinhaDeLeitor extends StatelessWidget {
                 constraints: const BoxConstraints(minHeight: 48),
                 child: Row(
                   children: <Widget>[
-                    AvatarLeitor(url: leitor.avatarUrl, tamanho: 48),
+                    AvatarLeitor(url: leitor.avatarUrl, tamanho: 48, nome: leitor.displayName),
                     const SizedBox(width: DesignTokens.space4),
                     Expanded(
                       child: Column(
@@ -202,6 +183,22 @@ class LinhaDeLeitor extends StatelessWidget {
                             style: theme.textTheme.bodySmall?.copyWith(color: theme.tertiaryText),
                             overflow: TextOverflow.ellipsis,
                           ),
+                          if (abaixoDoUsername != null) ...<Widget>[
+                            const SizedBox(height: DesignTokens.space1),
+                            abaixoDoUsername!,
+                          ],
+                          if (biografia != null && biografia.isNotEmpty) ...<Widget>[
+                            const SizedBox(height: DesignTokens.space1),
+                            Text(
+                              biografia,
+                              key: const ValueKey<String>('biografia-da-linha'),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.secondaryText,
+                              ),
+                              maxLines: linhasDaBiografia,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -219,12 +216,15 @@ class LinhaDeLeitor extends StatelessWidget {
 
 /// Fim de uma lista paginada: `Carregar mais` enquanto houver página, ou o aviso de falha com
 /// `Tentar de novo`. A rolagem até perto do fim também carrega sozinha (quem monta a lista
-/// escuta o `ScrollNotification`); o botão cobre a lista curta que não rola.
+/// escuta o `ScrollNotification`); o botão cobre a lista curta que não rola. Enquanto a página
+/// seguinte chega, mostra o [esqueleto] da tela (as linhas de skeleton do "carregando mais" dos
+/// protótipos), ou um [SkeletonDeLinha] simples.
 class FimDaLista extends StatelessWidget {
   final bool temMais;
   final bool carregandoMais;
   final bool falhou;
   final VoidCallback aoCarregar;
+  final Widget? esqueleto;
 
   const FimDaLista({
     super.key,
@@ -232,16 +232,14 @@ class FimDaLista extends StatelessWidget {
     required this.carregandoMais,
     required this.falhou,
     required this.aoCarregar,
+    this.esqueleto,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     if (carregandoMais) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: DesignTokens.space4),
-        child: SkeletonDeLinha(),
-      );
+      return esqueleto ?? const SkeletonDeLinha();
     }
     if (!temMais) {
       return const SizedBox.shrink();
@@ -269,44 +267,89 @@ class FimDaLista extends StatelessWidget {
   }
 }
 
-/// Uma linha de lista em skeleton estático: círculo de 48px e duas barras.
+/// Onde fica o placeholder das ações num [SkeletonDeLinha]: nenhum, um botão à direita
+/// (`Remover`/`Seguindo` das conexões) ou os dois botões numa linha própria abaixo
+/// (`Recusar`/`Aceitar` das solicitações).
+enum BotoesDoSkeleton { nenhum, aDireita, doisAbaixo }
+
+/// Uma linha de lista em skeleton estático, como nos protótipos de carregando: círculo de 48px,
+/// três barras (nome, `@username` e biografia) e o placeholder das ações. Traz o próprio padding
+/// (`space-5` nas laterais, `space-4` em cima e embaixo) e, com [comDivisor], o divisor de largura
+/// total embaixo, para empilhar igual às linhas de verdade.
 class SkeletonDeLinha extends StatelessWidget {
-  const SkeletonDeLinha({super.key});
+  final BotoesDoSkeleton botoes;
+  final bool comDivisor;
+
+  const SkeletonDeLinha({super.key, this.botoes = BotoesDoSkeleton.nenhum, this.comDivisor = false});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    Widget peca(double largura, double altura, double raio) => Container(
+      width: largura,
+      height: altura,
+      decoration: BoxDecoration(
+        color: theme.coverPlaceholder,
+        borderRadius: BorderRadius.circular(raio),
+      ),
+    );
     Widget barra(double altura, double fracao) => FractionallySizedBox(
       widthFactor: fracao,
       alignment: Alignment.centerLeft,
-      child: Container(
-        height: altura,
-        decoration: BoxDecoration(
-          color: theme.coverPlaceholder,
-          borderRadius: BorderRadius.circular(DesignTokens.radiusSm),
+      child: peca(double.infinity, altura, DesignTokens.radiusSm),
+    );
+    final identidade = Row(
+      children: <Widget>[
+        Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(shape: BoxShape.circle, color: theme.coverPlaceholder),
         ),
-      ),
+        const SizedBox(width: DesignTokens.space4),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              barra(16, 0.35),
+              const SizedBox(height: DesignTokens.space2),
+              barra(12, 0.22),
+              const SizedBox(height: DesignTokens.space2),
+              barra(12, 0.62),
+            ],
+          ),
+        ),
+        if (botoes == BotoesDoSkeleton.aDireita) ...<Widget>[
+          const SizedBox(width: DesignTokens.space3),
+          peca(88, 36, DesignTokens.radius),
+        ],
+      ],
     );
     return ExcludeSemantics(
-      child: Row(
-        children: <Widget>[
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: theme.coverPlaceholder),
-          ),
-          const SizedBox(width: DesignTokens.space4),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                barra(17, 0.45),
-                const SizedBox(height: DesignTokens.space2),
-                barra(13, 0.30),
-              ],
-            ),
-          ),
-        ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: DesignTokens.space5,
+          vertical: DesignTokens.space4,
+        ),
+        decoration: comDivisor
+            ? BoxDecoration(border: Border(bottom: BorderSide(color: theme.divider)))
+            : null,
+        child: botoes != BotoesDoSkeleton.doisAbaixo
+            ? identidade
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  identidade,
+                  const SizedBox(height: DesignTokens.space3),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: <Widget>[
+                      peca(92, 40, DesignTokens.radius),
+                      const SizedBox(width: DesignTokens.space3),
+                      peca(92, 40, DesignTokens.radiusFull),
+                    ],
+                  ),
+                ],
+              ),
       ),
     );
   }
@@ -315,7 +358,8 @@ class SkeletonDeLinha extends StatelessWidget {
 /// Botão da linha de lista (seguidores-e-seguidos.md e solicitacoes-de-seguir.md §4): outline
 /// `rubi` para remover e recusar, secundário com ícone para seguindo, preenchido `musgo` e pill
 /// para aceitar. O rótulo acessível nomeia a pessoa, para a decisão não depender da posição na
-/// lista. Área de toque de 48px.
+/// lista. Área de toque de 48px; o desenho tem 40px, ou 36px com [compacto] (`Remover` e
+/// `Seguindo` das conexões), com `space-4` nas laterais.
 class BotaoDeLinha extends StatelessWidget {
   final String texto;
   final String rotuloAcessivel;
@@ -323,6 +367,7 @@ class BotaoDeLinha extends StatelessWidget {
   final bool destrutivo;
   final bool preenchido;
   final IconData? icone;
+  final bool compacto;
 
   const BotaoDeLinha({
     super.key,
@@ -332,6 +377,7 @@ class BotaoDeLinha extends StatelessWidget {
     this.destrutivo = false,
     this.preenchido = false,
     this.icone,
+    this.compacto = false,
   });
 
   @override
@@ -348,14 +394,15 @@ class BotaoDeLinha extends StatelessWidget {
       ],
     );
     final estiloDoTexto = theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600);
-    const padding = EdgeInsets.symmetric(horizontal: DesignTokens.space5);
+    const padding = EdgeInsets.symmetric(horizontal: DesignTokens.space4);
+    final tamanhoMinimo = Size(48, compacto ? 36 : 40);
     final botao = preenchido
         ? FilledButton(
             onPressed: aoTocar,
             style: FilledButton.styleFrom(
               backgroundColor: theme.primaryAccent,
               foregroundColor: theme.colorScheme.onPrimary,
-              minimumSize: const Size(48, 40),
+              minimumSize: tamanhoMinimo,
               tapTargetSize: MaterialTapTargetSize.padded,
               padding: padding,
               shape: const StadiumBorder(),
@@ -367,7 +414,7 @@ class BotaoDeLinha extends StatelessWidget {
             onPressed: aoTocar,
             style: OutlinedButton.styleFrom(
               foregroundColor: destrutivo ? theme.colorScheme.error : theme.colorScheme.onSurface,
-              minimumSize: const Size(48, 40),
+              minimumSize: tamanhoMinimo,
               tapTargetSize: MaterialTapTargetSize.padded,
               padding: padding,
               side: BorderSide(color: destrutivo ? theme.colorScheme.error : theme.divider),
@@ -418,45 +465,6 @@ class LinhaDeAcento extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// Skeleton estático do bloco de identidade (§4.5): sem shimmer, sem spinner.
-class SkeletonDeIdentidade extends StatelessWidget {
-  const SkeletonDeIdentidade({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    Widget barra(double altura, double fracao) => FractionallySizedBox(
-      widthFactor: fracao,
-      child: Container(
-        height: altura,
-        decoration: BoxDecoration(
-          color: theme.coverPlaceholder,
-          borderRadius: BorderRadius.circular(DesignTokens.radiusSm),
-        ),
-      ),
-    );
-    return ExcludeSemantics(
-      child: Column(
-        children: <Widget>[
-          Container(
-            width: 96,
-            height: 96,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: theme.coverPlaceholder),
-          ),
-          const SizedBox(height: DesignTokens.space4),
-          barra(32, 0.55),
-          const SizedBox(height: DesignTokens.space2),
-          barra(13, 0.30),
-          const SizedBox(height: DesignTokens.space3),
-          barra(15, 0.80),
-          const SizedBox(height: DesignTokens.space5),
-          barra(48, 0.62),
-        ],
       ),
     );
   }

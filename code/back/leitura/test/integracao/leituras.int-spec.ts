@@ -57,7 +57,7 @@ describe('ciclo de leitura (integração)', () => {
 
   async function leitora(): Promise<string> {
     const id = novoUsuario();
-    await inserirPerfil(pool, id);
+    await inserirPerfil(pool, { id: id });
     return id;
   }
 

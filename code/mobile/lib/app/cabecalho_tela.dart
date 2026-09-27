@@ -37,6 +37,13 @@ class CabecalhoTela extends StatelessWidget {
   /// Com [aoVoltar]: formulário que se abandona (editar-perfil.md §4), com `X` no lugar da seta.
   final bool fechar;
 
+  /// Sem o divisor inferior, como nos protótipos de F-AUT e F-PERFIL.
+  final bool semDivisor;
+
+  /// Título que quebra em até duas linhas, com o header crescendo além dos 72px ("Política de
+  /// privacidade", configuracoes.md).
+  final bool tituloEmDuasLinhas;
+
   const CabecalhoTela({
     super.key,
     required this.titulo,
@@ -45,6 +52,8 @@ class CabecalhoTela extends StatelessWidget {
     this.acoes = const <Widget>[],
     this.comSino = true,
     this.fechar = false,
+    this.semDivisor = false,
+    this.tituloEmDuasLinhas = false,
   });
 
   @override
@@ -53,14 +62,19 @@ class CabecalhoTela extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: theme.pageBackground,
-        border: Border(bottom: BorderSide(color: theme.divider)),
+        border: semDivisor ? null : Border(bottom: BorderSide(color: theme.divider)),
       ),
       child: SafeArea(
         bottom: false,
-        child: SizedBox(
-          height: altura,
+        child: ConstrainedBox(
+          constraints: tituloEmDuasLinhas
+              ? const BoxConstraints(minHeight: altura)
+              : const BoxConstraints.tightFor(height: altura),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: DesignTokens.space5),
+            padding: EdgeInsets.symmetric(
+              horizontal: DesignTokens.space5,
+              vertical: tituloEmDuasLinhas ? DesignTokens.space3 : 0,
+            ),
             child: Row(
               children: <Widget>[
                 if (aoVoltar != null) ...<Widget>[
@@ -90,6 +104,7 @@ class CabecalhoTela extends StatelessWidget {
                   child: Text(
                     titulo,
                     style: theme.displayTitle,
+                    maxLines: tituloEmDuasLinhas ? 2 : 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),

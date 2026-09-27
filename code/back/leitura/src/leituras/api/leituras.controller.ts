@@ -19,10 +19,7 @@ import type { Response } from 'express';
 import { UsuarioAtual } from '../../auth/usuario-atual.decorator';
 import type { UsuarioAutenticado } from '../../auth/usuario-autenticado';
 import { ErroDeValidacao } from '../../common/erros-de-negocio';
-import {
-  type EscopoIdempotente,
-  Idempotente,
-} from '../../common/idempotencia/escopo-idempotente.decorator';
+import { IdempotencyKey } from '../../common/idempotencia/idempotency-key.decorator';
 import type { RespostaIdempotente } from '../../common/idempotencia/idempotencia.service';
 import {
   FinalizarLeituraEntradaDto,
@@ -35,7 +32,7 @@ const CABECALHO_IDEMPOTENCIA = {
   name: 'Idempotency-Key',
   required: true,
   description:
-    'UUID opaco; escopo ator + método + caminho canônico (RNF-ERR-04).',
+    'UUID opaco; chave ator + método + caminho canônico (RNF-ERR-04).',
 };
 
 const leituraIdValido = new ParseUUIDPipe({
@@ -60,13 +57,13 @@ export class LeiturasController {
   @ApiCreatedResponse({ type: LeituraDto })
   async iniciar(
     @UsuarioAtual() usuario: UsuarioAutenticado,
-    @Idempotente() escopo: EscopoIdempotente,
+    @IdempotencyKey() chave: string,
     @Body() entrada: IniciarLeituraEntradaDto,
     @Res({ passthrough: true }) res: Response,
   ): Promise<LeituraDto> {
     return responder(
       res,
-      await this.servico.iniciar(usuario.id, entrada, escopo),
+      await this.servico.iniciar(usuario.id, entrada, chave),
     );
   }
 
@@ -79,13 +76,13 @@ export class LeiturasController {
   @ApiCreatedResponse({ type: LeituraDto })
   async iniciarReleitura(
     @UsuarioAtual() usuario: UsuarioAutenticado,
-    @Idempotente() escopo: EscopoIdempotente,
+    @IdempotencyKey() chave: string,
     @Body() entrada: IniciarLeituraEntradaDto,
     @Res({ passthrough: true }) res: Response,
   ): Promise<LeituraDto> {
     return responder(
       res,
-      await this.servico.iniciarReleitura(usuario.id, entrada, escopo),
+      await this.servico.iniciarReleitura(usuario.id, entrada, chave),
     );
   }
 
@@ -112,13 +109,13 @@ export class LeiturasController {
   async finalizar(
     @UsuarioAtual() usuario: UsuarioAutenticado,
     @Param('leituraId', leituraIdValido) leituraId: string,
-    @Idempotente() escopo: EscopoIdempotente,
+    @IdempotencyKey() chave: string,
     @Body() entrada: FinalizarLeituraEntradaDto,
     @Res({ passthrough: true }) res: Response,
   ): Promise<LeituraDto> {
     return responder(
       res,
-      await this.servico.finalizar(usuario.id, leituraId, entrada, escopo),
+      await this.servico.finalizar(usuario.id, leituraId, entrada, chave),
     );
   }
 
@@ -132,12 +129,12 @@ export class LeiturasController {
   async abandonar(
     @UsuarioAtual() usuario: UsuarioAutenticado,
     @Param('leituraId', leituraIdValido) leituraId: string,
-    @Idempotente() escopo: EscopoIdempotente,
+    @IdempotencyKey() chave: string,
     @Res({ passthrough: true }) res: Response,
   ): Promise<LeituraDto> {
     return responder(
       res,
-      await this.servico.abandonar(usuario.id, leituraId, escopo),
+      await this.servico.abandonar(usuario.id, leituraId, chave),
     );
   }
 
@@ -151,12 +148,12 @@ export class LeiturasController {
   async retomar(
     @UsuarioAtual() usuario: UsuarioAutenticado,
     @Param('leituraId', leituraIdValido) leituraId: string,
-    @Idempotente() escopo: EscopoIdempotente,
+    @IdempotencyKey() chave: string,
     @Res({ passthrough: true }) res: Response,
   ): Promise<LeituraDto> {
     return responder(
       res,
-      await this.servico.retomar(usuario.id, leituraId, escopo),
+      await this.servico.retomar(usuario.id, leituraId, chave),
     );
   }
 }

@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../core/network/api_client.dart';
 import 'acoes_disponiveis.dart';
-import 'leitura_service.dart';
+import 'estante_service.dart';
 import 'textos.dart';
 
 const int _conflito = 409;
@@ -47,7 +47,7 @@ String _mensagemDoErro(ApiException erro) {
 }
 
 class AcaoLeituraController extends ChangeNotifier {
-  final LeituraService _servico;
+  final EstanteService _servico;
 
   AcaoLeituraController(this._servico);
 

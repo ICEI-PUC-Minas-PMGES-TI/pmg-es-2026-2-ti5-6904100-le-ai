@@ -2,13 +2,16 @@ import { statusParaApi } from '../../common/status-estante-api';
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import {
   AcessoNegado,
+  EntidadeInvalida,
   LeituraEmAndamento,
   LeituraNaoEncontrada,
   LivroNaoEncontrado,
-  RegraDeNegocioViolada,
   TransicaoDeLeituraInvalida,
 } from '../../common/erros-de-negocio';
-import type { EscopoIdempotente } from '../../common/idempotencia/escopo-idempotente.decorator';
+import {
+  OPERACOES,
+  operacaoNoCaminho,
+} from '../../common/idempotencia/idempotencia.constantes';
 import {
   IdempotenciaService,
   type RespostaIdempotente,
@@ -93,20 +96,20 @@ export class LeiturasService {
   iniciar(
     usuarioId: string,
     entrada: IniciarLeituraEntradaDto,
-    escopo: EscopoIdempotente,
+    chave: string,
   ): Promise<RespostaIdempotente<LeituraDto>> {
-    return this.iniciarOcorrencia(usuarioId, entrada, escopo, 'iniciar');
+    return this.iniciarOcorrencia(usuarioId, entrada, chave, 'iniciar');
   }
 
   iniciarReleitura(
     usuarioId: string,
     entrada: IniciarLeituraEntradaDto,
-    escopo: EscopoIdempotente,
+    chave: string,
   ): Promise<RespostaIdempotente<LeituraDto>> {
     return this.iniciarOcorrencia(
       usuarioId,
       entrada,
-      escopo,
+      chave,
       'iniciarReleitura',
     );
   }
@@ -131,10 +134,15 @@ export class LeiturasService {
     usuarioId: string,
     leituraId: string,
     entrada: FinalizarLeituraEntradaDto,
-    escopo: EscopoIdempotente,
+    chave: string,
   ): Promise<RespostaIdempotente<LeituraDto>> {
     return this.idempotencia.executar(
-      { ...escopo, subjectRef: usuarioId, payload: entrada },
+      {
+        subjectRef: usuarioId,
+        operacao: operacaoNoCaminho(OPERACOES.FINALIZAR_LEITURA, leituraId),
+        chave,
+        payload: entrada,
+      },
       async (tx) => {
         const alvo = await this.leituraPropria(tx, leituraId, usuarioId);
         const agora = new Date();
@@ -142,14 +150,20 @@ export class LeiturasService {
         const hojeNoFuso = dataNoFuso(agora, fuso);
         const dataFim = entrada.dataFim ?? hojeNoFuso;
         if (dataFim < alvo.dataInicio) {
-          throw new RegraDeNegocioViolada(
-            'A data de fim não pode ser anterior à data de início.',
-          );
+          throw new EntidadeInvalida([
+            {
+              campo: 'dataFim',
+              mensagem: 'A data de fim não pode ser anterior à data de início.',
+            },
+          ]);
         }
         if (dataFim > hojeNoFuso) {
-          throw new RegraDeNegocioViolada(
-            'A data de fim não pode estar no futuro.',
-          );
+          throw new EntidadeInvalida([
+            {
+              campo: 'dataFim',
+              mensagem: 'A data de fim não pode estar no futuro.',
+            },
+          ]);
         }
 
         const { estante, transicao } = await this.transicionar(
@@ -168,7 +182,7 @@ export class LeiturasService {
         const atualizada = await this.aplicarNaEstante(tx, estante, transicao);
 
         const livro = await this.snapshotDoLivro(tx, leitura.livroId);
-        await this.outbox.gravar(
+        await this.outbox.inserir(
           tx,
           leituraFinalizada({
             usuarioId,
@@ -195,10 +209,15 @@ export class LeiturasService {
   abandonar(
     usuarioId: string,
     leituraId: string,
-    escopo: EscopoIdempotente,
+    chave: string,
   ): Promise<RespostaIdempotente<LeituraDto>> {
     return this.idempotencia.executar(
-      { ...escopo, subjectRef: usuarioId, payload: {} },
+      {
+        subjectRef: usuarioId,
+        operacao: operacaoNoCaminho(OPERACOES.ABANDONAR_LEITURA, leituraId),
+        chave,
+        payload: {},
+      },
       async (tx) => {
         await this.leituraPropria(tx, leituraId, usuarioId);
         await this.abandonarEmTransacao(tx, leituraId, { automatico: false });
@@ -244,7 +263,7 @@ export class LeiturasService {
       incompleta,
       paginaParada,
     };
-    await this.outbox.gravar(
+    await this.outbox.inserir(
       tx,
       leituraAbandonada({
         ...abandono,
@@ -258,10 +277,15 @@ export class LeiturasService {
   retomar(
     usuarioId: string,
     leituraId: string,
-    escopo: EscopoIdempotente,
+    chave: string,
   ): Promise<RespostaIdempotente<LeituraDto>> {
     return this.idempotencia.executar(
-      { ...escopo, subjectRef: usuarioId, payload: {} },
+      {
+        subjectRef: usuarioId,
+        operacao: operacaoNoCaminho(OPERACOES.RETOMAR_LEITURA, leituraId),
+        chave,
+        payload: {},
+      },
       async (tx) => {
         const alvo = await this.leituraPropria(tx, leituraId, usuarioId);
         const { estante, transicao } = await this.transicionar(
@@ -283,7 +307,7 @@ export class LeiturasService {
         const atualizada = await this.aplicarNaEstante(tx, estante, transicao);
 
         const livro = await this.snapshotDoLivro(tx, leitura.livroId);
-        await this.outbox.gravar(
+        await this.outbox.inserir(
           tx,
           leituraRetomada({
             usuarioId,
@@ -306,11 +330,20 @@ export class LeiturasService {
   private iniciarOcorrencia(
     usuarioId: string,
     entrada: IniciarLeituraEntradaDto,
-    escopo: EscopoIdempotente,
+    chave: string,
     evento: Extract<EventoEstante, 'iniciar' | 'iniciarReleitura'>,
   ): Promise<RespostaIdempotente<LeituraDto>> {
     return this.idempotencia.executar(
-      { ...escopo, subjectRef: usuarioId, payload: entrada },
+      {
+        subjectRef: usuarioId,
+        operacao: operacaoNoCaminho(
+          evento === 'iniciar'
+            ? OPERACOES.INICIAR_LEITURA
+            : OPERACOES.INICIAR_RELEITURA,
+        ),
+        chave,
+        payload: entrada,
+      },
       async (tx) => {
         const livro = await this.referencias.buscarLivroAcessivel(
           entrada.livroId,
@@ -321,9 +354,12 @@ export class LeiturasService {
         const dataInicio =
           entrada.dataInicio ?? dataNoFuso(agora, FUSO_HORARIO_PADRAO);
         if (dataInicio > dataNoFuso(agora, FUSO_HORARIO_PADRAO)) {
-          throw new RegraDeNegocioViolada(
-            'A data de início não pode estar no futuro.',
-          );
+          throw new EntidadeInvalida([
+            {
+              campo: 'dataInicio',
+              mensagem: 'A data de início não pode estar no futuro.',
+            },
+          ]);
         }
 
         await this.repositorio.garantirEstante(tx, usuarioId, livro.id);
@@ -358,7 +394,7 @@ export class LeiturasService {
         );
         const atualizada = await this.aplicarNaEstante(tx, estante, transicao);
 
-        await this.outbox.gravar(
+        await this.outbox.inserir(
           tx,
           leituraIniciada({
             usuarioId,

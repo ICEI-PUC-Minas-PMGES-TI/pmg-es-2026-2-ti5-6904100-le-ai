@@ -41,8 +41,8 @@ describe('seed de leitura (integração)', () => {
         donoId: pessoal ? usuarios.dono : null,
       });
     }
-    await inserirPerfil(pool, usuarios.dono);
-    await inserirPerfil(pool, usuarios.seguidor);
+    await inserirPerfil(pool, { id: usuarios.dono });
+    await inserirPerfil(pool, { id: usuarios.seguidor });
   }
 
   const consultar = (usuarioId: string, caminho: string) =>

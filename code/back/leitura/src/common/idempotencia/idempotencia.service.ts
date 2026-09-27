@@ -6,22 +6,42 @@ import type { Tx } from '../../db/tipos';
 import { ChaveIdempotenciaConflitante } from '../erros-de-negocio';
 import { hashDoPayload } from '../hash-payload';
 import { ehViolacaoDeUnicidade } from '../pg-erros';
-import type { EscopoIdempotente } from './escopo-idempotente.decorator';
-import {
-  INDICE_UNICO_IDEMPOTENCIA,
-  JANELA_REPLAY_HORAS,
-} from './idempotencia.constantes';
+import { JANELA_REPLAY_HORAS } from './idempotencia.constantes';
 
+/**
+ * Índice único parcial de `idempotencia_leitura`. O nome e o predicado
+ * (`subject_ref is not null and chave is not null`) são diferentes dos do
+ * `acervo`: o 23505 só é o da corrida de chave quando vem deste índice.
+ */
+const INDICE_DA_CHAVE = 'idempotencia_leitura_subject_operacao_chave_uk';
+
+/** O que o handler devolve e o que fica gravado para o replay. */
 export interface RespostaIdempotente<T> {
   status: number;
   corpo: T;
 }
 
-export interface ContextoIdempotente extends EscopoIdempotente {
+export interface ContextoIdempotente {
+  /** Usuário autenticado: o escopo da chave é usuário + operação no caminho. */
   subjectRef: string;
+  /** Montada por `operacaoNoCaminho`, por exemplo `salvarNota:<livroId>`. */
+  operacao: string;
+  chave: string;
+  /** Corpo já validado. Reusar a chave com payload diferente é 409. */
   payload: unknown;
 }
 
+/**
+ * Idempotência das escritas HTTP (RNF-ERR-04), sobre
+ * `leitura.idempotencia_leitura`. Mesmo desenho do `acervo`.
+ *
+ * É um serviço chamado pelo handler, **não** um interceptor. Um interceptor
+ * global só enxerga a resposta depois do `return`, ou seja, fora da transação:
+ * um crash entre o commit do efeito e a gravação do recibo deixaria o efeito
+ * aplicado sem recibo, e a repetição da chave produziria um segundo efeito. O
+ * recibo precisa ser a última operação da mesma transação, e isso obriga o
+ * handler a entregar a função que roda dentro dela.
+ */
 @Injectable()
 export class IdempotenciaService {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
@@ -44,7 +64,12 @@ export class IdempotenciaService {
         return resposta;
       });
     } catch (erro) {
-      if (!ehViolacaoDeUnicidade(erro, INDICE_UNICO_IDEMPOTENCIA)) {
+      // Duas requisições com a mesma chave passaram juntas pela leitura acima e
+      // as duas executaram. O segundo INSERT bate no índice único — e, como o
+      // Postgres o faz esperar a transação vencedora commitar, quando o 23505
+      // chega aqui a linha vencedora já está visível. O rollback desfez o efeito
+      // duplicado; basta reler e devolver o replay.
+      if (!ehViolacaoDeUnicidade(erro, INDICE_DA_CHAVE)) {
         throw erro;
       }
 
@@ -91,6 +116,9 @@ export class IdempotenciaService {
       throw new ChaveIdempotenciaConflitante();
     }
 
+    // Chave certa, payload certo, mas fora da janela de replay: reexecutar seria
+    // pior do que recusar, porque a resposta original já não existe para ser
+    // devolvida. O cliente gera uma chave nova.
     if (recibo.replayAte.getTime() < Date.now()) {
       throw new ChaveIdempotenciaConflitante();
     }
@@ -110,6 +138,8 @@ export class IdempotenciaService {
       chave: contexto.chave,
       payloadHash,
       statusHttp: resposta.status,
+      // O CHECK `idempotencia_leitura_anonimizacao_ck` exige `resposta` não nula
+      // em linha viva. O 204 de exclusão não tem corpo, e grava `{}`.
       resposta: (resposta.corpo ?? {}) as Record<string, unknown>,
       replayAte: sql`now() + interval '${sql.raw(String(JANELA_REPLAY_HORAS))} hours'`,
     });

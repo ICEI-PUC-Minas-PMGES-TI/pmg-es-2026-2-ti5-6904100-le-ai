@@ -13,10 +13,17 @@ async function bootstrap(): Promise<void> {
 
   configurarApp(app);
 
+  // Contrato OpenAPI em runtime (RNF-ARQ-03), equivalente ao arquivo
+  // versionado em `docs/api/leitura.yaml` (docs/api/README.md).
   const openApi = new DocumentBuilder()
     .setTitle(`Lê Ai — ${config.get<string>('SERVICE_NAME') ?? 'leitura'}`)
-    .setDescription('Contrato do serviço leitura.')
+    .setDescription(
+      'Contrato do serviço leitura. Estante, progresso, nota e resenha ' +
+        'entram com F-EST, F-PRG e F-AVA.',
+    )
     .setVersion('0.1.0')
+    // O documento de runtime precisa ficar equivalente ao arquivo versionado em
+    // `docs/api/leitura.yaml`, que declara `bearerAuth` como segurança global.
     .addBearerAuth(
       { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
       'bearerAuth',
@@ -26,7 +33,7 @@ async function bootstrap(): Promise<void> {
   const document = SwaggerModule.createDocument(app, openApi);
   SwaggerModule.setup('docs', app, document);
 
-  const port = config.get<number>('PORT') ?? 3000;
+  const port = config.get<number>('PORT') ?? 3001;
   await app.listen(port);
 }
 

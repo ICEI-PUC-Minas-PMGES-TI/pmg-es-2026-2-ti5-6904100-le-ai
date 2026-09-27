@@ -1,4 +1,4 @@
-import 'leitura_service.dart';
+import 'estante_service.dart';
 import 'textos.dart';
 
 class EstadoDeLeitura {

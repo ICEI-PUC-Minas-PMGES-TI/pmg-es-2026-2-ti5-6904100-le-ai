@@ -4,7 +4,7 @@ import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../design/theme.dart';
 import '../../design/tokens.dart';
 import '../../design/widgets/capa_livro.dart';
-import 'leitura_service.dart';
+import 'estante_service.dart';
 import 'textos.dart';
 
 const double _proporcaoDaCapa = 2 / 3;

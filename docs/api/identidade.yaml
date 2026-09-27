@@ -410,16 +410,17 @@ paths:
       description: >-
         Implementado em P0-NAV. A identidade é obtida exclusivamente do token de
         acesso validado no servidor; outro usuário não pode ser escolhido por
-        parâmetro. Esta rota preserva o contrato mínimo já implementado.
+        parâmetro. Desde 25/09/2026 devolve também o e-mail do próprio dono, que
+        Configurações mostra (decisão do dono de F-AUT); nenhuma outra rota o expõe.
       security:
         - bearerAuth: []
       responses:
         '200':
-          description: Identidade do usuário autenticado.
+          description: Identidade do usuário autenticado, com o e-mail dele.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Usuario'
+                $ref: '#/components/schemas/UsuarioProprio'
         '401':
           $ref: '#/components/responses/NaoAutenticado'
         '503':
@@ -1149,6 +1150,28 @@ components:
           maxLength: 60
           example: Marina Beltrão
 
+    UsuarioProprio:
+      type: object
+      description: >-
+        O leitor autenticado visto por ele mesmo (`GET /me`): a identidade de
+        `Usuario` mais o e-mail. Nunca contém nascimento ou hash de senha.
+      additionalProperties: false
+      required: [id, username, displayName, email]
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          $ref: '#/components/schemas/Username'
+        displayName:
+          type: string
+          maxLength: 60
+          example: Marina Beltrão
+        email:
+          type: string
+          format: email
+          example: marina.beltrao@gmail.com
+
     Token:
       type: object
       description: Parte de acesso da sessão, implementada em P0-NAV.
@@ -1262,8 +1285,11 @@ components:
 
     PerfilResumo:
       type: object
-      description: Campos públicos visíveis independentemente da privacidade do perfil.
-      required: [id, username, displayName, privacidade, conteudoRestrito, relacao]
+      description: >-
+        Campos públicos visíveis independentemente da privacidade do perfil. A
+        biografia é pública (RN-08) e entrou no resumo em 25/09/2026 para os cards
+        de busca e das listas.
+      required: [id, username, displayName, biografia, privacidade, conteudoRestrito, relacao]
       properties:
         id:
           type: string
@@ -1274,6 +1300,11 @@ components:
           type: string
           maxLength: 60
           example: Marina Beltrão
+        biografia:
+          type: string
+          nullable: true
+          maxLength: 1000
+          description: Texto público, inclusive em perfil privado.
         avatarUrl:
           type: string
           format: uri
@@ -1292,12 +1323,8 @@ components:
       allOf:
         - $ref: '#/components/schemas/PerfilResumo'
         - type: object
-          required: [biografia, contadores]
+          required: [contadores]
           properties:
-            biografia:
-              type: string
-              nullable: true
-              description: Texto público, inclusive em perfil privado.
             contadores:
               $ref: '#/components/schemas/ContadoresPerfil'
 

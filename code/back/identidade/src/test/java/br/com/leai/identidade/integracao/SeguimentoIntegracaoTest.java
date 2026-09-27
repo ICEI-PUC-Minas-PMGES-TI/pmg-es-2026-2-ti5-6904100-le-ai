@@ -351,8 +351,9 @@ class SeguimentoIntegracaoTest extends IntegracaoComPostgres {
     assertThat(seguidos.get("items").get(0).get("username").asString()).isEqualTo(um.username());
     assertThat(seguidos.get("items").get(1).get("username").asString())
         .isEqualTo(segueDeVolta.username());
-    // Resumo sem biografia nem contadores, como o PerfilResumo.
-    assertThat(seguidos.get("items").get(0).has("biografia")).isFalse();
+    // Resumo com biografia (pública, decisão de 25/09) e sem contadores, como o PerfilResumo.
+    assertThat(seguidos.get("items").get(0).has("biografia")).isTrue();
+    assertThat(seguidos.get("items").get(0).has("contadores")).isFalse();
   }
 
   @Test

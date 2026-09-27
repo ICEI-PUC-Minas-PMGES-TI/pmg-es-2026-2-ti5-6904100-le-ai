@@ -80,6 +80,11 @@ services:
         value: "true"
       - key: AMQP_URL
         sync: false
+      # F-AVA (fatia 0): obrigatório em produção; sem ele o serviço não sobe.
+      # Preencher no painel ANTES do merge na main, com o MESMO valor do
+      # leai-identidade.
+      - key: JWT_SECRET
+        sync: false
 
   # ------------------------------------------------------------ identidade
   # Spring Boot (Java) — requer Dockerfile em code/back/identidade/Dockerfile.
@@ -192,6 +197,10 @@ services:
       # F-ACV-CADASTRO: cadastro por ISBN e livro pessoal.
       - key: VITE_ACERVO_BASE_URL
         value: https://leai-acervo.onrender.com
+      # F-AVA, F-EST e F-PRG: nota, resenha, estante e progresso. Sem ela a
+      # web do DES chamaria `undefined/...`.
+      - key: VITE_LEITURA_BASE_URL
+        value: https://leai-leitura.onrender.com
       # Capa de livro pessoal direto ao Cloudinary. Não é segredo: o preset é
       # UNSIGNED e público por natureza (P-09); o cloud é o mesmo do acervo.
       - key: VITE_CLOUDINARY_CLOUD_NAME

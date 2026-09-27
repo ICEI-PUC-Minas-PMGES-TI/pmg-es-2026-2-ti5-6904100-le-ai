@@ -1,7 +1,8 @@
 import '../../core/network/api_client.dart';
+import 'livro_oficial.dart';
 
-/// Contrato do serviço `acervo` usado por F-ACV-CADASTRO. Espelha `docs/api/acervo.yaml`:
-/// mesmos campos, mesmas rotas, mesmos estados.
+/// Contrato do serviço `acervo` usado por F-ACV-CADASTRO e F-ACV-BUSCA. Espelha
+/// `docs/api/acervo.yaml`: mesmos campos, mesmas rotas, mesmos estados.
 
 enum EstadoImportacao { pendente, concluida, naoEncontrado, falhaTransitoria }
 
@@ -103,6 +104,9 @@ class LivroJaCadastrado extends ResultadoDaSolicitacao {
   const LivroJaCadastrado(this.livroId, [this.livro]);
 }
 
+/// Padrão do contrato; o servidor aceita até 50.
+const int tamanhoDaPaginaDeLivros = 20;
+
 class ResenhaDoDono {
   final String autorNome;
   final String? autorAvatarUrl;
@@ -123,7 +127,8 @@ class ResenhaDoDono {
       autorNome: json['autorNome'] as String,
       autorAvatarUrl: json['autorAvatarUrl'] as String?,
       texto: json['texto'] as String,
-      spoiler: json['spoiler'] as bool? ?? false,
+      // Campo ausente fica fechado: abrir um spoiler por engano não tem volta.
+      spoiler: json['spoiler'] as bool? ?? true,
       atualizadoEm: DateTime.parse(json['atualizadoEm'] as String),
     );
   }
@@ -227,6 +232,74 @@ class AcervoService {
   final ApiClient client;
 
   const AcervoService(this.client);
+
+  /// `GET /assuntos`: o conjunto curado para o filtro da busca (RN-21).
+  Future<List<AssuntoResumo>> listarAssuntos() async {
+    final json = await client.getJson('/assuntos');
+    final itens = json['itens'];
+    if (itens is! List) {
+      return const <AssuntoResumo>[];
+    }
+    return <AssuntoResumo>[for (final item in itens) ?AssuntoResumo.deJson(item)];
+  }
+
+  /// `GET /livros`: busca paginada de livros oficiais, com `page` a partir de 1. O servidor
+  /// exige `q` ou `assunto`; quem chama nunca manda os dois vazios.
+  Future<PaginaLivros> buscarLivros({String? q, String? assuntoId, int page = 1}) async {
+    final caminho = Uri(
+      path: '/livros',
+      queryParameters: <String, String>{
+        'q': ?q,
+        'assunto': ?assuntoId,
+        'page': '$page',
+        'limit': '$tamanhoDaPaginaDeLivros',
+      },
+    ).toString();
+    final correlationId = ApiClient.newCorrelationId();
+    final json = await client.getJson(caminho, correlationId: correlationId);
+    final pagina = PaginaLivros.deJson(json);
+    if (pagina == null) {
+      throw _respostaInvalida(correlationId);
+    }
+    return pagina;
+  }
+
+  /// `GET /livros/{id}`: a página do livro oficial. A primeira abertura pede a sinopse, e a
+  /// resposta nunca espera a fonte externa.
+  Future<LivroOficialDetalhe> obterLivroOficial(String id) async {
+    final correlationId = ApiClient.newCorrelationId();
+    final json = await client.getJson(
+      '/livros/${Uri.encodeComponent(id)}',
+      correlationId: correlationId,
+    );
+    final livro = LivroOficialDetalhe.deJson(json);
+    if (livro == null) {
+      throw _respostaInvalida(correlationId);
+    }
+    return livro;
+  }
+
+  /// `GET /livros/{id}/resenhas`: as próximas resenhas, por cursor.
+  Future<PaginaDeResenhas> listarResenhasDoLivro(String id, {String? cursor}) async {
+    final caminho = Uri(
+      path: '/livros/${Uri.encodeComponent(id)}/resenhas',
+      queryParameters: cursor == null ? null : <String, String>{'cursor': cursor},
+    ).toString();
+    final correlationId = ApiClient.newCorrelationId();
+    final pagina = PaginaDeResenhas.deJson(
+      await client.getJson(caminho, correlationId: correlationId),
+    );
+    if (pagina == null) {
+      throw _respostaInvalida(correlationId);
+    }
+    return pagina;
+  }
+
+  ApiException _respostaInvalida(String correlationId) => ApiException(
+    kind: ApiFailureKind.invalidResponse,
+    correlationId: correlationId,
+    message: 'O serviço retornou uma resposta inválida.',
+  );
 
   /// `POST /livros/oficial`. O `409` de ISBN já cadastrado vira resultado, não exceção.
   Future<ResultadoDaSolicitacao> solicitarImportacao({

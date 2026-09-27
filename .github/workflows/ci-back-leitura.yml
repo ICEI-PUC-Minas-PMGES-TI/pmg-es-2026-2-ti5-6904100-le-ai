@@ -5,11 +5,15 @@ on:
     paths:
       - 'code/back/leitura/**'
       - '!code/back/leitura/**.md'
+      # A copia runtime de cada schema e comparada com o canonico em teste.
+      - 'docs/mensageria/schemas/**'
       - '.github/workflows/ci-back-leitura.yml'
   pull_request:
     paths:
       - 'code/back/leitura/**'
       - '!code/back/leitura/**.md'
+      # A copia runtime de cada schema e comparada com o canonico em teste.
+      - 'docs/mensageria/schemas/**'
       - '.github/workflows/ci-back-leitura.yml'
   workflow_dispatch:
 
@@ -29,6 +33,8 @@ jobs:
       run:
         working-directory: code/back/leitura
 
+    # Postgres descartavel para os testes de integracao. Nunca o Neon: o
+    # fixture derruba e recria os schemas a cada arquivo (test/integracao/).
     services:
       postgres:
         image: postgres:17-alpine
@@ -66,8 +72,10 @@ jobs:
       - name: Test
         run: npm test
 
+      # Guard, idempotencia HTTP, atomicidade dominio + outbox e o envelope
+      # publicado: o que so se prova contra Postgres real (RNF-TST-02/03).
       - name: Integration test
-        run: npm run test:int
+        run: npm run test:integration
         env:
           DATABASE_URL_TESTE: postgresql://postgres:teste@localhost:5432/leai_teste
 

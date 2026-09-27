@@ -5,8 +5,10 @@ import br.com.leai.social.common.CorrelationIdFilter;
 import br.com.leai.social.common.ErroResposta;
 import java.io.IOException;
 import java.util.List;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.server.ServerHttpResponse;
@@ -22,18 +24,30 @@ import tools.jackson.databind.ObjectMapper;
  * <p>Um {@link CorsFilter} e não {@code WebMvcConfigurer#addCorsMappings}: o filtro também cobre
  * o despacho para {@code /error} e qualquer resposta produzida antes do
  * {@code DispatcherServlet}.
+ *
+ * <p>Filtro próprio, não o {@code cors()} do Spring Security (desligado em {@link
+ * SecurityConfig}): o preflight precisa ser resolvido <b>antes</b> da autorização, senão um {@code
+ * OPTIONS} sem credencial vira 401 e o navegador bloqueia a chamada real.
  */
 @Configuration
 public class CorsConfig {
 
+  /**
+   * {@link FilterRegistrationBean} com ordem explícita: {@code @Order} em método {@code @Bean} não
+   * é lido pelo registro de filtros do servlet, e sem ela o filtro cairia depois da cadeia do
+   * Spring Security (ordem {@code -100}).
+   */
   @Bean
-  public CorsFilter corsFilter(AppProperties propriedades, ObjectMapper objectMapper) {
+  public FilterRegistrationBean<CorsFilter> corsFilter(
+      AppProperties propriedades, ObjectMapper objectMapper) {
     List<String> origens = propriedades.originsPermitidas();
 
     CorsConfiguration configuracao = new CorsConfiguration();
     configuracao.setAllowedOrigins(origens);
     configuracao.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-    configuracao.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Correlation-Id"));
+    // Idempotency-Key: toda escrita de F-FEED o exige (RNF-ERR-04); sem ele o preflight falha.
+    configuracao.setAllowedHeaders(
+        List.of("Authorization", "Content-Type", "X-Correlation-Id", "Idempotency-Key"));
     configuracao.setExposedHeaders(List.of("X-Correlation-Id"));
     configuracao.setAllowCredentials(!origens.isEmpty());
     configuracao.setMaxAge(3600L);
@@ -43,7 +57,11 @@ public class CorsConfig {
 
     CorsFilter filtro = new CorsFilter(fonte);
     filtro.setCorsProcessor(new CorsProcessorPadrao(objectMapper));
-    return filtro;
+
+    FilterRegistrationBean<CorsFilter> registro = new FilterRegistrationBean<>(filtro);
+    // Depois do CorrelationIdFilter (recusa já sai com correlation-id) e antes do Spring Security.
+    registro.setOrder(Ordered.HIGHEST_PRECEDENCE + 10);
+    return registro;
   }
 
   /**

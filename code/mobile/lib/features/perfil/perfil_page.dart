@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 
 import '../../core/network/api_client.dart';
@@ -11,6 +12,7 @@ import '../../design/widgets/botao_textual.dart';
 import 'conexoes_page.dart';
 import 'perfil_service.dart';
 import 'textos.dart';
+import 'widgets_de_identidade.dart';
 import 'widgets_de_perfil.dart';
 
 /// Meu perfil (RF-SOC-01, RF-SOC-04), a partir de docs/design/periodo-1/F-PERFIL/meu-perfil.md
@@ -18,9 +20,9 @@ import 'widgets_de_perfil.dart';
 /// perfil` e os contadores numa linha com divisor. O header (título `Perfil` e engrenagem) é do
 /// shell.
 ///
-/// **Sem estante, resenhas e o contador `livros lidos`**: vêm de `leitura`
-/// (`listarEstantePerfil`, `listarResenhasPerfil`), ainda `planned`. Desenhar o vazio diria "você
-/// não tem livros" a quem tem. Entram com F-EST e F-AVA, como na web.
+/// **Estante e Resenhas sempre no estado vazio** (decisão do dono de 25/09/2026): o conteúdo vem
+/// de `leitura` (`listarEstantePerfil`, `listarResenhasPerfil`), ainda `planned`. Pelo mesmo
+/// motivo, sem o contador `livros lidos` até existir o dado.
 class PerfilPage extends StatefulWidget {
   final PerfilService servico;
 
@@ -33,12 +35,25 @@ class PerfilPage extends StatefulWidget {
   /// A linha de pedidos pendentes leva à caixa (§4.3).
   final Future<void> Function()? aoAbrirSolicitacoes;
 
+  /// "Buscar livros" do vazio da estante leva a Descobrir. Sem ele, a página vai direto a
+  /// `/descobrir` pelo `GoRouter` do contexto, quando houver um.
+  final VoidCallback? aoBuscarLivros;
+
+  /// "Ver tudo" da seção Estante leva à aba Estante; mesmo padrão de [aoBuscarLivros].
+  final VoidCallback? aoVerEstante;
+
+  /// Lista de resenhas do perfil (F-AVA), montada com o id do leitor.
+  final Widget Function(String usuarioId)? resenhas;
+
   const PerfilPage({
     super.key,
     required this.servico,
     this.aoEditar,
     this.aoAbrirConexoes,
     this.aoAbrirSolicitacoes,
+    this.aoBuscarLivros,
+    this.aoVerEstante,
+    this.resenhas,
   });
 
   @override
@@ -108,34 +123,40 @@ class _PerfilPageState extends State<PerfilPage> {
     return abrir == null ? null : () => _abrir(() => abrir(aba));
   }
 
+  /// Destino de um CTA das seções de leitura: o callback de quem monta a página ou, sem ele, a
+  /// rota da aba pelo `GoRouter` do contexto.
+  VoidCallback? _destino(VoidCallback? callback, String rota) {
+    if (callback != null) {
+      return callback;
+    }
+    final router = GoRouter.maybeOf(context);
+    return router == null ? null : () => router.go(rota);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final perfil = _perfil;
     return SingleChildScrollView(
+      // 32 acima do avatar, como no protótipo.
       padding: const EdgeInsets.fromLTRB(
         DesignTokens.space5,
-        DesignTokens.space6,
+        DesignTokens.space8,
         DesignTokens.space5,
         DesignTokens.space10,
       ),
       child: _carregando && perfil == null
-          ? const SkeletonDeIdentidade()
+          ? const SkeletonDoPerfil()
           : _falhou || perfil == null
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                const BannerAviso(
-                  variante: VarianteAviso.erro,
-                  mensagem: 'Não foi possível carregar seu perfil. Verifique sua conexão e tente de novo.',
-                ),
-                const SizedBox(height: DesignTokens.space2),
-                BotaoTextual(texto: 'Tentar de novo', onPressed: _carregar),
-              ],
+          ? BannerAviso(
+              variante: VarianteAviso.erro,
+              triangulo: true,
+              mensagem: 'Não foi possível carregar seu perfil. Verifique sua conexão e tente de novo.',
+              acao: BotaoTextual(texto: 'Tentar de novo', onPressed: _carregar),
             )
           : Column(
               children: <Widget>[
-                AvatarLeitor(url: perfil.avatarUrl, tamanho: 96),
+                AvatarLeitor(url: perfil.avatarUrl, tamanho: 96, nome: perfil.displayName),
                 const SizedBox(height: DesignTokens.space4),
                 Text(perfil.displayName, style: theme.displayTitle, textAlign: TextAlign.center),
                 const SizedBox(height: DesignTokens.space1),
@@ -184,14 +205,14 @@ class _PerfilPageState extends State<PerfilPage> {
                   ),
                 ),
                 const SizedBox(height: DesignTokens.space6),
-                LinhaDeContadores(
-                  contadores: <ContadorDePerfil>[
-                    ContadorDePerfil(
+                ContadoresDoPerfil(
+                  contadores: <DadoDeContador>[
+                    DadoDeContador(
                       valor: perfil.seguidores,
                       rotulo: perfil.seguidores == 1 ? 'seguidor' : 'seguidores',
                       aoTocar: _conexoes(AbaDeConexoes.seguidores),
                     ),
-                    ContadorDePerfil(
+                    DadoDeContador(
                       valor: perfil.seguidos,
                       rotulo: 'seguindo',
                       aoTocar: _conexoes(AbaDeConexoes.seguidos),
@@ -207,6 +228,13 @@ class _PerfilPageState extends State<PerfilPage> {
                     aoTocar: () => _abrir(widget.aoAbrirSolicitacoes),
                   ),
                 ],
+                const SizedBox(height: DesignTokens.space12),
+                SecoesDeLeitura(
+                  proprio: true,
+                  aoBuscarLivros: _destino(widget.aoBuscarLivros, '/descobrir'),
+                  aoVerEstante: _destino(widget.aoVerEstante, '/estante'),
+                  resenhas: widget.resenhas?.call(perfil.id),
+                ),
               ],
             ),
     );

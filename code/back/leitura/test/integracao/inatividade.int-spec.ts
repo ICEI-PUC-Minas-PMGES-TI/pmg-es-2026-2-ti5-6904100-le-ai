@@ -39,7 +39,7 @@ describe('job de inatividade RN-05 (integração)', () => {
   async function leituraEmAndamento(semente: Semente = {}) {
     const usuarioId = novoUsuario();
     const livroId = await inserirLivro(pool);
-    await inserirPerfil(pool, usuarioId);
+    await inserirPerfil(pool, { id: usuarioId });
     const releitura = semente.releitura ?? false;
 
     const {

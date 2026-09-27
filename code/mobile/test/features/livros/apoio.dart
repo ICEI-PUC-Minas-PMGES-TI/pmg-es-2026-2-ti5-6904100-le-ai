@@ -8,6 +8,7 @@ import 'package:http/testing.dart';
 
 import 'package:le_ai_mobile/core/network/api_client.dart';
 import 'package:le_ai_mobile/design/theme.dart';
+import 'package:le_ai_mobile/features/avaliacao/leitura_service.dart';
 import 'package:le_ai_mobile/features/livros/acervo_service.dart';
 
 /// As telas de livro vivem dentro do `Scaffold` do shell; no teste, um `Scaffold` próprio faz
@@ -36,6 +37,29 @@ AcervoService acervoSimulado(Future<http.Response> Function(http.Request) handle
     ),
   );
 }
+
+/// Serviço de leitura sobre um `MockClient`, sem espera entre retentativas.
+LeituraService leituraSimulada(Future<http.Response> Function(http.Request) handler) {
+  return LeituraService(
+    ApiClient(
+      baseUrl: 'https://leitura.example.com',
+      client: MockClient(handler),
+      esperasDeRetentativa: const <Duration>[Duration.zero, Duration.zero],
+    ),
+  );
+}
+
+/// Corpo de `minha-avaliacao` sem nota nem resenha.
+Map<String, Object?> semAvaliacao(String livroId) =>
+    <String, Object?>{'livroId': livroId, 'nota': null, 'resenha': null};
+
+/// `Nota` do contrato.
+Map<String, Object?> notaJson(String livroId, double valor) => <String, Object?>{
+  'livroId': livroId,
+  'valor': valor,
+  'criadoEm': '2026-09-12T12:00:00.000Z',
+  'atualizadoEm': '2026-09-12T12:00:00.000Z',
+};
 
 http.Response json(Object corpo, int status) =>
     http.Response(jsonEncode(corpo), status, headers: <String, String>{

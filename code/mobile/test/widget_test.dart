@@ -57,7 +57,7 @@ Future<LeAiApp> _montarApp({String? tokenSalvo}) async {
     themeController: themeController,
     sessionController: sessionController,
     authService: AuthService(apiClient),
-    leitura: estanteVazia(),
+    estante: estanteVazia(),
   );
 }
 

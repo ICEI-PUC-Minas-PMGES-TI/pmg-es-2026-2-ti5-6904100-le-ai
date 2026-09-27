@@ -15,8 +15,13 @@ withDefaults(
     titulo: string
     /** `ambar` para o link que não vale mais; `musgo` para o resto. */
     tom?: 'musgo' | 'ambar'
+    /**
+     * A partir de 768px, ações à esquerda com a largura do conteúdo (protótipo de alterar senha,
+     * "Senha alterada" na web). Sem ela, as ações ficam centralizadas como nas outras telas.
+     */
+    acoesAEsquerdaNaWeb?: boolean
   }>(),
-  { tom: 'musgo' },
+  { tom: 'musgo', acoesAEsquerdaNaWeb: false },
 )
 
 const cabecalho = ref<HTMLHeadingElement | null>(null)
@@ -45,7 +50,10 @@ onMounted(() => {
     <div class="mt-space-4 flex flex-col gap-space-4 text-body text-grafite">
       <slot />
     </div>
-    <div class="mt-space-8 flex flex-col items-center gap-space-4">
+    <div
+      class="mt-space-8 flex flex-col items-center gap-space-4"
+      :class="acoesAEsquerdaNaWeb ? 'md:items-start' : ''"
+    >
       <slot name="acoes" />
     </div>
   </section>

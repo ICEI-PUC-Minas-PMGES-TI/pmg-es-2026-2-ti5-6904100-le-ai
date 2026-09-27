@@ -1,22 +1,23 @@
 <script setup lang="ts">
 import { PhCaretRight, PhSignOut } from '@phosphor-icons/vue'
-import { nextTick, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 
 import PoliticaDePrivacidade from '../components/PoliticaDePrivacidade.vue'
 import BotaoDestrutivo from '../components/ui/BotaoDestrutivo.vue'
 import DialogoConfirmacao from '../components/ui/DialogoConfirmacao.vue'
-import { authService } from '../services/auth'
+import { authService, type UsuarioProprio } from '../services/auth'
 import { useSession } from '../session'
 
 /**
- * Configurações (RF-AUT-06, acesso a RF-AUT-05 e RNF-SEC-42). Layout e cópia de
- * docs/design/periodo-1/F-AUT/configuracoes.md: lista de linhas no mobile, duas colunas na web
- * com a política aberta à direita.
+ * Configurações (RF-AUT-06, acesso a RF-AUT-05 e RNF-SEC-42). Layout e cópia do protótipo de
+ * docs/design/periodo-1/F-AUT/configuracoes: lista de linhas no mobile, duas colunas na web com a
+ * política aberta à direita.
  *
- * **Sem e-mail no bloco de identificação**, diferente do protótipo: nenhuma resposta do
- * `identidade` expõe o e-mail (o schema `Usuario` diz que ele nunca vem), e a sessão só guarda
- * id, username e nome. Mostrar exigiria mudar o contrato; fica registrado como divergência.
+ * **E-mail na identificação** vem de `GET /me`, que devolve o e-mail só ao próprio dono (decisão
+ * de 25/09/2026): a sessão guarda id, username e nome, e não o e-mail. Enquanto a resposta não
+ * chega, o bloco é o skeleton de três barras do protótipo; se ela falhar, ficam nome e username
+ * da sessão, sem o e-mail.
  *
  * Sair sempre funciona do lado do navegador (§4.3): a revogação no servidor é melhor esforço, e
  * a tela vai ao login sem mostrar erro.
@@ -26,6 +27,20 @@ const VERSAO_DO_APP = '1.0.0'
 
 const router = useRouter()
 const { usuario } = useSession()
+
+const conta = ref<UsuarioProprio | null>(null)
+const carregandoConta = ref(true)
+const identificacao = computed(() => conta.value ?? usuario.value)
+
+onMounted(async () => {
+  try {
+    conta.value = await authService.buscarUsuarioAtual()
+  } catch {
+    // Sem o e-mail, a identificação fica com o que a sessão já sabe.
+  } finally {
+    carregandoConta.value = false
+  }
+})
 
 const confirmandoSaida = ref(false)
 const saindo = ref(false)
@@ -42,27 +57,35 @@ async function sair(): Promise<void> {
 </script>
 
 <template>
-  <div class="pb-space-10 pt-space-6 md:grid md:grid-cols-[320px_minmax(0,720px)] md:gap-space-12">
+  <div class="pb-space-10 pt-space-6 md:grid md:grid-cols-[320px_minmax(0,720px)] md:gap-space-12 md:pt-space-10">
     <div>
       <!-- Identificação: sem avatar, que é do perfil (§4). -->
       <div
-        v-if="usuario"
-        class="border-b border-linha pb-space-6 md:border-0"
+        v-if="!carregandoConta && identificacao"
+        class="border-b border-linha pb-space-6 md:border-0 md:pb-0"
       >
         <p class="text-title-sm text-tinta">
-          {{ usuario.displayName }}
+          {{ identificacao.displayName }}
         </p>
-        <p class="text-caption text-grafite-suave">
-          @{{ usuario.username }}
+        <p class="mt-0.5 text-caption text-grafite-suave">
+          @{{ identificacao.username }}
+        </p>
+        <p
+          v-if="conta?.email"
+          class="mt-space-1 break-all text-caption text-grafite"
+        >
+          {{ conta.email }}
         </p>
       </div>
       <div
         v-else
-        class="flex flex-col gap-space-2 border-b border-linha pb-space-6 md:border-0"
-        aria-hidden="true"
+        class="flex flex-col gap-space-2 border-b border-linha pb-space-6 md:border-0 md:pb-0"
+        aria-busy="true"
+        aria-label="Carregando conta"
       >
         <span class="h-[17px] w-[45%] rounded-sm bg-capa-placeholder" />
         <span class="h-[13px] w-[30%] rounded-sm bg-capa-placeholder" />
+        <span class="h-[13px] w-[55%] rounded-sm bg-capa-placeholder" />
       </div>
 
       <!-- Mobile: dois grupos de linhas de 56px. -->
@@ -104,12 +127,12 @@ async function sair(): Promise<void> {
 
       <!-- Web: navegação da coluna esquerda, com a política aberta ao lado. -->
       <nav
-        class="mt-space-6 hidden flex-col gap-space-1 md:flex"
+        class="mt-space-8 hidden flex-col gap-space-1 md:flex"
         aria-label="Configurações"
       >
         <RouterLink
           to="/perfil/configuracoes/alterar-senha"
-          class="flex h-11 items-center rounded-base px-space-4 text-body-strong text-grafite transition-colors duration-dur-fast hover:bg-linha focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo"
+          class="flex h-11 items-center rounded-base px-space-4 text-body-strong text-tinta transition-colors duration-dur-fast hover:bg-linha focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo"
         >
           Alterar senha
         </RouterLink>
@@ -135,11 +158,11 @@ async function sair(): Promise<void> {
       </BotaoDestrutivo>
       <p
         v-if="saindo"
-        class="mt-space-3 text-caption text-grafite"
+        class="mt-space-3 text-center text-caption text-grafite md:text-left"
       >
         O servidor está iniciando. Isso pode levar alguns segundos.
       </p>
-      <p class="mt-space-6 text-center text-caption text-grafite-suave">
+      <p class="mt-space-6 text-center text-caption text-grafite-suave md:text-left">
         Lê Ai · versão {{ VERSAO_DO_APP }}
       </p>
     </div>
@@ -150,6 +173,7 @@ async function sair(): Promise<void> {
 
     <DialogoConfirmacao
       :aberta="confirmandoSaida"
+      compacto
       titulo="Sair da conta?"
       rotulo-confirmar="Sair"
       @confirmar="sair"

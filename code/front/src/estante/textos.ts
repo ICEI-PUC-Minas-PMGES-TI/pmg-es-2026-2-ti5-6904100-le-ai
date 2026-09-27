@@ -75,7 +75,6 @@ export const VAZIO_DO_FILTRO: Record<StatusEstante, VazioDoFiltro> = {
 }
 
 export const TEXTOS_DA_ESTANTE_DE_PERFIL = {
-  titulo: 'Estante',
   carregando: 'Carregando estante',
   erroTexto: 'Não foi possível carregar a estante. Verifique sua conexão e tente de novo.',
 } as const

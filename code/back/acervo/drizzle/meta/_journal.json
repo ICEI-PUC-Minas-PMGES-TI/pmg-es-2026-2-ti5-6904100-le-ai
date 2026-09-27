@@ -29,6 +29,13 @@
       "when": 1789852783961,
       "tag": "0003_cria_mensagem_processada",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790439499222,
+      "tag": "0004_20260926131817_indices_busca",
+      "breakpoints": true
     }
   ]
 }

@@ -7,14 +7,14 @@ import '../../design/widgets/botao_textual.dart';
 import '../../design/widgets/estado_vazio.dart';
 import '../perfil/widgets_de_perfil.dart';
 import 'cartao_estante.dart';
-import 'leitura_service.dart';
+import 'estante_service.dart';
 import 'lista_da_estante.dart';
 import 'textos.dart';
 
 const double _distanciaParaCarregarMais = 300;
 
 class EstanteDePerfil extends StatefulWidget {
-  final LeituraService servico;
+  final EstanteService servico;
   final String usuarioId;
   final String primeiroNome;
   final ValueChanged<bool> aoMudarRestricao;

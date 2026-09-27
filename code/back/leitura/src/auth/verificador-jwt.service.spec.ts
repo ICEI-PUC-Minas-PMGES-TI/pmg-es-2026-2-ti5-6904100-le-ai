@@ -21,8 +21,12 @@ function comSegredo(segredo: string | undefined): VerificadorJwt {
   return new VerificadorJwt(config, logger());
 }
 
+// Duas fábricas explícitas em vez de um parâmetro com valor padrão: em
+// JavaScript, passar `undefined` a um parâmetro com padrão aciona o padrão, e
+// o teste do segredo ausente acabaria verificando o caminho COM segredo.
 const verificador = () => comSegredo(SEGREDO);
 
+/** Token no mesmo formato que o `EmissorDeToken` do serviço `identidade` emite. */
 function emitir(
   conteudo: Record<string, unknown> = {},
   opcoes: jwt.SignOptions = {},
@@ -60,6 +64,8 @@ describe('VerificadorJwt', () => {
     expect(() => verificador().verificar(token)).toThrow(NaoAutenticado);
   });
 
+  // Confusão de algoritmo: sem `algorithms: ['HS256']` explícito, um token com
+  // `alg: none` seria aceito e qualquer pessoa se autenticaria como qualquer um.
   it('recusa token com alg none', () => {
     const semAssinatura = jwt.sign({ username: 'x' }, '', {
       algorithm: 'none',
@@ -87,12 +93,24 @@ describe('VerificadorJwt', () => {
     expect(() => verificador().verificar(token)).toThrow(NaoAutenticado);
   });
 
+  // O `jwt.verify` só confere a expiração quando `exp` existe; sem ele, o token nunca venceria.
+  it('recusa token sem exp', () => {
+    const token = jwt.sign({ username: 'leitora' }, SEGREDO, {
+      algorithm: 'HS256',
+      issuer: 'identidade',
+      subject: ID,
+    });
+    expect(() => verificador().verificar(token)).toThrow(NaoAutenticado);
+  });
+
   it('recusa lixo no lugar do token', () => {
     expect(() => verificador().verificar('nao.e.um.token')).toThrow(
       NaoAutenticado,
     );
   });
 
+  // Sem segredo o serviço ainda sobe em desenvolvimento (o health precisa
+  // responder), mas nenhuma rota autenticada pode passar.
   it('recusa tudo quando JWT_SECRET não está configurado', () => {
     expect(() => comSegredo(undefined).verificar(emitir())).toThrow(
       NaoAutenticado,

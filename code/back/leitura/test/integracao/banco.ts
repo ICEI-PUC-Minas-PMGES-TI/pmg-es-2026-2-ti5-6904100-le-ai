@@ -3,6 +3,19 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { Pool } from 'pg';
 
+/**
+ * Fixture de banco: schema `leitura` pelas migrations reais e as VIEWs de
+ * contrato dos outros serviços como **tabelas comuns**.
+ *
+ * As VIEWs de `acervo` e `identidade` não existem num banco que só tem as
+ * migrations de `leitura`. Como tabela, a leitura é idêntica — o Drizzle não
+ * distingue view de tabela num SELECT — e a massa entra por INSERT direto. As
+ * colunas são as de `src/db/contratos-externos.ts`.
+ *
+ * Consequência a lembrar nos testes de RN-08: as VIEWs reais já omitem conta
+ * suspensa ou em exclusão, então aqui "suspenso" e "em exclusão" são o mesmo
+ * caso — sem linha na tabela.
+ */
 const CONTRATOS_EXTERNOS = `
   CREATE SCHEMA acervo;
   CREATE SCHEMA identidade;
@@ -20,17 +33,8 @@ const CONTRATOS_EXTERNOS = `
   );
 `;
 
-const TABELAS_DE_DADOS = [
-  'leitura.mensagem_processada',
-  'leitura.outbox_leitura',
-  'leitura.idempotencia_leitura',
-  'leitura.limiar_inatividade',
-  'leitura.leitura',
-  'leitura.estante',
-  'acervo.v_livro_referencia_v1',
-  'identidade.v_perfil_referencia_v1',
-  'identidade.v_seguimento_aceito_v1',
-];
+/** Tabelas do Drizzle que guardam o histórico de migrations: nunca zerar. */
+const TABELAS_PRESERVADAS = ['__drizzle_migrations'];
 
 export async function prepararBanco(): Promise<Pool> {
   const admin = new Pool({ connectionString: process.env.DATABASE_URL_TESTE });
@@ -50,8 +54,26 @@ export async function prepararBanco(): Promise<Pool> {
   return new Pool({ connectionString: process.env.DATABASE_URL });
 }
 
+/**
+ * Zera os dados entre testes, mantendo estrutura e migrations.
+ *
+ * A lista vem do catálogo, não de um array fixo: `leitura` é compartilhado por
+ * F-AVA, F-EST e F-PRG, e uma tabela nova de qualquer feature entra na limpeza
+ * sem ninguém lembrar de editar este arquivo.
+ */
 export async function limpar(pool: Pool): Promise<void> {
-  await pool.query(`TRUNCATE ${TABELAS_DE_DADOS.join(', ')} CASCADE`);
+  const { rows } = await pool.query<{ tabela: string }>(
+    `SELECT format('%I.%I', schemaname, tablename) AS tabela
+       FROM pg_tables
+      WHERE schemaname IN ('leitura', 'acervo', 'identidade')
+        AND tablename <> ALL($1)`,
+    [TABELAS_PRESERVADAS],
+  );
+  if (rows.length) {
+    await pool.query(
+      `TRUNCATE ${rows.map((r) => r.tabela).join(', ')} CASCADE`,
+    );
+  }
 }
 
 export async function contar(

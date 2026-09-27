@@ -21,10 +21,7 @@ import type { Response } from 'express';
 import { UsuarioAtual } from '../../auth/usuario-atual.decorator';
 import type { UsuarioAutenticado } from '../../auth/usuario-autenticado';
 import { ErroDeValidacao } from '../../common/erros-de-negocio';
-import {
-  type EscopoIdempotente,
-  Idempotente,
-} from '../../common/idempotencia/escopo-idempotente.decorator';
+import { IdempotencyKey } from '../../common/idempotencia/idempotency-key.decorator';
 import {
   AdicionarEstanteEntradaDto,
   type ConclusoesLivro,
@@ -57,14 +54,14 @@ export class EstanteController {
   @ApiCreatedResponse({ description: 'Livro adicionado como Quero ler.' })
   async adicionar(
     @UsuarioAtual() usuario: UsuarioAutenticado,
-    @Idempotente() escopo: EscopoIdempotente,
+    @IdempotencyKey() chave: string,
     @Body() entrada: AdicionarEstanteEntradaDto,
     @Res({ passthrough: true }) res: Response,
   ): Promise<ItemEstante> {
     const { status, corpo } = await this.servico.adicionar(
       usuario.id,
       entrada.livroId,
-      escopo,
+      chave,
     );
     res.status(status);
     return corpo;
@@ -81,10 +78,10 @@ export class EstanteController {
   async remover(
     @Param('livroId', uuidDe('livroId')) livroId: string,
     @UsuarioAtual() usuario: UsuarioAutenticado,
-    @Idempotente() escopo: EscopoIdempotente,
+    @IdempotencyKey() chave: string,
     @Res({ passthrough: true }) res: Response,
   ): Promise<void> {
-    const { status } = await this.servico.remover(usuario.id, livroId, escopo);
+    const { status } = await this.servico.remover(usuario.id, livroId, chave);
     res.status(status);
   }
 

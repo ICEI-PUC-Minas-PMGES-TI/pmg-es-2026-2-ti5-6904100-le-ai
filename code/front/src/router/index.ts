@@ -28,7 +28,8 @@ import PerfilView from '../views/PerfilView.vue'
 import SolicitacoesView from '../views/SolicitacoesView.vue'
 import CadastroIsbnView from '../views/livros/CadastroIsbnView.vue'
 import IsbnNaoEncontradoView from '../views/livros/IsbnNaoEncontradoView.vue'
-import LivroOficialPlaceholderView from '../views/livros/LivroOficialPlaceholderView.vue'
+import EscreverResenhaView from '../views/livros/EscreverResenhaView.vue'
+import LivroOficialView from '../views/livros/LivroOficialView.vue'
 import LivroPessoalFormView from '../views/livros/LivroPessoalFormView.vue'
 import LivroPessoalView from '../views/livros/LivroPessoalView.vue'
 
@@ -45,6 +46,20 @@ declare module 'vue-router' {
     /** Com `voltar`: formulário que se abandona, com `X` no lugar da seta (editar-perfil.md §4). */
     fechar?: boolean
     /**
+     * Com `voltar`, a partir de 768px: sem barra, com o link `← <rótulo>` em `musgo` acima do
+     * título, como nos protótipos web de F-AUT e F-PERFIL. Abaixo de 768px fica a barra com a seta.
+     */
+    voltarComRotulo?: string
+    /** Header sem o divisor inferior (protótipos de F-AUT e F-PERFIL). */
+    semDivisor?: boolean
+    /**
+     * Abaixo de 768px, sem a barra inferior: o editor de resenha é um fluxo com salvamento e a
+     * saída é pelo `X` (escrever-resenha.md §4; abaixo de 768px vale o desenho mobile).
+     */
+    semBarraInferior?: boolean
+    /** Destino da seta ou do `X` sem histórico, quando não é a raiz da aba. */
+    voltarPara?: (rota: RouteLocationNormalizedLoaded) => string
+    /**
      * Aba do shell que fica ativa. Detalhe não é aba, mas pertence à de onde veio; sem isto,
      * vale o prefixo do caminho (`router/abas.ts`).
      */
@@ -54,6 +69,10 @@ declare module 'vue-router' {
 
 /** Origem do fluxo de cadastro: a estante vazia ou a busca sem resultado (cadastro-por-isbn.md §1). */
 const ORIGEM = ':origem(descobrir|estante)'
+
+/** Livro oficial pertence à aba de onde se veio: estante, perfil ou, por padrão, Descobrir. */
+const abaDoLivroOficial = (rota: RouteLocationNormalizedLoaded) =>
+  rota.query.origem === 'estante' ? '/estante' : rota.query.origem === 'perfil' ? '/perfil' : '/descobrir'
 
 /** Livro pessoal aberto pelo feed é do Feed; pela estante do dono, da Estante. */
 const abaDoLivroPessoal = (rota: RouteLocationNormalizedLoaded) => (rota.query.via === 'feed' ? '/feed' : '/estante')
@@ -100,7 +119,8 @@ export const routes: RouteRecordRaw[] = [
         path: 'descobrir',
         name: 'descobrir',
         component: DescobrirView,
-        meta: { titulo: 'Descobrir' },
+        // Sem divisor: o campo de busca, logo abaixo, é a segunda linha do header (descobrir.md).
+        meta: { titulo: 'Descobrir', semDivisor: true },
       },
       {
         path: 'feed',
@@ -113,32 +133,32 @@ export const routes: RouteRecordRaw[] = [
         name: 'perfil',
         component: PerfilView,
         // meu-perfil.md §4: o título é `Perfil`; o nome aparece grande logo abaixo.
-        meta: { titulo: 'Perfil' },
+        meta: { titulo: 'Perfil', semDivisor: true },
       },
       // F-PERFIL. Empilhada sobre Perfil, como as configurações.
       {
         path: 'perfil/editar',
         name: 'editar-perfil',
         component: EditarPerfilView,
-        meta: { titulo: 'Editar perfil', voltar: true, fechar: true },
+        meta: { titulo: 'Editar perfil', voltar: true, fechar: true, voltarComRotulo: 'Perfil', semDivisor: true },
       },
       {
         path: 'perfil/buscar',
         name: 'buscar-leitor',
         component: BuscarLeitorView,
-        meta: { titulo: 'Buscar leitor', voltar: true },
+        meta: { titulo: 'Buscar leitor', voltar: true, voltarComRotulo: 'Perfil', semDivisor: true },
       },
       {
         path: 'perfil/conexoes',
         name: 'conexoes',
         component: ConexoesView,
-        meta: { titulo: 'Conexões', voltar: true },
+        meta: { titulo: 'Conexões', voltar: true, voltarComRotulo: 'Perfil', semDivisor: true },
       },
       {
         path: 'perfil/solicitacoes',
         name: 'solicitacoes',
         component: SolicitacoesView,
-        meta: { titulo: 'Solicitações', voltar: true },
+        meta: { titulo: 'Solicitações', voltar: true, voltarComRotulo: 'Perfil', semDivisor: true },
       },
       {
         path: 'leitores/:username',
@@ -146,26 +166,32 @@ export const routes: RouteRecordRaw[] = [
         component: PerfilDeOutroView,
         // Sem título: o nome está grande no bloco de identidade. Chega da busca, das listas e da
         // caixa (aba Perfil) e, com F-FEED, do feed (`?via=feed`).
-        meta: { titulo: '', voltar: true, aba: (rota) => (rota.query.via === 'feed' ? '/feed' : '/perfil') },
+        meta: {
+          titulo: '',
+          voltar: true,
+          voltarComRotulo: 'Voltar',
+          semDivisor: true,
+          aba: (rota) => (rota.query.via === 'feed' ? '/feed' : '/perfil'),
+        },
       },
       // F-AUT. Empilhadas sobre Perfil, que fica ativa pelo prefixo do caminho.
       {
         path: 'perfil/configuracoes',
         name: 'configuracoes',
         component: ConfiguracoesView,
-        meta: { titulo: 'Configurações', voltar: true },
+        meta: { titulo: 'Configurações', voltar: true, voltarComRotulo: 'Perfil', semDivisor: true },
       },
       {
         path: 'perfil/configuracoes/alterar-senha',
         name: 'alterar-senha',
         component: AlterarSenhaView,
-        meta: { titulo: 'Alterar senha', voltar: true },
+        meta: { titulo: 'Alterar senha', voltar: true, voltarComRotulo: 'Configurações', semDivisor: true },
       },
       {
         path: 'perfil/configuracoes/privacidade',
         name: 'politica-de-privacidade',
         component: PoliticaPrivacidadeView,
-        meta: { titulo: 'Política de privacidade', voltar: true },
+        meta: { titulo: 'Política de privacidade', voltar: true, voltarComRotulo: 'Configurações', semDivisor: true },
       },
       // F-ACV-CADASTRO. O prefixo carrega a origem para a aba certa ficar ativa o fluxo inteiro.
       {
@@ -200,13 +226,42 @@ export const routes: RouteRecordRaw[] = [
         meta: { titulo: 'Editar livro', voltar: true, aba: '/estante' },
       },
       {
+        path: 'livros/pessoal/:id/resenha',
+        name: 'escrever-resenha-pessoal',
+        component: EscreverResenhaView,
+        meta: {
+          titulo: 'Resenha',
+          voltar: true,
+          fechar: true,
+          semBarraInferior: true,
+          aba: '/estante',
+          voltarPara: (rota) => `/livros/pessoal/${String(rota.params.id)}`,
+        },
+      },
+      {
+        path: 'livros/:id/resenha',
+        name: 'escrever-resenha',
+        component: EscreverResenhaView,
+        meta: {
+          titulo: 'Resenha',
+          voltar: true,
+          fechar: true,
+          semBarraInferior: true,
+          aba: abaDoLivroOficial,
+          voltarPara: (rota) =>
+            `/livros/${String(rota.params.id)}${rota.query.origem ? `?origem=${String(rota.query.origem)}` : ''}`,
+        },
+      },
+      {
         path: 'livros/:id',
         name: 'livro-oficial',
-        component: LivroOficialPlaceholderView,
+        component: LivroOficialView,
         meta: {
           titulo: '',
           voltar: true,
-          aba: (rota) => (rota.query.origem === 'estante' ? '/estante' : '/descobrir'),
+          // Sem divisor: com a página no topo, o protótipo não tem linha sob o header.
+          semDivisor: true,
+          aba: abaDoLivroOficial,
         },
       },
     ],

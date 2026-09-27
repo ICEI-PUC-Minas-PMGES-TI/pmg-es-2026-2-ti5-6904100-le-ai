@@ -22,12 +22,32 @@ public final class MessageValidator {
           .findAndRegisterModules()
           .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
   private final JsonSchema envelopeSchema;
-  private final JsonSchema pingSchema;
+  private final Map<String, JsonSchema> dataSchemas;
 
   public MessageValidator() {
-    JsonSchemaFactory factory = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012);
+    // Os schemas de F-SOC/consumo de leitura são cópias fiéis de docs/mensageria/schemas, com $id
+    // em https://leai.app/schemas/mensageria/ e $ref para o common-v1: o prefixo é mapeado para o
+    // classpath, para o $ref resolver sem rede (mesmo racional de identidade.MessageValidator).
+    JsonSchemaFactory factory =
+        JsonSchemaFactory.getInstance(
+            SpecVersion.VersionFlag.V202012,
+            builder ->
+                builder.schemaMappers(
+                    mappers ->
+                        mappers.mapPrefix(
+                            "https://leai.app/schemas/mensageria/", "classpath:messaging/schemas/")));
     envelopeSchema = load(factory, "messaging/schemas/envelope-v1.schema.json");
-    pingSchema = load(factory, "messaging/schemas/ping.teste.v1.schema.json");
+    dataSchemas =
+        Map.of(
+            "ping.teste:1", load(factory, "messaging/schemas/ping.teste.v1.schema.json"),
+            "leitura.iniciada:1", load(factory, "messaging/schemas/leitura.iniciada.v1.schema.json"),
+            "leitura.retomada:1", load(factory, "messaging/schemas/leitura.retomada.v1.schema.json"),
+            "leitura.finalizada:1",
+                load(factory, "messaging/schemas/leitura.finalizada.v1.schema.json"),
+            "leitura.abandonada:1",
+                load(factory, "messaging/schemas/leitura.abandonada.v1.schema.json"),
+            "resenha.publicada:1", load(factory, "messaging/schemas/resenha.publicada.v1.schema.json"),
+            "resenha.excluida:1", load(factory, "messaging/schemas/resenha.excluida.v1.schema.json"));
   }
 
   public void validate(MessageEnvelope envelope) {
@@ -61,16 +81,18 @@ public final class MessageValidator {
         || !"application/json".equals(properties.getContentType())
         || !Integer.valueOf(2).equals(properties.getDeliveryMode())
         || !(version instanceof Number number && number.intValue() == envelope.version())
-        || !envelope.businessKey().equals(businessKey)) {
+        || businessKey == null
+        || !envelope.businessKey().equals(businessKey.toString())) {
       throw new InvalidMessageException("Headers AMQP divergem do envelope");
     }
   }
 
   private JsonSchema dataSchema(String type, int version) {
-    if ("ping.teste".equals(type) && version == 1) {
-      return pingSchema;
+    JsonSchema schema = dataSchemas.get(type + ":" + version);
+    if (schema == null) {
+      throw new InvalidMessageException("Schema nao registrado para " + type + " v" + version);
     }
-    throw new InvalidMessageException("Schema nao registrado para " + type + " v" + version);
+    return schema;
   }
 
   private void validateSchema(JsonSchema schema, JsonNode node, String part) {

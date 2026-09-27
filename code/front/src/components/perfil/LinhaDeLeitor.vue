@@ -5,9 +5,9 @@ import type { PerfilResumo } from '../../services/perfil'
 import AvatarLeitor from './AvatarLeitor.vue'
 
 /**
- * Leitor numa lista (seguidores-e-seguidos.md e solicitacoes-de-seguir.md §4): avatar de 48px,
- * nome e `@username`. A área do nome leva ao perfil; a ação entra pelo slot, como alvo separado.
- * Sem a linha de biografia dos protótipos: o `PerfilResumo` do contrato não traz biografia.
+ * Leitor numa lista (protótipos seguidores-e-seguidos e solicitacoes-de-seguir): avatar de 48px,
+ * nome, `@username` e a biografia numa linha só, com reticências. A área do nome leva ao perfil; a
+ * ação entra pelo slot, como alvo separado.
  */
 defineProps<{ leitor: PerfilResumo }>()
 </script>
@@ -21,11 +21,17 @@ defineProps<{ leitor: PerfilResumo }>()
     >
       <AvatarLeitor
         :url="leitor.avatarUrl"
+        :nome="leitor.displayName"
         :tamanho="48"
       />
       <span class="flex min-w-0 flex-col">
         <span class="truncate text-title-sm text-tinta">{{ leitor.displayName }}</span>
         <span class="truncate text-caption text-grafite-suave">@{{ leitor.username }}</span>
+        <span
+          v-if="leitor.biografia"
+          class="mt-space-1 truncate text-caption text-grafite"
+          data-teste="biografia"
+        >{{ leitor.biografia }}</span>
       </span>
     </RouterLink>
     <slot />

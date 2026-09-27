@@ -94,6 +94,23 @@ class GlobalExceptionHandlerTest {
   }
 
   @Test
+  @DisplayName("erro de negócio usa o status do código mas a mensagem própria da exceção")
+  void erroDeNegocioUsaMensagemPropria() {
+    ResponseEntity<ErroResposta> resposta =
+        handler.tratar(
+            new ErroDeNegocioException(
+                CodigoErro.CONFLITO, "Essa chave de idempotência já foi usada com outros dados."));
+
+    assertThat(resposta.getStatusCode().value()).isEqualTo(409);
+    assertThat(resposta.getBody())
+        .isEqualTo(
+            new ErroResposta(
+                "CONFLITO",
+                "Essa chave de idempotência já foi usada com outros dados.",
+                "teste-123"));
+  }
+
+  @Test
   @DisplayName("sem requisição em curso o correlationId cai para desconhecido")
   void semRequisicaoUsaDesconhecido() {
     MDC.clear();

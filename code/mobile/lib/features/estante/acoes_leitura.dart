@@ -15,7 +15,7 @@ import 'acao_leitura_controller.dart';
 import 'acoes_disponiveis.dart';
 import 'cartao_estante.dart';
 import 'datas_de_leitura.dart';
-import 'leitura_service.dart';
+import 'estante_service.dart';
 import 'textos.dart';
 
 const double _larguraDaCapa = 60;
@@ -46,7 +46,7 @@ class LivroDaAcao {
 
 Future<EstadoDeLeitura?> abrirAcoesDeLeitura(
   BuildContext context, {
-  required LeituraService servico,
+  required EstanteService servico,
   required LivroDaAcao livro,
   VoidCallback? aoRegistrarProgresso,
   DateTime Function() agora = DateTime.now,
@@ -63,7 +63,7 @@ Future<EstadoDeLeitura?> abrirAcoesDeLeitura(
 }
 
 class FolhaDeAcoesDeLeitura extends StatefulWidget {
-  final LeituraService servico;
+  final EstanteService servico;
   final LivroDaAcao livro;
   final VoidCallback? aoRegistrarProgresso;
   final DateTime Function() agora;
