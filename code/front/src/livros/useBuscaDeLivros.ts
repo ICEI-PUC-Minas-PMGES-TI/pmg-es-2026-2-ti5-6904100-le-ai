@@ -73,12 +73,23 @@ export function useBuscaDeLivros(opcoes: OpcoesDaBusca = {}) {
     totalPaginas.value = total
   }
 
-  async function carregarAssuntos(): Promise<void> {
-    if (carregandoAssuntos || assuntos.value.length > 0) {
+  /** O início e o "Tentar de novo" dos assuntos: mostram o skeleton enquanto carregam. */
+  function carregarAssuntos(): Promise<void> {
+    return buscarAssuntos(true)
+  }
+
+  /**
+   * A retentativa automática, a cada busca, não mexe no que a tela mostra: depois de uma falha,
+   * trocar o aviso pelo skeleton e voltar a cada busca faria a faixa piscar.
+   */
+  async function buscarAssuntos(mostrarCarregando: boolean): Promise<void> {
+    if (carregandoAssuntos || estadoDosAssuntos.value === 'pronto') {
       return
     }
     carregandoAssuntos = true
-    estadoDosAssuntos.value = 'carregando'
+    if (mostrarCarregando) {
+      estadoDosAssuntos.value = 'carregando'
+    }
     try {
       assuntos.value = await servico.listarAssuntos()
       estadoDosAssuntos.value = 'pronto'
@@ -161,7 +172,7 @@ export function useBuscaDeLivros(opcoes: OpcoesDaBusca = {}) {
     carregandoMais.value = false
     falhouMais.value = false
     opcoes.aoBuscar?.({ q: termo.value, assunto: assunto.value })
-    void carregarAssuntos()
+    void buscarAssuntos(false)
     limiteDoColdStart = setTimeout(() => {
       if (minha === geracao.value && estado.value === 'buscando') {
         coldStart.value = true

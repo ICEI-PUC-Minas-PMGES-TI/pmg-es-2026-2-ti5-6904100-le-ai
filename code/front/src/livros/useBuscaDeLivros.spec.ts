@@ -264,4 +264,26 @@ describe('useBuscaDeLivros', () => {
     await vi.advanceTimersByTimeAsync(0)
     expect(servico.buscarLivros).toHaveBeenLastCalledWith({ q: null, assunto: 'terror' })
   })
+
+  it('a retentativa automática dos assuntos, a cada busca, não troca o aviso de falha pelo skeleton', async () => {
+    const servico = servicoFalso()
+    let responder: (valor: typeof ASSUNTOS) => void = () => undefined
+    servico.listarAssuntos
+      .mockRejectedValueOnce(falha())
+      .mockImplementationOnce(() => new Promise((resolver) => (responder = resolver)))
+    const busca = useBuscaDeLivros({ servico })
+
+    busca.iniciar()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(busca.estadoDosAssuntos.value).toBe('erro')
+
+    busca.alterarConsulta('livro')
+    await vi.advanceTimersByTimeAsync(400)
+    expect(servico.listarAssuntos).toHaveBeenCalledTimes(2)
+    expect(busca.estadoDosAssuntos.value).toBe('erro')
+
+    responder(ASSUNTOS)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(busca.estadoDosAssuntos.value).toBe('pronto')
+  })
 })
