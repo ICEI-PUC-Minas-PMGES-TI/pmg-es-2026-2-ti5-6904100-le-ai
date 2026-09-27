@@ -24,6 +24,12 @@ describe('textoPuro', () => {
     expect(textoPuro('Se 5 &lt; 7 e 9 &gt; 3, então...')).toBe(
       'Se 5 < 7 e 9 > 3, então...',
     );
+    expect(textoPuro('&lt;&lt;O Guarani&gt;&gt; é um romance')).toBe(
+      '<<O Guarani>> é um romance',
+    );
+    expect(textoPuro('Contato: &lt;editora@exemplo.com&gt;')).toBe(
+      'Contato: <editora@exemplo.com>',
+    );
   });
 
   it('remove caractere de controle e mantém a quebra de linha', () => {

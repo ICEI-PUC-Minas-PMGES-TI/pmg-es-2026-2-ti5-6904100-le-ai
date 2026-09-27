@@ -37,8 +37,8 @@ export function textoPuro(
   const texto = semTags(
     decodificarEntidades(semTags(bruto.replace(/\r\n?/g, '\n'), QUALQUER_TAG)),
     // HTML escapado (`&lt;b&gt;`) volta a ser tag ao decodificar, e sai de novo.
-    // Aqui só o que parece tag, com letra depois do `<`: "5 &lt; 7 e 9 &gt; 3"
-    // vira "5 < 7 e 9 > 3" e fica.
+    // Aqui só nomes de tag HTML conhecidos: "5 &lt; 7", "&lt;&lt;O Guarani&gt;&gt;"
+    // e "&lt;editora@exemplo.com&gt;" são texto e ficam.
     TAG_DECODIFICADA,
   )
     // Caractere de controle da fonte (o NUL o Postgres recusa, e a mensagem iria
@@ -64,7 +64,8 @@ export function textoPuro(
 }
 
 const QUALQUER_TAG = /<[^>]*>/g;
-const TAG_DECODIFICADA = /<(?:\/?[a-z][^<>]*|!--[\s\S]*?--)>/gi;
+const TAG_DECODIFICADA =
+  /<\/?(?:p|br|b|i|em|strong|u|s|small|span|div|li|ul|ol|h[1-6]|a|blockquote|font|sup|sub)\b[^<>]*>|<!--[\s\S]*?-->/gi;
 
 /**
  * Quebras e fim de bloco do HTML viram quebra de linha antes de as tags saírem,
