@@ -19,3 +19,14 @@ Fonte canônica dos contratos JSON transportados pelo RabbitMQ. A infraestrutura
 ## Runtime
 
 `docs/mensageria` é a fonte canônica. Cada consumidor copia para seus recursos runtime apenas os schemas que aceita; o CI deve comparar a cópia com estes arquivos. Não há pacote compartilhado entre Java e TypeScript.
+
+## Histórico
+
+### 26/09/2026 — `LivroSnapshot.autor` passa a aceitar `null` no `common-v1`
+
+- **O que mudou:** em `common-v1.schema.json`, `LivroSnapshot.autor` passou de `{ "type": "string", "minLength": 1 }` para `{ "type": ["string", "null"], "minLength": 1 }`. O campo continua obrigatório (chave presente); `null` significa livro sem autor. Texto vazio continua proibido.
+- **Por quê:** 701 livros oficiais do acervo não têm autor, e `acervo.v_livro_referencia_v1.autor_exibicao` sai `NULL` para eles. Com o schema antigo, qualquer evento sobre esses livros (`resenha.publicada` de F-AVA e os `leitura.*` de F-EST) seria inválido.
+- **Exceção à imutabilidade:** a regra "schema publicado é imutável" (arquitetura §5.2, "Contrato canônico"; plano de projeto §8.2) pediria um `common-v2`. A correção foi feita no próprio v1 porque **nenhum evento que carrega `LivroSnapshot` tinha sido publicado** até esta data: o `leitura` ainda não produzia eventos. Decisão do Renato (F-AVA) em 26/09/2026, a comunicar ao grupo.
+- **Cópias atualizadas no mesmo commit:** `code/back/identidade/src/main/resources/messaging/schemas/` e `code/back/social/src/main/resources/messaging/schemas/`. O `leitura` recebe a cópia quando passar a produzir os eventos.
+- **Consumidor (`social`, F-FEED):** a coluna `atividade.snap_livro_autor` passou a aceitar `NULL` (migration de F-AVA, revisada pelo Kayke) e o feed esconde a linha do autor quando ele vier vazio. Detalhes em `code/back/social/AGENTS.md`.
+- **Produtores (`leitura`, F-AVA e F-EST):** montam `autor` a partir de `autor_exibicao` e mandam `null` quando o livro não tem autor. Nunca um texto inventado.
