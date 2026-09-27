@@ -189,6 +189,38 @@ describe('EscreverResenhaView', () => {
     expect((wrapper.get('textarea').element as HTMLTextAreaElement).value).toBe('Rascunho.')
   })
 
+  // Com o `leitura` lento, o que fosse digitado antes seria trocado pela resenha salva.
+  it('enquanto a resenha salva carrega, o campo é só leitura e Publicar fica bloqueado', async () => {
+    let responder!: (valor: Awaited<ReturnType<typeof leitura.obterMinhaAvaliacao>>) => void
+    leitura.obterMinhaAvaliacao.mockReturnValue(new Promise((resolver) => (responder = resolver)))
+    const { wrapper } = await abrir()
+
+    expect(wrapper.get('textarea').attributes('readonly')).toBeDefined()
+    expect(wrapper.get('textarea').attributes('aria-busy')).toBe('true')
+    expect(botao('Publicar')?.disabled).toBe(true)
+
+    responder({ livroId: 'livro-1', nota: null, resenha: resenha('Primeira versão.') })
+    await flushPromises()
+
+    expect(wrapper.get('textarea').attributes('readonly')).toBeUndefined()
+    expect((wrapper.get('textarea').element as HTMLTextAreaElement).value).toBe('Primeira versão.')
+  })
+
+  it('falha ao carregar a resenha salva: aviso, Tentar de novo e nada de publicar às cegas', async () => {
+    leitura.obterMinhaAvaliacao.mockRejectedValueOnce(new ApiError('x', 503, 'SERVICO_INDISPONIVEL'))
+    const { wrapper } = await abrir()
+
+    expect(wrapper.text()).toContain('Não foi possível carregar sua resenha.')
+    expect(wrapper.get('textarea').attributes('readonly')).toBeDefined()
+    expect(botao('Publicar')?.disabled).toBe(true)
+
+    botao('Tentar de novo')!.click()
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('Não foi possível carregar sua resenha.')
+    expect(wrapper.get('textarea').attributes('readonly')).toBeUndefined()
+  })
+
   it('sair sem mudanças não pergunta nada', async () => {
     const { router } = await abrir()
 

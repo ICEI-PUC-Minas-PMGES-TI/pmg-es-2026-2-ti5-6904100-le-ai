@@ -51,10 +51,15 @@ let destinoPendente: string | null = null
 const numero = new Intl.NumberFormat('pt-BR')
 
 const resenha = computed(() => avaliacao.resenha.value)
+// Até a resenha salva chegar, o campo fica só leitura: o que fosse digitado seria trocado por ela,
+// e publicar às cegas sobrescreveria o texto salvo.
+const avaliacaoPronta = computed(() => avaliacao.estado.value === 'pronta')
 const editando = computed(() => resenha.value !== null)
 const total = computed(() => [...texto.value].length)
 const excedente = computed(() => total.value - LIMITE)
-const podePublicar = computed(() => !enviando.value && texto.value.trim().length > 0 && total.value <= LIMITE)
+const podePublicar = computed(
+  () => avaliacaoPronta.value && !enviando.value && texto.value.trim().length > 0 && total.value <= LIMITE,
+)
 const sujo = computed(
   () => texto.value !== (resenha.value?.texto ?? '') || spoiler.value !== (resenha.value?.spoiler ?? false),
 )
@@ -256,14 +261,26 @@ onBeforeUnmount(() => {
       <textarea
         id="texto-da-resenha"
         v-model="texto"
-        :readonly="enviando"
+        :readonly="enviando || !avaliacaoPronta"
+        :aria-busy="avaliacao.estado.value === 'carregando' || undefined"
         class="mt-space-5 min-h-[50vh] w-full flex-1 resize-none bg-transparent font-editorial text-body-lg text-tinta caret-musgo outline-none placeholder:text-grafite-suave md:mt-0"
         placeholder="Escreva sobre o livro. O que ficou, o que incomodou, para quem você indicaria."
       />
 
       <!-- Avisos acima da barra, como no `.html`. -->
       <div
-        v-if="erro"
+        v-if="avaliacao.estado.value === 'erro'"
+        class="mb-space-3 flex flex-wrap items-center gap-space-2"
+      >
+        <p class="text-body text-grafite">
+          Não foi possível carregar sua resenha.
+        </p>
+        <BotaoTextual @click="avaliacao.carregar()">
+          Tentar de novo
+        </BotaoTextual>
+      </div>
+      <div
+        v-else-if="erro"
         class="mb-space-3"
       >
         <BannerAviso variante="erro">
@@ -286,7 +303,7 @@ onBeforeUnmount(() => {
       <div class="fixed inset-x-0 bottom-0 z-10 flex min-h-14 items-center gap-space-3 border-t border-linha bg-papel-elevado px-space-5 pb-[env(safe-area-inset-bottom)] md:sticky md:bottom-0 md:bg-papel md:px-0 md:pb-0">
         <ToggleSpoiler
           v-model="spoiler"
-          :desabilitado="enviando"
+          :desabilitado="enviando || !avaliacaoPronta"
         />
         <ContadorDeCaracteres
           class="ml-auto"
