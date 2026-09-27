@@ -13,6 +13,7 @@ import { DrizzleModule } from './db/drizzle.module';
 import { HealthModule } from './health/health.module';
 import { MessagingModule } from './messaging/messaging.module';
 import { OutboxModule } from './outbox/outbox.module';
+import { PerfisModule } from './perfis/perfis.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { OutboxModule } from './outbox/outbox.module';
     MessagingModule,
     OutboxModule,
     AvaliacoesModule,
+    PerfisModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
