@@ -59,6 +59,18 @@ Copiada do `acervo` e pronta para F-AVA, F-EST e F-PRG. Não existe pacote compa
   - A CI (`ci-back-leitura.yml`) sobe Postgres 17 e roda o mesmo comando.
 - **Lint no Windows:** com `core.autocrlf=true`, o checkout vem em CRLF e o `prettier/prettier` acusa todo arquivo. O Git grava LF; para conferir o resto localmente, rode `npx eslint "src/**/*.ts" --rule '{"prettier/prettier": ["error", {"endOfLine": "auto"}]}'`.
 
+## F-AVA — nota e resenha (27/09/2026)
+
+Módulos `src/avaliacoes/` (nota, resenha, minha avaliação) e `src/perfis/` (resenhas do perfil). Contrato em `docs/api/leitura.yaml`; plano em [`plano-F-AVA.md`](../../../docs/plano-de-desenvolvimento/periodo-1/plano-F-AVA.md).
+
+- **Livro:** lido de `acervo.v_livro_referencia_v1`. Inexistente, inativo ou pessoal de outra pessoa é **404, nunca 403**: conhecer o id não revela que o livro existe (RNF-SEC-06). Em livro pessoal só o dono avalia (RN-03).
+- **Nota:** `valor` que não é número é 400; fora de 0..5 ou do passo de 0,5 é 422 (`regras.ts`). `INSERT … ON CONFLICT … WHERE nota.valor IS DISTINCT FROM excluded.valor RETURNING (xmax = 0)`: criada, atualizada ou, sem linha, mesmo valor — 200 sem gravar e sem evento.
+- **Resenha:** texto cru de 1 a 5.000 **code points** (`[...texto].length`, igual ao `char_length` do CHECK; nunca `@MaxLength`, que conta UTF-16). Só espaços é 422; o 23514 do `resenha_texto_ck` também vira 422. O texto é guardado como chegou; o escape é do cliente. Conta fora de `v_perfil_referencia_v1` (suspensa ou em exclusão) não publica: 403.
+- **DELETE sem nada para apagar:** 204 sem evento.
+- **Eventos:** `nota.alterada` (criada, atualizada, excluida; publicado sem consumidor, de propósito), `resenha.publicada` **só na criação** (`atualizacao=false`) e `resenha.excluida`. Schemas registrados no `onModuleInit` do `AvaliacoesModule`. Os snapshots vêm das VIEWs de perfil e de livro; URL de capa ou avatar que não for http(s) válida vira `null` (`urlOuNulo`), e livro sem autor manda `autor: null`.
+- **Resenhas do perfil:** RN-08 (próprio, público ou seguidor aceito; senão 403; perfil fora da VIEW é 404). Livro inativo não aparece; resenha de livro pessoal só para o próprio dono (RN-15). Página base 1, `limite` até 50.
+- **O feed lê `v_resenha_publicacao_v1` e `v_nota_publicacao_v1`** (`ServicoDeFeed`): não mude as colunas dessas VIEWs sem falar com o dono de F-FEED. A decisão sobre esse consumo está pendente com o grupo.
+
 ## Pontos de atenção (ver `REQUISITOS.md`) — prioridade de teste
 
 - **Máquina de estados da leitura (RN-04)** — Quero ler / Lendo / Lido / Relendo / Abandonado, releitura, retomada. **Teste obrigatório e prioritário** (RNF-TST-01).
