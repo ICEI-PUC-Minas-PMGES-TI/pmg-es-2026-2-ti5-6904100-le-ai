@@ -185,7 +185,7 @@ watch(
         v-else
         ref="textoDaResenha"
         tabindex="-1"
-        class="line-clamp-3 font-serif text-body text-grafite outline-none md:line-clamp-4"
+        class="line-clamp-3 font-editorial text-body text-grafite outline-none md:line-clamp-4"
       >
         {{ atividade.resenha.texto }}
       </p>
