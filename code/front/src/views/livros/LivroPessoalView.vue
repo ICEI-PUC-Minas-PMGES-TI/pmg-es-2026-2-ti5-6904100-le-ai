@@ -3,6 +3,7 @@ import { PhBookOpen, PhDotsThreeVertical, PhPencilSimple, PhTrash } from '@phosp
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import BlocoSuaAvaliacao from '../../components/livros/BlocoSuaAvaliacao.vue'
 import CapaLivro from '../../components/livros/CapaLivro.vue'
 import EstrelasNota from '../../components/livros/EstrelasNota.vue'
 import BannerAviso from '../../components/ui/BannerAviso.vue'
@@ -11,6 +12,7 @@ import DialogoConfirmacao from '../../components/ui/DialogoConfirmacao.vue'
 import EstadoVazio from '../../components/ui/EstadoVazio.vue'
 import FolhaAcoes, { type AcaoDaFolha } from '../../components/ui/FolhaAcoes.vue'
 import { formatarData, formatarPaginas } from '../../livros/formatos'
+import { useMinhaAvaliacao } from '../../livros/useMinhaAvaliacao'
 import { acervoService, type LivroPessoalDetalhe, type ViaDeAcesso } from '../../services/acervo'
 import { ApiError, novaChaveIdempotencia } from '../../services/api'
 
@@ -51,6 +53,17 @@ const nomeDoDono = computed(() => livro.value?.dono?.nome ?? null)
 const primeiroNome = computed(() => nomeDoDono.value?.split(/\s+/)[0] ?? null)
 const avaliado = computed(() => livro.value !== null && (livro.value.notaDoDono !== null || livro.value.resenhaDoDono !== null))
 
+/**
+ * O dono avalia o próprio livro pessoal pelo bloco "Sua avaliação" (F-AVA, RN-03), carregado do
+ * `leitura`. O terceiro vê a nota e a resenha do dono que o `acervo` já traz, sem ação nenhuma.
+ */
+const minhaAvaliacao = useMinhaAvaliacao()
+const livroAvaliado = computed(() => ({
+  titulo: livro.value?.titulo ?? '',
+  autor: livro.value?.autor ?? null,
+  capaUrl: livro.value?.capaUrl ?? null,
+}))
+
 const acoesDoMenu: AcaoDaFolha[] = [
   { id: 'editar', rotulo: 'Editar livro', icone: PhPencilSimple },
   { id: 'excluir', rotulo: 'Excluir livro', icone: PhTrash, destrutiva: true },
@@ -68,6 +81,9 @@ async function carregar(): Promise<void> {
   erroDeCarga.value = null
   try {
     livro.value = await acervoService.obterLivroPessoal(String(route.params.id), acesso.value)
+    if (!livro.value.modoConsulta) {
+      void minhaAvaliacao.carregar(livro.value.id)
+    }
   } catch (erro) {
     livro.value = null
     if (erro instanceof ApiError && (erro.status === 403 || erro.status === 404)) {
@@ -246,13 +262,19 @@ async function excluir(): Promise<void> {
             </p>
           </section>
 
-          <template v-if="avaliado">
+          <BlocoSuaAvaliacao
+            v-if="ehDono"
+            class="py-space-5"
+            :avaliacao="minhaAvaliacao"
+            :livro="livroAvaliado"
+          />
+          <template v-else-if="avaliado">
             <section
               v-if="livro.notaDoDono"
               class="py-space-5"
             >
               <h3 class="text-title-sm text-tinta">
-                {{ ehDono ? 'Sua nota' : `Nota de ${primeiroNome ?? 'quem cadastrou'}` }}
+                {{ `Nota de ${primeiroNome ?? 'quem cadastrou'}` }}
               </h3>
               <EstrelasNota
                 class="mt-space-3"
@@ -264,7 +286,7 @@ async function excluir(): Promise<void> {
               class="py-space-5"
             >
               <h3 class="text-title-sm text-tinta">
-                {{ ehDono ? 'Sua resenha' : `Resenha de ${primeiroNome ?? 'quem cadastrou'}` }}
+                {{ `Resenha de ${primeiroNome ?? 'quem cadastrou'}` }}
               </h3>
               <p
                 lang="pt-BR"
@@ -277,15 +299,7 @@ async function excluir(): Promise<void> {
               </p>
             </section>
           </template>
-          <!-- Sem avaliação, o dono vê o convite; o terceiro não vê nada (§4.2 e §4.6). -->
-          <section
-            v-else-if="ehDono"
-            class="py-space-5"
-          >
-            <p class="text-body text-grafite">
-              Você ainda não avaliou este livro.
-            </p>
-          </section>
+          <!-- Sem avaliação do dono, o terceiro não vê nada (§4.6). -->
         </div>
       </div>
     </article>

@@ -3,12 +3,14 @@ import { PhBookOpen, PhWarning } from '@phosphor-icons/vue'
 import { computed, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import BlocoSuaAvaliacao from '../../components/livros/BlocoSuaAvaliacao.vue'
 import CapaLivro from '../../components/livros/CapaLivro.vue'
 import CardResenha from '../../components/livros/CardResenha.vue'
 import BotaoPrimario from '../../components/ui/BotaoPrimario.vue'
 import BotaoTextual from '../../components/ui/BotaoTextual.vue'
 import { formatarPaginas } from '../../livros/formatos'
 import { useLivroOficial } from '../../livros/useLivroOficial'
+import { useMinhaAvaliacao } from '../../livros/useMinhaAvaliacao'
 
 /**
  * Página do livro oficial (RF-ACV-04, RF-ACV-18, RF-ACV-19), a partir do protótipo
@@ -19,12 +21,14 @@ import { useLivroOficial } from '../../livros/useLivroOficial'
  *   uma coluna com a capa de 200px no topo. **Abaixo de 768px**, o desenho do mobile.
  * - A página abre inteira enquanto a sinopse chega (RN-19.5); só a seção dela fica em skeleton.
  *   Ausência é texto neutro, nunca erro.
- * - Estante, progresso e "Sua avaliação" são de F-EST, F-PRG e F-AVA e entram com elas, sem espaço
- *   reservado aqui. Trocar de livro na mesma rota recarrega a página.
+ * - "Sua avaliação" (F-AVA) fica entre o cabeçalho e a sinopse e carrega à parte, do `leitura`: se
+ *   ele estiver lento, a página abre igual. Estante e progresso são de F-EST e F-PRG e entram com
+ *   elas, sem espaço reservado aqui. Trocar de livro na mesma rota recarrega a página.
  */
 const route = useRoute()
 const router = useRouter()
 const pagina = useLivroOficial()
+const minhaAvaliacao = useMinhaAvaliacao()
 const {
   estado,
   coldStart,
@@ -42,6 +46,7 @@ watch(
   (id) => {
     if (typeof id === 'string') {
       void pagina.carregar(id)
+      void minhaAvaliacao.carregar(id)
     }
   },
   { immediate: true },
@@ -49,6 +54,11 @@ watch(
 onBeforeUnmount(() => pagina.descartar())
 
 const autores = computed(() => livro.value?.autores.map((autor) => autor.nome).join(', ') || null)
+const livroAvaliado = computed(() => ({
+  titulo: livro.value?.titulo ?? '',
+  autor: autores.value,
+  capaUrl: livro.value?.capa.url ?? null,
+}))
 /** `Todavia · 2019 · 264 páginas`: só o que existe. */
 const metadados = computed(() => {
   if (!livro.value) {
@@ -162,7 +172,7 @@ function voltar(): void {
           :autor="autores"
           class="order-1 mx-auto aspect-[2/3] w-[40%] shadow-2 md:w-[200px] lg:order-none lg:mx-0 lg:w-[280px]"
         />
-        <section class="order-4 mt-space-6 lg:order-none">
+        <section class="order-5 mt-space-6 lg:order-none">
           <h2 class="text-title-lg text-tinta">
             Ficha
           </h2>
@@ -199,8 +209,14 @@ function voltar(): void {
           </p>
         </header>
 
-        <section
+        <BlocoSuaAvaliacao
           class="order-3 mt-space-8 lg:order-none"
+          :avaliacao="minhaAvaliacao"
+          :livro="livroAvaliado"
+        />
+
+        <section
+          class="order-4 mt-space-6 lg:order-none lg:mt-space-8"
           aria-live="polite"
         >
           <h2 class="text-title-lg text-tinta">
@@ -237,7 +253,7 @@ function voltar(): void {
         </section>
 
         <section
-          class="order-5 mt-space-6 lg:order-none lg:mt-space-8"
+          class="order-6 mt-space-6 lg:order-none lg:mt-space-8"
           aria-live="polite"
         >
           <div class="flex flex-wrap items-baseline gap-x-space-3">

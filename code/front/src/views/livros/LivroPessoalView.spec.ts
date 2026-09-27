@@ -3,13 +3,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { acervoService, type LivroPessoalDetalhe } from '../../services/acervo'
 import { ApiError } from '../../services/api'
+import { leituraService } from '../../services/leitura'
 import { montarNaRota } from '../../testes/montarNaRota'
 
 vi.mock('../../services/acervo', () => ({
   acervoService: { obterLivroPessoal: vi.fn(), excluirLivroPessoal: vi.fn() },
 }))
 
+vi.mock('../../services/leitura', () => ({
+  leituraService: {
+    obterMinhaAvaliacao: vi.fn(),
+    salvarNota: vi.fn(),
+    excluirNota: vi.fn(),
+  },
+}))
+
 const servico = vi.mocked(acervoService)
+const leitura = vi.mocked(leituraService)
 
 const DO_DONO: LivroPessoalDetalhe = {
   id: 'l1',
@@ -52,12 +62,13 @@ describe('LivroPessoalView', () => {
     localStorage.clear()
     servico.obterLivroPessoal.mockReset().mockResolvedValue(DO_DONO)
     servico.excluirLivroPessoal.mockReset().mockResolvedValue(undefined)
+    leitura.obterMinhaAvaliacao.mockReset().mockResolvedValue({ livroId: 'l1', nota: null, resenha: null })
   })
   afterEach(() => {
     document.body.innerHTML = ''
   })
 
-  it('dono: hero, etiqueta, ficha sem ISBN, convite de avaliação e ações de editar e excluir', async () => {
+  it('dono: hero, etiqueta, ficha sem ISBN, "Sua avaliação" e ações de editar e excluir', async () => {
     const { wrapper } = await montarNaRota('/livros/pessoal/l1')
     await flushPromises()
 
@@ -67,7 +78,10 @@ describe('LivroPessoalView', () => {
     expect(wrapper.text()).toContain('Livro pessoal')
     expect(wrapper.text()).toContain('184 páginas')
     expect(wrapper.text()).not.toContain('ISBN')
-    expect(wrapper.text()).toContain('Você ainda não avaliou este livro.')
+    // F-AVA: o dono avalia o próprio livro pessoal pelo bloco (RN-03), carregado do `leitura`.
+    expect(leitura.obterMinhaAvaliacao).toHaveBeenCalledWith('l1')
+    expect(wrapper.text()).toContain('Sua avaliação')
+    expect(wrapper.find('button[aria-label="Sem nota. Dar nota"]').exists()).toBe(true)
     expect(botao('Editar')).toBeDefined()
     expect(botao('Excluir')).toBeDefined()
     expect(document.body.querySelector('button[aria-label="Ações do livro"]')).not.toBeNull()
@@ -89,6 +103,9 @@ describe('LivroPessoalView', () => {
     expect(botao('Excluir')).toBeUndefined()
     expect(document.body.querySelector('button[aria-label="Ações do livro"]')).toBeNull()
     expect(wrapper.text()).not.toContain('Você ainda não avaliou')
+    // Em livro pessoal só o dono avalia (RN-03): o terceiro nem consulta o `leitura`.
+    expect(wrapper.text()).not.toContain('Sua avaliação')
+    expect(leitura.obterMinhaAvaliacao).not.toHaveBeenCalled()
     // Aberto pelo feed, o Feed fica ativo no shell.
     const barra = wrapper.findAll('nav[aria-label="Navegação principal"]')[1]!
     expect(barra.findAll('a')[2]!.get('span').classes()).toContain('text-musgo')
