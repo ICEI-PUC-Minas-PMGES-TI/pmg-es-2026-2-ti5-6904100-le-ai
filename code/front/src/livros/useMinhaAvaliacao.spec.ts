@@ -65,6 +65,60 @@ describe('useMinhaAvaliacao', () => {
     expect(avaliacao.nota.value?.valor).toBe(2.5)
   })
 
+  // A chave antiga só repetiria no servidor a resposta guardada, sem gravar a nota de novo.
+  it('depois de remover, dar a mesma nota de novo usa uma chave nova', async () => {
+    const servico = servicoFalso()
+    const avaliacao = useMinhaAvaliacao({ servico })
+    await avaliacao.carregar('l1')
+
+    await avaliacao.salvarNota(4)
+    await avaliacao.removerNota()
+    await avaliacao.salvarNota(4)
+    await avaliacao.removerNota()
+
+    const salvar = servico.salvarNota.mock.calls.map((chamada) => chamada[2])
+    const remover = servico.excluirNota.mock.calls.map((chamada) => chamada[1])
+    expect(salvar[1]).not.toBe(salvar[0])
+    expect(remover[1]).not.toBe(remover[0])
+  })
+
+  it('excluir e publicar o mesmo texto de novo usa uma chave nova', async () => {
+    const servico = servicoFalso()
+    const avaliacao = useMinhaAvaliacao({ servico })
+    await avaliacao.carregar('l1')
+
+    await avaliacao.salvarResenha('Ótimo.', false)
+    await avaliacao.excluirResenha()
+    await avaliacao.salvarResenha('Ótimo.', false)
+
+    const chaves = servico.salvarResenha.mock.calls.map((chamada) => chamada[3])
+    expect(chaves[1]).not.toBe(chaves[0])
+  })
+
+  // Com a carga falha, a resenha é desconhecida: nula liberaria o editor para sobrescrevê-la.
+  it('escrever sem a avaliação carregada recarrega do servidor em vez de declarar pronta', async () => {
+    const resenha = {
+      id: 'r1',
+      usuarioId: 'u1',
+      livroId: 'l1',
+      texto: 'Já escrita.',
+      spoiler: false,
+      criadoEm: '2026-09-12T12:00:00Z',
+      atualizadoEm: '2026-09-12T12:00:00Z',
+    }
+    const servico = servicoFalso({ livroId: 'l1', nota: nota(4), resenha })
+    servico.obterMinhaAvaliacao.mockRejectedValueOnce(new ApiError('x', 503, 'SERVICO_INDISPONIVEL'))
+    const avaliacao = useMinhaAvaliacao({ servico })
+    await avaliacao.carregar('l1')
+    expect(avaliacao.estado.value).toBe('erro')
+
+    await avaliacao.salvarNota(4)
+    await vi.waitFor(() => expect(avaliacao.estado.value).toBe('pronta'))
+
+    expect(servico.obterMinhaAvaliacao).toHaveBeenCalledTimes(2)
+    expect(avaliacao.resenha.value?.texto).toBe('Já escrita.')
+  })
+
   it('remover deixa a nota nula e preserva a resenha', async () => {
     const resenha = {
       id: 'r1',
