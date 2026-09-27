@@ -19,6 +19,9 @@ export const OPERACOES = {
   ABANDONAR_LEITURA: 'abandonarLeitura',
   RETOMAR_LEITURA: 'retomarLeitura',
   PROCESSAR_INATIVIDADE_LEITURAS: 'processarInatividadeLeituras',
+  REGISTRAR_PROGRESSO: 'registrarProgresso',
+  EDITAR_ULTIMO_PROGRESSO: 'editarUltimoProgresso',
+  EXCLUIR_TRECHO_PROGRESSO: 'excluirTrechoProgresso',
 } as const;
 
 export type Operacao = (typeof OPERACOES)[keyof typeof OPERACOES];

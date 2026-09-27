@@ -369,7 +369,8 @@ paths:
       tags: [progresso]
       summary: Registra uma atualização manual de progresso
       operationId: registrarProgresso
-      x-implementation-status: planned
+      x-implementation-status: implemented
+      x-implemented-by: F-PRG
       parameters:
         - { $ref: '#/components/parameters/LeituraId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
@@ -400,7 +401,8 @@ paths:
       tags: [progresso]
       summary: Lista as atualizações de progresso de uma leitura
       operationId: listarProgressos
-      x-implementation-status: planned
+      x-implementation-status: implemented
+      x-implemented-by: F-PRG
       parameters:
         - { $ref: '#/components/parameters/LeituraId' }
         - { $ref: '#/components/parameters/Pagina' }
@@ -425,7 +427,8 @@ paths:
       tags: [progresso]
       summary: Edita a última atualização de uma leitura em andamento
       operationId: editarUltimoProgresso
-      x-implementation-status: planned
+      x-implementation-status: implemented
+      x-implemented-by: F-PRG
       parameters:
         - { $ref: '#/components/parameters/ProgressoId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
@@ -454,7 +457,8 @@ paths:
       tags: [progresso]
       summary: Exclui uma atualização e o trecho posterior confirmado
       operationId: excluirTrechoProgresso
-      x-implementation-status: planned
+      x-implementation-status: implemented
+      x-implemented-by: F-PRG
       parameters:
         - { $ref: '#/components/parameters/ProgressoId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }

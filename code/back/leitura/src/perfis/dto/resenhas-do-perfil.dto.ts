@@ -88,7 +88,7 @@ export class ResenhaDoPerfilDto {
   nota!: number | null;
 }
 
-class PaginacaoDto {
+export class PaginacaoDto {
   @ApiProperty({ minimum: 1 })
   page!: number;
 
