@@ -1,5 +1,6 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { ErroDeNegocio } from './erros-de-negocio';
+import { ehBancoIndisponivel } from './pg-erros';
 
 export interface MappedError {
   status: number;
@@ -84,6 +85,14 @@ export function mapError(exception: unknown): MappedError {
       status,
       codigo: 'ERRO_HTTP',
       mensagem: 'Não foi possível concluir a operação.',
+    };
+  }
+
+  // O contrato declara 503 para banco indisponível; sem isto ele sairia 500.
+  if (ehBancoIndisponivel(exception)) {
+    return {
+      status: HttpStatus.SERVICE_UNAVAILABLE,
+      ...BY_STATUS[HttpStatus.SERVICE_UNAVAILABLE],
     };
   }
 
