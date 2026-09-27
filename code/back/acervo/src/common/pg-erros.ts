@@ -71,6 +71,18 @@ export function ehFalhaDeContratoExterno(erro: unknown): boolean {
   return codigo === PERMISSAO_INSUFICIENTE || codigo === RELACAO_INEXISTENTE;
 }
 
+const BANCO_INDISPONIVEL = new Set([
+  '08000',
+  '08001',
+  '08003',
+  '08004',
+  '08006',
+  '57P01',
+  '57P02',
+  '57P03',
+  '53300',
+]);
+
 /** Erros de rede do Node que o `pg` repassa com o `code` do sistema. */
 const REDE_INDISPONIVEL = new Set([
   'ECONNREFUSED',
@@ -83,18 +95,15 @@ const REDE_INDISPONIVEL = new Set([
 /**
  * Banco fora do ar ou recusando conexão: indisponibilidade, 503, e não 500.
  *
- * Classe `08` (conexão), `57P01` a `57P03` (desligando ou iniciando, como o Neon
- * acordando), `53300` (conexões esgotadas) e as falhas de rede. O `pg` também
- * lança sem código quando o pool esgota a espera por conexão.
+ * Falhas de conexão da classe `08` (mas não o `08P01`, violação de protocolo,
+ * que costuma ser bug nosso), `57P01` a `57P03` (desligando ou iniciando, como o
+ * Neon acordando), `53300` (conexões esgotadas) e as falhas de rede. O `pg`
+ * também lança sem código quando o pool esgota a espera por conexão.
  */
 export function ehBancoIndisponivel(erro: unknown): boolean {
   const codigo = codigoDoPostgres(erro);
   if (codigo !== null) {
-    return (
-      codigo.startsWith('08') ||
-      ['57P01', '57P02', '57P03', '53300'].includes(codigo) ||
-      REDE_INDISPONIVEL.has(codigo)
-    );
+    return BANCO_INDISPONIVEL.has(codigo) || REDE_INDISPONIVEL.has(codigo);
   }
   return mensagens(erro).some(
     (mensagem) =>

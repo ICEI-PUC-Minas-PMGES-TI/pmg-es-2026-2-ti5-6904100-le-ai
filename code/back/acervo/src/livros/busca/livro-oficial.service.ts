@@ -125,11 +125,9 @@ export class LivroOficialService {
       // também não derruba a página (RF-ACV-19): ela abre com `pendente`, e a
       // próxima consulta do polling pede de novo, porque o estado não mudou.
       if (codigoDoPostgres(erro) !== TRAVA_OCUPADA) {
+        // O `message` do Drizzle é só a consulta; o erro do Postgres está no `cause`.
         this.logger.error(
-          {
-            livroId: id,
-            motivo: erro instanceof Error ? erro.message : String(erro),
-          },
+          { livroId: id, codigo: codigoDoPostgres(erro), err: erro },
           'Falha ao pedir a sinopse; a página abre sem ela',
         );
       }

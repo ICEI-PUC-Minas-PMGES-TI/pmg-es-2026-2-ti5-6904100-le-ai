@@ -25,8 +25,9 @@ describe('ehBancoIndisponivel', () => {
     ).toBe(true);
   });
 
-  it('violação de constraint e erro de sintaxe não são', () => {
+  it('violação de constraint, de protocolo e erro de sintaxe não são', () => {
     expect(ehBancoIndisponivel(embrulhado({ code: '23505' }))).toBe(false);
+    expect(ehBancoIndisponivel(embrulhado({ code: '08P01' }))).toBe(false);
     expect(ehBancoIndisponivel(embrulhado({ code: '42601' }))).toBe(false);
     expect(ehBancoIndisponivel(new Error('qualquer'))).toBe(false);
   });
