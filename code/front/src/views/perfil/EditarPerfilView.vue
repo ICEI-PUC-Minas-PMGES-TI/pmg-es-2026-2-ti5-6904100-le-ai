@@ -3,16 +3,16 @@ import { PhCamera, PhCircle, PhGlobe, PhLock, PhRadioButton } from '@phosphor-ic
 import { computed, onBeforeUnmount, onMounted, reactive, ref, type Component } from 'vue'
 import { onBeforeRouteLeave, RouterLink, useRouter, type RouteLocationRaw } from 'vue-router'
 
-import AvatarLeitor from '../components/perfil/AvatarLeitor.vue'
-import BannerAviso from '../components/ui/BannerAviso.vue'
-import BotaoPrimario from '../components/ui/BotaoPrimario.vue'
-import BotaoTextual from '../components/ui/BotaoTextual.vue'
-import CampoTexto from '../components/ui/CampoTexto.vue'
-import DialogoConfirmacao from '../components/ui/DialogoConfirmacao.vue'
-import { ApiError, novaChaveIdempotencia } from '../services/api'
-import { enviarAvatar, publicIdDaUrl, validarAvatar } from '../services/avatar'
-import { perfilService, type Avatar, type EditarPerfil, type Perfil, type Privacidade } from '../services/perfil'
-import { atualizarUsuario } from '../session'
+import AvatarLeitor from '../../components/perfil/AvatarLeitor.vue'
+import BannerAviso from '../../components/ui/BannerAviso.vue'
+import BotaoPrimario from '../../components/ui/BotaoPrimario.vue'
+import BotaoTextual from '../../components/ui/BotaoTextual.vue'
+import CampoTexto from '../../components/ui/CampoTexto.vue'
+import DialogoConfirmacao from '../../components/ui/DialogoConfirmacao.vue'
+import { ApiError, novaChaveIdempotencia } from '../../services/api'
+import { enviarAvatar, publicIdDaUrl, validarAvatar } from '../../services/avatar'
+import { perfilService, type Avatar, type EditarPerfil, type Perfil, type Privacidade } from '../../services/perfil'
+import { atualizarUsuario } from '../../session'
 
 /**
  * Editar perfil (RF-SOC-01/04), a partir de docs/design/periodo-1/F-PERFIL/editar-perfil.md.

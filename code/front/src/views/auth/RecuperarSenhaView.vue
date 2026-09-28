@@ -3,14 +3,14 @@ import { PhArrowLeft, PhEnvelopeSimple } from '@phosphor-icons/vue'
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
-import BannerAviso from '../components/ui/BannerAviso.vue'
-import BotaoPrimario from '../components/ui/BotaoPrimario.vue'
-import BotaoTextual from '../components/ui/BotaoTextual.vue'
-import CampoTexto from '../components/ui/CampoTexto.vue'
-import EstadoTerminal from '../components/ui/EstadoTerminal.vue'
-import LayoutAutenticacao from '../layouts/LayoutAutenticacao.vue'
-import { ApiError } from '../services/api'
-import { authService } from '../services/auth'
+import BannerAviso from '../../components/ui/BannerAviso.vue'
+import BotaoPrimario from '../../components/ui/BotaoPrimario.vue'
+import BotaoTextual from '../../components/ui/BotaoTextual.vue'
+import CampoTexto from '../../components/ui/CampoTexto.vue'
+import EstadoTerminal from '../../components/ui/EstadoTerminal.vue'
+import LayoutAutenticacao from '../../layouts/LayoutAutenticacao.vue'
+import { ApiError } from '../../services/api'
+import { authService } from '../../services/auth'
 
 /**
  * Recuperar senha (RF-AUT-04). Layout e cópia de docs/design/periodo-1/F-AUT/recuperar-senha.md.

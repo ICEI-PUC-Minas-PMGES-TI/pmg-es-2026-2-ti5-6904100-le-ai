@@ -2,14 +2,14 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
-import { ApiError } from '../services/api'
-import { authService } from '../services/auth'
-import { getToken, useSession } from '../session'
+import { ApiError } from '../../services/api'
+import { authService } from '../../services/auth'
+import { getToken, useSession } from '../../session'
 import CadastroView from './CadastroView.vue'
 
 // vi.mock é hoisted para o topo do módulo pelo Vitest, então a ordem de escrita não importa: o
 // import de authService acima já resolve para esta versão mockada.
-vi.mock('../services/auth', () => ({
+vi.mock('../../services/auth', () => ({
   authService: {
     cadastrar: vi.fn(),
     entrar: vi.fn(),

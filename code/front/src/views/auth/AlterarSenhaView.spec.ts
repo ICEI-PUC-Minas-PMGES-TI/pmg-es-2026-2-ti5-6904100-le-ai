@@ -2,12 +2,12 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
-import { ApiError } from '../services/api'
-import { authService } from '../services/auth'
-import { encerrarSessao, getToken, iniciarSessao } from '../session'
+import { ApiError } from '../../services/api'
+import { authService } from '../../services/auth'
+import { encerrarSessao, getToken, iniciarSessao } from '../../session'
 import AlterarSenhaView from './AlterarSenhaView.vue'
 
-vi.mock('../services/auth', () => ({
+vi.mock('../../services/auth', () => ({
   authService: { alterarSenha: vi.fn() },
 }))
 

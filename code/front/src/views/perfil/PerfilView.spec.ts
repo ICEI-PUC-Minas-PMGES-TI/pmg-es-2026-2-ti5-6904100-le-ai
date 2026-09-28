@@ -1,13 +1,13 @@
 import { flushPromises } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { leituraService } from '../services/leitura'
-import { perfilService, type Perfil } from '../services/perfil'
-import { montarNaRota } from '../testes/montarNaRota'
+import { leituraService } from '../../services/leitura'
+import { perfilService, type Perfil } from '../../services/perfil'
+import { montarNaRota } from '../../testes/montarNaRota'
 
-vi.mock('../services/perfil', () => ({ perfilService: { obterMeuPerfil: vi.fn(), listarSolicitacoes: vi.fn() } }))
+vi.mock('../../services/perfil', () => ({ perfilService: { obterMeuPerfil: vi.fn(), listarSolicitacoes: vi.fn() } }))
 
-vi.mock('../services/leitura', () => ({ leituraService: { listarResenhasPerfil: vi.fn() } }))
+vi.mock('../../services/leitura', () => ({ leituraService: { listarResenhasPerfil: vi.fn() } }))
 
 const servico = vi.mocked(perfilService)
 const leitura = vi.mocked(leituraService)

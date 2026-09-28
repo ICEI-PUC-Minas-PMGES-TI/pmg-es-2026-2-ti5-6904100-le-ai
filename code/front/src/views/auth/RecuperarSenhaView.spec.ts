@@ -2,11 +2,11 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
-import { ApiError } from '../services/api'
-import { authService } from '../services/auth'
+import { ApiError } from '../../services/api'
+import { authService } from '../../services/auth'
 import RecuperarSenhaView from './RecuperarSenhaView.vue'
 
-vi.mock('../services/auth', () => ({
+vi.mock('../../services/auth', () => ({
   authService: { solicitarRecuperacao: vi.fn() },
 }))
 

@@ -1,17 +1,17 @@
 import { flushPromises } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { ApiError } from '../services/api'
-import { enviarAvatar, validarAvatar } from '../services/avatar'
-import { perfilService, type Perfil } from '../services/perfil'
-import { useSession } from '../session'
-import { montarNaRota } from '../testes/montarNaRota'
+import { ApiError } from '../../services/api'
+import { enviarAvatar, validarAvatar } from '../../services/avatar'
+import { perfilService, type Perfil } from '../../services/perfil'
+import { useSession } from '../../session'
+import { montarNaRota } from '../../testes/montarNaRota'
 
-vi.mock('../services/perfil', () => ({
+vi.mock('../../services/perfil', () => ({
   perfilService: { obterMeuPerfil: vi.fn(), atualizarMeuPerfil: vi.fn() },
 }))
-vi.mock('../services/avatar', async (original) => ({
-  ...(await original<typeof import('../services/avatar')>()),
+vi.mock('../../services/avatar', async (original) => ({
+  ...(await original<typeof import('../../services/avatar')>()),
   validarAvatar: vi.fn(),
   enviarAvatar: vi.fn(),
 }))

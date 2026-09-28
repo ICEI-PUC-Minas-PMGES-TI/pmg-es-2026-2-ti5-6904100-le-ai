@@ -3,7 +3,7 @@ import { PhArrowLeft } from '@phosphor-icons/vue'
 import { onMounted, ref } from 'vue'
 
 import PoliticaDePrivacidade from './PoliticaDePrivacidade.vue'
-import BotaoTextual from './ui/BotaoTextual.vue'
+import BotaoTextual from '../ui/BotaoTextual.vue'
 
 /**
  * A política vista por quem ainda não tem conta (cadastro.md §5): sem shell, coluna de 720px

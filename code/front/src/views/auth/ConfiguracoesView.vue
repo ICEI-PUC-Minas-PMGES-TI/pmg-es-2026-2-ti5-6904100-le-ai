@@ -3,11 +3,11 @@ import { PhCaretRight, PhSignOut } from '@phosphor-icons/vue'
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 
-import PoliticaDePrivacidade from '../components/PoliticaDePrivacidade.vue'
-import BotaoDestrutivo from '../components/ui/BotaoDestrutivo.vue'
-import DialogoConfirmacao from '../components/ui/DialogoConfirmacao.vue'
-import { authService, type UsuarioProprio } from '../services/auth'
-import { useSession } from '../session'
+import PoliticaDePrivacidade from '../../components/auth/PoliticaDePrivacidade.vue'
+import BotaoDestrutivo from '../../components/ui/BotaoDestrutivo.vue'
+import DialogoConfirmacao from '../../components/ui/DialogoConfirmacao.vue'
+import { authService, type UsuarioProprio } from '../../services/auth'
+import { useSession } from '../../session'
 
 /**
  * Configurações (RF-AUT-06, acesso a RF-AUT-05 e RNF-SEC-42). Layout e cópia do protótipo de

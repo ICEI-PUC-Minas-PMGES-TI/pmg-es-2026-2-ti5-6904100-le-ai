@@ -1,17 +1,17 @@
 import { flushPromises } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { ApiError } from '../services/api'
-import { leituraService, type ResenhaDoPerfil } from '../services/leitura'
-import { perfilService, type Perfil } from '../services/perfil'
-import { itemEstante, paginaEstante } from '../testes/estante'
-import { montarNaRota } from '../testes/montarNaRota'
+import { ApiError } from '../../services/api'
+import { leituraService, type ResenhaDoPerfil } from '../../services/leitura'
+import { perfilService, type Perfil } from '../../services/perfil'
+import { itemEstante, paginaEstante } from '../../testes/estante'
+import { montarNaRota } from '../../testes/montarNaRota'
 
-vi.mock('../services/perfil', () => ({
+vi.mock('../../services/perfil', () => ({
   perfilService: { obterPerfil: vi.fn(), seguir: vi.fn(), deixarDeSeguir: vi.fn() },
 }))
 
-vi.mock('../services/leitura', () => ({
+vi.mock('../../services/leitura', () => ({
   leituraService: { listarEstantePerfil: vi.fn(), listarResenhasPerfil: vi.fn() },
 }))
 

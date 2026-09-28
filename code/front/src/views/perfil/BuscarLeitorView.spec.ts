@@ -1,11 +1,11 @@
 import { flushPromises } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { ApiError } from '../services/api'
-import { perfilService, type PerfilResumo } from '../services/perfil'
-import { montarNaRota } from '../testes/montarNaRota'
+import { ApiError } from '../../services/api'
+import { perfilService, type PerfilResumo } from '../../services/perfil'
+import { montarNaRota } from '../../testes/montarNaRota'
 
-vi.mock('../services/perfil', () => ({ perfilService: { buscarPorUsername: vi.fn() } }))
+vi.mock('../../services/perfil', () => ({ perfilService: { buscarPorUsername: vi.fn() } }))
 
 const servico = vi.mocked(perfilService)
 

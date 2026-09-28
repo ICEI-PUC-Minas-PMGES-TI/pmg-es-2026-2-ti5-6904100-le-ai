@@ -3,12 +3,12 @@ import { PhCaretRight, PhGear, PhMagnifyingGlass, PhUserPlus, PhWarning } from '
 import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 
-import AvatarLeitor from '../components/perfil/AvatarLeitor.vue'
-import ChipPrivacidade from '../components/perfil/ChipPrivacidade.vue'
-import SecoesDeLeitura from '../components/perfil/SecoesDeLeitura.vue'
-import BotaoTextual from '../components/ui/BotaoTextual.vue'
-import { contagem } from '../perfil/textos'
-import { perfilService, type Perfil } from '../services/perfil'
+import AvatarLeitor from '../../components/perfil/AvatarLeitor.vue'
+import ChipPrivacidade from '../../components/perfil/ChipPrivacidade.vue'
+import SecoesDeLeitura from '../../components/perfil/SecoesDeLeitura.vue'
+import BotaoTextual from '../../components/ui/BotaoTextual.vue'
+import { contagem } from '../../perfil/textos'
+import { perfilService, type Perfil } from '../../services/perfil'
 
 /**
  * Meu perfil (RF-SOC-01, RF-SOC-04, RF-SOC-08), a partir de

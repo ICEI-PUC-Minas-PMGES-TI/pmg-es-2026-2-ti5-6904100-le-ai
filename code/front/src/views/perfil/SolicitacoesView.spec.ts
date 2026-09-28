@@ -1,10 +1,10 @@
 import { flushPromises } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { perfilService, type Pagina, type SolicitacaoSeguir } from '../services/perfil'
-import { montarNaRota } from '../testes/montarNaRota'
+import { perfilService, type Pagina, type SolicitacaoSeguir } from '../../services/perfil'
+import { montarNaRota } from '../../testes/montarNaRota'
 
-vi.mock('../services/perfil', () => ({
+vi.mock('../../services/perfil', () => ({
   perfilService: {
     listarSolicitacoes: vi.fn(),
     obterMeuPerfil: vi.fn(),

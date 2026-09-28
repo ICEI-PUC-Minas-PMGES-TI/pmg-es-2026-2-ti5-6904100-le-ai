@@ -1,13 +1,13 @@
 import { flushPromises } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { reagirAoFimDaSessao } from '../router'
-import { authService } from '../services/auth'
-import { encerrarSessao } from '../session'
-import { montarNaRota } from '../testes/montarNaRota'
+import { reagirAoFimDaSessao } from '../../router'
+import { authService } from '../../services/auth'
+import { encerrarSessao } from '../../session'
+import { montarNaRota } from '../../testes/montarNaRota'
 
-vi.mock('../services/auth', async (original) => {
-  const real = await original<typeof import('../services/auth')>()
+vi.mock('../../services/auth', async (original) => {
+  const real = await original<typeof import('../../services/auth')>()
   return { ...real, authService: { ...real.authService, sair: vi.fn(), buscarUsuarioAtual: vi.fn() } }
 })
 

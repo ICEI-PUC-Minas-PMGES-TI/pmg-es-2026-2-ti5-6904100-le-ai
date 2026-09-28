@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import PoliticaDePrivacidade from '../components/PoliticaDePrivacidade.vue'
+import PoliticaDePrivacidade from '../../components/auth/PoliticaDePrivacidade.vue'
 
 /** Política de privacidade empilhada sobre Configurações, abaixo de 768px (configuracoes.md §4.4). */
 </script>
