@@ -83,6 +83,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 ## Pendências
 
+- **Telas (design P2):** entrada `Adicionar à lista` no menu `DotsThree` do header da [`pagina-do-livro.md`](../../design/periodo-2/pagina-do-livro/pagina-do-livro.md), prompt escrito em 28/09/2026, protótipo pendente. As telas da feature ficam para o lote 3.
 - **Depende de** [F-PERFIL](../periodo-1/feature-F-PERFIL.md) (`v_perfil_referencia_v1`/`v_seguimento_aceito_v1`), [F-ACV-BUSCA](../periodo-1/feature-F-ACV-BUSCA.md)/[F-ACV-CADASTRO](../periodo-1/feature-F-ACV-CADASTRO.md) (`v_livro_referencia_v1` e a página autorizada de livro pessoal em `acervo`), [F-FEED](../periodo-1/feature-F-FEED.md) (padrão da via de acesso a livro pessoal), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md).
 - **Coordenar com `acervo`** o handler de `?via=lista` na página de livro pessoal, espelhando o de `?via=feed`.
 - **Compartilha `social`** com as demais features sociais e é limpo por [F-CONTA-2](feature-F-CONTA-2.md) na exclusão — sinalizar no grupo (plano §6).

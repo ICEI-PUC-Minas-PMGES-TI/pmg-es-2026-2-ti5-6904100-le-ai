@@ -1,6 +1,7 @@
 # F-ACV-BUSCA · Descobrir
 
 **Feature:** ../../../plano-de-desenvolvimento/periodo-1/feature-F-ACV-BUSCA.md
+**Editada por:** ../../periodo-2/descobrir/descobrir.md
 **Requisitos:** RF-ACV-01 (buscar por título, autor, editora ou ISBN, com resultados paginados), RF-ACV-02 (filtrar resultados por assunto)
 **Não funcionais:** RNF-DES-02 (paginação com teto de itens), RNF-SEC-06 (livro pessoal nunca aparece na busca), RNF-USA-02 (responsiva na web), RNF-USA-03 (contraste WCAG AA), RNF-USA-05 (mensagem de erro em pt-BR e acionável), RNF-ERR-09 (cold start é carregamento, não erro)
 **Regras de negócio:** RN-01 (o livro é a edição; o agrupamento por título mais autor é mitigação de interface, não mudança de modelo), RN-03 (livro pessoal fora do catálogo), RN-14.4 (ordem de resolução da capa), RN-21 (assuntos normalizados do conjunto curado)
