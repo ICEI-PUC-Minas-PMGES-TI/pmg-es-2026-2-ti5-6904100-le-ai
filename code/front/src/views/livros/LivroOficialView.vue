@@ -3,6 +3,7 @@ import { PhBookOpen, PhWarning } from '@phosphor-icons/vue'
 import { computed, onBeforeUnmount, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 
+import SituacaoNaEstante from '../../components/estante/SituacaoNaEstante.vue'
 import BlocoSuaAvaliacao from '../../components/livros/BlocoSuaAvaliacao.vue'
 import CapaLivro from '../../components/livros/CapaLivro.vue'
 import CardResenha from '../../components/livros/CardResenha.vue'
@@ -22,8 +23,9 @@ import { useMinhaAvaliacao } from '../../livros/useMinhaAvaliacao'
  * - A página abre inteira enquanto a sinopse chega (RN-19.5); só a seção dela fica em skeleton.
  *   Ausência é texto neutro, nunca erro.
  * - "Sua avaliação" (F-AVA) fica entre o cabeçalho e a sinopse e carrega à parte, do `leitura`: se
- *   ele estiver lento, a página abre igual. Estante e progresso são de F-EST e F-PRG e entram com
- *   elas, sem espaço reservado aqui. Trocar de livro na mesma rota recarrega a página.
+ *   ele estiver lento, a página abre igual. Trocar de livro na mesma rota recarrega a página.
+ * - A situação na estante (F-EST) e o progresso (F-PRG) ficam logo abaixo do cabeçalho, com um
+ *   único botão principal por situação.
  */
 const route = useRoute()
 const router = useRouter()
@@ -225,6 +227,13 @@ function voltar(): void {
       </aside>
 
       <div class="contents lg:col-start-2 lg:row-start-2 lg:flex lg:flex-col">
+        <SituacaoNaEstante
+          class="order-3 mt-space-6 lg:order-none"
+          :livro-id="livro.id"
+          :titulo="livro.titulo"
+          :autor="autores"
+          :capa-url="livro.capa.url"
+        />
         <BlocoSuaAvaliacao
           class="order-3 mt-space-8 lg:order-none"
           :avaliacao="minhaAvaliacao"

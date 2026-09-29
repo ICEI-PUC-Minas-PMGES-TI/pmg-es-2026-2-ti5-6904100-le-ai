@@ -14,7 +14,10 @@ import '../avaliacao/bloco_sua_avaliacao.dart';
 import '../avaliacao/escrever_resenha_page.dart';
 import '../avaliacao/leitura_service.dart';
 import '../avaliacao/painel_de_nota.dart';
+import '../estante/estante_service.dart';
+import '../estante/situacao_na_estante.dart';
 import '../perfil/widgets_de_perfil.dart';
+import '../progresso/rotas_progresso.dart';
 import 'acervo_service.dart';
 import 'formatos.dart';
 import 'livro_oficial.dart';
@@ -27,8 +30,9 @@ import 'livro_oficial_controller.dart';
 /// - A página abre inteira e utilizável enquanto a sinopse chega (RN-19.5); só a seção dela fica
 ///   em skeleton. Ausência é estado válido e aparece como texto neutro, nunca como erro.
 /// - "Sua avaliação" (F-AVA) fica entre o hero e a sinopse e carrega à parte, no `leitura`: se ele
-///   estiver lento, a página abre igual. Estante e progresso são de F-EST e F-PRG e entram com
-///   elas; aqui não há espaço reservado para eles.
+///   estiver lento, a página abre igual.
+/// - A situação na estante (F-EST) e o progresso (F-PRG) ficam logo abaixo do hero, com um único
+///   botão principal por situação.
 /// - Resenhas de outros leitores, filtradas por RN-08 no servidor. O texto de spoiler só entra na
 ///   árvore depois de revelado.
 class LivroOficialPage extends StatefulWidget {
@@ -36,6 +40,9 @@ class LivroOficialPage extends StatefulWidget {
   final LeituraService leitura;
   final String livroId;
   final VoidCallback aoVoltar;
+  final EstanteService? estante;
+  final DependenciasDeProgresso? progresso;
+  final ValueChanged<String>? aoVerAtualizacoes;
 
   const LivroOficialPage({
     super.key,
@@ -43,6 +50,9 @@ class LivroOficialPage extends StatefulWidget {
     required this.leitura,
     required this.livroId,
     required this.aoVoltar,
+    this.estante,
+    this.progresso,
+    this.aoVerAtualizacoes,
   });
 
   @override
@@ -128,12 +138,29 @@ class _LivroOficialPageState extends State<LivroOficialPage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           _Hero(livro: livro.resumo),
+          if (widget.estante != null) ...<Widget>[
+            const SizedBox(height: DesignTokens.space6),
+            SituacaoNaEstante(
+              servico: widget.estante!,
+              livroId: widget.livroId,
+              livro: LivroDaEstante(
+                titulo: livro.resumo.titulo,
+                autor: livro.resumo.autoresParaExibir,
+                capaUrl: livro.resumo.capaUrl,
+              ),
+              progresso: widget.progresso,
+              aoVerAtualizacoes: widget.aoVerAtualizacoes,
+            ),
+          ],
           const SizedBox(height: DesignTokens.space8),
           BlocoSuaAvaliacao(avaliacao: _avaliacao, livro: _livroAvaliado(livro)),
           const SizedBox(height: DesignTokens.space6),
           _Secao(titulo: 'Sinopse', child: _sinopse(theme)),
           const SizedBox(height: DesignTokens.space6),
-          _Secao(titulo: 'Ficha', child: _Ficha(livro: livro)),
+          _Secao(
+            titulo: 'Ficha',
+            child: _Ficha(livro: livro),
+          ),
           const SizedBox(height: DesignTokens.space6),
           _resenhas(theme),
         ],

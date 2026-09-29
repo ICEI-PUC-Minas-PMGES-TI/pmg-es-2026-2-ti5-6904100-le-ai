@@ -6,6 +6,10 @@ import 'package:http/http.dart' as http;
 
 import 'package:le_ai_mobile/features/livros/livro_oficial_page.dart';
 
+import 'package:le_ai_mobile/features/estante/estante_service.dart';
+
+import '../estante/apoio_estante.dart';
+import '../progresso/apoio_progresso.dart';
 import 'apoio.dart';
 
 const String _id = 'b0a1c2d3-0000-4000-8000-000000000001';
@@ -59,6 +63,7 @@ void main() {
     WidgetTester tester,
     Future<http.Response> Function(http.Request request) responder, {
     Future<http.Response> Function(http.Request request)? leitura,
+    EstanteService? estante,
   }) async {
     usarTelaDeCelular(tester);
     pedidas = <Uri>[];
@@ -73,6 +78,8 @@ void main() {
           leitura: leituraSimulada(leitura ?? (_) async => json(semAvaliacao(_id), 200)),
           livroId: _id,
           aoVoltar: () => voltas++,
+          estante: estante,
+          progresso: estante == null ? null : progressoEmMemoria(),
         ),
       ),
     );
@@ -92,8 +99,8 @@ void main() {
     expect(find.text('Bibiana e Belonísia crescem no interior da Bahia.'), findsOneWidget);
     expect(find.text('Ficha'), findsOneWidget);
     expect(find.text('9788588808911'), findsOneWidget);
-    // F-AVA: o bloco existe e, sem nota, diz "Sem nota" (nunca 0,0). Estante e progresso são de
-    // F-EST e F-PRG e ainda não aparecem.
+    // F-AVA: o bloco existe e, sem nota, diz "Sem nota" (nunca 0,0). Sem serviço de estante, o
+    // bloco de estante não aparece.
     expect(find.text('Sua avaliação'), findsOneWidget);
     expect(find.text('Sem nota'), findsOneWidget);
     expect(find.bySemanticsLabel('Sem nota. Dar nota'), findsOneWidget);
@@ -459,5 +466,87 @@ void main() {
       find.text('Muitas requisições em pouco tempo. Tente novamente em instantes.'),
       findsOneWidget,
     );
+  });
+
+  group('situação na estante', () {
+    testWidgets('fora da estante: só "Adicionar à estante", que abre as opções', (tester) async {
+      await montar(tester, (request) async => json(_livro(), 200), estante: estanteVazia());
+      await tester.pump();
+
+      expect(find.text('Adicionar à estante'), findsOneWidget);
+      expect(find.text('Registrar progresso'), findsNothing);
+      expect(find.text('Ações de leitura'), findsNothing);
+
+      await tocar(tester, find.text('Adicionar à estante'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Adicionar como Quero ler'), findsOneWidget);
+      expect(find.text('Iniciar leitura'), findsOneWidget);
+    });
+
+    testWidgets('lendo: pill, página atual, "Registrar progresso" e "Ações de leitura"', (
+      tester,
+    ) async {
+      final estante = estanteSimulada(
+        (request) async => json(
+          itemJson(
+            _id,
+            status: 'LENDO',
+            leituraEmAndamentoId: 'le1',
+            paginaAtual: 148,
+            totalPaginas: 264,
+            percentual: 56,
+            vezesLido: 1,
+          ),
+          200,
+        ),
+      );
+      await montar(tester, (request) async => json(_livro(), 200), estante: estante);
+      await tester.pump();
+
+      expect(find.text('Lendo'), findsOneWidget);
+      expect(find.text('Página 148 de 264'), findsOneWidget);
+      expect(find.text('Lido 1 vez'), findsOneWidget);
+      expect(find.text('Registrar progresso'), findsOneWidget);
+      expect(find.text('Ações de leitura'), findsOneWidget);
+      expect(find.text('Adicionar à estante'), findsNothing);
+    });
+
+    testWidgets('lido: sem botão principal, só "Ações de leitura"', (tester) async {
+      final estante = estanteSimulada(
+        (request) async =>
+            json(itemJson(_id, status: 'LIDO', vezesLido: 2, ultimaLeituraId: 'le1'), 200),
+      );
+      await montar(tester, (request) async => json(_livro(), 200), estante: estante);
+      await tester.pump();
+
+      expect(find.text('Lido'), findsOneWidget);
+      expect(find.text('Lido 2 vezes'), findsOneWidget);
+      expect(find.text('Registrar progresso'), findsNothing);
+      expect(find.text('Ações de leitura'), findsOneWidget);
+    });
+
+    testWidgets('falha ao consultar a estante: aviso e "Tentar de novo" que recarrega', (
+      tester,
+    ) async {
+      var chamadas = 0;
+      final estante = estanteSimulada((request) async {
+        chamadas++;
+        return chamadas <= 3
+            ? erro(503, 'INDISPONIVEL', 'Fora do ar.')
+            : erro(404, 'NAO_ENCONTRADO', 'Livro fora da estante.');
+      });
+      await montar(tester, (request) async => json(_livro(), 200), estante: estante);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Não foi possível carregar a situação deste livro na sua estante.'),
+        findsOneWidget,
+      );
+      await tocar(tester, find.text('Tentar de novo').first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Adicionar à estante'), findsOneWidget);
+    });
   });
 }

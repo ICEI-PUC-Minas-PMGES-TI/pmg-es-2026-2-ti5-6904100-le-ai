@@ -9,6 +9,7 @@ import '../../design/widgets/botao_primario.dart';
 import '../../design/widgets/botao_textual.dart';
 import '../../design/widgets/campo_texto.dart';
 import '../../design/widgets/capa_livro.dart';
+import '../../design/widgets/cartao_progresso.dart';
 import '../../design/widgets/dialogo_confirmacao.dart';
 import '../../design/widgets/folha_inferior.dart';
 import 'acao_leitura_controller.dart';
@@ -280,9 +281,17 @@ class _FolhaDeAcoesDeLeituraState extends State<FolhaDeAcoesDeLeitura> {
             const SizedBox(height: DesignTokens.space2),
           ],
           if (_carregandoLeitura)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: DesignTokens.space4),
-              child: LinearProgressIndicator(),
+            const ExcludeSemantics(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: DesignTokens.space4),
+                child: Column(
+                  children: <Widget>[
+                    BarraSkeleton(altura: 20, fracaoDaLargura: 0.6),
+                    SizedBox(height: DesignTokens.space5),
+                    BarraSkeleton(altura: 20, fracaoDaLargura: 0.45),
+                  ],
+                ),
+              ),
             )
           else if (_falhouLeitura) ...<Widget>[
             const BannerAviso(variante: VarianteAviso.erro, mensagem: TextosDeAcao.erroAoCarregar),
