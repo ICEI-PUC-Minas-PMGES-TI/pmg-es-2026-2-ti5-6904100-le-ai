@@ -739,17 +739,14 @@ void main() {
       await tester.pumpAndSettle();
       expect(consultasDaEstante, 1);
 
-      await tocar(tester, find.text(AcoesDeLeitura.abrir));
+      await tocar(tester, find.text(AcoesDeLeitura.registrarProgresso));
       await tester.pumpAndSettle();
-      expect(find.text(AcoesDeLeitura.verAtualizacoes), findsOneWidget);
-      await tester.tap(find.text(AcoesDeLeitura.registrarProgresso));
-      await tester.pumpAndSettle();
-      expect(find.text(TextosDoRegistro.titulo), findsOneWidget);
+      expect(find.text(TextosDoRegistro.titulo), findsNWidgets(2));
       await tester.enterText(find.byType(TextField).first, '172');
       await tester.tap(find.text(TextosDoRegistro.botaoSalvar));
       await tester.pumpAndSettle();
 
-      expect(find.text(TextosDoRegistro.titulo), findsNothing);
+      expect(find.text(TextosDoRegistro.titulo), findsOneWidget);
       expect(armazem.conteudo, contains('"pagina":172'));
       expect(consultasDaEstante, 2);
 

@@ -75,7 +75,11 @@ void _voltar(BuildContext context, String raiz) {
 }
 
 /// Sub-rotas da aba Descobrir: o fluxo que começa pelo ISBN.
-List<RouteBase> rotasDeDescobrir(DependenciasDeLivros deps) => <RouteBase>[
+List<RouteBase> rotasDeDescobrir(
+  DependenciasDeLivros deps, {
+  EstanteService? estante,
+  DependenciasDeProgresso? progresso,
+}) => <RouteBase>[
   GoRoute(
     path: 'adicionar-livro',
     builder: (context, state) => CadastroIsbnPage(
@@ -123,13 +127,18 @@ List<RouteBase> rotasDeDescobrir(DependenciasDeLivros deps) => <RouteBase>[
       ),
     ],
   ),
-  rotaDoLivroOficial(deps, raiz: '/descobrir'),
+  rotaDoLivroOficial(deps, raiz: '/descobrir', estante: estante, progresso: progresso),
 ];
 
 /// Página do livro oficial dentro da aba de origem (pagina-do-livro.md §4.1: o item ativo da barra
 /// é sempre a aba de onde se chegou). Descobrir usa agora; Estante e Feed montam a mesma rota sob a
 /// raiz delas quando F-EST e F-FEED linkarem o livro.
-GoRoute rotaDoLivroOficial(DependenciasDeLivros deps, {required String raiz}) {
+GoRoute rotaDoLivroOficial(
+  DependenciasDeLivros deps, {
+  required String raiz,
+  EstanteService? estante,
+  DependenciasDeProgresso? progresso,
+}) {
   return GoRoute(
     path: 'livro/:id',
     builder: (context, state) {
@@ -141,6 +150,11 @@ GoRoute rotaDoLivroOficial(DependenciasDeLivros deps, {required String raiz}) {
         leitura: deps.leitura,
         livroId: id,
         aoVoltar: () => _voltar(context, raiz),
+        estante: estante,
+        progresso: progresso,
+        aoVerAtualizacoes: progresso == null
+            ? null
+            : (leituraId) => context.push<void>(rotaProgressoDaLeitura(leituraId)),
       );
     },
   );

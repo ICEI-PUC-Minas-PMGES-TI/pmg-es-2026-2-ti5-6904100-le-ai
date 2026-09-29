@@ -19,10 +19,8 @@ import '../avaliacao/avaliacao_controller.dart';
 import '../avaliacao/bloco_sua_avaliacao.dart';
 import '../avaliacao/leitura_service.dart';
 import '../avaliacao/painel_de_nota.dart';
-import '../estante/acoes_leitura.dart';
-import '../estante/cartao_estante.dart';
 import '../estante/estante_service.dart';
-import '../estante/textos.dart';
+import '../estante/situacao_na_estante.dart';
 import '../progresso/rotas_progresso.dart';
 import 'acervo_service.dart';
 import 'formatos.dart';
@@ -81,8 +79,6 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
   _Carga _carga = _Carga.carregando;
   LivroPessoal? _livro;
   String? _mensagem;
-  ItemEstante? _naEstante;
-  bool _estanteConhecida = false;
 
   /// Só existe para o dono, e só depois que o servidor disse que não é modo consulta.
   AvaliacaoController? _avaliacao;
@@ -121,9 +117,6 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
             _avaliacao = AvaliacaoController(widget.leitura, widget.livroId)..carregar();
           }
         });
-        if (!livro.modoConsulta) {
-          await _carregarEstante();
-        }
       }
     } on ApiException catch (erro) {
       if (!mounted) {
@@ -139,72 +132,6 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
           _mensagem = erro.message;
         }
       });
-    }
-  }
-
-  Future<void> _carregarEstante() async {
-    final estante = widget.estante;
-    if (estante == null) {
-      return;
-    }
-    try {
-      final item = await estante.itemDaEstante(widget.livroId);
-      if (mounted) {
-        setState(() {
-          _naEstante = item;
-          _estanteConhecida = true;
-        });
-      }
-    } on ApiException {
-      if (mounted) {
-        setState(() => _estanteConhecida = false);
-      }
-    }
-  }
-
-  Future<void> _abrirAcoesDeLeitura(EstanteService estante, LivroPessoal livro) async {
-    final item = _naEstante;
-    final livroDaEstante = LivroDaEstante(
-      titulo: livro.titulo,
-      autor: livro.autor,
-      capaUrl: livro.capaUrl,
-    );
-    final progresso = widget.progresso;
-    final aoVerAtualizacoes = widget.aoVerAtualizacoes;
-    final novo = await abrirAcoesDeLeitura(
-      context,
-      servico: estante,
-      livro: LivroDaAcao(
-        livroId: livro.id,
-        livro: livroDaEstante,
-        status: item?.status,
-        leituraId: item?.leituraParaAcoes,
-      ),
-      aoRegistrarProgresso: progresso == null
-          ? null
-          : (leitura) => _registrarProgresso(progresso, leitura, livroDaEstante),
-      aoVerAtualizacoes: aoVerAtualizacoes == null
-          ? null
-          : (leitura) => aoVerAtualizacoes(leitura.id),
-    );
-    if (novo != null && mounted) {
-      await _carregarEstante();
-    }
-  }
-
-  Future<void> _registrarProgresso(
-    DependenciasDeProgresso progresso,
-    Leitura leitura,
-    LivroDaEstante livro,
-  ) async {
-    final resultado = await registrarProgressoDaLeitura(
-      context,
-      progresso: progresso,
-      leitura: leitura,
-      livro: livro,
-    );
-    if (resultado != null && mounted) {
-      await _carregarEstante();
     }
   }
 
@@ -377,33 +304,6 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
     }
   }
 
-  Widget _situacaoNaEstante(ThemeData theme, EstanteService estante, LivroPessoal livro) {
-    final item = _naEstante;
-    return Column(
-      children: <Widget>[
-        if (item != null)
-          Wrap(
-            alignment: WrapAlignment.center,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: DesignTokens.space3,
-            runSpacing: DesignTokens.space2,
-            children: <Widget>[
-              PillStatus(status: item.status),
-              if (item.vezesLido > 0)
-                Text(
-                  textoVezesLido(item.vezesLido),
-                  style: theme.textTheme.bodySmall?.copyWith(color: theme.secondaryText),
-                ),
-            ],
-          ),
-        BotaoTextual(
-          texto: AcoesDeLeitura.abrir,
-          onPressed: () => _abrirAcoesDeLeitura(estante, livro),
-        ),
-      ],
-    );
-  }
-
   Widget _conteudo(ThemeData theme, LivroPessoal livro) {
     final consulta = livro.modoConsulta;
     final resenha = livro.resenhaDoDono;
@@ -459,9 +359,19 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
           ),
           const SizedBox(height: DesignTokens.space3),
           const Center(child: Etiqueta(texto: 'Livro pessoal')),
-          if (!consulta && _estanteConhecida && widget.estante != null) ...<Widget>[
+          if (!consulta && widget.estante != null) ...<Widget>[
             const SizedBox(height: DesignTokens.space4),
-            _situacaoNaEstante(theme, widget.estante!, livro),
+            SituacaoNaEstante(
+              servico: widget.estante!,
+              livroId: livro.id,
+              livro: LivroDaEstante(
+                titulo: livro.titulo,
+                autor: livro.autor,
+                capaUrl: livro.capaUrl,
+              ),
+              progresso: widget.progresso,
+              aoVerAtualizacoes: widget.aoVerAtualizacoes,
+            ),
           ],
           if (consulta && nomeDoDono != null) ...<Widget>[
             const SizedBox(height: DesignTokens.space3),

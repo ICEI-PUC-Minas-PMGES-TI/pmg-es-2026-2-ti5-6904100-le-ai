@@ -179,7 +179,7 @@ GoRouter buildRouter({
                   aoCadastrarPessoal: () => context.push('$rotaAdicionarLivro/pessoal'),
                 ),
                 routes: <RouteBase>[
-                  ...rotasDeDescobrir(deps),
+                  ...rotasDeDescobrir(deps, estante: servicoDeEstante, progresso: depsDeProgresso),
                   rotaDeNotificacoes(depsDeNotificacoes, '/descobrir'),
                 ],
               ),
@@ -223,7 +223,12 @@ GoRouter buildRouter({
                   ),
                   // O livro aberto por uma resenha do perfil fica na aba Perfil (pagina-do-livro.md
                   // §4.1: o item ativo é a aba de origem).
-                  rotaDoLivroOficial(deps, raiz: '/perfil'),
+                  rotaDoLivroOficial(
+                    deps,
+                    raiz: '/perfil',
+                    estante: servicoDeEstante,
+                    progresso: depsDeProgresso,
+                  ),
                   rotaDeNotificacoes(depsDeNotificacoes, rotaPerfilRaiz),
                   GoRoute(
                     path: 'configuracoes',
