@@ -34,27 +34,17 @@ class DependenciasDeNotificacoes {
   );
 }
 
-/// As notificações são temporárias: quem sai da aba (pela barra inferior, ou abrindo uma
-/// notificação cujo destino é outra aba) as fecha antes, e a aba volta à tela que estava por baixo.
-/// O `go_router` não deixa editar a pilha de uma aba inativa, então o fechamento é um `pop` **sem
-/// animação** — a animação de saída congelaria no meio, porque a aba escondida perde o `TickerMode`
-/// — seguido de um quadro de espera, para o shell gravar a pilha nova da aba antes da troca.
+/// As notificações são temporárias: abrem e fecham sem animação (decisão de 29/09/2026), e quem
+/// sai da aba (pela barra inferior, ou abrindo uma notificação cujo destino é outra aba) as fecha
+/// antes, para a aba voltar à tela que estava por baixo. O `go_router` não deixa editar a pilha de
+/// uma aba inativa, então o fechamento é um `pop` seguido de um quadro de espera, para o shell
+/// gravar a pilha nova da aba antes da troca.
 class FechamentoDeNotificacoes {
-  bool _semAnimacao = false;
-
-  /// A rota de notificações consulta isto ao ser fechada: ligada, ela some na hora.
-  bool get semAnimacao => _semAnimacao;
-
   /// Fecha as notificações que estão no topo e só devolve depois do quadro em que a aba registra a
-  /// pilha sem elas. O voltar normal (seta, gesto) não passa por aqui e continua animado.
+  /// pilha sem elas.
   Future<void> fechar(GoRouter router) async {
-    _semAnimacao = true;
-    try {
-      router.pop();
-      await WidgetsBinding.instance.endOfFrame;
-    } finally {
-      _semAnimacao = false;
-    }
+    router.pop();
+    await WidgetsBinding.instance.endOfFrame;
   }
 }
 
@@ -93,7 +83,6 @@ GoRoute rotaDeNotificacoes(DependenciasDeNotificacoes deps, String raizDaAba) =>
     name: state.name ?? state.path,
     arguments: <String, String>{...state.pathParameters, ...state.uri.queryParameters},
     restorationId: state.pageKey.value,
-    fechamento: deps.fechamento,
     child: NotificacoesPage(
       servico: deps.servico,
       contador: deps.contador,
@@ -120,15 +109,12 @@ Future<void> _irPara(
   router.go(destino);
 }
 
-/// A `Page` que o `go_router` monta por padrão (`MaterialPage`), mas com a rota própria, que pode
-/// fechar sem animação.
+/// A `Page` das notificações, com a rota própria, sem transição.
 class _PaginaDeNotificacoes extends Page<void> {
   final Widget child;
-  final FechamentoDeNotificacoes fechamento;
 
   const _PaginaDeNotificacoes({
     required this.child,
-    required this.fechamento,
     super.key,
     super.name,
     super.arguments,
@@ -139,23 +125,36 @@ class _PaginaDeNotificacoes extends Page<void> {
   Route<void> createRoute(BuildContext context) => _RotaDeNotificacoes(this);
 }
 
-/// Como a rota de `MaterialPage` (transição de página do Material, lendo o `child` da página para
-/// acompanhar atualizações dela), mas que, no fechamento por troca de aba, sai com duração zero: a
-/// rota é finalizada na hora, sem quadro intermediário. É a duração de saída, e não o controlador,
-/// que se altera: a cada `didPop`, o `MaterialRouteTransitionMixin` reescreve
-/// `controller.reverseDuration` a partir de [reverseTransitionDuration].
-class _RotaDeNotificacoes extends PageRoute<void> with MaterialRouteTransitionMixin<void> {
+/// Rota que entra e sai na hora, sem transição nem animação de voltar preditivo: a tela é uma
+/// camada temporária sobre a aba, e não uma página a mais na navegação. Lê o `child` da página para
+/// acompanhar as atualizações dela.
+class _RotaDeNotificacoes extends PageRoute<void> {
   _RotaDeNotificacoes(_PaginaDeNotificacoes pagina) : super(settings: pagina);
 
   _PaginaDeNotificacoes get _pagina => settings as _PaginaDeNotificacoes;
 
   @override
-  Widget buildContent(BuildContext context) => _pagina.child;
+  Duration get transitionDuration => Duration.zero;
+
+  @override
+  Duration get reverseTransitionDuration => Duration.zero;
 
   @override
   bool get maintainState => true;
 
   @override
-  Duration get reverseTransitionDuration =>
-      _pagina.fechamento.semAnimacao ? Duration.zero : super.reverseTransitionDuration;
+  bool get opaque => true;
+
+  @override
+  Color? get barrierColor => null;
+
+  @override
+  String? get barrierLabel => null;
+
+  @override
+  Widget buildPage(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+  ) => Semantics(scopesRoute: true, explicitChildNodes: true, child: _pagina.child);
 }

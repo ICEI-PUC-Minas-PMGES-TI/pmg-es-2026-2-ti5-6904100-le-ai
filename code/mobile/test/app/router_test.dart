@@ -666,18 +666,25 @@ void main() {
       expect(find.text('Sua estante está vazia'), findsOneWidget);
     });
 
-    testWidgets('a seta de voltar continua animada e volta à tela de baixo', (tester) async {
+    testWidgets('abre sem animação: já no primeiro quadro', (tester) async {
+      await abrirApp(tester);
+
+      await tester.tap(sino());
+      await tester.pump();
+
+      expect(find.byType(NotificacoesPage), findsOneWidget);
+      // Sem transição, a Estante já saiu de cena: nada dela fica visível por baixo.
+      expect(find.text('Sua estante está vazia'), findsNothing);
+    });
+
+    testWidgets('a seta de voltar fecha sem animação e volta à tela de baixo', (tester) async {
       await abrirApp(tester);
       await tester.tap(sino());
       await tester.pumpAndSettle();
 
       await tester.tap(find.bySemanticsLabel('Voltar'));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
-      // No meio da transição de saída a página ainda está na árvore.
-      expect(notificacoes, findsOneWidget);
 
-      await tester.pumpAndSettle();
       expect(notificacoes, findsNothing);
       expect(find.text('Sua estante está vazia'), findsOneWidget);
     });

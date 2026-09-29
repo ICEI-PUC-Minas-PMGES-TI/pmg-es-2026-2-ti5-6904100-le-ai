@@ -46,7 +46,7 @@ class ShellAutenticado extends StatefulWidget {
   /// Abre as notificações empilhadas na aba cuja raiz é o argumento.
   final void Function(String raizDaAba) aoAbrirNotificacoes;
 
-  /// Fecha as notificações que estão no topo da aba atual, sem animação, antes de trocar de aba.
+  /// Fecha as notificações que estão no topo da aba atual antes de trocar de aba.
   final Future<void> Function() fecharNotificacoes;
 
   const ShellAutenticado({
