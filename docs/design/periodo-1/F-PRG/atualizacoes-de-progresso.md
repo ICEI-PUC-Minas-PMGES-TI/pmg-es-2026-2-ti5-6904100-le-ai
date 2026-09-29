@@ -5,6 +5,7 @@
 **Não funcionais:** RNF-DES-02 (lista paginada com teto imposto pelo servidor), RNF-USA-04 (confirmação em ação destrutiva), RNF-SEC-02 (propriedade da leitura validada no servidor), RNF-USA-03, RNF-USA-05
 **Regras de negócio:** RN-17.3 (página atual é a maior página informada até o momento), RN-17.4 (excluir uma atualização recalcula a página atual a partir das restantes; esta operação é Essencial justamente porque, com entrada absoluta e monotônica, um valor digitado alto demais bloqueia os registros seguintes), RN-17.1 (páginas lidas de uma atualização são a diferença para a página atual anterior)
 **Versão web:** sim. RF-PRG-02 e RF-PRG-03 têm marcação na coluna Web de `REQUISITOS.md` §5.4.
+**Editada por:** ../../periodo-2/atualizacoes-de-progresso/atualizacoes-de-progresso.md
 
 ---
 

@@ -6,6 +6,7 @@
 **Não funcionais:** RNF-DES-02 (listagens paginadas), RNF-USA-02, RNF-USA-03 (contraste WCAG AA), RNF-USA-05, RNF-ERR-09 (cold start tratado como carregamento)
 **Regras de negócio:** RN-08 (privacidade de perfil, e o que ela esconde de terceiros), RN-14.4 (ordem de resolução da capa)
 **Versão web:** sim. RF-SOC-01, RF-SOC-02, RF-SOC-04 e RF-SOC-08 têm marcação na coluna Web de `REQUISITOS.md` §5.9.
+**Editada por:** ../../periodo-2/meu-perfil/meu-perfil.md
 
 ---
 

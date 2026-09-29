@@ -6,6 +6,7 @@
 **Não funcionais:** RNF-SEC-03 (a privacidade é revalidada no servidor em todo endpoint, e esconder na interface não é controle de acesso), RNF-SEC-19/44 (descoberta só por username exato, sem diretório), RNF-DES-02 (listagens paginadas), RNF-USA-03, RNF-USA-04 (confirmação ao deixar de seguir), RNF-USA-05, RNF-ERR-09
 **Regras de negócio:** RN-08 (privacidade de perfil: o que todos veem e o que só seguidores aceitos veem), RN-14.4 (ordem de resolução da capa)
 **Versão web:** sim. RF-SOC-02, RF-SOC-05, RF-SOC-06 e RF-SOC-07 têm marcação na coluna Web de `REQUISITOS.md` §5.9.
+**Editada por:** ../../periodo-2/perfil-de-outro-leitor/perfil-de-outro-leitor.md
 
 ---
 
