@@ -21,6 +21,7 @@ import 'package:le_ai_mobile/features/perfil/perfil_service.dart';
 import 'package:le_ai_mobile/features/perfil/rotas_perfil.dart';
 
 import '../features/estante/apoio_estante.dart';
+import '../features/progresso/apoio_progresso.dart';
 
 /// Testa a guarda através de um `GoRouter` de verdade dirigido por `router.go()`, em vez de
 /// montar um `GoRouterState` à mão: o construtor dele exige uma `RouteConfiguration` interna do
@@ -84,11 +85,7 @@ DependenciasDePerfil _perfilSimulado() => DependenciasDePerfil(
 Future<http.Response> _acervoPorRota(http.Request request) async {
   const cabecalhos = <String, String>{'content-type': 'application/json; charset=utf-8'};
   if (request.url.path == '/assuntos') {
-    return http.Response(
-      '{"itens":[{"id":"a1","nome":"Romance"}]}',
-      200,
-      headers: cabecalhos,
-    );
+    return http.Response('{"itens":[{"id":"a1","nome":"Romance"}]}', 200, headers: cabecalhos);
   }
   if (request.url.path == '/livros') {
     return http.Response(
@@ -140,12 +137,10 @@ void main() {
       authService: AuthService(apiClient),
       perfil: _perfilSimulado(),
       estante: estanteVazia(),
+      progresso: progressoEmMemoria(),
       livros: DependenciasDeLivros(
         acervo: AcervoService(
-          ApiClient(
-            baseUrl: 'http://localhost:3000',
-            client: MockClient(_acervoPorRota),
-          ),
+          ApiClient(baseUrl: 'http://localhost:3000', client: MockClient(_acervoPorRota)),
         ),
         leitura: _leituraSimulada(),
         seletor: _SemImagem(),
@@ -303,6 +298,7 @@ void main() {
         ),
         perfil: _perfilSimulado(),
         estante: estanteVazia(),
+        progresso: progressoEmMemoria(),
         livros: DependenciasDeLivros(
           acervo: AcervoService(
             ApiClient(
@@ -399,6 +395,7 @@ void main() {
       ),
       perfil: _perfilSimulado(),
       estante: estanteVazia(),
+      progresso: progressoEmMemoria(),
       livros: DependenciasDeLivros(
         acervo: AcervoService(ApiClient(baseUrl: 'http://localhost:3000')),
         leitura: _leituraSimulada(),

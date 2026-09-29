@@ -9,6 +9,9 @@ import '../../design/widgets/botao_textual.dart';
 import '../../design/widgets/estado_vazio.dart';
 import '../../design/widgets/folha_inferior.dart';
 import '../perfil/widgets_de_perfil.dart';
+import '../progresso/fila_de_progresso.dart';
+import '../progresso/registro_progresso_controller.dart';
+import '../progresso/rotas_progresso.dart';
 import 'acoes_leitura.dart';
 import 'cartao_estante.dart';
 import 'estante_service.dart';
@@ -21,12 +24,16 @@ class EstantePage extends StatefulWidget {
   final EstanteService servico;
   final VoidCallback aoBuscarLivros;
   final VoidCallback? aoCadastrarLivro;
+  final DependenciasDeProgresso? progresso;
+  final ValueChanged<String>? aoVerAtualizacoes;
 
   const EstantePage({
     super.key,
     required this.servico,
     required this.aoBuscarLivros,
     this.aoCadastrarLivro,
+    this.progresso,
+    this.aoVerAtualizacoes,
   });
 
   @override
@@ -36,6 +43,7 @@ class EstantePage extends StatefulWidget {
 class _EstantePageState extends State<EstantePage> {
   StatusEstante? _status;
   OrdenacaoEstante _ordenacao = ordenacaoPadrao;
+  Set<String> _comPendentes = <String>{};
 
   late final ListaDaEstante _lista = ListaDaEstante(
     (pagina) => widget.servico.listarEstante(
@@ -48,10 +56,16 @@ class _EstantePageState extends State<EstantePage> {
     super.initState();
     _lista.addListener(_aoMudar);
     _lista.carregar();
+    final fila = widget.progresso?.fila;
+    if (fila != null) {
+      fila.addListener(_aoMudarFila);
+      fila.carregar();
+    }
   }
 
   @override
   void dispose() {
+    widget.progresso?.fila.removeListener(_aoMudarFila);
     _lista
       ..removeListener(_aoMudar)
       ..dispose();
@@ -59,6 +73,19 @@ class _EstantePageState extends State<EstantePage> {
   }
 
   void _aoMudar() => setState(() {});
+
+  void _aoMudarFila() {
+    final fila = widget.progresso?.fila;
+    final enviou = _comPendentes.any((leituraId) => !(fila?.temPendentes(leituraId) ?? false));
+    _comPendentes = <String>{
+      for (final item in fila?.itens ?? const <RegistroPendente>[]) item.leituraId,
+    };
+    if (enviou) {
+      _lista.carregar();
+    } else {
+      setState(() {});
+    }
+  }
 
   void _filtrar(StatusEstante? status) {
     if (status == _status) {
@@ -85,8 +112,30 @@ class _EstantePageState extends State<EstantePage> {
       context,
       servico: widget.servico,
       livro: LivroDaAcao.doItem(item),
+      aoRegistrarProgresso: widget.progresso == null
+          ? null
+          : (leitura) => _registrarProgresso(item, leitura),
+      aoVerAtualizacoes: widget.aoVerAtualizacoes == null
+          ? null
+          : (leitura) => widget.aoVerAtualizacoes!(leitura.id),
     );
     if (novo != null && mounted) {
+      _lista.carregar();
+    }
+  }
+
+  Future<void> _registrarProgresso(ItemEstante item, Leitura leitura) async {
+    final progresso = widget.progresso;
+    if (progresso == null) {
+      return;
+    }
+    final resultado = await registrarProgressoDaLeitura(
+      context,
+      progresso: progresso,
+      leitura: leitura,
+      livro: item.livro,
+    );
+    if (resultado is ProgressoSalvo && mounted) {
       _lista.carregar();
     }
   }
@@ -100,6 +149,11 @@ class _EstantePageState extends State<EstantePage> {
       case DestinoDoVazio.lido:
         _filtrar(StatusEstante.lido);
     }
+  }
+
+  int? _paginaPendente(ItemEstante item) {
+    final leituraId = item.leituraEmAndamentoId;
+    return leituraId == null ? null : widget.progresso?.fila.paginaLocal(leituraId);
   }
 
   bool _pertoDoFim(ScrollNotification notificacao) {
@@ -247,6 +301,7 @@ class _EstantePageState extends State<EstantePage> {
                 key: ValueKey<String>(item.livroId),
                 item: item,
                 aoAbrir: () => _abrirAcoes(item),
+                paginaPendente: _paginaPendente(item),
               ),
           ],
         ),

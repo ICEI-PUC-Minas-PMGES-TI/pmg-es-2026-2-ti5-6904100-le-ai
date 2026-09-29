@@ -4,6 +4,7 @@ import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../design/theme.dart';
 import '../../design/tokens.dart';
 import '../../design/widgets/capa_livro.dart';
+import '../progresso/textos.dart';
 import 'estante_service.dart';
 import 'textos.dart';
 
@@ -11,6 +12,7 @@ const double _proporcaoDaCapa = 2 / 3;
 const double _alturaDaBarra = 6;
 const double _seloDaCapa = 28;
 const int _percentualMaximo = 100;
+const double _iconeDoAviso = 16;
 
 class PillStatus extends StatelessWidget {
   final StatusEstante status;
@@ -124,14 +126,27 @@ class BarraDeProgresso extends StatelessWidget {
 class CartaoEstante extends StatelessWidget {
   final ItemEstante item;
   final VoidCallback? aoAbrir;
+  final int? paginaPendente;
 
-  const CartaoEstante({super.key, required this.item, this.aoAbrir});
+  const CartaoEstante({super.key, required this.item, this.aoAbrir, this.paginaPendente});
+
+  double? _percentual() {
+    if (!item.status.emAndamento) {
+      return null;
+    }
+    final pendente = paginaPendente;
+    final total = item.totalPaginas;
+    if (pendente != null && total != null && total > 0) {
+      return (pendente * _percentualMaximo / total).clamp(0, _percentualMaximo).roundToDouble();
+    }
+    return item.percentualConcluido?.roundToDouble();
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final legenda = theme.textTheme.bodySmall?.copyWith(color: theme.secondaryText);
-    final percentual = item.status.emAndamento ? item.percentualConcluido?.roundToDouble() : null;
+    final percentual = _percentual();
     final paginaAtual = item.paginaAtual;
     final totalPaginas = item.totalPaginas;
     final parouNaPagina =
@@ -173,6 +188,26 @@ class CartaoEstante extends StatelessWidget {
             rotulo: percentual == 0 ? TextosDaEstante.progressoIniciado : '${percentual.toInt()}%',
             semantica: 'Progresso de ${item.livro.titulo}',
           ),
+          if (paginaPendente != null) ...<Widget>[
+            const SizedBox(height: DesignTokens.space1),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Icon(
+                  PhosphorIconsRegular.cloudArrowUp,
+                  size: _iconeDoAviso,
+                  color: theme.warningColor,
+                ),
+                const SizedBox(width: DesignTokens.space1),
+                Expanded(
+                  child: Text(
+                    TextosDoRegistro.avisoOffline,
+                    style: theme.textTheme.bodySmall?.copyWith(color: theme.warningColor),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
         const SizedBox(height: DesignTokens.space2),
         Text(

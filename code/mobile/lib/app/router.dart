@@ -21,6 +21,7 @@ import '../features/livros/rotas_livros.dart';
 import '../features/perfil/perfil_page.dart';
 import '../features/perfil/rotas_perfil.dart';
 import '../features/perfil/widgets_de_identidade.dart';
+import '../features/progresso/rotas_progresso.dart';
 import 'shell_autenticado.dart';
 import 'verificando_sessao_page.dart';
 
@@ -48,6 +49,7 @@ GoRouter buildRouter({
   DependenciasDeLivros? livros,
   DependenciasDePerfil? perfil,
   EstanteService? estante,
+  DependenciasDeProgresso? progresso,
 }) {
   Future<bool> renovar(String token) => sessionController.renovar(token, authService.renovar);
   final deps =
@@ -65,6 +67,7 @@ GoRouter buildRouter({
           renovarSessao: renovar,
         ),
       );
+  final depsDeProgresso = progresso ?? DependenciasDeProgresso.padrao(servicoDeEstante.client);
   return GoRouter(
     initialLocation: rotaVerificandoSessao,
     refreshListenable: sessionController,
@@ -136,8 +139,13 @@ GoRouter buildRouter({
                   servico: servicoDeEstante,
                   aoBuscarLivros: () => context.go('/descobrir'),
                   aoCadastrarLivro: () => context.go(rotaAdicionarLivro),
+                  progresso: depsDeProgresso,
+                  aoVerAtualizacoes: (leituraId) => context.go(rotaProgressoDaLeitura(leituraId)),
                 ),
-                routes: rotasDaEstante(deps, servicoDeEstante),
+                routes: <RouteBase>[
+                  ...rotasDaEstante(deps, servicoDeEstante, progresso: depsDeProgresso),
+                  rotaDoProgresso(depsDeProgresso, servicoDeEstante),
+                ],
               ),
             ],
           ),
@@ -177,12 +185,8 @@ GoRouter buildRouter({
                   aoAbrirSolicitacoes: () => context.push<void>(rotaSolicitacoes),
                   aoBuscarLivros: () => context.go('/descobrir'),
                   aoVerEstante: () => context.go(rotaEstante),
-                  resenhas: (usuarioId) => _resenhasDoPerfil(
-                    context,
-                    deps,
-                    usuarioId: usuarioId,
-                    proprio: true,
-                  ),
+                  resenhas: (usuarioId) =>
+                      _resenhasDoPerfil(context, deps, usuarioId: usuarioId, proprio: true),
                 ),
                 routes: <RouteBase>[
                   ...rotasDoPerfil(
