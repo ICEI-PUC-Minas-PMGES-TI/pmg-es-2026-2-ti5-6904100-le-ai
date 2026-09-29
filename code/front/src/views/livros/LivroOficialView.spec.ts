@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { acervoService } from '../../services/acervo'
 import { ApiError } from '../../services/api'
 import { leituraService } from '../../services/leitura'
+import { itemEstante, leitura as leituraDaEstante } from '../../testes/estante'
 import { livroOficial, paginaDeResenhas, resenha } from '../../testes/massaDoLivro'
 import { montarNaRota } from '../../testes/montarNaRota'
 
@@ -21,6 +22,9 @@ vi.mock('../../services/leitura', () => ({
     obterMinhaAvaliacao: vi.fn(),
     salvarNota: vi.fn(),
     excluirNota: vi.fn(),
+    consultarItemEstante: vi.fn(),
+    consultarConclusoes: vi.fn(),
+    detalharLeitura: vi.fn(),
   },
 }))
 
@@ -34,6 +38,9 @@ describe('LivroOficialView', () => {
     servico.obterLivroOficial.mockReset().mockResolvedValue(livroOficial())
     servico.listarResenhasDoLivro.mockReset().mockResolvedValue(paginaDeResenhas([]))
     leitura.obterMinhaAvaliacao.mockReset().mockResolvedValue({ livroId: 'livro-1', nota: null, resenha: null })
+    leitura.consultarItemEstante.mockReset().mockResolvedValue(null)
+    leitura.consultarConclusoes.mockReset().mockResolvedValue({ livroId: 'livro-1', vezesLido: 0 })
+    leitura.detalharLeitura.mockReset()
   })
   afterEach(() => {
     vi.useRealTimers()
@@ -54,7 +61,7 @@ describe('LivroOficialView', () => {
     expect(wrapper.text()).toContain('Todavia · 2019 · 264 páginas')
     expect(wrapper.text()).toContain('Bibiana e Belonísia crescem no interior da Bahia.')
     expect(wrapper.text()).toContain('9788588808911')
-    // F-AVA: o bloco existe e, sem nota, diz "Sem nota". Estante e progresso ainda não aparecem.
+    // F-AVA: o bloco existe e, sem nota, diz "Sem nota".
     expect(leitura.obterMinhaAvaliacao).toHaveBeenCalledWith('livro-1')
     expect(wrapper.text()).toContain('Sua avaliação')
     expect(wrapper.find('button[aria-label="Sem nota. Dar nota"]').exists()).toBe(true)
@@ -283,5 +290,76 @@ describe('LivroOficialView', () => {
 
     expect(wrapper.text()).toContain('Muitas requisições em pouco tempo.')
     expect(wrapper.text()).not.toContain('A conexão falhou')
+  })
+
+  describe('situação na estante', () => {
+    function botao(texto: string) {
+      return [...document.body.querySelectorAll('button')].find((b) => b.textContent?.trim() === texto)
+    }
+
+    it('fora da estante: só Adicionar à estante, que abre as ações de entrada', async () => {
+      await abrir()
+
+      expect(leitura.consultarItemEstante).toHaveBeenCalledWith('livro-1')
+      expect(botao('Registrar progresso')).toBeUndefined()
+      expect(botao('Alterar status')).toBeUndefined()
+      botao('Adicionar à estante')!.click()
+      await flushPromises()
+
+      const acoes = [...document.body.querySelectorAll('[role="dialog"] ul button')].map((b) => b.textContent!.trim())
+      expect(acoes).toEqual(['Adicionar como Quero ler', 'Iniciar leitura'])
+    })
+
+    it('lendo: status, página atual, Lido N vezes e Registrar progresso abre o registro', async () => {
+      leitura.consultarItemEstante.mockResolvedValue(
+        itemEstante('livro-1', 'Torto Arado', {
+          status: 'LENDO',
+          leituraEmAndamentoId: 'lei-1',
+          paginaAtual: 148,
+          totalPaginas: 264,
+          percentualConcluido: 56,
+        }),
+      )
+      leitura.consultarConclusoes.mockResolvedValue({ livroId: 'livro-1', vezesLido: 1 })
+      leitura.detalharLeitura.mockResolvedValue(
+        leituraDaEstante({ id: 'lei-1', livroId: 'livro-1', status: 'LENDO', paginaAtual: 148, totalPaginas: 264 }),
+      )
+      const { wrapper } = await abrir()
+
+      expect(wrapper.text()).toContain('Lendo')
+      expect(wrapper.text()).toContain('Página 148 de 264')
+      expect(wrapper.text()).toContain('Lido 1 vez')
+      expect(botao('Adicionar à estante')).toBeUndefined()
+      expect(botao('Alterar status')).toBeDefined()
+      botao('Registrar progresso')!.click()
+      await flushPromises()
+
+      expect(leitura.detalharLeitura).toHaveBeenCalledWith('lei-1')
+      expect(document.body.querySelector('[role="dialog"]')?.textContent).toContain('Registrar progresso')
+    })
+
+    it('lido: sem botão principal, só Alterar status', async () => {
+      leitura.consultarItemEstante.mockResolvedValue(
+        itemEstante('livro-1', 'Torto Arado', { status: 'LIDO', ultimaLeituraId: 'lei-1' }),
+      )
+      const { wrapper } = await abrir()
+
+      expect(wrapper.text()).toContain('Lido')
+      expect(botao('Registrar progresso')).toBeUndefined()
+      expect(botao('Adicionar à estante')).toBeUndefined()
+      expect(botao('Alterar status')).toBeDefined()
+    })
+
+    it('falha ao consultar a estante: aviso e Tentar de novo recarrega', async () => {
+      leitura.consultarItemEstante.mockRejectedValueOnce(new ApiError('Fora do ar.', 503, 'INDISPONIVEL'))
+      const { wrapper } = await abrir()
+
+      expect(wrapper.text()).toContain('Não foi possível carregar as ações deste livro.')
+      const tentar = [...document.body.querySelectorAll('button')].filter((b) => b.textContent?.trim() === 'Tentar de novo')
+      tentar[tentar.length - 1]!.click()
+      await flushPromises()
+
+      expect(botao('Adicionar à estante')).toBeDefined()
+    })
   })
 })

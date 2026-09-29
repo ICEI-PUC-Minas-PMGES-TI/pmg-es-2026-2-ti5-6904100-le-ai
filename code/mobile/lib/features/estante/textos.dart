@@ -44,6 +44,8 @@ abstract final class TextosDaEstante {
   static const String rotuloOrdenacao = 'Ordenar por';
   static const String carregando = 'Carregando estante';
   static const String progressoIniciado = 'Iniciada';
+  static const String erroSituacao =
+      'Não foi possível carregar a situação deste livro na sua estante.';
 }
 
 enum DestinoDoVazio { descobrir, lendo, lido }
@@ -105,6 +107,7 @@ String textoVezesLido(int vezes) => 'Lido $vezes ${vezes == 1 ? 'vez' : 'vezes'}
 String textoTotalDeLivros(int total) => '$total ${total == 1 ? 'livro' : 'livros'}';
 
 abstract final class AcoesDeLeitura {
+  static const String adicionarAEstante = 'Adicionar à estante';
   static const String adicionarQueroLer = 'Adicionar como Quero ler';
   static const String iniciarLeitura = 'Iniciar leitura';
   static const String registrarProgresso = 'Registrar progresso';

@@ -277,7 +277,7 @@ describe('LivroPessoalView', () => {
     expect(botao('Adicionar à estante')).toBeUndefined()
   })
 
-  it('Registrar progresso pelo painel edita a página no dialog e recarrega a situação do livro', async () => {
+  it('Registrar progresso, botão principal da leitura aberta, edita a página no dialog e recarrega a situação', async () => {
     leituras.consultarItemEstante.mockResolvedValue(
       itemEstante('l1', 'Cartas de um sertanejo', { status: 'LENDO', leituraEmAndamentoId: 'lei-1', ultimaLeituraId: 'lei-1' }),
     )
@@ -299,8 +299,6 @@ describe('LivroPessoalView', () => {
       resumo: { paginaAtual: 200, totalPaginas: 264, percentualConcluido: 75.76, minutosTotais: 260 },
     })
     await montarNaRota('/livros/pessoal/l1')
-    await flushPromises()
-    botao('Alterar status')!.click()
     await flushPromises()
     botao('Registrar progresso')!.click()
     await flushPromises()
