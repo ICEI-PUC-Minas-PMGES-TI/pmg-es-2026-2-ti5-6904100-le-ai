@@ -5,6 +5,7 @@
 **Não funcionais:** RNF-SEC-42 (política de privacidade informando dados coletados, finalidade e retenção, acessível no cadastro e nas configurações), RNF-SEC-40 (coleta mínima de dados pessoais), RNF-SEC-30 (logout invalida o token de renovação), RNF-USA-03 (contraste WCAG AA), RNF-USA-04 (confirmação explícita antes de encerrar a sessão), RNF-USA-05 (erro em pt-BR e acionável), RNF-ERR-09 (cold start do servidor tratado como carregamento)
 **Regras de negócio:** nenhuma RN se aplica a esta tela
 **Versão web:** sim (RF-AUT-06 tem marcação na coluna Web de `REQUISITOS.md` §5.1, e RNF-SEC-42 exige a política nas duas plataformas)
+**Editada por:** ../../periodo-2/configuracoes/configuracoes.md
 
 ---
 

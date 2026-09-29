@@ -5,6 +5,7 @@
 **Não funcionais:** RNF-SEC-02 (propriedade validada no servidor), RNF-SEC-13 (validação por esquema: limite de caracteres), RNF-SEC-14 (conteúdo do usuário tratado como texto, com escape na renderização), RNF-USA-04 (confirmação na exclusão), RNF-ERR-04, RNF-USA-03, RNF-USA-05
 **Regras de negócio:** RN-07 (uma resenha por usuário por livro, editável, **texto cru limitado a 5.000 caracteres**, sem exigir leitura concluída), RN-04.5 (a resenha é do livro, sobrevive ao abandono e não duplica por releitura), RN-03 (em livro pessoal, só o dono escreve)
 **Versão web:** sim. RF-AVA-02, RF-AVA-03 e RF-AVA-04 têm marcação na coluna Web de `REQUISITOS.md` §5.5.
+**Editada por:** ../../periodo-2/escrever-resenha/escrever-resenha.md
 
 ---
 

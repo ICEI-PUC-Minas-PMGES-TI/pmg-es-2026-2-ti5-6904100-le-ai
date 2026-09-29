@@ -83,6 +83,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Decisão da feature:** fixar limite de caracteres do comentário e regras de posição após edição antes da migration.
 - **Alternativa a avaliar, sem mudar o desenho atual:** persistir apenas o conjunto de mencionados e resolver posições no cliente; a implementação prevista mantém cada posição por decisão do grupo.
 - Stack de `social` definida: **Spring (Java)** (arquitetura §2.1).
+- **Telas (design P2):** editar e excluir o próprio comentário (`DotsThree`, edição no campo do rodapé com a barra `Editando comentário`, confirmação que avisa que as respostas saem junto) e menção resolvida como link em `musgo` entram na edição consolidada [`comentarios.md`](../../design/periodo-2/comentarios/comentarios.md), prompt escrito em 29/09/2026, protótipo pendente. Decisões a ratificar: marcador `· editado`, lista desabilitada durante a edição, cancelar edição sem confirmar, `Ctrl` + `Enter` salva na web, confirmação mobile em sheet empilhado, sem toast depois de editar ou excluir, autor da atividade não remove comentário alheio. **Contratos a confirmar:** `editadoEm` no comentário; quantidade de respostas que saem com a raiz (a copy da confirmação usa o número); se o rate limit de menção recusa o comentário ou só a notificação; renderização de menção a conta oculta depois (suspensa ou com exclusão pendente).
 
 ## Timeline
 

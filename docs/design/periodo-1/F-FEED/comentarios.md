@@ -5,6 +5,7 @@
 **Não funcionais:** RNF-SEC-14 (comentário tratado como texto e renderizado com escape, nunca como HTML), RNF-SEC-18 (rate limiting em comentar, responder e mencionar), RNF-SEC-03 (o servidor revalida se a atividade ainda é visível ao solicitante antes de listar ou escrever), RNF-DES-02 (listagens paginadas), RNF-USA-03, RNF-USA-05, RNF-ERR-09
 **Regras de negócio:** RN-10 (comentários só em atividades do feed, com **um único nível** de resposta; resposta a uma resposta é irmã sob a mesma raiz, e o contexto é preservado pela menção), RN-08 e RN-09 (visibilidade da atividade)
 **Versão web:** sim (RF-SOC-12 e RF-SOC-14 têm marcação na coluna Web de `REQUISITOS.md` §5.9)
+**Editada por:** ../../periodo-2/comentarios/comentarios.md
 
 ---
 
