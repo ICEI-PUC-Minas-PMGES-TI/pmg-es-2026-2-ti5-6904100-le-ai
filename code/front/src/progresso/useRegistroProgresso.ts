@@ -3,7 +3,6 @@ import { ref } from 'vue'
 import { ApiError, erroDoCliente, novaChaveIdempotencia } from '../services/api'
 import {
   leituraService,
-  type EditarProgressoEntrada,
   type ExclusaoProgresso,
   type LeituraService,
   type ProgressoComResumo,
@@ -19,7 +18,7 @@ export type ErroDoCampo = Partial<Record<'pagina' | 'minutos', string>>
 
 export type ResultadoDoProgresso = ProgressoComResumo | ExclusaoProgresso
 
-type ServicoDeProgresso = Pick<LeituraService, 'registrarProgresso' | 'editarUltimoProgresso' | 'excluirTrechoProgresso'>
+type ServicoDeProgresso = Pick<LeituraService, 'registrarProgresso' | 'excluirTrechoProgresso'>
 
 interface Intencao {
   assinatura: string
@@ -108,12 +107,6 @@ export function useRegistroProgresso(servico: ServicoDeProgresso = leituraServic
     )
   }
 
-  function editarUltimo(progressoId: string, entrada: EditarProgressoEntrada): Promise<ProgressoComResumo | null> {
-    return executar(JSON.stringify(['editar', progressoId, entrada.pagina, entrada.minutos]), (atual) =>
-      servico.editarUltimoProgresso(progressoId, entrada, atual.chave),
-    )
-  }
-
   function excluirTrecho(progressoId: string, ultimoProgressoIdConfirmado: string): Promise<ExclusaoProgresso | null> {
     return executar(JSON.stringify(['excluir', progressoId, ultimoProgressoIdConfirmado]), (atual) =>
       servico.excluirTrechoProgresso(progressoId, { ultimoProgressoIdConfirmado }, atual.chave),
@@ -133,7 +126,6 @@ export function useRegistroProgresso(servico: ServicoDeProgresso = leituraServic
     precisaRecarregar,
     ultimoResultado,
     registrar,
-    editarUltimo,
     excluirTrecho,
     limparErro,
   }

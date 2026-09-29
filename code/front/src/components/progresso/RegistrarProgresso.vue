@@ -6,7 +6,7 @@ import { ROTULO_FECHAR } from '../../estante/textos'
 import { paginasLidasDerivadas, validarPagina, validarTempo } from '../../progresso/regras'
 import { rotuloPaginaDeTotal, TEXTOS_DO_REGISTRO } from '../../progresso/textos'
 import { useRegistroProgresso } from '../../progresso/useRegistroProgresso'
-import type { Progresso, ProgressoComResumo } from '../../services/leitura'
+import type { ProgressoComResumo } from '../../services/leitura'
 import CapaLivro from '../livros/CapaLivro.vue'
 import BotaoPrimario from '../ui/BotaoPrimario.vue'
 import BotaoTextual from '../ui/BotaoTextual.vue'
@@ -22,21 +22,14 @@ export interface LeituraDoRegistro {
   totalPaginas: number
 }
 
-const MINUTOS_POR_HORA = 60
-
-const props = withDefaults(
-  defineProps<{
-    aberta: boolean
-    leitura: LeituraDoRegistro
-    modo?: 'registrar' | 'editar'
-    progresso?: Progresso | null
-  }>(),
-  { modo: 'registrar', progresso: null },
-)
+const props = defineProps<{
+  aberta: boolean
+  leitura: LeituraDoRegistro
+}>()
 
 const emit = defineEmits<{ salvo: [resultado: ProgressoComResumo]; fechar: [] }>()
 
-const { salvando, erro, erroDoCampo, registrar, editarUltimo, limparErro } = useRegistroProgresso()
+const { salvando, erro, erroDoCampo, registrar, limparErro } = useRegistroProgresso()
 
 const pagina = ref('')
 const horas = ref('')
@@ -44,14 +37,8 @@ const minutos = ref('')
 const erroPagina = ref<string | null>(null)
 const erroTempo = ref<string | null>(null)
 
-const edicao = computed(() => props.modo === 'editar' && props.progresso !== null)
-const paginaBase = computed(() => (edicao.value ? props.progresso!.paginaAnterior : props.leitura.paginaAtual))
-const titulo = computed(() => (edicao.value ? TEXTOS_DO_REGISTRO.tituloEdicao : TEXTOS_DO_REGISTRO.titulo))
-const ajudaPagina = computed(() =>
-  edicao.value
-    ? TEXTOS_DO_REGISTRO.ajudaPaginaEdicao(paginaBase.value + 1, props.leitura.totalPaginas, paginaBase.value)
-    : TEXTOS_DO_REGISTRO.ajudaPagina(paginaBase.value + 1, props.leitura.totalPaginas),
-)
+const paginaBase = computed(() => props.leitura.paginaAtual)
+const ajudaPagina = computed(() => TEXTOS_DO_REGISTRO.ajudaPagina(paginaBase.value + 1, props.leitura.totalPaginas))
 
 function numero(texto: string): number {
   return texto.trim() === '' ? Number.NaN : Number(texto)
@@ -74,11 +61,9 @@ function preencher(): void {
   limparErro()
   erroPagina.value = null
   erroTempo.value = null
-  const progresso = edicao.value ? props.progresso! : null
-  pagina.value = progresso ? String(progresso.pagina) : ''
-  const tempoInformado = progresso && progresso.minutos > 0 ? progresso.minutos : null
-  horas.value = tempoInformado === null ? '' : String(Math.floor(tempoInformado / MINUTOS_POR_HORA))
-  minutos.value = tempoInformado === null ? '' : String(tempoInformado % MINUTOS_POR_HORA)
+  pagina.value = ''
+  horas.value = ''
+  minutos.value = ''
 }
 
 watch(
@@ -104,9 +89,10 @@ async function salvar(): Promise<void> {
   erroTempo.value = tempo.erro
   if (erroPagina.value || tempo.minutos === null) return
   const tempoVazio = horas.value.trim() === '' && minutos.value.trim() === ''
-  const resultado = edicao.value
-    ? await editarUltimo(props.progresso!.id, { pagina: valorPagina, minutos: tempo.minutos })
-    : await registrar(props.leitura.leituraId, { pagina: valorPagina, ...(tempoVazio ? {} : { minutos: tempo.minutos }) })
+  const resultado = await registrar(props.leitura.leituraId, {
+    pagina: valorPagina,
+    ...(tempoVazio ? {} : { minutos: tempo.minutos }),
+  })
   if (resultado) emit('salvo', resultado)
 }
 
@@ -118,7 +104,7 @@ function fechar(): void {
 <template>
   <SobreposicaoModal
     :aberta="aberta"
-    :rotulo="titulo"
+    :rotulo="TEXTOS_DO_REGISTRO.titulo"
     foco-inicial="input"
     @fechar="fechar"
   >
@@ -129,7 +115,7 @@ function fechar(): void {
     >
       <div class="flex items-start justify-between gap-space-4">
         <h2 class="text-title text-tinta">
-          {{ titulo }}
+          {{ TEXTOS_DO_REGISTRO.titulo }}
         </h2>
         <button
           type="button"
@@ -257,7 +243,7 @@ function fechar(): void {
           class="h-12 md:h-10 md:w-auto"
           :disabled="salvando"
         >
-          {{ salvando ? TEXTOS_DO_REGISTRO.botaoSalvando : edicao ? TEXTOS_DO_REGISTRO.botaoSalvarEdicao : TEXTOS_DO_REGISTRO.botaoSalvar }}
+          {{ salvando ? TEXTOS_DO_REGISTRO.botaoSalvando : TEXTOS_DO_REGISTRO.botaoSalvar }}
         </BotaoPrimario>
         <BotaoTextual
           class="h-12 w-full justify-center md:h-10 md:w-auto"

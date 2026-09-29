@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PhPencilSimple, PhTrash, PhWarning } from '@phosphor-icons/vue'
+import { PhTrash, PhWarning } from '@phosphor-icons/vue'
 import { computed } from 'vue'
 
 import { formatarData } from '../../livros/formatos'
@@ -9,11 +9,10 @@ import type { Progresso } from '../../services/leitura'
 
 const props = defineProps<{
   itens: readonly Progresso[]
-  idDoUltimo: string | null
   somenteLeitura: boolean
 }>()
 
-const emit = defineEmits<{ excluir: [progresso: Progresso]; editar: [progresso: Progresso] }>()
+const emit = defineEmits<{ excluir: [progresso: Progresso] }>()
 
 const comAvisoDeRitmo = computed(
   () => new Set(props.itens.filter((item) => precisaDeAvisoDeRitmo(props.itens, item.id)).map((item) => item.id)),
@@ -99,21 +98,6 @@ const classeDoIcone =
               <td v-if="!somenteLeitura">
                 <div class="flex justify-end">
                   <button
-                    v-if="item.id === idDoUltimo"
-                    type="button"
-                    :class="classeDoIcone"
-                    class="text-grafite hover:text-musgo"
-                    :aria-label="TEXTOS_DAS_ATUALIZACOES.rotuloEditar(item.pagina)"
-                    data-editar
-                    @click="emit('editar', item)"
-                  >
-                    <PhPencilSimple
-                      :size="20"
-                      weight="regular"
-                      aria-hidden="true"
-                    />
-                  </button>
-                  <button
                     type="button"
                     :class="[classeDoIcone, corDoExcluir(item)]"
                     class="group-hover:text-rubi"
@@ -180,21 +164,6 @@ const classeDoIcone =
             {{ TEXTOS_DAS_ATUALIZACOES.itemDetalhe(item.paginasLidas, item.minutos) }}
           </p>
           <template v-if="!somenteLeitura">
-            <button
-              v-if="item.id === idDoUltimo"
-              type="button"
-              :class="classeDoIcone"
-              class="-mr-space-2 text-grafite"
-              :aria-label="TEXTOS_DAS_ATUALIZACOES.rotuloEditar(item.pagina)"
-              data-editar
-              @click="emit('editar', item)"
-            >
-              <PhPencilSimple
-                :size="20"
-                weight="regular"
-                aria-hidden="true"
-              />
-            </button>
             <button
               type="button"
               :class="[classeDoIcone, corDoExcluir(item)]"

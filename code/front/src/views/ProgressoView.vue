@@ -69,7 +69,6 @@ const idDoUltimo = computed(() => lista.itens.value.find((item) => ehUltimo(list
 const podeRegistrar = computed(() => resumo.value !== null && !somenteLeitura.value)
 
 const registroAberto = ref(false)
-const emEdicao = ref<Progresso | null>(null)
 
 const leituraDoRegistro = computed(() => ({
   leituraId,
@@ -80,14 +79,12 @@ const leituraDoRegistro = computed(() => ({
   totalPaginas: resumo.value?.totalPaginas ?? 0,
 }))
 
-function abrirRegistro(progresso: Progresso | null = null): void {
-  emEdicao.value = progresso
+function abrirRegistro(): void {
   registroAberto.value = true
 }
 
 function fecharRegistro(): void {
   registroAberto.value = false
-  emEdicao.value = null
 }
 
 async function aoSalvar(resultado: ProgressoComResumo): Promise<void> {
@@ -147,7 +144,7 @@ onMounted(() => {
       <BotaoPrimario
         class="px-space-5"
         data-registrar
-        @click="abrirRegistro()"
+        @click="abrirRegistro"
       >
         {{ TEXTOS_DO_REGISTRO.titulo }}
       </BotaoPrimario>
@@ -253,7 +250,7 @@ onMounted(() => {
           <BotaoPrimario
             v-if="!somenteLeitura"
             class="mt-space-6 px-space-6"
-            @click="abrirRegistro()"
+            @click="abrirRegistro"
           >
             {{ TEXTOS_DAS_ATUALIZACOES.vazioBotao }}
           </BotaoPrimario>
@@ -262,10 +259,8 @@ onMounted(() => {
         <template v-else>
           <ListaProgresso
             :itens="lista.itens.value"
-            :id-do-ultimo="idDoUltimo"
             :somente-leitura="somenteLeitura"
             @excluir="pedirExclusao"
-            @editar="abrirRegistro"
           />
           <FimDaLista
             v-if="lista.temMais.value"
@@ -302,8 +297,6 @@ onMounted(() => {
       v-if="resumo"
       :aberta="registroAberto"
       :leitura="leituraDoRegistro"
-      :modo="emEdicao ? 'editar' : 'registrar'"
-      :progresso="emEdicao"
       @salvo="aoSalvar"
       @fechar="fecharRegistro"
     />

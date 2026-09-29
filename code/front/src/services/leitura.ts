@@ -155,7 +155,6 @@ export interface Progresso {
   fusoHorarioDispositivo: string
   dataLocal: string
   criadoEm: string
-  atualizadoEm?: string | null
 }
 
 export interface ResumoProgresso {
@@ -187,11 +186,6 @@ export interface RegistrarProgressoEntrada {
   minutos?: number
   registradoEmDispositivo: string
   fusoHorarioDispositivo: string
-}
-
-export interface EditarProgressoEntrada {
-  pagina?: number
-  minutos?: number
 }
 
 export interface ExcluirProgressoEntrada {
@@ -301,18 +295,6 @@ export function createLeituraService(options: ApiClientOptions = {}) {
     return request<PaginaProgresso>(daLeitura(leituraId, `/progresso${comPaginacao(new URLSearchParams(), filtro)}`))
   }
 
-  function editarUltimoProgresso(
-    progressoId: string,
-    entrada: EditarProgressoEntrada,
-    chave: string,
-  ): Promise<ProgressoComResumo> {
-    return request<ProgressoComResumo>(doProgresso(progressoId), {
-      method: 'PATCH',
-      json: entrada,
-      idempotencyKey: chave,
-    })
-  }
-
   function excluirTrechoProgresso(
     progressoId: string,
     entrada: ExcluirProgressoEntrada,
@@ -388,7 +370,6 @@ export function createLeituraService(options: ApiClientOptions = {}) {
     consultarConclusoes,
     registrarProgresso,
     listarProgresso,
-    editarUltimoProgresso,
     excluirTrechoProgresso,
   }
 }

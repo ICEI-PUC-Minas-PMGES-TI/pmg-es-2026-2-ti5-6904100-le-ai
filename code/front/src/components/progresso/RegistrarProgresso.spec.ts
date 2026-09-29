@@ -6,7 +6,7 @@ import { leituraService, type Progresso, type ProgressoComResumo } from '../../s
 import RegistrarProgresso from './RegistrarProgresso.vue'
 
 vi.mock('../../services/leitura', () => ({
-  leituraService: { registrarProgresso: vi.fn(), editarUltimoProgresso: vi.fn(), excluirTrechoProgresso: vi.fn() },
+  leituraService: { registrarProgresso: vi.fn(), excluirTrechoProgresso: vi.fn() },
 }))
 
 const servico = vi.mocked(leituraService)
@@ -61,7 +61,6 @@ function texto(): string {
 describe('RegistrarProgresso', () => {
   beforeEach(() => {
     servico.registrarProgresso.mockReset()
-    servico.editarUltimoProgresso.mockReset()
   })
   afterEach(() => {
     document.body.innerHTML = ''
@@ -217,28 +216,6 @@ describe('RegistrarProgresso', () => {
     )
     expect(campo('pagina').value).toBe('172')
     expect(campo('pagina').disabled).toBe(false)
-  })
-
-  it('edição do último vem preenchida, valida contra a página anterior e chama editarUltimo', async () => {
-    servico.editarUltimoProgresso.mockResolvedValue(resultado(150, 80))
-    const wrapper = montar({ modo: 'editar', progresso: ULTIMO })
-    await flushPromises()
-
-    expect(texto()).toContain('Editar progresso')
-    expect(texto()).toContain('Entre 121 e 264. O registro anterior é da página 120.')
-    expect(campo('pagina').value).toBe('148')
-    expect(campo('horas').value).toBe('1')
-    expect(campo('minutos').value).toBe('15')
-    expect(document.querySelector('[data-derivado]')!.textContent).toContain('Você leu 28 páginas')
-    expect(document.querySelector('button[type="submit"]')!.textContent?.trim()).toBe('Salvar alterações')
-
-    await digitar('pagina', '150')
-    await digitar('minutos', '20')
-    await enviar()
-
-    expect(servico.editarUltimoProgresso).toHaveBeenCalledWith('p-2', { pagina: 150, minutos: 80 }, expect.any(String))
-    expect(servico.registrarProgresso).not.toHaveBeenCalled()
-    expect(wrapper.emitted('salvo')).toHaveLength(1)
   })
 
   it('Cancelar emite fechar', async () => {

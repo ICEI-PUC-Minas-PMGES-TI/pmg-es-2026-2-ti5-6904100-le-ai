@@ -15,7 +15,6 @@ vi.mock('../services/leitura', async (importOriginal) => ({
     consultarItemEstante: vi.fn(),
     excluirTrechoProgresso: vi.fn(),
     registrarProgresso: vi.fn(),
-    editarUltimoProgresso: vi.fn(),
   },
 }))
 
@@ -159,29 +158,23 @@ describe('ProgressoView', () => {
     expect(document.querySelector('[role="dialog"]')).toBeNull()
   })
 
-  it('só a atualização mais recente pode ser editada', async () => {
+  it('nenhuma atualização oferece edição; correção é excluir e registrar de novo', async () => {
     const { wrapper } = await montar()
 
     const linhas = wrapper.get('[data-tabela]').findAll('[data-linha]')
-    expect(linhas[0].find('[data-editar]').exists()).toBe(true)
-    expect(linhas.slice(1).every((linha) => !linha.find('[data-editar]').exists())).toBe(true)
-    expect(wrapper.get('[data-lista]').findAll('[data-editar]')).toHaveLength(1)
-
-    await linhas[0].get('[data-editar]').trigger('click')
-    await flushPromises()
-    const registro = wrapper.findComponent({ name: 'RegistrarProgresso' })
-    expect(registro.props('modo')).toBe('editar')
-    expect(registro.props('progresso')).toEqual(ITENS[0])
-    expect(registro.props('aberta')).toBe(true)
+    expect(linhas.length).toBeGreaterThan(1)
+    expect(linhas.every((linha) => linha.find('[data-excluir]').exists())).toBe(true)
+    expect(wrapper.find('[data-editar]').exists()).toBe(false)
+    expect(wrapper.findAll('button').some((botao) => /editar/i.test(botao.attributes('aria-label') ?? ''))).toBe(false)
+    expect(wrapper.findComponent({ name: 'RegistrarProgresso' }).props()).not.toHaveProperty('modo')
   })
 
-  it('somente leitura esconde registrar, editar e excluir', async () => {
+  it('somente leitura esconde registrar e excluir', async () => {
     servico.listarProgresso.mockResolvedValue(pagina(ITENS, { somenteLeitura: true }))
     const { wrapper } = await montar()
 
     expect(wrapper.findAll('[data-linha]').length).toBeGreaterThan(0)
     expect(wrapper.find('[data-excluir]').exists()).toBe(false)
-    expect(wrapper.find('[data-editar]').exists()).toBe(false)
     expect(document.querySelector('[data-registrar]')).toBeNull()
   })
 

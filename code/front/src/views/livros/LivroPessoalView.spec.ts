@@ -17,7 +17,6 @@ vi.mock('../../services/leitura', () => ({
     consultarConclusoes: vi.fn(),
     registrarProgresso: vi.fn(),
     listarProgresso: vi.fn(),
-    editarUltimoProgresso: vi.fn(),
     excluirTrechoProgresso: vi.fn(),
     detalharLeitura: vi.fn(),
     obterMinhaAvaliacao: vi.fn(),

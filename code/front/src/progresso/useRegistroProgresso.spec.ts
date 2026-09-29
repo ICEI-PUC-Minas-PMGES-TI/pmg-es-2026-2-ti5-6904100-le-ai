@@ -24,7 +24,6 @@ const progresso: Progresso = {
 function servicoFalso() {
   return {
     registrarProgresso: vi.fn().mockResolvedValue({ progresso, resumo }),
-    editarUltimoProgresso: vi.fn().mockResolvedValue({ progresso, resumo }),
     excluirTrechoProgresso: vi.fn().mockResolvedValue({ idsRemovidos: ['p1'], resumo }),
   }
 }
@@ -144,18 +143,18 @@ describe('useRegistroProgresso', () => {
 
   it('trata timeout e 5xx como erro ao salvar e guarda a chave', async () => {
     const servico = servicoFalso()
-    servico.editarUltimoProgresso
+    servico.registrarProgresso
       .mockRejectedValueOnce(new ApiError('Tempo esgotado.', 0, 'TIMEOUT'))
       .mockRejectedValueOnce(new ApiError('Erro interno.', 500, 'INTERNO'))
     const registro = useRegistroProgresso(servico)
 
-    await registro.editarUltimo('p4', { pagina: 170 })
+    await registro.registrar('lei-1', { pagina: 170 })
     expect(registro.erro.value).toBe(TEXTOS_DO_REGISTRO.erroEnvio)
-    await registro.editarUltimo('p4', { pagina: 170 })
+    await registro.registrar('lei-1', { pagina: 170 })
     expect(registro.erro.value).toBe(TEXTOS_DO_REGISTRO.erroEnvio)
-    await registro.editarUltimo('p4', { pagina: 170 })
+    await registro.registrar('lei-1', { pagina: 170 })
 
-    const chaves = servico.editarUltimoProgresso.mock.calls.map((chamada) => chamada[2])
+    const chaves = servico.registrarProgresso.mock.calls.map((chamada) => chamada[2])
     expect(new Set(chaves).size).toBe(1)
     expect(registro.ultimoResultado.value).toEqual({ progresso, resumo })
   })

@@ -251,7 +251,6 @@ const PROGRESSO = {
   fusoHorarioDispositivo: 'America/Sao_Paulo',
   dataLocal: '2026-09-20',
   criadoEm: '2026-09-21T01:10:02Z',
-  atualizadoEm: null,
 }
 
 describe('progresso', () => {
@@ -292,18 +291,6 @@ describe('progresso', () => {
     expect(fetchMock.mock.calls[0]![0]).toBe('https://leitura.example.com/leituras/lt1/progresso?page=2&limite=10')
     expect(fetchMock.mock.calls[1]![0]).toBe('https://leitura.example.com/leituras/lt1/progresso')
     expect(new Headers(fetchMock.mock.calls[0]![1]?.headers).has('Idempotency-Key')).toBe(false)
-  })
-
-  it('edita o último com PATCH levando só os campos informados', async () => {
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(resposta(200, { progresso: PROGRESSO, resumo: RESUMO }))
-
-    await servico(fetchMock).editarUltimoProgresso('p2', { minutos: 45 }, 'k2')
-
-    const [url, init] = fetchMock.mock.calls[0]!
-    expect(url).toBe('https://leitura.example.com/progresso/p2')
-    expect(init?.method).toBe('PATCH')
-    expect(JSON.parse(String(init?.body))).toEqual({ minutos: 45 })
-    expect(new Headers(init?.headers).get('Idempotency-Key')).toBe('k2')
   })
 
   it('exclui o trecho com DELETE levando o último confirmado no corpo', async () => {

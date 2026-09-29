@@ -21,9 +21,6 @@ export function rotuloTempo(minutos: number): string {
 
 export const TEXTOS_DO_REGISTRO = {
   titulo: 'Registrar progresso',
-  tituloEdicao: 'Editar progresso',
-  ajudaPaginaEdicao: (minima: number, maxima: number, paginaAnterior: number) =>
-    `Entre ${minima} e ${maxima}. O registro anterior é da página ${paginaAnterior}.`,
   rotuloPagina: 'Página em que parou',
   ajudaPagina: (minima: number, maxima: number) =>
     `Entre ${minima} e ${maxima}. Informe onde você parou, não quantas páginas leu.`,
@@ -42,7 +39,6 @@ export const TEXTOS_DO_REGISTRO = {
   erroListaDesatualizada: 'Suas atualizações mudaram em outro lugar. Recarregamos a lista para você conferir.',
   avisoOffline: 'Registro salvo no aparelho. Será enviado quando você voltar a ficar online.',
   botaoSalvar: 'Salvar',
-  botaoSalvarEdicao: 'Salvar alterações',
   botaoSalvando: 'Salvando',
   botaoCancelar: 'Cancelar',
 } as const
@@ -72,7 +68,6 @@ export const TEXTOS_DAS_ATUALIZACOES = {
   confirmacaoBotao: 'Excluir atualização',
   botaoCancelar: 'Cancelar',
   rotuloExcluir: (pagina: number) => `Excluir a atualização da página ${pagina}`,
-  rotuloEditar: (pagina: number) => `Editar a atualização da página ${pagina}`,
   confirmacaoAlcance: (quantidade: number) =>
     quantidade === 2
       ? 'Esta atualização e a seguinte serão excluídas.'
