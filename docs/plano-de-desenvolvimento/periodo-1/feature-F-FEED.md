@@ -109,6 +109,8 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 ## Timeline
 
+### 29/09/2026: o botão de alternar respostas do app ("Ver N respostas", "Ocultar respostas", "Ver mais respostas") ganhou respiro à direita, para o realce do toque não terminar colado na última letra.
+
 ### 27/09/2026: app mobile de F-FEED implementado em `code/mobile/lib/features/feed/` — feed paginado, os cinco tipos, curtir, comentários em bottom sheet com resposta em um nível e menção pré-preenchida, e os estados de carregamento, vazio, erro, cold start e 429, com testes de serviço, widget e roteador; mergeado em `desenvolvimento`.
 
 ### 26/09/2026: backend `social` e web de F-FEED implementados, com validação E2E via HTTP e checagem no navegador (web e mobile). Pendências de broker registradas acima.

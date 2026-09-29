@@ -500,7 +500,8 @@ class _FolhaComentariosState extends State<FolhaComentarios> {
     return TextButton(
       onPressed: aoTocar,
       style: TextButton.styleFrom(
-        padding: EdgeInsets.zero,
+        // Esquerda em zero para o traço alinhar ao texto do comentário; a direita dá respiro ao realce.
+        padding: const EdgeInsets.only(right: DesignTokens.space3),
         minimumSize: const Size(48, 48),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         foregroundColor: theme.primaryAccent,
