@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -13,6 +15,8 @@ import 'package:le_ai_mobile/core/session/token_store.dart';
 import 'package:le_ai_mobile/design/theme.dart';
 import 'package:le_ai_mobile/features/avaliacao/leitura_service.dart';
 import 'package:le_ai_mobile/features/auth/auth_service.dart';
+import 'package:le_ai_mobile/features/feed/rotas_feed.dart';
+import 'package:le_ai_mobile/features/feed/social_service.dart';
 import 'package:le_ai_mobile/features/livros/acervo_service.dart';
 import 'package:le_ai_mobile/features/livros/capa.dart';
 import 'package:le_ai_mobile/features/livros/rotas_livros.dart';
@@ -59,24 +63,80 @@ class _SemAvatar implements EnviadorDeAvatar {
   Future<Avatar> enviar(ImagemEscolhida imagem) async => throw const FalhaNoEnvioDoAvatar();
 }
 
-/// `identidade` simulado para a aba Perfil: sempre o mesmo perfil próprio.
+/// `identidade` simulado para a aba Perfil: o perfil próprio em `/me/perfil`, e em
+/// `/perfis/<username>` um leitor qualquer que não é quem pergunta.
 DependenciasDePerfil _perfilSimulado() => DependenciasDePerfil(
   servico: PerfilService(
     ApiClient(
       baseUrl: 'http://localhost:8080',
+      client: MockClient((request) async {
+        final segmentos = request.url.pathSegments;
+        final outro = segmentos.length == 2 && segmentos.first == 'perfis';
+        return http.Response(
+          outro
+              ? '{"id":"u2","username":"${segmentos.last}","displayName":"Outro Leitor",'
+                    '"avatarUrl":null,"privacidade":"publico","conteudoRestrito":false,'
+                    '"relacao":"seguindo","biografia":null,'
+                    '"contadores":{"seguidores":0,"seguidos":0}}'
+              : '{"id":"u1","username":"marinableu","displayName":"Marina Beltrão",'
+                    '"avatarUrl":null,"privacidade":"publico","conteudoRestrito":false,'
+                    '"relacao":"proprio","biografia":null,'
+                    '"contadores":{"seguidores":0,"seguidos":0}}',
+          200,
+          headers: <String, String>{'content-type': 'application/json; charset=utf-8'},
+        );
+      }),
+    ),
+  ),
+  seletor: _SemImagem(),
+  enviador: _SemAvatar(),
+);
+
+/// `social` simulado para a aba Feed: uma atividade de livro pessoal, de outra pessoa.
+DependenciasDeFeed _feedSimulado() => DependenciasDeFeed(
+  social: SocialService(
+    ApiClient(
+      baseUrl: 'http://localhost:8081',
       client: MockClient(
         (request) async => http.Response(
-          '{"id":"u1","username":"marinableu","displayName":"Marina Beltrão","avatarUrl":null,'
-          '"privacidade":"publico","conteudoRestrito":false,"relacao":"proprio","biografia":null,'
-          '"contadores":{"seguidores":0,"seguidos":0}}',
+          jsonEncode(<String, Object?>{
+            'itens': <Object?>[
+              <String, Object?>{
+                'id': 'a1',
+                'tipo': 'LEITURA_INICIADA',
+                'autor': <String, Object?>{
+                  'id': 'u2',
+                  'username': 'caio',
+                  'nomeExibicao': 'Caio Ferraz',
+                  'avatarUrl': null,
+                },
+                'livro': <String, Object?>{
+                  'id': 'l1',
+                  'tipo': 'PESSOAL',
+                  'titulo': 'Caderno de Contos do Bairro',
+                  'autor': 'Caio Ferraz',
+                  'capaUrl': null,
+                  'link': <String, Object?>{'livroId': 'l1', 'via': 'feed', 'referenciaId': 'a1'},
+                },
+                'resenha': null,
+                'criadoEm': '2026-09-26T12:00:00Z',
+                'totalCurtidas': 0,
+                'totalComentarios': 0,
+                'curtidaPeloSolicitante': false,
+              },
+            ],
+            'pagina': 0,
+            'tamanho': 20,
+            'totalItens': 1,
+            'totalPaginas': 1,
+            'ultima': true,
+          }),
           200,
           headers: <String, String>{'content-type': 'application/json; charset=utf-8'},
         ),
       ),
     ),
   ),
-  seletor: _SemImagem(),
-  enviador: _SemAvatar(),
 );
 
 /// `acervo` simulado por rota: um assunto para a faixa, e toda busca volta vazia, que é o estado
@@ -104,6 +164,15 @@ Future<http.Response> _acervoPorRota(http.Request request) async {
       '"assuntos":[],"isbn":"9788588808911","sinopse":{"status":"ausente","texto":null},'
       '"resenhas":{"itens":[],"limit":10,"proximoCursor":null}}',
       200,
+      headers: cabecalhos,
+    );
+  }
+  // O livro pessoal aberto pelo feed não faz parte do que se testa aqui: responde como livro
+  // inexistente, que a tela sabe mostrar.
+  if (request.url.path.startsWith('/livros/pessoal/')) {
+    return http.Response(
+      '{"codigo":"RECURSO_NAO_ENCONTRADO","mensagem":"Não encontrado."}',
+      404,
       headers: cabecalhos,
     );
   }
@@ -139,6 +208,7 @@ void main() {
       sessionController: sessionController,
       authService: AuthService(apiClient),
       perfil: _perfilSimulado(),
+      feed: _feedSimulado(),
       estante: estanteVazia(),
       livros: DependenciasDeLivros(
         acervo: AcervoService(
@@ -466,6 +536,31 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('marina.beltrao@gmail.com'), findsOneWidget);
+  });
+
+  testWidgets('no feed, o autor abre o perfil e o livro pessoal leva a referência da atividade', (
+    tester,
+  ) async {
+    await sessionController.entrar('jwt-valido');
+    await tester.pumpWidget(_wrap(router));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Feed'));
+    await tester.pumpAndSettle();
+    expect(find.text('Livro pessoal'), findsOneWidget);
+
+    await tester.tap(find.text('Caio Ferraz').first);
+    await tester.pumpAndSettle();
+    expect(router.state.uri.toString(), '/feed/leitores/caio');
+
+    router.go('/feed');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Caderno de Contos do Bairro'));
+    await tester.pumpAndSettle();
+    expect(
+      router.state.uri.toString(),
+      '/feed/livro-pessoal/l1?via=feed&referenciaId=a1',
+    );
   });
 }
 

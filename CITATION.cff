@@ -1,16 +1,6 @@
 cff-version: 1.2.0
 message: Please cite this software using these metadata.
 title: "Lê Ai: aplicativo social de leitura para jovens adultos brasileiros"
-abstract: >-
-  Lê Ai é um aplicativo social de leitura, no modelo Skoob/Letterboxd, cujo
-  objetivo é aumentar a adesão à leitura na população brasileira, com foco em
-  jovens de 18 a 30 anos. A tese de produto é que o hábito de leitura se
-  sustenta por três mecanismos — registro, meta e pertencimento — e o
-  aplicativo entrega os três. O produto principal é um app mobile nativo em
-  Flutter, acompanhado de uma aplicação web em Vue + Tailwind que cobre um
-  subconjunto de funcionalidades. O backend adota arquitetura de
-  microsserviços (Spring e NestJS) sobre PostgreSQL no Neon, com mensageria
-  RabbitMQ para os fluxos assíncronos.
 authors:
   - family-names: Fonseca de Mello Souza
     given-names: Vicenzo

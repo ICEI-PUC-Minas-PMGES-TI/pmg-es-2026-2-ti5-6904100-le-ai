@@ -11,11 +11,35 @@ import com.rabbitmq.client.AMQP.BasicProperties;
 import com.rabbitmq.client.Delivery;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /** Validates the canonical envelope, AMQP headers and registered data schemas. */
 public final class MessageValidator {
+
+  /**
+   * Eventos v1 que este serviço publica ou consome: os do feed, os de interação que ele mesmo
+   * publica e os de notificação (F-NOT). Cada um tem o schema {@code <tipo>.v1.schema.json}.
+   */
+  private static final List<String> EVENTOS_V1 =
+      List.of(
+          "ping.teste",
+          MessagingConstants.EVENTO_LEITURA_INICIADA,
+          MessagingConstants.EVENTO_LEITURA_RETOMADA,
+          MessagingConstants.EVENTO_LEITURA_FINALIZADA,
+          MessagingConstants.EVENTO_LEITURA_ABANDONADA,
+          MessagingConstants.EVENTO_RESENHA_PUBLICADA,
+          MessagingConstants.EVENTO_RESENHA_EXCLUIDA,
+          MessagingConstants.EVENTO_SEGUIDOR_NOVO,
+          MessagingConstants.EVENTO_SOLICITACAO_CRIADA,
+          MessagingConstants.EVENTO_SOLICITACAO_ACEITA,
+          MessagingConstants.EVENTO_ATIVIDADE_CURTIDA,
+          MessagingConstants.EVENTO_ATIVIDADE_COMENTADA,
+          MessagingConstants.EVENTO_COMENTARIO_RESPONDIDO,
+          MessagingConstants.EVENTO_LEITURA_EM_RISCO,
+          MessagingConstants.EVENTO_LEITURA_EXPIRADA);
 
   private final ObjectMapper mapper =
       new ObjectMapper()
@@ -38,16 +62,11 @@ public final class MessageValidator {
                             "https://leai.app/schemas/mensageria/", "classpath:messaging/schemas/")));
     envelopeSchema = load(factory, "messaging/schemas/envelope-v1.schema.json");
     dataSchemas =
-        Map.of(
-            "ping.teste:1", load(factory, "messaging/schemas/ping.teste.v1.schema.json"),
-            "leitura.iniciada:1", load(factory, "messaging/schemas/leitura.iniciada.v1.schema.json"),
-            "leitura.retomada:1", load(factory, "messaging/schemas/leitura.retomada.v1.schema.json"),
-            "leitura.finalizada:1",
-                load(factory, "messaging/schemas/leitura.finalizada.v1.schema.json"),
-            "leitura.abandonada:1",
-                load(factory, "messaging/schemas/leitura.abandonada.v1.schema.json"),
-            "resenha.publicada:1", load(factory, "messaging/schemas/resenha.publicada.v1.schema.json"),
-            "resenha.excluida:1", load(factory, "messaging/schemas/resenha.excluida.v1.schema.json"));
+        EVENTOS_V1.stream()
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    tipo -> tipo + ":1",
+                    tipo -> load(factory, "messaging/schemas/" + tipo + ".v1.schema.json")));
   }
 
   public void validate(MessageEnvelope envelope) {

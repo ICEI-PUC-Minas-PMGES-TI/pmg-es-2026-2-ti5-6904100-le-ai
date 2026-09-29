@@ -34,6 +34,19 @@ public final class MessagingConstants {
           EVENTO_RESENHA_PUBLICADA,
           EVENTO_RESENHA_EXCLUIDA);
 
+  /** Topologia do consumidor de notificações in-app (F-NOT, RF-NOT-01). */
+  public static final String NOTIFICACOES_CONSUMER_NAME = "social.notificacoes";
+
+  public static final String NOTIFICACOES_QUEUE = "leai.social.notificacoes";
+  public static final String EVENTO_SEGUIDOR_NOVO = "seguidor.novo";
+  public static final String EVENTO_SOLICITACAO_CRIADA = "solicitacao.criada";
+  public static final String EVENTO_SOLICITACAO_ACEITA = "solicitacao.aceita";
+  public static final String EVENTO_ATIVIDADE_CURTIDA = "atividade.curtida";
+  public static final String EVENTO_ATIVIDADE_COMENTADA = "atividade.comentada";
+  public static final String EVENTO_COMENTARIO_RESPONDIDO = "comentario.respondido";
+  public static final String EVENTO_LEITURA_EM_RISCO = "leitura.em_risco";
+  public static final String EVENTO_LEITURA_EXPIRADA = "leitura.expirada";
+
   private MessagingConstants() {}
 
   public static Map<String, Object> deadLetterArguments(String queue) {

@@ -87,7 +87,7 @@ class _LeAiAppState extends State<LeAiApp> {
     return AnimatedBuilder(
       animation: widget.themeController,
       builder: (context, child) => MaterialApp.router(
-        title: 'Lê Ai',
+        title: 'Lê Aí',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light(),
         darkTheme: AppTheme.dark(),
