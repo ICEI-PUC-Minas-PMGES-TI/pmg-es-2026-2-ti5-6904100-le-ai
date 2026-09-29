@@ -24,6 +24,10 @@ const int _limiteDoTexto = 2000;
 /// Abre os comentários de [atividade] num bottom sheet de 88% da altura (comentarios.md §4),
 /// sobre o feed escurecido. [aoComentar] avisa o feed a cada comentário confirmado, para a
 /// contagem do item acompanhar sem recarregar.
+///
+/// Pelo navegador raiz: o scrim cobre a viewport inteira, barra inferior incluída (§4), e a folha
+/// enxerga o teclado. Dentro da aba, o `Scaffold` do shell consumia a altura do teclado antes, e a
+/// folha não sabia que ele estava aberto.
 Future<void> mostrarComentarios(
   BuildContext context, {
   required SocialService social,
@@ -34,6 +38,7 @@ Future<void> mostrarComentarios(
   final theme = Theme.of(context);
   return showModalBottomSheet<void>(
     context: context,
+    useRootNavigator: true,
     useSafeArea: true,
     isScrollControlled: true,
     backgroundColor: theme.elevatedSurface,
