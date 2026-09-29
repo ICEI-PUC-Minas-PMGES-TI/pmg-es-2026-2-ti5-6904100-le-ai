@@ -6,7 +6,6 @@ import {
   dataLocal,
   paginasLidas,
   resumo,
-  validarEdicaoDoUltimo,
   validarMinutos,
   validarNovaPagina,
 } from './progresso';
@@ -66,44 +65,6 @@ describe('paginasLidas', () => {
   it('deriva a diferença entre a página informada e a anterior', () => {
     expect(paginasLidas(0, 25)).toBe(25);
     expect(paginasLidas(25, 30)).toBe(5);
-  });
-});
-
-describe('validarEdicaoDoUltimo', () => {
-  it('usa zero como base quando não há penúltimo', () => {
-    expect(validarEdicaoDoUltimo(0, 100, 1)).toEqual({
-      ok: true,
-      paginasLidas: 1,
-    });
-    expect(validarEdicaoDoUltimo(0, 100, 0)).toMatchObject({
-      ok: false,
-      erro: { codigo: 'PAGINA_NAO_AVANCA' },
-    });
-  });
-
-  it('permite corrigir para baixo desde que acima do penúltimo', () => {
-    expect(validarEdicaoDoUltimo(30, 100, 31)).toEqual({
-      ok: true,
-      paginasLidas: 1,
-    });
-  });
-
-  it('rejeita página igual à do penúltimo', () => {
-    expect(validarEdicaoDoUltimo(30, 100, 30)).toMatchObject({
-      ok: false,
-      erro: { codigo: 'PAGINA_NAO_AVANCA' },
-    });
-  });
-
-  it('aceita o total e rejeita acima dele', () => {
-    expect(validarEdicaoDoUltimo(30, 100, 100)).toEqual({
-      ok: true,
-      paginasLidas: 70,
-    });
-    expect(validarEdicaoDoUltimo(30, 100, 101)).toMatchObject({
-      ok: false,
-      erro: { codigo: 'PAGINA_ACIMA_DO_TOTAL' },
-    });
   });
 });
 

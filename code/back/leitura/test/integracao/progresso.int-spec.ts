@@ -33,7 +33,6 @@ interface Progresso {
   fusoHorarioDispositivo: string;
   dataLocal: string;
   criadoEm: string;
-  atualizadoEm: string | null;
 }
 
 describe('progresso manual (integração)', () => {
@@ -51,7 +50,7 @@ describe('progresso manual (integração)', () => {
   beforeEach(() => limpar(pool));
 
   function autenticado(
-    metodo: 'post' | 'get' | 'patch' | 'delete',
+    metodo: 'post' | 'get' | 'delete',
     usuarioId: string,
     caminho: string,
     chave: string = randomUUID(),
@@ -128,7 +127,6 @@ describe('progresso manual (integração)', () => {
         registradoEmDispositivo: '2026-09-20T02:30:00.000Z',
         fusoHorarioDispositivo: FUSO,
         dataLocal: '2026-09-19',
-        atualizadoEm: null,
       });
       expect(resumo).toEqual({
         paginaAtual: 100,
@@ -273,9 +271,6 @@ describe('progresso manual (integração)', () => {
       await autenticado('post', usuario, `/leituras/${leituraId}/progresso`)
         .send(corpo(30))
         .expect(409);
-      await autenticado('patch', usuario, `/progresso/${progresso.id}`)
-        .send({ minutos: 5 })
-        .expect(409);
       await autenticado('delete', usuario, `/progresso/${progresso.id}`)
         .send({ ultimoProgressoIdConfirmado: progresso.id })
         .expect(409);
@@ -413,95 +408,15 @@ describe('progresso manual (integração)', () => {
     });
   });
 
-  describe('editar o último', () => {
-    it('corrige página e minutos preservando captura, fuso e data local', async () => {
-      const { usuario, leituraId } = await leituraEmAndamento();
-      await registrar(usuario, leituraId, 40);
-      const { progresso } = await registrar(usuario, leituraId, 100);
-      const antes = await leituraNoBanco(leituraId);
-
-      const res = await autenticado(
-        'patch',
-        usuario,
-        `/progresso/${progresso.id}`,
-      )
-        .send({ pagina: 80, minutos: 15 })
-        .expect(200);
-
-      expect(res.body.progresso).toMatchObject({
-        id: progresso.id,
-        posicao: 2,
-        pagina: 80,
-        paginaAnterior: 40,
-        paginasLidas: 40,
-        minutos: 15,
-        registradoEmDispositivo: progresso.registradoEmDispositivo,
-        fusoHorarioDispositivo: progresso.fusoHorarioDispositivo,
-        dataLocal: progresso.dataLocal,
-        criadoEm: progresso.criadoEm,
-      });
-      expect(res.body.progresso.atualizadoEm).not.toBeNull();
-      expect(res.body.resumo).toMatchObject({
-        paginaAtual: 80,
-        minutosTotais: 45,
-      });
-      expect(await leituraNoBanco(leituraId)).toEqual({
-        pagina_atual: 80,
-        inatividade_versao: antes.inatividade_versao + 1,
-      });
-      expect(
-        await contar(pool, 'leitura.outbox_leitura', 'tipo = $1', [
-          TIPO_EVENTO.PROGRESSO_REGISTRADO,
-        ]),
-      ).toBe(2);
-    });
-
-    it('recusa intermediário com 409 e página fora da faixa com 422', async () => {
-      const { usuario, leituraId } = await leituraEmAndamento();
-      const primeiro = await registrar(usuario, leituraId, 40);
-      const ultimo = await registrar(usuario, leituraId, 100);
-
-      await autenticado('patch', usuario, `/progresso/${primeiro.progresso.id}`)
-        .send({ minutos: 10 })
-        .expect(409);
-      for (const pagina of [40, 20, TOTAL + 1]) {
-        await autenticado('patch', usuario, `/progresso/${ultimo.progresso.id}`)
-          .send({ pagina })
-          .expect(422);
-      }
-      await autenticado('patch', usuario, `/progresso/${ultimo.progresso.id}`)
-        .send({})
-        .expect(400);
-      expect((await leituraNoBanco(leituraId)).pagina_atual).toBe(100);
-    });
-
-    it('único registro aceita qualquer página a partir de 1', async () => {
-      const { usuario, leituraId } = await leituraEmAndamento();
-      const { progresso } = await registrar(usuario, leituraId, 100);
-
-      const res = await autenticado(
-        'patch',
-        usuario,
-        `/progresso/${progresso.id}`,
-      )
-        .send({ pagina: 1 })
-        .expect(200);
-      expect(res.body.progresso.paginasLidas).toBe(1);
-    });
-
+  describe('excluir trecho final', () => {
     it('progresso de outra pessoa é 404', async () => {
       const { usuario, leituraId } = await leituraEmAndamento();
       const { progresso } = await registrar(usuario, leituraId, 10);
-      await autenticado('patch', novoUsuario(), `/progresso/${progresso.id}`)
-        .send({ minutos: 5 })
-        .expect(404);
       await autenticado('delete', novoUsuario(), `/progresso/${progresso.id}`)
         .send({ ultimoProgressoIdConfirmado: progresso.id })
         .expect(404);
     });
-  });
 
-  describe('excluir trecho final', () => {
     it('remove o registro e os posteriores de uma vez e recalcula a página', async () => {
       const { usuario, leituraId } = await leituraEmAndamento();
       await registrar(usuario, leituraId, 10);

@@ -3,7 +3,6 @@ import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import {
   ChaveIdempotenciaConflitante,
   EntidadeInvalida,
-  ErroDeValidacao,
   EstadoInvalido,
   LeituraNaoEncontrada,
   LivroNaoEncontrado,
@@ -34,7 +33,6 @@ import {
 import type {
   ConsultaProgressoDto,
   CriarProgressoEntradaDto,
-  EditarProgressoEntradaDto,
   ExcluirProgressoEntradaDto,
   ExclusaoProgressoResultadoDto,
   PaginaProgressoDto,
@@ -44,11 +42,9 @@ import type {
 import {
   alcanceDaExclusao,
   dataLocal,
-  PAGINA_SEM_PROGRESSO,
   type ProgressoInvalido,
   resumo,
   SEM_TEMPO,
-  validarEdicaoDoUltimo,
   validarMinutos,
   validarNovaPagina,
 } from '../dominio/progresso';
@@ -169,77 +165,6 @@ export class ProgressoService {
       resumo: resumo(alvo.paginaAtual, totalPaginas, minutosTotais),
       somenteLeitura: !emAndamento(alvo),
     };
-  }
-
-  editarUltimo(
-    usuarioId: string,
-    progressoId: string,
-    entrada: EditarProgressoEntradaDto,
-    chave: string,
-  ): Promise<RespostaIdempotente<ProgressoComResumoDto>> {
-    if (entrada.pagina === undefined && entrada.minutos === undefined) {
-      throw new ErroDeValidacao([
-        { campo: 'pagina', mensagem: 'Informe a página ou os minutos.' },
-      ]);
-    }
-    return this.idempotencia.executar(
-      {
-        subjectRef: usuarioId,
-        operacao: operacaoNoCaminho(
-          OPERACOES.EDITAR_ULTIMO_PROGRESSO,
-          progressoId,
-        ),
-        chave,
-        payload: entrada,
-      },
-      async (tx) => {
-        const { alvo, registros } = await this.bloquearSequencia(
-          tx,
-          usuarioId,
-          progressoId,
-        );
-        const ultimo = registros[registros.length - 1];
-        if (ultimo?.id !== progressoId) {
-          throw new EstadoInvalido(
-            'Somente o último progresso da leitura pode ser editado.',
-          );
-        }
-        const totalPaginas = await this.totalDePaginas(tx, alvo.livroId);
-        const paginaBase =
-          registros[registros.length - 2]?.pagina ?? PAGINA_SEM_PROGRESSO;
-        const pagina = entrada.pagina ?? ultimo.pagina;
-        const minutos = entrada.minutos ?? ultimo.minutos;
-
-        const validacao = validarEdicaoDoUltimo(
-          paginaBase,
-          totalPaginas,
-          pagina,
-        );
-        if (!validacao.ok) {
-          throw paginaRecusada(validacao.erro);
-        }
-        exigirMinutos(minutos);
-
-        const corrigido = await this.repositorio.corrigir(tx, progressoId, {
-          pagina,
-          paginasLidas: validacao.paginasLidas,
-          minutos,
-        });
-        await this.repositorio.registrarAtividade(tx, alvo.id, pagina);
-
-        return {
-          status: HttpStatus.OK,
-          corpo: {
-            progresso: paraDto(corrigido),
-            resumo: resumo(
-              pagina,
-              totalPaginas,
-              await this.repositorio.somarMinutos(tx, alvo.id),
-            ),
-          },
-        };
-      },
-    );
   }
 
   excluirTrecho(
@@ -439,8 +364,6 @@ function paginaRecusada(erro: ProgressoInvalido): EntidadeInvalida {
 }
 
 function paraDto(registro: ProgressoRegistro): ProgressoDto {
-  const editado =
-    registro.atualizadoEm.getTime() !== registro.criadoEm.getTime();
   return {
     id: registro.id,
     leituraId: registro.leituraId,
@@ -453,6 +376,5 @@ function paraDto(registro: ProgressoRegistro): ProgressoDto {
     fusoHorarioDispositivo: registro.fusoHorarioDispositivo,
     dataLocal: registro.dataLocal,
     criadoEm: registro.criadoEm.toISOString(),
-    atualizadoEm: editado ? registro.atualizadoEm.toISOString() : null,
   };
 }

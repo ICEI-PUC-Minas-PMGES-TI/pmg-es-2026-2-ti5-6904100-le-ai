@@ -5,7 +5,6 @@ import {
   Get,
   Param,
   ParseUUIDPipe,
-  Patch,
   Post,
   Query,
   Res,
@@ -29,7 +28,6 @@ import { ProgressoService } from '../aplicacao/progresso.service';
 import {
   ConsultaProgressoDto,
   CriarProgressoEntradaDto,
-  EditarProgressoEntradaDto,
   ExcluirProgressoEntradaDto,
   ExclusaoProgressoResultadoDto,
   PaginaProgressoDto,
@@ -90,27 +88,6 @@ export class ProgressoController {
     @Query() consulta: ConsultaProgressoDto,
   ): Promise<PaginaProgressoDto> {
     return this.servico.listar(usuario.id, leituraId, consulta);
-  }
-
-  @Patch('progresso/:progressoId')
-  @ApiOperation({
-    operationId: 'editarUltimoProgresso',
-    summary: 'Edita a última atualização de uma leitura em andamento',
-  })
-  @ApiHeader(CABECALHO_IDEMPOTENCIA)
-  @ApiOkResponse({ type: ProgressoComResumoDto })
-  async editarUltimo(
-    @UsuarioAtual() usuario: UsuarioAutenticado,
-    @Param('progressoId', idValido('progressoId'), emMinusculas)
-    progressoId: string,
-    @IdempotencyKey() chave: string,
-    @Body() entrada: EditarProgressoEntradaDto,
-    @Res({ passthrough: true }) res: Response,
-  ): Promise<ProgressoComResumoDto> {
-    return responder(
-      res,
-      await this.servico.editarUltimo(usuario.id, progressoId, entrada, chave),
-    );
   }
 
   @Delete('progresso/:progressoId')

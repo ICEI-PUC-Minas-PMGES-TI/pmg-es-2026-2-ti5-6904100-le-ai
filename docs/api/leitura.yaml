@@ -423,36 +423,6 @@ paths:
         '404': { $ref: '#/components/responses/NaoEncontrado' }
 
   /progresso/{progressoId}:
-    patch:
-      tags: [progresso]
-      summary: Edita a última atualização de uma leitura em andamento
-      operationId: editarUltimoProgresso
-      x-implementation-status: implemented
-      x-implemented-by: F-PRG
-      parameters:
-        - { $ref: '#/components/parameters/ProgressoId' }
-        - { $ref: '#/components/parameters/IdempotencyKey' }
-      description: >-
-        Somente o último registro pode ser editado. A página corrigida deve ser
-        maior que a página-base anterior e não superar o total. Preserva os
-        metadados originais de captura e recalcula todos os efeitos.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/EditarProgressoEntrada' }
-      responses:
-        '200':
-          description: Último registro e resumo recalculados.
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ProgressoComResumo' }
-        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
-        '401': { $ref: '#/components/responses/NaoAutenticado' }
-        '403': { $ref: '#/components/responses/Proibido' }
-        '404': { $ref: '#/components/responses/NaoEncontrado' }
-        '409': { $ref: '#/components/responses/Conflito' }
-        '422': { $ref: '#/components/responses/EntidadeInvalida' }
     delete:
       tags: [progresso]
       summary: Exclui uma atualização e o trecho posterior confirmado
@@ -1034,14 +1004,6 @@ components:
           example: America/Sao_Paulo
           description: Identificador IANA capturado automaticamente.
 
-    EditarProgressoEntrada:
-      type: object
-      additionalProperties: false
-      minProperties: 1
-      properties:
-        pagina: { type: integer, minimum: 1 }
-        minutos: { type: integer, minimum: 0, maximum: 720 }
-
     ExcluirProgressoEntrada:
       type: object
       additionalProperties: false
@@ -1096,7 +1058,6 @@ components:
         fusoHorarioDispositivo: { type: string, example: America/Sao_Paulo }
         dataLocal: { type: string, format: date }
         criadoEm: { type: string, format: date-time }
-        atualizadoEm: { type: string, format: date-time, nullable: true }
 
     ProgressoComResumo:
       type: object

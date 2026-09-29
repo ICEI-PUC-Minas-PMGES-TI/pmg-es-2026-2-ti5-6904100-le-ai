@@ -63,21 +63,6 @@ export class CriarProgressoEntradaDto {
   fusoHorarioDispositivo!: string;
 }
 
-export class EditarProgressoEntradaDto {
-  @ApiPropertyOptional({ minimum: 1 })
-  @IsOptional()
-  @IsInt({ message: MENSAGEM_PAGINA })
-  @Min(1, { message: MENSAGEM_PAGINA })
-  pagina?: number;
-
-  @ApiPropertyOptional({ minimum: SEM_TEMPO, maximum: MINUTOS_MAXIMOS })
-  @IsOptional()
-  @IsInt({ message: MENSAGEM_MINUTOS })
-  @Min(SEM_TEMPO, { message: MENSAGEM_MINUTOS })
-  @Max(MINUTOS_MAXIMOS, { message: MENSAGEM_MINUTOS })
-  minutos?: number;
-}
-
 export class ExcluirProgressoEntradaDto {
   @ApiProperty({
     format: 'uuid',
@@ -147,9 +132,6 @@ export class ProgressoDto {
 
   @ApiProperty({ format: 'date-time' })
   criadoEm!: string;
-
-  @ApiProperty({ format: 'date-time', nullable: true, type: String })
-  atualizadoEm!: string | null;
 }
 
 export class ResumoProgressoDto {

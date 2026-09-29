@@ -25,12 +25,6 @@ export interface NovoProgresso {
   chaveIdempotencia: string;
 }
 
-export interface CorrecaoDoProgresso {
-  pagina: number;
-  paginasLidas: number;
-  minutos: number;
-}
-
 const colunasLeitura = {
   id: leitura.id,
   usuarioId: leitura.usuarioId,
@@ -147,19 +141,6 @@ export class ProgressoRepository {
     const [linha] = await tx
       .insert(atualizacaoProgresso)
       .values(dados)
-      .returning();
-    return linha;
-  }
-
-  async corrigir(
-    tx: Tx,
-    progressoId: string,
-    correcao: CorrecaoDoProgresso,
-  ): Promise<ProgressoRegistro> {
-    const [linha] = await tx
-      .update(atualizacaoProgresso)
-      .set({ ...correcao, atualizadoEm: sql`now()` })
-      .where(eq(atualizacaoProgresso.id, progressoId))
       .returning();
     return linha;
   }

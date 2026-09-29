@@ -59,30 +59,14 @@ export function paginasLidas(anterior: number, nova: number): number {
   return nova - anterior;
 }
 
-function validarPaginaSobreBase(
-  paginaBase: number,
-  totalPaginas: number,
-  pagina: number,
-): ResultadoPagina {
-  if (pagina <= paginaBase) return falha('PAGINA_NAO_AVANCA');
-  if (pagina > totalPaginas) return falha('PAGINA_ACIMA_DO_TOTAL');
-  return { ok: true, paginasLidas: paginasLidas(paginaBase, pagina) };
-}
-
 export function validarNovaPagina(
   paginaAtual: number,
   totalPaginas: number,
   pagina: number,
 ): ResultadoPagina {
-  return validarPaginaSobreBase(paginaAtual, totalPaginas, pagina);
-}
-
-export function validarEdicaoDoUltimo(
-  paginaPenultima: number,
-  totalPaginas: number,
-  novaPagina: number,
-): ResultadoPagina {
-  return validarPaginaSobreBase(paginaPenultima, totalPaginas, novaPagina);
+  if (pagina <= paginaAtual) return falha('PAGINA_NAO_AVANCA');
+  if (pagina > totalPaginas) return falha('PAGINA_ACIMA_DO_TOTAL');
+  return { ok: true, paginasLidas: paginasLidas(paginaAtual, pagina) };
 }
 
 export function validarMinutos(minutos: number): ResultadoMinutos {
