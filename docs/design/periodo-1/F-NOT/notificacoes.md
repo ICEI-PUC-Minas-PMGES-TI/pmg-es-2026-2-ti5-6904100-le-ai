@@ -1,6 +1,7 @@
 # F-NOT · Notificações
 
 **Feature:** ../../../plano-de-desenvolvimento/periodo-1/feature-F-NOT.md
+**Editada por:** ../../periodo-2/notificacoes/notificacoes.md
 **Requisitos:** RF-NOT-02 (lista paginada com indicação de não lidas), RF-NOT-03 (marcar como lidas, individualmente e em lote), RF-NOT-04 (a notificação de leitura em risco tem ação direta de abandonar a leitura)
 **Requisito de sistema cujo efeito aparece aqui:** RF-NOT-01 (o sistema gera as notificações in-app dos eventos desta versão). É de sistema; o cliente apenas **exibe o efeito**.
 **Não funcionais:** RNF-SEC-02 (só o dono lê e marca as próprias notificações), RNF-DES-02 (lista paginada com limite imposto pelo servidor), RNF-USA-03 (contraste WCAG AA), RNF-USA-04 (confirmação antes de abandonar a leitura), RNF-USA-05, RNF-ERR-09 (cold start tratado como carregamento)

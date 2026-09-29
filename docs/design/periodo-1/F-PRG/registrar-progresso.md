@@ -1,6 +1,7 @@
 # F-PRG · Registrar progresso
 
 **Feature:** ../../../plano-de-desenvolvimento/periodo-1/feature-F-PRG.md
+**Editada por:** ../../periodo-2/registrar-progresso/registrar-progresso.md
 **Requisitos:** RF-PRG-01 (registrar atualização informando em qual página parou e quanto tempo gastou), RF-PRG-02 (exibir página atual e percentual concluído, derivados), RF-PRG-04 (rejeitar página menor ou igual à atual, ou maior que o total do livro)
 **Não funcionais:** RNF-ERR-04 (chave de idempotência: retentativa não duplica), RNF-ERR-05 (fila offline no mobile), RNF-SEC-13 (validação por esquema no servidor), RNF-USA-03, RNF-USA-05 (mensagem em pt-BR e acionável)
 **Regras de negócio:** RN-17 (a entrada é sempre a **página em que o leitor parou**, valor absoluto e monotônico; páginas lidas e percentual são **derivados** e nunca informados), RN-05 (cada registro zera o contador de inatividade da leitura), RN-18.2 (instante e fuso do dispositivo são capturados automaticamente e não aparecem no formulário)

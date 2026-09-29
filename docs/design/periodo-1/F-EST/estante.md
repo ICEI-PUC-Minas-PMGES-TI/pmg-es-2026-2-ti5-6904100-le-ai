@@ -1,6 +1,7 @@
 # F-EST · Estante
 
 **Feature:** ../../../plano-de-desenvolvimento/periodo-1/feature-F-EST.md
+**Editada por:** ../../periodo-2/estante/estante.md
 **Requisitos:** RF-EST-01 (relação leitor e livro em um dos cinco status), RF-EST-02 (estante agrupada por status, com ordenação e paginação)
 **Requisito do Período 2 desenhado aqui:** RF-EST-13 (buscar por título e autor dentro da própria estante). Desejável, entregue por F-EST-2. O prompt mora junto da tela pela regra de recorte de `docs/design/AGENTS.md` §2, e os artboards dele estão marcados.
 **Requisitos de sistema cujo efeito aparece aqui:** RF-EST-11 (abandono automático em 40 dias) e RF-EST-12 (alerta nos dias 20 e 30). Os dois são de sistema, com a coluna Web marcada com traço; o cliente apenas **exibe o efeito**.

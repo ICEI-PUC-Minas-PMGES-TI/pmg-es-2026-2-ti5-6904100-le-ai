@@ -1,6 +1,7 @@
 # F-EST · Ações de leitura
 
 **Feature:** ../../../plano-de-desenvolvimento/periodo-1/feature-F-EST.md
+**Editada por:** ../../periodo-2/acoes-de-leitura/acoes-de-leitura.md
 **Requisitos:** RF-EST-03 (iniciar leitura, com data de início padrão hoje e editável), RF-EST-04 (finalizar leitura, com data de fim padrão hoje e editável), RF-EST-05 (abandonar manualmente), RF-EST-06 (iniciar releitura de um livro Lido), RF-EST-07 (retomar uma primeira leitura abandonada, continuando da página registrada). Também o vínculo de estante de RF-EST-01 e a remoção de um livro em Quero ler.
 **Não funcionais:** RNF-USA-04 (confirmação em ação destrutiva), RNF-USA-03, RNF-USA-05, RNF-SEC-07 (o servidor recusa iniciar leitura de livro pessoal de outro), RNF-ERR-04 (repetir a mesma escrita não repete efeito)
 **Regras de negócio:** RN-04, a máquina de estados completa, incluindo as duas assimetrias que a copy precisa comunicar: abandonar uma primeira leitura deixa a leitura **retomável**, e abandonar uma **releitura** salva como Lido incompleto, **não retomável** e **sem incrementar** o número de conclusões.
