@@ -731,6 +731,7 @@ GoRouter _roteadorComNotificacoes(SessionController sessionController) {
     perfil: _perfilSimulado(),
     feed: _feedSimulado(),
     estante: estanteVazia(),
+    progresso: progressoEmMemoria(),
     notificacoes: DependenciasDeNotificacoes(
       NotificacoesService(social(), ApiClient(baseUrl: 'http://localhost:8082')),
     ),
