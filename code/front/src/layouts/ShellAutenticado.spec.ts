@@ -55,6 +55,17 @@ describe('ShellAutenticado', () => {
     expect(wrapper.text()).toContain('Sua estante está vazia')
   })
 
+  it('a política de privacidade repassa o título curto: "Privacidade" abaixo de 768px', async () => {
+    const wrapper = await montarNaRota('/perfil/configuracoes/privacidade')
+    await flushPromises()
+
+    const [curto, inteiro] = wrapper.get('header').findAll('h1 span')
+    expect(curto!.text()).toBe('Privacidade')
+    expect(curto!.classes()).toContain('md:hidden')
+    expect(inteiro!.text()).toBe('Política de privacidade')
+    expect(inteiro!.classes()).toContain('md:inline')
+  })
+
   it('a barra inferior tem os quatro itens e destaca só o ativo', async () => {
     const wrapper = await montarNaRota('/descobrir')
 

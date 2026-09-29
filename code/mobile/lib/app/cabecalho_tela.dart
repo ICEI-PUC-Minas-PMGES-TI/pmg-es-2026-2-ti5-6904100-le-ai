@@ -42,10 +42,6 @@ class CabecalhoTela extends StatelessWidget {
   /// Sem o divisor inferior, como nos protótipos de F-AUT e F-PERFIL.
   final bool semDivisor;
 
-  /// Título que quebra em até duas linhas, com o header crescendo além dos 72px ("Política de
-  /// privacidade", configuracoes.md).
-  final bool tituloEmDuasLinhas;
-
   const CabecalhoTela({
     super.key,
     required this.titulo,
@@ -54,7 +50,6 @@ class CabecalhoTela extends StatelessWidget {
     this.comSino = true,
     this.fechar = false,
     this.semDivisor = false,
-    this.tituloEmDuasLinhas = false,
   });
 
   @override
@@ -68,14 +63,9 @@ class CabecalhoTela extends StatelessWidget {
       child: SafeArea(
         bottom: false,
         child: ConstrainedBox(
-          constraints: tituloEmDuasLinhas
-              ? const BoxConstraints(minHeight: altura)
-              : const BoxConstraints.tightFor(height: altura),
+          constraints: const BoxConstraints.tightFor(height: altura),
           child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: DesignTokens.space5,
-              vertical: tituloEmDuasLinhas ? DesignTokens.space3 : 0,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: DesignTokens.space5),
             child: Row(
               children: <Widget>[
                 if (aoVoltar != null) ...<Widget>[
@@ -105,7 +95,7 @@ class CabecalhoTela extends StatelessWidget {
                   child: Text(
                     titulo,
                     style: theme.displayTitle,
-                    maxLines: tituloEmDuasLinhas ? 2 : 1,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),

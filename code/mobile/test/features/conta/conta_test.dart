@@ -289,11 +289,11 @@ void main() {
   });
 
   group('PoliticaDePrivacidade', () {
-    testWidgets('título do header em duas linhas, com divisor', (tester) async {
+    testWidgets('título curto "Privacidade" no header, com divisor', (tester) async {
       await tester.pumpWidget(_wrap(const PoliticaDePrivacidadePage()));
 
       final cabecalho = tester.widget<CabecalhoTela>(find.byType(CabecalhoTela));
-      expect(cabecalho.tituloEmDuasLinhas, isTrue);
+      expect(cabecalho.titulo, 'Privacidade');
       expect(cabecalho.semDivisor, isFalse);
     });
   });

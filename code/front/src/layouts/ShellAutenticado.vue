@@ -38,6 +38,7 @@ function itemAtivo(rota: string): boolean {
     <div class="flex min-w-0 flex-1 flex-col">
       <CabecalhoTela
         :titulo="titulo"
+        :titulo-curto="route.meta.tituloCurto ?? null"
         :voltar-para="voltarPara"
         :fechar="route.meta.fechar === true"
         :rotulo-voltar="route.meta.voltarComRotulo ?? null"

@@ -40,7 +40,8 @@ onMounted(() => {
         tabindex="-1"
         class="mt-space-6 text-display text-tinta outline-none"
       >
-        Política de privacidade
+        <span class="md:hidden">Privacidade</span>
+        <span class="hidden md:inline">Política de privacidade</span>
       </h1>
       <PoliticaDePrivacidade class="mt-space-2" />
     </div>
