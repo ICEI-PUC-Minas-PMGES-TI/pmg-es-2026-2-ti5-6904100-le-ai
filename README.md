@@ -1,6 +1,6 @@
 # Lê Ai
 
-**Lê Ai** é um aplicativo social de leitura — no modelo Skoob/Letterboxd — cujo objetivo é **aumentar a adesão à leitura na população brasileira, com foco em jovens de 18 a 30 anos**. A tese de produto é que o hábito de leitura pode ser sustentado por três mecanismos: **registro** (ver o que já foi lido), **meta** (ter um alvo curto e alcançável) e **pertencimento** (ver amigos lendo). O aplicativo entrega os três.
+**Lê Ai** é um aplicativo social de leitura — no modelo Skoob/Letterboxd — cujo objetivo é **aumentar a adesão à leitura entre leitores brasileiros com 18 anos ou mais**. A tese de produto é que o hábito de leitura pode ser sustentado por três mecanismos: **registro** (ver o que já foi lido), **meta** (ter um alvo curto e alcançável) e **pertencimento** (ver amigos lendo). O aplicativo entrega os três.
 
 O produto principal é um **app mobile nativo em Flutter**, acompanhado de uma **aplicação web em Vue + Tailwind** que cobre um subconjunto de funcionalidades (consulta, catálogo e conteúdo escrito). O backend segue arquitetura de **microsserviços** (Spring e NestJS) sobre **PostgreSQL no Neon**, com **RabbitMQ** para os fluxos assíncronos. O escopo completo, o modelo de domínio e as regras de negócio estão em [`docs/orquestador/REQUISITOS.md`](docs/orquestador/REQUISITOS.md) — a **fonte de verdade** do projeto —, e as decisões de arquitetura em [`docs/orquestador/documento-de-arquitetura.md`](docs/orquestador/documento-de-arquitetura.md).
 

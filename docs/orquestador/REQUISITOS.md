@@ -1,8 +1,8 @@
 # REQUISITOS
 
-**Versão:** v1.5 — 15/09/2026
+**Versão:** v1.6 — 29/09/2026
 **Baseline:** fechada em 25/08/2026
-**Status:** baseline fechada — decisões de dados aprovadas pelo grupo incorporadas em 15/09/2026 (ver Timeline)
+**Status:** baseline fechada — público-alvo ampliado para leitores adultos em 29/09/2026 (ver Timeline)
 
 Este documento é a **fonte de verdade** do projeto. Toda decisão de produto, modelo de dados e regra de negócio mora aqui. Arquivos de feature, specs OpenAPI, diagramas e código derivam deste documento — nunca o contrário.
 
@@ -12,11 +12,11 @@ Alterações após a baseline seguem o controle de mudança definido em `docs/or
 
 ## 1. Visão do produto
 
-Aplicativo social de leitura, no modelo Skoob/Letterboxd, cujo objetivo é **aumentar a adesão à leitura na população brasileira, com foco em jovens**.
+Aplicativo social de leitura, no modelo Skoob/Letterboxd, cujo objetivo é **aumentar a adesão à leitura entre leitores brasileiros adultos**.
 
 A tese de produto é que o hábito de leitura se sustenta por três mecanismos: **registro** (ver o que já foi lido), **meta** (ter um alvo curto e alcançável) e **pertencimento** (ver amigos lendo). O aplicativo entrega os três. Funcionalidades que não servem a nenhum desses mecanismos são candidatas naturais a corte de escopo.
 
-**Público-alvo primário:** leitores brasileiros de 18 a 30 anos, com uso predominante em dispositivo móvel. **O cadastro é restrito a maiores de 18 anos**, decisão tomada para evitar o tratamento de dados pessoais de menores de idade, que impõe exigências adicionais sob a LGPD.
+**Público-alvo primário:** leitores brasileiros com 18 anos ou mais, com uso predominante em dispositivo móvel. **O cadastro é permitido a partir dos 18 anos**, decisão tomada para evitar o tratamento de dados pessoais de menores de idade, que impõe exigências adicionais sob a LGPD.
 
 **Idioma:** pt-BR. Internacionalização está fora de escopo.
 
@@ -241,7 +241,7 @@ Resenhas **não recebem comentários** — apenas curtida/descurtida.
 | RF-SOC-14 | Ao responder a uma resposta, o cliente deve pré-preencher a **menção `@username`** ao autor respondido, mantendo o comentário no mesmo nível de aninhamento. | E | ✅ |
 | RF-SOC-15 | Menções `@username` devem ser resolvidas para o perfil correspondente e exibidas como link, quando o username existir. | D | ✅ |
 
-Não há busca exploratória de pessoas, sugestão de perfis ou diretório de usuários — a descoberta é deliberada, por username exato. Esta é uma decisão de produto voltada à segurança de um público jovem.
+Não há busca exploratória de pessoas, sugestão de perfis ou diretório de usuários — a descoberta é deliberada, por username exato. Esta é uma decisão de produto voltada à segurança do público adulto.
 
 ### 5.10 Notificações (NOT)
 
@@ -1079,6 +1079,13 @@ Registrado explicitamente para evitar reabertura de discussão:
 
 ## 12. Timeline
 
+### v1.6 — Alteração 29/09/2026: público-alvo ampliado para leitores adultos
+
+- **Autorização:** mudança solicitada após a avaliação dos professores, que questionaram a limitação do público à faixa de 18 a 30 anos.
+- O público-alvo passa a abranger leitores brasileiros com 18 anos ou mais, sem limite máximo de idade.
+- A regra de cadastro não muda: pessoas com 18 anos completos podem se cadastrar e menores de 18 anos continuam sendo recusados, conforme RNF-SEC-43.
+- **Impacto:** visão do produto, Documento de Design, documentos da disciplina, declaração de escopo, prompts de protótipo, apresentação do repositório e metadados descritivos. Não há impacto em código, modelo de dados, arquitetura, contratos OpenAPI, mensageria ou testes automatizados.
+
 ### v1.5 — Alteração 15/09/2026: decisões do grupo após revisão do DER
 
 - **Autorização:** decisões debatidas pelo grupo e comunicadas pelo solicitante nesta data para atualização do DER e de suas fontes.
@@ -1127,7 +1134,7 @@ Versão inicial consolidada. Reúne a definição de escopo, o modelo de domíni
 
 **Escopo e plataformas**
 
-- Público-alvo restrito a **maiores de 18 anos**, evitando o tratamento de dados pessoais de menores sob a LGPD
+- Cadastro permitido a partir dos **18 anos**, evitando o tratamento de dados pessoais de menores sob a LGPD
 - **Sem paridade funcional** entre web e mobile: o cliente móvel em Flutter é o produto principal; a web em **Vue com Tailwind** cobre um subconjunto. Corte de escopo recai sobre a web antes do mobile
 - Excluídos do escopo: camada de obra, login social, mensagem direta, clubes de leitura, **medalhas e conquistas**, **ranking de leitores**
 

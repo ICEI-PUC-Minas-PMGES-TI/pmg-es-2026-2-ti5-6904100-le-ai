@@ -11,7 +11,7 @@
 
 ## 1. Design Read
 
-Aplicativo social de leitura brasileiro no modelo Skoob/Letterboxd. Público-alvo de 18 a 30 anos, pt-BR, uso predominante em celular. O produto se sustenta em três mecanismos declarados nos requisitos: **registro** (o que já foi lido), **meta** (alvo curto e alcançável) e **pertencimento** (ver amigos lendo). A linguagem de design deve reforçar esses três mecanismos, e não competir com eles.
+Aplicativo social de leitura brasileiro no modelo Skoob/Letterboxd. Público-alvo formado por pessoas com 18 anos ou mais, interface em pt-BR e uso predominante em celular. O produto se sustenta em três mecanismos declarados nos requisitos: **registro** (o que já foi lido), **meta** (alvo curto e alcançável) e **pertencimento** (ver amigos lendo). A linguagem de design deve reforçar esses três mecanismos, e não competir com eles.
 
 **Personalidade da marca:**
 
@@ -855,6 +855,11 @@ O nome definitivo do aplicativo é **Lê Ai**. A linguagem visual definida neste
 ---
 
 ## 11. Timeline
+
+### Atualização 29/09/2026
+
+- Público-alvo ampliado de pessoas entre 18 e 30 anos para todas as pessoas com 18 anos ou mais, conforme `REQUISITOS.md` v1.6.
+- A mudança afeta apenas a descrição do público nos prompts. Tokens, componentes, padrões de tela e a validação de idade no cadastro permanecem iguais.
 
 ### Atualização 26/09/2026
 

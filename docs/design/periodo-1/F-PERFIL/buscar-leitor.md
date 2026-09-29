@@ -12,7 +12,7 @@
 
 A única porta de entrada para encontrar outra pessoa no produto. O leitor digita o **nome de usuário exato** e recebe um resultado ou nenhum. Tela empilhada sobre a área `Perfil`, aberta pela lupa do header em [`meu-perfil.md`](meu-perfil.md), pelo vazio do feed em [`../F-FEED/feed.md`](../F-FEED/feed.md) e pelo estado `Perfil não encontrado` em [`perfil-de-outro-leitor.md`](perfil-de-outro-leitor.md). Sai para o perfil da pessoa encontrada.
 
-**A ausência de descoberta aberta é decisão de produto, não limitação técnica.** O `REQUISITOS.md` §5.9 diz por extenso: não há busca exploratória de pessoas, sugestão de perfis nem diretório de usuários, porque o público é jovem e a descoberta precisa ser deliberada. RNF-SEC-19 e RNF-SEC-44 transformam isso em requisito de segurança contra enumeração.
+**A ausência de descoberta aberta é decisão de produto, não limitação técnica.** O `REQUISITOS.md` §5.9 diz por extenso: não há busca exploratória de pessoas, sugestão de perfis nem diretório de usuários, pois a descoberta precisa ser deliberada para proteger a privacidade do público adulto. RNF-SEC-19 e RNF-SEC-44 transformam isso em requisito de segurança contra enumeração.
 
 Duas coisas que ela precisa resolver:
 
@@ -35,7 +35,7 @@ O canvas simula um arquivo de Figma. Todos os artboards ficam **lado a lado no m
 
 ```
 Produto: Lê Ai, aplicativo social de leitura brasileiro, no modelo Skoob e
-Letterboxd. Público de 18 a 30 anos, interface em pt-BR, uso predominante em
+Letterboxd. Público com 18 anos ou mais, interface em pt-BR, uso predominante em
 celular. A interface reforça três mecanismos: registro (o que já foi lido),
 meta (alvo curto e alcançável) e pertencimento (ver amigos lendo).
 
