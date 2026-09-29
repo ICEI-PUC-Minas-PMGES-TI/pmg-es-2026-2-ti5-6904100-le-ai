@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +8,7 @@ import 'package:phosphor_icons/phosphor_icons.dart';
 import 'package:http/testing.dart';
 
 import 'package:le_ai_mobile/app/barra_inferior.dart';
+import 'package:le_ai_mobile/app/cabecalho_tela.dart';
 import 'package:le_ai_mobile/app/router.dart';
 import 'package:le_ai_mobile/core/network/api_client.dart';
 import 'package:le_ai_mobile/core/session/session_controller.dart';
@@ -13,9 +16,14 @@ import 'package:le_ai_mobile/core/session/token_store.dart';
 import 'package:le_ai_mobile/design/theme.dart';
 import 'package:le_ai_mobile/features/avaliacao/leitura_service.dart';
 import 'package:le_ai_mobile/features/auth/auth_service.dart';
+import 'package:le_ai_mobile/features/feed/rotas_feed.dart';
+import 'package:le_ai_mobile/features/feed/social_service.dart';
 import 'package:le_ai_mobile/features/livros/acervo_service.dart';
 import 'package:le_ai_mobile/features/livros/capa.dart';
 import 'package:le_ai_mobile/features/livros/rotas_livros.dart';
+import 'package:le_ai_mobile/features/notificacoes/notificacoes_page.dart';
+import 'package:le_ai_mobile/features/notificacoes/notificacoes_service.dart';
+import 'package:le_ai_mobile/features/notificacoes/rotas_notificacoes.dart';
 import 'package:le_ai_mobile/features/perfil/avatar.dart';
 import 'package:le_ai_mobile/features/perfil/perfil_service.dart';
 import 'package:le_ai_mobile/features/perfil/rotas_perfil.dart';
@@ -60,24 +68,80 @@ class _SemAvatar implements EnviadorDeAvatar {
   Future<Avatar> enviar(ImagemEscolhida imagem) async => throw const FalhaNoEnvioDoAvatar();
 }
 
-/// `identidade` simulado para a aba Perfil: sempre o mesmo perfil próprio.
+/// `identidade` simulado para a aba Perfil: o perfil próprio em `/me/perfil`, e em
+/// `/perfis/<username>` um leitor qualquer que não é quem pergunta.
 DependenciasDePerfil _perfilSimulado() => DependenciasDePerfil(
   servico: PerfilService(
     ApiClient(
       baseUrl: 'http://localhost:8080',
+      client: MockClient((request) async {
+        final segmentos = request.url.pathSegments;
+        final outro = segmentos.length == 2 && segmentos.first == 'perfis';
+        return http.Response(
+          outro
+              ? '{"id":"u2","username":"${segmentos.last}","displayName":"Outro Leitor",'
+                    '"avatarUrl":null,"privacidade":"publico","conteudoRestrito":false,'
+                    '"relacao":"seguindo","biografia":null,'
+                    '"contadores":{"seguidores":0,"seguidos":0}}'
+              : '{"id":"u1","username":"marinableu","displayName":"Marina Beltrão",'
+                    '"avatarUrl":null,"privacidade":"publico","conteudoRestrito":false,'
+                    '"relacao":"proprio","biografia":null,'
+                    '"contadores":{"seguidores":0,"seguidos":0}}',
+          200,
+          headers: <String, String>{'content-type': 'application/json; charset=utf-8'},
+        );
+      }),
+    ),
+  ),
+  seletor: _SemImagem(),
+  enviador: _SemAvatar(),
+);
+
+/// `social` simulado para a aba Feed: uma atividade de livro pessoal, de outra pessoa.
+DependenciasDeFeed _feedSimulado() => DependenciasDeFeed(
+  social: SocialService(
+    ApiClient(
+      baseUrl: 'http://localhost:8081',
       client: MockClient(
         (request) async => http.Response(
-          '{"id":"u1","username":"marinableu","displayName":"Marina Beltrão","avatarUrl":null,'
-          '"privacidade":"publico","conteudoRestrito":false,"relacao":"proprio","biografia":null,'
-          '"contadores":{"seguidores":0,"seguidos":0}}',
+          jsonEncode(<String, Object?>{
+            'itens': <Object?>[
+              <String, Object?>{
+                'id': 'a1',
+                'tipo': 'LEITURA_INICIADA',
+                'autor': <String, Object?>{
+                  'id': 'u2',
+                  'username': 'caio',
+                  'nomeExibicao': 'Caio Ferraz',
+                  'avatarUrl': null,
+                },
+                'livro': <String, Object?>{
+                  'id': 'l1',
+                  'tipo': 'PESSOAL',
+                  'titulo': 'Caderno de Contos do Bairro',
+                  'autor': 'Caio Ferraz',
+                  'capaUrl': null,
+                  'link': <String, Object?>{'livroId': 'l1', 'via': 'feed', 'referenciaId': 'a1'},
+                },
+                'resenha': null,
+                'criadoEm': '2026-09-26T12:00:00Z',
+                'totalCurtidas': 0,
+                'totalComentarios': 0,
+                'curtidaPeloSolicitante': false,
+              },
+            ],
+            'pagina': 0,
+            'tamanho': 20,
+            'totalItens': 1,
+            'totalPaginas': 1,
+            'ultima': true,
+          }),
           200,
           headers: <String, String>{'content-type': 'application/json; charset=utf-8'},
         ),
       ),
     ),
   ),
-  seletor: _SemImagem(),
-  enviador: _SemAvatar(),
 );
 
 /// `acervo` simulado por rota: um assunto para a faixa, e toda busca volta vazia, que é o estado
@@ -101,6 +165,15 @@ Future<http.Response> _acervoPorRota(http.Request request) async {
       '"assuntos":[],"isbn":"9788588808911","sinopse":{"status":"ausente","texto":null},'
       '"resenhas":{"itens":[],"limit":10,"proximoCursor":null}}',
       200,
+      headers: cabecalhos,
+    );
+  }
+  // O livro pessoal aberto pelo feed não faz parte do que se testa aqui: responde como livro
+  // inexistente, que a tela sabe mostrar.
+  if (request.url.path.startsWith('/livros/pessoal/')) {
+    return http.Response(
+      '{"codigo":"RECURSO_NAO_ENCONTRADO","mensagem":"Não encontrado."}',
+      404,
       headers: cabecalhos,
     );
   }
@@ -136,6 +209,7 @@ void main() {
       sessionController: sessionController,
       authService: AuthService(apiClient),
       perfil: _perfilSimulado(),
+      feed: _feedSimulado(),
       estante: estanteVazia(),
       progresso: progressoEmMemoria(),
       livros: DependenciasDeLivros(
@@ -464,6 +538,211 @@ void main() {
 
     expect(find.text('marina.beltrao@gmail.com'), findsOneWidget);
   });
+
+  testWidgets('no feed, o autor abre o perfil e o livro pessoal leva a referência da atividade', (
+    tester,
+  ) async {
+    await sessionController.entrar('jwt-valido');
+    await tester.pumpWidget(_wrap(router));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Feed'));
+    await tester.pumpAndSettle();
+    expect(find.text('Livro pessoal'), findsOneWidget);
+
+    await tester.tap(find.text('Caio Ferraz').first);
+    await tester.pumpAndSettle();
+    expect(router.state.uri.toString(), '/feed/leitores/caio');
+
+    router.go('/feed');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Caderno de Contos do Bairro'));
+    await tester.pumpAndSettle();
+    expect(
+      router.state.uri.toString(),
+      '/feed/livro-pessoal/l1?via=feed&referenciaId=a1',
+    );
+  });
+
+  group('notificações fecham ao sair da aba', () {
+    late GoRouter roteador;
+
+    Future<void> abrirApp(WidgetTester tester) async {
+      await sessionController.entrar('jwt-valido');
+      roteador = _roteadorComNotificacoes(sessionController);
+      await tester.pumpWidget(_wrap(roteador));
+      await tester.pumpAndSettle();
+    }
+
+    Finder aba(String nome) =>
+        find.descendant(of: find.byType(BarraInferior), matching: find.text(nome));
+    Finder sino() => find.descendant(
+      of: find.byType(CabecalhoTela),
+      matching: find.byIcon(PhosphorIconsRegular.bell),
+    );
+    final notificacoes = find.byType(NotificacoesPage, skipOffstage: false);
+
+    testWidgets('trocar de aba com as notificações abertas devolve a raiz da Estante', (
+      tester,
+    ) async {
+      await abrirApp(tester);
+
+      await tester.tap(sino());
+      await tester.pumpAndSettle();
+      expect(find.byType(NotificacoesPage), findsOneWidget);
+
+      await tester.tap(aba('Feed'));
+      await tester.pumpAndSettle();
+      await tester.tap(aba('Estante'));
+      await tester.pumpAndSettle();
+
+      expect(notificacoes, findsNothing);
+      expect(find.text('Sua estante está vazia'), findsOneWidget);
+      expect(roteador.state.uri.path, '/estante');
+    });
+
+    testWidgets('a sub-tela que estava por baixo continua lá quando a aba volta', (tester) async {
+      await abrirApp(tester);
+      await tester.tap(aba('Descobrir'));
+      await tester.pumpAndSettle();
+      roteador.push('/descobrir/adicionar-livro');
+      await tester.pumpAndSettle();
+      expect(find.text('Adicionar livro'), findsOneWidget);
+
+      await tester.tap(sino());
+      await tester.pumpAndSettle();
+      expect(find.byType(NotificacoesPage), findsOneWidget);
+
+      await tester.tap(aba('Feed'));
+      await tester.pumpAndSettle();
+      await tester.tap(aba('Descobrir'));
+      await tester.pumpAndSettle();
+
+      expect(notificacoes, findsNothing);
+      expect(find.text('Adicionar livro'), findsOneWidget);
+      expect(roteador.state.uri.path, '/descobrir/adicionar-livro');
+    });
+
+    testWidgets('a notificação cujo destino é outra aba fecha as notificações da aba de origem', (
+      tester,
+    ) async {
+      await abrirApp(tester);
+      await tester.tap(sino());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Dandara Lopes curtiu sua resenha de Vidas Secas.'));
+      await tester.pumpAndSettle();
+      // atividadeCurtida leva ao feed.
+      expect(roteador.state.uri.path, '/feed');
+      expect(find.text('Livro pessoal'), findsOneWidget);
+
+      await tester.tap(aba('Estante'));
+      await tester.pumpAndSettle();
+
+      expect(notificacoes, findsNothing);
+      expect(find.text('Sua estante está vazia'), findsOneWidget);
+    });
+
+    testWidgets('o fechamento pela troca de aba não anima: sai em dois quadros', (tester) async {
+      await abrirApp(tester);
+      await tester.tap(sino());
+      await tester.pumpAndSettle();
+
+      await tester.tap(aba('Feed'));
+      // Um quadro para o fechamento e outro para a troca; sem `pumpAndSettle`.
+      await tester.pump();
+      await tester.pump();
+
+      expect(roteador.state.uri.path, '/feed');
+      expect(notificacoes, findsNothing);
+
+      // De volta à Estante, nenhum quadro da tela de notificações aparece.
+      await tester.tap(aba('Estante'));
+      await tester.pump();
+      expect(notificacoes, findsNothing);
+      expect(find.text('Sua estante está vazia'), findsOneWidget);
+    });
+
+    testWidgets('abre sem animação: já no primeiro quadro', (tester) async {
+      await abrirApp(tester);
+
+      await tester.tap(sino());
+      await tester.pump();
+
+      expect(find.byType(NotificacoesPage), findsOneWidget);
+      // Sem transição, a Estante já saiu de cena: nada dela fica visível por baixo.
+      expect(find.text('Sua estante está vazia'), findsNothing);
+    });
+
+    testWidgets('a seta de voltar fecha sem animação e volta à tela de baixo', (tester) async {
+      await abrirApp(tester);
+      await tester.tap(sino());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.bySemanticsLabel('Voltar'));
+      await tester.pump();
+
+      expect(notificacoes, findsNothing);
+      expect(find.text('Sua estante está vazia'), findsOneWidget);
+    });
+  });
+}
+
+/// Roteador com `notificacoes` simuladas: uma única notificação, de curtida (destino: o feed).
+GoRouter _roteadorComNotificacoes(SessionController sessionController) {
+  const cabecalhos = <String, String>{'content-type': 'application/json; charset=utf-8'};
+  ApiClient social() => ApiClient(
+    baseUrl: 'http://localhost:8081',
+    client: MockClient((request) async {
+      if (request.method == 'GET' && request.url.path == '/notificacoes') {
+        return http.Response(
+          jsonEncode(<String, Object?>{
+            'itens': <Object?>[
+              <String, Object?>{
+                'id': 'n1',
+                'tipo': 'ATIVIDADE_CURTIDA',
+                'mensagem': 'Dandara Lopes curtiu sua resenha de Vidas Secas.',
+                'lida': true,
+                'criadoEm': '2026-09-26T12:00:00Z',
+              },
+            ],
+            'pagina': 0,
+            'tamanho': 20,
+            'totalItens': 1,
+            'totalPaginas': 1,
+            'ultima': true,
+            'totalNaoLidas': 0,
+          }),
+          200,
+          headers: cabecalhos,
+        );
+      }
+      return http.Response('{"totalNaoLidas":0}', 200, headers: cabecalhos);
+    }),
+  );
+  return buildRouter(
+    sessionController: sessionController,
+    authService: AuthService(
+      ApiClient(
+        baseUrl: 'http://localhost:8080',
+        client: MockClient((request) async => http.Response('{}', 200)),
+      ),
+    ),
+    perfil: _perfilSimulado(),
+    feed: _feedSimulado(),
+    estante: estanteVazia(),
+    notificacoes: DependenciasDeNotificacoes(
+      NotificacoesService(social(), ApiClient(baseUrl: 'http://localhost:8082')),
+    ),
+    livros: DependenciasDeLivros(
+      acervo: AcervoService(
+        ApiClient(baseUrl: 'http://localhost:3000', client: MockClient(_acervoPorRota)),
+      ),
+      leitura: _leituraSimulada(),
+      seletor: _SemImagem(),
+      enviador: _SemEnvio(),
+    ),
+  );
 }
 
 /// `leitura` que responde "sem avaliação" a qualquer livro: o roteador só precisa da página abrir.

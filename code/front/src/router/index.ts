@@ -10,23 +10,23 @@ import {
 
 import ShellAutenticado from '../layouts/ShellAutenticado.vue'
 import { getToken, useSession } from '../session'
-import AlterarSenhaView from '../views/AlterarSenhaView.vue'
-import BuscarLeitorView from '../views/BuscarLeitorView.vue'
-import CadastroView from '../views/CadastroView.vue'
-import ConexoesView from '../views/ConexoesView.vue'
-import ConfiguracoesView from '../views/ConfiguracoesView.vue'
+import AlterarSenhaView from '../views/auth/AlterarSenhaView.vue'
+import BuscarLeitorView from '../views/perfil/BuscarLeitorView.vue'
+import CadastroView from '../views/auth/CadastroView.vue'
+import ConexoesView from '../views/perfil/ConexoesView.vue'
+import ConfiguracoesView from '../views/auth/ConfiguracoesView.vue'
 import DescobrirView from '../views/DescobrirView.vue'
-import EditarPerfilView from '../views/EditarPerfilView.vue'
+import EditarPerfilView from '../views/perfil/EditarPerfilView.vue'
 import EstanteView from '../views/EstanteView.vue'
 import FeedView from '../views/FeedView.vue'
-import LoginView from '../views/LoginView.vue'
-import PoliticaPrivacidadeView from '../views/PoliticaPrivacidadeView.vue'
+import LoginView from '../views/auth/LoginView.vue'
+import PoliticaPrivacidadeView from '../views/auth/PoliticaPrivacidadeView.vue'
 import ProgressoView from '../views/ProgressoView.vue'
-import RecuperarSenhaView from '../views/RecuperarSenhaView.vue'
-import RedefinirSenhaView from '../views/RedefinirSenhaView.vue'
-import PerfilDeOutroView from '../views/PerfilDeOutroView.vue'
-import PerfilView from '../views/PerfilView.vue'
-import SolicitacoesView from '../views/SolicitacoesView.vue'
+import RecuperarSenhaView from '../views/auth/RecuperarSenhaView.vue'
+import RedefinirSenhaView from '../views/auth/RedefinirSenhaView.vue'
+import PerfilDeOutroView from '../views/perfil/PerfilDeOutroView.vue'
+import PerfilView from '../views/perfil/PerfilView.vue'
+import SolicitacoesView from '../views/perfil/SolicitacoesView.vue'
 import CadastroIsbnView from '../views/livros/CadastroIsbnView.vue'
 import IsbnNaoEncontradoView from '../views/livros/IsbnNaoEncontradoView.vue'
 import EscreverResenhaView from '../views/livros/EscreverResenhaView.vue'
@@ -42,6 +42,11 @@ declare module 'vue-router' {
     semSessao?: boolean
     /** Título mostrado no header do shell (CabecalhoTela). */
     titulo?: string
+    /**
+     * Abaixo de 768px, o header mostra este título no lugar de `titulo` (a política de
+     * privacidade vira "Privacidade" para caber ao lado da seta). A partir de 768px vale `titulo`.
+     */
+    tituloCurto?: string
     /** Tela de detalhe: o header ganha a seta de voltar (cadastro-por-isbn.md §4). */
     voltar?: boolean
     /** Com `voltar`: formulário que se abandona, com `X` no lugar da seta (editar-perfil.md §4). */
@@ -198,7 +203,13 @@ export const routes: RouteRecordRaw[] = [
         path: 'perfil/configuracoes/privacidade',
         name: 'politica-de-privacidade',
         component: PoliticaPrivacidadeView,
-        meta: { titulo: 'Política de privacidade', voltar: true, voltarComRotulo: 'Configurações', semDivisor: true },
+        meta: {
+          titulo: 'Política de privacidade',
+          tituloCurto: 'Privacidade',
+          voltar: true,
+          voltarComRotulo: 'Configurações',
+          semDivisor: true,
+        },
       },
       // F-ACV-CADASTRO. O prefixo carrega a origem para a aba certa ficar ativa o fluxo inteiro.
       {

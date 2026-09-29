@@ -142,6 +142,8 @@ O feed não consome VIEW de resenha; consome exclusivamente `resenha.publicada`.
 
 ## Timeline
 
+### 29/09/2026: o painel de nota, aberto pelo navegador raiz, ficava com o botão "Remover nota" cortado pela barra de navegação do sistema (edge-to-edge no Android; `useSafeArea` não protege a base). `mostrarFolhaInferior` passou a somar `MediaQuery.paddingOf(context).bottom` ao padding inferior. Sheets abertos dentro de uma aba não mudam. Teste widget novo.
+
 ### 27/09/2026: validação independente. Três agentes de contexto limpo validaram backend, web e mobile; os defeitos confirmados foram corrigidos no mesmo dia (lista em Pendências). Testes: `leitura` 96 unitários e 92 de integração, web 452, mobile 302, todos passando.
 
 ### 27/09/2026: teste manual e merge. Testado na web (Edge automatizado, desktop e celular) e no mobile (emulador Pixel 8), com identidade, acervo e leitura locais sobre o banco de dev: nota 0 distinta de "Sem nota", 4,5, remover com confirmação, resenha com spoiler, contador, descarte, edição sem segundo `resenha.publicada` (conferido na outbox), exclusão, recriação com id novo, perfil próprio com resenha de livro pessoal, perfil de outra conta com spoiler escondido até revelar. Três correções: o editor web ficava editável antes de a resenha salva chegar (o texto digitado era trocado por ela); no mobile, o painel de nota não cobria a barra inferior e a área de texto do editor tinha a borda do tema. `JWT_SECRET` do `leai-leitura` configurado no Render. Fatias 1 a 4 mergeadas na `desenvolvimento`.

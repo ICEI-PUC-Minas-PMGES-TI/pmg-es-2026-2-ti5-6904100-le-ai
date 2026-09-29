@@ -75,11 +75,12 @@ Favoritos e histórico permanecem recursos do próprio usuário neste escopo; a 
 
 ## Pendências
 
+- **Telas (design P2):** [`historico-de-leituras.md`](../../design/periodo-2/F-EST-2/historico-de-leituras.md) escrito em 27/09/2026, [protótipo](../../design/periodo-2/F-EST-2/prototipos/historico-de-leituras.html) exportado em 28/09/2026. Entrada pela Estante e favorito entram na edição consolidada de `docs/design/periodo-2/estante/`; favoritar na página do livro já está na edição consolidada [`pagina-do-livro.md`](../../design/periodo-2/pagina-do-livro/pagina-do-livro.md) (prompt de 28/09/2026: botão quadrado `Heart` na barra de ação, ao lado de `Alterar status` ou `Iniciar leitura`) e em ações de leitura fica em `docs/design/periodo-2/acoes-de-leitura/`; o modo histórico em `docs/design/periodo-2/atualizacoes-de-progresso/` (lotes futuros). **Conflito de contrato a decidir:** o protótipo lista os anos com conclusão e a contagem por ano (`2026 · 4 leituras`) nas pills do mobile e na coluna da web, e `GET /me/historico` não devolve isso.
 - **Depende de** [F-EST](../periodo-1/feature-F-EST.md) (estante, máquina de estados e favorito adiado), [F-PRG](../periodo-1/feature-F-PRG.md) (modelo, endpoint e tela de atualizações), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md).
 - **Compartilha `leitura` com [F-EST](../periodo-1/feature-F-EST.md)/[F-PRG](../periodo-1/feature-F-PRG.md)/[F-AVA](../periodo-1/feature-F-AVA.md)** e será limpo por [F-CONTA-2](feature-F-CONTA-2.md) na exclusão — sinalizar no grupo antes de mexer no serviço (plano §6).
 - Stack de `leitura` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 - **Alternativa a avaliar, sem mudar o desenho atual:** reutilizar uma única ação/componente de favorito nos pontos de entrada antes de duplicar estado entre telas.
-- **Prompts de tela a criar em `docs/design/periodo-2/F-EST-2/`:** `historico-de-leituras.md` para o destino geral e `atualizacoes-de-progresso.md` como prompt de edição da tela de F-PRG, acrescentando o modo histórico somente leitura.
+- ~~**Prompts de tela a criar em `docs/design/periodo-2/F-EST-2/`:** `historico-de-leituras.md` e `atualizacoes-de-progresso.md` como edição~~ — desde 27/09/2026 as edições de telas já entregues são **consolidadas por tela** em `docs/design/periodo-2/<tela>/`; o histórico é tela nova e ficou em `F-EST-2/` (ver o item Telas acima).
 
 ## Timeline
 

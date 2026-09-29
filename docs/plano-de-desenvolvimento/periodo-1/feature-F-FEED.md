@@ -25,9 +25,9 @@ RNF atendidos: **RNF-SEC-03** (acesso a conteúdo de perfil privado validado no 
 |---|---|---|
 | Infra | parcial | Pendente: validar declaração de `leai.social.feed`, retry 1/5/15 e `leai.social.feed.dlq` contra um RabbitMQ real. O consumidor só recebe eventos quando `leitura` (F-PRG/F-AVA) publicar `leitura.*`/`resenha.*` |
 | Dados | parcial | Pendente: aplicar no Neon a migration `V20260925140000__adiciona_comentario_respondido_id.sql` |
-| Backend | concluído | Pendente: rodar em DES |
-| Web | concluído | Pendente: rodar em DES |
-| Mobile | não iniciado | mesmas telas |
+| Backend | concluído | — |
+| Web | concluído | — |
+| Mobile | concluído | — |
 
 ## Especificação
 
@@ -77,19 +77,19 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [ ] Escrita de interação e `outbox_social` são atômicas; no consumo, efeito e recibo são atômicos, ACK ocorre após commit e reentrega do mesmo `eventId` não repete efeito. *(Atomicidade da outbox e reentrega testadas; ACK pós-commit depende do broker.)*
 - [ ] `v_atividade_livro_pessoal_v1` comprova a via feed; referência forjada ou atividade inativa não autoriza página de livro pessoal.
 - [x] Repetir escrita com a mesma `Idempotency-Key` não duplica curtida, comentário ou resposta (RNF-ERR-04).
-- [ ] Feed e interações funcionam **em DES**.
+- [x] Feed e interações funcionam **em DES**.
 
 ## Definition of Done
 
 (plano §10)
 
-- [ ] Código (backend `social`, web, mobile) mergeado em `desenvolvimento`
+- [x] Código (backend `social`, web, mobile) mergeado em `desenvolvimento`
 - [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
 - [x] Testes unitários e de integração com banco real/container: feed sob RN-08/RN-09/RN-15, alvo excluído, via de livro pessoal, curtida, paginação de comentários/respostas, destinatário e idempotência (RNF-TST-02)
 - [ ] Testes assíncronos de integração cobrem os seis bindings de entrada, envelope e schemas v1 canônicos, snapshots, exclusão/recriação de resenha, atomicidade efeito+recibo, reentrega do mesmo `eventId`, duplicação semântica, ACK pós-commit, retry 1/5/15 e `leai.social.feed.dlq`; publicação testa outbox atômica e os três eventos de notificação (RNF-TST-03)
-- [ ] Testes web/mobile cobrem paginação, interações, link de livro pessoal e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
+- [x] Testes web/mobile cobrem paginação, interações, link de livro pessoal e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
 - [x] **Spec OpenAPI de `social` atualizado em `docs/api/social.yaml`** com feed/curtidas/comentários
-- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
+- [x] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
 - [x] Arquivo da feature atualizado: status, pendências, timeline
 - [x] Divergência protótipo × implementação registrada, se houver
 
@@ -102,12 +102,23 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Migration incremental:** `V20260925140000__adiciona_comentario_respondido_id.sql` adiciona `comentario_respondido_id` (FK composta com `atividade_id`, `ON DELETE SET NULL`); falta aplicar no Neon.
 - **Ficam fora (Período 2):** editar/excluir o próprio comentário (RF-SOC-13) e menção arbitrária resolvida como link (RF-SOC-15) — **F-SOCIAL-2**. Denúncia é F-MOD. **Notificações** em tempo real pertencem a RF-NOT-06/F-NOT-2; feed em tempo real não possui RF.
 - Stack de `social` definida: **Spring (Java)** (arquitetura §2.1).
-- **Divergências protótipo × implementação (web, 26/09):** o bloco de resenha não mostra estrelas, porque `ResenhaSnapshot` não traz a nota; "Ler resenha" não navega, porque a página de resenha é de F-AVA; o carregamento mostra 3 itens de skeleton em vez dos 4 da web (§5.4); o modal carrega só a primeira página de comentários-raiz, sem "carregar mais". Por decisão do produto (26/09), a coluna de 760px da web fica centralizada na área de conteúdo, e não alinhada à esquerda como pede o §5. Também por decisão do produto (26/09), curtir mostra o coração pulsando e 8 partículas em musgo, contrariando o §4.2 e o §10 (sem animação no curtir); o efeito roda mesmo com `prefers-reduced-motion`, também por decisão do produto.
-- **Falta para fechar:** validar fila, retry e DLQ contra RabbitMQ real; merge em `desenvolvimento` com CI verde; aplicar a migration incremental no Neon e rodar em DES; app mobile.
+- **Nota da resenha (26/09):** `ResenhaSnapshot` ganhou `nota` (anulável), lida de `leitura.v_nota_publicacao_v1`, e o item de resenha mostra as estrelas como pede o §4.
+- **Divergências protótipo × implementação (mobile, 27/09):** as mesmas decisões de produto da web valem no app — curtir pulsa o coração e solta 6 partículas em musgo, e "Ler resenha" não navega. Falha ao curtir aparece num `SnackBar`, em vez do banner da web. Respostas além da primeira página carregam por "Ver mais respostas", pelo cursor da API.
+- **Divergências protótipo × implementação (web, 26/09):** "Ler resenha" não navega, porque a página de resenha é de F-AVA; o carregamento mostra 3 itens de skeleton em vez dos 4 da web (§5.4); o modal carrega só a primeira página de comentários-raiz, sem "carregar mais". Por decisão do produto (26/09), a coluna de 760px da web fica centralizada na área de conteúdo, e não alinhada à esquerda como pede o §5. Também por decisão do produto (26/09), curtir mostra o coração pulsando e 8 partículas em musgo, contrariando o §4.2 e o §10 (sem animação no curtir); o efeito roda mesmo com `prefers-reduced-motion`, também por decisão do produto.
+- **Decisão de produto (29/09): curtida otimista, web e app.** Curtir e descurtir mudam o item na hora (`curtidaPeloSolicitante` e `totalCurtidas` ± 1, mínimo 0) e o botão não trava. O último toque vale: por atividade há no máximo uma requisição em voo, cada uma com a própria `Idempotency-Key`, e, se ao terminar o item exibido difere do confirmado, a requisição que falta segue até convergir. Ao convergir, o total devolvido pelo servidor corrige o contador. Se a requisição falha (inclusive `429`), o item volta ao último estado confirmado e o erro aparece como antes (banner na web, `SnackBar` no app). Recarregar a lista descarta as intenções pendentes. Implementação em `src/feed/useCurtidas.ts` (web) e `lib/features/feed/curtidas_otimistas.dart` (app).
+- **Divergência protótipo × implementação (mobile, 29/09):** o campo de comentário usa `radius-lg` (20px) em vez de `radius-full`. Numa linha continua quase uma pílula; com três ou quatro linhas, o `radius-full` virava uma cápsula alta e estranha, e o `radius-lg` faz o campo parecer uma caixa de texto.
+- **Pendência (mobile, 29/09): a folha de comentários ainda transborda com o teclado aberto em telas baixas.** Com o teclado, a folha vai até o topo, mas só a lista encolhe: alça, cabeçalho, resumo da atividade, faixa "Respondendo a" e campo somam mais de 300dp. Medido em teste widget: cabe no S25 Ultra (384×832), no Pixel 7 (412×915) e num Galaxy A (360×780) com fonte a 100%. Transborda em 360×640, com o celular deitado e, com fonte a 130% e o campo em quatro linhas, também no S25 e no Galaxy A. Solução proposta, ainda não feita: com o teclado aberto, deixar fixos só a faixa e o campo e fazer cabeçalho e resumo rolarem junto com a lista.
+- **Falta para fechar:** validar fila, retry e DLQ contra RabbitMQ real; CI verde; aplicar a migration incremental no Neon.
 
 ## Timeline
 
-### 26/09/2026: backend `social` e web de F-FEED implementados, com validação E2E via HTTP e checagem no navegador (web e mobile). Pendências de broker, DES e mobile registradas acima.
+### 29/09/2026: curtida otimista na web e no app, por decisão do produto: o item muda no toque, o botão não trava, o último toque vale e a falha volta ao último estado confirmado. Ver Pendências.
+
+### 29/09/2026: ajustes do teste no celular. O botão de alternar respostas do app ("Ver N respostas", "Ocultar respostas", "Ver mais respostas") ganhou respiro à direita, para o realce do toque não terminar colado na última letra; "Ler resenha" e "Responder" ganharam respiro dos dois lados, com o texto ainda alinhado ao trecho e ao comentário. A folha de comentários passou a abrir pelo navegador raiz: o scrim cobre a barra inferior, como pede o §4, e a folha enxerga o teclado (dentro da aba, o `Scaffold` do shell consumia a altura dele, e o campo e a faixa "Respondendo a" transbordavam). Com o teclado aberto, a folha vai até o topo, porque nos 88% eles não cabiam acima dele (em telas mais baixas ainda transborda; ver Pendências). O campo de comentário passou de `radius-full` a `radius-lg`, para parecer caixa de texto com várias linhas.
+
+### 27/09/2026: app mobile de F-FEED implementado em `code/mobile/lib/features/feed/` — feed paginado, os cinco tipos, curtir, comentários em bottom sheet com resposta em um nível e menção pré-preenchida, e os estados de carregamento, vazio, erro, cold start e 429, com testes de serviço, widget e roteador; mergeado em `desenvolvimento`.
+
+### 26/09/2026: backend `social` e web de F-FEED implementados, com validação E2E via HTTP e checagem no navegador (web e mobile). Pendências de broker registradas acima.
 
 ### Decisão de produto 25/09/2026: o autor pode curtir, comentar e ver o detalhe/comentários da própria atividade, sem precisar se seguir. `GET /feed` continua listando só atividades de quem o leitor segue (RN-09); atividade inativa ou de livro excluído segue invisível também para o autor.
 

@@ -25,10 +25,14 @@ docs/design/
 ├── AGENTS.md                  # este arquivo
 ├── CLAUDE.md                  # ponteiro para este arquivo
 └── periodo-N/
-    └── <ID-DA-FEATURE>/
-        ├── <tela>.md          # o prompt
+    ├── <ID-DA-FEATURE>/       # telas novas da feature (ID em maiúsculas: F-SESSAO)
+    │   ├── <tela>.md          # o prompt
+    │   └── prototipos/
+    │       └── <tela>.html    # o export do Claude Design
+    └── <tela>/                # edição consolidada de tela já entregue (kebab minúsculo: pagina-do-livro)
+        ├── <tela>.md
         └── prototipos/
-            └── <tela>.html    # o export do Claude Design
+            └── <tela>.html
 ```
 
 - **Uma pasta por feature**, dentro da pasta do período, usando o ID exato do arquivo da feature: `F-EST`, `F-ACV-BUSCA`, `P0-NAV`. Feature de continuação tem pasta própria: `F-EST-2` não entra em `F-EST`.
@@ -36,7 +40,7 @@ docs/design/
 - **O HTML exportado usa o mesmo nome base** e fica em `prototipos/` ao lado do prompt: `prototipos/estante.md` está errado, `prototipos/estante.html` está certo.
 - As pastas de período e de feature nascem junto com o primeiro prompt de cada uma. Não crie pasta vazia.
 - **Prompt e HTML são commitados juntos.** HTML sem o prompt que o gerou não é reprodutível.
-- **Tela já entregue não é reescrita: ela ganha um prompt de edição.** Quando uma feature de outro período muda uma tela que já tem prompt e protótipo commitados, o arquivo novo mora na pasta da feature que pediu a mudança, dentro do período dela, com o **mesmo nome de tela**: `periodo-2/F-AVA-2/escrever-resenha.md` edita a tela de `periodo-1/F-AVA/escrever-resenha.md`. O arquivo antigo não é alterado. Regras no §2.1, fluxo no §3.1 e template no §6.1.
+- **Tela já entregue não é reescrita: ela ganha um prompt de edição, um só por tela e por período.** Quando uma ou mais features de outro período mudam uma tela que já tem prompt e protótipo commitados, as mudanças de todas elas entram em **um único prompt de edição consolidado**, numa **pasta com o nome da tela** dentro do período das features: `periodo-2/pagina-do-livro/pagina-do-livro.md` edita a tela de `periodo-1/F-ACV-BUSCA/pagina-do-livro.md` com os RFs de F-ACV-NOTA, F-ACV-DESCOBERTA, F-EST-2, F-AVA-2, F-LST, F-REC-P2P e F-MOD. A edição não tem feature dona; cada feature envolvida aponta para a pasta da tela no seu arquivo. Pasta de feature usa o ID em maiúsculas, pasta de tela usa kebab minúsculo, e as duas convivem no mesmo período. O arquivo antigo não é alterado. Regras no §2.1, fluxo no §3.1 e template no §6.1. *(Regra consolidada adotada em 27/09/2026, antes do primeiro prompt de edição; até então a edição morava na pasta da feature que pedia a mudança.)*
 
 Não existe inventário central de telas neste diretório. A lista de telas de cada feature vive no arquivo da feature; duplicar aqui seria mais um lugar para atualizar e sair de sincronia.
 
@@ -71,9 +75,10 @@ Antes de escrever qualquer prompt, leia, nesta ordem:
 **O que decorre disso:**
 
 - **O arquivo do período anterior não é alterado.** Ele continua sendo a única coisa que reproduz o protótipo daquele período, inclusive a seção 10, cujas proibições estavam certas para o escopo dele. Ele só ganha, no cabeçalho de referências, a linha `**Editada por:**` apontando para o arquivo novo.
-- **Ponteiros nos dois sentidos.** O arquivo novo abre com `**Edita:** ../../periodo-N/<ID>/<tela>.md`; o antigo recebe `**Editada por:** ../../periodo-N/<ID>/<tela>.md`.
+- **Um prompt por tela, com todas as features do período.** O cabeçalho lista `**Features:**` e agrupa `**Requisitos que entram:**` por feature. Desenhar as mudanças juntas evita que edições separadas disputem o mesmo espaço (header, barra de ações) e deixa uma única referência visual para todas as features.
+- **Ponteiros nos dois sentidos.** O arquivo novo abre com `**Edita:** ../../periodo-N/<ID>/<tela>.md`; o antigo recebe `**Editada por:** ../../periodo-N/<tela>/<tela>.md`.
 - **O HTML resultante vai para o `prototipos/` da pasta nova**, com o mesmo nome base. O HTML do período anterior permanece onde está: os dois juntos são o histórico visual da tela.
-- **Quem pediu a mudança registra no seu arquivo de feature** que a tela de outro período foi editada, como pendência e como item da divergência protótipo × implementação (Definition of Done).
+- **Cada feature envolvida registra no seu arquivo** que a tela de outro período foi editada, apontando para a pasta da tela, como pendência e como item da divergência protótipo × implementação (Definition of Done).
 - **Ainda não exportada não é edição.** Se a tela tem prompt mas nenhum protótipo commitado, corrija o próprio arquivo, no lugar. Prompt de edição só existe para o que já foi entregue.
 
 ---
@@ -91,12 +96,12 @@ Antes de escrever qualquer prompt, leia, nesta ordem:
 
 Para o caso do §2.1. Muda o passo 3 e o passo 5.
 
-1. **Escrever o `.md`** no template do §6.1, na pasta da feature que pediu a mudança.
+1. **Escrever o `.md`** no template do §6.1, em `periodo-N/<tela>/`, reunindo as mudanças de todas as features do período que mexem na tela.
 2. **Abrir no Claude Design o canvas já existente da tela**, o mesmo que gerou o protótipo commitado. Não comece um canvas em branco: o prompt pressupõe os artboards que já estão lá.
 3. **Colar o arquivo inteiro.** Ele continua autocontido quanto ao design: o bloco de contexto do §7 é obrigatório também aqui, porque a edição pode ser rodada em outra sessão, e o que não estiver escrito não existe para o Claude Design.
 4. **Revisar contra o checklist do §9, aplicado ao canvas inteiro**, e não só aos artboards novos: o que era para permanecer precisa ter permanecido.
 5. **Exportar o HTML** para o `prototipos/` da pasta nova. O protótipo anterior fica onde está.
-6. **Commitar prompt e HTML juntos**, mais a linha `**Editada por:**` no arquivo da tela original e o registro no arquivo da feature.
+6. **Commitar prompt e HTML juntos**, mais a linha `**Editada por:**` no arquivo da tela original e o registro no arquivo de cada feature envolvida.
 
 ---
 
@@ -233,8 +238,8 @@ Para o caso do §2.1. Mesmo cabeçalho de referências, mais o aviso de edição
 > **Prompt de edição.** Rode este prompt **sobre o canvas já existente** de `<Nome da tela>`, gerado por `<caminho do prompt original>`. Ele **não** cria um canvas novo: acrescenta, substitui e remove só o que está descrito abaixo. **Tudo que não estiver aqui permanece exatamente como está.**
 
 **Edita:** ../../periodo-N/<ID>/<tela>.md
-**Feature:** ../../../plano-de-desenvolvimento/periodo-N/feature-<ID>.md
-**Requisitos que entram:** RF-XXX-NN
+**Features:** ../../../plano-de-desenvolvimento/periodo-N/feature-<ID>.md, ../../../plano-de-desenvolvimento/periodo-N/feature-<ID>.md
+**Requisitos que entram:** <ID>: RF-XXX-NN · <ID>: RF-XXX-NN
 **Regras de negócio:** RN-NN
 **Versão web:** sim (RF-XXX-NN tem marcação na coluna Web) | não (motivo)
 
@@ -395,7 +400,9 @@ Vale para quem for implementar a tela em [`code/front`](../../code/front/AGENTS.
 ## 11. Pendências
 
 - **`docs/design-system/tokens.json` existe: pendência fechada.** Entregue por [P0-DS](../plano-de-desenvolvimento/periodo-0/feature-P0-DS.md), ele é a fonte canônica única de tokens (RNF-USA-06), derivada do documento-de-design §3.1 a §3.6, e dele são gerados o `tailwind.config` da web e o `lib/design/tokens.dart` do Flutter. **O bloco de contexto do design do §7 passa a derivar do JSON**, e não mais de uma transcrição manual do documento: ao escrever ou revisar um prompt, confira cor, escala, espaçamento, raio, elevação e motion contra `tokens.json`. Os prompts continuam citando token **por nome** no corpo dos artboards, com os hex apenas dentro do bloco do §7, porque o Claude Design não lê este repositório.
-- **Prompts escritos até aqui:** os três do período 0, em [`periodo-0/P0-NAV/`](periodo-0/P0-NAV/), e os do período 1 em [`periodo-1/`](periodo-1/). As telas dos períodos seguintes entram feature a feature, na ordem de prioridade do [`plano-de-desenvolvimento/`](../plano-de-desenvolvimento/).
+- **Prompts escritos até aqui:** os três do período 0, em [`periodo-0/P0-NAV/`](periodo-0/P0-NAV/), os do período 1 em [`periodo-1/`](periodo-1/) e, desde 27/09/2026, os do período 2 em [`periodo-2/`](periodo-2/), escritos em lotes: o primeiro trouxe `F-SESSAO/modo-de-foco.md`, `F-SESSAO/encerrar-sessao.md`, `F-DSF/desafios.md`, `F-DSF/criar-desafio.md` e `F-EST-2/historico-de-leituras.md`, com protótipos exportados em 28/09/2026; o segundo, de 28/09/2026, trouxe `F-ACV-DESCOBERTA/pagina-do-autor.md`, `pagina-da-editora.md` e `pagina-da-serie.md` e as primeiras edições consolidadas, `descobrir/descobrir.md` e `pagina-do-livro/pagina-do-livro.md`, com protótipos por exportar.
+- **Componentes nascidos no lote 1 do período 2, incorporação pendente** (seção 7 de cada prompt; decidir depois dos protótipos, de uma vez, pelo controle de mudança): estado pausado do modo de foco e seletor de pausa de 5, 10 ou 15 minutos, sheets sem motion dentro da sessão (exceção ao §4.11 coerente com o §4.10), formato `h:mm:ss` do cronômetro, variante de encerrar sessão do §5.4 e a página cheia de sessão pendente; card de desafio (ativo, cumprido, pausado), pill `Pausado`, item de menu com linha explicativa, chips de escolha única e campo numérico com unidade; linha de ocorrência de conclusão, cabeçalho de ano preso ao topo e resultado agrupado por livro no histórico.
+- **Componentes nascidos no lote 2 do período 2, incorporação pendente** (mesma regra do lote 1): esqueleto de página de catálogo (autor, editora, série: header com o tipo da página, bloco de identidade sem imagem, cards da variante Busca em grid de 3 colunas na web), seção condicional `Biografia` com `Fonte: OpenLibrary`, falha de paginação inline, linha `Livro N` e grupo `Sem número na série`; botão de filtros com contagem, chips de filtros aplicados (`Campo: valor` com `Limpar filtros`), faixa numérica mínimo e máximo com validação cruzada, bloco `Filtros` no painel web, item de recomendação recebida (`<nome> te recomendou · <tempo>`), vazio de seção em uma linha; na página do livro, botão quadrado só com ícone (favorito), superfície do componente de notas §4.4, anatomia do histograma, chip de assunto com lupa e quebra de linha, linha de ficha com link e `CaretRight`, linha de reações, estilo do Markdown renderizado, blockquote de frase com `Página N · @username` e dropdown de menu na web. **Divergências a decidir:** o dropdown da web contraria o §4.11 (menu vira dialog centrado a partir de 768px); o §5.2 pede chip de assunto em caixa alta, e os chips do Descobrir do P1 não usam; o §5.7 diz "sem destaques" e a aterrissagem agora tem a seção de recomendações.
 - **Logo do produto: resolvida em 02/09/2026.** A marca deixou de estar em aberto. O `documento-de-design.md` §3.7 define o símbolo (folha sobre livro aberto), o **símbolo isolado** e o **lockup horizontal**, a regra de cor única (`musgo` sobre `papel` ou `papel` sobre `musgo`, nunca recolorida, nunca com dois matizes), a área de proteção de ao menos a largura da folha e o mínimo de 24px de altura. O §3.2.1 criou o token `wordmark`, **exclusivo do lockup**, e o §9.4 fixa o contrato do asset `assets/imagens/logo-leai.svg`, monocromático em `currentColor` e recolorido em runtime. **Prompt novo usa o lockup do §3.7, não o wordmark tipográfico.**
   - **Continua pendente só a fonte da logo:** o token `wordmark` a declara como decisão em aberto, com Space Grotesk 600 e tracking `-0.015em` como interino. Prompt nenhum decide isso.
   - **Consequência assumida, sem prompt de edição:** os protótipos de [`periodo-0/P0-NAV/`](periodo-0/P0-NAV/) (cadastro, login e shell de navegação) foram exportados antes de 02/09 e mostram a marca só como texto. Como essas telas **já estão implementadas**, o grupo decidiu não gerar prompt de edição para elas: a diferença é tratada direto no código, e o protótipo antigo permanece como o histórico visual daquele período.

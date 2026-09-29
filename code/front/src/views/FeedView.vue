@@ -8,9 +8,9 @@ import ModalComentarios from '../components/feed/ModalComentarios.vue'
 import FimDaLista from '../components/perfil/FimDaLista.vue'
 import BannerAviso from '../components/ui/BannerAviso.vue'
 import EstadoVazio from '../components/ui/EstadoVazio.vue'
+import { useCurtidas } from '../feed/useCurtidas'
 import { usePaginacao } from '../perfil/usePaginacao'
 import { perfilService } from '../services/perfil'
-import { mensagemDeErro, novaChaveIdempotencia } from '../services/api'
 import { socialService, type Atividade } from '../services/social'
 
 const { itens, carregando, falhou, temMais, carregar, carregarMais, falhouMais } = usePaginacao<Atividade>((pagina) =>
@@ -21,6 +21,7 @@ const { itens, carregando, falhou, temMais, carregar, carregarMais, falhouMais }
 const segueAlguem = ref<boolean | null>(null)
 
 async function carregarSeAlguemSegue(): Promise<void> {
+  descartarCurtidas()
   await carregar()
   if (!falhou.value && itens.value.length === 0) {
     try {
@@ -49,48 +50,8 @@ function aoComentar(): void {
   atividadeEmComentario.value = { ...atividadeEmComentario.value!, totalComentarios: atividadeEmComentario.value!.totalComentarios + 1 }
 }
 
-const curtidasPendentes = ref<Set<string>>(new Set())
 const erroDeCurtida = ref<string | null>(null)
-
-async function curtir(id: string): Promise<void> {
-  if (curtidasPendentes.value.has(id)) {
-    return
-  }
-  curtidasPendentes.value.add(id)
-  erroDeCurtida.value = null
-  try {
-    const resultado = await socialService.curtir(id, novaChaveIdempotencia())
-    atualizarCurtida(id, true, resultado.totalCurtidas)
-  } catch (erro) {
-    erroDeCurtida.value = mensagemDeErro(erro)
-  } finally {
-    curtidasPendentes.value.delete(id)
-  }
-}
-
-async function descurtir(id: string): Promise<void> {
-  if (curtidasPendentes.value.has(id)) {
-    return
-  }
-  curtidasPendentes.value.add(id)
-  erroDeCurtida.value = null
-  const atividade = itens.value.find((item) => item.id === id)
-  const totalAntes = atividade?.totalCurtidas ?? 1
-  try {
-    await socialService.descurtir(id, novaChaveIdempotencia())
-    atualizarCurtida(id, false, Math.max(0, totalAntes - 1))
-  } catch (erro) {
-    erroDeCurtida.value = mensagemDeErro(erro)
-  } finally {
-    curtidasPendentes.value.delete(id)
-  }
-}
-
-function atualizarCurtida(id: string, curtida: boolean, totalCurtidas: number): void {
-  itens.value = itens.value.map((item) =>
-    item.id === id ? { ...item, curtidaPeloSolicitante: curtida, totalCurtidas } : item,
-  )
-}
+const { alternar: alternarCurtida, descartarPendentes: descartarCurtidas } = useCurtidas(itens, erroDeCurtida)
 </script>
 
 <template>
@@ -184,9 +145,8 @@ function atualizarCurtida(id: string, curtida: boolean, totalCurtidas: number): 
         v-for="atividade in itens"
         :key="atividade.id"
         :atividade="atividade"
-        :curtida-pendente="curtidasPendentes.has(atividade.id)"
-        @curtir="curtir"
-        @descurtir="descurtir"
+        @curtir="alternarCurtida"
+        @descurtir="alternarCurtida"
         @comentar="abrirComentarios"
       />
       <FimDaLista

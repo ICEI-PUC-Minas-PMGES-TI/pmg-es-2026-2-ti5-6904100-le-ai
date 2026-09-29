@@ -23,7 +23,7 @@ Contexto raiz para qualquer agente ou pessoa que trabalhe neste repositório. Re
 
 ## 2. O produto em uma frase
 
-Aplicativo social de leitura (modelo Skoob/Letterboxd) para **aumentar a adesão à leitura de jovens brasileiros de 18 a 30 anos**, sustentado por três mecanismos: **registro**, **meta** e **pertencimento**. Cadastro restrito a **maiores de 18 anos** (LGPD). Idioma **pt-BR**; internacionalização fora de escopo. Funcionalidade que não serve a registro, meta ou pertencimento é candidata natural a corte.
+Aplicativo social de leitura (modelo Skoob/Letterboxd) para **aumentar a adesão à leitura entre leitores brasileiros adultos**, sustentado por três mecanismos: **registro**, **meta** e **pertencimento**. Cadastro permitido a partir dos **18 anos** (LGPD). Idioma **pt-BR**; internacionalização fora de escopo. Funcionalidade que não serve a registro, meta ou pertencimento é candidata natural a corte.
 
 ---
 

@@ -96,7 +96,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Sessão de leitura cronometrada** (RF-PRG-05..12, RN-16) fica **fora** — é **F-SESSAO** (Período 2). A entrada de página desta feature é a mesma que a sessão usará ao encerrar; manter o contrato compatível.
 - **Decisão do grupo incorporada em 15/09/2026:** progresso offline recompõe desafios e sequência pela data de captura, inclusive janelas encerradas. Registro manual retroativo continua proibido. Testar captura anterior a pausa/edição de desafio, sincronização tardia e exclusão do trecho final, incluindo eventos entregues depois da correção.
 - **Divergências físicas preservadas:** a divergência de `minutos` foi resolvida em 27/09/2026 — o contrato passou a 0..720, alinhado ao zero que a constraint implantada já permite (o teto 720 segue validado só na aplicação); o contrato HTTP escopa `Idempotency-Key` por ator+método+caminho, enquanto `atualizacao_progresso.chave_idempotencia` está globalmente única. A implementação segue o OpenAPI e o ledger `idempotencia_leitura`; qualquer ajuste físico entra em nova migration revisada, sem reescrever `0001`/`0002`.
-- **Impacto visual pendente:** os prompts/protótipos de `registrar-progresso.md` e `atualizacoes-de-progresso.md` precisam refletir a confirmação do trecho final, sem edição. Até essa atualização, a implementação segue RN-17 v1.7; não reproduzir a exclusão isolada de intermediários do protótipo antigo.
+- **Impacto visual pendente:** os prompts/protótipos de `registrar-progresso.md` e `atualizacoes-de-progresso.md` precisam refletir a confirmação do trecho final, sem edição. Até essa atualização, a implementação segue RN-17 v1.8; não reproduzir a exclusão isolada de intermediários do protótipo antigo.
 - Persistir a **data local** da atualização (RN-18.2) desde já, para a sequência diária (Período 2) não exigir retrabalho.
 - Stack de `leitura` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
@@ -106,7 +106,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 ## Timeline
 
-### Revisão 29/09/2026: edição de progresso removida por decisão da dona (REQUISITOS v1.7); correção = excluir e registrar de novo. `PATCH /progresso/{progressoId}` retirado do OpenAPI e do backend; exclusão do trecho final e 409 de `ultimoProgressoIdConfirmado` mantidos.
+### Revisão 29/09/2026: edição de progresso removida por decisão da dona (REQUISITOS v1.8); correção = excluir e registrar de novo. `PATCH /progresso/{progressoId}` retirado do OpenAPI e do backend; exclusão do trecho final e 409 de `ultimoProgressoIdConfirmado` mantidos.
 
 ### Revisão 27/09/2026: tempo opcional conforme protótipo; `minutosTotais` no resumo; limiar do aviso de ritmo = 40 páginas acima da média do leitor (média de páginas lidas por registro dos demais registros da leitura; sem outros registros, média 0), calculado no cliente; backend implementado.
 

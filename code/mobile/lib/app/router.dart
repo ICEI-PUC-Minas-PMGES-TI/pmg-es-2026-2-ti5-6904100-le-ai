@@ -16,8 +16,9 @@ import '../core/config/app_config.dart';
 import '../core/network/api_client.dart';
 import '../features/estante/estante_page.dart';
 import '../features/estante/estante_service.dart';
-import '../features/feed/feed_page.dart';
+import '../features/feed/rotas_feed.dart';
 import '../features/livros/rotas_livros.dart';
+import '../features/notificacoes/rotas_notificacoes.dart';
 import '../features/perfil/perfil_page.dart';
 import '../features/perfil/rotas_perfil.dart';
 import '../features/perfil/widgets_de_identidade.dart';
@@ -42,14 +43,17 @@ const List<String> _rotasPublicas = <String>[rotaLogin, rotaCadastro, rotaRecupe
 ///
 /// [livros] traz os serviços das telas de F-ACV-CADASTRO. Sem ele, o padrão aponta para o
 /// `acervo` de `AppConfig` com o token da sessão — os testes que não passam por essas telas não
-/// precisam montar nada. [perfil] faz o mesmo para F-PERFIL, com o `identidade`.
+/// precisam montar nada. [perfil] faz o mesmo para F-PERFIL, com o `identidade`, e [feed] para
+/// F-FEED, com o `social`.
 GoRouter buildRouter({
   required SessionController sessionController,
   required AuthService authService,
   DependenciasDeLivros? livros,
   DependenciasDePerfil? perfil,
+  DependenciasDeFeed? feed,
   EstanteService? estante,
   DependenciasDeProgresso? progresso,
+  DependenciasDeNotificacoes? notificacoes,
 }) {
   Future<bool> renovar(String token) => sessionController.renovar(token, authService.renovar);
   final deps =
@@ -58,6 +62,9 @@ GoRouter buildRouter({
   final depsDePerfil =
       perfil ??
       DependenciasDePerfil.padrao(getToken: () => sessionController.token, renovarSessao: renovar);
+  final depsDeFeed =
+      feed ??
+      DependenciasDeFeed.padrao(getToken: () => sessionController.token, renovarSessao: renovar);
   final servicoDeEstante =
       estante ??
       EstanteService(
@@ -68,6 +75,12 @@ GoRouter buildRouter({
         ),
       );
   final depsDeProgresso = progresso ?? DependenciasDeProgresso.padrao(servicoDeEstante.client);
+  final depsDeNotificacoes =
+      notificacoes ??
+      DependenciasDeNotificacoes.padrao(
+        getToken: () => sessionController.token,
+        renovarSessao: renovar,
+      );
   return GoRouter(
     initialLocation: rotaVerificandoSessao,
     refreshListenable: sessionController,
@@ -129,6 +142,9 @@ GoRouter buildRouter({
           caminhoAtual: state.uri.path,
           aoAbrirConfiguracoes: () => context.go(rotaConfiguracoes),
           aoBuscarLeitor: () => context.go(rotaBuscarLeitor),
+          contadorDeNaoLidas: depsDeNotificacoes.contador,
+          aoAbrirNotificacoes: (raiz) => context.push<void>(rotaNotificacoes(raiz)),
+          fecharNotificacoes: () => depsDeNotificacoes.fechamento.fechar(GoRouter.of(context)),
         ),
         branches: <StatefulShellBranch>[
           StatefulShellBranch(
@@ -145,6 +161,7 @@ GoRouter buildRouter({
                 routes: <RouteBase>[
                   ...rotasDaEstante(deps, servicoDeEstante, progresso: depsDeProgresso),
                   rotaDoProgresso(depsDeProgresso, servicoDeEstante),
+                  rotaDeNotificacoes(depsDeNotificacoes, rotaEstante),
                 ],
               ),
             ],
@@ -161,16 +178,20 @@ GoRouter buildRouter({
                   // para a tela de ISBN que `go` montaria por baixo.
                   aoCadastrarPessoal: () => context.push('$rotaAdicionarLivro/pessoal'),
                 ),
-                routes: rotasDeDescobrir(deps),
+                routes: <RouteBase>[
+                  ...rotasDeDescobrir(deps),
+                  rotaDeNotificacoes(depsDeNotificacoes, '/descobrir'),
+                ],
               ),
             ],
           ),
           StatefulShellBranch(
             routes: <RouteBase>[
-              GoRoute(
-                path: '/feed',
-                builder: (context, state) => const FeedPage(),
-                routes: rotasDoFeed(deps),
+              rotaDoFeed(
+                depsDeFeed,
+                perfil: depsDePerfil,
+                livros: deps,
+                rotasExtras: <RouteBase>[rotaDeNotificacoes(depsDeNotificacoes, rotaFeedRaiz)],
               ),
             ],
           ),
@@ -203,6 +224,7 @@ GoRouter buildRouter({
                   // O livro aberto por uma resenha do perfil fica na aba Perfil (pagina-do-livro.md
                   // §4.1: o item ativo é a aba de origem).
                   rotaDoLivroOficial(deps, raiz: '/perfil'),
+                  rotaDeNotificacoes(depsDeNotificacoes, rotaPerfilRaiz),
                   GoRoute(
                     path: 'configuracoes',
                     builder: (context, state) => ConfiguracoesPage(

@@ -7,6 +7,8 @@ import 'botao_textual.dart';
 
 /// Bottom sheet do sistema (documento-de-design §5.4): fundo `papel` (`noite-elevada` no
 /// escuro), radius 20 no topo, alça de 32 por 4px, scrim `tinta` a 40% (preto a 60% no escuro).
+/// O padding inferior soma a barra de navegação do sistema: `useSafeArea` só protege topo e
+/// laterais, e um sheet aberto pelo navegador raiz desce até atrás dela (edge-to-edge).
 Future<T?> mostrarFolhaInferior<T>(
   BuildContext context, {
   required WidgetBuilder builder,
@@ -24,11 +26,11 @@ Future<T?> mostrarFolhaInferior<T>(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
     builder: (context) => Padding(
-      padding: const EdgeInsets.fromLTRB(
+      padding: EdgeInsets.fromLTRB(
         DesignTokens.space6,
         DesignTokens.space3,
         DesignTokens.space6,
-        DesignTokens.space6,
+        DesignTokens.space6 + MediaQuery.paddingOf(context).bottom,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

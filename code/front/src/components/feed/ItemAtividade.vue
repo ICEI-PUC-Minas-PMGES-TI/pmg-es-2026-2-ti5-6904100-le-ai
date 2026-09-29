@@ -12,13 +12,9 @@ import CapaLivro from '../livros/CapaLivro.vue'
 import EstrelasNota from '../livros/EstrelasNota.vue'
 import BotaoTextual from '../ui/BotaoTextual.vue'
 
-const props = withDefaults(
-  defineProps<{
-    atividade: Atividade
-    curtidaPendente?: boolean
-  }>(),
-  { curtidaPendente: false },
-)
+const props = defineProps<{
+  atividade: Atividade
+}>()
 
 const emit = defineEmits<{
   curtir: [id: string]
@@ -51,9 +47,6 @@ const rotuloComentar = computed(() =>
 )
 
 function alternarCurtida(): void {
-  if (props.curtidaPendente) {
-    return
-  }
   if (props.atividade.curtidaPeloSolicitante) {
     emit('descurtir', props.atividade.id)
   } else {
@@ -201,7 +194,6 @@ watch(
       <button
         type="button"
         :class="[CLASSE_BOTAO_DE_ACAO, atividade.curtidaPeloSolicitante ? 'text-musgo' : 'text-grafite']"
-        :disabled="curtidaPendente"
         :aria-label="rotuloCurtir"
         @click="alternarCurtida"
       >

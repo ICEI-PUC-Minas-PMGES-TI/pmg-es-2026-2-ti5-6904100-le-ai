@@ -1,38 +1,47 @@
-flowchart LR
-  subgraph identidade
-    ID_API[API REST]
-    ID_DB[(schema identidade)]
-    ID_V[[views: seguir, perfil]]
-  end
-  subgraph acervo
-    AC_API[API REST]
-    AC_DB[(schema acervo)]
-    AC_MV[[MV: nota dos leitores]]
-  end
-  subgraph leitura
-    LE_API[API REST]
-    LE_DB[(schema leitura)]
-    LE_V[[views: estante, nota]]
-  end
-  subgraph social
-    SO_API[API REST]
-    SO_DB[(schema social)]
-    SO_REC[Recomendação algorítmica]
+flowchart TB
+  CLIENTES["Clientes<br/>Flutter 3.47 · produto principal<br/>Vue 3.5 + Tailwind 4 · subconjunto web"]
+
+  subgraph BACKEND[Microsserviços no Render]
+    direction LR
+    ID["identidade<br/>Spring Boot 4.1 · Java 21<br/>conta · autenticação · perfil · seguidores<br/>Brevo"]
+    AC["acervo<br/>NestJS 11 · Node 22<br/>catálogo · busca · livros · capas · sinopses<br/>OpenLibrary · Google Books · Cloudinary"]
+    LE["leitura<br/>NestJS 11 · Node 22<br/>estante · progresso · avaliações<br/>desafios · streak · estatísticas"]
+    SO["social<br/>Spring Boot 4.1 · Java 21<br/>feed · comentários · listas · recomendações<br/>notificações · moderação · FCM"]
   end
 
-  MQ{{RabbitMQ}}
+  CLIENTES -->|"HTTP/JSON · OpenAPI<br/>acesso direto, sem gateway"| ID & AC & LE & SO
 
-  ID_API --- ID_DB --- ID_V
-  AC_API --- AC_DB --- AC_MV
-  LE_API --- LE_DB --- LE_V
-  SO_API --- SO_DB
+  DB[("PostgresSQL no Neon com um schema/serviço")]
 
-  LE_V -. evento nota .-> AC_MV
-  SO_REC --> LE_V
-  SO_REC --> ID_V
-  SO_REC --> AC_MV
-  ID_API -. eventos .-> MQ
-  LE_API -. eventos .-> MQ
-  SO_API -. eventos .-> MQ
-  MQ -. notificacoes .-> SO_API
-  MQ -. cache de capa .-> AC_API
+  ID -->|"schema próprio"| DB
+  AC -->|"schema próprio"| DB
+  LE -->|"schema próprio"| DB
+  SO -->|"schema próprio"| DB
+
+  MQ{{"RabbitMQ · CloudAMQP<br/>eventos validados por JSON Schema<br/>outbox · retry · DLQ"}}
+
+  ID <-. "AMQP" .-> MQ
+  AC <-. "AMQP" .-> MQ
+  LE <-. "AMQP" .-> MQ
+  SO <-. "AMQP" .-> MQ
+
+  subgraph APOIO[Processos de apoio]
+    direction LR
+    JOBS["GitHub Actions schedule<br/>jobs de conta e inatividade"]
+    INGESTAO["Script Python 3.11+<br/>carga manual do dump OpenLibrary"]
+  end
+
+  JOBS -->|"HTTP autenticado"| ID & LE
+  INGESTAO -->|"COPY e SQL parametrizado"| DB
+
+  classDef cliente fill:#e8f1ff,stroke:#315a8a,color:#17233a;
+  classDef servico fill:#edf8f0,stroke:#39734d,color:#173523;
+  classDef infraestrutura fill:#f5edff,stroke:#715097,color:#2e1f40;
+  classDef dado fill:#fff0f0,stroke:#9a4747,color:#421d1d;
+  classDef apoio fill:#f3f4f6,stroke:#626b78,color:#252a31;
+
+  class CLIENTES cliente;
+  class ID,AC,LE,SO servico;
+  class MQ infraestrutura;
+  class DB dado;
+  class JOBS,INGESTAO apoio;
