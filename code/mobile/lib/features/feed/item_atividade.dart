@@ -148,17 +148,21 @@ class ItemAtividade extends StatelessWidget {
                 style: theme.editorialBody.copyWith(color: theme.secondaryText),
               ),
             ),
-            // A página de resenha é de F-AVA; até lá, o botão existe sem destino.
-            TextButton(
-              onPressed: () {},
-              style: TextButton.styleFrom(
-                padding: EdgeInsets.zero,
-                minimumSize: const Size(0, 48),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                foregroundColor: theme.primaryAccent,
-                textStyle: theme.textTheme.bodySmall,
+            // A página de resenha é de F-AVA; até lá, o botão existe sem destino. O respiro dos lados
+            // é do realce do toque; o deslocamento mantém o texto alinhado ao trecho da resenha.
+            Transform.translate(
+              offset: const Offset(-DesignTokens.space3, 0),
+              child: TextButton(
+                onPressed: () {},
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: DesignTokens.space3),
+                  minimumSize: const Size(0, 48),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  foregroundColor: theme.primaryAccent,
+                  textStyle: theme.textTheme.bodySmall,
+                ),
+                child: const Text('Ler resenha'),
               ),
-              child: const Text('Ler resenha'),
             ),
           ],
           const SizedBox(height: DesignTokens.space4),

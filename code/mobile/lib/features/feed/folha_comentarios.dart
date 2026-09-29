@@ -41,8 +41,10 @@ Future<void> mostrarComentarios(
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(DesignTokens.radiusXl)),
     ),
+    // Com o teclado aberto, a folha vai até o topo: nos 88% o campo e a faixa "Respondendo a"
+    // não cabiam acima do teclado.
     builder: (context) => FractionallySizedBox(
-      heightFactor: 0.88,
+      heightFactor: MediaQuery.viewInsetsOf(context).bottom > 0 ? 1 : 0.88,
       child: FolhaComentarios(
         social: social,
         perfil: perfil,

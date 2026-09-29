@@ -72,12 +72,14 @@ class ComentarioItem extends StatelessWidget {
                 child: TextButton(
                   onPressed: aoResponder,
                   style: TextButton.styleFrom(
-                    // Esquerda em zero para alinhar ao texto do comentário; a direita dá respiro ao realce.
-                    padding: const EdgeInsets.only(right: DesignTokens.space3),
+                    padding: EdgeInsets.zero,
                     minimumSize: const Size(48, 48),
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     alignment: Alignment.centerLeft,
                     foregroundColor: theme.secondaryText,
+                    // Sem realce de toque: a faixa "Respondendo a" já confirma a ação.
+                    overlayColor: Colors.transparent,
+                    splashFactory: NoSplash.splashFactory,
                     textStyle: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
                   ),
                   child: const Text('Responder'),

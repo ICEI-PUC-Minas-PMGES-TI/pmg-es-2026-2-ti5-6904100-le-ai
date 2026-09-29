@@ -172,6 +172,23 @@ void main() {
     expect(eventos, <String>['comentou']);
   });
 
+  testWidgets('respondendo com o teclado aberto, campo e faixa cabem acima do teclado', (tester) async {
+    // Medidas de um S25 com a barra de 3 botões e o teclado com a barra de ferramentas.
+    tester.view
+      ..devicePixelRatio = 1
+      ..physicalSize = const Size(411, 891)
+      ..padding = const FakeViewPadding(top: 40, bottom: 48);
+    addTearDown(tester.view.reset);
+    await _abrir(tester, _Servidor());
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 383);
+    await tester.tap(find.bySemanticsLabel('Responder a Dandara Lopes'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Respondendo a Dandara'), findsOneWidget);
+    expect(tester.getBottomLeft(find.byType(TextField)).dy, lessThanOrEqualTo(891 - 383));
+  });
+
   testWidgets('cancelar a resposta limpa o campo e a barra de contexto', (tester) async {
     await _abrir(tester, _Servidor());
 

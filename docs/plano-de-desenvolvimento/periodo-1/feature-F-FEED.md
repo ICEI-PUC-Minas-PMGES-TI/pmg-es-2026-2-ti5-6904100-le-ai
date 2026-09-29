@@ -112,7 +112,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 ### 29/09/2026: curtida otimista na web e no app, por decisão do produto: o item muda no toque, o botão não trava, o último toque vale e a falha volta ao último estado confirmado. Ver Pendências.
 
-### 29/09/2026: o botão de alternar respostas do app ("Ver N respostas", "Ocultar respostas", "Ver mais respostas") e o "Responder" ganharam respiro à direita, para o realce do toque não terminar colado na última letra.
+### 29/09/2026: ajustes do teste no celular. O botão de alternar respostas do app ("Ver N respostas", "Ocultar respostas", "Ver mais respostas") ganhou respiro à direita, para o realce do toque não terminar colado na última letra; "Ler resenha" ganhou respiro dos dois lados, com o texto ainda alinhado ao trecho. "Responder" ficou sem realce de toque, porque a faixa "Respondendo a" já confirma a ação. Com o teclado aberto, a folha de comentários vai até o topo: nos 88% o campo e a faixa "Respondendo a" transbordavam acima do teclado.
 
 ### 27/09/2026: app mobile de F-FEED implementado em `code/mobile/lib/features/feed/` — feed paginado, os cinco tipos, curtir, comentários em bottom sheet com resposta em um nível e menção pré-preenchida, e os estados de carregamento, vazio, erro, cold start e 429, com testes de serviço, widget e roteador; mergeado em `desenvolvimento`.
 
