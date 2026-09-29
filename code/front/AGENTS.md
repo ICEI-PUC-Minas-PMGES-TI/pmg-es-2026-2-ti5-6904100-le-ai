@@ -24,6 +24,7 @@ Convenções da SPA web. Complementa o [`AGENTS.md`](../../AGENTS.md) da raiz �
 - `src/components/`: componentes reutilizáveis de aplicação (ex.: `SidebarNavegacao.vue`, `CabecalhoTela.vue`); os de um domínio ficam na subpasta dele (`components/auth/`, `components/perfil/`, `components/livros/`...); componentes do design system (formulário, botão, banner, logo) ficam em `src/components/ui/`.
 - `src/services/`: integrações externas — cliente HTTP central (`api.ts`), renovação de sessão (`renovacao.ts`) e serviços por domínio (ex.: `auth.ts`).
 - `src/session.ts`: estado de sessão, ver "Gerenciamento de estado" acima.
+- `public/`: favicons (`favicon.svg`, `favicon-32.png`, `apple-touch-icon.png`), copiados pelo Vite para a raiz do `dist/`. São a mesma arte do ícone do app (`code/mobile/assets/icone/icone.svg`, papel sobre musgo); os PNGs saem do SVG com `rsvg-convert`.
 - Testes unitários ficam junto do arquivo testado, com sufixo `.spec.ts`.
 
 ## Comandos
