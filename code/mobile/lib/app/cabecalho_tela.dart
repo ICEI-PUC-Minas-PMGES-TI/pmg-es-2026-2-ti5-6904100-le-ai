@@ -65,7 +65,12 @@ class CabecalhoTela extends StatelessWidget {
         child: ConstrainedBox(
           constraints: const BoxConstraints.tightFor(height: altura),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: DesignTokens.space5),
+            // Com sino, a caixa de toque de 48px do sino entra 12px além do ícone; o padding final
+            // cai esses 12px para o ícone continuar a `space-5` da borda.
+            padding: EdgeInsets.only(
+              left: DesignTokens.space5,
+              right: comSino ? DesignTokens.space5 - 12 : DesignTokens.space5,
+            ),
             child: Row(
               children: <Widget>[
                 if (aoVoltar != null) ...<Widget>[
@@ -99,8 +104,9 @@ class CabecalhoTela extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                // Ações e sino são alvos de 48px com o ícone centralizado, sem espaço entre eles:
+                // 24px de ícone a ícone, o mais perto dos 16px do protótipo sem encolher o toque.
                 ...acoes,
-                if (acoes.isNotEmpty && comSino) const SizedBox(width: DesignTokens.space3),
                 if (comSino) const _Sino(),
               ],
             ),
@@ -132,7 +138,7 @@ class _Sino extends StatelessWidget {
         child: SizedBox(
           width: 48,
           height: 48,
-          child: Align(alignment: Alignment.centerRight, child: _icone(theme, naoLidas)),
+          child: Center(child: _icone(theme, naoLidas)),
         ),
       ),
     );

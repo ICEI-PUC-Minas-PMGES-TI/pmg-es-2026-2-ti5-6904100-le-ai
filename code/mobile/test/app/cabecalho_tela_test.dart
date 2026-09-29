@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 
 import 'package:le_ai_mobile/app/cabecalho_tela.dart';
 import 'package:le_ai_mobile/core/network/api_client.dart';
@@ -72,5 +73,52 @@ void main() {
     await tester.tap(find.bySemanticsLabel('Notificações, 1 não lida'));
 
     expect(abertas, 1);
+  });
+
+  group('espaçamento do sino', () {
+    final sino = find.byIcon(PhosphorIconsRegular.bell);
+
+    double distanciaDaBorda(WidgetTester tester) =>
+        tester.view.physicalSize.width / tester.view.devicePixelRatio -
+        tester.getTopRight(sino).dx;
+
+    testWidgets('com duas ações, os três ícones ficam igualmente espaçados e o sino a 20px', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _noShell(
+          CabecalhoTela(
+            titulo: 'Perfil',
+            acoes: <Widget>[
+              IconButton(
+                onPressed: () {},
+                icon: const Icon(PhosphorIconsRegular.magnifyingGlass),
+              ),
+              IconButton(onPressed: () {}, icon: const Icon(PhosphorIconsRegular.gear)),
+            ],
+          ),
+          _contador(0),
+        ),
+      );
+
+      final lupa = tester.getCenter(find.byIcon(PhosphorIconsRegular.magnifyingGlass));
+      final engrenagem = tester.getCenter(find.byIcon(PhosphorIconsRegular.gear));
+      final campana = tester.getCenter(sino);
+      expect(engrenagem.dx - lupa.dx, 48);
+      expect(campana.dx - engrenagem.dx, 48);
+      expect(distanciaDaBorda(tester), 20);
+    });
+
+    testWidgets('sem ações, o sino continua a 20px da borda', (tester) async {
+      await tester.pumpWidget(_noShell(const CabecalhoTela(titulo: 'Feed'), _contador(0)));
+
+      expect(distanciaDaBorda(tester), 20);
+    });
+
+    testWidgets('o alvo de toque do sino segue com 48px', (tester) async {
+      await tester.pumpWidget(_noShell(const CabecalhoTela(titulo: 'Feed'), _contador(0)));
+
+      expect(tester.getSize(find.bySemanticsLabel('Notificações')), const Size(48, 48));
+    });
   });
 }
