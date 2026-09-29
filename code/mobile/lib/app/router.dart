@@ -141,6 +141,7 @@ GoRouter buildRouter({
           aoBuscarLeitor: () => context.go(rotaBuscarLeitor),
           contadorDeNaoLidas: depsDeNotificacoes.contador,
           aoAbrirNotificacoes: (raiz) => context.push<void>(rotaNotificacoes(raiz)),
+          fecharNotificacoes: () => depsDeNotificacoes.fechamento.fechar(GoRouter.of(context)),
         ),
         branches: <StatefulShellBranch>[
           StatefulShellBranch(

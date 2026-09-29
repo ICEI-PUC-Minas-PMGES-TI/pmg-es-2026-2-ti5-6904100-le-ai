@@ -124,6 +124,7 @@ Fonte no código: `notificacao/model/EventoDeNotificacao.java` (uma linha por ev
 - **`marcar-lidas` com id alheio ou inexistente responde 404 e não altera nenhuma do lote** (tudo ou nada). O texto do spec dizia "ignora ... e responde 404", ambíguo; o spec foi ajustado para descrever o comportamento.
 - **Campo `livro` (`LivroDaNotificacao`) acrescentado a `Notificacao`** no spec: o modal pede o título ("Abandonar O Avesso da Pele?") e o destino da notificação precisa do id/tipo do livro.
 - **Mobile:** a tela é sub-rota `notificacoes` de cada aba (`/estante/notificacoes`, `/feed/notificacoes`...), para a barra inferior continuar com a aba de origem ativa (notificacoes.md §4). O badge é buscado ao entrar no shell e a cada retorno do app ao primeiro plano (sem tempo real, RF-NOT-06). `LEITURA_BASE_URL` padrão `http://localhost:3001`, porque `acervo` e `leitura` nascem os dois na 3000.
+- **Mobile, a tela é temporária (decisão de 29/09/2026):** ao trocar de aba pela barra inferior, ou ao abrir uma notificação cujo destino é outra aba, as notificações fecham **sem animação** antes da troca, e a aba de origem volta a mostrar a tela que estava por baixo (a raiz, ou a sub-tela onde o sino foi tocado). O `go_router` não permite editar a pilha de uma aba inativa, e fechar com animação antes de trocar congelaria a saída no meio (a aba escondida perde o `TickerMode`); por isso o fechamento é um `pop` de duração zero, seguido de um quadro de espera, e só então a troca. A seta e o gesto de voltar continuam animados.
 - **Validação:** `ConsumidorDeNotificacaoIntegracaoTest` e `NotificacaoControllerIntegracaoTest` contra Postgres real; `ConsumidorDeNotificacaoBrokerTest` com o `AmqpConsumerService` real sobre canal simulado (bindings, schema inválido → DLQ); mobile com API simulada (estado, paginação, abandonar, 503 e timeout de cold start). E2E manual com RabbitMQ real em 26/09: bindings nos 3 exchanges, 4 publicações válidas viraram 3 notificações (reexecução do job deduplicada), limiar inválido foi para a DLQ, `TODAS` marcou as 3.
 
 ## Pendências
@@ -141,6 +142,8 @@ Fonte no código: `notificacao/model/EventoDeNotificacao.java` (uma linha por ev
 - Stack de `social` definida: **Spring (Java)** (arquitetura §2.1).
 
 ## Timeline
+
+### Correção 29/09/2026: as notificações do mobile deixam de ficar empilhadas na aba de origem. Trocar de aba pela barra inferior, ou abrir uma notificação de destino em outra aba, fecha a tela sem animação, e a aba volta à tela que estava por baixo. Testes de roteador cobrindo a raiz, a sub-tela, o destino em outra aba, o fechamento em dois quadros e o voltar animado.
 
 ### Implementação 26/09/2026: consumidor de notificações em `social` para os oito eventos do Período 1 (fila única nos três exchanges, snapshot no consumo, deduplicação por `eventId` e por chave de negócio), `GET /notificacoes` com total de não lidas e ator oculto quando perde visibilidade, `POST /notificacoes/marcar-lidas` idempotente e tudo-ou-nada por dono. Mobile com a tela de notificacoes.md, badge no sino e ação de abandonar confirmada. Spec ganhou `LivroDaNotificacao`. Testes: 25 novos em `social` (Postgres real), 16 no mobile, e E2E manual com RabbitMQ real. Pendências de F-EST, destinos provisórios e divergências registradas acima.
 
