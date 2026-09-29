@@ -17,7 +17,6 @@ import 'verbos.dart';
 /// que se distinguem só pelo verbo. O item só emite a intenção; a tela decide o que fazer.
 class ItemAtividade extends StatelessWidget {
   final Atividade atividade;
-  final bool curtidaPendente;
   final VoidCallback aoCurtir;
   final VoidCallback aoDescurtir;
   final VoidCallback aoComentar;
@@ -27,7 +26,6 @@ class ItemAtividade extends StatelessWidget {
   const ItemAtividade({
     super.key,
     required this.atividade,
-    this.curtidaPendente = false,
     required this.aoCurtir,
     required this.aoDescurtir,
     required this.aoComentar,
@@ -171,11 +169,7 @@ class ItemAtividade extends StatelessWidget {
                     '${atividade.curtidaPeloSolicitante ? 'Descurtir' : 'Curtir'}, '
                     '${contagem(atividade.totalCurtidas, 'curtida', 'curtidas')}',
                 ativo: atividade.curtidaPeloSolicitante,
-                aoTocar: curtidaPendente
-                    ? null
-                    : atividade.curtidaPeloSolicitante
-                    ? aoDescurtir
-                    : aoCurtir,
+                aoTocar: atividade.curtidaPeloSolicitante ? aoDescurtir : aoCurtir,
                 icone: _CoracaoDeCurtida(curtida: atividade.curtidaPeloSolicitante),
                 numero: atividade.totalCurtidas,
               ),

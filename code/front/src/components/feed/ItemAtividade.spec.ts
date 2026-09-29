@@ -23,7 +23,7 @@ function atividade(sobrescreve: Partial<Atividade> = {}): Atividade {
   }
 }
 
-async function montar(props: { atividade: Atividade; curtidaPendente?: boolean }) {
+async function montar(props: { atividade: Atividade }) {
   const router = createRouter({ history: createMemoryHistory(), routes })
   await router.push('/feed')
   await router.isReady()
@@ -136,15 +136,6 @@ describe('ItemAtividade', () => {
 
     const comComentarios = await montar({ atividade: atividade({ totalComentarios: 2 }) })
     expect(comComentarios.get('[aria-label="2 comentários"]').text()).toBe('2')
-  })
-
-  it('curtidaPendente desabilita o botão de curtir e ele não emite ao clicar', async () => {
-    const wrapper = await montar({ atividade: atividade(), curtidaPendente: true })
-    const botao = wrapper.get('[aria-label="Curtir, 4 curtidas"]')
-    expect(botao.attributes('disabled')).toBeDefined()
-
-    await botao.trigger('click')
-    expect(wrapper.emitted('curtir')).toBeUndefined()
   })
 
   it('emite comentar com a atividade ao clicar no botão de comentar', async () => {

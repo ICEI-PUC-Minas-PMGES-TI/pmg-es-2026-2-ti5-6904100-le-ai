@@ -105,9 +105,12 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Nota da resenha (26/09):** `ResenhaSnapshot` ganhou `nota` (anulável), lida de `leitura.v_nota_publicacao_v1`, e o item de resenha mostra as estrelas como pede o §4.
 - **Divergências protótipo × implementação (mobile, 27/09):** as mesmas decisões de produto da web valem no app — curtir pulsa o coração e solta 6 partículas em musgo, e "Ler resenha" não navega. Falha ao curtir aparece num `SnackBar`, em vez do banner da web. Respostas além da primeira página carregam por "Ver mais respostas", pelo cursor da API.
 - **Divergências protótipo × implementação (web, 26/09):** "Ler resenha" não navega, porque a página de resenha é de F-AVA; o carregamento mostra 3 itens de skeleton em vez dos 4 da web (§5.4); o modal carrega só a primeira página de comentários-raiz, sem "carregar mais". Por decisão do produto (26/09), a coluna de 760px da web fica centralizada na área de conteúdo, e não alinhada à esquerda como pede o §5. Também por decisão do produto (26/09), curtir mostra o coração pulsando e 8 partículas em musgo, contrariando o §4.2 e o §10 (sem animação no curtir); o efeito roda mesmo com `prefers-reduced-motion`, também por decisão do produto.
+- **Decisão de produto (29/09): curtida otimista, web e app.** Curtir e descurtir mudam o item na hora (`curtidaPeloSolicitante` e `totalCurtidas` ± 1, mínimo 0) e o botão não trava. O último toque vale: por atividade há no máximo uma requisição em voo, cada uma com a própria `Idempotency-Key`, e, se ao terminar o item exibido difere do confirmado, a requisição que falta segue até convergir. Ao convergir, o total devolvido pelo servidor corrige o contador. Se a requisição falha (inclusive `429`), o item volta ao último estado confirmado e o erro aparece como antes (banner na web, `SnackBar` no app). Recarregar a lista descarta as intenções pendentes. Implementação em `src/feed/useCurtidas.ts` (web) e `lib/features/feed/curtidas_otimistas.dart` (app).
 - **Falta para fechar:** validar fila, retry e DLQ contra RabbitMQ real; CI verde; aplicar a migration incremental no Neon.
 
 ## Timeline
+
+### 29/09/2026: curtida otimista na web e no app, por decisão do produto: o item muda no toque, o botão não trava, o último toque vale e a falha volta ao último estado confirmado. Ver Pendências.
 
 ### 29/09/2026: o botão de alternar respostas do app ("Ver N respostas", "Ocultar respostas", "Ver mais respostas") ganhou respiro à direita, para o realce do toque não terminar colado na última letra.
 

@@ -131,8 +131,11 @@ void main() {
     expect(eventos.lista, <String>['estante']);
   });
 
-  testWidgets('curtir atualiza o item com o total do servidor, sem recarregar', (tester) async {
+  testWidgets('curtir muda o item antes de o servidor responder e depois usa o total dele', (
+    tester,
+  ) async {
     final pedidos = <String>[];
+    final resposta = Completer<http.Response>();
     await _montar(
       tester,
       socialSimulado((request) async {
@@ -140,19 +143,27 @@ void main() {
         if (request.url.path == '/feed') {
           return json(_paginaDeFeed(<Map<String, Object?>>[atividadeJson()]), 200);
         }
-        return json(<String, Object?>{'atividadeId': 'a1', 'curtida': true, 'totalCurtidas': 5}, 200);
+        return resposta.future;
       }),
     );
     await tester.pumpAndSettle();
 
     await tester.tap(find.bySemanticsLabel('Curtir, 4 curtidas'));
-    await tester.pumpAndSettle();
+    await tester.pump();
 
     expect(find.bySemanticsLabel('Descurtir, 5 curtidas'), findsOneWidget);
+
+    resposta.complete(
+      json(<String, Object?>{'atividadeId': 'a1', 'curtida': true, 'totalCurtidas': 6}, 200),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.bySemanticsLabel('Descurtir, 6 curtidas'), findsOneWidget);
     expect(pedidos, <String>['GET /feed', 'POST /atividades/a1/curtir']);
   });
 
-  testWidgets('descurtir que falha mantém o estado e avisa', (tester) async {
+  testWidgets('descurtir que falha volta ao estado anterior e avisa', (tester) async {
+    final resposta = Completer<http.Response>();
     await _montar(
       tester,
       socialSimulado((request) async {
@@ -162,12 +173,17 @@ void main() {
             200,
           );
         }
-        return erro(404, 'RECURSO_NAO_ENCONTRADO', 'Não encontramos o que você procura.');
+        return resposta.future;
       }),
     );
     await tester.pumpAndSettle();
 
     await tester.tap(find.bySemanticsLabel('Descurtir, 5 curtidas'));
+    await tester.pump();
+
+    expect(find.bySemanticsLabel('Curtir, 4 curtidas'), findsOneWidget);
+
+    resposta.complete(erro(404, 'RECURSO_NAO_ENCONTRADO', 'Não encontramos o que você procura.'));
     await tester.pumpAndSettle();
 
     expect(find.bySemanticsLabel('Descurtir, 5 curtidas'), findsOneWidget);
