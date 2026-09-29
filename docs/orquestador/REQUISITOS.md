@@ -1,6 +1,6 @@
 # REQUISITOS
 
-**Versão:** v1.6 — 27/09/2026
+**Versão:** v1.7 — 29/09/2026
 **Baseline:** fechada em 25/08/2026
 **Status:** baseline fechada — decisões de dados aprovadas pelo grupo incorporadas em 15/09/2026 (ver Timeline)
 
@@ -151,7 +151,7 @@ Páginas de autor, editora e série **não são perfis**: não têm dono, não r
 |---|---|---|---|
 | RF-PRG-01 | O leitor deve poder registrar uma atualização de progresso informando **em qual página parou** e, opcionalmente, **quanto tempo gastou**. | E | ✅ |
 | RF-PRG-02 | O sistema deve calcular e exibir a **página atual** e o **percentual concluído** da leitura a partir das atualizações registradas. | E | ✅ |
-| RF-PRG-03 | O leitor deve poder visualizar suas atualizações de progresso de uma leitura em andamento, **editar somente a última** e excluir um registro intermediário **somente junto de todos os posteriores**, recalculando-se a página atual e os efeitos derivados (RN-17). | E | ✅ |
+| RF-PRG-03 | O leitor deve poder visualizar suas atualizações de progresso de uma leitura em andamento e excluir um registro intermediário **somente junto de todos os posteriores**, recalculando-se a página atual e os efeitos derivados (RN-17). | E | ✅ |
 | RF-PRG-04 | O sistema deve rejeitar atualização cuja página informada seja **menor ou igual à página atual** da leitura ou **maior que o total de páginas** do livro. | E | ✅ |
 | RF-PRG-05 | O leitor deve poder **iniciar uma sessão de leitura cronometrada** a partir de uma leitura em andamento, com o tempo medido pelo aplicativo. | D | ❌ |
 | RF-PRG-06 | Durante a sessão ativa, o aplicativo deve operar em **modo de foco**, bloqueando o acesso a todas as demais áreas do aplicativo até que a sessão seja encerrada ou cancelada, conforme RN-16. O modo de foco **não é configurável nem contornável** pelo leitor. | D | ❌ |
@@ -613,10 +613,10 @@ O leitor informa sempre **a página em que parou**, nunca quantas páginas leu. 
 1. **Páginas lidas em uma atualização** são derivadas: `página informada − página atual antes da atualização`. É esse valor derivado que alimenta desafios e estatísticas.
 2. A página informada deve ser **maior que a página atual** e **não superior ao total do livro** (RF-PRG-04). Progresso não retrocede.
 3. A **página atual** da leitura é a maior página informada até o momento.
-4. Somente a **última atualização** de uma leitura em andamento pode ser editada (página e tempo). A página corrigida deve ser maior que a página-base (a do registro anterior, ou zero se não existir anterior) e não superar o total do livro. A edição preserva instante/fuso/data local originais e recalcula páginas derivadas e demais efeitos.
+4. Atualizações de progresso **não podem ser editadas**. Para corrigir um valor, o leitor exclui o registro (junto dos posteriores, conforme o item 6) e registra de novo.
 5. O **percentual concluído** é derivado da página atual sobre o total do livro.
 6. A exclusão da última atualização recalcula a página atual a partir das restantes, ou zero se nenhuma restar. Um registro intermediário só pode ser excluído **se todos os registros posteriores também forem excluídos**: remover do mais recente para trás ou confirmar a exclusão conjunta do trecho final, de forma atômica. Nunca se deixa um registro posterior apoiado numa base excluída. A confirmação informa quais registros serão removidos; cada efeito em desafios, estatísticas e sequência é recalculado.
-7. Edição/exclusão validam a ordem dentro da mesma transação/lock da leitura; a ordem é a de inserção dos progressos, não a última edição. Leituras finalizadas continuam com progresso somente para consulta. A fila offline preserva a ordem por leitura, a chave de idempotência e os metadados automáticos de captura; sincronizar depois não muda o dia em que a leitura ocorreu.
+7. A exclusão valida a ordem dentro da mesma transação/lock da leitura; a ordem é a de inserção dos progressos. Leituras finalizadas continuam com progresso somente para consulta. A fila offline preserva a ordem por leitura, a chave de idempotência e os metadados automáticos de captura; sincronizar depois não muda o dia em que a leitura ocorreu.
 
 ### RN-16 — Sessão de leitura cronometrada
 
@@ -1078,6 +1078,11 @@ Registrado explicitamente para evitar reabertura de discussão:
 ---
 
 ## 12. Timeline
+
+### v1.7 — Alteração 29/09/2026: progresso sem edição
+
+- **RF-PRG-03/RN-17:** por decisão da dona do projeto, reverte a parte de v1.5 (15/09/2026) que permitia editar a última atualização de progresso. O leitor visualiza as atualizações e exclui; um registro intermediário só é excluído junto de todos os posteriores, recalculando a página atual e os efeitos derivados. Para corrigir um valor, exclui-se e registra-se de novo.
+- **Impacto:** F-PRG (OpenAPI de `leitura` sem `PATCH /progresso/{progressoId}`); sem mudança de dados.
 
 ### v1.6 — Alteração 27/09/2026: tempo opcional no progresso manual
 

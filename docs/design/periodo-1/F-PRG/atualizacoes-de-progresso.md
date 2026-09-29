@@ -256,6 +256,7 @@ mobile assume. Não existe menu hamburguer em nenhum tamanho.
 - `ArrowLeft` (Phosphor, `regular`, 24px, `tinta`) à esquerda, alvo de 48px.
 - Título `Progresso` em `display` `tinta`, à esquerda, alinhado à base.
 - `Bell` (Phosphor, `regular`, 24px, `tinta`) à direita, com o badge de não lidas quando houver.
+- Ação de registrar · incorporado em 29/09/2026: `PlusCircle` (Phosphor, `regular`, 24px, `tinta`) à direita, alvo de 48px, com o rótulo acessível `Registrar progresso`. Abre o sheet de Registrar progresso para a leitura em andamento. Aparece assim que o resumo carrega e some quando a resposta vem `somenteLeitura`, junto com excluir.
 
 ### Bloco de resumo
 
@@ -437,9 +438,9 @@ Nos três, os shadows ficam com **metade da opacidade**: no escuro a hierarquia 
 | Aviso de ritmo, registro sem tempo · incorporado em 27/09/2026 | `102 páginas de uma vez. Se você digitou errado, exclua este registro para voltar à página 148.` |
 | Item sem tempo informado · incorporado em 27/09/2026 | `24 páginas` no item da lista; célula de tempo vazia na tabela |
 | Rótulo do botão excluir · incorporado em 27/09/2026 | `Excluir a atualização da página 172` |
-| Ação de editar, só na atualização mais recente · incorporado em 27/09/2026 | ícone `PencilSimple` com o rótulo `Editar a atualização da página 172` |
 | Confirmação, alcance · incorporado em 27/09/2026 | `Esta atualização e a seguinte serão excluídas.`, `Esta atualização e as 2 seguintes serão excluídas.` |
 | Link a partir da estante e da página do livro · incorporado em 27/09/2026 | `Ver atualizações` |
+| Rótulo do botão de registrar no header · incorporado em 29/09/2026 | `Registrar progresso` |
 
 Zero em-dash em toda a copy. Zero emoji. Todo número traz a unidade, inclusive os zeros do estado vazio, que são contagens reais e não valores ausentes.
 
@@ -462,7 +463,7 @@ Zero em-dash em toda a copy. Zero emoji. Todo número traz a unidade, inclusive 
 
 **Específico das atualizações de progresso**
 
-- **Não ofereça editar uma atualização.** RF-PRG-03 dá visualizar e excluir. Editar não existe, e o caminho para corrigir é excluir e registrar de novo.
+- **Não ofereça editar uma atualização.** RF-PRG-03 dá visualizar e excluir, e excluir uma atualização intermediária exclui também as seguintes. Editar não existe, e o caminho para corrigir é excluir e registrar de novo (reafirmado em 29/09/2026).
 - **Não desenhe páginas lidas como campo.** Elas são derivadas de RN-17.1 e só aparecem como texto na lista.
 - **Não use confirmação genérica.** A confirmação precisa dizer para qual página e qual percentual o recálculo vai levar.
 - **Não desenhe botão destrutivo preenchido.** Destrutivo é outline `rubi`, nos dois temas.
