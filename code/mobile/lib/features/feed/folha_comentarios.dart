@@ -673,8 +673,10 @@ class _FolhaComentariosState extends State<FolhaComentarios> {
     );
   }
 
+  /// `radius-lg`, e não o `radius-full` do protótipo: numa linha o campo continua quase uma
+  /// pílula, e ao crescer até quatro linhas vira caixa de texto, em vez de uma cápsula alta.
   OutlineInputBorder _borda(ThemeData theme) => OutlineInputBorder(
-    borderRadius: BorderRadius.circular(DesignTokens.radiusFull),
+    borderRadius: BorderRadius.circular(DesignTokens.radiusLg),
     borderSide: BorderSide(color: theme.divider),
   );
 }
