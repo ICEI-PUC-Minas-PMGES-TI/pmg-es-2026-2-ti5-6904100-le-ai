@@ -576,6 +576,94 @@ describe('estante (integração)', () => {
         retomavel: false,
       });
     });
+
+    it('reflete o progresso em Lendo e a página de parada em Abandonado; nulo em Quero ler e Lido', async () => {
+      const usuario = await leitora();
+      const lendo = await inserirLivro(pool, { paginas: 200 });
+      const abandonado = await inserirLivro(pool, { paginas: 400 });
+      const queroLer = await inserirLivro(pool, { paginas: 100 });
+      const lido = await inserirLivro(pool, { paginas: 100 });
+
+      function progresso(leituraId: string, pagina: number) {
+        return acao(usuario, `/leituras/${leituraId}/progresso`, {
+          pagina,
+          minutos: 30,
+          registradoEmDispositivo: '2026-09-20T02:30:00.000Z',
+          fusoHorarioDispositivo: FUSO,
+        }).expect(201);
+      }
+
+      const leituraLendo = await iniciar(usuario, lendo);
+      await progresso(leituraLendo, 50);
+      const leituraAbandonada = await iniciar(usuario, abandonado);
+      await progresso(leituraAbandonada, 100);
+      await acao(usuario, `/leituras/${leituraAbandonada}/abandonar`).expect(
+        200,
+      );
+      await adicionar(usuario, queroLer).expect(201);
+      const leituraLida = await iniciar(usuario, lido);
+      await progresso(leituraLida, 60);
+      await acao(usuario, `/leituras/${leituraLida}/finalizar`, {
+        fusoHorarioDispositivo: FUSO,
+      }).expect(200);
+
+      const esperado = new Map([
+        [
+          lendo,
+          {
+            status: 'LENDO',
+            paginaAtual: 50,
+            totalPaginas: 200,
+            percentualConcluido: 25,
+          },
+        ],
+        [
+          abandonado,
+          {
+            status: 'ABANDONADO',
+            paginaAtual: 100,
+            totalPaginas: 400,
+            percentualConcluido: 25,
+          },
+        ],
+        [
+          queroLer,
+          {
+            status: 'QUERO_LER',
+            paginaAtual: null,
+            totalPaginas: 100,
+            percentualConcluido: null,
+          },
+        ],
+        [
+          lido,
+          {
+            status: 'LIDO',
+            paginaAtual: null,
+            totalPaginas: 100,
+            percentualConcluido: null,
+          },
+        ],
+      ]);
+
+      const lista = await consultar(usuario, '/estante').expect(200);
+      const perfil = await consultar(
+        usuario,
+        `/perfis/${usuario}/estante`,
+      ).expect(200);
+      for (const [livroId, campos] of esperado) {
+        const porLivro = (i: { livroId: string }) => i.livroId === livroId;
+        expect(lista.body.itens.find(porLivro)).toMatchObject(campos);
+        expect(perfil.body.itens.find(porLivro)).toMatchObject(campos);
+        expect(await item(usuario, livroId)).toMatchObject(campos);
+      }
+
+      await progresso(leituraLendo, 150);
+      expect(await item(usuario, lendo)).toMatchObject({
+        paginaAtual: 150,
+        percentualConcluido: 75,
+      });
+    });
   });
 
   describe('GET /estante/{livroId}', () => {

@@ -7,7 +7,12 @@ import { itemEstante, leitura, paginaEstante, TOTAIS_ZERADOS } from '../testes/e
 import { montarNaRota } from '../testes/montarNaRota'
 
 vi.mock('../services/leitura', () => ({
-  leituraService: { listarEstante: vi.fn(), detalharLeitura: vi.fn(), removerEstante: vi.fn() },
+  leituraService: {
+    listarEstante: vi.fn(),
+    detalharLeitura: vi.fn(),
+    removerEstante: vi.fn(),
+    registrarProgresso: vi.fn(),
+  },
 }))
 
 const servico = vi.mocked(leituraService)
@@ -300,5 +305,73 @@ describe('EstanteView', () => {
 
     expect(document.body.querySelector('[role="dialog"]')).toBeNull()
     expect(wrapper.text()).toContain('Não foi possível carregar as ações deste livro.')
+  })
+
+  it('Registrar progresso no card em andamento abre o dialog, salva e recarrega a estante', async () => {
+    servico.detalharLeitura.mockReset().mockResolvedValue(leitura({ livroId: 'l1' }))
+    servico.registrarProgresso.mockReset().mockResolvedValue({
+      progresso: {
+        id: 'p-1',
+        leituraId: 'lei-1',
+        posicao: 1,
+        pagina: 172,
+        paginaAnterior: 148,
+        paginasLidas: 24,
+        minutos: 45,
+        registradoEmDispositivo: '2026-09-27T10:00:00Z',
+        fusoHorarioDispositivo: 'America/Sao_Paulo',
+        dataLocal: '2026-09-27',
+        criadoEm: '2026-09-27T10:00:00Z',
+      },
+      resumo: { paginaAtual: 172, totalPaginas: 264, percentualConcluido: 65, minutosTotais: 260 },
+    })
+    const { wrapper } = await montarNaRota('/estante')
+    await flushPromises()
+    await wrapper.findAll('ul li button')[0]!.trigger('click')
+    await flushPromises()
+    const registrar = [...document.body.querySelectorAll<HTMLButtonElement>('[role="dialog"] ul button')].find(
+      (b) => b.textContent!.trim() === 'Registrar progresso',
+    )!
+    registrar.click()
+    await flushPromises()
+
+    const dialogo = document.body.querySelector('[role="dialog"]')!
+    expect(dialogo.getAttribute('aria-label')).toBe('Registrar progresso')
+    expect(dialogo.textContent).toContain('Página 148 de 264')
+    const [pagina, , minutos] = [...dialogo.querySelectorAll('input')]
+    pagina!.value = '172'
+    pagina!.dispatchEvent(new Event('input'))
+    minutos!.value = '45'
+    minutos!.dispatchEvent(new Event('input'))
+    await flushPromises()
+    expect(dialogo.textContent).toContain('Você leu 24 páginas')
+    const chamadasAntes = servico.listarEstante.mock.calls.length
+    dialogo.querySelector('form')!.dispatchEvent(new Event('submit'))
+    await flushPromises()
+
+    expect(servico.registrarProgresso).toHaveBeenCalledWith(
+      'lei-1',
+      expect.objectContaining({ pagina: 172, minutos: 45 }),
+      expect.any(String),
+    )
+    expect(servico.listarEstante.mock.calls.length).toBe(chamadasAntes + 1)
+    expect(document.body.querySelector('[role="dialog"]')).toBeNull()
+  })
+
+  it('Ver atualizações leva à tela de progresso da leitura em andamento', async () => {
+    servico.detalharLeitura.mockReset().mockResolvedValue(leitura({ livroId: 'l1' }))
+    const { wrapper, router } = await montarNaRota('/estante')
+    await flushPromises()
+    await wrapper.findAll('ul li button')[0]!.trigger('click')
+    await flushPromises()
+    const push = vi.spyOn(router, 'push')
+
+    const ver = [...document.body.querySelectorAll<HTMLButtonElement>('button')].find(
+      (b) => b.textContent!.trim() === 'Ver atualizações',
+    )!
+    ver.click()
+    await flushPromises()
+
+    expect(push).toHaveBeenCalledWith('/estante/leituras/lei-1/progresso')
   })
 })

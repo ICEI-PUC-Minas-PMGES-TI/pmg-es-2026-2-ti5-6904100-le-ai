@@ -422,6 +422,11 @@ Nos três, os shadows ficam com **metade da opacidade**: no escuro a hierarquia 
 | Cancelar | `Cancelar` |
 | Botão em salvamento | `Salvando` |
 | Erro | `Não foi possível salvar. Verifique sua conexão e tente de novo.` |
+| Erro, status mudou em outro lugar · incorporado em 27/09/2026 | `O status deste livro mudou em outro lugar. Feche e abra de novo para ver as ações atuais.` |
+| Erro, data no futuro · incorporado em 27/09/2026 | `Escolha uma data até hoje.` |
+| Erro ao abrir as ações · incorporado em 27/09/2026 | `Não foi possível carregar as ações deste livro. Verifique sua conexão e tente de novo.` |
+| Botão do erro ao abrir · incorporado em 27/09/2026 | `Tentar de novo` |
+| Ação de ver o histórico de progresso · incorporado em 27/09/2026 | `Ver atualizações` |
 
 Zero em-dash em toda a copy. Zero emoji. Todo número traz a unidade, e as datas aparecem por extenso em pt-BR.
 

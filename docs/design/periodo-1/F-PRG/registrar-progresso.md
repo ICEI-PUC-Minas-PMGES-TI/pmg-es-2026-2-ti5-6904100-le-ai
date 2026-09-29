@@ -297,6 +297,16 @@ Estado exclusivo do mobile, de RNF-ERR-05. Não existe na web.
 
 ---
 
+### 4.9 Registro pausado na fila · incorporado em 29/09/2026
+
+Estado exclusivo do mobile, continuação de 4.7. Não existe na web.
+
+- Se o reenvio de um registro enfileirado recebe uma recusa de validação do servidor (4xx, exceto 401, 408 e 429), a fila daquela leitura pausa nele. Os registros seguintes da mesma leitura esperam; as outras leituras continuam enviando.
+- Na tela de atualizações, a linha pendente troca o aviso `ambar` por `Warning` (Phosphor, `regular`, 16px, `rubi`) com a mensagem do servidor em `caption` `rubi`: o erro do campo quando vier, ou a mensagem geral. Em 409, a mensagem é `Suas atualizações mudaram em outro lugar. Recarregamos a lista para você conferir.`
+- Duas ações textuais abaixo: `Corrigir` e `Descartar`.
+- `Corrigir` abre este mesmo sheet, com o título `Registrar progresso`, os campos preenchidos com a página e o tempo do registro pendente e a faixa válida a partir da página anterior a ele. Salvar troca o item da fila por um novo, com nova chave de idempotência, e retoma o envio. Não altera nenhuma atualização já salva no servidor.
+- `Descartar` pede confirmação (RNF-USA-04) em modal com o título `Descartar este registro?`, o texto `O registro da página N ainda não foi enviado e será perdido.` e os botões `Descartar` e `Cancelar`. Confirmado, remove o item da fila e retoma o envio dos seguintes.
+
 ## 5. Artboards web (1440 x 900)
 
 Na web o painel é **dialog centrado**, conforme `documento-de-design.md` §5.4.
@@ -375,11 +385,18 @@ Nos três, os shadows ficam com **metade da opacidade**: no escuro a hierarquia 
 | Derivado | `Você leu 24 páginas` |
 | Erro, página baixa demais | `Você já está na página 148. Informe uma página maior.` |
 | Erro, página alta demais | `O livro tem 264 páginas. Informe uma página até 264.` |
+| Erro, página ausente · incorporado em 27/09/2026 | `Informe a página em que parou, em número inteiro.` |
+| Erro, tempo inválido · incorporado em 27/09/2026 | `Informe o tempo em horas e minutos inteiros.` |
+| Erro, tempo acima do máximo · incorporado em 27/09/2026 | `Informe até 12 horas de leitura por registro.` |
+| Erro, lista desatualizada · incorporado em 27/09/2026 | `Suas atualizações mudaram em outro lugar. Recarregamos a lista para você conferir.` |
 | Erro de envio | `Não foi possível salvar. Verifique sua conexão e tente de novo.` |
 | Aviso offline | `Registro salvo no aparelho. Será enviado quando você voltar a ficar online.` |
 | Botão primário | `Salvar` |
 | Botão primário em salvamento | `Salvando` |
 | Botão textual | `Cancelar` |
+| Registro pausado, ações · incorporado em 29/09/2026 | `Corrigir`, `Descartar` |
+| Registro pausado, confirmação de descarte · incorporado em 29/09/2026 | Título `Descartar este registro?`, texto `O registro da página 172 ainda não foi enviado e será perdido.`, botões `Descartar` e `Cancelar` |
+| Registro pausado, mensagem em 409 · incorporado em 29/09/2026 | `Suas atualizações mudaram em outro lugar. Recarregamos a lista para você conferir.` |
 
 Zero em-dash em toda a copy. Zero emoji. Nenhum número aparece sem unidade, e as duas mensagens de erro citam o número concreto do caso em vez de descrever a regra no abstrato.
 

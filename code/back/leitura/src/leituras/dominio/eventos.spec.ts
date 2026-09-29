@@ -15,6 +15,7 @@ import {
   leituraIniciada,
   leituraRetomada,
   livroAdicionadoAEstante,
+  progressoRegistrado,
 } from './eventos';
 
 const SCHEMAS = join(__dirname, '../../messaging/schemas');
@@ -23,6 +24,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const usuarioId = '0f8fad5b-d9cb-469f-a165-70867728950e';
 const leituraId = '7c9e6679-7425-40de-944b-e07fc1f90ae7';
 const livroId = '16aa3308-daee-4638-b220-c306484f6a9c';
+const atualizacaoProgressoId = 'b3f1c2d4-5e6f-4a7b-8c9d-0e1f2a3b4c5d';
 
 const usuario: UsuarioSnapshot = {
   id: usuarioId,
@@ -161,6 +163,24 @@ const casos: Array<[string, () => EventoOutbox<unknown>, RegExp]> = [
     () => livroAdicionadoAEstante({ usuarioId, livroId }),
     new RegExp(`^estante:${usuarioId}:${livroId}$`),
   ],
+  [
+    'progresso.registrado',
+    () =>
+      progressoRegistrado({
+        atualizacaoProgressoId,
+        usuarioId,
+        leituraId,
+        livroId,
+        pagina: 120,
+        paginasLidas: 20,
+        minutos: 45,
+        percentual: 42.5,
+        registradoEm: '2026-09-25T02:30:00.000Z',
+        fusoHorario: 'America/Sao_Paulo',
+        dataLocal: '2026-09-24',
+      }),
+    new RegExp(`^progresso:${atualizacaoProgressoId}$`),
+  ],
 ];
 
 describe('catálogo de eventos de leitura', () => {
@@ -206,5 +226,24 @@ describe('catálogo de eventos de leitura', () => {
     });
     const validate = schemaDe('leitura.em_risco');
     expect(validate({ ...evento.payload, limiarDias: 40 })).toBe(false);
+  });
+
+  it('o schema rejeita campo extra e minutos acima de 720 em progresso.registrado', () => {
+    const evento = progressoRegistrado({
+      atualizacaoProgressoId,
+      usuarioId,
+      leituraId,
+      livroId,
+      pagina: 10,
+      paginasLidas: 10,
+      minutos: 30,
+      percentual: 5,
+      registradoEm: '2026-09-25T02:30:00.000Z',
+      fusoHorario: 'America/Sao_Paulo',
+      dataLocal: '2026-09-24',
+    });
+    const validate = schemaDe('progresso.registrado');
+    expect(validate({ ...evento.payload, minutos: 721 })).toBe(false);
+    expect(validate({ ...evento.payload, paginaAnterior: 0 })).toBe(false);
   });
 });

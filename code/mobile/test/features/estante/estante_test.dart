@@ -38,11 +38,13 @@ void main() {
       ]);
       expect(_ids(StatusEstante.lendo, leitura: _leitura()), <IdAcao>[
         IdAcao.registrarProgresso,
+        IdAcao.verAtualizacoes,
         IdAcao.finalizarLeitura,
         IdAcao.abandonarLeitura,
       ]);
       expect(_ids(StatusEstante.relendo, leitura: _leitura()), <IdAcao>[
         IdAcao.registrarProgresso,
+        IdAcao.verAtualizacoes,
         IdAcao.finalizarReleitura,
         IdAcao.abandonarReleitura,
       ]);

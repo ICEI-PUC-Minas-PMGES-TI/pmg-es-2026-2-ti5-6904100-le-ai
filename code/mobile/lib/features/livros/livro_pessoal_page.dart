@@ -23,6 +23,7 @@ import '../estante/acoes_leitura.dart';
 import '../estante/cartao_estante.dart';
 import '../estante/estante_service.dart';
 import '../estante/textos.dart';
+import '../progresso/rotas_progresso.dart';
 import 'acervo_service.dart';
 import 'formatos.dart';
 
@@ -51,6 +52,8 @@ class LivroPessoalPage extends StatefulWidget {
   final VoidCallback? aoExcluir;
   final VoidCallback? aoVoltarAoFeed;
   final EstanteService? estante;
+  final DependenciasDeProgresso? progresso;
+  final ValueChanged<String>? aoVerAtualizacoes;
 
   const LivroPessoalPage({
     super.key,
@@ -64,6 +67,8 @@ class LivroPessoalPage extends StatefulWidget {
     this.aoExcluir,
     this.aoVoltarAoFeed,
     this.estante,
+    this.progresso,
+    this.aoVerAtualizacoes,
   });
 
   @override
@@ -159,17 +164,46 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
 
   Future<void> _abrirAcoesDeLeitura(EstanteService estante, LivroPessoal livro) async {
     final item = _naEstante;
+    final livroDaEstante = LivroDaEstante(
+      titulo: livro.titulo,
+      autor: livro.autor,
+      capaUrl: livro.capaUrl,
+    );
+    final progresso = widget.progresso;
+    final aoVerAtualizacoes = widget.aoVerAtualizacoes;
     final novo = await abrirAcoesDeLeitura(
       context,
       servico: estante,
       livro: LivroDaAcao(
         livroId: livro.id,
-        livro: LivroDaEstante(titulo: livro.titulo, autor: livro.autor, capaUrl: livro.capaUrl),
+        livro: livroDaEstante,
         status: item?.status,
         leituraId: item?.leituraParaAcoes,
       ),
+      aoRegistrarProgresso: progresso == null
+          ? null
+          : (leitura) => _registrarProgresso(progresso, leitura, livroDaEstante),
+      aoVerAtualizacoes: aoVerAtualizacoes == null
+          ? null
+          : (leitura) => aoVerAtualizacoes(leitura.id),
     );
     if (novo != null && mounted) {
+      await _carregarEstante();
+    }
+  }
+
+  Future<void> _registrarProgresso(
+    DependenciasDeProgresso progresso,
+    Leitura leitura,
+    LivroDaEstante livro,
+  ) async {
+    final resultado = await registrarProgressoDaLeitura(
+      context,
+      progresso: progresso,
+      leitura: leitura,
+      livro: livro,
+    );
+    if (resultado != null && mounted) {
       await _carregarEstante();
     }
   }

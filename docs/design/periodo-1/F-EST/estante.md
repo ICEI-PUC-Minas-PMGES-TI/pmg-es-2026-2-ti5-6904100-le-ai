@@ -485,6 +485,11 @@ Nos dois, os shadows ficam com **metade da opacidade**: no escuro a hierarquia v
 | Vazio por filtro, botão | `Ver livros lidos` |
 | Vazio de Quero ler, botão | `Buscar livros` |
 | Vazio de Lido, botão | `Ver o que está lendo` |
+| Vazio de Lendo · incorporado em 27/09/2026 | `Nenhuma leitura em andamento`, `Livros aparecem aqui quando você começa a ler.` |
+| Vazio de Quero ler · incorporado em 27/09/2026 | `Nenhum livro para ler depois`, `Livros aparecem aqui quando você os adiciona como Quero ler.` |
+| Vazio de Lido · incorporado em 27/09/2026 | `Nenhum livro concluído`, `Livros aparecem aqui quando você finaliza uma leitura.` |
+| Vazio de Abandonado · incorporado em 27/09/2026 | `Nenhuma leitura abandonada`, `Leituras aparecem aqui quando você as deixa de lado.` |
+| Detalhe de relidos no card · incorporado em 27/09/2026 | `Lido 2 vezes`, `Lido 1 vez` |
 | Estante vazia, título | `Sua estante está vazia` |
 | Estante vazia, texto | `Busque um livro pelo título, autor ou ISBN e escolha em qual status ele entra.` |
 | Estante vazia, botão primário | `Buscar livros` |

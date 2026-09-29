@@ -22,6 +22,7 @@ import '../features/notificacoes/rotas_notificacoes.dart';
 import '../features/perfil/perfil_page.dart';
 import '../features/perfil/rotas_perfil.dart';
 import '../features/perfil/widgets_de_identidade.dart';
+import '../features/progresso/rotas_progresso.dart';
 import 'shell_autenticado.dart';
 import 'verificando_sessao_page.dart';
 
@@ -51,6 +52,7 @@ GoRouter buildRouter({
   DependenciasDePerfil? perfil,
   DependenciasDeFeed? feed,
   EstanteService? estante,
+  DependenciasDeProgresso? progresso,
   DependenciasDeNotificacoes? notificacoes,
 }) {
   Future<bool> renovar(String token) => sessionController.renovar(token, authService.renovar);
@@ -72,6 +74,7 @@ GoRouter buildRouter({
           renovarSessao: renovar,
         ),
       );
+  final depsDeProgresso = progresso ?? DependenciasDeProgresso.padrao(servicoDeEstante.client);
   final depsDeNotificacoes =
       notificacoes ??
       DependenciasDeNotificacoes.padrao(
@@ -152,9 +155,12 @@ GoRouter buildRouter({
                   servico: servicoDeEstante,
                   aoBuscarLivros: () => context.go('/descobrir'),
                   aoCadastrarLivro: () => context.go(rotaAdicionarLivro),
+                  progresso: depsDeProgresso,
+                  aoVerAtualizacoes: (leituraId) => context.go(rotaProgressoDaLeitura(leituraId)),
                 ),
                 routes: <RouteBase>[
-                  ...rotasDaEstante(deps, servicoDeEstante),
+                  ...rotasDaEstante(deps, servicoDeEstante, progresso: depsDeProgresso),
+                  rotaDoProgresso(depsDeProgresso, servicoDeEstante),
                   rotaDeNotificacoes(depsDeNotificacoes, rotaEstante),
                 ],
               ),

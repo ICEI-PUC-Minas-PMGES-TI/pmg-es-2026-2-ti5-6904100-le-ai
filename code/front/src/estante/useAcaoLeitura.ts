@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 
-import { ApiError, novaChaveIdempotencia } from '../services/api'
+import { ApiError, erroDoCliente, novaChaveIdempotencia } from '../services/api'
 import { leituraService, type Leitura, type LeituraService } from '../services/leitura'
 import type { EstadoDeLeitura } from './acoesDisponiveis'
 import { ERROS_DE_ACAO, TEXTOS_DE_ACAO } from './textos'
@@ -62,13 +62,9 @@ async function enviar(servico: ServicoDeAcoes, pedido: PedidoDeAcao, chave: stri
   }
 }
 
-function encerraIntencao(erro: ApiError): boolean {
-  return erro.status >= 400 && erro.status < 500
-}
-
 function mensagemDoErro(erro: ApiError): string {
   if (erro.status === CONFLITO) return ERROS_DE_ACAO.conflito
-  if (encerraIntencao(erro)) return erro.message
+  if (erroDoCliente(erro)) return erro.message
   return TEXTOS_DE_ACAO.erroAoSalvar
 }
 
@@ -102,7 +98,7 @@ export function useAcaoLeitura(servico: ServicoDeAcoes = leituraService) {
       return estado
     } catch (falha) {
       if (!(falha instanceof ApiError)) throw falha
-      if (encerraIntencao(falha)) esquecerChave()
+      if (erroDoCliente(falha)) esquecerChave()
       erro.value = mensagemDoErro(falha)
       return null
     } finally {

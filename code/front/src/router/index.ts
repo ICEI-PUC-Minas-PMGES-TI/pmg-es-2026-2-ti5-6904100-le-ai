@@ -21,6 +21,7 @@ import EstanteView from '../views/EstanteView.vue'
 import FeedView from '../views/FeedView.vue'
 import LoginView from '../views/auth/LoginView.vue'
 import PoliticaPrivacidadeView from '../views/auth/PoliticaPrivacidadeView.vue'
+import ProgressoView from '../views/ProgressoView.vue'
 import RecuperarSenhaView from '../views/auth/RecuperarSenhaView.vue'
 import RedefinirSenhaView from '../views/auth/RedefinirSenhaView.vue'
 import PerfilDeOutroView from '../views/perfil/PerfilDeOutroView.vue'
@@ -119,6 +120,12 @@ export const routes: RouteRecordRaw[] = [
         name: 'estante',
         component: EstanteView,
         meta: { titulo: 'Minha estante' },
+      },
+      {
+        path: 'estante/leituras/:leituraId/progresso',
+        name: 'progresso',
+        component: ProgressoView,
+        meta: { titulo: 'Progresso', voltar: true, aba: '/estante' },
       },
       {
         path: 'descobrir',

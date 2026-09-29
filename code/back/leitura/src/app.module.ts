@@ -17,6 +17,7 @@ import { LeiturasModule } from './leituras/leituras.module';
 import { MessagingModule } from './messaging/messaging.module';
 import { OutboxModule } from './outbox/outbox.module';
 import { PerfisModule } from './perfis/perfis.module';
+import { ProgressoModule } from './progresso/progresso.module';
 import { ReferenciasModule } from './referencias/referencias.module';
 
 @Module({
@@ -62,6 +63,7 @@ import { ReferenciasModule } from './referencias/referencias.module';
     PerfisModule,
     EstanteModule,
     LeiturasModule,
+    ProgressoModule,
     InatividadeModule,
   ],
   providers: [
