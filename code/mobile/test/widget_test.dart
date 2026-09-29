@@ -10,6 +10,7 @@ import 'package:le_ai_mobile/features/auth/auth_service.dart';
 import 'package:le_ai_mobile/main.dart';
 
 import 'features/estante/apoio_estante.dart';
+import 'features/progresso/apoio_progresso.dart';
 
 class _MemoryThemeStore implements ThemePreferenceStore {
   @override
@@ -58,6 +59,7 @@ Future<LeAiApp> _montarApp({String? tokenSalvo}) async {
     sessionController: sessionController,
     authService: AuthService(apiClient),
     estante: estanteVazia(),
+    progresso: progressoEmMemoria(),
   );
 }
 

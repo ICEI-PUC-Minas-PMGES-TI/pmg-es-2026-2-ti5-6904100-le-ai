@@ -17,7 +17,6 @@ import 'verbos.dart';
 /// que se distinguem só pelo verbo. O item só emite a intenção; a tela decide o que fazer.
 class ItemAtividade extends StatelessWidget {
   final Atividade atividade;
-  final bool curtidaPendente;
   final VoidCallback aoCurtir;
   final VoidCallback aoDescurtir;
   final VoidCallback aoComentar;
@@ -27,7 +26,6 @@ class ItemAtividade extends StatelessWidget {
   const ItemAtividade({
     super.key,
     required this.atividade,
-    this.curtidaPendente = false,
     required this.aoCurtir,
     required this.aoDescurtir,
     required this.aoComentar,
@@ -150,17 +148,21 @@ class ItemAtividade extends StatelessWidget {
                 style: theme.editorialBody.copyWith(color: theme.secondaryText),
               ),
             ),
-            // A página de resenha é de F-AVA; até lá, o botão existe sem destino.
-            TextButton(
-              onPressed: () {},
-              style: TextButton.styleFrom(
-                padding: EdgeInsets.zero,
-                minimumSize: const Size(0, 48),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                foregroundColor: theme.primaryAccent,
-                textStyle: theme.textTheme.bodySmall,
+            // A página de resenha é de F-AVA; até lá, o botão existe sem destino. O respiro dos lados
+            // é do realce do toque; o deslocamento mantém o texto alinhado ao trecho da resenha.
+            Transform.translate(
+              offset: const Offset(-DesignTokens.space3, 0),
+              child: TextButton(
+                onPressed: () {},
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: DesignTokens.space3),
+                  minimumSize: const Size(0, 48),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  foregroundColor: theme.primaryAccent,
+                  textStyle: theme.textTheme.bodySmall,
+                ),
+                child: const Text('Ler resenha'),
               ),
-              child: const Text('Ler resenha'),
             ),
           ],
           const SizedBox(height: DesignTokens.space4),
@@ -171,11 +173,7 @@ class ItemAtividade extends StatelessWidget {
                     '${atividade.curtidaPeloSolicitante ? 'Descurtir' : 'Curtir'}, '
                     '${contagem(atividade.totalCurtidas, 'curtida', 'curtidas')}',
                 ativo: atividade.curtidaPeloSolicitante,
-                aoTocar: curtidaPendente
-                    ? null
-                    : atividade.curtidaPeloSolicitante
-                    ? aoDescurtir
-                    : aoCurtir,
+                aoTocar: atividade.curtidaPeloSolicitante ? aoDescurtir : aoCurtir,
                 icone: _CoracaoDeCurtida(curtida: atividade.curtidaPeloSolicitante),
                 numero: atividade.totalCurtidas,
               ),

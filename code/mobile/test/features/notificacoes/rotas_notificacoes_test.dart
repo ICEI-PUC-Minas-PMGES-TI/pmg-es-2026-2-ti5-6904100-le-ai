@@ -49,6 +49,14 @@ void main() {
     );
   });
 
+  test('reconhece a tela de notificacoes de qualquer aba, e so ela', () {
+    expect(ehRotaDeNotificacoes(rotaNotificacoes('/estante')), isTrue);
+    expect(ehRotaDeNotificacoes('/perfil/notificacoes'), isTrue);
+    expect(ehRotaDeNotificacoes('/estante'), isFalse);
+    expect(ehRotaDeNotificacoes('/perfil/solicitacoes'), isFalse);
+    expect(ehRotaDeNotificacoes('/estante/notificacoes/outra'), isFalse);
+  });
+
   test('tipo desconhecido do servidor e ignorado, nao quebra a lista', () {
     final pagina = PaginaDeNotificacoes.fromJson(<String, dynamic>{
       'itens': <Object>[

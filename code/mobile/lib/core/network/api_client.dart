@@ -167,6 +167,7 @@ class ApiClient {
 
   Future<http.Response> delete(
     String path, {
+    Object? body,
     Map<String, String> headers = const <String, String>{},
     String? correlationId,
     String? idempotencyKey,
@@ -174,6 +175,7 @@ class ApiClient {
     return _enviar(
       'DELETE',
       path,
+      body: body,
       headers: headers,
       correlationId: correlationId,
       idempotencyKey: idempotencyKey,
@@ -264,6 +266,24 @@ class ApiClient {
   }) async {
     final requestCorrelationId = correlationId ?? newCorrelationId();
     final response = await put(
+      path,
+      body: body,
+      headers: headers,
+      correlationId: requestCorrelationId,
+      idempotencyKey: idempotencyKey,
+    );
+    return _decodeJson(response, requestCorrelationId);
+  }
+
+  Future<Map<String, dynamic>> deleteJson(
+    String path, {
+    Object? body,
+    Map<String, String> headers = const <String, String>{},
+    String? correlationId,
+    String? idempotencyKey,
+  }) async {
+    final requestCorrelationId = correlationId ?? newCorrelationId();
+    final response = await delete(
       path,
       body: body,
       headers: headers,

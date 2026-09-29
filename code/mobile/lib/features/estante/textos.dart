@@ -108,6 +108,7 @@ abstract final class AcoesDeLeitura {
   static const String adicionarQueroLer = 'Adicionar como Quero ler';
   static const String iniciarLeitura = 'Iniciar leitura';
   static const String registrarProgresso = 'Registrar progresso';
+  static const String verAtualizacoes = 'Ver atualizações';
   static const String finalizarLeitura = 'Finalizar leitura';
   static const String finalizarReleitura = 'Finalizar releitura';
   static const String iniciarReleitura = 'Iniciar releitura';

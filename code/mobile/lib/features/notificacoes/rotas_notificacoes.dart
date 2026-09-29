@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../livros/rotas_livros.dart';
@@ -13,11 +14,15 @@ const String _segmento = 'notificacoes';
 /// (notificacoes.md §4): `/estante/notificacoes`, `/feed/notificacoes`...
 String rotaNotificacoes(String raizDaAba) => '$raizDaAba/$_segmento';
 
+/// Se [caminho] é a tela de notificações de alguma aba, a de [rotaNotificacoes].
+bool ehRotaDeNotificacoes(String caminho) => caminho.endsWith('/$_segmento');
+
 /// O que F-NOT precisa do mundo lá fora, no molde de `DependenciasDePerfil`. O contador é um só
 /// para o app inteiro: é o número do badge em todo cabeçalho.
 class DependenciasDeNotificacoes {
   final NotificacoesService servico;
   final ContadorDeNaoLidas contador;
+  final FechamentoDeNotificacoes fechamento = FechamentoDeNotificacoes();
 
   DependenciasDeNotificacoes(this.servico) : contador = ContadorDeNaoLidas(servico);
 
@@ -27,6 +32,20 @@ class DependenciasDeNotificacoes {
   }) => DependenciasDeNotificacoes(
     NotificacoesService.padrao(getToken: getToken, renovarSessao: renovarSessao),
   );
+}
+
+/// As notificações são temporárias: abrem e fecham sem animação (decisão de 29/09/2026), e quem
+/// sai da aba (pela barra inferior, ou abrindo uma notificação cujo destino é outra aba) as fecha
+/// antes, para a aba voltar à tela que estava por baixo. O `go_router` não deixa editar a pilha de
+/// uma aba inativa, então o fechamento é um `pop` seguido de um quadro de espera, para o shell
+/// gravar a pilha nova da aba antes da troca.
+class FechamentoDeNotificacoes {
+  /// Fecha as notificações que estão no topo e só devolve depois do quadro em que a aba registra a
+  /// pilha sem elas.
+  Future<void> fechar(GoRouter router) async {
+    router.pop();
+    await WidgetsBinding.instance.endOfFrame;
+  }
 }
 
 /// Destino de cada tipo (§4, item de notificação). Os comentários da atividade ainda não existem
@@ -54,15 +73,88 @@ String destinoDaNotificacao(Notificacao notificacao) {
 }
 
 /// Sub-rota `notificacoes` de uma aba. `go`, e não `push`, para o destino: ele pode estar em
-/// outra aba, e o `StatefulShellRoute` troca de aba com `go`.
+/// outra aba, e o `StatefulShellRoute` troca de aba com `go`. Um destino fora da aba fecha as
+/// notificações antes ([FechamentoDeNotificacoes]), para a aba de origem não guardá-las; o `router`
+/// é capturado antes porque o `context` da página some com o fechamento.
 GoRoute rotaDeNotificacoes(DependenciasDeNotificacoes deps, String raizDaAba) => GoRoute(
   path: _segmento,
-  builder: (context, state) => NotificacoesPage(
-    servico: deps.servico,
-    contador: deps.contador,
-    aoVoltar: () => context.canPop() ? context.pop() : context.go(raizDaAba),
-    aoAbrir: (notificacao) => context.go(destinoDaNotificacao(notificacao)),
-    // O registro de progresso (F-PRG) ainda não tem tela no app: a estante é onde a leitura está.
-    aoRegistrarProgresso: (_) => context.go(rotaEstanteRaiz),
+  pageBuilder: (context, state) => _PaginaDeNotificacoes(
+    key: state.pageKey,
+    name: state.name ?? state.path,
+    arguments: <String, String>{...state.pathParameters, ...state.uri.queryParameters},
+    restorationId: state.pageKey.value,
+    child: NotificacoesPage(
+      servico: deps.servico,
+      contador: deps.contador,
+      aoVoltar: () => context.canPop() ? context.pop() : context.go(raizDaAba),
+      aoAbrir: (notificacao) =>
+          _irPara(context, deps, raizDaAba, destinoDaNotificacao(notificacao)),
+      // O registro de progresso (F-PRG) ainda não tem tela no app: a estante é onde a leitura está.
+      aoRegistrarProgresso: (_) => _irPara(context, deps, raizDaAba, rotaEstanteRaiz),
+    ),
   ),
 );
+
+Future<void> _irPara(
+  BuildContext context,
+  DependenciasDeNotificacoes deps,
+  String raizDaAba,
+  String destino,
+) async {
+  final router = GoRouter.of(context);
+  final foraDaAba = destino != raizDaAba && !destino.startsWith('$raizDaAba/');
+  if (foraDaAba) {
+    await deps.fechamento.fechar(router);
+  }
+  router.go(destino);
+}
+
+/// A `Page` das notificações, com a rota própria, sem transição.
+class _PaginaDeNotificacoes extends Page<void> {
+  final Widget child;
+
+  const _PaginaDeNotificacoes({
+    required this.child,
+    super.key,
+    super.name,
+    super.arguments,
+    super.restorationId,
+  });
+
+  @override
+  Route<void> createRoute(BuildContext context) => _RotaDeNotificacoes(this);
+}
+
+/// Rota que entra e sai na hora, sem transição nem animação de voltar preditivo: a tela é uma
+/// camada temporária sobre a aba, e não uma página a mais na navegação. Lê o `child` da página para
+/// acompanhar as atualizações dela.
+class _RotaDeNotificacoes extends PageRoute<void> {
+  _RotaDeNotificacoes(_PaginaDeNotificacoes pagina) : super(settings: pagina);
+
+  _PaginaDeNotificacoes get _pagina => settings as _PaginaDeNotificacoes;
+
+  @override
+  Duration get transitionDuration => Duration.zero;
+
+  @override
+  Duration get reverseTransitionDuration => Duration.zero;
+
+  @override
+  bool get maintainState => true;
+
+  @override
+  bool get opaque => true;
+
+  @override
+  Color? get barrierColor => null;
+
+  @override
+  String? get barrierLabel => null;
+
+  @override
+  Widget buildPage(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+  ) => Semantics(scopesRoute: true, explicitChildNodes: true, child: _pagina.child);
+}

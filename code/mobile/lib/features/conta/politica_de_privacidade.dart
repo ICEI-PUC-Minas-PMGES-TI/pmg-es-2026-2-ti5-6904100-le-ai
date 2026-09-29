@@ -52,13 +52,9 @@ class PoliticaDePrivacidadePage extends StatelessWidget {
     final theme = Theme.of(context);
     final conteudo = Column(
       children: <Widget>[
-        // Título em duas linhas e com divisor: a única tela do lote que o protótipo desenha assim.
-        CabecalhoTela(
-          titulo: 'Política de privacidade',
-          aoVoltar: aoVoltar,
-          comSino: !semSessao,
-          tituloEmDuasLinhas: true,
-        ),
+        // O protótipo desenha "Política de privacidade" em duas linhas; no app o título é o curto
+        // "Privacidade", para caber numa linha ao lado da seta e do sino (decisão de 29/09/2026).
+        CabecalhoTela(titulo: 'Privacidade', aoVoltar: aoVoltar, comSino: !semSessao),
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(

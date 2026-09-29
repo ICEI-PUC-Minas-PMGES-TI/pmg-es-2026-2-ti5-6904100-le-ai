@@ -30,7 +30,7 @@
 
 Desenvolver e colocar em produção, até 15/12/2026, um aplicativo social de leitura, composto por
 aplicativo móvel em Flutter, aplicação web em Vue e backend em microsserviços, com o propósito de
-aumentar a adesão e a constância de leitura entre jovens brasileiros de 18 a 30 anos.
+aumentar a adesão e a constância de leitura entre leitores brasileiros com 18 anos ou mais.
 
 ---
 
@@ -168,7 +168,7 @@ pelo controle de mudança de `docs/orquestador/plano-de-projeto.md` §3.
 | Restrição | Definição |
 | --- | --- |
 | LGPD | Tratamento de dados pessoais conforme a Lei Geral de Proteção de Dados |
-| Idade | Cadastro restrito a **maiores de 18 anos** |
+| Idade | Cadastro permitido a partir dos **18 anos** |
 | Idioma | Apenas **pt-BR** |
 | Segurança | Orientada pelo OWASP Top 10 (2021). Os requisitos de segurança de `REQUISITOS.md` §8 são todos Essenciais |
 

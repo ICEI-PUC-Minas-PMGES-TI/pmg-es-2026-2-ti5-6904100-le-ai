@@ -4,6 +4,7 @@ import 'package:phosphor_icons/phosphor_icons.dart';
 
 import '../design/theme.dart';
 import '../features/notificacoes/contador_de_nao_lidas.dart';
+import '../features/notificacoes/rotas_notificacoes.dart';
 import 'barra_inferior.dart';
 import 'cabecalho_tela.dart';
 
@@ -18,8 +19,10 @@ const int _indiceDoPerfil = 3;
 /// tinha rolado, não reseta para o topo.
 ///
 /// O sino de todo cabeçalho do shell lê o [ContadorDeNaoLidas] pelo [EscopoDeNotificacoes] e abre
-/// as notificações empilhadas na aba atual (F-NOT). O total é buscado ao entrar no shell e a cada
-/// retorno do app ao primeiro plano: no Período 1 não há tempo real (RF-NOT-06).
+/// as notificações empilhadas na aba atual (F-NOT). Elas são temporárias: trocar de aba pela barra
+/// inferior as fecha antes, e a aba de origem volta à tela que estava por baixo. O total é buscado
+/// ao entrar no shell e a cada retorno do app ao primeiro plano: no Período 1 não há tempo real
+/// (RF-NOT-06).
 ///
 /// Abaixo da raiz de uma aba (ex.: `/descobrir/adicionar-livro`), o cabeçalho da aba sai e a
 /// própria tela desenha o seu, com seta de voltar e título próprio — o título da aba não diz
@@ -43,6 +46,9 @@ class ShellAutenticado extends StatefulWidget {
   /// Abre as notificações empilhadas na aba cuja raiz é o argumento.
   final void Function(String raizDaAba) aoAbrirNotificacoes;
 
+  /// Fecha as notificações que estão no topo da aba atual antes de trocar de aba.
+  final Future<void> Function() fecharNotificacoes;
+
   const ShellAutenticado({
     super.key,
     required this.navigationShell,
@@ -51,6 +57,7 @@ class ShellAutenticado extends StatefulWidget {
     this.aoBuscarLeitor,
     required this.contadorDeNaoLidas,
     required this.aoAbrirNotificacoes,
+    required this.fecharNotificacoes,
   });
 
   @override
@@ -76,6 +83,23 @@ class _ShellAutenticadoState extends State<ShellAutenticado> with WidgetsBinding
     if (estado == AppLifecycleState.resumed) {
       widget.contadorDeNaoLidas.atualizar();
     }
+  }
+
+  Future<void> _selecionar(int indice) async {
+    final caminhoAtual = widget.caminhoAtual;
+    if (indice != widget.navigationShell.currentIndex &&
+        caminhoAtual != null &&
+        ehRotaDeNotificacoes(caminhoAtual)) {
+      await widget.fecharNotificacoes();
+      if (!mounted) {
+        return;
+      }
+    }
+    // Lê o shell de novo: a pilha da aba mudou enquanto as notificações fechavam.
+    final navigationShell = widget.navigationShell;
+    // `initialLocation: true` quando o item já está ativo: tocar de novo em "Estante"
+    // enquanto se está em Estante volta ao topo da pilha da aba, em vez de não fazer nada.
+    navigationShell.goBranch(indice, initialLocation: indice == navigationShell.currentIndex);
   }
 
   @override
@@ -134,12 +158,7 @@ class _ShellAutenticadoState extends State<ShellAutenticado> with WidgetsBinding
         ),
         bottomNavigationBar: BarraInferior(
           indiceAtivo: navigationShell.currentIndex,
-          // `initialLocation: true` quando o item já está ativo: tocar de novo em "Estante"
-          // enquanto se está em Estante volta ao topo da pilha da aba, em vez de não fazer nada.
-          aoSelecionar: (indice) => navigationShell.goBranch(
-            indice,
-            initialLocation: indice == navigationShell.currentIndex,
-          ),
+          aoSelecionar: _selecionar,
         ),
       ),
     );

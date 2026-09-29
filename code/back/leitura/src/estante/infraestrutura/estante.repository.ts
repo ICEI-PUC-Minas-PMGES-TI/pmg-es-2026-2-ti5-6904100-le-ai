@@ -234,6 +234,7 @@ export class EstanteRepository {
         id: leitura.id,
         status: leitura.status,
         releitura: leitura.releitura,
+        paginaAtual: leitura.paginaAtual,
       })
       .from(leitura)
       .where(eq(leitura.estanteId, estante.id))
@@ -251,7 +252,7 @@ export class EstanteRepository {
         ultimaLeituraId: ultima.id,
         ultimaLeituraStatus: ultima.status,
         ultimaLeituraReleitura: ultima.releitura,
-        paginaAtual: leitura.paginaAtual,
+        paginaAtual: ultima.paginaAtual,
         totalPaginas: vLivroReferencia.paginas,
         titulo: vLivroReferencia.titulo,
         autor: vLivroReferencia.autorExibicao,

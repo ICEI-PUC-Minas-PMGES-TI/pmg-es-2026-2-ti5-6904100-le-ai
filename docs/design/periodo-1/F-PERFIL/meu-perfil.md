@@ -6,6 +6,7 @@
 **Não funcionais:** RNF-DES-02 (listagens paginadas), RNF-USA-02, RNF-USA-03 (contraste WCAG AA), RNF-USA-05, RNF-ERR-09 (cold start tratado como carregamento)
 **Regras de negócio:** RN-08 (privacidade de perfil, e o que ela esconde de terceiros), RN-14.4 (ordem de resolução da capa)
 **Versão web:** sim. RF-SOC-01, RF-SOC-02, RF-SOC-04 e RF-SOC-08 têm marcação na coluna Web de `REQUISITOS.md` §5.9.
+**Editada por:** ../../periodo-2/meu-perfil/meu-perfil.md
 
 ---
 
@@ -39,7 +40,7 @@ O canvas simula um arquivo de Figma. Todos os artboards ficam **lado a lado no m
 
 ```
 Produto: Lê Ai, aplicativo social de leitura brasileiro, no modelo Skoob e
-Letterboxd. Público de 18 a 30 anos, interface em pt-BR, uso predominante em
+Letterboxd. Público com 18 anos ou mais, interface em pt-BR, uso predominante em
 celular. A interface reforça três mecanismos: registro (o que já foi lido),
 meta (alvo curto e alcançável) e pertencimento (ver amigos lendo).
 

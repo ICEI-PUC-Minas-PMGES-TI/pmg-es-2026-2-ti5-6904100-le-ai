@@ -24,18 +24,13 @@ Atividade _atividade({
   ),
 );
 
-Future<List<String>> _montar(
-  WidgetTester tester,
-  Atividade atividade, {
-  bool pendente = false,
-}) async {
+Future<List<String>> _montar(WidgetTester tester, Atividade atividade) async {
   final eventos = <String>[];
   await tester.pumpWidget(
     envolver(
       SingleChildScrollView(
         child: ItemAtividade(
           atividade: atividade,
-          curtidaPendente: pendente,
           aoCurtir: () => eventos.add('curtir'),
           aoDescurtir: () => eventos.add('descurtir'),
           aoComentar: () => eventos.add('comentar'),
@@ -95,14 +90,6 @@ void main() {
     await tester.tap(find.bySemanticsLabel('Descurtir, 5 curtidas'));
     await tester.pump(const Duration(seconds: 1));
     expect(eventos, <String>['descurtir']);
-  });
-
-  testWidgets('curtida pendente não emite de novo', (tester) async {
-    final eventos = await _montar(tester, _atividade(), pendente: true);
-
-    await tester.tap(find.bySemanticsLabel('Curtir, 4 curtidas'));
-
-    expect(eventos, isEmpty);
   });
 
   testWidgets('comentar mostra a contagem e, sem comentários, só o ícone', (tester) async {

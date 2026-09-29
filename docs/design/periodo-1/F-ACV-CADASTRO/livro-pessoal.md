@@ -5,6 +5,7 @@
 **Não funcionais:** RNF-SEC-02 (propriedade validada no servidor), RNF-SEC-06 (livro pessoal não é recuperável por busca, catálogo, filtro ou página de autor, editora e série), RNF-USA-04 (confirmação na exclusão), RNF-USA-02 (responsiva na web), RNF-USA-03 (contraste WCAG AA)
 **Regras de negócio:** RN-03 (tabela de comportamento do livro pessoal), RN-15 (duas vias de acesso de terceiros, modo consulta, privacidade herdada do perfil do dono), RN-14.7 (capa enviada pelo dono)
 **Versão web:** sim. RF-ACV-09 tem marcação na coluna Web de `REQUISITOS.md` §5.2.
+**Editada por:** ../../periodo-2/livro-pessoal/livro-pessoal.md
 
 ---
 
@@ -38,7 +39,7 @@ O canvas simula um arquivo de Figma. Todos os artboards ficam **lado a lado no m
 
 ```
 Produto: Lê Ai, aplicativo social de leitura brasileiro, no modelo Skoob e
-Letterboxd. Público de 18 a 30 anos, interface em pt-BR, uso predominante em
+Letterboxd. Público com 18 anos ou mais, interface em pt-BR, uso predominante em
 celular. A interface reforça três mecanismos: registro (o que já foi lido),
 meta (alvo curto e alcançável) e pertencimento (ver amigos lendo).
 

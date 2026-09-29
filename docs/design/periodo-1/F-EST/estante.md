@@ -1,6 +1,7 @@
 # F-EST · Estante
 
 **Feature:** ../../../plano-de-desenvolvimento/periodo-1/feature-F-EST.md
+**Editada por:** ../../periodo-2/estante/estante.md
 **Requisitos:** RF-EST-01 (relação leitor e livro em um dos cinco status), RF-EST-02 (estante agrupada por status, com ordenação e paginação)
 **Requisito do Período 2 desenhado aqui:** RF-EST-13 (buscar por título e autor dentro da própria estante). Desejável, entregue por F-EST-2. O prompt mora junto da tela pela regra de recorte de `docs/design/AGENTS.md` §2, e os artboards dele estão marcados.
 **Requisitos de sistema cujo efeito aparece aqui:** RF-EST-11 (abandono automático em 40 dias) e RF-EST-12 (alerta nos dias 20 e 30). Os dois são de sistema, com a coluna Web marcada com traço; o cliente apenas **exibe o efeito**.
@@ -38,7 +39,7 @@ O canvas simula um arquivo de Figma. Todos os artboards ficam **lado a lado no m
 
 ```
 Produto: Lê Ai, aplicativo social de leitura brasileiro, no modelo Skoob e
-Letterboxd. Público de 18 a 30 anos, interface em pt-BR, uso predominante em
+Letterboxd. Público com 18 anos ou mais, interface em pt-BR, uso predominante em
 celular. A interface reforça três mecanismos: registro (o que já foi lido),
 meta (alvo curto e alcançável) e pertencimento (ver amigos lendo).
 
@@ -485,6 +486,11 @@ Nos dois, os shadows ficam com **metade da opacidade**: no escuro a hierarquia v
 | Vazio por filtro, botão | `Ver livros lidos` |
 | Vazio de Quero ler, botão | `Buscar livros` |
 | Vazio de Lido, botão | `Ver o que está lendo` |
+| Vazio de Lendo · incorporado em 27/09/2026 | `Nenhuma leitura em andamento`, `Livros aparecem aqui quando você começa a ler.` |
+| Vazio de Quero ler · incorporado em 27/09/2026 | `Nenhum livro para ler depois`, `Livros aparecem aqui quando você os adiciona como Quero ler.` |
+| Vazio de Lido · incorporado em 27/09/2026 | `Nenhum livro concluído`, `Livros aparecem aqui quando você finaliza uma leitura.` |
+| Vazio de Abandonado · incorporado em 27/09/2026 | `Nenhuma leitura abandonada`, `Leituras aparecem aqui quando você as deixa de lado.` |
+| Detalhe de relidos no card · incorporado em 27/09/2026 | `Lido 2 vezes`, `Lido 1 vez` |
 | Estante vazia, título | `Sua estante está vazia` |
 | Estante vazia, texto | `Busque um livro pelo título, autor ou ISBN e escolha em qual status ele entra.` |
 | Estante vazia, botão primário | `Buscar livros` |

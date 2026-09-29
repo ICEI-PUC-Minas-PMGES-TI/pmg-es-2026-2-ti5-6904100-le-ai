@@ -369,7 +369,8 @@ paths:
       tags: [progresso]
       summary: Registra uma atualização manual de progresso
       operationId: registrarProgresso
-      x-implementation-status: planned
+      x-implementation-status: implemented
+      x-implemented-by: F-PRG
       parameters:
         - { $ref: '#/components/parameters/LeituraId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
@@ -400,7 +401,8 @@ paths:
       tags: [progresso]
       summary: Lista as atualizações de progresso de uma leitura
       operationId: listarProgressos
-      x-implementation-status: planned
+      x-implementation-status: implemented
+      x-implemented-by: F-PRG
       parameters:
         - { $ref: '#/components/parameters/LeituraId' }
         - { $ref: '#/components/parameters/Pagina' }
@@ -421,40 +423,12 @@ paths:
         '404': { $ref: '#/components/responses/NaoEncontrado' }
 
   /progresso/{progressoId}:
-    patch:
-      tags: [progresso]
-      summary: Edita a última atualização de uma leitura em andamento
-      operationId: editarUltimoProgresso
-      x-implementation-status: planned
-      parameters:
-        - { $ref: '#/components/parameters/ProgressoId' }
-        - { $ref: '#/components/parameters/IdempotencyKey' }
-      description: >-
-        Somente o último registro pode ser editado. A página corrigida deve ser
-        maior que a página-base anterior e não superar o total. Preserva os
-        metadados originais de captura e recalcula todos os efeitos.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/EditarProgressoEntrada' }
-      responses:
-        '200':
-          description: Último registro e resumo recalculados.
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ProgressoComResumo' }
-        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
-        '401': { $ref: '#/components/responses/NaoAutenticado' }
-        '403': { $ref: '#/components/responses/Proibido' }
-        '404': { $ref: '#/components/responses/NaoEncontrado' }
-        '409': { $ref: '#/components/responses/Conflito' }
-        '422': { $ref: '#/components/responses/EntidadeInvalida' }
     delete:
       tags: [progresso]
       summary: Exclui uma atualização e o trecho posterior confirmado
       operationId: excluirTrechoProgresso
-      x-implementation-status: planned
+      x-implementation-status: implemented
+      x-implemented-by: F-PRG
       parameters:
         - { $ref: '#/components/parameters/ProgressoId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
@@ -1012,26 +986,23 @@ components:
     CriarProgressoEntrada:
       type: object
       additionalProperties: false
-      required: [pagina, minutos, registradoEmDispositivo, fusoHorarioDispositivo]
+      required: [pagina, registradoEmDispositivo, fusoHorarioDispositivo]
       properties:
         pagina:
           type: integer
           minimum: 1
           description: Página absoluta em que o leitor parou.
-        minutos: { type: integer, minimum: 1, maximum: 720 }
+        minutos:
+          type: integer
+          minimum: 0
+          maximum: 720
+          default: 0
+          description: Tempo gasto, opcional; ausente é registrado como 0 (não informado).
         registradoEmDispositivo: { type: string, format: date-time }
         fusoHorarioDispositivo:
           type: string
           example: America/Sao_Paulo
           description: Identificador IANA capturado automaticamente.
-
-    EditarProgressoEntrada:
-      type: object
-      additionalProperties: false
-      minProperties: 1
-      properties:
-        pagina: { type: integer, minimum: 1 }
-        minutos: { type: integer, minimum: 1, maximum: 720 }
 
     ExcluirProgressoEntrada:
       type: object
@@ -1046,11 +1017,15 @@ components:
     ResumoProgresso:
       type: object
       additionalProperties: false
-      required: [paginaAtual, totalPaginas, percentualConcluido]
+      required: [paginaAtual, totalPaginas, percentualConcluido, minutosTotais]
       properties:
         paginaAtual: { type: integer, minimum: 0 }
         totalPaginas: { type: integer, minimum: 1 }
         percentualConcluido: { type: number, format: float, minimum: 0, maximum: 100 }
+        minutosTotais:
+          type: integer
+          minimum: 0
+          description: Soma dos minutos de todos os registros desta leitura.
 
     Progresso:
       type: object
@@ -1074,12 +1049,15 @@ components:
         pagina: { type: integer, minimum: 1 }
         paginaAnterior: { type: integer, minimum: 0 }
         paginasLidas: { type: integer, minimum: 1 }
-        minutos: { type: integer, minimum: 1, maximum: 720 }
+        minutos:
+          type: integer
+          minimum: 0
+          maximum: 720
+          description: Tempo gasto; 0 significa não informado.
         registradoEmDispositivo: { type: string, format: date-time }
         fusoHorarioDispositivo: { type: string, example: America/Sao_Paulo }
         dataLocal: { type: string, format: date }
         criadoEm: { type: string, format: date-time }
-        atualizadoEm: { type: string, format: date-time, nullable: true }
 
     ProgressoComResumo:
       type: object

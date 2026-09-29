@@ -48,7 +48,8 @@ Future<EstadoDeLeitura?> abrirAcoesDeLeitura(
   BuildContext context, {
   required EstanteService servico,
   required LivroDaAcao livro,
-  VoidCallback? aoRegistrarProgresso,
+  ValueChanged<Leitura>? aoRegistrarProgresso,
+  ValueChanged<Leitura>? aoVerAtualizacoes,
   DateTime Function() agora = DateTime.now,
 }) {
   return mostrarFolhaInferior<EstadoDeLeitura>(
@@ -57,6 +58,7 @@ Future<EstadoDeLeitura?> abrirAcoesDeLeitura(
       servico: servico,
       livro: livro,
       aoRegistrarProgresso: aoRegistrarProgresso,
+      aoVerAtualizacoes: aoVerAtualizacoes,
       agora: agora,
     ),
   );
@@ -65,7 +67,8 @@ Future<EstadoDeLeitura?> abrirAcoesDeLeitura(
 class FolhaDeAcoesDeLeitura extends StatefulWidget {
   final EstanteService servico;
   final LivroDaAcao livro;
-  final VoidCallback? aoRegistrarProgresso;
+  final ValueChanged<Leitura>? aoRegistrarProgresso;
+  final ValueChanged<Leitura>? aoVerAtualizacoes;
   final DateTime Function() agora;
 
   const FolhaDeAcoesDeLeitura({
@@ -73,6 +76,7 @@ class FolhaDeAcoesDeLeitura extends StatefulWidget {
     required this.servico,
     required this.livro,
     this.aoRegistrarProgresso,
+    this.aoVerAtualizacoes,
     this.agora = DateTime.now,
   });
 
@@ -160,6 +164,7 @@ class _FolhaDeAcoesDeLeituraState extends State<FolhaDeAcoesDeLeitura> {
             ? null
             : PedidoDeAcao(acao: id, livroId: livroId, leituraId: leituraId);
       case IdAcao.registrarProgresso:
+      case IdAcao.verAtualizacoes:
         return null;
     }
   }
@@ -203,8 +208,13 @@ class _FolhaDeAcoesDeLeituraState extends State<FolhaDeAcoesDeLeitura> {
   void _escolher(AcaoDisponivel acao) {
     switch (acao.passo) {
       case PassoDaAcao.externo:
+        final leitura = _leitura;
+        final destino = _acaoExterna(acao.id);
+        if (leitura == null || destino == null) {
+          return;
+        }
         Navigator.of(context).pop();
-        widget.aoRegistrarProgresso?.call();
+        destino(leitura);
       case PassoDaAcao.direto:
         _salvar(acao.id);
       case PassoDaAcao.confirmacao:
@@ -212,6 +222,18 @@ class _FolhaDeAcoesDeLeituraState extends State<FolhaDeAcoesDeLeitura> {
       case PassoDaAcao.data:
         _acao.limparErro();
         setState(() => _passoDeData = acao);
+    }
+  }
+
+  ValueChanged<Leitura>? _acaoExterna(IdAcao id) {
+    final leitura = _leitura;
+    switch (id) {
+      case IdAcao.registrarProgresso:
+        return leitura?.totalPaginas == null ? null : widget.aoRegistrarProgresso;
+      case IdAcao.verAtualizacoes:
+        return widget.aoVerAtualizacoes;
+      default:
+        return null;
     }
   }
 
@@ -241,9 +263,9 @@ class _FolhaDeAcoesDeLeituraState extends State<FolhaDeAcoesDeLeitura> {
   }
 
   Widget _lista(ThemeData theme) {
-    final acoes = acoesDisponiveis(_estado)
-        .where((acao) => acao.passo != PassoDaAcao.externo || widget.aoRegistrarProgresso != null)
-        .toList();
+    final acoes = acoesDisponiveis(
+      _estado,
+    ).where((acao) => acao.passo != PassoDaAcao.externo || _acaoExterna(acao.id) != null).toList();
     final leitura = _leitura;
     final status = widget.livro.status;
     return SingleChildScrollView(
@@ -367,6 +389,7 @@ class _LinhaDeAcao extends StatelessWidget {
     IdAcao.adicionarQueroLer: PhosphorIconsRegular.bookmarkSimple,
     IdAcao.iniciarLeitura: PhosphorIconsRegular.bookOpen,
     IdAcao.registrarProgresso: PhosphorIconsRegular.plusCircle,
+    IdAcao.verAtualizacoes: PhosphorIconsRegular.listBullets,
     IdAcao.finalizarLeitura: PhosphorIconsRegular.checkCircle,
     IdAcao.finalizarReleitura: PhosphorIconsRegular.checkCircle,
     IdAcao.iniciarReleitura: PhosphorIconsRegular.arrowsClockwise,

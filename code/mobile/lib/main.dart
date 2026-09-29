@@ -14,6 +14,8 @@ import 'design/theme_controller.dart';
 import 'features/auth/auth_service.dart';
 import 'features/estante/estante_service.dart';
 import 'features/livros/rotas_livros.dart';
+import 'features/progresso/fila_de_progresso.dart';
+import 'features/progresso/rotas_progresso.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,6 +41,12 @@ Future<void> main() async {
   );
   authService = AuthService(apiClient);
 
+  final leituraClient = ApiClient(
+    baseUrl: AppConfig.leituraBaseUrl,
+    getToken: () => sessionController.token,
+    renovarSessao: renovarSessao,
+  );
+
   runApp(
     LeAiApp(
       themeController: themeController,
@@ -48,6 +56,8 @@ Future<void> main() async {
         getToken: () => sessionController.token,
         renovarSessao: renovarSessao,
       ),
+      estante: EstanteService(leituraClient),
+      progresso: DependenciasDeProgresso.padrao(leituraClient),
     ),
   );
 }
@@ -58,6 +68,7 @@ class LeAiApp extends StatefulWidget {
   final AuthService authService;
   final DependenciasDeLivros? livros;
   final EstanteService? estante;
+  final DependenciasDeProgresso? progresso;
 
   const LeAiApp({
     required this.themeController,
@@ -65,6 +76,7 @@ class LeAiApp extends StatefulWidget {
     required this.authService,
     this.livros,
     this.estante,
+    this.progresso,
     super.key,
   });
 
@@ -80,14 +92,31 @@ class _LeAiAppState extends State<LeAiApp> {
     authService: widget.authService,
     livros: widget.livros,
     estante: widget.estante,
+    progresso: widget.progresso,
   );
+
+  late final ReenvioDaFila? _reenvio = widget.progresso == null
+      ? null
+      : ReenvioDaFila(widget.progresso!.fila);
+
+  @override
+  void initState() {
+    super.initState();
+    _reenvio?.iniciar();
+  }
+
+  @override
+  void dispose() {
+    _reenvio?.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: widget.themeController,
       builder: (context, child) => MaterialApp.router(
-        title: 'Lê Ai',
+        title: 'Lê Aí',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light(),
         darkTheme: AppTheme.dark(),

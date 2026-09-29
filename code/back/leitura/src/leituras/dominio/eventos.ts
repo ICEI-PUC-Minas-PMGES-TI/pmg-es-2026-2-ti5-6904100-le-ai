@@ -11,6 +11,7 @@ export const TIPO_EVENTO = {
   LEITURA_EM_RISCO: 'leitura.em_risco',
   LEITURA_EXPIRADA: 'leitura.expirada',
   LIVRO_ADICIONADO_A_ESTANTE: 'livro.adicionado_a_estante',
+  PROGRESSO_REGISTRADO: 'progresso.registrado',
 } as const;
 
 export type TipoEvento = (typeof TIPO_EVENTO)[keyof typeof TIPO_EVENTO];
@@ -90,6 +91,20 @@ export interface DadosLeituraExpirada extends DadosInatividadeBase {
 export interface DadosLivroAdicionadoAEstante {
   usuarioId: string;
   livroId: string;
+}
+
+export interface DadosProgressoRegistrado {
+  atualizacaoProgressoId: string;
+  usuarioId: string;
+  leituraId: string;
+  livroId: string;
+  pagina: number;
+  paginasLidas: number;
+  minutos: number;
+  percentual: number;
+  registradoEm: string;
+  fusoHorario: string;
+  dataLocal: string;
 }
 
 function evento<TData>(
@@ -191,6 +206,16 @@ export function livroAdicionadoAEstante(
   return evento(
     TIPO_EVENTO.LIVRO_ADICIONADO_A_ESTANTE,
     () => `estante:${dados.usuarioId}:${dados.livroId}`,
+    dados,
+  );
+}
+
+export function progressoRegistrado(
+  dados: DadosProgressoRegistrado,
+): EventoOutbox<DadosProgressoRegistrado> {
+  return evento(
+    TIPO_EVENTO.PROGRESSO_REGISTRADO,
+    () => `progresso:${dados.atualizacaoProgressoId}`,
     dados,
   );
 }

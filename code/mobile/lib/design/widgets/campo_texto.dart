@@ -101,8 +101,10 @@ class CampoTexto extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
-        Text(label, style: theme.textTheme.labelMedium),
-        const SizedBox(height: DesignTokens.space2),
+        if (label.isNotEmpty) ...<Widget>[
+          Text(label, style: theme.textTheme.labelMedium),
+          const SizedBox(height: DesignTokens.space2),
+        ],
         TextField(
           controller: controller,
           enabled: enabled,

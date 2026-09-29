@@ -30,9 +30,11 @@ import {
 } from '../../estante/textos'
 import { type PedidoDeAcao, useAcaoLeitura } from '../../estante/useAcaoLeitura'
 import { formatarData } from '../../livros/formatos'
+import { ROTULO_VER_ATUALIZACOES } from '../../progresso/textos'
 import type { LivroDaEstante } from '../../services/leitura'
 import CapaLivro from '../livros/CapaLivro.vue'
 import BannerAviso from '../ui/BannerAviso.vue'
+import BotaoTextual from '../ui/BotaoTextual.vue'
 import DialogoConfirmacao from '../ui/DialogoConfirmacao.vue'
 import SobreposicaoModal from '../ui/SobreposicaoModal.vue'
 import FormularioDataLeitura from './FormularioDataLeitura.vue'
@@ -47,6 +49,7 @@ const emit = defineEmits<{
   fechar: []
   atualizado: [estado: EstadoDeLeitura]
   registrarProgresso: []
+  verAtualizacoes: [leituraId: string]
 }>()
 
 const ICONE: Record<IdAcao, Component> = {
@@ -324,6 +327,15 @@ async function salvar(id: IdAcao, data?: string): Promise<void> {
           </button>
         </li>
       </ul>
+
+      <BotaoTextual
+        v-if="emAndamento && leitura"
+        class="mt-space-2 min-h-12 md:min-h-10"
+        :disabled="salvando"
+        @click="emit('verAtualizacoes', leitura.id)"
+      >
+        {{ ROTULO_VER_ATUALIZACOES }}
+      </BotaoTextual>
 
       <p
         v-if="estado.status === 'ABANDONADO' && leitura?.retomavel"

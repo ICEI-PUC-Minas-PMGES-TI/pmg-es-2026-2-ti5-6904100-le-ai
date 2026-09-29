@@ -21,6 +21,7 @@ import EstanteView from '../views/EstanteView.vue'
 import FeedView from '../views/FeedView.vue'
 import LoginView from '../views/auth/LoginView.vue'
 import PoliticaPrivacidadeView from '../views/auth/PoliticaPrivacidadeView.vue'
+import ProgressoView from '../views/ProgressoView.vue'
 import RecuperarSenhaView from '../views/auth/RecuperarSenhaView.vue'
 import RedefinirSenhaView from '../views/auth/RedefinirSenhaView.vue'
 import PerfilDeOutroView from '../views/perfil/PerfilDeOutroView.vue'
@@ -41,6 +42,11 @@ declare module 'vue-router' {
     semSessao?: boolean
     /** Título mostrado no header do shell (CabecalhoTela). */
     titulo?: string
+    /**
+     * Abaixo de 768px, o header mostra este título no lugar de `titulo` (a política de
+     * privacidade vira "Privacidade" para caber ao lado da seta). A partir de 768px vale `titulo`.
+     */
+    tituloCurto?: string
     /** Tela de detalhe: o header ganha a seta de voltar (cadastro-por-isbn.md §4). */
     voltar?: boolean
     /** Com `voltar`: formulário que se abandona, com `X` no lugar da seta (editar-perfil.md §4). */
@@ -114,6 +120,12 @@ export const routes: RouteRecordRaw[] = [
         name: 'estante',
         component: EstanteView,
         meta: { titulo: 'Minha estante' },
+      },
+      {
+        path: 'estante/leituras/:leituraId/progresso',
+        name: 'progresso',
+        component: ProgressoView,
+        meta: { titulo: 'Progresso', voltar: true, aba: '/estante' },
       },
       {
         path: 'descobrir',
@@ -191,7 +203,13 @@ export const routes: RouteRecordRaw[] = [
         path: 'perfil/configuracoes/privacidade',
         name: 'politica-de-privacidade',
         component: PoliticaPrivacidadeView,
-        meta: { titulo: 'Política de privacidade', voltar: true, voltarComRotulo: 'Configurações', semDivisor: true },
+        meta: {
+          titulo: 'Política de privacidade',
+          tituloCurto: 'Privacidade',
+          voltar: true,
+          voltarComRotulo: 'Configurações',
+          semDivisor: true,
+        },
       },
       // F-ACV-CADASTRO. O prefixo carrega a origem para a aba certa ficar ativa o fluxo inteiro.
       {

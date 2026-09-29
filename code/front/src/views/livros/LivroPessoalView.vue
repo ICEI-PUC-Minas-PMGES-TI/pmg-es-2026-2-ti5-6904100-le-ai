@@ -9,6 +9,7 @@ import BlocoDeSpoiler from '../../components/livros/BlocoDeSpoiler.vue'
 import BlocoSuaAvaliacao from '../../components/livros/BlocoSuaAvaliacao.vue'
 import CapaLivro from '../../components/livros/CapaLivro.vue'
 import EstrelasNota from '../../components/livros/EstrelasNota.vue'
+import RegistrarProgresso from '../../components/progresso/RegistrarProgresso.vue'
 import BannerAviso from '../../components/ui/BannerAviso.vue'
 import BotaoTextual from '../../components/ui/BotaoTextual.vue'
 import DialogoConfirmacao from '../../components/ui/DialogoConfirmacao.vue'
@@ -18,6 +19,8 @@ import { TEXTOS_DO_PAINEL, textoVezesLido } from '../../estante/textos'
 import { usePainelDeAcoes } from '../../estante/usePainelDeAcoes'
 import { formatarData, formatarPaginas } from '../../livros/formatos'
 import { useMinhaAvaliacao } from '../../livros/useMinhaAvaliacao'
+import { caminhoDoProgresso } from '../../progresso/caminhos'
+import { useDialogoDeRegistro } from '../../progresso/useDialogoDeRegistro'
 import { acervoService, type LivroPessoalDetalhe, type ViaDeAcesso } from '../../services/acervo'
 import { ApiError, novaChaveIdempotencia } from '../../services/api'
 import { leituraService, type ItemEstante } from '../../services/leitura'
@@ -98,6 +101,22 @@ const vezesLido = ref(0)
 const situacaoCarregada = ref(false)
 const situacaoFalhou = ref(false)
 const painel = usePainelDeAcoes((leituraId) => leituraService.detalharLeitura(leituraId))
+const registro = useDialogoDeRegistro()
+
+function abrirRegistro(): void {
+  painel.fechar()
+  registro.abrir(painel.livro.value, painel.estado.value)
+}
+
+function aoSalvarProgresso(): void {
+  registro.fechar()
+  void carregarSituacao()
+}
+
+function verAtualizacoes(leituraId: string): void {
+  painel.fechar()
+  void router.push(caminhoDoProgresso(leituraId))
+}
 
 async function carregarSituacao(): Promise<void> {
   const livroId = String(route.params.id)
@@ -429,13 +448,22 @@ async function excluir(): Promise<void> {
       :livro="painel.livro.value"
       :estado="painel.estado.value"
       @fechar="painel.fechar()"
-      @registrar-progresso="painel.fechar()"
+      @registrar-progresso="abrirRegistro"
+      @ver-atualizacoes="verAtualizacoes"
       @atualizado="carregarSituacao()"
     >
       <template #status="{ status }">
         <StatusPill :status="status" />
       </template>
     </AcoesLeitura>
+
+    <RegistrarProgresso
+      v-if="registro.contexto.value"
+      :aberta="registro.aberto.value"
+      :leitura="registro.contexto.value"
+      @fechar="registro.fechar()"
+      @salvo="aoSalvarProgresso"
+    />
 
     <FolhaAcoes
       :aberta="menuAberto"

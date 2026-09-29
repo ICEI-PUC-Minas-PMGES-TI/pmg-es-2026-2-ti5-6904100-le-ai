@@ -24,6 +24,7 @@ Convenções da SPA web. Complementa o [`AGENTS.md`](../../AGENTS.md) da raiz �
 - `src/components/`: componentes reutilizáveis de aplicação (ex.: `SidebarNavegacao.vue`, `CabecalhoTela.vue`); os de um domínio ficam na subpasta dele (`components/auth/`, `components/perfil/`, `components/livros/`...); componentes do design system (formulário, botão, banner, logo) ficam em `src/components/ui/`.
 - `src/services/`: integrações externas — cliente HTTP central (`api.ts`), renovação de sessão (`renovacao.ts`) e serviços por domínio (ex.: `auth.ts`).
 - `src/session.ts`: estado de sessão, ver "Gerenciamento de estado" acima.
+- `public/`: favicons (`favicon.svg`, `favicon-32.png`, `apple-touch-icon.png`), copiados pelo Vite para a raiz do `dist/`. São a mesma arte do ícone do app (`code/mobile/assets/icone/icone.svg`, papel sobre musgo); os PNGs saem do SVG com `rsvg-convert`.
 - Testes unitários ficam junto do arquivo testado, com sufixo `.spec.ts`.
 
 ## Comandos
@@ -48,7 +49,7 @@ Uma URL por serviço, sem gateway: `VITE_IDENTIDADE_BASE_URL` e `VITE_ACERVO_BAS
 
 **Telas de conta (F-AUT):** `ui/EstadoTerminal` é o bloco de tela inteira que substitui um formulário (confirmação neutra, senha alterada, link que não vale mais), com o foco indo para o título. O link de redefinição traz o token no fragmento (`#token=`), lido uma vez e apagado da URL. A política de privacidade mora num lugar só, `components/auth/PoliticaDePrivacidade.vue`, hoje com o texto mock do protótipo (o final é do grupo).
 
-**Abas e telas de detalhe:** a aba ativa do shell vem de `router/abas.ts` (`meta.aba`, texto ou função da rota, e depois prefixo do caminho). Tela de detalhe declara `meta.voltar` para ganhar a seta no header, e põe ações contextuais no header com `<Teleport to="#cabecalho-acoes" defer>`. O fluxo de cadastro carrega a origem no caminho (`/descobrir/adicionar`, `/estante/adicionar`) para a aba certa ficar ativa o fluxo inteiro.
+**Abas e telas de detalhe:** a aba ativa do shell vem de `router/abas.ts` (`meta.aba`, texto ou função da rota, e depois prefixo do caminho). Tela de detalhe declara `meta.voltar` para ganhar a seta no header, e põe ações contextuais no header com `<Teleport to="#cabecalho-acoes" defer>`. `meta.tituloCurto` troca o título do header abaixo de 768px (a política de privacidade vira "Privacidade"); a partir de 768px vale `meta.titulo`. O fluxo de cadastro carrega a origem no caminho (`/descobrir/adicionar`, `/estante/adicionar`) para a aba certa ficar ativa o fluxo inteiro.
 
 **Componentes de F-ACV-CADASTRO:** `ui/` ganhou `CampoAreaTexto`, `BotaoDestrutivo` (outline `rubi`), `FaixaInformativa`, `EstadoVazio`, `SobreposicaoModal` (base de modal: bottom sheet abaixo de 768px, dialog de 480px acima, foco preso, `Esc`, foco devolvido), `DialogoConfirmacao` e `FolhaAcoes`; `CampoTexto` ganhou `inputmode`, `mono`, `larguraDoCampo` e `somenteLeitura`, e `BotaoTextual`, `tom`. Os da feature ficam em `components/livros/`. Lógica com estado e tempo (polling da importação) fica fora da tela, em `src/livros/useCadastroIsbn.ts`, testada com relógio simulado.
 

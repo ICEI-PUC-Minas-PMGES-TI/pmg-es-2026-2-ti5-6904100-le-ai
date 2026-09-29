@@ -121,36 +121,40 @@ describe('FeedView', () => {
     expect(wrapper.findAll('a[href="/estante"]').find((a) => a.text() === 'Ver minha estante')).toBeTruthy()
   })
 
-  it('curtir chama o serviço e atualiza o item local sem recarregar a página', async () => {
+  it('curtir muda o item antes de o servidor responder e depois usa o total dele, sem recarregar a página', async () => {
     social.listarFeed.mockResolvedValue(pagina([atividade({ totalCurtidas: 4, curtidaPeloSolicitante: false })]))
-    social.curtir.mockResolvedValue({ atividadeId: 'a1', curtida: true, totalCurtidas: 5 } satisfies EstadoCurtida)
+    let resolver!: (valor: EstadoCurtida) => void
+    social.curtir.mockReturnValue(new Promise((resolve) => (resolver = resolve)))
 
     const { wrapper } = await montarNaRota('/feed')
     await flushPromises()
 
     await wrapper.get('[aria-label="Curtir, 4 curtidas"]').trigger('click')
-    await flushPromises()
 
     expect(social.curtir).toHaveBeenCalledWith('a1', expect.any(String))
     expect(wrapper.find('[aria-label="Descurtir, 5 curtidas"]').exists()).toBe(true)
+
+    resolver({ atividadeId: 'a1', curtida: true, totalCurtidas: 6 })
+    await flushPromises()
+
+    expect(wrapper.find('[aria-label="Descurtir, 6 curtidas"]').exists()).toBe(true)
     expect(social.listarFeed).toHaveBeenCalledTimes(1)
   })
 
-  it('descurtir chama o serviço e atualiza o item local', async () => {
+  it('descurtir muda o item na hora e chama o serviço', async () => {
     social.listarFeed.mockResolvedValue(pagina([atividade({ totalCurtidas: 5, curtidaPeloSolicitante: true })]))
-    social.descurtir.mockResolvedValue(undefined)
+    social.descurtir.mockReturnValue(new Promise(() => {}))
 
     const { wrapper } = await montarNaRota('/feed')
     await flushPromises()
 
     await wrapper.get('[aria-label="Descurtir, 5 curtidas"]').trigger('click')
-    await flushPromises()
 
     expect(social.descurtir).toHaveBeenCalledWith('a1', expect.any(String))
     expect(wrapper.find('[aria-label="Curtir, 4 curtidas"]').exists()).toBe(true)
   })
 
-  it('curtir com falha mostra aviso e mantém o estado do item', async () => {
+  it('curtir com falha volta o item ao estado anterior e mostra o aviso', async () => {
     social.listarFeed.mockResolvedValue(pagina([atividade({ totalCurtidas: 4, curtidaPeloSolicitante: false })]))
     social.curtir.mockRejectedValue(new ApiError('Não foi possível curtir. Tente novamente.', 500, 'ERRO'))
 
@@ -165,7 +169,7 @@ describe('FeedView', () => {
     expect(wrapper.find('[aria-label="Descurtir, 5 curtidas"]').exists()).toBe(false)
   })
 
-  it('descurtir com falha de rede genérica mostra a mensagem padrão e mantém o estado', async () => {
+  it('descurtir com falha de rede genérica volta o item e mostra a mensagem padrão', async () => {
     social.listarFeed.mockResolvedValue(pagina([atividade({ totalCurtidas: 5, curtidaPeloSolicitante: true })]))
     social.descurtir.mockRejectedValue(new Error('rede caiu'))
 
@@ -179,24 +183,28 @@ describe('FeedView', () => {
     expect(wrapper.find('[aria-label="Descurtir, 5 curtidas"]').exists()).toBe(true)
   })
 
-  it('clique duplo no curtir só envia uma requisição enquanto a primeira está pendente', async () => {
+  it('dois cliques rápidos terminam descurtido, com duas requisições em sequência', async () => {
     social.listarFeed.mockResolvedValue(pagina([atividade({ totalCurtidas: 4, curtidaPeloSolicitante: false })]))
     let resolver!: (valor: EstadoCurtida) => void
     social.curtir.mockReturnValue(new Promise((resolve) => (resolver = resolve)))
+    social.descurtir.mockResolvedValue(undefined)
 
     const { wrapper } = await montarNaRota('/feed')
     await flushPromises()
 
-    const botao = wrapper.get('[aria-label="Curtir, 4 curtidas"]')
-    await botao.trigger('click')
-    await botao.trigger('click')
-    await flushPromises()
+    await wrapper.get('[aria-label="Curtir, 4 curtidas"]').trigger('click')
+    await wrapper.get('[aria-label="Descurtir, 5 curtidas"]').trigger('click')
 
     expect(social.curtir).toHaveBeenCalledTimes(1)
+    expect(social.descurtir).not.toHaveBeenCalled()
+    expect(wrapper.find('[aria-label="Curtir, 4 curtidas"]').exists()).toBe(true)
 
     resolver({ atividadeId: 'a1', curtida: true, totalCurtidas: 5 })
     await flushPromises()
-    expect(wrapper.find('[aria-label="Descurtir, 5 curtidas"]').exists()).toBe(true)
+
+    expect(social.curtir).toHaveBeenCalledTimes(1)
+    expect(social.descurtir).toHaveBeenCalledTimes(1)
+    expect(wrapper.find('[aria-label="Curtir, 4 curtidas"]').exists()).toBe(true)
   })
 
   it('falha ao obter o próprio perfil no vazio cai para "Nada por aqui ainda"', async () => {

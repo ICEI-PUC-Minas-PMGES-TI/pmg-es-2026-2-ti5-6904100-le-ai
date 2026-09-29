@@ -11,13 +11,14 @@ import '../../design/widgets/estado_vazio.dart';
 import '../perfil/lista_paginada.dart';
 import '../perfil/perfil_service.dart';
 import '../perfil/widgets_de_perfil.dart';
+import 'curtidas_otimistas.dart';
 import 'folha_comentarios.dart';
 import 'item_atividade.dart';
 import 'social_service.dart';
 
 /// Feed (RF-SOC-09..12), a partir de docs/design/periodo-1/F-FEED/feed.md §4, com a mesma
-/// lógica da web (`FeedView.vue`): lista cronológica paginada por rolagem, curtir sem otimismo
-/// (o item muda quando o servidor confirma) e comentários em bottom sheet.
+/// lógica da web (`FeedView.vue`): lista cronológica paginada por rolagem, curtir otimista (o item
+/// muda no toque e o último toque vale, ver [CurtidasOtimistas]) e comentários em bottom sheet.
 class FeedPage extends StatefulWidget {
   final SocialService social;
   final PerfilService perfil;
@@ -45,7 +46,23 @@ class _FeedPageState extends State<FeedPage> {
     widget.social.listarFeed,
     (atividade) => atividade.id,
   );
-  final Set<String> _curtidasPendentes = <String>{};
+  late final CurtidasOtimistas _curtidas = CurtidasOtimistas(
+    widget.social,
+    atual: (id) {
+      for (final item in _lista.itens) {
+        if (item.id == id) {
+          return item;
+        }
+      }
+      return null;
+    },
+    substituir: _lista.substituir,
+    aoFalhar: (erro) {
+      if (mounted) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text(erro.message)));
+      }
+    },
+  );
 
   /// `Atividade` não diz se o leitor segue alguém; o perfil só é buscado quando a lista vem vazia.
   bool? _segueAlguem;
@@ -59,6 +76,7 @@ class _FeedPageState extends State<FeedPage> {
 
   @override
   void dispose() {
+    _curtidas.descartarPendentes();
     _lista.dispose();
     super.dispose();
   }
@@ -70,6 +88,7 @@ class _FeedPageState extends State<FeedPage> {
   }
 
   Future<void> _carregar() async {
+    _curtidas.descartarPendentes();
     await _lista.carregar();
     if (_lista.falhou || _lista.itens.isNotEmpty) {
       return;
@@ -82,37 +101,6 @@ class _FeedPageState extends State<FeedPage> {
     }
     if (mounted) {
       setState(() => _segueAlguem = segue);
-    }
-  }
-
-  Future<void> _alternarCurtida(Atividade atividade) async {
-    if (!_curtidasPendentes.add(atividade.id)) {
-      return;
-    }
-    setState(() {});
-    final chave = ApiClient.newIdempotencyKey();
-    try {
-      if (atividade.curtidaPeloSolicitante) {
-        await widget.social.descurtir(atividade.id, idempotencyKey: chave);
-        _lista.substituir(
-          atividade.copiar(
-            curtidaPeloSolicitante: false,
-            totalCurtidas: atividade.totalCurtidas > 0 ? atividade.totalCurtidas - 1 : 0,
-          ),
-        );
-      } else {
-        final estado = await widget.social.curtir(atividade.id, idempotencyKey: chave);
-        _lista.substituir(
-          atividade.copiar(curtidaPeloSolicitante: true, totalCurtidas: estado.totalCurtidas),
-        );
-      }
-    } on ApiException catch (erro) {
-      if (mounted) {
-        ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text(erro.message)));
-      }
-    } finally {
-      _curtidasPendentes.remove(atividade.id);
-      _redesenhar();
     }
   }
 
@@ -187,9 +175,8 @@ class _FeedPageState extends State<FeedPage> {
             return ItemAtividade(
               key: ValueKey<String>(atividade.id),
               atividade: atividade,
-              curtidaPendente: _curtidasPendentes.contains(atividade.id),
-              aoCurtir: () => _alternarCurtida(atividade),
-              aoDescurtir: () => _alternarCurtida(atividade),
+              aoCurtir: () => _curtidas.alternar(atividade),
+              aoDescurtir: () => _curtidas.alternar(atividade),
               aoComentar: () => _abrirComentarios(atividade),
               aoAbrirAutor: () => widget.aoAbrirAutor(atividade.autor.username),
               aoAbrirLivro: () => widget.aoAbrirLivro(atividade),

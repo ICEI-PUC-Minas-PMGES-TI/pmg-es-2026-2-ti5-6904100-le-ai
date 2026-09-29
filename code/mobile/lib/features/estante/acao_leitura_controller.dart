@@ -147,6 +147,7 @@ class AcaoLeituraController extends ChangeNotifier {
           await _servico.retomarLeitura(pedido.leituraId!, idempotencyKey: chave),
         );
       case IdAcao.registrarProgresso:
+      case IdAcao.verAtualizacoes:
         throw ArgumentError.value(pedido.acao, 'acao', 'não é uma transição de estante');
     }
   }

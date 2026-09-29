@@ -24,6 +24,10 @@ const int _limiteDoTexto = 2000;
 /// Abre os comentários de [atividade] num bottom sheet de 88% da altura (comentarios.md §4),
 /// sobre o feed escurecido. [aoComentar] avisa o feed a cada comentário confirmado, para a
 /// contagem do item acompanhar sem recarregar.
+///
+/// Pelo navegador raiz: o scrim cobre a viewport inteira, barra inferior incluída (§4), e a folha
+/// enxerga o teclado. Dentro da aba, o `Scaffold` do shell consumia a altura do teclado antes, e a
+/// folha não sabia que ele estava aberto.
 Future<void> mostrarComentarios(
   BuildContext context, {
   required SocialService social,
@@ -34,6 +38,7 @@ Future<void> mostrarComentarios(
   final theme = Theme.of(context);
   return showModalBottomSheet<void>(
     context: context,
+    useRootNavigator: true,
     useSafeArea: true,
     isScrollControlled: true,
     backgroundColor: theme.elevatedSurface,
@@ -41,8 +46,10 @@ Future<void> mostrarComentarios(
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(DesignTokens.radiusXl)),
     ),
+    // Com o teclado aberto, a folha vai até o topo: nos 88% o campo e a faixa "Respondendo a"
+    // não cabiam acima do teclado.
     builder: (context) => FractionallySizedBox(
-      heightFactor: 0.88,
+      heightFactor: MediaQuery.viewInsetsOf(context).bottom > 0 ? 1 : 0.88,
       child: FolhaComentarios(
         social: social,
         perfil: perfil,
@@ -500,7 +507,8 @@ class _FolhaComentariosState extends State<FolhaComentarios> {
     return TextButton(
       onPressed: aoTocar,
       style: TextButton.styleFrom(
-        padding: EdgeInsets.zero,
+        // Esquerda em zero para o traço alinhar ao texto do comentário; a direita dá respiro ao realce.
+        padding: const EdgeInsets.only(right: DesignTokens.space3),
         minimumSize: const Size(48, 48),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         foregroundColor: theme.primaryAccent,
@@ -665,8 +673,10 @@ class _FolhaComentariosState extends State<FolhaComentarios> {
     );
   }
 
+  /// `radius-lg`, e não o `radius-full` do protótipo: numa linha o campo continua quase uma
+  /// pílula, e ao crescer até quatro linhas vira caixa de texto, em vez de uma cápsula alta.
   OutlineInputBorder _borda(ThemeData theme) => OutlineInputBorder(
-    borderRadius: BorderRadius.circular(DesignTokens.radiusFull),
+    borderRadius: BorderRadius.circular(DesignTokens.radiusLg),
     borderSide: BorderSide(color: theme.divider),
   );
 }

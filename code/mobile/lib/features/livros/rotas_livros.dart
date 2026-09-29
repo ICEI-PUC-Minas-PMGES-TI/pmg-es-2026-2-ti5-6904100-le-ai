@@ -12,6 +12,7 @@ import 'isbn_nao_encontrado_page.dart';
 import 'livro_oficial_page.dart';
 import 'livro_pessoal_form_page.dart';
 import 'livro_pessoal_page.dart';
+import '../progresso/rotas_progresso.dart';
 
 const String rotaAdicionarLivro = '/descobrir/adicionar-livro';
 const String rotaEstanteRaiz = '/estante';
@@ -149,6 +150,7 @@ GoRoute _paginaDoLivroPessoal(
   DependenciasDeLivros deps, {
   required String raiz,
   EstanteService? estante,
+  DependenciasDeProgresso? progresso,
 }) {
   return GoRoute(
     path: 'livro-pessoal/:id',
@@ -169,6 +171,10 @@ GoRoute _paginaDoLivroPessoal(
         aoExcluir: () => context.go(rotaEstanteRaiz),
         aoVoltarAoFeed: () => context.go(rotaFeedRaiz),
         estante: estante,
+        progresso: progresso,
+        aoVerAtualizacoes: progresso == null
+            ? null
+            : (leituraId) => context.push<void>(rotaProgressoDaLeitura(leituraId)),
       );
     },
     routes: <RouteBase>[
@@ -189,8 +195,12 @@ GoRoute _paginaDoLivroPessoal(
 }
 
 /// O dono chega ao livro pessoal pela própria estante.
-List<RouteBase> rotasDaEstante(DependenciasDeLivros deps, EstanteService estante) => <RouteBase>[
-  _paginaDoLivroPessoal(deps, raiz: rotaEstanteRaiz, estante: estante),
+List<RouteBase> rotasDaEstante(
+  DependenciasDeLivros deps,
+  EstanteService estante, {
+  DependenciasDeProgresso? progresso,
+}) => <RouteBase>[
+  _paginaDoLivroPessoal(deps, raiz: rotaEstanteRaiz, estante: estante, progresso: progresso),
 ];
 
 /// O terceiro chega **exclusivamente** pelo feed, com `via=feed&referenciaId=` (RN-15). F-FEED

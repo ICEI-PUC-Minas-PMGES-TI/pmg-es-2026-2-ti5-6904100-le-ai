@@ -96,23 +96,42 @@ class _Servidor {
   });
 }
 
-Future<List<String>> _abrir(WidgetTester tester, _Servidor servidor, {int comentarios = 1}) async {
+/// Com [dentroDeAba], o botão fica num navegador aninhado no corpo de um `Scaffold`, abaixo de um
+/// cabeçalho de 72px, como o feed dentro do shell.
+Future<List<String>> _abrir(
+  WidgetTester tester,
+  _Servidor servidor, {
+  int comentarios = 1,
+  bool dentroDeAba = false,
+}) async {
   final eventos = <String>[];
   final atividade = Atividade.fromJson(atividadeJson(comentarios: comentarios));
+  final botao = Builder(
+    builder: (context) => TextButton(
+      onPressed: () => mostrarComentarios(
+        context,
+        social: servidor.servico,
+        perfil: _perfil,
+        atividade: atividade,
+        aoComentar: () => eventos.add('comentou'),
+      ),
+      child: const Text('abrir'),
+    ),
+  );
   await tester.pumpWidget(
     envolver(
-      Builder(
-        builder: (context) => TextButton(
-          onPressed: () => mostrarComentarios(
-            context,
-            social: servidor.servico,
-            perfil: _perfil,
-            atividade: atividade,
-            aoComentar: () => eventos.add('comentou'),
-          ),
-          child: const Text('abrir'),
-        ),
-      ),
+      dentroDeAba
+          ? Column(
+              children: <Widget>[
+                const SizedBox(height: 72),
+                Expanded(
+                  child: Navigator(
+                    onGenerateRoute: (_) => MaterialPageRoute<void>(builder: (_) => botao),
+                  ),
+                ),
+              ],
+            )
+          : botao,
     ),
   );
   await tester.tap(find.text('abrir'));
@@ -170,6 +189,24 @@ void main() {
     expect(_recuoDe(tester, '@juwences eu também'), _recuoDe(tester, '@dandara concordo'));
     expect(find.text('Respondendo a Júlia'), findsNothing);
     expect(eventos, <String>['comentou']);
+  });
+
+  testWidgets('respondendo com o teclado aberto, campo e faixa cabem acima do teclado', (tester) async {
+    // Medidas de um S25 Ultra (384 por 832) com a barra de 3 botões e o teclado com a barra de
+    // ferramentas.
+    tester.view
+      ..devicePixelRatio = 1
+      ..physicalSize = const Size(384, 832)
+      ..padding = const FakeViewPadding(top: 37, bottom: 42);
+    addTearDown(tester.view.reset);
+    await _abrir(tester, _Servidor(), dentroDeAba: true);
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 383);
+    await tester.tap(find.bySemanticsLabel('Responder a Dandara Lopes'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Respondendo a Dandara'), findsOneWidget);
+    expect(tester.getBottomLeft(find.byType(TextField)).dy, lessThanOrEqualTo(832 - 383));
   });
 
   testWidgets('cancelar a resposta limpa o campo e a barra de contexto', (tester) async {

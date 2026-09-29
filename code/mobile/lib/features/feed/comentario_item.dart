@@ -69,17 +69,22 @@ class ComentarioItem extends StatelessWidget {
                 button: true,
                 label: 'Responder a ${autor.nomeExibicao}',
                 excludeSemantics: true,
-                child: TextButton(
-                  onPressed: aoResponder,
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    minimumSize: const Size(48, 48),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    alignment: Alignment.centerLeft,
-                    foregroundColor: theme.secondaryText,
-                    textStyle: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                // O respiro dos lados é do realce do toque; o deslocamento mantém o texto alinhado
+                // ao do comentário.
+                child: Transform.translate(
+                  offset: const Offset(-DesignTokens.space3, 0),
+                  child: TextButton(
+                    onPressed: aoResponder,
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: DesignTokens.space3),
+                      minimumSize: const Size(48, 48),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      alignment: Alignment.centerLeft,
+                      foregroundColor: theme.secondaryText,
+                      textStyle: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                    child: const Text('Responder'),
                   ),
-                  child: const Text('Responder'),
                 ),
               ),
             ],

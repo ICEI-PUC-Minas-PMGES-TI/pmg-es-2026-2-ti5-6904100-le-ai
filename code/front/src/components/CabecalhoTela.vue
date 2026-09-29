@@ -20,6 +20,8 @@ import { useRouter } from 'vue-router'
 const props = withDefaults(
   defineProps<{
     titulo: string
+    /** Abaixo de 768px, o h1 mostra este título no lugar de `titulo` ("Privacidade"). */
+    tituloCurto?: string | null
     /** Destino da seta quando não há histórico para voltar (link aberto direto). */
     voltarPara?: string | null
     /**
@@ -31,7 +33,7 @@ const props = withDefaults(
     rotuloVoltar?: string | null
     semDivisor?: boolean
   }>(),
-  { voltarPara: null, fechar: false, rotuloVoltar: null, semDivisor: false },
+  { tituloCurto: null, voltarPara: null, fechar: false, rotuloVoltar: null, semDivisor: false },
 )
 
 const router = useRouter()
@@ -91,7 +93,13 @@ function voltar(): void {
         rotuloVoltar && voltarPara && !titulo ? 'md:hidden' : '',
       ]"
     >
-      {{ titulo }}
+      <template v-if="tituloCurto">
+        <span class="md:hidden">{{ tituloCurto }}</span>
+        <span class="hidden md:inline">{{ titulo }}</span>
+      </template>
+      <template v-else>
+        {{ titulo }}
+      </template>
     </h1>
     <div
       id="cabecalho-acoes"
