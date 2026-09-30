@@ -9,6 +9,10 @@ import 'botao_textual.dart';
 /// escuro), radius 20 no topo, alça de 32 por 4px, scrim `tinta` a 40% (preto a 60% no escuro).
 /// O padding inferior soma a barra de navegação do sistema: `useSafeArea` só protege topo e
 /// laterais, e um sheet aberto pelo navegador raiz desce até atrás dela (edge-to-edge).
+///
+/// O conteúdo do [builder] fica num `Flexible`: quando não cabe (tela baixa, teclado aberto,
+/// fonte grande), o `SingleChildScrollView` dele rola. Sem isso a coluna dava altura infinita ao
+/// conteúdo, o scroll nunca rolava e a folha estourava com a faixa de overflow.
 Future<T?> mostrarFolhaInferior<T>(
   BuildContext context, {
   required WidgetBuilder builder,
@@ -47,7 +51,7 @@ Future<T?> mostrarFolhaInferior<T>(
             ),
           ),
           const SizedBox(height: DesignTokens.space5),
-          builder(context),
+          Flexible(child: builder(context)),
         ],
       ),
     ),

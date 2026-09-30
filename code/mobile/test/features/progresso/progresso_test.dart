@@ -427,6 +427,54 @@ void main() {
       expect(fila.itens.single.chave, isNot('k1'));
       expect(metodos, isNot(contains('PATCH')));
     });
+
+    testWidgets('em tela baixa com o teclado aberto, a folha rola em vez de estourar', (
+      tester,
+    ) async {
+      await abrir(tester, progressoSimulado((request) async => _semRede()));
+      // 360 por 560 lógicos, com 300 de teclado: o conteúdo inteiro não cabe acima dele.
+      tester.view.physicalSize = const Size(1080, 1680);
+      tester.view.viewInsets = const FakeViewPadding(bottom: 900);
+      await tester.pumpAndSettle();
+
+      final salvar = find.text(TextosDoRegistro.botaoSalvar);
+      await tester.ensureVisible(salvar);
+      await tester.pumpAndSettle();
+      expect(tester.getRect(salvar).bottom, lessThanOrEqualTo(560 - 300));
+      expect(find.byType(SingleChildScrollView), findsOneWidget);
+    });
+
+    testWidgets('aberta de dentro de uma aba, a folha vai para o navegador raiz', (tester) async {
+      usarTelaDeCelular(tester);
+      await tester.pumpWidget(
+        envolver(
+          Navigator(
+            onGenerateRoute: (_) => MaterialPageRoute<void>(
+              builder: (context) => TextButton(
+                onPressed: () => abrirRegistroDeProgresso(
+                  context,
+                  servico: progressoSimulado((request) async => _semRede()),
+                  leitura: const LeituraDoRegistro(
+                    leituraId: 'le1',
+                    titulo: 'Torto Arado',
+                    paginaAtual: 148,
+                    totalPaginas: 264,
+                  ),
+                ),
+                child: const Text('abrir'),
+              ),
+            ),
+          ),
+        ),
+      );
+      final aba = Navigator.of(tester.element(find.text('abrir')));
+      await tester.tap(find.text('abrir'));
+      await tester.pumpAndSettle();
+
+      final folha = tester.element(find.byType(FolhaDeRegistroDeProgresso));
+      expect(Navigator.of(folha), same(Navigator.of(folha, rootNavigator: true)));
+      expect(Navigator.of(folha), isNot(same(aba)));
+    });
   });
 
   group('ProgressoPage', () {

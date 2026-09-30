@@ -58,8 +58,12 @@ Future<ResultadoDoRegistro?> abrirRegistroDeProgresso(
   CorrecaoDoPendente? correcao,
   DateTime Function()? agora,
 }) {
+  // Pelo navegador raiz, como o painel de nota: o scrim cobre a viewport inteira, barra inferior
+  // incluída ("Anatomia do bottom sheet"), e a folha enxerga o teclado. Dentro da aba, o
+  // `Scaffold` do shell consumia a altura do teclado e a folha ficava espremida entre o cabeçalho
+  // e a barra, sem lugar para o botão de salvar.
   return mostrarFolhaInferior<ResultadoDoRegistro>(
-    context,
+    Navigator.of(context, rootNavigator: true).context,
     builder: (context) => FolhaDeRegistroDeProgresso(
       servico: servico,
       leitura: leitura,
