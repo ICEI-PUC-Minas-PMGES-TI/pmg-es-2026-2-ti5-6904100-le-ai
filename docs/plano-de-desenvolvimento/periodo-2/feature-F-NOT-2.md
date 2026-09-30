@@ -70,7 +70,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 ## Pendências
 
-- **Telas (design P2):** tempo real, badge e reconexão silenciosa na edição consolidada [`notificacoes.md`](../../design/periodo-2/notificacoes/notificacoes.md) (só mobile), prompt escrito em 29/09/2026, protótipo pendente. A ratificar: aviso `N novas notificações` só com a lista rolada e sem sumir por tempo; nenhum banner em outras telas. Contratos a confirmar: contagem de novas na sincronização da reconexão; formato do tempo relativo (`agora`).
+- **Telas (design P2):** tempo real, badge e reconexão silenciosa na edição consolidada [`notificacoes.md`](../../design/periodo-2/notificacoes/notificacoes.md) ([protótipo](../../design/periodo-2/notificacoes/prototipos/notificacoes.html)) (só mobile), prompt escrito e protótipo exportado em 29/09/2026. A ratificar: aviso `N novas notificações` só com a lista rolada e sem sumir por tempo; nenhum banner em outras telas. Contratos a confirmar: contagem de novas na sincronização da reconexão; formato do tempo relativo (`agora`).
 - **Depende de** [F-NOT](../periodo-1/feature-F-NOT.md) (criação de notificação e lista/fallback), [F-AUT](../periodo-1/feature-F-AUT.md) (autenticação do canal), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md).
 - **Decisão de transporte:** WebSocket × SSE — fixar considerando o plano gratuito do Render (hibernação, conexões) e o cliente Flutter; registrar.
 - **Alternativa a avaliar:** preferir SSE se a validação no Render/Flutter confirmar suporte adequado, pois o fluxo é somente servidor → cliente; WebSocket permanece opção válida até o teste.

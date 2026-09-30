@@ -77,7 +77,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 ## Pendências
 
-- **Telas (design P2):** tipo `menção` na edição consolidada [`notificacoes.md`](../../design/periodo-2/notificacoes/notificacoes.md), prompt escrito em 29/09/2026, protótipo pendente (sem trecho do comentário). Editar e excluir comentário e menção como link ficam para a edição `comentarios` (lote 5). **Conflito a decidir:** o que a mencionada vê ao tocar quando a atividade é restrita por RN-08.
+- **Telas (design P2):** tipo `menção` na edição consolidada [`notificacoes.md`](../../design/periodo-2/notificacoes/notificacoes.md) ([protótipo](../../design/periodo-2/notificacoes/prototipos/notificacoes.html)), prompt escrito e protótipo exportado em 29/09/2026 (sem trecho do comentário). Editar e excluir comentário e menção como link ficam para a edição `comentarios` (lote 5). **Conflito a decidir:** o que a mencionada vê ao tocar quando a atividade é restrita por RN-08.
 - **Depende de** [F-FEED](../periodo-1/feature-F-FEED.md) (comentários, `comentario.respondido`, FK cascade preparada), [F-PERFIL](../periodo-1/feature-F-PERFIL.md) (`v_perfil_referencia_v1`), [F-NOT](../periodo-1/feature-F-NOT.md) (base da notificação), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md) e [P0-MSG](../periodo-0/feature-P0-MSG.md).
 - **Compartilha `social` com [F-FEED](../periodo-1/feature-F-FEED.md)** e demais features sociais — sinalizar no grupo antes de mexer (plano §6).
 - `usuario.mencionado` já pertence ao fluxo aprovado de notificações — sem divergência de baseline.
