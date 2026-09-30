@@ -79,7 +79,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 ## Pendências
 
-- **Telas (design P2):** streak (§4.8, só mobile, recorde mantido com a sequência zerada) na edição consolidada [`meu-perfil.md`](../../design/periodo-2/meu-perfil/meu-perfil.md), prompt escrito em 29/09/2026, protótipo pendente. Lembrete de sequência (RF-GAM-05) fica para o P3 com o push. **Conflito a decidir:** `broto` no `num-display` da sequência fica abaixo de 3:1 sobre `papel-elevado`.
+- **Telas (design P2):** streak (§4.8, só mobile, recorde mantido com a sequência zerada) na edição consolidada [`meu-perfil.md`](../../design/periodo-2/meu-perfil/meu-perfil.md) ([protótipo](../../design/periodo-2/meu-perfil/prototipos/meu-perfil.html)), prompt escrito e protótipo exportado em 29/09/2026. Lembrete de sequência (RF-GAM-05) fica para o P3 com o push. **Conflito a decidir:** `broto` no `num-display` da sequência fica abaixo de 3:1 sobre `papel-elevado`.
 - **Depende de** [F-PRG](../periodo-1/feature-F-PRG.md) (`progresso.registrado` **com data local persistida** — RN-18.2), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md), [P0-MSG](../periodo-0/feature-P0-MSG.md).
 - **Decisão do grupo incorporada em 15/09/2026:** sincronização recompõe a sequência pelas datas capturadas; testar múltiplos dias, mudança de fuso e correção/exclusão do progresso. Nenhuma tabela de sessão remota é necessária.
 - **Alternativa a avaliar, sem mudar o desenho atual:** derivar sequência diretamente das datas locais de progresso e adicionar cache apenas se houver necessidade medida.
