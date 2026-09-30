@@ -324,11 +324,18 @@ class _FolhaDeRegistroDeProgressoState extends State<FolhaDeRegistroDeProgresso>
             enabled: !salvando,
             estiloDoTexto: theme.numInline,
             bordaDeErro: erro != null,
+            // O `suffixIcon` ganha uma caixa mínima de 48 por 48 e o texto solto ficava no canto
+            // de cima dela; o `Align` o põe no meio da altura, encostado à direita.
             trailing: Padding(
-              padding: const EdgeInsets.only(right: DesignTokens.space4),
-              child: Text(
-                sufixo,
-                style: theme.textTheme.bodySmall?.copyWith(color: theme.tertiaryText),
+              padding: const EdgeInsetsDirectional.only(end: DesignTokens.space4),
+              child: Align(
+                alignment: AlignmentDirectional.centerEnd,
+                widthFactor: 1,
+                heightFactor: 1,
+                child: Text(
+                  sufixo,
+                  style: theme.textTheme.bodySmall?.copyWith(color: theme.tertiaryText),
+                ),
               ),
             ),
           ),

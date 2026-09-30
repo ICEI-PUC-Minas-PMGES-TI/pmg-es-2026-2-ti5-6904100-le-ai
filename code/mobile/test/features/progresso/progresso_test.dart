@@ -2,9 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 
+import 'package:le_ai_mobile/design/tokens.dart';
 import 'package:le_ai_mobile/features/estante/estante_page.dart';
 import 'package:le_ai_mobile/features/estante/textos.dart';
 import 'package:le_ai_mobile/features/livros/livro_pessoal_page.dart';
@@ -474,6 +476,27 @@ void main() {
       final folha = tester.element(find.byType(FolhaDeRegistroDeProgresso));
       expect(Navigator.of(folha), same(Navigator.of(folha, rootNavigator: true)));
       expect(Navigator.of(folha), isNot(same(aba)));
+    });
+
+    testWidgets('h e min ficam no meio da altura do campo, à direita', (tester) async {
+      await abrir(tester, progressoSimulado((request) async => _semRede()));
+      final sufixos = <(int, String)>[
+        (1, TextosDoRegistro.sufixoHoras),
+        (2, TextosDoRegistro.sufixoMinutos),
+      ];
+      for (final (indice, sufixo) in sufixos) {
+        final campo = tester.getRect(find.byType(TextField).at(indice));
+        // A caixa do `Text` pode ser maior que o texto (o `suffixIcon` impõe 48 por 48) e o texto
+        // é pintado no canto de cima dela: a medida é a do texto desenhado, não a da caixa.
+        final paragrafo = tester.renderObject<RenderParagraph>(find.text(sufixo));
+        final texto = paragrafo
+            .getBoxesForSelection(TextSelection(baseOffset: 0, extentOffset: sufixo.length))
+            .map((caixa) => caixa.toRect())
+            .reduce((a, b) => a.expandToInclude(b))
+            .shift(paragrafo.localToGlobal(Offset.zero));
+        expect(texto.center.dy, moreOrLessEquals(campo.center.dy, epsilon: 1));
+        expect(campo.right - texto.right, moreOrLessEquals(DesignTokens.space4, epsilon: 1));
+      }
     });
   });
 
