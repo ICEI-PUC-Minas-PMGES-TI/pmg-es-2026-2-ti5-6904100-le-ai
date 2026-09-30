@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../../core/network/api_client.dart';
 
 const int _naoEncontrado = 404;
@@ -192,7 +194,12 @@ class FiltroEstante {
 class EstanteService {
   final ApiClient client;
 
-  const EstanteService(this.client);
+  /// Conta as escritas que deram certo, como `LeituraService.alteracoes`. Quem mostra a estante (a
+  /// aba, montada no `indexedStack`, e a situação na página do livro) escuta e recarrega, mesmo
+  /// quando a mudança veio de outra aba ou de uma tela empilhada por cima.
+  final ValueNotifier<int> alteracoes = ValueNotifier<int>(0);
+
+  EstanteService(this.client);
 
   String _comConsulta(String caminho, FiltroEstante filtro) {
     final consulta = filtro.consulta;
@@ -235,14 +242,16 @@ class EstanteService {
       body: <String, String>{'livroId': livroId},
       idempotencyKey: idempotencyKey,
     );
+    alteracoes.value++;
     return ItemEstante.fromJson(json);
   }
 
-  Future<void> removerEstante(String livroId, {required String idempotencyKey}) {
-    return client.deleteVazio(
+  Future<void> removerEstante(String livroId, {required String idempotencyKey}) async {
+    await client.deleteVazio(
       '/estante/${Uri.encodeComponent(livroId)}',
       idempotencyKey: idempotencyKey,
     );
+    alteracoes.value++;
   }
 
   Future<Leitura> iniciarLeitura(
@@ -268,6 +277,7 @@ class EstanteService {
       body: <String, String>{'livroId': livroId, 'dataInicio': ?dataInicio},
       idempotencyKey: idempotencyKey,
     );
+    alteracoes.value++;
     return Leitura.fromJson(json);
   }
 
@@ -282,6 +292,7 @@ class EstanteService {
       body: <String, String>{'dataFim': ?dataFim, 'fusoHorarioDispositivo': fusoHorarioDispositivo},
       idempotencyKey: idempotencyKey,
     );
+    alteracoes.value++;
     return Leitura.fromJson(json);
   }
 
@@ -290,6 +301,7 @@ class EstanteService {
       _daLeitura(leituraId, '/abandonar'),
       idempotencyKey: idempotencyKey,
     );
+    alteracoes.value++;
     return Leitura.fromJson(json);
   }
 
@@ -298,6 +310,7 @@ class EstanteService {
       _daLeitura(leituraId, '/retomar'),
       idempotencyKey: idempotencyKey,
     );
+    alteracoes.value++;
     return Leitura.fromJson(json);
   }
 

@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:le_ai_mobile/core/network/api_client.dart';
+import 'package:le_ai_mobile/core/network/recarga_em_sequencia.dart';
 import 'package:le_ai_mobile/features/estante/acao_leitura_controller.dart';
 import 'package:le_ai_mobile/features/estante/acoes_disponiveis.dart';
 import 'package:le_ai_mobile/features/estante/acoes_leitura.dart';
@@ -248,6 +249,73 @@ void main() {
       await tester.tap(find.text('Ver livros lidos'));
       await tester.pumpAndSettle();
       expect(find.text('Nenhum livro concluído'), findsOneWidget);
+    });
+
+    testWidgets('recarrega quando o livro entra na estante por outra tela', (tester) async {
+      usarTelaDeCelular(tester);
+      var naEstante = false;
+      final servico = estanteSimulada((request) async {
+        if (request.method == 'POST') {
+          naEstante = true;
+          return json(itemJson(_livroId, titulo: 'Diário de um Banana 6'), 201);
+        }
+        return json(
+          paginaJson(<Map<String, Object?>>[
+            itemJson('l0'),
+            if (naEstante) itemJson(_livroId, titulo: 'Diário de um Banana 6'),
+          ]),
+          200,
+        );
+      });
+      await tester.pumpWidget(envolver(EstantePage(servico: servico, aoBuscarLivros: () {})));
+      await tester.pumpAndSettle();
+      expect(find.text('Diário de um Banana 6'), findsNothing);
+
+      // A página do livro, na aba Descobrir, usa o mesmo serviço; a Estante continua montada.
+      unawaited(servico.adicionarEstante(_livroId, idempotencyKey: 'k1'));
+      await tester.pumpAndSettle();
+      expect(find.text('Diário de um Banana 6'), findsOneWidget);
+      expect(find.bySemanticsLabel('Todos 2'), findsOneWidget);
+    });
+  });
+
+  group('RecargaEmSequencia', () {
+    test('pedidos durante uma recarga viram uma só, depois dela', () async {
+      var recargas = 0;
+      var emParalelo = 0;
+      var maiorParalelo = 0;
+      final liberar = <Completer<void>>[];
+      final recarga = RecargaEmSequencia(() async {
+        recargas++;
+        emParalelo++;
+        maiorParalelo = emParalelo > maiorParalelo ? emParalelo : maiorParalelo;
+        final espera = Completer<void>();
+        liberar.add(espera);
+        await espera.future;
+        emParalelo--;
+      });
+
+      final primeira = recarga.pedir();
+      recarga
+        ..pedir()
+        ..pedir()
+        ..pedir();
+      await Future<void>.delayed(Duration.zero);
+      expect(recargas, 1);
+
+      liberar.last.complete();
+      await Future<void>.delayed(Duration.zero);
+      expect(recargas, 2);
+      liberar.last.complete();
+      await primeira;
+
+      expect(recargas, 2);
+      expect(maiorParalelo, 1);
+
+      unawaited(recarga.pedir());
+      await Future<void>.delayed(Duration.zero);
+      expect(recargas, 3);
+      liberar.last.complete();
     });
   });
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -679,6 +680,112 @@ void main() {
       await tester.pumpAndSettle();
       expect(verAtualizacoesDe, 'le1');
     });
+
+    testWidgets('quando a fila envia o pendente, a estante recarrega do servidor', (tester) async {
+      usarTelaDeCelular(tester);
+      var online = false;
+      var paginaAtual = 148;
+      var listagens = 0;
+      final servico = progressoSimulado((request) async {
+        if (!online) {
+          return _semRede();
+        }
+        paginaAtual = 172;
+        return json(
+          comResumoJson(progressoJson('p1', posicao: 1, pagina: 172, paginaAnterior: 148)),
+          201,
+        );
+      });
+      // O pendente já está gravado no aparelho, como depois de um registro sem conexão.
+      final fila = FilaDeProgresso(
+        servico,
+        ArmazemEmMemoria(jsonEncode(<Map<String, Object?>>[pendente('k1', 172).toJson()])),
+      );
+      await tester.pumpWidget(
+        envolver(
+          EstantePage(
+            servico: estanteSimulada((request) async {
+              listagens++;
+              return json(
+                paginaJson(<Map<String, Object?>>[
+                  itemJson(
+                    'l1',
+                    status: 'LENDO',
+                    leituraEmAndamentoId: 'le1',
+                    paginaAtual: paginaAtual,
+                    totalPaginas: 264,
+                    percentual: paginaAtual * 100 / 264,
+                  ),
+                ], totaisPorStatus: totais(lendo: 1)),
+                200,
+              );
+            }),
+            aoBuscarLivros: () {},
+            progresso: DependenciasDeProgresso(servico: servico, fila: fila),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(TextosDoRegistro.avisoOffline), findsOneWidget);
+      final antes = listagens;
+
+      online = true;
+      unawaited(fila.sincronizar());
+      await tester.pumpAndSettle();
+
+      expect(fila.itens, isEmpty);
+      expect(find.text(TextosDoRegistro.avisoOffline), findsNothing);
+      expect(find.text('65%'), findsOneWidget);
+      expect(listagens, antes + 1);
+    });
+
+    testWidgets('excluir progresso em outra tela atualiza o percentual da estante', (
+      tester,
+    ) async {
+      usarTelaDeCelular(tester);
+      var paginaAtual = 148;
+      final servico = progressoSimulado((request) async {
+        paginaAtual = 117;
+        return json(<String, Object?>{
+          'idsRemovidos': <String>['b', 'c'],
+          'resumo': resumoJson(paginaAtual: 117),
+        }, 200);
+      });
+      await tester.pumpWidget(
+        envolver(
+          EstantePage(
+            servico: estanteSimulada(
+              (request) async => json(
+                paginaJson(<Map<String, Object?>>[
+                  itemJson(
+                    'l1',
+                    status: 'LENDO',
+                    leituraEmAndamentoId: 'le1',
+                    paginaAtual: paginaAtual,
+                    totalPaginas: 264,
+                    percentual: paginaAtual * 100 / 264,
+                  ),
+                ], totaisPorStatus: totais(lendo: 1)),
+                200,
+              ),
+            ),
+            aoBuscarLivros: () {},
+            progresso: DependenciasDeProgresso(
+              servico: servico,
+              fila: FilaDeProgresso(servico, ArmazemEmMemoria()),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('56%'), findsOneWidget);
+
+      // A tela de atualizações fica empilhada por cima da estante e usa o mesmo serviço.
+      unawaited(servico.excluirTrecho('b', ultimoProgressoIdConfirmado: 'c', idempotencyKey: 'k1'));
+      await tester.pumpAndSettle();
+      expect(find.text('56%'), findsNothing);
+      expect(find.text('44%'), findsOneWidget);
+    });
   });
 
   group('Livro pessoal com progresso', () {
@@ -687,7 +794,14 @@ void main() {
     ) async {
       usarTelaDeCelular(tester);
       final armazem = ArmazemEmMemoria();
-      final servico = progressoSimulado((request) async => _semRede());
+      final registros = <http.Request>[];
+      final servico = progressoSimulado((request) async {
+        registros.add(request);
+        return json(
+          comResumoJson(progressoJson('p1', posicao: 1, pagina: 172, paginaAnterior: 148)),
+          201,
+        );
+      });
       var consultasDaEstante = 0;
       String? verAtualizacoesDe;
       await tester.pumpWidget(
@@ -746,8 +860,10 @@ void main() {
       await tester.tap(find.text(TextosDoRegistro.botaoSalvar));
       await tester.pumpAndSettle();
 
+      // A recarga vem do aviso do serviço, não da folha: registro salvo muda o servidor.
       expect(find.text(TextosDoRegistro.titulo), findsOneWidget);
-      expect(armazem.conteudo, contains('"pagina":172'));
+      expect(registros.single.method, 'POST');
+      expect(_corpo(registros.single)['pagina'], 172);
       expect(consultasDaEstante, 2);
 
       await tocar(tester, find.text(AcoesDeLeitura.abrir));

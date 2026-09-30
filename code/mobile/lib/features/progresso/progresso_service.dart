@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../../core/network/api_client.dart';
 
 class Progresso {
@@ -140,7 +142,11 @@ class NovoProgresso {
 class ProgressoService {
   final ApiClient client;
 
-  const ProgressoService(this.client);
+  /// Conta os registros e exclusões que deram certo, inclusive os enviados pela fila offline: o
+  /// percentual da estante e da página do livro muda junto, e quem os mostra escuta e recarrega.
+  final ValueNotifier<int> alteracoes = ValueNotifier<int>(0);
+
+  ProgressoService(this.client);
 
   String _daLeitura(String leituraId) => '/leituras/${Uri.encodeComponent(leituraId)}/progresso';
 
@@ -156,6 +162,7 @@ class ProgressoService {
       body: novo.corpo,
       idempotencyKey: idempotencyKey,
     );
+    alteracoes.value++;
     return ProgressoComResumo.fromJson(json);
   }
 
@@ -178,6 +185,7 @@ class ProgressoService {
       body: <String, String>{'ultimoProgressoIdConfirmado': ultimoProgressoIdConfirmado},
       idempotencyKey: idempotencyKey,
     );
+    alteracoes.value++;
     return ExclusaoProgresso.fromJson(json);
   }
 }

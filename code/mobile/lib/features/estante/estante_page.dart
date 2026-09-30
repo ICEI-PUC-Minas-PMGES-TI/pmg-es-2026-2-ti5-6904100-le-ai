@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 
+import '../../core/network/recarga_em_sequencia.dart';
 import '../../design/theme.dart';
 import '../../design/tokens.dart';
 import '../../design/widgets/banner_aviso.dart';
@@ -9,8 +10,6 @@ import '../../design/widgets/botao_textual.dart';
 import '../../design/widgets/estado_vazio.dart';
 import '../../design/widgets/folha_inferior.dart';
 import '../perfil/widgets_de_perfil.dart';
-import '../progresso/fila_de_progresso.dart';
-import '../progresso/registro_progresso_controller.dart';
 import '../progresso/rotas_progresso.dart';
 import 'acoes_leitura.dart';
 import 'cartao_estante.dart';
@@ -43,7 +42,6 @@ class EstantePage extends StatefulWidget {
 class _EstantePageState extends State<EstantePage> {
   StatusEstante? _status;
   OrdenacaoEstante _ordenacao = ordenacaoPadrao;
-  Set<String> _comPendentes = <String>{};
 
   late final ListaDaEstante _lista = ListaDaEstante(
     (pagina) => widget.servico.listarEstante(
@@ -51,21 +49,34 @@ class _EstantePageState extends State<EstantePage> {
     ),
   );
 
+  late final RecargaEmSequencia _recarga = RecargaEmSequencia(() async {
+    if (mounted) {
+      await _lista.carregar();
+    }
+  });
+
   @override
   void initState() {
     super.initState();
     _lista.addListener(_aoMudar);
     _lista.carregar();
+    // A aba fica montada no `indexedStack`: o que muda a estante em outra aba, ou numa tela
+    // empilhada por cima (atualizações, página do livro), chega por estes avisos. As ações feitas
+    // aqui também chegam por eles, por isso nenhuma delas recarrega a lista por conta própria.
+    widget.servico.alteracoes.addListener(_aoAlterar);
+    widget.progresso?.servico.alteracoes.addListener(_aoAlterar);
     final fila = widget.progresso?.fila;
     if (fila != null) {
-      fila.addListener(_aoMudarFila);
+      fila.addListener(_aoMudar);
       fila.carregar();
     }
   }
 
   @override
   void dispose() {
-    widget.progresso?.fila.removeListener(_aoMudarFila);
+    widget.servico.alteracoes.removeListener(_aoAlterar);
+    widget.progresso?.servico.alteracoes.removeListener(_aoAlterar);
+    widget.progresso?.fila.removeListener(_aoMudar);
     _lista
       ..removeListener(_aoMudar)
       ..dispose();
@@ -74,18 +85,7 @@ class _EstantePageState extends State<EstantePage> {
 
   void _aoMudar() => setState(() {});
 
-  void _aoMudarFila() {
-    final fila = widget.progresso?.fila;
-    final enviou = _comPendentes.any((leituraId) => !(fila?.temPendentes(leituraId) ?? false));
-    _comPendentes = <String>{
-      for (final item in fila?.itens ?? const <RegistroPendente>[]) item.leituraId,
-    };
-    if (enviou) {
-      _lista.carregar();
-    } else {
-      setState(() {});
-    }
-  }
+  void _aoAlterar() => _recarga.pedir();
 
   void _filtrar(StatusEstante? status) {
     if (status == _status) {
@@ -108,7 +108,7 @@ class _EstantePageState extends State<EstantePage> {
   }
 
   Future<void> _abrirAcoes(ItemEstante item) async {
-    final novo = await abrirAcoesDeLeitura(
+    await abrirAcoesDeLeitura(
       context,
       servico: widget.servico,
       livro: LivroDaAcao.doItem(item),
@@ -119,9 +119,6 @@ class _EstantePageState extends State<EstantePage> {
           ? null
           : (leitura) => widget.aoVerAtualizacoes!(leitura.id),
     );
-    if (novo != null && mounted) {
-      _lista.carregar();
-    }
   }
 
   Future<void> _registrarProgresso(ItemEstante item, Leitura leitura) async {
@@ -129,15 +126,12 @@ class _EstantePageState extends State<EstantePage> {
     if (progresso == null) {
       return;
     }
-    final resultado = await registrarProgressoDaLeitura(
+    await registrarProgressoDaLeitura(
       context,
       progresso: progresso,
       leitura: leitura,
       livro: item.livro,
     );
-    if (resultado is ProgressoSalvo && mounted) {
-      _lista.carregar();
-    }
   }
 
   void _seguirVazio(DestinoDoVazio destino) {

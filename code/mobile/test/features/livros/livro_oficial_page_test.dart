@@ -548,5 +548,28 @@ void main() {
 
       expect(find.text('Adicionar à estante'), findsOneWidget);
     });
+
+    testWidgets('a situação acompanha a estante mudada em outra tela', (tester) async {
+      var naEstante = false;
+      final estante = estanteSimulada((request) async {
+        if (request.method == 'POST') {
+          naEstante = true;
+          return json(itemJson(_id), 201);
+        }
+        return naEstante
+            ? json(itemJson(_id), 200)
+            : erro(404, 'NAO_ENCONTRADO', 'Livro fora da estante.');
+      });
+      await montar(tester, (request) async => json(_livro(), 200), estante: estante);
+      await tester.pumpAndSettle();
+      expect(find.text('Adicionar à estante'), findsOneWidget);
+
+      // A aba Estante usa o mesmo serviço; esta página continua viva na aba Descobrir.
+      unawaited(estante.adicionarEstante(_id, idempotencyKey: 'k1'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Adicionar à estante'), findsNothing);
+      expect(find.text('Ações de leitura'), findsOneWidget);
+    });
   });
 }

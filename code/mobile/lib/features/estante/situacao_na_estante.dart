@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/network/api_client.dart';
+import '../../core/network/recarga_em_sequencia.dart';
 import '../../design/theme.dart';
 import '../../design/tokens.dart';
 import '../../design/widgets/banner_aviso.dart';
@@ -43,11 +44,30 @@ class _SituacaoNaEstanteState extends State<SituacaoNaEstante> {
   bool _abrindoProgresso = false;
   String? _erroDoProgresso;
 
+  late final RecargaEmSequencia _recarga = RecargaEmSequencia(() async {
+    if (mounted) {
+      await _carregar();
+    }
+  });
+
   @override
   void initState() {
     super.initState();
     _carregar();
+    // A página do livro fica viva por baixo das atualizações e na aba de origem: o que muda a
+    // estante em outra tela chega por estes avisos, e as ações feitas aqui também.
+    widget.servico.alteracoes.addListener(_aoAlterar);
+    widget.progresso?.servico.alteracoes.addListener(_aoAlterar);
   }
+
+  @override
+  void dispose() {
+    widget.servico.alteracoes.removeListener(_aoAlterar);
+    widget.progresso?.servico.alteracoes.removeListener(_aoAlterar);
+    super.dispose();
+  }
+
+  void _aoAlterar() => _recarga.pedir();
 
   Future<void> _carregar() async {
     setState(() => _carga = _Carga.carregando);
@@ -70,7 +90,7 @@ class _SituacaoNaEstanteState extends State<SituacaoNaEstante> {
     final item = _item;
     final progresso = widget.progresso;
     final aoVerAtualizacoes = widget.aoVerAtualizacoes;
-    final novo = await abrirAcoesDeLeitura(
+    await abrirAcoesDeLeitura(
       context,
       servico: widget.servico,
       livro: LivroDaAcao(
@@ -86,21 +106,15 @@ class _SituacaoNaEstanteState extends State<SituacaoNaEstante> {
           ? null
           : (leitura) => aoVerAtualizacoes(leitura.id),
     );
-    if (novo != null && mounted) {
-      await _carregar();
-    }
   }
 
   Future<void> _registrarProgresso(DependenciasDeProgresso progresso, Leitura leitura) async {
-    final resultado = await registrarProgressoDaLeitura(
+    await registrarProgressoDaLeitura(
       context,
       progresso: progresso,
       leitura: leitura,
       livro: widget.livro,
     );
-    if (resultado != null && mounted) {
-      await _carregar();
-    }
   }
 
   Future<void> _registrarProgressoDaLeituraAberta(
