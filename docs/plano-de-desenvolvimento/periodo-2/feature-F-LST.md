@@ -83,6 +83,79 @@ Contrato completo em [`docs/api/social.yaml`](../../api/social.yaml) (tag `lista
 
 **Item próprio:** publicar `v_lista_livro_pessoal_v1` como espelho de `v_atividade_livro_pessoal_v1` — as **duas vias** de RN-15 (feed e lista) usam a mesma autorização em `acervo`.
 
+## Plano de implementação
+
+Plano de 30/09/2026 para retomar a feature em qualquer máquina ou sessão. Ordem de execução; cada etapa termina com testes verdes e atualização do status acima. Caminhos relativos à raiz do repositório.
+
+| Etapa | Escopo | Situação |
+|---|---|---|
+| 1 | Contrato em `docs/api/social.yaml` e `docs/api/acervo.yaml` | **concluída em 30/09/2026** |
+| 2 | Backend `social` (Spring) | próxima |
+| 3 | Via lista no `acervo` (NestJS, código do Vicenzo: avisar antes) | pendente |
+| 4 | Web (`code/front`) | pendente |
+| 5 | Mobile (`code/mobile`) | pendente |
+| 6 | Fechamento: DES, status, pendências e timeline | pendente |
+
+### Etapa 2: backend `social`
+
+- **Migration nova** `code/back/social/src/main/resources/db/migration/V<timestamp>__limites_lista.sql`, com versão maior que `V20260927002000`. **Não editar** `V20260916024928__cria_modelo_social.sql`: o Flyway valida os scripts aplicados. Conteúdo: CHECK `char_length(titulo) <= 80` e `descricao IS NULL OR char_length(descricao) <= 300`. Revisão humana antes de subir.
+- **Pacote** `br.com.leai.social.lista/{controller,dto,entity,repository,service}`, no molde de `feed/`:
+  - Entidades `Lista` e `ItemDeLista` com construtor protegido e fábrica estática (modelo `feed/entity/Atividade.java`).
+  - DTOs `record` com `@Schema(name=...)` igual ao nome no yaml e Bean Validation (`@NotBlank @Size(max=80)`, `@Size(max=300)`), modelo `feed/dto/CriarComentarioRequisicao.java`.
+  - `ListaController`: usuário por `@AuthenticationPrincipal Jwt` e `UUID.fromString(token.getSubject())` (modelo `FeedController.java`); escritas pelo par `executar`/`semCorpo` com `ServicoDeIdempotencia` (copiar de `InteracaoController.java`). Acrescentar as operações em `common/idempotencia/OperacaoIdempotente.java` com o `operationId` do yaml (`criarLista`, `editarLista`, `excluirLista`, `adicionarLivroNaLista`, `removerLivroDaLista`, `moverLivroNaLista`).
+  - `ServicoDeListas`:
+    - escrita owner-only; lista alheia responde 404;
+    - livro validado por `acervo.v_livro_referencia_v1`: `ativo` e (`tipo='oficial'` ou `tipo='pessoal'` com `dono_id` = solicitante); caso contrário 422 (modelo de consulta em lote: `ServicoDeFeed.buscarTiposLivro`);
+    - adicionar com `INSERT ... ON CONFLICT (lista_id, livro_id) DO NOTHING RETURNING`; se já existia, ler e responder 200 com o item; novo item em `max(ordem)+1` (modelo `ServicoDeInteracao`);
+    - mover em uma transação com `SET CONSTRAINTS <unique de (lista_id, ordem)> DEFERRED` (conferir o nome real da constraint no banco), deslocando o intervalo; posição fora de `1..n` responde 400;
+    - remover apaga o item e compacta as ordens seguintes;
+    - toda escrita atualiza `lista.atualizado_em`; excluir faz `ativo=false`;
+    - RN-08 (primeira checagem de privacidade do `social`): dono vê; `identidade.v_perfil_referencia_v1.privacidade='publico'` vê; privado exige `EXISTS identidade.v_seguimento_aceito_v1`; negado responde **403 `ACESSO_NEGADO`** com a mensagem "Este perfil é privado. Siga para ver as listas." (padrão de `code/back/leitura/src/perfis/perfis.service.ts`; SQL de referência em `code/back/acervo/src/livros/busca/resenhas.repository.ts`); dono ausente da VIEW responde 404;
+    - rate limit por usuário nas escritas com um bean `LimitePorUsuario` em `common/LimitesDeInteracao.java`.
+  - Repositório: objetos de outros schemas sempre qualificados (`acervo.`, `identidade.`), porque o `search_path` é `social`. Itens por cursor `(ordem, id)` no molde de `feed/repository/CursorComentario.java`; índice paginado com `common/Paginacao.java` (20 padrão, 50 máximo) e três capas por `LATERAL` sobre `lista_item` com `v_livro_referencia_v1`.
+- **Testes** de integração estendendo `integracao/IntegracaoComPostgres.java` com `@EnabledIfEnvironmentVariable(named = "DATABASE_URL_TESTE", matches = ".+")`, copiando o `@BeforeEach` de `InteracaoControllerIntegracaoTest.java` que cria as VIEWs de `identidade` e `acervo`. Casos: CRUD owner-only, limites 80/300, livro repetido responde 200 sem duplicar, livro pessoal de outro recusado, mover no início/meio/fim/fora do intervalo sem ordem parcial, remover compacta, cursor e teto, RN-08 (dono, público, privado seguido, privado não seguido 403), `Idempotency-Key` repetida e com payload diferente (409), `contemLivro` em `/me/listas`. Unitários de validação no molde de `ServicoDeFeedValidacaoTest`.
+- Ao terminar: trocar `planned-periodo-2` por `implemented` nas rotas de listas do `social.yaml` (inclusive em `x-database-contracts`).
+
+### Etapa 3: via lista no `acervo`
+
+- `code/back/acervo/src/db/contratos-externos.ts`: declarar `vListaLivroPessoal` (`social.v_lista_livro_pessoal_v1`, colunas `lista_id`, `dono_id`, `livro_id`) com `.existing()`.
+- `src/livros/pessoal/autorizacao-rn15.service.ts`: `Via = 'feed' | 'lista'`; ramo de lista em uma consulta: `vListaLivroPessoal` (lista = `referenciaId`, livro, dono) com `vPerfilReferencia` do dono e `privacidade='publico' OR EXISTS vSeguimentoAceito`. **Difere da via feed**, que exige seguimento mesmo com perfil público. Manter `ehFalhaDeContratoExterno` → 503.
+- `src/livros/pessoal/livro-pessoal.controller.ts`: `@ApiQuery enum ['feed','lista']` e a mensagem do 400.
+- Testes: tabela falsa `social.v_lista_livro_pessoal_v1` em `CONTRATOS_EXTERNOS` e `TABELAS_DE_DADOS` de `test/integracao/banco.ts`; helper `publicarEmLista` e casos em `test/integracao/livro-pessoal.int-spec.ts` (público sem seguir passa, privado seguido passa, privado não seguido 403, lista de outro livro, referência forjada, lista excluída, 503); casos `via: 'lista'` em `livro-pessoal.service.spec.ts`.
+- Ao terminar: tirar de `acervo.yaml` a marcação de via lista planejada.
+
+### Etapa 4: web
+
+- `code/front/src/services/listas.ts` (`createListasService` sobre `createApiClient`, `novaChaveIdempotencia` por intenção) com spec no molde de `social.spec.ts`; `services/acervo.ts`: `ViaDeAcesso.via` aceita `'lista'`.
+- `components/perfil/SecoesDeLeitura.vue`: terceira aba `listas`, com navegação por setas genérica; novo `ListasDoPerfil.vue` (mosaico, `usePaginacao`, `FimDaLista`) em `views/perfil/PerfilView.vue` (com `Nova lista`) e `PerfilDeOutroView.vue` (bloco RN-08 no 403).
+- `router/index.ts`: rotas `perfil/listas/:id` e `leitores/:username/listas/:id`; `abaDoLivroPessoal` resolve `via=lista` para `/perfil`; caso novo em `router/abas.spec.ts`.
+- `ListaView.vue` (arrastar e botões subir/descer chamando `/posicao`; remover sem confirmação; livro pessoal de outro com `query: {via: 'lista', referenciaId: listaId}`, modelo `components/feed/ItemAtividade.vue`), `FormularioDeLista.vue` (`SobreposicaoModal`, `CampoTexto`/`CampoAreaTexto`, `ContadorDeCaracteres`, `DialogoConfirmacao` na exclusão) e `AdicionarALista.vue` (`GET /me/listas?livroId=`).
+- `views/livros/LivroPessoalView.vue`: `acesso` aceita `via=lista`, item `Adicionar à lista` na `FolhaAcoes` e no botão web, estado indisponível com "Voltar à lista" (texto em `docs/design/periodo-2/livro-pessoal/livro-pessoal.md`).
+- `views/livros/LivroOficialView.vue`: o menu `DotsThree` é do Renato como integrador; combinar e só encaixar `Adicionar à lista`.
+- Toast "Lista excluída." não existe como componente: criar um pequeno em `components/ui/` ou usar `BannerAviso`, e registrar a divergência.
+- Testes Vitest com `testes/montarNaRota.ts` e `vi.mock` dos serviços: reordenação, perfil privado, timeout com API simulada, `via=lista`.
+
+### Etapa 5: mobile
+
+- `code/mobile/lib/features/listas/`: `listas_service.dart` (`ApiClient`, `AppConfig.socialBaseUrl`, `ValueNotifier<int> alteracoes`), `rotas_listas.dart` com `DependenciasDeListas.padrao` (modelo `feed/rotas_feed.dart`), `lista_page.dart` (`ReorderableListView` para o dono, primeiro do projeto), `lista_form_page.dart` (`CampoTexto`, `CabecalhoTela(fechar: true)`, `PopScope` + `confirmarNoModal`, `confirmarAcaoDestrutiva`), `folha_adicionar_a_lista.dart` (`mostrarFolhaInferior` pelo navegador raiz) e `listas_do_perfil.dart`.
+- `lib/app/router.dart`: parâmetro `listas:` em `buildRouter`, rotas sob `/perfil` e `/feed/leitores/:username`.
+- `lib/features/perfil/widgets_de_identidade.dart`: slot `listas` em `SecoesDeLeitura`, ligado em `perfil_page.dart` e `perfil_de_outro_page.dart` dentro do ramo não privado.
+- `lib/features/livros/livro_pessoal_page.dart`: item em `_abrirMenu` e estado indisponível dependente da via; `livro_oficial_page.dart` ganha `acoes` com `DotsThree`, combinado com o Renato.
+- Testes em `test/features/listas/*` (reordenação, privado, timeout com `MockClient`), caso `via: 'lista'` em `test/features/livros/livro_pessoal_page_test.dart` e rota em `test/app/router_test.dart`. Registrar `lib/features/listas/` no `code/mobile/AGENTS.md`.
+
+### Etapa 6: fechamento
+
+- Commits Conventional em `desenvolvimento` com `git pull --rebase` antes; validação em DES depois do merge em `main`.
+- Atualizar status, pendências e timeline deste arquivo.
+
+### Verificação
+
+- `social`: em `code/back/social`, `./mvnw verify` com `DATABASE_URL_TESTE` apontando para Postgres local descartável, nunca o Neon.
+- `acervo`: em `code/back/acervo`, `npm run lint && npm test && npm run test:integration` com `DATABASE_URL_TESTE`.
+- Web: em `code/front`, `npm run lint && npm test && npm run build`; roteiro manual com `npm run dev`.
+- Mobile: em `code/mobile`, `flutter analyze && flutter test && flutter build apk --debug`; roteiro no emulador com `--dart-define=SOCIAL_BASE_URL=http://10.0.2.2:8081`.
+- Roteiro manual nas duas plataformas: criar lista, adicionar pelo livro, reordenar, ver lista de perfil privado sem seguir (bloco RN-08) e abrir livro pessoal de lista alheia em modo consulta.
+
 ## Pendências
 
 - **Telas (design P2):** entrada `Adicionar à lista` no menu `DotsThree` do header da [`pagina-do-livro.md`](../../design/periodo-2/pagina-do-livro/pagina-do-livro.md) ([protótipo](../../design/periodo-2/pagina-do-livro/prototipos/pagina-do-livro.html)) (lote 2). Lote 3, prompts escritos e protótipos exportados em 29/09/2026: [`lista.md`](../../design/periodo-2/F-LST/lista.md) ([protótipo](../../design/periodo-2/F-LST/prototipos/lista.html)), [`listas-do-leitor.md`](../../design/periodo-2/F-LST/listas-do-leitor.md) ([protótipo](../../design/periodo-2/F-LST/prototipos/listas-do-leitor.html)) (índice; na web é a aba `Listas` do perfil), [`criar-lista.md`](../../design/periodo-2/F-LST/criar-lista.md) ([protótipo](../../design/periodo-2/F-LST/prototipos/criar-lista.html)) (criar, editar e excluir) e [`adicionar-a-lista.md`](../../design/periodo-2/F-LST/adicionar-a-lista.md) ([protótipo](../../design/periodo-2/F-LST/prototipos/adicionar-a-lista.html)). **Contrato pendente:** `PUT /listas/{id}/ordem` exige todos os `itemIds`, mas os itens são paginados; o índice precisa de contagem, três primeiras capas e `atualizadaEm`; o sheet precisa saber se cada lista já contém o livro; criar a partir do livro pede `POST /listas` que aceite o livro (senão a lista pode ficar sem ele). Limites provisórios no protótipo: 80 caracteres no título e 300 na descrição. Lotes 6 e 7, prompts escritos em 29/09/2026; protótipos exportados em 29/09/2026: seção `Listas` e aba `Listas` na web nas edições [`meu-perfil.md`](../../design/periodo-2/meu-perfil/meu-perfil.md) ([protótipo](../../design/periodo-2/meu-perfil/prototipos/meu-perfil.html)) (com `Nova lista`) e [`perfil-de-outro-leitor.md`](../../design/periodo-2/perfil-de-outro-leitor/perfil-de-outro-leitor.md) ([protótipo](../../design/periodo-2/perfil-de-outro-leitor/prototipos/perfil-de-outro-leitor.html)); `Adicionar à lista` no `DotsThreeVertical` do modo dono e segunda via de acesso do terceiro (pela lista) na edição [`livro-pessoal.md`](../../design/periodo-2/livro-pessoal/livro-pessoal.md) ([protótipo](../../design/periodo-2/livro-pessoal/prototipos/livro-pessoal.html)). Contrato a confirmar: `GET /perfis/{id}/listas` com contagem e capas.
