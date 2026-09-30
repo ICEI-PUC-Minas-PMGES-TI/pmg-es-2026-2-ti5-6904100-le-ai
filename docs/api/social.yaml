@@ -7,7 +7,9 @@ info:
     interações em atividades e notificações in-app. As operações de F-FEED e
     F-NOT do Período 1 estão implementadas. A exclusão de comentário
     pertence a F-SOCIAL-2 (Período 2) e aparece apenas para tornar explícito o
-    contrato futuro e sua regra de propriedade.
+    contrato futuro e sua regra de propriedade. As listas de livros pertencem a
+    F-LST (Período 2); o contrato foi publicado antes da implementação para
+    orientar acervo, web e mobile.
 
     Atividades e notificações são criadas exclusivamente por consumidores
     idempotentes de eventos do broker. Não há endpoint HTTP público de ingestão.
@@ -27,6 +29,16 @@ info:
       - POST /notificacoes/marcar-lidas
     planned-periodo-2:
       - DELETE /comentarios/{comentarioId}
+      - POST /listas
+      - GET /listas/{listaId}
+      - PATCH /listas/{listaId}
+      - DELETE /listas/{listaId}
+      - GET /listas/{listaId}/livros
+      - POST /listas/{listaId}/livros
+      - DELETE /listas/{listaId}/livros/{livroId}
+      - PUT /listas/{listaId}/livros/{itemId}/posicao
+      - GET /perfis/{usuarioId}/listas
+      - GET /me/listas
 x-database-contracts:
   - name: v_atividade_livro_pessoal_v1
     x-implementation-status: implemented
@@ -35,6 +47,18 @@ x-database-contracts:
       o consumidor ainda precisa revalidar seguimento aceito, autoria e vínculo
       entre atividade e livro.
     columns: [atividade_id, dono_id, livro_id]
+  - name: v_lista_livro_pessoal_v1
+    x-implementation-status: planned-periodo-2
+    description: >-
+      Comprova a via lista para livro pessoal (RN-15, segunda via). Expõe um
+      par lista/livro por item de lista ativa; lista excluída sai da VIEW na
+      mesma transação. A VIEW existe no banco desde a migration do modelo
+      social; o consumo em acervo entra com F-LST. O consumidor ainda precisa
+      revalidar o vínculo lista, dono e livro e a privacidade do dono (RN-08):
+      perfil público libera qualquer leitor autenticado; perfil privado exige
+      seguimento aceito. Diferente da via feed, seguir não é exigido quando o
+      perfil é público.
+    columns: [lista_id, dono_id, livro_id]
 x-event-consumers:
   description: >-
     Registros de atividade e notificação são projeções criadas por consumidores
@@ -110,6 +134,8 @@ tags:
     description: Feed cronológico e detalhe de atividade
   - name: interacoes
     description: Curtidas, comentários e respostas
+  - name: listas
+    description: Listas de livros curadas pelo leitor (F-LST)
   - name: notificacoes
     description: Notificações in-app do leitor autenticado
   - name: health
@@ -317,6 +343,288 @@ paths:
         '404': { $ref: '#/components/responses/NaoEncontrado' }
         '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
         '503': { $ref: '#/components/responses/Indisponivel' }
+  /listas:
+    post:
+      tags: [listas]
+      summary: Cria uma lista do leitor (RF-LST-01)
+      operationId: criarLista
+      x-implementation-status: planned-periodo-2
+      description: >-
+        Cria uma lista cujo dono é sempre o leitor autenticado; o servidor não
+        aceita dono informado pelo cliente. Com livroId, a lista nasce com esse
+        livro na posição 1, na mesma transação, para que criar a partir da
+        página do livro nunca deixe uma lista sem o livro. O livro precisa
+        estar ativo e ser oficial ou livro pessoal do próprio leitor (RN-15.1).
+        Título e descrição são texto puro. Sujeito a rate limiting.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CriarLista' }
+      responses:
+        '201':
+          description: Lista criada, ou resposta reproduzida pela mesma chave.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Lista' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '422': { $ref: '#/components/responses/RegraNegocioInvalida' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /listas/{listaId}:
+    parameters:
+      - $ref: '#/components/parameters/ListaId'
+    get:
+      tags: [listas]
+      summary: Obtém os metadados de uma lista visível (RF-LST-04)
+      operationId: obterLista
+      x-implementation-status: planned-periodo-2
+      description: >-
+        O dono sempre vê a própria lista. Terceiros veem se o perfil do dono
+        é público ou se seguem o dono com solicitação aceita (RN-08). Perfil
+        privado sem seguimento responde 403 com mensagem de perfil privado, e
+        o cliente mostra o bloco de restrição. Lista inexistente, excluída ou
+        de conta suspensa ou em exclusão responde 404. Os itens são
+        consultados pela rota própria, paginada.
+      responses:
+        '200':
+          description: Metadados da lista.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Lista' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/PerfilPrivado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+    patch:
+      tags: [listas]
+      summary: Edita título e descrição da própria lista (RF-LST-03)
+      operationId: editarLista
+      x-implementation-status: planned-periodo-2
+      description: >-
+        Owner-only. Campo omitido permanece; descricao nula apaga a descrição.
+        Lista alheia responde 404, sem confirmar sua existência.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EditarLista' }
+      responses:
+        '200':
+          description: Lista atualizada.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Lista' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+    delete:
+      tags: [listas]
+      summary: Exclui a própria lista (RF-LST-03)
+      operationId: excluirLista
+      x-implementation-status: planned-periodo-2
+      description: >-
+        Owner-only. O cliente exige confirmação explícita (RNF-USA-04). A
+        exclusão é lógica: a lista deixa de aparecer em todas as rotas e em
+        v_lista_livro_pessoal_v1 na mesma transação, o que encerra na hora a
+        via lista para os livros pessoais que ela continha. Lista já excluída
+        mantém o resultado idempotente.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: Lista própria ausente após a operação.
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /listas/{listaId}/livros:
+    parameters:
+      - $ref: '#/components/parameters/ListaId'
+    get:
+      tags: [listas]
+      summary: Lista os livros de uma lista visível, na ordem do dono (RF-LST-04)
+      operationId: listarLivrosDaLista
+      x-implementation-status: planned-periodo-2
+      description: >-
+        Paginação por cursor estável, em ordem crescente de posição. Aplica a
+        mesma visibilidade de obterLista. Livro inativo não é exibido. Em livro
+        pessoal visto por terceiro, o link traz via=lista e referenciaId igual
+        à lista; o serviço acervo revalida a autorização ao abrir a página, em
+        modo consulta (RN-15.3).
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/CursorLimit'
+      responses:
+        '200':
+          description: Segmento de itens e cursor para o próximo segmento.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ListaItens' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/PerfilPrivado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+    post:
+      tags: [listas]
+      summary: Adiciona um livro à própria lista (RF-LST-02, RF-LST-05)
+      operationId: adicionarLivroNaLista
+      x-implementation-status: planned-periodo-2
+      description: >-
+        Owner-only. O livro entra na última posição. Precisa estar ativo e ser
+        oficial ou livro pessoal do próprio leitor; livro pessoal de outro
+        leitor responde 422 (RN-15.1). Livro já presente não é duplicado nem
+        muda de posição: a resposta é 200 com o item existente, para que o
+        cliente trate a lista como marcada.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdicionarLivroNaLista' }
+      responses:
+        '201':
+          description: Livro adicionado, ou resposta reproduzida pela mesma chave.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ItemDeLista' }
+        '200':
+          description: O livro já estava na lista; item existente, sem alteração.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ItemDeLista' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '422': { $ref: '#/components/responses/RegraNegocioInvalida' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /listas/{listaId}/livros/{livroId}:
+    parameters:
+      - $ref: '#/components/parameters/ListaId'
+      - $ref: '#/components/parameters/LivroId'
+    delete:
+      tags: [listas]
+      summary: Remove um livro da própria lista (RF-LST-02)
+      operationId: removerLivroDaLista
+      x-implementation-status: planned-periodo-2
+      description: >-
+        Owner-only. Os itens seguintes sobem uma posição na mesma transação.
+        Livro ausente da lista mantém o resultado idempotente. Não pede
+        confirmação: o livro continua no acervo e na estante.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: Livro ausente da lista após a operação.
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /listas/{listaId}/livros/{itemId}/posicao:
+    parameters:
+      - $ref: '#/components/parameters/ListaId'
+      - $ref: '#/components/parameters/ItemId'
+    put:
+      tags: [listas]
+      summary: Move um livro para outra posição da própria lista (RF-LST-02)
+      operationId: moverLivroNaLista
+      x-implementation-status: planned-periodo-2
+      description: >-
+        Owner-only. Move um item por vez, o que funciona com a lista paginada,
+        com arrastar no mobile e com os controles de subir e descer da web. Os
+        itens entre a posição antiga e a nova se deslocam uma casa, em uma
+        transação: nunca fica ordem parcial. Posição fora de 1 até a
+        quantidade de livros responde 400. Item de outra lista responde 404.
+        Mover para a posição atual mantém o resultado.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MoverLivroNaLista' }
+      responses:
+        '200':
+          description: Item na nova posição.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ItemDeLista' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /perfis/{usuarioId}/listas:
+    parameters:
+      - $ref: '#/components/parameters/UsuarioId'
+    get:
+      tags: [listas]
+      summary: Lista as listas de um leitor (RF-LST-04, RF-SOC-02)
+      operationId: listarListasDoPerfil
+      x-implementation-status: planned-periodo-2
+      description: >-
+        Índice das listas ativas do leitor, da alterada mais recentemente para
+        a mais antiga, com contagem e até três capas por lista. Aplica RN-08:
+        o próprio leitor e perfis públicos são visíveis; perfil privado sem
+        seguimento aceito responde 403. Conta inexistente, suspensa ou em
+        exclusão responde 404.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Página de listas do leitor.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaListas' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/PerfilPrivado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /me/listas:
+    get:
+      tags: [listas]
+      summary: Lista as listas do próprio leitor, marcando as que contêm um livro
+      operationId: listarMinhasListas
+      x-implementation-status: planned-periodo-2
+      description: >-
+        Alimenta o sheet Adicionar à lista. Mesma ordem e forma de
+        listarListasDoPerfil para o próprio leitor; com livroId, cada lista
+        traz contemLivro. Sem livroId, contemLivro é omitido.
+      parameters:
+        - name: livroId
+          in: query
+          required: false
+          description: Livro da página de origem do sheet.
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Página de listas do leitor autenticado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaListas' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
   /notificacoes:
     get:
       tags: [notificacoes]
@@ -412,6 +720,30 @@ components:
       required: true
       description: UUID não sequencial do comentário ou resposta.
       schema: { type: string, format: uuid }
+    ListaId:
+      name: listaId
+      in: path
+      required: true
+      description: UUID não sequencial da lista.
+      schema: { type: string, format: uuid }
+    LivroId:
+      name: livroId
+      in: path
+      required: true
+      description: UUID do livro no serviço acervo.
+      schema: { type: string, format: uuid }
+    ItemId:
+      name: itemId
+      in: path
+      required: true
+      description: UUID do item da lista, retornado em ItemDeLista.id.
+      schema: { type: string, format: uuid }
+    UsuarioId:
+      name: usuarioId
+      in: path
+      required: true
+      description: UUID do leitor no serviço identidade.
+      schema: { type: string, format: uuid }
     Page:
       name: page
       in: query
@@ -483,6 +815,19 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Erro' }
+    PerfilPrivado:
+      description: >-
+        O perfil do dono é privado e o leitor não o segue com solicitação
+        aceita (RN-08). Código ACESSO_NEGADO, com mensagem de perfil privado.
+      headers:
+        X-Correlation-Id: { $ref: '#/components/headers/CorrelationId' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
+          example:
+            codigo: ACESSO_NEGADO
+            mensagem: Este perfil é privado. Siga para ver as listas.
+            correlationId: 3f1c9a52-7d7e-4c2b-9a0e-5b2f1d8c6e40
     NaoEncontrado:
       description: >-
         Recurso inexistente, não pertencente ao leitor ou não visível. A
@@ -587,11 +932,15 @@ components:
         livroId: { type: string, format: uuid }
         via:
           type: string
-          enum: [catalogo, feed]
+          enum: [catalogo, feed, lista]
+          description: >-
+            feed nas atividades; lista nos itens de lista (F-LST). catalogo
+            para livro oficial.
         referenciaId:
           type: string
           format: uuid
           nullable: true
+          description: Atividade na via feed; lista na via lista; nulo em catalogo.
     ResenhaSnapshot:
       type: object
       nullable: true
@@ -889,6 +1238,196 @@ components:
           minimum: 0
           description: Quantidade alterada nesta operação.
         totalNaoLidas: { type: integer, format: int64, minimum: 0 }
+    CriarLista:
+      type: object
+      required: [titulo]
+      additionalProperties: false
+      properties:
+        titulo:
+          type: string
+          minLength: 1
+          maxLength: 80
+          description: Texto puro, sem espaço só; HTML não é interpretado.
+          example: Romances do sertão
+        descricao:
+          type: string
+          nullable: true
+          maxLength: 300
+          description: Texto puro. Vazio ou nulo significa sem descrição.
+        livroId:
+          type: string
+          format: uuid
+          description: >-
+            Opcional. Cria a lista já com este livro na posição 1, na mesma
+            transação.
+    EditarLista:
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        titulo:
+          type: string
+          minLength: 1
+          maxLength: 80
+        descricao:
+          type: string
+          nullable: true
+          maxLength: 300
+          description: Nulo apaga a descrição; omitido mantém.
+    AdicionarLivroNaLista:
+      type: object
+      required: [livroId]
+      additionalProperties: false
+      properties:
+        livroId: { type: string, format: uuid }
+    MoverLivroNaLista:
+      type: object
+      required: [posicao]
+      additionalProperties: false
+      properties:
+        posicao:
+          type: integer
+          minimum: 1
+          description: Nova posição, de 1 até a quantidade de livros da lista.
+    DonoDaLista:
+      type: object
+      description: Dados públicos atuais do dono, lidos de v_perfil_referencia_v1.
+      required: [id, username, nomeExibicao]
+      properties:
+        id: { type: string, format: uuid }
+        username: { type: string, example: marinableu }
+        nomeExibicao: { type: string, example: Marina Beltrão }
+        avatarUrl:
+          type: string
+          format: uri
+          nullable: true
+    Lista:
+      type: object
+      required:
+        - id
+        - dono
+        - titulo
+        - quantidadeLivros
+        - pertenceAoSolicitante
+        - criadaEm
+        - atualizadaEm
+      properties:
+        id: { type: string, format: uuid }
+        dono: { $ref: '#/components/schemas/DonoDaLista' }
+        titulo:
+          type: string
+          description: Texto puro; o cliente aplica escape ao renderizar.
+        descricao:
+          type: string
+          nullable: true
+          description: Texto puro; o cliente aplica escape ao renderizar.
+        quantidadeLivros: { type: integer, minimum: 0 }
+        pertenceAoSolicitante:
+          type: boolean
+          description: Libera no cliente editar, excluir, adicionar, remover e mover.
+        criadaEm: { type: string, format: date-time }
+        atualizadaEm:
+          type: string
+          format: date-time
+          description: Muda a cada edição, inclusão, remoção ou movimento de livro.
+    CapaDaLista:
+      type: object
+      required: [livroId, tipo, titulo]
+      properties:
+        livroId: { type: string, format: uuid }
+        tipo:
+          type: string
+          enum: [OFICIAL, PESSOAL]
+        titulo:
+          type: string
+          description: Usado pelo placeholder quando não há capa.
+        capaUrl:
+          type: string
+          format: uri
+          nullable: true
+    ListaResumo:
+      type: object
+      required: [id, titulo, quantidadeLivros, capas, atualizadaEm]
+      properties:
+        id: { type: string, format: uuid }
+        titulo: { type: string }
+        descricao:
+          type: string
+          nullable: true
+        quantidadeLivros: { type: integer, minimum: 0 }
+        capas:
+          type: array
+          maxItems: 3
+          description: Os três primeiros livros ativos pela ordem do dono.
+          items: { $ref: '#/components/schemas/CapaDaLista' }
+        atualizadaEm: { type: string, format: date-time }
+        contemLivro:
+          type: boolean
+          description: Presente somente em listarMinhasListas com livroId.
+    PaginaListas:
+      type: object
+      required: [itens, pagina, tamanho, totalItens, totalPaginas, ultima]
+      properties:
+        itens:
+          type: array
+          items: { $ref: '#/components/schemas/ListaResumo' }
+        pagina: { type: integer, minimum: 0 }
+        tamanho: { type: integer, minimum: 1, maximum: 50 }
+        totalItens: { type: integer, format: int64, minimum: 0 }
+        totalPaginas: { type: integer, minimum: 0 }
+        ultima: { type: boolean }
+    LivroDaLista:
+      type: object
+      description: >-
+        Dados atuais do livro, lidos de v_livro_referencia_v1 na consulta; não
+        é snapshot.
+      required: [id, tipo, titulo, link]
+      properties:
+        id: { type: string, format: uuid }
+        tipo:
+          type: string
+          enum: [OFICIAL, PESSOAL]
+        titulo: { type: string }
+        autor:
+          type: string
+          nullable: true
+          description: Nulo em livro sem autor; o cliente esconde a linha.
+        capaUrl:
+          type: string
+          format: uri
+          nullable: true
+        link:
+          allOf:
+            - $ref: '#/components/schemas/LinkLivro'
+          description: >-
+            catalogo em livro oficial. Em livro pessoal, via=lista e
+            referenciaId igual à lista; o acervo dispensa a via quando quem
+            abre é o dono do livro.
+    ItemDeLista:
+      type: object
+      required: [id, listaId, livro, posicao, adicionadoEm]
+      properties:
+        id: { type: string, format: uuid }
+        listaId: { type: string, format: uuid }
+        livro: { $ref: '#/components/schemas/LivroDaLista' }
+        posicao:
+          type: integer
+          minimum: 1
+          description: Posição contínua, sem buracos, a partir de 1.
+        adicionadoEm: { type: string, format: date-time }
+    ListaItens:
+      type: object
+      required: [itens, temMais]
+      properties:
+        itens:
+          type: array
+          maxItems: 50
+          items: { $ref: '#/components/schemas/ItemDeLista' }
+        proximoCursor:
+          type: string
+          nullable: true
+          description: Cursor opaco; ausente quando temMais é falso.
+        temMais: { type: boolean }
     ViolacaoCampo:
       type: object
       required: [campo, mensagem]

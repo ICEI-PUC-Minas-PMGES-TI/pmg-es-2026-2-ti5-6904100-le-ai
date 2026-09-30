@@ -383,16 +383,30 @@ paths:
         mesmo livro e integra seu feed por seguimento aceito. A autorização e a
         privacidade do perfil são revalidadas nesta requisição, inclusive para
         perfil público. Conhecer o ID, forjar a referência ou omitir a via não
-        concede acesso. A via por lista não integra este contrato do Período 1.
+        concede acesso.
+
+        Via lista (F-LST, Período 2, planejada): terceiro informa via=lista e
+        referenciaId de uma lista ativa do dono que contém o mesmo livro,
+        comprovada por social.v_lista_livro_pessoal_v1. Diferente da via
+        feed, vale a privacidade da lista (RN-08): perfil público do dono
+        libera qualquer leitor autenticado, sem exigir seguimento; perfil
+        privado exige seguimento aceito. Lista excluída ou livro removido da
+        lista encerram o acesso. Terceiro continua sempre em modo consulta.
+      x-planned-periodo-2:
+        - via=lista (F-LST)
       parameters:
         - $ref: '#/components/parameters/LivroPessoalId'
         - name: via
           in: query
-          description: Prova de origem exigida somente para acesso de terceiro.
-          schema: { type: string, enum: [feed] }
+          description: >-
+            Prova de origem exigida somente para acesso de terceiro. lista
+            está planejada para F-LST e ainda responde 400 até a entrega.
+          schema: { type: string, enum: [feed, lista] }
         - name: referenciaId
           in: query
-          description: UUID da atividade de feed que comprova a via RN-15.
+          description: >-
+            UUID que comprova a via RN-15: a atividade de feed em via=feed ou
+            a lista do dono em via=lista.
           schema: { type: string, format: uuid }
       responses:
         '200':

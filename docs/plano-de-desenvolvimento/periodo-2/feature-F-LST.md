@@ -1,7 +1,7 @@
 # F-LST — Listas
 
 **Período:** 2 · **Prioridade:** desejavel
-**Dono:** a definir · **Serviços afetados:** `social` (backend) + web + mobile
+**Dono:** Henrique Carvalho · **Serviços afetados:** `social` (backend) + web + mobile
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.6 (RF-LST-01..06), RN-15, RN-08. Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §3.1, §4.2. Processo e template: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §9. Regras compartilhadas do projeto: [`../periodo-1/README.md#regras-de-implementação-compartilhadas`](../periodo-1/README.md#regras-de-implementação-compartilhadas). Em caso de conflito, o `REQUISITOS.md` ganha; protótipo é referência visual, não spec de pixel (plano §7).
 
@@ -35,9 +35,11 @@ RNF atendidos: **RNF-SEC-02** (propriedade da lista no servidor), **RNF-SEC-03**
 
 Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + correlation-id e mensagens pt-BR. Acesso a dados por ORM/consulta parametrizada (SEC-12). IDs não sequenciais (SEC-05). Título/descrição tratados como texto (escape — SEC-14). Escritas aceitam `Idempotency-Key` conforme as [regras compartilhadas](../periodo-1/README.md#regras-de-implementação-compartilhadas).
 
-- **`POST /listas`** (RF-LST-01), **`PATCH /listas/{id}`** (editar título/descrição), **`DELETE /listas/{id}`** (RF-LST-03, confirmação — RNF-USA-04) — **owner-only** (SEC-02).
-- **`POST /listas/{id}/livros`**, **`DELETE /listas/{id}/livros/{livroId}`** e **`PUT /listas/{id}/ordem`** (lista completa de `itemIds`) (RF-LST-02) — operações owner-only; a reordenação valida que os ids pertencem à lista e aplica a ordem em uma transação. O livro é validado por `v_livro_referencia_v1` (existe/ativo); listas podem conter livros oficiais e os pessoais do próprio dono.
-- **`GET /listas/{id}`**, **`GET /listas/{id}/livros?cursor=`** e **`GET /perfis/{usuarioId}/listas?page=`** (RF-LST-04) — metadados da lista e itens/listas paginados com teto server-side (RNF-DES-02), sob RN-08: dono e perfil público veem; perfil privado só a seguidor aceito. `social` não lê tabela crua de `identidade`.
+Contrato completo em [`docs/api/social.yaml`](../../api/social.yaml) (tag `listas`, publicado em 30/09/2026 antes da implementação).
+
+- **`POST /listas`** (RF-LST-01, aceita `livroId` opcional para criar a lista já com o livro), **`PATCH /listas/{id}`** (editar título/descrição), **`DELETE /listas/{id}`** (RF-LST-03, exclusão lógica, confirmação — RNF-USA-04) — **owner-only** (SEC-02). Título de 1 a 80 caracteres, descrição até 300.
+- **`POST /listas/{id}/livros`**, **`DELETE /listas/{id}/livros/{livroId}`** e **`PUT /listas/{id}/livros/{itemId}/posicao`** (move um item por vez; os itens entre a posição antiga e a nova se deslocam na mesma transação) (RF-LST-02) — operações owner-only. Livro já presente responde 200 com o item existente, sem duplicar nem mudar de posição. Remover compacta as posições. O livro é validado por `v_livro_referencia_v1` (existe/ativo); listas podem conter livros oficiais e os pessoais do próprio dono.
+- **`GET /listas/{id}`**, **`GET /listas/{id}/livros?cursor=`**, **`GET /perfis/{usuarioId}/listas?page=`** e **`GET /me/listas?livroId=`** (RF-LST-04; o último alimenta o sheet `Adicionar à lista` com `contemLivro`) — metadados da lista e itens/listas paginados com teto server-side (RNF-DES-02), sob RN-08: dono e perfil público veem; perfil privado só a seguidor aceito, e a negação responde 403 `ACESSO_NEGADO` com mensagem de perfil privado. O índice traz contagem, até três capas e `atualizadaEm`. `social` não lê tabela crua de `identidade`.
 - **Livro pessoal em lista (RF-LST-05, RN-15.1):** apenas o **dono** adiciona **seus próprios** livros pessoais a **suas** listas — o servidor checa por `v_livro_referencia_v1` que `tipo=pessoal` **e** `dono=solicitante`. Ninguém adiciona livro pessoal de outro a uma lista sua.
 - **Via RN-15 para terceiros (RF-LST-06):** a lista do dono é a **segunda via** de acesso de terceiros a um livro pessoal (a primeira é o feed — [F-FEED](../periodo-1/feature-F-FEED.md)). `social` expõe **`v_lista_livro_pessoal_v1`** (lista **ativa** do dono, dono, livro referenciado); `acervo` autoriza `GET /livros/pessoal/{id}?via=lista&referenciaId=<listaId>` exigindo que o solicitante **tenha acesso à lista** sob RN-08 (dono público, próprio, ou privado seguido) — espelhando o contrato de `v_atividade_livro_pessoal_v1` do feed. A página é **modo consulta**: metadados, capa, nota/resenha do dono, **sem** ação de adicionar à estante/favoritar/iniciar leitura (RN-15.3, SEC-06/07, validado no servidor). Conhecer os ids **não** concede acesso.
 
@@ -45,7 +47,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 **VIEWs consumidas:** `v_livro_referencia_v1` (acervo), `v_perfil_referencia_v1`/`v_seguimento_aceito_v1` (identidade). **VIEW exposta:** `v_lista_livro_pessoal_v1` (para autorização em `acervo`), nome distinto das tabelas.
 
-**Modelo de dados** (schema `social`): `lista` (dono, título, descrição, timestamps) e `lista_item` (lista, livro, ordem) — a ordem sustenta o reordenar de RF-LST-02.
+**Modelo de dados** (schema `social`): `lista` (dono, título, descrição, timestamps) e `lista_item` (lista, livro, ordem) — a ordem sustenta o reordenar de RF-LST-02. As tabelas e a VIEW `v_lista_livro_pessoal_v1` **já existem** desde a migration do modelo (`V20260916024928__cria_modelo_social.sql`), com `UNIQUE(lista_id, livro_id)` e `UNIQUE(lista_id, ordem)` adiável; a F-LST acrescenta só uma migration com os limites de título e descrição.
 
 ### Frontend Web (`code/front`)
 
@@ -88,8 +90,9 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Coordenar com `acervo`** o handler de `?via=lista` na página de livro pessoal, espelhando o de `?via=feed`.
 - **Compartilha `social`** com as demais features sociais e é limpo por [F-CONTA-2](feature-F-CONTA-2.md) na exclusão — sinalizar no grupo (plano §6).
 - Stack de `social` definida: **Spring (Java)** (arquitetura §2.1).
-- **Decisão do dono:** fixar limites de título/descrição e o comportamento de adicionar novamente livro já presente antes da migration.
-- **Alternativa a avaliar, sem mudar o desenho atual:** retornar metadados e primeira página de itens no detalhe da lista e usar controles acessíveis de ordem antes de exigir drag-and-drop.
+- ~~**Decisão do dono:** fixar limites de título/descrição e o comportamento de adicionar novamente livro já presente antes da migration.~~ — **decidido (30/09/2026):** título até 80 e descrição até 300 caracteres (ratifica os protótipos); livro já presente responde 200 com o item existente.
+- ~~**Contrato pendente de reordenação e do sheet**~~ — **decidido (30/09/2026):** `PUT /ordem` com todos os `itemIds` substituído por `PUT /listas/{id}/livros/{itemId}/posicao`, que funciona com itens paginados; `POST /listas` aceita `livroId`; `GET /me/listas?livroId=` informa `contemLivro`; o índice traz contagem, três capas e `atualizadaEm`.
+- **Alternativa a avaliar, sem mudar o desenho atual:** controles acessíveis de subir e descer na web, além do arrastar, usando a mesma rota de posição.
 
 ## Timeline
 
@@ -98,3 +101,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 ### Criação 28/08/2026: arquivo criado a partir do escopo de F-LST no [periodo-2/README.md](README.md), de RF-LST-01..06 do [`REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.6 e das RN-15/RN-08. Segunda via de RN-15 (lista do dono) fixada com `v_lista_livro_pessoal_v1`, espelho da via feed de F-FEED; fecha a composição de listas de RF-SOC-02 pendente em F-PERFIL.
 
 ### Revisão 29/08/2026: reordenação e paginação de itens ganharam contratos HTTP explícitos e transação owner-only, sem ampliar o escopo funcional de RF-LST-02/04.
+
+### Dono 29/09/2026: feature atribuída a **Henrique Carvalho** na [divisão do Período 2](README.md#divisão-do-período-2-entre-5-pessoas).
+
+### Contrato 30/09/2026: rotas de listas publicadas em `social.yaml` antes da implementação (status `planned-periodo-2`), com `v_lista_livro_pessoal_v1` em `x-database-contracts`, e `via=lista` planejada em `acervo.yaml`. Decisões do dono: limites 80/300, livro repetido responde 200, reordenação por item (`/posicao` no lugar de `/ordem`), `livroId` opcional na criação, `contemLivro` no `/me/listas` e 403 de perfil privado.
