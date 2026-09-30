@@ -5,6 +5,9 @@
 
 # Variáveis de ambiente / segredos
 .env
+.mcp.json
+opencode.json
+.codex/
 .env.*
 !.env.example
 

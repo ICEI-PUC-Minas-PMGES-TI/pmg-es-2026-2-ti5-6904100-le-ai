@@ -39,6 +39,34 @@ Resultado esperado: 59 tabelas de dominio, sendo `identidade.usuario`
 preservada e ampliada e 58 tabelas novas. As tabelas de historico do Flyway e
 Drizzle nao entram nessa contagem.
 
+## Migrations posteriores ao modelo
+
+Aplicadas depois da baseline de 16/09/2026, durante o Periodo 1. Com as quatro
+tabelas `mensagem_processada`, o total passa a **63 tabelas** de dominio e
+recibo, mantidas as nove views.
+
+| Schema | Migration | Origem | Efeito |
+|---|---|---|---|
+| `acervo` | `0002_youthful_newton_destine.sql` | P0-MSG, 19/09 | `outbox_acervo.proxima_tentativa_em` (backoff do dispatcher) |
+| `acervo` | `0003_cria_mensagem_processada.sql` | P0-MSG, 19/09 | tabela de recibo `mensagem_processada` |
+| `acervo` | `0004_20260926131817_indices_busca.sql` | F-ACV-BUSCA, 26/09 | extensoes `pg_trgm` e `unaccent`, funcao `f_busca_normalizar` e indices GIN de titulo, autor e editora |
+| `leitura` | `0003_agenda_retry_outbox.sql` | P0-MSG, 19/09 | `outbox_leitura.proxima_tentativa_em` |
+| `leitura` | `0004_cria_mensagem_processada.sql` | P0-MSG, 19/09 | tabela de recibo `mensagem_processada` |
+| `identidade` | `V20260919090000__cria_mensagem_processada.sql` | P0-MSG, 19/09 | tabela de recibo `mensagem_processada` |
+| `identidade` | `V20260919100000__agenda_retry_outbox.sql` | P0-MSG, 19/09 | backoff da outbox |
+| `identidade` | `V20260919200000__corrige_schema_mensagem_processada.sql` | P0-MSG, 19/09 | move o recibo criado sem schema para `identidade` |
+| `social` | `V20260919090000__cria_mensagem_processada.sql` | P0-MSG, 19/09 | tabela de recibo `mensagem_processada` |
+| `social` | `V20260919100000__agenda_retry_outbox.sql` | P0-MSG, 19/09 | backoff da outbox |
+| `social` | `V20260925140000__adiciona_comentario_respondido_id.sql` | F-FEED, 25/09 | `comentario.comentario_respondido_id`, FK composta com `atividade_id`, `ON DELETE SET NULL` |
+| `social` | `V20260927002000__snap_livro_autor_anulavel.sql` | F-AVA, 27/09 | `atividade.snap_livro_autor` passa a aceitar nulo (701 livros oficiais sem autor) |
+
+Flyway aplica as migrations de `identidade` e `social` no boot, e o
+`start:prod` de `acervo` e `leitura` aplica as do Drizzle. No DES, as que ainda
+nao estiverem la entram com o deploy da `main` no fechamento do Periodo 1. A
+revisao humana das migrations (plano de projeto) continua obrigatoria antes
+desse deploy; a `V20260927002000` foi escrita por F-AVA no servico do `social`
+e aguarda a revisao do dono (ver `code/back/social/AGENTS.md`).
+
 ## Decisoes fisicas
 
 - Identificadores de dominio usam `uuid`; instantes usam `timestamptz`; datas
@@ -136,8 +164,8 @@ aplicacao administrativa manual, preferir a URL `direct` do Neon.
   bancos limpos separados. A segunda execucao nao repetiu DDL.
 - Foram exercitadas a unicidade sem diferenca de caixa e a trigger que recusa a
   decima primeira frase para o mesmo usuario/livro.
-- O Neon nao foi alterado nesta sessao. Inventario, backup, revisao humana e
-  aplicacao no ambiente remoto continuam obrigatorios.
+- O ensaio local inicial não alterou o Neon. A aplicação remota ocorreu depois,
+  em 16/09/2026, e está registrada no checklist abaixo.
 
 ## Checklist do Neon
 
@@ -151,4 +179,6 @@ aplicacao administrativa manual, preferir a URL `direct` do Neon.
 - [x] Contagem de 59 tabelas de dominio confirmada
 - [x] Nove views de contrato confirmadas
 - [x] Usuarios de teste preservados e com `privacidade = publico`
-- [ ] Cadastro, login e health checks validados em DES
+- [~] Cadastro, login e health checks validados em DES (17/09/2026, P0-NAV:
+  health 200, recusas de cadastro, login invalido e `/me` sem token conferidos;
+  falta o cadastro de caminho feliz pela interface)

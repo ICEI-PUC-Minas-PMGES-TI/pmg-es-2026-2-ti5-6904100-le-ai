@@ -17,15 +17,32 @@ dependencies:
   go_router: 18.0.1
   google_fonts: 8.2.1
   http: 1.6.0
+  image_picker: 1.2.3
   phosphor_icons: 3.0.1
   shared_preferences: 2.5.5
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_launcher_icons: 0.14.4
   flutter_lints: 6.0.0
 
 flutter:
   uses-material-design: true
   assets:
     - assets/imagens/
+    - assets/ilustracoes/
+
+# Ícone do launcher (`dart run flutter_launcher_icons`). As fontes em assets/icone/ ficam fora
+# de `assets:` acima: são só entrada do gerador, não vão no bundle.
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/icone/icone.png
+  remove_alpha_ios: true
+  adaptive_icon_background: "#3E5C42"
+  adaptive_icon_foreground: assets/icone/icone-frente.png
+  adaptive_icon_monochrome: assets/icone/icone-frente.png
+  # icone-frente já é desenhado no canvas inteiro de 108dp, com a área segura; o inset padrão
+  # (16%) encolheria o símbolo de novo.
+  adaptive_icon_foreground_inset: 0

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://leai.app/schemas/mensageria/resenha.excluida.v1.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["usuarioId", "resenhaId", "livroId"],
+  "properties": {
+    "usuarioId": { "type": "string", "format": "uuid" },
+    "resenhaId": { "type": "string", "format": "uuid" },
+    "livroId": { "type": "string", "format": "uuid" }
+  }
+}

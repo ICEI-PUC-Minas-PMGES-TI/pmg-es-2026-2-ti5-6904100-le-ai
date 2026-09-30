@@ -1,9 +1,19 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
+import { ErroDeNegocio } from './erros-de-negocio';
+import { ehBancoIndisponivel } from './pg-erros';
 
 export interface MappedError {
   status: number;
   codigo: string;
   mensagem: string;
+  /**
+   * Campos que o contrato define para respostas específicas — `livroId` em
+   * `ErroLivroExistente`, `campos` em `ErroValidacao`. Mesclados no corpo sem
+   * alterar `{ codigo, mensagem, correlationId }` (RNF-ERR-01).
+   */
+  extras?: Record<string, unknown>;
+  /** Cabeçalhos exigidos pelo contrato, como `Retry-After` no 429. */
+  cabecalhos?: Record<string, string>;
 }
 
 /**
@@ -32,6 +42,10 @@ const BY_STATUS: Record<number, { codigo: string; mensagem: string }> = {
     codigo: 'CONFLITO',
     mensagem: 'Este recurso conflita com um já existente.',
   },
+  [HttpStatus.PAYLOAD_TOO_LARGE]: {
+    codigo: 'CORPO_MUITO_GRANDE',
+    mensagem: 'Os dados enviados passam do tamanho permitido.',
+  },
   [HttpStatus.UNPROCESSABLE_ENTITY]: {
     codigo: 'ENTIDADE_NAO_PROCESSAVEL',
     mensagem: 'Não foi possível processar os dados enviados.',
@@ -53,6 +67,18 @@ const BY_STATUS: Record<number, { codigo: string; mensagem: string }> = {
 };
 
 export function mapError(exception: unknown): MappedError {
+  // Antes do ramo de HttpException: ErroDeNegocio É uma HttpException, e o
+  // mapa por status descartaria o código e a mensagem próprios dela.
+  if (exception instanceof ErroDeNegocio) {
+    return {
+      status: exception.getStatus(),
+      codigo: exception.codigo,
+      mensagem: exception.message,
+      extras: exception.extras,
+      cabecalhos: exception.cabecalhos,
+    };
+  }
+
   if (exception instanceof HttpException) {
     const status = exception.getStatus();
     const known = BY_STATUS[status];
@@ -66,9 +92,44 @@ export function mapError(exception: unknown): MappedError {
     };
   }
 
+  // O contrato declara 503 para banco indisponível; sem isto ele sairia 500.
+  if (ehBancoIndisponivel(exception)) {
+    return {
+      status: HttpStatus.SERVICE_UNAVAILABLE,
+      ...BY_STATUS[HttpStatus.SERVICE_UNAVAILABLE],
+    };
+  }
+
+  // Erro do leitor de corpo do Express (body-parser): corpo acima do limite (413),
+  // codificação não suportada (415). Não é HttpException, mas traz o status certo.
+  // Mesma correção do `leitura`.
+  const doCorpo = erroDoLeitorDeCorpo(exception);
+  if (doCorpo !== null) {
+    return {
+      status: doCorpo,
+      ...(BY_STATUS[doCorpo] ?? BY_STATUS[HttpStatus.BAD_REQUEST]),
+    };
+  }
+
   return {
     status: HttpStatus.INTERNAL_SERVER_ERROR,
     codigo: 'ERRO_INTERNO',
     mensagem: 'Ocorreu um erro inesperado. Tente novamente mais tarde.',
   };
+}
+
+function erroDoLeitorDeCorpo(exception: unknown): number | null {
+  if (typeof exception !== 'object' || exception === null) {
+    return null;
+  }
+  const { type, status } = exception as { type?: unknown; status?: unknown };
+  const doBodyParser =
+    typeof type === 'string' &&
+    /^(entity|request|encoding|charset|parameters)\./.test(type);
+  return doBodyParser &&
+    typeof status === 'number' &&
+    status >= 400 &&
+    status < 500
+    ? status
+    : null;
 }

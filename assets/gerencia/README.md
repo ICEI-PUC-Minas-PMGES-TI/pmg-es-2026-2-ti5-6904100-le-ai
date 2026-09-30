@@ -47,6 +47,27 @@ dicionário completo e verificação contra os dez mandamentos.
 >
 > Os `.docx` e `.pdf` são **derivados**: nunca edite um deles diretamente. Altere o `.md` e regenere.
 
+## Matriz de Responsabilidades (RACI)
+
+Elaborada em **21/09/2026**. Atribui responsabilidade sobre os pacotes de trabalho da EAP, em **44
+linhas de atividade** agrupadas nos nove nós de nível 2. As colunas não são os papéis genéricos do
+template (gerente, equipe gerenciada e cliente): são os cinco papéis que o projeto de fato exerce,
+incluindo o **dono da entrega** e o **plantão da semana** do
+[`plano-de-projeto.md`](../../docs/orquestador/plano-de-projeto.md) §6, sem os quais a divisão
+vertical de trabalho não aparece na matriz.
+
+| Arquivo | Conteúdo |
+| --- | --- |
+| [`matriz_raci.md`](matriz_raci.md) | **Versão canônica**: papéis, convenção de preenchimento, a matriz por etapa do ciclo de vida, a tabela de recursos humanos, rastreabilidade e controle de mudança. |
+| [`matriz_raci.docx`](matriz_raci.docx) | Template da disciplina preenchido, em paisagem para caber as seis colunas. **Derivado**, gerado a partir do `.md`. |
+
+Regra de consistência, verificável: **toda linha tem exatamente um `A` e ao menos um `R`**. Pacote de
+trabalho novo na EAP exige linha nova aqui; pacote removido tem sua linha removida.
+
+> Pendência: os níveis de proficiência e as capacitações da tabela de recursos humanos foram inferidos
+> do que foi entregue no período 0, e não de uma autoavaliação da equipe. O grupo confirma ou corrige
+> antes da coleta de assinaturas.
+
 ## Processo e planejamento
 
 O processo de trabalho (branches, Definition of Done, rituais, prazos e períodos) não vive aqui — é fonte de verdade em [`../../docs/orquestador/plano-de-projeto.md`](../../docs/orquestador/plano-de-projeto.md). O acompanhamento das 37 features está no quadro Kanban do projeto: https://github.com/orgs/ICEI-PUC-Minas-PMGES-TI/projects/738

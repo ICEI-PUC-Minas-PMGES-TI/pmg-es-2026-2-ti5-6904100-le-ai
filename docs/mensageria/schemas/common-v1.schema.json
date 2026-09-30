@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://leai.app/schemas/mensageria/common-v1.schema.json",
+  "$defs": {
+    "UsuarioSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "username", "displayName", "avatarUrl"],
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "username": { "type": "string", "minLength": 1, "maxLength": 30 },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "avatarUrl": { "type": ["string", "null"], "format": "uri" }
+      }
+    },
+    "LivroSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "tipo", "titulo", "autor", "capaUrl"],
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "tipo": { "enum": ["oficial", "pessoal"] },
+        "titulo": { "type": "string", "minLength": 1 },
+        "autor": { "type": ["string", "null"], "minLength": 1 },
+        "capaUrl": { "type": ["string", "null"], "format": "uri" }
+      }
+    }
+  }
+}

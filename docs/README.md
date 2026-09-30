@@ -28,7 +28,7 @@ _Instituto de Informática e Ciências Exatas – Pontifícia Universidade de Mi
 
 ---
 
-_**Resumo**. O Lê Ai é um aplicativo social de leitura, no modelo Skoob/Letterboxd, cujo objetivo é aumentar a adesão à leitura na população brasileira, com foco em jovens de 18 a 30 anos. O cadastro é restrito a maiores de 18 anos e o produto opera em pt-BR. A tese de produto é que o hábito de leitura se sustenta por três mecanismos — registro, meta e pertencimento — e o aplicativo entrega os três. O produto principal é um app mobile nativo em Flutter, acompanhado de uma aplicação web em Vue + Tailwind que cobre um subconjunto de funcionalidades. O backend adota arquitetura de microsserviços (Spring e NestJS) sobre PostgreSQL no Neon, com mensageria RabbitMQ para os fluxos assíncronos. Este documento reúne a visão de produto, os requisitos, a modelagem e a avaliação arquitetural do trabalho._
+_**Resumo**. O Lê Ai é um aplicativo social de leitura, no modelo Skoob/Letterboxd, cujo objetivo é aumentar a adesão à leitura entre leitores brasileiros com 18 anos ou mais. O cadastro é permitido a partir dos 18 anos e o produto opera em pt-BR. A tese de produto é que o hábito de leitura se sustenta por três mecanismos — registro, meta e pertencimento — e o aplicativo entrega os três. O produto principal é um app mobile nativo em Flutter, acompanhado de uma aplicação web em Vue + Tailwind que cobre um subconjunto de funcionalidades. O backend adota arquitetura de microsserviços (Spring e NestJS) sobre PostgreSQL no Neon, com mensageria RabbitMQ para os fluxos assíncronos. Este documento reúne a visão de produto, os requisitos, a modelagem e a avaliação arquitetural do trabalho._
 
 ---
 
@@ -76,5 +76,5 @@ _**Resumo**. O Lê Ai é um aplicativo social de leitura, no modelo Skoob/Letter
 | Ambiente              | Plataforma | Link de Acesso                                                             |
 | --------------------- | ---------- | -------------------------------------------------------------------------- |
 | Repositório de código | GitHub     | https://github.com/ICEI-PUC-Minas-PMGES-TI/pmg-es-2026-2-ti5-6904100-le-ai |
-| Hospedagem do site    | Render     | _a definir no período-0_                                                   |
-| Protótipo Interativo  | Claude Design | Bundles HTML planejados em `docs/design/`                                |
+| Hospedagem do site    | Render     | https://leai-web.onrender.com                                              |
+| Protótipo Interativo  | Claude Design | Protótipos HTML por período e feature em `docs/design/` (ex.: `docs/design/periodo-1/`) |

@@ -12,6 +12,10 @@ import 'core/session/token_store.dart';
 import 'design/theme.dart';
 import 'design/theme_controller.dart';
 import 'features/auth/auth_service.dart';
+import 'features/estante/estante_service.dart';
+import 'features/livros/rotas_livros.dart';
+import 'features/progresso/fila_de_progresso.dart';
+import 'features/progresso/rotas_progresso.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,16 +29,35 @@ Future<void> main() async {
   // (shell-de-navegacao.md §4.4) e reage sozinho via `refreshListenable` quando `load()` termina.
   unawaited(sessionController.load());
 
+  // `late`: o cliente precisa renovar pela `AuthService`, que precisa do cliente. A renovação
+  // vai anônima (`anonimo: true`), então não há recursão: ela nunca passa pelo próprio 401.
+  late final AuthService authService;
+  Future<bool> renovarSessao(String token) => sessionController.renovar(token, authService.renovar);
+
   final apiClient = ApiClient(
     baseUrl: AppConfig.identidadeBaseUrl,
     getToken: () => sessionController.token,
+    renovarSessao: renovarSessao,
+  );
+  authService = AuthService(apiClient);
+
+  final leituraClient = ApiClient(
+    baseUrl: AppConfig.leituraBaseUrl,
+    getToken: () => sessionController.token,
+    renovarSessao: renovarSessao,
   );
 
   runApp(
     LeAiApp(
       themeController: themeController,
       sessionController: sessionController,
-      authService: AuthService(apiClient),
+      authService: authService,
+      livros: DependenciasDeLivros.padrao(
+        getToken: () => sessionController.token,
+        renovarSessao: renovarSessao,
+      ),
+      estante: EstanteService(leituraClient),
+      progresso: DependenciasDeProgresso.padrao(leituraClient),
     ),
   );
 }
@@ -43,11 +66,17 @@ class LeAiApp extends StatefulWidget {
   final ThemeController themeController;
   final SessionController sessionController;
   final AuthService authService;
+  final DependenciasDeLivros? livros;
+  final EstanteService? estante;
+  final DependenciasDeProgresso? progresso;
 
   const LeAiApp({
     required this.themeController,
     required this.sessionController,
     required this.authService,
+    this.livros,
+    this.estante,
+    this.progresso,
     super.key,
   });
 
@@ -61,14 +90,33 @@ class _LeAiAppState extends State<LeAiApp> {
   late final GoRouter _router = buildRouter(
     sessionController: widget.sessionController,
     authService: widget.authService,
+    livros: widget.livros,
+    estante: widget.estante,
+    progresso: widget.progresso,
   );
+
+  late final ReenvioDaFila? _reenvio = widget.progresso == null
+      ? null
+      : ReenvioDaFila(widget.progresso!.fila);
+
+  @override
+  void initState() {
+    super.initState();
+    _reenvio?.iniciar();
+  }
+
+  @override
+  void dispose() {
+    _reenvio?.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: widget.themeController,
       builder: (context, child) => MaterialApp.router(
-        title: 'Lê Ai',
+        title: 'Lê Aí',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light(),
         darkTheme: AppTheme.dark(),

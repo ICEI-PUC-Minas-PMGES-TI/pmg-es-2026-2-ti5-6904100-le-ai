@@ -38,13 +38,26 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
 
   /**
-   * Rotas abertas. {@code /auth/**} precisa ser pública por definição (é onde a sessão nasce);
-   * {@code /health} e {@code /actuator/health} são sondadas pelo Render sem credencial; o spec e
-   * o Swagger UI são documentação pública (RNF-ARQ-03); {@code /error} é o despacho interno do
-   * contêiner e, se exigisse autenticação, transformaria todo erro em 401.
+   * Rotas abertas. As de {@code /auth} vão uma a uma, e não como {@code /auth/**}: é onde a
+   * sessão nasce, mas {@code /auth/password/change} também mora ali e exige token (RF-AUT-05).
+   * Rota nova de {@code /auth} nasce protegida até entrar nesta lista. {@code /health} e
+   * {@code /actuator/health} são sondadas pelo Render sem credencial; o spec e o Swagger UI são
+   * documentação pública (RNF-ARQ-03); {@code /error} é o despacho interno do contêiner e, se
+   * exigisse autenticação, transformaria todo erro em 401.
    */
   private static final String[] ROTAS_PUBLICAS = {
-    "/health", "/actuator/**", "/auth/**", "/v3/api-docs/**", "/docs/**", "/swagger-ui/**", "/error"
+    "/health",
+    "/actuator/**",
+    "/auth/register",
+    "/auth/login",
+    "/auth/refresh",
+    "/auth/logout",
+    "/auth/password/forgot",
+    "/auth/password/reset",
+    "/v3/api-docs/**",
+    "/docs/**",
+    "/swagger-ui/**",
+    "/error"
   };
 
   @Bean

@@ -77,12 +77,14 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 ## Pendências
 
+- **Telas (design P2):** tipo `menção` na edição consolidada [`notificacoes.md`](../../design/periodo-2/notificacoes/notificacoes.md) ([protótipo](../../design/periodo-2/notificacoes/prototipos/notificacoes.html)), prompt escrito e protótipo exportado em 29/09/2026 (sem trecho do comentário). Editar e excluir comentário e menção como link ficam para a edição `comentarios` (lote 5). **Conflito a decidir:** o que a mencionada vê ao tocar quando a atividade é restrita por RN-08.
 - **Depende de** [F-FEED](../periodo-1/feature-F-FEED.md) (comentários, `comentario.respondido`, FK cascade preparada), [F-PERFIL](../periodo-1/feature-F-PERFIL.md) (`v_perfil_referencia_v1`), [F-NOT](../periodo-1/feature-F-NOT.md) (base da notificação), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md) e [P0-MSG](../periodo-0/feature-P0-MSG.md).
 - **Compartilha `social` com [F-FEED](../periodo-1/feature-F-FEED.md)** e demais features sociais — sinalizar no grupo antes de mexer (plano §6).
 - `usuario.mencionado` já pertence ao fluxo aprovado de notificações — sem divergência de baseline.
 - **Decisão da feature:** fixar limite de caracteres do comentário e regras de posição após edição antes da migration.
 - **Alternativa a avaliar, sem mudar o desenho atual:** persistir apenas o conjunto de mencionados e resolver posições no cliente; a implementação prevista mantém cada posição por decisão do grupo.
 - Stack de `social` definida: **Spring (Java)** (arquitetura §2.1).
+- **Telas (design P2):** editar e excluir o próprio comentário (`DotsThree`, edição no campo do rodapé com a barra `Editando comentário`, confirmação que avisa que as respostas saem junto) e menção resolvida como link em `musgo` entram na edição consolidada [`comentarios.md`](../../design/periodo-2/comentarios/comentarios.md) ([protótipo](../../design/periodo-2/comentarios/prototipos/comentarios.html)), prompt escrito e protótipo exportado em 29/09/2026. Decisões a ratificar: marcador `· editado`, lista desabilitada durante a edição, cancelar edição sem confirmar, `Ctrl` + `Enter` salva na web, confirmação mobile em sheet empilhado, sem toast depois de editar ou excluir, autor da atividade não remove comentário alheio. **Contratos a confirmar:** `editadoEm` no comentário; quantidade de respostas que saem com a raiz (a copy da confirmação usa o número); se o rate limit de menção recusa o comentário ou só a notificação; renderização de menção a conta oculta depois (suspensa ou com exclusão pendente).
 
 ## Timeline
 

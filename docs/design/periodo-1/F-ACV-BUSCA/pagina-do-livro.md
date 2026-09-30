@@ -1,6 +1,7 @@
 # F-ACV-BUSCA · Página do livro
 
 **Feature:** ../../../plano-de-desenvolvimento/periodo-1/feature-F-ACV-BUSCA.md
+**Editada por:** ../../periodo-2/pagina-do-livro/pagina-do-livro.md
 **Requisitos:** RF-ACV-04 (página com metadados, capa, sinopse e resenhas de outros leitores), RF-ACV-18 (sinopse sob demanda na primeira abertura), RF-ACV-19 (a página permanece utilizável sem sinopse, exibindo a ausência sem erro)
 **Requisitos hospedados de outras features:** RF-EST-01 a RF-EST-08 ([F-EST](../../../plano-de-desenvolvimento/periodo-1/feature-F-EST.md): status na estante, ações do ciclo de leitura e número de conclusões), RF-PRG-02 ([F-PRG](../../../plano-de-desenvolvimento/periodo-1/feature-F-PRG.md): página atual e percentual), RF-AVA-01 a RF-AVA-03 ([F-AVA](../../../plano-de-desenvolvimento/periodo-1/feature-F-AVA.md): nota do leitor, resenha própria e resenha de terceiro com spoiler)
 **Não funcionais:** RNF-DES-01 (leitura em até 1s no p95), RNF-DES-02 (resenhas paginadas), RNF-SEC-03 (privacidade validada no servidor), RNF-USA-02, RNF-USA-03, RNF-USA-05, RNF-ERR-09 (cold start é carregamento)
@@ -46,7 +47,7 @@ O canvas simula um arquivo de Figma. Todos os artboards ficam **lado a lado no m
 
 ```
 Produto: Lê Ai, aplicativo social de leitura brasileiro, no modelo Skoob e
-Letterboxd. Público de 18 a 30 anos, interface em pt-BR, uso predominante em
+Letterboxd. Público com 18 anos ou mais, interface em pt-BR, uso predominante em
 celular. A interface reforça três mecanismos: registro (o que já foi lido),
 meta (alvo curto e alcançável) e pertencimento (ver amigos lendo).
 

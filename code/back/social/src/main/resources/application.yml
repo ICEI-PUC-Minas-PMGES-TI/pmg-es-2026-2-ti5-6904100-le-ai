@@ -109,6 +109,7 @@ leai:
   db-schema: ${DB_SCHEMA:social}
   database-url: ${DATABASE_URL:}
   cors-allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  amqp-enabled: ${AMQP_ENABLED:false}
   amqp-url: ${AMQP_URL:}
   jwt-secret: ${JWT_SECRET:}
   admin-email: ${ADMIN_EMAIL:}

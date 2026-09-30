@@ -14,4 +14,49 @@ class AppConfig {
     'IDENTIDADE_BASE_URL',
     defaultValue: 'http://localhost:8080',
   );
+
+  /// Base URL do serviço `acervo` (F-ACV-CADASTRO): importação por ISBN e livro pessoal. No AVD,
+  /// `--dart-define=ACERVO_BASE_URL=http://10.0.2.2:3000`.
+  static const String acervoBaseUrl = String.fromEnvironment(
+    'ACERVO_BASE_URL',
+    defaultValue: 'http://localhost:3000',
+  );
+
+  /// Base URL do serviço `social` (F-FEED, F-NOT): feed, curtidas, comentários e notificações. No AVD,
+  /// `--dart-define=SOCIAL_BASE_URL=http://10.0.2.2:8081`.
+  static const String socialBaseUrl = String.fromEnvironment(
+    'SOCIAL_BASE_URL',
+    defaultValue: 'http://localhost:8081',
+  );
+
+  /// Base URL do serviço `leitura` (F-AVA, F-EST, F-PRG, F-NOT): nota, resenha, estante, progresso
+  /// e a ação de abandonar da notificação de leitura em risco (RF-NOT-04).
+  /// Em local roda na 3001, porque a 3000 é do `acervo`. No AVD,
+  /// `--dart-define=LEITURA_BASE_URL=http://10.0.2.2:3001`.
+  static const String leituraBaseUrl = String.fromEnvironment(
+    'LEITURA_BASE_URL',
+    defaultValue: 'http://localhost:3001',
+  );
+
+  /// Cloud do Cloudinary (P-09). Precisa ser a mesma de `CLOUDINARY_CLOUD_NAME` no `acervo`: o
+  /// servidor só aceita capa hospedada em `res.cloudinary.com/<cloud>/image/upload/`.
+  static const String cloudinaryCloudName = String.fromEnvironment(
+    'CLOUDINARY_CLOUD_NAME',
+    defaultValue: 'leai',
+  );
+
+  /// Preset **unsigned** de upload do Cloudinary. É o preset que limita tipo, tamanho e
+  /// dimensões do lado do Cloudinary (RNF-SEC-20); o cliente valida antes para dar a mensagem
+  /// certa sem gastar o upload. Vazio desliga o envio de capa, com mensagem de falha no envio.
+  static const String cloudinaryUploadPreset = String.fromEnvironment(
+    'CLOUDINARY_UPLOAD_PRESET',
+    defaultValue: '',
+  );
+
+  /// Preset **unsigned** do avatar (F-PERFIL): `leai_avatares`, que grava na pasta `avatares`,
+  /// a única que o `identidade` aceita na URL. Vazio desliga o envio de foto, como o da capa.
+  static const String cloudinaryAvatarPreset = String.fromEnvironment(
+    'CLOUDINARY_AVATAR_PRESET',
+    defaultValue: '',
+  );
 }

@@ -22,10 +22,21 @@ public final class MapeadorErro {
 
   private MapeadorErro() {}
 
-  /** Resultado da tradução: o status que vai na resposta e o código interno do corpo. */
-  public record ErroMapeado(HttpStatus status, CodigoErro codigo) {}
+  /**
+   * Resultado da tradução: o status da resposta, o código interno e a mensagem que vai no corpo.
+   *
+   * <p>A mensagem é quase sempre a do próprio código. A exceção é o {@link
+   * ErroDeNegocioException}, que traz uma frase específica quando a genérica não serve — usado
+   * pela idempotência (RNF-ERR-04) e pelo rate limiting (RNF-SEC-18).
+   */
+  public record ErroMapeado(HttpStatus status, CodigoErro codigo, String mensagem) {}
 
   public static ErroMapeado mapear(Throwable erro) {
+    // Antes do ramo de ErrorResponse: é uma RuntimeException nossa, e o ramo genérico a
+    // transformaria em 500.
+    if (erro instanceof ErroDeNegocioException negocio) {
+      return new ErroMapeado(negocio.codigo().status(), negocio.codigo(), negocio.getMessage());
+    }
     if (erro instanceof ServicoIndisponivelException
         || erro instanceof CannotGetJdbcConnectionException
         || erro instanceof DataAccessResourceFailureException) {
@@ -42,12 +53,13 @@ public final class MapeadorErro {
       if (status == null) {
         status = HttpStatus.INTERNAL_SERVER_ERROR;
       }
-      return new ErroMapeado(status, CodigoErro.deStatus(resposta.getStatusCode()));
+      CodigoErro codigo = CodigoErro.deStatus(resposta.getStatusCode());
+      return new ErroMapeado(status, codigo, codigo.mensagem());
     }
     return de(CodigoErro.ERRO_INTERNO);
   }
 
   private static ErroMapeado de(CodigoErro codigo) {
-    return new ErroMapeado(codigo.status(), codigo);
+    return new ErroMapeado(codigo.status(), codigo, codigo.mensagem());
   }
 }

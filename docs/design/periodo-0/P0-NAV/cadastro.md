@@ -4,6 +4,7 @@
 **Requisitos:** RF-AUT-01
 **Não funcionais:** RNF-SEC-09 (senha com hash), RNF-SEC-27 (mínimo de 8 caracteres), RNF-SEC-43 (recusa menor de 18 anos), RNF-USA-03 (contraste WCAG AA), RNF-USA-05 (erro em pt-BR e acionável), RNF-ERR-09 (cold start do servidor tratado como carregamento)
 **Regras de negócio:** nenhuma RN se aplica a esta tela
+**Editada por:** ../../periodo-1/F-AUT/cadastro.md, que acrescenta o acesso à política de privacidade (RNF-SEC-42)
 **Versão web:** sim (RF-AUT-01 tem marcação na coluna Web de REQUISITOS.md §5.1)
 
 ---
@@ -32,7 +33,7 @@ O canvas simula um arquivo de Figma. Todos os artboards ficam **lado a lado no m
 
 ```
 Produto: Lê Ai, aplicativo social de leitura brasileiro, no modelo Skoob e
-Letterboxd. Público de 18 a 30 anos, interface em pt-BR, uso predominante em
+Letterboxd. Público com 18 anos ou mais, interface em pt-BR, uso predominante em
 celular. A interface reforça três mecanismos: registro (o que já foi lido),
 meta (alvo curto e alcançável) e pertencimento (ver amigos lendo).
 

@@ -1,8 +1,8 @@
 # REQUISITOS
 
-**Versão:** v1.5 — 15/09/2026
+**Versão:** v1.8 — 29/09/2026
 **Baseline:** fechada em 25/08/2026
-**Status:** baseline fechada — decisões de dados aprovadas pelo grupo incorporadas em 15/09/2026 (ver Timeline)
+**Status:** baseline fechada — público-alvo ampliado para leitores adultos em 29/09/2026 (ver Timeline)
 
 Este documento é a **fonte de verdade** do projeto. Toda decisão de produto, modelo de dados e regra de negócio mora aqui. Arquivos de feature, specs OpenAPI, diagramas e código derivam deste documento — nunca o contrário.
 
@@ -12,11 +12,11 @@ Alterações após a baseline seguem o controle de mudança definido em `docs/or
 
 ## 1. Visão do produto
 
-Aplicativo social de leitura, no modelo Skoob/Letterboxd, cujo objetivo é **aumentar a adesão à leitura na população brasileira, com foco em jovens**.
+Aplicativo social de leitura, no modelo Skoob/Letterboxd, cujo objetivo é **aumentar a adesão à leitura entre leitores brasileiros adultos**.
 
 A tese de produto é que o hábito de leitura se sustenta por três mecanismos: **registro** (ver o que já foi lido), **meta** (ter um alvo curto e alcançável) e **pertencimento** (ver amigos lendo). O aplicativo entrega os três. Funcionalidades que não servem a nenhum desses mecanismos são candidatas naturais a corte de escopo.
 
-**Público-alvo primário:** leitores brasileiros de 18 a 30 anos, com uso predominante em dispositivo móvel. **O cadastro é restrito a maiores de 18 anos**, decisão tomada para evitar o tratamento de dados pessoais de menores de idade, que impõe exigências adicionais sob a LGPD.
+**Público-alvo primário:** leitores brasileiros com 18 anos ou mais, com uso predominante em dispositivo móvel. **O cadastro é permitido a partir dos 18 anos**, decisão tomada para evitar o tratamento de dados pessoais de menores de idade, que impõe exigências adicionais sob a LGPD.
 
 **Idioma:** pt-BR. Internacionalização está fora de escopo.
 
@@ -149,9 +149,9 @@ Páginas de autor, editora e série **não são perfis**: não têm dono, não r
 
 | ID | Requisito | Pri | Web |
 |---|---|---|---|
-| RF-PRG-01 | O leitor deve poder registrar uma atualização de progresso informando **em qual página parou** e **quanto tempo gastou**. | E | ✅ |
+| RF-PRG-01 | O leitor deve poder registrar uma atualização de progresso informando **em qual página parou** e, opcionalmente, **quanto tempo gastou**. | E | ✅ |
 | RF-PRG-02 | O sistema deve calcular e exibir a **página atual** e o **percentual concluído** da leitura a partir das atualizações registradas. | E | ✅ |
-| RF-PRG-03 | O leitor deve poder visualizar suas atualizações de progresso de uma leitura em andamento, **editar somente a última** e excluir um registro intermediário **somente junto de todos os posteriores**, recalculando-se a página atual e os efeitos derivados (RN-17). | E | ✅ |
+| RF-PRG-03 | O leitor deve poder visualizar suas atualizações de progresso de uma leitura em andamento e excluir um registro intermediário **somente junto de todos os posteriores**, recalculando-se a página atual e os efeitos derivados (RN-17). | E | ✅ |
 | RF-PRG-04 | O sistema deve rejeitar atualização cuja página informada seja **menor ou igual à página atual** da leitura ou **maior que o total de páginas** do livro. | E | ✅ |
 | RF-PRG-05 | O leitor deve poder **iniciar uma sessão de leitura cronometrada** a partir de uma leitura em andamento, com o tempo medido pelo aplicativo. | D | ❌ |
 | RF-PRG-06 | Durante a sessão ativa, o aplicativo deve operar em **modo de foco**, bloqueando o acesso a todas as demais áreas do aplicativo até que a sessão seja encerrada ou cancelada, conforme RN-16. O modo de foco **não é configurável nem contornável** pelo leitor. | D | ❌ |
@@ -166,7 +166,7 @@ Há **duas formas de registrar progresso**. Ambas usam a mesma entrada de págin
 
 | Forma | Página | Tempo |
 |---|---|---|
-| **Manual** (RF-PRG-01) | Informada pelo leitor | Informado pelo leitor |
+| **Manual** (RF-PRG-01) | Informada pelo leitor | Informado pelo leitor (opcional) |
 | **Sessão cronometrada** (RF-PRG-05 a RF-PRG-10) | Informada pelo leitor ao encerrar | Medido pelo aplicativo |
 
 **Páginas lidas** e **percentual concluído** são sempre valores **derivados**, calculados pelo sistema e apenas exibidos, nunca informados pelo leitor (RN-17). O percentual não é entrada porque o cálculo dos desafios depende de páginas e de minutos.
@@ -241,7 +241,7 @@ Resenhas **não recebem comentários** — apenas curtida/descurtida.
 | RF-SOC-14 | Ao responder a uma resposta, o cliente deve pré-preencher a **menção `@username`** ao autor respondido, mantendo o comentário no mesmo nível de aninhamento. | E | ✅ |
 | RF-SOC-15 | Menções `@username` devem ser resolvidas para o perfil correspondente e exibidas como link, quando o username existir. | D | ✅ |
 
-Não há busca exploratória de pessoas, sugestão de perfis ou diretório de usuários — a descoberta é deliberada, por username exato. Esta é uma decisão de produto voltada à segurança de um público jovem.
+Não há busca exploratória de pessoas, sugestão de perfis ou diretório de usuários — a descoberta é deliberada, por username exato. Esta é uma decisão de produto voltada à segurança do público adulto.
 
 ### 5.10 Notificações (NOT)
 
@@ -613,10 +613,10 @@ O leitor informa sempre **a página em que parou**, nunca quantas páginas leu. 
 1. **Páginas lidas em uma atualização** são derivadas: `página informada − página atual antes da atualização`. É esse valor derivado que alimenta desafios e estatísticas.
 2. A página informada deve ser **maior que a página atual** e **não superior ao total do livro** (RF-PRG-04). Progresso não retrocede.
 3. A **página atual** da leitura é a maior página informada até o momento.
-4. Somente a **última atualização** de uma leitura em andamento pode ser editada (página e tempo). A página corrigida deve ser maior que a página-base (a do registro anterior, ou zero se não existir anterior) e não superar o total do livro. A edição preserva instante/fuso/data local originais e recalcula páginas derivadas e demais efeitos.
+4. Atualizações de progresso **não podem ser editadas**. Para corrigir um valor, o leitor exclui o registro (junto dos posteriores, conforme o item 6) e registra de novo.
 5. O **percentual concluído** é derivado da página atual sobre o total do livro.
 6. A exclusão da última atualização recalcula a página atual a partir das restantes, ou zero se nenhuma restar. Um registro intermediário só pode ser excluído **se todos os registros posteriores também forem excluídos**: remover do mais recente para trás ou confirmar a exclusão conjunta do trecho final, de forma atômica. Nunca se deixa um registro posterior apoiado numa base excluída. A confirmação informa quais registros serão removidos; cada efeito em desafios, estatísticas e sequência é recalculado.
-7. Edição/exclusão validam a ordem dentro da mesma transação/lock da leitura; a ordem é a de inserção dos progressos, não a última edição. Leituras finalizadas continuam com progresso somente para consulta. A fila offline preserva a ordem por leitura, a chave de idempotência e os metadados automáticos de captura; sincronizar depois não muda o dia em que a leitura ocorreu.
+7. A exclusão valida a ordem dentro da mesma transação/lock da leitura; a ordem é a de inserção dos progressos. Leituras finalizadas continuam com progresso somente para consulta. A fila offline preserva a ordem por leitura, a chave de idempotência e os metadados automáticos de captura; sincronizar depois não muda o dia em que a leitura ocorreu.
 
 ### RN-16 — Sessão de leitura cronometrada
 
@@ -1079,6 +1079,24 @@ Registrado explicitamente para evitar reabertura de discussão:
 
 ## 12. Timeline
 
+### v1.8 — Alteração 29/09/2026: progresso sem edição
+
+- **RF-PRG-03/RN-17:** por decisão da dona do projeto, reverte a parte de v1.5 (15/09/2026) que permitia editar a última atualização de progresso. O leitor visualiza as atualizações e exclui; um registro intermediário só é excluído junto de todos os posteriores, recalculando a página atual e os efeitos derivados. Para corrigir um valor, exclui-se e registra-se de novo.
+- **Impacto:** F-PRG (OpenAPI de `leitura` sem `PATCH /progresso/{progressoId}`); sem mudança de dados.
+
+### v1.7 — Alteração 29/09/2026: tempo opcional no progresso manual
+
+- **RF-PRG-01:** o tempo gasto passa a ser opcional, conforme o protótipo; ausente é registrado como 0 (não informado), e o resumo do progresso expõe o total de minutos da leitura.
+- **Aviso de ritmo:** o limiar fica em 40 páginas acima da média de páginas lidas por registro do leitor naquela leitura, calculado no cliente.
+- **Impacto:** F-PRG (OpenAPI de `leitura`, schema `progresso.registrado.v1` com `minutos` a partir de 0); sem mudança de dados.
+
+### v1.6 — Alteração 29/09/2026: público-alvo ampliado para leitores adultos
+
+- **Autorização:** mudança solicitada após a avaliação dos professores, que questionaram a limitação do público à faixa de 18 a 30 anos.
+- O público-alvo passa a abranger leitores brasileiros com 18 anos ou mais, sem limite máximo de idade.
+- A regra de cadastro não muda: pessoas com 18 anos completos podem se cadastrar e menores de 18 anos continuam sendo recusados, conforme RNF-SEC-43.
+- **Impacto:** visão do produto, Documento de Design, documentos da disciplina, declaração de escopo, prompts de protótipo, apresentação do repositório e metadados descritivos. Não há impacto em código, modelo de dados, arquitetura, contratos OpenAPI, mensageria ou testes automatizados.
+
 ### v1.5 — Alteração 15/09/2026: decisões do grupo após revisão do DER
 
 - **Autorização:** decisões debatidas pelo grupo e comunicadas pelo solicitante nesta data para atualização do DER e de suas fontes.
@@ -1127,7 +1145,7 @@ Versão inicial consolidada. Reúne a definição de escopo, o modelo de domíni
 
 **Escopo e plataformas**
 
-- Público-alvo restrito a **maiores de 18 anos**, evitando o tratamento de dados pessoais de menores sob a LGPD
+- Cadastro permitido a partir dos **18 anos**, evitando o tratamento de dados pessoais de menores sob a LGPD
 - **Sem paridade funcional** entre web e mobile: o cliente móvel em Flutter é o produto principal; a web em **Vue com Tailwind** cobre um subconjunto. Corte de escopo recai sobre a web antes do mobile
 - Excluídos do escopo: camada de obra, login social, mensagem direta, clubes de leitura, **medalhas e conquistas**, **ranking de leitores**
 

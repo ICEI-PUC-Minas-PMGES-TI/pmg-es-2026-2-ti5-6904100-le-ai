@@ -2,7 +2,7 @@
 
 > **O que este documento é:** o mapa de **todas as features** do projeto, cada uma classificada em `prioritaria`/`desejavel`/`opcional` e alocada a um período (0–3). É a entrega "Plano de Desenvolvimento (features por período)" do `../orquestador/plano-de-projeto.md` §3 (marco de 25/08).
 >
-> **O que este documento NÃO é:** a especificação de cada feature. O detalhamento (endpoints, payloads, regras, critérios de aceite) vive em um arquivo por feature — `periodo-N/feature-*.md` — no template do `../orquestador/plano-de-projeto.md` §9. Os arquivos do período-0 já existem; os demais ainda estão em desenvolvimento e serão criados pela equipe no momento adequado.
+> **O que este documento NÃO é:** a especificação de cada feature. O detalhamento (endpoints, payloads, regras, critérios de aceite) vive em um arquivo por feature — `periodo-N/feature-*.md` — no template do `../orquestador/plano-de-projeto.md` §9. Todos os períodos já possuem seus arquivos; o estado real fica na tabela de status de cada feature.
 
 ## Fontes
 
@@ -37,28 +37,39 @@ Cada feature pertence a um serviço, definido pela decomposição de `../orquest
 | **leitura** | EST, PRG, AVA, DSF, STA, GAM |
 | **social** | SOC-09..15, LST, REC, NOT, MOD |
 
+## Contratos de implementação
+
+- [OpenAPI por serviço](../api/README.md): contratos HTTP implementados e planejados, com estado explícito por operação.
+- [Mensageria](../mensageria/README.md): envelope, catálogo e JSON Schemas canônicos dos eventos.
+- [DER implantado](../diagramas/DER.md): baseline de 59 tabelas de domínio e 9 VIEWs de contrato aplicada no Neon em 16/09/2026; com as 4 tabelas de recibo `mensagem_processada` de P0-MSG (19/09/2026), são **63 tabelas**.
+- [Período 1](periodo-1/README.md): divisão das dez features em cinco frentes verticais, ordem de execução e [fechamento do período](periodo-1/README.md#fechamento-do-período-1-29092026).
+
+A baseline de dados e a existência do contrato não significam que a feature está implementada.
+
 ## Tabela-mestre de features
 
 Granularidade atual: features "maiores" — cerca de uma por módulo de RF, por banda de prioridade, dentro de um serviço. Um módulo cujos RFs cruzam bandas de prioridade vira mais de uma feature (uma por período). Poderemos granularizar mais adiante.
 
+**Situação em 29/09/2026:** as 10 features do Período 1 estão entregues em `desenvolvimento` e **em revisão** (aguardam o aval dos professores); o DES recebe o período inteiro no merge de fechamento em `main`. O estado de cada uma fica no arquivo da feature e no [fechamento do Período 1](periodo-1/README.md#fechamento-do-período-1-29092026). As features dos Períodos 2 e 3 ainda não foram iniciadas.
+
 | ID | Feature | Serviço | Período | Prioridade | RFs | Dono |
 |---|---|---|---|---|---|---|
-| P0-INFRA | Scaffolding do monorepo e serviços | — | 0 | fundação | — | a definir |
-| P0-CI | Pipeline CI/CD | — | 0 | fundação | — | a definir |
-| P0-DEPLOY | Deploy em DES (Render + Neon) | — | 0 | fundação | — | a definir |
-| P0-MSG | Mensageria e integrações base | — | 0 | fundação | — | a definir |
-| P0-DS | Design system base | — | 0 | fundação | — | a definir |
-| P0-NAV | Navegabilidade + shell de auth + docs de API | — | 0 | fundação | — | Henrique Carvalho |
-| F-AUT | Autenticação e conta | identidade | 1 | prioritaria | RF-AUT-01..06, 08 | a definir |
-| F-PERFIL | Perfil, privacidade e seguidores | identidade | 1 | prioritaria | RF-SOC-01..08 | a definir |
-| F-ACV-BUSCA | Busca e página do livro | acervo | 1 | prioritaria | RF-ACV-01, 02, 04, 18, 19 | a definir |
-| F-ACV-CADASTRO | Cadastro de livros (ISBN + pessoal) | acervo | 1 | prioritaria | RF-ACV-05, 06, 07, 08, 09 | a definir |
-| F-ACV-INGESTAO | Ingestão do acervo (dump + assuntos) | acervo | 1 | prioritaria | RF-ACV-13, 20 | a definir |
-| F-EST | Estante e ciclo de leitura | leitura | 1 | prioritaria | RF-EST-01..08, 11, 12 | a definir |
-| F-PRG | Progresso manual | leitura | 1 | prioritaria | RF-PRG-01..04 | a definir |
-| F-AVA | Nota e resenha | leitura | 1 | prioritaria | RF-AVA-01..04 | a definir |
-| F-FEED | Feed e interações sociais | social | 1 | prioritaria | RF-SOC-09, 10, 11, 12, 14 | a definir |
-| F-NOT | Notificações in-app | social | 1 | prioritaria | RF-NOT-01..04 | a definir |
+| P0-INFRA | Scaffolding do monorepo e serviços | — | 0 | fundação | — | Kayke, Vicenzo Fonseca, Henrique Carvalho, Ana Luiza de Freitas, Renato Douglas |
+| P0-CI | Pipeline CI/CD | — | 0 | fundação | — | Kayke |
+| P0-DEPLOY | Deploy em DES (Render + Neon) | — | 0 | fundação | — | Renato Douglas |
+| P0-MSG | Mensageria e integrações base | — | 0 | fundação | — | Kayke, Ana Luiza de Freitas |
+| P0-DS | Design system base | — | 0 | fundação | — | Kayke, Ana Luiza de Freitas |
+| P0-NAV | Navegabilidade + shell de auth + docs de API | — | 0 | fundação | — | Henrique Carvalho, Ana Luiza de Freitas |
+| F-AUT | Autenticação e conta | identidade | 1 | prioritaria | RF-AUT-01..06, 08 | Henrique Carvalho |
+| F-PERFIL | Perfil, privacidade e seguidores | identidade | 1 | prioritaria | RF-SOC-01..08 | Henrique Carvalho |
+| F-ACV-BUSCA | Busca e página do livro | acervo | 1 | prioritaria | RF-ACV-01, 02, 04, 18, 19 | Renato Douglas |
+| F-ACV-CADASTRO | Cadastro de livros (ISBN + pessoal) | acervo | 1 | prioritaria | RF-ACV-05, 06, 07, 08, 09 | Vicenzo Fonseca |
+| F-ACV-INGESTAO | Ingestão do acervo (dump + assuntos) | acervo | 1 | prioritaria | RF-ACV-13, 20 | Vicenzo Fonseca |
+| F-EST | Estante e ciclo de leitura | leitura | 1 | prioritaria | RF-EST-01..08, 11, 12 | Ana Luiza de Freitas |
+| F-PRG | Progresso manual | leitura | 1 | prioritaria | RF-PRG-01..04 | Ana Luiza de Freitas |
+| F-AVA | Nota e resenha | leitura | 1 | prioritaria | RF-AVA-01..04 | Renato Douglas |
+| F-FEED | Feed e interações sociais | social | 1 | prioritaria | RF-SOC-09, 10, 11, 12, 14 | Kayke |
+| F-NOT | Notificações in-app | social | 1 | prioritaria | RF-NOT-01..04 | Kayke |
 | F-CONTA-2 | Exclusão de conta | identidade | 2 | desejavel | RF-AUT-07 | a definir |
 | F-SOCIAL-2 | Comentários (edição) e menções-link | social | 2 | desejavel | RF-SOC-13, 15 | a definir |
 | F-ACV-DESCOBERTA | Filtros e páginas de autor/editora/série | acervo | 2 | desejavel | RF-ACV-03, 10, 11, 12, 21 | a definir |
@@ -94,4 +105,6 @@ Os 130 RFs de `../orquestador/REQUISITOS.md` §5 estão todos alocados: **54 Ess
 
 ## Próximo passo
 
-Todos os períodos têm **todas** as features detalhadas — [Período 0](periodo-0/README.md), [Período 1](periodo-1/README.md), [Período 2](periodo-2/README.md) e [Período 3](periodo-3/README.md), este último fechado em **7/7**. O detalhamento por feature terminou; o que resta é o **cross-cutting** de cada período — testes das desejáveis, refino das pendências acumuladas e o ATAM inicial — e as decisões dos donos registradas nos arquivos, que não devem ser antecipadas.
+O **Período 1 fechou em 29/09/2026** com as dez features prioritárias entregues e em revisão ([fechamento](periodo-1/README.md#fechamento-do-período-1-29092026)). Falta o ritual de fechamento do `../orquestador/plano-de-projeto.md` §12: PR `desenvolvimento` → `main` com CI verde, validação dos fluxos em DES, tag `vX.Y.Z` com GitHub Release e atualização do Documento de Arquitetura pelo grupo.
+
+O **[Período 2](periodo-2/README.md)** começa em **06/10/2026** (Sprint 5, fechamento em 03/11 com a Entrega 5): features desejáveis mais o checkpoint dos testes das prioritárias. Todos os períodos já têm as features detalhadas; as decisões dos donos registradas nos arquivos não devem ser antecipadas.

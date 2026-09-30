@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
-        android:label="le_ai_mobile"
+        android:label="Lê Aí"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -23,6 +23,19 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <!-- F-AUT: o link de redefinição de senha do e-mail abre o app (redefinir-senha.md §1).
+                 Só abre direto com o assetlinks.json publicado no leai-web com a impressão digital
+                 da chave de assinatura; sem ele, o Android 12+ abre no navegador, e a tela web
+                 resolve do mesmo jeito. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data
+                    android:scheme="https"
+                    android:host="leai-web.onrender.com"
+                    android:pathPrefix="/redefinir-senha"/>
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.

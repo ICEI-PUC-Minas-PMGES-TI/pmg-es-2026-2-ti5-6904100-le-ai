@@ -28,9 +28,9 @@ erDiagram
   }
   LEITURA {
     uuid id PK
-    uuid estante_id FK
-    uuid usuario_id "→ identidade.usuario"
-    uuid livro_id "→ acervo.livro"
+    uuid estante_id FK "FK composta com usuario_id e livro_id"
+    uuid usuario_id "→ identidade.usuario; parte da FK composta da estante"
+    uuid livro_id "→ acervo.livro; parte da FK composta da estante"
     enum status "lendo, lido ou abandonado"
     bool releitura
     bool incompleta "releitura abandonada"
@@ -65,7 +65,7 @@ erDiagram
     date data_local "derivada da captura"
     string chave_idempotencia UK
     timestamp criado_em
-    timestamp atualizado_em "edição só do último"
+    timestamp atualizado_em "sem edição; igual a criado_em"
   }
   FAVORITO {
     uuid id PK "P2; independente da estante"
@@ -210,9 +210,15 @@ erDiagram
     json payload "nullable após publicar e anonimizar"
     enum status "pendente ou publicado"
     int tentativas
+    timestamp proxima_tentativa_em "nullable; backoff do retry"
     timestamp criado_em
     timestamp publicado_em "nullable"
     timestamp anonimizado_em "nullable; retenção sem prazo"
+  }
+  MENSAGEM_PROCESSADA {
+    string consumidor PK "parte da PK composta"
+    uuid event_id PK "parte da PK composta"
+    timestamp processado_em
   }
 
   %% Subgraphs são agrupamentos visuais, não novas tabelas ou schemas.
@@ -250,6 +256,7 @@ erDiagram
     direction TB
     IDEMPOTENCIA_LEITURA
     OUTBOX_LEITURA
+    MENSAGEM_PROCESSADA
   end
 
   classDef grupo fill:transparent,stroke:#aaa
@@ -262,11 +269,11 @@ erDiagram
   %% incremento de conclusões e não retomável. Transições atômicas com estante.
   %% RN-05: UK(leitura,inatividade_versao,limiar_dias); risco 20/30, expiração 40.
   %% RN-17: ordem > 0 e única por leitura, atribuída sob lock. POST exige
-  %% página > atual e <= total; PATCH só do último e página > penúltima (ou 0).
-  %% Captura/data/fuso não são editáveis. DELETE só do último ou do trecho final
+  %% página > atual e <= total; progresso não é editado (corrigir = excluir e registrar).
+  %% DELETE só do último ou do trecho final
   %% inteiro, com confirmação e lock; não deixar posteriores com base excluída.
   %% Consumidores leem fato atual: não ressuscitam excluído nem usam payload velho.
-  %% Corrigir progresso recalcula página, contribuições, estatísticas e streak.
+  %% Excluir progresso recalcula página, contribuições, estatísticas e streak.
   %% RN-18: offline recompõe dias/sequências; último fuso acompanha captura mais
   %% recente, não ordem de chegada. Sessão cancelada/sem progresso não cria dia.
   %% RN-20: conclusão usa finalizacao_data_local, nunca data_fim editável.

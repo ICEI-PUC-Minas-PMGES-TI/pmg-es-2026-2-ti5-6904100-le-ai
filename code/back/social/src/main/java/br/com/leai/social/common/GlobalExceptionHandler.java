@@ -33,6 +33,6 @@ public class GlobalExceptionHandler {
     }
 
     return ResponseEntity.status(mapeado.status())
-        .body(ErroResposta.de(mapeado.codigo(), correlationId));
+        .body(new ErroResposta(mapeado.codigo().name(), mapeado.mensagem(), correlationId));
   }
 }

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://leai.app/schemas/mensageria/progresso.registrado.v1.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["atualizacaoProgressoId", "usuarioId", "leituraId", "livroId", "pagina", "paginasLidas", "minutos", "percentual", "registradoEm", "fusoHorario", "dataLocal"],
+  "properties": {
+    "atualizacaoProgressoId": { "type": "string", "format": "uuid" },
+    "usuarioId": { "type": "string", "format": "uuid" },
+    "leituraId": { "type": "string", "format": "uuid" },
+    "livroId": { "type": "string", "format": "uuid" },
+    "pagina": { "type": "integer", "minimum": 0 },
+    "paginasLidas": { "type": "integer", "minimum": 1 },
+    "minutos": { "type": "integer", "minimum": 0, "maximum": 720 },
+    "percentual": { "type": "number", "minimum": 0, "maximum": 100 },
+    "registradoEm": { "type": "string", "format": "date-time" },
+    "fusoHorario": { "type": "string", "minLength": 1 },
+    "dataLocal": { "type": "string", "format": "date" }
+  }
+}

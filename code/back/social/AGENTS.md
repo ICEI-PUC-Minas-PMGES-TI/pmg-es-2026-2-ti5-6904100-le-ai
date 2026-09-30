@@ -34,12 +34,29 @@ Idêntica à de [`identidade`](../identidade/AGENTS.md) — os dois serviços Sp
 - **Porta:** `8081` (o `identidade` fica na `8080`, para os dois subirem juntos em local).
 - **Armadilhas do Boot 4.x** (starter `webmvc`, módulo `spring-boot-flyway`, `spring-boot-starter-webmvc-test`, pacotes movidos, Jackson 3): a lista está no [`AGENTS.md` do `identidade`](../identidade/AGENTS.md#armadilhas-do-spring-boot-4x-a-maior-parte-do-material-na-internet-ainda-é-3x).
 
+## Mudanças feitas por outras features
+
+### 27/09/2026 — F-AVA (Renato): autor nulo no feed e spoiler escondido
+
+Feitas por F-AVA com autorização do Renato e **mergeadas na `desenvolvimento` em 27/09/2026 por decisão dele**, para F-AVA fechar a sprint. **A revisão do Kayke continua pendente**; qualquer ajuste entra num commit novo. Motivo e decisão em [`docs/mensageria/README.md`](../../../docs/mensageria/README.md) (Histórico) e no [plano de F-AVA](../../../docs/plano-de-desenvolvimento/periodo-1/plano-F-AVA.md), fatia 2.4.
+
+- **Por quê:** 701 livros oficiais do acervo não têm autor. `LivroSnapshot.autor` do `common-v1` passou a aceitar `null` (26/09), e os eventos `resenha.publicada` e `leitura.*` desses livros chegam com `autor: null`.
+- **Migration** `V20260927002000__snap_livro_autor_anulavel.sql`: só `DROP NOT NULL` em `atividade.snap_livro_autor`. O CHECK `atividade_snap_livro_autor_preenchido` não mudou: aceita `NULL` e continua proibindo texto vazio.
+- **`Atividade.java`:** a coluna `snap_livro_autor` perdeu o `nullable = false`.
+- **Cópia do schema:** `src/main/resources/messaging/schemas/common-v1.schema.json` igual à de `docs/mensageria`.
+- **Contrato:** `LivroSnapshot.autor` anulável em `docs/api/social.yaml`.
+- **Web (`ItemAtividade.vue`):** a linha do autor some quando ele vem vazio, e a resenha com spoiler fica **fora do DOM** até "Mostrar mesmo assim" (RF-AVA-03; antes o texto aparecia aberto no feed). Na validação de 27/09, o texto da resenha passou de `font-serif` (Georgia/Times do Tailwind) para `font-editorial` (Newsreader, a fonte do design). Achado sem mexer: o botão "Ler resenha" logo abaixo não faz nada.
+- **Teste:** `ConsumidorDeAtividadeIntegracaoTest.livroSemAutorGravaAtividade` confere que a linha foi gravada.
+- **Armadilha que continua aberta:** o `catch (DataIntegrityViolationException)` de `ConsumidorDeAtividade.criarAtividade` existe para o replay (`atividade_event_id_unico`, `atividade_fato_unico`), mas engole **qualquer** violação de integridade: um NOT NULL ou CHECK furado faz a atividade sumir sem erro e sem ir para a DLQ. Sugestão: estreitar o `catch` para as duas unicidades.
+- **Flyway no banco de dev:** a migration é aplicada na próxima vez que alguém subir o `social` local a partir da `desenvolvimento`. Migration nova no `social` precisa de versão maior que `V20260927002000`, ou o Flyway recusa a ordem.
+- **Ordem dos eventos:** o despachante do `leitura` segura só a linha que falhou, então um `resenha.excluida` pode chegar antes do `resenha.publicada` da mesma resenha. Hoje o `excluida` vira no-op e o `publicada` cria a atividade depois. É raro; fica registrado.
+
 ## Pontos de atenção (ver `REQUISITOS.md`)
 
-- É o **consumidor** do fluxo de **notificações in-app** (fan-out); adiciona FCM em Android (arquitetura §5.2). Curtida de **atividade de feed** fica aqui; curtida de **resenha** fica em `leitura`. **Spring AMQP ainda não entrou** — mensageria é [P0-MSG](../../../docs/plano-de-desenvolvimento/periodo-0/feature-P0-MSG.md).
+- É o **consumidor** do fluxo de **notificações in-app** (fan-out); adiciona FCM em Android (arquitetura §5.2). Curtida de **atividade de feed** fica aqui; curtida de **resenha** fica em `leitura`. **Spring AMQP já entrou** (runtime de [P0-MSG](../../../docs/plano-de-desenvolvimento/periodo-0/feature-P0-MSG.md), 19/09): o `social` consome pelas filas `leai.social.feed` (F-FEED) e `leai.social.notificacoes` (F-NOT), declaradas em `messaging/MessagingConstants.java`. FCM ainda não entrou.
 - **Comentários (RN-10):** um nível de aninhamento; resposta a resposta é irmã, com menção `@username`. Menção resolve só se o username existir; sujeita a rate limiting.
 - **Recomendação P2P (RN-22):** só entre seguimento mútuo; sem aceitar/recusar; expira em 90 dias; limite de 50 ativas por par; quatro vias de remoção convergem para a mesma operação. Livro pessoal não é recomendável.
 - **Moderação (RF-MOD):** apenas resenhas e comentários são denunciáveis; painel restrito ao administrador (verificação no servidor); toda ação em **log de auditoria**.
 - Todo consumidor de mensagem é **idempotente** e valida schema; falha após o máximo de tentativas vai para **DLQ**.
 - **Rate limiting** em ações sociais — seguir, curtir, comentar, mencionar, denunciar (RNF-SEC-18).
-- **Spring Security ainda não entrou** — chega com F-AUT. Hoje os cabeçalhos de segurança vêm de um filtro próprio.
+- **Spring Security já entrou** (F-FEED): `SecurityConfig` valida o JWT HS256 emitido pelo `identidade` como resource server, com `JWT_SECRET` obrigatório (`AppProperties`, 32+ caracteres; sem ele o serviço não sobe). Os cabeçalhos de segurança continuam no `SecurityHeadersFilter` próprio, e o CORS no `CorsConfig`.

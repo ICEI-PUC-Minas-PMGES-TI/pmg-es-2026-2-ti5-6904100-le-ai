@@ -15,10 +15,19 @@ class BannerAviso extends StatelessWidget {
   final VarianteAviso variante;
   final String mensagem;
 
+  /// Ação dentro do cartão, `space-3` abaixo do texto ("Tentar de novo", "Ver seguidores"), como
+  /// nos protótipos de F-PERFIL.
+  final Widget? acao;
+
+  /// `Warning` também no erro, como os banners de falha de carregamento de F-PERFIL.
+  final bool triangulo;
+
   const BannerAviso({
     super.key,
     required this.variante,
     required this.mensagem,
+    this.acao,
+    this.triangulo = false,
   });
 
   @override
@@ -41,7 +50,7 @@ class BannerAviso extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Icon(
-              ehErro
+              ehErro && !triangulo
                   ? PhosphorIconsRegular.warningCircle
                   : PhosphorIconsRegular.warning,
               size: 20,
@@ -49,7 +58,16 @@ class BannerAviso extends StatelessWidget {
             ),
             const SizedBox(width: DesignTokens.space3),
             Expanded(
-              child: Text(mensagem, style: theme.textTheme.bodyMedium),
+              child: acao == null
+                  ? Text(mensagem, style: theme.textTheme.bodyMedium)
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(mensagem, style: theme.textTheme.bodyMedium),
+                        const SizedBox(height: DesignTokens.space3),
+                        acao!,
+                      ],
+                    ),
             ),
           ],
         ),

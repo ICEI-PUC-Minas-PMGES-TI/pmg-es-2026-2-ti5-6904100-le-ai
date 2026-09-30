@@ -49,7 +49,10 @@ public class CorsConfig {
     CorsConfiguration configuracao = new CorsConfiguration();
     configuracao.setAllowedOrigins(origens);
     configuracao.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-    configuracao.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Correlation-Id"));
+    // Idempotency-Key: toda escrita de F-AUT e F-PERFIL o exige (RNF-ERR-04). Sem ele na lista,
+    // o preflight do navegador falha e a chamada real nunca sai.
+    configuracao.setAllowedHeaders(
+        List.of("Authorization", "Content-Type", "X-Correlation-Id", "Idempotency-Key"));
     configuracao.setExposedHeaders(List.of("X-Correlation-Id"));
     configuracao.setAllowCredentials(!origens.isEmpty());
     configuracao.setMaxAge(3600L);

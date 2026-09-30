@@ -175,9 +175,10 @@ Todas as features dos ramos 1.4 a 1.7 compartilham o **Definition of Done** de
 2. CI verde, contemplando lint, build e testes;
 3. Testes automatizados dos casos de uso da feature, no mínimo no backend;
 4. Spec OpenAPI do serviço atualizado em `docs/api/`;
-5. Fluxo funcionando em DES/HML, e não apenas localmente;
-6. Arquivo da feature atualizado quanto a status, pendências e timeline;
-7. Divergência entre protótipo e implementação registrada, se houver.
+5. Se produz ou consome evento, catálogo/schema em `docs/mensageria/` atualizado e testado;
+6. Fluxo funcionando em DES/HML, e não apenas localmente;
+7. Arquivo da feature atualizado quanto a status, pendências e timeline;
+8. Divergência entre protótipo e implementação registrada, se houver.
 
 ### 3.1 Gerenciamento do Projeto
 

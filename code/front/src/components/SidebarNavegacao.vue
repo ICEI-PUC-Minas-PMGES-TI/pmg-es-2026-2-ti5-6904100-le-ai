@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { PhBooks, PhCompass, PhNewspaper, PhSidebarSimple, PhUserCircle } from '@phosphor-icons/vue'
-import { onMounted, ref } from 'vue'
+import { PhSidebarSimple } from '@phosphor-icons/vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
+import { ABAS, abaAtiva } from '../router/abas'
 import LogoLeAi from './ui/LogoLeAi.vue'
 
 /**
@@ -11,13 +12,6 @@ import LogoLeAi from './ui/LogoLeAi.vue'
  * fluxo `position: fixed`: é um irmão flex do conteúdo, então a largura muda e o conteúdo
  * reflui sozinho, sem `margin` calculado à mão.
  */
-
-const ITENS = [
-  { rota: '/estante', rotulo: 'Estante', icone: PhBooks },
-  { rota: '/descobrir', rotulo: 'Descobrir', icone: PhCompass },
-  { rota: '/feed', rotulo: 'Feed', icone: PhNewspaper },
-  { rota: '/perfil', rotulo: 'Perfil', icone: PhUserCircle },
-] as const
 
 const route = useRoute()
 const colapsada = ref(false)
@@ -37,8 +31,10 @@ function alternar(): void {
   colapsada.value = !colapsada.value
 }
 
+const ativa = computed(() => abaAtiva(route))
+
 function itemAtivo(rota: string): boolean {
-  return route.path === rota
+  return ativa.value === rota
 }
 </script>
 
@@ -71,7 +67,7 @@ function itemAtivo(rota: string): boolean {
 
     <div class="mt-space-4 flex flex-col gap-space-1 px-space-3">
       <RouterLink
-        v-for="item in ITENS"
+        v-for="item in ABAS"
         :key="item.rota"
         :to="item.rota"
         class="group relative flex h-11 items-center rounded-base transition-colors duration-dur-fast"

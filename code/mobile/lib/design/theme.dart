@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'theme.g.dart';
 
 export 'theme.g.dart';
+export 'theme_extras.dart';
 
 class AppTheme {
   AppTheme._();

@@ -86,6 +86,34 @@ class AppPropertiesTest {
   }
 
   @Test
+  @DisplayName("mapeia as configurações opcionais do Brevo")
+  void mapeiaConfiguracaoBrevo() {
+    runner
+        .withPropertyValues(
+            "leai.service-name=identidade",
+            "leai.db-schema=identidade",
+            "leai.database-url=jdbc:postgresql://localhost:5432/leai",
+            "leai.cors-allowed-origins=http://localhost:5173",
+            "leai.brevo-api-key=api-key-de-teste",
+            "leai.brevo-smtp-key=smtp-key-de-teste",
+            "leai.brevo-smtp-host=smtp-relay.brevo.com",
+            "leai.brevo-smtp-port=587",
+            "leai.brevo-sender-email=contato@leai.example",
+            "leai.brevo-sender-name=Lê Ai",
+            "leai.jwt-secret=" + SEGREDO_VALIDO)
+        .run(
+            contexto -> {
+              AppProperties propriedades = contexto.getBean(AppProperties.class);
+              assertThat(propriedades.brevoApiKey()).isEqualTo("api-key-de-teste");
+              assertThat(propriedades.brevoSmtpKey()).isEqualTo("smtp-key-de-teste");
+              assertThat(propriedades.brevoSmtpHost()).isEqualTo("smtp-relay.brevo.com");
+              assertThat(propriedades.brevoSmtpPort()).isEqualTo(587);
+              assertThat(propriedades.brevoSenderEmail()).isEqualTo("contato@leai.example");
+              assertThat(propriedades.brevoSenderName()).isEqualTo("Lê Ai");
+            });
+  }
+
+  @Test
   @DisplayName("descarta curinga e espaço em branco na lista de origens do CORS")
   void descartaCuringaNasOrigens() {
     AppProperties propriedades =
@@ -94,6 +122,12 @@ class AppPropertiesTest {
             "identidade",
             "jdbc:postgresql://localhost:5432/leai",
             " http://localhost:5173 , * , https://leai-web.onrender.com ,",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
             null,
             null,
             null,

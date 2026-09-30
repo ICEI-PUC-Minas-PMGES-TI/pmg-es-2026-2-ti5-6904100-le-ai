@@ -1,6 +1,7 @@
 # F-EST · Estante
 
 **Feature:** ../../../plano-de-desenvolvimento/periodo-1/feature-F-EST.md
+**Editada por:** ../../periodo-2/estante/estante.md
 **Requisitos:** RF-EST-01 (relação leitor e livro em um dos cinco status), RF-EST-02 (estante agrupada por status, com ordenação e paginação)
 **Requisito do Período 2 desenhado aqui:** RF-EST-13 (buscar por título e autor dentro da própria estante). Desejável, entregue por F-EST-2. O prompt mora junto da tela pela regra de recorte de `docs/design/AGENTS.md` §2, e os artboards dele estão marcados.
 **Requisitos de sistema cujo efeito aparece aqui:** RF-EST-11 (abandono automático em 40 dias) e RF-EST-12 (alerta nos dias 20 e 30). Os dois são de sistema, com a coluna Web marcada com traço; o cliente apenas **exibe o efeito**.
@@ -38,7 +39,7 @@ O canvas simula um arquivo de Figma. Todos os artboards ficam **lado a lado no m
 
 ```
 Produto: Lê Ai, aplicativo social de leitura brasileiro, no modelo Skoob e
-Letterboxd. Público de 18 a 30 anos, interface em pt-BR, uso predominante em
+Letterboxd. Público com 18 anos ou mais, interface em pt-BR, uso predominante em
 celular. A interface reforça três mecanismos: registro (o que já foi lido),
 meta (alvo curto e alcançável) e pertencimento (ver amigos lendo).
 
@@ -197,13 +198,13 @@ corpo nem informação essencial.
 
 **Contagens por status**, exibidas dentro de cada pill de filtro: `Todos 10`, `Lendo 2`, `Quero ler 3`, `Lido 3`, `Relendo 1`, `Abandonado 1`.
 
-**Ordenação atual:** `Adicionados recentemente`. As outras opções do seletor são `Título`, `Autor` e `Progresso`.
+**Ordenação atual:** `Adicionados recentemente`. As outras opções do seletor são `Adicionados há mais tempo`, `Título, A a Z`, `Título, Z a A`, `Autor, A a Z`, `Autor, Z a A`, `Maior progresso` e `Menor progresso` (contrato `OrdenacaoEstante`: `adicionado_desc/asc`, `titulo_asc/desc`, `autor_asc/desc`, `progresso_desc/asc`). Na ordenação por autor, livro sem autor vai por último e o empate é desfeito pelo título; na por progresso, conta o percentual da leitura em andamento, e livro sem leitura em andamento vai por último.
 
 **Capa em placeholder:** `Marrom e Amarelo` cai no terceiro nível de RN-14.4 e usa `capa-placeholder`.
 
 **Consulta da busca local:** `guimarães`, que casa com um único livro da estante, `Grande Sertão: Veredas`. **Segunda consulta, para o artboard de vazio:** `saramago`, que não casa com nenhum.
 
-**Nenhuma nota aparece na estante.** O card da variante Estante do design §4.5 traz capa, título, autor e status pill. Nota agregada é do Período 2 e nota própria do leitor mora na página do livro.
+**Nenhuma nota aparece na estante.** O card da variante Estante do design §4.5 traz capa, título, autor e status pill. Título, autor e capa (só a URL, a imagem vem do CDN) chegam no próprio item da listagem da estante (`ItemEstante.livro { titulo, autor, capaUrl }` em `GET /estante` e `GET /perfis/{id}/estante`): o cliente não compõe com o `acervo`. Nota agregada é do Período 2 e nota própria do leitor mora na página do livro.
 
 ---
 
@@ -460,7 +461,7 @@ Nos dois, os shadows ficam com **metade da opacidade**: no escuro a hierarquia v
 | Iconografia Phosphor, com `fill` só para estado ativo | documento-de-design §6 |
 | Shell de navegação, header e barra inferior | periodo-0/P0-NAV/shell-de-navegacao.md |
 
-**Componentes que ainda não existem na fonte.** Três elementos nascem aqui e viram pendência de incorporação ao `documento-de-design.md` pelo controle de mudança do plano §3:
+**Componentes que nasceram aqui.** Três elementos nasceram neste prompt; os dois primeiros foram incorporados ao `documento-de-design.md` §5.1 em 26/09/2026 pelo controle de mudança do plano §3:
 
 1. **A contagem dentro do pill de filtro.** O §5.1 define a faixa de pills por status, mas não a contagem.
 2. **A linha de ordenação.** RF-EST-02 exige ordenação, e o §5.1 não desenha o controle.
@@ -476,7 +477,7 @@ Nos dois, os shadows ficam com **metade da opacidade**: no escuro a hierarquia v
 | Pills de filtro | `Todos 10`, `Lendo 2`, `Quero ler 3`, `Lido 3`, `Relendo 1`, `Abandonado 1` |
 | Contagem | `10 livros` |
 | Ordenação atual | `Adicionados recentemente` |
-| Outras ordenações | `Título`, `Autor`, `Progresso` |
+| Outras ordenações | `Adicionados há mais tempo`, `Título, A a Z`, `Título, Z a A`, `Autor, A a Z`, `Autor, Z a A`, `Maior progresso`, `Menor progresso` |
 | Detalhe de abandonado | `Parou na página 210 de 552` |
 | Detalhe de abandono automático | `Abandonado automaticamente em 05 de setembro de 2026` |
 | Aviso de risco | `Sem progresso há 24 dias` |
@@ -485,6 +486,11 @@ Nos dois, os shadows ficam com **metade da opacidade**: no escuro a hierarquia v
 | Vazio por filtro, botão | `Ver livros lidos` |
 | Vazio de Quero ler, botão | `Buscar livros` |
 | Vazio de Lido, botão | `Ver o que está lendo` |
+| Vazio de Lendo · incorporado em 27/09/2026 | `Nenhuma leitura em andamento`, `Livros aparecem aqui quando você começa a ler.` |
+| Vazio de Quero ler · incorporado em 27/09/2026 | `Nenhum livro para ler depois`, `Livros aparecem aqui quando você os adiciona como Quero ler.` |
+| Vazio de Lido · incorporado em 27/09/2026 | `Nenhum livro concluído`, `Livros aparecem aqui quando você finaliza uma leitura.` |
+| Vazio de Abandonado · incorporado em 27/09/2026 | `Nenhuma leitura abandonada`, `Leituras aparecem aqui quando você as deixa de lado.` |
+| Detalhe de relidos no card · incorporado em 27/09/2026 | `Lido 2 vezes`, `Lido 1 vez` |
 | Estante vazia, título | `Sua estante está vazia` |
 | Estante vazia, texto | `Busque um livro pelo título, autor ou ISBN e escolha em qual status ele entra.` |
 | Estante vazia, botão primário | `Buscar livros` |

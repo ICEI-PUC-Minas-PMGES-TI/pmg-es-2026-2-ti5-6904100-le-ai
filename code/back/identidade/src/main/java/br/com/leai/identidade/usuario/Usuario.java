@@ -49,6 +49,42 @@ public class Usuario {
   @Column(name = "criado_em", nullable = false, updatable = false)
   private Instant criadoEm;
 
+  // Perfil (F-PERFIL). Colunas da migration de 15/09; todas têm default no banco, por isso não
+  // entram no insert do cadastro.
+  @Column(name = "biografia")
+  private String biografia;
+
+  @Column(name = "avatar_url")
+  private String avatarUrl;
+
+  /** `publicId` do Cloudinary; vem junto de `avatarUrl`, nunca sozinho. */
+  @Column(name = "avatar_asset_id")
+  private String avatarAssetId;
+
+  /** `publico` ou `privado` (CHECK `usuario_privacidade_valida`). */
+  @Column(name = "privacidade", nullable = false)
+  private String privacidade = "publico";
+
+  // Só leitura aqui: quem mantém é o SQL de seguir e deixar de seguir, com a linha travada. Se o
+  // Hibernate regravasse o valor carregado, uma troca de senha simultânea desfaria um incremento.
+  @Column(name = "qtd_seguidores", nullable = false, insertable = false, updatable = false)
+  private int qtdSeguidores;
+
+  @Column(name = "qtd_seguidos", nullable = false, insertable = false, updatable = false)
+  private int qtdSeguidos;
+
+  // Visibilidade (F-MOD-OPC e F-CONTA-2 escrevem; aqui só se lê). Conta suspensa ou com exclusão
+  // pendente some para os outros leitores, como nas VIEWs `v_perfil_referencia_v1`.
+  @Column(name = "suspenso", nullable = false, insertable = false, updatable = false)
+  private boolean suspenso;
+
+  @Column(name = "exclusao_solicitada_em", insertable = false, updatable = false)
+  private Instant exclusaoSolicitadaEm;
+
+  /** Preenchido pelo default do banco no insert; só as escritas desta classe o avançam. */
+  @Column(name = "atualizado_em", nullable = false, insertable = false)
+  private Instant atualizadoEm;
+
   /** Exigido pelo JPA. Não usar no código de domínio: prefira {@link #novo}. */
   protected Usuario() {}
 
@@ -111,5 +147,61 @@ public class Usuario {
 
   public Instant criadoEm() {
     return criadoEm;
+  }
+
+  public String biografia() {
+    return biografia;
+  }
+
+  public String avatarUrl() {
+    return avatarUrl;
+  }
+
+  public String avatarAssetId() {
+    return avatarAssetId;
+  }
+
+  public String privacidade() {
+    return privacidade;
+  }
+
+  public boolean ehPrivado() {
+    return "privado".equals(privacidade());
+  }
+
+  public int qtdSeguidores() {
+    return qtdSeguidores;
+  }
+
+  public int qtdSeguidos() {
+    return qtdSeguidos;
+  }
+
+  /**
+   * Substitui os campos editáveis do perfil (RF-SOC-01/04). O avatar vem validado pelo chamador,
+   * URL e `publicId` juntos ou os dois nulos. Mudar para privado não mexe nos seguidores.
+   */
+  public void editarPerfil(
+      String nomeExibicao,
+      String biografia,
+      String avatarUrl,
+      String avatarAssetId,
+      String privacidade) {
+    this.nomeExibicao = nomeExibicao;
+    this.biografia = biografia;
+    this.avatarUrl = avatarUrl;
+    this.avatarAssetId = avatarAssetId;
+    this.privacidade = privacidade;
+    this.atualizadoEm = Instant.now();
+  }
+
+  /**
+   * Troca o hash da senha (RF-AUT-05).
+   *
+   * @param novoHash já hasheado pelo chamador. Este método nunca recebe senha em claro.
+   */
+  public void trocarSenha(String novoHash) {
+    this.senhaHash = novoHash;
+    this.atualizadoEm = Instant.now();
   }
 }

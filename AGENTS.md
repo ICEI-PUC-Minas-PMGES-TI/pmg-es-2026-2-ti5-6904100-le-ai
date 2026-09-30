@@ -23,7 +23,7 @@ Contexto raiz para qualquer agente ou pessoa que trabalhe neste repositório. Re
 
 ## 2. O produto em uma frase
 
-Aplicativo social de leitura (modelo Skoob/Letterboxd) para **aumentar a adesão à leitura de jovens brasileiros de 18 a 30 anos**, sustentado por três mecanismos: **registro**, **meta** e **pertencimento**. Cadastro restrito a **maiores de 18 anos** (LGPD). Idioma **pt-BR**; internacionalização fora de escopo. Funcionalidade que não serve a registro, meta ou pertencimento é candidata natural a corte.
+Aplicativo social de leitura (modelo Skoob/Letterboxd) para **aumentar a adesão à leitura entre leitores brasileiros adultos**, sustentado por três mecanismos: **registro**, **meta** e **pertencimento**. Cadastro permitido a partir dos **18 anos** (LGPD). Idioma **pt-BR**; internacionalização fora de escopo. Funcionalidade que não serve a registro, meta ou pertencimento é candidata natural a corte.
 
 ---
 
@@ -34,9 +34,9 @@ Aplicativo social de leitura (modelo Skoob/Letterboxd) para **aumentar a adesão
 | Mobile (produto principal) | **Flutter** nativo — escopo funcional completo |
 | Web (subconjunto) | **Vue** (SPA) + **Tailwind CSS** — sem Flutter Web (vetado) |
 | Backend | **Microsserviços** em **Spring (Java)** e **NestJS (TypeScript)**; FastAPI descartado |
-| Banco | **PostgreSQL** único no **Neon**, um **schema por serviço** (separação lógica) |
-| Mensageria | **RabbitMQ** (CloudAMQP) para os fluxos assíncronos |
-| Hospedagem | **Render** (plano gratuito) para serviços e site estático |
+| Banco | **PostgreSQL** único no **Neon** por ambiente, um **schema por serviço** (separação lógica). Um projeto de dev (São Paulo) e um de DES (Oregon), sem replicação — ver §7 |
+| Mensageria | **RabbitMQ** (CloudAMQP) para os fluxos assíncronos; uma instância por ambiente — ver §7 |
+| Hospedagem | **Render** (plano gratuito, região Oregon) para serviços e site estático |
 | Imagens | **Cloudinary** (transformação por URL + cache de capas) |
 | E-mail transacional | **Brevo** (recuperação de senha) |
 | Push (Android) | **Firebase Cloud Messaging** — Firebase usado **só** para FCM; iOS fica em in-app |
@@ -74,13 +74,16 @@ Alocação de stack por serviço **decidida pela equipe em 02/09/2026**: `identi
 │   │   └── documento-de-design.md
 │   ├── README.md             # capa/SUMÁRIO do documento da disciplina
 │   ├── 1.apresentacao.md … 8.avaliacao_arquitetura.md  # docs da disciplina (DERIVADOS)
-│   ├── api/                  # planejado no período-0: um spec OpenAPI por serviço
+│   ├── api/                  # um spec OpenAPI por serviço
+│   ├── mensageria/           # envelope, catálogo e JSON Schemas canônicos
 │   ├── design/               # prompts de tela e protótipos — + AGENTS.md e CLAUDE.md
 │   │   └── periodo-N/<FEATURE>/<tela>.md + prototipos/<tela>.html
 │   └── ...
 ├── code/                     # código (equivale a src/ do guideline)
 │   ├── mobile/               # Flutter — + AGENTS.md
 │   ├── front/                # Vue + Tailwind — + AGENTS.md
+│   ├── scripts/              # utilitários fora dos 4 serviços
+│   │   └── ingestao/         # carga do dump OpenLibrary (Python) — + AGENTS.md
 │   └── back/                 # microsserviços
 │       ├── identidade/       # + AGENTS.md
 │       ├── acervo/           # + AGENTS.md
@@ -122,14 +125,27 @@ Estrutura mínima do arquivo de feature: objetivo (referenciando a seção de `R
 ## 7. Branches, commits e releases
 
 - **`desenvolvimento`** — branch de trabalho; todo mundo commita direto. CI roda lint, build e testes a cada push.
-- **`main`** — sempre verde e deployável; merge dispara deploy em DES/HML. **`desenvolvimento` → `main` sempre por PR com CI verde** (único portão obrigatório). **Ninguém commita direto em `main`.**
+- **`main`** — sempre verde e deployável; merge dispara deploy em DES/HML. **`desenvolvimento` → `main` sempre por PR com CI verde e uma aprovação** (portões obrigatórios; a proteção da `main` exige a aprovação). **Ninguém commita direto em `main`.**
 - **`feat/<slug>`** — opcional, para isolar refatoração grande, experimento ou mudança que quebra a build pela metade. Manter curta.
 - **Tags** `vX.Y.Z` ao fim de cada período → GitHub Release (o artefato "Release do software" da disciplina).
 - `git pull --rebase` antes de começar e antes de subir. Quem quebrou a `desenvolvimento` conserta ou reverte na hora.
 - **Conventional Commits:** `feat:`, `fix:`, `docs:`, `chore:`, `test:`, `refactor:` — alimenta o relatório de contribuição semanal.
 - **CI filtra por caminho:** mudança em `code/front/` não roda o pipeline do Flutter; mudança em `docs/` não roda nada.
 
-**Ambientes:** local (Postgres local) · **DES/HML** (branch `main`, deploy a cada merge — é o que vale como "release" da sprint) · **PROD** (tag `vX.Y.Z`, só a partir de 24/11). Segredos por variável de ambiente e GitHub Secrets: `.env.example` versionado, `.env` **nunca**.
+**Ambientes:** **local** · **DES/HML** (branch `main`, deploy a cada merge — é o que vale como "release" da sprint) · **PROD** (tag `vX.Y.Z`, só a partir de 24/11). Segredos por variável de ambiente e GitHub Secrets: `.env.example` versionado, `.env` **nunca**.
+
+**Dois bancos e dois brokers, um par por ambiente** (desde 25/09/2026):
+
+| | Local (dev) | DES/HML (Render) |
+|---|---|---|
+| Neon | projeto `le-ai`, São Paulo (`aws-sa-east-1`) | projeto `le-ai-oregon`, Oregon (`aws-us-west-2`), junto do Render |
+| CloudAMQP | instância `Le-ai`, São Paulo | instância `Le-ai-oregon`, Oregon |
+
+- **Os dados não são replicados:** o que se grava num ambiente não aparece no outro. Copiar de um para o outro é operação manual e completa, combinada com o grupo.
+- **Migrations:** as que você aplica localmente só alteram o banco de dev. O DES as recebe no deploy da `main`.
+- **O `.env` local nunca aponta para o DES.**
+- **Testes de integração** rodam em Postgres descartável (Docker ou CI), nunca no Neon.
+- Detalhes em [`P0-DEPLOY`](docs/plano-de-desenvolvimento/periodo-0/feature-P0-DEPLOY.md#ambientes-de-dados-desde-25092026).
 
 ---
 
@@ -139,6 +155,7 @@ Estrutura mínima do arquivo de feature: objetivo (referenciando a seção de `R
 - [ ] CI verde (lint, build, testes)
 - [ ] Testes automatizados dos casos de uso da feature (mínimo: backend)
 - [ ] **Spec OpenAPI do serviço atualizado em `docs/api/`** (um spec por serviço, nunca por feature)
+- [ ] Se produz ou consome evento, **catálogo/schema em `docs/mensageria/` atualizado e testado**
 - [ ] Fluxo funcionando **em DES/HML**, não só localmente
 - [ ] Arquivo da feature atualizado: status, pendências, timeline
 - [ ] Divergência protótipo × implementação registrada, se houver
@@ -164,8 +181,15 @@ O `REQUISITOS.md` §8 organiza a segurança pelo **OWASP Top 10 (2021)**; todos 
 
 ---
 
-## 10. Contratos de API
+## 10. Contratos de integração
 
 - Cada serviço expõe seu spec em runtime (`/v3/api-docs` no Spring, `@nestjs/swagger` no Nest) e **commita** em `docs/api/<servico>.yaml`. Atualizar é item do DoD.
 - **Um spec por serviço**, nunca por feature. A feature atualiza o spec do serviço que mexeu.
-- Um Swagger UI único agregará todos os specs quando `docs/api/` e `docker-compose.docs.yml` forem criados no período-0 (`docker compose -f docker-compose.docs.yml up` → `localhost:8080`).
+- Um Swagger UI único agrega os quatro specs de `docs/api/` via `docker-compose.docs.yml` (`docker compose -f docker-compose.docs.yml up` → `localhost:8080`).
+
+Contratos assíncronos:
+
+- Envelope, catálogo e schemas JSON canônicos ficam em `docs/mensageria/`.
+- P0-MSG possui transporte, topologia, dispatcher, recibo, retry e DLQ; a feature produtora possui o schema de `data` e a gravação domínio+outbox.
+- Um arquivo por `(type, version)`; schema publicado é imutável e mudança incompatível cria nova versão.
+- Evento sem consumidor atual não cria fila acumuladora; a feature consumidora futura faz backfill antes de ativar o binding.

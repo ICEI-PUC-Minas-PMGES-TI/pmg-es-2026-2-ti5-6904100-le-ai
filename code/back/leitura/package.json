@@ -17,8 +17,10 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
+    "test:integration": "jest --config test/integracao/jest-integracao.json --runInBand",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "ts-node src/db/migrate.ts"
+    "db:migrate": "ts-node src/db/migrate.ts",
+    "db:seed": "ts-node src/db/seed.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
@@ -27,11 +29,15 @@
     "@nestjs/platform-express": "^11.0.0",
     "@nestjs/swagger": "^11.0.0",
     "@nestjs/terminus": "^11.0.0",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
+    "amqplib": "2.0.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "dotenv": "^16.4.5",
     "drizzle-orm": "^0.45.2",
     "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.3",
     "nestjs-pino": "^4.4.0",
     "pg": "^8.13.0",
     "pino-http": "^10.0.0",
@@ -44,8 +50,10 @@
     "@nestjs/cli": "^11.0.0",
     "@nestjs/schematics": "^11.0.0",
     "@nestjs/testing": "^11.0.0",
+    "@types/amqplib": "^0.10.7",
     "@types/express": "^5.0.0",
     "@types/jest": "^29.5.14",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.10.0",
     "@types/pg": "^8.11.0",
     "@types/supertest": "^6.0.2",
@@ -69,13 +77,19 @@
     "multer": "^2.3.0"
   },
   "jest": {
-    "moduleFileExtensions": ["js", "json", "ts"],
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      "ts"
+    ],
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
-    "collectCoverageFrom": ["**/*.(t|j)s"],
+    "collectCoverageFrom": [
+      "**/*.(t|j)s"
+    ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
   }

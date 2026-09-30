@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&family=Newsreader:ital,wght@0,400;0,500;1,400;1,500&family=Space+Grotesk:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&family=Newsreader:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Space+Grotesk:wght@500;600;700&display=swap');
 @config '../tailwind.config.js';
 @import 'tailwindcss';
 
@@ -27,12 +27,23 @@
     transition: background-color var(--duration-fast) var(--easing-out), color var(--duration-fast) var(--easing-out);
   }
 
+  /* O Tailwind v4 só aplica lineHeight, letterSpacing e fontWeight da tupla de fontSize do
+     tailwind.config.js: a família dos tokens de display (Space Grotesk) se perdia, e todo título
+     saía na fonte do corpo. Na camada base, uma font-* explícita na tela continua vencendo. */
+  [class*='text-display'],
+  [class*='text-title'] {
+    font-family: var(--font-display);
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
     *::after {
       scroll-behavior: auto !important;
       transition-duration: 0.01ms !important;
+      /* O fade de entrada dos skeletons (`.entrada`) também fica estático. */
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
     }
   }
 }

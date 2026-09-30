@@ -2,6 +2,7 @@ package br.com.leai.identidade.common;
 
 import jakarta.validation.ConstraintViolationException;
 import java.util.concurrent.TimeoutException;
+import org.springframework.beans.TypeMismatchException;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.QueryTimeoutException;
 import org.springframework.http.HttpStatus;
@@ -52,6 +53,11 @@ public final class MapeadorErro {
     // ErrorResponse, então sem este ramo cairia em ERRO_INTERNO e o cliente receberia 500 por
     // ter enviado um corpo ruim — além de sujar o log com stack trace de erro que não é nosso.
     if (erro instanceof HttpMessageNotReadableException) {
+      return de(CodigoErro.REQUISICAO_INVALIDA);
+    }
+    // Parâmetro de caminho ou query que não converte (`page=abc`, UUID malformado): também não
+    // implementa ErrorResponse, e o erro é do cliente.
+    if (erro instanceof TypeMismatchException) {
       return de(CodigoErro.REQUISICAO_INVALIDA);
     }
     if (erro instanceof ErrorResponse resposta) {

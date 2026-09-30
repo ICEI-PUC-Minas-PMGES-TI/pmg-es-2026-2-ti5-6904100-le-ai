@@ -5,6 +5,7 @@
 **Não funcionais:** RNF-SEC-02 (propriedade validada no servidor), RNF-SEC-13 (validação por esquema: limite de caracteres), RNF-SEC-14 (conteúdo do usuário tratado como texto, com escape na renderização), RNF-USA-04 (confirmação na exclusão), RNF-ERR-04, RNF-USA-03, RNF-USA-05
 **Regras de negócio:** RN-07 (uma resenha por usuário por livro, editável, **texto cru limitado a 5.000 caracteres**, sem exigir leitura concluída), RN-04.5 (a resenha é do livro, sobrevive ao abandono e não duplica por releitura), RN-03 (em livro pessoal, só o dono escreve)
 **Versão web:** sim. RF-AVA-02, RF-AVA-03 e RF-AVA-04 têm marcação na coluna Web de `REQUISITOS.md` §5.5.
+**Editada por:** ../../periodo-2/escrever-resenha/escrever-resenha.md
 
 ---
 
@@ -35,7 +36,7 @@ O canvas simula um arquivo de Figma. Todos os artboards ficam **lado a lado no m
 
 ```
 Produto: Lê Ai, aplicativo social de leitura brasileiro, no modelo Skoob e
-Letterboxd. Público de 18 a 30 anos, interface em pt-BR, uso predominante em
+Letterboxd. Público com 18 anos ou mais, interface em pt-BR, uso predominante em
 celular. A interface reforça três mecanismos: registro (o que já foi lido),
 meta (alvo curto e alcançável) e pertencimento (ver amigos lendo).
 
