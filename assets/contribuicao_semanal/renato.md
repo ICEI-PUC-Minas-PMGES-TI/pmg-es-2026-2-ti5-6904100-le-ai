@@ -46,3 +46,6 @@ Realizado busca palavra por palavra, relevância por título e autor e busca por
 Realizado correções de robustez no acervo: entradas malformadas, banco indisponível, corpo grande, token sem expiração e sinopse sem marcação
 Realizado correções de paginação, falhas e acessibilidade no Descobrir e na página do livro, na web e no mobile
 Realizado atualização da documentação de F-ACV-BUSCA, do contrato do acervo e dos AGENTS do acervo e do front
+Realizado correção da estante no mobile, que agora recarrega quando a leitura muda em outra tela
+Realizado correção da folha de registrar progresso no mobile, que passou a rolar em vez de estourar a tela
+Realizado alinhamento dos sufixos h e min do tempo gasto no registro de progresso do mobile
