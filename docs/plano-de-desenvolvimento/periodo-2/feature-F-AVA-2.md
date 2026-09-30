@@ -1,7 +1,7 @@
 # F-AVA-2 — Reações, Markdown e frases
 
 **Período:** 2 · **Prioridade:** desejavel
-**Dono:** a definir · **Serviços afetados:** `leitura` (backend) + `social` (mapeamento de notificação) + web + mobile
+**Dono:** Renato Douglas · **Serviços afetados:** `leitura` (backend) + `social` (mapeamento de notificação) + web + mobile
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.5 (RF-AVA-05..09), RN-07, RN-11, RN-13, RN-15. Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §3.2 (ajuste 1), §4.2, §5.2. Processo e template: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §9. Regras compartilhadas do projeto: [`../periodo-1/README.md#regras-de-implementação-compartilhadas`](../periodo-1/README.md#regras-de-implementação-compartilhadas). Em caso de conflito, o `REQUISITOS.md` ganha; protótipo é referência visual, não spec de pixel (plano §7).
 
@@ -101,3 +101,5 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 ### Revisão 28/08/2026: precisão de referência — a alocação das reações em `leitura` está no **§3.2, ajuste 1** da arquitetura (não há heading formal §3.2.1); citação corrigida no cabeçalho e na Especificação.
 
 ### Revisão 29/08/2026: autorização contextual de reação em livro pessoal passou a exigir uma das duas vias de RN-15; frases pessoais ficaram owner-only. A regra “resenha de outro” foi fechada e a feature passou a entregar também o consumidor de `resenha.curtida` em `social`.
+
+### Dono 29/09/2026: feature atribuída a **Renato Douglas** na [divisão do Período 2](README.md#divisão-do-período-2-entre-5-pessoas).

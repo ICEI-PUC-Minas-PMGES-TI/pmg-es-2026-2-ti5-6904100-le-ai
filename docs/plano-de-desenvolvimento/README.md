@@ -70,20 +70,20 @@ Granularidade atual: features "maiores" — cerca de uma por módulo de RF, por 
 | F-AVA | Nota e resenha | leitura | 1 | prioritaria | RF-AVA-01..04 | Renato Douglas |
 | F-FEED | Feed e interações sociais | social | 1 | prioritaria | RF-SOC-09, 10, 11, 12, 14 | Kayke |
 | F-NOT | Notificações in-app | social | 1 | prioritaria | RF-NOT-01..04 | Kayke |
-| F-CONTA-2 | Exclusão de conta | identidade | 2 | desejavel | RF-AUT-07 | a definir |
-| F-SOCIAL-2 | Comentários (edição) e menções-link | social | 2 | desejavel | RF-SOC-13, 15 | a definir |
-| F-ACV-DESCOBERTA | Filtros e páginas de autor/editora/série | acervo | 2 | desejavel | RF-ACV-03, 10, 11, 12, 21 | a definir |
-| F-ACV-NOTA | Nota geral e cache de capas | acervo | 2 | desejavel | RF-ACV-15, 16, 17 | a definir |
-| F-EST-2 | Favoritos, histórico e buscas | leitura | 2 | desejavel | RF-EST-09, 10, 13 | a definir |
-| F-SESSAO | Sessão de leitura cronometrada (mobile) | leitura | 2 | desejavel | RF-PRG-05..12 | a definir |
-| F-AVA-2 | Reações, Markdown e frases | leitura | 2 | desejavel | RF-AVA-05, 06, 07, 08, 09 | a definir |
-| F-DSF | Desafios | leitura | 2 | desejavel | RF-DSF-01, 02, 03, 04, 06 | a definir |
-| F-STA | Estatísticas | leitura | 2 | desejavel | RF-STA-01, 02, 03, 05 | a definir |
-| F-GAM | Sequência diária (streak) | leitura | 2 | desejavel | RF-GAM-01, 02, 03 | a definir |
-| F-LST | Listas | social | 2 | desejavel | RF-LST-01..06 | a definir |
-| F-REC-P2P | Recomendação entre usuários + aba unificada | social | 2 | desejavel | RF-REC-01..07, 13, 14, 15, 16 | a definir |
-| F-MOD | Moderação | social | 2 | desejavel | RF-MOD-01, 02, 03, 05 | a definir |
-| F-NOT-2 | Notificações em tempo real | social | 2 | desejavel | RF-NOT-06 | a definir |
+| F-CONTA-2 | Exclusão de conta | identidade | 2 | desejavel | RF-AUT-07 | Henrique Carvalho |
+| F-SOCIAL-2 | Comentários (edição) e menções-link | social | 2 | desejavel | RF-SOC-13, 15 | Kayke |
+| F-ACV-DESCOBERTA | Filtros e páginas de autor/editora/série | acervo | 2 | desejavel | RF-ACV-03, 10, 11, 12, 21 | Vicenzo Fonseca |
+| F-ACV-NOTA | Nota geral e cache de capas | acervo | 2 | desejavel | RF-ACV-15, 16, 17 | Renato Douglas |
+| F-EST-2 | Favoritos, histórico e buscas | leitura | 2 | desejavel | RF-EST-09, 10, 13 | Ana Luiza de Freitas |
+| F-SESSAO | Sessão de leitura cronometrada (mobile) | leitura | 2 | desejavel | RF-PRG-05..12 | Ana Luiza de Freitas |
+| F-AVA-2 | Reações, Markdown e frases | leitura | 2 | desejavel | RF-AVA-05, 06, 07, 08, 09 | Renato Douglas |
+| F-DSF | Desafios | leitura | 2 | desejavel | RF-DSF-01, 02, 03, 04, 06 | Vicenzo Fonseca |
+| F-STA | Estatísticas | leitura | 2 | desejavel | RF-STA-01, 02, 03, 05 | Vicenzo Fonseca |
+| F-GAM | Sequência diária (streak) | leitura | 2 | desejavel | RF-GAM-01, 02, 03 | Vicenzo Fonseca |
+| F-LST | Listas | social | 2 | desejavel | RF-LST-01..06 | Henrique Carvalho |
+| F-REC-P2P | Recomendação entre usuários + aba unificada | social | 2 | desejavel | RF-REC-01..07, 13, 14, 15, 16 | Kayke |
+| F-MOD | Moderação | social | 2 | desejavel | RF-MOD-01, 02, 03, 05 | Renato Douglas |
+| F-NOT-2 | Notificações em tempo real | social | 2 | desejavel | RF-NOT-06 | Kayke |
 | F-ACV-OPC | Extras de acervo (recarga dump, assuntos em livro pessoal) | acervo | 3 | opcional | RF-ACV-14, 22 | a definir |
 | F-REC-ALG | Recomendação algorítmica + descarte em lote | social | 3 | opcional | RF-REC-08..12, 17 | a definir |
 | F-NOT-OPC | Preferências de notificação + push (FCM Android) | social | 3 | opcional | RF-NOT-05, 07 | a definir |
@@ -107,4 +107,4 @@ Os 130 RFs de `../orquestador/REQUISITOS.md` §5 estão todos alocados: **54 Ess
 
 O **Período 1 fechou em 29/09/2026** com as dez features prioritárias entregues e em revisão ([fechamento](periodo-1/README.md#fechamento-do-período-1-29092026)). Falta o ritual de fechamento do `../orquestador/plano-de-projeto.md` §12: PR `desenvolvimento` → `main` com CI verde, validação dos fluxos em DES, tag `vX.Y.Z` com GitHub Release e atualização do Documento de Arquitetura pelo grupo.
 
-O **[Período 2](periodo-2/README.md)** começa em **06/10/2026** (Sprint 5, fechamento em 03/11 com a Entrega 5): features desejáveis mais o checkpoint dos testes das prioritárias. Todos os períodos já têm as features detalhadas; as decisões dos donos registradas nos arquivos não devem ser antecipadas.
+O **[Período 2](periodo-2/README.md)** começa em **06/10/2026** (Sprint 5, fechamento em 03/11 com a Entrega 5): features desejáveis mais o checkpoint dos testes das prioritárias. As 14 features já têm dono desde 29/09/2026 ([divisão do Período 2](periodo-2/README.md#divisão-do-período-2-entre-5-pessoas)). Todos os períodos já têm as features detalhadas; as decisões dos donos registradas nos arquivos não devem ser antecipadas.

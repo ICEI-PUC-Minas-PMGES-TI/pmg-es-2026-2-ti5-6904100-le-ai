@@ -1,7 +1,7 @@
 # F-CONTA-2 — Exclusão de conta
 
 **Período:** 2 · **Prioridade:** desejavel
-**Dono:** a definir · **Serviços afetados:** `identidade` (dono) + `leitura` + `social` + `acervo` (consumidores) + web + mobile
+**Dono:** Henrique Carvalho · **Serviços afetados:** `identidade` (dono) + `leitura` + `social` + `acervo` (consumidores) + web + mobile
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.1 (RF-AUT-07) e §8 (Privacidade e LGPD). Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §4.2, §5.2, §7. Processo e template: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §9. Regras compartilhadas do projeto: [`../periodo-1/README.md#regras-de-implementação-compartilhadas`](../periodo-1/README.md#regras-de-implementação-compartilhadas). Em caso de conflito, o `REQUISITOS.md` ganha; protótipo é referência visual, não spec de pixel (plano §7).
 
@@ -101,3 +101,5 @@ Cada consumidor é **idempotente** (RNF-ERR-06) e com **DLQ** (RNF-ERR-07); a me
 ### Criação 28/08/2026: arquivo criado a partir do escopo de F-CONTA-2 no [periodo-2/README.md](README.md), de RF-AUT-07 do [`REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.1 e dos RNF de LGPD §8. Fan-out de limpeza cross-schema descrito como contrato pretendido; tensão RNF-SEC-41 × RF-AUT-07, evento fora dos fluxos fechados e política anonimizar-vs-remover registrados como pendências de baseline, sem reclassificação autônoma.
 
 ### Revisão 29/08/2026: inventário de limpeza passou a incluir os dados criados no Período 2 e corrigiu o ownership de avatar/capas. A idempotência foi definida por recibo técnico curto e resposta `202`, sem exigir reautenticação impossível depois da exclusão nem introduzir orquestração adicional.
+
+### Dono 29/09/2026: feature atribuída a **Henrique Carvalho** na [divisão do Período 2](README.md#divisão-do-período-2-entre-5-pessoas).

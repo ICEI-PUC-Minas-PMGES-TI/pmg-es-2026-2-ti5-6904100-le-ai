@@ -1,7 +1,7 @@
 # F-EST-2 — Favoritos, histórico e buscas
 
 **Período:** 2 · **Prioridade:** desejavel
-**Dono:** a definir · **Serviços afetados:** `leitura` (backend) + web + mobile
+**Dono:** Ana Luiza de Freitas · **Serviços afetados:** `leitura` (backend) + web + mobile
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.3 (RF-EST-09, 10, 13), RN-04 e RN-15. Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §3.1, §4.2. Processo e template: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §9. Regras compartilhadas do projeto: [`../periodo-1/README.md#regras-de-implementação-compartilhadas`](../periodo-1/README.md#regras-de-implementação-compartilhadas). Em caso de conflito, o `REQUISITOS.md` ganha; protótipo é referência visual, não spec de pixel (plano §7).
 
@@ -93,3 +93,5 @@ Favoritos e histórico permanecem recursos do próprio usuário neste escopo; a 
 ### Revisão 28/08/2026: precisão de redação — o campo `favorito` foi **adiado** por [F-EST](../periodo-1/feature-F-EST.md) (não incluído no modelo da `estante`) e é adicionado nesta feature; substituído "reservado" por "adiado" na Modelagem e nas Pendências.
 
 ### Revisão 29/08/2026: favoritos e histórico foram limitados ao próprio leitor, como RF-EST-09/10, removendo ampliação não necessária para perfis/VIEW. Favorito virou relação independente e não cria Quero ler nem altera RN-04.
+
+### Dono 29/09/2026: feature atribuída a **Ana Luiza de Freitas** na [divisão do Período 2](README.md#divisão-do-período-2-entre-5-pessoas).

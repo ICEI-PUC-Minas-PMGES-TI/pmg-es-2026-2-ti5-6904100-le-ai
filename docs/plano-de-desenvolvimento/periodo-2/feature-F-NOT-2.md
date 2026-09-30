@@ -1,7 +1,7 @@
 # F-NOT-2 — Notificações em tempo real
 
 **Período:** 2 · **Prioridade:** desejavel
-**Dono:** a definir · **Serviços afetados:** `social` (backend) + mobile
+**Dono:** Kayke · **Serviços afetados:** `social` (backend) + mobile
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.10 (RF-NOT-06) e §2.1 (escopo web). Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §3.1, §6 (Render/cold start), §2.7. Processo e template: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §9. Regras compartilhadas do projeto: [`../periodo-1/README.md#regras-de-implementação-compartilhadas`](../periodo-1/README.md#regras-de-implementação-compartilhadas). Em caso de conflito, o `REQUISITOS.md` ganha; protótipo é referência visual, não spec de pixel (plano §7).
 
@@ -86,3 +86,5 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 ### Criação 28/08/2026: arquivo criado a partir do escopo de F-NOT-2 no [periodo-2/README.md](README.md) e de RF-NOT-06 do [`REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.10. Entrega em tempo real fixada como camada de transporte sobre a notificação de F-NOT (sem evento novo), com fallback à lista e reconexão no cold start; escolha WS × SSE e viabilidade no Render registradas como pendências.
 
 ### Revisão 29/08/2026: o canal foi alinhado ao token curto de F-AUT: encerra na expiração e reutiliza refresh/reconexão do cliente, sem token em URL e sem sessão paralela. Backplane continua fora do escopo de instância única.
+
+### Dono 29/09/2026: feature atribuída a **Kayke** na [divisão do Período 2](README.md#divisão-do-período-2-entre-5-pessoas).

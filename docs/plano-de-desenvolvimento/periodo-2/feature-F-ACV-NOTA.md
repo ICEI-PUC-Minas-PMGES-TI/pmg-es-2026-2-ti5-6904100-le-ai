@@ -1,7 +1,7 @@
 # F-ACV-NOTA — Nota geral e cache de capas
 
 **Período:** 2 · **Prioridade:** desejavel
-**Dono:** a definir · **Serviços afetados:** `acervo` (backend + projeção/cache) + web + mobile
+**Dono:** Renato Douglas · **Serviços afetados:** `acervo` (backend + projeção/cache) + web + mobile
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.2 (RF-ACV-15, 16, 17), RN-06, RN-14, §10.1. Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §2.5, §3.2, §4.2, §5.2. Processo e template: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §9. Regras compartilhadas do projeto: [`../periodo-1/README.md#regras-de-implementação-compartilhadas`](../periodo-1/README.md#regras-de-implementação-compartilhadas). Em caso de conflito, o `REQUISITOS.md` ganha; protótipo é referência visual, não spec de pixel (plano §7).
 
@@ -99,3 +99,5 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 ### Revisão 28/08/2026: precisão de redação — a resolução de capa por [F-ACV-BUSCA](../periodo-1/feature-F-ACV-BUSCA.md) é leitura **intra-serviço** em `acervo`, não consumo cross-schema; `v_livro_referencia_v1` é o contrato para os consumidores **externos** (snapshots de feed em `social`). Frase da resolução de capa reescrita para distinguir os dois casos.
 
 ### Revisão 29/08/2026: projeção individual por usuário+livro passou a sustentar média/contagem e a consultar o estado atual da VIEW, cobrindo edição, exclusão e ordem de entrega sem ampliar o evento. Mobile foi incluído por compartilhar a página de livro de RF-ACV-16.
+
+### Dono 29/09/2026: feature atribuída a **Renato Douglas** na [divisão do Período 2](README.md#divisão-do-período-2-entre-5-pessoas).
