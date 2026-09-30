@@ -2,6 +2,7 @@
 
 **Período:** 1 · **Prioridade:** prioritaria
 **Dono:** Henrique Carvalho · **Serviços afetados:** `identidade` (backend) + web + mobile
+**Situação:** entregue, **em revisão** (aguarda o aval dos professores para ser marcada como concluída no GitHub Projects) desde 29/09/2026
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.1. Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §2.6, §7. Processo e template: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §9. Em caso de conflito, o `REQUISITOS.md` ganha; protótipo é referência visual, não spec de pixel (plano §7).
 
@@ -25,11 +26,11 @@ RNF atendidos: **RNF-SEC-08** (HTTPS), **RNF-SEC-09** (hash Argon2/bcrypt/scrypt
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | em andamento | `WEB_BASE_URL` entrou no `render.yaml` (base do link de recuperação); `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` e o Brevo seguem `sync: false`. **Antes do deploy:** `ADMIN_PASSWORD` em DES precisa ter 16+ caracteres e vir junto de `ADMIN_EMAIL`, senão o serviço não sobe. Prova real do Brevo (P-02) pendente. CI com Postgres 17 para a integração |
+| Infra | implementado | `WEB_BASE_URL` entrou no `render.yaml` (base do link de recuperação); `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` e o Brevo seguem `sync: false`. **Antes do deploy:** `ADMIN_PASSWORD` em DES precisa ter 16+ caracteres e vir junto de `ADMIN_EMAIL`, senão o serviço não sobe. Prova real do Brevo (P-02) pendente. CI com Postgres 17 para a integração, verde |
 | Dados | concluído | tabelas de 16/09 em uso, sem migration nova: `refresh_token`, `reset_token`, `idempotencia_identidade`; `usuario.atualizado_em` passou a ser gravado na troca de senha |
-| Backend | concluído localmente | as 7 operações de F-AUT implementadas e `implemented` no OpenAPI; `Idempotency-Key` obrigatória em todas as escritas; admin provisionado no arranque; 132 testes (unitários e integração com Postgres real). Não está em DES |
-| Web | concluído localmente | sessão com refresh e renovação no `401` serializada entre abas (Web Locks), logout, telas de recuperar, redefinir e alterar senha, configurações, política de privacidade no cadastro e nas configurações; 205 testes. Não está em DES |
-| Mobile | concluído localmente | refresh no secure storage, renovação deduplicada, logout, as mesmas telas, app link declarado (verificação pendente); 131 testes, APK de debug gerado. Não testado em emulador |
+| Backend | implementado | as 7 operações de F-AUT implementadas e `implemented` no OpenAPI; `Idempotency-Key` obrigatória em todas as escritas; admin provisionado no arranque; testes unitários e de integração com Postgres real (contagens na timeline). DES entra no merge de fechamento do Período 1 |
+| Web | implementado | sessão com refresh e renovação no `401` serializada entre abas (Web Locks), logout, telas de recuperar, redefinir e alterar senha, configurações, política de privacidade no cadastro e nas configurações; testes na timeline. DES entra no merge de fechamento do Período 1 |
+| Mobile | implementado | refresh no secure storage, renovação deduplicada, logout, as mesmas telas, app link declarado (verificação pendente); telas conferidas com os protótipos em 25/09; testes na timeline |
 
 ## Especificação
 
@@ -41,7 +42,7 @@ Todas as escritas aceitam `Idempotency-Key` conforme a convenção do [README do
 
 **Contrato HTTP canônico:** [`docs/api/identidade.yaml`](../../api/identidade.yaml). Os nomes de operação, parâmetros, schemas, respostas e `x-implementation-status` daquele arquivo prevalecem sobre exemplos resumidos desta feature. A presença de uma operação planejada no OpenAPI não declara implementação.
 
-| Operação canônica | Segurança | Entrada canônica | Saída de sucesso canônica | Situação em 24/09 |
+| Operação canônica | Segurança | Entrada canônica | Saída de sucesso canônica | Situação |
 |---|---|---|---|---|
 | `POST /auth/register` | pública | header `IdempotencyKey`; schema `CadastroRequisicao` | `201` `Usuario` | implementada; lista de senhas comuns e chave obrigatória por F-AUT |
 | `POST /auth/login` | pública | header `IdempotencyKey`; schema `LoginRequisicao` | `200` `Sessao` | implementada, com `refreshToken` e claim `papel` |
@@ -104,20 +105,20 @@ Marcado = verificado localmente por teste em 24/09/2026. Nada foi verificado em 
 - [x] Logs registram falhas de auth e troca de senha (SEC-35) **sem** senha/token/hash (SEC-36).
 - [ ] Política de privacidade versionada informa dados coletados, finalidade e retenção e está acessível no cadastro e nas configurações de web e mobile (SEC-42). *Acesso feito nos quatro lugares; o texto ainda é o mock do protótipo, o final é do grupo.*
 - [x] Repetir uma escrita com a mesma `Idempotency-Key` não repete efeito; chave reutilizada com payload diferente retorna conflito (RNF-ERR-04).
-- [ ] Fluxo cadastro→login→refresh→troca de senha→logout e recuperação por e-mail funcionam **em DES**.
+- [ ] Fluxo cadastro→login→refresh→troca de senha→logout e recuperação por e-mail funcionam **em DES**. *Entra no merge de fechamento do Período 1: a `main` só recebe o período fechado, e o DES sobe da `main`.*
 
 ## Definition of Done
 
 (plano §10 — obrigatórios para toda feature)
 
-- [x] Código (backend `identidade`, web, mobile) em `desenvolvimento` (commits locais de 24/09; push pendente)
-- [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)): depende do push
+- [x] Código (backend `identidade`, web, mobile) em `desenvolvimento` (commits de 24/09 a 29/09, de `b5cc565` em diante)
+- [x] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)): `ci-back-identidade` em `df39b20`, `ci-front` em `37b9d9a` e `ci-mobile` em `701a1e9` (29/09)
 - [x] Testes unitários e de integração com banco real/container: register (hash/18+/mínimo/lista de comuns), login (e-mail/username, inválido anti-enumeração, bloqueio progressivo e admin de ambiente), refresh (rotação atômica, replay e revogação), logout repetido, troca de senha (senha atual e invalidação de todos os refresh), forgot/reset (resposta indistinguível para conta existente/inexistente, token somente em hash, uso único, expiração em 1h, concorrência de consumo e invalidação de refresh) e replay/conflito de `Idempotency-Key` (RNF-TST-02)
 - [ ] Testes de contrato validam requisições/respostas e códigos contra os componentes canônicos de [`identidade.yaml`](../../api/identidade.yaml), inclusive que login atual evolui de `Token` para `Sessao` sem uma rota administrativa paralela. *Não há teste de contrato automatizado; o spec foi alinhado à mão e passa no `redocly lint`*
 - [x] E-mail assíncrono em processo (decisão de 24/09, sem evento nem outbox): testes simulam retentativa com backoff e o disjuntor do Brevo sem quebrar o `202` uniforme
 - [x] Testes dos serviços/estado web e mobile cobrem sessão, logout, política de privacidade e tratamento de indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
 - [x] **Spec OpenAPI de `identidade` atualizado em `docs/api/identidade.yaml`** com as rotas de conta/sessão (sobre o esqueleto de P0-NAV)
-- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
+- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)) — entra no merge de fechamento do Período 1, não é pendência da feature
 - [x] Arquivo da feature atualizado: status, pendências, timeline
 - [x] Divergência protótipo × implementação registrada, se houver
 
@@ -160,9 +161,11 @@ Marcado = verificado localmente por teste em 24/09/2026. Nada foi verificado em 
 - **Divergência de baseline:** exclusão de conta (RF-AUT-07) está alocada a **F-CONTA-2** (Período 2, desejável), mas RNF-SEC-41 pertence ao conjunto de segurança declarado Essencial. O grupo precisa resolver a prioridade pelo controle de mudança; esta feature não declara RNF-SEC-41 atendido nem altera a baseline.
 - Compartilhamento do serviço `identidade` com [F-PERFIL](feature-F-PERFIL.md): sinalizar no grupo antes de propor nova migration ou alterar entidades/DTOs compartilhados (plano §6).
 - **Depende futuramente de F-CONTA-2:** preservar um ponto de extensão no login/middleware para o acesso restrito de recuperação de conta, sem antecipar sua implementação no Período 1.
-- **Depende de** [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md) para DES e de [P0-CI](../periodo-0/feature-P0-CI.md) para o CI.
+- **"Funciona em DES" chega com o fechamento do Período 1.** A `main` só recebe cada período inteiro, no merge de fechamento, e o DES sobe da `main` ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)); por isso o item não é pendência da feature. O CI ([P0-CI](../periodo-0/feature-P0-CI.md)) já está verde. No deploy, continua valendo: `ADMIN_PASSWORD` com 16+ caracteres e acompanhado de `ADMIN_EMAIL`, senão o serviço não sobe.
 
 ## Timeline
+
+### Fechamento do Período 1 29/09/2026: feature entregue e **em revisão**, aguardando o aval dos professores. Código em `desenvolvimento` e CI verde (`ci-back-identidade`, `ci-front`, `ci-mobile`); o fluxo em DES chega com o merge de fechamento do período. Continuam abertos a prova real do Brevo (P-02), o texto final da política de privacidade e os testes de contrato.
 
 ### 29/09/2026: título "Privacidade" no celular. Mobile: `PoliticaDePrivacidadePage` usa `CabecalhoTela(titulo: 'Privacidade')` em uma linha, e o parâmetro `tituloEmDuasLinhas` saiu do `CabecalhoTela`. Web: `RouteMeta.tituloCurto` (rota `politica-de-privacidade`) repassado pelo `ShellAutenticado` ao `CabecalhoTela`, e o mesmo par de spans no `h1` de `PoliticaPublica`; "Privacidade" abaixo de 768px, "Política de privacidade" a partir dele. Divergência do protótipo registrada em Pendências.
 

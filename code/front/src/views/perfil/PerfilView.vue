@@ -16,9 +16,10 @@ import { perfilService, type Perfil } from '../../services/perfil'
  * linha com divisor. Web: coluna de identidade de 300px com os contadores empilhados, e a linha
  * de solicitações no topo da coluna direita, sobre as abas Estante/Resenhas.
  *
- * **Estante e Resenhas sempre no estado vazio** (decisão do dono de 25/09/2026): o conteúdo vem de
- * `leitura` (`listarEstantePerfil`, `listarResenhasPerfil`), ainda `planned`. Pelo mesmo motivo,
- * sem o contador `livros lidos` até existir o dado.
+ * **Resenhas do `leitura`** (`listarResenhasPerfil`, F-AVA, 27/09/2026) e **estante no estado
+ * vazio**: `listarEstantePerfil` existe, mas esta tela ainda não passa o slot `estante` a
+ * `SecoesDeLeitura` (divergência registrada em F-PERFIL). Sem o contador `livros lidos`, que o
+ * `Perfil` de `identidade` não traz.
  *
  * Sem sino na web, o perfil é o único lugar em que um pedido para seguir aparece (§1): a contagem
  * vem de uma página de um item da caixa, e falhar nela só esconde a linha.

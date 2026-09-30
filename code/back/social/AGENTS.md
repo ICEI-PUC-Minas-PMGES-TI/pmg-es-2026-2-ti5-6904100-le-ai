@@ -53,10 +53,10 @@ Feitas por F-AVA com autorização do Renato e **mergeadas na `desenvolvimento` 
 
 ## Pontos de atenção (ver `REQUISITOS.md`)
 
-- É o **consumidor** do fluxo de **notificações in-app** (fan-out); adiciona FCM em Android (arquitetura §5.2). Curtida de **atividade de feed** fica aqui; curtida de **resenha** fica em `leitura`. **Spring AMQP ainda não entrou** — mensageria é [P0-MSG](../../../docs/plano-de-desenvolvimento/periodo-0/feature-P0-MSG.md).
+- É o **consumidor** do fluxo de **notificações in-app** (fan-out); adiciona FCM em Android (arquitetura §5.2). Curtida de **atividade de feed** fica aqui; curtida de **resenha** fica em `leitura`. **Spring AMQP já entrou** (runtime de [P0-MSG](../../../docs/plano-de-desenvolvimento/periodo-0/feature-P0-MSG.md), 19/09): o `social` consome pelas filas `leai.social.feed` (F-FEED) e `leai.social.notificacoes` (F-NOT), declaradas em `messaging/MessagingConstants.java`. FCM ainda não entrou.
 - **Comentários (RN-10):** um nível de aninhamento; resposta a resposta é irmã, com menção `@username`. Menção resolve só se o username existir; sujeita a rate limiting.
 - **Recomendação P2P (RN-22):** só entre seguimento mútuo; sem aceitar/recusar; expira em 90 dias; limite de 50 ativas por par; quatro vias de remoção convergem para a mesma operação. Livro pessoal não é recomendável.
 - **Moderação (RF-MOD):** apenas resenhas e comentários são denunciáveis; painel restrito ao administrador (verificação no servidor); toda ação em **log de auditoria**.
 - Todo consumidor de mensagem é **idempotente** e valida schema; falha após o máximo de tentativas vai para **DLQ**.
 - **Rate limiting** em ações sociais — seguir, curtir, comentar, mencionar, denunciar (RNF-SEC-18).
-- **Spring Security ainda não entrou** — chega com F-AUT. Hoje os cabeçalhos de segurança vêm de um filtro próprio.
+- **Spring Security já entrou** (F-FEED): `SecurityConfig` valida o JWT HS256 emitido pelo `identidade` como resource server, com `JWT_SECRET` obrigatório (`AppProperties`, 32+ caracteres; sem ele o serviço não sobe). Os cabeçalhos de segurança continuam no `SecurityHeadersFilter` próprio, e o CORS no `CorsConfig`.

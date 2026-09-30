@@ -23,13 +23,14 @@ x-implementation-notes:
     CloudAMQP estar preenchida no painel do Render.
   - >-
     GET /livros/pessoal/{id} com via=feed depende de
-    social.v_atividade_livro_pessoal_v1 e identidade.v_seguimento_aceito_v1, que
-    existem fisicamente mas ainda não são alimentadas por F-FEED e F-PERFIL.
-    Enquanto isso nenhum terceiro obtém acesso, que é o comportamento
-    fail-closed correto.
+    social.v_atividade_livro_pessoal_v1 e identidade.v_seguimento_aceito_v1,
+    alimentadas por F-FEED e F-PERFIL desde 27/09/2026. Sem atividade ativa do
+    dono sobre o livro no feed do solicitante, por seguimento aceito, nenhum
+    terceiro obtém acesso, que é o comportamento fail-closed correto.
   - >-
-    notaDoDono e resenhaDoDono vêm das VIEWs de leitura e saem null enquanto
-    F-AVA não entrega. Ausência é resposta normal, nunca erro.
+    notaDoDono e resenhaDoDono vêm das VIEWs de leitura, alimentadas por F-AVA
+    desde 27/09/2026, e saem null quando o dono não deu nota ou não escreveu
+    resenha. Ausência é resposta normal, nunca erro.
   - >-
     livro.pagina_aberta está ligado ponta a ponta desde 26/09/2026: a primeira
     abertura de GET /livros/{id} grava sinopse pendente e a outbox na mesma
@@ -38,11 +39,11 @@ x-implementation-notes:
     falha_transitoria. Com AMQP_ENABLED=false (padrão local) a sinopse fica em
     pendente, e uma abertura depois de 15 minutos pede de novo.
   - >-
-    As resenhas da página vêm de leitura.v_resenha_publicacao_v1 e saem vazias
-    enquanto F-AVA não entrega; com a VIEW inacessível, resenhas vem null em
-    GET /livros/{id} e GET /livros/{id}/resenhas responde 503.
-x-planned-features: [F-ACV-INGESTAO]
-x-implemented-features: [F-ACV-CADASTRO, F-ACV-BUSCA]
+    As resenhas da página vêm de leitura.v_resenha_publicacao_v1, alimentada por
+    F-AVA desde 27/09/2026, filtradas por RN-08; com a VIEW inacessível,
+    resenhas vem null em GET /livros/{id} e GET /livros/{id}/resenhas
+    responde 503.
+x-implemented-features: [F-ACV-CADASTRO, F-ACV-BUSCA, F-ACV-INGESTAO]
 x-database-contracts:
   - name: v_livro_referencia_v1
     owner: acervo

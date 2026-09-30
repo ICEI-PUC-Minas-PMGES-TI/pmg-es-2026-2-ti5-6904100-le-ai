@@ -37,7 +37,7 @@ Convenções da SPA web. Complementa o [`AGENTS.md`](../../AGENTS.md) da raiz �
 - `npm run build`: verifica os tipos e gera o build de produção em `dist/`.
 - `npm run preview`: serve localmente o build de produção.
 
-Uma URL por serviço, sem gateway: `VITE_IDENTIDADE_BASE_URL` e `VITE_ACERVO_BASE_URL` (`VITE_API_BASE_URL` é o padrão legado do cliente). A capa de livro pessoal sobe direto ao Cloudinary com `VITE_CLOUDINARY_CLOUD_NAME` (o mesmo `CLOUDINARY_CLOUD_NAME` do `acervo`) e o preset unsigned `VITE_CLOUDINARY_UPLOAD_PRESET` (`leai_capas`, só jpg/png/webp). O avatar do perfil usa o mesmo caminho com `VITE_CLOUDINARY_AVATAR_PRESET` (`leai_avatares`, pasta `avatares`). Localmente, ponha os valores em `.env.local`, que o `.gitignore` já ignora.
+Uma URL por serviço, sem gateway: `VITE_IDENTIDADE_BASE_URL`, `VITE_ACERVO_BASE_URL`, `VITE_LEITURA_BASE_URL` (local na 3001, porque a 3000 é do `acervo`) e `VITE_SOCIAL_BASE_URL` (`VITE_API_BASE_URL` é o padrão legado do cliente). O `.env.example` traz os valores locais e o `render.yaml` os de DES. A capa de livro pessoal sobe direto ao Cloudinary com `VITE_CLOUDINARY_CLOUD_NAME` (o mesmo `CLOUDINARY_CLOUD_NAME` do `acervo`) e o preset unsigned `VITE_CLOUDINARY_UPLOAD_PRESET` (`leai_capas`, só jpg/png/webp). O avatar do perfil usa o mesmo caminho com `VITE_CLOUDINARY_AVATAR_PRESET` (`leai_avatares`, pasta `avatares`). Localmente, ponha os valores em `.env.local`, que o `.gitignore` já ignora.
 
 **Cliente HTTP central (`src/services/api.ts`)** — regras que valem para toda feature:
 

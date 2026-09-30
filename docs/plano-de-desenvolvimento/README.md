@@ -41,14 +41,16 @@ Cada feature pertence a um serviço, definido pela decomposição de `../orquest
 
 - [OpenAPI por serviço](../api/README.md): contratos HTTP implementados e planejados, com estado explícito por operação.
 - [Mensageria](../mensageria/README.md): envelope, catálogo e JSON Schemas canônicos dos eventos.
-- [DER implantado](../diagramas/DER.md): 59 tabelas de domínio e 9 VIEWs de contrato aplicadas no Neon em 16/09/2026.
-- [Período 1](periodo-1/README.md): divisão recomendada das dez features em cinco frentes verticais e ordem de execução.
+- [DER implantado](../diagramas/DER.md): baseline de 59 tabelas de domínio e 9 VIEWs de contrato aplicada no Neon em 16/09/2026; com as 4 tabelas de recibo `mensagem_processada` de P0-MSG (19/09/2026), são **63 tabelas**.
+- [Período 1](periodo-1/README.md): divisão das dez features em cinco frentes verticais, ordem de execução e [fechamento do período](periodo-1/README.md#fechamento-do-período-1-29092026).
 
 A baseline de dados e a existência do contrato não significam que a feature está implementada.
 
 ## Tabela-mestre de features
 
 Granularidade atual: features "maiores" — cerca de uma por módulo de RF, por banda de prioridade, dentro de um serviço. Um módulo cujos RFs cruzam bandas de prioridade vira mais de uma feature (uma por período). Poderemos granularizar mais adiante.
+
+**Situação em 29/09/2026:** as 10 features do Período 1 estão entregues em `desenvolvimento` e **em revisão** (aguardam o aval dos professores); o DES recebe o período inteiro no merge de fechamento em `main`. O estado de cada uma fica no arquivo da feature e no [fechamento do Período 1](periodo-1/README.md#fechamento-do-período-1-29092026). As features dos Períodos 2 e 3 ainda não foram iniciadas.
 
 | ID | Feature | Serviço | Período | Prioridade | RFs | Dono |
 |---|---|---|---|---|---|---|
@@ -103,4 +105,6 @@ Os 130 RFs de `../orquestador/REQUISITOS.md` §5 estão todos alocados: **54 Ess
 
 ## Próximo passo
 
-Todos os períodos têm **todas** as features detalhadas — [Período 0](periodo-0/README.md), [Período 1](periodo-1/README.md), [Período 2](periodo-2/README.md) e [Período 3](periodo-3/README.md), este último fechado em **7/7**. O detalhamento por feature terminou; o que resta é o **cross-cutting** de cada período — testes das desejáveis, refino das pendências acumuladas e o ATAM inicial — e as decisões dos donos registradas nos arquivos, que não devem ser antecipadas.
+O **Período 1 fechou em 29/09/2026** com as dez features prioritárias entregues e em revisão ([fechamento](periodo-1/README.md#fechamento-do-período-1-29092026)). Falta o ritual de fechamento do `../orquestador/plano-de-projeto.md` §12: PR `desenvolvimento` → `main` com CI verde, validação dos fluxos em DES, tag `vX.Y.Z` com GitHub Release e atualização do Documento de Arquitetura pelo grupo.
+
+O **[Período 2](periodo-2/README.md)** começa em **06/10/2026** (Sprint 5, fechamento em 03/11 com a Entrega 5): features desejáveis mais o checkpoint dos testes das prioritárias. Todos os períodos já têm as features detalhadas; as decisões dos donos registradas nos arquivos não devem ser antecipadas.

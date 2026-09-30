@@ -2,6 +2,7 @@
 
 **Período:** 1 · **Prioridade:** prioritaria
 **Dono:** Ana Luiza de Freitas · **Serviços afetados:** `leitura` (backend) + web + mobile
+**Situação:** entregue, **em revisão** (aguarda o aval dos professores para ser marcada como concluída no GitHub Projects) desde 29/09/2026
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.4 (RF-PRG-01..04), RN-17, RN-05. Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §3.1, §5.1, §5.3. Processo e template: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §9. Em caso de conflito, o `REQUISITOS.md` ganha; protótipo é referência visual, não spec de pixel (plano §7).
 
@@ -23,10 +24,10 @@ RNF atendidos: **RNF-ERR-04** (chave de idempotência na escrita — retentativa
 | Camada | Status | Observação |
 |---|---|---|
 | Dados | concluído (baseline DER) | `atualizacao_progresso`, `leitura`, `idempotencia_leitura` e `outbox_leitura`, constraints/índices/FKs versionados e aplicados no Neon em 16/09/2026; isso não implementa o domínio |
-| Infra | não iniciado | conexão/dispatcher AMQP e recibos/retry/DLQ dependem de P0-MSG; eventos sem consumidor atual não criam fila acumuladora |
-| Backend | concluído (em DES pendente) | `leitura`: registrar/listar e excluir trecho final; tempo opcional e `minutosTotais` no resumo em 27/09/2026 |
-| Web | em andamento | registrar progresso + barra de página atual/percentual |
-| Mobile | não iniciado | mesmas telas + **fila offline** (RNF-ERR-05) |
+| Infra | implementado | dispatcher/publicação AMQP de [P0-MSG](../periodo-0/feature-P0-MSG.md) ativos em `leitura`; `progresso.registrado` não tem consumidor atual e não cria fila acumuladora |
+| Backend | implementado | `leitura`: registrar/listar e excluir trecho final; tempo opcional e `minutosTotais` no resumo (27/09/2026); edição removida (29/09/2026) |
+| Web | implementado | registrar progresso, barra de página atual/percentual e tela de atualizações com exclusão do trecho final (27/09/2026); edição removida (29/09/2026) |
+| Mobile | implementado | mesmas telas + **fila offline** FIFO por leitura com pausa em falha de validação (RNF-ERR-05), mergeado pelo PR #42 (29/09/2026) |
 
 ## Especificação
 
@@ -62,41 +63,41 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 ## Critérios de aceite
 
-- [ ] Registrar progresso grava página e tempo opcional (ausente = 0, não informado; 0 a 720) e **recusa** página ≤ atual ou > total (RF-PRG-04, RN-17.2) com mensagem clara.
-- [ ] **Página atual** e **percentual** são derivados corretamente (RN-17) e exibidos; o leitor nunca informa páginas lidas nem percentual.
-- [ ] POST, DELETE e a listagem expõem resumo coerente (`paginaAtual`, `totalPaginas`, `percentualConcluido`, `minutosTotais`), inclusive em nova sessão e após recálculo.
-- [ ] Excluir intermediário exige excluir todos os posteriores, com confirmação do alcance e transação atômica; sem registros, a página atual é zero (RF-PRG-03, RN-17.6).
-- [ ] A lista de atualizações é paginada com teto server-side; exclusão exige confirmação (RNF-DES-02, RNF-USA-04).
-- [ ] Reenvio com a **mesma chave de idempotência** e payload reproduz status/corpo sem repetir efeito; reutilizá-la com payload diferente retorna `409` (RNF-ERR-04).
-- [ ] Escritas concorrentes da mesma leitura não derivam da mesma página anterior; fila offline reenvia FIFO por leitura (RNF-ARQ-05, RNF-ERR-05).
-- [ ] No mobile, registros feitos **offline** são enfileirados e reenviados ao voltar a conexão, sem duplicar (RNF-ERR-05).
-- [ ] Cada registro **zera o contador de inatividade** da leitura (RN-05, integra [F-EST](feature-F-EST.md)).
-- [ ] Data local é derivada do instante/fuso capturados automaticamente no dispositivo e preservada no reenvio offline (RN-18.2).
-- [ ] POST grava atomicamente a outbox com `businessKey=progresso:<atualizacaoProgressoId>` e payload estritamente compatível com o schema v1; DELETE recalcula os efeitos locais e uma entrega tardia consulta o estado atual sem ressuscitar exclusões.
-- [ ] Operações validam **propriedade** da leitura (SEC-02).
-- [ ] Registrar/exibir/excluir progresso funciona **em DES**.
+- [x] Registrar progresso grava página e tempo opcional (ausente = 0, não informado; 0 a 720) e **recusa** página ≤ atual ou > total (RF-PRG-04, RN-17.2) com mensagem clara. *`progresso.int-spec.ts` (422, tempo opcional); validação reforçada no cliente.*
+- [x] **Página atual** e **percentual** são derivados corretamente (RN-17) e exibidos; o leitor nunca informa páginas lidas nem percentual.
+- [x] POST, DELETE e a listagem expõem resumo coerente (`paginaAtual`, `totalPaginas`, `percentualConcluido`, `minutosTotais`), inclusive em nova sessão e após recálculo.
+- [x] Excluir intermediário exige excluir todos os posteriores, com confirmação do alcance e transação atômica; sem registros, a página atual é zero (RF-PRG-03, RN-17.6). *`progresso.int-spec.ts` (exclusão em trecho, 409, página zero); confirmação com alcance e recálculo na web e no mobile.*
+- [x] A lista de atualizações é paginada com teto server-side; exclusão exige confirmação (RNF-DES-02, RNF-USA-04). *Teto de 50 testado.*
+- [x] Reenvio com a **mesma chave de idempotência** e payload reproduz status/corpo sem repetir efeito; reutilizá-la com payload diferente retorna `409` (RNF-ERR-04).
+- [x] Escritas concorrentes da mesma leitura não derivam da mesma página anterior; fila offline reenvia FIFO por leitura (RNF-ARQ-05, RNF-ERR-05). *`progresso.int-spec.ts` ("POSTs concorrentes…"); `progresso_test.dart` ("envia FIFO por leitura…").*
+- [x] No mobile, registros feitos **offline** são enfileirados e reenviados ao voltar a conexão, sem duplicar (RNF-ERR-05). *`fila_de_progresso.dart`; `progresso_test.dart` (mesma chave e captura, fila sobrevive ao reinício do app).*
+- [x] Cada registro **zera o contador de inatividade** da leitura (RN-05, integra [F-EST](feature-F-EST.md)).
+- [x] Data local é derivada do instante/fuso capturados automaticamente no dispositivo e preservada no reenvio offline (RN-18.2).
+- [ ] POST grava atomicamente a outbox com `businessKey=progresso:<atualizacaoProgressoId>` e payload estritamente compatível com o schema v1; DELETE recalcula os efeitos locais e uma entrega tardia consulta o estado atual sem ressuscitar exclusões. *Outbox atômica, business key e schema cobertos (`progresso.int-spec.ts`); a entrega tardia só terá efeito com os consumidores do Período 2 (F-DSF/F-STA) e não tem teste ainda.*
+- [x] Operações validam **propriedade** da leitura (SEC-02).
+- [ ] Registrar/exibir/excluir progresso funciona **em DES**. *Entra no merge de fechamento do Período 1: a `main` só recebe o período fechado, e o DES sobe da `main`.*
 
 ## Definition of Done
 
 (plano §10)
 
-- [ ] Código (backend `leitura`, web, mobile) mergeado em `desenvolvimento`
-- [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
-- [ ] Testes unitários e de integração com PostgreSQL real/container: propriedade/ID alheio, estado em andamento versus encerrado, total de páginas, monotonicidade, cálculo/resumo, paginação/teto 50, ausência de edição, exclusão atômica e conflito do ID confirmado, captura/fuso/data local, idempotência HTTP e POSTs/DELETE concorrentes na mesma leitura (RNF-TST-02)
-- [ ] Testes assíncronos do produtor cobrem domínio+outbox atômicos no POST, schema/business key, entrega tardia após exclusão e falha do broker sem desfazer a escrita; recibo, deduplicação semântica, backfill e DLQ são critérios das features consumidoras (RNF-TST-03)
-- [ ] Testes web/mobile cobrem estado, confirmação, paginação e indisponibilidade/timeout; mobile cobre a **fila offline** e reenvio com a mesma chave (RNF-TST-04/05/06)
-- [ ] **Spec OpenAPI de `leitura` atualizado em `docs/api/leitura.yaml`** com os endpoints de progresso
-- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
-- [ ] Arquivo da feature atualizado: status, pendências, timeline
-- [ ] Divergência protótipo × implementação registrada, se houver
+- [x] Código (backend `leitura`, web, mobile) mergeado em `desenvolvimento` (backend e web em 27/09/2026; mobile pelo PR #42 e remoção da edição em 29/09/2026)
+- [x] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)): `ci-back-leitura`, `ci-front` e `ci-mobile` verdes na `desenvolvimento` em 29/09/2026
+- [x] Testes unitários e de integração com PostgreSQL real/container: propriedade/ID alheio, estado em andamento versus encerrado, total de páginas, monotonicidade, cálculo/resumo, paginação/teto 50, ausência de edição, exclusão atômica e conflito do ID confirmado, captura/fuso/data local, idempotência HTTP e POSTs/DELETE concorrentes na mesma leitura (RNF-TST-02). *`test/integracao/progresso.int-spec.ts`.*
+- [ ] Testes assíncronos do produtor cobrem domínio+outbox atômicos no POST, schema/business key, entrega tardia após exclusão e falha do broker sem desfazer a escrita; recibo, deduplicação semântica, backfill e DLQ são critérios das features consumidoras (RNF-TST-03). *Domínio+outbox e schema cobertos; faltam entrega tardia após exclusão e falha do broker.*
+- [x] Testes web/mobile cobrem estado, confirmação, paginação e indisponibilidade/timeout; mobile cobre a **fila offline** e reenvio com a mesma chave (RNF-TST-04/05/06). *Web: `ProgressoView.spec.ts`, `RegistrarProgresso.spec.ts`, `useRegistroProgresso.spec.ts`; mobile: `progresso_test.dart`.*
+- [x] **Spec OpenAPI de `leitura` atualizado em `docs/api/leitura.yaml`** com os endpoints de progresso (sem o `PATCH`, removido em 29/09/2026)
+- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)). *Entra no merge de fechamento do Período 1, não é pendência da feature.*
+- [x] Arquivo da feature atualizado: status, pendências, timeline
+- [x] Divergência protótipo × implementação registrada, se houver (ver Pendências)
 
 ## Pendências
 
-- **Depende de** [F-EST](feature-F-EST.md) (leitura em andamento, lock e ciclo de inatividade; a baseline física compartilhada já está aplicada, e nova migration exige coordenação), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md) e [P0-MSG](../periodo-0/feature-P0-MSG.md). P0-MSG ainda não iniciou dispatcher/consumo/retry/DLQ: F-PRG pode implementar domínio+outbox, mas não concluir a publicação em DES antes dessa fundação.
+- **Depende de** [F-EST](feature-F-EST.md) (leitura em andamento, lock e ciclo de inatividade; a baseline física compartilhada já está aplicada, e nova migration exige coordenação), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md) e [P0-MSG](../periodo-0/feature-P0-MSG.md). O runtime de P0-MSG (dispatcher, recibo, retry e DLQ) está implementado desde 19/09/2026.
 - **Sessão de leitura cronometrada** (RF-PRG-05..12, RN-16) fica **fora** — é **F-SESSAO** (Período 2). A entrada de página desta feature é a mesma que a sessão usará ao encerrar; manter o contrato compatível.
 - **Decisão do grupo incorporada em 15/09/2026:** progresso offline recompõe desafios e sequência pela data de captura, inclusive janelas encerradas. Registro manual retroativo continua proibido. Testar captura anterior a pausa/edição de desafio, sincronização tardia e exclusão do trecho final, incluindo eventos entregues depois da correção.
 - **Divergências físicas preservadas:** a divergência de `minutos` foi resolvida em 27/09/2026 — o contrato passou a 0..720, alinhado ao zero que a constraint implantada já permite (o teto 720 segue validado só na aplicação); o contrato HTTP escopa `Idempotency-Key` por ator+método+caminho, enquanto `atualizacao_progresso.chave_idempotencia` está globalmente única. A implementação segue o OpenAPI e o ledger `idempotencia_leitura`; qualquer ajuste físico entra em nova migration revisada, sem reescrever `0001`/`0002`.
-- **Impacto visual pendente:** os prompts/protótipos de `registrar-progresso.md` e `atualizacoes-de-progresso.md` precisam refletir a confirmação do trecho final, sem edição. Até essa atualização, a implementação segue RN-17 v1.8; não reproduzir a exclusão isolada de intermediários do protótipo antigo.
+- **Divergência protótipo × implementação (edição removida):** os prompts já foram atualizados em 29/09/2026 (`909e763`: `registrar-progresso.md` com o registro pausado na fila e `atualizacoes-de-progresso.md` com "Não ofereça editar"), mas os HTML em [`docs/design/periodo-1/F-PRG/prototipos/`](../../design/periodo-1/F-PRG/prototipos/) são de 15/09/2026 e ainda mostram o botão `Editar` (`atualizacoes-de-progresso.html`) e o artboard `Editar progresso` (`registrar-progresso.html`). A implementação segue RN-17 v1.8, sem edição e sem exclusão isolada de intermediários; os protótipos HTML ficam obsoletos nesses pontos até serem regenerados.
 - Persistir a **data local** da atualização (RN-18.2) desde já, para a sequência diária (Período 2) não exigir retrabalho.
 - Stack de `leitura` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
@@ -106,9 +107,11 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 ## Timeline
 
+### Fechamento 29/09/2026: feature entregue e **em revisão**, aguardando o aval dos professores. Mobile com fila offline FIFO por leitura e pausa em falha de validação (`680c97d`), mergeado pelo PR #42; remoção da edição também na web (`3c4a12e`); correções do mobile por Renato Douglas: a estante recarrega quando a leitura muda em outra tela (`bcbbc90`), a folha de registrar rola em vez de estourar (`43b4aed`) e os sufixos h/min ficam centralizados (`701a1e9`). Prompts de design atualizados sem edição (`909e763`); os protótipos HTML seguem com `Editar` (divergência registrada). Pendências remanescentes: testes de entrega tardia e de falha do broker. O DES chega com o merge de fechamento do Período 1.
+
 ### Revisão 29/09/2026: edição de progresso removida por decisão da dona (REQUISITOS v1.8); correção = excluir e registrar de novo. `PATCH /progresso/{progressoId}` retirado do OpenAPI e do backend; exclusão do trecho final e 409 de `ultimoProgressoIdConfirmado` mantidos.
 
-### Revisão 27/09/2026: tempo opcional conforme protótipo; `minutosTotais` no resumo; limiar do aviso de ritmo = 40 páginas acima da média do leitor (média de páginas lidas por registro dos demais registros da leitura; sem outros registros, média 0), calculado no cliente; backend implementado.
+### Revisão 27/09/2026: tempo opcional conforme protótipo; `minutosTotais` no resumo; limiar do aviso de ritmo = 40 páginas acima da média do leitor (média de páginas lidas por registro dos demais registros da leitura; sem outros registros, média 0), calculado no cliente; backend implementado. Web: serviço e regras de progresso (`746eb44`), registrar progresso (`3606403`) e tela de atualizações (`9107a35`).
 
 ### Revisão 17/09/2026: HTTP alinhado ao OpenAPI e evento alinhado ao catálogo/schema v1; business key, correções e responsabilidades de deduplicação delimitadas. O payload inclui páginas lidas, minutos, fuso e data local necessários aos consumidores futuros. Baseline de dados marcada como concluída no Neon; backend, AMQP, web e mobile permanecem não iniciados.
 

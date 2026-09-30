@@ -6,7 +6,8 @@ info:
     Contrato do serviço leitura. O health check está implementado pelo
     scaffolding P0-INFRA. Nota, resenha, minha avaliação e as resenhas do
     perfil estão implementadas por F-AVA (27/09/2026); os contratos de F-EST
-    estão implementados e os de F-PRG seguem planejados. Cada operação traz
+    e de F-PRG estão implementados (F-PRG em 27/09/2026, com a edição de
+    progresso removida em 29/09/2026). Cada operação traz
     `x-implementation-status`.
     Nota e resenha pertencem ao livro, não a uma ocorrência de leitura.
     Sessões cronometradas, favoritos, histórico, reações e Markdown não fazem
@@ -76,6 +77,7 @@ paths:
       summary: Adiciona um livro à estante como Quero ler
       operationId: adicionarLivroEstante
       x-implementation-status: implemented
+      x-implemented-by: F-EST
       parameters:
         - { $ref: '#/components/parameters/IdempotencyKey' }
       description: >-
@@ -104,6 +106,7 @@ paths:
       summary: Lista a estante do leitor autenticado
       operationId: listarMinhaEstante
       x-implementation-status: implemented
+      x-implemented-by: F-EST
       description: >-
         Lista paginada para agrupamento por status. O filtro de status pode ser
         combinado com a ordenação. Busca textual pertence ao Período 2.
@@ -127,6 +130,7 @@ paths:
       summary: Consulta um livro na estante do leitor autenticado
       operationId: consultarItemEstante
       x-implementation-status: implemented
+      x-implemented-by: F-EST
       parameters:
         - { $ref: '#/components/parameters/LivroId' }
       description: >-
@@ -147,6 +151,7 @@ paths:
       summary: Remove um livro em Quero ler sem histórico
       operationId: removerLivroEstante
       x-implementation-status: implemented
+      x-implemented-by: F-EST
       parameters:
         - { $ref: '#/components/parameters/LivroId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
@@ -166,6 +171,7 @@ paths:
       summary: Lista a estante autorizada de um perfil
       operationId: listarEstantePerfil
       x-implementation-status: implemented
+      x-implemented-by: F-EST
       description: >-
         Autoriza o próprio usuário e perfis públicos. Perfil privado exige
         seguimento aceito. Conteúdo de conta suspensa ou em exclusão pendente
@@ -193,6 +199,7 @@ paths:
       summary: Inicia a primeira leitura de um livro
       operationId: iniciarLeitura
       x-implementation-status: implemented
+      x-implemented-by: F-EST
       parameters:
         - { $ref: '#/components/parameters/IdempotencyKey' }
       description: >-
@@ -224,6 +231,7 @@ paths:
       summary: Inicia uma releitura de livro já concluído
       operationId: iniciarReleitura
       x-implementation-status: implemented
+      x-implemented-by: F-EST
       parameters:
         - { $ref: '#/components/parameters/IdempotencyKey' }
       description: >-
@@ -253,6 +261,7 @@ paths:
       summary: Consulta os detalhes de uma leitura própria
       operationId: detalharLeitura
       x-implementation-status: implemented
+      x-implemented-by: F-EST
       parameters:
         - { $ref: '#/components/parameters/LeituraId' }
       description: >-
@@ -274,6 +283,7 @@ paths:
       summary: Finaliza uma leitura ou releitura em andamento
       operationId: finalizarLeitura
       x-implementation-status: implemented
+      x-implemented-by: F-EST
       parameters:
         - { $ref: '#/components/parameters/LeituraId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
@@ -305,6 +315,7 @@ paths:
       summary: Abandona manualmente uma leitura em andamento
       operationId: abandonarLeitura
       x-implementation-status: implemented
+      x-implemented-by: F-EST
       parameters:
         - { $ref: '#/components/parameters/LeituraId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
@@ -330,6 +341,7 @@ paths:
       summary: Retoma uma primeira leitura abandonada
       operationId: retomarLeitura
       x-implementation-status: implemented
+      x-implemented-by: F-EST
       parameters:
         - { $ref: '#/components/parameters/LeituraId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
@@ -353,6 +365,7 @@ paths:
       summary: Consulta quantas vezes o leitor concluiu o livro
       operationId: consultarConclusoesLivro
       x-implementation-status: implemented
+      x-implemented-by: F-EST
       parameters:
         - { $ref: '#/components/parameters/LivroId' }
       responses:
@@ -642,6 +655,7 @@ paths:
       summary: Processa diariamente a inatividade das leituras
       operationId: processarInatividadeLeituras
       x-implementation-status: implemented
+      x-implemented-by: F-EST
       security:
         - schedulerToken: []
       parameters:

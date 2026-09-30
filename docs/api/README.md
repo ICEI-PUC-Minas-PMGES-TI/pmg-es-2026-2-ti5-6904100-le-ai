@@ -9,7 +9,7 @@ Um contrato OpenAPI 3.0.3 por serviço:
 
 ## Estado do contrato
 
-Os arquivos combinam operações já implementadas no Período 0 com contratos planejados para o Período 1. `x-implementation-status` ou `x-contract-status` diferencia esses estados; a presença de uma rota no spec não declara que o código existe.
+Ao fim do Período 1 (29/09/2026), todas as operações e VIEWs de contrato do Período 1 estão implementadas nos quatro serviços; o que ainda aparece como planejado pertence ao Período 2 ou a um consumidor futuro (por exemplo, `DELETE /comentarios/{id}` em `social.yaml`, de F-SOCIAL-2). `x-implementation-status` ou `x-contract-status` diferencia esses estados; a presença de uma rota no spec não declara que o código existe.
 
 Na implementação, o spec exposto em runtime (`/v3/api-docs` no Spring ou `@nestjs/swagger` no NestJS) deve permanecer equivalente ao arquivo commitado. A feature só troca o estado de `planned` após implementar e testar a operação.
 

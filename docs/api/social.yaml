@@ -43,7 +43,8 @@ x-event-consumers:
      usa a unicidade semântica definida pela feature; falhas após as retentativas seguem para DLQ. Estes contratos não
     representam endpoints HTTP.
   atividades:
-    x-implementation-status: planned-periodo-1
+    x-implementation-status: implemented
+    queue: leai.social.feed
     events:
       - leitura.iniciada
       - leitura.retomada
@@ -91,7 +92,7 @@ x-event-consumers:
       chave de negócio, retentativa, DLQ e testes. Não são gerados no Período 1.
 x-external-actions:
   abandonar-leitura-em-risco:
-    x-implementation-status: planned-periodo-1
+    x-implementation-status: implemented
     service: leitura
     method: POST
     path: /leituras/{leituraId}/abandonar

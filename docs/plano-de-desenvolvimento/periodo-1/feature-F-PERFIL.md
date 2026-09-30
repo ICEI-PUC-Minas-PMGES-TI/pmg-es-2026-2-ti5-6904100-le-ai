@@ -2,6 +2,7 @@
 
 **Período:** 1 · **Prioridade:** prioritaria
 **Dono:** Henrique Carvalho · **Serviços afetados:** `identidade` (backend) + web + mobile
+**Situação:** entregue, **em revisão** (aguarda o aval dos professores para ser marcada como concluída no GitHub Projects) desde 29/09/2026
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.9 (RF-SOC-01..08) e RN-08. Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §3.1, §4.2, §5.2, §2.5. Processo e template: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §9. Em caso de conflito, o `REQUISITOS.md` ganha; protótipo é referência visual, não spec de pixel (plano §7).
 
@@ -26,11 +27,11 @@ RNF atendidos: **RNF-SEC-01/02/03** (controle de acesso e propriedade no servido
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | em andamento | preset Cloudinary `leai_avatares` criado e provado no console em 24/09 (unsigned, pasta `avatares`, jpg/png/webp, `c_limit` 1024 px); `CLOUDINARY_CLOUD_NAME` do `identidade` e `VITE_CLOUDINARY_AVATAR_PRESET` do `leai-web` no `render.yaml`. Runtime de [P0-MSG](../periodo-0/feature-P0-MSG.md) sem prova em DES, então os eventos ainda não saíram da outbox em ambiente nenhum |
-| Dados | concluído | estrutura de 16/09 em uso, sem migration nova. Seed reproduzível (RNF-TST-08) no perfil Spring `seed`, provado contra Postgres local; **não aplicado em DES** |
-| Backend | concluído localmente | as 12 operações implementadas e `implemented` no OpenAPI; eventos na outbox na transação do fato; limites de 30/min em busca e seguir; 186 testes no serviço (integração com Postgres real). Não está em DES |
-| Web | concluído localmente | meu perfil, editar perfil com avatar direto ao Cloudinary, buscar leitor, perfil de outro leitor, conexões e solicitações; 264 testes. Não está em DES. Sem estante e resenhas (dependem de `leitura`) |
-| Mobile | concluído localmente | as mesmas telas; 167 testes, APK de debug gerado. Não testado em emulador. Sem estante e resenhas |
+| Infra | implementado | preset Cloudinary `leai_avatares` criado e provado no console em 24/09 (unsigned, pasta `avatares`, jpg/png/webp, `c_limit` 1024 px); `CLOUDINARY_CLOUD_NAME` do `identidade` e `VITE_CLOUDINARY_AVATAR_PRESET` do `leai-web` no `render.yaml`. Runtime de [P0-MSG](../periodo-0/feature-P0-MSG.md) ativo em `desenvolvimento`, com o consumidor de [F-NOT](feature-F-NOT.md) desde 27/09; a publicação em DES chega com o merge de fechamento do período e o `AMQP_URL` no painel |
+| Dados | implementado | estrutura de 16/09 em uso, sem migration nova. Seed reproduzível (RNF-TST-08) no perfil Spring `seed`, provado contra Postgres local; **não aplicado em DES** |
+| Backend | implementado | as 12 operações implementadas e `implemented` no OpenAPI; eventos na outbox na transação do fato; limites de 30/min em busca e seguir; testes unitários e de integração com Postgres real (contagens na timeline). DES entra no merge de fechamento do Período 1 |
+| Web | implementado | meu perfil, editar perfil com avatar direto ao Cloudinary, buscar leitor, perfil de outro leitor, conexões e solicitações; testes na timeline. Perfil de outro leitor com estante ([F-EST](feature-F-EST.md)) e resenhas ([F-AVA](feature-F-AVA.md)) reais desde 27/09; meu perfil com resenhas reais e a estante no estado vazio |
+| Mobile | implementado | as mesmas telas, conferidas com os protótipos em 25/09; testes na timeline. Estante e resenhas como na web: reais no perfil de outro leitor, só resenhas no meu perfil |
 
 ## Especificação
 
@@ -115,37 +116,37 @@ F-MOD-OPC/P3 também omite contas suspensas e seus seguimentos das VIEWs públic
 
 ## Critérios de aceite
 
-Marcado = verificado localmente por teste em 24/09/2026. Nada foi verificado em DES ainda.
+Marcado = verificado localmente por teste (24/09/2026, revisto no fechamento de 29/09/2026). O DES chega com o merge de fechamento do Período 1.
 
 - [ ] Editar perfil altera nome/bio/avatar/privacidade; avatar passa por validação de tipo/tamanho/dimensões no servidor (SEC-20). *A edição dos quatro campos está feita e testada. A validação do avatar no servidor é só de origem, por decisão de 24/09 (ver Especificação e Pendências): tipo, tamanho e dimensões ficam no preset e nos clientes. O texto do critério pede validação no servidor, então ele fica aberto até o grupo aceitar a troca.*
-- [ ] Perfil privado só mostra estante/resenhas/notas/listas/estatísticas a **seguidor aceito**; a checagem é **server-side** em todos os endpoints, inclusive busca e listagem (RN-08, SEC-03). *A parte de `identidade` está feita: `conteudoRestrito` e `relacao` são calculados no servidor em perfil, busca, listas e caixa, e as duas VIEWs são o contrato. Estante, resenhas e listas vivem em `leitura` e `social`, que ainda não expõem as rotas de perfil.*
+- [ ] Perfil privado só mostra estante/resenhas/notas/listas/estatísticas a **seguidor aceito**; a checagem é **server-side** em todos os endpoints, inclusive busca e listagem (RN-08, SEC-03). *A parte de `identidade` está feita: `conteudoRestrito` e `relacao` são calculados no servidor em perfil, busca, listas e caixa, e as duas VIEWs são o contrato. Estante e resenhas do perfil já saem de `leitura` (`listarEstantePerfil` e `listarResenhasPerfil`, `implemented` desde 27/09 por F-EST e F-AVA), que revalida RN-08 no servidor e responde `403` sem seguimento aceito. Ficam abertas as listas (F-LST, Período 2) e as estatísticas, por isso o critério continua desmarcado.*
 - [x] Busca encontra leitor **só por username exato**; prefixo/parcial não retorna nada e não há sugestão (SEC-19/44).
 - [x] Seguir perfil público é **imediato**; perfil privado gera **solicitação** que o destinatário aceita/recusa.
 - [x] Auto-seguimento e auto-solicitação são recusados pelo domínio (`409`) e por CHECK no banco.
 - [x] Solicitações recebidas possuem inbox paginada e só o destinatário aceita/recusa (pedido alheio é `404`, sem confirmar que existe).
 - [x] Deixar de seguir e remover seguidor funcionam e pedem confirmação (RNF-USA-04), na web e no mobile.
 - [x] Listas próprias de seguidores/seguidos são paginadas e owner-only; perfis de terceiros não expõem o grafo como diretório (RNF-DES-02, SEC-19/44).
-- [ ] `seguidor.novo`, `solicitacao.criada` e `solicitacao.aceita` são publicados após a escrita com payload versionado e destinatário correto; a geração da notificação é aceita em [F-NOT](feature-F-NOT.md). *Os três são gravados na outbox na transação do fato, com `data` validado contra o schema do catálogo, `businessKey` e destinatário conferidos em teste. A publicação em si é do dispatcher de P0-MSG, que ainda não roda em DES.*
+- [ ] `seguidor.novo`, `solicitacao.criada` e `solicitacao.aceita` são publicados após a escrita com payload versionado e destinatário correto; a geração da notificação é aceita em [F-NOT](feature-F-NOT.md). *Os três são gravados na outbox na transação do fato, com `data` validado contra o schema do catálogo, `businessKey` e destinatário conferidos em teste. A publicação em si é do dispatcher de P0-MSG; o consumo pelo `social` foi implementado por F-NOT em 27/09 (`47bbec7`). Publicação e consumo em DES chegam com o merge de fechamento do período e o `AMQP_URL` no painel.*
 - [x] `v_perfil_referencia_v1` expõe privacidade e identidade pública; `v_seguimento_aceito_v1` expõe apenas seguimentos aceitos, sem colisão com nomes de tabelas. *Definidas pela migration de 16/09; documentadas como contrato em `identidade.yaml` em 24/09.*
 - [x] Repetir uma escrita com a mesma `Idempotency-Key` não repete seguimento, solicitação ou decisão (RNF-ERR-04).
 - [x] Seed reproduzível cobre perfil público, privado, seguidor aceito, solicitação pendente e não-seguidor (RNF-TST-08). *Provado em Postgres local; não aplicado em DES.*
 - [x] Mudar de público para privado **não** remove seguidores.
-- [ ] Fluxo perfil→seguir/solicitar→aceitar→listas funciona **em DES**.
+- [ ] Fluxo perfil→seguir/solicitar→aceitar→listas funciona **em DES**. *Entra no merge de fechamento do Período 1: a `main` só recebe o período fechado, e o DES sobe da `main`.*
 
 ## Definition of Done
 
 (plano §10)
 
-- [x] Código (backend `identidade`, web, mobile) em `desenvolvimento` (commits locais de 24/09; push pendente)
-- [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)): depende do push
+- [x] Código (backend `identidade`, web, mobile) em `desenvolvimento` (commits de 24/09 a 27/09, de `5d7772d` em diante)
+- [x] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)): `ci-back-identidade` em `df39b20`, `ci-front` em `37b9d9a` e `ci-mobile` em `701a1e9` (29/09)
 - [x] Testes unitários e de integração com banco real/container, **com prioridade obrigatória para RN-08 (RNF-TST-01 e RNF-TST-02)**: seguir público/privado, inbox paginada e exclusiva do destinatário, aceitar/recusar, deixar de seguir/remover, listas próprias, busca exata, idempotência e negativa de conteúdo privado por não-seguidor (`conteudoRestrito`)
-- [ ] Matriz RN-08 cobre público, privado com dono, seguidor aceito e não-seguidor em perfil, busca e cada leitura/listagem de conteúdo; suspensão e exclusão pendente não vazam pelas VIEWs; mudança público→privado preserva seguidores. *Coberto em perfil, busca, listas, caixa e sobre o seed; conta suspensa e com exclusão pendente somem da API. Faltam as leituras de conteúdo (de `leitura`/`social`) e um teste que consulte as VIEWs diretamente.*
+- [ ] Matriz RN-08 cobre público, privado com dono, seguidor aceito e não-seguidor em perfil, busca e cada leitura/listagem de conteúdo; suspensão e exclusão pendente não vazam pelas VIEWs; mudança público→privado preserva seguidores. *Coberto em perfil, busca, listas, caixa e sobre o seed; conta suspensa e com exclusão pendente somem da API. Estante e resenhas do perfil são revalidadas e testadas em `leitura` (F-EST, F-AVA). Faltam as listas (F-LST, Período 2) e um teste que consulte as VIEWs diretamente.*
 - [ ] Testes de contrato HTTP validam requisições/respostas, `401`/`403`/`404` sem IDOR, paginação zero-based/limite 50 e todos os componentes canônicos de [`identidade.yaml`](../../api/identidade.yaml). *`401`, `404` sem IDOR e paginação estão cobertos na integração; não há teste de contrato automatizado contra o spec (mesma lacuna de F-AUT).*
 - [ ] Teste do produtor cobre, para os três eventos, validação do envelope + schema de `data`, `businessKey`, destinatário/snapshot corretos e atomicidade domínio+outbox; replay da mesma `Idempotency-Key` não cria segunda relação, solicitação ou linha de outbox (RNF-TST-03/ERR-10). *Tudo coberto, menos a atomicidade provada por falha forçada: ela vem da transação única, sem teste que derrube a escrita no meio.*
 - [ ] Testes genéricos de dispatcher, publisher confirm, broker indisponível, retry e DLQ são entregues por P0-MSG; testes de consumo duplicado/recibo e criação da notificação são entregues por F-NOT. *Não são desta feature.*
 - [x] Testes web/mobile cobrem estado dos botões, conteúdo restrito e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
 - [x] **Spec OpenAPI de `identidade` atualizado em `docs/api/identidade.yaml`** com perfil/seguidores/solicitações e as VIEWs `v_perfil_referencia_v1`/`v_seguimento_aceito_v1` documentadas como contratos
-- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
+- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)) — entra no merge de fechamento do Período 1, não é pendência da feature
 - [x] Arquivo da feature atualizado: status, pendências, timeline
 - [x] Divergência protótipo × implementação registrada, se houver
 
@@ -166,11 +167,13 @@ Marcado = verificado localmente por teste em 24/09/2026. Nada foi verificado em 
 **Decisões do dono em 25/09/2026**, na revisão contra os protótipos renderizados (regra nova de `docs/design/AGENTS.md` §10: o protótipo `.html` é a fonte visual, e falta de contrato vira pergunta ao dono, não corte):
 
 8. **Biografia no `PerfilResumo`**: a busca e as listas (seguidores, seguindo, solicitações) mostram a bio, como no protótipo. Contrato alterado em `identidade.yaml` e no backend; a bio já era pública em qualquer privacidade (RN-08), então nada novo fica exposto.
-9. **Estante e Resenhas desenhadas no estado vazio** (artboard 04 de meu-perfil) no meu perfil e no perfil de outro leitor, com as abas da web, até `leitura` expor os dados. Sem "livros lidos" nos contadores enquanto o dado não existir. Com `conteudoRestrito`, as seções não aparecem (RN-08).
+9. **Estante e Resenhas desenhadas no estado vazio** (artboard 04 de meu-perfil) no meu perfil e no perfil de outro leitor, com as abas da web, até `leitura` expor os dados. Sem "livros lidos" nos contadores enquanto o dado não existir. Com `conteudoRestrito`, as seções não aparecem (RN-08). *Superado em parte em 27/09: F-EST e F-AVA ligaram estante e resenhas às telas (ver divergências e timeline).*
 
 **Divergências protótipo × implementação** (web e mobile):
 
-- **Estante e Resenhas sempre vazias** até [F-EST](feature-F-EST.md)/[F-AVA](feature-F-AVA.md) entregarem `listarEstantePerfil` e `listarResenhasPerfil`; sem "Ver todas" nas resenhas (não há destino) e sem a grade de capas no skeleton.
+- **Estante própria no estado vazio.** Desde 27/09 o perfil de outro leitor mostra a estante ([F-EST](feature-F-EST.md), `listarEstantePerfil`) e as resenhas ([F-AVA](feature-F-AVA.md), `listarResenhasPerfil`), e o meu perfil mostra as resenhas; a estante do meu perfil continua no vazio do artboard 04, mesmo com `listarEstantePerfil` disponível (web e mobile não passam o conteúdo à seção; no mobile, "Ver tudo" leva à aba Estante). O protótipo desenha a grade de capas.
+- **"Ver mais resenhas" no lugar de "Ver todas"**: as resenhas do perfil carregam mais itens na própria seção, sem a página separada do protótipo.
+- **Sem "livros lidos" nos contadores**, no meu perfil e no de outro leitor: o protótipo desenha o contador, e o `Perfil` de `identidade` não traz o dado.
 - **Sem pronome de gênero.** Os protótipos escrevem "ele"/"ela" deduzindo pelo nome ("As atividades dela saem do seu feed"). O produto não guarda gênero, e adivinhar pelo nome erra com gente real; as frases usam "essa pessoa" e o primeiro nome. **Sugestão para o grupo:** corrigir os prompts e protótipos.
 - "Você vê este perfil porque Beatriz aceitou sua solicitação" segue como "porque segue Beatriz": quem seguiu com o perfil ainda público não teve pedido aceito, e a frase do protótipo seria falsa nesse caso (mantida na revisão de 25/09).
 - **Sem o estado "consulta parcial"** da busca: distinguir `rafa` de um nome inexistente exigiria o servidor revelar que existem nomes começando assim (RNF-SEC-19). A ilustração do vazio comum entrou.
@@ -186,16 +189,20 @@ Marcado = verificado localmente por teste em 24/09/2026. Nada foi verificado em 
 - **Pedidos pendentes quando o perfil volta a público** continuam pendentes; nenhuma fonte define se deveriam virar seguimento.
 - **Limite de produto da biografia** (hoje só o teto técnico de 1000).
 - **Seed em DES:** depende do deploy de F-PERFIL e de alguém rodar com `SEED_SENHA`. A parte de estados de leitura é de F-EST e a de `social` das features donas.
-- **Eventos em DES:** dependem da prova de P0-MSG; a criação da notificação é de [F-NOT](feature-F-NOT.md).
+- **Eventos em DES:** chegam com o merge de fechamento do período e o `AMQP_URL` no painel; o consumo e a criação da notificação são de [F-NOT](feature-F-NOT.md), implementados em 27/09.
 - **Testes de contrato** automatizados contra `identidade.yaml` e teste de atomicidade com falha forçada (itens do DoD).
 - **Limites e bloqueios em memória** (`LimitePorUsuario`): aceitável com uma instância no Render (RNF-ARQ-04).
 - **Comentário desatualizado em outra feature:** `code/back/acervo/src/db/contratos-externos.ts` diz que F-PERFIL não está implementada. É arquivo do `acervo`; fica para o dono.
 - **Divergência de baseline em RF-SOC-02:** listas pertencem a F-LST no Período 2. RF-SOC-02 não é marcado integralmente fechado até o grupo resolver a alocação das listas pelo controle de mudança.
 - **Compartilha o serviço `identidade` com [F-AUT](feature-F-AUT.md):** nenhuma migration nova foi criada; coordenar qualquer ajuste de entidade ou DTO compartilhado (plano §6).
 - **Depende futuramente de F-CONTA-2:** as VIEWs e as rotas já ocultam conta com exclusão pendente sem remover dados.
-- **Depende de** [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md) para DES, [P0-CI](../periodo-0/feature-P0-CI.md) para o CI e [P0-MSG](../periodo-0/feature-P0-MSG.md) para a publicação dos eventos.
+- **"Funciona em DES" chega com o fechamento do Período 1.** A `main` só recebe cada período inteiro, no merge de fechamento, e o DES sobe da `main` ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)); por isso o item não é pendência da feature. O CI ([P0-CI](../periodo-0/feature-P0-CI.md)) já está verde, e a publicação dos eventos usa o runtime de [P0-MSG](../periodo-0/feature-P0-MSG.md).
 
 ## Timeline
+
+### Fechamento do Período 1 29/09/2026: feature entregue e **em revisão**, aguardando o aval dos professores. Código em `desenvolvimento` e CI verde (`ci-back-identidade`, `ci-front`, `ci-mobile`); o fluxo em DES chega com o merge de fechamento do período. Continuam abertos a validação do avatar no servidor (aceite do grupo), RN-08 nas listas (F-LST), os testes de contrato e o de atomicidade com falha forçada.
+
+### Estante e resenhas no perfil 27/09/2026: [F-EST](feature-F-EST.md) (Ana Luiza) ligou a estante ao perfil de outro leitor (`listarEstantePerfil`, web `f36c609`, mobile `1c359c7`), com `403` levando ao bloco de restrição; [F-AVA](feature-F-AVA.md) (Renato) ligou as resenhas ao meu perfil e ao de outro leitor (`listarResenhasPerfil`, web `733d8a3`, mobile `55657b5`), com livro, nota, spoiler e "Ver mais resenhas". A estante do meu perfil continua no vazio; divergências registradas em Pendências.
 
 ### Organização 27/09/2026: refatoração estrutural, sem mudança de comportamento, contrato, rota ou migration. Backend: `perfil/` e `seguimento/` divididos em `controller/`, `dto/`, `service/`, `validacao/` e `config/`, no padrão do `social`; `ValidadorDeAvatarTest` foi para `perfil/validacao/`. Viraram `public` só os membros chamados de outra camada: `PerfilResposta.proprio`/`de`, `Pagina.de`/`validar` e `ResultadoSeguir.seguindo`/`pendente`. Web: views de F-PERFIL em `views/perfil/`. Estrutura registrada nos `AGENTS.md` do `identidade` e da web. Testes: `identidade` 191 (69 de integração ignorados, sem Postgres local), web 557, as mesmas contagens de antes da mudança.
 

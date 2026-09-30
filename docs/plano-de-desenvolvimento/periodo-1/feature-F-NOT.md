@@ -2,6 +2,7 @@
 
 **Período:** 1 · **Prioridade:** prioritaria
 **Dono:** Kayke · **Serviços afetados:** `social` (backend) + mobile (sem web — ver Status)
+**Situação:** entregue, **em revisão** (aguarda o aval dos professores para ser marcada como concluída no GitHub Projects) desde 27/09/2026
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.10 (RF-NOT-01..04) e §2.1 (escopo web). Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §3.1, §5.2, §2.7. Processo e template: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §9. Em caso de conflito, o `REQUISITOS.md` ganha; protótipo é referência visual, não spec de pixel (plano §7).
 
@@ -26,7 +27,7 @@ RNF atendidos: **RNF-ERR-06** (consumidor idempotente), **RNF-ERR-07** (DLQ), **
 | Dados | concluído (baseline físico) | DER implantado no Neon em 16/09: `notificacao`, índices, `idempotencia_social` e `outbox_social`; `mensagem_processada` veio de P0-MSG. F-NOT não criou migration |
 | Backend | implementado | `social`: consumidor dos 8 eventos, `GET /notificacoes`, `POST /notificacoes/marcar-lidas`; ação de abandonar exposta como `acao` (quem executa é `leitura`) |
 | Web | **não aplicável** | notificações estão **fora do escopo web** (`REQUISITOS.md` §2.1) |
-| Mobile | implementado | tela empilhada na aba de origem, badge no sino de todo cabeçalho do shell, marcar lida ao abrir e `Marcar todas`, abandonar com confirmação; destinos provisórios nas pendências |
+| Mobile | implementado | sub-rota da aba de origem, mas temporária: abre e fecha sem animação e fecha antes de trocar de aba (29/09); badge no sino de todo cabeçalho do shell, marcar lida ao abrir e `Marcar todas`, abandonar com confirmação; destinos provisórios nas pendências |
 
 ## Especificação
 
@@ -34,7 +35,7 @@ RNF atendidos: **RNF-ERR-06** (consumidor idempotente), **RNF-ERR-07** (DLQ), **
 
 Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + correlation-id e mensagens pt-BR. Acesso a dados por ORM/consulta parametrizada (SEC-12). IDs não sequenciais (SEC-05). Só o **dono** lê e marca suas notificações (SEC-02). Escritas HTTP aceitam `Idempotency-Key` conforme o [README do período](README.md#regras-de-implementação-compartilhadas).
 
-**Pré-requisito de execução:** o DER já implantado não substitui [P0-MSG](../periodo-0/feature-P0-MSG.md). O consumidor só pode entrar em DES depois de P0-MSG entregar conexão/consumer reutilizável, envelope/validador, `mensagem_processada` e a política operacional de retry/DLQ; até lá nenhum evento gera notificação.
+**Pré-requisito de execução:** o DER já implantado não substitui [P0-MSG](../periodo-0/feature-P0-MSG.md). O consumidor depende de P0-MSG entregar conexão/consumer reutilizável, envelope/validador, `mensagem_processada` e a política operacional de retry/DLQ — entregues em 19/09/2026.
 
 - **Geração (RF-NOT-01)** — pela fila durável `leai.social.notificacoes`, `social` consome os eventos de notificação de §7.2 **disponíveis no Período 1** e grava uma `notificacao` para o destinatário. A fila liga-se a `leai.events.identidade` para os três eventos de perfil, a `leai.events.social` para os três eventos de interação e a `leai.events.leitura` para os dois eventos de inatividade, sempre com routing key igual ao nome exato do evento:
 
@@ -77,21 +78,21 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [x] Lista de notificações é **paginada** e mostra **não lidas** com contagem (RF-NOT-02, RNF-DES-02).
 - [x] Marcar lidas funciona **individual e em lote** (RF-NOT-03); só o dono acessa/altera as suas (SEC-02).
 - [x] Marcar lidas repetidamente com a mesma `Idempotency-Key` mantém o mesmo resultado (RNF-ERR-04).
-- [ ] A notificação de **leitura em risco** exige confirmação antes do abandono autenticado em F-EST; propriedade e estado são revalidados (RF-NOT-04, RNF-USA-04). *Ação, modal e chamada autenticada com `Idempotency-Key` prontos; o `abandonar` de `leitura` revalida dono e estado.*
+- [x] A notificação de **leitura em risco** exige confirmação antes do abandono autenticado em F-EST; propriedade e estado são revalidados (RF-NOT-04, RNF-USA-04). *Ação, modal e chamada autenticada com `Idempotency-Key` testados em `notificacoes_page_test.dart` (cancelar não chama o `leitura`; confirmar chama uma vez); o `abandonar` de `leitura` (`implemented` em `leitura.yaml`) revalida dono e estado.*
 - [x] Novos tipos de evento (Período 2+) podem ser adicionados **sem remodelar** o consumidor.
-- [ ] Geração e leitura de notificações funcionam **em DES** (mobile).
+- [ ] Geração e leitura de notificações funcionam **em DES** (mobile). *(Entra no merge de fechamento do Período 1: a `main` só recebe o período fechado, e o DES sobe da `main`.)*
 
 ## Definition of Done
 
 (plano §10)
 
-- [ ] Código (backend `social`, mobile) mergeado em `desenvolvimento`
-- [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
+- [x] Código (backend `social`, mobile) mergeado em `desenvolvimento` em 27/09/2026 (`f42a600`, push direto, sem PR); os ajustes de 29/09 (`17f9aa7`, `75d53be`) também estão na `desenvolvimento`
+- [x] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)) — `ci-back-social` verde em `f42a600` (27/09) e `ci-mobile` em `701a1e9` (29/09), na `desenvolvimento`
 - [x] Testes unitários e de integração com banco real/container: lista paginada, propriedade, não lidas, marcação individual/lote, idempotência HTTP e vínculo da ação de abandonar (RNF-TST-02)
 - [ ] Testes assíncronos de integração cobrem os oito bindings e schemas v1, destinatário, atomicidade efeito+recibo, ACK pós-commit, duplicação por `eventId`, duplicação semântica por `businessKey`, novo ciclo de inatividade, rejeição imediata de mensagem inválida, retry 1/5/15 e `leai.social.notificacoes.dlq` (RNF-TST-03). *Falta só o retry 1/5/15 e um teste dedicado de ACK pós-commit, ambos do runtime compartilhado de P0-MSG.*
 - [x] Mobile testa estado, paginação, ação de abandonar e indisponibilidade/timeout com API simulada (RNF-TST-04/06)
 - [x] **Spec OpenAPI de `social` atualizado em `docs/api/social.yaml`** com os endpoints de notificação
-- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)) — **web N/A** (notificações fora do escopo web, §2.1); justificativa registrada aqui em vez de remover o item
+- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)) — **web N/A** (notificações fora do escopo web, §2.1); justificativa registrada aqui em vez de remover o item. O mobile entra no merge de fechamento do Período 1: a `main` só recebe o período fechado, e o DES sobe da `main`; não é pendência da feature
 - [x] Arquivo da feature atualizado: status, pendências, timeline
 - [x] Divergência protótipo × implementação registrada, se houver
 
@@ -131,12 +132,12 @@ Fonte no código: `notificacao/model/EventoDeNotificacao.java` (uma linha por ev
 
 - **Depende de** [F-PERFIL](feature-F-PERFIL.md) (eventos de seguir), [F-FEED](feature-F-FEED.md) (eventos de atividade/resposta; menção arbitrária fica em F-SOCIAL-2), [F-EST](feature-F-EST.md) (eventos de leitura em risco/expirada e o `abandonar` de RF-NOT-04), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md) e [P0-MSG](../periodo-0/feature-P0-MSG.md) (broker, envelope, DLQ, idempotência, schema).
 - **Compartilha `social` com [F-FEED](feature-F-FEED.md)** — sinalizar no grupo antes de mexer (plano §6).
-- **Integração com F-EST (27/09):** `leitura` já publica `leitura.em_risco`/`leitura.expirada` (job de inatividade) e implementa `POST /leituras/{id}/abandonar`; falta só conferir a cadeia completa em DES.
-- **Destinos provisórios no mobile:** curtida, comentário e resposta levam ao `/feed` (o feed mobile ainda é placeholder e não há tela de comentários); `Registrar progresso` leva à estante (F-PRG ainda sem tela no app). Trocar para os destinos de notificacoes.md §4 quando F-FEED mobile e F-PRG mobile existirem.
-- **Divergências protótipo × implementação:** (1) o texto do modal não diz "seu progresso até a página 62": `leitura.em_risco` não carrega a página, então fica "seu progresso continua salvo"; (2) o tempo usa o `tempoDeEspera` de F-PERFIL ("há 1 hora", "há 2 dias"), não "há 1 h"/"ontem" do protótipo, por consistência entre telas; (3) o divisor do header segue a simplificação de P0-NAV (sempre visível quando não há linha de contexto) em vez de aparecer só na rolagem.
-- **Corrigido de passagem em `social`, afeta F-FEED:** o `MessageValidator` não registrava os schemas de `atividade.curtida`, `atividade.comentada` e `comentario.respondido`, e o publicador valida antes de publicar: os eventos de interação gravados por F-FEED na outbox seriam recusados na publicação. Agora os três schemas estão registrados (também são consumidos aqui). Avisar o dono de F-FEED.
+- **Integração com F-EST (27/09):** `leitura` já publica `leitura.em_risco`/`leitura.expirada` (job de inatividade) e implementa `POST /leituras/{id}/abandonar`. A cadeia completa em DES chega com o merge de fechamento do Período 1.
+- **Destinos provisórios no mobile (pendência aberta):** `destinoDaNotificacao` (`lib/features/notificacoes/rotas_notificacoes.dart`) ainda leva curtida, comentário e resposta à raiz do feed, e `Registrar progresso` à raiz da estante. Os destinos de notificacoes.md §4 já existem no app — o feed mobile com a folha de comentários entrou em 27/09 (F-FEED) e o registro de progresso em `lib/features/progresso/` (`rotaProgressoDaLeitura`, F-PRG, 29/09) —, falta trocar os destinos e os comentários do código que ainda dizem que o feed é placeholder e que F-PRG não tem tela.
+- **Divergências protótipo × implementação:** (1) o texto do modal não diz "seu progresso até a página 62": `leitura.em_risco` não carrega a página, então fica "seu progresso continua salvo"; (2) o tempo usa o `tempoDeEspera` de F-PERFIL ("há 1 hora", "há 2 dias"), não "há 1 h"/"ontem" do protótipo, por consistência entre telas; (3) o divisor do header segue a simplificação de P0-NAV (sempre visível quando não há linha de contexto) em vez de aparecer só na rolagem; (4) desde 29/09, o protótipo pede "Tela empilhada" (notificacoes.md), mas a implementação é uma camada sem transição que fecha ao trocar de aba (ver Decisões de implementação).
+- **Corrigido de passagem em `social`, afeta F-FEED:** o `MessageValidator` não registrava os schemas de `atividade.curtida`, `atividade.comentada` e `comentario.respondido`, e o publicador valida antes de publicar: os eventos de interação gravados por F-FEED na outbox seriam recusados na publicação. Agora os três schemas estão registrados (também são consumidos aqui), em `6fc6054` (27/09); F-FEED e F-NOT têm o mesmo dono.
 - **Ambiente local do mobile:** `SOCIAL_BASE_URL` (padrão `http://localhost:8081`) e `LEITURA_BASE_URL` (padrão `http://localhost:3001`, suba o `leitura` com `PORT=3001`, porque `acervo` também usa a 3000).
-- **DES/HML:** falta conferir o fluxo em DES depois do merge (item do DoD).
+- **DES/HML:** "funciona em DES" chega com o fechamento do Período 1 — a `main` só recebe o período fechado, e o DES sobe da `main`.
 - **Eventos futuros sem contrato:** recomendação recebida e lembrete de sequência não constam nas listas fechadas de mensageria dos documentos-mestre. F-REC-P2P/F-GAM-OPC devem propor os contratos e donos dos testes pelo controle de mudança antes de estender este consumidor.
 - **Ficam fora:** preferências de categoria (RF-NOT-05, Período 3), **tempo real** (RF-NOT-06, **F-NOT-2** Período 2), **push FCM** (RF-NOT-07, Período 3).
 - Stack de `social` definida: **Spring (Java)** (arquitetura §2.1).
@@ -145,7 +146,9 @@ Fonte no código: `notificacao/model/EventoDeNotificacao.java` (uma linha por ev
 
 ### Correção 29/09/2026: as notificações do mobile deixam de ficar empilhadas na aba de origem e abrem e fecham sem animação. Trocar de aba pela barra inferior, ou abrir uma notificação de destino em outra aba, fecha a tela antes, e a aba volta à tela que estava por baixo. Testes de roteador cobrindo a raiz, a sub-tela, o destino em outra aba, o fechamento em dois quadros, a abertura sem transição e a seta de voltar.
 
-### Implementação 26/09/2026: consumidor de notificações em `social` para os oito eventos do Período 1 (fila única nos três exchanges, snapshot no consumo, deduplicação por `eventId` e por chave de negócio), `GET /notificacoes` com total de não lidas e ator oculto quando perde visibilidade, `POST /notificacoes/marcar-lidas` idempotente e tudo-ou-nada por dono. Mobile com a tela de notificacoes.md, badge no sino e ação de abandonar confirmada. Spec ganhou `LivroDaNotificacao`. Testes: 25 novos em `social` (Postgres real), 16 no mobile, e E2E manual com RabbitMQ real. Pendências de F-EST, destinos provisórios e divergências registradas acima.
+### Em revisão 27/09/2026: backend `social` e mobile mergeados em `desenvolvimento` (`f42a600`) com CI verde; a feature fica **em revisão** até o aval dos professores. O DES chega com o merge de fechamento do Período 1.
+
+### Implementação 26–27/09/2026 (commits `47bbec7`, `a592779` e `6fc6054` em 27/09, mergeados no mesmo dia): consumidor de notificações em `social` para os oito eventos do Período 1 (fila única nos três exchanges, snapshot no consumo, deduplicação por `eventId` e por chave de negócio), `GET /notificacoes` com total de não lidas e ator oculto quando perde visibilidade, `POST /notificacoes/marcar-lidas` idempotente e tudo-ou-nada por dono. Mobile com a tela de notificacoes.md, badge no sino e ação de abandonar confirmada. Spec ganhou `LivroDaNotificacao`. Testes: 25 novos em `social` (Postgres real), 16 no mobile, e E2E manual com RabbitMQ real. Pendências de F-EST, destinos provisórios e divergências registradas acima.
 
 ### Alinhamento 17/09/2026: endpoints foram igualados ao `docs/api/social.yaml`; eventos, exchanges, fila `leai.social.notificacoes`, recibo/efeito transacional, chaves semânticas e retry/DLQ foram igualados ao catálogo e ao P0-MSG. O status passou a reconhecer a tabela de notificação implantada no Neon sem alegar implementação do serviço.
 

@@ -6,7 +6,8 @@
 # (RNF-SEC-34). SEGREDOS NÃO FICAM AQUI: use `sync: false` e preencha o valor
 # no painel do Render (RNF-SEC-11). HTTPS é terminado pelo Render (RNF-SEC-08).
 #
-# Banco: um projeto único no Neon, um schema por serviço (arquitetura §4.1).
+# Banco: o projeto Neon do DES (`le-ai-oregon`, separado do de dev desde
+# 25/09), um schema por serviço (arquitetura §4.1).
 # O Drizzle qualifica tabelas pelo pgSchema e o Spring fixa DB_SCHEMA. A URL
 # do Neon nao precisa carregar `options=-csearch_path`, rejeitado pelo pooler.
 #
@@ -84,6 +85,11 @@ services:
       # Preencher no painel ANTES do merge na main, com o MESMO valor do
       # leai-identidade.
       - key: JWT_SECRET
+        sync: false
+      # F-EST: token do POST /internal/jobs/inatividade (RN-05), chamado pelo
+      # workflow job-inatividade. Mínimo de 32 caracteres; o MESMO valor vai no
+      # secret LEITURA_SCHEDULER_TOKEN do GitHub. Sem ele o job responde 401.
+      - key: SCHEDULER_TOKEN
         sync: false
 
   # ------------------------------------------------------------ identidade
@@ -174,6 +180,10 @@ services:
         value: "true"
       - key: AMQP_URL
         sync: false
+      # F-FEED/F-NOT: obrigatório (AppProperties exige @NotBlank, 32+ caracteres);
+      # sem ele o serviço não sobe. MESMO valor do leai-identidade.
+      - key: JWT_SECRET
+        sync: false
 
   # ------------------------------------------------------- site estático web
   - type: web
@@ -201,6 +211,10 @@ services:
       # web do DES chamaria `undefined/...`.
       - key: VITE_LEITURA_BASE_URL
         value: https://leai-leitura.onrender.com
+      # F-FEED e F-NOT: feed, curtidas, comentários e notificações. Sem ela a
+      # web do DES chamaria `undefined/...`.
+      - key: VITE_SOCIAL_BASE_URL
+        value: https://leai-social.onrender.com
       # Capa de livro pessoal direto ao Cloudinary. Não é segredo: o preset é
       # UNSIGNED e público por natureza (P-09); o cloud é o mesmo do acervo.
       - key: VITE_CLOUDINARY_CLOUD_NAME

@@ -29,7 +29,7 @@ erDiagram
     string snap_usuario_username
     string snap_usuario_avatar
     string snap_livro_titulo
-    string snap_livro_autor
+    string snap_livro_autor "nullable desde 27/09 (livro oficial sem autor)"
     string snap_livro_capa
     bool ativo "livro/atividade removidos"
     timestamp criado_em
@@ -46,6 +46,7 @@ erDiagram
     uuid autor_id "→ identidade.usuario"
     uuid comentario_raiz_id FK "nullable; FK composta com atividade_id; um nível de resposta"
     uuid respondido_usuario_id "→ identidade.usuario; nullable"
+    uuid comentario_respondido_id FK "nullable; alvo da resposta; FK composta com atividade_id; ON DELETE SET NULL"
     string texto "cru; menções com username"
     timestamp criado_em
     timestamp atualizado_em "edição em P2"

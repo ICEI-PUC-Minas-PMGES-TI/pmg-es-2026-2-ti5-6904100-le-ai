@@ -38,7 +38,7 @@ Livro (oficial e pessoal), autor, editora, série, busca e filtros, ingestão, s
   DATABASE_URL_TESTE=postgresql://postgres:teste@localhost:55432/leai_teste npm run test:integration
   ```
   No CI, o `ci-back-acervo.yml` sobe um service container de Postgres.
-- **OpenAPI:** `@nestjs/swagger` em runtime (`/docs`); esqueleto commitado em [`docs/api/acervo.yaml`](../../../docs/api/acervo.yaml) (RNF-ARQ-03).
+- **OpenAPI:** `@nestjs/swagger` em runtime (`/docs`); contrato commitado em [`docs/api/acervo.yaml`](../../../docs/api/acervo.yaml) (RNF-ARQ-03), com as 12 operações de F-ACV-BUSCA e F-ACV-CADASTRO `implemented`.
 
 ## Pontos de atenção (ver `REQUISITOS.md`)
 

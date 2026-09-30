@@ -125,7 +125,7 @@ Estrutura mínima do arquivo de feature: objetivo (referenciando a seção de `R
 ## 7. Branches, commits e releases
 
 - **`desenvolvimento`** — branch de trabalho; todo mundo commita direto. CI roda lint, build e testes a cada push.
-- **`main`** — sempre verde e deployável; merge dispara deploy em DES/HML. **`desenvolvimento` → `main` sempre por PR com CI verde** (único portão obrigatório). **Ninguém commita direto em `main`.**
+- **`main`** — sempre verde e deployável; merge dispara deploy em DES/HML. **`desenvolvimento` → `main` sempre por PR com CI verde e uma aprovação** (portões obrigatórios; a proteção da `main` exige a aprovação). **Ninguém commita direto em `main`.**
 - **`feat/<slug>`** — opcional, para isolar refatoração grande, experimento ou mudança que quebra a build pela metade. Manter curta.
 - **Tags** `vX.Y.Z` ao fim de cada período → GitHub Release (o artefato "Release do software" da disciplina).
 - `git pull --rebase` antes de começar e antes de subir. Quem quebrou a `desenvolvimento` conserta ou reverte na hora.
@@ -185,7 +185,7 @@ O `REQUISITOS.md` §8 organiza a segurança pelo **OWASP Top 10 (2021)**; todos 
 
 - Cada serviço expõe seu spec em runtime (`/v3/api-docs` no Spring, `@nestjs/swagger` no Nest) e **commita** em `docs/api/<servico>.yaml`. Atualizar é item do DoD.
 - **Um spec por serviço**, nunca por feature. A feature atualiza o spec do serviço que mexeu.
-- Um Swagger UI único agregará todos os specs quando `docs/api/` e `docker-compose.docs.yml` forem criados no período-0 (`docker compose -f docker-compose.docs.yml up` → `localhost:8080`).
+- Um Swagger UI único agrega os quatro specs de `docs/api/` via `docker-compose.docs.yml` (`docker compose -f docker-compose.docs.yml up` → `localhost:8080`).
 
 Contratos assíncronos:
 

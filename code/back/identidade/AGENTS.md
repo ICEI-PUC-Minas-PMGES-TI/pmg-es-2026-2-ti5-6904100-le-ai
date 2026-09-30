@@ -12,7 +12,7 @@ Usuário, autenticação, perfil, privacidade, seguidores e solicitações de se
 - **Schema:** `identidade`, no PostgreSQL único do Neon. Só este serviço cria migration das suas tabelas.
 - Leitura por outros serviços apenas via **VIEW** exposta e mantida por este serviço (ex.: relação de seguir para a recomendação algorítmica em `social`).
 
-> **Scaffolding concluído (P0-INFRA, 12/09/2026):** esqueleto Spring Boot executável com health, corpo de erro padrão, correlation-id, CORS restrito, cabeçalhos de segurança, config validada no boot e migration inicial do schema. Sem tabelas de domínio ainda.
+> **Scaffolding concluído (P0-INFRA, 12/09/2026):** esqueleto Spring Boot executável com health, corpo de erro padrão, correlation-id, CORS restrito, cabeçalhos de segurança, config validada no boot e migration inicial do schema. Nessa data ainda não havia tabelas de domínio; elas vieram com P0-NAV e o DER (abaixo).
 >
 > **P0-NAV (14/09/2026):** primeira tabela de domínio (`usuario`), Spring Security + JWT HS256, `POST /auth/register`, `POST /auth/login`, `GET /me`, rate limiting por IP e bloqueio progressivo por identidade. Ver "Pontos de atenção" abaixo, que estava desatualizado nesses itens.
 >
@@ -21,13 +21,15 @@ Usuário, autenticação, perfil, privacidade, seguidores e solicitações de se
 > idempotência e outbox, além das VIEWs de contrato, foram versionadas. A
 > existência da estrutura não significa que as features correspondentes estejam
 > implementadas.
+>
+> **Período 1 (24–29/09/2026):** [F-AUT](../../../docs/plano-de-desenvolvimento/periodo-1/feature-F-AUT.md) e [F-PERFIL](../../../docs/plano-de-desenvolvimento/periodo-1/feature-F-PERFIL.md) implementadas e em revisão: token de renovação rotativo, logout, troca e recuperação de senha (Brevo), admin provisionado, perfil, privacidade, seguir/solicitar e listas de seguidores, com os eventos `seguidor.novo`, `solicitacao.criada` e `solicitacao.aceita` pela outbox. Todas as operações de [`identidade.yaml`](../../../docs/api/identidade.yaml) estão `implemented`.
 
 ## Estrutura, comandos e ferramentas (P0-INFRA)
 
 - **Runtime:** **JDK 21 LTS** (Temurin no CI). O `maven-enforcer-plugin` recusa o build em outro JDK.
 - **Build:** **Maven** com wrapper — `mvnw` / `mvnw.cmd` / `.mvn/wrapper/maven-wrapper.properties` versionados, tipo `only-script` (**sem jar no repositório**). Ninguém precisa de Maven instalado.
 - **Versões fixadas (RNF-SEC-25):** Maven não tem lockfile. O papel dele é feito por três coisas juntas: `spring-boot-starter-parent:4.1.1` (BOM que fixa toda a árvore transitiva), a única versão declarada à mão (`springdoc-openapi 3.1.1`, que está fora do BOM) e a regra `banDynamicVersions` do enforcer, que proíbe faixa de versão.
-- **ORM/migrations:** **Flyway** (`flyway-core` + `flyway-database-postgresql` + o módulo `spring-boot-flyway`). Migrations em `src/main/resources/db/migration/V<timestamp>__<descricao>.sql` — SQL revisável, **cada uma revisada por humano** antes de subir (plano §5); só tabelas do schema `identidade`. `spring.flyway.default-schema` mantém a `flyway_schema_history` **dentro** do schema do serviço. Aplicadas no boot; `FLYWAY_ENABLED=false` sobe o serviço sem banco (dev). **Spring Data JPA** está no projeto, mas ainda sem nenhuma `@Entity` — `ddl-auto: none`, o Flyway é o dono do schema.
+- **ORM/migrations:** **Flyway** (`flyway-core` + `flyway-database-postgresql` + o módulo `spring-boot-flyway`). Migrations em `src/main/resources/db/migration/V<timestamp>__<descricao>.sql` — SQL revisável, **cada uma revisada por humano** antes de subir (plano §5); só tabelas do schema `identidade`. `spring.flyway.default-schema` mantém a `flyway_schema_history` **dentro** do schema do serviço. Aplicadas no boot; `FLYWAY_ENABLED=false` sobe o serviço sem banco (dev). **Spring Data JPA** está no projeto (hoje só `Usuario` é `@Entity`; o restante acessa o banco por JDBC) — `ddl-auto: none`, o Flyway é o dono do schema.
 - **Config:** `application.yml` + `@ConfigurationProperties` validado (`config/AppProperties`) — não sobe com env inválida. O `.env` local é lido por `spring.config.import: optional:file:.env[.properties]`, **sem dependência de dotenv**; ele é interpretado como arquivo `.properties` (comentário só no início da linha, `\` é escape). `.env.example` versionado, `.env` nunca (RNF-SEC-11). As credenciais do Brevo ficam somente no `identidade`: `BREVO_API_KEY`, `BREVO_SMTP_KEY`, remetente e parâmetros SMTP; são opcionais até F-AUT ativar o envio.
 - **Estrutura** (`src/main/java/br/com/leai/identidade/`):
   - `IdentidadeApplication.java` — bootstrap; `@EnableConfigurationProperties` para a config ser validada antes do pool de banco.

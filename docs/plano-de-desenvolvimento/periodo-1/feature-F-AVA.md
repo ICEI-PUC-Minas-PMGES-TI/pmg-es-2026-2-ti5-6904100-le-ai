@@ -2,6 +2,7 @@
 
 **Período:** 1 · **Prioridade:** prioritaria
 **Dono:** Renato Douglas · **Serviços afetados:** `leitura` (backend) + web + mobile
+**Situação:** entregue, **em revisão** (aguarda o aval dos professores para ser marcada como concluída no GitHub Projects) desde 27/09/2026
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.5 (RF-AVA-01..04), RN-06, RN-07, RN-04.5. Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §3.2, §4.2, §5.1, §5.2. Processo e template: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §9. Em caso de conflito, o `REQUISITOS.md` ganha; protótipo é referência visual, não spec de pixel (plano §7).
 
@@ -22,11 +23,11 @@ RNF atendidos: **RNF-SEC-02** (propriedade no servidor), **RNF-SEC-13** (valida�
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | concluído | P0-MSG pronto desde 19/09. Fatia 0 (27/09) na `desenvolvimento`: JWT, idempotência HTTP, 422, correlation-id UUID, outbox com validação do `data` e `common-v1`, harness de integração e CI com Postgres no `leitura` |
-| Dados | concluído (baseline físico) | DER implantado no Neon em 16/09. F-AVA não cria migration no `leitura`; a do `social` (autor anulável) está na `desenvolvimento` desde 27/09, com a revisão do Kayke pendente |
-| Backend | concluído | Nota, resenha, `minha-avaliacao` e resenhas do perfil (27/09), com `nota.alterada`, `resenha.publicada` e `resenha.excluida` validados contra os schemas. Falta DES |
-| Web | concluído | Painel de nota, "Sua avaliação" com a resenha própria, editor de resenha, spoiler no livro pessoal e no feed, resenhas no perfil. Falta DES |
-| Mobile | concluído | Mesmo escopo da web, com o editor em tela cheia. Falta DES |
+| Infra | implementado | P0-MSG pronto desde 19/09. Fatia 0 (27/09) na `desenvolvimento`: JWT, idempotência HTTP, 422, correlation-id UUID, outbox com validação do `data` e `common-v1`, harness de integração e CI com Postgres no `leitura` |
+| Dados | implementado (baseline físico) | DER implantado no Neon em 16/09. F-AVA não cria migration no `leitura`; a do `social` (autor anulável) está na `desenvolvimento` desde 27/09, com a revisão do Kayke pendente |
+| Backend | implementado | Nota, resenha, `minha-avaliacao` e resenhas do perfil (27/09), com `nota.alterada`, `resenha.publicada` e `resenha.excluida` validados contra os schemas |
+| Web | implementado | Painel de nota, "Sua avaliação" com a resenha própria, editor de resenha, spoiler no livro pessoal e no feed, resenhas no perfil |
+| Mobile | implementado | Mesmo escopo da web, com o editor em tela cheia |
 
 ## Especificação
 
@@ -45,7 +46,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [`resenha.publicada.v1`](../../mensageria/schemas/resenha.publicada.v1.schema.json): emitido na criação, não em edição, preservando a decisão vigente; `data` contém `usuarioId`, `resenhaId`, `livroId`, `atualizacao=false`, `usuario` (`UsuarioSnapshot`) e `livro` (`LivroSnapshot`), sem texto nem spoiler; `businessKey = resenha:<resenhaId>:publicada`. Após exclusão, uma nova resenha recebe novo ID e produz novo evento. O campo `atualizacao` existe no contrato canônico, mas F-AVA não publica edição no Período 1.
 - [`resenha.excluida.v1`](../../mensageria/schemas/resenha.excluida.v1.schema.json): emitido na exclusão física com `usuarioId`, `resenhaId` e `livroId`; `businessKey = resenha:<resenhaId>:excluida`. F-FEED, dona da fila `leai.social.feed`, remove a atividade antiga e suas interações. F-AVA é dona/produtora dos dois schemas de resenha; P0-MSG é dono somente do envelope e do transporte.
 
-**VIEWs expostas por `leitura`** (arquitetura §4.2), já implantadas pelo DER e ainda sem composição funcional:
+**VIEWs expostas por `leitura`** (arquitetura §4.2), implantadas pelo DER e com dados reais desde 27/09/2026; `acervo` as consome na página oficial ([F-ACV-BUSCA](feature-F-ACV-BUSCA.md)) e na página de livro pessoal ([F-ACV-CADASTRO](feature-F-ACV-CADASTRO.md)), e hoje o feed também as lê (ver o critério abaixo e Pendências):
 - `v_resenha_publicacao_v1` (`resenha_id`, `usuario_id`, `livro_id`, `texto`, `spoiler`, `criado_em`, `atualizado_em`, `curtidas`, `descurtidas`) — consumida pela página de livro oficial e pela página autorizada de livro pessoal em `acervo`. Não contém nome/avatar nem decide visibilidade: `acervo` compõe `usuario_id` com as VIEWs de `identidade` e revalida RN-08/RN-15.
 - `v_nota_publicacao_v1` (`usuario_id`, `livro_id`, `valor`) — consumida pela página autorizada de livro pessoal para exibir somente a nota do dono e, futuramente, pelo backfill de F-ACV-NOTA. A atualização incremental usa `nota.alterada`.
 
@@ -73,7 +74,7 @@ O feed não consome VIEW de resenha; consome exclusivamente `resenha.publicada`.
 - [ ] As VIEWs permitem à página autorizada de livro pessoal mostrar somente nota/resenha do dono; `v_resenha_publicacao_v1` também atende a página oficial sob RN-08. Nenhuma alimenta o feed. *(Hoje o feed lê as duas VIEWs; decisão do grupo pendente, ver Pendências.)*
 - [x] Resenhas do perfil são paginadas e negadas server-side a não seguidor de perfil privado (RNF-DES-02, SEC-03).
 - [x] Em **livro pessoal**, só o dono escreve nota/resenha (RN-03).
-- [ ] Nota e resenha funcionam **em DES**.
+- [ ] Nota e resenha funcionam **em DES**. *Entra no merge de fechamento do Período 1: a `main` só recebe o período fechado, e o DES sobe da `main`.*
 
 ## Definition of Done
 
@@ -85,7 +86,7 @@ O feed não consome VIEW de resenha; consome exclusivamente `resenha.publicada`.
 - [x] Testes assíncronos de F-AVA cobrem schemas canônicos, atomicidade domínio+outbox, operações/valores de `nota.alterada`, snapshots de `resenha.publicada`, repetição HTTP sem segunda linha de outbox e edição sem segunda `resenha.publicada`. O teste ponta a ponta de RNF-TST-03 para `resenha.*` inclui o consumidor F-FEED; consumo/backfill de `nota.alterada` pertence a F-ACV-NOTA. *(O ponta a ponta com o consumidor do F-FEED está em Pendências.)* Dispatcher, confirm, recibo, retry e DLQ genéricos pertencem a P0-MSG.
 - [x] Testes web/mobile cobrem estrelas, spoiler, confirmações, perfil privado e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
 - [x] **Spec OpenAPI de `leitura` em `docs/api/leitura.yaml` implementado sem divergência** para nota/resenha/minha avaliação/perfil e contratos de VIEW; trocar `x-implementation-status: planned` somente após a implementação
-- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
+- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)) — entra no merge de fechamento do Período 1, não é pendência da feature
 - [x] Arquivo da feature atualizado: status, pendências, timeline
 - [x] Divergência protótipo × implementação registrada, se houver
 
@@ -96,11 +97,11 @@ O feed não consome VIEW de resenha; consome exclusivamente `resenha.publicada`.
 - **Plano de implementação:** [`plano-F-AVA.md`](plano-F-AVA.md) (fatias 0 a 4, decisões e divergências).
 - **Revisão do Kayke (não bloqueia mais: o Renato decidiu mergear na `desenvolvimento` em 27/09):** a migration `V20260927002000__snap_livro_autor_anulavel.sql`, `Atividade.java`, a cópia do `common-v1`, `docs/api/social.yaml` e `ItemAtividade.vue` (autor vazio e spoiler escondido no feed) foram feitos por F-AVA com autorização do Renato. Registro em `code/back/social/AGENTS.md`.
 - **Decisões do grupo pendentes:** correção do `common-v1` sem nova versão (feita em 26/09 por decisão do Renato, a comunicar); o feed lê as VIEWs do `leitura`, contra a arquitetura §3.2 item 4; resenhas de livro pessoal no perfil só para o dono (RN-15); componentes novos para o `documento-de-design.md`.
-- **DES:** falta o PR `desenvolvimento → main`. O `JWT_SECRET` do `leai-leitura` foi configurado no Render em 27/09, com o mesmo valor do `leai-identidade`. Antes da primeira resenha, conferir `leai.social.feed` no `Le-ai-oregon`.
-- **`JWT_SECRET` no Render (achado em 27/09):** `leai-acervo` e `leai-social` não têm a variável. O acervo da `desenvolvimento` recusa subir em produção sem ela, e o social lê `JWT_SECRET` com valor vazio por padrão. Precisa estar configurado antes do PR para a `main`.
+- **"Funciona em DES" chega com o fechamento do Período 1.** A `main` só recebe cada período inteiro, no merge de fechamento, e o DES sobe da `main`; por isso o item não é pendência da feature. O `JWT_SECRET` do `leai-leitura` foi configurado no Render em 27/09, com o mesmo valor do `leai-identidade`. Antes da primeira resenha, conferir `leai.social.feed` no `Le-ai-oregon`.
+- **`JWT_SECRET` no Render (achado em 27/09):** `leai-acervo` e `leai-social` não tinham a variável. Em 29/09 as duas passaram a ser declaradas no `render.yaml` (`sync: false`); falta preencher o valor, o mesmo do `leai-identidade`, no painel do Render antes do merge para a `main`, porque os dois serviços não sobem sem ela.
 - **Contas de teste no banco de dev:** `teste.fava.a` e `teste.fava.b` (e-mail `@teste.leai.invalid`), criadas no teste manual de 27/09. A conta A tem o livro pessoal "Diário FAVA" (dois, pelos reenvios do roteiro), nota e resenhas; as linhas da `outbox_leitura` dela ficaram `pendente`, porque o `leitura` local rodou com `AMQP_ENABLED=false`, e saem para a fila do feed quando alguém subir o `leitura` com mensageria no banco de dev.
 
-- **Depende de** [F-ACV-BUSCA](feature-F-ACV-BUSCA.md)/[F-ACV-CADASTRO](feature-F-ACV-CADASTRO.md) (livro para avaliar), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md) e [P0-MSG](../periodo-0/feature-P0-MSG.md). P0-MSG está pronto desde 19/09 (dispatcher com confirm, `mensagem_processada`, validação, retry e DLQ); falta só a prova em DES, que depende do PR `desenvolvimento → main`.
+- **Depende de** [F-ACV-BUSCA](feature-F-ACV-BUSCA.md)/[F-ACV-CADASTRO](feature-F-ACV-CADASTRO.md) (livro para avaliar), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md) e [P0-MSG](../periodo-0/feature-P0-MSG.md). P0-MSG está pronto desde 19/09 (dispatcher com confirm, `mensagem_processada`, validação, retry e DLQ); a prova em DES vem com o merge de fechamento do Período 1.
 - **RNF-TST-03 ponta a ponta de `resenha.*`:** F-AVA prova até o envelope válido no broker em memória (`resenha.int-spec.ts`); o consumo pelo F-FEED fica com o Kayke.
 - **Ordem dos eventos:** o despachante segura só a linha que falhou, então um `resenha.excluida` pode sair antes do `resenha.publicada` da mesma resenha. Raro; registrado em `code/back/social/AGENTS.md`.
 - **Divergências do protótipo e do plano, decididas na implementação:**
@@ -129,7 +130,7 @@ O feed não consome VIEW de resenha; consome exclusivamente `resenha.publicada`.
   - `/docs` e `/docs-json` públicos também em produção, como no acervo.
   - No card do perfil (web), o trecho truncado não é anunciado como truncado (`meu-perfil.md` §9).
   - Testes de F-AVA no mobile cobrem 500 e 503, mas timeout e queda de rede só no `api_client_test`.
-  - Para outras features, só avisado: no feed (F-FEED, Kayke), o botão "Ler resenha" de `ItemAtividade.vue` não faz nada; em `cadastro_isbn_page.dart:324` (F-ACV-CADASTRO, Vicenzo), `textTheme.titleSmall` não existe no tema e sai em Roboto; no `acervo`, corpo acima de 100 KB dá 500 e token sem `exp` é aceito (mesma infra que o `leitura` corrigiu). O ajudante de teste `montarNaRota` ganhou o parâmetro opcional `historico: 'navegador'`.
+  - Para outras features, só avisado: no feed (F-FEED, Kayke), o botão "Ler resenha" de `ItemAtividade.vue` não faz nada; em `cadastro_isbn_page.dart:324` (F-ACV-CADASTRO, Vicenzo), `textTheme.titleSmall` não existe no tema e sai em Roboto; ~~no `acervo`, corpo acima de 100 KB dá 500 e token sem `exp` é aceito~~ — **corrigidos no `acervo` em 27/09** pela validação de [F-ACV-BUSCA](feature-F-ACV-BUSCA.md) (`671dc24`, 413; `7872407`, token sem `exp` recusado). O ajudante de teste `montarNaRota` ganhou o parâmetro opcional `historico: 'navegador'`.
 - **Compartilha `leitura` com [F-EST](feature-F-EST.md) e [F-PRG](feature-F-PRG.md)** — sinalizar no grupo antes de mexer no serviço (plano §6).
 - **Ficam fora (Período 2):** curtir/descurtir e contadores de resenha (RF-AVA-05/08), frases/trechos (RF-AVA-06/07, RN-11), **Markdown** (RF-AVA-09, RN-13) — todos **F-AVA-2**. No Período 1 a resenha é **texto puro**; nada de parser Markdown ainda.
 - A **projeção nota dos leitores** e a **nota geral** (RF-ACV-15/16) são **F-ACV-NOTA** (Período 2). Antes de consumir novos `nota.alterada`, essa feature deve fazer backfill de `v_nota_publicacao_v1`, pois eventos do Período 1 não são presumidos retidos.
@@ -141,6 +142,8 @@ O feed não consome VIEW de resenha; consome exclusivamente `resenha.publicada`.
 - **A área de texto da resenha é exceção declarada ao input do design §4.2:** sem borda e sem fundo próprio, em Newsreader, ocupando o corpo da tela. O §4.2 define o campo curto com borda e fundo `papel-elevado`, que não serve a texto de 5.000 caracteres.
 
 ## Timeline
+
+### Fechamento 29/09/2026: arquivo revisado para o fechamento do Período 1. Situação **em revisão** desde 27/09/2026; camadas registradas como implementadas e os itens de DES como parte do merge de fechamento. As VIEWs de nota e resenha passaram a constar como consumidas pelas páginas oficial e pessoal do `acervo`. Os dois achados do `acervo` avisados na validação (corpo acima de 100 KB e token sem `exp`) constam como corrigidos em 27/09 (`671dc24`, `7872407`), e o `JWT_SECRET` de `leai-acervo` e `leai-social` está declarado no `render.yaml`, faltando o valor no painel. `ci-back-leitura`, `ci-front` e `ci-mobile` verdes na `desenvolvimento`.
 
 ### 29/09/2026: o painel de nota, aberto pelo navegador raiz, ficava com o botão "Remover nota" cortado pela barra de navegação do sistema (edge-to-edge no Android; `useSafeArea` não protege a base). `mostrarFolhaInferior` passou a somar `MediaQuery.paddingOf(context).bottom` ao padding inferior. Sheets abertos dentro de uma aba não mudam. Teste widget novo.
 

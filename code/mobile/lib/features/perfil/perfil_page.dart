@@ -20,9 +20,10 @@ import 'widgets_de_perfil.dart';
 /// perfil` e os contadores numa linha com divisor. O header (título `Perfil` e engrenagem) é do
 /// shell.
 ///
-/// **Estante e Resenhas sempre no estado vazio** (decisão do dono de 25/09/2026): o conteúdo vem
-/// de `leitura` (`listarEstantePerfil`, `listarResenhasPerfil`), ainda `planned`. Pelo mesmo
-/// motivo, sem o contador `livros lidos` até existir o dado.
+/// **Resenhas do `leitura`** ([resenhas], `listarResenhasPerfil`, F-AVA, 27/09/2026) e **estante no
+/// estado vazio**: `listarEstantePerfil` existe, mas esta página ainda não passa a estante a
+/// `SecoesDeLeitura` (divergência registrada em F-PERFIL). Sem o contador `livros lidos`, que o
+/// `Perfil` de `identidade` não traz.
 class PerfilPage extends StatefulWidget {
   final PerfilService servico;
 

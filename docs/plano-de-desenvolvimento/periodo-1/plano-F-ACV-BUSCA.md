@@ -8,7 +8,8 @@
 
 - **Fatia 1 (busca): concluída em 26/09/2026.** Contrato, migration `0004` (aplicada no banco de dev), `GET /assuntos` e `GET /livros`, Descobrir no mobile e na web, e o seed. CI verde na `renato-features`. Conferido com os dados do dev na web (1440 e 390 px) e no emulador.
 - **Fatia 2 (página do livro, sinopse e resenhas): concluída em 26/09/2026.** `GET /livros/{id}`, `/resenhas`, o consumidor `acervo.sinopse` e a página no mobile e na web. CI verde. A sinopse ponta a ponta no broker de dev depende de ligar o `AMQP_ENABLED` do acervo local, combinado com o time.
-- **Fatia 3 (contrato, docs e DES):** docs concluídos em 26/09 (contrato marcado como implementado e conferido com o `/docs`, `AGENTS.md` do acervo, arquivo da feature). **Falta DES**, que depende do PR `desenvolvimento → main` do time.
+- **Fatia 3 (contrato, docs e DES):** docs concluídos em 26/09 (contrato marcado como implementado e conferido com o `/docs`, `AGENTS.md` do acervo, arquivo da feature). O DES chega com o merge de fechamento do Período 1 (`desenvolvimento → main`), e não é pendência da feature.
+- **Validação de 27/09/2026:** duas rodadas de revisão independente das três camadas, com teste real contra o banco e o broker de dev (`4e81a09` e `6d3eccf`); correções, decisões revistas e pendências novas estão no [arquivo da feature](feature-F-ACV-BUSCA.md). A feature está **em revisão** desde então.
 - **Diferenças do que foi implementado em relação ao texto abaixo:**
   - **Header do Descobrir no mobile:** não precisou do slot `inferior`. O shell desenha o header da aba sem divisor (`semDivisor`, como o Perfil), e o campo fica fixo no topo da própria página. Visualmente é a segunda linha do header do protótipo.
   - **Capa:** a função se chama `resolverCapa()` (`src/livros/capa.ts`) e devolve `{ url, origem }`.
@@ -526,7 +527,7 @@ Mesmo procedimento da 1.7.
   - abrir um livro nunca aberto: a página abre na hora com a sinopse em skeleton, e depois vira `disponivel` ou `ausente` via fila `leai.acervo.sinopse`;
   - reabrir não gera nova linha de outbox (conferir por SQL);
   - livro pessoal não aparece;
-  - a seção de resenhas mostra o estado vazio. F-AVA não foi entregue, então não há resenhas; o RN-08 fica provado pela integração.
+  - a seção de resenhas mostra as resenhas permitidas por RN-08. *Quando este roteiro foi escrito, F-AVA não tinha sido entregue e a seção ficava vazia; F-AVA entregou em 27/09/2026.*
 - **SQL de reversão**, para bug do consumidor em dev. Só com OK humano, porque o banco de dev é do time:
   ```sql
   UPDATE acervo.livro SET sinopse = NULL, sinopse_status = 'nao_consultada', atualizado_em = now() WHERE id IN (...);

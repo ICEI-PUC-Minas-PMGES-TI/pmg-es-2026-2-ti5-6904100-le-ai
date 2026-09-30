@@ -20,7 +20,15 @@ O produto principal é um **app mobile nativo em Flutter**, acompanhado de uma *
 
 ## Instruções de utilização
 
-> O sistema está em fase inicial de desenvolvimento (período-0). Esta seção será complementada com o passo a passo de instalação de dependências e execução assim que a primeira versão executável de cada cliente e serviço estiver disponível.
+> O Período 1 (funcionalidades prioritárias) foi concluído em 29/09/2026 e está em revisão. O ambiente de homologação (DES/HML) sobe no Render a partir da branch `main`.
+
+Cada cliente e serviço traz no próprio `AGENTS.md` os pré-requisitos, as variáveis de ambiente (a partir do `.env.example` versionado) e os comandos para instalar, rodar e testar localmente:
+
+- Serviços: [`identidade`](code/back/identidade/AGENTS.md), [`acervo`](code/back/acervo/AGENTS.md), [`leitura`](code/back/leitura/AGENTS.md) e [`social`](code/back/social/AGENTS.md)
+- Clientes: [web](code/front/AGENTS.md) e [mobile](code/mobile/AGENTS.md)
+- Carga do acervo: [`code/scripts/ingestao/`](code/scripts/ingestao/README.md)
+
+Os contratos HTTP dos quatro serviços podem ser consultados num Swagger UI único com `docker compose -f docker-compose.docs.yml up` (em `localhost:8080`).
 
 O código do projeto vive em [`code/`](code/):
 

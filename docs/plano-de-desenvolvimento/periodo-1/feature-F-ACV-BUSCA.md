@@ -2,6 +2,7 @@
 
 **Período:** 1 · **Prioridade:** prioritaria
 **Dono:** Renato Douglas · **Serviços afetados:** `acervo` (backend) + web + mobile
+**Situação:** entregue, **em revisão** (aguarda o aval dos professores para ser marcada como concluída no GitHub Projects) desde 27/09/2026
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.2 (RF-ACV-01, 02, 04, 18, 19), RN-19, RN-21, RN-14. Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §2.2, §3.2, §4.2, §5.2. Processo e template: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §9. Em caso de conflito, o `REQUISITOS.md` ganha; protótipo é referência visual, não spec de pixel (plano §7).
 
@@ -23,11 +24,11 @@ RNF atendidos: **RNF-DES-01** (leitura ≤1s p95, sem cold start), **RNF-DES-02*
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | concluído (dev) | consumidor `acervo.sinopse` na fila `leai.acervo.sinopse` sobre o runtime de P0-MSG, provado com o broker em memória e, em 27/09, no broker de dev (`Le-ai`): a fila e a DLQ foram criadas e as sinopses pendentes viraram `disponivel`; falta a prova em DES |
-| Dados | concluído (dev) | migration `0004` (`pg_trgm`, `unaccent`, `acervo.f_busca_normalizar` e índices GIN de título, autor e editora) aplicada no banco de dev em 26/09, com ~2,2 MB de índices; o DES a recebe no deploy da `main` |
-| Backend | concluído (local) | `GET /assuntos`, `GET /livros`, `GET /livros/{id}` com sinopse sob demanda e `GET /livros/{id}/resenhas` com RN-08, em 26/09; validado e corrigido em 27/09 (busca por palavras, relevância, ISBN-10, entradas malformadas); falta DES |
-| Web | concluído (local) | Descobrir e página do livro, conferidos com os protótipos a 1440 e 390 px; paginação, falhas e acessibilidade corrigidas na validação de 27/09; falta DES |
-| Mobile | concluído (local) | Descobrir conferido no emulador com os dados do dev; página do livro conferida pelos testes de widget; laço de pedidos na falha, lista curta e acessibilidade corrigidos na validação de 27/09; falta DES |
+| Infra | implementado | consumidor `acervo.sinopse` na fila `leai.acervo.sinopse` sobre o runtime de P0-MSG, provado com o broker em memória e, em 27/09, no broker de dev (`Le-ai`): a fila e a DLQ foram criadas e as sinopses pendentes viraram `disponivel`; a prova em DES vem com o merge de fechamento |
+| Dados | implementado | migration `0004` (`pg_trgm`, `unaccent`, `acervo.f_busca_normalizar` e índices GIN de título, autor e editora) aplicada no banco de dev em 26/09, com ~2,2 MB de índices; o DES a recebe no deploy da `main` |
+| Backend | implementado | `GET /assuntos`, `GET /livros`, `GET /livros/{id}` com sinopse sob demanda e `GET /livros/{id}/resenhas` com RN-08, em 26/09; validado e corrigido em 27/09 (busca por palavras, relevância, ISBN-10, entradas malformadas) |
+| Web | implementado | Descobrir e página do livro, conferidos com os protótipos a 1440 e 390 px; paginação, falhas e acessibilidade corrigidas na validação de 27/09 |
+| Mobile | implementado | Descobrir conferido no emulador com os dados do dev; página do livro conferida pelos testes de widget; laço de pedidos na falha, lista curta e acessibilidade corrigidos na validação de 27/09 |
 
 ## Especificação
 
@@ -46,7 +47,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 **Evento:** `acervo` produz e consome **`livro.pagina_aberta`** (produtor e consumidor no mesmo domínio, §5.2). O `data` segue [`livro.pagina_aberta.v1`](../../mensageria/schemas/livro.pagina_aberta.v1.schema.json), contém somente `livroId`, e o envelope de P0-MSG usa `businessKey = livro:<livroId>:sinopse`. A mudança concorrente de `nao_consultada` para `pendente` e a linha de `outbox_acervo` são atômicas. O consumidor valida envelope e `data`, grava efeito e recibo na mesma transação e deduplica por `(consumidor, eventId)`; o estado persistido da sinopse fornece a idempotência semântica adicional. A fila é `leai.acervo.sinopse`, ligada a `leai.events.acervo` pela routing key `livro.pagina_aberta`, com `leai.acervo.sinopse.dlq`.
 
-**Contratos cross-schema da página do livro:** para livro oficial, `acervo` lê `leitura.v_resenha_publicacao_v1` (`resenha_id`, `usuario_id`, `livro_id`, `texto`, `spoiler`, `criado_em`, `atualizado_em`, `curtidas`, `descurtidas`) e compõe autor/visibilidade com `identidade.v_perfil_referencia_v1` e `identidade.v_seguimento_aceito_v1`; as VIEWs omitem contas suspensas/em exclusão, mas não substituem a autorização RN-08. A página de livro pessoal, pertencente a F-ACV-CADASTRO, acrescenta as vias `social.v_atividade_livro_pessoal_v1`/`social.v_lista_livro_pessoal_v1` e lê `leitura.v_nota_publicacao_v1`; conhecer o ID não autoriza acesso. `acervo.v_livro_referencia_v1` é exposta por este serviço a `leitura` e `social`, não é usada para ler o próprio livro. Nenhum serviço lê tabela crua de outro schema. As VIEWs já estão implantadas pelo DER, sem que a composição/autorização esteja implementada.
+**Contratos cross-schema da página do livro:** para livro oficial, `acervo` lê `leitura.v_resenha_publicacao_v1` (`resenha_id`, `usuario_id`, `livro_id`, `texto`, `spoiler`, `criado_em`, `atualizado_em`, `curtidas`, `descurtidas`) e compõe autor/visibilidade com `identidade.v_perfil_referencia_v1` e `identidade.v_seguimento_aceito_v1`; as VIEWs omitem contas suspensas/em exclusão, mas não substituem a autorização RN-08. A página de livro pessoal, pertencente a F-ACV-CADASTRO, acrescenta as vias `social.v_atividade_livro_pessoal_v1`/`social.v_lista_livro_pessoal_v1` e lê `leitura.v_nota_publicacao_v1`; conhecer o ID não autoriza acesso. `acervo.v_livro_referencia_v1` é exposta por este serviço a `leitura` e `social`, não é usada para ler o próprio livro. Nenhum serviço lê tabela crua de outro schema. As VIEWs foram implantadas pelo DER em 16/09/2026; a composição e a autorização RN-08 da página oficial estão implementadas desde 26/09/2026 (`GET /livros/{id}/resenhas`), e as VIEWs têm dados reais desde que [F-AVA](feature-F-AVA.md) e [F-PERFIL](feature-F-PERFIL.md) entregaram.
 
 ### Frontend Web (`code/front`)
 
@@ -66,7 +67,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [x] A página **abre sem esperar** a sinopse; **ausência de sinopse** é exibida sem erro (RF-ACV-19).
 - [x] Capa resolve na ordem cópia própria → externa → placeholder (RN-14.4).
 - [x] Nota geral/dos leitores aparecem como **ausentes** (não zero) enquanto F-ACV-NOTA não existir. Ausentes por inteiro, sem componente vazio: é o que o RF-ACV-04 ("aparecem quando as funcionalidades correspondentes estiverem disponíveis") e o `pagina-do-livro.md` §7 pedem.
-- [ ] Busca e página do livro funcionam **em DES**, com leitura ≤1s p95 desconsiderando cold start (RNF-DES-01).
+- [ ] Busca e página do livro funcionam **em DES**, com leitura ≤1s p95 desconsiderando cold start (RNF-DES-01). *Entra no merge de fechamento do Período 1: a `main` só recebe o período fechado, e o DES sobe da `main`. No dev, o p95 medido foi ~690 ms (27/09/2026).*
 
 ## Definition of Done
 
@@ -78,16 +79,16 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [x] Teste assíncrono da sinopse cobre schema canônico, atomicidade domínio+outbox, publicação e consumo pela topologia de P0-MSG, recibo+efeito atômicos, entrega duplicada sem novo efeito, ausência terminal, falha pós-retentativa sem `pendente` órfão e DLQ (RNF-TST-03); a suíte genérica de dispatcher/confirm/retry/DLQ continua pertencendo a P0-MSG
 - [x] Testes web/mobile cobrem paginação, polling limitado da sinopse, ausência/carregamento e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
 - [x] **Spec OpenAPI de `acervo` em `docs/api/acervo.yaml` implementado sem divergência** para `GET /livros`, `GET /livros/{id}` e `GET /livros/{id}/resenhas`; remover `x-contract-status: planned` somente após a implementação
-- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
+- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)) — entra no merge de fechamento do Período 1, não é pendência da feature
 - [x] Arquivo da feature atualizado: status, pendências, timeline
 - [x] Divergência protótipo × implementação registrada, se houver
 
 ## Pendências
 
 - **Depende de** [F-ACV-INGESTAO](feature-F-ACV-INGESTAO.md) (acervo carregado com índices e assuntos), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md) e [P0-MSG](../periodo-0/feature-P0-MSG.md). P0-MSG está pronto desde 19/09 (dispatcher com confirm, `mensagem_processada`, validação, retry e DLQ), e o consumidor da sinopse roda sobre ele. As fontes externas são OpenLibrary e Google Books.
-- **Falta DES.** O "funcionando em DES" do DoD e a latência de RNF-DES-01 (≤ 1 s p95) dependem do PR `desenvolvimento → main`, que é do time. No deploy, o `start:prod` aplica a migration `0004` no banco de Oregon (as extensões estão disponíveis lá, conferido em 25/09); depois, conferir `/health`, extensões, índices e a fila `leai.acervo.sinopse` no `Le-ai-oregon`, e medir a latência.
+- **"Funciona em DES" chega com o fechamento do Período 1.** A `main` só recebe cada período inteiro, no merge de fechamento, e o DES sobe da `main`; por isso o item e a latência de RNF-DES-01 (≤ 1 s p95) não são pendência da feature. No deploy, o `start:prod` aplica a migration `0004` no banco de Oregon (as extensões estão disponíveis lá, conferido em 25/09); depois, conferir `/health`, extensões, índices e a fila `leai.acervo.sinopse` no `Le-ai-oregon`, e medir a latência.
 - **Sem `GOOGLE_BOOKS_API_KEY` local**, o Google responde 429, que conta como indisponível: livros sem sinopse na OpenLibrary vão para `falha_transitoria` em vez de `ausente`. A chave está no painel do Render.
-- **Consome `v_resenha_publicacao_v1`** de [F-AVA](feature-F-AVA.md) e os contratos de privacidade de [F-PERFIL](feature-F-PERFIL.md) — coordenar colunas e índices antes de implementar.
+- ~~**Consome `v_resenha_publicacao_v1`** de [F-AVA](feature-F-AVA.md) e os contratos de privacidade de [F-PERFIL](feature-F-PERFIL.md) — coordenar colunas e índices antes de implementar.~~ — **resolvido em 27/09/2026:** F-AVA entregou a VIEW com as colunas que a página usa, e F-PERFIL, os contratos de perfil e seguimento.
 - **Nota geral, nota dos leitores, distribuição e projeção `nota.alterada`** ficam em **F-ACV-NOTA** (Período 2); aqui aparecem como ausentes.
 - **Filtro avançado** (autor/editora/série/ano/faixa de páginas, RF-ACV-03) e **páginas de autor/editora/série** (RF-ACV-10/11/12) e **assunto acionável** (RF-ACV-21) são **F-ACV-DESCOBERTA** (Período 2).
 - Stack de `acervo` definida: **NestJS (TypeScript)** — mesma stack que `leitura` (arquitetura §2.1).
@@ -96,7 +97,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Divergência entre o protótipo e o `documento-de-design.md` §5.2, registrada e não silenciada:** a seção descreve a página do livro para o produto pronto e cita seis elementos que **não existem no Período 1**, todos deliberadamente omitidos do prompt com o motivo escrito: botão Favoritar (RF-EST-09, F-EST-2), frases e trechos (RF-AVA-06/07, F-AVA-2), chips de assunto acionáveis (RF-ACV-21, F-ACV-DESCOBERTA), componente de nota geral e nota dos leitores (§4.4, F-ACV-NOTA), autor/editora/série como link (RF-ACV-10/11/12) e resenha em Markdown (RF-AVA-09). Nenhum deles aparece como componente vazio ou zerado. Quando as features do Período 2 entrarem, os prompts precisam ser revisados.
 - **Componentes que nascem no protótipo e ainda não estão na fonte:** o **chip de assunto com estado ativo** (`descobrir.md`) e o **bloco de resenha com spoiler oculto** (`pagina-do-livro.md`). RF-AVA-03 e o design §5.2 exigem o comportamento mas não desenham o componente. Incorporar ao `documento-de-design.md` pelo controle de mudança do plano §3; não fica decidido só no prompt.
 
-- **A tela de busca virou raiz de aba, e isso muda o shell.** Escrever o prompt deixou visível que a busca do acervo não cabia dentro da estante: a barra marcava `Estante` como ativo numa tela de resultados de catálogo, e na web o campo do header de `Minha estante` devolvia o acervo inteiro. A tela passou a ser a aba **`Descobrir`** (`Compass`, quarto item da navegação), com header de duas linhas, sem botão de voltar e **com** o sino, que a versão anterior dispensava. O arquivo foi renomeado de `busca.md` para `descobrir.md`. A mudança do shell é pendência de [P0-NAV](../periodo-0/feature-P0-NAV.md) e a busca dentro da estante é pendência de [F-EST](feature-F-EST.md); nenhuma das duas foi escrita em `docs/orquestador/`.
+- **A tela de busca virou raiz de aba, e isso muda o shell.** Escrever o prompt deixou visível que a busca do acervo não cabia dentro da estante: a barra marcava `Estante` como ativo numa tela de resultados de catálogo, e na web o campo do header de `Minha estante` devolvia o acervo inteiro. A tela passou a ser a aba **`Descobrir`** (`Compass`, quarto item da navegação), com header de duas linhas, sem botão de voltar e **com** o sino, que a versão anterior dispensava. O arquivo foi renomeado de `busca.md` para `descobrir.md`. A mudança do shell foi registrada em [P0-NAV](../periodo-0/feature-P0-NAV.md) e incorporada ao `documento-de-design.md` (§5.7 `Descobrir` e a lupa da estante filtrando a estante no §5.1); a busca dentro da estante é pendência de [F-EST](feature-F-EST.md).
 - **A aterrissagem da aba é magra no Período 1, por decisão.** Sem consulta, `Descobrir` mostra o campo e a faixa de assuntos e nada mais. Quem preenche a aba é [F-ACV-DESCOBERTA](../periodo-2/feature-F-ACV-DESCOBERTA.md) (filtros avançados, páginas de autor, editora e série) e [F-REC-P2P](../periodo-2/feature-F-REC-P2P.md) (seção de recomendações, RF-REC-13), as duas no Período 2. O prompt proíbe desenhar espaço reservado para elas.
 
 ### Achados da validação de 27/09/2026 que ficam para depois
@@ -123,7 +124,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 ### Divergências protótipo × implementação (26/09/2026)
 
 - **Card de resenha** sem `@username` e sem estrelas, e o título "Resenhas" sem a contagem "28 resenhas": o contrato do Período 1 não traz esses dados (`ResenhaResumo`, compartilhado com o livro pessoal, não mudou).
-- **Blocos de outras features ficam de fora**, sem espaço reservado: status pill da busca e ações de estante (F-EST), barra de progresso (F-PRG), "Sua avaliação" e "Escrever a primeira" (F-AVA).
+- ~~**Blocos de outras features ficam de fora**, sem espaço reservado: status pill da busca e ações de estante (F-EST), barra de progresso (F-PRG), "Sua avaliação" e "Escrever a primeira" (F-AVA).~~ — **resolvido em grande parte pelas features vizinhas:** "Sua avaliação" e "Escrever a primeira" entraram na página do livro em 27/09/2026 ([F-AVA](feature-F-AVA.md)), e a situação na estante, com ações e barra de progresso, em 29/09/2026 ([F-EST](feature-F-EST.md)/[F-PRG](feature-F-PRG.md), `6099020`), na web e no mobile. O status pill nos resultados de Descobrir continua fora.
 - **Chips de assunto** vêm do banco (31 do conjunto curado), não os 9 do protótipo. No mobile e na faixa da web, o chip ativo é `musgo` cheio com texto `papel`, como no protótipo; o `descobrir.md` fala em `musgo-fundo`. O chip **inativo** tem texto `tinta`, também como no protótipo; o `descobrir.md` pede `caption grafite` (registrado na validação de 27/09).
 - **"N edições" expande as outras edições** logo abaixo do card; o protótipo não desenha o estado expandido.
 - **Textos que o design não prevê:** sinopse em `falha_transitoria` ("Não conseguimos buscar a sinopse agora. Ela deve aparecer numa próxima visita."), polling encerrado ainda pendente ("A sinopse ainda está a caminho. Volte daqui a pouco."), livro não encontrado ("Não encontramos este livro") e resenhas indisponíveis ("Não foi possível carregar as resenhas.", com "Tentar de novo").
@@ -133,6 +134,8 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Testes de RN-08:** conta suspensa e em exclusão são o mesmo caso, "sem linha na `v_perfil_referencia_v1`", porque a VIEW já as omite.
 
 ## Timeline
+
+### Fechamento 29/09/2026: arquivo revisado para o fechamento do Período 1. Situação **em revisão** desde 27/09/2026, depois das duas rodadas de validação; camadas registradas como implementadas e os itens de DES como parte do merge de fechamento, com a latência a medir lá. A página do livro, hospedeira de cinco features, recebeu das vizinhas o bloco "Sua avaliação" e "Escrever a primeira" (F-AVA, 27/09) e a situação na estante com progresso (F-EST/F-PRG, `6099020`, 29/09); as divergências foram atualizadas. `ci-back-acervo`, `ci-front` e `ci-mobile` verdes na `desenvolvimento`.
 
 ### Validação 27/09/2026, segunda rodada: nova revisão de contexto limpo, só sobre as correções da primeira. **Backend:** palavras sem repetição, sem pontuação nas pontas e com teto de 8; o texto puro da sinopse tira só nomes de tag HTML conhecidos ("&lt;&lt;O Guarani&gt;&gt;" ficava vazio); 503 só para falha de conexão (o `08P01` é bug nosso, não indisponibilidade); o log do pedido de sinopse com a causa do Postgres, e teste do caminho em que ele falha; 413 declarado no contrato. **Mobile:** a lista curta parava na 2ª página quando nada pedia quadro novo (busca pelo chip, campo sem foco); o teste novo pega o defeito. **Web:** movimento reduzido também zera o fade dos skeletons (a regra global só zerava transições); a faixa de assuntos não pisca na retentativa automática; o aviso de cold start passou para uma região de status fixa. **Web e mobile:** 429 sem o corpo do contrato (vindo de proxy) ainda explica o limite.
 

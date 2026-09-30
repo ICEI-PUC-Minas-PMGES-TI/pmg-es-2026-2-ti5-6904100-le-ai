@@ -2,6 +2,7 @@
 
 **Período:** 1 · **Prioridade:** prioritaria
 **Dono:** Ana Luiza de Freitas · **Serviços afetados:** `leitura` (backend) + web + mobile + job diário (agendador)
+**Situação:** entregue, **em revisão** (aguarda o aval dos professores para ser marcada como concluída no GitHub Projects) desde 29/09/2026
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.3 (RF-EST-01..08, 11, 12), RN-04, RN-05. Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §3.1, §4.2, §5.2, §2.4. Processo e template: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §9. Em caso de conflito, o `REQUISITOS.md` ganha; protótipo é referência visual, não spec de pixel (plano §7).
 
@@ -25,10 +26,10 @@ RNF atendidos: **RNF-ARQ-05** (escrita concorrente sem perda — invariante "uma
 | Camada | Status | Observação |
 |---|---|---|
 | Dados | concluído (baseline DER) | tabelas `estante`, `leitura`, `limiar_inatividade`, `idempotencia_leitura` e `outbox_leitura`, constraints/índices e VIEW `v_estante_publica_v1` versionados e aplicados no Neon em 16/09/2026; isso não implementa o domínio |
-| Infra | não iniciado | workflow do job, conexão/dispatcher AMQP, retry/DLQ e prova do agendador dependem de P0-MSG |
-| Backend | em andamento | `leitura`: estante (adicionar/remover/listar/perfil), máquina de estados RN-04 (iniciar, releitura, finalizar, abandonar, retomar, conclusões), job de inatividade com outbox, idempotência HTTP e seed RNF-TST-08 implementados com testes de integração; falta validar em DES |
-| Web | não iniciado | estante por status + ações do ciclo de leitura |
-| Mobile | não iniciado | mesmas telas + ações de estante |
+| Infra | implementado | workflow `.github/workflows/job-inatividade.yml` (26/09/2026) e dispatcher/publicação AMQP de [P0-MSG](../periodo-0/feature-P0-MSG.md) ativos em `leitura`; faltam os secrets `LEITURA_URL`/`LEITURA_SCHEDULER_TOKEN`, o env `SCHEDULER_TOKEN` e a prova do agendador (P-08) |
+| Backend | implementado | `leitura`: estante (adicionar/remover/listar/consultar item/perfil), máquina de estados RN-04 (iniciar, releitura, finalizar, abandonar, retomar, conclusões), job de inatividade com outbox, idempotência HTTP e seed RNF-TST-08, com testes de integração em Postgres real rodando no CI (`estante`, `leituras`, `inatividade`, `perfis`, `seed`) |
+| Web | implementado | estante por status, ações do ciclo de leitura e situação na estante com contagem de conclusões nas páginas do livro pessoal (27/09/2026) e oficial (29/09/2026, PR #44) |
+| Mobile | implementado | mesmas telas e ações de estante (27/09/2026), ações no livro oficial (29/09/2026, PR #44) e recarga da estante quando a leitura muda em outra tela (29/09/2026) |
 
 ## Especificação
 
@@ -55,19 +56,19 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 **Contrato HTTP fechado em [`docs/api/leitura.yaml`](../../api/leitura.yaml):**
 - `POST /estante` recebe `{ livroId }`; `DELETE /estante/{livroId}` remove somente **Quero ler** sem histórico. Ambos exigem `Idempotency-Key`; livro pessoal de terceiro é recusado também em Quero ler e a confirmação da remoção é do cliente.
-- `GET /estante?status=&ordenacao=&page=&limite=` lista a estante autenticada; `GET /perfis/{usuarioId}/estante?status=&ordenacao=&page=&limite=` compõe RF-SOC-02. O servidor limita `limite` a 50 e, no endpoint de perfil, combina `v_perfil_referencia_v1` e `v_seguimento_aceito_v1`: dono e perfil público podem consultar; perfil privado exige seguimento aceito; conta suspensa ou em exclusão pendente não é exposta (RN-08, SEC-03).
+- `GET /estante?status=&ordenacao=&page=&limite=` lista a estante autenticada; `GET /estante/{livroId}` consulta o item de um livro na estante autenticada (404 fora dela); `GET /perfis/{usuarioId}/estante?status=&ordenacao=&page=&limite=` compõe RF-SOC-02. O servidor limita `limite` a 50 e, no endpoint de perfil, combina `v_perfil_referencia_v1` e `v_seguimento_aceito_v1`: dono e perfil público podem consultar; perfil privado exige seguimento aceito; conta suspensa ou em exclusão pendente não é exposta (RN-08, SEC-03).
 - `POST /leituras` e `POST /releituras` recebem `{ livroId, dataInicio? }`; `POST /leituras/{leituraId}/finalizar` recebe `{ dataFim?, fusoHorarioDispositivo }`; `POST /leituras/{leituraId}/abandonar` e `POST /leituras/{leituraId}/retomar` não recebem corpo. Todas exigem `Idempotency-Key`; `GET /leituras/{leituraId}` detalha somente leitura própria.
 - `GET /livros/{livroId}/conclusoes` retorna `{ livroId, vezesLido }` do leitor autenticado.
 - `POST /internal/jobs/inatividade` é exclusivo do agendador, autenticado por `X-Scheduler-Token`, exige `Idempotency-Key` e aceita opcionalmente `{ dataReferencia }` somente para execução controlada/testes. Não é exposto aos clientes; RNF-SEC-04 não se aplica porque trata moderação.
 
-Em toda escrita, a chave HTTP é UUID opaco com escopo `(ator autenticado, método, caminho canônico)`: mesma chave e mesmo payload reproduzem status/corpo sem repetir efeito; payload diferente retorna `409`. A tabela `idempotencia_leitura` já existe, mas o comportamento ainda é backend não iniciado.
+Em toda escrita, a chave HTTP é UUID opaco com escopo `(ator autenticado, método, caminho canônico)`: mesma chave e mesmo payload reproduzem status/corpo sem repetir efeito; payload diferente retorna `409`. O comportamento está implementado sobre a tabela `idempotencia_leitura` (`src/common/idempotencia/`), com testes de replay e conflito em `estante.int-spec.ts` e `leituras.int-spec.ts`.
 
 **Inatividade e abandono automático (RF-EST-11/12, RN-05)** — **job diário** agendado (GitHub Actions `schedule`, P-08; fallback cron-job.org): chama `POST /internal/jobs/inatividade` e varre ocorrências em andamento por `ultima_atividade_em` (ou data de início quando ainda não houve atividade). Cada atividade incrementa atomicamente `inatividade_versao`; `limiar_inatividade` impõe unicidade a `(leitura_id, inatividade_versao, limiar_dias)`, com `tipo=risco` nos dias 20/30 e `tipo=expiracao` no dia 40.
 
 - **Dia 20/30:** dentro da transação, registra o limiar como processado; após confirmar, publica `leitura.em_risco` para `social` criar a notificação.
 - **Dia 40:** aplica e confirma primeiro a transição de abandono de RN-04 e registra o limiar; somente depois publica `leitura.expirada`, que representa fato concluído e gera notificação.
-- Reexecução do job no mesmo ciclo não repete alerta ou transição; atividade inicia nova versão e permite novos alertas após outros 20/30 dias. A `Idempotency-Key` deduplica a chamada HTTP, enquanto a unicidade do limiar deduplica semanticamente o lote mesmo sob chaves/chamadas diferentes. Eventos são gravados na outbox na mesma transação; transporte, retry e DLQ dependem de P0-MSG.
-- Atividade é qualquer registro de progresso ou edição da leitura. F-EST é dona das edições/transições; F-PRG é dona de registrar/editar/excluir progresso e deve atualizar `ultima_atividade_em`/`inatividade_versao` atomicamente quando a operação contar como atividade.
+- Reexecução do job no mesmo ciclo não repete alerta ou transição; atividade inicia nova versão e permite novos alertas após outros 20/30 dias. A `Idempotency-Key` deduplica a chamada HTTP, enquanto a unicidade do limiar deduplica semanticamente o lote mesmo sob chaves/chamadas diferentes. Eventos são gravados na outbox na mesma transação; transporte, retry e DLQ são os de P0-MSG.
+- Atividade é qualquer registro de progresso ou transição da leitura. F-EST é dona das edições/transições; F-PRG é dona de registrar/excluir progresso (a edição foi removida em 29/09/2026, REQUISITOS v1.8) e deve atualizar `ultima_atividade_em`/`inatividade_versao` atomicamente quando a operação contar como atividade.
 
 **Eventos produzidos** (§5.2 e contratos canônicos em [`docs/mensageria`](../../mensageria/README.md)): alteração de domínio e linha de `outbox_leitura` são atômicas; o dispatcher de P0-MSG monta o envelope e publica depois da confirmação síncrona. `eventId` deduplica a mesma entrega no consumidor; `businessKey` identifica o fato, mas não tem unicidade genérica. F-EST impede fatos semanticamente repetidos; cada feature consumidora grava efeito e recibo `(consumidor, eventId)` na mesma transação e é dona de deduplicação semântica adicional e DLQ.
 
@@ -99,48 +100,48 @@ Os quatro eventos de atividade vão para [F-FEED](feature-F-FEED.md); abandono a
 
 ## Critérios de aceite
 
-- [ ] Finalizar hoje com data de fim anterior conta no desafio de hoje; evento e backfill chegam à mesma janela pela data local persistida da ação, sem alterar a data editável do histórico.
+- [x] Finalizar hoje com data de fim anterior conta no desafio de hoje; evento e backfill chegam à mesma janela pela data local persistida da ação, sem alterar a data editável do histórico. *`finalizacaoDataLocal` persistida e publicada em `leitura.finalizada` (`leituras.int-spec.ts`, "finalizar: … data local da ação"); o consumo pelo desafio é de F-DSF (Período 2).*
 
-- [ ] Todas as transições de **RN-04** funcionam com os efeitos corretos (nº de vezes lido só em finalização; releitura abandonada vira Lido incompleto **não retomável**; abandono de 1ª leitura é retomável).
-- [ ] **Uma única leitura em andamento** por usuário+livro é garantida sob concorrência (RNF-ARQ-05).
-- [ ] Estante agrupada por status, ordenada e **paginada** (RNF-DES-02).
-- [ ] Contagem de conclusões correta na página do livro (RF-EST-08).
-- [ ] O **job diário** publica `leitura.em_risco` nos dias 20 e 30 e **abandona + `leitura.expirada`** no dia 40 (RN-05); atividade zera o contador de inatividade.
-- [ ] O job usa unicidade semântica `(leituraId, inatividadeVersao, limiarDias)`: reexecução não repete alerta ou abandono, mas atividade seguida de nova inatividade permite novo ciclo; F-EST testa que não cria segundo fato e consumidores testam recibo, duplicação semântica e DLQ nas próprias features.
-- [ ] Servidor recusa **adicionar à estante e iniciar leitura** de livro pessoal de outro (SEC-07); favoritos serão testados em F-EST-2; operações validam propriedade (SEC-02).
-- [ ] Eventos de atividade, inatividade e `livro.adicionado_a_estante` usam exatamente as business keys/payloads v1 do catálogo e são gravados na outbox junto da escrita; efeitos do feed/notificação/cache pertencem às features consumidoras.
-- [ ] `v_estante_publica_v1` e o endpoint de perfil são consumíveis sob RN-08, sem colisão com a tabela `estante`.
-- [ ] Repetir escrita com a mesma `Idempotency-Key` e payload reproduz status/corpo sem repetir vínculo, leitura ou transição; reutilizá-la com payload diferente retorna `409` (RNF-ERR-04).
-- [ ] Remover livro em Quero ler e abandonar leitura exigem confirmação nos clientes (RNF-USA-04).
-- [ ] Seed reproduzível cobre Quero ler, Lendo, Lido, Relendo, Abandonado e releitura incompleta (RNF-TST-08).
-- [ ] Ciclo completo (Quero ler → Lendo → Lido, releitura, abandono/retomada) funciona **em DES**.
+- [x] Todas as transições de **RN-04** funcionam com os efeitos corretos (nº de vezes lido só em finalização; releitura abandonada vira Lido incompleto **não retomável**; abandono de 1ª leitura é retomável). *`leituras.int-spec.ts`.*
+- [x] **Uma única leitura em andamento** por usuário+livro é garantida sob concorrência (RNF-ARQ-05). *`leituras.int-spec.ts`, "dois POST /leituras simultâneos: um 201 e um 409".*
+- [x] Estante agrupada por status, ordenada e **paginada** (RNF-DES-02). *`estante.int-spec.ts` (paginação, ordenação, teto 50); web e mobile com pills por status e ordenação.*
+- [x] Contagem de conclusões correta na página do livro (RF-EST-08). *`GET /livros/{livroId}/conclusoes` testado; exibida em `SituacaoNaEstante` (web) e nas páginas do livro no mobile.*
+- [x] O **job diário** publica `leitura.em_risco` nos dias 20 e 30 e **abandona + `leitura.expirada`** no dia 40 (RN-05); atividade zera o contador de inatividade. *`inatividade.int-spec.ts`.*
+- [x] O job usa unicidade semântica `(leituraId, inatividadeVersao, limiarDias)`: reexecução não repete alerta ou abandono, mas atividade seguida de nova inatividade permite novo ciclo; F-EST testa que não cria segundo fato e consumidores testam recibo, duplicação semântica e DLQ nas próprias features. *`inatividade.int-spec.ts` (outra chave no mesmo ciclo, dia 40 reexecutado, novo ciclo após atividade).*
+- [x] Servidor recusa **adicionar à estante e iniciar leitura** de livro pessoal de outro (SEC-07); favoritos serão testados em F-EST-2; operações validam propriedade (SEC-02). *`estante.int-spec.ts` e `leituras.int-spec.ts`.*
+- [x] Eventos de atividade, inatividade e `livro.adicionado_a_estante` usam exatamente as business keys/payloads v1 do catálogo e são gravados na outbox junto da escrita; efeitos do feed/notificação/cache pertencem às features consumidoras. *Business keys em `leituras/dominio/eventos.ts`, iguais ao catálogo; schemas runtime idênticos aos canônicos.*
+- [x] `v_estante_publica_v1` e o endpoint de perfil são consumíveis sob RN-08, sem colisão com a tabela `estante`. *`estante.int-spec.ts` (perfil público, privado com e sem seguimento, conta fora da VIEW).*
+- [x] Repetir escrita com a mesma `Idempotency-Key` e payload reproduz status/corpo sem repetir vínculo, leitura ou transição; reutilizá-la com payload diferente retorna `409` (RNF-ERR-04).
+- [x] Remover livro em Quero ler e abandonar leitura exigem confirmação nos clientes (RNF-USA-04). *`AcoesLeitura.spec.ts` (web) e `estante_test.dart` (mobile, confirmações distintas de leitura e releitura).*
+- [x] Seed reproduzível cobre Quero ler, Lendo, Lido, Relendo, Abandonado e releitura incompleta (RNF-TST-08). *`seed.int-spec.ts`.*
+- [ ] Ciclo completo (Quero ler → Lendo → Lido, releitura, abandono/retomada) funciona **em DES**. *Entra no merge de fechamento do Período 1: a `main` só recebe o período fechado, e o DES sobe da `main`.*
 
 ## Definition of Done
 
 (plano §10)
 
-- [ ] Código (backend `leitura`, web, mobile, workflow do job) mergeado em `desenvolvimento`
-- [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
-- [ ] Testes unitários e de integração com PostgreSQL real/container, **com prioridade para RN-04/RN-05/RN-08**: cada transição e efeito em ocorrência+estante, primeira leitura/releitura, concorrência, propriedade e livro pessoal, perfil público/privado/suspenso, idempotência HTTP, job dos dias 20/30/40, reexecução e novo ciclo após atividade (RNF-TST-01 e RNF-TST-02)
-- [ ] Testes assíncronos de F-EST cobrem escrita+outbox atômicas, schemas/business keys, falha do broker sem desfazer escrita e reexecução sem segundo fato; recibo de consumo, duplicação semântica e DLQ ficam em F-NOT, F-FEED, F-DSF e F-STA (RNF-TST-03)
-- [ ] Testes web/mobile cobrem máquina de estados na camada de estado, autorização de perfil e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
-- [ ] **Spec OpenAPI de `leitura` atualizado em `docs/api/leitura.yaml`** com estante/leituras, endpoint interno e `v_estante_publica_v1`
-- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
-- [ ] Arquivo da feature atualizado: status, pendências, timeline
-- [ ] Divergência protótipo × implementação registrada, se houver
+- [x] Código (backend `leitura`, web, mobile, workflow do job) mergeado em `desenvolvimento` (backend e job em 26/09/2026, web e mobile em 27/09/2026, ações no livro oficial pelo PR #44 em 29/09/2026)
+- [x] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)): `ci-back-leitura`, `ci-front` e `ci-mobile` verdes na `desenvolvimento` em 29/09/2026
+- [x] Testes unitários e de integração com PostgreSQL real/container, **com prioridade para RN-04/RN-05/RN-08**: cada transição e efeito em ocorrência+estante, primeira leitura/releitura, concorrência, propriedade e livro pessoal, perfil público/privado/suspenso, idempotência HTTP, job dos dias 20/30/40, reexecução e novo ciclo após atividade (RNF-TST-01 e RNF-TST-02). *`test/integracao/{estante,leituras,inatividade,perfis,seed}.int-spec.ts`, no job "Integration test" do CI.*
+- [ ] Testes assíncronos de F-EST cobrem escrita+outbox atômicas, schemas/business keys, falha do broker sem desfazer escrita e reexecução sem segundo fato; recibo de consumo, duplicação semântica e DLQ ficam em F-NOT, F-FEED, F-DSF e F-STA (RNF-TST-03). *Escrita+outbox e reexecução sem segundo fato estão cobertas (`estante`, `leituras`, `inatividade`); falta um teste explícito de falha do broker sem desfazer a escrita.*
+- [x] Testes web/mobile cobrem máquina de estados na camada de estado, autorização de perfil e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06). *Web: `EstanteView.spec.ts`, `AcoesLeitura.spec.ts`, `useAcaoLeitura.spec.ts`; mobile: `estante_test.dart` (transições válidas por status, timeout, 403/404 do perfil).*
+- [x] **Spec OpenAPI de `leitura` atualizado em `docs/api/leitura.yaml`** com estante/leituras, endpoint interno e `v_estante_publica_v1`
+- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)). *Entra no merge de fechamento do Período 1, não é pendência da feature.*
+- [x] Arquivo da feature atualizado: status, pendências, timeline
+- [x] Divergência protótipo × implementação registrada, se houver. *Nenhuma divergência levantada pela dona até 29/09/2026; as lacunas de contrato frente ao protótipo foram fechadas em 26 e 27/09 (ver Pendências).*
 
 **Item próprio:** validar o **agendador** (GitHub Actions `schedule` no repo do GitHub Classroom, ou fallback cron-job.org) — a viabilidade é uma pendência aberta de [P0-MSG](../periodo-0/feature-P0-MSG.md) (P-08); o job de inatividade é o **primeiro consumidor real** dele.
 
 ## Pendências
 
-- **Depende de** [F-ACV-BUSCA](feature-F-ACV-BUSCA.md)/[F-ACV-CADASTRO](feature-F-ACV-CADASTRO.md) (livros para colocar na estante), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md) e [P0-MSG](../periodo-0/feature-P0-MSG.md). P0-MSG ainda está com infra/backend não iniciados: F-EST pode implementar domínio+outbox sobre a baseline, mas não conclui publicação, retry/DLQ nem o job em DES antes do dispatcher/topologia e da prova P-08.
+- **Depende de** [F-ACV-BUSCA](feature-F-ACV-BUSCA.md)/[F-ACV-CADASTRO](feature-F-ACV-CADASTRO.md) (livros para colocar na estante), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md) e [P0-MSG](../periodo-0/feature-P0-MSG.md). O runtime de P0-MSG (dispatcher, recibo, retry e DLQ) está implementado desde 19/09/2026; a prova do agendador (P-08) continua aberta.
 - **Compartilha `leitura` com [F-PRG](feature-F-PRG.md) e [F-AVA](feature-F-AVA.md)** — a baseline física já foi fixada no DER de 16/09; sinalizar no grupo antes de nova migration (plano §6). F-EST é dona de `estante`, transições e limiares; F-PRG é dona de `atualizacao_progresso` e, na mesma transação do progresso, atualiza `leitura.pagina_atual`, `ultima_atividade_em` e `inatividade_versao` conforme RN-05.
 - **Favoritos (RF-EST-09) e histórico por ano (RF-EST-10)** ficam **fora** — são **F-EST-2** (Período 2).
 - Viabilidade do `schedule` no GitHub Classroom **não confirmada** (P-08) — se restrita, cron-job.org sem mudar o desenho.
 - ~~**Divergências contratuais preservadas:** `requestBody` de `POST /leituras/{leituraId}/finalizar` opcional e `v_estante_publica_v1` como `planned`.~~ Fechadas em 25/09/2026: o `requestBody` passou a `required: true` (o schema já exigia `fusoHorarioDispositivo` e a implementação responde 400 sem ele) e a VIEW já constava como `implemented`; as operações de F-EST passaram a `implemented`.
 - ~~**Lacunas do contrato frente ao protótipo (`estante.md`), sem mudança de contrato nesta revisão:** `ItemEstante` não traz título, autor nem capa, que o card da estante exibe — o cliente teria de compor com `acervo`; a ordenação por autor e por progresso do protótipo não existe em `OrdenacaoEstante` (só `adicionado_*` e `titulo_*`); e a ordenação por título faz JOIN direto de `v_livro_referencia_v1` na consulta da listagem. Resolver pelo controle de mudança (acréscimo de campos em `ItemEstante` e de valores em `OrdenacaoEstante`) antes do web/mobile.~~ Fechadas em 26/09/2026 com aprovação da dona do produto: `ItemEstante` de `GET /estante` e `GET /perfis/{id}/estante` passou a trazer `livro { titulo, autor, capaUrl }` (capa só como URL, imagem servida por Cloudinary/OpenLibrary); `OrdenacaoEstante` ganhou `autor_asc/desc` (sem autor por último, empate pelo título) e `progresso_asc/desc` (percentual da leitura em andamento, sem leitura em andamento por último).
 - **Decisão registrada (26/09/2026): a listagem da estante faz JOIN direto da VIEW de contrato `v_livro_referencia_v1` no repositório de `leitura`**, em vez de passar pela classe `ReferenciasExternas`. É permitido pela arquitetura §4.2 porque é VIEW de contrato, não tabela crua, e é necessário porque a ordenação paginada por título e por autor tem de acontecer no SQL.
-- **Ainda em aberto:** web e mobile não iniciados; testes de integração ainda não executados; secrets do GitHub `LEITURA_URL`/`LEITURA_SCHEDULER_TOKEN` e env `SCHEDULER_TOKEN` a configurar, com a prova do agendador (P-08); deploy em DES.
+- **Ainda em aberto:** secrets do GitHub `LEITURA_URL`/`LEITURA_SCHEDULER_TOKEN` e env `SCHEDULER_TOKEN` a configurar, com a prova do agendador (P-08); teste explícito de falha do broker sem desfazer a escrita (RNF-TST-03). "Funciona em DES" chega com o merge de fechamento do Período 1.
 - Stack de `leitura` definida: **NestJS** — mesma de `acervo` (arquitetura §2.1).
 
 - **Prompts de tela em [`docs/design/periodo-1/F-EST/`](../../design/periodo-1/F-EST/):** `estante.md` e `acoes-de-leitura.md`. **RF-EST-08 (número de conclusões) e o status na estante não têm prompt próprio:** eles são elementos que esta feature acrescenta a [`F-ACV-BUSCA/pagina-do-livro.md`](../../design/periodo-1/F-ACV-BUSCA/pagina-do-livro.md), conforme a regra de recorte do [`docs/design/AGENTS.md`](../../design/AGENTS.md) §2, que manda o prompt morar junto da tela e não junto da feature que pediu o dado. Alteração no desenho da página do livro precisa ser combinada com o dono de F-ACV-BUSCA.
@@ -150,6 +151,10 @@ Os quatro eventos de atividade vão para [F-FEED](feature-F-FEED.md); abandono a
 - ~~**Componentes que nascem no protótipo e ainda não estão na fonte:** a **contagem dentro do pill de filtro** e o **controle de ordenação** (`estante.md`, RF-EST-02 exige ordenação e o design §5.1 não desenha o controle), e a **lista de ações do sheet** com ação neutra, principal e destrutiva (`acoes-de-leitura.md`; o §5.4 desenha o sheet de progresso, que é formulário, não menu de transições). Incorporar ao `documento-de-design.md` pelo controle de mudança do plano §3.~~ Incorporados em 26/09/2026 ao `documento-de-design.md` §5.1 (contagem no pill, linha e opções de ordenação) e §5.4 (lista de ações do sheet, com as duas confirmações de abandono distintas), com entrada na §11 Timeline do documento.
 
 ## Timeline
+
+### Fechamento 29/09/2026: feature entregue e **em revisão**, aguardando o aval dos professores. Ações de estante na página do livro oficial, web e mobile (`6099020`, PR #44); no mobile, a estante recarrega quando a leitura muda em outra tela (`bcbbc90`, Renato Douglas). Pendências remanescentes: secrets e prova do agendador (P-08) e teste explícito de falha do broker. O DES chega com o merge de fechamento do Período 1.
+
+### Revisão 27/09/2026 (clientes): estante por status e ações do ciclo de leitura na web (`f36c609`) e no mobile (`1c359c7`), com confirmações distintas de abandono de leitura e de releitura; o progresso de F-PRG passou a ser refletido no item da estante (`7b01bdf`), com página atual em Lendo e página de parada em Abandonado.
 
 ### Revisão 27/09/2026: controle de mudança de contrato aprovado pela dona do produto (Ana Luiza). (a) `ItemEstante` ganha `ultimaLeituraId` (leitura mais recente do livro na estante, em qualquer status) e `retomavel` (verdadeiro só quando essa leitura é a primeira leitura abandonada), também em `GET /perfis/{usuarioId}/estante`: sem o id da última leitura o cliente não conseguia retomar um livro Abandonado (RF-EST-07), já que `leituraEmAndamentoId` é nulo nesse estado. (b) Novo `GET /estante/{livroId}` (`consultarItemEstante`, 404 quando o livro não está na estante do leitor autenticado) para a consulta por livro, substituindo a varredura paginada da estante na página do livro pessoal. A listagem e a consulta por livro compartilham a mesma consulta SQL, com LATERAL JOIN da leitura mais recente. Comentários de código removidos a pedido da dona do produto; as decisões ficam registradas nos docs.
 

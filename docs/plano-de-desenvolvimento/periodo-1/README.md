@@ -19,7 +19,7 @@
 | F-FEED | Feed e interações sociais | social | prioritaria | RF-SOC-09, 10, 11, 12, 14 | Feed cronológico, publicação de atividades (início/retomada/conclusão/abandono/resenha), curtir, comentar e responder (RN-10), menção pré-preenchida ao responder |
 | F-NOT | Notificações in-app | social | prioritaria | RF-NOT-01..04 | Geração de notificações in-app, lista paginada com não lidas, marcar lidas (individual/lote), ação de abandonar na notificação de leitura em risco |
 
-O DER implantado contém **59 tabelas e 9 VIEWs** como baseline física compartilhada. Essa implantação não implica que qualquer uma das dez features esteja implementada: prevalecem os status registrados em cada arquivo. O recorte de cadastro/login/`me` herdado de P0-NAV já existe; o restante do escopo funcional do Período 1 permanece por implementar.
+O DER implantado contém **59 tabelas e 9 VIEWs** como baseline física compartilhada, mais as 4 tabelas de recibo `mensagem_processada` de P0-MSG (19/09/2026), num total de **63 tabelas**. Ao fim da Sprint 4 (29/09/2026), **as dez features estão implementadas em `desenvolvimento` e em revisão**; o estado de cada uma está em [Fechamento do Período 1](#fechamento-do-período-1-29092026) e, em detalhe, no arquivo da feature.
 
 ## Contratos transversais do período
 
@@ -69,7 +69,7 @@ Esta divisão reduz sobreposição dentro de cada serviço e mantém as integra�
 
 ### Ordem de implementação recomendada
 
-1. **Destravar a fundação transversal:** concluir o runtime pendente de [P0-MSG](../periodo-0/feature-P0-MSG.md) (dispatcher, recibo, validação, retry e DLQ). As tabelas de outbox já implantadas não substituem esse runtime.
+1. **Destravar a fundação transversal:** concluir o runtime de [P0-MSG](../periodo-0/feature-P0-MSG.md) (dispatcher, recibo, validação, retry e DLQ). **Concluído em 19/09/2026**, com prova real Spring → Nest; a execução em DES/HML entra no merge de fechamento.
 2. **Fixar produtores e referências básicas em paralelo:** Pessoa 1 implementa F-AUT antes de F-PERFIL; Pessoa 2 implementa F-ACV-INGESTAO antes de F-ACV-CADASTRO; Pessoa 4 implementa o núcleo de F-EST antes de F-PRG. Isso estabiliza sessão, `v_perfil_referencia_v1`, `v_seguimento_aceito_v1`, `v_livro_referencia_v1` e a entidade de leitura sem troca constante entre responsáveis.
 3. **Construir a página do livro e seus dados:** Pessoa 3 implementa primeiro o backend/contratos de F-AVA contra `v_livro_referencia_v1` e depois integra F-ACV-BUSCA à `v_resenha_publicacao_v1`; busca e UI podem avançar com o seed reproduzível enquanto a carga completa não termina. Uma única pessoa cuida da principal fronteira visual e de dados da página do livro.
 4. **Ligar os consumidores sociais depois dos produtores:** Pessoa 5 prepara a infraestrutura comum de `social`, implementa F-FEED quando os eventos de F-EST/F-AVA e os contratos de F-PERFIL estiverem disponíveis e conclui F-NOT após os produtores de perfil, interação e inatividade. Assim, produtores não ficam bloqueados esperando o efeito consumidor, e cada lado testa sua própria responsabilidade.
@@ -81,7 +81,33 @@ Estas divergências não podem ser decididas pelos arquivos de feature e devem s
 
 - **Exclusão de conta:** RF-AUT-07 está como Desejável e alocado a F-CONTA-2, mas RNF-SEC-41 pertence ao conjunto de segurança declarado Essencial. F-AUT não marca RNF-SEC-41 como atendido enquanto o grupo não resolver a prioridade.
 - **Composição de RF-SOC-02:** o RF Essencial exige listas no perfil, mas F-LST está no Período 2. F-PERFIL entrega no Período 1 identidade, contadores, estante e resenhas disponíveis; não declara RF-SOC-02 integralmente fechado até a decisão do grupo.
+- **Feed lendo VIEW de `leitura` (desde 26/09/2026):** o feed (`social`) lê texto, spoiler e nota da resenha por `v_resenha_publicacao_v1`, o que contraria a arquitetura §3.2 item 4 ("o feed guarda snapshot"). Registrado em [`leitura.yaml`](../../api/leitura.yaml) e em [F-AVA](feature-F-AVA.md); decisão pendente com o grupo.
 - **Delta de ingestão — encerrado em 15/09/2026:** removido do escopo pelo grupo. Carga inicial e recarga manual continuam nas features de acervo.
+
+## Fechamento do Período 1 (29/09/2026)
+
+As dez features foram implementadas em back, web e mobile (a web fica de fora onde o escopo é só mobile, como em F-NOT) e mergeadas em `desenvolvimento`, com CI verde. Todas estão **entregues e em revisão**: aguardam o aval dos professores. **O DES ainda não tem o Período 1**: a `main` só recebe o período fechado, e os itens "funciona em DES/HML" de cada arquivo entram no merge de fechamento `desenvolvimento` → `main`, não são pendência da feature.
+
+| Feature | Dono | Situação | O que continua aberto (detalhe no arquivo) |
+|---|---|---|---|
+| [F-AUT](feature-F-AUT.md) | Henrique Carvalho | entregue, em revisão | envio real pelo Brevo em DES; texto final da política de privacidade; testes de contrato |
+| [F-PERFIL](feature-F-PERFIL.md) | Henrique Carvalho | entregue, em revisão | listas no perfil (F-LST, Período 2) e estatísticas; estante do próprio perfil |
+| [F-ACV-BUSCA](feature-F-ACV-BUSCA.md) | Renato Douglas | entregue, em revisão | achados de dados da carga (títulos só de pontuação, acento decomposto) |
+| [F-ACV-CADASTRO](feature-F-ACV-CADASTRO.md) | Vicenzo Fonseca | entregue, em revisão | divergências de protótipo registradas no arquivo |
+| [F-ACV-INGESTAO](feature-F-ACV-INGESTAO.md) | Vicenzo Fonseca | entregue, em revisão | 701 livros oficiais sem autor; limpeza de dados apontada pela busca |
+| [F-EST](feature-F-EST.md) | Ana Luiza de Freitas | entregue, em revisão | secrets `LEITURA_URL`/`LEITURA_SCHEDULER_TOKEN` e prova P-08 do agendador de inatividade |
+| [F-PRG](feature-F-PRG.md) | Ana Luiza de Freitas | entregue, em revisão | protótipo HTML de atualizações ainda mostra "Editar" (a edição foi removida em 29/09) |
+| [F-AVA](feature-F-AVA.md) | Renato Douglas | entregue, em revisão | revisão do Kayke nas mudanças feitas no `social`; feed lendo `v_resenha_publicacao_v1` |
+| [F-FEED](feature-F-FEED.md) | Kayke | entregue, em revisão | fila, retry e DLQ contra RabbitMQ real; revisão da migration `V20260927002000` |
+| [F-NOT](feature-F-NOT.md) | Kayke | entregue, em revisão | destinos das notificações no app ainda apontam para a raiz do feed e para a estante |
+
+**Pendências transversais levadas ao grupo** (nenhuma bloqueia a revisão das features):
+
+- **RNF-SEC-41 × RF-AUT-07** e **composição de RF-SOC-02**: seguem abertas como descrito em [Pendências de consistência da baseline](#pendências-de-consistência-da-baseline). Até a decisão, a exclusão de conta fica com F-CONTA-2 e as listas no perfil com F-LST, ambas no Período 2.
+- **Feed lendo `v_resenha_publicacao_v1`**: o `social` lê texto, spoiler e nota da resenha pela VIEW de `leitura` em vez de guardar snapshot, contrariando a arquitetura §3.2 item 4 (ver [Pendências de consistência da baseline](#pendências-de-consistência-da-baseline)). Decisão do grupo.
+- **Documento de Arquitetura**: o plano de projeto §12 pede a atualização no fechamento, com as decisões do período (feed lendo VIEW de `leitura`, envio de recuperação de senha em processo, job de inatividade por `schedule` do GitHub Actions, busca com `pg_trgm`). Fica com o grupo, porque agentes não editam `docs/orquestador/`.
+
+Nada desceu para o Período 2 pela regra de corte: o que ficou aberto são resíduos registrados em cada feature ou itens que já pertenciam ao Período 2.
 
 ## Arquivos de feature
 
