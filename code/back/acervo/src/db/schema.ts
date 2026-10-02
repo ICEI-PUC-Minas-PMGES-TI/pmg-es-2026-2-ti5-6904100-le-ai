@@ -210,6 +210,12 @@ export const autor = acervoSchema.table(
       'autor_nome_normalizado_nao_vazio_ck',
       sql`btrim(${table.nomeNormalizado}) <> ''`,
     ),
+    // F-ACV-DESCOBERTA: biografia curta da OpenLibrary (RF-ACV-10), cortada
+    // pela ingestão e pela importação antes de gravar; vazia vira NULL.
+    check(
+      'autor_biografia_ck',
+      sql`${table.biografia} IS NULL OR (char_length(${table.biografia}) <= 2000 AND btrim(${table.biografia}) <> '')`,
+    ),
   ],
 );
 

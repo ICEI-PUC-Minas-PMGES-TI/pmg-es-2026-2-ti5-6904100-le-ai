@@ -36,6 +36,13 @@
       "when": 1790439499222,
       "tag": "0004_20260926131817_indices_busca",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790982138768,
+      "tag": "0005_20261002200217_descoberta",
+      "breakpoints": true
     }
   ]
 }
