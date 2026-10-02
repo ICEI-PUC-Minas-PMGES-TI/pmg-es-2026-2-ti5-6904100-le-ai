@@ -65,6 +65,38 @@ function LimiteDePaginas(lado: 'mínimo' | 'máximo'): PropertyDecorator {
 }
 
 /**
+ * `page` e `limit` das listagens paginadas por número de página (RNF-DES-02).
+ * O `ValidationPipe` global converte com `transform`, mas sem conversão
+ * implícita: os dois chegam como texto e só viram número pelo `@Type`.
+ */
+export class PaginacaoQueryDto {
+  @ApiPropertyOptional({ minimum: 1, maximum: PAGINA_MAXIMA, default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'A página deve ser um número inteiro.' })
+  @Min(1, { message: 'A página começa em 1.' })
+  // Sem teto, o offset de `page=1e18` estoura o bigint do Postgres (500).
+  @Max(PAGINA_MAXIMA, {
+    message: `A página deve ser no máximo ${PAGINA_MAXIMA}.`,
+  })
+  page?: number;
+
+  @ApiPropertyOptional({
+    minimum: 1,
+    maximum: LIMITE_MAXIMO,
+    default: LIMITE_PADRAO,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'O limite deve ser um número inteiro.' })
+  @Min(1, { message: 'O limite deve ser pelo menos 1.' })
+  @Max(LIMITE_MAXIMO, {
+    message: `O limite deve ser no máximo ${LIMITE_MAXIMO}.`,
+  })
+  limit?: number;
+}
+
+/**
  * Query de `GET /livros` (RF-ACV-01, RF-ACV-02).
  *
  * O `ValidationPipe` global converte com `transform`, mas sem conversão
@@ -76,7 +108,7 @@ function LimiteDePaginas(lado: 'mínimo' | 'máximo'): PropertyDecorator {
  * "Nenhum critério" e "`paginasMin` maior que `paginasMax`" não cabem num
  * decorator de campo; quem recusa é o service.
  */
-export class BuscaLivrosQueryDto {
+export class BuscaLivrosQueryDto extends PaginacaoQueryDto {
   @ApiPropertyOptional({ minLength: 1, maxLength: 200 })
   @IsOptional()
   @Transform(aparar)
@@ -114,31 +146,6 @@ export class BuscaLivrosQueryDto {
 
   @LimiteDePaginas('máximo')
   paginasMax?: number;
-
-  @ApiPropertyOptional({ minimum: 1, maximum: PAGINA_MAXIMA, default: 1 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt({ message: 'A página deve ser um número inteiro.' })
-  @Min(1, { message: 'A página começa em 1.' })
-  // Sem teto, o offset de `page=1e18` estoura o bigint do Postgres (500).
-  @Max(PAGINA_MAXIMA, {
-    message: `A página deve ser no máximo ${PAGINA_MAXIMA}.`,
-  })
-  page?: number;
-
-  @ApiPropertyOptional({
-    minimum: 1,
-    maximum: LIMITE_MAXIMO,
-    default: LIMITE_PADRAO,
-  })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt({ message: 'O limite deve ser um número inteiro.' })
-  @Min(1, { message: 'O limite deve ser pelo menos 1.' })
-  @Max(LIMITE_MAXIMO, {
-    message: `O limite deve ser no máximo ${LIMITE_MAXIMO}.`,
-  })
-  limit?: number;
 }
 
 export class AutorResumoDto {

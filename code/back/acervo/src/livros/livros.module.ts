@@ -8,6 +8,9 @@ import { LivroOficialController } from './busca/livro-oficial.controller';
 import { LivroOficialRepository } from './busca/livro-oficial.repository';
 import { LivroOficialService } from './busca/livro-oficial.service';
 import { ResenhasRepository } from './busca/resenhas.repository';
+import { CatalogoController } from './catalogo/catalogo.controller';
+import { CatalogoRepository } from './catalogo/catalogo.repository';
+import { CatalogoService } from './catalogo/catalogo.service';
 import { GoogleBooksFonte } from './importacao/dominio/google-books.fonte';
 import { HttpExterno } from './importacao/dominio/http-externo';
 import { OpenLibraryFonte } from './importacao/dominio/openlibrary.fonte';
@@ -52,8 +55,9 @@ function criarHttpExterno(config: ConfigService): HttpExterno {
 const ESPERAS_DA_SINOPSE_MS = [1_000];
 
 /**
- * Domínio de livro: importação por ISBN e livro pessoal (F-ACV-CADASTRO) e
- * busca do acervo oficial (F-ACV-BUSCA).
+ * Domínio de livro: importação por ISBN e livro pessoal (F-ACV-CADASTRO),
+ * busca do acervo oficial (F-ACV-BUSCA) e filtros e páginas de autor, editora
+ * e série (F-ACV-DESCOBERTA).
  *
  * `ImportacaoConsumer` registra o consumidor de `livro.importacao_solicitada` no
  * runtime AMQP de P0-MSG. Com `AMQP_ENABLED=false` o registro acontece mas
@@ -66,6 +70,7 @@ const ESPERAS_DA_SINOPSE_MS = [1_000];
     LivroPessoalController,
     BuscaController,
     LivroOficialController,
+    CatalogoController,
   ],
   providers: [
     BuscaService,
@@ -73,6 +78,8 @@ const ESPERAS_DA_SINOPSE_MS = [1_000];
     LivroOficialService,
     LivroOficialRepository,
     ResenhasRepository,
+    CatalogoService,
+    CatalogoRepository,
     ImportacaoService,
     ImportacaoRepository,
     OutboxRepository,
