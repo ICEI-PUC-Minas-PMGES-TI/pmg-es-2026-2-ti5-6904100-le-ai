@@ -10,10 +10,9 @@ info:
     utilitário, não uma API HTTP; por isso não há rotas administrativas de
     ingestão, recarga ou associação de assuntos neste período. O contrato é
     publicado em runtime por @nestjs/swagger em /docs e versionado aqui
-    conforme RNF-ARQ-03. No Período 2, F-ACV-DESCOBERTA acrescenta os filtros
+    conforme RNF-ARQ-03. No Período 2, F-ACV-DESCOBERTA acrescentou os filtros
     avançados de GET /livros, as páginas de autor, editora e série e os campos
-    de série e editora da página do livro, publicados como planejados antes da
-    implementação.
+    de série e editora da página do livro, implementados em 02/10/2026.
 x-contract-status: implemented
 x-implementation-notes:
   - >-
@@ -46,7 +45,7 @@ x-implementation-notes:
     F-AVA desde 27/09/2026, filtradas por RN-08; com a VIEW inacessível,
     resenhas vem null em GET /livros/{id} e GET /livros/{id}/resenhas
     responde 503.
-x-implemented-features: [F-ACV-CADASTRO, F-ACV-BUSCA, F-ACV-INGESTAO]
+x-implemented-features: [F-ACV-CADASTRO, F-ACV-BUSCA, F-ACV-INGESTAO, F-ACV-DESCOBERTA]
 x-database-contracts:
   - name: v_livro_referencia_v1
     owner: acervo
@@ -128,9 +127,10 @@ paths:
         e mesmos autores chegam contíguas, para o cliente agrupá-las. `limit`
         acima de 50 é 400.
 
-        Filtros avançados (F-ACV-DESCOBERTA, RF-ACV-03, planejados): `autor`,
+        Filtros avançados (F-ACV-DESCOBERTA, RF-ACV-03): `autor`,
         `editora` e `serie` são texto livre e casam como o `q`, por trecho, sem
-        acento e palavra por palavra, cada um no seu campo; `ano` é um valor
+        acento e palavra por palavra, cada um no seu campo, e a editora casa
+        também pelos sinônimos da curadoria (RN-12); `ano` é um valor
         único; `paginasMin` e `paginasMax` formam uma faixa fechada, e cada lado
         vale sozinho. Todos se somam (AND) entre si, ao `q` e ao `assunto`.
         Com eles, qualquer critério basta: o 400 por falta de critério passa a
@@ -138,9 +138,6 @@ paths:
         `q`. `paginasMin` maior que `paginasMax` é 400 no campo `paginasMax`.
         Sem `q`, a ordem continua por título. Livro pessoal continua fora
         (RNF-SEC-06).
-      x-planned-periodo-2:
-        - autor, editora, serie, ano, paginasMin e paginasMax (F-ACV-DESCOBERTA)
-        - busca só com filtros, sem q e sem assunto (F-ACV-DESCOBERTA)
       parameters:
         - name: q
           in: query
@@ -157,7 +154,7 @@ paths:
         - name: autor
           in: query
           description: >-
-            Planejado (F-ACV-DESCOBERTA). Trecho do nome de um dos autores. Mesmo
+            Trecho do nome de um mesmo autor (F-ACV-DESCOBERTA). Mesmo
             tratamento do `q`: controle vira espaço, pontas aparadas, só espaços
             é 400.
           schema: { type: string, minLength: 1, maxLength: 200 }
@@ -165,30 +162,29 @@ paths:
         - name: editora
           in: query
           description: >-
-            Planejado (F-ACV-DESCOBERTA). Trecho do nome canônico da editora
-            (RN-12). Mesmo tratamento do `q`.
+            Trecho do nome canônico da editora ou de um dos seus sinônimos da
+            curadoria (RN-12, F-ACV-DESCOBERTA). Mesmo tratamento do `q`.
           schema: { type: string, minLength: 1, maxLength: 200 }
           example: companhia
         - name: serie
           in: query
           description: >-
-            Planejado (F-ACV-DESCOBERTA). Trecho do nome da série. Mesmo
-            tratamento do `q`.
+            Trecho do nome da série (F-ACV-DESCOBERTA). Mesmo tratamento do `q`.
           schema: { type: string, minLength: 1, maxLength: 200 }
         - name: ano
           in: query
-          description: Planejado (F-ACV-DESCOBERTA). Ano de publicação da edição.
+          description: Ano de publicação da edição (F-ACV-DESCOBERTA).
           schema: { type: integer, minimum: 1, maximum: 9999 }
           example: 2019
         - name: paginasMin
           in: query
-          description: Planejado (F-ACV-DESCOBERTA). Nº mínimo de páginas, inclusive.
+          description: Nº mínimo de páginas, inclusive (F-ACV-DESCOBERTA).
           schema: { type: integer, minimum: 1, maximum: 100000 }
         - name: paginasMax
           in: query
           description: >-
-            Planejado (F-ACV-DESCOBERTA). Nº máximo de páginas, inclusive; menor
-            que `paginasMin` é 400.
+            Nº máximo de páginas, inclusive (F-ACV-DESCOBERTA); menor que
+            `paginasMin` é 400.
           schema: { type: integer, minimum: 1, maximum: 100000 }
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Limit'
@@ -248,13 +244,11 @@ paths:
         rate limiting por identidade e IP, porque a abertura dispara consulta a
         fonte externa.
 
-        F-ACV-DESCOBERTA (planejado) acrescenta `editoraId` e `serie` (id, nome e
+        F-ACV-DESCOBERTA acrescenta `editoraId` e `serie` (id, nome e
         número de ordem) para os links da ficha às páginas de editora e série; o
         id de cada autor já vem em `autores`. Cada assunto em `assuntos` é
         acionável como filtro: o cliente leva o `id` a GET /livros?assunto=<id>
         (RF-ACV-21, RN-21).
-      x-planned-periodo-2:
-        - editoraId e serie (F-ACV-DESCOBERTA)
       parameters:
         - $ref: '#/components/parameters/LivroId'
       responses:
@@ -301,8 +295,8 @@ paths:
   /autores/{id}:
     get:
       operationId: obterAutor
-      x-contract-status: planned-periodo-2
-      x-planned-by: F-ACV-DESCOBERTA
+      x-contract-status: implemented
+      x-implemented-by: F-ACV-DESCOBERTA
       tags: [catalogo]
       summary: Obtém a página de um autor
       description: >-
@@ -334,8 +328,8 @@ paths:
   /editoras/{id}:
     get:
       operationId: obterEditora
-      x-contract-status: planned-periodo-2
-      x-planned-by: F-ACV-DESCOBERTA
+      x-contract-status: implemented
+      x-implemented-by: F-ACV-DESCOBERTA
       tags: [catalogo]
       summary: Obtém a página de uma editora
       description: >-
@@ -362,8 +356,8 @@ paths:
   /series/{id}:
     get:
       operationId: obterSerie
-      x-contract-status: planned-periodo-2
-      x-planned-by: F-ACV-DESCOBERTA
+      x-contract-status: implemented
+      x-implemented-by: F-ACV-DESCOBERTA
       tags: [catalogo]
       summary: Obtém a página de uma série
       description: >-
@@ -917,10 +911,10 @@ components:
       type: object
       additionalProperties: false
       description: >-
-        Os campos de LivroOficialResumo mais ISBN, sinopse e a primeira página de
-        resenhas. Declarado por extenso, e não como allOf, porque o resumo tem
+        Os campos de LivroOficialResumo mais editoraId, série, ISBN, sinopse e a
+        primeira página de resenhas. Declarado por extenso, e não como allOf, porque o resumo tem
         additionalProperties false e recusaria os campos a mais.
-      required: [id, titulo, autores, editora, anoPublicacao, paginas, capa, assuntos, isbn, sinopse, resenhas]
+      required: [id, titulo, autores, editora, editoraId, anoPublicacao, paginas, capa, assuntos, serie, isbn, sinopse, resenhas]
       properties:
         id: { type: string, format: uuid }
         titulo: { type: string, minLength: 1, maxLength: 500 }
@@ -934,8 +928,8 @@ components:
           format: uuid
           nullable: true
           description: >-
-            Planejado (F-ACV-DESCOBERTA). Leva à página da editora; null quando
-            o livro não tem editora. Entra em `required` ao ser implementado.
+            Leva à página da editora (F-ACV-DESCOBERTA); null quando o livro não
+            tem editora.
         anoPublicacao: { type: integer, minimum: 1, maximum: 9999, nullable: true }
         paginas: { type: integer, minimum: 1 }
         capa: { $ref: '#/components/schemas/Capa' }
@@ -950,8 +944,8 @@ components:
             - $ref: '#/components/schemas/SerieDoLivro'
           nullable: true
           description: >-
-            Planejado (F-ACV-DESCOBERTA). null quando o livro não pertence a uma
-            série. Entra em `required` ao ser implementado.
+            Leva à página da série (F-ACV-DESCOBERTA); null quando o livro não
+            pertence a uma série.
         isbn:
           type: string
           pattern: '^97[89][0-9]{10}$'

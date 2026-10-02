@@ -28,7 +28,7 @@ Livro (oficial e pessoal), autor, editora, série, busca e filtros, ingestão, s
   - `src/auth/` — validação do token HS256 emitido pelo `identidade`, guard global e `@UsuarioAtual()`.
   - `src/db/` — `drizzle.module.ts` (provider `DRIZZLE`; encerra o pool no shutdown), `schema.ts` (`pgSchema`), `migrate.ts`, `seed.ts` (massa de RNF-TST-08), `tipos.ts` (`Tx`), `contratos-externos.ts` (VIEWs de outros schemas).
   - `src/messaging/` — runtime AMQP de P0-MSG: conexão, dispatcher da outbox, publisher, consumidor genérico com recibo em `mensagem_processada`, retry `1/5/15 s` e DLQ, validador de envelope e de `data`. O handler recebe o `tx` do recibo.
-  - `src/livros/` — domínio de F-ACV-CADASTRO: `importacao/` (por ISBN, com `dominio/` das fontes externas, o consumidor `importacao.consumer.ts` e a convergência `convergencia.repository.ts`), `pessoal/` (CRUD e consulta autorizada) e `outbox/`. De F-ACV-BUSCA: `busca/` (`GET /assuntos`, `GET /livros`, a página `GET /livros/{id}` e `GET /livros/{id}/resenhas`), `sinopse/` (consumidor de `livro.pagina_aberta` e as fontes de sinopse) e `capa.ts`.
+  - `src/livros/` — domínio de F-ACV-CADASTRO: `importacao/` (por ISBN, com `dominio/` das fontes externas, o consumidor `importacao.consumer.ts` e a convergência `convergencia.repository.ts`), `pessoal/` (CRUD e consulta autorizada) e `outbox/`. De F-ACV-BUSCA: `busca/` (`GET /assuntos`, `GET /livros`, a página `GET /livros/{id}` e `GET /livros/{id}/resenhas`), `sinopse/` (consumidor de `livro.pagina_aberta` e as fontes de sinopse) e `capa.ts`. De F-ACV-DESCOBERTA: `catalogo/` (`GET /autores/{id}`, `GET /editoras/{id}`, `GET /series/{id}`) e os filtros avançados dentro de `busca/`.
   - `src/health/` — `GET /health` via `@nestjs/terminus` + indicador Drizzle (`SELECT 1`) (RNF-OBS-02).
 - **Comandos:** `npm run start:dev` · `npm run build` · `npm test` · `npm run test:integration` · `npm run lint` · `npm run db:generate` · `npm run db:migrate` · `npm run db:seed`. `npm run start:prod` aplica migrations antes de iniciar a API.
 - **Testes unitários:** Jest + ts-jest; specs em `src/**/*.spec.ts`, ao lado do arquivo testado. Rodam sem banco e sem rede: `fetch`, relógio e repositórios são injetados.
@@ -38,7 +38,7 @@ Livro (oficial e pessoal), autor, editora, série, busca e filtros, ingestão, s
   DATABASE_URL_TESTE=postgresql://postgres:teste@localhost:55432/leai_teste npm run test:integration
   ```
   No CI, o `ci-back-acervo.yml` sobe um service container de Postgres.
-- **OpenAPI:** `@nestjs/swagger` em runtime (`/docs`); contrato commitado em [`docs/api/acervo.yaml`](../../../docs/api/acervo.yaml) (RNF-ARQ-03), com as 12 operações de F-ACV-BUSCA e F-ACV-CADASTRO `implemented`.
+- **OpenAPI:** `@nestjs/swagger` em runtime (`/docs`); contrato commitado em [`docs/api/acervo.yaml`](../../../docs/api/acervo.yaml) (RNF-ARQ-03), com as 12 operações de F-ACV-BUSCA e F-ACV-CADASTRO e as 3 de F-ACV-DESCOBERTA `implemented`.
 
 ## Pontos de atenção (ver `REQUISITOS.md`)
 
@@ -84,6 +84,18 @@ Implementado em 26/09/2026.
 - **A política das fontes de sinopse é mais curta que a da importação** (uma retentativa de 1 s, mesmo circuit breaker): a fila processa um livro por vez, e `falha_transitoria` já é reprocessável na próxima abertura.
 - **`@RateLimit` com `escopo`.** O guard é uma instância só por módulo, e sem escopo as rotas dividem os contadores de `ip:` e `sub:`. A página do livro usa o escopo `pagina-do-livro`, com 60 por identidade e **600 por IP**: uma turma atrás do mesmo NAT abre livros ao mesmo tempo, e o polling da sinopse soma até 7 consultas por abertura no primeiro minuto.
 - **Resenhas da página filtradas por RN-08 no SQL**: autor público ou privado seguido, sem a resenha do próprio leitor. Cursor keyset `(criado_em, resenha_id)` com o instante em texto do Postgres, com microssegundos. VIEW de outro serviço inacessível vira `resenhas: null` na página e 503 na rota de resenhas.
+
+## Decisões de F-ACV-DESCOBERTA que valem como regra
+
+Implementado em 02/10/2026.
+
+- **Busca e páginas de catálogo passam pelo mesmo `BuscaService.paginar()`.** A página de autor, editora ou série é a busca com um filtro por id (`autorId`, `editoraId`, `serieId`) e outra `ordem` (`ano-do-grupo` ou `serie`). Assim o agrupamento de edições, a contagem separada da página e o predicado literal de livro oficial ativo são um só. Nunca escreva outra consulta de lista de livros para uma página nova: acrescente o filtro e a ordem.
+- **Filtros de texto casam como o `q`** (`contemTodas`, `palavrasDaBusca`), e todas as palavras precisam estar no nome de um **mesmo** autor. A editora casa também por `sinonimo_editora.forma_externa`. Tudo entra em `filtros()`, que alimenta os dois ramos de `encontrados()`.
+- **Qualquer critério basta em `GET /livros`.** O 400 por falta de critério continua no campo `q`, onde o cliente do Período 1 o espera.
+- **O `ORDER BY` de toda ordem termina em ano da edição e `livro_id`.** É isso que mantém a ordem estável entre páginas. `o.grupo` começa pelo título normalizado, então "por título" é ordenar pelo grupo.
+- **Entidade de catálogo sem livro oficial ativo responde 200 com a lista vazia**, e não 404: autor, editora e série existem sem dono. 404 é só para id que não existe.
+- **Biografia é texto puro com teto de 2000 e nunca string vazia** (CHECK `autor_biografia_ck`). `LIMITE_DA_BIOGRAFIA` mora em `texto-puro.ts`, ao lado do da sinopse. Quem grava passa por `textoPuro`: a convergência da importação e o gêmeo Python `texto_puro` do script `biografias`, que precisa continuar igual. A página repassa por `textoPuro` como defesa. A importação **completa** biografia ausente e nunca sobrescreve.
+- **O índice trigram de `serie.nome` fica na migration `0005`, fora do `schema.ts`**, como os da `0004`. Ano e páginas **não** têm índice: o `EXPLAIN ANALYZE` de 02/10/2026 no banco de dev deu menos de 25 ms (Timeline da feature). Meça antes de criar um.
 
 ## Mudanças de 27/09/2026 no código comum (validação de F-ACV-BUSCA)
 

@@ -23,8 +23,8 @@ RNF atendidos: **RNF-DES-02** (listagens paginadas com teto server-side), **RNF-
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | não iniciado | índices para filtros (ano, nº páginas) e para páginas de autor/editora/série |
-| Backend | não iniciado | `acervo`: filtros avançados em `GET /livros` + endpoints de autor/editora/série + assunto acionável |
+| Infra | implementado (02/10/2026) | migration `0005`: índice trigram do nome da série e CHECK `autor_biografia_ck`, **aguardando revisão humana**. Índice de ano/páginas medido e dispensado (Timeline). Biografias a carregar pelo script `biografias` em dev e DES |
+| Backend | implementado (02/10/2026) | `acervo`: filtros avançados em `GET /livros`, `GET /autores/{id}`, `GET /editoras/{id}`, `GET /series/{id}`, `editoraId` e `serie` em `GET /livros/{id}` e biografia na importação por ISBN; contrato `implemented` no `acervo.yaml` |
 | Web | não iniciado | filtros na busca; páginas de autor/editora/série; assuntos clicáveis na página do livro |
 | Mobile | não iniciado | mesmas telas |
 
@@ -50,6 +50,47 @@ Sem novos eventos e sem VIEW cross-schema: a feature lê e serve dados do própr
 
 - Mesmas telas com `ThemeData` de [P0-DS](../periodo-0/feature-P0-DS.md); paginação incremental nas listas. Alvo de demonstração Android.
 
+### Contrato implementado (backend, 02/10/2026)
+
+- **`GET /livros`:** `autor`, `editora` e `serie` são texto livre e casam como o `q`: por trecho, sem acento e palavra por palavra, todas no nome de um **mesmo** autor. A editora casa também pelos sinônimos de `acervo.sinonimo_editora` ("cia das letras" acha a Companhia das Letras). `ano` é um valor único. `paginasMin`/`paginasMax` formam faixa fechada, e cada lado vale sozinho. Tudo se soma (AND) ao `q` e ao `assunto`. **Qualquer critério basta**: o 400 por falta de critério só sai sem nenhum dos oito, ainda no campo `q`, com a mensagem "Informe um texto de busca, um assunto ou um filtro.". `paginasMin > paginasMax` é 400 em `paginasMax`. Sem `q`, a ordem continua por título.
+- **`GET /autores/{id}`**, **`/editoras/{id}`** e **`/series/{id}`** (`page`, `limit` ≤ 50):
+  - **Autor:** `{ id, nome, biografia | null, livros }`.
+  - **Editora:** `{ id, nome, livros }`.
+  - **Série:** `{ id, nome, autores[], livros }`. Cada item da série traz `numeroNaSerie`.
+  - **Contagem:** `livros.totalItens` é o "N livros no acervo", contando edições.
+  - **Ordem de autor e editora:** pelo ano mais recente do grupo (título normalizado + autores, como na busca), com as edições juntas e os grupos sem ano no fim.
+  - **Ordem da série:** pelo número de ordem. Sem número vai no fim, por título. Lacuna não gera item, e edições de mesmo número ficam juntas, da mais recente para a mais antiga.
+  - **Respostas:** entidade sem livro oficial ativo dá 200 com a lista vazia; inexistente dá 404; id malformado dá 400 em `id`. Não há rate limit próprio, porque a rota não chama fonte externa.
+- **`GET /livros/{id}`:** acrescenta `editoraId` e `serie { id, nome, numero | null }`. O id de cada assunto já filtra `GET /livros?assunto=` (RF-ACV-21), o que o teste de integração prova.
+- **Biografia:** `autor.biografia` em texto puro (gêmeos `textoPuro` no TS e `texto_puro` no Python), com teto de 2000 e nunca vazia (CHECK). Duas origens:
+  - o script `biografias`, para os autores já carregados;
+  - a importação por ISBN, que já consultava `/authors/{key}.json` e agora grava o `bio` do autor novo e completa o do autor existente sem sobrescrever.
+- **Código:**
+  - `src/livros/catalogo/` (controller, service, repository, DTOs);
+  - `BuscaRepository` com filtros, filtros por id e as ordens `relevancia`, `ano-do-grupo` e `serie`;
+  - `BuscaService.paginar()`, compartilhado pela busca e pelas três páginas.
+
+### Como carregar as biografias (Vicenzo, na máquina com o dump)
+
+O dump de autores (`ol_dump_authors_*.txt.gz`, ~0,7 GB) é o mesmo da carga de 24/09/2026. O script lê o dump em streaming e só procura os autores já carregados com `biografia IS NULL`. Grava tudo numa transação, com `UPDATE ... WHERE biografia IS NULL`. Reexecutar não muda nada, e a biografia que a importação por ISBN gravou nunca é sobrescrita.
+
+1. **Migration primeiro:** o CHECK `autor_biografia_ck` vem da `0005`. Em dev, rode `npm run db:migrate` em `code/back/acervo` depois da revisão humana. Em DES, ela entra no deploy da `main` (`start:prod` aplica as migrations).
+2. **Ambiente do script:** em `code/scripts/ingestao`, rode `pip install -e .[banco]`. A `DATABASE_URL` do ambiente-alvo vem do `.env` do `acervo` (dev) ou do painel do Neon (DES) e nunca é versionada.
+3. **Simular** (grava numa transação desfeita e só mostra os números):
+   ```bash
+   DATABASE_URL='postgresql://...' python -m leai_ingestao biografias \
+     --dump-autores dumps/ol_dump_authors_latest.txt.gz --dry-run
+   ```
+4. **Gravar:** o mesmo comando sem `--dry-run`. O resumo mostra `autores_sem_biografia`, `encontrados_no_dump`, `com_biografia_no_dump` e `atualizados`.
+5. **Conferir:**
+   ```sql
+   SELECT count(*) FILTER (WHERE biografia IS NOT NULL) AS com_biografia, count(*) AS autores
+     FROM acervo.autor;
+   ```
+6. Repetir em DES depois do merge na `main`. Registrar os números na Timeline.
+
+A biografia fica **no idioma da fonte**: a OpenLibrary costuma devolver em inglês. Ver Pendências.
+
 ## Critérios de aceite
 
 - [ ] Busca aceita filtros por **autor, editora, série, ano e faixa de nº de páginas** (RF-ACV-03), combináveis com assunto, paginada e indexada.
@@ -74,6 +115,21 @@ Sem novos eventos e sem VIEW cross-schema: a feature lê e serve dados do própr
 
 ## Pendências
 
+- **Backend pronto em 02/10/2026; faltam web e mobile.** Antes do merge em `desenvolvimento`:
+  - **revisão humana da migration `0005`** (plano §5);
+  - **aviso ao Renato**, integrador da página do livro, de que `LivroOficialDetalhe` ganhou `editoraId` e `serie`, só como acréscimos (a F-ACV-NOTA mexe no mesmo DTO);
+  - **rodar o script `biografias`** em dev e, depois do merge na `main`, em DES (seção "Como carregar as biografias").
+- **Selo de status na estante nos cards (Lido, Lendo, Quero ler)**, pedido pelos protótipos de autor, editora e série e já pedido pelo Descobrir do P1. Fica **fora do backend desta entrega por decisão do dono (02/10/2026)**. O dado é do serviço `leitura`, que não tem consulta em lote. O caminho previsto é o `acervo` ler uma VIEW de estante do `leitura` (a `v_estante_publica_v1` existente ou uma nova), feito quando a F-EST-2 da Ana amadurecer. Até lá os cards saem sem o selo.
+- **Idioma da biografia:** sai como a OpenLibrary devolve, muitas vezes em inglês, sem tradução e sem completar com outra fonte (RF-ACV-10, decisão de 15/09/2026). O prompt `pagina-do-autor.md` usa texto em português no mock. Levar ao grupo se incomodar na demonstração.
+- **Decisões do dono ratificadas em 02/10/2026** (eram "a ratificar" no prompt):
+  - listas de autor e editora pelo ano mais recente do grupo, com os sem ano no fim;
+  - série sem número no fim, por título;
+  - lacuna sem marcador;
+  - contagem pelo `totalItens`;
+  - filtros de autor, editora e série em texto livre;
+  - `ano` como valor único;
+  - busca só com filtros permitida.
+  - Os dois conflitos de contrato abaixo foram resolvidos pelo `acervo.yaml`.
 - **Telas (design P2):** prompts escritos em 28/09/2026 e protótipos exportados em 29/09/2026: [`pagina-do-autor.md`](../../design/periodo-2/F-ACV-DESCOBERTA/pagina-do-autor.md) ([protótipo](../../design/periodo-2/F-ACV-DESCOBERTA/prototipos/pagina-do-autor.html)), [`pagina-da-editora.md`](../../design/periodo-2/F-ACV-DESCOBERTA/pagina-da-editora.md) ([protótipo](../../design/periodo-2/F-ACV-DESCOBERTA/prototipos/pagina-da-editora.html)) e [`pagina-da-serie.md`](../../design/periodo-2/F-ACV-DESCOBERTA/pagina-da-serie.md) ([protótipo](../../design/periodo-2/F-ACV-DESCOBERTA/prototipos/pagina-da-serie.html)) (mesmo esqueleto de página de catálogo); filtros avançados na edição consolidada [`descobrir.md`](../../design/periodo-2/descobrir/descobrir.md) ([protótipo](../../design/periodo-2/descobrir/prototipos/descobrir.html)); assuntos acionáveis e ficha com links na edição consolidada [`pagina-do-livro.md`](../../design/periodo-2/pagina-do-livro/pagina-do-livro.md) ([protótipo](../../design/periodo-2/pagina-do-livro/prototipos/pagina-do-livro.html)). Decisões do prompt a ratificar pelo dono: ordem das listas de autor e editora por ano (o RF não fixa), livros de série sem número de ordem agrupados no fim, lacuna na numeração sem marcador, idioma da biografia (a OpenLibrary costuma devolver em inglês), contagem `N livros no acervo` pressupondo total no endpoint. **Conflitos de contrato:** `GET /livros` não diz se `autor`, `editora` e `serie` são id ou texto (o protótipo usa texto livre sem autocompletar) e `ano` é valor único; `GET /livros/{id}` precisa trazer série e número de ordem para a ficha.
 - **Esta feature preenche a aba `Descobrir`, criada em 01/09/2026.** A busca do acervo deixou de ser tela filha da estante e virou o quarto item da navegação ([P0-NAV](../periodo-0/feature-P0-NAV.md), [`descobrir.md`](../../design/periodo-1/F-ACV-BUSCA/descobrir.md)). No Período 1 a aba aterrissa magra de propósito: campo de busca e faixa de assuntos, sem destaques e sem histórico. Os filtros avançados de RF-ACV-03 e os links para as páginas de autor, editora e série entram **nesta aba**, e junto com a seção de recomendações de [F-REC-P2P](feature-F-REC-P2P.md) são o que dá corpo à aterrissagem. **Atenção ao nome:** `descobrir.md` corrige a afirmação de que esta feature entregaria "descoberta aberta" com livros em destaque ou mais lidos. Ela entrega filtros e páginas de consulta; curadoria de destaques não é escopo de nenhum RF.
 - **Depende de** [F-ACV-BUSCA](../periodo-1/feature-F-ACV-BUSCA.md) (busca e página do livro que esta feature estende) e [F-ACV-INGESTAO](../periodo-1/feature-F-ACV-INGESTAO.md) (autor/editora/série/assunto normalizados e número de ordem), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md).
@@ -84,6 +140,19 @@ Sem novos eventos e sem VIEW cross-schema: a feature lê e serve dados do própr
 - **Alternativa a avaliar, sem mudar o desenho atual:** reutilizar um componente de página de catálogo para autor/editora/série e criar índices adicionais somente após validar o plano de execução das consultas.
 
 ## Timeline
+
+### Backend 02/10/2026: implementado na branch `vicenzo-features`, contrato publicado antes (`83bc4ab`) e trocado para `implemented` ao fim.
+- **Migration:** `0005`.
+- **Código:** filtros em `GET /livros`, páginas de autor, editora e série, `editoraId`/`serie` na página do livro, biografia na importação por ISBN e o script `biografias`.
+- **Testes, todos verdes:**
+  - acervo: 299 unitários e 125 de integração em Postgres real, com o novo `catalogo.int-spec.ts` e casos novos em `busca`, `livro-oficial` e `consumo-importacao`;
+  - ingestão: 119 testes, incluindo os de banco.
+  - As saídas do `textoPuro` (TS) e do `texto_puro` (Python) foram conferidas iguais nos mesmos casos.
+- **Desempenho medido** com `EXPLAIN ANALYZE` no banco de dev (11.019 livros, 8.126 autores, 1.374 séries), em transação `READ ONLY` e ainda sem a `0005`:
+  - o pior caso foi a página de `editora=companhia`, com 154 ms de execução e 118 ms de plano na primeira consulta;
+  - `ano=2019` e a faixa de páginas ficaram abaixo de 25 ms;
+  - as três páginas de catálogo ficaram abaixo de 6 ms.
+  - Conclusão: RNF-DES-01 folgado e índice de ano/páginas dispensado, como previa a alternativa "índices só após medir". Web e mobile não iniciados.
 
 ### Revisão 15/09/2026: grupo definiu OpenLibrary como fonte de biografia e omissão quando ausente. DER atualizado; implementação não iniciada.
 
