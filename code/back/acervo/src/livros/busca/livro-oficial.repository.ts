@@ -13,6 +13,10 @@ export type StatusDaSinopse =
 
 export interface LinhaDoLivroOficial extends LinhaDeLivroEncontrado {
   isbn: string;
+  /** Links da ficha às páginas de editora e série (F-ACV-DESCOBERTA). */
+  editoraId: string | null;
+  serieId: string | null;
+  serieNome: string | null;
   sinopse: string | null;
   sinopseStatus: StatusDaSinopse;
   /** A abertura desta página deve pedir a sinopse (ver `SINOPSE_A_BUSCAR`). */
@@ -52,11 +56,15 @@ export class LivroOficialRepository {
     const { rows } = await this.db.execute<Record<string, unknown>>(sql`
       SELECT ${COLUNAS_DO_RESUMO},
         l.isbn13 AS isbn,
+        l.editora_id AS "editoraId",
+        sr.id AS "serieId",
+        sr.nome AS "serieNome",
         l.sinopse,
         l.sinopse_status AS "sinopseStatus",
         ${SINOPSE_A_BUSCAR} AS "deveBuscarSinopse"
       FROM acervo.livro l
       LEFT JOIN acervo.editora ed ON ed.id = l.editora_id
+      LEFT JOIN acervo.serie sr ON sr.id = l.serie_id
       WHERE l.id = ${id} AND l.tipo = 'oficial' AND l.ativo
     `);
     return (rows[0] as unknown as LinhaDoLivroOficial | undefined) ?? null;

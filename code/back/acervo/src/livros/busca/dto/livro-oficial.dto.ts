@@ -73,12 +73,38 @@ export class PaginaResenhasDto {
   proximoCursor!: string | null;
 }
 
+/** Série da ficha do livro (F-ACV-DESCOBERTA): link e número de ordem. */
+export class SerieDoLivroDto {
+  @ApiProperty({ format: 'uuid' }) id!: string;
+  @ApiProperty() nome!: string;
+  @ApiProperty({
+    type: 'integer',
+    minimum: 1,
+    nullable: true,
+    description: 'Número de ordem na série; null quando a fonte não o tem.',
+  })
+  numero!: number | null;
+}
+
 /**
  * Página do livro oficial (RF-ACV-04). `resenhas` é `required` **e** `nullable`:
  * `null` quer dizer que os contratos de `leitura` ou `identidade` estão
  * indisponíveis, e a página abre mesmo assim.
  */
 export class LivroOficialDetalheDto extends LivroOficialResumoDto {
+  @ApiProperty({
+    type: String,
+    format: 'uuid',
+    nullable: true,
+    description: 'Leva à página da editora; null sem editora.',
+  })
+  editoraId!: string | null;
+  @ApiProperty({
+    type: SerieDoLivroDto,
+    nullable: true,
+    description: 'null quando o livro não pertence a uma série.',
+  })
+  serie!: SerieDoLivroDto | null;
   @ApiProperty({ pattern: '^97[89][0-9]{10}$' }) isbn!: string;
   @ApiProperty({ type: SinopseDto }) sinopse!: SinopseDto;
   @ApiProperty({ type: PaginaResenhasDto, nullable: true })

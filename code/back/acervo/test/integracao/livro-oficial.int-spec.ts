@@ -5,9 +5,12 @@ import request from 'supertest';
 import { criarApp, novoUsuario, tokenDe } from './app';
 import { contar, limpar, prepararBanco } from './banco';
 import {
+  inserirAssunto,
   inserirAutor,
+  inserirEditora,
   inserirLivroOficial,
   inserirLivroPessoal,
+  inserirSerie,
   isbn,
 } from './massa';
 
@@ -117,6 +120,7 @@ describe('página do livro oficial (integração)', () => {
         titulo: 'Torto arado',
         autores: [{ id: autor, nome: 'Itamar Vieira Junior' }],
         editora: null,
+        editoraId: null,
         anoPublicacao: 2019,
         paginas: 200,
         capa: {
@@ -124,6 +128,7 @@ describe('página do livro oficial (integração)', () => {
           origem: 'externa',
         },
         assuntos: [],
+        serie: null,
         isbn: alvo,
         sinopse: { status: 'pendente', texto: null },
         resenhas: { itens: [], limit: 10, proximoCursor: null },
@@ -134,6 +139,55 @@ describe('página do livro oficial (integração)', () => {
         'SELECT payload FROM acervo.outbox_acervo',
       );
       expect(rows[0].payload).toEqual({ livroId: id });
+    });
+
+    it('a ficha traz editora e série com número, para os links (F-ACV-DESCOBERTA)', async () => {
+      const editora = await inserirEditora(pool, 'Rocco');
+      const serie = await inserirSerie(pool, 'Harry Potter');
+      const id = await inserirLivroOficial(
+        pool,
+        novoIsbn(),
+        'Harry Potter e a câmara secreta',
+        { editoraId: editora, serieId: serie, numeroSerie: 2 },
+      );
+      const semNumero = await inserirLivroOficial(
+        pool,
+        novoIsbn(),
+        'Animais fantásticos',
+        { serieId: serie },
+      );
+
+      const { body } = await abrir(id);
+
+      expect(body).toMatchObject({
+        editora: 'Rocco',
+        editoraId: editora,
+        serie: { id: serie, nome: 'Harry Potter', numero: 2 },
+      });
+      expect((await abrir(semNumero)).body.serie).toEqual({
+        id: serie,
+        nome: 'Harry Potter',
+        numero: null,
+      });
+    });
+
+    it('cada assunto da página filtra a busca pelo próprio id (RF-ACV-21)', async () => {
+      const romance = await inserirAssunto(pool, 'Romance', 'romance');
+      const id = await inserirLivroOficial(pool, novoIsbn(), 'Vidas secas', {
+        assuntos: [romance],
+      });
+      await inserirLivroOficial(pool, novoIsbn(), 'Outro livro');
+
+      const { body } = await abrir(id);
+      const [assunto] = body.assuntos as { id: string; nome: string }[];
+      const busca = await request(app.getHttpServer())
+        .get('/livros')
+        .query({ assunto: assunto.id })
+        .set('Authorization', `Bearer ${tokenDe(leitor)}`);
+
+      expect(assunto).toEqual({ id: romance, nome: 'Romance' });
+      expect(busca.status).toBe(200);
+      expect(busca.body.itens.map((l: { id: string }) => l.id)).toEqual([id]);
     });
 
     it('reabrir não gera outro evento, nem em aberturas concorrentes', async () => {

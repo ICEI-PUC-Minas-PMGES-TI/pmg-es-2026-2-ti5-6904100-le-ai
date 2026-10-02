@@ -25,6 +25,9 @@ function livro(
     assuntos: [],
     numeroSerie: null,
     isbn: '9788580864189',
+    editoraId: null,
+    serieId: null,
+    serieNome: null,
     sinopse: null,
     sinopseStatus: 'nao_consultada',
     deveBuscarSinopse: true,
@@ -37,10 +40,13 @@ const falhaDoBanco = (code: string) =>
   Object.assign(new Error('Failed query'), { cause: { code } });
 
 describe('LivroOficialService', () => {
-  function montar(transacao: jest.Mock) {
+  function montar(
+    transacao: jest.Mock,
+    parcial: Partial<LinhaDoLivroOficial> = {},
+  ) {
     const db = { transaction: transacao } as unknown as DrizzleDB;
     const livros = {
-      obter: jest.fn().mockResolvedValue(livro()),
+      obter: jest.fn().mockResolvedValue(livro(parcial)),
     } as unknown as LivroOficialRepository;
     const resenhas = {
       pagina: jest.fn().mockResolvedValue({ itens: [], proximoCursor: null }),
@@ -69,5 +75,29 @@ describe('LivroOficialService', () => {
     const pagina = await montar(transacao).obter(ID, LEITOR);
 
     expect(pagina.sinopse.status).toBe('pendente');
+  });
+
+  it('monta a série da ficha com o número de ordem', async () => {
+    const pagina = await montar(jest.fn(), {
+      deveBuscarSinopse: false,
+      sinopseStatus: 'ausente',
+      editoraId: 'e1',
+      serieId: 's1',
+      serieNome: 'Trilogia',
+      numeroSerie: 2,
+    }).obter(ID, LEITOR);
+
+    expect(pagina.editoraId).toBe('e1');
+    expect(pagina.serie).toEqual({ id: 's1', nome: 'Trilogia', numero: 2 });
+  });
+
+  it('livro fora de série tem serie e editoraId nulos', async () => {
+    const pagina = await montar(jest.fn(), {
+      deveBuscarSinopse: false,
+      sinopseStatus: 'ausente',
+    }).obter(ID, LEITOR);
+
+    expect(pagina.editoraId).toBeNull();
+    expect(pagina.serie).toBeNull();
   });
 });

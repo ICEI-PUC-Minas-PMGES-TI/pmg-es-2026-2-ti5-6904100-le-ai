@@ -45,6 +45,10 @@ export class LivroOficialService {
    * fonte externa (RN-19.5): quando a sinopse deve ser buscada, a abertura só
    * troca o estado para `pendente` e grava a outbox, e quem consulta as fontes é
    * o consumidor.
+   *
+   * A ficha leva às páginas de catálogo de F-ACV-DESCOBERTA: o id de cada autor
+   * já vem em `autores`, e `editoraId` e `serie` completam os links. Os
+   * assuntos são acionáveis como filtro de busca pelo próprio id (RF-ACV-21).
    */
   async obter(id: string, leitorId: string): Promise<LivroOficialDetalheDto> {
     const livro = await this.livros.obter(id);
@@ -61,6 +65,15 @@ export class LivroOficialService {
 
     return {
       ...paraResumo(livro),
+      editoraId: livro.editoraId ?? null,
+      serie:
+        livro.serieId && livro.serieNome
+          ? {
+              id: livro.serieId,
+              nome: livro.serieNome,
+              numero: livro.numeroSerie ?? null,
+            }
+          : null,
       isbn: livro.isbn,
       sinopse: {
         status,
