@@ -9,6 +9,8 @@ import {
   inserirEditora,
   inserirLivroOficial,
   inserirLivroPessoal,
+  inserirSerie,
+  inserirSinonimoDeEditora,
   isbn,
 } from './massa';
 
@@ -361,6 +363,147 @@ describe('busca de livros oficiais (integração)', () => {
     });
   });
 
+  describe('filtros avançados (RF-ACV-03)', () => {
+    it('filtra por trecho do autor, sem acento, palavra por palavra no mesmo autor', async () => {
+      const conceicao = await inserirAutor(pool, 'Conceição Evaristo');
+      const outra = await inserirAutor(pool, 'Maria Conceição');
+      const evaristo = await inserirAutor(pool, 'Paulo Evaristo');
+      await inserirLivroOficial(pool, novoIsbn(), 'Ponciá Vicêncio', {
+        autores: [conceicao],
+      });
+      // "conceicao" e "evaristo" em autores diferentes do mesmo livro não casam.
+      await inserirLivroOficial(pool, novoIsbn(), 'Antologia a quatro mãos', {
+        autores: [outra, evaristo],
+      });
+
+      expect(
+        titulos((await buscar({ autor: 'conceicao evaristo' })).body),
+      ).toEqual(['Ponciá Vicêncio']);
+      expect(titulos((await buscar({ autor: 'EVARISTO' })).body)).toEqual([
+        'Antologia a quatro mãos',
+        'Ponciá Vicêncio',
+      ]);
+    });
+
+    it('filtra pela editora e pelos sinônimos da curadoria', async () => {
+      const companhia = await inserirEditora(pool, 'Companhia das Letras');
+      const pallas = await inserirEditora(pool, 'Pallas');
+      await inserirSinonimoDeEditora(pool, 'cia das letras', companhia);
+      await inserirLivroOficial(pool, novoIsbn(), 'Torto arado', {
+        editoraId: companhia,
+      });
+      await inserirLivroOficial(pool, novoIsbn(), 'Becos da memória', {
+        editoraId: pallas,
+      });
+      await inserirLivroOficial(pool, novoIsbn(), 'Sem editora');
+
+      expect(titulos((await buscar({ editora: 'companhia' })).body)).toEqual([
+        'Torto arado',
+      ]);
+      expect(titulos((await buscar({ editora: 'Cia. das' })).body)).toEqual([
+        'Torto arado',
+      ]);
+      expect(titulos((await buscar({ editora: 'pallas' })).body)).toEqual([
+        'Becos da memória',
+      ]);
+    });
+
+    it('filtra pela série', async () => {
+      const serie = await inserirSerie(pool, 'Crônicas de Nárnia');
+      await inserirLivroOficial(pool, novoIsbn(), 'O leão, a feiticeira', {
+        serieId: serie,
+        numeroSerie: 2,
+      });
+      await inserirLivroOficial(pool, novoIsbn(), 'Avulso');
+
+      expect(titulos((await buscar({ serie: 'narnia' })).body)).toEqual([
+        'O leão, a feiticeira',
+      ]);
+    });
+
+    it('filtra por ano exato e por faixa de páginas, com cada lado sozinho', async () => {
+      await inserirLivroOficial(pool, novoIsbn(), 'Curto 2019', {
+        ano: 2019,
+        paginas: 90,
+      });
+      await inserirLivroOficial(pool, novoIsbn(), 'Médio 2019', {
+        ano: 2019,
+        paginas: 150,
+      });
+      await inserirLivroOficial(pool, novoIsbn(), 'Longo 2020', {
+        ano: 2020,
+        paginas: 400,
+      });
+      await inserirLivroOficial(pool, novoIsbn(), 'Sem ano', { paginas: 150 });
+
+      expect(titulos((await buscar({ ano: 2019 })).body)).toEqual([
+        'Curto 2019',
+        'Médio 2019',
+      ]);
+      expect(
+        titulos((await buscar({ paginasMin: 100, paginasMax: 150 })).body),
+      ).toEqual(['Médio 2019', 'Sem ano']);
+      expect(titulos((await buscar({ paginasMin: 150 })).body)).toEqual([
+        'Longo 2020',
+        'Médio 2019',
+        'Sem ano',
+      ]);
+      expect(titulos((await buscar({ paginasMax: 90 })).body)).toEqual([
+        'Curto 2019',
+      ]);
+    });
+
+    it('combina os filtros entre si, com o q e com o assunto', async () => {
+      const autor = await inserirAutor(pool, 'Conceição Evaristo');
+      const pallas = await inserirEditora(pool, 'Pallas');
+      const romance = await inserirAssunto(pool, 'Romance', 'romance');
+      await inserirLivroOficial(pool, novoIsbn(), 'Ponciá Vicêncio', {
+        autores: [autor],
+        editoraId: pallas,
+        ano: 2017,
+        paginas: 128,
+        assuntos: [romance],
+      });
+      await inserirLivroOficial(pool, novoIsbn(), 'Becos da memória', {
+        autores: [autor],
+        editoraId: pallas,
+        ano: 2017,
+        paginas: 200,
+      });
+      await inserirLivroOficial(pool, novoIsbn(), 'Ponciá Vicêncio', {
+        autores: [autor],
+        editoraId: pallas,
+        ano: 2003,
+        paginas: 128,
+        assuntos: [romance],
+      });
+
+      const combinados = {
+        autor: 'evaristo',
+        editora: 'pallas',
+        ano: 2017,
+        paginasMax: 150,
+      };
+      expect(titulos((await buscar(combinados)).body)).toEqual([
+        'Ponciá Vicêncio',
+      ]);
+      expect(
+        titulos((await buscar({ ...combinados, q: 'becos' })).body),
+      ).toEqual([]);
+      const comAssunto = await buscar({ autor: 'evaristo', assunto: romance });
+      expect(comAssunto.body.totalItens).toBe(2);
+    });
+
+    it('nunca traz livro pessoal, mesmo só com filtros', async () => {
+      await inserirLivroPessoal(pool, novoUsuario(), 'Diário pessoal');
+
+      const resposta = await buscar({ paginasMin: 1 });
+
+      expect(resposta.status).toBe(200);
+      expect(resposta.body.totalItens).toBe(0);
+    });
+  });
+
   describe('paginação e edições', () => {
     it('pagina com o total verdadeiro, inclusive além da última página', async () => {
       for (let i = 1; i <= 5; i++) {
@@ -474,6 +617,10 @@ describe('busca de livros oficiais (integração)', () => {
       [{ q: 'a', page: '1000000000000000000' }, 'page'],
       [{ assunto: 'nao-e-uuid' }, 'assunto'],
       [{ q: 'a', ordem: 'titulo' }, 'ordem'],
+      [{ autor: '  ' }, 'autor'],
+      [{ ano: 'dois mil' }, 'ano'],
+      [{ paginasMin: 0 }, 'paginasMin'],
+      [{ paginasMin: 200, paginasMax: 100 }, 'paginasMax'],
     ])(
       '%j → 400 no campo %s',
       async (query: Record<string, string | number>, campo) => {

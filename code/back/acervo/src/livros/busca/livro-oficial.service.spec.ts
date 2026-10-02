@@ -23,6 +23,7 @@ function livro(
     capaUrlExterna: 'https://covers.openlibrary.org/b/id/1-L.jpg',
     autores: [],
     assuntos: [],
+    numeroSerie: null,
     isbn: '9788580864189',
     sinopse: null,
     sinopseStatus: 'nao_consultada',

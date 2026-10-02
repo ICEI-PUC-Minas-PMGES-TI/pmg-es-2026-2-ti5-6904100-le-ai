@@ -17,6 +17,9 @@ export interface ExtrasDoLivroOficial {
   autores?: string[];
   assuntos?: string[];
   capaPropria?: string | null;
+  paginas?: number;
+  serieId?: string | null;
+  numeroSerie?: number | null;
 }
 
 export async function inserirLivroOficial(
@@ -28,10 +31,12 @@ export async function inserirLivroOficial(
   const { rows } = await pool.query<{ id: string }>(
     `INSERT INTO acervo.livro
        (id, isbn13, titulo, paginas, ano_publicacao, editora_id,
-        capa_url_externa, capa_url_propria, capa_asset_id, tipo)
-     VALUES (coalesce($1::uuid, gen_random_uuid()), $2, $3, 200, $4, $5,
+        capa_url_externa, capa_url_propria, capa_asset_id, tipo,
+        serie_id, numero_serie)
+     VALUES (coalesce($1::uuid, gen_random_uuid()), $2, $3, $7, $4, $5,
              'https://covers.openlibrary.org/b/id/1-L.jpg', $6::text,
-             CASE WHEN $6::text IS NULL THEN NULL ELSE 'capas/teste' END, 'oficial')
+             CASE WHEN $6::text IS NULL THEN NULL ELSE 'capas/teste' END, 'oficial',
+             $8, $9)
      RETURNING id`,
     [
       extras.id ?? null,
@@ -40,6 +45,9 @@ export async function inserirLivroOficial(
       extras.ano ?? null,
       extras.editoraId ?? null,
       extras.capaPropria ?? null,
+      extras.paginas ?? 200,
+      extras.serieId ?? null,
+      extras.numeroSerie ?? null,
     ],
   );
   const livroId = rows[0].id;
@@ -85,13 +93,39 @@ export async function inserirLivroPessoal(
   return rows[0].id;
 }
 
-export async function inserirAutor(pool: Pool, nome: string): Promise<string> {
+export async function inserirAutor(
+  pool: Pool,
+  nome: string,
+  biografia: string | null = null,
+): Promise<string> {
   const { rows } = await pool.query<{ id: string }>(
-    `INSERT INTO acervo.autor (nome, nome_normalizado)
+    `INSERT INTO acervo.autor (nome, nome_normalizado, biografia)
+     VALUES ($1, lower($1), $2) RETURNING id`,
+    [nome, biografia],
+  );
+  return rows[0].id;
+}
+
+export async function inserirSerie(pool: Pool, nome: string): Promise<string> {
+  const { rows } = await pool.query<{ id: string }>(
+    `INSERT INTO acervo.serie (nome, nome_normalizado)
      VALUES ($1, lower($1)) RETURNING id`,
     [nome],
   );
   return rows[0].id;
+}
+
+/** Forma externa já normalizada, como a curadoria grava (RN-12). */
+export async function inserirSinonimoDeEditora(
+  pool: Pool,
+  formaExterna: string,
+  editoraId: string,
+): Promise<void> {
+  await pool.query(
+    `INSERT INTO acervo.sinonimo_editora (forma_externa, editora_id)
+     VALUES ($1, $2)`,
+    [formaExterna, editoraId],
+  );
 }
 
 export async function inserirEditora(
