@@ -1,11 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { NaoEncontrado } from '../../common/erros-de-negocio';
-import { textoPuro } from '../../common/texto-puro';
+import { LIMITE_DA_BIOGRAFIA, textoPuro } from '../../common/texto-puro';
 import { BuscaService, paraResumo } from '../busca/busca.service';
 import { PaginacaoQueryDto } from '../busca/dto/busca.dto';
 import { CatalogoRepository } from './catalogo.repository';
 import {
-  LIMITE_DA_BIOGRAFIA,
   LivroDaSerieResumoDto,
   PaginaDaEditoraDto,
   PaginaDaSerieDto,

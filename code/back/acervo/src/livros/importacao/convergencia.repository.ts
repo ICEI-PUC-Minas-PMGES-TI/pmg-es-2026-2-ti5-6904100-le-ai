@@ -3,6 +3,7 @@ import {
   normalizarEditora,
   normalizarNomeAutor,
 } from '../../common/normalizacao';
+import { LIMITE_DA_BIOGRAFIA, textoPuro } from '../../common/texto-puro';
 import type { Tx } from '../../db/tipos';
 import type { AutorExterno, MetadadosLivro } from './dominio/fonte-metadados';
 import type { RepositorioDeConvergencia } from './dominio/processador-importacao';
@@ -155,9 +156,10 @@ export class ConvergenciaRepository implements RepositorioDeConvergencia {
     const normalizado = normalizarNomeAutor(autor.nome);
 
     if (autor.olAuthorKey) {
+      const biografia = autor.biografia ?? null;
       await this.tx.execute(sql`
-        INSERT INTO acervo.autor (nome, nome_normalizado, ol_author_key)
-        VALUES (${autor.nome}, ${normalizado}, ${autor.olAuthorKey})
+        INSERT INTO acervo.autor (nome, nome_normalizado, ol_author_key, biografia)
+        VALUES (${autor.nome}, ${normalizado}, ${autor.olAuthorKey}, ${biografia})
         ON CONFLICT (ol_author_key) WHERE ol_author_key IS NOT NULL DO NOTHING
       `);
       const id = await this.primeiroId(sql`
@@ -165,6 +167,14 @@ export class ConvergenciaRepository implements RepositorioDeConvergencia {
       `);
       if (!id)
         throw new Error(`autor ${autor.olAuthorKey} sumiu após conflito`);
+      // Autor que já existia sem biografia (carga anterior ao script de
+      // biografias) a recebe agora; a que já existe nunca é sobrescrita.
+      if (biografia) {
+        await this.tx.execute(sql`
+          UPDATE acervo.autor SET biografia = ${biografia}
+           WHERE id = ${id} AND biografia IS NULL
+        `);
+      }
       return id;
     }
 
@@ -222,7 +232,15 @@ export function sanear(m: MetadadosLivro) {
     olEditionKey: m.olEditionKey,
     olWorkKey: m.olWorkKey,
     autores: m.autores
-      .map((a) => ({ ...a, nome: a.nome.trim().slice(0, 200) }))
+      .map((a) => ({
+        ...a,
+        nome: a.nome.trim().slice(0, 200),
+        // Mesmo tratamento da sinopse: sem marcação, com o teto do CHECK
+        // `autor_biografia_ck`; vazio vira null.
+        biografia: a.biografia
+          ? textoPuro(a.biografia, LIMITE_DA_BIOGRAFIA)
+          : null,
+      }))
       .filter((a) => {
         const chave = a.olAuthorKey ?? normalizarNomeAutor(a.nome);
         if (!a.nome || !normalizarNomeAutor(a.nome) || autoresVistos.has(chave))

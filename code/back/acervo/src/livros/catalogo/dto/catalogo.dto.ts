@@ -1,13 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { LIMITE_DA_BIOGRAFIA } from '../../../common/texto-puro';
 import {
   AutorResumoDto,
   LIMITE_MAXIMO,
   LivroOficialResumoDto,
   PaginaLivrosDto,
 } from '../../busca/dto/busca.dto';
-
-/** Teto da biografia (CHECK `autor_biografia_ck`, migration `0005`). */
-export const LIMITE_DA_BIOGRAFIA = 2_000;
 
 /**
  * Página de autor (RF-ACV-10). `biografia` é `required` **e** `nullable`:

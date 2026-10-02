@@ -205,6 +205,73 @@ describe('consumo de livro.importacao_solicitada (integração)', () => {
     expect(await contar(pool, 'acervo.livro_autor')).toBe(1);
   });
 
+  describe('biografia do autor (F-ACV-DESCOBERTA)', () => {
+    const biografia = async () => {
+      const { rows } = await pool.query<{ biografia: string | null }>(
+        `SELECT biografia FROM acervo.autor WHERE ol_author_key = 'OL7654321A'`,
+      );
+      return rows[0]?.biografia;
+    };
+    const comBiografia = (alvo: string, bio: string) =>
+      metadados(alvo, {
+        autores: [
+          {
+            nome: 'Itamar Vieira Junior',
+            olAuthorKey: 'OL7654321A',
+            biografia: bio,
+          },
+        ],
+      });
+
+    it('autor novo chega com a biografia em texto puro, cortada no teto', async () => {
+      const alvo = isbn('978655692100');
+      const longa = `Escritor <b>baiano</b>. ${'palavra '.repeat(400)}\n\n[1]: https://exemplo.org`;
+      fontes[0].buscarPorIsbn.mockResolvedValue(comBiografia(alvo, longa));
+
+      await solicitar(alvo);
+      await publicarEConsumir();
+
+      const texto = await biografia();
+      expect(texto?.startsWith('Escritor baiano. palavra')).toBe(true);
+      expect(texto).not.toContain('<b>');
+      expect(texto).not.toContain('[1]:');
+      expect([...(texto ?? '')].length).toBeLessThanOrEqual(2000);
+      expect(texto?.endsWith('…')).toBe(true);
+    });
+
+    it('autor que já existia sem biografia a recebe; a existente nunca é sobrescrita', async () => {
+      await pool.query(
+        `INSERT INTO acervo.autor (nome, nome_normalizado, ol_author_key)
+         VALUES ('Itamar Vieira Junior', 'itamar vieira junior', 'OL7654321A')`,
+      );
+      const primeiro = isbn('978655692101');
+      fontes[0].buscarPorIsbn.mockResolvedValue(
+        comBiografia(primeiro, 'Primeira biografia.'),
+      );
+      await solicitar(primeiro);
+      await publicarEConsumir();
+      expect(await biografia()).toBe('Primeira biografia.');
+
+      const segundo = isbn('978655692102');
+      fontes[0].buscarPorIsbn.mockResolvedValue(
+        comBiografia(segundo, 'Outra biografia.'),
+      );
+      await solicitar(segundo);
+      await publicarEConsumir();
+      expect(await biografia()).toBe('Primeira biografia.');
+    });
+
+    it('biografia só de marcação vira null, sem violar o CHECK', async () => {
+      const alvo = isbn('978655692103');
+      fontes[0].buscarPorIsbn.mockResolvedValue(comBiografia(alvo, '<p> </p>'));
+
+      await solicitar(alvo);
+      await publicarEConsumir();
+
+      expect(await biografia()).toBeNull();
+    });
+  });
+
   it('reentrega do mesmo eventId não repete o efeito', async () => {
     const alvo = isbn('978655692024');
     fontes[0].buscarPorIsbn.mockResolvedValue(metadados(alvo));

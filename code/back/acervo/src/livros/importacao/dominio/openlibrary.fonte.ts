@@ -110,7 +110,8 @@ export class OpenLibraryFonte implements FonteDeMetadados {
   }
 
   /**
-   * A edição só traz a chave do autor; o nome vive em `/authors/{key}.json`.
+   * A edição só traz a chave do autor; o nome e a biografia (RF-ACV-10) vivem
+   * em `/authors/{key}.json`, e vêm na mesma ida.
    * A chave é validada antes de virar caminho de URL (RNF-SEC-38), e autor que
    * a fonte não conhece é omitido em vez de derrubar a importação inteira.
    * Indisponibilidade propaga: meia resposta não é resposta.
@@ -128,15 +129,35 @@ export class OpenLibraryFonte implements FonteDeMetadados {
       const url = new URL(`${BASE}/authors/${chave}.json`);
       const bruto = (await this.resiliencia.executar(this.nome, () =>
         this.http.buscarJson(this.nome, url),
-      )) as { name?: string } | null;
+      )) as { name?: string; bio?: unknown } | null;
       const nome = bruto?.name?.trim();
       // Marcador como `[author not identified]` conta como ausência, e aí a obra entra.
       if (nome && nomeDeAutorUtilizavel(nome)) {
-        autores.push({ nome, olAuthorKey: chave });
+        autores.push({
+          nome,
+          olAuthorKey: chave,
+          biografia: extrairBiografia(bruto?.bio),
+        });
       }
     }
     return autores;
   }
+}
+
+/**
+ * `bio` chega como texto ou como `{ type: '/type/text', value }`, conforme a
+ * época do registro na OpenLibrary. Qualquer outra forma conta como ausência.
+ */
+export function extrairBiografia(bruto: unknown): string | null {
+  const texto =
+    typeof bruto === 'string'
+      ? bruto
+      : typeof bruto === 'object' &&
+          bruto !== null &&
+          typeof (bruto as { value?: unknown }).value === 'string'
+        ? (bruto as { value: string }).value
+        : null;
+  return texto?.trim() ? texto : null;
 }
 
 /** `publish_date` é texto livre na origem ("2019", "Jan 2019", "2019-03-01"). */

@@ -16,10 +16,13 @@
 /**
  * Autor como a fonte o conhece. RN-12 deduplica pela chave da fonte quando ela
  * existe (OpenLibrary) e pelo nome normalizado quando não existe (Google Books).
+ * A biografia só a OpenLibrary tem (RF-ACV-10), ainda bruta: quem persiste a
+ * saneia.
  */
 export interface AutorExterno {
   nome: string;
   olAuthorKey: string | null;
+  biografia?: string | null;
 }
 
 export interface MetadadosLivro {

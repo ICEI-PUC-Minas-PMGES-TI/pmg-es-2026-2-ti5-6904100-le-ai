@@ -42,7 +42,7 @@ describe('OpenLibraryFonte', () => {
     const metadados = await fonte.buscarPorIsbn(ISBN);
 
     expect(metadados?.autores).toEqual([
-      { nome: 'Machado de Assis', olAuthorKey: 'OL10000003A' },
+      { nome: 'Machado de Assis', olAuthorKey: 'OL10000003A', biografia: null },
     ]);
     expect(metadados?.olEditionKey).toBe('OL1M');
     expect(metadados?.olWorkKey).toBe('OL9W');
@@ -50,6 +50,49 @@ describe('OpenLibraryFonte', () => {
       'https://covers.openlibrary.org/b/id/10520483-L.jpg',
     );
   });
+
+  it.each([
+    ['texto', 'Machado de Assis foi um escritor brasileiro.'],
+    [
+      'objeto /type/text',
+      {
+        type: '/type/text',
+        value: 'Machado de Assis foi um escritor brasileiro.',
+      },
+    ],
+  ])(
+    'traz a biografia do autor quando o bio vem como %s',
+    async (_forma, bio) => {
+      const { fonte } = fonteCom({
+        [`/isbn/${ISBN}.json`]: EDICAO,
+        '/authors/OL10000003A.json': { name: 'Machado de Assis', bio },
+      });
+
+      const metadados = await fonte.buscarPorIsbn(ISBN);
+
+      expect(metadados?.autores).toEqual([
+        {
+          nome: 'Machado de Assis',
+          olAuthorKey: 'OL10000003A',
+          biografia: 'Machado de Assis foi um escritor brasileiro.',
+        },
+      ]);
+    },
+  );
+
+  it.each([[''], ['   '], [{ type: '/type/text' }], [42]])(
+    'bio vazio ou em forma desconhecida (%j) conta como sem biografia',
+    async (bio) => {
+      const { fonte } = fonteCom({
+        [`/isbn/${ISBN}.json`]: EDICAO,
+        '/authors/OL10000003A.json': { name: 'Machado de Assis', bio },
+      });
+
+      const metadados = await fonte.buscarPorIsbn(ISBN);
+
+      expect(metadados?.autores[0].biografia).toBeNull();
+    },
+  );
 
   it('não transforma chave malformada em caminho de URL (SEC-38)', async () => {
     const { fonte, buscarJson } = fonteCom({
@@ -91,7 +134,7 @@ describe('OpenLibraryFonte', () => {
     const metadados = await fonte.buscarPorIsbn(ISBN);
 
     expect(metadados?.autores).toEqual([
-      { nome: 'George Orwell', olAuthorKey: 'OL118077A' },
+      { nome: 'George Orwell', olAuthorKey: 'OL118077A', biografia: null },
     ]);
   });
 
@@ -111,7 +154,7 @@ describe('OpenLibraryFonte', () => {
     const metadados = await fonte.buscarPorIsbn(ISBN);
 
     expect(metadados?.autores).toEqual([
-      { nome: 'Austin Kleon', olAuthorKey: 'OL6789787A' },
+      { nome: 'Austin Kleon', olAuthorKey: 'OL6789787A', biografia: null },
     ]);
   });
 
