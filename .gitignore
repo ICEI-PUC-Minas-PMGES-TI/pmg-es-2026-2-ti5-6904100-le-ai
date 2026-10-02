@@ -31,3 +31,6 @@ coverage/
 # Editores
 .idea/
 *.swp
+
+# CodeGraph (índice local de cada máquina)
+.codegraph/
