@@ -10,7 +10,10 @@ info:
     utilitário, não uma API HTTP; por isso não há rotas administrativas de
     ingestão, recarga ou associação de assuntos neste período. O contrato é
     publicado em runtime por @nestjs/swagger em /docs e versionado aqui
-    conforme RNF-ARQ-03.
+    conforme RNF-ARQ-03. No Período 2, F-ACV-DESCOBERTA acrescenta os filtros
+    avançados de GET /livros, as páginas de autor, editora e série e os campos
+    de série e editora da página do livro, publicados como planejados antes da
+    implementação.
 x-contract-status: implemented
 x-implementation-notes:
   - >-
@@ -76,6 +79,10 @@ servers:
 tags:
   - name: health
   - name: livros
+  - name: catalogo
+    description: >-
+      Páginas de autor, editora e série (F-ACV-DESCOBERTA). Não são perfis: não
+      têm dono, não recebem conteúdo de usuário e não são editáveis.
   - name: importacoes
   - name: livros-pessoais
 security:
@@ -120,6 +127,20 @@ paths:
         continua representando uma edição (RN-01), e as edições de mesmo título
         e mesmos autores chegam contíguas, para o cliente agrupá-las. `limit`
         acima de 50 é 400.
+
+        Filtros avançados (F-ACV-DESCOBERTA, RF-ACV-03, planejados): `autor`,
+        `editora` e `serie` são texto livre e casam como o `q`, por trecho, sem
+        acento e palavra por palavra, cada um no seu campo; `ano` é um valor
+        único; `paginasMin` e `paginasMax` formam uma faixa fechada, e cada lado
+        vale sozinho. Todos se somam (AND) entre si, ao `q` e ao `assunto`.
+        Com eles, qualquer critério basta: o 400 por falta de critério passa a
+        sair só quando nenhum dos oito parâmetros vem preenchido, ainda no campo
+        `q`. `paginasMin` maior que `paginasMax` é 400 no campo `paginasMax`.
+        Sem `q`, a ordem continua por título. Livro pessoal continua fora
+        (RNF-SEC-06).
+      x-planned-periodo-2:
+        - autor, editora, serie, ano, paginasMin e paginasMax (F-ACV-DESCOBERTA)
+        - busca só com filtros, sem q e sem assunto (F-ACV-DESCOBERTA)
       parameters:
         - name: q
           in: query
@@ -133,6 +154,42 @@ paths:
           in: query
           description: Identificador do assunto curado.
           schema: { type: string, format: uuid }
+        - name: autor
+          in: query
+          description: >-
+            Planejado (F-ACV-DESCOBERTA). Trecho do nome de um dos autores. Mesmo
+            tratamento do `q`: controle vira espaço, pontas aparadas, só espaços
+            é 400.
+          schema: { type: string, minLength: 1, maxLength: 200 }
+          example: conceicao evaristo
+        - name: editora
+          in: query
+          description: >-
+            Planejado (F-ACV-DESCOBERTA). Trecho do nome canônico da editora
+            (RN-12). Mesmo tratamento do `q`.
+          schema: { type: string, minLength: 1, maxLength: 200 }
+          example: companhia
+        - name: serie
+          in: query
+          description: >-
+            Planejado (F-ACV-DESCOBERTA). Trecho do nome da série. Mesmo
+            tratamento do `q`.
+          schema: { type: string, minLength: 1, maxLength: 200 }
+        - name: ano
+          in: query
+          description: Planejado (F-ACV-DESCOBERTA). Ano de publicação da edição.
+          schema: { type: integer, minimum: 1, maximum: 9999 }
+          example: 2019
+        - name: paginasMin
+          in: query
+          description: Planejado (F-ACV-DESCOBERTA). Nº mínimo de páginas, inclusive.
+          schema: { type: integer, minimum: 1, maximum: 100000 }
+        - name: paginasMax
+          in: query
+          description: >-
+            Planejado (F-ACV-DESCOBERTA). Nº máximo de páginas, inclusive; menor
+            que `paginasMin` é 400.
+          schema: { type: integer, minimum: 1, maximum: 100000 }
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Limit'
       responses:
@@ -190,6 +247,14 @@ paths:
         distribuição não fazem parte deste contrato do Período 1. A rota tem
         rate limiting por identidade e IP, porque a abertura dispara consulta a
         fonte externa.
+
+        F-ACV-DESCOBERTA (planejado) acrescenta `editoraId` e `serie` (id, nome e
+        número de ordem) para os links da ficha às páginas de editora e série; o
+        id de cada autor já vem em `autores`. Cada assunto em `assuntos` é
+        acionável como filtro: o cliente leva o `id` a GET /livros?assunto=<id>
+        (RF-ACV-21, RN-21).
+      x-planned-periodo-2:
+        - editoraId e serie (F-ACV-DESCOBERTA)
       parameters:
         - $ref: '#/components/parameters/LivroId'
       responses:
@@ -228,6 +293,97 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/PaginaResenhas' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
+  /autores/{id}:
+    get:
+      operationId: obterAutor
+      x-contract-status: planned-periodo-2
+      x-planned-by: F-ACV-DESCOBERTA
+      tags: [catalogo]
+      summary: Obtém a página de um autor
+      description: >-
+        Página de autor (RF-ACV-10): nome, biografia curta e os livros oficiais
+        ativos daquele autor, paginados. A biografia vem da OpenLibrary, gravada
+        pela ingestão e pela importação por ISBN; sem biografia na fonte o campo
+        vem null e a seção não é exibida. Nada é consultado na fonte durante a
+        requisição. Os livros vêm do ano mais recente do grupo para o mais
+        antigo, com as edições de mesmo título e autores contíguas (RN-01) e os
+        grupos sem ano no fim; `livros.totalItens` conta edições e é o "N livros
+        no acervo". Autor que existe sem livro oficial ativo responde 200 com a
+        lista vazia; autor inexistente, 404. Livro pessoal nunca aparece
+        (RNF-SEC-06).
+      parameters:
+        - $ref: '#/components/parameters/AutorId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Página do autor.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaDoAutor' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
+  /editoras/{id}:
+    get:
+      operationId: obterEditora
+      x-contract-status: planned-periodo-2
+      x-planned-by: F-ACV-DESCOBERTA
+      tags: [catalogo]
+      summary: Obtém a página de uma editora
+      description: >-
+        Página de editora (RF-ACV-11): nome canônico (RN-12) e os livros
+        oficiais ativos daquela editora, paginados, na mesma ordem da página de
+        autor. Editora que existe sem livro oficial ativo responde 200 com a
+        lista vazia; editora inexistente, 404. Livro pessoal nunca aparece
+        (RNF-SEC-06).
+      parameters:
+        - $ref: '#/components/parameters/EditoraId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Página da editora.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaDaEditora' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
+  /series/{id}:
+    get:
+      operationId: obterSerie
+      x-contract-status: planned-periodo-2
+      x-planned-by: F-ACV-DESCOBERTA
+      tags: [catalogo]
+      summary: Obtém a página de uma série
+      description: >-
+        Página de série (RF-ACV-12): nome, autores dos livros da série e os
+        livros oficiais ativos, paginados, em ordem crescente do número de ordem
+        (RN-12). Livros sem número vêm no fim, por título. Lacuna na numeração
+        não gera item. Edições com o mesmo número ficam contíguas, da mais
+        recente para a mais antiga. Série que existe sem livro oficial ativo
+        responde 200 com a lista e os autores vazios; série inexistente, 404.
+        Livro pessoal nunca aparece (RNF-SEC-06).
+      parameters:
+        - $ref: '#/components/parameters/SerieId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Página da série.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaDaSerie' }
         '400': { $ref: '#/components/responses/RequisicaoInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
@@ -487,6 +643,24 @@ components:
       in: path
       required: true
       description: Identificador não sequencial do livro oficial.
+      schema: { type: string, format: uuid }
+    AutorId:
+      name: id
+      in: path
+      required: true
+      description: Identificador não sequencial do autor.
+      schema: { type: string, format: uuid }
+    EditoraId:
+      name: id
+      in: path
+      required: true
+      description: Identificador não sequencial da editora.
+      schema: { type: string, format: uuid }
+    SerieId:
+      name: id
+      in: path
+      required: true
+      description: Identificador não sequencial da série.
       schema: { type: string, format: uuid }
     LivroPessoalId:
       name: id
@@ -755,12 +929,29 @@ components:
           minItems: 0
           items: { $ref: '#/components/schemas/AutorResumo' }
         editora: { type: string, minLength: 1, maxLength: 200, nullable: true }
+        editoraId:
+          type: string
+          format: uuid
+          nullable: true
+          description: >-
+            Planejado (F-ACV-DESCOBERTA). Leva à página da editora; null quando
+            o livro não tem editora. Entra em `required` ao ser implementado.
         anoPublicacao: { type: integer, minimum: 1, maximum: 9999, nullable: true }
         paginas: { type: integer, minimum: 1 }
         capa: { $ref: '#/components/schemas/Capa' }
         assuntos:
           type: array
+          description: >-
+            Cada assunto é acionável como filtro: GET /livros?assunto=<id>
+            (RF-ACV-21).
           items: { $ref: '#/components/schemas/AssuntoResumo' }
+        serie:
+          allOf:
+            - $ref: '#/components/schemas/SerieDoLivro'
+          nullable: true
+          description: >-
+            Planejado (F-ACV-DESCOBERTA). null quando o livro não pertence a uma
+            série. Entra em `required` ao ser implementado.
         isbn:
           type: string
           pattern: '^97[89][0-9]{10}$'
@@ -773,6 +964,89 @@ components:
           description: >-
             null quando os contratos de leitura ou identidade estão
             indisponíveis; a página abre mesmo assim.
+    SerieDoLivro:
+      type: object
+      additionalProperties: false
+      required: [id, nome, numero]
+      properties:
+        id: { type: string, format: uuid }
+        nome: { type: string, minLength: 1, maxLength: 200 }
+        numero:
+          type: integer
+          minimum: 1
+          nullable: true
+          description: Número de ordem do livro na série; null quando a fonte não o tem.
+    PaginaDoAutor:
+      type: object
+      additionalProperties: false
+      required: [id, nome, biografia, livros]
+      properties:
+        id: { type: string, format: uuid }
+        nome: { type: string, minLength: 1, maxLength: 200 }
+        biografia:
+          type: string
+          nullable: true
+          maxLength: 2000
+          description: >-
+            Texto puro da OpenLibrary, no idioma da fonte. null quando a fonte
+            não tem biografia: a seção não é exibida (RF-ACV-10).
+        livros: { $ref: '#/components/schemas/PaginaLivros' }
+    PaginaDaEditora:
+      type: object
+      additionalProperties: false
+      required: [id, nome, livros]
+      properties:
+        id: { type: string, format: uuid }
+        nome: { type: string, minLength: 1, maxLength: 200 }
+        livros: { $ref: '#/components/schemas/PaginaLivros' }
+    LivroDaSerieResumo:
+      type: object
+      additionalProperties: false
+      description: >-
+        Os campos de LivroOficialResumo mais o número de ordem. Declarado por
+        extenso pelo mesmo motivo de LivroOficialDetalhe.
+      required: [id, titulo, autores, editora, anoPublicacao, paginas, capa, assuntos, numeroNaSerie]
+      properties:
+        id: { type: string, format: uuid }
+        titulo: { type: string, minLength: 1, maxLength: 500 }
+        autores:
+          type: array
+          minItems: 0
+          items: { $ref: '#/components/schemas/AutorResumo' }
+        editora: { type: string, minLength: 1, maxLength: 200, nullable: true }
+        anoPublicacao: { type: integer, minimum: 1, maximum: 9999, nullable: true }
+        paginas: { type: integer, minimum: 1 }
+        capa: { $ref: '#/components/schemas/Capa' }
+        assuntos:
+          type: array
+          items: { $ref: '#/components/schemas/AssuntoResumo' }
+        numeroNaSerie: { type: integer, minimum: 1, nullable: true }
+    PaginaLivrosDaSerie:
+      type: object
+      additionalProperties: false
+      required: [itens, page, limit, totalItens, totalPaginas]
+      properties:
+        itens:
+          type: array
+          items: { $ref: '#/components/schemas/LivroDaSerieResumo' }
+        page: { type: integer, minimum: 1 }
+        limit: { type: integer, minimum: 1, maximum: 50 }
+        totalItens: { type: integer, minimum: 0 }
+        totalPaginas: { type: integer, minimum: 0 }
+    PaginaDaSerie:
+      type: object
+      additionalProperties: false
+      required: [id, nome, autores, livros]
+      properties:
+        id: { type: string, format: uuid }
+        nome: { type: string, minLength: 1, maxLength: 200 }
+        autores:
+          type: array
+          description: >-
+            Autores distintos dos livros oficiais ativos da série, por nome,
+            para a linha de autoria da página.
+          items: { $ref: '#/components/schemas/AutorResumo' }
+        livros: { $ref: '#/components/schemas/PaginaLivrosDaSerie' }
     SolicitarImportacao:
       type: object
       additionalProperties: false
