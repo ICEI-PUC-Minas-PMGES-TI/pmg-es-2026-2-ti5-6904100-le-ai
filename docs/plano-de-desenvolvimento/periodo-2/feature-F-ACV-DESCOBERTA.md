@@ -23,10 +23,50 @@ RNF atendidos: **RNF-DES-02** (listagens paginadas com teto server-side), **RNF-
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | implementado (02/10/2026) | migration `0005`: índice trigram do nome da série e CHECK `autor_biografia_ck`, **aguardando revisão humana**. Índice de ano/páginas medido e dispensado (Timeline). Biografias a carregar pelo script `biografias` em dev e DES |
+| Infra | implementado (02/10/2026) | migration `0005`: índice trigram do nome da série e CHECK `autor_biografia_ck`, revisada e **aplicada no banco de dev em 02/10/2026** (DES recebe no deploy da `main`). Índice de ano/páginas medido e dispensado (Timeline). Biografias a carregar pelo script `biografias` em dev e DES |
 | Backend | implementado (02/10/2026) | `acervo`: filtros avançados em `GET /livros`, `GET /autores/{id}`, `GET /editoras/{id}`, `GET /series/{id}`, `editoraId` e `serie` em `GET /livros/{id}` e biografia na importação por ISBN; contrato `implemented` no `acervo.yaml` |
-| Web | não iniciado | filtros na busca; páginas de autor/editora/série; assuntos clicáveis na página do livro |
+| Web | não iniciado | filtros na busca; páginas de autor/editora/série; assuntos clicáveis na página do livro. **Próximo passo** (ver "Onde continuar") |
 | Mobile | não iniciado | mesmas telas |
+
+## Onde continuar (atualizado em 02/10/2026)
+
+Retomada para a próxima sessão. O estado vale para a branch `vicenzo-features`, que não está em `origin` (sem push ainda) e saiu da `desenvolvimento` local em `80730d4`.
+
+**Feito**
+- Backend completo e commitado. Os commits, do mais antigo ao mais novo:
+  - `83bc4ab`: contrato;
+  - `b2c068e`: migration;
+  - `dc7ad3b`: filtros;
+  - `0eaaada`: páginas de catálogo;
+  - `44e7df5`: ficha do livro;
+  - `f1dff0a`: biografia na importação;
+  - `c93490c`: script `biografias`;
+  - `937b3aa`: docs.
+  - O contrato entregue está em "Contrato implementado", abaixo.
+- Migration `0005` aplicada e conferida no banco de dev (CHECK e índice presentes).
+- Aviso ao Renato deixado nas Pendências da [F-ACV-NOTA](feature-F-ACV-NOTA.md). Avise-o também fora do repositório.
+
+**Falta, em ordem sugerida**
+1. **Web (`code/front`):**
+   - **Filtros do Descobrir:** em `views/DescobrirView.vue` e `livros/useBuscaDeLivros.ts` (hoje só enviam `q` e `assunto`), mais `services/acervo.ts`. Seguir a edição consolidada [`descobrir.md`](../../design/periodo-2/descobrir/descobrir.md):
+     - texto livre, sem autocompletar;
+     - validação da faixa de páginas no cliente;
+     - chips;
+     - estado vazio com filtros, sem oferta de cadastro.
+   - **Páginas de autor, editora e série:** rotas novas em `router/index.ts`, filhas de `descobrir`. Elas reaproveitam `agruparEdicoes` (`livros/agruparEdicoes.ts`) e o card da busca. A paginação é incremental, com `livros.page` e `livros.totalPaginas`.
+   - **Ficha do livro:** em `views/livros/LivroOficialView.vue` e `livros/useLivroOficial.ts`, links de autor (`autores[].id`), editora (`editoraId`) e série (`serie.id`, com `numero` fora do link), e assuntos levando a `/descobrir?assunto=<id>`. A tela é integrada pelo Renato: encaixar só os links.
+2. **Mobile (`code/mobile`):**
+   - mesmas telas em `lib/features/descobrir/` (`busca_de_livros_controller.dart`, `descobrir_page.dart`) e `lib/features/livros/` (`acervo_service.dart`, `livro_oficial_page.dart`, `rotas_livros.dart`);
+   - paginação incremental;
+   - alvo Android.
+3. **Dados:** rodar `python -m leai_ingestao biografias` com o dump de autores, primeiro em dev (com `--dry-run` antes) e, depois do merge na `main`, em DES. Registrar os números na Timeline.
+4. **Fechamento:** testes web e mobile (filtros, navegação às páginas, indisponibilidade/timeout com API simulada), PR para `desenvolvimento`, DoD e status desta tabela.
+
+**Para retomar rápido**
+- **Testes do backend:** `npm test` e `DATABASE_URL_TESTE=postgresql://postgres:teste@localhost:55432/leai_teste npm run test:integration` em `code/back/acervo`. O container `leai-pg-teste` já existe localmente.
+- **Testes da ingestão:** `.venv/bin/python -m pytest` em `code/scripts/ingestao`.
+- **Protótipos:** autor, editora e série em `docs/design/periodo-2/F-ACV-DESCOBERTA/`; filtros em `docs/design/periodo-2/descobrir/`; ficha em `docs/design/periodo-2/pagina-do-livro/`.
+- **Banco de dev:** o banco de dev no Neon se chama `leai-db-prd`, mas é o projeto de **dev** (`le-ai`, São Paulo). O DES fica em Oregon.
 
 ## Especificação
 
@@ -116,7 +156,6 @@ A biografia fica **no idioma da fonte**: a OpenLibrary costuma devolver em ingl�
 ## Pendências
 
 - **Backend pronto em 02/10/2026; faltam web e mobile.** Antes do merge em `desenvolvimento`:
-  - **revisão humana da migration `0005`** (plano §5);
   - **aviso ao Renato**, integrador da página do livro, de que `LivroOficialDetalhe` ganhou `editoraId` e `serie`, só como acréscimos (a F-ACV-NOTA mexe no mesmo DTO);
   - **rodar o script `biografias`** em dev e, depois do merge na `main`, em DES (seção "Como carregar as biografias").
 - **Selo de status na estante nos cards (Lido, Lendo, Quero ler)**, pedido pelos protótipos de autor, editora e série e já pedido pelo Descobrir do P1. Fica **fora do backend desta entrega por decisão do dono (02/10/2026)**. O dado é do serviço `leitura`, que não tem consulta em lote. O caminho previsto é o `acervo` ler uma VIEW de estante do `leitura` (a `v_estante_publica_v1` existente ou uma nova), feito quando a F-EST-2 da Ana amadurecer. Até lá os cards saem sem o selo.
@@ -140,6 +179,8 @@ A biografia fica **no idioma da fonte**: a OpenLibrary costuma devolver em ingl�
 - **Alternativa a avaliar, sem mudar o desenho atual:** reutilizar um componente de página de catálogo para autor/editora/série e criar índices adicionais somente após validar o plano de execução das consultas.
 
 ## Timeline
+
+### Migration 02/10/2026: `0005` aplicada no banco de dev (`le-ai`, São Paulo) pelo dono, com `npm run db:migrate`. Próximo passo de dados: rodar o script `biografias` com o dump de autores.
 
 ### Backend 02/10/2026: implementado na branch `vicenzo-features`, contrato publicado antes (`83bc4ab`) e trocado para `implemented` ao fim.
 - **Migration:** `0005`.

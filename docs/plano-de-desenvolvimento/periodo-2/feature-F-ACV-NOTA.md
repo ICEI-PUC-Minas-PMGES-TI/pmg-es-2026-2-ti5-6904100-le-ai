@@ -84,6 +84,11 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 ## Pendências
 
+- **Aviso de [F-ACV-DESCOBERTA](feature-F-ACV-DESCOBERTA.md) (Vicenzo, 02/10/2026):** `GET /livros/{id}` (`LivroOficialDetalhe`) ganhou dois campos obrigatórios, só como acréscimo e sem mudar os existentes:
+  - `editoraId: uuid | null`;
+  - `serie: { id, nome, numero | null } | null`.
+
+  Eles servem aos links da ficha para as páginas de editora e série. Os campos de nota desta feature entram no mesmo DTO (`src/livros/busca/dto/livro-oficial.dto.ts`) e no mesmo `obter()` de `livro-oficial.repository.ts`, que agora faz `LEFT JOIN acervo.serie`. O teste de forma exata em `test/integracao/livro-oficial.int-spec.ts` já inclui os dois campos. O contrato está no `docs/api/acervo.yaml`, e o código está na branch `vicenzo-features` até o merge em `desenvolvimento`.
 - **Telas (design P2):** nota geral × nota dos leitores (§4.4) e histograma entram na edição consolidada [`pagina-do-livro.md`](../../design/periodo-2/pagina-do-livro/pagina-do-livro.md) ([protótipo](../../design/periodo-2/pagina-do-livro/prototipos/pagina-do-livro.html)), prompt escrito em 28/09/2026, protótipo exportado em 29/09/2026. Anatomia do histograma (11 faixas de 0 a 5 com meia estrela, faixa vazia como `nenhum`) nasce no prompt e aguarda incorporação ao design.
 - **Depende de** [F-AVA](../periodo-1/feature-F-AVA.md) (`nota.alterada`, `v_nota_publicacao_v1`), [F-EST](../periodo-1/feature-F-EST.md) (`livro.adicionado_a_estante`, `v_estante_publica_v1`), [F-ACV-BUSCA](../periodo-1/feature-F-ACV-BUSCA.md) (página do livro e resolução de capa), [F-ACV-INGESTAO](../periodo-1/feature-F-ACV-INGESTAO.md) (chaves de dedup para o import; `v_livro_referencia_v1`), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md) e [P0-MSG](../periodo-0/feature-P0-MSG.md) (broker; Cloudinary/P-09 para o cache).
 - **Fonte da nota geral:** confirmar o formato concreto do `ol_dump_ratings`; a semântica por obra já está decidida e usa `ol_work_key`.
