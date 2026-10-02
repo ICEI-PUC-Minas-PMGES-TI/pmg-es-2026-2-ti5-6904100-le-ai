@@ -7,6 +7,9 @@ Quatro subcomandos, na ordem em que se usa:
     resolver  fase 2: resolve assuntos e autor da obra (RN-21), depois nome de autor
     carregar  fase 3: COPY para staging e upsert nas tabelas reais
 
+`biografias` roda depois da carga, quando quiser (F-ACV-DESCOBERTA): preenche a
+biografia dos autores já carregados a partir do dump de autores (RF-ACV-10).
+
 `conferir` existe à parte e não toca o banco: valida os três CSV curados entre
 si. É o que o CI roda, junto dos testes.
 """
@@ -162,6 +165,41 @@ def comando_carregar(args) -> int:
     return 0
 
 
+def comando_biografias(args) -> int:
+    """Preenche `acervo.autor.biografia` a partir do dump de autores.
+
+    Só os autores já carregados e ainda sem biografia são procurados no dump, e
+    o `UPDATE` não toca biografia existente: dá para rodar de novo sem efeito.
+    Não grava `ingestao_execucao`, cujo CHECK de tipo só conhece carga inicial
+    e recarga de livros.
+    """
+    with carga_mod.conectar(_url_do_banco(args)) as conexao:
+        chaves = carga_mod.chaves_sem_biografia(conexao)
+        biografias, encontrados = pipeline.extrair_biografias(
+            args.dump_autores, chaves, formato=args.formato
+        )
+        atualizados = carga_mod.gravar_biografias(conexao, biografias)
+        if args.dry_run:
+            conexao.rollback()
+        else:
+            conexao.commit()
+
+    print(
+        json.dumps(
+            {
+                "autores_sem_biografia": len(chaves),
+                "encontrados_no_dump": encontrados,
+                "com_biografia_no_dump": len(biografias),
+                "atualizados": 0 if args.dry_run else atualizados,
+                "simulacao": args.dry_run,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+    return 0
+
+
 def construir_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="leai_ingestao",
@@ -207,6 +245,20 @@ def construir_parser() -> argparse.ArgumentParser:
     p.add_argument("--processados", type=int, default=None, help="total lido na fase 1")
     p.add_argument("--descartados", type=int, default=None, help="total descartado na fase 1")
     p.set_defaults(func=comando_carregar)
+
+    p = sub.add_parser(
+        "biografias",
+        help="preenche a biografia dos autores já carregados, a partir do dump de autores",
+    )
+    p.add_argument("--database-url")
+    p.add_argument("--dump-autores", type=Path, required=True)
+    p.add_argument("--formato", choices=("auto", "tsv", "jsonl"), default="auto")
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="lê o dump e grava numa transação desfeita no fim, só para ver os números",
+    )
+    p.set_defaults(func=comando_biografias)
 
     return parser
 

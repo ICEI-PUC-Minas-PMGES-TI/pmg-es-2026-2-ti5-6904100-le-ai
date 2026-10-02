@@ -270,3 +270,46 @@ def test_falha_no_meio_nao_deixa_carga_parcial(conexao, capsys, tmp_path):
         conexao, "SELECT status, total_inseridos FROM acervo.ingestao_execucao"
     )
     assert (status, inseridos) == ("falha", 0)
+
+
+def _biografias(conexao) -> dict[str, str | None]:
+    with conexao.cursor() as cursor:
+        cursor.execute(
+            "SELECT ol_author_key, biografia FROM acervo.autor WHERE ol_author_key IS NOT NULL"
+        )
+        return dict(cursor.fetchall())
+
+
+def test_biografias_preenche_so_quem_nao_tem_e_reexecutar_nao_muda_nada(conexao, capsys, tmp_path):
+    """F-ACV-DESCOBERTA (RF-ACV-10): o subcomando que o grupo roda depois da carga."""
+    _rodar(capsys, "semear", "--database-url", URL)
+    _carga_da_amostra(capsys, tmp_path)
+    conexao.commit()
+    # A importação por ISBN já gravou a deste autor: o script não a sobrescreve.
+    with conexao.cursor() as cursor:
+        cursor.execute(
+            "UPDATE acervo.autor SET biografia = 'Gravada pela importação.' "
+            "WHERE ol_author_key = 'OL10000003A'"
+        )
+    conexao.commit()
+    dump = str(AMOSTRA / "autores_amostra.jsonl")
+
+    simulacao = _rodar(
+        capsys, "biografias", "--database-url", URL, "--dump-autores", dump, "--dry-run"
+    )
+    assert simulacao["simulacao"] is True
+    assert simulacao["atualizados"] == 0
+    assert _biografias(conexao)["OL10000001A"] is None
+
+    resumo = _rodar(capsys, "biografias", "--database-url", URL, "--dump-autores", dump)
+
+    assert resumo["atualizados"] == 1
+    assert resumo["com_biografia_no_dump"] == 1
+    biografias = _biografias(conexao)
+    assert biografias["OL10000001A"] == "Escritor e geógrafo baiano, autor de *Torto arado* ."
+    assert biografias["OL10000003A"] == "Gravada pela importação."
+    # Quem a fonte não tem continua sem: a seção não aparece na página.
+    assert biografias["OL10000002A"] is None
+
+    de_novo = _rodar(capsys, "biografias", "--database-url", URL, "--dump-autores", dump)
+    assert de_novo["atualizados"] == 0

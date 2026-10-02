@@ -321,6 +321,41 @@ def semear(conexao, assuntos, sinonimos: dict[str, str], mapa_csv) -> dict:
     return contagem
 
 
+def chaves_sem_biografia(conexao) -> set[str]:
+    """Chaves OpenLibrary dos autores que ainda não têm biografia."""
+    with conexao.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT ol_author_key FROM acervo.autor
+             WHERE ol_author_key IS NOT NULL AND biografia IS NULL
+            """
+        )
+        return {linha[0] for linha in cursor.fetchall()}
+
+
+def gravar_biografias(conexao, biografias: list[tuple[str, str]]) -> int:
+    """Grava as biografias numa transação e devolve quantos autores mudaram.
+
+    `COPY` para staging e um `UPDATE` só, como a carga. `biografia IS NULL` no
+    `UPDATE` faz a reexecução não mudar nada e nunca sobrescreve a biografia que
+    a importação por ISBN já gravou. Quem chama faz o commit.
+    """
+    with conexao.cursor() as cursor:
+        cursor.execute(
+            "CREATE TEMP TABLE stg_biografia (ol_author_key text, biografia text) ON COMMIT DROP"
+        )
+        _copiar(cursor, "stg_biografia", ["ol_author_key", "biografia"], biografias)
+        cursor.execute(
+            """
+            UPDATE acervo.autor a
+               SET biografia = s.biografia
+              FROM stg_biografia s
+             WHERE a.ol_author_key = s.ol_author_key AND a.biografia IS NULL
+            """
+        )
+        return cursor.rowcount
+
+
 def medir_armazenamento(conexao) -> list[tuple[str, int, int]]:
     """Tamanho de dados e de índice por tabela do schema `acervo`.
 
