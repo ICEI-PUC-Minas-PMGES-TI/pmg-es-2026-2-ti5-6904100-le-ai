@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
@@ -15,6 +17,7 @@ import '../perfil/lista_paginada.dart';
 import '../perfil/perfil_service.dart';
 import '../perfil/textos.dart';
 import '../perfil/widgets_de_perfil.dart';
+import 'canal_de_notificacoes.dart';
 import 'contador_de_nao_lidas.dart';
 import 'notificacao.dart';
 import 'notificacoes_service.dart';
@@ -30,6 +33,8 @@ const int _linhasDoTexto = 3;
 class NotificacoesPage extends StatefulWidget {
   final NotificacoesService servico;
   final ContadorDeNaoLidas contador;
+
+  final CanalDeNotificacoes canal;
   final VoidCallback? aoVoltar;
 
   /// Destino do tipo: perfil de quem seguiu, caixa de solicitações, feed ou página do livro.
@@ -40,6 +45,7 @@ class NotificacoesPage extends StatefulWidget {
     super.key,
     required this.servico,
     required this.contador,
+    required this.canal,
     this.aoVoltar,
     required this.aoAbrir,
     required this.aoRegistrarProgresso,
@@ -59,17 +65,29 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
   final Map<String, String> _erros = <String, String>{};
   bool _marcandoTodas = false;
 
+  final ScrollController _rolagem = ScrollController();
+  late final StreamSubscription<EventoDeNotificacoes> _tempoReal;
+
+  /// Chegaram com a lista rolada e esperam o topo: a lista não se mexe debaixo do dedo (P2 §5.2).
+  final List<Notificacao> _pendentes = <Notificacao>[];
+
+  final Set<String> _recemChegadas = <String>{};
+
   @override
   void initState() {
     super.initState();
-    _lista.addListener(_redesenhar);
+    _lista.addListener(_aoMudarLista);
     widget.contador.addListener(_redesenhar);
+    _rolagem.addListener(_aoRolar);
+    _tempoReal = widget.canal.eventos.listen(_aoReceber);
     _lista.carregar();
   }
 
   @override
   void dispose() {
+    unawaited(_tempoReal.cancel());
     widget.contador.removeListener(_redesenhar);
+    _rolagem.dispose();
     _lista.dispose();
     super.dispose();
   }
@@ -78,6 +96,79 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
     if (mounted) {
       setState(() {});
     }
+  }
+
+  void _aoMudarLista() {
+    _soltarPendentesNoTopo();
+    _redesenhar();
+  }
+
+  void _aoRolar() {
+    if (_pendentes.isNotEmpty) {
+      _soltarPendentesNoTopo();
+    }
+  }
+
+  bool get _noTopo => !_rolagem.hasClients || _rolagem.offset <= 0;
+
+  void _aoReceber(EventoDeNotificacoes evento) {
+    switch (evento) {
+      case NotificacaoRecebida(:final notificacao?):
+        _chegaram(<Notificacao>[notificacao]);
+      case NotificacaoRecebida():
+        break;
+      case SincronizacaoDeNotificacoes():
+        unawaited(_sincronizar());
+    }
+  }
+
+  Future<void> _sincronizar() async {
+    if (_lista.carregando || _lista.falhou) {
+      return;
+    }
+    try {
+      final pagina = await widget.servico.listar(0);
+      widget.contador.definir(pagina.totalNaoLidas);
+      _chegaram(pagina.itens);
+    } on ApiException {
+      // O canal reconecta e sincroniza outra vez.
+    }
+  }
+
+  void _chegaram(List<Notificacao> novas) {
+    if (!mounted) {
+      return;
+    }
+    final conhecidas = <String>{..._lista.itens.map((n) => n.id), ..._pendentes.map((n) => n.id)};
+    final ineditas = novas.where((n) => conhecidas.add(n.id)).toList();
+    if (ineditas.isEmpty) {
+      return;
+    }
+    setState(() => _pendentes.insertAll(0, ineditas));
+    _soltarPendentesNoTopo();
+  }
+
+  void _soltarPendentesNoTopo() {
+    if (_pendentes.isEmpty || _lista.carregando || _lista.falhou || !_noTopo) {
+      return;
+    }
+    final novas = List<Notificacao>.of(_pendentes);
+    _pendentes.clear();
+    _recemChegadas.addAll(novas.map((n) => n.id));
+    _lista.mesclarNoTopo(novas);
+  }
+
+  void _irAoTopo() {
+    if (!_rolagem.hasClients) {
+      return;
+    }
+    if (MediaQuery.of(context).disableAnimations) {
+      _rolagem.jumpTo(0);
+      return;
+    }
+    unawaited(
+      _rolagem.animateTo(0, duration: DesignTokens.durSlow, curve: DesignTokens.easeInOut),
+    );
   }
 
   Future<Pagina<Notificacao>> _buscar(int pagina) async {
@@ -208,13 +299,16 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final comLista = !_lista.carregando && !_lista.falhou && _lista.itens.isNotEmpty;
+    // A linha de contexto fica acima da lista: surgir com ela rolada empurraria o que se lê. Só as
+    // não lidas já na lista contam para ela aparecer; as que esperam o topo entram no número.
+    final comContexto = comLista && _naoLidas - _pendentes.where((n) => !n.lida).length > 0;
     return Column(
       children: <Widget>[
         CabecalhoTela(
           titulo: 'Notificações',
           aoVoltar: widget.aoVoltar,
           comSino: false,
-          semDivisor: comLista && _naoLidas > 0,
+          semDivisor: comContexto,
           acoes: <Widget>[
             if (_naoLidas > 0 && !_lista.falhou)
               Opacity(
@@ -226,11 +320,28 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
               ),
           ],
         ),
-        if (comLista && _naoLidas > 0) _linhaDeContexto(theme),
+        if (comContexto) _linhaDeContexto(theme),
         Expanded(
-          child: NotificationListener<ScrollNotification>(
-            onNotification: _pertoDoFim,
-            child: _conteudo(theme),
+          child: Stack(
+            children: <Widget>[
+              Positioned.fill(
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: _pertoDoFim,
+                  child: _conteudo(theme),
+                ),
+              ),
+              Positioned(
+                top: DesignTokens.space3,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: _AvisoDeNovas(
+                    quantas: comLista ? _pendentes.length : 0,
+                    aoTocar: _irAoTopo,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -303,6 +414,7 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
       );
     }
     return ListView.separated(
+      controller: _rolagem,
       itemCount: _lista.itens.length + 1,
       separatorBuilder: (_, _) => Divider(height: 1, thickness: 1, color: theme.divider),
       itemBuilder: (context, indice) {
@@ -326,7 +438,15 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
             ),
           );
         }
-        return _item(theme, _lista.itens[indice]);
+        final notificacao = _lista.itens[indice];
+        final item = _item(theme, notificacao);
+        return _recemChegadas.contains(notificacao.id)
+            ? _Chegada(
+                key: ValueKey<String>(notificacao.id),
+                aoTerminar: () => _recemChegadas.remove(notificacao.id),
+                child: item,
+              )
+            : item;
       },
     );
   }
@@ -428,6 +548,116 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
             child: const Text('Registrar progresso'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Aviso `N novas notificações` (notificacoes.md P2 §5.2).
+class _AvisoDeNovas extends StatefulWidget {
+  final int quantas;
+  final VoidCallback aoTocar;
+
+  const _AvisoDeNovas({required this.quantas, required this.aoTocar});
+
+  @override
+  State<_AvisoDeNovas> createState() => _AvisoDeNovasState();
+}
+
+class _AvisoDeNovasState extends State<_AvisoDeNovas> {
+  static const double _altura = 36;
+  static const double _areaDeToque = 48;
+  static const double _icone = 16;
+
+  /// O fade de saída mostra o último número, não `0 novas notificações`.
+  int _exibidas = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final quantas = widget.quantas;
+    final aoTocar = widget.aoTocar;
+    final visivel = quantas > 0;
+    if (visivel) {
+      _exibidas = quantas;
+    }
+    final texto = _exibidas == 1 ? '1 nova notificação' : '$_exibidas novas notificações';
+    return IgnorePointer(
+      ignoring: !visivel,
+      child: AnimatedOpacity(
+        opacity: visivel ? 1 : 0,
+        duration: MediaQuery.of(context).disableAnimations ? Duration.zero : DesignTokens.durFast,
+        child: Semantics(
+          button: true,
+          liveRegion: true,
+          label: visivel ? '$texto. Voltar ao topo' : null,
+          excludeSemantics: true,
+          child: GestureDetector(
+            onTap: aoTocar,
+            behavior: HitTestBehavior.opaque,
+            child: SizedBox(
+              height: _areaDeToque,
+              child: Center(
+                child: Container(
+                  height: _altura,
+                  padding: const EdgeInsets.symmetric(horizontal: DesignTokens.space4),
+                  decoration: BoxDecoration(
+                    color: theme.elevatedSurface,
+                    borderRadius: BorderRadius.circular(DesignTokens.radiusFull),
+                    border: Border.all(color: theme.divider),
+                    boxShadow: theme.elevation2,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Icon(PhosphorIconsRegular.arrowUp, size: _icone, color: theme.primaryAccent),
+                      const SizedBox(width: DesignTokens.space2),
+                      Text(
+                        texto,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.primaryAccent,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Animação de chegada pelo tempo real (P2 §5.1).
+class _Chegada extends StatelessWidget {
+  static const double _deslocamento = 8;
+
+  final VoidCallback aoTerminar;
+  final Widget child;
+
+  const _Chegada({super.key, required this.aoTerminar, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.of(context).disableAnimations) {
+      aoTerminar();
+      return child;
+    }
+    return TweenAnimationBuilder<double>(
+      onEnd: aoTerminar,
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: DesignTokens.durBase,
+      curve: DesignTokens.easeOut,
+      child: child,
+      builder: (context, progresso, child) => Opacity(
+        opacity: progresso,
+        child: Transform.translate(
+          offset: Offset(0, (progresso - 1) * _deslocamento),
+          child: child,
+        ),
       ),
     );
   }

@@ -310,6 +310,44 @@ class ApiClient {
     _decodeJson(response, requestCorrelationId);
   }
 
+  /// GET de resposta longa (SSE): só a abertura passa pelo timeout; `401` renova e reabre uma vez,
+  /// como [_enviar].
+  Future<Stream<List<int>>> abrirFluxo(String path) async {
+    final requestCorrelationId = newCorrelationId();
+
+    Future<http.StreamedResponse> abrirCom(String? token) =>
+        _guarded(requestCorrelationId, () {
+          final request = http.Request('GET', _resolve(path))
+            ..headers.addAll(
+              _headersFor(
+                const <String, String>{'Accept': 'text/event-stream'},
+                requestCorrelationId,
+                hasBody: false,
+                token: token,
+              ),
+            );
+          return _client.send(request);
+        });
+
+    final tokenDaSessao = getToken?.call();
+    var response = await abrirCom(tokenDaSessao);
+    if (response.statusCode == 401 &&
+        tokenDaSessao != null &&
+        tokenDaSessao.isNotEmpty &&
+        renovarSessao != null &&
+        await renovarSessao!(tokenDaSessao)) {
+      final renovado = getToken?.call();
+      if (renovado != null && renovado.isNotEmpty) {
+        await response.stream.drain<void>();
+        response = await abrirCom(renovado);
+      }
+    }
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw _erroDoCorpo(await http.Response.fromStream(response), requestCorrelationId);
+    }
+    return response.stream;
+  }
+
   /// Um só caminho para todos os métodos: cabeçalhos, timeout, mapeamento de falha e retentativa
   /// não podem divergir entre `get`, `post`, `patch` e `delete` com o tempo. O correlation-id e a
   /// chave de idempotência são os mesmos em todas as tentativas — é a mesma operação, e é a
@@ -421,9 +459,9 @@ class ApiClient {
 
   /// Timeout e erro de rede em um lugar só (RNF-ERR-09): timeout vira `coldStart`, o resto vira
   /// `network`.
-  Future<http.Response> _guarded(
+  Future<T> _guarded<T>(
     String correlationId,
-    Future<http.Response> Function() request,
+    Future<T> Function() request,
   ) async {
     try {
       return await request().timeout(timeout);

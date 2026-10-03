@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -417,5 +419,91 @@ void main() {
     );
     expect(autorizacao, isNull);
     expect(renovacoes, 0);
+  });
+
+  group('abrirFluxo (SSE)', () {
+    MockClient streaming(Future<http.StreamedResponse> Function(http.BaseRequest) responder) =>
+        MockClient.streaming((request, _) => responder(request));
+
+    http.StreamedResponse resposta(int status, String corpo) =>
+        http.StreamedResponse(Stream<List<int>>.value(utf8.encode(corpo)), status);
+
+    test('abre com o token da sessao no cabecalho e devolve o corpo como stream', () async {
+      late http.BaseRequest enviada;
+      final api = ApiClient(
+        baseUrl: 'https://social.example.com',
+        client: streaming((request) async {
+          enviada = request;
+          return resposta(200, 'event:sincronizacao\ndata:{}\n\n');
+        }),
+        getToken: () => 'token-atual',
+      );
+
+      final corpo = await api.abrirFluxo('/notificacoes/tempo-real');
+
+      expect(await utf8.decodeStream(corpo), contains('sincronizacao'));
+      expect(enviada.method, 'GET');
+      expect(enviada.url.toString(), 'https://social.example.com/notificacoes/tempo-real');
+      expect(enviada.url.query, isEmpty);
+      expect(enviada.headers['Authorization'], 'Bearer token-atual');
+      expect(enviada.headers['Accept'], 'text/event-stream');
+    });
+
+    test('token vencido renova a sessao uma vez e reabre com o token novo', () async {
+      var token = 'vencido';
+      final autorizacoes = <String?>[];
+      final api = ApiClient(
+        baseUrl: 'https://social.example.com',
+        client: streaming((request) async {
+          autorizacoes.add(request.headers['Authorization']);
+          return request.headers['Authorization'] == 'Bearer novo'
+              ? resposta(200, '')
+              : resposta(401, '{"codigo":"NAO_AUTENTICADO","mensagem":"Sessão expirada."}');
+        }),
+        getToken: () => token,
+        renovarSessao: (falhou) async {
+          expect(falhou, 'vencido');
+          token = 'novo';
+          return true;
+        },
+      );
+
+      await api.abrirFluxo('/notificacoes/tempo-real');
+
+      expect(autorizacoes, <String>['Bearer vencido', 'Bearer novo']);
+    });
+
+    test('sessao que nao renova vira ApiException 401 com o codigo do corpo', () async {
+      final api = ApiClient(
+        baseUrl: 'https://social.example.com',
+        client: streaming(
+          (_) async =>
+              resposta(401, '{"codigo":"NAO_AUTENTICADO","mensagem":"Sessão expirada."}'),
+        ),
+        getToken: () => 'vencido',
+        renovarSessao: (_) async => false,
+      );
+
+      await expectLater(
+        api.abrirFluxo('/notificacoes/tempo-real'),
+        throwsA(
+          isA<ApiException>()
+              .having((e) => e.status, 'status', 401)
+              .having((e) => e.codigo, 'codigo', 'NAO_AUTENTICADO'),
+        ),
+      );
+    });
+
+    test('falha de rede na abertura vira ApiException de rede', () async {
+      final api = ApiClient(
+        baseUrl: 'https://social.example.com',
+        client: streaming((_) async => throw http.ClientException('sem rede')),
+      );
+
+      await expectLater(
+        api.abrirFluxo('/notificacoes/tempo-real'),
+        throwsA(isA<ApiException>().having((e) => e.kind, 'kind', ApiFailureKind.network)),
+      );
+    });
   });
 }

@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../livros/rotas_livros.dart';
 import '../perfil/rotas_perfil.dart';
+import 'canal_de_notificacoes.dart';
 import 'contador_de_nao_lidas.dart';
 import 'notificacao.dart';
 import 'notificacoes_page.dart';
@@ -21,10 +22,15 @@ bool ehRotaDeNotificacoes(String caminho) => caminho.endsWith('/$_segmento');
 /// para o app inteiro: é o número do badge em todo cabeçalho.
 class DependenciasDeNotificacoes {
   final NotificacoesService servico;
+  final CanalDeNotificacoes canal;
   final ContadorDeNaoLidas contador;
   final FechamentoDeNotificacoes fechamento = FechamentoDeNotificacoes();
 
-  DependenciasDeNotificacoes(this.servico) : contador = ContadorDeNaoLidas(servico);
+  DependenciasDeNotificacoes(NotificacoesService servico)
+    : this._(servico, CanalDeNotificacoes(servico.abrirTempoReal));
+
+  DependenciasDeNotificacoes._(this.servico, this.canal)
+    : contador = ContadorDeNaoLidas(servico, canal);
 
   factory DependenciasDeNotificacoes.padrao({
     required String? Function() getToken,
@@ -86,6 +92,7 @@ GoRoute rotaDeNotificacoes(DependenciasDeNotificacoes deps, String raizDaAba) =>
     child: NotificacoesPage(
       servico: deps.servico,
       contador: deps.contador,
+      canal: deps.canal,
       aoVoltar: () => context.canPop() ? context.pop() : context.go(raizDaAba),
       aoAbrir: (notificacao) =>
           _irPara(context, deps, raizDaAba, destinoDaNotificacao(notificacao)),

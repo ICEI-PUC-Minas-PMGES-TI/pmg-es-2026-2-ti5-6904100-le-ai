@@ -143,6 +143,7 @@ GoRouter buildRouter({
           aoAbrirConfiguracoes: () => context.go(rotaConfiguracoes),
           aoBuscarLeitor: () => context.go(rotaBuscarLeitor),
           contadorDeNaoLidas: depsDeNotificacoes.contador,
+          canalDeNotificacoes: depsDeNotificacoes.canal,
           aoAbrirNotificacoes: (raiz) => context.push<void>(rotaNotificacoes(raiz)),
           fecharNotificacoes: () => depsDeNotificacoes.fechamento.fechar(GoRouter.of(context)),
         ),
