@@ -22,7 +22,7 @@ RNF atendidos: **RNF-ERR-09** (hibernação do Render tratada — reconexão, n�
 | Infra | implementado | canal **SSE** `GET /notificacoes/tempo-real` no serviço `social`; validação no Render free pendente |
 | Backend | implementado | `social`: notificação nova empurrada após o commit, com total de não lidas; canal encerra na expiração do JWT |
 | Web | **não aplicável** | notificações estão **fora do escopo web** (`REQUISITOS.md` §2.1) |
-| Mobile | não iniciado | conexão de tempo real + fallback para a lista de [F-NOT](../periodo-1/feature-F-NOT.md) |
+| Mobile | implementado | canal SSE no shell com reconexão silenciosa e backoff; badge, item novo no topo, aviso `N novas notificações` com a lista rolada e sincronização sem duplicar; validação em DES pendente |
 
 ## Especificação
 
@@ -79,6 +79,8 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - Stack de `social` definida: **Spring (Java)** (arquitetura §2.1).
 
 ## Timeline
+
+### Mobile 03/10/2026: `CanalDeNotificacoes` abre o SSE pelo `ApiClient.abrirFluxo` (token no cabeçalho, renovação em `401`) enquanto o shell está montado e o app em primeiro plano; queda, cold start e expiração reconectam com backoff exponencial de 1 s a 30 s mais jitter, sem nada na tela, e sessão que não renova encerra o canal. O badge segue o total de cada evento; na tela, a notificação nova entra no topo com a animação de chegada, ou espera no aviso `N novas notificações` se a lista está rolada (a lista não se move); a reconexão recarrega a primeira página e mescla por id. **Divergência registrada:** a linha `N não lidas` continua fixa acima da lista, como no Período 1 (o protótipo P2 a faz rolar junto); para a lista não pular, ela só surge por notificação já na lista, e as que esperam no aviso entram só no número. Falta a validação em DES.
 
 ### Backend 03/10/2026: transporte fixado em **SSE**. `social` ganhou `GET /notificacoes/tempo-real`: abre com `sincronizacao` (total de não lidas), empurra `notificacao` (mesmo formato da lista + total) depois do commit da gravação, só ao destinatário, sem reentregar duplicata; o canal termina na expiração do JWT e no shutdown. Spec em `docs/api/social.yaml`; testes de integração cobrem 401, dono, duplicata e expiração. Mobile e validação em DES pendentes.
 
