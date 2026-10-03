@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import br.com.leai.social.common.LimitesDeInteracao;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.List;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -367,6 +368,42 @@ class InteracaoControllerIntegracaoTest extends IntegracaoComPostgres {
         jdbc.queryForObject(
             "SELECT count(*) FROM comentario WHERE atividade_id = ?", Long.class, atividadeId);
     assertThat(comentarios).isZero();
+  }
+
+  @Test
+  @DisplayName("Username citext (como em identidade) sai como texto no autorAcao da outbox")
+  void usernameCitextSaiComoTextoNaOutbox() throws Exception {
+    jdbc.execute("CREATE EXTENSION IF NOT EXISTS citext WITH SCHEMA public");
+    recriarViewDePerfil("username::public.citext AS username");
+    try {
+      UUID solicitante = UUID.randomUUID();
+      UUID atividadeId = novaAtividadeVisivelPara(solicitante);
+      jdbc.update("UPDATE identidade.usuario SET username = 'marinableu' WHERE id = ?", solicitante);
+      leitor("nadiasampaio");
+
+      String id = idDe(comentar(atividadeId, token(solicitante), "Valeu, @nadiasampaio.", null));
+
+      List<String> tipos =
+          jdbc.queryForList(
+              "SELECT jsonb_typeof(payload -> 'autorAcao' -> 'username') FROM outbox_social"
+                  + " WHERE chave_negocio IN (?, ?)",
+              String.class,
+              "comentario:" + id,
+              "mencao:" + id + ":" + jdbc.queryForObject(
+                  "SELECT id FROM identidade.usuario WHERE username = 'nadiasampaio'", UUID.class));
+      assertThat(tipos).containsExactly("string", "string");
+    } finally {
+      recriarViewDePerfil("username");
+    }
+  }
+
+  private void recriarViewDePerfil(String colunaUsername) {
+    jdbc.execute("DROP VIEW identidade.v_perfil_referencia_v1");
+    jdbc.execute(
+        "CREATE VIEW identidade.v_perfil_referencia_v1 AS SELECT id, "
+            + colunaUsername
+            + ", nome_exibicao, avatar_url, privacidade, opt_out_recomendacao"
+            + " FROM identidade.usuario WHERE suspenso = false AND exclusao_solicitada_em IS NULL");
   }
 
   private UUID leitor(String username) {

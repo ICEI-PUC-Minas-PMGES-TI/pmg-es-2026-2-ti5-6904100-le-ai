@@ -24,7 +24,6 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -192,13 +191,9 @@ public class ServicoDeInteracao {
     Comentario comentario = buscarProprio(usuarioId, comentarioId);
     servicoDeFeed.validarVisivel(usuarioId, comentario.atividadeId());
 
-    Set<UUID> jaMencionados = new HashSet<>();
-    mencaoRepository
-        .porComentarios(List.of(comentarioId))
-        .getOrDefault(comentarioId, List.of())
-        .forEach(m -> jaMencionados.add(m.mencionadoId()));
     List<MencaoResolvida> mencoes = resolvedorDeMencoes.resolver(texto);
-    Set<UUID> aNotificar = destinatariosNovos(comentario, mencoes, jaMencionados);
+    Set<UUID> aNotificar =
+        destinatariosNovos(comentario, mencoes, eventos.jaMencionados(comentarioId));
     limiteDeMencionar.registrar(usuarioId, aNotificar.size());
 
     comentario.editar(texto);

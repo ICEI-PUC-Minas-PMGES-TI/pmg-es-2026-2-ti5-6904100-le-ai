@@ -4,7 +4,9 @@ import br.com.leai.social.common.CorrelationIdFilter;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
@@ -65,6 +67,19 @@ class EventosDeInteracao {
     gravar("comentario.respondido", "comentario:" + comentarioId, data);
   }
 
+  Set<UUID> jaMencionados(UUID comentarioId) {
+    String prefixo = "mencao:" + comentarioId + ":";
+    return jdbc
+        .queryForList(
+            "SELECT chave_negocio FROM outbox_social WHERE tipo = 'usuario.mencionado'"
+                + " AND chave_negocio LIKE ?",
+            String.class,
+            prefixo + "%")
+        .stream()
+        .map(chave -> UUID.fromString(chave.substring(prefixo.length())))
+        .collect(Collectors.toSet());
+  }
+
   void usuarioMencionado(UUID atividadeId, UUID comentarioId, UUID destinatarioId, UUID autorAcaoId) {
     Map<String, Object> data = new LinkedHashMap<>();
     data.put("destinatarioId", destinatarioId.toString());
@@ -82,7 +97,8 @@ class EventosDeInteracao {
   private Map<String, Object> snapshot(UUID usuarioId) {
     List<Map<String, Object>> linhas =
         jdbc.queryForList(
-            "SELECT username, nome_exibicao, avatar_url FROM identidade.v_perfil_referencia_v1"
+            "SELECT username::text AS username, nome_exibicao, avatar_url"
+                + " FROM identidade.v_perfil_referencia_v1"
                 + " WHERE id = ?",
             usuarioId);
     Map<String, Object> snapshot = new LinkedHashMap<>();
