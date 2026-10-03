@@ -18,10 +18,10 @@ RNF atendidos: **RNF-SEC-02** (propriedade do comentário no servidor), **RNF-SE
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | não iniciado | associação de menções; publisher e mapeamento consumidor de `usuario.mencionado` |
-| Backend | não iniciado | `social`: editar/excluir comentário, resolver menções, publicar evento e gerar notificação |
-| Web | não iniciado | editar/excluir comentário; menção renderizada como link (sob RN-08) |
-| Mobile | não iniciado | mesmas telas |
+| Infra | concluído | `comentario_mencao` já existia desde a migration do modelo social (sem migration nova); schema `usuario.mencionado.v1` e linha no catálogo |
+| Backend | concluído | `PATCH`/`DELETE /comentarios/{id}`, resolução de menções, outbox e consumidor de `usuario.mencionado`; testes de integração escritos, ainda não executados (sem Postgres local) |
+| Web | concluído | menu do próprio comentário, edição no rodapé, exclusão com confirmação, menção como link e `· editado` |
+| Mobile | concluído | mesmas telas e tipo `usuarioMencionado` na lista de notificações |
 
 ## Especificação
 
@@ -86,7 +86,24 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - Stack de `social` definida: **Spring (Java)** (arquitetura §2.1).
 - **Telas (design P2):** editar e excluir o próprio comentário (`DotsThree`, edição no campo do rodapé com a barra `Editando comentário`, confirmação que avisa que as respostas saem junto) e menção resolvida como link em `musgo` entram na edição consolidada [`comentarios.md`](../../design/periodo-2/comentarios/comentarios.md) ([protótipo](../../design/periodo-2/comentarios/prototipos/comentarios.html)), prompt escrito e protótipo exportado em 29/09/2026. Decisões a ratificar: marcador `· editado`, lista desabilitada durante a edição, cancelar edição sem confirmar, `Ctrl` + `Enter` salva na web, confirmação mobile em sheet empilhado, sem toast depois de editar ou excluir, autor da atividade não remove comentário alheio. **Contratos a confirmar:** `editadoEm` no comentário; quantidade de respostas que saem com a raiz (a copy da confirmação usa o número); se o rate limit de menção recusa o comentário ou só a notificação; renderização de menção a conta oculta depois (suspensa ou com exclusão pendente).
 
+### Decisões da implementação (03/10/2026)
+
+- **Rate limit de menção recusa a escrita** com 429 (`Muitas menções seguidas...`): conta um uso por destinatário novo, `MENCOES_POR_MINUTO = 10` por usuário. O valor não vem de nenhuma fonte; **confirmar com o grupo**.
+- **Contrato da menção:** `Comentario.mencoes[] = {posicao, comprimento, usuarioId, username}`, em unidades UTF-16. O comprimento é recalculado do texto na leitura; conta que sai de `v_perfil_referencia_v1` (suspensa, exclusão pendente) volta a ser texto comum.
+- **`editado`** é derivado de `atualizado_em` não nulo; não há coluna nova. Limite do texto mantido em 2000 caracteres na edição.
+- Username casado sem diferenciar maiúsculas (`lower(username)`, igual ao login); ponto final e e-mail não viram menção.
+- Notificação: `X mencionou você num comentário na atividade de Y.`; chave `mencao:<comentarioId>:<mencionadoId>`.
+
+### Pendências da implementação
+
+- Rodar os testes de integração de `InteracaoControllerIntegracaoTest` com `DATABASE_URL_TESTE` (não havia Postgres local nem Docker na sessão).
+- Menu de comentário de outro leitor (`Denunciar comentário`) fica para F-MOD; hoje o `DotsThree` só aparece no próprio comentário.
+- Web: erro de exclusão aparece dentro do dialog; mobile mostra o erro no rodapé da folha, não dentro do sheet de confirmação (divergência do protótipo 5.7).
+- Conflito RN-08 no toque da notificação de menção continua aberto; hoje o toque leva ao feed, como as demais notificações de atividade.
+
 ## Timeline
+
+### Implementação 03/10/2026: backend, web e mobile implementados (issue #18); integração pendente de execução com banco real.
 
 ### Revisão 01/09/2026: exclusão física/cascade confirmada; menção passou a ser modelada por ocorrência e posição, permitindo repetição do mesmo usuário com notificação deduplicada.
 
