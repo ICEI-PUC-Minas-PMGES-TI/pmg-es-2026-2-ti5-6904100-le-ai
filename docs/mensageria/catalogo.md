@@ -9,6 +9,7 @@
 | `atividade.curtida` | social | social/notificações | `atividade:<atividadeId>:curtida:<autorAcaoId>` | [`atividade.curtida.v1`](schemas/atividade.curtida.v1.schema.json) |
 | `atividade.comentada` | social | social/notificações | `comentario:<comentarioId>` | [`atividade.comentada.v1`](schemas/atividade.comentada.v1.schema.json) |
 | `comentario.respondido` | social | social/notificações | `comentario:<comentarioId>` | [`comentario.respondido.v1`](schemas/comentario.respondido.v1.schema.json) |
+| `usuario.mencionado` | social | social/notificações | `mencao:<comentarioId>:<destinatarioId>` | [`usuario.mencionado.v1`](schemas/usuario.mencionado.v1.schema.json) |
 | `leitura.em_risco` | leitura | social/notificações | `leitura:<leituraId>:inatividade:<versao>:<limiar>` | [`leitura.em_risco.v1`](schemas/leitura.em_risco.v1.schema.json) |
 | `leitura.expirada` | leitura | social/notificações | `leitura:<leituraId>:inatividade:<versao>:40` | [`leitura.expirada.v1`](schemas/leitura.expirada.v1.schema.json) |
 | `livro.importacao_solicitada` | acervo | acervo/importação | `importacao:<importacaoId>` | [`livro.importacao_solicitada.v1`](schemas/livro.importacao_solicitada.v1.schema.json) |

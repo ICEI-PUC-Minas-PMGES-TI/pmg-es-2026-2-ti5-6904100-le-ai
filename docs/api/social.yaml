@@ -25,10 +25,11 @@ info:
       - POST /atividades/{atividadeId}/comentarios
       - GET /atividades/{atividadeId}/comentarios
       - GET /comentarios/{comentarioRaizId}/respostas
+      - PATCH /comentarios/{comentarioId}
+      - DELETE /comentarios/{comentarioId}
       - GET /notificacoes
       - POST /notificacoes/marcar-lidas
     planned-periodo-2:
-      - DELETE /comentarios/{comentarioId}
       - POST /listas
       - GET /listas/{listaId}
       - PATCH /listas/{listaId}
@@ -92,6 +93,7 @@ x-event-consumers:
       - atividade.curtida
       - atividade.comentada
       - comentario.respondido
+      - usuario.mencionado
       - leitura.em_risco
       - leitura.expirada
     effect: >-
@@ -107,7 +109,6 @@ x-event-consumers:
   planned-future-events:
     x-implementation-status: planned-after-periodo-1
     events:
-      - usuario.mencionado
       - resenha.curtida
       - recomendacao.recebida
       - lembrete.sequencia
@@ -322,17 +323,48 @@ paths:
   /comentarios/{comentarioId}:
     parameters:
       - $ref: '#/components/parameters/ComentarioId'
+    patch:
+      tags: [interacoes]
+      summary: Edita um comentário pertencente ao leitor (RF-SOC-13)
+      operationId: editarComentario
+      x-implementation-status: implemented
+      description: >-
+        Somente o autor pode editar. Raiz, alvo e nível não mudam (RN-10). As
+        menções do texto são reprocessadas: username existente vira menção,
+        inexistente continua texto (RN-10.1). usuario.mencionado só sai para
+        destinatário que este comentário ainda não notificou, nunca para o
+        autor nem para o alvo de comentario.respondido. Menções que notificam
+        têm rate limiting próprio (RN-10.3); estourar recusa a edição com 429.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EditarComentario' }
+      responses:
+        '200':
+          description: Comentário com o texto novo e as menções resolvidas.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Comentario' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/Proibido' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
     delete:
       tags: [interacoes]
       summary: Exclui um comentário pertencente ao leitor (RF-SOC-13)
       operationId: excluirComentario
-      x-implementation-status: planned-periodo-2
+      x-implementation-status: implemented
       description: >-
-        Contrato futuro de F-SOCIAL-2, não implementado por F-FEED no Período
-        1. Somente o autor pode excluir. Excluir comentário-raiz remove suas
-        respostas por cascade; excluir resposta remove somente ela. O cliente
-        exige confirmação explícita e o servidor não aceita autoria informada
-        pelo cliente.
+        Somente o autor pode excluir. Exclusão física: excluir comentário-raiz
+        remove suas respostas e menções por cascade (RN-10.5); excluir resposta
+        remove somente ela. O cliente exige confirmação explícita e o servidor
+        não aceita autoria informada pelo cliente.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       responses:
@@ -1023,6 +1055,29 @@ components:
           description: >-
             Omitido para comentário-raiz. Pode apontar para raiz ou resposta; o
             servidor deriva a raiz e o usuário respondido.
+    EditarComentario:
+      type: object
+      required: [texto]
+      additionalProperties: false
+      properties:
+        texto:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: Texto puro. HTML não é interpretado.
+    Mencao:
+      type: object
+      required: [posicao, comprimento, usuarioId, username]
+      description: >-
+        Menção resolvida: o trecho [posicao, posicao + comprimento) do texto,
+        em unidades UTF-16, é desenhado como link para o perfil. Conta que sai
+        de v_perfil_referencia_v1 (suspensa, exclusão pendente) some daqui e a
+        menção volta a ser texto comum.
+      properties:
+        posicao: { type: integer, minimum: 0 }
+        comprimento: { type: integer, minimum: 2 }
+        usuarioId: { type: string, format: uuid }
+        username: { type: string }
     Comentario:
       type: object
       required:
@@ -1030,9 +1085,11 @@ components:
         - atividadeId
         - autor
         - texto
+        - mencoes
         - nivel
         - criadoEm
         - pertenceAoSolicitante
+        - editado
       properties:
         id: { type: string, format: uuid }
         atividadeId: { type: string, format: uuid }
@@ -1054,6 +1111,10 @@ components:
         texto:
           type: string
           description: Texto puro; deve ser renderizado com escape.
+        mencoes:
+          type: array
+          description: Menções resolvidas, em ordem de posição.
+          items: { $ref: '#/components/schemas/Mencao' }
         nivel:
           type: string
           enum: [RAIZ, RESPOSTA]
@@ -1063,7 +1124,10 @@ components:
           description: Presente em comentário-raiz.
         pertenceAoSolicitante:
           type: boolean
-          description: Informa se o leitor pode usar a futura exclusão owner-only.
+          description: Informa se o leitor pode editar e excluir (owner-only).
+        editado:
+          type: boolean
+          description: Texto alterado depois de publicado; criadoEm não muda.
         criadoEm: { type: string, format: date-time }
         atualizadoEm:
           type: string
@@ -1097,8 +1161,9 @@ components:
     TipoNotificacao:
       type: string
       description: >-
-        Tipos produzidos no Período 1. Menção, curtida em resenha,
-        recomendação e lembrete de sequência dependem de features posteriores.
+        Tipos produzidos no Período 1 e a menção de F-SOCIAL-2. Curtida em
+        resenha, recomendação e lembrete de sequência dependem de features
+        posteriores.
       enum:
         - NOVO_SEGUIDOR
         - SOLICITACAO_CRIADA
@@ -1106,10 +1171,10 @@ components:
         - ATIVIDADE_CURTIDA
         - ATIVIDADE_COMENTADA
         - COMENTARIO_RESPONDIDO
+        - USUARIO_MENCIONADO
         - LEITURA_EM_RISCO
         - LEITURA_EXPIRADA
       x-planned-future-values:
-        - USUARIO_MENCIONADO
         - RESENHA_CURTIDA
         - RECOMENDACAO_RECEBIDA
         - LEMBRETE_SEQUENCIA
