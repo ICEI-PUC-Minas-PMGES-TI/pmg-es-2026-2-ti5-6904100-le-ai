@@ -29,6 +29,7 @@ info:
       - DELETE /comentarios/{comentarioId}
       - GET /notificacoes
       - POST /notificacoes/marcar-lidas
+      - GET /notificacoes/tempo-real
     planned-periodo-2:
       - POST /listas
       - GET /listas/{listaId}
@@ -711,6 +712,40 @@ paths:
         '404': { $ref: '#/components/responses/NaoEncontrado' }
         '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
         '503': { $ref: '#/components/responses/Indisponivel' }
+  /notificacoes/tempo-real:
+    get:
+      tags: [notificacoes]
+      summary: Canal SSE de notificações em tempo real (RF-NOT-06)
+      operationId: abrirCanalDeNotificacoes
+      x-implementation-status: implemented
+      description: >-
+        Server-Sent Events (`text/event-stream`) do leitor autenticado. O token
+        vai no cabeçalho `Authorization`, nunca na URL. Protocolo:
+
+
+        - `event: sincronizacao` — primeiro evento do canal; `data` é
+        `SincronizacaoTempoReal`. Depois de uma reconexão, o cliente recarrega a
+        primeira página de `GET /notificacoes` e mescla por `id`.
+
+        - `event: notificacao` — uma notificação nova do leitor; `id` é o id da
+        notificação e `data` é `NotificacaoTempoReal`.
+
+        - `: heartbeat` — comentário a cada 25 s para a conexão não ser cortada
+        por ociosidade; o cliente ignora.
+
+
+        O servidor encerra o canal quando o token expira (o cliente renova a
+        sessão e reconecta com backoff) e quando o serviço para ou hiberna. O
+        canal é só entrega antecipada: a lista paginada continua sendo a fonte
+        de verdade e nada se perde enquanto ele está fechado.
+      responses:
+        '200':
+          description: Canal aberto; eventos conforme a descrição.
+          content:
+            text/event-stream:
+              schema: { type: string }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
   /health:
     get:
       security: []
@@ -1302,6 +1337,21 @@ components:
           type: integer
           minimum: 0
           description: Quantidade alterada nesta operação.
+        totalNaoLidas: { type: integer, format: int64, minimum: 0 }
+    SincronizacaoTempoReal:
+      type: object
+      description: Dado do evento SSE `sincronizacao`, o primeiro de todo canal aberto.
+      required: [totalNaoLidas]
+      properties:
+        totalNaoLidas: { type: integer, format: int64, minimum: 0 }
+    NotificacaoTempoReal:
+      type: object
+      description: >-
+        Dado do evento SSE `notificacao`: a notificação recém-gravada, no mesmo
+        formato da lista, e o novo total de não lidas para o badge.
+      required: [notificacao, totalNaoLidas]
+      properties:
+        notificacao: { $ref: '#/components/schemas/Notificacao' }
         totalNaoLidas: { type: integer, format: int64, minimum: 0 }
     CriarLista:
       type: object

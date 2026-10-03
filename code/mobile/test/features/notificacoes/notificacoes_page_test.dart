@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,6 +8,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'package:le_ai_mobile/core/network/api_client.dart';
+import 'package:le_ai_mobile/design/widgets/banner_aviso.dart';
+import 'package:le_ai_mobile/features/notificacoes/canal_de_notificacoes.dart';
 import 'package:le_ai_mobile/features/notificacoes/contador_de_nao_lidas.dart';
 import 'package:le_ai_mobile/features/notificacoes/notificacao.dart';
 import 'package:le_ai_mobile/features/notificacoes/notificacoes_page.dart';
@@ -27,6 +30,8 @@ class _Servidor {
   int statusDoAbandono = 200;
   int statusDaLista = 200;
 
+  int leituras = 0;
+
   _Servidor(this.notificacoes);
 
   int get naoLidas => notificacoes.where((n) => n['lida'] != true).length;
@@ -34,6 +39,7 @@ class _Servidor {
   Future<http.Response> responder(http.Request requisicao) async {
     final caminho = requisicao.url.path;
     if (requisicao.method == 'GET' && caminho == '/notificacoes') {
+      leituras++;
       if (statusDaLista != 200) {
         return erro(statusDaLista, 'SERVICO_INDISPONIVEL', 'Serviço indisponível.');
       }
@@ -85,7 +91,8 @@ Map<String, Object?> _notificacao(
   bool lida = false,
   Map<String, Object?>? ator,
   bool comAcao = false,
-}) => <String, Object?>{
+  Duration ha = const Duration(hours: 1),
+}) =><String, Object?>{
   'id': id,
   'tipo': tipo,
   'mensagem': mensagem,
@@ -110,7 +117,7 @@ Map<String, Object?> _notificacao(
       : null,
   'lida': lida,
   'lidaEm': null,
-  'criadoEm': DateTime.now().toUtc().subtract(const Duration(hours: 1)).toIso8601String(),
+  'criadoEm': DateTime.now().toUtc().subtract(ha).toIso8601String(),
 };
 
 List<Map<String, Object?>> _caixaPadrao() => <Map<String, Object?>>[
@@ -137,12 +144,15 @@ List<Map<String, Object?>> _caixaPadrao() => <Map<String, Object?>>[
 
 class _Tela {
   final _Servidor servidor;
-  final ContadorDeNaoLidas contador;
+  final _CanalSimulado sse = _CanalSimulado();
+  late final CanalDeNotificacoes canal = CanalDeNotificacoes(sse.abrir, aleatorio: Random(0));
+  late final ContadorDeNaoLidas contador;
   final List<Notificacao> abertas = <Notificacao>[];
   final List<Notificacao> progresso = <Notificacao>[];
 
-  _Tela(this.servidor, {Duration timeout = const Duration(seconds: 90)})
-    : contador = ContadorDeNaoLidas(_servico(servidor, timeout));
+  _Tela(this.servidor, {Duration timeout = const Duration(seconds: 90)}) {
+    contador = ContadorDeNaoLidas(_servico(servidor, timeout), canal);
+  }
 
   static NotificacoesService _servico(_Servidor servidor, Duration timeout) {
     ApiClient cliente(String baseUrl) => ApiClient(
@@ -163,6 +173,7 @@ class _Tela {
         NotificacoesPage(
           servico: _servico(servidor, timeout),
           contador: contador,
+          canal: canal,
           aoAbrir: abertas.add,
           aoRegistrarProgresso: progresso.add,
         ),
@@ -170,7 +181,51 @@ class _Tela {
     );
     await tester.pumpAndSettle();
   }
+
+  Future<void> conectar(WidgetTester tester) async {
+    addTearDown(canal.dispose);
+    canal.conectar();
+    await tester.pump();
+    sse.sincronizar(servidor.naoLidas);
+    await tester.pumpAndSettle();
+  }
 }
+
+/// Ponta servidora do SSE: cada abertura ganha um stream novo, escrito pelo teste.
+class _CanalSimulado {
+  StreamController<List<int>>? _atual;
+  int aberturas = 0;
+
+  Future<Stream<List<int>>> abrir() async {
+    aberturas++;
+    _atual = StreamController<List<int>>();
+    return _atual!.stream;
+  }
+
+  void _escrever(String bloco) => _atual!.add(utf8.encode(bloco));
+
+  void sincronizar(int total) =>
+      _escrever('event:sincronizacao\ndata:{"totalNaoLidas":$total}\n\n');
+
+  void notificar(Map<String, Object?> notificacao, int total) {
+    final dado = jsonEncode(<String, Object?>{'notificacao': notificacao, 'totalNaoLidas': total});
+    _escrever(':heartbeat\n\nevent:notificacao\nid:${notificacao['id']}\ndata:$dado\n\n');
+  }
+
+  Future<void> cair() => _atual!.close();
+}
+
+Map<String, Object?> _nova(String id, String nome) => _notificacao(
+  id,
+  'NOVO_SEGUIDOR',
+  '$nome começou a seguir você.',
+  ha: Duration.zero,
+);
+
+List<Map<String, Object?>> _caixaLonga() => <Map<String, Object?>>[
+  for (var i = 0; i < 15; i++)
+    _notificacao('n-$i', 'ATIVIDADE_CURTIDA', 'Leitor $i curtiu sua resenha.', lida: true),
+];
 
 void main() {
   testWidgets('lista com nao lidas: contagem, Marcar todas e badge em dia', (tester) async {
@@ -364,6 +419,7 @@ void main() {
             ApiClient(baseUrl: 'https://leitura.example.com'),
           ),
           contador: tela.contador,
+          canal: tela.canal,
           aoAbrir: (_) {},
           aoRegistrarProgresso: (_) {},
         ),
@@ -384,5 +440,96 @@ void main() {
 
     expect(find.text('Nada por enquanto'), findsOneWidget);
     expect(find.text('Marcar todas'), findsNothing);
+  });
+
+  group('tempo real (RF-NOT-06)', () {
+    testWidgets('notificacao nova entra no topo com o badge, sem recarga', (tester) async {
+      final servidor = _Servidor(_caixaPadrao());
+      final tela = _Tela(servidor);
+      await tela.abrir(tester);
+      await tela.conectar(tester);
+      final leiturasAntes = servidor.leituras;
+
+      tela.sse.notificar(_nova('n-tempo-real', 'Renata Albuquerque'), 3);
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getTopLeft(find.textContaining('Renata Albuquerque')).dy,
+        lessThan(tester.getTopLeft(find.textContaining('O Avesso da Pele')).dy),
+      );
+      expect(find.text('agora'), findsOneWidget);
+      expect(find.text('3 não lidas'), findsOneWidget);
+      expect(tela.contador.total, 3);
+      expect(servidor.leituras, leiturasAntes);
+    });
+
+    testWidgets('a mesma notificacao entregue duas vezes aparece uma vez', (tester) async {
+      final tela = _Tela(_Servidor(_caixaPadrao()));
+      await tela.abrir(tester);
+      await tela.conectar(tester);
+
+      tela.sse.notificar(_nova('n-tempo-real', 'Renata Albuquerque'), 3);
+      tela.sse.notificar(_nova('n-tempo-real', 'Renata Albuquerque'), 3);
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Renata Albuquerque'), findsOneWidget);
+    });
+
+    testWidgets('com a lista rolada, o aviso acumula e tocar leva ao topo com as novas', (
+      tester,
+    ) async {
+      final tela = _Tela(_Servidor(_caixaLonga()));
+      await tela.abrir(tester);
+      await tela.conectar(tester);
+      await tester.drag(find.byType(ListView), const Offset(0, -600));
+      await tester.pumpAndSettle();
+      final emLeitura = find.textContaining('curtiu sua resenha').first.evaluate().first;
+      final noDedo = find.byElementPredicate((elemento) => elemento == emLeitura);
+      final primeiroVisivel = tester.getTopLeft(noDedo);
+
+      tela.sse.notificar(_nova('n-a', 'Renata Albuquerque'), 1);
+      await tester.pumpAndSettle();
+      expect(find.text('1 nova notificação'), findsOneWidget);
+
+      tela.sse.notificar(_nova('n-b', 'Beatriz Okada'), 2);
+      await tester.pumpAndSettle();
+      expect(find.text('2 novas notificações'), findsOneWidget);
+      expect(tester.getTopLeft(noDedo), primeiroVisivel);
+
+      await tester.tap(find.text('2 novas notificações'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('novas notificações').hitTestable(), findsNothing);
+      expect(find.textContaining('Beatriz Okada'), findsOneWidget);
+      expect(find.textContaining('Renata Albuquerque'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.textContaining('Beatriz Okada')).dy,
+        lessThan(tester.getTopLeft(find.textContaining('Renata Albuquerque')).dy),
+      );
+    });
+
+    testWidgets('queda reconecta sem aviso e sincroniza o que chegou, sem duplicar', (
+      tester,
+    ) async {
+      final servidor = _Servidor(_caixaPadrao());
+      final tela = _Tela(servidor);
+      await tela.abrir(tester);
+      await tela.conectar(tester);
+
+      await tela.sse.cair();
+      await tester.pump();
+      servidor.notificacoes.insert(0, _nova('n-offline', 'Beatriz Okada'));
+      expect(find.byType(BannerAviso), findsNothing);
+
+      await tester.pump(CanalDeNotificacoes.esperaInicial * 1.5);
+      expect(tela.sse.aberturas, 2);
+      tela.sse.sincronizar(servidor.naoLidas);
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Beatriz Okada'), findsOneWidget);
+      expect(find.textContaining('Caio Ferraz'), findsOneWidget);
+      expect(find.text('3 não lidas'), findsOneWidget);
+      expect(find.byType(BannerAviso), findsNothing);
+    });
   });
 }

@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 
 import '../design/theme.dart';
+import '../features/notificacoes/canal_de_notificacoes.dart';
 import '../features/notificacoes/contador_de_nao_lidas.dart';
 import '../features/notificacoes/rotas_notificacoes.dart';
 import 'barra_inferior.dart';
@@ -20,9 +21,8 @@ const int _indiceDoPerfil = 3;
 ///
 /// O sino de todo cabeçalho do shell lê o [ContadorDeNaoLidas] pelo [EscopoDeNotificacoes] e abre
 /// as notificações empilhadas na aba atual (F-NOT). Elas são temporárias: trocar de aba pela barra
-/// inferior as fecha antes, e a aba de origem volta à tela que estava por baixo. O total é buscado
-/// ao entrar no shell e a cada retorno do app ao primeiro plano: no Período 1 não há tempo real
-/// (RF-NOT-06).
+/// inferior as fecha antes, e a aba de origem volta à tela que estava por baixo. O canal de tempo
+/// real (RF-NOT-06) fica aberto com o shell montado e o app em primeiro plano.
 ///
 /// Abaixo da raiz de uma aba (ex.: `/descobrir/adicionar-livro`), o cabeçalho da aba sai e a
 /// própria tela desenha o seu, com seta de voltar e título próprio — o título da aba não diz
@@ -43,6 +43,8 @@ class ShellAutenticado extends StatefulWidget {
 
   final ContadorDeNaoLidas contadorDeNaoLidas;
 
+  final CanalDeNotificacoes canalDeNotificacoes;
+
   /// Abre as notificações empilhadas na aba cuja raiz é o argumento.
   final void Function(String raizDaAba) aoAbrirNotificacoes;
 
@@ -56,6 +58,7 @@ class ShellAutenticado extends StatefulWidget {
     this.aoAbrirConfiguracoes,
     this.aoBuscarLeitor,
     required this.contadorDeNaoLidas,
+    required this.canalDeNotificacoes,
     required this.aoAbrirNotificacoes,
     required this.fecharNotificacoes,
   });
@@ -70,18 +73,29 @@ class _ShellAutenticadoState extends State<ShellAutenticado> with WidgetsBinding
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     widget.contadorDeNaoLidas.atualizar();
+    widget.canalDeNotificacoes.conectar();
   }
 
   @override
   void dispose() {
+    widget.canalDeNotificacoes.desconectar();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState estado) {
-    if (estado == AppLifecycleState.resumed) {
-      widget.contadorDeNaoLidas.atualizar();
+    switch (estado) {
+      case AppLifecycleState.resumed:
+        widget.contadorDeNaoLidas.atualizar();
+        widget.canalDeNotificacoes.conectar();
+      case AppLifecycleState.paused:
+        // Em segundo plano o sistema derruba a conexão de qualquer jeito; fechar antes poupa bateria.
+        widget.canalDeNotificacoes.desconectar();
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.detached:
+        break;
     }
   }
 
