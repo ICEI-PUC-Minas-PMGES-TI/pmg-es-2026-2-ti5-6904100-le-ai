@@ -56,6 +56,13 @@ export interface Atividade {
 
 export type NivelComentario = 'RAIZ' | 'RESPOSTA'
 
+export interface Mencao {
+  posicao: number
+  comprimento: number
+  usuarioId: string
+  username: string
+}
+
 export interface Comentario {
   id: string
   atividadeId: string
@@ -64,9 +71,11 @@ export interface Comentario {
   usuarioRespondido: AutorSnapshot | null
   autor: AutorSnapshot
   texto: string
+  mencoes: Mencao[]
   nivel: NivelComentario
   totalRespostas?: number
   pertenceAoSolicitante: boolean
+  editado: boolean
   criadoEm: string
   atualizadoEm: string | null
 }
@@ -155,6 +164,16 @@ export function createSocialService(options: ApiClientOptions = {}) {
         json: dados,
         idempotencyKey,
       })
+    },
+    editarComentario(comentarioId: string, texto: string, idempotencyKey: string): Promise<Comentario> {
+      return request<Comentario>(`/comentarios/${encodeURIComponent(comentarioId)}`, {
+        method: 'PATCH',
+        json: { texto },
+        idempotencyKey,
+      })
+    },
+    excluirComentario(comentarioId: string, idempotencyKey: string): Promise<void> {
+      return request<void>(`/comentarios/${encodeURIComponent(comentarioId)}`, { method: 'DELETE', idempotencyKey })
     },
   }
 }

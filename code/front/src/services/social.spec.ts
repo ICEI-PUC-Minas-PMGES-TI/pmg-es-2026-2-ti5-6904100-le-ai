@@ -40,8 +40,10 @@ const COMENTARIO: Comentario = {
   usuarioRespondido: null,
   autor: AUTOR,
   texto: 'Ótimo livro!',
+  mencoes: [],
   nivel: 'RAIZ',
   pertenceAoSolicitante: true,
+  editado: false,
   criadoEm: '2026-09-25T00:00:00Z',
   atualizadoEm: null,
 }

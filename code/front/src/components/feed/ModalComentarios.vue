@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PhChatCircle, PhPaperPlaneRight, PhX } from '@phosphor-icons/vue'
+import { PhChatCircle, PhPaperPlaneRight, PhPencilSimple, PhX } from '@phosphor-icons/vue'
 import { computed, nextTick, onMounted, ref } from 'vue'
 
 import ComentarioItem from './ComentarioItem.vue'
@@ -11,6 +11,7 @@ import { socialService, type Atividade, type Comentario } from '../../services/s
 import AvatarLeitor from '../perfil/AvatarLeitor.vue'
 import BannerAviso from '../ui/BannerAviso.vue'
 import CapaLivro from '../livros/CapaLivro.vue'
+import DialogoConfirmacao from '../ui/DialogoConfirmacao.vue'
 import SobreposicaoModal from '../ui/SobreposicaoModal.vue'
 
 const props = defineProps<{
@@ -18,7 +19,7 @@ const props = defineProps<{
   aberto: boolean
 }>()
 
-const emit = defineEmits<{ fechar: []; 'comentario-criado': [] }>()
+const emit = defineEmits<{ fechar: []; 'comentario-criado': []; 'comentarios-excluidos': [quantidade: number] }>()
 
 interface EstadoRaiz {
   comentario: Comentario
@@ -96,12 +97,182 @@ const campo = ref<HTMLTextAreaElement | null>(null)
 
 const podeEnviar = computed(() => texto.value.trim().length > 0 && !enviando.value && !limitado.value)
 
-async function iniciarResposta(alvo: Comentario): Promise<void> {
-  respondendoA.value = { comentarioId: alvo.id, autorPrimeiroNome: primeiroNome(alvo.autor.nomeExibicao) }
-  texto.value = `@${alvo.autor.username} `
+const editando = ref<Comentario | null>(null)
+const salvando = ref(false)
+const mencoesLimitadas = ref(false)
+const comentarioSumiu = ref(false)
+const erroDeEdicao = ref<string | null>(null)
+
+const podeSalvar = computed(
+  () =>
+    editando.value !== null &&
+    texto.value.trim().length > 0 &&
+    texto.value !== editando.value.texto &&
+    !salvando.value &&
+    !mencoesLimitadas.value &&
+    !comentarioSumiu.value,
+)
+
+async function focarCampoNoFim(): Promise<void> {
   await nextTick()
   campo.value?.focus()
   campo.value?.setSelectionRange(texto.value.length, texto.value.length)
+}
+
+async function iniciarEdicao(alvo: Comentario): Promise<void> {
+  respondendoA.value = null
+  erroDeEnvio.value = null
+  editando.value = alvo
+  texto.value = alvo.texto
+  await focarCampoNoFim()
+}
+
+function cancelarEdicao(): void {
+  editando.value = null
+  texto.value = ''
+  mencoesLimitadas.value = false
+  comentarioSumiu.value = false
+  erroDeEdicao.value = null
+}
+
+function substituirComentarioLocal(editado: Comentario): void {
+  for (const raiz of raizes.value) {
+    if (raiz.comentario.id === editado.id) {
+      raiz.comentario = { ...editado, totalRespostas: raiz.comentario.totalRespostas }
+      return
+    }
+    const indice = raiz.respostas.findIndex((resposta) => resposta.id === editado.id)
+    if (indice >= 0) {
+      raiz.respostas[indice] = editado
+      return
+    }
+  }
+}
+
+function removerComentarioLocal(alvo: Comentario): number {
+  const indiceRaiz = raizes.value.findIndex((raiz) => raiz.comentario.id === alvo.id)
+  if (indiceRaiz >= 0) {
+    const [removida] = raizes.value.splice(indiceRaiz, 1)
+    return 1 + (removida!.comentario.totalRespostas ?? 0)
+  }
+  const raiz = raizes.value.find((item) => item.comentario.id === alvo.comentarioRaizId)
+  if (raiz) {
+    raiz.respostas = raiz.respostas.filter((resposta) => resposta.id !== alvo.id)
+    raiz.comentario.totalRespostas = Math.max(0, (raiz.comentario.totalRespostas ?? 1) - 1)
+  }
+  return 1
+}
+
+async function salvarEdicao(): Promise<void> {
+  if (!podeSalvar.value || !editando.value) {
+    return
+  }
+  salvando.value = true
+  erroDeEdicao.value = null
+  try {
+    const editado = await socialService.editarComentario(editando.value.id, texto.value, novaChaveIdempotencia())
+    substituirComentarioLocal(editado)
+    cancelarEdicao()
+  } catch (erro) {
+    if (erro instanceof ApiError && erro.status === 429) {
+      mencoesLimitadas.value = true
+    } else if (erro instanceof ApiError && erro.status === 404) {
+      comentarioSumiu.value = true
+    } else {
+      erroDeEdicao.value = 'Não foi possível salvar a edição. O texto continua no campo. Tente de novo.'
+    }
+  } finally {
+    salvando.value = false
+  }
+}
+
+function fecharEdicaoDeComentarioSumido(): void {
+  if (editando.value) {
+    removerComentarioLocal(editando.value)
+  }
+  cancelarEdicao()
+}
+
+function aoTeclarNoCampo(evento: KeyboardEvent): void {
+  if (!editando.value) {
+    return
+  }
+  if (evento.key === 'Escape') {
+    evento.stopPropagation()
+    cancelarEdicao()
+  } else if (evento.key === 'Enter' && evento.ctrlKey) {
+    evento.preventDefault()
+    salvarEdicao()
+  }
+}
+
+const confirmandoExclusao = ref<Comentario | null>(null)
+const excluindo = ref(false)
+const erroDeExclusao = ref<string | null>(null)
+
+const tituloDaExclusao = computed(() =>
+  confirmandoExclusao.value?.nivel === 'RESPOSTA' ? 'Excluir resposta?' : 'Excluir comentário?',
+)
+
+const consequenciaDaExclusao = computed(() => {
+  const alvo = confirmandoExclusao.value
+  if (!alvo) {
+    return ''
+  }
+  if (alvo.nivel === 'RESPOSTA') {
+    return 'Sua resposta será apagada. Não dá para desfazer.'
+  }
+  const raiz = raizes.value.find((item) => item.comentario.id === alvo.id)
+  const respostas = alvo.totalRespostas ?? 0
+  if (respostas === 0) {
+    return 'Seu comentário será apagado. Não dá para desfazer.'
+  }
+  if (respostas === 1) {
+    const autorDaResposta = raiz?.respostas[0]?.autor.nomeExibicao
+    return autorDaResposta
+      ? `Seu comentário e a resposta de ${autorDaResposta} serão apagados. Não dá para desfazer.`
+      : 'Seu comentário e a resposta a ele serão apagados. Não dá para desfazer.'
+  }
+  return `Seu comentário e as ${respostas} respostas a ele serão apagados. Não dá para desfazer.`
+})
+
+function pedirExclusao(alvo: Comentario): void {
+  erroDeExclusao.value = null
+  confirmandoExclusao.value = alvo
+}
+
+function cancelarExclusao(): void {
+  confirmandoExclusao.value = null
+  erroDeExclusao.value = null
+}
+
+async function excluir(): Promise<void> {
+  const alvo = confirmandoExclusao.value
+  if (!alvo) {
+    return
+  }
+  excluindo.value = true
+  erroDeExclusao.value = null
+  try {
+    await socialService.excluirComentario(alvo.id, novaChaveIdempotencia())
+    emit('comentarios-excluidos', removerComentarioLocal(alvo))
+    confirmandoExclusao.value = null
+  } catch (erro) {
+    if (erro instanceof ApiError && erro.status === 404) {
+      emit('comentarios-excluidos', removerComentarioLocal(alvo))
+      confirmandoExclusao.value = null
+    } else {
+      erroDeExclusao.value = 'Não foi possível excluir o comentário. Ele continua publicado. Tente de novo.'
+    }
+  } finally {
+    excluindo.value = false
+  }
+}
+
+async function iniciarResposta(alvo: Comentario): Promise<void> {
+  respondendoA.value = { comentarioId: alvo.id, autorPrimeiroNome: primeiroNome(alvo.autor.nomeExibicao) }
+  texto.value = `@${alvo.autor.username} `
+  await focarCampoNoFim()
 }
 
 function cancelarResposta(): void {
@@ -257,22 +428,92 @@ async function enviar(): Promise<void> {
               :mostrar-alternador-de-respostas="(raiz.comentario.totalRespostas ?? 0) > 0"
               :respostas-expandidas="raiz.expandida"
               :carregando-respostas="raiz.carregandoRespostas"
+              :em-edicao="editando?.id === raiz.comentario.id"
+              :acoes-desabilitadas="editando !== null"
               @responder="iniciarResposta"
               @alternar-respostas="alternarRespostas(raiz)"
+              @editar="iniciarEdicao"
+              @excluir="pedirExclusao"
             />
             <ComentarioItem
               v-for="resposta in (raiz.expandida ? raiz.respostas : [])"
               :key="resposta.id"
               :comentario="resposta"
+              :em-edicao="editando?.id === resposta.id"
+              :acoes-desabilitadas="editando !== null"
               @responder="iniciarResposta"
+              @editar="iniciarEdicao"
+              @excluir="pedirExclusao"
             />
           </template>
         </template>
       </div>
 
       <div class="-mx-space-6 border-t border-linha px-space-6 pt-space-3">
+        <template v-if="editando">
+          <BannerAviso
+            v-if="comentarioSumiu"
+            variante="erro"
+            class="mb-space-2"
+          >
+            Este comentário não existe mais. Ele pode ter sido excluído em outro aparelho.
+            <button
+              type="button"
+              class="mt-space-2 block cursor-pointer text-body-strong text-musgo hover:underline focus-visible:underline"
+              @click="fecharEdicaoDeComentarioSumido"
+            >
+              Fechar edição
+            </button>
+          </BannerAviso>
+          <BannerAviso
+            v-else-if="mencoesLimitadas"
+            variante="alerta"
+            class="mb-space-2"
+          >
+            Muitas menções seguidas. Espere alguns minutos para salvar de novo.
+          </BannerAviso>
+          <BannerAviso
+            v-else-if="erroDeEdicao"
+            variante="erro"
+            class="mb-space-2"
+          >
+            {{ erroDeEdicao }}
+          </BannerAviso>
+          <p
+            v-if="salvando"
+            class="px-space-1 pb-space-2 text-caption text-grafite"
+          >
+            Salvando. O servidor está iniciando e isso pode levar alguns segundos.
+          </p>
+          <div
+            v-else
+            role="status"
+            class="mb-space-2 flex items-center justify-between gap-space-3 rounded-base bg-musgo-fundo px-space-3 py-space-3"
+          >
+            <p class="flex items-center gap-space-2 text-caption text-musgo">
+              <PhPencilSimple
+                :size="16"
+                weight="regular"
+                aria-hidden="true"
+              />
+              Editando comentário
+            </p>
+            <button
+              type="button"
+              aria-label="Cancelar edição"
+              class="flex size-12 shrink-0 cursor-pointer items-center justify-center text-musgo"
+              @click="cancelarEdicao"
+            >
+              <PhX
+                :size="20"
+                weight="regular"
+                aria-hidden="true"
+              />
+            </button>
+          </div>
+        </template>
         <p
-          v-if="enviando"
+          v-else-if="enviando"
           class="px-space-1 pb-space-2 text-caption text-grafite"
         >
           Enviando. O servidor está iniciando e isso pode levar alguns segundos.
@@ -321,12 +562,24 @@ async function enviar(): Promise<void> {
           <textarea
             ref="campo"
             v-model="texto"
-            :disabled="enviando || limitado"
+            :disabled="editando ? salvando || mencoesLimitadas || comentarioSumiu : enviando || limitado"
             placeholder="Escreva um comentário"
             rows="1"
             class="field-sizing-content max-h-24 min-h-11 w-full resize-none overflow-y-auto rounded-full border border-linha bg-papel px-space-4 py-space-2 text-body text-tinta outline-none transition-colors duration-dur-fast placeholder:text-grafite-suave focus:border-[1.5px] focus:border-musgo disabled:cursor-not-allowed disabled:opacity-60"
+            @keydown="aoTeclarNoCampo"
           />
           <button
+            v-if="editando"
+            type="button"
+            :disabled="!podeSalvar"
+            class="flex h-12 shrink-0 cursor-pointer items-center px-space-2 text-body-strong disabled:cursor-not-allowed"
+            :class="podeSalvar ? 'text-musgo hover:text-musgo-vivo' : 'text-grafite-suave'"
+            @click="salvarEdicao"
+          >
+            {{ salvando ? 'Salvando' : 'Salvar' }}
+          </button>
+          <button
+            v-else
             type="button"
             aria-label="Enviar comentário"
             :disabled="!podeEnviar"
@@ -343,5 +596,16 @@ async function enviar(): Promise<void> {
         </div>
       </div>
     </div>
+    <DialogoConfirmacao
+      :aberta="confirmandoExclusao !== null"
+      :titulo="tituloDaExclusao"
+      :rotulo-confirmar="confirmandoExclusao?.nivel === 'RESPOSTA' ? 'Excluir resposta' : 'Excluir comentário'"
+      :processando="excluindo"
+      :erro="erroDeExclusao ?? undefined"
+      @confirmar="excluir"
+      @cancelar="cancelarExclusao"
+    >
+      {{ consequenciaDaExclusao }}
+    </DialogoConfirmacao>
   </SobreposicaoModal>
 </template>
