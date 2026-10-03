@@ -11,6 +11,8 @@ import 'package:le_ai_mobile/features/notificacoes/contador_de_nao_lidas.dart';
 import 'package:le_ai_mobile/features/notificacoes/notificacao.dart';
 import 'package:le_ai_mobile/features/notificacoes/notificacoes_page.dart';
 import 'package:le_ai_mobile/features/notificacoes/notificacoes_service.dart';
+import 'package:le_ai_mobile/features/notificacoes/rotas_notificacoes.dart';
+import 'package:le_ai_mobile/features/livros/rotas_livros.dart';
 
 import '../livros/apoio.dart';
 
@@ -201,6 +203,26 @@ void main() {
     expect(tela.abertas.single.id, 'n-seguidor');
     expect(tela.contador.total, 1);
     expect(find.text('1 não lida'), findsOneWidget);
+  });
+
+  testWidgets('mencao aparece com a frase do servidor e leva ao feed', (tester) async {
+    final tela = _Tela(
+      _Servidor(<Map<String, Object?>>[
+        _notificacao(
+          'n-mencao',
+          'USUARIO_MENCIONADO',
+          'Tiago Moreira mencionou você num comentário na atividade de Rafael Okamoto.',
+          ator: <String, Object?>{'id': 'u-2', 'username': 'tiagom', 'nomeExibicao': 'Tiago Moreira'},
+        ),
+      ]),
+    );
+    await tela.abrir(tester);
+
+    await tester.tap(find.textContaining('mencionou você num comentário'));
+    await tester.pumpAndSettle();
+
+    expect(tela.abertas.single.tipo, TipoNotificacao.usuarioMencionado);
+    expect(destinoDaNotificacao(tela.abertas.single), rotaFeedRaiz);
   });
 
   testWidgets('Marcar todas zera o badge e some junto com a linha de contexto', (tester) async {

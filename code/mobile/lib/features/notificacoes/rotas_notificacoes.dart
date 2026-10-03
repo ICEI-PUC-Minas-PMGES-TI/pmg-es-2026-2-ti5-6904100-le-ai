@@ -49,7 +49,7 @@ class FechamentoDeNotificacoes {
 }
 
 /// Destino de cada tipo (§4, item de notificação). Os comentários da atividade ainda não existem
-/// no app (o feed mobile é placeholder), então os três tipos de atividade levam ao feed.
+/// no app (o feed mobile é placeholder), então os tipos de atividade e a menção levam ao feed.
 String destinoDaNotificacao(Notificacao notificacao) {
   switch (notificacao.tipo) {
     case TipoNotificacao.novoSeguidor:
@@ -61,6 +61,7 @@ String destinoDaNotificacao(Notificacao notificacao) {
     case TipoNotificacao.atividadeCurtida:
     case TipoNotificacao.atividadeComentada:
     case TipoNotificacao.comentarioRespondido:
+    case TipoNotificacao.usuarioMencionado:
       return rotaFeedRaiz;
     case TipoNotificacao.leituraEmRisco:
     case TipoNotificacao.leituraExpirada:

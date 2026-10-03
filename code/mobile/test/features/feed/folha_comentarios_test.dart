@@ -58,13 +58,19 @@ final Map<String, Object?> _resposta = comentarioJson(
 class _Servidor {
   List<Map<String, Object?>> raizes;
   final List<http.Request> posts = <http.Request>[];
+  final List<http.Request> edicoes = <http.Request>[];
   http.Response Function(http.Request)? aoPostar;
+  http.Response Function(http.Request)? aoEditarOuExcluir;
   bool falharLista;
 
   _Servidor({List<Map<String, Object?>>? raizes, this.falharLista = false})
     : raizes = raizes ?? <Map<String, Object?>>[_raiz];
 
   SocialService get servico => socialSimulado((request) async {
+    if (request.method == 'PATCH' || request.method == 'DELETE') {
+      edicoes.add(request);
+      return aoEditarOuExcluir!(request);
+    }
     if (request.method == 'POST') {
       posts.add(request);
       final corpo = jsonDecode(request.body) as Map<String, dynamic>;
@@ -114,6 +120,8 @@ Future<List<String>> _abrir(
         perfil: _perfil,
         atividade: atividade,
         aoComentar: () => eventos.add('comentou'),
+        aoExcluir: (quantidade) => eventos.add('excluiu $quantidade'),
+        aoAbrirPerfil: (username) => eventos.add('perfil $username'),
       ),
       child: const Text('abrir'),
     ),
@@ -271,4 +279,136 @@ void main() {
 
     expect(find.text('Que leitura.'), findsOneWidget);
   });
+
+  group('comentário próprio (F-SOCIAL-2)', () {
+    const texto = 'Por indicação da @nadiasampaio e da @helenaprof.';
+    Map<String, Object?> meu({String texto = texto, int totalRespostas = 0, bool editado = false}) =>
+        comentarioJson(
+          id: 'm1',
+          texto: texto,
+          totalRespostas: totalRespostas,
+          username: 'kayke',
+          nome: 'Kayke Eman',
+          meu: true,
+          editado: editado,
+          mencoes: <Map<String, Object?>>[
+            <String, Object?>{'posicao': 17, 'comprimento': 13, 'usuarioId': 'u9', 'username': 'nadiasampaio'},
+          ],
+        );
+
+    Future<void> escolher(WidgetTester tester, String acao) async {
+      await tester.tap(find.byTooltip('Ações do seu comentário'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(acao));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('menção resolvida abre o perfil; comentário alheio não tem menu', (tester) async {
+      final eventos = await _abrir(tester, _Servidor(raizes: <Map<String, Object?>>[meu(), _raiz]));
+
+      expect(find.byTooltip('Ações do seu comentário'), findsOneWidget);
+      final rich = tester.widget<RichText>(
+        find.byWidgetPredicate((w) => w is RichText && w.text.toPlainText(includeSemanticsLabels: false) == texto),
+      );
+      final spans = <TextSpan>[];
+      rich.text.visitChildren((span) {
+        if (span is TextSpan && span.recognizer != null) {
+          spans.add(span);
+        }
+        return true;
+      });
+      expect(spans.map((span) => span.text), <String>['@nadiasampaio']);
+
+      (spans.single.recognizer! as dynamic).onTap!();
+      await tester.pumpAndSettle();
+
+      expect(eventos, <String>['perfil nadiasampaio']);
+      expect(find.text('Comentários'), findsNothing);
+    });
+
+    testWidgets('editar troca o texto só depois do servidor e marca editado', (tester) async {
+      final servidor = _Servidor(raizes: <Map<String, Object?>>[meu()]);
+      servidor.aoEditarOuExcluir = (request) =>
+          json(meu(texto: (jsonDecode(request.body) as Map<String, dynamic>)['texto'] as String, editado: true), 200);
+      await _abrir(tester, servidor);
+
+      await escolher(tester, 'Editar');
+      expect(find.text('Editando comentário'), findsOneWidget);
+      expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, texto);
+      expect(tester.widget<TextButton>(find.widgetWithText(TextButton, 'Salvar')).onPressed, isNull);
+
+      await tester.enterText(find.byType(TextField), '$texto Obrigado!');
+      await tester.pump();
+      await tester.tap(find.text('Salvar'));
+      await tester.pumpAndSettle();
+
+      expect(servidor.edicoes.single.method, 'PATCH');
+      expect(servidor.edicoes.single.url.path, '/comentarios/m1');
+      expect(_comentarioComTexto('$texto Obrigado!'), findsOneWidget);
+      expect(find.textContaining('· editado', findRichText: true), findsOneWidget);
+      expect(find.text('Editando comentário'), findsNothing);
+    });
+
+    testWidgets('limite de menções mostra o alerta e preserva o texto', (tester) async {
+      final servidor = _Servidor(raizes: <Map<String, Object?>>[meu()]);
+      servidor.aoEditarOuExcluir = (_) => erro(429, 'MUITAS_REQUISICOES', 'Muitas menções seguidas.');
+      await _abrir(tester, servidor);
+
+      await escolher(tester, 'Editar');
+      await tester.enterText(find.byType(TextField), '$texto @ana');
+      await tester.pump();
+      await tester.tap(find.text('Salvar'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Muitas menções seguidas. Espere alguns minutos para salvar de novo.'), findsOneWidget);
+      expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, '$texto @ana');
+      expect(_comentarioComTexto(texto), findsOneWidget);
+    });
+
+    testWidgets('excluir raiz com resposta confirma, remove as duas e avisa a contagem', (tester) async {
+      final servidor = _Servidor(raizes: <Map<String, Object?>>[meu(totalRespostas: 1)]);
+      servidor.aoEditarOuExcluir = (_) => http.Response('', 204);
+      final eventos = await _abrir(tester, servidor, comentarios: 2);
+      await tester.tap(find.text('Ver 1 resposta'));
+      await tester.pumpAndSettle();
+
+      await escolher(tester, 'Excluir');
+      expect(find.text('Excluir comentário?'), findsOneWidget);
+      expect(
+        find.text('Seu comentário e a resposta de Júlia Wenceslau serão apagados. Não dá para desfazer.'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('Excluir comentário'));
+      await tester.pumpAndSettle();
+
+      expect(servidor.edicoes.single.method, 'DELETE');
+      expect(_comentarioComTexto(texto), findsNothing);
+      expect(find.text('@dandara concordo'), findsNothing);
+      expect(find.text('Nenhum comentário'), findsOneWidget);
+      expect(eventos, <String>['excluiu 2']);
+    });
+
+    testWidgets('falha ao excluir mantém o comentário e explica', (tester) async {
+      final servidor = _Servidor(raizes: <Map<String, Object?>>[meu()]);
+      servidor.aoEditarOuExcluir = (_) => erro(503, 'SERVICO_INDISPONIVEL', 'fora');
+      final eventos = await _abrir(tester, servidor);
+
+      await escolher(tester, 'Excluir');
+      await tester.tap(find.text('Excluir comentário'));
+      await tester.pumpAndSettle();
+
+      expect(_comentarioComTexto(texto), findsOneWidget);
+      expect(
+        find.text('Não foi possível excluir o comentário. Ele continua publicado. Tente de novo.'),
+        findsOneWidget,
+      );
+      expect(eventos, isEmpty);
+    });
+  });
 }
+
+/// O texto com menção tem o rótulo semântico do link no lugar do `@username`; compara o texto visível.
+Finder _comentarioComTexto(String texto) => find.byWidgetPredicate(
+  (widget) => widget is RichText && widget.text.toPlainText(includeSemanticsLabels: false) == texto,
+);

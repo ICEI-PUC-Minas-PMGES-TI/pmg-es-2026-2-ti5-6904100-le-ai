@@ -148,14 +148,31 @@ class Atividade {
       );
 }
 
+class Mencao {
+  final int posicao;
+  final int comprimento;
+  final String username;
+
+  const Mencao({required this.posicao, required this.comprimento, required this.username});
+
+  factory Mencao.fromJson(Map<String, dynamic> json) => Mencao(
+    posicao: (json['posicao'] as num).toInt(),
+    comprimento: (json['comprimento'] as num).toInt(),
+    username: json['username'] as String,
+  );
+}
+
 /// Schema `Comentario`: raiz ou resposta, nunca um terceiro nível (RN-10).
 class Comentario {
   final String id;
   final String? comentarioRaizId;
   final AutorSnapshot autor;
   final String texto;
+  final List<Mencao> mencoes;
   final bool resposta;
   final int totalRespostas;
+  final bool meu;
+  final bool editado;
   final DateTime criadoEm;
 
   const Comentario({
@@ -163,8 +180,11 @@ class Comentario {
     required this.comentarioRaizId,
     required this.autor,
     required this.texto,
+    this.mencoes = const <Mencao>[],
     required this.resposta,
     required this.totalRespostas,
+    this.meu = false,
+    this.editado = false,
     required this.criadoEm,
   });
 
@@ -173,8 +193,13 @@ class Comentario {
     comentarioRaizId: json['comentarioRaizId'] as String?,
     autor: AutorSnapshot.fromJson(json['autor'] as Map<String, dynamic>),
     texto: json['texto'] as String,
+    mencoes: (json['mencoes'] as List<dynamic>? ?? const <dynamic>[])
+        .map((bruto) => Mencao.fromJson(bruto as Map<String, dynamic>))
+        .toList(),
     resposta: json['nivel'] == 'RESPOSTA',
     totalRespostas: (json['totalRespostas'] as num?)?.toInt() ?? 0,
+    meu: json['pertenceAoSolicitante'] as bool? ?? false,
+    editado: json['editado'] as bool? ?? false,
     criadoEm: DateTime.parse(json['criadoEm'] as String),
   );
 }
@@ -264,4 +289,19 @@ class SocialService {
       idempotencyKey: idempotencyKey,
     ),
   );
+
+  Future<Comentario> editarComentario(
+    String comentarioId, {
+    required String texto,
+    required String idempotencyKey,
+  }) async => Comentario.fromJson(
+    await _api.patchJson(
+      '/comentarios/${_id(comentarioId)}',
+      body: <String, Object?>{'texto': texto},
+      idempotencyKey: idempotencyKey,
+    ),
+  );
+
+  Future<void> excluirComentario(String comentarioId, {required String idempotencyKey}) =>
+      _api.deleteVazio('/comentarios/${_id(comentarioId)}', idempotencyKey: idempotencyKey);
 }

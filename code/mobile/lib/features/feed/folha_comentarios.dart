@@ -9,6 +9,7 @@ import '../../design/tokens.dart';
 import '../../design/widgets/banner_aviso.dart';
 import '../../design/widgets/botao_textual.dart';
 import '../../design/widgets/capa_livro.dart';
+import '../../design/widgets/folha_inferior.dart';
 import '../perfil/lista_paginada.dart';
 import '../perfil/perfil_service.dart';
 import '../perfil/textos.dart';
@@ -22,8 +23,9 @@ const Duration _aposEsteTempoEColdStart = Duration(seconds: 3);
 const int _limiteDoTexto = 2000;
 
 /// Abre os comentários de [atividade] num bottom sheet de 88% da altura (comentarios.md §4),
-/// sobre o feed escurecido. [aoComentar] avisa o feed a cada comentário confirmado, para a
-/// contagem do item acompanhar sem recarregar.
+/// sobre o feed escurecido. [aoComentar] e [aoExcluir] avisam o feed de cada comentário criado ou
+/// excluído, para a contagem do item acompanhar sem recarregar. [aoAbrirPerfil] recebe o username
+/// de uma menção tocada, depois que a folha fecha.
 ///
 /// Pelo navegador raiz: o scrim cobre a viewport inteira, barra inferior incluída (§4), e a folha
 /// enxerga o teclado. Dentro da aba, o `Scaffold` do shell consumia a altura do teclado antes, e a
@@ -34,6 +36,8 @@ Future<void> mostrarComentarios(
   required PerfilService perfil,
   required Atividade atividade,
   required VoidCallback aoComentar,
+  required ValueChanged<int> aoExcluir,
+  required ValueChanged<String> aoAbrirPerfil,
 }) {
   final theme = Theme.of(context);
   return showModalBottomSheet<void>(
@@ -55,6 +59,8 @@ Future<void> mostrarComentarios(
         perfil: perfil,
         atividade: atividade,
         aoComentar: aoComentar,
+        aoExcluir: aoExcluir,
+        aoAbrirPerfil: aoAbrirPerfil,
       ),
     ),
   );
@@ -65,6 +71,8 @@ class FolhaComentarios extends StatefulWidget {
   final PerfilService perfil;
   final Atividade atividade;
   final VoidCallback aoComentar;
+  final ValueChanged<int> aoExcluir;
+  final ValueChanged<String> aoAbrirPerfil;
 
   const FolhaComentarios({
     super.key,
@@ -72,6 +80,8 @@ class FolhaComentarios extends StatefulWidget {
     required this.perfil,
     required this.atividade,
     required this.aoComentar,
+    required this.aoExcluir,
+    required this.aoAbrirPerfil,
   });
 
   @override
@@ -108,6 +118,11 @@ class _FolhaComentariosState extends State<FolhaComentarios> {
   bool _limitado = false;
   String? _erroDeEnvio;
   Timer? _relogioDeColdStart;
+  Comentario? _editando;
+  bool _salvando = false;
+  bool _mencoesLimitadas = false;
+  bool _comentarioSumiu = false;
+  String? _erroDeEdicao;
 
   /// A mesma intenção reenviada depois de uma falha usa a mesma chave (RNF-ERR-04); mudar o
   /// texto ou o alvo é outra intenção.
@@ -257,6 +272,197 @@ class _FolhaComentariosState extends State<FolhaComentarios> {
       _enviando = false;
       _demorando = false;
       _redesenhar();
+    }
+  }
+
+  void _abrirPerfil(String username) {
+    Navigator.of(context).pop();
+    widget.aoAbrirPerfil(username);
+  }
+
+  Future<void> _abrirAcoes(Comentario alvo) async {
+    final escolha = await mostrarFolhaInferior<_AcaoDoComentario>(
+      context,
+      builder: (context) => _MenuDoComentario(resposta: alvo.resposta),
+    );
+    if (!mounted) {
+      return;
+    }
+    switch (escolha) {
+      case _AcaoDoComentario.editar:
+        _iniciarEdicao(alvo);
+      case _AcaoDoComentario.excluir:
+        await _excluir(alvo);
+      case null:
+        break;
+    }
+  }
+
+  void _iniciarEdicao(Comentario alvo) {
+    setState(() {
+      _respondendoA = null;
+      _erroDeEnvio = null;
+      _editando = alvo;
+      _mencoesLimitadas = false;
+      _comentarioSumiu = false;
+      _erroDeEdicao = null;
+    });
+    _texto.value = TextEditingValue(
+      text: alvo.texto,
+      selection: TextSelection.collapsed(offset: alvo.texto.length),
+    );
+    _foco.requestFocus();
+  }
+
+  void _cancelarEdicao() {
+    setState(() {
+      _editando = null;
+      _mencoesLimitadas = false;
+      _comentarioSumiu = false;
+      _erroDeEdicao = null;
+    });
+    _texto.clear();
+  }
+
+  Future<void> _salvarEdicao() async {
+    final alvo = _editando;
+    final texto = _texto.text;
+    if (alvo == null || texto.trim().isEmpty || texto == alvo.texto || _salvando) {
+      return;
+    }
+    final chave = _chave ??= ApiClient.newIdempotencyKey();
+    setState(() {
+      _salvando = true;
+      _demorando = false;
+      _erroDeEdicao = null;
+    });
+    _relogioDeColdStart = Timer(_aposEsteTempoEColdStart, () => setState(() => _demorando = true));
+    try {
+      final editado = await widget.social.editarComentario(alvo.id, texto: texto, idempotencyKey: chave);
+      if (!mounted) {
+        return;
+      }
+      _substituir(editado);
+      _chave = null;
+      _cancelarEdicao();
+    } on ApiException catch (erro) {
+      if (erro.status == 429) {
+        _mencoesLimitadas = true;
+      } else if (erro.status == 404) {
+        _comentarioSumiu = true;
+      } else {
+        _erroDeEdicao = 'Não foi possível salvar a edição. O texto continua no campo. Tente de novo.';
+      }
+    } finally {
+      _relogioDeColdStart?.cancel();
+      _salvando = false;
+      _demorando = false;
+      _redesenhar();
+    }
+  }
+
+  void _fecharEdicaoDeComentarioSumido() {
+    final alvo = _editando;
+    if (alvo != null) {
+      _remover(alvo);
+    }
+    _cancelarEdicao();
+  }
+
+  void _substituir(Comentario editado) {
+    final raizId = editado.comentarioRaizId;
+    if (raizId == null) {
+      _raizes.itens = <Comentario>[
+        for (final raiz in _raizes.itens) raiz.id == editado.id ? editado : raiz,
+      ];
+      return;
+    }
+    final carregadas = _respostas[raizId];
+    if (carregadas != null) {
+      _respostas[raizId] = _Respostas(
+        <Comentario>[for (final resposta in carregadas.itens) resposta.id == editado.id ? editado : resposta],
+        carregadas.proximoCursor,
+        carregadas.temMais,
+      );
+    }
+  }
+
+  /// Tira o comentário da lista; a raiz leva as respostas junto (RN-10.5).
+  void _remover(Comentario alvo) {
+    final raizId = alvo.comentarioRaizId;
+    final int removidos;
+    if (raizId == null) {
+      removidos = 1 + _respostasDe(alvo);
+      _raizes
+        ..itens = _raizes.itens.where((raiz) => raiz.id != alvo.id).toList()
+        ..total -= 1;
+      _respostas.remove(alvo.id);
+      _totalDeRespostas.remove(alvo.id);
+      _expandidas.remove(alvo.id);
+    } else {
+      removidos = 1;
+      final carregadas = _respostas[raizId];
+      if (carregadas != null) {
+        _respostas[raizId] = _Respostas(
+          carregadas.itens.where((resposta) => resposta.id != alvo.id).toList(),
+          carregadas.proximoCursor,
+          carregadas.temMais,
+        );
+      }
+      final raiz = _raizes.itens.where((item) => item.id == raizId).firstOrNull;
+      if (raiz != null) {
+        _totalDeRespostas[raizId] = (_respostasDe(raiz) - 1).clamp(0, 1 << 30);
+      }
+    }
+    _totalComentarios -= removidos;
+    widget.aoExcluir(removidos);
+    _redesenhar();
+  }
+
+  String _consequenciaDaExclusao(Comentario alvo) {
+    if (alvo.resposta) {
+      return 'Sua resposta será apagada. Não dá para desfazer.';
+    }
+    final total = _respostasDe(alvo);
+    if (total == 0) {
+      return 'Seu comentário será apagado. Não dá para desfazer.';
+    }
+    if (total == 1) {
+      final autor = _respostas[alvo.id]?.itens.firstOrNull?.autor.nomeExibicao;
+      return autor == null
+          ? 'Seu comentário e a resposta a ele serão apagados. Não dá para desfazer.'
+          : 'Seu comentário e a resposta de $autor serão apagados. Não dá para desfazer.';
+    }
+    return 'Seu comentário e as $total respostas a ele serão apagados. Não dá para desfazer.';
+  }
+
+  Future<void> _excluir(Comentario alvo) async {
+    final confirmado = await confirmarAcaoDestrutiva(
+      context,
+      titulo: alvo.resposta ? 'Excluir resposta?' : 'Excluir comentário?',
+      texto: _consequenciaDaExclusao(alvo),
+      acao: alvo.resposta ? 'Excluir resposta' : 'Excluir comentário',
+    );
+    if (!confirmado || !mounted) {
+      return;
+    }
+    setState(() => _erroDeEnvio = null);
+    try {
+      await widget.social.excluirComentario(alvo.id, idempotencyKey: ApiClient.newIdempotencyKey());
+      if (mounted) {
+        _remover(alvo);
+      }
+    } on ApiException catch (erro) {
+      if (!mounted) {
+        return;
+      }
+      if (erro.status == 404) {
+        _remover(alvo);
+      } else {
+        setState(
+          () => _erroDeEnvio = 'Não foi possível excluir o comentário. Ele continua publicado. Tente de novo.',
+        );
+      }
     }
   }
 
@@ -467,7 +673,7 @@ class _FolhaComentariosState extends State<FolhaComentarios> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          ComentarioItem(comentario: raiz, aoResponder: () => _responder(raiz)),
+          _item(raiz),
           if (total > 0)
             Padding(
               padding: const EdgeInsets.only(left: DesignTokens.space10 + DesignTokens.space1),
@@ -484,7 +690,7 @@ class _FolhaComentariosState extends State<FolhaComentarios> {
               Padding(
                 key: ValueKey<String>(resposta.id),
                 padding: const EdgeInsets.only(left: DesignTokens.space10, top: DesignTokens.space2),
-                child: ComentarioItem(comentario: resposta, aoResponder: () => _responder(resposta)),
+                child: _item(resposta),
               ),
             if (respostas.temMais)
               Padding(
@@ -500,6 +706,18 @@ class _FolhaComentariosState extends State<FolhaComentarios> {
           ],
         ],
       ),
+    );
+  }
+
+  /// Enquanto edita, a lista não oferece outra ação de escrita (comentarios.md §5.2).
+  Widget _item(Comentario comentario) {
+    final livre = _editando == null;
+    return ComentarioItem(
+      comentario: comentario,
+      emEdicao: _editando?.id == comentario.id,
+      aoResponder: livre ? () => _responder(comentario) : null,
+      aoAbrirPerfil: _abrirPerfil,
+      aoAbrirAcoes: livre ? () => _abrirAcoes(comentario) : null,
     );
   }
 
@@ -525,34 +743,124 @@ class _FolhaComentariosState extends State<FolhaComentarios> {
     );
   }
 
-  Widget _rodape(ThemeData theme) {
-    final alvo = _respondendoA;
-    final bloqueado = _enviando || _limitado;
-    final podeEnviar = !bloqueado && _texto.text.trim().isNotEmpty;
+  Widget _faixaDeEdicao(ThemeData theme) {
+    if (_comentarioSumiu) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(DesignTokens.space5, DesignTokens.space2, DesignTokens.space5, 0),
+        child: BannerAviso(
+          variante: VarianteAviso.erro,
+          mensagem: 'Este comentário não existe mais. Ele pode ter sido excluído em outro aparelho.',
+          acao: BotaoTextual(texto: 'Fechar edição', onPressed: _fecharEdicaoDeComentarioSumido),
+        ),
+      );
+    }
+    if (_mencoesLimitadas) {
+      return _faixaDeAlerta(theme, 'Muitas menções seguidas. Espere alguns minutos para salvar de novo.');
+    }
+    if (_salvando) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: DesignTokens.space5, vertical: DesignTokens.space2),
+        child: Text(
+          _demorando ? 'Salvando. O servidor está iniciando e isso pode levar alguns segundos.' : 'Salvando…',
+          style: theme.textTheme.bodySmall?.copyWith(color: theme.secondaryText),
+        ),
+      );
+    }
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        if (_limitado)
-          Container(
-            color: theme.warningTint,
-            padding: const EdgeInsets.symmetric(
-              horizontal: DesignTokens.space5,
-              vertical: DesignTokens.space3,
-            ),
-            child: Row(
-              children: <Widget>[
-                Icon(PhosphorIconsRegular.warning, size: 20, color: theme.warningColor),
-                const SizedBox(width: DesignTokens.space3),
-                Expanded(
-                  child: Text(
-                    'Muitos comentários seguidos. Espere alguns minutos para comentar de novo.',
-                    style: theme.textTheme.bodyMedium,
-                  ),
+        if (_erroDeEdicao != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(DesignTokens.space5, DesignTokens.space2, DesignTokens.space5, 0),
+            child: BannerAviso(variante: VarianteAviso.erro, mensagem: _erroDeEdicao!),
+          ),
+        Container(
+          color: theme.accentTint,
+          padding: const EdgeInsets.only(left: DesignTokens.space5),
+          child: Row(
+            children: <Widget>[
+              Icon(PhosphorIconsRegular.pencilSimple, size: 16, color: theme.primaryAccent),
+              const SizedBox(width: DesignTokens.space2),
+              Expanded(
+                child: Text(
+                  'Editando comentário',
+                  style: theme.textTheme.bodySmall?.copyWith(color: theme.primaryAccent),
                 ),
-              ],
-            ),
-          )
+              ),
+              IconButton(
+                onPressed: _cancelarEdicao,
+                tooltip: 'Cancelar edição',
+                constraints: const BoxConstraints.tightFor(width: 48, height: 48),
+                icon: Icon(PhosphorIconsRegular.x, size: 20, color: theme.primaryAccent),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _faixaDeAlerta(ThemeData theme, String mensagem) {
+    return Container(
+      color: theme.warningTint,
+      padding: const EdgeInsets.symmetric(horizontal: DesignTokens.space5, vertical: DesignTokens.space3),
+      child: Row(
+        children: <Widget>[
+          Icon(PhosphorIconsRegular.warning, size: 20, color: theme.warningColor),
+          const SizedBox(width: DesignTokens.space3),
+          Expanded(child: Text(mensagem, style: theme.textTheme.bodyMedium)),
+        ],
+      ),
+    );
+  }
+
+  Widget _botaoDeEnvio(ThemeData theme, {required bool bloqueado}) {
+    final editando = _editando;
+    if (editando != null) {
+      final podeSalvar = !bloqueado && _texto.text.trim().isNotEmpty && _texto.text != editando.texto;
+      return TextButton(
+        onPressed: podeSalvar ? _salvarEdicao : null,
+        style: TextButton.styleFrom(
+          minimumSize: const Size(48, 48),
+          foregroundColor: theme.primaryAccent,
+          disabledForegroundColor: theme.tertiaryText,
+          textStyle: theme.textTheme.labelLarge,
+        ),
+        child: Text(_salvando ? 'Salvando' : 'Salvar'),
+      );
+    }
+    final podeEnviar = !bloqueado && _texto.text.trim().isNotEmpty;
+    return Semantics(
+      button: true,
+      enabled: podeEnviar,
+      label: 'Enviar comentário',
+      excludeSemantics: true,
+      child: IconButton(
+        onPressed: podeEnviar ? _enviar : null,
+        constraints: const BoxConstraints.tightFor(width: 48, height: 48),
+        icon: Icon(
+          PhosphorIconsRegular.paperPlaneRight,
+          size: 24,
+          color: podeEnviar ? theme.primaryAccent : theme.tertiaryText,
+        ),
+      ),
+    );
+  }
+
+  Widget _rodape(ThemeData theme) {
+    final alvo = _respondendoA;
+    final bloqueado = _editando == null
+        ? _enviando || _limitado
+        : _salvando || _mencoesLimitadas || _comentarioSumiu;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        if (_editando != null)
+          _faixaDeEdicao(theme)
+        else if (_limitado)
+          _faixaDeAlerta(theme, 'Muitos comentários seguidos. Espere alguns minutos para comentar de novo.')
         else if (_enviando)
           Padding(
             padding: const EdgeInsets.symmetric(
@@ -650,21 +958,7 @@ class _FolhaComentariosState extends State<FolhaComentarios> {
                     ),
                   ),
                 ),
-                Semantics(
-                  button: true,
-                  enabled: podeEnviar,
-                  label: 'Enviar comentário',
-                  excludeSemantics: true,
-                  child: IconButton(
-                    onPressed: podeEnviar ? _enviar : null,
-                    constraints: const BoxConstraints.tightFor(width: 48, height: 48),
-                    icon: Icon(
-                      PhosphorIconsRegular.paperPlaneRight,
-                      size: 24,
-                      color: podeEnviar ? theme.primaryAccent : theme.tertiaryText,
-                    ),
-                  ),
-                ),
+                _botaoDeEnvio(theme, bloqueado: bloqueado),
               ],
             ),
           ),
@@ -740,6 +1034,55 @@ class _SkeletonDeComentarios extends StatelessWidget {
           children: <Widget>[bloco, bloco, bloco],
         ),
       ),
+    );
+  }
+}
+
+enum _AcaoDoComentario { editar, excluir }
+
+/// Menu do próprio comentário (comentarios.md §5.1): `Editar` e `Excluir`, sem denúncia.
+class _MenuDoComentario extends StatelessWidget {
+  final bool resposta;
+
+  const _MenuDoComentario({required this.resposta});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    Widget item(_AcaoDoComentario acao, IconData icone, String rotulo, Color cor) => InkWell(
+      onTap: () => Navigator.of(context).pop(acao),
+      child: SizedBox(
+        height: 56,
+        child: Row(
+          children: <Widget>[
+            Icon(icone, size: 20, color: cor),
+            const SizedBox(width: DesignTokens.space4),
+            Text(rotulo, style: theme.textTheme.bodyMedium?.copyWith(color: cor)),
+          ],
+        ),
+      ),
+    );
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Text(
+          resposta ? 'Sua resposta' : 'Seu comentário',
+          style: theme.textTheme.bodySmall?.copyWith(color: theme.secondaryText),
+        ),
+        const SizedBox(height: DesignTokens.space2),
+        Divider(height: 1, color: theme.divider),
+        item(_AcaoDoComentario.editar, PhosphorIconsRegular.pencilSimple, 'Editar', theme.colorScheme.onSurface),
+        Divider(height: 1, color: theme.divider),
+        item(_AcaoDoComentario.excluir, PhosphorIconsRegular.trash, 'Excluir', theme.colorScheme.error),
+        const SizedBox(height: DesignTokens.space4),
+        BotaoTextual(
+          texto: 'Cancelar',
+          neutro: true,
+          larguraTotal: true,
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ],
     );
   }
 }

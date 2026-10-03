@@ -8,6 +8,7 @@ enum TipoNotificacao {
   atividadeCurtida,
   atividadeComentada,
   comentarioRespondido,
+  usuarioMencionado,
   leituraEmRisco,
   leituraExpirada;
 
@@ -18,6 +19,7 @@ enum TipoNotificacao {
     'ATIVIDADE_CURTIDA': atividadeCurtida,
     'ATIVIDADE_COMENTADA': atividadeComentada,
     'COMENTARIO_RESPONDIDO': comentarioRespondido,
+    'USUARIO_MENCIONADO': usuarioMencionado,
     'LEITURA_EM_RISCO': leituraEmRisco,
     'LEITURA_EXPIRADA': leituraExpirada,
   };

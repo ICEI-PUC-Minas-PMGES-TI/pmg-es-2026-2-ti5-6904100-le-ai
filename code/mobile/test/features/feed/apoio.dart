@@ -65,6 +65,9 @@ Map<String, Object?> comentarioJson({
   String texto = 'Que leitura.',
   String username = 'nadia',
   String nome = 'Nadia Sampaio',
+  bool meu = false,
+  bool editado = false,
+  List<Map<String, Object?>> mencoes = const <Map<String, Object?>>[],
 }) => <String, Object?>{
   'id': id,
   'atividadeId': 'a1',
@@ -73,9 +76,11 @@ Map<String, Object?> comentarioJson({
   'usuarioRespondido': null,
   'autor': autorJson(id: 'u-$username', username: username, nome: nome),
   'texto': texto,
+  'mencoes': mencoes,
   'nivel': nivel,
   'totalRespostas': totalRespostas,
-  'pertenceAoSolicitante': false,
+  'pertenceAoSolicitante': meu,
+  'editado': editado,
   'criadoEm': DateTime.now().subtract(const Duration(minutes: 5)).toUtc().toIso8601String(),
   'atualizadoEm': null,
 };

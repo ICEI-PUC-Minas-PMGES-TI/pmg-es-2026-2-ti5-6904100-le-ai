@@ -476,6 +476,7 @@ class _PontoEIcone extends StatelessWidget {
     TipoNotificacao.novoSeguidor ||
     TipoNotificacao.solicitacaoCriada => PhosphorIconsRegular.userPlus,
     TipoNotificacao.solicitacaoAceita => PhosphorIconsRegular.userCheck,
+    TipoNotificacao.usuarioMencionado => PhosphorIconsRegular.at,
     TipoNotificacao.leituraEmRisco => PhosphorIconsRegular.warning,
     TipoNotificacao.leituraExpirada => PhosphorIconsRegular.pauseCircle,
   };
