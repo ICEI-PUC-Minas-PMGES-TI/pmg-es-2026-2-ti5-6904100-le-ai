@@ -34,16 +34,25 @@ public class LimitePorUsuario {
 
   /** Registra o uso, ou lança 429 se o usuário passou do limite na janela. */
   public void registrar(UUID usuarioId) {
+    registrar(usuarioId, 1);
+  }
+
+  public void registrar(UUID usuarioId, int quantidade) {
+    if (quantidade <= 0) {
+      return;
+    }
     Instant agora = relogio.instant();
     Deque<Instant> doUsuario = usos.computeIfAbsent(usuarioId, id -> new ArrayDeque<>());
     synchronized (doUsuario) {
       while (!doUsuario.isEmpty() && !doUsuario.peekFirst().isAfter(agora.minus(JANELA))) {
         doUsuario.pollFirst();
       }
-      if (doUsuario.size() >= porMinuto) {
+      if (doUsuario.size() + quantidade > porMinuto) {
         throw new ErroDeNegocioException(CodigoErro.MUITAS_REQUISICOES, mensagem);
       }
-      doUsuario.addLast(agora);
+      for (int i = 0; i < quantidade; i++) {
+        doUsuario.addLast(agora);
+      }
     }
   }
 }

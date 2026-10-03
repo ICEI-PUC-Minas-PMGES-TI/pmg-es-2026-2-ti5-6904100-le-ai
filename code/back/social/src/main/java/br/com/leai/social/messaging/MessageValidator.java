@@ -38,6 +38,7 @@ public final class MessageValidator {
           MessagingConstants.EVENTO_ATIVIDADE_CURTIDA,
           MessagingConstants.EVENTO_ATIVIDADE_COMENTADA,
           MessagingConstants.EVENTO_COMENTARIO_RESPONDIDO,
+          MessagingConstants.EVENTO_USUARIO_MENCIONADO,
           MessagingConstants.EVENTO_LEITURA_EM_RISCO,
           MessagingConstants.EVENTO_LEITURA_EXPIRADA);
 

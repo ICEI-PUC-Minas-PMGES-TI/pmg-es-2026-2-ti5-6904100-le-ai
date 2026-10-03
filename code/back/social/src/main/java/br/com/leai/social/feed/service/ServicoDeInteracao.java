@@ -9,6 +9,7 @@ import br.com.leai.social.feed.dto.AutorSnapshotResposta;
 import br.com.leai.social.feed.dto.ComentarioResposta;
 import br.com.leai.social.feed.dto.EstadoCurtidaResposta;
 import br.com.leai.social.feed.dto.ListaRespostasResposta;
+import br.com.leai.social.feed.dto.MencaoResposta;
 import br.com.leai.social.feed.dto.PaginaComentariosResposta;
 import br.com.leai.social.feed.entity.Atividade;
 import br.com.leai.social.feed.entity.Comentario;
@@ -16,14 +17,21 @@ import br.com.leai.social.feed.repository.ComentarioRepository;
 import br.com.leai.social.feed.repository.CursorComentario;
 import br.com.leai.social.feed.repository.CursorInvalidoException;
 import br.com.leai.social.feed.repository.CurtidaAtividadeRepository;
+import br.com.leai.social.feed.repository.MencaoDeComentarioRepository;
+import br.com.leai.social.feed.repository.MencaoDeComentarioRepository.Mencao;
+import br.com.leai.social.feed.service.ResolvedorDeMencoes.MencaoResolvida;
 import java.sql.SQLException;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Stream;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -49,31 +57,46 @@ import org.springframework.transaction.annotation.Transactional;
 public class ServicoDeInteracao {
 
   private static final String COMENTARIO_NAO_ENCONTRADO = "Não encontramos o comentário respondido.";
+  private static final String COMENTARIO_INEXISTENTE =
+      "Este comentário não existe mais. Ele pode ter sido excluído em outro aparelho.";
+  private static final String SO_O_AUTOR = "Só quem escreveu o comentário pode alterá-lo.";
   private static final String SQLSTATE_VIOLACAO_CHECK = "23514";
 
   private final ServicoDeFeed servicoDeFeed;
   private final CurtidaAtividadeRepository curtidaRepository;
   private final ComentarioRepository comentarioRepository;
+  private final MencaoDeComentarioRepository mencaoRepository;
   private final EventosDeInteracao eventos;
+  private final PerfisDeReferencia perfis;
+  private final ResolvedorDeMencoes resolvedorDeMencoes;
   private final JdbcTemplate jdbc;
   private final LimitePorUsuario limiteDeCurtir;
   private final LimitePorUsuario limiteDeComentar;
+  private final LimitePorUsuario limiteDeMencionar;
 
   public ServicoDeInteracao(
       ServicoDeFeed servicoDeFeed,
       CurtidaAtividadeRepository curtidaRepository,
       ComentarioRepository comentarioRepository,
+      MencaoDeComentarioRepository mencaoRepository,
       EventosDeInteracao eventos,
+      PerfisDeReferencia perfis,
+      ResolvedorDeMencoes resolvedorDeMencoes,
       JdbcTemplate jdbc,
       @Qualifier("limiteDeCurtir") LimitePorUsuario limiteDeCurtir,
-      @Qualifier("limiteDeComentar") LimitePorUsuario limiteDeComentar) {
+      @Qualifier("limiteDeComentar") LimitePorUsuario limiteDeComentar,
+      @Qualifier("limiteDeMencionar") LimitePorUsuario limiteDeMencionar) {
     this.servicoDeFeed = servicoDeFeed;
     this.curtidaRepository = curtidaRepository;
     this.comentarioRepository = comentarioRepository;
+    this.mencaoRepository = mencaoRepository;
     this.eventos = eventos;
+    this.perfis = perfis;
+    this.resolvedorDeMencoes = resolvedorDeMencoes;
     this.jdbc = jdbc;
     this.limiteDeCurtir = limiteDeCurtir;
     this.limiteDeComentar = limiteDeComentar;
+    this.limiteDeMencionar = limiteDeMencionar;
   }
 
   /**
@@ -141,11 +164,16 @@ public class ServicoDeInteracao {
     Comentario novo =
         Comentario.novo(
             atividadeId, usuarioId, comentarioRaizId, respondidoUsuarioId, comentarioRespondidoId, texto);
+    List<MencaoResolvida> mencoes = resolvedorDeMencoes.resolver(texto);
+    Set<UUID> aNotificar = destinatariosNovos(novo, mencoes, Set.of());
+    limiteDeMencionar.registrar(usuarioId, aNotificar.size());
+
     try {
       comentarioRepository.saveAndFlush(novo);
     } catch (DataIntegrityViolationException erro) {
       throw traduzirViolacao(erro);
     }
+    mencaoRepository.substituir(novo.id(), porPosicao(mencoes));
 
     if (comentarioRespondidoId != null) {
       eventos.comentarioRespondido(
@@ -153,12 +181,40 @@ public class ServicoDeInteracao {
     } else {
       eventos.atividadeComentada(atividadeId, novo.id(), atividade.autorId(), usuarioId);
     }
+    aNotificar.forEach(id -> eventos.usuarioMencionado(atividadeId, novo.id(), id, usuarioId));
 
-    // Arrays.asList (nunca List.of): respondidoUsuarioId vem nulo no comentario-raiz, e List.of
-    // rejeita elemento nulo — buscarAutores() ja filtra nulos antes de montar o IN (...).
-    Map<UUID, AutorSnapshotResposta> autores =
-        buscarAutores(Arrays.asList(novo.autorId(), respondidoUsuarioId));
-    return mapear(novo, usuarioId, autores, novo.ehRaiz() ? 0 : null);
+    return mapearUm(novo, usuarioId, novo.ehRaiz() ? 0 : null);
+  }
+
+  @Transactional
+  public ComentarioResposta editar(UUID usuarioId, UUID comentarioId, String texto) {
+    limiteDeComentar.registrar(usuarioId);
+    Comentario comentario = buscarProprio(usuarioId, comentarioId);
+    servicoDeFeed.validarVisivel(usuarioId, comentario.atividadeId());
+
+    Set<UUID> jaMencionados = new HashSet<>();
+    mencaoRepository
+        .porComentarios(List.of(comentarioId))
+        .getOrDefault(comentarioId, List.of())
+        .forEach(m -> jaMencionados.add(m.mencionadoId()));
+    List<MencaoResolvida> mencoes = resolvedorDeMencoes.resolver(texto);
+    Set<UUID> aNotificar = destinatariosNovos(comentario, mencoes, jaMencionados);
+    limiteDeMencionar.registrar(usuarioId, aNotificar.size());
+
+    comentario.editar(texto);
+    comentarioRepository.saveAndFlush(comentario);
+    mencaoRepository.substituir(comentarioId, porPosicao(mencoes));
+    aNotificar.forEach(
+        id -> eventos.usuarioMencionado(comentario.atividadeId(), comentarioId, id, usuarioId));
+
+    Integer totalRespostas =
+        comentario.ehRaiz() ? (int) comentarioRepository.countByComentarioRaizId(comentarioId) : null;
+    return mapearUm(comentario, usuarioId, totalRespostas);
+  }
+
+  @Transactional
+  public void excluir(UUID usuarioId, UUID comentarioId) {
+    comentarioRepository.delete(buscarProprio(usuarioId, comentarioId));
   }
 
   /** Comentários-raiz de uma atividade (RF-SOC-15), revalidando visibilidade antes de consultar. */
@@ -171,15 +227,11 @@ public class ServicoDeInteracao {
     Page<Comentario> pagina =
         comentarioRepository.buscarRaizesPorAtividade(atividadeId, PageRequest.of(page, size));
     List<Comentario> raizes = pagina.getContent();
-
-    Map<UUID, AutorSnapshotResposta> autores =
-        buscarAutores(raizes.stream().map(Comentario::autorId).distinct().toList());
     Map<UUID, Long> totalRespostas = contarRespostas(raizes);
 
     List<ComentarioResposta> itens =
-        raizes.stream()
-            .map(c -> mapear(c, usuarioId, autores, totalRespostas.getOrDefault(c.id(), 0L).intValue()))
-            .toList();
+        mapearVarios(
+            raizes, usuarioId, c -> totalRespostas.getOrDefault(c.id(), 0L).intValue());
 
     return new PaginaComentariosResposta(
         itens, page, size, pagina.getTotalElements(), pagina.getTotalPages(), pagina.isLast());
@@ -211,17 +263,7 @@ public class ServicoDeInteracao {
 
     boolean temMais = pagina.size() > limit;
     List<Comentario> respostas = temMais ? pagina.subList(0, limit) : pagina;
-
-    Map<UUID, AutorSnapshotResposta> autores =
-        buscarAutores(
-            respostas.stream()
-                .flatMap(c -> Stream.of(c.autorId(), c.respondidoUsuarioId()))
-                .filter(Objects::nonNull)
-                .distinct()
-                .toList());
-
-    List<ComentarioResposta> itens =
-        respostas.stream().map(c -> mapear(c, usuarioId, autores, null)).toList();
+    List<ComentarioResposta> itens = mapearVarios(respostas, usuarioId, c -> null);
 
     String proximoCursor =
         temMais
@@ -244,6 +286,35 @@ public class ServicoDeInteracao {
       throw new ErroDeNegocioException(CodigoErro.RECURSO_NAO_ENCONTRADO, COMENTARIO_NAO_ENCONTRADO);
     }
     return alvo;
+  }
+
+  private Comentario buscarProprio(UUID usuarioId, UUID comentarioId) {
+    Comentario comentario =
+        comentarioRepository
+            .findById(comentarioId)
+            .orElseThrow(
+                () -> new ErroDeNegocioException(CodigoErro.RECURSO_NAO_ENCONTRADO, COMENTARIO_INEXISTENTE));
+    if (!comentario.autorId().equals(usuarioId)) {
+      throw new ErroDeNegocioException(CodigoErro.ACESSO_NEGADO, SO_O_AUTOR);
+    }
+    return comentario;
+  }
+
+  private static Set<UUID> destinatariosNovos(
+      Comentario comentario, List<MencaoResolvida> mencoes, Set<UUID> jaMencionados) {
+    Set<UUID> ids = ResolvedorDeMencoes.destinatarios(mencoes);
+    ids.remove(comentario.autorId());
+    if (comentario.respondidoUsuarioId() != null) {
+      ids.remove(comentario.respondidoUsuarioId());
+    }
+    ids.removeAll(jaMencionados);
+    return ids;
+  }
+
+  private static Map<Integer, UUID> porPosicao(List<MencaoResolvida> mencoes) {
+    Map<Integer, UUID> mapa = new LinkedHashMap<>();
+    mencoes.forEach(m -> mapa.put(m.posicao(), m.mencionadoId()));
+    return mapa;
   }
 
   /**
@@ -271,10 +342,54 @@ public class ServicoDeInteracao {
     return mapa;
   }
 
-  private ComentarioResposta mapear(
+  private ComentarioResposta mapearUm(Comentario comentario, UUID solicitanteId, Integer totalRespostas) {
+    return mapearVarios(List.of(comentario), solicitanteId, c -> totalRespostas).get(0);
+  }
+
+  private List<ComentarioResposta> mapearVarios(
+      List<Comentario> comentarios,
+      UUID solicitanteId,
+      Function<Comentario, Integer> totalRespostas) {
+    Map<UUID, List<Mencao>> mencoes =
+        mencaoRepository.porComentarios(comentarios.stream().map(Comentario::id).toList());
+    Map<UUID, AutorSnapshotResposta> perfisPorId =
+        perfis.porIds(
+            Stream.concat(
+                    comentarios.stream()
+                        .flatMap(c -> Stream.of(c.autorId(), c.respondidoUsuarioId())),
+                    mencoes.values().stream().flatMap(List::stream).map(Mencao::mencionadoId))
+                .filter(Objects::nonNull)
+                .toList());
+    return comentarios.stream()
+        .map(
+            c ->
+                mapear(
+                    c,
+                    solicitanteId,
+                    perfisPorId,
+                    mencoesVisiveis(c, mencoes.getOrDefault(c.id(), List.of()), perfisPorId),
+                    totalRespostas.apply(c)))
+        .toList();
+  }
+
+  private static List<MencaoResposta> mencoesVisiveis(
+      Comentario comentario, List<Mencao> mencoes, Map<UUID, AutorSnapshotResposta> perfisPorId) {
+    List<MencaoResposta> visiveis = new ArrayList<>();
+    for (Mencao mencao : mencoes) {
+      AutorSnapshotResposta perfil = perfisPorId.get(mencao.mencionadoId());
+      int comprimento = ResolvedorDeMencoes.comprimentoEm(comentario.texto(), mencao.posicao());
+      if (perfil != null && comprimento > 0) {
+        visiveis.add(new MencaoResposta(mencao.posicao(), comprimento, perfil.id(), perfil.username()));
+      }
+    }
+    return visiveis;
+  }
+
+  private static ComentarioResposta mapear(
       Comentario comentario,
       UUID solicitanteId,
       Map<UUID, AutorSnapshotResposta> autores,
+      List<MencaoResposta> mencoes,
       Integer totalRespostas) {
     AutorSnapshotResposta autor = autores.get(comentario.autorId());
     AutorSnapshotResposta usuarioRespondido =
@@ -288,42 +403,13 @@ public class ServicoDeInteracao {
         usuarioRespondido,
         autor,
         comentario.texto(),
+        mencoes,
         comentario.ehRaiz() ? "RAIZ" : "RESPOSTA",
         totalRespostas,
         comentario.autorId().equals(solicitanteId),
+        comentario.foiEditado(),
         comentario.criadoEm(),
         comentario.atualizadoEm());
-  }
-
-  /** {@code AutorSnapshot} de cada autor/respondido em lote, batido contra {@code
-   * identidade.v_perfil_referencia_v1} — mesmo racional de {@link ServicoDeFeed#buscarTiposLivro}. */
-  private Map<UUID, AutorSnapshotResposta> buscarAutores(Collection<UUID> usuarioIds) {
-    List<UUID> ids = usuarioIds.stream().filter(Objects::nonNull).distinct().toList();
-    if (ids.isEmpty()) {
-      return Map.of();
-    }
-    String placeholders = "?, ".repeat(ids.size());
-    placeholders = placeholders.substring(0, placeholders.length() - 2);
-    String sql =
-        "SELECT id, username, nome_exibicao, avatar_url FROM identidade.v_perfil_referencia_v1"
-            + " WHERE id IN (" + placeholders + ")";
-    return jdbc.query(
-        sql,
-        rs -> {
-          Map<UUID, AutorSnapshotResposta> mapa = new HashMap<>();
-          while (rs.next()) {
-            UUID id = rs.getObject("id", UUID.class);
-            mapa.put(
-                id,
-                new AutorSnapshotResposta(
-                    id.toString(),
-                    rs.getString("username"),
-                    rs.getString("nome_exibicao"),
-                    rs.getString("avatar_url")));
-          }
-          return mapa;
-        },
-        ids.toArray());
   }
 
   private static void validarLimite(int limit) {

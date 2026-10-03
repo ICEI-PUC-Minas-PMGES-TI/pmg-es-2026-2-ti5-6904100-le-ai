@@ -44,6 +44,7 @@ public final class MessagingConstants {
   public static final String EVENTO_ATIVIDADE_CURTIDA = "atividade.curtida";
   public static final String EVENTO_ATIVIDADE_COMENTADA = "atividade.comentada";
   public static final String EVENTO_COMENTARIO_RESPONDIDO = "comentario.respondido";
+  public static final String EVENTO_USUARIO_MENCIONADO = "usuario.mencionado";
   public static final String EVENTO_LEITURA_EM_RISCO = "leitura.em_risco";
   public static final String EVENTO_LEITURA_EXPIRADA = "leitura.expirada";
 

@@ -27,6 +27,16 @@ public class LimitesDeInteracao {
         Clock.systemUTC());
   }
 
+  public static final int MENCOES_POR_MINUTO = 10;
+
+  @Bean
+  LimitePorUsuario limiteDeMencionar() {
+    return new LimitePorUsuario(
+        MENCOES_POR_MINUTO,
+        "Muitas menções seguidas. Espere alguns minutos para salvar de novo.",
+        Clock.systemUTC());
+  }
+
   /** Criar comentário (`criarComentario`), inclusive respostas. */
   @Bean
   LimitePorUsuario limiteDeComentar() {

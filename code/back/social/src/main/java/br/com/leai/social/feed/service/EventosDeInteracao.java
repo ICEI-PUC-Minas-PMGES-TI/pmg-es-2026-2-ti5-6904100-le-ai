@@ -65,6 +65,15 @@ class EventosDeInteracao {
     gravar("comentario.respondido", "comentario:" + comentarioId, data);
   }
 
+  void usuarioMencionado(UUID atividadeId, UUID comentarioId, UUID destinatarioId, UUID autorAcaoId) {
+    Map<String, Object> data = new LinkedHashMap<>();
+    data.put("destinatarioId", destinatarioId.toString());
+    data.put("atividadeId", atividadeId.toString());
+    data.put("comentarioId", comentarioId.toString());
+    data.put("autorAcao", snapshot(autorAcaoId));
+    gravar("usuario.mencionado", "mencao:" + comentarioId + ":" + destinatarioId, data);
+  }
+
   /**
    * {@code UsuarioSnapshot} de {@code common-v1.schema.json}, batido contra {@code
    * identidade.v_perfil_referencia_v1} — a mesma view cross-schema que outras consultas de
