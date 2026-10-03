@@ -56,6 +56,12 @@ public enum EventoDeNotificacao {
       TipoNotificacao.COMENTARIO_RESPONDIDO,
       "autorAcao",
       List.of(DadosDeNotificacao.ATIVIDADE_ID, DadosDeNotificacao.COMENTARIO_ID)),
+  USUARIO_MENCIONADO(
+      MessagingConstants.EVENTO_USUARIO_MENCIONADO,
+      MessagingConstants.SOCIAL_EXCHANGE,
+      TipoNotificacao.USUARIO_MENCIONADO,
+      "autorAcao",
+      List.of(DadosDeNotificacao.ATIVIDADE_ID, DadosDeNotificacao.COMENTARIO_ID)),
   LEITURA_EM_RISCO(
       MessagingConstants.EVENTO_LEITURA_EM_RISCO,
       MessagingConstants.LEITURA_EXCHANGE,

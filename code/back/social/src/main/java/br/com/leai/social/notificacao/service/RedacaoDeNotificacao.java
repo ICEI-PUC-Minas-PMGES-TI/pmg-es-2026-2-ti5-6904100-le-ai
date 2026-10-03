@@ -30,7 +30,9 @@ final class RedacaoDeNotificacao {
       case ATIVIDADE_COMENTADA ->
           nomeDoAtor + " comentou " + objetoDaAtividade(dados, "a sua") + ".";
       case COMENTARIO_RESPONDIDO ->
-          nomeDoAtor + " respondeu ao seu comentário" + ondeFoiAResposta(dados, destinatarioId) + ".";
+          nomeDoAtor + " respondeu ao seu comentário" + ondeFoiOComentario(dados, destinatarioId) + ".";
+      case USUARIO_MENCIONADO ->
+          nomeDoAtor + " mencionou você num comentário" + ondeFoiOComentario(dados, destinatarioId) + ".";
       case LEITURA_EM_RISCO ->
           "Você não registra progresso em "
               + tituloDoLivro(dados)
@@ -58,7 +60,7 @@ final class RedacaoDeNotificacao {
     return possessivo + " " + objeto + " de " + atividade.get(DadosDeNotificacao.ATIVIDADE_LIVRO_TITULO);
   }
 
-  private static String ondeFoiAResposta(Map<String, Object> dados, UUID destinatarioId) {
+  private static String ondeFoiOComentario(Map<String, Object> dados, UUID destinatarioId) {
     Map<String, Object> atividade = mapa(dados, DadosDeNotificacao.ATIVIDADE);
     if (atividade == null) {
       return "";

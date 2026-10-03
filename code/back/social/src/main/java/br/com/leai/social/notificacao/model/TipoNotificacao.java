@@ -14,6 +14,7 @@ public enum TipoNotificacao {
   ATIVIDADE_CURTIDA("atividade_curtida"),
   ATIVIDADE_COMENTADA("atividade_comentada"),
   COMENTARIO_RESPONDIDO("comentario_respondido"),
+  USUARIO_MENCIONADO("usuario_mencionado"),
   LEITURA_EM_RISCO("leitura_em_risco"),
   LEITURA_EXPIRADA("leitura_expirada");
 

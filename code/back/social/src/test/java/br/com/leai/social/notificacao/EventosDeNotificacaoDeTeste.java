@@ -9,7 +9,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Envelopes dos 8 eventos de notificação, montados a partir de {@code docs/mensageria/schemas}:
+ * Envelopes dos 9 eventos de notificação, montados a partir de {@code docs/mensageria/schemas}:
  * mesmo formato que {@code identidade}, {@code leitura} e o próprio {@code social} publicam.
  */
 public final class EventosDeNotificacaoDeTeste {
@@ -77,6 +77,7 @@ public final class EventosDeNotificacaoDeTeste {
       case SOLICITACAO_CRIADA, SOLICITACAO_ACEITA -> "solicitacao:" + fato.recursoId();
       case ATIVIDADE_CURTIDA -> "atividade:" + fato.atividadeId() + ":curtida:" + fato.atorId();
       case ATIVIDADE_COMENTADA, COMENTARIO_RESPONDIDO -> "comentario:" + fato.recursoId();
+      case USUARIO_MENCIONADO -> "mencao:" + fato.recursoId() + ":" + fato.destinatarioId();
       case LEITURA_EM_RISCO, LEITURA_EXPIRADA ->
           "leitura:"
               + fato.leituraId()
@@ -110,6 +111,11 @@ public final class EventosDeNotificacaoDeTeste {
         dados.put("autorAcao", usuario(fato.atorId()));
       }
       case ATIVIDADE_COMENTADA -> {
+        dados.put("atividadeId", fato.atividadeId().toString());
+        dados.put("comentarioId", recurso);
+        dados.put("autorAcao", usuario(fato.atorId()));
+      }
+      case USUARIO_MENCIONADO -> {
         dados.put("atividadeId", fato.atividadeId().toString());
         dados.put("comentarioId", recurso);
         dados.put("autorAcao", usuario(fato.atorId()));
