@@ -18,6 +18,7 @@ import br.com.leai.social.notificacao.repository.NotificacaoRepository;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -61,6 +62,30 @@ public class ServicoDeNotificacao {
         totalPaginas,
         page >= totalPaginas - 1,
         notificacoes.contarNaoLidas(destinatarioId));
+  }
+
+  /**
+   * Uma notificação do destinatário já no formato da lista, para a entrega em tempo real
+   * (RF-NOT-06). Vazia quando não existe ou não é dele.
+   */
+  @Transactional(readOnly = true)
+  public Optional<NotificacaoResposta> buscar(UUID destinatarioId, UUID id) {
+    return notificacoes
+        .buscar(destinatarioId, id)
+        .map(
+            notificacao ->
+                mapear(
+                    notificacao,
+                    destinatarioId,
+                    notificacoes.atoresVisiveis(
+                        idsDe(List.of(notificacao), DadosDeNotificacao.ATOR)),
+                    notificacoes.atividadesExistentes(
+                        idsDe(List.of(notificacao), DadosDeNotificacao.ATIVIDADE_ID))));
+  }
+
+  @Transactional(readOnly = true)
+  public long contarNaoLidas(UUID destinatarioId) {
+    return notificacoes.contarNaoLidas(destinatarioId);
   }
 
   /**

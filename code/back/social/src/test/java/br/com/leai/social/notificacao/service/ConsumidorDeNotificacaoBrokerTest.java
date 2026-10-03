@@ -72,7 +72,7 @@ class ConsumidorDeNotificacaoBrokerTest {
             jdbc,
             mock(PlatformTransactionManager.class));
 
-    new ConsumidorDeNotificacao(consumidor, repositorio);
+    new ConsumidorDeNotificacao(consumidor, repositorio, evento -> {});
 
     ArgumentCaptor<DeliverCallback> captor = ArgumentCaptor.forClass(DeliverCallback.class);
     verify(canal)

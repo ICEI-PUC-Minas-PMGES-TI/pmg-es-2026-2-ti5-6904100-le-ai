@@ -11,6 +11,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
 import java.util.Set;
@@ -101,11 +102,16 @@ public abstract class IntegracaoComPostgres {
 
   /** Access token HS256 válido por 15 minutos, assinado com o segredo do contexto de teste. */
   protected static String token(UUID subject) throws JOSEException {
+    return token(subject, Duration.ofMinutes(15));
+  }
+
+  /** Access token HS256 que expira em {@code validade}, para os casos que dependem do fim dele. */
+  protected static String token(UUID subject, Duration validade) throws JOSEException {
     JWTClaimsSet claims =
         new JWTClaimsSet.Builder()
             .subject(subject.toString())
             .issueTime(Date.from(Instant.now().minusSeconds(1)))
-            .expirationTime(Date.from(Instant.now().plusSeconds(900)))
+            .expirationTime(Date.from(Instant.now().plus(validade)))
             .build();
     SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), claims);
     jwt.sign(new MACSigner(JWT_SECRET_TESTE.getBytes(StandardCharsets.UTF_8)));

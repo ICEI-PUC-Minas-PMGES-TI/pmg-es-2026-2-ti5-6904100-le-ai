@@ -8,6 +8,7 @@ import br.com.leai.social.common.idempotencia.ServicoDeIdempotencia;
 import br.com.leai.social.notificacao.dto.MarcarLidasRequisicao;
 import br.com.leai.social.notificacao.dto.PaginaNotificacoesResposta;
 import br.com.leai.social.notificacao.dto.ResultadoMarcarLidasResposta;
+import br.com.leai.social.notificacao.service.CanaisDeNotificacao;
 import br.com.leai.social.notificacao.service.ServicoDeNotificacao;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -15,11 +16,13 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -28,6 +31,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
  * Notificações in-app do leitor autenticado (RF-NOT-02/03). Mesmo padrão de {@code
@@ -39,12 +43,19 @@ import org.springframework.web.bind.annotation.RestController;
 @SecurityRequirement(name = "bearerAuth")
 public class NotificacaoController {
 
+  private static final String CABECALHO_BUFFER_DE_PROXY = "X-Accel-Buffering";
+
   private final ServicoDeNotificacao servico;
   private final ServicoDeIdempotencia idempotencia;
+  private final CanaisDeNotificacao canais;
 
-  public NotificacaoController(ServicoDeNotificacao servico, ServicoDeIdempotencia idempotencia) {
+  public NotificacaoController(
+      ServicoDeNotificacao servico,
+      ServicoDeIdempotencia idempotencia,
+      CanaisDeNotificacao canais) {
     this.servico = servico;
     this.idempotencia = idempotencia;
+    this.canais = canais;
   }
 
   @GetMapping("/notificacoes")
@@ -103,6 +114,27 @@ public class NotificacaoController {
                 new RespostaIdempotente<>(
                     HttpStatus.OK.value(), servico.marcarLidas(eu, requisicao)));
     return resposta.corpo();
+  }
+
+  @GetMapping(path = "/notificacoes/tempo-real", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+  @Operation(
+      summary = "Canal SSE de notificações em tempo real (RF-NOT-06)",
+      description =
+          "Server-Sent Events do leitor autenticado, com o token no cabeçalho Authorization. "
+              + "Abre com o evento `sincronizacao` (total de não lidas); cada notificação nova "
+              + "chega como `notificacao` (NotificacaoTempoReal). Comentários de heartbeat "
+              + "mantêm a conexão viva. O servidor encerra o canal quando o token expira; o "
+              + "cliente renova a sessão e reconecta com backoff. A lista paginada continua "
+              + "sendo a fonte de verdade.")
+  @ApiResponse(responseCode = "200", description = "Canal aberto (text/event-stream).")
+  @ApiResponse(
+      responseCode = "401",
+      description = "Token ausente, inválido ou expirado.",
+      content = @Content(schema = @Schema(ref = "#/components/schemas/Erro")))
+  public SseEmitter tempoReal(@AuthenticationPrincipal Jwt token, HttpServletResponse resposta) {
+    // Proxies que bufferizam a resposta segurariam os eventos até o fim do canal.
+    resposta.setHeader(CABECALHO_BUFFER_DE_PROXY, "no");
+    return canais.abrir(autenticado(token), token.getExpiresAt());
   }
 
   private static UUID autenticado(Jwt token) {

@@ -44,23 +44,29 @@ public class NotificacaoRepository {
     this.objectMapper = objectMapper;
   }
 
-  /** Grava a notificação; devolve falso quando o mesmo evento ou o mesmo fato já foi gravado. */
-  public boolean inserir(NovaNotificacao nova) {
-    int inseridas =
-        jdbc.update(
+  /**
+   * Grava a notificação e devolve o id gerado; vazio quando o mesmo evento ou o mesmo fato já foi
+   * gravado.
+   */
+  public Optional<UUID> inserir(NovaNotificacao nova) {
+    return jdbc
+        .query(
             """
             INSERT INTO notificacao
               (destinatario_id, tipo, dados, leitura_ref, event_id, chave_negocio)
             VALUES (?, ?, ?::jsonb, ?, ?, ?)
             ON CONFLICT DO NOTHING
+            RETURNING id
             """,
+            (rs, linha) -> rs.getObject("id", UUID.class),
             nova.destinatarioId(),
             nova.tipo().literal(),
             objectMapper.writeValueAsString(nova.dados()),
             nova.leituraRef(),
             nova.eventId(),
-            nova.chaveNegocio());
-    return inseridas == 1;
+            nova.chaveNegocio())
+        .stream()
+        .findFirst();
   }
 
   /**
@@ -102,6 +108,21 @@ public class NotificacaoRepository {
         destinatarioId,
         tamanho,
         (long) pagina * tamanho);
+  }
+
+  public Optional<Notificacao> buscar(UUID destinatarioId, UUID id) {
+    return jdbc
+        .query(
+            """
+            SELECT id, tipo, dados, leitura_ref, lida_em, criado_em
+              FROM notificacao
+             WHERE destinatario_id = ? AND id = ?
+            """,
+            this::mapear,
+            destinatarioId,
+            id)
+        .stream()
+        .findFirst();
   }
 
   public long contar(UUID destinatarioId) {

@@ -2,6 +2,7 @@ package br.com.leai.social.config;
 
 import br.com.leai.social.common.CodigoErro;
 import br.com.leai.social.common.EscritorDeErro;
+import jakarta.servlet.DispatcherType;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
@@ -60,7 +61,17 @@ public class SecurityConfig {
         .headers(headers -> headers.disable())
         .sessionManagement(sessao -> sessao.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(
-            rotas -> rotas.requestMatchers(ROTAS_PUBLICAS).permitAll().anyRequest().authenticated())
+            rotas ->
+                rotas
+                    .requestMatchers(ROTAS_PUBLICAS)
+                    .permitAll()
+                    // Despacho assíncrono do canal SSE já autenticado na requisição original
+                    // (F-NOT-2). Sem sessão, o contexto não chega a ele, e o fim do canal viraria
+                    // 401 sobre uma resposta já em andamento.
+                    .dispatcherTypeMatchers(DispatcherType.ASYNC)
+                    .permitAll()
+                    .anyRequest()
+                    .authenticated())
         .oauth2ResourceServer(
             oauth ->
                 oauth
