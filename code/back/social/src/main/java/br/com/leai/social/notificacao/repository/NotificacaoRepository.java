@@ -44,10 +44,7 @@ public class NotificacaoRepository {
     this.objectMapper = objectMapper;
   }
 
-  /**
-   * Grava a notificação e devolve o id gerado; vazio quando o mesmo evento ou o mesmo fato já foi
-   * gravado.
-   */
+  /** Grava a notificação; vazio quando o mesmo evento ou o mesmo fato já foi gravado. */
   public Optional<UUID> inserir(NovaNotificacao nova) {
     return jdbc
         .query(

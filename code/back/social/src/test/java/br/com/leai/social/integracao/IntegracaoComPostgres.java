@@ -105,7 +105,6 @@ public abstract class IntegracaoComPostgres {
     return token(subject, Duration.ofMinutes(15));
   }
 
-  /** Access token HS256 que expira em {@code validade}, para os casos que dependem do fim dele. */
   protected static String token(UUID subject, Duration validade) throws JOSEException {
     JWTClaimsSet claims =
         new JWTClaimsSet.Builder()

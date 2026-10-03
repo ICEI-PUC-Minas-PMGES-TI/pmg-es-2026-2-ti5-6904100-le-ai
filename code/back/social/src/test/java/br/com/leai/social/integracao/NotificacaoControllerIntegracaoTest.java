@@ -347,7 +347,7 @@ class NotificacaoControllerIntegracaoTest extends IntegracaoComPostgres {
 
   private record EventoSse(String nome, String id, String dado) {}
 
-  /** Lê o stream SSE numa thread própria e entrega cada evento completo; ignora heartbeats. */
+  /** Lê o stream SSE numa thread própria; ignora heartbeats. */
   private static final class CanalSse implements AutoCloseable {
 
     private static final Duration ESPERA = Duration.ofSeconds(10);

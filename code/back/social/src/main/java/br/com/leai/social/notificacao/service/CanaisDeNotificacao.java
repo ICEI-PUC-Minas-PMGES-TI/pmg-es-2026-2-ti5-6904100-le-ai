@@ -21,15 +21,10 @@ import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
- * Canais SSE abertos por destinatário (RF-NOT-06). A notificação vive no banco (RNF-ARQ-04); o
- * canal só antecipa a entrega. Depois do commit da gravação, a notificação e o novo total de não
- * lidas vão a toda conexão ativa do destinatário, e só dele (RNF-SEC-02).
+ * Canais SSE abertos por destinatário (RF-NOT-06); o canal fecha na expiração do JWT.
  *
- * <p><b>Registro em memória, de propósito:</b> o serviço roda em instância única no Render. Com
- * mais de uma instância o fan-out exigiria um backplane (pub/sub), registrado em F-NOT-2.
- *
- * <p>O canal não sobrevive ao token: o timeout do emitter é a expiração do JWT, e o app renova
- * pelo fluxo de F-AUT antes de reconectar.
+ * <p>Registro em memória: o serviço roda em instância única no Render. Com mais de uma instância
+ * o fan-out exigiria um backplane (pub/sub), registrado em F-NOT-2.
  */
 @Component
 public class CanaisDeNotificacao {
@@ -51,7 +46,6 @@ public class CanaisDeNotificacao {
     this.servico = servico;
   }
 
-  /** Abre o canal do destinatário até {@code expiraEm} e já envia a sincronização inicial. */
   public SseEmitter abrir(UUID destinatarioId, Instant expiraEm) {
     long restante = Duration.between(Instant.now(), expiraEm).toMillis();
     SseEmitter emitter = new SseEmitter(Math.max(restante, 1));
@@ -75,10 +69,7 @@ public class CanaisDeNotificacao {
     return emitter;
   }
 
-  /**
-   * Depois do commit, para o cliente nunca receber o que ainda pode ser desfeito. {@code
-   * fallbackExecution} cobre a gravação fora de transação.
-   */
+  /** Depois do commit, para o cliente nunca receber o que ainda pode ser desfeito. */
   @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
   public void aoGravar(NotificacaoGravada gravada) {
     Set<SseEmitter> doDestinatario = canais.get(gravada.destinatarioId());
@@ -126,7 +117,6 @@ public class CanaisDeNotificacao {
     canais.clear();
   }
 
-  /** Conexão que já caiu do lado do cliente sai do registro; a notificação continua no banco. */
   private void enviar(UUID destinatarioId, SseEmitter emitter, SseEmitter.SseEventBuilder evento) {
     try {
       emitter.send(evento);

@@ -64,10 +64,6 @@ public class ServicoDeNotificacao {
         notificacoes.contarNaoLidas(destinatarioId));
   }
 
-  /**
-   * Uma notificação do destinatário já no formato da lista, para a entrega em tempo real
-   * (RF-NOT-06). Vazia quando não existe ou não é dele.
-   */
   @Transactional(readOnly = true)
   public Optional<NotificacaoResposta> buscar(UUID destinatarioId, UUID id) {
     return notificacoes

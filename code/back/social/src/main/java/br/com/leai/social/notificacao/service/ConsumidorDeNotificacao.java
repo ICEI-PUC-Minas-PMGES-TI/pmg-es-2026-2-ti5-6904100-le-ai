@@ -26,9 +26,6 @@ import org.springframework.stereotype.Component;
  * mensagem_processada}, e a unicidade {@code (destinatario, tipo, chave de negócio)} da tabela —
  * uma nova execução do job de inatividade com outro {@code eventId} para o mesmo {@code (leitura,
  * inatividadeVersao, limiar)} traz a mesma chave de negócio e não duplica o alerta.
- *
- * <p>Só a gravação nova publica {@link NotificacaoGravada}, que a entrega em tempo real (F-NOT-2)
- * empurra ao destinatário depois do commit; duplicata não é reentregue.
  */
 @Component
 public class ConsumidorDeNotificacao implements MessageHandler {
