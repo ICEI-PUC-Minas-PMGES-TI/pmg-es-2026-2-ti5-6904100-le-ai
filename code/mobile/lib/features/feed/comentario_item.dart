@@ -118,16 +118,25 @@ class _ComentarioItemState extends State<ComentarioItem> {
                     ),
                   ),
                   if (comentario.meu)
-                    Transform.translate(
-                      offset: const Offset(DesignTokens.space3, -DesignTokens.space3),
-                      child: IconButton(
-                        onPressed: widget.aoAbrirAcoes,
-                        tooltip: comentario.resposta ? 'Ações da sua resposta' : 'Ações do seu comentário',
-                        constraints: const BoxConstraints.tightFor(width: 48, height: 48),
-                        icon: Icon(
-                          PhosphorIconsRegular.dotsThree,
-                          size: 20,
-                          color: widget.aoAbrirAcoes == null ? theme.tertiaryText : theme.secondaryText,
+                    SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: OverflowBox(
+                        maxWidth: 48,
+                        maxHeight: 48,
+                        child: IconButton(
+                          onPressed: widget.aoAbrirAcoes,
+                          tooltip: comentario.resposta
+                              ? 'Ações da sua resposta'
+                              : 'Ações do seu comentário',
+                          constraints: const BoxConstraints.tightFor(width: 48, height: 48),
+                          icon: Icon(
+                            PhosphorIconsRegular.dotsThree,
+                            size: 20,
+                            color: widget.aoAbrirAcoes == null
+                                ? theme.tertiaryText
+                                : theme.secondaryText,
+                          ),
                         ),
                       ),
                     ),

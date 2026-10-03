@@ -23,9 +23,8 @@ const Duration _aposEsteTempoEColdStart = Duration(seconds: 3);
 const int _limiteDoTexto = 2000;
 
 /// Abre os comentários de [atividade] num bottom sheet de 88% da altura (comentarios.md §4),
-/// sobre o feed escurecido. [aoComentar] e [aoExcluir] avisam o feed de cada comentário criado ou
-/// excluído, para a contagem do item acompanhar sem recarregar. [aoAbrirPerfil] recebe o username
-/// de uma menção tocada, depois que a folha fecha.
+/// sobre o feed escurecido. [aoComentar] avisa o feed a cada comentário confirmado, para a
+/// contagem do item acompanhar sem recarregar.
 ///
 /// Pelo navegador raiz: o scrim cobre a viewport inteira, barra inferior incluída (§4), e a folha
 /// enxerga o teclado. Dentro da aba, o `Scaffold` do shell consumia a altura do teclado antes, e a
@@ -387,7 +386,6 @@ class _FolhaComentariosState extends State<FolhaComentarios> {
     }
   }
 
-  /// Tira o comentário da lista; a raiz leva as respostas junto (RN-10.5).
   void _remover(Comentario alvo) {
     final raizId = alvo.comentarioRaizId;
     final int removidos;
@@ -709,7 +707,6 @@ class _FolhaComentariosState extends State<FolhaComentarios> {
     );
   }
 
-  /// Enquanto edita, a lista não oferece outra ação de escrita (comentarios.md §5.2).
   Widget _item(Comentario comentario) {
     final livre = _editando == null;
     return ComentarioItem(
@@ -1040,7 +1037,6 @@ class _SkeletonDeComentarios extends StatelessWidget {
 
 enum _AcaoDoComentario { editar, excluir }
 
-/// Menu do próprio comentário (comentarios.md §5.1): `Editar` e `Excluir`, sem denúncia.
 class _MenuDoComentario extends StatelessWidget {
   final bool resposta;
 

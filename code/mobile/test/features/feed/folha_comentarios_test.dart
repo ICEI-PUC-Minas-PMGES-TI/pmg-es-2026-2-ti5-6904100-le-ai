@@ -408,7 +408,6 @@ void main() {
   });
 }
 
-/// O texto com menção tem o rótulo semântico do link no lugar do `@username`; compara o texto visível.
 Finder _comentarioComTexto(String texto) => find.byWidgetPredicate(
   (widget) => widget is RichText && widget.text.toPlainText(includeSemanticsLabels: false) == texto,
 );

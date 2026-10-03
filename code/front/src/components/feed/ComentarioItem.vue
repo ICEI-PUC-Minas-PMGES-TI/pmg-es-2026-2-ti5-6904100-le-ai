@@ -10,6 +10,8 @@ import { contagem, tempoDeEspera } from '../../perfil/textos'
 import type { Comentario } from '../../services/social'
 
 const LARGURA_WEB = '(min-width: 768px)'
+const ESPACO_DO_DROPDOWN = 8
+const ALTURA_DO_DROPDOWN = 104
 
 const props = withDefaults(
   defineProps<{
@@ -56,10 +58,13 @@ const acoes: AcaoDaFolha[] = [
 
 const folhaAberta = ref(false)
 const dropdownAberto = ref(false)
-const raizDoMenu = ref<HTMLElement | null>(null)
+const botaoDoMenu = ref<HTMLElement | null>(null)
+const dropdown = ref<HTMLElement | null>(null)
+const posicaoDoDropdown = ref<Record<string, string>>({})
 
 function fecharAoClicarFora(evento: MouseEvent): void {
-  if (!raizDoMenu.value?.contains(evento.target as Node)) {
+  const alvo = evento.target as Node
+  if (!botaoDoMenu.value?.contains(alvo) && !dropdown.value?.contains(alvo)) {
     fecharDropdown()
   }
 }
@@ -67,6 +72,17 @@ function fecharAoClicarFora(evento: MouseEvent): void {
 function fecharDropdown(): void {
   dropdownAberto.value = false
   document.removeEventListener('mousedown', fecharAoClicarFora)
+  window.removeEventListener('scroll', fecharDropdown, true)
+  window.removeEventListener('resize', fecharDropdown)
+}
+
+function posicionarDropdown(): void {
+  const botao = botaoDoMenu.value!.getBoundingClientRect()
+  const direita = `${window.innerWidth - botao.right}px`
+  const cabeEmbaixo = botao.bottom + ESPACO_DO_DROPDOWN + ALTURA_DO_DROPDOWN <= window.innerHeight
+  posicaoDoDropdown.value = cabeEmbaixo
+    ? { top: `${botao.bottom + ESPACO_DO_DROPDOWN}px`, right: direita }
+    : { bottom: `${window.innerHeight - botao.top + ESPACO_DO_DROPDOWN}px`, right: direita }
 }
 
 function abrirMenu(): void {
@@ -75,8 +91,11 @@ function abrirMenu(): void {
     return
   }
   if (window.matchMedia(LARGURA_WEB).matches) {
+    posicionarDropdown()
     dropdownAberto.value = true
     document.addEventListener('mousedown', fecharAoClicarFora)
+    window.addEventListener('scroll', fecharDropdown, true)
+    window.addEventListener('resize', fecharDropdown)
   } else {
     folhaAberta.value = true
   }
@@ -116,11 +135,11 @@ onBeforeUnmount(fecharDropdown)
         </p>
         <div
           v-if="comentario.pertenceAoSolicitante"
-          ref="raizDoMenu"
-          class="relative -my-space-3 -mr-space-3 md:-my-space-1 md:mr-0"
+          class="-my-space-3 -mr-space-3 md:-my-space-1 md:mr-0"
           @keydown.esc="fecharDropdown"
         >
           <button
+            ref="botaoDoMenu"
             type="button"
             :aria-label="ehResposta ? 'Ações da sua resposta' : 'Ações do seu comentário'"
             :aria-expanded="dropdownAberto"
@@ -134,33 +153,38 @@ onBeforeUnmount(fecharDropdown)
               aria-hidden="true"
             />
           </button>
-          <ul
-            v-if="dropdownAberto"
-            role="menu"
-            class="absolute right-0 top-full z-10 mt-space-2 w-[220px] rounded-base border border-linha bg-papel py-space-2 shadow-2"
-          >
-            <li
-              v-for="acao in acoes"
-              :key="acao.id"
-              role="none"
+          <Teleport to="body">
+            <ul
+              v-if="dropdownAberto"
+              ref="dropdown"
+              role="menu"
+              class="fixed z-40 w-[220px] rounded-base border border-linha bg-papel py-space-2 shadow-2"
+              :style="posicaoDoDropdown"
+              @keydown.esc="fecharDropdown"
             >
-              <button
-                type="button"
-                role="menuitem"
-                class="flex h-11 w-full cursor-pointer items-center gap-space-3 px-space-4 text-left text-body hover:bg-linha focus-visible:bg-linha focus-visible:outline-none"
-                :class="acao.destrutiva ? 'text-rubi' : 'text-tinta'"
-                @click="escolher(acao.id)"
+              <li
+                v-for="acao in acoes"
+                :key="acao.id"
+                role="none"
               >
-                <component
-                  :is="acao.icone"
-                  :size="20"
-                  weight="regular"
-                  aria-hidden="true"
-                />
-                {{ acao.rotulo }}
-              </button>
-            </li>
-          </ul>
+                <button
+                  type="button"
+                  role="menuitem"
+                  class="flex h-11 w-full cursor-pointer items-center gap-space-3 px-space-4 text-left text-body hover:bg-linha focus-visible:bg-linha focus-visible:outline-none"
+                  :class="acao.destrutiva ? 'text-rubi' : 'text-tinta'"
+                  @click="escolher(acao.id)"
+                >
+                  <component
+                    :is="acao.icone"
+                    :size="20"
+                    weight="regular"
+                    aria-hidden="true"
+                  />
+                  {{ acao.rotulo }}
+                </button>
+              </li>
+            </ul>
+          </Teleport>
         </div>
       </div>
       <p class="mt-space-1 whitespace-pre-wrap text-body text-tinta">
