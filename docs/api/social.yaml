@@ -30,6 +30,10 @@ info:
       - GET /notificacoes
       - POST /notificacoes/marcar-lidas
       - GET /notificacoes/tempo-real
+      - POST /recomendacoes
+      - GET /recomendacoes/candidatos
+      - GET /recomendacoes/recebidas
+      - DELETE /recomendacoes/{recomendacaoId}
     planned-periodo-2:
       - POST /listas
       - GET /listas/{listaId}
@@ -41,10 +45,6 @@ info:
       - PUT /listas/{listaId}/livros/{itemId}/posicao
       - GET /perfis/{usuarioId}/listas
       - GET /me/listas
-      - POST /recomendacoes
-      - GET /recomendacoes/candidatos
-      - GET /recomendacoes/recebidas
-      - DELETE /recomendacoes/{recomendacaoId}
 x-database-contracts:
   - name: v_atividade_livro_pessoal_v1
     x-implementation-status: implemented
@@ -682,7 +682,7 @@ paths:
       tags: [recomendacoes]
       summary: Recomenda um livro oficial a um ou mais leitores (RF-REC-01/03/06/07)
       operationId: recomendarLivro
-      x-implementation-status: planned-periodo-2
+      x-implementation-status: implemented
       description: >-
         Cria uma recomendação independente por destinatário, sem estado de
         aceitação (RN-22). Livro pessoal ou inexistente rejeita o envio inteiro.
@@ -727,7 +727,7 @@ paths:
       tags: [recomendacoes]
       summary: Lista os mútuos do leitor que podem receber um livro
       operationId: listarCandidatosARecomendacao
-      x-implementation-status: planned-periodo-2
+      x-implementation-status: implemented
       description: >-
         Devolve todos os leitores com seguimento mútuo do leitor autenticado,
         ordenados por nomeExibicao, para a busca local da tela Recomendar. Cada
@@ -763,7 +763,7 @@ paths:
       tags: [recomendacoes]
       summary: Lista as recomendações recebidas pelo leitor (RF-REC-04/05/13/14)
       operationId: listarRecomendacoesRecebidas
-      x-implementation-status: planned-periodo-2
+      x-implementation-status: implemented
       description: >-
         Somente recomendações cujo destinatário é o leitor autenticado, ativas
         e não expiradas (RN-22.9, 90 dias), da mais recente para a mais antiga.
@@ -792,7 +792,7 @@ paths:
       tags: [recomendacoes]
       summary: Descarta uma recomendação recebida (RF-REC-15, RN-22.11)
       operationId: descartarRecomendacao
-      x-implementation-status: planned-periodo-2
+      x-implementation-status: implemented
       description: >-
         Exclusivo do destinatário autenticado, sem motivo e sem avisar o
         remetente. Recomendação inexistente, expirada ou de outro leitor,

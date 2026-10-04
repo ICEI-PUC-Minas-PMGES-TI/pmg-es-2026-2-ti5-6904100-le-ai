@@ -37,6 +37,20 @@ public class LimitesDeInteracao {
         Clock.systemUTC());
   }
 
+  /**
+   * Envios de recomendação (`recomendarLivro`, F-REC-P2P), contados por requisição: um envio para
+   * vários destinatários conta uma vez, porque o teto de 20 destinatários já limita o lote.
+   */
+  public static final int RECOMENDACOES_POR_MINUTO = 10;
+
+  @Bean
+  LimitePorUsuario limiteDeRecomendar() {
+    return new LimitePorUsuario(
+        RECOMENDACOES_POR_MINUTO,
+        "Muitas recomendações em pouco tempo. Tente de novo em instantes.",
+        Clock.systemUTC());
+  }
+
   /** Criar comentário (`criarComentario`), inclusive respostas. */
   @Bean
   LimitePorUsuario limiteDeComentar() {

@@ -18,7 +18,9 @@ public enum OperacaoIdempotente {
   CRIAR_COMENTARIO("criarComentario"),
   EDITAR_COMENTARIO("editarComentario"),
   EXCLUIR_COMENTARIO("excluirComentario"),
-  MARCAR_NOTIFICACOES_LIDAS("marcarNotificacoesLidas");
+  MARCAR_NOTIFICACOES_LIDAS("marcarNotificacoesLidas"),
+  RECOMENDAR_LIVRO("recomendarLivro"),
+  DESCARTAR_RECOMENDACAO("descartarRecomendacao");
 
   private final String operationId;
 
