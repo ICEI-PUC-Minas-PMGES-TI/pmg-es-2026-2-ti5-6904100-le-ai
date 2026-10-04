@@ -59,6 +59,12 @@ Uma URL por serviço, sem gateway: `VITE_IDENTIDADE_BASE_URL`, `VITE_ACERVO_BASE
 
 - **`components/perfil/FimDaLista.vue` (27/09/2026, F-ACV-BUSCA).** Ganhou a prop opcional `carregando`. O `IntersectionObserver` só avisa quando a marca *entra* na tela; se a página nova não a empurrar para fora (lista curta, edições agrupadas, monitor alto), a paginação parava sem botão. Com `carregando`, cada carga que termina reobserva a marca, e ela pede a seguinte se continuar visível. Sem a prop, o comportamento é o de antes: Conexões, Solicitações e Feed ainda não a passam, e deveriam (é só `:carregando="<flag de carregando mais>"`).
 
+- **`components/ui/MenuDeAcoes.vue` (04/10/2026, F-REC-P2P).** O dropdown da web com folha no mobile, que vivia dentro do `ComentarioItem`, virou componente: `alternar(botao)` ancora o dropdown no botão a partir de 768px e abre a `FolhaAcoes` abaixo disso. Usado no menu do comentário e no `Mais ações` da página do livro oficial.
+
+- **`components/ui/AvisoToast.vue` + `src/avisos.ts` (04/10/2026, F-REC-P2P).** Toast de confirmação único do app, montado no `ShellAutenticado`: `mostrarAviso(texto, icone)` de qualquer tela, some sozinho em 6 s ou pelo `X`. Fica acima da barra inferior no mobile e no canto inferior esquerdo do conteúdo na web.
+
+- **`components/ui/SobreposicaoModal.vue`, `min-w-0` no painel (04/10/2026, F-REC-P2P).** Sem ele, conteúdo com largura intrínseca grande (textarea com `field-sizing: content`) alargava o sheet além da tela no mobile.
+
 - **`styles.css`, movimento reduzido (27/09/2026, F-ACV-BUSCA).** A regra global de `prefers-reduced-motion` só zerava transições; agora zera também a duração das animações, e o fade `.entrada` dos skeletons fica estático no app todo, como os comentários das telas já diziam.
 
 ## Pontos de atenção do produto (ver `REQUISITOS.md`)

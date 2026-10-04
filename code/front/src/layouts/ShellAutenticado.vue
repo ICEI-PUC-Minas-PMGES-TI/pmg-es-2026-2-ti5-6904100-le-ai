@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 
 import CabecalhoTela from '../components/CabecalhoTela.vue'
 import SidebarNavegacao from '../components/SidebarNavegacao.vue'
+import AvisoToast from '../components/ui/AvisoToast.vue'
 import { ABAS, abaAtiva } from '../router/abas'
 
 /**
@@ -35,7 +36,7 @@ function itemAtivo(rota: string): boolean {
   <div class="flex h-screen overflow-hidden bg-papel">
     <SidebarNavegacao />
 
-    <div class="flex min-w-0 flex-1 flex-col">
+    <div class="relative flex min-w-0 flex-1 flex-col">
       <CabecalhoTela
         :titulo="titulo"
         :titulo-curto="route.meta.tituloCurto ?? null"
@@ -50,6 +51,7 @@ function itemAtivo(rota: string): boolean {
       >
         <RouterView />
       </main>
+      <AvisoToast />
     </div>
 
     <nav

@@ -1,14 +1,17 @@
 <script setup lang="ts">
-import { PhBookOpen, PhWarning } from '@phosphor-icons/vue'
-import { computed, onBeforeUnmount, watch } from 'vue'
+import { PhBookOpen, PhDotsThree, PhPaperPlaneTilt, PhWarning } from '@phosphor-icons/vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import SituacaoNaEstante from '../../components/estante/SituacaoNaEstante.vue'
 import BlocoSuaAvaliacao from '../../components/livros/BlocoSuaAvaliacao.vue'
 import CapaLivro from '../../components/livros/CapaLivro.vue'
 import CardResenha from '../../components/livros/CardResenha.vue'
+import DialogoRecomendar from '../../components/recomendacoes/DialogoRecomendar.vue'
 import BotaoPrimario from '../../components/ui/BotaoPrimario.vue'
 import BotaoTextual from '../../components/ui/BotaoTextual.vue'
+import type { AcaoDaFolha } from '../../components/ui/FolhaAcoes.vue'
+import MenuDeAcoes from '../../components/ui/MenuDeAcoes.vue'
 import { formatarPaginas } from '../../livros/formatos'
 import { useLivroOficial } from '../../livros/useLivroOficial'
 import { useMinhaAvaliacao } from '../../livros/useMinhaAvaliacao'
@@ -97,6 +100,18 @@ const aguardandoSinopse = computed(
   () => (sinopse.value.status === 'pendente' || sinopse.value.status === 'nao_consultada') && !sinopseDemorou.value,
 )
 
+const acoesDoMenu: AcaoDaFolha[] = [{ id: 'recomendar', rotulo: 'Recomendar a um leitor', icone: PhPaperPlaneTilt }]
+const menu = ref<InstanceType<typeof MenuDeAcoes> | null>(null)
+const botaoDoMenuWeb = ref<HTMLElement | null>(null)
+const botaoDoMenuMobile = ref<HTMLElement | null>(null)
+const recomendando = ref(false)
+
+function escolherNoMenu(id: string): void {
+  if (id === 'recomendar') {
+    recomendando.value = true
+  }
+}
+
 function voltar(): void {
   if (window.history.state?.back) {
     router.back()
@@ -180,19 +195,35 @@ function voltar(): void {
     >
       <!-- O título vem primeiro no DOM, para o leitor de tela começar pelo h1; a ordem visual vem de
            `order` abaixo de 1024px e da posição no grid acima. -->
-      <header class="order-2 mt-space-5 text-center lg:order-none lg:col-start-2 lg:row-start-1 lg:mt-0 lg:text-left">
-        <h1 class="text-display text-tinta lg:text-display-hero">
-          {{ livro.titulo }}
-        </h1>
-        <p
-          v-if="autores"
-          class="mt-space-2 text-body text-grafite lg:text-title-sm"
+      <header class="order-2 mt-space-5 flex items-start gap-space-4 lg:order-none lg:col-start-2 lg:row-start-1 lg:mt-0">
+        <div class="min-w-0 flex-1 text-center lg:text-left">
+          <h1 class="text-display text-tinta lg:text-display-hero">
+            {{ livro.titulo }}
+          </h1>
+          <p
+            v-if="autores"
+            class="mt-space-2 text-body text-grafite lg:text-title-sm"
+          >
+            {{ autores }}
+          </p>
+          <p class="mt-space-1 text-caption text-grafite-suave">
+            {{ metadados }}
+          </p>
+        </div>
+        <button
+          ref="botaoDoMenuWeb"
+          type="button"
+          class="hidden size-10 shrink-0 cursor-pointer items-center justify-center rounded-base border border-linha text-tinta transition-colors duration-dur-fast hover:bg-linha md:flex"
+          aria-label="Mais ações"
+          :aria-expanded="menu?.aberto ?? false"
+          @click="menu?.alternar(botaoDoMenuWeb!)"
         >
-          {{ autores }}
-        </p>
-        <p class="mt-space-1 text-caption text-grafite-suave">
-          {{ metadados }}
-        </p>
+          <PhDotsThree
+            :size="20"
+            weight="regular"
+            aria-hidden="true"
+          />
+        </button>
       </header>
 
       <!-- Abaixo de 1024px a coluna se desfaz (`contents`) e a ordem vem de `order`: capa, título,
@@ -352,6 +383,40 @@ function voltar(): void {
         </section>
       </div>
     </article>
+
+    <Teleport
+      v-if="livro"
+      to="#cabecalho-acoes"
+      defer
+    >
+      <button
+        ref="botaoDoMenuMobile"
+        type="button"
+        class="-mr-space-3 flex size-12 items-center justify-center rounded-base text-tinta md:hidden"
+        aria-label="Mais ações"
+        @click="menu?.alternar(botaoDoMenuMobile!)"
+      >
+        <PhDotsThree
+          :size="24"
+          weight="regular"
+          aria-hidden="true"
+        />
+      </button>
+    </Teleport>
+
+    <MenuDeAcoes
+      ref="menu"
+      rotulo="Mais ações"
+      :acoes="acoesDoMenu"
+      :largura="248"
+      @escolher="escolherNoMenu"
+    />
+
+    <DialogoRecomendar
+      v-if="recomendando && livro"
+      :livro="{ id: livro.id, ...livroAvaliado }"
+      @fechar="recomendando = false"
+    />
   </div>
 </template>
 

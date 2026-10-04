@@ -1,17 +1,14 @@
 <script setup lang="ts">
 import { PhDotsThree, PhPencilSimple, PhTrash } from '@phosphor-icons/vue'
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { computed, ref } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
 
 import AvatarLeitor from '../perfil/AvatarLeitor.vue'
-import FolhaAcoes, { type AcaoDaFolha } from '../ui/FolhaAcoes.vue'
+import type { AcaoDaFolha } from '../ui/FolhaAcoes.vue'
+import MenuDeAcoes from '../ui/MenuDeAcoes.vue'
 import { trechosDoComentario } from '../../feed/mencoes'
 import { contagem, tempoDeEspera } from '../../perfil/textos'
 import type { Comentario } from '../../services/social'
-
-const LARGURA_WEB = '(min-width: 768px)'
-const ESPACO_DO_DROPDOWN = 8
-const ALTURA_DO_DROPDOWN = 104
 
 const props = withDefaults(
   defineProps<{
@@ -56,62 +53,16 @@ const acoes: AcaoDaFolha[] = [
   { id: 'excluir', rotulo: 'Excluir', icone: PhTrash, destrutiva: true },
 ]
 
-const folhaAberta = ref(false)
-const dropdownAberto = ref(false)
 const botaoDoMenu = ref<HTMLElement | null>(null)
-const dropdown = ref<HTMLElement | null>(null)
-const posicaoDoDropdown = ref<Record<string, string>>({})
-
-function fecharAoClicarFora(evento: MouseEvent): void {
-  const alvo = evento.target as Node
-  if (!botaoDoMenu.value?.contains(alvo) && !dropdown.value?.contains(alvo)) {
-    fecharDropdown()
-  }
-}
-
-function fecharDropdown(): void {
-  dropdownAberto.value = false
-  document.removeEventListener('mousedown', fecharAoClicarFora)
-  window.removeEventListener('scroll', fecharDropdown, true)
-  window.removeEventListener('resize', fecharDropdown)
-}
-
-function posicionarDropdown(): void {
-  const botao = botaoDoMenu.value!.getBoundingClientRect()
-  const direita = `${window.innerWidth - botao.right}px`
-  const cabeEmbaixo = botao.bottom + ESPACO_DO_DROPDOWN + ALTURA_DO_DROPDOWN <= window.innerHeight
-  posicaoDoDropdown.value = cabeEmbaixo
-    ? { top: `${botao.bottom + ESPACO_DO_DROPDOWN}px`, right: direita }
-    : { bottom: `${window.innerHeight - botao.top + ESPACO_DO_DROPDOWN}px`, right: direita }
-}
-
-function abrirMenu(): void {
-  if (dropdownAberto.value) {
-    fecharDropdown()
-    return
-  }
-  if (window.matchMedia(LARGURA_WEB).matches) {
-    posicionarDropdown()
-    dropdownAberto.value = true
-    document.addEventListener('mousedown', fecharAoClicarFora)
-    window.addEventListener('scroll', fecharDropdown, true)
-    window.addEventListener('resize', fecharDropdown)
-  } else {
-    folhaAberta.value = true
-  }
-}
+const menu = ref<InstanceType<typeof MenuDeAcoes> | null>(null)
 
 function escolher(id: string): void {
-  folhaAberta.value = false
-  fecharDropdown()
   if (id === 'editar') {
     emit('editar', props.comentario)
   } else {
     emit('excluir', props.comentario)
   }
 }
-
-onBeforeUnmount(fecharDropdown)
 </script>
 
 <template>
@@ -136,16 +87,16 @@ onBeforeUnmount(fecharDropdown)
         <div
           v-if="comentario.pertenceAoSolicitante"
           class="-my-space-3 -mr-space-3 md:-my-space-1 md:mr-0"
-          @keydown.esc="fecharDropdown"
+          @keydown.esc="menu?.fechar()"
         >
           <button
             ref="botaoDoMenu"
             type="button"
             :aria-label="ehResposta ? 'Ações da sua resposta' : 'Ações do seu comentário'"
-            :aria-expanded="dropdownAberto"
+            :aria-expanded="menu?.aberto ?? false"
             :disabled="acoesDesabilitadas"
             class="flex size-12 cursor-pointer items-center justify-center rounded-full text-grafite transition-colors duration-dur-fast hover:bg-linha disabled:cursor-not-allowed disabled:text-grafite-suave md:size-8"
-            @click="abrirMenu"
+            @click="menu?.alternar(botaoDoMenu!)"
           >
             <PhDotsThree
               :size="20"
@@ -153,38 +104,12 @@ onBeforeUnmount(fecharDropdown)
               aria-hidden="true"
             />
           </button>
-          <Teleport to="body">
-            <ul
-              v-if="dropdownAberto"
-              ref="dropdown"
-              role="menu"
-              class="fixed z-40 w-[220px] rounded-base border border-linha bg-papel py-space-2 shadow-2"
-              :style="posicaoDoDropdown"
-              @keydown.esc="fecharDropdown"
-            >
-              <li
-                v-for="acao in acoes"
-                :key="acao.id"
-                role="none"
-              >
-                <button
-                  type="button"
-                  role="menuitem"
-                  class="flex h-11 w-full cursor-pointer items-center gap-space-3 px-space-4 text-left text-body hover:bg-linha focus-visible:bg-linha focus-visible:outline-none"
-                  :class="acao.destrutiva ? 'text-rubi' : 'text-tinta'"
-                  @click="escolher(acao.id)"
-                >
-                  <component
-                    :is="acao.icone"
-                    :size="20"
-                    weight="regular"
-                    aria-hidden="true"
-                  />
-                  {{ acao.rotulo }}
-                </button>
-              </li>
-            </ul>
-          </Teleport>
+          <MenuDeAcoes
+            ref="menu"
+            :rotulo="rotuloDoMenu"
+            :acoes="acoes"
+            @escolher="escolher"
+          />
         </div>
       </div>
       <p class="mt-space-1 whitespace-pre-wrap text-body text-tinta">
@@ -224,13 +149,5 @@ onBeforeUnmount(fecharDropdown)
         {{ rotuloAlternador }}
       </button>
     </div>
-    <FolhaAcoes
-      v-if="comentario.pertenceAoSolicitante"
-      :aberta="folhaAberta"
-      :rotulo="rotuloDoMenu"
-      :acoes="acoes"
-      @escolher="escolher"
-      @fechar="folhaAberta = false"
-    />
   </div>
 </template>
