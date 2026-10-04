@@ -180,7 +180,12 @@ GoRouter buildRouter({
                   aoCadastrarPessoal: () => context.push('$rotaAdicionarLivro/pessoal'),
                 ),
                 routes: <RouteBase>[
-                  ...rotasDeDescobrir(deps, estante: servicoDeEstante, progresso: depsDeProgresso),
+                  ...rotasDeDescobrir(
+                    deps,
+                    estante: servicoDeEstante,
+                    progresso: depsDeProgresso,
+                    social: depsDeFeed.social,
+                  ),
                   rotaDeNotificacoes(depsDeNotificacoes, '/descobrir'),
                 ],
               ),
@@ -229,6 +234,7 @@ GoRouter buildRouter({
                     raiz: '/perfil',
                     estante: servicoDeEstante,
                     progresso: depsDeProgresso,
+                    social: depsDeFeed.social,
                   ),
                   rotaDeNotificacoes(depsDeNotificacoes, rotaPerfilRaiz),
                   GoRoute(

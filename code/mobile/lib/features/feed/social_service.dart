@@ -218,6 +218,62 @@ class EstadoCurtida {
   const EstadoCurtida({required this.totalCurtidas});
 }
 
+class CandidatoARecomendacao {
+  final AutorSnapshot leitor;
+  final bool jaTemLivro;
+  final bool limiteAtingido;
+
+  const CandidatoARecomendacao({
+    required this.leitor,
+    required this.jaTemLivro,
+    required this.limiteAtingido,
+  });
+
+  factory CandidatoARecomendacao.fromJson(Map<String, dynamic> json) => CandidatoARecomendacao(
+    leitor: AutorSnapshot.fromJson(json['leitor'] as Map<String, dynamic>),
+    jaTemLivro: json['jaTemLivro'] as bool? ?? false,
+    limiteAtingido: json['limiteAtingido'] as bool? ?? false,
+  );
+}
+
+enum MotivoBloqueio {
+  semMutuo('SEM_MUTUO'),
+  jaTemLivro('JA_TEM_LIVRO'),
+  limiteAtingido('LIMITE_ATINGIDO'),
+  jaRecomendado('JA_RECOMENDADO');
+
+  final String json;
+
+  const MotivoBloqueio(this.json);
+
+  static MotivoBloqueio? deJson(Object? bruto) {
+    for (final motivo in values) {
+      if (motivo.json == bruto) {
+        return motivo;
+      }
+    }
+    return null;
+  }
+}
+
+class ResultadoPorDestinatario {
+  final String destinatarioId;
+  final bool criada;
+  final MotivoBloqueio? motivo;
+
+  const ResultadoPorDestinatario({
+    required this.destinatarioId,
+    required this.criada,
+    required this.motivo,
+  });
+
+  factory ResultadoPorDestinatario.fromJson(Map<String, dynamic> json) => ResultadoPorDestinatario(
+    destinatarioId: json['destinatarioId'] as String,
+    criada: json['status'] == 'CRIADA',
+    motivo: MotivoBloqueio.deJson(json['motivo']),
+  );
+}
+
 class SocialService {
   final ApiClient _api;
 
@@ -237,16 +293,17 @@ class SocialService {
         totalPaginas: (json['totalPaginas'] as num?)?.toInt() ?? 0,
       );
 
-  Future<Pagina<Atividade>> listarFeed(int pagina) async => _pagina(
-    await _api.getJson('/feed?page=$pagina&size=$tamanhoDaPagina'),
-    Atividade.fromJson,
-  );
+  Future<Pagina<Atividade>> listarFeed(int pagina) async =>
+      _pagina(await _api.getJson('/feed?page=$pagina&size=$tamanhoDaPagina'), Atividade.fromJson);
 
   Future<Atividade> obterAtividade(String id) async =>
       Atividade.fromJson(await _api.getJson('/atividades/${_id(id)}'));
 
   Future<EstadoCurtida> curtir(String id, {required String idempotencyKey}) async {
-    final json = await _api.postJson('/atividades/${_id(id)}/curtir', idempotencyKey: idempotencyKey);
+    final json = await _api.postJson(
+      '/atividades/${_id(id)}/curtir',
+      idempotencyKey: idempotencyKey,
+    );
     return EstadoCurtida(totalCurtidas: (json['totalCurtidas'] as num).toInt());
   }
 
@@ -263,8 +320,10 @@ class SocialService {
   Future<ListaRespostas> listarRespostas(String comentarioRaizId, {String? cursor}) async {
     final parametros = <String, String>{'limit': '$tamanhoDaPagina', 'cursor': ?cursor};
     final json = await _api.getJson(
-      Uri(path: '/comentarios/${_id(comentarioRaizId)}/respostas', queryParameters: parametros)
-          .toString(),
+      Uri(
+        path: '/comentarios/${_id(comentarioRaizId)}/respostas',
+        queryParameters: parametros,
+      ).toString(),
     );
     return ListaRespostas(
       itens: (json['itens'] as List<dynamic>? ?? const <dynamic>[])
@@ -304,4 +363,36 @@ class SocialService {
 
   Future<void> excluirComentario(String comentarioId, {required String idempotencyKey}) =>
       _api.deleteVazio('/comentarios/${_id(comentarioId)}', idempotencyKey: idempotencyKey);
+
+  Future<List<CandidatoARecomendacao>> listarCandidatos(String livroId) async {
+    final json = await _api.getJson(
+      Uri(
+        path: '/recomendacoes/candidatos',
+        queryParameters: <String, String>{'livroId': livroId},
+      ).toString(),
+    );
+    return (json['itens'] as List<dynamic>? ?? const <dynamic>[])
+        .map((bruto) => CandidatoARecomendacao.fromJson(bruto as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<ResultadoPorDestinatario>> recomendar({
+    required String livroId,
+    required List<String> destinatarios,
+    String? mensagem,
+    required String idempotencyKey,
+  }) async {
+    final json = await _api.postJson(
+      '/recomendacoes',
+      body: <String, Object?>{
+        'livroId': livroId,
+        'destinatarios': destinatarios,
+        'mensagem': ?mensagem,
+      },
+      idempotencyKey: idempotencyKey,
+    );
+    return (json['resultados'] as List<dynamic>? ?? const <dynamic>[])
+        .map((bruto) => ResultadoPorDestinatario.fromJson(bruto as Map<String, dynamic>))
+        .toList();
+  }
 }

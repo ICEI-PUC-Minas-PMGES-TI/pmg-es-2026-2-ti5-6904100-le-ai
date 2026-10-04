@@ -12,6 +12,8 @@ import 'isbn_nao_encontrado_page.dart';
 import 'livro_oficial_page.dart';
 import 'livro_pessoal_form_page.dart';
 import 'livro_pessoal_page.dart';
+import '../feed/social_service.dart';
+import '../perfil/rotas_perfil.dart';
 import '../progresso/rotas_progresso.dart';
 
 const String rotaAdicionarLivro = '/descobrir/adicionar-livro';
@@ -79,6 +81,7 @@ List<RouteBase> rotasDeDescobrir(
   DependenciasDeLivros deps, {
   EstanteService? estante,
   DependenciasDeProgresso? progresso,
+  SocialService? social,
 }) => <RouteBase>[
   GoRoute(
     path: 'adicionar-livro',
@@ -127,7 +130,13 @@ List<RouteBase> rotasDeDescobrir(
       ),
     ],
   ),
-  rotaDoLivroOficial(deps, raiz: '/descobrir', estante: estante, progresso: progresso),
+  rotaDoLivroOficial(
+    deps,
+    raiz: '/descobrir',
+    estante: estante,
+    progresso: progresso,
+    social: social,
+  ),
 ];
 
 /// Página do livro oficial dentro da aba de origem (pagina-do-livro.md §4.1: o item ativo da barra
@@ -138,6 +147,7 @@ GoRoute rotaDoLivroOficial(
   required String raiz,
   EstanteService? estante,
   DependenciasDeProgresso? progresso,
+  SocialService? social,
 }) {
   return GoRoute(
     path: 'livro/:id',
@@ -155,6 +165,8 @@ GoRoute rotaDoLivroOficial(
         aoVerAtualizacoes: progresso == null
             ? null
             : (leituraId) => context.push<void>(rotaProgressoDaLeitura(leituraId)),
+        social: social,
+        aoBuscarLeitores: () => context.go(rotaBuscarLeitor),
       );
     },
   );

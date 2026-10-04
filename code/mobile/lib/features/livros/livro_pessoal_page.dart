@@ -14,6 +14,7 @@ import '../../design/widgets/cartao_progresso.dart';
 import '../../design/widgets/estado_vazio.dart';
 import '../../design/widgets/estrelas_de_nota.dart';
 import '../../design/widgets/etiqueta.dart';
+import '../../design/widgets/folha_de_acoes.dart';
 import '../../design/widgets/folha_inferior.dart';
 import '../avaliacao/avaliacao_controller.dart';
 import '../avaliacao/bloco_sua_avaliacao.dart';
@@ -136,53 +137,19 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
   }
 
   Future<void> _abrirMenu() async {
-    final escolha = await mostrarFolhaInferior<String>(
-      context,
-      builder: (context) {
-        final theme = Theme.of(context);
-        Widget item(String valor, IconData icone, String rotulo, Color cor) {
-          return Semantics(
-            button: true,
-            child: GestureDetector(
-              onTap: () => Navigator.of(context).pop(valor),
-              behavior: HitTestBehavior.opaque,
-              child: SizedBox(
-                height: 56,
-                child: Row(
-                  children: <Widget>[
-                    Icon(icone, size: 20, color: cor),
-                    const SizedBox(width: DesignTokens.space4),
-                    Text(rotulo, style: theme.textTheme.bodyMedium?.copyWith(color: cor)),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }
-
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            item(
-              'editar',
-              PhosphorIconsRegular.pencilSimple,
-              'Editar livro',
-              theme.colorScheme.onSurface,
-            ),
-            Divider(height: 1, color: theme.divider),
-            item('excluir', PhosphorIconsRegular.trash, 'Excluir livro', theme.colorScheme.error),
-            const SizedBox(height: DesignTokens.space4),
-            BotaoTextual(
-              texto: 'Cancelar',
-              neutro: true,
-              larguraTotal: true,
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          ],
-        );
-      },
-    );
+    final escolha = await escolherNaFolha(context, const <AcaoDaFolha>[
+      AcaoDaFolha(
+        valor: 'editar',
+        icone: PhosphorIconsRegular.pencilSimple,
+        rotulo: 'Editar livro',
+      ),
+      AcaoDaFolha(
+        valor: 'excluir',
+        icone: PhosphorIconsRegular.trash,
+        rotulo: 'Excluir livro',
+        destrutiva: true,
+      ),
+    ]);
     if (!mounted || escolha == null) {
       return;
     }

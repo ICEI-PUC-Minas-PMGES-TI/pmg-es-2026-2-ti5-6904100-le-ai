@@ -8,7 +8,9 @@ import '../../design/widgets/bloco_de_spoiler.dart';
 import '../../design/widgets/botao_primario.dart';
 import '../../design/widgets/botao_textual.dart';
 import '../../design/widgets/capa_livro.dart';
+import '../../design/widgets/aviso.dart';
 import '../../design/widgets/entrada_suave.dart';
+import '../../design/widgets/folha_de_acoes.dart';
 import '../avaliacao/avaliacao_controller.dart';
 import '../avaliacao/bloco_sua_avaliacao.dart';
 import '../avaliacao/escrever_resenha_page.dart';
@@ -16,6 +18,8 @@ import '../avaliacao/leitura_service.dart';
 import '../avaliacao/painel_de_nota.dart';
 import '../estante/estante_service.dart';
 import '../estante/situacao_na_estante.dart';
+import '../feed/social_service.dart';
+import '../recomendacoes/recomendar_livro_page.dart';
 import '../perfil/widgets_de_perfil.dart';
 import '../progresso/rotas_progresso.dart';
 import 'acervo_service.dart';
@@ -44,6 +48,10 @@ class LivroOficialPage extends StatefulWidget {
   final DependenciasDeProgresso? progresso;
   final ValueChanged<String>? aoVerAtualizacoes;
 
+  /// Sem ele, a página não oferece `Recomendar a um leitor`.
+  final SocialService? social;
+  final VoidCallback? aoBuscarLeitores;
+
   const LivroOficialPage({
     super.key,
     required this.servico,
@@ -53,6 +61,8 @@ class LivroOficialPage extends StatefulWidget {
     this.estante,
     this.progresso,
     this.aoVerAtualizacoes,
+    this.social,
+    this.aoBuscarLeitores,
   });
 
   @override
@@ -87,7 +97,34 @@ class _LivroOficialPageState extends State<LivroOficialPage> {
       children: <Widget>[
         // Sem divisor: com a página no topo o protótipo não tem linha, e o header não acompanha
         // a rolagem para desenhá-la depois (a mesma simplificação do resto do app).
-        CabecalhoTela(titulo: '', aoVoltar: widget.aoVoltar, semDivisor: true),
+        ListenableBuilder(
+          listenable: _pagina,
+          builder: (context, _) => CabecalhoTela(
+            titulo: '',
+            aoVoltar: widget.aoVoltar,
+            semDivisor: true,
+            acoes: <Widget>[
+              if (widget.social != null && _pagina.estado == EstadoDaPagina.pronta)
+                Semantics(
+                  button: true,
+                  label: 'Mais ações',
+                  child: GestureDetector(
+                    onTap: _abrirMenu,
+                    behavior: HitTestBehavior.opaque,
+                    child: SizedBox(
+                      width: 48,
+                      height: 48,
+                      child: Icon(
+                        PhosphorIconsRegular.dotsThree,
+                        size: 24,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
         Expanded(
           child: ListenableBuilder(
             listenable: _pagina,
@@ -96,6 +133,35 @@ class _LivroOficialPageState extends State<LivroOficialPage> {
         ),
       ],
     );
+  }
+
+  Future<void> _abrirMenu() async {
+    final escolha = await escolherNaFolha(context, const <AcaoDaFolha>[
+      AcaoDaFolha(
+        valor: 'recomendar',
+        icone: PhosphorIconsRegular.paperPlaneTilt,
+        rotulo: 'Recomendar a um leitor',
+      ),
+    ]);
+    final livro = _pagina.livro;
+    if (escolha != 'recomendar' || livro == null || !mounted) {
+      return;
+    }
+    final aviso = await abrirRecomendar(
+      context,
+      social: widget.social!,
+      livro: LivroRecomendado(
+        id: widget.livroId,
+        titulo: livro.resumo.titulo,
+        autor: livro.resumo.autoresParaExibir,
+        detalhes: metadadosDoLivro(livro.resumo),
+        capaUrl: livro.resumo.capaUrl,
+      ),
+      aoBuscarLeitores: widget.aoBuscarLeitores ?? () {},
+    );
+    if (aviso != null && mounted) {
+      mostrarAviso(context, aviso, icone: PhosphorIconsRegular.paperPlaneTilt);
+    }
   }
 
   Widget _conteudo(ThemeData theme) {
