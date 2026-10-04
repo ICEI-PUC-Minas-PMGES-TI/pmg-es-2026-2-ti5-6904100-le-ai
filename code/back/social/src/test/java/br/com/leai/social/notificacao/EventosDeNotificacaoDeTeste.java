@@ -16,6 +16,7 @@ public final class EventosDeNotificacaoDeTeste {
 
   public static final String NOME_ATOR = "Caio Ferraz";
   public static final String TITULO_LIVRO = "O Avesso da Pele";
+  public static final String MENSAGEM_RECOMENDACAO = "Terminei ontem e ainda estou pensando nele.";
 
   private EventosDeNotificacaoDeTeste() {}
 
@@ -85,6 +86,7 @@ public final class EventosDeNotificacaoDeTeste {
               + fato.inatividadeVersao()
               + ":"
               + fato.limiarDias();
+      case RECOMENDACAO_RECEBIDA -> "recomendacao:" + fato.recursoId();
     };
   }
 
@@ -131,6 +133,14 @@ public final class EventosDeNotificacaoDeTeste {
         dados.put("inatividadeVersao", fato.inatividadeVersao());
         dados.put("limiarDias", evento == EventoDeNotificacao.LEITURA_EXPIRADA ? 40 : fato.limiarDias());
         dados.put("livro", livro());
+      }
+      case RECOMENDACAO_RECEBIDA -> {
+        Map<String, Object> livro = livro();
+        dados.put("recomendacaoId", recurso);
+        dados.put("livroId", livro.get("id"));
+        dados.put("autorAcao", usuario(fato.atorId()));
+        dados.put("livro", livro);
+        dados.put("mensagem", MENSAGEM_RECOMENDACAO);
       }
     }
     return dados;

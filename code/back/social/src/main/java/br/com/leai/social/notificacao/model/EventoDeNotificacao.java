@@ -73,7 +73,13 @@ public enum EventoDeNotificacao {
       MessagingConstants.LEITURA_EXCHANGE,
       TipoNotificacao.LEITURA_EXPIRADA,
       null,
-      List.of(DadosDeNotificacao.LEITURA_ID, DadosDeNotificacao.LIMIAR_DIAS));
+      List.of(DadosDeNotificacao.LEITURA_ID, DadosDeNotificacao.LIMIAR_DIAS)),
+  RECOMENDACAO_RECEBIDA(
+      MessagingConstants.EVENTO_RECOMENDACAO_RECEBIDA,
+      MessagingConstants.SOCIAL_EXCHANGE,
+      TipoNotificacao.RECOMENDACAO_RECEBIDA,
+      "autorAcao",
+      List.of(DadosDeNotificacao.RECOMENDACAO_ID, DadosDeNotificacao.RECOMENDACAO_MENSAGEM));
 
   private static final String CAMPO_DESTINATARIO = "destinatarioId";
   private static final String CAMPO_LIVRO = "livro";

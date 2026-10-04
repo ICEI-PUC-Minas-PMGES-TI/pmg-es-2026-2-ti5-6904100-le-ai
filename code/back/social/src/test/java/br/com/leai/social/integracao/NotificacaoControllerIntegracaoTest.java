@@ -152,6 +152,36 @@ class NotificacaoControllerIntegracaoTest extends IntegracaoComPostgres {
   }
 
   @Test
+  @DisplayName("recomendacao recebida traz livro e mensagem; de remetente suspenso, sem a mensagem")
+  void recomendacaoRecebidaTrazLivroEMensagem() throws Exception {
+    UUID eu = UUID.randomUUID();
+    UUID visivel = UUID.randomUUID();
+    UUID suspenso = UUID.randomUUID();
+    jdbc.update("INSERT INTO identidade.usuario (id) VALUES (?)", visivel);
+    jdbc.update("INSERT INTO identidade.usuario (id, suspenso) VALUES (?, true)", suspenso);
+    notificar(EventoDeNotificacao.RECOMENDACAO_RECEBIDA, Fato.para(eu).comAtor(suspenso));
+    notificar(EventoDeNotificacao.RECOMENDACAO_RECEBIDA, Fato.para(eu).comAtor(visivel));
+
+    JsonNode itens = listar(token(eu), 0, 20).get("itens");
+
+    JsonNode doVisivel = itens.get(0);
+    assertThat(doVisivel.get("tipo").asText()).isEqualTo("RECOMENDACAO_RECEBIDA");
+    assertThat(doVisivel.get("mensagem").asText())
+        .isEqualTo(
+            EventosDeNotificacaoDeTeste.NOME_ATOR
+                + " te recomendou "
+                + EventosDeNotificacaoDeTeste.TITULO_LIVRO
+                + ".");
+    assertThat(doVisivel.get("recomendacaoMensagem").asText())
+        .isEqualTo(EventosDeNotificacaoDeTeste.MENSAGEM_RECOMENDACAO);
+    assertThat(doVisivel.get("livro").get("tipo").asText()).isEqualTo("oficial");
+    JsonNode doSuspenso = itens.get(1);
+    assertThat(doSuspenso.get("mensagem").asText())
+        .isEqualTo("Um leitor te recomendou " + EventosDeNotificacaoDeTeste.TITULO_LIVRO + ".");
+    assertThat(doSuspenso.get("recomendacaoMensagem").isNull()).isTrue();
+  }
+
+  @Test
   @DisplayName("marca uma notificacao individualmente e atualiza o total de nao lidas")
   void marcaIndividual() throws Exception {
     UUID eu = UUID.randomUUID();

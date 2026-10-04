@@ -3,11 +3,16 @@ package br.com.leai.social.integracao;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import br.com.leai.social.common.LimitesDeInteracao;
+import br.com.leai.social.messaging.MessageEnvelope;
+import br.com.leai.social.messaging.MessageValidator;
+import br.com.leai.social.notificacao.service.ConsumidorDeNotificacao;
 import br.com.leai.social.recomendacao.service.ServicoDeRecomendacao;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,6 +29,8 @@ class RecomendacaoControllerIntegracaoTest extends IntegracaoComPostgres {
 
   @Autowired private JdbcTemplate jdbc;
   @Autowired private ObjectMapper json;
+  @Autowired private MessageValidator validador;
+  @Autowired private ConsumidorDeNotificacao consumidorDeNotificacao;
   private MassaDeRecomendacao massa;
 
   @BeforeEach
@@ -88,6 +95,49 @@ class RecomendacaoControllerIntegracaoTest extends IntegracaoComPostgres {
     assertThat(evento.get("autorAcao").get("username").asString()).isEqualTo("ana");
     assertThat(evento.get("livro").get("tipo").asString()).isEqualTo("oficial");
     assertThat(massa.contar("SELECT count(*) FROM outbox_social")).isEqualTo(1L);
+  }
+
+  @Test
+  @DisplayName("Evento da outbox passa no schema e vira notificação de quem recebeu, levando ao livro")
+  void eventoDaOutboxViraNotificacao() throws Exception {
+    UUID ana = massa.leitor("ana");
+    UUID bia = massa.mutuoDe(ana, "bia");
+    UUID livro = massa.livroOficial("Torto arado");
+    recomendar(ana, livro, List.of(bia), "Leia logo.", chave());
+    Map<String, Object> linha =
+        jdbc.queryForMap(
+            "SELECT event_id, tipo, chave_negocio, correlation_id, payload::text AS payload"
+                + " FROM outbox_social");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> data = json.readValue((String) linha.get("payload"), Map.class);
+    MessageEnvelope envelope =
+        new MessageEnvelope(
+            (UUID) linha.get("event_id"),
+            (String) linha.get("tipo"),
+            1,
+            OffsetDateTime.now(),
+            (UUID) linha.get("correlation_id"),
+            (String) linha.get("chave_negocio"),
+            data);
+
+    validador.validate(envelope);
+    consumidorDeNotificacao.handle(envelope);
+    consumidorDeNotificacao.handle(envelope);
+
+    JsonNode itens =
+        json.readTree(
+                enviar(
+                        HttpRequest.newBuilder(uri("/notificacoes"))
+                            .header("Authorization", "Bearer " + token(bia))
+                            .GET()
+                            .build())
+                    .body())
+            .get("itens");
+    assertThat(itens).hasSize(1);
+    assertThat(itens.get(0).get("mensagem").asString())
+        .isEqualTo("Leitor ana te recomendou Torto arado.");
+    assertThat(itens.get(0).get("recomendacaoMensagem").asString()).isEqualTo("Leia logo.");
+    assertThat(itens.get(0).get("livro").get("id").asString()).isEqualTo(livro.toString());
   }
 
   @Test
