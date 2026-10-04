@@ -14,18 +14,30 @@ import { aviso, fecharAviso } from '../../avisos'
       <div
         v-if="aviso"
         :key="aviso.id"
-        class="pointer-events-auto flex items-center gap-space-3 overflow-hidden rounded-base border-l-4 border-musgo bg-papel-elevado py-space-2 pl-space-4 pr-space-1 shadow-2"
+        class="pointer-events-auto flex items-center gap-space-3 overflow-hidden rounded-base border-l-4 bg-papel-elevado py-space-2 pl-space-4 pr-space-1 shadow-2"
+        :class="aviso.tom === 'erro' ? 'border-rubi' : 'border-musgo'"
       >
         <component
           :is="aviso.icone"
+          v-if="aviso.icone"
           :size="20"
           weight="regular"
           class="shrink-0 text-musgo"
           aria-hidden="true"
         />
-        <p class="flex-1 py-space-2 text-body text-tinta">
-          {{ aviso.texto }}
-        </p>
+        <div class="flex-1 py-space-2">
+          <p class="text-body text-tinta">
+            {{ aviso.texto }}
+          </p>
+          <button
+            v-if="aviso.acao"
+            type="button"
+            class="mt-space-1 min-h-10 cursor-pointer text-body-strong text-musgo hover:underline focus-visible:underline"
+            @click="aviso.acao.executar"
+          >
+            {{ aviso.acao.rotulo }}
+          </button>
+        </div>
         <button
           type="button"
           class="flex size-12 shrink-0 cursor-pointer items-center justify-center rounded-full text-grafite hover:bg-linha"

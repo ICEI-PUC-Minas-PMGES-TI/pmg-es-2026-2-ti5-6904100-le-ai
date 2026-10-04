@@ -165,6 +165,25 @@ describe('createSocialService', () => {
     expect(fetchMock.mock.calls[0]![0]).toBe('https://social.example.com/recomendacoes/candidatos?livroId=l%201')
   })
 
+  it('lista as recebidas paginadas e descarta com DELETE e a chave da intenção', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        resposta(200, { itens: [], pagina: 1, tamanho: 4, totalItens: 5, totalPaginas: 2, ultima: true }),
+      )
+      .mockResolvedValueOnce(resposta(204))
+    const social = servico(fetchMock)
+
+    await expect(social.listarRecebidas(1, 4)).resolves.toMatchObject({ page: 1, totalElements: 5, totalPages: 2 })
+    await expect(social.descartarRecomendacao('r 1', 'chave-d')).resolves.toBeUndefined()
+
+    expect(fetchMock.mock.calls[0]![0]).toBe('https://social.example.com/recomendacoes/recebidas?page=1&size=4')
+    const [url, init] = fetchMock.mock.calls[1]!
+    expect(url).toBe('https://social.example.com/recomendacoes/r%201')
+    expect(init?.method).toBe('DELETE')
+    expect((init?.headers as Headers).get('Idempotency-Key')).toBe('chave-d')
+  })
+
   it('recomenda com o corpo e a chave da intenção, e devolve o resultado por destinatário', async () => {
     const resultado = {
       resultados: [{ destinatarioId: 'u2', status: 'BLOQUEADA', recomendacaoId: null, motivo: 'JA_TEM_LIVRO' }],

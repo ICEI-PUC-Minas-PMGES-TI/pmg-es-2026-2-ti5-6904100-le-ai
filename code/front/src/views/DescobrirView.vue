@@ -6,6 +6,7 @@ import { useRoute, useRouter } from 'vue-router'
 import CardLivroBusca from '../components/livros/CardLivroBusca.vue'
 import FiltroAssuntos from '../components/livros/FiltroAssuntos.vue'
 import FimDaLista from '../components/perfil/FimDaLista.vue'
+import SecaoRecomendacoes from '../components/recomendacoes/SecaoRecomendacoes.vue'
 import BannerAviso from '../components/ui/BannerAviso.vue'
 import BotaoPrimario from '../components/ui/BotaoPrimario.vue'
 import BotaoTextual from '../components/ui/BotaoTextual.vue'
@@ -205,7 +206,12 @@ const anuncio = computed(() => {
         {{ anuncio }}
       </p>
 
+      <SecaoRecomendacoes
+        v-if="estado === 'aterrissagem'"
+        class="mt-space-6 md:col-start-2 md:row-start-2 md:mt-0"
+      />
       <section
+        v-else
         class="md:col-start-2 md:row-start-2"
         aria-label="Resultados da busca"
       >

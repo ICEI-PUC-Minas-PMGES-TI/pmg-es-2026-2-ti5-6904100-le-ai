@@ -6,6 +6,7 @@ import FolhaAcoes, { type AcaoDaFolha } from './FolhaAcoes.vue'
 const LARGURA_WEB = '(min-width: 768px)'
 const ESPACO_DO_DROPDOWN = 8
 const ALTURA_DO_ITEM = 44
+const ALTURA_COM_DETALHE = 60
 const RESPIRO_VERTICAL = 16
 
 const props = withDefaults(
@@ -40,7 +41,9 @@ function fecharDropdown(): void {
 }
 
 function posicionar(botao: DOMRect): void {
-  const altura = props.acoes.length * ALTURA_DO_ITEM + RESPIRO_VERTICAL
+  const altura =
+    props.acoes.reduce((soma, acao) => soma + (acao.detalhe ? ALTURA_COM_DETALHE : ALTURA_DO_ITEM), 0) +
+    RESPIRO_VERTICAL
   const direita = `${window.innerWidth - botao.right}px`
   posicao.value =
     botao.bottom + ESPACO_DO_DROPDOWN + altura <= window.innerHeight
@@ -100,17 +103,24 @@ defineExpose({ alternar, fechar: fecharDropdown, aberto: dropdownAberto })
         <button
           type="button"
           role="menuitem"
-          class="flex h-11 w-full cursor-pointer items-center gap-space-3 px-space-4 text-left text-body hover:bg-linha focus-visible:bg-linha focus-visible:outline-none"
-          :class="acao.destrutiva ? 'text-rubi' : 'text-tinta'"
+          class="flex w-full cursor-pointer items-center gap-space-3 px-space-4 text-left text-body hover:bg-linha focus-visible:bg-linha focus-visible:outline-none"
+          :class="[acao.destrutiva ? 'text-rubi' : 'text-tinta', acao.detalhe ? 'py-space-2' : 'h-11']"
           @click="escolher(acao.id)"
         >
           <component
             :is="acao.icone"
             :size="20"
             weight="regular"
+            class="shrink-0"
             aria-hidden="true"
           />
-          {{ acao.rotulo }}
+          <span class="flex flex-col">
+            {{ acao.rotulo }}
+            <span
+              v-if="acao.detalhe"
+              class="text-caption text-grafite"
+            >{{ acao.detalhe }}</span>
+          </span>
         </button>
       </li>
     </ul>

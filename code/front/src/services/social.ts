@@ -126,6 +126,15 @@ export interface ResultadoRecomendacao {
   totalCriadas: number
 }
 
+export interface RecomendacaoRecebida {
+  id: string
+  remetente: AutorSnapshot
+  livro: LivroSnapshot
+  mensagem: string | null
+  criadoEm: string
+  expiraEm: string
+}
+
 export interface CriarRecomendacao {
   livroId: string
   destinatarios: string[]
@@ -209,6 +218,14 @@ export function createSocialService(options: ApiClientOptions = {}) {
     },
     recomendar(dados: CriarRecomendacao, idempotencyKey: string): Promise<ResultadoRecomendacao> {
       return request<ResultadoRecomendacao>('/recomendacoes', { method: 'POST', json: dados, idempotencyKey })
+    },
+    async listarRecebidas(page: number, size = TAMANHO_DA_PAGINA): Promise<Pagina<RecomendacaoRecebida>> {
+      return paraPagina(
+        await request<PaginaHttp<RecomendacaoRecebida>>(`/recomendacoes/recebidas?page=${page}&size=${size}`),
+      )
+    },
+    descartarRecomendacao(id: string, idempotencyKey: string): Promise<void> {
+      return request<void>(`/recomendacoes/${encodeURIComponent(id)}`, { method: 'DELETE', idempotencyKey })
     },
   }
 }

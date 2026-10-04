@@ -133,7 +133,7 @@ async function enviarOuConcluir(): Promise<void> {
   }
   const resultado = await tela.enviar()
   if (resultado.concluido && resultado.aviso) {
-    mostrarAviso(resultado.aviso, PhPaperPlaneTilt)
+    mostrarAviso(resultado.aviso, { icone: PhPaperPlaneTilt })
     emit('fechar')
   }
 }

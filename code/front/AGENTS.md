@@ -61,7 +61,7 @@ Uma URL por serviço, sem gateway: `VITE_IDENTIDADE_BASE_URL`, `VITE_ACERVO_BASE
 
 - **`components/ui/MenuDeAcoes.vue` (04/10/2026, F-REC-P2P).** O dropdown da web com folha no mobile, que vivia dentro do `ComentarioItem`, virou componente: `alternar(botao)` ancora o dropdown no botão a partir de 768px e abre a `FolhaAcoes` abaixo disso. Usado no menu do comentário e no `Mais ações` da página do livro oficial.
 
-- **`components/ui/AvisoToast.vue` + `src/avisos.ts` (04/10/2026, F-REC-P2P).** Toast de confirmação único do app, montado no `ShellAutenticado`: `mostrarAviso(texto, icone)` de qualquer tela, some sozinho em 6 s ou pelo `X`. Fica acima da barra inferior no mobile e no canto inferior esquerdo do conteúdo na web.
+- **`components/ui/AvisoToast.vue` + `src/avisos.ts` (04/10/2026, F-REC-P2P).** Toast de confirmação único do app, montado no `ShellAutenticado`: `mostrarAviso(texto, { icone, tom, acao })` de qualquer tela. A confirmação some sozinha em 6 s ou pelo `X`; o de `tom: 'erro'` (barra `rubi`, com `acao` como `Tentar de novo`) fica até a pessoa agir. `AcaoDaFolha` ganhou `detalhe`, a linha explicativa abaixo do rótulo na folha e no dropdown. Fica acima da barra inferior no mobile e no canto inferior esquerdo do conteúdo na web.
 
 - **`components/ui/SobreposicaoModal.vue`, `min-w-0` no painel (04/10/2026, F-REC-P2P).** Sem ele, conteúdo com largura intrínseca grande (textarea com `field-sizing: content`) alargava o sheet além da tela no mobile.
 

@@ -3,7 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { acervoService } from '../services/acervo'
 import { ApiError } from '../services/api'
+import { socialService } from '../services/social'
 import { ASSUNTOS, livro, pagina } from '../testes/massaDaBusca'
+import { paginaDeRecomendacoes, recomendacao } from '../testes/massaDeRecomendacoes'
 import { montarNaRota } from '../testes/montarNaRota'
 
 vi.mock('../services/acervo', () => ({
@@ -13,7 +15,13 @@ vi.mock('../services/acervo', () => ({
   },
 }))
 
+vi.mock('../services/social', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../services/social')>()),
+  socialService: { listarRecebidas: vi.fn() },
+}))
+
 const servico = vi.mocked(acervoService)
+const social = vi.mocked(socialService)
 
 const RESULTADOS = pagina(
   [
@@ -39,6 +47,7 @@ describe('DescobrirView', () => {
     localStorage.clear()
     servico.listarAssuntos.mockReset().mockResolvedValue(ASSUNTOS)
     servico.buscarLivros.mockReset().mockResolvedValue(RESULTADOS)
+    social.listarRecebidas.mockReset().mockResolvedValue(paginaDeRecomendacoes([]))
   })
   afterEach(() => {
     vi.useRealTimers()
@@ -55,6 +64,47 @@ describe('DescobrirView', () => {
     expect(wrapper.text()).toContain('Romance')
     expect(wrapper.text()).not.toContain('encontrado')
     expect(servico.buscarLivros).not.toHaveBeenCalled()
+  })
+
+  it('aterrissagem mostra as recomendações recebidas, que somem quando a busca começa', async () => {
+    social.listarRecebidas.mockResolvedValue(
+      paginaDeRecomendacoes([
+        recomendacao('r1', 'A Hora da Estrela', 'Júlia Figueiredo', 'Curtinho e devastador.'),
+        recomendacao('r2', 'Quarto de Despejo', 'Caio Rezende'),
+        recomendacao('r3', 'Tudo É Rio', 'Beatriz Okada'),
+        recomendacao('r4', 'Um Defeito de Cor', 'Henrique Sampaio'),
+      ]),
+    )
+    const montagem = await montarNaRota('/descobrir')
+    await flushPromises()
+
+    expect(social.listarRecebidas).toHaveBeenCalledWith(0, 4)
+    const secao = montagem.wrapper.get('section[aria-labelledby="titulo-recomendacoes"]')
+    expect(secao.text()).toContain('Júlia Figueiredo te recomendou')
+    expect(secao.text()).toContain('Curtinho e devastador.')
+    expect(secao.findAll('li').at(3)!.classes()).toContain('hidden')
+    expect(secao.get('a[href="/descobrir/recomendacoes"]').text()).toBe('Ver todas')
+    expect(secao.find('a[href^="/livros/r1-livro"]').exists()).toBe(true)
+
+    await digitar(montagem, 'ponciá')
+    expect(montagem.wrapper.find('section[aria-labelledby="titulo-recomendacoes"]').exists()).toBe(false)
+  })
+
+  it('aterrissagem sem recomendações diz onde elas aparecem, sem Ver todas; falha oferece tentar de novo', async () => {
+    const { wrapper } = await montarNaRota('/descobrir')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Livros que outros leitores recomendarem para você aparecem aqui.')
+    expect(wrapper.find('a[href="/descobrir/recomendacoes"]').exists()).toBe(false)
+
+    document.body.innerHTML = ''
+    social.listarRecebidas.mockReset().mockRejectedValueOnce(new TypeError('offline'))
+      .mockResolvedValue(paginaDeRecomendacoes([recomendacao('r1', 'Tudo É Rio', 'Beatriz Okada')]))
+    const outra = await montarNaRota('/descobrir')
+    await flushPromises()
+    expect(outra.wrapper.text()).toContain('Não foi possível carregar suas recomendações.')
+    await outra.wrapper.findAll('button').find((b) => b.text() === 'Tentar de novo')!.trigger('click')
+    await flushPromises()
+    expect(outra.wrapper.text()).toContain('Tudo É Rio')
   })
 
   it('resultados: contagem, card com as edições agrupadas e o link da edição principal', async () => {

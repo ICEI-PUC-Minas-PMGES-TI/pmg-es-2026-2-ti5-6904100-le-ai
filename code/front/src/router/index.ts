@@ -22,6 +22,7 @@ import FeedView from '../views/FeedView.vue'
 import LoginView from '../views/auth/LoginView.vue'
 import PoliticaPrivacidadeView from '../views/auth/PoliticaPrivacidadeView.vue'
 import ProgressoView from '../views/ProgressoView.vue'
+import RecomendacoesRecebidasView from '../views/recomendacoes/RecomendacoesRecebidasView.vue'
 import RecuperarSenhaView from '../views/auth/RecuperarSenhaView.vue'
 import RedefinirSenhaView from '../views/auth/RedefinirSenhaView.vue'
 import PerfilDeOutroView from '../views/perfil/PerfilDeOutroView.vue'
@@ -133,6 +134,12 @@ export const routes: RouteRecordRaw[] = [
         component: DescobrirView,
         // Sem divisor: o campo de busca, logo abaixo, é a segunda linha do header (descobrir.md).
         meta: { titulo: 'Descobrir', semDivisor: true },
+      },
+      {
+        path: 'descobrir/recomendacoes',
+        name: 'recomendacoes-recebidas',
+        component: RecomendacoesRecebidasView,
+        meta: { titulo: 'Recomendações recebidas', tituloCurto: 'Recomendações', voltar: true, aba: '/descobrir' },
       },
       {
         path: 'feed',
