@@ -47,6 +47,10 @@ public final class MessagingConstants {
   public static final String EVENTO_USUARIO_MENCIONADO = "usuario.mencionado";
   public static final String EVENTO_LEITURA_EM_RISCO = "leitura.em_risco";
   public static final String EVENTO_LEITURA_EXPIRADA = "leitura.expirada";
+  public static final String EVENTO_RECOMENDACAO_RECEBIDA = "recomendacao.recebida";
+
+  /** Evento de leitura que remove as recomendações do livro estantado (F-REC-P2P, RF-REC-16). */
+  public static final String EVENTO_LIVRO_ADICIONADO_A_ESTANTE = "livro.adicionado_a_estante";
 
   private MessagingConstants() {}
 
