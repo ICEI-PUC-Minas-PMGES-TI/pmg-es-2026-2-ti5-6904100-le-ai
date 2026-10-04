@@ -18,13 +18,14 @@ import 'widgets_da_busca.dart';
 /// começa pela segunda linha do header, o campo de busca. Campo, faixa de assuntos e contagem
 /// ficam fixos; só a lista rola.
 ///
-/// A aterrissagem é magra no Período 1, por decisão (descobrir.md §4.6): o campo, sem foco
-/// automático, e os assuntos, nada mais.
+/// A aterrissagem é magra por decisão (descobrir.md §4.6): o campo, sem foco automático, os
+/// assuntos e, desde F-REC-P2P, a seção [recomendacoes].
 class DescobrirPage extends StatefulWidget {
   final AcervoService servico;
   final ValueChanged<String> aoAbrirLivro;
   final VoidCallback aoCadastrarPorIsbn;
   final VoidCallback aoCadastrarPessoal;
+  final Widget? recomendacoes;
 
   const DescobrirPage({
     super.key,
@@ -32,6 +33,7 @@ class DescobrirPage extends StatefulWidget {
     required this.aoAbrirLivro,
     required this.aoCadastrarPorIsbn,
     required this.aoCadastrarPessoal,
+    this.recomendacoes,
   });
 
   @override
@@ -163,7 +165,14 @@ class _DescobrirPageState extends State<DescobrirPage> {
   Widget _conteudo(ThemeData theme) {
     switch (_busca.estado) {
       case EstadoDaBusca.aterrissagem:
-        return const SizedBox.shrink();
+        final recomendacoes = widget.recomendacoes;
+        if (recomendacoes == null) {
+          return const SizedBox.shrink();
+        }
+        return ListView(
+          padding: const EdgeInsets.only(top: DesignTokens.space4, bottom: DesignTokens.space6),
+          children: <Widget>[recomendacoes],
+        );
       case EstadoDaBusca.buscando:
         return EntradaSuave(child: _carregando(theme));
       case EstadoDaBusca.vazio:

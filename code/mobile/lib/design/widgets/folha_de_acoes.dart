@@ -21,7 +21,11 @@ class AcaoDaFolha {
   });
 }
 
-Future<String?> escolherNaFolha(BuildContext context, List<AcaoDaFolha> acoes) {
+Future<String?> escolherNaFolha(
+  BuildContext context,
+  List<AcaoDaFolha> acoes, {
+  Widget? cabecalho,
+}) {
   return mostrarFolhaInferior<String>(
     context,
     builder: (context) {
@@ -30,6 +34,13 @@ Future<String?> escolherNaFolha(BuildContext context, List<AcaoDaFolha> acoes) {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
+          if (cabecalho != null) ...<Widget>[
+            Padding(
+              padding: const EdgeInsets.only(bottom: DesignTokens.space4),
+              child: cabecalho,
+            ),
+            Divider(height: 1, color: theme.divider),
+          ],
           for (final (indice, acao) in acoes.indexed) ...<Widget>[
             if (indice > 0) Divider(height: 1, color: theme.divider),
             _ItemDaFolha(acao: acao),

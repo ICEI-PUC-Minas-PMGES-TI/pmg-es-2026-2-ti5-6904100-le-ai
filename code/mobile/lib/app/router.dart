@@ -12,6 +12,7 @@ import '../features/conta/politica_de_privacidade.dart';
 import '../features/conta/recuperar_senha_page.dart';
 import '../features/conta/redefinir_senha_page.dart';
 import '../features/descobrir/descobrir_page.dart';
+import '../features/recomendacoes/rotas_recomendacoes.dart';
 import '../core/config/app_config.dart';
 import '../core/network/api_client.dart';
 import '../features/estante/estante_page.dart';
@@ -178,8 +179,10 @@ GoRouter buildRouter({
                   // `push`, não `go`: cancelar o cadastro pessoal volta aos resultados, e não
                   // para a tela de ISBN que `go` montaria por baixo.
                   aoCadastrarPessoal: () => context.push('$rotaAdicionarLivro/pessoal'),
+                  recomendacoes: secaoDeRecomendacoes(context, depsDeFeed.social),
                 ),
                 routes: <RouteBase>[
+                  rotaDeRecomendacoesRecebidas(depsDeFeed.social),
                   ...rotasDeDescobrir(
                     deps,
                     estante: servicoDeEstante,

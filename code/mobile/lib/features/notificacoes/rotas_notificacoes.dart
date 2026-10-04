@@ -71,6 +71,7 @@ String destinoDaNotificacao(Notificacao notificacao) {
       return rotaFeedRaiz;
     case TipoNotificacao.leituraEmRisco:
     case TipoNotificacao.leituraExpirada:
+    case TipoNotificacao.recomendacaoRecebida:
       final livro = notificacao.livro;
       if (livro == null) {
         return rotaEstanteRaiz;

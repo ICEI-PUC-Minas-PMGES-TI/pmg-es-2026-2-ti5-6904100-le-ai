@@ -218,6 +218,30 @@ class EstadoCurtida {
   const EstadoCurtida({required this.totalCurtidas});
 }
 
+class RecomendacaoRecebida {
+  final String id;
+  final AutorSnapshot remetente;
+  final LivroSnapshot livro;
+  final String? mensagem;
+  final DateTime criadoEm;
+
+  const RecomendacaoRecebida({
+    required this.id,
+    required this.remetente,
+    required this.livro,
+    required this.mensagem,
+    required this.criadoEm,
+  });
+
+  factory RecomendacaoRecebida.fromJson(Map<String, dynamic> json) => RecomendacaoRecebida(
+    id: json['id'] as String,
+    remetente: AutorSnapshot.fromJson(json['remetente'] as Map<String, dynamic>),
+    livro: LivroSnapshot.fromJson(json['livro'] as Map<String, dynamic>),
+    mensagem: json['mensagem'] as String?,
+    criadoEm: DateTime.parse(json['criadoEm'] as String).toLocal(),
+  );
+}
+
 class CandidatoARecomendacao {
   final AutorSnapshot leitor;
   final bool jaTemLivro;
@@ -363,6 +387,17 @@ class SocialService {
 
   Future<void> excluirComentario(String comentarioId, {required String idempotencyKey}) =>
       _api.deleteVazio('/comentarios/${_id(comentarioId)}', idempotencyKey: idempotencyKey);
+
+  Future<Pagina<RecomendacaoRecebida>> listarRecebidas(
+    int pagina, {
+    int tamanho = tamanhoDaPagina,
+  }) async => _pagina(
+    await _api.getJson('/recomendacoes/recebidas?page=$pagina&size=$tamanho'),
+    RecomendacaoRecebida.fromJson,
+  );
+
+  Future<void> descartarRecomendacao(String id, {required String idempotencyKey}) =>
+      _api.deleteVazio('/recomendacoes/${_id(id)}', idempotencyKey: idempotencyKey);
 
   Future<List<CandidatoARecomendacao>> listarCandidatos(String livroId) async {
     final json = await _api.getJson(

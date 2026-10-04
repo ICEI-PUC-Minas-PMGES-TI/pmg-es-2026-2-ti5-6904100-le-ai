@@ -57,12 +57,27 @@ void main() {
     expect(ehRotaDeNotificacoes('/estante/notificacoes/outra'), isFalse);
   });
 
+  test('recomendacao recebida traz o livro e a mensagem de quem recomendou', () {
+    final notificacao = Notificacao.fromJson(<String, dynamic>{
+      'id': 'n1',
+      'tipo': 'RECOMENDACAO_RECEBIDA',
+      'mensagem': 'Lívia Carvalho te recomendou Tudo É Rio.',
+      'livro': <String, dynamic>{'id': 'l9', 'tipo': 'oficial', 'titulo': 'Tudo É Rio'},
+      'recomendacaoMensagem': 'Terminei ontem.',
+      'lida': false,
+      'criadoEm': '2026-09-26T12:00:00Z',
+    })!;
+
+    expect(notificacao.recomendacaoMensagem, 'Terminei ontem.');
+    expect(destinoDaNotificacao(notificacao), '/descobrir/livro/l9');
+  });
+
   test('tipo desconhecido do servidor e ignorado, nao quebra a lista', () {
     final pagina = PaginaDeNotificacoes.fromJson(<String, dynamic>{
       'itens': <Object>[
         <String, dynamic>{
           'id': 'x',
-          'tipo': 'RECOMENDACAO_RECEBIDA',
+          'tipo': 'LEMBRETE_DE_SEQUENCIA',
           'mensagem': 'm',
           'lida': false,
           'criadoEm': '2026-09-26T12:00:00Z',
