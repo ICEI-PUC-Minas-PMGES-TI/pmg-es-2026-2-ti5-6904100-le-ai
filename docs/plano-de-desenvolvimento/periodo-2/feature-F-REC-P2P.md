@@ -27,10 +27,10 @@ RNF atendidos: **RNF-SEC-02/03** (propriedade e privacidade no servidor), **RNF-
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | não iniciado | tabela `recomendacao`; publisher/consumer de `recomendacao.recebida`; consumidor de `livro.adicionado_a_estante` |
-| Backend | não iniciado | `social`: envio, recebidas, descarte owner-only, remoção automática, notificação e aba |
-| Web | não iniciado | recomendar, ver recebidas, descartar, aba Recomendações (seção P2P) |
-| Mobile | não iniciado | mesmas telas + a notificação de recebida |
+| Infra | implementado | tabela `recomendacao` (já existia); `recomendacao.recebida` pela outbox de `social`; fila `leai.social.recomendacoes` com DLQ ligada a `livro.adicionado_a_estante`; validação em DES pendente |
+| Backend | implementado | `social`: envio com resultado por destinatário, candidatos, recebidas, descarte owner-only, remoção ao estantar, limpeza diária e notificação `RECOMENDACAO_RECEBIDA` |
+| Web | implementado | menu `Mais ações` na página do livro com o diálogo Recomendar; seção no Descobrir e lista `/descobrir/recomendacoes` com descarte |
+| Mobile | implementado | mesmas telas + a notificação de recebida (ícone, mensagem do remetente, destino na página do livro); validação em emulador e DES pendente |
 
 ## Especificação
 
@@ -70,12 +70,12 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 ## Critérios de aceite
 
-- [ ] Enviar exige **seguimento mútuo**; bloqueia livro **pessoal**, destinatário que **já tem** o livro e o **limite de 50 ativas** por par (RF-REC-01/06/07, RN-22.1-5); rate limiting ativo (SEC-18); vários destinatários geram uma recomendação cada.
-- [ ] Ver recebidas (paginado) com livro/remetente/mensagem; acionar leva à **página do livro** (RF-REC-04/05); expiradas (90 dias) não aparecem.
-- [ ] Descarte individual é exclusivo do destinatário, **sem motivo** e **sem** avisar o remetente (RF-REC-15, SEC-02).
-- [ ] Adicionar o livro à estante **remove todas** as recomendações dele (RF-REC-16) via `livro.adicionado_a_estante`; consumidor **idempotente** + DLQ.
-- [ ] `recomendacao.recebida` usa `recomendacaoId`, é publicado após a escrita e gera uma notificação no destinatário sem suprimir novo envio futuro.
-- [ ] A **aba** mostra a seção P2P e **funciona sem** a algorítmica (RF-REC-13/14).
+- [x] Enviar exige **seguimento mútuo**; bloqueia livro **pessoal**, destinatário que **já tem** o livro e o **limite de 50 ativas** por par (RF-REC-01/06/07, RN-22.1-5); rate limiting ativo (SEC-18); vários destinatários geram uma recomendação cada.
+- [x] Ver recebidas (paginado) com livro/remetente/mensagem; acionar leva à **página do livro** (RF-REC-04/05); expiradas (90 dias) não aparecem.
+- [x] Descarte individual é exclusivo do destinatário, **sem motivo** e **sem** avisar o remetente (RF-REC-15, SEC-02).
+- [x] Adicionar o livro à estante **remove todas** as recomendações dele (RF-REC-16) via `livro.adicionado_a_estante`; consumidor **idempotente** + DLQ.
+- [x] `recomendacao.recebida` usa `recomendacaoId`, é publicado após a escrita e gera uma notificação no destinatário sem suprimir novo envio futuro.
+- [x] A **aba** mostra a seção P2P e **funciona sem** a algorítmica (RF-REC-13/14).
 - [ ] Recomendação P2P funciona **em DES**.
 
 ## Definition of Done
@@ -84,28 +84,45 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 - [ ] Código (backend `social`, web, mobile) mergeado em `desenvolvimento`
 - [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
-- [ ] Testes unitários e de integração com banco real/container: regras de envio, descarte pelo destinatário e negativa para terceiro/remetente, expiração, remoção automática, paginação e idempotência (RNF-TST-02)
-- [ ] Testes assíncronos: publicação/consumo/DLQ de `recomendacao.recebida` e consumo de `livro.adicionado_a_estante` com duplicação e DLQ (RNF-TST-03)
-- [ ] Testes web/mobile cobrem envio com bloqueios, aba P2P e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
-- [ ] **Spec OpenAPI de `social` atualizado em `docs/api/social.yaml`** com recomendações e o schema de `recomendacao.recebida`
+- [x] Testes unitários e de integração com banco real/container: regras de envio, descarte pelo destinatário e negativa para terceiro/remetente, expiração, remoção automática, paginação e idempotência (RNF-TST-02)
+- [x] Testes assíncronos: publicação/consumo/DLQ de `recomendacao.recebida` e consumo de `livro.adicionado_a_estante` com duplicação e DLQ (RNF-TST-03)
+- [x] Testes web/mobile cobrem envio com bloqueios, aba P2P e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
+- [x] **Spec OpenAPI de `social` atualizado em `docs/api/social.yaml`** com recomendações e o schema de `recomendacao.recebida`
 - [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
-- [ ] Arquivo da feature atualizado: status, pendências, timeline
-- [ ] Divergência protótipo × implementação registrada, se houver
+- [x] Arquivo da feature atualizado: status, pendências, timeline
+- [x] Divergência protótipo × implementação registrada, se houver
 
 **Item próprio:** entregar o contrato aprovado de `recomendacao.recebida`, seu consumidor de notificação e o novo consumo de `livro.adicionado_a_estante` por `social`.
 
 ## Pendências
 
-- **Telas (design P2):** seção `Recomendações recebidas` na aterrissagem do Descobrir, na edição consolidada [`descobrir.md`](../../design/periodo-2/descobrir/descobrir.md) ([protótipo](../../design/periodo-2/descobrir/prototipos/descobrir.html)), e entrada `Recomendar a um leitor` no menu `DotsThree` da [`pagina-do-livro.md`](../../design/periodo-2/pagina-do-livro/pagina-do-livro.md) ([protótipo](../../design/periodo-2/pagina-do-livro/prototipos/pagina-do-livro.html)) (lote 2). Lote 3, prompts escritos e protótipos exportados em 29/09/2026: [`recomendar-livro.md`](../../design/periodo-2/F-REC-P2P/recomendar-livro.md) ([protótipo](../../design/periodo-2/F-REC-P2P/prototipos/recomendar-livro.html)) (recomendar parte só da página do livro) e [`recomendacoes-recebidas.md`](../../design/periodo-2/F-REC-P2P/recomendacoes-recebidas.md) ([protótipo](../../design/periodo-2/F-REC-P2P/prototipos/recomendacoes-recebidas.html)). Decisões a ratificar: seção vazia visível com uma linha, descarte só na lista completa, descarte sem confirmação e fora do estilo destrutivo, falha parcial mantendo a tela aberta com o motivo por destinatário. **Contrato pendente:** listar os mútuos já dizendo, para o livro, quem tem o livro e quem atingiu o limite; lista de mútuos inteira para a busca local; formato do tempo relativo; limite da mensagem (280 no protótipo); tempo de espera do rate limit; reenvio do mesmo livro à mesma pessoa com recomendação ativa. Lote 7, prompt escrito e protótipo exportado em 29/09/2026: tipo `recomendação recebida` na edição [`notificacoes.md`](../../design/periodo-2/notificacoes/notificacoes.md) ([protótipo](../../design/periodo-2/notificacoes/prototipos/notificacoes.html)) (leva à página do livro, com a mensagem do remetente). Contrato a confirmar: o payload de `recomendacao.recebida` traz a mensagem?
+- **Telas (design P2):** seção `Recomendações recebidas` na aterrissagem do Descobrir, na edição consolidada [`descobrir.md`](../../design/periodo-2/descobrir/descobrir.md) ([protótipo](../../design/periodo-2/descobrir/prototipos/descobrir.html)), e entrada `Recomendar a um leitor` no menu `DotsThree` da [`pagina-do-livro.md`](../../design/periodo-2/pagina-do-livro/pagina-do-livro.md) ([protótipo](../../design/periodo-2/pagina-do-livro/prototipos/pagina-do-livro.html)) (lote 2). Lote 3, prompts escritos e protótipos exportados em 29/09/2026: [`recomendar-livro.md`](../../design/periodo-2/F-REC-P2P/recomendar-livro.md) ([protótipo](../../design/periodo-2/F-REC-P2P/prototipos/recomendar-livro.html)) (recomendar parte só da página do livro) e [`recomendacoes-recebidas.md`](../../design/periodo-2/F-REC-P2P/recomendacoes-recebidas.md) ([protótipo](../../design/periodo-2/F-REC-P2P/prototipos/recomendacoes-recebidas.html)). Decisões a ratificar: seção vazia visível com uma linha, descarte só na lista completa, descarte sem confirmação e fora do estilo destrutivo, falha parcial mantendo a tela aberta com o motivo por destinatário. **Contrato resolvido em 04/10/2026** (ver "Decisões de contrato" abaixo): listar os mútuos já dizendo, para o livro, quem tem o livro e quem atingiu o limite; lista de mútuos inteira para a busca local; formato do tempo relativo; limite da mensagem (280 no protótipo); tempo de espera do rate limit; reenvio do mesmo livro à mesma pessoa com recomendação ativa. Lote 7, prompt escrito e protótipo exportado em 29/09/2026: tipo `recomendação recebida` na edição [`notificacoes.md`](../../design/periodo-2/notificacoes/notificacoes.md) ([protótipo](../../design/periodo-2/notificacoes/prototipos/notificacoes.html)) (leva à página do livro, com a mensagem do remetente). O payload de `recomendacao.recebida` traz a mensagem, e a notificação a expõe em `recomendacaoMensagem`.
 - **A "aba Recomendações" de RF-REC-13 é uma SEÇÃO dentro da aba `Descobrir`, não um item de navegação.** Decidido em 01/09/2026 junto da criação de `Descobrir` ([P0-NAV](../periodo-0/feature-P0-NAV.md)): a barra inferior tem quatro itens (Estante, Descobrir, Feed, Perfil) e esse é o teto. Um quinto item apertaria o rótulo em `caption` no mobile e fragmentaria descoberta em duas áreas que fazem a mesma coisa. RF-REC-13 pede que a aba "reúna as fontes em seções distintas" e RF-REC-14 que ela funcione só com P2P: as duas exigências são atendidas por uma seção rotulada dentro de `Descobrir`, que hoje aterrissa quase vazia ([`descobrir.md`](../../design/periodo-1/F-ACV-BUSCA/descobrir.md) §4.6). **Se o grupo preferir aba própria**, a decisão volta pelo plano §3 e o impacto é o shell replicado em seis prompts de design.
 - **Depende de** [F-PERFIL](../periodo-1/feature-F-PERFIL.md) (mútuo), [F-EST](../periodo-1/feature-F-EST.md) (`v_estante_publica_v1`, `livro.adicionado_a_estante`), [F-ACV-BUSCA](../periodo-1/feature-F-ACV-BUSCA.md)/[F-ACV-CADASTRO](../periodo-1/feature-F-ACV-CADASTRO.md) (`v_livro_referencia_v1`, página do livro), [F-NOT](../periodo-1/feature-F-NOT.md) (consumo da notificação), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md), [P0-MSG](../periodo-0/feature-P0-MSG.md).
-- **Decisões do dono:** definir semântica de falha parcial e formato de resposta por destinatário no envio múltiplo, além dos limites de destinatários e caracteres da mensagem.
-- **Alternativa a avaliar, sem mudar o desenho atual:** aplicar expiração apenas por `expira_em` nas consultas e adiar a remoção física para manutenção, sem job próprio da feature.
+- **Decisões de contrato (dono, 04/10/2026), em [`social.yaml`](../../api/social.yaml):**
+  - `POST /recomendacoes` responde `201` com `resultados[]`, um por destinatário: `CRIADA` com `recomendacaoId`, ou `BLOQUEADA` com `motivo` (`SEM_MUTUO`, `JA_TEM_LIVRO`, `LIMITE_PAR`, `JA_RECOMENDADO`). Livro pessoal rejeita o pedido inteiro com `422`; todos bloqueados também dá `422`, com os resultados.
+  - No máximo 20 destinatários por envio e mensagem de até 280 caracteres.
+  - Reenvio do mesmo livro à mesma pessoa com recomendação ativa é bloqueado (`JA_RECOMENDADO`); depois de descarte ou expiração, um novo envio cria outro id.
+  - `GET /recomendacoes/candidatos?livroId=` devolve a lista inteira de mútuos, cada um com `jaTemLivro` e `limiteAtingido`, para a busca local.
+  - Rate limit de 10 envios por minuto por leitor; `429` sem tempo de espera, como no protótipo.
+  - Tempo relativo calculado no cliente a partir de `criadoEm`.
+- **Expiração:** as consultas filtram por `expira_em`, e uma rotina diária (`@Scheduled`) apaga em lotes as vencidas e as de livro que já está na estante. A mesma rotina serve de backfill do intervalo anterior à fila de `livro.adicionado_a_estante`.
+- **Validação em DES:** o DES recebe deploy no merge em `main` ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)), então o fluxo ponta a ponta fica para depois do merge: A e B se seguem; A recomenda um livro; B recebe a notificação e vê a recomendação no Descobrir; B põe o livro na estante e a recomendação some.
+
+### Divergências protótipo × implementação (04/10/2026)
+
+- **Sem a mensagem de cold start nas recebidas** (seção do Descobrir e lista completa, web e mobile): o esqueleto aparece, mas a linha `O serviço está iniciando...` depois de 3 s (RNF-ERR-09) só existe na tela Recomendar.
+- **Sem animação de saída no descarte** (web e mobile): o item sai da lista quando o servidor confirma, sem o fade de `dur-base` nem a subida animada dos itens de baixo.
+- **Mobile, volta da página do livro:** a lista completa recarrega com o esqueleto em vez de só tirar os itens que saíram; a seção do Descobrir recarrega sem esqueleto.
+- **Mobile, carregamento incremental:** uma linha de esqueleto no fim da lista, não duas.
+- **Mobile, header da lista:** o divisor da base é fixo, e não só quando o conteúdo rola por baixo, como no resto das telas de detalhe do app.
 - **Fronteira:** recomendação algorítmica e descarte em lote são F-REC-ALG/P3. Opt-out aprovado, incorporado em 15/09/2026, pertence àquela feature; contador de três descartes e supressão da pergunta são temporários por sessão do cliente.
 - **Compartilha `social`** com as demais features sociais; recomendações limpas por [F-CONTA-2](feature-F-CONTA-2.md) na exclusão — sinalizar no grupo (plano §6).
 - Stack de `social` definida: **Spring (Java)** (arquitetura §2.1).
 
 ## Timeline
+
+### Implementação 04/10/2026: contratos, backend `social`, web e mobile na branch `Eman134/F-REC-P2P` (issue #28). Envio com resultado por destinatário, candidatos, recebidas, descarte owner-only, remoção ao estantar com DLQ, limpeza diária e notificação `RECOMENDACAO_RECEBIDA`; testes de integração com Postgres real, Vitest e `flutter test`. Validação em DES pendente do merge.
 
 ### Revisão 15/09/2026: fronteira atualizada com opt-out aprovado e estado local temporário de descartes em F-REC-ALG. P2P continua sem novas tabelas ou máquina de aceitação.
 
