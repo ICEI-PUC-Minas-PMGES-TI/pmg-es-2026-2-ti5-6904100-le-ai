@@ -8,12 +8,6 @@ import java.util.Map;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
 
-/**
- * {@code recomendacao.recebida} (schema {@code recomendacao.recebida.v1}), gravado na outbox na
- * transação que cria a recomendação. A chave de negócio é a identidade da recomendação: reentrega
- * do mesmo fato não duplica a notificação, e um novo envio depois de descarte ou expiração tem
- * outro id e notifica de novo.
- */
 @Component
 class EventosDeRecomendacao {
 
@@ -23,12 +17,10 @@ class EventosDeRecomendacao {
     this.outbox = outbox;
   }
 
-  /** Snapshot de quem recomenda, montado uma vez por envio e repetido em cada destinatário. */
   Map<String, Object> remetente(UUID remetenteId) {
     return outbox.usuarioSnapshot(remetenteId);
   }
 
-  /** Grava o evento e devolve o {@code eventId}, guardado na recomendação para rastreio. */
   UUID recomendacaoRecebida(
       UUID recomendacaoId,
       UUID destinatarioId,
@@ -46,7 +38,6 @@ class EventosDeRecomendacao {
         MessagingConstants.EVENTO_RECOMENDACAO_RECEBIDA, "recomendacao:" + recomendacaoId, data);
   }
 
-  /** {@code LivroSnapshot} de {@code common-v1.schema.json}. */
   private static Map<String, Object> livroSnapshot(LivroDeReferencia livro) {
     Map<String, Object> snapshot = new LinkedHashMap<>();
     snapshot.put("id", livro.id().toString());

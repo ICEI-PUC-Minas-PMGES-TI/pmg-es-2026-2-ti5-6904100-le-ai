@@ -49,7 +49,6 @@ public final class MessagingConstants {
   public static final String EVENTO_LEITURA_EXPIRADA = "leitura.expirada";
   public static final String EVENTO_RECOMENDACAO_RECEBIDA = "recomendacao.recebida";
 
-  /** Topologia do consumidor que remove recomendações do livro estantado (F-REC-P2P, RF-REC-16). */
   public static final String RECOMENDACOES_CONSUMER_NAME = "social.recomendacoes";
 
   public static final String RECOMENDACOES_QUEUE = "leai.social.recomendacoes";

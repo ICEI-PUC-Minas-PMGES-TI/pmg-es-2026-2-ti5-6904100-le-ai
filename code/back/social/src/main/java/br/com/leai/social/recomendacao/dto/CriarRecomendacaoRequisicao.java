@@ -7,10 +7,6 @@ import jakarta.validation.constraints.Size;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Schema {@code CriarRecomendacao} de {@code docs/api/social.yaml}: corpo de {@code POST
- * /recomendacoes}. A mensagem é normalizada no serviço (espaços nas pontas, vazia vira ausente).
- */
 @Schema(name = "CriarRecomendacao")
 public record CriarRecomendacaoRequisicao(
     @NotNull(message = "Informe o livro.") UUID livroId,

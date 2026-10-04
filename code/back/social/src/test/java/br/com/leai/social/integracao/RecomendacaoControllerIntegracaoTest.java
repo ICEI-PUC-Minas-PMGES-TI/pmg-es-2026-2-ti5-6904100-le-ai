@@ -19,11 +19,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-/**
- * {@code RecomendacaoController} contra Postgres real, HTTP de ponta a ponta (F-REC-P2P): regras
- * de envio de RN-22, idempotência, rate limiting, recebidas paginadas com expiração e descarte
- * exclusivo do destinatário. A massa de outros serviços vem de {@link MassaDeRecomendacao}.
- */
 @EnabledIfEnvironmentVariable(named = "DATABASE_URL_TESTE", matches = ".+")
 class RecomendacaoControllerIntegracaoTest extends IntegracaoComPostgres {
 

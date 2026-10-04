@@ -7,12 +7,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-/**
- * Rotina diária de remoção física (§10.8, sem exigir precisão de horário): recomendações vencidas
- * (RN-22.9) e as de livro que já está na estante do destinatário (RN-22.10), que o consumidor de
- * {@code livro.adicionado_a_estante} não viu. As consultas já escondem as vencidas; a rotina só
- * libera espaço e fecha a reconciliação. Apaga em lotes para não segurar locks longos.
- */
 @Component
 public class LimpezaDeRecomendacoes {
 
@@ -29,6 +23,7 @@ public class LimpezaDeRecomendacoes {
   @Scheduled(
       cron = "${leai.recomendacoes.limpeza-cron:0 30 4 * * *}",
       zone = "America/Sao_Paulo")
+  // A reconciliação com a estante cobre o que o consumidor não viu, inclusive antes da fila existir.
   public void limpar() {
     int expiradas = emLotes(repositorio::removerExpiradas);
     int naEstante = emLotes(repositorio::removerJaNaEstante);

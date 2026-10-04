@@ -28,18 +28,11 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Recomendação P2P (RN-22, §10.8): envio a mútuos, recebidas e descarte pelo destinatário. Não há
- * máquina de estados: a recomendação existe ou não. Chamado de dentro do fluxo de idempotência
- * pelo controller; este serviço não conhece {@code Idempotency-Key}.
- */
 @Service
 public class ServicoDeRecomendacao {
 
-  /** RN-22.4: recomendações ativas de um remetente para um mesmo destinatário. */
   public static final int LIMITE_ATIVAS_POR_PAR = 50;
 
-  /** Teto da lista de candidatos; seguimento mútuo é uma relação pequena por natureza. */
   public static final int CANDIDATOS_MAXIMO = 500;
 
   static final String SEM_MUTUO = "SEM_MUTUO";
@@ -62,11 +55,6 @@ public class ServicoDeRecomendacao {
     this.limiteDeRecomendar = limiteDeRecomendar;
   }
 
-  /**
-   * Cria uma recomendação por destinatário elegível, na mesma transação das linhas de outbox.
-   * Livro inexistente ou pessoal rejeita o envio inteiro; os bloqueios de RN-22.1/3/4 e o reenvio
-   * de recomendação ativa valem por destinatário e voltam no resultado, na ordem do pedido.
-   */
   @Transactional
   public ResultadoRecomendacaoResposta recomendar(UUID remetenteId, CriarRecomendacaoRequisicao pedido) {
     List<UUID> destinatarios = semRepeticao(pedido.destinatarios());
@@ -108,7 +96,6 @@ public class ServicoDeRecomendacao {
     return new ResultadoRecomendacaoResposta(resultados, criadas);
   }
 
-  /** Mútuos do leitor com a situação de cada um para o livro (tela Recomendar). */
   @Transactional(readOnly = true)
   public ListaCandidatosResposta candidatos(UUID remetenteId, UUID livroId) {
     LivroDeReferencia livro = livroRecomendavel(livroId);
@@ -121,7 +108,6 @@ public class ServicoDeRecomendacao {
             .toList());
   }
 
-  /** Recebidas ativas e não expiradas do leitor (RF-REC-04, RN-22.9). */
   @Transactional(readOnly = true)
   public PaginaRecomendacoesResposta recebidas(UUID destinatarioId, int page, int size) {
     Paginacao.validar(page, size);
@@ -143,10 +129,6 @@ public class ServicoDeRecomendacao {
         itens, page, size, total, totalPaginas, page >= totalPaginas - 1);
   }
 
-  /**
-   * Descarte individual (RN-22.11), só pelo destinatário e sem avisar o remetente. Inexistente,
-   * expirada ou de outro leitor responde igual, sem confirmar a existência (RNF-SEC-02).
-   */
   @Transactional
   public void descartar(UUID destinatarioId, UUID recomendacaoId) {
     if (!repositorio.removerDoDestinatario(recomendacaoId, destinatarioId)) {
@@ -195,7 +177,6 @@ public class ServicoDeRecomendacao {
     return destinatarios;
   }
 
-  /** RF-REC-03: opcional; espaços nas pontas saem e texto vazio vira ausente. */
   private static String normalizarMensagem(String bruta) {
     if (bruta == null || bruta.isBlank()) {
       return null;

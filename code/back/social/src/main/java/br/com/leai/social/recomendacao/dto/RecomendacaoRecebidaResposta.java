@@ -5,7 +5,6 @@ import br.com.leai.social.feed.dto.LivroSnapshotResposta;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 
-/** Schema {@code RecomendacaoRecebida} de {@code docs/api/social.yaml}. */
 @Schema(name = "RecomendacaoRecebida")
 public record RecomendacaoRecebidaResposta(
     String id,

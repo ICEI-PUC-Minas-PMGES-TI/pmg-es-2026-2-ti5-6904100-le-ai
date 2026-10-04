@@ -31,12 +31,6 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 
-/**
- * {@link ConsumidorDeLivroNaEstante} sobre o {@link AmqpConsumerService} de verdade, com o canal
- * AMQP simulado: a fila nova amarrada só a {@code livro.adicionado_a_estante} no exchange de
- * {@code leitura}, com DLQ, o ack da mensagem válida e a rejeição por schema direto para a DLQ sem
- * tocar no banco (RNF-ERR-07). O efeito no banco fica em {@code RemocaoDeRecomendacoesIntegracaoTest}.
- */
 class ConsumidorDeLivroNaEstanteBrokerTest {
 
   private static final long TAG = 11L;

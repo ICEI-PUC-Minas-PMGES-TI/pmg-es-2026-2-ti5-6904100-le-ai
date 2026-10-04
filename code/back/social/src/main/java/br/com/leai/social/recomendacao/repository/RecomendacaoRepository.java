@@ -17,16 +17,6 @@ import java.util.stream.Stream;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
-/**
- * Acesso a {@code social.recomendacao} e às VIEWs de outros serviços que as regras de RN-22
- * consultam: {@code identidade.v_seguimento_aceito_v1} (mútuo), {@code
- * identidade.v_perfil_referencia_v1} (remetente), {@code acervo.v_livro_referencia_v1} (livro) e
- * {@code leitura.v_estante_publica_v1} (destinatário já tem o livro). Nenhuma tabela crua de outro
- * schema é lida.
- *
- * <p>Ativa é a recomendação com {@code expira_em > now()}: a expiração vale pela consulta, antes da
- * remoção física (RN-22.9).
- */
 @Repository
 public class RecomendacaoRepository {
 
@@ -49,7 +39,6 @@ public class RecomendacaoRepository {
     this.jdbc = jdbc;
   }
 
-  /** Livro ativo no acervo; ausente quando não existe ou foi desativado. */
   public Optional<LivroDeReferencia> livro(UUID livroId) {
     return jdbc
         .query(
@@ -61,7 +50,6 @@ public class RecomendacaoRepository {
         .findFirst();
   }
 
-  /** Dos leitores informados, os que têm seguimento mútuo com o remetente (RN-22.1). */
   public Set<UUID> mutuos(UUID remetenteId, Collection<UUID> leitores) {
     return ids(
         "SELECT ida.seguido_id FROM " + MUTUO
@@ -70,7 +58,6 @@ public class RecomendacaoRepository {
         leitores);
   }
 
-  /** Dos leitores informados, os que já têm o livro na estante em qualquer status (RN-22.3). */
   public Set<UUID> comLivroNaEstante(UUID livroId, Collection<UUID> leitores) {
     return ids(
         "SELECT usuario_id FROM leitura.v_estante_publica_v1"
@@ -79,7 +66,6 @@ public class RecomendacaoRepository {
         leitores);
   }
 
-  /** Dos leitores informados, os que já têm recomendação ativa deste livro vinda do remetente. */
   public Set<UUID> jaRecomendados(UUID remetenteId, UUID livroId, Collection<UUID> leitores) {
     List<Object> parametros = new ArrayList<>(List.of(remetenteId, livroId));
     parametros.addAll(leitores);
@@ -92,7 +78,6 @@ public class RecomendacaoRepository {
             parametros.toArray()));
   }
 
-  /** Recomendações ativas do remetente para cada destinatário informado (RN-22.4). */
   public Map<UUID, Long> ativasPorDestinatario(UUID remetenteId, Collection<UUID> leitores) {
     List<Object> parametros = new ArrayList<>(List.of(remetenteId));
     parametros.addAll(leitores);
@@ -111,11 +96,7 @@ public class RecomendacaoRepository {
         parametros.toArray());
   }
 
-  /**
-   * Serializa envios concorrentes do mesmo remetente até o fim da transação, para que a contagem
-   * do limite e a checagem de recomendação repetida não sejam furadas por duas requisições ao mesmo
-   * tempo (o limite é por par e o remetente é o mesmo em todos os pares do envio).
-   */
+  // Sem o lock, dois envios simultâneos do mesmo remetente furam o limite do par e o reenvio.
   public void travarRemetente(UUID remetenteId) {
     jdbc.queryForList(
         "SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", "recomendacao:" + remetenteId);
@@ -134,10 +115,6 @@ public class RecomendacaoRepository {
         eventId);
   }
 
-  /**
-   * Mútuos do remetente com a situação de cada um para o livro, em ordem de nome. O teto protege a
-   * resposta; seguimento mútuo é pequeno por natureza.
-   */
   public List<Candidato> candidatos(UUID remetenteId, UUID livroId, int limiteDoPar, int teto) {
     return jdbc.query(
         "SELECT p.id, p.username::text AS username, p.nome_exibicao, p.avatar_url,"
@@ -162,10 +139,6 @@ public class RecomendacaoRepository {
         teto);
   }
 
-  /**
-   * Recebidas ativas do destinatário, da mais recente para a mais antiga. Remetente fora de {@code
-   * v_perfil_referencia_v1} (suspenso ou em exclusão) e livro desativado saem da lista.
-   */
   public List<Recebida> recebidas(UUID destinatarioId, int pagina, int tamanho) {
     return jdbc.query(
         "SELECT r.id, r.mensagem, r.criado_em, r.expira_em,"
@@ -190,7 +163,6 @@ public class RecomendacaoRepository {
     return jdbc.queryForObject("SELECT count(*)" + RECEBIDAS, Long.class, destinatarioId);
   }
 
-  /** Descarte pelo destinatário (RN-22.11): só remove a recomendação ativa que é dele. */
   public boolean removerDoDestinatario(UUID recomendacaoId, UUID destinatarioId) {
     return jdbc.update(
             "DELETE FROM recomendacao WHERE id = ? AND destinatario_id = ? AND expira_em > now()",
@@ -199,7 +171,6 @@ public class RecomendacaoRepository {
         > 0;
   }
 
-  /** Adição à estante (RN-22.10): remove todas as recomendações do livro recebidas pelo leitor. */
   public int removerDoLivroNaEstante(UUID destinatarioId, UUID livroId) {
     return jdbc.update(
         "DELETE FROM recomendacao WHERE destinatario_id = ? AND livro_id = ?",
@@ -207,7 +178,6 @@ public class RecomendacaoRepository {
         livroId);
   }
 
-  /** Expiração (RN-22.9): remove fisicamente até {@code lote} recomendações já vencidas. */
   public int removerExpiradas(int lote) {
     return jdbc.update(
         "DELETE FROM recomendacao WHERE id IN ("
@@ -215,11 +185,6 @@ public class RecomendacaoRepository {
         lote);
   }
 
-  /**
-   * Reconciliação de RN-22.10: remove até {@code lote} recomendações cujo livro já está na estante
-   * do destinatário. Cobre o que o consumidor de {@code livro.adicionado_a_estante} não viu, como o
-   * intervalo antes de a fila existir.
-   */
   public int removerJaNaEstante(int lote) {
     return jdbc.update(
         "DELETE FROM recomendacao WHERE id IN ("

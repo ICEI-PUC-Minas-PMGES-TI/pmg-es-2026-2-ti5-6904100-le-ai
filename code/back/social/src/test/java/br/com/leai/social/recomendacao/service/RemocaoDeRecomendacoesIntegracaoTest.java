@@ -17,12 +17,6 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-/**
- * Vias automáticas de remoção contra Postgres real: o livro entra na estante (RN-22.10, pelo
- * consumidor de {@code livro.adicionado_a_estante}) e a rotina diária, que apaga vencidas (RN-22.9)
- * e reconcilia com a estante. O envelope é entregue direto ao handler; validação e DLQ do broker
- * ficam em {@code ConsumidorDeLivroNaEstanteBrokerTest}.
- */
 @EnabledIfEnvironmentVariable(named = "DATABASE_URL_TESTE", matches = ".+")
 class RemocaoDeRecomendacoesIntegracaoTest extends IntegracaoComPostgres {
 

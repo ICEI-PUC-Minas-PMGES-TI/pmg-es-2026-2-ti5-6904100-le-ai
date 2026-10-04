@@ -9,11 +9,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
 
-/**
- * Escrita em {@code outbox_social} na transação do chamador (RNF-ERR-10): se o fato for desfeito,
- * o evento some junto. Só grava o {@code data}; o {@link OutboxDispatcherService} monta o envelope.
- * Usado pelos eventos de interação (F-FEED) e de recomendação (F-REC-P2P).
- */
 @Component
 public class OutboxSocial {
 
@@ -25,7 +20,6 @@ public class OutboxSocial {
     this.objectMapper = objectMapper;
   }
 
-  /** Grava o evento pendente e devolve o {@code eventId} gerado. */
   public UUID gravar(String tipo, String chaveDeNegocio, Map<String, Object> data) {
     UUID eventId = UUID.randomUUID();
     jdbc.update(
@@ -39,11 +33,7 @@ public class OutboxSocial {
     return eventId;
   }
 
-  /**
-   * {@code UsuarioSnapshot} de {@code common-v1.schema.json}, batido contra {@code
-   * identidade.v_perfil_referencia_v1}. O {@code username} sai como texto: em {@code identidade} a
-   * coluna é {@code citext}, que o driver não serializa como string.
-   */
+  // username é citext em identidade; sem o cast o driver não o serializa como string.
   public Map<String, Object> usuarioSnapshot(UUID usuarioId) {
     List<Map<String, Object>> linhas =
         jdbc.queryForList(

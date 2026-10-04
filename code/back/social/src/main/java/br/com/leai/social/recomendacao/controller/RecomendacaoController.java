@@ -33,10 +33,6 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Recomendação P2P (F-REC-P2P): enviar, listar candidatos, ver recebidas e descartar. Mesmo padrão
- * de {@code InteracaoController} para as escritas idempotentes.
- */
 @RestController
 @Tag(
     name = "recomendacoes",

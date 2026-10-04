@@ -3,13 +3,6 @@ package br.com.leai.social.integracao;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-/**
- * Massa dos testes de F-REC-P2P contra Postgres real: recria o mínimo de {@code identidade},
- * {@code acervo} e {@code leitura} que as VIEWs consumidas pela recomendação exigem, e insere
- * leitores, seguimentos, livros, estante e recomendações. As VIEWs têm a mesma definição, coluna a
- * coluna, das outras classes de teste: {@code CREATE OR REPLACE VIEW} não remove colunas e o
- * contexto do Spring é compartilhado.
- */
 public final class MassaDeRecomendacao {
 
   private final JdbcTemplate jdbc;
@@ -18,7 +11,8 @@ public final class MassaDeRecomendacao {
     this.jdbc = jdbc;
   }
 
-  /** Cria schemas, tabelas e VIEWs de outros serviços e começa de tabelas vazias. */
+  // As VIEWs repetem coluna a coluna as das outras classes: CREATE OR REPLACE VIEW não remove
+  // colunas e o contexto do Spring é compartilhado.
   public void preparar() {
     jdbc.execute("CREATE SCHEMA IF NOT EXISTS identidade");
     jdbc.execute(
@@ -137,7 +131,6 @@ public final class MassaDeRecomendacao {
     return id;
   }
 
-  /** Novo leitor com seguimento aceito nos dois sentidos com {@code outro}. */
   public UUID mutuoDe(UUID outro, String username) {
     UUID id = leitor(username);
     jdbc.update("INSERT INTO identidade.seguidor VALUES (?, ?), (?, ?)", outro, id, id, outro);
@@ -161,7 +154,6 @@ public final class MassaDeRecomendacao {
         livro);
   }
 
-  /** Recomendação criada há {@code diasAtras} dias; acima de 90 ela já está vencida. */
   public UUID recomendacao(UUID remetente, UUID destinatario, UUID livro, int diasAtras) {
     return jdbc.queryForObject(
         "INSERT INTO recomendacao"

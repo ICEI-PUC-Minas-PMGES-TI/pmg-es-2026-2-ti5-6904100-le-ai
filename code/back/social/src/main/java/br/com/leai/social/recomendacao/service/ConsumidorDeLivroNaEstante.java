@@ -9,18 +9,6 @@ import br.com.leai.social.recomendacao.repository.RecomendacaoRepository;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
 
-/**
- * Consome {@code livro.adicionado_a_estante} e remove todas as recomendações daquele livro
- * recebidas pelo leitor (RF-REC-16, RN-22.10), sem avisar os remetentes. Fila {@code
- * leai.social.recomendacoes} no exchange de {@code leitura}; retentativa, DLQ e recibo em {@code
- * mensagem_processada} vêm do {@link AmqpConsumerService}.
- *
- * <p>Idempotente também no efeito: reentregar o fato apaga zero linhas. Falha de banco sobe e
- * segue o caminho de retentativa e DLQ; nada é engolido aqui.
- *
- * <p>Backfill antes do binding (AGENTS §10): {@link LimpezaDeRecomendacoes} reconcilia com a
- * estante as recomendações que este consumidor não viu.
- */
 @Component
 public class ConsumidorDeLivroNaEstante implements MessageHandler {
 
