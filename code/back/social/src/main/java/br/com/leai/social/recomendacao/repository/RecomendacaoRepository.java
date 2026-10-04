@@ -199,6 +199,37 @@ public class RecomendacaoRepository {
         > 0;
   }
 
+  /** Adição à estante (RN-22.10): remove todas as recomendações do livro recebidas pelo leitor. */
+  public int removerDoLivroNaEstante(UUID destinatarioId, UUID livroId) {
+    return jdbc.update(
+        "DELETE FROM recomendacao WHERE destinatario_id = ? AND livro_id = ?",
+        destinatarioId,
+        livroId);
+  }
+
+  /** Expiração (RN-22.9): remove fisicamente até {@code lote} recomendações já vencidas. */
+  public int removerExpiradas(int lote) {
+    return jdbc.update(
+        "DELETE FROM recomendacao WHERE id IN ("
+            + " SELECT id FROM recomendacao WHERE expira_em <= now() LIMIT ?)",
+        lote);
+  }
+
+  /**
+   * Reconciliação de RN-22.10: remove até {@code lote} recomendações cujo livro já está na estante
+   * do destinatário. Cobre o que o consumidor de {@code livro.adicionado_a_estante} não viu, como o
+   * intervalo antes de a fila existir.
+   */
+  public int removerJaNaEstante(int lote) {
+    return jdbc.update(
+        "DELETE FROM recomendacao WHERE id IN ("
+            + " SELECT r.id FROM recomendacao r"
+            + " JOIN leitura.v_estante_publica_v1 e"
+            + "   ON e.usuario_id = r.destinatario_id AND e.livro_id = r.livro_id"
+            + " LIMIT ?)",
+        lote);
+  }
+
   private Set<UUID> ids(String sql, UUID primeiro, Collection<UUID> leitores) {
     Object[] parametros = Stream.concat(Stream.of(primeiro), leitores.stream()).toArray();
     return new HashSet<>(jdbc.queryForList(sql, UUID.class, parametros));

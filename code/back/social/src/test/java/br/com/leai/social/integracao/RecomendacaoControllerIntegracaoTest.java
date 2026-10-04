@@ -22,142 +22,37 @@ import tools.jackson.databind.ObjectMapper;
 /**
  * {@code RecomendacaoController} contra Postgres real, HTTP de ponta a ponta (F-REC-P2P): regras
  * de envio de RN-22, idempotência, rate limiting, recebidas paginadas com expiração e descarte
- * exclusivo do destinatário. Recria o mínimo de {@code identidade}, {@code acervo} e {@code
- * leitura} que as VIEWs consumidas exigem, como {@link InteracaoControllerIntegracaoTest}.
+ * exclusivo do destinatário. A massa de outros serviços vem de {@link MassaDeRecomendacao}.
  */
 @EnabledIfEnvironmentVariable(named = "DATABASE_URL_TESTE", matches = ".+")
 class RecomendacaoControllerIntegracaoTest extends IntegracaoComPostgres {
 
   @Autowired private JdbcTemplate jdbc;
   @Autowired private ObjectMapper json;
+  private MassaDeRecomendacao massa;
 
   @BeforeEach
-  void preparaSchemaCrossServico() {
-    jdbc.execute("CREATE SCHEMA IF NOT EXISTS identidade");
-    jdbc.execute(
-        """
-        CREATE TABLE IF NOT EXISTS identidade.usuario (
-          id uuid PRIMARY KEY,
-          suspenso boolean NOT NULL DEFAULT false,
-          exclusao_solicitada_em timestamptz
-        )
-        """);
-    jdbc.execute("ALTER TABLE identidade.usuario ADD COLUMN IF NOT EXISTS username text");
-    jdbc.execute("ALTER TABLE identidade.usuario ADD COLUMN IF NOT EXISTS nome_exibicao text");
-    jdbc.execute("ALTER TABLE identidade.usuario ADD COLUMN IF NOT EXISTS avatar_url text");
-    jdbc.execute(
-        "ALTER TABLE identidade.usuario ADD COLUMN IF NOT EXISTS privacidade text NOT NULL DEFAULT 'publico'");
-    jdbc.execute(
-        "ALTER TABLE identidade.usuario ADD COLUMN IF NOT EXISTS opt_out_recomendacao boolean NOT NULL DEFAULT false");
-    jdbc.execute(
-        """
-        CREATE TABLE IF NOT EXISTS identidade.seguidor (
-          seguidor_id uuid NOT NULL,
-          seguido_id uuid NOT NULL,
-          PRIMARY KEY (seguidor_id, seguido_id)
-        )
-        """);
-    jdbc.execute(
-        """
-        CREATE OR REPLACE VIEW identidade.v_seguimento_aceito_v1 AS
-        SELECT s.seguidor_id, s.seguido_id
-          FROM identidade.seguidor s
-          JOIN identidade.usuario u_seguidor ON u_seguidor.id = s.seguidor_id
-          JOIN identidade.usuario u_seguido ON u_seguido.id = s.seguido_id
-         WHERE u_seguidor.suspenso = false AND u_seguidor.exclusao_solicitada_em IS NULL
-           AND u_seguido.suspenso = false AND u_seguido.exclusao_solicitada_em IS NULL
-        """);
-    jdbc.execute(
-        """
-        CREATE OR REPLACE VIEW identidade.v_perfil_referencia_v1 AS
-        SELECT id, username, nome_exibicao, avatar_url, privacidade, opt_out_recomendacao
-          FROM identidade.usuario
-         WHERE suspenso = false AND exclusao_solicitada_em IS NULL
-        """);
-
-    jdbc.execute("CREATE SCHEMA IF NOT EXISTS acervo");
-    jdbc.execute("CREATE TABLE IF NOT EXISTS acervo.autor (id uuid PRIMARY KEY, nome text NOT NULL)");
-    jdbc.execute(
-        """
-        CREATE TABLE IF NOT EXISTS acervo.livro (
-          id uuid PRIMARY KEY,
-          tipo text NOT NULL,
-          dono_id uuid,
-          paginas integer,
-          titulo text NOT NULL,
-          autor_informado text,
-          capa_url_propria text,
-          capa_url_externa text,
-          ativo boolean NOT NULL DEFAULT true
-        )
-        """);
-    jdbc.execute(
-        "CREATE TABLE IF NOT EXISTS acervo.livro_autor (livro_id uuid NOT NULL, autor_id uuid NOT NULL)");
-    // Mesma definição, coluna a coluna, das outras classes de teste: CREATE OR REPLACE VIEW não
-    // remove colunas e o contexto é compartilhado.
-    jdbc.execute(
-        """
-        CREATE OR REPLACE VIEW acervo.v_livro_referencia_v1 AS (
-          SELECT
-            l.id AS livro_id,
-            l.tipo,
-            l.dono_id,
-            l.paginas,
-            l.titulo,
-            CASE
-              WHEN l.tipo = 'pessoal' THEN l.autor_informado
-              ELSE (
-                SELECT string_agg(a.nome, ', ' ORDER BY a.nome)
-                FROM acervo.livro_autor la
-                JOIN acervo.autor a ON a.id = la.autor_id
-                WHERE la.livro_id = l.id
-              )
-            END AS autor_exibicao,
-            coalesce(l.capa_url_propria, l.capa_url_externa) AS capa_resolvida,
-            l.ativo
-          FROM acervo.livro l
-        )
-        """);
-
-    jdbc.execute("CREATE SCHEMA IF NOT EXISTS leitura");
-    jdbc.execute(
-        """
-        CREATE TABLE IF NOT EXISTS leitura.estante (
-          usuario_id uuid NOT NULL,
-          livro_id uuid NOT NULL,
-          status text NOT NULL,
-          vezes_lido integer NOT NULL DEFAULT 0,
-          PRIMARY KEY (usuario_id, livro_id)
-        )
-        """);
-    jdbc.execute(
-        """
-        CREATE OR REPLACE VIEW leitura.v_estante_publica_v1 AS (
-          SELECT usuario_id, livro_id, status, vezes_lido FROM leitura.estante
-        )
-        """);
-
-    jdbc.execute(
-        "TRUNCATE identidade.seguidor, identidade.usuario, acervo.livro, leitura.estante CASCADE");
-    jdbc.execute("TRUNCATE recomendacao, outbox_social");
+  void preparaMassa() {
+    massa = new MassaDeRecomendacao(jdbc);
+    massa.preparar();
   }
 
   @Test
   @DisplayName("Envio a vários cria só para os elegíveis e diz o motivo de cada bloqueio, na ordem")
   void envioMultiploComBloqueiosPorDestinatario() throws Exception {
-    UUID ana = leitor("ana");
-    UUID bia = mutuoDe(ana, "bia");
-    UUID caio = mutuoDe(ana, "caio");
-    UUID davi = leitor("davi");
-    jdbc.update("INSERT INTO identidade.seguidor VALUES (?, ?)", ana, davi);
-    UUID edu = mutuoDe(ana, "edu");
-    UUID fabi = mutuoDe(ana, "fabi");
-    UUID livro = livroOficial("Torto arado");
-    naEstante(caio, livro);
+    UUID ana = massa.leitor("ana");
+    UUID bia = massa.mutuoDe(ana, "bia");
+    UUID caio = massa.mutuoDe(ana, "caio");
+    UUID davi = massa.leitor("davi");
+    massa.segue(ana, davi);
+    UUID edu = massa.mutuoDe(ana, "edu");
+    UUID fabi = massa.mutuoDe(ana, "fabi");
+    UUID livro = massa.livroOficial("Torto arado");
+    massa.naEstante(caio, livro);
     for (int i = 0; i < ServicoDeRecomendacao.LIMITE_ATIVAS_POR_PAR; i++) {
-      recomendacaoNoBanco(ana, edu, livroOficial("Livro " + i), 0);
+      massa.recomendacao(ana, edu, massa.livroOficial("Livro " + i), 0);
     }
-    recomendacaoNoBanco(ana, fabi, livro, 0);
+    massa.recomendacao(ana, fabi, livro, 0);
 
     HttpResponse<String> resposta =
         recomendar(ana, livro, List.of(bia, caio, davi, edu, fabi), "  Leia, é lindo.  ", chave());
@@ -197,14 +92,14 @@ class RecomendacaoControllerIntegracaoTest extends IntegracaoComPostgres {
     assertThat(evento.get("mensagem").asString()).isEqualTo("Leia, é lindo.");
     assertThat(evento.get("autorAcao").get("username").asString()).isEqualTo("ana");
     assertThat(evento.get("livro").get("tipo").asString()).isEqualTo("oficial");
-    assertThat(contar("SELECT count(*) FROM outbox_social")).isEqualTo(1L);
+    assertThat(massa.contar("SELECT count(*) FROM outbox_social")).isEqualTo(1L);
   }
 
   @Test
   @DisplayName("Livro pessoal responde 422 e livro inexistente 404, sem gravar nada")
   void livroPessoalOuInexistenteRejeitaOEnvioInteiro() throws Exception {
-    UUID ana = leitor("ana");
-    UUID bia = mutuoDe(ana, "bia");
+    UUID ana = massa.leitor("ana");
+    UUID bia = massa.mutuoDe(ana, "bia");
     UUID pessoal = UUID.randomUUID();
     jdbc.update(
         "INSERT INTO acervo.livro (id, tipo, dono_id, titulo) VALUES (?, 'pessoal', ?, 'Diário')",
@@ -219,16 +114,16 @@ class RecomendacaoControllerIntegracaoTest extends IntegracaoComPostgres {
     assertThat(doPessoal.body()).contains("\"codigo\":\"ENTIDADE_NAO_PROCESSAVEL\"");
     assertThat(inexistente.statusCode()).isEqualTo(404);
     assertThat(candidatos.statusCode()).isEqualTo(422);
-    assertThat(contar("SELECT count(*) FROM recomendacao")).isZero();
-    assertThat(contar("SELECT count(*) FROM outbox_social")).isZero();
+    assertThat(massa.contar("SELECT count(*) FROM recomendacao")).isZero();
+    assertThat(massa.contar("SELECT count(*) FROM outbox_social")).isZero();
   }
 
   @Test
   @DisplayName("Mesma Idempotency-Key reproduz a resposta sem duplicar recomendação nem evento")
   void mesmaChaveNaoDuplica() throws Exception {
-    UUID ana = leitor("ana");
-    UUID bia = mutuoDe(ana, "bia");
-    UUID livro = livroOficial("Torto arado");
+    UUID ana = massa.leitor("ana");
+    UUID bia = massa.mutuoDe(ana, "bia");
+    UUID livro = massa.livroOficial("Torto arado");
     String chave = chave();
 
     HttpResponse<String> primeira = recomendar(ana, livro, List.of(bia), null, chave);
@@ -238,16 +133,16 @@ class RecomendacaoControllerIntegracaoTest extends IntegracaoComPostgres {
     assertThat(replay.statusCode()).isEqualTo(200);
     assertThat(replay.body()).isEqualTo(primeira.body());
     assertThat(outroPayload.statusCode()).isEqualTo(409);
-    assertThat(contar("SELECT count(*) FROM recomendacao")).isEqualTo(1L);
-    assertThat(contar("SELECT count(*) FROM outbox_social")).isEqualTo(1L);
+    assertThat(massa.contar("SELECT count(*) FROM recomendacao")).isEqualTo(1L);
+    assertThat(massa.contar("SELECT count(*) FROM outbox_social")).isEqualTo(1L);
   }
 
   @Test
   @DisplayName("Corpo inválido responde 400: mensagem longa, leitor repetido e lote acima de 20")
   void corpoInvalido() throws Exception {
-    UUID ana = leitor("ana");
-    UUID bia = mutuoDe(ana, "bia");
-    UUID livro = livroOficial("Torto arado");
+    UUID ana = massa.leitor("ana");
+    UUID bia = massa.mutuoDe(ana, "bia");
+    UUID livro = massa.livroOficial("Torto arado");
     List<UUID> vinteEUm = new ArrayList<>();
     for (int i = 0; i < 21; i++) {
       vinteEUm.add(UUID.randomUUID());
@@ -265,8 +160,8 @@ class RecomendacaoControllerIntegracaoTest extends IntegracaoComPostgres {
   @Test
   @DisplayName("Envios acima do limite por minuto respondem 429 (RNF-SEC-18)")
   void rateLimitingDoEnvio() throws Exception {
-    UUID ana = leitor("ana");
-    UUID livro = livroOficial("Torto arado");
+    UUID ana = massa.leitor("ana");
+    UUID livro = massa.livroOficial("Torto arado");
 
     for (int i = 0; i < LimitesDeInteracao.RECOMENDACOES_POR_MINUTO; i++) {
       assertThat(recomendar(ana, livro, List.of(UUID.randomUUID()), null, chave()).statusCode())
@@ -281,16 +176,16 @@ class RecomendacaoControllerIntegracaoTest extends IntegracaoComPostgres {
   @Test
   @DisplayName("Recebidas: paginadas, mais recentes primeiro, sem expiradas nem remetente suspenso")
   void recebidasPaginadasSemExpiradas() throws Exception {
-    UUID bia = leitor("bia");
-    UUID ana = mutuoDe(bia, "ana");
-    UUID caio = mutuoDe(bia, "caio");
-    UUID suspenso = mutuoDe(bia, "suspenso");
-    UUID livro = livroOficial("Torto arado");
-    UUID antiga = recomendacaoNoBanco(ana, bia, livroOficial("Antigo"), 3);
-    UUID recente = recomendacaoNoBanco(ana, bia, livro, 1);
-    UUID deOutro = recomendacaoNoBanco(caio, bia, livro, 2);
-    recomendacaoNoBanco(ana, bia, livroOficial("Expirado"), 91);
-    recomendacaoNoBanco(suspenso, bia, livroOficial("Do suspenso"), 1);
+    UUID bia = massa.leitor("bia");
+    UUID ana = massa.mutuoDe(bia, "ana");
+    UUID caio = massa.mutuoDe(bia, "caio");
+    UUID suspenso = massa.mutuoDe(bia, "suspenso");
+    UUID livro = massa.livroOficial("Torto arado");
+    UUID antiga = massa.recomendacao(ana, bia, massa.livroOficial("Antigo"), 3);
+    UUID recente = massa.recomendacao(ana, bia, livro, 1);
+    UUID deOutro = massa.recomendacao(caio, bia, livro, 2);
+    massa.recomendacao(ana, bia, massa.livroOficial("Expirado"), 91);
+    massa.recomendacao(suspenso, bia, massa.livroOficial("Do suspenso"), 1);
     jdbc.update("UPDATE identidade.usuario SET suspenso = true WHERE id = ?", suspenso);
     // RN-22.15: o mútuo desfeito depois do envio não remove a recomendação.
     jdbc.update("DELETE FROM identidade.seguidor WHERE seguidor_id = ? AND seguido_id = ?", bia, ana);
@@ -315,36 +210,36 @@ class RecomendacaoControllerIntegracaoTest extends IntegracaoComPostgres {
   @Test
   @DisplayName("Só o destinatário descarta; remetente e terceiro recebem 404 e nada muda")
   void descarteExclusivoDoDestinatario() throws Exception {
-    UUID ana = leitor("ana");
-    UUID bia = mutuoDe(ana, "bia");
-    UUID intruso = leitor("intruso");
-    UUID recomendacao = recomendacaoNoBanco(ana, bia, livroOficial("Torto arado"), 0);
+    UUID ana = massa.leitor("ana");
+    UUID bia = massa.mutuoDe(ana, "bia");
+    UUID intruso = massa.leitor("intruso");
+    UUID recomendacao = massa.recomendacao(ana, bia, massa.livroOficial("Torto arado"), 0);
     String chave = chave();
 
     assertThat(descartar(ana, recomendacao, chave()).statusCode()).isEqualTo(404);
     assertThat(descartar(intruso, recomendacao, chave()).statusCode()).isEqualTo(404);
-    assertThat(contar("SELECT count(*) FROM recomendacao")).isEqualTo(1L);
+    assertThat(massa.contar("SELECT count(*) FROM recomendacao")).isEqualTo(1L);
 
     assertThat(descartar(bia, recomendacao, chave).statusCode()).isEqualTo(204);
     assertThat(descartar(bia, recomendacao, chave).statusCode()).isEqualTo(204);
     assertThat(descartar(bia, recomendacao, chave()).statusCode()).isEqualTo(404);
-    assertThat(contar("SELECT count(*) FROM recomendacao")).isZero();
-    assertThat(contar("SELECT count(*) FROM outbox_social")).isZero();
+    assertThat(massa.contar("SELECT count(*) FROM recomendacao")).isZero();
+    assertThat(massa.contar("SELECT count(*) FROM outbox_social")).isZero();
   }
 
   @Test
   @DisplayName("Candidatos: só mútuos, com quem já tem o livro e quem atingiu o limite")
   void candidatosComSituacaoParaOLivro() throws Exception {
-    UUID ana = leitor("ana");
-    mutuoDe(ana, "bia");
-    UUID caio = mutuoDe(ana, "caio");
-    UUID edu = mutuoDe(ana, "edu");
-    UUID soSegue = leitor("so_segue");
-    jdbc.update("INSERT INTO identidade.seguidor VALUES (?, ?)", ana, soSegue);
-    UUID livro = livroOficial("Torto arado");
-    naEstante(caio, livro);
+    UUID ana = massa.leitor("ana");
+    massa.mutuoDe(ana, "bia");
+    UUID caio = massa.mutuoDe(ana, "caio");
+    UUID edu = massa.mutuoDe(ana, "edu");
+    UUID soSegue = massa.leitor("so_segue");
+    massa.segue(ana, soSegue);
+    UUID livro = massa.livroOficial("Torto arado");
+    massa.naEstante(caio, livro);
     for (int i = 0; i < ServicoDeRecomendacao.LIMITE_ATIVAS_POR_PAR; i++) {
-      recomendacaoNoBanco(ana, edu, livroOficial("Livro " + i), 0);
+      massa.recomendacao(ana, edu, massa.livroOficial("Livro " + i), 0);
     }
 
     JsonNode corpo = json.readTree(candidatos(ana, livro).body());
@@ -360,54 +255,6 @@ class RecomendacaoControllerIntegracaoTest extends IntegracaoComPostgres {
                         + ":"
                         + c.get("limiteAtingido").asBoolean()));
     assertThat(situacoes).containsExactly("bia:false:false", "caio:true:false", "edu:false:true");
-  }
-
-  private UUID leitor(String username) {
-    UUID id = UUID.randomUUID();
-    jdbc.update(
-        "INSERT INTO identidade.usuario (id, username, nome_exibicao) VALUES (?, ?, ?)",
-        id,
-        username,
-        "Leitor " + username);
-    return id;
-  }
-
-  private UUID mutuoDe(UUID outro, String username) {
-    UUID id = leitor(username);
-    jdbc.update("INSERT INTO identidade.seguidor VALUES (?, ?), (?, ?)", outro, id, id, outro);
-    return id;
-  }
-
-  private UUID livroOficial(String titulo) {
-    UUID id = UUID.randomUUID();
-    jdbc.update("INSERT INTO acervo.livro (id, tipo, titulo) VALUES (?, 'oficial', ?)", id, titulo);
-    return id;
-  }
-
-  private void naEstante(UUID usuario, UUID livro) {
-    jdbc.update(
-        "INSERT INTO leitura.estante (usuario_id, livro_id, status) VALUES (?, ?, 'quero_ler')",
-        usuario,
-        livro);
-  }
-
-  private UUID recomendacaoNoBanco(UUID remetente, UUID destinatario, UUID livro, int diasAtras) {
-    return jdbc.queryForObject(
-        "INSERT INTO recomendacao"
-            + " (remetente_id, destinatario_id, livro_id, mensagem, criado_em, expira_em)"
-            + " VALUES (?, ?, ?, 'Mensagem de teste', now() - make_interval(days => ?),"
-            + "         now() - make_interval(days => ?) + interval '90 days')"
-            + " RETURNING id",
-        UUID.class,
-        remetente,
-        destinatario,
-        livro,
-        diasAtras,
-        diasAtras);
-  }
-
-  private long contar(String sql) {
-    return jdbc.queryForObject(sql, Long.class);
   }
 
   private static List<String> ids(JsonNode pagina) {

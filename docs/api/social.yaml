@@ -113,16 +113,17 @@ x-event-consumers:
       [eventId, type, version, occurredAt, correlationId, businessKey, data]
     required-data-fields: [destinatarioId]
   recomendacoes:
-    x-implementation-status: planned-periodo-2
+    x-implementation-status: implemented
     queue: leai.social.recomendacoes
     events:
       - livro.adicionado_a_estante
     effect: >-
-      Remove fisicamente todas as recomendações ativas do livro recebidas pelo
-      leitor que o adicionou à estante (RF-REC-16, RN-22.10), sem notificar o
-      remetente. Reentrega não tem efeito adicional. O backfill que remove
-      recomendações de livros já presentes na estante roda antes da criação do
-      binding.
+      Remove fisicamente todas as recomendações do livro recebidas pelo leitor
+      que o adicionou à estante (RF-REC-16, RN-22.10), sem notificar o
+      remetente. Reentrega não tem efeito adicional. Uma rotina diária do
+      próprio serviço apaga as recomendações vencidas (RN-22.9) e reconcilia
+      com leitura.v_estante_publica_v1 as que o consumidor não viu, o que cobre
+      o backfill do intervalo antes de a fila existir.
     required-envelope-fields:
       [eventId, type, version, occurredAt, correlationId, businessKey, data]
   planned-future-events:
