@@ -27,7 +27,7 @@ RNF atendidos: **RNF-SEC-02** (propriedade da lista no servidor), **RNF-SEC-03**
 | Infra | implementado | tabelas `lista`/`lista_item` e VIEW `v_lista_livro_pessoal_v1` do modelo de 16/09; migration `V20261005100000__limites_lista.sql` (80/300) revisada pelo dono em 05/10, aplicada no banco de dev na próxima subida do `social` |
 | Backend | em andamento | `social` implementado em 05/10/2026: as 10 rotas `implemented` no `social.yaml`, 24 testes de integração e 6 unitários verdes; falta a via lista no `acervo` (etapa 3) |
 | Web | implementado | 05/10/2026: lista (dono e terceiro), índice, aba e seção `Listas` do perfil, criar/editar/excluir, `Adicionar à lista` nas páginas de livro oficial e pessoal; 32 testes novos. Conferido no navegador em 05/10 contra os protótipos (web e mobile, conta do dono no ambiente local); falta o fluxo em DES e o modo terceiro com dados reais |
-| Mobile | não iniciado | mesmas telas |
+| Mobile | implementado | 05/10/2026: seção `Listas` do perfil (próprio e de outro leitor, abas Perfil e Feed), índice, lista (dono e terceiro, menu do item e modo `Reordenar` por gesto), criar/editar/excluir em tela cheia, `Adicionar à lista` no livro oficial (menu `Mais ações` novo) e no pessoal do dono; 36 testes novos. Falta o roteiro no emulador e o fluxo em DES |
 
 ## Especificação
 
@@ -93,7 +93,7 @@ Plano de 30/09/2026 para retomar a feature em qualquer máquina ou sessão. Orde
 | 2 | Backend `social` (Spring) | **concluída em 05/10/2026** |
 | 3 | Via lista no `acervo` (NestJS, código do Vicenzo) | **delegada ao Vicenzo em 05/10/2026**; ver Pendências |
 | 4 | Web (`code/front`) | **concluída em 05/10/2026** (validação em DES na etapa 6) |
-| 5 | Mobile (`code/mobile`) | pendente |
+| 5 | Mobile (`code/mobile`) | **concluída em 05/10/2026** (roteiro no emulador e validação em DES na etapa 6) |
 | 6 | Fechamento: DES, status, pendências e timeline | pendente |
 
 ### Etapa 2: backend `social`
@@ -188,7 +188,15 @@ Plano de 30/09/2026 para retomar a feature em qualquer máquina ou sessão. Orde
   - Na web, o `DotsThree` do livro oficial fica no header (`#cabecalho-acoes`), e não no canto do conteúdo.
   - Falha ao remover um livro da lista mostra um toast `rubi` (não desenhado), e o livro volta à posição.
   - Bloco de restrição do perfil de outro leitor: `Envie uma solicitação para ver a estante, as resenhas e as listas de Beatriz.` (sem "as estatísticas", que são da F-STA).
-- **Menu `Mais ações` da página do livro oficial criado pela F-LST.** O protótipo P2 põe ali `Adicionar à lista` (F-LST) e `Recomendar a um leitor` (F-REC-P2P). A página é do Renato como integrador, e o menu não existia: entrou `ui/MenuDeAcoes.vue` (folha no mobile, dropdown na web) só com o item da lista. Avisar o Renato e o Kayke: `Recomendar` entra só acrescentando um item em `acoesDoMenu` de `LivroOficialView.vue`.
+- **Mobile: divergências do protótipo (05/10/2026), a conferir no emulador:**
+  - Reordenar por gesto usa o `SliverReorderableList` do Flutter: as linhas abrem espaço para a levantada, mas não há a linha de inserção de 2px `musgo` (`lista.md` §4.3).
+  - Remover tira a linha sem o fade de saída em `dur-base` (§4.2); a contagem e as posições atualizam na hora.
+  - Excluir a lista volta para a tela de onde se abriu a lista (seção do perfil ou índice), com o aviso `Lista excluída.`, e não sempre para o índice (`criar-lista.md` §4.8). Voltar ao índice a partir da seção empilharia um índice que a pessoa não abriu.
+  - O formulário em tela cheia segue o protótipo (abre pelo navegador raiz, cobre a barra e não tem sino), ao contrário da web. O card do livro no formulário não traz a linha `Editora · ano · páginas`, como na web.
+  - Sem pronome de gênero, como na web: `Só quem Beatriz aceita como seguidor vê as listas.`
+  - No Feed, o livro oficial aberto por uma lista vai para a aba Descobrir, como o próprio feed faz: a aba Feed não tem a rota do livro oficial (código do Kayke). Na aba Perfil, abre na própria aba.
+  - O texto do livro pessoal indisponível mudou também para quem chega pelo feed (`Quem o cadastrou pode ter excluído o livro ou deixado de compartilhá-lo.`), como pede a edição P2 de `livro-pessoal.md` §4.5 e como a web já fazia.
+- **Menu `Mais ações` da página do livro oficial criado pela F-LST.** O protótipo P2 põe ali `Adicionar à lista` (F-LST) e `Recomendar a um leitor` (F-REC-P2P). A página é do Renato como integrador, e o menu não existia: entrou `ui/MenuDeAcoes.vue` (folha no mobile, dropdown na web) só com o item da lista. Avisar o Renato e o Kayke: `Recomendar` entra só acrescentando um item em `acoesDoMenu` de `LivroOficialView.vue`. No app, o menu é a folha de `_abrirMenu` em `livro_oficial_page.dart` (card do livro e `Adicionar à lista`); `Recomendar a um leitor` entra como mais um item ali.
 - **Decisões de implementação da etapa 2 (05/10/2026):**
   - Pacote `lista/{controller,dto,model,repository,service}` com SQL parametrizado (`JdbcTemplate`), e não entidades JPA como o plano previa, no molde de `NotificacaoRepository`: inclusão com `ON CONFLICT`, lock `FOR UPDATE` da lista em toda escrita e deslocamento de posições num único `UPDATE`, que uma entidade em cache não acompanharia.
   - Livro inexistente responde o mesmo 422 do livro pessoal de outro leitor, para não confirmar que o livro alheio existe.
@@ -216,3 +224,5 @@ Plano de 30/09/2026 para retomar a feature em qualquer máquina ou sessão. Orde
 ### Conferência 05/10/2026: web conferida no navegador (Chrome, 1440 e 390 de largura, tema escuro) com a conta do dono no ambiente local: aba e seção `Listas`, índice, lista do dono, menu do item, modo `Reordenar`, arrastar pela alça com o mouse (ordem salva no servidor), editar e confirmar exclusão no mesmo dialog, lista vazia, `Mais ações` do livro oficial, `Adicionar à lista` e criar a partir do livro com o aviso `Ver lista`. Ajustes da conferência: capa de 60 por 90px no dialog da web e linha de inserção por baixo da linha levantada. Listas de teste excluídas ao fim. A migration `V20261005100000` foi aplicada no banco de dev ao subir o `social`. O modo terceiro (perfil público, privado, livro pessoal com `via=lista`) ficou coberto pelos testes, sem dados reais de outra conta.
 
 ### Delegação 05/10/2026: etapa 3 (via lista no `acervo`) passou ao Vicenzo, dono do código de livro pessoal. A etapa 3 virou roteiro com as regras de autorização e o bloqueio atual do controller; a pendência registra o estado intermediário e o contorno do dono nos clientes. O dono da F-LST segue com web e mobile.
+
+### Mobile 05/10/2026: etapa 5 implementada em `code/mobile/lib/features/listas/`. Seção `Listas` no meu perfil e no perfil de outro leitor (abas Perfil e Feed), índice em `/perfil/listas` e `leitores/:username/listas`, lista com menu do item e modo `Reordenar` (`SliverReorderableList`), formulário em tela cheia, folha `Adicionar à lista` no livro oficial (menu `Mais ações`) e no pessoal do dono, e o livro pessoal pela lista em `/perfil/livro-pessoal/:id`. O dono abre o próprio livro pessoal sem `via`; o terceiro vê o indisponível com `Voltar à lista` enquanto o `acervo` responde 400 (etapa 3). `flutter analyze` sem avisos, `flutter test` (496 testes, 36 novos) e `flutter build apk --debug` verdes. `dart run tool/generate_tokens.dart --check` falha por artefatos desatualizados desde o commit `119e639`, que mudou o `tokens.json` sem regenerar o Flutter; não é desta etapa. Roteiro no emulador pendente. Divergências na pendência "Mobile: divergências do protótipo".
