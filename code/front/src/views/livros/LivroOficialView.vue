@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { PhBookOpen, PhWarning } from '@phosphor-icons/vue'
-import { computed, onBeforeUnmount, watch } from 'vue'
+import { PhBookOpen, PhListPlus, PhWarning } from '@phosphor-icons/vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import SituacaoNaEstante from '../../components/estante/SituacaoNaEstante.vue'
+import AdicionarALista from '../../components/listas/AdicionarALista.vue'
+import { type AcaoDaFolha } from '../../components/ui/FolhaAcoes.vue'
+import MenuDeAcoes from '../../components/ui/MenuDeAcoes.vue'
 import BlocoSuaAvaliacao from '../../components/livros/BlocoSuaAvaliacao.vue'
 import CapaLivro from '../../components/livros/CapaLivro.vue'
 import CardResenha from '../../components/livros/CardResenha.vue'
@@ -58,6 +61,15 @@ watch(
 onBeforeUnmount(() => pagina.descartar())
 
 const autores = computed(() => livro.value?.autores.map((autor) => autor.nome).join(', ') || null)
+
+const adicionandoALista = ref(false)
+const acoesDoMenu: AcaoDaFolha[] = [{ id: 'lista', rotulo: 'Adicionar à lista', icone: PhListPlus }]
+
+function escolherNoMenu(acao: string): void {
+  if (acao === 'lista') {
+    adicionandoALista.value = true
+  }
+}
 const rotaDoEditor = computed(() => ({
   name: 'escrever-resenha',
   params: { id: String(route.params.id) },
@@ -352,6 +364,27 @@ function voltar(): void {
         </section>
       </div>
     </article>
+
+    <!-- F-LST: menu `Mais ações` com `Adicionar à lista` (pagina-do-livro.md P2). A página é do
+         Renato como integrador; F-REC-P2P acrescenta `Recomendar a um leitor` em `acoesDoMenu`. -->
+    <Teleport
+      v-if="livro"
+      to="#cabecalho-acoes"
+      defer
+    >
+      <MenuDeAcoes
+        class="-mr-space-3 md:mr-0"
+        rotulo="Mais ações"
+        :acoes="acoesDoMenu"
+        @escolher="escolherNoMenu"
+      />
+    </Teleport>
+    <AdicionarALista
+      v-if="livro"
+      :aberto="adicionandoALista"
+      :livro="{ id: livro.id, titulo: livro.titulo, autor: autores, capaUrl: livro.capa.url ?? null, pessoal: false }"
+      @fechar="adicionandoALista = false"
+    />
   </div>
 </template>
 

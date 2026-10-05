@@ -151,7 +151,11 @@ export interface CriteriosDaBusca {
 export const TAMANHO_DA_PAGINA_DE_LIVROS = 20
 
 export interface ViaDeAcesso {
-  via: 'feed'
+  /**
+   * `lista` (F-LST): o `acervo` só aceita depois da etapa 3 da F-LST; até lá responde 400, e a
+   * página cai no estado "indisponível". O dono abre o próprio livro sem via.
+   */
+  via: 'feed' | 'lista'
   referenciaId: string
 }
 

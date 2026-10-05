@@ -12,6 +12,7 @@ import DialogoConfirmacao from '../../components/ui/DialogoConfirmacao.vue'
 import { ApiError, novaChaveIdempotencia } from '../../services/api'
 import { enviarAvatar, publicIdDaUrl, validarAvatar } from '../../services/avatar'
 import { perfilService, type Avatar, type EditarPerfil, type Perfil, type Privacidade } from '../../services/perfil'
+import { esquecerMinhaPrivacidade } from '../../listas/useMinhaPrivacidade'
 import { atualizarUsuario } from '../../session'
 
 /**
@@ -259,6 +260,8 @@ async function salvar(): Promise<void> {
   try {
     const salvo = await perfilService.atualizarMeuPerfil(dados, chave!)
     atualizarUsuario({ id: salvo.id, username: salvo.username, displayName: salvo.displayName })
+    // A privacidade pode ter mudado: as linhas de visibilidade das listas releem (F-LST).
+    esquecerMinhaPrivacidade()
     saidaLiberada = true
     await voltarAoPerfil()
   } catch (erro) {

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ApiError } from '../../services/api'
 import { leituraService, type ResenhaDoPerfil } from '../../services/leitura'
+import { listasService } from '../../services/listas'
 import { perfilService, type Perfil } from '../../services/perfil'
 import { itemEstante, paginaEstante } from '../../testes/estante'
 import { montarNaRota } from '../../testes/montarNaRota'
@@ -15,8 +16,13 @@ vi.mock('../../services/leitura', () => ({
   leituraService: { listarEstantePerfil: vi.fn(), listarResenhasPerfil: vi.fn() },
 }))
 
+vi.mock('../../services/listas', () => ({
+  listasService: { listarDoPerfil: vi.fn() },
+}))
+
 const servico = vi.mocked(perfilService)
 const leitura = vi.mocked(leituraService)
+const listas = vi.mocked(listasService)
 
 function resenhaDoPerfil(extras: Partial<ResenhaDoPerfil> = {}): ResenhaDoPerfil {
   return {
@@ -71,6 +77,7 @@ describe('PerfilDeOutroView', () => {
     leitura.listarResenhasPerfil.mockReset().mockResolvedValue({ itens: [], paginacao: { page: 1, limite: 5, totalItens: 0, totalPaginas: 0 } })
     localStorage.clear()
     servico.obterPerfil.mockReset().mockResolvedValue(PUBLICO)
+    listas.listarDoPerfil.mockReset().mockResolvedValue({ items: [], page: 0, size: 20, totalElements: 0, totalPages: 0 })
     servico.seguir.mockReset()
     servico.deixarDeSeguir.mockReset().mockResolvedValue(undefined)
     leitura.listarEstantePerfil
@@ -109,7 +116,9 @@ describe('PerfilDeOutroView', () => {
 
     expect(wrapper.text()).toContain('Rafael ainda não adicionou livros à estante.')
     expect(wrapper.text()).toContain('Rafael ainda não escreveu resenhas.')
-    expect(wrapper.findAll('[role="tab"]').map((aba) => aba.text())).toEqual(['Estante', 'Resenhas'])
+    expect(wrapper.findAll('[role="tab"]').map((aba) => aba.text())).toEqual(['Estante', 'Resenhas', 'Listas'])
+    expect(wrapper.text()).toContain('Rafael ainda não criou listas.')
+    expect(listas.listarDoPerfil).toHaveBeenCalledWith('u2', 0)
     expect(wrapper.text()).not.toContain('Buscar livros')
     expect(wrapper.text()).not.toContain('livros lidos')
   })
@@ -185,7 +194,9 @@ describe('PerfilDeOutroView', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('Este perfil é privado')
-    expect(wrapper.text()).toContain('Envie uma solicitação para ver a estante e as resenhas de Beatriz.')
+    expect(wrapper.text()).toContain('Envie uma solicitação para ver a estante, as resenhas e as listas de Beatriz.')
+    // RN-08: nada das listas de um perfil restrito, nem a chamada.
+    expect(listas.listarDoPerfil).not.toHaveBeenCalled()
     expect(wrapper.find('[role="alert"]').exists()).toBe(false)
 
     await botao(wrapper, 'Solicitar para seguir').trigger('click')

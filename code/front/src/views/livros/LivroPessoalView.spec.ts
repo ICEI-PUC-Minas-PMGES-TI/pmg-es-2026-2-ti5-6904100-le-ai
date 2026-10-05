@@ -157,7 +157,7 @@ describe('LivroPessoalView', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('Este livro não está mais disponível')
-    expect(wrapper.text()).toContain('Ele pode ter sido excluído por quem o cadastrou.')
+    expect(wrapper.text()).toContain('Quem o cadastrou pode ter excluído o livro ou deixado de compartilhá-lo.')
     botao('Voltar ao feed')!.click()
     await flushPromises()
     expect(router.currentRoute.value.path).toBe('/feed')

@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { PhCaretRight, PhGear, PhMagnifyingGlass, PhUserPlus, PhWarning } from '@phosphor-icons/vue'
 import { onMounted, ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 
+import ListasDoPerfil from '../../components/listas/ListasDoPerfil.vue'
 import AvatarLeitor from '../../components/perfil/AvatarLeitor.vue'
 import ChipPrivacidade from '../../components/perfil/ChipPrivacidade.vue'
 import SecoesDeLeitura from '../../components/perfil/SecoesDeLeitura.vue'
@@ -24,6 +25,7 @@ import { perfilService, type Perfil } from '../../services/perfil'
  * Sem sino na web, o perfil é o único lugar em que um pedido para seguir aparece (§1): a contagem
  * vem de uma página de um item da caixa, e falhar nela só esconde a linha.
  */
+const route = useRoute()
 const perfil = ref<Perfil | null>(null)
 const carregando = ref(true)
 const falhou = ref(false)
@@ -225,8 +227,17 @@ const LINK_DE_CONTADOR =
         <SecoesDeLeitura
           :proprio="true"
           :usuario-id="perfil.id"
+          :aba-inicial="typeof route.query.aba === 'string' ? route.query.aba : undefined"
           :class="pedidosPendentes > 0 ? 'mt-space-12 md:mt-space-6' : 'mt-space-6 md:mt-0'"
-        />
+        >
+          <template #listas>
+            <ListasDoPerfil
+              :usuario-id="perfil.id"
+              :proprio="true"
+              :privacidade="perfil.privacidade"
+            />
+          </template>
+        </SecoesDeLeitura>
       </div>
     </div>
   </div>

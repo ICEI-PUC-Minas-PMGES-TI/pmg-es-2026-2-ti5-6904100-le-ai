@@ -33,6 +33,8 @@ import EscreverResenhaView from '../views/livros/EscreverResenhaView.vue'
 import LivroOficialView from '../views/livros/LivroOficialView.vue'
 import LivroPessoalFormView from '../views/livros/LivroPessoalFormView.vue'
 import LivroPessoalView from '../views/livros/LivroPessoalView.vue'
+import ListaView from '../views/listas/ListaView.vue'
+import ListasDoLeitorView from '../views/listas/ListasDoLeitorView.vue'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -80,8 +82,12 @@ const ORIGEM = ':origem(descobrir|estante)'
 const abaDoLivroOficial = (rota: RouteLocationNormalizedLoaded) =>
   rota.query.origem === 'estante' ? '/estante' : rota.query.origem === 'perfil' ? '/perfil' : '/descobrir'
 
-/** Livro pessoal aberto pelo feed é do Feed; pela estante do dono, da Estante. */
-const abaDoLivroPessoal = (rota: RouteLocationNormalizedLoaded) => (rota.query.via === 'feed' ? '/feed' : '/estante')
+/** Livro pessoal aberto pelo feed é do Feed; pela lista de alguém, do Perfil; pela estante, da Estante. */
+const abaDoLivroPessoal = (rota: RouteLocationNormalizedLoaded) =>
+  rota.query.via === 'feed' ? '/feed' : rota.query.via === 'lista' ? '/perfil' : '/estante'
+
+/** Listas de outro leitor pertencem à aba de onde se chegou ao perfil dele (lista.md §4.6). */
+const abaDoPerfilDeOutro = (rota: RouteLocationNormalizedLoaded) => (rota.query.via === 'feed' ? '/feed' : '/perfil')
 
 export const routes: RouteRecordRaw[] = [
   {
@@ -183,7 +189,48 @@ export const routes: RouteRecordRaw[] = [
           voltar: true,
           voltarComRotulo: 'Voltar',
           semDivisor: true,
-          aba: (rota) => (rota.query.via === 'feed' ? '/feed' : '/perfil'),
+          aba: abaDoPerfilDeOutro,
+        },
+      },
+      // F-LST. O índice em página própria é o `Ver todas` abaixo de 768px; na web ele é a aba
+      // `Listas` do perfil (`?aba=listas`), destino do retorno sem histórico.
+      {
+        path: 'perfil/listas',
+        name: 'minhas-listas',
+        component: ListasDoLeitorView,
+        meta: { titulo: 'Listas', voltar: true, voltarComRotulo: 'Perfil', semDivisor: true },
+      },
+      {
+        path: 'perfil/listas/:id',
+        name: 'lista-propria',
+        component: ListaView,
+        // Sem título no header: o título da lista aparece grande no bloco (lista.md §4).
+        meta: {
+          titulo: '',
+          voltar: true,
+          voltarComRotulo: 'Minhas listas',
+          semDivisor: true,
+          voltarPara: () => '/perfil?aba=listas',
+        },
+      },
+      {
+        path: 'leitores/:username/listas',
+        name: 'listas-de-outro',
+        component: ListasDoLeitorView,
+        meta: { titulo: 'Listas', voltar: true, voltarComRotulo: 'Voltar', semDivisor: true, aba: abaDoPerfilDeOutro },
+      },
+      {
+        path: 'leitores/:username/listas/:id',
+        name: 'lista-de-outro',
+        component: ListaView,
+        // O rótulo `Listas de Rafael` vem da tela (`cabecalho.ts`): o nome está na resposta.
+        meta: {
+          titulo: '',
+          voltar: true,
+          voltarComRotulo: 'Voltar',
+          semDivisor: true,
+          aba: abaDoPerfilDeOutro,
+          voltarPara: (rota) => `/leitores/${String(rota.params.username)}?aba=listas`,
         },
       },
       // F-AUT. Empilhadas sobre Perfil, que fica ativa pelo prefixo do caminho.

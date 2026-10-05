@@ -9,6 +9,7 @@ import AvatarLeitor from '../../components/perfil/AvatarLeitor.vue'
 import ChipPrivacidade from '../../components/perfil/ChipPrivacidade.vue'
 import FimDaLista from '../../components/perfil/FimDaLista.vue'
 import SecoesDeLeitura from '../../components/perfil/SecoesDeLeitura.vue'
+import ListasDoPerfil from '../../components/listas/ListasDoPerfil.vue'
 import BannerAviso from '../../components/ui/BannerAviso.vue'
 import BotaoPrimario from '../../components/ui/BotaoPrimario.vue'
 import BotaoTextual from '../../components/ui/BotaoTextual.vue'
@@ -361,7 +362,7 @@ const textoDaConfirmacao = computed(() =>
             Sua solicitação está aguardando resposta.
           </template>
           <template v-else>
-            Envie uma solicitação para ver a estante e as resenhas de {{ nome }}.
+            Envie uma solicitação para ver a estante, as resenhas e as listas de {{ nome }}.
           </template>
         </p>
       </EstadoVazio>
@@ -370,8 +371,18 @@ const textoDaConfirmacao = computed(() =>
         :proprio="false"
         :nome="nome"
         :usuario-id="perfil?.id"
+        :aba-inicial="typeof route.query.aba === 'string' ? route.query.aba : undefined"
         class="mt-space-12 md:mt-0"
       >
+        <template #listas>
+          <ListasDoPerfil
+            v-if="perfil"
+            :usuario-id="perfil.id"
+            :proprio="false"
+            :nome="nome"
+            :username="perfil.username"
+          />
+        </template>
         <template #estante>
           <div
             v-if="!estante.indisponivel.value"

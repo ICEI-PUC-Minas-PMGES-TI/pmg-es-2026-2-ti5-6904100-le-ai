@@ -1,0 +1,53 @@
+import { contagem } from '../perfil/textos'
+import type { Privacidade } from '../services/perfil'
+
+/**
+ * Textos das telas de F-LST (docs/design/periodo-2/F-LST/*.md §8). Todo número com unidade.
+ *
+ * **Sem pronome de gênero**, como em `perfil/textos.ts`: os protótipos escrevem "as listas dela",
+ * mas o produto não sabe o gênero de ninguém; as frases usam o nome.
+ */
+
+export function contagemDeLivros(valor: number): string {
+  return contagem(valor, 'livro', 'livros')
+}
+
+export function contagemDeListas(valor: number): string {
+  return contagem(valor, 'lista', 'listas')
+}
+
+const DATA_POR_EXTENSO = new Intl.DateTimeFormat('pt-BR', {
+  day: '2-digit',
+  month: 'long',
+  year: 'numeric',
+  timeZone: 'America/Sao_Paulo',
+})
+
+/** `7 livros · atualizada em 12 de setembro de 2026` (lista.md §3). */
+export function linhaDeContagem(quantidade: number, atualizadaEm: string): string {
+  return `${contagemDeLivros(quantidade)} · atualizada em ${DATA_POR_EXTENSO.format(new Date(atualizadaEm))}`
+}
+
+/** Linha de visibilidade da lista (lista.md §4, criar-lista.md §3). */
+export function visibilidadeDaLista(privacidade: Privacidade): string {
+  return privacidade === 'privado'
+    ? 'Seu perfil é privado: só quem você aceitou como seguidor vê esta lista.'
+    : 'Seu perfil é público: qualquer leitor pode ver esta lista.'
+}
+
+/** Linha de visibilidade do índice (listas-do-leitor.md §8). */
+export function visibilidadeDasListas(privacidade: Privacidade): string {
+  return privacidade === 'privado'
+    ? 'Seu perfil é privado: só quem você aceitou como seguidor vê suas listas.'
+    : 'Seu perfil é público: qualquer leitor pode ver suas listas.'
+}
+
+/** Bloco de restrição (RN-08): `Só quem Beatriz aceita como seguidor vê as listas.` */
+export function textoDeListasRestritas(nome: string | null): string {
+  return nome ? `Só quem ${nome} aceita como seguidor vê as listas.` : 'Só seguidores aceitos veem estas listas.'
+}
+
+/** Conta como o servidor (`char_length`): code points, não unidades UTF-16. */
+export function caracteres(texto: string): number {
+  return [...texto].length
+}

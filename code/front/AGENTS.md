@@ -57,6 +57,13 @@ Uma URL por serviço, sem gateway: `VITE_IDENTIDADE_BASE_URL`, `VITE_ACERVO_BASE
 
 ## Componentes compartilhados que mudaram
 
+- **F-LST (05/10/2026, Henrique).** Telas em `views/listas/`, componentes em `components/listas/`, lógica em `src/listas/` e serviço em `services/listas.ts`. O que mexe no que é de todos:
+  - `layouts/ShellAutenticado.vue` ganhou o ponto `#avisos-flutuantes`, onde `ui/AvisoFlutuante` (toast do design §7.6, barra lateral `musgo` ou `rubi`) entra por Teleport: acima da barra inferior no mobile, no canto da área de conteúdo na web. E o rótulo do retorno da web pode vir da tela (`cabecalho.ts`, `usarRotuloVoltar`), para `Listas de Rafael`; sem ele, vale `meta.voltarComRotulo`.
+  - `components/perfil/SecoesDeLeitura.vue` aceita o slot `listas` (terceira aba, `Listas`) e a prop `abaInicial` (`?aba=listas`); as setas percorrem as três abas.
+  - `ui/MenuDeAcoes.vue` é o menu `Mais ações`: folha no mobile, dropdown na web. Entrou na página do livro oficial só com `Adicionar à lista`; outras features acrescentam itens em `acoesDoMenu`.
+  - `styles.css` ganhou a classe global `.entrada` (fade único dos skeletons). As telas antigas mantêm a cópia em `<style scoped>`.
+  - `services/acervo.ts`: `ViaDeAcesso.via` aceita `lista`. Até a etapa 3 da F-LST, o `acervo` responde 400 a ela, e `LivroPessoalView` trata isso como "indisponível". O dono abre o próprio livro sem via.
+
 - **`components/perfil/FimDaLista.vue` (27/09/2026, F-ACV-BUSCA).** Ganhou a prop opcional `carregando`. O `IntersectionObserver` só avisa quando a marca *entra* na tela; se a página nova não a empurrar para fora (lista curta, edições agrupadas, monitor alto), a paginação parava sem botão. Com `carregando`, cada carga que termina reobserva a marca, e ela pede a seguinte se continuar visível. Sem a prop, o comportamento é o de antes: Conexões, Solicitações e Feed ainda não a passam, e deveriam (é só `:carregando="<flag de carregando mais>"`).
 
 - **`styles.css`, movimento reduzido (27/09/2026, F-ACV-BUSCA).** A regra global de `prefers-reduced-motion` só zerava transições; agora zera também a duração das animações, e o fade `.entrada` dos skeletons fica estático no app todo, como os comentários das telas já diziam.

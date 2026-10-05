@@ -21,7 +21,8 @@ export type TipoLivro = 'OFICIAL' | 'PESSOAL'
 
 export interface LinkLivro {
   livroId: string
-  via: 'catalogo' | 'feed'
+  /** `lista` nos itens de lista (F-LST): `referenciaId` é a lista. */
+  via: 'catalogo' | 'feed' | 'lista'
   referenciaId: string | null
 }
 
