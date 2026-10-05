@@ -26,7 +26,7 @@ RNF atendidos: **RNF-SEC-02** (propriedade da lista no servidor), **RNF-SEC-03**
 |---|---|---|
 | Infra | implementado | tabelas `lista`/`lista_item` e VIEW `v_lista_livro_pessoal_v1` do modelo de 16/09; migration `V20261005100000__limites_lista.sql` (80/300) revisada pelo dono em 05/10, aplicada no banco de dev na próxima subida do `social` |
 | Backend | em andamento | `social` implementado em 05/10/2026: as 10 rotas `implemented` no `social.yaml`, 24 testes de integração e 6 unitários verdes; falta a via lista no `acervo` (etapa 3) |
-| Web | não iniciado | criar/editar listas, reordenar, ver listas de outros |
+| Web | implementado | 05/10/2026: lista (dono e terceiro), índice, aba e seção `Listas` do perfil, criar/editar/excluir, `Adicionar à lista` nas páginas de livro oficial e pessoal; 32 testes novos. Conferido no navegador em 05/10 contra os protótipos (web e mobile, conta do dono no ambiente local); falta o fluxo em DES e o modo terceiro com dados reais |
 | Mobile | não iniciado | mesmas telas |
 
 ## Especificação
@@ -91,8 +91,8 @@ Plano de 30/09/2026 para retomar a feature em qualquer máquina ou sessão. Orde
 |---|---|---|
 | 1 | Contrato em `docs/api/social.yaml` e `docs/api/acervo.yaml` | **concluída em 30/09/2026** |
 | 2 | Backend `social` (Spring) | **concluída em 05/10/2026** |
-| 3 | Via lista no `acervo` (NestJS, código do Vicenzo: avisar antes) | próxima |
-| 4 | Web (`code/front`) | pendente |
+| 3 | Via lista no `acervo` (NestJS, código do Vicenzo) | **delegada ao Vicenzo em 05/10/2026**; ver Pendências |
+| 4 | Web (`code/front`) | **concluída em 05/10/2026** (validação em DES na etapa 6) |
 | 5 | Mobile (`code/mobile`) | pendente |
 | 6 | Fechamento: DES, status, pendências e timeline | pendente |
 
@@ -118,11 +118,20 @@ Plano de 30/09/2026 para retomar a feature em qualquer máquina ou sessão. Orde
 
 ### Etapa 3: via lista no `acervo`
 
+> **Executor: Vicenzo Fonseca** (dono do código de livro pessoal no `acervo`), por decisão do dono da F-LST em 05/10/2026. O lado do `social` já está pronto e em `desenvolvimento`: a VIEW `social.v_lista_livro_pessoal_v1` é alimentada pelas rotas de listas, e os itens de livro pessoal saem com `link.via = "lista"` e `link.referenciaId = <listaId>`. Esta seção é o roteiro completo; o estado de 05/10 e o que ainda bloqueia estão na pendência "Via lista no `acervo`".
+
+- **Antes de tudo, no controller:** hoje `livro-pessoal.controller.ts:95` recusa com 400 qualquer `via` diferente de `feed` **antes** de chamar o serviço, então até o **dono** recebe 400 ao abrir o próprio livro com `via=lista`. Aceitar `lista` nesse teste já resolve o dono, porque `LivroPessoalService.obter` libera o dono sem olhar a via.
 - `code/back/acervo/src/db/contratos-externos.ts`: declarar `vListaLivroPessoal` (`social.v_lista_livro_pessoal_v1`, colunas `lista_id`, `dono_id`, `livro_id`) com `.existing()`.
 - `src/livros/pessoal/autorizacao-rn15.service.ts`: `Via = 'feed' | 'lista'`; ramo de lista em uma consulta: `vListaLivroPessoal` (lista = `referenciaId`, livro, dono) com `vPerfilReferencia` do dono e `privacidade='publico' OR EXISTS vSeguimentoAceito`. **Difere da via feed**, que exige seguimento mesmo com perfil público. Manter `ehFalhaDeContratoExterno` → 503.
 - `src/livros/pessoal/livro-pessoal.controller.ts`: `@ApiQuery enum ['feed','lista']` e a mensagem do 400.
 - Testes: tabela falsa `social.v_lista_livro_pessoal_v1` em `CONTRATOS_EXTERNOS` e `TABELAS_DE_DADOS` de `test/integracao/banco.ts`; helper `publicarEmLista` e casos em `test/integracao/livro-pessoal.int-spec.ts` (público sem seguir passa, privado seguido passa, privado não seguido 403, lista de outro livro, referência forjada, lista excluída, 503); casos `via: 'lista'` em `livro-pessoal.service.spec.ts`.
-- Ao terminar: tirar de `acervo.yaml` a marcação de via lista planejada.
+- Regras que o ramo de lista precisa respeitar (RN-15, RN-08), todas revalidadas no `acervo`, nunca confiadas ao `social` nem ao cliente:
+  - a lista `referenciaId` está ativa (só listas ativas estão na VIEW), é do dono do livro e contém aquele livro;
+  - o dono do livro está em `v_perfil_referencia_v1` (suspenso ou em exclusão não libera);
+  - perfil do dono `publico` libera qualquer leitor autenticado, **sem exigir seguimento**; `privado` exige linha em `v_seguimento_aceito_v1` do solicitante para o dono;
+  - falhou qualquer item: 403, como na via feed. Lista excluída ou livro removido da lista cortam o acesso na hora (RN-15.6), já que a linha some da VIEW;
+  - acesso pela lista é sempre **modo consulta** (RN-15.3): nenhuma escrita é liberada por esta via.
+- Ao terminar: em `docs/api/acervo.yaml`, trocar o texto "Via lista (F-LST, Período 2, planejada)" (por volta da linha 538) pela regra implementada e incluir `lista` no enum de `via`; registrar a mudança na seção "Mudanças feitas por outras features" do `code/back/acervo/AGENTS.md`, se for o costume do serviço; e avisar o dono da F-LST para marcar a etapa 3 como concluída aqui.
 
 ### Etapa 4: web
 
@@ -160,7 +169,11 @@ Plano de 30/09/2026 para retomar a feature em qualquer máquina ou sessão. Orde
 
 - **Telas (design P2):** entrada `Adicionar à lista` no menu `DotsThree` do header da [`pagina-do-livro.md`](../../design/periodo-2/pagina-do-livro/pagina-do-livro.md) ([protótipo](../../design/periodo-2/pagina-do-livro/prototipos/pagina-do-livro.html)) (lote 2). Lote 3, prompts escritos e protótipos exportados em 29/09/2026: [`lista.md`](../../design/periodo-2/F-LST/lista.md) ([protótipo](../../design/periodo-2/F-LST/prototipos/lista.html)), [`listas-do-leitor.md`](../../design/periodo-2/F-LST/listas-do-leitor.md) ([protótipo](../../design/periodo-2/F-LST/prototipos/listas-do-leitor.html)) (índice; na web é a aba `Listas` do perfil), [`criar-lista.md`](../../design/periodo-2/F-LST/criar-lista.md) ([protótipo](../../design/periodo-2/F-LST/prototipos/criar-lista.html)) (criar, editar e excluir) e [`adicionar-a-lista.md`](../../design/periodo-2/F-LST/adicionar-a-lista.md) ([protótipo](../../design/periodo-2/F-LST/prototipos/adicionar-a-lista.html)). **Contrato pendente:** `PUT /listas/{id}/ordem` exige todos os `itemIds`, mas os itens são paginados; o índice precisa de contagem, três primeiras capas e `atualizadaEm`; o sheet precisa saber se cada lista já contém o livro; criar a partir do livro pede `POST /listas` que aceite o livro (senão a lista pode ficar sem ele). Limites provisórios no protótipo: 80 caracteres no título e 300 na descrição. Lotes 6 e 7, prompts escritos em 29/09/2026; protótipos exportados em 29/09/2026: seção `Listas` e aba `Listas` na web nas edições [`meu-perfil.md`](../../design/periodo-2/meu-perfil/meu-perfil.md) ([protótipo](../../design/periodo-2/meu-perfil/prototipos/meu-perfil.html)) (com `Nova lista`) e [`perfil-de-outro-leitor.md`](../../design/periodo-2/perfil-de-outro-leitor/perfil-de-outro-leitor.md) ([protótipo](../../design/periodo-2/perfil-de-outro-leitor/prototipos/perfil-de-outro-leitor.html)); `Adicionar à lista` no `DotsThreeVertical` do modo dono e segunda via de acesso do terceiro (pela lista) na edição [`livro-pessoal.md`](../../design/periodo-2/livro-pessoal/livro-pessoal.md) ([protótipo](../../design/periodo-2/livro-pessoal/prototipos/livro-pessoal.html)). Contrato a confirmar: `GET /perfis/{id}/listas` com contagem e capas.
 - **Depende de** [F-PERFIL](../periodo-1/feature-F-PERFIL.md) (`v_perfil_referencia_v1`/`v_seguimento_aceito_v1`), [F-ACV-BUSCA](../periodo-1/feature-F-ACV-BUSCA.md)/[F-ACV-CADASTRO](../periodo-1/feature-F-ACV-CADASTRO.md) (`v_livro_referencia_v1` e a página autorizada de livro pessoal em `acervo`), [F-FEED](../periodo-1/feature-F-FEED.md) (padrão da via de acesso a livro pessoal), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md).
-- **Coordenar com `acervo`** o handler de `?via=lista` na página de livro pessoal, espelhando o de `?via=feed`.
+- **Via lista no `acervo` (etapa 3) — com o Vicenzo, aberta desde 05/10/2026. Bloqueia RF-LST-06 e o Definition of Done da F-LST.** O dono da F-LST fez só a parte dele (`social`, web e mobile); a autorização da página de livro pessoal é código do `acervo` e fica com o Vicenzo. Roteiro completo na [Etapa 3](#etapa-3-via-lista-no-acervo). Estado até lá, conferido no código em 05/10:
+  - livro oficial em lista: funciona;
+  - **dono** abrindo o próprio livro pessoal pela lista: o `acervo` responde 400 a `via=lista`. **Contorno nos clientes:** quando `pertenceAoSolicitante` é verdadeiro, web e mobile abrem o livro **sem** `via`/`referenciaId`, e o `acervo` já libera o dono. Quando a etapa 3 entrar, o contorno pode ficar: é inofensivo;
+  - **terceiro** abrindo livro pessoal de lista alheia (RF-LST-06): o `acervo` responde 400, e os clientes mostram o estado "livro indisponível" com "Voltar à lista". A falha é segura: ninguém vê o que não devia;
+  - aceite: o roteiro manual "abrir livro pessoal de lista alheia em modo consulta" e os casos de integração da etapa 3 passam só depois dela.
 - **Compartilha `social`** com as demais features sociais e é limpo por [F-CONTA-2](feature-F-CONTA-2.md) na exclusão — sinalizar no grupo (plano §6).
 - Stack de `social` definida: **Spring (Java)** (arquitetura §2.1).
 - ~~**Decisão do dono:** fixar limites de título/descrição e o comportamento de adicionar novamente livro já presente antes da migration.~~ — **decidido (30/09/2026):** título até 80 e descrição até 300 caracteres (ratifica os protótipos); livro já presente responde 200 com o item existente.
@@ -168,6 +181,14 @@ Plano de 30/09/2026 para retomar a feature em qualquer máquina ou sessão. Orde
 - **Alternativa a avaliar, sem mudar o desenho atual:** controles acessíveis de subir e descer na web, além do arrastar, usando a mesma rota de posição.
 - ~~**Revisão humana da migration**~~ — **revisada e aprovada pelo dono em 05/10/2026.** `V20261005100000__limites_lista.sql` ficou acima de `V20261003180000` (F-NOT-2, 03/10), e não de `V20260927002000` como o plano previa.
 - ~~**Livro que fica inativo deixa buraco na posição exibida.**~~ — **decidido (05/10/2026): renumerar na leitura, só no `social`.** Excluir livro pessoal faz `ativo = false` no `acervo`, e o item continua em `lista_item`. A `posicao` do contrato passou a ser a visível (lugar entre os livros ativos, contínua a partir de 1); a posição gravada fica interna, para o cursor e para mover. `moverLivroNaLista` recebe a posição visível, valida contra a quantidade de livros ativos e a traduz para a posição gravada; item de livro inativo responde 404. Descartado: compactar por evento do `acervo`, que exigiria schema novo, outbox no `acervo` e consumidor com DLQ. A linha do livro inativo continua em `lista_item` até a lista ser excluída ou a F-CONTA-2 limpar a conta.
+- **Web: divergências do protótipo (05/10/2026), a conferir na revisão visual:**
+  - Abaixo de 768px, o formulário de lista abre como folha da `SobreposicaoModal`, e não como tela cheia sobreposta (`criar-lista.md` §1).
+  - Menu do item no mobile: a `FolhaAcoes` não tem o cabeçalho com capa e `Posição 3 de 7`; a posição vai no rótulo acessível.
+  - Sem pronome de gênero, como em F-PERFIL: `Só quem Beatriz aceita como seguidor vê as listas.` no lugar de "as listas dela".
+  - Na web, o `DotsThree` do livro oficial fica no header (`#cabecalho-acoes`), e não no canto do conteúdo.
+  - Falha ao remover um livro da lista mostra um toast `rubi` (não desenhado), e o livro volta à posição.
+  - Bloco de restrição do perfil de outro leitor: `Envie uma solicitação para ver a estante, as resenhas e as listas de Beatriz.` (sem "as estatísticas", que são da F-STA).
+- **Menu `Mais ações` da página do livro oficial criado pela F-LST.** O protótipo P2 põe ali `Adicionar à lista` (F-LST) e `Recomendar a um leitor` (F-REC-P2P). A página é do Renato como integrador, e o menu não existia: entrou `ui/MenuDeAcoes.vue` (folha no mobile, dropdown na web) só com o item da lista. Avisar o Renato e o Kayke: `Recomendar` entra só acrescentando um item em `acoesDoMenu` de `LivroOficialView.vue`.
 - **Decisões de implementação da etapa 2 (05/10/2026):**
   - Pacote `lista/{controller,dto,model,repository,service}` com SQL parametrizado (`JdbcTemplate`), e não entidades JPA como o plano previa, no molde de `NotificacaoRepository`: inclusão com `ON CONFLICT`, lock `FOR UPDATE` da lista em toda escrita e deslocamento de posições num único `UPDATE`, que uma entidade em cache não acompanharia.
   - Livro inexistente responde o mesmo 422 do livro pessoal de outro leitor, para não confirmar que o livro alheio existe.
@@ -189,3 +210,9 @@ Plano de 30/09/2026 para retomar a feature em qualquer máquina ou sessão. Orde
 ### Backend 05/10/2026: etapa 2 implementada no `social`. As 10 rotas de listas e `v_lista_livro_pessoal_v1` passaram a `implemented` no `social.yaml`. Migration `V20261005100000__limites_lista.sql` escrita e testada só em Postgres descartável, aguardando revisão. `./mvnw verify` com `DATABASE_URL_TESTE` local: 181 testes, nenhuma falha (23 novos em `ListaControllerIntegracaoTest`, 6 em `RegrasDeListaTest`). Decisões e a pendência do livro inativo registradas em Pendências.
 
 ### Revisão 05/10/2026: migration aprovada pelo dono. Posição visível nas listas: livro pessoal excluído não abre mais buraco na numeração nem desloca o mover (opção de renumerar na leitura, só no `social`). `./mvnw verify` local: 188 testes, nenhuma falha.
+
+### Web 05/10/2026: etapa 4 implementada em `code/front`. Rotas `/perfil/listas`, `/perfil/listas/:id`, `/leitores/:username/listas` e `/leitores/:username/listas/:id`; aba `Listas` no perfil (web) e seção com as três mais recentes (abaixo de 768px); reordenar por alça (ponteiro e teclado), botões e menu do item, com volta da ordem e `Tentar de novo` na falha; criar, editar e excluir no dialog; `Adicionar à lista` no livro oficial (menu `Mais ações` novo) e no pessoal do dono. `npm run lint`, `npm test` (689 testes) e `npm run build` verdes. Divergências na pendência "Web: divergências do protótipo".
+
+### Conferência 05/10/2026: web conferida no navegador (Chrome, 1440 e 390 de largura, tema escuro) com a conta do dono no ambiente local: aba e seção `Listas`, índice, lista do dono, menu do item, modo `Reordenar`, arrastar pela alça com o mouse (ordem salva no servidor), editar e confirmar exclusão no mesmo dialog, lista vazia, `Mais ações` do livro oficial, `Adicionar à lista` e criar a partir do livro com o aviso `Ver lista`. Ajustes da conferência: capa de 60 por 90px no dialog da web e linha de inserção por baixo da linha levantada. Listas de teste excluídas ao fim. A migration `V20261005100000` foi aplicada no banco de dev ao subir o `social`. O modo terceiro (perfil público, privado, livro pessoal com `via=lista`) ficou coberto pelos testes, sem dados reais de outra conta.
+
+### Delegação 05/10/2026: etapa 3 (via lista no `acervo`) passou ao Vicenzo, dono do código de livro pessoal. A etapa 3 virou roteiro com as regras de autorização e o bloqueio atual do controller; a pendência registra o estado intermediário e o contorno do dono nos clientes. O dono da F-LST segue com web e mobile.
