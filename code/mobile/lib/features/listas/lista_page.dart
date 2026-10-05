@@ -343,8 +343,9 @@ class _ListaPageState extends State<ListaPage> {
   /// Menu do item (§4.2): no primeiro, sem `Mover para cima`; no último, sem `Mover para baixo`.
   Future<void> _abrirMenu(ItemDeLista item) async {
     final indice = _itens.indexWhere((outro) => outro.id == item.id);
+    // Pelo navegador raiz, para o scrim cobrir a barra inferior (§4.2).
     final escolha = await mostrarFolhaInferior<String>(
-      context,
+      Navigator.of(context, rootNavigator: true).context,
       builder: (context) {
         final theme = Theme.of(context);
         Widget opcao(String valor, IconData icone, String rotulo, {bool destrutiva = false}) {
@@ -797,12 +798,13 @@ class _ListaPageState extends State<ListaPage> {
       ],
     );
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        border: levantada ? null : Border(bottom: BorderSide(color: theme.divider)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.only(left: DesignTokens.space5, right: DesignTokens.space2),
+    // O divisor respeita a margem lateral `space-5`, como o do bloco da lista.
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: DesignTokens.space5),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: levantada ? null : Border(bottom: BorderSide(color: theme.divider)),
+        ),
         child: Row(
           children: <Widget>[
             Expanded(
