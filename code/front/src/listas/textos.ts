@@ -42,6 +42,20 @@ export function visibilidadeDasListas(privacidade: Privacidade): string {
     : 'Seu perfil é público: qualquer leitor pode ver suas listas.'
 }
 
+/**
+ * Texto da confirmação de exclusão (criar-lista.md §4.8). O protótipo só escreve o caso com vários
+ * livros; com um ou nenhum, "a ordem dos 1 livro" não se lê.
+ */
+export function textoDaExclusao(quantidade: number): string {
+  if (quantidade === 0) {
+    return 'A lista sai do seu perfil. Não dá para desfazer.'
+  }
+  if (quantidade === 1) {
+    return 'A lista sai do seu perfil. O livro continua na sua estante e no acervo. Não dá para desfazer.'
+  }
+  return `A lista e a ordem dos ${contagemDeLivros(quantidade)} saem do seu perfil. Os livros continuam na sua estante e no acervo. Não dá para desfazer.`
+}
+
 /** Bloco de restrição (RN-08): `Só quem Beatriz aceita como seguidor vê as listas.` */
 export function textoDeListasRestritas(nome: string | null): string {
   return nome ? `Só quem ${nome} aceita como seguidor vê as listas.` : 'Só seguidores aceitos veem estas listas.'

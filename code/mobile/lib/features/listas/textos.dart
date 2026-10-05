@@ -27,6 +27,16 @@ String visibilidadeDasListas(Privacidade privacidade) => privacidade == Privacid
     ? 'Seu perfil é privado: só quem você aceitou como seguidor vê suas listas.'
     : 'Seu perfil é público: qualquer leitor pode ver suas listas.';
 
+/// Texto da confirmação de exclusão (criar-lista.md §4.8). O protótipo só escreve o caso com
+/// vários livros; com um ou nenhum, "a ordem dos 1 livro" não se lê.
+String textoDaExclusao(int quantidade) => switch (quantidade) {
+  0 => 'A lista sai do seu perfil. Não dá para desfazer.',
+  1 => 'A lista sai do seu perfil. O livro continua na sua estante e no acervo. Não dá para desfazer.',
+  _ =>
+    'A lista e a ordem dos ${contagemDeLivros(quantidade)} saem do seu perfil. Os livros '
+        'continuam na sua estante e no acervo. Não dá para desfazer.',
+};
+
 /// Bloco de restrição (RN-08): `Só quem Beatriz aceita como seguidor vê as listas.`
 String textoDeListasRestritas(String? nome) => nome == null
     ? 'Só seguidores aceitos veem estas listas.'

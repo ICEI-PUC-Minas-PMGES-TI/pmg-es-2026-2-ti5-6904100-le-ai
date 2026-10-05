@@ -6,11 +6,25 @@ import 'package:http/http.dart' as http;
 
 import 'package:le_ai_mobile/features/listas/lista_form_page.dart';
 import 'package:le_ai_mobile/features/listas/listas_service.dart';
+import 'package:le_ai_mobile/features/listas/textos.dart';
 import 'package:le_ai_mobile/features/perfil/perfil_service.dart';
 
 import 'apoio_listas.dart';
 
 void main() {
+  group('textoDaExclusao', () {
+    test('com um livro, não escreve "a ordem dos 1 livro"', () {
+      expect(
+        textoDaExclusao(1),
+        'A lista sai do seu perfil. O livro continua na sua estante e no acervo. Não dá para desfazer.',
+      );
+    });
+
+    test('sem livros, não fala de livro nenhum', () {
+      expect(textoDaExclusao(0), 'A lista sai do seu perfil. Não dá para desfazer.');
+    });
+  });
+
   late List<http.Request> pedidos;
 
   setUp(() => pedidos = <http.Request>[]);

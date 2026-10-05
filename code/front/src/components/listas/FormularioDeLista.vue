@@ -2,7 +2,7 @@
 import { PhX } from '@phosphor-icons/vue'
 import { computed, onBeforeUnmount, ref, useId, watch } from 'vue'
 
-import { caracteres, contagemDeLivros, visibilidadeDaLista } from '../../listas/textos'
+import { caracteres, textoDaExclusao, visibilidadeDaLista } from '../../listas/textos'
 import { useMinhaPrivacidade } from '../../listas/useMinhaPrivacidade'
 import { ApiError, novaChaveIdempotencia } from '../../services/api'
 import { LIMITE_DA_DESCRICAO, LIMITE_DO_TITULO, listasService, type Lista } from '../../services/listas'
@@ -256,8 +256,7 @@ const CAMPO =
           Excluir a lista {{ lista.titulo }}?
         </h2>
         <p class="mt-space-3 text-body text-grafite">
-          A lista e a ordem dos {{ contagemDeLivros(lista.quantidadeLivros) }} saem do seu perfil. Os livros continuam
-          na sua estante e no acervo. Não dá para desfazer.
+          {{ textoDaExclusao(lista.quantidadeLivros) }}
         </p>
         <p
           v-if="erroDaExclusao"

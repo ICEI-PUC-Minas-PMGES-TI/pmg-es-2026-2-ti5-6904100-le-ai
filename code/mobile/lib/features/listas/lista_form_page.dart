@@ -316,9 +316,7 @@ class _ListaFormPageState extends State<ListaFormPage> {
     final confirmado = await confirmarAcaoDestrutiva(
       context,
       titulo: 'Excluir a lista ${lista.titulo}?',
-      texto:
-          'A lista e a ordem dos ${contagemDeLivros(lista.quantidadeLivros)} saem do seu perfil. '
-          'Os livros continuam na sua estante e no acervo. Não dá para desfazer.',
+      texto: textoDaExclusao(lista.quantidadeLivros),
       acao: 'Excluir lista',
     );
     if (!confirmado || !mounted) {
