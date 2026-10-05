@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 
 import '../../app/cabecalho_tela.dart';
@@ -9,6 +10,10 @@ import '../../design/widgets/botao_primario.dart';
 import '../../design/widgets/botao_textual.dart';
 import '../../design/widgets/capa_livro.dart';
 import '../../design/widgets/entrada_suave.dart';
+import '../../design/widgets/folha_inferior.dart';
+import '../listas/folha_adicionar_a_lista.dart';
+import '../listas/lista_form_page.dart';
+import '../listas/rotas_listas.dart';
 import '../avaliacao/avaliacao_controller.dart';
 import '../avaliacao/bloco_sua_avaliacao.dart';
 import '../avaliacao/escrever_resenha_page.dart';
@@ -44,6 +49,10 @@ class LivroOficialPage extends StatefulWidget {
   final DependenciasDeProgresso? progresso;
   final ValueChanged<String>? aoVerAtualizacoes;
 
+  /// Menu `Mais ações` do header com `Adicionar à lista` (pagina-do-livro.md P2 §4 A e §5.1,
+  /// F-LST). `Recomendar a um leitor` (F-REC-P2P) entra acrescentando um item em `_abrirMenu`.
+  final DependenciasDeListas? listas;
+
   const LivroOficialPage({
     super.key,
     required this.servico,
@@ -53,6 +62,7 @@ class LivroOficialPage extends StatefulWidget {
     this.estante,
     this.progresso,
     this.aoVerAtualizacoes,
+    this.listas,
   });
 
   @override
@@ -86,8 +96,42 @@ class _LivroOficialPageState extends State<LivroOficialPage> {
     return Column(
       children: <Widget>[
         // Sem divisor: com a página no topo o protótipo não tem linha, e o header não acompanha
-        // a rolagem para desenhá-la depois (a mesma simplificação do resto do app).
-        CabecalhoTela(titulo: '', aoVoltar: widget.aoVoltar, semDivisor: true),
+        // a rolagem para desenhá-la depois (a mesma simplificação do resto do app). O menu age
+        // sobre o livro e só aparece quando ele carrega.
+        ListenableBuilder(
+          listenable: _pagina,
+          builder: (context, _) {
+            final livro = _pagina.livro;
+            return CabecalhoTela(
+              titulo: '',
+              aoVoltar: widget.aoVoltar,
+              semDivisor: true,
+              acoes: <Widget>[
+                if (widget.listas != null &&
+                    _pagina.estado == EstadoDaPagina.pronta &&
+                    livro != null)
+                  Semantics(
+                    button: true,
+                    label: 'Mais ações',
+                    excludeSemantics: true,
+                    child: GestureDetector(
+                      onTap: () => _abrirMenu(livro.resumo),
+                      behavior: HitTestBehavior.opaque,
+                      child: SizedBox(
+                        width: 48,
+                        height: 48,
+                        child: Icon(
+                          PhosphorIconsRegular.dotsThree,
+                          size: 24,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
         Expanded(
           child: ListenableBuilder(
             listenable: _pagina,
@@ -95,6 +139,93 @@ class _LivroOficialPageState extends State<LivroOficialPage> {
           ),
         ),
       ],
+    );
+  }
+
+  /// Menu `Mais ações` (§5.1): card compacto do livro e os itens, sem destrutivo.
+  Future<void> _abrirMenu(LivroOficialResumo livro) async {
+    final listas = widget.listas;
+    if (listas == null) {
+      return;
+    }
+    final escolha = await mostrarFolhaInferior<String>(
+      Navigator.of(context, rootNavigator: true).context,
+      builder: (context) {
+        final theme = Theme.of(context);
+        return SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  CapaLivro(url: livro.capaUrl, largura: 60, altura: 90, titulo: livro.titulo),
+                  const SizedBox(width: DesignTokens.space4),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(livro.titulo, style: theme.textTheme.titleMedium),
+                        if (livro.autoresParaExibir case final autores?)
+                          Text(
+                            autores,
+                            style: theme.textTheme.bodySmall?.copyWith(color: theme.secondaryText),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: DesignTokens.space4),
+              Divider(height: 1, color: theme.divider),
+              Semantics(
+                button: true,
+                child: InkWell(
+                  onTap: () => Navigator.of(context).pop('lista'),
+                  child: SizedBox(
+                    height: 56,
+                    child: Row(
+                      children: <Widget>[
+                        Icon(
+                          PhosphorIconsRegular.listPlus,
+                          size: 20,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                        const SizedBox(width: DesignTokens.space4),
+                        Text('Adicionar à lista', style: theme.textTheme.bodyMedium),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: DesignTokens.space4),
+              BotaoTextual(
+                texto: 'Cancelar',
+                neutro: true,
+                larguraTotal: true,
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (escolha != 'lista' || !mounted) {
+      return;
+    }
+    await abrirAdicionarALista(
+      context,
+      servico: listas.servico,
+      livro: LivroDeOrigem(
+        id: livro.id,
+        titulo: livro.titulo,
+        autor: livro.autoresParaExibir,
+        capaUrl: livro.capaUrl,
+        pessoal: false,
+      ),
+      obterPrivacidade: listas.minhaPrivacidade,
+      aoVerLista: (id) => GoRouter.maybeOf(context)?.go(rotaMinhaLista(id)),
     );
   }
 

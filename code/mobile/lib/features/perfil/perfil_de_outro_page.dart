@@ -39,6 +39,9 @@ class PerfilDeOutroPage extends StatefulWidget {
   /// Lista de resenhas do perfil (F-AVA), montada com o id e o primeiro nome do leitor.
   final Widget Function(String usuarioId, String nome)? resenhas;
 
+  /// Seção "Listas" do perfil (F-LST), montada com o id e o primeiro nome do leitor.
+  final Widget Function(String usuarioId, String nome)? listas;
+
   const PerfilDeOutroPage({
     super.key,
     required this.servico,
@@ -49,6 +52,7 @@ class PerfilDeOutroPage extends StatefulWidget {
     required this.aoAbrirSolicitacoes,
     this.estante,
     this.resenhas,
+    this.listas,
   });
 
   @override
@@ -330,7 +334,9 @@ class _PerfilDeOutroPageState extends State<PerfilDeOutroPage> {
               titulo: 'Este perfil é privado',
               texto: perfil.relacao == Relacao.solicitacaoEnviada
                   ? 'Sua solicitação está aguardando resposta.'
-                  : 'Envie uma solicitação para ver a estante e as resenhas de $nome.',
+                  : widget.listas == null
+                  ? 'Envie uma solicitação para ver a estante e as resenhas de $nome.'
+                  : 'Envie uma solicitação para ver a estante, as resenhas e as listas de $nome.',
             ),
           ] else ...<Widget>[
             const SizedBox(height: DesignTokens.space12),
@@ -338,6 +344,7 @@ class _PerfilDeOutroPageState extends State<PerfilDeOutroPage> {
               proprio: false,
               nome: nome,
               resenhas: widget.resenhas?.call(perfil.id, nome),
+              listas: widget.listas?.call(perfil.id, nome),
               estante: estante == null
                   ? null
                   : EstanteDePerfil(

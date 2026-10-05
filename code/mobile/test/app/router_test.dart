@@ -18,6 +18,8 @@ import 'package:le_ai_mobile/features/avaliacao/leitura_service.dart';
 import 'package:le_ai_mobile/features/auth/auth_service.dart';
 import 'package:le_ai_mobile/features/feed/rotas_feed.dart';
 import 'package:le_ai_mobile/features/feed/social_service.dart';
+import 'package:le_ai_mobile/features/listas/listas_service.dart';
+import 'package:le_ai_mobile/features/listas/rotas_listas.dart';
 import 'package:le_ai_mobile/features/livros/acervo_service.dart';
 import 'package:le_ai_mobile/features/livros/capa.dart';
 import 'package:le_ai_mobile/features/livros/rotas_livros.dart';
@@ -144,6 +146,81 @@ DependenciasDeFeed _feedSimulado() => DependenciasDeFeed(
   ),
 );
 
+/// `social` simulado para as listas (F-LST): uma lista da própria leitora, com um livro.
+DependenciasDeListas _listasSimuladas(DependenciasDePerfil perfil) {
+  const cabecalhos = <String, String>{'content-type': 'application/json; charset=utf-8'};
+  final lista = <String, Object?>{
+    'id': 'l1',
+    'dono': <String, Object?>{
+      'id': 'u1',
+      'username': 'marinableu',
+      'nomeExibicao': 'Marina Beltrão',
+      'avatarUrl': null,
+    },
+    'titulo': 'Contos que eu indico',
+    'descricao': null,
+    'quantidadeLivros': 1,
+    'pertenceAoSolicitante': true,
+    'criadaEm': '2026-09-01T12:00:00Z',
+    'atualizadaEm': '2026-09-12T12:00:00Z',
+  };
+  return DependenciasDeListas(
+    servico: ListasService(
+      ApiClient(
+        baseUrl: 'http://localhost:8081',
+        client: MockClient((request) async {
+          final caminho = request.url.path;
+          final Object corpo;
+          if (caminho == '/listas/l1') {
+            corpo = lista;
+          } else if (caminho == '/listas/l1/livros') {
+            corpo = <String, Object?>{
+              'itens': <Object?>[
+                <String, Object?>{
+                  'id': 'i1',
+                  'listaId': 'l1',
+                  'livro': <String, Object?>{
+                    'id': 'livro-1',
+                    'tipo': 'OFICIAL',
+                    'titulo': 'Sagarana',
+                    'autor': 'João Guimarães Rosa',
+                    'capaUrl': null,
+                    'link': <String, Object?>{'livroId': 'livro-1', 'via': 'catalogo'},
+                  },
+                  'posicao': 1,
+                  'adicionadoEm': '2026-09-12T12:00:00Z',
+                },
+              ],
+              'proximoCursor': null,
+              'temMais': false,
+            };
+          } else {
+            corpo = <String, Object?>{
+              'itens': <Object?>[
+                <String, Object?>{
+                  'id': 'l1',
+                  'titulo': 'Contos que eu indico',
+                  'descricao': null,
+                  'quantidadeLivros': 1,
+                  'capas': <Object?>[],
+                  'atualizadaEm': '2026-09-12T12:00:00Z',
+                },
+              ],
+              'pagina': 0,
+              'tamanho': 20,
+              'totalItens': 1,
+              'totalPaginas': 1,
+              'ultima': true,
+            };
+          }
+          return http.Response(jsonEncode(corpo), 200, headers: cabecalhos);
+        }),
+      ),
+    ),
+    perfil: perfil.servico,
+  );
+}
+
 /// `acervo` simulado por rota: um assunto para a faixa, e toda busca volta vazia, que é o estado
 /// que leva aos dois cadastros.
 Future<http.Response> _acervoPorRota(http.Request request) async {
@@ -205,10 +282,12 @@ void main() {
       baseUrl: 'http://localhost:8080',
       client: MockClient((request) async => http.Response('{}', 200)),
     );
+    final perfil = _perfilSimulado();
     router = buildRouter(
       sessionController: sessionController,
       authService: AuthService(apiClient),
-      perfil: _perfilSimulado(),
+      perfil: perfil,
+      listas: _listasSimuladas(perfil),
       feed: _feedSimulado(),
       estante: estanteVazia(),
       progresso: progressoEmMemoria(),
@@ -267,6 +346,41 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Sua estante está vazia'), findsOneWidget);
+  });
+
+  testWidgets('a seção Listas do perfil abre a lista na aba Perfil, e o livro também', (
+    tester,
+  ) async {
+    await sessionController.entrar('jwt-valido');
+    await tester.pumpWidget(_wrap(router));
+    await tester.pumpAndSettle();
+
+    router.go('/perfil');
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Contos que eu indico'), 300);
+    await tester.tap(find.text('Contos que eu indico'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Editar lista'), findsOneWidget);
+    expect(find.text('Sagarana'), findsWidgets);
+
+    // O livro oficial abre na própria aba Perfil (`/perfil/livro/:id`), sem trocar de aba.
+    await tester.tap(find.text('Sagarana').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Torto Arado'), findsWidgets);
+    expect(find.text('Editar lista'), findsNothing);
+  });
+
+  testWidgets('as listas de outro leitor abrem dentro da aba Feed', (tester) async {
+    await sessionController.entrar('jwt-valido');
+    await tester.pumpWidget(_wrap(router));
+    await tester.pumpAndSettle();
+
+    router.go('/feed/leitores/caio/listas');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Listas de '), findsOneWidget);
+    expect(find.text('Contos que eu indico'), findsOneWidget);
   });
 
   testWidgets('Descobrir leva ao cadastro por ISBN, que troca o cabeçalho da aba pelo da tela', (

@@ -17,6 +17,7 @@ import '../core/network/api_client.dart';
 import '../features/estante/estante_page.dart';
 import '../features/estante/estante_service.dart';
 import '../features/feed/rotas_feed.dart';
+import '../features/listas/rotas_listas.dart';
 import '../features/livros/rotas_livros.dart';
 import '../features/notificacoes/rotas_notificacoes.dart';
 import '../features/perfil/perfil_page.dart';
@@ -54,14 +55,26 @@ GoRouter buildRouter({
   EstanteService? estante,
   DependenciasDeProgresso? progresso,
   DependenciasDeNotificacoes? notificacoes,
+  DependenciasDeListas? listas,
 }) {
   Future<bool> renovar(String token) => sessionController.renovar(token, authService.renovar);
-  final deps =
-      livros ??
-      DependenciasDeLivros.padrao(getToken: () => sessionController.token, renovarSessao: renovar);
   final depsDePerfil =
       perfil ??
       DependenciasDePerfil.padrao(getToken: () => sessionController.token, renovarSessao: renovar);
+  final depsDeListas =
+      listas ??
+      DependenciasDeListas.padrao(
+        perfil: depsDePerfil.servico,
+        getToken: () => sessionController.token,
+        renovarSessao: renovar,
+      );
+  // As páginas de livro usam o mesmo serviço de listas das telas de lista (`alteracoes`).
+  final deps = (livros ??
+          DependenciasDeLivros.padrao(
+            getToken: () => sessionController.token,
+            renovarSessao: renovar,
+          ))
+      .comListas(depsDeListas);
   final depsDeFeed =
       feed ??
       DependenciasDeFeed.padrao(getToken: () => sessionController.token, renovarSessao: renovar);
@@ -193,6 +206,7 @@ GoRouter buildRouter({
                 perfil: depsDePerfil,
                 livros: deps,
                 rotasExtras: <RouteBase>[rotaDeNotificacoes(depsDeNotificacoes, rotaFeedRaiz)],
+                listas: depsDeListas,
               ),
             ],
           ),
@@ -209,6 +223,7 @@ GoRouter buildRouter({
                   aoVerEstante: () => context.go(rotaEstante),
                   resenhas: (usuarioId) =>
                       _resenhasDoPerfil(context, deps, usuarioId: usuarioId, proprio: true),
+                  listas: (usuarioId) => secaoDasMinhasListas(context, depsDeListas, usuarioId),
                 ),
                 routes: <RouteBase>[
                   ...rotasDoPerfil(
@@ -221,6 +236,15 @@ GoRouter buildRouter({
                       proprio: false,
                       nome: nome,
                     ),
+                    listas: depsDeListas,
+                  ),
+                  // O livro pessoal aberto por uma lista fica na aba Perfil: o do dono, sem via;
+                  // o de outro leitor, em modo consulta com `via=lista` (F-LST, RN-15).
+                  rotaDoLivroPessoal(
+                    deps,
+                    raiz: '/perfil',
+                    estante: servicoDeEstante,
+                    progresso: depsDeProgresso,
                   ),
                   // O livro aberto por uma resenha do perfil fica na aba Perfil (pagina-do-livro.md
                   // §4.1: o item ativo é a aba de origem).

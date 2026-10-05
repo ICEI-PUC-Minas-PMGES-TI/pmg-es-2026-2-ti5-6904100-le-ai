@@ -212,6 +212,10 @@ class SecoesDeLeitura extends StatelessWidget {
 
   final Widget? estante;
 
+  /// Seção "Listas" (F-LST), com o próprio título; a última do perfil. Sem ela, a seção não
+  /// aparece.
+  final Widget? listas;
+
   const SecoesDeLeitura({
     super.key,
     required this.proprio,
@@ -220,6 +224,7 @@ class SecoesDeLeitura extends StatelessWidget {
     this.aoVerEstante,
     this.resenhas,
     this.estante,
+    this.listas,
   });
 
   @override
@@ -289,6 +294,10 @@ class SecoesDeLeitura extends StatelessWidget {
               style: textoMudo,
               textAlign: TextAlign.center,
             ),
+        if (listas case final listas?) ...<Widget>[
+          const SizedBox(height: DesignTokens.space12),
+          listas,
+        ],
       ],
     );
   }

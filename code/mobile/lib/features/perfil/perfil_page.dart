@@ -46,6 +46,9 @@ class PerfilPage extends StatefulWidget {
   /// Lista de resenhas do perfil (F-AVA), montada com o id do leitor.
   final Widget Function(String usuarioId)? resenhas;
 
+  /// Seção "Listas" (F-LST), montada com o id do leitor.
+  final Widget Function(String usuarioId)? listas;
+
   const PerfilPage({
     super.key,
     required this.servico,
@@ -55,6 +58,7 @@ class PerfilPage extends StatefulWidget {
     this.aoBuscarLivros,
     this.aoVerEstante,
     this.resenhas,
+    this.listas,
   });
 
   @override
@@ -235,6 +239,7 @@ class _PerfilPageState extends State<PerfilPage> {
                   aoBuscarLivros: _destino(widget.aoBuscarLivros, '/descobrir'),
                   aoVerEstante: _destino(widget.aoVerEstante, '/estante'),
                   resenhas: widget.resenhas?.call(perfil.id),
+                  listas: widget.listas?.call(perfil.id),
                 ),
               ],
             ),

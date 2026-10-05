@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/config/app_config.dart';
 import '../../core/network/api_client.dart';
 import '../estante/estante_service.dart';
+import '../listas/rotas_listas.dart';
 import '../livros/capa.dart';
 import 'avatar.dart';
 import 'buscar_leitor_page.dart';
@@ -70,12 +71,16 @@ void _voltar(BuildContext context) {
 
 /// Sub-rotas da aba Perfil de F-PERFIL. As de F-AUT (configurações) continuam em `router.dart`.
 ///
-/// [resenhasDeOutro] monta a lista de resenhas do perfil de outro leitor (F-AVA).
+/// [resenhasDeOutro] monta a lista de resenhas do perfil de outro leitor (F-AVA). Com [listas]
+/// (F-LST), entram o índice e a lista do próprio leitor, a seção `Listas` do perfil de outro
+/// leitor e as listas dele.
 List<RouteBase> rotasDoPerfil(
   DependenciasDePerfil deps, {
   EstanteService? estante,
   Widget Function(BuildContext context, String usuarioId, String nome)? resenhasDeOutro,
+  DependenciasDeListas? listas,
 }) => <RouteBase>[
+  if (listas != null) ...rotasDasMinhasListas(listas),
   GoRoute(
     path: 'editar',
     builder: (context, state) => EditarPerfilPage(
@@ -133,7 +138,20 @@ List<RouteBase> rotasDoPerfil(
         resenhas: resenhasDeOutro == null
             ? null
             : (usuarioId, nome) => resenhasDeOutro(context, usuarioId, nome),
+        listas: listas == null
+            ? null
+            : (usuarioId, nome) => secaoDasListasDoLeitor(
+                context,
+                listas,
+                raiz: rotaPerfilRaiz,
+                username: username,
+                usuarioId: usuarioId,
+                nome: nome,
+              ),
       );
     },
+    routes: <RouteBase>[
+      if (listas != null) ...rotasDasListasDoLeitor(listas, raiz: rotaPerfilRaiz),
+    ],
   ),
 ];

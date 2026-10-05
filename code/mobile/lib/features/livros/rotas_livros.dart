@@ -5,6 +5,7 @@ import '../../core/config/app_config.dart';
 import '../../core/network/api_client.dart';
 import '../avaliacao/leitura_service.dart';
 import '../estante/estante_service.dart';
+import '../listas/rotas_listas.dart';
 import 'acervo_service.dart';
 import 'cadastro_isbn_page.dart';
 import 'capa.dart';
@@ -31,12 +32,28 @@ class DependenciasDeLivros {
   final SeletorDeImagem seletor;
   final EnviadorDeCapa enviador;
 
+  /// `Adicionar à lista` nas páginas de livro (F-LST). O roteador injeta o mesmo das telas de
+  /// lista por [comListas], para o aviso de `alteracoes` chegar a elas.
+  final DependenciasDeListas? listas;
+
   const DependenciasDeLivros({
     required this.acervo,
     required this.leitura,
     required this.seletor,
     required this.enviador,
+    this.listas,
   });
+
+  /// As mesmas dependências com as de listas, se ainda não houver.
+  DependenciasDeLivros comListas(DependenciasDeListas? listas) => listas == null || this.listas != null
+      ? this
+      : DependenciasDeLivros(
+          acervo: acervo,
+          leitura: leitura,
+          seletor: seletor,
+          enviador: enviador,
+          listas: listas,
+        );
 
   factory DependenciasDeLivros.padrao({
     required String? Function() getToken,
@@ -155,10 +172,20 @@ GoRoute rotaDoLivroOficial(
         aoVerAtualizacoes: progresso == null
             ? null
             : (leituraId) => context.push<void>(rotaProgressoDaLeitura(leituraId)),
+        listas: deps.listas,
       );
     },
   );
 }
+
+/// Página do livro pessoal dentro da aba de origem: a Estante do dono, o Feed e, desde F-LST, o
+/// Perfil (o livro aberto por uma lista).
+GoRoute rotaDoLivroPessoal(
+  DependenciasDeLivros deps, {
+  required String raiz,
+  EstanteService? estante,
+  DependenciasDeProgresso? progresso,
+}) => _paginaDoLivroPessoal(deps, raiz: raiz, estante: estante, progresso: progresso);
 
 GoRoute _paginaDoLivroPessoal(
   DependenciasDeLivros deps, {
@@ -189,6 +216,7 @@ GoRoute _paginaDoLivroPessoal(
         aoVerAtualizacoes: progresso == null
             ? null
             : (leituraId) => context.push<void>(rotaProgressoDaLeitura(leituraId)),
+        listas: deps.listas,
       );
     },
     routes: <RouteBase>[

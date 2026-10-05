@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 
 import '../../app/cabecalho_tela.dart';
@@ -21,6 +22,9 @@ import '../avaliacao/leitura_service.dart';
 import '../avaliacao/painel_de_nota.dart';
 import '../estante/estante_service.dart';
 import '../estante/situacao_na_estante.dart';
+import '../listas/folha_adicionar_a_lista.dart';
+import '../listas/lista_form_page.dart';
+import '../listas/rotas_listas.dart';
 import '../progresso/rotas_progresso.dart';
 import 'acervo_service.dart';
 import 'formatos.dart';
@@ -29,7 +33,8 @@ import 'formatos.dart';
 /// docs/design/periodo-1/F-ACV-CADASTRO/livro-pessoal.md §4 e §8.
 ///
 /// Dois públicos, e quem decide qual é o **servidor** (`modoConsulta`): o dono vê as ações de
-/// editar e excluir; o terceiro, que só chega pelo feed, vê a página em modo consulta, em que
+/// editar e excluir; o terceiro, que só chega pelo feed ou pela lista do dono, vê a página em
+/// modo consulta, em que
 /// essas ações **não existem** — não são botões cinzas (RN-15.3).
 ///
 /// Nota e resenha: o dono avalia pelo bloco "Sua avaliação" (F-AVA, RN-03), que carrega do
@@ -53,6 +58,9 @@ class LivroPessoalPage extends StatefulWidget {
   final DependenciasDeProgresso? progresso;
   final ValueChanged<String>? aoVerAtualizacoes;
 
+  /// `Adicionar à lista` no topo do menu do dono (livro-pessoal.md P2 §4.3, RF-LST-05).
+  final DependenciasDeListas? listas;
+
   const LivroPessoalPage({
     super.key,
     required this.servico,
@@ -67,6 +75,7 @@ class LivroPessoalPage extends StatefulWidget {
     this.estante,
     this.progresso,
     this.aoVerAtualizacoes,
+    this.listas,
   });
 
   @override
@@ -124,8 +133,11 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
       }
       setState(() {
         // Livro excluído e acesso negado são o MESMO estado, com a mesma copy: nada pode
-        // confirmar a existência do livro a quem não tem acesso (§4.8, §10).
-        if (erro.status == 404 || erro.status == 403) {
+        // confirmar a existência do livro a quem não tem acesso (§4.8, §10). Pela lista, o
+        // `acervo` responde 400 até a etapa 3 da F-LST (pendência na feature): é o mesmo estado.
+        if (erro.status == 404 ||
+            erro.status == 403 ||
+            (widget.via == 'lista' && erro.status == 400)) {
           _carga = _Carga.indisponivel;
         } else {
           _carga = _Carga.falha;
@@ -164,6 +176,15 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
+            if (widget.listas != null) ...<Widget>[
+              item(
+                'lista',
+                PhosphorIconsRegular.listPlus,
+                'Adicionar à lista',
+                theme.colorScheme.onSurface,
+              ),
+              Divider(height: 1, color: theme.divider),
+            ],
             item(
               'editar',
               PhosphorIconsRegular.pencilSimple,
@@ -186,7 +207,23 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
     if (!mounted || escolha == null) {
       return;
     }
-    if (escolha == 'editar') {
+    final listas = widget.listas;
+    final livro = _livro;
+    if (escolha == 'lista' && listas != null && livro != null) {
+      await abrirAdicionarALista(
+        context,
+        servico: listas.servico,
+        livro: LivroDeOrigem(
+          id: livro.id,
+          titulo: livro.titulo,
+          autor: livro.autor,
+          capaUrl: livro.capaUrl,
+          pessoal: true,
+        ),
+        obterPrivacidade: listas.minhaPrivacidade,
+        aoVerLista: (id) => GoRouter.maybeOf(context)?.go(rotaMinhaLista(id)),
+      );
+    } else if (escolha == 'editar') {
       await widget.aoEditar?.call(widget.livroId);
       if (mounted) {
         await _carregar();
@@ -276,10 +313,13 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
               EstadoVazio(
                 icone: PhosphorIconsRegular.bookOpen,
                 titulo: 'Este livro não está mais disponível',
-                texto: 'Ele pode ter sido excluído por quem o cadastrou.',
+                // As duas vias de RN-15 e o que encerra o acesso (livro-pessoal.md P2 §4.5).
+                texto: 'Quem o cadastrou pode ter excluído o livro ou deixado de compartilhá-lo.',
                 rodape: Padding(
                   padding: const EdgeInsets.only(top: DesignTokens.space6),
-                  child: BotaoTextual(texto: 'Voltar ao feed', onPressed: widget.aoVoltarAoFeed),
+                  child: widget.via == 'lista'
+                      ? BotaoTextual(texto: 'Voltar à lista', onPressed: widget.aoVoltar)
+                      : BotaoTextual(texto: 'Voltar ao feed', onPressed: widget.aoVoltarAoFeed),
                 ),
               ),
             ],
