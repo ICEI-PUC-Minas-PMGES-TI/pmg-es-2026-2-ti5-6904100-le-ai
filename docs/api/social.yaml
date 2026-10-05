@@ -8,8 +8,8 @@ info:
     F-NOT do Período 1 estão implementadas. A exclusão de comentário
     pertence a F-SOCIAL-2 (Período 2) e aparece apenas para tornar explícito o
     contrato futuro e sua regra de propriedade. As listas de livros pertencem a
-    F-LST (Período 2); o contrato foi publicado antes da implementação para
-    orientar acervo, web e mobile.
+    F-LST (Período 2); as rotas estão implementadas no social desde 05/10/2026,
+    e a via lista na página de livro pessoal do acervo entra na etapa seguinte.
 
     Atividades e notificações são criadas exclusivamente por consumidores
     idempotentes de eventos do broker. Não há endpoint HTTP público de ingestão.
@@ -30,7 +30,6 @@ info:
       - GET /notificacoes
       - POST /notificacoes/marcar-lidas
       - GET /notificacoes/tempo-real
-    planned-periodo-2:
       - POST /listas
       - GET /listas/{listaId}
       - PATCH /listas/{listaId}
@@ -50,12 +49,13 @@ x-database-contracts:
       entre atividade e livro.
     columns: [atividade_id, dono_id, livro_id]
   - name: v_lista_livro_pessoal_v1
-    x-implementation-status: planned-periodo-2
+    x-implementation-status: implemented
     description: >-
       Comprova a via lista para livro pessoal (RN-15, segunda via). Expõe um
       par lista/livro por item de lista ativa; lista excluída sai da VIEW na
       mesma transação. A VIEW existe no banco desde a migration do modelo
-      social; o consumo em acervo entra com F-LST. O consumidor ainda precisa
+      social e é alimentada pelas rotas de listas; o consumo em acervo entra
+      com a etapa 3 de F-LST. O consumidor ainda precisa
       revalidar o vínculo lista, dono e livro e a privacidade do dono (RN-08):
       perfil público libera qualquer leitor autenticado; perfil privado exige
       seguimento aceito. Diferente da via feed, seguir não é exigido quando o
@@ -381,7 +381,7 @@ paths:
       tags: [listas]
       summary: Cria uma lista do leitor (RF-LST-01)
       operationId: criarLista
-      x-implementation-status: planned-periodo-2
+      x-implementation-status: implemented
       description: >-
         Cria uma lista cujo dono é sempre o leitor autenticado; o servidor não
         aceita dono informado pelo cliente. Com livroId, a lista nasce com esse
@@ -415,7 +415,7 @@ paths:
       tags: [listas]
       summary: Obtém os metadados de uma lista visível (RF-LST-04)
       operationId: obterLista
-      x-implementation-status: planned-periodo-2
+      x-implementation-status: implemented
       description: >-
         O dono sempre vê a própria lista. Terceiros veem se o perfil do dono
         é público ou se seguem o dono com solicitação aceita (RN-08). Perfil
@@ -437,7 +437,7 @@ paths:
       tags: [listas]
       summary: Edita título e descrição da própria lista (RF-LST-03)
       operationId: editarLista
-      x-implementation-status: planned-periodo-2
+      x-implementation-status: implemented
       description: >-
         Owner-only. Campo omitido permanece; descricao nula apaga a descrição.
         Lista alheia responde 404, sem confirmar sua existência.
@@ -464,7 +464,7 @@ paths:
       tags: [listas]
       summary: Exclui a própria lista (RF-LST-03)
       operationId: excluirLista
-      x-implementation-status: planned-periodo-2
+      x-implementation-status: implemented
       description: >-
         Owner-only. O cliente exige confirmação explícita (RNF-USA-04). A
         exclusão é lógica: a lista deixa de aparecer em todas as rotas e em
@@ -488,7 +488,7 @@ paths:
       tags: [listas]
       summary: Lista os livros de uma lista visível, na ordem do dono (RF-LST-04)
       operationId: listarLivrosDaLista
-      x-implementation-status: planned-periodo-2
+      x-implementation-status: implemented
       description: >-
         Paginação por cursor estável, em ordem crescente de posição. Aplica a
         mesma visibilidade de obterLista. Livro inativo não é exibido. Em livro
@@ -513,7 +513,7 @@ paths:
       tags: [listas]
       summary: Adiciona um livro à própria lista (RF-LST-02, RF-LST-05)
       operationId: adicionarLivroNaLista
-      x-implementation-status: planned-periodo-2
+      x-implementation-status: implemented
       description: >-
         Owner-only. O livro entra na última posição. Precisa estar ativo e ser
         oficial ou livro pessoal do próprio leitor; livro pessoal de outro
@@ -553,7 +553,7 @@ paths:
       tags: [listas]
       summary: Remove um livro da própria lista (RF-LST-02)
       operationId: removerLivroDaLista
-      x-implementation-status: planned-periodo-2
+      x-implementation-status: implemented
       description: >-
         Owner-only. Os itens seguintes sobem uma posição na mesma transação.
         Livro ausente da lista mantém o resultado idempotente. Não pede
@@ -576,7 +576,7 @@ paths:
       tags: [listas]
       summary: Move um livro para outra posição da própria lista (RF-LST-02)
       operationId: moverLivroNaLista
-      x-implementation-status: planned-periodo-2
+      x-implementation-status: implemented
       description: >-
         Owner-only. Move um item por vez, o que funciona com a lista paginada,
         com arrastar no mobile e com os controles de subir e descer da web. Os
@@ -610,7 +610,7 @@ paths:
       tags: [listas]
       summary: Lista as listas de um leitor (RF-LST-04, RF-SOC-02)
       operationId: listarListasDoPerfil
-      x-implementation-status: planned-periodo-2
+      x-implementation-status: implemented
       description: >-
         Índice das listas ativas do leitor, da alterada mais recentemente para
         a mais antiga, com contagem e até três capas por lista. Aplica RN-08:
@@ -636,7 +636,7 @@ paths:
       tags: [listas]
       summary: Lista as listas do próprio leitor, marcando as que contêm um livro
       operationId: listarMinhasListas
-      x-implementation-status: planned-periodo-2
+      x-implementation-status: implemented
       description: >-
         Alimenta o sheet Adicionar à lista. Mesma ordem e forma de
         listarListasDoPerfil para o próprio leitor; com livroId, cada lista

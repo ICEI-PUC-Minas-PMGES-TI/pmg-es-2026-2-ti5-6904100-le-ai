@@ -45,4 +45,16 @@ public class LimitesDeInteracao {
         "Muitos comentários em pouco tempo. Tente de novo em instantes.",
         Clock.systemUTC());
   }
+
+  /**
+   * Todas as escritas de listas (F-LST): criar, editar, excluir, adicionar, remover e mover. Mesmo
+   * teto das outras interações; nenhuma fonte fixa um valor próprio para listas.
+   */
+  @Bean
+  LimitePorUsuario limiteDeListas() {
+    return new LimitePorUsuario(
+        INTERACOES_POR_MINUTO,
+        "Muitas alterações em listas em pouco tempo. Tente de novo em instantes.",
+        Clock.systemUTC());
+  }
 }
