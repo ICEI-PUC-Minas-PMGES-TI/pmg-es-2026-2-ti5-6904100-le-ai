@@ -24,8 +24,8 @@ RNF atendidos: **RNF-SEC-02** (propriedade da lista no servidor), **RNF-SEC-03**
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | não iniciado | tabelas `lista`/`lista_item`; VIEW `v_lista_livro_pessoal_v1` |
-| Backend | não iniciado | `social`: CRUD de listas, itens ordenados, leitura sob RN-08, via RN-15 |
+| Infra | implementado | tabelas `lista`/`lista_item` e VIEW `v_lista_livro_pessoal_v1` do modelo de 16/09; migration `V20261005100000__limites_lista.sql` (80/300) revisada pelo dono em 05/10, aplicada no banco de dev na próxima subida do `social` |
+| Backend | em andamento | `social` implementado em 05/10/2026: as 10 rotas `implemented` no `social.yaml`, 24 testes de integração e 6 unitários verdes; falta a via lista no `acervo` (etapa 3) |
 | Web | não iniciado | criar/editar listas, reordenar, ver listas de outros |
 | Mobile | não iniciado | mesmas telas |
 
@@ -90,8 +90,8 @@ Plano de 30/09/2026 para retomar a feature em qualquer máquina ou sessão. Orde
 | Etapa | Escopo | Situação |
 |---|---|---|
 | 1 | Contrato em `docs/api/social.yaml` e `docs/api/acervo.yaml` | **concluída em 30/09/2026** |
-| 2 | Backend `social` (Spring) | próxima |
-| 3 | Via lista no `acervo` (NestJS, código do Vicenzo: avisar antes) | pendente |
+| 2 | Backend `social` (Spring) | **concluída em 05/10/2026** |
+| 3 | Via lista no `acervo` (NestJS, código do Vicenzo: avisar antes) | próxima |
 | 4 | Web (`code/front`) | pendente |
 | 5 | Mobile (`code/mobile`) | pendente |
 | 6 | Fechamento: DES, status, pendências e timeline | pendente |
@@ -166,6 +166,13 @@ Plano de 30/09/2026 para retomar a feature em qualquer máquina ou sessão. Orde
 - ~~**Decisão do dono:** fixar limites de título/descrição e o comportamento de adicionar novamente livro já presente antes da migration.~~ — **decidido (30/09/2026):** título até 80 e descrição até 300 caracteres (ratifica os protótipos); livro já presente responde 200 com o item existente.
 - ~~**Contrato pendente de reordenação e do sheet**~~ — **decidido (30/09/2026):** `PUT /ordem` com todos os `itemIds` substituído por `PUT /listas/{id}/livros/{itemId}/posicao`, que funciona com itens paginados; `POST /listas` aceita `livroId`; `GET /me/listas?livroId=` informa `contemLivro`; o índice traz contagem, três capas e `atualizadaEm`.
 - **Alternativa a avaliar, sem mudar o desenho atual:** controles acessíveis de subir e descer na web, além do arrastar, usando a mesma rota de posição.
+- ~~**Revisão humana da migration**~~ — **revisada e aprovada pelo dono em 05/10/2026.** `V20261005100000__limites_lista.sql` ficou acima de `V20261003180000` (F-NOT-2, 03/10), e não de `V20260927002000` como o plano previa.
+- ~~**Livro que fica inativo deixa buraco na posição exibida.**~~ — **decidido (05/10/2026): renumerar na leitura, só no `social`.** Excluir livro pessoal faz `ativo = false` no `acervo`, e o item continua em `lista_item`. A `posicao` do contrato passou a ser a visível (lugar entre os livros ativos, contínua a partir de 1); a posição gravada fica interna, para o cursor e para mover. `moverLivroNaLista` recebe a posição visível, valida contra a quantidade de livros ativos e a traduz para a posição gravada; item de livro inativo responde 404. Descartado: compactar por evento do `acervo`, que exigiria schema novo, outbox no `acervo` e consumidor com DLQ. A linha do livro inativo continua em `lista_item` até a lista ser excluída ou a F-CONTA-2 limpar a conta.
+- **Decisões de implementação da etapa 2 (05/10/2026):**
+  - Pacote `lista/{controller,dto,model,repository,service}` com SQL parametrizado (`JdbcTemplate`), e não entidades JPA como o plano previa, no molde de `NotificacaoRepository`: inclusão com `ON CONFLICT`, lock `FOR UPDATE` da lista em toda escrita e deslocamento de posições num único `UPDATE`, que uma entidade em cache não acompanharia.
+  - Livro inexistente responde o mesmo 422 do livro pessoal de outro leitor, para não confirmar que o livro alheio existe.
+  - Rate limit por usuário de 30 escritas por minuto (`limiteDeListas`), o mesmo valor das outras interações, por falta de número próprio na especificação.
+  - O dono fora de `v_perfil_referencia_v1` (suspenso ou em exclusão) recebe 404 também nas próprias listas.
 
 ## Timeline
 
@@ -178,3 +185,7 @@ Plano de 30/09/2026 para retomar a feature em qualquer máquina ou sessão. Orde
 ### Dono 29/09/2026: feature atribuída a **Henrique Carvalho** na [divisão do Período 2](README.md#divisão-do-período-2-entre-5-pessoas).
 
 ### Contrato 30/09/2026: rotas de listas publicadas em `social.yaml` antes da implementação (status `planned-periodo-2`), com `v_lista_livro_pessoal_v1` em `x-database-contracts`, e `via=lista` planejada em `acervo.yaml`. Decisões do dono: limites 80/300, livro repetido responde 200, reordenação por item (`/posicao` no lugar de `/ordem`), `livroId` opcional na criação, `contemLivro` no `/me/listas` e 403 de perfil privado.
+
+### Backend 05/10/2026: etapa 2 implementada no `social`. As 10 rotas de listas e `v_lista_livro_pessoal_v1` passaram a `implemented` no `social.yaml`. Migration `V20261005100000__limites_lista.sql` escrita e testada só em Postgres descartável, aguardando revisão. `./mvnw verify` com `DATABASE_URL_TESTE` local: 181 testes, nenhuma falha (23 novos em `ListaControllerIntegracaoTest`, 6 em `RegrasDeListaTest`). Decisões e a pendência do livro inativo registradas em Pendências.
+
+### Revisão 05/10/2026: migration aprovada pelo dono. Posição visível nas listas: livro pessoal excluído não abre mais buraco na numeração nem desloca o mover (opção de renumerar na leitura, só no `social`). `./mvnw verify` local: 188 testes, nenhuma falha.
