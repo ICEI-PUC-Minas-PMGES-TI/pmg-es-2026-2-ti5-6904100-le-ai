@@ -5,6 +5,7 @@ import pytest
 from leai_ingestao.dados import (
     ErroDeDadosCurados,
     carregar_assuntos,
+    carregar_autores_unificados,
     carregar_mapa_de_assuntos,
     carregar_sinonimos_de_editora,
     resolver_editora,
@@ -70,3 +71,33 @@ def test_tag_nao_normalizada_no_csv_falha(tmp_path):
     )
     with pytest.raises(ErroDeDadosCurados):
         carregar_mapa_de_assuntos(tmp_path)
+
+
+def test_autores_unificados_do_repositorio_sao_consistentes():
+    """Suzanne Collins: as edições portuguesas apontavam para uma homônima."""
+    unificados = {u.chave: u for u in carregar_autores_unificados()}
+    assert unificados["OL12737091A"].canonica == "OL1394359A"
+    assert unificados["OL12737091A"].nome == "Suzanne Collins"
+
+
+_CABECALHO_UNIFICADOS = "ol_author_key,ol_author_key_canonica,nome,evidencia\n"
+
+
+@pytest.mark.parametrize(
+    "linhas",
+    [
+        "OL1A,OL2A,Fulano,\n",  # sem evidência
+        "OL1,OL2A,Fulano,mesmo nome\n",  # chave fora do formato
+        "OL1A,OL1A,Fulano,mesmo nome\n",  # unificado com ele mesmo
+        "OL1A,OL2A,Fulano,mesmo nome\nOL1A,OL3A,Fulano,mesmo nome\n",  # chave repetida
+        "OL1A,OL2A,Fulano,mesmo nome\nOL2A,OL3A,Fulano,mesmo nome\n",  # cadeia
+        "OL1A,OL3A,Fulano,mesmo nome\nOL2A,OL3A,Beltrano,mesmo nome\n",  # nomes diferentes
+        "OL1A,OL2A,João,mesmo nome\n",  # nome em NFD
+    ],
+)
+def test_unificacao_de_autor_inconsistente_falha(tmp_path, linhas):
+    (tmp_path / "autores_unificados.csv").write_text(
+        _CABECALHO_UNIFICADOS + linhas, encoding="utf-8"
+    )
+    with pytest.raises(ErroDeDadosCurados):
+        carregar_autores_unificados(tmp_path)
