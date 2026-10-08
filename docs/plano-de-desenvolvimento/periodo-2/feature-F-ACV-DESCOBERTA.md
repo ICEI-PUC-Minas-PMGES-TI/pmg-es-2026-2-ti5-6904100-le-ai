@@ -127,7 +127,7 @@ A biografia fica **no idioma da fonte**: a OpenLibrary costuma devolver em ingl�
 (plano §10)
 
 - [x] Código (backend `acervo`, web, mobile) mergeado em `desenvolvimento` — 07/10/2026
-- [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
+- [x] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)) — `ci-front` e `ci-mobile` no merge `6d4a725`, 07/10/2026
 - [x] Testes unitários e de integração com banco real/container: filtros/combinações, biografia, série ordenada/paginada, exclusão de livro pessoal e assunto acionável (RNF-TST-02) — 02/10/2026
 - [x] Testes web/mobile cobrem filtros, navegação às páginas de autor/editora/série e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06) — 07/10/2026
 - [x] **Spec OpenAPI de `acervo` atualizado em `docs/api/acervo.yaml`** com os filtros de `GET /livros` e os endpoints de autor/editora/série — 02/10/2026
