@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ApiError } from '../services/api'
 import { ASSUNTOS, livro, pagina } from '../testes/massaDaBusca'
+import { SEM_FILTROS } from './filtrosDaBusca'
 import { useBuscaDeLivros } from './useBuscaDeLivros'
 
 function servicoFalso() {
@@ -70,7 +71,7 @@ describe('useBuscaDeLivros', () => {
     busca.alterarConsulta('vidas')
     await vi.advanceTimersByTimeAsync(400)
     expect(servico.buscarLivros).toHaveBeenLastCalledWith({ q: 'vidas', assunto: 'romance' })
-    expect(aoBuscar).toHaveBeenLastCalledWith({ q: 'vidas', assunto: 'romance' })
+    expect(aoBuscar).toHaveBeenLastCalledWith({ q: 'vidas', assunto: 'romance', filtros: SEM_FILTROS })
 
     busca.alternarAssunto('romance')
     await vi.advanceTimersByTimeAsync(0)
@@ -192,7 +193,7 @@ describe('useBuscaDeLivros', () => {
     busca.alternarAssunto('romance')
     await vi.advanceTimersByTimeAsync(0)
     expect(busca.estado.value).toBe('aterrissagem')
-    expect(aoBuscar).toHaveBeenLastCalledWith({ q: null, assunto: null })
+    expect(aoBuscar).toHaveBeenLastCalledWith({ q: null, assunto: null, filtros: SEM_FILTROS })
   })
 
   it('descartar cancela a busca que ainda esperava o debounce', async () => {
@@ -256,11 +257,11 @@ describe('useBuscaDeLivros', () => {
     await vi.advanceTimersByTimeAsync(0)
     expect(busca.estado.value).toBe('resultados')
 
-    busca.aplicarCriterios({ q: null, assunto: null })
+    busca.aplicarCriterios({ q: null, assunto: null, filtros: SEM_FILTROS })
     expect(busca.estado.value).toBe('aterrissagem')
     expect(busca.consulta.value).toBe('')
 
-    busca.aplicarCriterios({ q: null, assunto: 'terror' })
+    busca.aplicarCriterios({ q: null, assunto: 'terror', filtros: SEM_FILTROS })
     await vi.advanceTimersByTimeAsync(0)
     expect(servico.buscarLivros).toHaveBeenLastCalledWith({ q: null, assunto: 'terror' })
   })
@@ -285,5 +286,99 @@ describe('useBuscaDeLivros', () => {
     responder(ASSUNTOS)
     await vi.advanceTimersByTimeAsync(0)
     expect(busca.estadoDosAssuntos.value).toBe('pronto')
+  })
+
+  describe('filtros avançados (F-ACV-DESCOBERTA)', () => {
+    const FILTROS = { ...SEM_FILTROS, editora: 'Pallas', paginasMin: 100, paginasMax: 150 }
+
+    it('busca só com filtros, na hora, e manda ao servidor só os preenchidos', async () => {
+      const servico = servicoFalso()
+      const aoBuscar = vi.fn()
+      const busca = useBuscaDeLivros({ servico, aoBuscar })
+
+      busca.aplicarFiltros(FILTROS)
+      await vi.advanceTimersByTimeAsync(0)
+
+      expect(servico.buscarLivros).toHaveBeenLastCalledWith({
+        q: null,
+        assunto: null,
+        editora: 'Pallas',
+        paginasMin: 100,
+        paginasMax: 150,
+      })
+      expect(aoBuscar).toHaveBeenLastCalledWith({ q: null, assunto: null, filtros: FILTROS })
+      expect(busca.estado.value).toBe('resultados')
+    })
+
+    it('combina com o texto e o assunto, e a página seguinte continua os mesmos filtros', async () => {
+      const servico = servicoFalso()
+      servico.buscarLivros
+        .mockResolvedValueOnce(pagina([livro('l1', 'Um')], { totalPaginas: 2, totalItens: 2 }))
+        .mockResolvedValueOnce(pagina([livro('l2', 'Dois')], { page: 2, totalPaginas: 2, totalItens: 2 }))
+      const busca = useBuscaDeLivros({ servico, inicial: { q: 'olhos', assunto: 'conto', filtros: FILTROS } })
+
+      busca.iniciar()
+      await vi.advanceTimersByTimeAsync(0)
+      busca.alterarConsulta('outra coisa')
+      await busca.carregarMais()
+
+      expect(servico.buscarLivros).toHaveBeenLastCalledWith({
+        q: 'olhos',
+        assunto: 'conto',
+        editora: 'Pallas',
+        paginasMin: 100,
+        paginasMax: 150,
+        page: 2,
+      })
+      expect(busca.livros.value.map((l) => l.id)).toEqual(['l1', 'l2'])
+    })
+
+    it('remover o chip da faixa tira os dois lados; sem nenhum critério, volta à aterrissagem', async () => {
+      const servico = servicoFalso()
+      const busca = useBuscaDeLivros({ servico, inicial: { filtros: FILTROS } })
+      busca.iniciar()
+      await vi.advanceTimersByTimeAsync(0)
+
+      busca.removerFiltro('paginas')
+      await vi.advanceTimersByTimeAsync(0)
+      expect(servico.buscarLivros).toHaveBeenLastCalledWith({ q: null, assunto: null, editora: 'Pallas' })
+      expect(busca.filtros.value).toEqual({ ...SEM_FILTROS, editora: 'Pallas' })
+
+      busca.removerFiltro('editora')
+      expect(busca.estado.value).toBe('aterrissagem')
+      expect(servico.buscarLivros).toHaveBeenCalledTimes(2)
+    })
+
+    it('apagar o texto com filtro ativo continua buscando pelos filtros', async () => {
+      const servico = servicoFalso()
+      const busca = useBuscaDeLivros({ servico, inicial: { q: 'olhos', filtros: FILTROS } })
+      busca.iniciar()
+      await vi.advanceTimersByTimeAsync(0)
+
+      busca.limparConsulta()
+      await vi.advanceTimersByTimeAsync(0)
+
+      expect(busca.estado.value).toBe('resultados')
+      expect(servico.buscarLivros).toHaveBeenLastCalledWith({
+        q: null,
+        assunto: null,
+        editora: 'Pallas',
+        paginasMin: 100,
+        paginasMax: 150,
+      })
+    })
+
+    it('limpar filtros sem texto nem assunto volta à aterrissagem', async () => {
+      const servico = servicoFalso()
+      const aoBuscar = vi.fn()
+      const busca = useBuscaDeLivros({ servico, aoBuscar, inicial: { filtros: FILTROS } })
+      busca.iniciar()
+      await vi.advanceTimersByTimeAsync(0)
+
+      busca.limparFiltros()
+
+      expect(busca.estado.value).toBe('aterrissagem')
+      expect(aoBuscar).toHaveBeenLastCalledWith({ q: null, assunto: null, filtros: SEM_FILTROS })
+    })
   })
 })

@@ -139,6 +139,65 @@ describe('LivroOficialView', () => {
     expect(wrapper.text()).toContain('2019 · 264 páginas')
   })
 
+  it('ficha: autor, editora e série levam às páginas de catálogo, com o volume fora do link', async () => {
+    servico.obterLivroOficial.mockResolvedValue(
+      livroOficial({ editoraId: 'ed-1', serie: { id: 'se-1', nome: 'Trilogia da Bahia', numero: 1 } }),
+    )
+    const { wrapper } = await abrir()
+
+    expect(wrapper.findAll('dt').map((dt) => dt.text())).toEqual(['Autor', 'Editora', 'Série', 'ISBN'])
+    const links = wrapper.findAll('dd a').map((link) => [link.text(), link.attributes('href')])
+    expect(links).toEqual([
+      ['Itamar Vieira Junior', '/descobrir/autores/a1'],
+      ['Todavia', '/descobrir/editoras/ed-1'],
+      ['Trilogia da Bahia', '/descobrir/series/se-1'],
+    ])
+    const serie = wrapper.findAll('dd').find((dd) => dd.text().includes('Trilogia'))!
+    expect(serie.text()).toContain('volume 1')
+    expect(serie.get('a').text()).not.toContain('volume')
+    // O autor do título não vira link.
+    expect(wrapper.get('article header').find('a').exists()).toBe(false)
+  })
+
+  it('ficha: editora sem página fica texto, série sem número só com o nome e coautoria com um link por autor', async () => {
+    servico.obterLivroOficial.mockResolvedValue(
+      livroOficial({
+        autores: [
+          { id: 'a1', nome: 'Itamar Vieira Junior' },
+          { id: 'a2', nome: 'Outra Pessoa' },
+        ],
+        editoraId: null,
+        serie: { id: 'se-1', nome: 'Trilogia da Bahia', numero: null },
+      }),
+    )
+    const { wrapper } = await abrir()
+
+    expect(wrapper.findAll('dt').map((dt) => dt.text())).toEqual(['Autores', 'Editora', 'Série', 'ISBN'])
+    expect(wrapper.findAll('dd a').map((link) => link.attributes('href'))).toEqual([
+      '/descobrir/autores/a1',
+      '/descobrir/autores/a2',
+      '/descobrir/series/se-1',
+    ])
+    expect(wrapper.text()).not.toContain('volume')
+  })
+
+  it('assuntos levam ao Descobrir filtrado; sem assuntos, a seção some', async () => {
+    servico.obterLivroOficial.mockResolvedValue(livroOficial({ assuntos: [{ id: 'romance', nome: 'Romance' }] }))
+    servico.buscarLivros.mockResolvedValue({ itens: [], page: 1, limit: 20, totalItens: 0, totalPaginas: 0 })
+    const { wrapper, router } = await abrir()
+
+    const assunto = wrapper.get('a[aria-label="Buscar livros de Romance"]')
+    expect(assunto.attributes('href')).toBe('/descobrir?assunto=romance')
+    await assunto.trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.fullPath).toBe('/descobrir?assunto=romance')
+
+    servico.obterLivroOficial.mockResolvedValue(livroOficial())
+    await router.push('/livros/livro-2')
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('Assuntos')
+  })
+
   it('sinopse pendente é skeleton; o polling troca pelo texto sem mexer nas resenhas', async () => {
     servico.obterLivroOficial
       .mockResolvedValueOnce(

@@ -1,16 +1,27 @@
 <script setup lang="ts">
-import { PhMagnifyingGlass, PhX } from '@phosphor-icons/vue'
+import { PhMagnifyingGlass, PhSlidersHorizontal, PhX } from '@phosphor-icons/vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import CardLivroBusca from '../components/livros/CardLivroBusca.vue'
+import ChipsDeFiltros from '../components/livros/ChipsDeFiltros.vue'
 import FiltroAssuntos from '../components/livros/FiltroAssuntos.vue'
+import FiltrosAvancados from '../components/livros/FiltrosAvancados.vue'
 import FimDaLista from '../components/perfil/FimDaLista.vue'
 import BannerAviso from '../components/ui/BannerAviso.vue'
 import BotaoPrimario from '../components/ui/BotaoPrimario.vue'
 import BotaoTextual from '../components/ui/BotaoTextual.vue'
 import EstadoVazio from '../components/ui/EstadoVazio.vue'
-import { useBuscaDeLivros } from '../livros/useBuscaDeLivros'
+import SobreposicaoModal from '../components/ui/SobreposicaoModal.vue'
+import {
+  chipsDosFiltros,
+  type FiltrosAplicados,
+  filtrosDaQuery,
+  filtrosIguais,
+  filtrosParaQuery,
+  temFiltros,
+} from '../livros/filtrosDaBusca'
+import { type CriteriosDaTela, useBuscaDeLivros } from '../livros/useBuscaDeLivros'
 
 /**
  * Aba Descobrir (RF-ACV-01, RF-ACV-02), a partir do protótipo `descobrir.html`.
@@ -29,6 +40,9 @@ import { useBuscaDeLivros } from '../livros/useBuscaDeLivros'
  *   aterrissagem, em vez de deixar a tela com uma busca que a URL não tem.
  * - Um único `role="status"` fixo anuncia a contagem e o "Nenhum livro encontrado" (§9): região
  *   que nasce junto com o texto não é lida.
+ * - **Filtros avançados** (F-ACV-DESCOBERTA, descobrir.md do Período 2): a partir de 768px, bloco
+ *   `Filtros` no painel, abaixo de `Assuntos`; abaixo disso, botão ao lado do campo, com badge da
+ *   contagem, que abre uma bottom sheet. Os aplicados viram chips e também vão para a URL.
  */
 const route = useRoute()
 const router = useRouter()
@@ -46,19 +60,39 @@ function textoDaQuery(valor: unknown): string | null {
   return typeof valor === 'string' && valor !== '' ? valor : null
 }
 
+function criteriosDaUrl(): CriteriosDaTela {
+  return {
+    q: textoDaQuery(route.query.q),
+    assunto: textoDaQuery(route.query.assunto),
+    filtros: filtrosDaQuery(route.query),
+  }
+}
+
+function mesmosCriterios(a: CriteriosDaTela, b: CriteriosDaTela): boolean {
+  return a.q === b.q && a.assunto === b.assunto && filtrosIguais(a.filtros, b.filtros)
+}
+
 /** O que a própria tela pôs na URL, para o `watch` da rota não tratar isso como navegação. */
-let criteriosNaUrl = { q: textoDaQuery(route.query.q), assunto: textoDaQuery(route.query.assunto) }
+let criteriosNaUrl = criteriosDaUrl()
 
 const busca = useBuscaDeLivros({
   inicial: criteriosNaUrl,
-  aoBuscar: ({ q, assunto }) => {
-    criteriosNaUrl = { q, assunto }
-    void router.replace({ query: { ...route.query, q: q ?? undefined, assunto: assunto ?? undefined } })
+  aoBuscar: (criterios) => {
+    criteriosNaUrl = criterios
+    void router.replace({
+      query: {
+        ...route.query,
+        q: criterios.q ?? undefined,
+        assunto: criterios.assunto ?? undefined,
+        ...filtrosParaQuery(criterios.filtros),
+      },
+    })
   },
 })
 const {
   consulta,
   assunto,
+  filtros,
   assuntos,
   estadoDosAssuntos,
   estado,
@@ -81,15 +115,38 @@ onBeforeUnmount(() => {
 })
 
 watch(
-  () => [textoDaQuery(route.query.q), textoDaQuery(route.query.assunto)] as const,
-  ([q, assuntoDaUrl]) => {
-    if (q === criteriosNaUrl.q && assuntoDaUrl === criteriosNaUrl.assunto) {
+  () => route.query,
+  () => {
+    const daUrl = criteriosDaUrl()
+    if (mesmosCriterios(daUrl, criteriosNaUrl)) {
       return
     }
-    criteriosNaUrl = { q, assunto: assuntoDaUrl }
-    busca.aplicarCriterios({ q, assunto: assuntoDaUrl })
+    criteriosNaUrl = daUrl
+    busca.aplicarCriterios(daUrl)
   },
 )
+
+const chips = computed(() => chipsDosFiltros(filtros.value))
+const comFiltros = computed(() => temFiltros(filtros.value))
+const folhaAberta = ref(false)
+
+const rotuloDoBotaoDeFiltros = computed(() => {
+  const total = chips.value.length
+  if (total === 0) {
+    return 'Filtros'
+  }
+  return total === 1 ? 'Filtros, 1 ativo' : `Filtros, ${total} ativos`
+})
+
+function aplicarFiltros(novos: FiltrosAplicados): void {
+  folhaAberta.value = false
+  busca.aplicarFiltros(novos)
+}
+
+function limparFiltros(): void {
+  folhaAberta.value = false
+  busca.limparFiltros()
+}
 
 const campo = ref<HTMLInputElement | null>(null)
 
@@ -110,7 +167,10 @@ const anuncio = computed(() => {
   if (estado.value === 'resultados') {
     return totalItens.value === 1 ? '1 livro encontrado' : `${totalItens.value} livros encontrados`
   }
-  return estado.value === 'vazio' ? 'Nenhum livro encontrado' : ''
+  if (estado.value === 'vazio') {
+    return comFiltros.value ? 'Nenhum livro com esses filtros' : 'Nenhum livro encontrado'
+  }
+  return ''
 })
 </script>
 
@@ -126,75 +186,136 @@ const anuncio = computed(() => {
         :class="largo ? 'w-[560px] max-w-full' : ''"
         @submit.prevent
       >
-        <div class="flex h-12 items-center gap-space-3 rounded-base border border-linha bg-papel-elevado px-space-4 transition-colors duration-dur-fast focus-within:border-[1.5px] focus-within:border-musgo md:h-11">
-          <PhMagnifyingGlass
-            :size="20"
-            weight="regular"
-            class="shrink-0 text-grafite-suave"
-            aria-hidden="true"
-          />
-          <input
-            ref="campo"
-            :value="consulta"
-            type="search"
-            maxlength="200"
-            enterkeyhint="search"
-            autocomplete="off"
-            placeholder="Título, autor, editora ou ISBN"
-            aria-label="Buscar por título, autor, editora ou ISBN"
-            class="min-w-0 flex-1 bg-transparent text-body text-tinta outline-none placeholder:text-grafite-suave [&::-webkit-search-cancel-button]:hidden"
-            @input="aoDigitar"
-          >
-          <button
-            v-if="consulta"
-            type="button"
-            class="-mr-space-3 flex size-12 shrink-0 items-center justify-center rounded-base text-grafite focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-musgo md:size-10"
-            aria-label="Limpar busca"
-            @click="limpar"
-          >
-            <PhX
+        <div class="flex items-center gap-space-3">
+          <div class="flex h-12 min-w-0 flex-1 items-center gap-space-3 rounded-base border border-linha bg-papel-elevado px-space-4 transition-colors duration-dur-fast focus-within:border-[1.5px] focus-within:border-musgo md:h-11">
+            <PhMagnifyingGlass
               :size="20"
               weight="regular"
+              class="shrink-0 text-grafite-suave"
               aria-hidden="true"
             />
+            <input
+              ref="campo"
+              :value="consulta"
+              type="search"
+              maxlength="200"
+              enterkeyhint="search"
+              autocomplete="off"
+              placeholder="Título, autor, editora ou ISBN"
+              aria-label="Buscar por título, autor, editora ou ISBN"
+              class="min-w-0 flex-1 bg-transparent text-body text-tinta outline-none placeholder:text-grafite-suave [&::-webkit-search-cancel-button]:hidden"
+              @input="aoDigitar"
+            >
+            <button
+              v-if="consulta"
+              type="button"
+              class="-mr-space-3 flex size-12 shrink-0 items-center justify-center rounded-base text-grafite focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-musgo md:size-10"
+              aria-label="Limpar busca"
+              @click="limpar"
+            >
+              <PhX
+                :size="20"
+                weight="regular"
+                aria-hidden="true"
+              />
+            </button>
+          </div>
+          <button
+            v-if="!largo"
+            type="button"
+            class="relative flex size-12 shrink-0 items-center justify-center rounded-base focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-musgo"
+            :class="chips.length ? 'bg-musgo-fundo text-musgo' : 'border border-linha bg-papel-elevado text-grafite'"
+            :aria-label="rotuloDoBotaoDeFiltros"
+            aria-haspopup="dialog"
+            @click="folhaAberta = true"
+          >
+            <PhSlidersHorizontal
+              :size="20"
+              :weight="chips.length ? 'fill' : 'regular'"
+              aria-hidden="true"
+            />
+            <span
+              v-if="chips.length"
+              class="absolute -right-space-1 -top-space-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-musgo px-space-1 font-mono text-[11px] font-semibold leading-none text-papel"
+              aria-hidden="true"
+            >{{ chips.length }}</span>
           </button>
         </div>
       </form>
     </Teleport>
 
-    <div class="mt-space-4 flex flex-col md:mt-space-3 md:grid md:grid-cols-[240px_minmax(0,1fr)] md:gap-x-space-8 md:gap-y-space-3">
-      <FiltroAssuntos
-        v-if="assuntos.length"
-        :assuntos="assuntos"
-        :ativo="assunto"
-        class="md:col-start-1 md:row-start-2 md:self-start"
-        @alternar="busca.alternarAssunto"
-      />
-      <ul
-        v-else-if="estadoDosAssuntos === 'carregando'"
-        class="entrada -mx-space-5 flex gap-space-2 overflow-hidden px-space-5 py-space-1 md:col-start-1 md:row-start-2 md:mx-0 md:mt-space-7 md:flex-col md:gap-space-1 md:px-0 md:py-0"
-        aria-hidden="true"
-      >
-        <li
-          v-for="n in 8"
-          :key="n"
-          class="h-10 w-24 shrink-0 rounded-full bg-capa-placeholder md:h-9 md:w-full md:rounded-base"
+    <SobreposicaoModal
+      :aberta="folhaAberta && !largo"
+      rotulo="Filtros"
+      foco-inicial="[data-foco-inicial]"
+      somente-folha
+      @fechar="folhaAberta = false"
+    >
+      <div class="max-h-[80vh] overflow-y-auto">
+        <FiltrosAvancados
+          :aplicados="filtros"
+          variante="folha"
+          @aplicar="aplicarFiltros"
+          @limpar="limparFiltros"
         />
-      </ul>
-      <div
-        v-else-if="estadoDosAssuntos === 'erro'"
-        class="flex flex-wrap items-center gap-x-space-3 md:col-start-1 md:row-start-2 md:flex-col md:items-start md:px-space-3"
-      >
-        <p class="text-caption text-grafite">
-          Não foi possível carregar os assuntos.
-        </p>
-        <BotaoTextual
-          class="min-h-12 md:min-h-10"
-          @click="busca.carregarAssuntos()"
-        >
-          Tentar de novo
-        </BotaoTextual>
       </div>
+    </SobreposicaoModal>
+
+    <div class="mt-space-4 flex flex-col md:mt-space-3 md:grid md:grid-cols-[240px_minmax(0,1fr)] md:gap-x-space-8 md:gap-y-space-3">
+      <div class="md:col-start-1 md:row-span-2 md:row-start-2 md:self-start">
+        <FiltroAssuntos
+          v-if="assuntos.length"
+          :assuntos="assuntos"
+          :ativo="assunto"
+          @alternar="busca.alternarAssunto"
+        />
+        <ul
+          v-else-if="estadoDosAssuntos === 'carregando'"
+          class="entrada -mx-space-5 flex gap-space-2 overflow-hidden px-space-5 py-space-1 md:mx-0 md:mt-space-7 md:flex-col md:gap-space-1 md:px-0 md:py-0"
+          aria-hidden="true"
+        >
+          <li
+            v-for="n in 8"
+            :key="n"
+            class="h-10 w-24 shrink-0 rounded-full bg-capa-placeholder md:h-9 md:w-full md:rounded-base"
+          />
+        </ul>
+        <div
+          v-else-if="estadoDosAssuntos === 'erro'"
+          class="flex flex-wrap items-center gap-x-space-3 md:flex-col md:items-start md:px-space-3"
+        >
+          <p class="text-caption text-grafite">
+            Não foi possível carregar os assuntos.
+          </p>
+          <BotaoTextual
+            class="min-h-12 md:min-h-10"
+            @click="busca.carregarAssuntos()"
+          >
+            Tentar de novo
+          </BotaoTextual>
+        </div>
+
+        <template v-if="largo">
+          <div
+            class="my-space-6 h-px bg-linha"
+            aria-hidden="true"
+          />
+          <FiltrosAvancados
+            :aplicados="filtros"
+            variante="painel"
+            @aplicar="aplicarFiltros"
+            @limpar="limparFiltros"
+          />
+        </template>
+      </div>
+
+      <ChipsDeFiltros
+        v-if="chips.length"
+        :chips="chips"
+        class="mt-space-2 md:col-start-2 md:row-start-2 md:mt-0"
+        @remover="busca.removerFiltro"
+        @limpar="limparFiltros"
+      />
 
       <p
         role="status"
@@ -206,7 +327,8 @@ const anuncio = computed(() => {
       </p>
 
       <section
-        class="md:col-start-2 md:row-start-2"
+        class="md:col-start-2"
+        :class="chips.length ? 'md:row-start-3' : 'md:row-start-2'"
         aria-label="Resultados da busca"
       >
         <div
@@ -260,6 +382,26 @@ const anuncio = computed(() => {
             @carregar="busca.carregarMais()"
           />
         </template>
+
+        <EstadoVazio
+          v-else-if="estado === 'vazio' && comFiltros"
+          :icone="PhSlidersHorizontal"
+          solto
+          titulo="Nenhum livro com esses filtros"
+          class="mx-auto mt-space-12 max-w-[320px] md:mt-space-16 md:max-w-[440px]"
+        >
+          <p class="mt-space-6 max-w-[280px] text-body text-grafite">
+            Remova um filtro ou amplie a faixa de páginas para ver mais resultados.
+          </p>
+          <div class="mt-space-6 flex w-full justify-center md:w-auto">
+            <BotaoPrimario
+              class="w-full md:w-auto"
+              @click="limparFiltros"
+            >
+              Limpar filtros
+            </BotaoPrimario>
+          </div>
+        </EstadoVazio>
 
         <EstadoVazio
           v-else-if="estado === 'vazio'"

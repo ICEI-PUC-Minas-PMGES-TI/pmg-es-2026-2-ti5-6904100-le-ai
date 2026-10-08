@@ -258,4 +258,138 @@ describe('DescobrirView', () => {
     const { wrapper } = await montarNaRota('/descobrir')
     expect(wrapper.get('input[type="search"]').attributes('maxlength')).toBe('200')
   })
+
+  describe('filtros avançados (F-ACV-DESCOBERTA)', () => {
+    /** A folha vai para o `body` por Teleport, fora do wrapper. */
+    function naFolha<T extends Element = HTMLElement>(seletor: string): T {
+      const elemento = document.body.querySelector<T>(`[role="dialog"] ${seletor}`)
+      if (!elemento) {
+        throw new Error(`não achei ${seletor} na folha`)
+      }
+      return elemento
+    }
+
+    async function preencher(campo: HTMLInputElement, valor: string) {
+      campo.value = valor
+      campo.dispatchEvent(new Event('input'))
+      await flushPromises()
+    }
+
+    async function aplicarNaFolha() {
+      naFolha('form').dispatchEvent(new Event('submit'))
+      await flushPromises()
+    }
+
+    async function abrirFolha({ wrapper }: Montagem) {
+      await wrapper.get('button[aria-haspopup="dialog"]').trigger('click')
+      await flushPromises()
+    }
+
+    it('mobile: a folha aplica os filtros, que viram chips, badge e URL', async () => {
+      const montagem = await montarNaRota('/descobrir')
+      await flushPromises()
+      const { wrapper, router } = montagem
+      expect(wrapper.get('button[aria-haspopup="dialog"]').attributes('aria-label')).toBe('Filtros')
+
+      await abrirFolha(montagem)
+      expect(document.activeElement?.textContent?.trim()).toBe('Filtros')
+      await preencher(naFolha('#filtros-folha-editora'), 'Pallas')
+      await preencher(naFolha('#filtros-folha-paginas-min'), '100')
+      await preencher(naFolha('#filtros-folha-paginas-max'), '150')
+      await aplicarNaFolha()
+
+      expect(servico.buscarLivros).toHaveBeenLastCalledWith({
+        q: null,
+        assunto: null,
+        editora: 'Pallas',
+        paginasMin: 100,
+        paginasMax: 150,
+      })
+      expect(document.body.querySelector('[role="dialog"]')).toBeNull()
+      expect(router.currentRoute.value.query).toMatchObject({ editora: 'Pallas', paginasMin: '100', paginasMax: '150' })
+      expect(wrapper.get('button[aria-haspopup="dialog"]').attributes('aria-label')).toBe('Filtros, 2 ativos')
+      const chips = wrapper.findAll('[aria-label^="Remover filtro"]').map((chip) => chip.attributes('aria-label'))
+      expect(chips).toEqual(['Remover filtro Editora: Pallas', 'Remover filtro 100 a 150 páginas'])
+      expect(wrapper.text()).toContain('12 livros encontrados')
+    })
+
+    it('mobile: faixa invertida não envia, mantém a folha aberta e foca o mínimo', async () => {
+      const montagem = await montarNaRota('/descobrir')
+      await flushPromises()
+
+      await abrirFolha(montagem)
+      await preencher(naFolha('#filtros-folha-paginas-min'), '200')
+      await preencher(naFolha('#filtros-folha-paginas-max'), '100')
+      await aplicarNaFolha()
+
+      expect(servico.buscarLivros).not.toHaveBeenCalled()
+      expect(naFolha('form').textContent).toContain('O mínimo não pode ser maior que o máximo.')
+      expect(naFolha('[role="alert"]').textContent?.trim()).toBe('O mínimo não pode ser maior que o máximo.')
+      expect(document.activeElement).toBe(naFolha('#filtros-folha-paginas-min'))
+      expect(naFolha('#filtros-folha-paginas-max').getAttribute('aria-invalid')).toBe('true')
+    })
+
+    it('abre com os filtros da URL, e remover um chip tira só aquele filtro', async () => {
+      const { wrapper, router } = await montarNaRota('/descobrir?editora=Pallas&ano=2003')
+      await flushPromises()
+
+      expect(servico.buscarLivros).toHaveBeenCalledExactlyOnceWith({ q: null, assunto: null, editora: 'Pallas', ano: 2003 })
+      await wrapper.get('[aria-label="Remover filtro Editora: Pallas"]').trigger('click')
+      await flushPromises()
+
+      expect(servico.buscarLivros).toHaveBeenLastCalledWith({ q: null, assunto: null, ano: 2003 })
+      expect(router.currentRoute.value.query).toEqual({ ano: '2003' })
+      expect(wrapper.text()).toContain('12 livros encontrados')
+    })
+
+    it('vazio com filtros não oferece cadastro, e "Limpar filtros" volta à aterrissagem', async () => {
+      servico.buscarLivros.mockResolvedValue(pagina([]))
+      const { wrapper, router } = await montarNaRota('/descobrir?paginasMin=5000')
+      await flushPromises()
+
+      expect(wrapper.text()).toContain('Nenhum livro com esses filtros')
+      expect(wrapper.text()).toContain('Remova um filtro ou amplie a faixa de páginas para ver mais resultados.')
+      expect(wrapper.text()).not.toContain('Cadastrar por ISBN')
+      expect(wrapper.get('p[role="status"]').text()).toBe('Nenhum livro com esses filtros')
+
+      const limpar = wrapper.findAll('button').filter((botao) => botao.text() === 'Limpar filtros')
+      await limpar[limpar.length - 1]!.trigger('click')
+      await flushPromises()
+
+      expect(router.currentRoute.value.query).toEqual({})
+      expect(wrapper.text()).not.toContain('Nenhum livro')
+    })
+
+    it('web: bloco Filtros no painel, Enter aplica e "Limpar filtros" só aparece com campo preenchido', async () => {
+      const { wrapper, router } = await montarNaRota('/descobrir', { largo: true })
+      await flushPromises()
+
+      expect(wrapper.find('button[aria-haspopup="dialog"]').exists()).toBe(false)
+      const painel = wrapper.get('form[aria-labelledby="filtros-painel-titulo"]')
+      expect(painel.text()).toContain('Aplicar filtros')
+      expect(painel.text()).not.toContain('Limpar filtros')
+
+      await painel.get('#filtros-painel-autor').setValue('evaristo')
+      expect(painel.text()).toContain('Limpar filtros')
+      await painel.trigger('submit')
+      await flushPromises()
+
+      expect(servico.buscarLivros).toHaveBeenLastCalledWith({ q: null, assunto: null, autor: 'evaristo' })
+      expect(router.currentRoute.value.query).toEqual({ autor: 'evaristo' })
+      expect(wrapper.text()).toContain('Autor: evaristo')
+    })
+
+    it('web: zero páginas mostra o erro no próprio campo ao sair dele', async () => {
+      const { wrapper } = await montarNaRota('/descobrir', { largo: true })
+      await flushPromises()
+      const painel = wrapper.get('form[aria-labelledby="filtros-painel-titulo"]')
+
+      const minimo = painel.get('#filtros-painel-paginas-min')
+      await minimo.setValue('0')
+      await minimo.trigger('blur')
+
+      expect(painel.text()).toContain('Use um número de páginas maior que zero.')
+      expect(servico.buscarLivros).not.toHaveBeenCalled()
+    })
+  })
 })

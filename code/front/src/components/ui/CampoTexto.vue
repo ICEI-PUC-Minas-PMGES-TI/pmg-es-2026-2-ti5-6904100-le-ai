@@ -60,6 +60,11 @@ const props = withDefaults(
      * protótipos de recuperar e redefinir senha). O padrão é o do cadastro.md §4.3: helper, erro.
      */
     erroAntesDoHelper?: boolean
+    /**
+     * Unidade dentro do campo, à direita, em `caption` `grafite-suave` (descobrir.md do Período 2:
+     * `páginas` na faixa dos filtros). Decorativa: o label já diz a unidade.
+     */
+    sufixo?: string
   }>(),
   {
     id: undefined,
@@ -78,6 +83,7 @@ const props = withDefaults(
     mascara: undefined,
     icone: undefined,
     erroAntesDoHelper: false,
+    sufixo: undefined,
   },
 )
 
@@ -153,7 +159,7 @@ const idDescricao = computed(() => {
           erro || bordaDeErro
             ? 'border-[1.5px] border-rubi'
             : 'border border-linha focus:border-[1.5px] focus:border-musgo',
-          $slots.trailing || type === 'date' ? 'pr-space-10' : '',
+          sufixo ? 'pr-[4.5rem]' : $slots.trailing || type === 'date' ? 'pr-space-10' : '',
           type === 'date' ? 'campo-data' : '',
           icone ? 'pl-11' : '',
           mono ? 'font-mono tabular-nums' : '',
@@ -171,6 +177,11 @@ const idDescricao = computed(() => {
         aria-hidden="true"
         class="pointer-events-none absolute right-space-4 top-1/2 -translate-y-1/2 text-grafite-suave"
       />
+      <span
+        v-if="sufixo"
+        aria-hidden="true"
+        class="pointer-events-none absolute right-space-4 top-1/2 -translate-y-1/2 text-caption text-grafite-suave"
+      >{{ sufixo }}</span>
       <!-- Espaço para um controle dentro do campo (ex.: alternar visibilidade da senha em
            CampoSenha). Ocupa a altura inteira do campo para dar folga de alvo de toque. -->
       <div

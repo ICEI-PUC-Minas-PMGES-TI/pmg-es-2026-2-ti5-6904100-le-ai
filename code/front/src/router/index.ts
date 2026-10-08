@@ -35,6 +35,7 @@ import LivroPessoalFormView from '../views/livros/LivroPessoalFormView.vue'
 import LivroPessoalView from '../views/livros/LivroPessoalView.vue'
 import ListaView from '../views/listas/ListaView.vue'
 import ListasDoLeitorView from '../views/listas/ListasDoLeitorView.vue'
+import PaginaDeCatalogoView from '../views/catalogo/PaginaDeCatalogoView.vue'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -140,6 +141,23 @@ export const routes: RouteRecordRaw[] = [
         // Sem divisor: o campo de busca, logo abaixo, é a segunda linha do header (descobrir.md).
         meta: { titulo: 'Descobrir', semDivisor: true },
       },
+      // Páginas de autor, editora e série (F-ACV-DESCOBERTA): consulta, não perfil. O prefixo mantém
+      // a aba Descobrir ativa. Como na página do livro, o header leva só a seta (e o tipo, abaixo
+      // de 768px), e o nome é o h1 da tela.
+      ...(['autor', 'editora', 'serie'] as const).map(
+        (tipo): RouteRecordRaw => ({
+          path: `descobrir/${tipo === 'autor' ? 'autores' : tipo === 'editora' ? 'editoras' : 'series'}/:id`,
+          name: `catalogo-${tipo}`,
+          component: PaginaDeCatalogoView,
+          props: { tipo },
+          meta: {
+            titulo: '',
+            tituloCurto: tipo === 'autor' ? 'Autor' : tipo === 'editora' ? 'Editora' : 'Série',
+            voltar: true,
+            semDivisor: true,
+          },
+        }),
+      ),
       {
         path: 'feed',
         name: 'feed',

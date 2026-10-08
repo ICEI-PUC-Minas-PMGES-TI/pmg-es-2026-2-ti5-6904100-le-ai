@@ -151,6 +151,57 @@ describe('busca do acervo', () => {
   })
 })
 
+describe('filtros e páginas de catálogo (F-ACV-DESCOBERTA)', () => {
+  const PAGINA_VAZIA = { itens: [], page: 1, limit: 20, totalItens: 0, totalPaginas: 0 }
+
+  it('manda os filtros preenchidos na URL da busca e omite os vazios', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(resposta(200, PAGINA_VAZIA))
+
+    await servico(fetchMock).buscarLivros({
+      q: null,
+      autor: 'evaristo',
+      editora: '',
+      serie: null,
+      ano: 2003,
+      paginasMin: 100,
+      paginasMax: 150,
+    })
+
+    const url = new URL(fetchMock.mock.calls[0]![0] as string)
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      autor: 'evaristo',
+      ano: '2003',
+      paginasMin: '100',
+      paginasMax: '150',
+      page: '1',
+      limit: '20',
+    })
+  })
+
+  it.each([
+    ['obterAutor', '/autores/autor%201'],
+    ['obterEditora', '/editoras/autor%201'],
+    ['obterSerie', '/series/autor%201'],
+  ] as const)('%s pede a página pelo id, com página e limite', async (metodo, caminho) => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(resposta(200, { id: 'x', nome: 'X', livros: PAGINA_VAZIA }))
+
+    await servico(fetchMock)[metodo]('autor 1', 3)
+
+    const url = new URL(fetchMock.mock.calls[0]![0] as string)
+    expect(url.pathname).toBe(caminho)
+    expect(Object.fromEntries(url.searchParams)).toEqual({ page: '3', limit: '20' })
+  })
+
+  it('404 da página de catálogo chega como ApiError', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      resposta(404, { codigo: 'RECURSO_NAO_ENCONTRADO', mensagem: 'Não encontramos este autor.', correlationId: 'c' }),
+    )
+
+    await expect(servico(fetchMock).obterAutor('a1')).rejects.toMatchObject({ status: 404 })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('página do livro oficial', () => {
   it('pede a página pelo id', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(resposta(200, { id: 'livro-1' }))
