@@ -23,8 +23,8 @@ info:
     Ela usa `POST /auth/login`; não existe cadastro nem endpoint de login separado
     para administradores.
 
-    Exclusão e recuperação de conta (RF-AUT-07, RN-23) entram no Período 2 por
-    F-CONTA-2, com status `planned` até a implementação: `DELETE /me/conta` abre
+    Exclusão e recuperação de conta (RF-AUT-07, RN-23) estão implementadas por
+    F-CONTA-2 desde 07/10/2026 (backend): `DELETE /me/conta` abre
     a janela de 30 dias; durante ela, `POST /auth/login` devolve um acesso de
     recuperação (`tipo: recuperacao_exclusao`) que só serve em
     `POST /me/conta/cancelar-exclusao`; vencido o prazo, o job interno
@@ -152,7 +152,7 @@ paths:
         credenciais fortes vindas do ambiente e recebe `papel: admin` no token de
         acesso; usuários comuns não podem adquirir esse papel.
 
-        F-CONTA-2 (planned): conta com exclusão pendente e senha válida recebe
+        F-CONTA-2: conta com exclusão pendente e senha válida recebe
         `AcessoDeRecuperacao` (`tipo: recuperacao_exclusao`) em vez de `Sessao`:
         token de 15 minutos assinado com chave própria, sem token de renovação,
         aceito somente em `POST /me/conta/cancelar-exclusao` e recusado com `401`
@@ -216,7 +216,7 @@ paths:
         usuário. Repetir a mesma `Idempotency-Key` devolve a mesma sessão sem
         contar como reuso; renovações simultâneas com chaves diferentes contam, e
         por isso o cliente deve serializá-las (por exemplo, entre abas). Conta
-        com exclusão pendente recebe `401` (F-CONTA-2, planned): a solicitação já
+        com exclusão pendente recebe `401` (F-CONTA-2): a solicitação já
         revogou todas as renovações.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -458,7 +458,7 @@ paths:
   /me/conta:
     delete:
       operationId: solicitarExclusaoConta
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-implemented-by: F-CONTA-2
       tags: [conta]
       summary: Solicita a exclusão da própria conta (RF-AUT-07)
@@ -523,7 +523,7 @@ paths:
   /me/conta/cancelar-exclusao:
     post:
       operationId: cancelarExclusaoConta
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-implemented-by: F-CONTA-2
       tags: [conta]
       summary: Cancela a exclusão pendente dentro do prazo (RN-23.4)
@@ -563,7 +563,7 @@ paths:
   /internal/jobs/exclusao-conta:
     post:
       operationId: finalizarExclusoesVencidas
-      x-implementation-status: planned
+      x-implementation-status: implemented
       x-implemented-by: F-CONTA-2
       tags: [interno]
       summary: Job diário que finaliza exclusões vencidas (RN-23.5)
@@ -1057,10 +1057,10 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: >-
-        F-CONTA-2 (planned). Acesso de recuperação de 15 minutos emitido por
+        F-CONTA-2. Acesso de recuperação de 15 minutos emitido por
         `POST /auth/login` para conta com exclusão pendente. JWT HS256 assinado
-        com segredo próprio (`JWT_RECUPERACAO_SECRET`), que só o identidade
-        conhece, com `escopo: recuperacao_exclusao`. Por isso as demais rotas e
+        com chave própria, derivada do `JWT_SECRET` por HMAC, derivação que só o identidade
+        aplica, com `escopo: recuperacao_exclusao`. Por isso as demais rotas e
         os demais serviços o recusam pela assinatura, sem mudança neles.
     schedulerToken:
       type: apiKey
@@ -1393,12 +1393,12 @@ components:
               type: string
               enum: [sessao]
               description: >-
-                F-CONTA-2 (planned). Distingue a sessão normal do acesso de
+                F-CONTA-2. Distingue a sessão normal do acesso de
                 recuperação na resposta do login.
 
     AcessoDeRecuperacao:
       description: >-
-        F-CONTA-2 (planned). Resposta do login para conta com exclusão pendente.
+        F-CONTA-2. Resposta do login para conta com exclusão pendente.
         Sem token de renovação; o token só vale para cancelar a exclusão.
       allOf:
         - $ref: '#/components/schemas/Token'

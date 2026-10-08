@@ -2,8 +2,10 @@ package br.com.leai.identidade.config;
 
 import br.com.leai.identidade.common.CodigoErro;
 import br.com.leai.identidade.common.EscritorDeErro;
+import br.com.leai.identidade.conta.service.TokenDeRecuperacao;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -54,19 +56,47 @@ public class SecurityConfig {
     "/auth/logout",
     "/auth/password/forgot",
     "/auth/password/reset",
+    // Sem JWT: o job se autentica pelo X-Scheduler-Token, conferido no controller.
+    "/internal/jobs/exclusao-conta",
     "/v3/api-docs/**",
     "/docs/**",
     "/swagger-ui/**",
     "/error"
   };
 
+  /** Única rota que aceita o acesso de recuperação (F-CONTA-2, RN-23.3). */
+  public static final String ROTA_CANCELAR_EXCLUSAO = "/me/conta/cancelar-exclusao";
+
+  /**
+   * Cadeia do acesso de recuperação, avaliada antes da principal. Só cobre a rota de cancelar e
+   * valida com o decoder de recuperação: o token de acesso normal falha aqui pela assinatura, e o
+   * de recuperação falha em todas as outras rotas, que usam o decoder normal.
+   */
   @Bean
+  @Order(1)
+  SecurityFilterChain cadeiaDeRecuperacao(
+      HttpSecurity http, EscritorDeErro escritorDeErro, TokenDeRecuperacao tokenDeRecuperacao)
+      throws Exception {
+    return base(http.securityMatcher(ROTA_CANCELAR_EXCLUSAO), escritorDeErro)
+        .authorizeHttpRequests(rotas -> rotas.anyRequest().authenticated())
+        .oauth2ResourceServer(
+            oauth ->
+                oauth
+                    .jwt(jwt -> jwt.decoder(tokenDeRecuperacao.decodificador()))
+                    .authenticationEntryPoint(
+                        (requisicao, resposta, excecao) ->
+                            escritorDeErro.escrever(resposta, CodigoErro.NAO_AUTENTICADO))
+                    .accessDeniedHandler(
+                        (requisicao, resposta, excecao) ->
+                            escritorDeErro.escrever(resposta, CodigoErro.ACESSO_NEGADO)))
+        .build();
+  }
+
+  @Bean
+  @Order(2)
   SecurityFilterChain cadeiaDeFiltros(HttpSecurity http, EscritorDeErro escritorDeErro)
       throws Exception {
-    return http.csrf(csrf -> csrf.disable())
-        .cors(cors -> cors.disable())
-        .headers(headers -> headers.disable())
-        .sessionManagement(sessao -> sessao.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+    return base(http, escritorDeErro)
         .authorizeHttpRequests(
             rotas -> rotas.requestMatchers(ROTAS_PUBLICAS).permitAll().anyRequest().authenticated())
         .oauth2ResourceServer(
@@ -83,6 +113,16 @@ public class SecurityConfig {
                     .accessDeniedHandler(
                         (requisicao, resposta, excecao) ->
                             escritorDeErro.escrever(resposta, CodigoErro.ACESSO_NEGADO)))
+        .build();
+  }
+
+  /** O que as duas cadeias têm em comum: sem estado, sem CSRF e com o corpo de erro padrão. */
+  private static HttpSecurity base(HttpSecurity http, EscritorDeErro escritorDeErro)
+      throws Exception {
+    return http.csrf(csrf -> csrf.disable())
+        .cors(cors -> cors.disable())
+        .headers(headers -> headers.disable())
+        .sessionManagement(sessao -> sessao.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         // Cobre o caso sem Authorization nenhum, que nem chega ao filtro de bearer token.
         .exceptionHandling(
             erros ->
@@ -92,8 +132,7 @@ public class SecurityConfig {
                             escritorDeErro.escrever(resposta, CodigoErro.NAO_AUTENTICADO))
                     .accessDeniedHandler(
                         (requisicao, resposta, excecao) ->
-                            escritorDeErro.escrever(resposta, CodigoErro.ACESSO_NEGADO)))
-        .build();
+                            escritorDeErro.escrever(resposta, CodigoErro.ACESSO_NEGADO)));
   }
 
   /**

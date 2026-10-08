@@ -1,15 +1,18 @@
 package br.com.leai.identidade.auth.service;
 
+import br.com.leai.identidade.auth.dto.AcessoDeRecuperacaoResposta;
 import br.com.leai.identidade.auth.dto.AlterarSenhaRequisicao;
 import br.com.leai.identidade.auth.dto.CadastroRequisicao;
 import br.com.leai.identidade.auth.dto.LoginRequisicao;
 import br.com.leai.identidade.auth.dto.RefreshRequisicao;
+import br.com.leai.identidade.auth.dto.RespostaDeLogin;
 import br.com.leai.identidade.auth.dto.SessaoResposta;
 import br.com.leai.identidade.auth.dto.UsuarioProprioResposta;
 import br.com.leai.identidade.auth.dto.UsuarioResposta;
 import br.com.leai.identidade.auth.validacao.PoliticaDeSenha;
 import br.com.leai.identidade.common.CodigoErro;
 import br.com.leai.identidade.common.ErroDeNegocioException;
+import br.com.leai.identidade.conta.service.TokenDeRecuperacao;
 import br.com.leai.identidade.usuario.Usuario;
 import br.com.leai.identidade.usuario.UsuarioRepositorio;
 import java.util.Optional;
@@ -50,6 +53,7 @@ public class ServicoDeAutenticacao {
   private final PoliticaDeSenha politicaDeSenha;
   private final GestorDeRenovacao gestorDeRenovacao;
   private final ContaAdministradora contaAdministradora;
+  private final TokenDeRecuperacao tokenDeRecuperacao;
 
   /**
    * Hash descartável, calculado uma vez no arranque. Serve para o login gastar o mesmo tempo
@@ -65,7 +69,8 @@ public class ServicoDeAutenticacao {
       ControleDeTentativas controleDeTentativas,
       PoliticaDeSenha politicaDeSenha,
       GestorDeRenovacao gestorDeRenovacao,
-      ContaAdministradora contaAdministradora) {
+      ContaAdministradora contaAdministradora,
+      TokenDeRecuperacao tokenDeRecuperacao) {
     this.repositorio = repositorio;
     this.codificadorDeSenha = codificadorDeSenha;
     this.emissorDeToken = emissorDeToken;
@@ -73,6 +78,7 @@ public class ServicoDeAutenticacao {
     this.politicaDeSenha = politicaDeSenha;
     this.gestorDeRenovacao = gestorDeRenovacao;
     this.contaAdministradora = contaAdministradora;
+    this.tokenDeRecuperacao = tokenDeRecuperacao;
     this.hashDeComparacaoFalsa = codificadorDeSenha.encode("conta-inexistente");
   }
 
@@ -115,9 +121,12 @@ public class ServicoDeAutenticacao {
     }
   }
 
-  /** Não é mais só leitura: o login grava o token de renovação que emite. */
+  /**
+   * Não é mais só leitura: o login grava o token de renovação que emite. Conta com exclusão
+   * pendente recebe o acesso de recuperação, sem renovação (F-CONTA-2, RN-23.3).
+   */
   @Transactional
-  public SessaoResposta entrar(LoginRequisicao requisicao) {
+  public RespostaDeLogin entrar(LoginRequisicao requisicao) {
     String identificador = requisicao.identificador().trim();
 
     // Antes de qualquer consulta ou comparação de hash: enquanto o bloqueio vale, nem a senha
@@ -137,7 +146,18 @@ public class ServicoDeAutenticacao {
     }
 
     controleDeTentativas.registrarSucesso(identificador);
-    return sessaoPara(encontrado.get());
+    Usuario usuario = encontrado.get();
+    if (usuario.exclusaoPendente()) {
+      log.info("Login de recuperação emitido para a conta em exclusão {}", usuario.id());
+      return AcessoDeRecuperacaoResposta.de(
+          tokenDeRecuperacao.emitir(usuario.id(), usuario.username()),
+          tokenDeRecuperacao.validadeEmSegundos(),
+          usuario.exclusaoSolicitadaEm(),
+          usuario.exclusaoPrevistaEm(),
+          usuario.username(),
+          usuario.nomeExibicao());
+    }
+    return sessaoPara(usuario);
   }
 
   /**
@@ -151,6 +171,8 @@ public class ServicoDeAutenticacao {
     Usuario usuario =
         repositorio
             .findById(usuarioId)
+            // A solicitação de exclusão já revogou as renovações; esta é a segunda barreira.
+            .filter(conta -> !conta.exclusaoPendente())
             .orElseThrow(
                 () ->
                     new ErroDeNegocioException(
