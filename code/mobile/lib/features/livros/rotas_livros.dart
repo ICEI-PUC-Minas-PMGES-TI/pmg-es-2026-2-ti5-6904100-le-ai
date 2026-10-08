@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/config/app_config.dart';
 import '../../core/network/api_client.dart';
 import '../avaliacao/leitura_service.dart';
+import '../catalogo/catalogo_controller.dart';
+import '../catalogo/pagina_de_catalogo_page.dart';
 import '../estante/estante_service.dart';
 import '../listas/rotas_listas.dart';
 import 'acervo_service.dart';
@@ -21,6 +23,11 @@ const String rotaFeedRaiz = '/feed';
 
 String rotaLivroPessoalNaEstante(String id) => '/estante/livro-pessoal/$id';
 String rotaLivroOficial(String id) => '/descobrir/livro/$id';
+
+/// Páginas de autor, editora e série (F-ACV-DESCOBERTA) sob a raiz da aba de origem.
+String rotaDoAutor(String raiz, String id) => '$raiz/autor/$id';
+String rotaDaEditora(String raiz, String id) => '$raiz/editora/$id';
+String rotaDaSerie(String raiz, String id) => '$raiz/serie/$id';
 
 /// O que as telas de livro precisam do mundo lá fora. Construído uma vez em `main.dart` e
 /// injetado no roteador; os testes montam o seu com clientes simulados.
@@ -145,6 +152,33 @@ List<RouteBase> rotasDeDescobrir(
     ],
   ),
   rotaDoLivroOficial(deps, raiz: '/descobrir', estante: estante, progresso: progresso),
+  ...rotasDeCatalogo(deps, raiz: '/descobrir'),
+];
+
+/// Páginas de autor, editora e série (F-ACV-DESCOBERTA) dentro da aba de origem, como a página do
+/// livro: abertas da ficha no Perfil, ficam no Perfil. Os livros delas abrem sob a mesma raiz.
+List<RouteBase> rotasDeCatalogo(DependenciasDeLivros deps, {required String raiz}) => <RouteBase>[
+  for (final (caminho, tipo) in <(String, TipoDeCatalogo)>[
+    ('autor', TipoDeCatalogo.autor),
+    ('editora', TipoDeCatalogo.editora),
+    ('serie', TipoDeCatalogo.serie),
+  ])
+    GoRoute(
+      path: '$caminho/:id',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return PaginaDeCatalogoPage(
+          key: ValueKey<String>('catalogo-$caminho-$id'),
+          servico: deps.acervo,
+          tipo: tipo,
+          id: id,
+          aoVoltar: () => _voltar(context, raiz),
+          aoAbrirLivro: (livroId) => context.push('$raiz/livro/$livroId'),
+          aoAbrirAutor: (autorId) => context.push(rotaDoAutor(raiz, autorId)),
+          aoBuscarNoDescobrir: () => context.go('/descobrir'),
+        );
+      },
+    ),
 ];
 
 /// Página do livro oficial dentro da aba de origem (pagina-do-livro.md §4.1: o item ativo da barra
@@ -173,6 +207,12 @@ GoRoute rotaDoLivroOficial(
             ? null
             : (leituraId) => context.push<void>(rotaProgressoDaLeitura(leituraId)),
         listas: deps.listas,
+        aoAbrirAutor: (autorId) => context.push(rotaDoAutor(raiz, autorId)),
+        aoAbrirEditora: (editoraId) => context.push(rotaDaEditora(raiz, editoraId)),
+        aoAbrirSerie: (serieId) => context.push(rotaDaSerie(raiz, serieId)),
+        // O assunto é filtro de busca (RN-21): leva ao Descobrir, que passa a ser a aba ativa.
+        aoBuscarAssunto: (assuntoId) =>
+            context.go(Uri(path: '/descobrir', queryParameters: {'assunto': assuntoId}).toString()),
       );
     },
   );

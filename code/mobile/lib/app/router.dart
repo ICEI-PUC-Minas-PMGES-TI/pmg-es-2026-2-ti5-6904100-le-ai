@@ -186,6 +186,8 @@ GoRouter buildRouter({
                 path: '/descobrir',
                 builder: (context, state) => DescobrirPage(
                   servico: deps.acervo,
+                  // Assunto tocado na ficha do livro (F-ACV-DESCOBERTA, RF-ACV-21).
+                  assuntoInicial: state.uri.queryParameters['assunto'],
                   aoAbrirLivro: (id) => context.push(rotaLivroOficial(id)),
                   aoCadastrarPorIsbn: () => context.go(rotaAdicionarLivro),
                   // `push`, não `go`: cancelar o cadastro pessoal volta aos resultados, e não
@@ -254,6 +256,7 @@ GoRouter buildRouter({
                     estante: servicoDeEstante,
                     progresso: depsDeProgresso,
                   ),
+                  ...rotasDeCatalogo(deps, raiz: '/perfil'),
                   rotaDeNotificacoes(depsDeNotificacoes, rotaPerfilRaiz),
                   GoRoute(
                     path: 'configuracoes',

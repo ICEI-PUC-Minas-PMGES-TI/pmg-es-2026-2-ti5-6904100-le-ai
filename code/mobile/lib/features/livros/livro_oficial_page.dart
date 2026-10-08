@@ -40,6 +40,9 @@ import 'livro_oficial_controller.dart';
 ///   botão principal por situação.
 /// - Resenhas de outros leitores, filtradas por RN-08 no servidor. O texto de spoiler só entra na
 ///   árvore depois de revelado.
+/// - F-ACV-DESCOBERTA: na ficha, autor, editora e série levam às páginas de catálogo (o número da
+///   série fica fora do link), e `Assuntos`, depois da sinopse, leva ao Descobrir filtrado. O
+///   autor do hero não vira link.
 class LivroOficialPage extends StatefulWidget {
   final AcervoService servico;
   final LeituraService leitura;
@@ -53,6 +56,13 @@ class LivroOficialPage extends StatefulWidget {
   /// F-LST). `Recomendar a um leitor` (F-REC-P2P) entra acrescentando um item em `_abrirMenu`.
   final DependenciasDeListas? listas;
 
+  /// Páginas de autor, editora e série e a busca por assunto (F-ACV-DESCOBERTA). Sem elas, a
+  /// ficha mostra os valores como texto e os assuntos não reagem ao toque.
+  final ValueChanged<String>? aoAbrirAutor;
+  final ValueChanged<String>? aoAbrirEditora;
+  final ValueChanged<String>? aoAbrirSerie;
+  final ValueChanged<String>? aoBuscarAssunto;
+
   const LivroOficialPage({
     super.key,
     required this.servico,
@@ -63,6 +73,10 @@ class LivroOficialPage extends StatefulWidget {
     this.progresso,
     this.aoVerAtualizacoes,
     this.listas,
+    this.aoAbrirAutor,
+    this.aoAbrirEditora,
+    this.aoAbrirSerie,
+    this.aoBuscarAssunto,
   });
 
   @override
@@ -287,10 +301,22 @@ class _LivroOficialPageState extends State<LivroOficialPage> {
           BlocoSuaAvaliacao(avaliacao: _avaliacao, livro: _livroAvaliado(livro)),
           const SizedBox(height: DesignTokens.space6),
           _Secao(titulo: 'Sinopse', child: _sinopse(theme)),
+          if (livro.resumo.assuntos.isNotEmpty) ...<Widget>[
+            const SizedBox(height: DesignTokens.space6),
+            _Secao(
+              titulo: 'Assuntos',
+              child: _Assuntos(assuntos: livro.resumo.assuntos, aoBuscar: widget.aoBuscarAssunto),
+            ),
+          ],
           const SizedBox(height: DesignTokens.space6),
           _Secao(
             titulo: 'Ficha',
-            child: _Ficha(livro: livro),
+            child: _Ficha(
+              livro: livro,
+              aoAbrirAutor: widget.aoAbrirAutor,
+              aoAbrirEditora: widget.aoAbrirEditora,
+              aoAbrirSerie: widget.aoAbrirSerie,
+            ),
           ),
           const SizedBox(height: DesignTokens.space6),
           _resenhas(theme),
@@ -487,39 +513,211 @@ class _Secao extends StatelessWidget {
   }
 }
 
-/// Ficha em rótulo e valor. Os valores são texto, não link: páginas de autor e editora são do
-/// Período 2. Autor e editora que faltam somem, em vez de aparecerem vazios.
+/// Ficha em rótulo e valor. Autor, editora e série levam às páginas de catálogo
+/// (`pagina-do-livro.md` do P2): valor em `musgo` peso 600 com `CaretRight`, e a linha inteira
+/// como alvo quando há um link só. Com coautoria, cada nome é o seu alvo. O `volume N` da série
+/// fica fora do link. Autor, editora e série que faltam somem, em vez de aparecerem vazios.
 class _Ficha extends StatelessWidget {
   final LivroOficialDetalhe livro;
+  final ValueChanged<String>? aoAbrirAutor;
+  final ValueChanged<String>? aoAbrirEditora;
+  final ValueChanged<String>? aoAbrirSerie;
 
-  const _Ficha({required this.livro});
+  const _Ficha({required this.livro, this.aoAbrirAutor, this.aoAbrirEditora, this.aoAbrirSerie});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final linhas = <(String, String)>[
-      if (livro.resumo.autoresParaExibir != null) ('Autor', livro.resumo.autoresParaExibir!),
-      if (livro.resumo.editora != null) ('Editora', livro.resumo.editora!),
-      ('ISBN', livro.isbn),
+    final autores = livro.resumo.autores;
+    final editora = livro.resumo.editora;
+    final editoraId = livro.editoraId;
+    final serie = livro.serie;
+    final linhas = <_LinhaDaFicha>[
+      if (autores.isNotEmpty)
+        _LinhaDaFicha(
+          autores.length > 1 ? 'Autores' : 'Autor',
+          links: <(String, VoidCallback?)>[
+            for (final autor in autores)
+              (autor.nome, aoAbrirAutor == null ? null : () => aoAbrirAutor!(autor.id)),
+          ],
+        ),
+      if (editora != null)
+        _LinhaDaFicha(
+          'Editora',
+          links: <(String, VoidCallback?)>[
+            (
+              editora,
+              editoraId == null || aoAbrirEditora == null ? null : () => aoAbrirEditora!(editoraId),
+            ),
+          ],
+        ),
+      if (serie != null)
+        _LinhaDaFicha(
+          'Série',
+          links: <(String, VoidCallback?)>[
+            (serie.nome, aoAbrirSerie == null ? null : () => aoAbrirSerie!(serie.id)),
+          ],
+          complemento: serie.numero == null ? null : 'volume ${serie.numero}',
+        ),
+      _LinhaDaFicha('ISBN', links: <(String, VoidCallback?)>[(livro.isbn, null)]),
     ];
     return Column(
       children: <Widget>[
-        for (final (indice, (rotulo, valor)) in linhas.indexed) ...<Widget>[
+        for (final (indice, linha) in linhas.indexed) ...<Widget>[
           if (indice > 0) Divider(height: 1, thickness: 1, color: theme.divider),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: DesignTokens.space3),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(rotulo, style: theme.textTheme.labelMedium),
-                const SizedBox(width: DesignTokens.space4),
-                Expanded(
-                  child: Text(valor, textAlign: TextAlign.right, style: theme.textTheme.bodyMedium),
-                ),
-              ],
+          _linha(theme, linha),
+        ],
+      ],
+    );
+  }
+
+  Widget _linha(ThemeData theme, _LinhaDaFicha linha) {
+    final unico = linha.links.length == 1 ? linha.links.single.$2 : null;
+    final conteudo = ConstrainedBox(
+      constraints: BoxConstraints(minHeight: unico == null ? 0 : 48),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: DesignTokens.space3),
+        child: Row(
+          crossAxisAlignment: unico == null ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+          children: <Widget>[
+            Text(linha.rotulo, style: theme.textTheme.labelMedium),
+            const SizedBox(width: DesignTokens.space4),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: <Widget>[
+                  for (final (texto, aoTocar) in linha.links)
+                    _valor(theme, texto, linha.links.length > 1 ? aoTocar : null, aoTocar != null),
+                  if (linha.complemento != null)
+                    Text(
+                      linha.complemento!,
+                      textAlign: TextAlign.right,
+                      style: theme.textTheme.bodyMedium?.copyWith(color: theme.secondaryText),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (unico == null) {
+      return conteudo;
+    }
+    final (texto, _) = linha.links.single;
+    return Semantics(
+      link: true,
+      label: '${linha.rotulo}: $texto',
+      excludeSemantics: linha.complemento == null,
+      onTap: unico,
+      child: InkWell(onTap: unico, splashFactory: NoSplash.splashFactory, child: conteudo),
+    );
+  }
+
+  /// Valor de link em `musgo` com `CaretRight`; com [aoTocar], o próprio valor é o alvo (coautoria).
+  Widget _valor(ThemeData theme, String texto, VoidCallback? aoTocar, bool link) {
+    if (!link) {
+      return Text(texto, textAlign: TextAlign.right, style: theme.textTheme.bodyMedium);
+    }
+    final valor = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Flexible(
+          child: Text(
+            texto,
+            textAlign: TextAlign.right,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.primaryAccent,
+              fontWeight: FontWeight.w600,
             ),
           ),
-        ],
+        ),
+        const SizedBox(width: DesignTokens.space1),
+        Icon(PhosphorIconsRegular.caretRight, size: 16, color: theme.primaryAccent),
+      ],
+    );
+    if (aoTocar == null) {
+      return valor;
+    }
+    return Semantics(
+      link: true,
+      label: texto,
+      excludeSemantics: true,
+      onTap: aoTocar,
+      child: GestureDetector(
+        onTap: aoTocar,
+        behavior: HitTestBehavior.opaque,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48),
+          child: Align(alignment: AlignmentDirectional.centerEnd, widthFactor: 1, child: valor),
+        ),
+      ),
+    );
+  }
+}
+
+class _LinhaDaFicha {
+  final String rotulo;
+
+  /// Texto e ação; ação nula é texto puro (ISBN, editora sem página).
+  final List<(String, VoidCallback?)> links;
+  final String? complemento;
+
+  const _LinhaDaFicha(this.rotulo, {required this.links, this.complemento});
+}
+
+/// Assuntos acionáveis (RF-ACV-21, RN-21): chips com lupa que levam ao Descobrir filtrado.
+class _Assuntos extends StatelessWidget {
+  final List<AssuntoResumo> assuntos;
+  final ValueChanged<String>? aoBuscar;
+
+  const _Assuntos({required this.assuntos, required this.aoBuscar});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Wrap(
+      spacing: DesignTokens.space2,
+      children: <Widget>[
+        for (final assunto in assuntos)
+          Semantics(
+            link: true,
+            label: 'Buscar livros de ${assunto.nome}',
+            excludeSemantics: true,
+            onTap: aoBuscar == null ? null : () => aoBuscar!(assunto.id),
+            child: GestureDetector(
+              onTap: aoBuscar == null ? null : () => aoBuscar!(assunto.id),
+              behavior: HitTestBehavior.opaque,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 48),
+                child: Align(
+                  widthFactor: 1,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: DesignTokens.space3,
+                      vertical: DesignTokens.space1,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(DesignTokens.radiusFull),
+                      border: Border.all(color: theme.divider),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Icon(
+                          PhosphorIconsRegular.magnifyingGlass,
+                          size: 16,
+                          color: theme.secondaryText,
+                        ),
+                        const SizedBox(width: DesignTokens.space1),
+                        Text(assunto.nome.toUpperCase(), style: theme.textTheme.bodySmall),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }

@@ -245,6 +245,26 @@ Future<http.Response> _acervoPorRota(http.Request request) async {
       headers: cabecalhos,
     );
   }
+  // F-ACV-DESCOBERTA: um livro com autor e assunto, e a página do autor.
+  if (request.url.path == '/livros/livro-2') {
+    return http.Response(
+      '{"id":"livro-2","titulo":"Dom Casmurro","autores":[{"id":"machado","nome":"Machado de Assis"}],'
+      '"editora":null,"editoraId":null,"serie":null,"anoPublicacao":1899,"paginas":256,'
+      '"capa":{"url":null,"origem":"placeholder"},"assuntos":[{"id":"a1","nome":"Romance"}],'
+      '"isbn":"9788535910663","sinopse":{"status":"ausente","texto":null},'
+      '"resenhas":{"itens":[],"limit":10,"proximoCursor":null}}',
+      200,
+      headers: cabecalhos,
+    );
+  }
+  if (request.url.path == '/autores/machado') {
+    return http.Response(
+      '{"id":"machado","nome":"Machado de Assis","biografia":null,'
+      '"livros":{"itens":[],"page":1,"limit":20,"totalItens":0,"totalPaginas":0}}',
+      200,
+      headers: cabecalhos,
+    );
+  }
   // O livro pessoal aberto pelo feed não faz parte do que se testa aqui: responde como livro
   // inexistente, que a tela sabe mostrar.
   if (request.url.path.startsWith('/livros/pessoal/')) {
@@ -425,6 +445,35 @@ void main() {
     await tester.tap(find.bySemanticsLabel('Voltar'));
     await tester.pumpAndSettle();
     expect(find.text('Título, autor, editora ou ISBN'), findsOneWidget);
+  });
+
+  testWidgets('da ficha do livro: o autor abre na aba Descobrir e o assunto filtra a busca', (
+    tester,
+  ) async {
+    await sessionController.entrar('jwt-valido');
+    await tester.pumpWidget(_wrap(router));
+    await tester.pumpAndSettle();
+
+    router.go('/descobrir');
+    await tester.pumpAndSettle();
+    router.push('/descobrir/livro/livro-2');
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.bySemanticsLabel('Autor: Machado de Assis'));
+    await tester.tap(find.bySemanticsLabel('Autor: Machado de Assis'));
+    await tester.pumpAndSettle();
+    // Empilhada com `push`: a URI do go_router fica na base, então confere pela tela.
+    expect(find.text('Autor'), findsOneWidget);
+    expect(find.text('Nenhum livro no acervo'), findsOneWidget);
+
+    await tester.tap(find.bySemanticsLabel('Voltar'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.bySemanticsLabel('Buscar livros de Romance'));
+    await tester.tap(find.bySemanticsLabel('Buscar livros de Romance'));
+    await tester.pumpAndSettle();
+
+    expect(router.routerDelegate.currentConfiguration.uri.toString(), '/descobrir?assunto=a1');
+    expect(find.bySemanticsLabel('Romance, filtro ativo. Toque para remover.'), findsOneWidget);
   });
 
   testWidgets('o cadastro pessoal aberto pelo vazio da busca volta aos resultados ao cancelar', (

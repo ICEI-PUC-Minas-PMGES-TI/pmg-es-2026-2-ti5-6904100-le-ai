@@ -11,6 +11,7 @@ import '../../design/widgets/estado_vazio.dart';
 import '../livros/acervo_service.dart';
 import 'busca_de_livros_controller.dart';
 import 'widgets_da_busca.dart';
+import 'widgets_dos_filtros.dart';
 
 /// Aba Descobrir (RF-ACV-01, RF-ACV-02), a partir do protótipo `descobrir.html`.
 ///
@@ -20,11 +21,18 @@ import 'widgets_da_busca.dart';
 ///
 /// A aterrissagem é magra no Período 1, por decisão (descobrir.md §4.6): o campo, sem foco
 /// automático, e os assuntos, nada mais.
+///
+/// Filtros avançados (F-ACV-DESCOBERTA, `descobrir.md` do Período 2): botão ao lado do campo, com
+/// o badge da contagem, que abre a folha; os aplicados viram chips abaixo dos assuntos.
 class DescobrirPage extends StatefulWidget {
   final AcervoService servico;
   final ValueChanged<String> aoAbrirLivro;
   final VoidCallback aoCadastrarPorIsbn;
   final VoidCallback aoCadastrarPessoal;
+
+  /// Assunto tocado na ficha do livro (`/descobrir?assunto=<id>`, RF-ACV-21). A aba é mantida
+  /// viva pelo shell: um id novo recomeça a busca por ele.
+  final String? assuntoInicial;
 
   const DescobrirPage({
     super.key,
@@ -32,6 +40,7 @@ class DescobrirPage extends StatefulWidget {
     required this.aoAbrirLivro,
     required this.aoCadastrarPorIsbn,
     required this.aoCadastrarPessoal,
+    this.assuntoInicial,
   });
 
   @override
@@ -48,6 +57,30 @@ class _DescobrirPageState extends State<DescobrirPage> {
   void initState() {
     super.initState();
     _busca.carregarAssuntos();
+    _aplicarAssuntoInicial();
+  }
+
+  @override
+  void didUpdateWidget(DescobrirPage anterior) {
+    super.didUpdateWidget(anterior);
+    if (widget.assuntoInicial != anterior.assuntoInicial) {
+      _aplicarAssuntoInicial();
+    }
+  }
+
+  void _aplicarAssuntoInicial() {
+    final id = widget.assuntoInicial;
+    if (id != null && id.isNotEmpty) {
+      _consulta.clear();
+      _busca.aplicarAssunto(id);
+    }
+  }
+
+  Future<void> _abrirFiltros() async {
+    final filtros = await mostrarFolhaDeFiltros(context, _busca.filtros);
+    if (filtros != null && mounted) {
+      _busca.aplicarFiltros(filtros);
+    }
   }
 
   @override
@@ -116,10 +149,18 @@ class _DescobrirPageState extends State<DescobrirPage> {
           children: <Widget>[
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: DesignTokens.space5),
-              child: CampoDeBuscaDeLivros(
-                controlador: _consulta,
-                aoMudar: _busca.alterarConsulta,
-                aoLimpar: _limpar,
+              child: Row(
+                children: <Widget>[
+                  Expanded(
+                    child: CampoDeBuscaDeLivros(
+                      controlador: _consulta,
+                      aoMudar: _busca.alterarConsulta,
+                      aoLimpar: _limpar,
+                    ),
+                  ),
+                  const SizedBox(width: DesignTokens.space3),
+                  BotaoDeFiltros(ativos: _busca.filtros.quantidade, aoTocar: _abrirFiltros),
+                ],
               ),
             ),
             const SizedBox(height: DesignTokens.space6),
@@ -128,6 +169,20 @@ class _DescobrirPageState extends State<DescobrirPage> {
                 assuntos: _busca.assuntos,
                 ativo: _busca.assunto,
                 aoAlternar: _busca.alternarAssunto,
+              ),
+            if (!_busca.filtros.vazio)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  DesignTokens.space5,
+                  DesignTokens.space1,
+                  DesignTokens.space5,
+                  0,
+                ),
+                child: FileiraDeFiltros(
+                  chips: _busca.filtros.chips,
+                  aoRemover: _busca.removerFiltro,
+                  aoLimpar: _busca.limparFiltros,
+                ),
               ),
             const SizedBox(height: DesignTokens.space2),
             if (_busca.estado == EstadoDaBusca.resultados) _contagem(theme),
@@ -175,54 +230,75 @@ class _DescobrirPageState extends State<DescobrirPage> {
               constraints: BoxConstraints(
                 minHeight: (limites.maxHeight - 2 * DesignTokens.space5).clamp(0, double.infinity),
               ),
-              child: Center(
-                child: EstadoVazio(
-                  icone: PhosphorIconsRegular.magnifyingGlass,
-                  solto: true,
-                  titulo: 'Nenhum livro encontrado',
-                  texto:
-                      'Confira a grafia ou tente pelo ISBN. Se o livro não está no acervo, '
-                      'você pode cadastrá-lo.',
-                  rodape: Column(
-                    children: <Widget>[
-                      BotaoPrimario(
-                        texto: 'Cadastrar por ISBN',
-                        larguraTotal: true,
-                        onPressed: widget.aoCadastrarPorIsbn,
-                      ),
-                      const SizedBox(height: DesignTokens.space3),
-                      BotaoTextual(
-                        texto: 'Cadastrar livro pessoal',
-                        onPressed: widget.aoCadastrarPessoal,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              child: Center(child: _busca.filtros.vazio ? _vazio() : _vazioComFiltros()),
             ),
           ),
         );
       case EstadoDaBusca.erro:
-        return ListView(
-          padding: const EdgeInsets.fromLTRB(
-            DesignTokens.space5,
-            DesignTokens.space6,
-            DesignTokens.space5,
-            DesignTokens.space5,
-          ),
-          children: <Widget>[
-            BannerAviso(
-              variante: VarianteAviso.erro,
-              triangulo: true,
-              mensagem:
-                  'Não foi possível carregar os resultados. Verifique sua conexão e tente de novo.',
-              acao: BotaoTextual(texto: 'Tentar de novo', onPressed: _busca.tentarDeNovo),
-            ),
-          ],
-        );
+        return _erro();
       case EstadoDaBusca.resultados:
         return _resultados(theme);
     }
+  }
+
+  /// Sem linha de contagem e sem cadastro: o caminho é afrouxar os filtros (descobrir.md do P2).
+  Widget _vazioComFiltros() {
+    return Semantics(
+      liveRegion: true,
+      child: EstadoVazio(
+        icone: PhosphorIconsRegular.slidersHorizontal,
+        solto: true,
+        titulo: 'Nenhum livro com esses filtros',
+        texto: 'Remova um filtro ou amplie a faixa de páginas para ver mais resultados.',
+        rodape: BotaoPrimario(
+          texto: 'Limpar filtros',
+          larguraTotal: true,
+          onPressed: _busca.limparFiltros,
+        ),
+      ),
+    );
+  }
+
+  Widget _vazio() {
+    return EstadoVazio(
+      icone: PhosphorIconsRegular.magnifyingGlass,
+      solto: true,
+      titulo: 'Nenhum livro encontrado',
+      texto:
+          'Confira a grafia ou tente pelo ISBN. Se o livro não está no acervo, '
+          'você pode cadastrá-lo.',
+      rodape: Column(
+        children: <Widget>[
+          BotaoPrimario(
+            texto: 'Cadastrar por ISBN',
+            larguraTotal: true,
+            onPressed: widget.aoCadastrarPorIsbn,
+          ),
+          const SizedBox(height: DesignTokens.space3),
+          BotaoTextual(texto: 'Cadastrar livro pessoal', onPressed: widget.aoCadastrarPessoal),
+        ],
+      ),
+    );
+  }
+
+  Widget _erro() {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(
+        DesignTokens.space5,
+        DesignTokens.space6,
+        DesignTokens.space5,
+        DesignTokens.space5,
+      ),
+      children: <Widget>[
+        BannerAviso(
+          variante: VarianteAviso.erro,
+          triangulo: true,
+          mensagem:
+              'Não foi possível carregar os resultados. Verifique sua conexão e tente de novo.',
+          acao: BotaoTextual(texto: 'Tentar de novo', onPressed: _busca.tentarDeNovo),
+        ),
+      ],
+    );
   }
 
   Widget _carregando(ThemeData theme) {
