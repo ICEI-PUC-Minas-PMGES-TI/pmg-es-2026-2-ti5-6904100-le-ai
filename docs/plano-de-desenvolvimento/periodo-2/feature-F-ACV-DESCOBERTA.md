@@ -40,7 +40,7 @@ Backend, web e mobile estão mergeados em `desenvolvimento` (merge da `vicenzo-f
 
 **Fora desta feature, mas no `acervo` e com o Vicenzo:**
 - A etapa 3 da [F-LST](feature-F-LST.md#etapa-3-via-lista-no-acervo), a via lista no livro pessoal. Ela foi delegada pelo Henrique em 05/10/2026 e bloqueia o RF-LST-06 e o DoD da F-LST.
-- O `npm audit --audit-level=high` do `acervo` falha desde 07/10/2026 por avisos publicados depois do último ajuste (03/10). Ver Pendências. O próximo push que tocar `code/back/acervo` deixa o CI vermelho até isso ser resolvido.
+- ~~O `npm audit --audit-level=high` do `acervo` falhava desde 07/10/2026~~: resolvido em 08/10/2026 (Pendências).
 
 **Para retomar rápido**
 - **Testes do backend:** `npm test` e `DATABASE_URL_TESTE=postgresql://postgres:teste@localhost:55432/leai_teste npm run test:integration` em `code/back/acervo`. O container `leai-pg-teste` já existe localmente.
@@ -142,11 +142,13 @@ A biografia fica **no idioma da fonte**: a OpenLibrary costuma devolver em ingl�
     - Registrado também nos `AGENTS.md` de `code/front` e `code/mobile`;
   - **conferir em execução real** (web no navegador, mobile no emulador), que não foi feito nesta sessão;
   - ~~**rodar o script `biografias`** em dev e DES~~: rodado nos dois em 08/10/2026. Depois do deploy da `main`, uma reexecução no DES cobre os autores criados até lá.
-- **`npm audit` do `acervo` (07/10/2026):** o CI roda `npm audit --audit-level=high`, e o `acervo` passou a falhar por avisos publicados depois de 03/10.
-  - `proxy-addr` (crítico) sai com `npm audit fix`.
-  - `js-yaml` (alto) vem só de dependências de desenvolvimento (`ts-jest`, `eslint`, `@nestjs/cli`, `@nestjs/swagger`). A única correção automática rebaixa o `ts-jest` para a 27 (`--force`), o que quebra os testes.
-  - O lockfile do `acervo` ficou fora do merge para não deixar o CI vermelho. Decidir com o grupo (override de `js-yaml` ou aceitar o aviso); o `leitura` tem o mesmo `proxy-addr`.
-  - No front, o `source-map-js` (alto) foi corrigido com `npm audit fix` (`53305f2`).
+- ~~**`npm audit` do `acervo` (07/10/2026)**~~ — **resolvido em 08/10/2026.** O CI roda `npm audit --audit-level=high`, e o `acervo` falhava por avisos publicados depois de 03/10:
+  - **`proxy-addr` (crítico):** saiu com `npm audit fix`, só no lockfile.
+  - **`js-yaml` (alto):** só a 4.3.0 que o `@nestjs/swagger` 11 fixa estava na faixa do aviso. Um `overrides` no `package.json` força a 4.3.2, da mesma linha 4.x, só dentro do swagger. O `js-yaml` 3.x do Jest fica fora da faixa.
+  - **O que sobra é moderado** (`ts-jest`, `sprintf-js`), e o CI só reprova a partir de alto.
+  - **Conferido:** `npm ci`, lint, build, 302 unitários, 126 de integração e audit, todos verdes.
+  - **No `leitura`:** o mesmo `proxy-addr` continua lá, e cabe ao dono do `leitura` (aviso deixado aqui).
+  - **No front:** o `source-map-js` (alto) foi corrigido com `npm audit fix` (`53305f2`).
 - **Queda dos serviços Nest sem rede (07/10/2026, fora desta feature):** numa queda de rede, o `acervo` e o `leitura` morreram com `read ETIMEDOUT` num cliente `pg` em uso, emitido como evento `error` sem ouvinte. O `pool.on('error')` de `drizzle.module.ts` só cobre a conexão ociosa. Levar a quem cuida da infra (P0-INFRA): no Render, cada oscilação de rede reiniciaria o serviço.
 - **Divergências protótipo × implementação (web e mobile, 07/10/2026)**, escolhidas na sessão de implementação e **ratificadas pelo dono em 07/10/2026**:
   - **Web, página de catálogo:** fica a seta de voltar do header, como na página do livro. O protótipo não tem voltar na web.
