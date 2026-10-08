@@ -185,7 +185,7 @@ const anuncio = computed(() => {
     >
       <form
         role="search"
-        :class="largo ? 'w-[560px] max-w-full' : ''"
+        :class="largo ? 'w-[560px] max-w-full' : 'pt-space-1'"
         @submit.prevent
       >
         <div class="flex items-center gap-space-3">
@@ -236,6 +236,8 @@ const anuncio = computed(() => {
               :weight="chips.length ? 'fill' : 'regular'"
               aria-hidden="true"
             />
+            <!-- O badge passa 4px da borda do botão, como o do sino. O `pt-space-1` do formulário
+                 é a folga dele: o `<main>` do shell rola e cortaria o que sobe além do topo. -->
             <span
               v-if="chips.length"
               class="absolute -right-space-1 -top-space-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-musgo px-space-1 font-mono text-[11px] font-semibold leading-none text-papel"
