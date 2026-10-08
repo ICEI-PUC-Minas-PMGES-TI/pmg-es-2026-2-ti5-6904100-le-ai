@@ -19,7 +19,7 @@ RNF atendidos: **RNF-SEC-41** (recuperação em 30 dias + remoção definitiva),
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | em andamento | workflow `job-exclusao-conta.yml`, outbox de `conta.excluida` e as três filas de consumo prontos (07 e 08/10/2026); faltam os segredos em DES |
+| Infra | implementado | workflow `job-exclusao-conta.yml`, outbox de `conta.excluida` e as três filas de consumo prontos (07 e 08/10/2026); segredos cadastrados no Render e no GitHub em 08/10/2026. Falta o fluxo em DES |
 | Backend | implementado | `identidade` em 07/10/2026 (pedir, login de recuperação, cancelar e job, 206 testes) e consumidores de `conta.excluida` em `leitura`, `social` e `acervo` em 08/10/2026; falta o fluxo em DES |
 | Web | implementado | 08/10/2026: Excluir conta (Configurações), Exclusão solicitada e Recuperar conta, login de recuperação e política 1.1; 752 testes, lint e build verdes. Conferido no navegador em 08/10 contra o `identidade` local (1440 e 390 px); falta o fluxo em DES |
 | Mobile | implementado | 08/10/2026: Excluir conta (Configurações), Exclusão solicitada e Recuperar conta, login de recuperação, limpeza da sessão e do secure storage no `202` e política 1.1; 555 testes (24 novos) e `flutter analyze` verdes. Conferido no emulador em 08/10 (Pixel 8, API 35) contra o `identidade` local; falta o fluxo em DES |
@@ -94,7 +94,7 @@ Plano de 07/10/2026, feito a partir do código em `desenvolvimento` (levantament
 | 3 | Consumidores de `conta.excluida` em `leitura`, `social` e `acervo` | **concluída em 08/10/2026** |
 | 4 | Web (`code/front`) | **concluída em 08/10/2026** e conferida no navegador no mesmo dia |
 | 5 | Mobile (`code/mobile`) | **concluída em 08/10/2026** e conferida no emulador no mesmo dia |
-| 6 | Fechamento: segredos no Render e no GitHub, DES, status e timeline | pendente |
+| 6 | Fechamento: segredos no Render e no GitHub, DES, status e timeline | **segredos cadastrados em 08/10/2026**; falta o fluxo em DES, depois do merge na `main` |
 
 ### O que já existe (levantado em 07/10)
 
@@ -296,7 +296,7 @@ Os consumidores ficam no código de outros donos, como prevê a [divisão do Per
   - A folha de confirmação é a `confirmarAcaoDestrutiva` do projeto, que não põe o foco inicial em `Cancelar`.
   - Durante o envio, a seta de voltar continua desenhada, mas não responde (o `PopScope` também segura o voltar do sistema).
   - O acesso de recuperação fica só em memória: fechar o app na tela de recuperação leva ao login na próxima abertura.
-- **Credencial do Cloudinary a criar (dono, etapa 6).** Gerar a API key e o secret no painel do Cloudinary e cadastrar em `identidade` e `acervo` no Render. Sem elas, o job registra o `publicId` no log e o avatar fica no Cloudinary.
+- ~~**Credencial do Cloudinary a criar (dono, etapa 6).** Gerar a API key e o secret no painel do Cloudinary e cadastrar em `identidade` e `acervo` no Render. Sem elas, o job registra o `publicId` no log e o avatar fica no Cloudinary.~~ — **resolvida em 08/10/2026:** chave própria criada no Cloudinary e cadastrada em `identidade` e `acervo` no Render.
 
 - **Depende de** [F-AUT](../periodo-1/feature-F-AUT.md) (sessão, invalidação de refresh, modelo `usuario`), [F-PERFIL](../periodo-1/feature-F-PERFIL.md) (grafo de seguidores a limpar) e das features que detêm dados do usuário nos demais serviços ([F-EST](../periodo-1/feature-F-EST.md)/[F-PRG](../periodo-1/feature-F-PRG.md)/[F-AVA](../periodo-1/feature-F-AVA.md)/[F-EST-2](feature-F-EST-2.md), [F-FEED](../periodo-1/feature-F-FEED.md)/[F-NOT](../periodo-1/feature-F-NOT.md), [F-ACV-CADASTRO](../periodo-1/feature-F-ACV-CADASTRO.md)); [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md) e [P0-MSG](../periodo-0/feature-P0-MSG.md) (broker do fan-out).
 - **Divergência de baseline — prioridade:** RF-AUT-07 é Desejável (P2), mas RNF-SEC-41 é Essencial (§8). O grupo deve resolver o agendamento pelo controle de mudança (plano §3); esta feature não altera a baseline.
@@ -356,3 +356,5 @@ A conferência no emulador fica pendente: esta máquina não tem o Android SDK. 
 ### Testes de indisponibilidade 08/10/2026: web e mobile ganharam os casos de cold start (`Excluindo`/`Cancelando` com o aviso, sem erro) e de timeout (vira o erro de envio ou de cancelamento, com a senha e o acesso de recuperação preservados), que o DoD pede (RNF-TST-05/06): 17 testes no `views/conta` da web e 23 em `exclusao_test.dart` no mobile. Desde esta data o dono desenvolve na branch `henrique-features`, levada à `desenvolvimento` por PR; CI verde nela (`ci-front` e `ci-mobile`).
 
 ### Conferência no emulador 08/10/2026: fluxo da etapa 5 percorrido no Pixel 8 (API 35) contra o `identidade` local (banco de dev, mensageria desligada), com a conta `teste.conta2`: linha `Excluir conta` nas Configurações, tela com o botão desabilitado em outline `rubi` a 40%, senha errada (banner `rubi`, campo limpo com foco e borda de erro, caixa marcada), `202` levando a `Exclusão solicitada` com a data do servidor, voltar do sistema levando ao login, login de recuperação com "Faltam 30 dias", cancelamento e `Conta recuperada`. **Uma correção:** a folha de confirmação abria pelo navegador da aba e ficava acima da barra inferior, fora do scrim (§4.3 pede a barra sob o scrim, sem resposta ao toque). Passou a abrir pelo navegador raiz, como as outras folhas do app, e foi conferida de novo no emulador. A conta de teste continua ativa no banco de dev. O Android SDK foi instalado nesta máquina para a conferência.
+
+### Segredos 08/10/2026: etapa 6, parte de configuração, feita pelo dono. Render: `SCHEDULER_TOKEN`, `CLOUDINARY_API_KEY` e `CLOUDINARY_API_SECRET` no `leai-identidade`, e as duas do Cloudinary no `leai-acervo` (chave própria criada no Cloudinary para a exclusão). GitHub: `IDENTIDADE_URL` e `IDENTIDADE_SCHEDULER_TOKEN`, com o mesmo token do Render. Os dois serviços responderam `/health` 200 depois do redeploy. Os valores só passam a ter efeito quando o código da F-CONTA-2 chegar à `main`; falta o fluxo em DES.
