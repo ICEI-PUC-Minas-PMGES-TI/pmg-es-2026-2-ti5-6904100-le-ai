@@ -352,3 +352,5 @@ Divergências na pendência "Web: divergências do protótipo". Conferência no 
 - **Testes:** `flutter analyze` sem avisos e `flutter test` com 555 testes, 24 novos (`test/features/conta/exclusao_test.dart` e quatro de rota em `router_test.dart`).
 
 A conferência no emulador fica pendente: esta máquina não tem o Android SDK. Divergências na pendência "Mobile: divergências do protótipo".
+
+### Testes de indisponibilidade 08/10/2026: web e mobile ganharam os casos de cold start (`Excluindo`/`Cancelando` com o aviso, sem erro) e de timeout (vira o erro de envio ou de cancelamento, com a senha e o acesso de recuperação preservados), que o DoD pede (RNF-TST-05/06): 21 testes no `views/conta` da web e 23 em `exclusao_test.dart` no mobile. Desde esta data o dono desenvolve na branch `henrique-features`, levada à `desenvolvimento` por PR; CI verde nela (`ci-front` e `ci-mobile`).
