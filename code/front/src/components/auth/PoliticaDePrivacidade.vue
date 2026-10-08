@@ -8,7 +8,7 @@
  * **O conteúdo é o mock declarado do protótipo** (configuracoes.md §3). O texto final é entrega
  * do grupo e entra com a Etapa 13 de F-AUT, junto do versionamento e do acesso pelo cadastro.
  */
-const VERSAO = 'Versão 1.0, de 15 de setembro de 2026'
+const VERSAO = 'Versão 1.1, de 29 de setembro de 2026'
 
 const BLOCOS = [
   {
@@ -24,11 +24,12 @@ const BLOCOS = [
   {
     titulo: 'Por quanto tempo guardamos',
     texto:
-      'Enquanto a conta existir. O token de recuperação de senha vale por 1 hora. Registros de acesso ficam por 6 meses.',
+      'Enquanto a conta existir. Se você pedir a exclusão, seus dados ficam guardados e ocultos para os outros leitores por 30 dias, e você pode cancelar nesse prazo. Depois disso, eles são apagados definitivamente, e só restam registros técnicos sem nada que identifique você. O token de recuperação de senha vale por 1 hora. Registros de acesso ficam por 6 meses.',
   },
   {
     titulo: 'Seus direitos',
-    texto: 'Você pode acessar e corrigir seus dados pelo perfil, e pedir suporte pelo e-mail de contato do projeto.',
+    texto:
+      'Você pode acessar e corrigir seus dados pelo perfil, pedir a exclusão da conta em Configurações e pedir suporte pelo e-mail de contato do projeto.',
   },
 ] as const
 </script>

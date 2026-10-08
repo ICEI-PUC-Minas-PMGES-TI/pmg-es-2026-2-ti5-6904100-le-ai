@@ -14,13 +14,24 @@ import LogoLeAi from '../components/ui/LogoLeAi.vue'
  * desenho aprovado (docs/design/AGENTS.md §10). Recuperar e redefinir senha usam a frase curta
  * em Space Grotesk e a mesma leitora abaixo dela, mas sem o círculo, como nos protótipos delas.
  */
-withDefaults(defineProps<{ ilustrada?: boolean }>(), { ilustrada: false })
+withDefaults(defineProps<{ ilustrada?: boolean; somenteMarca?: boolean }>(), {
+  ilustrada: false,
+  somenteMarca: false,
+})
 </script>
 
 <template>
   <div class="flex min-h-screen w-full bg-papel">
+    <!-- Telas de estado da conta (F-CONTA-2): só o lockup, sem a frase de boas-vindas, que soaria
+         fora de lugar numa tela sobre excluir a conta (recuperar-conta.md §5). -->
     <div
-      v-if="ilustrada"
+      v-if="somenteMarca"
+      class="hidden w-[44%] flex-col justify-center bg-papel-elevado px-space-16 md:flex"
+    >
+      <LogoLeAi :altura="32" />
+    </div>
+    <div
+      v-else-if="ilustrada"
       class="hidden w-[44%] flex-col justify-center gap-space-6 bg-papel-elevado px-space-16 md:flex"
     >
       <LogoLeAi :altura="29" />

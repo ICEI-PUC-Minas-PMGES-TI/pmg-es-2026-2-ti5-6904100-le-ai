@@ -17,11 +17,14 @@ import ConexoesView from '../views/perfil/ConexoesView.vue'
 import ConfiguracoesView from '../views/auth/ConfiguracoesView.vue'
 import DescobrirView from '../views/DescobrirView.vue'
 import EditarPerfilView from '../views/perfil/EditarPerfilView.vue'
+import ExcluirContaView from '../views/conta/ExcluirContaView.vue'
+import ExclusaoSolicitadaView from '../views/conta/ExclusaoSolicitadaView.vue'
 import EstanteView from '../views/EstanteView.vue'
 import FeedView from '../views/FeedView.vue'
 import LoginView from '../views/auth/LoginView.vue'
 import PoliticaPrivacidadeView from '../views/auth/PoliticaPrivacidadeView.vue'
 import ProgressoView from '../views/ProgressoView.vue'
+import RecuperarContaView from '../views/conta/RecuperarContaView.vue'
 import RecuperarSenhaView from '../views/auth/RecuperarSenhaView.vue'
 import RedefinirSenhaView from '../views/auth/RedefinirSenhaView.vue'
 import PerfilDeOutroView from '../views/perfil/PerfilDeOutroView.vue'
@@ -115,6 +118,18 @@ export const routes: RouteRecordRaw[] = [
     path: '/redefinir-senha',
     name: 'redefinir-senha',
     component: RedefinirSenhaView,
+  },
+  // F-CONTA-2, fora do shell. Sem `semSessao` nem `requerSessao`: a primeira abre logo depois de
+  // a sessão acabar, e a segunda só depende do acesso de recuperação em memória, que ela confere.
+  {
+    path: '/conta/exclusao-solicitada',
+    name: 'exclusao-solicitada',
+    component: ExclusaoSolicitadaView,
+  },
+  {
+    path: '/conta/recuperar',
+    name: 'recuperar-conta',
+    component: RecuperarContaView,
   },
   {
     path: '/',
@@ -275,6 +290,13 @@ export const routes: RouteRecordRaw[] = [
           voltarComRotulo: 'Configurações',
           semDivisor: true,
         },
+      },
+      // F-CONTA-2. Empilhada sobre Configurações, como Alterar senha.
+      {
+        path: 'perfil/configuracoes/excluir-conta',
+        name: 'excluir-conta',
+        component: ExcluirContaView,
+        meta: { titulo: 'Excluir conta', voltar: true, voltarComRotulo: 'Configurações', semDivisor: true },
       },
       // F-ACV-CADASTRO. O prefixo carrega a origem para a aba certa ficar ativa o fluxo inteiro.
       {
