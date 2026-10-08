@@ -24,6 +24,11 @@ import org.springframework.jdbc.core.JdbcTemplate;
 @EnabledIfEnvironmentVariable(named = "DATABASE_URL_TESTE", matches = ".+")
 class ConsumidorDeContaExcluidaIntegracaoTest extends IntegracaoComPostgres {
 
+  private static final String LOGS_ANONIMIZADOS =
+      "SELECT count(*) FROM log_moderacao WHERE anonimizado_em IS NOT NULL";
+  private static final String EVENTOS_ANONIMIZADOS =
+      "SELECT count(*) FROM outbox_social WHERE anonimizado_em IS NOT NULL";
+
   @Autowired private ConsumidorDeContaExcluida consumidor;
   @Autowired private JdbcTemplate jdbc;
 
@@ -147,6 +152,8 @@ class ConsumidorDeContaExcluidaIntegracaoTest extends IntegracaoComPostgres {
     logModeracao("comentario", raizDaOutra, denunciaFeitaPelaExcluida);
     logModeracao("usuario", excluida, null);
     logModeracao("comentario", raizDaOutra, denunciaQueFica);
+    // O banco é compartilhado com os outros testes da suíte: o anonimizado se mede pela diferença.
+    int logsAnonimizadosAntes = contar(LOGS_ANONIMIZADOS);
 
     consumidor.handle(envelope(excluida));
 
@@ -161,18 +168,33 @@ class ConsumidorDeContaExcluidaIntegracaoTest extends IntegracaoComPostgres {
             contar(
                 "SELECT count(*) FROM comentario WHERE respondido_usuario_id = ?", excluida))
         .isZero();
-    assertThat(contar("SELECT count(*) FROM curtida_atividade")).isZero();
+    assertThat(
+            contar(
+                "SELECT count(*) FROM curtida_atividade WHERE usuario_id IN (?, ?)",
+                excluida,
+                outra))
+        .isZero();
     assertThat(contar("SELECT count(*) FROM lista WHERE usuario_id = ?", excluida)).isZero();
     assertThat(contar("SELECT count(*) FROM lista WHERE usuario_id = ?", outra)).isEqualTo(1);
-    assertThat(contar("SELECT count(*) FROM recomendacao")).isZero();
-    assertThat(contar("SELECT count(*) FROM notificacao")).isEqualTo(1);
+    assertThat(
+            contar(
+                "SELECT count(*) FROM recomendacao WHERE remetente_id = ? OR destinatario_id = ?",
+                outra,
+                excluida))
+        .isZero();
+    assertThat(
+            contar(
+                "SELECT count(*) FROM notificacao WHERE destinatario_id IN (?, ?)", excluida, outra))
+        .isEqualTo(1);
     assertThat(contar("SELECT count(*) FROM atividade WHERE id = ?", atividadeDaOutra))
         .isEqualTo(1);
 
     assertThat(contar("SELECT count(*) FROM denuncia WHERE id = ?", denunciaQueFica)).isEqualTo(1);
-    assertThat(contar("SELECT count(*) FROM denuncia")).isEqualTo(1);
-    assertThat(contar("SELECT count(*) FROM log_moderacao WHERE anonimizado_em IS NOT NULL"))
-        .isEqualTo(3);
+    assertThat(
+            contar(
+                "SELECT count(*) FROM denuncia WHERE denunciante_id IN (?, ?)", excluida, outra))
+        .isEqualTo(1);
+    assertThat(contar(LOGS_ANONIMIZADOS)).isEqualTo(logsAnonimizadosAntes + 3);
     assertThat(
             contar(
                 "SELECT count(*) FROM log_moderacao WHERE anonimizado_em IS NULL"
@@ -206,6 +228,7 @@ class ConsumidorDeContaExcluidaIntegracaoTest extends IntegracaoComPostgres {
           status,
           status);
     }
+    int eventosAnonimizadosAntes = contar(EVENTOS_ANONIMIZADOS);
 
     consumidor.handle(envelope(excluida));
 
@@ -214,9 +237,12 @@ class ConsumidorDeContaExcluidaIntegracaoTest extends IntegracaoComPostgres {
         .isZero();
     assertThat(contar("SELECT count(*) FROM idempotencia_social WHERE subject_ref = ?", outra))
         .isEqualTo(1);
-    assertThat(contar("SELECT count(*) FROM outbox_social WHERE status = 'pendente'")).isZero();
-    assertThat(contar("SELECT count(*) FROM outbox_social WHERE anonimizado_em IS NOT NULL"))
-        .isEqualTo(1);
+    assertThat(
+            contar(
+                "SELECT count(*) FROM outbox_social WHERE chave_negocio LIKE ?",
+                "%" + excluida + "%"))
+        .isZero();
+    assertThat(contar(EVENTOS_ANONIMIZADOS)).isEqualTo(eventosAnonimizadosAntes + 1);
   }
 
   @Test
