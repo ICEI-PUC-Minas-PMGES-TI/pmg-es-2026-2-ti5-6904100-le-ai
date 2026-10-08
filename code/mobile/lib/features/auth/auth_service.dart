@@ -1,5 +1,8 @@
 import '../../core/network/api_client.dart';
+import '../../core/session/acesso_de_recuperacao.dart';
 import '../../core/session/session_controller.dart';
+
+export '../../core/session/acesso_de_recuperacao.dart';
 
 /// Contrato do serviço `identidade`. Espelha `docs/api/identidade.yaml` e o `authService` da
 /// web: mesmos campos, mesmas rotas.
@@ -56,6 +59,24 @@ class SessaoResposta {
       TokensDaSessao(accessToken: accessToken, refreshToken: refreshToken);
 }
 
+/// O login entra na conta ou, com a exclusão pendente (F-CONTA-2), só abre a recuperação. O
+/// contrato distingue as duas respostas pelo campo `tipo`.
+sealed class ResultadoDoLogin {
+  const ResultadoDoLogin();
+}
+
+final class LoginComSessao extends ResultadoDoLogin {
+  final SessaoResposta sessao;
+
+  const LoginComSessao(this.sessao);
+}
+
+final class LoginDeRecuperacao extends ResultadoDoLogin {
+  final AcessoDeRecuperacao acesso;
+
+  const LoginDeRecuperacao(this.acesso);
+}
+
 /// Fina camada sobre [ApiClient]: monta os corpos das rotas de `/auth` e decodifica a resposta
 /// em DTO tipado. Ao contrário da web, `entrar` não busca `/me` em seguida: `SessionController`
 /// guarda só os tokens, não o usuário.
@@ -92,7 +113,9 @@ class AuthService {
     return UsuarioResposta.fromJson(json);
   }
 
-  Future<SessaoResposta> entrar({
+  /// Login (RF-AUT-02). Conta com exclusão pendente recebe o acesso de recuperação, que só
+  /// cancela a exclusão (RN-23.3), em vez da sessão.
+  Future<ResultadoDoLogin> entrar({
     required String identificador,
     required String senha,
   }) async {
@@ -102,7 +125,10 @@ class AuthService {
       idempotencyKey: ApiClient.newIdempotencyKey(),
       anonimo: true,
     );
-    return SessaoResposta.fromJson(json);
+    if (json['tipo'] == AcessoDeRecuperacao.tipo) {
+      return LoginDeRecuperacao(AcessoDeRecuperacao.fromJson(json));
+    }
+    return LoginComSessao(SessaoResposta.fromJson(json));
   }
 
   /// `POST /auth/refresh`. Uma chave por renovação: as retentativas do cliente a repetem, e o
@@ -179,7 +205,11 @@ class AuthService {
       idempotencyKey: idempotencyKey,
     );
     try {
-      return await entrar(identificador: usuario.username, senha: novaSenha);
+      // Quem troca a senha está numa sessão normal, sem exclusão pendente.
+      return switch (await entrar(identificador: usuario.username, senha: novaSenha)) {
+        LoginComSessao(:final sessao) => sessao,
+        LoginDeRecuperacao() => null,
+      };
     } on ApiException {
       return null;
     }

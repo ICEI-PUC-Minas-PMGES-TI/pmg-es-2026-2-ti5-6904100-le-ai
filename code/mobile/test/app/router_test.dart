@@ -16,6 +16,7 @@ import 'package:le_ai_mobile/core/session/token_store.dart';
 import 'package:le_ai_mobile/design/theme.dart';
 import 'package:le_ai_mobile/features/avaliacao/leitura_service.dart';
 import 'package:le_ai_mobile/features/auth/auth_service.dart';
+import 'package:le_ai_mobile/features/conta/exclusao_service.dart';
 import 'package:le_ai_mobile/features/feed/rotas_feed.dart';
 import 'package:le_ai_mobile/features/feed/social_service.dart';
 import 'package:le_ai_mobile/features/listas/listas_service.dart';
@@ -294,9 +295,11 @@ Widget _wrap(GoRouter router) {
 void main() {
   late SessionController sessionController;
   late GoRouter router;
+  late _FakeTokenStore tokenStore;
 
   setUp(() async {
-    sessionController = SessionController(_FakeTokenStore());
+    tokenStore = _FakeTokenStore();
+    sessionController = SessionController(tokenStore);
     await sessionController.load();
     final apiClient = ApiClient(
       baseUrl: 'http://localhost:8080',
@@ -319,6 +322,7 @@ void main() {
         seletor: _SemImagem(),
         enviador: _SemEnvio(),
       ),
+      exclusao: _exclusaoSimulada(),
     );
   });
 
@@ -662,6 +666,91 @@ void main() {
     expect(find.text('Sair da conta'), findsOneWidget);
   });
 
+  group('F-CONTA-2', () {
+    testWidgets('excluir conta: o 202 apaga a sessão e o armazenamento antes da tela final', (
+      tester,
+    ) async {
+      await sessionController.entrar('jwt-valido', refreshToken: 'r1');
+      await tester.pumpWidget(_wrap(router));
+      await tester.pumpAndSettle();
+      router.go(rotaConfiguracoes);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Excluir conta'));
+      await tester.pumpAndSettle();
+      expect(find.text('Oculta a partir de agora'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'senha-certa');
+      final caixa = find.textContaining('a exclusão não pode ser desfeita');
+      await tester.ensureVisible(caixa);
+      await tester.tap(caixa);
+      await tester.pumpAndSettle();
+      final botao = find.widgetWithText(OutlinedButton, 'Excluir conta');
+      await tester.ensureVisible(botao);
+      await tester.tap(botao);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Excluir conta').last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Exclusão solicitada'), findsOneWidget);
+      expect(find.text('7 de novembro de 2026'), findsOneWidget);
+      expect(sessionController.estaAutenticado, isFalse);
+      expect(tokenStore.value, isNull);
+      expect(find.byType(BarraInferior), findsNothing);
+
+      // O voltar do sistema não devolve às Configurações: leva ao login.
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('Criar conta'), findsOneWidget);
+    });
+
+    testWidgets('o acesso de recuperação tira do login e leva à recuperação; Sair volta', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_wrap(router));
+      await tester.pumpAndSettle();
+      expect(find.text('Criar conta'), findsOneWidget);
+
+      sessionController.guardarRecuperacao(_acessoDeRecuperacao());
+      await tester.pumpAndSettle();
+      expect(find.text('Sua conta está em exclusão'), findsOneWidget);
+      expect(find.text('Marina Beltrão · @marinableu'), findsOneWidget);
+
+      await tester.ensureVisible(find.text('Sair'));
+      await tester.tap(find.text('Sair'));
+      await tester.pumpAndSettle();
+      expect(find.text('Criar conta'), findsOneWidget);
+      expect(sessionController.recuperacao, isNull);
+    });
+
+    testWidgets('cancelar a exclusão mostra Conta recuperada, e Entrar leva ao login', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_wrap(router));
+      await tester.pumpAndSettle();
+      sessionController.guardarRecuperacao(_acessoDeRecuperacao());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Cancelar exclusão'));
+      await tester.pumpAndSettle();
+      expect(find.text('Conta recuperada'), findsOneWidget);
+      expect(sessionController.recuperacao, isNull);
+
+      await tester.tap(find.text('Entrar'));
+      await tester.pumpAndSettle();
+      expect(find.text('Criar conta'), findsOneWidget);
+    });
+
+    testWidgets('a recuperação sem o acesso em memória manda ao login', (tester) async {
+      await tester.pumpWidget(_wrap(router));
+      await tester.pumpAndSettle();
+      router.go(rotaRecuperarConta);
+      await tester.pumpAndSettle();
+      expect(find.text('Sua conta está em exclusão'), findsNothing);
+      expect(find.text('Criar conta'), findsOneWidget);
+    });
+  });
+
   testWidgets('a lupa do Perfil abre a busca de leitor, com volta para o perfil', (tester) async {
     await sessionController.entrar('jwt-valido');
     await tester.pumpWidget(_wrap(router));
@@ -908,6 +997,34 @@ GoRouter _roteadorComNotificacoes(SessionController sessionController) {
     ),
   );
 }
+
+/// `identidade` simulado para a exclusão (F-CONTA-2): o pedido responde `202` com as datas e o
+/// cancelamento, `204`.
+ExclusaoService _exclusaoSimulada() => ExclusaoService(
+  ApiClient(
+    baseUrl: 'http://localhost:8080',
+    client: MockClient((request) async {
+      if (request.method == 'DELETE' && request.url.path == '/me/conta') {
+        return http.Response(
+          '{"exclusaoSolicitadaEm":"2026-10-08T15:00:00Z",'
+          '"exclusaoPrevistaEm":"2026-11-07T15:00:00Z"}',
+          202,
+          headers: const <String, String>{'content-type': 'application/json; charset=utf-8'},
+        );
+      }
+      return http.Response('', 204);
+    }),
+  ),
+);
+
+AcessoDeRecuperacao _acessoDeRecuperacao() => AcessoDeRecuperacao(
+  accessToken: 'jwt-recuperacao',
+  expiresIn: 900,
+  exclusaoSolicitadaEm: DateTime.now().subtract(const Duration(days: 7)),
+  exclusaoPrevistaEm: DateTime.now().add(const Duration(days: 23)),
+  username: 'marinableu',
+  nomeExibicao: 'Marina Beltrão',
+);
 
 /// `leitura` que responde "sem avaliação" a qualquer livro: o roteador só precisa da página abrir.
 LeituraService _leituraSimulada() => LeituraService(

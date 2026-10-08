@@ -8,7 +8,11 @@ import '../features/auth/cadastro_page.dart';
 import '../features/auth/login_page.dart';
 import '../features/conta/alterar_senha_page.dart';
 import '../features/conta/configuracoes_page.dart';
+import '../features/conta/excluir_conta_page.dart';
+import '../features/conta/exclusao_service.dart';
+import '../features/conta/exclusao_solicitada_page.dart';
 import '../features/conta/politica_de_privacidade.dart';
+import '../features/conta/recuperar_conta_page.dart';
 import '../features/conta/recuperar_senha_page.dart';
 import '../features/conta/redefinir_senha_page.dart';
 import '../features/descobrir/descobrir_page.dart';
@@ -35,6 +39,8 @@ const String rotaRecuperarSenha = '/recuperar-senha';
 const String rotaRedefinirSenha = '/redefinir-senha';
 const String rotaConfiguracoes = '/perfil/configuracoes';
 const String rotaPoliticaPublica = '/privacidade';
+const String rotaExclusaoSolicitada = '/conta/exclusao-solicitada';
+const String rotaRecuperarConta = '/conta/recuperar';
 const List<String> _rotasPublicas = <String>[rotaLogin, rotaCadastro, rotaRecuperarSenha];
 
 /// Monta o `GoRouter` do app (shell-de-navegacao.md). `refreshListenable: sessionController`
@@ -56,8 +62,10 @@ GoRouter buildRouter({
   DependenciasDeProgresso? progresso,
   DependenciasDeNotificacoes? notificacoes,
   DependenciasDeListas? listas,
+  ExclusaoService? exclusao,
 }) {
   Future<bool> renovar(String token) => sessionController.renovar(token, authService.renovar);
+  final servicoDeExclusao = exclusao ?? ExclusaoService(authService.client);
   final depsDePerfil =
       perfil ??
       DependenciasDePerfil.padrao(getToken: () => sessionController.token, renovarSessao: renovar);
@@ -147,6 +155,23 @@ GoRouter buildRouter({
         builder: (context, state) => PoliticaDePrivacidadePage(
           semSessao: true,
           aoVoltar: () => context.canPop() ? context.pop() : context.go(rotaCadastro),
+        ),
+      ),
+      // F-CONTA-2, fora do shell. A primeira abre logo depois de a sessão acabar; a segunda só
+      // com o acesso de recuperação em memória (`_guardaDeSessao`).
+      GoRoute(
+        path: rotaExclusaoSolicitada,
+        builder: (context, state) => ExclusaoSolicitadaPage(
+          previstaEm: DateTime.tryParse(state.uri.queryParameters['ate'] ?? ''),
+          aoIrParaLogin: () => context.go(rotaLogin),
+        ),
+      ),
+      GoRoute(
+        path: rotaRecuperarConta,
+        builder: (context, state) => RecuperarContaPage(
+          sessionController: sessionController,
+          servico: servicoDeExclusao,
+          aoIrParaLogin: () => context.go(rotaLogin),
         ),
       ),
       StatefulShellRoute.indexedStack(
@@ -265,6 +290,7 @@ GoRouter buildRouter({
                       aoVoltar: () => context.go('/perfil'),
                       aoAlterarSenha: () => context.go('$rotaConfiguracoes/alterar-senha'),
                       aoAbrirPolitica: () => context.go('$rotaConfiguracoes/privacidade'),
+                      aoExcluirConta: () => context.go('$rotaConfiguracoes/excluir-conta'),
                       aoSair: () async {
                         await sessionController.sairRevogando(authService.revogar);
                         // A guarda já levou ao login com `?destino=`; saída voluntária não volta
@@ -287,6 +313,28 @@ GoRouter buildRouter({
                         path: 'privacidade',
                         builder: (context, state) => PoliticaDePrivacidadePage(
                           aoVoltar: () => context.go(rotaConfiguracoes),
+                        ),
+                      ),
+                      GoRoute(
+                        path: 'excluir-conta',
+                        builder: (context, state) => ExcluirContaPage(
+                          servico: servicoDeExclusao,
+                          authService: authService,
+                          aoVoltar: () => context.go(rotaConfiguracoes),
+                          aoExclusaoSolicitada: (previstaEm) async {
+                            // O roteador é pego antes: limpar a sessão leva a guarda ao login,
+                            // e esta página sai da árvore. A navegação seguinte substitui aquela.
+                            final router = GoRouter.of(context);
+                            await sessionController.sair();
+                            router.go(
+                              Uri(
+                                path: rotaExclusaoSolicitada,
+                                queryParameters: <String, String>{
+                                  'ate': previstaEm.toIso8601String(),
+                                },
+                              ).toString(),
+                            );
+                          },
                         ),
                       ),
                     ],
@@ -326,6 +374,21 @@ String? _guardaDeSessao(SessionController sessionController, GoRouterState state
   }
 
   final autenticado = sessionController.estaAutenticado;
+
+  // F-CONTA-2. `Exclusão solicitada` abre logo depois de a sessão acabar e não depende dela.
+  if (indo == rotaExclusaoSolicitada) {
+    return null;
+  }
+  // A recuperação só existe com o acesso em memória. Guardá-lo no login avisa o roteador, e
+  // esta regra tira a pessoa do login; descartá-lo não avisa, e a tela fica até a próxima
+  // navegação (`SessionController.descartarRecuperacao`).
+  final emRecuperacao = sessionController.recuperacao != null;
+  if (indo == rotaRecuperarConta) {
+    return emRecuperacao && !autenticado ? null : (autenticado ? rotaEstante : rotaLogin);
+  }
+  if (emRecuperacao && !autenticado && _rotasPublicas.contains(indo)) {
+    return rotaRecuperarConta;
+  }
 
   if (indo == rotaVerificandoSessao) {
     return autenticado ? rotaEstante : rotaLogin;
