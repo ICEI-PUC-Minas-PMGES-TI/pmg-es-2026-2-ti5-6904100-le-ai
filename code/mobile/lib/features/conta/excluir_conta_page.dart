@@ -104,8 +104,9 @@ class _ExcluirContaPageState extends State<ExcluirContaPage> {
     if (!_podeExcluir) {
       return;
     }
+    // Pelo navegador raiz: o scrim cobre a barra inferior, que não fica acionável (§4.3).
     final confirmado = await confirmarAcaoDestrutiva(
-      context,
+      Navigator.of(context, rootNavigator: true).context,
       titulo: 'Excluir sua conta?',
       texto:
           'Sua conta fica oculta a partir de agora e é apagada definitivamente em $_dataLimite. '
