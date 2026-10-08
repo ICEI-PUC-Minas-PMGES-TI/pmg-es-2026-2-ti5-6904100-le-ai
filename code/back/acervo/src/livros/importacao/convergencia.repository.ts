@@ -156,6 +156,15 @@ export class ConvergenciaRepository implements RepositorioDeConvergencia {
     const normalizado = normalizarNomeAutor(autor.nome);
 
     if (autor.olAuthorKey) {
+      // Chave que a ingestão juntou a outro autor (`unificar`, a partir de
+      // `autores_unificados.csv`): o livro vai para o canônico, e a biografia
+      // da fonte, que muitas vezes é de um homônimo, fica de fora.
+      const unificado = await this.primeiroId(sql`
+        SELECT autor_id AS id FROM acervo.autor_chave_unificada
+         WHERE ol_author_key = ${autor.olAuthorKey}
+      `);
+      if (unificado) return unificado;
+
       const biografia = autor.biografia ?? null;
       await this.tx.execute(sql`
         INSERT INTO acervo.autor (nome, nome_normalizado, ol_author_key, biografia)

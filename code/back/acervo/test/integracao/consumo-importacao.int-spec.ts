@@ -205,6 +205,48 @@ describe('consumo de livro.importacao_solicitada (integração)', () => {
     expect(await contar(pool, 'acervo.livro_autor')).toBe(1);
   });
 
+  it('chave de autor unificada liga o livro ao canônico, sem recriar o duplicado nem levar a biografia', async () => {
+    const { rows } = await pool.query<{ id: string }>(
+      `INSERT INTO acervo.autor (nome, nome_normalizado, ol_author_key, biografia)
+       VALUES ('Suzanne Collins', 'suzanne collins', 'OL1394359A', 'American author.')
+       RETURNING id`,
+    );
+    await pool.query(
+      `INSERT INTO acervo.autor_chave_unificada (ol_author_key, autor_id)
+       VALUES ('OL12737091A', $1)`,
+      [rows[0].id],
+    );
+    const alvo = isbn('978972234239');
+    fontes[0].buscarPorIsbn.mockResolvedValue(
+      metadados(alvo, {
+        titulo: 'Os Jogos da Fome',
+        autores: [
+          {
+            nome: 'Suzanne Collins',
+            olAuthorKey: 'OL12737091A',
+            biografia: 'Marketing instructor.',
+          },
+        ],
+      }),
+    );
+
+    await solicitar(alvo);
+    await publicarEConsumir();
+
+    const { rows: autores } = await pool.query(
+      `SELECT a.id, a.ol_author_key, a.biografia FROM acervo.livro_autor la
+         JOIN acervo.autor a ON a.id = la.autor_id`,
+    );
+    expect(autores).toEqual([
+      {
+        id: rows[0].id,
+        ol_author_key: 'OL1394359A',
+        biografia: 'American author.',
+      },
+    ]);
+    expect(await contar(pool, 'acervo.autor')).toBe(1);
+  });
+
   describe('biografia do autor (F-ACV-DESCOBERTA)', () => {
     const biografia = async () => {
       const { rows } = await pool.query<{ biografia: string | null }>(

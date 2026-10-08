@@ -44,6 +44,7 @@ const TABELAS_DE_DADOS = [
   'acervo.importacao_livro',
   'acervo.livro_autor',
   'acervo.livro_assunto',
+  'acervo.autor_chave_unificada',
   'acervo.livro',
   'acervo.autor',
   'acervo.assunto',
