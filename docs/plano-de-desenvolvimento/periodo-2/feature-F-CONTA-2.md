@@ -21,7 +21,7 @@ RNF atendidos: **RNF-SEC-41** (recuperação em 30 dias + remoção definitiva),
 |---|---|---|
 | Infra | em andamento | workflow `job-exclusao-conta.yml`, outbox de `conta.excluida` e as três filas de consumo prontos (07 e 08/10/2026); faltam os segredos em DES |
 | Backend | implementado | `identidade` em 07/10/2026 (pedir, login de recuperação, cancelar e job, 206 testes) e consumidores de `conta.excluida` em `leitura`, `social` e `acervo` em 08/10/2026; falta o fluxo em DES |
-| Web | não iniciado | solicitação irreversível após o prazo + tela restrita de recuperação |
+| Web | implementado | 08/10/2026: Excluir conta (Configurações), Exclusão solicitada e Recuperar conta, login de recuperação e política 1.1; 752 testes, lint e build verdes. Falta conferir no navegador contra os serviços e o fluxo em DES |
 | Mobile | não iniciado | mesmas telas + limpeza da sessão/secure storage |
 
 ## Especificação
@@ -92,7 +92,7 @@ Plano de 07/10/2026, feito a partir do código em `desenvolvimento` (levantament
 | 1 | Contrato: `docs/api/identidade.yaml` e `conta.excluida` em `docs/mensageria` | **concluída em 07/10/2026** |
 | 2 | Backend `identidade` (Spring): solicitar, login restrito, cancelar, job e workflow | **concluída em 07/10/2026** |
 | 3 | Consumidores de `conta.excluida` em `leitura`, `social` e `acervo` | **concluída em 08/10/2026** |
-| 4 | Web (`code/front`) | pendente |
+| 4 | Web (`code/front`) | **concluída em 08/10/2026** (conferência no navegador pendente) |
 | 5 | Mobile (`code/mobile`) | pendente |
 | 6 | Fechamento: segredos no Render e no GitHub, DES, status e timeline | pendente |
 
@@ -284,6 +284,12 @@ Os consumidores ficam no código de outros donos, como prevê a [divisão do Per
   - O `social` não guarda as frases da conta, então o `log_moderacao` de uma frase dela continua com `alvo_id` (UUID opaco de um registro que não existe mais) e `detalhe`.
   - Texto livre de outros leitores que cita `@username` da conta excluída fica como está. Depois da exclusão, o username deixa de identificar uma conta (RN-23.6).
   - Respostas idempotentes de outros leitores que ecoem algum dado da conta só são anonimizadas quando vence o `replay_ate` delas, nos serviços que limpam por janela.
+- **Web: divergências do protótipo (08/10/2026), a conferir na revisão visual:**
+  - Na web, `Excluir conta` abre como tela empilhada sobre Configurações, igual a `Alterar senha` hoje, e não na coluna direita das Configurações com o item aberto (`excluir-conta.md` §5). O título da página vem do header do shell (`Excluir conta`), e o `Excluir sua conta` aparece como `h2` acima da abertura.
+  - Abaixo de 768px, a confirmação usa o `DialogoConfirmacao` do projeto (a `SobreposicaoModal` vira folha), com o foco inicial em `Cancelar`.
+  - A caixa de confirmação é o checkbox nativo com `accent-musgo`, de 20px, e não um desenho próprio com `Check` de 14px.
+  - Sem o e-mail (`GET /me` falhou), a consequência 4 cita só o `@username`.
+  - O acesso de recuperação fica só em memória: recarregar `/conta/recuperar` leva ao login, e a pessoa entra de novo. A tela `Exclusão solicitada` recebe a data pela query (`?ate=`) e sobrevive ao recarregar.
 - **Credencial do Cloudinary a criar (dono, etapa 6).** Gerar a API key e o secret no painel do Cloudinary e cadastrar em `identidade` e `acervo` no Render. Sem elas, o job registra o `publicId` no log e o avatar fica no Cloudinary.
 
 - **Depende de** [F-AUT](../periodo-1/feature-F-AUT.md) (sessão, invalidação de refresh, modelo `usuario`), [F-PERFIL](../periodo-1/feature-F-PERFIL.md) (grafo de seguidores a limpar) e das features que detêm dados do usuário nos demais serviços ([F-EST](../periodo-1/feature-F-EST.md)/[F-PRG](../periodo-1/feature-F-PRG.md)/[F-AVA](../periodo-1/feature-F-AVA.md)/[F-EST-2](feature-F-EST-2.md), [F-FEED](../periodo-1/feature-F-FEED.md)/[F-NOT](../periodo-1/feature-F-NOT.md), [F-ACV-CADASTRO](../periodo-1/feature-F-ACV-CADASTRO.md)); [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md) e [P0-MSG](../periodo-0/feature-P0-MSG.md) (broker do fan-out).
@@ -318,3 +324,13 @@ Os consumidores ficam no código de outros donos, como prevê a [divisão do Per
 - **`social`** (`conta/service/ConsumidorDeContaExcluida`): apaga atividades, comentários, menções, curtidas, listas, recomendações, sugestões, notificações, preferências, dispositivos e denúncias ligadas à conta; anonimiza `log_moderacao`, recibos e outbox. `./mvnw verify`: 194 testes (6 novos).
 
 Matriz na Etapa 3 e resíduos conhecidos em Pendências. Junto, `npm audit fix` sem quebra no `leitura` (`proxy-addr`), que deixava o CI vermelho desde o commit do contrato. `AGENTS.md` dos três serviços registram a mudança. Catálogo de mensageria sem a marca de planejado.
+
+### Web 08/10/2026: etapa 4 implementada em `code/front`.
+
+- **Configurações:** linha e item `Excluir conta`, que abrem `/perfil/configuracoes/excluir-conta` (`views/conta/ExcluirContaView.vue`). A tela tem as quatro consequências com a data limite calculada no aparelho, senha, caixa de confirmação, aviso, botão destrutivo e o `DialogoConfirmacao`. Senha errada (422) vira banner `rubi` com o campo limpo e a caixa marcada; o limite (429) vira alerta `ambar` com o campo desabilitado; a falha de rede preserva a senha e reenvia com a mesma chave. No `202`, a sessão local é apagada antes de ir para `/conta/exclusao-solicitada?ate=<data do servidor>`.
+- **Login:** `services/auth.ts` distingue `tipo: recuperacao_exclusao`. O acesso de recuperação fica só em memória (`contaEmExclusao.ts`), e o login leva a `/conta/recuperar` (`RecuperarContaView.vue`), com data, "Faltam N dias", faixa `ambar` no último dia, cancelar (mesma chave a cada reenvio), erro, acesso vencido (401, com `Entrar de novo`), `Conta recuperada` e `Sair` sem confirmação.
+- **Componentes:** `LayoutAutenticacao` ganhou `somenteMarca` (coluna esquerda só com o lockup) e `EstadoTerminal` ganhou o tom `grafite`.
+- **Política:** versão 1.1, com retenção e exclusão (SEC-42), no texto de `configuracoes.md`. O conflito "Registros de acesso ficam por 6 meses" continua com o grupo.
+- **Testes:** `npm run lint`, `npm test` (752 testes, 18 novos) e `npm run build` verdes.
+
+Divergências na pendência "Web: divergências do protótipo". Falta conferir no navegador contra os serviços locais.
