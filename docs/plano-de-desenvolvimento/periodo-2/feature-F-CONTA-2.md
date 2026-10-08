@@ -21,7 +21,7 @@ RNF atendidos: **RNF-SEC-41** (recuperação em 30 dias + remoção definitiva),
 |---|---|---|
 | Infra | em andamento | workflow `job-exclusao-conta.yml`, outbox de `conta.excluida` e as três filas de consumo prontos (07 e 08/10/2026); faltam os segredos em DES |
 | Backend | implementado | `identidade` em 07/10/2026 (pedir, login de recuperação, cancelar e job, 206 testes) e consumidores de `conta.excluida` em `leitura`, `social` e `acervo` em 08/10/2026; falta o fluxo em DES |
-| Web | implementado | 08/10/2026: Excluir conta (Configurações), Exclusão solicitada e Recuperar conta, login de recuperação e política 1.1; 752 testes, lint e build verdes. Falta conferir no navegador contra os serviços e o fluxo em DES |
+| Web | implementado | 08/10/2026: Excluir conta (Configurações), Exclusão solicitada e Recuperar conta, login de recuperação e política 1.1; 752 testes, lint e build verdes. Conferido no navegador em 08/10 contra o `identidade` local (1440 e 390 px); falta o fluxo em DES |
 | Mobile | não iniciado | mesmas telas + limpeza da sessão/secure storage |
 
 ## Especificação
@@ -92,7 +92,7 @@ Plano de 07/10/2026, feito a partir do código em `desenvolvimento` (levantament
 | 1 | Contrato: `docs/api/identidade.yaml` e `conta.excluida` em `docs/mensageria` | **concluída em 07/10/2026** |
 | 2 | Backend `identidade` (Spring): solicitar, login restrito, cancelar, job e workflow | **concluída em 07/10/2026** |
 | 3 | Consumidores de `conta.excluida` em `leitura`, `social` e `acervo` | **concluída em 08/10/2026** |
-| 4 | Web (`code/front`) | **concluída em 08/10/2026** (conferência no navegador pendente) |
+| 4 | Web (`code/front`) | **concluída em 08/10/2026** e conferida no navegador no mesmo dia |
 | 5 | Mobile (`code/mobile`) | pendente |
 | 6 | Fechamento: segredos no Render e no GitHub, DES, status e timeline | pendente |
 
@@ -333,4 +333,6 @@ Matriz na Etapa 3 e resíduos conhecidos em Pendências. Junto, `npm audit fix` 
 - **Política:** versão 1.1, com retenção e exclusão (SEC-42), no texto de `configuracoes.md`. O conflito "Registros de acesso ficam por 6 meses" continua com o grupo.
 - **Testes:** `npm run lint`, `npm test` (752 testes, 18 novos) e `npm run build` verdes.
 
-Divergências na pendência "Web: divergências do protótipo". Falta conferir no navegador contra os serviços locais.
+Divergências na pendência "Web: divergências do protótipo". Conferência no navegador na entrada seguinte.
+
+### Conferência web 08/10/2026: fluxo da etapa 4 percorrido no Chrome headless contra o `identidade` local (banco de dev, mensageria desligada), com a conta de teste `teste.conta2` (`conta2@teste.leai.invalid`), em 1440 e 390 px: item `Excluir conta` nas Configurações, botão desabilitado sem senha e sem a caixa, confirmação (modal no desktop, folha no celular), senha errada com 422 e banner `rubi` mantendo a caixa marcada, `202` com a sessão local apagada e `Exclusão solicitada` com a data do servidor (sobrevive ao recarregar), login de recuperação levando a `/conta/recuperar` com "Faltam 30 dias", cancelamento com `204` e `Conta recuperada`, e login normal de volta. Nenhuma correção necessária. A conta de teste ficou ativa no banco de dev para a conferência do mobile.
