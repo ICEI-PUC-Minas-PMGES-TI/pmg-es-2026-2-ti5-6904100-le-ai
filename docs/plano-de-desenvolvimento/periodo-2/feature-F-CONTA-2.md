@@ -19,8 +19,8 @@ RNF atendidos: **RNF-SEC-41** (recuperação em 30 dias + remoção definitiva),
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | não iniciado | job diário, outbox de `conta.excluida` e consumidores de limpeza |
-| Backend | não iniciado | solicitar/cancelar exclusão, login restrito, finalização após 30 dias e fan-out |
+| Infra | em andamento | workflow `job-exclusao-conta.yml` e outbox de `conta.excluida` prontos (07/10/2026); faltam os consumidores e os segredos em DES |
+| Backend | em andamento | `identidade` implementado em 07/10/2026: pedir, login de recuperação, cancelar e job, com 206 testes verdes no `./mvnw verify`; faltam os consumidores em `leitura`, `social` e `acervo` (etapa 3) |
 | Web | não iniciado | solicitação irreversível após o prazo + tela restrita de recuperação |
 | Mobile | não iniciado | mesmas telas + limpeza da sessão/secure storage |
 
@@ -89,8 +89,8 @@ Plano de 07/10/2026, feito a partir do código em `desenvolvimento` (levantament
 
 | Etapa | Escopo | Situação |
 |---|---|---|
-| 1 | Contrato: `docs/api/identidade.yaml` e `conta.excluida` em `docs/mensageria` | **concluída em 07/10/2026** (rotas com status `planned`) |
-| 2 | Backend `identidade` (Spring): solicitar, login restrito, cancelar, job e workflow | pendente |
+| 1 | Contrato: `docs/api/identidade.yaml` e `conta.excluida` em `docs/mensageria` | **concluída em 07/10/2026** |
+| 2 | Backend `identidade` (Spring): solicitar, login restrito, cancelar, job e workflow | **concluída em 07/10/2026** |
 | 3 | Consumidores de `conta.excluida` em `leitura`, `social` e `acervo` | pendente |
 | 4 | Web (`code/front`) | pendente |
 | 5 | Mobile (`code/mobile`) | pendente |
@@ -121,7 +121,7 @@ Plano de 07/10/2026, feito a partir do código em `desenvolvimento` (levantament
 
 ### Decisões do dono (07/10/2026)
 
-- **Token restrito com chave própria.** O acesso de recuperação é assinado com um segredo separado (`JWT_RECUPERACAO_SECRET`), que só o `identidade` conhece. `leitura`, `social` e `acervo` o recusam com 401 pela assinatura, sem nenhuma mudança neles. Ele vale 15 minutos, sem refresh, e o `identidade` só o aceita em `POST /me/conta/cancelar-exclusao`.
+- **Token restrito com chave própria.** O acesso de recuperação é assinado com uma chave separada. `leitura`, `social` e `acervo` o recusam com 401 pela assinatura, sem nenhuma mudança neles. **Ajuste na implementação (07/10/2026):** a chave é derivada do `JWT_SECRET` por HMAC, em vez de vir de um segredo novo `JWT_RECUPERACAO_SECRET`. O efeito é o mesmo, porque os outros serviços validam com o `JWT_SECRET` cru, e não é preciso cadastrar mais um segredo no Render. Ele vale 15 minutos, sem refresh, e o `identidade` só o aceita em `POST /me/conta/cancelar-exclusao`.
 - **Senha errada em `DELETE /me/conta`:**
   - responde 422 `ENTIDADE_NAO_PROCESSAVEL`, como o "alterar senha" da F-AUT;
   - depois de 5 erros em 15 minutos por usuário, responde 429 `MUITAS_REQUISICOES` (`LimitePorUsuario`);
@@ -265,7 +265,7 @@ Os consumidores ficam no código de outros donos, como prevê a [divisão do Per
 ### Etapa 6: fechamento
 
 - **Segredos no Render:**
-  - `identidade`: `JWT_RECUPERACAO_SECRET`, `SCHEDULER_TOKEN`, `CLOUDINARY_API_KEY` e `CLOUDINARY_API_SECRET`;
+  - `identidade`: `SCHEDULER_TOKEN`, `CLOUDINARY_API_KEY` e `CLOUDINARY_API_SECRET` (já declarados no `render.yaml`);
   - `acervo`: as duas do Cloudinary.
 - **Segredos no GitHub:** `IDENTIDADE_URL` e `IDENTIDADE_SCHEDULER_TOKEN`.
 - **Ponta a ponta em DES:** pedir, cancelar e pedir de novo. Depois, com uma conta de teste cujo prazo foi antecipado no banco de DES (operação manual, combinada com o grupo), disparar o job por `workflow_dispatch` e conferir a limpeza nos quatro schemas. O endpoint não aceita data de referência: um parâmetro desses permitiria finalizar uma conta antes dos 30 dias.
@@ -278,6 +278,9 @@ Os consumidores ficam no código de outros donos, como prevê a [divisão do Per
 - Mobile: `flutter analyze && flutter test && flutter build apk --debug`.
 
 ## Pendências
+
+- **Token de acesso normal depois do pedido (07/10/2026).** O pedido revoga todas as renovações, mas o token de acesso já emitido continua válido até expirar (no máximo 15 minutos), porque ele não tem estado (RNF-ARQ-04), como no logout da F-AUT. Os clientes descartam a sessão ao receber o 202. No servidor, o conteúdo da conta já fica oculto para os outros pelas VIEWs. Fica registrado como risco residual do RN-23.3, sem mudança prevista.
+- **Credencial do Cloudinary a criar (dono, etapa 6).** Gerar a API key e o secret no painel do Cloudinary e cadastrar em `identidade` e `acervo` no Render. Sem elas, o job registra o `publicId` no log e o avatar fica no Cloudinary.
 
 - **Depende de** [F-AUT](../periodo-1/feature-F-AUT.md) (sessão, invalidação de refresh, modelo `usuario`), [F-PERFIL](../periodo-1/feature-F-PERFIL.md) (grafo de seguidores a limpar) e das features que detêm dados do usuário nos demais serviços ([F-EST](../periodo-1/feature-F-EST.md)/[F-PRG](../periodo-1/feature-F-PRG.md)/[F-AVA](../periodo-1/feature-F-AVA.md)/[F-EST-2](feature-F-EST-2.md), [F-FEED](../periodo-1/feature-F-FEED.md)/[F-NOT](../periodo-1/feature-F-NOT.md), [F-ACV-CADASTRO](../periodo-1/feature-F-ACV-CADASTRO.md)); [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md) e [P0-MSG](../periodo-0/feature-P0-MSG.md) (broker do fan-out).
 - **Divergência de baseline — prioridade:** RF-AUT-07 é Desejável (P2), mas RNF-SEC-41 é Essencial (§8). O grupo deve resolver o agendamento pelo controle de mudança (plano §3); esta feature não altera a baseline.
@@ -301,3 +304,5 @@ Os consumidores ficam no código de outros donos, como prevê a [divisão do Per
 ### Plano 07/10/2026: plano de implementação em seis etapas escrito a partir do código em `desenvolvimento`, com a matriz de remoção e anonimização por tabela dos três consumidores. Decisões do dono: token de recuperação com chave própria, senha errada com 422 e limite de 5 erros em 15 minutos, conteúdo de outros pendurado no da conta apagado junto e assets do Cloudinary apagados de verdade. Os contratos a confirmar da pendência de telas ficaram resolvidos no plano, exceto o texto da política, que é do grupo.
 
 ### Contrato 07/10/2026: etapa 1 concluída. `identidade.yaml` ganhou `DELETE /me/conta`, `POST /me/conta/cancelar-exclusao` e `POST /internal/jobs/exclusao-conta` (status `planned`), a variante `AcessoDeRecuperacao` no login (discriminada por `tipo`), o 401 de conta pendente no refresh e os esquemas de segurança `recuperacaoAuth` e `schedulerToken`. O spec segue válido no Redocly, com os mesmos 4 avisos de antes. `conta.excluida.v1` criado em `docs/mensageria/schemas/` e incluído no catálogo, com as filas `leai.<servico>.conta`.
+
+### Backend identidade 07/10/2026: etapa 2 concluída. Pacote `conta/` com `DELETE /me/conta`, `POST /me/conta/cancelar-exclusao` e `POST /internal/jobs/exclusao-conta`. O login passou a devolver `RespostaDeLogin` (sessão normal ou acesso de recuperação, pelo campo `tipo`), e o refresh recusa conta pendente. A rota de cancelar tem cadeia própria no `SecurityConfig`, com o decoder de recuperação; a chave é derivada do `JWT_SECRET` (ajuste em Decisões do dono). O job finaliza uma conta por transação: apaga `tentativa_login` e `usuario` (o CASCADE leva tokens e grafo social), anonimiza recibos de idempotência e eventos que citam a conta, apaga eventos pendentes e recibos cancelados dela, conclui e anonimiza o recibo e grava `conta.excluida`; o avatar é apagado no Cloudinary depois do commit (`RemocaoDeAsset`). Na mesma execução, anonimiza os envelopes de `conta.excluida` já publicados e os recibos de idempotência fora da janela de replay. Workflow `job-exclusao-conta.yml` (06:00 UTC); `SCHEDULER_TOKEN` e as credenciais do Cloudinary declarados no `render.yaml` e no `.env.example`. `identidade.yaml` passou as três rotas para `implemented`. `./mvnw verify` com Postgres descartável: 206 testes, nenhuma falha (11 de integração em `ExclusaoDeContaIntegracaoTest`, 1 em `AdminIntegracaoTest` e 3 em `ContaExcluidaSchemaTest`). Sem migration.
