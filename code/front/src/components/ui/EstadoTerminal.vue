@@ -13,8 +13,11 @@ withDefaults(
   defineProps<{
     icone: Component
     titulo: string
-    /** `ambar` para o link que não vale mais; `musgo` para o resto. */
-    tom?: 'musgo' | 'ambar'
+    /**
+     * `ambar` para o link que não vale mais; `grafite` para a confirmação que não comemora nada
+     * (exclusão solicitada, excluir-conta.md §4.8); `musgo` para o resto.
+     */
+    tom?: 'musgo' | 'ambar' | 'grafite'
     /**
      * A partir de 768px, ações à esquerda com a largura do conteúdo (protótipo de alterar senha,
      * "Senha alterada" na web). Sem ela, as ações ficam centralizadas como nas outras telas.
@@ -37,7 +40,7 @@ onMounted(() => {
       :is="icone"
       :size="32"
       weight="regular"
-      :class="tom === 'ambar' ? 'text-ambar' : 'text-musgo'"
+      :class="{ ambar: 'text-ambar', grafite: 'text-grafite', musgo: 'text-musgo' }[tom]"
       aria-hidden="true"
     />
     <h1

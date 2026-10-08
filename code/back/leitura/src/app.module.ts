@@ -7,6 +7,7 @@ import { getCorrelationId } from './common/als';
 import { AllExceptionsFilter } from './common/all-exceptions.filter';
 import { AuthModule } from './auth/auth.module';
 import { AvaliacoesModule } from './avaliacoes/avaliacoes.module';
+import { ContaModule } from './conta/conta.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { IdempotenciaModule } from './common/idempotencia/idempotencia.module';
 import { DrizzleModule } from './db/drizzle.module';
@@ -57,6 +58,7 @@ import { ReferenciasModule } from './referencias/referencias.module';
     IdempotenciaModule,
     HealthModule,
     MessagingModule,
+    ContaModule,
     OutboxModule,
     ReferenciasModule,
     AvaliacoesModule,

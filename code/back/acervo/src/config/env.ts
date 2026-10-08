@@ -64,6 +64,11 @@ export const envSchema = z
     // Capa de livro pessoal: o upload vai direto do cliente ao Cloudinary e o
     // servidor só valida que a URL aponta para o nosso próprio serviço (SEC-20).
     CLOUDINARY_CLOUD_NAME: z.string().default('leai'),
+    // Credencial da Upload API, para apagar as capas de livro pessoal na
+    // exclusão definitiva de conta (F-CONTA-2, RN-23.7). Sem ela, o consumidor
+    // registra o publicId no log e a capa fica no Cloudinary.
+    CLOUDINARY_API_KEY: z.string().optional(),
+    CLOUDINARY_API_SECRET: z.string().optional(),
     CAPA_HOSTS_PERMITIDOS: z.string().default('res.cloudinary.com'),
   })
   .superRefine((config, ctx) => {

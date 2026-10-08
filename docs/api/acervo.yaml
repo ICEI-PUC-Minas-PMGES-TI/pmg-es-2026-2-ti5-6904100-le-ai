@@ -30,6 +30,11 @@ x-implementation-notes:
     dono sobre o livro no feed do solicitante, por seguimento aceito, nenhum
     terceiro obtém acesso, que é o comportamento fail-closed correto.
   - >-
+    GET /livros/pessoal/{id} com via=lista depende de
+    social.v_lista_livro_pessoal_v1 (F-LST), identidade.v_perfil_referencia_v1
+    e identidade.v_seguimento_aceito_v1. VIEW ausente ou sem GRANT responde
+    503, nunca 403.
+  - >-
     notaDoDono e resenhaDoDono vêm das VIEWs de leitura, alimentadas por F-AVA
     desde 27/09/2026, e saem null quando o dono não deu nota ou não escreveu
     resenha. Ausência é resposta normal, nunca erro.
@@ -524,33 +529,34 @@ paths:
     get:
       operationId: obterLivroPessoal
       x-contract-status: implemented
-      x-implemented-by: F-ACV-CADASTRO
+      x-implemented-by: F-ACV-CADASTRO, F-LST
       tags: [livros-pessoais]
       summary: Obtém um livro pessoal com autorização RN-15
       description: >-
-        O dono acessa diretamente, sem via. No Período 1, terceiro deve informar
-        via=feed e referenciaId de uma atividade ativa do dono que referencia o
-        mesmo livro e integra seu feed por seguimento aceito. A autorização e a
-        privacidade do perfil são revalidadas nesta requisição, inclusive para
-        perfil público. Conhecer o ID, forjar a referência ou omitir a via não
-        concede acesso.
+        O dono acessa diretamente, sem via (uma via informada pelo dono é
+        ignorada). Terceiro acessa por uma das duas vias de RN-15, e a
+        autorização é revalidada nesta requisição. Conhecer o ID, forjar a
+        referência ou omitir a via não concede acesso.
 
-        Via lista (F-LST, Período 2, planejada): terceiro informa via=lista e
-        referenciaId de uma lista ativa do dono que contém o mesmo livro,
-        comprovada por social.v_lista_livro_pessoal_v1. Diferente da via
-        feed, vale a privacidade da lista (RN-08): perfil público do dono
-        libera qualquer leitor autenticado, sem exigir seguimento; perfil
-        privado exige seguimento aceito. Lista excluída ou livro removido da
-        lista encerram o acesso. Terceiro continua sempre em modo consulta.
-      x-planned-periodo-2:
-        - via=lista (F-LST)
+        Via feed (F-ACV-CADASTRO): via=feed e referenciaId de uma atividade
+        ativa do dono que referencia o mesmo livro e integra o feed do
+        solicitante por seguimento aceito, inclusive com perfil público.
+
+        Via lista (F-LST): via=lista e referenciaId de uma lista ativa do dono
+        que contém o mesmo livro, comprovada por social.v_lista_livro_pessoal_v1.
+        Diferente da via feed, vale a privacidade da lista (RN-08): perfil
+        público do dono libera qualquer leitor autenticado, sem exigir
+        seguimento; perfil privado exige seguimento aceito. Lista excluída ou
+        livro removido da lista encerram o acesso. Dono suspenso ou em
+        exclusão não libera nenhuma das vias. Terceiro fica sempre em modo
+        consulta.
       parameters:
         - $ref: '#/components/parameters/LivroPessoalId'
         - name: via
           in: query
           description: >-
-            Prova de origem exigida somente para acesso de terceiro. lista
-            está planejada para F-LST e ainda responde 400 até a entrega.
+            Prova de origem exigida somente para acesso de terceiro. Valor fora
+            do enum responde 400.
           schema: { type: string, enum: [feed, lista] }
         - name: referenciaId
           in: query

@@ -72,6 +72,32 @@ describe('livro pessoal (integração)', () => {
     return atividadeId;
   }
 
+  /** Livro em lista ativa do dono + perfil do dono: a via RN-15 da lista. */
+  async function publicarEmLista(
+    dono: string,
+    livroId: string,
+    privacidade: 'publico' | 'privado' = 'publico',
+    seguidor?: string,
+  ) {
+    const listaId = randomUUID();
+    await pool.query(
+      `INSERT INTO social.v_lista_livro_pessoal_v1 VALUES ($1, $2, $3)`,
+      [listaId, dono, livroId],
+    );
+    await pool.query(
+      `INSERT INTO identidade.v_perfil_referencia_v1
+       VALUES ($1, 'ana', 'Ana Leitora', NULL, $2, false)`,
+      [dono, privacidade],
+    );
+    if (seguidor) {
+      await pool.query(
+        `INSERT INTO identidade.v_seguimento_aceito_v1 VALUES ($1, $2)`,
+        [seguidor, dono],
+      );
+    }
+    return listaId;
+  }
+
   it('cria sem ISBN, com capa do Cloudinary, e o dono abre em modo edição', async () => {
     const dono = novoUsuario();
     const { id } = await criar(dono, { sinopse: 'Anotações.', capaUrl: CAPA });
@@ -390,6 +416,212 @@ describe('livro pessoal (integração)', () => {
         .get(`/livros/pessoal/${id}?via=feed&referenciaId=${randomUUID()}`)
         .set(como(seguidor));
       expect(pagina.status).toBe(403);
+    });
+
+    it('via desconhecida é pedido malformado', async () => {
+      const { id } = await criar(novoUsuario());
+
+      const pagina = await http()
+        .get(`/livros/pessoal/${id}?via=busca&referenciaId=${randomUUID()}`)
+        .set(como(novoUsuario()));
+      expect(pagina.status).toBe(400);
+    });
+  });
+
+  describe('terceiro pela lista do dono (RN-15, RN-08)', () => {
+    const pelaLista = (id: string, listaId: string) =>
+      `/livros/pessoal/${id}?via=lista&referenciaId=${listaId}`;
+
+    it('perfil público libera qualquer leitor, sem exigir seguimento', async () => {
+      const dono = novoUsuario();
+      const { id } = await criar(dono);
+      const lista = await publicarEmLista(dono, id);
+
+      const pagina = await http()
+        .get(pelaLista(id, lista))
+        .set(como(novoUsuario()));
+      expect(pagina.status).toBe(200);
+      expect(pagina.body).toMatchObject({
+        id,
+        modoConsulta: true,
+        dono: { nome: 'Ana Leitora' },
+      });
+    });
+
+    it('seguidor aceito de perfil privado abre em modo consulta', async () => {
+      const dono = novoUsuario();
+      const seguidor = novoUsuario();
+      const { id } = await criar(dono);
+      const lista = await publicarEmLista(dono, id, 'privado', seguidor);
+
+      const pagina = await http().get(pelaLista(id, lista)).set(como(seguidor));
+      expect(pagina.status).toBe(200);
+      expect(pagina.body).toMatchObject({ id, modoConsulta: true });
+    });
+
+    it('não seguidor de perfil privado é negado', async () => {
+      const dono = novoUsuario();
+      const { id } = await criar(dono);
+      const lista = await publicarEmLista(dono, id, 'privado');
+
+      const pagina = await http()
+        .get(pelaLista(id, lista))
+        .set(como(novoUsuario()));
+      expect(pagina.status).toBe(403);
+    });
+
+    it('lista que contém outro livro do mesmo dono não serve de referência', async () => {
+      const dono = novoUsuario();
+      const { id } = await criar(dono);
+      const { id: outroLivro } = await criar(dono, { titulo: 'Outro' });
+      const listaDoOutro = await publicarEmLista(dono, outroLivro);
+
+      const pagina = await http()
+        .get(pelaLista(id, listaDoOutro))
+        .set(como(novoUsuario()));
+      expect(pagina.status).toBe(403);
+    });
+
+    it('lista de outra pessoa com o livro não serve de referência', async () => {
+      const dono = novoUsuario();
+      const outraPessoa = novoUsuario();
+      const { id } = await criar(dono);
+      await pool.query(
+        `INSERT INTO identidade.v_perfil_referencia_v1
+         VALUES ($1, 'ana', 'Ana Leitora', NULL, 'publico', false)`,
+        [dono],
+      );
+      const listaAlheia = randomUUID();
+      await pool.query(
+        `INSERT INTO social.v_lista_livro_pessoal_v1 VALUES ($1, $2, $3)`,
+        [listaAlheia, outraPessoa, id],
+      );
+
+      const pagina = await http()
+        .get(pelaLista(id, listaAlheia))
+        .set(como(novoUsuario()));
+      expect(pagina.status).toBe(403);
+    });
+
+    it('referência forjada é negada', async () => {
+      const dono = novoUsuario();
+      const { id } = await criar(dono);
+      await publicarEmLista(dono, id);
+
+      const pagina = await http()
+        .get(pelaLista(id, randomUUID()))
+        .set(como(novoUsuario()));
+      expect(pagina.status).toBe(403);
+    });
+
+    it('id de atividade do feed não vale como lista, nem o inverso', async () => {
+      const dono = novoUsuario();
+      const seguidor = novoUsuario();
+      const { id } = await criar(dono);
+      const atividade = await publicarNoFeed(dono, id, seguidor);
+      const lista = randomUUID();
+      await pool.query(
+        `INSERT INTO social.v_lista_livro_pessoal_v1 VALUES ($1, $2, $3)`,
+        [lista, dono, id],
+      );
+
+      expect(
+        (await http().get(pelaLista(id, atividade)).set(como(seguidor))).status,
+      ).toBe(403);
+      expect(
+        (
+          await http()
+            .get(`/livros/pessoal/${id}?via=feed&referenciaId=${lista}`)
+            .set(como(seguidor))
+        ).status,
+      ).toBe(403);
+    });
+
+    it('lista excluída ou livro retirado corta o acesso na hora (RN-15.6)', async () => {
+      const dono = novoUsuario();
+      const leitor = novoUsuario();
+      const { id } = await criar(dono);
+      const lista = await publicarEmLista(dono, id);
+
+      expect(
+        (await http().get(pelaLista(id, lista)).set(como(leitor))).status,
+      ).toBe(200);
+
+      // A VIEW de `social` só expõe itens de listas ativas: excluir a lista ou
+      // retirar o livro tira a linha dela.
+      await pool.query(
+        'DELETE FROM social.v_lista_livro_pessoal_v1 WHERE lista_id = $1',
+        [lista],
+      );
+
+      expect(
+        (await http().get(pelaLista(id, lista)).set(como(leitor))).status,
+      ).toBe(403);
+    });
+
+    it('dono suspenso ou em exclusão não libera, mesmo com lista válida', async () => {
+      const dono = novoUsuario();
+      const { id } = await criar(dono);
+      const lista = await publicarEmLista(dono, id);
+      await pool.query(
+        'DELETE FROM identidade.v_perfil_referencia_v1 WHERE id = $1',
+        [dono],
+      );
+
+      const pagina = await http()
+        .get(pelaLista(id, lista))
+        .set(como(novoUsuario()));
+      expect(pagina.status).toBe(403);
+    });
+
+    it('livro excluído é 404 também pela lista', async () => {
+      const dono = novoUsuario();
+      const { id } = await criar(dono);
+      const lista = await publicarEmLista(dono, id);
+      await http().delete(`/livros/pessoal/${id}`).set(como(dono));
+
+      const pagina = await http()
+        .get(pelaLista(id, lista))
+        .set(como(novoUsuario()));
+      expect(pagina.status).toBe(404);
+    });
+
+    it('o dono abre o próprio livro com via=lista em modo edição', async () => {
+      const dono = novoUsuario();
+      const { id } = await criar(dono);
+      const lista = await publicarEmLista(dono, id);
+
+      const pagina = await http().get(pelaLista(id, lista)).set(como(dono));
+      expect(pagina.status).toBe(200);
+      expect(pagina.body).toMatchObject({ id, modoConsulta: false });
+    });
+
+    it('a via da lista não libera escrita a terceiro (RN-15.3)', async () => {
+      const dono = novoUsuario();
+      const leitor = novoUsuario();
+      const { id } = await criar(dono);
+      await publicarEmLista(dono, id);
+
+      const editar = await http()
+        .patch(`/livros/pessoal/${id}`)
+        .set(como(leitor))
+        .send({ titulo: 'Invadido' });
+      expect(editar.status).toBe(403);
+    });
+
+    it('VIEW de listas indisponível responde 503, nunca 500 nem 403', async () => {
+      const dono = novoUsuario();
+      const { id } = await criar(dono);
+      const lista = await publicarEmLista(dono, id);
+
+      await semRelacao('social.v_lista_livro_pessoal_v1', async () => {
+        const pagina = await http()
+          .get(pelaLista(id, lista))
+          .set(como(novoUsuario()));
+
+        expect(pagina.status).toBe(503);
+        expect(pagina.body).toMatchObject({ codigo: 'SERVICO_INDISPONIVEL' });
+      });
     });
   });
 });

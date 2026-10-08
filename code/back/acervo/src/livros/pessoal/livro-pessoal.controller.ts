@@ -31,6 +31,7 @@ import {
   LivroPessoalDetalheDto,
   LivroPessoalEntradaDto,
 } from './dto/livro-pessoal.dto';
+import { VIAS, Via } from './autorizacao-rn15.service';
 import { LivroPessoalService } from './livro-pessoal.service';
 
 const CAMPOS_ATUALIZAVEIS = [
@@ -78,9 +79,9 @@ export class LivroPessoalController {
     operationId: 'obterLivroPessoal',
     summary: 'Obtém um livro pessoal com autorização RN-15',
     description:
-      'O dono acessa diretamente. Terceiro só acessa com via=feed e referenciaId de uma atividade ativa do dono que referencia o mesmo livro e integra seu feed por seguimento aceito. Conhecer o id não concede acesso.',
+      'O dono acessa diretamente. Terceiro só acessa em modo consulta, por uma de duas vias: via=feed com referenciaId de uma atividade ativa do dono que referencia o mesmo livro, com seguimento aceito; ou via=lista com referenciaId de uma lista ativa do dono que contém o livro, com perfil do dono público ou seguimento aceito (RN-08). Conhecer o id não concede acesso.',
   })
-  @ApiQuery({ name: 'via', required: false, enum: ['feed'] })
+  @ApiQuery({ name: 'via', required: false, enum: [...VIAS] })
   @ApiQuery({ name: 'referenciaId', required: false, format: 'uuid' })
   @ApiOkResponse({ type: LivroPessoalDetalheDto })
   async obter(
@@ -92,9 +93,9 @@ export class LivroPessoalController {
   ): Promise<LivroPessoalDetalheDto> {
     // Formato errado é 400; via ausente é 403. São coisas diferentes: uma é
     // pedido malformado, a outra é ausência de autorização.
-    if (via !== undefined && via !== 'feed') {
+    if (via !== undefined && !VIAS.includes(via as Via)) {
       throw new ErroDeValidacao([
-        { campo: 'via', mensagem: 'A única via aceita neste período é feed.' },
+        { campo: 'via', mensagem: 'Informe a via feed ou lista.' },
       ]);
     }
     if (referenciaId !== undefined && !UUID.test(referenciaId)) {

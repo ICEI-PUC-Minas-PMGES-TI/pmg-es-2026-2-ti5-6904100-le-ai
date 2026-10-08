@@ -241,6 +241,11 @@ async function enviar(): Promise<void> {
       identificador: usuarioCriado.username,
       senha: senha.value,
     })
+    // Conta recém-criada não tem exclusão pendente; o caso existe só pelo tipo do login.
+    if ('recuperacao' in resultado) {
+      await router.push('/login')
+      return
+    }
     iniciarSessao(resultado.sessao, resultado.usuario)
     await router.push('/estante')
   } catch (erro) {

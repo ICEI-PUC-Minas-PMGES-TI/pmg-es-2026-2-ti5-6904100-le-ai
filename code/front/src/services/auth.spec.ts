@@ -134,4 +134,68 @@ describe('createAuthService', () => {
 
     expect(useSession().autenticado.value).toBe(false)
   })
+
+  describe('exclusão de conta (F-CONTA-2)', () => {
+    const ACESSO = {
+      accessToken: 'jwt-recuperacao',
+      tokenType: 'Bearer',
+      expiresIn: 900,
+      tipo: 'recuperacao_exclusao',
+      exclusaoSolicitadaEm: '2026-09-29T12:00:00Z',
+      exclusaoPrevistaEm: '2026-10-29T12:00:00Z',
+      username: 'marinableu',
+      nomeExibicao: 'Marina Beltrão',
+    }
+
+    it('login de conta em exclusão devolve o acesso de recuperação e não chama /me', async () => {
+      const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse(ACESSO))
+      const servico = createAuthService({ baseUrl: BASE, fetch: fetchMock })
+
+      const resultado = await servico.entrar({ identificador: 'marinableu', senha: 'senha-bem-comprida' })
+
+      expect(resultado).toEqual({ recuperacao: ACESSO })
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('pedir a exclusão manda DELETE /me/conta com senha, confirmação e a chave de quem chama', async () => {
+      iniciarSessao({ accessToken: 'jwt-sessao', refreshToken: 'renovacao' }, USUARIO)
+      const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+        jsonResponse({ exclusaoSolicitadaEm: ACESSO.exclusaoSolicitadaEm, exclusaoPrevistaEm: ACESSO.exclusaoPrevistaEm }, 202),
+      )
+      const servico = createAuthService({ baseUrl: BASE, fetch: fetchMock })
+
+      const resposta = await servico.solicitarExclusao('senha-bem-comprida', 'chave-do-pedido')
+
+      expect(resposta.exclusaoPrevistaEm).toBe(ACESSO.exclusaoPrevistaEm)
+      const [url, init] = fetchMock.mock.calls[0]!
+      expect(url).toBe(`${BASE}/me/conta`)
+      expect(init?.method).toBe('DELETE')
+      expect(JSON.parse(init?.body as string)).toEqual({ senha: 'senha-bem-comprida', confirmacao: true })
+      expect(headersDa(fetchMock, 0).get('Idempotency-Key')).toBe('chave-do-pedido')
+      expect(headersDa(fetchMock, 0).get('Authorization')).toBe('Bearer jwt-sessao')
+    })
+
+    it('cancelar usa o acesso de recuperação, nunca o token da sessão', async () => {
+      iniciarSessao({ accessToken: 'jwt-sessao', refreshToken: 'renovacao' }, USUARIO)
+      const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 204 }))
+      const servico = createAuthService({ baseUrl: BASE, fetch: fetchMock })
+
+      await servico.cancelarExclusao('jwt-recuperacao', 'chave-do-cancelamento')
+
+      const [url, init] = fetchMock.mock.calls[0]!
+      expect(url).toBe(`${BASE}/me/conta/cancelar-exclusao`)
+      expect(init?.method).toBe('POST')
+      expect(headersDa(fetchMock, 0).get('Authorization')).toBe('Bearer jwt-recuperacao')
+      expect(headersDa(fetchMock, 0).get('Idempotency-Key')).toBe('chave-do-cancelamento')
+    })
+
+    it('acesso de recuperação vencido chega como 401, sem tentar renovar', async () => {
+      const renovarSessao = vi.fn()
+      const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(erro(401, 'NAO_AUTENTICADO'))
+      const servico = createAuthService({ baseUrl: BASE, fetch: fetchMock, renovarSessao })
+
+      await expect(servico.cancelarExclusao('jwt-vencido', 'chave')).rejects.toMatchObject({ status: 401 })
+      expect(renovarSessao).not.toHaveBeenCalled()
+    })
+  })
 })

@@ -48,6 +48,12 @@ public final class MessagingConstants {
   public static final String EVENTO_LEITURA_EM_RISCO = "leitura.em_risco";
   public static final String EVENTO_LEITURA_EXPIRADA = "leitura.expirada";
 
+  /** Topologia do consumidor da exclusão definitiva de conta (F-CONTA-2, RN-23.5). */
+  public static final String CONTA_CONSUMER_NAME = "social.conta";
+
+  public static final String CONTA_QUEUE = "leai.social.conta";
+  public static final String EVENTO_CONTA_EXCLUIDA = "conta.excluida";
+
   private MessagingConstants() {}
 
   public static Map<String, Object> deadLetterArguments(String queue) {

@@ -107,6 +107,17 @@ Para quem mexe no cadastro e na importação saber que isto mudou por baixo:
 - **`textoPuro`** decodifica as entidades e tira de novo só os nomes de tag HTML conhecidos (HTML escapado virava tag gravada; "&lt;&lt;O Guarani&gt;&gt;" e "&lt;e-mail&gt;" são texto e ficam) e remove caracteres de controle. Hoje só a sinopse usa.
 - **`isbn.ts`** ganhou `isbn13DeIsbn10`; `normalizarIsbn13` não mudou.
 
+## Mudanças feitas pelo Henrique (F-LST e F-CONTA-2)
+
+- **07/10/2026, via lista do livro pessoal (etapa 3 da F-LST):** `GET /livros/pessoal/{id}` aceita `via=lista`. A autorização fica em `autorizacao-rn15.service.ts`, sobre `social.v_lista_livro_pessoal_v1`, e libera perfil público sem seguimento (RN-08), ao contrário da via feed.
+- **08/10/2026, consumidor de `conta.excluida`:** `src/conta/` (`ContaModule`, `ContaExcluidaConsumer`, `RemocaoDeAsset`), fila `leai.acervo.conta` no exchange do `identidade`. Faz o seguinte:
+  - apaga os livros pessoais da conta, depois de tentar apagar as capas no Cloudinary;
+  - apaga a `nota_leitor_projecao` dela e recalcula a `nota_livro_agregada` dos livros afetados;
+  - apaga as importações que ela solicitou;
+  - anonimiza recibos e eventos que a citam.
+
+  Livro oficial nunca é afetado. As capas exigem `CLOUDINARY_API_KEY` e `CLOUDINARY_API_SECRET`; sem elas, o `publicId` vai para o log. Teste em `test/integracao/consumo-conta-excluida.int-spec.ts`.
+
 ## Pendências do serviço
 
 - A busca externa roda dentro da transação do recibo do consumidor: no pior caso (timeouts e backoff `1/5/15 s` nas duas fontes) a transação fica aberta por dezenas de segundos no Neon. Aceitável no volume do MVP; se pesar, separar a consulta às fontes do efeito exige recibo em duas fases.
