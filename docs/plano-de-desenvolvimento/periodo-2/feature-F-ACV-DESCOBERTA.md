@@ -2,7 +2,7 @@
 
 **Período:** 2 · **Prioridade:** desejavel
 **Dono:** Vicenzo Fonseca · **Serviços afetados:** `acervo` (backend) + web + mobile
-**Situação:** entregue, **em revisão** (aguarda o aval dos professores para ser marcada como concluída no GitHub Projects) desde 07/10/2026. Ainda falta carregar as biografias, conferir no emulador e conferir em DES; ver "Onde continuar".
+**Situação:** entregue, **em revisão** (aguarda o aval dos professores para ser marcada como concluída no GitHub Projects) desde 07/10/2026. Biografias carregadas em dev e DES em 08/10/2026. Ainda falta conferir no emulador e, no fim do período, conferir tudo em DES depois do deploy da `main`; ver "Onde continuar".
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.2 (RF-ACV-03, 10, 11, 12, 21), RN-21, §10.1. Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §2.2, §3.2, §4.2. Processo e template: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §9. Regras compartilhadas do projeto: [`../periodo-1/README.md#regras-de-implementação-compartilhadas`](../periodo-1/README.md#regras-de-implementação-compartilhadas). Em caso de conflito, o `REQUISITOS.md` ganha; protótipo é referência visual, não spec de pixel (plano §7).
 
@@ -24,26 +24,23 @@ RNF atendidos: **RNF-DES-02** (listagens paginadas com teto server-side), **RNF-
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | implementado (02/10/2026) | migration `0005`: índice trigram do nome da série e CHECK `autor_biografia_ck`, revisada e **aplicada no banco de dev em 02/10/2026** (DES recebe no deploy da `main`). Índice de ano/páginas medido e dispensado (Timeline). Biografias a carregar pelo script `biografias` em dev e DES |
+| Infra | implementado (02/10/2026) | migration `0005`: índice trigram do nome da série e CHECK `autor_biografia_ck`, revisada e **aplicada no banco de dev em 02/10/2026** (DES recebe no deploy da `main`). Índice de ano/páginas medido e dispensado (Timeline). Biografias carregadas pelo script `biografias` em dev em 08/10/2026: 905 de 8.126 autores, e 896 de 7.910 depois da unificação de autores do mesmo dia. Em DES, 896 de 7.910 no mesmo dia, antes da `0005` (os dados já cumprem o CHECK) |
 | Backend | implementado (02/10/2026) | `acervo`: filtros avançados em `GET /livros`, `GET /autores/{id}`, `GET /editoras/{id}`, `GET /series/{id}`, `editoraId` e `serie` em `GET /livros/{id}` e biografia na importação por ISBN; contrato `implemented` no `acervo.yaml` |
 | Web | implementado e em `desenvolvimento` (07/10/2026) | filtros no Descobrir (painel recolhível e folha), páginas `/descobrir/autores|editoras|series/:id` e links da ficha com `Assuntos`. Conferido pelo dono no navegador contra os serviços locais, com os ajustes da Timeline. Lint, 734 testes e build verdes |
 | Mobile | implementado e em `desenvolvimento` (07/10/2026) | mesmas telas, com as páginas sob `/descobrir` e `/perfil`. `analyze`, 531 testes e `build apk --debug` verdes; **falta conferir no emulador** |
 
-## Onde continuar (atualizado em 07/10/2026, no fechamento)
+## Onde continuar (atualizado em 08/10/2026, depois das biografias em dev e DES)
 
 Backend, web e mobile estão mergeados em `desenvolvimento` (merge da `vicenzo-features` em 07/10/2026). A `vicenzo-features` continua existindo, a pedido do dono. Os commits estão na Timeline.
 
 **Falta para o DoD e os critérios de aceite**
-1. **Biografias (critério de RF-ACV-10):** o código está pronto, mas o banco ainda não tem os textos. Rodar `python -m leai_ingestao biografias` com o dump de autores (seção "Como carregar as biografias"):
-   - primeiro em dev, com `--dry-run` antes;
-   - depois do merge na `main`, em DES;
-   - registrar os números na Timeline.
+1. **Biografias (critério de RF-ACV-10):** carregadas em dev e DES em 08/10/2026 (Timeline). Em DES a página de autor só existe depois do deploy da `main`. Depois dele, rodar `biografias` de novo no DES (é idempotente) para pegar o autor que a importação por ISBN do código antigo criar até lá. Isso pede o dump de autores na máquina.
 2. **Mobile no emulador:** o mesmo roteiro da web. Busca com filtros, chips e badge; autor, editora e série a partir da ficha; ordem da série; toque num assunto.
 3. **DES (fim do período):** depois do PR `desenvolvimento` → `main`, conferir os filtros e as páginas em DES e a leitura ≤1s p95 (RNF-DES-01).
 
 **Fora desta feature, mas no `acervo` e com o Vicenzo:**
 - A etapa 3 da [F-LST](feature-F-LST.md#etapa-3-via-lista-no-acervo), a via lista no livro pessoal. Ela foi delegada pelo Henrique em 05/10/2026 e bloqueia o RF-LST-06 e o DoD da F-LST.
-- O `npm audit --audit-level=high` do `acervo` falha desde 07/10/2026 por avisos publicados depois do último ajuste (03/10). Ver Pendências. O próximo push que tocar `code/back/acervo` deixa o CI vermelho até isso ser resolvido.
+- ~~O `npm audit --audit-level=high` do `acervo` falhava desde 07/10/2026~~: resolvido em 08/10/2026 (Pendências).
 
 **Para retomar rápido**
 - **Testes do backend:** `npm test` e `DATABASE_URL_TESTE=postgresql://postgres:teste@localhost:55432/leai_teste npm run test:integration` em `code/back/acervo`. O container `leai-pg-teste` já existe localmente.
@@ -118,7 +115,7 @@ A biografia fica **no idioma da fonte**: a OpenLibrary costuma devolver em ingl�
 
 - [x] Busca aceita filtros por **autor, editora, série, ano e faixa de nº de páginas** (RF-ACV-03), combináveis com assunto, paginada e indexada.
 - [x] Páginas de **autor/editora/série** listam os livros oficiais corretos, paginados; a de série ordena por **número de ordem** (RF-ACV-12).
-- [ ] Página de autor entrega a biografia curta exigida por RF-ACV-10 a partir da fonte aprovada pelo grupo. *(Código e testes prontos; falta carregar as biografias com o script.)*
+- [ ] Página de autor entrega a biografia curta exigida por RF-ACV-10 a partir da fonte aprovada pelo grupo. *(Código e testes prontos; biografias carregadas em dev e DES em 08/10/2026. Falta a página chegar ao DES com o deploy da `main`.)*
 - [x] Nenhuma dessas páginas/filtros expõe **livro pessoal** (SEC-06, RN-03); elas não têm ações de perfil (não editáveis, sem conteúdo de usuário).
 - [x] Na página do livro, cada **assunto é acionável** e leva à busca filtrada por aquele assunto (RF-ACV-21, RN-21).
 - [ ] Filtros e páginas funcionam **em DES**, com leitura ≤1s p95 desconsiderando cold start (RNF-DES-01).
@@ -144,12 +141,14 @@ A biografia fica **no idioma da fonte**: a OpenLibrary costuma devolver em ingl�
     - **mobile:** a `_Ficha` de `livro_oficial_page.dart` foi reescrita com links, e há a `_Secao('Assuntos')`.
     - Registrado também nos `AGENTS.md` de `code/front` e `code/mobile`;
   - **conferir em execução real** (web no navegador, mobile no emulador), que não foi feito nesta sessão;
-  - **rodar o script `biografias`** em dev e, depois do merge na `main`, em DES (seção "Como carregar as biografias").
-- **`npm audit` do `acervo` (07/10/2026):** o CI roda `npm audit --audit-level=high`, e o `acervo` passou a falhar por avisos publicados depois de 03/10.
-  - `proxy-addr` (crítico) sai com `npm audit fix`.
-  - `js-yaml` (alto) vem só de dependências de desenvolvimento (`ts-jest`, `eslint`, `@nestjs/cli`, `@nestjs/swagger`). A única correção automática rebaixa o `ts-jest` para a 27 (`--force`), o que quebra os testes.
-  - O lockfile do `acervo` ficou fora do merge para não deixar o CI vermelho. Decidir com o grupo (override de `js-yaml` ou aceitar o aviso); o `leitura` tem o mesmo `proxy-addr`.
-  - No front, o `source-map-js` (alto) foi corrigido com `npm audit fix` (`53305f2`).
+  - ~~**rodar o script `biografias`** em dev e DES~~: rodado nos dois em 08/10/2026. Depois do deploy da `main`, uma reexecução no DES cobre os autores criados até lá.
+- ~~**`npm audit` do `acervo` (07/10/2026)**~~ — **resolvido em 08/10/2026.** O CI roda `npm audit --audit-level=high`, e o `acervo` falhava por avisos publicados depois de 03/10:
+  - **`proxy-addr` (crítico):** saiu com `npm audit fix`, só no lockfile.
+  - **`js-yaml` (alto):** só a 4.3.0 que o `@nestjs/swagger` 11 fixa estava na faixa do aviso. Um `overrides` no `package.json` força a 4.3.2, da mesma linha 4.x, só dentro do swagger. O `js-yaml` 3.x do Jest fica fora da faixa.
+  - **O que sobra é moderado** (`ts-jest`, `sprintf-js`), e o CI só reprova a partir de alto.
+  - **Conferido:** `npm ci`, lint, build, 302 unitários, 126 de integração e audit, todos verdes.
+  - **No `leitura`:** o mesmo `proxy-addr` continua lá, e cabe ao dono do `leitura` (aviso deixado aqui).
+  - **No front:** o `source-map-js` (alto) foi corrigido com `npm audit fix` (`53305f2`).
 - **Queda dos serviços Nest sem rede (07/10/2026, fora desta feature):** numa queda de rede, o `acervo` e o `leitura` morreram com `read ETIMEDOUT` num cliente `pg` em uso, emitido como evento `error` sem ouvinte. O `pool.on('error')` de `drizzle.module.ts` só cobre a conexão ociosa. Levar a quem cuida da infra (P0-INFRA): no Render, cada oscilação de rede reiniciaria o serviço.
 - **Divergências protótipo × implementação (web e mobile, 07/10/2026)**, escolhidas na sessão de implementação e **ratificadas pelo dono em 07/10/2026**:
   - **Web, página de catálogo:** fica a seta de voltar do header, como na página do livro. O protótipo não tem voltar na web.
@@ -183,6 +182,20 @@ A biografia fica **no idioma da fonte**: a OpenLibrary costuma devolver em ingl�
 - **Alternativa a avaliar, sem mudar o desenho atual:** reutilizar um componente de página de catálogo para autor/editora/série e criar índices adicionais somente após validar o plano de execução das consultas.
 
 ## Timeline
+
+### Biografias 08/10/2026: script `biografias` rodado no banco de dev (`le-ai`, São Paulo) pelo dono, com o dump de autores de 30/09/2026 (`ol_dump_authors_2026-09-30`, 746 MB). É mais novo que o da carga de 24/09, o que não importa, porque o script casa pela chave OpenLibrary do autor.
+- **Simulação (`--dry-run`) e gravação, com os mesmos números:** 8.126 autores sem biografia, 8.123 encontrados no dump, 905 com biografia no dump e **905 atualizados**. Cada leitura do dump levou cerca de 1 minuto.
+- **Conferência (só leitura):** 905 de 8.126 autores com biografia, de 1.999 caracteres no máximo (teto de 2.000) e 543 em média. Entre os autores com mais livros, Stephen King, Isaac Asimov e Machado de Assis têm biografia, em inglês, como a OpenLibrary devolve (ver Pendências).
+- **Idempotência:** uma nova simulação depois da gravação deu 7.221 sem biografia, 0 com biografia no dump e 0 a atualizar.
+- **Não conferido pela API:** `GET /autores/{id}` lê a coluna direto e é coberto pelo `catalogo.int-spec.ts`. Falta DES, depois do merge na `main`.
+- **Autores duplicados (mesmo dia):** o dono achou duas "Suzanne Collins" no Descobrir. A segunda era outro registro da OpenLibrary, ligado às edições portuguesas, com a biografia de uma homônima (instrutora de marketing).
+  - A correção é da [F-ACV-INGESTAO](../periodo-1/feature-F-ACV-INGESTAO.md) (Timeline "Unificação 08/10/2026"). Os 216 duplicados foram juntados ao autor canônico em dev e DES, e as biografias de homônimos saíram com eles.
+  - Em dev ficaram **896 de 7.910 autores com biografia**. A página da Suzanne Collins tem os 7 livros e a biografia certa.
+  - Um link salvo para o id de um duplicado removido passa a dar 404.
+- **DES, no mesmo dia, antes do deploy:** a pedido do dono, para tirar a dependência do dump nesta máquina, o script rodou no banco de DES (`le-ai-oregon`), já com a unificação aplicada.
+  - **Simulação e gravação:** 7.910 autores sem biografia, 7.908 encontrados no dump, 896 com biografia e **896 atualizados**.
+  - **Conferência, só leitura:** 896 de 7.910 com biografia, de no máximo 1.999 caracteres, e nenhuma violaria o `autor_biografia_ck`. Por isso a `0005` aplica sem erro no deploy.
+  - **Visibilidade:** a página de autor só aparece em DES com o código do deploy da `main`.
 
 ### Web e mobile 07/10/2026: implementados na `vicenzo-features` (`47e31be` web, `af7c5d4` mobile), depois de sincronizar a branch com a `desenvolvimento` (25 commits de F-SOCIAL-2, F-NOT-2 e F-LST, por fast-forward). Antes de começar, a base estava verde: `acervo` com 299 testes no Jest 30 que o `npm audit` trouxe, front com 693 e mobile com 498.
 - **Web:** os testes foram de 693 para 731 (filtros, URL, folha e painel, chips, vazio com filtros, as três páginas com 404, erro, falha de paginação e cold start, e os links da ficha). Lint e build verdes.

@@ -47,6 +47,24 @@ def test_autor_deduplica_por_caixa_e_acento():
     assert n.normalizar_nome_autor("José Saramago") == n.normalizar_nome_autor("JOSE  saramago")
 
 
+# A fonte manda parte dos nomes decomposta (NFD). O acento solto não é letra, e
+# sem compor antes ele virava espaço: "João" saía "joa o".
+@pytest.mark.parametrize(
+    "funcao,composto,esperado",
+    [
+        (n.normalizar_nome_autor, "João Guimarães Rosa", "joao guimaraes rosa"),
+        (n.normalizar_editora, "Civilização Brasileira", "civilização brasileira"),
+        (n.normalizar_serie, "Coleção Memória da educação", "coleção memória da educação"),
+    ],
+)
+def test_nome_decomposto_normaliza_igual_ao_composto(funcao, composto, esperado):
+    import unicodedata
+
+    decomposto = unicodedata.normalize("NFD", composto)
+    assert decomposto != composto
+    assert funcao(decomposto) == funcao(composto) == esperado
+
+
 # Os mesmos casos de `code/back/acervo/src/common/normalizacao.spec.ts`, de
 # propósito: se as duas implementações divergirem, uma das suítes quebra.
 @pytest.mark.parametrize(

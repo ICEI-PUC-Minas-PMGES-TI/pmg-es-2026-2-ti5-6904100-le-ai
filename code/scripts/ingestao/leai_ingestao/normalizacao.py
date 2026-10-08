@@ -46,8 +46,14 @@ def remover_acentos(texto: str) -> str:
 
 
 def _base(texto: str) -> str:
-    """Minúsculas, sem pontuação, espaços colapsados. Acentos preservados."""
-    sem_pontuacao = _PONTUACAO.sub(" ", texto.casefold())
+    """Minúsculas, sem pontuação, espaços colapsados. Acentos preservados.
+
+    NFC antes de tudo: parte dos nomes da fonte vem decomposta ("a" + til
+    combinante), e o til solto não é `\\w`, então virava espaço — "João" saía
+    "joa o" e deixava de casar com a mesma grafia composta.
+    """
+    composto = unicodedata.normalize("NFC", texto)
+    sem_pontuacao = _PONTUACAO.sub(" ", composto.casefold())
     return _ESPACOS.sub(" ", sem_pontuacao).strip()
 
 

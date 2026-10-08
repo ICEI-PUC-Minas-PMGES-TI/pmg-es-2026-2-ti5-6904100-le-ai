@@ -43,6 +43,13 @@
       "when": 1790982138768,
       "tag": "0005_20261002200217_descoberta",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791430914137,
+      "tag": "0006_20261008004153_autor_chave_unificada",
+      "breakpoints": true
     }
   ]
 }
