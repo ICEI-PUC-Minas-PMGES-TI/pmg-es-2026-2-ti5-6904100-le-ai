@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -311,6 +312,65 @@ void main() {
       expect(pedidos[1].headers['Idempotency-Key'], pedidos[0].headers['Idempotency-Key']);
       expect(solicitadaAte, isNotNull);
     });
+
+    testWidgets('enquanto o servidor acorda, mostra Excluindo e o aviso, sem erro', (
+      tester,
+    ) async {
+      final resposta = Completer<http.Response>();
+      await tester.pumpWidget(
+        _wrap(
+          ExcluirContaPage(
+            servico: ExclusaoService(_cliente((request) => resposta.future)),
+            authService: authService(),
+            aoExclusaoSolicitada: (previstaEm) async => solicitadaAte = previstaEm,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await marcarCaixa(tester);
+      await preencherEConfirmar(tester);
+
+      expect(find.text('Excluindo'), findsOneWidget);
+      expect(
+        find.text('O servidor está iniciando. Isso pode levar alguns segundos.'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Não foi possível pedir a exclusão.'), findsNothing);
+
+      resposta.complete(_erro(503, 'SERVICO_INDISPONIVEL'));
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('timeout vira o erro de envio, com a senha preservada', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          ExcluirContaPage(
+            servico: ExclusaoService(
+              ApiClient(
+                baseUrl: 'https://api.example.com',
+                client: MockClient((request) => Completer<http.Response>().future),
+                timeout: const Duration(seconds: 1),
+                esperasDeRetentativa: const <Duration>[],
+              ),
+            ),
+            authService: authService(),
+            aoExclusaoSolicitada: (previstaEm) async => solicitadaAte = previstaEm,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await marcarCaixa(tester);
+      await tester.enterText(find.byType(TextField), 'senha-certa');
+      await tester.pump();
+      await _tocar(tester, find.widgetWithText(OutlinedButton, 'Excluir conta'));
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Excluir conta').last);
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Não foi possível pedir a exclusão.'), findsOneWidget);
+      expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, 'senha-certa');
+      expect(solicitadaAte, isNull);
+    });
   });
 
   group('RecuperarContaPage', () {
@@ -409,6 +469,41 @@ void main() {
       expect(foiAoLogin, isTrue);
       expect(sessao.recuperacao, isNull);
       expect(pedidos, isEmpty);
+    });
+
+    testWidgets('timeout mantém a exclusão agendada e o acesso, sem tratar como vencido', (
+      tester,
+    ) async {
+      sessao.guardarRecuperacao(_acesso(faltando: const Duration(days: 23)));
+      await tester.pumpWidget(
+        _wrap(
+          RecuperarContaPage(
+            sessionController: sessao,
+            servico: ExclusaoService(
+              ApiClient(
+                baseUrl: 'https://api.example.com',
+                client: MockClient((request) => Completer<http.Response>().future),
+                timeout: const Duration(seconds: 1),
+                esperasDeRetentativa: const <Duration>[],
+              ),
+            ),
+            aoIrParaLogin: () => foiAoLogin = true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cancelar exclusão'));
+      await tester.pump();
+      expect(find.text('Cancelando'), findsOneWidget);
+      expect(
+        find.text('O servidor está iniciando. Isso pode levar alguns segundos.'),
+        findsOneWidget,
+      );
+
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Não foi possível cancelar a exclusão.'), findsOneWidget);
+      expect(sessao.recuperacao, isNotNull);
     });
   });
 
