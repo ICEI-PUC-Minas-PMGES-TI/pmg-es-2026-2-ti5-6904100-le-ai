@@ -52,6 +52,12 @@ services:
         sync: false
       - key: CLOUDINARY_CLOUD_NAME # valida a URL de capa de livro pessoal (RNF-SEC-20)
         sync: false
+      # F-CONTA-2: credencial da Upload API, para apagar as capas de livro pessoal
+      # na exclusão definitiva de conta (RN-23.7). Sem ela a capa fica no Cloudinary.
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
       - key: GOOGLE_BOOKS_API_KEY # fonte secundária do cadastro por ISBN; sem ela o Google responde 429 por cota (P-14)
         sync: false
 

@@ -87,6 +87,12 @@ Módulos `src/estante/`, `src/leituras/` e `src/jobs/inatividade/`, com `src/ref
 - **Eventos:** `leitura.*` e `livro.adicionado_a_estante`, com `eventId` gerado no domínio (a chave de negócio e o registro de limiares de inatividade o usam) e passado a `OutboxRepository.inserir`. Schemas registrados no `onModuleInit` do `LeiturasModule`.
 - **Job de inatividade:** `POST /internal/jobs/inatividade` é `@Publico()` e exige `X-Scheduler-Token` igual a `SCHEDULER_TOKEN` (32+ caracteres).
 
+## F-CONTA-2 — consumidor de `conta.excluida` (08/10/2026, Henrique)
+
+- **`src/conta/`** (`ContaModule`, `ContaExcluidaConsumer`): primeiro consumidor do serviço. A fila é `leai.leitura.conta`, no exchange do `identidade`. Apaga tudo o que é da conta excluída, com `usuario_id` em reações, resenhas (o CASCADE leva as reações de outros a elas), frases, favoritos, notas, estante (leva leituras, progresso e limiares), desafios, sequência, dias e estatísticas. Anonimiza os recibos de idempotência dela e os eventos publicados que a citam; os pendentes saem.
+- **Validação do `data`:** o `parse` do runtime valida envelope e headers, mas **não** o `data` (até aqui só havia produtor). O consumidor chama `validarDados` antes de qualquer efeito. Consumidor novo precisa fazer o mesmo, ou corrigir o `parse`.
+- **Testes:** `test/integracao/consumo-conta-excluida.int-spec.ts`, com o helper `consumidor-sem-espera.ts` copiado do `acervo`.
+
 ## Pontos de atenção (ver `REQUISITOS.md`) — prioridade de teste
 
 - **Máquina de estados da leitura (RN-04)** — Quero ler / Lendo / Lido / Relendo / Abandonado, releitura, retomada. **Teste obrigatório e prioritário** (RNF-TST-01).

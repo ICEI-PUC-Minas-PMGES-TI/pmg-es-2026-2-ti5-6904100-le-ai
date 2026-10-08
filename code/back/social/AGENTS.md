@@ -51,6 +51,15 @@ Feitas por F-AVA com autorização do Renato e **mergeadas na `desenvolvimento` 
 - **Flyway no banco de dev:** a migration é aplicada na próxima vez que alguém subir o `social` local a partir da `desenvolvimento`. Migration nova no `social` precisa de versão maior que `V20260927002000`, ou o Flyway recusa a ordem.
 - **Ordem dos eventos:** o despachante do `leitura` segura só a linha que falhou, então um `resenha.excluida` pode chegar antes do `resenha.publicada` da mesma resenha. Hoje o `excluida` vira no-op e o `publicada` cria a atividade depois. É raro; fica registrado.
 
+### 08/10/2026 — F-CONTA-2 (Henrique): consumidor de `conta.excluida`
+
+Previsto na [divisão do Período 2](../../../docs/plano-de-desenvolvimento/periodo-2/README.md#o-que-ainda-cruza-entre-pessoas): o dono da F-CONTA-2 escreve os consumidores da exclusão nos três serviços. Avisar o Kayke.
+
+- **`conta/service/ConsumidorDeContaExcluida`**, fila `leai.social.conta` no exchange do `identidade`. Apaga o que é da conta excluída: atividades (o CASCADE leva curtidas e comentários de outros nelas), comentários (leva as respostas abaixo dos comentários-raiz dela), menções, curtidas, listas, recomendações enviadas e recebidas, sugestões descartadas, notificações para ela ou com ela como ator ou autor da atividade, preferências e dispositivos. Apaga também as denúncias feitas por ela ou contra o conteúdo que some. Anonimiza o `log_moderacao` desse conteúdo, os recibos de idempotência dela e os eventos da outbox que a citam; os pendentes saem.
+- **Constantes** em `MessagingConstants` (`CONTA_*`, `EVENTO_CONTA_EXCLUIDA`), schema no `MessageValidator` e cópia de `conta.excluida.v1.schema.json`.
+- **Sem migration.** Matriz completa no [arquivo da F-CONTA-2](../../../docs/plano-de-desenvolvimento/periodo-2/feature-F-CONTA-2.md#etapa-3-consumidores).
+- **Testes:** `ConsumidorDeContaExcluidaIntegracaoTest` e `ContaExcluidaSchemaTest`.
+
 ## Pontos de atenção (ver `REQUISITOS.md`)
 
 - É o **consumidor** do fluxo de **notificações in-app** (fan-out); adiciona FCM em Android (arquitetura §5.2). Curtida de **atividade de feed** fica aqui; curtida de **resenha** fica em `leitura`. **Spring AMQP já entrou** (runtime de [P0-MSG](../../../docs/plano-de-desenvolvimento/periodo-0/feature-P0-MSG.md), 19/09): o `social` consome pelas filas `leai.social.feed` (F-FEED) e `leai.social.notificacoes` (F-NOT), declaradas em `messaging/MessagingConstants.java`. FCM ainda não entrou.
