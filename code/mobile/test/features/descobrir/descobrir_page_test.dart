@@ -18,6 +18,7 @@ void main() {
     WidgetTester tester,
     Future<http.Response> Function(http.Request request) responder, {
     bool escuro = false,
+    String? assuntoInicial,
   }) async {
     usarTelaDeCelular(tester);
     abertos = <String>[];
@@ -36,6 +37,7 @@ void main() {
           aoAbrirLivro: abertos.add,
           aoCadastrarPorIsbn: () => cadastrosPorIsbn++,
           aoCadastrarPessoal: () => cadastrosPessoais++,
+          assuntoInicial: assuntoInicial,
         ),
         escuro: escuro,
       ),
@@ -344,5 +346,135 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(paginasPedidas, <String>['1', '2', '3']);
+  });
+
+  group('filtros avançados (F-ACV-DESCOBERTA)', () {
+    /// Os campos da folha, na ordem do protótipo; o primeiro `TextField` é o da busca.
+    Finder campoDaFolha(int indice) => find.byType(TextField).at(indice + 1);
+
+    Future<void> abrirFolha(WidgetTester tester) async {
+      await tester.tap(find.bySemanticsLabel('Filtros'));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> aplicar(WidgetTester tester) async {
+      await tocar(tester, find.text('Aplicar filtros'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('a folha aplica os filtros, que viram chips e badge', (tester) async {
+      final pedidas = <Uri>[];
+      await montar(tester, (request) async {
+        pedidas.add(request.url);
+        return resultadosDeEvaristo(request);
+      });
+
+      await abrirFolha(tester);
+      expect(
+        find.text('Preencha só o que quiser usar. Os filtros valem junto com a busca e o assunto.'),
+        findsOneWidget,
+      );
+      await tester.enterText(campoDaFolha(1), 'Pallas');
+      await tester.enterText(campoDaFolha(4), '100');
+      await tester.enterText(campoDaFolha(5), '150');
+      await aplicar(tester);
+
+      expect(pedidas.single.queryParameters, <String, String>{
+        'editora': 'Pallas',
+        'paginasMin': '100',
+        'paginasMax': '150',
+        'page': '1',
+        'limit': '20',
+      });
+      expect(find.text('Aplicar filtros'), findsNothing);
+      expect(find.bySemanticsLabel('Filtros, 2 ativos'), findsOneWidget);
+      expect(find.bySemanticsLabel('Remover filtro Editora: Pallas'), findsOneWidget);
+      expect(find.bySemanticsLabel('Remover filtro 100 a 150 páginas'), findsOneWidget);
+      expect(find.text('12 livros encontrados'), findsOneWidget);
+
+      await tester.tap(find.bySemanticsLabel('Remover filtro Editora: Pallas'));
+      await tester.pumpAndSettle();
+      expect(pedidas.last.queryParameters.containsKey('editora'), isFalse);
+      expect(find.bySemanticsLabel('Filtros, 1 ativo'), findsOneWidget);
+    });
+
+    testWidgets('ano e páginas aceitam só dígitos', (tester) async {
+      await montar(tester, resultadosDeEvaristo);
+      await abrirFolha(tester);
+
+      await tester.enterText(campoDaFolha(3), '20a19x');
+      await tester.enterText(campoDaFolha(4), '-12');
+
+      expect(tester.widget<TextField>(campoDaFolha(3)).controller!.text, '2019');
+      expect(tester.widget<TextField>(campoDaFolha(4)).controller!.text, '12');
+    });
+
+    testWidgets('faixa invertida não envia e mantém a folha aberta', (tester) async {
+      final pedidas = <Uri>[];
+      await montar(tester, (request) async {
+        pedidas.add(request.url);
+        return resultadosDeEvaristo(request);
+      });
+      await abrirFolha(tester);
+
+      await tester.enterText(campoDaFolha(4), '200');
+      await tester.enterText(campoDaFolha(5), '100');
+      await aplicar(tester);
+
+      expect(pedidas, isEmpty);
+      expect(find.text('O mínimo não pode ser maior que o máximo.'), findsOneWidget);
+      expect(find.text('Aplicar filtros'), findsOneWidget);
+      expect(tester.widget<TextField>(campoDaFolha(4)).focusNode!.hasFocus, isTrue);
+    });
+
+    testWidgets('fechar a folha sem aplicar não busca', (tester) async {
+      final pedidas = <Uri>[];
+      await montar(tester, (request) async {
+        pedidas.add(request.url);
+        return resultadosDeEvaristo(request);
+      });
+      await abrirFolha(tester);
+      await tester.enterText(campoDaFolha(0), 'evaristo');
+
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Aplicar filtros'), findsNothing);
+      expect(pedidas, isEmpty);
+      expect(find.bySemanticsLabel('Filtros'), findsOneWidget);
+    });
+
+    testWidgets('vazio com filtros não oferece cadastro, e "Limpar filtros" volta à aterrissagem', (
+      tester,
+    ) async {
+      await montar(tester, (request) async => json(paginaJson(<Map<String, Object?>>[]), 200));
+      await abrirFolha(tester);
+      await tester.enterText(campoDaFolha(4), '5000');
+      await aplicar(tester);
+
+      expect(find.text('Nenhum livro com esses filtros'), findsOneWidget);
+      expect(
+        find.text('Remova um filtro ou amplie a faixa de páginas para ver mais resultados.'),
+        findsOneWidget,
+      );
+      expect(find.text('Cadastrar por ISBN'), findsNothing);
+
+      await tocar(tester, find.widgetWithText(ElevatedButton, 'Limpar filtros'));
+      await tester.pumpAndSettle();
+      expect(find.text('Nenhum livro com esses filtros'), findsNothing);
+      expect(find.bySemanticsLabel('Filtros'), findsOneWidget);
+    });
+
+    testWidgets('o assunto vindo da ficha busca na hora', (tester) async {
+      final pedidas = <Uri>[];
+      await montar(tester, (request) async {
+        pedidas.add(request.url);
+        return resultadosDeEvaristo(request);
+      }, assuntoInicial: 'romance');
+      await tester.pump();
+
+      expect(pedidas.single.queryParameters['assunto'], 'romance');
+      expect(find.bySemanticsLabel('Romance, filtro ativo. Toque para remover.'), findsOneWidget);
+    });
   });
 }

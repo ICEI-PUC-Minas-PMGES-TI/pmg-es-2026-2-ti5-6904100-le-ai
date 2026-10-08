@@ -57,6 +57,13 @@ Uma URL por serviço, sem gateway: `VITE_IDENTIDADE_BASE_URL`, `VITE_ACERVO_BASE
 
 ## Componentes compartilhados que mudaram
 
+- **F-ACV-DESCOBERTA (07/10/2026, Vicenzo).** Páginas de autor, editora e série em `views/catalogo/PaginaDeCatalogoView.vue` (uma view, a prop `tipo` vem da rota), estado em `livros/usePaginaDeCatalogo.ts`, filtros em `livros/filtrosDaBusca.ts`, `components/livros/FiltrosAvancados.vue` e `ChipsDeFiltros.vue`. O que mexe no que é de todos:
+  - `ui/CampoTexto.vue` ganhou a prop opcional `sufixo` (unidade dentro do campo, à direita, como `páginas`). Sem ela, nada muda.
+  - `livros/CardLivroBusca.vue` ganhou a prop opcional `numeroNaSerie` (a linha `Livro N` acima do título).
+  - `testes/montarNaRota.ts` aceita `{ largo: true }`, que faz toda media query casar (layout de 768px para cima).
+  - `services/acervo.ts`: `LivroOficialDetalhe` tem `editoraId` e `serie`; `testes/massaDoLivro.ts` os traz nulos. `buscarLivros` aceita os filtros e só manda os preenchidos.
+  - `views/livros/LivroOficialView.vue` (integrada pelo Renato): a ficha aceita linha com link (`links`) e `complemento`, e há a seção `Assuntos` depois da sinopse.
+
 - **F-LST (05/10/2026, Henrique).** Telas em `views/listas/`, componentes em `components/listas/`, lógica em `src/listas/` e serviço em `services/listas.ts`. O que mexe no que é de todos:
   - `layouts/ShellAutenticado.vue` ganhou o ponto `#avisos-flutuantes`, onde `ui/AvisoFlutuante` (toast do design §7.6, barra lateral `musgo` ou `rubi`) entra por Teleport: acima da barra inferior no mobile, no canto da área de conteúdo na web. E o rótulo do retorno da web pode vir da tela (`cabecalho.ts`, `usarRotuloVoltar`), para `Listas de Rafael`; sem ele, vale `meta.voltarComRotulo`.
   - `components/perfil/SecoesDeLeitura.vue` aceita o slot `listas` (terceira aba, `Listas`) e a prop `abaInicial` (`?aba=listas`); as setas percorrem as três abas.

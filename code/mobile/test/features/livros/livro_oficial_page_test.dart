@@ -38,6 +38,7 @@ Map<String, Object?> _livro({
   List<Map<String, String>> autores = const <Map<String, String>>[
     <String, String>{'id': 'a1', 'nome': 'Itamar Vieira Junior'},
   ],
+  Map<String, Object?> extras = const <String, Object?>{},
 }) => <String, Object?>{
   'id': _id,
   'titulo': 'Torto Arado',
@@ -50,6 +51,7 @@ Map<String, Object?> _livro({
   'isbn': '9788588808911',
   'sinopse': <String, Object?>{'status': status, 'texto': status == 'disponivel' ? texto : null},
   'resenhas': resenhas,
+  ...extras,
 };
 
 Map<String, Object?> _pagina(List<Map<String, Object?>> itens, {String? cursor}) =>
@@ -58,6 +60,7 @@ Map<String, Object?> _pagina(List<Map<String, Object?>> itens, {String? cursor})
 void main() {
   late List<Uri> pedidas;
   late int voltas;
+  late List<String> navegacoes;
 
   Future<void> montar(
     WidgetTester tester,
@@ -68,6 +71,7 @@ void main() {
     usarTelaDeCelular(tester);
     pedidas = <Uri>[];
     voltas = 0;
+    navegacoes = <String>[];
     await tester.pumpWidget(
       envolver(
         LivroOficialPage(
@@ -80,6 +84,10 @@ void main() {
           aoVoltar: () => voltas++,
           estante: estante,
           progresso: estante == null ? null : progressoEmMemoria(),
+          aoAbrirAutor: (id) => navegacoes.add('autor:$id'),
+          aoAbrirEditora: (id) => navegacoes.add('editora:$id'),
+          aoAbrirSerie: (id) => navegacoes.add('serie:$id'),
+          aoBuscarAssunto: (id) => navegacoes.add('assunto:$id'),
         ),
       ),
     );
@@ -570,6 +578,82 @@ void main() {
 
       expect(find.text('Adicionar à estante'), findsNothing);
       expect(find.text('Ações de leitura'), findsOneWidget);
+    });
+  });
+
+  group('links da ficha e assuntos (F-ACV-DESCOBERTA)', () {
+    testWidgets('autor, editora e série levam às páginas de catálogo, com o volume fora do link', (
+      tester,
+    ) async {
+      await montar(
+        tester,
+        (request) async => json(
+          _livro(
+            extras: <String, Object?>{
+              'editoraId': 'ed-1',
+              'serie': <String, Object?>{'id': 'se-1', 'nome': 'Trilogia da Bahia', 'numero': 1},
+            },
+          ),
+          200,
+        ),
+      );
+
+      expect(find.text('volume 1'), findsOneWidget);
+      await tocar(tester, find.bySemanticsLabel('Autor: Itamar Vieira Junior'));
+      await tocar(tester, find.bySemanticsLabel('Editora: Todavia'));
+      await tocar(tester, find.text('Trilogia da Bahia'));
+
+      expect(navegacoes, <String>['autor:a1', 'editora:ed-1', 'serie:se-1']);
+    });
+
+    testWidgets('editora sem página fica texto; coautoria tem um alvo por autor', (tester) async {
+      await montar(
+        tester,
+        (request) async => json(
+          _livro(
+            autores: const <Map<String, String>>[
+              <String, String>{'id': 'a1', 'nome': 'Itamar Vieira Junior'},
+              <String, String>{'id': 'a2', 'nome': 'Outra Pessoa'},
+            ],
+          ),
+          200,
+        ),
+      );
+
+      expect(find.text('Autores'), findsOneWidget);
+      expect(find.bySemanticsLabel('Editora: Todavia'), findsNothing);
+      await tocar(tester, find.bySemanticsLabel('Outra Pessoa'));
+      await tester.tap(find.text('Todavia').last, warnIfMissed: false);
+
+      expect(navegacoes, <String>['autor:a2']);
+      expect(find.text('Série'), findsNothing);
+    });
+
+    testWidgets('assuntos levam à busca filtrada; sem assuntos, a seção some', (tester) async {
+      await montar(
+        tester,
+        (request) async => json(
+          _livro(
+            extras: <String, Object?>{
+              'assuntos': <Object?>[
+                <String, String>{'id': 'romance', 'nome': 'Romance'},
+              ],
+            },
+          ),
+          200,
+        ),
+      );
+
+      expect(find.text('Assuntos'), findsOneWidget);
+      expect(find.text('ROMANCE'), findsOneWidget);
+      await tocar(tester, find.bySemanticsLabel('Buscar livros de Romance'));
+      expect(navegacoes, <String>['assunto:romance']);
+    });
+
+    testWidgets('sem assuntos, a seção não existe', (tester) async {
+      await montar(tester, (request) async => json(_livro(), 200));
+
+      expect(find.text('Assuntos'), findsNothing);
     });
   });
 }

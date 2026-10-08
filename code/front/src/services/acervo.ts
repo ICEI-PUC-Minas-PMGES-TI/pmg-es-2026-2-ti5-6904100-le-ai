@@ -136,16 +136,74 @@ export interface PaginaResenhas {
  * `identidade` estavam indisponíveis: a página abre mesmo assim.
  */
 export interface LivroOficialDetalhe extends LivroOficialResumo {
+  /** Leva à página da editora (F-ACV-DESCOBERTA); `null` quando o livro não tem editora. */
+  editoraId: string | null
+  /** `numero` é o lugar do livro na série; `null` quando a fonte não o tem. */
+  serie: SerieDoLivro | null
   isbn: string
   sinopse: SinopseDoLivro
   resenhas: PaginaResenhas | null
 }
 
-export interface CriteriosDaBusca {
+export interface SerieDoLivro {
+  id: string
+  nome: string
+  numero: number | null
+}
+
+/** Item da página de série: o resumo mais o número de ordem, `null` quando a fonte não o tem. */
+export interface LivroDaSerieResumo extends LivroOficialResumo {
+  numeroNaSerie: number | null
+}
+
+export interface PaginaLivrosDaSerie extends Omit<PaginaLivros, 'itens'> {
+  itens: LivroDaSerieResumo[]
+}
+
+/** `GET /autores/{id}` (RF-ACV-10). `biografia` nula: a seção não existe. */
+export interface PaginaDoAutor {
+  id: string
+  nome: string
+  biografia: string | null
+  livros: PaginaLivros
+}
+
+/** `GET /editoras/{id}` (RF-ACV-11). */
+export interface PaginaDaEditora {
+  id: string
+  nome: string
+  livros: PaginaLivros
+}
+
+/** `GET /series/{id}` (RF-ACV-12): livros pelo número de ordem, os sem número no fim. */
+export interface PaginaDaSerie {
+  id: string
+  nome: string
+  autores: AutorResumo[]
+  livros: PaginaLivrosDaSerie
+}
+
+/**
+ * Filtros avançados de `GET /livros` (RF-ACV-03). Autor, editora e série são texto livre; `ano` é
+ * valor único; a faixa de páginas é fechada e cada lado vale sozinho.
+ */
+export interface FiltrosDaBusca {
+  autor?: string | null
+  editora?: string | null
+  serie?: string | null
+  ano?: number | null
+  paginasMin?: number | null
+  paginasMax?: number | null
+}
+
+export interface CriteriosDaBusca extends FiltrosDaBusca {
   q?: string | null
   assunto?: string | null
   page?: number
 }
+
+/** Ordem em que os critérios vão na URL de `GET /livros`. */
+const CHAVES_DOS_CRITERIOS = ['q', 'assunto', 'autor', 'editora', 'serie', 'ano', 'paginasMin', 'paginasMax'] as const
 
 /** Padrão do contrato; o servidor aceita até 50. */
 export const TAMANHO_DA_PAGINA_DE_LIVROS = 20
@@ -245,20 +303,39 @@ export function createAcervoService(options: ApiClientOptions = {}) {
   }
 
   /**
-   * `GET /livros`: busca paginada de livros oficiais. O servidor exige `q` ou `assunto`; quem chama
-   * nunca manda os dois vazios.
+   * `GET /livros`: busca paginada de livros oficiais. O servidor exige ao menos um critério (texto,
+   * assunto ou filtro); quem chama nunca manda todos vazios. Só vai o que estiver preenchido.
    */
-  function buscarLivros({ q, assunto, page = 1 }: CriteriosDaBusca): Promise<PaginaLivros> {
+  function buscarLivros({ page = 1, ...criterios }: CriteriosDaBusca): Promise<PaginaLivros> {
     const consulta = new URLSearchParams()
-    if (q) {
-      consulta.set('q', q)
-    }
-    if (assunto) {
-      consulta.set('assunto', assunto)
+    for (const chave of CHAVES_DOS_CRITERIOS) {
+      const valor = criterios[chave]
+      if (valor !== null && valor !== undefined && valor !== '') {
+        consulta.set(chave, String(valor))
+      }
     }
     consulta.set('page', String(page))
     consulta.set('limit', String(TAMANHO_DA_PAGINA_DE_LIVROS))
     return request<PaginaLivros>(`/livros?${consulta}`)
+  }
+
+  function paginaDoCatalogo(page: number): string {
+    return new URLSearchParams({ page: String(page), limit: String(TAMANHO_DA_PAGINA_DE_LIVROS) }).toString()
+  }
+
+  /** `GET /autores/{id}`: biografia e livros oficiais do autor, paginados. */
+  function obterAutor(id: string, page = 1): Promise<PaginaDoAutor> {
+    return request<PaginaDoAutor>(`/autores/${encodeURIComponent(id)}?${paginaDoCatalogo(page)}`)
+  }
+
+  /** `GET /editoras/{id}`: livros oficiais da editora, paginados. */
+  function obterEditora(id: string, page = 1): Promise<PaginaDaEditora> {
+    return request<PaginaDaEditora>(`/editoras/${encodeURIComponent(id)}?${paginaDoCatalogo(page)}`)
+  }
+
+  /** `GET /series/{id}`: livros oficiais da série pelo número de ordem, paginados. */
+  function obterSerie(id: string, page = 1): Promise<PaginaDaSerie> {
+    return request<PaginaDaSerie>(`/series/${encodeURIComponent(id)}?${paginaDoCatalogo(page)}`)
   }
 
   /**
@@ -278,6 +355,9 @@ export function createAcervoService(options: ApiClientOptions = {}) {
   return {
     listarAssuntos,
     buscarLivros,
+    obterAutor,
+    obterEditora,
+    obterSerie,
     obterLivroOficial,
     listarResenhasDoLivro,
     solicitarImportacao,

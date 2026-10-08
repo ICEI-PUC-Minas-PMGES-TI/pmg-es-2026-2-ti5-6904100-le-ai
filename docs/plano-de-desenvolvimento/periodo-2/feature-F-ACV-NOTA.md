@@ -89,6 +89,19 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
   - `serie: { id, nome, numero | null } | null`.
 
   Eles servem aos links da ficha para as páginas de editora e série. Os campos de nota desta feature entram no mesmo DTO (`src/livros/busca/dto/livro-oficial.dto.ts`) e no mesmo `obter()` de `livro-oficial.repository.ts`, que agora faz `LEFT JOIN acervo.serie`. O teste de forma exata em `test/integracao/livro-oficial.int-spec.ts` já inclui os dois campos. O contrato está no `docs/api/acervo.yaml`, e o código está na branch `vicenzo-features` até o merge em `desenvolvimento`.
+- **⚠ Alerta de [F-ACV-DESCOBERTA](feature-F-ACV-DESCOBERTA.md) (Vicenzo, 07/10/2026), para antes de mexer na página do livro:** a tela que você integra mudou na web e no mobile (commits `47e31be` e `af7c5d4`, branch `vicenzo-features` até o merge em `desenvolvimento`). Faça rebase ou merge antes de começar, para não conflitar.
+  - **Web (`code/front/src/views/livros/LivroOficialView.vue`):**
+    - A ficha virou uma lista de `LinhaDaFicha`, com `valor` (texto), `links` (um ou vários) e `complemento`. Autor, editora e série são links. A linha `Série` entra entre `Editora` e `ISBN`, com `volume N` fora do link. A constante `LINK_ESTICADO` faz o link único cobrir a linha inteira.
+    - Entrou a seção `Assuntos` logo depois da sinopse, na coluna da direita, com `order-4` abaixo de 1024px, e só aparece se o livro tiver assuntos.
+    - Se a nota geral ou o histograma entrarem perto da sinopse, confira a ordem com `Assuntos` no protótipo.
+    - Os testes novos estão em `LivroOficialView.spec.ts`. A massa `testes/massaDoLivro.ts` traz `editoraId: null` e `serie: null`.
+  - **Mobile (`code/mobile/lib/features/livros/livro_oficial_page.dart`):**
+    - `_Ficha` foi reescrita, agora com `_LinhaDaFicha`, links com `CaretRight` e linha de 48px quando há um link só.
+    - Há uma `_Secao('Assuntos')` entre `Sinopse` e `Ficha`.
+    - A página recebe os callbacks opcionais `aoAbrirAutor`, `aoAbrirEditora`, `aoAbrirSerie` e `aoBuscarAssunto`, passados por `rotaDoLivroOficial` em `rotas_livros.dart`. Sem eles, a ficha fica só em texto.
+    - O modelo `LivroOficialDetalhe` ganhou `editoraId` e `serie`, e os dois ficam nulos quando ausentes.
+    - Os testes novos estão no grupo "links da ficha e assuntos" de `livro_oficial_page_test.dart`.
+  - Os dois `AGENTS.md` (de `code/front` e de `code/mobile`) registram essas mudanças.
 - **Telas (design P2):** nota geral × nota dos leitores (§4.4) e histograma entram na edição consolidada [`pagina-do-livro.md`](../../design/periodo-2/pagina-do-livro/pagina-do-livro.md) ([protótipo](../../design/periodo-2/pagina-do-livro/prototipos/pagina-do-livro.html)), prompt escrito em 28/09/2026, protótipo exportado em 29/09/2026. Anatomia do histograma (11 faixas de 0 a 5 com meia estrela, faixa vazia como `nenhum`) nasce no prompt e aguarda incorporação ao design.
 - **Depende de** [F-AVA](../periodo-1/feature-F-AVA.md) (`nota.alterada`, `v_nota_publicacao_v1`), [F-EST](../periodo-1/feature-F-EST.md) (`livro.adicionado_a_estante`, `v_estante_publica_v1`), [F-ACV-BUSCA](../periodo-1/feature-F-ACV-BUSCA.md) (página do livro e resolução de capa), [F-ACV-INGESTAO](../periodo-1/feature-F-ACV-INGESTAO.md) (chaves de dedup para o import; `v_livro_referencia_v1`), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md) e [P0-MSG](../periodo-0/feature-P0-MSG.md) (broker; Cloudinary/P-09 para o cache).
 - **Fonte da nota geral:** confirmar o formato concreto do `ol_dump_ratings`; a semântica por obra já está decidida e usa `ol_work_key`.

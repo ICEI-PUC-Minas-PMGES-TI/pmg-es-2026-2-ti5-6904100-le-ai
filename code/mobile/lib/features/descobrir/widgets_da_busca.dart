@@ -159,7 +159,16 @@ class CardDeLivroBusca extends StatefulWidget {
   final GrupoDeEdicoes grupo;
   final ValueChanged<String> aoAbrir;
 
-  const CardDeLivroBusca({super.key, required this.grupo, required this.aoAbrir});
+  /// Página da série (`pagina-da-serie.md`, F-ACV-DESCOBERTA): `Livro N` na primeira linha.
+  /// Nulo não mostra nada.
+  final int? numeroNaSerie;
+
+  const CardDeLivroBusca({
+    super.key,
+    required this.grupo,
+    required this.aoAbrir,
+    this.numeroNaSerie,
+  });
 
   @override
   State<CardDeLivroBusca> createState() => _CardDeLivroBuscaState();
@@ -202,6 +211,24 @@ class _CardDeLivroBuscaState extends State<CardDeLivroBusca> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
+                        if (widget.numeroNaSerie != null) ...<Widget>[
+                          Text.rich(
+                            TextSpan(
+                              text: 'Livro ',
+                              children: <InlineSpan>[
+                                TextSpan(
+                                  text: '${widget.numeroNaSerie}',
+                                  style: const TextStyle(fontFamily: DesignTokens.fontMono),
+                                ),
+                              ],
+                            ),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.secondaryText,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: DesignTokens.space1),
+                        ],
                         Text(
                           livro.titulo,
                           style: theme.textTheme.titleMedium,

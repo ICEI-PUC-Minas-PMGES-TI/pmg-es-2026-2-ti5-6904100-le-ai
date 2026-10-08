@@ -1,4 +1,5 @@
 import '../../core/network/api_client.dart';
+import '../descobrir/filtros_da_busca.dart';
 import 'livro_oficial.dart';
 
 /// Contrato do serviço `acervo` usado por F-ACV-CADASTRO e F-ACV-BUSCA. Espelha
@@ -244,13 +245,20 @@ class AcervoService {
   }
 
   /// `GET /livros`: busca paginada de livros oficiais, com `page` a partir de 1. O servidor
-  /// exige `q` ou `assunto`; quem chama nunca manda os dois vazios.
-  Future<PaginaLivros> buscarLivros({String? q, String? assuntoId, int page = 1}) async {
+  /// exige ao menos um critério (texto, assunto ou filtro); quem chama nunca manda todos vazios.
+  /// Dos [filtros] (RF-ACV-03), só vão os preenchidos.
+  Future<PaginaLivros> buscarLivros({
+    String? q,
+    String? assuntoId,
+    FiltrosDaBusca filtros = FiltrosDaBusca.nenhum,
+    int page = 1,
+  }) async {
     final caminho = Uri(
       path: '/livros',
       queryParameters: <String, String>{
         'q': ?q,
         'assunto': ?assuntoId,
+        ...filtros.parametros,
         'page': '$page',
         'limit': '$tamanhoDaPaginaDeLivros',
       },
@@ -277,6 +285,33 @@ class AcervoService {
       throw _respostaInvalida(correlationId);
     }
     return livro;
+  }
+
+  /// `GET /autores/{id}` (RF-ACV-10): biografia e livros oficiais do autor, paginados.
+  Future<PaginaDeCatalogo> obterAutor(String id, {int page = 1}) =>
+      _obterCatalogo('autores', id, page);
+
+  /// `GET /editoras/{id}` (RF-ACV-11): livros oficiais da editora, paginados.
+  Future<PaginaDeCatalogo> obterEditora(String id, {int page = 1}) =>
+      _obterCatalogo('editoras', id, page);
+
+  /// `GET /series/{id}` (RF-ACV-12): livros da série pelo número de ordem, paginados.
+  Future<PaginaDeCatalogo> obterSerie(String id, {int page = 1}) =>
+      _obterCatalogo('series', id, page);
+
+  Future<PaginaDeCatalogo> _obterCatalogo(String recurso, String id, int page) async {
+    final caminho = Uri(
+      path: '/$recurso/${Uri.encodeComponent(id)}',
+      queryParameters: <String, String>{'page': '$page', 'limit': '$tamanhoDaPaginaDeLivros'},
+    ).toString();
+    final correlationId = ApiClient.newCorrelationId();
+    final pagina = PaginaDeCatalogo.deJson(
+      await client.getJson(caminho, correlationId: correlationId),
+    );
+    if (pagina == null) {
+      throw _respostaInvalida(correlationId);
+    }
+    return pagina;
   }
 
   /// `GET /livros/{id}/resenhas`: as próximas resenhas, por cursor.

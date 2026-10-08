@@ -6,6 +6,7 @@ import '../../core/network/api_client.dart';
 import '../livros/acervo_service.dart';
 import '../livros/livro_oficial.dart';
 import 'agrupar_edicoes.dart';
+import 'filtros_da_busca.dart';
 
 enum EstadoDaBusca { aterrissagem, buscando, resultados, vazio, erro }
 
@@ -20,6 +21,8 @@ enum EstadoDaBusca { aterrissagem, buscando, resultados, vazio, erro }
 ///   não apaga as anteriores.
 /// - Cold start é carregamento (RNF-ERR-09): depois de 3 s a tela ganha a frase de servidor
 ///   iniciando, sem virar erro.
+/// - **Filtros avançados** (F-ACV-DESCOBERTA, RF-ACV-03) somam ao texto e ao assunto, e qualquer
+///   critério basta: o servidor aceita busca só com filtros.
 class BuscaDeLivrosController extends ChangeNotifier {
   static const Duration espera = Duration(milliseconds: 350);
   static const Duration limiteDoColdStart = Duration(seconds: 3);
@@ -34,6 +37,9 @@ class BuscaDeLivrosController extends ChangeNotifier {
   AssuntoResumo? assunto;
   List<AssuntoResumo> assuntos = const <AssuntoResumo>[];
 
+  /// Os filtros aplicados, não o que está digitado na folha.
+  FiltrosDaBusca filtros = FiltrosDaBusca.nenhum;
+
   List<LivroOficialResumo> livros = const <LivroOficialResumo>[];
   List<GrupoDeEdicoes> grupos = const <GrupoDeEdicoes>[];
   int totalItens = 0;
@@ -46,6 +52,7 @@ class BuscaDeLivrosController extends ChangeNotifier {
 
   /// O assunto da busca atual: a página seguinte continua ela, não o que mudou depois.
   AssuntoResumo? _assuntoBuscado;
+  FiltrosDaBusca _filtrosBuscados = FiltrosDaBusca.nenhum;
   int _proximaPagina = 1;
   int _totalPaginas = 0;
   bool _descartado = false;
@@ -64,6 +71,8 @@ class BuscaDeLivrosController extends ChangeNotifier {
     return aparado.length >= minimoDeCaracteres ? aparado : null;
   }
 
+  bool get _semCriterio => _termo == null && assunto == null && filtros.vazio;
+
   Future<void> carregarAssuntos() async {
     if (_carregandoAssuntos || assuntos.isNotEmpty) {
       return;
@@ -75,6 +84,11 @@ class BuscaDeLivrosController extends ChangeNotifier {
         return;
       }
       assuntos = lista;
+      // O assunto que veio de fora (a ficha do livro) chega só com o id: ganha o nome aqui.
+      final pendente = assunto;
+      if (pendente != null && pendente.nome.isEmpty) {
+        assunto = lista.where((item) => item.id == pendente.id).firstOrNull ?? pendente;
+      }
       _avisar();
     } on ApiException {
       // Sem a faixa de assuntos a busca por texto continua funcionando; a próxima busca tenta
@@ -91,7 +105,7 @@ class BuscaDeLivrosController extends ChangeNotifier {
     }
     consulta = texto;
     _debounce?.cancel();
-    if (_termo == null && assunto == null) {
+    if (_semCriterio) {
       _voltarParaAterrissagem();
       return;
     }
@@ -105,6 +119,26 @@ class BuscaDeLivrosController extends ChangeNotifier {
   /// Seleção única: tocar no assunto ativo o remove (descobrir.md §4.2).
   void alternarAssunto(AssuntoResumo escolhido) {
     assunto = assunto?.id == escolhido.id ? null : escolhido;
+    _buscarAgora();
+  }
+
+  /// Vindos da folha, já validados: a busca sai na hora, sem debounce.
+  void aplicarFiltros(FiltrosDaBusca novos) {
+    filtros = novos;
+    _buscarAgora();
+  }
+
+  void removerFiltro(ChaveDoFiltro chave) => aplicarFiltros(filtros.sem(chave));
+
+  void limparFiltros() => aplicarFiltros(FiltrosDaBusca.nenhum);
+
+  /// O assunto tocado na ficha do livro (RF-ACV-21): a busca recomeça só por ele, como na web.
+  void aplicarAssunto(String assuntoId) {
+    consulta = '';
+    filtros = FiltrosDaBusca.nenhum;
+    assunto =
+        assuntos.where((item) => item.id == assuntoId).firstOrNull ??
+        AssuntoResumo(id: assuntoId, nome: '');
     _buscarAgora();
   }
 
@@ -127,6 +161,7 @@ class BuscaDeLivrosController extends ChangeNotifier {
       final pagina = await _servico.buscarLivros(
         q: _termoBuscado,
         assuntoId: _assuntoBuscado?.id,
+        filtros: _filtrosBuscados,
         page: _proximaPagina,
       );
       if (minha != _geracao || _descartado) {
@@ -154,7 +189,7 @@ class BuscaDeLivrosController extends ChangeNotifier {
 
   void _buscarAgora() {
     _debounce?.cancel();
-    if (_termo == null && assunto == null) {
+    if (_semCriterio) {
       _voltarParaAterrissagem();
       return;
     }
@@ -165,6 +200,7 @@ class BuscaDeLivrosController extends ChangeNotifier {
     final minha = ++_geracao;
     _termoBuscado = _termo;
     _assuntoBuscado = assunto;
+    _filtrosBuscados = filtros;
     _timerDoColdStart?.cancel();
     estado = EstadoDaBusca.buscando;
     coldStart = false;
@@ -179,7 +215,11 @@ class BuscaDeLivrosController extends ChangeNotifier {
       }
     });
     try {
-      final pagina = await _servico.buscarLivros(q: _termo, assuntoId: assunto?.id);
+      final pagina = await _servico.buscarLivros(
+        q: _termo,
+        assuntoId: assunto?.id,
+        filtros: filtros,
+      );
       if (minha != _geracao || _descartado) {
         return;
       }
