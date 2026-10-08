@@ -263,7 +263,7 @@ const anuncio = computed(() => {
       </div>
     </SobreposicaoModal>
 
-    <div class="mt-space-4 flex flex-col md:mt-space-3 md:grid md:grid-cols-[240px_minmax(0,1fr)] md:gap-x-space-8 md:gap-y-space-3">
+    <div class="mt-space-4 flex flex-col md:mt-space-3 md:grid md:grid-cols-[280px_minmax(0,1fr)] md:gap-x-space-8 md:gap-y-space-3">
       <!-- Coluna da esquerda a partir de 768px: Filtros (recolhível, começa fechado) e Assuntos. -->
       <div class="md:col-start-1 md:row-start-1 md:self-start">
         <template v-if="largo">
@@ -437,12 +437,13 @@ const anuncio = computed(() => {
             class="mt-space-4 md:mt-0"
           >
             Não foi possível carregar os resultados. Verifique sua conexão e tente de novo.
-            <BotaoTextual
-              class="mt-space-2"
-              @click="busca.tentarDeNovo()"
-            >
-              Tentar de novo
-            </BotaoTextual>
+            <!-- Em linha própria: o botão na linha do texto a deixava mais alta, e o texto
+                 descia em relação ao ícone. -->
+            <span class="mt-space-1 flex">
+              <BotaoTextual @click="busca.tentarDeNovo()">
+                Tentar de novo
+              </BotaoTextual>
+            </span>
           </BannerAviso>
         </section>
       </div>

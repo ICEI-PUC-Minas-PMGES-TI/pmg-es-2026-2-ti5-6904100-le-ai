@@ -304,12 +304,13 @@ function voltar(): void {
             class="mt-space-4"
           >
             Não foi possível carregar mais livros. Verifique sua conexão e tente de novo.
-            <BotaoTextual
-              class="mt-space-2"
-              @click="catalogo.carregarMais()"
-            >
-              Tentar de novo
-            </BotaoTextual>
+            <!-- Em linha própria: o botão na linha do texto a deixava mais alta, e o texto
+                 descia em relação ao ícone. -->
+            <span class="mt-space-1 flex">
+              <BotaoTextual @click="catalogo.carregarMais()">
+                Tentar de novo
+              </BotaoTextual>
+            </span>
           </BannerAviso>
           <FimDaLista
             v-else-if="temMais"

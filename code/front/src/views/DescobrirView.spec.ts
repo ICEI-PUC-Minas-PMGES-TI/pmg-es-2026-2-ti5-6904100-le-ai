@@ -384,13 +384,14 @@ describe('DescobrirView', () => {
       const titulo = wrapper.get('button[aria-controls="filtros-painel-corpo"]')
       expect(titulo.attributes('aria-expanded')).toBe('false')
       expect(titulo.text()).toContain('Filtros · 2 ativos')
-      expect(wrapper.get('#filtros-painel-corpo').isVisible()).toBe(false)
+      expect(wrapper.get('#filtros-painel-corpo').attributes('inert')).toBeDefined()
       const html = wrapper.html()
       expect(html.indexOf('filtros-painel-titulo')).toBeLessThan(html.indexOf('titulo-assuntos'))
 
       await titulo.trigger('click')
       expect(titulo.attributes('aria-expanded')).toBe('true')
-      expect(wrapper.get('#filtros-painel-corpo').isVisible()).toBe(true)
+      expect(wrapper.get('#filtros-painel-corpo').attributes('inert')).toBeUndefined()
+      expect(wrapper.get('#filtros-painel-corpo').classes()).toContain('aberto')
       expect((wrapper.get('#filtros-painel-editora').element as HTMLInputElement).value).toBe('Pallas')
     })
 

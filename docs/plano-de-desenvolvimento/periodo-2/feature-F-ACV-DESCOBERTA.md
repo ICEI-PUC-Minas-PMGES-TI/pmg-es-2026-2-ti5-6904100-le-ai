@@ -165,6 +165,7 @@ A biografia fica **no idioma da fonte**: a OpenLibrary costuma devolver em ingl�
   - **Web, faixa de páginas:** os dois campos ficam lado a lado também no painel, como no protótipo renderizado. O `descobrir.md` diz "um embaixo do outro".
   - **Web, bloco Filtros (decisão do dono, 07/10/2026):** fica no topo do painel, acima de `Assuntos`, e é recolhível. Ele começa fechado, e o título mostra `Filtros · N ativos`. O protótipo põe o bloco abaixo de `Assuntos` e sempre aberto.
   - **Web, sufixo da faixa (decisão do dono, 07/10/2026):** fica `págs`, e não `páginas`. Com `páginas`, os dígitos ficavam cortados nos campos de cerca de 110px do painel. O mobile mantém `páginas`.
+  - **Web, largura do painel (decisão do dono, 07/10/2026):** 280px, não os 240px do protótipo. Assim os campos de mínimo e máximo ficam com espaço para os dígitos.
   - **Mobile, header da página de catálogo:** mostra o tipo (`Autor`, `Editora`, `Série`), e o nome vem abaixo, marcado como cabeçalho. Na web o tipo aparece só abaixo de 768px, junto da seta, e o `h1` é o nome. No mobile web ficam dois `h1`, o do tipo e o do nome.
   - **Mobile, aba das páginas de catálogo:** abertas da ficha de um livro na aba Perfil, ficam no Perfil (`/perfil/autor/:id`), como a própria página do livro. O protótipo diz que a aba ativa continua sendo Descobrir. Na web elas ficam sempre sob `/descobrir`.
   - **Assunto tocado na ficha:** abre o Descobrir só com aquele assunto e limpa o texto e os filtros. É o comportamento da URL `/descobrir?assunto=<id>` nas duas plataformas.
@@ -200,6 +201,10 @@ A biografia fica **no idioma da fonte**: a OpenLibrary costuma devolver em ingl�
 ### Ajustes na web 07/10/2026: conferência no navegador pelo dono.
 - **Layout do Descobrir:** com filtro ativo, os chips e os resultados desciam para o meio da página. O painel lateral ocupava duas linhas do grid, e o navegador repartia a altura dele entre a linha dos chips e a dos resultados. Agora chips, contagem e resultados são um bloco só na coluna da direita.
 - **Filtros:** o bloco foi para cima de `Assuntos`, ficou recolhível (começa fechado) e o sufixo virou `págs`. O `CampoTexto` reserva à direita o espaço do sufixo.
+- Segunda rodada:
+  - o painel passou para 280px;
+  - o bloco Filtros anima ao recolher e expandir (altura e opacidade em `dur-base`, seta girando) e, fechado, fica `inert`;
+  - o `Tentar de novo` dos avisos de erro do Descobrir e da página de catálogo foi para uma linha própria, porque estava desalinhando o texto do ícone.
 - 734 testes; lint e build verdes.
 
 ### Migration 02/10/2026: `0005` aplicada no banco de dev (`le-ai`, São Paulo) pelo dono, com `npm run db:migrate`. Próximo passo de dados: rodar o script `biografias` com o dump de autores.
