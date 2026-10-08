@@ -136,4 +136,28 @@ describe('ExcluirContaView', () => {
     const [primeira, segunda] = vi.mocked(authService.solicitarExclusao).mock.calls
     expect(segunda![1]).toBe(primeira![1])
   })
+
+  it('enquanto o servidor acorda, mostra Excluindo e o aviso de cold start, sem erro', async () => {
+    vi.mocked(authService.solicitarExclusao).mockReturnValue(new Promise(() => {}))
+    const { wrapper } = montar()
+    await preencher(wrapper)
+
+    await confirmar(wrapper)
+    expect(botaoExcluir(wrapper).text()).toBe('Excluindo')
+    expect(wrapper.text()).toContain('O servidor está iniciando. Isso pode levar alguns segundos.')
+    expect(wrapper.text()).not.toContain('Não foi possível pedir a exclusão.')
+  })
+
+  it('timeout vira o erro de envio, com a senha preservada', async () => {
+    vi.mocked(authService.solicitarExclusao).mockRejectedValueOnce(
+      new ApiError('O servidor demorou para responder. Tente novamente.', 0, 'TEMPO_LIMITE_EXCEDIDO'),
+    )
+    const { wrapper } = montar()
+    await preencher(wrapper)
+
+    await confirmar(wrapper)
+    expect(wrapper.text()).toContain('Não foi possível pedir a exclusão.')
+    expect((wrapper.get('input[type="password"]').element as HTMLInputElement).value).toBe('senha-bem-comprida')
+    expect(getToken()).toBe('jwt')
+  })
 })

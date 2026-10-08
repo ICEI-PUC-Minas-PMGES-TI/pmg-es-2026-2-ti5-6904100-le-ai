@@ -132,4 +132,30 @@ describe('RecuperarContaView', () => {
     expect(acessoDeRecuperacao()).toBeNull()
     expect(router.currentRoute.value.path).toBe('/login')
   })
+
+  it('enquanto o servidor acorda, mostra Cancelando e o aviso de cold start', async () => {
+    vi.mocked(authService.cancelarExclusao).mockReturnValue(new Promise(() => {}))
+    guardarAcessoDeRecuperacao(acesso())
+    const { wrapper } = await montar()
+
+    await botao(wrapper, 'Cancelar exclusão').trigger('click')
+    await flushPromises()
+
+    expect(botao(wrapper, 'Cancelando')).toBeDefined()
+    expect(wrapper.text()).toContain('O servidor está iniciando. Isso pode levar alguns segundos.')
+  })
+
+  it('timeout mantém a exclusão agendada e o acesso, sem tratar como acesso vencido', async () => {
+    vi.mocked(authService.cancelarExclusao).mockRejectedValueOnce(
+      new ApiError('O servidor demorou para responder. Tente novamente.', 0, 'TEMPO_LIMITE_EXCEDIDO'),
+    )
+    guardarAcessoDeRecuperacao(acesso())
+    const { wrapper } = await montar()
+
+    await botao(wrapper, 'Cancelar exclusão').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Não foi possível cancelar a exclusão.')
+    expect(acessoDeRecuperacao()).not.toBeNull()
+  })
 })

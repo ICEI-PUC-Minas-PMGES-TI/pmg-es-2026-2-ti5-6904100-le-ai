@@ -130,14 +130,21 @@ class _LoginPageState extends State<LoginPage> {
 
     setState(() => _enviando = true);
     try {
-      final sessao = await widget.authService.entrar(
+      final resultado = await widget.authService.entrar(
         identificador: _identificadorController.text.trim(),
         senha: _senhaController.text,
       );
-      await widget.sessionController.entrar(
-        sessao.accessToken,
-        refreshToken: sessao.refreshToken,
-      );
+      switch (resultado) {
+        case LoginComSessao(:final sessao):
+          await widget.sessionController.entrar(
+            sessao.accessToken,
+            refreshToken: sessao.refreshToken,
+          );
+        case LoginDeRecuperacao(:final acesso):
+          // Conta em exclusão (F-CONTA-2): sem sessão. A guarda de rota leva à recuperação.
+          widget.sessionController.guardarRecuperacao(acesso);
+          return;
+      }
       if (!mounted) {
         return;
       }
