@@ -149,18 +149,18 @@ A biografia fica **no idioma da fonte**: a OpenLibrary costuma devolver em ingl�
 - [x] **Spec OpenAPI de `acervo` atualizado em `docs/api/acervo.yaml`** com os filtros de `GET /livros` e os endpoints de autor/editora/série — 02/10/2026
 - [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
 - [ ] Arquivo da feature atualizado: status, pendências, timeline
-- [x] Divergência protótipo × implementação registrada, se houver (Pendências, 07/10/2026; a ratificar)
+- [x] Divergência protótipo × implementação registrada, se houver (Pendências, ratificadas em 07/10/2026)
 
 ## Pendências
 
 - **Backend pronto em 02/10/2026; web e mobile em 07/10/2026.** Antes do merge em `desenvolvimento`:
-  - **aviso ao Renato**, integrador da página do livro, de que `LivroOficialDetalhe` ganhou `editoraId` e `serie`, só como acréscimos (a F-ACV-NOTA mexe no mesmo DTO). Avise também que a tela dele mudou nas duas plataformas:
+  - **aviso ao Renato**, integrador da página do livro (alerta deixado nas Pendências da [F-ACV-NOTA](feature-F-ACV-NOTA.md) em 07/10/2026), de que `LivroOficialDetalhe` ganhou `editoraId` e `serie`, só como acréscimos (a F-ACV-NOTA mexe no mesmo DTO). Avise também que a tela dele mudou nas duas plataformas:
     - **web:** a ficha de `LivroOficialView.vue` aceita linha com link e complemento, e há a seção `Assuntos` depois da sinopse;
     - **mobile:** a `_Ficha` de `livro_oficial_page.dart` foi reescrita com links, e há a `_Secao('Assuntos')`.
     - Registrado também nos `AGENTS.md` de `code/front` e `code/mobile`;
   - **conferir em execução real** (web no navegador, mobile no emulador), que não foi feito nesta sessão;
   - **rodar o script `biografias`** em dev e, depois do merge na `main`, em DES (seção "Como carregar as biografias").
-- **Divergências protótipo × implementação (web e mobile, 07/10/2026)**, escolhidas na sessão de implementação, **a ratificar pelo dono**:
+- **Divergências protótipo × implementação (web e mobile, 07/10/2026)**, escolhidas na sessão de implementação e **ratificadas pelo dono em 07/10/2026**:
   - **Web, página de catálogo:** fica a seta de voltar do header, como na página do livro. O protótipo não tem voltar na web.
   - **Web, faixa de páginas:** os dois campos ficam lado a lado também no painel, como no protótipo renderizado. O `descobrir.md` diz "um embaixo do outro".
   - **Mobile, header da página de catálogo:** mostra o tipo (`Autor`, `Editora`, `Série`), e o nome vem abaixo, marcado como cabeçalho. Na web o tipo aparece só abaixo de 768px, junto da seta, e o `h1` é o nome. No mobile web ficam dois `h1`, o do tipo e o do nome.
