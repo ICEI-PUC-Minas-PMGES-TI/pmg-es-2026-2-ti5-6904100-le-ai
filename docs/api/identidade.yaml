@@ -21,8 +21,15 @@ info:
 
     A conta administradora é fixa, única e provisionada por variáveis de ambiente.
     Ela usa `POST /auth/login`; não existe cadastro nem endpoint de login separado
-    para administradores. Exclusão e recuperação de conta (RF-AUT-07) pertencem ao
-    Período 2 e não fazem parte deste contrato.
+    para administradores.
+
+    Exclusão e recuperação de conta (RF-AUT-07, RN-23) entram no Período 2 por
+    F-CONTA-2, com status `planned` até a implementação: `DELETE /me/conta` abre
+    a janela de 30 dias; durante ela, `POST /auth/login` devolve um acesso de
+    recuperação (`tipo: recuperacao_exclusao`) que só serve em
+    `POST /me/conta/cancelar-exclusao`; vencido o prazo, o job interno
+    `POST /internal/jobs/exclusao-conta` remove a identidade e publica
+    `conta.excluida` para os demais serviços.
 
     Recursos protegidos exigem `Authorization: Bearer <token>`. Escritas aceitam
     `Idempotency-Key`: repetir chave e payload devolve o resultado original sem
@@ -74,6 +81,10 @@ tags:
     description: Cadastro, autenticação e gerenciamento de credenciais
   - name: usuario
     description: Identidade do leitor autenticado
+  - name: conta
+    description: Exclusão e recuperação da conta (F-CONTA-2)
+  - name: interno
+    description: Endpoints chamados pelo agendador, fora do uso dos clientes
   - name: perfil
     description: Perfil público, edição e busca exata
   - name: seguimento
@@ -140,6 +151,13 @@ paths:
         progressivo (`429`). A conta administradora fixa usa este mesmo fluxo com
         credenciais fortes vindas do ambiente e recebe `papel: admin` no token de
         acesso; usuários comuns não podem adquirir esse papel.
+
+        F-CONTA-2 (planned): conta com exclusão pendente e senha válida recebe
+        `AcessoDeRecuperacao` (`tipo: recuperacao_exclusao`) em vez de `Sessao`:
+        token de 15 minutos assinado com chave própria, sem token de renovação,
+        aceito somente em `POST /me/conta/cancelar-exclusao` e recusado com `401`
+        por todas as demais rotas de todos os serviços (RN-23.3). O cliente
+        distingue as duas respostas pelo campo `tipo`.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -150,11 +168,20 @@ paths:
               $ref: '#/components/schemas/LoginRequisicao'
       responses:
         '200':
-          description: Sessão emitida, com token de acesso e token de renovação.
+          description: >-
+            Sessão emitida, com token de acesso e token de renovação; ou, para
+            conta com exclusão pendente, acesso de recuperação.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Sessao'
+                oneOf:
+                  - $ref: '#/components/schemas/Sessao'
+                  - $ref: '#/components/schemas/AcessoDeRecuperacao'
+                discriminator:
+                  propertyName: tipo
+                  mapping:
+                    sessao: '#/components/schemas/Sessao'
+                    recuperacao_exclusao: '#/components/schemas/AcessoDeRecuperacao'
         '400':
           $ref: '#/components/responses/RequisicaoInvalida'
         '401':
@@ -188,7 +215,9 @@ paths:
         já rotacionado é tratado como vazamento e revoga todas as renovações do
         usuário. Repetir a mesma `Idempotency-Key` devolve a mesma sessão sem
         contar como reuso; renovações simultâneas com chaves diferentes contam, e
-        por isso o cliente deve serializá-las (por exemplo, entre abas).
+        por isso o cliente deve serializá-las (por exemplo, entre abas). Conta
+        com exclusão pendente recebe `401` (F-CONTA-2, planned): a solicitação já
+        revogou todas as renovações.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -421,6 +450,146 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UsuarioProprio'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '503':
+          $ref: '#/components/responses/ServicoIndisponivel'
+
+  /me/conta:
+    delete:
+      operationId: solicitarExclusaoConta
+      x-implementation-status: planned
+      x-implemented-by: F-CONTA-2
+      tags: [conta]
+      summary: Solicita a exclusão da própria conta (RF-AUT-07)
+      description: >-
+        RN-23.1 a 23.3: exige o token de acesso normal, a senha atual,
+        `confirmacao: true` e `Idempotency-Key`. Abre a janela de recuperação de
+        30 dias: grava a data da solicitação e a prevista, cria o recibo técnico
+        sem dado pessoal, revoga todos os tokens de renovação e oculta conta,
+        perfil e conteúdo pelas VIEWs de contrato, sem apagar dados. Username e
+        e-mail continuam reservados. Senha errada responde `422`; depois de 5
+        erros em 15 minutos para a mesma conta, `429`. A conta administradora
+        não pode ser excluída (`403`). Registrado em auditoria apenas com o id
+        do usuário (RNF-SEC-35/36).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SolicitarExclusaoRequisicao'
+      responses:
+        '202':
+          description: Exclusão agendada; a conta fica oculta até a remoção definitiva.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExclusaoSolicitada'
+        '400':
+          $ref: '#/components/responses/RequisicaoInvalida'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          description: Conta administradora, que não pode ser excluída.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '409':
+          $ref: '#/components/responses/IdempotenciaEmConflito'
+        '422':
+          description: >-
+            Senha atual incorreta, com o código `ENTIDADE_NAO_PROCESSAVEL`. A
+            conta continua como estava.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '429':
+          $ref: '#/components/responses/LimiteExcedido'
+        '503':
+          $ref: '#/components/responses/ServicoIndisponivel'
+
+  /me/conta/cancelar-exclusao:
+    post:
+      operationId: cancelarExclusaoConta
+      x-implementation-status: planned
+      x-implemented-by: F-CONTA-2
+      tags: [conta]
+      summary: Cancela a exclusão pendente dentro do prazo (RN-23.4)
+      description: >-
+        Aceita somente o acesso de recuperação emitido pelo login de conta com
+        exclusão pendente; o token de acesso normal responde `401`. Limpa a
+        solicitação, marca o recibo como cancelado e restaura a visibilidade
+        pelas VIEWs, sem recriar dados nem publicar evento. Não emite sessão: o
+        cliente volta ao login. Depois que o job finalizou a conta, o acesso de
+        recuperação deixa de existir com ela; se a chamada chegar com o prazo
+        vencido e a conta ainda não finalizada, a resposta é `410`.
+      security:
+        - recuperacaoAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: Exclusão cancelada; a conta volta ao normal no próximo login.
+        '400':
+          $ref: '#/components/responses/RequisicaoInvalida'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '409':
+          $ref: '#/components/responses/IdempotenciaEmConflito'
+        '410':
+          description: Prazo de recuperação vencido, com o código `RECURSO_EXPIRADO`.
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '503':
+          $ref: '#/components/responses/ServicoIndisponivel'
+
+  /internal/jobs/exclusao-conta:
+    post:
+      operationId: finalizarExclusoesVencidas
+      x-implementation-status: planned
+      x-implemented-by: F-CONTA-2
+      tags: [interno]
+      summary: Job diário que finaliza exclusões vencidas (RN-23.5)
+      description: >-
+        Chamado pelo agendador (GitHub Actions `schedule`, fallback
+        cron-job.org) com `X-Scheduler-Token`; sem ele ou com valor errado,
+        `401`. Para cada recibo pendente com prazo vencido, em uma transação:
+        remove usuário, tokens, grafo social e tentativas de login, anonimiza
+        recibo, respostas idempotentes e eventos que citam a conta, e grava
+        `conta.excluida` na outbox. Depois do commit, apaga o avatar no
+        Cloudinary. Não aceita data de referência: nenhuma chamada consegue
+        finalizar uma conta antes dos 30 dias. Repetir a chamada não repete
+        efeito, porque só recibos pendentes e vencidos são processados.
+      security:
+        - schedulerToken: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Execução concluída.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultadoJobExclusao'
+        '400':
+          $ref: '#/components/responses/RequisicaoInvalida'
         '401':
           $ref: '#/components/responses/NaoAutenticado'
         '503':
@@ -883,6 +1052,23 @@ components:
         `username` e `papel` (`leitor` ou `admin`, sempre presente). Os demais
         serviços validam a assinatura com o mesmo segredo e leem `papel` para
         restringir rotas ao administrador.
+    recuperacaoAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >-
+        F-CONTA-2 (planned). Acesso de recuperação de 15 minutos emitido por
+        `POST /auth/login` para conta com exclusão pendente. JWT HS256 assinado
+        com segredo próprio (`JWT_RECUPERACAO_SECRET`), que só o identidade
+        conhece, com `escopo: recuperacao_exclusao`. Por isso as demais rotas e
+        os demais serviços o recusam pela assinatura, sem mudança neles.
+    schedulerToken:
+      type: apiKey
+      in: header
+      name: X-Scheduler-Token
+      description: >-
+        Segredo compartilhado com o agendador (`SCHEDULER_TOKEN`), comparado em
+        tempo constante, como no job de inatividade do leitura.
 
   headers:
     CorrelationId:
@@ -1203,6 +1389,76 @@ components:
               description: >-
                 Token opaco, rotativo e revogável, de 43 caracteres base64url,
                 válido por 30 dias. Cada uso em `/auth/refresh` o invalida.
+            tipo:
+              type: string
+              enum: [sessao]
+              description: >-
+                F-CONTA-2 (planned). Distingue a sessão normal do acesso de
+                recuperação na resposta do login.
+
+    AcessoDeRecuperacao:
+      description: >-
+        F-CONTA-2 (planned). Resposta do login para conta com exclusão pendente.
+        Sem token de renovação; o token só vale para cancelar a exclusão.
+      allOf:
+        - $ref: '#/components/schemas/Token'
+        - type: object
+          required:
+            [tipo, exclusaoSolicitadaEm, exclusaoPrevistaEm, username, nomeExibicao]
+          properties:
+            tipo:
+              type: string
+              enum: [recuperacao_exclusao]
+            exclusaoSolicitadaEm:
+              type: string
+              format: date-time
+            exclusaoPrevistaEm:
+              type: string
+              format: date-time
+              description: Data da remoção definitiva, 30 dias após a solicitação.
+            username:
+              $ref: '#/components/schemas/Username'
+            nomeExibicao:
+              type: string
+
+    SolicitarExclusaoRequisicao:
+      type: object
+      additionalProperties: false
+      required: [senha, confirmacao]
+      properties:
+        senha:
+          type: string
+          minLength: 1
+          maxLength: 128
+          format: password
+          description: Senha atual, nunca registrada em log.
+        confirmacao:
+          type: boolean
+          enum: [true]
+          description: Confirmação explícita de que a exclusão vira definitiva após 30 dias.
+
+    ExclusaoSolicitada:
+      type: object
+      additionalProperties: false
+      required: [exclusaoSolicitadaEm, exclusaoPrevistaEm]
+      properties:
+        exclusaoSolicitadaEm:
+          type: string
+          format: date-time
+        exclusaoPrevistaEm:
+          type: string
+          format: date-time
+          description: Data da remoção definitiva, exatamente 30 dias após a solicitação.
+
+    ResultadoJobExclusao:
+      type: object
+      additionalProperties: false
+      required: [finalizadas]
+      properties:
+        finalizadas:
+          type: integer
+          minimum: 0
+          description: Contas finalizadas nesta execução.
 
     MensagemResposta:
       type: object
