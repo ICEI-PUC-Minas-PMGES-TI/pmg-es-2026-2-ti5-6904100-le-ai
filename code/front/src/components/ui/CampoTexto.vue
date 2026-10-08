@@ -62,7 +62,8 @@ const props = withDefaults(
     erroAntesDoHelper?: boolean
     /**
      * Unidade dentro do campo, à direita, em `caption` `grafite-suave` (descobrir.md do Período 2:
-     * `páginas` na faixa dos filtros). Decorativa: o label já diz a unidade.
+     * `págs` na faixa dos filtros). Decorativa: o label já diz a unidade. O campo reserva à direita
+     * o espaço do texto, para os dígitos não passarem por baixo dele.
      */
     sufixo?: string
   }>(),
@@ -159,12 +160,13 @@ const idDescricao = computed(() => {
           erro || bordaDeErro
             ? 'border-[1.5px] border-rubi'
             : 'border border-linha focus:border-[1.5px] focus:border-musgo',
-          sufixo ? 'pr-[4.5rem]' : $slots.trailing || type === 'date' ? 'pr-space-10' : '',
+          sufixo ? '' : $slots.trailing || type === 'date' ? 'pr-space-10' : '',
           type === 'date' ? 'campo-data' : '',
           icone ? 'pl-11' : '',
           mono ? 'font-mono tabular-nums' : '',
           somenteLeitura ? 'text-grafite' : 'text-tinta',
         ]"
+        :style="sufixo ? { paddingRight: `calc(1rem + ${sufixo.length + 2}ch)` } : undefined"
         @input="aoDigitar"
         @blur="emit('blur')"
       >

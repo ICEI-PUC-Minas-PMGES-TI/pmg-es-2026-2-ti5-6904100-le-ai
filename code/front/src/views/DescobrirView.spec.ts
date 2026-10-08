@@ -329,6 +329,17 @@ describe('DescobrirView', () => {
       expect(naFolha('#filtros-folha-paginas-max').getAttribute('aria-invalid')).toBe('true')
     })
 
+    it('a faixa usa o sufixo curto "págs"', async () => {
+      const montagem = await montarNaRota('/descobrir')
+      await flushPromises()
+      await abrirFolha(montagem)
+
+      const sufixos = [...document.body.querySelectorAll('[role="dialog"] form span[aria-hidden="true"]')]
+        .map((sufixo) => sufixo.textContent?.trim())
+        .filter((texto) => texto?.startsWith('pág'))
+      expect(sufixos).toEqual(['págs', 'págs'])
+    })
+
     it('abre com os filtros da URL, e remover um chip tira só aquele filtro', async () => {
       const { wrapper, router } = await montarNaRota('/descobrir?editora=Pallas&ano=2003')
       await flushPromises()
@@ -360,12 +371,45 @@ describe('DescobrirView', () => {
       expect(wrapper.text()).not.toContain('Nenhum livro')
     })
 
+    async function abrirPainel(wrapper: Montagem['wrapper']) {
+      const titulo = wrapper.get('button[aria-controls="filtros-painel-corpo"]')
+      await titulo.trigger('click')
+      return wrapper.get('form[aria-labelledby="filtros-painel-titulo"]')
+    }
+
+    it('web: Filtros fica acima de Assuntos, recolhido ao abrir, e mostra quantos estão ativos', async () => {
+      const { wrapper } = await montarNaRota('/descobrir?editora=Pallas&ano=2003', { largo: true })
+      await flushPromises()
+
+      const titulo = wrapper.get('button[aria-controls="filtros-painel-corpo"]')
+      expect(titulo.attributes('aria-expanded')).toBe('false')
+      expect(titulo.text()).toContain('Filtros · 2 ativos')
+      expect(wrapper.get('#filtros-painel-corpo').isVisible()).toBe(false)
+      const html = wrapper.html()
+      expect(html.indexOf('filtros-painel-titulo')).toBeLessThan(html.indexOf('titulo-assuntos'))
+
+      await titulo.trigger('click')
+      expect(titulo.attributes('aria-expanded')).toBe('true')
+      expect(wrapper.get('#filtros-painel-corpo').isVisible()).toBe(true)
+      expect((wrapper.get('#filtros-painel-editora').element as HTMLInputElement).value).toBe('Pallas')
+    })
+
+    it('web: chips, contagem e resultados ficam num bloco só, ao lado do painel', async () => {
+      const { wrapper } = await montarNaRota('/descobrir?editora=Pallas', { largo: true })
+      await flushPromises()
+
+      const chips = wrapper.get('[aria-label="Filtros aplicados"]')
+      const resultados = wrapper.get('section[aria-label="Resultados da busca"]')
+      expect(chips.element.parentElement).toBe(resultados.element.parentElement)
+      expect(wrapper.get('p[role="status"]').element.parentElement).toBe(resultados.element.parentElement)
+    })
+
     it('web: bloco Filtros no painel, Enter aplica e "Limpar filtros" só aparece com campo preenchido', async () => {
       const { wrapper, router } = await montarNaRota('/descobrir', { largo: true })
       await flushPromises()
 
       expect(wrapper.find('button[aria-haspopup="dialog"]').exists()).toBe(false)
-      const painel = wrapper.get('form[aria-labelledby="filtros-painel-titulo"]')
+      const painel = await abrirPainel(wrapper)
       expect(painel.text()).toContain('Aplicar filtros')
       expect(painel.text()).not.toContain('Limpar filtros')
 
@@ -382,7 +426,7 @@ describe('DescobrirView', () => {
     it('web: zero páginas mostra o erro no próprio campo ao sair dele', async () => {
       const { wrapper } = await montarNaRota('/descobrir', { largo: true })
       await flushPromises()
-      const painel = wrapper.get('form[aria-labelledby="filtros-painel-titulo"]')
+      const painel = await abrirPainel(wrapper)
 
       const minimo = painel.get('#filtros-painel-paginas-min')
       await minimo.setValue('0')
