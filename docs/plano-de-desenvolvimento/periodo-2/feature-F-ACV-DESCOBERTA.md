@@ -24,7 +24,7 @@ RNF atendidos: **RNF-DES-02** (listagens paginadas com teto server-side), **RNF-
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | implementado (02/10/2026) | migration `0005`: índice trigram do nome da série e CHECK `autor_biografia_ck`, revisada e **aplicada no banco de dev em 02/10/2026** (DES recebe no deploy da `main`). Índice de ano/páginas medido e dispensado (Timeline). Biografias carregadas pelo script `biografias` em dev em 08/10/2026 (905 de 8.126 autores); falta DES |
+| Infra | implementado (02/10/2026) | migration `0005`: índice trigram do nome da série e CHECK `autor_biografia_ck`, revisada e **aplicada no banco de dev em 02/10/2026** (DES recebe no deploy da `main`). Índice de ano/páginas medido e dispensado (Timeline). Biografias carregadas pelo script `biografias` em dev em 08/10/2026: 905 de 8.126 autores, e 896 de 7.910 depois da unificação de autores do mesmo dia. Falta DES |
 | Backend | implementado (02/10/2026) | `acervo`: filtros avançados em `GET /livros`, `GET /autores/{id}`, `GET /editoras/{id}`, `GET /series/{id}`, `editoraId` e `serie` em `GET /livros/{id}` e biografia na importação por ISBN; contrato `implemented` no `acervo.yaml` |
 | Web | implementado e em `desenvolvimento` (07/10/2026) | filtros no Descobrir (painel recolhível e folha), páginas `/descobrir/autores|editoras|series/:id` e links da ficha com `Assuntos`. Conferido pelo dono no navegador contra os serviços locais, com os ajustes da Timeline. Lint, 734 testes e build verdes |
 | Mobile | implementado e em `desenvolvimento` (07/10/2026) | mesmas telas, com as páginas sob `/descobrir` e `/perfil`. `analyze`, 531 testes e `build apk --debug` verdes; **falta conferir no emulador** |
@@ -186,6 +186,10 @@ A biografia fica **no idioma da fonte**: a OpenLibrary costuma devolver em ingl�
 - **Conferência (só leitura):** 905 de 8.126 autores com biografia, de 1.999 caracteres no máximo (teto de 2.000) e 543 em média. Entre os autores com mais livros, Stephen King, Isaac Asimov e Machado de Assis têm biografia, em inglês, como a OpenLibrary devolve (ver Pendências).
 - **Idempotência:** uma nova simulação depois da gravação deu 7.221 sem biografia, 0 com biografia no dump e 0 a atualizar.
 - **Não conferido pela API:** `GET /autores/{id}` lê a coluna direto e é coberto pelo `catalogo.int-spec.ts`. Falta DES, depois do merge na `main`.
+- **Autores duplicados (mesmo dia):** o dono achou duas "Suzanne Collins" no Descobrir. A segunda era outro registro da OpenLibrary, ligado às edições portuguesas, com a biografia de uma homônima (instrutora de marketing).
+  - A correção é da [F-ACV-INGESTAO](../periodo-1/feature-F-ACV-INGESTAO.md) (Timeline "Unificação 08/10/2026"). Os 216 duplicados foram juntados ao autor canônico em dev e DES, e as biografias de homônimos saíram com eles.
+  - Em dev ficaram **896 de 7.910 autores com biografia**. A página da Suzanne Collins tem os 7 livros e a biografia certa.
+  - Um link salvo para o id de um duplicado removido passa a dar 404.
 
 ### Web e mobile 07/10/2026: implementados na `vicenzo-features` (`47e31be` web, `af7c5d4` mobile), depois de sincronizar a branch com a `desenvolvimento` (25 commits de F-SOCIAL-2, F-NOT-2 e F-LST, por fast-forward). Antes de começar, a base estava verde: `acervo` com 299 testes no Jest 30 que o `npm audit` trouxe, front com 693 e mobile com 498.
 - **Web:** os testes foram de 693 para 731 (filtros, URL, folha e painel, chips, vazio com filtros, as três páginas com 404, erro, falha de paginação e cold start, e os links da ficha). Lint e build verdes.
