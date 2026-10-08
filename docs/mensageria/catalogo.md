@@ -23,7 +23,7 @@
 | `nota.alterada` | leitura | consumidor futuro | `nota:<usuarioId>:<livroId>` | [`nota.alterada.v1`](schemas/nota.alterada.v1.schema.json) |
 | `resenha.publicada` | leitura | social/feed | `resenha:<resenhaId>:publicada` | [`resenha.publicada.v1`](schemas/resenha.publicada.v1.schema.json) |
 | `resenha.excluida` | leitura | social/feed | `resenha:<resenhaId>:excluida` | [`resenha.excluida.v1`](schemas/resenha.excluida.v1.schema.json) |
-| `conta.excluida` | identidade | leitura/conta, social/conta, acervo/conta (F-CONTA-2, planejado) | `conta:<usuarioId>` | [`conta.excluida.v1`](schemas/conta.excluida.v1.schema.json) |
+| `conta.excluida` | identidade | leitura/conta, social/conta, acervo/conta (F-CONTA-2) | `conta:<usuarioId>` | [`conta.excluida.v1`](schemas/conta.excluida.v1.schema.json) |
 
 Eventos com consumidor futuro são publicados sem fila acumuladora. A feature consumidora executa backfill antes de criar o binding.
 
