@@ -48,6 +48,15 @@ export const vAtividadeLivroPessoal = social
   })
   .existing();
 
+/** F-LST. Só itens de listas ativas. Prova a via de acesso da lista (RN-15). */
+export const vListaLivroPessoal = social
+  .view('v_lista_livro_pessoal_v1', {
+    listaId: uuid('lista_id'),
+    donoId: uuid('dono_id'),
+    livroId: uuid('livro_id'),
+  })
+  .existing();
+
 /** F-PERFIL. Conta suspensa ou em exclusão já sai de fora da VIEW. */
 export const vPerfilReferencia = identidade
   .view('v_perfil_referencia_v1', {

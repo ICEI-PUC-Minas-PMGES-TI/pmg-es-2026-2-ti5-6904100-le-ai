@@ -113,6 +113,26 @@ describe('LivroPessoalService.obter — autorização RN-15', () => {
     expect(detalhe.modoConsulta).toBe(true);
   });
 
+  it('terceiro com via de lista válida abre em modo consulta', async () => {
+    const { servico, autorizacao } = montar({ terceiroAutorizado: true });
+    const detalhe = await servico.obter(LIVRO, TERCEIRO, {
+      via: 'lista',
+      referenciaId: ATIVIDADE,
+    });
+
+    expect(detalhe.modoConsulta).toBe(true);
+    expect(autorizacao.terceiroPodeVer).toHaveBeenCalledWith(
+      expect.objectContaining({ via: 'lista', donoId: DONO }),
+    );
+  });
+
+  it('terceiro com via de lista inválida recebe acesso negado', async () => {
+    const { servico } = montar({ terceiroAutorizado: false });
+    await expect(
+      servico.obter(LIVRO, TERCEIRO, { via: 'lista', referenciaId: ATIVIDADE }),
+    ).rejects.toBeInstanceOf(AcessoNegado);
+  });
+
   it('a verificação recebe o livro e o dono reais, não o que o cliente mandou', async () => {
     const { servico, autorizacao } = montar({ terceiroAutorizado: true });
     await servico.obter(LIVRO, TERCEIRO, {

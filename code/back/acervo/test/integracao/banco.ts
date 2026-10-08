@@ -20,6 +20,9 @@ const CONTRATOS_EXTERNOS = `
   CREATE TABLE social.v_atividade_livro_pessoal_v1 (
     atividade_id uuid, dono_id uuid, livro_id uuid
   );
+  CREATE TABLE social.v_lista_livro_pessoal_v1 (
+    lista_id uuid, dono_id uuid, livro_id uuid
+  );
   CREATE TABLE identidade.v_perfil_referencia_v1 (
     id uuid, username text, nome_exibicao text, avatar_url text,
     privacidade text, opt_out_recomendacao boolean
@@ -51,6 +54,7 @@ const TABELAS_DE_DADOS = [
   'acervo.sinonimo_editora',
   'acervo.editora',
   'social.v_atividade_livro_pessoal_v1',
+  'social.v_lista_livro_pessoal_v1',
   'identidade.v_perfil_referencia_v1',
   'identidade.v_seguimento_aceito_v1',
   'leitura.v_nota_publicacao_v1',
