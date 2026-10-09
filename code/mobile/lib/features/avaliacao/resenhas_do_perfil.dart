@@ -10,6 +10,7 @@ import '../../design/widgets/cartao_progresso.dart';
 import '../../design/widgets/estrelas_de_nota.dart';
 import '../livros/formatos.dart';
 import 'leitura_service.dart';
+import 'reacoes_da_resenha.dart';
 
 const int _porPagina = 5;
 
@@ -174,6 +175,7 @@ class _ResenhasDoPerfilState extends State<ResenhasDoPerfil> {
                 key: ValueKey<String>(item.resenha.id),
                 item: item,
                 proprio: widget.proprio,
+                leitura: widget.leitura,
                 aoAbrir: () => widget.aoAbrirLivro(item.livro),
               ),
             ],
@@ -194,12 +196,14 @@ class _ResenhasDoPerfilState extends State<ResenhasDoPerfil> {
 class _CardDaResenha extends StatefulWidget {
   final ResenhaDoPerfil item;
   final bool proprio;
+  final LeituraService leitura;
   final VoidCallback aoAbrir;
 
   const _CardDaResenha({
     super.key,
     required this.item,
     required this.proprio,
+    required this.leitura,
     required this.aoAbrir,
   });
 
@@ -297,6 +301,17 @@ class _CardDaResenhaState extends State<_CardDaResenha> {
             TextoRevelado(child: _trecho(theme, item))
           else
             _trecho(theme, item),
+          // Reações (F-AVA-2): botões no perfil de outro leitor; no meu, só as contagens.
+          const SizedBox(height: DesignTokens.space3),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: ReacoesDaResenha(
+              resenhaId: item.resenha.id,
+              reacoes: item.reacoes,
+              leitura: widget.leitura,
+              somenteLeitura: widget.proprio,
+            ),
+          ),
         ],
       ),
     );

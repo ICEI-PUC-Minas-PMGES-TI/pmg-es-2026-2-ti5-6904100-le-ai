@@ -158,6 +158,17 @@ export class ChaveIdempotenciaConflitante extends ErroDeNegocio {
   }
 }
 
+/** RF-AVA-05: só se reage à resenha de outro leitor. */
+export class ReacaoPropria extends ErroDeNegocio {
+  constructor() {
+    super(
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      'REACAO_PROPRIA',
+      'Você não pode reagir à sua própria resenha.',
+    );
+  }
+}
+
 /** O estado atual do recurso não permite a operação. */
 export class EstadoInvalido extends ErroDeNegocio {
   constructor(mensagem: string) {

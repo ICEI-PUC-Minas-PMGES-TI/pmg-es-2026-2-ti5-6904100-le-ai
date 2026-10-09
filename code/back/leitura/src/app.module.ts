@@ -19,6 +19,7 @@ import { MessagingModule } from './messaging/messaging.module';
 import { OutboxModule } from './outbox/outbox.module';
 import { PerfisModule } from './perfis/perfis.module';
 import { ProgressoModule } from './progresso/progresso.module';
+import { ReacoesModule } from './reacoes/reacoes.module';
 import { ReferenciasModule } from './referencias/referencias.module';
 
 @Module({
@@ -62,6 +63,7 @@ import { ReferenciasModule } from './referencias/referencias.module';
     OutboxModule,
     ReferenciasModule,
     AvaliacoesModule,
+    ReacoesModule,
     PerfisModule,
     EstanteModule,
     LeiturasModule,

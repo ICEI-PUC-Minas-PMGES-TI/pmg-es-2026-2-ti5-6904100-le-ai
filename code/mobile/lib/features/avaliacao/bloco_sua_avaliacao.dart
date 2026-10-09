@@ -10,6 +10,7 @@ import '../livros/formatos.dart';
 import 'avaliacao_controller.dart';
 import 'escrever_resenha_page.dart';
 import 'painel_de_nota.dart';
+import 'reacoes_da_resenha.dart';
 
 /// Bloco "Sua avaliação" da página do livro (pagina-do-livro.md §4.1, item 4, e §4.2).
 ///
@@ -103,6 +104,16 @@ class BlocoSuaAvaliacao extends StatelessWidget {
                   ),
               ],
             ),
+            // Contagens da própria resenha, só leitura, no livro oficial e no pessoal (RF-AVA-08;
+            // o protótipo do livro oficial não as mostra, divergência registrada em F-AVA-2).
+            if (resenha.reacoes != null) ...<Widget>[
+              const SizedBox(height: DesignTokens.space2),
+              ReacoesDaResenha(
+                resenhaId: resenha.id,
+                reacoes: resenha.reacoes!,
+                somenteLeitura: true,
+              ),
+            ],
             BotaoTextual(texto: 'Editar resenha', onPressed: () => _escrever(context)),
           ],
         ];

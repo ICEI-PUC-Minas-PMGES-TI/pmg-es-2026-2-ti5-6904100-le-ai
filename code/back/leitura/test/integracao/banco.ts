@@ -7,8 +7,8 @@ import { Pool } from 'pg';
  * Fixture de banco: schema `leitura` pelas migrations reais e as VIEWs de
  * contrato dos outros serviços como **tabelas comuns**.
  *
- * As VIEWs de `acervo` e `identidade` não existem num banco que só tem as
- * migrations de `leitura`. Como tabela, a leitura é idêntica — o Drizzle não
+ * As VIEWs de `acervo`, `identidade` e `social` não existem num banco que só
+ * tem as migrations de `leitura`. Como tabela, a leitura é idêntica — o Drizzle não
  * distingue view de tabela num SELECT — e a massa entra por INSERT direto. As
  * colunas são as de `src/db/contratos-externos.ts`.
  *
@@ -31,6 +31,15 @@ const CONTRATOS_EXTERNOS = `
   CREATE TABLE identidade.v_seguimento_aceito_v1 (
     seguidor_id uuid, seguido_id uuid
   );
+
+  CREATE SCHEMA social;
+
+  CREATE TABLE social.v_atividade_livro_pessoal_v1 (
+    atividade_id uuid, dono_id uuid, livro_id uuid
+  );
+  CREATE TABLE social.v_lista_livro_pessoal_v1 (
+    lista_id uuid, dono_id uuid, livro_id uuid
+  );
 `;
 
 /** Tabelas do Drizzle que guardam o histórico de migrations: nunca zerar. */
@@ -40,7 +49,7 @@ export async function prepararBanco(): Promise<Pool> {
   const admin = new Pool({ connectionString: process.env.DATABASE_URL_TESTE });
   try {
     await admin.query(`
-      DROP SCHEMA IF EXISTS leitura, acervo, identidade CASCADE;
+      DROP SCHEMA IF EXISTS leitura, acervo, identidade, social CASCADE;
       CREATE SCHEMA leitura;
       ${CONTRATOS_EXTERNOS}
     `);
@@ -65,7 +74,7 @@ export async function limpar(pool: Pool): Promise<void> {
   const { rows } = await pool.query<{ tabela: string }>(
     `SELECT format('%I.%I', schemaname, tablename) AS tabela
        FROM pg_tables
-      WHERE schemaname IN ('leitura', 'acervo', 'identidade')
+      WHERE schemaname IN ('leitura', 'acervo', 'identidade', 'social')
         AND tablename <> ALL($1)`,
     [TABELAS_PRESERVADAS],
   );

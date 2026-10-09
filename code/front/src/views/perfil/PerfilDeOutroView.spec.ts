@@ -35,6 +35,9 @@ function resenhaDoPerfil(extras: Partial<ResenhaDoPerfil> = {}): ResenhaDoPerfil
     atualizadoEm: '2026-09-12T12:00:00Z',
     livro: { id: 'livro-1', tipo: 'oficial', titulo: 'Torto Arado', autor: 'Itamar Vieira Junior', capaUrl: null },
     nota: 4.5,
+    curtidas: 0,
+    descurtidas: 0,
+    minhaReacao: null,
     ...extras,
   }
 }

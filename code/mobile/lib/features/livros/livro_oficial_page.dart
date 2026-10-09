@@ -19,6 +19,7 @@ import '../avaliacao/bloco_sua_avaliacao.dart';
 import '../avaliacao/escrever_resenha_page.dart';
 import '../avaliacao/leitura_service.dart';
 import '../avaliacao/painel_de_nota.dart';
+import '../avaliacao/reacoes_da_resenha.dart';
 import '../estante/estante_service.dart';
 import '../estante/situacao_na_estante.dart';
 import '../perfil/widgets_de_perfil.dart';
@@ -410,7 +411,7 @@ class _LivroOficialPageState extends State<LivroOficialPage> {
           ] else ...<Widget>[
             for (final (indice, resenha) in resenhas.indexed) ...<Widget>[
               if (indice > 0) const SizedBox(height: DesignTokens.space6),
-              _Resenha(key: ValueKey<String>(resenha.id), resenha: resenha),
+              _Resenha(key: ValueKey<String>(resenha.id), resenha: resenha, leitura: widget.leitura),
             ],
             if (_pagina.falhouMaisResenhas) ...<Widget>[
               const SizedBox(height: DesignTokens.space4),
@@ -725,8 +726,9 @@ class _Assuntos extends StatelessWidget {
 
 class _Resenha extends StatefulWidget {
   final ResenhaDoLivro resenha;
+  final LeituraService leitura;
 
-  const _Resenha({super.key, required this.resenha});
+  const _Resenha({super.key, required this.resenha, required this.leitura});
 
   @override
   State<_Resenha> createState() => _ResenhaState();
@@ -766,6 +768,13 @@ class _ResenhaState extends State<_Resenha> {
         Text(
           formatarData(resenha.criadoEm),
           style: theme.textTheme.bodySmall?.copyWith(color: theme.tertiaryText),
+        ),
+        // Reações (F-AVA-2), mesmo com o corpo oculto por spoiler.
+        const SizedBox(height: DesignTokens.space3),
+        ReacoesDaResenha(
+          resenhaId: resenha.id,
+          reacoes: resenha.reacoes,
+          leitura: widget.leitura,
         ),
       ],
     );

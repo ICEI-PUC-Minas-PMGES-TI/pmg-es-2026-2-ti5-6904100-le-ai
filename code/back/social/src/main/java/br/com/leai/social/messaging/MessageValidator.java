@@ -41,6 +41,7 @@ public final class MessageValidator {
           MessagingConstants.EVENTO_USUARIO_MENCIONADO,
           MessagingConstants.EVENTO_LEITURA_EM_RISCO,
           MessagingConstants.EVENTO_LEITURA_EXPIRADA,
+          MessagingConstants.EVENTO_RESENHA_CURTIDA,
           MessagingConstants.EVENTO_CONTA_EXCLUIDA);
 
   private final ObjectMapper mapper =

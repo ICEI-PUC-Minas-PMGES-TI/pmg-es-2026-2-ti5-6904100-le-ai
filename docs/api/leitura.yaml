@@ -10,8 +10,9 @@ info:
     progresso removida em 29/09/2026). Cada operação traz
     `x-implementation-status`.
     Nota e resenha pertencem ao livro, não a uma ocorrência de leitura.
-    Sessões cronometradas, favoritos, histórico, reações e Markdown não fazem
-    parte deste contrato do Período 1.
+    As reações à resenha (curtir e descurtir) estão implementadas por F-AVA-2
+    (09/10/2026). Sessões cronometradas, favoritos e histórico ainda não fazem
+    parte deste contrato.
 x-database-contracts:
   - name: v_estante_publica_v1
     x-implementation-status: implemented
@@ -28,6 +29,15 @@ x-database-contracts:
       snapshot"); a decisão está pendente com o grupo (feature-F-AVA.md).
       As colunas não mudam enquanto isso.
     columns: [resenha_id, usuario_id, livro_id, texto, spoiler, criado_em, atualizado_em, curtidas, descurtidas]
+  - name: v_reacao_resenha_v1
+    x-implementation-status: implemented
+    x-implemented-by: F-AVA-2
+    description: >-
+      Reação ativa de cada leitor a cada resenha (reação retirada não aparece).
+      O acervo a lê para devolver, junto das resenhas da página do livro oficial
+      e da resenha do dono do livro pessoal, a reação de quem está vendo
+      (`minhaReacao`). As contagens continuam em v_resenha_publicacao_v1.
+    columns: [resenha_id, usuario_id, tipo]
   - name: v_nota_publicacao_v1
     x-implementation-status: implemented
     description: >-
@@ -48,6 +58,8 @@ tags:
     description: Atualizações manuais de progresso
   - name: avaliacoes
     description: Nota e resenha do leitor para um livro
+  - name: reacoes
+    description: Curtidas e descurtidas em resenhas de outros leitores
   - name: perfis
     description: Projeções autorizadas para composição de perfil
   - name: interno
@@ -605,7 +617,9 @@ paths:
         - { $ref: '#/components/parameters/LivroId' }
       description: >-
         Nota e resenha ausentes são nulas, nunca valores inventados. Livro
-        inexistente, inativo ou pessoal de outra pessoa é 404.
+        inexistente, inativo ou pessoal de outra pessoa é 404. A resenha traz
+        as contagens de curtidas e descurtidas (F-AVA-2), que o dono vê só para
+        leitura.
       responses:
         '200':
           description: Avaliação atual, ainda que ambos os campos estejam ausentes.
@@ -615,6 +629,81 @@ paths:
         '400': { $ref: '#/components/responses/RequisicaoInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
+  /resenhas/{resenhaId}/reacao:
+    put:
+      tags: [reacoes]
+      summary: Curte ou descurte a resenha de outro leitor
+      operationId: reagirResenha
+      x-implementation-status: implemented
+      x-implemented-by: F-AVA-2
+      parameters:
+        - { $ref: '#/components/parameters/ResenhaId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      description: >-
+        Uma reação por leitor e resenha, alternável (RF-AVA-05): reagir com o
+        outro tipo troca, e reagir de novo com o mesmo tipo não grava nada. A
+        resposta traz as contagens separadas e a reação de quem pediu
+        (RF-AVA-08). O acesso é revalidado: livro oficial sob RN-08 (autor
+        público ou seguido); livro pessoal só com `via` e `referenciaId`
+        válidos (RN-15: `feed` com a atividade do dono, que exige seguimento
+        aceito, ou `lista` com a lista ativa do dono, que exige perfil público
+        ou seguimento aceito). Resenha inexistente, livro inativo, autor fora
+        da VIEW de perfil e qualquer falha de acesso são 404. Reagir à própria
+        resenha é 422 `REACAO_PROPRIA`. Conta de quem reage suspensa ou em
+        exclusão é 403. A primeira curtida do par resenha e leitor grava
+        `resenha.curtida` para o autor, na mesma transação; retirar e recurtir,
+        alternar e descurtir não publicam (decisão de 15/09/2026). A reação
+        retirada fica guardada, com `primeira_curtida_em`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReacaoEntrada' }
+      responses:
+        '200':
+          description: Estado das reações depois da escrita.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Reacoes' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/Proibido' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+        '413': { $ref: '#/components/responses/CorpoMuitoGrande' }
+        '422': { $ref: '#/components/responses/EntidadeInvalida' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+    delete:
+      tags: [reacoes]
+      summary: Retira a reação do leitor à resenha
+      operationId: removerReacaoResenha
+      x-implementation-status: implemented
+      x-implemented-by: F-AVA-2
+      parameters:
+        - { $ref: '#/components/parameters/ResenhaId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { $ref: '#/components/parameters/Via' }
+        - { $ref: '#/components/parameters/ReferenciaId' }
+      description: >-
+        Revalida o acesso como o PUT, com a via na consulta. Quem perdeu o
+        acesso recebe 404, e a reação continua contada. Sem reação ativa,
+        responde 200 com o estado atual. Nunca publica evento.
+      responses:
+        '200':
+          description: Estado das reações depois da escrita.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Reacoes' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/Proibido' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+        '422': { $ref: '#/components/responses/EntidadeInvalida' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
         '503': { $ref: '#/components/responses/ServicoIndisponivel' }
 
   /perfis/{usuarioId}/resenhas:
@@ -630,7 +719,8 @@ paths:
         exclusão pendente é 404. Resenhas com spoiler permanecem marcadas para
         ocultação pelo cliente até ação explícita de revelar. Cada item traz o
         livro (título, autor, capa) e a nota do autor, que o card do perfil
-        mostra. Mais recentes primeiro. Livro inativo não aparece. Resenha de
+        mostra, as contagens de curtidas e descurtidas e a reação de quem pede
+        (F-AVA-2). Mais recentes primeiro. Livro inativo não aparece. Resenha de
         livro pessoal só aparece para o próprio dono: terceiros só chegam ao
         livro pessoal pelo feed ou pela lista do dono (RN-15).
       parameters:
@@ -758,6 +848,23 @@ components:
       name: usuarioId
       in: path
       required: true
+      schema: { type: string, format: uuid }
+    ResenhaId:
+      name: resenhaId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    Via:
+      name: via
+      in: query
+      required: false
+      description: Via de RN-15; obrigatória só quando a resenha é de livro pessoal.
+      schema: { type: string, enum: [feed, lista] }
+    ReferenciaId:
+      name: referenciaId
+      in: query
+      required: false
+      description: Id da atividade (via feed) ou da lista do dono (via lista).
       schema: { type: string, format: uuid }
 
   responses:
@@ -1167,8 +1274,58 @@ components:
           nullable: true
         resenha:
           allOf:
-            - { $ref: '#/components/schemas/Resenha' }
+            - { $ref: '#/components/schemas/MinhaResenha' }
           nullable: true
+
+    MinhaResenha:
+      description: >-
+        A resenha do próprio leitor com as contagens de reações (F-AVA-2). Fica
+        separada de Resenha para a resposta do PUT da resenha não mudar.
+      type: object
+      additionalProperties: false
+      required: [id, usuarioId, livroId, texto, spoiler, criadoEm, atualizadoEm, curtidas, descurtidas]
+      properties:
+        id: { type: string, format: uuid }
+        usuarioId: { type: string, format: uuid }
+        livroId: { type: string, format: uuid }
+        texto: { type: string, maxLength: 5000 }
+        spoiler: { type: boolean }
+        criadoEm: { type: string, format: date-time }
+        atualizadoEm: { type: string, format: date-time }
+        curtidas: { type: integer, minimum: 0 }
+        descurtidas: { type: integer, minimum: 0 }
+
+    TipoDeReacao:
+      type: string
+      enum: [curtida, descurtida]
+
+    ReacaoEntrada:
+      type: object
+      additionalProperties: false
+      required: [tipo]
+      properties:
+        tipo: { $ref: '#/components/schemas/TipoDeReacao' }
+        via:
+          type: string
+          enum: [feed, lista]
+          description: Via de RN-15; obrigatória só em resenha de livro pessoal.
+        referenciaId:
+          type: string
+          format: uuid
+          description: Id da atividade (via feed) ou da lista do dono (via lista).
+
+    Reacoes:
+      description: Contagens separadas (RF-AVA-08) e a reação de quem pediu.
+      type: object
+      additionalProperties: false
+      required: [minhaReacao, curtidas, descurtidas]
+      properties:
+        minhaReacao:
+          allOf:
+            - { $ref: '#/components/schemas/TipoDeReacao' }
+          nullable: true
+        curtidas: { type: integer, minimum: 0 }
+        descurtidas: { type: integer, minimum: 0 }
 
     LivroDaResenha:
       type: object
@@ -1187,7 +1344,7 @@ components:
     ResenhaDoPerfil:
       type: object
       additionalProperties: false
-      required: [id, usuarioId, livroId, texto, spoiler, criadoEm, atualizadoEm, livro, nota]
+      required: [id, usuarioId, livroId, texto, spoiler, criadoEm, atualizadoEm, livro, nota, curtidas, descurtidas, minhaReacao]
       properties:
         id: { type: string, format: uuid }
         usuarioId: { type: string, format: uuid }
@@ -1205,6 +1362,13 @@ components:
           multipleOf: 0.5
           nullable: true
           description: Nota do autor para o livro; nula quando ele não deu nota.
+        curtidas: { type: integer, minimum: 0 }
+        descurtidas: { type: integer, minimum: 0 }
+        minhaReacao:
+          allOf:
+            - { $ref: '#/components/schemas/TipoDeReacao' }
+          nullable: true
+          description: Reação de quem pede; nula sem reação e na própria resenha.
 
     PaginaResenhasPerfil:
       type: object

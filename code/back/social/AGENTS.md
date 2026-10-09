@@ -60,6 +60,16 @@ Previsto na [divisão do Período 2](../../../docs/plano-de-desenvolvimento/peri
 - **Sem migration.** Matriz completa no [arquivo da F-CONTA-2](../../../docs/plano-de-desenvolvimento/periodo-2/feature-F-CONTA-2.md#etapa-3-consumidores).
 - **Testes:** `ConsumidorDeContaExcluidaIntegracaoTest` e `ContaExcluidaSchemaTest`.
 
+### 09/10/2026 — F-AVA-2 (Renato): curtida em resenha
+
+Previsto na [divisão do Período 2](../../../docs/plano-de-desenvolvimento/periodo-2/README.md#o-que-ainda-cruza-entre-pessoas): quem cria um tipo de notificação entrega o mapeamento no consumidor. Avisar o Kayke.
+
+- **Tipo `RESENHA_CURTIDA`** (`resenha_curtida`, que o CHECK já aceitava, então **sem migration**): linha nova em `EventoDeNotificacao` (exchange do `leitura`, ator `autorAcao`, copia `resenhaId` para `DadosDeNotificacao.RESENHA_ID`) e frase "X curtiu sua resenha de Y." em `RedacaoDeNotificacao`. O `livro` do evento vira o destino.
+- **Constante** `EVENTO_RESENHA_CURTIDA`, schema no `MessageValidator` e cópia de `resenha.curtida.v1.schema.json`, conferida à mão contra `docs/mensageria/schemas/` (o `social` não tem teste para isso).
+- **O produtor só manda a primeira curtida do par resenha e leitor;** a chave de negócio `resenha:<resenhaId>:curtida:<autorAcaoId>` segura o resto. A preferência de notificação ainda não é lida (F-NOT-OPC).
+- **Copy a combinar com o Kayke:** curtir a atividade de uma resenha no feed gera a mesma frase ("curtiu sua resenha de Y"), com ícone diferente. Não foi mexida.
+- **Testes:** casos em `EventosDeNotificacaoDeTeste`, `ConsumidorDeNotificacaoIntegracaoTest`, `ConsumidorDeNotificacaoBrokerTest` e `NotificacaoControllerIntegracaoTest`.
+
 ## Pontos de atenção (ver `REQUISITOS.md`)
 
 - É o **consumidor** do fluxo de **notificações in-app** (fan-out); adiciona FCM em Android (arquitetura §5.2). Curtida de **atividade de feed** fica aqui; curtida de **resenha** fica em `leitura`. **Spring AMQP já entrou** (runtime de [P0-MSG](../../../docs/plano-de-desenvolvimento/periodo-0/feature-P0-MSG.md), 19/09): o `social` consome pelas filas `leai.social.feed` (F-FEED) e `leai.social.notificacoes` (F-NOT), declaradas em `messaging/MessagingConstants.java`. FCM ainda não entrou.

@@ -20,6 +20,8 @@ import '../avaliacao/avaliacao_controller.dart';
 import '../avaliacao/bloco_sua_avaliacao.dart';
 import '../avaliacao/leitura_service.dart';
 import '../avaliacao/painel_de_nota.dart';
+import '../avaliacao/reacoes.dart';
+import '../avaliacao/reacoes_da_resenha.dart';
 import '../estante/estante_service.dart';
 import '../estante/situacao_na_estante.dart';
 import '../listas/folha_adicionar_a_lista.dart';
@@ -94,6 +96,16 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
 
   /// Resenha do dono com spoiler, vista por terceiro: fora da árvore até o toque (RF-AVA-03).
   bool _spoilerRevelado = false;
+
+  /// A via de RN-15 pela qual o terceiro chegou: a reação à resenha do dono vai com ela.
+  ViaDeAcesso? get _viaDeAcesso {
+    final via = widget.via;
+    final referenciaId = widget.referenciaId;
+    if ((via == 'feed' || via == 'lista') && referenciaId != null) {
+      return ViaDeAcesso(via: via!, referenciaId: referenciaId);
+    }
+    return null;
+  }
 
   @override
   void initState() {
@@ -493,6 +505,14 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
                 Text(resenha.texto, style: theme.editorialBody),
               const SizedBox(height: DesignTokens.space3),
               Text(formatarData(resenha.atualizadoEm), style: theme.textTheme.bodySmall),
+              // O terceiro reage pela mesma via que abriu a página (RN-15.4).
+              const SizedBox(height: DesignTokens.space3),
+              ReacoesDaResenha(
+                resenhaId: resenha.id,
+                reacoes: resenha.reacoes,
+                leitura: widget.leitura,
+                via: _viaDeAcesso,
+              ),
             ]),
           ],
           const SizedBox(height: DesignTokens.space12),

@@ -6,12 +6,16 @@ import type { ResenhaDoPerfil } from '../../services/leitura'
 import BlocoDeSpoiler from '../livros/BlocoDeSpoiler.vue'
 import CapaLivro from '../livros/CapaLivro.vue'
 import EstrelasNota from '../livros/EstrelasNota.vue'
+import ReacoesDaResenha from '../livros/ReacoesDaResenha.vue'
 
 /**
  * Resenha no perfil (meu-perfil.md §4 e §5): capa, título, autor, estrelas com o valor e o trecho
  * de três linhas em Newsreader. Com spoiler, quem não é o autor vê o bloco oculto e revela por
  * ação; o texto não está no DOM antes disso (RF-AVA-03). Ao revelar, o foco vai para o texto,
  * para o leitor de tela continuar dali. O livro abre na aba Perfil.
+ *
+ * Reações (F-AVA-2): no perfil de outro leitor, os botões de curtir e descurtir; no meu perfil, só
+ * as contagens, sem botão (meu-perfil.md §4 D).
  */
 const props = defineProps<{ resenha: ResenhaDoPerfil; proprio: boolean }>()
 
@@ -79,6 +83,12 @@ const destino = computed(() =>
       >
         {{ resenha.texto }}
       </p>
+      <ReacoesDaResenha
+        class="mt-space-3"
+        :resenha-id="resenha.id"
+        :reacoes="resenha"
+        :somente-leitura="proprio"
+      />
     </div>
   </article>
 </template>

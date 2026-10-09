@@ -57,6 +57,9 @@ const EM_CONSULTA: LivroPessoalDetalhe = {
     spoiler: false,
     criadoEm: '2026-09-12T12:00:00Z',
     atualizadoEm: '2026-09-12T12:00:00Z',
+    curtidas: 12,
+    descurtidas: 2,
+    minhaReacao: null,
   },
 }
 

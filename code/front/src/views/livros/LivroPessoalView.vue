@@ -9,6 +9,7 @@ import BlocoDeSpoiler from '../../components/livros/BlocoDeSpoiler.vue'
 import BlocoSuaAvaliacao from '../../components/livros/BlocoSuaAvaliacao.vue'
 import CapaLivro from '../../components/livros/CapaLivro.vue'
 import EstrelasNota from '../../components/livros/EstrelasNota.vue'
+import ReacoesDaResenha from '../../components/livros/ReacoesDaResenha.vue'
 import BannerAviso from '../../components/ui/BannerAviso.vue'
 import BotaoTextual from '../../components/ui/BotaoTextual.vue'
 import DialogoConfirmacao from '../../components/ui/DialogoConfirmacao.vue'
@@ -360,6 +361,13 @@ async function excluir(): Promise<void> {
               <p class="mt-space-3 text-caption text-grafite-suave">
                 {{ formatarData(livro.resenhaDoDono.atualizadoEm) }}
               </p>
+              <!-- Terceiro reage pela mesma via que abriu a página (RN-15.4). -->
+              <ReacoesDaResenha
+                class="mt-space-3"
+                :resenha-id="livro.resenhaDoDono.id"
+                :reacoes="livro.resenhaDoDono"
+                :via="acesso"
+              />
             </section>
           </template>
           <!-- Sem avaliação do dono, o terceiro não vê nada (§4.6). -->

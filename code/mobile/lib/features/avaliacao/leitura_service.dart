@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../core/network/api_client.dart';
+import 'reacoes.dart';
 
 /// Contrato do serviço `leitura` usado por F-AVA. Espelha `docs/api/leitura.yaml`: mesmos
 /// campos, mesmas rotas. O parse é defensivo: JSON inesperado vira [FormatException], nunca um
@@ -40,6 +41,10 @@ class Resenha {
   final DateTime criadoEm;
   final DateTime atualizadoEm;
 
+  /// Contagens da própria resenha (`MinhaResenha`, F-AVA-2), só em `minha-avaliacao`. O `PUT`
+  /// devolve a resenha sem elas, e então ficam nulas.
+  final EstadoDasReacoes? reacoes;
+
   const Resenha({
     required this.id,
     required this.usuarioId,
@@ -48,7 +53,19 @@ class Resenha {
     required this.spoiler,
     required this.criadoEm,
     required this.atualizadoEm,
+    this.reacoes,
   });
+
+  Resenha comReacoes(EstadoDasReacoes? novas) => Resenha(
+    id: id,
+    usuarioId: usuarioId,
+    livroId: livroId,
+    texto: texto,
+    spoiler: spoiler,
+    criadoEm: criadoEm,
+    atualizadoEm: atualizadoEm,
+    reacoes: novas,
+  );
 
   factory Resenha.fromJson(Map<String, dynamic> json) {
     final spoiler = json['spoiler'];
@@ -63,6 +80,7 @@ class Resenha {
       spoiler: spoiler,
       criadoEm: _data(json, 'criadoEm'),
       atualizadoEm: _data(json, 'atualizadoEm'),
+      reacoes: json.containsKey('curtidas') ? EstadoDasReacoes.fromJson(json) : null,
     );
   }
 }
@@ -121,13 +139,19 @@ class LivroDaResenha {
   }
 }
 
-/// `ResenhaDoPerfil` do contrato: a resenha com o livro e a nota do autor.
+/// `ResenhaDoPerfil` do contrato: a resenha com o livro, a nota do autor e as reações.
 class ResenhaDoPerfil {
   final Resenha resenha;
   final LivroDaResenha livro;
   final double? nota;
+  final EstadoDasReacoes reacoes;
 
-  const ResenhaDoPerfil({required this.resenha, required this.livro, this.nota});
+  const ResenhaDoPerfil({
+    required this.resenha,
+    required this.livro,
+    this.nota,
+    this.reacoes = const EstadoDasReacoes(),
+  });
 
   factory ResenhaDoPerfil.fromJson(Map<String, dynamic> json) {
     final livro = json['livro'];
@@ -139,6 +163,7 @@ class ResenhaDoPerfil {
       resenha: Resenha.fromJson(json),
       livro: LivroDaResenha.fromJson(livro),
       nota: nota is num ? nota.toDouble() : null,
+      reacoes: EstadoDasReacoes.fromJson(json),
     );
   }
 }
@@ -213,6 +238,42 @@ class LeituraService {
     final resenha = _ler(() => Resenha.fromJson(json));
     alteracoes.value++;
     return resenha;
+  }
+
+  /// Curte ou descurte a resenha de outro leitor (RF-AVA-05). Não mexe em [alteracoes]: quem
+  /// mostra a resenha guarda o estado da resposta, e recarregar o perfil atropelaria o toque.
+  Future<EstadoDasReacoes> reagir(
+    String resenhaId,
+    TipoDeReacao tipo, {
+    ViaDeAcesso? via,
+    required String idempotencyKey,
+  }) async {
+    final json = await _api.putJson(
+      '/resenhas/$resenhaId/reacao',
+      body: <String, Object?>{
+        'tipo': tipo.contrato,
+        if (via != null) 'via': via.via,
+        if (via != null) 'referenciaId': via.referenciaId,
+      },
+      idempotencyKey: idempotencyKey,
+    );
+    return _ler(() => EstadoDasReacoes.fromJson(json));
+  }
+
+  /// Retira a reação. A via vai na consulta, porque o `DELETE` não tem corpo.
+  Future<EstadoDasReacoes> removerReacao(
+    String resenhaId, {
+    ViaDeAcesso? via,
+    required String idempotencyKey,
+  }) async {
+    final consulta = via == null
+        ? ''
+        : '?${Uri(queryParameters: <String, String>{'via': via.via, 'referenciaId': via.referenciaId}).query}';
+    final json = await _api.deleteJson(
+      '/resenhas/$resenhaId/reacao$consulta',
+      idempotencyKey: idempotencyKey,
+    );
+    return _ler(() => EstadoDasReacoes.fromJson(json));
   }
 
   /// Resenhas autorizadas de um perfil (RN-08): página iniciada em 1, até 50 por página.

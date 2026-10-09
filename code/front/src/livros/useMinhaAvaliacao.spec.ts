@@ -39,6 +39,8 @@ function servicoFalso(inicial: MinhaAvaliacao = { livroId: 'l1', nota: null, res
     registrarProgresso: vi.fn(),
     listarProgresso: vi.fn(),
     excluirTrechoProgresso: vi.fn(),
+    reagir: vi.fn(),
+    removerReacao: vi.fn(),
   } satisfies LeituraService
 }
 

@@ -1,4 +1,5 @@
 import { getToken } from '../session'
+import type { ViaDeAcesso } from './acervo'
 import { ApiError, createApiClient, type ApiClientOptions } from './api'
 import { renovarSessao } from './renovacao'
 
@@ -27,11 +28,33 @@ export interface Resenha {
   atualizadoEm: string
 }
 
+export type TipoDeReacao = 'curtida' | 'descurtida'
+
+/** `Reacoes` do contrato (F-AVA-2): contagens separadas e a reação de quem olha (RF-AVA-08). */
+export interface EstadoDasReacoes {
+  minhaReacao: TipoDeReacao | null
+  curtidas: number
+  descurtidas: number
+}
+
+/**
+ * A via de RN-15 pela qual o leitor abriu um livro pessoal de outra pessoa (`ViaDeAcesso` do
+ * acervo): o servidor só aceita a reação à resenha do dono com ela. Em livro oficial não vai.
+ */
+export type { ViaDeAcesso }
+
+/** `MinhaResenha` do contrato: a resenha do próprio leitor com as contagens, só para leitura. */
+export interface MinhaResenha extends Resenha {
+  curtidas: number
+  descurtidas: number
+}
+
 /** Ausente é `null`, nunca valor inventado: nota `0` é uma nota. */
 export interface MinhaAvaliacao {
   livroId: string
   nota: Nota | null
-  resenha: Resenha | null
+  /** Depois de salvar no editor, as contagens podem faltar até a próxima carga. */
+  resenha: (Resenha & Partial<Pick<MinhaResenha, 'curtidas' | 'descurtidas'>>) | null
 }
 
 /** `LivroDaResenha` do contrato: o que o card do perfil mostra do livro. */
@@ -44,8 +67,8 @@ export interface LivroDaResenha {
   capaUrl: string | null
 }
 
-/** `ResenhaDoPerfil` do contrato: a resenha com o livro e a nota do autor. */
-export interface ResenhaDoPerfil extends Resenha {
+/** `ResenhaDoPerfil` do contrato: a resenha com o livro, a nota do autor e as reações. */
+export interface ResenhaDoPerfil extends Resenha, EstadoDasReacoes {
   livro: LivroDaResenha
   nota: number | null
 }
@@ -343,6 +366,31 @@ export function createLeituraService(options: ApiClientOptions = {}) {
     })
   }
 
+  const daReacao = (resenhaId: string) => `/resenhas/${encodeURIComponent(resenhaId)}/reacao`
+
+  /** Curte ou descurte a resenha de outro leitor (RF-AVA-05); devolve o estado depois da escrita. */
+  function reagir(
+    resenhaId: string,
+    tipo: TipoDeReacao,
+    via: ViaDeAcesso | undefined,
+    chave: string,
+  ): Promise<EstadoDasReacoes> {
+    return request<EstadoDasReacoes>(daReacao(resenhaId), {
+      method: 'PUT',
+      json: { tipo, ...via },
+      idempotencyKey: chave,
+    })
+  }
+
+  /** Retira a reação. A via vai na consulta, porque o `DELETE` não tem corpo. */
+  function removerReacao(resenhaId: string, via: ViaDeAcesso | undefined, chave: string): Promise<EstadoDasReacoes> {
+    const consulta = via ? `?${new URLSearchParams({ via: via.via, referenciaId: via.referenciaId })}` : ''
+    return request<EstadoDasReacoes>(`${daReacao(resenhaId)}${consulta}`, {
+      method: 'DELETE',
+      idempotencyKey: chave,
+    })
+  }
+
   /** Resenhas autorizadas de um perfil (RN-08): página iniciada em 1, até 50 por página. */
   function listarResenhasPerfil(usuarioId: string, page = 1, limite = 20): Promise<PaginaResenhasPerfil> {
     const query = new URLSearchParams({ page: String(page), limite: String(limite) })
@@ -355,6 +403,8 @@ export function createLeituraService(options: ApiClientOptions = {}) {
     excluirNota,
     salvarResenha,
     excluirResenha,
+    reagir,
+    removerReacao,
     listarResenhasPerfil,
     listarEstante,
     listarEstantePerfil,

@@ -45,6 +45,8 @@ async function montar(notaSalva: number | null, comEscreverResenha = false) {
     registrarProgresso: vi.fn(),
     listarProgresso: vi.fn(),
     excluirTrechoProgresso: vi.fn(),
+    reagir: vi.fn(),
+    removerReacao: vi.fn(),
   } satisfies LeituraService
   const avaliacao = useMinhaAvaliacao({ servico })
   await avaliacao.carregar('l1')
