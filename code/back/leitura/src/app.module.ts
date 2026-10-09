@@ -16,10 +16,12 @@ import { HealthModule } from './health/health.module';
 import { InatividadeModule } from './jobs/inatividade/inatividade.module';
 import { LeiturasModule } from './leituras/leituras.module';
 import { MessagingModule } from './messaging/messaging.module';
+import { MetricasModule } from './metricas/metricas.module';
 import { OutboxModule } from './outbox/outbox.module';
 import { PerfisModule } from './perfis/perfis.module';
 import { ProgressoModule } from './progresso/progresso.module';
 import { ReferenciasModule } from './referencias/referencias.module';
+import { SequenciaModule } from './sequencia/sequencia.module';
 
 @Module({
   imports: [
@@ -66,6 +68,8 @@ import { ReferenciasModule } from './referencias/referencias.module';
     EstanteModule,
     LeiturasModule,
     ProgressoModule,
+    SequenciaModule,
+    MetricasModule,
     InatividadeModule,
   ],
   providers: [

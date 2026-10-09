@@ -93,6 +93,14 @@ Módulos `src/estante/`, `src/leituras/` e `src/jobs/inatividade/`, com `src/ref
 - **Validação do `data`:** o `parse` do runtime valida envelope e headers, mas **não** o `data` (até aqui só havia produtor). O consumidor chama `validarDados` antes de qualquer efeito. Consumidor novo precisa fazer o mesmo, ou corrigir o `parse`.
 - **Testes:** `test/integracao/consumo-conta-excluida.int-spec.ts`, com o helper `consumidor-sem-espera.ts` copiado do `acervo`.
 
+## F-GAM — sequência diária (08/10/2026)
+
+- **`src/sequencia/`** (`SequenciaModule`): `GET /me/sequencia` e `SequenciaService.recalcular(tx, usuarioId)`, que recompõe `dia_leitura` e `sequencia_leitura` das datas locais dos progressos atuais (nunca incrementa contador), sob `pg_advisory_xact_lock` por leitor. O zeramento (RN-18.4) é derivado na consulta (`dominio/sequencia.ts`, `sequenciaVigente`), no último fuso do dispositivo; não há job. Tabelas da baseline DER (migration 0001), sem migration nova.
+- **`src/metricas/`** (`MetricasModule`, `ProgressoRegistradoConsumer`): o consumidor de métricas único de F-GAM, F-DSF e F-STA. Fila `leai.leitura.metricas` no exchange do próprio `leitura`, routing key `progresso.registrado`. DSF e STA acrescentam o efeito delas no `processar` e `leitura.finalizada` às routing keys.
+- **Exclusão de trecho** (`ProgressoService.excluirTrecho`) chama `recalcular` no mesmo `tx`, sem evento. **Remoção da estante não recalcula** (decisão do dono, 08/10/2026): os dias do livro removido saem no próximo progresso ou exclusão do leitor.
+- **Backfill:** `npm run backfill:sequencia` (`node dist/sequencia/backfill.js` no build), idempotente; rodar antes de o binding subir num ambiente.
+- **Testes:** `src/sequencia/dominio/sequencia.spec.ts` e `test/integracao/sequencia.int-spec.ts` (API → outbox → despachante → broker em memória → consumidor, com duplicata, retry e DLQ).
+
 ## Pontos de atenção (ver `REQUISITOS.md`) — prioridade de teste
 
 - **Máquina de estados da leitura (RN-04)** — Quero ler / Lendo / Lido / Relendo / Abandonado, releitura, retomada. **Teste obrigatório e prioritário** (RNF-TST-01).

@@ -7,8 +7,8 @@ info:
     scaffolding P0-INFRA. Nota, resenha, minha avaliação e as resenhas do
     perfil estão implementadas por F-AVA (27/09/2026); os contratos de F-EST
     e de F-PRG estão implementados (F-PRG em 27/09/2026, com a edição de
-    progresso removida em 29/09/2026). Cada operação traz
-    `x-implementation-status`.
+    progresso removida em 29/09/2026). A sequência diária está implementada
+    por F-GAM (08/10/2026). Cada operação traz `x-implementation-status`.
     Nota e resenha pertencem ao livro, não a uma ocorrência de leitura.
     Sessões cronometradas, favoritos, histórico, reações e Markdown não fazem
     parte deste contrato do Período 1.
@@ -50,6 +50,8 @@ tags:
     description: Nota e resenha do leitor para um livro
   - name: perfis
     description: Projeções autorizadas para composição de perfil
+  - name: sequencia
+    description: Sequência diária de leitura (streak), só mobile
   - name: interno
     description: Operações exclusivas de serviços e do agendador
 security:
@@ -649,6 +651,33 @@ paths:
         '404': { $ref: '#/components/responses/NaoEncontrado' }
         '503': { $ref: '#/components/responses/ServicoIndisponivel' }
 
+  /me/sequencia:
+    get:
+      tags: [sequencia]
+      summary: Consulta a sequência diária atual e a maior já alcançada
+      operationId: consultarMinhaSequencia
+      x-implementation-status: implemented
+      x-implemented-by: F-GAM
+      description: >-
+        Só do próprio leitor (RNF-SEC-02). Um dia conta quando tem ao menos uma
+        atualização de progresso com página lida, no calendário do fuso do
+        dispositivo no momento do registro, uma vez por dia (RN-18.1 a 18.3).
+        A atual zera quando um dia se encerra sem leitura, apurado no último
+        fuso registrado pelo dispositivo, nunca no de quem consulta (RN-18.4);
+        a maior é preservada (RN-18.6). Os valores são recompostos dos
+        progressos atuais pelo consumo assíncrono de `progresso.registrado` e
+        pela exclusão de trecho, então podem chegar com atraso de segundos
+        depois de um registro. Sem progresso, zeros e `ultimoDiaComLeitura`
+        nulo.
+      responses:
+        '200':
+          description: Sequência do leitor, ainda que zerada.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sequencia' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
   /internal/jobs/inatividade:
     post:
       tags: [interno]
@@ -1154,6 +1183,30 @@ components:
         spoiler: { type: boolean }
         criadoEm: { type: string, format: date-time }
         atualizadoEm: { type: string, format: date-time }
+
+    Sequencia:
+      type: object
+      additionalProperties: false
+      required: [sequenciaAtual, maiorSequencia, ultimoDiaComLeitura]
+      properties:
+        sequenciaAtual:
+          type: integer
+          minimum: 0
+          example: 12
+          description: >-
+            Dias seguidos com leitura até hoje ou ontem, no último fuso do
+            dispositivo; 0 quando um dia se encerrou sem leitura.
+        maiorSequencia:
+          type: integer
+          minimum: 0
+          example: 31
+          description: Maior sequência já alcançada; preservada quando a atual zera.
+        ultimoDiaComLeitura:
+          type: string
+          format: date
+          nullable: true
+          example: '2026-10-08'
+          description: Último dia de calendário local com progresso.
 
     MinhaAvaliacao:
       type: object

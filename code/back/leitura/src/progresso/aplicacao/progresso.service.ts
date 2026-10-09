@@ -30,6 +30,7 @@ import {
   type Executor,
   ReferenciasExternas,
 } from '../../referencias/referencias-externas.service';
+import { SequenciaService } from '../../sequencia/sequencia.service';
 import type {
   ConsultaProgressoDto,
   CriarProgressoEntradaDto,
@@ -84,6 +85,7 @@ export class ProgressoService {
     private readonly referencias: ReferenciasExternas,
     private readonly outbox: OutboxRepository,
     private readonly idempotencia: IdempotenciaService,
+    private readonly sequencia: SequenciaService,
   ) {}
 
   async registrar(
@@ -207,6 +209,9 @@ export class ProgressoService {
           alvo.id,
           alcance.paginaAtual,
         );
+        // A exclusão não publica evento (F-PRG): os dias e a sequência do
+        // leitor se recompõem aqui, na mesma transação (F-GAM).
+        await this.sequencia.recalcular(tx, usuarioId);
 
         return {
           status: HttpStatus.OK,
