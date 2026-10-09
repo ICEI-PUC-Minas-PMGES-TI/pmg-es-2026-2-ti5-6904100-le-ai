@@ -10,6 +10,7 @@ import BlocoSuaAvaliacao from '../../components/livros/BlocoSuaAvaliacao.vue'
 import CapaLivro from '../../components/livros/CapaLivro.vue'
 import EstrelasNota from '../../components/livros/EstrelasNota.vue'
 import ReacoesDaResenha from '../../components/livros/ReacoesDaResenha.vue'
+import SecaoFrases from '../../components/livros/SecaoFrases.vue'
 import BannerAviso from '../../components/ui/BannerAviso.vue'
 import BotaoTextual from '../../components/ui/BotaoTextual.vue'
 import DialogoConfirmacao from '../../components/ui/DialogoConfirmacao.vue'
@@ -81,6 +82,12 @@ const livroAvaliado = computed(() => ({
   titulo: livro.value?.titulo ?? '',
   autor: livro.value?.autor ?? null,
   capaUrl: livro.value?.capaUrl ?? null,
+}))
+/** F-AVA-2: só o dono vê e guarda frases do livro pessoal (RN-15). */
+const livroDaFrase = computed(() => ({
+  ...livroAvaliado.value,
+  id: String(route.params.id),
+  paginas: livro.value?.paginas ?? 0,
 }))
 
 // F-LST: `Adicionar à lista` no topo do menu do dono (livro-pessoal.md P2 §4.3). Sem `Recomendar`:
@@ -371,6 +378,12 @@ async function excluir(): Promise<void> {
             </section>
           </template>
           <!-- Sem avaliação do dono, o terceiro não vê nada (§4.6). -->
+          <SecaoFrases
+            v-if="ehDono"
+            class="py-space-5"
+            :livro="livroDaFrase"
+            :rota-das-frases="{ name: 'frases-do-livro-pessoal', params: { id: livroDaFrase.id } }"
+          />
         </div>
       </div>
     </article>

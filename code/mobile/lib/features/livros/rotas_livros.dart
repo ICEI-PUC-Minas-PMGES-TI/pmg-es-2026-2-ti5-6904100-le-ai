@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/config/app_config.dart';
 import '../../core/network/api_client.dart';
+import '../avaliacao/frases_do_livro_page.dart';
 import '../avaliacao/leitura_service.dart';
 import '../catalogo/catalogo_controller.dart';
 import '../catalogo/pagina_de_catalogo_page.dart';
@@ -213,6 +214,26 @@ GoRoute rotaDoLivroOficial(
         // O assunto é filtro de busca (RN-21): leva ao Descobrir, que passa a ser a aba ativa.
         aoBuscarAssunto: (assuntoId) =>
             context.go(Uri(path: '/descobrir', queryParameters: {'assunto': assuntoId}).toString()),
+        aoVerFrases: () => context.push('$raiz/livro/$id/frases'),
+      );
+    },
+    routes: <RouteBase>[_frasesDoLivro(deps, raiz: raiz, pessoal: false)],
+  );
+}
+
+/// Lista completa de frases (F-AVA-2), empilhada sobre a página do livro na mesma aba.
+GoRoute _frasesDoLivro(DependenciasDeLivros deps, {required String raiz, required bool pessoal}) {
+  return GoRoute(
+    path: 'frases',
+    builder: (context, state) {
+      final id = state.pathParameters['id']!;
+      return FrasesDoLivroPage(
+        key: ValueKey<String>('frases-$id'),
+        leitura: deps.leitura,
+        acervo: deps.acervo,
+        livroId: id,
+        pessoal: pessoal,
+        aoVoltar: () => _voltar(context, pessoal ? '$raiz/livro-pessoal/$id' : '$raiz/livro/$id'),
       );
     },
   );
@@ -257,9 +278,11 @@ GoRoute _paginaDoLivroPessoal(
             ? null
             : (leituraId) => context.push<void>(rotaProgressoDaLeitura(leituraId)),
         listas: deps.listas,
+        aoVerFrases: () => context.push('$raiz/livro-pessoal/$id/frases'),
       );
     },
     routes: <RouteBase>[
+      _frasesDoLivro(deps, raiz: raiz, pessoal: true),
       GoRoute(
         path: 'editar',
         builder: (context, state) => LivroPessoalFormPage(

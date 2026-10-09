@@ -191,6 +191,86 @@ class PaginaResenhasPerfil {
   }
 }
 
+/// `Frase` do contrato (F-AVA-2, RN-11): trecho de até 500 caracteres com a página.
+class Frase {
+  final String id;
+  final String livroId;
+  final String texto;
+  final int pagina;
+  final DateTime criadoEm;
+  final String autorUsername;
+  final String autorNome;
+
+  /// A frase é de quem pediu: só ela tem excluir.
+  final bool minha;
+
+  const Frase({
+    required this.id,
+    required this.livroId,
+    required this.texto,
+    required this.pagina,
+    required this.criadoEm,
+    required this.autorUsername,
+    required this.autorNome,
+    required this.minha,
+  });
+
+  factory Frase.fromJson(Map<String, dynamic> json) {
+    final autor = json['autor'];
+    final pagina = json['pagina'];
+    final minha = json['minha'];
+    if (autor is! Map<String, dynamic> || pagina is! num || minha is! bool) {
+      throw const FormatException('Frase fora do contrato.');
+    }
+    return Frase(
+      id: _texto(json, 'id'),
+      livroId: _texto(json, 'livroId'),
+      texto: _texto(json, 'texto'),
+      pagina: pagina.toInt(),
+      criadoEm: _data(json, 'criadoEm'),
+      autorUsername: _texto(autor, 'username'),
+      autorNome: _texto(autor, 'nome'),
+      minha: minha,
+    );
+  }
+}
+
+class PaginaFrases {
+  final List<Frase> itens;
+  final int page;
+  final int totalItens;
+  final int totalPaginas;
+  final int minhasFrases;
+  final int limitePorLivro;
+
+  const PaginaFrases({
+    required this.itens,
+    required this.page,
+    required this.totalItens,
+    required this.totalPaginas,
+    required this.minhasFrases,
+    required this.limitePorLivro,
+  });
+
+  bool get temMais => page < totalPaginas;
+
+  factory PaginaFrases.fromJson(Map<String, dynamic> json) {
+    final itens = json['itens'];
+    final paginacao = json['paginacao'];
+    if (itens is! List || paginacao is! Map<String, dynamic>) {
+      throw const FormatException('Página de frases inválida.');
+    }
+    return PaginaFrases(
+      itens: itens.whereType<Map<String, dynamic>>().map(Frase.fromJson).toList(),
+      page: (paginacao['page'] as num?)?.toInt() ?? 1,
+      totalItens: (paginacao['totalItens'] as num?)?.toInt() ?? 0,
+      totalPaginas: (paginacao['totalPaginas'] as num?)?.toInt() ?? 0,
+      minhasFrases: (json['minhasFrases'] as num?)?.toInt() ?? 0,
+      limitePorLivro: (json['limitePorLivro'] as num?)?.toInt() ?? 10,
+    );
+  }
+}
+
 class LeituraService {
   final ApiClient _api;
 
@@ -274,6 +354,32 @@ class LeituraService {
       idempotencyKey: idempotencyKey,
     );
     return _ler(() => EstadoDasReacoes.fromJson(json));
+  }
+
+  /// Frases do livro que o leitor pode ver (RN-08 por autor), mais recentes primeiro.
+  Future<PaginaFrases> listarFrases(String livroId, {int page = 1, int limite = 20}) async {
+    final json = await _api.getJson('/livros/$livroId/frases?page=$page&limite=$limite');
+    return _ler(() => PaginaFrases.fromJson(json));
+  }
+
+  /// Guarda um trecho com a página (RN-11). A mesma [idempotencyKey] num reenvio não duplica.
+  Future<Frase> criarFrase(
+    String livroId, {
+    required String texto,
+    required int pagina,
+    required String idempotencyKey,
+  }) async {
+    final json = await _api.postJson(
+      '/livros/$livroId/frases',
+      body: <String, Object?>{'texto': texto, 'pagina': pagina},
+      idempotencyKey: idempotencyKey,
+    );
+    return _ler(() => Frase.fromJson(json));
+  }
+
+  /// Exclui a própria frase, depois da confirmação da tela (RNF-USA-04).
+  Future<void> excluirFrase(String fraseId, {required String idempotencyKey}) async {
+    await _api.deleteVazio('/frases/$fraseId', idempotencyKey: idempotencyKey);
   }
 
   /// Resenhas autorizadas de um perfil (RN-08): página iniciada em 1, até 50 por página.

@@ -10,9 +10,9 @@ info:
     progresso removida em 29/09/2026). Cada operação traz
     `x-implementation-status`.
     Nota e resenha pertencem ao livro, não a uma ocorrência de leitura.
-    As reações à resenha (curtir e descurtir) estão implementadas por F-AVA-2
-    (09/10/2026). Sessões cronometradas, favoritos e histórico ainda não fazem
-    parte deste contrato.
+    As reações à resenha (curtir e descurtir) e as frases e trechos estão
+    implementadas por F-AVA-2 (09/10/2026). Sessões cronometradas, favoritos e
+    histórico ainda não fazem parte deste contrato.
 x-database-contracts:
   - name: v_estante_publica_v1
     x-implementation-status: implemented
@@ -60,6 +60,8 @@ tags:
     description: Nota e resenha do leitor para um livro
   - name: reacoes
     description: Curtidas e descurtidas em resenhas de outros leitores
+  - name: frases
+    description: Frases e trechos de um livro, com a página de referência
   - name: perfis
     description: Projeções autorizadas para composição de perfil
   - name: interno
@@ -706,6 +708,98 @@ paths:
         '429': { $ref: '#/components/responses/LimiteExcedido' }
         '503': { $ref: '#/components/responses/ServicoIndisponivel' }
 
+  /livros/{livroId}/frases:
+    get:
+      tags: [frases]
+      summary: Lista as frases do livro que o leitor pode ver
+      operationId: listarFrases
+      x-implementation-status: implemented
+      x-implemented-by: F-AVA-2
+      parameters:
+        - { $ref: '#/components/parameters/LivroId' }
+        - { $ref: '#/components/parameters/Pagina' }
+        - { $ref: '#/components/parameters/Limite' }
+      description: >-
+        Frases de todos os leitores, mais recentes primeiro, sob RN-08 por
+        autor: perfil público, privado seguido ou a própria frase. Conta
+        suspensa ou em exclusão some. Em livro pessoal, só o dono lista (o modo
+        consulta de RN-15 não expõe frases). Livro inexistente, inativo ou
+        pessoal de outra pessoa é 404. A resposta traz a cota de quem pede
+        (`minhasFrases` de `limitePorLivro`).
+      responses:
+        '200':
+          description: Página de frases.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaFrases' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+    post:
+      tags: [frases]
+      summary: Guarda um trecho do livro com a página
+      operationId: cadastrarFrase
+      x-implementation-status: implemented
+      x-implemented-by: F-AVA-2
+      parameters:
+        - { $ref: '#/components/parameters/LivroId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      description: >-
+        RN-11: texto de 1 a 500 caracteres Unicode (code points), página
+        obrigatória de 1 ao total de páginas do livro e no máximo 10 frases
+        por leitor e livro. Texto que não é string ou página que não é inteiro
+        é 400; texto só com espaços ou invisíveis, acima do limite, página fora
+        do livro (422 com `campos`) e a 11ª frase (422 `LIMITE_DE_FRASES`) são
+        regra de negócio. O limite vale também com duas requisições
+        simultâneas (trigger com advisory lock). Livro inexistente, inativo ou
+        pessoal de outra pessoa é 404; conta suspensa ou em exclusão é 403.
+        Não publica evento.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FraseEntrada' }
+      responses:
+        '201':
+          description: Frase guardada.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Frase' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/Proibido' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+        '413': { $ref: '#/components/responses/CorpoMuitoGrande' }
+        '422': { $ref: '#/components/responses/EntidadeInvalida' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
+  /frases/{fraseId}:
+    delete:
+      tags: [frases]
+      summary: Exclui a própria frase
+      operationId: excluirFrase
+      x-implementation-status: implemented
+      x-implemented-by: F-AVA-2
+      parameters:
+        - name: fraseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      description: >-
+        A confirmação é do cliente (RNF-USA-04). Frase inexistente ou de outra
+        pessoa é 404, sem revelar qual. A remoção pela moderação é de F-MOD.
+      responses:
+        '204': { description: Frase excluída ou repetição idempotente concluída. }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
+
   /perfis/{usuarioId}/resenhas:
     get:
       tags: [perfis, avaliacoes]
@@ -1294,6 +1388,53 @@ components:
         atualizadoEm: { type: string, format: date-time }
         curtidas: { type: integer, minimum: 0 }
         descurtidas: { type: integer, minimum: 0 }
+
+    FraseEntrada:
+      type: object
+      additionalProperties: false
+      required: [texto, pagina]
+      properties:
+        texto: { type: string, minLength: 1, maxLength: 500 }
+        pagina: { type: integer, minimum: 1 }
+
+    Frase:
+      type: object
+      additionalProperties: false
+      required: [id, livroId, texto, pagina, criadoEm, autor, minha]
+      properties:
+        id: { type: string, format: uuid }
+        livroId: { type: string, format: uuid }
+        texto: { type: string, maxLength: 500 }
+        pagina: { type: integer, minimum: 1 }
+        criadoEm: { type: string, format: date-time }
+        autor:
+          type: object
+          additionalProperties: false
+          required: [id, username, nome, avatarUrl]
+          properties:
+            id: { type: string, format: uuid }
+            username: { type: string }
+            nome: { type: string }
+            avatarUrl: { type: string, format: uri, nullable: true }
+        minha:
+          type: boolean
+          description: A frase é de quem pediu; só ela pode ser excluída.
+
+    PaginaFrases:
+      type: object
+      additionalProperties: false
+      required: [itens, paginacao, minhasFrases, limitePorLivro]
+      properties:
+        itens:
+          type: array
+          items: { $ref: '#/components/schemas/Frase' }
+        paginacao: { $ref: '#/components/schemas/Paginacao' }
+        minhasFrases:
+          type: integer
+          minimum: 0
+          maximum: 10
+          description: Quantas frases deste livro são de quem pediu.
+        limitePorLivro: { type: integer, example: 10 }
 
     TipoDeReacao:
       type: string

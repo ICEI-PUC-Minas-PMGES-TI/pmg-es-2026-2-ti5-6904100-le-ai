@@ -19,7 +19,9 @@ import '../avaliacao/bloco_sua_avaliacao.dart';
 import '../avaliacao/escrever_resenha_page.dart';
 import '../avaliacao/leitura_service.dart';
 import '../avaliacao/painel_de_nota.dart';
+import '../avaliacao/adicionar_frase.dart';
 import '../avaliacao/reacoes_da_resenha.dart';
+import '../avaliacao/secao_frases.dart';
 import '../estante/estante_service.dart';
 import '../estante/situacao_na_estante.dart';
 import '../perfil/widgets_de_perfil.dart';
@@ -64,6 +66,9 @@ class LivroOficialPage extends StatefulWidget {
   final ValueChanged<String>? aoAbrirSerie;
   final ValueChanged<String>? aoBuscarAssunto;
 
+  /// `Ver todas as frases` (F-AVA-2). Sem ele, a seção de frases mostra só as três mais recentes.
+  final VoidCallback? aoVerFrases;
+
   const LivroOficialPage({
     super.key,
     required this.servico,
@@ -78,6 +83,7 @@ class LivroOficialPage extends StatefulWidget {
     this.aoAbrirEditora,
     this.aoAbrirSerie,
     this.aoBuscarAssunto,
+    this.aoVerFrases,
   });
 
   @override
@@ -321,6 +327,19 @@ class _LivroOficialPageState extends State<LivroOficialPage> {
           ),
           const SizedBox(height: DesignTokens.space6),
           _resenhas(theme),
+          // F-AVA-2: frases e trechos, depois das resenhas (pagina-do-livro.md §5.4).
+          const SizedBox(height: DesignTokens.space6),
+          SecaoFrases(
+            leitura: widget.leitura,
+            livro: LivroDaFrase(
+              id: livro.resumo.id,
+              titulo: livro.resumo.titulo,
+              autor: livro.resumo.autoresParaExibir,
+              capaUrl: livro.resumo.capaUrl,
+              paginas: livro.resumo.paginas,
+            ),
+            aoVerTodas: widget.aoVerFrases,
+          ),
         ],
       ),
     );

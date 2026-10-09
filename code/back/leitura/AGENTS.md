@@ -91,6 +91,16 @@ Módulo `src/reacoes/` (plano, como `avaliacoes/`). Contrato em `docs/api/leitur
 - **VIEW nova `v_reacao_resenha_v1`** (migration `0005`, escrita à mão; o snapshot `0005` corrigiu a falta de `proxima_tentativa_em`): reação ativa por resenha e leitor, para o `acervo` devolver `minhaReacao` na página do livro.
 - **Testes:** `test/integracao/reacao.int-spec.ts` e `reacao-sem-contratos.int-spec.ts`; unitários em `src/reacoes/regras.spec.ts`.
 
+### Frases e trechos (RN-11)
+
+Módulo `src/frases/`. `GET`/`POST /livros/{livroId}/frases` e `DELETE /frases/{fraseId}`. Não publica evento.
+
+- **Validação** (`regras.ts`): texto de 1 a 500 **code points**, sem ser só espaços ou invisíveis e sem o caractere nulo; página de 1 ao `paginas` de `v_livro_referencia_v1` (obrigatório lá). Os dois são 422 com `campos`; tipo errado é 400.
+- **Cota de 10 por leitor e livro:** conferida antes, na transação, e garantida pelo trigger `frase_limite_trigger` (advisory lock), que resolve duas inserções simultâneas. O trigger levanta 23514, o mesmo código de um CHECK: `ehErroDaFuncao` (`pg-erros.ts`) lê o campo `where` do erro para separar `validar_limite_frases` do CHECK. Os dois caminhos dão **422 `LIMITE_DE_FRASES`**.
+- **Acesso:** livro oficial lista sob RN-08 por autor (público, seguido ou a própria); livro pessoal só para o dono (404 para os outros), porque o modo consulta de RN-15 não expõe frases. Quem cadastra precisa estar na VIEW de perfil (403).
+- **Excluir:** só a própria; inexistente ou de outra pessoa é 404, sem revelar qual. A remoção pela moderação fica com F-MOD.
+- **Testes:** `test/integracao/frase.int-spec.ts`; unitários em `src/frases/regras.spec.ts`.
+
 ## F-EST — estante e ciclo de leitura
 
 Módulos `src/estante/`, `src/leituras/` e `src/jobs/inatividade/`, com `src/referencias/` (livro e perfil pelas VIEWs de contrato). Contrato em `docs/api/leitura.yaml`.

@@ -21,7 +21,9 @@ import '../avaliacao/bloco_sua_avaliacao.dart';
 import '../avaliacao/leitura_service.dart';
 import '../avaliacao/painel_de_nota.dart';
 import '../avaliacao/reacoes.dart';
+import '../avaliacao/adicionar_frase.dart';
 import '../avaliacao/reacoes_da_resenha.dart';
+import '../avaliacao/secao_frases.dart';
 import '../estante/estante_service.dart';
 import '../estante/situacao_na_estante.dart';
 import '../listas/folha_adicionar_a_lista.dart';
@@ -63,6 +65,9 @@ class LivroPessoalPage extends StatefulWidget {
   /// `Adicionar à lista` no topo do menu do dono (livro-pessoal.md P2 §4.3, RF-LST-05).
   final DependenciasDeListas? listas;
 
+  /// `Ver todas as frases` do dono (F-AVA-2).
+  final VoidCallback? aoVerFrases;
+
   const LivroPessoalPage({
     super.key,
     required this.servico,
@@ -77,6 +82,7 @@ class LivroPessoalPage extends StatefulWidget {
     this.estante,
     this.progresso,
     this.aoVerAtualizacoes,
+    this.aoVerFrases,
     this.listas,
   });
 
@@ -473,6 +479,21 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
                   autor: livro.autor,
                   capaUrl: livro.capaUrl,
                 ),
+              ),
+            ]),
+            // F-AVA-2: só o dono vê e guarda frases do livro pessoal (RN-15).
+            divisor(),
+            secao(<Widget>[
+              SecaoFrases(
+                leitura: widget.leitura,
+                livro: LivroDaFrase(
+                  id: livro.id,
+                  titulo: livro.titulo,
+                  autor: livro.autor,
+                  capaUrl: livro.capaUrl,
+                  paginas: livro.paginas,
+                ),
+                aoVerTodas: widget.aoVerFrases,
               ),
             ]),
           ],

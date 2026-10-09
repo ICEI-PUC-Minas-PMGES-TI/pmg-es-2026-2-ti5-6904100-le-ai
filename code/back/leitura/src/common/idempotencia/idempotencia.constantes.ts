@@ -13,6 +13,8 @@ export const OPERACOES = {
   EXCLUIR_RESENHA: 'excluirResenha',
   REAGIR_RESENHA: 'reagirResenha',
   REMOVER_REACAO_RESENHA: 'removerReacaoResenha',
+  CADASTRAR_FRASE: 'cadastrarFrase',
+  EXCLUIR_FRASE: 'excluirFrase',
   ADICIONAR_LIVRO_ESTANTE: 'adicionarLivroEstante',
   REMOVER_LIVRO_ESTANTE: 'removerLivroEstante',
   INICIAR_LEITURA: 'iniciarLeitura',

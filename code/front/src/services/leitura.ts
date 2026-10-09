@@ -57,6 +57,26 @@ export interface MinhaAvaliacao {
   resenha: (Resenha & Partial<Pick<MinhaResenha, 'curtidas' | 'descurtidas'>>) | null
 }
 
+/** `Frase` do contrato (F-AVA-2, RN-11): trecho de até 500 caracteres com a página. */
+export interface Frase {
+  id: string
+  livroId: string
+  texto: string
+  pagina: number
+  criadoEm: string
+  autor: { id: string; username: string; nome: string; avatarUrl: string | null }
+  /** A frase é de quem pediu: só ela tem excluir. */
+  minha: boolean
+}
+
+export interface PaginaFrases {
+  itens: Frase[]
+  paginacao: { page: number; limite: number; totalItens: number; totalPaginas: number }
+  /** Quantas frases do livro são de quem pediu, para a linha da cota. */
+  minhasFrases: number
+  limitePorLivro: number
+}
+
 /** `LivroDaResenha` do contrato: o que o card do perfil mostra do livro. */
 export interface LivroDaResenha {
   id: string
@@ -391,6 +411,20 @@ export function createLeituraService(options: ApiClientOptions = {}) {
     })
   }
 
+  /** Frases do livro que o leitor pode ver (RN-08 por autor), mais recentes primeiro. */
+  function listarFrases(livroId: string, page = 1, limite = 20): Promise<PaginaFrases> {
+    const query = new URLSearchParams({ page: String(page), limite: String(limite) })
+    return request<PaginaFrases>(`${caminhoDoLivro(livroId)}/frases?${query}`)
+  }
+
+  function criarFrase(livroId: string, entrada: { texto: string; pagina: number }, chave: string): Promise<Frase> {
+    return request<Frase>(`${caminhoDoLivro(livroId)}/frases`, { method: 'POST', json: entrada, idempotencyKey: chave })
+  }
+
+  async function excluirFrase(fraseId: string, chave: string): Promise<void> {
+    await request<void>(`/frases/${encodeURIComponent(fraseId)}`, { method: 'DELETE', idempotencyKey: chave })
+  }
+
   /** Resenhas autorizadas de um perfil (RN-08): página iniciada em 1, até 50 por página. */
   function listarResenhasPerfil(usuarioId: string, page = 1, limite = 20): Promise<PaginaResenhasPerfil> {
     const query = new URLSearchParams({ page: String(page), limite: String(limite) })
@@ -405,6 +439,9 @@ export function createLeituraService(options: ApiClientOptions = {}) {
     excluirResenha,
     reagir,
     removerReacao,
+    listarFrases,
+    criarFrase,
+    excluirFrase,
     listarResenhasPerfil,
     listarEstante,
     listarEstantePerfil,
