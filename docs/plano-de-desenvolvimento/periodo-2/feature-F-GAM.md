@@ -87,7 +87,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
   - O zeramento (RN-18.4) é derivado na consulta, em `dominio/sequencia.ts` (`sequenciaVigente`): a atual vale enquanto o último dia com leitura for hoje ou ontem no último fuso registrado; depois disso é 0, e a maior permanece.
 - **`GET /me/sequencia`:** responde `{ sequenciaAtual, maiorSequencia, ultimoDiaComLeitura }`, só do próprio leitor. Sem progresso, `0/0/null`.
 - **`src/metricas/`:** `ProgressoRegistradoConsumer` (`leitura.metricas`, fila `leai.leitura.metricas` no exchange do próprio `leitura`). Valida o `data` (SEC-32) e recalcula no `tx` do recibo.
-  - É o consumidor de métricas único previsto no [README do P2](README.md): F-DSF e F-STA acrescentam o efeito delas e a routing key `leitura.finalizada`.
+  - É o consumidor de métricas único previsto no [README do P2](README.md): F-DSF e F-STA acrescentam o efeito delas e a routing key `leitura.finalizada`. Desde F-DSF (09/10/2026) chama-se `MetricasConsumer` (`metricas.consumer.ts`) e a sequência só é recalculada em `progresso.registrado`.
   - Mensagem atrasada de um progresso já excluído só recalcula o estado atual, então não o ressuscita.
 - **Exclusão de trecho** (`ProgressoService.excluirTrecho`) recalcula no mesmo `tx`, sem evento (como pede F-PRG).
 - **Backfill:** `npm run backfill:sequencia` (`node dist/sequencia/backfill.js` no build). É idempotente e recompõe todo leitor com progresso ou com sequência gravada.

@@ -33,7 +33,7 @@ Núcleo do produto. Estante, leitura, progresso, sessão cronometrada, nota, res
     - `infraestrutura/` — repositories Drizzle.
     - `api/` — controllers, guards HTTP e `dto/` (validação, Swagger).
     - Dependência só para dentro: `api → aplicacao → dominio` e `aplicacao → infraestrutura`. `aplicacao` pode usar os tipos de `api/dto` como contrato de entrada/saída; `dominio` e `infraestrutura` nunca importam `api/`. `common/`, `auth/`, `outbox/`, `referencias/`, `db/` e `messaging/` são transversais e ficam planos. `src/avaliacoes/` e `src/perfis/` (F-AVA) seguem a estrutura plana própria.
-- **Comandos:** `npm run start:dev` · `npm run build` · `npm test` · `npm run test:integration` · `npm run lint` · `npm run db:generate` · `npm run db:migrate` · `npm run db:seed`. `npm run start:prod` aplica migrations antes de iniciar a API.
+- **Comandos:** `npm run start:dev` · `npm run build` · `npm test` · `npm run test:integration` · `npm run lint` · `npm run db:generate` · `npm run db:migrate` · `npm run db:seed` · `npm run backfill:sequencia` · `npm run backfill:desafios`. `npm run start:prod` aplica migrations antes de iniciar a API.
 - **Porta local: 3001.** O `acervo` usa a 3000 e os dois sobem juntos. No Render a porta vem do ambiente.
 - **Testes:** Jest + ts-jest; unitários em `src/**/*.spec.ts`, integração em `test/integracao/*.int-spec.ts`. **A máquina de estados (RN-04) e a inatividade/abandono (RN-05) são teste obrigatório e prioritário (RNF-TST-01)** — entram com as features de domínio.
 - **OpenAPI:** `@nestjs/swagger` em runtime (`/docs`); commitado em [`docs/api/leitura.yaml`](../../../docs/api/leitura.yaml) (RNF-ARQ-03).
@@ -96,10 +96,20 @@ Módulos `src/estante/`, `src/leituras/` e `src/jobs/inatividade/`, com `src/ref
 ## F-GAM — sequência diária (08/10/2026)
 
 - **`src/sequencia/`** (`SequenciaModule`): `GET /me/sequencia` e `SequenciaService.recalcular(tx, usuarioId)`, que recompõe `dia_leitura` e `sequencia_leitura` das datas locais dos progressos atuais (nunca incrementa contador), sob `pg_advisory_xact_lock` por leitor. O zeramento (RN-18.4) é derivado na consulta (`dominio/sequencia.ts`, `sequenciaVigente`), no último fuso do dispositivo; não há job. Tabelas da baseline DER (migration 0001), sem migration nova.
-- **`src/metricas/`** (`MetricasModule`, `ProgressoRegistradoConsumer`): o consumidor de métricas único de F-GAM, F-DSF e F-STA. Fila `leai.leitura.metricas` no exchange do próprio `leitura`, routing key `progresso.registrado`. DSF e STA acrescentam o efeito delas no `processar` e `leitura.finalizada` às routing keys.
+- **`src/metricas/`** (`MetricasModule`, `MetricasConsumer`): o consumidor de métricas único de F-GAM, F-DSF e F-STA. Fila `leai.leitura.metricas` no exchange do próprio `leitura`, routing keys `progresso.registrado` e `leitura.finalizada` (esta desde F-DSF). O `processar` ramifica por `envelope.type`; STA acrescenta o efeito dela ali.
 - **Exclusão de trecho** (`ProgressoService.excluirTrecho`) chama `recalcular` no mesmo `tx`, sem evento. **Remoção da estante não recalcula** (decisão do dono, 08/10/2026): os dias do livro removido saem no próximo progresso ou exclusão do leitor.
 - **Backfill:** `npm run backfill:sequencia` (`node dist/sequencia/backfill.js` no build), idempotente; rodar antes de o binding subir num ambiente.
 - **Testes:** `src/sequencia/dominio/sequencia.spec.ts` e `test/integracao/sequencia.int-spec.ts` (API → outbox → despachante → broker em memória → consumidor, com duplicata, retry e DLQ).
+
+## F-DSF — desafios (09/10/2026)
+
+- **`src/desafios/`** (`DesafiosModule`), em camadas: `POST/GET /desafios`, `PATCH/DELETE /desafios/{id}`, `POST /desafios/{id}/pausar` e `/retomar`. Tabelas da baseline DER (migration 0001: `desafio`, `janela_desafio`, `contribuicao_desafio`, `pausa_desafio`), sem migration nova.
+- **`DesafiosService.recalcular(tx, usuarioId)`** é o único caminho de escrita de janelas e contribuições: materializa as janelas que faltam até a corrente (inclusive vazias, desde a janela de criação) e recompõe as contribuições de **todas** as janelas do leitor a partir de `atualizacao_progresso` e `leitura`, em SQL set-based (`recomporContribuicoes`). Nunca incrementa. Chamado pelo `MetricasConsumer`, por `ProgressoService.excluirTrecho`, pelas escritas da API e pelo `GET` (que só recompõe se criou janela). Trava com `pg_advisory_xact_lock('desafios:'||usuarioId)`, sempre **depois** do lock da sequência quando os dois são tomados.
+- **Regras no SQL:** fato entra na janela pela própria data local (`data_local` do progresso, `finalizacao_data_local` da leitura); a unidade é a do **snapshot da janela**; ocorrência (`registrado_em_dispositivo` ou `finalizada_em`) dentro de `[inicio_em, fim_em)` de uma pausa não conta; minutos zerados não geram contribuição; livro conta com `finalizada_em` preenchido.
+- **Janelas** (`dominio/janelas.ts`): calendário no fuso do desafio, semana ISO (segunda a domingo; decisão do dono a ratificar pelo grupo). A janela corrente é a de `fim` mais recente.
+- **Edição:** materializa com a configuração antiga, descarta as janelas não terminadas e cria a corrente com a nova. As encerradas guardam o snapshot (RN-20.7).
+- **Backfill:** `npm run backfill:desafios` (`node dist/desafios/backfill.js` no build), idempotente; rodar antes de o binding de `leitura.finalizada` subir num ambiente.
+- **Testes:** `src/desafios/dominio/*.spec.ts` e `test/integracao/desafios.int-spec.ts` (CRUD, propriedade, idempotência, RN-20.2 a 20.10, pausas, edição, backfill, duplicata, retry e DLQ).
 
 ## Pontos de atenção (ver `REQUISITOS.md`) — prioridade de teste
 
