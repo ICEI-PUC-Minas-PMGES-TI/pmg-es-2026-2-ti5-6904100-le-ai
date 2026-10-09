@@ -4,6 +4,7 @@ import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../design/theme.dart';
 import '../../design/tokens.dart';
 import '../../design/widgets/botao_primario.dart';
+import '../../design/widgets/cartao_de_sequencia.dart';
 
 /// Widgets do bloco de identidade de meu-perfil e perfil-de-outro-leitor, refeitos a partir dos
 /// protótipos renderizados (docs/design/AGENTS.md §10): skeleton com a linha de contadores,
@@ -132,7 +133,10 @@ class LinhaDePedido extends StatelessWidget {
 class SkeletonDoPerfil extends StatelessWidget {
   final bool comBotao;
 
-  const SkeletonDoPerfil({super.key, this.comBotao = false});
+  /// Bloco de 104px da sequência diária (F-GAM), no perfil próprio que a mostra.
+  final bool comSequencia;
+
+  const SkeletonDoPerfil({super.key, this.comBotao = false, this.comSequencia = false});
 
   @override
   Widget build(BuildContext context) {
@@ -183,6 +187,10 @@ class SkeletonDoPerfil extends StatelessWidget {
           ],
           const SizedBox(height: DesignTokens.space6),
           Row(children: <Widget>[contador(), const SizedBox(width: DesignTokens.space4), contador()]),
+          if (comSequencia) ...<Widget>[
+            const SizedBox(height: DesignTokens.space6),
+            const SkeletonDeSequencia(),
+          ],
         ],
       ),
     );

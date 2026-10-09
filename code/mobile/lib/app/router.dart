@@ -28,6 +28,8 @@ import '../features/perfil/perfil_page.dart';
 import '../features/perfil/rotas_perfil.dart';
 import '../features/perfil/widgets_de_identidade.dart';
 import '../features/progresso/rotas_progresso.dart';
+import '../features/sequencia/sequencia_do_perfil.dart';
+import '../features/sequencia/sequencia_service.dart';
 import 'shell_autenticado.dart';
 import 'verificando_sessao_page.dart';
 
@@ -63,6 +65,7 @@ GoRouter buildRouter({
   DependenciasDeNotificacoes? notificacoes,
   DependenciasDeListas? listas,
   ExclusaoService? exclusao,
+  SequenciaService? sequencia,
 }) {
   Future<bool> renovar(String token) => sessionController.renovar(token, authService.renovar);
   final servicoDeExclusao = exclusao ?? ExclusaoService(authService.client);
@@ -96,6 +99,8 @@ GoRouter buildRouter({
         ),
       );
   final depsDeProgresso = progresso ?? DependenciasDeProgresso.padrao(servicoDeEstante.client);
+  // F-GAM: a sequência é do `leitura`, no mesmo client da estante e do progresso.
+  final servicoDeSequencia = sequencia ?? SequenciaService(servicoDeEstante.client);
   final depsDeNotificacoes =
       notificacoes ??
       DependenciasDeNotificacoes.padrao(
@@ -251,6 +256,10 @@ GoRouter buildRouter({
                   resenhas: (usuarioId) =>
                       _resenhasDoPerfil(context, deps, usuarioId: usuarioId, proprio: true),
                   listas: (usuarioId) => secaoDasMinhasListas(context, depsDeListas, usuarioId),
+                  sequencia: () => SequenciaDoPerfil(
+                    servico: servicoDeSequencia,
+                    alteracoes: depsDeProgresso.servico.alteracoes,
+                  ),
                 ),
                 routes: <RouteBase>[
                   ...rotasDoPerfil(
