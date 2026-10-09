@@ -8,7 +8,8 @@ info:
     perfil estão implementadas por F-AVA (27/09/2026); os contratos de F-EST
     e de F-PRG estão implementados (F-PRG em 27/09/2026, com a edição de
     progresso removida em 29/09/2026). A sequência diária está implementada
-    por F-GAM (08/10/2026). Cada operação traz `x-implementation-status`.
+    por F-GAM (08/10/2026) e os desafios por F-DSF (09/10/2026). Cada
+    operação traz `x-implementation-status`.
     Nota e resenha pertencem ao livro, não a uma ocorrência de leitura.
     Sessões cronometradas, favoritos, histórico, reações e Markdown não fazem
     parte deste contrato do Período 1.
@@ -52,6 +53,8 @@ tags:
     description: Projeções autorizadas para composição de perfil
   - name: sequencia
     description: Sequência diária de leitura (streak), só mobile
+  - name: desafios
+    description: Desafios de leitura por janela de calendário, só mobile
   - name: interno
     description: Operações exclusivas de serviços e do agendador
 security:
@@ -678,6 +681,187 @@ paths:
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '503': { $ref: '#/components/responses/ServicoIndisponivel' }
 
+  /desafios:
+    post:
+      tags: [desafios]
+      summary: Cria um desafio
+      operationId: criarDesafio
+      x-implementation-status: implemented
+      x-implemented-by: F-DSF
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      description: >-
+        Qualquer unidade combina com qualquer janela, e o leitor pode manter
+        vários desafios ao mesmo tempo (RF-DSF-01, RN-20). As janelas são de
+        calendário no fuso informado (RN-20.1); a semana vai de segunda a
+        domingo (ISO 8601). Criado no meio da janela, o desafio já considera o
+        que foi registrado nela, como um anual criado em agosto contando desde
+        janeiro (RN-20.2). `valorAlvo` que não é inteiro positivo é 400; acima
+        do teto da unidade (100.000 páginas, 100.000 minutos ou 1.000 livros) é
+        422, com `campos`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DesafioEntrada' }
+      responses:
+        '201':
+          description: Desafio criado com a janela corrente.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Desafio' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+        '413': { $ref: '#/components/responses/CorpoMuitoGrande' }
+        '422': { $ref: '#/components/responses/EntidadeInvalida' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+    get:
+      tags: [desafios]
+      summary: Lista os desafios com o progresso da janela corrente
+      operationId: listarDesafios
+      x-implementation-status: implemented
+      x-implemented-by: F-DSF
+      parameters:
+        - { $ref: '#/components/parameters/Pagina' }
+        - { $ref: '#/components/parameters/Limite' }
+      description: >-
+        Só os desafios do próprio leitor (RNF-SEC-02), cada um com o acumulado
+        e o alvo da janela corrente (RF-DSF-03). Ordem: ativos antes dos
+        pausados; dentro de cada grupo, janela mais curta primeiro (diária,
+        semanal, mensal, anual) e, na mesma janela, o mais novo primeiro.
+        `paginacao.totalItens` conta todos, pausados inclusive. O acumulado é
+        recomposto pelo consumo assíncrono de `progresso.registrado` e
+        `leitura.finalizada` e pela exclusão de trecho de progresso, então pode
+        chegar com atraso de segundos depois de um registro. Páginas e minutos
+        contam pela data local de captura do progresso; livros, pelo dia local
+        da ação de finalizar, nunca pela data de fim editável (RN-20.3). Livros
+        pessoais contam (RN-20.4); releitura incompleta e leitura abandonada
+        não. A janela que começou desde a última consulta é criada aqui, sem
+        job (RN-20.9). Histórico de janelas encerradas é RF-DSF-05 (Período 3)
+        e não é exposto.
+      responses:
+        '200':
+          description: Página de desafios, possivelmente vazia.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaDesafios' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
+  /desafios/{desafioId}:
+    patch:
+      tags: [desafios]
+      summary: Edita unidade, janela, alvo ou fuso de um desafio
+      operationId: editarDesafio
+      x-implementation-status: implemented
+      x-implemented-by: F-DSF
+      parameters:
+        - { $ref: '#/components/parameters/DesafioId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      description: >-
+        Recalcula somente a janela corrente (RN-20.7): os períodos já
+        decorridos são encerrados com a configuração antiga e guardam unidade,
+        periodicidade, alvo e fuso de quando valeram; a janela corrente é
+        refeita com a configuração nova e já considera o registrado nela.
+        Campos ausentes mantêm o valor atual; `fusoHorario` é sempre o do
+        dispositivo. Sem mudança, responde 200 sem recalcular a configuração.
+        Desafio pausado continua pausado. Desafio de outra pessoa é 404. O teto
+        do alvo segue a unidade resultante (422).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DesafioEdicao' }
+      responses:
+        '200':
+          description: Desafio editado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Desafio' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+        '413': { $ref: '#/components/responses/CorpoMuitoGrande' }
+        '422': { $ref: '#/components/responses/EntidadeInvalida' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+    delete:
+      tags: [desafios]
+      summary: Exclui um desafio
+      operationId: excluirDesafio
+      x-implementation-status: implemented
+      x-implemented-by: F-DSF
+      parameters:
+        - { $ref: '#/components/parameters/DesafioId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      description: >-
+        Apaga o desafio com suas janelas, contribuições e pausas. A
+        confirmação é do cliente. Desafio inexistente ou de outra pessoa é 404;
+        repetir a chave depois de excluir responde 204.
+      responses:
+        '204': { description: Desafio excluído ou repetição idempotente concluída. }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
+  /desafios/{desafioId}/pausar:
+    post:
+      tags: [desafios]
+      summary: Pausa um desafio
+      operationId: pausarDesafio
+      x-implementation-status: implemented
+      x-implemented-by: F-DSF
+      parameters:
+        - { $ref: '#/components/parameters/DesafioId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      description: >-
+        Abre um intervalo de pausa no instante do servidor (RN-20.6). O que
+        ocorrer durante a pausa não conta para este desafio, mesmo que seja
+        sincronizado depois da retomada: vale o instante de captura do
+        progresso no dispositivo e o instante da finalização. A janela
+        corrente não é avaliada enquanto pausado. Desafio já pausado é 409.
+      responses:
+        '200':
+          description: Desafio pausado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Desafio' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
+  /desafios/{desafioId}/retomar:
+    post:
+      tags: [desafios]
+      summary: Retoma um desafio pausado
+      operationId: retomarDesafio
+      x-implementation-status: implemented
+      x-implemented-by: F-DSF
+      parameters:
+        - { $ref: '#/components/parameters/DesafioId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      description: >-
+        Fecha o intervalo de pausa; só conta o que ocorrer a partir de agora
+        (RN-20.6). Os intervalos ficam guardados para o recálculo de
+        sincronizações tardias. Desafio que não está pausado é 409.
+      responses:
+        '200':
+          description: Desafio retomado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Desafio' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
   /internal/jobs/inatividade:
     post:
       tags: [interno]
@@ -785,6 +969,11 @@ components:
       schema: { type: string, format: uuid }
     UsuarioId:
       name: usuarioId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    DesafioId:
+      name: desafioId
       in: path
       required: true
       schema: { type: string, format: uuid }
@@ -1207,6 +1396,81 @@ components:
           nullable: true
           example: '2026-10-08'
           description: Último dia de calendário local com progresso.
+
+    UnidadeDesafio:
+      type: string
+      enum: [paginas, minutos, livros]
+    JanelaDesafio:
+      type: string
+      enum: [diaria, semanal, mensal, anual]
+      description: Janela de calendário; a semanal vai de segunda a domingo.
+    DesafioEntrada:
+      type: object
+      additionalProperties: false
+      required: [unidade, janela, valorAlvo, fusoHorario]
+      properties:
+        unidade: { $ref: '#/components/schemas/UnidadeDesafio' }
+        janela: { $ref: '#/components/schemas/JanelaDesafio' }
+        valorAlvo:
+          type: integer
+          minimum: 1
+          description: >-
+            Teto por unidade: 100.000 páginas, 100.000 minutos ou 1.000 livros
+            (422 acima dele).
+        fusoHorario:
+          type: string
+          example: America/Sao_Paulo
+          description: Identificador IANA do dispositivo; define o dia de hoje.
+    DesafioEdicao:
+      type: object
+      additionalProperties: false
+      required: [fusoHorario]
+      properties:
+        unidade: { $ref: '#/components/schemas/UnidadeDesafio' }
+        janela: { $ref: '#/components/schemas/JanelaDesafio' }
+        valorAlvo: { type: integer, minimum: 1 }
+        fusoHorario: { type: string, example: America/Sao_Paulo }
+    JanelaCorrenteDesafio:
+      type: object
+      additionalProperties: false
+      required: [inicio, fim, acumulado, cumprida]
+      properties:
+        inicio: { type: string, format: date }
+        fim: { type: string, format: date }
+        acumulado:
+          type: integer
+          minimum: 0
+          description: Soma na unidade do desafio dos registros da janela, fora das pausas.
+        cumprida:
+          type: boolean
+          description: O acumulado atingiu o alvo (RN-20.8).
+    Desafio:
+      type: object
+      additionalProperties: false
+      required: [id, unidade, janela, valorAlvo, fusoHorario, pausado, pausadoDesde, criadoEm, janelaCorrente]
+      properties:
+        id: { type: string, format: uuid }
+        unidade: { $ref: '#/components/schemas/UnidadeDesafio' }
+        janela: { $ref: '#/components/schemas/JanelaDesafio' }
+        valorAlvo: { type: integer, minimum: 1 }
+        fusoHorario: { type: string, example: America/Sao_Paulo }
+        pausado: { type: boolean }
+        pausadoDesde:
+          type: string
+          format: date-time
+          nullable: true
+          description: Início da pausa em curso; nulo quando ativo.
+        criadoEm: { type: string, format: date-time }
+        janelaCorrente: { $ref: '#/components/schemas/JanelaCorrenteDesafio' }
+    PaginaDesafios:
+      type: object
+      additionalProperties: false
+      required: [itens, paginacao]
+      properties:
+        itens:
+          type: array
+          items: { $ref: '#/components/schemas/Desafio' }
+        paginacao: { $ref: '#/components/schemas/Paginacao' }
 
     MinhaAvaliacao:
       type: object
