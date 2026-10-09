@@ -5,7 +5,8 @@ import type { Pool } from 'pg';
 import request from 'supertest';
 import * as schema from '../../src/db/schema';
 import { DRIZZLE, type DrizzleDB } from '../../src/db/drizzle.module';
-import { ProgressoRegistradoConsumer } from '../../src/metricas/progresso-registrado.consumer';
+import { DesafiosService } from '../../src/desafios/aplicacao/desafios.service';
+import { MetricasConsumer } from '../../src/metricas/metricas.consumer';
 import { AmqpPublisherService } from '../../src/messaging/amqp-publisher.service';
 import { MessageValidator } from '../../src/messaging/message-validator';
 import { EXCHANGES } from '../../src/messaging/messaging.constants';
@@ -69,10 +70,11 @@ describe('sequência diária (integração)', () => {
         return sequencia.recalcular(...args);
       },
     } as unknown as SequenciaService;
-    new ProgressoRegistradoConsumer(
+    new MetricasConsumer(
       consumidor,
       validador,
       instavel,
+      app.get(DesafiosService),
     ).onModuleInit();
     consumidor.onModuleInit();
     await new Promise<void>((resolve) => setImmediate(resolve));
