@@ -21,6 +21,11 @@ export const OPERACOES = {
   PROCESSAR_INATIVIDADE_LEITURAS: 'processarInatividadeLeituras',
   REGISTRAR_PROGRESSO: 'registrarProgresso',
   EXCLUIR_TRECHO_PROGRESSO: 'excluirTrechoProgresso',
+  CRIAR_DESAFIO: 'criarDesafio',
+  EDITAR_DESAFIO: 'editarDesafio',
+  PAUSAR_DESAFIO: 'pausarDesafio',
+  RETOMAR_DESAFIO: 'retomarDesafio',
+  EXCLUIR_DESAFIO: 'excluirDesafio',
 } as const;
 
 export type Operacao = (typeof OPERACOES)[keyof typeof OPERACOES];

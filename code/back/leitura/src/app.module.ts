@@ -22,6 +22,7 @@ import { PerfisModule } from './perfis/perfis.module';
 import { ProgressoModule } from './progresso/progresso.module';
 import { ReferenciasModule } from './referencias/referencias.module';
 import { SequenciaModule } from './sequencia/sequencia.module';
+import { DesafiosModule } from './desafios/desafios.module';
 
 @Module({
   imports: [
@@ -69,6 +70,7 @@ import { SequenciaModule } from './sequencia/sequencia.module';
     LeiturasModule,
     ProgressoModule,
     SequenciaModule,
+    DesafiosModule,
     MetricasModule,
     InatividadeModule,
   ],
