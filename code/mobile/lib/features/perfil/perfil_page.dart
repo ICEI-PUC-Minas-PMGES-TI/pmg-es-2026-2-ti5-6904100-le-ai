@@ -53,6 +53,10 @@ class PerfilPage extends StatefulWidget {
   /// pedidos, antes das seções de leitura (meu-perfil.md §4.1 A).
   final Widget Function()? sequencia;
 
+  /// Bloco "Desafios" (F-DSF), só no perfil próprio: entra depois da sequência, antes das seções
+  /// de leitura (meu-perfil.md §4.1 B; as Estatísticas do ano, entre os dois, ainda não existem).
+  final Widget Function()? desafios;
+
   const PerfilPage({
     super.key,
     required this.servico,
@@ -64,6 +68,7 @@ class PerfilPage extends StatefulWidget {
     this.resenhas,
     this.listas,
     this.sequencia,
+    this.desafios,
   });
 
   @override
@@ -148,6 +153,7 @@ class _PerfilPageState extends State<PerfilPage> {
     final theme = Theme.of(context);
     final perfil = _perfil;
     final sequencia = widget.sequencia?.call();
+    final desafios = widget.desafios?.call();
     return SingleChildScrollView(
       // 32 acima do avatar, como no protótipo.
       padding: const EdgeInsets.fromLTRB(
@@ -246,6 +252,10 @@ class _PerfilPageState extends State<PerfilPage> {
                   const SizedBox(height: DesignTokens.space8),
                 ] else
                   const SizedBox(height: DesignTokens.space12),
+                if (desafios != null) ...<Widget>[
+                  desafios,
+                  const SizedBox(height: DesignTokens.space8),
+                ],
                 SecoesDeLeitura(
                   proprio: true,
                   aoBuscarLivros: _destino(widget.aoBuscarLivros, '/descobrir'),

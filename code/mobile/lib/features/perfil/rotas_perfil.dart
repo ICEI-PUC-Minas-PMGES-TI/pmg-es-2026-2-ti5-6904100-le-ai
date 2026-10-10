@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/config/app_config.dart';
 import '../../core/network/api_client.dart';
+import '../desafios/rotas_desafios.dart';
 import '../estante/estante_service.dart';
 import '../listas/rotas_listas.dart';
 import '../livros/capa.dart';
@@ -79,8 +80,10 @@ List<RouteBase> rotasDoPerfil(
   EstanteService? estante,
   Widget Function(BuildContext context, String usuarioId, String nome)? resenhasDeOutro,
   DependenciasDeListas? listas,
+  DependenciasDeDesafios? desafios,
 }) => <RouteBase>[
   if (listas != null) ...rotasDasMinhasListas(listas),
+  if (desafios != null) ...rotasDosDesafios(desafios),
   GoRoute(
     path: 'editar',
     builder: (context, state) => EditarPerfilPage(
