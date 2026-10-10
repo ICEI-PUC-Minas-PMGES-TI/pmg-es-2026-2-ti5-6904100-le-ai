@@ -116,8 +116,8 @@ async function carregar(): Promise<void> {
     }
   } catch (erro) {
     livro.value = null
-    // Pela lista, o `acervo` responde 400 até a etapa 3 da F-LST (pendência na feature): para quem
-    // chega, é o mesmo "indisponível", sem confirmar nada sobre o livro.
+    // Pela lista, um 400 do `acervo` (que aceita `via=lista` desde a etapa 3 da F-LST) continua
+    // sendo o mesmo "indisponível" para quem chega, sem confirmar nada sobre o livro.
     if (
       erro instanceof ApiError &&
       (erro.status === 403 || erro.status === 404 || (veioDaLista.value && erro.status === 400))
