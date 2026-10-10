@@ -24,7 +24,7 @@ RNF atendidos: **RNF-ARQ-06** (atualização por fluxo assíncrono), **RNF-ERR-0
 | Infra | concluído (baseline DER) | `desafio`, `janela_desafio`, `contribuicao_desafio` e `pausa_desafio` já estavam na migration `0001_..._modelo_der`; **sem migration nova**. Consumo pela fila `leai.leitura.metricas` da F-GAM, agora também com `leitura.finalizada` |
 | Backend | implementado (09/10/2026) | `leitura`: CRUD de desafios, pausar/retomar, `GET /desafios` com a janela corrente, recálculo pelo consumidor de métricas e pela exclusão de trecho, backfill `npm run backfill:desafios` |
 | Web | não aplicável | **fora do escopo web** (§2.1) |
-| Mobile | não iniciado | criar/editar/pausar/excluir + progresso da janela corrente; bloco `Desafios` do Meu perfil |
+| Mobile | implementado (10/10/2026) | `code/mobile/lib/features/desafios/`: lista com menu de ações (editar, pausar/retomar, excluir), formulário de criar e editar, bloco `Desafios` do Meu perfil |
 
 ## Especificação
 
@@ -75,18 +75,54 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Mensal → semanal no meio do mês:** a semana corrente nasce com a configuração nova e o mês corrente é descartado. Os dias do mês anteriores a essa semana ficam sem janela no histórico, porque nenhum período encerrado é inventado com a configuração nova. Semanal → mensal não tem lacuna: as semanas encerradas ficam, e o mês corrente as sobrepõe sem conflito de unicidade.
 - **Troca de fuso para um dia anterior:** se o novo "hoje" cair num dia cuja janela já existe, a janela existente é reaproveitada sem trocar o snapshot.
 
+## Implementação do mobile (10/10/2026)
+
+**`code/mobile`, pasta `lib/features/desafios/`:**
+- **Serviço:** `DesafiosService` consome o contrato do backend no mesmo client do `leitura` (estante, progresso, sequência). O fuso vai na criação e em toda edição, de `fusoHorarioDoDispositivo()`, o mesmo do progresso (`Etc/GMT+3`, aceito pelo `@IsTimeZone` do servidor). Escritas com `Idempotency-Key` por intenção: o reenvio e o `Tentar de novo` repetem a chave.
+- **Telas:**
+  - `/perfil/desafios`: lista paginada por rolagem, ativos e grupo `Pausados`, e menu de ações em folha.
+  - `/perfil/desafios/novo` e `/perfil/desafios/:id/editar`: o formulário.
+  - Bloco `Desafios` no Meu perfil, entre a Sequência e a Estante.
+  - Todas ficam empilhadas na aba Perfil, com a barra inferior, como nos protótipos.
+- **Texto composto no cliente:** título (`20 páginas por dia`, `1 livro por semana`), nome da janela (`Hoje`, `Esta semana`, `Setembro`, `2026`), `Faltam N`, `Cumprido …` e `Pausado desde 15 de setembro`. A barra é `broto` sobre `musgo-fundo` e para no alvo, mesmo que o acumulado passe dele. Nenhuma porcentagem.
+- **Recarga:** a tela e o bloco recarregam na hora depois de uma escrita de desafio. Depois de um progresso ou de uma leitura finalizada, recarregam em silêncio 3 s após o último aviso, porque o acumulado chega pelo consumidor assíncrono. Se a recarga silenciosa falhar, os dados ficam na tela.
+- **Testes:** 58 em `test/features/desafios/`:
+  - serviço;
+  - textos;
+  - lista: cards, grupos, cumprido, início de janela, cores claro/escuro, vazio, 503, timeout, cold start, menu, pausar sem confirmação, toast com retry na mesma chave, 409, exclusão confirmada, paginação, recarga adiada;
+  - formulário: nada pré-selecionado, validações, teto, 422 no campo, faixas de criação e edição, PATCH só com a mudança, retry com a mesma chave, exclusão;
+  - bloco do perfil, incluindo a posição na página e a falha isolada;
+  - rotas.
+  
+  `flutter analyze` sem avisos, 718 testes verdes e `flutter build apk --debug` ok.
+
+**Decisões do dono (10/10/2026), a ratificar com as de tela da pendência abaixo:**
+- **Bloco do perfil com todos os desafios pausados:** o protótipo não desenha o caso. Ficam o cabeçalho com `Ver todos` e a legenda `N desafios pausados` no lugar dos cards.
+- **Teto do alvo validado no cliente:** o helper continua `Um número inteiro maior que zero.`, sem citar máximo, como pede o prompt. Acima do teto da unidade, o campo mostra a frase do servidor (`Para livros, o alvo vai de 1 a 1.000.`) assim que o número passa dele. O 400/422 com `campos.valorAlvo` também cai no campo, sem banner.
+- **409 e 404 nas ações recarregam a lista em silêncio:** 409 em pausar ou retomar significa estado já mudado; 404 significa desafio já excluído. A tela é que estava velha, e o protótipo não tem texto para isso. Na edição, excluir com 404 volta para a lista como sucesso.
+- **Edição recebe o desafio por `extra` da rota:** o contrato não tem `GET /desafios/{id}`. Aberta sem ele (link direto), a rota volta para a lista.
+- **Singular de página e minuto:** o protótipo só escreve `1 livro`; `1 página` e `1 minuto` seguem a mesma regra.
+
+**Divergências protótipo × implementação:**
+- **`Pausado desde` com ano:** quando a pausa é de outro ano, a data ganha o ano (`30 de dezembro de 2025`). O protótipo só mostra datas do ano corrente.
+- **`Carregar mais` no fim da lista:** com página seguinte e sem rolagem que a dispare (lista curta), aparece o botão textual de `FimDaLista`, como nas demais listas do app. O protótipo prevê só o skeleton da rolagem.
+- **Números do card em telas estreitas:** em tela estreita ou fonte grande, `Faltam N …` (ou `Cumprido …`) desce para a linha de baixo em vez de espremer `12 de 20 páginas`. O protótipo usa uma linha só.
+- **Campo de alvo enquanto salva:** desabilitado, ele usa o fundo `linha` do `CampoTexto`. O protótipo mantém `papel-elevado` e só acinzenta o texto.
+- **Confirmação de exclusão:** usa `confirmarAcaoDestrutiva` do design system. O foco inicial não vai para `Cancelar`, como pede o prompt (vale para todo o app).
+- **Componentes novos fora do documento de design:** o card de desafio, o card compacto, a pill `Pausado`, o item de menu em duas linhas e o grupo de chips de escolha única (`ChipDeEscolha`) nasceram aqui. Incorporá-los ao `documento-de-design.md` é decisão do grupo (pendência).
+
 ## Critérios de aceite
 
-- [x] Criar múltiplos desafios com qualquer combinação de **unidade × janela × alvo** (RF-DSF-01, RN-20). Backend.
+- [x] Criar múltiplos desafios com qualquer combinação de **unidade × janela × alvo** (RF-DSF-01, RN-20). Backend e mobile.
 - [x] Desafios atualizam a cada progresso/finalização; consumidor é idempotente + DLQ e o backfill cobre fatos anteriores (RF-DSF-02/06).
 - [x] Uma atualização alimenta **todos** os desafios ativos compatíveis (RN-20.5).
 - [x] Desafio criado no meio da janela **considera o já registrado** na janela (RN-20.2), via consulta ao próprio schema.
 - [x] **Livros** contam só finalizados (releitura finalizada conta; incompleta/abandonada não — RN-20.3/RN-04); livros pessoais contam (RN-20.4).
-- [x] Editar/pausar/excluir funcionam; pausado não acumula (RN-20.6); alterar recalcula a janela corrente sem tocar janelas anteriores (RN-20.7). Backend.
+- [x] Editar/pausar/excluir funcionam; pausado não acumula (RN-20.6); alterar recalcula a janela corrente sem tocar janelas anteriores (RN-20.7). Backend e mobile.
 - [x] Progresso usa captura original; conclusão usa dia da ação. Offline corrige janela encerrada com configuração histórica; pausa é aplicada pela ocorrência, não pela chegada do evento.
 - [x] Alterar semanal para mensal preserva semanas encerradas e recalcula o mês sem conflito de unicidade por fato. Períodos vazios são materializados antes de editar; snapshots e pausas permitem backfill determinístico.
-- [ ] Ver progresso da janela corrente, paginado (RF-DSF-03, RNF-DES-02). Backend pronto (`GET /desafios`); falta o mobile.
-- [ ] Desafios funcionam no app **em DES**.
+- [x] Ver progresso da janela corrente, paginado (RF-DSF-03, RNF-DES-02). `GET /desafios` e a lista do mobile com rolagem infinita.
+- [ ] Desafios funcionam no app **em DES**. Entra no merge de fechamento do Período 2.
 
 ## Definition of Done
 
@@ -96,19 +132,21 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
 - [x] Testes unitários e de integração com banco real/container: janelas por data local, criação no meio da janela, finalizados, vários desafios, múltiplas pausas na janela corrente, recálculo, propriedade e idempotência (RNF-TST-02)
 - [x] Testes assíncronos cobrem backfill, consumo duplicado, retentativa e DLQ (RNF-TST-02/03)
-- [ ] Testes mobile cobrem estado dos desafios e indisponibilidade/timeout com API simulada (RNF-TST-04/06)
+- [x] Testes mobile cobrem estado dos desafios e indisponibilidade/timeout com API simulada (RNF-TST-04/06)
 - [x] **Spec OpenAPI de `leitura` atualizado em `docs/api/leitura.yaml`** com os endpoints de desafio
-- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
-- [ ] Arquivo da feature atualizado: status, pendências, timeline
-- [ ] Divergência protótipo × implementação registrada, se houver
+- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)). Entra no merge de fechamento do Período 2.
+- [x] Arquivo da feature atualizado: status, pendências, timeline
+- [x] Divergência protótipo × implementação registrada, se houver
 
 ## Pendências
 
 - **Ratificar com o grupo o início da semana (segunda, ISO 8601).** RN-20.1 não fixa o dia; a implementação usa segunda por decisão do dono (09/10/2026). Se o grupo aprovar, o `REQUISITOS.md` ganha o esclarecimento em RN-20 pelo controle de mudança; se escolher domingo, só `janelaQueContem` (`src/desafios/dominio/janelas.ts`) muda.
-- **Mobile não iniciado:** telas `desafios` e `criar-desafio` e o bloco `Desafios` do Meu perfil, consumindo o contrato acima. As decisões de tela do protótipo (pausar sem confirmação, nada pré-selecionado, sem barra no pausado) seguem para ratificação no mobile.
+- **Ratificar as decisões de tela:** as do protótipo, implementadas como desenhadas, são pausar sem confirmação, nada pré-selecionado, pausado sem barra e ordem com pausados no fim. As do dono, de 10/10/2026, estão na seção do mobile: só pausados no perfil, teto local, 409/404 com recarga e edição por `extra`.
+- **Incorporar ao `documento-de-design.md`** o card de desafio, o card compacto, a pill `Pausado`, o item de menu em duas linhas e o grupo de chips de escolha única, nascidos na F-DSF. Decisão do grupo; o agente não altera o orquestrador.
+- **Teste manual no aparelho contra o `leitura` local:** criar páginas/dia e livros/ano, registrar progresso e ver o acumulado subir, pausar, retomar, editar semanal → mensal e excluir. O app aponta para o `leitura` local com `--dart-define=LEITURA_BASE_URL=http://localhost:3001` e `adb reverse tcp:3001 tcp:3001`.
 - **Backfill antes do binding no DES:** no merge de fechamento do P2, rodar `npm run backfill:desafios` no `leitura` do DES junto da primeira subida do consumidor com `leitura.finalizada`. Como só haverá desafios criados depois do deploy, e a criação já recompõe o passado da janela, o backfill serve de garantia de convergência.
 - **F-SESSAO (Ana) não iniciada:** não bloqueia. A sessão cronometrada envia minutos pelo mesmo `POST /leituras/{id}/progresso` (RN-16.13), já contados aqui. Sessão de menos de um minuto vira `minutos: 0` e não conta.
-- **Telas (design P2):** prompts escritos em 27/09/2026 e protótipos exportados em 28/09/2026: [`desafios.md`](../../design/periodo-2/F-DSF/desafios.md) ([protótipo](../../design/periodo-2/F-DSF/prototipos/desafios.html)) e [`criar-desafio.md`](../../design/periodo-2/F-DSF/criar-desafio.md) (criar e editar, [protótipo](../../design/periodo-2/F-DSF/prototipos/criar-desafio.html)). Entrada pelo bloco `Desafios` do Meu perfil, na edição consolidada de `docs/design/periodo-2/meu-perfil/` (lote futuro). Decisões do prompt a ratificar pelo dono: início da semana de calendário não definido em RN-20 (o card semanal mostra só "Esta semana"), ordem da lista por janela com pausados no fim, desafio pausado sem barra, pausar/retomar sem confirmação e teto do valor-alvo ainda sem contrato. Lote 6, prompt escrito e protótipo exportado em 29/09/2026: bloco `Desafios` (dois primeiros ativos, sem pausados, `Mais N desafios`, `Ver todos`) na edição [`meu-perfil.md`](../../design/periodo-2/meu-perfil/meu-perfil.md) ([protótipo](../../design/periodo-2/meu-perfil/prototipos/meu-perfil.html)). Contrato a confirmar: total de desafios para o bloco.
+- **Telas (design P2):** prompts escritos em 27/09/2026 e protótipos exportados em 28/09/2026: [`desafios.md`](../../design/periodo-2/F-DSF/desafios.md) ([protótipo](../../design/periodo-2/F-DSF/prototipos/desafios.html)) e [`criar-desafio.md`](../../design/periodo-2/F-DSF/criar-desafio.md) (criar e editar, [protótipo](../../design/periodo-2/F-DSF/prototipos/criar-desafio.html)). Entrada pelo bloco `Desafios` do Meu perfil, na edição consolidada de `docs/design/periodo-2/meu-perfil/` (lote futuro). Decisões do prompt a ratificar pelo dono: início da semana de calendário não definido em RN-20 (o card semanal mostra só "Esta semana"), ordem da lista por janela com pausados no fim, desafio pausado sem barra, pausar/retomar sem confirmação e teto do valor-alvo ainda sem contrato. Lote 6, prompt escrito e protótipo exportado em 29/09/2026: bloco `Desafios` (dois primeiros ativos, sem pausados, `Mais N desafios`, `Ver todos`) na edição [`meu-perfil.md`](../../design/periodo-2/meu-perfil/meu-perfil.md) ([protótipo](../../design/periodo-2/meu-perfil/prototipos/meu-perfil.html)). O total de desafios para o bloco é o `paginacao.totalItens` de `GET /desafios`.
 - **Depende de** [F-PRG](../periodo-1/feature-F-PRG.md) (`progresso.registrado`, unidades páginas/minutos, fuso do dispositivo), [F-EST](../periodo-1/feature-F-EST.md) (`leitura.finalizada`, máquina de estados), [F-SESSAO](feature-F-SESSAO.md) (minutos cronometrados alimentam desafios — RN-16.13), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md), [P0-MSG](../periodo-0/feature-P0-MSG.md).
 - **Decisão do grupo incorporada em 15/09/2026:** pausas excluem fatos por instante de ocorrência, mesmo entre janelas/fusos; retomar só conta fatos a partir da retomada. Configurações históricas e recomposição offline aprovadas. A faixa do valor-alvo foi fixada pelo dono em 09/10/2026 (ver implementação).
 - **Alternativa a avaliar, sem mudar o desenho atual:** calcular a janela corrente consultando progresso/leitura e persistir apenas snapshots históricos no P3.
@@ -117,6 +155,12 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - Stack de `leitura` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
 ## Timeline
+
+### Implementação 10/10/2026: mobile implementado na `vicenzo-features`, depois de trazer a `desenvolvimento` (F-AVA-2).
+- O merge teve um único conflito, em `docs/api/leitura.yaml` (`components.parameters`): ficaram `DesafioId` e os parâmetros de resenha.
+- Telas de lista, criar/editar e bloco do Meu perfil, seguindo os protótipos.
+- Decisões do dono: só pausados no perfil, teto validado no cliente, 409/404 com recarga silenciosa e edição por `extra`. Divergências registradas.
+- 58 testes novos; suíte mobile, backend (unitários e integração) e build verdes. Falta o teste manual no aparelho, o merge em `desenvolvimento` e, no fechamento do período, o DES com o backfill.
 
 ### Implementação 09/10/2026: backend implementado na `vicenzo-features`, em cima da F-GAM ainda não mergeada.
 - Sem migration nova: as quatro tabelas são da baseline DER.
