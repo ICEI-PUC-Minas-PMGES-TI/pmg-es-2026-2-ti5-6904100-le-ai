@@ -1,4 +1,4 @@
-import { hoje, janelaQueContem, janelasAte, somarDias } from './janelas';
+import { emDia, hoje, janelaQueContem, janelasAte, somarDias } from './janelas';
 
 describe('janelas de calendário (RN-20.1)', () => {
   it('diária é o próprio dia', () => {
@@ -88,5 +88,23 @@ describe('janelas a materializar (RN-20.9)', () => {
 
   it('não cria nada depois da janela corrente', () => {
     expect(janelasAte('2026-11-01', 'mensal', '2026-10-09')).toEqual([]);
+  });
+});
+
+describe('materialização em dia', () => {
+  // 2026-10-10T20:00Z: dia 10 em São Paulo, dia 11 em Tóquio.
+  const agora = new Date('2026-10-10T20:00:00Z');
+
+  it('em dia quando a última janela alcança o hoje do fuso', () => {
+    expect(emDia('2026-10-10', 'America/Sao_Paulo', agora)).toBe(true);
+    expect(emDia('2026-10-11', 'America/Sao_Paulo', agora)).toBe(true);
+  });
+
+  it('atrasada quando o hoje do fuso passou da última janela', () => {
+    expect(emDia('2026-10-10', 'Asia/Tokyo', agora)).toBe(false);
+  });
+
+  it('sem janela nenhuma, precisa materializar', () => {
+    expect(emDia(null, 'America/Sao_Paulo', agora)).toBe(false);
   });
 });

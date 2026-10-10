@@ -29,6 +29,7 @@ import type {
 } from '../api/dto/desafios.dto';
 import { alvoForaDoLimite, type Unidade } from '../dominio/desafio';
 import {
+  emDia,
   hoje,
   janelaQueContem,
   janelasAte,
@@ -48,8 +49,10 @@ const DESAFIO_NAO_ENCONTRADO = 'Não encontramos este desafio.';
  * As janelas e as contribuições são sempre recompostas dos fatos atuais
  * (`recalcular`), chamado pelo consumidor de métricas, pela exclusão de trecho
  * de progresso, pelas escritas daqui e pela consulta — nunca um contador
- * incrementado por mensagem. Janelas e snapshots são materializados nesses
- * momentos, sem job (RN-20.9).
+ * incrementado por mensagem. Só as janelas que a mudança alcança são refeitas:
+ * as não encerradas, as tocadas na mesma chamada e as que contêm as datas dos
+ * fatos que mudaram. Janelas e snapshots são materializados nesses momentos,
+ * sem job (RN-20.9).
  */
 @Injectable()
 export class DesafiosService {
@@ -59,15 +62,25 @@ export class DesafiosService {
     private readonly idempotencia: IdempotenciaService,
   ) {}
 
-  /** Materializa e recompõe todos os desafios do leitor, no `tx` de quem chama. */
+  /**
+   * Materializa e recompõe os desafios do leitor, no `tx` de quem chama.
+   * `datas` são as datas locais dos fatos que mudaram (progresso registrado ou
+   * excluído, livro finalizado); `'todas'` refaz o histórico inteiro.
+   */
   async recalcular(
     tx: Tx,
     usuarioId: string,
+    datas: readonly string[] | 'todas' = [],
     agora = new Date(),
   ): Promise<void> {
     await this.repositorio.travar(tx, usuarioId);
-    await this.materializar(tx, usuarioId, agora);
-    await this.repositorio.recomporContribuicoes(tx, usuarioId, agora);
+    const tocadas = await this.materializar(tx, usuarioId, agora);
+    await this.repositorio.recomporContribuicoes(
+      tx,
+      usuarioId,
+      agora,
+      datas === 'todas' ? datas : { datas, janelaIds: tocadas },
+    );
   }
 
   /**
@@ -77,7 +90,9 @@ export class DesafiosService {
   async recalcularTodos(): Promise<number> {
     const usuarios = await this.repositorio.usuariosComDesafio(this.db);
     for (const usuarioId of usuarios) {
-      await this.db.transaction((tx) => this.recalcular(tx, usuarioId));
+      await this.db.transaction((tx) =>
+        this.recalcular(tx, usuarioId, 'todas'),
+      );
     }
     return usuarios.length;
   }
@@ -110,7 +125,7 @@ export class DesafiosService {
           },
           agora,
         );
-        await this.recalcular(tx, usuarioId, agora);
+        await this.recalcular(tx, usuarioId, [], agora);
         return {
           status: HttpStatus.CREATED,
           corpo: await this.detalhar(tx, criado),
@@ -152,14 +167,14 @@ export class DesafiosService {
         };
         exigirAlvo(nova.unidade, nova.valorAlvo);
         if (mesmaConfiguracao(atual, nova)) {
-          await this.recalcular(tx, usuarioId, agora);
+          await this.recalcular(tx, usuarioId, [], agora);
           return {
             status: HttpStatus.OK,
             corpo: await this.detalhar(tx, atual),
           };
         }
 
-        await this.materializar(tx, usuarioId, agora);
+        const tocadas = await this.materializar(tx, usuarioId, agora);
         // Descartar e criar com o mesmo "hoje", o do fuso novo: com fusos em
         // dias diferentes, a corrente é a que contém o dia do leitor agora.
         const hojeNovo = hoje(nova.fusoHorario, agora);
@@ -173,7 +188,13 @@ export class DesafiosService {
         await this.repositorio.criarJanelas(tx, atual.id, nova, [
           janelaQueContem(hojeNovo, nova.janela),
         ]);
-        await this.recalcular(tx, usuarioId, agora);
+        // Encerra no fuso novo o que ficou para trás; a recomposição alcança
+        // também as encerradas acima com a configuração antiga.
+        tocadas.push(...(await this.materializar(tx, usuarioId, agora)));
+        await this.repositorio.recomporContribuicoes(tx, usuarioId, agora, {
+          datas: [],
+          janelaIds: tocadas,
+        });
         return {
           status: HttpStatus.OK,
           corpo: await this.detalhar(tx, editado),
@@ -230,19 +251,33 @@ export class DesafiosService {
   /**
    * `GET /desafios` (RF-DSF-03, RNF-DES-02): cada desafio com a janela
    * corrente. Materializa antes de ler, para que uma janela recém-iniciada
-   * apareça mesmo sem novo registro.
+   * apareça mesmo sem novo registro; com todas as correntes em dia, nem abre
+   * transação.
    */
   async listar(
     usuarioId: string,
     consulta: ConsultaDesafiosDto,
   ): Promise<PaginaDesafiosDto> {
-    await this.db.transaction(async (tx) => {
-      const agora = new Date();
-      await this.repositorio.travar(tx, usuarioId);
-      if ((await this.materializar(tx, usuarioId, agora)) > 0) {
-        await this.repositorio.recomporContribuicoes(tx, usuarioId, agora);
-      }
-    });
+    const agora = new Date();
+    const desafios = await this.repositorio.paraMaterializar(
+      this.db,
+      usuarioId,
+    );
+    const emDiaTodos = desafios.every((item) =>
+      emDia(item.ultimoFim, item.fusoHorario, agora),
+    );
+    if (!emDiaTodos) {
+      await this.db.transaction(async (tx) => {
+        await this.repositorio.travar(tx, usuarioId);
+        const tocadas = await this.materializar(tx, usuarioId, agora);
+        if (tocadas.length > 0) {
+          await this.repositorio.recomporContribuicoes(tx, usuarioId, agora, {
+            datas: [],
+            janelaIds: tocadas,
+          });
+        }
+      });
+    }
 
     const page = consulta.page ?? PAGINA_PADRAO;
     const limite = Math.min(consulta.limite ?? LIMITE_PADRAO, LIMITE_MAXIMO);
@@ -291,7 +326,7 @@ export class DesafiosService {
           );
         }
         // Fecha os períodos decorridos antes de a pausa começar a valer.
-        await this.materializar(tx, usuarioId, agora);
+        const tocadas = await this.materializar(tx, usuarioId, agora);
         if (pausar) {
           await this.repositorio.abrirPausa(tx, atual.id, agora);
         } else {
@@ -303,7 +338,10 @@ export class DesafiosService {
           { pausado: pausar },
           agora,
         );
-        await this.repositorio.recomporContribuicoes(tx, usuarioId, agora);
+        await this.repositorio.recomporContribuicoes(tx, usuarioId, agora, {
+          datas: [],
+          janelaIds: tocadas,
+        });
         return {
           status: HttpStatus.OK,
           corpo: await this.detalhar(tx, alterado),
@@ -316,28 +354,41 @@ export class DesafiosService {
    * Cria as janelas que faltam até a corrente de cada desafio, com a
    * configuração vigente, e encerra as que já terminaram. A primeira é a que
    * contém o dia de criação (RN-20.2/20.9): nada antes dela é inventado.
-   * Devolve quantas janelas foram criadas.
+   * Devolve os ids das janelas criadas ou encerradas, que a recomposição
+   * precisa alcançar.
+   *
+   * Pausados também materializam: a listagem mostra a janela corrente deles, e
+   * os períodos da pausa ficam com zero e não cumpridos (RN-20.6/20.9,
+   * F-DSF-OPC). Quem ler o histórico cruza as janelas com `pausa_desafio` para
+   * saber quais não foram avaliadas.
    */
   private async materializar(
     tx: Tx,
     usuarioId: string,
     agora: Date,
-  ): Promise<number> {
-    let criadas = 0;
+  ): Promise<string[]> {
+    const tocadas: string[] = [];
     for (const item of await this.repositorio.paraMaterializar(tx, usuarioId)) {
       const hojeLocal = hoje(item.fusoHorario, agora);
       const aPartirDe = item.ultimoFim
         ? somarDias(item.ultimoFim, 1)
         : dataLocal(item.criadoEm, item.fusoHorario);
-      criadas += await this.repositorio.criarJanelas(
-        tx,
-        item.id,
-        item,
-        janelasAte(aPartirDe, item.janela, hojeLocal),
+      tocadas.push(
+        ...(await this.repositorio.criarJanelas(
+          tx,
+          item.id,
+          item,
+          janelasAte(aPartirDe, item.janela, hojeLocal),
+        )),
+        ...(await this.repositorio.encerrarDecorridas(
+          tx,
+          item.id,
+          hojeLocal,
+          agora,
+        )),
       );
-      await this.repositorio.encerrarDecorridas(tx, item.id, hojeLocal, agora);
     }
-    return criadas;
+    return tocadas;
   }
 
   private async bloquear(

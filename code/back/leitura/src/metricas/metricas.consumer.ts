@@ -64,11 +64,16 @@ export class MetricasConsumer implements OnModuleInit {
     // O `parse` do runtime não valida o `data` (SEC-32): valida aqui, antes
     // de qualquer efeito.
     this.validador.validarDados(envelope.type, envelope.version, envelope.data);
-    const { usuarioId } = envelope.data as { usuarioId: string };
+    const dados = envelope.data as
+      | { usuarioId: string; dataLocal: string }
+      | { usuarioId: string; finalizacaoDataLocal: string };
     // A sequência só depende de progresso (RN-18.1); finalizar não cria dia.
     if (envelope.type === TIPO_EVENTO.PROGRESSO_REGISTRADO) {
-      await this.sequencia.recalcular(tx, usuarioId);
+      await this.sequencia.recalcular(tx, dados.usuarioId);
     }
-    await this.desafios.recalcular(tx, usuarioId);
+    // Os desafios recompõem só as janelas que contêm o dia do fato.
+    const dia =
+      'dataLocal' in dados ? dados.dataLocal : dados.finalizacaoDataLocal;
+    await this.desafios.recalcular(tx, dados.usuarioId, [dia]);
   }
 }

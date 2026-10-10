@@ -30,6 +30,19 @@ export function hoje(fusoIana: string, agora: Date): string {
 }
 
 /**
+ * A materialização está em dia quando a janela mais recente já alcança o hoje
+ * do fuso: a materialização encerra as anteriores ao criar a corrente, então
+ * não há o que criar nem o que encerrar.
+ */
+export function emDia(
+  ultimoFim: string | null,
+  fusoIana: string,
+  agora: Date,
+): boolean {
+  return ultimoFim !== null && ultimoFim >= hoje(fusoIana, agora);
+}
+
+/**
  * Janela de calendário que contém `data` (RN-20.1): nunca um período móvel
  * contado da criação. A semana é a ISO 8601, de segunda a domingo — RN-20 não
  * fixa o início, e a decisão do dono (09/10/2026) aguarda ratificação do grupo.

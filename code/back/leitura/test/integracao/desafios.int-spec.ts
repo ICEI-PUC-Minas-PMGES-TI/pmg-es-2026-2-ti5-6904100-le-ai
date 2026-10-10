@@ -7,6 +7,7 @@ import * as schema from '../../src/db/schema';
 import { DRIZZLE, type DrizzleDB } from '../../src/db/drizzle.module';
 import { DesafiosService } from '../../src/desafios/aplicacao/desafios.service';
 import { janelaQueContem } from '../../src/desafios/dominio/janelas';
+import { DesafiosRepository } from '../../src/desafios/infraestrutura/desafios.repository';
 import { MetricasConsumer } from '../../src/metricas/metricas.consumer';
 import { AmqpPublisherService } from '../../src/messaging/amqp-publisher.service';
 import { MessageValidator } from '../../src/messaging/message-validator';
@@ -486,6 +487,25 @@ describe('desafios (integração)', () => {
         false,
       ]);
     });
+
+    it('com as correntes em dia, não abre transação nem pega a trava', async () => {
+      const usuario = await leitor();
+      await criadoHa(usuario, 3, 'semanal');
+      const travar = jest.spyOn(app.get(DesafiosRepository), 'travar');
+      try {
+        await listar(usuario);
+        expect(travar).toHaveBeenCalledTimes(1);
+
+        travar.mockClear();
+        const { itens } = await listar(usuario);
+        expect(travar).not.toHaveBeenCalled();
+        expect(itens[0].janelaCorrente).toMatchObject(
+          janelaQueContem(hojeSp(), 'semanal'),
+        );
+      } finally {
+        travar.mockRestore();
+      }
+    });
   });
 
   describe('progresso e finalização (RF-DSF-02/06)', () => {
@@ -680,6 +700,34 @@ describe('desafios (integração)', () => {
       const corrente = await desafio(usuario, id);
       expect(corrente.valorAlvo).toBe(50);
       expect(corrente.janelaCorrente.acumulado).toBe(0);
+    });
+
+    it('um fato de hoje não refaz as janelas encerradas de outros dias', async () => {
+      const usuario = await leitor();
+      const leituraId = await iniciarLeitura(usuario);
+      const id = await criadoHa(usuario, 3, 'diaria');
+      await progresso(usuario, leituraId, 12, diasAtras(2));
+      await processar();
+      const anteontem = dataLocal(diasAtras(2), SP);
+      const recalculadaEm = async () => {
+        const { rows } = await pool.query<{ recalculada_em: Date }>(
+          `SELECT recalculada_em FROM leitura.janela_desafio
+            WHERE desafio_id = $1 AND inicio = $2`,
+          [id, anteontem],
+        );
+        return rows[0].recalculada_em.getTime();
+      };
+      const antes = await recalculadaEm();
+
+      await progresso(usuario, leituraId, 20, new Date());
+      await processar();
+
+      expect(await recalculadaEm()).toBe(antes);
+      const gravadas = await janelas(id);
+      expect(
+        gravadas.find((janela) => janela.inicio === anteontem),
+      ).toMatchObject({ acumulado: 12, encerrada: true });
+      expect(gravadas.at(-1)).toMatchObject({ inicio: hojeSp(), acumulado: 8 });
     });
 
     it('mensagem atrasada de progresso já excluído não o ressuscita', async () => {

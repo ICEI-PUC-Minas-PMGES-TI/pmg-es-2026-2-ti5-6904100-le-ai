@@ -205,7 +205,10 @@ export class ProgressoService {
         }
         const totalPaginas = await this.totalDePaginas(tx, alvo.livroId);
 
-        await this.repositorio.excluir(tx, alcance.idsRemovidos);
+        const datasRemovidas = await this.repositorio.excluir(
+          tx,
+          alcance.idsRemovidos,
+        );
         await this.repositorio.registrarAtividade(
           tx,
           alvo.id,
@@ -215,7 +218,7 @@ export class ProgressoService {
         // leitor (F-GAM) e as contribuições aos desafios (F-DSF, RN-20.10) se
         // recompõem aqui, na mesma transação.
         await this.sequencia.recalcular(tx, usuarioId);
-        await this.desafios.recalcular(tx, usuarioId);
+        await this.desafios.recalcular(tx, usuarioId, datasRemovidas);
 
         return {
           status: HttpStatus.OK,

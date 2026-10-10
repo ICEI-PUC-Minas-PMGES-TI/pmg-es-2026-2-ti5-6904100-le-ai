@@ -1,5 +1,18 @@
 import { Injectable } from '@nestjs/common';
-import { and, asc, desc, eq, inArray, isNull, lt, sql } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNull,
+  lt,
+  lte,
+  or,
+  type SQL,
+  sql,
+} from 'drizzle-orm';
 import type { DrizzleDB } from '../../db/drizzle.module';
 import {
   atualizacaoProgresso,
@@ -37,6 +50,14 @@ export interface DesafioParaMaterializar extends ConfiguracaoDesafio {
   /** Fim da janela mais recente já materializada; `null` sem nenhuma. */
   ultimoFim: string | null;
 }
+
+/**
+ * Janelas que uma recomposição alcança: todas (backfill) ou as não encerradas,
+ * as tocadas pela materialização da mesma chamada e as que contêm alguma das
+ * datas locais dos fatos que mudaram.
+ */
+export type EscopoRecomposicao =
+  'todas' | { datas: readonly string[]; janelaIds: readonly string[] };
 
 export interface JanelaCorrente {
   desafioId: string;
@@ -152,10 +173,10 @@ export class DesafiosRepository {
 
   /** Desafios do leitor com o fim da última janela, para materializar. */
   async paraMaterializar(
-    tx: Tx,
+    executor: Executor,
     usuarioId: string,
   ): Promise<DesafioParaMaterializar[]> {
-    const linhas = await tx
+    const linhas = await executor
       .select({
         id: desafio.id,
         unidade: desafio.unidade,
@@ -174,15 +195,15 @@ export class DesafiosRepository {
 
   /**
    * Cria as janelas com o snapshot da configuração (RN-20.7). Uma janela que já
-   * existe com o mesmo período fica como está.
+   * existe com o mesmo período fica como está. Devolve os ids das criadas.
    */
   async criarJanelas(
     tx: Tx,
     desafioId: string,
     configuracao: ConfiguracaoDesafio,
     periodos: readonly Periodo[],
-  ): Promise<number> {
-    if (periodos.length === 0) return 0;
+  ): Promise<string[]> {
+    if (periodos.length === 0) return [];
     const criadas = await tx
       .insert(janelaDesafio)
       .values(
@@ -198,16 +219,19 @@ export class DesafiosRepository {
       )
       .onConflictDoNothing()
       .returning({ id: janelaDesafio.id });
-    return criadas.length;
+    return criadas.map((janela) => janela.id);
   }
 
-  /** Marca como encerradas as janelas que terminaram antes de `hoje`. */
+  /**
+   * Marca como encerradas as janelas que terminaram antes de `hoje`. Devolve os
+   * ids das encerradas.
+   */
   async encerrarDecorridas(
     tx: Tx,
     desafioId: string,
     hojeLocal: string,
     agora: Date,
-  ): Promise<number> {
+  ): Promise<string[]> {
     const encerradas = await tx
       .update(janelaDesafio)
       .set({ encerradaEm: agora })
@@ -219,7 +243,7 @@ export class DesafiosRepository {
         ),
       )
       .returning({ id: janelaDesafio.id });
-    return encerradas.length;
+    return encerradas.map((janela) => janela.id);
   }
 
   /**
@@ -242,11 +266,15 @@ export class DesafiosRepository {
   }
 
   /**
-   * Recompõe as contribuições e o acumulado de todas as janelas do leitor a
+   * Recompõe as contribuições e o acumulado das janelas do leitor no `escopo` a
    * partir dos fatos atuais — nunca soma o `data` de uma mensagem. Assim a
    * entrega repetida ou fora de ordem, a captura offline tardia (RN-20.10) e a
    * exclusão de progresso convergem para o mesmo estado.
    *
+   * - Só progresso registrado, finalização e exclusão de trecho mudam os
+   *   fatos, e cada um sabe a data local que alcança: uma janela encerrada
+   *   fora dessas datas já está em dia e não é refeita, e o custo não cresce
+   *   com o histórico.
    * - Fato entra na janela pela própria data local: `data_local` do progresso
    *   (captura no dispositivo) e `finalizacao_data_local` da leitura (dia da
    *   ação de finalizar, nunca a `data_fim` editável — RN-20.3).
@@ -263,12 +291,20 @@ export class DesafiosRepository {
     tx: Tx,
     usuarioId: string,
     agora: Date,
+    escopo: EscopoRecomposicao,
   ): Promise<void> {
+    let noEscopo: (janelaId: SQL) => SQL = () => sql`true`;
+    if (escopo !== 'todas') {
+      const ids = await this.janelasNoEscopo(tx, usuarioId, escopo);
+      if (ids.length === 0) return;
+      noEscopo = (janelaId) => sql`${janelaId} IN ${ids}`;
+    }
     await tx.execute(sql`
       DELETE FROM ${contribuicaoDesafio} c
        USING ${janelaDesafio} j, ${desafio} d
        WHERE c.janela_id = j.id AND j.desafio_id = d.id
          AND d.usuario_id = ${usuarioId}
+         AND ${noEscopo(sql.raw('j.id'))}
     `);
     await tx.execute(sql`
       INSERT INTO ${contribuicaoDesafio}
@@ -281,6 +317,7 @@ export class DesafiosRepository {
         JOIN ${leitura} l ON l.usuario_id = d.usuario_id
         JOIN ${atualizacaoProgresso} p ON p.leitura_id = l.id
        WHERE d.usuario_id = ${usuarioId}
+         AND ${noEscopo(sql.raw('j.id'))}
          AND j.unidade IN ('paginas', 'minutos')
          AND (j.unidade = 'paginas' OR p.minutos > 0)
          AND p.data_local BETWEEN j.inicio AND j.fim
@@ -296,6 +333,7 @@ export class DesafiosRepository {
         JOIN ${desafio} d ON d.id = j.desafio_id
         JOIN ${leitura} l ON l.usuario_id = d.usuario_id
        WHERE d.usuario_id = ${usuarioId}
+         AND ${noEscopo(sql.raw('j.id'))}
          AND j.unidade = 'livros'
          AND l.finalizada_em IS NOT NULL
          AND l.finalizacao_data_local BETWEEN j.inicio AND j.fim
@@ -317,10 +355,40 @@ export class DesafiosRepository {
             JOIN ${desafio} d ON d.id = j2.desafio_id
             LEFT JOIN ${contribuicaoDesafio} c ON c.janela_id = j2.id
            WHERE d.usuario_id = ${usuarioId}
+             AND ${noEscopo(sql.raw('j2.id'))}
            GROUP BY j2.id
         ) t
        WHERE j.id = t.id
     `);
+  }
+
+  private async janelasNoEscopo(
+    tx: Tx,
+    usuarioId: string,
+    escopo: Exclude<EscopoRecomposicao, 'todas'>,
+  ): Promise<string[]> {
+    const linhas = await tx
+      .select({ id: janelaDesafio.id })
+      .from(janelaDesafio)
+      .innerJoin(desafio, eq(desafio.id, janelaDesafio.desafioId))
+      .where(
+        and(
+          eq(desafio.usuarioId, usuarioId),
+          or(
+            isNull(janelaDesafio.encerradaEm),
+            escopo.janelaIds.length > 0
+              ? inArray(janelaDesafio.id, [...escopo.janelaIds])
+              : undefined,
+            ...escopo.datas.map((data) =>
+              and(
+                lte(janelaDesafio.inicio, data),
+                gte(janelaDesafio.fim, data),
+              ),
+            ),
+          ),
+        ),
+      );
+    return linhas.map((linha) => linha.id);
   }
 
   /**
