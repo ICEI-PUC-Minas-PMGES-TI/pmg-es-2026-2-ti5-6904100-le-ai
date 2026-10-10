@@ -24,7 +24,7 @@ O escopo de gamificação é **só o streak** (mais os desafios de [F-DSF](featu
 | Infra | concluído (baseline DER) | `leitura.dia_leitura` e `leitura.sequencia_leitura` já estavam na migration `0001_..._modelo_der`, inclusive com o último fuso e seu instante de referência; **sem migration nova**. Fila `leai.leitura.metricas` (+ `.dlq`) declarada pelo runtime de P0-MSG |
 | Backend | implementado (08/10/2026) | `GET /me/sequencia`, consumidor de métricas `leitura.metricas` de `progresso.registrado`, recálculo na exclusão de trecho, zeramento derivado na consulta, backfill `npm run backfill:sequencia` |
 | Web | não aplicável | **fora do escopo web** (§2.1) |
-| Mobile | implementado (08/10/2026) | bloco "Sequência diária" no Meu perfil, com o componente de streak que P0-DS não construiu |
+| Mobile | implementado (08/10/2026); conferido no emulador (10/10/2026) | bloco "Sequência diária" no Meu perfil, com o componente de streak que P0-DS não construiu. A conferência no emulador não achou defeito |
 
 ## Especificação
 
@@ -123,6 +123,16 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - Stack de `leitura` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
 ## Timeline
+
+### Conferência no emulador 10/10/2026: mobile conferido no emulador Android (API 35, no WSL). `identidade`, `acervo` e `leitura` rodaram locais contra o banco de dev, com o RabbitMQ de dev e uma conta de teste. Nenhum defeito encontrado.
+- **Zerada:** antes de qualquer progresso, `0` com `leia hoje para começar` e `Recorde: 0 dias`.
+- **Pelo consumidor (RN-18.1):** um progresso hoje virou `1 dia seguido` e `Recorde: 1 dia`, via consumo assíncrono de `progresso.registrado`.
+- **Dois dias (RN-18.2):** com o relógio do emulador em 09/10, às 20h, um progresso entrou no dia de ontem. `GET /me/sequencia` passou a `2/2` e o bloco recarregou sozinho com `2 dias seguidos`.
+- **Uma vez por dia (RN-18.3):** um segundo progresso hoje manteve 2.
+- **Exclusão de trecho:** excluir o progresso de ontem (e o seguinte, pela regra da F-PRG) recalculou na hora para `1/1`.
+- **Falha:** com o `leitura` fora, o bloco mostrou o próprio banner sem derrubar o perfil. `Tentar de novo` recarregou só a sequência quando o serviço voltou.
+- **Tema escuro:** número e chama em `broto-vivo`, como na divergência registrada.
+- **CI do PR #49:** o `ci-back-acervo` falhava no `npm audit` por um aviso crítico novo do `handlebars`. Corrigido com `npm audit fix`, só no lockfile (4.7.9 → 4.7.10), como no `leitura` (`3e335ee`). O `acervo` passou em lint, build, 305 unitários e 146 de integração.
 
 ### Implementação 08/10/2026: backend e mobile implementados na `vicenzo-features`, depois de trazer a `desenvolvimento`.
 - O consumidor de métricas `leitura.metricas` nasce aqui e serve depois a DSF e STA.
