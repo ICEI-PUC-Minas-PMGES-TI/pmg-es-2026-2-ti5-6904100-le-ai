@@ -7,6 +7,7 @@ import '../../design/theme.dart';
 import '../../design/tokens.dart';
 import '../../design/widgets/capa_livro.dart';
 import '../../design/widgets/estrelas_de_nota.dart';
+import '../avaliacao/markdown_resenha.dart';
 import '../livros/formatos.dart';
 import '../perfil/textos.dart';
 import '../perfil/widgets_de_perfil.dart';
@@ -139,10 +140,12 @@ class ItemAtividade extends StatelessWidget {
               ),
               const SizedBox(height: DesignTokens.space2),
             ],
+            // Prévia sem a marcação do Markdown (F-AVA-2): a resenha formatada fica na página do
+            // livro.
             Semantics(
               hint: 'Trecho truncado',
               child: Text(
-                resenha.texto,
+                textoSemMarcacao(resenha.texto),
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
                 style: theme.editorialBody.copyWith(color: theme.secondaryText),

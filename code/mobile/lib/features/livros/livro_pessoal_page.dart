@@ -19,6 +19,7 @@ import '../../design/widgets/folha_inferior.dart';
 import '../avaliacao/avaliacao_controller.dart';
 import '../avaliacao/bloco_sua_avaliacao.dart';
 import '../avaliacao/leitura_service.dart';
+import '../avaliacao/markdown_resenha.dart';
 import '../avaliacao/painel_de_nota.dart';
 import '../avaliacao/reacoes.dart';
 import '../avaliacao/adicionar_frase.dart';
@@ -521,9 +522,9 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
               if (resenha.spoiler && !_spoilerRevelado)
                 BlocoDeSpoiler(aoRevelar: () => setState(() => _spoilerRevelado = true))
               else if (resenha.spoiler)
-                TextoRevelado(child: Text(resenha.texto, style: theme.editorialBody))
+                TextoRevelado(child: TextoDaResenha(resenha.texto))
               else
-                Text(resenha.texto, style: theme.editorialBody),
+                TextoDaResenha(resenha.texto),
               const SizedBox(height: DesignTokens.space3),
               Text(formatarData(resenha.atualizadoEm), style: theme.textTheme.bodySmall),
               // O terceiro reage pela mesma via que abriu a página (RN-15.4).

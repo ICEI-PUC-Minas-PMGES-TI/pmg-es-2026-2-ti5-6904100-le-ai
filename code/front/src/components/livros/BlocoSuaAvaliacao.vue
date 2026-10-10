@@ -9,6 +9,7 @@ import BotaoTextual from '../ui/BotaoTextual.vue'
 import EstrelasNota from './EstrelasNota.vue'
 import PainelDeNota from './PainelDeNota.vue'
 import ReacoesDaResenha from './ReacoesDaResenha.vue'
+import TextoDaResenha from './TextoDaResenha.vue'
 
 /**
  * Bloco "Sua avaliação" da página do livro (pagina-do-livro.md §4.1, item 4, §4.2 e §5).
@@ -87,9 +88,10 @@ const rotuloDaNota = computed(() =>
         class="mt-space-3"
       >
         <!-- O dono vê o próprio texto mesmo com spoiler: o spoiler muda como quem lê a encontra. -->
-        <p class="max-w-[68ch] whitespace-pre-line font-editorial text-body-lg text-tinta">
-          {{ avaliacao.resenha.value.texto }}
-        </p>
+        <TextoDaResenha
+          class="max-w-[68ch]"
+          :texto="avaliacao.resenha.value.texto"
+        />
         <p class="mt-space-2 flex flex-wrap items-center gap-x-space-2 text-caption text-grafite-suave">
           <span>Publicada em {{ formatarData(avaliacao.resenha.value.criadoEm) }}</span>
           <span

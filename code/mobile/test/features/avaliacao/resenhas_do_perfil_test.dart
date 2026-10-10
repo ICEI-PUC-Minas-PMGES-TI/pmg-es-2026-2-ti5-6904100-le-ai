@@ -89,6 +89,21 @@ void main() {
     expect(abertos.single.id, 'livro-r1');
   });
 
+  testWidgets('o trecho sai sem a marcação do Markdown, com cada bloco numa linha (F-AVA-2)', (
+    tester,
+  ) async {
+    await montar(
+      tester,
+      (_) async => json(
+        _pagina(<Map<String, Object?>>[_item('r1', '**Forte** e *leve*\n\n- um\n- dois')]),
+        200,
+      ),
+    );
+
+    expect(find.text('Forte e leve\num\ndois'), findsOneWidget);
+    expect(find.textContaining('**'), findsNothing);
+  });
+
   testWidgets('spoiler de outro leitor fica fora da árvore até o toque', (tester) async {
     await montar(
       tester,

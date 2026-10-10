@@ -11,6 +11,7 @@ import CapaLivro from '../../components/livros/CapaLivro.vue'
 import EstrelasNota from '../../components/livros/EstrelasNota.vue'
 import ReacoesDaResenha from '../../components/livros/ReacoesDaResenha.vue'
 import SecaoFrases from '../../components/livros/SecaoFrases.vue'
+import TextoDaResenha from '../../components/livros/TextoDaResenha.vue'
 import BannerAviso from '../../components/ui/BannerAviso.vue'
 import BotaoTextual from '../../components/ui/BotaoTextual.vue'
 import DialogoConfirmacao from '../../components/ui/DialogoConfirmacao.vue'
@@ -70,7 +71,7 @@ const rotaDoEditor = computed(() => ({ name: 'escrever-resenha-pessoal', params:
 
 /** Resenha do dono com spoiler, vista por terceiro: fora do DOM até a ação (RF-AVA-03). */
 const spoilerRevelado = ref(false)
-const textoDaResenhaDoDono = useTemplateRef<HTMLParagraphElement>('textoDaResenhaDoDono')
+const textoDaResenhaDoDono = useTemplateRef<HTMLDivElement>('textoDaResenhaDoDono')
 
 /** Ao revelar o spoiler, o foco vai para o texto, para o leitor de tela continuar dali. */
 async function revelarSpoiler(): Promise<void> {
@@ -356,15 +357,15 @@ async function excluir(): Promise<void> {
                 class="mt-space-3"
                 @revelar="revelarSpoiler"
               />
-              <p
+              <div
                 v-else
                 ref="textoDaResenhaDoDono"
                 tabindex="-1"
                 lang="pt-BR"
-                class="mt-space-3 max-w-[68ch] outline-none whitespace-pre-line font-editorial text-body-lg text-tinta"
+                class="mt-space-3 max-w-[68ch] outline-none"
               >
-                {{ livro.resenhaDoDono.texto }}
-              </p>
+                <TextoDaResenha :texto="livro.resenhaDoDono.texto" />
+              </div>
               <p class="mt-space-3 text-caption text-grafite-suave">
                 {{ formatarData(livro.resenhaDoDono.atualizadoEm) }}
               </p>

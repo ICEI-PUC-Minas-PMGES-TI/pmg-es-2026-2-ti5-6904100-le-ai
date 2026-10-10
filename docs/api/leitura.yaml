@@ -1339,8 +1339,12 @@ components:
           minLength: 1
           maxLength: 5000
           description: >-
-            Texto cru; HTML e Markdown não são interpretados no Período 1. O
-            limite conta caracteres Unicode (code points), não unidades UTF-16.
+            Texto cru, gravado e devolvido como chegou. Os clientes o renderizam
+            como Markdown só com o subconjunto do RN-13 (negrito, itálico,
+            tachado com `~~`, listas e citação em bloco), com HTML desligado no
+            parser e sanitização antes do DOM (RNF-SEC-15, F-AVA-2); o servidor
+            não interpreta nada. O limite conta caracteres Unicode (code
+            points), não unidades UTF-16, marcação incluída.
         spoiler: { type: boolean }
 
     Resenha:

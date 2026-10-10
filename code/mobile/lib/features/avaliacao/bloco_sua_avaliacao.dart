@@ -9,6 +9,7 @@ import '../../design/widgets/estrelas_de_nota.dart';
 import '../livros/formatos.dart';
 import 'avaliacao_controller.dart';
 import 'escrever_resenha_page.dart';
+import 'markdown_resenha.dart';
 import 'painel_de_nota.dart';
 import 'reacoes_da_resenha.dart';
 
@@ -80,7 +81,7 @@ class BlocoSuaAvaliacao extends StatelessWidget {
             const SizedBox(height: DesignTokens.space3),
             // O dono vê o próprio texto mesmo com spoiler: o spoiler muda como quem lê encontra a
             // resenha, não como quem escreveu.
-            Text(resenha.texto, style: theme.editorialBody),
+            TextoDaResenha(resenha.texto),
             const SizedBox(height: DesignTokens.space2),
             Wrap(
               spacing: DesignTokens.space2,

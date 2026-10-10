@@ -11,6 +11,7 @@ import '../../design/widgets/botao_textual.dart';
 import '../../design/widgets/capa_livro.dart';
 import '../../design/widgets/entrada_suave.dart';
 import '../../design/widgets/folha_inferior.dart';
+import '../avaliacao/markdown_resenha.dart';
 import '../listas/folha_adicionar_a_lista.dart';
 import '../listas/lista_form_page.dart';
 import '../listas/rotas_listas.dart';
@@ -777,11 +778,7 @@ class _ResenhaState extends State<_Resenha> {
           duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : DesignTokens.durFast,
           child: oculta
               ? BlocoDeSpoiler(aoRevelar: () => setState(() => _revelada = true))
-              : Text(
-                  resenha.texto,
-                  key: const ValueKey<String>('texto'),
-                  style: theme.editorialBody,
-                ),
+              : TextoDaResenha(resenha.texto, key: const ValueKey<String>('texto')),
         ),
         const SizedBox(height: DesignTokens.space2),
         Text(

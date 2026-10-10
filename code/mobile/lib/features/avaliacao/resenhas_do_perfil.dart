@@ -10,6 +10,7 @@ import '../../design/widgets/cartao_progresso.dart';
 import '../../design/widgets/estrelas_de_nota.dart';
 import '../livros/formatos.dart';
 import 'leitura_service.dart';
+import 'markdown_resenha.dart';
 import 'reacoes_da_resenha.dart';
 
 const int _porPagina = 5;
@@ -214,8 +215,10 @@ class _CardDaResenha extends StatefulWidget {
 class _CardDaResenhaState extends State<_CardDaResenha> {
   bool _revelada = false;
 
+  /// Trecho de três linhas sem a marcação do Markdown, com cada bloco numa linha (F-AVA-2); a
+  /// resenha formatada fica na página do livro.
   Widget _trecho(ThemeData theme, ResenhaDoPerfil item) => Text(
-    item.resenha.texto,
+    textoSemMarcacao(item.resenha.texto),
     maxLines: 3,
     overflow: TextOverflow.ellipsis,
     style: theme.editorialBody.copyWith(
