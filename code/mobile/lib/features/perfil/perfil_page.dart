@@ -24,8 +24,8 @@ import 'widgets_de_perfil.dart';
 ///
 /// **Estante e Resenhas do `leitura`**: a estante ([estante], `listarEstantePerfil`, F-EST) na mesma
 /// grade só leitura do perfil de outro leitor, com "Ver tudo"; sem livros, o vazio com o CTA "Buscar
-/// livros". As resenhas por [resenhas] (`listarResenhasPerfil`, F-AVA). Sem o contador `livros
-/// lidos`, que o `Perfil` de `identidade` não traz.
+/// livros". As resenhas por [resenhas] (`listarResenhasPerfil`, F-AVA). O contador `livros lidos`
+/// vem dos totais da estante (`Lido` + `Relendo`) e só aparece depois que ela carrega.
 class PerfilPage extends StatefulWidget {
   final PerfilService servico;
 
@@ -45,6 +45,10 @@ class PerfilPage extends StatefulWidget {
   /// "Ver tudo" da seção Estante leva à aba Estante; mesmo padrão de [aoBuscarLivros].
   final VoidCallback? aoVerEstante;
 
+  /// O contador `livros lidos` leva à estante filtrada por `Lido` (§4 "Contadores"); mesmo padrão de
+  /// [aoBuscarLivros].
+  final VoidCallback? aoVerLivrosLidos;
+
   /// Estante do próprio leitor (F-EST). Sem ela, a seção fica no estado vazio.
   final EstanteService? estante;
 
@@ -62,6 +66,7 @@ class PerfilPage extends StatefulWidget {
     this.aoAbrirSolicitacoes,
     this.aoBuscarLivros,
     this.aoVerEstante,
+    this.aoVerLivrosLidos,
     this.estante,
     this.resenhas,
     this.listas,
@@ -76,6 +81,7 @@ class _PerfilPageState extends State<PerfilPage> {
   bool _carregando = true;
   bool _falhou = false;
   int _pedidosPendentes = 0;
+  int? _livrosLidos;
 
   @override
   void initState() {
@@ -221,6 +227,15 @@ class _PerfilPageState extends State<PerfilPage> {
                 const SizedBox(height: DesignTokens.space6),
                 ContadoresDoPerfil(
                   contadores: <DadoDeContador>[
+                    if (_livrosLidos case final lidos?)
+                      DadoDeContador(
+                        valor: lidos,
+                        rotulo: lidos == 1 ? 'livro lido' : 'livros lidos',
+                        aoTocar: _destino(
+                          widget.aoVerLivrosLidos,
+                          '/estante?status=${StatusEstante.lido.valor}',
+                        ),
+                      ),
                     DadoDeContador(
                       valor: perfil.seguidores,
                       rotulo: perfil.seguidores == 1 ? 'seguidor' : 'seguidores',
@@ -254,6 +269,7 @@ class _PerfilPageState extends State<PerfilPage> {
                           servico: estante,
                           usuarioId: perfil.id,
                           primeiroNome: primeiroNome(perfil.displayName),
+                          aoMudarLivrosLidos: (lidos) => setState(() => _livrosLidos = lidos),
                           acaoDoTitulo: aoVerEstante == null ? null : BotaoVerTudo(onPressed: aoVerEstante),
                           vazio: EstanteVaziaDoPerfil(
                             proprio: true,

@@ -16,12 +16,15 @@ const double _distanciaParaCarregarMais = 300;
 /// Estante de um perfil (`GET /perfis/{id}/estante`, F-EST), em grade só leitura e paginada pela
 /// rolagem. No perfil de outro leitor, `403` avisa [aoMudarRestricao] e `404` esconde a seção. No
 /// próprio perfil, [acaoDoTitulo] traz o "Ver tudo" e [vazio] substitui a seção inteira quando não há
-/// livros ou o `leitura` responde `404`, para manter o CTA "Buscar livros".
+/// livros ou o `leitura` responde `404`, para manter o CTA "Buscar livros". [aoMudarLivrosLidos]
+/// recebe o contador `livros lidos` do perfil, derivado da estante e por isso nulo quando ela está
+/// restrita ou indisponível.
 class EstanteDePerfil extends StatefulWidget {
   final EstanteService servico;
   final String usuarioId;
   final String primeiroNome;
   final ValueChanged<bool>? aoMudarRestricao;
+  final ValueChanged<int?>? aoMudarLivrosLidos;
   final Widget? acaoDoTitulo;
   final Widget? vazio;
 
@@ -31,6 +34,7 @@ class EstanteDePerfil extends StatefulWidget {
     required this.usuarioId,
     required this.primeiroNome,
     this.aoMudarRestricao,
+    this.aoMudarLivrosLidos,
     this.acaoDoTitulo,
     this.vazio,
   });
@@ -44,6 +48,7 @@ class _EstanteDePerfilState extends State<EstanteDePerfil> {
     (pagina) => widget.servico.listarEstantePerfil(widget.usuarioId, FiltroEstante(pagina: pagina)),
   );
   bool _restritaAvisada = false;
+  int? _livrosLidosAvisados;
   ScrollPosition? _rolagem;
 
   @override
@@ -84,6 +89,11 @@ class _EstanteDePerfilState extends State<EstanteDePerfil> {
     if (_lista.restrita != _restritaAvisada) {
       _restritaAvisada = _lista.restrita;
       widget.aoMudarRestricao?.call(_lista.restrita);
+    }
+    final livrosLidos = _lista.restrita || _lista.indisponivel ? null : _lista.livrosLidos;
+    if (livrosLidos != _livrosLidosAvisados) {
+      _livrosLidosAvisados = livrosLidos;
+      widget.aoMudarLivrosLidos?.call(livrosLidos);
     }
     setState(() {});
   }

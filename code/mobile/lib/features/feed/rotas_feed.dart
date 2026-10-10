@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/config/app_config.dart';
 import '../../core/network/api_client.dart';
+import '../estante/estante_service.dart';
 import '../listas/rotas_listas.dart';
 import '../livros/rotas_livros.dart';
 import '../perfil/perfil_de_outro_page.dart';
@@ -57,6 +58,10 @@ GoRoute rotaDoFeed(
 
   /// Seção `Listas` e listas do autor, abertas sem sair da aba Feed (F-LST).
   DependenciasDeListas? listas,
+
+  /// Estante (F-EST) e resenhas (F-AVA) do autor, como no perfil aberto pela aba Perfil (F-PERFIL).
+  EstanteService? estante,
+  Widget Function(BuildContext context, String usuarioId, String nome)? resenhasDoAutor,
 }) {
   return GoRoute(
     path: rotaFeedRaiz,
@@ -91,6 +96,10 @@ GoRoute rotaDoFeed(
             aoAbrirProprioPerfil: () => context.go(rotaPerfilRaiz),
             aoBuscarLeitor: () => context.push(rotaBuscarLeitor),
             aoAbrirSolicitacoes: () => context.push(rotaSolicitacoes),
+            estante: estante,
+            resenhas: resenhasDoAutor == null
+                ? null
+                : (usuarioId, nome) => resenhasDoAutor(context, usuarioId, nome),
             listas: listas == null
                 ? null
                 : (usuarioId, nome) => secaoDasListasDoLeitor(

@@ -26,6 +26,9 @@ class EstantePage extends StatefulWidget {
   final DependenciasDeProgresso? progresso;
   final ValueChanged<String>? aoVerAtualizacoes;
 
+  /// Filtro aberto ao montar: o contador `livros lidos` do perfil chega com `Lido` (F-PERFIL).
+  final StatusEstante? statusInicial;
+
   const EstantePage({
     super.key,
     required this.servico,
@@ -33,6 +36,7 @@ class EstantePage extends StatefulWidget {
     this.aoCadastrarLivro,
     this.progresso,
     this.aoVerAtualizacoes,
+    this.statusInicial,
   });
 
   @override
@@ -40,7 +44,7 @@ class EstantePage extends StatefulWidget {
 }
 
 class _EstantePageState extends State<EstantePage> {
-  StatusEstante? _status;
+  late StatusEstante? _status = widget.statusInicial;
   OrdenacaoEstante _ordenacao = ordenacaoPadrao;
 
   late final ListaDaEstante _lista = ListaDaEstante(

@@ -191,6 +191,12 @@ GoRouter buildRouter({
               GoRoute(
                 path: rotaEstante,
                 builder: (context, state) => EstantePage(
+                  // `?status=LIDO` vem do contador `livros lidos` do perfil; a chave recria a página
+                  // para o filtro valer mesmo com a aba já aberta.
+                  key: ValueKey<String?>(state.uri.queryParameters['status']),
+                  statusInicial: StatusEstante.values
+                      .where((status) => status.valor == state.uri.queryParameters['status'])
+                      .firstOrNull,
                   servico: servicoDeEstante,
                   aoBuscarLivros: () => context.go('/descobrir'),
                   aoCadastrarLivro: () => context.go(rotaAdicionarLivro),
@@ -232,8 +238,27 @@ GoRouter buildRouter({
                 depsDeFeed,
                 perfil: depsDePerfil,
                 livros: deps,
-                rotasExtras: <RouteBase>[rotaDeNotificacoes(depsDeNotificacoes, rotaFeedRaiz)],
+                rotasExtras: <RouteBase>[
+                  rotaDeNotificacoes(depsDeNotificacoes, rotaFeedRaiz),
+                  // O livro oficial aberto por uma lista no Feed fica na aba Feed (F-LST,
+                  // pagina-do-livro.md §4.1: o item ativo é a aba de origem).
+                  rotaDoLivroOficial(
+                    deps,
+                    raiz: rotaFeedRaiz,
+                    estante: servicoDeEstante,
+                    progresso: depsDeProgresso,
+                  ),
+                  ...rotasDeCatalogo(deps, raiz: rotaFeedRaiz),
+                ],
                 listas: depsDeListas,
+                estante: servicoDeEstante,
+                resenhasDoAutor: (context, usuarioId, nome) => _resenhasDoPerfil(
+                  context,
+                  deps,
+                  usuarioId: usuarioId,
+                  proprio: false,
+                  nome: nome,
+                ),
               ),
             ],
           ),
@@ -248,6 +273,8 @@ GoRouter buildRouter({
                   aoAbrirSolicitacoes: () => context.push<void>(rotaSolicitacoes),
                   aoBuscarLivros: () => context.go('/descobrir'),
                   aoVerEstante: () => context.go(rotaEstante),
+                  aoVerLivrosLidos: () =>
+                      context.go('$rotaEstante?status=${StatusEstante.lido.valor}'),
                   estante: servicoDeEstante,
                   resenhas: (usuarioId) =>
                       _resenhasDoPerfil(context, deps, usuarioId: usuarioId, proprio: true),

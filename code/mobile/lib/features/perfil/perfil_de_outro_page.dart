@@ -26,7 +26,8 @@ import 'widgets_de_perfil.dart';
 /// Estante (`GET /perfis/{id}/estante`, F-EST) e Resenhas (F-AVA) quando o conteúdo é visível; o
 /// `403` da estante também leva ao bloco de restrição. Com `conteudoRestrito` (RN-08), as
 /// seções não aparecem, e sim o bloco "Este perfil é privado". Contadores não acionáveis: não há
-/// lista do grafo de terceiros (RNF-SEC-19/44).
+/// lista do grafo de terceiros (RNF-SEC-19/44). `livros lidos` é derivado da estante e por isso
+/// só aparece com ela visível (§4.3 "Contadores parciais").
 class PerfilDeOutroPage extends StatefulWidget {
   final PerfilService servico;
   final String username;
@@ -67,6 +68,7 @@ class _PerfilDeOutroPageState extends State<PerfilDeOutroPage> {
   bool _agindo = false;
   String? _erroDaAcao;
   bool _estanteRestrita = false;
+  int? _livrosLidos;
 
   @override
   void initState() {
@@ -318,6 +320,8 @@ class _PerfilDeOutroPageState extends State<PerfilDeOutroPage> {
           const SizedBox(height: DesignTokens.space6),
           ContadoresDoPerfil(
             contadores: <DadoDeContador>[
+              if (_livrosLidos case final lidos? when !perfil.conteudoRestrito && !_estanteRestrita)
+                DadoDeContador(valor: lidos, rotulo: lidos == 1 ? 'livro lido' : 'livros lidos'),
               DadoDeContador(
                 valor: perfil.seguidores,
                 rotulo: perfil.seguidores == 1 ? 'seguidor' : 'seguidores',
@@ -353,6 +357,7 @@ class _PerfilDeOutroPageState extends State<PerfilDeOutroPage> {
                       usuarioId: perfil.id,
                       primeiroNome: nome,
                       aoMudarRestricao: (restrita) => setState(() => _estanteRestrita = restrita),
+                      aoMudarLivrosLidos: (lidos) => setState(() => _livrosLidos = lidos),
                     ),
             ),
           ],

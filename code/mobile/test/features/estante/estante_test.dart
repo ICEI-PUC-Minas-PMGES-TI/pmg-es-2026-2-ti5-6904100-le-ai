@@ -252,6 +252,23 @@ void main() {
       expect(find.text('Nenhum livro concluído'), findsOneWidget);
     });
 
+    testWidgets('statusInicial abre já filtrada (contador livros lidos do perfil)', (tester) async {
+      usarTelaDeCelular(tester);
+      final pedidos = <String?>[];
+      final servico = estanteSimulada((request) async {
+        pedidos.add(request.url.queryParameters['status']);
+        return json(paginaJson(const <Map<String, Object?>>[], totaisPorStatus: totais(queroLer: 1)), 200);
+      });
+      await tester.pumpWidget(
+        envolver(
+          EstantePage(servico: servico, aoBuscarLivros: () {}, statusInicial: StatusEstante.lido),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(pedidos, <String?>['LIDO']);
+      expect(find.text('Nenhum livro concluído'), findsOneWidget);
+    });
+
     testWidgets('recarrega quando o livro entra na estante por outra tela', (tester) async {
       usarTelaDeCelular(tester);
       var naEstante = false;
@@ -470,6 +487,27 @@ void main() {
     testWidgets('403 vira o estado privado', (tester) async {
       await montar(tester, estanteSimulada((request) async => erro(403, 'PROIBIDO', 'Privado.')));
       expect(find.text('Este perfil é privado'), findsOneWidget);
+      expect(find.text('livros lidos'), findsNothing);
+    });
+
+    testWidgets('livros lidos soma Lido e Relendo, sem ser acionável', (tester) async {
+      await montar(
+        tester,
+        estanteSimulada(
+          (request) async => json(
+            paginaJson(
+              <Map<String, Object?>>[itemJson(_livroId, status: 'LIDO', vezesLido: 1)],
+              totaisPorStatus: totais(lido: 3, relendo: 1, lendo: 2),
+            ),
+            200,
+          ),
+        ),
+      );
+      expect(find.bySemanticsLabel('4 livros lidos'), findsOneWidget);
+      expect(
+        find.ancestor(of: find.text('livros lidos'), matching: find.byType(InkWell)),
+        findsNothing,
+      );
     });
 
     testWidgets('404 esconde a seção', (tester) async {
@@ -511,7 +549,12 @@ void main() {
       ),
     );
 
-    Future<void> montar(WidgetTester tester, EstanteService estante, {VoidCallback? aoVerEstante}) async {
+    Future<void> montar(
+      WidgetTester tester,
+      EstanteService estante, {
+      VoidCallback? aoVerEstante,
+      VoidCallback? aoVerLivrosLidos,
+    }) async {
       usarTelaDeCelular(tester);
       await tester.pumpWidget(
         envolver(
@@ -520,11 +563,52 @@ void main() {
             estante: estante,
             aoBuscarLivros: () {},
             aoVerEstante: aoVerEstante ?? () {},
+            aoVerLivrosLidos: aoVerLivrosLidos ?? () {},
           ),
         ),
       );
       await tester.pumpAndSettle();
     }
+
+    testWidgets('livros lidos vem da estante e leva à estante filtrada', (tester) async {
+      var abriu = 0;
+      await montar(
+        tester,
+        estanteSimulada(
+          (request) async => json(
+            paginaJson(
+              <Map<String, Object?>>[itemJson(_livroId, status: 'RELENDO', vezesLido: 1)],
+              totaisPorStatus: totais(lido: 1, relendo: 1, queroLer: 5),
+            ),
+            200,
+          ),
+        ),
+        aoVerLivrosLidos: () => abriu++,
+      );
+      expect(find.bySemanticsLabel('2 livros lidos'), findsOneWidget);
+      await tester.tap(find.text('livros lidos'));
+      expect(abriu, 1);
+    });
+
+    testWidgets('estante vazia mostra 0 livros lidos', (tester) async {
+      await montar(
+        tester,
+        estanteSimulada(
+          (request) async =>
+              json(paginaJson(<Map<String, Object?>>[], totaisPorStatus: totais()), 200),
+        ),
+      );
+      expect(find.bySemanticsLabel('0 livros lidos'), findsOneWidget);
+    });
+
+    testWidgets('com 404 da estante, sem contador de livros lidos', (tester) async {
+      await montar(
+        tester,
+        estanteSimulada((request) async => erro(404, 'NAO_ENCONTRADO', 'Não encontrado.')),
+      );
+      expect(find.text('livros lidos'), findsNothing);
+      expect(find.bySemanticsLabel('1 seguidor'), findsOneWidget);
+    });
 
     testWidgets('mostra os próprios livros, sem ações, com "Ver tudo"', (tester) async {
       var verTudo = 0;
