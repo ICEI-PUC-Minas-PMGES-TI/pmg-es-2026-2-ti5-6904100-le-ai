@@ -6,16 +6,19 @@ import { formatarData } from '../../livros/formatos'
 import type { ResenhaDoLivro } from '../../services/acervo'
 import AvatarLeitor from '../perfil/AvatarLeitor.vue'
 import BotaoTextual from '../ui/BotaoTextual.vue'
+import ReacoesDaResenha from './ReacoesDaResenha.vue'
+import TextoDaResenha from './TextoDaResenha.vue'
 
 /**
  * Resenha de outro leitor na página do livro (pagina-do-livro.md §4.1 e §4.6). Com spoiler, o
  * texto **não está no DOM** até o toque em "Mostrar mesmo assim": nem borrado nem escondido por
- * CSS, que o leitor de tela e o "copiar" encontrariam. O texto vai por interpolação, com escape
- * (RNF-SEC-14). Campo `spoiler` ausente conta como spoiler: na dúvida, o texto fica fechado. Ao
+ * CSS, que o leitor de tela e o "copiar" encontrariam. O texto sai em Markdown pelo `TextoDaResenha`,
+ * sanitizado (RN-13, RNF-SEC-15). Campo `spoiler` ausente conta como spoiler: na dúvida, o texto fica fechado. Ao
  * revelar, o foco vai para o texto, porque o botão tocado sai do DOM.
  *
- * Sem `@username`, estrelas e contagem, que o contrato do Período 1 não traz (divergência
- * registrada na feature). No mobile é item de lista; a partir de 1024px vira card.
+ * Sem `@username` e estrelas, que o contrato não traz (divergência registrada na feature). A
+ * linha de reações (F-AVA-2) fica no rodapé, mesmo com o spoiler fechado. No mobile é item de
+ * lista; a partir de 1024px vira card.
  */
 const props = defineProps<{ resenha: ResenhaDoLivro }>()
 
@@ -61,16 +64,21 @@ function revelar(): void {
         Mostrar mesmo assim
       </BotaoTextual>
     </div>
-    <p
+    <div
       v-else
       ref="texto"
       tabindex="-1"
-      class="mt-space-3 whitespace-pre-line font-editorial text-body-lg text-tinta outline-none"
+      class="mt-space-3 outline-none"
     >
-      {{ props.resenha.texto }}
-    </p>
+      <TextoDaResenha :texto="props.resenha.texto" />
+    </div>
     <p class="mt-space-2 text-caption text-grafite-suave">
       {{ formatarData(props.resenha.criadoEm) }}
     </p>
+    <ReacoesDaResenha
+      class="mt-space-3"
+      :resenha-id="props.resenha.id"
+      :reacoes="props.resenha"
+    />
   </article>
 </template>

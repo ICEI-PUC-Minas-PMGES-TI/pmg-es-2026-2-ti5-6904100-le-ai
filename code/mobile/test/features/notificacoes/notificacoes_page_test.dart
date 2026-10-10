@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:phosphor_icons/phosphor_icons.dart';
 
 import 'package:le_ai_mobile/core/network/api_client.dart';
 import 'package:le_ai_mobile/design/widgets/banner_aviso.dart';
@@ -278,6 +279,25 @@ void main() {
 
     expect(tela.abertas.single.tipo, TipoNotificacao.usuarioMencionado);
     expect(destinoDaNotificacao(tela.abertas.single), rotaFeedRaiz);
+  });
+
+  testWidgets('curtida em resenha aparece com o ThumbsUp e leva ao livro da resenha', (tester) async {
+    final curtida = _notificacao(
+      'n-curtida',
+      'RESENHA_CURTIDA',
+      'Heloísa Barreto curtiu sua resenha de Torto Arado.',
+      ator: <String, Object?>{'id': 'u-3', 'username': 'heloisab', 'nomeExibicao': 'Heloísa Barreto'},
+    );
+    curtida['livro'] = <String, Object?>{'id': 'livro-9', 'tipo': 'oficial', 'titulo': 'Torto Arado'};
+    final tela = _Tela(_Servidor(<Map<String, Object?>>[curtida]));
+    await tela.abrir(tester);
+
+    expect(find.byIcon(PhosphorIconsRegular.thumbsUp), findsOneWidget);
+    await tester.tap(find.textContaining('curtiu sua resenha'));
+    await tester.pumpAndSettle();
+
+    expect(tela.abertas.single.tipo, TipoNotificacao.resenhaCurtida);
+    expect(destinoDaNotificacao(tela.abertas.single), '/descobrir/livro/livro-9');
   });
 
   testWidgets('Marcar todas zera o badge e some junto com a linha de contexto', (tester) async {

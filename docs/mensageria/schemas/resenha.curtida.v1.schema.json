@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://leai.app/schemas/mensageria/resenha.curtida.v1.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["destinatarioId", "resenhaId", "autorAcao", "livro"],
+  "properties": {
+    "destinatarioId": { "type": "string", "format": "uuid" },
+    "resenhaId": { "type": "string", "format": "uuid" },
+    "autorAcao": { "$ref": "common-v1.schema.json#/$defs/UsuarioSnapshot" },
+    "livro": { "$ref": "common-v1.schema.json#/$defs/LivroSnapshot" }
+  }
+}

@@ -36,7 +36,10 @@ const CONTRATOS_EXTERNOS = `
   CREATE TABLE leitura.v_resenha_publicacao_v1 (
     resenha_id uuid, usuario_id uuid, livro_id uuid, texto text,
     spoiler boolean, criado_em timestamptz, atualizado_em timestamptz,
-    curtidas integer, descurtidas integer
+    curtidas bigint, descurtidas bigint
+  );
+  CREATE TABLE leitura.v_reacao_resenha_v1 (
+    resenha_id uuid, usuario_id uuid, tipo text
   );
 `;
 
@@ -60,6 +63,7 @@ const TABELAS_DE_DADOS = [
   'identidade.v_seguimento_aceito_v1',
   'leitura.v_nota_publicacao_v1',
   'leitura.v_resenha_publicacao_v1',
+  'leitura.v_reacao_resenha_v1',
 ];
 
 export async function prepararBanco(): Promise<Pool> {

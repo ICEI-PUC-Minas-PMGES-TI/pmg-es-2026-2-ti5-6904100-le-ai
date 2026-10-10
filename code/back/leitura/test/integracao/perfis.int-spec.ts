@@ -86,9 +86,12 @@ describe('resenhas do perfil (integração)', () => {
         [
           'atualizadoEm',
           'criadoEm',
+          'curtidas',
+          'descurtidas',
           'id',
           'livro',
           'livroId',
+          'minhaReacao',
           'nota',
           'spoiler',
           'texto',
@@ -102,6 +105,9 @@ describe('resenhas do perfil (integração)', () => {
         texto: 'Bom demais.',
         spoiler: true,
         nota: 4.5,
+        curtidas: 0,
+        descurtidas: 0,
+        minhaReacao: null,
         livro: {
           id: livroId,
           tipo: 'oficial',

@@ -22,6 +22,13 @@ vi.mock('../../services/leitura', () => ({
     obterMinhaAvaliacao: vi.fn(),
     salvarNota: vi.fn(),
     excluirNota: vi.fn(),
+    // F-AVA-2: a seção de frases carrega à parte; aqui, sem frases.
+    listarFrases: vi.fn().mockResolvedValue({
+      itens: [],
+      paginacao: { page: 1, limite: 3, totalItens: 0, totalPaginas: 0 },
+      minhasFrases: 0,
+      limitePorLivro: 10,
+    }),
   },
 }))
 
@@ -57,6 +64,9 @@ const EM_CONSULTA: LivroPessoalDetalhe = {
     spoiler: false,
     criadoEm: '2026-09-12T12:00:00Z',
     atualizadoEm: '2026-09-12T12:00:00Z',
+    curtidas: 12,
+    descurtidas: 2,
+    minhaReacao: null,
   },
 }
 

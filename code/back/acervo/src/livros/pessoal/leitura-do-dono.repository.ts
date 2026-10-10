@@ -1,9 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { and, eq } from 'drizzle-orm';
+import { reacaoConhecida } from '../busca/resenhas.repository';
 import { DRIZZLE, DrizzleDB } from '../../db/drizzle.module';
 import {
   vNotaPublicacao,
   vPerfilReferencia,
+  vReacaoResenha,
   vResenhaPublicacao,
 } from '../../db/contratos-externos';
 import { ehFalhaDeContratoExterno } from '../../common/pg-erros';
@@ -77,9 +79,14 @@ export class LeituraDoDonoRepository {
     return { valor: Number(linhas[0].valor) };
   }
 
+  /**
+   * Resenha do dono com as contagens de reações e a reação de `solicitanteId` (F-AVA-2): o
+   * terceiro que chegou pelo feed ou pela lista vê se já curtiu ou descurtiu.
+   */
   async resenha(
     donoId: string,
     livroId: string,
+    solicitanteId: string,
   ): Promise<ResenhaResumoDto | null> {
     const linhas = await this.executar(() =>
       this.db
@@ -92,11 +99,21 @@ export class LeituraDoDonoRepository {
           atualizadoEm: vResenhaPublicacao.atualizadoEm,
           autorNome: vPerfilReferencia.nomeExibicao,
           autorAvatarUrl: vPerfilReferencia.avatarUrl,
+          curtidas: vResenhaPublicacao.curtidas,
+          descurtidas: vResenhaPublicacao.descurtidas,
+          minhaReacao: vReacaoResenha.tipo,
         })
         .from(vResenhaPublicacao)
         .innerJoin(
           vPerfilReferencia,
           eq(vPerfilReferencia.id, vResenhaPublicacao.usuarioId),
+        )
+        .leftJoin(
+          vReacaoResenha,
+          and(
+            eq(vReacaoResenha.resenhaId, vResenhaPublicacao.resenhaId),
+            eq(vReacaoResenha.usuarioId, solicitanteId),
+          ),
         )
         .where(
           and(
@@ -123,6 +140,9 @@ export class LeituraDoDonoRepository {
       spoiler: linha.spoiler ?? false,
       criadoEm: (linha.criadoEm as Date).toISOString(),
       atualizadoEm: (linha.atualizadoEm as Date).toISOString(),
+      curtidas: Number(linha.curtidas ?? 0),
+      descurtidas: Number(linha.descurtidas ?? 0),
+      minhaReacao: reacaoConhecida(linha.minhaReacao),
     };
   }
 

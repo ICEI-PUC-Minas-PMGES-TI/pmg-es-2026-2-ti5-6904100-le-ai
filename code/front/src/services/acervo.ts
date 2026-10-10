@@ -47,6 +47,11 @@ export interface ResenhaDoDono {
   spoiler: boolean
   criadoEm: string
   atualizadoEm: string
+  /** Contagens de reações ativas (RF-AVA-08, F-AVA-2). */
+  curtidas: number
+  descurtidas: number
+  /** Reação de quem olha; `null` sem reação e na resenha do próprio leitor. */
+  minhaReacao: 'curtida' | 'descurtida' | null
 }
 
 export interface LivroPessoalDetalhe {

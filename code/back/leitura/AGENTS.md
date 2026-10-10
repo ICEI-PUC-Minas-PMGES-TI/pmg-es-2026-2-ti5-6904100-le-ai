@@ -56,7 +56,7 @@ Copiada do `acervo` e pronta para F-AVA, F-EST e F-PRG. Não existe pacote compa
   - Acrescente as operações da sua feature em `OPERACOES`, com o `operationId` do contrato.
   - O índice único é `idempotencia_leitura_subject_operacao_chave_uk` (predicado `subject_ref is not null and chave is not null`).
 - **Limite de requisições (`src/common/rate-limit/`):** `@UseGuards(RateLimitGuard)` + `@RateLimit({ porIdentidade, porIp, janelaSegundos, escopo })` nas escritas que viram atividade ou evento. **Um `escopo` por rota**, senão as rotas dividem o contador.
-- **VIEWs de outros serviços (`src/db/contratos-externos.ts`):** `acervo.v_livro_referencia_v1`, `identidade.v_perfil_referencia_v1` e `identidade.v_seguimento_aceito_v1`, todas `.existing()` e fora do `schema.ts`. `autor_exibicao` é `NULL` em livro oficial sem autor (701 livros no dev).
+- **VIEWs de outros serviços (`src/db/contratos-externos.ts`):** `acervo.v_livro_referencia_v1`, `identidade.v_perfil_referencia_v1`, `identidade.v_seguimento_aceito_v1` e, desde F-AVA-2, `social.v_atividade_livro_pessoal_v1` e `social.v_lista_livro_pessoal_v1`, todas `.existing()` e fora do `schema.ts`. O fixture de teste cria as cinco como tabelas. `comContratoExterno` (`src/common/contrato-externo.ts`) transforma a VIEW inacessível em 503. `autor_exibicao` é `NULL` em livro oficial sem autor (701 livros no dev).
 - **Outbox (`src/outbox/`):** `OutboxRepository.inserir(tx, { tipo, versao, chaveNegocio, payload })`, sempre com o `tx` da transação do domínio. O `payload` é só o `data` do schema; o despachante de P0-MSG monta o envelope. **O `data` é validado antes do INSERT:** evento fora do contrato desfaz a transação (500) em vez de cair na DLQ de outro serviço. Por isso:
   - registre o schema do seu evento no `onModuleInit` do módulo com `MessageValidator.registerDataSchema(tipo, versao, schema)`, usando a cópia em `src/messaging/schemas/` (idêntica à de `docs/mensageria`, conferida por `schemas.spec.ts`);
   - o `common-v1` já está registrado, então `$ref: "common-v1.schema.json#/..."` resolve;
@@ -78,6 +78,28 @@ Módulos `src/avaliacoes/` (nota, resenha, minha avaliação) e `src/perfis/` (r
 - **Eventos:** `nota.alterada` (criada, atualizada, excluida; publicado sem consumidor, de propósito), `resenha.publicada` **só na criação** (`atualizacao=false`) e `resenha.excluida`. Schemas registrados no `onModuleInit` do `AvaliacoesModule`. Os snapshots vêm das VIEWs de perfil e de livro; URL de capa ou avatar passa pelo `urlOuNulo`: sai o `href` normalizado (acento vira `%C3%A7`), e o que não for http(s) nem passar no mesmo `format: uri` do validador da outbox vira `null`, e livro sem autor manda `autor: null`.
 - **Resenhas do perfil:** RN-08 (próprio, público ou seguidor aceito; senão 403; perfil fora da VIEW é 404). Livro inativo não aparece; resenha de livro pessoal só para o próprio dono (RN-15). Página base 1, de 1 a 10.000 (sem teto, `page=1e20` estourava o `OFFSET`), e `limite` até 50.
 - **O feed lê `v_resenha_publicacao_v1` e `v_nota_publicacao_v1`** (`ServicoDeFeed`): não mude as colunas dessas VIEWs sem falar com o dono de F-FEED. A decisão sobre esse consumo está pendente com o grupo.
+
+## F-AVA-2 — reações à resenha (09/10/2026)
+
+Módulo `src/reacoes/` (plano, como `avaliacoes/`). Contrato em `docs/api/leitura.yaml`; plano em [`plano-F-AVA-2.md`](../../../docs/plano-de-desenvolvimento/periodo-2/renato-periodo-2/plano-F-AVA-2.md).
+
+- **Rotas:** `PUT /resenhas/{resenhaId}/reacao` (`{ tipo, via?, referenciaId? }`) e `DELETE` na mesma rota (via na consulta). As duas respondem `{ minhaReacao, curtidas, descurtidas }`, com idempotência (`reagirResenha:<resenhaId>`, `removerReacaoResenha:<resenhaId>`; via e referência entram no hash) e rate limit de 60 por identidade e 120 por IP.
+- **Ordem das regras, igual no PUT e no DELETE:** resenha existe; livro ativo; resenha de outro (senão **422 `REACAO_PROPRIA`**); autor na VIEW de perfil; reator na VIEW de perfil (senão **403**, porque é dele o `autorAcao`); acesso. Falha de acesso é **404**.
+- **Acesso:** livro oficial sob RN-08. Livro pessoal só com `via` e `referenciaId`, na **mesma regra do `acervo`** (`autorizacao-rn15.service.ts`): `feed` exige atividade ativa e seguimento aceito mesmo com perfil público; `lista` exige lista ativa do dono com o livro e perfil público ou seguimento. Mudou lá, muda aqui.
+- **Uma linha por par resenha e leitor.** Retirar é `ativa = false`, nunca DELETE: `primeira_curtida_em` fica guardada, e é ela que faz recurtir, alternar e descurtir **não** publicarem. `resenha.curtida` sai só na primeira curtida, na mesma transação. Escrita sem corrida: `INSERT … ON CONFLICT DO NOTHING`, depois `SELECT … FOR UPDATE` e `UPDATE` (o PG 17 não devolve o valor antigo no `RETURNING`). A regra pura está em `regras.ts` (`mudancaAoReagir`).
+- **Contagens só de reações ativas**, nas resenhas do perfil (com `minhaReacao`) e em `minha-avaliacao` (`MinhaResenha`; a resposta do `PUT /resenha` não muda).
+- **VIEW nova `v_reacao_resenha_v1`** (migration `0005`, escrita à mão; o snapshot `0005` corrigiu a falta de `proxima_tentativa_em`): reação ativa por resenha e leitor, para o `acervo` devolver `minhaReacao` na página do livro.
+- **Testes:** `test/integracao/reacao.int-spec.ts` e `reacao-sem-contratos.int-spec.ts`; unitários em `src/reacoes/regras.spec.ts`.
+
+### Frases e trechos (RN-11)
+
+Módulo `src/frases/`. `GET`/`POST /livros/{livroId}/frases` e `DELETE /frases/{fraseId}`. Não publica evento.
+
+- **Validação** (`regras.ts`): texto de 1 a 500 **code points**, sem ser só espaços ou invisíveis e sem o caractere nulo; página de 1 ao `paginas` de `v_livro_referencia_v1` (obrigatório lá). Os dois são 422 com `campos`; tipo errado é 400.
+- **Cota de 10 por leitor e livro:** conferida antes, na transação, e garantida pelo trigger `frase_limite_trigger` (advisory lock), que resolve duas inserções simultâneas. O trigger levanta 23514, o mesmo código de um CHECK: `ehErroDaFuncao` (`pg-erros.ts`) lê o campo `where` do erro para separar `validar_limite_frases` do CHECK. Os dois caminhos dão **422 `LIMITE_DE_FRASES`**.
+- **Acesso:** livro oficial lista sob RN-08 por autor (público, seguido ou a própria); livro pessoal só para o dono (404 para os outros), porque o modo consulta de RN-15 não expõe frases. Quem cadastra precisa estar na VIEW de perfil (403).
+- **Excluir:** só a própria; inexistente ou de outra pessoa é 404, sem revelar qual. A remoção pela moderação fica com F-MOD.
+- **Testes:** `test/integracao/frase.int-spec.ts`; unitários em `src/frases/regras.spec.ts`.
 
 ## F-EST — estante e ciclo de leitura
 

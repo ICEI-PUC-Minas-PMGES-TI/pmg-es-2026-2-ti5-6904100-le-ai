@@ -1,11 +1,10 @@
 package br.com.leai.social.notificacao.model;
 
 /**
- * Tipos de notificação gerados no Período 1 ({@code TipoNotificacao} de {@code
- * docs/api/social.yaml}). O nome segue o contrato HTTP; o literal é o valor aceito pelo CHECK
- * {@code notificacao_tipo_valido} da migration {@code V20260916024928__cria_modelo_social.sql}.
- * Os tipos futuros já previstos no CHECK (menção, curtida em resenha, recomendação, lembrete)
- * entram aqui junto do contrato do produtor, não antes.
+ * Tipos de notificação gerados ({@code TipoNotificacao} de {@code docs/api/social.yaml}). O nome
+ * segue o contrato HTTP; o literal é o valor aceito pelo CHECK {@code notificacao_tipo_valido} da
+ * migration {@code V20260916024928__cria_modelo_social.sql}. Os tipos futuros já previstos no CHECK
+ * (recomendação, lembrete) entram aqui junto do contrato do produtor, não antes.
  */
 public enum TipoNotificacao {
   NOVO_SEGUIDOR("novo_seguidor"),
@@ -16,7 +15,8 @@ public enum TipoNotificacao {
   COMENTARIO_RESPONDIDO("comentario_respondido"),
   USUARIO_MENCIONADO("usuario_mencionado"),
   LEITURA_EM_RISCO("leitura_em_risco"),
-  LEITURA_EXPIRADA("leitura_expirada");
+  LEITURA_EXPIRADA("leitura_expirada"),
+  RESENHA_CURTIDA("resenha_curtida");
 
   private final String literal;
 

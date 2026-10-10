@@ -12,6 +12,7 @@ import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { IdempotenciaModule } from './common/idempotencia/idempotencia.module';
 import { DrizzleModule } from './db/drizzle.module';
 import { EstanteModule } from './estante/estante.module';
+import { FrasesModule } from './frases/frases.module';
 import { HealthModule } from './health/health.module';
 import { InatividadeModule } from './jobs/inatividade/inatividade.module';
 import { LeiturasModule } from './leituras/leituras.module';
@@ -19,6 +20,7 @@ import { MessagingModule } from './messaging/messaging.module';
 import { OutboxModule } from './outbox/outbox.module';
 import { PerfisModule } from './perfis/perfis.module';
 import { ProgressoModule } from './progresso/progresso.module';
+import { ReacoesModule } from './reacoes/reacoes.module';
 import { ReferenciasModule } from './referencias/referencias.module';
 
 @Module({
@@ -62,6 +64,8 @@ import { ReferenciasModule } from './referencias/referencias.module';
     OutboxModule,
     ReferenciasModule,
     AvaliacoesModule,
+    ReacoesModule,
+    FrasesModule,
     PerfisModule,
     EstanteModule,
     LeiturasModule,

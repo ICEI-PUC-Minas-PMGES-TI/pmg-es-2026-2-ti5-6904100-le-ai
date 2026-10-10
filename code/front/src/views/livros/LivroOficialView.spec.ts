@@ -25,6 +25,13 @@ vi.mock('../../services/leitura', () => ({
     consultarItemEstante: vi.fn(),
     consultarConclusoes: vi.fn(),
     detalharLeitura: vi.fn(),
+    // F-AVA-2: a seção de frases carrega à parte; aqui, sem frases.
+    listarFrases: vi.fn().mockResolvedValue({
+      itens: [],
+      paginacao: { page: 1, limite: 3, totalItens: 0, totalPaginas: 0 },
+      minhasFrases: 0,
+      limitePorLivro: 10,
+    }),
   },
 }))
 

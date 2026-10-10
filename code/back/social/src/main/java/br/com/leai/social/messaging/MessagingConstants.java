@@ -47,6 +47,7 @@ public final class MessagingConstants {
   public static final String EVENTO_USUARIO_MENCIONADO = "usuario.mencionado";
   public static final String EVENTO_LEITURA_EM_RISCO = "leitura.em_risco";
   public static final String EVENTO_LEITURA_EXPIRADA = "leitura.expirada";
+  public static final String EVENTO_RESENHA_CURTIDA = "resenha.curtida";
 
   /** Topologia do consumidor da exclusão definitiva de conta (F-CONTA-2, RN-23.5). */
   public static final String CONTA_CONSUMER_NAME = "social.conta";

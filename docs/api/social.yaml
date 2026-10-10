@@ -46,7 +46,8 @@ x-database-contracts:
     description: >-
       Comprova a via feed para livro pessoal. Expõe somente atividades ativas;
       o consumidor ainda precisa revalidar seguimento aceito, autoria e vínculo
-      entre atividade e livro.
+      entre atividade e livro. Consumidores: acervo (página do livro pessoal)
+      e leitura (reação à resenha do dono, F-AVA-2).
     columns: [atividade_id, dono_id, livro_id]
   - name: v_lista_livro_pessoal_v1
     x-implementation-status: implemented
@@ -59,7 +60,8 @@ x-database-contracts:
       revalidar o vínculo lista, dono e livro e a privacidade do dono (RN-08):
       perfil público libera qualquer leitor autenticado; perfil privado exige
       seguimento aceito. Diferente da via feed, seguir não é exigido quando o
-      perfil é público.
+      perfil é público. Consumidores: acervo (página do livro pessoal) e
+      leitura (reação à resenha do dono, F-AVA-2), com a mesma regra.
     columns: [lista_id, dono_id, livro_id]
 x-event-consumers:
   description: >-
@@ -97,8 +99,11 @@ x-event-consumers:
       - usuario.mencionado
       - leitura.em_risco
       - leitura.expirada
+      - resenha.curtida
     effect: >-
-      Cria uma notificação para destinatarioId. A deduplicação semântica usa
+      Cria uma notificação para destinatarioId. resenha.curtida (F-AVA-2) só
+      chega na primeira curtida do par resenha e leitor, e a chave de negócio
+      `resenha:<resenhaId>:curtida:<autorAcaoId>` impede a segunda. A deduplicação semântica usa
       destinatário, tipo e chave de negócio; para inatividade, inclui leitura,
       versão do ciclo e limiar de 20, 30 ou 40 dias. A notificação guarda um
       snapshot de quem agiu, do livro e da atividade alvo; a frase em pt-BR é
@@ -110,7 +115,6 @@ x-event-consumers:
   planned-future-events:
     x-implementation-status: planned-after-periodo-1
     events:
-      - resenha.curtida
       - recomendacao.recebida
       - lembrete.sequencia
     description: >-
@@ -1196,9 +1200,9 @@ components:
     TipoNotificacao:
       type: string
       description: >-
-        Tipos produzidos no Período 1 e a menção de F-SOCIAL-2. Curtida em
-        resenha, recomendação e lembrete de sequência dependem de features
-        posteriores.
+        Tipos produzidos no Período 1, a menção de F-SOCIAL-2 e a curtida em
+        resenha de F-AVA-2. Recomendação e lembrete de sequência dependem de
+        features posteriores.
       enum:
         - NOVO_SEGUIDOR
         - SOLICITACAO_CRIADA
@@ -1209,8 +1213,8 @@ components:
         - USUARIO_MENCIONADO
         - LEITURA_EM_RISCO
         - LEITURA_EXPIRADA
-      x-planned-future-values:
         - RESENHA_CURTIDA
+      x-planned-future-values:
         - RECOMENDACAO_RECEBIDA
         - LEMBRETE_SEQUENCIA
     AcaoNotificacao:
@@ -1286,8 +1290,9 @@ components:
       type: object
       description: >-
         Snapshot do livro nas notificações de inatividade (LEITURA_EM_RISCO e
-        LEITURA_EXPIRADA): título para a confirmação de abandono e id/tipo
-        para o destino da notificação.
+        LEITURA_EXPIRADA) e na curtida em resenha (RESENHA_CURTIDA): título
+        para a confirmação de abandono e para a frase, e id/tipo para o destino
+        da notificação (página do livro oficial ou do livro pessoal).
       required: [id, tipo, titulo]
       properties:
         id: { type: string, format: uuid }

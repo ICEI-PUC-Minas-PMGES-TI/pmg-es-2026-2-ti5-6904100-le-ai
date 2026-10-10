@@ -19,7 +19,12 @@ import '../../design/widgets/folha_inferior.dart';
 import '../avaliacao/avaliacao_controller.dart';
 import '../avaliacao/bloco_sua_avaliacao.dart';
 import '../avaliacao/leitura_service.dart';
+import '../avaliacao/markdown_resenha.dart';
 import '../avaliacao/painel_de_nota.dart';
+import '../avaliacao/reacoes.dart';
+import '../avaliacao/adicionar_frase.dart';
+import '../avaliacao/reacoes_da_resenha.dart';
+import '../avaliacao/secao_frases.dart';
 import '../estante/estante_service.dart';
 import '../estante/situacao_na_estante.dart';
 import '../listas/folha_adicionar_a_lista.dart';
@@ -61,6 +66,9 @@ class LivroPessoalPage extends StatefulWidget {
   /// `Adicionar à lista` no topo do menu do dono (livro-pessoal.md P2 §4.3, RF-LST-05).
   final DependenciasDeListas? listas;
 
+  /// `Ver todas as frases` do dono (F-AVA-2).
+  final VoidCallback? aoVerFrases;
+
   const LivroPessoalPage({
     super.key,
     required this.servico,
@@ -75,6 +83,7 @@ class LivroPessoalPage extends StatefulWidget {
     this.estante,
     this.progresso,
     this.aoVerAtualizacoes,
+    this.aoVerFrases,
     this.listas,
   });
 
@@ -94,6 +103,16 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
 
   /// Resenha do dono com spoiler, vista por terceiro: fora da árvore até o toque (RF-AVA-03).
   bool _spoilerRevelado = false;
+
+  /// A via de RN-15 pela qual o terceiro chegou: a reação à resenha do dono vai com ela.
+  ViaDeAcesso? get _viaDeAcesso {
+    final via = widget.via;
+    final referenciaId = widget.referenciaId;
+    if ((via == 'feed' || via == 'lista') && referenciaId != null) {
+      return ViaDeAcesso(via: via!, referenciaId: referenciaId);
+    }
+    return null;
+  }
 
   @override
   void initState() {
@@ -463,6 +482,21 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
                 ),
               ),
             ]),
+            // F-AVA-2: só o dono vê e guarda frases do livro pessoal (RN-15).
+            divisor(),
+            secao(<Widget>[
+              SecaoFrases(
+                leitura: widget.leitura,
+                livro: LivroDaFrase(
+                  id: livro.id,
+                  titulo: livro.titulo,
+                  autor: livro.autor,
+                  capaUrl: livro.capaUrl,
+                  paginas: livro.paginas,
+                ),
+                aoVerTodas: widget.aoVerFrases,
+              ),
+            ]),
           ],
           // O terceiro vê a nota e a resenha do dono, sem ação nenhuma (RN-15.2). Sem avaliação,
           // nem o convite aparece (§4.6).
@@ -488,11 +522,19 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
               if (resenha.spoiler && !_spoilerRevelado)
                 BlocoDeSpoiler(aoRevelar: () => setState(() => _spoilerRevelado = true))
               else if (resenha.spoiler)
-                TextoRevelado(child: Text(resenha.texto, style: theme.editorialBody))
+                TextoRevelado(child: TextoDaResenha(resenha.texto))
               else
-                Text(resenha.texto, style: theme.editorialBody),
+                TextoDaResenha(resenha.texto),
               const SizedBox(height: DesignTokens.space3),
               Text(formatarData(resenha.atualizadoEm), style: theme.textTheme.bodySmall),
+              // O terceiro reage pela mesma via que abriu a página (RN-15.4).
+              const SizedBox(height: DesignTokens.space3),
+              ReacoesDaResenha(
+                resenhaId: resenha.id,
+                reacoes: resenha.reacoes,
+                leitura: widget.leitura,
+                via: _viaDeAcesso,
+              ),
             ]),
           ],
           const SizedBox(height: DesignTokens.space12),

@@ -369,6 +369,44 @@ describe('página do livro oficial (integração)', () => {
       expect(terceira.body.proximoCursor).toBeNull();
     });
 
+    it('cada resenha traz as contagens e só a reação de quem está vendo (F-AVA-2)', async () => {
+      const id = await inserirLivroOficial(pool, novoIsbn(), 'Com reações');
+      const [autora, outra] = [novoUsuario(), novoUsuario()];
+      await perfil(autora, 'Autora Reagida');
+      await perfil(outra, 'Outra Autora');
+      await perfil(leitor, 'Leitor Atual');
+      const reagida = randomUUID();
+      await pool.query(
+        `INSERT INTO leitura.v_resenha_publicacao_v1
+         VALUES ($1, $2, $3, 'Reagida.', false, now(), now(), 3, 1)`,
+        [reagida, autora, id],
+      );
+      await resenha(
+        id,
+        outra,
+        'Sem reação minha.',
+        `now() - interval '1 minute'`,
+      );
+      await pool.query(
+        `INSERT INTO leitura.v_reacao_resenha_v1 VALUES ($1, $2, 'curtida'), ($1, $3, 'descurtida')`,
+        [reagida, leitor, outra],
+      );
+
+      const itens = (await resenhas(id)).body.itens;
+
+      expect(itens[0]).toMatchObject({
+        id: reagida,
+        curtidas: 3,
+        descurtidas: 1,
+        minhaReacao: 'curtida',
+      });
+      expect(itens[1]).toMatchObject({
+        curtidas: 0,
+        descurtidas: 0,
+        minhaReacao: null,
+      });
+    });
+
     it('cursor forjado, limite acima de 50 e livro pessoal são recusados', async () => {
       const id = await inserirLivroOficial(pool, novoIsbn(), 'Livro');
       const pessoal = await inserirLivroPessoal(pool, leitor, 'Meu caderno');

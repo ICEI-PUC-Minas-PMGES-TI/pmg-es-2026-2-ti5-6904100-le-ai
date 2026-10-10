@@ -35,6 +35,9 @@ function resenhaDoPerfil(extras: Partial<ResenhaDoPerfil> = {}): ResenhaDoPerfil
     atualizadoEm: '2026-09-12T12:00:00Z',
     livro: { id: 'livro-1', tipo: 'oficial', titulo: 'Torto Arado', autor: 'Itamar Vieira Junior', capaUrl: null },
     nota: 4.5,
+    curtidas: 0,
+    descurtidas: 0,
+    minhaReacao: null,
     ...extras,
   }
 }
@@ -153,6 +156,19 @@ describe('PerfilDeOutroView', () => {
     expect(wrapper.text()).toContain('O final revela tudo.')
     // O botão sai do DOM; o foco vai para o texto, para o leitor de tela continuar dali.
     expect(document.activeElement?.textContent).toContain('O final revela tudo.')
+  })
+
+  it('o trecho da resenha sai sem a marcação do Markdown, com cada bloco numa linha (F-AVA-2)', async () => {
+    leitura.listarResenhasPerfil.mockResolvedValue({
+      itens: [resenhaDoPerfil({ texto: '**Forte** e *leve*\n\n- um\n- dois' })],
+      paginacao: { page: 1, limite: 5, totalItens: 1, totalPaginas: 1 },
+    })
+    const { wrapper } = await montarNaRota('/leitores/rafaokamoto')
+    await flushPromises()
+
+    const trecho = wrapper.findAll('p').find((p) => p.text().startsWith('Forte e leve'))!
+    expect(trecho.element.textContent?.trim()).toBe('Forte e leve\num\ndois')
+    expect(wrapper.text()).not.toContain('**')
   })
 
   it('"Ver mais resenhas" traz a página seguinte', async () => {

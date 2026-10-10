@@ -57,6 +57,12 @@ Uma URL por serviço, sem gateway: `VITE_IDENTIDADE_BASE_URL`, `VITE_ACERVO_BASE
 
 ## Componentes compartilhados que mudaram
 
+- **F-AVA-2, Markdown da resenha (09/10/2026, Renato).** A resenha continua gravada como texto cru e é renderizada no cliente só com o subconjunto do RN-13: negrito, itálico, tachado (só `~~texto~~`), listas e citação. Link, imagem, título, código, tabela e HTML aparecem literais. O que mexe no que é de todos:
+  - **Resenha inteira só por `components/livros/TextoDaResenha.vue`**, o único `v-html` do app: recebe a saída de `renderizarResenha` (`markdown/resenha.ts`: `markdown-it` com HTML e as regras fora do subconjunto desligadas, e `DOMPurify` só com as tags do subconjunto). Nunca passe outro texto por `v-html`. Está em `CardResenha`, `BlocoSuaAvaliacao` e na resenha do dono em `LivroPessoalView`.
+  - **Prévia de poucas linhas usa `textoSemMarcacao`** (sem `**`, `>` nem `-`, cada bloco numa linha): `feed/ItemAtividade.vue` (do Kayke) e `perfil/CardResenhaDoPerfil.vue`. Trecho que precisa manter o itálico, como o da denúncia na F-MOD, não usa essa função.
+  - **Paridade com o mobile (RN-13.4):** o comportamento do parser está fixado em `docs/design-system/markdown-resenha-casos.json`, lido por `markdown/resenha.spec.ts` e pelo teste do mobile. Mudou o parser, a versão do pacote ou a configuração: rode os testes dos dois clientes. O arquivo está no filtro de caminhos da CI dos dois.
+  - Editor (`views/livros/EscreverResenhaView.vue`): abas `Escrever | Visualizar` e `components/livros/BarraDeFormatacao.vue` no topo da coluna. A lógica da barra e do `Enter` fica em `markdown/edicao.ts`, sem DOM, igual a `markdown_edicao.dart` do mobile.
+
 - **F-ACV-DESCOBERTA (07/10/2026, Vicenzo).** Páginas de autor, editora e série em `views/catalogo/PaginaDeCatalogoView.vue` (uma view, a prop `tipo` vem da rota), estado em `livros/usePaginaDeCatalogo.ts`, filtros em `livros/filtrosDaBusca.ts`, `components/livros/FiltrosAvancados.vue` e `ChipsDeFiltros.vue`. O que mexe no que é de todos:
   - `ui/CampoTexto.vue` ganhou a prop opcional `sufixo` (unidade dentro do campo, à direita, como `páginas`). Sem ela, nada muda.
   - `livros/CardLivroBusca.vue` ganhou a prop opcional `numeroNaSerie` (a linha `Livro N` acima do título).

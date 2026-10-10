@@ -21,10 +21,11 @@ RNF atendidos: **RNF-SEC-02** (propriedade no servidor), **RNF-SEC-03/06** (aces
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | não iniciado | tabelas `reacao_resenha` e `frase`; publisher e mapeamento consumidor de `resenha.curtida` |
-| Backend | não iniciado | `leitura`: reações/frases/Markdown; `social`: novo tipo de notificação |
-| Web | não iniciado | reações + contagens, editor Markdown com preview, frases |
-| Mobile | não iniciado | mesmas telas |
+| Infra | implementado | Tabelas `reacao_resenha` e `frase` do baseline de 16/09, sem migration nova para elas. A VIEW `leitura.v_reacao_resenha_v1` (reações ativas) entrou pela migration `0005`, revisada pelo Renato e aplicada no banco de dev em 09/10 |
+| Backend | implementado | `leitura`: reações (`PUT`/`DELETE /resenhas/{id}/reacao`, `resenha.curtida` só na primeira curtida) e frases (`GET`/`POST /livros/{id}/frases`, `DELETE /frases/{id}`). `social`: notificação `RESENHA_CURTIDA`. `acervo`: contagens e `minhaReacao` nas resenhas da página do livro e do livro pessoal |
+| Web | implementado | Reações com contagens, frases (seção, lista completa e cadastro), resenha em Markdown e editor com barra e `Visualizar` |
+| Mobile | implementado | Mesmo escopo da web, mais a notificação `RESENHA_CURTIDA` |
+
 
 ## Especificação
 
@@ -54,35 +55,66 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 ## Critérios de aceite
 
-- [ ] Curtir, retirar e recurtir não gera outra notificação para a mesma resenha/reator, mesmo se a primeira foi suprimida por preferência; contagens consideram somente reações ativas.
+- [x] Curtir, retirar e recurtir não gera outra notificação para a mesma resenha/reator, mesmo se a primeira foi suprimida por preferência; contagens consideram somente reações ativas.
 
-- [ ] Reação é **uma por usuário+resenha**, alternável e idempotente (RF-AVA-05, RNF-ERR-04); acesso revalidado sob **RN-08** (oficial) e **RN-15** (pessoal); rate limiting ativo (SEC-18).
-- [ ] O servidor recusa reação à própria resenha; livro pessoal exige via feed/lista válida e referência forjada é negada.
-- [ ] **Contagens de curtidas e descurtidas separadas** aparecem a quem tem acesso à resenha (RF-AVA-08).
-- [ ] `resenha.curtida` é publicado após a escrita, com destinatário = autor da resenha, e consumido uma vez por `social`.
-- [ ] Frase exige **página** e **≤500 caracteres**, com **máximo de 10** por usuário+livro (RN-11); listar é paginado; excluir é **owner-only** com confirmação; frases de livro pessoal são exclusivas do dono.
-- [ ] Resenha aceita o **subconjunto Markdown** (RN-13) com **preview**; HTML/link/imagem/código/tabela **não** são interpretados; parser com HTML **desabilitado** e saída **sanitizada** na web (SEC-15); marcação não suportada exibida literal; mesmo subconjunto em web e mobile.
-- [ ] Reações, frases e Markdown funcionam **em DES**.
+- [x] Reação é **uma por usuário+resenha**, alternável e idempotente (RF-AVA-05, RNF-ERR-04); acesso revalidado sob **RN-08** (oficial) e **RN-15** (pessoal); rate limiting ativo (SEC-18).
+- [x] O servidor recusa reação à própria resenha; livro pessoal exige via feed/lista válida e referência forjada é negada.
+- [x] **Contagens de curtidas e descurtidas separadas** aparecem a quem tem acesso à resenha (RF-AVA-08).
+- [x] `resenha.curtida` é publicado após a escrita, com destinatário = autor da resenha, e consumido uma vez por `social`.
+- [x] Frase exige **página** e **≤500 caracteres**, com **máximo de 10** por usuário+livro (RN-11); listar é paginado; excluir é **owner-only** com confirmação; frases de livro pessoal são exclusivas do dono.
+- [x] Resenha aceita o **subconjunto Markdown** (RN-13) com **preview**; HTML/link/imagem/código/tabela **não** são interpretados; parser com HTML **desabilitado** e saída **sanitizada** na web (SEC-15); marcação não suportada exibida literal; mesmo subconjunto em web e mobile.
+- [ ] Reações, frases e Markdown funcionam **em DES**. Débito: entra no merge de fechamento do Período 2.
 
 ## Definition of Done
 
 (plano §10)
 
-- [ ] Código (backend `leitura` + mapeamento consumidor em `social`, web, mobile) mergeado em `desenvolvimento`
-- [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
-- [ ] Testes unitários e de integração com banco real/container: reação única/alternável, revalidação de acesso RN-08/RN-15, contagens, limite/página das frases, idempotência (RNF-TST-02)
-- [ ] Testes assíncronos cobrem publicação, consumo em `social`, destinatário, duplicação semântica e DLQ de `resenha.curtida` (RNF-TST-03)
-- [ ] Testes web/mobile cobrem reações, **render/sanitização do Markdown** (SEC-15), preview, frases e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
-- [ ] **Spec OpenAPI de `leitura` atualizado em `docs/api/leitura.yaml`** com reações, frases, contagens e o schema de `resenha.curtida`; a adição de contagens a `v_resenha_publicacao_v1` documentada
-- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
-- [ ] Arquivo da feature atualizado: status, pendências, timeline
-- [ ] Divergência protótipo × implementação registrada, se houver
+- [ ] Código (backend `leitura` + mapeamento consumidor em `social`, web, mobile) mergeado em `desenvolvimento`. Merge local feito em 09/10/2026; falta o push, que o Renato faz
+- [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)), a conferir depois do push, inclusive o `--check` dos tokens, que no Windows acusa só o CRLF
+- [x] Testes unitários e de integração com banco real/container: reação única/alternável, revalidação de acesso RN-08/RN-15, contagens, limite/página das frases, idempotência (RNF-TST-02)
+- [x] Testes assíncronos cobrem publicação, consumo em `social`, destinatário, duplicação semântica e DLQ de `resenha.curtida` (RNF-TST-03)
+- [x] Testes web/mobile cobrem reações, **render/sanitização do Markdown** (SEC-15), preview, frases e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
+- [x] **Spec OpenAPI de `leitura` atualizado em `docs/api/leitura.yaml`** com reações, frases, contagens e o schema de `resenha.curtida`; a adição de contagens a `v_resenha_publicacao_v1` documentada
+- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)). Débito do merge de fechamento
+- [x] Arquivo da feature atualizado: status, pendências, timeline
+- [x] Divergência protótipo × implementação registrada, se houver
 
-**Item próprio:** fixar a mesma configuração de **subconjunto Markdown** para os dois clientes (RN-13.4) — resenha deve renderizar igual em web e mobile.
+**Item próprio:** fixar a mesma configuração de **subconjunto Markdown** para os dois clientes (RN-13.4) — resenha deve renderizar igual em web e mobile. **Feito:** os dois clientes passam pelos 26 casos de [`docs/design-system/markdown-resenha-casos.json`](../../design-system/markdown-resenha-casos.json).
 
 ## Pendências
 
-- **Telas (design P2):** seção `Frases e trechos`, reações com contagens separadas e resenha em Markdown renderizado entram na edição consolidada [`pagina-do-livro.md`](../../design/periodo-2/pagina-do-livro/pagina-do-livro.md) ([protótipo](../../design/periodo-2/pagina-do-livro/prototipos/pagina-do-livro.html)), prompt escrito em 28/09/2026, protótipo exportado em 29/09/2026. [`frases-do-livro.md`](../../design/periodo-2/F-AVA-2/frases-do-livro.md) ([protótipo](../../design/periodo-2/F-AVA-2/prototipos/frases-do-livro.html)) (lista completa, excluir a própria, remoção direta pelo admin na web) e [`adicionar-frase.md`](../../design/periodo-2/F-AVA-2/adicionar-frase.md) ([protótipo](../../design/periodo-2/F-AVA-2/prototipos/adicionar-frase.html)) (sheet no mobile, dialog na web, cota de 10 por livro de RN-11), prompts escritos e protótipos exportados em 29/09/2026; contratos a confirmar: cota e contagem total em `GET /livros/{id}/frases`, total de páginas no formulário. Editor Markdown (barra com os 6 itens do RN-13 e alternância `Escrever | Visualizar`) na edição consolidada [`escrever-resenha.md`](../../design/periodo-2/escrever-resenha/escrever-resenha.md) ([protótipo](../../design/periodo-2/escrever-resenha/prototipos/escrever-resenha.html)), prompt escrito e protótipo exportado em 29/09/2026; a ratificar: negrito em Newsreader 600 (o design só lista 400 e 500), pré-visualização sem ocultar spoiler, faixa quando há marcação fora do subconjunto, `Enter` continua a lista. **Contratos a decidir:** resenhas do P1 em texto puro passam a ser lidas como Markdown; tachado exige extensão GFM igual nos dois parsers (RN-13.4); quebra de linha simples; contagem do limite por code point ou UTF-16, igual no cliente e no servidor; tratamento da marcação na prévia do feed. **Conflito a decidir:** nenhuma fonte diz se as frases seguem RN-08 como as resenhas; as contagens de reação só estão confirmadas no endpoint de resenhas. Decisão a ratificar: contagem zero exibida como `0 descurtidas`. Lotes 6 e 7, prompts escritos em 29/09/2026; protótipos exportados em 29/09/2026: contagens de reação nas edições [`meu-perfil.md`](../../design/periodo-2/meu-perfil/meu-perfil.md) ([protótipo](../../design/periodo-2/meu-perfil/prototipos/meu-perfil.html)) e [`perfil-de-outro-leitor.md`](../../design/periodo-2/perfil-de-outro-leitor/perfil-de-outro-leitor.md) ([protótipo](../../design/periodo-2/perfil-de-outro-leitor/prototipos/perfil-de-outro-leitor.html)) (reagir); frases do dono, reações ativas e contagens visíveis ao dono na edição [`livro-pessoal.md`](../../design/periodo-2/livro-pessoal/livro-pessoal.md) ([protótipo](../../design/periodo-2/livro-pessoal/prototipos/livro-pessoal.html)). Contratos a confirmar: contagens e reação de quem olha no endpoint de resenhas do perfil; `via` e `referenciaId` guardados pela página do livro pessoal para reagir.
+- **Telas (design P2):** implementadas a partir de [`pagina-do-livro.md`](../../design/periodo-2/pagina-do-livro/pagina-do-livro.md), [`frases-do-livro.md`](../../design/periodo-2/F-AVA-2/frases-do-livro.md), [`adicionar-frase.md`](../../design/periodo-2/F-AVA-2/adicionar-frase.md), [`escrever-resenha.md`](../../design/periodo-2/escrever-resenha/escrever-resenha.md), [`meu-perfil.md`](../../design/periodo-2/meu-perfil/meu-perfil.md), [`perfil-de-outro-leitor.md`](../../design/periodo-2/perfil-de-outro-leitor/perfil-de-outro-leitor.md), [`livro-pessoal.md`](../../design/periodo-2/livro-pessoal/livro-pessoal.md) e [`notificacoes.md`](../../design/periodo-2/notificacoes/notificacoes.md). Os contratos que estavam "a confirmar" ficaram assim: `GET /livros/{id}/frases` traz `minhasFrases` e `limitePorLivro`; o formulário de frase usa o total de páginas do livro, que é obrigatório no contrato `v_livro_referencia_v1`; o endpoint de resenhas do perfil traz as contagens e `minhaReacao`; a página do livro pessoal repassa `via` e `referenciaId` da rota ao reagir. O plano de execução está em [`renato-periodo-2/plano-F-AVA-2.md`](renato-periodo-2/plano-F-AVA-2.md).
+- **Decisões do dono (07/10/2026), a comunicar ao grupo; não esperam resposta:**
+  1. Resenhas antigas, gravadas em texto puro, passam a ser exibidas como Markdown. O texto gravado não muda e não há migration.
+  2. `Enter` simples quebra a linha, igual nos dois parsers.
+  3. Prévias sem marcação: o feed e o card do perfil, que cortam o texto em poucas linhas, mostram o texto sem marcação, com cada bloco numa linha. A resenha inteira aparece formatada na página do livro, em "Sua avaliação" e no livro pessoal.
+  4. Frases seguem o RN-08: a frase de autor privado só aparece para quem o segue e para o próprio autor.
+  5. Tachado só com `~~texto~~` nos dois clientes. O limite de 5.000 conta code points, incluindo a marcação.
+  6. Ratificações de design, seguindo o protótipo: `0 descurtidas` aparece; negrito em Newsreader 600; a pré-visualização não esconde spoiler; faixa quando há marcação fora do subconjunto; `Enter` continua a lista, e `Enter` num item vazio sai dela.
+  7. A reação de quem está vendo chega pela `acervo`, por uma VIEW nova do `leitura`, `v_reacao_resenha_v1 (resenha_id, usuario_id, tipo)`, só com as reações ativas.
+  8. A notificação `RESENHA_CURTIDA` abre a página do livro: a oficial, ou a pessoal quando `livro.tipo = pessoal`. O `resenhaId` fica em `dados` da notificação, mas não vai para a resposta.
+  9. A copy da curtida em atividade do `social` não muda.
+  10. As contagens da própria resenha aparecem também na página do livro oficial, só para leitura, porque o RF-AVA-08 vale para todos que têm acesso.
+  11. O menu `DotsThree` da resenha fica para a F-MOD; aqui as reações são botões.
+- **Divergências registradas:**
+  - **Notificação (decisão 8):** o design diz que ela abre "na resenha da leitora"; ela abre a página do livro, sem rolar até a resenha.
+  - **Copy das curtidas (decisão 9):** `ATIVIDADE_CURTIDA` de uma atividade de resenha e `RESENHA_CURTIDA` têm o mesmo texto, "X curtiu sua resenha de Y.", contrariando [`notificacoes.md`](../../design/periodo-2/notificacoes/notificacoes.md) linhas 40 a 45. O rótulo acessível também é igual, porque o ícone é decorativo.
+  - **Contagens na própria resenha do livro oficial (decisão 10):** o protótipo não as mostra; o próprio design marca isso como "a decidir" em `livro-pessoal.md`.
+  - **Barra de formatação na web:** a web põe a barra no topo em qualquer largura (escrever-resenha.md §4.5); a posição junto do rodapé (§4.1) é a do app. Quando a coluna não comporta a alternância e a barra lado a lado (no celular e em janelas de até uns 1.100px com a barra lateral aberta), a barra quebra para a linha de baixo, sem rolagem horizontal.
+  - **Prévia do feed na web:** o trecho passou a respeitar as quebras de linha (`whitespace-pre-line`), como o card do perfil e o app. Antes, as quebras de uma resenha antiga sumiam no feed web.
+  - **Deploy:** se o `acervo` subir antes da migration `0005` do `leitura`, a resenha do dono no livro pessoal vem `null` e `GET /livros/{id}/resenhas` responde 503 até a VIEW existir. No merge de fechamento, migrar o `leitura` antes de publicar o `acervo`.
+- **Preferência de notificação:** o `social` ainda não lê a preferência (fica para a F-NOT-OPC). O critério "mesmo se suprimida por preferência" é garantido pelo produtor (`primeira_curtida_em`) e pelo `UNIQUE (destinatario_id, tipo, chave_negocio)` da notificação.
+- **Débitos:**
+  - **Copy das duas curtidas, com o Kayke** (decisão 9).
+  - **DES:** reações, frases e Markdown entram no DES no merge de fechamento do Período 2, com a migration `0005` aplicada no banco de Oregon antes do `acervo`.
+- **Código de outras pessoas alterado** (registrado no `AGENTS.md` de cada serviço e cliente; avisar os donos no grupo):
+  - Kayke: consumidor de notificações do `social` (`EventoDeNotificacao`, `TipoNotificacao`, `RedacaoDeNotificacao`, `docs/api/social.yaml`), notificações do app (tipo, ícone e rota) e a prévia do feed (`ItemAtividade.vue` e `item_atividade.dart`).
+  - Vicenzo: `acervo` (repositórios de resenhas, DTO do livro pessoal, `contratos-externos.ts`, fixture de integração) e `acervo_service.dart`.
+  - Henrique: cards de resenha do perfil (contagens e reações).
+- **Observações para outros donos, achadas no teste manual de 09/10:**
+  - **Vicenzo:** o `acervo` local caiu uma vez com `Connection terminated unexpectedly`, quando o Neon fechou uma conexão ociosa. O erro do `Client` do `pg` não é tratado e derruba o processo. Não é desta feature.
+  - **Kayke:** no app, o perfil de outro leitor aberto pelo feed (`rotas_feed.dart`) não recebe `resenhas` nem `estante`, então mostra "ainda não escreveu resenhas" e "ainda não tem livros na estante" sem consultar nada. Pela aba Perfil, a mesma tela funciona.
+- **Contas de teste no banco de dev:** `fava2_ana` (pública), `fava2_bruno` (pública, segue a Ana) e `fava2_clara` (privada), com e-mail `@teste.leai.invalid`; a senha está com o Renato. Ficaram com resenhas, reações, frases, o livro pessoal "Diário de leituras da Ana" e a lista "Cadernos da Ana". Podem ser excluídas pela F-CONTA-2 quando não forem mais úteis.
 - **Depende de** [F-AVA](../periodo-1/feature-F-AVA.md) (resenha e `v_resenha_publicacao_v1`), [F-PERFIL](../periodo-1/feature-F-PERFIL.md) (RN-08), [F-NOT](../periodo-1/feature-F-NOT.md) (base da notificação), [F-ACV-CADASTRO](../periodo-1/feature-F-ACV-CADASTRO.md)/[F-FEED](../periodo-1/feature-F-FEED.md)/[F-LST](feature-F-LST.md) (livro pessoal e duas vias de RN-15), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md), [P0-MSG](../periodo-0/feature-P0-MSG.md).
 - **Compartilha `leitura` com [F-EST](../periodo-1/feature-F-EST.md)/[F-PRG](../periodo-1/feature-F-PRG.md)/[F-AVA](../periodo-1/feature-F-AVA.md)** e demais features de leitura desta leva — sinalizar no grupo (plano §6).
 - **Denúncia de resenha** e **remoção direta de frase pela moderação** (RN-11) são de **F-MOD** — frase não possui fluxo de denúncia.
@@ -91,6 +123,14 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - Stack de `leitura` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
 ## Timeline
+
+### 09/10/2026: implementação, testes e teste manual. Três commits na `renato-features`, mergeados localmente na `desenvolvimento` (o push fica com o Renato):
+
+- `ca9da42` **curtir e descurtir resenhas:** reações no `leitura` com a VIEW `v_reacao_resenha_v1`, `resenha.curtida` com schema canônico e cópias de runtime, notificação `RESENHA_CURTIDA` no `social`, contagens e `minhaReacao` no `acervo`, e os botões na web e no app (página do livro, livro pessoal pelo feed e pela lista, perfis e "Sua avaliação" só leitura).
+- `93aa6a9` **frases e trechos dos livros:** frases no `leitura` (RN-11 com o 23514 do trigger virando 422 `LIMITE_DE_FRASES`, RN-08 por autor, livro pessoal só do dono), seção `Frases e trechos`, lista completa e cadastro na web e no app.
+- `11020b1` **resenha em Markdown com pré-visualização:** `markdown-it` 14.3.2 e `DOMPurify` 3.4.16 na web, pacote `markdown` 7.3.1 no app, com os 26 casos compartilhados; editor com `Escrever | Visualizar` e a barra de seis botões; prévias sem marcação no feed e no perfil. O backend não mudou.
+
+Testes, todos passando: `leitura` 219 unitários e 252 de integração; `acervo` 305 e 146; `social` 175 no `verify`; web 865; app 646; lint, build, `flutter analyze` e `flutter build apk --debug` limpos. Teste manual com os quatro serviços locais sobre o banco e o broker de dev, na web (Edge automatizado, 1440 e 390px, claro e escuro) e no app (emulador Pixel 8): curtir, alternar e retirar com as contagens na hora; recurtir sem segunda notificação (conferido na outbox e em `social.notificacao`); notificação em tempo real no app, abrindo o livro; leitora privada sem seguimento recebendo 404; livro pessoal pelo feed e pela lista, com referência de outra lista e forjada recusadas; frases com página fora do total, limite de 10, exclusão com confirmação e frase de autora privada escondida; os seis formatos pela barra, pelo teclado e pelo `Enter`; link, imagem, título, tabela e HTML literais, com a faixa; resenha antiga com a quebra de linha; feed e perfil sem marcação; limite contando a formatação; a mesma resenha lado a lado na web e no app.
 
 ### Revisão 15/09/2026: recurtida sem nova notificação aprovada; DER prevê marco da primeira curtida e reação inativa sem contagem. Implementação não iniciada.
 

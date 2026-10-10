@@ -39,15 +39,35 @@ AcervoService acervoSimulado(Future<http.Response> Function(http.Request) handle
 }
 
 /// Serviço de leitura sobre um `MockClient`, sem espera entre retentativas.
-LeituraService leituraSimulada(Future<http.Response> Function(http.Request) handler) {
+///
+/// As páginas de livro carregam também a seção de frases (F-AVA-2). Com [semFrases], o simulador
+/// responde a lista de frases vazia sozinho, e os testes que não tratam de frases não precisam
+/// saber dela.
+LeituraService leituraSimulada(
+  Future<http.Response> Function(http.Request) handler, {
+  bool semFrases = true,
+}) {
   return LeituraService(
     ApiClient(
       baseUrl: 'https://leitura.example.com',
-      client: MockClient(handler),
+      client: MockClient((pedido) {
+        if (semFrases && pedido.method == 'GET' && pedido.url.path.endsWith('/frases')) {
+          return Future<http.Response>.value(json(frasesVazias(), 200));
+        }
+        return handler(pedido);
+      }),
       esperasDeRetentativa: const <Duration>[Duration.zero, Duration.zero],
     ),
   );
 }
+
+/// `PaginaFrases` sem nenhuma frase.
+Map<String, Object?> frasesVazias() => <String, Object?>{
+  'itens': <Object>[],
+  'paginacao': <String, Object?>{'page': 1, 'limite': 3, 'totalItens': 0, 'totalPaginas': 0},
+  'minhasFrases': 0,
+  'limitePorLivro': 10,
+};
 
 /// Corpo de `minha-avaliacao` sem nota nem resenha.
 Map<String, Object?> semAvaliacao(String livroId) =>

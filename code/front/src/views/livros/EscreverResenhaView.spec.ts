@@ -117,7 +117,7 @@ describe('EscreverResenhaView', () => {
     await digitar(wrapper, texto)
 
     expect(wrapper.text()).toContain('5.126 de 5.000 caracteres')
-    expect(wrapper.text()).toContain('Sua resenha passou do limite em 126 caracteres. Corte um trecho para publicar.')
+    expect(wrapper.text()).toContain('Sua resenha passou do limite em 126 caracteres, contando a formatação. Corte um trecho para publicar.')
     expect((wrapper.get('textarea').element as HTMLTextAreaElement).value).toBe(texto)
     expect(botao('Publicar')?.disabled).toBe(true)
   })
@@ -126,7 +126,7 @@ describe('EscreverResenhaView', () => {
     const { wrapper } = await abrir()
 
     await digitar(wrapper, 'O final surpreende.')
-    const toggle = wrapper.get('button[aria-pressed]')
+    const toggle = wrapper.findAll('button[aria-pressed]').find((b) => b.text().includes('Contém spoiler'))!
     await toggle.trigger('click')
 
     expect(toggle.attributes('aria-pressed')).toBe('true')
@@ -282,5 +282,185 @@ describe('EscreverResenhaView', () => {
     await flushPromises()
 
     expect(router.currentRoute.value.path).toBe('/descobrir')
+  })
+
+  describe('Markdown (F-AVA-2)', () => {
+    type Montagem = Awaited<ReturnType<typeof abrir>>['wrapper']
+
+    function campo(wrapper: Montagem): HTMLTextAreaElement {
+      return wrapper.get('textarea').element as HTMLTextAreaElement
+    }
+
+    async function selecionar(wrapper: Montagem, inicio: number, fim = inicio) {
+      campo(wrapper).setSelectionRange(inicio, fim)
+      await wrapper.get('textarea').trigger('select')
+    }
+
+    function botaoDaBarra(wrapper: Montagem, rotulo: string) {
+      return wrapper.get(`[role="toolbar"][aria-label="Formatação"] button[aria-label^="${rotulo}"]`)
+    }
+
+    function aba(wrapper: Montagem, rotulo: 'Escrever' | 'Visualizar') {
+      return wrapper.findAll('[role="tab"]').find((item) => item.text() === rotulo)!
+    }
+
+    it('negrito envolve a seleção, fica ativo e a marcação entra no contador', async () => {
+      const { wrapper } = await abrir()
+      await digitar(wrapper, 'um livro bom')
+      await selecionar(wrapper, 3, 8)
+
+      await botaoDaBarra(wrapper, 'Negrito').trigger('click')
+      await flushPromises()
+
+      expect(campo(wrapper).value).toBe('um **livro** bom')
+      expect([campo(wrapper).selectionStart, campo(wrapper).selectionEnd]).toEqual([5, 10])
+      expect(botaoDaBarra(wrapper, 'Negrito').attributes('aria-pressed')).toBe('true')
+      expect(botaoDaBarra(wrapper, 'Itálico').attributes('aria-pressed')).toBe('false')
+      expect(wrapper.text()).toContain('16 de 5.000 caracteres')
+
+      // Tocar de novo com o cursor dentro remove o par.
+      await botaoDaBarra(wrapper, 'Negrito').trigger('click')
+      await flushPromises()
+      expect(campo(wrapper).value).toBe('um livro bom')
+    })
+
+    it('seis botões em dois grupos, com rótulos e o atalho exposto', async () => {
+      const { wrapper } = await abrir()
+      const rotulos = wrapper.findAll('[role="toolbar"] button').map((b) => b.attributes('aria-label'))
+
+      expect(rotulos).toEqual([
+        'Negrito (Ctrl+B)',
+        'Itálico (Ctrl+I)',
+        'Tachado',
+        'Lista com marcadores',
+        'Lista numerada',
+        'Citação',
+      ])
+    })
+
+    it('lista numerada põe o prefixo em sequência nas linhas selecionadas', async () => {
+      const { wrapper } = await abrir()
+      await digitar(wrapper, 'um\ndois')
+      await selecionar(wrapper, 0, 7)
+
+      await botaoDaBarra(wrapper, 'Lista numerada').trigger('click')
+      await flushPromises()
+
+      expect(campo(wrapper).value).toBe('1. um\n2. dois')
+    })
+
+    it('Enter continua a lista e, no item vazio, sai dela', async () => {
+      const { wrapper } = await abrir()
+      await digitar(wrapper, '- um')
+      await selecionar(wrapper, 4)
+
+      await wrapper.get('textarea').trigger('keydown', { key: 'Enter' })
+      await flushPromises()
+      expect(campo(wrapper).value).toBe('- um\n- ')
+
+      await wrapper.get('textarea').trigger('keydown', { key: 'Enter' })
+      await flushPromises()
+      expect(campo(wrapper).value).toBe('- um\n')
+    })
+
+    it('Ctrl+B e Ctrl+I aplicam negrito e itálico', async () => {
+      const { wrapper } = await abrir()
+      await digitar(wrapper, 'forte')
+      await selecionar(wrapper, 0, 5)
+
+      await wrapper.get('textarea').trigger('keydown', { key: 'b', ctrlKey: true })
+      await flushPromises()
+      expect(campo(wrapper).value).toBe('**forte**')
+
+      await wrapper.get('textarea').trigger('keydown', { key: 'i', ctrlKey: true })
+      await flushPromises()
+      expect(campo(wrapper).value).toBe('***forte***')
+    })
+
+    it('Visualizar mostra a resenha formatada, sem barra, e Escrever volta com o texto e o cursor', async () => {
+      const { wrapper } = await abrir()
+      const texto = '**forte** e *leve* e ~~riscado~~\n\n- item\n\n> citado'
+      await digitar(wrapper, texto)
+      await selecionar(wrapper, 4)
+
+      await aba(wrapper, 'Visualizar').trigger('click')
+      await flushPromises()
+
+      expect(aba(wrapper, 'Visualizar').attributes('aria-selected')).toBe('true')
+      expect(wrapper.find('[role="toolbar"]').exists()).toBe(false)
+      const previa = wrapper.get('#painel-visualizar')
+      expect(previa.html()).toContain('<strong>forte</strong>')
+      expect(previa.html()).toContain('<em>leve</em>')
+      expect(previa.html()).toContain('<s>riscado</s>')
+      expect(previa.find('ul li').text()).toBe('item')
+      expect(previa.find('blockquote').text()).toBe('citado')
+      // O contador conta o texto cru nos dois modos.
+      expect(wrapper.text()).toContain(`${[...texto].length} de 5.000 caracteres`)
+
+      await aba(wrapper, 'Escrever').trigger('click')
+      await flushPromises()
+      expect(campo(wrapper).value).toBe(texto)
+      expect(campo(wrapper).selectionStart).toBe(4)
+      expect(wrapper.find('[role="toolbar"]').exists()).toBe(true)
+    })
+
+    it('setas trocam de aba', async () => {
+      const { wrapper } = await abrir()
+
+      await aba(wrapper, 'Escrever').trigger('keydown', { key: 'ArrowRight' })
+      await flushPromises()
+
+      expect(aba(wrapper, 'Visualizar').attributes('aria-selected')).toBe('true')
+    })
+
+    it('Visualizar sem texto mostra o vazio, sem botão', async () => {
+      const { wrapper } = await abrir()
+
+      await aba(wrapper, 'Visualizar').trigger('click')
+      await flushPromises()
+
+      const previa = wrapper.get('#painel-visualizar')
+      expect(previa.text()).toBe('Nada para visualizar ainda. Escreva sua resenha para ver como ela vai aparecer.')
+      expect(previa.find('button').exists()).toBe(false)
+    })
+
+    it('marcação fora do subconjunto aparece literal, com a faixa; o subconjunto não liga a faixa', async () => {
+      const { wrapper } = await abrir()
+      await digitar(wrapper, 'Entrevista: [leia aqui](https://exemplo.com)\n\n# Título')
+      await aba(wrapper, 'Visualizar').trigger('click')
+      await flushPromises()
+
+      const previa = wrapper.get('#painel-visualizar')
+      expect(previa.text()).toContain('Links, imagens, tabelas, títulos, código e HTML aparecem como você digitou.')
+      expect(previa.text()).toContain('[leia aqui](https://exemplo.com)')
+      expect(previa.text()).toContain('# Título')
+      expect(previa.find('a').exists()).toBe(false)
+      expect(previa.find('h1').exists()).toBe(false)
+
+      await aba(wrapper, 'Escrever').trigger('click')
+      await digitar(wrapper, '**só o subconjunto**')
+      await aba(wrapper, 'Visualizar').trigger('click')
+      await flushPromises()
+      expect(wrapper.get('#painel-visualizar').text()).not.toContain('Links, imagens')
+    })
+
+    it('HTML digitado não entra no DOM da pré-visualização (RNF-SEC-15)', async () => {
+      const { wrapper } = await abrir()
+      await digitar(wrapper, '<img src=x onerror=alert(1)> <script>alert(1)</script>')
+      await aba(wrapper, 'Visualizar').trigger('click')
+      await flushPromises()
+
+      const previa = wrapper.get('#painel-visualizar')
+      expect(previa.find('img').exists()).toBe(false)
+      expect(previa.find('script').exists()).toBe(false)
+      expect(previa.text()).toContain('<img src=x onerror=alert(1)>')
+    })
+
+    it('enquanto a resenha salva carrega, a barra fica desabilitada', async () => {
+      leitura.obterMinhaAvaliacao.mockReturnValue(new Promise(() => {}))
+      const { wrapper } = await abrir()
+
+      expect(botaoDaBarra(wrapper, 'Negrito').attributes('disabled')).toBeDefined()
+    })
   })
 })

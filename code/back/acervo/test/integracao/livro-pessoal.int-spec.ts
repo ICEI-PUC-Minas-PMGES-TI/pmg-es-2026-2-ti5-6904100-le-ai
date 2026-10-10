@@ -311,6 +311,40 @@ describe('livro pessoal (integração)', () => {
       });
     });
 
+    it('a resenha do dono traz as contagens e a reação de quem chegou pela via (F-AVA-2)', async () => {
+      const dono = novoUsuario();
+      const seguidor = novoUsuario();
+      const { id } = await criar(dono);
+      const atividade = await publicarNoFeed(dono, id, seguidor);
+      const resenhaId = randomUUID();
+      await pool.query(
+        `INSERT INTO leitura.v_resenha_publicacao_v1
+         VALUES ($1, $2, $3, 'Muito bom.', false, now(), now(), 2, 1)`,
+        [resenhaId, dono, id],
+      );
+      await pool.query(
+        `INSERT INTO leitura.v_reacao_resenha_v1 VALUES ($1, $2, 'descurtida')`,
+        [resenhaId, seguidor],
+      );
+
+      const pagina = await http()
+        .get(`/livros/pessoal/${id}?via=feed&referenciaId=${atividade}`)
+        .set(como(seguidor));
+      const doDono = await http().get(`/livros/pessoal/${id}`).set(como(dono));
+
+      expect(pagina.body.resenhaDoDono).toMatchObject({
+        id: resenhaId,
+        curtidas: 2,
+        descurtidas: 1,
+        minhaReacao: 'descurtida',
+      });
+      expect(doDono.body.resenhaDoDono).toMatchObject({
+        curtidas: 2,
+        descurtidas: 1,
+        minhaReacao: null,
+      });
+    });
+
     it('sem nota nem resenha, o terceiro ainda sabe de quem é o livro', async () => {
       const dono = novoUsuario();
       const seguidor = novoUsuario();

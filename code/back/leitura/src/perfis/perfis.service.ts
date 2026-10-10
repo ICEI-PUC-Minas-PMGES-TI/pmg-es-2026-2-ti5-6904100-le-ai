@@ -51,6 +51,7 @@ export class PerfisService {
         proprio,
         page,
         limite,
+        solicitanteId,
       );
       return {
         itens: linhas.map(paraResenhaDoPerfil),
@@ -89,5 +90,11 @@ function paraResenhaDoPerfil(
       capaUrl: urlOuNulo(linha.livroCapa),
     },
     nota: linha.nota === null ? null : Number(linha.nota),
+    curtidas: Number(linha.curtidas),
+    descurtidas: Number(linha.descurtidas),
+    minhaReacao:
+      linha.minhaReacao === 'curtida' || linha.minhaReacao === 'descurtida'
+        ? linha.minhaReacao
+        : null,
   };
 }
