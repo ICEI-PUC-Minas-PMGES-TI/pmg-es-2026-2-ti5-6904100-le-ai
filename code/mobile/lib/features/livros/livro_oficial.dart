@@ -6,6 +6,8 @@
 /// inválida (quem faz isso é o serviço).
 library;
 
+import '../avaliacao/reacoes.dart';
+
 class AssuntoResumo {
   final String id;
   final String nome;
@@ -193,6 +195,9 @@ class ResenhaDoLivro {
   final bool spoiler;
   final DateTime criadoEm;
 
+  /// Contagens e a reação de quem olha (F-AVA-2).
+  final EstadoDasReacoes reacoes;
+
   const ResenhaDoLivro({
     required this.id,
     required this.autorNome,
@@ -200,6 +205,7 @@ class ResenhaDoLivro {
     required this.texto,
     required this.spoiler,
     required this.criadoEm,
+    this.reacoes = const EstadoDasReacoes(),
   });
 
   static ResenhaDoLivro? deJson(Object? bruto) {
@@ -222,6 +228,7 @@ class ResenhaDoLivro {
       // Só `false` explícito abre o texto: campo ausente fica fechado, na dúvida.
       spoiler: bruto['spoiler'] != false,
       criadoEm: criadoEm,
+      reacoes: EstadoDasReacoes.fromJson(bruto),
     );
   }
 }

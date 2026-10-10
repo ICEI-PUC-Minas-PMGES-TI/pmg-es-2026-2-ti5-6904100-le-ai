@@ -118,6 +118,10 @@ Para quem mexe no cadastro e na importação saber que isto mudou por baixo:
 
   Livro oficial nunca é afetado. As capas exigem `CLOUDINARY_API_KEY` e `CLOUDINARY_API_SECRET`; sem elas, o `publicId` vai para o log. Teste em `test/integracao/consumo-conta-excluida.int-spec.ts`.
 
+## Mudanças feitas pelo Renato (F-AVA-2)
+
+- **09/10/2026, reações nas resenhas:** `ResenhaResumo` ganhou `curtidas`, `descurtidas` e `minhaReacao`, na página do livro oficial (`resenhas.repository.ts`) e na resenha do dono do livro pessoal (`leitura-do-dono.repository.ts`, que agora recebe quem está vendo). As contagens vêm de `v_resenha_publicacao_v1` (`bigint`, declarado com `mode: 'number'`) e a reação de quem vê, da VIEW nova `leitura.v_reacao_resenha_v1`, por LEFT JOIN. Até a migration do `leitura` rodar num ambiente, as resenhas degradam como já degradavam (null e 503). Avisar o Vicenzo, dono do livro pessoal.
+
 ## Pendências do serviço
 
 - A busca externa roda dentro da transação do recibo do consumidor: no pior caso (timeouts e backoff `1/5/15 s` nas duas fontes) a transação fica aberta por dezenas de segundos no Neon. Aceitável no volume do MVP; se pesar, separar a consulta às fontes do efeito exige recibo em duas fases.

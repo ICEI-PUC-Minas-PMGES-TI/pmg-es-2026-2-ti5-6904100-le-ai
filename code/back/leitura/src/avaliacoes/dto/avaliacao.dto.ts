@@ -86,6 +86,18 @@ export class ResenhaDto {
   atualizadoEm!: string;
 }
 
+/**
+ * `MinhaResenha` do contrato: a resenha do próprio leitor com as contagens de reações (RF-AVA-08),
+ * que o dono vê só para leitura. Fica fora de `Resenha` para a resposta do `PUT` não mudar.
+ */
+export class MinhaResenhaDto extends ResenhaDto {
+  @ApiProperty({ minimum: 0 })
+  curtidas!: number;
+
+  @ApiProperty({ minimum: 0 })
+  descurtidas!: number;
+}
+
 /** `MinhaAvaliacao` do contrato: ausente é `null`, nunca valor inventado. */
 export class MinhaAvaliacaoDto {
   @ApiProperty({ format: 'uuid' })
@@ -94,6 +106,6 @@ export class MinhaAvaliacaoDto {
   @ApiProperty({ type: NotaDto, nullable: true })
   nota!: NotaDto | null;
 
-  @ApiProperty({ type: ResenhaDto, nullable: true })
-  resenha!: ResenhaDto | null;
+  @ApiProperty({ type: MinhaResenhaDto, nullable: true })
+  resenha!: MinhaResenhaDto | null;
 }

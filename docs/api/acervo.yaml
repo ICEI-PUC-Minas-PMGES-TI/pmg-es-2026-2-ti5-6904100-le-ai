@@ -50,6 +50,14 @@ x-implementation-notes:
     F-AVA desde 27/09/2026, filtradas por RN-08; com a VIEW inacessível,
     resenhas vem null em GET /livros/{id} e GET /livros/{id}/resenhas
     responde 503.
+  - >-
+    Desde F-AVA-2 (09/10/2026), cada resenha (ResenhaResumo, na página do livro
+    oficial e em resenhaDoDono) traz curtidas e descurtidas de
+    leitura.v_resenha_publicacao_v1 e a reação de quem está vendo
+    (minhaReacao) de leitura.v_reacao_resenha_v1. No deploy, enquanto a
+    migration do leitura que cria essa VIEW não rodar, as resenhas seguem o
+    comportamento acima: null na página e 503 na listagem; a resenhaDoDono sai
+    null.
 x-implemented-features: [F-ACV-CADASTRO, F-ACV-BUSCA, F-ACV-INGESTAO, F-ACV-DESCOBERTA]
 x-database-contracts:
   - name: v_livro_referencia_v1
@@ -881,7 +889,7 @@ components:
     ResenhaResumo:
       type: object
       additionalProperties: false
-      required: [id, autorId, autorNome, texto, spoiler, criadoEm, atualizadoEm]
+      required: [id, autorId, autorNome, texto, spoiler, criadoEm, atualizadoEm, curtidas, descurtidas, minhaReacao]
       properties:
         id: { type: string, format: uuid }
         autorId: { type: string, format: uuid }
@@ -891,6 +899,21 @@ components:
         spoiler: { type: boolean }
         criadoEm: { type: string, format: date-time }
         atualizadoEm: { type: string, format: date-time }
+        curtidas:
+          type: integer
+          minimum: 0
+          description: Curtidas ativas (RF-AVA-08, F-AVA-2).
+        descurtidas:
+          type: integer
+          minimum: 0
+          description: Descurtidas ativas, contadas à parte (RF-AVA-08).
+        minhaReacao:
+          type: string
+          enum: [curtida, descurtida]
+          nullable: true
+          description: >-
+            Reação de quem está vendo (F-AVA-2); nula sem reação e na resenha do
+            próprio leitor.
     PaginaResenhas:
       type: object
       additionalProperties: false

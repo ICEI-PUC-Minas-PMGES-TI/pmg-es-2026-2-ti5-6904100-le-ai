@@ -11,6 +11,7 @@ import '../../design/widgets/botao_textual.dart';
 import '../../design/widgets/capa_livro.dart';
 import '../../design/widgets/entrada_suave.dart';
 import '../../design/widgets/folha_inferior.dart';
+import '../avaliacao/markdown_resenha.dart';
 import '../listas/folha_adicionar_a_lista.dart';
 import '../listas/lista_form_page.dart';
 import '../listas/rotas_listas.dart';
@@ -19,6 +20,9 @@ import '../avaliacao/bloco_sua_avaliacao.dart';
 import '../avaliacao/escrever_resenha_page.dart';
 import '../avaliacao/leitura_service.dart';
 import '../avaliacao/painel_de_nota.dart';
+import '../avaliacao/adicionar_frase.dart';
+import '../avaliacao/reacoes_da_resenha.dart';
+import '../avaliacao/secao_frases.dart';
 import '../estante/estante_service.dart';
 import '../estante/situacao_na_estante.dart';
 import '../perfil/widgets_de_perfil.dart';
@@ -63,6 +67,9 @@ class LivroOficialPage extends StatefulWidget {
   final ValueChanged<String>? aoAbrirSerie;
   final ValueChanged<String>? aoBuscarAssunto;
 
+  /// `Ver todas as frases` (F-AVA-2). Sem ele, a seção de frases mostra só as três mais recentes.
+  final VoidCallback? aoVerFrases;
+
   const LivroOficialPage({
     super.key,
     required this.servico,
@@ -77,6 +84,7 @@ class LivroOficialPage extends StatefulWidget {
     this.aoAbrirEditora,
     this.aoAbrirSerie,
     this.aoBuscarAssunto,
+    this.aoVerFrases,
   });
 
   @override
@@ -320,6 +328,19 @@ class _LivroOficialPageState extends State<LivroOficialPage> {
           ),
           const SizedBox(height: DesignTokens.space6),
           _resenhas(theme),
+          // F-AVA-2: frases e trechos, depois das resenhas (pagina-do-livro.md §5.4).
+          const SizedBox(height: DesignTokens.space6),
+          SecaoFrases(
+            leitura: widget.leitura,
+            livro: LivroDaFrase(
+              id: livro.resumo.id,
+              titulo: livro.resumo.titulo,
+              autor: livro.resumo.autoresParaExibir,
+              capaUrl: livro.resumo.capaUrl,
+              paginas: livro.resumo.paginas,
+            ),
+            aoVerTodas: widget.aoVerFrases,
+          ),
         ],
       ),
     );
@@ -410,7 +431,7 @@ class _LivroOficialPageState extends State<LivroOficialPage> {
           ] else ...<Widget>[
             for (final (indice, resenha) in resenhas.indexed) ...<Widget>[
               if (indice > 0) const SizedBox(height: DesignTokens.space6),
-              _Resenha(key: ValueKey<String>(resenha.id), resenha: resenha),
+              _Resenha(key: ValueKey<String>(resenha.id), resenha: resenha, leitura: widget.leitura),
             ],
             if (_pagina.falhouMaisResenhas) ...<Widget>[
               const SizedBox(height: DesignTokens.space4),
@@ -725,8 +746,9 @@ class _Assuntos extends StatelessWidget {
 
 class _Resenha extends StatefulWidget {
   final ResenhaDoLivro resenha;
+  final LeituraService leitura;
 
-  const _Resenha({super.key, required this.resenha});
+  const _Resenha({super.key, required this.resenha, required this.leitura});
 
   @override
   State<_Resenha> createState() => _ResenhaState();
@@ -756,16 +778,19 @@ class _ResenhaState extends State<_Resenha> {
           duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : DesignTokens.durFast,
           child: oculta
               ? BlocoDeSpoiler(aoRevelar: () => setState(() => _revelada = true))
-              : Text(
-                  resenha.texto,
-                  key: const ValueKey<String>('texto'),
-                  style: theme.editorialBody,
-                ),
+              : TextoDaResenha(resenha.texto, key: const ValueKey<String>('texto')),
         ),
         const SizedBox(height: DesignTokens.space2),
         Text(
           formatarData(resenha.criadoEm),
           style: theme.textTheme.bodySmall?.copyWith(color: theme.tertiaryText),
+        ),
+        // Reações (F-AVA-2), mesmo com o corpo oculto por spoiler.
+        const SizedBox(height: DesignTokens.space3),
+        ReacoesDaResenha(
+          resenhaId: resenha.id,
+          reacoes: resenha.reacoes,
+          leitura: widget.leitura,
         ),
       ],
     );

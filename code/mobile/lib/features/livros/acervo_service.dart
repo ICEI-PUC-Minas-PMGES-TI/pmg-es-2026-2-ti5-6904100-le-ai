@@ -1,4 +1,5 @@
 import '../../core/network/api_client.dart';
+import '../avaliacao/reacoes.dart';
 import '../descobrir/filtros_da_busca.dart';
 import 'livro_oficial.dart';
 
@@ -109,22 +110,32 @@ class LivroJaCadastrado extends ResultadoDaSolicitacao {
 const int tamanhoDaPaginaDeLivros = 20;
 
 class ResenhaDoDono {
+  /// Vazio só em massa de teste antiga; o contrato sempre traz o id, que a reação usa.
+  final String id;
   final String autorNome;
   final String? autorAvatarUrl;
   final String texto;
   final bool spoiler;
   final DateTime atualizadoEm;
 
+  /// Contagens e a reação de quem olha (F-AVA-2).
+  final EstadoDasReacoes reacoes;
+
   const ResenhaDoDono({
+    this.id = '',
     required this.autorNome,
     required this.autorAvatarUrl,
     required this.texto,
     required this.spoiler,
     required this.atualizadoEm,
+    this.reacoes = const EstadoDasReacoes(),
   });
 
   factory ResenhaDoDono.fromJson(Map<String, dynamic> json) {
+    final id = json['id'];
     return ResenhaDoDono(
+      id: id is String ? id : '',
+      reacoes: EstadoDasReacoes.fromJson(json),
       autorNome: json['autorNome'] as String,
       autorAvatarUrl: json['autorAvatarUrl'] as String?,
       texto: json['texto'] as String,

@@ -75,7 +75,12 @@ class AvaliacaoController extends ChangeNotifier {
       idempotencyKey: chave,
     );
     _chaveDaResenha = ChaveDaIntencao();
-    _aplicar((atual) => atual.comResenha(salva));
+    // O `PUT` devolve a resenha sem as contagens: editar não mexe nas reações, que continuam.
+    _aplicar(
+      (atual) => atual.comResenha(
+        atual.resenha?.id == salva.id ? salva.comReacoes(atual.resenha?.reacoes) : salva,
+      ),
+    );
   }
 
   /// Exclui a resenha depois da confirmação irreversível (RNF-USA-04). A nota não é afetada.

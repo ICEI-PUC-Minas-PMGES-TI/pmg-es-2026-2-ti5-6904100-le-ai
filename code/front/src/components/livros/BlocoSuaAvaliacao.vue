@@ -8,6 +8,8 @@ import type { LivroAvaliado, MinhaAvaliacaoDoLivro } from '../../livros/useMinha
 import BotaoTextual from '../ui/BotaoTextual.vue'
 import EstrelasNota from './EstrelasNota.vue'
 import PainelDeNota from './PainelDeNota.vue'
+import ReacoesDaResenha from './ReacoesDaResenha.vue'
+import TextoDaResenha from './TextoDaResenha.vue'
 
 /**
  * Bloco "Sua avaliação" da página do livro (pagina-do-livro.md §4.1, item 4, §4.2 e §5).
@@ -18,6 +20,9 @@ import PainelDeNota from './PainelDeNota.vue'
  *   esse estado, e a decisão está registrada em F-AVA.
  * - Carrega à parte: com o `leitura` lento ou fora, a página segue utilizável e só o bloco mostra
  *   o skeleton ou o erro com `Tentar de novo`.
+ * - As contagens de reações da própria resenha aparecem só para leitura, no livro oficial e no
+ *   pessoal (RF-AVA-08 vale para todos que têm acesso à resenha, o autor incluído; o protótipo da
+ *   página do livro oficial não as mostra, divergência registrada em F-AVA-2).
  */
 const props = defineProps<{
   avaliacao: MinhaAvaliacaoDoLivro
@@ -83,9 +88,10 @@ const rotuloDaNota = computed(() =>
         class="mt-space-3"
       >
         <!-- O dono vê o próprio texto mesmo com spoiler: o spoiler muda como quem lê a encontra. -->
-        <p class="max-w-[68ch] whitespace-pre-line font-editorial text-body-lg text-tinta">
-          {{ avaliacao.resenha.value.texto }}
-        </p>
+        <TextoDaResenha
+          class="max-w-[68ch]"
+          :texto="avaliacao.resenha.value.texto"
+        />
         <p class="mt-space-2 flex flex-wrap items-center gap-x-space-2 text-caption text-grafite-suave">
           <span>Publicada em {{ formatarData(avaliacao.resenha.value.criadoEm) }}</span>
           <span
@@ -100,6 +106,17 @@ const rotuloDaNota = computed(() =>
             Contém spoiler
           </span>
         </p>
+        <ReacoesDaResenha
+          v-if="avaliacao.resenha.value.curtidas !== undefined"
+          class="mt-space-2"
+          :resenha-id="avaliacao.resenha.value.id"
+          :reacoes="{
+            minhaReacao: null,
+            curtidas: avaliacao.resenha.value.curtidas,
+            descurtidas: avaliacao.resenha.value.descurtidas ?? 0,
+          }"
+          somente-leitura
+        />
         <RouterLink
           :to="rotaDoEditor"
           class="mt-space-2 inline-flex min-h-12 items-center text-body-strong text-musgo underline-offset-2 hover:underline focus-visible:underline md:min-h-10"

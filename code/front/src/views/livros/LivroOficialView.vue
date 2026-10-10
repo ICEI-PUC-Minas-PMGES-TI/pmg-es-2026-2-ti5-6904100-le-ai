@@ -10,6 +10,7 @@ import MenuDeAcoes from '../../components/ui/MenuDeAcoes.vue'
 import BlocoSuaAvaliacao from '../../components/livros/BlocoSuaAvaliacao.vue'
 import CapaLivro from '../../components/livros/CapaLivro.vue'
 import CardResenha from '../../components/livros/CardResenha.vue'
+import SecaoFrases from '../../components/livros/SecaoFrases.vue'
 import BotaoPrimario from '../../components/ui/BotaoPrimario.vue'
 import BotaoTextual from '../../components/ui/BotaoTextual.vue'
 import { formatarPaginas } from '../../livros/formatos'
@@ -82,6 +83,12 @@ const livroAvaliado = computed(() => ({
   titulo: livro.value?.titulo ?? '',
   autor: autores.value,
   capaUrl: livro.value?.capa.url ?? null,
+}))
+/** F-AVA-2: o livro do formulário de frase, com o total de páginas para validar a página. */
+const livroDaFrase = computed(() => ({
+  ...livroAvaliado.value,
+  id: String(route.params.id),
+  paginas: livro.value?.paginas ?? 0,
 }))
 /** `Todavia · 2019 · 264 páginas`: só o que existe. */
 const metadados = computed(() => {
@@ -454,6 +461,13 @@ function voltar(): void {
             </BotaoTextual>
           </template>
         </section>
+
+        <!-- F-AVA-2: frases e trechos, depois das resenhas (pagina-do-livro.md §5.4). -->
+        <SecaoFrases
+          class="order-7 mt-space-6 lg:order-none lg:mt-space-8"
+          :livro="livroDaFrase"
+          :rota-das-frases="{ name: 'frases-do-livro', params: { id: livroDaFrase.id } }"
+        />
       </div>
     </article>
 

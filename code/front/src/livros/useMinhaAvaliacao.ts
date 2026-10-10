@@ -96,7 +96,11 @@ export function useMinhaAvaliacao(opcoes: { servico?: LeituraService } = {}) {
   /** Publica ou salva a resenha. Lança o erro da API para o editor preservar o texto. */
   async function salvarResenha(texto: string, spoiler: boolean): Promise<void> {
     const salva = await servico.salvarResenha(livroId, texto, spoiler, chaveDa('resenha', `${spoiler}|${texto}`))
-    aplicar('resenha', { resenha: salva })
+    // O `PUT` devolve a resenha sem as contagens: editar não mexe nas reações, que continuam as de antes.
+    const anterior = resenha.value
+    aplicar('resenha', {
+      resenha: anterior?.id === salva.id ? { ...salva, curtidas: anterior.curtidas, descurtidas: anterior.descurtidas } : salva,
+    })
   }
 
   /** Exclui a resenha depois da confirmação irreversível (RNF-USA-04). A nota não é afetada. */

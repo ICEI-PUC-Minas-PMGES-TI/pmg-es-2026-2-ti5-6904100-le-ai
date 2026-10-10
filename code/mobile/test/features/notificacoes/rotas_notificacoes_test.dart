@@ -49,6 +49,19 @@ void main() {
     );
   });
 
+  test('curtida em resenha leva a pagina do livro da resenha, oficial ou pessoal', () {
+    const oficial = LivroDaNotificacao(id: 'l1', pessoal: false, titulo: 'T');
+    const pessoal = LivroDaNotificacao(id: 'l2', pessoal: true, titulo: 'T');
+    expect(
+      destinoDaNotificacao(_de(TipoNotificacao.resenhaCurtida, livro: oficial)),
+      '/descobrir/livro/l1',
+    );
+    expect(
+      destinoDaNotificacao(_de(TipoNotificacao.resenhaCurtida, livro: pessoal)),
+      '/estante/livro-pessoal/l2',
+    );
+  });
+
   test('reconhece a tela de notificacoes de qualquer aba, e so ela', () {
     expect(ehRotaDeNotificacoes(rotaNotificacoes('/estante')), isTrue);
     expect(ehRotaDeNotificacoes('/perfil/notificacoes'), isTrue);

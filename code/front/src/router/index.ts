@@ -33,6 +33,7 @@ import SolicitacoesView from '../views/perfil/SolicitacoesView.vue'
 import CadastroIsbnView from '../views/livros/CadastroIsbnView.vue'
 import IsbnNaoEncontradoView from '../views/livros/IsbnNaoEncontradoView.vue'
 import EscreverResenhaView from '../views/livros/EscreverResenhaView.vue'
+import FrasesDoLivroView from '../views/livros/FrasesDoLivroView.vue'
 import LivroOficialView from '../views/livros/LivroOficialView.vue'
 import LivroPessoalFormView from '../views/livros/LivroPessoalFormView.vue'
 import LivroPessoalView from '../views/livros/LivroPessoalView.vue'
@@ -329,6 +330,35 @@ export const routes: RouteRecordRaw[] = [
         name: 'livro-pessoal-editar',
         component: LivroPessoalFormView,
         meta: { titulo: 'Editar livro', voltar: true, aba: '/estante' },
+      },
+      // F-AVA-2: lista completa de frases (frases-do-livro.md), empilhada sobre a página do livro.
+      {
+        path: 'livros/pessoal/:id/frases',
+        name: 'frases-do-livro-pessoal',
+        component: FrasesDoLivroView,
+        meta: {
+          // Na web o título está na coluna das frases e o topo só tem `← Torto Arado`
+          // (frases-do-livro.md §5); abaixo de 768px o header mostra `Frases e trechos`.
+          titulo: '',
+          tituloCurto: 'Frases e trechos',
+          voltar: true,
+          aba: abaDoLivroPessoal,
+          voltarPara: (rota) => `/livros/pessoal/${String(rota.params.id)}`,
+        },
+      },
+      {
+        path: 'livros/:id/frases',
+        name: 'frases-do-livro',
+        component: FrasesDoLivroView,
+        meta: {
+          // Na web o título está na coluna das frases e o topo só tem `← Torto Arado`
+          // (frases-do-livro.md §5); abaixo de 768px o header mostra `Frases e trechos`.
+          titulo: '',
+          tituloCurto: 'Frases e trechos',
+          voltar: true,
+          aba: abaDoLivroOficial,
+          voltarPara: (rota) => `/livros/${String(rota.params.id)}`,
+        },
       },
       {
         path: 'livros/pessoal/:id/resenha',

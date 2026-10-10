@@ -11,6 +11,9 @@ export function resenha(id: string, nome: string, texto: string, spoiler = false
     spoiler,
     criadoEm: '2026-08-03T12:00:00.000Z',
     atualizadoEm: '2026-08-03T12:00:00.000Z',
+    curtidas: 0,
+    descurtidas: 0,
+    minhaReacao: null,
   }
 }
 

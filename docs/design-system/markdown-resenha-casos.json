@@ -1,0 +1,530 @@
+{
+  "descricao": "Casos do subconjunto Markdown da resenha (RN-13), lidos pelos testes da web (code/front/src/markdown) e do mobile (code/mobile/test/features/avaliacao). Os dois clientes precisam produzir a mesma árvore (RN-13.4). Blocos: p (parágrafo), ul e ol (itens, cada um uma lista de blocos; ol traz inicio), q (citação). Trechos: t (texto), b (negrito), i (itálico), s (tachado), br (quebra de linha). Textos vizinhos se juntam.",
+  "casos": [
+    {
+      "nome": "negrito",
+      "entrada": "**forte**",
+      "arvore": [
+        {
+          "p": [
+            {
+              "b": [
+                {
+                  "t": "forte"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "nome": "itálico com asterisco e sublinhado",
+      "entrada": "*leve* e _também_",
+      "arvore": [
+        {
+          "p": [
+            {
+              "i": [
+                {
+                  "t": "leve"
+                }
+              ]
+            },
+            {
+              "t": " e "
+            },
+            {
+              "i": [
+                {
+                  "t": "também"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "nome": "negrito com dois sublinhados",
+      "entrada": "__forte__",
+      "arvore": [
+        {
+          "p": [
+            {
+              "b": [
+                {
+                  "t": "forte"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "nome": "tachado com dois tis",
+      "entrada": "~~riscado~~",
+      "arvore": [
+        {
+          "p": [
+            {
+              "s": [
+                {
+                  "t": "riscado"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "nome": "um til só fica literal",
+      "entrada": "~um~",
+      "arvore": [
+        {
+          "p": [
+            {
+              "t": "~um~"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "nome": "negrito e itálico juntos",
+      "entrada": "***x***",
+      "arvore": [
+        {
+          "p": [
+            {
+              "i": [
+                {
+                  "b": [
+                    {
+                      "t": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "nome": "sublinhado no meio da palavra fica literal",
+      "entrada": "snake_case_word",
+      "arvore": [
+        {
+          "p": [
+            {
+              "t": "snake_case_word"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "nome": "barra invertida escapa a marcação",
+      "entrada": "\\*escapado\\*",
+      "arvore": [
+        {
+          "p": [
+            {
+              "t": "*escapado*"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "nome": "HTML e entidades aparecem como digitados",
+      "entrada": "<b>negrito</b> &amp; mais",
+      "arvore": [
+        {
+          "p": [
+            {
+              "t": "<b>negrito</b> &amp; mais"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "nome": "enter simples quebra a linha",
+      "entrada": "linha um\nlinha dois",
+      "arvore": [
+        {
+          "p": [
+            {
+              "t": "linha um"
+            },
+            {
+              "br": true
+            },
+            {
+              "t": "linha dois"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "nome": "dois espaços no fim também quebram",
+      "entrada": "linha um  \nlinha dois",
+      "arvore": [
+        {
+          "p": [
+            {
+              "t": "linha um"
+            },
+            {
+              "br": true
+            },
+            {
+              "t": "linha dois"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "nome": "linha em branco separa parágrafos",
+      "entrada": "um\n\ndois",
+      "arvore": [
+        {
+          "p": [
+            {
+              "t": "um"
+            }
+          ]
+        },
+        {
+          "p": [
+            {
+              "t": "dois"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "nome": "lista com marcadores",
+      "entrada": "- um\n- dois",
+      "arvore": [
+        {
+          "ul": [
+            [
+              {
+                "p": [
+                  {
+                    "t": "um"
+                  }
+                ]
+              }
+            ],
+            [
+              {
+                "p": [
+                  {
+                    "t": "dois"
+                  }
+                ]
+              }
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "nome": "lista numerada começa no número digitado",
+      "entrada": "3. três\n4. quatro",
+      "arvore": [
+        {
+          "ol": [
+            [
+              {
+                "p": [
+                  {
+                    "t": "três"
+                  }
+                ]
+              }
+            ],
+            [
+              {
+                "p": [
+                  {
+                    "t": "quatro"
+                  }
+                ]
+              }
+            ]
+          ],
+          "inicio": 3
+        }
+      ]
+    },
+    {
+      "nome": "lista numerada a partir de 1",
+      "entrada": "1. primeiro\n2. segundo",
+      "arvore": [
+        {
+          "ol": [
+            [
+              {
+                "p": [
+                  {
+                    "t": "primeiro"
+                  }
+                ]
+              }
+            ],
+            [
+              {
+                "p": [
+                  {
+                    "t": "segundo"
+                  }
+                ]
+              }
+            ]
+          ],
+          "inicio": 1
+        }
+      ]
+    },
+    {
+      "nome": "formatação dentro da lista",
+      "entrada": "- **forte** e *leve*",
+      "arvore": [
+        {
+          "ul": [
+            [
+              {
+                "p": [
+                  {
+                    "b": [
+                      {
+                        "t": "forte"
+                      }
+                    ]
+                  },
+                  {
+                    "t": " e "
+                  },
+                  {
+                    "i": [
+                      {
+                        "t": "leve"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "nome": "citação em bloco",
+      "entrada": "> citação\n> segunda linha",
+      "arvore": [
+        {
+          "q": [
+            {
+              "p": [
+                {
+                  "t": "citação"
+                },
+                {
+                  "br": true
+                },
+                {
+                  "t": "segunda linha"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "nome": "lista dentro de citação",
+      "entrada": "> - item\n> - outro",
+      "arvore": [
+        {
+          "q": [
+            {
+              "ul": [
+                [
+                  {
+                    "p": [
+                      {
+                        "t": "item"
+                      }
+                    ]
+                  }
+                ],
+                [
+                  {
+                    "p": [
+                      {
+                        "t": "outro"
+                      }
+                    ]
+                  }
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "nome": "link fica literal",
+      "entrada": "[leia aqui](https://exemplo.com)",
+      "arvore": [
+        {
+          "p": [
+            {
+              "t": "[leia aqui](https://exemplo.com)"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "nome": "imagem fica literal",
+      "entrada": "![capa](https://exemplo.com/capa.png)",
+      "arvore": [
+        {
+          "p": [
+            {
+              "t": "![capa](https://exemplo.com/capa.png)"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "nome": "endereço entre sinais fica literal",
+      "entrada": "<https://exemplo.com>",
+      "arvore": [
+        {
+          "p": [
+            {
+              "t": "<https://exemplo.com>"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "nome": "título fica literal",
+      "entrada": "# Título",
+      "arvore": [
+        {
+          "p": [
+            {
+              "t": "# Título"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "nome": "código em linha fica literal",
+      "entrada": "`codigo`",
+      "arvore": [
+        {
+          "p": [
+            {
+              "t": "`codigo`"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "nome": "bloco de código fica literal",
+      "entrada": "```\ncodigo\n```",
+      "arvore": [
+        {
+          "p": [
+            {
+              "t": "```"
+            },
+            {
+              "br": true
+            },
+            {
+              "t": "codigo"
+            },
+            {
+              "br": true
+            },
+            {
+              "t": "```"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "nome": "tabela fica literal",
+      "entrada": "| a | b |\n|---|---|\n| 1 | 2 |",
+      "arvore": [
+        {
+          "p": [
+            {
+              "t": "| a | b |"
+            },
+            {
+              "br": true
+            },
+            {
+              "t": "|---|---|"
+            },
+            {
+              "br": true
+            },
+            {
+              "t": "| 1 | 2 |"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "nome": "traços sozinhos ficam literais",
+      "entrada": "antes\n\n---\n\ndepois",
+      "arvore": [
+        {
+          "p": [
+            {
+              "t": "antes"
+            }
+          ]
+        },
+        {
+          "p": [
+            {
+              "t": "---"
+            }
+          ]
+        },
+        {
+          "p": [
+            {
+              "t": "depois"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

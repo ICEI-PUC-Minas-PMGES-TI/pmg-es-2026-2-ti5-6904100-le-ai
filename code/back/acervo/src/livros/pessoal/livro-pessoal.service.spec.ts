@@ -188,7 +188,8 @@ describe('LivroPessoalService.obter — autorização RN-15', () => {
     });
 
     expect(leituraDoDono.nota).toHaveBeenCalledWith(DONO, LIVRO);
-    expect(leituraDoDono.resenha).toHaveBeenCalledWith(DONO, LIVRO);
+    // A reação que acompanha a resenha é a de quem olha (F-AVA-2).
+    expect(leituraDoDono.resenha).toHaveBeenCalledWith(DONO, LIVRO, TERCEIRO);
     expect(leituraDoDono.dono).toHaveBeenCalledWith(DONO);
   });
 

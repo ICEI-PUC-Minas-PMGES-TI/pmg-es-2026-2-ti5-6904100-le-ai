@@ -93,6 +93,7 @@ class ConsumidorDeNotificacaoBrokerTest {
     verify(canal).queueBind(fila, MessagingConstants.SOCIAL_EXCHANGE, "comentario.respondido");
     verify(canal).queueBind(fila, MessagingConstants.LEITURA_EXCHANGE, "leitura.em_risco");
     verify(canal).queueBind(fila, MessagingConstants.LEITURA_EXCHANGE, "leitura.expirada");
+    verify(canal).queueBind(fila, MessagingConstants.LEITURA_EXCHANGE, "resenha.curtida");
     verify(canal).queueDeclare(eq(fila), eq(true), eq(false), eq(false), any());
     verify(canal).queueBind(fila + ".dlq", MessagingConstants.DEAD_LETTER_EXCHANGE, fila);
   }
@@ -142,6 +143,22 @@ class ConsumidorDeNotificacaoBrokerTest {
     entrega.handle("tag", delivery(envelope, invalido));
 
     verify(canal).basicNack(TAG, false, false);
+    verify(repositorio, never()).inserir(any());
+  }
+
+  @Test
+  @DisplayName("curtida em resenha sem resenhaId e rejeitada pelo schema e vai para a DLQ")
+  void curtidaSemResenhaVaiParaDlq() throws Exception {
+    MessageEnvelope envelope =
+        EventosDeNotificacaoDeTeste.envelope(
+            EventoDeNotificacao.RESENHA_CURTIDA, Fato.para(UUID.randomUUID()));
+    Map<String, Object> invalido = new LinkedHashMap<>(envelope.data());
+    invalido.remove("resenhaId");
+
+    entrega.handle("tag", delivery(envelope, invalido));
+
+    verify(canal).basicNack(TAG, false, false);
+    verify(canal, never()).basicAck(TAG, false);
     verify(repositorio, never()).inserir(any());
   }
 

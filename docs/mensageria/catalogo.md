@@ -23,6 +23,7 @@
 | `nota.alterada` | leitura | consumidor futuro | `nota:<usuarioId>:<livroId>` | [`nota.alterada.v1`](schemas/nota.alterada.v1.schema.json) |
 | `resenha.publicada` | leitura | social/feed | `resenha:<resenhaId>:publicada` | [`resenha.publicada.v1`](schemas/resenha.publicada.v1.schema.json) |
 | `resenha.excluida` | leitura | social/feed | `resenha:<resenhaId>:excluida` | [`resenha.excluida.v1`](schemas/resenha.excluida.v1.schema.json) |
+| `resenha.curtida` | leitura | social/notificações | `resenha:<resenhaId>:curtida:<autorAcaoId>` | [`resenha.curtida.v1`](schemas/resenha.curtida.v1.schema.json) |
 | `conta.excluida` | identidade | leitura/conta, social/conta, acervo/conta (F-CONTA-2) | `conta:<usuarioId>` | [`conta.excluida.v1`](schemas/conta.excluida.v1.schema.json) |
 
 Eventos com consumidor futuro são publicados sem fila acumuladora. A feature consumidora executa backfill antes de criar o binding.
@@ -30,3 +31,5 @@ Eventos com consumidor futuro são publicados sem fila acumuladora. A feature co
 `progresso.registrado` e `leitura.finalizada` são consumidos pelo próprio `leitura` na fila `leai.leitura.metricas` (consumidor `leitura.metricas`, com `.dlq`), ligada a `leai.events.leitura` pelas duas routing keys. É o consumidor de métricas único de F-GAM, F-DSF e F-STA: `progresso.registrado` recompõe a sequência diária (F-GAM) e os desafios (F-DSF); `leitura.finalizada` recompõe os desafios. Estatísticas (F-STA) entram nele também. Os efeitos leem o estado atual do schema, nunca somam o `data`. Os backfills são `npm run backfill:sequencia` e `npm run backfill:desafios` no `leitura`, rodados antes de o binding subir em cada ambiente. Exclusão de trecho de progresso não publica evento: recalcula dentro do serviço.
 
 `conta.excluida` é publicado pelo job diário do `identidade` quando os 30 dias de recuperação de uma conta vencem (RN-23.5). Cada consumidor tem fila própria, `leai.leitura.conta`, `leai.social.conta` e `leai.acervo.conta`, com sua `.dlq`. Cada um remove do próprio schema os dados e o conteúdo da conta e anonimiza os registros técnicos, conforme a matriz de [F-CONTA-2](../plano-de-desenvolvimento/periodo-2/feature-F-CONTA-2.md#etapa-3-consumidores). O payload leva só o `usuarioId`. Depois de publicado, o envelope é anonimizado na outbox do `identidade`.
+
+`resenha.curtida` (F-AVA-2) é publicado só na **primeira curtida** do par resenha e leitor: o `leitura` guarda `primeira_curtida_em` na reação, mesmo retirada, e retirar e recurtir, alternar ou descurtir não publicam de novo. O destinatário é o autor da resenha. O `livro` do `data` é o snapshot que o `social` guarda para o destino da notificação.

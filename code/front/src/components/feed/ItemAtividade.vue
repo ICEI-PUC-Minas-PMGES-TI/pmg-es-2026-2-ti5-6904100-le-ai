@@ -6,6 +6,7 @@ import { RouterLink } from 'vue-router'
 
 import AvatarLeitor from '../perfil/AvatarLeitor.vue'
 import { verboDeAtividade } from '../../feed/verbos'
+import { textoSemMarcacao } from '../../markdown/resenha'
 import { contagem, tempoDeEspera } from '../../perfil/textos'
 import type { Atividade } from '../../services/social'
 import CapaLivro from '../livros/CapaLivro.vue'
@@ -69,6 +70,12 @@ const celebrando = ref(false)
  */
 const spoilerRevelado = ref(false)
 const textoDaResenha = useTemplateRef<HTMLParagraphElement>('textoDaResenha')
+
+/**
+ * Prévia sem a marcação do Markdown (F-AVA-2), com cada bloco numa linha, como no card do perfil e
+ * no mobile: a resenha formatada fica na página do livro.
+ */
+const trechoDaResenha = computed(() => (props.atividade.resenha ? textoSemMarcacao(props.atividade.resenha.texto) : ''))
 
 async function revelarSpoiler(): Promise<void> {
   spoilerRevelado.value = true
@@ -178,9 +185,9 @@ watch(
         v-else
         ref="textoDaResenha"
         tabindex="-1"
-        class="line-clamp-3 font-editorial text-body text-grafite outline-none md:line-clamp-4"
+        class="line-clamp-3 whitespace-pre-line font-editorial text-body text-grafite outline-none md:line-clamp-4"
       >
-        {{ atividade.resenha.texto }}
+        {{ trechoDaResenha }}
       </p>
       <button
         type="button"

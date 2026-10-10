@@ -2,22 +2,29 @@
 import { computed, nextTick, ref, useTemplateRef } from 'vue'
 import { RouterLink } from 'vue-router'
 
+import { textoSemMarcacao } from '../../markdown/resenha'
 import type { ResenhaDoPerfil } from '../../services/leitura'
 import BlocoDeSpoiler from '../livros/BlocoDeSpoiler.vue'
 import CapaLivro from '../livros/CapaLivro.vue'
 import EstrelasNota from '../livros/EstrelasNota.vue'
+import ReacoesDaResenha from '../livros/ReacoesDaResenha.vue'
 
 /**
  * Resenha no perfil (meu-perfil.md §4 e §5): capa, título, autor, estrelas com o valor e o trecho
  * de três linhas em Newsreader. Com spoiler, quem não é o autor vê o bloco oculto e revela por
  * ação; o texto não está no DOM antes disso (RF-AVA-03). Ao revelar, o foco vai para o texto,
  * para o leitor de tela continuar dali. O livro abre na aba Perfil.
+ *
+ * Reações (F-AVA-2): no perfil de outro leitor, os botões de curtir e descurtir; no meu perfil, só
+ * as contagens, sem botão (meu-perfil.md §4 D). O trecho sai sem a marcação do Markdown, com cada
+ * bloco numa linha; a resenha formatada fica na página do livro.
  */
 const props = defineProps<{ resenha: ResenhaDoPerfil; proprio: boolean }>()
 
 const revelada = ref(false)
 const oculta = computed(() => props.resenha.spoiler && !props.proprio && !revelada.value)
 const textoDaResenha = useTemplateRef<HTMLParagraphElement>('textoDaResenha')
+const trecho = computed(() => textoSemMarcacao(props.resenha.texto))
 
 async function revelar(): Promise<void> {
   revelada.value = true
@@ -77,8 +84,14 @@ const destino = computed(() =>
         tabindex="-1"
         class="mt-space-2 line-clamp-3 outline-none whitespace-pre-line font-editorial text-body text-grafite"
       >
-        {{ resenha.texto }}
+        {{ trecho }}
       </p>
+      <ReacoesDaResenha
+        class="mt-space-3"
+        :resenha-id="resenha.id"
+        :reacoes="resenha"
+        :somente-leitura="proprio"
+      />
     </div>
   </article>
 </template>
