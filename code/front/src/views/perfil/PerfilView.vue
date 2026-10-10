@@ -1,14 +1,21 @@
 <script setup lang="ts">
 import { PhCaretRight, PhGear, PhMagnifyingGlass, PhUserPlus, PhWarning } from '@phosphor-icons/vue'
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
+import CardEstante from '../../components/estante/CardEstante.vue'
+import EsqueletoEstante from '../../components/estante/EsqueletoEstante.vue'
 import ListasDoPerfil from '../../components/listas/ListasDoPerfil.vue'
 import AvatarLeitor from '../../components/perfil/AvatarLeitor.vue'
 import ChipPrivacidade from '../../components/perfil/ChipPrivacidade.vue'
+import FimDaLista from '../../components/perfil/FimDaLista.vue'
 import SecoesDeLeitura from '../../components/perfil/SecoesDeLeitura.vue'
+import BannerAviso from '../../components/ui/BannerAviso.vue'
 import BotaoTextual from '../../components/ui/BotaoTextual.vue'
+import { TEXTOS_DA_ESTANTE_DE_PERFIL } from '../../estante/textos'
+import { useEstante } from '../../estante/useEstante'
 import { contagem } from '../../perfil/textos'
+import { leituraService } from '../../services/leitura'
 import { perfilService, type Perfil } from '../../services/perfil'
 
 /**
@@ -17,10 +24,10 @@ import { perfilService, type Perfil } from '../../services/perfil'
  * linha com divisor. Web: coluna de identidade de 300px com os contadores empilhados, e a linha
  * de solicitações no topo da coluna direita, sobre as abas Estante/Resenhas.
  *
- * **Resenhas do `leitura`** (`listarResenhasPerfil`, F-AVA, 27/09/2026) e **estante no estado
- * vazio**: `listarEstantePerfil` existe, mas esta tela ainda não passa o slot `estante` a
- * `SecoesDeLeitura` (divergência registrada em F-PERFIL). Sem o contador `livros lidos`, que o
- * `Perfil` de `identidade` não traz.
+ * **Estante e Resenhas do `leitura`** (`listarEstantePerfil`, F-EST, e `listarResenhasPerfil`,
+ * F-AVA). A estante usa o mesmo grid só leitura do perfil de outro leitor; vazia ou indisponível,
+ * fica o vazio de `SecoesDeLeitura`, com o CTA "Buscar livros". Sem o contador `livros lidos`, que
+ * o `Perfil` de `identidade` não traz.
  *
  * Sem sino na web, o perfil é o único lugar em que um pedido para seguir aparece (§1): a contagem
  * vem de uma página de um item da caixa, e falhar nela só esconde a linha.
@@ -55,6 +62,21 @@ onMounted(() => {
   void carregar()
   void contarPedidos()
 })
+
+const estante = useEstante((filtro) => leituraService.listarEstantePerfil(perfil.value?.id ?? '', filtro))
+watch(
+  () => perfil.value?.id,
+  (id) => {
+    if (id) {
+      void estante.carregar()
+    }
+  },
+)
+
+/** Sem livros (ou com o `leitura` respondendo 404), vale o vazio padrão da seção, com o CTA. */
+const mostraEstante = computed(
+  () => !estante.indisponivel.value && (estante.carregando.value || estante.falhou.value || estante.itens.value.length > 0),
+)
 
 // Célula: dá a folga entre o hover e o divisor (mobile, dos dois lados; web, em cima e embaixo).
 const CELULA_DE_CONTADOR = 'flex p-space-1 md:px-0'
@@ -236,6 +258,48 @@ const LINK_DE_CONTADOR =
               :proprio="true"
               :privacidade="perfil.privacidade"
             />
+          </template>
+          <template
+            v-if="mostraEstante"
+            #estante
+          >
+            <div class="mt-space-5 md:mt-0 md:pt-space-6">
+              <EsqueletoEstante
+                v-if="estante.carregando.value"
+                :rotulo="TEXTOS_DA_ESTANTE_DE_PERFIL.carregando"
+              />
+              <BannerAviso
+                v-else-if="estante.falhou.value"
+                variante="erro"
+              >
+                {{ TEXTOS_DA_ESTANTE_DE_PERFIL.erroTexto }}
+                <BotaoTextual
+                  class="mt-space-2"
+                  @click="estante.carregar()"
+                >
+                  Tentar de novo
+                </BotaoTextual>
+              </BannerAviso>
+              <template v-else>
+                <ul class="grid grid-cols-2 gap-space-4 md:grid-cols-4 lg:grid-cols-6">
+                  <li
+                    v-for="item in estante.itens.value"
+                    :key="item.id"
+                    class="flex"
+                  >
+                    <CardEstante
+                      :item="item"
+                      :acionavel="false"
+                    />
+                  </li>
+                </ul>
+                <FimDaLista
+                  v-if="estante.temMais.value || estante.falhouMais.value"
+                  :falhou="estante.falhouMais.value"
+                  @carregar="estante.carregarMais()"
+                />
+              </template>
+            </div>
           </template>
         </SecoesDeLeitura>
       </div>
