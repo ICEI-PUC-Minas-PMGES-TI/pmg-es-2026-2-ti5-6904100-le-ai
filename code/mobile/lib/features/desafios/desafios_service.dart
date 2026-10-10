@@ -175,6 +175,10 @@ class DesafiosService {
 
   void _avisar() => alteracoes.value++;
 
+  /// Lido uma vez por quem guarda a chave de idempotência, para a chave e o corpo levarem o mesmo
+  /// fuso.
+  String fusoDoDispositivo() => _fuso();
+
   /// Resposta fora do contrato vira a mesma falha das demais (`invalidResponse`).
   static T _ler<T>(T Function() ler) {
     try {
@@ -204,6 +208,7 @@ class DesafiosService {
     required JanelaDesafio janela,
     required int valorAlvo,
     required String idempotencyKey,
+    String? fusoHorario,
   }) async {
     final json = await _api.postJson(
       '/desafios',
@@ -211,7 +216,7 @@ class DesafiosService {
         'unidade': unidade.valor,
         'janela': janela.valor,
         'valorAlvo': valorAlvo,
-        'fusoHorario': _fuso(),
+        'fusoHorario': fusoHorario ?? _fuso(),
       },
       idempotencyKey: idempotencyKey,
     );
@@ -225,10 +230,11 @@ class DesafiosService {
     String id,
     Map<String, Object?> corpo, {
     required String idempotencyKey,
+    String? fusoHorario,
   }) async {
     final json = await _api.patchJson(
       '/desafios/${_id(id)}',
-      body: <String, Object?>{...corpo, 'fusoHorario': _fuso()},
+      body: <String, Object?>{...corpo, 'fusoHorario': fusoHorario ?? _fuso()},
       idempotencyKey: idempotencyKey,
     );
     final desafio = _ler(() => Desafio.fromJson(json));

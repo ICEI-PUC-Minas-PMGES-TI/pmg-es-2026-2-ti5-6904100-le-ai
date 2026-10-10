@@ -13,6 +13,7 @@ const String idDoDesafio = 'dddddddd-1111-4111-8111-dddddddddddd';
 DesafiosService desafiosSimulado(
   Future<http.Response> Function(http.Request) handler, {
   Duration timeout = const Duration(seconds: 90),
+  String Function()? fuso,
 }) {
   return DesafiosService(
     ApiClient(
@@ -21,7 +22,7 @@ DesafiosService desafiosSimulado(
       timeout: timeout,
       esperasDeRetentativa: const <Duration>[Duration.zero, Duration.zero],
     ),
-    fuso: () => 'America/Sao_Paulo',
+    fuso: fuso ?? () => 'America/Sao_Paulo',
   );
 }
 

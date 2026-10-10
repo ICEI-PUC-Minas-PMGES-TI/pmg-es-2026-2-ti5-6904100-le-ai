@@ -178,6 +178,9 @@ class _DesafioFormPageState extends State<DesafioFormPage> {
     final unidade = _unidade!;
     final janela = _janela!;
     final valor = _valor!;
+    // O fuso vai no corpo: entra na chave, para que um novo fuso seja uma nova intenção e não um
+    // 409 a cada tentativa.
+    final fuso = widget.servico.fusoDoDispositivo();
     try {
       final desafio = widget.desafio;
       if (desafio != null) {
@@ -186,18 +189,25 @@ class _DesafioFormPageState extends State<DesafioFormPage> {
           if (janela != desafio.janela) 'janela': janela.valor,
           if (valor != desafio.valorAlvo) 'valorAlvo': valor,
         };
-        await widget.servico.editar(desafio.id, corpo, idempotencyKey: _chaveDaIntencao(corpo));
+        await widget.servico.editar(
+          desafio.id,
+          corpo,
+          idempotencyKey: _chaveDaIntencao(<String, Object?>{...corpo, 'fusoHorario': fuso}),
+          fusoHorario: fuso,
+        );
       } else {
         final corpo = <String, Object?>{
           'unidade': unidade.valor,
           'janela': janela.valor,
           'valorAlvo': valor,
+          'fusoHorario': fuso,
         };
         await widget.servico.criar(
           unidade: unidade,
           janela: janela,
           valorAlvo: valor,
           idempotencyKey: _chaveDaIntencao(corpo),
+          fusoHorario: fuso,
         );
       }
       if (!mounted) {

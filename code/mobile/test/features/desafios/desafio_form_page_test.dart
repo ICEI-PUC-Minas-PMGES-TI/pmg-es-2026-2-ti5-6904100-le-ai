@@ -17,6 +17,7 @@ void main() {
     WidgetTester tester,
     Future<http.Response> Function(http.Request) responder, {
     Desafio? desafio,
+    String Function()? fuso,
   }) async {
     usarTelaDeCelular(tester);
     pedidos = <http.Request>[];
@@ -27,7 +28,7 @@ void main() {
           servico: desafiosSimulado((pedido) {
             pedidos.add(pedido);
             return responder(pedido);
-          }),
+          }, fuso: fuso),
           desafio: desafio,
           aoConcluir: () => concluidas++,
           hoje: () => DateTime(2026, 9, 25),
@@ -254,6 +255,40 @@ void main() {
         'janela': 'mensal',
         'fusoHorario': 'America/Sao_Paulo',
       });
+      expect(concluidas, 1);
+    });
+
+    testWidgets('fuso que muda entre tentativas é outra intenção: nova chave, sem 409', (
+      tester,
+    ) async {
+      var fuso = 'Asia/Tokyo';
+      var falhar = true;
+      await montar(
+        tester,
+        (_) async => falhar ? erro(503, 'SERVICO_INDISPONIVEL', 'Fora.') : json(desafioJson(), 200),
+        desafio: salvo(),
+        fuso: () => fuso,
+      );
+
+      await escolher(tester, 'Por mês');
+      await tocar(tester, botao('Salvar alterações'));
+      await assentar(tester);
+      expect(concluidas, 0);
+      final chaveEmToquio = pedidos.last.headers['Idempotency-Key'];
+
+      // Mesmo fuso: a retentativa repete a chave.
+      await tocar(tester, botao('Salvar alterações'));
+      await assentar(tester);
+      expect(pedidos.last.headers['Idempotency-Key'], chaveEmToquio);
+
+      fuso = 'America/Sao_Paulo';
+      falhar = false;
+      await tocar(tester, botao('Salvar alterações'));
+      await assentar(tester);
+
+      final ultimo = pedidos.last;
+      expect(ultimo.headers['Idempotency-Key'], isNot(chaveEmToquio));
+      expect((jsonDecode(ultimo.body) as Map<String, Object?>)['fusoHorario'], 'America/Sao_Paulo');
       expect(concluidas, 1);
     });
 
