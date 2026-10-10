@@ -86,7 +86,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
   - Todas ficam empilhadas na aba Perfil, com a barra inferior, como nos protótipos.
 - **Texto composto no cliente:** título (`20 páginas por dia`, `1 livro por semana`), nome da janela (`Hoje`, `Esta semana`, `Setembro`, `2026`), `Faltam N`, `Cumprido …` e `Pausado desde 15 de setembro`. A barra é `broto` sobre `musgo-fundo` e para no alvo, mesmo que o acumulado passe dele. Nenhuma porcentagem.
 - **Recarga:** a tela e o bloco recarregam na hora depois de uma escrita de desafio. Depois de um progresso ou de uma leitura finalizada, recarregam em silêncio 3 s após o último aviso, porque o acumulado chega pelo consumidor assíncrono. Se a recarga silenciosa falhar, os dados ficam na tela.
-- **Testes:** 58 em `test/features/desafios/`:
+- **Testes:** 60 em `test/features/desafios/`:
   - serviço;
   - textos;
   - lista: cards, grupos, cumprido, início de janela, cores claro/escuro, vazio, 503, timeout, cold start, menu, pausar sem confirmação, toast com retry na mesma chave, 409, exclusão confirmada, paginação, recarga adiada;
@@ -94,7 +94,19 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
   - bloco do perfil, incluindo a posição na página e a falha isolada;
   - rotas.
   
-  `flutter analyze` sem avisos, 718 testes verdes e `flutter build apk --debug` ok.
+  `flutter analyze` sem avisos, 720 testes verdes e `flutter build apk --debug` ok.
+- **Teste manual no emulador (10/10/2026):** emulador Android API 35 no WSL, com `identidade`, `acervo` e `leitura` locais contra o banco de dev e uma conta de teste. O roteiro passou por:
+  - bloco vazio no perfil;
+  - criação de 20 páginas/dia e 12 livros/ano;
+  - progresso até a página 12, que somou ao desafio pelo consumidor;
+  - pausa, que levou ao grupo `Pausados`, e retomada;
+  - edição de diário para semanal, com a faixa certa e o acumulado mantido;
+  - exclusão confirmada;
+  - bloco do perfil atualizado.
+
+  O teste achou dois defeitos, corrigidos com teste de regressão:
+  - `Faltam N` não ia para a borda direita: o `Wrap` encolhia para o conteúdo.
+  - Os botões com `Semantics(excludeSemantics: true)` perdiam a ação de toque para o leitor de tela: ações do card, `Novo desafio` do header, card compacto e chips. O botão de ações também se fundia ao nó do card.
 
 **Decisões do dono (10/10/2026), a ratificar com as de tela da pendência abaixo:**
 - **Bloco do perfil com todos os desafios pausados:** o protótipo não desenha o caso. Ficam o cabeçalho com `Ver todos` e a legenda `N desafios pausados` no lugar dos cards.
@@ -143,7 +155,6 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Ratificar com o grupo o início da semana (segunda, ISO 8601).** RN-20.1 não fixa o dia; a implementação usa segunda por decisão do dono (09/10/2026). Se o grupo aprovar, o `REQUISITOS.md` ganha o esclarecimento em RN-20 pelo controle de mudança; se escolher domingo, só `janelaQueContem` (`src/desafios/dominio/janelas.ts`) muda.
 - **Ratificar as decisões de tela:** as do protótipo, implementadas como desenhadas, são pausar sem confirmação, nada pré-selecionado, pausado sem barra e ordem com pausados no fim. As do dono, de 10/10/2026, estão na seção do mobile: só pausados no perfil, teto local, 409/404 com recarga e edição por `extra`.
 - **Incorporar ao `documento-de-design.md`** o card de desafio, o card compacto, a pill `Pausado`, o item de menu em duas linhas e o grupo de chips de escolha única, nascidos na F-DSF. Decisão do grupo; o agente não altera o orquestrador.
-- **Teste manual no aparelho contra o `leitura` local:** criar páginas/dia e livros/ano, registrar progresso e ver o acumulado subir, pausar, retomar, editar semanal → mensal e excluir. O app aponta para o `leitura` local com `--dart-define=LEITURA_BASE_URL=http://localhost:3001` e `adb reverse tcp:3001 tcp:3001`.
 - **Backfill antes do binding no DES:** no merge de fechamento do P2, rodar `npm run backfill:desafios` no `leitura` do DES junto da primeira subida do consumidor com `leitura.finalizada`. Como só haverá desafios criados depois do deploy, e a criação já recompõe o passado da janela, o backfill serve de garantia de convergência.
 - **F-SESSAO (Ana) não iniciada:** não bloqueia. A sessão cronometrada envia minutos pelo mesmo `POST /leituras/{id}/progresso` (RN-16.13), já contados aqui. Sessão de menos de um minuto vira `minutos: 0` e não conta.
 - **Telas (design P2):** prompts escritos em 27/09/2026 e protótipos exportados em 28/09/2026: [`desafios.md`](../../design/periodo-2/F-DSF/desafios.md) ([protótipo](../../design/periodo-2/F-DSF/prototipos/desafios.html)) e [`criar-desafio.md`](../../design/periodo-2/F-DSF/criar-desafio.md) (criar e editar, [protótipo](../../design/periodo-2/F-DSF/prototipos/criar-desafio.html)). Entrada pelo bloco `Desafios` do Meu perfil, na edição consolidada de `docs/design/periodo-2/meu-perfil/` (lote futuro). Decisões do prompt a ratificar pelo dono: início da semana de calendário não definido em RN-20 (o card semanal mostra só "Esta semana"), ordem da lista por janela com pausados no fim, desafio pausado sem barra, pausar/retomar sem confirmação e teto do valor-alvo ainda sem contrato. Lote 6, prompt escrito e protótipo exportado em 29/09/2026: bloco `Desafios` (dois primeiros ativos, sem pausados, `Mais N desafios`, `Ver todos`) na edição [`meu-perfil.md`](../../design/periodo-2/meu-perfil/meu-perfil.md) ([protótipo](../../design/periodo-2/meu-perfil/prototipos/meu-perfil.html)). O total de desafios para o bloco é o `paginacao.totalItens` de `GET /desafios`.
@@ -160,7 +171,9 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - O merge teve um único conflito, em `docs/api/leitura.yaml` (`components.parameters`): ficaram `DesafioId` e os parâmetros de resenha.
 - Telas de lista, criar/editar e bloco do Meu perfil, seguindo os protótipos.
 - Decisões do dono: só pausados no perfil, teto validado no cliente, 409/404 com recarga silenciosa e edição por `extra`. Divergências registradas.
-- 58 testes novos; suíte mobile, backend (unitários e integração) e build verdes. Falta o teste manual no aparelho, o merge em `desenvolvimento` e, no fechamento do período, o DES com o backfill.
+- 60 testes novos; suíte mobile, backend (unitários e integração) e build verdes.
+- Teste manual no emulador feito: o fluxo completo passou, e os dois defeitos achados (alinhamento de `Faltam` e ação de toque para o leitor de tela) foram corrigidos.
+- Falta o merge em `desenvolvimento` e, no fechamento do período, o DES com o backfill.
 
 ### Implementação 09/10/2026: backend implementado na `vicenzo-features`, em cima da F-GAM ainda não mergeada.
 - Sem migration nova: as quatro tabelas são da baseline DER.
