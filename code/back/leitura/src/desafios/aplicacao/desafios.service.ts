@@ -124,7 +124,8 @@ export class DesafiosService {
    * configuração, materializa e encerra os períodos decorridos com a antiga;
    * depois descarta só a janela corrente e cria a nova com a configuração
    * nova. As encerradas guardam unidade, periodicidade, alvo e fuso de quando
-   * valeram. Sem mudança, nada é recalculado.
+   * valeram. Sem mudança, a configuração fica como está; só recalcula para
+   * responder com a janela corrente em dia.
    */
   editar(
     usuarioId: string,
@@ -159,11 +160,10 @@ export class DesafiosService {
         }
 
         await this.materializar(tx, usuarioId, agora);
-        await this.repositorio.descartarNaoTerminadas(
-          tx,
-          atual.id,
-          hoje(atual.fusoHorario, agora),
-        );
+        // Descartar e criar com o mesmo "hoje", o do fuso novo: com fusos em
+        // dias diferentes, a corrente é a que contém o dia do leitor agora.
+        const hojeNovo = hoje(nova.fusoHorario, agora);
+        await this.repositorio.descartarNaoTerminadas(tx, atual.id, hojeNovo);
         const editado = await this.repositorio.atualizar(
           tx,
           atual.id,
@@ -171,7 +171,7 @@ export class DesafiosService {
           agora,
         );
         await this.repositorio.criarJanelas(tx, atual.id, nova, [
-          janelaQueContem(hoje(nova.fusoHorario, agora), nova.janela),
+          janelaQueContem(hojeNovo, nova.janela),
         ]);
         await this.recalcular(tx, usuarioId, agora);
         return {
@@ -218,6 +218,7 @@ export class DesafiosService {
         payload: {},
       },
       async (tx) => {
+        await this.repositorio.travar(tx, usuarioId);
         if (!(await this.repositorio.excluir(tx, desafioId, usuarioId))) {
           throw new NaoEncontrado(DESAFIO_NAO_ENCONTRADO);
         }

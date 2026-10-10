@@ -217,6 +217,7 @@ describe('desafios (integração)', () => {
     janela: string,
     unidade = 'paginas',
     valorAlvo = 10,
+    fusoHorario = SP,
   ): Promise<string> {
     const id = randomUUID();
     await pool.query(
@@ -224,7 +225,7 @@ describe('desafios (integração)', () => {
          (id, usuario_id, unidade, janela, valor_alvo, fuso_horario,
           criado_em, atualizado_em)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $7)`,
-      [id, usuario, unidade, janela, valorAlvo, SP, diasAtras(dias)],
+      [id, usuario, unidade, janela, valorAlvo, fusoHorario, diasAtras(dias)],
     );
     return id;
   }
@@ -865,6 +866,71 @@ describe('desafios (integração)', () => {
         200,
       );
       expect(res.body).toMatchObject({ pausado: true, valorAlvo: 99 });
+    });
+
+    // UTC+14 e UTC−11: sempre em dias diferentes, seja qual for a hora.
+    const ADIANTADO = 'Pacific/Kiritimati';
+    const ATRASADO = 'Pacific/Pago_Pago';
+
+    it('fuso para trás: a corrente é o hoje do fuso novo, com o alvo novo', async () => {
+      const usuario = await leitor();
+      const id = await criadoHa(usuario, 3, 'diaria', 'paginas', 20, ADIANTADO);
+      // Materializa no fuso antigo: o hoje do fuso atrasado já está encerrado.
+      await listar(usuario);
+
+      const res = await editar(usuario, id, {
+        fusoHorario: ATRASADO,
+        valorAlvo: 30,
+      }).expect(200);
+
+      const hojeAtrasado = dataLocal(new Date(), ATRASADO);
+      expect(res.body).toMatchObject({
+        fusoHorario: ATRASADO,
+        valorAlvo: 30,
+        janelaCorrente: { inicio: hojeAtrasado, fim: hojeAtrasado },
+      });
+      const depois = await janelas(id);
+      expect(depois.at(-1)).toMatchObject({
+        inicio: hojeAtrasado,
+        valor_alvo: 30,
+        encerrada: false,
+      });
+      const anteriores = depois.slice(0, -1);
+      expect(anteriores.length).toBeGreaterThan(0);
+      expect(
+        anteriores.every(
+          (janela) => janela.encerrada && janela.valor_alvo === 20,
+        ),
+      ).toBe(true);
+    });
+
+    it('fuso para a frente: o dia do fuso antigo fica com o alvo antigo', async () => {
+      const usuario = await leitor();
+      const criado = await criar(usuario, { fusoHorario: ATRASADO });
+      const hojeAtrasado = dataLocal(new Date(), ATRASADO);
+
+      const res = await editar(usuario, criado.id, {
+        fusoHorario: ADIANTADO,
+        valorAlvo: 30,
+      }).expect(200);
+
+      const hojeAdiantado = dataLocal(new Date(), ADIANTADO);
+      expect(res.body.janelaCorrente).toMatchObject({
+        inicio: hojeAdiantado,
+        fim: hojeAdiantado,
+      });
+      expect(await janelas(criado.id)).toEqual([
+        expect.objectContaining({
+          inicio: hojeAtrasado,
+          valor_alvo: 20,
+          encerrada: true,
+        }),
+        expect.objectContaining({
+          inicio: hojeAdiantado,
+          valor_alvo: 30,
+          encerrada: false,
+        }),
+      ]);
     });
   });
 
