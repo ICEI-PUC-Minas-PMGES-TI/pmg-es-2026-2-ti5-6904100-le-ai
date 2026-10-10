@@ -69,8 +69,8 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 (plano §10)
 
-- [ ] Código (backend `leitura` + mapeamento consumidor em `social`, web, mobile) mergeado em `desenvolvimento`. Merge local feito em 09/10/2026; falta o push, que o Renato faz
-- [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)), a conferir depois do push, inclusive o `--check` dos tokens, que no Windows acusa só o CRLF
+- [x] Código (backend `leitura` + mapeamento consumidor em `social`, web, mobile) mergeado em `desenvolvimento` em 09/10/2026
+- [x] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)) na `renato-features` e na `desenvolvimento`, inclusive o `--check` dos tokens
 - [x] Testes unitários e de integração com banco real/container: reação única/alternável, revalidação de acesso RN-08/RN-15, contagens, limite/página das frases, idempotência (RNF-TST-02)
 - [x] Testes assíncronos cobrem publicação, consumo em `social`, destinatário, duplicação semântica e DLQ de `resenha.curtida` (RNF-TST-03)
 - [x] Testes web/mobile cobrem reações, **render/sanitização do Markdown** (SEC-15), preview, frases e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
@@ -124,11 +124,13 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 ## Timeline
 
-### 09/10/2026: implementação, testes e teste manual. Três commits na `renato-features`, mergeados localmente na `desenvolvimento` (o push fica com o Renato):
+### 09/10/2026: implementação, testes e teste manual. Três commits na `renato-features`, mergeados na `desenvolvimento` e enviados ao GitHub no mesmo dia:
 
 - `ca9da42` **curtir e descurtir resenhas:** reações no `leitura` com a VIEW `v_reacao_resenha_v1`, `resenha.curtida` com schema canônico e cópias de runtime, notificação `RESENHA_CURTIDA` no `social`, contagens e `minhaReacao` no `acervo`, e os botões na web e no app (página do livro, livro pessoal pelo feed e pela lista, perfis e "Sua avaliação" só leitura).
 - `93aa6a9` **frases e trechos dos livros:** frases no `leitura` (RN-11 com o 23514 do trigger virando 422 `LIMITE_DE_FRASES`, RN-08 por autor, livro pessoal só do dono), seção `Frases e trechos`, lista completa e cadastro na web e no app.
 - `11020b1` **resenha em Markdown com pré-visualização:** `markdown-it` 14.3.2 e `DOMPurify` 3.4.16 na web, pacote `markdown` 7.3.1 no app, com os 26 casos compartilhados; editor com `Escrever | Visualizar` e a barra de seis botões; prévias sem marcação no feed e no perfil. O backend não mudou.
+
+CI verde nas duas branches. No primeiro push, o `npm audit --audit-level=high` do `leitura` e do `acervo` falhou por um alerta crítico novo do `handlebars` 4.7.9, dependência do `ts-jest` usada só nos testes; `ec777b3` trocou pela 4.7.10, que corrige o alerta, e a CI dos dois passou. No kanban, a feature foi para `Em revisão (PR)`, de onde só o professor a tira.
 
 Testes, todos passando: `leitura` 219 unitários e 252 de integração; `acervo` 305 e 146; `social` 175 no `verify`; web 865; app 646; lint, build, `flutter analyze` e `flutter build apk --debug` limpos. Teste manual com os quatro serviços locais sobre o banco e o broker de dev, na web (Edge automatizado, 1440 e 390px, claro e escuro) e no app (emulador Pixel 8): curtir, alternar e retirar com as contagens na hora; recurtir sem segunda notificação (conferido na outbox e em `social.notificacao`); notificação em tempo real no app, abrindo o livro; leitora privada sem seguimento recebendo 404; livro pessoal pelo feed e pela lista, com referência de outra lista e forjada recusadas; frases com página fora do total, limite de 10, exclusão com confirmação e frase de autora privada escondida; os seis formatos pela barra, pelo teclado e pelo `Enter`; link, imagem, título, tabela e HTML literais, com a faixa; resenha antiga com a quebra de linha; feed e perfil sem marcação; limite contando a formatação; a mesma resenha lado a lado na web e no app.
 

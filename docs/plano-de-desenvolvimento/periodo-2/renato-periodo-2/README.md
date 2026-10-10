@@ -34,7 +34,7 @@ Herdadas da [F-AVA](../../periodo-1/feature-F-AVA.md#pendências), ainda não co
 
 ### 3. F-AVA-2 — Reações, Markdown e frases — concluída em 09/10/2026
 
-Plano em [`plano-F-AVA-2.md`](plano-F-AVA-2.md); status, testes e débitos em [`../feature-F-AVA-2.md`](../feature-F-AVA-2.md). Três commits na `renato-features`, mergeados localmente na `desenvolvimento`; **falta o push**. A via lista deixou de ser pendência: o Henrique entregou a etapa 3 da F-LST em 08/10. Ficaram como débito a copy das duas curtidas (com o Kayke) e o DES, no merge de fechamento.
+Plano em [`plano-F-AVA-2.md`](plano-F-AVA-2.md); status, testes e débitos em [`../feature-F-AVA-2.md`](../feature-F-AVA-2.md). Três commits na `renato-features`, mergeados na `desenvolvimento` e enviados ao GitHub em 09/10, com a CI verde; no kanban, em `Em revisão (PR)`. A via lista deixou de ser pendência: o Henrique entregou a etapa 3 da F-LST em 08/10. Ficaram como débito a copy das duas curtidas (com o Kayke) e o DES, no merge de fechamento.
 
 Para levar ao grupo:
 
