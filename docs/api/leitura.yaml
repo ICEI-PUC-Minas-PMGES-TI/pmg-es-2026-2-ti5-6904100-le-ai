@@ -950,7 +950,8 @@ paths:
         periodicidade, alvo e fuso de quando valeram; a janela corrente é
         refeita com a configuração nova e já considera o registrado nela.
         Campos ausentes mantêm o valor atual; `fusoHorario` é sempre o do
-        dispositivo. Sem mudança, responde 200 sem recalcular a configuração.
+        dispositivo; com fuso novo, a janela corrente é a que contém o dia de
+        hoje nesse fuso. Sem mudança, responde 200 sem recalcular a configuração.
         Desafio pausado continua pausado. Desafio de outra pessoa é 404. O teto
         do alvo segue a unidade resultante (422).
       requestBody:

@@ -57,8 +57,9 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 **`code/back/leitura`, módulo `src/desafios/`:**
 - **Endpoints:** `POST /desafios` (`criarDesafio`), `GET /desafios` (`listarDesafios`, paginado), `PATCH /desafios/{id}` (`editarDesafio`), `POST /desafios/{id}/pausar` e `/retomar` (`pausarDesafio`, `retomarDesafio`) e `DELETE /desafios/{id}` (`excluirDesafio`). Escritas com `Idempotency-Key`; desafio de outra pessoa é 404. Contrato em [`docs/api/leitura.yaml`](../../api/leitura.yaml).
 - **Resposta:** `{ id, unidade, janela, valorAlvo, fusoHorario, pausado, pausadoDesde, criadoEm, janelaCorrente: { inicio, fim, acumulado, cumprida } }`. A listagem devolve `paginacao.totalItens`, que atende o "Mais N desafios" do bloco do Meu perfil, e `pausadoDesde` atende o "Pausado desde…" do card.
-- **Recálculo único:** `DesafiosService.recalcular(tx, usuarioId)` materializa as janelas que faltam até a corrente e recompõe as contribuições de todas as janelas do leitor a partir de `atualizacao_progresso` e `leitura` do próprio schema (consulta histórica de RN-20.2, sem VIEW). Nunca incrementa por mensagem, então entrega repetida ou fora de ordem, captura offline tardia e exclusão de progresso convergem. Serializado por leitor com `pg_advisory_xact_lock`.
-- **Quem chama:** o `MetricasConsumer` (antes `ProgressoRegistradoConsumer`, da F-GAM) em `progresso.registrado` e `leitura.finalizada`; `ProgressoService.excluirTrecho` no mesmo `tx`; as escritas da API; e o `GET`, que só recompõe quando criou janela nova.
+- **Recálculo único:** `DesafiosService.recalcular(tx, usuarioId, datas)` materializa as janelas que faltam até a corrente e recompõe as contribuições a partir de `atualizacao_progresso` e `leitura` do próprio schema (consulta histórica de RN-20.2, sem VIEW). Nunca incrementa por mensagem, então entrega repetida ou fora de ordem, captura offline tardia e exclusão de progresso convergem. Serializado por leitor com `pg_advisory_xact_lock`, inclusive no `DELETE`.
+- **Escopo da recomposição (review do #49):** só as janelas que a mudança alcança, para o custo não crescer com o histórico. Entram as não encerradas, as criadas ou encerradas na mesma chamada e as que contêm a data local dos fatos que mudaram (`dataLocal` do `progresso.registrado`, `finalizacaoDataLocal` da `leitura.finalizada`, datas dos trechos excluídos). Só esses três caminhos mudam os fatos: a releitura cria outra leitura, e remover da estante não apaga a leitura. O backfill recompõe tudo.
+- **Quem chama:** o `MetricasConsumer` (antes `ProgressoRegistradoConsumer`, da F-GAM) em `progresso.registrado` e `leitura.finalizada`; `ProgressoService.excluirTrecho` no mesmo `tx`; as escritas da API; e o `GET`. O `GET` confere fora de transação se as correntes já alcançam o hoje de cada fuso: em dia, não abre transação nem pega a trava; senão materializa e recompõe o que criou.
 - **Backfill:** `npm run backfill:desafios` (`node dist/desafios/backfill.js` no build), idempotente.
 - **Testes:** 23 unitários de domínio (janelas e teto do alvo) e 32 de integração em `test/integracao/desafios.int-spec.ts`. Cobrem CRUD, validação, propriedade, idempotência, ordem e paginação, RN-20.2 a 20.10, livros (releitura, pessoal, abandonada, releitura incompleta, data de fim retroativa), minutos zerados, múltiplas pausas com captura offline tardia, edição semanal → mensal e de unidade, correção de janela encerrada com o snapshot antigo, exclusão de trecho, backfill, duplicata, retry e DLQ. Suítes completas verdes localmente: 244 unitários e 258 de integração.
 
@@ -73,7 +74,8 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 **Comportamentos de borda registrados:**
 - **Mensal → semanal no meio do mês:** a semana corrente nasce com a configuração nova e o mês corrente é descartado. Os dias do mês anteriores a essa semana ficam sem janela no histórico, porque nenhum período encerrado é inventado com a configuração nova. Semanal → mensal não tem lacuna: as semanas encerradas ficam, e o mês corrente as sobrepõe sem conflito de unicidade.
-- **Troca de fuso para um dia anterior:** se o novo "hoje" cair num dia cuja janela já existe, a janela existente é reaproveitada sem trocar o snapshot.
+- **Troca de fuso na edição:** a janela corrente é a que contém o hoje do fuso novo, nos dois sentidos. Para um fuso atrás, a janela desse dia é refeita com a configuração nova mesmo que o fuso antigo já a tivesse encerrado. Para um fuso à frente, o dia do fuso antigo fica com a configuração antiga e é encerrado. Entre fusos com 25 h de diferença (UTC−11 e UTC+14), durante uma hora por dia o salto é de dois dias, e o dia do meio fica sem janela.
+- **Pausados materializam:** a listagem mostra a janela corrente deles, e os períodos da pausa ficam com zero e não cumpridos (RN-20.6/20.9). O histórico (F-DSF-OPC) cruza as janelas com `pausa_desafio` para saber quais não foram avaliadas.
 
 ## Implementação do mobile (10/10/2026)
 
@@ -166,6 +168,13 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - Stack de `leitura` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
 ## Timeline
+
+### Review 10/10/2026: ajustes do review do Henrique no PR #49.
+- Corrigidos: a edição com troca de fuso entre dias diferentes, que descartava por um dia e criava por outro; o `DELETE` sem a trava do leitor; e a chave de idempotência do formulário (criar e editar) sem o fuso.
+- Desempenho: a recomposição só alcança as janelas afetadas, e o `GET` em dia não abre transação.
+- Limpeza: `common/datas.ts`, `db/conexao.ts` (pool dos backfills) e a remoção de `ORDEM_JANELA`.
+- O comentário sobre pausados que materializam ficou documentado, sem mudança de comportamento.
+- Testes novos falham sem as correções. Verdes: 262 unitários e 302 de integração no `leitura`, e 726 testes mobile.
 
 ### Implementação 10/10/2026: mobile implementado na `vicenzo-features`, depois de trazer a `desenvolvimento` (F-AVA-2).
 - O merge teve um único conflito, em `docs/api/leitura.yaml` (`components.parameters`): ficaram `DesafioId` e os parâmetros de resenha.
