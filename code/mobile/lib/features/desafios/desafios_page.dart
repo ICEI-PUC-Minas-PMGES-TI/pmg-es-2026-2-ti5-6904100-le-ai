@@ -236,6 +236,7 @@ class _DesafiosPageState extends State<DesafiosPage> {
                   Semantics(
                     button: true,
                     label: 'Novo desafio',
+                    onTap: widget.aoCriar,
                     excludeSemantics: true,
                     child: GestureDetector(
                       onTap: widget.aoCriar,

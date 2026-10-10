@@ -570,6 +570,8 @@ class ChipDeEscolha extends StatelessWidget {
       checked: ativo,
       enabled: !ocupado,
       label: rotulo,
+      // Com `excludeSemantics`, a ação de toque do `InkWell` some da árvore: vai aqui.
+      onTap: ocupado ? null : aoTocar,
       excludeSemantics: true,
       child: InkWell(
         onTap: ocupado ? null : aoTocar,

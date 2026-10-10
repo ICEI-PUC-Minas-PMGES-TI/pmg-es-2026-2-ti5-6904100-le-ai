@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:phosphor_icons/phosphor_icons.dart';
@@ -78,6 +79,41 @@ void main() {
     expect(find.text('150 minutos por semana', findRichText: true), findsOneWidget);
     expect(find.text('Esta semana'), findsOneWidget);
     expect(find.textContaining('%'), findsNothing);
+  });
+
+  testWidgets('"Faltam" fica alinhado ao fim da barra, não colado ao acumulado', (tester) async {
+    await montar(
+      tester,
+      (_) async => json(paginaDeDesafios(<Map<String, Object?>>[desafioJson()]), 200),
+    );
+
+    // A fonte de teste é larga: numa tela mais larga, a linha cabe inteira, como no aparelho.
+    tester.view.physicalSize = const Size(2400, 2532);
+    await tester.pump();
+
+    final barra = tester.getRect(find.byType(BarraDoDesafio));
+    final acumulado = tester.getRect(find.text('12 de 20 páginas', findRichText: true));
+    final falta = tester.getRect(find.text('Faltam 8 páginas'));
+    expect(falta.center.dy, moreOrLessEquals(acumulado.center.dy, epsilon: 2));
+    expect(falta.right, moreOrLessEquals(barra.right, epsilon: 1));
+  });
+
+  testWidgets('o leitor de tela aciona o botão de ações e o de novo desafio', (tester) async {
+    final semantica = tester.ensureSemantics();
+    await montar(tester, (_) async => json(paginaDeDesafios(tres()), 200));
+
+    final acoes = tester.getSemantics(_acoes('20 páginas por dia'));
+    expect(acoes.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+    expect(acoes.rect.size, const Size(48, 48));
+    final novo = tester.getSemantics(
+      find.byWidgetPredicate((w) => w is Semantics && w.properties.label == 'Novo desafio'),
+    );
+    expect(novo.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+
+    tester.semantics.tap(find.semantics.byLabel('Ações do desafio 20 páginas por dia'));
+    await tester.pumpAndSettle();
+    expect(find.text('Editar desafio'), findsOneWidget);
+    semantica.dispose();
   });
 
   testWidgets('pausados ficam no grupo próprio, sem barra, com a data da pausa', (tester) async {

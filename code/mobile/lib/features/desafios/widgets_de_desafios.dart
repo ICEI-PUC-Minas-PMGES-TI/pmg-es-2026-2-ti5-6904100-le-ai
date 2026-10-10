@@ -99,44 +99,48 @@ class NumerosDoDesafio extends StatelessWidget {
     final legenda = theme.textTheme.bodySmall?.copyWith(color: theme.secondaryText);
     final janela = desafio.janelaCorrente;
     // Em tela estreita ou com fonte grande, o lado direito desce para a linha de baixo em vez de
-    // espremer os números.
-    return Wrap(
-      alignment: WrapAlignment.spaceBetween,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: DesignTokens.space3,
-      runSpacing: DesignTokens.space1,
-      children: <Widget>[
-        Text.rich(
-          TextSpan(
-            style: corpo,
-            children: <InlineSpan>[
-              TextSpan(text: '${janela.acumulado}', style: numero),
-              const TextSpan(text: ' de '),
-              TextSpan(text: '${desafio.valorAlvo}', style: numero),
-              TextSpan(text: ' ${nomeDaUnidade(desafio.unidade, desafio.valorAlvo)}'),
-            ],
+    // espremer os números. A largura total é o que deixa o `spaceBetween` empurrar o lado direito
+    // para a borda: sem ela, o `Wrap` encolhe para o conteúdo dentro da coluna.
+    return SizedBox(
+      width: double.infinity,
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: DesignTokens.space3,
+        runSpacing: DesignTokens.space1,
+        children: <Widget>[
+          Text.rich(
+            TextSpan(
+              style: corpo,
+              children: <InlineSpan>[
+                TextSpan(text: '${janela.acumulado}', style: numero),
+                const TextSpan(text: ' de '),
+                TextSpan(text: '${desafio.valorAlvo}', style: numero),
+                TextSpan(text: ' ${nomeDaUnidade(desafio.unidade, desafio.valorAlvo)}'),
+              ],
+            ),
           ),
-        ),
-        if (janela.cumprida)
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Icon(PhosphorIconsBold.check, size: 16, color: theme.progressColor),
-              const SizedBox(width: DesignTokens.space1),
-              Flexible(
-                child: Text(
-                  textoDeCumprido(desafio.janela, janela.inicio),
-                  style: legenda?.copyWith(
-                    color: theme.colorScheme.onSurface,
-                    fontWeight: FontWeight.w600,
+          if (janela.cumprida)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Icon(PhosphorIconsBold.check, size: 16, color: theme.progressColor),
+                const SizedBox(width: DesignTokens.space1),
+                Flexible(
+                  child: Text(
+                    textoDeCumprido(desafio.janela, janela.inicio),
+                    style: legenda?.copyWith(
+                      color: theme.colorScheme.onSurface,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-              ),
-            ],
-          )
-        else
-          Text(textoDeFalta(desafio.unidade, desafio.faltam), style: legenda),
-      ],
+              ],
+            )
+          else
+            Text(textoDeFalta(desafio.unidade, desafio.faltam), style: legenda),
+        ],
+      ),
     );
   }
 }
@@ -231,8 +235,12 @@ class CartaoDeDesafio extends StatelessWidget {
           ),
           const SizedBox(width: DesignTokens.space3),
           Semantics(
+            // Nó próprio: sem ele, o botão se funde ao nó do item e o foco cobre o card todo.
+            container: true,
             button: true,
             label: 'Ações do desafio ${tituloDe(desafio)}',
+            // Com `excludeSemantics`, a ação de toque do `InkResponse` some da árvore: vai aqui.
+            onTap: aoAbrirAcoes,
             excludeSemantics: true,
             child: InkResponse(
               onTap: aoAbrirAcoes,
@@ -268,6 +276,7 @@ class CartaoCompactoDeDesafio extends StatelessWidget {
     return Semantics(
       button: true,
       label: semanticaDoCardDoPerfil(desafio),
+      onTap: aoTocar,
       excludeSemantics: true,
       child: Material(
         color: theme.elevatedSurface,
