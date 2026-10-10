@@ -1,4 +1,4 @@
-import { emDia, hoje, janelaQueContem, janelasAte, somarDias } from './janelas';
+import { emDia, hoje, janelaQueContem, janelasAte } from './janelas';
 
 describe('janelas de calendário (RN-20.1)', () => {
   it('diária é o próprio dia', () => {
@@ -58,11 +58,6 @@ describe('janelas de calendário (RN-20.1)', () => {
     const instante = new Date('2026-10-10T01:30:00.000Z');
     expect(hoje('America/Sao_Paulo', instante)).toBe('2026-10-09');
     expect(hoje('Asia/Tokyo', instante)).toBe('2026-10-10');
-  });
-
-  it('somarDias atravessa mês e ano', () => {
-    expect(somarDias('2026-12-31', 1)).toBe('2027-01-01');
-    expect(somarDias('2026-03-01', -1)).toBe('2026-02-28');
   });
 });
 

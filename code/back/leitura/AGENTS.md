@@ -24,8 +24,8 @@ Núcleo do produto. Estante, leitura, progresso, sessão cronometrada, nota, res
 - **Config:** `@nestjs/config` + validação `zod` (`src/config/env.ts`) — não sobe com env inválida. `.env.example` versionado, `.env` nunca (RNF-SEC-11).
 - **Estrutura:**
   - `src/main.ts` — bootstrap: aplica o pipeline de `src/configurar-app.ts` (correlation-id, `helmet` RNF-SEC-24, CORS restrito RNF-SEC-21, `ValidationPipe`) e o Swagger em `/docs`.
-  - `src/common/` — `correlation.middleware.ts` + `als.ts` (RNF-OBS-01); `all-exceptions.filter.ts` + `error-codes.ts` → corpo `{ codigo, mensagem, correlationId }` (RNF-ERR-01, pt-BR, sem stack trace).
-  - `src/db/` — `drizzle.module.ts` (provider `DRIZZLE`), `schema.ts` (`pgSchema`), `migrate.ts`.
+  - `src/common/` — `correlation.middleware.ts` + `als.ts` (RNF-OBS-01); `all-exceptions.filter.ts` + `error-codes.ts` → corpo `{ codigo, mensagem, correlationId }` (RNF-ERR-01, pt-BR, sem stack trace). `datas.ts` — aritmética de datas `YYYY-MM-DD` sem fuso (`diaJuliano`, `somarDias`, `diaDaSemanaIso`), usada pela sequência e pelas janelas dos desafios.
+  - `src/db/` — `drizzle.module.ts` (provider `DRIZZLE`), `conexao.ts` (`criarPool`, TLS para Neon/Render; também nos backfills), `schema.ts` (`pgSchema`), `migrate.ts`.
   - `src/health/` — `GET /health` via `@nestjs/terminus` + indicador Drizzle (`SELECT 1`) (RNF-OBS-02).
   - Módulos de feature (`src/estante/`, `src/leituras/`, `src/jobs/inatividade/`) em camadas, com `<modulo>.module.ts` na raiz do módulo e specs ao lado do arquivo:
     - `dominio/` — regras puras (ex.: `maquina-estados.ts`, builders de `eventos.ts`); não importa nada de `@nestjs/*` nem de `drizzle-orm`.

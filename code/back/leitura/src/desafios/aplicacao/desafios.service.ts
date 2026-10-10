@@ -28,13 +28,8 @@ import type {
   PaginaDesafiosDto,
 } from '../api/dto/desafios.dto';
 import { alvoForaDoLimite, type Unidade } from '../dominio/desafio';
-import {
-  emDia,
-  hoje,
-  janelaQueContem,
-  janelasAte,
-  somarDias,
-} from '../dominio/janelas';
+import { somarDias } from '../../common/datas';
+import { emDia, hoje, janelaQueContem, janelasAte } from '../dominio/janelas';
 import {
   type ConfiguracaoDesafio,
   type DesafioRegistro,

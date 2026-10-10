@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { drizzle } from 'drizzle-orm/node-postgres';
-import { Pool } from 'pg';
+import { criarPool } from '../db/conexao';
 import * as schema from '../db/schema';
 import { SequenciaRepository } from './sequencia.repository';
 import { SequenciaService } from './sequencia.service';
@@ -19,13 +19,7 @@ async function main(): Promise<void> {
   if (!connectionString) {
     throw new Error('DATABASE_URL não definida.');
   }
-  const needsSsl =
-    /sslmode=require|neon\.tech|\.render\.com/i.test(connectionString) ||
-    process.env.NODE_ENV === 'production';
-  const pool = new Pool({
-    connectionString,
-    ssl: needsSsl ? { rejectUnauthorized: false } : false,
-  });
+  const pool = criarPool(connectionString, process.env.NODE_ENV);
   try {
     const db = drizzle(pool, { schema });
     const servico = new SequenciaService(db, new SequenciaRepository(db));

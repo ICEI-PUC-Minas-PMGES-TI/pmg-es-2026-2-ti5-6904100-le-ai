@@ -1,5 +1,3 @@
-import type { Periodicidade } from './janelas';
-
 export const UNIDADES = ['paginas', 'minutos', 'livros'] as const;
 export type Unidade = (typeof UNIDADES)[number];
 
@@ -13,14 +11,6 @@ export const TETO_POR_UNIDADE: Record<Unidade, number> = {
   paginas: 100_000,
   minutos: 100_000,
   livros: 1_000,
-};
-
-/** Ordem da listagem: janela mais curta primeiro (protótipo `desafios`). */
-export const ORDEM_JANELA: Record<Periodicidade, number> = {
-  diaria: 0,
-  semanal: 1,
-  mensal: 2,
-  anual: 3,
 };
 
 const NOME_DA_UNIDADE: Record<Unidade, string> = {

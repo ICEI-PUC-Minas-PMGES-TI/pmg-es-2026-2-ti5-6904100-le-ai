@@ -1,6 +1,5 @@
+import { deDiaJuliano, diaJuliano } from '../../common/datas';
 import { dataLocal } from '../../progresso/dominio/progresso';
-
-const MS_POR_DIA = 86_400_000;
 
 /** O que se apura das datas locais com leitura de um leitor (RN-18). */
 export interface Apuracao {
@@ -17,11 +16,6 @@ export interface EstadoSequencia {
   maiorSequencia: number;
   ultimoDia: string | null;
   ultimoFusoHorario: string | null;
-}
-
-function diaJuliano(data: string): number {
-  const [ano, mes, dia] = data.split('-').map(Number);
-  return Date.UTC(ano, mes - 1, dia) / MS_POR_DIA;
 }
 
 /**
@@ -43,11 +37,10 @@ export function apurar(datas: readonly string[]): Apuracao {
     trecho = dias[i] - dias[i - 1] === 1 ? trecho + 1 : 1;
     maior = Math.max(maior, trecho);
   }
-  const ultimo = new Date(dias[dias.length - 1] * MS_POR_DIA);
   return {
     maior,
     atualAteUltimoDia: trecho,
-    ultimoDia: ultimo.toISOString().slice(0, 10),
+    ultimoDia: deDiaJuliano(dias[dias.length - 1]),
   };
 }
 
