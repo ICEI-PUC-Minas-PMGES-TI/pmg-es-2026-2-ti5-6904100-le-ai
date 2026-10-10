@@ -31,6 +31,7 @@ import { perfilService, type Perfil } from '../../services/perfil'
  * - **Estante (F-EST) e Resenhas (F-AVA)** vêm do `leitura` quando o conteúdo é visível. Com
  *   `conteudoRestrito` (RN-08), as seções não aparecem, e sim o bloco "Este perfil é privado".
  * - Os contadores não são acionáveis: não há lista do grafo de terceiros (RNF-SEC-19/44).
+ *   `livros lidos` vem dos totais da estante e só aparece com ela visível.
  * - Username do próprio leitor abre o próprio perfil.
  */
 const route = useRoute()
@@ -85,6 +86,11 @@ watch(estanteVisivel, (id) => {
 })
 
 const restrito = computed(() => Boolean(perfil.value?.conteudoRestrito) || estante.restrita.value)
+
+/** `livros lidos` é derivado da estante: restrito ou indisponível, o contador não aparece (§4.3). */
+const livrosLidos = computed(() =>
+  restrito.value || estante.indisponivel.value ? null : estante.livrosLidos.value,
+)
 
 /** Seguir perfil público é imediato; em privado vira pedido (RF-SOC-05/06). Sem modal. */
 async function seguir(): Promise<void> {
@@ -323,7 +329,22 @@ const textoDaConfirmacao = computed(() =>
 
         <!-- Mesmo arranjo do meu perfil, sem link: mobile numa linha com divisor vertical de
              altura total; web empilhados, número à esquerda e rótulo encostado na direita. -->
-        <dl class="mt-space-6 grid w-full grid-cols-2 divide-x divide-linha border-b border-linha md:grid-cols-1 md:divide-x-0 md:divide-y md:border-b-0">
+        <dl
+          class="mt-space-6 grid w-full divide-x divide-linha border-b border-linha md:grid-cols-1 md:divide-x-0 md:divide-y md:border-b-0"
+          :class="livrosLidos === null ? 'grid-cols-2' : 'grid-cols-3'"
+        >
+          <div
+            v-if="livrosLidos !== null"
+            :class="CONTADOR"
+            :aria-label="contagem(livrosLidos, 'livro lido', 'livros lidos')"
+          >
+            <dt class="text-caption text-grafite md:text-body">
+              {{ livrosLidos === 1 ? 'livro lido' : 'livros lidos' }}
+            </dt>
+            <dd class="font-mono text-num-inline tabular-nums text-tinta">
+              {{ livrosLidos }}
+            </dd>
+          </div>
           <div
             :class="CONTADOR"
             :aria-label="contagem(perfil.contadores.seguidores, 'seguidor', 'seguidores')"

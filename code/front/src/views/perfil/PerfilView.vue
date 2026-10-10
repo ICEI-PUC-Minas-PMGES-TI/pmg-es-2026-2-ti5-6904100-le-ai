@@ -26,8 +26,8 @@ import { perfilService, type Perfil } from '../../services/perfil'
  *
  * **Estante e Resenhas do `leitura`** (`listarEstantePerfil`, F-EST, e `listarResenhasPerfil`,
  * F-AVA). A estante usa o mesmo grid só leitura do perfil de outro leitor; vazia ou indisponível,
- * fica o vazio de `SecoesDeLeitura`, com o CTA "Buscar livros". Sem o contador `livros lidos`, que
- * o `Perfil` de `identidade` não traz.
+ * fica o vazio de `SecoesDeLeitura`, com o CTA "Buscar livros". O contador `livros lidos` vem dos
+ * totais da estante e leva a ela filtrada por `Lido`; aparece só depois que a estante carrega.
  *
  * Sem sino na web, o perfil é o único lugar em que um pedido para seguir aparece (§1): a contagem
  * vem de uma página de um item da caixa, e falhar nela só esconde a linha.
@@ -72,6 +72,8 @@ watch(
     }
   },
 )
+
+const livrosLidos = computed(() => (estante.indisponivel.value ? null : estante.livrosLidos.value))
 
 /** Sem livros (ou com o `leitura` respondendo 404), vale o vazio padrão da seção, com o CTA. */
 const mostraEstante = computed(
@@ -186,10 +188,28 @@ const LINK_DE_CONTADOR =
              que não tem raio; o link dentro dela tem padding e hover arredondado próprios, sem
              encostar no separador. -->
         <nav
-          class="mt-space-6 grid w-full grid-cols-2 border-b border-linha md:grid-cols-1 md:border-b-0"
-          aria-label="Conexões"
+          class="mt-space-6 grid w-full border-b border-linha md:grid-cols-1 md:border-b-0"
+          :class="livrosLidos === null ? 'grid-cols-2' : 'grid-cols-3'"
+          aria-label="Contadores"
         >
-          <div :class="CELULA_DE_CONTADOR">
+          <div
+            v-if="livrosLidos !== null"
+            :class="CELULA_DE_CONTADOR"
+          >
+            <RouterLink
+              to="/estante?status=LIDO"
+              :class="LINK_DE_CONTADOR"
+              :aria-label="contagem(livrosLidos, 'livro lido', 'livros lidos')"
+            >
+              <span class="text-caption text-grafite md:text-body">
+                {{ livrosLidos === 1 ? 'livro lido' : 'livros lidos' }}
+              </span>
+              <span class="font-mono text-num-inline tabular-nums text-tinta">
+                {{ livrosLidos }}
+              </span>
+            </RouterLink>
+          </div>
+          <div :class="[CELULA_DE_CONTADOR, livrosLidos === null ? '' : 'border-l border-linha md:border-l-0 md:border-t']">
             <RouterLink
               to="/perfil/conexoes?aba=seguidores"
               :class="LINK_DE_CONTADOR"

@@ -104,8 +104,27 @@ describe('PerfilView', () => {
     expect(wrapper.find('[aria-label="84 seguidores"]').exists()).toBe(true)
     expect(wrapper.find('[aria-label="1 seguindo"]').exists()).toBe(true)
     expect(wrapper.get('a[href="/perfil/editar"]').text()).toBe('Editar perfil')
-    // Sem o dado de `leitura` ainda: nada de contador de livros lidos.
+  })
+
+  it('livros lidos vem da estante (Lido + Relendo) e leva a ela filtrada por Lido', async () => {
+    leitura.listarEstantePerfil.mockResolvedValue(
+      paginaEstante([itemEstante('l1', 'Dom Casmurro', { status: 'RELENDO', vezesLido: 1 })], {
+        totais: { QUERO_LER: 5, LENDO: 1, LIDO: 11, RELENDO: 1, ABANDONADO: 0 },
+      }),
+    )
+    const { wrapper } = await montarNaRota('/perfil')
+    await flushPromises()
+
+    expect(wrapper.get('a[href="/estante?status=LIDO"]').attributes('aria-label')).toBe('12 livros lidos')
+  })
+
+  it('sem a estante (404), o contador de livros lidos não aparece', async () => {
+    leitura.listarEstantePerfil.mockRejectedValue(new ApiError('Não encontrado.', 404, 'NAO_ENCONTRADO'))
+    const { wrapper } = await montarNaRota('/perfil')
+    await flushPromises()
+
     expect(wrapper.text()).not.toContain('livros lidos')
+    expect(wrapper.find('[aria-label="84 seguidores"]').exists()).toBe(true)
   })
 
   it('Estante e Resenhas aparecem no estado vazio, com o CTA para Descobrir e as abas na web', async () => {
