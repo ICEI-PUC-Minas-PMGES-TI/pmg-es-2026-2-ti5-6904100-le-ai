@@ -91,9 +91,12 @@ class BotaoDeFiltros extends StatelessWidget {
 
 /// Abre a folha de filtros. Devolve os filtros a aplicar (`FiltrosDaBusca.nenhum` em `Limpar
 /// filtros`), ou nulo quando ela fecha sem aplicar: pela alça, pelo scrim ou pelo voltar.
+///
+/// Pelo navegador raiz, como toda folha com campo de texto (`code/mobile/AGENTS.md`): pelo da aba,
+/// a barra inferior ficava por cima da folha e cobria `Aplicar filtros` e `Limpar filtros`.
 Future<FiltrosDaBusca?> mostrarFolhaDeFiltros(BuildContext context, FiltrosDaBusca aplicados) =>
     mostrarFolhaInferior<FiltrosDaBusca>(
-      context,
+      Navigator.of(context, rootNavigator: true).context,
       builder: (context) => FolhaDeFiltros(aplicados: aplicados),
     );
 

@@ -227,6 +227,7 @@ GoRouter buildRouter({
                   servico: deps.acervo,
                   // Assunto tocado na ficha do livro (F-ACV-DESCOBERTA, RF-ACV-21).
                   assuntoInicial: state.uri.queryParameters['assunto'],
+                  aoConsumirAssunto: () => context.go('/descobrir'),
                   aoAbrirLivro: (id) => context.push(rotaLivroOficial(id)),
                   aoCadastrarPorIsbn: () => context.go(rotaAdicionarLivro),
                   // `push`, não `go`: cancelar o cadastro pessoal volta aos resultados, e não
