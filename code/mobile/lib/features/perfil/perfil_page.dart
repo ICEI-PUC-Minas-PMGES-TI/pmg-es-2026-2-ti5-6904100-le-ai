@@ -9,6 +9,8 @@ import '../../design/theme.dart';
 import '../../design/tokens.dart';
 import '../../design/widgets/banner_aviso.dart';
 import '../../design/widgets/botao_textual.dart';
+import '../estante/estante_de_perfil.dart';
+import '../estante/estante_service.dart';
 import 'conexoes_page.dart';
 import 'perfil_service.dart';
 import 'textos.dart';
@@ -20,10 +22,10 @@ import 'widgets_de_perfil.dart';
 /// perfil` e os contadores numa linha com divisor. O header (título `Perfil` e engrenagem) é do
 /// shell.
 ///
-/// **Resenhas do `leitura`** ([resenhas], `listarResenhasPerfil`, F-AVA, 27/09/2026) e **estante no
-/// estado vazio**: `listarEstantePerfil` existe, mas esta página ainda não passa a estante a
-/// `SecoesDeLeitura` (divergência registrada em F-PERFIL). Sem o contador `livros lidos`, que o
-/// `Perfil` de `identidade` não traz.
+/// **Estante e Resenhas do `leitura`**: a estante ([estante], `listarEstantePerfil`, F-EST) na mesma
+/// grade só leitura do perfil de outro leitor, com "Ver tudo"; sem livros, o vazio com o CTA "Buscar
+/// livros". As resenhas por [resenhas] (`listarResenhasPerfil`, F-AVA). Sem o contador `livros
+/// lidos`, que o `Perfil` de `identidade` não traz.
 class PerfilPage extends StatefulWidget {
   final PerfilService servico;
 
@@ -43,6 +45,9 @@ class PerfilPage extends StatefulWidget {
   /// "Ver tudo" da seção Estante leva à aba Estante; mesmo padrão de [aoBuscarLivros].
   final VoidCallback? aoVerEstante;
 
+  /// Estante do próprio leitor (F-EST). Sem ela, a seção fica no estado vazio.
+  final EstanteService? estante;
+
   /// Lista de resenhas do perfil (F-AVA), montada com o id do leitor.
   final Widget Function(String usuarioId)? resenhas;
 
@@ -57,6 +62,7 @@ class PerfilPage extends StatefulWidget {
     this.aoAbrirSolicitacoes,
     this.aoBuscarLivros,
     this.aoVerEstante,
+    this.estante,
     this.resenhas,
     this.listas,
   });
@@ -142,6 +148,9 @@ class _PerfilPageState extends State<PerfilPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final perfil = _perfil;
+    final estante = widget.estante;
+    final aoBuscarLivros = _destino(widget.aoBuscarLivros, '/descobrir');
+    final aoVerEstante = _destino(widget.aoVerEstante, '/estante');
     return SingleChildScrollView(
       // 32 acima do avatar, como no protótipo.
       padding: const EdgeInsets.fromLTRB(
@@ -236,8 +245,22 @@ class _PerfilPageState extends State<PerfilPage> {
                 const SizedBox(height: DesignTokens.space12),
                 SecoesDeLeitura(
                   proprio: true,
-                  aoBuscarLivros: _destino(widget.aoBuscarLivros, '/descobrir'),
-                  aoVerEstante: _destino(widget.aoVerEstante, '/estante'),
+                  aoBuscarLivros: aoBuscarLivros,
+                  aoVerEstante: aoVerEstante,
+                  estante: estante == null
+                      ? null
+                      : EstanteDePerfil(
+                          key: ValueKey<String>('estante-de-${perfil.id}'),
+                          servico: estante,
+                          usuarioId: perfil.id,
+                          primeiroNome: primeiroNome(perfil.displayName),
+                          acaoDoTitulo: aoVerEstante == null ? null : BotaoVerTudo(onPressed: aoVerEstante),
+                          vazio: EstanteVaziaDoPerfil(
+                            proprio: true,
+                            aoBuscarLivros: aoBuscarLivros,
+                            aoVerEstante: aoVerEstante,
+                          ),
+                        ),
                   resenhas: widget.resenhas?.call(perfil.id),
                   listas: widget.listas?.call(perfil.id),
                 ),

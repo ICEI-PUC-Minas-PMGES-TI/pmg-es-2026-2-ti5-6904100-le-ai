@@ -13,18 +13,26 @@ import 'textos.dart';
 
 const double _distanciaParaCarregarMais = 300;
 
+/// Estante de um perfil (`GET /perfis/{id}/estante`, F-EST), em grade só leitura e paginada pela
+/// rolagem. No perfil de outro leitor, `403` avisa [aoMudarRestricao] e `404` esconde a seção. No
+/// próprio perfil, [acaoDoTitulo] traz o "Ver tudo" e [vazio] substitui a seção inteira quando não há
+/// livros ou o `leitura` responde `404`, para manter o CTA "Buscar livros".
 class EstanteDePerfil extends StatefulWidget {
   final EstanteService servico;
   final String usuarioId;
   final String primeiroNome;
-  final ValueChanged<bool> aoMudarRestricao;
+  final ValueChanged<bool>? aoMudarRestricao;
+  final Widget? acaoDoTitulo;
+  final Widget? vazio;
 
   const EstanteDePerfil({
     super.key,
     required this.servico,
     required this.usuarioId,
     required this.primeiroNome,
-    required this.aoMudarRestricao,
+    this.aoMudarRestricao,
+    this.acaoDoTitulo,
+    this.vazio,
   });
 
   @override
@@ -75,13 +83,18 @@ class _EstanteDePerfilState extends State<EstanteDePerfil> {
   void _aoMudar() {
     if (_lista.restrita != _restritaAvisada) {
       _restritaAvisada = _lista.restrita;
-      widget.aoMudarRestricao(_lista.restrita);
+      widget.aoMudarRestricao?.call(_lista.restrita);
     }
     setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
+    final vazio = widget.vazio;
+    final semLivros = !_lista.carregando && !_lista.falhou && _lista.itens.isEmpty;
+    if (vazio != null && (_lista.indisponivel || semLivros)) {
+      return vazio;
+    }
     if (_lista.restrita || _lista.indisponivel) {
       return const SizedBox.shrink();
     }
@@ -89,7 +102,12 @@ class _EstanteDePerfilState extends State<EstanteDePerfil> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        Text(TextosDaEstanteDePerfil.titulo, style: theme.textTheme.titleLarge),
+        Row(
+          children: <Widget>[
+            Expanded(child: Text(TextosDaEstanteDePerfil.titulo, style: theme.textTheme.titleLarge)),
+            ?widget.acaoDoTitulo,
+          ],
+        ),
         const SizedBox(height: DesignTokens.space4),
         ..._conteudo(),
       ],

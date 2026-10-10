@@ -248,6 +248,7 @@ GoRouter buildRouter({
                   aoAbrirSolicitacoes: () => context.push<void>(rotaSolicitacoes),
                   aoBuscarLivros: () => context.go('/descobrir'),
                   aoVerEstante: () => context.go(rotaEstante),
+                  estante: servicoDeEstante,
                   resenhas: (usuarioId) =>
                       _resenhasDoPerfil(context, deps, usuarioId: usuarioId, proprio: true),
                   listas: (usuarioId) => secaoDasMinhasListas(context, depsDeListas, usuarioId),

@@ -15,6 +15,7 @@ import 'package:le_ai_mobile/features/estante/estante_page.dart';
 import 'package:le_ai_mobile/features/estante/estante_service.dart';
 import 'package:le_ai_mobile/features/estante/textos.dart';
 import 'package:le_ai_mobile/features/perfil/perfil_de_outro_page.dart';
+import 'package:le_ai_mobile/features/perfil/perfil_page.dart';
 import 'package:le_ai_mobile/features/perfil/perfil_service.dart';
 import 'package:http/testing.dart';
 
@@ -478,6 +479,103 @@ void main() {
       );
       expect(find.text('Estante'), findsNothing);
       expect(find.text('Este perfil é privado'), findsNothing);
+    });
+  });
+
+  group('Estante no meu perfil', () {
+    PerfilService meuPerfil() => PerfilService(
+      ApiClient(
+        baseUrl: 'https://identidade.example.com',
+        client: MockClient((request) async {
+          if (request.url.path == '/solicitacoes') {
+            return json(<String, Object?>{
+              'items': <Object?>[],
+              'page': 0,
+              'size': 1,
+              'totalElements': 0,
+              'totalPages': 0,
+            }, 200);
+          }
+          return json(<String, Object?>{
+            'id': 'u1',
+            'username': 'marinableu',
+            'displayName': 'Marina Beltrão',
+            'avatarUrl': null,
+            'privacidade': 'privado',
+            'conteudoRestrito': false,
+            'relacao': 'proprio',
+            'biografia': null,
+            'contadores': <String, Object?>{'seguidores': 1, 'seguidos': 1},
+          }, 200);
+        }),
+      ),
+    );
+
+    Future<void> montar(WidgetTester tester, EstanteService estante, {VoidCallback? aoVerEstante}) async {
+      usarTelaDeCelular(tester);
+      await tester.pumpWidget(
+        envolver(
+          PerfilPage(
+            servico: meuPerfil(),
+            estante: estante,
+            aoBuscarLivros: () {},
+            aoVerEstante: aoVerEstante ?? () {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('mostra os próprios livros, sem ações, com "Ver tudo"', (tester) async {
+      var verTudo = 0;
+      await montar(
+        tester,
+        estanteSimulada((request) async {
+          expect(request.url.path, '/perfis/u1/estante');
+          return json(paginaJson(<Map<String, Object?>>[itemJson(_livroId, titulo: 'Dom Casmurro')]), 200);
+        }),
+        aoVerEstante: () => verTudo++,
+      );
+
+      expect(find.text('Dom Casmurro'), findsOneWidget);
+      expect(find.text('Os livros que você adicionar aparecem aqui.'), findsNothing);
+      await tester.tap(find.text('Ver tudo'));
+      expect(verTudo, 1);
+    });
+
+    testWidgets('sem livros, fica o vazio com "Buscar livros"', (tester) async {
+      await montar(tester, estanteSimulada((request) async => json(paginaJson(<Map<String, Object?>>[]), 200)));
+      expect(find.text('Os livros que você adicionar aparecem aqui.'), findsOneWidget);
+      expect(find.text('Buscar livros'), findsOneWidget);
+      expect(find.text('Ver tudo'), findsOneWidget);
+    });
+
+    testWidgets('404 do leitura fica no vazio com "Buscar livros"', (tester) async {
+      await montar(
+        tester,
+        estanteSimulada((request) async => erro(404, 'NAO_ENCONTRADO', 'Não encontrado.')),
+      );
+      expect(find.text('Os livros que você adicionar aparecem aqui.'), findsOneWidget);
+      expect(find.text('Buscar livros'), findsOneWidget);
+    });
+
+    testWidgets('falha mostra erro com "Tentar de novo"', (tester) async {
+      var falhar = true;
+      await montar(
+        tester,
+        estanteSimulada((request) async {
+          // O cliente repete GET com 5xx: a falha dura até o toque em "Tentar de novo".
+          if (falhar) {
+            return erro(500, 'ERRO_INTERNO', 'Falha.');
+          }
+          return json(paginaJson(<Map<String, Object?>>[itemJson(_livroId, titulo: 'Dom Casmurro')]), 200);
+        }),
+      );
+      expect(find.text(TextosDaEstanteDePerfil.erroTexto), findsOneWidget);
+      falhar = false;
+      await tester.tap(find.text(TextosDaEstante.erroBotao));
+      await tester.pumpAndSettle();
+      expect(find.text('Dom Casmurro'), findsOneWidget);
     });
   });
 }
