@@ -200,6 +200,8 @@ Marcado = verificado localmente por teste (24/09/2026, revisto no fechamento de 
 
 ## Timeline
 
+### Cabeçalho do shell no leitor de tela 11/10/2026: na revisão no emulador, a árvore de acessibilidade das quatro raízes das abas não tinha o cabeçalho: título, lupa (`Buscar leitor`), engrenagem (`Configurações`) e sino. Para o leitor de tela, a busca de leitor e as Configurações do Meu perfil não existiam. As telas empilhadas, que têm o próprio cabeçalho, não tinham o problema. Correção em `app/shell_autenticado.dart`: o navegador das abas ganhou um contêiner semântico próprio (`Semantics(container: true)`), e o cabeçalho voltou à árvore com as ações tocáveis. A causa provável é o `BlockSemantics` da barreira das rotas, que derruba o que foi pintado antes no mesmo contêiner. Teste de regressão em `router_test.dart`, que reprova sem a correção. O shell é código comum (P0-NAV); a mudança vale para todas as abas. O sino continua sem ação de toque para o leitor de tela (`cabecalho_tela.dart`, `excludeSemantics` sem `onTap`), que é da F-NOT; o aviso vai ao grupo.
+
 ### Teste de contrato 11/10/2026: as respostas das rotas de perfil e seguimento exercitadas pelos testes de integração passaram a ser validadas contra `identidade.yaml` (detalhes na [F-AUT](feature-F-AUT.md)). Nenhuma divergência própria desta feature: as de `Perfil` eram da combinação `allOf` no validador, resolvida na configuração.
 
 ### Testes de tela 11/10/2026: Conexões e Solicitações, na web e no mobile, ganharam o caso de falha ao carregar: o aviso de erro aparece sem lista, e `Tentar de novo` busca de novo e mostra os itens (`ConexoesView.spec.ts`, `SolicitacoesView.spec.ts`, `seguimento_test.dart`). Web com 872 testes e lint verdes; mobile com 747 testes e `flutter analyze` limpo.
