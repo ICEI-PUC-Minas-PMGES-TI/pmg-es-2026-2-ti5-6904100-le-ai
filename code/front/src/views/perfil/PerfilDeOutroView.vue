@@ -447,6 +447,7 @@ const textoDaConfirmacao = computed(() =>
               <FimDaLista
                 v-if="estante.temMais.value || estante.falhouMais.value"
                 :falhou="estante.falhouMais.value"
+                :carregando="estante.carregandoMais.value"
                 @carregar="estante.carregarMais()"
               />
             </template>
