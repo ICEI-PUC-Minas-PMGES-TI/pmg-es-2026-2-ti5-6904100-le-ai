@@ -57,11 +57,29 @@ Uma URL por serviço, sem gateway: `VITE_IDENTIDADE_BASE_URL`, `VITE_ACERVO_BASE
 
 ## Componentes compartilhados que mudaram
 
+- **F-AVA-2, Markdown da resenha (09/10/2026, Renato).** A resenha continua gravada como texto cru e é renderizada no cliente só com o subconjunto do RN-13: negrito, itálico, tachado (só `~~texto~~`), listas e citação. Link, imagem, título, código, tabela e HTML aparecem literais. O que mexe no que é de todos:
+  - **Resenha inteira só por `components/livros/TextoDaResenha.vue`**, o único `v-html` do app: recebe a saída de `renderizarResenha` (`markdown/resenha.ts`: `markdown-it` com HTML e as regras fora do subconjunto desligadas, e `DOMPurify` só com as tags do subconjunto). Nunca passe outro texto por `v-html`. Está em `CardResenha`, `BlocoSuaAvaliacao` e na resenha do dono em `LivroPessoalView`.
+  - **Prévia de poucas linhas usa `textoSemMarcacao`** (sem `**`, `>` nem `-`, cada bloco numa linha): `feed/ItemAtividade.vue` (do Kayke) e `perfil/CardResenhaDoPerfil.vue`. Trecho que precisa manter o itálico, como o da denúncia na F-MOD, não usa essa função.
+  - **Paridade com o mobile (RN-13.4):** o comportamento do parser está fixado em `docs/design-system/markdown-resenha-casos.json`, lido por `markdown/resenha.spec.ts` e pelo teste do mobile. Mudou o parser, a versão do pacote ou a configuração: rode os testes dos dois clientes. O arquivo está no filtro de caminhos da CI dos dois.
+  - Editor (`views/livros/EscreverResenhaView.vue`): abas `Escrever | Visualizar` e `components/livros/BarraDeFormatacao.vue` no topo da coluna. A lógica da barra e do `Enter` fica em `markdown/edicao.ts`, sem DOM, igual a `markdown_edicao.dart` do mobile.
+
+- **F-ACV-DESCOBERTA (07/10/2026, Vicenzo).** Páginas de autor, editora e série em `views/catalogo/PaginaDeCatalogoView.vue` (uma view, a prop `tipo` vem da rota), estado em `livros/usePaginaDeCatalogo.ts`, filtros em `livros/filtrosDaBusca.ts`, `components/livros/FiltrosAvancados.vue` e `ChipsDeFiltros.vue`. O que mexe no que é de todos:
+  - `ui/CampoTexto.vue` ganhou a prop opcional `sufixo` (unidade dentro do campo, à direita, como `páginas`). Sem ela, nada muda.
+  - `livros/CardLivroBusca.vue` ganhou a prop opcional `numeroNaSerie` (a linha `Livro N` acima do título).
+  - `testes/montarNaRota.ts` aceita `{ largo: true }`, que faz toda media query casar (layout de 768px para cima).
+  - `services/acervo.ts`: `LivroOficialDetalhe` tem `editoraId` e `serie`; `testes/massaDoLivro.ts` os traz nulos. `buscarLivros` aceita os filtros e só manda os preenchidos.
+  - `views/livros/LivroOficialView.vue` (integrada pelo Renato): a ficha aceita linha com link (`links`) e `complemento`, e há a seção `Assuntos` depois da sinopse.
+
+- **F-LST (05/10/2026, Henrique).** Telas em `views/listas/`, componentes em `components/listas/`, lógica em `src/listas/` e serviço em `services/listas.ts`. O que mexe no que é de todos:
+  - `layouts/ShellAutenticado.vue` ganhou o ponto `#avisos-flutuantes`, onde `ui/AvisoFlutuante` (toast do design §7.6, barra lateral `musgo` ou `rubi`) entra por Teleport: acima da barra inferior no mobile, no canto da área de conteúdo na web. E o rótulo do retorno da web pode vir da tela (`cabecalho.ts`, `usarRotuloVoltar`), para `Listas de Rafael`; sem ele, vale `meta.voltarComRotulo`.
+  - `components/perfil/SecoesDeLeitura.vue` aceita o slot `listas` (terceira aba, `Listas`) e a prop `abaInicial` (`?aba=listas`); as setas percorrem as três abas.
+  - `ui/MenuDeAcoes.vue` é o menu `Mais ações`: folha no mobile, dropdown na web. Na página do livro oficial tem `Adicionar à lista` e, desde F-REC-P2P, `Recomendar a um leitor`; outras features acrescentam itens em `acoesDoMenu`.
+  - `styles.css` ganhou a classe global `.entrada` (fade único dos skeletons). As telas antigas mantêm a cópia em `<style scoped>`.
+  - `services/acervo.ts`: `ViaDeAcesso.via` aceita `lista`, que o `acervo` aceita desde a etapa 3 da F-LST (07/10/2026). `LivroPessoalView` ainda trata um 400 por essa via como "indisponível". O dono abre o próprio livro sem via (contorno de antes da etapa 3, mantido por ser inofensivo).
+
 - **`components/perfil/FimDaLista.vue` (27/09/2026, F-ACV-BUSCA).** Ganhou a prop opcional `carregando`. O `IntersectionObserver` só avisa quando a marca *entra* na tela; se a página nova não a empurrar para fora (lista curta, edições agrupadas, monitor alto), a paginação parava sem botão. Com `carregando`, cada carga que termina reobserva a marca, e ela pede a seguinte se continuar visível. Sem a prop, o comportamento é o de antes: Conexões, Solicitações e Feed ainda não a passam, e deveriam (é só `:carregando="<flag de carregando mais>"`).
 
-- **`components/ui/MenuDeAcoes.vue` (04/10/2026, F-REC-P2P).** O dropdown da web com folha no mobile, que vivia dentro do `ComentarioItem`, virou componente: `alternar(botao)` ancora o dropdown no botão a partir de 768px e abre a `FolhaAcoes` abaixo disso. Usado no menu do comentário e no `Mais ações` da página do livro oficial.
-
-- **`components/ui/AvisoToast.vue` + `src/avisos.ts` (04/10/2026, F-REC-P2P).** Toast de confirmação único do app, montado no `ShellAutenticado`: `mostrarAviso(texto, { icone, tom, acao })` de qualquer tela. A confirmação some sozinha em 6 s ou pelo `X`; o de `tom: 'erro'` (barra `rubi`, com `acao` como `Tentar de novo`) fica até a pessoa agir. `AcaoDaFolha` ganhou `detalhe`, a linha explicativa abaixo do rótulo na folha e no dropdown. Fica acima da barra inferior no mobile e no canto inferior esquerdo do conteúdo na web.
+- **`ui/MenuDeAcoes.vue` e `ui/FolhaAcoes.vue`, `detalhe` (F-REC-P2P, 11/10/2026).** `AcaoDaFolha` ganhou `detalhe`, a linha explicativa abaixo do rótulo, desenhada na folha e no dropdown. O menu da página do livro oficial passou a ter `Recomendar a um leitor` ao lado de `Adicionar à lista`, e cada recomendação da lista completa usa um `MenuDeAcoes` próprio. O aviso de confirmação é o `ui/AvisoFlutuante` da F-LST: a tela que dispara guarda o estado (`LivroOficialView` e `RecomendacoesRecebidasView`), e `DialogoRecomendar` só emite `enviada`.
 
 - **`components/ui/SobreposicaoModal.vue`, `min-w-0` no painel (04/10/2026, F-REC-P2P).** Sem ele, conteúdo com largura intrínseca grande (textarea com `field-sizing: content`) alargava o sheet além da tela no mobile.
 

@@ -124,6 +124,8 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 ## Timeline
 
+### Integração 11/10/2026: `desenvolvimento` incorporada à branch para abrir o PR. Os conflitos com F-LST, F-AVA-2, F-ACV-DESCOBERTA e F-CONTA-2 foram resolvidos reaproveitando o que já estava lá, sem duplicar: o menu `Mais ações` e o `AvisoFlutuante` da F-LST passaram a servir `Recomendar a um leitor` e os avisos da feature (saíram `AvisoToast` e `avisos.ts`), e no mobile o item entrou na folha `_abrirMenu` da página do livro. `social` ganhou `RECOMENDACAO_RECEBIDA` ao lado de `RESENHA_CURTIDA` e do consumidor de `conta.excluida`, que já apaga `recomendacao` do titular.
+
 ### Revisão 11/10/2026: texto de contrato alinhado a `social.yaml` (`200`, `LIMITE_ATINGIDO`, todos bloqueados sem `422`) e `onTap` nos `Semantics` do feed e das telas da feature (acessibilidade mobile).
 
 ### Implementação 04/10/2026: contratos, backend `social`, web e mobile na branch `Eman134/F-REC-P2P` (issue #28). Envio com resultado por destinatário, candidatos, recebidas, descarte owner-only, remoção ao estantar com DLQ, limpeza diária e notificação `RECOMENDACAO_RECEBIDA`; testes de integração com Postgres real, Vitest e `flutter test`. Validação em DES pendente do merge.
