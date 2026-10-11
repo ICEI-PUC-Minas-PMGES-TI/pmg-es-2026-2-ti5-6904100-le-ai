@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:le_ai_mobile/features/livros/livro_oficial_page.dart';
+import 'package:le_ai_mobile/design/widgets/botao_secundario.dart';
 import 'package:le_ai_mobile/features/recomendacoes/recomendar_livro_page.dart';
 
 import '../feed/apoio.dart';
@@ -232,6 +233,29 @@ void main() {
     expect(find.text('Continuar editando'), findsOneWidget);
   });
 
+  testWidgets('o item do menu Mais ações também abre a tela de recomendar', (tester) async {
+    usarTelaDeCelular(tester);
+    await tester.pumpWidget(
+      envolver(
+        LivroOficialPage(
+          servico: acervoSimulado((request) async => json(_livroDoAcervo, 200)),
+          leitura: leituraSimulada((_) async => json(semAvaliacao(_livroId), 200)),
+          livroId: _livroId,
+          aoVoltar: () {},
+          social: socialSimulado((request) async => json(<String, Object?>{'itens': _mutuos}, 200)),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.bySemanticsLabel('Mais ações'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Recomendar a um leitor').last);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(RecomendarLivroPage), findsOneWidget);
+  });
+
   testWidgets('pela página do livro: menu, envio aceito para todos e aviso com os nomes', (
     tester,
   ) async {
@@ -259,9 +283,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.bySemanticsLabel('Mais ações'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Recomendar a um leitor'));
+    await tester.tap(find.widgetWithText(BotaoSecundario, 'Recomendar a um leitor'));
     await tester.pumpAndSettle();
     expect(find.text('Recomendar'), findsOneWidget);
 

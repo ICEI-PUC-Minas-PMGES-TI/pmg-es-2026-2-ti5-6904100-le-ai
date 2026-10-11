@@ -8,6 +8,7 @@ import '../../design/tokens.dart';
 import '../../design/widgets/aviso.dart';
 import '../../design/widgets/bloco_de_spoiler.dart';
 import '../../design/widgets/botao_primario.dart';
+import '../../design/widgets/botao_secundario.dart';
 import '../../design/widgets/botao_textual.dart';
 import '../../design/widgets/capa_livro.dart';
 import '../../design/widgets/entrada_suave.dart';
@@ -337,6 +338,14 @@ class _LivroOficialPageState extends State<LivroOficialPage> {
               ),
               progresso: widget.progresso,
               aoVerAtualizacoes: widget.aoVerAtualizacoes,
+            ),
+          ],
+          if (widget.social case final social?) ...<Widget>[
+            const SizedBox(height: DesignTokens.space4),
+            BotaoSecundario(
+              texto: 'Recomendar a um leitor',
+              icone: PhosphorIconsRegular.paperPlaneTilt,
+              onPressed: () => _recomendar(social, livro.resumo),
             ),
           ],
           const SizedBox(height: DesignTokens.space8),

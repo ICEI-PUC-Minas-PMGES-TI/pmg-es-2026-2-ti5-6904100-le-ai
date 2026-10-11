@@ -14,6 +14,7 @@ import SecaoFrases from '../../components/livros/SecaoFrases.vue'
 import DialogoRecomendar from '../../components/recomendacoes/DialogoRecomendar.vue'
 import AvisoFlutuante from '../../components/ui/AvisoFlutuante.vue'
 import BotaoPrimario from '../../components/ui/BotaoPrimario.vue'
+import BotaoSecundario from '../../components/ui/BotaoSecundario.vue'
 import BotaoTextual from '../../components/ui/BotaoTextual.vue'
 import { formatarPaginas } from '../../livros/formatos'
 import { useLivroOficial } from '../../livros/useLivroOficial'
@@ -324,6 +325,16 @@ function voltar(): void {
           :autor="autores"
           :capa-url="livro.capa.url"
         />
+        <div class="order-3 mt-space-4 lg:order-none">
+          <BotaoSecundario @click="recomendando = true">
+            <PhPaperPlaneTilt
+              :size="20"
+              weight="regular"
+              aria-hidden="true"
+            />
+            Recomendar a um leitor
+          </BotaoSecundario>
+        </div>
         <BlocoSuaAvaliacao
           class="order-3 mt-space-8 lg:order-none"
           :avaliacao="minhaAvaliacao"
