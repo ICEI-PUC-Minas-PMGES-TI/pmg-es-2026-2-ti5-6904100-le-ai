@@ -149,6 +149,7 @@ class _ComentarioItemState extends State<ComentarioItem> {
                 button: true,
                 label: 'Responder a ${autor.nomeExibicao}',
                 excludeSemantics: true,
+                onTap: widget.aoResponder,
                 // O respiro dos lados é do realce do toque; o deslocamento mantém o texto alinhado
                 // ao do comentário.
                 child: Transform.translate(

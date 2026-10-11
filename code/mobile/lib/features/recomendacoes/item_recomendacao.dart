@@ -51,6 +51,7 @@ class ItemRecomendacao extends StatelessWidget {
               button: true,
               label: rotuloDaRecomendacao(recomendacao),
               excludeSemantics: true,
+              onTap: aoAbrir,
               child: GestureDetector(
                 onTap: aoAbrir,
                 behavior: HitTestBehavior.opaque,

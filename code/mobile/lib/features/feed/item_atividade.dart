@@ -262,6 +262,7 @@ class _BotaoDeAcao extends StatelessWidget {
       enabled: aoTocar != null,
       label: rotulo,
       excludeSemantics: true,
+      onTap: aoTocar,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: aoTocar,

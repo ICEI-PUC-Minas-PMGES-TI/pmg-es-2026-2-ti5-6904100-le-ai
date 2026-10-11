@@ -833,6 +833,7 @@ class _FolhaComentariosState extends State<FolhaComentarios> {
       enabled: podeEnviar,
       label: 'Enviar comentário',
       excludeSemantics: true,
+      onTap: podeEnviar ? _enviar : null,
       child: IconButton(
         onPressed: podeEnviar ? _enviar : null,
         constraints: const BoxConstraints.tightFor(width: 48, height: 48),

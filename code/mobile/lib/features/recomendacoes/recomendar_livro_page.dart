@@ -528,6 +528,7 @@ class _LinhaDeLeitor extends StatelessWidget {
       label: rotulo,
       checked: disponivel ? marcado : null,
       excludeSemantics: true,
+      onTap: disponivel ? aoAlternar : null,
       child: InkWell(
         onTap: disponivel ? aoAlternar : null,
         child: ConstrainedBox(

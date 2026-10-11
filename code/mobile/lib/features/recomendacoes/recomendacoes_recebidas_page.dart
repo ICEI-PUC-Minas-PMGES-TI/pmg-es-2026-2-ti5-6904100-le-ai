@@ -273,6 +273,7 @@ class _RecomendacoesRecebidasPageState extends State<RecomendacoesRecebidasPage>
                     'Mais ações para ${recomendacao.livro.titulo}, recomendado por '
                     '${recomendacao.remetente.nomeExibicao}',
                 excludeSemantics: true,
+                onTap: () => _abrirMenu(recomendacao),
                 child: GestureDetector(
                   onTap: () => _abrirMenu(recomendacao),
                   behavior: HitTestBehavior.opaque,
