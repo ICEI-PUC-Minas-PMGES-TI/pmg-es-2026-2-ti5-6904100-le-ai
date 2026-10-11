@@ -9,6 +9,7 @@ import BotaoTextual from '../../components/ui/BotaoTextual.vue'
 import CampoSenha from '../../components/ui/CampoSenha.vue'
 import CampoTexto from '../../components/ui/CampoTexto.vue'
 import LogoLeAi from '../../components/ui/LogoLeAi.vue'
+import { guardarAcessoDeRecuperacao } from '../../contaEmExclusao'
 import LayoutAutenticacao from '../../layouts/LayoutAutenticacao.vue'
 import { ApiError } from '../../services/api'
 import { authService } from '../../services/auth'
@@ -92,6 +93,12 @@ async function enviar(): Promise<void> {
       identificador: identificador.value.trim(),
       senha: senha.value,
     })
+    // Conta em exclusão (F-CONTA-2): sem sessão, só a tela de recuperação.
+    if ('recuperacao' in resultado) {
+      guardarAcessoDeRecuperacao(resultado.recuperacao)
+      await router.push('/conta/recuperar')
+      return
+    }
     iniciarSessao(resultado.sessao, resultado.usuario)
     await router.push('/estante')
   } catch (erro) {

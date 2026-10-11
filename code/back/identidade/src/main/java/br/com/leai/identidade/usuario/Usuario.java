@@ -81,6 +81,10 @@ public class Usuario {
   @Column(name = "exclusao_solicitada_em", insertable = false, updatable = false)
   private Instant exclusaoSolicitadaEm;
 
+  // F-CONTA-2 grava as duas datas por SQL, no mesmo UPDATE, para o CHECK de +30 dias ver o par.
+  @Column(name = "exclusao_prevista_em", insertable = false, updatable = false)
+  private Instant exclusaoPrevistaEm;
+
   /** Preenchido pelo default do banco no insert; só as escritas desta classe o avançam. */
   @Column(name = "atualizado_em", nullable = false, insertable = false)
   private Instant atualizadoEm;
@@ -163,6 +167,19 @@ public class Usuario {
 
   public String privacidade() {
     return privacidade;
+  }
+
+  public Instant exclusaoSolicitadaEm() {
+    return exclusaoSolicitadaEm;
+  }
+
+  public Instant exclusaoPrevistaEm() {
+    return exclusaoPrevistaEm;
+  }
+
+  /** Conta dentro da janela de recuperação de 30 dias (RN-23.2). */
+  public boolean exclusaoPendente() {
+    return exclusaoSolicitadaEm != null;
   }
 
   public boolean ehPrivado() {

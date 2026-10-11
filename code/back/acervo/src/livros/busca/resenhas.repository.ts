@@ -18,6 +18,9 @@ interface LinhaDeResenha {
   spoiler: boolean | null;
   criadoEm: Date;
   atualizadoEm: Date;
+  curtidas: string | number;
+  descurtidas: string | number;
+  minhaReacao: string | null;
   posicao: string;
 }
 
@@ -26,6 +29,9 @@ interface LinhaDeResenha {
  * **no servidor**: só aparece a resenha de autor com perfil público, ou de perfil
  * privado que o leitor segue com seguimento aceito. A resenha do próprio leitor
  * fica de fora: a lista é de "outros leitores".
+ *
+ * Cada resenha traz as contagens de reações e a reação de quem está vendo
+ * (F-AVA-2, RF-AVA-08), pela `v_reacao_resenha_v1`.
  *
  * Tudo vem das VIEWs de contrato de `leitura` e `identidade`, nunca de tabela
  * crua. A `v_perfil_referencia_v1` já omite conta suspensa e em exclusão, então
@@ -53,9 +59,14 @@ export class ResenhasRepository {
         r.spoiler,
         r.criado_em AS "criadoEm",
         r.atualizado_em AS "atualizadoEm",
+        r.curtidas,
+        r.descurtidas,
+        rr.tipo AS "minhaReacao",
         to_char(r.criado_em AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS posicao
       FROM leitura.v_resenha_publicacao_v1 r
       JOIN identidade.v_perfil_referencia_v1 p ON p.id = r.usuario_id
+      LEFT JOIN leitura.v_reacao_resenha_v1 rr
+        ON rr.resenha_id = r.resenha_id AND rr.usuario_id = ${leitorId}
       WHERE r.livro_id = ${livroId}
         AND r.usuario_id <> ${leitorId}
         AND (
@@ -88,6 +99,9 @@ export class ResenhasRepository {
         spoiler: linha.spoiler ?? false,
         criadoEm: new Date(linha.criadoEm).toISOString(),
         atualizadoEm: new Date(linha.atualizadoEm).toISOString(),
+        curtidas: Number(linha.curtidas ?? 0),
+        descurtidas: Number(linha.descurtidas ?? 0),
+        minhaReacao: reacaoConhecida(linha.minhaReacao),
       })),
       proximoCursor:
         temMais && ultima
@@ -95,4 +109,11 @@ export class ResenhasRepository {
           : null,
     };
   }
+}
+
+/** Só os dois tipos do contrato; qualquer outro valor vindo da VIEW vira ausência de reação. */
+export function reacaoConhecida(
+  tipo: string | null | undefined,
+): 'curtida' | 'descurtida' | null {
+  return tipo === 'curtida' || tipo === 'descurtida' ? tipo : null;
 }

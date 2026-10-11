@@ -1,17 +1,20 @@
 <script setup lang="ts">
-import { PhBookOpen, PhDotsThree, PhPaperPlaneTilt, PhWarning } from '@phosphor-icons/vue'
+import { PhBookOpen, PhCaretRight, PhListPlus, PhMagnifyingGlass, PhPaperPlaneTilt, PhWarning } from '@phosphor-icons/vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import SituacaoNaEstante from '../../components/estante/SituacaoNaEstante.vue'
+import AdicionarALista from '../../components/listas/AdicionarALista.vue'
+import { type AcaoDaFolha } from '../../components/ui/FolhaAcoes.vue'
+import MenuDeAcoes from '../../components/ui/MenuDeAcoes.vue'
 import BlocoSuaAvaliacao from '../../components/livros/BlocoSuaAvaliacao.vue'
 import CapaLivro from '../../components/livros/CapaLivro.vue'
 import CardResenha from '../../components/livros/CardResenha.vue'
+import SecaoFrases from '../../components/livros/SecaoFrases.vue'
 import DialogoRecomendar from '../../components/recomendacoes/DialogoRecomendar.vue'
+import AvisoFlutuante from '../../components/ui/AvisoFlutuante.vue'
 import BotaoPrimario from '../../components/ui/BotaoPrimario.vue'
 import BotaoTextual from '../../components/ui/BotaoTextual.vue'
-import type { AcaoDaFolha } from '../../components/ui/FolhaAcoes.vue'
-import MenuDeAcoes from '../../components/ui/MenuDeAcoes.vue'
 import { formatarPaginas } from '../../livros/formatos'
 import { useLivroOficial } from '../../livros/useLivroOficial'
 import { useMinhaAvaliacao } from '../../livros/useMinhaAvaliacao'
@@ -29,6 +32,9 @@ import { useMinhaAvaliacao } from '../../livros/useMinhaAvaliacao'
  *   ele estiver lento, a página abre igual. Trocar de livro na mesma rota recarrega a página.
  * - A situação na estante (F-EST) e o progresso (F-PRG) ficam logo abaixo do cabeçalho, com um
  *   único botão principal por situação.
+ * - F-ACV-DESCOBERTA: na ficha, autor, editora e série levam às páginas de catálogo (o número da
+ *   série fica fora do link), e `Assuntos`, depois da sinopse, leva ao Descobrir filtrado. O autor
+ *   do título não vira link.
  */
 const route = useRoute()
 const router = useRouter()
@@ -61,6 +67,22 @@ watch(
 onBeforeUnmount(() => pagina.descartar())
 
 const autores = computed(() => livro.value?.autores.map((autor) => autor.nome).join(', ') || null)
+
+const adicionandoALista = ref(false)
+const acoesDoMenu: AcaoDaFolha[] = [
+  { id: 'lista', rotulo: 'Adicionar à lista', icone: PhListPlus },
+  { id: 'recomendar', rotulo: 'Recomendar a um leitor', icone: PhPaperPlaneTilt },
+]
+const recomendando = ref(false)
+const avisoDeRecomendacao = ref<string | null>(null)
+
+function escolherNoMenu(acao: string): void {
+  if (acao === 'lista') {
+    adicionandoALista.value = true
+  } else if (acao === 'recomendar') {
+    recomendando.value = true
+  }
+}
 const rotaDoEditor = computed(() => ({
   name: 'escrever-resenha',
   params: { id: String(route.params.id) },
@@ -70,6 +92,12 @@ const livroAvaliado = computed(() => ({
   titulo: livro.value?.titulo ?? '',
   autor: autores.value,
   capaUrl: livro.value?.capa.url ?? null,
+}))
+/** F-AVA-2: o livro do formulário de frase, com o total de páginas para validar a página. */
+const livroDaFrase = computed(() => ({
+  ...livroAvaliado.value,
+  id: String(route.params.id),
+  paginas: livro.value?.paginas ?? 0,
 }))
 /** `Todavia · 2019 · 264 páginas`: só o que existe. */
 const metadados = computed(() => {
@@ -81,36 +109,52 @@ const metadados = computed(() => {
     .filter((parte): parte is string => Boolean(parte))
     .join(' · ')
 })
+/** O link único da linha cobre a linha inteira, o alvo de 48px da ficha (pagina-do-livro.md). */
+const LINK_ESTICADO = "after:absolute after:inset-0 after:content-['']"
+
+interface LinhaDaFicha {
+  rotulo: string
+  /** Texto puro (ISBN, editora sem página). */
+  valor?: string
+  /** Um link estica sobre a linha inteira; com vários (coautoria), cada nome é o seu alvo. */
+  links?: { texto: string; para: string }[]
+  /** Fora do link, em `grafite`: o `volume N` da série. */
+  complemento?: string
+}
+
 const ficha = computed(() => {
   if (!livro.value) {
     return []
   }
-  const linhas: { rotulo: string; valor: string }[] = []
-  if (autores.value) {
-    linhas.push({ rotulo: 'Autor', valor: autores.value })
+  const { autores: autoresDoLivro, editora, editoraId, serie, isbn } = livro.value
+  const linhas: LinhaDaFicha[] = []
+  if (autoresDoLivro.length) {
+    linhas.push({
+      rotulo: autoresDoLivro.length > 1 ? 'Autores' : 'Autor',
+      links: autoresDoLivro.map((autor) => ({ texto: autor.nome, para: `/descobrir/autores/${autor.id}` })),
+    })
   }
-  if (livro.value.editora) {
-    linhas.push({ rotulo: 'Editora', valor: livro.value.editora })
+  if (editora) {
+    linhas.push(
+      editoraId
+        ? { rotulo: 'Editora', links: [{ texto: editora, para: `/descobrir/editoras/${editoraId}` }] }
+        : { rotulo: 'Editora', valor: editora },
+    )
   }
-  linhas.push({ rotulo: 'ISBN', valor: livro.value.isbn })
+  if (serie) {
+    linhas.push({
+      rotulo: 'Série',
+      links: [{ texto: serie.nome, para: `/descobrir/series/${serie.id}` }],
+      complemento: serie.numero === null ? undefined : `volume ${serie.numero}`,
+    })
+  }
+  linhas.push({ rotulo: 'ISBN', valor: isbn })
   return linhas
 })
 const semResenhas = computed(() => resenhas.value.length === 0 && !resenhasIndisponiveis.value)
 const aguardandoSinopse = computed(
   () => (sinopse.value.status === 'pendente' || sinopse.value.status === 'nao_consultada') && !sinopseDemorou.value,
 )
-
-const acoesDoMenu: AcaoDaFolha[] = [{ id: 'recomendar', rotulo: 'Recomendar a um leitor', icone: PhPaperPlaneTilt }]
-const menu = ref<InstanceType<typeof MenuDeAcoes> | null>(null)
-const botaoDoMenuWeb = ref<HTMLElement | null>(null)
-const botaoDoMenuMobile = ref<HTMLElement | null>(null)
-const recomendando = ref(false)
-
-function escolherNoMenu(id: string): void {
-  if (id === 'recomendar') {
-    recomendando.value = true
-  }
-}
 
 function voltar(): void {
   if (window.history.state?.back) {
@@ -195,35 +239,19 @@ function voltar(): void {
     >
       <!-- O título vem primeiro no DOM, para o leitor de tela começar pelo h1; a ordem visual vem de
            `order` abaixo de 1024px e da posição no grid acima. -->
-      <header class="order-2 mt-space-5 flex items-start gap-space-4 lg:order-none lg:col-start-2 lg:row-start-1 lg:mt-0">
-        <div class="min-w-0 flex-1 text-center lg:text-left">
-          <h1 class="text-display text-tinta lg:text-display-hero">
-            {{ livro.titulo }}
-          </h1>
-          <p
-            v-if="autores"
-            class="mt-space-2 text-body text-grafite lg:text-title-sm"
-          >
-            {{ autores }}
-          </p>
-          <p class="mt-space-1 text-caption text-grafite-suave">
-            {{ metadados }}
-          </p>
-        </div>
-        <button
-          ref="botaoDoMenuWeb"
-          type="button"
-          class="hidden size-10 shrink-0 cursor-pointer items-center justify-center rounded-base border border-linha text-tinta transition-colors duration-dur-fast hover:bg-linha md:flex"
-          aria-label="Mais ações"
-          :aria-expanded="menu?.aberto ?? false"
-          @click="menu?.alternar(botaoDoMenuWeb!)"
+      <header class="order-2 mt-space-5 text-center lg:order-none lg:col-start-2 lg:row-start-1 lg:mt-0 lg:text-left">
+        <h1 class="text-display text-tinta lg:text-display-hero">
+          {{ livro.titulo }}
+        </h1>
+        <p
+          v-if="autores"
+          class="mt-space-2 text-body text-grafite lg:text-title-sm"
         >
-          <PhDotsThree
-            :size="20"
-            weight="regular"
-            aria-hidden="true"
-          />
-        </button>
+          {{ autores }}
+        </p>
+        <p class="mt-space-1 text-caption text-grafite-suave">
+          {{ metadados }}
+        </p>
       </header>
 
       <!-- Abaixo de 1024px a coluna se desfaz (`contents`) e a ordem vem de `order`: capa, título,
@@ -244,12 +272,43 @@ function voltar(): void {
             <div
               v-for="linha in ficha"
               :key="linha.rotulo"
-              class="flex items-start justify-between gap-space-4 py-space-3"
+              class="relative flex items-start justify-between gap-space-4 py-space-3"
+              :class="linha.links?.length === 1 ? 'min-h-12 items-center rounded-base focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-musgo' : ''"
             >
               <dt class="text-label text-grafite">
                 {{ linha.rotulo }}
               </dt>
-              <dd class="text-right text-body text-tinta">
+              <dd
+                v-if="linha.links"
+                class="flex flex-col items-end text-right text-body"
+              >
+                <span
+                  v-for="link in linha.links"
+                  :key="link.para"
+                  class="inline-flex flex-wrap items-center justify-end gap-x-space-1"
+                >
+                  <RouterLink
+                    :to="link.para"
+                    class="inline-flex items-center gap-space-1 font-semibold text-musgo underline-offset-2 outline-none hover:underline focus-visible:underline"
+                    :class="linha.links.length === 1 ? LINK_ESTICADO : 'min-h-12 md:min-h-10'"
+                  >
+                    {{ link.texto }}
+                    <PhCaretRight
+                      :size="16"
+                      weight="regular"
+                      aria-hidden="true"
+                    />
+                  </RouterLink>
+                  <span
+                    v-if="linha.complemento"
+                    class="text-grafite"
+                  >· {{ linha.complemento }}</span>
+                </span>
+              </dd>
+              <dd
+                v-else
+                class="text-right text-body text-tinta"
+              >
                 {{ linha.valor }}
               </dd>
             </div>
@@ -310,6 +369,36 @@ function voltar(): void {
                   : 'A sinopse ainda está a caminho. Volte daqui a pouco.'
             }}
           </p>
+        </section>
+
+        <section
+          v-if="livro.assuntos.length"
+          class="order-4 mt-space-6 lg:order-none lg:mt-space-8"
+        >
+          <h2 class="text-title-lg text-tinta">
+            Assuntos
+          </h2>
+          <ul class="mt-space-2 flex flex-wrap gap-x-space-2">
+            <li
+              v-for="assunto in livro.assuntos"
+              :key="assunto.id"
+            >
+              <RouterLink
+                :to="{ path: '/descobrir', query: { assunto: assunto.id } }"
+                :aria-label="`Buscar livros de ${assunto.nome}`"
+                class="group flex min-h-12 items-center outline-none md:min-h-10"
+              >
+                <span class="inline-flex items-center gap-space-1 rounded-full border border-linha px-space-3 py-space-1 text-caption uppercase text-tinta transition-colors duration-dur-fast group-hover:bg-linha group-focus-visible:outline group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-musgo">
+                  <PhMagnifyingGlass
+                    :size="16"
+                    weight="regular"
+                    aria-hidden="true"
+                  />
+                  {{ assunto.nome }}
+                </span>
+              </RouterLink>
+            </li>
+          </ul>
         </section>
 
         <section class="order-6 mt-space-6 lg:order-none lg:mt-space-8">
@@ -381,42 +470,48 @@ function voltar(): void {
             </BotaoTextual>
           </template>
         </section>
+
+        <!-- F-AVA-2: frases e trechos, depois das resenhas (pagina-do-livro.md §5.4). -->
+        <SecaoFrases
+          class="order-7 mt-space-6 lg:order-none lg:mt-space-8"
+          :livro="livroDaFrase"
+          :rota-das-frases="{ name: 'frases-do-livro', params: { id: livroDaFrase.id } }"
+        />
       </div>
     </article>
 
+    <!-- Menu `Mais ações` (pagina-do-livro.md P2): `Adicionar à lista` (F-LST) e `Recomendar a um
+         leitor` (F-REC-P2P), ambos em `acoesDoMenu`. -->
     <Teleport
       v-if="livro"
       to="#cabecalho-acoes"
       defer
     >
-      <button
-        ref="botaoDoMenuMobile"
-        type="button"
-        class="-mr-space-3 flex size-12 items-center justify-center rounded-base text-tinta md:hidden"
-        aria-label="Mais ações"
-        @click="menu?.alternar(botaoDoMenuMobile!)"
-      >
-        <PhDotsThree
-          :size="24"
-          weight="regular"
-          aria-hidden="true"
-        />
-      </button>
+      <MenuDeAcoes
+        class="-mr-space-3 md:mr-0"
+        rotulo="Mais ações"
+        :acoes="acoesDoMenu"
+        @escolher="escolherNoMenu"
+      />
     </Teleport>
-
-    <MenuDeAcoes
-      ref="menu"
-      rotulo="Mais ações"
-      :acoes="acoesDoMenu"
-      :largura="248"
-      @escolher="escolherNoMenu"
+    <AdicionarALista
+      v-if="livro"
+      :aberto="adicionandoALista"
+      :livro="{ id: livro.id, titulo: livro.titulo, autor: autores, capaUrl: livro.capa.url ?? null, pessoal: false }"
+      @fechar="adicionandoALista = false"
     />
-
     <DialogoRecomendar
       v-if="recomendando && livro"
       :livro="{ id: livro.id, ...livroAvaliado }"
+      @enviada="avisoDeRecomendacao = $event"
       @fechar="recomendando = false"
     />
+    <AvisoFlutuante
+      :aberto="avisoDeRecomendacao !== null"
+      @fechar="avisoDeRecomendacao = null"
+    >
+      {{ avisoDeRecomendacao }}
+    </AvisoFlutuante>
   </div>
 </template>
 

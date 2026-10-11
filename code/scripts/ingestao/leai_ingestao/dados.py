@@ -1,8 +1,10 @@
 """Leitura dos dados curados versionados desta feature.
 
-Os três CSV de `dados/` são entregáveis próprios de F-ACV-INGESTAO: o conjunto
-curado de assuntos (RN-21.1), a tabela de sinônimos de editora (RN-12) e a
-tabela de mapeamento de tag externa para assunto (RN-21.3).
+Os três primeiros CSV de `dados/` são entregáveis próprios de F-ACV-INGESTAO: o
+conjunto curado de assuntos (RN-21.1), a tabela de sinônimos de editora (RN-12)
+e a tabela de mapeamento de tag externa para assunto (RN-21.3). O quarto,
+`autores_unificados.csv`, junta autores que a fonte cadastrou mais de uma vez
+com chaves diferentes; ver `carregar_autores_unificados`.
 
 O CSV é a fonte **versionada**; as tabelas `acervo.assunto`,
 `acervo.sinonimo_editora` e `acervo.mapa_assunto_externo` são a fonte de
@@ -14,11 +16,13 @@ o serviço em TypeScript.
 from __future__ import annotations
 
 import csv
+import re
+import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 
 from .assuntos import MapaDeAssuntos
-from .normalizacao import normalizar_editora, normalizar_tag, slugificar
+from .normalizacao import normalizar_editora, normalizar_nome_autor, normalizar_tag, slugificar
 
 DIRETORIO_PADRAO = Path(__file__).resolve().parent.parent / "dados"
 
@@ -27,6 +31,18 @@ DIRETORIO_PADRAO = Path(__file__).resolve().parent.parent / "dados"
 class Assunto:
     slug: str
     nome: str
+
+
+@dataclass(frozen=True)
+class AutorUnificado:
+    """Chave OpenLibrary duplicada que passa a valer pelo autor canônico."""
+
+    chave: str
+    canonica: str
+    nome: str
+
+
+_CHAVE_DE_AUTOR = re.compile(r"^OL[0-9]+A$")
 
 
 class ErroDeDadosCurados(ValueError):
@@ -134,3 +150,51 @@ def resolver_editora(nome_bruto: str | None, sinonimos: dict[str, str]) -> tuple
         return canonico, normalizar_editora(canonico)
 
     return nome_bruto.strip(), normalizada
+
+
+def carregar_autores_unificados(diretorio: Path | None = None) -> list[AutorUnificado]:
+    """Autores cadastrados mais de uma vez na fonte (RN-12: "deduplicado pelo id da fonte").
+
+    A OpenLibrary tem registros duplicados da mesma pessoa e, às vezes, liga uma
+    edição ao registro de um homônimo. Cada linha diz que a chave `ol_author_key`
+    é a mesma pessoa que `ol_author_key_canonica`, e `nome` é a grafia de
+    exibição do canônico. A escolha é curada com evidência (coluna `evidencia`):
+    o mesmo nome sozinho não basta, porque homônimo de verdade existe.
+    """
+    caminho = (diretorio or DIRETORIO_PADRAO) / "autores_unificados.csv"
+    unificados: list[AutorUnificado] = []
+    nome_por_canonica: dict[str, str] = {}
+    vistas: set[str] = set()
+
+    with open(caminho, newline="", encoding="utf-8") as arquivo:
+        for linha in csv.DictReader(arquivo):
+            chave = (linha["ol_author_key"] or "").strip()
+            canonica = (linha["ol_author_key_canonica"] or "").strip()
+            nome = (linha["nome"] or "").strip()
+            if not chave or not canonica or not nome or not (linha["evidencia"] or "").strip():
+                raise ErroDeDadosCurados(f"unificação de autor incompleta: {linha!r}")
+            for valor in (chave, canonica):
+                if not _CHAVE_DE_AUTOR.match(valor):
+                    raise ErroDeDadosCurados(f"chave de autor fora do formato OL...A: {valor!r}")
+            if chave == canonica:
+                raise ErroDeDadosCurados(f"autor unificado com ele mesmo: {chave!r}")
+            if chave in vistas:
+                raise ErroDeDadosCurados(f"chave de autor repetida: {chave!r}")
+            if unicodedata.normalize("NFC", nome) != nome:
+                raise ErroDeDadosCurados(f"nome {nome!r} não está em NFC")
+            anterior = nome_por_canonica.setdefault(canonica, nome)
+            if normalizar_nome_autor(anterior) != normalizar_nome_autor(nome):
+                raise ErroDeDadosCurados(
+                    f"{canonica!r} unifica nomes diferentes: {anterior!r} e {nome!r}"
+                )
+            vistas.add(chave)
+            unificados.append(AutorUnificado(chave=chave, canonica=canonica, nome=anterior))
+
+    # Canônico que também é duplicado faria cadeia, e a ordem de aplicação
+    # passaria a importar. Cada chave aponta direto para o canônico final.
+    encadeadas = vistas & set(nome_por_canonica)
+    if encadeadas:
+        raise ErroDeDadosCurados(
+            "chave canônica também aparece como duplicada: " + ", ".join(sorted(encadeadas))
+        )
+    return unificados

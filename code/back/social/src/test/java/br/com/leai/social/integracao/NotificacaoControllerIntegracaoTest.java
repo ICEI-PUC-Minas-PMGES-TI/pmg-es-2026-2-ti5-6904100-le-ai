@@ -130,6 +130,28 @@ class NotificacaoControllerIntegracaoTest extends IntegracaoComPostgres {
   }
 
   @Test
+  @DisplayName("curtida em resenha traz o livro do destino e a frase da curtida")
+  void curtidaEmResenhaTrazLivroEFrase() throws Exception {
+    UUID eu = UUID.randomUUID();
+    UUID leitora = UUID.randomUUID();
+    jdbc.update("INSERT INTO identidade.usuario (id) VALUES (?)", leitora);
+    notificar(EventoDeNotificacao.RESENHA_CURTIDA, Fato.para(eu).comAtor(leitora));
+
+    JsonNode item = listar(token(eu), 0, 20).get("itens").get(0);
+
+    assertThat(item.get("tipo").asText()).isEqualTo("RESENHA_CURTIDA");
+    assertThat(item.get("livro").get("tipo").asText()).isEqualTo("oficial");
+    assertThat(item.get("livro").get("titulo").asText())
+        .isEqualTo(EventosDeNotificacaoDeTeste.TITULO_LIVRO);
+    assertThat(item.get("mensagem").asText())
+        .isEqualTo(
+            EventosDeNotificacaoDeTeste.NOME_ATOR
+                + " curtiu sua resenha de "
+                + EventosDeNotificacaoDeTeste.TITULO_LIVRO
+                + ".");
+  }
+
+  @Test
   @DisplayName("ator visivel aparece na notificacao; ator suspenso some e vira 'Um leitor'")
   void atorSuspensoNaoEExposto() throws Exception {
     UUID eu = UUID.randomUUID();

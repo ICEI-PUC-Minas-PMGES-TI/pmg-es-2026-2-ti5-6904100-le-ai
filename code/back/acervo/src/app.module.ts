@@ -10,6 +10,7 @@ import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { IdempotenciaModule } from './common/idempotencia/idempotencia.module';
 import { DrizzleModule } from './db/drizzle.module';
 import { HealthModule } from './health/health.module';
+import { ContaModule } from './conta/conta.module';
 import { LivrosModule } from './livros/livros.module';
 import { MessagingModule } from './messaging/messaging.module';
 
@@ -51,6 +52,7 @@ import { MessagingModule } from './messaging/messaging.module';
     HealthModule,
     MessagingModule,
     LivrosModule,
+    ContaModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

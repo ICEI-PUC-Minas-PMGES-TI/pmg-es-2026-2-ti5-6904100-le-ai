@@ -19,6 +19,8 @@ export const RELACAO_INEXISTENTE = '42P01';
 interface ErroDoPostgres {
   code?: string;
   constraint?: string;
+  /** Onde o erro nasceu: numa função PL/pgSQL, `PL/pgSQL function leitura.x() line 7 at RAISE`. */
+  where?: string;
 }
 
 function extrair(erro: unknown): ErroDoPostgres | null {
@@ -29,6 +31,7 @@ function extrair(erro: unknown): ErroDoPostgres | null {
   const candidato = erro as {
     code?: unknown;
     constraint?: unknown;
+    where?: unknown;
     cause?: unknown;
   };
   if (typeof candidato.code === 'string') {
@@ -38,6 +41,7 @@ function extrair(erro: unknown): ErroDoPostgres | null {
         typeof candidato.constraint === 'string'
           ? candidato.constraint
           : undefined,
+      where: typeof candidato.where === 'string' ? candidato.where : undefined,
     };
   }
 
@@ -46,6 +50,20 @@ function extrair(erro: unknown): ErroDoPostgres | null {
 
 export function codigoDoPostgres(erro: unknown): string | null {
   return extrair(erro)?.code ?? null;
+}
+
+/**
+ * Erro levantado por uma função de trigger com o `ERRCODE` dado. O trigger
+ * `frase_limite_trigger` levanta 23514, o mesmo código de um CHECK; só o campo
+ * `where` do erro diz que ele veio da função, e não de uma constraint.
+ */
+export function ehErroDaFuncao(
+  erro: unknown,
+  codigo: string,
+  funcao: string,
+): boolean {
+  const detalhe = extrair(erro);
+  return detalhe?.code === codigo && (detalhe.where ?? '').includes(funcao);
 }
 
 export function ehViolacaoDeUnicidade(

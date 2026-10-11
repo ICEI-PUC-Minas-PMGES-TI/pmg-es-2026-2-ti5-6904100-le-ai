@@ -129,6 +129,40 @@ class ConsumidorDeNotificacaoIntegracaoTest extends IntegracaoComPostgres {
     assertThat(contexto).isEqualTo("Vidas Secas");
   }
 
+  @Test
+  @DisplayName("mesma resenha e mesmo leitor com outro eventId nao duplica a curtida")
+  void curtidaComOutroEventIdNaoDuplica() {
+    UUID destinatario = UUID.randomUUID();
+    Fato fato = Fato.para(destinatario);
+
+    consumidor.handle(EventosDeNotificacaoDeTeste.envelope(EventoDeNotificacao.RESENHA_CURTIDA, fato));
+    consumidor.handle(EventosDeNotificacaoDeTeste.envelope(EventoDeNotificacao.RESENHA_CURTIDA, fato));
+
+    assertThat(total(destinatario)).isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName("curtida em resenha de livro pessoal guarda a resenha e o tipo do livro")
+  void curtidaEmLivroPessoalGuardaResenhaETipo() {
+    UUID destinatario = UUID.randomUUID();
+    MessageEnvelope envelope =
+        EventosDeNotificacaoDeTeste.envelope(EventoDeNotificacao.RESENHA_CURTIDA, Fato.para(destinatario));
+    @SuppressWarnings("unchecked")
+    Map<String, Object> livro = (Map<String, Object>) envelope.data().get("livro");
+    livro.put("tipo", "pessoal");
+
+    consumidor.handle(envelope);
+
+    Map<String, Object> dados =
+        jdbc.queryForMap(
+            "SELECT dados->>'resenhaId' AS resenha, dados->'livro'->>'tipo' AS tipo,"
+                + " leitura_ref FROM notificacao WHERE destinatario_id = ?",
+            destinatario);
+    assertThat(dados.get("resenha")).isEqualTo(envelope.data().get("resenhaId"));
+    assertThat(dados.get("tipo")).isEqualTo("pessoal");
+    assertThat(dados.get("leitura_ref")).isNull();
+  }
+
   private int total(UUID destinatario) {
     return jdbc.queryForObject(
         "SELECT count(*) FROM notificacao WHERE destinatario_id = ?", Integer.class, destinatario);

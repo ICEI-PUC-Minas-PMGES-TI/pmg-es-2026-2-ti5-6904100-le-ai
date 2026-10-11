@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import '../network/api_client.dart';
+import 'acesso_de_recuperacao.dart';
 import 'token_store.dart';
 
 /// Par de tokens que o login e a renovação devolvem (`Sessao` em `docs/api/identidade.yaml`).
@@ -36,8 +37,28 @@ class SessionController extends ChangeNotifier {
   String? _refreshToken;
   bool _carregando = true;
   Future<bool>? _renovacaoEmCurso;
+  AcessoDeRecuperacao? _recuperacao;
 
   SessionController(this.store);
+
+  /// Acesso de recuperação da conta com exclusão pendente (F-CONTA-2, RN-23.3). **Só em
+  /// memória**, nunca no [store]: vale 15 minutos e só cancela a exclusão, então fechar o app e
+  /// entrar de novo custa pouco, e não fica token restrito esquecido no Keystore. Não conta como
+  /// sessão: [estaAutenticado] continua falso.
+  AcessoDeRecuperacao? get recuperacao => _recuperacao;
+
+  /// Guardado pelo login. Avisa os ouvintes, e a guarda de rota leva à recuperação.
+  void guardarRecuperacao(AcessoDeRecuperacao acesso) {
+    _recuperacao = acesso;
+    notifyListeners();
+  }
+
+  /// Descartado ao sair, ao recuperar a conta e ao expirar (recuperar-conta.md §9). **Não avisa
+  /// os ouvintes**: a tela de recuperação continua aberta para mostrar `Conta recuperada` ou o
+  /// acesso expirado, e a guarda só a recusa na próxima navegação.
+  void descartarRecuperacao() {
+    _recuperacao = null;
+  }
 
   String? get token => _token;
 

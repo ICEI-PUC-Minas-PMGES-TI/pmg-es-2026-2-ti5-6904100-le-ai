@@ -15,10 +15,13 @@ import { iniciarSessao } from '../session'
  */
 const Host = { template: '<RouterView />' }
 
-export async function montarNaRota(caminho: string, opcoes: { historico?: 'memoria' | 'navegador' } = {}) {
+export async function montarNaRota(
+  caminho: string,
+  opcoes: { historico?: 'memoria' | 'navegador'; /** Toda media query casa: o layout da web larga. */ largo?: boolean } = {},
+) {
   vi.stubGlobal(
     'matchMedia',
-    vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }),
+    vi.fn().mockReturnValue({ matches: opcoes.largo === true, addEventListener: vi.fn(), removeEventListener: vi.fn() }),
   )
   iniciarSessao(
     { accessToken: 'jwt', refreshToken: 'renovacao' },

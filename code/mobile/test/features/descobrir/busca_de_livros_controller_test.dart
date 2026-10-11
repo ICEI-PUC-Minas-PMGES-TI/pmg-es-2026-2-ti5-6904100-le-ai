@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:le_ai_mobile/features/descobrir/busca_de_livros_controller.dart';
+import 'package:le_ai_mobile/features/descobrir/filtros_da_busca.dart';
 import 'package:le_ai_mobile/features/livros/livro_oficial.dart';
 
 import '../livros/apoio.dart';
@@ -253,5 +254,95 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
     expect(pedidas.last.queryParameters['q'], 'abc');
+  });
+
+  group('filtros avançados (F-ACV-DESCOBERTA)', () {
+    const filtros = FiltrosDaBusca(editora: 'Pallas', paginasMin: 100, paginasMax: 150);
+
+    testWidgets('busca só com filtros, na hora, e a página seguinte continua os mesmos', (
+      tester,
+    ) async {
+      final busca = controlador(
+        (request) async => json(
+          paginaJson(
+            <Map<String, Object?>>[livroJson('l${request.url.queryParameters['page']}', 'Um')],
+            page: int.parse(request.url.queryParameters['page']!),
+            totalItens: 2,
+            totalPaginas: 2,
+          ),
+          200,
+        ),
+      );
+
+      busca.aplicarFiltros(filtros);
+      await tester.pump();
+      busca.alterarConsulta('outra coisa');
+      await busca.carregarMais();
+
+      expect(pedidas.first.queryParameters, <String, String>{
+        'editora': 'Pallas',
+        'paginasMin': '100',
+        'paginasMax': '150',
+        'page': '1',
+        'limit': '20',
+      });
+      expect(pedidas[1].queryParameters['editora'], 'Pallas');
+      expect(pedidas[1].queryParameters['page'], '2');
+      expect(pedidas[1].queryParameters.containsKey('q'), isFalse);
+      expect(busca.livros.map((livro) => livro.id), <String>['l1', 'l2']);
+      // O texto digitado no meio ainda dispara a própria busca depois do debounce.
+      await tester.pump(const Duration(milliseconds: 400));
+    });
+
+    testWidgets('remover a faixa tira os dois lados; sem critério, volta à aterrissagem', (
+      tester,
+    ) async {
+      final busca = controlador(umResultado);
+      busca.aplicarFiltros(filtros);
+      await tester.pump();
+
+      busca.removerFiltro(ChaveDoFiltro.paginas);
+      await tester.pump();
+      expect(pedidas.last.queryParameters.containsKey('paginasMin'), isFalse);
+      expect(busca.filtros, const FiltrosDaBusca(editora: 'Pallas'));
+
+      busca.removerFiltro(ChaveDoFiltro.editora);
+      expect(busca.estado, EstadoDaBusca.aterrissagem);
+      expect(pedidas, hasLength(2));
+    });
+
+    testWidgets('apagar o texto com filtro ativo continua buscando pelos filtros', (tester) async {
+      final busca = controlador(umResultado);
+      busca.aplicarFiltros(filtros);
+      await tester.pump();
+
+      busca.alterarConsulta('ab');
+      await tester.pump(const Duration(milliseconds: 400));
+      busca.limparConsulta();
+      await tester.pump();
+
+      expect(busca.estado, EstadoDaBusca.resultados);
+      expect(pedidas.last.queryParameters.containsKey('q'), isFalse);
+      expect(pedidas.last.queryParameters['editora'], 'Pallas');
+    });
+
+    testWidgets('o assunto vindo da ficha recomeça a busca só por ele e ganha o nome', (
+      tester,
+    ) async {
+      final busca = controlador(umResultado);
+      busca.aplicarFiltros(filtros);
+      await tester.pump();
+
+      busca.aplicarAssunto('romance');
+      await tester.pump();
+
+      expect(busca.filtros.vazio, isTrue);
+      expect(pedidas.last.queryParameters, <String, String>{
+        'assunto': 'romance',
+        'page': '1',
+        'limit': '20',
+      });
+      expect(busca.assunto?.nome, 'Romance');
+    });
   });
 }

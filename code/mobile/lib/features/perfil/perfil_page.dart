@@ -9,6 +9,8 @@ import '../../design/theme.dart';
 import '../../design/tokens.dart';
 import '../../design/widgets/banner_aviso.dart';
 import '../../design/widgets/botao_textual.dart';
+import '../estante/estante_de_perfil.dart';
+import '../estante/estante_service.dart';
 import 'conexoes_page.dart';
 import 'perfil_service.dart';
 import 'textos.dart';
@@ -20,10 +22,10 @@ import 'widgets_de_perfil.dart';
 /// perfil` e os contadores numa linha com divisor. O header (título `Perfil` e engrenagem) é do
 /// shell.
 ///
-/// **Resenhas do `leitura`** ([resenhas], `listarResenhasPerfil`, F-AVA, 27/09/2026) e **estante no
-/// estado vazio**: `listarEstantePerfil` existe, mas esta página ainda não passa a estante a
-/// `SecoesDeLeitura` (divergência registrada em F-PERFIL). Sem o contador `livros lidos`, que o
-/// `Perfil` de `identidade` não traz.
+/// **Estante e Resenhas do `leitura`**: a estante ([estante], `listarEstantePerfil`, F-EST) na mesma
+/// grade só leitura do perfil de outro leitor, com "Ver tudo"; sem livros, o vazio com o CTA "Buscar
+/// livros". As resenhas por [resenhas] (`listarResenhasPerfil`, F-AVA). O contador `livros lidos`
+/// vem dos totais da estante (`Lido` + `Relendo`) e só aparece depois que ela carrega.
 class PerfilPage extends StatefulWidget {
   final PerfilService servico;
 
@@ -43,8 +45,30 @@ class PerfilPage extends StatefulWidget {
   /// "Ver tudo" da seção Estante leva à aba Estante; mesmo padrão de [aoBuscarLivros].
   final VoidCallback? aoVerEstante;
 
+  /// O contador `livros lidos` leva à estante filtrada por `Lido` (§4 "Contadores"); mesmo padrão de
+  /// [aoBuscarLivros].
+  final VoidCallback? aoVerLivrosLidos;
+
+  /// Estante do próprio leitor (F-EST). Sem ela, a seção fica no estado vazio.
+  final EstanteService? estante;
+
+  /// Avisos do progresso (F-PRG), que mudam o percentual dos cards da estante; os da própria
+  /// [estante] já recarregam a seção.
+  final Listenable? alteracoesDoProgresso;
+
   /// Lista de resenhas do perfil (F-AVA), montada com o id do leitor.
   final Widget Function(String usuarioId)? resenhas;
+
+  /// Seção "Listas" (F-LST), montada com o id do leitor.
+  final Widget Function(String usuarioId)? listas;
+
+  /// Bloco "Sequência diária" (F-GAM), só no perfil próprio: entra depois dos contadores e dos
+  /// pedidos, antes das seções de leitura (meu-perfil.md §4.1 A).
+  final Widget Function()? sequencia;
+
+  /// Bloco "Desafios" (F-DSF), só no perfil próprio: entra depois da sequência, antes das seções
+  /// de leitura (meu-perfil.md §4.1 B; as Estatísticas do ano, entre os dois, ainda não existem).
+  final Widget Function()? desafios;
 
   const PerfilPage({
     super.key,
@@ -54,7 +78,13 @@ class PerfilPage extends StatefulWidget {
     this.aoAbrirSolicitacoes,
     this.aoBuscarLivros,
     this.aoVerEstante,
+    this.aoVerLivrosLidos,
+    this.estante,
+    this.alteracoesDoProgresso,
     this.resenhas,
+    this.listas,
+    this.sequencia,
+    this.desafios,
   });
 
   @override
@@ -66,6 +96,14 @@ class _PerfilPageState extends State<PerfilPage> {
   bool _carregando = true;
   bool _falhou = false;
   int _pedidosPendentes = 0;
+  int? _livrosLidos;
+
+  // Uma instância só: um `Listenable.merge` por build trocaria os ouvintes da estante a cada
+  // `setState`.
+  late final Listenable _alteracoesDaEstante = Listenable.merge(<Listenable?>[
+    widget.estante?.alteracoes,
+    widget.alteracoesDoProgresso,
+  ]);
 
   @override
   void initState() {
@@ -138,6 +176,11 @@ class _PerfilPageState extends State<PerfilPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final perfil = _perfil;
+    final estante = widget.estante;
+    final aoBuscarLivros = _destino(widget.aoBuscarLivros, '/descobrir');
+    final aoVerEstante = _destino(widget.aoVerEstante, '/estante');
+    final sequencia = widget.sequencia?.call();
+    final desafios = widget.desafios?.call();
     return SingleChildScrollView(
       // 32 acima do avatar, como no protótipo.
       padding: const EdgeInsets.fromLTRB(
@@ -147,7 +190,7 @@ class _PerfilPageState extends State<PerfilPage> {
         DesignTokens.space10,
       ),
       child: _carregando && perfil == null
-          ? const SkeletonDoPerfil()
+          ? SkeletonDoPerfil(comSequencia: widget.sequencia != null)
           : _falhou || perfil == null
           ? BannerAviso(
               variante: VarianteAviso.erro,
@@ -208,6 +251,15 @@ class _PerfilPageState extends State<PerfilPage> {
                 const SizedBox(height: DesignTokens.space6),
                 ContadoresDoPerfil(
                   contadores: <DadoDeContador>[
+                    if (_livrosLidos case final lidos?)
+                      DadoDeContador(
+                        valor: lidos,
+                        rotulo: lidos == 1 ? 'livro lido' : 'livros lidos',
+                        aoTocar: _destino(
+                          widget.aoVerLivrosLidos,
+                          '/estante?status=${StatusEstante.lido.valor}',
+                        ),
+                      ),
                     DadoDeContador(
                       valor: perfil.seguidores,
                       rotulo: perfil.seguidores == 1 ? 'seguidor' : 'seguidores',
@@ -229,12 +281,39 @@ class _PerfilPageState extends State<PerfilPage> {
                     aoTocar: () => _abrir(widget.aoAbrirSolicitacoes),
                   ),
                 ],
-                const SizedBox(height: DesignTokens.space12),
+                if (sequencia != null) ...<Widget>[
+                  const SizedBox(height: DesignTokens.space6),
+                  sequencia,
+                  // Entre blocos do perfil, 32 como no protótipo.
+                  const SizedBox(height: DesignTokens.space8),
+                ] else
+                  const SizedBox(height: DesignTokens.space12),
+                if (desafios != null) ...<Widget>[
+                  desafios,
+                  const SizedBox(height: DesignTokens.space8),
+                ],
                 SecoesDeLeitura(
                   proprio: true,
-                  aoBuscarLivros: _destino(widget.aoBuscarLivros, '/descobrir'),
-                  aoVerEstante: _destino(widget.aoVerEstante, '/estante'),
+                  aoBuscarLivros: aoBuscarLivros,
+                  aoVerEstante: aoVerEstante,
+                  estante: estante == null
+                      ? null
+                      : EstanteDePerfil(
+                          key: ValueKey<String>('estante-de-${perfil.id}'),
+                          servico: estante,
+                          usuarioId: perfil.id,
+                          primeiroNome: primeiroNome(perfil.displayName),
+                          aoMudarLivrosLidos: (lidos) => setState(() => _livrosLidos = lidos),
+                          alteracoes: _alteracoesDaEstante,
+                          acaoDoTitulo: aoVerEstante == null ? null : BotaoVerTudo(onPressed: aoVerEstante),
+                          vazio: EstanteVaziaDoPerfil(
+                            proprio: true,
+                            aoBuscarLivros: aoBuscarLivros,
+                            aoVerEstante: aoVerEstante,
+                          ),
+                        ),
                   resenhas: widget.resenhas?.call(perfil.id),
+                  listas: widget.listas?.call(perfil.id),
                 ),
               ],
             ),

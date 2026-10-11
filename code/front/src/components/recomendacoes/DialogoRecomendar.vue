@@ -23,7 +23,6 @@ import BotaoTextual from '../ui/BotaoTextual.vue'
 import DialogoConfirmacao from '../ui/DialogoConfirmacao.vue'
 import EstadoVazio from '../ui/EstadoVazio.vue'
 import SobreposicaoModal from '../ui/SobreposicaoModal.vue'
-import { mostrarAviso } from '../../avisos'
 import { contagem } from '../../perfil/textos'
 import { LIMITE_DA_MENSAGEM, useRecomendar, type SituacaoDoLeitor } from '../../recomendacoes/useRecomendar'
 import type { CandidatoARecomendacao, MotivoBloqueio } from '../../services/social'
@@ -32,7 +31,7 @@ const props = defineProps<{
   livro: { id: string; titulo: string; autor: string | null; capaUrl: string | null }
 }>()
 
-const emit = defineEmits<{ fechar: [] }>()
+const emit = defineEmits<{ fechar: []; enviada: [aviso: string] }>()
 
 const router = useRouter()
 const tela = useRecomendar(props.livro.id)
@@ -133,7 +132,7 @@ async function enviarOuConcluir(): Promise<void> {
   }
   const resultado = await tela.enviar()
   if (resultado.concluido && resultado.aviso) {
-    mostrarAviso(resultado.aviso, { icone: PhPaperPlaneTilt })
+    emit('enviada', resultado.aviso)
     emit('fechar')
   }
 }

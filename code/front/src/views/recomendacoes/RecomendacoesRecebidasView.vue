@@ -1,17 +1,17 @@
 <script setup lang="ts">
-import { PhDotsThree, PhPaperPlaneTilt, PhUserCircle, PhXCircle } from '@phosphor-icons/vue'
-import { computed, onMounted, ref } from 'vue'
+import { PhPaperPlaneTilt, PhUserCircle, PhXCircle } from '@phosphor-icons/vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import FimDaLista from '../../components/perfil/FimDaLista.vue'
 import ItemRecomendacao from '../../components/recomendacoes/ItemRecomendacao.vue'
+import AvisoFlutuante from '../../components/ui/AvisoFlutuante.vue'
 import BannerAviso from '../../components/ui/BannerAviso.vue'
 import BotaoPrimario from '../../components/ui/BotaoPrimario.vue'
 import BotaoTextual from '../../components/ui/BotaoTextual.vue'
 import EstadoVazio from '../../components/ui/EstadoVazio.vue'
 import type { AcaoDaFolha } from '../../components/ui/FolhaAcoes.vue'
 import MenuDeAcoes from '../../components/ui/MenuDeAcoes.vue'
-import { fecharAviso, mostrarAviso } from '../../avisos'
 import { usePaginacao } from '../../perfil/usePaginacao'
 import { novaChaveIdempotencia } from '../../services/api'
 import { socialService, type RecomendacaoRecebida } from '../../services/social'
@@ -20,31 +20,23 @@ const router = useRouter()
 const lista = usePaginacao((pagina) => socialService.listarRecebidas(pagina))
 const { itens, total, carregando, carregandoMais, falhou, falhouMais, temMais } = lista
 
-const menu = ref<InstanceType<typeof MenuDeAcoes> | null>(null)
-const daVez = ref<RecomendacaoRecebida | null>(null)
+const aviso = ref<{ texto: string; erro?: RecomendacaoRecebida } | null>(null)
 const descartando = ref<string[]>([])
 const chaves = new Map<string, string>()
 
-const acoes = computed<AcaoDaFolha[]>(() => [
-  { id: 'perfil', rotulo: `Ver perfil de ${daVez.value?.remetente.nomeExibicao ?? ''}`, icone: PhUserCircle },
-  {
-    id: 'descartar',
-    rotulo: 'Descartar recomendação',
-    detalhe: 'Quem recomendou não fica sabendo.',
-    icone: PhXCircle,
-  },
-])
-
-function abrirMenu(recomendacao: RecomendacaoRecebida, evento: MouseEvent): void {
-  daVez.value = recomendacao
-  menu.value?.alternar(evento.currentTarget as HTMLElement)
+function acoesDe(recomendacao: RecomendacaoRecebida): AcaoDaFolha[] {
+  return [
+    { id: 'perfil', rotulo: `Ver perfil de ${recomendacao.remetente.nomeExibicao}`, icone: PhUserCircle },
+    {
+      id: 'descartar',
+      rotulo: 'Descartar recomendação',
+      detalhe: 'Quem recomendou não fica sabendo.',
+      icone: PhXCircle,
+    },
+  ]
 }
 
-function escolher(id: string): void {
-  const recomendacao = daVez.value
-  if (!recomendacao) {
-    return
-  }
+function escolher(id: string, recomendacao: RecomendacaoRecebida): void {
   if (id === 'perfil') {
     void router.push(`/leitores/${recomendacao.remetente.username}`)
   } else {
@@ -64,20 +56,22 @@ async function descartar(recomendacao: RecomendacaoRecebida): Promise<void> {
     await socialService.descartarRecomendacao(id, chave)
     chaves.delete(id)
     lista.retirar(id)
-    mostrarAviso('Recomendação descartada.')
+    aviso.value = { texto: 'Recomendação descartada.' }
   } catch {
-    mostrarAviso('Não foi possível descartar a recomendação. Verifique sua conexão e tente de novo.', {
-      tom: 'erro',
-      acao: {
-        rotulo: 'Tentar de novo',
-        executar: () => {
-          fecharAviso()
-          void descartar(recomendacao)
-        },
-      },
-    })
+    aviso.value = {
+      texto: 'Não foi possível descartar a recomendação. Verifique sua conexão e tente de novo.',
+      erro: recomendacao,
+    }
   } finally {
     descartando.value = descartando.value.filter((outro) => outro !== id)
+  }
+}
+
+function tentarDescartarDeNovo(): void {
+  const recomendacao = aviso.value?.erro
+  aviso.value = null
+  if (recomendacao) {
+    void descartar(recomendacao)
   }
 }
 
@@ -161,18 +155,12 @@ onMounted(() => void lista.carregar())
             completa
           >
             <template #acoes>
-              <button
-                type="button"
-                class="-mr-space-3 -mt-space-3 flex size-12 shrink-0 cursor-pointer items-center justify-center rounded-full text-grafite hover:bg-linha md:-mr-space-1 md:-mt-space-1 md:size-8"
-                :aria-label="`Mais ações para ${recomendacao.livro.titulo}, recomendado por ${recomendacao.remetente.nomeExibicao}`"
-                @click="abrirMenu(recomendacao, $event)"
-              >
-                <PhDotsThree
-                  :size="20"
-                  weight="regular"
-                  aria-hidden="true"
-                />
-              </button>
+              <MenuDeAcoes
+                class="-mr-space-3 -mt-space-3 md:-mr-space-1 md:-mt-space-1"
+                :rotulo="`Mais ações para ${recomendacao.livro.titulo}, recomendado por ${recomendacao.remetente.nomeExibicao}`"
+                :acoes="acoesDe(recomendacao)"
+                @escolher="escolher($event, recomendacao)"
+              />
             </template>
           </ItemRecomendacao>
         </li>
@@ -191,13 +179,15 @@ onMounted(() => void lista.carregar())
       </p>
     </template>
 
-    <MenuDeAcoes
-      ref="menu"
-      :rotulo="daVez ? `${daVez.livro.titulo}, ${daVez.remetente.nomeExibicao} te recomendou` : 'Recomendação'"
-      :acoes="acoes"
-      :largura="280"
-      @escolher="escolher"
-    />
+    <AvisoFlutuante
+      :aberto="aviso !== null"
+      :tom="aviso?.erro ? 'rubi' : 'musgo'"
+      :acao="aviso?.erro ? 'Tentar de novo' : undefined"
+      @acao="tentarDescartarDeNovo"
+      @fechar="aviso = null"
+    >
+      {{ aviso?.texto }}
+    </AvisoFlutuante>
   </div>
 </template>
 

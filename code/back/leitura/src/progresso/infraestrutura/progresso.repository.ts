@@ -145,10 +145,13 @@ export class ProgressoRepository {
     return linha;
   }
 
-  async excluir(tx: Tx, progressoIds: string[]): Promise<void> {
-    await tx
+  /** Devolve as datas locais dos registros removidos. */
+  async excluir(tx: Tx, progressoIds: string[]): Promise<string[]> {
+    const removidos = await tx
       .delete(atualizacaoProgresso)
-      .where(inArray(atualizacaoProgresso.id, progressoIds));
+      .where(inArray(atualizacaoProgresso.id, progressoIds))
+      .returning({ dataLocal: atualizacaoProgresso.dataLocal });
+    return removidos.map((removido) => removido.dataLocal);
   }
 
   async registrarAtividade(

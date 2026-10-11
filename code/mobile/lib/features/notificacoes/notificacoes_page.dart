@@ -720,6 +720,9 @@ class _PontoEIcone extends StatelessWidget {
     TipoNotificacao.leituraEmRisco => PhosphorIconsRegular.warning,
     TipoNotificacao.leituraExpirada => PhosphorIconsRegular.pauseCircle,
     TipoNotificacao.recomendacaoRecebida => PhosphorIconsRegular.paperPlaneTilt,
+    // F-AVA-2: o mesmo ícone do botão de curtir na resenha, para não confundir com o `Heart` da
+    // curtida em atividade (notificacoes.md §5).
+    TipoNotificacao.resenhaCurtida => PhosphorIconsRegular.thumbsUp,
   };
 }
 

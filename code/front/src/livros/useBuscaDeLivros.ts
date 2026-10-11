@@ -4,10 +4,18 @@ import {
   acervoService,
   type AcervoService,
   type AssuntoResumo,
+  type CriteriosDaBusca,
   type LivroOficialResumo,
 } from '../services/acervo'
 import { ApiError } from '../services/api'
 import { agruparEdicoes } from './agruparEdicoes'
+import {
+  type ChaveDoFiltro,
+  type FiltrosAplicados,
+  SEM_FILTROS,
+  semFiltro,
+  temFiltros,
+} from './filtrosDaBusca'
 
 export type EstadoDaBusca = 'aterrissagem' | 'buscando' | 'resultados' | 'vazio' | 'erro'
 export type EstadoDosAssuntos = 'carregando' | 'pronto' | 'erro'
@@ -17,12 +25,19 @@ export const ESPERA_DA_BUSCA_MS = 350
 export const MINIMO_DE_CARACTERES = 2
 const LIMITE_DO_COLD_START_MS = 3_000
 
+/** Tudo o que define uma busca: o texto, o assunto e os filtros avançados (RF-ACV-03). */
+export interface CriteriosDaTela {
+  q: string | null
+  assunto: string | null
+  filtros: FiltrosAplicados
+}
+
 export interface OpcoesDaBusca {
   servico?: Pick<AcervoService, 'buscarLivros' | 'listarAssuntos'>
-  /** Consulta e assunto vindos da URL, para a busca sobreviver ao recarregar e ao voltar. */
-  inicial?: { q?: string | null; assunto?: string | null }
-  /** Chamado a cada busca que sai, para a tela refletir `q` e `assunto` na URL. */
-  aoBuscar?: (criterios: { q: string | null; assunto: string | null }) => void
+  /** Critérios vindos da URL, para a busca sobreviver ao recarregar e ao voltar. */
+  inicial?: { q?: string | null; assunto?: string | null; filtros?: FiltrosAplicados }
+  /** Chamado a cada busca que sai, para a tela refletir os critérios na URL. */
+  aoBuscar?: (criterios: CriteriosDaTela) => void
 }
 
 /**
@@ -41,6 +56,8 @@ export function useBuscaDeLivros(opcoes: OpcoesDaBusca = {}) {
 
   const consulta = ref(opcoes.inicial?.q ?? '')
   const assunto = ref<string | null>(opcoes.inicial?.assunto ?? null)
+  /** Os filtros aplicados, não o que está digitado no formulário. */
+  const filtros = shallowRef<FiltrosAplicados>(opcoes.inicial?.filtros ?? SEM_FILTROS)
   const assuntos = shallowRef<AssuntoResumo[]>([])
   const estadoDosAssuntos = ref<EstadoDosAssuntos>('carregando')
   const estado = ref<EstadoDaBusca>('aterrissagem')
@@ -57,7 +74,7 @@ export function useBuscaDeLivros(opcoes: OpcoesDaBusca = {}) {
   const totalPaginas = ref(0)
   let termoBuscado: string | null = null
   /** O que a busca atual pediu: a página seguinte continua ela, não o que está digitado agora. */
-  let criteriosBuscados: { q: string | null; assunto: string | null } = { q: null, assunto: null }
+  let criteriosBuscados: CriteriosDaTela = { q: null, assunto: null, filtros: SEM_FILTROS }
   let espera: ReturnType<typeof setTimeout> | undefined
   let limiteDoColdStart: ReturnType<typeof setTimeout> | undefined
   let carregandoAssuntos = false
@@ -67,6 +84,11 @@ export function useBuscaDeLivros(opcoes: OpcoesDaBusca = {}) {
     return aparado.length >= MINIMO_DE_CARACTERES ? aparado : null
   })
   const temMais = computed(() => proximaPagina.value <= totalPaginas.value)
+
+  /** Qualquer critério basta: o servidor aceita busca só com filtros. */
+  function semCriterio(): boolean {
+    return termo.value === null && assunto.value === null && !temFiltros(filtros.value)
+  }
 
   function definirPaginacao(proxima: number, total: number): void {
     proximaPagina.value = proxima
@@ -112,7 +134,7 @@ export function useBuscaDeLivros(opcoes: OpcoesDaBusca = {}) {
     }
     consulta.value = texto
     clearTimeout(espera)
-    if (termo.value === null && assunto.value === null) {
+    if (semCriterio()) {
       voltarParaAterrissagem()
       return
     }
@@ -129,6 +151,20 @@ export function useBuscaDeLivros(opcoes: OpcoesDaBusca = {}) {
     buscarAgora()
   }
 
+  /** Vindos do formulário, já validados: a busca sai na hora, sem debounce. */
+  function aplicarFiltros(novos: FiltrosAplicados): void {
+    filtros.value = novos
+    buscarAgora()
+  }
+
+  function removerFiltro(chave: ChaveDoFiltro): void {
+    aplicarFiltros(semFiltro(filtros.value, chave))
+  }
+
+  function limparFiltros(): void {
+    aplicarFiltros(SEM_FILTROS)
+  }
+
   function limparConsulta(): void {
     consulta.value = ''
     buscarAgora()
@@ -138,24 +174,25 @@ export function useBuscaDeLivros(opcoes: OpcoesDaBusca = {}) {
     buscarAgora()
   }
 
-  /** Busca de imediato o que já está no estado: a consulta e o assunto vindos da URL. */
+  /** Busca de imediato o que já está no estado: os critérios vindos da URL. */
   function iniciar(): void {
     void carregarAssuntos()
-    if (termo.value !== null || assunto.value !== null) {
+    if (!semCriterio()) {
       void buscar()
     }
   }
 
-  /** Consulta e assunto que chegaram pela URL com a tela aberta (a aba tocada de novo, por exemplo). */
-  function aplicarCriterios(criterios: { q: string | null; assunto: string | null }): void {
+  /** Critérios que chegaram pela URL com a tela aberta (a aba tocada de novo, um assunto da ficha). */
+  function aplicarCriterios(criterios: CriteriosDaTela): void {
     consulta.value = criterios.q ?? ''
     assunto.value = criterios.assunto
+    filtros.value = criterios.filtros
     buscarAgora()
   }
 
   function buscarAgora(): void {
     clearTimeout(espera)
-    if (termo.value === null && assunto.value === null) {
+    if (semCriterio()) {
       voltarParaAterrissagem()
       return
     }
@@ -165,13 +202,13 @@ export function useBuscaDeLivros(opcoes: OpcoesDaBusca = {}) {
   async function buscar(): Promise<void> {
     const minha = ++geracao.value
     termoBuscado = termo.value
-    criteriosBuscados = { q: termo.value, assunto: assunto.value }
+    criteriosBuscados = { q: termo.value, assunto: assunto.value, filtros: filtros.value }
     clearTimeout(limiteDoColdStart)
     estado.value = 'buscando'
     coldStart.value = false
     carregandoMais.value = false
     falhouMais.value = false
-    opcoes.aoBuscar?.({ q: termo.value, assunto: assunto.value })
+    opcoes.aoBuscar?.(criteriosBuscados)
     void buscarAssuntos(false)
     limiteDoColdStart = setTimeout(() => {
       if (minha === geracao.value && estado.value === 'buscando') {
@@ -179,7 +216,7 @@ export function useBuscaDeLivros(opcoes: OpcoesDaBusca = {}) {
       }
     }, LIMITE_DO_COLD_START_MS)
     try {
-      const pagina = await servico.buscarLivros({ q: termo.value, assunto: assunto.value })
+      const pagina = await servico.buscarLivros(paraOServico(criteriosBuscados))
       if (minha !== geracao.value) {
         return
       }
@@ -213,7 +250,7 @@ export function useBuscaDeLivros(opcoes: OpcoesDaBusca = {}) {
     carregandoMais.value = true
     falhouMais.value = false
     try {
-      const pagina = await servico.buscarLivros({ ...criteriosBuscados, page: proximaPagina.value })
+      const pagina = await servico.buscarLivros({ ...paraOServico(criteriosBuscados), page: proximaPagina.value })
       if (minha !== geracao.value) {
         return
       }
@@ -246,7 +283,7 @@ export function useBuscaDeLivros(opcoes: OpcoesDaBusca = {}) {
     totalItens.value = 0
     livros.value = []
     definirPaginacao(1, 0)
-    opcoes.aoBuscar?.({ q: null, assunto: null })
+    opcoes.aoBuscar?.({ q: null, assunto: null, filtros: SEM_FILTROS })
   }
 
   function descartar(): void {
@@ -262,6 +299,7 @@ export function useBuscaDeLivros(opcoes: OpcoesDaBusca = {}) {
   return {
     consulta,
     assunto,
+    filtros,
     assuntos,
     estadoDosAssuntos,
     estado,
@@ -278,9 +316,18 @@ export function useBuscaDeLivros(opcoes: OpcoesDaBusca = {}) {
     carregarAssuntos,
     alterarConsulta,
     alternarAssunto,
+    aplicarFiltros,
+    removerFiltro,
+    limparFiltros,
     limparConsulta,
     tentarDeNovo,
     carregarMais,
     descartar,
   }
+}
+
+/** Só os filtros preenchidos: a busca sem filtro pede exatamente o que pedia no Período 1. */
+function paraOServico({ q, assunto, filtros }: CriteriosDaTela): CriteriosDaBusca {
+  const preenchidos = Object.fromEntries(Object.entries(filtros).filter(([, valor]) => valor !== null))
+  return { q, assunto, ...preenchidos }
 }

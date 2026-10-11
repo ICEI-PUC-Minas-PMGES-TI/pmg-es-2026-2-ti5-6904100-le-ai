@@ -20,7 +20,13 @@ public enum OperacaoIdempotente {
   EXCLUIR_COMENTARIO("excluirComentario"),
   MARCAR_NOTIFICACOES_LIDAS("marcarNotificacoesLidas"),
   RECOMENDAR_LIVRO("recomendarLivro"),
-  DESCARTAR_RECOMENDACAO("descartarRecomendacao");
+  DESCARTAR_RECOMENDACAO("descartarRecomendacao"),
+  CRIAR_LISTA("criarLista"),
+  EDITAR_LISTA("editarLista"),
+  EXCLUIR_LISTA("excluirLista"),
+  ADICIONAR_LIVRO_NA_LISTA("adicionarLivroNaLista"),
+  REMOVER_LIVRO_DA_LISTA("removerLivroDaLista"),
+  MOVER_LIVRO_NA_LISTA("moverLivroNaLista");
 
   private final String operationId;
 

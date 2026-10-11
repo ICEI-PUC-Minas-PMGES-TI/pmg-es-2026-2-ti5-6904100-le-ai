@@ -99,12 +99,45 @@ O modelo físico está versionado em `code/back/acervo/drizzle/0001_202609161107
 - **Dois bugs que só apareceriam no fim da carga real foram corrigidos em 22/09/2026**, achados pelos testes de banco: `execucao.abrir` devolvia o `uuid.UUID` do psycopg e o `json.dumps` do resumo do `carregar` quebrava depois do commit, sem imprimir as medidas de RNF-DES-04; e `registrada()` tentava fechar a execução como `falha` dentro da transação já abortada, o que escondia o erro original e deixava a linha `em_execucao` para sempre.
 - **O pin do `psycopg` subiu de 3.2.3 para 3.2.13** (mesma série): 3.2.3 não tem wheel para Python 3.14.
 - **Edição sem autor: fallback implementado; 701 livros continuam sem autor.** Desde 22/09/2026 o `resolver` lê o dump de obras antes do de autores e grava `autor_obra.jsonl` com o primeiro autor da obra das edições sem `authors`, e a carga usa esse autor. O critério é o mesmo do importador por ISBN de F-ACV-CADASTRO: primeiro da lista, na ordem da fonte, sem filtrar papel, e primeiro item malformado sem autor. "Primeiro" é uma aposta: a lista da obra mistura tradutor e prefaciador, e nada no dump diz quem é quem. Desde 23/09/2026 o plano B vale também quando a edição só tem autor que é **marcador de catálogo** (`[author not identified]`, nome entre colchetes, "unknown", "autor desconhecido"), achado no teste real do importador; por isso `autor_obra.jsonl` guarda o primeiro autor de toda obra, e não só das edições sem `authors`. Depois da carga real, **701 livros oficiais ficaram sem autor** mesmo com o fallback (nem a edição nem a obra trazem autor utilizável), e para eles `v_livro_referencia_v1.autor_exibicao` sai `NULL`: `acervo.yaml` passou a declarar o campo anulável e os schemas de evento de `leitura` foram ajustados em 26/09/2026 (ver [`docs/mensageria/README.md`](../../mensageria/README.md)). Quantas edições foram salvas pelo fallback continua sem medida; conferir uma amostra à mão. Mudar o critério exige mudar os dois lados (`nomeDeAutorUtilizavel` no `acervo`, `nome_de_autor_utilizavel` aqui, com os mesmos casos de teste).
-- **Achados de dados apontados por [F-ACV-BUSCA](feature-F-ACV-BUSCA.md) na validação de 27/09/2026.** Títulos que são só pontuação ("," e ".MENSAGEM.") e nomes com acento decomposto ("Presenc̦a", com U+0326 combinante), que não casam com a busca digitada. Os dois vêm do dump da OpenLibrary e pedem limpeza na carga (normalização Unicode NFC e descarte ou revisão de título sem letra), não na busca; corrigir o que já está gravado pede recarga ou correção de dado revisada por humano (plano §6).
+- **Achados de dados apontados por [F-ACV-BUSCA](feature-F-ACV-BUSCA.md) na validação de 27/09/2026.** Títulos que são só pontuação ("," e ".MENSAGEM.") e nomes com acento decomposto ("Presenc̦a", com U+0326 combinante), que não casam com a busca digitada. Os dois vêm do dump da OpenLibrary e pedem limpeza na carga (normalização Unicode NFC e descarte ou revisão de título sem letra), não na busca; corrigir o que já está gravado pede recarga ou correção de dado revisada por humano (plano §6). **Em parte resolvido em 08/10/2026** (Timeline "Unificação"): a normalização compõe em NFC antes de tudo, e o `unificar` corrigiu nome e chave de autor, editora e série em dev e DES. Continuam abertos:
+  - títulos de livro em NFD (291), que a busca acha porque o `unaccent` trata NFD;
+  - acento sem forma composta, que o NFC não junta (U+0326, e "Civilizac ʹa o Brasileira", com U+02B9);
+  - títulos só de pontuação.
+- **Autor duplicado pela fonte (08/10/2026).** A OpenLibrary cadastra a mesma pessoa com mais de uma chave e às vezes liga a edição ao registro de um homônimo (as edições portuguesas de Jogos Vorazes apontavam para outra Suzanne Collins). A carga deduplica pela chave, então isso só se resolve por curadoria:
+  - **Dado curado:** `dados/autores_unificados.csv`, com evidência por linha. O canônico é o registro com Wikidata; sem ele, o com mais livros.
+  - **Aplicação:** o subcomando `unificar` junta o duplicado ao canônico. A tabela `acervo.autor_chave_unificada` (migration `0006`) faz a carga e a importação por ISBN não o recriarem.
+  - **Homônimos de verdade ficam separados:** Antônio Torres (1885 × 1940) e Carla Araujo. O `unificar` lista no fim os nomes que ainda se repetem, para a próxima curadoria.
+  - **Duplicado novo** que entrar pela importação por ISBN de livro novo não é pego sozinho: aparece nessa lista e precisa de uma linha nova no CSV.
+- **DES no deploy da `main` (fim do período):** a `0006` entra pelo `start:prod`. Depois dela, rodar `python -m leai_ingestao unificar` de novo no DES, com `--dry-run` antes, para gravar as 216 chaves em `autor_chave_unificada` e juntar o que a importação por ISBN tiver criado nesse meio-tempo.
 - **Duplicação consciente das funções de normalização.** As regras de RN-12 e RN-21 existem em Python (o script) e em TypeScript (o importador por ISBN de F-ACV-CADASTRO), porque são linguagens diferentes. Os **dados** não estão duplicados: os CSV são a fonte versionada e as tabelas `assunto`, `sinonimo_editora` e `mapa_assunto_externo` são a fonte de runtime dos dois lados. O que pode divergir são as funções — slug, sufixos societários, dígito verificador — e os dois conjuntos de teste usam os mesmos casos de propósito. A versão TypeScript de editora e autor passou a existir de fato em 22/09/2026, em `code/back/acervo/src/common/normalizacao.ts`.
 - **Conjunto curado, sinônimos e mapeamento entram como proposta do dono**, não como decisão do grupo. RN-21.1 diz que os ~30 gêneros são definidos pelo grupo; os arquivos versionados precisam de ratificação. Mudar um slug depois da carga exige migração dos vínculos em `livro_assunto`.
 - **A conferência dos dados curados é a primeira coisa a rodar.** `python -m leai_ingestao conferir` valida os três CSV entre si sem tocar o banco: slug que não deriva do nome violaria o CHECK, tag fora da forma normalizada nunca casaria em runtime, e mapeamento apontando para assunto inexistente violaria a FK — os três só apareceriam no meio de uma carga de horas.
 
 ## Timeline
+
+### Unificação 08/10/2026: autores, editoras e séries duplicados juntados em dev (`le-ai`, São Paulo) e DES (`le-ai-oregon`), a pedido do dono, depois de achar duas "Suzanne Collins" na página de autor de [F-ACV-DESCOBERTA](../periodo-2/feature-F-ACV-DESCOBERTA.md). Os dois bancos tinham exatamente os mesmos grupos.
+- **Duas causas:**
+  - **Autor cadastrado mais de uma vez na fonte**, com chaves diferentes: 183 nomes repetidos em 379 linhas.
+  - **Nome decomposto (NFD) na fonte:** o acento solto não é `\w` e virava espaço na normalização ("joa o guimara es rosa"). Isso afetava 219 chaves de autor e escondia mais 20 grupos de autor (João Ubaldo Ribeiro, Vinícius de Moraes), além de editoras (Civilização Brasileira, Edusp) e séries duplicadas.
+- **Código:**
+  - `_base` (Python) e `normalizarNome` (TS) compõem em NFC antes de tudo, com o mesmo teste nos dois;
+  - `dados/autores_unificados.csv`, validado pelo `conferir`;
+  - o subcomando `unificar`, com `--dry-run`;
+  - a migration `0006` (`autor_chave_unificada`);
+  - a carga e a importação por ISBN passam a consultar a tabela antes de criar autor pela chave.
+- **Curadoria:** 216 chaves duplicadas em 201 autores canônicos. A evidência veio do dump de autores de 30/09/2026 (Wikidata, datas) e dos livros de cada registro.
+  - **Edição ligada a outra pessoa:** Suzanne Collins, Kathleen Glasgow, Dan Brown, Stephen King, John Green e Lima Barreto (o escritor, não o cineasta). O canônico é o registro com Wikidata, e a biografia do homônimo foi descartada.
+  - **Ficaram separados:** Antônio Torres e Carla Araujo.
+- **Resultado, igual nos dois bancos:**
+  - autores: 216 duplicados removidos, 241 vínculos levados ao canônico, 49 grafias de exibição ajustadas ("Pepetela." para "Pepetela") e 253 chaves recalculadas;
+  - editoras: 34 juntadas e 39 recalculadas; séries: 24 juntadas e 74 recalculadas;
+  - totais: 7.910 autores, 2.658 editoras, 1.350 séries e 11.150 vínculos de autor;
+  - nenhum nome fora de NFC, e uma segunda rodada não muda nada;
+  - os 701 livros sem autor são os mesmos de antes.
+- **Chaves:** em dev, a `0006` foi aplicada e as 216 chaves registradas. Em DES só os dados mudaram, e as chaves esperam o deploy da `main` (Pendências).
+- **Testes:**
+  - ingestão: 132, com os de banco (unificação, simulação, reexecução, recarga que não recria o duplicado, NFD em autor, editora e série);
+  - `acervo`: lint, 302 unitários e 126 de integração, com a importação por ISBN de chave unificada.
 
 ### Fechamento 29/09/2026: arquivo revisado para o fechamento do Período 1. [F-ACV-BUSCA](feature-F-ACV-BUSCA.md) consome a base desde 26/09/2026 e mediu p95 de ~690 ms com o volume real; o DES do consumo entra no merge de fechamento. Registrados os 701 livros sem autor depois do fallback e os achados de dados da validação de BUSCA (títulos só de pontuação e acento decomposto). CI `ci-scripts-ingestao` verde na `desenvolvimento` (26/09/2026). Situação segue **em revisão**.
 

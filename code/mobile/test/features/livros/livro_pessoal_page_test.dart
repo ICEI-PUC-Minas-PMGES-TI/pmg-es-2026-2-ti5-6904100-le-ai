@@ -182,11 +182,44 @@ void main() {
       );
 
       expect(find.text('Este livro não está mais disponível'), findsOneWidget);
-      expect(find.text('Ele pode ter sido excluído por quem o cadastrou.'), findsOneWidget);
+      expect(
+        find.text('Quem o cadastrou pode ter excluído o livro ou deixado de compartilhá-lo.'),
+        findsOneWidget,
+      );
       expect(find.text('Voltar ao feed'), findsOneWidget);
       expect(find.text('Cartas de um sertanejo'), findsNothing);
     });
   }
+
+  // F-LST: até a etapa 3, o `acervo` recusa `via=lista` com 400; para quem chega pela lista, é o
+  // mesmo indisponível, com a volta à lista.
+  for (final status in <int>[400, 403]) {
+    testWidgets('pela lista, $status: indisponível com "Voltar à lista"', (tester) async {
+      await montar(
+        tester,
+        (_) async => erro(status, 'REQUISICAO_INVALIDA', 'Via de acesso inválida.'),
+        via: 'lista',
+        referenciaId: _atividade,
+      );
+
+      expect(pedidos.single.url.queryParameters['via'], 'lista');
+      expect(find.text('Este livro não está mais disponível'), findsOneWidget);
+      expect(find.text('Voltar à lista'), findsOneWidget);
+      expect(find.text('Voltar ao feed'), findsNothing);
+    });
+  }
+
+  testWidgets('400 fora da lista continua sendo falha, não indisponível', (tester) async {
+    await montar(
+      tester,
+      (_) async => erro(400, 'REQUISICAO_INVALIDA', 'Via de acesso inválida.'),
+      via: 'feed',
+      referenciaId: _atividade,
+    );
+
+    expect(find.text('Este livro não está mais disponível'), findsNothing);
+    expect(find.text('Tentar de novo'), findsOneWidget);
+  });
 
   testWidgets('dono exclui pelo menu, com confirmação que nomeia o livro', (tester) async {
     var excluido = false;

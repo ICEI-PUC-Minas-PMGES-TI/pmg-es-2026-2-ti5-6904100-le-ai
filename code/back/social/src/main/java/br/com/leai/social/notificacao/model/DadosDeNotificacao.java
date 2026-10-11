@@ -7,7 +7,7 @@ package br.com.leai.social.notificacao.model;
  * <pre>
  * { "ator": { id, username, nomeExibicao, avatarUrl },
  *   "atividadeId", "comentarioId", "solicitacaoId", "seguimentoId",
- *   "leituraId", "limiarDias", "livro": { id, tipo, titulo },
+ *   "leituraId", "limiarDias", "resenhaId", "livro": { id, tipo, titulo },
  *   "atividade": { tipo, livroTitulo, autorId, autorNome } }
  * </pre>
  *
@@ -29,6 +29,8 @@ public final class DadosDeNotificacao {
   public static final String LIMIAR_DIAS = "limiarDias";
   public static final String RECOMENDACAO_ID = "recomendacaoId";
   public static final String RECOMENDACAO_MENSAGEM = "mensagem";
+  /** Resenha curtida (F-AVA-2). Fica no snapshot para um destino futuro na própria resenha. */
+  public static final String RESENHA_ID = "resenhaId";
 
   public static final String LIVRO = "livro";
   public static final String LIVRO_ID = "id";

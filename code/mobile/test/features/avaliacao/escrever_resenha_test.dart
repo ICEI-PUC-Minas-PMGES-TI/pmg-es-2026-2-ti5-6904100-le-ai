@@ -137,7 +137,10 @@ void main() {
 
     expect(find.text('5.126 de 5.000 caracteres'), findsOneWidget);
     expect(
-      find.text('Sua resenha passou do limite em 126 caracteres. Corte um trecho para publicar.'),
+      find.text(
+        'Sua resenha passou do limite em 126 caracteres, contando a formatação. Corte um trecho '
+        'para publicar.',
+      ),
       findsOneWidget,
     );
     expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, texto);
@@ -302,5 +305,124 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(EscreverResenhaPage), findsNothing);
+  });
+
+  group('Markdown (F-AVA-2)', () {
+    TextEditingController campo(WidgetTester tester) =>
+        tester.widget<TextField>(find.byType(TextField)).controller!;
+
+    Future<void> tocar(WidgetTester tester, String rotulo) async {
+      await tester.tap(find.bySemanticsLabel(rotulo));
+      await tester.pump();
+    }
+
+    void ativo(WidgetTester tester, String rotulo, bool esperado) => expect(
+      tester.getSemantics(find.bySemanticsLabel(rotulo)),
+      isSemantics(isToggled: esperado, hasToggledState: true),
+      reason: rotulo,
+    );
+
+    testWidgets('seis botões na barra, acima do rodapé, com ação de toque na semântica', (tester) async {
+      final semantica = tester.ensureSemantics();
+      await montar(tester);
+
+      for (final rotulo in <String>[
+        'Negrito',
+        'Itálico',
+        'Tachado',
+        'Lista com marcadores',
+        'Lista numerada',
+        'Citação',
+      ]) {
+        final dados = tester.getSemantics(find.bySemanticsLabel(rotulo)).getSemanticsData();
+        expect(dados.hasAction(SemanticsAction.tap), isTrue, reason: rotulo);
+      }
+      // A barra fica acima da barra de spoiler e contador.
+      expect(
+        tester.getTopLeft(find.bySemanticsLabel('Negrito')).dy,
+        lessThan(tester.getTopLeft(find.text('0 de 5.000 caracteres')).dy),
+      );
+      semantica.dispose();
+    });
+
+    testWidgets('negrito envolve a seleção, fica ativo e a marcação entra no contador', (tester) async {
+      final semantica = tester.ensureSemantics();
+      await montar(tester);
+      await tester.enterText(find.byType(TextField), 'um livro bom');
+      campo(tester).selection = const TextSelection(baseOffset: 3, extentOffset: 8);
+      await tester.pump();
+
+      await tocar(tester, 'Negrito');
+
+      expect(campo(tester).text, 'um **livro** bom');
+      expect(campo(tester).selection, const TextSelection(baseOffset: 5, extentOffset: 10));
+      ativo(tester, 'Negrito', true);
+      ativo(tester, 'Itálico', false);
+      expect(find.text('16 de 5.000 caracteres'), findsOneWidget);
+
+      await tocar(tester, 'Negrito');
+      expect(campo(tester).text, 'um livro bom');
+      semantica.dispose();
+    });
+
+    testWidgets('lista numerada e Enter que continua a lista', (tester) async {
+      await montar(tester);
+      await tester.enterText(find.byType(TextField), 'um');
+      await tester.pump();
+
+      await tocar(tester, 'Lista numerada');
+      expect(campo(tester).text, '1. um');
+
+      await tester.enterText(find.byType(TextField), '1. um\n');
+      await tester.pump();
+      expect(campo(tester).text, '1. um\n2. ');
+    });
+
+    testWidgets('Visualizar mostra a resenha formatada, sem barra e sem teclado', (tester) async {
+      await montar(tester);
+      const texto = '**forte** e *leve*\n\n- item\n\n> citado';
+      await tester.enterText(find.byType(TextField), texto);
+      await tester.pump();
+
+      await tocar(tester, 'Visualizar');
+      await tester.pumpAndSettle();
+
+      expect(find.bySemanticsLabel('Negrito'), findsNothing);
+      expect(find.text('forte e leve', findRichText: true), findsOneWidget);
+      expect(find.text('•'), findsOneWidget);
+      expect(find.text('citado', findRichText: true), findsOneWidget);
+      // O contador conta o texto cru.
+      expect(find.text('${texto.runes.length} de 5.000 caracteres'), findsOneWidget);
+      expect(tester.testTextInput.isVisible, isFalse);
+
+      await tocar(tester, 'Escrever');
+      await tester.pumpAndSettle();
+      expect(campo(tester).text, texto);
+      expect(find.bySemanticsLabel('Negrito'), findsOneWidget);
+    });
+
+    testWidgets('Visualizar sem texto mostra o vazio', (tester) async {
+      await montar(tester);
+
+      await tocar(tester, 'Visualizar');
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Nada para visualizar ainda. Escreva sua resenha para ver como ela vai aparecer.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('marcação fora do subconjunto aparece literal, com a faixa', (tester) async {
+      await montar(tester);
+      await tester.enterText(find.byType(TextField), 'Leia: [aqui](https://exemplo.com)');
+      await tester.pump();
+
+      await tocar(tester, 'Visualizar');
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Links, imagens, tabelas, títulos, código e HTML'), findsOneWidget);
+      expect(find.text('Leia: [aqui](https://exemplo.com)', findRichText: true), findsOneWidget);
+    });
   });
 }

@@ -7,6 +7,7 @@ import br.com.leai.identidade.auth.dto.LoginRequisicao;
 import br.com.leai.identidade.auth.dto.MensagemResposta;
 import br.com.leai.identidade.auth.dto.RedefinirSenhaRequisicao;
 import br.com.leai.identidade.auth.dto.RefreshRequisicao;
+import br.com.leai.identidade.auth.dto.RespostaDeLogin;
 import br.com.leai.identidade.auth.dto.SessaoResposta;
 import br.com.leai.identidade.auth.dto.UsuarioResposta;
 import br.com.leai.identidade.auth.service.GestorDeRenovacao;
@@ -107,7 +108,11 @@ public class AutenticacaoController {
           "Emite token de acesso de curta duração e token de renovação rotativo (RF-AUT-03). A "
               + "resposta de credencial inválida é a mesma para conta inexistente e senha errada "
               + "(RNF-SEC-28).")
-  @ApiResponse(responseCode = "200", description = "Sessão emitida.")
+  @ApiResponse(
+      responseCode = "200",
+      description =
+          "Sessão emitida; para conta com exclusão pendente, acesso de recuperação "
+              + "(F-CONTA-2), distinguido pelo campo tipo.")
   @ApiResponse(
       responseCode = "401",
       description = "Credencial inválida.",
@@ -118,7 +123,7 @@ public class AutenticacaoController {
           "Limite por IP excedido (RNF-SEC-17) ou identidade em bloqueio temporário "
               + "progressivo por falhas sucessivas (RNF-SEC-29).",
       content = @Content(schema = @Schema(ref = "#/components/schemas/Erro")))
-  public SessaoResposta entrar(
+  public RespostaDeLogin entrar(
       @RequestHeader(name = ChaveDeIdempotencia.CABECALHO, required = false) String chaveBruta,
       @Valid @RequestBody LoginRequisicao requisicao) {
     String chave = ChaveDeIdempotencia.exigir(chaveBruta);
@@ -128,7 +133,7 @@ public class AutenticacaoController {
             OperacaoIdempotente.AUTENTICAR_USUARIO,
             chave,
             requisicao,
-            SessaoResposta.class,
+            RespostaDeLogin.class,
             () -> new RespostaIdempotente<>(HttpStatus.OK.value(), servico.entrar(requisicao)))
         .corpo();
   }

@@ -18,6 +18,7 @@ import {
 } from '../../common/idempotencia/idempotencia.service';
 import { ehViolacaoDeUnicidade } from '../../common/pg-erros';
 import { DRIZZLE, type DrizzleDB } from '../../db/drizzle.module';
+import { DesafiosService } from '../../desafios/aplicacao/desafios.service';
 import type { Tx } from '../../db/tipos';
 import {
   LIMITE_MAXIMO,
@@ -30,6 +31,7 @@ import {
   type Executor,
   ReferenciasExternas,
 } from '../../referencias/referencias-externas.service';
+import { SequenciaService } from '../../sequencia/sequencia.service';
 import type {
   ConsultaProgressoDto,
   CriarProgressoEntradaDto,
@@ -84,6 +86,8 @@ export class ProgressoService {
     private readonly referencias: ReferenciasExternas,
     private readonly outbox: OutboxRepository,
     private readonly idempotencia: IdempotenciaService,
+    private readonly sequencia: SequenciaService,
+    private readonly desafios: DesafiosService,
   ) {}
 
   async registrar(
@@ -201,12 +205,20 @@ export class ProgressoService {
         }
         const totalPaginas = await this.totalDePaginas(tx, alvo.livroId);
 
-        await this.repositorio.excluir(tx, alcance.idsRemovidos);
+        const datasRemovidas = await this.repositorio.excluir(
+          tx,
+          alcance.idsRemovidos,
+        );
         await this.repositorio.registrarAtividade(
           tx,
           alvo.id,
           alcance.paginaAtual,
         );
+        // A exclusão não publica evento (F-PRG): os dias e a sequência do
+        // leitor (F-GAM) e as contribuições aos desafios (F-DSF, RN-20.10) se
+        // recompõem aqui, na mesma transação.
+        await this.sequencia.recalcular(tx, usuarioId);
+        await this.desafios.recalcular(tx, usuarioId, datasRemovidas);
 
         return {
           status: HttpStatus.OK,

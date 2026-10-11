@@ -79,6 +79,7 @@ public final class EventosDeNotificacaoDeTeste {
       case ATIVIDADE_CURTIDA -> "atividade:" + fato.atividadeId() + ":curtida:" + fato.atorId();
       case ATIVIDADE_COMENTADA, COMENTARIO_RESPONDIDO -> "comentario:" + fato.recursoId();
       case USUARIO_MENCIONADO -> "mencao:" + fato.recursoId() + ":" + fato.destinatarioId();
+      case RESENHA_CURTIDA -> "resenha:" + fato.recursoId() + ":curtida:" + fato.atorId();
       case LEITURA_EM_RISCO, LEITURA_EXPIRADA ->
           "leitura:"
               + fato.leituraId()
@@ -127,6 +128,11 @@ public final class EventosDeNotificacaoDeTeste {
         dados.put("comentarioId", recurso);
         dados.put("comentarioAlvoId", UUID.randomUUID().toString());
         dados.put("autorAcao", usuario(fato.atorId()));
+      }
+      case RESENHA_CURTIDA -> {
+        dados.put("resenhaId", recurso);
+        dados.put("autorAcao", usuario(fato.atorId()));
+        dados.put("livro", livro());
       }
       case LEITURA_EM_RISCO, LEITURA_EXPIRADA -> {
         dados.put("leituraId", fato.leituraId().toString());

@@ -1,26 +1,34 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 
 import '../../app/cabecalho_tela.dart';
 import '../../design/theme.dart';
 import '../../design/tokens.dart';
+import '../../design/widgets/aviso.dart';
 import '../../design/widgets/bloco_de_spoiler.dart';
 import '../../design/widgets/botao_primario.dart';
 import '../../design/widgets/botao_textual.dart';
 import '../../design/widgets/capa_livro.dart';
-import '../../design/widgets/aviso.dart';
 import '../../design/widgets/entrada_suave.dart';
-import '../../design/widgets/folha_de_acoes.dart';
+import '../../design/widgets/folha_inferior.dart';
+import '../avaliacao/markdown_resenha.dart';
+import '../listas/folha_adicionar_a_lista.dart';
+import '../listas/lista_form_page.dart';
+import '../listas/rotas_listas.dart';
 import '../avaliacao/avaliacao_controller.dart';
 import '../avaliacao/bloco_sua_avaliacao.dart';
 import '../avaliacao/escrever_resenha_page.dart';
 import '../avaliacao/leitura_service.dart';
 import '../avaliacao/painel_de_nota.dart';
+import '../avaliacao/adicionar_frase.dart';
+import '../avaliacao/reacoes_da_resenha.dart';
+import '../avaliacao/secao_frases.dart';
 import '../estante/estante_service.dart';
 import '../estante/situacao_na_estante.dart';
 import '../feed/social_service.dart';
-import '../recomendacoes/recomendar_livro_page.dart';
 import '../perfil/widgets_de_perfil.dart';
+import '../recomendacoes/recomendar_livro_page.dart';
 import '../progresso/rotas_progresso.dart';
 import 'acervo_service.dart';
 import 'formatos.dart';
@@ -39,6 +47,9 @@ import 'livro_oficial_controller.dart';
 ///   botão principal por situação.
 /// - Resenhas de outros leitores, filtradas por RN-08 no servidor. O texto de spoiler só entra na
 ///   árvore depois de revelado.
+/// - F-ACV-DESCOBERTA: na ficha, autor, editora e série levam às páginas de catálogo (o número da
+///   série fica fora do link), e `Assuntos`, depois da sinopse, leva ao Descobrir filtrado. O
+///   autor do hero não vira link.
 class LivroOficialPage extends StatefulWidget {
   final AcervoService servico;
   final LeituraService leitura;
@@ -48,9 +59,22 @@ class LivroOficialPage extends StatefulWidget {
   final DependenciasDeProgresso? progresso;
   final ValueChanged<String>? aoVerAtualizacoes;
 
-  /// Sem ele, a página não oferece `Recomendar a um leitor`.
+  /// Menu `Mais ações` do header (pagina-do-livro.md P2 §4 A e §5.1): `Adicionar à lista` com
+  /// [listas] (F-LST) e `Recomendar a um leitor` com [social] (F-REC-P2P). Sem nenhum dos dois, o
+  /// menu não aparece.
+  final DependenciasDeListas? listas;
   final SocialService? social;
   final VoidCallback? aoBuscarLeitores;
+
+  /// Páginas de autor, editora e série e a busca por assunto (F-ACV-DESCOBERTA). Sem elas, a
+  /// ficha mostra os valores como texto e os assuntos não reagem ao toque.
+  final ValueChanged<String>? aoAbrirAutor;
+  final ValueChanged<String>? aoAbrirEditora;
+  final ValueChanged<String>? aoAbrirSerie;
+  final ValueChanged<String>? aoBuscarAssunto;
+
+  /// `Ver todas as frases` (F-AVA-2). Sem ele, a seção de frases mostra só as três mais recentes.
+  final VoidCallback? aoVerFrases;
 
   const LivroOficialPage({
     super.key,
@@ -61,8 +85,14 @@ class LivroOficialPage extends StatefulWidget {
     this.estante,
     this.progresso,
     this.aoVerAtualizacoes,
+    this.listas,
     this.social,
     this.aoBuscarLeitores,
+    this.aoAbrirAutor,
+    this.aoAbrirEditora,
+    this.aoAbrirSerie,
+    this.aoBuscarAssunto,
+    this.aoVerFrases,
   });
 
   @override
@@ -96,34 +126,41 @@ class _LivroOficialPageState extends State<LivroOficialPage> {
     return Column(
       children: <Widget>[
         // Sem divisor: com a página no topo o protótipo não tem linha, e o header não acompanha
-        // a rolagem para desenhá-la depois (a mesma simplificação do resto do app).
+        // a rolagem para desenhá-la depois (a mesma simplificação do resto do app). O menu age
+        // sobre o livro e só aparece quando ele carrega.
         ListenableBuilder(
           listenable: _pagina,
-          builder: (context, _) => CabecalhoTela(
-            titulo: '',
-            aoVoltar: widget.aoVoltar,
-            semDivisor: true,
-            acoes: <Widget>[
-              if (widget.social != null && _pagina.estado == EstadoDaPagina.pronta)
-                Semantics(
-                  button: true,
-                  label: 'Mais ações',
-                  child: GestureDetector(
-                    onTap: _abrirMenu,
-                    behavior: HitTestBehavior.opaque,
-                    child: SizedBox(
-                      width: 48,
-                      height: 48,
-                      child: Icon(
-                        PhosphorIconsRegular.dotsThree,
-                        size: 24,
-                        color: Theme.of(context).colorScheme.onSurface,
+          builder: (context, _) {
+            final livro = _pagina.livro;
+            return CabecalhoTela(
+              titulo: '',
+              aoVoltar: widget.aoVoltar,
+              semDivisor: true,
+              acoes: <Widget>[
+                if ((widget.listas != null || widget.social != null) &&
+                    _pagina.estado == EstadoDaPagina.pronta &&
+                    livro != null)
+                  Semantics(
+                    button: true,
+                    label: 'Mais ações',
+                    excludeSemantics: true,
+                    child: GestureDetector(
+                      onTap: () => _abrirMenu(livro.resumo),
+                      behavior: HitTestBehavior.opaque,
+                      child: SizedBox(
+                        width: 48,
+                        height: 48,
+                        child: Icon(
+                          PhosphorIconsRegular.dotsThree,
+                          size: 24,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
                       ),
                     ),
                   ),
-                ),
-            ],
-          ),
+              ],
+            );
+          },
         ),
         Expanded(
           child: ListenableBuilder(
@@ -135,27 +172,111 @@ class _LivroOficialPageState extends State<LivroOficialPage> {
     );
   }
 
-  Future<void> _abrirMenu() async {
-    final escolha = await escolherNaFolha(context, const <AcaoDaFolha>[
-      AcaoDaFolha(
-        valor: 'recomendar',
-        icone: PhosphorIconsRegular.paperPlaneTilt,
-        rotulo: 'Recomendar a um leitor',
-      ),
-    ]);
-    final livro = _pagina.livro;
-    if (escolha != 'recomendar' || livro == null || !mounted) {
+  /// Menu `Mais ações` (§5.1): card compacto do livro e os itens, sem destrutivo.
+  Future<void> _abrirMenu(LivroOficialResumo livro) async {
+    final listas = widget.listas;
+    final social = widget.social;
+    if (listas == null && social == null) {
       return;
     }
+    final escolha = await mostrarFolhaInferior<String>(
+      Navigator.of(context, rootNavigator: true).context,
+      builder: (context) {
+        final theme = Theme.of(context);
+        Widget item(String valor, IconData icone, String rotulo) {
+          return Semantics(
+            button: true,
+            child: InkWell(
+              onTap: () => Navigator.of(context).pop(valor),
+              child: SizedBox(
+                height: 56,
+                child: Row(
+                  children: <Widget>[
+                    Icon(icone, size: 20, color: theme.colorScheme.onSurface),
+                    const SizedBox(width: DesignTokens.space4),
+                    Expanded(child: Text(rotulo, style: theme.textTheme.bodyMedium)),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
+        return SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  CapaLivro(url: livro.capaUrl, largura: 60, altura: 90, titulo: livro.titulo),
+                  const SizedBox(width: DesignTokens.space4),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(livro.titulo, style: theme.textTheme.titleMedium),
+                        if (livro.autoresParaExibir case final autores?)
+                          Text(
+                            autores,
+                            style: theme.textTheme.bodySmall?.copyWith(color: theme.secondaryText),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: DesignTokens.space4),
+              Divider(height: 1, color: theme.divider),
+              if (listas != null)
+                item('lista', PhosphorIconsRegular.listPlus, 'Adicionar à lista'),
+              if (social != null)
+                item('recomendar', PhosphorIconsRegular.paperPlaneTilt, 'Recomendar a um leitor'),
+              const SizedBox(height: DesignTokens.space4),
+              BotaoTextual(
+                texto: 'Cancelar',
+                neutro: true,
+                larguraTotal: true,
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (!mounted) {
+      return;
+    }
+    if (escolha == 'lista' && listas != null) {
+      await abrirAdicionarALista(
+        context,
+        servico: listas.servico,
+        livro: LivroDeOrigem(
+          id: livro.id,
+          titulo: livro.titulo,
+          autor: livro.autoresParaExibir,
+          capaUrl: livro.capaUrl,
+          pessoal: false,
+        ),
+        obterPrivacidade: listas.minhaPrivacidade,
+        aoVerLista: (id) => GoRouter.maybeOf(context)?.go(rotaMinhaLista(id)),
+      );
+    } else if (escolha == 'recomendar' && social != null) {
+      await _recomendar(social, livro);
+    }
+  }
+
+  Future<void> _recomendar(SocialService social, LivroOficialResumo livro) async {
     final aviso = await abrirRecomendar(
       context,
-      social: widget.social!,
+      social: social,
       livro: LivroRecomendado(
         id: widget.livroId,
-        titulo: livro.resumo.titulo,
-        autor: livro.resumo.autoresParaExibir,
-        detalhes: metadadosDoLivro(livro.resumo),
-        capaUrl: livro.resumo.capaUrl,
+        titulo: livro.titulo,
+        autor: livro.autoresParaExibir,
+        detalhes: metadadosDoLivro(livro),
+        capaUrl: livro.capaUrl,
       ),
       aoBuscarLeitores: widget.aoBuscarLeitores ?? () {},
     );
@@ -222,13 +343,38 @@ class _LivroOficialPageState extends State<LivroOficialPage> {
           BlocoSuaAvaliacao(avaliacao: _avaliacao, livro: _livroAvaliado(livro)),
           const SizedBox(height: DesignTokens.space6),
           _Secao(titulo: 'Sinopse', child: _sinopse(theme)),
+          if (livro.resumo.assuntos.isNotEmpty) ...<Widget>[
+            const SizedBox(height: DesignTokens.space6),
+            _Secao(
+              titulo: 'Assuntos',
+              child: _Assuntos(assuntos: livro.resumo.assuntos, aoBuscar: widget.aoBuscarAssunto),
+            ),
+          ],
           const SizedBox(height: DesignTokens.space6),
           _Secao(
             titulo: 'Ficha',
-            child: _Ficha(livro: livro),
+            child: _Ficha(
+              livro: livro,
+              aoAbrirAutor: widget.aoAbrirAutor,
+              aoAbrirEditora: widget.aoAbrirEditora,
+              aoAbrirSerie: widget.aoAbrirSerie,
+            ),
           ),
           const SizedBox(height: DesignTokens.space6),
           _resenhas(theme),
+          // F-AVA-2: frases e trechos, depois das resenhas (pagina-do-livro.md §5.4).
+          const SizedBox(height: DesignTokens.space6),
+          SecaoFrases(
+            leitura: widget.leitura,
+            livro: LivroDaFrase(
+              id: livro.resumo.id,
+              titulo: livro.resumo.titulo,
+              autor: livro.resumo.autoresParaExibir,
+              capaUrl: livro.resumo.capaUrl,
+              paginas: livro.resumo.paginas,
+            ),
+            aoVerTodas: widget.aoVerFrases,
+          ),
         ],
       ),
     );
@@ -319,7 +465,7 @@ class _LivroOficialPageState extends State<LivroOficialPage> {
           ] else ...<Widget>[
             for (final (indice, resenha) in resenhas.indexed) ...<Widget>[
               if (indice > 0) const SizedBox(height: DesignTokens.space6),
-              _Resenha(key: ValueKey<String>(resenha.id), resenha: resenha),
+              _Resenha(key: ValueKey<String>(resenha.id), resenha: resenha, leitura: widget.leitura),
             ],
             if (_pagina.falhouMaisResenhas) ...<Widget>[
               const SizedBox(height: DesignTokens.space4),
@@ -422,39 +568,252 @@ class _Secao extends StatelessWidget {
   }
 }
 
-/// Ficha em rótulo e valor. Os valores são texto, não link: páginas de autor e editora são do
-/// Período 2. Autor e editora que faltam somem, em vez de aparecerem vazios.
+/// Ficha em rótulo e valor. Autor, editora e série levam às páginas de catálogo
+/// (`pagina-do-livro.md` do P2): valor em `musgo` peso 600 com `CaretRight`, e a linha inteira
+/// como alvo quando há um link só. Com coautoria, cada nome é o seu alvo. O `volume N` da série
+/// fica fora do link. Autor, editora e série que faltam somem, em vez de aparecerem vazios.
 class _Ficha extends StatelessWidget {
   final LivroOficialDetalhe livro;
+  final ValueChanged<String>? aoAbrirAutor;
+  final ValueChanged<String>? aoAbrirEditora;
+  final ValueChanged<String>? aoAbrirSerie;
 
-  const _Ficha({required this.livro});
+  const _Ficha({required this.livro, this.aoAbrirAutor, this.aoAbrirEditora, this.aoAbrirSerie});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final linhas = <(String, String)>[
-      if (livro.resumo.autoresParaExibir != null) ('Autor', livro.resumo.autoresParaExibir!),
-      if (livro.resumo.editora != null) ('Editora', livro.resumo.editora!),
-      ('ISBN', livro.isbn),
+    final autores = livro.resumo.autores;
+    final editora = livro.resumo.editora;
+    final editoraId = livro.editoraId;
+    final serie = livro.serie;
+    final linhas = <_LinhaDaFicha>[
+      if (autores.isNotEmpty)
+        _LinhaDaFicha(
+          autores.length > 1 ? 'Autores' : 'Autor',
+          acessivel: 'Ver página de autor',
+          links: <(String, VoidCallback?)>[
+            for (final autor in autores)
+              (autor.nome, aoAbrirAutor == null ? null : () => aoAbrirAutor!(autor.id)),
+          ],
+        ),
+      if (editora != null)
+        _LinhaDaFicha(
+          'Editora',
+          acessivel: 'Ver página de editora',
+          links: <(String, VoidCallback?)>[
+            (
+              editora,
+              editoraId == null || aoAbrirEditora == null ? null : () => aoAbrirEditora!(editoraId),
+            ),
+          ],
+        ),
+      if (serie != null)
+        _LinhaDaFicha(
+          'Série',
+          acessivel: 'Ver página da série',
+          links: <(String, VoidCallback?)>[
+            (serie.nome, aoAbrirSerie == null ? null : () => aoAbrirSerie!(serie.id)),
+          ],
+          complemento: serie.numero == null ? null : 'volume ${serie.numero}',
+        ),
+      _LinhaDaFicha('ISBN', links: <(String, VoidCallback?)>[(livro.isbn, null)]),
     ];
     return Column(
       children: <Widget>[
-        for (final (indice, (rotulo, valor)) in linhas.indexed) ...<Widget>[
+        for (final (indice, linha) in linhas.indexed) ...<Widget>[
           if (indice > 0) Divider(height: 1, thickness: 1, color: theme.divider),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: DesignTokens.space3),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(rotulo, style: theme.textTheme.labelMedium),
-                const SizedBox(width: DesignTokens.space4),
-                Expanded(
-                  child: Text(valor, textAlign: TextAlign.right, style: theme.textTheme.bodyMedium),
-                ),
-              ],
+          _linha(theme, linha),
+        ],
+      ],
+    );
+  }
+
+  Widget _linha(ThemeData theme, _LinhaDaFicha linha) {
+    final unico = linha.links.length == 1 ? linha.links.single.$2 : null;
+    final conteudo = ConstrainedBox(
+      constraints: BoxConstraints(minHeight: unico == null ? 0 : 48),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: DesignTokens.space3),
+        child: Row(
+          crossAxisAlignment: unico == null ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+          children: <Widget>[
+            Text(linha.rotulo, style: theme.textTheme.labelMedium),
+            const SizedBox(width: DesignTokens.space4),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: <Widget>[
+                  for (final (indice, (texto, aoTocar)) in linha.links.indexed)
+                    _comComplemento(
+                      theme,
+                      _valor(
+                        theme,
+                        texto,
+                        linha.links.length > 1 ? aoTocar : null,
+                        aoTocar != null,
+                        rotulo: linha.acessivel == null ? texto : '${linha.acessivel}: $texto',
+                      ),
+                      indice == linha.links.length - 1 ? linha.complemento : null,
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (unico == null) {
+      return conteudo;
+    }
+    final (texto, _) = linha.links.single;
+    final complemento = linha.complemento == null ? '' : ', ${linha.complemento}';
+    return Semantics(
+      // Nó próprio e um rótulo só, com o volume: sem `container`, o link se fundia ao vizinho, e
+      // sem `excludeSemantics` o leitor de tela lia a série duas vezes.
+      container: true,
+      link: true,
+      label: '${linha.acessivel ?? linha.rotulo}: $texto$complemento',
+      excludeSemantics: true,
+      onTap: unico,
+      child: InkWell(onTap: unico, splashFactory: NoSplash.splashFactory, child: conteudo),
+    );
+  }
+
+  /// `Filhos do Éden >` seguido de `· volume 1` em `grafite`, na mesma linha (pagina-do-livro.html).
+  /// Em nome longo, o volume desce para a linha de baixo, sempre alinhado à direita.
+  Widget _comComplemento(ThemeData theme, Widget valor, String? complemento) {
+    if (complemento == null) {
+      return valor;
+    }
+    return Wrap(
+      alignment: WrapAlignment.end,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: DesignTokens.space1,
+      children: <Widget>[
+        valor,
+        Text(
+          '· $complemento',
+          style: theme.textTheme.bodyMedium?.copyWith(color: theme.secondaryText),
+        ),
+      ],
+    );
+  }
+
+  /// Valor de link em `musgo` com `CaretRight`; com [aoTocar], o próprio valor é o alvo (coautoria).
+  Widget _valor(
+    ThemeData theme,
+    String texto,
+    VoidCallback? aoTocar,
+    bool link, {
+    required String rotulo,
+  }) {
+    if (!link) {
+      return Text(texto, textAlign: TextAlign.right, style: theme.textTheme.bodyMedium);
+    }
+    final valor = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Flexible(
+          child: Text(
+            texto,
+            textAlign: TextAlign.right,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.primaryAccent,
+              fontWeight: FontWeight.w600,
             ),
           ),
-        ],
+        ),
+        const SizedBox(width: DesignTokens.space1),
+        Icon(PhosphorIconsRegular.caretRight, size: 16, color: theme.primaryAccent),
+      ],
+    );
+    if (aoTocar == null) {
+      return valor;
+    }
+    return Semantics(
+      container: true,
+      link: true,
+      label: rotulo,
+      excludeSemantics: true,
+      onTap: aoTocar,
+      child: GestureDetector(
+        onTap: aoTocar,
+        behavior: HitTestBehavior.opaque,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48),
+          child: Align(alignment: AlignmentDirectional.centerEnd, widthFactor: 1, child: valor),
+        ),
+      ),
+    );
+  }
+}
+
+class _LinhaDaFicha {
+  final String rotulo;
+
+  /// Começo do rótulo do link para o leitor de tela (`Ver página de autor`, pagina-do-livro.md §9).
+  final String? acessivel;
+
+  /// Texto e ação; ação nula é texto puro (ISBN, editora sem página).
+  final List<(String, VoidCallback?)> links;
+  final String? complemento;
+
+  const _LinhaDaFicha(this.rotulo, {this.acessivel, required this.links, this.complemento});
+}
+
+/// Assuntos acionáveis (RF-ACV-21, RN-21): chips com lupa que levam ao Descobrir filtrado.
+class _Assuntos extends StatelessWidget {
+  final List<AssuntoResumo> assuntos;
+  final ValueChanged<String>? aoBuscar;
+
+  const _Assuntos({required this.assuntos, required this.aoBuscar});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Wrap(
+      spacing: DesignTokens.space2,
+      children: <Widget>[
+        for (final assunto in assuntos)
+          Semantics(
+            link: true,
+            label: 'Buscar livros de ${assunto.nome}',
+            excludeSemantics: true,
+            onTap: aoBuscar == null ? null : () => aoBuscar!(assunto.id),
+            child: GestureDetector(
+              onTap: aoBuscar == null ? null : () => aoBuscar!(assunto.id),
+              behavior: HitTestBehavior.opaque,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 48),
+                child: Align(
+                  widthFactor: 1,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: DesignTokens.space3,
+                      vertical: DesignTokens.space1,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(DesignTokens.radiusFull),
+                      border: Border.all(color: theme.divider),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Icon(
+                          PhosphorIconsRegular.magnifyingGlass,
+                          size: 16,
+                          color: theme.secondaryText,
+                        ),
+                        const SizedBox(width: DesignTokens.space1),
+                        Text(assunto.nome.toUpperCase(), style: theme.textTheme.bodySmall),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -462,8 +821,9 @@ class _Ficha extends StatelessWidget {
 
 class _Resenha extends StatefulWidget {
   final ResenhaDoLivro resenha;
+  final LeituraService leitura;
 
-  const _Resenha({super.key, required this.resenha});
+  const _Resenha({super.key, required this.resenha, required this.leitura});
 
   @override
   State<_Resenha> createState() => _ResenhaState();
@@ -493,16 +853,19 @@ class _ResenhaState extends State<_Resenha> {
           duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : DesignTokens.durFast,
           child: oculta
               ? BlocoDeSpoiler(aoRevelar: () => setState(() => _revelada = true))
-              : Text(
-                  resenha.texto,
-                  key: const ValueKey<String>('texto'),
-                  style: theme.editorialBody,
-                ),
+              : TextoDaResenha(resenha.texto, key: const ValueKey<String>('texto')),
         ),
         const SizedBox(height: DesignTokens.space2),
         Text(
           formatarData(resenha.criadoEm),
           style: theme.textTheme.bodySmall?.copyWith(color: theme.tertiaryText),
+        ),
+        // Reações (F-AVA-2), mesmo com o corpo oculto por spoiler.
+        const SizedBox(height: DesignTokens.space3),
+        ReacoesDaResenha(
+          resenhaId: resenha.id,
+          reacoes: resenha.reacoes,
+          leitura: widget.leitura,
         ),
       ],
     );

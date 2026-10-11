@@ -10,8 +10,12 @@ Quatro subcomandos, na ordem em que se usa:
 `biografias` roda depois da carga, quando quiser (F-ACV-DESCOBERTA): preenche a
 biografia dos autores já carregados a partir do dump de autores (RF-ACV-10).
 
-`conferir` existe à parte e não toca o banco: valida os três CSV curados entre
-si. É o que o CI roda, junto dos testes.
+`unificar` é manutenção: junta autores, editoras e séries duplicados (autor
+cadastrado duas vezes na fonte, nome decomposto em NFD). Roda depois da carga e
+pode rodar de novo sem efeito.
+
+`conferir` existe à parte e não toca o banco: valida os CSV curados entre si. É
+o que o CI roda, junto dos testes.
 """
 
 from __future__ import annotations
@@ -28,6 +32,7 @@ from .dados import (
     DIRETORIO_PADRAO,
     ErroDeDadosCurados,
     carregar_assuntos,
+    carregar_autores_unificados,
     carregar_mapa_de_assuntos,
     carregar_sinonimos_de_editora,
 )
@@ -51,12 +56,14 @@ def comando_conferir(args) -> int:
         assuntos = carregar_assuntos(args.dados)
         sinonimos = carregar_sinonimos_de_editora(args.dados)
         mapa = carregar_mapa_de_assuntos(args.dados)
+        autores_unificados = carregar_autores_unificados(args.dados)
     except ErroDeDadosCurados as erro:
         print(f"dados curados inconsistentes: {erro}", file=sys.stderr)
         return 1
 
     print(
         f"assuntos={len(assuntos)} sinonimos_editora={len(sinonimos)} mapa_assunto={len(mapa)}"
+        f" autores_unificados={len(autores_unificados)}"
     )
     if not 25 <= len(assuntos) <= 35:
         print(
@@ -200,6 +207,26 @@ def comando_biografias(args) -> int:
     return 0
 
 
+def comando_unificar(args) -> int:
+    """Junta autores, editoras e séries duplicados numa transação só."""
+    try:
+        autores_unificados = carregar_autores_unificados(args.dados)
+    except ErroDeDadosCurados as erro:
+        print(f"dados curados inconsistentes: {erro}", file=sys.stderr)
+        return 1
+
+    with carga_mod.conectar(_url_do_banco(args)) as conexao:
+        resumo = carga_mod.unificar(conexao, autores_unificados)
+        if args.dry_run:
+            conexao.rollback()
+        else:
+            conexao.commit()
+
+    resumo["simulacao"] = args.dry_run
+    print(json.dumps(resumo, ensure_ascii=False, indent=2))
+    return 0
+
+
 def construir_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="leai_ingestao",
@@ -259,6 +286,18 @@ def construir_parser() -> argparse.ArgumentParser:
         help="lê o dump e grava numa transação desfeita no fim, só para ver os números",
     )
     p.set_defaults(func=comando_biografias)
+
+    p = sub.add_parser(
+        "unificar",
+        help="junta autores, editoras e séries duplicados (curadoria e nome em NFD)",
+    )
+    p.add_argument("--database-url")
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="aplica numa transação desfeita no fim, só para ver os números",
+    )
+    p.set_defaults(func=comando_unificar)
 
     return parser
 

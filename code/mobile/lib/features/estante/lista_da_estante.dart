@@ -43,4 +43,12 @@ class ListaDaEstante extends ListaPaginada<ItemEstante> {
     final atuais = totais;
     return atuais?.values.fold<int>(0, (soma, valor) => soma + valor);
   }
+
+  /// Livros concluídos ao menos uma vez. Pela máquina de RN-04, um livro concluído só volta a
+  /// `Relendo` ou fica em `Lido` (releitura abandonada também volta a `Lido`), então a soma dos
+  /// dois é exata.
+  int? get livrosLidos {
+    final atuais = totais;
+    return atuais == null ? null : (atuais[StatusEstante.lido] ?? 0) + (atuais[StatusEstante.relendo] ?? 0);
+  }
 }

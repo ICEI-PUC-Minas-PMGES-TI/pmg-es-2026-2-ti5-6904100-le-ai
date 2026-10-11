@@ -52,6 +52,12 @@ services:
         sync: false
       - key: CLOUDINARY_CLOUD_NAME # valida a URL de capa de livro pessoal (RNF-SEC-20)
         sync: false
+      # F-CONTA-2: credencial da Upload API, para apagar as capas de livro pessoal
+      # na exclusão definitiva de conta (RN-23.7). Sem ela a capa fica no Cloudinary.
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
       - key: GOOGLE_BOOKS_API_KEY # fonte secundária do cadastro por ISBN; sem ela o Google responde 429 por cota (P-14)
         sync: false
 
@@ -148,6 +154,17 @@ services:
       - key: ADMIN_EMAIL # admin fixo provisionado por ambiente (RF-AUT-08)
         sync: false
       - key: ADMIN_PASSWORD # senha forte, distinta de qualquer default (RNF-SEC-31)
+        sync: false
+      # F-CONTA-2: token do job diário de exclusão de conta, chamado pelo workflow
+      # job-exclusao-conta. Mínimo de 32 caracteres; o MESMO valor vai no secret
+      # IDENTIDADE_SCHEDULER_TOKEN do GitHub. Sem ele o job responde 401.
+      - key: SCHEDULER_TOKEN
+        sync: false
+      # F-CONTA-2: credencial da Upload API, para apagar o avatar na exclusão
+      # definitiva (RN-23.7). Sem ela o asset fica e o publicId vai para o log.
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
         sync: false
 
   # ---------------------------------------------------------------- social

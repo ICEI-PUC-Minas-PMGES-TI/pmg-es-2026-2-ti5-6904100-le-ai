@@ -123,6 +123,19 @@ async function sair(): Promise<void> {
             aria-hidden="true"
           />
         </RouterLink>
+        <!-- F-CONTA-2: sem `rubi` e sem ícone; a ação destrutiva é o botão lá dentro (§4). -->
+        <RouterLink
+          to="/perfil/configuracoes/excluir-conta"
+          class="flex h-14 items-center justify-between border-b border-linha text-body text-tinta"
+        >
+          Excluir conta
+          <PhCaretRight
+            :size="20"
+            weight="regular"
+            class="text-grafite-suave"
+            aria-hidden="true"
+          />
+        </RouterLink>
       </nav>
 
       <!-- Web: navegação da coluna esquerda, com a política aberta ao lado. -->
@@ -142,6 +155,12 @@ async function sair(): Promise<void> {
         >
           Política de privacidade
         </span>
+        <RouterLink
+          to="/perfil/configuracoes/excluir-conta"
+          class="flex h-11 items-center rounded-base px-space-4 text-body-strong text-tinta transition-colors duration-dur-fast hover:bg-linha focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo"
+        >
+          Excluir conta
+        </RouterLink>
       </nav>
 
       <BotaoDestrutivo

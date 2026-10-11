@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../core/network/api_client.dart';
+import 'reacoes.dart';
 
 /// Contrato do serviço `leitura` usado por F-AVA. Espelha `docs/api/leitura.yaml`: mesmos
 /// campos, mesmas rotas. O parse é defensivo: JSON inesperado vira [FormatException], nunca um
@@ -40,6 +41,10 @@ class Resenha {
   final DateTime criadoEm;
   final DateTime atualizadoEm;
 
+  /// Contagens da própria resenha (`MinhaResenha`, F-AVA-2), só em `minha-avaliacao`. O `PUT`
+  /// devolve a resenha sem elas, e então ficam nulas.
+  final EstadoDasReacoes? reacoes;
+
   const Resenha({
     required this.id,
     required this.usuarioId,
@@ -48,7 +53,19 @@ class Resenha {
     required this.spoiler,
     required this.criadoEm,
     required this.atualizadoEm,
+    this.reacoes,
   });
+
+  Resenha comReacoes(EstadoDasReacoes? novas) => Resenha(
+    id: id,
+    usuarioId: usuarioId,
+    livroId: livroId,
+    texto: texto,
+    spoiler: spoiler,
+    criadoEm: criadoEm,
+    atualizadoEm: atualizadoEm,
+    reacoes: novas,
+  );
 
   factory Resenha.fromJson(Map<String, dynamic> json) {
     final spoiler = json['spoiler'];
@@ -63,6 +80,7 @@ class Resenha {
       spoiler: spoiler,
       criadoEm: _data(json, 'criadoEm'),
       atualizadoEm: _data(json, 'atualizadoEm'),
+      reacoes: json.containsKey('curtidas') ? EstadoDasReacoes.fromJson(json) : null,
     );
   }
 }
@@ -121,13 +139,19 @@ class LivroDaResenha {
   }
 }
 
-/// `ResenhaDoPerfil` do contrato: a resenha com o livro e a nota do autor.
+/// `ResenhaDoPerfil` do contrato: a resenha com o livro, a nota do autor e as reações.
 class ResenhaDoPerfil {
   final Resenha resenha;
   final LivroDaResenha livro;
   final double? nota;
+  final EstadoDasReacoes reacoes;
 
-  const ResenhaDoPerfil({required this.resenha, required this.livro, this.nota});
+  const ResenhaDoPerfil({
+    required this.resenha,
+    required this.livro,
+    this.nota,
+    this.reacoes = const EstadoDasReacoes(),
+  });
 
   factory ResenhaDoPerfil.fromJson(Map<String, dynamic> json) {
     final livro = json['livro'];
@@ -139,6 +163,7 @@ class ResenhaDoPerfil {
       resenha: Resenha.fromJson(json),
       livro: LivroDaResenha.fromJson(livro),
       nota: nota is num ? nota.toDouble() : null,
+      reacoes: EstadoDasReacoes.fromJson(json),
     );
   }
 }
@@ -162,6 +187,86 @@ class PaginaResenhasPerfil {
       itens: itens.whereType<Map<String, dynamic>>().map(ResenhaDoPerfil.fromJson).toList(),
       page: (paginacao['page'] as num?)?.toInt() ?? 1,
       totalPaginas: (paginacao['totalPaginas'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+/// `Frase` do contrato (F-AVA-2, RN-11): trecho de até 500 caracteres com a página.
+class Frase {
+  final String id;
+  final String livroId;
+  final String texto;
+  final int pagina;
+  final DateTime criadoEm;
+  final String autorUsername;
+  final String autorNome;
+
+  /// A frase é de quem pediu: só ela tem excluir.
+  final bool minha;
+
+  const Frase({
+    required this.id,
+    required this.livroId,
+    required this.texto,
+    required this.pagina,
+    required this.criadoEm,
+    required this.autorUsername,
+    required this.autorNome,
+    required this.minha,
+  });
+
+  factory Frase.fromJson(Map<String, dynamic> json) {
+    final autor = json['autor'];
+    final pagina = json['pagina'];
+    final minha = json['minha'];
+    if (autor is! Map<String, dynamic> || pagina is! num || minha is! bool) {
+      throw const FormatException('Frase fora do contrato.');
+    }
+    return Frase(
+      id: _texto(json, 'id'),
+      livroId: _texto(json, 'livroId'),
+      texto: _texto(json, 'texto'),
+      pagina: pagina.toInt(),
+      criadoEm: _data(json, 'criadoEm'),
+      autorUsername: _texto(autor, 'username'),
+      autorNome: _texto(autor, 'nome'),
+      minha: minha,
+    );
+  }
+}
+
+class PaginaFrases {
+  final List<Frase> itens;
+  final int page;
+  final int totalItens;
+  final int totalPaginas;
+  final int minhasFrases;
+  final int limitePorLivro;
+
+  const PaginaFrases({
+    required this.itens,
+    required this.page,
+    required this.totalItens,
+    required this.totalPaginas,
+    required this.minhasFrases,
+    required this.limitePorLivro,
+  });
+
+  bool get temMais => page < totalPaginas;
+
+  factory PaginaFrases.fromJson(Map<String, dynamic> json) {
+    final itens = json['itens'];
+    final paginacao = json['paginacao'];
+    if (itens is! List || paginacao is! Map<String, dynamic>) {
+      throw const FormatException('Página de frases inválida.');
+    }
+    return PaginaFrases(
+      itens: itens.whereType<Map<String, dynamic>>().map(Frase.fromJson).toList(),
+      page: (paginacao['page'] as num?)?.toInt() ?? 1,
+      totalItens: (paginacao['totalItens'] as num?)?.toInt() ?? 0,
+      totalPaginas: (paginacao['totalPaginas'] as num?)?.toInt() ?? 0,
+      minhasFrases: (json['minhasFrases'] as num?)?.toInt() ?? 0,
+      limitePorLivro: (json['limitePorLivro'] as num?)?.toInt() ?? 10,
     );
   }
 }
@@ -213,6 +318,68 @@ class LeituraService {
     final resenha = _ler(() => Resenha.fromJson(json));
     alteracoes.value++;
     return resenha;
+  }
+
+  /// Curte ou descurte a resenha de outro leitor (RF-AVA-05). Não mexe em [alteracoes]: quem
+  /// mostra a resenha guarda o estado da resposta, e recarregar o perfil atropelaria o toque.
+  Future<EstadoDasReacoes> reagir(
+    String resenhaId,
+    TipoDeReacao tipo, {
+    ViaDeAcesso? via,
+    required String idempotencyKey,
+  }) async {
+    final json = await _api.putJson(
+      '/resenhas/$resenhaId/reacao',
+      body: <String, Object?>{
+        'tipo': tipo.contrato,
+        if (via != null) 'via': via.via,
+        if (via != null) 'referenciaId': via.referenciaId,
+      },
+      idempotencyKey: idempotencyKey,
+    );
+    return _ler(() => EstadoDasReacoes.fromJson(json));
+  }
+
+  /// Retira a reação. A via vai na consulta, porque o `DELETE` não tem corpo.
+  Future<EstadoDasReacoes> removerReacao(
+    String resenhaId, {
+    ViaDeAcesso? via,
+    required String idempotencyKey,
+  }) async {
+    final consulta = via == null
+        ? ''
+        : '?${Uri(queryParameters: <String, String>{'via': via.via, 'referenciaId': via.referenciaId}).query}';
+    final json = await _api.deleteJson(
+      '/resenhas/$resenhaId/reacao$consulta',
+      idempotencyKey: idempotencyKey,
+    );
+    return _ler(() => EstadoDasReacoes.fromJson(json));
+  }
+
+  /// Frases do livro que o leitor pode ver (RN-08 por autor), mais recentes primeiro.
+  Future<PaginaFrases> listarFrases(String livroId, {int page = 1, int limite = 20}) async {
+    final json = await _api.getJson('/livros/$livroId/frases?page=$page&limite=$limite');
+    return _ler(() => PaginaFrases.fromJson(json));
+  }
+
+  /// Guarda um trecho com a página (RN-11). A mesma [idempotencyKey] num reenvio não duplica.
+  Future<Frase> criarFrase(
+    String livroId, {
+    required String texto,
+    required int pagina,
+    required String idempotencyKey,
+  }) async {
+    final json = await _api.postJson(
+      '/livros/$livroId/frases',
+      body: <String, Object?>{'texto': texto, 'pagina': pagina},
+      idempotencyKey: idempotencyKey,
+    );
+    return _ler(() => Frase.fromJson(json));
+  }
+
+  /// Exclui a própria frase, depois da confirmação da tela (RNF-USA-04).
+  Future<void> excluirFrase(String fraseId, {required String idempotencyKey}) async {
+    await _api.deleteVazio('/frases/$fraseId', idempotencyKey: idempotencyKey);
   }
 
   /// Resenhas autorizadas de um perfil (RN-08): página iniciada em 1, até 50 por página.

@@ -47,3 +47,17 @@
     }
   }
 }
+
+/* Fade único de entrada dos skeletons, sem shimmer (F-LST, 05/10/2026). As telas anteriores
+   declaram a mesma regra em `<style scoped>`; esta é a versão compartilhada para as novas. */
+@layer components {
+  .entrada {
+    animation: surgir-skeleton var(--duration-base) var(--easing-out);
+  }
+
+  @keyframes surgir-skeleton {
+    from {
+      opacity: 0;
+    }
+  }
+}

@@ -26,7 +26,8 @@ import 'widgets_de_perfil.dart';
 /// Estante (`GET /perfis/{id}/estante`, F-EST) e Resenhas (F-AVA) quando o conteúdo é visível; o
 /// `403` da estante também leva ao bloco de restrição. Com `conteudoRestrito` (RN-08), as
 /// seções não aparecem, e sim o bloco "Este perfil é privado". Contadores não acionáveis: não há
-/// lista do grafo de terceiros (RNF-SEC-19/44).
+/// lista do grafo de terceiros (RNF-SEC-19/44). `livros lidos` é derivado da estante e por isso
+/// só aparece com ela visível (§4.3 "Contadores parciais").
 class PerfilDeOutroPage extends StatefulWidget {
   final PerfilService servico;
   final String username;
@@ -39,6 +40,9 @@ class PerfilDeOutroPage extends StatefulWidget {
   /// Lista de resenhas do perfil (F-AVA), montada com o id e o primeiro nome do leitor.
   final Widget Function(String usuarioId, String nome)? resenhas;
 
+  /// Seção "Listas" do perfil (F-LST), montada com o id e o primeiro nome do leitor.
+  final Widget Function(String usuarioId, String nome)? listas;
+
   const PerfilDeOutroPage({
     super.key,
     required this.servico,
@@ -49,6 +53,7 @@ class PerfilDeOutroPage extends StatefulWidget {
     required this.aoAbrirSolicitacoes,
     this.estante,
     this.resenhas,
+    this.listas,
   });
 
   @override
@@ -63,6 +68,7 @@ class _PerfilDeOutroPageState extends State<PerfilDeOutroPage> {
   bool _agindo = false;
   String? _erroDaAcao;
   bool _estanteRestrita = false;
+  int? _livrosLidos;
 
   @override
   void initState() {
@@ -314,6 +320,8 @@ class _PerfilDeOutroPageState extends State<PerfilDeOutroPage> {
           const SizedBox(height: DesignTokens.space6),
           ContadoresDoPerfil(
             contadores: <DadoDeContador>[
+              if (_livrosLidos case final lidos? when !perfil.conteudoRestrito && !_estanteRestrita)
+                DadoDeContador(valor: lidos, rotulo: lidos == 1 ? 'livro lido' : 'livros lidos'),
               DadoDeContador(
                 valor: perfil.seguidores,
                 rotulo: perfil.seguidores == 1 ? 'seguidor' : 'seguidores',
@@ -330,7 +338,9 @@ class _PerfilDeOutroPageState extends State<PerfilDeOutroPage> {
               titulo: 'Este perfil é privado',
               texto: perfil.relacao == Relacao.solicitacaoEnviada
                   ? 'Sua solicitação está aguardando resposta.'
-                  : 'Envie uma solicitação para ver a estante e as resenhas de $nome.',
+                  : widget.listas == null
+                  ? 'Envie uma solicitação para ver a estante e as resenhas de $nome.'
+                  : 'Envie uma solicitação para ver a estante, as resenhas e as listas de $nome.',
             ),
           ] else ...<Widget>[
             const SizedBox(height: DesignTokens.space12),
@@ -338,6 +348,7 @@ class _PerfilDeOutroPageState extends State<PerfilDeOutroPage> {
               proprio: false,
               nome: nome,
               resenhas: widget.resenhas?.call(perfil.id, nome),
+              listas: widget.listas?.call(perfil.id, nome),
               estante: estante == null
                   ? null
                   : EstanteDePerfil(
@@ -346,6 +357,7 @@ class _PerfilDeOutroPageState extends State<PerfilDeOutroPage> {
                       usuarioId: perfil.id,
                       primeiroNome: nome,
                       aoMudarRestricao: (restrita) => setState(() => _estanteRestrita = restrita),
+                      aoMudarLivrosLidos: (lidos) => setState(() => _livrosLidos = lidos),
                     ),
             ),
           ],

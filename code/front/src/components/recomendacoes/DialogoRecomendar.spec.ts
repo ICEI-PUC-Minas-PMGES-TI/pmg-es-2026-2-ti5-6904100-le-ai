@@ -1,7 +1,6 @@
 import { DOMWrapper, flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { aviso, fecharAviso } from '../../avisos'
 import { ApiError } from '../../services/api'
 import { socialService, type CandidatoARecomendacao } from '../../services/social'
 import DialogoRecomendar from './DialogoRecomendar.vue'
@@ -49,7 +48,6 @@ describe('DialogoRecomendar', () => {
     social.listarCandidatos.mockReset().mockResolvedValue([BEATRIZ, CAIO, DANIEL, JULIA, LIVIA])
     social.recomendar.mockReset()
     push.mockReset()
-    fecharAviso()
   })
 
   afterEach(() => {
@@ -119,7 +117,7 @@ describe('DialogoRecomendar', () => {
       expect.any(String),
     )
     expect(wrapper.emitted('fechar')).toHaveLength(1)
-    expect(aviso.value?.texto).toBe('Recomendação enviada para Caio Rezende e Júlia Figueiredo.')
+    expect(wrapper.emitted('enviada')).toEqual([['Recomendação enviada para Caio Rezende e Júlia Figueiredo.']])
   })
 
   it('com três ou mais, o aviso conta os leitores', async () => {
@@ -132,7 +130,7 @@ describe('DialogoRecomendar', () => {
       })),
       totalCriadas: 3,
     })
-    const { tela } = montar()
+    const { wrapper, tela } = montar()
     await flushPromises()
     for (const nome of ['Caio Rezende', 'Júlia Figueiredo', 'Lívia Carvalho']) {
       await linha(tela, nome).trigger('click')
@@ -141,7 +139,7 @@ describe('DialogoRecomendar', () => {
     await botaoDeEnvio(tela).trigger('click')
     await flushPromises()
 
-    expect(aviso.value?.texto).toBe('Recomendação enviada para 3 leitores.')
+    expect(wrapper.emitted('enviada')).toEqual([['Recomendação enviada para 3 leitores.']])
   })
 
   it('envio em parte mantém a tela aberta, diz quem não recebeu e troca o botão por Concluir', async () => {

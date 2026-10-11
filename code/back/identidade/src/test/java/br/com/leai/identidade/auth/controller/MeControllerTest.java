@@ -13,6 +13,7 @@ import br.com.leai.identidade.common.CorrelationIdFilter;
 import br.com.leai.identidade.common.EscritorDeErro;
 import br.com.leai.identidade.common.GlobalExceptionHandler;
 import br.com.leai.identidade.config.SecurityConfig;
+import br.com.leai.identidade.conta.service.TokenDeRecuperacao;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
@@ -50,6 +51,7 @@ import org.springframework.test.web.servlet.MockMvc;
     })
 @Import({
   SecurityConfig.class,
+  TokenDeRecuperacao.class,
   EscritorDeErro.class,
   CorrelationIdFilter.class,
   GlobalExceptionHandler.class

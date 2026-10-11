@@ -1,4 +1,4 @@
-import { ref, shallowRef } from 'vue'
+import { computed, ref, shallowRef } from 'vue'
 
 import { usePaginacao } from '../perfil/usePaginacao'
 import { ApiError } from '../services/api'
@@ -39,5 +39,12 @@ export function useEstante(
     }
   })
 
-  return { ...lista, totais, restrita, indisponivel }
+  /**
+   * Livros concluídos ao menos uma vez, para o contador `livros lidos` do perfil. Pela máquina de
+   * RN-04, um livro concluído só fica em `LIDO` ou volta a `RELENDO` (releitura abandonada também
+   * volta a `LIDO`), então a soma dos dois é exata.
+   */
+  const livrosLidos = computed(() => (totais.value ? totais.value.LIDO + totais.value.RELENDO : null))
+
+  return { ...lista, totais, restrita, indisponivel, livrosLidos }
 }

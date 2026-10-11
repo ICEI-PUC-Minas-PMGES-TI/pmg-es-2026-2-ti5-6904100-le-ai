@@ -22,6 +22,13 @@ vi.mock('../../services/leitura', () => ({
     obterMinhaAvaliacao: vi.fn(),
     salvarNota: vi.fn(),
     excluirNota: vi.fn(),
+    // F-AVA-2: a seção de frases carrega à parte; aqui, sem frases.
+    listarFrases: vi.fn().mockResolvedValue({
+      itens: [],
+      paginacao: { page: 1, limite: 3, totalItens: 0, totalPaginas: 0 },
+      minhasFrases: 0,
+      limitePorLivro: 10,
+    }),
   },
 }))
 
@@ -57,6 +64,9 @@ const EM_CONSULTA: LivroPessoalDetalhe = {
     spoiler: false,
     criadoEm: '2026-09-12T12:00:00Z',
     atualizadoEm: '2026-09-12T12:00:00Z',
+    curtidas: 12,
+    descurtidas: 2,
+    minhaReacao: null,
   },
 }
 
@@ -157,7 +167,7 @@ describe('LivroPessoalView', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('Este livro não está mais disponível')
-    expect(wrapper.text()).toContain('Ele pode ter sido excluído por quem o cadastrou.')
+    expect(wrapper.text()).toContain('Quem o cadastrou pode ter excluído o livro ou deixado de compartilhá-lo.')
     botao('Voltar ao feed')!.click()
     await flushPromises()
     expect(router.currentRoute.value.path).toBe('/feed')

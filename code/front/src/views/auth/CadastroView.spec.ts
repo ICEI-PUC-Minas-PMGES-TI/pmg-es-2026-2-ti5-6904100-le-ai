@@ -259,7 +259,7 @@ describe('CadastroView', () => {
     await wrapper.get('a[href="#politica-de-privacidade"]').trigger('click')
 
     expect(wrapper.text()).toContain('Dados que coletamos')
-    expect(wrapper.text()).toContain('Versão 1.0')
+    expect(wrapper.text()).toContain('Versão 1.1')
     expect(wrapper.find('input[type="checkbox"]').exists()).toBe(false)
     expect(wrapper.find('form').exists()).toBe(false)
 

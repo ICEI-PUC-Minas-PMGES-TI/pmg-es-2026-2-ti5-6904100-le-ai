@@ -8,8 +8,8 @@ info:
     F-NOT do Período 1 estão implementadas. A exclusão de comentário
     pertence a F-SOCIAL-2 (Período 2) e aparece apenas para tornar explícito o
     contrato futuro e sua regra de propriedade. As listas de livros pertencem a
-    F-LST (Período 2); o contrato foi publicado antes da implementação para
-    orientar acervo, web e mobile.
+    F-LST (Período 2); as rotas estão implementadas no social desde 05/10/2026,
+    e a via lista na página de livro pessoal do acervo entra na etapa seguinte.
 
     Atividades e notificações são criadas exclusivamente por consumidores
     idempotentes de eventos do broker. Não há endpoint HTTP público de ingestão.
@@ -34,7 +34,6 @@ info:
       - GET /recomendacoes/candidatos
       - GET /recomendacoes/recebidas
       - DELETE /recomendacoes/{recomendacaoId}
-    planned-periodo-2:
       - POST /listas
       - GET /listas/{listaId}
       - PATCH /listas/{listaId}
@@ -51,19 +50,22 @@ x-database-contracts:
     description: >-
       Comprova a via feed para livro pessoal. Expõe somente atividades ativas;
       o consumidor ainda precisa revalidar seguimento aceito, autoria e vínculo
-      entre atividade e livro.
+      entre atividade e livro. Consumidores: acervo (página do livro pessoal)
+      e leitura (reação à resenha do dono, F-AVA-2).
     columns: [atividade_id, dono_id, livro_id]
   - name: v_lista_livro_pessoal_v1
-    x-implementation-status: planned-periodo-2
+    x-implementation-status: implemented
     description: >-
       Comprova a via lista para livro pessoal (RN-15, segunda via). Expõe um
       par lista/livro por item de lista ativa; lista excluída sai da VIEW na
       mesma transação. A VIEW existe no banco desde a migration do modelo
-      social; o consumo em acervo entra com F-LST. O consumidor ainda precisa
+      social e é alimentada pelas rotas de listas; o consumo em acervo entra
+      com a etapa 3 de F-LST. O consumidor ainda precisa
       revalidar o vínculo lista, dono e livro e a privacidade do dono (RN-08):
       perfil público libera qualquer leitor autenticado; perfil privado exige
       seguimento aceito. Diferente da via feed, seguir não é exigido quando o
-      perfil é público.
+      perfil é público. Consumidores: acervo (página do livro pessoal) e
+      leitura (reação à resenha do dono, F-AVA-2), com a mesma regra.
     columns: [lista_id, dono_id, livro_id]
 x-event-consumers:
   description: >-
@@ -102,8 +104,11 @@ x-event-consumers:
       - leitura.em_risco
       - leitura.expirada
       - recomendacao.recebida
+      - resenha.curtida
     effect: >-
-      Cria uma notificação para destinatarioId. A deduplicação semântica usa
+      Cria uma notificação para destinatarioId. resenha.curtida (F-AVA-2) só
+      chega na primeira curtida do par resenha e leitor, e a chave de negócio
+      `resenha:<resenhaId>:curtida:<autorAcaoId>` impede a segunda. A deduplicação semântica usa
       destinatário, tipo e chave de negócio; para inatividade, inclui leitura,
       versão do ciclo e limiar de 20, 30 ou 40 dias. A notificação guarda um
       snapshot de quem agiu, do livro e da atividade alvo; a frase em pt-BR é
@@ -129,7 +134,6 @@ x-event-consumers:
   planned-future-events:
     x-implementation-status: planned-after-periodo-1
     events:
-      - resenha.curtida
       - lembrete.sequencia
     description: >-
       Só entram no consumidor quando a feature produtora definir nome, schema,
@@ -401,7 +405,7 @@ paths:
       tags: [listas]
       summary: Cria uma lista do leitor (RF-LST-01)
       operationId: criarLista
-      x-implementation-status: planned-periodo-2
+      x-implementation-status: implemented
       description: >-
         Cria uma lista cujo dono é sempre o leitor autenticado; o servidor não
         aceita dono informado pelo cliente. Com livroId, a lista nasce com esse
@@ -435,7 +439,7 @@ paths:
       tags: [listas]
       summary: Obtém os metadados de uma lista visível (RF-LST-04)
       operationId: obterLista
-      x-implementation-status: planned-periodo-2
+      x-implementation-status: implemented
       description: >-
         O dono sempre vê a própria lista. Terceiros veem se o perfil do dono
         é público ou se seguem o dono com solicitação aceita (RN-08). Perfil
@@ -457,7 +461,7 @@ paths:
       tags: [listas]
       summary: Edita título e descrição da própria lista (RF-LST-03)
       operationId: editarLista
-      x-implementation-status: planned-periodo-2
+      x-implementation-status: implemented
       description: >-
         Owner-only. Campo omitido permanece; descricao nula apaga a descrição.
         Lista alheia responde 404, sem confirmar sua existência.
@@ -484,7 +488,7 @@ paths:
       tags: [listas]
       summary: Exclui a própria lista (RF-LST-03)
       operationId: excluirLista
-      x-implementation-status: planned-periodo-2
+      x-implementation-status: implemented
       description: >-
         Owner-only. O cliente exige confirmação explícita (RNF-USA-04). A
         exclusão é lógica: a lista deixa de aparecer em todas as rotas e em
@@ -508,7 +512,7 @@ paths:
       tags: [listas]
       summary: Lista os livros de uma lista visível, na ordem do dono (RF-LST-04)
       operationId: listarLivrosDaLista
-      x-implementation-status: planned-periodo-2
+      x-implementation-status: implemented
       description: >-
         Paginação por cursor estável, em ordem crescente de posição. Aplica a
         mesma visibilidade de obterLista. Livro inativo não é exibido. Em livro
@@ -533,7 +537,7 @@ paths:
       tags: [listas]
       summary: Adiciona um livro à própria lista (RF-LST-02, RF-LST-05)
       operationId: adicionarLivroNaLista
-      x-implementation-status: planned-periodo-2
+      x-implementation-status: implemented
       description: >-
         Owner-only. O livro entra na última posição. Precisa estar ativo e ser
         oficial ou livro pessoal do próprio leitor; livro pessoal de outro
@@ -573,7 +577,7 @@ paths:
       tags: [listas]
       summary: Remove um livro da própria lista (RF-LST-02)
       operationId: removerLivroDaLista
-      x-implementation-status: planned-periodo-2
+      x-implementation-status: implemented
       description: >-
         Owner-only. Os itens seguintes sobem uma posição na mesma transação.
         Livro ausente da lista mantém o resultado idempotente. Não pede
@@ -596,7 +600,7 @@ paths:
       tags: [listas]
       summary: Move um livro para outra posição da própria lista (RF-LST-02)
       operationId: moverLivroNaLista
-      x-implementation-status: planned-periodo-2
+      x-implementation-status: implemented
       description: >-
         Owner-only. Move um item por vez, o que funciona com a lista paginada,
         com arrastar no mobile e com os controles de subir e descer da web. Os
@@ -630,7 +634,7 @@ paths:
       tags: [listas]
       summary: Lista as listas de um leitor (RF-LST-04, RF-SOC-02)
       operationId: listarListasDoPerfil
-      x-implementation-status: planned-periodo-2
+      x-implementation-status: implemented
       description: >-
         Índice das listas ativas do leitor, da alterada mais recentemente para
         a mais antiga, com contagem e até três capas por lista. Aplica RN-08:
@@ -656,7 +660,7 @@ paths:
       tags: [listas]
       summary: Lista as listas do próprio leitor, marcando as que contêm um livro
       operationId: listarMinhasListas
-      x-implementation-status: planned-periodo-2
+      x-implementation-status: implemented
       description: >-
         Alimenta o sheet Adicionar à lista. Mesma ordem e forma de
         listarListasDoPerfil para o próprio leitor; com livroId, cada lista
@@ -1352,9 +1356,9 @@ components:
     TipoNotificacao:
       type: string
       description: >-
-        Tipos produzidos no Período 1, a menção de F-SOCIAL-2 e a recomendação
-        recebida de F-REC-P2P. Curtida em resenha e lembrete de sequência
-        dependem de features posteriores.
+        Tipos produzidos no Período 1, a menção de F-SOCIAL-2, a curtida em
+        resenha de F-AVA-2 e a recomendação recebida de F-REC-P2P. Lembrete de
+        sequência depende de feature posterior.
       enum:
         - NOVO_SEGUIDOR
         - SOLICITACAO_CRIADA
@@ -1366,8 +1370,8 @@ components:
         - LEITURA_EM_RISCO
         - LEITURA_EXPIRADA
         - RECOMENDACAO_RECEBIDA
-      x-planned-future-values:
         - RESENHA_CURTIDA
+      x-planned-future-values:
         - LEMBRETE_SEQUENCIA
     AcaoNotificacao:
       type: object
@@ -1449,9 +1453,11 @@ components:
       type: object
       description: >-
         Snapshot do livro nas notificações de inatividade (LEITURA_EM_RISCO e
-        LEITURA_EXPIRADA): título para a confirmação de abandono e id/tipo
-        para o destino da notificação. Em RECOMENDACAO_RECEBIDA, o livro
-        recomendado: a notificação leva à página dele (RF-REC-05).
+        LEITURA_EXPIRADA) e na curtida em resenha (RESENHA_CURTIDA): título
+        para a confirmação de abandono e para a frase, e id/tipo para o destino
+        da notificação (página do livro oficial ou do livro pessoal). Em
+        RECOMENDACAO_RECEBIDA, o livro recomendado: a notificação leva à página
+        dele (RF-REC-05).
       required: [id, tipo, titulo]
       properties:
         id: { type: string, format: uuid }

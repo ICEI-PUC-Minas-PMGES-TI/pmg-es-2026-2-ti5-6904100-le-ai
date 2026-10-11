@@ -11,7 +11,8 @@ enum TipoNotificacao {
   usuarioMencionado,
   leituraEmRisco,
   leituraExpirada,
-  recomendacaoRecebida;
+  recomendacaoRecebida,
+  resenhaCurtida;
 
   static const Map<String, TipoNotificacao> _doContrato = <String, TipoNotificacao>{
     'NOVO_SEGUIDOR': novoSeguidor,
@@ -24,6 +25,7 @@ enum TipoNotificacao {
     'LEITURA_EM_RISCO': leituraEmRisco,
     'LEITURA_EXPIRADA': leituraExpirada,
     'RECOMENDACAO_RECEBIDA': recomendacaoRecebida,
+    'RESENHA_CURTIDA': resenhaCurtida,
   };
 
   /// Nulo para um tipo que o servidor passou a gerar depois desta versão do app: a lista não

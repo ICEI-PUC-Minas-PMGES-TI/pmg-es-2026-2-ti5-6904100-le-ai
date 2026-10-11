@@ -19,7 +19,9 @@ class PoliticaDePrivacidadePage extends StatelessWidget {
 
   const PoliticaDePrivacidadePage({super.key, this.aoVoltar, this.semSessao = false});
 
-  static const String versao = 'Versão 1.0, de 15 de setembro de 2026';
+  /// Versão 1.1 (F-CONTA-2): retenção e exclusão da conta (RNF-SEC-42), texto da edição
+  /// consolidada de docs/design/periodo-2/configuracoes/configuracoes.md.
+  static const String versao = 'Versão 1.1, de 29 de setembro de 2026';
 
   static const List<(String, String)> blocos = <(String, String)>[
     (
@@ -37,13 +39,16 @@ class PoliticaDePrivacidadePage extends StatelessWidget {
     ),
     (
       'Por quanto tempo guardamos',
-      'Enquanto a conta existir. O token de recuperação de senha vale por 1 hora. Registros de '
+      'Enquanto a conta existir. Se você pedir a exclusão, seus dados ficam guardados e ocultos '
+          'para os outros leitores por 30 dias, e você pode cancelar nesse prazo. Depois disso, '
+          'eles são apagados definitivamente, e só restam registros técnicos sem nada que '
+          'identifique você. O token de recuperação de senha vale por 1 hora. Registros de '
           'acesso ficam por 6 meses.',
     ),
     (
       'Seus direitos',
-      'Você pode acessar e corrigir seus dados pelo perfil, e pedir suporte pelo e-mail de '
-          'contato do projeto.',
+      'Você pode acessar e corrigir seus dados pelo perfil, pedir a exclusão da conta em '
+          'Configurações e pedir suporte pelo e-mail de contato do projeto.',
     ),
   ];
 

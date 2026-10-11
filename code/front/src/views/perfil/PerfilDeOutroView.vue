@@ -9,6 +9,7 @@ import AvatarLeitor from '../../components/perfil/AvatarLeitor.vue'
 import ChipPrivacidade from '../../components/perfil/ChipPrivacidade.vue'
 import FimDaLista from '../../components/perfil/FimDaLista.vue'
 import SecoesDeLeitura from '../../components/perfil/SecoesDeLeitura.vue'
+import ListasDoPerfil from '../../components/listas/ListasDoPerfil.vue'
 import BannerAviso from '../../components/ui/BannerAviso.vue'
 import BotaoPrimario from '../../components/ui/BotaoPrimario.vue'
 import BotaoTextual from '../../components/ui/BotaoTextual.vue'
@@ -30,6 +31,7 @@ import { perfilService, type Perfil } from '../../services/perfil'
  * - **Estante (F-EST) e Resenhas (F-AVA)** vêm do `leitura` quando o conteúdo é visível. Com
  *   `conteudoRestrito` (RN-08), as seções não aparecem, e sim o bloco "Este perfil é privado".
  * - Os contadores não são acionáveis: não há lista do grafo de terceiros (RNF-SEC-19/44).
+ *   `livros lidos` vem dos totais da estante e só aparece com ela visível.
  * - Username do próprio leitor abre o próprio perfil.
  */
 const route = useRoute()
@@ -84,6 +86,11 @@ watch(estanteVisivel, (id) => {
 })
 
 const restrito = computed(() => Boolean(perfil.value?.conteudoRestrito) || estante.restrita.value)
+
+/** `livros lidos` é derivado da estante: restrito ou indisponível, o contador não aparece (§4.3). */
+const livrosLidos = computed(() =>
+  restrito.value || estante.indisponivel.value ? null : estante.livrosLidos.value,
+)
 
 /** Seguir perfil público é imediato; em privado vira pedido (RF-SOC-05/06). Sem modal. */
 async function seguir(): Promise<void> {
@@ -322,7 +329,22 @@ const textoDaConfirmacao = computed(() =>
 
         <!-- Mesmo arranjo do meu perfil, sem link: mobile numa linha com divisor vertical de
              altura total; web empilhados, número à esquerda e rótulo encostado na direita. -->
-        <dl class="mt-space-6 grid w-full grid-cols-2 divide-x divide-linha border-b border-linha md:grid-cols-1 md:divide-x-0 md:divide-y md:border-b-0">
+        <dl
+          class="mt-space-6 grid w-full divide-x divide-linha border-b border-linha md:grid-cols-1 md:divide-x-0 md:divide-y md:border-b-0"
+          :class="livrosLidos === null ? 'grid-cols-2' : 'grid-cols-3'"
+        >
+          <div
+            v-if="livrosLidos !== null"
+            :class="CONTADOR"
+            :aria-label="contagem(livrosLidos, 'livro lido', 'livros lidos')"
+          >
+            <dt class="text-caption text-grafite md:text-body">
+              {{ livrosLidos === 1 ? 'livro lido' : 'livros lidos' }}
+            </dt>
+            <dd class="font-mono text-num-inline tabular-nums text-tinta">
+              {{ livrosLidos }}
+            </dd>
+          </div>
           <div
             :class="CONTADOR"
             :aria-label="contagem(perfil.contadores.seguidores, 'seguidor', 'seguidores')"
@@ -361,7 +383,7 @@ const textoDaConfirmacao = computed(() =>
             Sua solicitação está aguardando resposta.
           </template>
           <template v-else>
-            Envie uma solicitação para ver a estante e as resenhas de {{ nome }}.
+            Envie uma solicitação para ver a estante, as resenhas e as listas de {{ nome }}.
           </template>
         </p>
       </EstadoVazio>
@@ -370,8 +392,18 @@ const textoDaConfirmacao = computed(() =>
         :proprio="false"
         :nome="nome"
         :usuario-id="perfil?.id"
+        :aba-inicial="typeof route.query.aba === 'string' ? route.query.aba : undefined"
         class="mt-space-12 md:mt-0"
       >
+        <template #listas>
+          <ListasDoPerfil
+            v-if="perfil"
+            :usuario-id="perfil.id"
+            :proprio="false"
+            :nome="nome"
+            :username="perfil.username"
+          />
+        </template>
         <template #estante>
           <div
             v-if="!estante.indisponivel.value"
@@ -415,6 +447,7 @@ const textoDaConfirmacao = computed(() =>
               <FimDaLista
                 v-if="estante.temMais.value || estante.falhouMais.value"
                 :falhou="estante.falhouMais.value"
+                :carregando="estante.carregandoMais.value"
                 @carregar="estante.carregarMais()"
               />
             </template>

@@ -47,7 +47,8 @@ public final class MessageValidator {
             "solicitacao.criada:1",
                 load(factory, "messaging/schemas/solicitacao.criada.v1.schema.json"),
             "solicitacao.aceita:1",
-                load(factory, "messaging/schemas/solicitacao.aceita.v1.schema.json"));
+                load(factory, "messaging/schemas/solicitacao.aceita.v1.schema.json"),
+            "conta.excluida:1", load(factory, "messaging/schemas/conta.excluida.v1.schema.json"));
   }
 
   public void validate(MessageEnvelope envelope) {

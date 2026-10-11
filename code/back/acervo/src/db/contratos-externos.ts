@@ -1,6 +1,6 @@
 import {
+  bigint,
   boolean,
-  integer,
   numeric,
   pgSchema,
   text,
@@ -28,11 +28,10 @@ import {
  * O `search_path` da `DATABASE_URL` aponta só para `acervo`, então toda consulta
  * precisa ser qualificada pelo schema — é o que `pgSchema()` garante.
  *
- * As features donas destas VIEWs (F-FEED, F-PERFIL, F-AVA) ainda não estão
- * implementadas. As VIEWs existem fisicamente desde a baseline do DER, então as
- * consultas funcionam e simplesmente não retornam linha. O efeito é fail-closed:
- * enquanto não houver atividade nem seguimento, nenhum terceiro acessa livro
- * pessoal, que é o comportamento correto.
+ * As features donas destas VIEWs (F-FEED, F-PERFIL, F-AVA) foram entregues em
+ * 27/09/2026, e as VIEWs, que existem fisicamente desde a baseline do DER, já
+ * trazem dados reais. O efeito continua fail-closed: sem atividade nem seguimento
+ * que autorizem, nenhum terceiro acessa livro pessoal.
  */
 
 const social = pgSchema('social');
@@ -43,6 +42,15 @@ const leitura = pgSchema('leitura');
 export const vAtividadeLivroPessoal = social
   .view('v_atividade_livro_pessoal_v1', {
     atividadeId: uuid('atividade_id'),
+    donoId: uuid('dono_id'),
+    livroId: uuid('livro_id'),
+  })
+  .existing();
+
+/** F-LST. Só itens de listas ativas. Prova a via de acesso da lista (RN-15). */
+export const vListaLivroPessoal = social
+  .view('v_lista_livro_pessoal_v1', {
+    listaId: uuid('lista_id'),
     donoId: uuid('dono_id'),
     livroId: uuid('livro_id'),
   })
@@ -87,7 +95,21 @@ export const vResenhaPublicacao = leitura
     spoiler: boolean('spoiler'),
     criadoEm: timestamp('criado_em', { withTimezone: true }),
     atualizadoEm: timestamp('atualizado_em', { withTimezone: true }),
-    curtidas: integer('curtidas'),
-    descurtidas: integer('descurtidas'),
+    // `count()` na VIEW: `bigint`, que o node-postgres devolve como string. O `mode: 'number'`
+    // converte (as contagens cabem com folga num número do JavaScript).
+    curtidas: bigint('curtidas', { mode: 'number' }),
+    descurtidas: bigint('descurtidas', { mode: 'number' }),
+  })
+  .existing();
+
+/**
+ * F-AVA-2. Reação ativa de cada leitor a cada resenha, para a página devolver a reação de quem
+ * está vendo (`minhaReacao`) junto das contagens de `v_resenha_publicacao_v1`.
+ */
+export const vReacaoResenha = leitura
+  .view('v_reacao_resenha_v1', {
+    resenhaId: uuid('resenha_id'),
+    usuarioId: uuid('usuario_id'),
+    tipo: text('tipo'),
   })
   .existing();

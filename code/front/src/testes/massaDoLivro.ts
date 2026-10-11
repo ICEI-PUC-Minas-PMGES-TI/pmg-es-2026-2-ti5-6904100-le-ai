@@ -11,6 +11,9 @@ export function resenha(id: string, nome: string, texto: string, spoiler = false
     spoiler,
     criadoEm: '2026-08-03T12:00:00.000Z',
     atualizadoEm: '2026-08-03T12:00:00.000Z',
+    curtidas: 0,
+    descurtidas: 0,
+    minhaReacao: null,
   }
 }
 
@@ -24,10 +27,12 @@ export function livroOficial(extras: Partial<LivroOficialDetalhe> = {}): LivroOf
     titulo: 'Torto Arado',
     autores: [{ id: 'a1', nome: 'Itamar Vieira Junior' }],
     editora: 'Todavia',
+    editoraId: null,
     anoPublicacao: 2019,
     paginas: 264,
     capa: { url: null, origem: 'placeholder' },
     assuntos: [],
+    serie: null,
     isbn: '9788588808911',
     sinopse: { status: 'disponivel', texto: 'Bibiana e Belonísia crescem no interior da Bahia.' },
     resenhas: paginaDeResenhas([]),

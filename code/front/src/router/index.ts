@@ -17,12 +17,15 @@ import ConexoesView from '../views/perfil/ConexoesView.vue'
 import ConfiguracoesView from '../views/auth/ConfiguracoesView.vue'
 import DescobrirView from '../views/DescobrirView.vue'
 import EditarPerfilView from '../views/perfil/EditarPerfilView.vue'
+import ExcluirContaView from '../views/conta/ExcluirContaView.vue'
+import ExclusaoSolicitadaView from '../views/conta/ExclusaoSolicitadaView.vue'
 import EstanteView from '../views/EstanteView.vue'
 import FeedView from '../views/FeedView.vue'
 import LoginView from '../views/auth/LoginView.vue'
 import PoliticaPrivacidadeView from '../views/auth/PoliticaPrivacidadeView.vue'
 import ProgressoView from '../views/ProgressoView.vue'
 import RecomendacoesRecebidasView from '../views/recomendacoes/RecomendacoesRecebidasView.vue'
+import RecuperarContaView from '../views/conta/RecuperarContaView.vue'
 import RecuperarSenhaView from '../views/auth/RecuperarSenhaView.vue'
 import RedefinirSenhaView from '../views/auth/RedefinirSenhaView.vue'
 import PerfilDeOutroView from '../views/perfil/PerfilDeOutroView.vue'
@@ -31,9 +34,13 @@ import SolicitacoesView from '../views/perfil/SolicitacoesView.vue'
 import CadastroIsbnView from '../views/livros/CadastroIsbnView.vue'
 import IsbnNaoEncontradoView from '../views/livros/IsbnNaoEncontradoView.vue'
 import EscreverResenhaView from '../views/livros/EscreverResenhaView.vue'
+import FrasesDoLivroView from '../views/livros/FrasesDoLivroView.vue'
 import LivroOficialView from '../views/livros/LivroOficialView.vue'
 import LivroPessoalFormView from '../views/livros/LivroPessoalFormView.vue'
 import LivroPessoalView from '../views/livros/LivroPessoalView.vue'
+import ListaView from '../views/listas/ListaView.vue'
+import ListasDoLeitorView from '../views/listas/ListasDoLeitorView.vue'
+import PaginaDeCatalogoView from '../views/catalogo/PaginaDeCatalogoView.vue'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -81,8 +88,12 @@ const ORIGEM = ':origem(descobrir|estante)'
 const abaDoLivroOficial = (rota: RouteLocationNormalizedLoaded) =>
   rota.query.origem === 'estante' ? '/estante' : rota.query.origem === 'perfil' ? '/perfil' : '/descobrir'
 
-/** Livro pessoal aberto pelo feed é do Feed; pela estante do dono, da Estante. */
-const abaDoLivroPessoal = (rota: RouteLocationNormalizedLoaded) => (rota.query.via === 'feed' ? '/feed' : '/estante')
+/** Livro pessoal aberto pelo feed é do Feed; pela lista de alguém, do Perfil; pela estante, da Estante. */
+const abaDoLivroPessoal = (rota: RouteLocationNormalizedLoaded) =>
+  rota.query.via === 'feed' ? '/feed' : rota.query.via === 'lista' ? '/perfil' : '/estante'
+
+/** Listas de outro leitor pertencem à aba de onde se chegou ao perfil dele (lista.md §4.6). */
+const abaDoPerfilDeOutro = (rota: RouteLocationNormalizedLoaded) => (rota.query.via === 'feed' ? '/feed' : '/perfil')
 
 export const routes: RouteRecordRaw[] = [
   {
@@ -110,6 +121,18 @@ export const routes: RouteRecordRaw[] = [
     name: 'redefinir-senha',
     component: RedefinirSenhaView,
   },
+  // F-CONTA-2, fora do shell. Sem `semSessao` nem `requerSessao`: a primeira abre logo depois de
+  // a sessão acabar, e a segunda só depende do acesso de recuperação em memória, que ela confere.
+  {
+    path: '/conta/exclusao-solicitada',
+    name: 'exclusao-solicitada',
+    component: ExclusaoSolicitadaView,
+  },
+  {
+    path: '/conta/recuperar',
+    name: 'recuperar-conta',
+    component: RecuperarContaView,
+  },
   {
     path: '/',
     component: ShellAutenticado,
@@ -135,6 +158,23 @@ export const routes: RouteRecordRaw[] = [
         // Sem divisor: o campo de busca, logo abaixo, é a segunda linha do header (descobrir.md).
         meta: { titulo: 'Descobrir', semDivisor: true },
       },
+      // Páginas de autor, editora e série (F-ACV-DESCOBERTA): consulta, não perfil. O prefixo mantém
+      // a aba Descobrir ativa. Como na página do livro, o header leva só a seta (e o tipo, abaixo
+      // de 768px), e o nome é o h1 da tela.
+      ...(['autor', 'editora', 'serie'] as const).map(
+        (tipo): RouteRecordRaw => ({
+          path: `descobrir/${tipo === 'autor' ? 'autores' : tipo === 'editora' ? 'editoras' : 'series'}/:id`,
+          name: `catalogo-${tipo}`,
+          component: PaginaDeCatalogoView,
+          props: { tipo },
+          meta: {
+            titulo: '',
+            tituloCurto: tipo === 'autor' ? 'Autor' : tipo === 'editora' ? 'Editora' : 'Série',
+            voltar: true,
+            semDivisor: true,
+          },
+        }),
+      ),
       {
         path: 'descobrir/recomendacoes',
         name: 'recomendacoes-recebidas',
@@ -190,7 +230,48 @@ export const routes: RouteRecordRaw[] = [
           voltar: true,
           voltarComRotulo: 'Voltar',
           semDivisor: true,
-          aba: (rota) => (rota.query.via === 'feed' ? '/feed' : '/perfil'),
+          aba: abaDoPerfilDeOutro,
+        },
+      },
+      // F-LST. O índice em página própria é o `Ver todas` abaixo de 768px; na web ele é a aba
+      // `Listas` do perfil (`?aba=listas`), destino do retorno sem histórico.
+      {
+        path: 'perfil/listas',
+        name: 'minhas-listas',
+        component: ListasDoLeitorView,
+        meta: { titulo: 'Listas', voltar: true, voltarComRotulo: 'Perfil', semDivisor: true },
+      },
+      {
+        path: 'perfil/listas/:id',
+        name: 'lista-propria',
+        component: ListaView,
+        // Sem título no header: o título da lista aparece grande no bloco (lista.md §4).
+        meta: {
+          titulo: '',
+          voltar: true,
+          voltarComRotulo: 'Minhas listas',
+          semDivisor: true,
+          voltarPara: () => '/perfil?aba=listas',
+        },
+      },
+      {
+        path: 'leitores/:username/listas',
+        name: 'listas-de-outro',
+        component: ListasDoLeitorView,
+        meta: { titulo: 'Listas', voltar: true, voltarComRotulo: 'Voltar', semDivisor: true, aba: abaDoPerfilDeOutro },
+      },
+      {
+        path: 'leitores/:username/listas/:id',
+        name: 'lista-de-outro',
+        component: ListaView,
+        // O rótulo `Listas de Rafael` vem da tela (`cabecalho.ts`): o nome está na resposta.
+        meta: {
+          titulo: '',
+          voltar: true,
+          voltarComRotulo: 'Voltar',
+          semDivisor: true,
+          aba: abaDoPerfilDeOutro,
+          voltarPara: (rota) => `/leitores/${String(rota.params.username)}?aba=listas`,
         },
       },
       // F-AUT. Empilhadas sobre Perfil, que fica ativa pelo prefixo do caminho.
@@ -217,6 +298,13 @@ export const routes: RouteRecordRaw[] = [
           voltarComRotulo: 'Configurações',
           semDivisor: true,
         },
+      },
+      // F-CONTA-2. Empilhada sobre Configurações, como Alterar senha.
+      {
+        path: 'perfil/configuracoes/excluir-conta',
+        name: 'excluir-conta',
+        component: ExcluirContaView,
+        meta: { titulo: 'Excluir conta', voltar: true, voltarComRotulo: 'Configurações', semDivisor: true },
       },
       // F-ACV-CADASTRO. O prefixo carrega a origem para a aba certa ficar ativa o fluxo inteiro.
       {
@@ -249,6 +337,35 @@ export const routes: RouteRecordRaw[] = [
         name: 'livro-pessoal-editar',
         component: LivroPessoalFormView,
         meta: { titulo: 'Editar livro', voltar: true, aba: '/estante' },
+      },
+      // F-AVA-2: lista completa de frases (frases-do-livro.md), empilhada sobre a página do livro.
+      {
+        path: 'livros/pessoal/:id/frases',
+        name: 'frases-do-livro-pessoal',
+        component: FrasesDoLivroView,
+        meta: {
+          // Na web o título está na coluna das frases e o topo só tem `← Torto Arado`
+          // (frases-do-livro.md §5); abaixo de 768px o header mostra `Frases e trechos`.
+          titulo: '',
+          tituloCurto: 'Frases e trechos',
+          voltar: true,
+          aba: abaDoLivroPessoal,
+          voltarPara: (rota) => `/livros/pessoal/${String(rota.params.id)}`,
+        },
+      },
+      {
+        path: 'livros/:id/frases',
+        name: 'frases-do-livro',
+        component: FrasesDoLivroView,
+        meta: {
+          // Na web o título está na coluna das frases e o topo só tem `← Torto Arado`
+          // (frases-do-livro.md §5); abaixo de 768px o header mostra `Frases e trechos`.
+          titulo: '',
+          tituloCurto: 'Frases e trechos',
+          voltar: true,
+          aba: abaDoLivroOficial,
+          voltarPara: (rota) => `/livros/${String(rota.params.id)}`,
+        },
       },
       {
         path: 'livros/pessoal/:id/resenha',

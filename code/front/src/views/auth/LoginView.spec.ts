@@ -2,6 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
+import { acessoDeRecuperacao } from '../../contaEmExclusao'
 import { ApiError } from '../../services/api'
 import { authService } from '../../services/auth'
 import { getToken, useSession } from '../../session'
@@ -65,6 +66,30 @@ describe('LoginView', () => {
     expect(getToken()).toBe('jwt-novo')
     expect(useSession().usuario.value?.username).toBe('marinableu')
     expect(router.currentRoute.value.path).toBe('/estante')
+  })
+
+  it('conta em exclusão não inicia sessão: guarda o acesso de recuperação e abre a recuperação', async () => {
+    const { wrapper, router } = montarComRouter()
+    router.addRoute({ path: '/conta/recuperar', component: { template: '<div>recuperar conta</div>' } })
+    await router.push('/login')
+    await wrapper.get('input').setValue('marinableu')
+    await wrapper.findAll('input')[1]!.setValue('senha-bem-comprida')
+    const recuperacao = {
+      accessToken: 'jwt-recuperacao',
+      expiresIn: 900,
+      exclusaoSolicitadaEm: '2026-09-29T12:00:00Z',
+      exclusaoPrevistaEm: '2026-10-29T12:00:00Z',
+      username: 'marinableu',
+      nomeExibicao: 'Marina Beltrão',
+    }
+    vi.mocked(authService.entrar).mockResolvedValue({ recuperacao })
+
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(getToken()).toBeNull()
+    expect(acessoDeRecuperacao()).toEqual(recuperacao)
+    expect(router.currentRoute.value.path).toBe('/conta/recuperar')
   })
 
   it('credencial inválida marca os dois campos, mantém o identificador e limpa a senha', async () => {

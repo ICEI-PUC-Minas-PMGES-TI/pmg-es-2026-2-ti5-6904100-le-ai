@@ -67,10 +67,17 @@ export function removerAcentos(texto: string): string {
   return texto.normalize('NFKD').replace(/\p{M}/gu, '');
 }
 
-/** Minúsculas, sem pontuação, espaços colapsados. Acentos preservados. */
+/**
+ * Minúsculas, sem pontuação, espaços colapsados. Acentos preservados.
+ *
+ * NFC antes de tudo: parte dos nomes da fonte vem decomposta ("a" + til
+ * combinante), e o til solto não é letra, então virava espaço — "João" saía
+ * "joa o" e deixava de casar com a mesma grafia composta.
+ */
 export function normalizarNome(texto: string | null | undefined): string {
   if (!texto) return '';
   return texto
+    .normalize('NFC')
     .toLocaleLowerCase('pt-BR')
     .replace(PONTUACAO, ' ')
     .replace(ESPACOS, ' ')

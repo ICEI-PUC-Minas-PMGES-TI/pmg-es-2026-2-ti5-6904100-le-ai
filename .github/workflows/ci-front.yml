@@ -6,11 +6,15 @@ on:
       - 'code/front/**'
       - '!code/front/**.md'
       - '.github/workflows/ci-front.yml'
+      # Casos de Markdown da resenha, lidos pelos testes dos dois clientes (RN-13.4).
+      - 'docs/design-system/markdown-resenha-casos.json'
   pull_request:
     paths:
       - 'code/front/**'
       - '!code/front/**.md'
       - '.github/workflows/ci-front.yml'
+      # Casos de Markdown da resenha, lidos pelos testes dos dois clientes (RN-13.4).
+      - 'docs/design-system/markdown-resenha-casos.json'
   workflow_dispatch:
 
 permissions:

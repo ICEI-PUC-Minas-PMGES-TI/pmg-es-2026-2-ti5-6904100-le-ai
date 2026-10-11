@@ -1,135 +1,139 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref } from 'vue'
+import { PhDotsThree } from '@phosphor-icons/vue'
+import { nextTick, onBeforeUnmount, ref, useId } from 'vue'
 
 import FolhaAcoes, { type AcaoDaFolha } from './FolhaAcoes.vue'
 
-const LARGURA_WEB = '(min-width: 768px)'
-const ESPACO_DO_DROPDOWN = 8
-const ALTURA_DO_ITEM = 44
-const ALTURA_COM_DETALHE = 60
-const RESPIRO_VERTICAL = 16
-
-const props = withDefaults(
-  defineProps<{
-    rotulo: string
-    acoes: AcaoDaFolha[]
-    largura?: number
-  }>(),
-  { largura: 220 },
-)
-
+/**
+ * Menu `Mais ações` (pagina-do-livro.md P2): `DotsThree` que abre, abaixo de 768px, a folha de
+ * ações do mobile e, a partir dali, um dropdown alinhado à direita do botão, com itens de 44px,
+ * ícone de 20px e hover em `linha`. Nasceu para `Adicionar à lista` (F-LST); as outras features
+ * da página (`Recomendar a um leitor`, F-REC-P2P) só acrescentam itens em `acoes`.
+ *
+ * O dropdown fecha com `Esc`, clique fora ou escolha, e devolve o foco ao botão.
+ */
+defineProps<{ rotulo: string; acoes: AcaoDaFolha[] }>()
 const emit = defineEmits<{ escolher: [id: string] }>()
 
+const id = useId()
 const folhaAberta = ref(false)
 const dropdownAberto = ref(false)
-const dropdown = ref<HTMLElement | null>(null)
-const posicao = ref<Record<string, string>>({})
-let ancora: HTMLElement | null = null
+const botao = ref<HTMLButtonElement | null>(null)
+const raiz = ref<HTMLElement | null>(null)
 
-function fecharAoClicarFora(evento: MouseEvent): void {
-  const alvo = evento.target as Node
-  if (!ancora?.contains(alvo) && !dropdown.value?.contains(alvo)) {
-    fecharDropdown()
-  }
+function web(): boolean {
+  return typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 768px)').matches
 }
 
-function fecharDropdown(): void {
-  dropdownAberto.value = false
-  document.removeEventListener('mousedown', fecharAoClicarFora)
-  window.removeEventListener('scroll', fecharDropdown, true)
-  window.removeEventListener('resize', fecharDropdown)
-}
-
-function posicionar(botao: DOMRect): void {
-  const altura =
-    props.acoes.reduce((soma, acao) => soma + (acao.detalhe ? ALTURA_COM_DETALHE : ALTURA_DO_ITEM), 0) +
-    RESPIRO_VERTICAL
-  const direita = `${window.innerWidth - botao.right}px`
-  posicao.value =
-    botao.bottom + ESPACO_DO_DROPDOWN + altura <= window.innerHeight
-      ? { top: `${botao.bottom + ESPACO_DO_DROPDOWN}px`, right: direita }
-      : { bottom: `${window.innerHeight - botao.top + ESPACO_DO_DROPDOWN}px`, right: direita }
-}
-
-function alternar(botao: HTMLElement): void {
-  if (dropdownAberto.value) {
-    fecharDropdown()
+async function abrir(): Promise<void> {
+  if (!web()) {
+    folhaAberta.value = true
     return
   }
-  ancora = botao
-  if (window.matchMedia(LARGURA_WEB).matches) {
-    posicionar(botao.getBoundingClientRect())
-    dropdownAberto.value = true
-    document.addEventListener('mousedown', fecharAoClicarFora)
-    window.addEventListener('scroll', fecharDropdown, true)
-    window.addEventListener('resize', fecharDropdown)
-  } else {
-    folhaAberta.value = true
+  dropdownAberto.value = !dropdownAberto.value
+  if (dropdownAberto.value) {
+    document.addEventListener('pointerdown', aoClicarFora)
+    await nextTick()
+    raiz.value?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus()
   }
 }
 
-function fecharComTeclado(): void {
-  fecharDropdown()
-  ancora?.focus()
+function fecharDropdown(devolverFoco: boolean): void {
+  dropdownAberto.value = false
+  document.removeEventListener('pointerdown', aoClicarFora)
+  if (devolverFoco) {
+    botao.value?.focus()
+  }
 }
 
-function escolher(id: string): void {
+function aoClicarFora(evento: PointerEvent): void {
+  if (!raiz.value?.contains(evento.target as Node)) {
+    fecharDropdown(false)
+  }
+}
+
+function escolher(acao: string): void {
   folhaAberta.value = false
-  fecharDropdown()
-  emit('escolher', id)
+  fecharDropdown(false)
+  emit('escolher', acao)
 }
 
-onBeforeUnmount(fecharDropdown)
+function aoTeclar(evento: KeyboardEvent): void {
+  const itens = Array.from(raiz.value?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]') ?? [])
+  const atual = itens.indexOf(document.activeElement as HTMLButtonElement)
+  if (evento.key === 'Escape') {
+    evento.preventDefault()
+    fecharDropdown(true)
+  } else if (evento.key === 'ArrowDown' || evento.key === 'ArrowUp') {
+    evento.preventDefault()
+    const passo = evento.key === 'ArrowDown' ? 1 : -1
+    itens[(atual + passo + itens.length) % itens.length]?.focus()
+  }
+}
 
-defineExpose({ alternar, fechar: fecharDropdown, aberto: dropdownAberto })
+onBeforeUnmount(() => document.removeEventListener('pointerdown', aoClicarFora))
 </script>
 
 <template>
-  <Teleport to="body">
-    <ul
+  <div
+    ref="raiz"
+    class="relative"
+    @keydown="aoTeclar"
+  >
+    <button
+      ref="botao"
+      type="button"
+      class="flex size-12 items-center justify-center rounded-base text-tinta transition-colors duration-dur-fast hover:bg-linha focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo md:size-10"
+      :aria-label="rotulo"
+      aria-haspopup="menu"
+      :aria-expanded="dropdownAberto"
+      :aria-controls="dropdownAberto ? `${id}-menu` : undefined"
+      @click="abrir"
+    >
+      <PhDotsThree
+        :size="24"
+        weight="regular"
+        aria-hidden="true"
+      />
+    </button>
+    <div
       v-if="dropdownAberto"
-      ref="dropdown"
+      :id="`${id}-menu`"
       role="menu"
       :aria-label="rotulo"
-      class="fixed z-40 rounded-base border border-linha bg-papel py-space-2 shadow-2 dark:bg-papel-elevado"
-      :style="{ ...posicao, width: `${largura}px` }"
-      @keydown.esc="fecharComTeclado"
+      class="absolute right-0 top-full z-30 mt-space-2 min-w-[240px] rounded-base border border-linha bg-papel py-space-2 shadow-2"
     >
-      <li
+      <button
         v-for="acao in acoes"
         :key="acao.id"
-        role="none"
+        type="button"
+        role="menuitem"
+        class="flex w-full items-center gap-space-3 px-space-4 text-left text-body transition-colors duration-dur-fast hover:bg-linha focus-visible:bg-linha focus-visible:outline-none"
+        :class="[acao.destrutiva ? 'text-rubi' : 'text-tinta', acao.detalhe ? 'py-space-2' : 'h-11']"
+        @click="escolher(acao.id)"
       >
-        <button
-          type="button"
-          role="menuitem"
-          class="flex w-full cursor-pointer items-center gap-space-3 px-space-4 text-left text-body hover:bg-linha focus-visible:bg-linha focus-visible:outline-none"
-          :class="[acao.destrutiva ? 'text-rubi' : 'text-tinta', acao.detalhe ? 'py-space-2' : 'h-11']"
-          @click="escolher(acao.id)"
-        >
-          <component
-            :is="acao.icone"
-            :size="20"
-            weight="regular"
-            class="shrink-0"
-            aria-hidden="true"
-          />
-          <span class="flex flex-col">
-            {{ acao.rotulo }}
-            <span
-              v-if="acao.detalhe"
-              class="text-caption text-grafite"
-            >{{ acao.detalhe }}</span>
-          </span>
-        </button>
-      </li>
-    </ul>
-  </Teleport>
-  <FolhaAcoes
-    :aberta="folhaAberta"
-    :rotulo="rotulo"
-    :acoes="acoes"
-    @escolher="escolher"
-    @fechar="folhaAberta = false"
-  />
+        <component
+          :is="acao.icone"
+          :size="20"
+          weight="regular"
+          class="shrink-0"
+          aria-hidden="true"
+        />
+        <span class="flex flex-col">
+          {{ acao.rotulo }}
+          <span
+            v-if="acao.detalhe"
+            class="text-caption text-grafite"
+          >{{ acao.detalhe }}</span>
+        </span>
+      </button>
+    </div>
+    <FolhaAcoes
+      :aberta="folhaAberta"
+      :rotulo="rotulo"
+      :acoes="acoes"
+      @escolher="escolher"
+      @fechar="folhaAberta = false"
+    />
+  </div>
 </template>

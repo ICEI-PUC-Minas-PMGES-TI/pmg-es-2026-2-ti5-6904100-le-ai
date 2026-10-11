@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
@@ -8,9 +9,15 @@ import '../features/auth/cadastro_page.dart';
 import '../features/auth/login_page.dart';
 import '../features/conta/alterar_senha_page.dart';
 import '../features/conta/configuracoes_page.dart';
+import '../features/conta/excluir_conta_page.dart';
+import '../features/conta/exclusao_service.dart';
+import '../features/conta/exclusao_solicitada_page.dart';
 import '../features/conta/politica_de_privacidade.dart';
+import '../features/conta/recuperar_conta_page.dart';
 import '../features/conta/recuperar_senha_page.dart';
 import '../features/conta/redefinir_senha_page.dart';
+import '../features/desafios/desafios_service.dart';
+import '../features/desafios/rotas_desafios.dart';
 import '../features/descobrir/descobrir_page.dart';
 import '../features/recomendacoes/rotas_recomendacoes.dart';
 import '../core/config/app_config.dart';
@@ -18,12 +25,15 @@ import '../core/network/api_client.dart';
 import '../features/estante/estante_page.dart';
 import '../features/estante/estante_service.dart';
 import '../features/feed/rotas_feed.dart';
+import '../features/listas/rotas_listas.dart';
 import '../features/livros/rotas_livros.dart';
 import '../features/notificacoes/rotas_notificacoes.dart';
 import '../features/perfil/perfil_page.dart';
 import '../features/perfil/rotas_perfil.dart';
 import '../features/perfil/widgets_de_identidade.dart';
 import '../features/progresso/rotas_progresso.dart';
+import '../features/sequencia/sequencia_do_perfil.dart';
+import '../features/sequencia/sequencia_service.dart';
 import 'shell_autenticado.dart';
 import 'verificando_sessao_page.dart';
 
@@ -35,6 +45,8 @@ const String rotaRecuperarSenha = '/recuperar-senha';
 const String rotaRedefinirSenha = '/redefinir-senha';
 const String rotaConfiguracoes = '/perfil/configuracoes';
 const String rotaPoliticaPublica = '/privacidade';
+const String rotaExclusaoSolicitada = '/conta/exclusao-solicitada';
+const String rotaRecuperarConta = '/conta/recuperar';
 const List<String> _rotasPublicas = <String>[rotaLogin, rotaCadastro, rotaRecuperarSenha];
 
 /// Monta o `GoRouter` do app (shell-de-navegacao.md). `refreshListenable: sessionController`
@@ -55,14 +67,30 @@ GoRouter buildRouter({
   EstanteService? estante,
   DependenciasDeProgresso? progresso,
   DependenciasDeNotificacoes? notificacoes,
+  DependenciasDeListas? listas,
+  ExclusaoService? exclusao,
+  SequenciaService? sequencia,
+  DesafiosService? desafios,
 }) {
   Future<bool> renovar(String token) => sessionController.renovar(token, authService.renovar);
-  final deps =
-      livros ??
-      DependenciasDeLivros.padrao(getToken: () => sessionController.token, renovarSessao: renovar);
+  final servicoDeExclusao = exclusao ?? ExclusaoService(authService.client);
   final depsDePerfil =
       perfil ??
       DependenciasDePerfil.padrao(getToken: () => sessionController.token, renovarSessao: renovar);
+  final depsDeListas =
+      listas ??
+      DependenciasDeListas.padrao(
+        perfil: depsDePerfil.servico,
+        getToken: () => sessionController.token,
+        renovarSessao: renovar,
+      );
+  // As páginas de livro usam o mesmo serviço de listas das telas de lista (`alteracoes`).
+  final deps = (livros ??
+          DependenciasDeLivros.padrao(
+            getToken: () => sessionController.token,
+            renovarSessao: renovar,
+          ))
+      .comListas(depsDeListas);
   final depsDeFeed =
       feed ??
       DependenciasDeFeed.padrao(getToken: () => sessionController.token, renovarSessao: renovar);
@@ -76,6 +104,13 @@ GoRouter buildRouter({
         ),
       );
   final depsDeProgresso = progresso ?? DependenciasDeProgresso.padrao(servicoDeEstante.client);
+  // F-GAM: a sequência é do `leitura`, no mesmo client da estante e do progresso.
+  final servicoDeSequencia = sequencia ?? SequenciaService(servicoDeEstante.client);
+  // F-DSF: também do `leitura`. Progresso registrado e leitura finalizada mexem no acumulado.
+  final depsDeDesafios = DependenciasDeDesafios.comAvisos(
+    desafios ?? DesafiosService(servicoDeEstante.client),
+    <ValueListenable<int>>[depsDeProgresso.servico.alteracoes, servicoDeEstante.alteracoes],
+  );
   final depsDeNotificacoes =
       notificacoes ??
       DependenciasDeNotificacoes.padrao(
@@ -137,6 +172,23 @@ GoRouter buildRouter({
           aoVoltar: () => context.canPop() ? context.pop() : context.go(rotaCadastro),
         ),
       ),
+      // F-CONTA-2, fora do shell. A primeira abre logo depois de a sessão acabar; a segunda só
+      // com o acesso de recuperação em memória (`_guardaDeSessao`).
+      GoRoute(
+        path: rotaExclusaoSolicitada,
+        builder: (context, state) => ExclusaoSolicitadaPage(
+          previstaEm: DateTime.tryParse(state.uri.queryParameters['ate'] ?? ''),
+          aoIrParaLogin: () => context.go(rotaLogin),
+        ),
+      ),
+      GoRoute(
+        path: rotaRecuperarConta,
+        builder: (context, state) => RecuperarContaPage(
+          sessionController: sessionController,
+          servico: servicoDeExclusao,
+          aoIrParaLogin: () => context.go(rotaLogin),
+        ),
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) => ShellAutenticado(
           navigationShell: navigationShell,
@@ -154,6 +206,15 @@ GoRouter buildRouter({
               GoRoute(
                 path: rotaEstante,
                 builder: (context, state) => EstantePage(
+                  // `?status=LIDO` vem do contador `livros lidos` do perfil. O filtro trocado na
+                  // página também vai para a URL, para o contador mudar a rota de novo e o filtro
+                  // valer com a aba já aberta.
+                  statusInicial: StatusEstante.values
+                      .where((status) => status.valor == state.uri.queryParameters['status'])
+                      .firstOrNull,
+                  aoMudarFiltro: (status) => context.go(
+                    status == null ? rotaEstante : '$rotaEstante?status=${status.valor}',
+                  ),
                   servico: servicoDeEstante,
                   aoBuscarLivros: () => context.go('/descobrir'),
                   aoCadastrarLivro: () => context.go(rotaAdicionarLivro),
@@ -174,6 +235,9 @@ GoRouter buildRouter({
                 path: '/descobrir',
                 builder: (context, state) => DescobrirPage(
                   servico: deps.acervo,
+                  // Assunto tocado na ficha do livro (F-ACV-DESCOBERTA, RF-ACV-21).
+                  assuntoInicial: state.uri.queryParameters['assunto'],
+                  aoConsumirAssunto: () => context.go('/descobrir'),
                   aoAbrirLivro: (id) => context.push(rotaLivroOficial(id)),
                   aoCadastrarPorIsbn: () => context.go(rotaAdicionarLivro),
                   // `push`, não `go`: cancelar o cadastro pessoal volta aos resultados, e não
@@ -200,7 +264,27 @@ GoRouter buildRouter({
                 depsDeFeed,
                 perfil: depsDePerfil,
                 livros: deps,
-                rotasExtras: <RouteBase>[rotaDeNotificacoes(depsDeNotificacoes, rotaFeedRaiz)],
+                rotasExtras: <RouteBase>[
+                  rotaDeNotificacoes(depsDeNotificacoes, rotaFeedRaiz),
+                  // O livro oficial aberto por uma lista no Feed fica na aba Feed (F-LST,
+                  // pagina-do-livro.md §4.1: o item ativo é a aba de origem).
+                  rotaDoLivroOficial(
+                    deps,
+                    raiz: rotaFeedRaiz,
+                    estante: servicoDeEstante,
+                    progresso: depsDeProgresso,
+                  ),
+                  ...rotasDeCatalogo(deps, raiz: rotaFeedRaiz),
+                ],
+                listas: depsDeListas,
+                estante: servicoDeEstante,
+                resenhasDoAutor: (context, usuarioId, nome) => _resenhasDoPerfil(
+                  context,
+                  deps,
+                  usuarioId: usuarioId,
+                  proprio: false,
+                  nome: nome,
+                ),
               ),
             ],
           ),
@@ -215,8 +299,18 @@ GoRouter buildRouter({
                   aoAbrirSolicitacoes: () => context.push<void>(rotaSolicitacoes),
                   aoBuscarLivros: () => context.go('/descobrir'),
                   aoVerEstante: () => context.go(rotaEstante),
+                  aoVerLivrosLidos: () =>
+                      context.go('$rotaEstante?status=${StatusEstante.lido.valor}'),
+                  estante: servicoDeEstante,
+                  alteracoesDoProgresso: depsDeProgresso.servico.alteracoes,
                   resenhas: (usuarioId) =>
                       _resenhasDoPerfil(context, deps, usuarioId: usuarioId, proprio: true),
+                  listas: (usuarioId) => secaoDasMinhasListas(context, depsDeListas, usuarioId),
+                  sequencia: () => SequenciaDoPerfil(
+                    servico: servicoDeSequencia,
+                    alteracoes: depsDeProgresso.servico.alteracoes,
+                  ),
+                  desafios: () => secaoDosDesafios(context, depsDeDesafios),
                 ),
                 routes: <RouteBase>[
                   ...rotasDoPerfil(
@@ -229,6 +323,16 @@ GoRouter buildRouter({
                       proprio: false,
                       nome: nome,
                     ),
+                    listas: depsDeListas,
+                    desafios: depsDeDesafios,
+                  ),
+                  // O livro pessoal aberto por uma lista fica na aba Perfil: o do dono, sem via;
+                  // o de outro leitor, em modo consulta com `via=lista` (F-LST, RN-15).
+                  rotaDoLivroPessoal(
+                    deps,
+                    raiz: '/perfil',
+                    estante: servicoDeEstante,
+                    progresso: depsDeProgresso,
                   ),
                   // O livro aberto por uma resenha do perfil fica na aba Perfil (pagina-do-livro.md
                   // §4.1: o item ativo é a aba de origem).
@@ -239,6 +343,7 @@ GoRouter buildRouter({
                     progresso: depsDeProgresso,
                     social: depsDeFeed.social,
                   ),
+                  ...rotasDeCatalogo(deps, raiz: '/perfil'),
                   rotaDeNotificacoes(depsDeNotificacoes, rotaPerfilRaiz),
                   GoRoute(
                     path: 'configuracoes',
@@ -247,6 +352,7 @@ GoRouter buildRouter({
                       aoVoltar: () => context.go('/perfil'),
                       aoAlterarSenha: () => context.go('$rotaConfiguracoes/alterar-senha'),
                       aoAbrirPolitica: () => context.go('$rotaConfiguracoes/privacidade'),
+                      aoExcluirConta: () => context.go('$rotaConfiguracoes/excluir-conta'),
                       aoSair: () async {
                         await sessionController.sairRevogando(authService.revogar);
                         // A guarda já levou ao login com `?destino=`; saída voluntária não volta
@@ -269,6 +375,28 @@ GoRouter buildRouter({
                         path: 'privacidade',
                         builder: (context, state) => PoliticaDePrivacidadePage(
                           aoVoltar: () => context.go(rotaConfiguracoes),
+                        ),
+                      ),
+                      GoRoute(
+                        path: 'excluir-conta',
+                        builder: (context, state) => ExcluirContaPage(
+                          servico: servicoDeExclusao,
+                          authService: authService,
+                          aoVoltar: () => context.go(rotaConfiguracoes),
+                          aoExclusaoSolicitada: (previstaEm) async {
+                            // O roteador é pego antes: limpar a sessão leva a guarda ao login,
+                            // e esta página sai da árvore. A navegação seguinte substitui aquela.
+                            final router = GoRouter.of(context);
+                            await sessionController.sair();
+                            router.go(
+                              Uri(
+                                path: rotaExclusaoSolicitada,
+                                queryParameters: <String, String>{
+                                  'ate': previstaEm.toIso8601String(),
+                                },
+                              ).toString(),
+                            );
+                          },
                         ),
                       ),
                     ],
@@ -308,6 +436,21 @@ String? _guardaDeSessao(SessionController sessionController, GoRouterState state
   }
 
   final autenticado = sessionController.estaAutenticado;
+
+  // F-CONTA-2. `Exclusão solicitada` abre logo depois de a sessão acabar e não depende dela.
+  if (indo == rotaExclusaoSolicitada) {
+    return null;
+  }
+  // A recuperação só existe com o acesso em memória. Guardá-lo no login avisa o roteador, e
+  // esta regra tira a pessoa do login; descartá-lo não avisa, e a tela fica até a próxima
+  // navegação (`SessionController.descartarRecuperacao`).
+  final emRecuperacao = sessionController.recuperacao != null;
+  if (indo == rotaRecuperarConta) {
+    return emRecuperacao && !autenticado ? null : (autenticado ? rotaEstante : rotaLogin);
+  }
+  if (emRecuperacao && !autenticado && _rotasPublicas.contains(indo)) {
+    return rotaRecuperarConta;
+  }
 
   if (indo == rotaVerificandoSessao) {
     return autenticado ? rotaEstante : rotaLogin;

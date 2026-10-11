@@ -24,6 +24,9 @@ class ConfiguracoesPage extends StatefulWidget {
   final VoidCallback? aoAlterarSenha;
   final VoidCallback? aoAbrirPolitica;
 
+  /// `Excluir conta` (F-CONTA-2), última linha do grupo `Privacidade e dados`.
+  final VoidCallback? aoExcluirConta;
+
   const ConfiguracoesPage({
     super.key,
     required this.authService,
@@ -31,6 +34,7 @@ class ConfiguracoesPage extends StatefulWidget {
     this.aoVoltar,
     this.aoAlterarSenha,
     this.aoAbrirPolitica,
+    this.aoExcluirConta,
   });
 
   static const String versaoDoApp = '1.0.0';
@@ -99,6 +103,8 @@ class _ConfiguracoesPageState extends State<ConfiguracoesPage> {
                   aoTocar: widget.aoAbrirPolitica,
                   theme: theme,
                 ),
+                // Igual às outras linhas, sem `rubi` nem ícone de alerta (configuracoes.md).
+                _Linha(rotulo: 'Excluir conta', aoTocar: widget.aoExcluirConta, theme: theme),
                 const SizedBox(height: DesignTokens.space8),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: DesignTokens.space5),

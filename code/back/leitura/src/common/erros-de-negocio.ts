@@ -158,6 +158,28 @@ export class ChaveIdempotenciaConflitante extends ErroDeNegocio {
   }
 }
 
+/** RF-AVA-05: só se reage à resenha de outro leitor. */
+export class ReacaoPropria extends ErroDeNegocio {
+  constructor() {
+    super(
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      'REACAO_PROPRIA',
+      'Você não pode reagir à sua própria resenha.',
+    );
+  }
+}
+
+/** RN-11: no máximo 10 frases por leitor e livro. */
+export class LimiteDeFrases extends ErroDeNegocio {
+  constructor() {
+    super(
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      'LIMITE_DE_FRASES',
+      'Você chegou ao limite de 10 frases por livro. Exclua uma das suas para guardar outra.',
+    );
+  }
+}
+
 /** O estado atual do recurso não permite a operação. */
 export class EstadoInvalido extends ErroDeNegocio {
   constructor(mensagem: string) {

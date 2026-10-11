@@ -86,6 +86,22 @@ export class ResenhaDoPerfilDto {
     multipleOf: 0.5,
   })
   nota!: number | null;
+
+  /** Curtidas ativas (RF-AVA-08). */
+  @ApiProperty({ minimum: 0 })
+  curtidas!: number;
+
+  /** Descurtidas ativas, contadas à parte (RF-AVA-08). */
+  @ApiProperty({ minimum: 0 })
+  descurtidas!: number;
+
+  /** Reação ativa de quem pede; `null` sem reação (e sempre na própria resenha). */
+  @ApiProperty({
+    enum: ['curtida', 'descurtida'],
+    nullable: true,
+    type: String,
+  })
+  minhaReacao!: 'curtida' | 'descurtida' | null;
 }
 
 export class PaginacaoDto {

@@ -15,9 +15,14 @@ import 'package:le_ai_mobile/core/session/session_controller.dart';
 import 'package:le_ai_mobile/core/session/token_store.dart';
 import 'package:le_ai_mobile/design/theme.dart';
 import 'package:le_ai_mobile/features/avaliacao/leitura_service.dart';
+import 'package:le_ai_mobile/features/avaliacao/resenhas_do_perfil.dart';
+import 'package:le_ai_mobile/features/estante/estante_de_perfil.dart';
 import 'package:le_ai_mobile/features/auth/auth_service.dart';
+import 'package:le_ai_mobile/features/conta/exclusao_service.dart';
 import 'package:le_ai_mobile/features/feed/rotas_feed.dart';
 import 'package:le_ai_mobile/features/feed/social_service.dart';
+import 'package:le_ai_mobile/features/listas/listas_service.dart';
+import 'package:le_ai_mobile/features/listas/rotas_listas.dart';
 import 'package:le_ai_mobile/features/livros/acervo_service.dart';
 import 'package:le_ai_mobile/features/livros/capa.dart';
 import 'package:le_ai_mobile/features/livros/rotas_livros.dart';
@@ -145,6 +150,81 @@ DependenciasDeFeed _feedSimulado() => DependenciasDeFeed(
   ),
 );
 
+/// `social` simulado para as listas (F-LST): uma lista da própria leitora, com um livro.
+DependenciasDeListas _listasSimuladas(DependenciasDePerfil perfil) {
+  const cabecalhos = <String, String>{'content-type': 'application/json; charset=utf-8'};
+  final lista = <String, Object?>{
+    'id': 'l1',
+    'dono': <String, Object?>{
+      'id': 'u1',
+      'username': 'marinableu',
+      'nomeExibicao': 'Marina Beltrão',
+      'avatarUrl': null,
+    },
+    'titulo': 'Contos que eu indico',
+    'descricao': null,
+    'quantidadeLivros': 1,
+    'pertenceAoSolicitante': true,
+    'criadaEm': '2026-09-01T12:00:00Z',
+    'atualizadaEm': '2026-09-12T12:00:00Z',
+  };
+  return DependenciasDeListas(
+    servico: ListasService(
+      ApiClient(
+        baseUrl: 'http://localhost:8081',
+        client: MockClient((request) async {
+          final caminho = request.url.path;
+          final Object corpo;
+          if (caminho == '/listas/l1') {
+            corpo = lista;
+          } else if (caminho == '/listas/l1/livros') {
+            corpo = <String, Object?>{
+              'itens': <Object?>[
+                <String, Object?>{
+                  'id': 'i1',
+                  'listaId': 'l1',
+                  'livro': <String, Object?>{
+                    'id': 'livro-1',
+                    'tipo': 'OFICIAL',
+                    'titulo': 'Sagarana',
+                    'autor': 'João Guimarães Rosa',
+                    'capaUrl': null,
+                    'link': <String, Object?>{'livroId': 'livro-1', 'via': 'catalogo'},
+                  },
+                  'posicao': 1,
+                  'adicionadoEm': '2026-09-12T12:00:00Z',
+                },
+              ],
+              'proximoCursor': null,
+              'temMais': false,
+            };
+          } else {
+            corpo = <String, Object?>{
+              'itens': <Object?>[
+                <String, Object?>{
+                  'id': 'l1',
+                  'titulo': 'Contos que eu indico',
+                  'descricao': null,
+                  'quantidadeLivros': 1,
+                  'capas': <Object?>[],
+                  'atualizadaEm': '2026-09-12T12:00:00Z',
+                },
+              ],
+              'pagina': 0,
+              'tamanho': 20,
+              'totalItens': 1,
+              'totalPaginas': 1,
+              'ultima': true,
+            };
+          }
+          return http.Response(jsonEncode(corpo), 200, headers: cabecalhos);
+        }),
+      ),
+    ),
+    perfil: perfil.servico,
+  );
+}
+
 /// `acervo` simulado por rota: um assunto para a faixa, e toda busca volta vazia, que é o estado
 /// que leva aos dois cadastros.
 Future<http.Response> _acervoPorRota(http.Request request) async {
@@ -165,6 +245,26 @@ Future<http.Response> _acervoPorRota(http.Request request) async {
       '"anoPublicacao":2019,"paginas":264,"capa":{"url":null,"origem":"placeholder"},'
       '"assuntos":[],"isbn":"9788588808911","sinopse":{"status":"ausente","texto":null},'
       '"resenhas":{"itens":[],"limit":10,"proximoCursor":null}}',
+      200,
+      headers: cabecalhos,
+    );
+  }
+  // F-ACV-DESCOBERTA: um livro com autor e assunto, e a página do autor.
+  if (request.url.path == '/livros/livro-2') {
+    return http.Response(
+      '{"id":"livro-2","titulo":"Dom Casmurro","autores":[{"id":"machado","nome":"Machado de Assis"}],'
+      '"editora":null,"editoraId":null,"serie":null,"anoPublicacao":1899,"paginas":256,'
+      '"capa":{"url":null,"origem":"placeholder"},"assuntos":[{"id":"a1","nome":"Romance"}],'
+      '"isbn":"9788535910663","sinopse":{"status":"ausente","texto":null},'
+      '"resenhas":{"itens":[],"limit":10,"proximoCursor":null}}',
+      200,
+      headers: cabecalhos,
+    );
+  }
+  if (request.url.path == '/autores/machado') {
+    return http.Response(
+      '{"id":"machado","nome":"Machado de Assis","biografia":null,'
+      '"livros":{"itens":[],"page":1,"limit":20,"totalItens":0,"totalPaginas":0}}',
       200,
       headers: cabecalhos,
     );
@@ -198,18 +298,22 @@ Widget _wrap(GoRouter router) {
 void main() {
   late SessionController sessionController;
   late GoRouter router;
+  late _FakeTokenStore tokenStore;
 
   setUp(() async {
-    sessionController = SessionController(_FakeTokenStore());
+    tokenStore = _FakeTokenStore();
+    sessionController = SessionController(tokenStore);
     await sessionController.load();
     final apiClient = ApiClient(
       baseUrl: 'http://localhost:8080',
       client: MockClient((request) async => http.Response('{}', 200)),
     );
+    final perfil = _perfilSimulado();
     router = buildRouter(
       sessionController: sessionController,
       authService: AuthService(apiClient),
-      perfil: _perfilSimulado(),
+      perfil: perfil,
+      listas: _listasSimuladas(perfil),
       feed: _feedSimulado(),
       estante: estanteVazia(),
       progresso: progressoEmMemoria(),
@@ -221,6 +325,7 @@ void main() {
         seletor: _SemImagem(),
         enviador: _SemEnvio(),
       ),
+      exclusao: _exclusaoSimulada(),
     );
   });
 
@@ -270,6 +375,65 @@ void main() {
     expect(find.text('Sua estante está vazia'), findsOneWidget);
   });
 
+  testWidgets('a seção Listas do perfil abre a lista na aba Perfil, e o livro também', (
+    tester,
+  ) async {
+    await sessionController.entrar('jwt-valido');
+    await tester.pumpWidget(_wrap(router));
+    await tester.pumpAndSettle();
+
+    router.go('/perfil');
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Contos que eu indico'), 300);
+    await tester.tap(find.text('Contos que eu indico'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Editar lista'), findsOneWidget);
+    expect(find.text('Sagarana'), findsWidgets);
+
+    // O livro oficial abre na própria aba Perfil (`/perfil/livro/:id`), sem trocar de aba.
+    await tester.tap(find.text('Sagarana').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Torto Arado'), findsWidgets);
+    expect(find.text('Editar lista'), findsNothing);
+  });
+
+  testWidgets('o perfil do autor aberto pelo Feed tem estante e resenhas, como na aba Perfil', (
+    tester,
+  ) async {
+    await sessionController.entrar('jwt-valido');
+    await tester.pumpWidget(_wrap(router));
+    await tester.pumpAndSettle();
+
+    for (final caminho in <String>['/feed/leitores/caio', '/perfil/leitores/caio']) {
+      router.go(caminho);
+      await tester.pumpAndSettle();
+      expect(find.byType(EstanteDePerfil), findsOneWidget, reason: caminho);
+      expect(find.byType(ResenhasDoPerfil), findsOneWidget, reason: caminho);
+    }
+  });
+
+  testWidgets('as listas de outro leitor abrem dentro da aba Feed', (tester) async {
+    await sessionController.entrar('jwt-valido');
+    await tester.pumpWidget(_wrap(router));
+    await tester.pumpAndSettle();
+
+    router.go('/feed/leitores/caio/listas');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Listas de '), findsOneWidget);
+    expect(find.text('Contos que eu indico'), findsOneWidget);
+
+    // O livro oficial da lista abre sob a raiz do Feed (`/feed/livro/:id`), não sob Descobrir.
+    await tester.tap(find.text('Contos que eu indico'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sagarana').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Torto Arado'), findsWidgets);
+    expect(router.routerDelegate.currentConfiguration.last.matchedLocation, '/feed/livro/livro-1');
+    expect(tester.widget<BarraInferior>(find.byType(BarraInferior)).indiceAtivo, 2);
+  });
+
   testWidgets('Descobrir leva ao cadastro por ISBN, que troca o cabeçalho da aba pelo da tela', (
     tester,
   ) async {
@@ -312,6 +476,36 @@ void main() {
     await tester.tap(find.bySemanticsLabel('Voltar'));
     await tester.pumpAndSettle();
     expect(find.text('Título, autor, editora ou ISBN'), findsOneWidget);
+  });
+
+  testWidgets('da ficha do livro: o autor abre na aba Descobrir e o assunto filtra a busca', (
+    tester,
+  ) async {
+    await sessionController.entrar('jwt-valido');
+    await tester.pumpWidget(_wrap(router));
+    await tester.pumpAndSettle();
+
+    router.go('/descobrir');
+    await tester.pumpAndSettle();
+    router.push('/descobrir/livro/livro-2');
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.bySemanticsLabel('Ver página de autor: Machado de Assis'));
+    await tester.tap(find.bySemanticsLabel('Ver página de autor: Machado de Assis'));
+    await tester.pumpAndSettle();
+    // Empilhada com `push`: a URI do go_router fica na base, então confere pela tela.
+    expect(find.text('Autor'), findsOneWidget);
+    expect(find.text('Nenhum livro no acervo'), findsOneWidget);
+
+    await tester.tap(find.bySemanticsLabel('Voltar'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.bySemanticsLabel('Buscar livros de Romance'));
+    await tester.tap(find.bySemanticsLabel('Buscar livros de Romance'));
+    await tester.pumpAndSettle();
+
+    // Aplicado, o assunto sai da localização: tocar nele de novo volta a valer como pedido novo.
+    expect(router.routerDelegate.currentConfiguration.uri.toString(), '/descobrir');
+    expect(find.bySemanticsLabel('Romance, filtro ativo. Toque para remover.'), findsOneWidget);
   });
 
   testWidgets('o cadastro pessoal aberto pelo vazio da busca volta aos resultados ao cancelar', (
@@ -498,6 +692,91 @@ void main() {
 
     expect(find.text('Alterar senha'), findsOneWidget);
     expect(find.text('Sair da conta'), findsOneWidget);
+  });
+
+  group('F-CONTA-2', () {
+    testWidgets('excluir conta: o 202 apaga a sessão e o armazenamento antes da tela final', (
+      tester,
+    ) async {
+      await sessionController.entrar('jwt-valido', refreshToken: 'r1');
+      await tester.pumpWidget(_wrap(router));
+      await tester.pumpAndSettle();
+      router.go(rotaConfiguracoes);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Excluir conta'));
+      await tester.pumpAndSettle();
+      expect(find.text('Oculta a partir de agora'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'senha-certa');
+      final caixa = find.textContaining('a exclusão não pode ser desfeita');
+      await tester.ensureVisible(caixa);
+      await tester.tap(caixa);
+      await tester.pumpAndSettle();
+      final botao = find.widgetWithText(OutlinedButton, 'Excluir conta');
+      await tester.ensureVisible(botao);
+      await tester.tap(botao);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Excluir conta').last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Exclusão solicitada'), findsOneWidget);
+      expect(find.text('7 de novembro de 2026'), findsOneWidget);
+      expect(sessionController.estaAutenticado, isFalse);
+      expect(tokenStore.value, isNull);
+      expect(find.byType(BarraInferior), findsNothing);
+
+      // O voltar do sistema não devolve às Configurações: leva ao login.
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('Criar conta'), findsOneWidget);
+    });
+
+    testWidgets('o acesso de recuperação tira do login e leva à recuperação; Sair volta', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_wrap(router));
+      await tester.pumpAndSettle();
+      expect(find.text('Criar conta'), findsOneWidget);
+
+      sessionController.guardarRecuperacao(_acessoDeRecuperacao());
+      await tester.pumpAndSettle();
+      expect(find.text('Sua conta está em exclusão'), findsOneWidget);
+      expect(find.text('Marina Beltrão · @marinableu'), findsOneWidget);
+
+      await tester.ensureVisible(find.text('Sair'));
+      await tester.tap(find.text('Sair'));
+      await tester.pumpAndSettle();
+      expect(find.text('Criar conta'), findsOneWidget);
+      expect(sessionController.recuperacao, isNull);
+    });
+
+    testWidgets('cancelar a exclusão mostra Conta recuperada, e Entrar leva ao login', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_wrap(router));
+      await tester.pumpAndSettle();
+      sessionController.guardarRecuperacao(_acessoDeRecuperacao());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Cancelar exclusão'));
+      await tester.pumpAndSettle();
+      expect(find.text('Conta recuperada'), findsOneWidget);
+      expect(sessionController.recuperacao, isNull);
+
+      await tester.tap(find.text('Entrar'));
+      await tester.pumpAndSettle();
+      expect(find.text('Criar conta'), findsOneWidget);
+    });
+
+    testWidgets('a recuperação sem o acesso em memória manda ao login', (tester) async {
+      await tester.pumpWidget(_wrap(router));
+      await tester.pumpAndSettle();
+      router.go(rotaRecuperarConta);
+      await tester.pumpAndSettle();
+      expect(find.text('Sua conta está em exclusão'), findsNothing);
+      expect(find.text('Criar conta'), findsOneWidget);
+    });
   });
 
   testWidgets('a lupa do Perfil abre a busca de leitor, com volta para o perfil', (tester) async {
@@ -746,6 +1025,34 @@ GoRouter _roteadorComNotificacoes(SessionController sessionController) {
     ),
   );
 }
+
+/// `identidade` simulado para a exclusão (F-CONTA-2): o pedido responde `202` com as datas e o
+/// cancelamento, `204`.
+ExclusaoService _exclusaoSimulada() => ExclusaoService(
+  ApiClient(
+    baseUrl: 'http://localhost:8080',
+    client: MockClient((request) async {
+      if (request.method == 'DELETE' && request.url.path == '/me/conta') {
+        return http.Response(
+          '{"exclusaoSolicitadaEm":"2026-10-08T15:00:00Z",'
+          '"exclusaoPrevistaEm":"2026-11-07T15:00:00Z"}',
+          202,
+          headers: const <String, String>{'content-type': 'application/json; charset=utf-8'},
+        );
+      }
+      return http.Response('', 204);
+    }),
+  ),
+);
+
+AcessoDeRecuperacao _acessoDeRecuperacao() => AcessoDeRecuperacao(
+  accessToken: 'jwt-recuperacao',
+  expiresIn: 900,
+  exclusaoSolicitadaEm: DateTime.now().subtract(const Duration(days: 7)),
+  exclusaoPrevistaEm: DateTime.now().add(const Duration(days: 23)),
+  username: 'marinableu',
+  nomeExibicao: 'Marina Beltrão',
+);
 
 /// `leitura` que responde "sem avaliação" a qualquer livro: o roteador só precisa da página abrir.
 LeituraService _leituraSimulada() => LeituraService(

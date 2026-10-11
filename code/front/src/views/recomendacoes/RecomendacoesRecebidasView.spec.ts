@@ -1,7 +1,6 @@
 import { DOMWrapper, flushPromises } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { aviso, fecharAviso } from '../../avisos'
 import { socialService } from '../../services/social'
 import { paginaDeRecomendacoes, recomendacao } from '../../testes/massaDeRecomendacoes'
 import { montarNaRota } from '../../testes/montarNaRota'
@@ -31,7 +30,6 @@ describe('RecomendacoesRecebidasView', () => {
   beforeEach(() => {
     social.listarRecebidas.mockReset().mockResolvedValue(paginaDeRecomendacoes([ESTRELA, DESPEJO]))
     social.descartarRecomendacao.mockReset()
-    fecharAviso()
   })
 
   afterEach(() => {
@@ -61,7 +59,7 @@ describe('RecomendacoesRecebidasView', () => {
     expect(social.descartarRecomendacao).toHaveBeenCalledWith('r1', expect.any(String))
     expect(tela.text()).not.toContain('A Hora da Estrela')
     expect(tela.text()).toContain('1 recomendação')
-    expect(aviso.value?.texto).toBe('Recomendação descartada.')
+    expect(tela.get('[role="status"]').text()).toContain('Recomendação descartada.')
   })
 
   it('falha no descarte devolve o item e o toast persistente repete com a mesma chave', async () => {
@@ -72,12 +70,11 @@ describe('RecomendacoesRecebidasView', () => {
     await flushPromises()
 
     expect(tela.text()).toContain('Quarto de Despejo')
-    expect(aviso.value?.tom).toBe('erro')
-    expect(aviso.value?.texto).toBe(
+    expect(tela.get('[role="alert"]').text()).toContain(
       'Não foi possível descartar a recomendação. Verifique sua conexão e tente de novo.',
     )
 
-    aviso.value!.acao!.executar()
+    await tela.findAll('[role="alert"] button').find((b) => b.text() === 'Tentar de novo')!.trigger('click')
     await flushPromises()
 
     const [primeira, segunda] = social.descartarRecomendacao.mock.calls

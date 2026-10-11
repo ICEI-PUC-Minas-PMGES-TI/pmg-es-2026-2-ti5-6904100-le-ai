@@ -36,6 +36,13 @@
       "when": 1789852784016,
       "tag": "0004_cria_mensagem_processada",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791573087555,
+      "tag": "0005_20261009161113_cria_v_reacao_resenha_v1",
+      "breakpoints": true
     }
   ]
 }

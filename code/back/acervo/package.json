@@ -74,7 +74,10 @@
     "typescript-eslint": "^8.20.0"
   },
   "overrides": {
-    "multer": "^2.3.0"
+    "multer": "^2.3.0",
+    "@nestjs/swagger": {
+      "js-yaml": "^4.3.2"
+    }
   },
   "jest": {
     "moduleFileExtensions": [

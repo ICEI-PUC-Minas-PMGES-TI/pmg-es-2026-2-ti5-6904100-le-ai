@@ -11,6 +11,10 @@ export const OPERACOES = {
   EXCLUIR_NOTA: 'excluirNota',
   SALVAR_RESENHA: 'salvarResenha',
   EXCLUIR_RESENHA: 'excluirResenha',
+  REAGIR_RESENHA: 'reagirResenha',
+  REMOVER_REACAO_RESENHA: 'removerReacaoResenha',
+  CADASTRAR_FRASE: 'cadastrarFrase',
+  EXCLUIR_FRASE: 'excluirFrase',
   ADICIONAR_LIVRO_ESTANTE: 'adicionarLivroEstante',
   REMOVER_LIVRO_ESTANTE: 'removerLivroEstante',
   INICIAR_LEITURA: 'iniciarLeitura',
@@ -21,6 +25,11 @@ export const OPERACOES = {
   PROCESSAR_INATIVIDADE_LEITURAS: 'processarInatividadeLeituras',
   REGISTRAR_PROGRESSO: 'registrarProgresso',
   EXCLUIR_TRECHO_PROGRESSO: 'excluirTrechoProgresso',
+  CRIAR_DESAFIO: 'criarDesafio',
+  EDITAR_DESAFIO: 'editarDesafio',
+  PAUSAR_DESAFIO: 'pausarDesafio',
+  RETOMAR_DESAFIO: 'retomarDesafio',
+  EXCLUIR_DESAFIO: 'excluirDesafio',
 } as const;
 
 export type Operacao = (typeof OPERACOES)[keyof typeof OPERACOES];

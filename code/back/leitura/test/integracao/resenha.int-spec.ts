@@ -403,7 +403,7 @@ describe('resenha (integração)', () => {
     expect(resposta.body).toEqual({
       livroId,
       nota: null,
-      resenha: criada.body,
+      resenha: { ...criada.body, curtidas: 0, descurtidas: 0 },
     });
   });
 

@@ -125,6 +125,13 @@ leai:
   web-base-url: ${WEB_BASE_URL:http://localhost:5173}
   # Idem, lido só pelo ValidadorDeAvatar. Vazio recusa todo avatar, sem derrubar o serviço.
   cloudinary-cloud-name: ${CLOUDINARY_CLOUD_NAME:}
+  # F-CONTA-2, lidos por @Value. Sem as duas, a exclusão definitiva não apaga o avatar no
+  # Cloudinary e registra o publicId no log para limpeza manual.
+  cloudinary-api-key: ${CLOUDINARY_API_KEY:}
+  cloudinary-api-secret: ${CLOUDINARY_API_SECRET:}
+  # F-CONTA-2, lido pelo TokenDoAgendador. Vazio (ou com menos de 32 caracteres) recusa toda
+  # chamada ao job de exclusão com 401.
+  scheduler-token: ${SCHEDULER_TOKEN:}
   # Idem, lido só pelo ExecucaoDoSeed (perfil seed). Senha das quatro contas do seed.
   seed-senha: ${SEED_SENHA:}
 

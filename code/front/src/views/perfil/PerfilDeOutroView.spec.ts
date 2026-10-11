@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ApiError } from '../../services/api'
 import { leituraService, type ResenhaDoPerfil } from '../../services/leitura'
+import { listasService } from '../../services/listas'
 import { perfilService, type Perfil } from '../../services/perfil'
 import { itemEstante, paginaEstante } from '../../testes/estante'
 import { montarNaRota } from '../../testes/montarNaRota'
@@ -15,8 +16,13 @@ vi.mock('../../services/leitura', () => ({
   leituraService: { listarEstantePerfil: vi.fn(), listarResenhasPerfil: vi.fn() },
 }))
 
+vi.mock('../../services/listas', () => ({
+  listasService: { listarDoPerfil: vi.fn() },
+}))
+
 const servico = vi.mocked(perfilService)
 const leitura = vi.mocked(leituraService)
+const listas = vi.mocked(listasService)
 
 function resenhaDoPerfil(extras: Partial<ResenhaDoPerfil> = {}): ResenhaDoPerfil {
   return {
@@ -29,6 +35,9 @@ function resenhaDoPerfil(extras: Partial<ResenhaDoPerfil> = {}): ResenhaDoPerfil
     atualizadoEm: '2026-09-12T12:00:00Z',
     livro: { id: 'livro-1', tipo: 'oficial', titulo: 'Torto Arado', autor: 'Itamar Vieira Junior', capaUrl: null },
     nota: 4.5,
+    curtidas: 0,
+    descurtidas: 0,
+    minhaReacao: null,
     ...extras,
   }
 }
@@ -71,6 +80,7 @@ describe('PerfilDeOutroView', () => {
     leitura.listarResenhasPerfil.mockReset().mockResolvedValue({ itens: [], paginacao: { page: 1, limite: 5, totalItens: 0, totalPaginas: 0 } })
     localStorage.clear()
     servico.obterPerfil.mockReset().mockResolvedValue(PUBLICO)
+    listas.listarDoPerfil.mockReset().mockResolvedValue({ items: [], page: 0, size: 20, totalElements: 0, totalPages: 0 })
     servico.seguir.mockReset()
     servico.deixarDeSeguir.mockReset().mockResolvedValue(undefined)
     leitura.listarEstantePerfil
@@ -109,9 +119,25 @@ describe('PerfilDeOutroView', () => {
 
     expect(wrapper.text()).toContain('Rafael ainda não adicionou livros à estante.')
     expect(wrapper.text()).toContain('Rafael ainda não escreveu resenhas.')
-    expect(wrapper.findAll('[role="tab"]').map((aba) => aba.text())).toEqual(['Estante', 'Resenhas'])
+    expect(wrapper.findAll('[role="tab"]').map((aba) => aba.text())).toEqual(['Estante', 'Resenhas', 'Listas'])
+    expect(wrapper.text()).toContain('Rafael ainda não criou listas.')
+    expect(listas.listarDoPerfil).toHaveBeenCalledWith('u2', 0)
     expect(wrapper.text()).not.toContain('Buscar livros')
-    expect(wrapper.text()).not.toContain('livros lidos')
+    expect(wrapper.find('[aria-label="0 livros lidos"]').exists()).toBe(true)
+  })
+
+  it('livros lidos soma Lido e Relendo da estante e não é link', async () => {
+    leitura.listarEstantePerfil.mockResolvedValue(
+      paginaEstante([itemEstante('l1', 'Os Sertões', { status: 'LIDO', vezesLido: 1 })], {
+        totais: { QUERO_LER: 4, LENDO: 1, LIDO: 30, RELENDO: 1, ABANDONADO: 2 },
+      }),
+    )
+    const { wrapper } = await montarNaRota('/leitores/rafaokamoto')
+    await flushPromises()
+
+    const contador = wrapper.get('[aria-label="31 livros lidos"]')
+    expect(contador.element.tagName).toBe('DIV')
+    expect(contador.find('a').exists()).toBe(false)
   })
 
   it('resenhas do perfil: card com livro, estrelas e trecho, e o livro abre na aba Perfil', async () => {
@@ -144,6 +170,19 @@ describe('PerfilDeOutroView', () => {
     expect(wrapper.text()).toContain('O final revela tudo.')
     // O botão sai do DOM; o foco vai para o texto, para o leitor de tela continuar dali.
     expect(document.activeElement?.textContent).toContain('O final revela tudo.')
+  })
+
+  it('o trecho da resenha sai sem a marcação do Markdown, com cada bloco numa linha (F-AVA-2)', async () => {
+    leitura.listarResenhasPerfil.mockResolvedValue({
+      itens: [resenhaDoPerfil({ texto: '**Forte** e *leve*\n\n- um\n- dois' })],
+      paginacao: { page: 1, limite: 5, totalItens: 1, totalPaginas: 1 },
+    })
+    const { wrapper } = await montarNaRota('/leitores/rafaokamoto')
+    await flushPromises()
+
+    const trecho = wrapper.findAll('p').find((p) => p.text().startsWith('Forte e leve'))!
+    expect(trecho.element.textContent?.trim()).toBe('Forte e leve\num\ndois')
+    expect(wrapper.text()).not.toContain('**')
   })
 
   it('"Ver mais resenhas" traz a página seguinte', async () => {
@@ -185,7 +224,9 @@ describe('PerfilDeOutroView', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('Este perfil é privado')
-    expect(wrapper.text()).toContain('Envie uma solicitação para ver a estante e as resenhas de Beatriz.')
+    expect(wrapper.text()).toContain('Envie uma solicitação para ver a estante, as resenhas e as listas de Beatriz.')
+    // RN-08: nada das listas de um perfil restrito, nem a chamada.
+    expect(listas.listarDoPerfil).not.toHaveBeenCalled()
     expect(wrapper.find('[role="alert"]').exists()).toBe(false)
 
     await botao(wrapper, 'Solicitar para seguir').trigger('click')
@@ -289,6 +330,7 @@ describe('PerfilDeOutroView', () => {
     const outra = await montarNaRota('/leitores/bia.nogueira')
     await flushPromises()
     expect(outra.wrapper.text()).toContain('Este perfil é privado')
+    expect(outra.wrapper.text()).not.toContain('livros lidos')
     expect(outra.wrapper.text()).not.toContain('Não foi possível carregar a estante')
     expect(outra.wrapper.find('section[aria-labelledby="titulo-estante-do-perfil"]').exists()).toBe(false)
   })

@@ -105,6 +105,7 @@ e aguarda a revisao do dono (ver `code/back/social/AGENTS.md`).
 | `acervo` | `v_livro_recomendacao_v1` | uma linha por livro oficial e assunto; assunto pode ser nulo |
 | `leitura` | `v_estante_publica_v1` | usuario, livro, status e conclusoes |
 | `leitura` | `v_resenha_publicacao_v1` | resenha e contagens separadas de reacoes ativas |
+| `leitura` | `v_reacao_resenha_v1` | reacao ativa de cada leitor a cada resenha (F-AVA-2) |
 | `leitura` | `v_nota_publicacao_v1` | nota atual por usuario/livro |
 | `social` | `v_atividade_livro_pessoal_v1` | via ativa de acesso pelo feed |
 | `social` | `v_lista_livro_pessoal_v1` | via ativa de acesso por lista |

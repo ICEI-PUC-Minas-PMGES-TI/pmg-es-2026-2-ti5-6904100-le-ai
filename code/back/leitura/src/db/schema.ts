@@ -674,6 +674,22 @@ export const vResenhaPublicacaoV1 = leituraSchema.view(
   left join ${reacaoResenha} on ${reacaoResenha.resenhaId} = ${resenha.id}
   group by ${resenha.id}`);
 
+/**
+ * Reação ativa de cada leitor a cada resenha (F-AVA-2). O `acervo` lê esta VIEW para devolver,
+ * junto das resenhas da página do livro, a reação de quem está vendo (`minhaReacao`). Reação
+ * retirada (`ativa = false`) não aparece, igual às contagens de `v_resenha_publicacao_v1`.
+ */
+export const vReacaoResenhaV1 = leituraSchema.view('v_reacao_resenha_v1', {
+  resenhaId: uuid('resenha_id').notNull(),
+  usuarioId: uuid('usuario_id').notNull(),
+  tipo: text('tipo').notNull(),
+}).as(sql`select
+    ${reacaoResenha.resenhaId} as resenha_id,
+    ${reacaoResenha.usuarioId} as usuario_id,
+    ${reacaoResenha.tipo} as tipo
+  from ${reacaoResenha}
+  where ${reacaoResenha.ativa}`);
+
 export const vNotaPublicacaoV1 = leituraSchema.view('v_nota_publicacao_v1', {
   usuarioId: uuid('usuario_id').notNull(),
   livroId: uuid('livro_id').notNull(),

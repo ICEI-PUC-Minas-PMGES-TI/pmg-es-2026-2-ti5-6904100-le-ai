@@ -13,11 +13,17 @@ sem libpq, que é o que permite a suíte de testes rodar em qualquer lugar.
 from __future__ import annotations
 
 import json
+import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 
-from .dados import resolver_editora
-from .normalizacao import nome_de_autor_utilizavel, normalizar_editora, normalizar_nome_autor
+from .dados import AutorUnificado, resolver_editora
+from .normalizacao import (
+    nome_de_autor_utilizavel,
+    normalizar_editora,
+    normalizar_nome_autor,
+    normalizar_serie,
+)
 
 # Staging temporário: morre no fim da transação, nunca polui o schema.
 SQL_STAGING = """
@@ -58,13 +64,18 @@ ON CONFLICT (nome_normalizado) DO NOTHING;
 
 # `autor_ol_author_key_uidx` é índice único PARCIAL, então o ON CONFLICT precisa
 # repetir o predicado para o Postgres inferir o índice certo. Na carga do dump
-# todo autor tem chave, e é sempre por ela que se deduplica (RN-12).
+# todo autor tem chave, e é sempre por ela que se deduplica (RN-12). Chave que o
+# `unificar` já juntou a outro autor (`autor_chave_unificada`) não vira autor de
+# novo: o vínculo vai para o canônico em `SQL_LIVRO_AUTOR`.
 SQL_AUTOR = """
 INSERT INTO acervo.autor (nome, nome_normalizado, ol_author_key)
-SELECT DISTINCT ON (ol_author_key) nome, nome_normalizado, ol_author_key
-  FROM stg_autor
- WHERE ol_author_key IS NOT NULL AND btrim(nome) <> ''
- ORDER BY ol_author_key, nome
+SELECT DISTINCT ON (s.ol_author_key) s.nome, s.nome_normalizado, s.ol_author_key
+  FROM stg_autor s
+ WHERE s.ol_author_key IS NOT NULL AND btrim(s.nome) <> ''
+   AND NOT EXISTS (
+         SELECT 1 FROM acervo.autor_chave_unificada u WHERE u.ol_author_key = s.ol_author_key
+       )
+ ORDER BY s.ol_author_key, s.nome
 ON CONFLICT (ol_author_key) WHERE ol_author_key IS NOT NULL DO NOTHING;
 """
 
@@ -95,10 +106,12 @@ ON CONFLICT (isbn13) WHERE isbn13 IS NOT NULL DO NOTHING;
 
 SQL_LIVRO_AUTOR = """
 INSERT INTO acervo.livro_autor (livro_id, autor_id)
-SELECT l.id, a.id
+SELECT l.id, coalesce(u.autor_id, a.id)
   FROM stg_livro_autor s
   JOIN acervo.livro l ON l.isbn13 = s.isbn13
-  JOIN acervo.autor a ON a.ol_author_key = s.ol_author_key
+  LEFT JOIN acervo.autor_chave_unificada u ON u.ol_author_key = s.ol_author_key
+  LEFT JOIN acervo.autor a ON a.ol_author_key = s.ol_author_key
+ WHERE coalesce(u.autor_id, a.id) IS NOT NULL
 ON CONFLICT DO NOTHING;
 """
 
@@ -319,6 +332,233 @@ def semear(conexao, assuntos, sinonimos: dict[str, str], mapa_csv) -> dict:
 
     conexao.commit()
     return contagem
+
+
+def unificar(conexao, autores_unificados: list[AutorUnificado]) -> dict:
+    """Junta autores, editoras e séries duplicados. Quem chama faz o commit.
+
+    Duas causas de duplicado, tratadas nesta ordem:
+
+    1. **Autor cadastrado mais de uma vez na fonte**, com chaves OpenLibrary
+       diferentes. A carga deduplica pela chave, então só a curadoria de
+       `autores_unificados.csv` junta os dois. Os vínculos vão para o canônico, o
+       duplicado some (com a biografia, que muitas vezes é de um homônimo) e a
+       chave fica em `autor_chave_unificada` para a carga e a importação por
+       ISBN não o recriarem.
+    2. **Nome decomposto (NFD) na fonte**, que a normalização antiga quebrava
+       ("joa o"). A chave de cada linha é recalculada a partir do nome em NFC, e
+       a editora ou série que passar a colidir com outra é juntada a ela.
+
+    Reexecutar não muda nada. Sem a tabela `autor_chave_unificada` (banco ainda
+    sem a migration), junta os dados e só deixa de registrar as chaves.
+    """
+    with conexao.cursor() as cursor:
+        cursor.execute("SELECT to_regclass('acervo.autor_chave_unificada') IS NOT NULL")
+        tem_tabela_de_chaves = cursor.fetchone()[0]
+
+        resumo = {"autores": _unificar_autores(cursor, autores_unificados, tem_tabela_de_chaves)}
+        resumo["autores"].update(_renormalizar_autores(cursor))
+        resumo["editoras"] = _renormalizar_por_nome(cursor, "editora", normalizar_editora)
+        resumo["series"] = _renormalizar_por_nome(cursor, "serie", normalizar_serie)
+
+        # O que ainda se repete depois da curadoria: homônimo de verdade (fica
+        # assim de propósito) ou duplicado novo, para a próxima rodada do CSV.
+        cursor.execute(
+            """
+            SELECT min(nome) FROM acervo.autor
+             GROUP BY nome_normalizado HAVING count(*) > 1 ORDER BY 1
+            """
+        )
+        resumo["autores_com_nome_repetido"] = [linha[0] for linha in cursor.fetchall()]
+    return resumo
+
+
+def _unificar_autores(cursor, unificados: list[AutorUnificado], tem_tabela_de_chaves: bool) -> dict:
+    cursor.execute(
+        """
+        CREATE TEMP TABLE stg_autor_unificado (
+          ol_author_key text, ol_author_key_canonica text, nome text
+        ) ON COMMIT DROP
+        """
+    )
+    _copiar(
+        cursor,
+        "stg_autor_unificado",
+        ["ol_author_key", "ol_author_key_canonica", "nome"],
+        ((u.chave, u.canonica, u.nome) for u in unificados),
+    )
+    # Par que vale neste banco: o duplicado ainda existe e o canônico também.
+    # Na reexecução o duplicado já não existe, e o par só garante a chave.
+    cursor.execute(
+        """
+        CREATE TEMP TABLE stg_par_autor ON COMMIT DROP AS
+        SELECT d.id AS duplicado_id, c.id AS canonico_id
+          FROM stg_autor_unificado s
+          JOIN acervo.autor d ON d.ol_author_key = s.ol_author_key
+          JOIN acervo.autor c ON c.ol_author_key = s.ol_author_key_canonica
+        """
+    )
+    cursor.execute(
+        """
+        SELECT count(*) FROM stg_autor_unificado s
+         WHERE EXISTS (SELECT 1 FROM acervo.autor d WHERE d.ol_author_key = s.ol_author_key)
+           AND NOT EXISTS (
+                 SELECT 1 FROM acervo.autor c WHERE c.ol_author_key = s.ol_author_key_canonica
+               )
+        """
+    )
+    sem_canonico = cursor.fetchone()[0]
+
+    # A PK de `livro_autor` é (livro, autor): o livro que já tem os dois só perde
+    # o vínculo do duplicado.
+    cursor.execute(
+        """
+        INSERT INTO acervo.livro_autor (livro_id, autor_id)
+        SELECT la.livro_id, p.canonico_id
+          FROM acervo.livro_autor la JOIN stg_par_autor p ON p.duplicado_id = la.autor_id
+        ON CONFLICT DO NOTHING
+        """
+    )
+    vinculos_novos = cursor.rowcount
+    cursor.execute(
+        """
+        DELETE FROM acervo.livro_autor la
+         USING stg_par_autor p WHERE la.autor_id = p.duplicado_id
+        """
+    )
+    cursor.execute(
+        "DELETE FROM acervo.autor a USING stg_par_autor p WHERE a.id = p.duplicado_id"
+    )
+    removidos = cursor.rowcount
+
+    # Grafia de exibição curada. A chave normalizada se acerta logo depois, em
+    # `_renormalizar_autores`.
+    cursor.execute(
+        """
+        UPDATE acervo.autor a SET nome = s.nome
+          FROM (SELECT DISTINCT ol_author_key_canonica, nome FROM stg_autor_unificado) s
+         WHERE a.ol_author_key = s.ol_author_key_canonica AND a.nome <> s.nome
+        """
+    )
+    nomes_ajustados = cursor.rowcount
+
+    chaves_registradas = None
+    if tem_tabela_de_chaves:
+        cursor.execute(
+            """
+            INSERT INTO acervo.autor_chave_unificada (ol_author_key, autor_id)
+            SELECT s.ol_author_key, c.id
+              FROM stg_autor_unificado s
+              JOIN acervo.autor c ON c.ol_author_key = s.ol_author_key_canonica
+            ON CONFLICT (ol_author_key) DO UPDATE SET autor_id = EXCLUDED.autor_id
+             WHERE acervo.autor_chave_unificada.autor_id <> EXCLUDED.autor_id
+            """
+        )
+        chaves_registradas = cursor.rowcount
+
+    return {
+        "pares_no_csv": len(unificados),
+        "duplicados_removidos": removidos,
+        "vinculos_movidos": vinculos_novos,
+        "pares_sem_canonico_no_banco": sem_canonico,
+        "nomes_ajustados": nomes_ajustados,
+        "tabela_de_chaves": tem_tabela_de_chaves,
+        "chaves_registradas": chaves_registradas,
+    }
+
+
+def _renormalizar_autores(cursor) -> dict:
+    """Recalcula a chave de autor a partir do nome em NFC.
+
+    Autor com chave da fonte pode repetir nome normalizado (o índice único só
+    vale sem chave), então aqui não se junta nada: quem é a mesma pessoa é
+    decisão da curadoria. Só o autor sem chave (vindo do Google Books) tem
+    índice único por nome; se a nova chave já for de outro sem chave, a linha
+    fica como está e é contada.
+    """
+    cursor.execute("SELECT id, nome, nome_normalizado, ol_author_key FROM acervo.autor")
+    linhas = cursor.fetchall()
+    sem_chave = {chave for _, _, chave, ol in linhas if ol is None}
+    renormalizados = conflitos = 0
+
+    for id_, nome, chave, ol_author_key in linhas:
+        nome_nfc = unicodedata.normalize("NFC", nome)
+        nova = normalizar_nome_autor(nome_nfc)
+        if (nome_nfc, nova) == (nome, chave):
+            continue
+        if ol_author_key is None and nova != chave:
+            if nova in sem_chave:
+                conflitos += 1
+                continue
+            sem_chave.discard(chave)
+            sem_chave.add(nova)
+        cursor.execute(
+            "UPDATE acervo.autor SET nome = %s, nome_normalizado = %s WHERE id = %s",
+            (nome_nfc, nova, id_),
+        )
+        renormalizados += 1
+
+    return {"renormalizados": renormalizados, "sem_chave_em_conflito": conflitos}
+
+
+# Tabelas com chave única por nome normalizado e as colunas que apontam para
+# elas. São constantes deste módulo, nunca entrada: por isso podem compor o SQL.
+_REFERENCIAS_POR_NOME = {
+    "editora": ["acervo.livro.editora_id", "acervo.sinonimo_editora.editora_id"],
+    "serie": ["acervo.livro.serie_id"],
+}
+
+
+def _renormalizar_por_nome(cursor, tabela: str, normalizar) -> dict:
+    """Recalcula a chave de editora ou série e junta as que passarem a colidir.
+
+    Fica com a linha que já tinha a chave certa; sem ela, com a de mais livros.
+    """
+    referencias = _REFERENCIAS_POR_NOME[tabela]
+    cursor.execute(f"SELECT id, nome, nome_normalizado FROM acervo.{tabela}")
+    linhas = cursor.fetchall()
+    dona_da_chave = {chave: id_ for id_, _, chave in linhas}
+
+    grupos: dict[str, list[tuple]] = {}
+    for id_, nome, chave in linhas:
+        nome_nfc = unicodedata.normalize("NFC", nome)
+        nova = normalizar(nome_nfc)
+        if (nome_nfc, nova) != (nome, chave):
+            grupos.setdefault(nova, []).append((id_, nome_nfc, chave))
+
+    unificadas = renormalizadas = 0
+    for nova, membros in grupos.items():
+        ids = [id_ for id_, _, _ in membros]
+        canonico = dona_da_chave.get(nova)
+        if canonico is None:
+            cursor.execute(
+                f"SELECT {tabela}_id, count(*) FROM acervo.livro"
+                f" WHERE {tabela}_id = ANY(%s) GROUP BY 1",
+                (ids,),
+            )
+            livros = dict(cursor.fetchall())
+            canonico = max(ids, key=lambda id_: (livros.get(id_, 0), str(id_)))
+
+        duplicados = [id_ for id_ in ids if id_ != canonico]
+        if duplicados:
+            for referencia in referencias:
+                esquema_tabela, coluna = referencia.rsplit(".", 1)
+                cursor.execute(
+                    f"UPDATE {esquema_tabela} SET {coluna} = %s WHERE {coluna} = ANY(%s)",
+                    (canonico, duplicados),
+                )
+            cursor.execute(f"DELETE FROM acervo.{tabela} WHERE id = ANY(%s)", (duplicados,))
+            unificadas += cursor.rowcount
+
+        for id_, nome_nfc, _ in membros:
+            if id_ == canonico:
+                cursor.execute(
+                    f"UPDATE acervo.{tabela} SET nome = %s, nome_normalizado = %s WHERE id = %s",
+                    (nome_nfc, nova, id_),
+                )
+                renormalizadas += 1
+
+    return {"unificadas": unificadas, "renormalizadas": renormalizadas}
 
 
 def chaves_sem_biografia(conexao) -> set[str]:
