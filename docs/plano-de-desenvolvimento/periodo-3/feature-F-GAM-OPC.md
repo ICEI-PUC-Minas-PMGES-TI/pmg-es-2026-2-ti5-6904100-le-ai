@@ -1,7 +1,7 @@
 # F-GAM-OPC — Calendário e lembrete de streak
 
 **Período:** 3 · **Prioridade:** opcional
-**Dono:** a definir · **Serviços afetados:** `leitura` (backend) + `social` (notificação) + mobile + job diário (agendador)
+**Dono:** Vicenzo Fonseca · **Serviços afetados:** `leitura` (backend) + `social` (notificação) + mobile + job diário (agendador)
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.12 (RF-GAM-04, 05), §5.10 (RF-NOT-01), RN-17, RN-18, §2.1 (escopo web), §10.2. Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §2.4 (P-08), §2.7 (P-04), §3.1, §5.2. Processo e template: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §9. Regras compartilhadas do projeto: [`../periodo-1/README.md#regras-de-implementação-compartilhadas`](../periodo-1/README.md#regras-de-implementação-compartilhadas). Em caso de conflito, o `REQUISITOS.md` ganha; protótipo é referência visual, não spec de pixel (plano §7).
 

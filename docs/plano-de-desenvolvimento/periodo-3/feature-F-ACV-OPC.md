@@ -1,7 +1,7 @@
 # F-ACV-OPC — Extras de acervo
 
 **Período:** 3 · **Prioridade:** opcional
-**Dono:** a definir · **Serviços afetados:** `acervo` (backend) + **script utilitário de carga** (fora dos 4 serviços) + web + mobile
+**Dono:** Renato Douglas · **Serviços afetados:** `acervo` (backend) + **script utilitário de carga** (fora dos 4 serviços) + web + mobile
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.2 (RF-ACV-14, 22), RN-03, RN-12, RN-14, RN-19, RN-21, §10.1, §10.2. Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §2.1, §2.4, §4.1. Processo e template: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §9. Regras compartilhadas do projeto: [`../periodo-1/README.md#regras-de-implementação-compartilhadas`](../periodo-1/README.md#regras-de-implementação-compartilhadas). Em caso de conflito, o `REQUISITOS.md` ganha; protótipo é referência visual, não spec de pixel (plano §7).
 

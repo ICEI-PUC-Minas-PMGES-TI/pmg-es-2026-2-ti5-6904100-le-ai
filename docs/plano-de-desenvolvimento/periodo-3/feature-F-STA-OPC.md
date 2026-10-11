@@ -1,7 +1,7 @@
 # F-STA-OPC — Distribuição de notas
 
 **Período:** 3 · **Prioridade:** opcional
-**Dono:** a definir · **Serviços afetados:** `leitura` (backend) + web + mobile
+**Dono:** Ana Luiza de Freitas · **Serviços afetados:** `leitura` (backend) + web + mobile
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.8 (RF-STA-04), RN-06, RN-08. Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §3.1, §4.2. Processo e template: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §9. Regras compartilhadas do projeto: [`../periodo-1/README.md#regras-de-implementação-compartilhadas`](../periodo-1/README.md#regras-de-implementação-compartilhadas). Em caso de conflito, o `REQUISITOS.md` ganha; protótipo é referência visual, não spec de pixel (plano §7).
 

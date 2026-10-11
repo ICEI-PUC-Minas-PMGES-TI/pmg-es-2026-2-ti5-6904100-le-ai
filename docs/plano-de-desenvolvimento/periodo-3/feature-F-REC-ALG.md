@@ -1,7 +1,7 @@
 # F-REC-ALG — Recomendação algorítmica + descarte em lote
 
 **Período:** 3 · **Prioridade:** opcional
-**Dono:** a definir · **Serviços afetados:** `social` (backend) + `acervo` (VIEW) + `identidade` (opt-out) + web + mobile
+**Dono:** Henrique Carvalho · **Serviços afetados:** `social` (backend) + `acervo` (VIEW) + `identidade` (opt-out) + web + mobile
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.13 (RF-REC-08..12, 17), RN-08, RN-15, RN-21, RN-22.12/13, §10.7, §10.8. Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §2.2, §3.2 (ajuste 3), §4.2. Processo e template: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §9. Regras compartilhadas do projeto: [`../periodo-1/README.md#regras-de-implementação-compartilhadas`](../periodo-1/README.md#regras-de-implementação-compartilhadas). Em caso de conflito, o `REQUISITOS.md` ganha; protótipo é referência visual, não spec de pixel (plano §7).
 
