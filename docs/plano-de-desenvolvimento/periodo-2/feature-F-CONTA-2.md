@@ -282,6 +282,48 @@ Os consumidores ficam no código de outros donos, como prevê a [divisão do Per
 - Web: `npm run lint && npm test && npm run build`.
 - Mobile: `flutter analyze && flutter test && flutter build apk --debug`.
 
+### Roteiro da revisão visual (11/10/2026)
+
+Só a web: as divergências do mobile já foram conferidas no emulador e mantidas. Abrir Configurações → `Excluir conta` com o `identidade` local, em 1440 e 390 px, ao lado do protótipo, e para cada item de "Web: divergências do protótipo" em Pendências decidir **aceitar** (riscar e registrar a decisão com data) ou **corrigir**:
+
+1. `Excluir conta` empilhada sobre Configurações, e não na coluna direita.
+2. Em 390 px, confirmação na folha do `DialogoConfirmacao`, com foco inicial em `Cancelar`.
+3. Caixa de confirmação nativa com `accent-musgo`.
+4. Com `GET /me` falhando, a consequência 4 cita só o `@username`.
+5. Recarregar `/conta/recuperar` leva ao login; `Exclusão solicitada` sobrevive ao recarregar pela `?ate=`.
+
+### Roteiro de validação em DES (11/10/2026)
+
+Roda depois do merge de `desenvolvimento` para `main` e do deploy no Render. Fecha o item de DES do DoD e a etapa 6. Os segredos já estão cadastrados (Timeline, 08/10/2026).
+
+1. **Saúde:** `GET /health` 200 em `https://leai-{identidade,social,leitura,acervo}.onrender.com`.
+2. **Conta de teste com dados nos quatro serviços:** usar a conta C do roteiro da [F-LST](feature-F-LST.md) ou criar uma nova pelo site. Dar a ela: foto de perfil, um livro na estante com progresso e nota, uma resenha, uma lista com um livro pessoal dela (capa enviada), uma curtida e um comentário numa atividade de outra conta, e seguir outra conta.
+3. **Pedir e cancelar, na web:** Configurações → `Excluir conta` → senha errada (banner, nada muda) → senha certa → `Exclusão solicitada` com a data de 30 dias. Outra conta não acha mais o perfil (busca exata dá vazio). Login de novo → `Recuperar conta` → `Cancelar exclusão` → perfil volta a aparecer para a outra conta.
+4. **Pedir de novo, no app:** o mesmo pedido pelo app. Fechar o app e entrar de novo cai em `Recuperar conta`. Não cancelar.
+5. **Antecipar o prazo no Neon de DES** (`le-ai-oregon`; operação manual, combinar com o grupo antes). As duas datas andam juntas por causa dos CHECKs de +30 dias exatos:
+
+   ```sql
+   UPDATE identidade.usuario
+      SET exclusao_solicitada_em = exclusao_solicitada_em - INTERVAL '31 days',
+          exclusao_prevista_em = exclusao_prevista_em - INTERVAL '31 days'
+    WHERE username = '<username da conta de teste>';
+   UPDATE identidade.exclusao_conta
+      SET criado_em = criado_em - INTERVAL '31 days',
+          prevista_em = prevista_em - INTERVAL '31 days'
+    WHERE status = 'pendente'
+      AND usuario_ref = (SELECT id FROM identidade.usuario
+                          WHERE username = '<username da conta de teste>');
+   ```
+
+6. **Disparar o job:** GitHub → Actions → `job-exclusao-conta` → `Run workflow` na `main`. O log do Render do `identidade` mostra `Job de exclusão de conta: 1 conta(s) finalizada(s)`.
+7. **Conferir a limpeza:**
+   - login com a conta falha como credencial inválida, e a busca exata pelo username dá vazio (RN-23.6);
+   - a outra conta não vê mais a curtida, o comentário nem as atividades dela no feed, e o contador de seguidores caiu;
+   - no Neon, `SELECT count(*)` com o id dela dá zero em `leitura.estante`, `leitura.resenha`, `social.lista` e `acervo.livro` (pessoais), e `identidade.exclusao_conta` tem o recibo `concluida` e anonimizado;
+   - no Cloudinary, a foto de perfil e a capa do livro pessoal sumiram;
+   - no CloudAMQP de DES, as filas `leai.leitura.conta`, `leai.social.conta` e `leai.acervo.conta` sem mensagens na DLQ.
+8. **Fechamento:** marcar o DoD, registrar na Timeline a conta usada, a data e o que foi conferido.
+
 ## Pendências
 
 - **Token de acesso normal depois do pedido (07/10/2026).** O pedido revoga todas as renovações, mas o token de acesso já emitido continua válido até expirar (no máximo 15 minutos), porque ele não tem estado (RNF-ARQ-04), como no logout da F-AUT. Os clientes descartam a sessão ao receber o 202. No servidor, o conteúdo da conta já fica oculto para os outros pelas VIEWs. Fica registrado como risco residual do RN-23.3, sem mudança prevista.
@@ -365,3 +407,5 @@ A conferência no emulador fica pendente: esta máquina não tem o Android SDK. 
 ### Segredos 08/10/2026: etapa 6, parte de configuração, feita pelo dono. Render: `SCHEDULER_TOKEN`, `CLOUDINARY_API_KEY` e `CLOUDINARY_API_SECRET` no `leai-identidade`, e as duas do Cloudinary no `leai-acervo` (chave própria criada no Cloudinary para a exclusão). GitHub: `IDENTIDADE_URL` e `IDENTIDADE_SCHEDULER_TOKEN`, com o mesmo token do Render. Os dois serviços responderam `/health` 200 depois do redeploy. Os valores só passam a ter efeito quando o código da F-CONTA-2 chegar à `main`; falta o fluxo em DES.
 
 ### Guarda de exclusão 11/10/2026: teste de integração em cada um dos quatro serviços que reprova quando uma tabela do schema não tem destino na exclusão (apagada, por cascata, anonimizada ou isenta) e confere no banco cada cascata declarada. No `leitura`, a lista de tabelas apagadas saiu do laço do consumidor para a constante exportada `TABELAS_DA_CONTA`, que a guarda importa; o comportamento não mudou. A matriz da etapa 3 ganhou a linha do `identidade`, as isentas e três acertos com o código: subconsulta em vez de "guardar os `origem_id`" no `social`, e a outbox pendente apagada no `acervo`. Conferido no Postgres descartável: `leitura` 5 testes (guarda e consumidor), `acervo` 6, `social` 2 + 3, `identidade` 2 + 11, e 262 testes unitários do `leitura`. Para confirmar que a guarda reprova, uma tabela isenta e uma cascata foram trocadas de propósito no `leitura`: os dois testes falharam com a mensagem esperada.
+
+### Roteiros 11/10/2026: escritos em Plano de implementação o roteiro da revisão visual da web (as cinco divergências em Pendências) e o de validação em DES, com a massa nos quatro serviços, o SQL que antecipa o prazo no Neon de DES respeitando os CHECKs de +30 dias e o disparo manual do job. Rodam depois do merge para `main`; nenhum foi executado ainda.

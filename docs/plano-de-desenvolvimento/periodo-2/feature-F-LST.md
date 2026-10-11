@@ -165,6 +165,51 @@ Plano de 30/09/2026 para retomar a feature em qualquer máquina ou sessão. Orde
 - Mobile: em `code/mobile`, `flutter analyze && flutter test && flutter build apk --debug`; roteiro no emulador com `--dart-define=SOCIAL_BASE_URL=http://10.0.2.2:8081`.
 - Roteiro manual nas duas plataformas: criar lista, adicionar pelo livro, reordenar, ver lista de perfil privado sem seguir (bloco RN-08) e abrir livro pessoal de lista alheia em modo consulta.
 
+### Roteiro da revisão visual (11/10/2026)
+
+Fecha as divergências listadas em Pendências. Para cada uma, abrir a tela ao lado do protótipo e decidir: **aceitar** (riscar o item e registrar a decisão com data) ou **corrigir** (abrir tarefa e corrigir). Serviços locais e uma conta com duas listas, uma delas com três livros, um deles pessoal.
+
+**Web** (`npm run dev`, 1440 e 390 px):
+
+1. Perfil → aba `Listas` → `Nova lista` em 390 px: folha em vez de tela cheia.
+2. Uma lista do dono em 390 px → menu `…` de um livro: sem cabeçalho com capa e `Posição N de M`.
+3. Perfil privado de outra conta, sem seguir → texto do bloco de restrição (sem pronome e sem "as estatísticas").
+4. Livro oficial → `DotsThree` no header da página, e não no canto do conteúdo.
+5. Remover um livro com o `social` parado → toast `rubi` e o livro de volta à posição.
+
+**Mobile** (emulador, `SOCIAL_BASE_URL=http://10.0.2.2:8081`):
+
+1. Lista do dono → `Reordenar` → arrastar: sem a linha de inserção `musgo`.
+2. Remover um livro: some sem fade; contagem e posições atualizam na hora.
+3. Abrir a lista pela seção do perfil → editar → excluir: volta para o perfil com `Lista excluída.`
+4. `Nova lista` a partir do livro: card sem `Editora · ano · páginas`.
+5. Perfil privado sem seguir → texto do bloco (sem pronome).
+6. Livro pessoal indisponível aberto por uma lista → texto novo do estado indisponível.
+7. O item "No Feed, o livro oficial vai para Descobrir" já foi resolvido em 10/10/2026 (Timeline): conferir que abre na aba Feed e riscar.
+
+**TalkBack** (correção de acessibilidade de 11/10/2026; ativar em Configurações → Acessibilidade):
+
+1. Livro oficial → focar `Mais ações` → toque duplo abre o menu.
+2. Lista do dono → `Ações de <livro>` → toque duplo abre o menu.
+3. Seção ou índice de listas → toque duplo num cartão abre a lista.
+4. Aviso de falha da lista → `Fechar aviso` → toque duplo fecha.
+5. Modo `Reordenar` → focar a alça de um livro do meio → menu de ações (deslizar para cima e depois para a direita, ou toque com três dedos, conforme a versão) → `Mover para cima` e `Mover para baixo` mudam a posição.
+
+Os alvos do perfil (abas de Conexões, privacidade em Editar perfil, linhas de pedido, de leitor e de acento) estão na [F-PERFIL](../periodo-1/feature-F-PERFIL.md); conferir na mesma sessão.
+
+### Roteiro de validação em DES (11/10/2026)
+
+Roda depois do merge de `desenvolvimento` para `main` e do deploy no Render. Fecha o item "Listas funcionam em DES" do DoD. Usar o site `https://leai-web.onrender.com` e o app apontando para DES; a primeira chamada a cada serviço pode levar 30 a 60 s.
+
+1. **Saúde:** `GET /health` 200 em `https://leai-social.onrender.com` e `https://leai-acervo.onrender.com`.
+2. **Contas de teste:** criar três contas pelo cadastro do site (A, B e C). A deixa o perfil privado em Editar perfil; B pede para seguir A, e A aceita; C não segue A. Registrar os usernames aqui, na Timeline.
+3. **Dono (A), na web:** criar lista pelo perfil; criar outra pelo `Adicionar à lista` de um livro oficial (nasce com o livro); adicionar mais dois livros, um deles livro pessoal de A; reordenar; editar título e descrição; remover um livro.
+4. **RN-08:** B vê as listas de A e abre a lista; C vê o bloco de restrição e não vê as listas. Abrir a URL da lista como C mostra a negação de perfil privado (o `social` responde 403 `ACESSO_NEGADO`), sem o título nem os livros.
+5. **RN-15 pela lista:** B abre o livro pessoal de A a partir da lista e vê a página em modo consulta (metadados, capa, nota e resenha, sem frases).
+6. **Mobile:** repetir 3 a 5 no app, com a mesma massa.
+7. **Exclusão:** A exclui uma lista; ela some do perfil e do índice para A e B.
+8. **Fechamento:** marcar o item de DES no DoD, registrar a conferência na Timeline com as contas e a data. As contas de teste ficam para o roteiro da [F-CONTA-2](feature-F-CONTA-2.md), que pode usar a conta C.
+
 ## Pendências
 
 - **Telas (design P2):** entrada `Adicionar à lista` no menu `DotsThree` do header da [`pagina-do-livro.md`](../../design/periodo-2/pagina-do-livro/pagina-do-livro.md) ([protótipo](../../design/periodo-2/pagina-do-livro/prototipos/pagina-do-livro.html)) (lote 2). Lote 3, prompts escritos e protótipos exportados em 29/09/2026: [`lista.md`](../../design/periodo-2/F-LST/lista.md) ([protótipo](../../design/periodo-2/F-LST/prototipos/lista.html)), [`listas-do-leitor.md`](../../design/periodo-2/F-LST/listas-do-leitor.md) ([protótipo](../../design/periodo-2/F-LST/prototipos/listas-do-leitor.html)) (índice; na web é a aba `Listas` do perfil), [`criar-lista.md`](../../design/periodo-2/F-LST/criar-lista.md) ([protótipo](../../design/periodo-2/F-LST/prototipos/criar-lista.html)) (criar, editar e excluir) e [`adicionar-a-lista.md`](../../design/periodo-2/F-LST/adicionar-a-lista.md) ([protótipo](../../design/periodo-2/F-LST/prototipos/adicionar-a-lista.html)). **Contrato pendente:** `PUT /listas/{id}/ordem` exige todos os `itemIds`, mas os itens são paginados; o índice precisa de contagem, três primeiras capas e `atualizadaEm`; o sheet precisa saber se cada lista já contém o livro; criar a partir do livro pede `POST /listas` que aceite o livro (senão a lista pode ficar sem ele). Limites provisórios no protótipo: 80 caracteres no título e 300 na descrição. Lotes 6 e 7, prompts escritos em 29/09/2026; protótipos exportados em 29/09/2026: seção `Listas` e aba `Listas` na web nas edições [`meu-perfil.md`](../../design/periodo-2/meu-perfil/meu-perfil.md) ([protótipo](../../design/periodo-2/meu-perfil/prototipos/meu-perfil.html)) (com `Nova lista`) e [`perfil-de-outro-leitor.md`](../../design/periodo-2/perfil-de-outro-leitor/perfil-de-outro-leitor.md) ([protótipo](../../design/periodo-2/perfil-de-outro-leitor/prototipos/perfil-de-outro-leitor.html)); `Adicionar à lista` no `DotsThreeVertical` do modo dono e segunda via de acesso do terceiro (pela lista) na edição [`livro-pessoal.md`](../../design/periodo-2/livro-pessoal/livro-pessoal.md) ([protótipo](../../design/periodo-2/livro-pessoal/prototipos/livro-pessoal.html)). Contrato a confirmar: `GET /perfis/{id}/listas` com contagem e capas.
@@ -234,3 +279,5 @@ Plano de 30/09/2026 para retomar a feature em qualquer máquina ou sessão. Orde
 ### Ajustes 10/10/2026: no mobile, o livro oficial aberto de uma lista na aba Feed abre sob a raiz do Feed (`/feed/livro/:id`), e não mais em `/descobrir/livro/:id`; o ramo do Feed ganhou a rota do livro oficial e as de catálogo no `router.dart`, como o ramo do Perfil (pagina-do-livro.md §4.1; a aba ativa já era o Feed, mas a seta sem pilha voltava a Descobrir). Teste no `router_test.dart`. Comentários que ainda diziam que o `acervo` responde 400 a `via=lista` atualizados na web, no mobile e no `AGENTS.md` da web; o contorno do dono sem via continua. A pendência da via por lista em [F-ACV-CADASTRO](../periodo-1/feature-F-ACV-CADASTRO.md) foi marcada como resolvida.
 
 ### Acessibilidade 11/10/2026: no mobile, quatro botões da F-LST eram anunciados pelo leitor de tela sem poder ser acionados. `Semantics(excludeSemantics: true)` tirava da árvore a ação de toque do `GestureDetector`/`InkWell` filho (achado do Vicenzo na F-ACV-DESCOBERTA). O mesmo callback passou para o `Semantics.onTap` em `Mais ações` do livro oficial, `Ações de <livro>` na lista, cartão de lista e `Fechar aviso`, seguindo o padrão de `widgets_da_busca.dart`. A alça do modo `Reordenar` não tem toque: ganhou as ações `Mover para cima` e `Mover para baixo` (`customSemanticsActions`), que chamam o mesmo `_mover` do arrastar e do menu. Testes em `lista_page_test.dart` e `livro_oficial_page_test.dart`; `flutter analyze` limpo e 742 testes verdes. Falta conferir com o TalkBack no emulador.
+
+### Roteiros 11/10/2026: escritos em Plano de implementação o roteiro da revisão visual (web e mobile, as divergências em Pendências), a conferência com o TalkBack da correção de acessibilidade e o de validação em DES (três contas, RN-08 e RN-15 pela lista). A divergência mobile "No Feed, o livro oficial vai para Descobrir" já estava resolvida desde 10/10/2026 e só falta riscar na revisão. Nenhum roteiro foi executado ainda.
