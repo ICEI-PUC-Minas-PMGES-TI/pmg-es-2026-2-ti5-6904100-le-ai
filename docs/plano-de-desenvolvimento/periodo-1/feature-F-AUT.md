@@ -165,6 +165,8 @@ Marcado = verificado localmente por teste em 24/09/2026. Nada foi verificado em 
 
 ## Timeline
 
+### Testes do mobile 11/10/2026: três lacunas que a web já cobria. No login, `Esqueci minha senha` chama `aoEsquecerSenha` sem ir ao servidor, e conta em exclusão guarda o acesso de recuperação sem abrir sessão nem chamar `aoEntrar` (`login_page_test.dart`). Em `RecuperarSenhaPage`, falha de rede vira o banner `Não foi possível conectar ao serviço.`, mantém o e-mail digitado e some ao editar (`conta_test.dart`). `flutter analyze` limpo e 747 testes verdes.
+
 ### Testes de log 11/10/2026: `LogDeAutenticacaoIntegracaoTest`, contra Postgres real, cobre os RNF-SEC-35/36 fora da troca de senha. Login com senha errada fica registrado (`NAO_AUTENTICADO (401)`), sem a senha tentada nem o e-mail. O bloqueio depois de tentativas sucessivas fica registrado sem o username. Login e renovação bem-sucedidos não deixam no log a senha, o e-mail nem os quatro tokens emitidos. `./mvnw verify` com 217 testes verdes. Continua aberto o teste de contrato contra `identidade.yaml`.
 
 ### Fechamento do Período 1 29/09/2026: feature entregue e **em revisão**, aguardando o aval dos professores. Código em `desenvolvimento` e CI verde (`ci-back-identidade`, `ci-front`, `ci-mobile`); o fluxo em DES chega com o merge de fechamento do período. Continuam abertos a prova real do Brevo (P-02), o texto final da política de privacidade e os testes de contrato.
