@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
@@ -15,6 +16,8 @@ import '../features/conta/politica_de_privacidade.dart';
 import '../features/conta/recuperar_conta_page.dart';
 import '../features/conta/recuperar_senha_page.dart';
 import '../features/conta/redefinir_senha_page.dart';
+import '../features/desafios/desafios_service.dart';
+import '../features/desafios/rotas_desafios.dart';
 import '../features/descobrir/descobrir_page.dart';
 import '../core/config/app_config.dart';
 import '../core/network/api_client.dart';
@@ -28,6 +31,8 @@ import '../features/perfil/perfil_page.dart';
 import '../features/perfil/rotas_perfil.dart';
 import '../features/perfil/widgets_de_identidade.dart';
 import '../features/progresso/rotas_progresso.dart';
+import '../features/sequencia/sequencia_do_perfil.dart';
+import '../features/sequencia/sequencia_service.dart';
 import 'shell_autenticado.dart';
 import 'verificando_sessao_page.dart';
 
@@ -63,6 +68,8 @@ GoRouter buildRouter({
   DependenciasDeNotificacoes? notificacoes,
   DependenciasDeListas? listas,
   ExclusaoService? exclusao,
+  SequenciaService? sequencia,
+  DesafiosService? desafios,
 }) {
   Future<bool> renovar(String token) => sessionController.renovar(token, authService.renovar);
   final servicoDeExclusao = exclusao ?? ExclusaoService(authService.client);
@@ -96,6 +103,13 @@ GoRouter buildRouter({
         ),
       );
   final depsDeProgresso = progresso ?? DependenciasDeProgresso.padrao(servicoDeEstante.client);
+  // F-GAM: a sequência é do `leitura`, no mesmo client da estante e do progresso.
+  final servicoDeSequencia = sequencia ?? SequenciaService(servicoDeEstante.client);
+  // F-DSF: também do `leitura`. Progresso registrado e leitura finalizada mexem no acumulado.
+  final depsDeDesafios = DependenciasDeDesafios.comAvisos(
+    desafios ?? DesafiosService(servicoDeEstante.client),
+    <ValueListenable<int>>[depsDeProgresso.servico.alteracoes, servicoDeEstante.alteracoes],
+  );
   final depsDeNotificacoes =
       notificacoes ??
       DependenciasDeNotificacoes.padrao(
@@ -219,6 +233,7 @@ GoRouter buildRouter({
                   servico: deps.acervo,
                   // Assunto tocado na ficha do livro (F-ACV-DESCOBERTA, RF-ACV-21).
                   assuntoInicial: state.uri.queryParameters['assunto'],
+                  aoConsumirAssunto: () => context.go('/descobrir'),
                   aoAbrirLivro: (id) => context.push(rotaLivroOficial(id)),
                   aoCadastrarPorIsbn: () => context.go(rotaAdicionarLivro),
                   // `push`, não `go`: cancelar o cadastro pessoal volta aos resultados, e não
@@ -279,6 +294,11 @@ GoRouter buildRouter({
                   resenhas: (usuarioId) =>
                       _resenhasDoPerfil(context, deps, usuarioId: usuarioId, proprio: true),
                   listas: (usuarioId) => secaoDasMinhasListas(context, depsDeListas, usuarioId),
+                  sequencia: () => SequenciaDoPerfil(
+                    servico: servicoDeSequencia,
+                    alteracoes: depsDeProgresso.servico.alteracoes,
+                  ),
+                  desafios: () => secaoDosDesafios(context, depsDeDesafios),
                 ),
                 routes: <RouteBase>[
                   ...rotasDoPerfil(
@@ -292,6 +312,7 @@ GoRouter buildRouter({
                       nome: nome,
                     ),
                     listas: depsDeListas,
+                    desafios: depsDeDesafios,
                   ),
                   // O livro pessoal aberto por uma lista fica na aba Perfil: o do dono, sem via;
                   // o de outro leitor, em modo consulta com `via=lista` (F-LST, RN-15).

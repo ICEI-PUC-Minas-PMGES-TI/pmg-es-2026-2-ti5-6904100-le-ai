@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 
 import '../../design/theme.dart';
@@ -52,7 +53,7 @@ class CampoDeBuscaDeLivros extends StatelessWidget {
 
 /// Faixa horizontal de assuntos (descobrir.md "Faixa de assuntos"). Sem seta, sem fade e sem
 /// indicador: o corte do último chip visível já diz que há mais.
-class FaixaDeAssuntos extends StatelessWidget {
+class FaixaDeAssuntos extends StatefulWidget {
   final List<AssuntoResumo> assuntos;
   final AssuntoResumo? ativo;
   final ValueChanged<AssuntoResumo> aoAlternar;
@@ -65,22 +66,76 @@ class FaixaDeAssuntos extends StatelessWidget {
   });
 
   @override
+  State<FaixaDeAssuntos> createState() => _FaixaDeAssuntosState();
+}
+
+/// O assunto ativo fica sempre à vista: quem chega pela ficha do livro (RF-ACV-21) cai com um
+/// assunto que pode estar longe na faixa, e sem vê-lo não sabe o que filtrou a lista. Os chips não
+/// são construídos sob demanda (são poucas dezenas) para o ativo sempre ter onde rolar.
+class _FaixaDeAssuntosState extends State<FaixaDeAssuntos> {
+  final GlobalKey _chaveDoAtivo = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    _mostrarAtivo();
+  }
+
+  @override
+  void didUpdateWidget(FaixaDeAssuntos antigo) {
+    super.didUpdateWidget(antigo);
+    if (widget.ativo?.id != antigo.ativo?.id || widget.assuntos.length != antigo.assuntos.length) {
+      _mostrarAtivo();
+    }
+  }
+
+  /// Rola só quando o chip ativo não está inteiro na tela, e então o centraliza.
+  void _mostrarAtivo() {
+    if (widget.ativo == null) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final contexto = _chaveDoAtivo.currentContext;
+      final chip = contexto?.findRenderObject();
+      if (contexto == null || chip == null || !mounted) {
+        return;
+      }
+      final viewport = RenderAbstractViewport.of(chip);
+      final posicao = Scrollable.of(contexto).position;
+      final noInicio = viewport.getOffsetToReveal(chip, 0).offset;
+      final noFim = viewport.getOffsetToReveal(chip, 1).offset;
+      if (posicao.pixels >= noFim && posicao.pixels <= noInicio) {
+        return;
+      }
+      final semMovimento = MediaQuery.of(contexto).disableAnimations;
+      Scrollable.ensureVisible(
+        contexto,
+        alignment: 0.5,
+        duration: semMovimento ? Duration.zero : DesignTokens.durBase,
+      );
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return SizedBox(
       height: 48,
-      child: ListView.separated(
+      child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: DesignTokens.space5),
-        itemCount: assuntos.length,
-        separatorBuilder: (context, _) => const SizedBox(width: DesignTokens.space2),
-        itemBuilder: (context, indice) {
-          final assunto = assuntos[indice];
-          return ChipDeAssunto(
-            nome: assunto.nome,
-            ativo: assunto.id == ativo?.id,
-            aoTocar: () => aoAlternar(assunto),
-          );
-        },
+        child: Row(
+          children: <Widget>[
+            for (final (indice, assunto) in widget.assuntos.indexed) ...<Widget>[
+              if (indice > 0) const SizedBox(width: DesignTokens.space2),
+              ChipDeAssunto(
+                key: assunto.id == widget.ativo?.id ? _chaveDoAtivo : null,
+                nome: assunto.nome,
+                ativo: assunto.id == widget.ativo?.id,
+                aoTocar: () => widget.aoAlternar(assunto),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

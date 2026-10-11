@@ -58,6 +58,14 @@ class PerfilPage extends StatefulWidget {
   /// Seção "Listas" (F-LST), montada com o id do leitor.
   final Widget Function(String usuarioId)? listas;
 
+  /// Bloco "Sequência diária" (F-GAM), só no perfil próprio: entra depois dos contadores e dos
+  /// pedidos, antes das seções de leitura (meu-perfil.md §4.1 A).
+  final Widget Function()? sequencia;
+
+  /// Bloco "Desafios" (F-DSF), só no perfil próprio: entra depois da sequência, antes das seções
+  /// de leitura (meu-perfil.md §4.1 B; as Estatísticas do ano, entre os dois, ainda não existem).
+  final Widget Function()? desafios;
+
   const PerfilPage({
     super.key,
     required this.servico,
@@ -70,6 +78,8 @@ class PerfilPage extends StatefulWidget {
     this.estante,
     this.resenhas,
     this.listas,
+    this.sequencia,
+    this.desafios,
   });
 
   @override
@@ -157,6 +167,8 @@ class _PerfilPageState extends State<PerfilPage> {
     final estante = widget.estante;
     final aoBuscarLivros = _destino(widget.aoBuscarLivros, '/descobrir');
     final aoVerEstante = _destino(widget.aoVerEstante, '/estante');
+    final sequencia = widget.sequencia?.call();
+    final desafios = widget.desafios?.call();
     return SingleChildScrollView(
       // 32 acima do avatar, como no protótipo.
       padding: const EdgeInsets.fromLTRB(
@@ -166,7 +178,7 @@ class _PerfilPageState extends State<PerfilPage> {
         DesignTokens.space10,
       ),
       child: _carregando && perfil == null
-          ? const SkeletonDoPerfil()
+          ? SkeletonDoPerfil(comSequencia: widget.sequencia != null)
           : _falhou || perfil == null
           ? BannerAviso(
               variante: VarianteAviso.erro,
@@ -257,7 +269,17 @@ class _PerfilPageState extends State<PerfilPage> {
                     aoTocar: () => _abrir(widget.aoAbrirSolicitacoes),
                   ),
                 ],
-                const SizedBox(height: DesignTokens.space12),
+                if (sequencia != null) ...<Widget>[
+                  const SizedBox(height: DesignTokens.space6),
+                  sequencia,
+                  // Entre blocos do perfil, 32 como no protótipo.
+                  const SizedBox(height: DesignTokens.space8),
+                ] else
+                  const SizedBox(height: DesignTokens.space12),
+                if (desafios != null) ...<Widget>[
+                  desafios,
+                  const SizedBox(height: DesignTokens.space8),
+                ],
                 SecoesDeLeitura(
                   proprio: true,
                   aoBuscarLivros: aoBuscarLivros,

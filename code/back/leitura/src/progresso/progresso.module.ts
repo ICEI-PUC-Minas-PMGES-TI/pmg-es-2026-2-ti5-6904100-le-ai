@@ -1,14 +1,16 @@
 import { Module, OnModuleInit } from '@nestjs/common';
 import { EVENTO_VERSAO_V1, TIPO_EVENTO } from '../leituras/dominio/eventos';
 import { MessageValidator } from '../messaging/message-validator';
+import { DesafiosModule } from '../desafios/desafios.module';
 import { MessagingModule } from '../messaging/messaging.module';
+import { SequenciaModule } from '../sequencia/sequencia.module';
 import progressoRegistradoSchema from '../messaging/schemas/progresso.registrado.v1.schema.json';
 import { ProgressoController } from './api/progresso.controller';
 import { ProgressoService } from './aplicacao/progresso.service';
 import { ProgressoRepository } from './infraestrutura/progresso.repository';
 
 @Module({
-  imports: [MessagingModule],
+  imports: [MessagingModule, SequenciaModule, DesafiosModule],
   controllers: [ProgressoController],
   providers: [ProgressoService, ProgressoRepository],
 })

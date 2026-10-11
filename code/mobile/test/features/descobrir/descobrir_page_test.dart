@@ -476,5 +476,67 @@ void main() {
       expect(pedidas.single.queryParameters['assunto'], 'romance');
       expect(find.bySemanticsLabel('Romance, filtro ativo. Toque para remover.'), findsOneWidget);
     });
+
+    testWidgets('o assunto da ficha é consumido: o mesmo assunto de novo limpa o texto', (
+      tester,
+    ) async {
+      usarTelaDeCelular(tester);
+      final pedidas = <Uri>[];
+      final assunto = ValueNotifier<String?>('romance');
+      addTearDown(assunto.dispose);
+      final servico = acervoSimulado((request) {
+        if (request.url.path == '/assuntos') {
+          return Future<http.Response>.value(json(assuntosJson, 200));
+        }
+        pedidas.add(request.url);
+        return resultadosDeEvaristo(request);
+      });
+      await tester.pumpWidget(
+        envolver(
+          ValueListenableBuilder<String?>(
+            valueListenable: assunto,
+            builder: (context, valor, _) => DescobrirPage(
+              servico: servico,
+              aoAbrirLivro: (_) {},
+              aoCadastrarPorIsbn: () {},
+              aoCadastrarPessoal: () {},
+              assuntoInicial: valor,
+              // O roteador faz `go('/descobrir')`, que reconstrói a página sem o assunto.
+              aoConsumirAssunto: () => assunto.value = null,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(assunto.value, isNull);
+
+      await digitar(tester, 'evaristo');
+      expect(find.text('evaristo'), findsOneWidget);
+
+      assunto.value = 'romance';
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('evaristo'), findsNothing);
+      expect(pedidas.last.queryParameters['assunto'], 'romance');
+      expect(pedidas.last.queryParameters.containsKey('q'), isFalse);
+      expect(find.bySemanticsLabel('Romance, filtro ativo. Toque para remover.'), findsOneWidget);
+    });
+
+    testWidgets('abrir um livro solta o foco do campo, para o teclado não voltar na volta', (
+      tester,
+    ) async {
+      await montar(tester, resultadosDeEvaristo);
+      await digitar(tester, 'evaristo');
+      expect(tester.testTextInput.isVisible, isTrue);
+
+      await tester.tap(find.text('Becos da Memória').last);
+      await tester.pump();
+
+      expect(abertos, <String>['becos']);
+      final campo = tester.widget<EditableText>(find.byType(EditableText));
+      expect(campo.focusNode.hasFocus, isFalse);
+    });
   });
 }

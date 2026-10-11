@@ -1,7 +1,8 @@
 import { Global, Inject, Module, OnApplicationShutdown } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { drizzle, NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { Pool } from 'pg';
+import type { Pool } from 'pg';
+import { criarPool } from './conexao';
 import * as schema from './schema';
 
 export const DRIZZLE = Symbol('DRIZZLE');
@@ -21,16 +22,10 @@ export type DrizzleDB = NodePgDatabase<typeof schema>;
       provide: PG_POOL,
       inject: [ConfigService],
       useFactory: (config: ConfigService): Pool => {
-        const connectionString = config.getOrThrow<string>('DATABASE_URL');
-        // Neon (e o Postgres gerenciado do Render) exigem TLS. Em Postgres
-        // local sem SSL, desliga para não quebrar o dev.
-        const needsSsl =
-          /sslmode=require|neon\.tech|\.render\.com/i.test(connectionString) ||
-          config.get<string>('NODE_ENV') === 'production';
-        const pool = new Pool({
-          connectionString,
-          ssl: needsSsl ? { rejectUnauthorized: false } : false,
-        });
+        const pool = criarPool(
+          config.getOrThrow<string>('DATABASE_URL'),
+          config.get<string>('NODE_ENV'),
+        );
         // Erro em conexão ociosa é logado sem derrubar o processo.
         pool.on('error', (err) =>
           console.error('[pg] erro no pool de conexão:', err.message),

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 
@@ -598,12 +599,43 @@ void main() {
         ),
       );
 
-      expect(find.text('volume 1'), findsOneWidget);
-      await tocar(tester, find.bySemanticsLabel('Autor: Itamar Vieira Junior'));
-      await tocar(tester, find.bySemanticsLabel('Editora: Todavia'));
+      // `Trilogia da Bahia >` e `· volume 1` na mesma linha, como em pagina-do-livro.html. A fonte
+      // de teste é larga: numa tela mais larga, cabe numa linha, como no aparelho.
+      tester.view.physicalSize = const Size(2400, 2532);
+      await tester.pump();
+      expect(find.text('· volume 1'), findsOneWidget);
+      expect(
+        tester.getCenter(find.text('· volume 1')).dy,
+        moreOrLessEquals(tester.getCenter(find.text('Trilogia da Bahia')).dy, epsilon: 2),
+      );
+      await tocar(tester, find.bySemanticsLabel('Ver página de autor: Itamar Vieira Junior'));
+      await tocar(tester, find.bySemanticsLabel('Ver página de editora: Todavia'));
       await tocar(tester, find.text('Trilogia da Bahia'));
 
       expect(navegacoes, <String>['autor:a1', 'editora:ed-1', 'serie:se-1']);
+    });
+
+    testWidgets('cada link da ficha é um nó só, com o volume no rótulo', (tester) async {
+      final semantica = tester.ensureSemantics();
+      await montar(
+        tester,
+        (request) async => json(
+          _livro(
+            extras: <String, Object?>{
+              'editoraId': 'ed-1',
+              'serie': <String, Object?>{'id': 'se-1', 'nome': 'Trilogia da Bahia', 'numero': 1},
+            },
+          ),
+          200,
+        ),
+      );
+
+      final serie = find.bySemanticsLabel('Ver página da série: Trilogia da Bahia, volume 1');
+      expect(serie, findsOneWidget);
+      expect(tester.getSemantics(serie).getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+      // O texto da linha não se repete num segundo nó.
+      expect(find.bySemanticsLabel(RegExp(r'^Série$')), findsNothing);
+      semantica.dispose();
     });
 
     testWidgets('editora sem página fica texto; coautoria tem um alvo por autor', (tester) async {
@@ -621,8 +653,8 @@ void main() {
       );
 
       expect(find.text('Autores'), findsOneWidget);
-      expect(find.bySemanticsLabel('Editora: Todavia'), findsNothing);
-      await tocar(tester, find.bySemanticsLabel('Outra Pessoa'));
+      expect(find.bySemanticsLabel('Ver página de editora: Todavia'), findsNothing);
+      await tocar(tester, find.bySemanticsLabel('Ver página de autor: Outra Pessoa'));
       await tester.tap(find.text('Todavia').last, warnIfMissed: false);
 
       expect(navegacoes, <String>['autor:a2']);
