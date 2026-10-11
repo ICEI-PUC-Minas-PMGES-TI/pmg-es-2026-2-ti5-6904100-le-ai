@@ -27,10 +27,10 @@ RNF atendidos: **RNF-SEC-02/03** (propriedade e privacidade no servidor), **RNF-
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | implementado | tabela `recomendacao` (já existia); `recomendacao.recebida` pela outbox de `social`; fila `leai.social.recomendacoes` com DLQ ligada a `livro.adicionado_a_estante`; validado em dev em 11/10/2026 (broker e bancos locais); validação em DES pendente |
+| Infra | implementado | tabela `recomendacao` (já existia); `recomendacao.recebida` pela outbox de `social`; fila `leai.social.recomendacoes` com DLQ ligada a `livro.adicionado_a_estante`; validado em dev e em DES em 11/10/2026 |
 | Backend | implementado | `social`: envio com resultado por destinatário, candidatos, recebidas, descarte owner-only, remoção ao estantar, limpeza diária e notificação `RECOMENDACAO_RECEBIDA` |
-| Web | implementado | menu `Mais ações` na página do livro com o diálogo Recomendar; seção no Descobrir e lista `/descobrir/recomendacoes` com descarte |
-| Mobile | implementado | mesmas telas + a notificação de recebida (ícone, mensagem do remetente, destino na página do livro); validado em dev em 11/10/2026; validação em DES pendente |
+| Web | implementado | menu `Mais ações` e botão `Recomendar a um leitor` na página do livro com o diálogo Recomendar; seção no Descobrir e lista `/descobrir/recomendacoes` com descarte; validado em dev e em DES em 11/10/2026 |
+| Mobile | implementado | mesmas telas + a notificação de recebida (ícone, mensagem do remetente, destino na página do livro); validado em dev e em DES em 11/10/2026 |
 
 ## Especificação
 
@@ -76,7 +76,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [x] Adicionar o livro à estante **remove todas** as recomendações dele (RF-REC-16) via `livro.adicionado_a_estante`; consumidor **idempotente** + DLQ.
 - [x] `recomendacao.recebida` usa `recomendacaoId`, é publicado após a escrita e gera uma notificação no destinatário sem suprimir novo envio futuro.
 - [x] A **aba** mostra a seção P2P e **funciona sem** a algorítmica (RF-REC-13/14).
-- [ ] Recomendação P2P funciona **em DES**.
+- [x] Recomendação P2P funciona **em DES**.
 
 ## Definition of Done
 
@@ -88,7 +88,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [x] Testes assíncronos: publicação/consumo/DLQ de `recomendacao.recebida` e consumo de `livro.adicionado_a_estante` com duplicação e DLQ (RNF-TST-03)
 - [x] Testes web/mobile cobrem envio com bloqueios, aba P2P e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
 - [x] **Spec OpenAPI de `social` atualizado em `docs/api/social.yaml`** com recomendações e o schema de `recomendacao.recebida`
-- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
+- [x] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
 - [x] Arquivo da feature atualizado: status, pendências, timeline
 - [x] Divergência protótipo × implementação registrada, se houver
 
@@ -108,7 +108,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
   - Tempo relativo calculado no cliente a partir de `criadoEm`.
 - **Expiração:** as consultas filtram por `expira_em`, e uma rotina diária (`@Scheduled`) apaga em lotes as vencidas e as de livro que já está na estante. A mesma rotina serve de backfill do intervalo anterior à fila de `livro.adicionado_a_estante`.
 - **Validação manual em dev (11/10/2026, dono):** web e mobile testados com o `acervo` no Neon e identidade, leitura, `social`, Postgres e RabbitMQ locais. O fluxo ponta a ponta funcionou: recomendar, notificação, recebidas no Descobrir, descarte e remoção ao pôr o livro na estante.
-- **Validação em DES:** o DES recebe deploy no merge em `main` ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)), então o fluxo ponta a ponta fica para depois do merge: A e B se seguem; A recomenda um livro; B recebe a notificação e vê a recomendação no Descobrir; B põe o livro na estante e a recomendação some.
+- **Validação em DES (11/10/2026, dono): feita e aprovada.** O DES recebe deploy no merge em `main` ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)). Roteiro validado: A e B se seguem; A recomenda um livro; B recebe a notificação e vê a recomendação no Descobrir; B põe o livro na estante e a recomendação some.
 
 - **Acessibilidade mobile (11/10/2026):** `Semantics(excludeSemantics: true)` descarta o toque do filho, então todo `Semantics` de botão repassa o mesmo callback em `onTap`. Corrigido nas telas desta feature (`item_recomendacao`, `recomendacoes_recebidas_page`, `recomendar_livro_page`) e, por aviso do grupo, no feed (`comentario_item`, `folha_comentarios`, `item_atividade`). Seguem sem a correção, por serem de outras features: `cabecalho_tela`, `estante_page`, `reacoes_da_resenha`, `notificacoes_page`.
 
@@ -129,7 +129,9 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 ## Timeline
 
-### Revisão 11/10/2026 (validação em dev): fluxo validado manualmente em dev pelo dono, web e mobile; botão `Recomendar a um leitor` visível na página do livro, divergindo do protótipo. Falta só a validação em DES, depois do merge na `main`.
+### Revisão 11/10/2026 (validação em DES): fluxo validado em DES pelo dono; critério de aceite e item de DoD de DES marcados. Também: "Ler resenha" do feed (web e mobile) passou a levar à página do livro; o arquivo da F-FEED não foi tocado.
+
+### Revisão 11/10/2026 (validação em dev): fluxo validado manualmente em dev pelo dono, web e mobile; botão `Recomendar a um leitor` visível na página do livro, divergindo do protótipo. Em seguida, o dono validou o fluxo em DES e a feature passou a implementada.
 
 ### Revisão 11/10/2026 (menu na seção): `DotsThree` nos itens da seção `Recomendações recebidas` do Descobrir, web e mobile, divergindo do protótipo a pedido do dono; menu e descarte compartilhados com a lista completa (`useDescarteDeRecomendacao`, `MenuDaRecomendacao`, `DescarteDeRecomendacoes`).
 
@@ -137,7 +139,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 ### Revisão 11/10/2026: texto de contrato alinhado a `social.yaml` (`200`, `LIMITE_ATINGIDO`, todos bloqueados sem `422`) e `onTap` nos `Semantics` do feed e das telas da feature (acessibilidade mobile).
 
-### Implementação 04/10/2026: contratos, backend `social`, web e mobile na branch `Eman134/F-REC-P2P` (issue #28). Envio com resultado por destinatário, candidatos, recebidas, descarte owner-only, remoção ao estantar com DLQ, limpeza diária e notificação `RECOMENDACAO_RECEBIDA`; testes de integração com Postgres real, Vitest e `flutter test`. Validação em DES pendente do merge; validação manual em dev feita em 11/10/2026.
+### Implementação 04/10/2026: contratos, backend `social`, web e mobile na branch `Eman134/F-REC-P2P` (issue #28). Envio com resultado por destinatário, candidatos, recebidas, descarte owner-only, remoção ao estantar com DLQ, limpeza diária e notificação `RECOMENDACAO_RECEBIDA`; testes de integração com Postgres real, Vitest e `flutter test`. Validação manual em dev e em DES feita em 11/10/2026.
 
 ### Revisão 15/09/2026: fronteira atualizada com opt-out aprovado e estado local temporário de descartes em F-REC-ALG. P2P continua sem novas tabelas ou máquina de aceitação.
 
