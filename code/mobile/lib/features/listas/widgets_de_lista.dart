@@ -84,6 +84,8 @@ class CardDeLista extends StatelessWidget {
       button: true,
       label: rotulo,
       excludeSemantics: true,
+      // Com `excludeSemantics`, a ação de toque do InkWell some da árvore: vai aqui.
+      onTap: aoTocar,
       child: InkWell(
         onTap: aoTocar,
         splashFactory: NoSplash.splashFactory,
@@ -395,6 +397,7 @@ void mostrarAvisoDeLista(
                     button: true,
                     label: 'Fechar aviso',
                     excludeSemantics: true,
+                    onTap: mensageiro.hideCurrentSnackBar,
                     child: InkWell(
                       onTap: mensageiro.hideCurrentSnackBar,
                       child: SizedBox(

@@ -136,6 +136,8 @@ class _LivroOficialPageState extends State<LivroOficialPage> {
                     button: true,
                     label: 'Mais ações',
                     excludeSemantics: true,
+                    // Com `excludeSemantics`, a ação de toque do GestureDetector some da árvore: vai aqui.
+                    onTap: () => _abrirMenu(livro.resumo),
                     child: GestureDetector(
                       onTap: () => _abrirMenu(livro.resumo),
                       behavior: HitTestBehavior.opaque,

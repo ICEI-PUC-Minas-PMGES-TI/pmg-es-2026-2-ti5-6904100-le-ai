@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 
@@ -176,6 +177,44 @@ void main() {
     await tester.tap(find.text('Concluir'));
     await tester.pump();
     expect(find.text('Reordenar'), findsOneWidget);
+  });
+
+  testWidgets('leitor de tela: menu do item tocável e alça com subir e descer', (tester) async {
+    final semantica = tester.ensureSemantics();
+    await montar(tester, (pedido) => donoCom(pedido, tresLivros));
+
+    final menu = find.bySemanticsLabel('Ações de Torto Arado');
+    expect(tester.getSemantics(menu).getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+
+    await tester.tap(find.text('Reordenar'));
+    await tester.pump();
+
+    SemanticsNode alca(String titulo) =>
+        tester.getSemantics(find.bySemanticsLabel('Mudar a posição de $titulo'));
+    List<String> acoes(String titulo) => <String>[
+      for (final id in alca(titulo).getSemanticsData().customSemanticsActionIds ?? const <int>[])
+        CustomSemanticsAction.getAction(id)!.label!,
+    ];
+
+    expect(acoes('Sagarana'), <String>['Mover para baixo']);
+    expect(acoes('Torto Arado'), unorderedEquals(<String>['Mover para cima', 'Mover para baixo']));
+    expect(acoes('Contos da Rua Direita'), <String>['Mover para cima']);
+
+    tester.binding.performSemanticsAction(
+      SemanticsActionEvent(
+        type: SemanticsAction.customAction,
+        viewId: tester.view.viewId,
+        nodeId: alca('Torto Arado').id,
+        arguments: CustomSemanticsAction.getIdentifier(
+          const CustomSemanticsAction(label: 'Mover para cima'),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(pedidos.where((p) => p.method == 'PUT'), hasLength(1));
+    semantica.dispose();
   });
 
   testWidgets('remover sai sem confirmação e a contagem cai', (tester) async {
