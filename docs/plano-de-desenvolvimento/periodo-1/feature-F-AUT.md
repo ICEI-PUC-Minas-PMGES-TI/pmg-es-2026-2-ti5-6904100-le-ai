@@ -165,6 +165,8 @@ Marcado = verificado localmente por teste em 24/09/2026. Nada foi verificado em 
 
 ## Timeline
 
+### Testes de log 11/10/2026: `LogDeAutenticacaoIntegracaoTest`, contra Postgres real, cobre os RNF-SEC-35/36 fora da troca de senha. Login com senha errada fica registrado (`NAO_AUTENTICADO (401)`), sem a senha tentada nem o e-mail. O bloqueio depois de tentativas sucessivas fica registrado sem o username. Login e renovação bem-sucedidos não deixam no log a senha, o e-mail nem os quatro tokens emitidos. `./mvnw verify` com 217 testes verdes. Continua aberto o teste de contrato contra `identidade.yaml`.
+
 ### Fechamento do Período 1 29/09/2026: feature entregue e **em revisão**, aguardando o aval dos professores. Código em `desenvolvimento` e CI verde (`ci-back-identidade`, `ci-front`, `ci-mobile`); o fluxo em DES chega com o merge de fechamento do período. Continuam abertos a prova real do Brevo (P-02), o texto final da política de privacidade e os testes de contrato.
 
 ### 29/09/2026: título "Privacidade" no celular. Mobile: `PoliticaDePrivacidadePage` usa `CabecalhoTela(titulo: 'Privacidade')` em uma linha, e o parâmetro `tituloEmDuasLinhas` saiu do `CabecalhoTela`. Web: `RouteMeta.tituloCurto` (rota `politica-de-privacidade`) repassado pelo `ShellAutenticado` ao `CabecalhoTela`, e o mesmo par de spans no `h1` de `PoliticaPublica`; "Privacidade" abaixo de 768px, "Política de privacidade" a partir dele. Divergência do protótipo registrada em Pendências.
