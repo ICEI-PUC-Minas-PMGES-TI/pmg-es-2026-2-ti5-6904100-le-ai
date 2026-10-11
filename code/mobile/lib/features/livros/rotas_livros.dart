@@ -8,7 +8,9 @@ import '../avaliacao/leitura_service.dart';
 import '../catalogo/catalogo_controller.dart';
 import '../catalogo/pagina_de_catalogo_page.dart';
 import '../estante/estante_service.dart';
+import '../feed/social_service.dart';
 import '../listas/rotas_listas.dart';
+import '../perfil/rotas_perfil.dart';
 import 'acervo_service.dart';
 import 'cadastro_isbn_page.dart';
 import 'capa.dart';
@@ -104,6 +106,7 @@ List<RouteBase> rotasDeDescobrir(
   DependenciasDeLivros deps, {
   EstanteService? estante,
   DependenciasDeProgresso? progresso,
+  SocialService? social,
 }) => <RouteBase>[
   GoRoute(
     path: 'adicionar-livro',
@@ -152,7 +155,13 @@ List<RouteBase> rotasDeDescobrir(
       ),
     ],
   ),
-  rotaDoLivroOficial(deps, raiz: '/descobrir', estante: estante, progresso: progresso),
+  rotaDoLivroOficial(
+    deps,
+    raiz: '/descobrir',
+    estante: estante,
+    progresso: progresso,
+    social: social,
+  ),
   ...rotasDeCatalogo(deps, raiz: '/descobrir'),
 ];
 
@@ -190,6 +199,7 @@ GoRoute rotaDoLivroOficial(
   required String raiz,
   EstanteService? estante,
   DependenciasDeProgresso? progresso,
+  SocialService? social,
 }) {
   return GoRoute(
     path: 'livro/:id',
@@ -208,6 +218,8 @@ GoRoute rotaDoLivroOficial(
             ? null
             : (leituraId) => context.push<void>(rotaProgressoDaLeitura(leituraId)),
         listas: deps.listas,
+        social: social,
+        aoBuscarLeitores: () => context.go(rotaBuscarLeitor),
         aoAbrirAutor: (autorId) => context.push(rotaDoAutor(raiz, autorId)),
         aoAbrirEditora: (editoraId) => context.push(rotaDaEditora(raiz, editoraId)),
         aoAbrirSerie: (serieId) => context.push(rotaDaSerie(raiz, serieId)),

@@ -92,7 +92,7 @@ function aoTeclar(evento: KeyboardEvent): void {
           role="dialog"
           aria-modal="true"
           :aria-label="rotulo"
-          class="painel w-full rounded-t-lg p-space-6 shadow-3 dark:bg-papel-elevado"
+          class="painel w-full min-w-0 rounded-t-lg p-space-6 shadow-3 dark:bg-papel-elevado"
           :class="[
             compacto ? 'bg-papel-elevado' : 'bg-papel',
             somenteFolha

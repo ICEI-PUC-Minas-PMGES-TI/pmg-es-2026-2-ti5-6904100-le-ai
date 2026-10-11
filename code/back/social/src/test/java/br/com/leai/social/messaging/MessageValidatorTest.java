@@ -9,6 +9,7 @@ import com.rabbitmq.client.Envelope;
 import com.rabbitmq.client.impl.LongStringHelper;
 import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -148,6 +149,51 @@ class MessageValidatorTest {
     assertThatThrownBy(() -> new MessageValidator().validate(envelope))
         .isInstanceOf(InvalidMessageException.class)
         .hasMessageContaining("Schema invalido");
+  }
+
+  @Test
+  @DisplayName("valida recomendacao.recebida com e sem mensagem e livro.adicionado_a_estante")
+  void validaEventosDeRecomendacao() {
+    validaTipo("recomendacao.recebida", recomendacaoRecebida("Leia, é ótimo."));
+    validaTipo("recomendacao.recebida", recomendacaoRecebida(null));
+    validaTipo(
+        "livro.adicionado_a_estante",
+        Map.of(
+            "usuarioId", UUID.randomUUID().toString(),
+            "livroId", UUID.randomUUID().toString()));
+  }
+
+  @Test
+  @DisplayName("rejeita recomendacao.recebida com mensagem acima de 280 caracteres")
+  void rejeitaRecomendacaoComMensagemLonga() {
+    assertThatThrownBy(() -> validaTipo("recomendacao.recebida", recomendacaoRecebida("a".repeat(281))))
+        .isInstanceOf(InvalidMessageException.class)
+        .hasMessageContaining("Schema invalido");
+  }
+
+  private static Map<String, Object> recomendacaoRecebida(String mensagem) {
+    String livroId = UUID.randomUUID().toString();
+    Map<String, Object> dados = new HashMap<>();
+    dados.put("recomendacaoId", UUID.randomUUID().toString());
+    dados.put("destinatarioId", UUID.randomUUID().toString());
+    dados.put("livroId", livroId);
+    dados.put(
+        "autorAcao",
+        Map.of(
+            "id", UUID.randomUUID().toString(),
+            "username", "remetente1",
+            "displayName", "Remetente Um",
+            "avatarUrl", "https://cdn.leai.app/r.png"));
+    dados.put(
+        "livro",
+        Map.of(
+            "id", livroId,
+            "tipo", "oficial",
+            "titulo", "Torto arado",
+            "autor", "Itamar Vieira Junior",
+            "capaUrl", "https://cdn.leai.app/l.png"));
+    dados.put("mensagem", mensagem);
+    return dados;
   }
 
   private static void validaTipo(String tipo, Map<String, Object> dados) {

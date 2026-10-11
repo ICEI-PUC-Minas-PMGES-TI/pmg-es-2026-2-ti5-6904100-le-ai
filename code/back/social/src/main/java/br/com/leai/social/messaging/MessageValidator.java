@@ -21,7 +21,8 @@ public final class MessageValidator {
 
   /**
    * Eventos v1 que este serviço publica ou consome: os do feed, os de interação que ele mesmo
-   * publica e os de notificação (F-NOT). Cada um tem o schema {@code <tipo>.v1.schema.json}.
+   * publica, os de notificação (F-NOT) e os de recomendação (F-REC-P2P). Cada um tem o schema
+   * {@code <tipo>.v1.schema.json}.
    */
   private static final List<String> EVENTOS_V1 =
       List.of(
@@ -41,6 +42,8 @@ public final class MessageValidator {
           MessagingConstants.EVENTO_USUARIO_MENCIONADO,
           MessagingConstants.EVENTO_LEITURA_EM_RISCO,
           MessagingConstants.EVENTO_LEITURA_EXPIRADA,
+          MessagingConstants.EVENTO_RECOMENDACAO_RECEBIDA,
+          MessagingConstants.EVENTO_LIVRO_ADICIONADO_A_ESTANTE,
           MessagingConstants.EVENTO_RESENHA_CURTIDA,
           MessagingConstants.EVENTO_CONTA_EXCLUIDA);
 

@@ -13,6 +13,7 @@ export interface AcaoDaFolha {
   rotulo: string
   icone: Component
   destrutiva?: boolean
+  detalhe?: string
 }
 
 defineProps<{
@@ -38,17 +39,24 @@ const emit = defineEmits<{ escolher: [id: string]; fechar: [] }>()
       >
         <button
           type="button"
-          class="flex h-14 w-full items-center gap-space-4 text-left text-body focus-visible:outline-none focus-visible:underline"
-          :class="acao.destrutiva ? 'text-rubi' : 'text-tinta'"
+          class="flex w-full items-center gap-space-4 text-left text-body focus-visible:outline-none focus-visible:underline"
+          :class="[acao.destrutiva ? 'text-rubi' : 'text-tinta', acao.detalhe ? 'min-h-[72px] py-space-3' : 'h-14']"
           @click="emit('escolher', acao.id)"
         >
           <component
             :is="acao.icone"
             :size="20"
             weight="regular"
+            class="shrink-0"
             aria-hidden="true"
           />
-          {{ acao.rotulo }}
+          <span class="flex flex-col">
+            {{ acao.rotulo }}
+            <span
+              v-if="acao.detalhe"
+              class="text-caption text-grafite"
+            >{{ acao.detalhe }}</span>
+          </span>
         </button>
       </li>
     </ul>

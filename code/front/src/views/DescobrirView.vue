@@ -8,6 +8,7 @@ import ChipsDeFiltros from '../components/livros/ChipsDeFiltros.vue'
 import FiltroAssuntos from '../components/livros/FiltroAssuntos.vue'
 import FiltrosAvancados from '../components/livros/FiltrosAvancados.vue'
 import FimDaLista from '../components/perfil/FimDaLista.vue'
+import SecaoRecomendacoes from '../components/recomendacoes/SecaoRecomendacoes.vue'
 import BannerAviso from '../components/ui/BannerAviso.vue'
 import BotaoPrimario from '../components/ui/BotaoPrimario.vue'
 import BotaoTextual from '../components/ui/BotaoTextual.vue'
@@ -333,7 +334,14 @@ const anuncio = computed(() => {
           {{ anuncio }}
         </p>
 
-        <section aria-label="Resultados da busca">
+        <SecaoRecomendacoes
+          v-if="estado === 'aterrissagem'"
+          class="mt-space-6 md:mt-0"
+        />
+        <section
+          v-else
+          aria-label="Resultados da busca"
+        >
           <div
             v-if="estado === 'buscando'"
             class="entrada mt-space-2 md:mt-0"

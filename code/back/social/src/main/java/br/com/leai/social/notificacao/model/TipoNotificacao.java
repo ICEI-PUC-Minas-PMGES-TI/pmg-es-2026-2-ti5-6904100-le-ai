@@ -16,6 +16,7 @@ public enum TipoNotificacao {
   USUARIO_MENCIONADO("usuario_mencionado"),
   LEITURA_EM_RISCO("leitura_em_risco"),
   LEITURA_EXPIRADA("leitura_expirada"),
+  RECOMENDACAO_RECEBIDA("recomendacao_recebida"),
   RESENHA_CURTIDA("resenha_curtida");
 
   private final String literal;

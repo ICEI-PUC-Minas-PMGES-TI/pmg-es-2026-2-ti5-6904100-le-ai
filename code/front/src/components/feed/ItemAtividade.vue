@@ -189,12 +189,12 @@ watch(
       >
         {{ trechoDaResenha }}
       </p>
-      <button
-        type="button"
-        class="w-fit cursor-pointer text-caption text-musgo hover:underline focus-visible:underline"
+      <RouterLink
+        :to="linkDoLivro"
+        class="inline-flex min-h-12 w-fit items-center text-caption text-musgo hover:underline focus-visible:underline md:min-h-0"
       >
         Ler resenha
-      </button>
+      </RouterLink>
     </div>
 
     <div class="mt-space-4 flex items-center gap-space-3">

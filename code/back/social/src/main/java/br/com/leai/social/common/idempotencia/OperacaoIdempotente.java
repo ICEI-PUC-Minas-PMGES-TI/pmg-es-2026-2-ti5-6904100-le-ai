@@ -19,6 +19,8 @@ public enum OperacaoIdempotente {
   EDITAR_COMENTARIO("editarComentario"),
   EXCLUIR_COMENTARIO("excluirComentario"),
   MARCAR_NOTIFICACOES_LIDAS("marcarNotificacoesLidas"),
+  RECOMENDAR_LIVRO("recomendarLivro"),
+  DESCARTAR_RECOMENDACAO("descartarRecomendacao"),
   CRIAR_LISTA("criarLista"),
   EDITAR_LISTA("editarLista"),
   EXCLUIR_LISTA("excluirLista"),

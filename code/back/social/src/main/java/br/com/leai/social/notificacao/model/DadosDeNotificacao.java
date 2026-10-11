@@ -27,6 +27,8 @@ public final class DadosDeNotificacao {
   public static final String SEGUIMENTO_ID = "seguimentoId";
   public static final String LEITURA_ID = "leituraId";
   public static final String LIMIAR_DIAS = "limiarDias";
+  public static final String RECOMENDACAO_ID = "recomendacaoId";
+  public static final String RECOMENDACAO_MENSAGEM = "mensagem";
   /** Resenha curtida (F-AVA-2). Fica no snapshot para um destino futuro na própria resenha. */
   public static final String RESENHA_ID = "resenhaId";
 

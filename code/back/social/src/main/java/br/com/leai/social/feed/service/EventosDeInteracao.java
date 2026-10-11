@@ -1,15 +1,13 @@
 package br.com.leai.social.feed.service;
 
-import br.com.leai.social.common.CorrelationIdFilter;
+import br.com.leai.social.messaging.OutboxSocial;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
-import tools.jackson.databind.ObjectMapper;
 
 /**
  * Os três eventos de interação de F-FEED (Task 4), gravados em {@code outbox_social} na mesma
@@ -25,11 +23,11 @@ import tools.jackson.databind.ObjectMapper;
 class EventosDeInteracao {
 
   private final JdbcTemplate jdbc;
-  private final ObjectMapper objectMapper;
+  private final OutboxSocial outbox;
 
-  EventosDeInteracao(JdbcTemplate jdbc, ObjectMapper objectMapper) {
+  EventosDeInteracao(JdbcTemplate jdbc, OutboxSocial outbox) {
     this.jdbc = jdbc;
-    this.objectMapper = objectMapper;
+    this.outbox = outbox;
   }
 
   /** Curtida nova em uma atividade: avisa o autor da atividade. */
@@ -89,51 +87,11 @@ class EventosDeInteracao {
     gravar("usuario.mencionado", "mencao:" + comentarioId + ":" + destinatarioId, data);
   }
 
-  /**
-   * {@code UsuarioSnapshot} de {@code common-v1.schema.json}, batido contra {@code
-   * identidade.v_perfil_referencia_v1} — a mesma view cross-schema que outras consultas de
-   * `social` já usam para dados de outro schema sem hidratação síncrona de domínio.
-   */
   private Map<String, Object> snapshot(UUID usuarioId) {
-    List<Map<String, Object>> linhas =
-        jdbc.queryForList(
-            "SELECT username::text AS username, nome_exibicao, avatar_url"
-                + " FROM identidade.v_perfil_referencia_v1"
-                + " WHERE id = ?",
-            usuarioId);
-    Map<String, Object> snapshot = new LinkedHashMap<>();
-    snapshot.put("id", usuarioId.toString());
-    if (linhas.isEmpty()) {
-      // Não deveria ocorrer: o autor da ação é sempre o usuário autenticado. Cinto de segurança
-      // para não deixar o evento vazar SQLException nem NullPointerException.
-      snapshot.put("username", "");
-      snapshot.put("displayName", "");
-      snapshot.put("avatarUrl", null);
-      return snapshot;
-    }
-    Map<String, Object> linha = linhas.get(0);
-    snapshot.put("username", linha.get("username"));
-    snapshot.put("displayName", linha.get("nome_exibicao"));
-    snapshot.put("avatarUrl", linha.get("avatar_url"));
-    return snapshot;
+    return outbox.usuarioSnapshot(usuarioId);
   }
 
   private void gravar(String tipo, String chaveDeNegocio, Map<String, Object> data) {
-    jdbc.update(
-        "INSERT INTO outbox_social (event_id, tipo, versao, chave_negocio, correlation_id, payload)"
-            + " VALUES (?, ?, 1, ?, ?, ?::jsonb)",
-        UUID.randomUUID(),
-        tipo,
-        chaveDeNegocio,
-        correlationId(),
-        objectMapper.writeValueAsString(data));
-  }
-
-  private static UUID correlationId() {
-    try {
-      return UUID.fromString(CorrelationIdFilter.atual());
-    } catch (IllegalArgumentException | NullPointerException semCorrelationValido) {
-      return UUID.randomUUID();
-    }
+    outbox.gravar(tipo, chaveDeNegocio, data);
   }
 }

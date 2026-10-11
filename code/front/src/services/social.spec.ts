@@ -155,4 +155,49 @@ describe('createSocialService', () => {
 
     expect(fetchMock.mock.calls[0]![0]).toBe('https://social.example.com/comentarios/c-raiz/respostas?limit=20')
   })
+
+  it('lista os candidatos de um livro e devolve só os itens', async () => {
+    const candidato = { leitor: AUTOR, jaTemLivro: true, limiteAtingido: false }
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(resposta(200, { itens: [candidato] }))
+
+    await expect(servico(fetchMock).listarCandidatos('l 1')).resolves.toEqual([candidato])
+
+    expect(fetchMock.mock.calls[0]![0]).toBe('https://social.example.com/recomendacoes/candidatos?livroId=l%201')
+  })
+
+  it('lista as recebidas paginadas e descarta com DELETE e a chave da intenção', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        resposta(200, { itens: [], pagina: 1, tamanho: 4, totalItens: 5, totalPaginas: 2, ultima: true }),
+      )
+      .mockResolvedValueOnce(resposta(204))
+    const social = servico(fetchMock)
+
+    await expect(social.listarRecebidas(1, 4)).resolves.toMatchObject({ page: 1, totalElements: 5, totalPages: 2 })
+    await expect(social.descartarRecomendacao('r 1', 'chave-d')).resolves.toBeUndefined()
+
+    expect(fetchMock.mock.calls[0]![0]).toBe('https://social.example.com/recomendacoes/recebidas?page=1&size=4')
+    const [url, init] = fetchMock.mock.calls[1]!
+    expect(url).toBe('https://social.example.com/recomendacoes/r%201')
+    expect(init?.method).toBe('DELETE')
+    expect((init?.headers as Headers).get('Idempotency-Key')).toBe('chave-d')
+  })
+
+  it('recomenda com o corpo e a chave da intenção, e devolve o resultado por destinatário', async () => {
+    const resultado = {
+      resultados: [{ destinatarioId: 'u2', status: 'BLOQUEADA', recomendacaoId: null, motivo: 'JA_TEM_LIVRO' }],
+      totalCriadas: 0,
+    }
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(resposta(200, resultado))
+    const dados = { livroId: 'l1', destinatarios: ['u2'], mensagem: 'Leia.' }
+
+    await expect(servico(fetchMock).recomendar(dados, 'chave-r')).resolves.toEqual(resultado)
+
+    const [url, init] = fetchMock.mock.calls[0]!
+    expect(url).toBe('https://social.example.com/recomendacoes')
+    expect(init?.method).toBe('POST')
+    expect(JSON.parse(init?.body as string)).toEqual(dados)
+    expect((init?.headers as Headers).get('Idempotency-Key')).toBe('chave-r')
+  })
 })

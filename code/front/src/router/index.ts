@@ -24,6 +24,7 @@ import FeedView from '../views/FeedView.vue'
 import LoginView from '../views/auth/LoginView.vue'
 import PoliticaPrivacidadeView from '../views/auth/PoliticaPrivacidadeView.vue'
 import ProgressoView from '../views/ProgressoView.vue'
+import RecomendacoesRecebidasView from '../views/recomendacoes/RecomendacoesRecebidasView.vue'
 import RecuperarContaView from '../views/conta/RecuperarContaView.vue'
 import RecuperarSenhaView from '../views/auth/RecuperarSenhaView.vue'
 import RedefinirSenhaView from '../views/auth/RedefinirSenhaView.vue'
@@ -174,6 +175,12 @@ export const routes: RouteRecordRaw[] = [
           },
         }),
       ),
+      {
+        path: 'descobrir/recomendacoes',
+        name: 'recomendacoes-recebidas',
+        component: RecomendacoesRecebidasView,
+        meta: { titulo: 'Recomendações recebidas', tituloCurto: 'Recomendações', voltar: true, aba: '/descobrir' },
+      },
       {
         path: 'feed',
         name: 'feed',

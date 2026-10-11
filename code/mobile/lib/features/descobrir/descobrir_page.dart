@@ -19,8 +19,8 @@ import 'widgets_dos_filtros.dart';
 /// começa pela segunda linha do header, o campo de busca. Campo, faixa de assuntos e contagem
 /// ficam fixos; só a lista rola.
 ///
-/// A aterrissagem é magra no Período 1, por decisão (descobrir.md §4.6): o campo, sem foco
-/// automático, e os assuntos, nada mais.
+/// A aterrissagem é magra por decisão (descobrir.md §4.6): o campo, sem foco automático, os
+/// assuntos e, desde F-REC-P2P, a seção [recomendacoes].
 ///
 /// Filtros avançados (F-ACV-DESCOBERTA, `descobrir.md` do Período 2): botão ao lado do campo, com
 /// o badge da contagem, que abre a folha; os aplicados viram chips abaixo dos assuntos.
@@ -29,6 +29,7 @@ class DescobrirPage extends StatefulWidget {
   final ValueChanged<String> aoAbrirLivro;
   final VoidCallback aoCadastrarPorIsbn;
   final VoidCallback aoCadastrarPessoal;
+  final Widget? recomendacoes;
 
   /// Assunto tocado na ficha do livro (`/descobrir?assunto=<id>`, RF-ACV-21). A aba é mantida
   /// viva pelo shell: um id novo recomeça a busca por ele.
@@ -45,6 +46,7 @@ class DescobrirPage extends StatefulWidget {
     required this.aoAbrirLivro,
     required this.aoCadastrarPorIsbn,
     required this.aoCadastrarPessoal,
+    this.recomendacoes,
     this.assuntoInicial,
     this.aoConsumirAssunto,
   });
@@ -237,7 +239,14 @@ class _DescobrirPageState extends State<DescobrirPage> {
   Widget _conteudo(ThemeData theme) {
     switch (_busca.estado) {
       case EstadoDaBusca.aterrissagem:
-        return const SizedBox.shrink();
+        final recomendacoes = widget.recomendacoes;
+        if (recomendacoes == null) {
+          return const SizedBox.shrink();
+        }
+        return ListView(
+          padding: const EdgeInsets.only(top: DesignTokens.space4, bottom: DesignTokens.space6),
+          children: <Widget>[recomendacoes],
+        );
       case EstadoDaBusca.buscando:
         return EntradaSuave(child: _carregando(theme));
       case EstadoDaBusca.vazio:

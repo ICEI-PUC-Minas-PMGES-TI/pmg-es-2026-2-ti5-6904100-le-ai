@@ -18,11 +18,12 @@
 | `leitura.retomada` | leitura | social/feed | `leitura:<leituraId>:retomada:<eventId>` | [`leitura.retomada.v1`](schemas/leitura.retomada.v1.schema.json) |
 | `leitura.finalizada` | leitura | social/feed, leitura/metricas (F-DSF) | `leitura:<leituraId>:finalizada` | [`leitura.finalizada.v1`](schemas/leitura.finalizada.v1.schema.json) |
 | `leitura.abandonada` | leitura | social/feed | `leitura:<leituraId>:abandonada:<eventId>` | [`leitura.abandonada.v1`](schemas/leitura.abandonada.v1.schema.json) |
-| `livro.adicionado_a_estante` | leitura | consumidor futuro | `estante:<usuarioId>:<livroId>` | [`livro.adicionado_a_estante.v1`](schemas/livro.adicionado_a_estante.v1.schema.json) |
+| `livro.adicionado_a_estante` | leitura | social/recomendações | `estante:<usuarioId>:<livroId>` | [`livro.adicionado_a_estante.v1`](schemas/livro.adicionado_a_estante.v1.schema.json) |
 | `progresso.registrado` | leitura | leitura/metricas (F-GAM, F-DSF) | `progresso:<atualizacaoProgressoId>` | [`progresso.registrado.v1`](schemas/progresso.registrado.v1.schema.json) |
 | `nota.alterada` | leitura | consumidor futuro | `nota:<usuarioId>:<livroId>` | [`nota.alterada.v1`](schemas/nota.alterada.v1.schema.json) |
 | `resenha.publicada` | leitura | social/feed | `resenha:<resenhaId>:publicada` | [`resenha.publicada.v1`](schemas/resenha.publicada.v1.schema.json) |
 | `resenha.excluida` | leitura | social/feed | `resenha:<resenhaId>:excluida` | [`resenha.excluida.v1`](schemas/resenha.excluida.v1.schema.json) |
+| `recomendacao.recebida` | social | social/notificações | `recomendacao:<recomendacaoId>` | [`recomendacao.recebida.v1`](schemas/recomendacao.recebida.v1.schema.json) |
 | `resenha.curtida` | leitura | social/notificações | `resenha:<resenhaId>:curtida:<autorAcaoId>` | [`resenha.curtida.v1`](schemas/resenha.curtida.v1.schema.json) |
 | `conta.excluida` | identidade | leitura/conta, social/conta, acervo/conta (F-CONTA-2) | `conta:<usuarioId>` | [`conta.excluida.v1`](schemas/conta.excluida.v1.schema.json) |
 
