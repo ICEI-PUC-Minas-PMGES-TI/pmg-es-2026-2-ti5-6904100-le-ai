@@ -1,13 +1,17 @@
 import { flushPromises } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { ApiError } from '../../services/api'
 import { leituraService } from '../../services/leitura'
 import { perfilService, type Perfil } from '../../services/perfil'
+import { itemEstante, paginaEstante } from '../../testes/estante'
 import { montarNaRota } from '../../testes/montarNaRota'
 
 vi.mock('../../services/perfil', () => ({ perfilService: { obterMeuPerfil: vi.fn(), listarSolicitacoes: vi.fn() } }))
 
-vi.mock('../../services/leitura', () => ({ leituraService: { listarResenhasPerfil: vi.fn() } }))
+vi.mock('../../services/leitura', () => ({
+  leituraService: { listarEstantePerfil: vi.fn(), listarResenhasPerfil: vi.fn() },
+}))
 
 const servico = vi.mocked(perfilService)
 const leitura = vi.mocked(leituraService)
@@ -58,6 +62,7 @@ describe('PerfilView', () => {
     localStorage.clear()
     servico.obterMeuPerfil.mockReset().mockResolvedValue(PERFIL)
     leitura.listarResenhasPerfil.mockReset().mockResolvedValue({ itens: [], paginacao: { page: 1, limite: 5, totalItens: 0, totalPaginas: 0 } })
+    leitura.listarEstantePerfil.mockReset().mockResolvedValue(paginaEstante([]))
     servico.listarSolicitacoes
       .mockReset()
       .mockResolvedValue({ items: [], page: 0, size: 1, totalElements: 0, totalPages: 0 })
@@ -99,8 +104,27 @@ describe('PerfilView', () => {
     expect(wrapper.find('[aria-label="84 seguidores"]').exists()).toBe(true)
     expect(wrapper.find('[aria-label="1 seguindo"]').exists()).toBe(true)
     expect(wrapper.get('a[href="/perfil/editar"]').text()).toBe('Editar perfil')
-    // Sem o dado de `leitura` ainda: nada de contador de livros lidos.
+  })
+
+  it('livros lidos vem da estante (Lido + Relendo) e leva a ela filtrada por Lido', async () => {
+    leitura.listarEstantePerfil.mockResolvedValue(
+      paginaEstante([itemEstante('l1', 'Dom Casmurro', { status: 'RELENDO', vezesLido: 1 })], {
+        totais: { QUERO_LER: 5, LENDO: 1, LIDO: 11, RELENDO: 1, ABANDONADO: 0 },
+      }),
+    )
+    const { wrapper } = await montarNaRota('/perfil')
+    await flushPromises()
+
+    expect(wrapper.get('a[href="/estante?status=LIDO"]').attributes('aria-label')).toBe('12 livros lidos')
+  })
+
+  it('sem a estante (404), o contador de livros lidos não aparece', async () => {
+    leitura.listarEstantePerfil.mockRejectedValue(new ApiError('Não encontrado.', 404, 'NAO_ENCONTRADO'))
+    const { wrapper } = await montarNaRota('/perfil')
+    await flushPromises()
+
     expect(wrapper.text()).not.toContain('livros lidos')
+    expect(wrapper.find('[aria-label="84 seguidores"]').exists()).toBe(true)
   })
 
   it('Estante e Resenhas aparecem no estado vazio, com o CTA para Descobrir e as abas na web', async () => {
@@ -123,6 +147,45 @@ describe('PerfilView', () => {
     expect(resenhas.attributes('aria-selected')).toBe('true')
     expect(painelDaEstante.classes()).toContain('md:hidden')
     expect(painelDasResenhas.classes()).not.toContain('md:hidden')
+  })
+
+  it('a própria estante aparece em cards só leitura, paginada, no lugar do vazio', async () => {
+    leitura.listarEstantePerfil
+      .mockResolvedValueOnce(paginaEstante([itemEstante('l1', 'Dom Casmurro', { status: 'LENDO' })], { totalPaginas: 2, totalItens: 2 }))
+      .mockResolvedValueOnce(paginaEstante([itemEstante('l2', 'O Cortiço')], { page: 2, totalPaginas: 2, totalItens: 2 }))
+    const { wrapper } = await montarNaRota('/perfil')
+    await flushPromises()
+
+    expect(leitura.listarEstantePerfil).toHaveBeenCalledWith('u1', { page: 1 })
+    const secao = wrapper.get('section[id$="-painel-estante"]')
+    expect(secao.text()).toContain('Dom Casmurro')
+    expect(secao.text()).not.toContain('Os livros que você adicionar aparecem aqui.')
+    expect(secao.findAll('li button')).toHaveLength(0)
+
+    await secao.findAll('button').find((b) => b.text() === 'Carregar mais')!.trigger('click')
+    await flushPromises()
+    expect(leitura.listarEstantePerfil).toHaveBeenLastCalledWith('u1', { page: 2 })
+    expect(secao.findAll('li')).toHaveLength(2)
+  })
+
+  it('falha da estante mostra erro com Tentar de novo; 404 fica no vazio com o CTA', async () => {
+    leitura.listarEstantePerfil.mockRejectedValueOnce(new ApiError('Falha.', 0, 'SERVICO_INDISPONIVEL'))
+    leitura.listarEstantePerfil.mockResolvedValueOnce(paginaEstante([itemEstante('l1', 'Dom Casmurro')]))
+    const { wrapper } = await montarNaRota('/perfil')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Não foi possível carregar a estante. Verifique sua conexão e tente de novo.')
+    const secao = wrapper.get('section[id$="-painel-estante"]')
+    await secao.findAll('button').find((b) => b.text() === 'Tentar de novo')!.trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Dom Casmurro')
+
+    document.body.innerHTML = ''
+    leitura.listarEstantePerfil.mockRejectedValueOnce(new ApiError('Não encontrado.', 404, 'NAO_ENCONTRADO'))
+    const outra = await montarNaRota('/perfil')
+    await flushPromises()
+    expect(outra.wrapper.text()).toContain('Os livros que você adicionar aparecem aqui.')
+    expect(outra.wrapper.text()).not.toContain('Não foi possível carregar a estante')
   })
 
   it('perfil privado troca o chip e explica quem vê o conteúdo', async () => {

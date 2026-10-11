@@ -28,11 +28,10 @@ import {
  * O `search_path` da `DATABASE_URL` aponta só para `acervo`, então toda consulta
  * precisa ser qualificada pelo schema — é o que `pgSchema()` garante.
  *
- * As features donas destas VIEWs (F-FEED, F-PERFIL, F-AVA) ainda não estão
- * implementadas. As VIEWs existem fisicamente desde a baseline do DER, então as
- * consultas funcionam e simplesmente não retornam linha. O efeito é fail-closed:
- * enquanto não houver atividade nem seguimento, nenhum terceiro acessa livro
- * pessoal, que é o comportamento correto.
+ * As features donas destas VIEWs (F-FEED, F-PERFIL, F-AVA) foram entregues em
+ * 27/09/2026, e as VIEWs, que existem fisicamente desde a baseline do DER, já
+ * trazem dados reais. O efeito continua fail-closed: sem atividade nem seguimento
+ * que autorizem, nenhum terceiro acessa livro pessoal.
  */
 
 const social = pgSchema('social');

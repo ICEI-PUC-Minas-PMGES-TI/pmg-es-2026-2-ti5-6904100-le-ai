@@ -215,8 +215,8 @@ export const TAMANHO_DA_PAGINA_DE_LIVROS = 20
 
 export interface ViaDeAcesso {
   /**
-   * `lista` (F-LST): o `acervo` só aceita depois da etapa 3 da F-LST; até lá responde 400, e a
-   * página cai no estado "indisponível". O dono abre o próprio livro sem via.
+   * `lista` (F-LST): aceita pelo `acervo` desde a etapa 3 (07/10/2026). Um 400 por essa via ainda
+   * cai no estado "indisponível", por segurança. O dono abre o próprio livro sem via.
    */
   via: 'feed' | 'lista'
   referenciaId: string

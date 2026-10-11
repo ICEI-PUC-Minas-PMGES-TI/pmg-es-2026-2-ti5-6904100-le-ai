@@ -15,6 +15,8 @@ import 'package:le_ai_mobile/core/session/session_controller.dart';
 import 'package:le_ai_mobile/core/session/token_store.dart';
 import 'package:le_ai_mobile/design/theme.dart';
 import 'package:le_ai_mobile/features/avaliacao/leitura_service.dart';
+import 'package:le_ai_mobile/features/avaliacao/resenhas_do_perfil.dart';
+import 'package:le_ai_mobile/features/estante/estante_de_perfil.dart';
 import 'package:le_ai_mobile/features/auth/auth_service.dart';
 import 'package:le_ai_mobile/features/conta/exclusao_service.dart';
 import 'package:le_ai_mobile/features/feed/rotas_feed.dart';
@@ -395,6 +397,21 @@ void main() {
     expect(find.text('Editar lista'), findsNothing);
   });
 
+  testWidgets('o perfil do autor aberto pelo Feed tem estante e resenhas, como na aba Perfil', (
+    tester,
+  ) async {
+    await sessionController.entrar('jwt-valido');
+    await tester.pumpWidget(_wrap(router));
+    await tester.pumpAndSettle();
+
+    for (final caminho in <String>['/feed/leitores/caio', '/perfil/leitores/caio']) {
+      router.go(caminho);
+      await tester.pumpAndSettle();
+      expect(find.byType(EstanteDePerfil), findsOneWidget, reason: caminho);
+      expect(find.byType(ResenhasDoPerfil), findsOneWidget, reason: caminho);
+    }
+  });
+
   testWidgets('as listas de outro leitor abrem dentro da aba Feed', (tester) async {
     await sessionController.entrar('jwt-valido');
     await tester.pumpWidget(_wrap(router));
@@ -405,6 +422,15 @@ void main() {
 
     expect(find.text('Listas de '), findsOneWidget);
     expect(find.text('Contos que eu indico'), findsOneWidget);
+
+    // O livro oficial da lista abre sob a raiz do Feed (`/feed/livro/:id`), não sob Descobrir.
+    await tester.tap(find.text('Contos que eu indico'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sagarana').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Torto Arado'), findsWidgets);
+    expect(router.routerDelegate.currentConfiguration.last.matchedLocation, '/feed/livro/livro-1');
+    expect(tester.widget<BarraInferior>(find.byType(BarraInferior)).indiceAtivo, 2);
   });
 
   testWidgets('Descobrir leva ao cadastro por ISBN, que troca o cabeçalho da aba pelo da tela', (

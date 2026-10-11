@@ -26,6 +26,14 @@ class EstantePage extends StatefulWidget {
   final DependenciasDeProgresso? progresso;
   final ValueChanged<String>? aoVerAtualizacoes;
 
+  /// Filtro da rota (`?status=`): o contador `livros lidos` do perfil chega com `Lido` (F-PERFIL).
+  /// Quando muda com a página montada, a lista troca de filtro.
+  final StatusEstante? statusInicial;
+
+  /// Avisa a troca de filtro feita na página, para a rota guardar o `?status=`. Sem isso, o
+  /// contador levaria de novo à mesma rota e a página continuaria no filtro trocado aqui.
+  final ValueChanged<StatusEstante?>? aoMudarFiltro;
+
   const EstantePage({
     super.key,
     required this.servico,
@@ -33,6 +41,8 @@ class EstantePage extends StatefulWidget {
     this.aoCadastrarLivro,
     this.progresso,
     this.aoVerAtualizacoes,
+    this.statusInicial,
+    this.aoMudarFiltro,
   });
 
   @override
@@ -40,7 +50,7 @@ class EstantePage extends StatefulWidget {
 }
 
 class _EstantePageState extends State<EstantePage> {
-  StatusEstante? _status;
+  late StatusEstante? _status = widget.statusInicial;
   OrdenacaoEstante _ordenacao = ordenacaoPadrao;
 
   late final ListaDaEstante _lista = ListaDaEstante(
@@ -73,6 +83,16 @@ class _EstantePageState extends State<EstantePage> {
   }
 
   @override
+  void didUpdateWidget(EstantePage antigo) {
+    super.didUpdateWidget(antigo);
+    final status = widget.statusInicial;
+    if (status != antigo.statusInicial && status != _status) {
+      setState(() => _status = status);
+      _lista.carregar();
+    }
+  }
+
+  @override
   void dispose() {
     widget.servico.alteracoes.removeListener(_aoAlterar);
     widget.progresso?.servico.alteracoes.removeListener(_aoAlterar);
@@ -93,6 +113,7 @@ class _EstantePageState extends State<EstantePage> {
     }
     setState(() => _status = status);
     _lista.carregar();
+    widget.aoMudarFiltro?.call(status);
   }
 
   Future<void> _escolherOrdenacao() async {

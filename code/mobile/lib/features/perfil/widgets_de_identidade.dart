@@ -238,63 +238,19 @@ class SecoesDeLeitura extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final quem = nome ?? 'Este leitor';
     final textoMudo = theme.textTheme.bodyMedium?.copyWith(color: theme.secondaryText);
-    Widget titulo(String texto, {Widget? acao}) => Row(
-      children: <Widget>[
-        Expanded(
-          child: Semantics(header: true, child: Text(texto, style: theme.textTheme.headlineSmall)),
-        ),
-        ?acao,
-      ],
-    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        if (estante case final estante?)
-          estante
-        else ...<Widget>[
-          titulo(
-            'Estante',
-            acao: proprio && aoVerEstante != null
-                ? TextButton(
-                    onPressed: aoVerEstante,
-                    style: TextButton.styleFrom(
-                      foregroundColor: theme.primaryAccent,
-                      minimumSize: const Size(48, 48),
-                      padding: const EdgeInsets.symmetric(horizontal: DesignTokens.space1),
-                      textStyle: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
-                    ),
-                    child: const Text('Ver tudo'),
-                  )
-                : null,
-          ),
-          const SizedBox(height: DesignTokens.space5),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: DesignTokens.space4),
-            child: Column(
-              children: <Widget>[
-                ExcludeSemantics(
-                  child: Icon(PhosphorIconsRegular.books, size: 32, color: theme.tertiaryText),
-                ),
-                const SizedBox(height: DesignTokens.space6),
-                Text(
-                  proprio
-                      ? 'Os livros que você adicionar aparecem aqui.'
-                      : '$quem ainda não tem livros na estante.',
-                  style: textoMudo,
-                  textAlign: TextAlign.center,
-                ),
-                if (proprio && aoBuscarLivros != null) ...<Widget>[
-                  const SizedBox(height: DesignTokens.space6),
-                  BotaoPrimario(texto: 'Buscar livros', onPressed: aoBuscarLivros, larguraTotal: false),
-                ],
-              ],
+        estante ??
+            EstanteVaziaDoPerfil(
+              proprio: proprio,
+              nome: nome,
+              aoBuscarLivros: aoBuscarLivros,
+              aoVerEstante: aoVerEstante,
             ),
-          ),
-        ],
         const SizedBox(height: DesignTokens.space12),
-        titulo('Resenhas'),
+        const TituloDaSecao('Resenhas'),
         const SizedBox(height: DesignTokens.space4),
         resenhas ??
             Text(
@@ -306,6 +262,103 @@ class SecoesDeLeitura extends StatelessWidget {
           const SizedBox(height: DesignTokens.space12),
           listas,
         ],
+      ],
+    );
+  }
+}
+
+/// Título de seção do perfil ("Estante", "Resenhas"), marcado como cabeçalho para o leitor de tela.
+class TituloDaSecao extends StatelessWidget {
+  final String texto;
+  final Widget? acao;
+
+  const TituloDaSecao(this.texto, {super.key, this.acao});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      children: <Widget>[
+        Expanded(
+          child: Semantics(header: true, child: Text(texto, style: theme.textTheme.headlineSmall)),
+        ),
+        ?acao,
+      ],
+    );
+  }
+}
+
+/// "Ver tudo" da seção Estante do próprio perfil, que leva à aba Estante.
+class BotaoVerTudo extends StatelessWidget {
+  final VoidCallback onPressed;
+
+  const BotaoVerTudo({super.key, required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return TextButton(
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        foregroundColor: theme.primaryAccent,
+        minimumSize: const Size(48, 48),
+        padding: const EdgeInsets.symmetric(horizontal: DesignTokens.space1),
+        textStyle: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+      ),
+      child: const Text('Ver tudo'),
+    );
+  }
+}
+
+/// Seção Estante sem livros (artboard 04 de meu-perfil): no próprio perfil, com "Ver tudo" e o CTA
+/// "Buscar livros"; no de outro leitor, o texto neutro com o [nome].
+class EstanteVaziaDoPerfil extends StatelessWidget {
+  final bool proprio;
+  final String? nome;
+  final VoidCallback? aoBuscarLivros;
+  final VoidCallback? aoVerEstante;
+
+  const EstanteVaziaDoPerfil({
+    super.key,
+    required this.proprio,
+    this.nome,
+    this.aoBuscarLivros,
+    this.aoVerEstante,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        TituloDaSecao(
+          'Estante',
+          acao: proprio && aoVerEstante != null ? BotaoVerTudo(onPressed: aoVerEstante!) : null,
+        ),
+        const SizedBox(height: DesignTokens.space5),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: DesignTokens.space4),
+          child: Column(
+            children: <Widget>[
+              ExcludeSemantics(
+                child: Icon(PhosphorIconsRegular.books, size: 32, color: theme.tertiaryText),
+              ),
+              const SizedBox(height: DesignTokens.space6),
+              Text(
+                proprio
+                    ? 'Os livros que você adicionar aparecem aqui.'
+                    : '${nome ?? 'Este leitor'} ainda não tem livros na estante.',
+                style: theme.textTheme.bodyMedium?.copyWith(color: theme.secondaryText),
+                textAlign: TextAlign.center,
+              ),
+              if (proprio && aoBuscarLivros != null) ...<Widget>[
+                const SizedBox(height: DesignTokens.space6),
+                BotaoPrimario(texto: 'Buscar livros', onPressed: aoBuscarLivros, larguraTotal: false),
+              ],
+            ],
+          ),
+        ),
       ],
     );
   }

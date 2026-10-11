@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/config/app_config.dart';
 import '../../core/network/api_client.dart';
-import '../livros/rotas_livros.dart';
 import '../perfil/perfil_service.dart';
 import '../perfil/rotas_perfil.dart';
 import 'lista_page.dart';
@@ -67,9 +66,8 @@ void _voltar(BuildContext context, String destino) {
 
 /// Página do livro a partir de um item. Livro pessoal visto por terceiro vai com `via=lista` e a
 /// lista como referência (RN-15). **O dono vai sem via:** o `acervo` libera o dono sem olhar a via
-/// e, até a etapa 3 da F-LST, recusa `via=lista` com 400 (pendência na feature). O livro oficial
-/// abre na aba Perfil; no Feed, que não tem a rota do livro oficial, abre em Descobrir, como o
-/// próprio feed faz.
+/// (contorno de antes da etapa 3 da F-LST, que ficou por ser inofensivo). O livro oficial abre
+/// na própria aba de origem, Perfil ou Feed (pagina-do-livro.md §4.1).
 void _abrirLivro(
   BuildContext context,
   String raiz,
@@ -82,10 +80,8 @@ void _abrirLivro(
     context.push(
       dono ? base : '$base?via=lista&referenciaId=${Uri.encodeQueryComponent(listaId)}',
     );
-  } else if (raiz == rotaPerfilRaiz) {
-    context.push('$rotaPerfilRaiz/livro/${Uri.encodeComponent(livro.id)}');
   } else {
-    context.push(rotaLivroOficial(livro.id));
+    context.push('$raiz/livro/${Uri.encodeComponent(livro.id)}');
   }
 }
 

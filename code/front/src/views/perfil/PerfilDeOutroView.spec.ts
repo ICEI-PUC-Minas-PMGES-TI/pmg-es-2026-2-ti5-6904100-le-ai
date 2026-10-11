@@ -123,7 +123,21 @@ describe('PerfilDeOutroView', () => {
     expect(wrapper.text()).toContain('Rafael ainda não criou listas.')
     expect(listas.listarDoPerfil).toHaveBeenCalledWith('u2', 0)
     expect(wrapper.text()).not.toContain('Buscar livros')
-    expect(wrapper.text()).not.toContain('livros lidos')
+    expect(wrapper.find('[aria-label="0 livros lidos"]').exists()).toBe(true)
+  })
+
+  it('livros lidos soma Lido e Relendo da estante e não é link', async () => {
+    leitura.listarEstantePerfil.mockResolvedValue(
+      paginaEstante([itemEstante('l1', 'Os Sertões', { status: 'LIDO', vezesLido: 1 })], {
+        totais: { QUERO_LER: 4, LENDO: 1, LIDO: 30, RELENDO: 1, ABANDONADO: 2 },
+      }),
+    )
+    const { wrapper } = await montarNaRota('/leitores/rafaokamoto')
+    await flushPromises()
+
+    const contador = wrapper.get('[aria-label="31 livros lidos"]')
+    expect(contador.element.tagName).toBe('DIV')
+    expect(contador.find('a').exists()).toBe(false)
   })
 
   it('resenhas do perfil: card com livro, estrelas e trecho, e o livro abre na aba Perfil', async () => {
@@ -316,6 +330,7 @@ describe('PerfilDeOutroView', () => {
     const outra = await montarNaRota('/leitores/bia.nogueira')
     await flushPromises()
     expect(outra.wrapper.text()).toContain('Este perfil é privado')
+    expect(outra.wrapper.text()).not.toContain('livros lidos')
     expect(outra.wrapper.text()).not.toContain('Não foi possível carregar a estante')
     expect(outra.wrapper.find('section[aria-labelledby="titulo-estante-do-perfil"]').exists()).toBe(false)
   })

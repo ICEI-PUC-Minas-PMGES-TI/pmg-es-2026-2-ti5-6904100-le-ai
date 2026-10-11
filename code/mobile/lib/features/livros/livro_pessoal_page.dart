@@ -152,8 +152,8 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
       }
       setState(() {
         // Livro excluído e acesso negado são o MESMO estado, com a mesma copy: nada pode
-        // confirmar a existência do livro a quem não tem acesso (§4.8, §10). Pela lista, o
-        // `acervo` responde 400 até a etapa 3 da F-LST (pendência na feature): é o mesmo estado.
+        // confirmar a existência do livro a quem não tem acesso (§4.8, §10). Pela lista, um 400
+        // do `acervo` (que aceita `via=lista` desde a etapa 3 da F-LST) é o mesmo estado.
         if (erro.status == 404 ||
             erro.status == 403 ||
             (widget.via == 'lista' && erro.status == 400)) {

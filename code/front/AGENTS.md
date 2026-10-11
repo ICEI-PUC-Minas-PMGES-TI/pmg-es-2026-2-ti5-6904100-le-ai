@@ -75,7 +75,7 @@ Uma URL por serviço, sem gateway: `VITE_IDENTIDADE_BASE_URL`, `VITE_ACERVO_BASE
   - `components/perfil/SecoesDeLeitura.vue` aceita o slot `listas` (terceira aba, `Listas`) e a prop `abaInicial` (`?aba=listas`); as setas percorrem as três abas.
   - `ui/MenuDeAcoes.vue` é o menu `Mais ações`: folha no mobile, dropdown na web. Entrou na página do livro oficial só com `Adicionar à lista`; outras features acrescentam itens em `acoesDoMenu`.
   - `styles.css` ganhou a classe global `.entrada` (fade único dos skeletons). As telas antigas mantêm a cópia em `<style scoped>`.
-  - `services/acervo.ts`: `ViaDeAcesso.via` aceita `lista`. Até a etapa 3 da F-LST, o `acervo` responde 400 a ela, e `LivroPessoalView` trata isso como "indisponível". O dono abre o próprio livro sem via.
+  - `services/acervo.ts`: `ViaDeAcesso.via` aceita `lista`, que o `acervo` aceita desde a etapa 3 da F-LST (07/10/2026). `LivroPessoalView` ainda trata um 400 por essa via como "indisponível". O dono abre o próprio livro sem via (contorno de antes da etapa 3, mantido por ser inofensivo).
 
 - **`components/perfil/FimDaLista.vue` (27/09/2026, F-ACV-BUSCA).** Ganhou a prop opcional `carregando`. O `IntersectionObserver` só avisa quando a marca *entra* na tela; se a página nova não a empurrar para fora (lista curta, edições agrupadas, monitor alto), a paginação parava sem botão. Com `carregando`, cada carga que termina reobserva a marca, e ela pede a seguinte se continuar visível. Sem a prop, o comportamento é o de antes: Conexões, Solicitações e Feed ainda não a passam, e deveriam (é só `:carregando="<flag de carregando mais>"`).
 

@@ -23,8 +23,9 @@ export function rotaDoIndice(username: string | null, comoAba: boolean): RouteLo
 
 /**
  * Página do livro a partir de um item. Livro pessoal visto por terceiro vai com `via=lista` e a
- * lista como referência (RN-15). **O dono vai sem via:** o `acervo` libera o dono sem olhar a via
- * e, até a etapa 3 da F-LST, recusa `via=lista` com 400 (pendência na feature).
+ * lista como referência (RN-15). **O dono vai sem via:** o `acervo` libera o dono sem olhar a via.
+ * Era o contorno de antes da etapa 3 da F-LST (07/10/2026), quando `via=lista` respondia 400, e
+ * ficou por ser inofensivo.
  */
 export function rotaDoLivro(livro: LivroDaLista, listaId: string, donoDaLista: boolean): RouteLocationRaw {
   if (livro.tipo === 'PESSOAL') {
