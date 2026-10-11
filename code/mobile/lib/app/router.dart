@@ -205,12 +205,15 @@ GoRouter buildRouter({
               GoRoute(
                 path: rotaEstante,
                 builder: (context, state) => EstantePage(
-                  // `?status=LIDO` vem do contador `livros lidos` do perfil; a chave recria a página
-                  // para o filtro valer mesmo com a aba já aberta.
-                  key: ValueKey<String?>(state.uri.queryParameters['status']),
+                  // `?status=LIDO` vem do contador `livros lidos` do perfil. O filtro trocado na
+                  // página também vai para a URL, para o contador mudar a rota de novo e o filtro
+                  // valer com a aba já aberta.
                   statusInicial: StatusEstante.values
                       .where((status) => status.valor == state.uri.queryParameters['status'])
                       .firstOrNull,
+                  aoMudarFiltro: (status) => context.go(
+                    status == null ? rotaEstante : '$rotaEstante?status=${status.valor}',
+                  ),
                   servico: servicoDeEstante,
                   aoBuscarLivros: () => context.go('/descobrir'),
                   aoCadastrarLivro: () => context.go(rotaAdicionarLivro),
@@ -291,6 +294,7 @@ GoRouter buildRouter({
                   aoVerLivrosLidos: () =>
                       context.go('$rotaEstante?status=${StatusEstante.lido.valor}'),
                   estante: servicoDeEstante,
+                  alteracoesDoProgresso: depsDeProgresso.servico.alteracoes,
                   resenhas: (usuarioId) =>
                       _resenhasDoPerfil(context, deps, usuarioId: usuarioId, proprio: true),
                   listas: (usuarioId) => secaoDasMinhasListas(context, depsDeListas, usuarioId),

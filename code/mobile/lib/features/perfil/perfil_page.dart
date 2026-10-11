@@ -52,6 +52,10 @@ class PerfilPage extends StatefulWidget {
   /// Estante do próprio leitor (F-EST). Sem ela, a seção fica no estado vazio.
   final EstanteService? estante;
 
+  /// Avisos do progresso (F-PRG), que mudam o percentual dos cards da estante; os da própria
+  /// [estante] já recarregam a seção.
+  final Listenable? alteracoesDoProgresso;
+
   /// Lista de resenhas do perfil (F-AVA), montada com o id do leitor.
   final Widget Function(String usuarioId)? resenhas;
 
@@ -76,6 +80,7 @@ class PerfilPage extends StatefulWidget {
     this.aoVerEstante,
     this.aoVerLivrosLidos,
     this.estante,
+    this.alteracoesDoProgresso,
     this.resenhas,
     this.listas,
     this.sequencia,
@@ -92,6 +97,13 @@ class _PerfilPageState extends State<PerfilPage> {
   bool _falhou = false;
   int _pedidosPendentes = 0;
   int? _livrosLidos;
+
+  // Uma instância só: um `Listenable.merge` por build trocaria os ouvintes da estante a cada
+  // `setState`.
+  late final Listenable _alteracoesDaEstante = Listenable.merge(<Listenable?>[
+    widget.estante?.alteracoes,
+    widget.alteracoesDoProgresso,
+  ]);
 
   @override
   void initState() {
@@ -292,6 +304,7 @@ class _PerfilPageState extends State<PerfilPage> {
                           usuarioId: perfil.id,
                           primeiroNome: primeiroNome(perfil.displayName),
                           aoMudarLivrosLidos: (lidos) => setState(() => _livrosLidos = lidos),
+                          alteracoes: _alteracoesDaEstante,
                           acaoDoTitulo: aoVerEstante == null ? null : BotaoVerTudo(onPressed: aoVerEstante),
                           vazio: EstanteVaziaDoPerfil(
                             proprio: true,

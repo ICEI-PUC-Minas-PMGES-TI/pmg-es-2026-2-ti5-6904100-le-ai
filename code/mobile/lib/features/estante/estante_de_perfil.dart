@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 
+import '../../core/network/recarga_em_sequencia.dart';
 import '../../design/tokens.dart';
 import '../../design/widgets/banner_aviso.dart';
 import '../../design/widgets/botao_textual.dart';
 import '../../design/widgets/estado_vazio.dart';
+import '../perfil/widgets_de_identidade.dart';
 import '../perfil/widgets_de_perfil.dart';
 import 'cartao_estante.dart';
 import 'estante_service.dart';
@@ -18,7 +20,7 @@ const double _distanciaParaCarregarMais = 300;
 /// próprio perfil, [acaoDoTitulo] traz o "Ver tudo" e [vazio] substitui a seção inteira quando não há
 /// livros ou o `leitura` responde `404`, para manter o CTA "Buscar livros". [aoMudarLivrosLidos]
 /// recebe o contador `livros lidos` do perfil, derivado da estante e por isso nulo quando ela está
-/// restrita ou indisponível.
+/// restrita ou indisponível. Cada aviso de [alteracoes] recarrega a grade.
 class EstanteDePerfil extends StatefulWidget {
   final EstanteService servico;
   final String usuarioId;
@@ -27,6 +29,11 @@ class EstanteDePerfil extends StatefulWidget {
   final ValueChanged<int?>? aoMudarLivrosLidos;
   final Widget? acaoDoTitulo;
   final Widget? vazio;
+
+  /// Escritas que mudam esta estante. No próprio perfil, os avisos da estante e do progresso: a aba
+  /// Perfil fica montada no `indexedStack`, e o que muda em outra aba só chega por eles, como na
+  /// `EstantePage`. No perfil de outro leitor fica nulo, porque as escritas são de quem olha.
+  final Listenable? alteracoes;
 
   const EstanteDePerfil({
     super.key,
@@ -37,6 +44,7 @@ class EstanteDePerfil extends StatefulWidget {
     this.aoMudarLivrosLidos,
     this.acaoDoTitulo,
     this.vazio,
+    this.alteracoes,
   });
 
   @override
@@ -51,12 +59,30 @@ class _EstanteDePerfilState extends State<EstanteDePerfil> {
   int? _livrosLidosAvisados;
   ScrollPosition? _rolagem;
 
+  late final RecargaEmSequencia _recarga = RecargaEmSequencia(() async {
+    if (mounted) {
+      await _lista.carregar();
+    }
+  });
+
   @override
   void initState() {
     super.initState();
     _lista.addListener(_aoMudar);
     _lista.carregar();
+    widget.alteracoes?.addListener(_aoAlterar);
   }
+
+  @override
+  void didUpdateWidget(EstanteDePerfil antigo) {
+    super.didUpdateWidget(antigo);
+    if (antigo.alteracoes != widget.alteracoes) {
+      antigo.alteracoes?.removeListener(_aoAlterar);
+      widget.alteracoes?.addListener(_aoAlterar);
+    }
+  }
+
+  void _aoAlterar() => _recarga.pedir();
 
   @override
   void didChangeDependencies() {
@@ -78,6 +104,7 @@ class _EstanteDePerfilState extends State<EstanteDePerfil> {
 
   @override
   void dispose() {
+    widget.alteracoes?.removeListener(_aoAlterar);
     _rolagem?.removeListener(_aoRolar);
     _lista
       ..removeListener(_aoMudar)
@@ -108,16 +135,10 @@ class _EstanteDePerfilState extends State<EstanteDePerfil> {
     if (_lista.restrita || _lista.indisponivel) {
       return const SizedBox.shrink();
     }
-    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        Row(
-          children: <Widget>[
-            Expanded(child: Text(TextosDaEstanteDePerfil.titulo, style: theme.textTheme.titleLarge)),
-            ?widget.acaoDoTitulo,
-          ],
-        ),
+        TituloDaSecao(TextosDaEstanteDePerfil.titulo, acao: widget.acaoDoTitulo),
         const SizedBox(height: DesignTokens.space4),
         ..._conteudo(),
       ],

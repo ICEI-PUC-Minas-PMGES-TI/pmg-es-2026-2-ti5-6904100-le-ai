@@ -250,7 +250,7 @@ class SecoesDeLeitura extends StatelessWidget {
               aoVerEstante: aoVerEstante,
             ),
         const SizedBox(height: DesignTokens.space12),
-        const _TituloDaSecao('Resenhas'),
+        const TituloDaSecao('Resenhas'),
         const SizedBox(height: DesignTokens.space4),
         resenhas ??
             Text(
@@ -267,11 +267,12 @@ class SecoesDeLeitura extends StatelessWidget {
   }
 }
 
-class _TituloDaSecao extends StatelessWidget {
+/// Título de seção do perfil ("Estante", "Resenhas"), marcado como cabeçalho para o leitor de tela.
+class TituloDaSecao extends StatelessWidget {
   final String texto;
   final Widget? acao;
 
-  const _TituloDaSecao(this.texto, {this.acao});
+  const TituloDaSecao(this.texto, {super.key, this.acao});
 
   @override
   Widget build(BuildContext context) {
@@ -331,7 +332,7 @@ class EstanteVaziaDoPerfil extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        _TituloDaSecao(
+        TituloDaSecao(
           'Estante',
           acao: proprio && aoVerEstante != null ? BotaoVerTudo(onPressed: aoVerEstante!) : null,
         ),

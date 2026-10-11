@@ -269,6 +269,50 @@ void main() {
       expect(find.text('Nenhum livro concluído'), findsOneWidget);
     });
 
+    testWidgets('filtro trocado vai para a rota, e o status novo da rota troca o filtro', (
+      tester,
+    ) async {
+      usarTelaDeCelular(tester);
+      final pedidos = <String?>[];
+      final avisados = <StatusEstante?>[];
+      final servico = estanteSimulada((request) async {
+        pedidos.add(request.url.queryParameters['status']);
+        return json(paginaJson(const <Map<String, Object?>>[], totaisPorStatus: totais(queroLer: 1)), 200);
+      });
+      // Faz o papel do `?status=` da rota: o contador do perfil e a própria página o trocam.
+      final daRota = ValueNotifier<StatusEstante?>(StatusEstante.lido);
+      addTearDown(daRota.dispose);
+      await tester.pumpWidget(
+        envolver(
+          ValueListenableBuilder<StatusEstante?>(
+            valueListenable: daRota,
+            builder: (context, status, _) => EstantePage(
+              servico: servico,
+              aoBuscarLivros: () {},
+              statusInicial: status,
+              aoMudarFiltro: (novo) {
+                avisados.add(novo);
+                daRota.value = novo;
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tocar(tester, find.bySemanticsLabel('Quero ler 1'));
+      await tester.pumpAndSettle();
+      expect(avisados, <StatusEstante?>[StatusEstante.queroLer]);
+      // A rota que volta com o filtro da própria página não recarrega de novo.
+      expect(pedidos, <String?>['LIDO', 'QUERO_LER']);
+
+      // O contador `livros lidos` tocado de novo.
+      daRota.value = StatusEstante.lido;
+      await tester.pumpAndSettle();
+      expect(pedidos.last, 'LIDO');
+      expect(find.text('Nenhum livro concluído'), findsOneWidget);
+    });
+
     testWidgets('recarrega quando o livro entra na estante por outra tela', (tester) async {
       usarTelaDeCelular(tester);
       var naEstante = false;
@@ -554,6 +598,7 @@ void main() {
       EstanteService estante, {
       VoidCallback? aoVerEstante,
       VoidCallback? aoVerLivrosLidos,
+      Listenable? alteracoesDoProgresso,
     }) async {
       usarTelaDeCelular(tester);
       await tester.pumpWidget(
@@ -561,6 +606,7 @@ void main() {
           PerfilPage(
             servico: meuPerfil(),
             estante: estante,
+            alteracoesDoProgresso: alteracoesDoProgresso,
             aoBuscarLivros: () {},
             aoVerEstante: aoVerEstante ?? () {},
             aoVerLivrosLidos: aoVerLivrosLidos ?? () {},
@@ -569,6 +615,71 @@ void main() {
       );
       await tester.pumpAndSettle();
     }
+
+    testWidgets('acompanha o livro que entra na estante por outra aba', (tester) async {
+      var naEstante = false;
+      final estante = estanteSimulada((request) async {
+        if (request.method == 'POST') {
+          naEstante = true;
+          return json(itemJson(_livroId, titulo: 'Dom Casmurro'), 201);
+        }
+        return json(
+          paginaJson(
+            <Map<String, Object?>>[
+              if (naEstante) itemJson(_livroId, titulo: 'Dom Casmurro', status: 'LIDO', vezesLido: 1),
+            ],
+            totaisPorStatus: totais(lido: naEstante ? 1 : 0),
+          ),
+          200,
+        );
+      });
+      await montar(tester, estante);
+      expect(find.text('Os livros que você adicionar aparecem aqui.'), findsOneWidget);
+      expect(find.bySemanticsLabel('0 livros lidos'), findsOneWidget);
+
+      // Descobrir e Estante usam o mesmo serviço; a aba Perfil continua montada.
+      unawaited(estante.adicionarEstante(_livroId, idempotencyKey: 'k1'));
+      await tester.pumpAndSettle();
+      expect(find.text('Dom Casmurro'), findsOneWidget);
+      expect(find.text('Os livros que você adicionar aparecem aqui.'), findsNothing);
+      expect(find.bySemanticsLabel('1 livro lido'), findsOneWidget);
+    });
+
+    testWidgets('recarrega com o progresso registrado em outra aba', (tester) async {
+      var consultas = 0;
+      final progresso = ValueNotifier<int>(0);
+      addTearDown(progresso.dispose);
+      await montar(
+        tester,
+        estanteSimulada((request) async {
+          consultas++;
+          return json(paginaJson(<Map<String, Object?>>[itemJson(_livroId, titulo: 'Dom Casmurro')]), 200);
+        }),
+        alteracoesDoProgresso: progresso,
+      );
+      expect(consultas, 1);
+
+      progresso.value++;
+      await tester.pumpAndSettle();
+      expect(consultas, 2);
+    });
+
+    testWidgets('o título "Estante" com livros é cabeçalho, como no vazio', (tester) async {
+      await montar(
+        tester,
+        estanteSimulada(
+          (request) async =>
+              json(paginaJson(<Map<String, Object?>>[itemJson(_livroId, titulo: 'Dom Casmurro')]), 200),
+        ),
+      );
+      expect(
+        find.ancestor(
+          of: find.text('Estante'),
+          matching: find.byWidgetPredicate((w) => w is Semantics && (w.properties.header ?? false)),
+        ),
+        findsOneWidget,
+      );
+    });
 
     testWidgets('livros lidos vem da estante e leva à estante filtrada', (tester) async {
       var abriu = 0;
