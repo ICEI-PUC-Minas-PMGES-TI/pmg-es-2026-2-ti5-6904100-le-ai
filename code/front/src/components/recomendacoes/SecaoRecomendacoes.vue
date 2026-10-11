@@ -4,7 +4,10 @@ import { RouterLink } from 'vue-router'
 
 import BannerAviso from '../ui/BannerAviso.vue'
 import BotaoTextual from '../ui/BotaoTextual.vue'
+import AvisoDoDescarte from './AvisoDoDescarte.vue'
 import ItemRecomendacao from './ItemRecomendacao.vue'
+import MenuDaRecomendacao from './MenuDaRecomendacao.vue'
+import { useDescarteDeRecomendacao } from '../../recomendacoes/useDescarteDeRecomendacao'
 import { socialService, type RecomendacaoRecebida } from '../../services/social'
 
 // O mobile mostra três; a web, quatro em duas colunas. Uma página de quatro serve aos dois.
@@ -14,15 +17,27 @@ const VISIVEIS_NO_MOBILE = 3
 const estado = ref<'carregando' | 'pronta' | 'erro'>('carregando')
 const recomendacoes = shallowRef<RecomendacaoRecebida[]>([])
 
-async function carregar(): Promise<void> {
-  estado.value = 'carregando'
+async function carregar(silencioso = false): Promise<void> {
+  if (!silencioso) {
+    estado.value = 'carregando'
+  }
   try {
     recomendacoes.value = (await socialService.listarRecebidas(0, TAMANHO_DA_SECAO)).items
     estado.value = 'pronta'
   } catch {
-    estado.value = 'erro'
+    if (!silencioso) {
+      estado.value = 'erro'
+    }
   }
 }
+
+// Recarrega para a vaga do descartado ser preenchida pela próxima recomendação.
+function aoDescartar(id: string): void {
+  recomendacoes.value = recomendacoes.value.filter((recomendacao) => recomendacao.id !== id)
+  void carregar(true)
+}
+
+const { descartando, aviso, escolher, tentarDeNovo } = useDescarteDeRecomendacao(aoDescartar)
 
 onMounted(carregar)
 </script>
@@ -74,7 +89,7 @@ onMounted(carregar)
       Não foi possível carregar suas recomendações. Verifique sua conexão e tente de novo.
       <BotaoTextual
         class="mt-space-2"
-        @click="carregar"
+        @click="carregar()"
       >
         Tentar de novo
       </BotaoTextual>
@@ -95,14 +110,30 @@ onMounted(carregar)
         v-for="(recomendacao, indice) in recomendacoes"
         :key="recomendacao.id"
         class="py-space-4 md:rounded-base md:p-space-4 md:transition-colors md:duration-dur-fast md:hover:bg-papel-elevado"
-        :class="indice >= VISIVEIS_NO_MOBILE ? 'hidden md:block' : ''"
+        :class="[
+          indice >= VISIVEIS_NO_MOBILE ? 'hidden md:block' : '',
+          descartando.includes(recomendacao.id) ? 'pointer-events-none opacity-50' : '',
+        ]"
       >
         <ItemRecomendacao
           :recomendacao="recomendacao"
           capa-grande
-        />
+        >
+          <template #acoes>
+            <MenuDaRecomendacao
+              :recomendacao="recomendacao"
+              @escolher="escolher($event, recomendacao)"
+            />
+          </template>
+        </ItemRecomendacao>
       </li>
     </ul>
+
+    <AvisoDoDescarte
+      :aviso="aviso"
+      @tentar-de-novo="tentarDeNovo"
+      @fechar="aviso = null"
+    />
   </section>
 </template>
 

@@ -44,6 +44,8 @@ final List<Map<String, Object?>> _duas = <Map<String, Object?>>[
 
 void main() {
   group('seção do Descobrir', () {
+    final perfis = <String>[];
+
     Future<List<String>> montar(
       WidgetTester tester,
       Future<http.Response> Function(http.Request) handler,
@@ -57,6 +59,7 @@ void main() {
               social: socialSimulado(handler),
               aoAbrirLivro: (id) async => abertos.add(id),
               aoVerTodas: () async {},
+              aoAbrirPerfil: perfis.add,
             ),
           ),
         ),
@@ -103,6 +106,65 @@ void main() {
       await tester.tap(find.text('Tentar de novo'));
       await tester.pumpAndSettle();
       expect(find.text('A Hora da Estrela'), findsWidgets);
+    });
+  });
+
+  group('seção do Descobrir, menu da recomendação', () {
+    Future<List<http.Request>> montar(WidgetTester tester, List<String> perfis) async {
+      usarTelaDeCelular(tester);
+      final descartes = <http.Request>[];
+      var descartado = false;
+      await tester.pumpWidget(
+        envolver(
+          SingleChildScrollView(
+            child: SecaoRecomendacoes(
+              social: socialSimulado((request) async {
+                if (request.method == 'DELETE') {
+                  descartes.add(request);
+                  descartado = true;
+                  return http.Response('', 204);
+                }
+                return json(_pagina(descartado ? <Map<String, Object?>>[_duas.first] : _duas), 200);
+              }),
+              aoAbrirLivro: (_) async {},
+              aoVerTodas: () async {},
+              aoAbrirPerfil: perfis.add,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      return descartes;
+    }
+
+    testWidgets('descartar tira a recomendação da seção sem avisar o remetente', (tester) async {
+      final descartes = await montar(tester, <String>[]);
+
+      await tester.tap(
+        find.bySemanticsLabel('Mais ações para Quarto de Despejo, recomendado por Caio Rezende'),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Descartar recomendação'));
+      await tester.pumpAndSettle();
+
+      expect(descartes.single.url.path, '/recomendacoes/r2');
+      expect(find.text('Quarto de Despejo'), findsNothing);
+      expect(find.text('A Hora da Estrela'), findsWidgets);
+      expect(find.text('Recomendação descartada.'), findsOneWidget);
+    });
+
+    testWidgets('o menu leva ao perfil de quem recomendou', (tester) async {
+      final perfis = <String>[];
+      await montar(tester, perfis);
+
+      await tester.tap(
+        find.bySemanticsLabel('Mais ações para A Hora da Estrela, recomendado por Júlia Figueiredo'),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Ver perfil de Júlia Figueiredo'));
+      await tester.pumpAndSettle();
+
+      expect(perfis, <String>['leitorr1']);
     });
   });
 

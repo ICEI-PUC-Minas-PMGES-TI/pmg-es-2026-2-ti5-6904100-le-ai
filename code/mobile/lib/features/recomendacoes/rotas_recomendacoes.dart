@@ -13,6 +13,7 @@ Widget secaoDeRecomendacoes(BuildContext context, SocialService social) => Secao
   social: social,
   aoAbrirLivro: (id) => context.push<void>(rotaLivroOficial(id)),
   aoVerTodas: () => context.push<void>(rotaRecomendacoesRecebidas),
+  aoAbrirPerfil: (username) => context.push(rotaPerfilDeOutro(username)),
 );
 
 GoRoute rotaDeRecomendacoesRecebidas(SocialService social) => GoRoute(

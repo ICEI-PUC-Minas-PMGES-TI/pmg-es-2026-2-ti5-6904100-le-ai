@@ -1,79 +1,25 @@
 <script setup lang="ts">
-import { PhPaperPlaneTilt, PhUserCircle, PhXCircle } from '@phosphor-icons/vue'
-import { onMounted, ref } from 'vue'
+import { PhPaperPlaneTilt } from '@phosphor-icons/vue'
+import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 
 import FimDaLista from '../../components/perfil/FimDaLista.vue'
 import ItemRecomendacao from '../../components/recomendacoes/ItemRecomendacao.vue'
-import AvisoFlutuante from '../../components/ui/AvisoFlutuante.vue'
+import AvisoDoDescarte from '../../components/recomendacoes/AvisoDoDescarte.vue'
+import MenuDaRecomendacao from '../../components/recomendacoes/MenuDaRecomendacao.vue'
 import BannerAviso from '../../components/ui/BannerAviso.vue'
 import BotaoPrimario from '../../components/ui/BotaoPrimario.vue'
 import BotaoTextual from '../../components/ui/BotaoTextual.vue'
 import EstadoVazio from '../../components/ui/EstadoVazio.vue'
-import type { AcaoDaFolha } from '../../components/ui/FolhaAcoes.vue'
-import MenuDeAcoes from '../../components/ui/MenuDeAcoes.vue'
 import { usePaginacao } from '../../perfil/usePaginacao'
-import { novaChaveIdempotencia } from '../../services/api'
-import { socialService, type RecomendacaoRecebida } from '../../services/social'
+import { useDescarteDeRecomendacao } from '../../recomendacoes/useDescarteDeRecomendacao'
+import { socialService } from '../../services/social'
 
 const router = useRouter()
 const lista = usePaginacao((pagina) => socialService.listarRecebidas(pagina))
 const { itens, total, carregando, carregandoMais, falhou, falhouMais, temMais } = lista
 
-const aviso = ref<{ texto: string; erro?: RecomendacaoRecebida } | null>(null)
-const descartando = ref<string[]>([])
-const chaves = new Map<string, string>()
-
-function acoesDe(recomendacao: RecomendacaoRecebida): AcaoDaFolha[] {
-  return [
-    { id: 'perfil', rotulo: `Ver perfil de ${recomendacao.remetente.nomeExibicao}`, icone: PhUserCircle },
-    {
-      id: 'descartar',
-      rotulo: 'Descartar recomendação',
-      detalhe: 'Quem recomendou não fica sabendo.',
-      icone: PhXCircle,
-    },
-  ]
-}
-
-function escolher(id: string, recomendacao: RecomendacaoRecebida): void {
-  if (id === 'perfil') {
-    void router.push(`/leitores/${recomendacao.remetente.username}`)
-  } else {
-    void descartar(recomendacao)
-  }
-}
-
-async function descartar(recomendacao: RecomendacaoRecebida): Promise<void> {
-  const { id } = recomendacao
-  if (descartando.value.includes(id)) {
-    return
-  }
-  const chave = chaves.get(id) ?? novaChaveIdempotencia()
-  chaves.set(id, chave)
-  descartando.value = [...descartando.value, id]
-  try {
-    await socialService.descartarRecomendacao(id, chave)
-    chaves.delete(id)
-    lista.retirar(id)
-    aviso.value = { texto: 'Recomendação descartada.' }
-  } catch {
-    aviso.value = {
-      texto: 'Não foi possível descartar a recomendação. Verifique sua conexão e tente de novo.',
-      erro: recomendacao,
-    }
-  } finally {
-    descartando.value = descartando.value.filter((outro) => outro !== id)
-  }
-}
-
-function tentarDescartarDeNovo(): void {
-  const recomendacao = aviso.value?.erro
-  aviso.value = null
-  if (recomendacao) {
-    void descartar(recomendacao)
-  }
-}
+const { descartando, aviso, escolher, tentarDeNovo } = useDescarteDeRecomendacao(lista.retirar)
 
 onMounted(() => void lista.carregar())
 </script>
@@ -155,10 +101,8 @@ onMounted(() => void lista.carregar())
             completa
           >
             <template #acoes>
-              <MenuDeAcoes
-                class="-mr-space-3 -mt-space-3 md:-mr-space-1 md:-mt-space-1"
-                :rotulo="`Mais ações para ${recomendacao.livro.titulo}, recomendado por ${recomendacao.remetente.nomeExibicao}`"
-                :acoes="acoesDe(recomendacao)"
+              <MenuDaRecomendacao
+                :recomendacao="recomendacao"
                 @escolher="escolher($event, recomendacao)"
               />
             </template>
@@ -179,15 +123,11 @@ onMounted(() => void lista.carregar())
       </p>
     </template>
 
-    <AvisoFlutuante
-      :aberto="aviso !== null"
-      :tom="aviso?.erro ? 'rubi' : 'musgo'"
-      :acao="aviso?.erro ? 'Tentar de novo' : undefined"
-      @acao="tentarDescartarDeNovo"
+    <AvisoDoDescarte
+      :aviso="aviso"
+      @tentar-de-novo="tentarDeNovo"
       @fechar="aviso = null"
-    >
-      {{ aviso?.texto }}
-    </AvisoFlutuante>
+    />
   </div>
 </template>
 

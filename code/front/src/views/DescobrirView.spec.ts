@@ -1,4 +1,4 @@
-import { flushPromises } from '@vue/test-utils'
+import { DOMWrapper, flushPromises } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { acervoService } from '../services/acervo'
@@ -17,7 +17,7 @@ vi.mock('../services/acervo', () => ({
 
 vi.mock('../services/social', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../services/social')>()),
-  socialService: { listarRecebidas: vi.fn() },
+  socialService: { listarRecebidas: vi.fn(), descartarRecomendacao: vi.fn() },
 }))
 
 const servico = vi.mocked(acervoService)
@@ -48,6 +48,7 @@ describe('DescobrirView', () => {
     servico.listarAssuntos.mockReset().mockResolvedValue(ASSUNTOS)
     servico.buscarLivros.mockReset().mockResolvedValue(RESULTADOS)
     social.listarRecebidas.mockReset().mockResolvedValue(paginaDeRecomendacoes([]))
+    social.descartarRecomendacao.mockReset()
   })
   afterEach(() => {
     vi.useRealTimers()
@@ -105,6 +106,30 @@ describe('DescobrirView', () => {
     await outra.wrapper.findAll('button').find((b) => b.text() === 'Tentar de novo')!.trigger('click')
     await flushPromises()
     expect(outra.wrapper.text()).toContain('Tudo É Rio')
+  })
+
+  it('o menu de uma recomendação da aterrissagem descarta só ela e a vaga é preenchida', async () => {
+    const ESTRELA = recomendacao('r1', 'A Hora da Estrela', 'Júlia Figueiredo')
+    const DESPEJO = recomendacao('r2', 'Quarto de Despejo', 'Caio Rezende')
+    social.listarRecebidas
+      .mockResolvedValueOnce(paginaDeRecomendacoes([ESTRELA, DESPEJO]))
+      .mockResolvedValue(paginaDeRecomendacoes([ESTRELA]))
+    social.descartarRecomendacao.mockResolvedValue()
+    const { wrapper } = await montarNaRota('/descobrir')
+    await flushPromises()
+    const secao = wrapper.get('section[aria-labelledby="titulo-recomendacoes"]')
+
+    await secao.get('button[aria-label^="Mais ações para Quarto de Despejo"]').trigger('click')
+    await new DOMWrapper(document.body)
+      .findAll('button')
+      .find((b) => b.text().startsWith('Descartar recomendação'))!
+      .trigger('click')
+    await flushPromises()
+
+    expect(social.descartarRecomendacao).toHaveBeenCalledWith('r2', expect.any(String))
+    expect(secao.text()).not.toContain('Quarto de Despejo')
+    expect(secao.text()).toContain('A Hora da Estrela')
+    expect(document.body.textContent).toContain('Recomendação descartada.')
   })
 
   it('resultados: contagem, card com as edições agrupadas e o link da edição principal', async () => {

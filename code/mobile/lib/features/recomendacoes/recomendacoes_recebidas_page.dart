@@ -2,26 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 
 import '../../app/cabecalho_tela.dart';
-import '../../core/network/api_client.dart';
 import '../../design/theme.dart';
 import '../../design/tokens.dart';
-import '../../design/widgets/aviso.dart';
 import '../../design/widgets/banner_aviso.dart';
 import '../../design/widgets/botao_primario.dart';
 import '../../design/widgets/botao_textual.dart';
-import '../../design/widgets/capa_livro.dart';
 import '../../design/widgets/entrada_suave.dart';
 import '../../design/widgets/estado_vazio.dart';
-import '../../design/widgets/folha_de_acoes.dart';
 import '../feed/social_service.dart';
 import '../perfil/lista_paginada.dart';
 import '../perfil/textos.dart';
 import '../perfil/widgets_de_perfil.dart';
+import 'descarte_de_recomendacoes.dart';
 import 'item_recomendacao.dart';
-
-const String _verPerfil = 'perfil';
-const String _descartar = 'descartar';
-const double _opacidadeDescartando = 0.5;
 
 class RecomendacoesRecebidasPage extends StatefulWidget {
   final SocialService social;
@@ -41,13 +34,21 @@ class RecomendacoesRecebidasPage extends StatefulWidget {
   State<RecomendacoesRecebidasPage> createState() => _RecomendacoesRecebidasPageState();
 }
 
-class _RecomendacoesRecebidasPageState extends State<RecomendacoesRecebidasPage> {
+class _RecomendacoesRecebidasPageState extends State<RecomendacoesRecebidasPage>
+    with DescarteDeRecomendacoes {
   late final ListaPaginada<RecomendacaoRecebida> _lista = ListaPaginada<RecomendacaoRecebida>(
     (pagina) => widget.social.listarRecebidas(pagina),
     (recomendacao) => recomendacao.id,
   );
-  final Set<String> _descartando = <String>{};
-  final Map<String, String> _chaves = <String, String>{};
+
+  @override
+  SocialService get social => widget.social;
+
+  @override
+  void aoAbrirPerfilDoRemetente(String username) => widget.aoAbrirPerfil(username);
+
+  @override
+  void aoDescartada(String id) => _lista.retirar(id);
 
   @override
   void initState() {
@@ -79,67 +80,6 @@ class _RecomendacoesRecebidasPageState extends State<RecomendacoesRecebidasPage>
     await widget.aoAbrirLivro(recomendacao.livro.id);
     if (mounted) {
       await _lista.carregar();
-    }
-  }
-
-  Future<void> _abrirMenu(RecomendacaoRecebida recomendacao) async {
-    final remetente = recomendacao.remetente.nomeExibicao;
-    final escolha = await escolherNaFolha(context, <AcaoDaFolha>[
-      AcaoDaFolha(
-        valor: _verPerfil,
-        icone: PhosphorIconsRegular.userCircle,
-        rotulo: 'Ver perfil de $remetente',
-      ),
-      const AcaoDaFolha(
-        valor: _descartar,
-        icone: PhosphorIconsRegular.xCircle,
-        rotulo: 'Descartar recomendação',
-        detalhe: 'Quem recomendou não fica sabendo.',
-      ),
-    ], cabecalho: _CabecalhoDoMenu(recomendacao: recomendacao));
-    if (!mounted) {
-      return;
-    }
-    switch (escolha) {
-      case _verPerfil:
-        widget.aoAbrirPerfil(recomendacao.remetente.username);
-      case _descartar:
-        await _descartarRecomendacao(recomendacao);
-    }
-  }
-
-  Future<void> _descartarRecomendacao(RecomendacaoRecebida recomendacao) async {
-    final id = recomendacao.id;
-    if (_descartando.contains(id)) {
-      return;
-    }
-    final chave = _chaves.putIfAbsent(id, ApiClient.newIdempotencyKey);
-    setState(() => _descartando.add(id));
-    try {
-      await widget.social.descartarRecomendacao(id, idempotencyKey: chave);
-      _chaves.remove(id);
-      _lista.retirar(id);
-      if (mounted) {
-        mostrarAviso(context, 'Recomendação descartada.');
-      }
-    } on ApiException catch (erro) {
-      if (erro.status == 404) {
-        // Já saiu por outra via (estante, expiração): não há o que descartar.
-        _chaves.remove(id);
-        _lista.retirar(id);
-      } else if (mounted) {
-        mostrarAviso(
-          context,
-          'Não foi possível descartar a recomendação. Verifique sua conexão e tente de novo.',
-          erro: true,
-          rotuloDaAcao: 'Tentar de novo',
-          aoAgir: () => _descartarRecomendacao(recomendacao),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _descartando.remove(id));
-      }
     }
   }
 
@@ -256,82 +196,20 @@ class _RecomendacoesRecebidasPageState extends State<RecomendacoesRecebidasPage>
           );
         }
         final recomendacao = itens[indice - 1];
-        final descartando = _descartando.contains(recomendacao.id);
-        return IgnorePointer(
+        return ItemEmDescarte(
           key: ValueKey<String>(recomendacao.id),
-          ignoring: descartando,
-          child: AnimatedOpacity(
-            opacity: descartando ? _opacidadeDescartando : 1,
-            duration: DesignTokens.durBase,
-            child: ItemRecomendacao(
+          descartando: estaEmDescarte(recomendacao.id),
+          child: ItemRecomendacao(
+            recomendacao: recomendacao,
+            completa: true,
+            aoAbrir: () => _abrirLivro(recomendacao),
+            acao: BotaoDeMenuDaRecomendacao(
               recomendacao: recomendacao,
-              completa: true,
-              aoAbrir: () => _abrirLivro(recomendacao),
-              acao: Semantics(
-                button: true,
-                label:
-                    'Mais ações para ${recomendacao.livro.titulo}, recomendado por '
-                    '${recomendacao.remetente.nomeExibicao}',
-                excludeSemantics: true,
-                onTap: () => _abrirMenu(recomendacao),
-                child: GestureDetector(
-                  onTap: () => _abrirMenu(recomendacao),
-                  behavior: HitTestBehavior.opaque,
-                  child: SizedBox(
-                    width: 48,
-                    height: 48,
-                    child: Align(
-                      alignment: Alignment.topRight,
-                      child: Icon(
-                        PhosphorIconsRegular.dotsThree,
-                        size: 20,
-                        color: theme.secondaryText,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+              aoTocar: () => abrirMenuDaRecomendacao(recomendacao),
             ),
           ),
         );
       },
-    );
-  }
-}
-
-class _CabecalhoDoMenu extends StatelessWidget {
-  final RecomendacaoRecebida recomendacao;
-
-  const _CabecalhoDoMenu({required this.recomendacao});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final livro = recomendacao.livro;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        CapaLivro(
-          url: livro.capaUrl,
-          largura: larguraDaCapaRecomendada,
-          altura: alturaDaCapaRecomendada,
-          titulo: livro.titulo,
-          autor: livro.autor,
-        ),
-        const SizedBox(width: DesignTokens.space4),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(livro.titulo, style: theme.textTheme.titleSmall),
-              Text(
-                '${recomendacao.remetente.nomeExibicao} te recomendou',
-                style: theme.textTheme.bodySmall?.copyWith(color: theme.secondaryText),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }

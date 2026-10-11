@@ -7,6 +7,7 @@ import '../../design/widgets/banner_aviso.dart';
 import '../../design/widgets/botao_textual.dart';
 import '../../design/widgets/entrada_suave.dart';
 import '../feed/social_service.dart';
+import 'descarte_de_recomendacoes.dart';
 import 'item_recomendacao.dart';
 
 const int _visiveisNaSecao = 3;
@@ -17,21 +18,36 @@ class SecaoRecomendacoes extends StatefulWidget {
   final SocialService social;
   final Future<void> Function(String livroId) aoAbrirLivro;
   final Future<void> Function() aoVerTodas;
+  final ValueChanged<String> aoAbrirPerfil;
 
   const SecaoRecomendacoes({
     super.key,
     required this.social,
     required this.aoAbrirLivro,
     required this.aoVerTodas,
+    required this.aoAbrirPerfil,
   });
 
   @override
   State<SecaoRecomendacoes> createState() => _SecaoRecomendacoesState();
 }
 
-class _SecaoRecomendacoesState extends State<SecaoRecomendacoes> {
+class _SecaoRecomendacoesState extends State<SecaoRecomendacoes> with DescarteDeRecomendacoes {
   _EstadoDaSecao _estado = _EstadoDaSecao.carregando;
   List<RecomendacaoRecebida> _recomendacoes = const <RecomendacaoRecebida>[];
+
+  @override
+  SocialService get social => widget.social;
+
+  @override
+  void aoAbrirPerfilDoRemetente(String username) => widget.aoAbrirPerfil(username);
+
+  // Recarrega para a vaga do descartado ser preenchida pela próxima recomendação.
+  @override
+  void aoDescartada(String id) {
+    setState(() => _recomendacoes = _recomendacoes.where((r) => r.id != id).toList());
+    _carregar(silencioso: true);
+  }
 
   @override
   void initState() {
@@ -155,9 +171,17 @@ class _SecaoRecomendacoesState extends State<SecaoRecomendacoes> {
           const SizedBox(height: DesignTokens.space3),
           for (final (indice, recomendacao) in _recomendacoes.indexed) ...<Widget>[
             if (indice > 0) divisor(),
-            ItemRecomendacao(
-              recomendacao: recomendacao,
-              aoAbrir: () => _voltandoDe(widget.aoAbrirLivro(recomendacao.livro.id)),
+            ItemEmDescarte(
+              key: ValueKey<String>(recomendacao.id),
+              descartando: estaEmDescarte(recomendacao.id),
+              child: ItemRecomendacao(
+                recomendacao: recomendacao,
+                aoAbrir: () => _voltandoDe(widget.aoAbrirLivro(recomendacao.livro.id)),
+                acao: BotaoDeMenuDaRecomendacao(
+                  recomendacao: recomendacao,
+                  aoTocar: () => abrirMenuDaRecomendacao(recomendacao),
+                ),
+              ),
             ),
           ],
         ];
