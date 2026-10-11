@@ -2,28 +2,38 @@ package br.com.leai.identidade.integracao;
 
 import com.atlassian.oai.validator.OpenApiInteractionValidator;
 import com.atlassian.oai.validator.model.Request;
+import com.atlassian.oai.validator.model.SimpleRequest;
 import com.atlassian.oai.validator.model.SimpleResponse;
 import com.atlassian.oai.validator.report.ValidationReport;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.net.URLDecoder;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow;
 import java.util.stream.Collectors;
 
 /**
- * Teste de contrato (F-AUT e F-PERFIL, DoD): toda resposta que um teste de integração recebe é
- * validada contra {@code docs/api/identidade.yaml}, status, corpo e cabeçalhos documentados. Uma
- * divergência entre código e spec reprova o teste que fez a chamada.
+ * Teste de contrato (F-AUT e F-PERFIL, DoD): toda chamada que um teste de integração faz é
+ * conferida contra {@code docs/api/identidade.yaml}. Uma divergência entre código e spec reprova o
+ * teste que fez a chamada.
  *
- * <p>Só a resposta é validada: os testes mandam requisições inválidas de propósito para provar o
- * 400, e o servidor já valida a entrada. Preflight de CORS e 5xx ficam de fora.
+ * <ul>
+ *   <li><b>Resposta</b>, sempre: status, corpo e cabeçalhos documentados.
+ *   <li><b>Requisição</b>, só quando a resposta é 2xx: o que o servidor aceitou tem de caber no
+ *       spec (corpo, parâmetros e cabeçalhos obrigatórios). As requisições inválidas de propósito,
+ *       que provam o 400, ficam de fora porque o servidor as recusa.
+ * </ul>
  *
- * <p>Com {@code -Dleai.contrato=registrar}, as divergências não reprovam: vão para {@code
- * target/divergencias-contrato.txt}, para levantar tudo de uma vez.
+ * <p>Preflight de CORS e 5xx ficam de fora. Com {@code -Dleai.contrato=registrar}, as divergências
+ * não reprovam: vão para {@code target/divergencias-contrato.txt}, para levantar tudo de uma vez.
  */
 final class ContratoHttp {
 
@@ -52,6 +62,9 @@ final class ContratoHttp {
     resposta.headers().map().forEach(simples::withHeader);
 
     ValidationReport relatorio = VALIDADOR.validateResponse(caminho, metodo, simples.build());
+    if (resposta.statusCode() < 300) {
+      relatorio = relatorio.merge(VALIDADOR.validateRequest(comoSimples(requisicao, metodo)));
+    }
     if (!relatorio.hasErrors()) {
       return;
     }
@@ -68,6 +81,66 @@ final class ContratoHttp {
       return;
     }
     throw new AssertionError(texto);
+  }
+
+  private static SimpleRequest comoSimples(HttpRequest requisicao, Request.Method metodo) {
+    SimpleRequest.Builder simples = new SimpleRequest.Builder(metodo, requisicao.uri().getPath());
+    requisicao.headers().map().forEach(simples::withHeader);
+    String consulta = requisicao.uri().getRawQuery();
+    if (consulta != null) {
+      for (String par : consulta.split("&")) {
+        String[] partes = par.split("=", 2);
+        simples.withQueryParam(
+            decodificar(partes[0]), partes.length > 1 ? decodificar(partes[1]) : "");
+      }
+    }
+    String corpo = corpo(requisicao);
+    if (corpo != null) {
+      simples.withBody(corpo);
+    }
+    return simples.build();
+  }
+
+  private static String decodificar(String texto) {
+    return URLDecoder.decode(texto, StandardCharsets.UTF_8);
+  }
+
+  /**
+   * O {@code HttpRequest} não expõe o corpo, só o publisher dele. Os publishers que os testes usam
+   * ({@code ofString}, {@code noBody}) podem ser lidos de novo depois do envio.
+   */
+  private static String corpo(HttpRequest requisicao) {
+    HttpRequest.BodyPublisher publisher = requisicao.bodyPublisher().orElse(null);
+    if (publisher == null || publisher.contentLength() == 0) {
+      return null;
+    }
+    ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+    CompletableFuture<String> lido = new CompletableFuture<>();
+    publisher.subscribe(
+        new Flow.Subscriber<ByteBuffer>() {
+          @Override
+          public void onSubscribe(Flow.Subscription assinatura) {
+            assinatura.request(Long.MAX_VALUE);
+          }
+
+          @Override
+          public void onNext(ByteBuffer parte) {
+            byte[] copia = new byte[parte.remaining()];
+            parte.get(copia);
+            bytes.writeBytes(copia);
+          }
+
+          @Override
+          public void onError(Throwable erro) {
+            lido.completeExceptionally(erro);
+          }
+
+          @Override
+          public void onComplete() {
+            lido.complete(bytes.toString(StandardCharsets.UTF_8));
+          }
+        });
+    return lido.join();
   }
 
   /** {@code allOf}/{@code oneOf} guardam o motivo real nas mensagens aninhadas. */
