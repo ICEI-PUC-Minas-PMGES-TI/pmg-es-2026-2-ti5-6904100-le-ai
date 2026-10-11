@@ -100,7 +100,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **A "aba Recomendações" de RF-REC-13 é uma SEÇÃO dentro da aba `Descobrir`, não um item de navegação.** Decidido em 01/09/2026 junto da criação de `Descobrir` ([P0-NAV](../periodo-0/feature-P0-NAV.md)): a barra inferior tem quatro itens (Estante, Descobrir, Feed, Perfil) e esse é o teto. Um quinto item apertaria o rótulo em `caption` no mobile e fragmentaria descoberta em duas áreas que fazem a mesma coisa. RF-REC-13 pede que a aba "reúna as fontes em seções distintas" e RF-REC-14 que ela funcione só com P2P: as duas exigências são atendidas por uma seção rotulada dentro de `Descobrir`, que hoje aterrissa quase vazia ([`descobrir.md`](../../design/periodo-1/F-ACV-BUSCA/descobrir.md) §4.6). **Se o grupo preferir aba própria**, a decisão volta pelo plano §3 e o impacto é o shell replicado em seis prompts de design.
 - **Depende de** [F-PERFIL](../periodo-1/feature-F-PERFIL.md) (mútuo), [F-EST](../periodo-1/feature-F-EST.md) (`v_estante_publica_v1`, `livro.adicionado_a_estante`), [F-ACV-BUSCA](../periodo-1/feature-F-ACV-BUSCA.md)/[F-ACV-CADASTRO](../periodo-1/feature-F-ACV-CADASTRO.md) (`v_livro_referencia_v1`, página do livro), [F-NOT](../periodo-1/feature-F-NOT.md) (consumo da notificação), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md), [P0-MSG](../periodo-0/feature-P0-MSG.md).
 - **Decisões de contrato (dono, 04/10/2026), em [`social.yaml`](../../api/social.yaml):**
-  - `POST /recomendacoes` responde `201` com `resultados[]`, um por destinatário: `CRIADA` com `recomendacaoId`, ou `BLOQUEADA` com `motivo` (`SEM_MUTUO`, `JA_TEM_LIVRO`, `LIMITE_PAR`, `JA_RECOMENDADO`). Livro pessoal rejeita o pedido inteiro com `422`; todos bloqueados também dá `422`, com os resultados.
+  - `POST /recomendacoes` responde `200` com `resultados[]`, um por destinatário: `CRIADA` com `recomendacaoId`, ou `BLOQUEADA` com `motivo` (`SEM_MUTUO`, `JA_TEM_LIVRO`, `LIMITE_ATINGIDO`, `JA_RECOMENDADO`). Livro pessoal rejeita o pedido inteiro com `422`; todos bloqueados também responde `200`, e o cliente mostra o motivo de cada um. Ajustado em 11/10/2026 para refletir `social.yaml`, o código e os clientes.
   - No máximo 20 destinatários por envio e mensagem de até 280 caracteres.
   - Reenvio do mesmo livro à mesma pessoa com recomendação ativa é bloqueado (`JA_RECOMENDADO`); depois de descarte ou expiração, um novo envio cria outro id.
   - `GET /recomendacoes/candidatos?livroId=` devolve a lista inteira de mútuos, cada um com `jaTemLivro` e `limiteAtingido`, para a busca local.
@@ -108,6 +108,8 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
   - Tempo relativo calculado no cliente a partir de `criadoEm`.
 - **Expiração:** as consultas filtram por `expira_em`, e uma rotina diária (`@Scheduled`) apaga em lotes as vencidas e as de livro que já está na estante. A mesma rotina serve de backfill do intervalo anterior à fila de `livro.adicionado_a_estante`.
 - **Validação em DES:** o DES recebe deploy no merge em `main` ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)), então o fluxo ponta a ponta fica para depois do merge: A e B se seguem; A recomenda um livro; B recebe a notificação e vê a recomendação no Descobrir; B põe o livro na estante e a recomendação some.
+
+- **Acessibilidade mobile (11/10/2026):** `Semantics(excludeSemantics: true)` descarta o toque do filho, então todo `Semantics` de botão repassa o mesmo callback em `onTap`. Corrigido nas telas desta feature (`item_recomendacao`, `recomendacoes_recebidas_page`, `recomendar_livro_page`) e, por aviso do grupo, no feed (`comentario_item`, `folha_comentarios`, `item_atividade`). Seguem sem a correção, por serem de outras features: `cabecalho_tela`, `estante_page`, `reacoes_da_resenha`, `notificacoes_page`.
 
 ### Divergências protótipo × implementação (04/10/2026)
 
@@ -121,6 +123,8 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - Stack de `social` definida: **Spring (Java)** (arquitetura §2.1).
 
 ## Timeline
+
+### Revisão 11/10/2026: texto de contrato alinhado a `social.yaml` (`200`, `LIMITE_ATINGIDO`, todos bloqueados sem `422`) e `onTap` nos `Semantics` do feed e das telas da feature (acessibilidade mobile).
 
 ### Implementação 04/10/2026: contratos, backend `social`, web e mobile na branch `Eman134/F-REC-P2P` (issue #28). Envio com resultado por destinatário, candidatos, recebidas, descarte owner-only, remoção ao estantar com DLQ, limpeza diária e notificação `RECOMENDACAO_RECEBIDA`; testes de integração com Postgres real, Vitest e `flutter test`. Validação em DES pendente do merge.
 
