@@ -151,12 +151,12 @@ class ItemAtividade extends StatelessWidget {
                 style: theme.editorialBody.copyWith(color: theme.secondaryText),
               ),
             ),
-            // A página de resenha é de F-AVA; até lá, o botão existe sem destino. O respiro dos lados
-            // é do realce do toque; o deslocamento mantém o texto alinhado ao trecho da resenha.
+            // A resenha formatada fica na página do livro. O respiro dos lados é do realce do toque;
+            // o deslocamento mantém o texto alinhado ao trecho da resenha.
             Transform.translate(
               offset: const Offset(-DesignTokens.space3, 0),
               child: TextButton(
-                onPressed: () {},
+                onPressed: aoAbrirLivro,
                 style: TextButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: DesignTokens.space3),
                   minimumSize: const Size(0, 48),
