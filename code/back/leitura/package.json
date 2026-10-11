@@ -20,7 +20,9 @@
     "test:integration": "jest --config test/integracao/jest-integracao.json --runInBand",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "ts-node src/db/migrate.ts",
-    "db:seed": "ts-node src/db/seed.ts"
+    "db:seed": "ts-node src/db/seed.ts",
+    "backfill:sequencia": "ts-node src/sequencia/backfill.ts",
+    "backfill:desafios": "ts-node src/desafios/backfill.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",

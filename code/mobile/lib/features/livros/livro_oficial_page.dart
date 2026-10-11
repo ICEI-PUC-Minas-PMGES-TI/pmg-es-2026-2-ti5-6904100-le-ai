@@ -557,6 +557,7 @@ class _Ficha extends StatelessWidget {
       if (autores.isNotEmpty)
         _LinhaDaFicha(
           autores.length > 1 ? 'Autores' : 'Autor',
+          acessivel: 'Ver página de autor',
           links: <(String, VoidCallback?)>[
             for (final autor in autores)
               (autor.nome, aoAbrirAutor == null ? null : () => aoAbrirAutor!(autor.id)),
@@ -565,6 +566,7 @@ class _Ficha extends StatelessWidget {
       if (editora != null)
         _LinhaDaFicha(
           'Editora',
+          acessivel: 'Ver página de editora',
           links: <(String, VoidCallback?)>[
             (
               editora,
@@ -575,6 +577,7 @@ class _Ficha extends StatelessWidget {
       if (serie != null)
         _LinhaDaFicha(
           'Série',
+          acessivel: 'Ver página da série',
           links: <(String, VoidCallback?)>[
             (serie.nome, aoAbrirSerie == null ? null : () => aoAbrirSerie!(serie.id)),
           ],
@@ -607,13 +610,17 @@ class _Ficha extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: <Widget>[
-                  for (final (texto, aoTocar) in linha.links)
-                    _valor(theme, texto, linha.links.length > 1 ? aoTocar : null, aoTocar != null),
-                  if (linha.complemento != null)
-                    Text(
-                      linha.complemento!,
-                      textAlign: TextAlign.right,
-                      style: theme.textTheme.bodyMedium?.copyWith(color: theme.secondaryText),
+                  for (final (indice, (texto, aoTocar)) in linha.links.indexed)
+                    _comComplemento(
+                      theme,
+                      _valor(
+                        theme,
+                        texto,
+                        linha.links.length > 1 ? aoTocar : null,
+                        aoTocar != null,
+                        rotulo: linha.acessivel == null ? texto : '${linha.acessivel}: $texto',
+                      ),
+                      indice == linha.links.length - 1 ? linha.complemento : null,
                     ),
                 ],
               ),
@@ -626,17 +633,47 @@ class _Ficha extends StatelessWidget {
       return conteudo;
     }
     final (texto, _) = linha.links.single;
+    final complemento = linha.complemento == null ? '' : ', ${linha.complemento}';
     return Semantics(
+      // Nó próprio e um rótulo só, com o volume: sem `container`, o link se fundia ao vizinho, e
+      // sem `excludeSemantics` o leitor de tela lia a série duas vezes.
+      container: true,
       link: true,
-      label: '${linha.rotulo}: $texto',
-      excludeSemantics: linha.complemento == null,
+      label: '${linha.acessivel ?? linha.rotulo}: $texto$complemento',
+      excludeSemantics: true,
       onTap: unico,
       child: InkWell(onTap: unico, splashFactory: NoSplash.splashFactory, child: conteudo),
     );
   }
 
+  /// `Filhos do Éden >` seguido de `· volume 1` em `grafite`, na mesma linha (pagina-do-livro.html).
+  /// Em nome longo, o volume desce para a linha de baixo, sempre alinhado à direita.
+  Widget _comComplemento(ThemeData theme, Widget valor, String? complemento) {
+    if (complemento == null) {
+      return valor;
+    }
+    return Wrap(
+      alignment: WrapAlignment.end,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: DesignTokens.space1,
+      children: <Widget>[
+        valor,
+        Text(
+          '· $complemento',
+          style: theme.textTheme.bodyMedium?.copyWith(color: theme.secondaryText),
+        ),
+      ],
+    );
+  }
+
   /// Valor de link em `musgo` com `CaretRight`; com [aoTocar], o próprio valor é o alvo (coautoria).
-  Widget _valor(ThemeData theme, String texto, VoidCallback? aoTocar, bool link) {
+  Widget _valor(
+    ThemeData theme,
+    String texto,
+    VoidCallback? aoTocar,
+    bool link, {
+    required String rotulo,
+  }) {
     if (!link) {
       return Text(texto, textAlign: TextAlign.right, style: theme.textTheme.bodyMedium);
     }
@@ -661,8 +698,9 @@ class _Ficha extends StatelessWidget {
       return valor;
     }
     return Semantics(
+      container: true,
       link: true,
-      label: texto,
+      label: rotulo,
       excludeSemantics: true,
       onTap: aoTocar,
       child: GestureDetector(
@@ -680,11 +718,14 @@ class _Ficha extends StatelessWidget {
 class _LinhaDaFicha {
   final String rotulo;
 
+  /// Começo do rótulo do link para o leitor de tela (`Ver página de autor`, pagina-do-livro.md §9).
+  final String? acessivel;
+
   /// Texto e ação; ação nula é texto puro (ISBN, editora sem página).
   final List<(String, VoidCallback?)> links;
   final String? complemento;
 
-  const _LinhaDaFicha(this.rotulo, {required this.links, this.complemento});
+  const _LinhaDaFicha(this.rotulo, {this.acessivel, required this.links, this.complemento});
 }
 
 /// Assuntos acionáveis (RF-ACV-21, RN-21): chips com lupa que levam ao Descobrir filtrado.

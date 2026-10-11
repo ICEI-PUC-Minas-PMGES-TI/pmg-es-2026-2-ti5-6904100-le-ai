@@ -463,8 +463,8 @@ void main() {
     router.push('/descobrir/livro/livro-2');
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.bySemanticsLabel('Autor: Machado de Assis'));
-    await tester.tap(find.bySemanticsLabel('Autor: Machado de Assis'));
+    await tester.ensureVisible(find.bySemanticsLabel('Ver página de autor: Machado de Assis'));
+    await tester.tap(find.bySemanticsLabel('Ver página de autor: Machado de Assis'));
     await tester.pumpAndSettle();
     // Empilhada com `push`: a URI do go_router fica na base, então confere pela tela.
     expect(find.text('Autor'), findsOneWidget);
@@ -476,7 +476,8 @@ void main() {
     await tester.tap(find.bySemanticsLabel('Buscar livros de Romance'));
     await tester.pumpAndSettle();
 
-    expect(router.routerDelegate.currentConfiguration.uri.toString(), '/descobrir?assunto=a1');
+    // Aplicado, o assunto sai da localização: tocar nele de novo volta a valer como pedido novo.
+    expect(router.routerDelegate.currentConfiguration.uri.toString(), '/descobrir');
     expect(find.bySemanticsLabel('Romance, filtro ativo. Toque para remover.'), findsOneWidget);
   });
 

@@ -34,6 +34,11 @@ class DescobrirPage extends StatefulWidget {
   /// viva pelo shell: um id novo recomeça a busca por ele.
   final String? assuntoInicial;
 
+  /// Chamado depois de aplicar o [assuntoInicial], para o roteador tirar o `?assunto=` da
+  /// localização. Sem isso, tocar de novo no mesmo assunto não mudava a rota e a busca ficava
+  /// com o texto e os filtros de antes.
+  final VoidCallback? aoConsumirAssunto;
+
   const DescobrirPage({
     super.key,
     required this.servico,
@@ -41,6 +46,7 @@ class DescobrirPage extends StatefulWidget {
     required this.aoCadastrarPorIsbn,
     required this.aoCadastrarPessoal,
     this.assuntoInicial,
+    this.aoConsumirAssunto,
   });
 
   @override
@@ -73,7 +79,20 @@ class _DescobrirPageState extends State<DescobrirPage> {
     if (id != null && id.isNotEmpty) {
       _consulta.clear();
       _busca.aplicarAssunto(id);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          widget.aoConsumirAssunto?.call();
+        }
+      });
     }
+  }
+
+  /// Solta o foco antes de abrir o livro. A rota guarda o último foco e o devolve na volta: o campo
+  /// reabria o teclado sobre os resultados, ao voltar do livro e ao chegar por um assunto da ficha.
+  void _abrirLivro(String id) {
+    // O nó focado, e não o escopo: soltar o escopo deixava o campo como o foco a restaurar.
+    FocusScope.of(context).focusedChild?.unfocus();
+    widget.aoAbrirLivro(id);
   }
 
   Future<void> _abrirFiltros() async {
@@ -356,7 +375,7 @@ class _DescobrirPageState extends State<DescobrirPage> {
           return CardDeLivroBusca(
             key: ValueKey<String>(grupo.principal.id),
             grupo: grupo,
-            aoAbrir: widget.aoAbrirLivro,
+            aoAbrir: _abrirLivro,
           );
         },
       ),
