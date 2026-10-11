@@ -146,6 +146,23 @@ describe('ListaView', () => {
     expect([...document.body.querySelectorAll('[aria-label^="Livros de"] li .font-mono')].map((n) => n.textContent?.trim())).toEqual(['1', '2'])
   })
 
+  it('menu do livro (folha do celular) diz de qual livro é e em que posição está', async () => {
+    await montarNaRota('/perfil/listas/l1')
+    await flushPromises()
+
+    botaoPorRotulo('Ações de Laços de Família').click()
+    await flushPromises()
+
+    const folha = document.body.querySelector('[role="dialog"]')!
+    expect(folha.textContent).toContain('Laços de Família')
+    expect(folha.textContent).toContain('Autora')
+    expect(folha.textContent).toContain('Posição 2 de 3')
+
+    // Fecha pela própria folha, para não deixar o estado do modal para o próximo teste.
+    ;[...folha.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Cancelar')!.click()
+    await flushPromises()
+  })
+
   it('outro leitor: só leitura, linha de dono, e livro pessoal abre com via=lista', async () => {
     listas.obter.mockResolvedValue(lista({ dono: RAFAEL, pertenceAoSolicitante: false }))
     listas.listarItens.mockResolvedValue({

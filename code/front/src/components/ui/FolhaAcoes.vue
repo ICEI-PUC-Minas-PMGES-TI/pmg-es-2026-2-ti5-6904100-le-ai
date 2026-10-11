@@ -6,7 +6,8 @@ import SobreposicaoModal from './SobreposicaoModal.vue'
 
 /**
  * Menu de ações em bottom sheet, só no mobile (livro-pessoal.md §4.4): itens de 56px com ícone
- * e rótulo, divisor entre eles, e `Cancelar` no fim. Item destrutivo em `rubi`.
+ * e rótulo, divisor entre eles, e `Cancelar` no fim. Item destrutivo em `rubi`. O slot
+ * `cabecalho`, opcional, diz sobre o que é o menu (a lista usa capa, título e posição).
  */
 export interface AcaoDaFolha {
   id: string
@@ -31,6 +32,12 @@ const emit = defineEmits<{ escolher: [id: string]; fechar: [] }>()
     somente-folha
     @fechar="emit('fechar')"
   >
+    <div
+      v-if="$slots.cabecalho"
+      class="border-b border-linha pb-space-4"
+    >
+      <slot name="cabecalho" />
+    </div>
     <ul class="divide-y divide-linha">
       <li
         v-for="acao in acoes"

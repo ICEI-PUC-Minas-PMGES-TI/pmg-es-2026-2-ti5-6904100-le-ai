@@ -226,6 +226,33 @@ void main() {
       );
     });
 
+    testWidgets('sem o e-mail, cita só o username com o verbo no singular', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          ExcluirContaPage(
+            servico: servico(),
+            authService: AuthService(
+              _cliente(
+                (request) async => http.Response(
+                  '{"id":"u1","username":"marinableu","displayName":"Marina Beltrão"}',
+                  200,
+                  headers: _json,
+                ),
+              ),
+            ),
+            aoExclusaoSolicitada: (previstaEm) async => solicitadaAte = previstaEm,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('@marinableu continua ligado a esta conta e não pode ser usado'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('continuam ligados'), findsNothing);
+    });
+
     testWidgets('sem senha ou sem a caixa marcada, o botão não abre a confirmação', (
       tester,
     ) async {
