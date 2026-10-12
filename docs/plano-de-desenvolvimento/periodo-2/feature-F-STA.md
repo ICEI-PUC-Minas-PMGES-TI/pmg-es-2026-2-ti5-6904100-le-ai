@@ -158,7 +158,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 (plano §10)
 
 - [ ] Código (backend `leitura`, web, mobile) mergeado em `desenvolvimento` (hoje na `vicenzo-features`, em PR)
-- [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)): localmente, depois de trazer a `desenvolvimento` (12/10/2026), lint, build, 285 unitários e 333 de integração do `leitura`; lint, `vue-tsc` e 955 testes do web; `flutter analyze` e 814 testes do mobile, todos verdes
+- [x] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)): no PR #53 (12/10/2026), todos os checks verdes. Localmente, depois de trazer a `desenvolvimento` (12/10/2026), lint, build, 285 unitários e 333 de integração do `leitura`; lint, `vue-tsc` e 955 testes do web; `flutter analyze` e 814 testes do mobile, todos verdes
 - [x] Testes unitários e de integração: totais/médias/séries, páginas abandonadas, exclusão de progresso, nota, recálculo, base histórica e RN-08 em perfil público/privado
 - [x] Testes assíncronos: consumo de `progresso.registrado`/`leitura.finalizada` com duplicação e DLQ (RNF-TST-03)
 - [x] Testes web/mobile cobrem render dos gráficos e indisponibilidade/timeout com API simulada (RNF-TST-05/04/06).
@@ -193,6 +193,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 ### Integração 12/10/2026: `desenvolvimento` trazida para a `vicenzo-features` (#52, F-REC-P2P) e PR aberto para a `desenvolvimento`.
 - Um conflito, em `docs/mensageria/catalogo.md`: a linha de `livro.adicionado_a_estante` ganhou o consumidor de recomendações e a de `progresso.registrado` manteve a F-STA.
 - Web (lint, `vue-tsc`, 955 testes) e mobile (`flutter analyze`, 814 testes) verdes depois do merge. O `leitura` não mudou na `desenvolvimento`.
+- CI do PR #53 verde.
 - Revisão da doc: critério e DoD de DES com a nota do fechamento do período, catálogo no DoD, contratos dos protótipos dados como resolvidos e a matriz da F-CONTA-2 como pendência do dono dela.
 
 ### Implementação 12/10/2026: mobile implementado na `vicenzo-features`.
