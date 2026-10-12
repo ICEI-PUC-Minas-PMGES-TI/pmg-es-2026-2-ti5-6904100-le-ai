@@ -44,6 +44,9 @@ function servicoFalso(inicial: MinhaAvaliacao = { livroId: 'l1', nota: null, res
     listarFrases: vi.fn(),
     criarFrase: vi.fn(),
     excluirFrase: vi.fn(),
+    consultarMinhasEstatisticas: vi.fn(),
+    consultarGraficosEstatisticas: vi.fn(),
+    consultarEstatisticasPerfil: vi.fn(),
   } satisfies LeituraService
 }
 
