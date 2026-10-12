@@ -12,6 +12,7 @@ import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { IdempotenciaModule } from './common/idempotencia/idempotencia.module';
 import { DrizzleModule } from './db/drizzle.module';
 import { EstanteModule } from './estante/estante.module';
+import { EstatisticasModule } from './estatisticas/estatisticas.module';
 import { FrasesModule } from './frases/frases.module';
 import { HealthModule } from './health/health.module';
 import { InatividadeModule } from './jobs/inatividade/inatividade.module';
@@ -75,6 +76,7 @@ import { DesafiosModule } from './desafios/desafios.module';
     ProgressoModule,
     SequenciaModule,
     DesafiosModule,
+    EstatisticasModule,
     MetricasModule,
     InatividadeModule,
   ],
