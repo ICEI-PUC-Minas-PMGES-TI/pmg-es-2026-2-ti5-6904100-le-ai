@@ -8,8 +8,10 @@ import 'package:http/http.dart' as http;
 import 'package:le_ai_mobile/features/livros/livro_oficial_page.dart';
 
 import 'package:le_ai_mobile/features/estante/estante_service.dart';
+import 'package:le_ai_mobile/features/listas/rotas_listas.dart';
 
 import '../estante/apoio_estante.dart';
+import '../listas/apoio_listas.dart' show listasSimulado, perfilSimulado;
 import '../progresso/apoio_progresso.dart';
 import 'apoio.dart';
 
@@ -68,6 +70,7 @@ void main() {
     Future<http.Response> Function(http.Request request) responder, {
     Future<http.Response> Function(http.Request request)? leitura,
     EstanteService? estante,
+    DependenciasDeListas? listas,
   }) async {
     usarTelaDeCelular(tester);
     pedidas = <Uri>[];
@@ -85,6 +88,7 @@ void main() {
           aoVoltar: () => voltas++,
           estante: estante,
           progresso: estante == null ? null : progressoEmMemoria(),
+          listas: listas,
           aoAbrirAutor: (id) => navegacoes.add('autor:$id'),
           aoAbrirEditora: (id) => navegacoes.add('editora:$id'),
           aoAbrirSerie: (id) => navegacoes.add('serie:$id'),
@@ -687,5 +691,22 @@ void main() {
 
       expect(find.text('Assuntos'), findsNothing);
     });
+  });
+
+  testWidgets('"Mais ações" do header responde ao toque do leitor de tela', (tester) async {
+    final semantica = tester.ensureSemantics();
+    await montar(
+      tester,
+      (request) async => json(_livro(), 200),
+      listas: DependenciasDeListas(
+        servico: listasSimulado((_) async => json(<String, Object?>{}, 200)),
+        perfil: perfilSimulado((_) async => json(<String, Object?>{}, 200)),
+      ),
+    );
+
+    final botao = find.bySemanticsLabel('Mais ações');
+    expect(botao, findsOneWidget);
+    expect(tester.getSemantics(botao).getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+    semantica.dispose();
   });
 }

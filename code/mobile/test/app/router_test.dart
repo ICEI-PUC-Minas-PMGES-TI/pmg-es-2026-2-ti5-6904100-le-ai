@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
@@ -793,6 +794,25 @@ void main() {
     await tester.tap(find.bySemanticsLabel('Voltar'));
     await tester.pumpAndSettle();
     expect(find.text('Marina Beltrão'), findsOneWidget);
+  });
+
+  testWidgets('o cabeçalho da raiz da aba chega ao leitor de tela, com as ações tocáveis', (
+    tester,
+  ) async {
+    final semantica = tester.ensureSemantics();
+    await sessionController.entrar('jwt-valido');
+    await tester.pumpWidget(_wrap(router));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Perfil'));
+    await tester.pumpAndSettle();
+
+    for (final dica in <String>['Buscar leitor', 'Configurações']) {
+      final dados = tester.getSemantics(find.byTooltip(dica)).getSemanticsData();
+      expect(dados.tooltip, dica);
+      expect(dados.hasAction(SemanticsAction.tap), isTrue);
+    }
+    expect(find.bySemanticsLabel(RegExp('^Notificações')), findsOneWidget);
+    semantica.dispose();
   });
 
   testWidgets('a política abre pelo cadastro, sem sino, e volta com o formulário preenchido', (

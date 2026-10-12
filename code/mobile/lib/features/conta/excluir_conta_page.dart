@@ -83,13 +83,16 @@ class _ExcluirContaPageState extends State<ExcluirContaPage> {
   bool get _podeExcluir =>
       _senhaController.text.isNotEmpty && _entendeu && _erro != _Erro.limite && !_excluindo;
 
-  String get _identificadores {
+  /// Sem o e-mail, o sujeito é um só e o verbo vai para o singular.
+  String get _reservados {
     final usuario = _usuario;
-    if (usuario == null) {
-      return 'seu nome de usuário';
+    final email = usuario?.email;
+    if (usuario == null || email == null) {
+      final username = usuario == null ? 'seu nome de usuário' : '@${usuario.username}';
+      return '$username continua ligado a esta conta e não pode ser usado em outra.';
     }
-    final email = usuario.email;
-    return email == null ? '@${usuario.username}' : '@${usuario.username} e $email';
+    return '@${usuario.username} e $email continuam ligados a esta conta e não podem ser usados '
+        'em outra.';
   }
 
   void _aoDigitar(String _) {
@@ -229,8 +232,7 @@ class _ExcluirContaPageState extends State<ExcluirContaPage> {
       (
         PhosphorIconsRegular.at,
         'Nome de usuário e e-mail reservados',
-        'Durante os 30 dias, $_identificadores continuam ligados a esta conta e não podem ser '
-            'usados em outra.',
+        'Durante os 30 dias, $_reservados',
       ),
     ];
     return <Widget>[

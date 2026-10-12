@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 
 import '../../app/cabecalho_tela.dart';
@@ -734,6 +735,13 @@ class _ListaPageState extends State<ListaPage> {
           button: true,
           label: 'Mudar a posição de ${livro.titulo}',
           excludeSemantics: true,
+          // Arrastar não existe para o leitor de tela: a alça oferece subir e descer como ações.
+          customSemanticsActions: <CustomSemanticsAction, VoidCallback>{
+            if (indice > 0)
+              const CustomSemanticsAction(label: 'Mover para cima'): () => _mover(indice, indice - 1),
+            if (indice < _itens.length - 1)
+              const CustomSemanticsAction(label: 'Mover para baixo'): () => _mover(indice, indice + 1),
+          },
           child: SizedBox(
             width: 48,
             height: 48,
@@ -750,6 +758,8 @@ class _ListaPageState extends State<ListaPage> {
         button: true,
         label: 'Ações de ${livro.titulo}',
         excludeSemantics: true,
+        // Com `excludeSemantics`, a ação de toque do InkWell some da árvore: vai aqui.
+        onTap: () => _abrirMenu(item),
         child: InkWell(
           onTap: () => _abrirMenu(item),
           customBorder: const CircleBorder(),

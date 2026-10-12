@@ -218,8 +218,13 @@ Cada consumidor apaga o que é do próprio serviço em uma transação, junto do
 | Serviço | Apaga | Anonimiza |
 |---|---|---|
 | `leitura` | `reacao_resenha` do usuário; `resenha` (leva as reações de outros); `frase`, `favorito`, `nota`; `estante` (leva leitura, progresso e limiar); `desafio` (leva janela, contribuição e pausa); `sequencia_leitura`, `dia_leitura`, `estatistica_usuario`, `estatistica_mensal` e `estatistica_anual` | `idempotencia_leitura` por `subject_ref`; `outbox_leitura` publicada com o usuário em `payload` ou `chave_negocio` |
-| `social` | antes de tudo, guardar os `origem_id` de resenha das atividades do usuário; `denuncia` feita por ele ou contra comentário ou resenha dele; `atividade` (leva curtidas e comentários de outros); `curtida_atividade` e `comentario` dele (leva as respostas abaixo); `comentario_mencao` dele; `lista` (leva os itens); `recomendacao` enviada ou recebida; `sugestao_descartada`; `notificacao` para ele ou com ele como ator ou autor da atividade; `preferencia_notificacao`; `dispositivo_push` | `comentario.respondido_usuario_id` de outros := NULL; `log_moderacao` com alvo dele (`alvo_id`, `denuncia_id` e `detalhe`); `idempotencia_social`; `outbox_social` publicada |
-| `acervo` | livros `pessoal` do dono, depois de apagar as capas no Cloudinary (leva projeções e agregados do próprio livro); `nota_leitor_projecao` dele, recalculando `nota_livro_agregada` dos livros afetados; `importacao_livro` solicitada por ele | `idempotencia_acervo`; `outbox_acervo` com o usuário no payload |
+| `social` | os `origem_id` de resenha das atividades do usuário entram por subconsulta nas remoções que dependem deles; `denuncia` feita por ele ou contra comentário ou resenha dele; `atividade` (leva curtidas e comentários de outros); `curtida_atividade` e `comentario` dele (leva as respostas abaixo); `comentario_mencao` dele; `lista` (leva os itens); `recomendacao` enviada ou recebida; `sugestao_descartada`; `notificacao` para ele ou com ele como ator ou autor da atividade; `preferencia_notificacao`; `dispositivo_push` | `comentario.respondido_usuario_id` de outros := NULL; `log_moderacao` com alvo dele (`alvo_id`, `denuncia_id` e `detalhe`); `idempotencia_social`; `outbox_social` publicada |
+| `acervo` | livros `pessoal` do dono, depois de apagar as capas no Cloudinary (leva projeções e agregados do próprio livro); `nota_leitor_projecao` dele, recalculando `nota_livro_agregada` dos livros afetados; `importacao_livro` solicitada por ele | `idempotencia_acervo`; `outbox_acervo` publicada com o usuário no payload (a pendente é apagada) |
+| `identidade` (job, etapa 2) | `usuario` (leva `refresh_token`, `reset_token`, `seguidor` e `solicitacao_seguir`); `tentativa_login` por e-mail ou username | `exclusao_conta` (recibo sem a referência); `idempotencia_identidade`; `outbox_identidade` |
+
+**Isentas** (sem dado de usuário, a exclusão não toca): `mensagem_processada` e o histórico de migrations em todos os serviços; no `acervo`, o catálogo (`autor`, `autor_chave_unificada`, `assunto`, `editora`, `serie`, `sinonimo_editora`, `mapa_assunto_externo`) e `ingestao_execucao`. No `acervo`, `autor_id` é autor de livro, não leitor.
+
+**Guarda (11/10/2026):** cada serviço tem um teste de integração que compara as tabelas do schema, depois das migrations, com esta matriz (apagada, por cascata, anonimizada ou isenta) e confere no banco que cada cascata declarada tem `ON DELETE CASCADE`. Tabela nova sem destino reprova o CI até alguém decidir o que acontece com os dados da conta nela. Arquivos: `code/back/leitura/test/integracao/guarda-exclusao.int-spec.ts` (usa `TABELAS_DA_CONTA`, exportada do consumidor), `code/back/acervo/test/integracao/guarda-exclusao.int-spec.ts`, `social` em `conta/service/GuardaDeExclusaoIntegracaoTest.java` e `identidade` em `integracao/GuardaDeExclusaoIntegracaoTest.java`.
 
 O livro oficial nunca é afetado. Em cada serviço, há testes de integração para:
 - a matriz inteira, com massa de dois usuários, para provar que o outro fica intacto;
@@ -277,6 +282,48 @@ Os consumidores ficam no código de outros donos, como prevê a [divisão do Per
 - Web: `npm run lint && npm test && npm run build`.
 - Mobile: `flutter analyze && flutter test && flutter build apk --debug`.
 
+### Roteiro da revisão visual (11/10/2026)
+
+Só a web: as divergências do mobile já foram conferidas no emulador e mantidas. Abrir Configurações → `Excluir conta` com o `identidade` local, em 1440 e 390 px, ao lado do protótipo, e para cada item de "Web: divergências do protótipo" em Pendências decidir **aceitar** (riscar e registrar a decisão com data) ou **corrigir**:
+
+1. `Excluir conta` empilhada sobre Configurações, e não na coluna direita.
+2. Em 390 px, confirmação na folha do `DialogoConfirmacao`, com foco inicial em `Cancelar`.
+3. Caixa de confirmação nativa com `accent-musgo`.
+4. Com `GET /me` falhando, a consequência 4 cita só o `@username`.
+5. Recarregar `/conta/recuperar` leva ao login; `Exclusão solicitada` sobrevive ao recarregar pela `?ate=`.
+
+### Roteiro de validação em DES (11/10/2026)
+
+Roda depois do merge de `desenvolvimento` para `main` e do deploy no Render. Fecha o item de DES do DoD e a etapa 6. Os segredos já estão cadastrados (Timeline, 08/10/2026).
+
+1. **Saúde:** `GET /health` 200 em `https://leai-{identidade,social,leitura,acervo}.onrender.com`.
+2. **Conta de teste com dados nos quatro serviços:** usar a conta C do roteiro da [F-LST](feature-F-LST.md) ou criar uma nova pelo site. Dar a ela: foto de perfil, um livro na estante com progresso e nota, uma resenha, uma lista com um livro pessoal dela (capa enviada), uma curtida e um comentário numa atividade de outra conta, e seguir outra conta.
+3. **Pedir e cancelar, na web:** Configurações → `Excluir conta` → senha errada (banner, nada muda) → senha certa → `Exclusão solicitada` com a data de 30 dias. Outra conta não acha mais o perfil (busca exata dá vazio). Login de novo → `Recuperar conta` → `Cancelar exclusão` → perfil volta a aparecer para a outra conta.
+4. **Pedir de novo, no app:** o mesmo pedido pelo app. Fechar o app e entrar de novo cai em `Recuperar conta`. Não cancelar.
+5. **Antecipar o prazo no Neon de DES** (`le-ai-oregon`; operação manual, combinar com o grupo antes). As duas datas andam juntas por causa dos CHECKs de +30 dias exatos:
+
+   ```sql
+   UPDATE identidade.usuario
+      SET exclusao_solicitada_em = exclusao_solicitada_em - INTERVAL '31 days',
+          exclusao_prevista_em = exclusao_prevista_em - INTERVAL '31 days'
+    WHERE username = '<username da conta de teste>';
+   UPDATE identidade.exclusao_conta
+      SET criado_em = criado_em - INTERVAL '31 days',
+          prevista_em = prevista_em - INTERVAL '31 days'
+    WHERE status = 'pendente'
+      AND usuario_ref = (SELECT id FROM identidade.usuario
+                          WHERE username = '<username da conta de teste>');
+   ```
+
+6. **Disparar o job:** GitHub → Actions → `job-exclusao-conta` → `Run workflow` na `main`. O log do Render do `identidade` mostra `Job de exclusão de conta: 1 conta(s) finalizada(s)`.
+7. **Conferir a limpeza:**
+   - login com a conta falha como credencial inválida, e a busca exata pelo username dá vazio (RN-23.6);
+   - a outra conta não vê mais a curtida, o comentário nem as atividades dela no feed, e o contador de seguidores caiu;
+   - no Neon, `SELECT count(*)` com o id dela dá zero em `leitura.estante`, `leitura.resenha`, `social.lista` e `acervo.livro` (pessoais), e `identidade.exclusao_conta` tem o recibo `concluida` e anonimizado;
+   - no Cloudinary, a foto de perfil e a capa do livro pessoal sumiram;
+   - no CloudAMQP de DES, as filas `leai.leitura.conta`, `leai.social.conta` e `leai.acervo.conta` sem mensagens na DLQ.
+8. **Fechamento:** marcar o DoD, registrar na Timeline a conta usada, a data e o que foi conferido.
+
 ## Pendências
 
 - **Token de acesso normal depois do pedido (07/10/2026).** O pedido revoga todas as renovações, mas o token de acesso já emitido continua válido até expirar (no máximo 15 minutos), porque ele não tem estado (RNF-ARQ-04), como no logout da F-AUT. Os clientes descartam a sessão ao receber o 202. No servidor, o conteúdo da conta já fica oculto para os outros pelas VIEWs. Fica registrado como risco residual do RN-23.3, sem mudança prevista.
@@ -284,7 +331,7 @@ Os consumidores ficam no código de outros donos, como prevê a [divisão do Per
   - O `social` não guarda as frases da conta, então o `log_moderacao` de uma frase dela continua com `alvo_id` (UUID opaco de um registro que não existe mais) e `detalhe`.
   - Texto livre de outros leitores que cita `@username` da conta excluída fica como está. Depois da exclusão, o username deixa de identificar uma conta (RN-23.6).
   - Respostas idempotentes de outros leitores que ecoem algum dado da conta só são anonimizadas quando vence o `replay_ate` delas, nos serviços que limpam por janela.
-- **Web: divergências do protótipo (08/10/2026), a conferir na revisão visual:**
+- **Web: divergências do protótipo (08/10/2026).** **Revisão visual feita em 11/10/2026** (Chrome headless, 1440 e 390 px, `identidade` local): as cinco **aceitas**, cada uma conferida na tela. Na quarta apareceu um erro de concordância (`@username continuam ligados`), corrigido na web e no app (Timeline).
   - Na web, `Excluir conta` abre como tela empilhada sobre Configurações, igual a `Alterar senha` hoje, e não na coluna direita das Configurações com o item aberto (`excluir-conta.md` §5). O título da página vem do header do shell (`Excluir conta`), e o `Excluir sua conta` aparece como `h2` acima da abertura.
   - Abaixo de 768px, a confirmação usa o `DialogoConfirmacao` do projeto (a `SobreposicaoModal` vira folha), com o foco inicial em `Cancelar`.
   - A caixa de confirmação é o checkbox nativo com `accent-musgo`, de 20px, e não um desenho próprio com `Check` de 14px.
@@ -300,7 +347,7 @@ Os consumidores ficam no código de outros donos, como prevê a [divisão do Per
 
 - **Depende de** [F-AUT](../periodo-1/feature-F-AUT.md) (sessão, invalidação de refresh, modelo `usuario`), [F-PERFIL](../periodo-1/feature-F-PERFIL.md) (grafo de seguidores a limpar) e das features que detêm dados do usuário nos demais serviços ([F-EST](../periodo-1/feature-F-EST.md)/[F-PRG](../periodo-1/feature-F-PRG.md)/[F-AVA](../periodo-1/feature-F-AVA.md)/[F-EST-2](feature-F-EST-2.md), [F-FEED](../periodo-1/feature-F-FEED.md)/[F-NOT](../periodo-1/feature-F-NOT.md), [F-ACV-CADASTRO](../periodo-1/feature-F-ACV-CADASTRO.md)); [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md) e [P0-MSG](../periodo-0/feature-P0-MSG.md) (broker do fan-out).
 - **Divergência de baseline — prioridade:** RF-AUT-07 é Desejável (P2), mas RNF-SEC-41 é Essencial (§8). O grupo deve resolver o agendamento pelo controle de mudança (plano §3); esta feature não altera a baseline.
-- **Depende também de** F-AVA-2, F-DSF, F-STA, F-GAM, F-LST, F-REC-P2P e F-MOD para fechar o inventário dos dados criados no Período 2.
+- **Inventário dos dados do Período 2 (11/10/2026):** as tabelas de F-AVA-2, F-DSF, F-STA, F-GAM, F-LST, F-REC-P2P, F-MOD e F-EST-2 já estão no modelo de 16/09 e na matriz da etapa 3. Tabela que uma dessas features criar depois reprova a guarda de exclusão de cada serviço até ganhar destino na matriz; o dono da feature avisa o dono da F-CONTA-2.
 - **Alternativa a avaliar, sem mudar o desenho atual:** verificar se o recibo `exclusao_conta` pode reutilizar a infraestrutura do ledger idempotente sem perder o estado dos 30 dias.
 - Stack de cada serviço definida (arquitetura §2.1): `identidade`/`social` em Spring, `acervo`/`leitura` em NestJS.
 - **Telas (design P2):** [`excluir-conta.md`](../../design/periodo-2/F-CONTA-2/excluir-conta.md) ([protótipo](../../design/periodo-2/F-CONTA-2/prototipos/excluir-conta.html)) (W+M; mobile em tela empilhada pelas Configurações, web na coluna direita das Configurações; senha, caixa de confirmação explícita e confirmação destrutiva; termina em `Exclusão solicitada` sem shell) e [`recuperar-conta.md`](../../design/periodo-2/F-CONTA-2/recuperar-conta.md) ([protótipo](../../design/periodo-2/F-CONTA-2/prototipos/recuperar-conta.html)) (W+M, sem shell, data limite, `Cancelar exclusão` e `Sair`; depois de cancelar volta ao login), prompts escritos e protótipos exportados em 29/09/2026. A entrada `Excluir conta` e o texto novo da política (versão 1.1, mock) entram na edição consolidada [`configuracoes.md`](../../design/periodo-2/configuracoes/configuracoes.md) ([protótipo](../../design/periodo-2/configuracoes/prototipos/configuracoes.html)). Decisões a ratificar: linha `Excluir conta` sem `rubi`, confirmação em bottom sheet no mobile (o modal de sair do P1 é card centrado), caixa de marcar além do modal, faixa `ambar` só no último dia, `Sair` da recuperação sem confirmação. **Contratos a confirmar** (resolvidos no [plano de 07/10/2026](#decisões-do-dono-07102026)): resposta e rate limit da senha errada em `DELETE /me/conta`; login restrito devolvendo `exclusao_solicitada_em`/`exclusao_prevista_em` e distinguível do normal; cancelamento sem sessão normal (o protótipo volta ao login); validade do acesso restrito (estado `Acesso expirado`); se o dia limite conta como "até" e a hora do job. **Conflito:** a política ainda diz "Registros de acesso ficam por 6 meses", e a RN-23.7 fixa retenção técnica indeterminada após anonimização; o texto final é do grupo.
@@ -358,3 +405,9 @@ A conferência no emulador fica pendente: esta máquina não tem o Android SDK. 
 ### Conferência no emulador 08/10/2026: fluxo da etapa 5 percorrido no Pixel 8 (API 35) contra o `identidade` local (banco de dev, mensageria desligada), com a conta `teste.conta2`: linha `Excluir conta` nas Configurações, tela com o botão desabilitado em outline `rubi` a 40%, senha errada (banner `rubi`, campo limpo com foco e borda de erro, caixa marcada), `202` levando a `Exclusão solicitada` com a data do servidor, voltar do sistema levando ao login, login de recuperação com "Faltam 30 dias", cancelamento e `Conta recuperada`. **Uma correção:** a folha de confirmação abria pelo navegador da aba e ficava acima da barra inferior, fora do scrim (§4.3 pede a barra sob o scrim, sem resposta ao toque). Passou a abrir pelo navegador raiz, como as outras folhas do app, e foi conferida de novo no emulador. A conta de teste continua ativa no banco de dev. O Android SDK foi instalado nesta máquina para a conferência.
 
 ### Segredos 08/10/2026: etapa 6, parte de configuração, feita pelo dono. Render: `SCHEDULER_TOKEN`, `CLOUDINARY_API_KEY` e `CLOUDINARY_API_SECRET` no `leai-identidade`, e as duas do Cloudinary no `leai-acervo` (chave própria criada no Cloudinary para a exclusão). GitHub: `IDENTIDADE_URL` e `IDENTIDADE_SCHEDULER_TOKEN`, com o mesmo token do Render. Os dois serviços responderam `/health` 200 depois do redeploy. Os valores só passam a ter efeito quando o código da F-CONTA-2 chegar à `main`; falta o fluxo em DES.
+
+### Guarda de exclusão 11/10/2026: teste de integração em cada um dos quatro serviços que reprova quando uma tabela do schema não tem destino na exclusão (apagada, por cascata, anonimizada ou isenta) e confere no banco cada cascata declarada. No `leitura`, a lista de tabelas apagadas saiu do laço do consumidor para a constante exportada `TABELAS_DA_CONTA`, que a guarda importa; o comportamento não mudou. A matriz da etapa 3 ganhou a linha do `identidade`, as isentas e três acertos com o código: subconsulta em vez de "guardar os `origem_id`" no `social`, e a outbox pendente apagada no `acervo`. Conferido no Postgres descartável: `leitura` 5 testes (guarda e consumidor), `acervo` 6, `social` 2 + 3, `identidade` 2 + 11, e 262 testes unitários do `leitura`. Para confirmar que a guarda reprova, uma tabela isenta e uma cascata foram trocadas de propósito no `leitura`: os dois testes falharam com a mensagem esperada.
+
+### Roteiros 11/10/2026: escritos em Plano de implementação o roteiro da revisão visual da web (as cinco divergências em Pendências) e o de validação em DES, com a massa nos quatro serviços, o SQL que antecipa o prazo no Neon de DES respeitando os CHECKs de +30 dias e o disparo manual do job. Rodam depois do merge para `main`; nenhum foi executado ainda.
+
+### Revisão visual 11/10/2026: conferidas com capturas, contra os serviços locais e o banco de dev, as cinco divergências da web, com três contas de teste criadas para isso (`rev_a_45jsbg` privada, `rev_b_45jsbg` seguidora, `rev_c_45jsbg` sem seguir; senha fora do repositório). Todas aceitas como registradas: tela empilhada, confirmação com foco em `Cancelar`, checkbox nativo, consequência sem e-mail e acesso de recuperação só em memória (recarregar `/conta/recuperar` leva ao login; `Exclusão solicitada` sobrevive ao recarregar). **Uma correção:** sem o e-mail, a frase dizia `@username continuam ligados a esta conta e não podem ser usados`; passou ao singular (`continua ligado … não pode ser usado`) na web e no app, com teste nos dois. Web 874 testes e mobile 749 verdes.

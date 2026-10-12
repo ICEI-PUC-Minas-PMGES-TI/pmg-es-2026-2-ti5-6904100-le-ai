@@ -66,6 +66,17 @@ describe('ExcluirContaView', () => {
     expect(wrapper.text()).toMatch(/Entendi que, depois de \d{1,2} de [a-zç]+ de \d{4}, a exclusão/)
   })
 
+  it('sem o e-mail, cita só o username com o verbo no singular', async () => {
+    vi.mocked(authService.buscarUsuarioAtual).mockRejectedValueOnce(new Error('sem rede'))
+    const { wrapper } = montar()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain(
+      '@marinableu continua ligado a esta conta e não pode ser usado em outra.',
+    )
+    expect(wrapper.text()).not.toContain('continuam ligados')
+  })
+
   it('o botão só habilita com senha e caixa marcada', async () => {
     const { wrapper } = montar()
     expect(botaoExcluir(wrapper).attributes('disabled')).toBeDefined()

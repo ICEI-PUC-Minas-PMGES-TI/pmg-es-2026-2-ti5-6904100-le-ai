@@ -626,6 +626,8 @@ class _OpcaoDePrivacidade extends StatelessWidget {
       button: true,
       label: '$titulo. $descricao',
       excludeSemantics: true,
+      // Com `excludeSemantics`, a ação de toque do InkWell some da árvore: vai aqui.
+      onTap: aoTocar,
       child: InkWell(
         onTap: aoTocar,
         borderRadius: BorderRadius.circular(DesignTokens.radius),

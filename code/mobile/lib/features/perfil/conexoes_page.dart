@@ -168,6 +168,8 @@ class _ConexoesPageState extends State<ConexoesPage> {
           button: true,
           label: contagem == null ? rotulo : '$rotulo $contagem',
           excludeSemantics: true,
+          // Com `excludeSemantics`, a ação de toque do InkWell some da árvore: vai aqui.
+          onTap: () => setState(() => _aba = valor),
           child: InkWell(
             onTap: () => setState(() => _aba = valor),
             splashFactory: NoSplash.splashFactory,

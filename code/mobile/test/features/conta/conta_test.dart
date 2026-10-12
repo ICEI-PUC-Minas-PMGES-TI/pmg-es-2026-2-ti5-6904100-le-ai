@@ -118,6 +118,22 @@ void main() {
       expect(find.text('Muitas solicitações. Tente de novo em alguns minutos.'), findsOneWidget);
       expect(find.text('Verifique seu e-mail'), findsNothing);
     });
+
+    testWidgets('falha de rede vira banner, mantém o e-mail e some ao digitar', (tester) async {
+      await pedir(
+        tester,
+        _servico((_) async => throw http.ClientException('sem rede')),
+        'marina.beltrao@gmail.com',
+      );
+
+      expect(find.text('Não foi possível conectar ao serviço.'), findsOneWidget);
+      expect(find.text('Verifique seu e-mail'), findsNothing);
+      expect(find.text('marina.beltrao@gmail.com'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'marina.beltrao@gmail.co');
+      await tester.pump();
+      expect(find.text('Não foi possível conectar ao serviço.'), findsNothing);
+    });
   });
 
   group('RedefinirSenhaPage', () {
