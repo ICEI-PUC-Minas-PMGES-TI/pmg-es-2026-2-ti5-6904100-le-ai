@@ -8,8 +8,9 @@ info:
     perfil estão implementadas por F-AVA (27/09/2026); os contratos de F-EST
     e de F-PRG estão implementados (F-PRG em 27/09/2026, com a edição de
     progresso removida em 29/09/2026). A sequência diária está implementada
-    por F-GAM (08/10/2026) e os desafios por F-DSF (09/10/2026). Cada
-    operação traz `x-implementation-status`.
+    por F-GAM (08/10/2026), os desafios por F-DSF (09/10/2026) e as
+    estatísticas por F-STA (11/10/2026). Cada operação traz
+    `x-implementation-status`.
     Nota e resenha pertencem ao livro, não a uma ocorrência de leitura.
     As reações à resenha (curtir e descurtir) e as frases e trechos estão
     implementadas por F-AVA-2 (09/10/2026). Sessões cronometradas, favoritos e
@@ -69,6 +70,8 @@ tags:
     description: Sequência diária de leitura (streak), só mobile
   - name: desafios
     description: Desafios de leitura por janela de calendário, só mobile
+  - name: estatisticas
+    description: Totais, médias e séries de leitura do leitor
   - name: interno
     description: Operações exclusivas de serviços e do agendador
 security:
@@ -838,6 +841,91 @@ paths:
         '404': { $ref: '#/components/responses/NaoEncontrado' }
         '503': { $ref: '#/components/responses/ServicoIndisponivel' }
 
+  /perfis/{usuarioId}/estatisticas:
+    get:
+      tags: [perfis, estatisticas]
+      summary: Consulta os totais do ano de um perfil autorizado
+      operationId: consultarEstatisticasPerfil
+      x-implementation-status: implemented
+      x-implemented-by: F-STA
+      description: >-
+        Autoriza o próprio usuário e perfis públicos. Perfil privado exige
+        seguimento aceito (403 sem ele). Conta inexistente, suspensa ou em
+        exclusão pendente é 404. Só os três totais do ano, somados dos mesmos
+        baldes mensais de `/me/estatisticas`; médias e gráficos ficam no painel
+        próprio.
+      parameters:
+        - { $ref: '#/components/parameters/UsuarioId' }
+        - { $ref: '#/components/parameters/AnoEstatisticas' }
+      responses:
+        '200':
+          description: Totais do ano, ainda que zerados.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EstatisticasPerfil' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/Proibido' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
+  /me/estatisticas:
+    get:
+      tags: [estatisticas]
+      summary: Consulta totais e médias de leitura de um ano ou do acumulado
+      operationId: consultarMinhasEstatisticas
+      x-implementation-status: implemented
+      x-implemented-by: F-STA
+      description: >-
+        Só do próprio leitor (RNF-SEC-02). Os valores vêm de baldes mensais
+        recompostos do estado atual de progresso, leitura e nota: pelo consumo
+        assíncrono de `progresso.registrado` e `leitura.finalizada` (RF-STA-05),
+        que pode chegar com atraso de segundos, e na própria transação da
+        exclusão de trecho e das escritas de nota. Progresso conta no mês da
+        data local do dispositivo, inclusive de leitura abandonada (RN-04) e
+        de sincronização tardia; leitura concluída conta no mês de `dataFim`,
+        releituras como ocorrências próprias; nota conta no mês em que foi
+        dada pela última vez, no fuso America/Sao_Paulo. Médias sem
+        denominador são nulas. O bloco "Estatísticas do ano" do Meu perfil usa
+        esta mesma consulta com o ano corrente.
+      parameters:
+        - { $ref: '#/components/parameters/PeriodoEstatisticas' }
+      responses:
+        '200':
+          description: Estatísticas do período, ainda que zeradas.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Estatisticas' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
+  /me/estatisticas/graficos:
+    get:
+      tags: [estatisticas]
+      summary: Séries de páginas e livros concluídos por mês ou por ano
+      operationId: consultarGraficosEstatisticas
+      x-implementation-status: implemented
+      x-implemented-by: F-STA
+      description: >-
+        Só do próprio leitor (RF-STA-03). Num ano, um ponto por mês: começa no
+        primeiro mês com registro se for o primeiro ano do leitor, senão em
+        janeiro, e termina no mês corrente se for o ano corrente, senão em
+        dezembro. No acumulado, um ponto por ano, do primeiro com registro até
+        o corrente. Meses e anos sem leitura entram com zero. Nota não abre
+        mês nem ano.
+      parameters:
+        - { $ref: '#/components/parameters/PeriodoEstatisticas' }
+      responses:
+        '200':
+          description: Série do período, vazia sem nenhum registro no acumulado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GraficosEstatisticas' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
   /me/sequencia:
     get:
       tags: [sequencia]
@@ -1179,6 +1267,23 @@ components:
       required: false
       description: Id da atividade (via feed) ou da lista do dono (via lista).
       schema: { type: string, format: uuid }
+    PeriodoEstatisticas:
+      name: periodo
+      in: query
+      required: false
+      description: >-
+        Ano de calendário com quatro dígitos ou `acumulado`; ausente, o ano
+        corrente no fuso America/Sao_Paulo.
+      schema:
+        type: string
+        pattern: '^([1-9][0-9]{3}|acumulado)$'
+        example: '2026'
+    AnoEstatisticas:
+      name: ano
+      in: query
+      required: false
+      description: Ano de calendário; ausente, o ano corrente no fuso America/Sao_Paulo.
+      schema: { type: integer, minimum: 1000, maximum: 9999, example: 2026 }
 
   responses:
     RequisicaoInvalida:
@@ -1602,6 +1707,170 @@ components:
           nullable: true
           example: '2026-10-08'
           description: Último dia de calendário local com progresso.
+
+    TotaisEstatistica:
+      type: object
+      additionalProperties: false
+      required: [livrosConcluidos, paginasLidas, minutosLidos]
+      properties:
+        livrosConcluidos:
+          type: integer
+          minimum: 0
+          example: 9
+          description: >-
+            Leituras concluídas no período, pela data de fim; releituras contam
+            como ocorrências próprias.
+        paginasLidas:
+          type: integer
+          minimum: 0
+          example: 3818
+          description: >-
+            Páginas derivadas das atualizações de progresso (RN-17.1), inclusive
+            de leituras abandonadas (RN-04).
+        minutosLidos:
+          type: integer
+          minimum: 0
+          example: 5130
+          description: Minutos informados nas atualizações de progresso.
+
+    Estatisticas:
+      type: object
+      additionalProperties: false
+      required: [ano, anos, primeiroRegistro, totais, medias]
+      properties:
+        ano:
+          type: integer
+          nullable: true
+          example: 2026
+          description: Ano do recorte; nulo no acumulado.
+        anos:
+          type: array
+          description: >-
+            Anos com progresso ou leitura concluída, do mais recente ao mais
+            antigo, para o seletor. Nota sozinha não abre ano.
+          items:
+            type: object
+            additionalProperties: false
+            required: [ano, livrosConcluidos]
+            properties:
+              ano: { type: integer, example: 2026 }
+              livrosConcluidos: { type: integer, minimum: 0, example: 9 }
+        primeiroRegistro:
+          type: string
+          format: date
+          nullable: true
+          example: '2023-11-12'
+          description: >-
+            Primeira data com progresso ou fim de leitura concluída, para o
+            "desde" do acumulado; nulo sem registro.
+        totais: { $ref: '#/components/schemas/TotaisEstatistica' }
+        medias:
+          type: object
+          additionalProperties: false
+          required: [paginasPorDia, diasPorLivro, notaMedia]
+          properties:
+            paginasPorDia:
+              type: object
+              additionalProperties: false
+              required: [valor, paginasLidas, diasComLeitura]
+              properties:
+                valor:
+                  type: number
+                  nullable: true
+                  example: 20.4
+                  description: >-
+                    Páginas por dia com leitura, uma casa decimal; nulo sem dia
+                    com leitura.
+                paginasLidas: { type: integer, minimum: 0, example: 3818 }
+                diasComLeitura:
+                  type: integer
+                  minimum: 0
+                  example: 187
+                  description: Datas locais distintas com progresso no período.
+            diasPorLivro:
+              type: object
+              additionalProperties: false
+              required: [valor, dias, leiturasConcluidas]
+              properties:
+                valor:
+                  type: number
+                  nullable: true
+                  example: 19.1
+                  description: >-
+                    Dias por leitura concluída, uma casa decimal; nulo sem
+                    leitura concluída.
+                dias:
+                  type: integer
+                  minimum: 0
+                  example: 172
+                  description: >-
+                    Soma de `dataFim − dataInicio + 1` das leituras concluídas
+                    no período, com dias sem leitura e intervalos de abandono.
+                leiturasConcluidas: { type: integer, minimum: 0, example: 9 }
+            notaMedia:
+              type: object
+              additionalProperties: false
+              required: [valor, quantidade]
+              properties:
+                valor:
+                  type: number
+                  nullable: true
+                  minimum: 0
+                  maximum: 5
+                  example: 4.1
+                  description: >-
+                    Média das notas dadas no período, uma casa decimal; nulo
+                    sem nota.
+                quantidade:
+                  type: integer
+                  minimum: 0
+                  example: 8
+                  description: >-
+                    Notas dadas no período, pela data da última vez que foram
+                    dadas (fuso America/Sao_Paulo).
+
+    GraficosEstatisticas:
+      type: object
+      additionalProperties: false
+      required: [ano, granularidade, pontos]
+      properties:
+        ano:
+          type: integer
+          nullable: true
+          example: 2026
+          description: Ano do recorte; nulo no acumulado.
+        granularidade:
+          type: string
+          enum: [mes, ano]
+          description: Um ponto por mês num ano; um ponto por ano no acumulado.
+        pontos:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [ano, mes, paginasLidas, livrosConcluidos]
+            properties:
+              ano: { type: integer, example: 2026 }
+              mes:
+                type: integer
+                nullable: true
+                minimum: 1
+                maximum: 12
+                example: 9
+                description: Mês (1–12) na série mensal; nulo na série anual.
+              paginasLidas: { type: integer, minimum: 0, example: 412 }
+              livrosConcluidos: { type: integer, minimum: 0, example: 1 }
+
+    EstatisticasPerfil:
+      type: object
+      additionalProperties: false
+      required: [ano, livrosConcluidos, paginasLidas, minutosLidos]
+      description: Os mesmos totais de `TotaisEstatistica`, com o ano do recorte.
+      properties:
+        ano: { type: integer, example: 2026 }
+        livrosConcluidos: { type: integer, minimum: 0, example: 9 }
+        paginasLidas: { type: integer, minimum: 0, example: 3818 }
+        minutosLidos: { type: integer, minimum: 0, example: 5130 }
 
     UnidadeDesafio:
       type: string

@@ -33,7 +33,7 @@ Núcleo do produto. Estante, leitura, progresso, sessão cronometrada, nota, res
     - `infraestrutura/` — repositories Drizzle.
     - `api/` — controllers, guards HTTP e `dto/` (validação, Swagger).
     - Dependência só para dentro: `api → aplicacao → dominio` e `aplicacao → infraestrutura`. `aplicacao` pode usar os tipos de `api/dto` como contrato de entrada/saída; `dominio` e `infraestrutura` nunca importam `api/`. `common/`, `auth/`, `outbox/`, `referencias/`, `db/` e `messaging/` são transversais e ficam planos. `src/avaliacoes/` e `src/perfis/` (F-AVA) seguem a estrutura plana própria.
-- **Comandos:** `npm run start:dev` · `npm run build` · `npm test` · `npm run test:integration` · `npm run lint` · `npm run db:generate` · `npm run db:migrate` · `npm run db:seed` · `npm run backfill:sequencia` · `npm run backfill:desafios`. `npm run start:prod` aplica migrations antes de iniciar a API.
+- **Comandos:** `npm run start:dev` · `npm run build` · `npm test` · `npm run test:integration` · `npm run lint` · `npm run db:generate` · `npm run db:migrate` · `npm run db:seed` · `npm run backfill:sequencia` · `npm run backfill:desafios` · `npm run backfill:estatisticas`. `npm run start:prod` aplica migrations antes de iniciar a API.
 - **Porta local: 3001.** O `acervo` usa a 3000 e os dois sobem juntos. No Render a porta vem do ambiente.
 - **Testes:** Jest + ts-jest; unitários em `src/**/*.spec.ts`, integração em `test/integracao/*.int-spec.ts`. **A máquina de estados (RN-04) e a inatividade/abandono (RN-05) são teste obrigatório e prioritário (RNF-TST-01)** — entram com as features de domínio.
 - **OpenAPI:** `@nestjs/swagger` em runtime (`/docs`); commitado em [`docs/api/leitura.yaml`](../../../docs/api/leitura.yaml) (RNF-ARQ-03).
@@ -118,7 +118,7 @@ Módulos `src/estante/`, `src/leituras/` e `src/jobs/inatividade/`, com `src/ref
 ## F-GAM — sequência diária (08/10/2026)
 
 - **`src/sequencia/`** (`SequenciaModule`): `GET /me/sequencia` e `SequenciaService.recalcular(tx, usuarioId)`, que recompõe `dia_leitura` e `sequencia_leitura` das datas locais dos progressos atuais (nunca incrementa contador), sob `pg_advisory_xact_lock` por leitor. O zeramento (RN-18.4) é derivado na consulta (`dominio/sequencia.ts`, `sequenciaVigente`), no último fuso do dispositivo; não há job. Tabelas da baseline DER (migration 0001), sem migration nova.
-- **`src/metricas/`** (`MetricasModule`, `MetricasConsumer`): o consumidor de métricas único de F-GAM, F-DSF e F-STA. Fila `leai.leitura.metricas` no exchange do próprio `leitura`, routing keys `progresso.registrado` e `leitura.finalizada` (esta desde F-DSF). O `processar` ramifica por `envelope.type`; STA acrescenta o efeito dela ali.
+- **`src/metricas/`** (`MetricasModule`, `MetricasConsumer`): o consumidor de métricas único de F-GAM, F-DSF e F-STA. Fila `leai.leitura.metricas` no exchange do próprio `leitura`, routing keys `progresso.registrado` e `leitura.finalizada` (esta desde F-DSF). O `processar` ramifica por `envelope.type` e chama, no mesmo `tx` do recibo, sequência, desafios e estatísticas.
 - **Exclusão de trecho** (`ProgressoService.excluirTrecho`) chama `recalcular` no mesmo `tx`, sem evento. **Remoção da estante não recalcula** (decisão do dono, 08/10/2026): os dias do livro removido saem no próximo progresso ou exclusão do leitor.
 - **Backfill:** `npm run backfill:sequencia` (`node dist/sequencia/backfill.js` no build), idempotente; rodar antes de o binding subir num ambiente.
 - **Testes:** `src/sequencia/dominio/sequencia.spec.ts` e `test/integracao/sequencia.int-spec.ts` (API → outbox → despachante → broker em memória → consumidor, com duplicata, retry e DLQ).
@@ -132,6 +132,15 @@ Módulos `src/estante/`, `src/leituras/` e `src/jobs/inatividade/`, com `src/ref
 - **Edição:** materializa com a configuração antiga, descarta as janelas não terminadas e cria a corrente com a nova. As encerradas guardam o snapshot (RN-20.7).
 - **Backfill:** `npm run backfill:desafios` (`node dist/desafios/backfill.js` no build), idempotente; rodar antes de o binding de `leitura.finalizada` subir num ambiente.
 - **Testes:** `src/desafios/dominio/*.spec.ts` e `test/integracao/desafios.int-spec.ts` (CRUD, propriedade, idempotência, RN-20.2 a 20.10, pausas, edição, backfill, duplicata, retry e DLQ).
+
+## F-STA — estatísticas (11/10/2026)
+
+- **`src/estatisticas/`** (`EstatisticasModule`), em camadas: `GET /me/estatisticas?periodo=<ano>|acumulado`, `GET /me/estatisticas/graficos?periodo=…` e `GET /perfis/{usuarioId}/estatisticas?ano=`. O perfil segue RN-08 como `EstanteService.listarDoPerfil` (404, 403, 503) e devolve só os três totais do ano.
+- **Baldes mensais:** só `estatistica_mensal`. O ano é a soma dos seus meses e o acumulado, a soma de todos; a migration `0006_..._estatistica_buckets_mensais` removeu `estatistica_anual` e `estatistica_usuario` (nunca preenchidas) e deu ao mês `dias_com_leitura`, `dias_em_livros_concluidos`, `notas_quantidade` e `notas_soma`. As regras puras (somas, médias com uma casa e nulas sem denominador, séries com zeros) ficam em `dominio/estatisticas.ts`.
+- **`EstatisticasService.recalcular(tx, usuarioId)`** é o único caminho de escrita: `DELETE` + `INSERT … SELECT` de todos os meses do leitor, a partir de `atualizacao_progresso` (mês da `data_local`, inclusive leitura abandonada), `leitura` concluída (mês de `data_fim`, duração `data_fim − data_inicio + 1`) e `nota` (mês de `atualizado_em` em America/Sao_Paulo). Nunca soma o `data` do evento. Trava com `pg_advisory_xact_lock('estatisticas:'||usuarioId)`, sempre **depois** das travas da sequência e dos desafios.
+- **Quem chama:** o `MetricasConsumer` nos dois eventos; `ProgressoService.excluirTrecho` no mesmo `tx`; `AvaliacoesService.salvarNota` e `excluirNota` no mesmo `tx` (o `nota.alterada` não tem consumidor no `leitura`). Abandonar e retomar não mudam nenhum total.
+- **Backfill:** `npm run backfill:estatisticas` (`node dist/estatisticas/backfill.js` no build), idempotente; rodar depois da migration 0006 em cada ambiente.
+- **Testes:** `src/estatisticas/dominio/estatisticas.spec.ts` e `test/integracao/estatisticas.int-spec.ts` (totais por ano e acumulado, abandonada, dia com vários progressos, sincronização tardia e fuso, dias por livro com abandono e releitura, exclusão de trecho, nota, backfill, RN-08, duplicata, retry e DLQ).
 
 ## Pontos de atenção (ver `REQUISITOS.md`) — prioridade de teste
 
