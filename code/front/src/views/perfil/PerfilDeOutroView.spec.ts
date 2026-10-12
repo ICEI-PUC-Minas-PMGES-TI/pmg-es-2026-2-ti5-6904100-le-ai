@@ -5,6 +5,7 @@ import { ApiError } from '../../services/api'
 import { leituraService, type ResenhaDoPerfil } from '../../services/leitura'
 import { listasService } from '../../services/listas'
 import { perfilService, type Perfil } from '../../services/perfil'
+import { hojeEmSaoPaulo } from '../../estatisticas/formatos'
 import { itemEstante, paginaEstante } from '../../testes/estante'
 import { montarNaRota } from '../../testes/montarNaRota'
 
@@ -13,7 +14,7 @@ vi.mock('../../services/perfil', () => ({
 }))
 
 vi.mock('../../services/leitura', () => ({
-  leituraService: { listarEstantePerfil: vi.fn(), listarResenhasPerfil: vi.fn() },
+  leituraService: { listarEstantePerfil: vi.fn(), listarResenhasPerfil: vi.fn(), consultarEstatisticasPerfil: vi.fn() },
 }))
 
 vi.mock('../../services/listas', () => ({
@@ -80,6 +81,9 @@ describe('PerfilDeOutroView', () => {
     leitura.listarResenhasPerfil.mockReset().mockResolvedValue({ itens: [], paginacao: { page: 1, limite: 5, totalItens: 0, totalPaginas: 0 } })
     localStorage.clear()
     servico.obterPerfil.mockReset().mockResolvedValue(PUBLICO)
+    leitura.consultarEstatisticasPerfil
+      .mockReset()
+      .mockResolvedValue({ ano: hojeEmSaoPaulo().ano, livrosConcluidos: 14, paginasLidas: 4920, minutosLidos: 5800 })
     listas.listarDoPerfil.mockReset().mockResolvedValue({ items: [], page: 0, size: 20, totalElements: 0, totalPages: 0 })
     servico.seguir.mockReset()
     servico.deixarDeSeguir.mockReset().mockResolvedValue(undefined)
@@ -357,5 +361,62 @@ describe('PerfilDeOutroView', () => {
     const { wrapper } = await montarNaRota('/leitores/rafaokamoto')
     await flushPromises()
     expect(wrapper.text()).toContain('Rafael ainda não adicionou livros à estante.')
+  })
+
+  describe('Estatísticas do ano (F-STA)', () => {
+    const ANO = hojeEmSaoPaulo().ano
+    const bloco = (wrapper: Awaited<ReturnType<typeof montarNaRota>>['wrapper']) =>
+      wrapper.find('[aria-labelledby="titulo-estatisticas-do-ano"]')
+
+    it('perfil visível mostra os três totais do ano, sem Ver estatísticas', async () => {
+      const { wrapper } = await montarNaRota('/leitores/rafaokamoto', { largo: true })
+      await flushPromises()
+
+      expect(leitura.consultarEstatisticasPerfil).toHaveBeenCalledWith('u2')
+      const texto = bloco(wrapper).text()
+      expect(texto).toContain(`${ANO}, até hoje`)
+      expect(texto).toContain('14')
+      expect(texto).toContain('4.920')
+      expect(texto).toContain('96 h 40 min')
+      expect(texto).not.toContain('Ver estatísticas')
+    })
+
+    it('perfil restrito nem pede as estatísticas', async () => {
+      servico.obterPerfil.mockResolvedValue(PRIVADO)
+      const { wrapper } = await montarNaRota('/leitores/bia.nogueira', { largo: true })
+      await flushPromises()
+
+      expect(leitura.consultarEstatisticasPerfil).not.toHaveBeenCalled()
+      expect(bloco(wrapper).exists()).toBe(false)
+    })
+
+    it.each([403, 404])('%d do leitura esconde o bloco', async (status) => {
+      leitura.consultarEstatisticasPerfil.mockRejectedValue(new ApiError('Não.', status, 'X'))
+      const { wrapper } = await montarNaRota('/leitores/rafaokamoto', { largo: true })
+      await flushPromises()
+
+      expect(bloco(wrapper).exists()).toBe(false)
+    })
+
+    it('ano sem leitura vira a frase com o primeiro nome', async () => {
+      leitura.consultarEstatisticasPerfil.mockResolvedValue({ ano: ANO, livrosConcluidos: 0, paginasLidas: 0, minutosLidos: 0 })
+      const { wrapper } = await montarNaRota('/leitores/rafaokamoto', { largo: true })
+      await flushPromises()
+
+      expect(bloco(wrapper).text()).toContain(`Rafael ainda não registrou leituras em ${ANO}.`)
+    })
+
+    it('outra falha mostra o erro do bloco com Tentar de novo', async () => {
+      leitura.consultarEstatisticasPerfil.mockRejectedValueOnce(new ApiError('Falhou', 503, 'SERVICO_INDISPONIVEL'))
+      const { wrapper } = await montarNaRota('/leitores/rafaokamoto', { largo: true })
+      await flushPromises()
+
+      expect(bloco(wrapper).get('[role="alert"]').text()).toContain(
+        'Não foi possível carregar as estatísticas de Rafael. Verifique sua conexão e tente de novo.',
+      )
+      await bloco(wrapper).findAll('button').find((b) => b.text() === 'Tentar de novo')!.trigger('click')
+      await flushPromises()
+      expect(bloco(wrapper).text()).toContain('4.920')
+    })
   })
 })
