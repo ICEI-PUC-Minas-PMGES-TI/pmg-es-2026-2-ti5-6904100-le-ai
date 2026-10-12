@@ -50,6 +50,12 @@ Convenções do app mobile. Complementa o [`AGENTS.md`](../../AGENTS.md) da raiz
   - Rotas e dependências: `rotas_desafios.dart` (`DependenciasDeDesafios`, montado em `rotasDoPerfil`).
   - Textos compostos no cliente (título, janela, `Faltam`, `Cumprido`) em `textos.dart`; a barra (`broto` sobre `musgo-fundo`) e os cards em `widgets_de_desafios.dart`.
   - Recarga: a tela e o bloco recarregam na hora com `DesafiosService.alteracoes` e em silêncio, 3 s depois do último aviso, com os avisos de progresso e da estante (leitura finalizada), porque o acumulado vem do consumo assíncrono.
+- `lib/features/estatisticas/` (F-STA):
+  - `EstatisticasService` (`/me/estatisticas`, `/me/estatisticas/graficos` e `/perfis/{id}/estatisticas` no `leitura`, no mesmo client da estante; `buildRouter(estatisticas:)` injeta). O "hoje" é o de São Paulo em UTC−3 fixo (`hojeEmSaoPaulo`), o fuso do servidor.
+  - Painel em `/perfil/estatisticas` (`estatisticas_page.dart`), com o período na rota (`?periodo=`). O gráfico de colunas é feito à mão em `widgets_de_estatisticas.dart`, sem pacote; a escala do eixo (`escala.dart`), os formatos (`formatos.dart`) e a copy (`textos.dart`) espelham `code/front/src/estatisticas/`.
+  - Bloco `Estatísticas do ano` (`estatisticas_do_perfil.dart`) no Meu perfil (`PerfilPage.estatisticas`) e no perfil de outro leitor (`PerfilDeOutroPage.estatisticas`, montado em `rotas_perfil.dart` e `rotas_feed.dart`). 403/404 do `leitura` esconde o bloco.
+  - Rotas e dependências em `rotas_estatisticas.dart` (`DependenciasDeEstatisticas`, montado em `rotasDoPerfil`). O painel e o bloco recarregam em silêncio 3 s depois dos avisos de progresso, estante e nota.
+  - `design/widgets/pill_de_filtro.dart` (`PillDeFiltro`) é o pill da Estante, compartilhado com a faixa de períodos; `rotuloNumerico` desenha anos em `num-inline`.
 - `android/` e `ios/`: plataformas nativas geradas pelo Flutter; o build iOS depende de macOS/Xcode.
 - `test/`: testes unitários e widget, espelhando a árvore de `lib/`.
 

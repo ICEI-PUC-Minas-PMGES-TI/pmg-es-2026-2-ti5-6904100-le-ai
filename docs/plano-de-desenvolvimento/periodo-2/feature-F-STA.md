@@ -23,7 +23,7 @@ RNF atendidos: **RNF-ARQ-06** (recálculo por fluxo assíncrono), **RNF-ERR-06/0
 | Infra | implementado (11/10/2026) | migration `0006_..._estatistica_buckets_mensais`: só `estatistica_mensal`, com dias com leitura, dias em livros concluídos e soma/quantidade de notas; `estatistica_anual` e `estatistica_usuario` (vazias) removidas. Consumo pela fila `leai.leitura.metricas` da F-GAM |
 | Backend | implementado (11/10/2026) | `leitura`: `GET /me/estatisticas`, `/me/estatisticas/graficos` e `/perfis/{id}/estatisticas`, recálculo pelo consumidor de métricas, pela exclusão de trecho e pelas escritas de nota, backfill `npm run backfill:estatisticas` |
 | Web | implementado (12/10/2026) | `/perfil/estatisticas` com seletor de período, totais, médias e dois gráficos com visão em tabela; bloco `Estatísticas do ano` no Meu perfil (com `Ver estatísticas`) e no perfil de outro leitor |
-| Mobile | não iniciado | mesmas telas |
+| Mobile | implementado (12/10/2026) | `/perfil/estatisticas` com faixa de períodos, totais, médias e dois gráficos com tabela; bloco `Estatísticas do ano` no Meu perfil (com `Ver estatísticas`) e no perfil de outro leitor. Conferido no emulador |
 
 ## Especificação
 
@@ -92,11 +92,62 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Testes:** 932 no web, com os novos de serviço, domínio (escala, formatos, textos e seletor), gráfico, tela (períodos, rota, acumulado, médias ausentes, vazio, timeout e 503 com retry, skeleton e resposta atrasada) e blocos dos dois perfis (vazio, erro, 403/404, restrito).
 - **Conferência lado a lado** com os protótipos renderizados, em 1440×900, 1280, 1024 e 390×844, claro e escuro, com a conta de teste e dados em 2024, 2025 e 2026: 5.1 com hover, 5.2, 5.4 com tabela e foco por teclado, 4.1, `Escuro 5.1`, `Web, público não sigo` e `Sequência, estatísticas e desafios (rolada)`.
 
+## Implementação do mobile (12/10/2026)
+
+**`code/mobile`, `lib/features/estatisticas/`:**
+- **Serviço:** `EstatisticasService` (`consultar`, `graficos` e `doPerfil` no `leitura`, no mesmo client da estante; `buildRouter(estatisticas:)` injeta). O período vai sempre explícito (`PeriodoAno` ou `PeriodoAcumulado`). O "hoje" é o de São Paulo, em UTC−3 fixo (o Brasil não tem horário de verão desde 2019), o mesmo fuso do servidor, sem pacote novo.
+- **Painel `/perfil/estatisticas`** (`estatisticas_page.dart`), aba Perfil ativa, com o período na rota (`?periodo=2025|acumulado`), como o filtro da Estante.
+  - Do protótipo 4.1 a 4.9: faixa de pills, linha do intervalo, `Totais` e `Médias` em containers de linhas, `Páginas por mês` (180) e `Livros concluídos por mês` (140), rodapé.
+  - Vazio com `Ir para a estante` e sem faixa; erro com o banner e a faixa mantida; skeleton em cada carga e troca de período, também no cold start.
+  - Resposta atrasada de um período anterior é descartada. A troca é anunciada ao TalkBack com o novo intervalo.
+- **Gráfico feito à mão** (`widgets_de_estatisticas.dart`), sem pacote novo:
+  - grade de 1px, eixo Y só com marcas (a mesma escala 1-2-5 do web, em `escala.dart`) e um único rótulo direto;
+  - toque na faixa do mês abre o balão e a faixa `musgo-fundo`; tocar fora fecha;
+  - `Ver como tabela` por card;
+  - TalkBack: o resumo do gráfico e um nó por mês (`Julho de 2026, 604 páginas`) com ação de toque.
+- **Bloco `Estatísticas do ano`** (`estatisticas_do_perfil.dart`):
+  - No Meu perfil (`PerfilPage.estatisticas`), entre a sequência e os desafios, com `Ver estatísticas`.
+  - No perfil de outro leitor (`PerfilDeOutroPage.estatisticas`, montado em `rotas_perfil.dart` e em `rotas_feed.dart`), só com o conteúdo visível e sem botão.
+  - Faixa de três cards que sangra pela borda direita. Carga própria: a falha vira o banner do bloco, e 403/404 do `leitura` esconde o bloco.
+  - O skeleton da página ganhou `comEstatisticas`.
+- **Recarga:** o painel e o bloco recarregam em silêncio 3 s depois dos avisos de progresso, estante e nota (`LeituraService.alteracoes`), porque os totais vêm do consumo assíncrono. A falha silenciosa mantém o que está na tela.
+- **Copy e formatos:** em `textos.dart` e `formatos.dart`, espelho de `code/front/src/estatisticas/`.
+- **Compartilhado:** o pill de filtro da Estante saiu para `design/widgets/pill_de_filtro.dart` (`PillDeFiltro`, com `rotuloNumerico` para os anos) e ganhou o `onTap` no `Semantics` que faltava.
+- **Copy de RN-08:** a frase do perfil privado e a do modal de deixar de seguir passam a citar listas e estatísticas, no mobile e no web (perfil de outro leitor e Conexões).
+- **Testes:** 54 novos.
+  - Serviço: URLs, parse, resposta inválida e 403.
+  - Domínio: escala, formatos, textos e seletor.
+  - Painel: períodos, rota, acumulado, médias ausentes, vazio, 503 e timeout com retry, skeleton, resposta atrasada, recarga silenciosa e escuro.
+  - Gráfico: rótulo único, mês zero, toque e troca do balão, TalkBack e tabela.
+  - Blocos: isolado, no Meu perfil (posição e falha isolada) e no perfil de outro leitor (RN-08, 403/404, vazio).
+  - Rotas.
+
+  `flutter analyze` sem avisos e 794 testes verdes.
+
+**Teste manual no emulador (12/10/2026):**
+- **Preparação:** Android API 35 no WSL (`subir.sh` e o driver `emu`), serviços locais contra o banco de dev, conta de teste com leituras em 2024, 2025 e 2026.
+- **Roteiro conferido lado a lado com os artboards:**
+  - **Meu perfil:** o bloco entre a sequência e os desafios (`Sequência, estatísticas e desafios`).
+  - **`Ver estatísticas`** abre o painel.
+  - **2026:** 4.1, e o toque em julho mostra o balão e a faixa (4.2).
+  - **`Ver como tabela`** com "Outubro até hoje" (4.3).
+  - **2024, o primeiro ano:** "desde o seu primeiro registro".
+  - **Acumulado** e gráficos por ano no escuro (`Escuro 4.1`/`4.2`).
+  - **Perfil público** (`Estatísticas e estante`).
+  - **Perfil privado sem seguimento:** sem bloco, com a frase de restrição nova.
+  - **`leitura` parado:** banner com `Tentar de novo`, que recarrega quando o serviço volta.
+- **O teste achou três ajustes, já corrigidos:**
+  - O espaço entre número e unidade numa métrica de uma parte é `space-2` (no tempo, `space-1` dentro de cada parte).
+  - O banner de erro usa o triângulo `Warning`, como no protótipo.
+  - A linha do período e a ajuda dos totais saíam fundidas num só nó do TalkBack.
+- **Fora da F-STA, visto de passagem:** o resultado da busca de leitor aparece sem ação de toque na semântica, o defeito que a convenção de Semantics da `desenvolvimento` (`d9f32cf`) corrige.
+- **O vazio** (leitor sem nenhum registro) ficou coberto pelos testes, sem conta assim no dev.
+
 ## Critérios de aceite
 
-- [ ] Totais de livros concluídos, páginas lidas e tempo aparecem por **ano** e **acumulado** (RF-STA-01); páginas de leituras abandonadas **contam** (RN-04). Backend e web prontos; falta o mobile.
-- [ ] Médias de páginas/dia, dias/livro e nota média corretas (RF-STA-02). Backend e web prontos; falta o mobile.
-- [ ] Gráficos de **páginas/mês** e **livros/mês** (RF-STA-03), com contraste WCAG AA (RNF-USA-03). Web pronto, com colunas em `musgo` e visão em tabela; falta o mobile.
+- [x] Totais de livros concluídos, páginas lidas e tempo aparecem por **ano** e **acumulado** (RF-STA-01); páginas de leituras abandonadas **contam** (RN-04). Backend, web e mobile.
+- [x] Médias de páginas/dia, dias/livro e nota média corretas (RF-STA-02). Backend, web e mobile.
+- [x] Gráficos de **páginas/mês** e **livros/mês** (RF-STA-03), com contraste WCAG AA (RNF-USA-03). Web e mobile, com colunas em `musgo` (`musgo-claro` no escuro) e visão em tabela.
 - [x] As estatísticas são **recalculadas de forma assíncrona** a partir de `progresso.registrado`/`leitura.finalizada`; consumidor **idempotente** + DLQ (RF-STA-05, RNF-ERR-06/07); o painel reflete também dados históricos do próprio schema.
 - [x] Excluir progresso corrige páginas/tempo e criar/editar/remover nota corrige a nota média, sem aguardar evento inexistente.
 - [ ] O painel funciona **em DES**.
@@ -110,7 +161,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
 - [x] Testes unitários e de integração: totais/médias/séries, páginas abandonadas, exclusão de progresso, nota, recálculo, base histórica e RN-08 em perfil público/privado
 - [x] Testes assíncronos: consumo de `progresso.registrado`/`leitura.finalizada` com duplicação e DLQ (RNF-TST-03)
-- [ ] Testes web/mobile cobrem render dos gráficos e indisponibilidade/timeout com API simulada (RNF-TST-05/04/06). Web coberto; falta o mobile.
+- [x] Testes web/mobile cobrem render dos gráficos e indisponibilidade/timeout com API simulada (RNF-TST-05/04/06).
 - [x] **Spec OpenAPI de `leitura` atualizado em `docs/api/leitura.yaml`** com os endpoints de estatística
 - [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
 - [ ] Arquivo da feature atualizado: status, pendências, timeline
@@ -122,19 +173,26 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Depende de** [F-PRG](../periodo-1/feature-F-PRG.md) (`progresso.registrado`), [F-EST](../periodo-1/feature-F-EST.md) (`leitura.finalizada`), [F-AVA](../periodo-1/feature-F-AVA.md) (notas), [F-PERFIL](../periodo-1/feature-F-PERFIL.md) (RN-08), P0-INFRA, P0-DS, P0-DEPLOY, P0-CI e P0-MSG.
 - **Decisão do grupo incorporada em 15/09/2026:** denominadores definidos acima. Testar dia com vários progressos/livros, progresso manual, sincronização tardia, conclusão no mesmo dia, releituras e intervalo abandonado. Os campos do DTO público sob RN-08 foram decididos na implementação do backend (11/10/2026).
 - **Backfill em cada ambiente:** depois da migration 0006, rodar `npm run backfill:estatisticas` no `leitura`. No DES, entra no merge de fechamento do Período 2.
-- **Mobile:** painel próprio, bloco `Estatísticas do ano` do Meu perfil e bloco do perfil alheio, a partir das telas de design abaixo.
-- **Divergências protótipo × implementação** (web):
+- **Divergências protótipo × implementação** (web e mobile; as do web valem para o mobile onde o desenho é o mesmo, e o "desde" e as frases novas são idênticos):
   - **Bloco no Meu perfil web.** Os artboards web de `meu-perfil.html` não têm o bloco `Estatísticas do ano`; só o mobile tem. Os prompts (`meu-perfil.md` §4.8 e `estatisticas.md` §1) o põem na coluna de identidade, e sem ele o painel não tem entrada na web. **Decisão do dono (12/10/2026):** o bloco entra com o desenho do perfil de outro leitor no protótipo web, mais `Ver estatísticas` com `ChartBar`.
   - **"Desde" pelo primeiro registro.** O protótipo diz `Desde 12 de novembro de 2023, quando você entrou` e `…, desde que você entrou`, mas a data que o `leitura` devolve é a do primeiro progresso ou fim de leitura concluída (a `v_perfil_referencia_v1` não tem a criação da conta). **Decisão do dono (12/10/2026):** `Desde 12 de novembro de 2023, seu primeiro registro` e `…, desde o seu primeiro registro`.
   - **Seta só no celular.** Os artboards web não têm seta (a volta é o item Perfil da sidebar); o mobile tem. Em vez do `← Perfil` das outras telas do perfil, a rota usa `meta.voltarSoNoCelular`.
   - **Frases que o protótipo não desenha:** nota com uma só nota (`A única nota que você deu em 2026.`), página por dia ausente num ano só com conclusões (`Sem dias com leitura em 2025`), nota ausente no acumulado (`Nenhuma nota dada ainda`) e gráfico de páginas sem páginas (`Nenhuma página registrada em 2025.`).
   - **Largura intermediária.** O protótipo só desenha 1440 e 390. Com a coluna de períodos, entre 768 e 1280px a coluna direita ficava com cerca de 440px, e os números vazavam dos cards. Nessa faixa, os períodos viram as pills do mobile no topo e os gráficos empilham.
+  - **Mobile: pill de filtro compartilhado.** A faixa de períodos usa o pill da Estante ("mesmo desenho dos pills de filtro da Estante", §4), que saiu para `design/widgets/pill_de_filtro.dart`; a Estante não mudou de desenho, só ganhou o `onTap` no `Semantics`.
+  - **Mobile: frase de restrição e modal de deixar de seguir.** Seguem `perfil-de-outro-leitor.md` (§4.3 e o modal) e citam listas e estatísticas também no web; o modal mantém `dessa pessoa` em vez de `dela`, pela regra de não supor gênero.
   - **Escala do eixo** por regra (passos 1-2-5, até quatro marcas, ar acima da coluna mais alta), conferida contra os exemplos do protótipo (604 → 0 a 600, 2 → 0 a 3, 5.150 → 0 a 6.000, 14 → 0 a 15). Fora deles, a regra vale sozinha: 939 → 0/500/1.000.
 - **Fronteira:** a distribuição das notas dadas pelo leitor (RF-STA-04) é F-STA-OPC. A distribuição de notas do livro é distinta e foi alocada a F-ACV-NOTA.
 - **Compartilha `leitura`** com as demais features de leitura — sinalizar no grupo (plano §6).
 - Stack de `leitura` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
 ## Timeline
+
+### Implementação 12/10/2026: mobile implementado na `vicenzo-features`.
+- Painel `/perfil/estatisticas`, gráfico de colunas próprio com tabela e TalkBack, e os blocos `Estatísticas do ano` no Meu perfil e no perfil de outro leitor.
+- Teste manual no emulador feito, lado a lado com os artboards: três ajustes (espaço da unidade, ícone do banner, nós do TalkBack), corrigidos.
+- A frase de restrição e o modal de deixar de seguir citam listas e estatísticas, no mobile e no web.
+- Testes: mobile 794. Falta o merge em `desenvolvimento` e, no fechamento do período, o DES com o backfill.
 
 ### Implementação 12/10/2026: web implementado na `vicenzo-features`.
 - Painel `/perfil/estatisticas`, gráfico de colunas próprio com tabela e teclado, e os blocos `Estatísticas do ano` nos dois perfis.
