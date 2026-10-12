@@ -75,9 +75,7 @@ export class ContaExcluidaConsumer implements OnModuleInit {
       'desafio',
       'sequencia_leitura',
       'dia_leitura',
-      'estatistica_usuario',
       'estatistica_mensal',
-      'estatistica_anual',
     ]) {
       await tx.execute(sql`
         DELETE FROM ${sql.identifier('leitura')}.${sql.identifier(tabela)}

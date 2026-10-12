@@ -43,6 +43,13 @@
       "when": 1791573087555,
       "tag": "0005_20261009161113_cria_v_reacao_resenha_v1",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791699029656,
+      "tag": "0006_20261011031028_estatistica_buckets_mensais",
+      "breakpoints": true
     }
   ]
 }
