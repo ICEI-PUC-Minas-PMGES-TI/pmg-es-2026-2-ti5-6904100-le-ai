@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/config/app_config.dart';
 import '../../core/network/api_client.dart';
 import '../desafios/rotas_desafios.dart';
+import '../estatisticas/rotas_estatisticas.dart';
 import '../estante/estante_service.dart';
 import '../listas/rotas_listas.dart';
 import '../livros/capa.dart';
@@ -81,9 +82,11 @@ List<RouteBase> rotasDoPerfil(
   Widget Function(BuildContext context, String usuarioId, String nome)? resenhasDeOutro,
   DependenciasDeListas? listas,
   DependenciasDeDesafios? desafios,
+  DependenciasDeEstatisticas? estatisticas,
 }) => <RouteBase>[
   if (listas != null) ...rotasDasMinhasListas(listas),
   if (desafios != null) ...rotasDosDesafios(desafios),
+  if (estatisticas != null) ...rotasDasEstatisticas(estatisticas),
   GoRoute(
     path: 'editar',
     builder: (context, state) => EditarPerfilPage(
@@ -151,6 +154,9 @@ List<RouteBase> rotasDoPerfil(
                 usuarioId: usuarioId,
                 nome: nome,
               ),
+        estatisticas: estatisticas == null
+            ? null
+            : (usuarioId, nome) => estatisticasDeOutroLeitor(estatisticas, usuarioId, nome),
       );
     },
     routes: <RouteBase>[

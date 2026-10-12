@@ -136,7 +136,16 @@ class SkeletonDoPerfil extends StatelessWidget {
   /// Bloco de 104px da sequência diária (F-GAM), no perfil próprio que a mostra.
   final bool comSequencia;
 
-  const SkeletonDoPerfil({super.key, this.comBotao = false, this.comSequencia = false});
+  /// Bloco `Estatísticas do ano` (F-STA): uma barra de 24px a 50% e três retângulos de 136 por
+  /// 88 em faixa, o terceiro cortado pela borda (perfil-de-outro-leitor.md §4.7).
+  final bool comEstatisticas;
+
+  const SkeletonDoPerfil({
+    super.key,
+    this.comBotao = false,
+    this.comSequencia = false,
+    this.comEstatisticas = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -190,6 +199,35 @@ class SkeletonDoPerfil extends StatelessWidget {
           if (comSequencia) ...<Widget>[
             const SizedBox(height: DesignTokens.space6),
             const SkeletonDeSequencia(),
+          ],
+          if (comEstatisticas) ...<Widget>[
+            const SizedBox(height: DesignTokens.space8),
+            Align(alignment: Alignment.centerLeft, child: barra(24, 0.5)),
+            const SizedBox(height: DesignTokens.space3),
+            SizedBox(
+              height: 88,
+              child: ClipRect(
+                child: OverflowBox(
+                  alignment: Alignment.centerLeft,
+                  maxWidth: double.infinity,
+                  child: Row(
+                    children: <Widget>[
+                      for (var i = 0; i < 3; i++) ...<Widget>[
+                        if (i > 0) const SizedBox(width: DesignTokens.space3),
+                        Container(
+                          width: 136,
+                          height: 88,
+                          decoration: BoxDecoration(
+                            color: theme.coverPlaceholder,
+                            borderRadius: BorderRadius.circular(DesignTokens.radius),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ],
         ],
       ),

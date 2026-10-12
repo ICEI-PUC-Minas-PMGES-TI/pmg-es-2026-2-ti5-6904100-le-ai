@@ -66,8 +66,12 @@ class PerfilPage extends StatefulWidget {
   /// pedidos, antes das seções de leitura (meu-perfil.md §4.1 A).
   final Widget Function()? sequencia;
 
-  /// Bloco "Desafios" (F-DSF), só no perfil próprio: entra depois da sequência, antes das seções
-  /// de leitura (meu-perfil.md §4.1 B; as Estatísticas do ano, entre os dois, ainda não existem).
+  /// Bloco "Estatísticas do ano" (F-STA), com `Ver estatísticas`: entre a sequência e os desafios
+  /// (meu-perfil.md §4.1, artboard `Sequência, estatísticas e desafios`).
+  final Widget Function()? estatisticas;
+
+  /// Bloco "Desafios" (F-DSF), só no perfil próprio: entra depois das estatísticas, antes das
+  /// seções de leitura (meu-perfil.md §4.1 B).
   final Widget Function()? desafios;
 
   const PerfilPage({
@@ -84,6 +88,7 @@ class PerfilPage extends StatefulWidget {
     this.resenhas,
     this.listas,
     this.sequencia,
+    this.estatisticas,
     this.desafios,
   });
 
@@ -180,6 +185,7 @@ class _PerfilPageState extends State<PerfilPage> {
     final aoBuscarLivros = _destino(widget.aoBuscarLivros, '/descobrir');
     final aoVerEstante = _destino(widget.aoVerEstante, '/estante');
     final sequencia = widget.sequencia?.call();
+    final estatisticas = widget.estatisticas?.call();
     final desafios = widget.desafios?.call();
     return SingleChildScrollView(
       // 32 acima do avatar, como no protótipo.
@@ -190,7 +196,10 @@ class _PerfilPageState extends State<PerfilPage> {
         DesignTokens.space10,
       ),
       child: _carregando && perfil == null
-          ? SkeletonDoPerfil(comSequencia: widget.sequencia != null)
+          ? SkeletonDoPerfil(
+              comSequencia: widget.sequencia != null,
+              comEstatisticas: widget.estatisticas != null,
+            )
           : _falhou || perfil == null
           ? BannerAviso(
               variante: VarianteAviso.erro,
@@ -288,6 +297,10 @@ class _PerfilPageState extends State<PerfilPage> {
                   const SizedBox(height: DesignTokens.space8),
                 ] else
                   const SizedBox(height: DesignTokens.space12),
+                if (estatisticas != null) ...<Widget>[
+                  estatisticas,
+                  const SizedBox(height: DesignTokens.space8),
+                ],
                 if (desafios != null) ...<Widget>[
                   desafios,
                   const SizedBox(height: DesignTokens.space8),
