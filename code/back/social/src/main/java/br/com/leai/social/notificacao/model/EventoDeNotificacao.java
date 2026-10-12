@@ -74,6 +74,12 @@ public enum EventoDeNotificacao {
       TipoNotificacao.LEITURA_EXPIRADA,
       null,
       List.of(DadosDeNotificacao.LEITURA_ID, DadosDeNotificacao.LIMIAR_DIAS)),
+  RECOMENDACAO_RECEBIDA(
+      MessagingConstants.EVENTO_RECOMENDACAO_RECEBIDA,
+      MessagingConstants.SOCIAL_EXCHANGE,
+      TipoNotificacao.RECOMENDACAO_RECEBIDA,
+      "autorAcao",
+      List.of(DadosDeNotificacao.RECOMENDACAO_ID, DadosDeNotificacao.RECOMENDACAO_MENSAGEM)),
   /**
    * F-AVA-2: o {@code leitura} só publica a primeira curtida do par resenha e leitor, então
    * recurtir não chega aqui. O {@code livro} do {@code data} vira o snapshot do destino.

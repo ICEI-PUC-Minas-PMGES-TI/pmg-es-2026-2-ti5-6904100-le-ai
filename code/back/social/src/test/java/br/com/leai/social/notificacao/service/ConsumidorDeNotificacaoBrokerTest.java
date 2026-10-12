@@ -91,6 +91,7 @@ class ConsumidorDeNotificacaoBrokerTest {
     verify(canal).queueBind(fila, MessagingConstants.SOCIAL_EXCHANGE, "atividade.curtida");
     verify(canal).queueBind(fila, MessagingConstants.SOCIAL_EXCHANGE, "atividade.comentada");
     verify(canal).queueBind(fila, MessagingConstants.SOCIAL_EXCHANGE, "comentario.respondido");
+    verify(canal).queueBind(fila, MessagingConstants.SOCIAL_EXCHANGE, "recomendacao.recebida");
     verify(canal).queueBind(fila, MessagingConstants.LEITURA_EXCHANGE, "leitura.em_risco");
     verify(canal).queueBind(fila, MessagingConstants.LEITURA_EXCHANGE, "leitura.expirada");
     verify(canal).queueBind(fila, MessagingConstants.LEITURA_EXCHANGE, "resenha.curtida");

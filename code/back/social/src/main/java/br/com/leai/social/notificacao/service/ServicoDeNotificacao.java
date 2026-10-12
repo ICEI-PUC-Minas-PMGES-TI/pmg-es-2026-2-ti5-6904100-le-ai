@@ -145,6 +145,8 @@ public class ServicoDeNotificacao {
         leituraId,
         (Integer) dados.get(DadosDeNotificacao.LIMIAR_DIAS),
         livro(dados),
+        // Quem saiu da visibilidade (suspenso, em exclusão) também perde a própria mensagem.
+        ator == null ? null : (String) dados.get(DadosDeNotificacao.RECOMENDACAO_MENSAGEM),
         notificacao.tipo() == TipoNotificacao.LEITURA_EM_RISCO
             ? AcaoNotificacaoResposta.abandonarLeitura(leituraId)
             : null,

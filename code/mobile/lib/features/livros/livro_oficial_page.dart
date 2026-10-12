@@ -5,8 +5,10 @@ import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../app/cabecalho_tela.dart';
 import '../../design/theme.dart';
 import '../../design/tokens.dart';
+import '../../design/widgets/aviso.dart';
 import '../../design/widgets/bloco_de_spoiler.dart';
 import '../../design/widgets/botao_primario.dart';
+import '../../design/widgets/botao_secundario.dart';
 import '../../design/widgets/botao_textual.dart';
 import '../../design/widgets/capa_livro.dart';
 import '../../design/widgets/entrada_suave.dart';
@@ -25,7 +27,9 @@ import '../avaliacao/reacoes_da_resenha.dart';
 import '../avaliacao/secao_frases.dart';
 import '../estante/estante_service.dart';
 import '../estante/situacao_na_estante.dart';
+import '../feed/social_service.dart';
 import '../perfil/widgets_de_perfil.dart';
+import '../recomendacoes/recomendar_livro_page.dart';
 import '../progresso/rotas_progresso.dart';
 import 'acervo_service.dart';
 import 'formatos.dart';
@@ -56,9 +60,12 @@ class LivroOficialPage extends StatefulWidget {
   final DependenciasDeProgresso? progresso;
   final ValueChanged<String>? aoVerAtualizacoes;
 
-  /// Menu `Mais ações` do header com `Adicionar à lista` (pagina-do-livro.md P2 §4 A e §5.1,
-  /// F-LST). `Recomendar a um leitor` (F-REC-P2P) entra acrescentando um item em `_abrirMenu`.
+  /// Menu `Mais ações` do header (pagina-do-livro.md P2 §4 A e §5.1): `Adicionar à lista` com
+  /// [listas] (F-LST) e `Recomendar a um leitor` com [social] (F-REC-P2P). Sem nenhum dos dois, o
+  /// menu não aparece.
   final DependenciasDeListas? listas;
+  final SocialService? social;
+  final VoidCallback? aoBuscarLeitores;
 
   /// Páginas de autor, editora e série e a busca por assunto (F-ACV-DESCOBERTA). Sem elas, a
   /// ficha mostra os valores como texto e os assuntos não reagem ao toque.
@@ -80,6 +87,8 @@ class LivroOficialPage extends StatefulWidget {
     this.progresso,
     this.aoVerAtualizacoes,
     this.listas,
+    this.social,
+    this.aoBuscarLeitores,
     this.aoAbrirAutor,
     this.aoAbrirEditora,
     this.aoAbrirSerie,
@@ -129,7 +138,7 @@ class _LivroOficialPageState extends State<LivroOficialPage> {
               aoVoltar: widget.aoVoltar,
               semDivisor: true,
               acoes: <Widget>[
-                if (widget.listas != null &&
+                if ((widget.listas != null || widget.social != null) &&
                     _pagina.estado == EstadoDaPagina.pronta &&
                     livro != null)
                   Semantics(
@@ -167,13 +176,33 @@ class _LivroOficialPageState extends State<LivroOficialPage> {
   /// Menu `Mais ações` (§5.1): card compacto do livro e os itens, sem destrutivo.
   Future<void> _abrirMenu(LivroOficialResumo livro) async {
     final listas = widget.listas;
-    if (listas == null) {
+    final social = widget.social;
+    if (listas == null && social == null) {
       return;
     }
     final escolha = await mostrarFolhaInferior<String>(
       Navigator.of(context, rootNavigator: true).context,
       builder: (context) {
         final theme = Theme.of(context);
+        Widget item(String valor, IconData icone, String rotulo) {
+          return Semantics(
+            button: true,
+            child: InkWell(
+              onTap: () => Navigator.of(context).pop(valor),
+              child: SizedBox(
+                height: 56,
+                child: Row(
+                  children: <Widget>[
+                    Icon(icone, size: 20, color: theme.colorScheme.onSurface),
+                    const SizedBox(width: DesignTokens.space4),
+                    Expanded(child: Text(rotulo, style: theme.textTheme.bodyMedium)),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
         return SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -201,26 +230,10 @@ class _LivroOficialPageState extends State<LivroOficialPage> {
               ),
               const SizedBox(height: DesignTokens.space4),
               Divider(height: 1, color: theme.divider),
-              Semantics(
-                button: true,
-                child: InkWell(
-                  onTap: () => Navigator.of(context).pop('lista'),
-                  child: SizedBox(
-                    height: 56,
-                    child: Row(
-                      children: <Widget>[
-                        Icon(
-                          PhosphorIconsRegular.listPlus,
-                          size: 20,
-                          color: theme.colorScheme.onSurface,
-                        ),
-                        const SizedBox(width: DesignTokens.space4),
-                        Text('Adicionar à lista', style: theme.textTheme.bodyMedium),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+              if (listas != null)
+                item('lista', PhosphorIconsRegular.listPlus, 'Adicionar à lista'),
+              if (social != null)
+                item('recomendar', PhosphorIconsRegular.paperPlaneTilt, 'Recomendar a um leitor'),
               const SizedBox(height: DesignTokens.space4),
               BotaoTextual(
                 texto: 'Cancelar',
@@ -233,22 +246,44 @@ class _LivroOficialPageState extends State<LivroOficialPage> {
         );
       },
     );
-    if (escolha != 'lista' || !mounted) {
+    if (!mounted) {
       return;
     }
-    await abrirAdicionarALista(
+    if (escolha == 'lista' && listas != null) {
+      await abrirAdicionarALista(
+        context,
+        servico: listas.servico,
+        livro: LivroDeOrigem(
+          id: livro.id,
+          titulo: livro.titulo,
+          autor: livro.autoresParaExibir,
+          capaUrl: livro.capaUrl,
+          pessoal: false,
+        ),
+        obterPrivacidade: listas.minhaPrivacidade,
+        aoVerLista: (id) => GoRouter.maybeOf(context)?.go(rotaMinhaLista(id)),
+      );
+    } else if (escolha == 'recomendar' && social != null) {
+      await _recomendar(social, livro);
+    }
+  }
+
+  Future<void> _recomendar(SocialService social, LivroOficialResumo livro) async {
+    final aviso = await abrirRecomendar(
       context,
-      servico: listas.servico,
-      livro: LivroDeOrigem(
-        id: livro.id,
+      social: social,
+      livro: LivroRecomendado(
+        id: widget.livroId,
         titulo: livro.titulo,
         autor: livro.autoresParaExibir,
+        detalhes: metadadosDoLivro(livro),
         capaUrl: livro.capaUrl,
-        pessoal: false,
       ),
-      obterPrivacidade: listas.minhaPrivacidade,
-      aoVerLista: (id) => GoRouter.maybeOf(context)?.go(rotaMinhaLista(id)),
+      aoBuscarLeitores: widget.aoBuscarLeitores ?? () {},
     );
+    if (aviso != null && mounted) {
+      mostrarAviso(context, aviso, icone: PhosphorIconsRegular.paperPlaneTilt);
+    }
   }
 
   Widget _conteudo(ThemeData theme) {
@@ -303,6 +338,14 @@ class _LivroOficialPageState extends State<LivroOficialPage> {
               ),
               progresso: widget.progresso,
               aoVerAtualizacoes: widget.aoVerAtualizacoes,
+            ),
+          ],
+          if (widget.social case final social?) ...<Widget>[
+            const SizedBox(height: DesignTokens.space4),
+            BotaoSecundario(
+              texto: 'Recomendar a um leitor',
+              icone: PhosphorIconsRegular.paperPlaneTilt,
+              onPressed: () => _recomendar(social, livro.resumo),
             ),
           ],
           const SizedBox(height: DesignTokens.space8),

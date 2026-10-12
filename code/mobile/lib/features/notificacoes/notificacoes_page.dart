@@ -166,9 +166,7 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
       _rolagem.jumpTo(0);
       return;
     }
-    unawaited(
-      _rolagem.animateTo(0, duration: DesignTokens.durSlow, curve: DesignTokens.easeInOut),
-    );
+    unawaited(_rolagem.animateTo(0, duration: DesignTokens.durSlow, curve: DesignTokens.easeInOut));
   }
 
   Future<Pagina<Notificacao>> _buscar(int pagina) async {
@@ -476,12 +474,24 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
                   children: <Widget>[
                     Semantics(
                       label:
-                          '${notificacao.lida ? '' : 'Não lida. '}${notificacao.mensagem} $tempo',
+                          '${notificacao.lida ? '' : 'Não lida. '}${notificacao.mensagem} '
+                          '${notificacao.recomendacaoMensagem ?? ''} $tempo',
                       excludeSemantics: true,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
                           _Texto(notificacao: notificacao),
+                          if (notificacao.recomendacaoMensagem != null) ...<Widget>[
+                            const SizedBox(height: DesignTokens.space1),
+                            Text(
+                              notificacao.recomendacaoMensagem!,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.secondaryText,
+                              ),
+                            ),
+                          ],
                           const SizedBox(height: DesignTokens.space1),
                           Text(
                             tempo,
@@ -709,6 +719,7 @@ class _PontoEIcone extends StatelessWidget {
     TipoNotificacao.usuarioMencionado => PhosphorIconsRegular.at,
     TipoNotificacao.leituraEmRisco => PhosphorIconsRegular.warning,
     TipoNotificacao.leituraExpirada => PhosphorIconsRegular.pauseCircle,
+    TipoNotificacao.recomendacaoRecebida => PhosphorIconsRegular.paperPlaneTilt,
     // F-AVA-2: o mesmo ícone do botão de curtir na resenha, para não confundir com o `Heart` da
     // curtida em atividade (notificacoes.md §5).
     TipoNotificacao.resenhaCurtida => PhosphorIconsRegular.thumbsUp,

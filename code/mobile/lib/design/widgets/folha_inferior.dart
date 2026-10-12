@@ -13,10 +13,7 @@ import 'botao_textual.dart';
 /// O conteúdo do [builder] fica num `Flexible`: quando não cabe (tela baixa, teclado aberto,
 /// fonte grande), o `SingleChildScrollView` dele rola. Sem isso a coluna dava altura infinita ao
 /// conteúdo, o scroll nunca rolava e a folha estourava com a faixa de overflow.
-Future<T?> mostrarFolhaInferior<T>(
-  BuildContext context, {
-  required WidgetBuilder builder,
-}) {
+Future<T?> mostrarFolhaInferior<T>(BuildContext context, {required WidgetBuilder builder}) {
   final theme = Theme.of(context);
   return showModalBottomSheet<T>(
     context: context,
@@ -65,6 +62,7 @@ Future<bool> confirmarAcaoDestrutiva(
   required String titulo,
   required String texto,
   required String acao,
+  String cancelar = 'Cancelar',
 }) async {
   final confirmado = await mostrarFolhaInferior<bool>(
     context,
@@ -76,15 +74,12 @@ Future<bool> confirmarAcaoDestrutiva(
         children: <Widget>[
           Text(titulo, style: theme.textTheme.titleMedium),
           const SizedBox(height: DesignTokens.space3),
-          Text(
-            texto,
-            style: theme.textTheme.bodyMedium?.copyWith(color: theme.secondaryText),
-          ),
+          Text(texto, style: theme.textTheme.bodyMedium?.copyWith(color: theme.secondaryText)),
           const SizedBox(height: DesignTokens.space6),
           BotaoDestrutivo(texto: acao, onPressed: () => Navigator.of(context).pop(true)),
           const SizedBox(height: DesignTokens.space3),
           BotaoTextual(
-            texto: 'Cancelar',
+            texto: cancelar,
             neutro: true,
             larguraTotal: true,
             onPressed: () => Navigator.of(context).pop(false),

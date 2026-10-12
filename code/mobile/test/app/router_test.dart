@@ -111,29 +111,30 @@ DependenciasDeFeed _feedSimulado() => DependenciasDeFeed(
         (request) async => http.Response(
           jsonEncode(<String, Object?>{
             'itens': <Object?>[
-              <String, Object?>{
-                'id': 'a1',
-                'tipo': 'LEITURA_INICIADA',
-                'autor': <String, Object?>{
-                  'id': 'u2',
-                  'username': 'caio',
-                  'nomeExibicao': 'Caio Ferraz',
-                  'avatarUrl': null,
+              if (!request.url.path.startsWith('/recomendacoes'))
+                <String, Object?>{
+                  'id': 'a1',
+                  'tipo': 'LEITURA_INICIADA',
+                  'autor': <String, Object?>{
+                    'id': 'u2',
+                    'username': 'caio',
+                    'nomeExibicao': 'Caio Ferraz',
+                    'avatarUrl': null,
+                  },
+                  'livro': <String, Object?>{
+                    'id': 'l1',
+                    'tipo': 'PESSOAL',
+                    'titulo': 'Caderno de Contos do Bairro',
+                    'autor': 'Caio Ferraz',
+                    'capaUrl': null,
+                    'link': <String, Object?>{'livroId': 'l1', 'via': 'feed', 'referenciaId': 'a1'},
+                  },
+                  'resenha': null,
+                  'criadoEm': '2026-09-26T12:00:00Z',
+                  'totalCurtidas': 0,
+                  'totalComentarios': 0,
+                  'curtidaPeloSolicitante': false,
                 },
-                'livro': <String, Object?>{
-                  'id': 'l1',
-                  'tipo': 'PESSOAL',
-                  'titulo': 'Caderno de Contos do Bairro',
-                  'autor': 'Caio Ferraz',
-                  'capaUrl': null,
-                  'link': <String, Object?>{'livroId': 'l1', 'via': 'feed', 'referenciaId': 'a1'},
-                },
-                'resenha': null,
-                'criadoEm': '2026-09-26T12:00:00Z',
-                'totalCurtidas': 0,
-                'totalComentarios': 0,
-                'curtidaPeloSolicitante': false,
-              },
             ],
             'pagina': 0,
             'tamanho': 20,

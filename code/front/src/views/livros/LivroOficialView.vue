@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PhBookOpen, PhCaretRight, PhListPlus, PhMagnifyingGlass, PhWarning } from '@phosphor-icons/vue'
+import { PhBookOpen, PhCaretRight, PhListPlus, PhMagnifyingGlass, PhPaperPlaneTilt, PhWarning } from '@phosphor-icons/vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 
@@ -11,7 +11,10 @@ import BlocoSuaAvaliacao from '../../components/livros/BlocoSuaAvaliacao.vue'
 import CapaLivro from '../../components/livros/CapaLivro.vue'
 import CardResenha from '../../components/livros/CardResenha.vue'
 import SecaoFrases from '../../components/livros/SecaoFrases.vue'
+import DialogoRecomendar from '../../components/recomendacoes/DialogoRecomendar.vue'
+import AvisoFlutuante from '../../components/ui/AvisoFlutuante.vue'
 import BotaoPrimario from '../../components/ui/BotaoPrimario.vue'
+import BotaoSecundario from '../../components/ui/BotaoSecundario.vue'
 import BotaoTextual from '../../components/ui/BotaoTextual.vue'
 import { formatarPaginas } from '../../livros/formatos'
 import { useLivroOficial } from '../../livros/useLivroOficial'
@@ -67,11 +70,18 @@ onBeforeUnmount(() => pagina.descartar())
 const autores = computed(() => livro.value?.autores.map((autor) => autor.nome).join(', ') || null)
 
 const adicionandoALista = ref(false)
-const acoesDoMenu: AcaoDaFolha[] = [{ id: 'lista', rotulo: 'Adicionar à lista', icone: PhListPlus }]
+const acoesDoMenu: AcaoDaFolha[] = [
+  { id: 'lista', rotulo: 'Adicionar à lista', icone: PhListPlus },
+  { id: 'recomendar', rotulo: 'Recomendar a um leitor', icone: PhPaperPlaneTilt },
+]
+const recomendando = ref(false)
+const avisoDeRecomendacao = ref<string | null>(null)
 
 function escolherNoMenu(acao: string): void {
   if (acao === 'lista') {
     adicionandoALista.value = true
+  } else if (acao === 'recomendar') {
+    recomendando.value = true
   }
 }
 const rotaDoEditor = computed(() => ({
@@ -315,6 +325,16 @@ function voltar(): void {
           :autor="autores"
           :capa-url="livro.capa.url"
         />
+        <div class="order-3 mt-space-4 lg:order-none">
+          <BotaoSecundario @click="recomendando = true">
+            <PhPaperPlaneTilt
+              :size="20"
+              weight="regular"
+              aria-hidden="true"
+            />
+            Recomendar a um leitor
+          </BotaoSecundario>
+        </div>
         <BlocoSuaAvaliacao
           class="order-3 mt-space-8 lg:order-none"
           :avaliacao="minhaAvaliacao"
@@ -471,8 +491,8 @@ function voltar(): void {
       </div>
     </article>
 
-    <!-- F-LST: menu `Mais ações` com `Adicionar à lista` (pagina-do-livro.md P2). A página é do
-         Renato como integrador; F-REC-P2P acrescenta `Recomendar a um leitor` em `acoesDoMenu`. -->
+    <!-- Menu `Mais ações` (pagina-do-livro.md P2): `Adicionar à lista` (F-LST) e `Recomendar a um
+         leitor` (F-REC-P2P), ambos em `acoesDoMenu`. -->
     <Teleport
       v-if="livro"
       to="#cabecalho-acoes"
@@ -491,6 +511,18 @@ function voltar(): void {
       :livro="{ id: livro.id, titulo: livro.titulo, autor: autores, capaUrl: livro.capa.url ?? null, pessoal: false }"
       @fechar="adicionandoALista = false"
     />
+    <DialogoRecomendar
+      v-if="recomendando && livro"
+      :livro="{ id: livro.id, ...livroAvaliado }"
+      @enviada="avisoDeRecomendacao = $event"
+      @fechar="recomendando = false"
+    />
+    <AvisoFlutuante
+      :aberto="avisoDeRecomendacao !== null"
+      @fechar="avisoDeRecomendacao = null"
+    >
+      {{ avisoDeRecomendacao }}
+    </AvisoFlutuante>
   </div>
 </template>
 

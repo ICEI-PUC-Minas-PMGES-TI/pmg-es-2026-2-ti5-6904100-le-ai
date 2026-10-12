@@ -44,6 +44,7 @@ final class RedacaoDeNotificacao {
               + " foi abandonado automaticamente depois de "
               + dados.get(DadosDeNotificacao.LIMIAR_DIAS)
               + " dias sem progresso.";
+      case RECOMENDACAO_RECEBIDA -> nomeDoAtor + " te recomendou " + tituloDoLivro(dados) + ".";
       case RESENHA_CURTIDA -> nomeDoAtor + " curtiu sua resenha de " + tituloDoLivro(dados) + ".";
     };
   }

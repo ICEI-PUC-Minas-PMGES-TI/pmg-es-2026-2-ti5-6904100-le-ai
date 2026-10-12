@@ -21,6 +21,7 @@ import '../features/desafios/rotas_desafios.dart';
 import '../features/estatisticas/estatisticas_service.dart';
 import '../features/estatisticas/rotas_estatisticas.dart';
 import '../features/descobrir/descobrir_page.dart';
+import '../features/recomendacoes/rotas_recomendacoes.dart';
 import '../core/config/app_config.dart';
 import '../core/network/api_client.dart';
 import '../features/estante/estante_page.dart';
@@ -255,9 +256,16 @@ GoRouter buildRouter({
                   // `push`, não `go`: cancelar o cadastro pessoal volta aos resultados, e não
                   // para a tela de ISBN que `go` montaria por baixo.
                   aoCadastrarPessoal: () => context.push('$rotaAdicionarLivro/pessoal'),
+                  recomendacoes: secaoDeRecomendacoes(context, depsDeFeed.social),
                 ),
                 routes: <RouteBase>[
-                  ...rotasDeDescobrir(deps, estante: servicoDeEstante, progresso: depsDeProgresso),
+                  rotaDeRecomendacoesRecebidas(depsDeFeed.social),
+                  ...rotasDeDescobrir(
+                    deps,
+                    estante: servicoDeEstante,
+                    progresso: depsDeProgresso,
+                    social: depsDeFeed.social,
+                  ),
                   rotaDeNotificacoes(depsDeNotificacoes, '/descobrir'),
                 ],
               ),
@@ -349,6 +357,7 @@ GoRouter buildRouter({
                     raiz: '/perfil',
                     estante: servicoDeEstante,
                     progresso: depsDeProgresso,
+                    social: depsDeFeed.social,
                   ),
                   ...rotasDeCatalogo(deps, raiz: '/perfil'),
                   rotaDeNotificacoes(depsDeNotificacoes, rotaPerfilRaiz),

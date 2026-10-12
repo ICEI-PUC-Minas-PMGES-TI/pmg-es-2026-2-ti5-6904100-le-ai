@@ -107,6 +107,41 @@ export interface ListaRespostas {
   temMais: boolean
 }
 
+export interface CandidatoARecomendacao {
+  leitor: AutorSnapshot
+  jaTemLivro: boolean
+  limiteAtingido: boolean
+}
+
+export type MotivoBloqueio = 'SEM_MUTUO' | 'JA_TEM_LIVRO' | 'LIMITE_ATINGIDO' | 'JA_RECOMENDADO'
+
+export interface ResultadoPorDestinatario {
+  destinatarioId: string
+  status: 'CRIADA' | 'BLOQUEADA'
+  recomendacaoId: string | null
+  motivo: MotivoBloqueio | null
+}
+
+export interface ResultadoRecomendacao {
+  resultados: ResultadoPorDestinatario[]
+  totalCriadas: number
+}
+
+export interface RecomendacaoRecebida {
+  id: string
+  remetente: AutorSnapshot
+  livro: LivroSnapshot
+  mensagem: string | null
+  criadoEm: string
+  expiraEm: string
+}
+
+export interface CriarRecomendacao {
+  livroId: string
+  destinatarios: string[]
+  mensagem?: string
+}
+
 function paraPagina<T>(resp: PaginaHttp<T>): Pagina<T> {
   return {
     items: resp.itens,
@@ -176,7 +211,26 @@ export function createSocialService(options: ApiClientOptions = {}) {
     excluirComentario(comentarioId: string, idempotencyKey: string): Promise<void> {
       return request<void>(`/comentarios/${encodeURIComponent(comentarioId)}`, { method: 'DELETE', idempotencyKey })
     },
+    async listarCandidatos(livroId: string): Promise<CandidatoARecomendacao[]> {
+      const resposta = await request<{ itens: CandidatoARecomendacao[] }>(
+        `/recomendacoes/candidatos?livroId=${encodeURIComponent(livroId)}`,
+      )
+      return resposta.itens
+    },
+    recomendar(dados: CriarRecomendacao, idempotencyKey: string): Promise<ResultadoRecomendacao> {
+      return request<ResultadoRecomendacao>('/recomendacoes', { method: 'POST', json: dados, idempotencyKey })
+    },
+    async listarRecebidas(page: number, size = TAMANHO_DA_PAGINA): Promise<Pagina<RecomendacaoRecebida>> {
+      return paraPagina(
+        await request<PaginaHttp<RecomendacaoRecebida>>(`/recomendacoes/recebidas?page=${page}&size=${size}`),
+      )
+    },
+    descartarRecomendacao(id: string, idempotencyKey: string): Promise<void> {
+      return request<void>(`/recomendacoes/${encodeURIComponent(id)}`, { method: 'DELETE', idempotencyKey })
+    },
   }
 }
+
+export type SocialService = ReturnType<typeof createSocialService>
 
 export const socialService = createSocialService()

@@ -22,12 +22,16 @@ class BannerAviso extends StatelessWidget {
   /// `Warning` também no erro, como os banners de falha de carregamento de F-PERFIL.
   final bool triangulo;
 
+  /// Ícone próprio do alerta, como `Clock` no limite de frequência e `Info` no envio em parte.
+  final IconData? icone;
+
   const BannerAviso({
     super.key,
     required this.variante,
     required this.mensagem,
     this.acao,
     this.triangulo = false,
+    this.icone,
   });
 
   @override
@@ -50,11 +54,12 @@ class BannerAviso extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Icon(
-              ehErro && !triangulo
-                  ? PhosphorIconsRegular.warningCircle
-                  : PhosphorIconsRegular.warning,
+              icone ??
+                  (ehErro && !triangulo
+                      ? PhosphorIconsRegular.warningCircle
+                      : PhosphorIconsRegular.warning),
               size: 20,
-              color: corIcone,
+              color: icone == null ? corIcone : theme.colorScheme.onSurface,
             ),
             const SizedBox(width: DesignTokens.space3),
             Expanded(

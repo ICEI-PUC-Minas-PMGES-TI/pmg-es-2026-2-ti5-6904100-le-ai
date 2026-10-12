@@ -30,6 +30,10 @@ info:
       - GET /notificacoes
       - POST /notificacoes/marcar-lidas
       - GET /notificacoes/tempo-real
+      - POST /recomendacoes
+      - GET /recomendacoes/candidatos
+      - GET /recomendacoes/recebidas
+      - DELETE /recomendacoes/{recomendacaoId}
       - POST /listas
       - GET /listas/{listaId}
       - PATCH /listas/{listaId}
@@ -99,6 +103,7 @@ x-event-consumers:
       - usuario.mencionado
       - leitura.em_risco
       - leitura.expirada
+      - recomendacao.recebida
       - resenha.curtida
     effect: >-
       Cria uma notificação para destinatarioId. resenha.curtida (F-AVA-2) só
@@ -112,10 +117,23 @@ x-event-consumers:
     required-envelope-fields:
       [eventId, type, version, occurredAt, correlationId, businessKey, data]
     required-data-fields: [destinatarioId]
+  recomendacoes:
+    x-implementation-status: implemented
+    queue: leai.social.recomendacoes
+    events:
+      - livro.adicionado_a_estante
+    effect: >-
+      Remove fisicamente todas as recomendações do livro recebidas pelo leitor
+      que o adicionou à estante (RF-REC-16, RN-22.10), sem notificar o
+      remetente. Reentrega não tem efeito adicional. Uma rotina diária do
+      próprio serviço apaga as recomendações vencidas (RN-22.9) e reconcilia
+      com leitura.v_estante_publica_v1 as que o consumidor não viu, o que cobre
+      o backfill do intervalo antes de a fila existir.
+    required-envelope-fields:
+      [eventId, type, version, occurredAt, correlationId, businessKey, data]
   planned-future-events:
     x-implementation-status: planned-after-periodo-1
     events:
-      - recomendacao.recebida
       - lembrete.sequencia
     description: >-
       Só entram no consumidor quando a feature produtora definir nome, schema,
@@ -144,6 +162,8 @@ tags:
     description: Listas de livros curadas pelo leitor (F-LST)
   - name: notificacoes
     description: Notificações in-app do leitor autenticado
+  - name: recomendacoes
+    description: Recomendação de livro entre leitores com seguimento mútuo (F-REC-P2P)
   - name: health
     description: Sondagem de disponibilidade
 security:
@@ -662,6 +682,136 @@ paths:
         '400': { $ref: '#/components/responses/RequisicaoInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '503': { $ref: '#/components/responses/Indisponivel' }
+  /recomendacoes:
+    post:
+      tags: [recomendacoes]
+      summary: Recomenda um livro oficial a um ou mais leitores (RF-REC-01/03/06/07)
+      operationId: recomendarLivro
+      x-implementation-status: implemented
+      description: >-
+        Cria uma recomendação independente por destinatário, sem estado de
+        aceitação (RN-22). Livro pessoal ou inexistente rejeita o envio inteiro.
+        Cada destinatário é avaliado isoladamente: sem seguimento mútuo
+        (RN-22.1), já tem o livro na estante em qualquer status (RN-22.3), par
+        com 50 recomendações ativas (RN-22.4) ou recomendação ativa do mesmo
+        livro já enviada pelo remetente bloqueiam só aquele destinatário. A
+        resposta traz o resultado de cada um, na ordem do pedido; o cliente
+        mantém a tela aberta e mostra o motivo quando algum foi bloqueado. Cada
+        recomendação criada grava recomendacao.recebida na outbox na mesma
+        transação. Rate limiting por leitor (RNF-SEC-18).
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CriarRecomendacao' }
+      responses:
+        '200':
+          description: Resultado do envio por destinatário.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ResultadoRecomendacao' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '422':
+          description: >-
+            O livro é pessoal (RF-REC-06, RN-22.5). Código
+            ENTIDADE_NAO_PROCESSAVEL.
+          headers:
+            X-Correlation-Id: { $ref: '#/components/headers/CorrelationId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /recomendacoes/candidatos:
+    get:
+      tags: [recomendacoes]
+      summary: Lista os mútuos do leitor que podem receber um livro
+      operationId: listarCandidatosARecomendacao
+      x-implementation-status: implemented
+      description: >-
+        Devolve todos os leitores com seguimento mútuo do leitor autenticado,
+        ordenados por nomeExibicao, para a busca local da tela Recomendar. Cada
+        um informa se já tem o livro na estante e se o par atingiu o limite de
+        recomendações ativas; o cliente mostra a linha desabilitada com o motivo.
+        Livro pessoal responde 422 e livro inexistente 404. A lista é limitada
+        a 500 leitores; seguimento mútuo é uma relação pequena por natureza.
+      parameters:
+        - name: livroId
+          in: query
+          required: true
+          description: Livro oficial que será recomendado.
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Mútuos do leitor com a situação de cada um para o livro.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ListaCandidatos' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '422':
+          description: O livro é pessoal. Código ENTIDADE_NAO_PROCESSAVEL.
+          headers:
+            X-Correlation-Id: { $ref: '#/components/headers/CorrelationId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /recomendacoes/recebidas:
+    get:
+      tags: [recomendacoes]
+      summary: Lista as recomendações recebidas pelo leitor (RF-REC-04/05/13/14)
+      operationId: listarRecomendacoesRecebidas
+      x-implementation-status: implemented
+      description: >-
+        Somente recomendações cujo destinatário é o leitor autenticado, ativas
+        e não expiradas (RN-22.9, 90 dias), da mais recente para a mais antiga.
+        O mesmo livro recomendado por remetentes diferentes aparece uma vez por
+        remetente (RN-22.7). Recomendações continuam visíveis mesmo que o
+        seguimento mútuo se desfaça depois do envio (RN-22.15). Remetente que
+        saiu de v_perfil_referencia_v1 (suspenso ou em exclusão) some da lista.
+        Alimenta a seção P2P da aba Recomendações, que funciona sem a fonte
+        algorítmica.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Página de recomendações recebidas.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaRecomendacoes' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /recomendacoes/{recomendacaoId}:
+    parameters:
+      - $ref: '#/components/parameters/RecomendacaoId'
+    delete:
+      tags: [recomendacoes]
+      summary: Descarta uma recomendação recebida (RF-REC-15, RN-22.11)
+      operationId: descartarRecomendacao
+      x-implementation-status: implemented
+      description: >-
+        Exclusivo do destinatário autenticado, sem motivo e sem avisar o
+        remetente. Recomendação inexistente, expirada ou de outro leitor,
+        inclusive do próprio remetente, responde 404 sem confirmar a existência.
+        Repetir a mesma Idempotency-Key reproduz o 204.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: Recomendação descartada.
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
   /notificacoes:
     get:
       tags: [notificacoes]
@@ -808,6 +958,12 @@ components:
       in: path
       required: true
       description: UUID do item da lista, retornado em ItemDeLista.id.
+      schema: { type: string, format: uuid }
+    RecomendacaoId:
+      name: recomendacaoId
+      in: path
+      required: true
+      description: UUID não sequencial da recomendação.
       schema: { type: string, format: uuid }
     UsuarioId:
       name: usuarioId
@@ -1200,9 +1356,9 @@ components:
     TipoNotificacao:
       type: string
       description: >-
-        Tipos produzidos no Período 1, a menção de F-SOCIAL-2 e a curtida em
-        resenha de F-AVA-2. Recomendação e lembrete de sequência dependem de
-        features posteriores.
+        Tipos produzidos no Período 1, a menção de F-SOCIAL-2, a curtida em
+        resenha de F-AVA-2 e a recomendação recebida de F-REC-P2P. Lembrete de
+        sequência depende de feature posterior.
       enum:
         - NOVO_SEGUIDOR
         - SOLICITACAO_CRIADA
@@ -1213,9 +1369,9 @@ components:
         - USUARIO_MENCIONADO
         - LEITURA_EM_RISCO
         - LEITURA_EXPIRADA
+        - RECOMENDACAO_RECEBIDA
         - RESENHA_CURTIDA
       x-planned-future-values:
-        - RECOMENDACAO_RECEBIDA
         - LEMBRETE_SEQUENCIA
     AcaoNotificacao:
       type: object
@@ -1279,6 +1435,13 @@ components:
           allOf:
             - $ref: '#/components/schemas/LivroDaNotificacao'
           nullable: true
+        recomendacaoMensagem:
+          type: string
+          maxLength: 280
+          nullable: true
+          description: >-
+            Mensagem do remetente em RECOMENDACAO_RECEBIDA, quando houver.
+            Texto puro; o cliente aplica escape ao renderizar.
         acao: { $ref: '#/components/schemas/AcaoNotificacao' }
         lida: { type: boolean }
         lidaEm:
@@ -1292,7 +1455,9 @@ components:
         Snapshot do livro nas notificações de inatividade (LEITURA_EM_RISCO e
         LEITURA_EXPIRADA) e na curtida em resenha (RESENHA_CURTIDA): título
         para a confirmação de abandono e para a frase, e id/tipo para o destino
-        da notificação (página do livro oficial ou do livro pessoal).
+        da notificação (página do livro oficial ou do livro pessoal). Em
+        RECOMENDACAO_RECEBIDA, o livro recomendado: a notificação leva à página
+        dele (RF-REC-05).
       required: [id, tipo, titulo]
       properties:
         id: { type: string, format: uuid }
@@ -1358,6 +1523,100 @@ components:
       properties:
         notificacao: { $ref: '#/components/schemas/Notificacao' }
         totalNaoLidas: { type: integer, format: int64, minimum: 0 }
+    CriarRecomendacao:
+      type: object
+      required: [livroId, destinatarios]
+      additionalProperties: false
+      properties:
+        livroId: { type: string, format: uuid }
+        destinatarios:
+          type: array
+          minItems: 1
+          maxItems: 20
+          uniqueItems: true
+          items: { type: string, format: uuid }
+        mensagem:
+          type: string
+          minLength: 1
+          maxLength: 280
+          nullable: true
+          description: >-
+            Opcional (RF-REC-03). Texto puro; espaços nas pontas são removidos e
+            texto que fica vazio é tratado como ausente.
+    ResultadoPorDestinatario:
+      type: object
+      required: [destinatarioId, status]
+      properties:
+        destinatarioId: { type: string, format: uuid }
+        status:
+          type: string
+          enum: [CRIADA, BLOQUEADA]
+        recomendacaoId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Presente quando status é CRIADA.
+        motivo:
+          type: string
+          nullable: true
+          enum: [SEM_MUTUO, JA_TEM_LIVRO, LIMITE_ATINGIDO, JA_RECOMENDADO, null]
+          description: >-
+            Presente quando status é BLOQUEADA. SEM_MUTUO, RN-22.1;
+            JA_TEM_LIVRO, RN-22.3; LIMITE_ATINGIDO, 50 ativas no par (RN-22.4);
+            JA_RECOMENDADO, o remetente já tem recomendação ativa deste livro
+            para o destinatário.
+    ResultadoRecomendacao:
+      type: object
+      required: [resultados, totalCriadas]
+      properties:
+        resultados:
+          type: array
+          items: { $ref: '#/components/schemas/ResultadoPorDestinatario' }
+        totalCriadas: { type: integer, minimum: 0 }
+    CandidatoARecomendacao:
+      type: object
+      required: [leitor, jaTemLivro, limiteAtingido]
+      properties:
+        leitor: { $ref: '#/components/schemas/AutorSnapshot' }
+        jaTemLivro: { type: boolean }
+        limiteAtingido: { type: boolean }
+    ListaCandidatos:
+      type: object
+      required: [itens]
+      properties:
+        itens:
+          type: array
+          maxItems: 500
+          items: { $ref: '#/components/schemas/CandidatoARecomendacao' }
+    RecomendacaoRecebida:
+      type: object
+      required: [id, remetente, livro, criadoEm, expiraEm]
+      properties:
+        id: { type: string, format: uuid }
+        remetente: { $ref: '#/components/schemas/AutorSnapshot' }
+        livro: { $ref: '#/components/schemas/LivroSnapshot' }
+        mensagem:
+          type: string
+          maxLength: 280
+          nullable: true
+          description: Texto puro; o cliente aplica escape ao renderizar.
+        criadoEm:
+          type: string
+          format: date-time
+          description: Base do tempo relativo, calculado no cliente.
+        expiraEm: { type: string, format: date-time }
+    PaginaRecomendacoes:
+      type: object
+      required: [itens, pagina, tamanho, totalItens, totalPaginas, ultima]
+      properties:
+        itens:
+          type: array
+          items: { $ref: '#/components/schemas/RecomendacaoRecebida' }
+        pagina: { type: integer, minimum: 0 }
+        tamanho: { type: integer, minimum: 1, maximum: 50 }
+        totalItens: { type: integer, format: int64, minimum: 0 }
+        totalPaginas: { type: integer, minimum: 0 }
+        ultima: { type: boolean }
     CriarLista:
       type: object
       required: [titulo]

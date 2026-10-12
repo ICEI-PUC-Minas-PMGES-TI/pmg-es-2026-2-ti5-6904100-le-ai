@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://leai.app/schemas/mensageria/recomendacao.recebida.v1.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["recomendacaoId", "destinatarioId", "livroId", "autorAcao", "livro", "mensagem"],
+  "properties": {
+    "recomendacaoId": { "type": "string", "format": "uuid" },
+    "destinatarioId": { "type": "string", "format": "uuid" },
+    "livroId": { "type": "string", "format": "uuid" },
+    "autorAcao": { "$ref": "common-v1.schema.json#/$defs/UsuarioSnapshot" },
+    "livro": { "$ref": "common-v1.schema.json#/$defs/LivroSnapshot" },
+    "mensagem": { "type": ["string", "null"], "minLength": 1, "maxLength": 280 }
+  }
+}

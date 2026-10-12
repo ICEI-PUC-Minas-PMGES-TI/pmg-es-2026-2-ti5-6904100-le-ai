@@ -74,6 +74,15 @@ void main() {
     expect(find.text('Ler resenha'), findsOneWidget);
   });
 
+  testWidgets('Ler resenha abre a página do livro', (tester) async {
+    final eventos = await _montar(tester, _atividade(tipo: 'RESENHA_PUBLICADA'));
+
+    await tester.tap(find.text('Ler resenha'));
+    await tester.pump();
+
+    expect(eventos, <String>['livro']);
+  });
+
   testWidgets('a prévia da resenha sai sem a marcação do Markdown (F-AVA-2)', (tester) async {
     final json = atividadeJson(tipo: 'RESENHA_PUBLICADA');
     json['resenha'] = <String, Object?>{

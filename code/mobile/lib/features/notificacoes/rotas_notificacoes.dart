@@ -71,6 +71,7 @@ String destinoDaNotificacao(Notificacao notificacao) {
       return rotaFeedRaiz;
     case TipoNotificacao.leituraEmRisco:
     case TipoNotificacao.leituraExpirada:
+    case TipoNotificacao.recomendacaoRecebida:
     // F-AVA-2: a página do livro da resenha curtida, onde ela aparece em "Sua avaliação". A
     // notificação não leva o id da resenha, então não rola até ela (divergência registrada).
     case TipoNotificacao.resenhaCurtida:

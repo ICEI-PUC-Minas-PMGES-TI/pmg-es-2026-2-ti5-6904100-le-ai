@@ -108,17 +108,24 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', aoClicarFora))
         :key="acao.id"
         type="button"
         role="menuitem"
-        class="flex h-11 w-full items-center gap-space-3 px-space-4 text-left text-body transition-colors duration-dur-fast hover:bg-linha focus-visible:bg-linha focus-visible:outline-none"
-        :class="acao.destrutiva ? 'text-rubi' : 'text-tinta'"
+        class="flex w-full items-center gap-space-3 px-space-4 text-left text-body transition-colors duration-dur-fast hover:bg-linha focus-visible:bg-linha focus-visible:outline-none"
+        :class="[acao.destrutiva ? 'text-rubi' : 'text-tinta', acao.detalhe ? 'py-space-2' : 'h-11']"
         @click="escolher(acao.id)"
       >
         <component
           :is="acao.icone"
           :size="20"
           weight="regular"
+          class="shrink-0"
           aria-hidden="true"
         />
-        {{ acao.rotulo }}
+        <span class="flex flex-col">
+          {{ acao.rotulo }}
+          <span
+            v-if="acao.detalhe"
+            class="text-caption text-grafite"
+          >{{ acao.detalhe }}</span>
+        </span>
       </button>
     </div>
     <FolhaAcoes
