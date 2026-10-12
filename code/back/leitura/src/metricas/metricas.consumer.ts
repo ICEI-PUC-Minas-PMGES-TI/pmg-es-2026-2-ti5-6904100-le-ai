@@ -1,6 +1,7 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import type { Tx } from '../db/tipos';
 import { DesafiosService } from '../desafios/aplicacao/desafios.service';
+import { EstatisticasService } from '../estatisticas/aplicacao/estatisticas.service';
 import { EVENTO_VERSAO_V1, TIPO_EVENTO } from '../leituras/dominio/eventos';
 import { AmqpConsumerService } from '../messaging/amqp-consumer.service';
 import {
@@ -14,8 +15,8 @@ import { SequenciaService } from '../sequencia/sequencia.service';
 
 /**
  * Consumidor de métricas do `leitura` (catálogo: `docs/mensageria/catalogo.md`).
- * É um só para os efeitos de progresso e finalização: sequência (F-GAM) e
- * desafios (F-DSF); estatísticas (F-STA) entram aqui também.
+ * É um só para os efeitos de progresso e finalização: sequência (F-GAM),
+ * desafios (F-DSF) e estatísticas (F-STA).
  */
 export const CONSUMIDOR_METRICAS = {
   consumerName: 'leitura.metricas',
@@ -29,7 +30,7 @@ export const CONSUMIDOR_METRICAS = {
 
 /**
  * Efeitos de `progresso.registrado` e `leitura.finalizada` (RNF-ARQ-06):
- * recompõem sequência e desafios do leitor a partir do estado atual, no `tx`
+ * recompõem sequência, desafios e estatísticas do leitor a partir do estado atual, no `tx`
  * do recibo de `mensagem_processada` — entrega repetida não tem efeito
  * (RNF-ERR-06), e erro cai no retry e na DLQ do runtime (RNF-ERR-07). Como os
  * efeitos leem o estado atual em vez de somar o `data`, mensagem atrasada de
@@ -42,6 +43,7 @@ export class MetricasConsumer implements OnModuleInit {
     private readonly validador: MessageValidator,
     private readonly sequencia: SequenciaService,
     private readonly desafios: DesafiosService,
+    private readonly estatisticas: EstatisticasService,
   ) {}
 
   onModuleInit(): void {
@@ -75,5 +77,8 @@ export class MetricasConsumer implements OnModuleInit {
     const dia =
       'dataLocal' in dados ? dados.dataLocal : dados.finalizacaoDataLocal;
     await this.desafios.recalcular(tx, dados.usuarioId, [dia]);
+    // As estatísticas recompõem todos os meses do leitor: progresso offline
+    // tardio e `dataFim` retroativa caem em meses que o evento não indica.
+    await this.estatisticas.recalcular(tx, dados.usuarioId);
   }
 }

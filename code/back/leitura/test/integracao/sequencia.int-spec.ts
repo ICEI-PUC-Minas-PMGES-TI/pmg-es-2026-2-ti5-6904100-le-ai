@@ -6,6 +6,7 @@ import request from 'supertest';
 import * as schema from '../../src/db/schema';
 import { DRIZZLE, type DrizzleDB } from '../../src/db/drizzle.module';
 import { DesafiosService } from '../../src/desafios/aplicacao/desafios.service';
+import { EstatisticasService } from '../../src/estatisticas/aplicacao/estatisticas.service';
 import { MetricasConsumer } from '../../src/metricas/metricas.consumer';
 import { AmqpPublisherService } from '../../src/messaging/amqp-publisher.service';
 import { MessageValidator } from '../../src/messaging/message-validator';
@@ -75,6 +76,7 @@ describe('sequência diária (integração)', () => {
       validador,
       instavel,
       app.get(DesafiosService),
+      app.get(EstatisticasService),
     ).onModuleInit();
     consumidor.onModuleInit();
     await new Promise<void>((resolve) => setImmediate(resolve));

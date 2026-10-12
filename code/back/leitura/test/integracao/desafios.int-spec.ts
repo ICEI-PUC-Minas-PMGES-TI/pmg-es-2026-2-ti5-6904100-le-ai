@@ -8,6 +8,7 @@ import { DRIZZLE, type DrizzleDB } from '../../src/db/drizzle.module';
 import { DesafiosService } from '../../src/desafios/aplicacao/desafios.service';
 import { janelaQueContem } from '../../src/desafios/dominio/janelas';
 import { DesafiosRepository } from '../../src/desafios/infraestrutura/desafios.repository';
+import { EstatisticasService } from '../../src/estatisticas/aplicacao/estatisticas.service';
 import { MetricasConsumer } from '../../src/metricas/metricas.consumer';
 import { AmqpPublisherService } from '../../src/messaging/amqp-publisher.service';
 import { MessageValidator } from '../../src/messaging/message-validator';
@@ -111,6 +112,7 @@ describe('desafios (integração)', () => {
       validador,
       app.get(SequenciaService),
       instavel,
+      app.get(EstatisticasService),
     ).onModuleInit();
     consumidor.onModuleInit();
     await new Promise<void>((resolve) => setImmediate(resolve));
