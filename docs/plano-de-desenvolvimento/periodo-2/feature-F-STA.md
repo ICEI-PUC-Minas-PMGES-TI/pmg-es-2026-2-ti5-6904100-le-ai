@@ -22,7 +22,7 @@ RNF atendidos: **RNF-ARQ-06** (recálculo por fluxo assíncrono), **RNF-ERR-06/0
 |---|---|---|
 | Infra | implementado (11/10/2026) | migration `0006_..._estatistica_buckets_mensais`: só `estatistica_mensal`, com dias com leitura, dias em livros concluídos e soma/quantidade de notas; `estatistica_anual` e `estatistica_usuario` (vazias) removidas. Consumo pela fila `leai.leitura.metricas` da F-GAM |
 | Backend | implementado (11/10/2026) | `leitura`: `GET /me/estatisticas`, `/me/estatisticas/graficos` e `/perfis/{id}/estatisticas`, recálculo pelo consumidor de métricas, pela exclusão de trecho e pelas escritas de nota, backfill `npm run backfill:estatisticas` |
-| Web | não iniciado | painel de totais/médias e gráficos de evolução |
+| Web | implementado (12/10/2026) | `/perfil/estatisticas` com seletor de período, totais, médias e dois gráficos com visão em tabela; bloco `Estatísticas do ano` no Meu perfil (com `Ver estatísticas`) e no perfil de outro leitor |
 | Mobile | não iniciado | mesmas telas |
 
 ## Especificação
@@ -70,11 +70,33 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 **Divergência da especificação:** a spec ainda fala em "editar o último progresso". A edição de progresso foi removida em 29/09/2026 (`8f28b76`, F-PRG); só a exclusão de trecho recalcula.
 
+## Implementação do web (12/10/2026)
+
+**`code/front`:**
+- **Rota `/perfil/estatisticas`** (`views/perfil/EstatisticasView.vue`), aba Perfil ativa, com o período na rota (`?periodo=2025|acumulado`; sem ele, o ano corrente).
+  - Na web larga, a partir de 1280px (5.1 a 5.5): lista `Período` na coluna da esquerda e, à direita, linha de período, `Totais` e `Médias` em cards de três e os dois gráficos lado a lado.
+  - Entre 768 e 1280px: pills no topo, cards de três e gráficos empilhados.
+  - Abaixo de 768px (4.1 a 4.9): faixa de pills, containers de linhas empilhadas e gráficos um embaixo do outro.
+  - Vazio sem coluna de períodos e com `Ir para a estante`; erro com o banner no topo da coluna direita e o seletor mantido; skeleton em cada carga e troca de período, também no cold start.
+  - Resposta atrasada de um período anterior é descartada.
+- **Gráfico feito à mão** (`components/estatisticas/GraficoDeColunas.vue`), sem biblioteca nova:
+  - grade de 1px, eixo Y só com marcas (passos 1-2-5, no máximo quatro, em `estatisticas/escala.ts`) e um único rótulo direto no primeiro maior valor;
+  - balão do mês no hover, no toque e nas setas do teclado (`Esc` fecha), com contorno de foco no gráfico inteiro e anúncio em `aria-live`;
+  - `Ver como tabela` troca a área por uma `<table>` real, e a escolha vale por card.
+- **Blocos `Estatísticas do ano`** (`components/estatisticas/BlocoEstatisticasDoAno.vue`) no fim da coluna de identidade:
+  - No Meu perfil, com `Ver estatísticas`, a partir de `GET /me/estatisticas` (os mesmos números do painel).
+  - No perfil de outro leitor, só com o conteúdo visível e sem botão, a partir de `GET /perfis/{id}/estatisticas`.
+  - Carga independente: a falha vira o banner do bloco, e 403/404 do `leitura` esconde o bloco. Na web, as linhas no desenho dos contadores; no celular, a faixa de cards.
+- **Cabeçalho:** `meta.voltarSoNoCelular` mostra a seta só abaixo de 768px, porque na web a volta é o item Perfil da sidebar.
+- **Copy e formatos** em `estatisticas/textos.ts` e `estatisticas/formatos.ts`: milhar com ponto, decimal com vírgula, nota média sempre com uma casa (`4,0`) e tempo em partes (`88 h 05 min`).
+- **Testes:** 932 no web, com os novos de serviço, domínio (escala, formatos, textos e seletor), gráfico, tela (períodos, rota, acumulado, médias ausentes, vazio, timeout e 503 com retry, skeleton e resposta atrasada) e blocos dos dois perfis (vazio, erro, 403/404, restrito).
+- **Conferência lado a lado** com os protótipos renderizados, em 1440×900, 1280, 1024 e 390×844, claro e escuro, com a conta de teste e dados em 2024, 2025 e 2026: 5.1 com hover, 5.2, 5.4 com tabela e foco por teclado, 4.1, `Escuro 5.1`, `Web, público não sigo` e `Sequência, estatísticas e desafios (rolada)`.
+
 ## Critérios de aceite
 
-- [ ] Totais de livros concluídos, páginas lidas e tempo aparecem por **ano** e **acumulado** (RF-STA-01); páginas de leituras abandonadas **contam** (RN-04). Backend pronto; faltam web e mobile.
-- [ ] Médias de páginas/dia, dias/livro e nota média corretas (RF-STA-02). Backend pronto; faltam web e mobile.
-- [ ] Gráficos de **páginas/mês** e **livros/mês** (RF-STA-03), com contraste WCAG AA (RNF-USA-03). Séries prontas no backend; faltam os gráficos.
+- [ ] Totais de livros concluídos, páginas lidas e tempo aparecem por **ano** e **acumulado** (RF-STA-01); páginas de leituras abandonadas **contam** (RN-04). Backend e web prontos; falta o mobile.
+- [ ] Médias de páginas/dia, dias/livro e nota média corretas (RF-STA-02). Backend e web prontos; falta o mobile.
+- [ ] Gráficos de **páginas/mês** e **livros/mês** (RF-STA-03), com contraste WCAG AA (RNF-USA-03). Web pronto, com colunas em `musgo` e visão em tabela; falta o mobile.
 - [x] As estatísticas são **recalculadas de forma assíncrona** a partir de `progresso.registrado`/`leitura.finalizada`; consumidor **idempotente** + DLQ (RF-STA-05, RNF-ERR-06/07); o painel reflete também dados históricos do próprio schema.
 - [x] Excluir progresso corrige páginas/tempo e criar/editar/remover nota corrige a nota média, sem aguardar evento inexistente.
 - [ ] O painel funciona **em DES**.
@@ -88,11 +110,11 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
 - [x] Testes unitários e de integração: totais/médias/séries, páginas abandonadas, exclusão de progresso, nota, recálculo, base histórica e RN-08 em perfil público/privado
 - [x] Testes assíncronos: consumo de `progresso.registrado`/`leitura.finalizada` com duplicação e DLQ (RNF-TST-03)
-- [ ] Testes web/mobile cobrem render dos gráficos e indisponibilidade/timeout com API simulada (RNF-TST-05/04/06)
+- [ ] Testes web/mobile cobrem render dos gráficos e indisponibilidade/timeout com API simulada (RNF-TST-05/04/06). Web coberto; falta o mobile.
 - [x] **Spec OpenAPI de `leitura` atualizado em `docs/api/leitura.yaml`** com os endpoints de estatística
 - [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
 - [ ] Arquivo da feature atualizado: status, pendências, timeline
-- [ ] Divergência protótipo × implementação registrada, se houver
+- [x] Divergência protótipo × implementação registrada, se houver
 
 ## Pendências
 
@@ -100,12 +122,25 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Depende de** [F-PRG](../periodo-1/feature-F-PRG.md) (`progresso.registrado`), [F-EST](../periodo-1/feature-F-EST.md) (`leitura.finalizada`), [F-AVA](../periodo-1/feature-F-AVA.md) (notas), [F-PERFIL](../periodo-1/feature-F-PERFIL.md) (RN-08), P0-INFRA, P0-DS, P0-DEPLOY, P0-CI e P0-MSG.
 - **Decisão do grupo incorporada em 15/09/2026:** denominadores definidos acima. Testar dia com vários progressos/livros, progresso manual, sincronização tardia, conclusão no mesmo dia, releituras e intervalo abandonado. Os campos do DTO público sob RN-08 foram decididos na implementação do backend (11/10/2026).
 - **Backfill em cada ambiente:** depois da migration 0006, rodar `npm run backfill:estatisticas` no `leitura`. No DES, entra no merge de fechamento do Período 2.
-- **Web e mobile:** painel próprio, bloco `Estatísticas do ano` do Meu perfil e bloco do perfil alheio, a partir das telas de design abaixo.
+- **Mobile:** painel próprio, bloco `Estatísticas do ano` do Meu perfil e bloco do perfil alheio, a partir das telas de design abaixo.
+- **Divergências protótipo × implementação** (web):
+  - **Bloco no Meu perfil web.** Os artboards web de `meu-perfil.html` não têm o bloco `Estatísticas do ano`; só o mobile tem. Os prompts (`meu-perfil.md` §4.8 e `estatisticas.md` §1) o põem na coluna de identidade, e sem ele o painel não tem entrada na web. **Decisão do dono (12/10/2026):** o bloco entra com o desenho do perfil de outro leitor no protótipo web, mais `Ver estatísticas` com `ChartBar`.
+  - **"Desde" pelo primeiro registro.** O protótipo diz `Desde 12 de novembro de 2023, quando você entrou` e `…, desde que você entrou`, mas a data que o `leitura` devolve é a do primeiro progresso ou fim de leitura concluída (a `v_perfil_referencia_v1` não tem a criação da conta). **Decisão do dono (12/10/2026):** `Desde 12 de novembro de 2023, seu primeiro registro` e `…, desde o seu primeiro registro`.
+  - **Seta só no celular.** Os artboards web não têm seta (a volta é o item Perfil da sidebar); o mobile tem. Em vez do `← Perfil` das outras telas do perfil, a rota usa `meta.voltarSoNoCelular`.
+  - **Frases que o protótipo não desenha:** nota com uma só nota (`A única nota que você deu em 2026.`), página por dia ausente num ano só com conclusões (`Sem dias com leitura em 2025`), nota ausente no acumulado (`Nenhuma nota dada ainda`) e gráfico de páginas sem páginas (`Nenhuma página registrada em 2025.`).
+  - **Largura intermediária.** O protótipo só desenha 1440 e 390. Com a coluna de períodos, entre 768 e 1280px a coluna direita ficava com cerca de 440px, e os números vazavam dos cards. Nessa faixa, os períodos viram as pills do mobile no topo e os gráficos empilham.
+  - **Escala do eixo** por regra (passos 1-2-5, até quatro marcas, ar acima da coluna mais alta), conferida contra os exemplos do protótipo (604 → 0 a 600, 2 → 0 a 3, 5.150 → 0 a 6.000, 14 → 0 a 15). Fora deles, a regra vale sozinha: 939 → 0/500/1.000.
 - **Fronteira:** a distribuição das notas dadas pelo leitor (RF-STA-04) é F-STA-OPC. A distribuição de notas do livro é distinta e foi alocada a F-ACV-NOTA.
 - **Compartilha `leitura`** com as demais features de leitura — sinalizar no grupo (plano §6).
 - Stack de `leitura` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
 ## Timeline
+
+### Implementação 12/10/2026: web implementado na `vicenzo-features`.
+- Painel `/perfil/estatisticas`, gráfico de colunas próprio com tabela e teclado, e os blocos `Estatísticas do ano` nos dois perfis.
+- Conferido lado a lado com os protótipos renderizados (web 1440, 1280, 1024 e celular 390; claro e escuro) contra a stack local com dados de teste em três anos.
+- Decisões do dono: bloco no Meu perfil web, que o protótipo não desenha, e o "desde" pelo primeiro registro. Divergências registradas nas pendências.
+- Testes: web 932. Falta o mobile.
 
 ### Implementação 11/10/2026: backend implementado na `vicenzo-features`, depois de trazer a `desenvolvimento` (#50, F-PERFIL e F-EST).
 - Migration 0006: só baldes mensais (a alternativa das pendências), com as colunas que as médias pedem; `estatistica_anual` e `estatistica_usuario` removidas.

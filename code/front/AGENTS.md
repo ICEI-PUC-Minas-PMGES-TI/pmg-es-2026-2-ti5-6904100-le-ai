@@ -63,6 +63,11 @@ Uma URL por serviço, sem gateway: `VITE_IDENTIDADE_BASE_URL`, `VITE_ACERVO_BASE
   - **Paridade com o mobile (RN-13.4):** o comportamento do parser está fixado em `docs/design-system/markdown-resenha-casos.json`, lido por `markdown/resenha.spec.ts` e pelo teste do mobile. Mudou o parser, a versão do pacote ou a configuração: rode os testes dos dois clientes. O arquivo está no filtro de caminhos da CI dos dois.
   - Editor (`views/livros/EscreverResenhaView.vue`): abas `Escrever | Visualizar` e `components/livros/BarraDeFormatacao.vue` no topo da coluna. A lógica da barra e do `Enter` fica em `markdown/edicao.ts`, sem DOM, igual a `markdown_edicao.dart` do mobile.
 
+- **F-STA, estatísticas (12/10/2026, Vicenzo).** Painel em `views/perfil/EstatisticasView.vue` (`/perfil/estatisticas`), componentes em `components/estatisticas/` e lógica em `src/estatisticas/` (copy, formatos pt-BR, escala do eixo, `useEstatisticas` e `useEstatisticasDoAno`). O que mexe no que é de todos:
+  - `CabecalhoTela.vue` ganhou `voltarSoNoCelular` (rota com `meta.voltarSoNoCelular`): a seta some a partir de 768px, para telas cuja volta na web é a sidebar. Sem a meta, nada muda.
+  - `services/leitura.ts` tem `consultarMinhasEstatisticas`, `consultarGraficosEstatisticas` e `consultarEstatisticasPerfil`; mocks que fazem `satisfies LeituraService` precisam dos três.
+  - `PerfilView.vue` e `PerfilDeOutroView.vue` ganharam o bloco `Estatísticas do ano` no fim da coluna de identidade, com carga própria.
+
 - **F-ACV-DESCOBERTA (07/10/2026, Vicenzo).** Páginas de autor, editora e série em `views/catalogo/PaginaDeCatalogoView.vue` (uma view, a prop `tipo` vem da rota), estado em `livros/usePaginaDeCatalogo.ts`, filtros em `livros/filtrosDaBusca.ts`, `components/livros/FiltrosAvancados.vue` e `ChipsDeFiltros.vue`. O que mexe no que é de todos:
   - `ui/CampoTexto.vue` ganhou a prop opcional `sufixo` (unidade dentro do campo, à direita, como `páginas`). Sem ela, nada muda.
   - `livros/CardLivroBusca.vue` ganhou a prop opcional `numeroNaSerie` (a linha `Livro N` acima do título).
