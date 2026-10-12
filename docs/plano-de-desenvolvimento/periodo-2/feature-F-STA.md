@@ -150,29 +150,31 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [x] Gráficos de **páginas/mês** e **livros/mês** (RF-STA-03), com contraste WCAG AA (RNF-USA-03). Web e mobile, com colunas em `musgo` (`musgo-claro` no escuro) e visão em tabela.
 - [x] As estatísticas são **recalculadas de forma assíncrona** a partir de `progresso.registrado`/`leitura.finalizada`; consumidor **idempotente** + DLQ (RF-STA-05, RNF-ERR-06/07); o painel reflete também dados históricos do próprio schema.
 - [x] Excluir progresso corrige páginas/tempo e criar/editar/remover nota corrige a nota média, sem aguardar evento inexistente.
-- [ ] O painel funciona **em DES**.
+- [ ] O painel funciona **em DES**. Entra no merge de fechamento do Período 2, com a migration 0006 e o backfill no DES.
 - [x] Endpoint de perfil respeita RN-08 server-side e reutiliza a mesma lógica de cálculo do endpoint `/me`.
 
 ## Definition of Done
 
 (plano §10)
 
-- [ ] Código (backend `leitura`, web, mobile) mergeado em `desenvolvimento`
-- [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
+- [ ] Código (backend `leitura`, web, mobile) mergeado em `desenvolvimento` (hoje na `vicenzo-features`, em PR)
+- [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)): localmente, depois de trazer a `desenvolvimento` (12/10/2026), lint, build, 285 unitários e 333 de integração do `leitura`; lint, `vue-tsc` e 955 testes do web; `flutter analyze` e 814 testes do mobile, todos verdes
 - [x] Testes unitários e de integração: totais/médias/séries, páginas abandonadas, exclusão de progresso, nota, recálculo, base histórica e RN-08 em perfil público/privado
 - [x] Testes assíncronos: consumo de `progresso.registrado`/`leitura.finalizada` com duplicação e DLQ (RNF-TST-03)
 - [x] Testes web/mobile cobrem render dos gráficos e indisponibilidade/timeout com API simulada (RNF-TST-05/04/06).
 - [x] **Spec OpenAPI de `leitura` atualizado em `docs/api/leitura.yaml`** com os endpoints de estatística
-- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
-- [ ] Arquivo da feature atualizado: status, pendências, timeline
+- [x] Catálogo de mensageria atualizado: F-STA no consumidor `leitura.metricas` de `progresso.registrado` e `leitura.finalizada`, e o backfill, em `docs/mensageria/catalogo.md`
+- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)). Entra no merge de fechamento do Período 2
+- [x] Arquivo da feature atualizado: status, pendências, timeline
 - [x] Divergência protótipo × implementação registrada, se houver
 
 ## Pendências
 
-- **Telas (design P2):** [`estatisticas.md`](../../design/periodo-2/F-STA/estatisticas.md) ([protótipo](../../design/periodo-2/F-STA/prototipos/estatisticas.html)) (painel próprio W+M, entrada pelo bloco `Estatísticas do ano` do Meu perfil, desenhado na edição `meu-perfil` do lote 6), prompt escrito e protótipo exportado em 29/09/2026. Contratos a confirmar: tempo por ano em `GET /me/estatisticas`, séries por ano escolhido × 12 meses móveis, série anual do acumulado, ano de referência da nota média e contagem de notas, lista de anos com registro. Lote 6, prompts escritos e protótipos exportados em 29/09/2026: bloco `Estatísticas do ano` na edição [`meu-perfil.md`](../../design/periodo-2/meu-perfil/meu-perfil.md) ([protótipo](../../design/periodo-2/meu-perfil/prototipos/meu-perfil.html)) (mobile e coluna web, `Ver estatísticas`) e bloco sem painel, sob RN-08, na edição [`perfil-de-outro-leitor.md`](../../design/periodo-2/perfil-de-outro-leitor/perfil-de-outro-leitor.md) ([protótipo](../../design/periodo-2/perfil-de-outro-leitor/prototipos/perfil-de-outro-leitor.html)). Contratos a confirmar: campos do DTO público (tempo de leitura pode ser privado), ano corrente isolado.
+- **Telas (design P2):** [`estatisticas.md`](../../design/periodo-2/F-STA/estatisticas.md) ([protótipo](../../design/periodo-2/F-STA/prototipos/estatisticas.html)) (painel próprio W+M, entrada pelo bloco `Estatísticas do ano` do Meu perfil, desenhado na edição `meu-perfil` do lote 6), prompt escrito e protótipo exportado em 29/09/2026. Lote 6, prompts escritos e protótipos exportados em 29/09/2026: bloco `Estatísticas do ano` na edição [`meu-perfil.md`](../../design/periodo-2/meu-perfil/meu-perfil.md) ([protótipo](../../design/periodo-2/meu-perfil/prototipos/meu-perfil.html)) (mobile e coluna web, `Ver estatísticas`) e bloco sem painel, sob RN-08, na edição [`perfil-de-outro-leitor.md`](../../design/periodo-2/perfil-de-outro-leitor/perfil-de-outro-leitor.md) ([protótipo](../../design/periodo-2/perfil-de-outro-leitor/prototipos/perfil-de-outro-leitor.html)). **Contratos que os protótipos deixavam a confirmar, resolvidos no backend (11/10/2026):** tempo por ano em `/me/estatisticas`, séries do ano escolhido mês a mês e do acumulado ano a ano (`granularidade`), nota média e quantidade de notas no período, lista de anos com registro (`anos`), e o DTO público com os três totais do ano, tempo incluído, por `?ano=` (ver [Implementação do backend](#implementação-do-backend-11102026)).
 - **Depende de** [F-PRG](../periodo-1/feature-F-PRG.md) (`progresso.registrado`), [F-EST](../periodo-1/feature-F-EST.md) (`leitura.finalizada`), [F-AVA](../periodo-1/feature-F-AVA.md) (notas), [F-PERFIL](../periodo-1/feature-F-PERFIL.md) (RN-08), P0-INFRA, P0-DS, P0-DEPLOY, P0-CI e P0-MSG.
 - **Decisão do grupo incorporada em 15/09/2026:** denominadores definidos acima. Testar dia com vários progressos/livros, progresso manual, sincronização tardia, conclusão no mesmo dia, releituras e intervalo abandonado. Os campos do DTO público sob RN-08 foram decididos na implementação do backend (11/10/2026).
 - **Backfill em cada ambiente:** depois da migration 0006, rodar `npm run backfill:estatisticas` no `leitura`. No DES, entra no merge de fechamento do Período 2.
+- **Matriz de exclusão da [F-CONTA-2](feature-F-CONTA-2.md#etapa-3-consumidores):** o consumidor `conta.excluida` do `leitura` já apaga `estatistica_mensal` e deixou de citar as tabelas removidas pela migration 0006. A tabela da matriz no arquivo da F-CONTA-2 ainda lista `estatistica_usuario` e `estatistica_anual`; o ajuste fica com o dono da F-CONTA-2 (Henrique Carvalho), avisado no PR.
 - **Divergências protótipo × implementação** (web e mobile; as do web valem para o mobile onde o desenho é o mesmo, e o "desde" e as frases novas são idênticos):
   - **Bloco no Meu perfil web.** Os artboards web de `meu-perfil.html` não têm o bloco `Estatísticas do ano`; só o mobile tem. Os prompts (`meu-perfil.md` §4.8 e `estatisticas.md` §1) o põem na coluna de identidade, e sem ele o painel não tem entrada na web. **Decisão do dono (12/10/2026):** o bloco entra com o desenho do perfil de outro leitor no protótipo web, mais `Ver estatísticas` com `ChartBar`.
   - **"Desde" pelo primeiro registro.** O protótipo diz `Desde 12 de novembro de 2023, quando você entrou` e `…, desde que você entrou`, mas a data que o `leitura` devolve é a do primeiro progresso ou fim de leitura concluída (a `v_perfil_referencia_v1` não tem a criação da conta). **Decisão do dono (12/10/2026):** `Desde 12 de novembro de 2023, seu primeiro registro` e `…, desde o seu primeiro registro`.
@@ -187,6 +189,11 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - Stack de `leitura` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
 ## Timeline
+
+### Integração 12/10/2026: `desenvolvimento` trazida para a `vicenzo-features` (#52, F-REC-P2P) e PR aberto para a `desenvolvimento`.
+- Um conflito, em `docs/mensageria/catalogo.md`: a linha de `livro.adicionado_a_estante` ganhou o consumidor de recomendações e a de `progresso.registrado` manteve a F-STA.
+- Web (lint, `vue-tsc`, 955 testes) e mobile (`flutter analyze`, 814 testes) verdes depois do merge. O `leitura` não mudou na `desenvolvimento`.
+- Revisão da doc: critério e DoD de DES com a nota do fechamento do período, catálogo no DoD, contratos dos protótipos dados como resolvidos e a matriz da F-CONTA-2 como pendência do dono dela.
 
 ### Implementação 12/10/2026: mobile implementado na `vicenzo-features`.
 - Painel `/perfil/estatisticas`, gráfico de colunas próprio com tabela e TalkBack, e os blocos `Estatísticas do ano` no Meu perfil e no perfil de outro leitor.
