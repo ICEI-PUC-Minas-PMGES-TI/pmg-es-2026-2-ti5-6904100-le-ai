@@ -19,6 +19,7 @@ import DescobrirView from '../views/DescobrirView.vue'
 import EditarPerfilView from '../views/perfil/EditarPerfilView.vue'
 import ExcluirContaView from '../views/conta/ExcluirContaView.vue'
 import ExclusaoSolicitadaView from '../views/conta/ExclusaoSolicitadaView.vue'
+import EstatisticasView from '../views/perfil/EstatisticasView.vue'
 import EstanteView from '../views/EstanteView.vue'
 import FeedView from '../views/FeedView.vue'
 import LoginView from '../views/auth/LoginView.vue'
@@ -63,6 +64,8 @@ declare module 'vue-router' {
      * título, como nos protótipos web de F-AUT e F-PERFIL. Abaixo de 768px fica a barra com a seta.
      */
     voltarComRotulo?: string
+    /** Com `voltar`: a seta só abaixo de 768px; na web volta-se pela sidebar (F-STA). */
+    voltarSoNoCelular?: boolean
     /** Header sem o divisor inferior (protótipos de F-AUT e F-PERFIL). */
     semDivisor?: boolean
     /**
@@ -211,6 +214,12 @@ export const routes: RouteRecordRaw[] = [
         name: 'solicitacoes',
         component: SolicitacoesView,
         meta: { titulo: 'Solicitações', voltar: true, voltarComRotulo: 'Perfil', semDivisor: true },
+      },
+      {
+        path: 'perfil/estatisticas',
+        name: 'estatisticas',
+        component: EstatisticasView,
+        meta: { titulo: 'Estatísticas', voltar: true, voltarSoNoCelular: true, semDivisor: true },
       },
       {
         path: 'leitores/:username',
