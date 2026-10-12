@@ -167,7 +167,7 @@ const CONTADOR =
 
 const textoDaConfirmacao = computed(() =>
   privado.value
-    ? 'As atividades dessa pessoa saem do seu feed, e você perde o acesso à estante e às resenhas. Seguir de novo exige uma solicitação nova.'
+    ? 'As atividades dessa pessoa saem do seu feed, e você perde o acesso à estante, às resenhas, às listas e às estatísticas. Seguir de novo exige uma solicitação nova.'
     : 'As atividades dessa pessoa saem do seu feed. Você pode seguir de novo quando quiser.',
 )
 </script>
@@ -409,7 +409,7 @@ const textoDaConfirmacao = computed(() =>
             Sua solicitação está aguardando resposta.
           </template>
           <template v-else>
-            Envie uma solicitação para ver a estante, as resenhas e as listas de {{ nome }}.
+            Envie uma solicitação para ver a estante, as resenhas, as listas e as estatísticas de {{ nome }}.
           </template>
         </p>
       </EstadoVazio>

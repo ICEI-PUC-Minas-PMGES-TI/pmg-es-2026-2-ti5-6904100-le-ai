@@ -92,7 +92,7 @@ describe('ConexoesView', () => {
     await flushPromises()
 
     expect(document.body.textContent).toContain('Deixar de seguir Dandara?')
-    expect(document.body.textContent).toContain('você perde o acesso à estante e às resenhas')
+    expect(document.body.textContent).toContain('você perde o acesso à estante, às resenhas, às listas e às estatísticas')
     botaoNoCorpo('Deixar de seguir').click()
     await flushPromises()
     expect(servico.deixarDeSeguir).toHaveBeenCalledWith('dandara', expect.any(String))

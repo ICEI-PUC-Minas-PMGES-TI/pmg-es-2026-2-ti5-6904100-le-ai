@@ -228,7 +228,7 @@ describe('PerfilDeOutroView', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('Este perfil é privado')
-    expect(wrapper.text()).toContain('Envie uma solicitação para ver a estante, as resenhas e as listas de Beatriz.')
+    expect(wrapper.text()).toContain('Envie uma solicitação para ver a estante, as resenhas, as listas e as estatísticas de Beatriz.')
     // RN-08: nada das listas de um perfil restrito, nem a chamada.
     expect(listas.listarDoPerfil).not.toHaveBeenCalled()
     expect(wrapper.find('[role="alert"]').exists()).toBe(false)
