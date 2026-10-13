@@ -4,6 +4,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
 import CardEstante from '../../components/estante/CardEstante.vue'
+import BlocoEstatisticasDoAno from '../../components/estatisticas/BlocoEstatisticasDoAno.vue'
 import EsqueletoEstante from '../../components/estante/EsqueletoEstante.vue'
 import ListasDoPerfil from '../../components/listas/ListasDoPerfil.vue'
 import AvatarLeitor from '../../components/perfil/AvatarLeitor.vue'
@@ -14,6 +15,9 @@ import BannerAviso from '../../components/ui/BannerAviso.vue'
 import BotaoTextual from '../../components/ui/BotaoTextual.vue'
 import { TEXTOS_DA_ESTANTE_DE_PERFIL } from '../../estante/textos'
 import { useEstante } from '../../estante/useEstante'
+import { hojeEmSaoPaulo } from '../../estatisticas/formatos'
+import { TEXTOS_DO_BLOCO } from '../../estatisticas/textos'
+import { useEstatisticasDoAno } from '../../estatisticas/useEstatisticasDoAno'
 import { contagem } from '../../perfil/textos'
 import { leituraService } from '../../services/leitura'
 import { perfilService, type Perfil } from '../../services/perfil'
@@ -31,6 +35,10 @@ import { perfilService, type Perfil } from '../../services/perfil'
  *
  * Sem sino na web, o perfil é o único lugar em que um pedido para seguir aparece (§1): a contagem
  * vem de uma página de um item da caixa, e falhar nela só esconde a linha.
+ *
+ * **Estatísticas do ano (F-STA)** no fim da coluna de identidade, com `Ver estatísticas`: os
+ * mesmos totais do painel para o ano corrente. O protótipo web não desenha o bloco; ele segue o
+ * do perfil de outro leitor e o §4.8 de `meu-perfil.md` (decisão do dono, 12/10/2026).
  */
 const route = useRoute()
 const perfil = ref<Perfil | null>(null)
@@ -58,9 +66,17 @@ async function contarPedidos(): Promise<void> {
   }
 }
 
+const anoCorrente = hojeEmSaoPaulo().ano
+const estatisticas = useEstatisticasDoAno(async () => {
+  const resposta = await leituraService.consultarMinhasEstatisticas()
+  // Sem nenhum registro, a frase no lugar dos totais e sem `Ver estatísticas` (§4.6).
+  return { totais: resposta.totais, vazio: resposta.anos.length === 0 && resposta.primeiroRegistro === null }
+})
+
 onMounted(() => {
   void carregar()
   void contarPedidos()
+  void estatisticas.carregar()
 })
 
 const estante = useEstante((filtro) => leituraService.listarEstantePerfil(perfil.value?.id ?? '', filtro))
@@ -104,6 +120,16 @@ const LINK_DE_CONTADOR =
       <span class="h-[15px] w-[80%] rounded-sm bg-capa-placeholder" />
       <!-- A barra do botão só existe no skeleton web; o mobile do protótipo não tem. -->
       <span class="mt-space-4 hidden h-10 w-full rounded-base bg-capa-placeholder md:block" />
+      <!-- Bloco de estatísticas do ano (web): título e três linhas. -->
+      <span class="mt-space-6 hidden h-[17px] w-[60%] rounded-sm bg-capa-placeholder md:block" />
+      <span
+        v-for="i in 3"
+        :key="i"
+        class="hidden w-full justify-between py-space-1 md:flex"
+      >
+        <span class="h-[15px] w-[20%] rounded-sm bg-capa-placeholder" />
+        <span class="h-[15px] w-[40%] rounded-sm bg-capa-placeholder" />
+      </span>
     </div>
 
     <div
@@ -238,6 +264,17 @@ const LINK_DE_CONTADOR =
             </RouterLink>
           </div>
         </nav>
+
+        <BlocoEstatisticasDoAno
+          v-if="estatisticas.estado.value !== 'oculto'"
+          :estado="estatisticas.estado.value"
+          :totais="estatisticas.totais.value"
+          :ano="anoCorrente"
+          proprio
+          :texto-vazio="TEXTOS_DO_BLOCO.vazioProprio"
+          :texto-erro="TEXTOS_DO_BLOCO.erroProprio"
+          @tentar-de-novo="estatisticas.carregar()"
+        />
       </section>
 
       <div>

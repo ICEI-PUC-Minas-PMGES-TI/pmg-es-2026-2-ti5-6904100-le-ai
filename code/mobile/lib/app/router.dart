@@ -18,6 +18,8 @@ import '../features/conta/recuperar_senha_page.dart';
 import '../features/conta/redefinir_senha_page.dart';
 import '../features/desafios/desafios_service.dart';
 import '../features/desafios/rotas_desafios.dart';
+import '../features/estatisticas/estatisticas_service.dart';
+import '../features/estatisticas/rotas_estatisticas.dart';
 import '../features/descobrir/descobrir_page.dart';
 import '../features/recomendacoes/rotas_recomendacoes.dart';
 import '../core/config/app_config.dart';
@@ -71,6 +73,7 @@ GoRouter buildRouter({
   ExclusaoService? exclusao,
   SequenciaService? sequencia,
   DesafiosService? desafios,
+  EstatisticasService? estatisticas,
 }) {
   Future<bool> renovar(String token) => sessionController.renovar(token, authService.renovar);
   final servicoDeExclusao = exclusao ?? ExclusaoService(authService.client);
@@ -110,6 +113,16 @@ GoRouter buildRouter({
   final depsDeDesafios = DependenciasDeDesafios.comAvisos(
     desafios ?? DesafiosService(servicoDeEstante.client),
     <ValueListenable<int>>[depsDeProgresso.servico.alteracoes, servicoDeEstante.alteracoes],
+  );
+  // F-STA: também do `leitura`. Progresso, leitura e nota mexem nos totais e nas médias.
+  final depsDeEstatisticas = DependenciasDeEstatisticas.comAvisos(
+    estatisticas ?? EstatisticasService(servicoDeEstante.client),
+    <ValueListenable<int>>[
+      depsDeProgresso.servico.alteracoes,
+      servicoDeEstante.alteracoes,
+      deps.leitura.alteracoes,
+    ],
+    rotaDaEstante: rotaEstante,
   );
   final depsDeNotificacoes =
       notificacoes ??
@@ -277,6 +290,7 @@ GoRouter buildRouter({
                   ...rotasDeCatalogo(deps, raiz: rotaFeedRaiz),
                 ],
                 listas: depsDeListas,
+                estatisticas: depsDeEstatisticas,
                 estante: servicoDeEstante,
                 resenhasDoAutor: (context, usuarioId, nome) => _resenhasDoPerfil(
                   context,
@@ -310,6 +324,7 @@ GoRouter buildRouter({
                     servico: servicoDeSequencia,
                     alteracoes: depsDeProgresso.servico.alteracoes,
                   ),
+                  estatisticas: () => secaoDasEstatisticas(context, depsDeEstatisticas),
                   desafios: () => secaoDosDesafios(context, depsDeDesafios),
                 ),
                 routes: <RouteBase>[
@@ -325,6 +340,7 @@ GoRouter buildRouter({
                     ),
                     listas: depsDeListas,
                     desafios: depsDeDesafios,
+                    estatisticas: depsDeEstatisticas,
                   ),
                   // O livro pessoal aberto por uma lista fica na aba Perfil: o do dono, sem via;
                   // o de outro leitor, em modo consulta com `via=lista` (F-LST, RN-15).

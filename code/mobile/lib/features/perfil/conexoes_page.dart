@@ -104,8 +104,8 @@ class _ConexoesPageState extends State<ConexoesPage> {
       context,
       titulo: 'Deixar de seguir ${primeiroNome(leitor.displayName)}?',
       texto: leitor.privacidade == Privacidade.privado
-          ? 'As atividades dessa pessoa saem do seu feed, e você perde o acesso à estante e às '
-                'resenhas. Seguir de novo exige uma solicitação nova.'
+          ? 'As atividades dessa pessoa saem do seu feed, e você perde o acesso à estante, às '
+                'resenhas, às listas e às estatísticas. Seguir de novo exige uma solicitação nova.'
           : 'As atividades dessa pessoa saem do seu feed. Você pode seguir de novo quando quiser.',
       acao: 'Deixar de seguir',
     );

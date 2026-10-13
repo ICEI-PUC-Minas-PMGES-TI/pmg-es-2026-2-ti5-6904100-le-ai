@@ -43,6 +43,10 @@ class PerfilDeOutroPage extends StatefulWidget {
   /// Seção "Listas" do perfil (F-LST), montada com o id e o primeiro nome do leitor.
   final Widget Function(String usuarioId, String nome)? listas;
 
+  /// Bloco "Estatísticas do ano" (F-STA), sem entrada para o painel: logo abaixo dos contadores,
+  /// só com o conteúdo visível (perfil-de-outro-leitor.md §4.1 A e RN-08).
+  final Widget Function(String usuarioId, String nome)? estatisticas;
+
   const PerfilDeOutroPage({
     super.key,
     required this.servico,
@@ -54,6 +58,7 @@ class PerfilDeOutroPage extends StatefulWidget {
     this.estante,
     this.resenhas,
     this.listas,
+    this.estatisticas,
   });
 
   @override
@@ -61,6 +66,18 @@ class PerfilDeOutroPage extends StatefulWidget {
 }
 
 class _PerfilDeOutroPageState extends State<PerfilDeOutroPage> {
+  /// O que um perfil privado só mostra a seguidor aceito (RN-08), conforme as seções que o app
+  /// tem: `a estante, as resenhas, as listas e as estatísticas` (perfil-de-outro-leitor.md §4.3).
+  String _oQueORestritoGuarda({required String comArtigo, required String comArtigoPlural}) {
+    final itens = <String>[
+      '$comArtigo estante',
+      '$comArtigoPlural resenhas',
+      if (widget.listas != null) '$comArtigoPlural listas',
+      if (widget.estatisticas != null) '$comArtigoPlural estatísticas',
+    ];
+    return '${itens.sublist(0, itens.length - 1).join(', ')} e ${itens.last}';
+  }
+
   Perfil? _perfil;
   bool _carregando = true;
   bool _naoEncontrado = false;
@@ -171,8 +188,9 @@ class _PerfilDeOutroPageState extends State<PerfilDeOutroPage> {
       context,
       titulo: 'Deixar de seguir ${primeiroNome(atual.displayName)}?',
       texto: privado
-          ? 'As atividades dessa pessoa saem do seu feed, e você perde o acesso à estante e às '
-                'resenhas. Seguir de novo exige uma solicitação nova.'
+          ? 'As atividades dessa pessoa saem do seu feed, e você perde o acesso '
+                '${_oQueORestritoGuarda(comArtigo: 'à', comArtigoPlural: 'às')}. Seguir de novo '
+                'exige uma solicitação nova.'
           : 'As atividades dessa pessoa saem do seu feed. Você pode seguir de novo quando quiser.',
       acao: 'Deixar de seguir',
     );
@@ -338,12 +356,16 @@ class _PerfilDeOutroPageState extends State<PerfilDeOutroPage> {
               titulo: 'Este perfil é privado',
               texto: perfil.relacao == Relacao.solicitacaoEnviada
                   ? 'Sua solicitação está aguardando resposta.'
-                  : widget.listas == null
-                  ? 'Envie uma solicitação para ver a estante e as resenhas de $nome.'
-                  : 'Envie uma solicitação para ver a estante, as resenhas e as listas de $nome.',
+                  : 'Envie uma solicitação para ver '
+                        '${_oQueORestritoGuarda(comArtigo: 'a', comArtigoPlural: 'as')} de $nome.',
             ),
           ] else ...<Widget>[
-            const SizedBox(height: DesignTokens.space12),
+            if (widget.estatisticas != null) ...<Widget>[
+              const SizedBox(height: DesignTokens.space8),
+              widget.estatisticas!(perfil.id, nome),
+              const SizedBox(height: DesignTokens.space8),
+            ] else
+              const SizedBox(height: DesignTokens.space12),
             SecoesDeLeitura(
               proprio: false,
               nome: nome,

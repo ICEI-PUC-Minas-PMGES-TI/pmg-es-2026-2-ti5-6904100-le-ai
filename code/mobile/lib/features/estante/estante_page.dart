@@ -9,6 +9,7 @@ import '../../design/widgets/botao_primario.dart';
 import '../../design/widgets/botao_textual.dart';
 import '../../design/widgets/estado_vazio.dart';
 import '../../design/widgets/folha_inferior.dart';
+import '../../design/widgets/pill_de_filtro.dart';
 import '../perfil/widgets_de_perfil.dart';
 import '../progresso/rotas_progresso.dart';
 import 'acoes_leitura.dart';
@@ -206,7 +207,7 @@ class _EstantePageState extends State<EstantePage> {
       child: Row(
         children: <Widget>[
           for (final (status, rotulo, contagem) in opcoes) ...<Widget>[
-            _PillDeFiltro(
+            PillDeFiltro(
               rotulo: rotulo,
               contagem: contagem,
               ativo: status == _status,
@@ -376,72 +377,6 @@ class _EstantePageState extends State<EstantePage> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _PillDeFiltro extends StatelessWidget {
-  final String rotulo;
-  final int? contagem;
-  final bool ativo;
-  final VoidCallback aoTocar;
-
-  const _PillDeFiltro({
-    required this.rotulo,
-    required this.contagem,
-    required this.ativo,
-    required this.aoTocar,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cor = ativo ? theme.primaryAccent : theme.secondaryText;
-    final peso = ativo ? FontWeight.w600 : null;
-    return Semantics(
-      button: true,
-      selected: ativo,
-      label: contagem == null ? rotulo : '$rotulo $contagem',
-      excludeSemantics: true,
-      child: InkWell(
-        onTap: aoTocar,
-        splashFactory: NoSplash.splashFactory,
-        borderRadius: BorderRadius.circular(DesignTokens.radiusFull),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 40),
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: DesignTokens.space4,
-              vertical: DesignTokens.space2,
-            ),
-            decoration: BoxDecoration(
-              color: ativo ? theme.accentTint : null,
-              border: ativo ? null : Border.all(color: theme.divider),
-              borderRadius: BorderRadius.circular(DesignTokens.radiusFull),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Text(
-                  rotulo,
-                  style: theme.textTheme.bodySmall?.copyWith(color: cor, fontWeight: peso),
-                ),
-                if (contagem != null) ...<Widget>[
-                  const SizedBox(width: DesignTokens.space1),
-                  Text(
-                    '$contagem',
-                    style: theme.numInline.copyWith(
-                      color: cor,
-                      fontWeight: peso,
-                      fontSize: theme.textTheme.bodySmall?.fontSize,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }

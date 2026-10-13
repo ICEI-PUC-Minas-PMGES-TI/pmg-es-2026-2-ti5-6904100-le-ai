@@ -15,6 +15,10 @@ import BotaoPrimario from '../../components/ui/BotaoPrimario.vue'
 import BotaoTextual from '../../components/ui/BotaoTextual.vue'
 import DialogoConfirmacao from '../../components/ui/DialogoConfirmacao.vue'
 import EstadoVazio from '../../components/ui/EstadoVazio.vue'
+import BlocoEstatisticasDoAno from '../../components/estatisticas/BlocoEstatisticasDoAno.vue'
+import { hojeEmSaoPaulo } from '../../estatisticas/formatos'
+import { TEXTOS_DO_BLOCO } from '../../estatisticas/textos'
+import { useEstatisticasDoAno } from '../../estatisticas/useEstatisticasDoAno'
 import { TEXTOS_DA_ESTANTE_DE_PERFIL, textoEstanteDePerfilVazia } from '../../estante/textos'
 import { useEstante } from '../../estante/useEstante'
 import { contagem, primeiroNome } from '../../perfil/textos'
@@ -33,6 +37,8 @@ import { perfilService, type Perfil } from '../../services/perfil'
  * - Os contadores não são acionáveis: não há lista do grafo de terceiros (RNF-SEC-19/44).
  *   `livros lidos` vem dos totais da estante e só aparece com ela visível.
  * - Username do próprio leitor abre o próprio perfil.
+ * - **Estatísticas do ano (F-STA)** no fim da coluna de identidade, só com o conteúdo visível:
+ *   os três totais, não acionáveis. Um 403 ou 404 do `leitura` esconde o bloco.
  */
 const route = useRoute()
 const router = useRouter()
@@ -79,9 +85,17 @@ watch(username, () => void carregar(), { immediate: true })
 const estante = useEstante((filtro) => leituraService.listarEstantePerfil(perfil.value?.id ?? '', filtro))
 
 const estanteVisivel = computed(() => (perfil.value && !perfil.value.conteudoRestrito ? perfil.value.id : null))
+const anoCorrente = hojeEmSaoPaulo().ano
+const estatisticas = useEstatisticasDoAno(async () => {
+  const totais = await leituraService.consultarEstatisticasPerfil(perfil.value?.id ?? '')
+  const vazio = totais.livrosConcluidos === 0 && totais.paginasLidas === 0 && totais.minutosLidos === 0
+  return { totais, vazio }
+})
+
 watch(estanteVisivel, (id) => {
   if (id) {
     void estante.carregar()
+    void estatisticas.carregar()
   }
 })
 
@@ -153,7 +167,7 @@ const CONTADOR =
 
 const textoDaConfirmacao = computed(() =>
   privado.value
-    ? 'As atividades dessa pessoa saem do seu feed, e você perde o acesso à estante e às resenhas. Seguir de novo exige uma solicitação nova.'
+    ? 'As atividades dessa pessoa saem do seu feed, e você perde o acesso à estante, às resenhas, às listas e às estatísticas. Seguir de novo exige uma solicitação nova.'
     : 'As atividades dessa pessoa saem do seu feed. Você pode seguir de novo quando quiser.',
 )
 </script>
@@ -368,6 +382,18 @@ const textoDaConfirmacao = computed(() =>
             </dd>
           </div>
         </dl>
+
+        <!-- Privado sem seguimento: a coluna não ganha estatísticas (perfil-de-outro-leitor.md §4.9). -->
+        <BlocoEstatisticasDoAno
+          v-if="!restrito && estatisticas.estado.value !== 'oculto'"
+          :estado="estatisticas.estado.value"
+          :totais="estatisticas.totais.value"
+          :ano="anoCorrente"
+          :proprio="false"
+          :texto-vazio="TEXTOS_DO_BLOCO.vazioDeOutro(nome, anoCorrente)"
+          :texto-erro="TEXTOS_DO_BLOCO.erroDeOutro(nome)"
+          @tentar-de-novo="estatisticas.carregar()"
+        />
       </section>
 
       <!-- §4.3: restrito não é erro. Nenhuma capa nem trecho aparece, nem desfocado. -->
@@ -383,7 +409,7 @@ const textoDaConfirmacao = computed(() =>
             Sua solicitação está aguardando resposta.
           </template>
           <template v-else>
-            Envie uma solicitação para ver a estante, as resenhas e as listas de {{ nome }}.
+            Envie uma solicitação para ver a estante, as resenhas, as listas e as estatísticas de {{ nome }}.
           </template>
         </p>
       </EstadoVazio>

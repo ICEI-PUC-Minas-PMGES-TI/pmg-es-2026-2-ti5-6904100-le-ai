@@ -34,9 +34,7 @@ export const TABELAS_DA_CONTA = [
   'desafio',
   'sequencia_leitura',
   'dia_leitura',
-  'estatistica_usuario',
   'estatistica_mensal',
-  'estatistica_anual',
 ] as const;
 
 /**

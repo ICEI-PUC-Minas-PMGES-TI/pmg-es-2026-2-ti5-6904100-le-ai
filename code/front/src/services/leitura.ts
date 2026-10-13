@@ -240,6 +240,51 @@ export interface FiltroProgresso {
   limite?: number
 }
 
+/** Um ano de calendário ou toda a conta (F-STA). */
+export type PeriodoEstatisticas = number | 'acumulado'
+
+export interface TotaisEstatistica {
+  livrosConcluidos: number
+  paginasLidas: number
+  minutosLidos: number
+}
+
+/** `GET /me/estatisticas`: médias sem denominador vêm com `valor` nulo. */
+export interface Estatisticas {
+  /** Nulo no acumulado. */
+  ano: number | null
+  /** Anos com progresso ou leitura concluída, do mais recente ao mais antigo. */
+  anos: { ano: number; livrosConcluidos: number }[]
+  /** Data (`AAAA-MM-DD`) do primeiro progresso ou fim de leitura concluída. */
+  primeiroRegistro: string | null
+  totais: TotaisEstatistica
+  medias: {
+    paginasPorDia: { valor: number | null; paginasLidas: number; diasComLeitura: number }
+    diasPorLivro: { valor: number | null; dias: number; leiturasConcluidas: number }
+    notaMedia: { valor: number | null; quantidade: number }
+  }
+}
+
+export interface PontoEstatistica {
+  ano: number
+  /** 1 a 12 na série mensal; nulo na série anual. */
+  mes: number | null
+  paginasLidas: number
+  livrosConcluidos: number
+}
+
+/** `GET /me/estatisticas/graficos`: um ponto por mês num ano, um por ano no acumulado. */
+export interface GraficosEstatisticas {
+  ano: number | null
+  granularidade: 'mes' | 'ano'
+  pontos: PontoEstatistica[]
+}
+
+/** `GET /perfis/{id}/estatisticas`: só os totais do ano (RN-08). */
+export interface EstatisticasPerfil extends TotaisEstatistica {
+  ano: number
+}
+
 const NAO_ENCONTRADO = 404
 
 export function consultaDaEstante(filtro: FiltroEstante = {}): string {
@@ -431,7 +476,29 @@ export function createLeituraService(options: ApiClientOptions = {}) {
     return request<PaginaResenhasPerfil>(`/perfis/${encodeURIComponent(usuarioId)}/resenhas?${query}`)
   }
 
+  const doPeriodo = (periodo?: PeriodoEstatisticas) =>
+    periodo === undefined ? '' : `?${new URLSearchParams({ periodo: String(periodo) })}`
+
+  /** Totais e médias do leitor (RF-STA-01/02); sem período, o ano corrente. */
+  function consultarMinhasEstatisticas(periodo?: PeriodoEstatisticas): Promise<Estatisticas> {
+    return request<Estatisticas>(`/me/estatisticas${doPeriodo(periodo)}`)
+  }
+
+  /** Séries dos gráficos (RF-STA-03). */
+  function consultarGraficosEstatisticas(periodo?: PeriodoEstatisticas): Promise<GraficosEstatisticas> {
+    return request<GraficosEstatisticas>(`/me/estatisticas/graficos${doPeriodo(periodo)}`)
+  }
+
+  /** Totais do ano de um perfil autorizado (RN-08); sem ano, o corrente. */
+  function consultarEstatisticasPerfil(usuarioId: string, ano?: number): Promise<EstatisticasPerfil> {
+    const consulta = ano === undefined ? '' : `?${new URLSearchParams({ ano: String(ano) })}`
+    return request<EstatisticasPerfil>(`/perfis/${encodeURIComponent(usuarioId)}/estatisticas${consulta}`)
+  }
+
   return {
+    consultarMinhasEstatisticas,
+    consultarGraficosEstatisticas,
+    consultarEstatisticasPerfil,
     obterMinhaAvaliacao,
     salvarNota,
     excluirNota,

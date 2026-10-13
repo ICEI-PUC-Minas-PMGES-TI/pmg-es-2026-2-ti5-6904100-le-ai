@@ -15,6 +15,7 @@ import {
 } from '../common/idempotencia/idempotencia.service';
 import { codigoDoPostgres, VIOLACAO_DE_CHECK } from '../common/pg-erros';
 import { DRIZZLE, DrizzleDB } from '../db/drizzle.module';
+import { EstatisticasService } from '../estatisticas/aplicacao/estatisticas.service';
 import type { Tx } from '../db/tipos';
 import { OutboxRepository } from '../outbox/outbox.repository';
 import {
@@ -51,6 +52,7 @@ export class AvaliacoesService {
     private readonly repositorio: AvaliacoesRepository,
     private readonly idempotencia: IdempotenciaService,
     private readonly outbox: OutboxRepository,
+    private readonly estatisticas: EstatisticasService,
   ) {}
 
   async salvarNota(
@@ -94,6 +96,9 @@ export class AvaliacoesService {
             operacao: gravada.criada ? 'criada' : 'atualizada',
             nota: gravada.valor,
           });
+          // A nota média (F-STA) se recompõe aqui: `nota.alterada` não tem
+          // consumidor no próprio serviço.
+          await this.estatisticas.recalcular(tx, usuarioId);
           return { status: 200, corpo: paraNota(livroId, gravada) };
         },
       ),
@@ -130,6 +135,7 @@ export class AvaliacoesService {
               operacao: 'excluida',
               nota: null,
             });
+            await this.estatisticas.recalcular(tx, usuarioId);
           }
           return { status: 204, corpo: null };
         },

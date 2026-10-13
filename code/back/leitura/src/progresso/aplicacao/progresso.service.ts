@@ -19,6 +19,7 @@ import {
 import { ehViolacaoDeUnicidade } from '../../common/pg-erros';
 import { DRIZZLE, type DrizzleDB } from '../../db/drizzle.module';
 import { DesafiosService } from '../../desafios/aplicacao/desafios.service';
+import { EstatisticasService } from '../../estatisticas/aplicacao/estatisticas.service';
 import type { Tx } from '../../db/tipos';
 import {
   LIMITE_MAXIMO,
@@ -88,6 +89,7 @@ export class ProgressoService {
     private readonly idempotencia: IdempotenciaService,
     private readonly sequencia: SequenciaService,
     private readonly desafios: DesafiosService,
+    private readonly estatisticas: EstatisticasService,
   ) {}
 
   async registrar(
@@ -215,10 +217,11 @@ export class ProgressoService {
           alcance.paginaAtual,
         );
         // A exclusão não publica evento (F-PRG): os dias e a sequência do
-        // leitor (F-GAM) e as contribuições aos desafios (F-DSF, RN-20.10) se
-        // recompõem aqui, na mesma transação.
+        // leitor (F-GAM), as contribuições aos desafios (F-DSF, RN-20.10) e as
+        // estatísticas (F-STA, RN-17.6) se recompõem aqui, na mesma transação.
         await this.sequencia.recalcular(tx, usuarioId);
         await this.desafios.recalcular(tx, usuarioId, datasRemovidas);
+        await this.estatisticas.recalcular(tx, usuarioId);
 
         return {
           status: HttpStatus.OK,

@@ -4,13 +4,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '../../services/api'
 import { leituraService } from '../../services/leitura'
 import { perfilService, type Perfil } from '../../services/perfil'
+import { hojeEmSaoPaulo } from '../../estatisticas/formatos'
 import { itemEstante, paginaEstante } from '../../testes/estante'
+import { estatisticas, SEM_REGISTRO } from '../../testes/estatisticas'
 import { montarNaRota } from '../../testes/montarNaRota'
 
 vi.mock('../../services/perfil', () => ({ perfilService: { obterMeuPerfil: vi.fn(), listarSolicitacoes: vi.fn() } }))
 
 vi.mock('../../services/leitura', () => ({
-  leituraService: { listarEstantePerfil: vi.fn(), listarResenhasPerfil: vi.fn() },
+  leituraService: { listarEstantePerfil: vi.fn(), listarResenhasPerfil: vi.fn(), consultarMinhasEstatisticas: vi.fn() },
 }))
 
 const servico = vi.mocked(perfilService)
@@ -63,6 +65,7 @@ describe('PerfilView', () => {
     servico.obterMeuPerfil.mockReset().mockResolvedValue(PERFIL)
     leitura.listarResenhasPerfil.mockReset().mockResolvedValue({ itens: [], paginacao: { page: 1, limite: 5, totalItens: 0, totalPaginas: 0 } })
     leitura.listarEstantePerfil.mockReset().mockResolvedValue(paginaEstante([]))
+    leitura.consultarMinhasEstatisticas.mockReset().mockResolvedValue(estatisticas())
     servico.listarSolicitacoes
       .mockReset()
       .mockResolvedValue({ items: [], page: 0, size: 1, totalElements: 0, totalPages: 0 })
@@ -210,5 +213,54 @@ describe('PerfilView', () => {
 
     expect(servico.obterMeuPerfil).toHaveBeenCalledTimes(2)
     expect(wrapper.text()).toContain('Marina Beltrão')
+  })
+
+  describe('Estatísticas do ano (F-STA)', () => {
+    const ANO = hojeEmSaoPaulo().ano
+
+    it('os totais do ano corrente, com Ver estatísticas levando ao painel', async () => {
+      const { wrapper, router } = await montarNaRota('/perfil', { largo: true })
+      await flushPromises()
+
+      expect(leitura.consultarMinhasEstatisticas).toHaveBeenCalledWith()
+      const bloco = wrapper.get('[aria-labelledby="titulo-estatisticas-do-ano"]')
+      expect(bloco.text()).toContain('Estatísticas do ano')
+      expect(bloco.text()).toContain(`${ANO}, até hoje`)
+      expect(bloco.text()).toContain('livros concluídos')
+      expect(bloco.text()).toContain('3.818')
+      expect(bloco.text()).toContain('71 h 20 min')
+      expect(bloco.text()).toContain('de leitura')
+
+      const ver = bloco.findAll('a').find((a) => a.text() === 'Ver estatísticas')!
+      expect(ver.attributes('href')).toBe('/perfil/estatisticas')
+      await ver.trigger('click')
+      await flushPromises()
+      expect(router.currentRoute.value.path).toBe('/perfil/estatisticas')
+    })
+
+    it('sem registro, a frase no lugar dos totais e sem Ver estatísticas', async () => {
+      leitura.consultarMinhasEstatisticas.mockResolvedValue(SEM_REGISTRO)
+      const { wrapper } = await montarNaRota('/perfil', { largo: true })
+      await flushPromises()
+
+      const bloco = wrapper.get('[aria-labelledby="titulo-estatisticas-do-ano"]')
+      expect(bloco.text()).toContain('Suas estatísticas começam no primeiro registro de progresso.')
+      expect(bloco.text()).not.toContain('Ver estatísticas')
+      expect(bloco.text()).not.toContain('até hoje')
+    })
+
+    it('falha só no bloco, com Tentar de novo; o perfil continua de pé', async () => {
+      leitura.consultarMinhasEstatisticas.mockRejectedValueOnce(new ApiError('Falha.', 0, 'SERVICO_INDISPONIVEL'))
+      const { wrapper } = await montarNaRota('/perfil', { largo: true })
+      await flushPromises()
+
+      const bloco = wrapper.get('[aria-labelledby="titulo-estatisticas-do-ano"]')
+      expect(bloco.get('[role="alert"]').text()).toContain('Não foi possível carregar suas estatísticas.')
+      expect(wrapper.text()).toContain('Marina Beltrão')
+
+      await bloco.findAll('button').find((b) => b.text() === 'Tentar de novo')!.trigger('click')
+      await flushPromises()
+      expect(wrapper.get('[aria-labelledby="titulo-estatisticas-do-ano"]').text()).toContain('3.818')
+    })
   })
 })

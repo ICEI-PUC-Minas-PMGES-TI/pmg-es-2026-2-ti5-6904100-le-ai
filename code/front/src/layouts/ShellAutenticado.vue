@@ -46,6 +46,7 @@ function itemAtivo(rota: string): boolean {
         :voltar-para="voltarPara"
         :fechar="route.meta.fechar === true"
         :rotulo-voltar="rotuloVoltar"
+        :voltar-so-no-celular="route.meta.voltarSoNoCelular === true"
         :sem-divisor="route.meta.semDivisor === true"
       />
       <main

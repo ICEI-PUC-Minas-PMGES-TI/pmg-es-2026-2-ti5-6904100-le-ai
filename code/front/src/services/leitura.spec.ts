@@ -323,3 +323,61 @@ describe('progresso', () => {
     expect(erro).toMatchObject({ status: 409, code: 'PROGRESSO_DESATUALIZADO' })
   })
 })
+
+describe('estatísticas (F-STA)', () => {
+  const ESTATISTICAS = {
+    ano: 2026,
+    anos: [{ ano: 2026, livrosConcluidos: 9 }],
+    primeiroRegistro: '2023-11-12',
+    totais: { livrosConcluidos: 9, paginasLidas: 3818, minutosLidos: 4280 },
+    medias: {
+      paginasPorDia: { valor: 20.4, paginasLidas: 3818, diasComLeitura: 187 },
+      diasPorLivro: { valor: 19.1, dias: 172, leiturasConcluidas: 9 },
+      notaMedia: { valor: 4.2, quantidade: 8 },
+    },
+  }
+
+  it('sem período não manda query; com ano ou acumulado, manda `periodo`', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => resposta(200, ESTATISTICAS))
+    const leitura = servico(fetchMock)
+
+    await expect(leitura.consultarMinhasEstatisticas()).resolves.toEqual(ESTATISTICAS)
+    await leitura.consultarMinhasEstatisticas(2025)
+    await leitura.consultarGraficosEstatisticas('acumulado')
+
+    const urls = fetchMock.mock.calls.map(([url]) => url)
+    expect(urls).toEqual([
+      'https://leitura.example.com/me/estatisticas',
+      'https://leitura.example.com/me/estatisticas?periodo=2025',
+      'https://leitura.example.com/me/estatisticas/graficos?periodo=acumulado',
+    ])
+    expect(new Headers(fetchMock.mock.calls[0]![1]?.headers).get('Authorization')).toBe('Bearer jwt')
+  })
+
+  it('perfil: id escapado e `ano` opcional', async () => {
+    const totais = { ano: 2025, livrosConcluidos: 14, paginasLidas: 4920, minutosLidos: 5800 }
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => resposta(200, totais))
+    const leitura = servico(fetchMock)
+
+    await expect(leitura.consultarEstatisticasPerfil('u 2', 2025)).resolves.toEqual(totais)
+    await leitura.consultarEstatisticasPerfil('u2')
+
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      'https://leitura.example.com/perfis/u%202/estatisticas?ano=2025',
+      'https://leitura.example.com/perfis/u2/estatisticas',
+    ])
+  })
+
+  it('403 do perfil privado chega como ApiError', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(resposta(403, { codigo: 'ACESSO_NEGADO', mensagem: 'Este perfil é privado.' }))
+
+    const erro = await servico(fetchMock)
+      .consultarEstatisticasPerfil('u3')
+      .catch((e: unknown) => e)
+
+    expect(erro).toBeInstanceOf(ApiError)
+    expect(erro).toMatchObject({ status: 403, code: 'ACESSO_NEGADO' })
+  })
+})

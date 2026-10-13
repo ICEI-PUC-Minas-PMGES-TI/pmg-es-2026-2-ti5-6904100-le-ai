@@ -31,9 +31,14 @@ const props = withDefaults(
     fechar?: boolean
     /** Texto do link de retorno da web (`Perfil`, `Configurações`, `Voltar`). */
     rotuloVoltar?: string | null
+    /**
+     * A seta só abaixo de 768px; na web a volta é o item da sidebar, que continua ativo
+     * (estatisticas.md §5, artboards web sem seta).
+     */
+    voltarSoNoCelular?: boolean
     semDivisor?: boolean
   }>(),
-  { tituloCurto: null, voltarPara: null, fechar: false, rotuloVoltar: null, semDivisor: false },
+  { tituloCurto: null, voltarPara: null, fechar: false, rotuloVoltar: null, voltarSoNoCelular: false, semDivisor: false },
 )
 
 const router = useRouter()
@@ -61,7 +66,7 @@ function voltar(): void {
       v-if="voltarPara"
       type="button"
       class="-ml-space-3 flex size-12 shrink-0 items-center justify-center rounded-base text-tinta transition-colors duration-dur-fast hover:bg-linha focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-musgo"
-      :class="rotuloVoltar ? 'md:hidden' : ''"
+      :class="rotuloVoltar || voltarSoNoCelular ? 'md:hidden' : ''"
       :aria-label="fechar ? 'Fechar' : 'Voltar'"
       @click="voltar"
     >
@@ -88,7 +93,7 @@ function voltar(): void {
     <h1
       class="min-w-0 truncate text-display text-tinta"
       :class="[
-        voltarPara ? '' : 'col-span-2',
+        voltarPara ? (voltarSoNoCelular ? 'md:col-span-2' : '') : 'col-span-2',
         rotuloVoltar && voltarPara ? 'md:col-span-1 md:col-start-1 md:row-start-2' : '',
         rotuloVoltar && voltarPara && !titulo ? 'md:hidden' : '',
       ]"
