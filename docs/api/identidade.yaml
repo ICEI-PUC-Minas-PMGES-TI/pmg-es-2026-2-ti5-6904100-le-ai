@@ -1382,7 +1382,7 @@ components:
         - $ref: '#/components/schemas/Token'
         - type: object
           description: Completada por F-AUT com o token de renovação.
-          required: [refreshToken]
+          required: [refreshToken, tipo]
           properties:
             refreshToken:
               type: string
@@ -1394,7 +1394,9 @@ components:
               enum: [sessao]
               description: >-
                 F-CONTA-2. Distingue a sessão normal do acesso de
-                recuperação na resposta do login.
+                recuperação na resposta do login. Sempre presente, inclusive
+                no replay de idempotência, e obrigatório por ser o
+                discriminador da resposta do login.
 
     AcessoDeRecuperacao:
       description: >-

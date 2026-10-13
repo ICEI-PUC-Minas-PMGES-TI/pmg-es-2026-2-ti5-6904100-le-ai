@@ -441,6 +441,38 @@ void main() {
       expect(find.text('Caio Ferraz'), findsOneWidget);
       expect(find.text('Otávio Brandão'), findsOneWidget);
     });
+
+    testWidgets('falha ao carregar mostra o aviso, e "Tentar de novo" traz a lista', (tester) async {
+      var falhar = true;
+      usarTelaDeCelular(tester);
+      await tester.pumpWidget(
+        envolver(
+          ConexoesPage(
+            servico: _servico((_) async {
+              if (falhar) {
+                throw http.ClientException('sem rede');
+              }
+              return json(_pagina(<Map<String, Object?>>[_resumo('caio', 'Caio Ferraz')]), 200);
+            }),
+            aoAbrirPerfil: (_) {},
+            aoBuscarLeitor: () {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Não foi possível carregar suas conexões. Verifique sua conexão e tente de novo.'),
+        findsOneWidget,
+      );
+
+      falhar = false;
+      await tester.tap(find.text('Tentar de novo'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Caio Ferraz'), findsOneWidget);
+      expect(find.text('Tentar de novo'), findsNothing);
+    });
   });
 
   group('SolicitacoesPage', () {
@@ -525,6 +557,41 @@ void main() {
       expect(find.text('Nenhuma solicitação pendente'), findsOneWidget);
       expect(find.textContaining('Pedidos só existem em perfil privado.'), findsOneWidget);
       expect(find.text('Editar perfil'), findsOneWidget);
+    });
+
+    testWidgets('falha ao carregar mostra o aviso, e "Tentar de novo" traz os pedidos', (tester) async {
+      var falhar = true;
+      usarTelaDeCelular(tester);
+      await tester.pumpWidget(
+        envolver(
+          SolicitacoesPage(
+            servico: _servico((request) async {
+              if (request.url.path == '/me/perfil') {
+                return json(_perfil('marinableu', 'Marina', privacidade: 'privado', relacao: 'proprio'), 200);
+              }
+              if (falhar) {
+                throw http.ClientException('sem rede');
+              }
+              return json(_pagina(<Map<String, Object?>>[pedido('caio', 'Caio Ferraz')]), 200);
+            }),
+            aoAbrirPerfil: (_) {},
+            aoEditarPerfil: () {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Não foi possível carregar suas solicitações. Verifique sua conexão e tente de novo.'),
+        findsOneWidget,
+      );
+
+      falhar = false;
+      await tester.tap(find.text('Tentar de novo'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Caio Ferraz'), findsOneWidget);
+      expect(find.text('1 solicitação'), findsOneWidget);
     });
   });
 

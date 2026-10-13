@@ -95,6 +95,8 @@ class LinhaDePedido extends StatelessWidget {
       button: true,
       label: texto,
       excludeSemantics: true,
+      // Com `excludeSemantics`, a ação de toque do InkWell some da árvore: vai aqui.
+      onTap: aoTocar,
       child: InkWell(
         onTap: aoTocar,
         borderRadius: BorderRadius.circular(DesignTokens.radius),

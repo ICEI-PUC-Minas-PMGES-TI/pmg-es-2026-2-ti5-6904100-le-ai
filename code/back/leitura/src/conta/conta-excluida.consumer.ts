@@ -20,6 +20,24 @@ export const CONSUMIDOR_CONTA = {
 } as const;
 
 /**
+ * Tabelas apagadas por `usuario_id`, na ordem das FKs: o que depende da
+ * estante sai antes dela. Exportada para a guarda de exclusão
+ * (`test/integracao/guarda-exclusao.int-spec.ts`).
+ */
+export const TABELAS_DA_CONTA = [
+  'reacao_resenha',
+  'resenha',
+  'frase',
+  'favorito',
+  'nota',
+  'estante',
+  'desafio',
+  'sequencia_leitura',
+  'dia_leitura',
+  'estatistica_mensal',
+] as const;
+
+/**
  * Consumidor de `conta.excluida` (F-CONTA-2, RN-23.5 e 23.7): remove do schema
  * `leitura` tudo o que é da conta excluída e anonimiza os registros técnicos.
  *
@@ -64,19 +82,7 @@ export class ContaExcluidaConsumer implements OnModuleInit {
     this.validador.validarDados(envelope.type, envelope.version, envelope.data);
     const { usuarioId } = envelope.data as { usuarioId: string };
 
-    // A ordem respeita as FKs: o que depende da estante sai antes dela.
-    for (const tabela of [
-      'reacao_resenha',
-      'resenha',
-      'frase',
-      'favorito',
-      'nota',
-      'estante',
-      'desafio',
-      'sequencia_leitura',
-      'dia_leitura',
-      'estatistica_mensal',
-    ]) {
+    for (const tabela of TABELAS_DA_CONTA) {
       await tx.execute(sql`
         DELETE FROM ${sql.identifier('leitura')}.${sql.identifier(tabela)}
          WHERE usuario_id = ${usuarioId}

@@ -167,7 +167,12 @@ class _ShellAutenticadoState extends State<ShellAutenticado> with WidgetsBinding
                     ),
                 ],
               ),
-            Expanded(child: navigationShell),
+            // Contêiner semântico próprio para as abas: sem ele, o cabeçalho acima (título, lupa,
+            // engrenagem e sino) sumia da árvore de acessibilidade nas quatro raízes, e o leitor
+            // de tela não o alcançava. A causa provável é o `BlockSemantics` que o Flutter põe na
+            // barreira de cada rota do navegador da aba, que derruba o que foi pintado antes dele
+            // no mesmo contêiner.
+            Expanded(child: Semantics(container: true, child: navigationShell)),
           ],
         ),
         bottomNavigationBar: BarraInferior(

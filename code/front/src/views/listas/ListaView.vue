@@ -736,7 +736,31 @@ const BOTAO_SECUNDARIO =
       :acoes="acoesDoMenu"
       @escolher="escolherNoMenu"
       @fechar="menuDoItem = null"
-    />
+    >
+      <!-- Como no app (lista.md §4.2): de qual livro é o menu e onde ele está. O slot vai
+           sempre; slot condicional quebra o patch do Vue quando a folha some com a rota. -->
+      <template #cabecalho>
+        <div
+          v-if="menuDoItem"
+          class="flex items-start gap-space-4"
+          aria-hidden="true"
+        >
+          <CapaDeItem
+            :url="menuDoItem.livro.capaUrl"
+            :titulo="menuDoItem.livro.titulo"
+            :pessoal="menuDoItem.livro.tipo === 'PESSOAL'"
+          />
+          <div class="flex min-w-0 flex-col">
+            <span class="line-clamp-2 text-title-sm text-tinta">{{ menuDoItem.livro.titulo }}</span>
+            <span
+              v-if="menuDoItem.livro.autor"
+              class="truncate text-caption text-grafite"
+            >{{ menuDoItem.livro.autor }}</span>
+            <span class="mt-space-1 text-caption text-grafite">Posição {{ menuDoItem.posicao }} de {{ itens.length }}</span>
+          </div>
+        </div>
+      </template>
+    </FolhaAcoes>
 
     <FormularioDeLista
       v-if="lista && dono"

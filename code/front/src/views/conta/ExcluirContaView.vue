@@ -56,9 +56,12 @@ const podeExcluir = computed(
   () => senha.value.length > 0 && entendeu.value && erro.value !== 'limite' && !excluindo.value,
 )
 
-const identificadores = computed(() => {
+/** Sem o e-mail (`GET /me` falhou), o sujeito é um só e o verbo vai para o singular. */
+const reservados = computed(() => {
   const username = usuario.value ? `@${usuario.value.username}` : 'seu nome de usuário'
-  return email.value ? `${username} e ${email.value}` : username
+  return email.value
+    ? `${username} e ${email.value} continuam ligados a esta conta e não podem ser usados em outra.`
+    : `${username} continua ligado a esta conta e não pode ser usado em outra.`
 })
 
 function aoDigitar(): void {
@@ -170,7 +173,7 @@ function voltar(): void {
             Nome de usuário e e-mail reservados
           </p>
           <p class="mt-space-1 break-words text-body text-grafite">
-            Durante os 30 dias, {{ identificadores }} continuam ligados a esta conta e não podem ser usados em outra.
+            Durante os 30 dias, {{ reservados }}
           </p>
         </div>
       </li>

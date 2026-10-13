@@ -119,4 +119,20 @@ describe('SolicitacoesView', () => {
     expect(wrapper.get('a[href="/perfil/editar"]').text()).toBe('Editar perfil')
     expect(wrapper.text()).not.toContain('0 solicitações')
   })
+
+  it('falha ao carregar mostra o aviso, e "Tentar de novo" traz os pedidos', async () => {
+    servico.listarSolicitacoes.mockRejectedValueOnce(new Error('sem rede'))
+    const { wrapper } = await montarNaRota('/perfil/solicitacoes')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Não foi possível carregar suas solicitações. Verifique sua conexão e tente de novo.')
+    expect(wrapper.find('a[href="/leitores/caio"]').exists()).toBe(false)
+
+    await wrapper.findAll('button').find((b) => b.text() === 'Tentar de novo')!.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('Não foi possível carregar suas solicitações.')
+    expect(wrapper.text()).toContain('2 solicitações')
+    expect(wrapper.get('a[href="/leitores/caio"]').text()).toContain('Caio Ferraz')
+  })
 })

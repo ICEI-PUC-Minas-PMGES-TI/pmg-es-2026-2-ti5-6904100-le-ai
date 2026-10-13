@@ -127,4 +127,19 @@ describe('ConexoesView', () => {
     expect(wrapper.find('a[href="/leitores/caio"]').exists()).toBe(true)
     expect(wrapper.find('a[href="/leitores/otavio"]').exists()).toBe(true)
   })
+
+  it('falha ao carregar mostra o aviso, e "Tentar de novo" traz a lista', async () => {
+    servico.listarSeguidores.mockRejectedValueOnce(new Error('sem rede'))
+    const { wrapper } = await montarNaRota('/perfil/conexoes')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Não foi possível carregar suas conexões. Verifique sua conexão e tente de novo.')
+    expect(wrapper.find('a[href="/leitores/caio"]').exists()).toBe(false)
+
+    await wrapper.findAll('button').find((b) => b.text() === 'Tentar de novo')!.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('Não foi possível carregar suas conexões.')
+    expect(wrapper.get('a[href="/leitores/caio"]').text()).toContain('Caio Ferraz')
+  })
 })
