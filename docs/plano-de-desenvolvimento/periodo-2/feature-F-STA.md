@@ -158,7 +158,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 (plano §10)
 
 - [ ] Código (backend `leitura`, web, mobile) mergeado em `desenvolvimento` (hoje na `vicenzo-features`, em PR)
-- [x] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)): no PR #53 (12/10/2026), todos os checks verdes. Localmente, depois de trazer a `desenvolvimento` (12/10/2026), lint, build, 285 unitários e 333 de integração do `leitura`; lint, `vue-tsc` e 955 testes do web; `flutter analyze` e 814 testes do mobile, todos verdes
+- [x] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)): no PR #53 (12/10/2026), todos os checks verdes. Localmente, depois de trazer a `desenvolvimento` com o #51 (12/10/2026), lint, build, 285 unitários e 335 de integração do `leitura`; lint, `vue-tsc` e 959 testes do web; `flutter analyze` e 823 testes do mobile, todos verdes
 - [x] Testes unitários e de integração: totais/médias/séries, páginas abandonadas, exclusão de progresso, nota, recálculo, base histórica e RN-08 em perfil público/privado
 - [x] Testes assíncronos: consumo de `progresso.registrado`/`leitura.finalizada` com duplicação e DLQ (RNF-TST-03)
 - [x] Testes web/mobile cobrem render dos gráficos e indisponibilidade/timeout com API simulada (RNF-TST-05/04/06).
@@ -189,6 +189,11 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - Stack de `leitura` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
 ## Timeline
+
+### Integração 12/10/2026: `desenvolvimento` trazida de novo, depois do #51 (F-CONTA-2, F-AUT, F-PERFIL e F-LST), que deixou o #53 em conflito.
+- **`conta-excluida.consumer.ts`:** o #51 extraiu a lista de tabelas apagadas para `TABELAS_DA_CONTA`, usada pela guarda de exclusão nova (`test/integracao/guarda-exclusao.int-spec.ts`), ainda com `estatistica_usuario` e `estatistica_anual`. Ficou a constante, sem as duas: a guarda exige que toda tabela declarada exista, e a 0006 as remove.
+- **`feature-F-CONTA-2.md`:** ficou tudo o que o #51 trouxe na matriz (social, acervo, a linha nova do `identidade`, isentas e guarda), com a linha do `leitura` só com `estatistica_mensal`.
+- `leitura` (lint, build, 285 unitários e 335 de integração, com os dois da guarda), web (959) e mobile (823) verdes depois do merge.
 
 ### Integração 12/10/2026: `desenvolvimento` trazida para a `vicenzo-features` (#52, F-REC-P2P) e PR aberto para a `desenvolvimento`.
 - Um conflito, em `docs/mensageria/catalogo.md`: a linha de `livro.adicionado_a_estante` ganhou o consumidor de recomendações e a de `progresso.registrado` manteve a F-STA.
