@@ -13,7 +13,9 @@ import { IdempotenciaModule } from './common/idempotencia/idempotencia.module';
 import { DrizzleModule } from './db/drizzle.module';
 import { EstanteModule } from './estante/estante.module';
 import { EstatisticasModule } from './estatisticas/estatisticas.module';
+import { FavoritosModule } from './favoritos/favoritos.module';
 import { FrasesModule } from './frases/frases.module';
+import { HistoricoModule } from './historico/historico.module';
 import { HealthModule } from './health/health.module';
 import { InatividadeModule } from './jobs/inatividade/inatividade.module';
 import { LeiturasModule } from './leituras/leituras.module';
@@ -72,6 +74,8 @@ import { DesafiosModule } from './desafios/desafios.module';
     FrasesModule,
     PerfisModule,
     EstanteModule,
+    FavoritosModule,
+    HistoricoModule,
     LeiturasModule,
     ProgressoModule,
     SequenciaModule,
