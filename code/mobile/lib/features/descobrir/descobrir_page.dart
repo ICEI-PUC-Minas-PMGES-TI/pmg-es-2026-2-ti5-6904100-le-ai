@@ -40,6 +40,11 @@ class DescobrirPage extends StatefulWidget {
   /// com o texto e os filtros de antes.
   final VoidCallback? aoConsumirAssunto;
 
+  /// Texto vindo da busca da Estante sem resultado (/descobrir?q=, RF-EST-13): preenche o campo e
+  /// busca no acervo. Consumido como o assunto, para o mesmo texto valer de novo.
+  final String? consultaInicial;
+  final VoidCallback? aoConsumirConsulta;
+
   const DescobrirPage({
     super.key,
     required this.servico,
@@ -49,6 +54,8 @@ class DescobrirPage extends StatefulWidget {
     this.recomendacoes,
     this.assuntoInicial,
     this.aoConsumirAssunto,
+    this.consultaInicial,
+    this.aoConsumirConsulta,
   });
 
   @override
@@ -66,6 +73,7 @@ class _DescobrirPageState extends State<DescobrirPage> {
     super.initState();
     _busca.carregarAssuntos();
     _aplicarAssuntoInicial();
+    _aplicarConsultaInicial();
   }
 
   @override
@@ -73,6 +81,22 @@ class _DescobrirPageState extends State<DescobrirPage> {
     super.didUpdateWidget(anterior);
     if (widget.assuntoInicial != anterior.assuntoInicial) {
       _aplicarAssuntoInicial();
+    }
+    if (widget.consultaInicial != anterior.consultaInicial) {
+      _aplicarConsultaInicial();
+    }
+  }
+
+  void _aplicarConsultaInicial() {
+    final texto = widget.consultaInicial;
+    if (texto != null && texto.isNotEmpty) {
+      _consulta.text = texto;
+      _busca.alterarConsulta(texto);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          widget.aoConsumirConsulta?.call();
+        }
+      });
     }
   }
 

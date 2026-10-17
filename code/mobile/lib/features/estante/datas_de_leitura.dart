@@ -20,6 +20,17 @@ String dataIso(DateTime dia) {
   return '${dia.year}-$mes-$diaDoMes';
 }
 
+int duracaoEmDias(String inicio, String fim) {
+  DateTime dia(String iso) {
+    final partes = iso.split('-').map(int.parse).toList();
+    return DateTime.utc(partes[0], partes[1], partes[2]);
+  }
+
+  return dia(fim).difference(dia(inicio)).inDays + 1;
+}
+
+String textoDuracaoEmDias(int dias) => '$dias ${dias == 1 ? 'dia' : 'dias'}';
+
 String dataIsoPorExtenso(String iso) {
   final partes = iso.split('-').map(int.parse).toList();
   return formatarData(DateTime(partes[0], partes[1], partes[2]));

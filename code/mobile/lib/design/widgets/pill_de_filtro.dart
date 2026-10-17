@@ -16,6 +16,10 @@ class PillDeFiltro extends StatelessWidget {
   final bool rotuloNumerico;
   final VoidCallback aoTocar;
 
+  /// Ícone antes do rótulo, `(inativo, ativo)`: o pill `Favoritos` da Estante troca `Heart` regular
+  /// por fill.
+  final (IconData, IconData)? icone;
+
   const PillDeFiltro({
     super.key,
     required this.rotulo,
@@ -23,6 +27,7 @@ class PillDeFiltro extends StatelessWidget {
     required this.ativo,
     this.rotuloNumerico = false,
     required this.aoTocar,
+    this.icone,
   });
 
   @override
@@ -60,6 +65,10 @@ class PillDeFiltro extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
+                if (icone case (final inativo, final ativado)) ...<Widget>[
+                  Icon(ativo ? ativado : inativo, size: 16, color: cor),
+                  const SizedBox(width: DesignTokens.space1),
+                ],
                 Text(
                   rotulo,
                   style: rotuloNumerico

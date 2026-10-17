@@ -15,6 +15,7 @@ import '../../design/widgets/folha_inferior.dart';
 import 'acao_leitura_controller.dart';
 import 'acoes_disponiveis.dart';
 import 'cartao_estante.dart';
+import 'controlador_favorito.dart';
 import 'datas_de_leitura.dart';
 import 'estante_service.dart';
 import 'textos.dart';
@@ -30,11 +31,15 @@ class LivroDaAcao {
   final StatusEstante? status;
   final String? leituraId;
 
+  /// Nulo quando quem abre não sabe: a folha consulta o servidor.
+  final bool? favorito;
+
   const LivroDaAcao({
     required this.livroId,
     required this.livro,
     required this.status,
     this.leituraId,
+    this.favorito,
   });
 
   factory LivroDaAcao.doItem(ItemEstante item) => LivroDaAcao(
@@ -42,6 +47,7 @@ class LivroDaAcao {
     livro: item.livro,
     status: item.status,
     leituraId: item.leituraParaAcoes,
+    favorito: item.favorito,
   );
 }
 
@@ -87,6 +93,11 @@ class FolhaDeAcoesDeLeitura extends StatefulWidget {
 
 class _FolhaDeAcoesDeLeituraState extends State<FolhaDeAcoesDeLeitura> {
   late final AcaoLeituraController _acao = AcaoLeituraController(widget.servico);
+  late final ControladorFavorito _favorito = ControladorFavorito(
+    widget.servico,
+    widget.livro.livroId,
+    inicial: widget.livro.favorito,
+  );
   Leitura? _leitura;
   bool _carregandoLeitura = false;
   bool _falhouLeitura = false;
@@ -96,12 +107,19 @@ class _FolhaDeAcoesDeLeituraState extends State<FolhaDeAcoesDeLeitura> {
   void initState() {
     super.initState();
     _acao.addListener(_aoMudar);
+    _favorito.addListener(_aoMudar);
     _carregarLeitura();
+    if (widget.livro.favorito == null) {
+      _favorito.carregar();
+    }
   }
 
   @override
   void dispose() {
     _acao
+      ..removeListener(_aoMudar)
+      ..dispose();
+    _favorito
       ..removeListener(_aoMudar)
       ..dispose();
     super.dispose();
@@ -296,10 +314,25 @@ class _FolhaDeAcoesDeLeituraState extends State<FolhaDeAcoesDeLeitura> {
           else if (_falhouLeitura) ...<Widget>[
             const BannerAviso(variante: VarianteAviso.erro, mensagem: TextosDeAcao.erroAoCarregar),
             BotaoTextual(texto: TextosDaEstante.erroBotao, onPressed: _carregarLeitura),
-          ] else
-            for (final acao in acoes) ...<Widget>[
-              if (acao.tom == TomDaAcao.destrutiva)
-                Divider(height: DesignTokens.space4, color: theme.divider),
+          ] else ...<Widget>[
+            for (final acao in acoes.where((acao) => acao.tom != TomDaAcao.destrutiva))
+              _LinhaDeAcao(
+                acao: acao,
+                salvandoEsta: _acao.acaoEmCurso == acao.id,
+                habilitada: !_acao.salvando,
+                aoTocar: () => _escolher(acao),
+              ),
+            if (_favorito.favorito != null) ...<Widget>[
+              Divider(height: DesignTokens.space4, color: theme.divider),
+              _LinhaDeFavorito(
+                favorito: _favorito.favorito!,
+                habilitada: !_acao.salvando && !_favorito.salvando,
+                falhou: _favorito.falhou,
+                aoTocar: _favorito.alternar,
+              ),
+            ],
+            for (final acao in acoes.where((acao) => acao.tom == TomDaAcao.destrutiva)) ...<Widget>[
+              Divider(height: DesignTokens.space4, color: theme.divider),
               _LinhaDeAcao(
                 acao: acao,
                 salvandoEsta: _acao.acaoEmCurso == acao.id,
@@ -307,6 +340,7 @@ class _FolhaDeAcoesDeLeituraState extends State<FolhaDeAcoesDeLeitura> {
                 aoTocar: () => _escolher(acao),
               ),
             ],
+          ],
           if (status == StatusEstante.abandonado &&
               leitura != null &&
               leitura.retomavel) ...<Widget>[
@@ -444,6 +478,78 @@ class _LinhaDeAcao extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _LinhaDeFavorito extends StatelessWidget {
+  final bool favorito;
+  final bool habilitada;
+  final bool falhou;
+  final VoidCallback aoTocar;
+
+  const _LinhaDeFavorito({
+    required this.favorito,
+    required this.habilitada,
+    required this.falhou,
+    required this.aoTocar,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final rotulo = favorito ? TextosDoFavorito.remover : TextosDoFavorito.favoritar;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Semantics(
+          button: true,
+          toggled: favorito,
+          enabled: habilitada,
+          child: InkWell(
+            onTap: habilitada ? aoTocar : null,
+            splashFactory: NoSplash.splashFactory,
+            child: SizedBox(
+              height: _alturaDaAcao,
+              child: Row(
+                children: <Widget>[
+                  Icon(
+                    favorito ? PhosphorIconsFill.heart : PhosphorIconsRegular.heart,
+                    size: 24,
+                    color: favorito ? theme.primaryAccent : theme.colorScheme.onSurface,
+                  ),
+                  const SizedBox(width: DesignTokens.space4),
+                  Expanded(
+                    child: Text(
+                      rotulo,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        if (falhou)
+          Semantics(
+            liveRegion: true,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Icon(PhosphorIconsRegular.warning, size: 16, color: theme.colorScheme.error),
+                const SizedBox(width: DesignTokens.space2),
+                Expanded(
+                  child: Text(
+                    TextosDoFavorito.erro,
+                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }
