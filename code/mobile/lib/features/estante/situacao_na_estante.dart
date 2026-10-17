@@ -102,6 +102,14 @@ class _SituacaoNaEstanteState extends State<SituacaoNaEstante> {
       aoRegistrarProgresso: progresso == null
           ? null
           : (leitura) => _registrarProgresso(progresso, leitura),
+      aoIniciarSessao: progresso?.sessao == null
+          ? null
+          : (leitura) => aoIniciarSessaoDaLeitura(
+              context,
+              progresso: progresso!,
+              leitura: leitura,
+              livro: widget.livro,
+            )?.call(),
       aoVerAtualizacoes: aoVerAtualizacoes == null
           ? null
           : (leitura) => aoVerAtualizacoes(leitura.id),

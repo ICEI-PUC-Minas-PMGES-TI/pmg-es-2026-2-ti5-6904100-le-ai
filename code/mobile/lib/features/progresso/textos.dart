@@ -34,6 +34,7 @@ abstract final class TextosDoRegistro {
   static const String botaoSalvar = 'Salvar';
   static const String botaoSalvando = 'Salvando';
   static const String botaoCancelar = 'Cancelar';
+  static const String ajudaSessao = 'O app mede o tempo e pede a página quando você encerrar.';
 
   static String ajudaPagina(int minima, int maxima) =>
       'Entre $minima e $maxima. Informe onde você parou, não quantas páginas leu.';

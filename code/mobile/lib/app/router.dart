@@ -34,6 +34,8 @@ import '../features/perfil/perfil_page.dart';
 import '../features/perfil/rotas_perfil.dart';
 import '../features/perfil/widgets_de_identidade.dart';
 import '../features/progresso/rotas_progresso.dart';
+import '../features/sessao/rotas_sessao.dart';
+import '../features/sessao/sessao_controller.dart';
 import '../features/sequencia/sequencia_do_perfil.dart';
 import '../features/sequencia/sequencia_service.dart';
 import 'shell_autenticado.dart';
@@ -130,11 +132,13 @@ GoRouter buildRouter({
         getToken: () => sessionController.token,
         renovarSessao: renovar,
       );
+  final sessaoDeLeitura = depsDeProgresso.sessao;
   return GoRouter(
     initialLocation: rotaVerificandoSessao,
-    refreshListenable: sessionController,
-    redirect: (context, state) => _guardaDeSessao(sessionController, state),
+    refreshListenable: Listenable.merge(<Listenable>[sessionController, ?sessaoDeLeitura]),
+    redirect: (context, state) => _guardaDeSessao(sessionController, sessaoDeLeitura, state),
     routes: <RouteBase>[
+      if (sessaoDeLeitura != null) ...rotasDaSessao(sessaoDeLeitura),
       GoRoute(
         path: rotaVerificandoSessao,
         builder: (context, state) => const VerificandoSessaoPage(),
@@ -434,7 +438,11 @@ GoRouter buildRouter({
 /// Resolvido, o resto espelha a `guardaDeSessao` da web: sem sessão fora das rotas públicas vai
 /// para `/login` preservando o destino em `?destino=`; com sessão em `/login` ou `/cadastro` vai
 /// para o destino preservado, se houver, senão para `/estante`.
-String? _guardaDeSessao(SessionController sessionController, GoRouterState state) {
+String? _guardaDeSessao(
+  SessionController sessionController,
+  SessaoController? sessaoDeLeitura,
+  GoRouterState state,
+) {
   final indo = state.matchedLocation;
 
   // O link do e-mail vale com ou sem sessão, e não pode passar pela verificação de sessão: o
@@ -447,7 +455,7 @@ String? _guardaDeSessao(SessionController sessionController, GoRouterState state
     return null;
   }
 
-  if (sessionController.carregando) {
+  if (sessionController.carregando || (sessaoDeLeitura?.carregando ?? false)) {
     return indo == rotaVerificandoSessao ? null : rotaVerificandoSessao;
   }
 
@@ -468,6 +476,12 @@ String? _guardaDeSessao(SessionController sessionController, GoRouterState state
     return rotaRecuperarConta;
   }
 
+  if (autenticado && sessaoDeLeitura != null) {
+    final daSessao = guardaDaSessao(sessaoDeLeitura, indo, semSessao: rotaEstante);
+    if (daSessao != null) {
+      return daSessao;
+    }
+  }
   if (indo == rotaVerificandoSessao) {
     return autenticado ? rotaEstante : rotaLogin;
   }
