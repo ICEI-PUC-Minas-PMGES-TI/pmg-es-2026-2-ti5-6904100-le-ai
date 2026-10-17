@@ -13,12 +13,12 @@ import {
   LIMITE_PADRAO,
   PAGINA_PADRAO,
 } from '../../estante/api/dto/estante.dto';
-import type { PaginacaoQueryDto } from '../../perfis/dto/resenhas-do-perfil.dto';
 import {
   type Executor,
   ReferenciasExternas,
 } from '../../referencias/referencias-externas.service';
 import type {
+  ConsultaFavoritosDto,
   FavoritoDto,
   ItemFavoritoDto,
   PaginaFavoritosDto,
@@ -91,13 +91,18 @@ export class FavoritosService {
 
   async listar(
     usuarioId: string,
-    consulta: PaginacaoQueryDto,
+    consulta: ConsultaFavoritosDto,
   ): Promise<PaginaFavoritosDto> {
     const page = consulta.page ?? PAGINA_PADRAO;
     const limite = Math.min(consulta.limite ?? LIMITE_PADRAO, LIMITE_MAXIMO);
     const [linhas, totalItens] = await Promise.all([
-      this.repositorio.listar(usuarioId, (page - 1) * limite, limite),
-      this.repositorio.contar(usuarioId),
+      this.repositorio.listar(
+        usuarioId,
+        consulta.q,
+        (page - 1) * limite,
+        limite,
+      ),
+      this.repositorio.contar(usuarioId, consulta.q),
     ]);
     return {
       itens: linhas.map(paraItem),

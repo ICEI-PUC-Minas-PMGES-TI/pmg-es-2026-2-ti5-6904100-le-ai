@@ -186,6 +186,13 @@ describe('favoritos e busca na estante (integração)', () => {
         paginacao: { page: 1, totalItens: 2, totalPaginas: 1 },
       });
 
+      const busca = await get(usuario, '/me/favoritos?q=FORA').expect(200);
+      expect(
+        (busca.body as { itens: { livro: { id: string } }[] }).itens.map(
+          (item) => item.livro.id,
+        ),
+      ).toEqual([fora]);
+
       const daOutra = await get(outra, '/me/favoritos').expect(200);
       expect((daOutra.body as { itens: unknown[] }).itens).toEqual([]);
     });

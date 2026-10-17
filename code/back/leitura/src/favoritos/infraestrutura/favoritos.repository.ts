@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { and, count, desc, eq } from 'drizzle-orm';
+import { tituloOuAutorContem } from '../../common/busca-textual';
 import { comContratoExterno } from '../../common/contrato-externo';
 import { vLivroReferencia } from '../../db/contratos-externos';
 import { DRIZZLE, type DrizzleDB } from '../../db/drizzle.module';
@@ -57,6 +58,7 @@ export class FavoritosRepository {
 
   listar(
     usuarioId: string,
+    q: string | undefined,
     offset: number,
     limite: number,
   ): Promise<LinhaFavorito[]> {
@@ -83,7 +85,7 @@ export class FavoritosRepository {
             eq(estante.livroId, favorito.livroId),
           ),
         )
-        .where(this.visiveis(usuarioId))
+        .where(this.visiveis(usuarioId, q))
         .orderBy(desc(favorito.criadoEm), desc(favorito.id))
         .limit(limite)
         .offset(offset);
@@ -96,7 +98,7 @@ export class FavoritosRepository {
     });
   }
 
-  contar(usuarioId: string): Promise<number> {
+  contar(usuarioId: string, q?: string): Promise<number> {
     return comContratoExterno(async () => {
       const [{ total }] = await this.db
         .select({ total: count() })
@@ -105,15 +107,16 @@ export class FavoritosRepository {
           vLivroReferencia,
           eq(vLivroReferencia.livroId, favorito.livroId),
         )
-        .where(this.visiveis(usuarioId));
+        .where(this.visiveis(usuarioId, q));
       return total;
     });
   }
 
-  private visiveis(usuarioId: string) {
+  private visiveis(usuarioId: string, q?: string) {
     return and(
       eq(favorito.usuarioId, usuarioId),
       eq(vLivroReferencia.ativo, true),
+      q ? tituloOuAutorContem(q) : undefined,
     );
   }
 }

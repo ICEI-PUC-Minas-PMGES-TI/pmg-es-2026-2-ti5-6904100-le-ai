@@ -22,9 +22,12 @@ import type { UsuarioAutenticado } from '../../auth/usuario-autenticado';
 import { ErroDeValidacao } from '../../common/erros-de-negocio';
 import { IdempotencyKey } from '../../common/idempotencia/idempotency-key.decorator';
 import { emMinusculas } from '../../common/minusculas.pipe';
-import { PaginacaoQueryDto } from '../../perfis/dto/resenhas-do-perfil.dto';
 import { FavoritosService } from '../aplicacao/favoritos.service';
-import { FavoritoDto, PaginaFavoritosDto } from './dto/favorito.dto';
+import {
+  ConsultaFavoritosDto,
+  FavoritoDto,
+  PaginaFavoritosDto,
+} from './dto/favorito.dto';
 
 const CABECALHO_IDEMPOTENCIA = {
   name: 'Idempotency-Key',
@@ -108,12 +111,12 @@ export class FavoritosController {
     operationId: 'listarMeusFavoritos',
     summary: 'Lista os favoritos do leitor, dentro ou fora da estante',
     description:
-      'Só do próprio leitor, do mais recente ao mais antigo. Livro fora da estante vem com `status` nulo. Livro inativo não aparece.',
+      'Só do próprio leitor, do mais recente ao mais antigo. Livro fora da estante vem com `status` nulo. Livro inativo não aparece. `q` busca por título ou autor.',
   })
   @ApiOkResponse({ type: PaginaFavoritosDto })
   listar(
     @UsuarioAtual() usuario: UsuarioAutenticado,
-    @Query() consulta: PaginacaoQueryDto,
+    @Query() consulta: ConsultaFavoritosDto,
   ): Promise<PaginaFavoritosDto> {
     return this.servico.listar(usuario.id, consulta);
   }

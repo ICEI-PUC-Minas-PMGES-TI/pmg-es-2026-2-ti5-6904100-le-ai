@@ -478,11 +478,13 @@ paths:
       x-implementation-status: implemented
       x-implemented-by: F-EST-2
       parameters:
+        - { $ref: '#/components/parameters/BuscaTituloAutor' }
         - { $ref: '#/components/parameters/Pagina' }
         - { $ref: '#/components/parameters/Limite' }
       description: >-
         Só do próprio leitor, do favoritado mais recente ao mais antigo. Livro
-        fora da estante vem com `status` nulo. Livro inativo não aparece.
+        fora da estante vem com `status` nulo. Livro inativo não aparece. `q`
+        busca por título ou autor, como na estante (RF-EST-13).
       responses:
         '200':
           description: Página de favoritos.

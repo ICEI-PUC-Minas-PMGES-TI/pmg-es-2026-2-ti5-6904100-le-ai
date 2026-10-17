@@ -1,10 +1,19 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { CampoDeBusca } from '../../../common/busca-textual';
 import {
   STATUS_ESTANTE_API,
   type StatusEstanteApi,
 } from '../../../common/status-estante-api';
-import { PaginacaoDto } from '../../../perfis/dto/resenhas-do-perfil.dto';
+import {
+  PaginacaoDto,
+  PaginacaoQueryDto,
+} from '../../../perfis/dto/resenhas-do-perfil.dto';
 import type { TipoLivro } from '../../../referencias/referencias-externas.service';
+
+export class ConsultaFavoritosDto extends PaginacaoQueryDto {
+  @CampoDeBusca('Busca por título ou autor entre os favoritos.')
+  q?: string;
+}
 
 export class LivroReferenciadoDto {
   @ApiProperty({ format: 'uuid' })
