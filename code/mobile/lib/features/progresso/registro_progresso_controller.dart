@@ -105,20 +105,17 @@ class RegistroProgressoController extends ChangeNotifier {
     erro = _encerraIntencao(falha) ? falha.message : TextosDoRegistro.erroEnvio;
   }
 
-  Future<T?> _executar<T>(String assinatura, Future<T> Function(_Intencao intencao) enviar) async {
+  Future<T?> _executar<T>(Future<T> Function() enviar) async {
     if (salvando) {
       return null;
     }
-    final intencao = _intencaoPara(assinatura);
     salvando = true;
     erro = null;
     errosDosCampos = const <String, String>{};
     precisaRecarregar = false;
     notifyListeners();
     try {
-      final resultado = await enviar(intencao);
-      _intencao = null;
-      return resultado;
+      return await enviar();
     } on ApiException catch (falha) {
       _registrarFalha(falha);
       return null;
@@ -126,6 +123,21 @@ class RegistroProgressoController extends ChangeNotifier {
       salvando = false;
       notifyListeners();
     }
+  }
+
+  Future<T?> _executarIntencao<T>(
+    String assinatura,
+    Future<T> Function(_Intencao intencao) enviar,
+  ) async {
+    if (salvando) {
+      return null;
+    }
+    final intencao = _intencaoPara(assinatura);
+    return _executar(() async {
+      final resultado = await enviar(intencao);
+      _intencao = null;
+      return resultado;
+    });
   }
 
   RegistroPendente _pendente(String leituraId, int pagina, int? minutos, _Intencao intencao) =>
@@ -139,30 +151,36 @@ class RegistroProgressoController extends ChangeNotifier {
       );
 
   Future<ResultadoDoRegistro?> registrar(String leituraId, {required int pagina, int? minutos}) {
-    return _executar(<Object?>['registrar', leituraId, pagina, minutos].join('|'), (
-      intencao,
-    ) async {
-      final fila = _fila;
-      if (fila != null) {
-        await fila.carregar();
-        if (fila.temPendentes(leituraId)) {
-          return _enfileirar(fila, _pendente(leituraId, pagina, minutos, intencao));
-        }
+    return _executarIntencao(
+      <Object?>['registrar', leituraId, pagina, minutos].join('|'),
+      (intencao) => _enviar(_pendente(leituraId, pagina, minutos, intencao)),
+    );
+  }
+
+  Future<ResultadoDoRegistro?> enviar(RegistroPendente registro) =>
+      _executar(() => _enviar(registro));
+
+  Future<ResultadoDoRegistro> _enviar(RegistroPendente registro) async {
+    final fila = _fila;
+    if (fila != null) {
+      await fila.carregar();
+      if (fila.temPendentes(registro.leituraId)) {
+        return _enfileirar(fila, registro);
       }
-      try {
-        final resultado = await _servico.registrar(
-          leituraId,
-          _pendente(leituraId, pagina, minutos, intencao).novo,
-          idempotencyKey: intencao.chave,
-        );
-        return ProgressoSalvo(resultado);
-      } on ApiException catch (falha) {
-        if (fila == null || !falhaDeConexao(falha)) {
-          rethrow;
-        }
-        return _enfileirar(fila, _pendente(leituraId, pagina, minutos, intencao));
+    }
+    try {
+      final resultado = await _servico.registrar(
+        registro.leituraId,
+        registro.novo,
+        idempotencyKey: registro.chave,
+      );
+      return ProgressoSalvo(resultado);
+    } on ApiException catch (falha) {
+      if (fila == null || !falhaDeConexao(falha)) {
+        rethrow;
       }
-    });
+      return _enfileirar(fila, registro);
+    }
   }
 
   Future<ResultadoDoRegistro> _enfileirar(FilaDeProgresso fila, RegistroPendente registro) async {
@@ -174,7 +192,7 @@ class RegistroProgressoController extends ChangeNotifier {
     String progressoId, {
     required String ultimoProgressoIdConfirmado,
   }) {
-    return _executar(
+    return _executarIntencao(
       <Object?>['excluir', progressoId, ultimoProgressoIdConfirmado].join('|'),
       (intencao) => _servico.excluirTrecho(
         progressoId,
