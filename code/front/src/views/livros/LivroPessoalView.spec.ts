@@ -15,6 +15,7 @@ vi.mock('../../services/leitura', () => ({
   leituraService: {
     consultarItemEstante: vi.fn(),
     consultarConclusoes: vi.fn(),
+    consultarFavorito: vi.fn().mockResolvedValue({ livroId: 'livro-1', favorito: false, favoritadoEm: null }),
     registrarProgresso: vi.fn(),
     listarProgresso: vi.fn(),
     excluirTrechoProgresso: vi.fn(),
@@ -234,7 +235,7 @@ describe('LivroPessoalView', () => {
     await flushPromises()
 
     const acoes = [...document.body.querySelectorAll('[role="dialog"] ul button')].map((b) => b.textContent!.trim())
-    expect(acoes).toEqual(['Adicionar como Quero ler', 'Iniciar leitura'])
+    expect(acoes).toEqual(['Adicionar como Quero ler', 'Iniciar leitura', 'Favoritar'])
   })
 
   it('dono com leitura em andamento: status, Lido N vezes e Alterar status com a leitura atual', async () => {
@@ -258,7 +259,7 @@ describe('LivroPessoalView', () => {
 
     expect(leituras.detalharLeitura).toHaveBeenCalledWith('lei-1')
     const acoes = [...document.body.querySelectorAll('[role="dialog"] ul button')].map((b) => b.textContent!.trim())
-    expect(acoes).toEqual(['Registrar progresso', 'Finalizar releitura', 'Abandonar releitura'])
+    expect(acoes).toEqual(['Registrar progresso', 'Finalizar releitura', 'Favoritar', 'Abandonar releitura'])
   })
 
   it('dono com primeira leitura abandonada: Alterar status oferece Retomar leitura', async () => {
@@ -274,7 +275,7 @@ describe('LivroPessoalView', () => {
 
     expect(leituras.detalharLeitura).toHaveBeenCalledWith('lei-2')
     const acoes = [...document.body.querySelectorAll('[role="dialog"] ul button')].map((b) => b.textContent!.trim())
-    expect(acoes).toEqual(['Retomar leitura'])
+    expect(acoes).toEqual(['Retomar leitura', 'Favoritar'])
   })
 
   it('modo consulta não consulta a estante de quem vê', async () => {

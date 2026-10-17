@@ -5,10 +5,12 @@ import {
   PhBookOpen,
   PhCaretRight,
   PhCheckCircle,
+  PhHeart,
   PhPauseCircle,
   PhPlay,
   PhPlusCircle,
   PhTrash,
+  PhWarning,
   PhX,
 } from '@phosphor-icons/vue'
 import { type Component, computed, ref, watch } from 'vue'
@@ -22,6 +24,7 @@ import {
   ROTULO_DO_STATUS,
   ROTULO_FECHAR,
   TEXTOS_DE_ACAO,
+  TEXTOS_DO_FAVORITO,
   textoConcluido,
   textoPaginaDe,
   textoParouNaPagina,
@@ -29,6 +32,7 @@ import {
   textoRetomada,
 } from '../../estante/textos'
 import { type PedidoDeAcao, useAcaoLeitura } from '../../estante/useAcaoLeitura'
+import { useFavorito } from '../../estante/useFavorito'
 import { formatarData } from '../../livros/formatos'
 import { ROTULO_VER_ATUALIZACOES } from '../../progresso/textos'
 import type { LivroDaEstante } from '../../services/leitura'
@@ -43,6 +47,7 @@ const props = defineProps<{
   aberta: boolean
   livro: LivroDaEstante & { livroId: string }
   estado: EstadoDeLeitura
+  favorito?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -50,6 +55,7 @@ const emit = defineEmits<{
   atualizado: [estado: EstadoDeLeitura]
   registrarProgresso: []
   verAtualizacoes: [leituraId: string]
+  favoritoAlterado: [favorito: boolean]
 }>()
 
 const ICONE: Record<IdAcao, Component> = {
@@ -67,6 +73,9 @@ const ICONE: Record<IdAcao, Component> = {
 
 const COR_DO_TOM = { principal: 'text-musgo', neutra: 'text-tinta', destrutiva: 'text-rubi' } as const
 
+const CLASSE_DO_ITEM =
+  'flex h-14 w-full items-center gap-space-4 px-space-5 text-left text-body-strong transition-colors duration-dur-fast hover:bg-linha focus-visible:bg-linha focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60 md:h-12'
+
 type Passo = { tipo: 'lista' } | { tipo: 'data' | 'confirmacao'; acao: AcaoDisponivel }
 
 const { salvando, erro, executar, limparErro } = useAcaoLeitura()
@@ -74,15 +83,34 @@ const passo = ref<Passo>({ tipo: 'lista' })
 const acaoEmCurso = ref<IdAcao | null>(null)
 
 const acoes = computed(() => acoesDisponiveis(props.estado))
+const transicoes = computed(() => acoes.value.filter((acao) => acao.tom !== 'destrutiva'))
+const destrutivas = computed(() => acoes.value.filter((acao) => acao.tom === 'destrutiva'))
+
+const estadoDoFavorito = useFavorito()
+
+function prepararFavorito(): void {
+  if (props.favorito === undefined) void estadoDoFavorito.carregar(props.livro.livroId)
+  else estadoDoFavorito.definir(props.favorito)
+}
+
+async function alternarFavorito(): Promise<void> {
+  const novo = await estadoDoFavorito.alternar(props.livro.livroId)
+  if (novo !== null) emit('favoritoAlterado', novo)
+}
 const leitura = computed(() => props.estado.leitura ?? null)
 const hoje = ref(dataLocalDeHoje())
 
 watch(
   () => props.aberta,
   (aberta) => {
-    if (!aberta) irPara({ tipo: 'lista' })
-    else hoje.value = dataLocalDeHoje()
+    if (!aberta) {
+      irPara({ tipo: 'lista' })
+      return
+    }
+    hoje.value = dataLocalDeHoje()
+    prepararFavorito()
   },
+  { immediate: true },
 )
 
 function dataLocalDeHoje(): string {
@@ -298,14 +326,12 @@ async function salvar(id: IdAcao, data?: string): Promise<void> {
 
       <ul class="-mx-space-6 mt-space-2">
         <li
-          v-for="acao in acoes"
+          v-for="acao in transicoes"
           :key="acao.id"
-          :class="acao.tom === 'destrutiva' ? 'mt-space-2 border-t border-linha pt-space-2' : ''"
         >
           <button
             type="button"
-            class="flex h-14 w-full items-center gap-space-4 px-space-5 text-left text-body-strong transition-colors duration-dur-fast hover:bg-linha focus-visible:bg-linha focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60 md:h-12"
-            :class="COR_DO_TOM[acao.tom]"
+            :class="[CLASSE_DO_ITEM, COR_DO_TOM[acao.tom]]"
             :disabled="salvando"
             :aria-busy="acaoEmCurso === acao.id ? 'true' : undefined"
             @click="escolher(acao)"
@@ -324,6 +350,64 @@ async function salvar(id: IdAcao, data?: string): Promise<void> {
               class="text-grafite-suave"
               aria-hidden="true"
             />
+          </button>
+        </li>
+        <li
+          v-if="estadoDoFavorito.favorito.value !== null"
+          :class="transicoes.length ? 'mt-space-2 border-t border-linha pt-space-2' : ''"
+        >
+          <button
+            type="button"
+            :class="[CLASSE_DO_ITEM, 'text-tinta']"
+            :aria-pressed="estadoDoFavorito.favorito.value"
+            :aria-describedby="estadoDoFavorito.falhou.value ? 'erro-do-favorito' : undefined"
+            :disabled="salvando || estadoDoFavorito.salvando.value"
+            data-favoritar
+            @click="alternarFavorito"
+          >
+            <PhHeart
+              :size="24"
+              :weight="estadoDoFavorito.favorito.value ? 'fill' : 'regular'"
+              :class="estadoDoFavorito.favorito.value ? 'text-musgo' : ''"
+              class="transition-colors duration-dur-fast motion-reduce:transition-none"
+              aria-hidden="true"
+            />
+            <span class="flex-1">{{ estadoDoFavorito.favorito.value ? TEXTOS_DO_FAVORITO.remover : TEXTOS_DO_FAVORITO.favoritar }}</span>
+          </button>
+          <p
+            v-if="estadoDoFavorito.falhou.value"
+            id="erro-do-favorito"
+            role="alert"
+            class="flex items-start gap-space-2 px-space-5 pb-space-2 text-caption text-rubi"
+          >
+            <PhWarning
+              :size="16"
+              weight="regular"
+              class="mt-px shrink-0"
+              aria-hidden="true"
+            />
+            {{ TEXTOS_DO_FAVORITO.erro }}
+          </p>
+        </li>
+        <li
+          v-for="acao in destrutivas"
+          :key="acao.id"
+          class="mt-space-2 border-t border-linha pt-space-2"
+        >
+          <button
+            type="button"
+            :class="[CLASSE_DO_ITEM, COR_DO_TOM[acao.tom]]"
+            :disabled="salvando"
+            :aria-busy="acaoEmCurso === acao.id ? 'true' : undefined"
+            @click="escolher(acao)"
+          >
+            <component
+              :is="ICONE[acao.id]"
+              :size="24"
+              weight="regular"
+              aria-hidden="true"
+            />
+            <span class="flex-1">{{ acaoEmCurso === acao.id ? ACOES_DE_LEITURA.salvando : acao.rotulo }}</span>
           </button>
         </li>
       </ul>

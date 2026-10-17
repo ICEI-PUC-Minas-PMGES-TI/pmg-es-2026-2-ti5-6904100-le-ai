@@ -6,7 +6,7 @@ import type { FiltroEstante, ItemEstante, PaginaEstante, TotaisEstante } from '.
 
 export type ItemDaListaEstante = ItemEstante & { id: string }
 
-export type FiltroDaListaEstante = Pick<FiltroEstante, 'status' | 'ordenacao'>
+export type FiltroDaListaEstante = Pick<FiltroEstante, 'status' | 'ordenacao' | 'q'>
 
 const PROIBIDO = 403
 const NAO_ENCONTRADO = 404
@@ -16,13 +16,14 @@ export function useEstante(
   filtro: () => FiltroDaListaEstante = () => ({}),
 ) {
   const totais = shallowRef<TotaisEstante | null>(null)
+  const totalFavoritos = ref<number | null>(null)
   const restrita = ref(false)
   const indisponivel = ref(false)
 
   const lista = usePaginacao<ItemDaListaEstante>(async (pagina) => {
     try {
       const resposta = await listar({ ...filtro(), page: pagina + 1 })
-      totais.value = resposta.totaisPorStatus
+      aplicarTotais(resposta)
       restrita.value = false
       indisponivel.value = false
       return {
@@ -39,6 +40,21 @@ export function useEstante(
     }
   })
 
+  function aplicarTotais(resposta: PaginaEstante): void {
+    totais.value = resposta.totaisPorStatus
+    totalFavoritos.value = resposta.totalFavoritos ?? null
+  }
+
+  async function carregarTotais(): Promise<void> {
+    try {
+      aplicarTotais(await listar({ limite: 1 }))
+    } catch (erro) {
+      if (!(erro instanceof ApiError)) throw erro
+      totais.value = null
+      totalFavoritos.value = null
+    }
+  }
+
   /**
    * Livros concluídos ao menos uma vez, para o contador `livros lidos` do perfil. Pela máquina de
    * RN-04, um livro concluído só fica em `LIDO` ou volta a `RELENDO` (releitura abandonada também
@@ -46,5 +62,5 @@ export function useEstante(
    */
   const livrosLidos = computed(() => (totais.value ? totais.value.LIDO + totais.value.RELENDO : null))
 
-  return { ...lista, totais, restrita, indisponivel, livrosLidos }
+  return { ...lista, totais, totalFavoritos, restrita, indisponivel, livrosLidos, carregarTotais }
 }
