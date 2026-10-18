@@ -117,6 +117,36 @@ describe('remoção pela moderação, comando interno (F-MOD, integração)', ()
     expect(await contar(pool, 'leitura.outbox_leitura')).toBe(0);
   });
 
+  it('remove a frase de qualquer autor pela moderação, com replay pela mesma chave', async () => {
+    const autor = novoUsuario();
+    const livroId = await inserirLivro(pool);
+    const {
+      rows: [linha],
+    } = await pool.query<{ id: string }>(
+      `INSERT INTO leitura.frase (usuario_id, livro_id, texto, pagina)
+       VALUES ($1, $2, 'Trecho.', 1) RETURNING id`,
+      [autor, livroId],
+    );
+    const chave = randomUUID();
+    const remover = () =>
+      request(app.getHttpServer())
+        .post(`/internal/moderacao/frases/${linha.id}/remocao`)
+        .set('X-Moderacao-Token', TOKEN)
+        .set('Idempotency-Key', chave)
+        .send();
+
+    const primeira = await remover().expect(200);
+    const repeticao = await remover().expect(200);
+
+    expect(primeira.body).toEqual({ removida: true, autorId: autor, livroId });
+    expect(repeticao.body).toEqual(primeira.body);
+    expect(await contar(pool, 'leitura.frase')).toBe(0);
+    await request(app.getHttpServer())
+      .post(`/internal/moderacao/frases/${linha.id}/remocao`)
+      .send()
+      .expect(401);
+  });
+
   it('id inválido é 400 e falta de chave é 400', async () => {
     await remover('nao-e-uuid').expect(400);
     await request(app.getHttpServer())

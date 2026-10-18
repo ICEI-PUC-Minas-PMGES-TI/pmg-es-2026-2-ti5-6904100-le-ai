@@ -4,6 +4,7 @@ import {
   RESENHA_EXCLUIDA,
 } from '../avaliacoes/eventos';
 import { AvaliacoesRepository } from '../avaliacoes/avaliacoes.repository';
+import { FrasesRepository } from '../frases/frases.repository';
 import {
   OPERACOES,
   operacaoNoCaminho,
@@ -35,6 +36,7 @@ const STATUS_OK = 200;
 export class ModeracaoService {
   constructor(
     private readonly avaliacoes: AvaliacoesRepository,
+    private readonly frases: FrasesRepository,
     private readonly idempotencia: IdempotenciaService,
     private readonly outbox: OutboxRepository,
   ) {}
@@ -84,6 +86,34 @@ export class ModeracaoService {
             autorId: removida.usuarioId,
             livroId: removida.livroId,
           },
+        };
+      },
+    );
+  }
+
+  /** Remoção direta de frase (RN-11): sem denúncia e sem evento, que ninguém consome. */
+  removerFrase(
+    fraseId: string,
+    chave: string,
+  ): Promise<RespostaIdempotente<RemocaoDto>> {
+    return this.idempotencia.executar<RemocaoDto>(
+      {
+        subjectRef: SUJEITO_MODERACAO,
+        operacao: operacaoNoCaminho(OPERACOES.REMOVER_FRASE_MODERACAO, fraseId),
+        chave,
+        payload: {},
+      },
+      async (tx) => {
+        const removida = await this.frases.excluirPorId(tx, fraseId);
+        return {
+          status: STATUS_OK,
+          corpo: removida
+            ? {
+                removida: true,
+                autorId: removida.usuarioId,
+                livroId: removida.livroId,
+              }
+            : { removida: false, autorId: null, livroId: null },
         };
       },
     );

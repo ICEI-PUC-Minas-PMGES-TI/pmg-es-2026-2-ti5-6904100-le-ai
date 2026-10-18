@@ -49,6 +49,7 @@ info:
       - POST /admin/denuncias/{denunciaId}/arquivar
       - POST /admin/denuncias/{denunciaId}/remover
       - GET /admin/moderacao/logs
+      - DELETE /admin/frases/{fraseId}
 x-database-contracts:
   - name: v_atividade_livro_pessoal_v1
     x-implementation-status: implemented
@@ -1074,6 +1075,44 @@ paths:
               schema: { $ref: '#/components/schemas/Erro' }
         '504':
           description: A remoção não foi confirmada a tempo. A denúncia continua pendente.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+  /admin/frases/{fraseId}:
+    parameters:
+      - name: fraseId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    delete:
+      tags: [moderacao]
+      summary: Remove uma frase direto, sem denúncia (RN-11)
+      operationId: removerFrasePeloAdmin
+      x-implementation-status: implemented
+      description: >-
+        Frases não têm fluxo de denúncia; o administrador remove direto, da
+        lista de frases do livro. O social chama o comando interno do leitura
+        (chave fixa por frase) e grava o log de auditoria com alvo frase, sem
+        denúncia. Frase que já não existe é 409 CONTEUDO_JA_EXCLUIDO.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: Frase removida.
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/Proibido' }
+        '409':
+          description: CONTEUDO_JA_EXCLUIDO ou CONFLITO.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+        '503':
+          description: O leitura não respondeu ou está sem o segredo.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+        '504':
+          description: A remoção não foi confirmada a tempo.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Erro' }

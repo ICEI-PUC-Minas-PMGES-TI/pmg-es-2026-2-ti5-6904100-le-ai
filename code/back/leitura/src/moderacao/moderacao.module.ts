@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AvaliacoesRepository } from '../avaliacoes/avaliacoes.repository';
+import { FrasesRepository } from '../frases/frases.repository';
 import { ModeracaoController } from './moderacao.controller';
 import { ModeracaoService } from './moderacao.service';
 
@@ -9,6 +10,6 @@ import { ModeracaoService } from './moderacao.service';
  */
 @Module({
   controllers: [ModeracaoController],
-  providers: [ModeracaoService, AvaliacoesRepository],
+  providers: [ModeracaoService, AvaliacoesRepository, FrasesRepository],
 })
 export class ModeracaoModule {}

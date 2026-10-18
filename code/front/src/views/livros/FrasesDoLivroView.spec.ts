@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { acervoService } from '../../services/acervo'
 import { ApiError } from '../../services/api'
 import { leituraService, type Frase, type PaginaFrases } from '../../services/leitura'
+import { moderacaoService } from '../../services/moderacao'
 import { livroOficial } from '../../testes/massaDoLivro'
 import { montarNaRota } from '../../testes/montarNaRota'
 
@@ -14,9 +15,13 @@ vi.mock('../../services/acervo', async (original) => ({
 vi.mock('../../services/leitura', () => ({
   leituraService: { listarFrases: vi.fn(), excluirFrase: vi.fn(), criarFrase: vi.fn() },
 }))
+vi.mock('../../services/moderacao', () => ({
+  moderacaoService: { removerFrase: vi.fn() },
+}))
 
 const acervo = vi.mocked(acervoService)
 const leitura = vi.mocked(leituraService)
+const moderacao = vi.mocked(moderacaoService)
 
 function frase(id: string, pagina: number, minha = false): Frase {
   return {
@@ -100,6 +105,59 @@ describe('FrasesDoLivroView', () => {
 
     expect(texto()).toContain('Não foi possível excluir a frase. Verifique sua conexão e tente de novo.')
     expect(document.querySelectorAll('[data-frase]')).toHaveLength(1)
+  })
+
+  describe('administrador (F-MOD)', () => {
+    beforeEach(() => {
+      moderacao.removerFrase.mockReset()
+    })
+
+    it('a partir de 768px: faixa, Remover frase em toda frase, sem cota nem Adicionar', async () => {
+      leitura.listarFrases.mockResolvedValue(pagina([frase('a', 57), frase('b', 203)], 2, 0))
+      await montarNaRota('/livros/livro-1/frases', { admin: true, largo: true })
+      await flushPromises()
+
+      expect(texto()).toContain('Você está vendo como administrador.')
+      expect(document.querySelectorAll('[aria-label^="Remover frase de @marina.antunes"]')).toHaveLength(2)
+      expect(document.querySelector('[aria-label^="Excluir frase"]')).toBeNull()
+      expect(texto()).not.toContain('Você ainda não guardou frases')
+      expect(botao('Adicionar frase')).toBeUndefined()
+    })
+
+    it('abaixo de 768px o administrador não remove, como no app', async () => {
+      leitura.listarFrases.mockResolvedValue(pagina([frase('a', 57)], 1, 0))
+      await montarNaRota('/livros/livro-1/frases', { admin: true })
+      await flushPromises()
+
+      expect(texto()).not.toContain('Você está vendo como administrador.')
+      expect(document.querySelector('[aria-label^="Remover frase"]')).toBeNull()
+    })
+
+    it('remover confirma, só tira da lista depois do servidor e a falha fica no dialog', async () => {
+      leitura.listarFrases.mockResolvedValue(pagina([frase('a', 57), frase('b', 203)], 2, 0))
+      moderacao.removerFrase.mockRejectedValueOnce(new ApiError('fora', 503, 'SERVICO_INDISPONIVEL')).mockResolvedValueOnce()
+      await montarNaRota('/livros/livro-1/frases', { admin: true, largo: true })
+      await flushPromises()
+
+      document.querySelector<HTMLButtonElement>('[aria-label="Remover frase de @marina.antunes, página 203"]')!.click()
+      await flushPromises()
+      expect(texto()).toContain('Remover esta frase?')
+      expect(texto()).toContain('O trecho sai deste livro para todos os leitores')
+      const confirmar = () =>
+        [...document.querySelectorAll('[role="dialog"] button')].find((b) => b.textContent?.trim() === 'Remover frase') as HTMLButtonElement
+      confirmar().click()
+      await flushPromises()
+
+      expect(texto()).toContain('Não foi possível remover a frase. Ela continua no livro.')
+      expect(texto()).toContain('Trecho b.')
+
+      confirmar().click()
+      await flushPromises()
+
+      expect(moderacao.removerFrase.mock.calls[0]).toEqual(moderacao.removerFrase.mock.calls[1])
+      expect(texto()).not.toContain('Trecho b.')
+      expect(texto()).toContain('Trecho a.')
+    })
   })
 
   it('erro de carga mostra o banner e Tentar de novo', async () => {

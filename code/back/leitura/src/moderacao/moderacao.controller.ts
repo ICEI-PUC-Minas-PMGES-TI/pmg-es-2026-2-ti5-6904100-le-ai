@@ -53,4 +53,20 @@ export class ModeracaoController {
     res.status(resposta.status);
     return resposta.corpo;
   }
+
+  @Post('frases/:fraseId/remocao')
+  @Publico()
+  @UseGuards(ModeracaoTokenGuard)
+  @ApiHeader({ name: 'X-Moderacao-Token', required: true })
+  @ApiOperation({ operationId: 'removerFrasePelaModeracao' })
+  @ApiOkResponse({ type: RemocaoDto })
+  async removerFrase(
+    @Param('fraseId', idValido('fraseId'), emMinusculas) fraseId: string,
+    @IdempotencyKey() chave: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<RemocaoDto> {
+    const resposta = await this.servico.removerFrase(fraseId, chave);
+    res.status(resposta.status);
+    return resposta.corpo;
+  }
 }

@@ -72,6 +72,7 @@ export class FrasesController {
       livroId,
       consulta.page ?? 1,
       consulta.limite ?? LIMITE_PADRAO,
+      usuario.papel === 'admin',
     );
   }
 

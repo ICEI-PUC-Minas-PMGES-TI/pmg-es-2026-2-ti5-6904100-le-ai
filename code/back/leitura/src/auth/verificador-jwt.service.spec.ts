@@ -42,11 +42,24 @@ function emitir(
 }
 
 describe('VerificadorJwt', () => {
-  it('aceita token válido e devolve id e username', () => {
+  it('aceita token válido e devolve id, username e o papel de leitor', () => {
     expect(verificador().verificar(emitir())).toEqual({
       id: ID,
       username: 'leitora',
+      papel: 'leitor',
     });
+  });
+
+  it('papel admin só com o claim exato; outro valor vale leitor (F-MOD)', () => {
+    expect(verificador().verificar(emitir({ papel: 'admin' })).papel).toBe(
+      'admin',
+    );
+    expect(verificador().verificar(emitir({ papel: 'leitor' })).papel).toBe(
+      'leitor',
+    );
+    expect(verificador().verificar(emitir({ papel: 'ADMIN' })).papel).toBe(
+      'leitor',
+    );
   });
 
   it('recusa token expirado', () => {

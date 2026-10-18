@@ -90,6 +90,10 @@ export class VerificadorJwt implements OnModuleInit {
       throw new NaoAutenticado();
     }
 
-    return { id: id.toLowerCase(), username };
+    return {
+      id: id.toLowerCase(),
+      username,
+      papel: conteudo.papel === 'admin' ? 'admin' : 'leitor',
+    };
   }
 }

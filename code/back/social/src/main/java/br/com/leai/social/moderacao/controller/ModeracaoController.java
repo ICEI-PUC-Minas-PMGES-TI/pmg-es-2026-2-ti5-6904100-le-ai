@@ -16,6 +16,7 @@ import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -71,6 +72,19 @@ public class ModeracaoController {
       @PathVariable UUID denunciaId,
       @RequestHeader(name = ChaveDeIdempotencia.CABECALHO, required = false) String chave) {
     return responder(servico.remover(admin(token), denunciaId, ChaveDeIdempotencia.exigir(chave)));
+  }
+
+  @DeleteMapping("/frases/{fraseId}")
+  @Operation(
+      operationId = "removerFrasePeloAdmin",
+      summary = "Remove uma frase direto, sem denúncia (RN-11), com auditoria")
+  public ResponseEntity<Void> removerFrase(
+      @AuthenticationPrincipal Jwt token,
+      @PathVariable UUID fraseId,
+      @RequestHeader(name = ChaveDeIdempotencia.CABECALHO, required = false) String chave) {
+    RespostaIdempotente<Void> resposta =
+        servico.removerFrase(admin(token), fraseId, ChaveDeIdempotencia.exigir(chave));
+    return ResponseEntity.status(resposta.status()).build();
   }
 
   @GetMapping("/moderacao/logs")

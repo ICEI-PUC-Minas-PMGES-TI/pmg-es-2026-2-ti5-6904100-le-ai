@@ -268,6 +268,44 @@ public class ServicoDeModeracao {
         });
   }
 
+  // ------------------------------------------------------------------ frase
+
+  /**
+   * Remoção direta de frase (RN-11): sem denúncia, mas sempre com auditoria. Mesmo fluxo da
+   * resenha: o {@code leitura} fora da transação, e depois de ele confirmar, nunca recusa.
+   */
+  public RespostaIdempotente<Void> removerFrase(UUID admin, UUID fraseId, String chave) {
+    Map<String, Object> payload = Map.of("fraseId", fraseId.toString());
+    var anterior =
+        idempotencia.consultar(admin, OperacaoIdempotente.REMOVER_FRASE, chave, payload, Void.class);
+    if (anterior.isPresent()) {
+      return anterior.get();
+    }
+    ClienteDeLeitura.Remocao remocao = leitura.removerFrase(fraseId);
+    if (!remocao.removida()) {
+      throw new ErroDeNegocioException(
+          CodigoErro.CONTEUDO_JA_EXCLUIDO, "Esta frase já não existe.");
+    }
+    return idempotencia.executar(
+        admin,
+        OperacaoIdempotente.REMOVER_FRASE,
+        chave,
+        payload,
+        Void.class,
+        () -> {
+          repositorio.registrar(
+              admin.toString(),
+              REMOVER,
+              "frase",
+              fraseId,
+              null,
+              remocao.autorId(),
+              remocao.livroId(),
+              null);
+          return new RespostaIdempotente<>(HttpStatus.NO_CONTENT.value(), null);
+        });
+  }
+
   // ------------------------------------------------------------------ registro
 
   public PaginaRegistrosResposta registros(String cursor, int limite) {

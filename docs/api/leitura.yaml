@@ -729,7 +729,8 @@ paths:
         - { $ref: '#/components/parameters/Limite' }
       description: >-
         Frases de todos os leitores, mais recentes primeiro, sob RN-08 por
-        autor: perfil público, privado seguido ou a própria frase. Conta
+        autor: perfil público, privado seguido ou a própria frase; o
+        administrador (claim papel igual a admin, F-MOD) vê todas. Conta
         suspensa ou em exclusão some. Em livro pessoal, só o dono lista (o modo
         consulta de RN-15 não expõe frases). Livro inexistente, inativo ou
         pessoal de outra pessoa é 404. A resposta traz a cota de quem pede
@@ -1191,6 +1192,36 @@ paths:
         o mesmo removida true em vez de um removida false. Resenha que já não
         existe responde 200 com removida false, sem evento. Depois de 24 horas
         o recibo vence e a mesma chave recebe 409.
+      responses:
+        '200':
+          description: Resultado da remoção.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RemocaoPelaModeracao' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+        '503':
+          description: MODERACAO_TOKEN não configurado no serviço.
+  /internal/moderacao/frases/{fraseId}/remocao:
+    post:
+      tags: [interno]
+      summary: Remove uma frase pela moderação (F-MOD, RN-11)
+      operationId: removerFrasePelaModeracao
+      x-implementation-status: implemented
+      x-implemented-by: F-MOD
+      security:
+        - moderacaoToken: []
+      parameters:
+        - name: fraseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      description: >-
+        Mesmo contrato da remoção de resenha, sem evento: frase não tem
+        consumidor. Apaga a frase de qualquer autor; quem grava a auditoria é o
+        social. Frase que já não existe responde 200 com removida false.
       responses:
         '200':
           description: Resultado da remoção.

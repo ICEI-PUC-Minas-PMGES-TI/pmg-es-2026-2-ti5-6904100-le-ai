@@ -304,6 +304,52 @@ class ModeracaoIntegracaoTest extends IntegracaoComPostgres {
     assertThat(massa.contar("SELECT count(*) FROM log_moderacao")).isEqualTo(1);
   }
 
+  // ------------------------------------------------------------------ frase
+
+  @Test
+  @DisplayName("Remover frase sem denúncia: leitura com a chave fixa, 204 e um log de frase")
+  void removerFrase() throws Exception {
+    UUID frase = UUID.randomUUID();
+    LEITURA.autoria(autora, livro);
+    String chave = chave();
+
+    HttpResponse<String> resposta = delete("/admin/frases/" + frase, tokenAdmin(), chave);
+    HttpResponse<String> repeticao = delete("/admin/frases/" + frase, tokenAdmin(), chave);
+
+    assertThat(resposta.statusCode()).isEqualTo(204);
+    assertThat(repeticao.statusCode()).isEqualTo(204);
+    assertThat(LEITURA.chamadas()).hasSize(1);
+    LeituraSimulada.Chamada chamada = LEITURA.chamadas().getFirst();
+    assertThat(chamada.colecao()).isEqualTo("frases");
+    assertThat(chamada.chave())
+        .isEqualTo(
+            UUID.nameUUIDFromBytes(("moderacao:frase:" + frase).getBytes(StandardCharsets.UTF_8))
+                .toString());
+    Map<String, Object> log = jdbc.queryForMap("SELECT * FROM log_moderacao");
+    assertThat(log.get("alvo_tipo")).isEqualTo("frase");
+    assertThat(log.get("alvo_autor_id")).isEqualTo(autora);
+    assertThat(log.get("alvo_livro_id")).isEqualTo(livro);
+    assertThat(log.get("denuncia_id")).isNull();
+
+    JsonNode registro = corpo(get("/admin/moderacao/logs", tokenAdmin())).get("itens").get(0);
+    assertThat(registro.get("comDenuncia").asBoolean()).isFalse();
+  }
+
+  @Test
+  @DisplayName("Frase que já não existe é 409; leitor recebe 403")
+  void removerFraseInexistenteOuSemPapel() throws Exception {
+    LEITURA.modo(LeituraSimulada.Modo.JA_REMOVIDA);
+
+    HttpResponse<String> resposta = delete("/admin/frases/" + UUID.randomUUID(), tokenAdmin(), chave());
+
+    assertThat(resposta.statusCode()).isEqualTo(409);
+    assertThat(corpo(resposta).get("codigo").asString()).isEqualTo("CONTEUDO_JA_EXCLUIDO");
+    assertThat(
+            delete("/admin/frases/" + UUID.randomUUID(), token(leitora, "leitor"), chave()).statusCode())
+        .isEqualTo(403);
+    assertThat(massa.contar("SELECT count(*) FROM log_moderacao")).isZero();
+  }
+
   // ------------------------------------------------------------------ registro
 
   @Test
@@ -392,6 +438,15 @@ class ModeracaoIntegracaoTest extends IntegracaoComPostgres {
         HttpRequest.newBuilder(uri(caminho))
             .headers(cabecalhos.toArray(String[]::new))
             .POST(HttpRequest.BodyPublishers.noBody())
+            .build());
+  }
+
+  private HttpResponse<String> delete(String caminho, String token, String chave) {
+    return enviar(
+        HttpRequest.newBuilder(uri(caminho))
+            .header("Authorization", "Bearer " + token)
+            .header("Idempotency-Key", chave)
+            .DELETE()
             .build());
   }
 

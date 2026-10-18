@@ -95,6 +95,10 @@ export function createModeracaoService(options: ApiClientOptions = {}) {
         idempotencyKey,
       })
     },
+    /** Remoção direta de frase (RN-11), sem denúncia; 204. */
+    removerFrase(fraseId: string, idempotencyKey: string): Promise<void> {
+      return acao<void>(`/admin/frases/${encodeURIComponent(fraseId)}`, { method: 'DELETE', idempotencyKey })
+    },
     listarRegistros(cursor?: string | null): Promise<PaginaPorCursor<RegistroDeModeracao>> {
       return request<PaginaPorCursor<RegistroDeModeracao>>(comCursor('/admin/moderacao/logs', cursor))
     },

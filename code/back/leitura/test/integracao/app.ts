@@ -35,6 +35,8 @@ export async function criarApp(
 export interface OpcoesDoToken {
   segredo?: string;
   issuer?: string;
+  /** Claim `papel` (F-MOD); sem ele, o token sai como o de um leitor. */
+  papel?: 'leitor' | 'admin';
 }
 
 /** Token no formato que o `identidade` emite (HS256, `sub`, `username`). */
@@ -44,12 +46,16 @@ export function tokenDe(
   opcoes: OpcoesDoToken = {},
 ): string {
   const segredo = opcoes.segredo ?? (process.env.JWT_SECRET as string);
-  return jwt.sign({ username }, segredo, {
-    algorithm: 'HS256',
-    issuer: opcoes.issuer ?? 'identidade',
-    subject: usuarioId,
-    expiresIn: '15m',
-  });
+  return jwt.sign(
+    opcoes.papel ? { username, papel: opcoes.papel } : { username },
+    segredo,
+    {
+      algorithm: 'HS256',
+      issuer: opcoes.issuer ?? 'identidade',
+      subject: usuarioId,
+      expiresIn: '15m',
+    },
+  );
 }
 
 export function novoUsuario(): string {

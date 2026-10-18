@@ -150,6 +150,8 @@ Plano em [`plano-F-MOD.md`](../../../docs/plano-de-desenvolvimento/periodo-2/ren
 - **Remoção:** `AvaliacoesRepository.excluirResenhaPorId` apaga sem filtro de dono e o serviço grava o mesmo `resenha.excluida` da exclusão pelo autor. Responde `{removida, autorId, livroId}`; `removida: false` quando já não existia.
 - **Idempotência:** sujeito fixo `SUJEITO_MODERACAO` (`...0002`, vizinho do `...0001` do agendador) e operação `removerResenhaPelaModeracao:<id>`. O `social` manda chave fixa por alvo, então a repetição depois de um timeout recebe o mesmo `removida: true`. Depois de 24 h o recibo vence e a mesma chave dá 409.
 - **`conta.excluida`** (consumidor do Henrique): anonimiza também os recibos da moderação cuja resposta cita a conta (`resposta->>'autorId'`).
+- **Frase:** `POST /internal/moderacao/frases/{id}/remocao`, o mesmo contrato sem evento (`FrasesRepository.excluirPorId`), operação `removerFrasePelaModeracao:<id>`.
+- **Papel no token:** `UsuarioAutenticado.papel` (`leitor` | `admin`) vem do claim `papel`; só `admin` exato vale. Hoje só `GET /livros/{id}/frases` o lê: o administrador lista todas as frases, sem o filtro de RN-08, para poder moderá-las. `tokenDe(id, username, { papel })` nos testes.
 - **Log:** a lista do `redact` saiu para `src/common/redacao-do-log.ts` e ganhou `x-scheduler-token` e `x-moderacao-token`, que o `pino-http` logava junto com os cabeçalhos.
 
 ## Pontos de atenção (ver `REQUISITOS.md`) — prioridade de teste
