@@ -406,6 +406,45 @@ void main() {
       expect(eventos, isEmpty);
     });
   });
+
+  group('denunciar comentário de outra pessoa (F-MOD)', () {
+    testWidgets('o menu só tem Denunciar comentário, e a denúncia empilha e envia', (tester) async {
+      final servidor = _Servidor();
+      servidor.aoPostar = (_) => json(<String, Object?>{
+        'id': 'd1',
+        'estado': 'pendente',
+        'criadoEm': '2026-10-18T12:00:00Z',
+      }, 201);
+      await _abrir(tester, servidor);
+
+      await tester.tap(find.byTooltip('Ações do comentário'));
+      await tester.pumpAndSettle();
+      expect(find.text('Comentário de Dandara Lopes'), findsOneWidget);
+      expect(find.text('Editar'), findsNothing);
+      expect(find.text('Excluir'), findsNothing);
+      await tester.tap(find.text('Denunciar comentário'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Comentários'), findsOneWidget);
+      expect(find.text('Resposta em Torto Arado'), findsOneWidget);
+      await tester.enterText(find.byKey(const ValueKey<String>('campo-motivo')), '  Divulgação repetida.  ');
+      await tester.tap(find.text('Revisar denúncia'));
+      await tester.pumpAndSettle();
+      expect(find.text('Enviar esta denúncia?'), findsOneWidget);
+      await tester.tap(find.text('Enviar denúncia'));
+      await tester.pumpAndSettle();
+
+      final denuncia = servidor.posts.single;
+      expect(denuncia.url.path, '/denuncias');
+      expect(jsonDecode(denuncia.body), <String, Object?>{
+        'alvoTipo': 'comentario',
+        'alvoId': 'c1',
+        'motivo': 'Divulgação repetida.',
+      });
+      expect(find.text('Enviar esta denúncia?'), findsNothing);
+      expect(find.text('Comentários'), findsOneWidget);
+    });
+  });
 }
 
 Finder _comentarioComTexto(String texto) => find.byWidgetPredicate(

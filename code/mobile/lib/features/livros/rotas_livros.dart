@@ -258,13 +258,16 @@ GoRoute rotaDoLivroPessoal(
   required String raiz,
   EstanteService? estante,
   DependenciasDeProgresso? progresso,
-}) => _paginaDoLivroPessoal(deps, raiz: raiz, estante: estante, progresso: progresso);
+  SocialService? social,
+}) => _paginaDoLivroPessoal(deps, raiz: raiz, estante: estante, progresso: progresso, social: social);
 
+/// [social] dá ao terceiro o menu de denúncia da resenha do dono (F-MOD, RN-15.4).
 GoRoute _paginaDoLivroPessoal(
   DependenciasDeLivros deps, {
   required String raiz,
   EstanteService? estante,
   DependenciasDeProgresso? progresso,
+  SocialService? social,
 }) {
   return GoRoute(
     path: 'livro-pessoal/:id',
@@ -290,6 +293,7 @@ GoRoute _paginaDoLivroPessoal(
             ? null
             : (leituraId) => context.push<void>(rotaProgressoDaLeitura(leituraId)),
         listas: deps.listas,
+        social: social,
         aoVerFrases: () => context.push('$raiz/livro-pessoal/$id/frases'),
       );
     },
@@ -322,6 +326,6 @@ List<RouteBase> rotasDaEstante(
 
 /// O terceiro chega **exclusivamente** pelo feed, com `via=feed&referenciaId=` (RN-15). F-FEED
 /// monta o link; esta rota só o recebe.
-List<RouteBase> rotasDoFeed(DependenciasDeLivros deps) => <RouteBase>[
-  _paginaDoLivroPessoal(deps, raiz: rotaFeedRaiz),
+List<RouteBase> rotasDoFeed(DependenciasDeLivros deps, {SocialService? social}) => <RouteBase>[
+  _paginaDoLivroPessoal(deps, raiz: rotaFeedRaiz, social: social),
 ];

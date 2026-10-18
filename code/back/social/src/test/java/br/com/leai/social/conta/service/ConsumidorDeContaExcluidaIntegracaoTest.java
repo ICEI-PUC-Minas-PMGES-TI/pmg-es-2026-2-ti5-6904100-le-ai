@@ -74,22 +74,29 @@ class ConsumidorDeContaExcluidaIntegracaoTest extends IntegracaoComPostgres {
     return id;
   }
 
-  private UUID denuncia(UUID denunciante, String alvoTipo, UUID alvoId) {
+  private UUID denuncia(UUID denunciante, String alvoTipo, UUID alvoId, UUID alvoAutor) {
     UUID id = UUID.randomUUID();
     jdbc.update(
-        "INSERT INTO denuncia (id, denunciante_id, alvo_tipo, alvo_id, motivo)"
-            + " VALUES (?, ?, ?, ?, 'Ofensivo')",
+        "INSERT INTO denuncia (id, denunciante_id, alvo_tipo, alvo_id, motivo, alvo_autor_id)"
+            + " VALUES (?, ?, ?, ?, 'Ofensivo', ?)",
         id,
         denunciante,
         alvoTipo,
-        alvoId);
+        alvoId,
+        alvoAutor);
     return id;
   }
 
   private void logModeracao(String alvoTipo, UUID alvoId, UUID denunciaId) {
+    logModeracao("remover_conteudo", alvoTipo, alvoId, denunciaId);
+  }
+
+  // Desde a F-MOD só pode haver um log de remoção por alvo; os outros são de arquivamento.
+  private void logModeracao(String acao, String alvoTipo, UUID alvoId, UUID denunciaId) {
     jdbc.update(
         "INSERT INTO log_moderacao (admin, acao, alvo_tipo, alvo_id, denuncia_id, detalhe)"
-            + " VALUES ('admin', 'remover_conteudo', ?, ?, ?, 'Texto citado')",
+            + " VALUES ('admin', ?, ?, ?, ?, 'Texto citado')",
+        acao,
         alvoTipo,
         alvoId,
         denunciaId);
@@ -145,13 +152,13 @@ class ConsumidorDeContaExcluidaIntegracaoTest extends IntegracaoComPostgres {
     notificacao(excluida, outra);
     notificacao(outra, excluida);
     notificacao(outra, UUID.randomUUID());
-    UUID denunciaContraResenha = denuncia(outra, "resenha", resenhaDaExcluida);
-    UUID denunciaFeitaPelaExcluida = denuncia(excluida, "comentario", raizDaOutra);
-    UUID denunciaQueFica = denuncia(outra, "comentario", raizDaOutra);
+    UUID denunciaContraResenha = denuncia(outra, "resenha", resenhaDaExcluida, excluida);
+    UUID denunciaFeitaPelaExcluida = denuncia(excluida, "comentario", raizDaOutra, outra);
+    UUID denunciaQueFica = denuncia(outra, "comentario", raizDaOutra, outra);
     logModeracao("resenha", resenhaDaExcluida, denunciaContraResenha);
     logModeracao("comentario", raizDaOutra, denunciaFeitaPelaExcluida);
     logModeracao("usuario", excluida, null);
-    logModeracao("comentario", raizDaOutra, denunciaQueFica);
+    logModeracao("arquivar_denuncia", "comentario", raizDaOutra, denunciaQueFica);
     // O banco é compartilhado com os outros testes da suíte: o anonimizado se mede pela diferença.
     int logsAnonimizadosAntes = contar(LOGS_ANONIMIZADOS);
 
@@ -201,6 +208,70 @@ class ConsumidorDeContaExcluidaIntegracaoTest extends IntegracaoComPostgres {
                     + " AND denuncia_id = ?",
                 denunciaQueFica))
         .isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName("conteúdo que a moderação já apagou é achado pelo autor gravado (F-MOD, RN-23.7)")
+  void conteudoJaRemovidoPelaModeracao() {
+    UUID excluida = UUID.randomUUID();
+    UUID outra = UUID.randomUUID();
+    UUID terceira = UUID.randomUUID();
+    // Resenha, comentário e frase da excluída que a moderação já apagou: nenhuma atividade ou
+    // comentário sobrou para os SELECTs antigos acharem.
+    UUID resenhaRemovida = UUID.randomUUID();
+    UUID comentarioRemovido = UUID.randomUUID();
+    UUID fraseRemovida = UUID.randomUUID();
+    UUID denunciaDaResenha = denuncia(outra, "resenha", resenhaRemovida, excluida);
+    jdbc.update(
+        "UPDATE denuncia SET estado = 'removida', resolvido_em = now() WHERE id = ?",
+        denunciaDaResenha);
+    UUID denunciaDoComentario = denuncia(outra, "comentario", comentarioRemovido, excluida);
+    // Comentário da terceira na atividade da excluída: some pelo dono da atividade.
+    UUID denunciaNaAtividade = denuncia(outra, "comentario", UUID.randomUUID(), terceira);
+    jdbc.update(
+        "UPDATE denuncia SET atividade_autor_id = ? WHERE id = ?", excluida, denunciaNaAtividade);
+    UUID denunciaQueFica = denuncia(outra, "comentario", UUID.randomUUID(), terceira);
+    jdbc.update(
+        "INSERT INTO log_moderacao (admin, acao, alvo_tipo, alvo_id, denuncia_id, alvo_autor_id,"
+            + " alvo_livro_id) VALUES (?, 'remover_conteudo', 'resenha', ?, ?, ?, ?),"
+            + " (?, 'remover_conteudo', 'frase', ?, NULL, ?, ?)",
+        UUID.randomUUID().toString(),
+        resenhaRemovida,
+        denunciaDaResenha,
+        excluida,
+        UUID.randomUUID(),
+        UUID.randomUUID().toString(),
+        fraseRemovida,
+        excluida,
+        UUID.randomUUID());
+    jdbc.update(
+        "INSERT INTO log_moderacao (admin, acao, alvo_tipo, alvo_id, atividade_autor_id)"
+            + " VALUES (?, 'arquivar_denuncia', 'comentario', ?, ?)",
+        UUID.randomUUID().toString(),
+        UUID.randomUUID(),
+        excluida);
+    int logsAnonimizadosAntes = contar(LOGS_ANONIMIZADOS);
+
+    consumidor.handle(envelope(excluida));
+
+    assertThat(
+            contar(
+                "SELECT count(*) FROM denuncia WHERE id IN (?, ?, ?)",
+                denunciaDaResenha,
+                denunciaDoComentario,
+                denunciaNaAtividade))
+        .isZero();
+    assertThat(contar("SELECT count(*) FROM denuncia WHERE id = ?", denunciaQueFica)).isEqualTo(1);
+    assertThat(contar(LOGS_ANONIMIZADOS)).isEqualTo(logsAnonimizadosAntes + 3);
+    assertThat(
+            contar(
+                "SELECT count(*) FROM log_moderacao WHERE alvo_autor_id = ?"
+                    + " OR atividade_autor_id = ? OR alvo_id IN (?, ?)",
+                excluida,
+                excluida,
+                resenhaRemovida,
+                fraseRemovida))
+        .isZero();
   }
 
   @Test

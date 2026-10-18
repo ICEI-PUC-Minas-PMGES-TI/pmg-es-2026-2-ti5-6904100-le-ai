@@ -58,6 +58,49 @@ void main() {
     });
   });
 
+  group('trecho corrido (card da denúncia, F-MOD)', () {
+    test('mantém negrito, itálico e tachado e junta blocos com um espaço, como a web', () {
+      expect(
+        trechoCorrido('**Forte** e *leve*\n\n- um\n- ~~dois~~\n\n> citado').map((t) => t.paraCaso()).toList(),
+        <Object>[
+          <String, Object>{
+            'b': <Object>[
+              <String, Object>{'t': 'Forte'},
+            ],
+          },
+          <String, Object>{'t': ' e '},
+          <String, Object>{
+            'i': <Object>[
+              <String, Object>{'t': 'leve'},
+            ],
+          },
+          <String, Object>{'t': ' '},
+          <String, Object>{'t': 'um'},
+          <String, Object>{'t': ' '},
+          <String, Object>{
+            's': <Object>[
+              <String, Object>{'t': 'dois'},
+            ],
+          },
+          <String, Object>{'t': ' '},
+          <String, Object>{'t': 'citado'},
+        ],
+      );
+    });
+
+    test('a quebra de linha vira espaço, inclusive dentro da formatação', () {
+      expect(trechoCorrido('*uma\nduas*').map((t) => t.paraCaso()).toList(), <Object>[
+        <String, Object>{
+          'i': <Object>[
+            <String, Object>{'t': 'uma'},
+            <String, Object>{'t': ' '},
+            <String, Object>{'t': 'duas'},
+          ],
+        },
+      ]);
+    });
+  });
+
   group('marcação fora do subconjunto (faixa da pré-visualização)', () {
     for (final texto in <String>[
       '[leia aqui](https://exemplo.com)',

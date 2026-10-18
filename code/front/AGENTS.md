@@ -63,6 +63,12 @@ Uma URL por serviço, sem gateway: `VITE_IDENTIDADE_BASE_URL`, `VITE_ACERVO_BASE
   - **Paridade com o mobile (RN-13.4):** o comportamento do parser está fixado em `docs/design-system/markdown-resenha-casos.json`, lido por `markdown/resenha.spec.ts` e pelo teste do mobile. Mudou o parser, a versão do pacote ou a configuração: rode os testes dos dois clientes. O arquivo está no filtro de caminhos da CI dos dois.
   - Editor (`views/livros/EscreverResenhaView.vue`): abas `Escrever | Visualizar` e `components/livros/BarraDeFormatacao.vue` no topo da coluna. A lógica da barra e do `Enter` fica em `markdown/edicao.ts`, sem DOM, igual a `markdown_edicao.dart` do mobile.
 
+- **F-MOD, denúncia (18/10/2026, Renato).** Diálogo em `components/moderacao/` (`DialogoDenunciar.vue`, `DenunciaDeConteudo.vue` com o toast, `TrechoDaDenuncia.vue`) e lógica em `moderacao/useDenunciar.ts`. O que mexe no que é de todos:
+  - `session.ts`: `useSession().ehAdmin` e `papelDoToken`, lidos do claim `papel` do token, sem verificar a assinatura e sem gravar no `localStorage`. Só para a interface; o servidor decide. Token de teste com papel em `testes/tokens.ts`.
+  - `ui/MenuDeAcoes.vue` ganhou a prop `discreto` (`DotsThree` de 20px em `grafite`, para cards de resenha e comentário). Sem ela, nada muda.
+  - `feed/ComentarioItem.vue` (do Kayke): o menu aparece também no comentário de outra pessoa, só com `Denunciar comentário`; o `escolher` trata cada ação pelo id, e a altura do dropdown sai do número de itens. O botão do menu tem `aria-expanded`, então teste que procura o alternador de respostas por `[aria-expanded="false"]` precisa filtrar pelo texto (`ModalComentarios.spec.ts`).
+  - `livros/CardResenha.vue` emite `denunciar`; `markdown/resenha.ts` tem `trechoCorrido`, a prévia de três linhas que mantém negrito, itálico e tachado.
+
 - **F-STA, estatísticas (12/10/2026, Vicenzo).** Painel em `views/perfil/EstatisticasView.vue` (`/perfil/estatisticas`), componentes em `components/estatisticas/` e lógica em `src/estatisticas/` (copy, formatos pt-BR, escala do eixo, `useEstatisticas` e `useEstatisticasDoAno`). O que mexe no que é de todos:
   - `CabecalhoTela.vue` ganhou `voltarSoNoCelular` (rota com `meta.voltarSoNoCelular`): a seta some a partir de 768px, para telas cuja volta na web é a sidebar. Sem a meta, nada muda.
   - `services/leitura.ts` tem `consultarMinhasEstatisticas`, `consultarGraficosEstatisticas` e `consultarEstatisticasPerfil`; mocks que fazem `satisfies LeituraService` precisam dos três.

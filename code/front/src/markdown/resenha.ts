@@ -190,6 +190,34 @@ export function textoSemMarcacao(texto: string): string {
   return linhasDosBlocos(arvoreDaResenha(texto)).join('\n')
 }
 
+function paragrafosDosBlocos(blocos: Bloco[]): Trecho[][] {
+  return blocos.flatMap((bloco) => {
+    if ('p' in bloco) return [bloco.p]
+    if ('q' in bloco) return paragrafosDosBlocos(bloco.q)
+    return ('ul' in bloco ? bloco.ul : bloco.ol).flatMap((item) => paragrafosDosBlocos(item))
+  })
+}
+
+/**
+ * Trecho corrido com a formatação de linha, para o card da denúncia (F-MOD, denunciar.md §4):
+ * negrito, itálico e tachado ficam; parágrafos, itens, citações e quebras viram um espaço, porque o
+ * card corta em três linhas. Diferente de `textoSemMarcacao`, que tira toda a marcação.
+ */
+export function trechoCorrido(texto: string): Trecho[] {
+  const semQuebra = (lista: Trecho[]): Trecho[] =>
+    lista.map((trecho) => {
+      if ('br' in trecho) return { t: ' ' }
+      if ('b' in trecho) return { b: semQuebra(trecho.b) }
+      if ('i' in trecho) return { i: semQuebra(trecho.i) }
+      if ('s' in trecho) return { s: semQuebra(trecho.s) }
+      return trecho
+    })
+  return paragrafosDosBlocos(arvoreDaResenha(texto)).flatMap((paragrafo, indice) => [
+    ...(indice > 0 ? [{ t: ' ' }] : []),
+    ...semQuebra(paragrafo),
+  ])
+}
+
 const FORA_DO_SUBCONJUNTO = [
   /!?\[[^\]\n]*\]\([^)\n]*\)/, // link e imagem
   /<\/?[a-zA-Z][^>\n]*>/, // HTML e endereço entre sinais

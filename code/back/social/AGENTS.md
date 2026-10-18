@@ -70,6 +70,15 @@ Previsto na [divisão do Período 2](../../../docs/plano-de-desenvolvimento/peri
 - **Copy a combinar com o Kayke:** curtir a atividade de uma resenha no feed gera a mesma frase ("curtiu sua resenha de Y"), com ícone diferente. Não foi mexida.
 - **Testes:** casos em `EventosDeNotificacaoDeTeste`, `ConsumidorDeNotificacaoIntegracaoTest`, `ConsumidorDeNotificacaoBrokerTest` e `NotificacaoControllerIntegracaoTest`.
 
+### 18/10/2026 — F-MOD (Renato): denúncia
+
+Plano em [`plano-F-MOD.md`](../../../docs/plano-de-desenvolvimento/periodo-2/renato-periodo-2/plano-F-MOD.md).
+
+- **Migration `V20261018120000__moderacao_denuncia_e_auditoria`** (revisão humana antes de subir): `denuncia` ganha `alvo_autor_id` (NOT NULL; a tabela estava vazia em dev e no DES), `alvo_livro_id`, `atividade_id`, `atividade_autor_id`, `remocao_solicitada_em`, o limite de 500 no motivo e o índice único de uma pendente por leitor e alvo. `log_moderacao` ganha `alvo_autor_id`, `alvo_livro_id`, `atividade_autor_id` (a CHECK de anonimização exige as três nulas) e o índice único de um log de remoção por alvo. Migration nova precisa de versão maior que `V20261018120000`.
+- **Pacote `moderacao/`:** `POST /denuncias` (`DenunciaController`, `ServicoDeDenuncia`). Comentário pela visibilidade da atividade (`AtividadeRepository.visivelPara`); resenha pelo porte da regra de `leitura/src/reacoes/reacoes.service.ts#exigirAcesso`, com as vias de RN-15 em `ConteudoDenunciavel` (`viaFeed` exige seguir mesmo com perfil público; `viaLista` aceita perfil público). Mudou a regra de lá, mude aqui. O `INSERT ... ON CONFLICT DO NOTHING` no índice único devolve a denúncia pendente que já existia (200).
+- **Rate limit:** `limiteDeDenunciar` (10 por minuto) em `LimitesDeInteracao` e `POST /denuncias` (caminho exato) no `RateLimitFilter`.
+- **`ConsumidorDeContaExcluida` (do Henrique):** também anonimiza e apaga por `alvo_autor_id` e `atividade_autor_id`, que acham o conteúdo que a moderação já apagou, inclusive frases. O teste dele ganhou o caso e, por causa do índice único, o segundo log do mesmo comentário passou a ser de arquivamento.
+
 ## Pontos de atenção (ver `REQUISITOS.md`)
 
 - É o **consumidor** do fluxo de **notificações in-app** (fan-out); adiciona FCM em Android (arquitetura §5.2). Curtida de **atividade de feed** fica aqui; curtida de **resenha** fica em `leitura`. **Spring AMQP já entrou** (runtime de [P0-MSG](../../../docs/plano-de-desenvolvimento/periodo-0/feature-P0-MSG.md), 19/09): o `social` consome pelas filas `leai.social.feed` (F-FEED) e `leai.social.notificacoes` (F-NOT), declaradas em `messaging/MessagingConstants.java`. FCM ainda não entrou.

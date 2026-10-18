@@ -44,6 +44,7 @@ info:
       - PUT /listas/{listaId}/livros/{itemId}/posicao
       - GET /perfis/{usuarioId}/listas
       - GET /me/listas
+      - POST /denuncias
 x-database-contracts:
   - name: v_atividade_livro_pessoal_v1
     x-implementation-status: implemented
@@ -164,6 +165,8 @@ tags:
     description: Notificações in-app do leitor autenticado
   - name: recomendacoes
     description: Recomendação de livro entre leitores com seguimento mútuo (F-REC-P2P)
+  - name: moderacao
+    description: Denúncia de resenhas e comentários e moderação pelo administrador (F-MOD)
   - name: health
     description: Sondagem de disponibilidade
 security:
@@ -899,6 +902,64 @@ paths:
             text/event-stream:
               schema: { type: string }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /denuncias:
+    post:
+      tags: [moderacao]
+      summary: Denuncia uma resenha ou um comentário (RF-MOD-01)
+      operationId: criarDenuncia
+      x-implementation-status: implemented
+      description: >-
+        O motivo é um único texto livre, obrigatório, com até 500 caracteres
+        contados em code points, sem enum nem descrição separada. O servidor
+        confere o acesso atual ao alvo: comentário pela visibilidade da
+        atividade (RN-08/RN-09); resenha de livro oficial por perfil público
+        ou seguimento aceito; resenha de livro pessoal só pela via de RN-15.4
+        (`via` e `referenciaId`, na mesma regra de reagir à resenha). Sem
+        acesso, 404, igual a inexistente. Se o leitor já tem denúncia pendente
+        sobre o mesmo alvo, a resposta é 200 com essa denúncia, sem criar outra
+        nem trocar o motivo. Rate limiting por leitor (10 por minuto) e por IP
+        (RNF-SEC-18).
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CriarDenuncia' }
+      responses:
+        '201':
+          description: Denúncia registrada.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Denuncia' }
+        '200':
+          description: O leitor já tinha denúncia pendente sobre o alvo; ela é devolvida.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Denuncia' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403':
+          description: >-
+            A conta de quem denuncia está fora da VIEW de perfil (suspensa ou
+            em exclusão). Código ACESSO_NEGADO.
+          headers:
+            X-Correlation-Id: { $ref: '#/components/headers/CorrelationId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '422':
+          description: >-
+            O conteúdo é do próprio leitor. Código ENTIDADE_NAO_PROCESSAVEL.
+          headers:
+            X-Correlation-Id: { $ref: '#/components/headers/CorrelationId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
         '503': { $ref: '#/components/responses/Indisponivel' }
   /health:
     get:
@@ -1807,6 +1868,40 @@ components:
           nullable: true
           description: Cursor opaco; ausente quando temMais é falso.
         temMais: { type: boolean }
+    CriarDenuncia:
+      type: object
+      required: [alvoTipo, alvoId, motivo]
+      properties:
+        alvoTipo:
+          type: string
+          enum: [resenha, comentario]
+        alvoId: { type: string, format: uuid }
+        motivo:
+          type: string
+          description: >-
+            Texto livre obrigatório; espaços das pontas são removidos. Até 500
+            caracteres em code points.
+          example: Conta o final sem aviso de spoiler.
+        via:
+          type: string
+          enum: [feed, lista]
+          description: Só para resenha de livro pessoal (RN-15.4).
+        referenciaId:
+          type: string
+          format: uuid
+          description: Atividade (via feed) ou lista (via lista) pela qual o leitor chegou.
+    Denuncia:
+      type: object
+      description: >-
+        Denúncia registrada. Não devolve o motivo nem dados do alvo: a resposta
+        fica no recibo de idempotência.
+      required: [id, estado, criadoEm]
+      properties:
+        id: { type: string, format: uuid }
+        estado:
+          type: string
+          enum: [pendente, removida, arquivada]
+        criadoEm: { type: string, format: date-time }
     ViolacaoCampo:
       type: object
       required: [campo, mensagem]

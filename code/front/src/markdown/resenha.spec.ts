@@ -8,6 +8,7 @@ import {
   renderizarResenha,
   temMarcacaoForaDoSubconjunto,
   textoSemMarcacao,
+  trechoCorrido,
 } from './resenha'
 import casosCompartilhados from '../../../../docs/design-system/markdown-resenha-casos.json'
 
@@ -61,6 +62,26 @@ describe('texto sem marcação (prévia do feed e do perfil)', () => {
 
   it('o que não é do subconjunto continua literal', () => {
     expect(textoSemMarcacao('[link](https://x.com)')).toBe('[link](https://x.com)')
+  })
+})
+
+describe('trecho corrido (card da denúncia, F-MOD)', () => {
+  it('mantém negrito, itálico e tachado e junta blocos com um espaço', () => {
+    expect(trechoCorrido('**Forte** e *leve*\n\n- um\n- ~~dois~~\n\n> citado')).toEqual([
+      { b: [{ t: 'Forte' }] },
+      { t: ' e ' },
+      { i: [{ t: 'leve' }] },
+      { t: ' ' },
+      { t: 'um' },
+      { t: ' ' },
+      { s: [{ t: 'dois' }] },
+      { t: ' ' },
+      { t: 'citado' },
+    ])
+  })
+
+  it('a quebra de linha vira espaço, inclusive dentro da formatação', () => {
+    expect(trechoCorrido('*uma\nduas*')).toEqual([{ i: [{ t: 'uma' }, { t: ' ' }, { t: 'duas' }] }])
   })
 })
 

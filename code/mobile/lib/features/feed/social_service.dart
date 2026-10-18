@@ -430,4 +430,27 @@ class SocialService {
         .map((bruto) => ResultadoPorDestinatario.fromJson(bruto as Map<String, dynamic>))
         .toList();
   }
+
+  /// Denúncia de resenha ou comentário (F-MOD, RF-MOD-01). 201 cria; 200 devolve a pendente
+  /// que o leitor já tinha sobre o alvo. `via` e `referenciaId` só na resenha de livro pessoal.
+  Future<void> denunciar({
+    required String alvoTipo,
+    required String alvoId,
+    required String motivo,
+    String? via,
+    String? referenciaId,
+    required String idempotencyKey,
+  }) async {
+    await _api.postJson(
+      '/denuncias',
+      body: <String, Object?>{
+        'alvoTipo': alvoTipo,
+        'alvoId': alvoId,
+        'motivo': motivo,
+        'via': ?via,
+        'referenciaId': ?referenciaId,
+      },
+      idempotencyKey: idempotencyKey,
+    );
+  }
 }

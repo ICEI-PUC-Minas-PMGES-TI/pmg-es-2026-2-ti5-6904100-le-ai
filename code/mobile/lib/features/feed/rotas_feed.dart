@@ -86,7 +86,7 @@ GoRoute rotaDoFeed(
       aoVerEstante: () => context.go(rotaEstanteRaiz),
     ),
     routes: <RouteBase>[
-      ...rotasDoFeed(livros),
+      ...rotasDoFeed(livros, social: deps.social),
       ...rotasExtras,
       GoRoute(
         path: 'leitores/:username',

@@ -117,8 +117,8 @@ class _ComentarioItemState extends State<ComentarioItem> {
                       ),
                     ),
                   ),
-                  if (comentario.meu)
-                    SizedBox(
+                  // Próprio: editar e excluir. De outra pessoa: denunciar (F-MOD, comentarios.md).
+                  SizedBox(
                       width: 20,
                       height: 20,
                       child: OverflowBox(
@@ -126,9 +126,12 @@ class _ComentarioItemState extends State<ComentarioItem> {
                         maxHeight: 48,
                         child: IconButton(
                           onPressed: widget.aoAbrirAcoes,
-                          tooltip: comentario.resposta
-                              ? 'Ações da sua resposta'
-                              : 'Ações do seu comentário',
+                          tooltip: switch ((comentario.meu, comentario.resposta)) {
+                            (true, true) => 'Ações da sua resposta',
+                            (true, false) => 'Ações do seu comentário',
+                            (false, true) => 'Ações da resposta',
+                            (false, false) => 'Ações do comentário',
+                          },
                           constraints: const BoxConstraints.tightFor(width: 48, height: 48),
                           icon: Icon(
                             PhosphorIconsRegular.dotsThree,

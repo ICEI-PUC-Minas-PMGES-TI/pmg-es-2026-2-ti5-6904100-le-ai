@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PhDotsThree, PhPencilSimple, PhTrash } from '@phosphor-icons/vue'
+import { PhDotsThree, PhFlag, PhPencilSimple, PhTrash } from '@phosphor-icons/vue'
 import { computed, onBeforeUnmount, ref } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
 
@@ -11,7 +11,9 @@ import type { Comentario } from '../../services/social'
 
 const LARGURA_WEB = '(min-width: 768px)'
 const ESPACO_DO_DROPDOWN = 8
-const ALTURA_DO_DROPDOWN = 104
+/** Itens de 44px mais o `space-2` de cima e de baixo do menu. */
+const ALTURA_DO_ITEM = 44
+const MARGEM_DO_DROPDOWN = 16
 
 const props = withDefaults(
   defineProps<{
@@ -36,6 +38,7 @@ const emit = defineEmits<{
   'alternar-respostas': []
   editar: [comentario: Comentario]
   excluir: [comentario: Comentario]
+  denunciar: [comentario: Comentario]
 }>()
 
 const ehResposta = computed(() => props.comentario.nivel === 'RESPOSTA')
@@ -49,12 +52,33 @@ const rotuloAlternador = computed(() =>
   props.respostasExpandidas ? 'Ocultar respostas' : `Ver ${contagem(props.comentario.totalRespostas ?? 0, 'resposta', 'respostas')}`,
 )
 
-const rotuloDoMenu = computed(() => (ehResposta.value ? 'Sua resposta' : 'Seu comentário'))
+const meu = computed(() => props.comentario.pertenceAoSolicitante)
 
-const acoes: AcaoDaFolha[] = [
+const rotuloDoMenu = computed(() => {
+  if (meu.value) {
+    return ehResposta.value ? 'Sua resposta' : 'Seu comentário'
+  }
+  return ehResposta.value
+    ? `Resposta de ${props.comentario.autor.nomeExibicao}`
+    : `Comentário de ${props.comentario.autor.nomeExibicao}`
+})
+
+const rotuloDoBotao = computed(() => {
+  if (meu.value) {
+    return ehResposta.value ? 'Ações da sua resposta' : 'Ações do seu comentário'
+  }
+  return ehResposta.value ? 'Ações da resposta' : 'Ações do comentário'
+})
+
+/** Comentário próprio: editar e excluir. De outra pessoa: só denunciar (comentarios.md, F-MOD). */
+const ACOES_PROPRIAS: AcaoDaFolha[] = [
   { id: 'editar', rotulo: 'Editar', icone: PhPencilSimple },
   { id: 'excluir', rotulo: 'Excluir', icone: PhTrash, destrutiva: true },
 ]
+const ACOES_DE_OUTRA_PESSOA: AcaoDaFolha[] = [
+  { id: 'denunciar', rotulo: 'Denunciar comentário', icone: PhFlag, destrutiva: true },
+]
+const acoes = computed(() => (meu.value ? ACOES_PROPRIAS : ACOES_DE_OUTRA_PESSOA))
 
 const folhaAberta = ref(false)
 const dropdownAberto = ref(false)
@@ -79,7 +103,8 @@ function fecharDropdown(): void {
 function posicionarDropdown(): void {
   const botao = botaoDoMenu.value!.getBoundingClientRect()
   const direita = `${window.innerWidth - botao.right}px`
-  const cabeEmbaixo = botao.bottom + ESPACO_DO_DROPDOWN + ALTURA_DO_DROPDOWN <= window.innerHeight
+  const altura = acoes.value.length * ALTURA_DO_ITEM + MARGEM_DO_DROPDOWN
+  const cabeEmbaixo = botao.bottom + ESPACO_DO_DROPDOWN + altura <= window.innerHeight
   posicaoDoDropdown.value = cabeEmbaixo
     ? { top: `${botao.bottom + ESPACO_DO_DROPDOWN}px`, right: direita }
     : { bottom: `${window.innerHeight - botao.top + ESPACO_DO_DROPDOWN}px`, right: direita }
@@ -106,8 +131,10 @@ function escolher(id: string): void {
   fecharDropdown()
   if (id === 'editar') {
     emit('editar', props.comentario)
-  } else {
+  } else if (id === 'excluir') {
     emit('excluir', props.comentario)
+  } else if (id === 'denunciar') {
+    emit('denunciar', props.comentario)
   }
 }
 
@@ -134,14 +161,13 @@ onBeforeUnmount(fecharDropdown)
           > · editado</span>
         </p>
         <div
-          v-if="comentario.pertenceAoSolicitante"
           class="-my-space-3 -mr-space-3 md:-my-space-1 md:mr-0"
           @keydown.esc="fecharDropdown"
         >
           <button
             ref="botaoDoMenu"
             type="button"
-            :aria-label="ehResposta ? 'Ações da sua resposta' : 'Ações do seu comentário'"
+            :aria-label="rotuloDoBotao"
             :aria-expanded="dropdownAberto"
             :disabled="acoesDesabilitadas"
             class="flex size-12 cursor-pointer items-center justify-center rounded-full text-grafite transition-colors duration-dur-fast hover:bg-linha disabled:cursor-not-allowed disabled:text-grafite-suave md:size-8"
@@ -225,7 +251,6 @@ onBeforeUnmount(fecharDropdown)
       </button>
     </div>
     <FolhaAcoes
-      v-if="comentario.pertenceAoSolicitante"
       :aberta="folhaAberta"
       :rotulo="rotuloDoMenu"
       :acoes="acoes"

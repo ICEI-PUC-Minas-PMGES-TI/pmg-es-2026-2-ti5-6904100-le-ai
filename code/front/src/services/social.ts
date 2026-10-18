@@ -57,6 +57,21 @@ export interface Atividade {
 
 export type NivelComentario = 'RAIZ' | 'RESPOSTA'
 
+/** Pedido de denúncia (F-MOD, RF-MOD-01). `via`/`referenciaId` só na resenha de livro pessoal. */
+export interface CriarDenuncia {
+  alvoTipo: 'resenha' | 'comentario'
+  alvoId: string
+  motivo: string
+  via?: 'feed' | 'lista'
+  referenciaId?: string
+}
+
+export interface Denuncia {
+  id: string
+  estado: 'pendente' | 'removida' | 'arquivada'
+  criadoEm: string
+}
+
 export interface Mencao {
   posicao: number
   comprimento: number
@@ -227,6 +242,10 @@ export function createSocialService(options: ApiClientOptions = {}) {
     },
     descartarRecomendacao(id: string, idempotencyKey: string): Promise<void> {
       return request<void>(`/recomendacoes/${encodeURIComponent(id)}`, { method: 'DELETE', idempotencyKey })
+    },
+    /** 201 cria; 200 devolve a denúncia pendente que o leitor já tinha sobre o alvo. */
+    denunciar(dados: CriarDenuncia, idempotencyKey: string): Promise<Denuncia> {
+      return request<Denuncia>('/denuncias', { method: 'POST', json: dados, idempotencyKey })
     },
   }
 }

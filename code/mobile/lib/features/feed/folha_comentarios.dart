@@ -10,6 +10,7 @@ import '../../design/widgets/banner_aviso.dart';
 import '../../design/widgets/botao_textual.dart';
 import '../../design/widgets/capa_livro.dart';
 import '../../design/widgets/folha_inferior.dart';
+import '../moderacao/folha_denunciar.dart';
 import '../perfil/lista_paginada.dart';
 import '../perfil/perfil_service.dart';
 import '../perfil/textos.dart';
@@ -282,7 +283,7 @@ class _FolhaComentariosState extends State<FolhaComentarios> {
   Future<void> _abrirAcoes(Comentario alvo) async {
     final escolha = await mostrarFolhaInferior<_AcaoDoComentario>(
       context,
-      builder: (context) => _MenuDoComentario(resposta: alvo.resposta),
+      builder: (context) => _MenuDoComentario(comentario: alvo),
     );
     if (!mounted) {
       return;
@@ -292,6 +293,19 @@ class _FolhaComentariosState extends State<FolhaComentarios> {
         _iniciarEdicao(alvo);
       case _AcaoDoComentario.excluir:
         await _excluir(alvo);
+      case _AcaoDoComentario.denunciar:
+        // A folha da denúncia empilha sobre esta (denunciar.md §4.11); fechar devolve aqui.
+        await abrirDenuncia(
+          context,
+          social: widget.social,
+          alvo: AlvoDaDenuncia.comentario(
+            id: alvo.id,
+            autorNome: alvo.autor.nomeExibicao,
+            autorAvatarUrl: alvo.autor.avatarUrl,
+            livroTitulo: widget.atividade.livro.titulo,
+            texto: alvo.texto,
+          ),
+        );
       case null:
         break;
     }
@@ -1036,12 +1050,13 @@ class _SkeletonDeComentarios extends StatelessWidget {
   }
 }
 
-enum _AcaoDoComentario { editar, excluir }
+enum _AcaoDoComentario { editar, excluir, denunciar }
 
+/// Comentário próprio: `Editar` e `Excluir`. De outra pessoa: só `Denunciar comentário` (F-MOD).
 class _MenuDoComentario extends StatelessWidget {
-  final bool resposta;
+  final Comentario comentario;
 
-  const _MenuDoComentario({required this.resposta});
+  const _MenuDoComentario({required this.comentario});
 
   @override
   Widget build(BuildContext context) {
@@ -1064,14 +1079,27 @@ class _MenuDoComentario extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         Text(
-          resposta ? 'Sua resposta' : 'Seu comentário',
+          switch ((comentario.meu, comentario.resposta)) {
+            (true, true) => 'Sua resposta',
+            (true, false) => 'Seu comentário',
+            (false, true) => 'Resposta de ${comentario.autor.nomeExibicao}',
+            (false, false) => 'Comentário de ${comentario.autor.nomeExibicao}',
+          },
           style: theme.textTheme.bodySmall?.copyWith(color: theme.secondaryText),
         ),
         const SizedBox(height: DesignTokens.space2),
         Divider(height: 1, color: theme.divider),
-        item(_AcaoDoComentario.editar, PhosphorIconsRegular.pencilSimple, 'Editar', theme.colorScheme.onSurface),
-        Divider(height: 1, color: theme.divider),
-        item(_AcaoDoComentario.excluir, PhosphorIconsRegular.trash, 'Excluir', theme.colorScheme.error),
+        if (comentario.meu) ...<Widget>[
+          item(_AcaoDoComentario.editar, PhosphorIconsRegular.pencilSimple, 'Editar', theme.colorScheme.onSurface),
+          Divider(height: 1, color: theme.divider),
+          item(_AcaoDoComentario.excluir, PhosphorIconsRegular.trash, 'Excluir', theme.colorScheme.error),
+        ] else
+          item(
+            _AcaoDoComentario.denunciar,
+            PhosphorIconsRegular.flag,
+            TextosDaDenuncia.denunciarComentario,
+            theme.colorScheme.error,
+          ),
         const SizedBox(height: DesignTokens.space4),
         BotaoTextual(
           texto: 'Cancelar',

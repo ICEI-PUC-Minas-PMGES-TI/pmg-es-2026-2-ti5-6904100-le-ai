@@ -23,8 +23,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Rate limiting por IP nas escritas de interação do feed (RNF-SEC-18): curtir, descurtir e
- * comentar. Excedido o limite, a requisição nem chega ao controller e volta 429 no corpo de erro
+ * Rate limiting por IP nas escritas de interação do feed (RNF-SEC-18): curtir, descurtir,
+ * comentar e, desde a F-MOD, denunciar. Excedido o limite, a requisição nem chega ao controller e volta 429 no corpo de erro
  * padrão (RNF-ERR-01). Porte de {@code identidade.common.RateLimitFilter}, com a lista de rotas
  * generalizada: lá era {@code /auth/**} (rotas públicas); aqui são as escritas de
  * {@code docs/api/social.yaml} que todas exigem JWT.
@@ -53,6 +53,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
    * do mesmo caminho é listagem e não é escrita.
    */
   private static final String SUFIXO_COMENTARIOS = "/comentarios";
+
+  /** Denunciar (F-MOD): só {@code POST /denuncias}, caminho exato. */
+  private static final String CAMINHO_DENUNCIAS = "/denuncias";
 
   private static final Set<HttpMethod> METODOS_CURTIR = Set.of(HttpMethod.POST, HttpMethod.DELETE);
 
@@ -110,6 +113,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
       return METODOS_CURTIR.contains(metodo);
     }
     if (caminho.endsWith(SUFIXO_COMENTARIOS)) {
+      return HttpMethod.POST.equals(metodo);
+    }
+    if (caminho.equals(CAMINHO_DENUNCIAS)) {
       return HttpMethod.POST.equals(metodo);
     }
     return false;

@@ -26,7 +26,8 @@ public enum OperacaoIdempotente {
   EXCLUIR_LISTA("excluirLista"),
   ADICIONAR_LIVRO_NA_LISTA("adicionarLivroNaLista"),
   REMOVER_LIVRO_DA_LISTA("removerLivroDaLista"),
-  MOVER_LIVRO_NA_LISTA("moverLivroNaLista");
+  MOVER_LIVRO_NA_LISTA("moverLivroNaLista"),
+  CRIAR_DENUNCIA("criarDenuncia");
 
   private final String operationId;
 

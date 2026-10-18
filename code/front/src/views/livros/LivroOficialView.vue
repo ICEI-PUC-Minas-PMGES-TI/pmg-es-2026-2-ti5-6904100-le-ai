@@ -11,6 +11,7 @@ import BlocoSuaAvaliacao from '../../components/livros/BlocoSuaAvaliacao.vue'
 import CapaLivro from '../../components/livros/CapaLivro.vue'
 import CardResenha from '../../components/livros/CardResenha.vue'
 import SecaoFrases from '../../components/livros/SecaoFrases.vue'
+import DenunciaDeConteudo from '../../components/moderacao/DenunciaDeConteudo.vue'
 import DialogoRecomendar from '../../components/recomendacoes/DialogoRecomendar.vue'
 import AvisoFlutuante from '../../components/ui/AvisoFlutuante.vue'
 import BotaoPrimario from '../../components/ui/BotaoPrimario.vue'
@@ -19,6 +20,8 @@ import BotaoTextual from '../../components/ui/BotaoTextual.vue'
 import { formatarPaginas } from '../../livros/formatos'
 import { useLivroOficial } from '../../livros/useLivroOficial'
 import { useMinhaAvaliacao } from '../../livros/useMinhaAvaliacao'
+import type { AlvoDaDenuncia } from '../../moderacao/useDenunciar'
+import type { ResenhaDoLivro } from '../../services/acervo'
 
 /**
  * Página do livro oficial (RF-ACV-04, RF-ACV-18, RF-ACV-19), a partir do protótipo
@@ -76,6 +79,20 @@ const acoesDoMenu: AcaoDaFolha[] = [
 ]
 const recomendando = ref(false)
 const avisoDeRecomendacao = ref<string | null>(null)
+/** F-MOD: a resenha de outra pessoa que o leitor escolheu denunciar. */
+const denunciando = ref<AlvoDaDenuncia | null>(null)
+
+function denunciar(resenha: ResenhaDoLivro): void {
+  denunciando.value = {
+    tipo: 'resenha',
+    id: resenha.id,
+    autorNome: resenha.autorNome,
+    autorAvatarUrl: resenha.autorAvatarUrl ?? null,
+    livroTitulo: livro.value?.titulo ?? '',
+    texto: resenha.texto,
+    spoiler: resenha.spoiler !== false,
+  }
+}
 
 function escolherNoMenu(acao: string): void {
   if (acao === 'lista') {
@@ -460,7 +477,10 @@ function voltar(): void {
                 v-for="resenha in resenhas"
                 :key="resenha.id"
               >
-                <CardResenha :resenha="resenha" />
+                <CardResenha
+                  :resenha="resenha"
+                  @denunciar="denunciar(resenha)"
+                />
               </li>
             </ul>
             <p
@@ -516,6 +536,10 @@ function voltar(): void {
       :livro="{ id: livro.id, ...livroAvaliado }"
       @enviada="avisoDeRecomendacao = $event"
       @fechar="recomendando = false"
+    />
+    <DenunciaDeConteudo
+      :alvo="denunciando"
+      @fechar="denunciando = null"
     />
     <AvisoFlutuante
       :aberto="avisoDeRecomendacao !== null"

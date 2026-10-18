@@ -11,8 +11,11 @@ import FolhaAcoes, { type AcaoDaFolha } from './FolhaAcoes.vue'
  * da página (`Recomendar a um leitor`, F-REC-P2P) só acrescentam itens em `acoes`.
  *
  * O dropdown fecha com `Esc`, clique fora ou escolha, e devolve o foco ao botão.
+ *
+ * `discreto` é o `DotsThree` de 20px em `grafite` dos cards de resenha e comentário (F-MOD,
+ * pagina-do-livro.md P2), menor que o do cabeçalho; o alvo de toque continua 48/40px.
  */
-defineProps<{ rotulo: string; acoes: AcaoDaFolha[] }>()
+withDefaults(defineProps<{ rotulo: string; acoes: AcaoDaFolha[]; discreto?: boolean }>(), { discreto: false })
 const emit = defineEmits<{ escolher: [id: string] }>()
 
 const id = useId()
@@ -83,15 +86,16 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', aoClicarFora))
     <button
       ref="botao"
       type="button"
-      class="flex size-12 items-center justify-center rounded-base text-tinta transition-colors duration-dur-fast hover:bg-linha focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo md:size-10"
+      class="flex size-12 items-center justify-center rounded-base transition-colors duration-dur-fast hover:bg-linha focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo md:size-10"
       :aria-label="rotulo"
       aria-haspopup="menu"
       :aria-expanded="dropdownAberto"
       :aria-controls="dropdownAberto ? `${id}-menu` : undefined"
+      :class="discreto ? 'text-grafite' : 'text-tinta'"
       @click="abrir"
     >
       <PhDotsThree
-        :size="24"
+        :size="discreto ? 20 : 24"
         weight="regular"
         aria-hidden="true"
       />

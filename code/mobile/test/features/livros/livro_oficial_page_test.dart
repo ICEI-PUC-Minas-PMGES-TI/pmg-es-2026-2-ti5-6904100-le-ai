@@ -8,9 +8,11 @@ import 'package:http/http.dart' as http;
 import 'package:le_ai_mobile/features/livros/livro_oficial_page.dart';
 
 import 'package:le_ai_mobile/features/estante/estante_service.dart';
+import 'package:le_ai_mobile/features/feed/social_service.dart';
 import 'package:le_ai_mobile/features/listas/rotas_listas.dart';
 
 import '../estante/apoio_estante.dart';
+import '../feed/apoio.dart' show socialSimulado;
 import '../listas/apoio_listas.dart' show listasSimulado, perfilSimulado;
 import '../progresso/apoio_progresso.dart';
 import 'apoio.dart';
@@ -71,6 +73,7 @@ void main() {
     Future<http.Response> Function(http.Request request)? leitura,
     EstanteService? estante,
     DependenciasDeListas? listas,
+    SocialService? social,
   }) async {
     usarTelaDeCelular(tester);
     pedidas = <Uri>[];
@@ -89,6 +92,7 @@ void main() {
           estante: estante,
           progresso: estante == null ? null : progressoEmMemoria(),
           listas: listas,
+          social: social,
           aoAbrirAutor: (id) => navegacoes.add('autor:$id'),
           aoAbrirEditora: (id) => navegacoes.add('editora:$id'),
           aoAbrirSerie: (id) => navegacoes.add('serie:$id'),
@@ -282,6 +286,40 @@ void main() {
     expect(find.text('O final revela tudo.'), findsOneWidget);
     expect(find.text('Rafael Bittencourt'), findsOneWidget);
     expect(find.text('3 de agosto de 2026'), findsOneWidget);
+  });
+
+  testWidgets('resenha de outra pessoa tem o menu com Denunciar resenha (F-MOD)', (tester) async {
+    final livro = json(
+      _livro(resenhas: _pagina(<Map<String, Object?>>[_resenha('r1', 'Letícia Nakamura', 'Conta *tudo*.')])),
+      200,
+    );
+    await montar(
+      tester,
+      (request) async => livro,
+      social: socialSimulado((_) async => json(<String, Object?>{}, 201)),
+    );
+    await tester.pumpAndSettle();
+
+    await tocar(tester, find.byTooltip('Mais ações da resenha'));
+    await tester.pumpAndSettle();
+    await tocar(tester, find.text('Denunciar resenha'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Resenha de Torto Arado'), findsOneWidget);
+    expect(find.text('Revisar denúncia'), findsOneWidget);
+  });
+
+  testWidgets('sem o serviço do social, a resenha fica sem o menu', (tester) async {
+    await montar(
+      tester,
+      (request) async => json(
+        _livro(resenhas: _pagina(<Map<String, Object?>>[_resenha('r1', 'Letícia', 'Texto')])),
+        200,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Mais ações da resenha'), findsNothing);
   });
 
   testWidgets('sem resenhas diz que é para você, não que o livro não tem', (tester) async {
