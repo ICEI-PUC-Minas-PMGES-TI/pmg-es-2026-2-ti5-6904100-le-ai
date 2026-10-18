@@ -106,12 +106,24 @@ public abstract class IntegracaoComPostgres {
   }
 
   protected static String token(UUID subject, Duration validade) throws JOSEException {
-    JWTClaimsSet claims =
+    return token(subject, validade, null);
+  }
+
+  /** Token com o claim `papel` (`leitor` ou `admin`), como o `identidade` emite (F-MOD). */
+  protected static String token(UUID subject, String papel) throws JOSEException {
+    return token(subject, Duration.ofMinutes(15), papel);
+  }
+
+  private static String token(UUID subject, Duration validade, String papel) throws JOSEException {
+    JWTClaimsSet.Builder construtor =
         new JWTClaimsSet.Builder()
             .subject(subject.toString())
             .issueTime(Date.from(Instant.now().minusSeconds(1)))
-            .expirationTime(Date.from(Instant.now().plus(validade)))
-            .build();
+            .expirationTime(Date.from(Instant.now().plus(validade)));
+    if (papel != null) {
+      construtor.claim("papel", papel);
+    }
+    JWTClaimsSet claims = construtor.build();
     SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), claims);
     jwt.sign(new MACSigner(JWT_SECRET_TESTE.getBytes(StandardCharsets.UTF_8)));
     return jwt.serialize();

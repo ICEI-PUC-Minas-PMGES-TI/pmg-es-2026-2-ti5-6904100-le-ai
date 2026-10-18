@@ -9,7 +9,7 @@ import {
 } from 'vue-router'
 
 import ShellAutenticado from '../layouts/ShellAutenticado.vue'
-import { getToken, useSession } from '../session'
+import { getToken, papelDoToken, useSession } from '../session'
 import AlterarSenhaView from '../views/auth/AlterarSenhaView.vue'
 import BuscarLeitorView from '../views/perfil/BuscarLeitorView.vue'
 import CadastroView from '../views/auth/CadastroView.vue'
@@ -42,11 +42,17 @@ import LivroPessoalView from '../views/livros/LivroPessoalView.vue'
 import ListaView from '../views/listas/ListaView.vue'
 import ListasDoLeitorView from '../views/listas/ListasDoLeitorView.vue'
 import PaginaDeCatalogoView from '../views/catalogo/PaginaDeCatalogoView.vue'
+import PainelModeracaoView from '../views/moderacao/PainelModeracaoView.vue'
 
 declare module 'vue-router' {
   interface RouteMeta {
     /** Exige sessão ativa; sem token, a guarda redireciona para /login preservando o destino. */
     requerSessao?: boolean
+    /**
+     * Só a conta de administrador (F-MOD): quem não é vai para /estante. Ocultar não é controle de
+     * acesso; o servidor devolve 403 de qualquer jeito.
+     */
+    requerAdmin?: boolean
     /** Com sessão ativa, a guarda redireciona para /estante em vez de renderizar a rota. */
     semSessao?: boolean
     /** Título mostrado no header do shell (CabecalhoTela). */
@@ -221,6 +227,13 @@ export const routes: RouteRecordRaw[] = [
         name: 'solicitacoes',
         component: SolicitacoesView,
         meta: { titulo: 'Solicitações', voltar: true, voltarComRotulo: 'Perfil', semDivisor: true },
+      },
+      // F-MOD: painel de moderação, só web e só para o administrador.
+      {
+        path: 'moderacao',
+        name: 'moderacao',
+        component: PainelModeracaoView,
+        meta: { titulo: 'Moderação', requerAdmin: true, semDivisor: true },
       },
       {
         path: 'perfil/estatisticas',
@@ -435,6 +448,9 @@ export const guardaDeSessao: NavigationGuard = (to) => {
     return { path: '/login', query: { destino: to.fullPath } }
   }
   if (to.meta.semSessao && autenticado) {
+    return { path: '/estante' }
+  }
+  if (to.meta.requerAdmin && papelDoToken(getToken()) !== 'admin') {
     return { path: '/estante' }
   }
   return true

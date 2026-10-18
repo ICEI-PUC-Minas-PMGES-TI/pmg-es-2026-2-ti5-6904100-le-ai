@@ -97,6 +97,11 @@ services:
       # secret LEITURA_SCHEDULER_TOKEN do GitHub. Sem ele o job responde 401.
       - key: SCHEDULER_TOKEN
         sync: false
+      # F-MOD: segredo do comando interno de remoção (/internal/moderacao/*), chamado
+      # só pelo leai-social. Mínimo de 32 caracteres; o MESMO valor vai no
+      # MODERACAO_TOKEN do leai-social. Sem ele, a remoção responde 503.
+      - key: MODERACAO_TOKEN
+        sync: false
 
   # ------------------------------------------------------------ identidade
   # Spring Boot (Java) — requer Dockerfile em code/back/identidade/Dockerfile.
@@ -200,6 +205,12 @@ services:
       # F-FEED/F-NOT: obrigatório (AppProperties exige @NotBlank, 32+ caracteres);
       # sem ele o serviço não sobe. MESMO valor do leai-identidade.
       - key: JWT_SECRET
+        sync: false
+      # F-MOD: comando interno de remoção de resenha e frase no leitura. A URL é
+      # pública; o token é o MESMO MODERACAO_TOKEN do leai-leitura.
+      - key: LEITURA_BASE_URL
+        value: https://leai-leitura.onrender.com
+      - key: MODERACAO_TOKEN
         sync: false
 
   # ------------------------------------------------------- site estático web

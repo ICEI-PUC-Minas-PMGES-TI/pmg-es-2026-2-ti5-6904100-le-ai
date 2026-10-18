@@ -8,6 +8,7 @@ import java.security.GeneralSecurityException;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -106,6 +107,22 @@ public class ServicoDeIdempotencia {
           gravarRecibo(sujeito, operacao, chave, payloadHash, resposta);
           return resposta;
         });
+  }
+
+  /**
+   * Só olha o recibo, sem lock e sem efeito: o replay, se a tripla já foi executada; vazio, se
+   * não. Mesma chave com outro payload, ou fora da janela, é 409, como em {@link #executar}.
+   *
+   * <p>Existe para a remoção pela moderação (F-MOD), que chama o {@code leitura} <b>fora</b> da
+   * transação do recibo (a partida a frio dele pode levar um minuto) e precisa saber, antes da
+   * chamada, se a requisição é uma repetição já respondida.
+   */
+  public <T> Optional<RespostaIdempotente<T>> consultar(
+      UUID sujeito, OperacaoIdempotente operacao, String chave, Object payload, Class<T> tipoDoCorpo) {
+    Recibo anterior = buscarRecibo(sujeito, operacao, chave);
+    return anterior == null
+        ? Optional.empty()
+        : Optional.of(replayOuConflito(anterior, hashDoPayload(payload), tipoDoCorpo));
   }
 
   /**

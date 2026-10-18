@@ -28,3 +28,4 @@ process.env.LOG_LEVEL = 'silent';
 process.env.AMQP_ENABLED = 'false';
 process.env.JWT_SECRET = 'segredo-de-integracao-com-mais-de-32-caracteres';
 process.env.SCHEDULER_TOKEN = 'token-do-agendador-de-integracao-com-32-chars';
+process.env.MODERACAO_TOKEN = 'token-da-moderacao-de-integracao-com-32-chars';

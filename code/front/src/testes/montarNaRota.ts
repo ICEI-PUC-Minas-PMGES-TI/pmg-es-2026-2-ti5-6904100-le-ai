@@ -4,6 +4,7 @@ import { createMemoryHistory, createRouter, createWebHistory } from 'vue-router'
 
 import { routes } from '../router'
 import { iniciarSessao } from '../session'
+import { tokenComPapel } from './tokens'
 
 /**
  * Monta a rota dentro do shell real, com o router de verdade, no molde de
@@ -17,14 +18,20 @@ const Host = { template: '<RouterView />' }
 
 export async function montarNaRota(
   caminho: string,
-  opcoes: { historico?: 'memoria' | 'navegador'; /** Toda media query casa: o layout da web larga. */ largo?: boolean } = {},
+  opcoes: {
+    historico?: 'memoria' | 'navegador'
+    /** Toda media query casa: o layout da web larga. */
+    largo?: boolean
+    /** Sessão com o papel de administrador no token (F-MOD). */
+    admin?: boolean
+  } = {},
 ) {
   vi.stubGlobal(
     'matchMedia',
     vi.fn().mockReturnValue({ matches: opcoes.largo === true, addEventListener: vi.fn(), removeEventListener: vi.fn() }),
   )
   iniciarSessao(
-    { accessToken: 'jwt', refreshToken: 'renovacao' },
+    { accessToken: opcoes.admin ? tokenComPapel('admin') : 'jwt', refreshToken: 'renovacao' },
     { id: 'u1', username: 'marinableu', displayName: 'Marina Beltrão' },
   )
   const history = opcoes.historico === 'navegador' ? createWebHistory() : createMemoryHistory()

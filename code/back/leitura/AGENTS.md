@@ -142,6 +142,16 @@ Módulos `src/estante/`, `src/leituras/` e `src/jobs/inatividade/`, com `src/ref
 - **Backfill:** `npm run backfill:estatisticas` (`node dist/estatisticas/backfill.js` no build), idempotente; rodar depois da migration 0006 em cada ambiente.
 - **Testes:** `src/estatisticas/dominio/estatisticas.spec.ts` e `test/integracao/estatisticas.int-spec.ts` (totais por ano e acumulado, abandonada, dia com vários progressos, sincronização tardia e fuso, dias por livro com abandono e releitura, exclusão de trecho, nota, backfill, RN-08, duplicata, retry e DLQ).
 
+## F-MOD — remoção pela moderação (18/10/2026, Renato)
+
+Plano em [`plano-F-MOD.md`](../../../docs/plano-de-desenvolvimento/periodo-2/renato-periodo-2/plano-F-MOD.md).
+
+- **Comando interno** `POST /internal/moderacao/resenhas/{id}/remocao` (`src/moderacao/`), chamado só pelo `social`, que grava a auditoria. `@Publico()` + `ModeracaoTokenGuard`: header `X-Moderacao-Token` contra `MODERACAO_TOKEN` (opcional no `env.ts`; sem ele, 503), em tempo constante como o `SchedulerTokenGuard`.
+- **Remoção:** `AvaliacoesRepository.excluirResenhaPorId` apaga sem filtro de dono e o serviço grava o mesmo `resenha.excluida` da exclusão pelo autor. Responde `{removida, autorId, livroId}`; `removida: false` quando já não existia.
+- **Idempotência:** sujeito fixo `SUJEITO_MODERACAO` (`...0002`, vizinho do `...0001` do agendador) e operação `removerResenhaPelaModeracao:<id>`. O `social` manda chave fixa por alvo, então a repetição depois de um timeout recebe o mesmo `removida: true`. Depois de 24 h o recibo vence e a mesma chave dá 409.
+- **`conta.excluida`** (consumidor do Henrique): anonimiza também os recibos da moderação cuja resposta cita a conta (`resposta->>'autorId'`).
+- **Log:** a lista do `redact` saiu para `src/common/redacao-do-log.ts` e ganhou `x-scheduler-token` e `x-moderacao-token`, que o `pino-http` logava junto com os cabeçalhos.
+
 ## Pontos de atenção (ver `REQUISITOS.md`) — prioridade de teste
 
 - **Máquina de estados da leitura (RN-04)** — Quero ler / Lendo / Lido / Relendo / Abandonado, releitura, retomada. **Teste obrigatório e prioritário** (RNF-TST-01).

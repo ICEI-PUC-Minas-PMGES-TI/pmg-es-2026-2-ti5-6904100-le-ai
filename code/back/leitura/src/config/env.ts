@@ -41,6 +41,10 @@ export const envSchema = z
 
     SCHEDULER_TOKEN: z.string().min(32).optional(),
 
+    // F-MOD: segredo do comando interno `social` -> `leitura` que remove resenha e frase pela
+    // moderação. Opcional: sem ele, as rotas internas respondem 503 e o resto do serviço sobe.
+    MODERACAO_TOKEN: z.string().min(32).optional(),
+
     ADMIN_EMAIL: z.string().optional(),
     ADMIN_PASSWORD: z.string().optional(),
   })
