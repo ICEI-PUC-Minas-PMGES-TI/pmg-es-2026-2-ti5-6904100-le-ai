@@ -172,3 +172,34 @@ String textoConcluido(String dataPorExtenso, int conclusoes) =>
     'Concluído em $dataPorExtenso · $conclusoes ${conclusoes == 1 ? 'conclusão' : 'conclusões'}';
 
 String textoPaginaDe(int pagina, int total) => 'Página $pagina de $total';
+
+abstract final class TextosDoFavorito {
+  static const String favoritar = 'Favoritar';
+  static const String remover = 'Remover dos favoritos';
+  static const String marca = 'Favorito';
+  static const String erro =
+      'Não foi possível atualizar seus favoritos. Verifique sua conexão e tente de novo.';
+}
+
+abstract final class TextosDoFiltroFavoritos {
+  static const String rotulo = 'Favoritos';
+  static const String foraDaEstante = 'Fora da estante';
+  static const String vazioTitulo = 'Nenhum livro favorito';
+  static const String vazioTexto =
+      'Marque um livro como favorito na página dele ou nas ações de leitura.';
+  static const String vazioBotao = 'Ver livros lidos';
+}
+
+abstract final class TextosDaBuscaNaEstante {
+  static const String placeholder = 'Buscar na minha estante';
+  static const String sair = 'Sair da busca';
+  static const String limpar = 'Limpar busca';
+  static const String vazioTitulo = 'Nada na sua estante com esse nome';
+  static const String vazioTexto = 'Esta busca olha só os livros que você já adicionou.';
+  static const String vazioBotao = 'Buscar no acervo';
+}
+
+const String rotuloHistorico = 'Histórico de leituras';
+
+String textoEncontradosNaEstante(int total) =>
+    '$total ${total == 1 ? 'livro encontrado' : 'livros encontrados'} na sua estante';

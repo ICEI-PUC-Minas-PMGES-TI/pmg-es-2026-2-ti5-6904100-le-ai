@@ -21,10 +21,10 @@ RNF atendidos: **RNF-SEC-02** (propriedade da leitura e do progresso no servidor
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | não iniciado | tabela `favorito`; consultas pesquisáveis de estante e histórico sobre os dados já existentes |
-| Backend | não iniciado | `leitura`: favoritos; histórico próprio por ocorrência; consulta somente leitura do progresso finalizado |
-| Web | não iniciado | favorito; histórico pesquisável com ocorrências; progresso histórico somente leitura; busca na estante |
-| Mobile | não iniciado | mesmas telas |
+| Infra | implementado | sem migration: a tabela `favorito` já existia desde a baseline DER (migration `0001`), com único `(usuario_id, livro_id)` e limpeza em F-CONTA-2; a busca usa `ILIKE` sobre `v_livro_referencia_v1` |
+| Backend | implementado | `src/favoritos/` e `src/historico/` em `leitura`, `q`/`favorito`/`totalFavoritos` na estante; o progresso finalizado já era somente leitura e ganhou teste |
+| Web | implementado | favorito (página do livro, ações, marca no card, pill `Favoritos`), busca no header da estante, `/estante/historico` e modo histórico do progresso |
+| Mobile | implementado | mesmas telas; lupa e relógio no header da aba Estante, histórico em `/estante/historico` |
 
 ## Especificação
 
@@ -51,11 +51,11 @@ Favoritos e histórico permanecem recursos do próprio usuário neste escopo; a 
 
 ## Critérios de aceite
 
-- [ ] Favoritar/desfavoritar funciona, é **owner-only** (SEC-02) e **idempotente** (RNF-ERR-04); o servidor **recusa favoritar livro pessoal de outro** (SEC-07, RN-15).
-- [ ] O histórico agrupa por ano somente leituras **finalizadas** (RN-04.4) — releitura finalizada conta, incompleta/abandonada não —, paginado (RNF-DES-02).
-- [ ] A pesquisa por título ou autor percorre todos os anos por padrão, combina com o filtro de ano e devolve todas as ocorrências finalizadas do livro, inclusive duas ou mais no mesmo ano.
-- [ ] Selecionar uma ocorrência abre suas atualizações de progresso; leitura finalizada é somente leitura, sem registrar/excluir, e acesso com `leituraId` de terceiro é negado (SEC-02).
-- [ ] Favoritar livro fora da estante não cria vínculo/status de leitura; a relação permanece independente.
+- [x] Favoritar/desfavoritar funciona, é **owner-only** (SEC-02) e **idempotente** (RNF-ERR-04); o servidor **recusa favoritar livro pessoal de outro** (SEC-07, RN-15).
+- [x] O histórico agrupa por ano somente leituras **finalizadas** (RN-04.4) — releitura finalizada conta, incompleta/abandonada não —, paginado (RNF-DES-02).
+- [x] A pesquisa por título ou autor percorre todos os anos por padrão, combina com o filtro de ano e devolve todas as ocorrências finalizadas do livro, inclusive duas ou mais no mesmo ano.
+- [x] Selecionar uma ocorrência abre suas atualizações de progresso; leitura finalizada é somente leitura, sem registrar/excluir, e acesso com `leituraId` de terceiro é negado (SEC-02).
+- [x] Favoritar livro fora da estante não cria vínculo/status de leitura; a relação permanece independente.
 - [ ] Favoritos e histórico funcionam **em DES**.
 
 ## Definition of Done
@@ -64,16 +64,30 @@ Favoritos e histórico permanecem recursos do próprio usuário neste escopo; a 
 
 - [ ] Código (backend `leitura`, web, mobile) mergeado em `desenvolvimento`
 - [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
-- [ ] Testes unitários e de integração com banco real/container: favorito; histórico próprio contando só finalizadas; duas conclusões do mesmo livro/ano; pesquisa por título/autor com e sem ano; progresso finalizado somente leitura; negação de leitura/progresso de terceiro (RNF-TST-02)
-- [ ] Testes web/mobile cobrem favorito, histórico paginado, pesquisa, seleção de ocorrência, modo histórico sem ações e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
-- [ ] **Spec OpenAPI de `leitura` atualizado em `docs/api/leitura.yaml`** com favorito, parâmetros do histórico, ocorrência retornada e consulta de progresso finalizado
+- [x] Testes unitários e de integração com banco real/container: favorito; histórico próprio contando só finalizadas; duas conclusões do mesmo livro/ano; pesquisa por título/autor com e sem ano; progresso finalizado somente leitura; negação de leitura/progresso de terceiro (RNF-TST-02)
+- [x] Testes web/mobile cobrem favorito, histórico paginado, pesquisa, seleção de ocorrência, modo histórico sem ações e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
+- [x] **Spec OpenAPI de `leitura` atualizado em `docs/api/leitura.yaml`** com favorito, parâmetros do histórico, ocorrência retornada e consulta de progresso finalizado
 - [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
-- [ ] Arquivo da feature atualizado: status, pendências, timeline
-- [ ] Divergência protótipo × implementação registrada, se houver
+- [x] Arquivo da feature atualizado: status, pendências, timeline
+- [x] Divergência protótipo × implementação registrada, se houver
 
 **Item próprio:** garantir que favorito independente não altere silenciosamente a máquina de estados da estante.
 
 ## Pendências
+
+- **Contrato fechado pela dona em 16/10/2026** (resolve o "conflito de contrato a decidir" do item Telas abaixo):
+  - `GET /me/favoritos?q=&page=&limite=` lista os favoritos dentro e fora da estante (`status` nulo = fora). `GET /estante` traz `favorito` por item e `totalFavoritos` só na estante do próprio leitor; a estante de perfil não revela favoritos.
+  - `GET /livros/{id}/favorito` (`favorito`, `favoritadoEm`) para a página do livro saber o estado mesmo com o livro fora da estante, onde `GET /estante/{id}` é 404.
+  - `GET /me/historico` devolve, além das ocorrências paginadas, `anos: [{ano, total}]` (todo o histórico, ignora `ano` e `q`) e `totais: {livros, leituras}` do filtro atual. O tipo e as datas da ocorrência no modo histórico vêm de `GET /leituras/{id}`, que a tela de progresso já consultava; `GET /leituras/{id}/progresso` não mudou.
+  - Livro pessoal de outra pessoa ao favoritar é **403**, como em `adicionarLivroEstante` (F-EST), e não 404 como em F-AVA.
+- **Busca sem acento (pendente):** a busca da estante, dos favoritos e do histórico usa `ILIKE` (ignora maiúsculas, não acentos). Ignorar acentos exige `unaccent` no schema `leitura` e no fixture de teste; fica para decisão do grupo.
+- **Divergências protótipo × implementação (16/10/2026):**
+  - Duração conta os dois dias (`dataFim − dataInicio + 1`), como em F-STA; o protótipo do histórico mostra `14 dias` de 02 a 16 de novembro, a implementação mostra `15 dias`.
+  - No filtro `Favoritos` a ordenação some: a lista vem por "favoritado em", do mais recente. O card de favorito mostra status ou `Fora da estante`, sem barra de progresso.
+  - Mobile: a busca troca o header da aba pelo campo, como no protótipo, mas o histórico não tem cabeçalho de ano preso ao topo ao rolar.
+  - Web: abaixo de 768px a busca abre uma linha logo abaixo do header, sem substituir o header; o histórico mostra a tabela como grade de colunas, sem `<table>`.
+  - Na pesquisa do histórico, `N leituras concluídas` de cada livro conta as ocorrências já carregadas na página.
+- **E2E local pendente:** o percurso manual web/mobile depende de os `.env` locais de `leitura` e `identidade` apontarem para o projeto dev (estavam no DES em 16/10/2026).
 
 - **Telas (design P2):** [`historico-de-leituras.md`](../../design/periodo-2/F-EST-2/historico-de-leituras.md) escrito em 27/09/2026, [protótipo](../../design/periodo-2/F-EST-2/prototipos/historico-de-leituras.html) exportado em 28/09/2026. Entrada pela Estante e favorito entram na edição consolidada de `docs/design/periodo-2/estante/`; favoritar na página do livro já está na edição consolidada [`pagina-do-livro.md`](../../design/periodo-2/pagina-do-livro/pagina-do-livro.md) ([protótipo](../../design/periodo-2/pagina-do-livro/prototipos/pagina-do-livro.html)) (prompt de 28/09/2026: botão quadrado `Heart` na barra de ação, ao lado de `Alterar status` ou `Iniciar leitura`) e em ações de leitura fica em `docs/design/periodo-2/acoes-de-leitura/`; o modo histórico em `docs/design/periodo-2/atualizacoes-de-progresso/` (lotes futuros). **Conflito de contrato a decidir:** o protótipo lista os anos com conclusão e a contagem por ano (`2026 · 4 leituras`) nas pills do mobile e na coluna da web, e `GET /me/historico` não devolve isso. Lotes 6 e 7, prompts escritos em 29/09/2026; protótipos exportados em 29/09/2026: [`estante.md`](../../design/periodo-2/estante/estante.md) ([protótipo](../../design/periodo-2/estante/prototipos/estante.html)) (pill `Favoritos` depois de divisor, `Heart` na capa, entrada do histórico), [`acoes-de-leitura.md`](../../design/periodo-2/acoes-de-leitura/acoes-de-leitura.md) ([protótipo](../../design/periodo-2/acoes-de-leitura/prototipos/acoes-de-leitura.html)) (favoritar em grupo próprio) e [`atualizacoes-de-progresso.md`](../../design/periodo-2/atualizacoes-de-progresso/atualizacoes-de-progresso.md) ([protótipo](../../design/periodo-2/atualizacoes-de-progresso/prototipos/atualizacoes-de-progresso.html)) (modo histórico somente leitura). **Contrato pendente:** indicador `favorito` em `GET /estante`, listagem de favoritos que inclua livro fora da estante e contagem do pill; tipo da ocorrência e datas da leitura não vêm de `GET /leituras/{id}/progresso`.
 - **Depende de** [F-EST](../periodo-1/feature-F-EST.md) (estante, máquina de estados e favorito adiado), [F-PRG](../periodo-1/feature-F-PRG.md) (modelo, endpoint e tela de atualizações), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md).
@@ -83,6 +97,8 @@ Favoritos e histórico permanecem recursos do próprio usuário neste escopo; a 
 - ~~**Prompts de tela a criar em `docs/design/periodo-2/F-EST-2/`:** `historico-de-leituras.md` e `atualizacoes-de-progresso.md` como edição~~ — desde 27/09/2026 as edições de telas já entregues são **consolidadas por tela** em `docs/design/periodo-2/<tela>/`; o histórico é tela nova e ficou em `F-EST-2/` (ver o item Telas acima).
 
 ## Timeline
+
+### Implementação 16/10/2026: backend (`src/favoritos/`, `src/historico/`, `q` e favorito na estante, OpenAPI), web e mobile na branch `feat/f-est-2-favoritos-historico`, a partir da `desenvolvimento`. Sem migration e sem evento novo. Decisões de contrato e divergências registradas em Pendências. Testes: integração do `leitura` (favoritos, busca, histórico, progresso finalizado), Vitest e `flutter test` no mínimo combinado com a dona.
 
 ### Revisão 01/09/2026: RF-EST-10 ampliado pelo grupo. O histórico passou a pesquisar título/autor em todos os anos, preservar uma ocorrência por conclusão e abrir as atualizações da ocorrência selecionada em modo somente leitura. Fechada a decisão anterior sobre múltiplas conclusões no mesmo ano: todas aparecem separadamente. A ampliação reutiliza `leitura` e `atualizacao_progresso`, sem tabela ou evento novo.
 

@@ -67,6 +67,12 @@ const carregandoTela = computed(() => lista.carregando.value && resumo.value ===
 const falhou = computed(() => lista.falhou.value && resumo.value === null)
 const idDoUltimo = computed(() => lista.itens.value.find((item) => ehUltimo(lista.itens.value, item.id))?.id ?? null)
 const podeRegistrar = computed(() => resumo.value !== null && !somenteLeitura.value)
+const conclusao = computed(() => {
+  const atual = leitura.value
+  return atual?.dataFim && !atual.incompleta
+    ? { releitura: atual.releitura, dataInicio: atual.dataInicio, dataFim: atual.dataFim }
+    : null
+})
 
 const registroAberto = ref(false)
 
@@ -213,6 +219,7 @@ onMounted(() => {
           :resumo="resumo"
           :data-inicio="leitura?.dataInicio ?? null"
           :registros="lista.total.value"
+          :conclusao="conclusao"
         />
       </aside>
 
@@ -240,12 +247,12 @@ onMounted(() => {
           v-if="lista.itens.value.length === 0"
           :icone="PhClock"
           solto
-          :titulo="TEXTOS_DAS_ATUALIZACOES.vazioTitulo"
+          :titulo="conclusao ? TEXTOS_DAS_ATUALIZACOES.vazioConcluidaTitulo : TEXTOS_DAS_ATUALIZACOES.vazioTitulo"
           class="py-space-8"
           data-vazio
         >
           <p class="mt-space-4 max-w-[280px] text-body text-grafite">
-            {{ TEXTOS_DAS_ATUALIZACOES.vazioTexto }}
+            {{ conclusao ? TEXTOS_DAS_ATUALIZACOES.vazioConcluidaTexto : TEXTOS_DAS_ATUALIZACOES.vazioTexto }}
           </p>
           <BotaoPrimario
             v-if="!somenteLeitura"

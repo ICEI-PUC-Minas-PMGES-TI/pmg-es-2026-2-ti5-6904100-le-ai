@@ -128,6 +128,7 @@ export interface ItemEstante {
   totalPaginas?: number | null
   percentualConcluido?: number | null
   adicionadoEm: string
+  favorito?: boolean
 }
 
 export interface Paginacao {
@@ -143,6 +144,49 @@ export interface PaginaEstante {
   itens: ItemEstante[]
   paginacao: Paginacao
   totaisPorStatus: TotaisEstante
+  totalFavoritos?: number
+}
+
+export interface Favorito {
+  livroId: string
+  favorito: boolean
+  favoritadoEm: string | null
+}
+
+export interface ItemFavorito {
+  livro: LivroDaResenha
+  status: StatusEstante | null
+  favoritadoEm: string
+}
+
+export interface PaginaFavoritos {
+  itens: ItemFavorito[]
+  paginacao: Paginacao
+}
+
+export interface OcorrenciaHistorico {
+  leituraId: string
+  livro: LivroDaResenha
+  dataInicio: string
+  dataFim: string
+  releitura: boolean
+  duracaoDias: number
+  paginaFinal: number
+  totalPaginas: number | null
+}
+
+export interface PaginaHistorico {
+  itens: OcorrenciaHistorico[]
+  paginacao: Paginacao
+  anos: { ano: number; total: number }[]
+  totais: { livros: number; leituras: number }
+}
+
+export interface FiltroHistorico {
+  ano?: number
+  q?: string
+  page?: number
+  limite?: number
 }
 
 export interface Leitura {
@@ -171,6 +215,7 @@ export interface ConclusoesLivro {
 
 export interface FiltroEstante {
   status?: StatusEstante
+  q?: string
   ordenacao?: OrdenacaoEstante
   page?: number
   limite?: number
@@ -290,7 +335,15 @@ const NAO_ENCONTRADO = 404
 export function consultaDaEstante(filtro: FiltroEstante = {}): string {
   const parametros = new URLSearchParams()
   if (filtro.status) parametros.set('status', filtro.status)
+  if (filtro.q) parametros.set('q', filtro.q)
   if (filtro.ordenacao) parametros.set('ordenacao', filtro.ordenacao)
+  return comPaginacao(parametros, filtro)
+}
+
+export function consultaDoHistorico(filtro: FiltroHistorico = {}): string {
+  const parametros = new URLSearchParams()
+  if (filtro.ano !== undefined) parametros.set('ano', String(filtro.ano))
+  if (filtro.q) parametros.set('q', filtro.q)
   return comPaginacao(parametros, filtro)
 }
 
@@ -396,6 +449,28 @@ export function createLeituraService(options: ApiClientOptions = {}) {
   }
 
   const caminhoDoLivro = (livroId: string) => `/livros/${encodeURIComponent(livroId)}`
+
+  function consultarFavorito(livroId: string): Promise<Favorito> {
+    return request<Favorito>(`${caminhoDoLivro(livroId)}/favorito`)
+  }
+
+  function marcarFavorito(livroId: string, chave: string): Promise<Favorito> {
+    return request<Favorito>(`${caminhoDoLivro(livroId)}/favorito`, { method: 'PUT', idempotencyKey: chave })
+  }
+
+  async function desmarcarFavorito(livroId: string, chave: string): Promise<void> {
+    await request<void>(`${caminhoDoLivro(livroId)}/favorito`, { method: 'DELETE', idempotencyKey: chave })
+  }
+
+  function listarFavoritos(filtro: Pick<FiltroEstante, 'q' | 'page' | 'limite'> = {}): Promise<PaginaFavoritos> {
+    const parametros = new URLSearchParams()
+    if (filtro.q) parametros.set('q', filtro.q)
+    return request<PaginaFavoritos>(`/me/favoritos${comPaginacao(parametros, filtro)}`)
+  }
+
+  function listarHistorico(filtro?: FiltroHistorico): Promise<PaginaHistorico> {
+    return request<PaginaHistorico>(`/me/historico${consultaDoHistorico(filtro)}`)
+  }
 
   function obterMinhaAvaliacao(livroId: string): Promise<MinhaAvaliacao> {
     return request<MinhaAvaliacao>(`${caminhoDoLivro(livroId)}/minha-avaliacao`)
@@ -522,6 +597,11 @@ export function createLeituraService(options: ApiClientOptions = {}) {
     retomarLeitura,
     detalharLeitura,
     consultarConclusoes,
+    consultarFavorito,
+    marcarFavorito,
+    desmarcarFavorito,
+    listarFavoritos,
+    listarHistorico,
     registrarProgresso,
     listarProgresso,
     excluirTrechoProgresso,

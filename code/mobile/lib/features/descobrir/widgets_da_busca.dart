@@ -14,14 +14,20 @@ import 'agrupar_edicoes.dart';
 /// e o placeholder descreve o escopo da busca.
 class CampoDeBuscaDeLivros extends StatelessWidget {
   final TextEditingController controlador;
-  final ValueChanged<String> aoMudar;
+  final ValueChanged<String>? aoMudar;
+  final ValueChanged<String>? aoConfirmar;
   final VoidCallback aoLimpar;
+  final String dica;
+  final bool autofoco;
 
   const CampoDeBuscaDeLivros({
     super.key,
     required this.controlador,
-    required this.aoMudar,
+    this.aoMudar,
+    this.aoConfirmar,
     required this.aoLimpar,
+    this.dica = 'Título, autor, editora ou ISBN',
+    this.autofoco = false,
   });
 
   @override
@@ -30,11 +36,13 @@ class CampoDeBuscaDeLivros extends StatelessWidget {
     return TextField(
       controller: controlador,
       onChanged: aoMudar,
+      onSubmitted: aoConfirmar,
+      autofocus: autofoco,
       autocorrect: false,
       textInputAction: TextInputAction.search,
       style: theme.textTheme.bodyMedium,
       decoration: InputDecoration(
-        hintText: 'Título, autor, editora ou ISBN',
+        hintText: dica,
         prefixIcon: Icon(PhosphorIconsRegular.magnifyingGlass, size: 20, color: theme.tertiaryText),
         suffixIcon: ValueListenableBuilder<TextEditingValue>(
           valueListenable: controlador,

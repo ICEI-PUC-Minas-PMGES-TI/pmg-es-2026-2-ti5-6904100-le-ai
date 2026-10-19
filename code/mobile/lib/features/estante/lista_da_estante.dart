@@ -8,6 +8,7 @@ const int _naoEncontrado = 404;
 
 class ListaDaEstante extends ListaPaginada<ItemEstante> {
   Map<StatusEstante, int>? totais;
+  int? totalFavoritos;
   bool restrita = false;
   bool indisponivel = false;
 
@@ -21,6 +22,7 @@ class ListaDaEstante extends ListaPaginada<ItemEstante> {
         final resposta = await listar(pagina + 1);
         lista
           ..totais = resposta.totaisPorStatus
+          ..totalFavoritos = resposta.totalFavoritos
           ..restrita = false
           ..indisponivel = false;
         return Pagina<ItemEstante>(

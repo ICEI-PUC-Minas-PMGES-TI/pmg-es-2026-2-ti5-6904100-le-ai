@@ -544,6 +544,9 @@ void main() {
     ) async {
       var chamadas = 0;
       final estante = estanteSimulada((request) async {
+        if (request.url.path.endsWith('/favorito')) {
+          return json(<String, Object?>{'livroId': _id, 'favorito': false, 'favoritadoEm': null}, 200);
+        }
         chamadas++;
         return chamadas <= 3
             ? erro(503, 'INDISPONIVEL', 'Fora do ar.')

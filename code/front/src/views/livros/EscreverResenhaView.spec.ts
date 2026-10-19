@@ -23,6 +23,7 @@ vi.mock('../../services/leitura', () => ({
     excluirNota: vi.fn(),
     salvarResenha: vi.fn(),
     excluirResenha: vi.fn(),
+    consultarFavorito: vi.fn().mockResolvedValue({ livroId: 'livro-1', favorito: false, favoritadoEm: null }),
   },
 }))
 

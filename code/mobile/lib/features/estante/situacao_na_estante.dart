@@ -8,9 +8,11 @@ import '../../design/widgets/banner_aviso.dart';
 import '../../design/widgets/botao_primario.dart';
 import '../../design/widgets/botao_textual.dart';
 import '../../design/widgets/cartao_progresso.dart';
+import '../../design/widgets/coracao_animado.dart';
 import '../progresso/rotas_progresso.dart';
 import 'acoes_leitura.dart';
 import 'cartao_estante.dart';
+import 'controlador_favorito.dart';
 import 'estante_service.dart';
 import 'textos.dart';
 
@@ -43,6 +45,7 @@ class _SituacaoNaEstanteState extends State<SituacaoNaEstante> {
   ItemEstante? _item;
   bool _abrindoProgresso = false;
   String? _erroDoProgresso;
+  late final ControladorFavorito _favorito = ControladorFavorito(widget.servico, widget.livroId);
 
   late final RecargaEmSequencia _recarga = RecargaEmSequencia(() async {
     if (mounted) {
@@ -53,6 +56,7 @@ class _SituacaoNaEstanteState extends State<SituacaoNaEstante> {
   @override
   void initState() {
     super.initState();
+    _favorito.addListener(_aoMudarFavorito);
     _carregar();
     // A página do livro fica viva por baixo das atualizações e na aba de origem: o que muda a
     // estante em outra tela chega por estes avisos, e as ações feitas aqui também.
@@ -64,13 +68,21 @@ class _SituacaoNaEstanteState extends State<SituacaoNaEstante> {
   void dispose() {
     widget.servico.alteracoes.removeListener(_aoAlterar);
     widget.progresso?.servico.alteracoes.removeListener(_aoAlterar);
+    _favorito
+      ..removeListener(_aoMudarFavorito)
+      ..dispose();
     super.dispose();
   }
 
   void _aoAlterar() => _recarga.pedir();
 
+  void _aoMudarFavorito() => setState(() {});
+
   Future<void> _carregar() async {
     setState(() => _carga = _Carga.carregando);
+    if (!_favorito.salvando) {
+      _favorito.carregar();
+    }
     try {
       final item = await widget.servico.itemDaEstante(widget.livroId);
       if (mounted) {
@@ -98,6 +110,7 @@ class _SituacaoNaEstanteState extends State<SituacaoNaEstante> {
         livro: widget.livro,
         status: item?.status,
         leituraId: item?.leituraParaAcoes,
+        favorito: _favorito.favorito,
       ),
       aoRegistrarProgresso: progresso == null
           ? null
@@ -217,7 +230,31 @@ class _SituacaoNaEstanteState extends State<SituacaoNaEstante> {
             carregando: _abrindoProgresso,
             onPressed: () => _registrarProgressoDaLeituraAberta(progresso, leituraAberta),
           ),
-        if (item != null) BotaoTextual(texto: AcoesDeLeitura.abrir, onPressed: _abrirAcoes),
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: item == null
+                  ? const SizedBox.shrink()
+                  : BotaoTextual(texto: AcoesDeLeitura.abrir, onPressed: _abrirAcoes),
+            ),
+            if (_favorito.favorito != null) ...<Widget>[
+              const SizedBox(width: DesignTokens.space3),
+              _BotaoDeFavorito(
+                favorito: _favorito.favorito!,
+                habilitado: !_favorito.salvando,
+                aoTocar: _favorito.alternar,
+              ),
+            ],
+          ],
+        ),
+        if (_favorito.falhou)
+          Semantics(
+            liveRegion: true,
+            child: Text(
+              TextosDoFavorito.erro,
+              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error),
+            ),
+          ),
       ],
     );
   }
@@ -233,6 +270,48 @@ class _SituacaoNaEstanteState extends State<SituacaoNaEstante> {
       percentual: percentual,
       rotulo: rotulo,
       semantica: 'Progresso de ${widget.livro.titulo}',
+    );
+  }
+}
+
+class _BotaoDeFavorito extends StatelessWidget {
+  static const double _lado = 48;
+
+  final bool favorito;
+  final bool habilitado;
+  final VoidCallback aoTocar;
+
+  const _BotaoDeFavorito({required this.favorito, required this.habilitado, required this.aoTocar});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Semantics(
+      button: true,
+      toggled: favorito,
+      label: favorito ? TextosDoFavorito.remover : TextosDoFavorito.favoritar,
+      excludeSemantics: true,
+      onTap: habilitado ? aoTocar : null,
+      child: InkWell(
+        onTap: habilitado ? aoTocar : null,
+        splashFactory: NoSplash.splashFactory,
+        borderRadius: BorderRadius.circular(DesignTokens.radius),
+        child: Container(
+          width: _lado,
+          height: _lado,
+          decoration: BoxDecoration(
+            border: Border.all(color: theme.divider),
+            borderRadius: BorderRadius.circular(DesignTokens.radius),
+          ),
+          child: Center(
+            child: CoracaoAnimado(
+              ativo: favorito,
+              tamanho: 20,
+              corInativa: theme.colorScheme.onSurface,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
