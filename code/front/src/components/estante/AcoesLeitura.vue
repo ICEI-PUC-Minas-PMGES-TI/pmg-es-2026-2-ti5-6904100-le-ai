@@ -5,7 +5,6 @@ import {
   PhBookOpen,
   PhCaretRight,
   PhCheckCircle,
-  PhHeart,
   PhPauseCircle,
   PhPlay,
   PhPlusCircle,
@@ -39,6 +38,7 @@ import type { LivroDaEstante } from '../../services/leitura'
 import CapaLivro from '../livros/CapaLivro.vue'
 import BannerAviso from '../ui/BannerAviso.vue'
 import BotaoTextual from '../ui/BotaoTextual.vue'
+import CoracaoAnimado from '../ui/CoracaoAnimado.vue'
 import DialogoConfirmacao from '../ui/DialogoConfirmacao.vue'
 import SobreposicaoModal from '../ui/SobreposicaoModal.vue'
 import FormularioDataLeitura from './FormularioDataLeitura.vue'
@@ -365,12 +365,11 @@ async function salvar(id: IdAcao, data?: string): Promise<void> {
             data-favoritar
             @click="alternarFavorito"
           >
-            <PhHeart
-              :size="24"
-              :weight="estadoDoFavorito.favorito.value ? 'fill' : 'regular'"
+            <CoracaoAnimado
+              :ativo="estadoDoFavorito.favorito.value"
+              :tamanho="24"
               :class="estadoDoFavorito.favorito.value ? 'text-musgo' : ''"
               class="transition-colors duration-dur-fast motion-reduce:transition-none"
-              aria-hidden="true"
             />
             <span class="flex-1">{{ estadoDoFavorito.favorito.value ? TEXTOS_DO_FAVORITO.remover : TEXTOS_DO_FAVORITO.favoritar }}</span>
           </button>

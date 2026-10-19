@@ -10,6 +10,7 @@ import '../../design/widgets/botao_textual.dart';
 import '../../design/widgets/campo_texto.dart';
 import '../../design/widgets/capa_livro.dart';
 import '../../design/widgets/cartao_progresso.dart';
+import '../../design/widgets/coracao_animado.dart';
 import '../../design/widgets/dialogo_confirmacao.dart';
 import '../../design/widgets/folha_inferior.dart';
 import 'acao_leitura_controller.dart';
@@ -513,10 +514,10 @@ class _LinhaDeFavorito extends StatelessWidget {
               height: _alturaDaAcao,
               child: Row(
                 children: <Widget>[
-                  Icon(
-                    favorito ? PhosphorIconsFill.heart : PhosphorIconsRegular.heart,
-                    size: 24,
-                    color: favorito ? theme.primaryAccent : theme.colorScheme.onSurface,
+                  CoracaoAnimado(
+                    ativo: favorito,
+                    tamanho: 24,
+                    corInativa: theme.colorScheme.onSurface,
                   ),
                   const SizedBox(width: DesignTokens.space4),
                   Expanded(

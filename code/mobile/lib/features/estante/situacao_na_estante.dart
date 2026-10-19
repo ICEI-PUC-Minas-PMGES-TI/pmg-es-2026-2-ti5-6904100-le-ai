@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:phosphor_icons/phosphor_icons.dart';
 
 import '../../core/network/api_client.dart';
 import '../../core/network/recarga_em_sequencia.dart';
@@ -9,6 +8,7 @@ import '../../design/widgets/banner_aviso.dart';
 import '../../design/widgets/botao_primario.dart';
 import '../../design/widgets/botao_textual.dart';
 import '../../design/widgets/cartao_progresso.dart';
+import '../../design/widgets/coracao_animado.dart';
 import '../progresso/rotas_progresso.dart';
 import 'acoes_leitura.dart';
 import 'cartao_estante.dart';
@@ -295,10 +295,12 @@ class _BotaoDeFavorito extends StatelessWidget {
             border: Border.all(color: theme.divider),
             borderRadius: BorderRadius.circular(DesignTokens.radius),
           ),
-          child: Icon(
-            favorito ? PhosphorIconsFill.heart : PhosphorIconsRegular.heart,
-            size: 20,
-            color: favorito ? theme.primaryAccent : theme.colorScheme.onSurface,
+          child: Center(
+            child: CoracaoAnimado(
+              ativo: favorito,
+              tamanho: 20,
+              corInativa: theme.colorScheme.onSurface,
+            ),
           ),
         ),
       ),

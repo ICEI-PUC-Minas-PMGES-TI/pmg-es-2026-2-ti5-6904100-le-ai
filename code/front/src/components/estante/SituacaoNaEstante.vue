@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { PhHeart } from '@phosphor-icons/vue'
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import RegistrarProgresso from '../progresso/RegistrarProgresso.vue'
 import BannerAviso from '../ui/BannerAviso.vue'
 import BotaoTextual from '../ui/BotaoTextual.vue'
+import CoracaoAnimado from '../ui/CoracaoAnimado.vue'
 import AcoesLeitura from './AcoesLeitura.vue'
 import StatusPill from './StatusPill.vue'
 import {
@@ -188,11 +188,10 @@ watch(
           data-favoritar
           @click="favorito.alternar(livroId)"
         >
-          <PhHeart
-            :size="20"
-            :weight="favorito.favorito.value ? 'fill' : 'regular'"
+          <CoracaoAnimado
+            :ativo="favorito.favorito.value"
+            :tamanho="20"
             :class="favorito.favorito.value ? 'text-musgo' : ''"
-            aria-hidden="true"
           />
         </button>
       </div>

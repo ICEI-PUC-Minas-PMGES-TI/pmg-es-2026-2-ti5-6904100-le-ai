@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { PhBookmarkSimple, PhChatCircle, PhEyeSlash, PhHeart } from '@phosphor-icons/vue'
-import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
+import { PhBookmarkSimple, PhChatCircle, PhEyeSlash } from '@phosphor-icons/vue'
+import { computed, nextTick, ref, useTemplateRef } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
 import { RouterLink } from 'vue-router'
 
@@ -12,6 +12,7 @@ import type { Atividade } from '../../services/social'
 import CapaLivro from '../livros/CapaLivro.vue'
 import EstrelasNota from '../livros/EstrelasNota.vue'
 import BotaoTextual from '../ui/BotaoTextual.vue'
+import CoracaoAnimado from '../ui/CoracaoAnimado.vue'
 
 const props = defineProps<{
   atividade: Atividade
@@ -58,10 +59,6 @@ function alternarCurtida(): void {
 const CLASSE_BOTAO_DE_ACAO =
   'relative flex h-8 cursor-pointer items-center gap-space-1 rounded-full border border-linha px-space-3 text-caption transition-colors duration-dur-fast after:absolute after:inset-x-0 after:-inset-y-2 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 md:h-9 md:after:hidden md:hover:bg-musgo-fundo'
 
-const TOTAL_DE_PARTICULAS = 6
-const ANGULOS_DAS_PARTICULAS = Array.from({ length: TOTAL_DE_PARTICULAS }, (_, i) => (360 / TOTAL_DE_PARTICULAS) * i)
-
-const celebrando = ref(false)
 
 /**
  * Resenha com spoiler (RF-AVA-03): o texto **não está no DOM** até "Mostrar mesmo assim", como
@@ -82,15 +79,6 @@ async function revelarSpoiler(): Promise<void> {
   await nextTick()
   textoDaResenha.value?.focus()
 }
-
-watch(
-  () => props.atividade.curtidaPeloSolicitante,
-  (curtida, antes) => {
-    if (curtida && !antes) {
-      celebrando.value = true
-    }
-  },
-)
 </script>
 
 <template>
@@ -204,26 +192,10 @@ watch(
         :aria-label="rotuloCurtir"
         @click="alternarCurtida"
       >
-        <span
-          class="relative inline-flex"
-          :class="{ 'coracao-pulsando': celebrando }"
-          @animationend.self="celebrando = false"
-        >
-          <PhHeart
-            :size="20"
-            :weight="atividade.curtidaPeloSolicitante ? 'fill' : 'regular'"
-            aria-hidden="true"
-          />
-          <template v-if="celebrando">
-            <span
-              v-for="angulo in ANGULOS_DAS_PARTICULAS"
-              :key="angulo"
-              class="particula"
-              :style="{ '--angulo': `${angulo}deg` }"
-              aria-hidden="true"
-            />
-          </template>
-        </span>
+        <CoracaoAnimado
+          :ativo="atividade.curtidaPeloSolicitante"
+          :tamanho="20"
+        />
         <span v-if="atividade.totalCurtidas > 0">{{ atividade.totalCurtidas }}</span>
       </button>
       <button
@@ -248,53 +220,3 @@ watch(
     </div>
   </article>
 </template>
-
-<style scoped>
-.coracao-pulsando {
-  animation: coracao-pulsar var(--duration-base) var(--easing-out);
-}
-
-.particula {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 4px;
-  height: 4px;
-  margin: -2px;
-  border-radius: 9999px;
-  background-color: var(--color-musgo);
-  pointer-events: none;
-  animation: particula-soltar var(--duration-base) var(--easing-out) forwards;
-}
-
-.particula:nth-child(odd) {
-  background-color: var(--color-musgo-vivo);
-}
-
-@keyframes coracao-pulsar {
-  0% {
-    transform: scale(1);
-  }
-  35% {
-    transform: scale(1.15);
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-
-@keyframes particula-soltar {
-  0% {
-    opacity: 1;
-    transform: rotate(var(--angulo)) translateY(-10px) scale(1);
-  }
-  60% {
-    opacity: 1;
-    transform: rotate(var(--angulo)) translateY(-18px) scale(1);
-  }
-  100% {
-    opacity: 0;
-    transform: rotate(var(--angulo)) translateY(-20px) scale(0);
-  }
-}
-</style>
