@@ -24,6 +24,7 @@ vi.mock('../../services/leitura', () => ({
     excluirNota: vi.fn(),
     consultarItemEstante: vi.fn(),
     consultarConclusoes: vi.fn(),
+    consultarFavorito: vi.fn().mockResolvedValue({ livroId: 'livro-1', favorito: false, favoritadoEm: null }),
     detalharLeitura: vi.fn(),
     // F-AVA-2: a seção de frases carrega à parte; aqui, sem frases.
     listarFrases: vi.fn().mockResolvedValue({
@@ -373,7 +374,7 @@ describe('LivroOficialView', () => {
       await flushPromises()
 
       const acoes = [...document.body.querySelectorAll('[role="dialog"] ul button')].map((b) => b.textContent!.trim())
-      expect(acoes).toEqual(['Adicionar como Quero ler', 'Iniciar leitura'])
+      expect(acoes).toEqual(['Adicionar como Quero ler', 'Iniciar leitura', 'Favoritar'])
     })
 
     it('lendo: status, página atual, Lido N vezes e Registrar progresso abre o registro', async () => {

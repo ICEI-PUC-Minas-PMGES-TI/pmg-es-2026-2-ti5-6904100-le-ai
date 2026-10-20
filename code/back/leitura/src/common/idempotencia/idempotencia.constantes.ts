@@ -32,6 +32,8 @@ export const OPERACOES = {
   PAUSAR_DESAFIO: 'pausarDesafio',
   RETOMAR_DESAFIO: 'retomarDesafio',
   EXCLUIR_DESAFIO: 'excluirDesafio',
+  MARCAR_FAVORITO: 'marcarFavorito',
+  DESMARCAR_FAVORITO: 'desmarcarFavorito',
 } as const;
 
 export type Operacao = (typeof OPERACOES)[keyof typeof OPERACOES];

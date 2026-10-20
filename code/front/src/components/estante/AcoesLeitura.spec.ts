@@ -20,6 +20,9 @@ const servico = vi.hoisted(() => ({
   finalizarLeitura: vi.fn(),
   abandonarLeitura: vi.fn(),
   retomarLeitura: vi.fn(),
+  consultarFavorito: vi.fn(),
+  marcarFavorito: vi.fn(),
+  desmarcarFavorito: vi.fn(),
 }))
 
 vi.mock('../../services/leitura', async (original) => ({
@@ -65,6 +68,7 @@ beforeEach(() => {
   servico.finalizarLeitura.mockResolvedValue(leitura({ status: 'LIDO', vezesLido: 2 }))
   servico.abandonarLeitura.mockResolvedValue(leitura({ status: 'ABANDONADO', retomavel: true }))
   servico.retomarLeitura.mockResolvedValue(leitura())
+  servico.consultarFavorito.mockResolvedValue({ livroId: 'livro-1', favorito: false, favoritadoEm: null })
 })
 
 afterEach(() => {
@@ -77,16 +81,33 @@ afterEach(() => {
 
 describe('AcoesLeitura', () => {
   it.each<[string, EstadoDeLeitura, string[]]>([
-    ['fora da estante', { status: null }, ['Adicionar como Quero ler', 'Iniciar leitura']],
-    ['Quero ler', { status: 'QUERO_LER' }, ['Iniciar leitura', 'Remover da estante']],
-    ['Lendo', { status: 'LENDO', leitura: leitura() }, ['Registrar progresso', 'Finalizar leitura', 'Abandonar leitura']],
-    ['Relendo', { status: 'RELENDO', leitura: leitura({ status: 'RELENDO', releitura: true }) }, ['Registrar progresso', 'Finalizar releitura', 'Abandonar releitura']],
-    ['Lido', { status: 'LIDO' }, ['Iniciar releitura']],
-    ['Abandonado', { status: 'ABANDONADO', leitura: leitura({ status: 'ABANDONADO', retomavel: true, paginaAtual: 210, totalPaginas: 552 }) }, ['Retomar leitura']],
+    ['fora da estante', { status: null }, ['Adicionar como Quero ler', 'Iniciar leitura', 'Favoritar']],
+    ['Quero ler', { status: 'QUERO_LER' }, ['Iniciar leitura', 'Favoritar', 'Remover da estante']],
+    ['Lendo', { status: 'LENDO', leitura: leitura() }, ['Registrar progresso', 'Finalizar leitura', 'Favoritar', 'Abandonar leitura']],
+    ['Relendo', { status: 'RELENDO', leitura: leitura({ status: 'RELENDO', releitura: true }) }, ['Registrar progresso', 'Finalizar releitura', 'Favoritar', 'Abandonar releitura']],
+    ['Lido', { status: 'LIDO' }, ['Iniciar releitura', 'Favoritar']],
+    ['Abandonado', { status: 'ABANDONADO', leitura: leitura({ status: 'ABANDONADO', retomavel: true, paginaAtual: 210, totalPaginas: 552 }) }, ['Retomar leitura', 'Favoritar']],
   ])('%s mostra só as ações de RN-04', async (_nome, estado, esperadas) => {
     montar(estado)
     await flushPromises()
     expect(rotulosDasAcoes()).toEqual(esperadas)
+  })
+
+  it('favoritar é otimista e volta ao estado anterior, com aviso, quando o servidor falha', async () => {
+    servico.marcarFavorito.mockRejectedValueOnce(new ApiError('indisponível', 503, 'SERVICO_INDISPONIVEL'))
+    const tela = montar({ status: 'LIDO' })
+    await flushPromises()
+
+    await clicar('Favoritar')
+    expect(rotulosDasAcoes()).toContain('Favoritar')
+    expect(dialogo()).toContain('Não foi possível atualizar seus favoritos')
+
+    servico.marcarFavorito.mockResolvedValueOnce({ livroId: 'livro-1', favorito: true, favoritadoEm: '2026-09-08T10:00:00Z' })
+    await clicar('Favoritar')
+    expect(rotulosDasAcoes()).toContain('Remover dos favoritos')
+    expect(servico.marcarFavorito.mock.calls[0][1]).toBe(servico.marcarFavorito.mock.calls[1][1])
+    expect(tela.emitted('favoritoAlterado')).toEqual([[true]])
+    expect(rotulosDasAcoes()).toEqual(['Iniciar releitura', 'Remover dos favoritos'])
   })
 
   it('Abandonado mostra onde parou e para onde volta', async () => {
@@ -129,7 +150,7 @@ describe('AcoesLeitura', () => {
     expect(servico.removerEstante).not.toHaveBeenCalled()
     await clicar('Cancelar')
     expect(servico.removerEstante).not.toHaveBeenCalled()
-    expect(rotulosDasAcoes()).toEqual(['Iniciar leitura', 'Remover da estante'])
+    expect(rotulosDasAcoes()).toEqual(['Iniciar leitura', 'Favoritar', 'Remover da estante'])
 
     await clicar('Remover da estante')
     await clicar('Remover da estante')

@@ -124,22 +124,45 @@ class BarraDeProgresso extends StatelessWidget {
 }
 
 class CartaoEstante extends StatelessWidget {
-  final ItemEstante item;
+  final LivroDaEstante livro;
+  final StatusEstante? status;
+  final bool favorito;
+  final int vezesLido;
+  final int? paginaAtual;
+  final int? totalPaginas;
+  final double? percentualConcluido;
   final VoidCallback? aoAbrir;
   final int? paginaPendente;
 
-  const CartaoEstante({super.key, required this.item, this.aoAbrir, this.paginaPendente});
+  CartaoEstante({super.key, required ItemEstante item, this.aoAbrir, this.paginaPendente})
+    : livro = item.livro,
+      status = item.status,
+      favorito = item.favorito,
+      vezesLido = item.vezesLido,
+      paginaAtual = item.paginaAtual,
+      totalPaginas = item.totalPaginas,
+      percentualConcluido = item.percentualConcluido;
+
+  CartaoEstante.doFavorito({super.key, required ItemFavorito item, this.aoAbrir})
+    : livro = item.livro.livro,
+      status = item.status,
+      favorito = true,
+      vezesLido = 0,
+      paginaAtual = null,
+      totalPaginas = null,
+      percentualConcluido = null,
+      paginaPendente = null;
 
   double? _percentual() {
-    if (!item.status.emAndamento) {
+    if (status?.emAndamento != true) {
       return null;
     }
     final pendente = paginaPendente;
-    final total = item.totalPaginas;
+    final total = totalPaginas;
     if (pendente != null && total != null && total > 0) {
       return (pendente * _percentualMaximo / total).clamp(0, _percentualMaximo).roundToDouble();
     }
-    return item.percentualConcluido?.roundToDouble();
+    return percentualConcluido?.roundToDouble();
   }
 
   @override
@@ -147,13 +170,14 @@ class CartaoEstante extends StatelessWidget {
     final theme = Theme.of(context);
     final legenda = theme.textTheme.bodySmall?.copyWith(color: theme.secondaryText);
     final percentual = _percentual();
-    final paginaAtual = item.paginaAtual;
-    final totalPaginas = item.totalPaginas;
+    final paginaAtual = this.paginaAtual;
+    final totalPaginas = this.totalPaginas;
+    final status = this.status;
     final parouNaPagina =
-        item.status == StatusEstante.abandonado && paginaAtual != null && totalPaginas != null
+        status == StatusEstante.abandonado && paginaAtual != null && totalPaginas != null
         ? textoParouNaPagina(paginaAtual, totalPaginas)
         : null;
-    final autor = item.livro.autor;
+    final autor = livro.autor;
 
     final conteudo = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -164,17 +188,21 @@ class CartaoEstante extends StatelessWidget {
           child: LayoutBuilder(
             builder: (context, limites) => Stack(
               children: <Widget>[
-                CapaLivro(
-                  url: item.livro.capaUrl,
-                  largura: limites.maxWidth,
-                  altura: limites.maxHeight,
-                ),
-                if (item.status == StatusEstante.lido || item.status == StatusEstante.relendo)
+                CapaLivro(url: livro.capaUrl, largura: limites.maxWidth, altura: limites.maxHeight),
+                if (favorito)
+                  const Align(
+                    alignment: Alignment.topLeft,
+                    child: Padding(
+                      padding: EdgeInsets.all(DesignTokens.space2),
+                      child: _MarcaDeFavorito(),
+                    ),
+                  ),
+                if (status == StatusEstante.lido || status == StatusEstante.relendo)
                   Align(
                     alignment: Alignment.topRight,
                     child: Padding(
                       padding: const EdgeInsets.all(DesignTokens.space2),
-                      child: _SeloDaCapa(status: item.status),
+                      child: _SeloDaCapa(status: status!),
                     ),
                   ),
               ],
@@ -186,7 +214,7 @@ class CartaoEstante extends StatelessWidget {
           BarraDeProgresso(
             percentual: percentual,
             rotulo: percentual == 0 ? TextosDaEstante.progressoIniciado : '${percentual.toInt()}%',
-            semantica: 'Progresso de ${item.livro.titulo}',
+            semantica: 'Progresso de ${livro.titulo}',
           ),
           if (paginaPendente != null) ...<Widget>[
             const SizedBox(height: DesignTokens.space1),
@@ -211,7 +239,7 @@ class CartaoEstante extends StatelessWidget {
         ],
         const SizedBox(height: DesignTokens.space2),
         Text(
-          item.livro.titulo,
+          livro.titulo,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: theme.textTheme.titleSmall,
@@ -219,14 +247,17 @@ class CartaoEstante extends StatelessWidget {
         if (autor != null)
           Text(autor, maxLines: 1, overflow: TextOverflow.ellipsis, style: legenda),
         const SizedBox(height: DesignTokens.space2),
-        PillStatus(status: item.status),
+        if (status != null)
+          PillStatus(status: status)
+        else
+          Text(TextosDoFiltroFavoritos.foraDaEstante, style: legenda),
         if (parouNaPagina != null) ...<Widget>[
           const SizedBox(height: DesignTokens.space1),
           Text(parouNaPagina, style: legenda),
         ],
-        if (item.vezesLido > 0) ...<Widget>[
+        if (vezesLido > 0) ...<Widget>[
           const SizedBox(height: DesignTokens.space1),
-          Text(textoVezesLido(item.vezesLido), style: legenda),
+          Text(textoVezesLido(vezesLido), style: legenda),
         ],
       ],
     );
@@ -241,6 +272,28 @@ class CartaoEstante extends StatelessWidget {
         splashFactory: NoSplash.splashFactory,
         borderRadius: BorderRadius.circular(DesignTokens.radiusSm),
         child: conteudo,
+      ),
+    );
+  }
+}
+
+class _MarcaDeFavorito extends StatelessWidget {
+  const _MarcaDeFavorito();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Semantics(
+      label: TextosDoFavorito.marca,
+      child: Container(
+        width: _seloDaCapa,
+        height: _seloDaCapa,
+        decoration: BoxDecoration(
+          color: theme.pageBackground,
+          shape: BoxShape.circle,
+          boxShadow: theme.elevation1,
+        ),
+        child: Icon(PhosphorIconsFill.heart, size: 16, color: theme.primaryAccent),
       ),
     );
   }

@@ -84,13 +84,13 @@ Granularidade atual: features "maiores" — cerca de uma por módulo de RF, por 
 | F-REC-P2P | Recomendação entre usuários + aba unificada | social | 2 | desejavel | RF-REC-01..07, 13, 14, 15, 16 | Kayke |
 | F-MOD | Moderação | social | 2 | desejavel | RF-MOD-01, 02, 03, 05 | Renato Douglas |
 | F-NOT-2 | Notificações em tempo real | social | 2 | desejavel | RF-NOT-06 | Kayke |
-| F-ACV-OPC | Extras de acervo (recarga dump, assuntos em livro pessoal) | acervo | 3 | opcional | RF-ACV-14, 22 | a definir |
-| F-REC-ALG | Recomendação algorítmica + descarte em lote | social | 3 | opcional | RF-REC-08..12, 17 | a definir |
-| F-NOT-OPC | Preferências de notificação + push (FCM Android) | social | 3 | opcional | RF-NOT-05, 07 | a definir |
-| F-MOD-OPC | Suspensão de conta | social | 3 | opcional | RF-MOD-04 | a definir |
-| F-GAM-OPC | Calendário e lembrete de streak (push) | leitura | 3 | opcional | RF-GAM-04, 05 | a definir |
-| F-STA-OPC | Distribuição de notas | leitura | 3 | opcional | RF-STA-04 | a definir |
-| F-DSF-OPC | Histórico de janelas de desafio | leitura | 3 | opcional | RF-DSF-05 | a definir |
+| F-ACV-OPC | Extras de acervo (recarga dump, assuntos em livro pessoal) | acervo | 3 | opcional | RF-ACV-14, 22 | Renato Douglas |
+| F-REC-ALG | Recomendação algorítmica + descarte em lote | social | 3 | opcional | RF-REC-08..12, 17 | Henrique Carvalho |
+| F-NOT-OPC | Preferências de notificação + push (FCM Android) | social | 3 | opcional | RF-NOT-05, 07 | Kayke |
+| F-MOD-OPC | Suspensão de conta | social | 3 | opcional | RF-MOD-04 | Renato Douglas |
+| F-GAM-OPC | Calendário e lembrete de streak (push) | leitura | 3 | opcional | RF-GAM-04, 05 | Vicenzo Fonseca |
+| F-STA-OPC | Distribuição de notas | leitura | 3 | opcional | RF-STA-04 | Ana Luiza de Freitas |
+| F-DSF-OPC | Histórico de janelas de desafio | leitura | 3 | opcional | RF-DSF-05 | Vicenzo Fonseca |
 
 ## Índices por período
 

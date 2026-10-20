@@ -142,6 +142,14 @@ Módulos `src/estante/`, `src/leituras/` e `src/jobs/inatividade/`, com `src/ref
 - **Backfill:** `npm run backfill:estatisticas` (`node dist/estatisticas/backfill.js` no build), idempotente; rodar depois da migration 0006 em cada ambiente.
 - **Testes:** `src/estatisticas/dominio/estatisticas.spec.ts` e `test/integracao/estatisticas.int-spec.ts` (totais por ano e acumulado, abandonada, dia com vários progressos, sincronização tardia e fuso, dias por livro com abandono e releitura, exclusão de trecho, nota, backfill, RN-08, duplicata, retry e DLQ).
 
+## F-EST-2 — favoritos, histórico e busca na estante (16/10/2026)
+
+- **`src/favoritos/`** (`FavoritosModule`, exporta `FavoritosService`): `GET`/`PUT`/`DELETE /livros/{livroId}/favorito` e `GET /me/favoritos?q=`. Favorito é relação própria (tabela `favorito` da baseline), sem tocar `estante` nem RN-04 e sem evento. `PUT` usa `buscarLivroAcessivel` (pessoal de outra pessoa é 403, inativo 404); `DELETE` não confere o livro. Idempotência em `marcarFavorito:<livroId>` e `desmarcarFavorito:<livroId>`. A lista e a contagem só mostram livro ativo.
+- **Estante:** `q` em `ConsultaEstanteDto` (título ou autor, combinável com `status`). `favorito` por item e `totalFavoritos` saem só na estante do próprio leitor (`paraItemProprio`); a de perfil não revela favoritos.
+- **`src/historico/`** (`HistoricoModule`): `GET /me/historico?ano=&q=` só com `status = 'lido' AND NOT incompleta`, uma ocorrência por conclusão, ordenada por `data_fim`. Devolve também `anos` (todo o histórico) e `totais` (filtro atual).
+- **Busca textual (`src/common/busca-textual.ts`):** `CampoDeBusca` (DTO, aparado, até 100) e `tituloOuAutorContem`, `ILIKE` sobre `v_livro_referencia_v1` com `%`, `_` e `\` escapados. Sem `unaccent`.
+- **Testes:** `test/integracao/favoritos.int-spec.ts` e `test/integracao/historico.int-spec.ts` (inclui o progresso de ocorrência finalizada somente leitura e a negação a terceiros).
+
 ## F-MOD — remoção pela moderação (18/10/2026, Renato)
 
 Plano em [`plano-F-MOD.md`](../../../docs/plano-de-desenvolvimento/periodo-2/renato-periodo-2/plano-F-MOD.md).

@@ -159,6 +159,37 @@ export function textoPaginaDe(pagina: number, total: number): string {
   return `Página ${pagina} de ${total}`
 }
 
+export const TEXTOS_DO_FAVORITO = {
+  favoritar: 'Favoritar',
+  remover: 'Remover dos favoritos',
+  marca: 'Favorito',
+  erro: 'Não foi possível atualizar seus favoritos. Verifique sua conexão e tente de novo.',
+} as const
+
+export const TEXTOS_DO_FILTRO_FAVORITOS = {
+  rotulo: 'Favoritos',
+  foraDaEstante: 'Fora da estante',
+  vazioTitulo: 'Nenhum livro favorito',
+  vazioTexto: 'Marque um livro como favorito na página dele ou nas ações de leitura.',
+  vazioBotao: 'Ver livros lidos',
+} as const
+
+export const TEXTOS_DA_BUSCA_NA_ESTANTE = {
+  placeholder: 'Buscar na minha estante',
+  abrir: 'Buscar na minha estante',
+  fechar: 'Sair da busca',
+  limpar: 'Limpar busca',
+  vazioTitulo: 'Nada na sua estante com esse nome',
+  vazioTexto: 'Esta busca olha só os livros que você já adicionou.',
+  vazioBotao: 'Buscar no acervo',
+} as const
+
+export function textoEncontradosNaEstante(total: number): string {
+  return `${total} ${total === 1 ? 'livro encontrado' : 'livros encontrados'} na sua estante`
+}
+
+export const ROTULO_HISTORICO = 'Histórico de leituras'
+
 export const TEXTOS_DO_PAINEL = {
   erroAoAbrir: 'Não foi possível carregar as ações deste livro. Verifique sua conexão e tente de novo.',
   alterarStatus: 'Alterar status',

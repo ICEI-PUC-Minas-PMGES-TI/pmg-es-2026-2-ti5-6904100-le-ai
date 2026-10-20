@@ -73,6 +73,18 @@ abstract final class TextosDasAtualizacoes {
 
   static String iniciadaEm(String dataPorExtenso) => 'Iniciada em $dataPorExtenso';
 
+  static const String concluida = 'Concluída';
+  static const String leitura = 'Leitura';
+  static const String releitura = 'Releitura';
+  static const String somenteConsulta = 'Leitura concluída. Os registros ficam só para consulta.';
+  static const String vazioConcluidaTitulo = 'Nenhuma atualização registrada';
+  static const String vazioConcluidaTexto = 'Esta leitura foi concluída sem registros de página.';
+
+  static String concluidaEm(String dataPorExtenso) => 'Concluída em $dataPorExtenso';
+
+  static String inicioEm(String dataPorExtenso, String duracao) =>
+      'Início em $dataPorExtenso · $duracao';
+
   static String itemPagina(int pagina) => 'página $pagina';
 
   static String itemDetalhe(int paginasLidas, int minutos) => minutos == 0

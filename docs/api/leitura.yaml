@@ -13,8 +13,9 @@ info:
     `x-implementation-status`.
     Nota e resenha pertencem ao livro, não a uma ocorrência de leitura.
     As reações à resenha (curtir e descurtir) e as frases e trechos estão
-    implementadas por F-AVA-2 (09/10/2026). Sessões cronometradas, favoritos e
-    histórico ainda não fazem parte deste contrato.
+    implementadas por F-AVA-2 (09/10/2026). Favoritos, histórico de leituras
+    concluídas e busca na estante estão implementados por F-EST-2
+    (16/10/2026). Sessões cronometradas ainda não fazem parte deste contrato.
 x-database-contracts:
   - name: v_estante_publica_v1
     x-implementation-status: implemented
@@ -131,9 +132,14 @@ paths:
       x-implemented-by: F-EST
       description: >-
         Lista paginada para agrupamento por status. O filtro de status pode ser
-        combinado com a ordenação. Busca textual pertence ao Período 2.
+        combinado com a ordenação e com `q`, que busca por título ou autor
+        somente dentro da estante do leitor (RF-EST-13), sem diferenciar
+        maiúsculas; `%` e `_` são literais. Cada item traz `favorito` e a
+        página traz `totalFavoritos`, que conta também favoritos fora da
+        estante (F-EST-2).
       parameters:
         - { $ref: '#/components/parameters/StatusEstante' }
+        - { $ref: '#/components/parameters/BuscaTituloAutor' }
         - { $ref: '#/components/parameters/OrdenacaoEstante' }
         - { $ref: '#/components/parameters/Pagina' }
         - { $ref: '#/components/parameters/Limite' }
@@ -399,6 +405,132 @@ paths:
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
 
+  /livros/{livroId}/favorito:
+    get:
+      tags: [favoritos]
+      summary: Consulta se o livro é favorito do leitor
+      operationId: consultarFavorito
+      x-implementation-status: implemented
+      x-implemented-by: F-EST-2
+      parameters:
+        - { $ref: '#/components/parameters/LivroId' }
+      description: >-
+        Só do próprio leitor, inclusive para livro fora da estante. Livro não
+        favoritado responde `favorito: false`.
+      responses:
+        '200':
+          description: Estado do favorito.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Favorito' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+    put:
+      tags: [favoritos]
+      summary: Marca o livro como favorito do leitor
+      operationId: marcarFavorito
+      x-implementation-status: implemented
+      x-implemented-by: F-EST-2
+      parameters:
+        - { $ref: '#/components/parameters/LivroId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      description: >-
+        Favorito é relação própria, independente da estante: não cria vínculo,
+        não muda status e não altera a máquina de estados (RN-04). Livro
+        pessoal de outra pessoa é 403, como em `adicionarLivroEstante`
+        (RN-15, RNF-SEC-07); livro inexistente ou inativo é 404. Marcar de novo
+        responde 200 sem duplicar. Sem evento.
+      responses:
+        '200':
+          description: Livro marcado como favorito.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Favorito' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/Proibido' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+    delete:
+      tags: [favoritos]
+      summary: Desmarca o livro como favorito do leitor
+      operationId: desmarcarFavorito
+      x-implementation-status: implemented
+      x-implemented-by: F-EST-2
+      parameters:
+        - { $ref: '#/components/parameters/LivroId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      description: >-
+        Não confere o livro e não altera a estante. Sem favorito para remover,
+        responde 204.
+      responses:
+        '204': { description: 'Favorito removido, já ausente ou repetição idempotente concluída.' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+
+  /me/favoritos:
+    get:
+      tags: [favoritos]
+      summary: Lista os favoritos do leitor, dentro ou fora da estante
+      operationId: listarMeusFavoritos
+      x-implementation-status: implemented
+      x-implemented-by: F-EST-2
+      parameters:
+        - { $ref: '#/components/parameters/BuscaTituloAutor' }
+        - { $ref: '#/components/parameters/Pagina' }
+        - { $ref: '#/components/parameters/Limite' }
+      description: >-
+        Só do próprio leitor, do favoritado mais recente ao mais antigo. Livro
+        fora da estante vem com `status` nulo. Livro inativo não aparece. `q`
+        busca por título ou autor, como na estante (RF-EST-13).
+      responses:
+        '200':
+          description: Página de favoritos.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaFavoritos' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
+  /me/historico:
+    get:
+      tags: [historico]
+      summary: Lista as leituras concluídas do leitor, uma ocorrência por conclusão
+      operationId: listarMeuHistorico
+      x-implementation-status: implemented
+      x-implemented-by: F-EST-2
+      parameters:
+        - name: ano
+          in: query
+          required: false
+          description: Restringe às leituras concluídas nesse ano, pela data de fim.
+          schema: { type: integer, minimum: 1000, maximum: 9999 }
+        - { $ref: '#/components/parameters/BuscaTituloAutor' }
+        - { $ref: '#/components/parameters/Pagina' }
+        - { $ref: '#/components/parameters/Limite' }
+      description: >-
+        Só do próprio leitor (RF-EST-10). Conta leitura e releitura finalizadas
+        (RN-04.4); releitura incompleta e leitura abandonada ficam de fora. O
+        mesmo livro aparece uma vez por conclusão, inclusive duas no mesmo ano.
+        Ordena pela data de fim, da mais recente. `q` pesquisa título ou autor
+        em todos os anos e combina com `ano`. `anos` lista os anos com
+        conclusão e a contagem de cada um, sem considerar `ano` nem `q`;
+        `totais` conta livros distintos e leituras do filtro atual. Cada
+        ocorrência abre suas atualizações em `listarProgressos`, em modo
+        somente leitura.
+      responses:
+        '200':
+          description: Página do histórico, anos e totais.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaHistorico' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
   /leituras/{leituraId}/progresso:
     post:
       tags: [progresso]
@@ -444,8 +576,10 @@ paths:
         - { $ref: '#/components/parameters/Limite' }
       description: >-
         Valida propriedade. Leituras em andamento permitem as mutações
-        previstas; leituras finalizadas são retornadas somente para consulta.
-        O resumo independe da página solicitada.
+        previstas; leituras finalizadas são retornadas somente para consulta
+        (`somenteLeitura: true`), inclusive a ocorrência selecionada no
+        histórico (F-EST-2): registrar e excluir nelas respondem 409. Leitura
+        de outra pessoa responde 404. O resumo independe da página solicitada.
       responses:
         '200':
           description: Página de atualizações e resumo atual.
@@ -1285,6 +1419,15 @@ components:
       in: query
       required: false
       schema: { $ref: '#/components/schemas/StatusEstante' }
+    BuscaTituloAutor:
+      name: q
+      in: query
+      required: false
+      description: >-
+        Trecho do título ou do autor, sem diferenciar maiúsculas. Espaços nas
+        pontas são ignorados e texto vazio equivale a ausente. Ainda diferencia
+        acentos.
+      schema: { type: string, maxLength: 100 }
     OrdenacaoEstante:
       name: ordenacao
       in: query
@@ -1505,6 +1648,12 @@ components:
         totalPaginas: { type: integer, minimum: 1, nullable: true }
         percentualConcluido: { type: number, format: float, minimum: 0, maximum: 100, nullable: true }
         adicionadoEm: { type: string, format: date-time }
+        favorito:
+          type: boolean
+          description: >-
+            Presente só na estante do próprio leitor (`listarMinhaEstante`,
+            `consultarItemEstante`, `adicionarLivroEstante`); a estante de
+            perfil não revela favoritos.
 
     TotaisEstante:
       type: object
@@ -1537,6 +1686,100 @@ components:
           items: { $ref: '#/components/schemas/ItemEstante' }
         paginacao: { $ref: '#/components/schemas/Paginacao' }
         totaisPorStatus: { $ref: '#/components/schemas/TotaisEstante' }
+        totalFavoritos:
+          type: integer
+          minimum: 0
+          description: >-
+            Favoritos do leitor, dentro ou fora da estante. Presente só em
+            `listarMinhaEstante`.
+
+    LivroReferenciado:
+      type: object
+      additionalProperties: false
+      required: [id, tipo, titulo, autor, capaUrl]
+      description: Snapshot de `v_livro_referencia_v1`.
+      properties:
+        id: { type: string, format: uuid }
+        tipo: { type: string, enum: [oficial, pessoal] }
+        titulo: { type: string }
+        autor: { type: string, nullable: true }
+        capaUrl: { type: string, format: uri, nullable: true }
+
+    Favorito:
+      type: object
+      additionalProperties: false
+      required: [livroId, favorito, favoritadoEm]
+      properties:
+        livroId: { type: string, format: uuid }
+        favorito: { type: boolean }
+        favoritadoEm: { type: string, format: date-time, nullable: true }
+
+    ItemFavorito:
+      type: object
+      additionalProperties: false
+      required: [livro, status, favoritadoEm]
+      properties:
+        livro: { $ref: '#/components/schemas/LivroReferenciado' }
+        status:
+          type: string
+          enum: [QUERO_LER, LENDO, LIDO, RELENDO, ABANDONADO]
+          nullable: true
+          description: Status na estante; nulo quando o livro está fora dela.
+        favoritadoEm: { type: string, format: date-time }
+
+    PaginaFavoritos:
+      type: object
+      additionalProperties: false
+      required: [itens, paginacao]
+      properties:
+        itens:
+          type: array
+          items: { $ref: '#/components/schemas/ItemFavorito' }
+        paginacao: { $ref: '#/components/schemas/Paginacao' }
+
+    OcorrenciaHistorico:
+      type: object
+      additionalProperties: false
+      required: [leituraId, livro, dataInicio, dataFim, releitura, duracaoDias, paginaFinal, totalPaginas]
+      properties:
+        leituraId: { type: string, format: uuid }
+        livro: { $ref: '#/components/schemas/LivroReferenciado' }
+        dataInicio: { type: string, format: date }
+        dataFim: { type: string, format: date }
+        releitura: { type: boolean }
+        duracaoDias:
+          type: integer
+          minimum: 1
+          description: Dias de `dataInicio` a `dataFim`, contando os dois.
+        paginaFinal: { type: integer, minimum: 0 }
+        totalPaginas: { type: integer, minimum: 1, nullable: true }
+
+    PaginaHistorico:
+      type: object
+      additionalProperties: false
+      required: [itens, paginacao, anos, totais]
+      properties:
+        itens:
+          type: array
+          items: { $ref: '#/components/schemas/OcorrenciaHistorico' }
+        paginacao: { $ref: '#/components/schemas/Paginacao' }
+        anos:
+          type: array
+          description: Anos com leitura concluída, do mais recente; ignora `ano` e `q`.
+          items:
+            type: object
+            additionalProperties: false
+            required: [ano, total]
+            properties:
+              ano: { type: integer }
+              total: { type: integer, minimum: 1 }
+        totais:
+          type: object
+          additionalProperties: false
+          required: [livros, leituras]
+          properties:
+            livros: { type: integer, minimum: 0 }
+            leituras: { type: integer, minimum: 0 }
 
     IniciarLeituraEntrada:
       type: object

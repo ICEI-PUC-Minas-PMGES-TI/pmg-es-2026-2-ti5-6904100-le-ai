@@ -31,7 +31,7 @@ EstadoDeLeitura _estadoDaLeitura(Leitura leitura) {
   return EstadoDeLeitura(status: status, leitura: leitura);
 }
 
-bool _encerraIntencao(ApiException erro) {
+bool encerraIntencao(ApiException erro) {
   final status = erro.status;
   return status != null && status >= 400 && status < 500;
 }
@@ -40,7 +40,7 @@ String _mensagemDoErro(ApiException erro) {
   if (erro.status == _conflito) {
     return ErrosDeAcao.conflito;
   }
-  if (_encerraIntencao(erro)) {
+  if (encerraIntencao(erro)) {
     return erro.message;
   }
   return TextosDeAcao.erroAoSalvar;
@@ -83,7 +83,7 @@ class AcaoLeituraController extends ChangeNotifier {
       _esquecerChave();
       return estado;
     } on ApiException catch (falha) {
-      if (_encerraIntencao(falha)) {
+      if (encerraIntencao(falha)) {
         _esquecerChave();
       }
       erro = _mensagemDoErro(falha);

@@ -34,7 +34,7 @@ async function montarNaRota(caminho: string) {
   const router = createRouter({ history: createMemoryHistory(), routes })
   await router.push(caminho)
   await router.isReady()
-  return mount(Host, { global: { plugins: [router] } })
+  return mount(Host, { attachTo: document.body, global: { plugins: [router] } })
 }
 
 describe('ShellAutenticado', () => {

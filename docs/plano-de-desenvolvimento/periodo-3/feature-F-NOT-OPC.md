@@ -1,7 +1,7 @@
 # F-NOT-OPC — Preferências de notificação + push
 
 **Período:** 3 · **Prioridade:** opcional
-**Dono:** a definir · **Serviços afetados:** `social` (backend) + mobile (sem web — ver Status)
+**Dono:** Kayke · **Serviços afetados:** `social` (backend) + mobile (sem web — ver Status)
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.10 (RF-NOT-05, 07), §2.1 (escopo web), §10.3, §10.5. Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §2.7 (P-04), §4.4, §5.2, §6. Processo e template: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §9. Regras compartilhadas do projeto: [`../periodo-1/README.md#regras-de-implementação-compartilhadas`](../periodo-1/README.md#regras-de-implementação-compartilhadas). Em caso de conflito, o `REQUISITOS.md` ganha; protótipo é referência visual, não spec de pixel (plano §7).
 
@@ -93,6 +93,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 ## Pendências
 
+- **Telas (design P3):** lote 1, prompt escrito em 11/10/2026: [`preferencias-de-notificacao.md`](../../design/periodo-3/F-NOT-OPC/preferencias-de-notificacao.md) ([protótipo](../../design/periodo-3/F-NOT-OPC/prototipos/preferencias-de-notificacao.html)) (só mobile, um switch por tipo, aviso de notificações desligadas no aparelho). Entrada pelo item `Notificações` em `Configurações`, no grupo `Conta`, abaixo de `Alterar senha`, na edição consolidada [`configuracoes.md`](../../design/periodo-3/configuracoes/configuracoes.md) ([protótipo](../../design/periodo-3/configuracoes/prototipos/configuracoes.html)) (lote 2, prompt escrito em 11/10/2026). Protótipos exportados em 21/10/2026.
 - **Depende de** [F-NOT](../periodo-1/feature-F-NOT.md) (lista, consumidor e tipos), [F-AUT](../periodo-1/feature-F-AUT.md) (logout revogando o dispositivo), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md), [P0-MSG](../periodo-0/feature-P0-MSG.md).
 - **Decisão encerrada em 15/09/2026:** preferência individual por tipo, sem mapa de categorias. Implementar o contrato e validar todos os tipos presentes.
 - **Validações do período-0 que esta feature consome:** emissão de **push FCM em dispositivo Android real** e o **projeto Firebase** com a credencial em variável de ambiente/GitHub Secrets (arquitetura §8, SEC-11). Firebase é usado **somente** para FCM — nenhum dado de domínio no Firestore (§4.4).

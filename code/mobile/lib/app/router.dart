@@ -24,8 +24,10 @@ import '../features/descobrir/descobrir_page.dart';
 import '../features/recomendacoes/rotas_recomendacoes.dart';
 import '../core/config/app_config.dart';
 import '../core/network/api_client.dart';
+import '../features/estante/busca_na_estante.dart';
 import '../features/estante/estante_page.dart';
 import '../features/estante/estante_service.dart';
+import '../features/historico/historico_page.dart';
 import '../features/feed/rotas_feed.dart';
 import '../features/listas/rotas_listas.dart';
 import '../features/livros/rotas_livros.dart';
@@ -43,6 +45,7 @@ const String rotaVerificandoSessao = '/verificando-sessao';
 const String rotaLogin = '/login';
 const String rotaCadastro = '/cadastro';
 const String rotaEstante = '/estante';
+const String rotaHistorico = '/estante/historico';
 const String rotaRecuperarSenha = '/recuperar-senha';
 const String rotaRedefinirSenha = '/redefinir-senha';
 const String rotaConfiguracoes = '/perfil/configuracoes';
@@ -107,6 +110,7 @@ GoRouter buildRouter({
         ),
       );
   final depsDeProgresso = progresso ?? DependenciasDeProgresso.padrao(servicoDeEstante.client);
+  final buscaNaEstante = BuscaNaEstante();
   // F-GAM: a sequência é do `leitura`, no mesmo client da estante e do progresso.
   final servicoDeSequencia = sequencia ?? SequenciaService(servicoDeEstante.client);
   // F-DSF: também do `leitura`. Progresso registrado e leitura finalizada mexem no acumulado.
@@ -208,6 +212,8 @@ GoRouter buildRouter({
           caminhoAtual: state.uri.path,
           aoAbrirConfiguracoes: () => context.go(rotaConfiguracoes),
           aoBuscarLeitor: () => context.go(rotaBuscarLeitor),
+          aoAbrirHistorico: () => context.go(rotaHistorico),
+          buscaNaEstante: buscaNaEstante,
           contadorDeNaoLidas: depsDeNotificacoes.contador,
           canalDeNotificacoes: depsDeNotificacoes.canal,
           aoAbrirNotificacoes: (raiz) => context.push<void>(rotaNotificacoes(raiz)),
@@ -233,8 +239,22 @@ GoRouter buildRouter({
                   aoCadastrarLivro: () => context.go(rotaAdicionarLivro),
                   progresso: depsDeProgresso,
                   aoVerAtualizacoes: (leituraId) => context.go(rotaProgressoDaLeitura(leituraId)),
+                  busca: buscaNaEstante,
+                  aoBuscarNoAcervo: (termo) => context.go(
+                    Uri(path: '/descobrir', queryParameters: <String, String>{'q': termo}).toString(),
+                  ),
                 ),
                 routes: <RouteBase>[
+                  GoRoute(
+                    path: 'historico',
+                    builder: (context, state) => HistoricoPage(
+                      servico: servicoDeEstante,
+                      aoVoltar: () => context.canPop() ? context.pop() : context.go(rotaEstante),
+                      aoVerEstante: () => context.go(rotaEstante),
+                      aoAbrirOcorrencia: (leituraId) =>
+                          context.push(rotaProgressoDaLeitura(leituraId)),
+                    ),
+                  ),
                   ...rotasDaEstante(deps, servicoDeEstante, progresso: depsDeProgresso),
                   rotaDoProgresso(depsDeProgresso, servicoDeEstante),
                   rotaDeNotificacoes(depsDeNotificacoes, rotaEstante),
@@ -251,6 +271,9 @@ GoRouter buildRouter({
                   // Assunto tocado na ficha do livro (F-ACV-DESCOBERTA, RF-ACV-21).
                   assuntoInicial: state.uri.queryParameters['assunto'],
                   aoConsumirAssunto: () => context.go('/descobrir'),
+                  // Termo da busca da Estante sem resultado (F-EST-2, RF-EST-13).
+                  consultaInicial: state.uri.queryParameters['q'],
+                  aoConsumirConsulta: () => context.go('/descobrir'),
                   aoAbrirLivro: (id) => context.push(rotaLivroOficial(id)),
                   aoCadastrarPorIsbn: () => context.go(rotaAdicionarLivro),
                   // `push`, não `go`: cancelar o cadastro pessoal volta aos resultados, e não

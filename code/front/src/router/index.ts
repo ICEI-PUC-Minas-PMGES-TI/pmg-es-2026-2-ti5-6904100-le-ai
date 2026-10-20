@@ -21,6 +21,7 @@ import ExcluirContaView from '../views/conta/ExcluirContaView.vue'
 import ExclusaoSolicitadaView from '../views/conta/ExclusaoSolicitadaView.vue'
 import EstatisticasView from '../views/perfil/EstatisticasView.vue'
 import EstanteView from '../views/EstanteView.vue'
+import HistoricoView from '../views/HistoricoView.vue'
 import FeedView from '../views/FeedView.vue'
 import LoginView from '../views/auth/LoginView.vue'
 import PoliticaPrivacidadeView from '../views/auth/PoliticaPrivacidadeView.vue'
@@ -153,6 +154,18 @@ export const routes: RouteRecordRaw[] = [
         name: 'estante',
         component: EstanteView,
         meta: { titulo: 'Minha estante' },
+      },
+      {
+        path: 'estante/historico',
+        name: 'historico',
+        component: HistoricoView,
+        meta: {
+          titulo: 'Histórico de leituras',
+          tituloCurto: 'Histórico',
+          voltar: true,
+          voltarSoNoCelular: true,
+          aba: '/estante',
+        },
       },
       {
         path: 'estante/leituras/:leituraId/progresso',

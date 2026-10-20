@@ -59,6 +59,10 @@ Convenções do app mobile. Complementa o [`AGENTS.md`](../../AGENTS.md) da raiz
   - Bloco `Estatísticas do ano` (`estatisticas_do_perfil.dart`) no Meu perfil (`PerfilPage.estatisticas`) e no perfil de outro leitor (`PerfilDeOutroPage.estatisticas`, montado em `rotas_perfil.dart` e `rotas_feed.dart`). 403/404 do `leitura` esconde o bloco.
   - Rotas e dependências em `rotas_estatisticas.dart` (`DependenciasDeEstatisticas`, montado em `rotasDoPerfil`). O painel e o bloco recarregam em silêncio 3 s depois dos avisos de progresso, estante e nota.
   - `design/widgets/pill_de_filtro.dart` (`PillDeFiltro`) é o pill da Estante, compartilhado com a faixa de períodos; `rotuloNumerico` desenha anos em `num-inline`.
+- F-EST-2 (favoritos, histórico e busca na estante), em `lib/features/estante/` e `lib/features/historico/`:
+  - `ControladorFavorito` (`ChangeNotifier`, otimista, volta e avisa na falha, reaproveita a chave no reenvio) é o único caminho de favoritar: botão quadrado em `SituacaoNaEstante` e item próprio na folha de ações (`LivroDaAcao.favorito`, nulo = a folha consulta). As escritas incrementam `EstanteService.alteracoes`.
+  - `BuscaNaEstante` (`ChangeNotifier`, criado no `buildRouter`) liga a lupa do shell à `EstantePage`: aberta, o shell troca o header da aba Estante por `CabecalhoDaBuscaNaEstante`. O vazio da busca leva o termo a `/descobrir?q=` (`DescobrirPage.consultaInicial`).
+  - Pill `Favoritos` (`PillDeFiltro.icone`) e `CartaoEstante.doFavorito` (`Fora da estante`). O histórico é `HistoricoPage` em `/estante/historico` (`ListaDoHistorico`), e a ocorrência abre `ProgressoPage`, que mostra o modo histórico quando a leitura tem `dataFim` e não é incompleta.
 - `android/` e `ios/`: plataformas nativas geradas pelo Flutter; o build iOS depende de macOS/Xcode.
 - `test/`: testes unitários e widget, espelhando a árvore de `lib/`.
 
