@@ -1,6 +1,7 @@
 # F-MOD · Painel de moderação
 
 **Feature:** ../../../plano-de-desenvolvimento/periodo-2/feature-F-MOD.md
+**Editada por:** ../../periodo-3/painel-de-moderacao/painel-de-moderacao.md
 **Requisitos:** RF-MOD-02 (painel com as denúncias pendentes, ordenadas por data), RF-MOD-03 (remover o conteúdo denunciado ou arquivar a denúncia como improcedente), RF-MOD-05 (log de auditoria de toda ação de moderação, com autor, alvo, ação e timestamp)
 **Não funcionais:** RNF-SEC-04 (painel e ações restritos ao administrador, verificados no servidor), RNF-SEC-35 e RNF-SEC-37 (ações de moderação registradas e consultáveis), RNF-SEC-36 (log sem dado sensível excedente), RNF-DES-02 (fila e log paginados), RNF-USA-04 (confirmação na remoção), RNF-SEC-14 (texto de usuário exibido escapado), RNF-USA-05 (mensagem acionável), RNF-ERR-09 (cold start é carregamento)
 **Regras de negócio:** RN-10.5 (remover um comentário-raiz remove as respostas), RN-11 (frase é removida direto pelo administrador, sem denúncia, e isso também entra no log), RN-15.4 (resenha de livro pessoal é denunciável e moderável), RN-23.7 (o registro de auditoria permanece sem identificar leitor de conta excluída)

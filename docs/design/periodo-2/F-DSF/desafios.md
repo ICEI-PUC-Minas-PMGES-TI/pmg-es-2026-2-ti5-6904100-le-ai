@@ -1,6 +1,7 @@
 # F-DSF · Desafios
 
 **Feature:** ../../../plano-de-desenvolvimento/periodo-2/feature-F-DSF.md
+**Editada por:** ../../periodo-3/desafios/desafios.md
 **Requisitos:** RF-DSF-01 (um ou mais desafios simultâneos, com unidade, janela e valor-alvo), RF-DSF-03 (progresso de cada desafio na janela corrente), RF-DSF-04 (editar, pausar e excluir)
 **Requisitos de sistema cujo efeito aparece aqui:** RF-DSF-02 (desafios de páginas e minutos atualizados a cada atualização de progresso) e RF-DSF-06 (desafios de livros atualizados a cada leitura finalizada). O cliente só **exibe o acumulado**; quem soma é o servidor.
 **Não funcionais:** RNF-DES-02 (listagem paginada), RNF-USA-04 (confirmação em ação destrutiva), RNF-USA-05 (mensagem acionável), RNF-ERR-09 (cold start é carregamento)

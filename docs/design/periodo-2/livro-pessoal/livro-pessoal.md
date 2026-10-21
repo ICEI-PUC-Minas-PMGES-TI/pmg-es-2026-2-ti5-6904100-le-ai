@@ -3,6 +3,7 @@
 > **Prompt de edição.** Rode este prompt **sobre o canvas já existente** de `Livro pessoal`, gerado por `docs/design/periodo-1/F-ACV-CADASTRO/livro-pessoal.md`. Ele **não** cria um canvas novo: acrescenta, substitui e remove só o que está descrito abaixo. **Tudo que não estiver aqui permanece exatamente como está.**
 
 **Edita:** ../../periodo-1/F-ACV-CADASTRO/livro-pessoal.md
+**Editada por:** ../../periodo-3/livro-pessoal/livro-pessoal.md
 **Features:** ../../../plano-de-desenvolvimento/periodo-2/feature-F-AVA-2.md, ../../../plano-de-desenvolvimento/periodo-2/feature-F-LST.md, ../../../plano-de-desenvolvimento/periodo-2/feature-F-MOD.md
 **Requisitos que entram:**
 - F-AVA-2: RF-AVA-05 (terceiro com acesso curte ou descurte a resenha do dono, uma reação por resenha), RF-AVA-08 (contagens de curtidas e descurtidas separadas, visíveis a todos que têm acesso à resenha, o dono incluído), RF-AVA-06 (só a entrada `Adicionar frase`, para o dono), RF-AVA-07 (as frases do dono na página, e a entrada `Ver todas as frases`), RF-AVA-09 (resenha renderizada em Markdown; o editor é outra edição)

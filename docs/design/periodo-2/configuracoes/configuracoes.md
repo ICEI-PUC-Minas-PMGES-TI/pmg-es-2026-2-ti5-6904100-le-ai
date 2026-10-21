@@ -3,6 +3,7 @@
 > **Prompt de edição.** Rode este prompt **sobre o canvas já existente** de `Configurações`, gerado por `docs/design/periodo-1/F-AUT/configuracoes.md`. Ele **não** cria um canvas novo: acrescenta, substitui e remove só o que está descrito abaixo. **Tudo que não estiver aqui permanece exatamente como está.**
 
 **Edita:** ../../periodo-1/F-AUT/configuracoes.md
+**Editada por:** ../../periodo-3/configuracoes/configuracoes.md
 **Features:** ../../../plano-de-desenvolvimento/periodo-2/feature-F-CONTA-2.md
 **Requisitos que entram:** F-CONTA-2: RF-AUT-07 (solicitar a exclusão da própria conta, recuperar em até 30 dias e ter dados e conteúdos removidos definitivamente depois do prazo; aqui entra só a **entrada** para a tela de exclusão e o texto da política sobre retenção e exclusão)
 **Não funcionais:** RNF-SEC-42 (a política de privacidade informa dados coletados, finalidade, retenção e exclusão), RNF-SEC-41 (recuperação em 30 dias e remoção definitiva depois), RNF-USA-03 (contraste WCAG AA)

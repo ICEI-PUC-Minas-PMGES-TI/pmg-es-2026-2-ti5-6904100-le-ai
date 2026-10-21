@@ -3,6 +3,7 @@
 > **Prompt de edição.** Rode este prompt **sobre o canvas já existente** de `Meu perfil`, gerado por `docs/design/periodo-1/F-PERFIL/meu-perfil.md`. Ele **não** cria um canvas novo: acrescenta, substitui e remove só o que está descrito abaixo. **Tudo que não estiver aqui permanece exatamente como está.**
 
 **Edita:** ../../periodo-1/F-PERFIL/meu-perfil.md
+**Editada por:** ../../periodo-3/meu-perfil/meu-perfil.md
 **Features:** ../../../plano-de-desenvolvimento/periodo-2/feature-F-GAM.md, ../../../plano-de-desenvolvimento/periodo-2/feature-F-STA.md, ../../../plano-de-desenvolvimento/periodo-2/feature-F-DSF.md, ../../../plano-de-desenvolvimento/periodo-2/feature-F-LST.md, ../../../plano-de-desenvolvimento/periodo-2/feature-F-AVA-2.md
 **Requisitos que entram:**
 - F-GAM: RF-GAM-02 (ver a sequência atual e a maior sequência já alcançada). RF-GAM-01 e RF-GAM-03 são de sistema: aqui aparece só o efeito, a sequência que subiu ou zerou.

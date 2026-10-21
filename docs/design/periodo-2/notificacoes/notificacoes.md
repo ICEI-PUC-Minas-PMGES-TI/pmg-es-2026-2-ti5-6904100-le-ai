@@ -3,6 +3,7 @@
 > **Prompt de edição.** Rode este prompt **sobre o canvas já existente** de `Notificações`, gerado por `docs/design/periodo-1/F-NOT/notificacoes.md`. Ele **não** cria um canvas novo: acrescenta, substitui e remove só o que está descrito abaixo. **Tudo que não estiver aqui permanece exatamente como está.**
 
 **Edita:** ../../periodo-1/F-NOT/notificacoes.md
+**Editada por:** ../../periodo-3/notificacoes/notificacoes.md
 **Features:** ../../../plano-de-desenvolvimento/periodo-2/feature-F-NOT-2.md, ../../../plano-de-desenvolvimento/periodo-2/feature-F-SOCIAL-2.md, ../../../plano-de-desenvolvimento/periodo-2/feature-F-AVA-2.md, ../../../plano-de-desenvolvimento/periodo-2/feature-F-REC-P2P.md
 **Requisitos que entram:**
 - F-NOT-2: RF-NOT-06 (entrega em tempo real, sem recarga manual, com a contagem de não lidas atualizada)
