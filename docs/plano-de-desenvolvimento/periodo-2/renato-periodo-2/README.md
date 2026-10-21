@@ -41,15 +41,15 @@ Para levar ao grupo:
 - avisar o Kayke, o Vicenzo e o Henrique do código deles que a feature alterou (lista na feature);
 - duas observações do teste manual: o `acervo` cai quando o Neon fecha uma conexão ociosa (Vicenzo) e, no app, o perfil aberto pelo feed não mostra resenhas nem estante (Kayke).
 
-### 4. F-MOD — Moderação
+### 4. F-MOD — Moderação — concluída em 21/10/2026, em revisão no PR
 
-Depende da F-AVA-2, porque remove resenha e frase pelo comando HTTP interno `social` → `leitura`; a F-AVA-2 está pronta desde 09/10. Ao planejar:
+Plano em [`plano-F-MOD.md`](plano-F-MOD.md); status, decisões, divergências e débitos em [`../feature-F-MOD.md`](../feature-F-MOD.md). Quatro commits na `renato-features`, com a `desenvolvimento` integrada, e PR para a `desenvolvimento` (a partir da F-MOD, a entrega é por PR, revisado por um colega).
 
-- o menu `DotsThree` de cada resenha ainda não existe: a F-AVA-2 usou botões para as reações (decisão 11), e é a F-MOD que abre o menu, com `Denunciar`;
-- o trecho de três linhas do card da denúncia **não reaproveita `textoSemMarcacao`**: [`denunciar.md`](../../../design/periodo-2/F-MOD/denunciar.md) (linha 281) pede o itálico do original. Monte o trecho a partir de `arvoreDaResenha` (web e app), que já tem a formatação;
-- o comando interno de remoção ainda não existe no `leitura`: as rotas de frase são só do autor (`DELETE /frases/{id}`).
+Para levar ao grupo:
 
-Inclui o `Denunciar comentário` na tela de comentários do Kayke. O painel é só web. As decisões do dono (limite do motivo, denúncia repetida, conteúdo já excluído, espera do rate limit) estão nas Pendências de [`../feature-F-MOD.md`](../feature-F-MOD.md#pendências).
+- avisar o Henrique, o Kayke e o Vicenzo do código deles que a feature alterou (lista na feature);
+- antes do merge de fechamento: `MODERACAO_TOKEN` em `leai-leitura` e `leai-social` no Render;
+- as tabelas novas da F-MOD (colunas novas em `denuncia` e `log_moderacao`) já estão no consumidor de `conta.excluida` do `social`.
 
 ### 5. F-ACV-NOTA — Nota geral e cache de capas
 
@@ -57,7 +57,7 @@ Inclui o `Denunciar comentário` na tela de comentários do Kayke. O painel é s
 
 ### 6. Tabelas para a matriz de remoção da F-CONTA-2
 
-A [F-CONTA-2](../feature-F-CONTA-2.md) já foi entregue, e o consumidor de `conta.excluida` do `leitura` já remove `reacao_resenha` e `frase`. A F-AVA-2 não criou tabela nova (a VIEW `v_reacao_resenha_v1` não guarda dados). Falta avisar ao Henrique as tabelas novas da F-MOD e da F-ACV-NOTA, quando existirem, para entrarem nos consumidores de `conta.excluida`.
+A [F-CONTA-2](../feature-F-CONTA-2.md) já foi entregue, e o consumidor de `conta.excluida` do `leitura` já remove `reacao_resenha` e `frase`. A F-AVA-2 não criou tabela nova (a VIEW `v_reacao_resenha_v1` não guarda dados). As colunas novas da F-MOD já entraram no consumidor do `social` (feito na própria F-MOD). Falta avisar ao Henrique as tabelas da F-ACV-NOTA, quando existirem.
 
 ### Fora da sequência
 

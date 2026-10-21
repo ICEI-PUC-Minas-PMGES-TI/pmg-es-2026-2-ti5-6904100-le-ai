@@ -1093,7 +1093,7 @@ paths:
         Frases não têm fluxo de denúncia; o administrador remove direto, da
         lista de frases do livro. O social chama o comando interno do leitura
         (chave fixa por frase) e grava o log de auditoria com alvo frase, sem
-        denúncia. Frase que já não existe é 409 CONTEUDO_JA_EXCLUIDO.
+        denúncia. Remover de novo uma frase que a moderação já removeu repete o 204, sem outro log (a chave fixa repete a resposta do leitura por 24 horas); frase excluída pela autora, ou fora dessa janela, é 409 CONTEUDO_JA_EXCLUIDO.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       responses:
