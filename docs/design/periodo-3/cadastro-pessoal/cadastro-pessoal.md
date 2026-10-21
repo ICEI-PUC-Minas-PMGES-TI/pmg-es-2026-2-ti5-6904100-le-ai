@@ -200,7 +200,7 @@ corpo nem informação essencial.
 - **Os botões** `Salvar livro`, `Salvar alterações`, `Salvando`, `Cancelar` e a linha de cold start.
 - **A zona de exclusão** do modo edição e a **confirmação de exclusão**, no mobile (bottom sheet) e na web (dialog), com a copy do Período 1.
 - **Os artboards** `Enviando a capa`, `Erro de upload`, `Confirmação de exclusão` (mobile e web) e os escuros `erro de upload` e `confirmação de exclusão`: não ganham o campo novo porque o enquadramento deles não alcança essa altura do formulário, e o que mostram não muda.
-- **As duas colunas da web**: capa à esquerda em 240px, campos à direita, largura máxima de 880px. O campo novo mora na coluna direita.
+- **As duas colunas da web**: capa à esquerda (200 por 267px), campos à direita, largura máxima de 880px. O campo novo mora na coluna direita.
 - **Toda a copy do Período 1** que não aparece na seção 8.
 
 ---
@@ -224,17 +224,17 @@ Entra **entre `Número de páginas` e `Sinopse`**, com o mesmo gap de `space-5` 
 
 **C. Erro de servidor no campo.** Se o servidor recusar a seleção (um assunto saiu do conjunto curado entre a abertura do seletor e o envio), o campo mostra a mensagem em `caption` `rubi` no lugar do helper, como nos outros campos (§2): `Um dos assuntos escolhidos não está mais na lista do Lê Ai. Revise e salve de novo.` Os chips continuam visíveis, e o foco vai para `Alterar assuntos`. Sem artboard próprio: a forma é a do erro de campo que o canvas já tem.
 
-### 4.2 `Criação, formulário vazio` (mobile) e `Criação, formulário vazio` (web)
+### 4.2 `Criação, vazio` (mobile) e `Web, criação vazia`
 
 - Entra o campo `Assuntos` no estado sem assunto (4.1 A, item 2), entre `Número de páginas` e `Sinopse`.
 - No mobile, a sinopse desce e passa a ficar parcialmente abaixo da dobra; o botão `Salvar livro` sai da viewport. Desenhe a viewport como ela fica: o enquadramento continua no topo do formulário.
 - Na web, o gatilho ocupa a largura da coluna direita e tem 44px.
 
-### 4.3 `Criação, formulário preenchido com capa` (mobile) e `Criação, preenchido com capa` (web)
+### 4.3 `Criação, com capa` (mobile) e `Web, criação com capa`
 
 - O campo `Assuntos` aparece com os chips `História` e `Memórias` (4.1 A, item 3) e `Alterar assuntos` abaixo deles.
 
-### 4.4 `Erro de validação nos campos` (mobile)
+### 4.4 `Erro de validação` (mobile)
 
 - O campo `Assuntos` aparece **no estado sem assunto e sem erro**, entre `Número de páginas` (com erro) e `Sinopse`. O assunto é opcional: a validação não o marca.
 
@@ -242,7 +242,7 @@ Entra **entre `Número de páginas` e `Sinopse`**, com o mesmo gap de `space-5` 
 
 - O campo `Assuntos`, com os dois chips, fica desabilitado como os demais: chips com fundo `papel-elevado` e texto `grafite`, sem o `X`; `Alterar assuntos` em `grafite-suave`, sem ação.
 
-### 4.6 `Edição` (mobile) e `Edição` (web)
+### 4.6 `Edição` (mobile) e `Web, edição`
 
 - O campo `Assuntos` chega preenchido com `História` e `Memórias`, com `Alterar assuntos`. O resto do modo edição, inclusive a zona de exclusão, fica como está.
 
@@ -314,7 +314,7 @@ Modo escuro é lock de página inteira. Superfície elevada fica **mais clara** 
 
 #### 5.7 `Cadastro de livro pessoal · Web, escolher assuntos`
 
-- Base: `Criação, preenchido com capa` da web, coberto pelo scrim `tinta` a 40%.
+- Base: `Web, criação com capa`, coberto pelo scrim `tinta` a 40%.
 - **Dialog centrado** conforme §5.4 do design, 560px de largura, `radius` 20, fundo `papel`, `elev-3`, padding `space-6`, altura de até 640px com a área de chips rolando por dentro.
 - Mesmo conteúdo de 5.1: título `Assuntos` com `2 escolhidos`, a frase da lista fixa, campo de busca de 44px, os 31 chips em linhas que quebram com `História` e `Memórias` ativos. Botão `X` de fechar no canto superior direito (Phosphor `X`, 20px, `grafite`, botão de 40px, `radius` 12, hover com fundo `linha`).
 - Rodapé alinhado à direita: `Limpar` textual `grafite` e `Concluir` primário pill de 40px, `space-4` de gap.

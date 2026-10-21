@@ -201,8 +201,8 @@ corpo nem informação essencial.
 Não redesenhe nada desta lista. Se um artboard não for citado na seção 4 ou na 5, ele fica exatamente como está no canvas.
 
 - **Todos os artboards existentes**, nas três linhas, sem nenhuma alteração: padrão, credencial inválida, bloqueio progressivo, entrando com cold start, as duas versões web e os dois de modo escuro.
-- **A estrutura do mobile:** wordmark `Lê Ai` em texto, título `Entrar`, os dois campos, `Esqueci minha senha` alinhado à direita abaixo da senha, o botão primário `Entrar` e a linha final `Ainda não tem conta? Criar conta`, com os mesmos espaçamentos.
-- **As duas colunas da web**, com a frase e a linha de apoio da coluna esquerda inalteradas.
+- **A estrutura do mobile:** lockup da marca (símbolo + `Lê Ai` em `musgo`), título `Entrar`, os dois campos com `User` e `LockSimple` à esquerda, `Esqueci minha senha` alinhado à direita abaixo da senha, o botão primário `Entrar` e a linha final `Ainda não tem conta? Criar conta`, com os mesmos espaçamentos.
+- **As duas colunas da web:** à esquerda, lockup grande, a frase editorial em Newsreader `Sua estante digital, seu progresso de leitura, sua comunidade leitora.`, a linha de apoio e a ilustração da leitora sobre o círculo `musgo-fundo`, tudo inalterado; à direita, o selo da marca acima de `Entrar`.
 - **A copy inteira já existente**, palavra por palavra: `E-mail, nome de usuário ou senha incorretos.`, `Muitas tentativas. Tente de novo em alguns minutos.`, `Entrando`, `O servidor está iniciando. Isso pode levar alguns segundos.`, `Esqueci minha senha`.
 - **A ausência de shell:** login continua sem barra inferior, sem sidebar e sem sino.
 
@@ -262,7 +262,7 @@ O app estava aberto na estante. A conta foi suspensa; o servidor negou a renova�
 
 O equivalente web de `Login · Conta suspensa`.
 
-- As duas colunas como sempre: coluna esquerda em `papel-elevado` com wordmark, frase e linha de apoio; coluna direita em `papel` com a coluna de 420px.
+- As duas colunas como sempre: coluna esquerda em `papel-elevado` com lockup, frase editorial, linha de apoio e ilustração, como nos artboards web existentes; coluna direita em `papel` com a coluna de 420px.
 - Na coluna direita, o **banner de conta suspensa** acima dos campos, na largura da coluna, com as duas partes do texto do estado `Conta suspensa`.
 - Identificador `svaladares` mantido, senha limpa, campos com borda de 1px `linha` e 44px de altura, `Esqueci minha senha`, `Entrar` habilitado com 40px, e a linha final.
 - Foco de teclado: depois do envio, o foco vai para o banner, que é anunciado; em seguida a ordem de tabulação segue a ordem visual.
@@ -273,7 +273,7 @@ O equivalente web de `Login · Conta suspensa`.
 
 Equivalente a `Login · Conta suspensa`.
 
-- Fundo `noite`. Wordmark e título em `papel-suave`. Labels em `grafite-claro`. Campos em `noite-elevada`, mais claros que o fundo, com borda de 1px `linha-noite` e texto `papel-suave`.
+- Fundo `noite`. Lockup e título em `papel-suave`. Labels em `grafite-claro`. Campos em `noite-elevada`, mais claros que o fundo, com borda de 1px `linha-noite` e texto `papel-suave`.
 - Banner em `ambar-fundo-escuro`, `Prohibit` em `ambar-claro`, as duas partes do texto em `papel-suave`.
 - `Esqueci minha senha` e `Criar conta` em `musgo-claro`; `Entrar` com fundo `musgo-claro` e texto `noite`.
 
@@ -346,7 +346,7 @@ Nenhuma copy existente é substituída. A credencial inválida continua `E-mail,
 
 - Nada de Inter. Manrope é a fonte de interface.
 - Nada de Instrument Serif e nada de Fraunces.
-- Nada de serifa fora dos três usos editoriais listados na seção 2. Esta tela não é nenhum deles.
+- Nada de serifa fora dos três usos editoriais listados na seção 2. A única serifa desta tela é a frase e a linha de apoio que já existem na coluna esquerda da web; o banner novo é todo em Manrope.
 - Nada de mistura de família dentro do mesmo título. Ênfase é itálico da mesma família.
 - Nada de overline em toda seção. No máximo um por tela.
 - Nada de eyebrow numerado do tipo "01 · SEÇÃO".
