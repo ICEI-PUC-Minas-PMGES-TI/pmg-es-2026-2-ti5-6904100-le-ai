@@ -54,13 +54,22 @@ Future<void> mostrarComentarios(
     // não cabiam acima do teclado.
     builder: (context) => FractionallySizedBox(
       heightFactor: MediaQuery.viewInsetsOf(context).bottom > 0 ? 1 : 0.88,
-      child: FolhaComentarios(
-        social: social,
-        perfil: perfil,
-        atividade: atividade,
-        aoComentar: aoComentar,
-        aoExcluir: aoExcluir,
-        aoAbrirPerfil: aoAbrirPerfil,
+      // Messenger e Scaffold próprios (F-MOD): o aviso de "Denúncia enviada" aparece sobre a
+      // folha, e não no Scaffold da tela, que ela cobre. Sem redimensionar: o teclado já é
+      // tratado pela altura da folha.
+      child: ScaffoldMessenger(
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          resizeToAvoidBottomInset: false,
+          body: FolhaComentarios(
+            social: social,
+            perfil: perfil,
+            atividade: atividade,
+            aoComentar: aoComentar,
+            aoExcluir: aoExcluir,
+            aoAbrirPerfil: aoAbrirPerfil,
+          ),
+        ),
       ),
     ),
   );

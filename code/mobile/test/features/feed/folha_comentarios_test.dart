@@ -443,6 +443,14 @@ void main() {
       });
       expect(find.text('Enviar esta denúncia?'), findsNothing);
       expect(find.text('Comentários'), findsOneWidget);
+      // O aviso aparece sobre a folha de comentários (dentro dela), não no Scaffold atrás.
+      expect(
+        find.descendant(
+          of: find.byType(BottomSheet),
+          matching: find.text('Denúncia enviada. A moderação vai analisar.'),
+        ),
+        findsOneWidget,
+      );
     });
   });
 }
