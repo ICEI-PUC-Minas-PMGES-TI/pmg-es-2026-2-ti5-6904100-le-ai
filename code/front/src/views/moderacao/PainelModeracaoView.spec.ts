@@ -41,10 +41,12 @@ function botao(tela: DOMWrapper<Element>, texto: string) {
 describe('PainelModeracaoView', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}')))
+    vi.stubEnv('VITE_LEITURA_BASE_URL', 'http://leitura.teste')
   })
 
   afterEach(() => {
     vi.unstubAllGlobals()
+    vi.unstubAllEnvs()
     document.body.innerHTML = ''
   })
 
@@ -164,6 +166,6 @@ describe('PainelModeracaoView', () => {
   it('acorda o leitura ao abrir', async () => {
     await montar(servicoFalso([]))
 
-    expect(vi.mocked(fetch)).toHaveBeenCalledWith(expect.stringMatching(/\/health$/))
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith('http://leitura.teste/health')
   })
 })
