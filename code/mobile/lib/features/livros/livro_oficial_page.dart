@@ -28,6 +28,7 @@ import '../avaliacao/secao_frases.dart';
 import '../estante/estante_service.dart';
 import '../estante/situacao_na_estante.dart';
 import '../feed/social_service.dart';
+import '../moderacao/folha_denunciar.dart';
 import '../perfil/widgets_de_perfil.dart';
 import '../recomendacoes/recomendar_livro_page.dart';
 import '../progresso/rotas_progresso.dart';
@@ -476,7 +477,13 @@ class _LivroOficialPageState extends State<LivroOficialPage> {
           ] else ...<Widget>[
             for (final (indice, resenha) in resenhas.indexed) ...<Widget>[
               if (indice > 0) const SizedBox(height: DesignTokens.space6),
-              _Resenha(key: ValueKey<String>(resenha.id), resenha: resenha, leitura: widget.leitura),
+              _Resenha(
+                key: ValueKey<String>(resenha.id),
+                resenha: resenha,
+                leitura: widget.leitura,
+                social: widget.social,
+                livroTitulo: _pagina.livro?.resumo.titulo ?? '',
+              ),
             ],
             if (_pagina.falhouMaisResenhas) ...<Widget>[
               const SizedBox(height: DesignTokens.space4),
@@ -834,7 +841,18 @@ class _Resenha extends StatefulWidget {
   final ResenhaDoLivro resenha;
   final LeituraService leitura;
 
-  const _Resenha({super.key, required this.resenha, required this.leitura});
+  /// Sem ele, a resenha fica sem o menu de denúncia (F-MOD). A lista do `acervo` nunca traz a
+  /// resenha do próprio leitor, que fica em "Sua avaliação".
+  final SocialService? social;
+  final String livroTitulo;
+
+  const _Resenha({
+    super.key,
+    required this.resenha,
+    required this.leitura,
+    this.social,
+    required this.livroTitulo,
+  });
 
   @override
   State<_Resenha> createState() => _ResenhaState();
@@ -856,6 +874,21 @@ class _ResenhaState extends State<_Resenha> {
             AvatarLeitor(url: resenha.autorAvatarUrl, tamanho: 40, nome: resenha.autorNome),
             const SizedBox(width: DesignTokens.space3),
             Expanded(child: Text(resenha.autorNome, style: theme.textTheme.titleMedium)),
+            if (widget.social case final social?)
+              Padding(
+                padding: const EdgeInsets.only(left: DesignTokens.space2),
+                child: MenuDaResenhaDeOutraPessoa(
+                  social: social,
+                  alvo: AlvoDaDenuncia.resenha(
+                    id: resenha.id,
+                    autorNome: resenha.autorNome,
+                    autorAvatarUrl: resenha.autorAvatarUrl,
+                    livroTitulo: widget.livroTitulo,
+                    texto: resenha.texto,
+                    spoiler: resenha.spoiler,
+                  ),
+                ),
+              ),
           ],
         ),
         const SizedBox(height: DesignTokens.space3),

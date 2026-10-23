@@ -20,6 +20,8 @@ import '../avaliacao/avaliacao_controller.dart';
 import '../avaliacao/bloco_sua_avaliacao.dart';
 import '../avaliacao/leitura_service.dart';
 import '../avaliacao/markdown_resenha.dart';
+import '../feed/social_service.dart';
+import '../moderacao/folha_denunciar.dart';
 import '../avaliacao/painel_de_nota.dart';
 import '../avaliacao/reacoes.dart';
 import '../avaliacao/adicionar_frase.dart';
@@ -69,6 +71,9 @@ class LivroPessoalPage extends StatefulWidget {
   /// `Ver todas as frases` do dono (F-AVA-2).
   final VoidCallback? aoVerFrases;
 
+  /// Menu de denúncia da resenha do dono para o terceiro (F-MOD, RN-15.4). Sem ele, sem menu.
+  final SocialService? social;
+
   const LivroPessoalPage({
     super.key,
     required this.servico,
@@ -85,6 +90,7 @@ class LivroPessoalPage extends StatefulWidget {
     this.aoVerAtualizacoes,
     this.aoVerFrases,
     this.listas,
+    this.social,
   });
 
   @override
@@ -514,9 +520,32 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
           if (consulta && resenha != null) ...<Widget>[
             divisor(),
             secao(<Widget>[
-              Text(
-                'Resenha de ${primeiroNome ?? 'quem cadastrou'}',
-                style: theme.textTheme.titleMedium,
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
+                      'Resenha de ${primeiroNome ?? 'quem cadastrou'}',
+                      style: theme.textTheme.titleMedium,
+                    ),
+                  ),
+                  // O `Denunciar` em texto do Período 1 virou o `DotsThree` (livro-pessoal.md,
+                  // lote 7), com a mesma via que abriu a página (RN-15.4).
+                  if ((widget.social, _viaDeAcesso) case (final social?, final via?)
+                      when resenha.id.isNotEmpty)
+                    MenuDaResenhaDeOutraPessoa(
+                      social: social,
+                      alvo: AlvoDaDenuncia.resenha(
+                        id: resenha.id,
+                        autorNome: nomeDoDono ?? resenha.autorNome,
+                        autorAvatarUrl: livro.dono?.avatarUrl ?? resenha.autorAvatarUrl,
+                        livroTitulo: livro.titulo,
+                        texto: resenha.texto,
+                        spoiler: resenha.spoiler,
+                        via: via.via,
+                        referenciaId: via.referenciaId,
+                      ),
+                    ),
+                ],
               ),
               const SizedBox(height: DesignTokens.space3),
               if (resenha.spoiler && !_spoilerRevelado)

@@ -14,6 +14,7 @@ vi.mock('../../services/social', async (importOriginal) => ({
     comentar: vi.fn(),
     editarComentario: vi.fn(),
     excluirComentario: vi.fn(),
+    denunciar: vi.fn(),
   },
 }))
 
@@ -98,6 +99,11 @@ function montar(props: { atividade: Atividade; aberto: boolean }) {
   return { wrapper, tela }
 }
 
+/** O alternador "Ver N respostas"; desde a F-MOD o menu do comentário de outra pessoa também tem `aria-expanded`. */
+function alternadorDeRespostas(tela: DOMWrapper<Element>) {
+  return tela.findAll('[aria-expanded="false"]').find((elemento) => elemento.text().startsWith('Ver '))!
+}
+
 describe('ModalComentarios', () => {
   beforeEach(() => {
     social.listarComentariosRaiz.mockReset()
@@ -179,7 +185,7 @@ describe('ModalComentarios', () => {
     const { tela } = montar({ atividade: atividade(), aberto: true })
     await flushPromises()
 
-    const alternador = tela.get('[aria-expanded="false"]')
+    const alternador = alternadorDeRespostas(tela)
     expect(alternador.text()).toBe('Ver 2 respostas')
     await alternador.trigger('click')
     await flushPromises()
@@ -206,7 +212,7 @@ describe('ModalComentarios', () => {
 
     const { tela } = montar({ atividade: atividade(), aberto: true })
     await flushPromises()
-    await tela.get('[aria-expanded="false"]').trigger('click')
+    await alternadorDeRespostas(tela).trigger('click')
     await flushPromises()
 
     // Responder à resposta existente (de Rafael), não à raiz.
@@ -397,6 +403,24 @@ describe('ModalComentarios', () => {
       await flushPromises()
 
       expect(tela.find('button[aria-label="Ações do seu comentário"]').exists()).toBe(false)
+    })
+
+    it('comentário de outra pessoa só oferece Denunciar comentário, que abre a denúncia por cima (F-MOD)', async () => {
+      social.listarComentariosRaiz.mockResolvedValue(pagina([comentario()]))
+      const { tela } = montar({ atividade: atividade(), aberto: true })
+      await flushPromises()
+
+      await tela.get('button[aria-label="Ações do comentário"]').trigger('click')
+      const itens = tela.findAll('[role="menuitem"]')
+      expect(itens.map((item) => item.text())).toEqual(['Denunciar comentário'])
+      await itens[0]!.trigger('click')
+      await flushPromises()
+
+      expect(tela.findAll('[role="dialog"]')).toHaveLength(2)
+      expect(tela.text()).toContain('Denunciar comentário')
+      expect(tela.text()).toContain('Resposta em Os Sertões')
+      expect(tela.text()).toContain('Reli esse ano e travei na segunda parte.')
+      expect(social.excluirComentario).not.toHaveBeenCalled()
     })
 
     it('editar leva o texto ao campo, só troca a lista depois do servidor e marca editado', async () => {

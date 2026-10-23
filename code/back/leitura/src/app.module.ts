@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { LoggerModule } from 'nestjs-pino';
+import { REDACAO_DO_LOG } from './common/redacao-do-log';
 import { validateEnv } from './config/env';
 import { getCorrelationId } from './common/als';
 import { AllExceptionsFilter } from './common/all-exceptions.filter';
@@ -16,6 +17,7 @@ import { EstatisticasModule } from './estatisticas/estatisticas.module';
 import { FavoritosModule } from './favoritos/favoritos.module';
 import { FrasesModule } from './frases/frases.module';
 import { HistoricoModule } from './historico/historico.module';
+import { ModeracaoModule } from './moderacao/moderacao.module';
 import { HealthModule } from './health/health.module';
 import { InatividadeModule } from './jobs/inatividade/inatividade.module';
 import { LeiturasModule } from './leituras/leituras.module';
@@ -44,17 +46,7 @@ import { DesafiosModule } from './desafios/desafios.module';
           return correlationId ? { correlationId } : {};
         },
         // Nunca logar dados sensíveis (RNF-SEC-36).
-        redact: {
-          paths: [
-            'req.headers.authorization',
-            'req.headers.cookie',
-            '*.password',
-            '*.senha',
-            '*.token',
-            '*.hash',
-          ],
-          remove: true,
-        },
+        redact: REDACAO_DO_LOG,
         transport:
           process.env.NODE_ENV !== 'production'
             ? { target: 'pino-pretty' }
@@ -72,6 +64,7 @@ import { DesafiosModule } from './desafios/desafios.module';
     AvaliacoesModule,
     ReacoesModule,
     FrasesModule,
+    ModeracaoModule,
     PerfisModule,
     EstanteModule,
     FavoritosModule,

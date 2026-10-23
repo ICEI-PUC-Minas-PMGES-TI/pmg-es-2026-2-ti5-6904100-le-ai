@@ -24,8 +24,10 @@ import org.springframework.stereotype.Component;
  * referência ({@code respondido_usuario_id}).
  *
  * <p>A ordem importa: denúncias e o log de moderação são resolvidos antes de apagar atividades e
- * comentários, porque só eles dizem quais resenhas e comentários eram da conta. O {@code social}
- * não guarda as frases da conta, então log de moderação de frase dela fica sem anonimizar aqui.
+ * comentários, porque só eles dizem quais resenhas e comentários eram da conta. Desde a F-MOD,
+ * denúncia e log também guardam o autor do alvo e o dono da atividade ({@code alvo_autor_id} e
+ * {@code atividade_autor_id}): é por eles que se acha o conteúdo que a moderação já apagou,
+ * inclusive as frases, que o {@code social} não guarda.
  */
 @Component
 public class ConsumidorDeContaExcluida implements MessageHandler {
@@ -61,8 +63,10 @@ public class ConsumidorDeContaExcluida implements MessageHandler {
     // Auditoria (RNF-SEC-35) fica, sem nada que aponte para a conta (RN-23.7).
     jdbc.update(
         "UPDATE log_moderacao SET alvo_id = NULL, denuncia_id = NULL, detalhe = NULL,"
+            + " alvo_autor_id = NULL, alvo_livro_id = NULL, atividade_autor_id = NULL,"
             + " anonimizado_em = now() WHERE anonimizado_em IS NULL AND ("
             + " (alvo_tipo = 'usuario' AND alvo_id = ?)"
+            + " OR alvo_autor_id = ? OR atividade_autor_id = ?"
             + " OR (alvo_tipo = 'comentario' AND alvo_id IN ("
             + COMENTARIOS_QUE_SOMEM
             + "))"
@@ -75,15 +79,20 @@ public class ConsumidorDeContaExcluida implements MessageHandler {
         u,
         u,
         u,
+        u,
+        u,
         u);
     jdbc.update(
         "DELETE FROM denuncia WHERE denunciante_id = ?"
+            + " OR alvo_autor_id = ? OR atividade_autor_id = ?"
             + " OR (alvo_tipo = 'comentario' AND alvo_id IN ("
             + COMENTARIOS_QUE_SOMEM
             + "))"
             + " OR (alvo_tipo = 'resenha' AND alvo_id IN ("
             + RESENHAS_DA_CONTA
             + "))",
+        u,
+        u,
         u,
         u,
         u,

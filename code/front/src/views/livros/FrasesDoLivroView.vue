@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { PhInfo, PhPlus, PhQuotes, PhWarning } from '@phosphor-icons/vue'
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { usarRotuloVoltar } from '../../cabecalho'
@@ -15,6 +15,8 @@ import { linhaDaCota, rotuloDeFrases, TEXTOS_DAS_FRASES as T } from '../../livro
 import { acervoService } from '../../services/acervo'
 import { novaChaveIdempotencia } from '../../services/api'
 import { leituraService, type Frase } from '../../services/leitura'
+import { moderacaoService } from '../../services/moderacao'
+import { useSession } from '../../session'
 
 /**
  * Lista completa de frases de um livro (frases-do-livro.md, F-AVA-2, RF-AVA-07): bloco do livro
@@ -24,6 +26,10 @@ import { leituraService, type Frase } from '../../services/leitura'
  *
  * No limite de 10, o botão dá lugar à explicação, que não é erro. A rota do livro pessoal só serve
  * ao dono: o servidor responde 404 a qualquer outro.
+ *
+ * **Administrador (F-MOD), só a partir de 768px:** a faixa de aviso, `Remover frase` em toda frase,
+ * sem cota nem `Adicionar frase`. A remoção é direta (RN-11) e só sai da lista depois de o servidor
+ * confirmar; a falha fica no dialog, com a frase ainda na lista.
  */
 const route = useRoute()
 const pessoal = computed(() => route.name === 'frases-do-livro-pessoal')
@@ -49,6 +55,59 @@ let chaveExclusao: { id: string; chave: string } | null = null
 
 const temMais = computed(() => pagina.value < totalPaginas.value)
 const noLimite = computed(() => minhas.value >= limite.value)
+
+const { ehAdmin } = useSession()
+const larga = ref(false)
+let consultaLarga: MediaQueryList | null = null
+const aoMudarLargura = (evento: MediaQueryListEvent) => (larga.value = evento.matches)
+onMounted(() => {
+  if (typeof window.matchMedia === 'function') {
+    consultaLarga = window.matchMedia('(min-width: 768px)')
+    larga.value = consultaLarga.matches
+    consultaLarga.addEventListener?.('change', aoMudarLargura)
+  }
+})
+onBeforeUnmount(() => consultaLarga?.removeEventListener?.('change', aoMudarLargura))
+const modoAdmin = computed(() => ehAdmin.value && larga.value && !pessoal.value)
+
+const paraRemover = ref<Frase | null>(null)
+const removendo = ref(false)
+const erroRemocao = ref<string | null>(null)
+let chaveRemocao: { id: string; chave: string } | null = null
+
+/** Tira a frase da lista e leva o foco à que ocupou o lugar dela (§9). */
+async function tirarDaLista(frase: Frase, mensagem: string): Promise<void> {
+  const posicao = frases.value.findIndex((item) => item.id === frase.id)
+  frases.value = frases.value.filter((item) => item.id !== frase.id)
+  total.value = Math.max(0, total.value - 1)
+  if (frase.minha) {
+    minhas.value = Math.max(0, minhas.value - 1)
+  }
+  anuncio.value = `${mensagem} ${rotuloDeFrases(total.value)}.`
+  await nextTick()
+  const proxima = document.querySelectorAll<HTMLElement>('[data-frase]')[Math.max(0, posicao)]
+  proxima?.focus()
+}
+
+async function confirmarRemocao(): Promise<void> {
+  const frase = paraRemover.value
+  if (!frase || removendo.value) return
+  if (chaveRemocao?.id !== frase.id) {
+    chaveRemocao = { id: frase.id, chave: novaChaveIdempotencia() }
+  }
+  removendo.value = true
+  erroRemocao.value = null
+  try {
+    await moderacaoService.removerFrase(frase.id, chaveRemocao.chave)
+    chaveRemocao = null
+    paraRemover.value = null
+    await tirarDaLista(frase, 'Frase removida.')
+  } catch {
+    erroRemocao.value = 'Não foi possível remover a frase. Ela continua no livro. Tente de novo em instantes.'
+  } finally {
+    removendo.value = false
+  }
+}
 
 usarRotuloVoltar(() => livro.value?.titulo ?? null)
 
@@ -127,16 +186,8 @@ async function confirmarExclusao(): Promise<void> {
   try {
     await leituraService.excluirFrase(frase.id, chaveExclusao.chave)
     chaveExclusao = null
-    const posicao = frases.value.findIndex((item) => item.id === frase.id)
-    frases.value = frases.value.filter((item) => item.id !== frase.id)
-    total.value = Math.max(0, total.value - 1)
-    minhas.value = Math.max(0, minhas.value - 1)
     paraExcluir.value = null
-    anuncio.value = `Frase excluída. ${rotuloDeFrases(total.value)}.`
-    // O foco vai para a frase que ocupou o lugar da excluída (§9).
-    await nextTick()
-    const proxima = document.querySelectorAll<HTMLElement>('[data-frase]')[Math.max(0, posicao)]
-    proxima?.focus()
+    await tirarDaLista(frase, 'Frase excluída.')
   } catch {
     erroExclusao.value = T.excluirFalha
   } finally {
@@ -232,11 +283,14 @@ async function confirmarExclusao(): Promise<void> {
             </p>
           </div>
         </div>
-        <p class="mt-space-4 text-caption text-grafite">
+        <p
+          v-if="!modoAdmin"
+          class="mt-space-4 text-caption text-grafite"
+        >
           {{ linhaDaCota(minhas, limite) }}
         </p>
         <p
-          v-if="noLimite"
+          v-if="!modoAdmin && noLimite"
           class="mt-space-3 flex items-start gap-space-2 text-caption text-grafite"
         >
           <PhInfo
@@ -248,7 +302,7 @@ async function confirmarExclusao(): Promise<void> {
           {{ T.limite }}
         </p>
         <button
-          v-else-if="total > 0"
+          v-else-if="!modoAdmin && total > 0"
           type="button"
           class="mt-space-3 flex h-12 w-full items-center justify-center gap-space-2 rounded-base border border-linha text-body-strong text-tinta transition-colors duration-dur-fast hover:bg-linha focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo md:h-10"
           @click="adicionando = true"
@@ -277,7 +331,29 @@ async function confirmarExclusao(): Promise<void> {
         </div>
 
         <div
-          v-if="frases.length === 0"
+          v-if="modoAdmin"
+          class="my-space-6 flex max-w-[68ch] items-start gap-space-3 rounded-base bg-musgo-fundo p-space-4"
+        >
+          <PhInfo
+            :size="20"
+            weight="regular"
+            class="mt-px shrink-0 text-musgo"
+            aria-hidden="true"
+          />
+          <p class="text-body text-tinta">
+            Você está vendo como administrador. Remover uma frase tira o trecho do livro para todos os
+            leitores e fica registrado no log de moderação.
+          </p>
+        </div>
+
+        <p
+          v-if="frases.length === 0 && modoAdmin"
+          class="text-body text-grafite"
+        >
+          Nenhuma frase neste livro.
+        </p>
+        <div
+          v-else-if="frases.length === 0"
           class="mt-space-10 flex flex-col items-center gap-space-6 text-center"
         >
           <PhQuotes
@@ -313,8 +389,10 @@ async function confirmarExclusao(): Promise<void> {
           >
             <FraseCitada
               :frase="frase"
-              com-excluir
+              :com-excluir="!modoAdmin"
+              :com-remover="modoAdmin"
               @excluir="pedirExclusao(frase)"
+              @remover="erroRemocao = null; paraRemover = frase"
             />
           </li>
         </ul>
@@ -337,6 +415,26 @@ async function confirmarExclusao(): Promise<void> {
       @fechar="adicionando = false"
       @ver-minhas="adicionando = false"
     />
+
+    <DialogoConfirmacao
+      :aberta="paraRemover !== null"
+      titulo="Remover esta frase?"
+      rotulo-confirmar="Remover frase"
+      :processando="removendo"
+      :erro="erroRemocao ?? undefined"
+      @confirmar="confirmarRemocao"
+      @cancelar="paraRemover = null"
+    >
+      <FraseCitada
+        v-if="paraRemover"
+        :frase="paraRemover"
+        compacta
+      />
+      <p class="mt-space-4 text-body text-grafite">
+        O trecho sai deste livro para todos os leitores, inclusive para quem o guardou. A remoção fica
+        registrada no log de moderação e não pode ser desfeita.
+      </p>
+    </DialogoConfirmacao>
 
     <DialogoConfirmacao
       :aberta="paraExcluir !== null"

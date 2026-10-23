@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { createMemoryHistory, createRouter, START_LOCATION, type RouteLocationNormalized } from 'vue-router'
 
 import { encerrarSessao, iniciarSessao } from '../session'
+import { tokenComPapel } from '../testes/tokens'
 import { guardaDeSessao, reagirAoFimDaSessao, routes } from './index'
 
 const USUARIO = { id: 'u1', username: 'marinableu', displayName: 'Marina Beltrão' }
@@ -49,6 +50,21 @@ describe('guardaDeSessao', () => {
     const to = resolverPara('/login')
 
     expect(guardaDeSessao(to, START_LOCATION, () => {})).toEqual({ path: '/estante' })
+  })
+
+  it('/moderacao só para o papel admin; leitor vai para /estante (F-MOD)', () => {
+    const to = resolverPara('/moderacao')
+    iniciarSessao({ accessToken: tokenComPapel('leitor'), refreshToken: 'r' }, USUARIO)
+    expect(guardaDeSessao(to, START_LOCATION, () => {})).toEqual({ path: '/estante' })
+
+    iniciarSessao({ accessToken: tokenComPapel('admin'), refreshToken: 'r' }, USUARIO)
+    expect(guardaDeSessao(to, START_LOCATION, () => {})).toBe(true)
+
+    encerrarSessao()
+    expect(guardaDeSessao(to, START_LOCATION, () => {})).toEqual({
+      path: '/login',
+      query: { destino: '/moderacao' },
+    })
   })
 
   it('/login sem sessão deixa passar', () => {

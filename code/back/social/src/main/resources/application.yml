@@ -114,6 +114,9 @@ leai:
   jwt-secret: ${JWT_SECRET:}
   admin-email: ${ADMIN_EMAIL:}
   admin-password: ${ADMIN_PASSWORD:}
+  # F-MOD: comando interno de remoção no `leitura` (porta local 3001).
+  leitura-base-url: ${LEITURA_BASE_URL:http://localhost:3001}
+  moderacao-token: ${MODERACAO_TOKEN:}
 
 ---
 # --- perfil prod ----------------------------------------------------------

@@ -201,6 +201,22 @@ export class AvaliacoesRepository {
     return removida?.id ?? null;
   }
 
+  /**
+   * Remoção pela moderação (F-MOD): pelo id, sem filtro de dono. Devolve quem escreveu e o
+   * livro, para o evento e para a auditoria do `social`; `null` quando já não existia.
+   */
+  async excluirResenhaPorId(
+    tx: Tx,
+    resenhaId: string,
+  ): Promise<{ usuarioId: string; livroId: string } | null> {
+    const [removida] = await tx
+      .delete(resenha)
+      .where(eq(resenha.id, resenhaId))
+      .returning({ usuarioId: resenha.usuarioId, livroId: resenha.livroId });
+
+    return removida ?? null;
+  }
+
   async resenhaAtual(
     leitor: Leitor,
     usuarioId: string,

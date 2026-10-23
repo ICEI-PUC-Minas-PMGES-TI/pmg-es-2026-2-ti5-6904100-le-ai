@@ -309,6 +309,7 @@ GoRouter buildRouter({
                     raiz: rotaFeedRaiz,
                     estante: servicoDeEstante,
                     progresso: depsDeProgresso,
+                    social: depsDeFeed.social,
                   ),
                   ...rotasDeCatalogo(deps, raiz: rotaFeedRaiz),
                 ],
@@ -372,6 +373,7 @@ GoRouter buildRouter({
                     raiz: '/perfil',
                     estante: servicoDeEstante,
                     progresso: depsDeProgresso,
+                    social: depsDeFeed.social,
                   ),
                   // O livro aberto por uma resenha do perfil fica na aba Perfil (pagina-do-livro.md
                   // §4.1: o item ativo é a aba de origem).

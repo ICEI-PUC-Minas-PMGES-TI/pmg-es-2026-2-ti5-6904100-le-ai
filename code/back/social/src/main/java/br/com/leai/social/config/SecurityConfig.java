@@ -3,12 +3,20 @@ package br.com.leai.social.config;
 import br.com.leai.social.common.CodigoErro;
 import br.com.leai.social.common.EscritorDeErro;
 import jakarta.servlet.DispatcherType;
+import jakarta.servlet.http.HttpServletRequest;
+import java.security.Principal;
+import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
 
 /**
@@ -37,6 +45,40 @@ import org.springframework.security.web.SecurityFilterChain;
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+
+  private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
+
+  /** Claim do papel no token de `identidade` (`Papel.CLAIM`): `leitor` ou `admin`. */
+  static final String CLAIM_PAPEL = "papel";
+
+  /** Painel e ações de moderação (F-MOD, RNF-SEC-04): só a conta de administrador. */
+  static final String ROTAS_DO_ADMIN = "/admin/**";
+
+  /**
+   * Só `papel == "admin"` vira {@code ROLE_ADMIN}; claim ausente ou outro valor não dá papel
+   * nenhum. Ocultar o painel no cliente não é controle de acesso: quem decide é esta regra.
+   */
+  static List<GrantedAuthority> papeis(Jwt token) {
+    return "admin".equals(token.getClaimAsString(CLAIM_PAPEL))
+        ? List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))
+        : List.of();
+  }
+
+  private static JwtAuthenticationConverter conversorDePapel() {
+    JwtAuthenticationConverter conversor = new JwtAuthenticationConverter();
+    conversor.setJwtGrantedAuthoritiesConverter(SecurityConfig::papeis);
+    return conversor;
+  }
+
+  /** Falha de autorização vai para o log (RNF-SEC-35), com quem e onde, nunca o token. */
+  private static void registrarNegado(HttpServletRequest requisicao) {
+    Principal quem = requisicao.getUserPrincipal();
+    log.warn(
+        "Acesso negado: {} {} por {}",
+        requisicao.getMethod(),
+        requisicao.getRequestURI(),
+        quem == null ? "anônimo" : quem.getName());
+  }
 
   /**
    * Rotas abertas. {@code /health} e {@code /actuator/health} são sondadas pelo Render sem
@@ -70,12 +112,14 @@ public class SecurityConfig {
                     // 401 sobre uma resposta já em andamento.
                     .dispatcherTypeMatchers(DispatcherType.ASYNC)
                     .permitAll()
+                    .requestMatchers(ROTAS_DO_ADMIN)
+                    .hasRole("ADMIN")
                     .anyRequest()
                     .authenticated())
         .oauth2ResourceServer(
             oauth ->
                 oauth
-                    .jwt(Customizer.withDefaults())
+                    .jwt(jwt -> jwt.jwtAuthenticationConverter(conversorDePapel()))
                     // O resource server instala um entry point próprio, que ganha do global
                     // abaixo quando o token existe mas é inválido ou expirou. Sem esta linha,
                     // esse 401 sai com corpo vazio e quebra o contrato de erro (RNF-ERR-01).
@@ -83,8 +127,10 @@ public class SecurityConfig {
                         (requisicao, resposta, excecao) ->
                             escritorDeErro.escrever(resposta, CodigoErro.NAO_AUTENTICADO))
                     .accessDeniedHandler(
-                        (requisicao, resposta, excecao) ->
-                            escritorDeErro.escrever(resposta, CodigoErro.ACESSO_NEGADO)))
+                        (requisicao, resposta, excecao) -> {
+                          registrarNegado(requisicao);
+                          escritorDeErro.escrever(resposta, CodigoErro.ACESSO_NEGADO);
+                        }))
         // Cobre o caso sem Authorization nenhum, que nem chega ao filtro de bearer token.
         .exceptionHandling(
             erros ->
@@ -93,8 +139,10 @@ public class SecurityConfig {
                         (requisicao, resposta, excecao) ->
                             escritorDeErro.escrever(resposta, CodigoErro.NAO_AUTENTICADO))
                     .accessDeniedHandler(
-                        (requisicao, resposta, excecao) ->
-                            escritorDeErro.escrever(resposta, CodigoErro.ACESSO_NEGADO)))
+                        (requisicao, resposta, excecao) -> {
+                          registrarNegado(requisicao);
+                          escritorDeErro.escrever(resposta, CodigoErro.ACESSO_NEGADO);
+                        }))
         .build();
   }
 }

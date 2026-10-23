@@ -44,6 +44,12 @@ info:
       - PUT /listas/{listaId}/livros/{itemId}/posicao
       - GET /perfis/{usuarioId}/listas
       - GET /me/listas
+      - POST /denuncias
+      - GET /admin/denuncias
+      - POST /admin/denuncias/{denunciaId}/arquivar
+      - POST /admin/denuncias/{denunciaId}/remover
+      - GET /admin/moderacao/logs
+      - DELETE /admin/frases/{fraseId}
 x-database-contracts:
   - name: v_atividade_livro_pessoal_v1
     x-implementation-status: implemented
@@ -164,6 +170,8 @@ tags:
     description: Notificações in-app do leitor autenticado
   - name: recomendacoes
     description: Recomendação de livro entre leitores com seguimento mútuo (F-REC-P2P)
+  - name: moderacao
+    description: Denúncia de resenhas e comentários e moderação pelo administrador (F-MOD)
   - name: health
     description: Sondagem de disponibilidade
 security:
@@ -900,6 +908,239 @@ paths:
               schema: { type: string }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '503': { $ref: '#/components/responses/Indisponivel' }
+  /denuncias:
+    post:
+      tags: [moderacao]
+      summary: Denuncia uma resenha ou um comentário (RF-MOD-01)
+      operationId: criarDenuncia
+      x-implementation-status: implemented
+      description: >-
+        O motivo é um único texto livre, obrigatório, com até 500 caracteres
+        contados em code points, sem enum nem descrição separada. O servidor
+        confere o acesso atual ao alvo: comentário pela visibilidade da
+        atividade (RN-08/RN-09); resenha de livro oficial por perfil público
+        ou seguimento aceito; resenha de livro pessoal só pela via de RN-15.4
+        (`via` e `referenciaId`, na mesma regra de reagir à resenha). Sem
+        acesso, 404, igual a inexistente. Se o leitor já tem denúncia pendente
+        sobre o mesmo alvo, a resposta é 200 com essa denúncia, sem criar outra
+        nem trocar o motivo. Rate limiting por leitor (10 por minuto) e por IP
+        (RNF-SEC-18).
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CriarDenuncia' }
+      responses:
+        '201':
+          description: Denúncia registrada.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Denuncia' }
+        '200':
+          description: O leitor já tinha denúncia pendente sobre o alvo; ela é devolvida.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Denuncia' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403':
+          description: >-
+            A conta de quem denuncia está fora da VIEW de perfil (suspensa ou
+            em exclusão). Código ACESSO_NEGADO.
+          headers:
+            X-Correlation-Id: { $ref: '#/components/headers/CorrelationId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '422':
+          description: >-
+            O conteúdo é do próprio leitor. Código ENTIDADE_NAO_PROCESSAVEL.
+          headers:
+            X-Correlation-Id: { $ref: '#/components/headers/CorrelationId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /admin/denuncias:
+    get:
+      tags: [moderacao]
+      summary: Denúncias pendentes, da mais antiga para a mais recente (RF-MOD-02)
+      operationId: listarDenunciasPendentes
+      x-implementation-status: implemented
+      description: >-
+        Só o administrador (claim papel igual a admin no token; RNF-SEC-04);
+        leitor recebe 403. Paginação por cursor, e não por número de página:
+        a fila encolhe a cada ação, e uma página numerada pularia denúncias
+        (divergência registrada na F-MOD). Sem total de pendentes. Cada item
+        traz o conteúdo inteiro, com spoiler à mostra, o contexto gravado na
+        denúncia e remocaoNaoConfirmada quando uma remoção foi pedida ao
+        leitura e a confirmação não chegou. Conteúdo excluído pelo autor vem
+        com conteudo nulo; pessoa fora da VIEW de perfil, nula.
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - name: limite
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+      responses:
+        '200':
+          description: Página de denúncias pendentes.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaDenuncias' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/Proibido' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /admin/denuncias/{denunciaId}/arquivar:
+    parameters:
+      - name: denunciaId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [moderacao]
+      summary: Arquiva a denúncia como improcedente (RF-MOD-03)
+      operationId: arquivarDenuncia
+      x-implementation-status: implemented
+      description: >-
+        Fecha só a denúncia escolhida; as outras do mesmo conteúdo continuam
+        na fila. Grava o log de auditoria. 409 DENUNCIA_JA_RESOLVIDA se ela já
+        foi resolvida; 409 REMOCAO_EM_ANDAMENTO se há remoção do conteúdo
+        esperando confirmação do leitura (o painel oferece tentar de novo).
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Denúncias fechadas.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ResultadoModeracao' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/Proibido' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409':
+          description: >-
+            DENUNCIA_JA_RESOLVIDA, REMOCAO_EM_ANDAMENTO ou chave de
+            idempotência reutilizada com outros dados (CONFLITO).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+  /admin/denuncias/{denunciaId}/remover:
+    parameters:
+      - name: denunciaId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [moderacao]
+      summary: Remove o conteúdo denunciado e fecha as denúncias dele (RF-MOD-03)
+      operationId: removerConteudoDenunciado
+      x-implementation-status: implemented
+      description: >-
+        Comentário: apagado aqui, com as respostas (RN-10.5); fecha as
+        denúncias dele e das respostas. Resenha: o social chama o comando
+        interno autenticado e idempotente do leitura, com chave fixa por
+        resenha, fora da transação; confirmada a remoção, fecha as denúncias
+        da resenha e dos comentários da atividade dela, apaga a atividade e
+        grava um único log, sem recusar. Timeout ou leitura fora do ar deixam
+        a denúncia pendente, marcada como remoção não confirmada; repetir com
+        a mesma chave não remove duas vezes. Conteúdo já excluído pelo autor
+        é 409 CONTEUDO_JA_EXCLUIDO, e o painel oferece arquivar.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Denúncias fechadas.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ResultadoModeracao' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/Proibido' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409':
+          description: DENUNCIA_JA_RESOLVIDA, CONTEUDO_JA_EXCLUIDO ou CONFLITO.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+        '503':
+          description: O leitura não respondeu ou está sem o segredo. A denúncia continua pendente.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+        '504':
+          description: A remoção não foi confirmada a tempo. A denúncia continua pendente.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+  /admin/frases/{fraseId}:
+    parameters:
+      - name: fraseId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    delete:
+      tags: [moderacao]
+      summary: Remove uma frase direto, sem denúncia (RN-11)
+      operationId: removerFrasePeloAdmin
+      x-implementation-status: implemented
+      description: >-
+        Frases não têm fluxo de denúncia; o administrador remove direto, da
+        lista de frases do livro. O social chama o comando interno do leitura
+        (chave fixa por frase) e grava o log de auditoria com alvo frase, sem
+        denúncia. Remover de novo uma frase que a moderação já removeu repete o 204, sem outro log (a chave fixa repete a resposta do leitura por 24 horas); frase excluída pela autora, ou fora dessa janela, é 409 CONTEUDO_JA_EXCLUIDO.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: Frase removida.
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/Proibido' }
+        '409':
+          description: CONTEUDO_JA_EXCLUIDO ou CONFLITO.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+        '503':
+          description: O leitura não respondeu ou está sem o segredo.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+        '504':
+          description: A remoção não foi confirmada a tempo.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+  /admin/moderacao/logs:
+    get:
+      tags: [moderacao]
+      summary: Registro de auditoria, da ação mais recente para a mais antiga (RF-MOD-05)
+      operationId: listarRegistrosDeModeracao
+      x-implementation-status: implemented
+      description: >-
+        Só o administrador. Autor, ação, alvo e momento, sem o texto removido,
+        o motivo nem quem denunciou (RNF-SEC-36). Alvo de conta excluída vem
+        anonimizado (RN-23.7). Paginação por cursor.
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - name: limite
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+      responses:
+        '200':
+          description: Página do registro.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaRegistrosDeModeracao' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/Proibido' }
   /health:
     get:
       security: []
@@ -1806,6 +2047,125 @@ components:
           type: string
           nullable: true
           description: Cursor opaco; ausente quando temMais é falso.
+        temMais: { type: boolean }
+    CriarDenuncia:
+      type: object
+      required: [alvoTipo, alvoId, motivo]
+      properties:
+        alvoTipo:
+          type: string
+          enum: [resenha, comentario]
+        alvoId: { type: string, format: uuid }
+        motivo:
+          type: string
+          description: >-
+            Texto livre obrigatório; espaços das pontas são removidos. Até 500
+            caracteres em code points.
+          example: Conta o final sem aviso de spoiler.
+        via:
+          type: string
+          enum: [feed, lista]
+          description: Só para resenha de livro pessoal (RN-15.4).
+        referenciaId:
+          type: string
+          format: uuid
+          description: Atividade (via feed) ou lista (via lista) pela qual o leitor chegou.
+    Denuncia:
+      type: object
+      description: >-
+        Denúncia registrada. Não devolve o motivo nem dados do alvo: a resposta
+        fica no recibo de idempotência.
+      required: [id, estado, criadoEm]
+      properties:
+        id: { type: string, format: uuid }
+        estado:
+          type: string
+          enum: [pendente, removida, arquivada]
+        criadoEm: { type: string, format: date-time }
+    PessoaDaModeracao:
+      type: object
+      nullable: true
+      required: [id, username, nomeExibicao]
+      properties:
+        id: { type: string, format: uuid }
+        username: { type: string }
+        nomeExibicao: { type: string }
+        avatarUrl: { type: string, nullable: true }
+    DenunciaPendente:
+      type: object
+      required: [id, tipo, criadoEm, motivo, remocaoNaoConfirmada]
+      properties:
+        id: { type: string, format: uuid }
+        tipo: { type: string, enum: [resenha, comentario] }
+        criadoEm: { type: string, format: date-time }
+        motivo: { type: string }
+        denunciante: { $ref: '#/components/schemas/PessoaDaModeracao' }
+        autor: { $ref: '#/components/schemas/PessoaDaModeracao' }
+        livro:
+          type: object
+          nullable: true
+          properties:
+            id: { type: string, format: uuid }
+            titulo: { type: string }
+            pessoal: { type: boolean }
+        atividade:
+          type: object
+          nullable: true
+          description: Só no comentário. visivelParaAdmin decide o link Ver no feed.
+          properties:
+            id: { type: string, format: uuid }
+            tipo: { type: string }
+            autorNome: { type: string }
+            livroTitulo: { type: string }
+            visivelParaAdmin: { type: boolean }
+        conteudo:
+          type: object
+          nullable: true
+          description: Nulo quando o autor já excluiu o conteúdo.
+          properties:
+            texto: { type: string, description: Resenha em Markdown cru (RN-13). }
+            spoiler: { type: boolean }
+            nota: { type: number, nullable: true }
+            publicadoEm: { type: string, format: date-time }
+            respostas: { type: integer }
+        remocaoNaoConfirmada: { type: boolean }
+    PaginaDenuncias:
+      type: object
+      required: [itens, temMais]
+      properties:
+        itens:
+          type: array
+          items: { $ref: '#/components/schemas/DenunciaPendente' }
+        proximoCursor: { type: string, nullable: true }
+        temMais: { type: boolean }
+    ResultadoModeracao:
+      type: object
+      required: [denunciasFechadas]
+      properties:
+        denunciasFechadas:
+          type: array
+          items: { type: string, format: uuid }
+    RegistroDeModeracao:
+      type: object
+      required: [id, criadoEm, acao, alvoTipo, comDenuncia, anonimizado]
+      properties:
+        id: { type: string, format: uuid }
+        criadoEm: { type: string, format: date-time }
+        acao: { type: string, enum: [remover_conteudo, arquivar_denuncia] }
+        alvoTipo: { type: string, enum: [resenha, comentario, frase] }
+        comDenuncia: { type: boolean }
+        alvoAutor: { type: string, nullable: true, description: Username de quem escreveu. }
+        atividadeAutor: { type: string, nullable: true }
+        livroTitulo: { type: string, nullable: true }
+        anonimizado: { type: boolean }
+    PaginaRegistrosDeModeracao:
+      type: object
+      required: [itens, temMais]
+      properties:
+        itens:
+          type: array
+          items: { $ref: '#/components/schemas/RegistroDeModeracao' }
+        proximoCursor: { type: string, nullable: true }
         temMais: { type: boolean }
     ViolacaoCampo:
       type: object

@@ -48,16 +48,25 @@ export class FrasesService {
     private readonly idempotencia: IdempotenciaService,
   ) {}
 
+  /** `admin` (F-MOD): o administrador vê todas as frases do livro, para poder moderá-las. */
   async listar(
     solicitanteId: string,
     livroId: string,
     page: number,
     limite: number,
+    admin = false,
   ): Promise<PaginaFrasesDto> {
     return comContratoExterno(async () => {
       await this.exigirLivroAcessivel(this.db, livroId, solicitanteId);
       const [{ linhas, total }, minhasFrases] = await Promise.all([
-        this.repositorio.pagina(this.db, livroId, solicitanteId, page, limite),
+        this.repositorio.pagina(
+          this.db,
+          livroId,
+          solicitanteId,
+          page,
+          limite,
+          admin,
+        ),
         this.repositorio.minhas(this.db, livroId, solicitanteId),
       ]);
       return {

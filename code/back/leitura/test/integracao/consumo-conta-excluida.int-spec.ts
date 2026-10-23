@@ -184,6 +184,41 @@ describe('consumo de conta.excluida (integração)', () => {
     ).toBeGreaterThan(0);
   });
 
+  it('anonimiza o recibo da remoção pela moderação que cita a conta (F-MOD)', async () => {
+    const excluida = await leitor('excluida');
+    const outra = await leitor('outra');
+    const livroId = await inserirLivro(pool);
+    const resenhaDaExcluida = await atividade(excluida, livroId);
+    const resenhaDaOutra = await atividade(outra, livroId);
+    for (const resenhaId of [resenhaDaExcluida, resenhaDaOutra]) {
+      await http()
+        .post(`/internal/moderacao/resenhas/${resenhaId}/remocao`)
+        .set('X-Moderacao-Token', process.env.MODERACAO_TOKEN as string)
+        .set('Idempotency-Key', randomUUID())
+        .expect(200);
+    }
+
+    publicar({ usuarioId: excluida });
+    await broker.entregar(FILA);
+
+    expect(
+      await contar(
+        pool,
+        'leitura.idempotencia_leitura',
+        `resposta->>'autorId' = $1`,
+        [excluida],
+      ),
+    ).toBe(0);
+    expect(
+      await contar(
+        pool,
+        'leitura.idempotencia_leitura',
+        `resposta->>'autorId' = $1`,
+        [outra],
+      ),
+    ).toBe(1);
+  });
+
   it('reentrega do mesmo eventId não repete efeito', async () => {
     const excluida = await leitor('excluida');
     publicar({ usuarioId: excluida });

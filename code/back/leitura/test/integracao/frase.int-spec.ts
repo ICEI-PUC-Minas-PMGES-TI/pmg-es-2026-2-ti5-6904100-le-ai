@@ -260,6 +260,40 @@ describe('frases (integração)', () => {
       expect((await listar(livroId)).body.itens).toHaveLength(1);
     });
 
+    it('o administrador vê também a frase de autor privado que não segue (F-MOD)', async () => {
+      const livroId = await inserirLivro(pool);
+      await pool.query(
+        `UPDATE identidade.v_perfil_referencia_v1 SET privacidade = 'privado' WHERE id = $1`,
+        [outra],
+      );
+      await cadastrar(
+        livroId,
+        { texto: 'Privada.', pagina: 1 },
+        { quem: outra },
+      );
+      const admin = novoUsuario();
+      await inserirPerfil(pool, { id: admin, username: 'admin' });
+
+      const resposta = await http()
+        .get(`/livros/${livroId}/frases`)
+        .set(
+          'Authorization',
+          `Bearer ${tokenDe(admin, 'admin', { papel: 'admin' })}`,
+        );
+
+      expect(resposta.body.itens).toHaveLength(1);
+      expect(
+        (
+          await http()
+            .get(`/livros/${livroId}/frases`)
+            .set(
+              'Authorization',
+              `Bearer ${tokenDe(admin, 'admin', { papel: 'leitor' })}`,
+            )
+        ).body.itens,
+      ).toHaveLength(0);
+    });
+
     it('conta fora da VIEW de perfil some da lista', async () => {
       const livroId = await inserirLivro(pool);
       await cadastrar(livroId, { texto: 'Some.', pagina: 1 }, { quem: outra });

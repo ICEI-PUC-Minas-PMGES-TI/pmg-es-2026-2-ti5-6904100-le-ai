@@ -39,6 +39,18 @@ describe('ConfiguracoesView', () => {
     expect(wrapper.text()).toContain('Lê Ai · versão 1.0.0')
   })
 
+  it('só o administrador tem a linha Moderação, no celular (F-MOD)', async () => {
+    const leitor = await montarNaRota('/perfil/configuracoes')
+    await flushPromises()
+    expect(leitor.wrapper.find('a[href="/moderacao"]').exists()).toBe(false)
+    leitor.wrapper.unmount()
+
+    const { wrapper } = await montarNaRota('/perfil/configuracoes', { admin: true })
+    await flushPromises()
+    const linha = wrapper.get('a[href="/moderacao"]')
+    expect(linha.text()).toBe('Moderação')
+  })
+
   it('enquanto GET /me não volta, mostra o skeleton de três barras', async () => {
     vi.mocked(authService.buscarUsuarioAtual).mockReturnValue(new Promise(() => {}))
     const { wrapper } = await montarNaRota('/perfil/configuracoes')

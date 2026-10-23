@@ -68,4 +68,18 @@ public class LimitesDeInteracao {
         "Muitas alterações em listas em pouco tempo. Tente de novo em instantes.",
         Clock.systemUTC());
   }
+
+  /**
+   * Denunciar resenha ou comentário (F-MOD, RNF-SEC-18). Mais baixo que curtir e comentar: denúncia
+   * vira trabalho do administrador, e dez por minuto já é muito para um leitor de boa-fé.
+   */
+  public static final int DENUNCIAS_POR_MINUTO = 10;
+
+  @Bean
+  LimitePorUsuario limiteDeDenunciar() {
+    return new LimitePorUsuario(
+        DENUNCIAS_POR_MINUTO,
+        "Você enviou muitas denúncias em pouco tempo. Espere alguns minutos e tente de novo.",
+        Clock.systemUTC());
+  }
 }

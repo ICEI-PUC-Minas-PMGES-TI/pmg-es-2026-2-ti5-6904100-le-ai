@@ -264,6 +264,58 @@ List<String> _linhasDosBlocos(List<BlocoDaResenha> blocos) => blocos
 /// (decisão do dono, 07/10/2026): sem `**`, `>` nem `-`, com cada bloco e item numa linha.
 String textoSemMarcacao(String texto) => _linhasDosBlocos(arvoreDaResenha(texto)).join('\n');
 
+List<List<TrechoDaResenha>> _paragrafosDosBlocos(List<BlocoDaResenha> blocos) => blocos
+    .expand(
+      (bloco) => switch (bloco) {
+        Paragrafo(:final trechos) => <List<TrechoDaResenha>>[trechos],
+        Citacao(:final blocos) => _paragrafosDosBlocos(blocos),
+        Lista(:final itens) => itens.expand(_paragrafosDosBlocos),
+      },
+    )
+    .toList();
+
+List<TrechoDaResenha> _semQuebra(List<TrechoDaResenha> trechos) => trechos
+    .map(
+      (trecho) => switch (trecho) {
+        QuebraDeLinha() => const TextoSimples(' '),
+        TrechoFormatado(:final formato, :final filhos) => TrechoFormatado(formato, _semQuebra(filhos)),
+        TextoSimples() => trecho,
+      },
+    )
+    .toList();
+
+/// Trecho corrido com a formatação de linha, para o card da denúncia (F-MOD, denunciar.md §4):
+/// negrito, itálico e tachado ficam; parágrafos, itens, citações e quebras viram um espaço, porque
+/// o card corta em três linhas. Diferente de [textoSemMarcacao], que tira toda a marcação. Mesmo
+/// resultado do `trechoCorrido` da web.
+List<TrechoDaResenha> trechoCorrido(String texto) {
+  final paragrafos = _paragrafosDosBlocos(arvoreDaResenha(texto));
+  return <TrechoDaResenha>[
+    for (var i = 0; i < paragrafos.length; i++) ...<TrechoDaResenha>[
+      if (i > 0) const TextoSimples(' '),
+      ..._semQuebra(paragrafos[i]),
+    ],
+  ];
+}
+
+/// Os trechos como `TextSpan`, que nunca interpreta marcação: o texto só entra como texto.
+List<InlineSpan> spansDosTrechos(List<TrechoDaResenha> trechos) => trechos
+    .map(
+      (trecho) => switch (trecho) {
+        TextoSimples(:final texto) => TextSpan(text: texto),
+        QuebraDeLinha() => const TextSpan(text: '\n'),
+        TrechoFormatado(:final formato, :final filhos) => TextSpan(
+          style: switch (formato) {
+            Formato.negrito => const TextStyle(fontWeight: FontWeight.w600),
+            Formato.italico => const TextStyle(fontStyle: FontStyle.italic),
+            Formato.tachado => const TextStyle(decoration: TextDecoration.lineThrough),
+          },
+          children: spansDosTrechos(filhos),
+        ),
+      },
+    )
+    .toList();
+
 final List<RegExp> _foraDoSubconjunto = <RegExp>[
   RegExp(r'!?\[[^\]\n]*\]\([^)\n]*\)'), // link e imagem
   RegExp(r'<\/?[a-zA-Z][^>\n]*>'), // HTML e endereço entre sinais
@@ -326,7 +378,7 @@ class _Bloco extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return switch (bloco) {
-      Paragrafo(:final trechos) => Text.rich(TextSpan(style: estilo, children: _spans(trechos))),
+      Paragrafo(:final trechos) => Text.rich(TextSpan(style: estilo, children: spansDosTrechos(trechos))),
       Citacao(:final blocos) => Container(
         decoration: BoxDecoration(
           border: Border(left: BorderSide(color: theme.divider, width: 2)),
@@ -367,21 +419,4 @@ class _Bloco extends StatelessWidget {
       ),
     };
   }
-
-  List<InlineSpan> _spans(List<TrechoDaResenha> trechos) => trechos
-      .map(
-        (trecho) => switch (trecho) {
-          TextoSimples(:final texto) => TextSpan(text: texto),
-          QuebraDeLinha() => const TextSpan(text: '\n'),
-          TrechoFormatado(:final formato, :final filhos) => TextSpan(
-            style: switch (formato) {
-              Formato.negrito => const TextStyle(fontWeight: FontWeight.w600),
-              Formato.italico => const TextStyle(fontStyle: FontStyle.italic),
-              Formato.tachado => const TextStyle(decoration: TextDecoration.lineThrough),
-            },
-            children: _spans(filhos),
-          ),
-        },
-      )
-      .toList();
 }

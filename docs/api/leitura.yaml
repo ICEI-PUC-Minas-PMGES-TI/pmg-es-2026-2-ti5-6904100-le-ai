@@ -863,7 +863,8 @@ paths:
         - { $ref: '#/components/parameters/Limite' }
       description: >-
         Frases de todos os leitores, mais recentes primeiro, sob RN-08 por
-        autor: perfil público, privado seguido ou a própria frase. Conta
+        autor: perfil público, privado seguido ou a própria frase; o
+        administrador (claim papel igual a admin, F-MOD) vê todas. Conta
         suspensa ou em exclusão some. Em livro pessoal, só o dono lista (o modo
         consulta de RN-15 não expõe frases). Livro inexistente, inativo ou
         pessoal de outra pessoa é 404. A resposta traz a cota de quem pede
@@ -933,7 +934,7 @@ paths:
         - { $ref: '#/components/parameters/IdempotencyKey' }
       description: >-
         A confirmação é do cliente (RNF-USA-04). Frase inexistente ou de outra
-        pessoa é 404, sem revelar qual. A remoção pela moderação é de F-MOD.
+        pessoa é 404, sem revelar qual. A remoção pela moderação é de F-MOD, pelo comando interno.
       responses:
         '204': { description: Frase excluída ou repetição idempotente concluída. }
         '400': { $ref: '#/components/responses/RequisicaoInvalida' }
@@ -1301,6 +1302,71 @@ paths:
         '400': { $ref: '#/components/responses/RequisicaoInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '409': { $ref: '#/components/responses/Conflito' }
+  /internal/moderacao/resenhas/{resenhaId}/remocao:
+    post:
+      tags: [interno]
+      summary: Remove uma resenha pela moderação (F-MOD, RF-MOD-03)
+      operationId: removerResenhaPelaModeracao
+      x-implementation-status: implemented
+      x-implemented-by: F-MOD
+      security:
+        - moderacaoToken: []
+      parameters:
+        - name: resenhaId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      description: >-
+        Comando HTTP interno do social, que é quem grava a auditoria. Apaga a
+        resenha de qualquer autor, com as reações (CASCADE), e publica o mesmo
+        resenha.excluida da exclusão pelo autor, que tira a atividade do feed.
+        O recibo de idempotência usa um sujeito fixo da moderação, e o social
+        manda uma chave fixa por resenha: repetir depois de um timeout devolve
+        o mesmo removida true em vez de um removida false. Resenha que já não
+        existe responde 200 com removida false, sem evento. Depois de 24 horas
+        o recibo vence e a mesma chave recebe 409.
+      responses:
+        '200':
+          description: Resultado da remoção.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RemocaoPelaModeracao' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+        '503':
+          description: MODERACAO_TOKEN não configurado no serviço.
+  /internal/moderacao/frases/{fraseId}/remocao:
+    post:
+      tags: [interno]
+      summary: Remove uma frase pela moderação (F-MOD, RN-11)
+      operationId: removerFrasePelaModeracao
+      x-implementation-status: implemented
+      x-implemented-by: F-MOD
+      security:
+        - moderacaoToken: []
+      parameters:
+        - name: fraseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      description: >-
+        Mesmo contrato da remoção de resenha, sem evento: frase não tem
+        consumidor. Apaga a frase de qualquer autor; quem grava a auditoria é o
+        social. Frase que já não existe responde 200 com removida false.
+      responses:
+        '200':
+          description: Resultado da remoção.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RemocaoPelaModeracao' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+        '503':
+          description: MODERACAO_TOKEN não configurado no serviço.
 
 components:
   securitySchemes:
@@ -1314,6 +1380,13 @@ components:
       in: header
       name: X-Scheduler-Token
       description: Segredo exclusivo do agendador, fornecido por variável de ambiente.
+    moderacaoToken:
+      type: apiKey
+      in: header
+      name: X-Moderacao-Token
+      description: >-
+        Segredo compartilhado só com o social (F-MOD), fornecido por variável
+        de ambiente. Nunca vai ao log.
 
   parameters:
     IdempotencyKey:
@@ -1482,6 +1555,15 @@ components:
           schema: { $ref: '#/components/schemas/Erro' }
 
   schemas:
+    RemocaoPelaModeracao:
+      type: object
+      required: [removida, autorId, livroId]
+      properties:
+        removida:
+          type: boolean
+          description: false quando o conteúdo já não existia.
+        autorId: { type: string, format: uuid, nullable: true }
+        livroId: { type: string, format: uuid, nullable: true }
     Health:
       type: object
       additionalProperties: false

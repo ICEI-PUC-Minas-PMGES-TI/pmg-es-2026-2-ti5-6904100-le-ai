@@ -8,6 +8,7 @@ import {
 } from '../messaging/message-validator';
 import { EXCHANGES } from '../messaging/messaging.constants';
 import contaExcluidaSchema from '../messaging/schemas/conta.excluida.v1.schema.json';
+import { SUJEITO_MODERACAO } from '../moderacao/moderacao.service';
 
 export const CONTA_EXCLUIDA = { tipo: 'conta.excluida', versao: 1 } as const;
 
@@ -94,6 +95,16 @@ export class ContaExcluidaConsumer implements OnModuleInit {
          SET subject_ref = NULL, chave = NULL, payload_hash = NULL,
              resposta = NULL, anonimizado_em = now()
        WHERE subject_ref = ${usuarioId} AND anonimizado_em IS NULL
+    `);
+    // F-MOD: o recibo da remoção pela moderação tem o sujeito fixo do `social`, mas a resposta
+    // guarda quem escreveu o conteúdo removido.
+    await tx.execute(sql`
+      UPDATE leitura.idempotencia_leitura
+         SET subject_ref = NULL, chave = NULL, payload_hash = NULL,
+             resposta = NULL, anonimizado_em = now()
+       WHERE subject_ref = ${SUJEITO_MODERACAO}
+         AND resposta->>'autorId' = ${usuarioId}
+         AND anonimizado_em IS NULL
     `);
 
     // A outbox não tem coluna de usuário: a busca é textual.

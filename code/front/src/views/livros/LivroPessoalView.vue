@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PhBookOpen, PhDotsThreeVertical, PhListPlus, PhPencilSimple, PhTrash } from '@phosphor-icons/vue'
+import { PhBookOpen, PhDotsThreeVertical, PhFlag, PhListPlus, PhPencilSimple, PhTrash } from '@phosphor-icons/vue'
 import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -12,13 +12,16 @@ import EstrelasNota from '../../components/livros/EstrelasNota.vue'
 import ReacoesDaResenha from '../../components/livros/ReacoesDaResenha.vue'
 import SecaoFrases from '../../components/livros/SecaoFrases.vue'
 import TextoDaResenha from '../../components/livros/TextoDaResenha.vue'
+import DenunciaDeConteudo from '../../components/moderacao/DenunciaDeConteudo.vue'
 import BannerAviso from '../../components/ui/BannerAviso.vue'
 import BotaoTextual from '../../components/ui/BotaoTextual.vue'
 import DialogoConfirmacao from '../../components/ui/DialogoConfirmacao.vue'
 import EstadoVazio from '../../components/ui/EstadoVazio.vue'
 import FolhaAcoes, { type AcaoDaFolha } from '../../components/ui/FolhaAcoes.vue'
+import MenuDeAcoes from '../../components/ui/MenuDeAcoes.vue'
 import { formatarData, formatarPaginas } from '../../livros/formatos'
 import { useMinhaAvaliacao } from '../../livros/useMinhaAvaliacao'
+import type { AlvoDaDenuncia } from '../../moderacao/useDenunciar'
 import { acervoService, type LivroPessoalDetalhe, type ViaDeAcesso } from '../../services/acervo'
 import { ApiError, novaChaveIdempotencia } from '../../services/api'
 
@@ -60,6 +63,31 @@ const adicionandoALista = ref(false)
 const ehDono = computed(() => livro.value !== null && !livro.value.modoConsulta)
 const nomeDoDono = computed(() => livro.value?.dono?.nome ?? null)
 const primeiroNome = computed(() => nomeDoDono.value?.split(/\s+/)[0] ?? null)
+
+/**
+ * F-MOD: o terceiro denuncia a resenha do dono pela mesma via que abriu a página (RN-15.4); o
+ * `Denunciar` em texto do Período 1 virou o `DotsThree` ao lado do título (livro-pessoal.md, lote 7).
+ */
+const ACOES_DA_RESENHA: AcaoDaFolha[] = [{ id: 'denunciar', rotulo: 'Denunciar resenha', icone: PhFlag, destrutiva: true }]
+const denunciando = ref<AlvoDaDenuncia | null>(null)
+
+function denunciarResenha(): void {
+  const resenha = livro.value?.resenhaDoDono
+  if (!livro.value || !resenha || !acesso.value) {
+    return
+  }
+  denunciando.value = {
+    tipo: 'resenha',
+    id: resenha.id,
+    autorNome: nomeDoDono.value ?? resenha.autorNome,
+    autorAvatarUrl: livro.value.dono?.avatarUrl ?? resenha.autorAvatarUrl ?? null,
+    livroTitulo: livro.value.titulo,
+    texto: resenha.texto,
+    spoiler: resenha.spoiler,
+    via: acesso.value.via,
+    referenciaId: acesso.value.referenciaId,
+  }
+}
 const avaliado = computed(() => livro.value !== null && (livro.value.notaDoDono !== null || livro.value.resenhaDoDono !== null))
 
 /**
@@ -349,9 +377,19 @@ async function excluir(): Promise<void> {
               v-if="livro.resenhaDoDono"
               class="py-space-5"
             >
-              <h3 class="text-title-sm text-tinta">
-                {{ `Resenha de ${primeiroNome ?? 'quem cadastrou'}` }}
-              </h3>
+              <div class="flex items-center justify-between gap-space-3">
+                <h3 class="text-title-sm text-tinta">
+                  {{ `Resenha de ${primeiroNome ?? 'quem cadastrou'}` }}
+                </h3>
+                <MenuDeAcoes
+                  v-if="acesso && livro.resenhaDoDono.id"
+                  class="-my-space-2 -mr-space-3 shrink-0"
+                  discreto
+                  rotulo="Mais ações da resenha"
+                  :acoes="ACOES_DA_RESENHA"
+                  @escolher="denunciarResenha"
+                />
+              </div>
               <BlocoDeSpoiler
                 v-if="livro.resenhaDoDono.spoiler && !spoilerRevelado"
                 class="mt-space-3"
@@ -388,6 +426,11 @@ async function excluir(): Promise<void> {
         </div>
       </div>
     </article>
+
+    <DenunciaDeConteudo
+      :alvo="denunciando"
+      @fechar="denunciando = null"
+    />
 
     <!-- Menu de três pontos no header, só abaixo de 768px e só para o dono (§4 e §5). -->
     <Teleport

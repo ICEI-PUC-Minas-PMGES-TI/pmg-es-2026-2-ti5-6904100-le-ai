@@ -132,6 +132,29 @@ describe('LivroPessoalView', () => {
     expect(barra.findAll('a')[2]!.get('span').classes()).toContain('text-musgo')
   })
 
+  it('terceiro denuncia a resenha do dono pelo DotsThree, com a via de RN-15.4 (F-MOD)', async () => {
+    servico.obterLivroPessoal.mockResolvedValue(EM_CONSULTA)
+    await montarNaRota('/livros/pessoal/l1?via=lista&referenciaId=lista-1', { largo: true })
+    await flushPromises()
+
+    document.body.querySelector<HTMLButtonElement>('button[aria-label="Mais ações da resenha"]')!.click()
+    await flushPromises()
+    document.body.querySelector<HTMLButtonElement>('[role="menuitem"]')!.click()
+    await flushPromises()
+
+    const dialogo = document.body.querySelector('[role="dialog"]')!
+    expect(dialogo.textContent).toContain('Denunciar resenha')
+    expect(dialogo.textContent).toContain('Resenha de Cartas de um sertanejo')
+    expect(dialogo.textContent).toContain('Comprei numa feira e li em duas noites.')
+  })
+
+  it('o dono não vê o menu de denúncia', async () => {
+    await montarNaRota('/livros/pessoal/l1')
+    await flushPromises()
+
+    expect(document.body.querySelector('button[aria-label="Mais ações da resenha"]')).toBeNull()
+  })
+
   it('terceiro: resenha do dono com spoiler fica fora do DOM até a ação', async () => {
     servico.obterLivroPessoal.mockResolvedValue({
       ...EM_CONSULTA,

@@ -4,6 +4,7 @@ import { computed, nextTick, onMounted, ref } from 'vue'
 
 import ComentarioItem from './ComentarioItem.vue'
 import { verboDeAtividade } from '../../feed/verbos'
+import type { AlvoDaDenuncia } from '../../moderacao/useDenunciar'
 import { contagem, primeiroNome } from '../../perfil/textos'
 import { ApiError, mensagemDeErro, novaChaveIdempotencia } from '../../services/api'
 import { perfilService } from '../../services/perfil'
@@ -11,6 +12,7 @@ import { socialService, type Atividade, type Comentario } from '../../services/s
 import AvatarLeitor from '../perfil/AvatarLeitor.vue'
 import BannerAviso from '../ui/BannerAviso.vue'
 import CapaLivro from '../livros/CapaLivro.vue'
+import DenunciaDeConteudo from '../moderacao/DenunciaDeConteudo.vue'
 import DialogoConfirmacao from '../ui/DialogoConfirmacao.vue'
 import SobreposicaoModal from '../ui/SobreposicaoModal.vue'
 
@@ -20,6 +22,20 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{ fechar: []; 'comentario-criado': []; 'comentarios-excluidos': [quantidade: number] }>()
+
+/** F-MOD: comentário de outra pessoa sendo denunciado; o sheet da denúncia empilha sobre este. */
+const denunciando = ref<AlvoDaDenuncia | null>(null)
+
+function denunciar(comentario: Comentario): void {
+  denunciando.value = {
+    tipo: 'comentario',
+    id: comentario.id,
+    autorNome: comentario.autor.nomeExibicao,
+    autorAvatarUrl: comentario.autor.avatarUrl,
+    livroTitulo: props.atividade.livro.titulo,
+    texto: comentario.texto,
+  }
+}
 
 interface EstadoRaiz {
   comentario: Comentario
@@ -434,6 +450,7 @@ async function enviar(): Promise<void> {
               @alternar-respostas="alternarRespostas(raiz)"
               @editar="iniciarEdicao"
               @excluir="pedirExclusao"
+              @denunciar="denunciar"
             />
             <ComentarioItem
               v-for="resposta in (raiz.expandida ? raiz.respostas : [])"
@@ -444,6 +461,7 @@ async function enviar(): Promise<void> {
               @responder="iniciarResposta"
               @editar="iniciarEdicao"
               @excluir="pedirExclusao"
+              @denunciar="denunciar"
             />
           </template>
         </template>
@@ -607,5 +625,9 @@ async function enviar(): Promise<void> {
     >
       {{ consequenciaDaExclusao }}
     </DialogoConfirmacao>
+    <DenunciaDeConteudo
+      :alvo="denunciando"
+      @fechar="denunciando = null"
+    />
   </SobreposicaoModal>
 </template>

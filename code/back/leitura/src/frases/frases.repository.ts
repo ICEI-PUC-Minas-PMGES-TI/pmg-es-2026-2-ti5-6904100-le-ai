@@ -25,6 +25,9 @@ export class FrasesRepository {
    * Frases do livro que quem pede pode ver, sob RN-08 por autor: perfil público, perfil privado
    * seguido ou a própria frase. O JOIN com a VIEW de perfil já tira conta suspensa ou em
    * exclusão. Mais recentes primeiro, com o id desempatando.
+   *
+   * Com `todas` (o administrador, F-MOD), sem o filtro de RN-08: frase visível a seguidores não
+   * pode ficar fora do alcance da moderação (RN-11).
    */
   async pagina(
     leitor: Leitor,
@@ -32,24 +35,27 @@ export class FrasesRepository {
     solicitanteId: string,
     page: number,
     limite: number,
+    todas = false,
   ): Promise<{ linhas: LinhaDeFrase[]; total: number }> {
     const filtro = and(
       eq(frase.livroId, livroId),
-      or(
-        eq(frase.usuarioId, solicitanteId),
-        eq(vPerfilReferencia.privacidade, 'publico'),
-        exists(
-          leitor
-            .select({ seguidoId: vSeguimentoAceito.seguidoId })
-            .from(vSeguimentoAceito)
-            .where(
-              and(
-                eq(vSeguimentoAceito.seguidoId, frase.usuarioId),
-                eq(vSeguimentoAceito.seguidorId, solicitanteId),
-              ),
+      todas
+        ? undefined
+        : or(
+            eq(frase.usuarioId, solicitanteId),
+            eq(vPerfilReferencia.privacidade, 'publico'),
+            exists(
+              leitor
+                .select({ seguidoId: vSeguimentoAceito.seguidoId })
+                .from(vSeguimentoAceito)
+                .where(
+                  and(
+                    eq(vSeguimentoAceito.seguidoId, frase.usuarioId),
+                    eq(vSeguimentoAceito.seguidorId, solicitanteId),
+                  ),
+                ),
             ),
-        ),
-      ),
+          ),
     ) as SQL;
 
     const linhas = await leitor
@@ -108,6 +114,21 @@ export class FrasesRepository {
       .values({ usuarioId, livroId, texto, pagina })
       .returning({ id: frase.id, criadoEm: frase.criadoEm });
     return linha;
+  }
+
+  /**
+   * Remoção pela moderação (F-MOD): pelo id, sem filtro de dono. Devolve quem escreveu e o livro,
+   * para a auditoria do `social`; `null` quando já não existia.
+   */
+  async excluirPorId(
+    tx: Tx,
+    fraseId: string,
+  ): Promise<{ usuarioId: string; livroId: string } | null> {
+    const [removida] = await tx
+      .delete(frase)
+      .where(eq(frase.id, fraseId))
+      .returning({ usuarioId: frase.usuarioId, livroId: frase.livroId });
+    return removida ?? null;
   }
 
   /** `true` quando a frase existia e era do leitor; a de outra pessoa nunca é apagada aqui. */
