@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 
+import 'package:le_ai_mobile/core/network/api_client.dart';
+import 'package:le_ai_mobile/core/session/session_controller.dart';
+import 'package:le_ai_mobile/core/session/token_store.dart';
 import 'package:le_ai_mobile/features/estante/estante_service.dart';
 import 'package:le_ai_mobile/features/progresso/fila_de_progresso.dart';
 import 'package:le_ai_mobile/features/progresso/progresso_service.dart';
@@ -250,4 +253,89 @@ void main() {
       expect(guardaDaSessao(sessao, '/perfil', semSessao: _origem), isNull);
     });
   });
+
+  group('conta dona da sessão', () {
+    test('sair da conta encerra a sessão em andamento e apaga o que foi guardado', () async {
+      final cenario = _Cenario();
+      final conta = SessionController(_CofreDeTokens());
+      await conta.load();
+      await conta.entrar('acesso');
+      final sessao = await _iniciada(cenario);
+      sessao.acompanharConta(conta);
+
+      await conta.sair();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(sessao.sessao, isNull);
+      expect(cenario.armazem.conteudo, isNull);
+      expect(conta.consumirAvisoDeSaida(), isNull);
+    });
+
+    test('token vencido sem renovação encerra a sessão e deixa o aviso para a entrada', () async {
+      final cenario = _Cenario();
+      final conta = SessionController(_CofreDeTokens());
+      await conta.load();
+      await conta.entrar('acesso', refreshToken: 'renovacao');
+      final sessao = await _iniciada(cenario);
+      sessao.acompanharConta(conta);
+
+      final renovou = await conta.renovar(
+        'acesso',
+        (_) async => throw const ApiException(
+          kind: ApiFailureKind.invalidResponse,
+          correlationId: 'c1',
+          message: 'Sua sessão expirou.',
+          status: 401,
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(renovou, false);
+      expect(sessao.sessao, isNull);
+      expect(cenario.armazem.conteudo, isNull);
+      expect(conta.consumirAvisoDeSaida(), TextosDoAvisoDeSaida.encerradaPorExpiracao);
+      expect(conta.consumirAvisoDeSaida(), isNull);
+    });
+
+    test('renovar o token da mesma conta mantém a sessão', () async {
+      final cenario = _Cenario();
+      final conta = SessionController(_CofreDeTokens());
+      await conta.load();
+      await conta.entrar('acesso', refreshToken: 'renovacao');
+      final sessao = await _iniciada(cenario);
+      sessao.acompanharConta(conta);
+
+      await conta.entrar('acesso-novo', refreshToken: 'renovacao-nova');
+      await Future<void>.delayed(Duration.zero);
+
+      expect(sessao.sessao, isNotNull);
+    });
+
+    test('abrir o app sem conta logada descarta a sessão guardada de antes', () async {
+      final cenario = _Cenario();
+      await _iniciada(cenario);
+
+      final reaberta = cenario.controller();
+      final conta = SessionController(_CofreDeTokens());
+      reaberta.acompanharConta(conta);
+      await conta.load();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(reaberta.sessao, isNull);
+      expect(cenario.armazem.conteudo, isNull);
+    });
+  });
+}
+
+class _CofreDeTokens implements TokenStore {
+  String? _valor;
+
+  @override
+  Future<String?> read() async => _valor;
+
+  @override
+  Future<void> write(String value) async => _valor = value;
+
+  @override
+  Future<void> delete() async => _valor = null;
 }

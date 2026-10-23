@@ -66,6 +66,12 @@ abstract final class TextosDoEncerramento {
       'partir de $pagina.';
 }
 
+abstract final class TextosDoAvisoDeSaida {
+  static const String encerradaPorExpiracao =
+      'Sua sessão de leitura foi encerrada porque o acesso expirou. O tempo medido não foi '
+      'registrado. Entre de novo para continuar.';
+}
+
 abstract final class TextosDaSessaoPendente {
   static const String tituloDaPausaEsgotada = 'Sua pausa terminou';
   static const String tituloDaExpirada = 'Sua sessão passou de 12 horas';

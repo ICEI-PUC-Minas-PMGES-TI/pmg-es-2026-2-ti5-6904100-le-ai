@@ -137,6 +137,7 @@ GoRouter buildRouter({
         renovarSessao: renovar,
       );
   final sessaoDeLeitura = depsDeProgresso.sessao;
+  sessaoDeLeitura?.acompanharConta(sessionController);
   return GoRouter(
     initialLocation: rotaVerificandoSessao,
     refreshListenable: Listenable.merge(<Listenable>[sessionController, ?sessaoDeLeitura]),

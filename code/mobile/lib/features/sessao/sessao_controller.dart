@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
 import '../../core/network/api_client.dart';
+import '../../core/session/session_controller.dart';
 import '../estante/datas_de_leitura.dart';
 import '../estante/estante_service.dart';
 import '../progresso/fila_de_progresso.dart';
@@ -42,6 +44,7 @@ class SessaoController extends ChangeNotifier {
   SituacaoDaSessao? _situacaoNotificada;
   String? _destinoAoSair;
   String? _erroDaPagina;
+  SessionController? _conta;
 
   SessaoDeLeitura? get sessao => _sessao;
 
@@ -73,6 +76,32 @@ class SessaoController extends ChangeNotifier {
     }
     final local = _fila?.paginaLocal(leitura.leituraId);
     return local != null && local > leitura.paginaAtual ? local : leitura.paginaAtual;
+  }
+
+  /// A sessão é da conta que a iniciou: ao sair dela, a sessão some junto (RN-16.2). Não há
+  /// `usuarioId` no app, mas trocar de conta exige sair antes, então basta descartar no logout.
+  void acompanharConta(SessionController conta) {
+    _conta?.removeListener(_aoMudarConta);
+    _conta = conta..addListener(_aoMudarConta);
+  }
+
+  void _aoMudarConta() {
+    final conta = _conta;
+    if (conta == null || conta.carregando || conta.estaAutenticado) {
+      return;
+    }
+    if (conta.saindoPorExpiracao && _sessao != null) {
+      conta.avisarSaida(TextosDoAvisoDeSaida.encerradaPorExpiracao);
+    }
+    unawaited(encerrarPorLogout());
+  }
+
+  Future<void> encerrarPorLogout() async {
+    await carregar();
+    if (_sessao == null) {
+      return;
+    }
+    await _apagar();
   }
 
   Future<void> carregar() => _carregamento ??= _ler();
@@ -203,8 +232,12 @@ class SessaoController extends ChangeNotifier {
     if (sessao == null) {
       return;
     }
+    await _apagar(destinoAoSair: sessao.origem);
+  }
+
+  Future<void> _apagar({String? destinoAoSair}) async {
     await _armazem.gravar(null);
-    _destinoAoSair = sessao.origem;
+    _destinoAoSair = destinoAoSair;
     _sessao = null;
     _erroDaPagina = null;
     _registro.limparErro();
@@ -218,6 +251,7 @@ class SessaoController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _conta?.removeListener(_aoMudarConta);
     _registro.dispose();
     super.dispose();
   }
