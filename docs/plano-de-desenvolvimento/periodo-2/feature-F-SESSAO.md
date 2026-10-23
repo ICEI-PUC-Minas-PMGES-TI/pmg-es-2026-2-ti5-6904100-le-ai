@@ -44,6 +44,8 @@ A sessão é **estado exclusivamente local do dispositivo** (RN-16.7/9/10): **in
 - **Duração máxima (RN-16.11):** **12 h de tempo cronometrado** (fora o tempo em pausa), verificada na reabertura; sessão que exceda é apresentada como **expirada**, cabendo informar a página ou descartar; o tempo registrado é limitado a 12 h.
 - **Alimenta desafios em minutos** (RN-16.13) — o tempo medido entra igual ao informado manualmente ([F-DSF](feature-F-DSF.md)).
 
+- **Sair ou excluir a conta com sessão ativa (decisão de 22/10/2026):** não é possível. O modo de foco bloqueia as Configurações (RN-16.3), e a única saída da sessão é encerrá-la ou cancelá-la (RN-16.4). Token vencido sem renovação encerra a sessão, sem registro de progresso, e a tela de entrada informa o motivo. A sessão nunca passa para outra conta.
+
 ### Backend / API — `leitura`
 
 - **Nenhum endpoint novo.** O único ponto remoto é o **registro de progresso** de [F-PRG](../periodo-1/feature-F-PRG.md); esta feature apenas o alimenta com o tempo medido, usando o mesmo payload e sem distinguir origem.
@@ -59,6 +61,7 @@ A sessão é **estado exclusivamente local do dispositivo** (RN-16.7/9/10): **in
 - [x] Sessão acima de **12 h** de tempo cronometrado é apresentada como **expirada**, limitada a 12 h (RN-16.11).
 - [x] O registro resultante entra na **fila offline** e não duplica (RNF-ERR-04/05).
 - [x] Falha entre encerrar e enviar não perde a sessão: o estado só é limpo após confirmação ou enfileiramento local durável, preservando instante/fuso.
+- [ ] Token vencido sem renovação encerra a sessão sem registro de progresso, e a tela de entrada informa o motivo (RN-16.2, decisão de 22/10/2026).
 - [ ] O fluxo completo funciona no app (alvo Android) **em DES** (o registro chega a `leitura`).
 
 ## Definition of Done
@@ -83,7 +86,6 @@ A sessão é **estado exclusivamente local do dispositivo** (RN-16.7/9/10): **in
 - **Decisões da dona ratificadas em 17/10/2026:** as decisões do prompt listadas acima valem como estão no protótipo (`Retomar leitura` primário na pausa, cronômetro correndo com o sheet de encerrar aberto, página pendente exibida na hora e bloqueando o app, botão de sessão na folha de registro descartando o digitado sem confirmação). **Arredondamento:** segundos viram minutos pelo mais próximo (meio sobe), com teto de 720; sessão com menos de 1 minuto que avança página registra **1**, porque `minutos = 0` significa "não informado" no contrato de F-PRG.
 - **Divergências protótipo × implementação / design:** (1) o §4.10 do `documento-de-design.md` fixa `Encerrar sessão` como primário; aqui, na pausa, o primário é `Retomar leitura` (decisão ratificada; incorporar ao design pelo controle de mudança, junto dos itens de `modo-de-foco.md` §7). (2) O botão de permanecer das confirmações (`Continuar lendo`, `Voltar`) sai em `grafite` pelo componente compartilhado `confirmarAcaoDestrutiva`, e não em `musgo` como no prompt. (3) O campo de página fica somente leitura durante o envio com o estilo padrão do campo, sem o realce específico do estado 4.6.
 - **Consequências aceitas do modo de foco (§10.9):** durante a sessão não há como consultar estante, resenha, feed ou perfil; o bloqueio vale **dentro** do app (guarda de rota), e sair do app não encerra a sessão.
-- **Sessão e troca de conta:** a sessão é do aparelho (RN-16.2), não da conta. Se a conta sair e outra entrar no mesmo aparelho, a sessão volta a aparecer e o registro final seria recusado pelo servidor (leitura de outro usuário), cabendo descartar. Caso raro; registrar para decisão do grupo se vale limpar a sessão no logout.
 - Stack de `leitura` definida: **NestJS** (arquitetura §2.1) — irrelevante para o cliente, relevante só para o campo opcional acima.
 
 ## Timeline
@@ -95,3 +97,7 @@ A sessão é **estado exclusivamente local do dispositivo** (RN-16.7/9/10): **in
 ### Dono 29/09/2026: feature atribuída a **Ana Luiza de Freitas** na [divisão do Período 2](README.md#divisão-do-período-2-entre-5-pessoas).
 
 ### Mobile 17/10/2026: sessão implementada em `code/mobile/lib/features/sessao/` — modelo derivado do relógio (`tempo acumulado + início do trecho`, pausa com início e duração), estado persistido em `shared_preferences`, modo de foco por guarda de rota global (`/sessao` e `/sessao/pendente` fora do shell, sem transição e com o voltar do sistema bloqueado), encerramento reusando o envio de F-PRG (`RegistroProgressoController.enviar`) com a intenção (chave, instante e fuso) gravada antes do envio. Entradas em `Ações de leitura` e na folha `Registrar progresso`. Testes de estado em `test/features/sessao/sessao_test.dart`.
+
+### Decisão 22/10/2026: sair da conta, excluí-la ou expirar o acesso com sessão em andamento
+
+A sessão é do aparelho (RN-16.2), e o modo de foco já bloqueia as Configurações enquanto a sessão existe (RN-16.3). Por isso, sair ou excluir a conta exige encerrar ou cancelar a sessão antes, e não há aviso de saída. Token vencido sem renovação encerra a sessão, sem registro, e a tela de entrada informa o motivo. Implementado em `code/mobile/lib/core/session/session_controller.dart`, `code/mobile/lib/features/sessao/sessao_controller.dart` e `code/mobile/lib/features/auth/login_page.dart`. Impacto: REQUISITOS RN-16.2 (v1.9), sem mudança de dados nem de API.

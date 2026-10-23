@@ -621,7 +621,7 @@ O leitor informa sempre **a página em que parou**, nunca quantas páginas leu. 
 ### RN-16 — Sessão de leitura cronometrada
 
 1. A sessão é iniciada a partir de uma leitura com status **Lendo** ou **Relendo**. Não é possível iniciar sessão sem leitura em andamento.
-2. **Uma sessão ativa por dispositivo**, no máximo. Iniciar nova sessão exige encerrar ou cancelar a anterior. Como o estado é local (RN-16.7), o escopo é o dispositivo e não a conta.
+2. **Uma sessão ativa por dispositivo**, no máximo. Iniciar nova sessão exige encerrar ou cancelar a anterior. Como o estado é local ao aparelho (RN-16.9 e RN-16.10), o escopo é o dispositivo e não a conta: a sessão limita o aparelho, independentemente de quem está logado. Por isso, sair da conta ou excluí-la não é possível com sessão em andamento: o modo de foco bloqueia as Configurações (RN-16.3), e a sessão precisa ser encerrada ou cancelada antes (RN-16.8). Se o acesso expirar sem renovação, a sessão é encerrada sem registro de progresso, e a tela de entrada informa o motivo.
 3. **Modo de foco:** enquanto a sessão está ativa, a navegação fica restrita à tela da sessão. Nenhuma outra área do aplicativo é acessível — estante, busca, feed, perfil, notificações e recomendações ficam indisponíveis. O objetivo é sustentar o hábito de leitura contínua, alinhado ao propósito do produto.
 4. O modo de foco **não é opcional e não possui ajuste de preferência**. As únicas saídas são encerrar a sessão informando a página (RF-PRG-07) ou cancelá-la (RF-PRG-08).
 5. Sair do aplicativo **não encerra a sessão**. Ao ser reaberto com sessão ativa, o aplicativo retorna diretamente à tela da sessão, em modo de foco, sem passar pela navegação normal (RF-PRG-09).
@@ -1078,6 +1078,11 @@ Registrado explicitamente para evitar reabertura de discussão:
 ---
 
 ## 12. Timeline
+
+### v1.9 — Alteração 22/10/2026: sessão cronometrada e saída da conta
+
+- **RN-16.2:** sair ou excluir a conta não é possível com sessão em andamento, porque o modo de foco bloqueia as Configurações (RN-16.3). Expiração do acesso encerra a sessão sem registro, com aviso na tela de entrada. O escopo continua sendo o dispositivo. A referência do estado local passa a apontar para RN-16.9 e RN-16.10 (antes RN-16.7).
+- **Impacto:** F-SESSAO (app mobile); sem mudança de dados nem de API.
 
 ### v1.8 — Alteração 29/09/2026: progresso sem edição
 
