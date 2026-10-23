@@ -16,8 +16,22 @@ export function useRegistroDeModeracao(opcoes: OpcoesDoRegistro = {}) {
   const temMais = ref(false)
   const carregandoMais = ref(false)
   const falhouMais = ref(false)
+  /** Uma ação no painel gravou um registro novo depois da última consulta. */
+  let desatualizado = false
+
+  function invalidar(): void {
+    desatualizado = true
+  }
+
+  /** Ao abrir a aba: consulta na primeira vez, depois de um erro ou depois de uma ação. */
+  function abrir(): void {
+    if (estado.value !== 'pronta' || desatualizado) {
+      void carregar()
+    }
+  }
 
   async function carregar(): Promise<void> {
+    desatualizado = false
     estado.value = 'carregando'
     try {
       const pagina = await servico.listarRegistros()
@@ -48,5 +62,5 @@ export function useRegistroDeModeracao(opcoes: OpcoesDoRegistro = {}) {
     }
   }
 
-  return { estado, itens, temMais, carregandoMais, falhouMais, carregar, carregarMais }
+  return { estado, itens, temMais, carregandoMais, falhouMais, abrir, invalidar, carregar, carregarMais }
 }

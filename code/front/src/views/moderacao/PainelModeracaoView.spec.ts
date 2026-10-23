@@ -163,6 +163,65 @@ describe('PainelModeracaoView', () => {
     expect(tela.text()).toContain('Comentário de @tiagomoreira na atividade de @rafaokamoto')
   })
 
+  it('recarregado depois de um timeout sem a resenha na VIEW: banner e Remover para concluir', async () => {
+    const servico = servicoFalso([denunciaDeResenha('d1', { conteudo: null, remocaoNaoConfirmada: true })])
+    servico.remover.mockResolvedValue({ denunciasFechadas: ['d1'] })
+    const { tela } = await montar(servico)
+
+    expect(tela.text()).toContain('A remoção não foi confirmada a tempo.')
+    expect(tela.text()).toContain('A resenha já não aparece para os leitores.')
+    expect(tela.text()).not.toContain('Quem escreveu excluiu esta resenha')
+    expect(botao(tela, 'Arquivar denúncia')).toBeUndefined()
+
+    await botao(tela, 'Remover resenha')!.trigger('click')
+    await flushPromises()
+    await tela.findAll('[role="dialog"] button').find((b) => b.text() === 'Remover resenha')!.trigger('click')
+    await flushPromises()
+
+    expect(servico.remover).toHaveBeenCalledWith('d1', expect.any(String))
+    expect(tela.text()).toContain('Resenha removida. A denúncia saiu da fila.')
+  })
+
+  it('resolver a página carregada traz a seguinte em vez do vazio', async () => {
+    const servico = servicoFalso([])
+    servico.listarDenuncias
+      .mockResolvedValueOnce(pagina([denunciaDeResenha('d1')], 'c1'))
+      .mockResolvedValueOnce(pagina([denunciaDeComentario('d2')]))
+    servico.arquivar.mockResolvedValue({ denunciasFechadas: ['d1'] })
+    const { tela } = await montar(servico)
+
+    await botao(tela, 'Arquivar como improcedente')!.trigger('click')
+    await flushPromises()
+
+    expect(servico.listarDenuncias).toHaveBeenLastCalledWith('c1')
+    expect(tela.text()).not.toContain('Nenhuma denúncia pendente')
+    expect(tela.text()).toContain('Denúncia de comentário')
+  })
+
+  it('o registro volta a consultar depois de uma ação', async () => {
+    const servico = servicoFalso([denunciaDeResenha('d1'), denunciaDeComentario('d2')])
+    servico.arquivar.mockResolvedValue({ denunciasFechadas: ['d1'] })
+    const { tela } = await montar(servico)
+    const abas = () => tela.findAll('[role="tab"]')
+
+    await abas()[1]!.trigger('click')
+    await flushPromises()
+    await abas()[0]!.trigger('click')
+    await flushPromises()
+    await abas()[1]!.trigger('click')
+    await flushPromises()
+    expect(servico.listarRegistros).toHaveBeenCalledTimes(1)
+
+    await abas()[0]!.trigger('click')
+    await flushPromises()
+    await botao(tela, 'Arquivar como improcedente')!.trigger('click')
+    await flushPromises()
+    await abas()[1]!.trigger('click')
+    await flushPromises()
+
+    expect(servico.listarRegistros).toHaveBeenCalledTimes(2)
+  })
+
   it('acorda o leitura ao abrir', async () => {
     await montar(servicoFalso([]))
 

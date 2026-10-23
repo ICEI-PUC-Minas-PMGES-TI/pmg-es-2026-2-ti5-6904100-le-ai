@@ -41,8 +41,8 @@ import { aquecerLeitura } from '../../services/moderacao'
  */
 const props = defineProps<{ servico?: OpcoesDoPainel['servico'] & OpcoesDoRegistro['servico'] }>()
 
-const painel = usePainelDeModeracao({ servico: props.servico })
 const registro = useRegistroDeModeracao({ servico: props.servico })
+const painel = usePainelDeModeracao({ servico: props.servico, aoResolver: () => registro.invalidar() })
 const {
   estado,
   coldStart,
@@ -66,9 +66,16 @@ const confirmandoRemocao = ref(false)
 
 const ehResenha = computed(() => selecionada.value?.tipo === 'resenha')
 const rotuloRemover = computed(() => (ehResenha.value ? 'Remover resenha' : 'Remover comentário'))
-const conteudoIndisponivel = computed(() => selecionada.value !== null && selecionada.value.conteudo === null)
 const mostrarNaoConfirmada = computed(
   () => naoConfirmada.value || (selecionada.value?.remocaoNaoConfirmada ?? false),
+)
+/**
+ * Excluído pelo autor: só arquivar. Sem conteúdo com a remoção não confirmada é outro caso: o
+ * `leitura` pode já ter apagado antes do timeout, e o reenvio (mesma chave por alvo no servidor)
+ * conclui a remoção e o registro.
+ */
+const conteudoIndisponivel = computed(
+  () => selecionada.value !== null && selecionada.value.conteudo === null && !mostrarNaoConfirmada.value,
 )
 
 function abrir(id: string): void {
@@ -78,8 +85,8 @@ function abrir(id: string): void {
 
 function trocarAba(nova: 'denuncias' | 'registro'): void {
   aba.value = nova
-  if (nova === 'registro' && registro.estado.value !== 'pronta') {
-    void registro.carregar()
+  if (nova === 'registro') {
+    registro.abrir()
   }
 }
 
@@ -182,7 +189,7 @@ onMounted(() => {
 
       <!-- 5.8 Fila vazia -->
       <div
-        v-else-if="fila.length === 0"
+        v-else-if="fila.length === 0 && !temMais"
         class="mx-auto flex max-w-[420px] flex-col items-center gap-space-6 py-space-12 text-center"
       >
         <PhShieldCheck
@@ -339,8 +346,14 @@ onMounted(() => {
               {{ ehResenha ? 'Quem escreveu excluiu esta resenha depois da denúncia. Não há o que remover.' : 'Quem escreveu excluiu este comentário depois da denúncia. Não há o que remover.' }}
             </p>
           </div>
+          <p
+            v-else-if="!selecionada.conteudo"
+            class="mt-space-3 text-body text-grafite"
+          >
+            {{ ehResenha ? 'A resenha já não aparece para os leitores. Tente remover de novo para concluir a remoção e o registro.' : 'O comentário já não aparece para os leitores. Tente remover de novo para concluir a remoção e o registro.' }}
+          </p>
           <div
-            v-else-if="selecionada.conteudo"
+            v-else
             class="mt-space-3 rounded-md bg-papel-elevado p-space-5"
           >
             <div class="flex items-center gap-space-3">

@@ -15,6 +15,8 @@ export type AcaoEmCurso = 'arquivar' | 'remover' | null
 
 export interface OpcoesDoPainel {
   servico?: Pick<ModeracaoService, 'listarDenuncias' | 'arquivar' | 'remover'>
+  /** Chamada quando uma ação fecha denúncias: o registro de auditoria ganhou uma linha. */
+  aoResolver?: () => void
 }
 
 /**
@@ -86,6 +88,7 @@ export function usePainelDeModeracao(opcoes: OpcoesDoPainel = {}) {
       fila.value = [...fila.value, ...pagina.itens.filter((d) => !vistas.has(d.id))]
       proximoCursor.value = pagina.proximoCursor
       temMais.value = pagina.temMais
+      selecionadaId.value ??= fila.value[0]?.id ?? null
     } catch {
       falhouMais.value = true
     } finally {
@@ -101,7 +104,10 @@ export function usePainelDeModeracao(opcoes: OpcoesDoPainel = {}) {
     }
   }
 
-  /** Tira da fila o que o servidor fechou e seleciona a próxima, na mesma posição. */
+  /**
+   * Tira da fila o que o servidor fechou e seleciona a próxima, na mesma posição. Se a página
+   * carregada esvaziar e houver mais no servidor, a seguinte vem sozinha.
+   */
   function tirarDaFila(ids: string[]): void {
     const fechadas = new Set(ids)
     const posicao = fila.value.findIndex((d) => d.id === selecionadaId.value)
@@ -112,6 +118,10 @@ export function usePainelDeModeracao(opcoes: OpcoesDoPainel = {}) {
     }
     naoConfirmada.value = false
     erroDaAcao.value = null
+    opcoes.aoResolver?.()
+    if (restantes.length === 0 && temMais.value) {
+      void carregarMais()
+    }
   }
 
   function atualizar(id: string, mudanca: Partial<DenunciaPendente>): void {
