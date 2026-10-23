@@ -5,7 +5,13 @@ import { PoliticaDeResiliencia } from './politica-resiliencia';
 
 const ISBN = '9788535914849';
 
-function fonteCom(respostas: Record<string, unknown>) {
+function fonteCom(
+  respostas: Record<string, unknown>,
+  resilienciaDasNotas = new PoliticaDeResiliencia({
+    esperasMs: [],
+    esperar: async () => undefined,
+  }),
+) {
   const buscarJson = jest.fn(async (_fonte: string, url: URL) => {
     const caminho = url.pathname;
     if (!(caminho in respostas)) return null;
@@ -18,7 +24,11 @@ function fonteCom(respostas: Record<string, unknown>) {
     esperasMs: [],
     esperar: async () => undefined,
   });
-  return { fonte: new OpenLibraryFonte(http, resiliencia), buscarJson };
+  return {
+    fonte: new OpenLibraryFonte(http, resiliencia, resilienciaDasNotas),
+    buscarJson,
+    resiliencia,
+  };
 }
 
 const EDICAO = {
@@ -106,7 +116,11 @@ describe('OpenLibraryFonte', () => {
 
     expect(metadados?.autores).toEqual([]);
     const caminhos = buscarJson.mock.calls.map(([, url]) => url.pathname);
-    expect(caminhos).toEqual([`/isbn/${ISBN}.json`, '/works/OL9W.json']);
+    expect(caminhos).toEqual([
+      `/isbn/${ISBN}.json`,
+      '/works/OL9W.json',
+      '/works/OL9W/ratings.json',
+    ]);
   });
 
   it('omite autor que a fonte não conhece sem perder o livro', async () => {
@@ -166,6 +180,82 @@ describe('OpenLibraryFonte', () => {
 
     await expect(fonte.buscarPorIsbn(ISBN)).rejects.toBeInstanceOf(
       FonteIndisponivel,
+    );
+  });
+  describe('nota geral pelo ratings.json (F-ACV-NOTA)', () => {
+    const RATINGS = '/works/OL9W/ratings.json';
+
+    it('traz a nota da obra com 1 casa e a contagem', async () => {
+      const { fonte } = fonteCom({
+        [`/isbn/${ISBN}.json`]: EDICAO,
+        [RATINGS]: { summary: { average: 4.2857142, count: 7 } },
+      });
+
+      const metadados = await fonte.buscarPorIsbn(ISBN);
+
+      expect(metadados?.notaGeral).toEqual({ valor: 4.3, quantidade: 7 });
+    });
+
+    it.each([
+      ['average nulo', { summary: { average: null, count: 0 } }],
+      ['count zero', { summary: { average: 4, count: 0 } }],
+      ['fora da faixa', { summary: { average: 7.5, count: 3 } }],
+      ['sem summary', {}],
+    ])('%s deixa a nota ausente, nunca zero', async (_caso, resposta) => {
+      const { fonte } = fonteCom({
+        [`/isbn/${ISBN}.json`]: EDICAO,
+        [RATINGS]: resposta,
+      });
+
+      const metadados = await fonte.buscarPorIsbn(ISBN);
+
+      expect(metadados?.titulo).toBe(EDICAO.title);
+      expect(metadados?.notaGeral).toBeNull();
+    });
+
+    it('chave de obra malformada não vira URL (SEC-38)', async () => {
+      const { fonte, buscarJson } = fonteCom({
+        [`/isbn/${ISBN}.json`]: {
+          ...EDICAO,
+          works: [{ key: '/works/../ratings' }],
+        },
+        '/authors/OL10000003A.json': { name: 'Machado de Assis' },
+      });
+
+      const metadados = await fonte.buscarPorIsbn(ISBN);
+
+      expect(metadados?.notaGeral).toBeNull();
+      const caminhos = buscarJson.mock.calls.map(([, url]) => url.pathname);
+      expect(caminhos.some((c) => c.includes('ratings'))).toBe(false);
+    });
+
+    it.each([
+      ['indisponível', new FonteIndisponivel('openlibrary', 'HTTP 503')],
+      ['timeout', new FonteIndisponivel('openlibrary', 'timeout')],
+      ['erro inesperado', new Error('JSON inválido')],
+    ])(
+      'falha %s não derruba a importação nem abre o circuito dela',
+      async (_caso, erro) => {
+        const notas = new PoliticaDeResiliencia({
+          esperasMs: [],
+          falhasParaAbrir: 1,
+        });
+        const { fonte, resiliencia } = fonteCom(
+          {
+            [`/isbn/${ISBN}.json`]: EDICAO,
+            '/authors/OL10000003A.json': { name: 'Machado de Assis' },
+            [RATINGS]: erro,
+          },
+          notas,
+        );
+
+        for (let i = 0; i < 4; i++) {
+          const metadados = await fonte.buscarPorIsbn(ISBN);
+          expect(metadados?.titulo).toBe(EDICAO.title);
+          expect(metadados?.notaGeral).toBeNull();
+        }
+        expect(resiliencia.circuitoAberto).toBe(false);
+      },
     );
   });
 });

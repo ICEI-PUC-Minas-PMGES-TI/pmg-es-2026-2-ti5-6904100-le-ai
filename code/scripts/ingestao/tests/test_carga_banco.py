@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import os
 import re
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -503,3 +504,88 @@ def test_unificar_corrige_nome_decomposto_e_junta_editora_e_serie(conexao, capsy
     de_novo = _rodar(capsys, "--dados", str(dados), "unificar", "--database-url", URL)
     assert de_novo["editoras"] == de_novo["series"] == {"unificadas": 0, "renormalizadas": 0}
     assert de_novo["autores"]["renormalizados"] == 0
+
+
+def _notas_gerais(conexao) -> dict:
+    with conexao.cursor() as cursor:
+        cursor.execute(
+            """SELECT isbn13, ol_work_key, nota_geral, nota_geral_qtd, atualizado_em
+                 FROM acervo.livro WHERE tipo = 'oficial'"""
+        )
+        return {linha[0]: linha[1:] for linha in cursor.fetchall()}
+
+
+def test_notas_replica_por_obra_limpa_na_recarga_e_nao_toca_atualizado_em(conexao, capsys, tmp_path):
+    """F-ACV-NOTA (RF-ACV-15): o subcomando `notas` depois da carga."""
+    _rodar(capsys, "semear", "--database-url", URL)
+    _carga_da_amostra(capsys, tmp_path)
+    conexao.commit()
+    # Uma obra com duas edições (a segunda entra com outro ISBN) e outra obra.
+    obra, isbn_da_obra = _um(
+        conexao,
+        "SELECT ol_work_key, isbn13 FROM acervo.livro WHERE ol_work_key IS NOT NULL ORDER BY isbn13 LIMIT 1",
+    )
+    outra, = _um(
+        conexao,
+        "SELECT ol_work_key FROM acervo.livro WHERE ol_work_key IS NOT NULL AND ol_work_key <> %s "
+        "ORDER BY isbn13 LIMIT 1",
+        obra,
+    )
+    edicoes_da_outra, = _um(conexao, "SELECT count(*) FROM acervo.livro WHERE ol_work_key = %s", outra)
+    edicoes_da_obra = 1 + _um(conexao, "SELECT count(*) FROM acervo.livro WHERE ol_work_key = %s", obra)[0]
+    _executar(
+        conexao,
+        """INSERT INTO acervo.livro (isbn13, titulo, paginas, capa_url_externa, tipo, ol_work_key)
+           VALUES ('9780000000002', 'Segunda edição', 100, 'https://covers.openlibrary.org/b/id/2-L.jpg',
+                   'oficial', %s)""",
+        obra,
+    )
+    # Livro importado pelo Google Books, sem obra: o script não o vê.
+    _executar(
+        conexao,
+        """INSERT INTO acervo.livro (isbn13, titulo, paginas, capa_url_externa, tipo,
+                                     nota_geral, nota_geral_qtd)
+           VALUES ('9780000000019', 'Do Google', 100, 'https://books.google.com/x', 'oficial', 3.5, 8)""",
+    )
+    antes = _notas_gerais(conexao)
+    dump = tmp_path / "ratings.txt"
+    dump.write_text(
+        f"/works/{obra}\t\\N\t5\t2020-01-01\n"
+        f"/works/{obra}\t\\N\t4\t2020-01-01\n"
+        f"/works/{obra}\t\\N\t4\t2020-01-01\n"
+        f"/works/{obra}\t\\N\t4\t2020-01-01\n"
+        f"/works/{outra}\t\\N\t2\t2020-01-01\n"
+        "/works/OL1W\t\\N\t9\t2020-01-01\n",
+        encoding="utf-8",
+    )
+
+    simulacao = _rodar(capsys, "notas", "--database-url", URL, "--arquivo", str(dump), "--dry-run")
+    assert simulacao["simulacao"] is True
+    assert simulacao["linhas_lidas"] == 6
+    assert simulacao["linhas_descartadas"] == 1
+    assert simulacao["edicoes_atualizadas"] == edicoes_da_obra + edicoes_da_outra
+    assert _notas_gerais(conexao) == antes
+
+    resumo = _rodar(capsys, "notas", "--database-url", URL, "--arquivo", str(dump))
+    assert resumo["obras_do_acervo_com_nota"] == 2
+    assert resumo["edicoes_atualizadas"] == edicoes_da_obra + edicoes_da_outra
+    assert resumo["edicoes_limpas"] == 0
+    depois = _notas_gerais(conexao)
+    # (5 + 4 + 4 + 4) / 4 = 4,25: meia para cima, 4,3, nas duas edições da obra.
+    assert depois[isbn_da_obra][1:3] == (Decimal("4.3"), 4)
+    assert depois["9780000000002"][1:3] == (Decimal("4.3"), 4)
+    assert depois["9780000000019"][1:3] == (Decimal("3.5"), 8)
+    # O relógio da sinopse não anda.
+    assert all(depois[isbn][3] == antes[isbn][3] for isbn in antes)
+
+    de_novo = _rodar(capsys, "notas", "--database-url", URL, "--arquivo", str(dump))
+    assert de_novo["edicoes_atualizadas"] == 0
+
+    # Recarga com um dump em que a obra saiu: as duas edições perdem a nota.
+    dump.write_text(f"/works/{outra}\t\\N\t2\t2020-01-01\n", encoding="utf-8")
+    recarga = _rodar(capsys, "notas", "--database-url", URL, "--arquivo", str(dump))
+    assert recarga["edicoes_limpas"] == edicoes_da_obra
+    final = _notas_gerais(conexao)
+    assert final[isbn_da_obra][1:3] == (None, None)
+    assert final["9780000000002"][1:3] == (None, None)
+    assert final["9780000000019"][1:3] == (Decimal("3.5"), 8)

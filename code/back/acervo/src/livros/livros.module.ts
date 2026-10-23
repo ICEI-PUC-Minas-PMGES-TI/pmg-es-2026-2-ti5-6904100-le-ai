@@ -57,6 +57,13 @@ function criarHttpExterno(config: ConfigService): HttpExterno {
 const ESPERAS_DA_SINOPSE_MS = [1_000];
 
 /**
+ * Política do `ratings.json` da importação (F-ACV-NOTA): sem retentativa e com
+ * circuito próprio. A nota é acessória; a falha dela não atrasa a importação nem
+ * abre o circuito da OpenLibrary, e o livro entra sem nota.
+ */
+const ESPERAS_DAS_NOTAS_MS: number[] = [];
+
+/**
  * Domínio de livro: importação por ISBN e livro pessoal (F-ACV-CADASTRO),
  * busca do acervo oficial (F-ACV-BUSCA) e filtros e páginas de autor, editora
  * e série (F-ACV-DESCOBERTA). Nota geral e nota dos leitores da página
@@ -103,7 +110,11 @@ const ESPERAS_DA_SINOPSE_MS = [1_000];
       useFactory: (config: ConfigService) => {
         const http = criarHttpExterno(config);
         return [
-          new OpenLibraryFonte(http, new PoliticaDeResiliencia()),
+          new OpenLibraryFonte(
+            http,
+            new PoliticaDeResiliencia(),
+            new PoliticaDeResiliencia({ esperasMs: ESPERAS_DAS_NOTAS_MS }),
+          ),
           new GoogleBooksFonte(
             http,
             new PoliticaDeResiliencia(),

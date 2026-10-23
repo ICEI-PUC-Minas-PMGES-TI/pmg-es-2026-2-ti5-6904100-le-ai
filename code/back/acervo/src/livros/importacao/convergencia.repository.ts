@@ -5,7 +5,11 @@ import {
 } from '../../common/normalizacao';
 import { LIMITE_DA_BIOGRAFIA, textoPuro } from '../../common/texto-puro';
 import type { Tx } from '../../db/tipos';
-import type { AutorExterno, MetadadosLivro } from './dominio/fonte-metadados';
+import {
+  notaExterna,
+  type AutorExterno,
+  type MetadadosLivro,
+} from './dominio/fonte-metadados';
 import type { RepositorioDeConvergencia } from './dominio/processador-importacao';
 
 /** Mesmo teto de título do livro pessoal (`LivroPessoalEntrada`). */
@@ -49,11 +53,12 @@ export class ConvergenciaRepository implements RepositorioDeConvergencia {
     const criado = await this.primeiroId(sql`
       INSERT INTO acervo.livro (
         isbn13, ol_edition_key, ol_work_key, titulo, ano_publicacao, paginas,
-        capa_url_externa, tipo, editora_id, ativo
+        capa_url_externa, tipo, editora_id, ativo, nota_geral, nota_geral_qtd
       ) VALUES (
         ${dados.isbn13}, ${dados.olEditionKey}, ${dados.olWorkKey},
         ${dados.titulo}, ${dados.anoPublicacao}, ${dados.paginas},
-        ${dados.capaUrl}, 'oficial', ${editoraId}, true
+        ${dados.capaUrl}, 'oficial', ${editoraId}, true,
+        ${dados.notaGeral?.valor ?? null}, ${dados.notaGeral?.quantidade ?? null}
       )
       ON CONFLICT (isbn13) WHERE isbn13 IS NOT NULL DO NOTHING
       RETURNING id
@@ -240,6 +245,11 @@ export function sanear(m: MetadadosLivro) {
     editora: m.editora?.trim() ? m.editora.trim().slice(0, 200) : null,
     olEditionKey: m.olEditionKey,
     olWorkKey: m.olWorkKey,
+    // Só na inserção: livro existente não é reimportado. As duas colunas
+    // andam juntas (CHECK), e a nota passa de novo pela validação.
+    notaGeral: m.notaGeral
+      ? notaExterna(m.notaGeral.valor, m.notaGeral.quantidade)
+      : null,
     autores: m.autores
       .map((a) => ({
         ...a,
