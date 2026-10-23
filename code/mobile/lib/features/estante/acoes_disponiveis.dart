@@ -12,6 +12,7 @@ enum IdAcao {
   adicionarQueroLer(AcoesDeLeitura.adicionarQueroLer, PassoDaAcao.direto),
   iniciarLeitura(AcoesDeLeitura.iniciarLeitura, PassoDaAcao.data),
   registrarProgresso(AcoesDeLeitura.registrarProgresso, PassoDaAcao.externo),
+  iniciarSessao(AcoesDeLeitura.iniciarSessao, PassoDaAcao.externo),
   verAtualizacoes(AcoesDeLeitura.verAtualizacoes, PassoDaAcao.externo),
   finalizarLeitura(AcoesDeLeitura.finalizarLeitura, PassoDaAcao.data),
   finalizarReleitura(AcoesDeLeitura.finalizarReleitura, PassoDaAcao.data),
@@ -47,6 +48,7 @@ List<AcaoDisponivel> _emAndamento(IdAcao finalizar, IdAcao abandonar, Leitura? l
   return <AcaoDisponivel>[
     const AcaoDisponivel(IdAcao.registrarProgresso, TomDaAcao.principal),
     if (leitura != null) ...<AcaoDisponivel>[
+      const AcaoDisponivel(IdAcao.iniciarSessao, TomDaAcao.neutra),
       const AcaoDisponivel(IdAcao.verAtualizacoes, TomDaAcao.neutra),
       AcaoDisponivel(finalizar, TomDaAcao.neutra),
       AcaoDisponivel(abandonar, TomDaAcao.destrutiva),

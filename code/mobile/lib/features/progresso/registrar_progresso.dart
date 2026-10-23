@@ -5,10 +5,12 @@ import 'package:phosphor_icons/phosphor_icons.dart';
 import '../../design/theme.dart';
 import '../../design/tokens.dart';
 import '../../design/widgets/botao_primario.dart';
+import '../../design/widgets/botao_secundario.dart';
 import '../../design/widgets/botao_textual.dart';
 import '../../design/widgets/campo_texto.dart';
 import '../../design/widgets/capa_livro.dart';
 import '../../design/widgets/folha_inferior.dart';
+import '../estante/textos.dart';
 import 'fila_de_progresso.dart';
 import 'progresso_service.dart';
 import 'regras.dart';
@@ -36,6 +38,33 @@ class LeituraDoRegistro {
     required this.paginaAtual,
     required this.totalPaginas,
   });
+
+  LeituraDoRegistro naPagina(int pagina) => LeituraDoRegistro(
+    leituraId: leituraId,
+    titulo: titulo,
+    autor: autor,
+    capaUrl: capaUrl,
+    paginaAtual: pagina,
+    totalPaginas: totalPaginas,
+  );
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'leituraId': leituraId,
+    'titulo': titulo,
+    'autor': autor,
+    'capaUrl': capaUrl,
+    'paginaAtual': paginaAtual,
+    'totalPaginas': totalPaginas,
+  };
+
+  factory LeituraDoRegistro.fromJson(Map<String, dynamic> json) => LeituraDoRegistro(
+    leituraId: json['leituraId'] as String,
+    titulo: json['titulo'] as String,
+    autor: json['autor'] as String?,
+    capaUrl: json['capaUrl'] as String?,
+    paginaAtual: (json['paginaAtual'] as num).toInt(),
+    totalPaginas: (json['totalPaginas'] as num).toInt(),
+  );
 }
 
 class CorrecaoDoPendente {
@@ -57,6 +86,7 @@ Future<ResultadoDoRegistro?> abrirRegistroDeProgresso(
   FilaDeProgresso? fila,
   CorrecaoDoPendente? correcao,
   DateTime Function()? agora,
+  VoidCallback? aoIniciarSessao,
 }) {
   // Pelo navegador raiz, como o painel de nota: o scrim cobre a viewport inteira, barra inferior
   // incluída ("Anatomia do bottom sheet"), e a folha enxerga o teclado. Dentro da aba, o
@@ -70,6 +100,7 @@ Future<ResultadoDoRegistro?> abrirRegistroDeProgresso(
       fila: fila,
       correcao: correcao,
       agora: agora,
+      aoIniciarSessao: aoIniciarSessao,
     ),
   );
 }
@@ -80,6 +111,7 @@ class FolhaDeRegistroDeProgresso extends StatefulWidget {
   final FilaDeProgresso? fila;
   final CorrecaoDoPendente? correcao;
   final DateTime Function()? agora;
+  final VoidCallback? aoIniciarSessao;
 
   const FolhaDeRegistroDeProgresso({
     super.key,
@@ -88,6 +120,7 @@ class FolhaDeRegistroDeProgresso extends StatefulWidget {
     this.fila,
     this.correcao,
     this.agora,
+    this.aoIniciarSessao,
   });
 
   @override
@@ -192,6 +225,11 @@ class _FolhaDeRegistroDeProgressoState extends State<FolhaDeRegistroDeProgresso>
     }
   }
 
+  void _iniciarSessao() {
+    Navigator.of(context).pop();
+    widget.aoIniciarSessao?.call();
+  }
+
   void _cancelar() {
     if (!_controller.salvando) {
       Navigator.of(context).pop();
@@ -227,6 +265,16 @@ class _FolhaDeRegistroDeProgressoState extends State<FolhaDeRegistroDeProgresso>
             const SizedBox(height: DesignTokens.space4),
             _cartaoDoLivro(theme, legenda, base),
             Divider(height: DesignTokens.space5 * 2, color: theme.divider),
+            if (widget.aoIniciarSessao != null && widget.correcao == null) ...<Widget>[
+              BotaoSecundario(
+                texto: AcoesDeLeitura.iniciarSessao,
+                icone: PhosphorIconsRegular.timer,
+                onPressed: salvando ? null : _iniciarSessao,
+              ),
+              const SizedBox(height: DesignTokens.space2),
+              Text(TextosDoRegistro.ajudaSessao, style: legenda),
+              const SizedBox(height: DesignTokens.space5),
+            ],
             CampoTexto(
               controller: _pagina,
               label: TextosDoRegistro.rotuloPagina,

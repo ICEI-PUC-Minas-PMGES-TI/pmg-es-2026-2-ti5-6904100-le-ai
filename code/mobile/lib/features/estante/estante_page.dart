@@ -197,6 +197,9 @@ class _EstantePageState extends State<EstantePage> {
       aoRegistrarProgresso: widget.progresso == null
           ? null
           : (leitura) => _registrarProgresso(item, leitura),
+      aoIniciarSessao: widget.progresso?.sessao == null
+          ? null
+          : (leitura) => _iniciarSessao(item, leitura),
       aoVerAtualizacoes: widget.aoVerAtualizacoes == null
           ? null
           : (leitura) => widget.aoVerAtualizacoes!(leitura.id),
@@ -214,6 +217,19 @@ class _EstantePageState extends State<EstantePage> {
       leitura: leitura,
       livro: item.livro,
     );
+  }
+
+  void _iniciarSessao(ItemEstante item, Leitura leitura) {
+    final progresso = widget.progresso;
+    if (progresso == null) {
+      return;
+    }
+    aoIniciarSessaoDaLeitura(
+      context,
+      progresso: progresso,
+      leitura: leitura,
+      livro: item.livro,
+    )?.call();
   }
 
   void _seguirVazio(DestinoDoVazio destino) {
