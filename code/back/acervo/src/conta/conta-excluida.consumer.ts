@@ -6,6 +6,7 @@ import {
   MessageValidator,
   type MessageEnvelope,
 } from '../messaging/message-validator';
+import { NotaDosLeitoresRepository } from '../livros/notas/nota-dos-leitores.repository';
 import { EXCHANGES } from '../messaging/messaging.constants';
 import contaExcluidaSchema from '../messaging/schemas/conta.excluida.v1.schema.json';
 import { RemocaoDeAsset } from './remocao-de-asset';
@@ -30,7 +31,9 @@ type Linhas<T> = { rows: T[] };
  *   autores, assuntos, projeções e agregados do próprio livro). Livro oficial
  *   nunca é afetado;
  * - `nota_leitor_projecao` do leitor, recalculando `nota_livro_agregada` dos
- *   livros em que ele votou;
+ *   livros em que ele votou. Os livros são travados antes de apagar, com a
+ *   mesma trava e na mesma ordem do consumidor de `nota.alterada` (F-ACV-NOTA),
+ *   sem deadlock entre os dois;
  * - `importacao_livro` que ele solicitou (o livro oficial importado fica);
  * - recibos de idempotência dele, anonimizados;
  * - eventos que o citam: os pendentes saem, para não republicar dado de quem
@@ -49,6 +52,7 @@ export class ContaExcluidaConsumer implements OnModuleInit {
     private readonly consumidor: AmqpConsumerService,
     private readonly validador: MessageValidator,
     private readonly remocaoDeAsset: RemocaoDeAsset,
+    private readonly notas: NotaDosLeitoresRepository,
   ) {}
 
   onModuleInit(): void {
@@ -76,25 +80,19 @@ export class ContaExcluidaConsumer implements OnModuleInit {
     }
 
     const votados = (await tx.execute(sql`
-      DELETE FROM acervo.nota_leitor_projecao
+      SELECT livro_id FROM acervo.nota_leitor_projecao
        WHERE usuario_id = ${usuarioId}
-      RETURNING livro_id
     `)) as unknown as Linhas<{ livro_id: string }>;
     const livros = votados.rows.map((linha) => linha.livro_id);
     if (livros.length > 0) {
-      // Recalcula do zero o agregado dos livros afetados; livro sem nenhuma
-      // nota restante fica sem linha (o CHECK exige quantidade > 0).
+      // Trava, apaga e recalcula do zero o agregado dos livros afetados; livro
+      // sem nenhuma nota restante fica sem linha (o CHECK exige quantidade > 0).
+      await this.notas.travar(tx, livros);
       await tx.execute(sql`
-        DELETE FROM acervo.nota_livro_agregada
-         WHERE livro_id IN ${livros}
+        DELETE FROM acervo.nota_leitor_projecao
+         WHERE usuario_id = ${usuarioId}
       `);
-      await tx.execute(sql`
-        INSERT INTO acervo.nota_livro_agregada (livro_id, media, quantidade)
-        SELECT livro_id, round(avg(valor), 2), count(*)
-          FROM acervo.nota_leitor_projecao
-         WHERE livro_id IN ${livros}
-         GROUP BY livro_id
-      `);
+      await this.notas.recalcularAgregados(tx, livros);
     }
 
     await tx.execute(sql`

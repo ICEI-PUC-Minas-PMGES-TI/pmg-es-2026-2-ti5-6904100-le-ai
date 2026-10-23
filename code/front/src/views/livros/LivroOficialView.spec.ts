@@ -342,6 +342,67 @@ describe('LivroOficialView', () => {
     expect(wrapper.find('[role="alert"]').exists()).toBe(false)
   })
 
+  describe('notas (F-ACV-NOTA)', () => {
+    const DISTRIBUICAO = [12, 9, 7, 3, 2, 1, 1, 0, 1, 0, 0].map((quantidade, indice) => ({
+      valor: 5 - indice * 0.5,
+      quantidade,
+    }))
+
+    it('as duas notas e o histograma, entre a barra de ação e "Sua avaliação"', async () => {
+      servico.obterLivroOficial.mockResolvedValue(
+        livroOficial({
+          notaGeral: { valor: 4.3, quantidade: 412 },
+          notaDosLeitores: { valor: 4.2, quantidade: 36 },
+          distribuicao: DISTRIBUICAO,
+        }),
+      )
+      const { wrapper } = await abrir()
+
+      const secao = wrapper.get('[data-secao-de-notas]')
+      const leituras = secao.findAll('[data-bloco-de-nota] .sr-only').map((p) => p.text())
+      expect(leituras).toEqual(['Nota geral, 4,3 de 5, 412 avaliações', 'Nota dos leitores, 4,2 de 5, 36 leitores'])
+      expect(secao.text()).toContain('Distribuição das notas dos leitores')
+      expect(secao.findAll('ul > li')).toHaveLength(11)
+
+      // Abaixo de 1024px, a ordem do DOM: barra de ação, notas, "Sua avaliação". A partir de 1024px,
+      // `lg:-order-1` leva a seção para logo abaixo do título.
+      const html = wrapper.get('article').html()
+      const notas = html.indexOf('data-secao-de-notas')
+      expect(html.indexOf('Recomendar a um leitor')).toBeLessThan(notas)
+      expect(notas).toBeLessThan(html.indexOf('Sua avaliação'))
+      expect(secao.classes()).toContain('lg:-order-1')
+    })
+
+    it('sem nota dos leitores, o histograma não aparece', async () => {
+      servico.obterLivroOficial.mockResolvedValue(livroOficial({ notaGeral: { valor: 3.9, quantidade: 27 } }))
+      const { wrapper } = await abrir()
+
+      const secao = wrapper.get('[data-secao-de-notas]')
+      expect(secao.text()).toContain('27 avaliações')
+      expect(secao.findAll('[data-bloco-de-nota] .sr-only')[1]!.text()).toBe('Nota dos leitores, sem nota')
+      expect(wrapper.text()).not.toContain('Distribuição das notas dos leitores')
+    })
+
+    it('sem nenhuma nota, os dois blocos em "Sem nota" e nada de histograma', async () => {
+      const { wrapper } = await abrir()
+
+      const secao = wrapper.get('[data-secao-de-notas]')
+      expect(secao.findAll('[data-bloco-de-nota] .sr-only').map((p) => p.text())).toEqual([
+        'Nota geral, sem nota',
+        'Nota dos leitores, sem nota',
+      ])
+      expect(secao.find('ul').exists()).toBe(false)
+    })
+
+    it('o esqueleto tem o retângulo de 104px das notas', async () => {
+      servico.obterLivroOficial.mockImplementationOnce(() => new Promise(() => undefined))
+      const { wrapper } = await abrir()
+
+      const esqueleto = wrapper.get('[aria-busy="true"] [data-esqueleto-das-notas]')
+      expect(esqueleto.classes()).toEqual(expect.arrayContaining(['h-[104px]', 'rounded-md', 'bg-capa-placeholder']))
+    })
+  })
+
   it('o título vem antes da ficha no DOM, para o leitor de tela começar pelo h1', async () => {
     const { wrapper } = await abrir()
 

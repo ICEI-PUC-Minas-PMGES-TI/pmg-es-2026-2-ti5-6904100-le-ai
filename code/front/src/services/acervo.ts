@@ -148,6 +148,24 @@ export interface LivroOficialDetalhe extends LivroOficialResumo {
   isbn: string
   sinopse: SinopseDoLivro
   resenhas: PaginaResenhas | null
+  /** Nota da fonte externa (F-ACV-NOTA); `quantidade` são avaliações. Ausente é `null`, nunca 0 (RN-06.3). */
+  notaGeral: NotaDoLivro | null
+  /** Média dos leitores do app, já com uma casa; `quantidade` são leitores. Nunca se combina com a geral. */
+  notaDosLeitores: NotaDoLivro | null
+  /** Onze faixas, de 5 a 0, somando `notaDosLeitores.quantidade`; vazia quando não há nota dos leitores. */
+  distribuicao: FaixaDaDistribuicao[]
+}
+
+/** Nota de 0 a 5 com uma casa e quantas avaliações ou leitores a formam (sempre 1 ou mais). */
+export interface NotaDoLivro {
+  valor: number
+  quantidade: number
+}
+
+/** Uma faixa do histograma: o valor da nota (5, 4,5 ... 0) e quantos leitores deram (0 ou mais). */
+export interface FaixaDaDistribuicao {
+  valor: number
+  quantidade: number
 }
 
 export interface SerieDoLivro {

@@ -36,6 +36,7 @@ import 'acervo_service.dart';
 import 'formatos.dart';
 import 'livro_oficial.dart';
 import 'livro_oficial_controller.dart';
+import 'notas_do_livro.dart';
 
 /// Página do livro oficial (RF-ACV-04, RF-ACV-18, RF-ACV-19), a partir do protótipo
 /// `pagina-do-livro.html`.
@@ -351,7 +352,15 @@ class _LivroOficialPageState extends State<LivroOficialPage> {
               onPressed: () => _recomendar(social, livro.resumo),
             ),
           ],
-          const SizedBox(height: DesignTokens.space8),
+          // F-ACV-NOTA: notas logo abaixo da barra de ação (pagina-do-livro.md §4.1 C), com
+          // `space-6` antes de "Sua avaliação" (§5.2).
+          const SizedBox(height: DesignTokens.space6),
+          NotasDoLivro(
+            notaGeral: livro.notaGeral,
+            notaDosLeitores: livro.notaDosLeitores,
+            distribuicao: livro.distribuicao,
+          ),
+          const SizedBox(height: DesignTokens.space6),
           BlocoSuaAvaliacao(avaliacao: _avaliacao, livro: _livroAvaliado(livro)),
           const SizedBox(height: DesignTokens.space6),
           _Secao(titulo: 'Sinopse', child: _sinopse(theme)),
@@ -990,6 +999,9 @@ class _SkeletonDaPagina extends StatelessWidget {
                   barra(48, 1, raio: DesignTokens.radiusFull),
                   const SizedBox(height: DesignTokens.space3),
                   barra(48, 1, raio: DesignTokens.radiusFull),
+                  // F-ACV-NOTA: a forma do container de notas (pagina-do-livro.md §4.10).
+                  const SizedBox(height: DesignTokens.space6),
+                  barra(104, 1, raio: DesignTokens.radiusMd),
                 ],
               );
             },

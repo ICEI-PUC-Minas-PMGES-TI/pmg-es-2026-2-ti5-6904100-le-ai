@@ -7,6 +7,10 @@ import 'package:http/http.dart' as http;
 
 import 'package:le_ai_mobile/features/livros/livro_oficial_page.dart';
 
+import 'package:le_ai_mobile/design/tokens.dart';
+import 'package:le_ai_mobile/features/avaliacao/bloco_sua_avaliacao.dart';
+import 'package:le_ai_mobile/features/livros/notas_do_livro.dart';
+
 import 'package:le_ai_mobile/features/estante/estante_service.dart';
 import 'package:le_ai_mobile/features/feed/social_service.dart';
 import 'package:le_ai_mobile/features/listas/rotas_listas.dart';
@@ -61,6 +65,19 @@ Map<String, Object?> _livro({
 
 Map<String, Object?> _pagina(List<Map<String, Object?>> itens, {String? cursor}) =>
     <String, Object?>{'itens': itens, 'limit': 10, 'proximoCursor': cursor};
+
+/// O `Sem nota` de "Sua avaliação", e não o da seção de notas (F-ACV-NOTA), que também o mostra.
+Finder get _semNotaDaAvaliacao =>
+    find.descendant(of: find.byType(BlocoSuaAvaliacao), matching: find.text('Sem nota'));
+
+/// As onze faixas de 5 a 0 (pagina-do-livro.md §5.2).
+List<Map<String, Object?>> _distribuicao() => <Map<String, Object?>>[
+  for (final (valor, quantidade) in <(num, int)>[
+    (5, 12), (4.5, 9), (4, 7), (3.5, 3), (3, 2), (2.5, 1),
+    (2, 1), (1.5, 0), (1, 1), (0.5, 0), (0, 0),
+  ])
+    <String, Object?>{'valor': valor, 'quantidade': quantidade},
+];
 
 void main() {
   late List<Uri> pedidas;
@@ -119,7 +136,7 @@ void main() {
     // F-AVA: o bloco existe e, sem nota, diz "Sem nota" (nunca 0,0). Sem serviço de estante, o
     // bloco de estante não aparece.
     expect(find.text('Sua avaliação'), findsOneWidget);
-    expect(find.text('Sem nota'), findsOneWidget);
+    expect(_semNotaDaAvaliacao, findsOneWidget);
     expect(find.bySemanticsLabel('Sem nota. Dar nota'), findsOneWidget);
     expect(find.textContaining('Registrar progresso'), findsNothing);
   });
@@ -136,7 +153,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('0'), findsOneWidget);
-    expect(find.text('Sem nota'), findsNothing);
+    expect(_semNotaDaAvaliacao, findsNothing);
     expect(find.bySemanticsLabel('Sua nota: 0. Alterar'), findsOneWidget);
   });
 
@@ -731,6 +748,107 @@ void main() {
       await montar(tester, (request) async => json(_livro(), 200));
 
       expect(find.text('Assuntos'), findsNothing);
+    });
+  });
+
+  group('notas do livro (F-ACV-NOTA)', () {
+    testWidgets('as duas notas e o histograma, entre a barra de ação e "Sua avaliação"', (
+      tester,
+    ) async {
+      await montar(
+        tester,
+        (request) async => json(
+          _livro(
+            extras: <String, Object?>{
+              'notaGeral': <String, Object?>{'valor': 4.3, 'quantidade': 412},
+              'notaDosLeitores': <String, Object?>{'valor': 4.2, 'quantidade': 36},
+              'distribuicao': _distribuicao(),
+            },
+          ),
+          200,
+        ),
+        estante: estanteVazia(),
+      );
+      await tester.pump();
+
+      expect(find.text('4,3'), findsOneWidget);
+      expect(find.text('412 avaliações'), findsOneWidget);
+      expect(find.text('4,2'), findsOneWidget);
+      expect(find.text('36 leitores'), findsOneWidget);
+      expect(find.text('Distribuição das notas dos leitores'), findsOneWidget);
+      expect(find.text('12 leitores'), findsOneWidget);
+      // Com as duas notas, o único `Sem nota` é o de "Sua avaliação".
+      expect(find.text('Sem nota'), findsOneWidget);
+      expect(_semNotaDaAvaliacao, findsOneWidget);
+
+      final barraDeAcao = tester.getBottomLeft(find.text('Adicionar à estante')).dy;
+      final notas = tester.getRect(find.byType(NotasDoLivro));
+      expect(notas.top, greaterThan(barraDeAcao));
+      expect(notas.bottom, lessThan(tester.getTopLeft(find.text('Sua avaliação')).dy));
+    });
+
+    testWidgets('resposta sem os campos novos: os dois blocos em Sem nota, sem histograma', (
+      tester,
+    ) async {
+      await montar(tester, (request) async => json(_livro(), 200));
+
+      expect(find.text('Nota geral'), findsOneWidget);
+      expect(find.text('Nota dos leitores'), findsOneWidget);
+      expect(
+        find.descendant(of: find.byType(NotasDoLivro), matching: find.text('Sem nota')),
+        findsNWidgets(2),
+      );
+      expect(find.text('Distribuição das notas dos leitores'), findsNothing);
+    });
+
+    testWidgets('só nota geral (4.6): leitores em Sem nota e sem histograma', (tester) async {
+      await montar(
+        tester,
+        (request) async => json(
+          _livro(
+            extras: <String, Object?>{
+              'notaGeral': <String, Object?>{'valor': 3.9, 'quantidade': 27},
+              'notaDosLeitores': null,
+              'distribuicao': <Object?>[],
+            },
+          ),
+          200,
+        ),
+      );
+
+      expect(find.text('3,9'), findsOneWidget);
+      expect(find.text('27 avaliações'), findsOneWidget);
+      expect(
+        find.descendant(of: find.byType(NotasDoLivro), matching: find.text('Sem nota')),
+        findsOneWidget,
+      );
+      expect(find.text('Distribuição das notas dos leitores'), findsNothing);
+    });
+
+    testWidgets('carregando: o esqueleto tem o retângulo de 104px do container de notas', (
+      tester,
+    ) async {
+      final demorada = Completer<http.Response>();
+      await montar(tester, (request) => demorada.future);
+
+      final retangulo = find.byWidgetPredicate(
+        (widget) =>
+            widget is Container &&
+            widget.decoration is BoxDecoration &&
+            (widget.decoration! as BoxDecoration).borderRadius ==
+                BorderRadius.circular(DesignTokens.radiusMd),
+      );
+      expect(retangulo, findsOneWidget);
+      final tamanho = tester.getSize(retangulo);
+      expect(tamanho.height, 104);
+      // Largura total da área de conteúdo: 390 menos `space-5` de cada lado.
+      expect(tamanho.width, 390 - 2 * DesignTokens.space5);
+      expect(find.byType(NotasDoLivro), findsNothing);
+
+      demorada.complete(json(_livro(), 200));
+      await tester.pump();
+      await tester.pump();
+      expect(find.byType(NotasDoLivro), findsOneWidget);
     });
   });
 

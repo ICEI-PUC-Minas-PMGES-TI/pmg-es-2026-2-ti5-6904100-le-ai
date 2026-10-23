@@ -22,6 +22,8 @@ import {
 import { ImportacaoController } from './importacao/importacao.controller';
 import { ImportacaoRepository } from './importacao/importacao.repository';
 import { ImportacaoService } from './importacao/importacao.service';
+import { NotaDosLeitoresConsumer } from './notas/nota-dos-leitores.consumer';
+import { NotaDosLeitoresRepository } from './notas/nota-dos-leitores.repository';
 import { OutboxRepository } from './outbox/outbox.repository';
 import { AutorizacaoRn15 } from './pessoal/autorizacao-rn15.service';
 import { LeituraDoDonoRepository } from './pessoal/leitura-do-dono.repository';
@@ -57,7 +59,8 @@ const ESPERAS_DA_SINOPSE_MS = [1_000];
 /**
  * Domínio de livro: importação por ISBN e livro pessoal (F-ACV-CADASTRO),
  * busca do acervo oficial (F-ACV-BUSCA) e filtros e páginas de autor, editora
- * e série (F-ACV-DESCOBERTA).
+ * e série (F-ACV-DESCOBERTA). Nota geral e nota dos leitores da página
+ * (F-ACV-NOTA), com o consumidor de `nota.alterada`.
  *
  * `ImportacaoConsumer` registra o consumidor de `livro.importacao_solicitada` no
  * runtime AMQP de P0-MSG. Com `AMQP_ENABLED=false` o registro acontece mas
@@ -89,6 +92,8 @@ const ESPERAS_DA_SINOPSE_MS = [1_000];
     LeituraDoDonoRepository,
     ImportacaoConsumer,
     SinopseConsumer,
+    NotaDosLeitoresRepository,
+    NotaDosLeitoresConsumer,
     {
       // Ordem fixa: OpenLibrary primeiro, Google Books só se a primeira não
       // souber. Cada fonte tem o próprio circuit breaker, e as instâncias vivem

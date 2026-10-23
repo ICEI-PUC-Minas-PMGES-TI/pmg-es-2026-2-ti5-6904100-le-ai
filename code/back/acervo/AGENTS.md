@@ -30,7 +30,7 @@ Livro (oficial e pessoal), autor, editora, série, busca e filtros, ingestão, s
   - `src/messaging/` — runtime AMQP de P0-MSG: conexão, dispatcher da outbox, publisher, consumidor genérico com recibo em `mensagem_processada`, retry `1/5/15 s` e DLQ, validador de envelope e de `data`. O handler recebe o `tx` do recibo.
   - `src/livros/` — domínio de F-ACV-CADASTRO: `importacao/` (por ISBN, com `dominio/` das fontes externas, o consumidor `importacao.consumer.ts` e a convergência `convergencia.repository.ts`), `pessoal/` (CRUD e consulta autorizada) e `outbox/`. De F-ACV-BUSCA: `busca/` (`GET /assuntos`, `GET /livros`, a página `GET /livros/{id}` e `GET /livros/{id}/resenhas`), `sinopse/` (consumidor de `livro.pagina_aberta` e as fontes de sinopse) e `capa.ts`. De F-ACV-DESCOBERTA: `catalogo/` (`GET /autores/{id}`, `GET /editoras/{id}`, `GET /series/{id}`) e os filtros avançados dentro de `busca/`.
   - `src/health/` — `GET /health` via `@nestjs/terminus` + indicador Drizzle (`SELECT 1`) (RNF-OBS-02).
-- **Comandos:** `npm run start:dev` · `npm run build` · `npm test` · `npm run test:integration` · `npm run lint` · `npm run db:generate` · `npm run db:migrate` · `npm run db:seed`. `npm run start:prod` aplica migrations antes de iniciar a API.
+- **Comandos:** `npm run start:dev` · `npm run build` · `npm test` · `npm run test:integration` · `npm run lint` · `npm run db:generate` · `npm run db:migrate` · `npm run db:seed` · `npm run backfill:notas [-- --dry-run]`. `npm run start:prod` aplica migrations antes de iniciar a API.
 - **Testes unitários:** Jest + ts-jest; specs em `src/**/*.spec.ts`, ao lado do arquivo testado. Rodam sem banco e sem rede: `fetch`, relógio e repositórios são injetados.
 - **Testes de integração:** `test/integracao/*.int-spec.ts`, contra um Postgres **descartável** em `DATABASE_URL_TESTE` (o fixture derruba e recria os schemas, e recusa URL do Neon ou do Render). Sobem o app com o mesmo pipeline de produção, aplicam as migrations reais e criam as VIEWs de `social`, `identidade` e `leitura` como tabelas, para a massa de RN-15 entrar por INSERT. O caminho assíncrono usa o dispatcher, o publisher e o consumidor reais sobre um broker em memória. Local:
   ```bash
@@ -48,7 +48,7 @@ Livro (oficial e pessoal), autor, editora, série, busca e filtros, ingestão, s
 - **Assuntos** normalizados de conjunto curado e fechado na ingestão (RN-21); tag externa sem correspondência não cria assunto.
 - **Nota geral** externa é somente-leitura, importada quando a fonte fornece (RN-06); nunca combinada com a nota dos leitores.
 - Ingestão via **script utilitário** (carga do dump OpenLibrary), não serviço; dados externos validados e normalizados antes de persistir (RNF-SEC-33).
-- Produz/consome: `livro.importacao_solicitada`, `livro.pagina_aberta`, `livro.adicionado_a_estante` (consome, cache de capa), `nota.alterada` (consome, refresh da agregada).
+- Produz/consome: `livro.importacao_solicitada`, `livro.pagina_aberta`, `livro.adicionado_a_estante` (consome, cache de capa), `nota.alterada` (consome, fila `leai.acervo.notas`, projeção e agregada; F-ACV-NOTA).
 
 ## Decisões de F-ACV-CADASTRO que valem como regra
 
@@ -121,6 +121,16 @@ Para quem mexe no cadastro e na importação saber que isto mudou por baixo:
 ## Mudanças feitas pelo Renato (F-AVA-2)
 
 - **09/10/2026, reações nas resenhas:** `ResenhaResumo` ganhou `curtidas`, `descurtidas` e `minhaReacao`, na página do livro oficial (`resenhas.repository.ts`) e na resenha do dono do livro pessoal (`leitura-do-dono.repository.ts`, que agora recebe quem está vendo). As contagens vêm de `v_resenha_publicacao_v1` (`bigint`, declarado com `mode: 'number'`) e a reação de quem vê, da VIEW nova `leitura.v_reacao_resenha_v1`, por LEFT JOIN. Até a migration do `leitura` rodar num ambiente, as resenhas degradam como já degradavam (null e 503). Avisar o Vicenzo, dono do livro pessoal.
+
+## Decisões de F-ACV-NOTA que valem como regra
+
+Implementado em 23/10/2026 (Renato).
+
+- **A nota dos leitores só se escreve por `NotaDosLeitoresRepository`** (`src/livros/notas/`), com a trava `pg_advisory_xact_lock(CLASSE_DA_TRAVA_DE_NOTA, hashtext(livroId))`. Ela é por livro e não disputa a linha de `acervo.livro` com a sinopse. Os três caminhos que escrevem passam por ela: o consumidor de `nota.alterada` (`sincronizar`), o backfill (`sincronizarLivro`, um livro por transação) e o consumidor de `conta.excluida` (`travar` e `recalcularAgregados`). Quem trava vários livros trava na ordem da chave, sempre a mesma, e não há deadlock. Escrever na projeção por fora da trava reabre a corrida em que uma leitura velha da VIEW sobrescreve a nova.
+- **O consumidor ignora o valor do evento** e relê `leitura.v_nota_publicacao_v1`: com a linha, upsert; sem ela, apaga; depois recalcula o agregado na mesma transação. Livro pessoal ou inexistente é ACK sem efeito (RN-06.5). A VIEW traz também notas de livro pessoal; elas nunca entram na projeção.
+- **A página não lê `nota_livro_agregada`.** `notasDosLeitores()` calcula média, total e distribuição numa consulta só sobre `nota_leitor_projecao`, com `round(…, 1)` uma vez. O agregado (2 casas) continua mantido porque é contrato da F-CONTA-2; ler dele arredondaria duas vezes (4,245 vira 4,25 e depois 4,3). A distribuição tem 11 faixas, de 5 a 0, ou é `[]`.
+- **Ausência é `null`, nunca zero** (RN-06.3), nos dois indicadores. `nota_geral` é `numeric` e chega como texto do `pg`: passa por `Number()`.
+- **`backfill:notas` roda depois de o serviço subir** em cada ambiente: a fila `leai.acervo.notas` só existe com o consumidor de pé (ver a pendência do evento antes da fila). É idempotente, e o `--dry-run` só conta.
 
 ## Pendências do serviço
 

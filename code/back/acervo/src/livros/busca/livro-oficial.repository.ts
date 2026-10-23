@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { sql } from 'drizzle-orm';
 import { DRIZZLE, DrizzleDB } from '../../db/drizzle.module';
 import type { Tx } from '../../db/tipos';
+import type { LinhaDaDistribuicao } from '../notas/notas-da-pagina';
 import { COLUNAS_DO_RESUMO, LinhaDeLivroEncontrado } from './busca.repository';
 
 export type StatusDaSinopse =
@@ -19,6 +20,9 @@ export interface LinhaDoLivroOficial extends LinhaDeLivroEncontrado {
   serieNome: string | null;
   sinopse: string | null;
   sinopseStatus: StatusDaSinopse;
+  /** Nota geral da fonte externa (RF-ACV-15): as duas nulas ou as duas preenchidas. */
+  notaGeral: string | null;
+  notaGeralQtd: number | null;
   /** A abertura desta página deve pedir a sinopse (ver `SINOPSE_A_BUSCAR`). */
   deveBuscarSinopse: boolean;
 }
@@ -61,6 +65,8 @@ export class LivroOficialRepository {
         sr.nome AS "serieNome",
         l.sinopse,
         l.sinopse_status AS "sinopseStatus",
+        l.nota_geral AS "notaGeral",
+        l.nota_geral_qtd AS "notaGeralQtd",
         ${SINOPSE_A_BUSCAR} AS "deveBuscarSinopse"
       FROM acervo.livro l
       LEFT JOIN acervo.editora ed ON ed.id = l.editora_id
@@ -68,6 +74,26 @@ export class LivroOficialRepository {
       WHERE l.id = ${id} AND l.tipo = 'oficial' AND l.ativo
     `);
     return (rows[0] as unknown as LinhaDoLivroOficial | undefined) ?? null;
+  }
+
+  /**
+   * Distribuição da nota dos leitores (RF-ACV-04) numa consulta só sobre a
+   * projeção individual: uma linha por valor, com o total e a média do livro.
+   * A média sai arredondada a 1 casa aqui, sobre os valores individuais, e não
+   * a partir da `nota_livro_agregada` (já arredondada a 2 casas): assim não há
+   * arredondamento duplo, e a contagem sempre bate com a soma das faixas.
+   */
+  async notasDosLeitores(livroId: string): Promise<LinhaDaDistribuicao[]> {
+    const { rows } = await this.db.execute<Record<string, unknown>>(sql`
+      SELECT valor,
+             count(*)::int AS quantidade,
+             sum(count(*)) OVER ()::int AS total,
+             round(sum(valor * count(*)) OVER () / sum(count(*)) OVER (), 1) AS media
+        FROM acervo.nota_leitor_projecao
+       WHERE livro_id = ${livroId}
+       GROUP BY valor
+    `);
+    return rows as unknown as LinhaDaDistribuicao[];
   }
 
   async existe(id: string): Promise<boolean> {

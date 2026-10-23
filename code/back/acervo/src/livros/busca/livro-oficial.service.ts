@@ -9,6 +9,7 @@ import {
   ehFalhaDeContratoExterno,
 } from '../../common/pg-erros';
 import { DRIZZLE, DrizzleDB } from '../../db/drizzle.module';
+import { notaGeral, notasDosLeitores } from '../notas/notas-da-pagina';
 import { OutboxRepository } from '../outbox/outbox.repository';
 import {
   chaveDeNegocioDaSinopse,
@@ -49,6 +50,9 @@ export class LivroOficialService {
    * A ficha leva às páginas de catálogo de F-ACV-DESCOBERTA: o id de cada autor
    * já vem em `autores`, e `editoraId` e `serie` completam os links. Os
    * assuntos são acionáveis como filtro de busca pelo próprio id (RF-ACV-21).
+   *
+   * Nota geral e nota dos leitores são indicadores separados, nunca combinados
+   * (RF-ACV-16, RN-06), e a ausência de cada um é `null`, nunca zero.
    */
   async obter(id: string, leitorId: string): Promise<LivroOficialDetalheDto> {
     const livro = await this.livros.obter(id);
@@ -79,6 +83,8 @@ export class LivroOficialService {
         status,
         texto: status === 'disponivel' ? livro.sinopse : null,
       },
+      notaGeral: notaGeral(livro.notaGeral, livro.notaGeralQtd),
+      ...notasDosLeitores(await this.livros.notasDosLeitores(id)),
       resenhas: await this.primeiraPaginaDeResenhas(id, leitorId),
     };
   }
