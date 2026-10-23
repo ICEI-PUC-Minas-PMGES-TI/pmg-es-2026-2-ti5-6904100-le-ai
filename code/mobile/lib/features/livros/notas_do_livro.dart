@@ -5,7 +5,7 @@ import 'package:phosphor_icons/phosphor_icons.dart';
 
 import '../../design/theme.dart';
 import '../../design/tokens.dart';
-import '../perfil/textos.dart';
+import '../estatisticas/formatos.dart';
 import 'formatos.dart';
 import 'livro_oficial.dart';
 
@@ -145,7 +145,7 @@ class _BlocoDeNota extends StatelessWidget {
     final nota = indicador == null ? null : formatarNota(indicador.valor);
     final quantos = indicador == null
         ? null
-        : contagem(indicador.quantidade, singular, plural);
+        : _contagem(indicador.quantidade, singular, plural);
     return Semantics(
       container: true,
       label: indicador == null
@@ -218,7 +218,7 @@ class _LinhaDoHistograma extends StatelessWidget {
     final estrelas = valor > 0 && valor < 2 ? 'estrela' : 'estrelas';
     final quantos = quantidade == 0
         ? 'nenhum'
-        : contagem(quantidade, 'leitor', 'leitores');
+        : _contagem(quantidade, 'leitor', 'leitores');
     final legenda = theme.textTheme.bodySmall?.copyWith(
       color: quantidade == 0 ? theme.tertiaryText : theme.secondaryText,
     );
@@ -304,3 +304,7 @@ class _LinhaDoHistograma extends StatelessWidget {
     );
   }
 }
+
+/// Com o milhar em pt-BR (`1.442 avaliações`): a nota geral passa de mil avaliações.
+String _contagem(int valor, String singular, String plural) =>
+    '${formatarMilhar(valor)} ${valor == 1 ? singular : plural}';

@@ -146,6 +146,15 @@ void main() {
     expect(find.text('3,9'), findsOneWidget);
   });
 
+  testWidgets('milhar com ponto, como em pt-BR', (tester) async {
+    await _montar(
+      tester,
+      geral: const IndicadorDeNota(valor: 4, quantidade: 1442),
+    );
+
+    expect(find.text('1.442 avaliações'), findsOneWidget);
+  });
+
   testWidgets(
     'histograma com onze linhas de 5 a 0, contagem com unidade e nenhum',
     (tester) async {

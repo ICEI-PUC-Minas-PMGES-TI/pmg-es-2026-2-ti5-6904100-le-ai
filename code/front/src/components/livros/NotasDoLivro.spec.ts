@@ -74,4 +74,11 @@ describe('NotasDoLivro', () => {
     expect(leitura(leitores)).toBe('Nota dos leitores, 0,5 de 5, 1 leitor')
     expect(leitores.get('.text-caption').text()).toBe('1 leitor')
   })
+
+  it('milhar com ponto, como em pt-BR', () => {
+    const { geral } = montar({ valor: 4, quantidade: 1442 }, null)
+
+    expect(geral.text()).toContain('1.442 avaliações')
+    expect(leitura(geral)).toBe('Nota geral, 4 de 5, 1.442 avaliações')
+  })
 })

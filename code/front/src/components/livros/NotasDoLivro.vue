@@ -3,7 +3,7 @@ import { PhStar } from '@phosphor-icons/vue'
 import { computed } from 'vue'
 
 import { formatarNota } from '../../livros/formatos'
-import { contagem } from '../../perfil/textos'
+import { formatarInteiro } from '../../estatisticas/formatos'
 import type { NotaDoLivro } from '../../services/acervo'
 
 /**
@@ -34,6 +34,11 @@ function bloco(rotulo: string, nota: NotaDoLivro | null, singular: string, plura
   return nota === null
     ? { rotulo, nota: null, quantidade: null }
     : { rotulo, nota: formatarNota(nota.valor), quantidade: contagem(nota.quantidade, singular, plural) }
+}
+
+/** Com o milhar em pt-BR (`1.442 avaliações`): a nota geral passa de mil avaliações. */
+function contagem(valor: number, singular: string, plural: string): string {
+  return `${formatarInteiro(valor)} ${valor === 1 ? singular : plural}`
 }
 
 function leitura({ rotulo, nota, quantidade }: Bloco): string {

@@ -3,7 +3,7 @@ import { PhStar } from '@phosphor-icons/vue'
 import { computed, useId } from 'vue'
 
 import { formatarNota } from '../../livros/formatos'
-import { contagem } from '../../perfil/textos'
+import { formatarInteiro } from '../../estatisticas/formatos'
 import type { FaixaDaDistribuicao } from '../../services/acervo'
 
 /**
@@ -25,7 +25,7 @@ const faixas = computed(() => {
   return ordenadas.map((faixa) => {
     const valor = formatarNota(faixa.valor)
     const estrelas = faixa.valor === 0 || faixa.valor >= 2 ? 'estrelas' : 'estrela'
-    const quantidade = faixa.quantidade === 0 ? 'nenhum' : contagem(faixa.quantidade, 'leitor', 'leitores')
+    const quantidade = faixa.quantidade === 0 ? 'nenhum' : `${formatarInteiro(faixa.quantidade)} ${faixa.quantidade === 1 ? 'leitor' : 'leitores'}`
     return {
       chave: faixa.valor,
       valor,
