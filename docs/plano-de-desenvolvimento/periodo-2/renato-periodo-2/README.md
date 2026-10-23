@@ -41,15 +41,16 @@ Para levar ao grupo:
 - avisar o Kayke, o Vicenzo e o Henrique do código deles que a feature alterou (lista na feature);
 - duas observações do teste manual: o `acervo` cai quando o Neon fecha uma conexão ociosa (Vicenzo) e, no app, o perfil aberto pelo feed não mostra resenhas nem estante (Kayke).
 
-### 4. F-MOD — Moderação — concluída em 21/10/2026, em revisão no PR
+### 4. F-MOD — Moderação — concluída em 21/10/2026, mergeada em 22/10/2026 pelo PR #55
 
-Plano em [`plano-F-MOD.md`](plano-F-MOD.md); status, decisões, divergências e débitos em [`../feature-F-MOD.md`](../feature-F-MOD.md). Quatro commits na `renato-features`, com a `desenvolvimento` integrada, e PR para a `desenvolvimento` (a partir da F-MOD, a entrega é por PR, revisado por um colega).
+Plano em [`plano-F-MOD.md`](plano-F-MOD.md); status, decisões, divergências e débitos em [`../feature-F-MOD.md`](../feature-F-MOD.md). Quatro commits na `renato-features`, com a `desenvolvimento` integrada, e PR para a `desenvolvimento` (a partir da F-MOD, a entrega é por PR, revisado por um colega). O Vicenzo aprovou, e o merge entrou às 22:16 de 22/10 (`d561906`).
 
 Para levar ao grupo:
 
 - avisar o Henrique, o Kayke e o Vicenzo do código deles que a feature alterou (lista na feature);
-- antes do merge de fechamento: `MODERACAO_TOKEN` em `leai-leitura` e `leai-social` no Render;
 - as tabelas novas da F-MOD (colunas novas em `denuncia` e `log_moderacao`) já estão no consumidor de `conta.excluida` do `social`.
+
+Resolvido em 22/10: `MODERACAO_TOKEN` em `leai-leitura` e `leai-social` no Render.
 
 ### 5. F-ACV-NOTA — Nota geral e cache de capas
 
