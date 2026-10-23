@@ -52,7 +52,9 @@ Para levar ao grupo:
 
 Resolvido em 22/10: `MODERACAO_TOKEN` em `leai-leitura` e `leai-social` no Render.
 
-### 5. F-ACV-NOTA — Nota geral e cache de capas
+### 5. F-ACV-NOTA — Nota geral e cache de capas — em andamento
+
+Plano em [`plano-F-ACV-NOTA.md`](plano-F-ACV-NOTA.md), de 22/10/2026, revisado no mesmo dia.
 
 É independente das outras duas e fica por último de propósito: se o período apertar, o [README do período](../README.md#alternativas-se-o-peso-ficar-torto) prevê devolvê-la ao Vicenzo. A F-ACV-DESCOBERTA já está na `desenvolvimento`; os campos de nota entram no mesmo `LivroOficialDetalhe` que ela ampliou (aviso nas Pendências de [`../feature-F-ACV-NOTA.md`](../feature-F-ACV-NOTA.md#pendências)). Pré-requisitos externos: conta e configuração do Cloudinary (P-09) e o formato concreto do `ol_dump_ratings`.
 
