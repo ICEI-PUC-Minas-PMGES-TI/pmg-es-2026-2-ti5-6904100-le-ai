@@ -24,6 +24,10 @@ const List<double> _faixas = <double>[
   0,
 ];
 
+/// Abaixo disto, a linha do histograma empilha, em vez de espremer a trilha até sumir (texto
+/// ampliado em tela estreita).
+const double _larguraMinimaDaTrilha = 64;
+
 /// Seção de notas da página do livro oficial (F-ACV-NOTA, pagina-do-livro.md §4.1 C): o container
 /// `Nota geral` e `Nota dos leitores`, lado a lado e nunca combinados (RN-06), e o histograma das
 /// notas dos leitores, só quando elas existem.
@@ -222,6 +226,38 @@ class _LinhaDoHistograma extends StatelessWidget {
     final legenda = theme.textTheme.bodySmall?.copyWith(
       color: quantidade == 0 ? theme.tertiaryText : theme.secondaryText,
     );
+    final estiloDoValor = theme.numInline.copyWith(
+      fontSize: DesignTokens.caption.fontSize,
+      color: theme.secondaryText,
+    );
+    final estrela = Icon(
+      PhosphorIconsRegular.star,
+      size: 16,
+      color: theme.secondaryText,
+    );
+    final trilha = Container(
+      key: ValueKey<String>('trilha-$rotulo'),
+      height: 8,
+      decoration: BoxDecoration(
+        color: theme.accentTint,
+        borderRadius: BorderRadius.circular(DesignTokens.radiusFull),
+      ),
+      alignment: Alignment.centerLeft,
+      child: FractionallySizedBox(
+        // A faixa com mais leitores ocupa a trilha inteira.
+        widthFactor: maior == 0 ? 0 : quantidade / maior,
+        heightFactor: 1,
+        child: quantidade == 0
+            ? null
+            : DecoratedBox(
+                key: ValueKey<String>('barra-$rotulo'),
+                decoration: BoxDecoration(
+                  color: theme.primaryAccent,
+                  borderRadius: BorderRadius.circular(DesignTokens.radiusFull),
+                ),
+              ),
+      ),
+    );
     // As colunas laterais crescem com o texto do sistema, para os valores não estourarem.
     final larguraDoValor = escala.scale(44).clamp(44.0, double.infinity);
     final larguraDaContagem = escala.scale(88).clamp(88.0, double.infinity);
@@ -232,75 +268,86 @@ class _LinhaDoHistograma extends StatelessWidget {
       excludeSemantics: true,
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 20),
-        child: Row(
-          children: <Widget>[
-            SizedBox(
-              width: larguraDoValor,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: <Widget>[
-                  Flexible(
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerRight,
-                      child: Text(
-                        rotulo,
-                        style: theme.numInline.copyWith(
-                          fontSize: DesignTokens.caption.fontSize,
-                          color: theme.secondaryText,
+        child: LayoutBuilder(
+          builder: (context, restricoes) {
+            final sobraParaATrilha =
+                restricoes.maxWidth -
+                larguraDoValor -
+                larguraDaContagem -
+                2 * DesignTokens.space2;
+            if (sobraParaATrilha < _larguraMinimaDaTrilha) {
+              return _empilhada(
+                trilha: trilha,
+                estrela: estrela,
+                rotulo: Text(rotulo, style: estiloDoValor),
+                quantos: Text(
+                  quantos,
+                  style: legenda,
+                  textAlign: TextAlign.end,
+                ),
+              );
+            }
+            return Row(
+              children: <Widget>[
+                SizedBox(
+                  width: larguraDoValor,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: <Widget>[
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerRight,
+                          child: Text(rotulo, style: estiloDoValor),
                         ),
                       ),
-                    ),
+                      const SizedBox(width: DesignTokens.space1),
+                      estrela,
+                    ],
                   ),
-                  const SizedBox(width: DesignTokens.space1),
-                  Icon(
-                    PhosphorIconsRegular.star,
-                    size: 16,
-                    color: theme.secondaryText,
+                ),
+                const SizedBox(width: DesignTokens.space2),
+                Expanded(child: trilha),
+                const SizedBox(width: DesignTokens.space2),
+                SizedBox(
+                  width: larguraDaContagem,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Text(quantos, style: legenda),
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(width: DesignTokens.space2),
-            Expanded(
-              child: Container(
-                key: ValueKey<String>('trilha-$rotulo'),
-                height: 8,
-                decoration: BoxDecoration(
-                  color: theme.accentTint,
-                  borderRadius: BorderRadius.circular(DesignTokens.radiusFull),
                 ),
-                alignment: Alignment.centerLeft,
-                child: FractionallySizedBox(
-                  // A faixa com mais leitores ocupa a trilha inteira.
-                  widthFactor: maior == 0 ? 0 : quantidade / maior,
-                  heightFactor: 1,
-                  child: quantidade == 0
-                      ? null
-                      : DecoratedBox(
-                          key: ValueKey<String>('barra-$rotulo'),
-                          decoration: BoxDecoration(
-                            color: theme.primaryAccent,
-                            borderRadius: BorderRadius.circular(
-                              DesignTokens.radiusFull,
-                            ),
-                          ),
-                        ),
-                ),
-              ),
-            ),
-            const SizedBox(width: DesignTokens.space2),
-            SizedBox(
-              width: larguraDaContagem,
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerRight,
-                child: Text(quantos, style: legenda),
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         ),
       ),
+    );
+  }
+
+  /// Texto ampliado em tela estreita: valor com estrela e contagem em cima, e a trilha com a
+  /// largura inteira embaixo, para a barra não sumir.
+  Widget _empilhada({
+    required Widget trilha,
+    required Widget estrela,
+    required Widget rotulo,
+    required Widget quantos,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            rotulo,
+            const SizedBox(width: DesignTokens.space1),
+            estrela,
+            const SizedBox(width: DesignTokens.space2),
+            Expanded(child: quantos),
+          ],
+        ),
+        const SizedBox(height: DesignTokens.space1),
+        trilha,
+      ],
     );
   }
 }

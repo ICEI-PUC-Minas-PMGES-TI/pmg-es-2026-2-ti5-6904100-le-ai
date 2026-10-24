@@ -46,16 +46,29 @@ Future<void> _montar(
   IndicadorDeNota? leitores,
   List<FaixaDaDistribuicao> distribuicao = const <FaixaDaDistribuicao>[],
   bool escuro = false,
+  double? largura,
+  double escalaDoTexto = 1,
 }) async {
   usarTelaDeCelular(tester);
+  if (largura != null) {
+    tester.view.physicalSize = Size(largura * 3, 2532);
+  }
   await tester.pumpWidget(
     envolver(
-      SingleChildScrollView(
-        padding: const EdgeInsets.all(DesignTokens.space5),
-        child: NotasDoLivro(
-          notaGeral: geral,
-          notaDosLeitores: leitores,
-          distribuicao: distribuicao,
+      Builder(
+        builder: (context) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(escalaDoTexto)),
+          // O mesmo padding lateral da página (`space-5`).
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(DesignTokens.space5),
+            child: NotasDoLivro(
+              notaGeral: geral,
+              notaDosLeitores: leitores,
+              distribuicao: distribuicao,
+            ),
+          ),
         ),
       ),
       escuro: escuro,
@@ -209,6 +222,68 @@ void main() {
       expect(_rotuloDoHistograma, findsNothing);
     },
   );
+
+  testWidgets('escala padrão: valor, trilha e contagem na mesma linha', (
+    tester,
+  ) async {
+    await _montar(tester, leitores: _leitores, distribuicao: _distribuicao);
+
+    final trilha = tester.getRect(
+      find.byKey(const ValueKey<String>('trilha-5')),
+    );
+    final contagem = tester.getRect(find.text('12 leitores'));
+    final valor = tester.getRect(find.text('5').last);
+    expect(contagem.center.dy, moreOrLessEquals(trilha.center.dy));
+    expect(valor.center.dy, moreOrLessEquals(trilha.center.dy));
+    expect(valor.right, lessThan(trilha.left));
+    expect(contagem.left, greaterThan(trilha.right));
+  });
+
+  testWidgets('texto a 200% em 320 dp: a linha empilha e a trilha não some', (
+    tester,
+  ) async {
+    await _montar(
+      tester,
+      leitores: _leitores,
+      distribuicao: _distribuicao,
+      largura: 320,
+      escalaDoTexto: 2,
+    );
+
+    expect(tester.takeException(), isNull);
+    final trilha = tester.getRect(
+      find.byKey(const ValueKey<String>('trilha-5')),
+    );
+    // A trilha ganha a largura inteira da área de conteúdo, embaixo do texto.
+    expect(trilha.width, greaterThan(0));
+    expect(trilha.width, moreOrLessEquals(320 - 2 * DesignTokens.space5));
+    expect(
+      tester.getSize(find.byKey(const ValueKey<String>('barra-5'))).width,
+      moreOrLessEquals(trilha.width),
+    );
+    final contagem = find.text('12 leitores');
+    expect(contagem, findsOneWidget);
+    expect(tester.getRect(contagem).bottom, lessThanOrEqualTo(trilha.top));
+    expect(find.text('nenhum'), findsNWidgets(3));
+    expect(find.textContaining('%'), findsNothing);
+  });
+
+  testWidgets('empilhada, cada faixa continua um item com o texto completo', (
+    tester,
+  ) async {
+    final semantica = tester.ensureSemantics();
+    await _montar(
+      tester,
+      leitores: _leitores,
+      distribuicao: _distribuicao,
+      largura: 320,
+      escalaDoTexto: 2,
+    );
+
+    expect(find.bySemanticsLabel('5 estrelas, 12 leitores'), findsOneWidget);
+    expect(find.bySemanticsLabel('0 estrelas, nenhum'), findsOneWidget);
+    semantica.dispose();
+  });
 
   testWidgets('leitor de tela: cada bloco e cada faixa como texto completo', (
     tester,
