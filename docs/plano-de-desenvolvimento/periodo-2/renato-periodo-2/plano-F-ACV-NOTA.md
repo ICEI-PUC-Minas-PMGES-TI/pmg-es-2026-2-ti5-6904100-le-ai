@@ -1,6 +1,6 @@
 # Plano — F-ACV-NOTA (Nota geral e cache de capas)
 
-> Plano de 22/10/2026, **revisado no mesmo dia** com os 13 achados da revisão independente (veredito: aprovado com ajustes). A primeira ação da execução é copiar este arquivo para `docs/plano-de-desenvolvimento/periodo-2/renato-periodo-2/plano-F-ACV-NOTA.md`.
+> Plano de 22/10/2026, **revisado no mesmo dia** com os 13 achados da revisão independente (veredito: aprovado com ajustes). **Executado em 22 e 23/10/2026**: o resultado, as divergências e o que ficou para o DES estão em [`../feature-F-ACV-NOTA.md`](../feature-F-ACV-NOTA.md). Na execução, além do previsto: a trava de vários livros segue a ordem da chave (`hashtext`), e não do id, para uma colisão não inverter a ordem; um commit `fix` separou o milhar das contagens; o `MessageValidator` do `acervo` passou a registrar o `common-v1`, que o schema de `leitura.iniciada` referencia; e os 4xx do Cloudinary que não são 400 vão à DLQ em vez de virarem recusa.
 
 ## Contexto
 

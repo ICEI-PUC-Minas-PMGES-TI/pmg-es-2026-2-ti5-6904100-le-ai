@@ -52,15 +52,15 @@ Para levar ao grupo:
 
 Resolvido em 22/10: `MODERACAO_TOKEN` em `leai-leitura` e `leai-social` no Render.
 
-### 5. F-ACV-NOTA — Nota geral e cache de capas — em andamento
+### 5. F-ACV-NOTA — Nota geral e cache de capas — concluída em 23/10/2026, em revisão no PR
 
-Plano em [`plano-F-ACV-NOTA.md`](plano-F-ACV-NOTA.md), de 22/10/2026, revisado no mesmo dia.
+Plano em [`plano-F-ACV-NOTA.md`](plano-F-ACV-NOTA.md), de 22/10/2026, revisado no mesmo dia; status, decisões, divergências e débitos em [`../feature-F-ACV-NOTA.md`](../feature-F-ACV-NOTA.md). Quatro commits de código na `renato-features` e PR para a `desenvolvimento`. Os passos do DES (os dois backfills e o `notas` no `le-ai-oregon`) ficam para depois do merge de fechamento.
 
 É independente das outras duas e fica por último de propósito: se o período apertar, o [README do período](../README.md#alternativas-se-o-peso-ficar-torto) prevê devolvê-la ao Vicenzo. A F-ACV-DESCOBERTA já está na `desenvolvimento`; os campos de nota entram no mesmo `LivroOficialDetalhe` que ela ampliou (aviso nas Pendências de [`../feature-F-ACV-NOTA.md`](../feature-F-ACV-NOTA.md#pendências)). Pré-requisitos externos: conta e configuração do Cloudinary (P-09) e o formato concreto do `ol_dump_ratings`.
 
-### 6. Tabelas para a matriz de remoção da F-CONTA-2
+### 6. Tabelas para a matriz de remoção da F-CONTA-2 — concluído em 23/10/2026
 
-A [F-CONTA-2](../feature-F-CONTA-2.md) já foi entregue, e o consumidor de `conta.excluida` do `leitura` já remove `reacao_resenha` e `frase`. A F-AVA-2 não criou tabela nova (a VIEW `v_reacao_resenha_v1` não guarda dados). As colunas novas da F-MOD já entraram no consumidor do `social` (feito na própria F-MOD). Falta avisar ao Henrique as tabelas da F-ACV-NOTA, quando existirem.
+A [F-CONTA-2](../feature-F-CONTA-2.md) já foi entregue, e o consumidor de `conta.excluida` do `leitura` já remove `reacao_resenha` e `frase`. A F-AVA-2 não criou tabela nova (a VIEW `v_reacao_resenha_v1` não guarda dados). As colunas novas da F-MOD já entraram no consumidor do `social` (feito na própria F-MOD). A F-ACV-NOTA não criou tabela nova: `nota_leitor_projecao` e `nota_livro_agregada` já estão no consumidor, e a cópia própria da capa oficial é catálogo. Henrique avisado no PR.
 
 ### Fora da sequência
 
