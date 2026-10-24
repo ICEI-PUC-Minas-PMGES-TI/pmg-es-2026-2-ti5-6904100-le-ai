@@ -54,10 +54,17 @@ services:
         sync: false
       # F-CONTA-2: credencial da Upload API, para apagar as capas de livro pessoal
       # na exclusão definitiva de conta (RN-23.7). Sem ela a capa fica no Cloudinary.
+      # F-ACV-NOTA: a mesma credencial liga o cache de capas oficiais; sem ela a
+      # fila leai.acervo.capas não é criada.
       - key: CLOUDINARY_API_KEY
         sync: false
       - key: CLOUDINARY_API_SECRET
         sync: false
+      # F-ACV-NOTA: pasta e prefixo do public_id das capas oficiais. Dev usa
+      # capas-oficiais-dev no mesmo cloud. Download com os padrões do env.ts
+      # (allowlist própria, 15 s, 5 MB).
+      - key: CLOUDINARY_PASTA_CAPAS_OFICIAIS
+        value: capas-oficiais
       - key: GOOGLE_BOOKS_API_KEY # fonte secundária do cadastro por ISBN; sem ela o Google responde 429 por cota (P-14)
         sync: false
 

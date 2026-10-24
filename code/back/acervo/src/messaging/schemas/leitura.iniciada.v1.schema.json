@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://leai.app/schemas/mensageria/leitura.iniciada.v1.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["usuarioId", "leituraId", "livroId", "releitura", "usuario", "livro"],
+  "properties": {
+    "usuarioId": { "type": "string", "format": "uuid" },
+    "leituraId": { "type": "string", "format": "uuid" },
+    "livroId": { "type": "string", "format": "uuid" },
+    "releitura": { "type": "boolean" },
+    "usuario": { "$ref": "common-v1.schema.json#/$defs/UsuarioSnapshot" },
+    "livro": { "$ref": "common-v1.schema.json#/$defs/LivroSnapshot" }
+  }
+}

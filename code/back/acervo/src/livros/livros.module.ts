@@ -1,7 +1,10 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import type { Env } from '../config/env';
 import { MessagingModule } from '../messaging/messaging.module';
 import { BuscaController } from './busca/busca.controller';
+import { CACHE_DE_CAPAS, CapaConsumer } from './capas/capa.consumer';
+import { criarCacheDeCapas } from './capas/criar-cache-de-capas';
 import { BuscaRepository } from './busca/busca.repository';
 import { BuscaService } from './busca/busca.service';
 import { LivroOficialController } from './busca/livro-oficial.controller';
@@ -67,7 +70,8 @@ const ESPERAS_DAS_NOTAS_MS: number[] = [];
  * Domínio de livro: importação por ISBN e livro pessoal (F-ACV-CADASTRO),
  * busca do acervo oficial (F-ACV-BUSCA) e filtros e páginas de autor, editora
  * e série (F-ACV-DESCOBERTA). Nota geral e nota dos leitores da página
- * (F-ACV-NOTA), com o consumidor de `nota.alterada`.
+ * (F-ACV-NOTA), com o consumidor de `nota.alterada`, e o cache de capas
+ * oficiais no Cloudinary.
  *
  * `ImportacaoConsumer` registra o consumidor de `livro.importacao_solicitada` no
  * runtime AMQP de P0-MSG. Com `AMQP_ENABLED=false` o registro acontece mas
@@ -101,6 +105,29 @@ const ESPERAS_DAS_NOTAS_MS: number[] = [];
     SinopseConsumer,
     NotaDosLeitoresRepository,
     NotaDosLeitoresConsumer,
+    CapaConsumer,
+    {
+      // Cache de capas oficiais (F-ACV-NOTA): `null` sem a credencial do
+      // Cloudinary, e aí o consumidor não se registra.
+      provide: CACHE_DE_CAPAS,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService<Env, true>) =>
+        criarCacheDeCapas({
+          CLOUDINARY_CLOUD_NAME: config.get('CLOUDINARY_CLOUD_NAME'),
+          CLOUDINARY_API_KEY: config.get('CLOUDINARY_API_KEY'),
+          CLOUDINARY_API_SECRET: config.get('CLOUDINARY_API_SECRET'),
+          CLOUDINARY_PASTA_CAPAS_OFICIAIS: config.get(
+            'CLOUDINARY_PASTA_CAPAS_OFICIAIS',
+          ),
+          CAPA_HOSTS_PERMITIDOS: config.get('CAPA_HOSTS_PERMITIDOS'),
+          CAPAS_DOWNLOAD_HOSTS: config.get('CAPAS_DOWNLOAD_HOSTS'),
+          CAPAS_DOWNLOAD_TIMEOUT_MS: config.get('CAPAS_DOWNLOAD_TIMEOUT_MS'),
+          CAPAS_DOWNLOAD_LIMITE_BYTES: config.get(
+            'CAPAS_DOWNLOAD_LIMITE_BYTES',
+          ),
+          FONTES_USER_AGENT: config.get('FONTES_USER_AGENT'),
+        }),
+    },
     {
       // Ordem fixa: OpenLibrary primeiro, Google Books só se a primeira não
       // souber. Cada fonte tem o próprio circuit breaker, e as instâncias vivem

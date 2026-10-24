@@ -30,7 +30,7 @@ Livro (oficial e pessoal), autor, editora, série, busca e filtros, ingestão, s
   - `src/messaging/` — runtime AMQP de P0-MSG: conexão, dispatcher da outbox, publisher, consumidor genérico com recibo em `mensagem_processada`, retry `1/5/15 s` e DLQ, validador de envelope e de `data`. O handler recebe o `tx` do recibo.
   - `src/livros/` — domínio de F-ACV-CADASTRO: `importacao/` (por ISBN, com `dominio/` das fontes externas, o consumidor `importacao.consumer.ts` e a convergência `convergencia.repository.ts`), `pessoal/` (CRUD e consulta autorizada) e `outbox/`. De F-ACV-BUSCA: `busca/` (`GET /assuntos`, `GET /livros`, a página `GET /livros/{id}` e `GET /livros/{id}/resenhas`), `sinopse/` (consumidor de `livro.pagina_aberta` e as fontes de sinopse) e `capa.ts`. De F-ACV-DESCOBERTA: `catalogo/` (`GET /autores/{id}`, `GET /editoras/{id}`, `GET /series/{id}`) e os filtros avançados dentro de `busca/`.
   - `src/health/` — `GET /health` via `@nestjs/terminus` + indicador Drizzle (`SELECT 1`) (RNF-OBS-02).
-- **Comandos:** `npm run start:dev` · `npm run build` · `npm test` · `npm run test:integration` · `npm run lint` · `npm run db:generate` · `npm run db:migrate` · `npm run db:seed` · `npm run backfill:notas [-- --dry-run]`. `npm run start:prod` aplica migrations antes de iniciar a API.
+- **Comandos:** `npm run start:dev` · `npm run build` · `npm test` · `npm run test:integration` · `npm run lint` · `npm run db:generate` · `npm run db:migrate` · `npm run db:seed` · `npm run backfill:notas [-- --dry-run]` · `npm run backfill:capas [-- --dry-run]`. `npm run start:prod` aplica migrations antes de iniciar a API.
 - **Testes unitários:** Jest + ts-jest; specs em `src/**/*.spec.ts`, ao lado do arquivo testado. Rodam sem banco e sem rede: `fetch`, relógio e repositórios são injetados.
 - **Testes de integração:** `test/integracao/*.int-spec.ts`, contra um Postgres **descartável** em `DATABASE_URL_TESTE` (o fixture derruba e recria os schemas, e recusa URL do Neon ou do Render). Sobem o app com o mesmo pipeline de produção, aplicam as migrations reais e criam as VIEWs de `social`, `identidade` e `leitura` como tabelas, para a massa de RN-15 entrar por INSERT. O caminho assíncrono usa o dispatcher, o publisher e o consumidor reais sobre um broker em memória. Local:
   ```bash
@@ -48,7 +48,7 @@ Livro (oficial e pessoal), autor, editora, série, busca e filtros, ingestão, s
 - **Assuntos** normalizados de conjunto curado e fechado na ingestão (RN-21); tag externa sem correspondência não cria assunto.
 - **Nota geral** externa é somente-leitura, importada quando a fonte fornece (RN-06); nunca combinada com a nota dos leitores.
 - Ingestão via **script utilitário** (carga do dump OpenLibrary), não serviço; dados externos validados e normalizados antes de persistir (RNF-SEC-33).
-- Produz/consome: `livro.importacao_solicitada`, `livro.pagina_aberta`, `livro.adicionado_a_estante` (consome, cache de capa), `nota.alterada` (consome, fila `leai.acervo.notas`, projeção e agregada; F-ACV-NOTA).
+- Produz/consome: `livro.importacao_solicitada`, `livro.pagina_aberta`, `livro.adicionado_a_estante` e `leitura.iniciada` (consome, fila `leai.acervo.capas`, cache de capa; F-ACV-NOTA), `nota.alterada` (consome, fila `leai.acervo.notas`, projeção e agregada; F-ACV-NOTA).
 
 ## Decisões de F-ACV-CADASTRO que valem como regra
 
@@ -132,6 +132,18 @@ Implementado em 23/10/2026 (Renato).
 - **Ausência é `null`, nunca zero** (RN-06.3), nos dois indicadores. `nota_geral` é `numeric` e chega como texto do `pg`: passa por `Number()`.
 - **Nota geral na importação por ISBN, só na inserção** (não há reimportação). A OpenLibrary consulta `/works/{chave}/ratings.json` com a chave validada por `CHAVE_OBRA` e uma `PoliticaDeResiliencia` própria (sem retentativa, circuito separado do da importação, em `livros.module.ts`): falha ou timeout são engolidos e registrados, e o livro entra sem nota. O Google Books usa `averageRating` e `ratingsCount` quando é a fonte do livro. `notaExterna` (`fonte-metadados.ts`) valida de 0 a 5, 1 casa e contagem ≥ 1, e a convergência valida de novo antes de gravar. A recarga do dump (`notas` da ingestão) refaz e limpa essa nota, inclusive a do livro importado.
 - **`backfill:notas` roda depois de o serviço subir** em cada ambiente: a fila `leai.acervo.notas` só existe com o consumidor de pé (ver a pendência do evento antes da fila). É idempotente, e o `--dry-run` só conta.
+
+### Cache de capas oficiais (F-ACV-NOTA)
+
+- **`src/livros/capas/`**: `CapaConsumer` (fila `leai.acervo.capas`, `livro.adicionado_a_estante` e `leitura.iniciada`), `CacheDeCapas.cachear(tx, livroId)`, `validarImagem`, `EnvioDeCapa` e o `backfill.ts`. `criarCacheDeCapas` monta tudo a partir da configuração, para o módulo e para o backfill, e devolve `null` sem `CLOUDINARY_API_KEY` e `CLOUDINARY_API_SECRET`: aí o consumidor só registra um aviso, e **a fila não existe**. Sem credencial, os eventos se perdem, e o `backfill:capas` recupera.
+- **Download pelo servidor com instância própria do `HttpExterno`**, a única com `permitirSufixo`: uma entrada `.dominio` em `CAPAS_DOWNLOAD_HOSTS` aceita subdomínios, porque as capas da OpenLibrary terminam em `iaNNNNNN.us.archive.org`. `FONTES_HOSTS_PERMITIDOS` continua por igualdade exata. A URL inicial também recusa porta e credencial. `?default=false` na OpenLibrary transforma id inexistente em 404, em vez do GIF genérico.
+- **`baixarImagem` e `EnvioDeCapa` devolvem resultado discriminado.** Ausente (404, 410) e recusada (fora da allowlist, redirecionamento recusado, acima do limite, outro 4xx, imagem inválida, 400 do Cloudinary, URL de resposta inválida) são confirmadas com WARN, e o livro segue com a capa externa. Só a indisponibilidade lança (timeout, rede, 5xx, 429, 420; no Cloudinary, também os outros 4xx, que são configuração), e o runtime tenta de novo e manda à DLQ.
+- **Sem retentativa aninhada**: as duas políticas (download e upload) têm só o circuit breaker. Pior caso por mensagem: 15 s de download e 20 s de upload.
+- **`validarImagem` confere início e fim do arquivo** (`FFD9` no JPEG, `IEND` no PNG, tamanho do RIFF no WebP), porque o `image-size` (dependência nova, fixada em 2.0.4) lê só o cabeçalho e aceitaria arquivo truncado; e de 50 a 5000 px por lado.
+- **Upload assinado** por `assinar` (`src/common/cloudinary.ts`, extraída de `remocao-de-asset.ts` do Henrique): `public_id=<pasta>/<livroId>`, `overwrite=false`, `allowed_formats=jpg,png,webp`. A pasta vem de `CLOUDINARY_PASTA_CAPAS_OFICIAIS` (`capas-oficiais-dev` em dev, `capas-oficiais` no Render): dev e DES usam o mesmo cloud e os mesmos ids de livro. A resposta passa por `validarUrlDeCapa`, e o `public_id` precisa ser o pedido.
+- **A gravação é condicional e não toca `atualizado_em`** (`WHERE capa_url_propria IS NULL`): evento repetido ou concorrente termina no mesmo asset, sem trava.
+- **`MessageValidator` registra o `common-v1`** (como o do `leitura`), porque `leitura.iniciada` referencia `UsuarioSnapshot` e `LivroSnapshot` por `$ref`. A cópia runtime fica em `src/messaging/schemas/`, conferida pelo `schemas.spec.ts`.
+- **Risco aceito:** o placeholder do Google Books (PNG de 1.269 bytes) passa na validação e é cacheado. É a mesma imagem que a capa externa já mostrava.
 
 ## Pendências do serviço
 

@@ -275,4 +275,206 @@ describe('HttpExterno', () => {
       ),
     ).rejects.toThrow(/tempo esgotado/);
   });
+  it('recusa porta explícita já na URL inicial', async () => {
+    const fetch = jest.fn();
+    const http = new HttpExterno({ ...BASE, fetch });
+
+    await expect(
+      http.buscarJson(
+        'openlibrary',
+        new URL('https://openlibrary.org:8443/isbn/1.json'),
+      ),
+    ).rejects.toThrow(/allowlist/);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  describe('baixarImagem (cache de capas, F-ACV-NOTA)', () => {
+    const CAPAS = {
+      ...BASE,
+      hostsPermitidos: [
+        'covers.openlibrary.org',
+        'archive.org',
+        '.us.archive.org',
+      ],
+      permitirSufixo: true,
+    };
+    const CAPA = new URL('https://covers.openlibrary.org/b/id/1-L.jpg');
+    const imagem = (init: ResponseInit = {}) =>
+      new Response(new Uint8Array([1, 2, 3]), {
+        status: 200,
+        headers: { 'content-type': 'image/jpeg' },
+        ...init,
+      });
+
+    it('segue os saltos até o servidor do archive.org e devolve os bytes', async () => {
+      const saltos: string[] = [];
+      const http = new HttpExterno({
+        ...CAPAS,
+        fetch: async (url) => {
+          saltos.push(String(url));
+          if (saltos.length === 1) {
+            return resposta('', {
+              status: 302,
+              headers: { location: 'https://archive.org/download/x/1.jpg' },
+            });
+          }
+          if (saltos.length === 2) {
+            return resposta('', {
+              status: 302,
+              headers: { location: 'https://ia800100.us.archive.org/x/1.jpg' },
+            });
+          }
+          return imagem();
+        },
+      });
+
+      const resultado = await http.baixarImagem('capas', CAPA);
+
+      expect(resultado).toEqual({
+        tipo: 'ok',
+        bytes: new Uint8Array([1, 2, 3]),
+        contentType: 'image/jpeg',
+      });
+      expect(saltos).toHaveLength(3);
+    });
+
+    it('o sufixo vale só na instância que o liga', () => {
+      const servidor = new URL('https://ia800100.us.archive.org/x.jpg');
+      const comSufixo = new HttpExterno(CAPAS);
+      const semSufixo = new HttpExterno({ ...CAPAS, permitirSufixo: false });
+
+      expect(comSufixo.hostPermitido(servidor)).toBe(true);
+      expect(semSufixo.hostPermitido(servidor)).toBe(false);
+      // A entrada com ponto não aceita o próprio domínio nem um disfarce.
+      expect(comSufixo.hostPermitido(new URL('https://us.archive.org/'))).toBe(
+        false,
+      );
+      expect(
+        comSufixo.hostPermitido(
+          new URL('https://ia1.us.archive.org.invasor.com/'),
+        ),
+      ).toBe(false);
+      // As fontes de metadados (sem a opção) continuam por igualdade exata.
+      expect(
+        new HttpExterno({
+          ...BASE,
+          hostsPermitidos: ['.openlibrary.org'],
+        }).hostPermitido(new URL('https://covers.openlibrary.org/')),
+      ).toBe(false);
+    });
+
+    it.each([
+      [
+        'fora da allowlist',
+        new URL('https://invasor.com/1.jpg'),
+        'destino fora da allowlist',
+      ],
+      [
+        'com porta',
+        new URL('https://covers.openlibrary.org:8443/1.jpg'),
+        'destino fora da allowlist',
+      ],
+      [
+        'em http',
+        new URL('http://covers.openlibrary.org/1.jpg'),
+        'destino fora da allowlist',
+      ],
+    ])('recusa URL %s sem sair para a rede', async (_caso, url, motivo) => {
+      const fetch = jest.fn();
+      const http = new HttpExterno({ ...CAPAS, fetch });
+
+      await expect(http.baixarImagem('capas', url)).resolves.toEqual({
+        tipo: 'recusada',
+        motivo,
+      });
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it('recusa redirecionamento para fora da allowlist', async () => {
+      const http = new HttpExterno({
+        ...CAPAS,
+        fetch: async () =>
+          resposta('', {
+            status: 302,
+            headers: { location: 'https://10.0.0.1/x' },
+          }),
+      });
+
+      await expect(http.baixarImagem('capas', CAPA)).resolves.toEqual({
+        tipo: 'recusada',
+        motivo: 'redirecionamento recusado',
+      });
+    });
+
+    it('recusa corpo acima do limite', async () => {
+      const http = new HttpExterno({
+        ...CAPAS,
+        fetch: async () =>
+          new Response(new Uint8Array(BASE.limiteRespostaBytes + 1), {
+            status: 200,
+          }),
+      });
+
+      await expect(http.baixarImagem('capas', CAPA)).resolves.toEqual({
+        tipo: 'recusada',
+        motivo: 'resposta acima do limite',
+      });
+    });
+
+    it.each([
+      [404, { tipo: 'ausente' }],
+      [410, { tipo: 'ausente' }],
+      [403, { tipo: 'recusada', motivo: 'resposta 403' }],
+    ])('%i vira resultado, sem exceção', async (status, esperado) => {
+      const http = new HttpExterno({
+        ...CAPAS,
+        fetch: async () => resposta('', { status }),
+      });
+
+      await expect(http.baixarImagem('capas', CAPA)).resolves.toEqual(esperado);
+    });
+
+    it.each([429, 420, 500, 502])(
+      '%i é indisponibilidade e lança, para o runtime tentar de novo',
+      async (status) => {
+        const http = new HttpExterno({
+          ...CAPAS,
+          fetch: async () => resposta('', { status }),
+        });
+
+        await expect(http.baixarImagem('capas', CAPA)).rejects.toBeInstanceOf(
+          FonteIndisponivel,
+        );
+      },
+    );
+
+    it('timeout lança tempo esgotado', async () => {
+      const http = new HttpExterno({
+        ...CAPAS,
+        fetch: (_url, init) =>
+          new Promise((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () =>
+              reject(Object.assign(new Error('abort'), { name: 'AbortError' })),
+            );
+          }),
+      });
+
+      await expect(http.baixarImagem('capas', CAPA)).rejects.toThrow(
+        /tempo esgotado/,
+      );
+    });
+
+    it('falha de rede lança', async () => {
+      const http = new HttpExterno({
+        ...CAPAS,
+        fetch: async () => {
+          throw new TypeError('fetch failed');
+        },
+      });
+
+      await expect(http.baixarImagem('capas', CAPA)).rejects.toThrow(
+        /falha de rede/,
+      );
+    });
+  });
 });

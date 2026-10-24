@@ -1,6 +1,6 @@
-import { createHash } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { assinar } from '../common/cloudinary';
 
 /**
  * Apaga capas de livro pessoal no Cloudinary na exclusão definitiva da conta
@@ -33,9 +33,10 @@ export class RemocaoDeAsset {
       return false;
     }
     const timestamp = Math.floor(Date.now() / 1000);
-    const assinatura = createHash('sha1')
-      .update(`public_id=${publicId}&timestamp=${timestamp}${this.apiSecret}`)
-      .digest('hex');
+    const assinatura = assinar(
+      { public_id: publicId, timestamp },
+      this.apiSecret,
+    );
     const corpo = new URLSearchParams({
       public_id: publicId,
       timestamp: String(timestamp),

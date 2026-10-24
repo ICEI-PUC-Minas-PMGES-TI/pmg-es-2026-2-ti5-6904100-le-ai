@@ -30,6 +30,9 @@ const CONTRATOS_EXTERNOS = `
   CREATE TABLE identidade.v_seguimento_aceito_v1 (
     seguidor_id uuid, seguido_id uuid
   );
+  CREATE TABLE leitura.v_estante_publica_v1 (
+    usuario_id uuid, livro_id uuid, status text, vezes_lido integer
+  );
   CREATE TABLE leitura.v_nota_publicacao_v1 (
     usuario_id uuid, livro_id uuid, valor numeric
   );
@@ -61,6 +64,7 @@ const TABELAS_DE_DADOS = [
   'social.v_lista_livro_pessoal_v1',
   'identidade.v_perfil_referencia_v1',
   'identidade.v_seguimento_aceito_v1',
+  'leitura.v_estante_publica_v1',
   'leitura.v_nota_publicacao_v1',
   'leitura.v_resenha_publicacao_v1',
   'leitura.v_reacao_resenha_v1',

@@ -67,6 +67,12 @@ x-implementation-notes:
     nota_leitor_projecao e a nota_livro_agregada ao estado atual. O backfill
     `npm run backfill:notas` roda depois de o serviço subir em cada ambiente,
     porque evento publicado antes de a fila existir se perde.
+  - >-
+    O cache de capas oficiais (F-ACV-NOTA) consome livro.adicionado_a_estante e
+    leitura.iniciada na fila leai.acervo.capas, e só é registrado com
+    CLOUDINARY_API_KEY e CLOUDINARY_API_SECRET. O backfill `npm run
+    backfill:capas` lê leitura.v_estante_publica_v1 e roda depois de o serviço
+    subir em cada ambiente.
 x-implemented-features: [F-ACV-CADASTRO, F-ACV-BUSCA, F-ACV-INGESTAO, F-ACV-DESCOBERTA, F-ACV-NOTA]
 x-database-contracts:
   - name: v_livro_referencia_v1
@@ -864,7 +870,14 @@ components:
       type: object
       additionalProperties: false
       required: [origem]
-      description: Resolução na ordem cópia própria, URL externa e placeholder.
+      description: >-
+        Resolução na ordem cópia própria, URL externa e placeholder (RN-14.4).
+        Desde F-ACV-NOTA, a cópia própria do livro oficial é gravada pelo cache
+        de capas na primeira vez que o livro entra numa estante (ou tem uma
+        leitura iniciada): o servidor baixa a capa externa, valida a imagem e a
+        envia ao Cloudinary em `<pasta>/<livroId>`. Até lá, e quando a origem
+        falha, a origem é `externa`. A capa de livro pessoal continua sendo a do
+        dono.
       properties:
         url: { type: string, format: uri, nullable: true }
         origem: { type: string, enum: [propria, externa, placeholder] }
