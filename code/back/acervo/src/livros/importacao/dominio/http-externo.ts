@@ -53,6 +53,11 @@ export type ResultadoDoDownload =
 /** 429 e o 420 que algumas CDNs usam para limite de taxa: passa com o tempo. */
 const STATUS_DE_LIMITE = new Set([420, 429]);
 
+/** Corpo que não vai ser lido: cancelado, para não segurar a conexão. */
+async function descartarCorpo(resposta: Response): Promise<void> {
+  await resposta.body?.cancel().catch(() => undefined);
+}
+
 export class HttpExterno {
   constructor(private readonly configuracao: ConfiguracaoHttpExterno) {}
 
@@ -149,6 +154,10 @@ export class HttpExterno {
    * desfecho discriminado. Fora da allowlist, redirecionamento recusado, corpo
    * acima do limite e 4xx que não seja 404, 410 ou limite de taxa são
    * `recusada`; 404 e 410 são `ausente`.
+   *
+   * Todo corpo que não é lido (o dos saltos, o das respostas descartadas e o
+   * que declara tamanho acima do limite) é cancelado, e a requisição é abortada
+   * no fim em qualquer caminho: nada fica aberto depois de o método voltar.
    */
   async baixarImagem(fonte: string, url: URL): Promise<ResultadoDoDownload> {
     if (!this.urlPermitida(url)) {
@@ -178,6 +187,7 @@ export class HttpExterno {
         if (resposta.status < 300 || resposta.status >= 400) {
           break;
         }
+        await descartarCorpo(resposta);
         const destino = this.destinoDoRedirect(alvo, resposta);
         if (!destino || saltos >= MAX_REDIRECTS) {
           return { tipo: 'recusada', motivo: 'redirecionamento recusado' };
@@ -186,12 +196,15 @@ export class HttpExterno {
       }
 
       if (resposta.status === 404 || resposta.status === 410) {
+        await descartarCorpo(resposta);
         return { tipo: 'ausente' };
       }
       if (STATUS_DE_LIMITE.has(resposta.status) || resposta.status >= 500) {
+        await descartarCorpo(resposta);
         throw new FonteIndisponivel(fonte, `resposta ${resposta.status}`);
       }
       if (!resposta.ok) {
+        await descartarCorpo(resposta);
         return { tipo: 'recusada', motivo: `resposta ${resposta.status}` };
       }
 
@@ -214,6 +227,9 @@ export class HttpExterno {
       throw new FonteIndisponivel(fonte, 'falha de rede');
     } finally {
       clearTimeout(expira);
+      // Encerra a requisição em todo caminho; depois de um corpo lido inteiro,
+      // não tem efeito.
+      controle.abort();
     }
   }
 
@@ -285,6 +301,7 @@ export class HttpExterno {
     const limite = this.configuracao.limiteRespostaBytes;
     const declarado = Number(resposta.headers.get('content-length') ?? '0');
     if (declarado > limite) {
+      await descartarCorpo(resposta);
       return null;
     }
 

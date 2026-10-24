@@ -464,6 +464,90 @@ describe('HttpExterno', () => {
       );
     });
 
+    describe('corpos descartados são cancelados e a requisição é encerrada', () => {
+      /** Corpo que nunca termina, para ver se alguém o cancela. */
+      function corpoAberto() {
+        const cancelar = jest.fn();
+        const corpo = new ReadableStream<Uint8Array>({
+          pull: () => new Promise(() => undefined),
+          cancel: cancelar,
+        });
+        return { corpo, cancelar };
+      }
+
+      it('Content-Length acima do limite: cancela o corpo e aborta o sinal', async () => {
+        const { corpo, cancelar } = corpoAberto();
+        let sinal: AbortSignal | undefined;
+        const http = new HttpExterno({
+          ...CAPAS,
+          fetch: async (_url, init) => {
+            sinal = init?.signal ?? undefined;
+            return new Response(corpo, {
+              status: 200,
+              headers: {
+                'content-length': String(BASE.limiteRespostaBytes + 1),
+              },
+            });
+          },
+        });
+
+        await expect(http.baixarImagem('capas', CAPA)).resolves.toEqual({
+          tipo: 'recusada',
+          motivo: 'resposta acima do limite',
+        });
+        expect(cancelar).toHaveBeenCalled();
+        expect(sinal?.aborted).toBe(true);
+      });
+
+      it('o corpo de cada salto de redirecionamento é cancelado', async () => {
+        const { corpo, cancelar } = corpoAberto();
+        let chamadas = 0;
+        const http = new HttpExterno({
+          ...CAPAS,
+          fetch: async () =>
+            ++chamadas === 1
+              ? new Response(corpo, {
+                  status: 302,
+                  headers: { location: 'https://archive.org/x.jpg' },
+                })
+              : imagem(),
+        });
+
+        await expect(http.baixarImagem('capas', CAPA)).resolves.toMatchObject({
+          tipo: 'ok',
+        });
+        expect(cancelar).toHaveBeenCalled();
+      });
+
+      it.each([
+        [404, 'resolves'],
+        [403, 'resolves'],
+        [503, 'rejects'],
+      ] as const)(
+        'resposta %i descartada: corpo cancelado e sinal abortado',
+        async (status, desfecho) => {
+          const { corpo, cancelar } = corpoAberto();
+          let sinal: AbortSignal | undefined;
+          const http = new HttpExterno({
+            ...CAPAS,
+            fetch: async (_url, init) => {
+              sinal = init?.signal ?? undefined;
+              return new Response(corpo, { status });
+            },
+          });
+
+          const resultado = http.baixarImagem('capas', CAPA);
+          if (desfecho === 'resolves') {
+            await expect(resultado).resolves.toBeDefined();
+          } else {
+            await expect(resultado).rejects.toBeInstanceOf(FonteIndisponivel);
+          }
+          expect(cancelar).toHaveBeenCalled();
+          expect(sinal?.aborted).toBe(true);
+        },
+      );
+    });
+
     it('falha de rede lança', async () => {
       const http = new HttpExterno({
         ...CAPAS,
