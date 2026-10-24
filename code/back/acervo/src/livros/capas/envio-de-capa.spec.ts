@@ -118,4 +118,50 @@ describe('EnvioDeCapa', () => {
       envioCom(fetch).enviar(LIVRO, new Uint8Array([1]), 'jpg'),
     ).rejects.toThrow(/tempo esgotado/);
   });
+  describe('falha ao ler o corpo depois dos headers', () => {
+    const interrompida = (erro: Error) =>
+      new Response(
+        new ReadableStream({
+          pull(controle) {
+            controle.error(erro);
+          },
+        }),
+        { status: 200 },
+      );
+
+    it('conexão caída durante a leitura é indisponibilidade, não recusa', async () => {
+      const fetch = jest
+        .fn()
+        .mockResolvedValue(interrompida(new TypeError('terminated')));
+
+      await expect(
+        envioCom(fetch).enviar(LIVRO, new Uint8Array([1]), 'jpg'),
+      ).rejects.toThrow(/falha de rede/);
+    });
+
+    it('timeout depois dos headers é indisponibilidade', async () => {
+      const fetch = jest
+        .fn()
+        .mockResolvedValue(
+          interrompida(new DOMException('tempo', 'TimeoutError')),
+        );
+
+      await expect(
+        envioCom(fetch).enviar(LIVRO, new Uint8Array([1]), 'jpg'),
+      ).rejects.toThrow(/tempo esgotado/);
+    });
+
+    it('corpo inteiro que não é JSON continua sendo recusa', async () => {
+      const fetch = jest
+        .fn()
+        .mockResolvedValue(new Response('<html>', { status: 200 }));
+
+      await expect(
+        envioCom(fetch).enviar(LIVRO, new Uint8Array([1]), 'jpg'),
+      ).resolves.toEqual({
+        tipo: 'recusada',
+        motivo: 'resposta do Cloudinary ilegível',
+      });
+    });
+  });
 });

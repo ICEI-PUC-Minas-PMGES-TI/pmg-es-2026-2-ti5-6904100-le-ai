@@ -42,6 +42,10 @@ export type ResultadoDoEnvio =
  * 5xx, 429 e 420 lançam `FonteIndisponivel`, para o runtime tentar de novo. Os
  * outros 4xx (credencial errada, por exemplo) também lançam: são configuração,
  * e vão para a DLQ com o erro no log em vez de sumirem como recusa.
+ *
+ * O `fetch` resolve com os headers, e o corpo ainda pode cair no caminho ou
+ * estourar o timeout: falha ao **ler** o corpo também é indisponibilidade, e
+ * não recusa. Só um corpo que chegou inteiro e não é o JSON esperado é recusa.
  */
 export class EnvioDeCapa {
   constructor(private readonly configuracao: ConfiguracaoDoEnvio) {}
@@ -89,25 +93,30 @@ export class EnvioDeCapa {
         },
       );
     } catch (erro) {
-      const tempo =
-        erro instanceof Error &&
-        (erro.name === 'TimeoutError' || erro.name === 'AbortError');
-      throw new FonteIndisponivel(
-        'cloudinary',
-        tempo ? 'tempo esgotado' : 'falha de rede',
-      );
+      throw indisponivel(erro);
     }
 
     if (resposta.status === 400) {
+      await descartar(resposta);
       return { tipo: 'recusada', motivo: 'Cloudinary recusou a imagem' };
     }
     if (!resposta.ok) {
+      await descartar(resposta);
       throw new FonteIndisponivel('cloudinary', `resposta ${resposta.status}`);
     }
 
+    let texto: string;
+    try {
+      texto = await resposta.text();
+    } catch (erro) {
+      // A conexão caiu ou o timeout disparou depois dos headers: o upload pode
+      // ter dado certo, e a próxima tentativa recebe o mesmo asset
+      // (`overwrite=false`).
+      throw indisponivel(erro);
+    }
     let dados: { secure_url?: unknown; public_id?: unknown };
     try {
-      dados = (await resposta.json()) as typeof dados;
+      dados = JSON.parse(texto) as typeof dados;
     } catch {
       return { tipo: 'recusada', motivo: 'resposta do Cloudinary ilegível' };
     }
@@ -124,4 +133,22 @@ export class EnvioDeCapa {
       return { tipo: 'recusada', motivo: 'URL de resposta inválida' };
     }
   }
+}
+
+function indisponivel(erro: unknown): FonteIndisponivel {
+  // Pelo nome, e não por `instanceof`: o `DOMException` do timeout nem sempre
+  // é um `Error` deste realm, e o `fetch` costuma embrulhá-lo em `cause`.
+  const nome = (valor: unknown) => (valor as { name?: unknown } | null)?.name;
+  const tempo = [erro, (erro as { cause?: unknown } | null)?.cause].some(
+    (valor) => nome(valor) === 'TimeoutError' || nome(valor) === 'AbortError',
+  );
+  return new FonteIndisponivel(
+    'cloudinary',
+    tempo ? 'tempo esgotado' : 'falha de rede',
+  );
+}
+
+/** Corpo que não vai ser lido: cancelado, para não segurar a conexão. */
+async function descartar(resposta: Response): Promise<void> {
+  await resposta.body?.cancel().catch(() => undefined);
 }
