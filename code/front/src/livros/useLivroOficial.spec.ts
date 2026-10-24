@@ -248,6 +248,139 @@ describe('useLivroOficial', () => {
     expect(pagina.carregandoResenhas.value).toBe(false)
   })
 
+  describe('recarga das notas', () => {
+    const comNota = {
+      notaGeral: { valor: 4.3, quantidade: 412 },
+      notaDosLeitores: { valor: 5, quantidade: 1 },
+      distribuicao: [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0].map((quantidade, indice) => ({ valor: 5 - indice * 0.5, quantidade })),
+    }
+
+    it('reconsulta em 2, 6 e 15 s depois da escrita e para', async () => {
+      const servico = servicoFalso()
+      const pagina = useLivroOficial({ servico })
+      await pagina.carregar('livro-1')
+
+      pagina.recarregarNotas()
+      await vi.advanceTimersByTimeAsync(1_999)
+      expect(servico.obterLivroOficial).toHaveBeenCalledTimes(1)
+      await vi.advanceTimersByTimeAsync(1)
+      expect(servico.obterLivroOficial).toHaveBeenCalledTimes(2)
+      await vi.advanceTimersByTimeAsync(4_000)
+      expect(servico.obterLivroOficial).toHaveBeenCalledTimes(3)
+      await vi.advanceTimersByTimeAsync(9_000)
+      expect(servico.obterLivroOficial).toHaveBeenCalledTimes(4)
+      expect(servico.obterLivroOficial).toHaveBeenLastCalledWith('livro-1')
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(servico.obterLivroOficial).toHaveBeenCalledTimes(4)
+    })
+
+    it('troca só as notas e a distribuição, sem mexer em resenhas, sinopse nem estado', async () => {
+      const servico = servicoFalso()
+      servico.obterLivroOficial
+        .mockResolvedValueOnce(
+          livroOficial({ resenhas: paginaDeResenhas([resenha('r1', 'Marina', 'Um.')], 'c1') }),
+        )
+        .mockResolvedValue(
+          livroOficial({
+            titulo: 'Outro título',
+            sinopse: { status: 'ausente', texto: null },
+            resenhas: paginaDeResenhas([]),
+            ...comNota,
+          }),
+        )
+      servico.listarResenhasDoLivro.mockResolvedValue(paginaDeResenhas([resenha('r2', 'Letícia', 'Dois.')]))
+      const pagina = useLivroOficial({ servico })
+      await pagina.carregar('livro-1')
+      await pagina.carregarResenhas()
+
+      pagina.recarregarNotas()
+      await vi.advanceTimersByTimeAsync(2_000)
+
+      expect(pagina.livro.value?.notaGeral).toEqual(comNota.notaGeral)
+      expect(pagina.livro.value?.notaDosLeitores).toEqual(comNota.notaDosLeitores)
+      expect(pagina.livro.value?.distribuicao).toEqual(comNota.distribuicao)
+      expect(pagina.livro.value?.titulo).toBe('Torto Arado')
+      expect(pagina.sinopse.value.status).toBe('disponivel')
+      expect(pagina.resenhas.value.map((r) => r.id)).toEqual(['r1', 'r2'])
+      expect(pagina.estado.value).toBe('pronta')
+    })
+
+    it('a falha de uma consulta é ignorada e a seguinte ainda vale', async () => {
+      const servico = servicoFalso()
+      const pagina = useLivroOficial({ servico })
+      await pagina.carregar('livro-1')
+      servico.obterLivroOficial
+        .mockRejectedValueOnce(new ApiError('Não foi possível acessar o servidor.', 0, 'SERVICO_INDISPONIVEL'))
+        .mockResolvedValue(livroOficial(comNota))
+
+      pagina.recarregarNotas()
+      await vi.advanceTimersByTimeAsync(2_000)
+      expect(pagina.estado.value).toBe('pronta')
+      expect(pagina.mensagemDoErro.value).toBeNull()
+      expect(pagina.livro.value?.notaDosLeitores).toBeNull()
+
+      await vi.advanceTimersByTimeAsync(4_000)
+      expect(pagina.livro.value?.notaDosLeitores).toEqual(comNota.notaDosLeitores)
+    })
+
+    it('trocar de livro cancela, e a resposta atrasada do anterior é descartada', async () => {
+      const servico = servicoFalso()
+      const pagina = useLivroOficial({ servico })
+      await pagina.carregar('livro-1')
+      let responderAnterior: (valor: ReturnType<typeof livroOficial>) => void = () => undefined
+      servico.obterLivroOficial.mockImplementationOnce(() => new Promise((resolver) => (responderAnterior = resolver)))
+
+      pagina.recarregarNotas()
+      await vi.advanceTimersByTimeAsync(2_000)
+      servico.obterLivroOficial.mockResolvedValue(livroOficial({ id: 'livro-2', titulo: 'Vidas secas' }))
+      await pagina.carregar('livro-2')
+      responderAnterior(livroOficial(comNota))
+      await vi.advanceTimersByTimeAsync(60_000)
+
+      expect(servico.obterLivroOficial).toHaveBeenCalledTimes(3)
+      expect(pagina.livro.value?.titulo).toBe('Vidas secas')
+      expect(pagina.livro.value?.notaDosLeitores).toBeNull()
+    })
+
+    it('descartar cancela as recargas pendentes', async () => {
+      const servico = servicoFalso()
+      const pagina = useLivroOficial({ servico })
+      await pagina.carregar('livro-1')
+
+      pagina.recarregarNotas()
+      pagina.descartar()
+      await vi.advanceTimersByTimeAsync(60_000)
+
+      expect(servico.obterLivroOficial).toHaveBeenCalledTimes(1)
+    })
+
+    it('uma nova escrita recomeça as esperas e descarta a consulta em voo da anterior', async () => {
+      const servico = servicoFalso()
+      const pagina = useLivroOficial({ servico })
+      await pagina.carregar('livro-1')
+      let responderAntiga: (valor: ReturnType<typeof livroOficial>) => void = () => undefined
+      servico.obterLivroOficial.mockImplementationOnce(() => new Promise((resolver) => (responderAntiga = resolver)))
+
+      pagina.recarregarNotas()
+      await vi.advanceTimersByTimeAsync(2_000)
+      expect(servico.obterLivroOficial).toHaveBeenCalledTimes(2)
+      servico.obterLivroOficial.mockResolvedValue(livroOficial())
+      await vi.advanceTimersByTimeAsync(1_000)
+      pagina.recarregarNotas()
+      responderAntiga(livroOficial(comNota))
+      await vi.advanceTimersByTimeAsync(0)
+      expect(pagina.livro.value?.notaDosLeitores).toBeNull()
+
+      // As esperas contam da segunda escrita, e as que sobravam da primeira não consultam mais.
+      await vi.advanceTimersByTimeAsync(1_999)
+      expect(servico.obterLivroOficial).toHaveBeenCalledTimes(2)
+      await vi.advanceTimersByTimeAsync(1)
+      expect(servico.obterLivroOficial).toHaveBeenCalledTimes(3)
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(servico.obterLivroOficial).toHaveBeenCalledTimes(5)
+    })
+  })
+
   it('429 sem o corpo do contrato (proxy) ainda diz que foram requisições demais', async () => {
     const servico = servicoFalso()
     servico.obterLivroOficial.mockRejectedValueOnce(new ApiError('Status inesperado', 429, 'ERRO_HTTP'))

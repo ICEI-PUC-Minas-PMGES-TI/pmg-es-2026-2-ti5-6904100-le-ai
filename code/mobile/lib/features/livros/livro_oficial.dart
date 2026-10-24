@@ -381,6 +381,20 @@ class LivroOficialDetalhe {
     this.distribuicao = const <FaixaDaDistribuicao>[],
   });
 
+  /// Este detalhe com as três notas de [outro] (F-ACV-NOTA): a recarga depois da nota do leitor
+  /// não mexe na sinopse nem nas resenhas.
+  LivroOficialDetalhe comNotasDe(LivroOficialDetalhe outro) => LivroOficialDetalhe(
+    resumo: resumo,
+    isbn: isbn,
+    sinopse: sinopse,
+    resenhas: resenhas,
+    editoraId: editoraId,
+    serie: serie,
+    notaGeral: outro.notaGeral,
+    notaDosLeitores: outro.notaDosLeitores,
+    distribuicao: outro.distribuicao,
+  );
+
   static LivroOficialDetalhe? deJson(Map<String, dynamic> json) {
     final resumo = LivroOficialResumo.deJson(json);
     final isbn = json['isbn'];

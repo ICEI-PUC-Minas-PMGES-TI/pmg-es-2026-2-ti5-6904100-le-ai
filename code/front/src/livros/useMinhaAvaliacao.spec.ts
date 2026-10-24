@@ -77,6 +77,26 @@ describe('useMinhaAvaliacao', () => {
     expect(avaliacao.estado.value).toBe('erro')
   })
 
+  it('aoAlterarNota roda depois de salvar e de remover a nota, não na carga, na resenha nem na falha', async () => {
+    const servico = servicoFalso()
+    const aoAlterarNota = vi.fn()
+    const avaliacao = useMinhaAvaliacao({ servico, aoAlterarNota })
+
+    await avaliacao.carregar('l1')
+    await avaliacao.salvarResenha('Texto.', false)
+    await avaliacao.excluirResenha()
+    expect(aoAlterarNota).not.toHaveBeenCalled()
+
+    await avaliacao.salvarNota(5)
+    expect(aoAlterarNota).toHaveBeenCalledTimes(1)
+    await avaliacao.removerNota()
+    expect(aoAlterarNota).toHaveBeenCalledTimes(2)
+
+    servico.salvarNota.mockRejectedValueOnce(new ApiError('x', 500, 'ERRO_INTERNO'))
+    await expect(avaliacao.salvarNota(4)).rejects.toThrow(ApiError)
+    expect(aoAlterarNota).toHaveBeenCalledTimes(2)
+  })
+
   it('reenviar a mesma nota repete a chave; outro valor é outra chave', async () => {
     const servico = servicoFalso()
     servico.salvarNota.mockRejectedValueOnce(new ApiError('x', 500, 'ERRO_INTERNO'))

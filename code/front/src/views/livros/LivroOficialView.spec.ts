@@ -394,6 +394,76 @@ describe('LivroOficialView', () => {
       expect(secao.find('ul').exists()).toBe(false)
     })
 
+    it('salvar e remover a própria nota recarregam as notas em silêncio, sem mexer nas resenhas', async () => {
+      function botao(texto: string) {
+        return [...document.body.querySelectorAll('button')].find((b) => b.textContent?.trim() === texto)
+      }
+      const salvaEm = '2026-10-24T12:00:00Z'
+      leitura.salvarNota.mockReset().mockImplementation(async (livroId: string, valor: number) => ({
+        livroId,
+        valor,
+        criadoEm: salvaEm,
+        atualizadoEm: salvaEm,
+      }))
+      leitura.excluirNota.mockReset().mockResolvedValue(undefined)
+      servico.obterLivroOficial.mockResolvedValue(
+        livroOficial({ resenhas: paginaDeResenhas([resenha('r1', 'Marina', 'A terra.')]) }),
+      )
+      const { wrapper } = await abrir()
+      const leiturasDaSecao = () =>
+        wrapper.get('[data-secao-de-notas]').findAll('[data-bloco-de-nota] .sr-only').map((p) => p.text())
+      // A carga da avaliação não reconsulta o livro.
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(servico.obterLivroOficial).toHaveBeenCalledTimes(1)
+
+      // Salva 5, e o acervo passa a responder média 5 de um leitor.
+      await wrapper.get('button[aria-label="Sem nota. Dar nota"]').trigger('click')
+      await flushPromises()
+      document.body.querySelector('[role="slider"]')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'End' }))
+      await flushPromises()
+      botao('Salvar nota')!.click()
+      await flushPromises()
+      expect(leitura.salvarNota).toHaveBeenCalledWith('livro-1', 5, expect.any(String))
+      servico.obterLivroOficial.mockResolvedValue(
+        livroOficial({
+          resenhas: paginaDeResenhas([]),
+          notaDosLeitores: { valor: 5, quantidade: 1 },
+          distribuicao: [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0].map((quantidade, indice) => ({
+            valor: 5 - indice * 0.5,
+            quantidade,
+          })),
+        }),
+      )
+      expect(leiturasDaSecao()[1]).toBe('Nota dos leitores, sem nota')
+
+      await vi.advanceTimersByTimeAsync(2_000)
+      await flushPromises()
+
+      const secao = wrapper.get('[data-secao-de-notas]')
+      expect(leiturasDaSecao()[1]).toBe('Nota dos leitores, 5 de 5, 1 leitor')
+      expect(secao.text()).toContain('1 leitor')
+      expect(secao.text()).toContain('Distribuição das notas dos leitores')
+      expect(secao.findAll('ul > li')).toHaveLength(11)
+      expect(wrapper.text()).toContain('A terra.')
+
+      // Remove a nota, e o acervo volta a responder sem nota dos leitores.
+      await wrapper.get('button[aria-label="Sua nota: 5. Alterar"]').trigger('click')
+      await flushPromises()
+      botao('Remover nota')!.click()
+      await flushPromises()
+      botao('Remover nota')!.click()
+      await flushPromises()
+      expect(leitura.excluirNota).toHaveBeenCalledTimes(1)
+      servico.obterLivroOficial.mockResolvedValue(livroOficial({ resenhas: paginaDeResenhas([]) }))
+
+      await vi.advanceTimersByTimeAsync(2_000)
+      await flushPromises()
+
+      expect(leiturasDaSecao()).toEqual(['Nota geral, sem nota', 'Nota dos leitores, sem nota'])
+      expect(wrapper.get('[data-secao-de-notas]').find('ul').exists()).toBe(false)
+      expect(wrapper.text()).toContain('A terra.')
+    })
+
     it('o esqueleto tem o retângulo de 104px das notas', async () => {
       servico.obterLivroOficial.mockImplementationOnce(() => new Promise(() => undefined))
       const { wrapper } = await abrir()

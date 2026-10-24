@@ -19,6 +19,9 @@ enum EstadoDaPagina { carregando, pronta, naoEncontrada, erro }
 ///   com "Tentar de novo".
 /// - Cold start é carregamento (RNF-ERR-09): depois de 3 s a tela avisa que o servidor está
 ///   iniciando.
+/// - **Recarga das notas** (F-ACV-NOTA) depois que o leitor salva, altera ou remove a nota: o
+///   `acervo` recompõe a nota dos leitores ao consumir `nota.alterada`, de forma assíncrona, então
+///   a página reconsulta algumas vezes, em silêncio, e aproveita **só** as três notas.
 class LivroOficialController extends ChangeNotifier {
   static const List<Duration> esperasDaSinopse = <Duration>[
     Duration(seconds: 2),
@@ -31,6 +34,14 @@ class LivroOficialController extends ChangeNotifier {
     Duration(seconds: 40),
   ];
   static const Duration limiteDoColdStart = Duration(seconds: 3);
+
+  /// Quando reconsultar as notas, contado da escrita: o consumo costuma levar poucos segundos e,
+  /// com as retentativas do consumidor, até uns 20 s.
+  static const List<Duration> esperasDasNotas = <Duration>[
+    Duration(seconds: 2),
+    Duration(seconds: 6),
+    Duration(seconds: 15),
+  ];
 
   final AcervoService _servico;
   final String livroId;
@@ -60,6 +71,9 @@ class LivroOficialController extends ChangeNotifier {
   int _consultasDaSinopse = 0;
   Timer? _proximaConsulta;
   Timer? _timerDoColdStart;
+  List<Timer> _recargasDasNotas = const <Timer>[];
+  int _consultasDasNotas = 0;
+  int _ultimaConsultaAplicada = 0;
 
   bool get temMaisResenhas => _proximoCursor != null;
 
@@ -179,6 +193,43 @@ class LivroOficialController extends ChangeNotifier {
     }
   }
 
+  /// Depois de salvar, alterar ou remover a nota do leitor: agenda as reconsultas de
+  /// [esperasDasNotas]. Uma escrita nova recomeça o agendamento.
+  void recarregarNotas() {
+    _cancelarRecargasDasNotas();
+    if (_descartado) {
+      return;
+    }
+    _recargasDasNotas = <Timer>[
+      for (final espera in esperasDasNotas) Timer(espera, _consultarNotas),
+    ];
+  }
+
+  /// Em silêncio: não mexe no estado da tela, e uma falha só espera a próxima reconsulta.
+  Future<void> _consultarNotas() async {
+    final consulta = ++_consultasDasNotas;
+    try {
+      final detalhe = await _servico.obterLivroOficial(livroId);
+      final atual = livro;
+      // Uma resposta mais antiga que chega depois de uma mais nova não volta a nota para trás.
+      if (_descartado || atual == null || consulta < _ultimaConsultaAplicada) {
+        return;
+      }
+      _ultimaConsultaAplicada = consulta;
+      livro = atual.comNotasDe(detalhe);
+      _avisar();
+    } on ApiException {
+      // Uma reconsulta perdida não é erro de tela.
+    }
+  }
+
+  void _cancelarRecargasDasNotas() {
+    for (final recarga in _recargasDasNotas) {
+      recarga.cancel();
+    }
+    _recargasDasNotas = const <Timer>[];
+  }
+
   void _avisar() {
     if (!_descartado) {
       notifyListeners();
@@ -190,6 +241,7 @@ class LivroOficialController extends ChangeNotifier {
     _descartado = true;
     _proximaConsulta?.cancel();
     _timerDoColdStart?.cancel();
+    _cancelarRecargasDasNotas();
     super.dispose();
   }
 }

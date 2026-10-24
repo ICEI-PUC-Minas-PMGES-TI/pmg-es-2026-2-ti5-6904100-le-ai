@@ -108,7 +108,12 @@ class _LivroOficialPageState extends State<LivroOficialPage> {
     widget.livroId,
   );
 
-  late final AvaliacaoController _avaliacao = AvaliacaoController(widget.leitura, widget.livroId);
+  // F-ACV-NOTA: a nota do leitor salva, alterada ou removida recarrega a nota dos leitores.
+  late final AvaliacaoController _avaliacao = AvaliacaoController(
+    widget.leitura,
+    widget.livroId,
+    aoMudarNota: _pagina.recarregarNotas,
+  );
 
   @override
   void initState() {

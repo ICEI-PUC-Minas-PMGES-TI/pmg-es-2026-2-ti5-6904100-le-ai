@@ -48,7 +48,9 @@ import type { ResenhaDoLivro } from '../../services/acervo'
 const route = useRoute()
 const router = useRouter()
 const pagina = useLivroOficial()
-const minhaAvaliacao = useMinhaAvaliacao()
+// A nota do leitor chega aos indicadores do `acervo` de forma assíncrona: cada escrita dela agenda
+// a recarga em silêncio das notas, sem tocar nas resenhas já carregadas.
+const minhaAvaliacao = useMinhaAvaliacao({ aoAlterarNota: () => pagina.recarregarNotas() })
 const {
   estado,
   coldStart,

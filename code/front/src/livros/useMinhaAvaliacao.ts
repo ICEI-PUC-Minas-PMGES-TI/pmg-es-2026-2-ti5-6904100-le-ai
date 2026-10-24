@@ -23,8 +23,11 @@ export interface LivroAvaliado {
  *
  * O livro vem em `carregar(id)`, como na página: trocar de livro na mesma rota não remonta a view.
  * Uma resposta atrasada do livro anterior é descartada pelo contador de geração.
+ *
+ * `aoAlterarNota` roda depois de salvar ou remover a nota com sucesso, nunca na carga: a página do
+ * livro oficial o usa para reconsultar os indicadores do `acervo` (F-ACV-NOTA).
  */
-export function useMinhaAvaliacao(opcoes: { servico?: LeituraService } = {}) {
+export function useMinhaAvaliacao(opcoes: { servico?: LeituraService; aoAlterarNota?: () => void } = {}) {
   const servico = opcoes.servico ?? leituraService
 
   const estado = ref<EstadoDaAvaliacao>('carregando')
@@ -85,12 +88,14 @@ export function useMinhaAvaliacao(opcoes: { servico?: LeituraService } = {}) {
   async function salvarNota(valor: number): Promise<void> {
     const salva = await servico.salvarNota(livroId, valor, chaveDa('nota', String(valor)))
     aplicar('nota', { nota: salva })
+    opcoes.aoAlterarNota?.()
   }
 
   /** Remove a nota depois da confirmação da tela (RNF-USA-04). A resenha não é afetada. */
   async function removerNota(): Promise<void> {
     await servico.excluirNota(livroId, chaveDa('remocao', nota.value?.atualizadoEm ?? ''))
     aplicar('remocao', { nota: null })
+    opcoes.aoAlterarNota?.()
   }
 
   /** Publica ou salva a resenha. Lança o erro da API para o editor preservar o texto. */

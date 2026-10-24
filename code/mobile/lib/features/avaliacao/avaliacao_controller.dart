@@ -12,7 +12,11 @@ class AvaliacaoController extends ChangeNotifier {
   final LeituraService _servico;
   final String livroId;
 
-  AvaliacaoController(this._servico, this.livroId);
+  /// Chamado depois que a nota foi salva ou removida no servidor (nunca na carga). A página do
+  /// livro oficial o usa para recarregar a nota dos leitores (F-ACV-NOTA).
+  final VoidCallback? aoMudarNota;
+
+  AvaliacaoController(this._servico, this.livroId, {this.aoMudarNota});
 
   EstadoDaAvaliacao estado = EstadoDaAvaliacao.carregando;
   MinhaAvaliacao? avaliacao;
@@ -51,6 +55,7 @@ class AvaliacaoController extends ChangeNotifier {
     final salva = await _servico.salvarNota(livroId, valor, idempotencyKey: chave);
     _chaveDaNota = ChaveDaIntencao();
     _aplicar((atual) => atual.comNota(salva));
+    aoMudarNota?.call();
   }
 
   /// Remove a nota, depois da confirmação da tela (RNF-USA-04). A resenha não é afetada.
@@ -62,6 +67,7 @@ class AvaliacaoController extends ChangeNotifier {
     await _servico.excluirNota(livroId, idempotencyKey: chave);
     _chaveDaRemocao = ChaveDaIntencao();
     _aplicar((atual) => atual.comNota(null));
+    aoMudarNota?.call();
   }
 
   /// Publica ou salva a resenha. Lança [ApiException] para o editor mostrar o erro com o texto

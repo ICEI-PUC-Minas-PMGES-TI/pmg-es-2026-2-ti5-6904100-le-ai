@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:le_ai_mobile/features/livros/livro_oficial_page.dart';
 
 import 'package:le_ai_mobile/design/tokens.dart';
+import 'package:le_ai_mobile/design/widgets/seletor_de_nota.dart';
 import 'package:le_ai_mobile/features/avaliacao/bloco_sua_avaliacao.dart';
 import 'package:le_ai_mobile/features/livros/notas_do_livro.dart';
 
@@ -849,6 +850,91 @@ void main() {
       await tester.pump();
       await tester.pump();
       expect(find.byType(NotasDoLivro), findsOneWidget);
+    });
+
+    // Achado da revisão do PR #57: a seção acompanha a nota que o próprio leitor salva ou remove,
+    // reconsultando o acervo, que recompõe a média de forma assíncrona.
+    testWidgets('salvar e remover a própria nota recarregam a nota dos leitores', (tester) async {
+      double? notaNoAcervo;
+      Map<String, Object?> livroDoAcervo() => _livro(
+        resenhas: _pagina(<Map<String, Object?>>[_resenha('r1', 'Marina Antunes', 'A terra.')]),
+        extras: <String, Object?>{
+          'notaDosLeitores': notaNoAcervo == null
+              ? null
+              : <String, Object?>{'valor': notaNoAcervo, 'quantidade': 1},
+          'distribuicao': <Map<String, Object?>>[
+            for (final valor in <num>[5, 4.5, 4, 3.5, 3, 2.5, 2, 1.5, 1, 0.5, 0])
+              <String, Object?>{'valor': valor, 'quantidade': valor == notaNoAcervo ? 1 : 0},
+          ],
+        },
+      );
+      await montar(
+        tester,
+        (request) async => json(livroDoAcervo(), 200),
+        leitura: (request) async {
+          if (request.method == 'PUT') {
+            notaNoAcervo = 5;
+            return json(notaJson(_id, 5), 200);
+          }
+          if (request.method == 'DELETE') {
+            notaNoAcervo = null;
+            return http.Response('', 204);
+          }
+          return json(semAvaliacao(_id), 200);
+        },
+      );
+      await tester.pump();
+      Finder naSecao(Finder alvo) => find.descendant(of: find.byType(NotasDoLivro), matching: alvo);
+
+      // A carga da própria avaliação não recarrega nada.
+      await tester.pump(const Duration(seconds: 20));
+      expect(consultasDaPagina(), 1);
+      expect(naSecao(find.text('Sem nota')), findsNWidgets(2));
+
+      await tocar(tester, find.bySemanticsLabel('Sem nota. Dar nota'));
+      await tester.pumpAndSettle();
+      // A metade direita da quinta estrela: 5.
+      final seletor = tester.getTopLeft(find.byType(SeletorDeNota));
+      await tester.tapAt(
+        seletor + const Offset(4 * SeletorDeNota.alvo + 36, SeletorDeNota.alvo / 2),
+      );
+      await tester.pump();
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Salvar nota'));
+      await tester.pumpAndSettle();
+
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pump();
+
+      expect(consultasDaPagina(), 2);
+      // O 5 do bloco e o da faixa; `1 leitor` no bloco e na faixa de 5.
+      expect(naSecao(find.text('5')), findsNWidgets(2));
+      expect(naSecao(find.text('1 leitor')), findsNWidgets(2));
+      expect(find.text('Distribuição das notas dos leitores'), findsOneWidget);
+      expect(find.byKey(const ValueKey<String>('barra-5')), findsOneWidget);
+      // A sinopse e as resenhas já carregadas continuam.
+      expect(find.text('Bibiana e Belonísia crescem no interior da Bahia.'), findsOneWidget);
+      expect(find.text('A terra.'), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 15));
+      await tocar(tester, find.bySemanticsLabel('Sua nota: 5. Alterar'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Remover nota'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Remover nota'));
+      await tester.pumpAndSettle();
+
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pump();
+
+      expect(naSecao(find.text('Sem nota')), findsNWidgets(2));
+      expect(find.text('Distribuição das notas dos leitores'), findsNothing);
+      expect(find.text('A terra.'), findsOneWidget);
+
+      // As reconsultas param depois da última espera.
+      await tester.pump(const Duration(seconds: 15));
+      final consultas = consultasDaPagina();
+      await tester.pump(const Duration(minutes: 1));
+      expect(consultasDaPagina(), consultas);
     });
   });
 

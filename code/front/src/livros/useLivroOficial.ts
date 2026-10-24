@@ -13,6 +13,12 @@ export type EstadoDaPagina = 'carregando' | 'pronta' | 'nao-encontrada' | 'erro'
 
 /** Esperas entre as consultas da sinopse, cerca de 2 minutos no total, como no app. */
 export const ESPERAS_DA_SINOPSE_MS = [2_000, 3_000, 5_000, 8_000, 13_000, 20_000, 30_000, 40_000]
+/**
+ * Quando reconsultar os indicadores depois de o leitor salvar, alterar ou remover a própria nota,
+ * contado da escrita. O `acervo` consome `nota.alterada` de forma assíncrona: normalmente em
+ * poucos segundos, e até uns 20 s com as retentativas do broker.
+ */
+export const RECARGAS_DAS_NOTAS_MS = [2_000, 6_000, 15_000]
 const LIMITE_DO_COLD_START_MS = 3_000
 
 export interface OpcoesDaPagina {
@@ -33,6 +39,10 @@ export interface OpcoesDaPagina {
  * - **Erro da página:** 404 e 400 (id que não é de livro) são "não encontrado"; 429 traz a
  *   mensagem do servidor em `mensagemDoErro`, porque "a conexão falhou" seria falso.
  * - **Troca de livro** na mesma rota recomeça tudo, e a resposta do livro anterior é descartada.
+ * - **Recarga das notas** (`recarregarNotas`, F-ACV-NOTA): depois de uma escrita da própria nota,
+ *   reconsulta o livro em silêncio nas `RECARGAS_DAS_NOTAS_MS` e troca só `notaGeral`,
+ *   `notaDosLeitores` e `distribuicao`, pelo mesmo motivo do polling. A fonte continua o `acervo`:
+ *   a nota local não entra na média.
  */
 export function useLivroOficial(opcoes: OpcoesDaPagina = {}) {
   const servico = opcoes.servico ?? acervoService
@@ -54,6 +64,8 @@ export function useLivroOficial(opcoes: OpcoesDaPagina = {}) {
   let consultas = 0
   let proximaConsulta: ReturnType<typeof setTimeout> | undefined
   let limiteDoColdStart: ReturnType<typeof setTimeout> | undefined
+  let recargasDasNotas: ReturnType<typeof setTimeout>[] = []
+  let rodadaDasNotas = 0
 
   const temMaisResenhas = computed(() => proximoCursor.value !== null)
 
@@ -62,6 +74,7 @@ export function useLivroOficial(opcoes: OpcoesDaPagina = {}) {
     const minha = ++geracao
     clearTimeout(proximaConsulta)
     clearTimeout(limiteDoColdStart)
+    cancelarRecargasDasNotas()
     estado.value = 'carregando'
     coldStart.value = false
     carregandoResenhas.value = false
@@ -183,10 +196,46 @@ export function useLivroOficial(opcoes: OpcoesDaPagina = {}) {
     }
   }
 
+  /**
+   * Depois de o leitor salvar, alterar ou remover a própria nota. Uma nova escrita recomeça as
+   * esperas; trocar de livro e sair da tela cancelam. Falha de consulta não é erro de tela.
+   */
+  function recarregarNotas(): void {
+    cancelarRecargasDasNotas()
+    const minha = geracao
+    const rodada = ++rodadaDasNotas
+    recargasDasNotas = RECARGAS_DAS_NOTAS_MS.map((espera) =>
+      setTimeout(() => void consultarNotas(minha, rodada), espera),
+    )
+  }
+
+  async function consultarNotas(minha: number, rodada: number): Promise<void> {
+    try {
+      const detalhe = await servico.obterLivroOficial(livroId)
+      const atual = livro.value
+      if (minha !== geracao || rodada !== rodadaDasNotas || !atual) {
+        return
+      }
+      const { notaGeral, notaDosLeitores, distribuicao } = detalhe
+      livro.value = { ...atual, notaGeral, notaDosLeitores, distribuicao }
+    } catch (erro) {
+      if (!(erro instanceof ApiError)) {
+        throw erro
+      }
+    }
+  }
+
+  function cancelarRecargasDasNotas(): void {
+    recargasDasNotas.forEach(clearTimeout)
+    recargasDasNotas = []
+    rodadaDasNotas += 1
+  }
+
   function descartar(): void {
     geracao += 1
     clearTimeout(proximaConsulta)
     clearTimeout(limiteDoColdStart)
+    cancelarRecargasDasNotas()
   }
 
   if (getCurrentScope()) {
@@ -207,6 +256,7 @@ export function useLivroOficial(opcoes: OpcoesDaPagina = {}) {
     temMaisResenhas,
     carregar,
     carregarResenhas,
+    recarregarNotas,
     descartar,
   }
 }
