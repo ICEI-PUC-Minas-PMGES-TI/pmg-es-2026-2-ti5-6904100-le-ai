@@ -57,6 +57,7 @@ Future<EstadoDeLeitura?> abrirAcoesDeLeitura(
   required EstanteService servico,
   required LivroDaAcao livro,
   ValueChanged<Leitura>? aoRegistrarProgresso,
+  ValueChanged<Leitura>? aoIniciarSessao,
   ValueChanged<Leitura>? aoVerAtualizacoes,
   DateTime Function() agora = DateTime.now,
 }) {
@@ -66,6 +67,7 @@ Future<EstadoDeLeitura?> abrirAcoesDeLeitura(
       servico: servico,
       livro: livro,
       aoRegistrarProgresso: aoRegistrarProgresso,
+      aoIniciarSessao: aoIniciarSessao,
       aoVerAtualizacoes: aoVerAtualizacoes,
       agora: agora,
     ),
@@ -76,6 +78,7 @@ class FolhaDeAcoesDeLeitura extends StatefulWidget {
   final EstanteService servico;
   final LivroDaAcao livro;
   final ValueChanged<Leitura>? aoRegistrarProgresso;
+  final ValueChanged<Leitura>? aoIniciarSessao;
   final ValueChanged<Leitura>? aoVerAtualizacoes;
   final DateTime Function() agora;
 
@@ -84,6 +87,7 @@ class FolhaDeAcoesDeLeitura extends StatefulWidget {
     required this.servico,
     required this.livro,
     this.aoRegistrarProgresso,
+    this.aoIniciarSessao,
     this.aoVerAtualizacoes,
     this.agora = DateTime.now,
   });
@@ -184,6 +188,7 @@ class _FolhaDeAcoesDeLeituraState extends State<FolhaDeAcoesDeLeitura> {
             ? null
             : PedidoDeAcao(acao: id, livroId: livroId, leituraId: leituraId);
       case IdAcao.registrarProgresso:
+      case IdAcao.iniciarSessao:
       case IdAcao.verAtualizacoes:
         return null;
     }
@@ -250,6 +255,8 @@ class _FolhaDeAcoesDeLeituraState extends State<FolhaDeAcoesDeLeitura> {
     switch (id) {
       case IdAcao.registrarProgresso:
         return leitura?.totalPaginas == null ? null : widget.aoRegistrarProgresso;
+      case IdAcao.iniciarSessao:
+        return leitura?.totalPaginas == null ? null : widget.aoIniciarSessao;
       case IdAcao.verAtualizacoes:
         return widget.aoVerAtualizacoes;
       default:
@@ -433,6 +440,7 @@ class _LinhaDeAcao extends StatelessWidget {
     IdAcao.adicionarQueroLer: PhosphorIconsRegular.bookmarkSimple,
     IdAcao.iniciarLeitura: PhosphorIconsRegular.bookOpen,
     IdAcao.registrarProgresso: PhosphorIconsRegular.plusCircle,
+    IdAcao.iniciarSessao: PhosphorIconsRegular.timer,
     IdAcao.verAtualizacoes: PhosphorIconsRegular.listBullets,
     IdAcao.finalizarLeitura: PhosphorIconsRegular.checkCircle,
     IdAcao.finalizarReleitura: PhosphorIconsRegular.checkCircle,

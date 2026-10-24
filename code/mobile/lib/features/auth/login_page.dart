@@ -55,6 +55,7 @@ class _LoginPageState extends State<LoginPage> {
   bool _bordaDeErroCredencial = false;
 
   String? _bannerErro;
+  String? _avisoDeSaida;
 
   // Bloqueio progressivo (§4.3) é alerta (ambar), não erro (rubi) — banner e botão diferentes.
   bool _bloqueado = false;
@@ -68,6 +69,7 @@ class _LoginPageState extends State<LoginPage> {
     // novo, e é o único jeito de sair do bloqueio sem reabrir a tela.
     _identificadorController.addListener(_liberarBloqueioAoEditar);
     _senhaController.addListener(_liberarBloqueioAoEditar);
+    _avisoDeSaida = widget.sessionController.consumirAvisoDeSaida();
   }
 
   @override
@@ -178,6 +180,10 @@ class _LoginPageState extends State<LoginPage> {
               const SizedBox(height: DesignTokens.space10),
               Text('Entrar', style: theme.displayTitle),
               const SizedBox(height: DesignTokens.space8),
+              if (_avisoDeSaida != null) ...<Widget>[
+                BannerAviso(variante: VarianteAviso.alerta, mensagem: _avisoDeSaida!),
+                const SizedBox(height: DesignTokens.space6),
+              ],
               if (_bannerErro != null) ...<Widget>[
                 BannerAviso(
                   variante: _bloqueado ? VarianteAviso.alerta : VarianteAviso.erro,

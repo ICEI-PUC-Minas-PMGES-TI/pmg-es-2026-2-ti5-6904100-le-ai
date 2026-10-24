@@ -47,6 +47,9 @@ Future<void> main() async {
     renovarSessao: renovarSessao,
   );
 
+  final progresso = DependenciasDeProgresso.padrao(leituraClient);
+  unawaited(progresso.sessao?.carregar());
+
   runApp(
     LeAiApp(
       themeController: themeController,
@@ -57,7 +60,7 @@ Future<void> main() async {
         renovarSessao: renovarSessao,
       ),
       estante: EstanteService(leituraClient),
-      progresso: DependenciasDeProgresso.padrao(leituraClient),
+      progresso: progresso,
     ),
   );
 }

@@ -38,6 +38,8 @@ class SessionController extends ChangeNotifier {
   bool _carregando = true;
   Future<bool>? _renovacaoEmCurso;
   AcessoDeRecuperacao? _recuperacao;
+  bool _saindoPorExpiracao = false;
+  String? _avisoDeSaida;
 
   SessionController(this.store);
 
@@ -135,6 +137,29 @@ class SessionController extends ChangeNotifier {
     }
   }
 
+  /// Verdadeiro só durante a saída forçada pela renovação recusada: quem ouve a saída sabe que a
+  /// pessoa não pediu para sair.
+  bool get saindoPorExpiracao => _saindoPorExpiracao;
+
+  /// Mensagem que a tela de entrada mostra para explicar uma saída que a pessoa não pediu.
+  void avisarSaida(String mensagem) => _avisoDeSaida = mensagem;
+
+  /// Devolve o aviso pendente e o apaga: a tela de entrada mostra cada aviso uma vez.
+  String? consumirAvisoDeSaida() {
+    final aviso = _avisoDeSaida;
+    _avisoDeSaida = null;
+    return aviso;
+  }
+
+  Future<void> _sairPorExpiracao() async {
+    _saindoPorExpiracao = true;
+    try {
+      await sair();
+    } finally {
+      _saindoPorExpiracao = false;
+    }
+  }
+
   /// Renova se [tokenQueFalhou] ainda é o token da sessão, chamando [chamada] com o token de
   /// renovação. Devolve se vale repetir a requisição que recebeu `401`. Chamadas simultâneas
   /// compartilham a mesma renovação.
@@ -158,7 +183,7 @@ class SessionController extends ChangeNotifier {
     }
     final refresh = _refreshToken;
     if (refresh == null) {
-      await sair();
+      await _sairPorExpiracao();
       return false;
     }
     try {
@@ -169,7 +194,7 @@ class SessionController extends ChangeNotifier {
       // 401 é token vencido, revogado ou reusado: a sessão acabou. Rede fora ou 5xx não é
       // motivo para deslogar; a chamada original devolve o erro dela.
       if (erro.status == 401) {
-        await sair();
+        await _sairPorExpiracao();
       }
       return false;
     }

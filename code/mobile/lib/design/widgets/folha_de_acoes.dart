@@ -25,9 +25,12 @@ Future<String?> escolherNaFolha(
   BuildContext context,
   List<AcaoDaFolha> acoes, {
   Widget? cabecalho,
+  String cancelar = 'Cancelar',
+  bool semMovimento = false,
 }) {
   return mostrarFolhaInferior<String>(
     context,
+    semMovimento: semMovimento,
     builder: (context) {
       final theme = Theme.of(context);
       return Column(
@@ -47,7 +50,7 @@ Future<String?> escolherNaFolha(
           ],
           const SizedBox(height: DesignTokens.space4),
           BotaoTextual(
-            texto: 'Cancelar',
+            texto: cancelar,
             neutro: true,
             larguraTotal: true,
             onPressed: () => Navigator.of(context).pop(),
