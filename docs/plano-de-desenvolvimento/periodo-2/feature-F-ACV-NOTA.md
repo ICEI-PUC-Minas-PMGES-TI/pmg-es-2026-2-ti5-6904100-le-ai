@@ -141,6 +141,17 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 ## Timeline
 
+### 24/10/2026: ajustes da revisão do PR #57 (Vicenzo)
+
+Quatro achados, todos reproduzidos pelo revisor e corrigidos com teste:
+
+- `6cb1720` **falha ao ler a resposta do Cloudinary:** a conexão que caía ou o timeout que disparava depois dos headers virava recusa e ACK, sem retentativa. Agora é indisponibilidade (retry e DLQ); só um corpo inteiro que não é o JSON esperado é recusa.
+- `44aa3d4` **download recusado deixava a conexão aberta:** os corpos descartados (redirecionamento, respostas recusadas, `Content-Length` acima do limite) agora são cancelados, e `baixarImagem` aborta a requisição em qualquer caminho.
+- `cd62364` **a nota dos leitores não acompanhava a nota do próprio leitor:** salvar, alterar ou remover a nota agenda recargas em silêncio dos indicadores (2, 6 e 15 s depois), na web e no app, trocando só as três notas e preservando as resenhas.
+- `c6fe26b` **barras do histograma sumiam no app com texto ampliado em tela estreita:** a linha empilha (rótulos em cima, trilha inteira embaixo) quando sobram menos de 64 dp para a trilha.
+
+Testes, todos passando: `acervo` com 386 unitários e 173 de integração; ingestão com 137; web com 1040; app com 891.
+
 ### 22 e 23/10/2026: implementação, testes e teste manual. Commits na `renato-features`, para o PR:
 
 - `fc2799b` **nota geral e nota dos leitores na página:** consumidor de `nota.alterada` com trava por livro, `backfill:notas`, `conta.excluida` com a mesma trava, os três campos da página; `NotasDoLivro` e `HistogramaDeNotas` na web e no app.
