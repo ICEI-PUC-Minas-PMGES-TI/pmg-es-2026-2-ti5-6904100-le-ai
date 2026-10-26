@@ -86,6 +86,29 @@ export class SerieDoLivroDto {
   numero!: number | null;
 }
 
+/** Indicador de nota da página: o valor de 0 a 5 e quantas avaliações o originaram. */
+export class NotaGeralDto {
+  @ApiProperty({ minimum: 0, maximum: 5, example: 4.3 }) valor!: number;
+  @ApiProperty({ type: 'integer', minimum: 1, example: 412 })
+  quantidade!: number;
+}
+
+export class NotaDosLeitoresDto {
+  @ApiProperty({
+    minimum: 0,
+    maximum: 5,
+    example: 4.2,
+    description: 'Média das notas dos leitores do app, com 1 casa.',
+  })
+  valor!: number;
+  @ApiProperty({ type: 'integer', minimum: 1 }) quantidade!: number;
+}
+
+export class FaixaDaDistribuicaoDto {
+  @ApiProperty({ minimum: 0, maximum: 5, multipleOf: 0.5 }) valor!: number;
+  @ApiProperty({ type: 'integer', minimum: 0 }) quantidade!: number;
+}
+
 /**
  * Página do livro oficial (RF-ACV-04). `resenhas` é `required` **e** `nullable`:
  * `null` quer dizer que os contratos de `leitura` ou `identidade` estão
@@ -107,6 +130,25 @@ export class LivroOficialDetalheDto extends LivroOficialResumoDto {
   serie!: SerieDoLivroDto | null;
   @ApiProperty({ pattern: '^97[89][0-9]{10}$' }) isbn!: string;
   @ApiProperty({ type: SinopseDto }) sinopse!: SinopseDto;
+  @ApiProperty({
+    type: NotaGeralDto,
+    nullable: true,
+    description:
+      'Nota da fonte externa (RF-ACV-15); null quando a fonte não tem nota.',
+  })
+  notaGeral!: NotaGeralDto | null;
+  @ApiProperty({
+    type: NotaDosLeitoresDto,
+    nullable: true,
+    description: 'Média dos leitores do app; null sem nenhuma nota.',
+  })
+  notaDosLeitores!: NotaDosLeitoresDto | null;
+  @ApiProperty({
+    type: [FaixaDaDistribuicaoDto],
+    description:
+      'As 11 faixas de 5 a 0 quando há nota dos leitores; vazia quando não há.',
+  })
+  distribuicao!: FaixaDaDistribuicaoDto[];
   @ApiProperty({ type: PaginaResenhasDto, nullable: true })
   resenhas!: PaginaResenhasDto | null;
 }

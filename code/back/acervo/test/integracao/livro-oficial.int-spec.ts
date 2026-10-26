@@ -131,6 +131,9 @@ describe('página do livro oficial (integração)', () => {
         serie: null,
         isbn: alvo,
         sinopse: { status: 'pendente', texto: null },
+        notaGeral: null,
+        notaDosLeitores: null,
+        distribuicao: [],
         resenhas: { itens: [], limit: 10, proximoCursor: null },
       });
       expect(await sinopse(id)).toBe('pendente');
@@ -288,6 +291,82 @@ describe('página do livro oficial (integração)', () => {
         .send({ isbn: novoIsbn() });
 
       expect(cadastro.status).toBe(202);
+    });
+  });
+
+  describe('nota geral e nota dos leitores (RF-ACV-16, RF-ACV-04)', () => {
+    async function notaGeral(id: string, valor: number, quantidade: number) {
+      await pool.query(
+        'UPDATE acervo.livro SET nota_geral = $2, nota_geral_qtd = $3 WHERE id = $1',
+        [id, valor, quantidade],
+      );
+    }
+
+    async function notas(id: string, valores: number[]) {
+      for (const valor of valores) {
+        await pool.query(
+          `INSERT INTO acervo.nota_leitor_projecao (usuario_id, livro_id, valor)
+           VALUES (gen_random_uuid(), $1, $2)`,
+          [id, valor],
+        );
+      }
+    }
+
+    const faixas = (quantidades: Record<number, number>) =>
+      [5, 4.5, 4, 3.5, 3, 2.5, 2, 1.5, 1, 0.5, 0].map((valor) => ({
+        valor,
+        quantidade: quantidades[valor] ?? 0,
+      }));
+
+    it('só a nota geral: sem nota dos leitores e sem distribuição (RN-06.1)', async () => {
+      const id = await inserirLivroOficial(pool, novoIsbn());
+      await notaGeral(id, 4.3, 412);
+
+      const { body } = await abrir(id);
+
+      expect(body).toMatchObject({
+        notaGeral: { valor: 4.3, quantidade: 412 },
+        notaDosLeitores: null,
+        distribuicao: [],
+      });
+    });
+
+    it('só a nota dos leitores: a contagem é a soma das 11 faixas', async () => {
+      const id = await inserirLivroOficial(pool, novoIsbn());
+      await notas(id, [5, 5, 4.5, 3, 0]);
+
+      const { body } = await abrir(id);
+
+      expect(body.notaGeral).toBeNull();
+      expect(body.notaDosLeitores).toEqual({ valor: 3.5, quantidade: 5 });
+      expect(body.distribuicao).toEqual(faixas({ 5: 2, 4.5: 1, 3: 1, 0: 1 }));
+      const soma = (body.distribuicao as { quantidade: number }[]).reduce(
+        (total, faixa) => total + faixa.quantidade,
+        0,
+      );
+      expect(soma).toBe(body.notaDosLeitores.quantidade);
+    });
+
+    it('as duas, separadas e nunca combinadas', async () => {
+      const id = await inserirLivroOficial(pool, novoIsbn());
+      await notaGeral(id, 3.9, 1);
+      await notas(id, [2]);
+
+      const { body } = await abrir(id);
+
+      expect(body.notaGeral).toEqual({ valor: 3.9, quantidade: 1 });
+      expect(body.notaDosLeitores).toEqual({ valor: 2, quantidade: 1 });
+      expect(body.distribuicao).toEqual(faixas({ 2: 1 }));
+    });
+
+    it('arredonda uma vez só, sobre os valores individuais (53 notas, soma 225: 4,2)', async () => {
+      const id = await inserirLivroOficial(pool, novoIsbn());
+      // 225 / 53 = 4,245…: pela média de 2 casas (4,25) daria 4,3.
+      await notas(id, [...Array<number>(50).fill(4.5), 0, 0, 0]);
+
+      const { body } = await abrir(id);
+
+      expect(body.notaDosLeitores).toEqual({ valor: 4.2, quantidade: 53 });
     });
   });
 

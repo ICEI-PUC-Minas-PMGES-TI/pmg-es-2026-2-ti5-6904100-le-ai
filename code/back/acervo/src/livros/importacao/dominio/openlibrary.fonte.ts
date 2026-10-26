@@ -1,7 +1,10 @@
+import { Logger } from '@nestjs/common';
 import {
   AutorExterno,
   FonteDeMetadados,
   MetadadosLivro,
+  NotaExterna,
+  notaExterna,
 } from './fonte-metadados';
 import { nomeDeAutorUtilizavel } from '../../../common/normalizacao';
 import { HttpExterno } from './http-externo';
@@ -43,10 +46,19 @@ interface EdicaoOpenLibrary {
 
 export class OpenLibraryFonte implements FonteDeMetadados {
   readonly nome = 'openlibrary';
+  private readonly logger = new Logger(OpenLibraryFonte.name);
 
+  /**
+   * `resilienciaDasNotas` é a política do `ratings.json` (F-ACV-NOTA): sem
+   * retentativa e com circuito próprio, para a nota nunca atrasar a importação
+   * nem abrir o circuito dela.
+   */
   constructor(
     private readonly http: HttpExterno,
     private readonly resiliencia: PoliticaDeResiliencia,
+    private readonly resilienciaDasNotas = new PoliticaDeResiliencia({
+      esperasMs: [],
+    }),
   ) {}
 
   async buscarPorIsbn(isbn13: string): Promise<MetadadosLivro | null> {
@@ -63,6 +75,7 @@ export class OpenLibraryFonte implements FonteDeMetadados {
     const capaId = (bruto.covers ?? []).find(
       (id) => typeof id === 'number' && id > 0,
     );
+    const olWorkKey = bruto.works?.[0]?.key?.split('/').pop() ?? null;
 
     return {
       isbn13,
@@ -76,8 +89,34 @@ export class OpenLibraryFonte implements FonteDeMetadados {
           : null,
       capaUrl: capaId ? CAPA.replace('{id}', String(capaId)) : null,
       olEditionKey: bruto.key?.split('/').pop() ?? null,
-      olWorkKey: bruto.works?.[0]?.key?.split('/').pop() ?? null,
+      olWorkKey,
+      notaGeral: await this.notaDaObra(olWorkKey),
     };
+  }
+
+  /**
+   * Nota geral da obra pelo `ratings.json` (RF-ACV-15). A chave é validada
+   * antes de virar caminho de URL (RNF-SEC-38). `average` nulo ou `count` zero
+   * é ausência. Qualquer falha é engolida e registrada: o livro entra sem nota,
+   * e a recarga do dump completa depois.
+   */
+  private async notaDaObra(
+    chaveObra: string | null,
+  ): Promise<NotaExterna | null> {
+    if (!chaveObra || !CHAVE_OBRA.test(chaveObra)) return null;
+    const url = new URL(`${BASE}/works/${chaveObra}/ratings.json`);
+    try {
+      const bruto = (await this.resilienciaDasNotas.executar(
+        `${this.nome}-notas`,
+        () => this.http.buscarJson(this.nome, url),
+      )) as { summary?: { average?: unknown; count?: unknown } } | null;
+      return notaExterna(bruto?.summary?.average, bruto?.summary?.count);
+    } catch (erro) {
+      this.logger.warn(
+        `Nota da obra ${chaveObra} indisponível; o livro entra sem nota: ${erro instanceof Error ? erro.message : String(erro)}`,
+      );
+      return null;
+    }
   }
 
   /**

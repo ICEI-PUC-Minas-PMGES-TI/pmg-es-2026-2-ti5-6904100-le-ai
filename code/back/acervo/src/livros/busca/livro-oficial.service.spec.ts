@@ -4,6 +4,7 @@ import type {
   LinhaDoLivroOficial,
   LivroOficialRepository,
 } from './livro-oficial.repository';
+import type { LinhaDaDistribuicao } from '../notas/notas-da-pagina';
 import { LivroOficialService } from './livro-oficial.service';
 import type { ResenhasRepository } from './resenhas.repository';
 
@@ -31,6 +32,8 @@ function livro(
     sinopse: null,
     sinopseStatus: 'nao_consultada',
     deveBuscarSinopse: true,
+    notaGeral: null,
+    notaGeralQtd: null,
     ...parcial,
   };
 }
@@ -43,10 +46,12 @@ describe('LivroOficialService', () => {
   function montar(
     transacao: jest.Mock,
     parcial: Partial<LinhaDoLivroOficial> = {},
+    distribuicao: LinhaDaDistribuicao[] = [],
   ) {
     const db = { transaction: transacao } as unknown as DrizzleDB;
     const livros = {
       obter: jest.fn().mockResolvedValue(livro(parcial)),
+      notasDosLeitores: jest.fn().mockResolvedValue(distribuicao),
     } as unknown as LivroOficialRepository;
     const resenhas = {
       pagina: jest.fn().mockResolvedValue({ itens: [], proximoCursor: null }),
@@ -99,5 +104,34 @@ describe('LivroOficialService', () => {
 
     expect(pagina.editoraId).toBeNull();
     expect(pagina.serie).toBeNull();
+  });
+
+  it('sem nenhuma nota, os dois indicadores são nulos e a distribuição é vazia (RN-06.3)', async () => {
+    const pagina = await montar(jest.fn(), {
+      deveBuscarSinopse: false,
+      sinopseStatus: 'ausente',
+    }).obter(ID, LEITOR);
+
+    expect(pagina.notaGeral).toBeNull();
+    expect(pagina.notaDosLeitores).toBeNull();
+    expect(pagina.distribuicao).toEqual([]);
+  });
+
+  it('nota geral e nota dos leitores saem separadas, com o numeric convertido', async () => {
+    const pagina = await montar(
+      jest.fn(),
+      {
+        deveBuscarSinopse: false,
+        sinopseStatus: 'ausente',
+        notaGeral: '4.3',
+        notaGeralQtd: 412,
+      },
+      [{ valor: '3.5', quantidade: 1, total: 1, media: '3.5' }],
+    ).obter(ID, LEITOR);
+
+    expect(pagina.notaGeral).toEqual({ valor: 4.3, quantidade: 412 });
+    expect(pagina.notaDosLeitores).toEqual({ valor: 3.5, quantidade: 1 });
+    expect(pagina.distribuicao).toHaveLength(11);
+    expect(pagina.distribuicao[3]).toEqual({ valor: 3.5, quantidade: 1 });
   });
 });

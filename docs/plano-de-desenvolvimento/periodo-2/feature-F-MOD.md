@@ -71,8 +71,8 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 (plano §10)
 
-- [ ] Código (backend `social` + remoção em `leitura`, web, mobile de denúncia) mergeado em `desenvolvimento`. Em revisão no PR da `renato-features`
-- [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)), a conferir no PR. Localmente, todas as suítes verdes
+- [x] Código (backend `social` + remoção em `leitura`, web, mobile de denúncia) mergeado em `desenvolvimento`: PR #55, aprovado pelo Vicenzo, mergeado em 22/10/2026 (`d561906`)
+- [x] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)): checks do PR #55 verdes
 - [x] Testes unitários e de integração com banco real/container: visibilidade do alvo, via RN-15 válida/forjada, autorização admin, remover comentário/resenha/frase, ocultação da atividade, arquivar, consultar auditoria e rate limiting (RNF-TST-02)
 - [x] Teste da remoção cross-service de resenha/frase cobre comando autorizado, idempotência e falha sem estado local falso (RNF-TST-02; RNF-TST-03 se o contrato aprovado for assíncrono)
 - [x] Testes web/mobile cobrem denúncia; web cobre painel/log admin; ambos tratam indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
@@ -105,7 +105,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
   - **Repetir a remoção de uma frase** que a moderação já removeu responde 204 de novo, sem outro log, por 24 horas; depois, ou se a autora a excluiu, 409.
   - **Componentes que nascem aqui** (card do conteúdo denunciado, denúncia em dois passos, bloco `Seu motivo`, destrutivo com ícone, estado indisponível, sheet sobre sheet, quinto item da sidebar, fila e detalhe, item da fila, etiqueta de tipo em outline, tabela de registro, estado de ação não confirmada) ficam para incorporar ao `documento-de-design.md`, sem edição de `docs/orquestador` aqui.
 - **Débitos:**
-  - **DES:** a F-MOD entra no DES no merge de fechamento do Período 2. Antes do deploy: `MODERACAO_TOKEN` (o mesmo valor) em `leai-leitura` e `leai-social` no painel do Render; `LEITURA_BASE_URL` já está no `render.yaml`. A migration do `social` roda no deploy.
+  - **DES:** a F-MOD entra no DES no merge de fechamento do Período 2, e a migration do `social` roda no deploy. Resolvidos em 22/10/2026: `MODERACAO_TOKEN` (o mesmo valor) em `leai-leitura` e `leai-social` no painel do Render, `LEITURA_BASE_URL` no `leai-social` e `social.denuncia` vazia no `le-ai-oregon`. Continuam abertos "Denúncia e moderação funcionam em DES" e "Fluxo funcionando em DES/HML", que dependem do deploy no merge de fechamento para a `main`.
   - **Notificações `RESENHA_CURTIDA`** continuam depois que a moderação remove a resenha; a notificação abre a página do livro, sem a resenha.
   - **Login do admin no teste manual:** a conta `admin` de dev existe com credencial que o Renato não tinha em mãos; o teste do painel usou um token assinado localmente com `papel=admin`. Trocar `ADMIN_PASSWORD` no `.env` local redefine a senha da conta compartilhada.
 - **Código de outras pessoas alterado** (registrado no `AGENTS.md` de cada serviço e cliente; avisar os donos no PR):
@@ -123,6 +123,13 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - Stack definida (arquitetura §2.1): `social` em Spring, `leitura` em NestJS.
 
 ## Timeline
+
+### 22/10/2026: merge na `desenvolvimento`
+
+- PR #55 aprovado pelo Vicenzo e mergeado às 22:16 (`d561906`), com os checks do PR verdes.
+- Antes do merge, `12c8b0c` atualizou dompurify, markdown-it, vite e vitest no front, pelo `npm audit`.
+- O `SeedIntegracaoTest.idempotente` do `identidade` falha só na CI (push de `da4e7fa`); passa localmente e é do dono do `identidade`.
+- Débitos de DES resolvidos: `MODERACAO_TOKEN`, `LEITURA_BASE_URL` e a `social.denuncia` vazia no `le-ai-oregon`.
 
 ### 18 a 21/10/2026: implementação, testes e teste manual. Quatro commits na `renato-features`, mais o merge da `desenvolvimento` (F-EST-2), para o PR:
 

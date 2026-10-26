@@ -36,6 +36,9 @@ export function livroOficial(extras: Partial<LivroOficialDetalhe> = {}): LivroOf
     isbn: '9788588808911',
     sinopse: { status: 'disponivel', texto: 'Bibiana e Belonísia crescem no interior da Bahia.' },
     resenhas: paginaDeResenhas([]),
+    notaGeral: null,
+    notaDosLeitores: null,
+    distribuicao: [],
     ...extras,
   }
 }

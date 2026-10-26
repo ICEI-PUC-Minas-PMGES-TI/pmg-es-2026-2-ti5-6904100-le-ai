@@ -596,6 +596,81 @@ def gravar_biografias(conexao, biografias: list[tuple[str, str]]) -> int:
         return cursor.rowcount
 
 
+def obras_do_acervo(conexao) -> set[str]:
+    """`ol_work_key` dos livros oficiais, para o subcomando `notas` filtrar o dump."""
+    with conexao.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT DISTINCT ol_work_key FROM acervo.livro
+             WHERE tipo = 'oficial' AND ol_work_key IS NOT NULL
+            """
+        )
+        return {linha[0] for linha in cursor.fetchall()}
+
+
+def gravar_notas_gerais(conexao, notas: dict) -> dict:
+    """Grava a nota geral por obra (F-ACV-NOTA, RF-ACV-15) numa transação.
+
+    `COPY` para staging e dois `UPDATE`, no molde de `gravar_biografias`:
+
+    - a nota da obra é replicada em todas as edições oficiais do `ol_work_key`
+      (RN-06.6), inclusive no livro importado por ISBN: a nota externa é da
+      fonte e é refeita a cada recarga, ao contrário da biografia, que nunca é
+      sobrescrita;
+    - a edição com `ol_work_key` cuja obra saiu do dump perde a nota.
+
+    `atualizado_em` não muda: ele é o relógio da sinopse. Quem chama faz o
+    commit. Devolve quantas edições mudaram em cada `UPDATE`.
+    """
+    with conexao.cursor() as cursor:
+        cursor.execute(
+            "CREATE TEMP TABLE stg_nota_geral "
+            "(ol_work_key text PRIMARY KEY, nota numeric(2,1), quantidade integer) ON COMMIT DROP"
+        )
+        _copiar(
+            cursor,
+            "stg_nota_geral",
+            ["ol_work_key", "nota", "quantidade"],
+            ((obra, nota, quantidade) for obra, (nota, quantidade) in notas.items()),
+        )
+        cursor.execute(
+            """
+            UPDATE acervo.livro l
+               SET nota_geral = s.nota, nota_geral_qtd = s.quantidade
+              FROM stg_nota_geral s
+             WHERE l.tipo = 'oficial' AND l.ol_work_key = s.ol_work_key
+               AND (l.nota_geral IS DISTINCT FROM s.nota
+                    OR l.nota_geral_qtd IS DISTINCT FROM s.quantidade)
+            """
+        )
+        atualizadas = cursor.rowcount
+        cursor.execute(
+            """
+            UPDATE acervo.livro l
+               SET nota_geral = NULL, nota_geral_qtd = NULL
+             WHERE l.tipo = 'oficial' AND l.ol_work_key IS NOT NULL
+               AND l.nota_geral IS NOT NULL
+               AND NOT EXISTS (
+                 SELECT 1 FROM stg_nota_geral s WHERE s.ol_work_key = l.ol_work_key
+               )
+            """
+        )
+        limpas = cursor.rowcount
+        cursor.execute(
+            """
+            SELECT count(*), count(*) FILTER (WHERE nota_geral IS NOT NULL)
+              FROM acervo.livro WHERE tipo = 'oficial'
+            """
+        )
+        oficiais, com_nota = cursor.fetchone()
+    return {
+        "edicoes_atualizadas": atualizadas,
+        "edicoes_limpas": limpas,
+        "edicoes_oficiais": oficiais,
+        "edicoes_com_nota": com_nota,
+    }
+
+
 def medir_armazenamento(conexao) -> list[tuple[str, int, int]]:
     """Tamanho de dados e de índice por tabela do schema `acervo`.
 

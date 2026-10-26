@@ -10,6 +10,8 @@ import MenuDeAcoes from '../../components/ui/MenuDeAcoes.vue'
 import BlocoSuaAvaliacao from '../../components/livros/BlocoSuaAvaliacao.vue'
 import CapaLivro from '../../components/livros/CapaLivro.vue'
 import CardResenha from '../../components/livros/CardResenha.vue'
+import HistogramaDeNotas from '../../components/livros/HistogramaDeNotas.vue'
+import NotasDoLivro from '../../components/livros/NotasDoLivro.vue'
 import SecaoFrases from '../../components/livros/SecaoFrases.vue'
 import DenunciaDeConteudo from '../../components/moderacao/DenunciaDeConteudo.vue'
 import DialogoRecomendar from '../../components/recomendacoes/DialogoRecomendar.vue'
@@ -39,11 +41,16 @@ import type { ResenhaDoLivro } from '../../services/acervo'
  * - F-ACV-DESCOBERTA: na ficha, autor, editora e série levam às páginas de catálogo (o número da
  *   série fica fora do link), e `Assuntos`, depois da sinopse, leva ao Descobrir filtrado. O autor
  *   do título não vira link.
+ * - F-ACV-NOTA: `Nota geral` e `Nota dos leitores`, com o histograma quando há nota dos leitores,
+ *   ficam logo abaixo da barra de ação abaixo de 1024px e logo abaixo do título a partir dele
+ *   (`lg:-order-1` na coluna da direita), antes de "Sua avaliação".
  */
 const route = useRoute()
 const router = useRouter()
 const pagina = useLivroOficial()
-const minhaAvaliacao = useMinhaAvaliacao()
+// A nota do leitor chega aos indicadores do `acervo` de forma assíncrona: cada escrita dela agenda
+// a recarga em silêncio das notas, sem tocar nas resenhas já carregadas.
+const minhaAvaliacao = useMinhaAvaliacao({ aoAlterarNota: () => pagina.recarregarNotas() })
 const {
   estado,
   coldStart,
@@ -204,6 +211,11 @@ function voltar(): void {
         <div class="h-[18px] w-[45%] rounded-sm bg-capa-placeholder" />
         <div class="mt-space-6 h-12 w-full rounded-full bg-capa-placeholder lg:hidden" />
         <div class="h-12 w-full rounded-full bg-capa-placeholder lg:hidden" />
+        <!-- Na forma do container de notas (pagina-do-livro.md §4.10). -->
+        <div
+          class="mt-space-3 h-[104px] w-full rounded-md bg-capa-placeholder md:max-w-[480px] lg:mt-space-5"
+          data-esqueleto-das-notas
+        />
         <p
           v-if="coldStart"
           class="mt-space-3 text-caption text-grafite"
@@ -352,8 +364,25 @@ function voltar(): void {
             Recomendar a um leitor
           </BotaoSecundario>
         </div>
+        <!-- F-ACV-NOTA (pagina-do-livro.md §4.1 C e §4.12): abaixo de 1024px, depois da barra de ação
+             (mesmo `order` dela, pela ordem do DOM); a partir de 1024px, primeira da coluna, `space-8`
+             abaixo do título. Até 480px de largura a partir de 768px. -->
+        <div
+          class="order-3 mt-space-6 w-full md:mx-auto md:max-w-[480px] lg:-order-1 lg:mx-0 lg:mt-space-8"
+          data-secao-de-notas
+        >
+          <NotasDoLivro
+            :nota-geral="livro.notaGeral"
+            :nota-dos-leitores="livro.notaDosLeitores"
+          />
+          <HistogramaDeNotas
+            v-if="livro.notaDosLeitores"
+            class="mt-space-4"
+            :distribuicao="livro.distribuicao"
+          />
+        </div>
         <BlocoSuaAvaliacao
-          class="order-3 mt-space-8 lg:order-none"
+          class="order-3 mt-space-6 lg:order-none lg:mt-space-8"
           :avaliacao="minhaAvaliacao"
           :livro="livroAvaliado"
           :rota-do-editor="rotaDoEditor"

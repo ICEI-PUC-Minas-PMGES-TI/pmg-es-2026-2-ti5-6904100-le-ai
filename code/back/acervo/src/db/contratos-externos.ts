@@ -1,6 +1,7 @@
 import {
   bigint,
   boolean,
+  integer,
   numeric,
   pgSchema,
   text,
@@ -73,6 +74,19 @@ export const vSeguimentoAceito = identidade
   .view('v_seguimento_aceito_v1', {
     seguidorId: uuid('seguidor_id'),
     seguidoId: uuid('seguido_id'),
+  })
+  .existing();
+
+/**
+ * F-EST. Estante de cada leitor, para o backfill do cache de capas oficiais
+ * (F-ACV-NOTA, RN-14): os livros que já estão em alguma estante.
+ */
+export const vEstantePublica = leitura
+  .view('v_estante_publica_v1', {
+    usuarioId: uuid('usuario_id'),
+    livroId: uuid('livro_id'),
+    status: text('status'),
+    vezesLido: integer('vezes_lido'),
   })
   .existing();
 

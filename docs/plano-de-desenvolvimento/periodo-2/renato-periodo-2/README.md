@@ -41,23 +41,26 @@ Para levar ao grupo:
 - avisar o Kayke, o Vicenzo e o Henrique do código deles que a feature alterou (lista na feature);
 - duas observações do teste manual: o `acervo` cai quando o Neon fecha uma conexão ociosa (Vicenzo) e, no app, o perfil aberto pelo feed não mostra resenhas nem estante (Kayke).
 
-### 4. F-MOD — Moderação — concluída em 21/10/2026, em revisão no PR
+### 4. F-MOD — Moderação — concluída em 21/10/2026, mergeada em 22/10/2026 pelo PR #55
 
-Plano em [`plano-F-MOD.md`](plano-F-MOD.md); status, decisões, divergências e débitos em [`../feature-F-MOD.md`](../feature-F-MOD.md). Quatro commits na `renato-features`, com a `desenvolvimento` integrada, e PR para a `desenvolvimento` (a partir da F-MOD, a entrega é por PR, revisado por um colega).
+Plano em [`plano-F-MOD.md`](plano-F-MOD.md); status, decisões, divergências e débitos em [`../feature-F-MOD.md`](../feature-F-MOD.md). Quatro commits na `renato-features`, com a `desenvolvimento` integrada, e PR para a `desenvolvimento` (a partir da F-MOD, a entrega é por PR, revisado por um colega). O Vicenzo aprovou, e o merge entrou às 22:16 de 22/10 (`d561906`).
 
 Para levar ao grupo:
 
 - avisar o Henrique, o Kayke e o Vicenzo do código deles que a feature alterou (lista na feature);
-- antes do merge de fechamento: `MODERACAO_TOKEN` em `leai-leitura` e `leai-social` no Render;
 - as tabelas novas da F-MOD (colunas novas em `denuncia` e `log_moderacao`) já estão no consumidor de `conta.excluida` do `social`.
 
-### 5. F-ACV-NOTA — Nota geral e cache de capas
+Resolvido em 22/10: `MODERACAO_TOKEN` em `leai-leitura` e `leai-social` no Render.
+
+### 5. F-ACV-NOTA — Nota geral e cache de capas — concluída em 23/10/2026, em revisão no PR
+
+Plano em [`plano-F-ACV-NOTA.md`](plano-F-ACV-NOTA.md), de 22/10/2026, revisado no mesmo dia; status, decisões, divergências e débitos em [`../feature-F-ACV-NOTA.md`](../feature-F-ACV-NOTA.md). Quatro commits de código na `renato-features` e PR para a `desenvolvimento`. Os passos do DES (os dois backfills e o `notas` no `le-ai-oregon`) ficam para depois do merge de fechamento.
 
 É independente das outras duas e fica por último de propósito: se o período apertar, o [README do período](../README.md#alternativas-se-o-peso-ficar-torto) prevê devolvê-la ao Vicenzo. A F-ACV-DESCOBERTA já está na `desenvolvimento`; os campos de nota entram no mesmo `LivroOficialDetalhe` que ela ampliou (aviso nas Pendências de [`../feature-F-ACV-NOTA.md`](../feature-F-ACV-NOTA.md#pendências)). Pré-requisitos externos: conta e configuração do Cloudinary (P-09) e o formato concreto do `ol_dump_ratings`.
 
-### 6. Tabelas para a matriz de remoção da F-CONTA-2
+### 6. Tabelas para a matriz de remoção da F-CONTA-2 — concluído em 23/10/2026
 
-A [F-CONTA-2](../feature-F-CONTA-2.md) já foi entregue, e o consumidor de `conta.excluida` do `leitura` já remove `reacao_resenha` e `frase`. A F-AVA-2 não criou tabela nova (a VIEW `v_reacao_resenha_v1` não guarda dados). As colunas novas da F-MOD já entraram no consumidor do `social` (feito na própria F-MOD). Falta avisar ao Henrique as tabelas da F-ACV-NOTA, quando existirem.
+A [F-CONTA-2](../feature-F-CONTA-2.md) já foi entregue, e o consumidor de `conta.excluida` do `leitura` já remove `reacao_resenha` e `frase`. A F-AVA-2 não criou tabela nova (a VIEW `v_reacao_resenha_v1` não guarda dados). As colunas novas da F-MOD já entraram no consumidor do `social` (feito na própria F-MOD). A F-ACV-NOTA não criou tabela nova: `nota_leitor_projecao` e `nota_livro_agregada` já estão no consumidor, e a cópia própria da capa oficial é catálogo. Henrique avisado no PR.
 
 ### Fora da sequência
 

@@ -13,6 +13,8 @@ info:
     conforme RNF-ARQ-03. No Período 2, F-ACV-DESCOBERTA acrescentou os filtros
     avançados de GET /livros, as páginas de autor, editora e série e os campos
     de série e editora da página do livro, implementados em 02/10/2026.
+    F-ACV-NOTA acrescentou à página a nota geral, a nota dos leitores e a
+    distribuição das notas dos leitores.
 x-contract-status: implemented
 x-implementation-notes:
   - >-
@@ -58,7 +60,20 @@ x-implementation-notes:
     migration do leitura que cria essa VIEW não rodar, as resenhas seguem o
     comportamento acima: null na página e 503 na listagem; a resenhaDoDono sai
     null.
-x-implemented-features: [F-ACV-CADASTRO, F-ACV-BUSCA, F-ACV-INGESTAO, F-ACV-DESCOBERTA]
+  - >-
+    nota.alterada é consumido desde F-ACV-NOTA pelo consumidor acervo.notas
+    (fila leai.acervo.notas, na exchange leai.events.leitura), que ignora o
+    valor do evento, relê leitura.v_nota_publicacao_v1 e leva a
+    nota_leitor_projecao e a nota_livro_agregada ao estado atual. O backfill
+    `npm run backfill:notas` roda depois de o serviço subir em cada ambiente,
+    porque evento publicado antes de a fila existir se perde.
+  - >-
+    O cache de capas oficiais (F-ACV-NOTA) consome livro.adicionado_a_estante e
+    leitura.iniciada na fila leai.acervo.capas, e só é registrado com
+    CLOUDINARY_API_KEY e CLOUDINARY_API_SECRET. O backfill `npm run
+    backfill:capas` lê leitura.v_estante_publica_v1 e roda depois de o serviço
+    subir em cada ambiente.
+x-implemented-features: [F-ACV-CADASTRO, F-ACV-BUSCA, F-ACV-INGESTAO, F-ACV-DESCOBERTA, F-ACV-NOTA]
 x-database-contracts:
   - name: v_livro_referencia_v1
     owner: acervo
@@ -252,8 +267,7 @@ paths:
         resposta normal, não erro. A primeira página traz até 10 resenhas de
         outros leitores (RF-ACV-04): a do próprio solicitante não entra. Quando
         os contratos de leitura ou identidade estão indisponíveis, resenhas vem
-        null e a página abre mesmo assim. Nota geral, nota dos leitores e
-        distribuição não fazem parte deste contrato do Período 1. A rota tem
+        null e a página abre mesmo assim. A rota tem
         rate limiting por identidade e IP, porque a abertura dispara consulta a
         fonte externa.
 
@@ -262,6 +276,13 @@ paths:
         id de cada autor já vem em `autores`. Cada assunto em `assuntos` é
         acionável como filtro: o cliente leva o `id` a GET /livros?assunto=<id>
         (RF-ACV-21, RN-21).
+
+        F-ACV-NOTA acrescenta `notaGeral`, `notaDosLeitores` e `distribuicao`
+        (RF-ACV-15, RF-ACV-16, RF-ACV-04). Os dois indicadores são distintos e
+        nunca combinados; cada um vem null quando ausente, nunca zero (RN-06).
+        A nota dos leitores e a distribuição são calculadas numa consulta só
+        sobre a projeção individual, com a média arredondada uma vez, a 1 casa;
+        a contagem é sempre a soma das faixas.
       parameters:
         - $ref: '#/components/parameters/LivroId'
       responses:
@@ -849,7 +870,14 @@ components:
       type: object
       additionalProperties: false
       required: [origem]
-      description: Resolução na ordem cópia própria, URL externa e placeholder.
+      description: >-
+        Resolução na ordem cópia própria, URL externa e placeholder (RN-14.4).
+        Desde F-ACV-NOTA, a cópia própria do livro oficial é gravada pelo cache
+        de capas na primeira vez que o livro entra numa estante (ou tem uma
+        leitura iniciada): o servidor baixa a capa externa, valida a imagem e a
+        envia ao Cloudinary em `<pasta>/<livroId>`. Até lá, e quando a origem
+        falha, a origem é `externa`. A capa de livro pessoal continua sendo a do
+        dono.
       properties:
         url: { type: string, format: uri, nullable: true }
         origem: { type: string, enum: [propria, externa, placeholder] }
@@ -940,10 +968,10 @@ components:
       type: object
       additionalProperties: false
       description: >-
-        Os campos de LivroOficialResumo mais editoraId, série, ISBN, sinopse e a
-        primeira página de resenhas. Declarado por extenso, e não como allOf, porque o resumo tem
+        Os campos de LivroOficialResumo mais editoraId, série, ISBN, sinopse,
+        as notas e a primeira página de resenhas. Declarado por extenso, e não como allOf, porque o resumo tem
         additionalProperties false e recusaria os campos a mais.
-      required: [id, titulo, autores, editora, editoraId, anoPublicacao, paginas, capa, assuntos, serie, isbn, sinopse, resenhas]
+      required: [id, titulo, autores, editora, editoraId, anoPublicacao, paginas, capa, assuntos, serie, isbn, sinopse, notaGeral, notaDosLeitores, distribuicao, resenhas]
       properties:
         id: { type: string, format: uuid }
         titulo: { type: string, minLength: 1, maxLength: 500 }
@@ -980,6 +1008,28 @@ components:
           pattern: '^97[89][0-9]{10}$'
           example: '9788535914849'
         sinopse: { $ref: '#/components/schemas/Sinopse' }
+        notaGeral:
+          allOf:
+            - $ref: '#/components/schemas/NotaDoLivro'
+          nullable: true
+          description: >-
+            Nota da fonte externa e quantas avaliações a originaram (RF-ACV-15),
+            somente leitura; null quando a fonte não tem nota.
+        notaDosLeitores:
+          allOf:
+            - $ref: '#/components/schemas/NotaDoLivro'
+          nullable: true
+          description: >-
+            Média das notas dos leitores do app, arredondada a 1 casa, e quantos
+            leitores deram nota (RF-ACV-16); null sem nenhuma nota.
+        distribuicao:
+          type: array
+          description: >-
+            Distribuição das notas dos leitores (RF-ACV-04): as 11 faixas de 5 a
+            0, de meia em meia estrela, quando há nota dos leitores; vazia
+            quando não há. A soma das quantidades é notaDosLeitores.quantidade.
+          maxItems: 11
+          items: { $ref: '#/components/schemas/FaixaDaDistribuicao' }
         resenhas:
           allOf:
             - $ref: '#/components/schemas/PaginaResenhas'
@@ -987,6 +1037,20 @@ components:
           description: >-
             null quando os contratos de leitura ou identidade estão
             indisponíveis; a página abre mesmo assim.
+    NotaDoLivro:
+      type: object
+      additionalProperties: false
+      required: [valor, quantidade]
+      properties:
+        valor: { type: number, minimum: 0, maximum: 5, example: 4.3 }
+        quantidade: { type: integer, minimum: 1, example: 412 }
+    FaixaDaDistribuicao:
+      type: object
+      additionalProperties: false
+      required: [valor, quantidade]
+      properties:
+        valor: { type: number, minimum: 0, maximum: 5, multipleOf: 0.5 }
+        quantidade: { type: integer, minimum: 0 }
     SerieDoLivro:
       type: object
       additionalProperties: false

@@ -10,6 +10,9 @@ Quatro subcomandos, na ordem em que se usa:
 `biografias` roda depois da carga, quando quiser (F-ACV-DESCOBERTA): preenche a
 biografia dos autores já carregados a partir do dump de autores (RF-ACV-10).
 
+`notas` roda depois da carga, a cada recarga (F-ACV-NOTA): grava a nota geral
+das obras do acervo a partir do dump de avaliações (RF-ACV-15).
+
 `unificar` é manutenção: junta autores, editoras e séries duplicados (autor
 cadastrado duas vezes na fonte, nome decomposto em NFD). Roda depois da carga e
 pode rodar de novo sem efeito.
@@ -27,6 +30,7 @@ from pathlib import Path
 
 from . import carga as carga_mod
 from . import execucao as execucao_mod
+from . import notas as notas_mod
 from . import pipeline
 from .dados import (
     DIRETORIO_PADRAO,
@@ -207,6 +211,45 @@ def comando_biografias(args) -> int:
     return 0
 
 
+def comando_notas(args) -> int:
+    """Grava a nota geral das obras do acervo a partir do `ol_dump_ratings`.
+
+    Lê as obras do acervo antes do dump, e só elas vão ao staging. Reexecutar
+    com o mesmo dump não muda nada; com um dump novo, a nota acompanha a fonte e
+    sai da edição cuja obra deixou o dump. Não grava `ingestao_execucao`.
+    """
+    with carga_mod.conectar(_url_do_banco(args)) as conexao:
+        obras = carga_mod.obras_do_acervo(conexao)
+        resumo = notas_mod.agregar(args.arquivo, obras)
+        gravacao = carga_mod.gravar_notas_gerais(conexao, resumo.notas)
+        if args.dry_run:
+            conexao.rollback()
+        else:
+            conexao.commit()
+
+    quantidades = sorted(q for _, q in resumo.notas.values())
+    oficiais = gravacao["edicoes_oficiais"]
+    print(
+        json.dumps(
+            {
+                "linhas_lidas": resumo.lidas,
+                "linhas_descartadas": resumo.descartadas,
+                "obras_no_dump": resumo.obras_no_dump,
+                "obras_no_acervo": len(obras),
+                "obras_do_acervo_com_nota": len(resumo.notas),
+                "mediana_de_avaliacoes": quantidades[len(quantidades) // 2] if quantidades else None,
+                "obras_com_uma_avaliacao": sum(1 for q in quantidades if q == 1),
+                **gravacao,
+                "cobertura": round(100 * gravacao["edicoes_com_nota"] / oficiais, 1) if oficiais else None,
+                "simulacao": args.dry_run,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+    return 0
+
+
 def comando_unificar(args) -> int:
     """Junta autores, editoras e séries duplicados numa transação só."""
     try:
@@ -286,6 +329,19 @@ def construir_parser() -> argparse.ArgumentParser:
         help="lê o dump e grava numa transação desfeita no fim, só para ver os números",
     )
     p.set_defaults(func=comando_biografias)
+
+    p = sub.add_parser(
+        "notas",
+        help="grava a nota geral das obras do acervo, a partir do dump de avaliações",
+    )
+    p.add_argument("--database-url")
+    p.add_argument("--arquivo", type=Path, required=True, help="ol_dump_ratings (.txt ou .txt.gz)")
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="grava numa transação desfeita no fim, só para ver os números",
+    )
+    p.set_defaults(func=comando_notas)
 
     p = sub.add_parser(
         "unificar",

@@ -432,4 +432,57 @@ describe('consumo de livro.importacao_solicitada (integração)', () => {
     expect(await contar(pool, 'acervo.mensagem_processada')).toBe(0);
     expect(broker.nacks).toHaveLength(1);
   });
+  describe('nota geral na inserção (F-ACV-NOTA)', () => {
+    async function notaDoLivro(livroId: string | null) {
+      const { rows } = await pool.query(
+        'SELECT nota_geral::float AS valor, nota_geral_qtd AS quantidade FROM acervo.livro WHERE id = $1',
+        [livroId],
+      );
+      return rows[0] as { valor: number | null; quantidade: number | null };
+    }
+
+    it('grava a nota e a contagem que a fonte trouxe', async () => {
+      const alvo = isbn('978655692031');
+      fontes[0].buscarPorIsbn.mockResolvedValue(
+        metadados(alvo, { notaGeral: { valor: 4.3, quantidade: 412 } }),
+      );
+      const id = await solicitar(alvo);
+
+      await publicarEConsumir();
+
+      const final = await importacao(id);
+      expect(final.estado).toBe('concluida');
+      expect(await notaDoLivro(final.livro_id)).toEqual({
+        valor: 4.3,
+        quantidade: 412,
+      });
+    });
+
+    it('sem nota na fonte ou com nota fora da faixa, o livro entra sem nota', async () => {
+      const [semNota, foraDaFaixa] = [
+        isbn('978655692048'),
+        isbn('978655692055'),
+      ];
+      fontes[0].buscarPorIsbn.mockImplementation(async (isbn13: string) =>
+        isbn13 === semNota
+          ? metadados(isbn13, { olWorkKey: 'OL2W' })
+          : metadados(isbn13, {
+              olWorkKey: 'OL3W',
+              notaGeral: { valor: 9, quantidade: 3 },
+            }),
+      );
+      const ids = [await solicitar(semNota), await solicitar(foraDaFaixa)];
+
+      await publicarEConsumir();
+
+      for (const id of ids) {
+        const final = await importacao(id);
+        expect(final.estado).toBe('concluida');
+        expect(await notaDoLivro(final.livro_id)).toEqual({
+          valor: null,
+          quantidade: null,
+        });
+      }
+    });
+  });
 });

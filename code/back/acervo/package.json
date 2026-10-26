@@ -20,7 +20,9 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "ts-node src/db/migrate.ts",
     "db:seed": "ts-node src/db/seed.ts",
-    "test:integration": "jest --config test/integracao/jest-integracao.json --runInBand"
+    "test:integration": "jest --config test/integracao/jest-integracao.json --runInBand",
+    "backfill:notas": "ts-node src/livros/notas/backfill.ts",
+    "backfill:capas": "ts-node src/livros/capas/backfill.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
@@ -37,13 +39,14 @@
     "dotenv": "^16.4.5",
     "drizzle-orm": "^0.45.2",
     "helmet": "^8.0.0",
+    "image-size": "2.0.4",
     "jsonwebtoken": "^9.0.2",
     "nestjs-pino": "^4.4.0",
     "pg": "^8.13.0",
     "pino-http": "^10.0.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "zod": "^3.24.0"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",

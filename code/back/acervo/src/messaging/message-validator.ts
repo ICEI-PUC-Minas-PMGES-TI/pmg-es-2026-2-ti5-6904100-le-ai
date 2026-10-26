@@ -2,6 +2,7 @@ import { type ErrorObject, type ValidateFunction } from 'ajv';
 import Ajv2020 from 'ajv/dist/2020';
 import addFormats from 'ajv-formats';
 import type { ConsumeMessage } from 'amqplib';
+import commonSchema from './schemas/common-v1.schema.json';
 import envelopeSchema from './schemas/envelope-v1.schema.json';
 import pingSchema from './schemas/ping.teste.v1.schema.json';
 
@@ -32,6 +33,12 @@ export class MessageValidator {
   constructor() {
     this.ajv = new Ajv2020({ allErrors: true, strict: false });
     addFormats(this.ajv);
+    // Eventos do `leitura` (como `leitura.iniciada`, consumido pelo cache de
+    // capas) referenciam `UsuarioSnapshot` e `LivroSnapshot` por
+    // `$ref: "common-v1.schema.json#/$defs/..."`. O `$ref` é relativo ao `$id`
+    // do schema do evento e resolve para o `$id` do common, registrado aqui uma
+    // vez, como no validador do `leitura`.
+    this.ajv.addSchema(commonSchema);
     this.envelope = this.ajv.compile(envelopeSchema);
     this.registerDataSchema('ping.teste', 1, pingSchema);
   }

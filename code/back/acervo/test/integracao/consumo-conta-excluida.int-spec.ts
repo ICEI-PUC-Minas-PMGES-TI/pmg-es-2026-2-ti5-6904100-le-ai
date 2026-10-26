@@ -4,6 +4,7 @@ import type { Pool } from 'pg';
 import * as schema from '../../src/db/schema';
 import { ContaExcluidaConsumer } from '../../src/conta/conta-excluida.consumer';
 import type { RemocaoDeAsset } from '../../src/conta/remocao-de-asset';
+import { NotaDosLeitoresRepository } from '../../src/livros/notas/nota-dos-leitores.repository';
 import { MessageValidator } from '../../src/messaging/message-validator';
 import { EXCHANGES } from '../../src/messaging/messaging.constants';
 import { BrokerEmMemoria } from './broker-em-memoria';
@@ -41,6 +42,7 @@ describe('consumo de conta.excluida (integração)', () => {
       consumidor,
       validador,
       remocao as unknown as RemocaoDeAsset,
+      new NotaDosLeitoresRepository(),
     ).onModuleInit();
     consumidor.onModuleInit();
     await new Promise<void>((resolve) => setImmediate(resolve));
