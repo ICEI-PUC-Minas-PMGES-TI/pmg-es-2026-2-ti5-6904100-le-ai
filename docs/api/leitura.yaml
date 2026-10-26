@@ -44,8 +44,9 @@ x-database-contracts:
   - name: v_nota_publicacao_v1
     x-implementation-status: implemented
     description: >-
-      Projeção para nota do dono de livro pessoal e para backfill futuro. A
-      projeção incremental do acervo usa o evento nota.alterada.
+      Projeção para nota do dono de livro pessoal e para a nota dos leitores
+      do livro oficial. O acervo a relê no consumidor de nota.alterada (o
+      evento só avisa que a nota mudou) e no backfill:notas.
     columns: [usuario_id, livro_id, valor]
 servers:
   - url: http://localhost:3001
