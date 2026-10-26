@@ -70,13 +70,13 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 (plano §10)
 
-- [ ] Código (backend `acervo` + consumidores + import, web, mobile) mergeado em `desenvolvimento`
-- [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
+- [x] Código (backend `acervo` + consumidores + import, web, mobile) mergeado em `desenvolvimento` (PR #57, 25/10/2026)
+- [x] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
 - [x] Testes unitários e de integração com banco real/container: criação/edição/exclusão e evento fora de ordem na projeção individual/agregada, cache único, backfills, import/normalização e indicadores ausentes (RNF-TST-02)
 - [x] Testes assíncronos: consumo de `nota.alterada` e `livro.adicionado_a_estante` com entrega duplicada, backfill precedendo o incremento, falha de download reprocessável e DLQ (RNF-TST-03)
 - [x] Testes web/mobile cobrem indicadores distintos, distribuição, ausência sem zero e cold start (RNF-TST-04/05/06)
 - [x] **Spec OpenAPI de `acervo` atualizado em `docs/api/acervo.yaml`** com indicadores e distribuição na página do livro; `v_livro_referencia_v1` reflete a capa resolvida
-- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
+- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)). Débito do merge de fechamento
 - [x] Arquivo da feature atualizado: status, pendências, timeline
 - [x] Divergência protótipo × implementação registrada, se houver
 
@@ -140,6 +140,10 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - Stack de `acervo` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
 ## Timeline
+
+### 25/10/2026: PR #57 aprovado e mergeado na `desenvolvimento`
+
+Aprovado pelo Vicenzo na terceira revisão, com a CI verde, e mergeado. A issue #20 fica em `Em revisão (PR)` no projeto até o aval dos professores. Falta o fluxo em DES, com os backfills, depois do merge de fechamento na `main`.
 
 ### 25/10/2026: segunda revisão do PR #57 (Vicenzo)
 
