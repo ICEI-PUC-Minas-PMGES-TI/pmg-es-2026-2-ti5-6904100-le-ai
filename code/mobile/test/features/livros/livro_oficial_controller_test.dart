@@ -88,7 +88,7 @@ void main() {
     return controller;
   }
 
-  testWidgets('recarregarNotas reconsulta em 2 s, 6 s e 15 s, e para', (
+  testWidgets('recarregarNotas reconsulta em 2, 6, 15, 25 e 40 s, e para', (
     tester,
   ) async {
     final controller = await montar(
@@ -107,9 +107,36 @@ void main() {
     expect(consultas, 3);
     await tester.pump(const Duration(seconds: 9));
     expect(consultas, 4);
+    await tester.pump(const Duration(seconds: 10));
+    expect(consultas, 5);
+    await tester.pump(const Duration(seconds: 15));
+    expect(consultas, 6);
     await tester.pump(const Duration(minutes: 1));
-    expect(consultas, 4);
+    expect(consultas, 6);
   });
+
+  testWidgets(
+    'a nota que só converge na última retentativa do consumidor (~21 s) ainda chega',
+    (tester) async {
+      var convergiu = false;
+      final controller = await montar(
+        tester,
+        inicial: _livro(),
+        depois: () async =>
+            json(convergiu ? _comANotaDoLeitor() : _livro(), 200),
+      );
+
+      controller.recarregarNotas();
+      await tester.pump(const Duration(seconds: 21));
+      expect(consultas, 4);
+      expect(controller.livro!.notaDosLeitores, isNull);
+
+      convergiu = true;
+      await tester.pump(const Duration(minutes: 1));
+      expect(controller.livro!.notaDosLeitores?.valor, 5);
+      expect(controller.livro!.distribuicao, hasLength(11));
+    },
+  );
 
   testWidgets(
     'a recarga troca só as três notas: resenhas, cursor e sinopse ficam',
@@ -151,7 +178,7 @@ void main() {
         'Bibiana e Belonísia crescem no interior da Bahia.',
       );
       expect(livro.resenhas?.itens.single.id, 'r1');
-      await tester.pump(const Duration(seconds: 15));
+      await tester.pump(const Duration(minutes: 1));
     },
   );
 
@@ -171,7 +198,7 @@ void main() {
     expect(controller.livro!.notaDosLeitores, isNull);
     expect(controller.livro!.distribuicao, isEmpty);
     expect(controller.livro!.notaGeral?.valor, 4.3);
-    await tester.pump(const Duration(seconds: 15));
+    await tester.pump(const Duration(minutes: 1));
   });
 
   testWidgets(
@@ -201,7 +228,7 @@ void main() {
 
       expect(controller.livro!.notaDosLeitores?.valor, 5);
       expect(avisos, 1);
-      await tester.pump(const Duration(seconds: 15));
+      await tester.pump(const Duration(minutes: 1));
     },
   );
 
@@ -218,7 +245,7 @@ void main() {
 
     controller.recarregarNotas();
     controller.dispose();
-    await tester.pump(const Duration(seconds: 20));
+    await tester.pump(const Duration(minutes: 1));
 
     expect(consultas, 1);
   });
@@ -245,6 +272,6 @@ void main() {
     await tester.pump(const Duration(seconds: 9));
     expect(consultas, 5);
     await tester.pump(const Duration(minutes: 1));
-    expect(consultas, 5);
+    expect(consultas, 7);
   });
 }

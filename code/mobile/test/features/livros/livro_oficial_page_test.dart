@@ -931,7 +931,7 @@ void main() {
       expect(find.text('A terra.'), findsOneWidget);
 
       // As reconsultas param depois da última espera.
-      await tester.pump(const Duration(seconds: 15));
+      await tester.pump(const Duration(seconds: 40));
       final consultas = consultasDaPagina();
       await tester.pump(const Duration(minutes: 1));
       expect(consultasDaPagina(), consultas);

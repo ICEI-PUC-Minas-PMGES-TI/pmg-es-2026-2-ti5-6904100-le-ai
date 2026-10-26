@@ -141,6 +141,13 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 ## Timeline
 
+### 25/10/2026: segunda revisão do PR #57 (Vicenzo)
+
+Três achados confirmados como corrigidos; a recarga da nota dos leitores pedia dois ajustes, ambos corrigidos com teste:
+
+- **Respostas fora de ordem na web:** uma consulta da mesma rodada que terminava depois de uma mais nova devolvia a nota de antes da escrita. As consultas agora são numeradas e a resposta mais antiga que a última aplicada é descartada, como o app já fazia.
+- **A recarga terminava antes da última retentativa do consumidor:** com a outbox da `leitura` (1 s) e as retentativas do `acervo` (1, 5 e 15 s), a última tentativa começa uns 22 s depois da escrita, e a última consulta era aos 15 s. As esperas passam a 2, 6, 15, 25 e 40 s, na web e no app.
+
 ### 24/10/2026: ajustes da revisão do PR #57 (Vicenzo)
 
 Quatro achados, todos reproduzidos pelo revisor e corrigidos com teste:

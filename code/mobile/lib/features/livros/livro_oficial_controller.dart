@@ -35,12 +35,16 @@ class LivroOficialController extends ChangeNotifier {
   ];
   static const Duration limiteDoColdStart = Duration(seconds: 3);
 
-  /// Quando reconsultar as notas, contado da escrita: o consumo costuma levar poucos segundos e,
-  /// com as retentativas do consumidor, até uns 20 s.
+  /// Quando reconsultar as notas, contado da escrita: o consumo costuma levar poucos segundos. Com
+  /// as retentativas do consumidor (1, 5 e 15 s, em sequência) e a outbox da `leitura` (1 s), a
+  /// última tentativa começa uns 22 s depois da escrita; 25 s cobre o caso normal dela e 40 s, uma
+  /// tentativa lenta.
   static const List<Duration> esperasDasNotas = <Duration>[
     Duration(seconds: 2),
     Duration(seconds: 6),
     Duration(seconds: 15),
+    Duration(seconds: 25),
+    Duration(seconds: 40),
   ];
 
   final AcervoService _servico;

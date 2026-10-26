@@ -16,9 +16,11 @@ export const ESPERAS_DA_SINOPSE_MS = [2_000, 3_000, 5_000, 8_000, 13_000, 20_000
 /**
  * Quando reconsultar os indicadores depois de o leitor salvar, alterar ou remover a própria nota,
  * contado da escrita. O `acervo` consome `nota.alterada` de forma assíncrona: normalmente em
- * poucos segundos, e até uns 20 s com as retentativas do broker.
+ * poucos segundos. Com as retentativas do consumidor (1, 5 e 15 s, em sequência) e a outbox da
+ * `leitura` (1 s), a última tentativa começa uns 22 s depois da escrita; 25 s cobre o caso normal
+ * dela e 40 s, uma tentativa lenta.
  */
-export const RECARGAS_DAS_NOTAS_MS = [2_000, 6_000, 15_000]
+export const RECARGAS_DAS_NOTAS_MS = [2_000, 6_000, 15_000, 25_000, 40_000]
 const LIMITE_DO_COLD_START_MS = 3_000
 
 export interface OpcoesDaPagina {
@@ -66,6 +68,8 @@ export function useLivroOficial(opcoes: OpcoesDaPagina = {}) {
   let limiteDoColdStart: ReturnType<typeof setTimeout> | undefined
   let recargasDasNotas: ReturnType<typeof setTimeout>[] = []
   let rodadaDasNotas = 0
+  let consultasDasNotas = 0
+  let ultimaConsultaAplicada = 0
 
   const temMaisResenhas = computed(() => proximoCursor.value !== null)
 
@@ -210,12 +214,15 @@ export function useLivroOficial(opcoes: OpcoesDaPagina = {}) {
   }
 
   async function consultarNotas(minha: number, rodada: number): Promise<void> {
+    const consulta = ++consultasDasNotas
     try {
       const detalhe = await servico.obterLivroOficial(livroId)
       const atual = livro.value
-      if (minha !== geracao || rodada !== rodadaDasNotas || !atual) {
+      // Uma resposta mais antiga que chega depois de uma mais nova não volta a nota para trás.
+      if (minha !== geracao || rodada !== rodadaDasNotas || !atual || consulta < ultimaConsultaAplicada) {
         return
       }
+      ultimaConsultaAplicada = consulta
       const { notaGeral, notaDosLeitores, distribuicao } = detalhe
       livro.value = { ...atual, notaGeral, notaDosLeitores, distribuicao }
     } catch (erro) {

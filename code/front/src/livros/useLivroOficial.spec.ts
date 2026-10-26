@@ -255,7 +255,7 @@ describe('useLivroOficial', () => {
       distribuicao: [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0].map((quantidade, indice) => ({ valor: 5 - indice * 0.5, quantidade })),
     }
 
-    it('reconsulta em 2, 6 e 15 s depois da escrita e para', async () => {
+    it('reconsulta em 2, 6, 15, 25 e 40 s depois da escrita e para', async () => {
       const servico = servicoFalso()
       const pagina = useLivroOficial({ servico })
       await pagina.carregar('livro-1')
@@ -269,9 +269,49 @@ describe('useLivroOficial', () => {
       expect(servico.obterLivroOficial).toHaveBeenCalledTimes(3)
       await vi.advanceTimersByTimeAsync(9_000)
       expect(servico.obterLivroOficial).toHaveBeenCalledTimes(4)
+      await vi.advanceTimersByTimeAsync(10_000)
+      expect(servico.obterLivroOficial).toHaveBeenCalledTimes(5)
+      await vi.advanceTimersByTimeAsync(15_000)
+      expect(servico.obterLivroOficial).toHaveBeenCalledTimes(6)
       expect(servico.obterLivroOficial).toHaveBeenLastCalledWith('livro-1')
       await vi.advanceTimersByTimeAsync(60_000)
+      expect(servico.obterLivroOficial).toHaveBeenCalledTimes(6)
+    })
+
+    it('a nota que só converge na última retentativa do consumidor (~21 s) ainda chega', async () => {
+      const servico = servicoFalso()
+      const pagina = useLivroOficial({ servico })
+      await pagina.carregar('livro-1')
+
+      pagina.recarregarNotas()
+      await vi.advanceTimersByTimeAsync(21_000)
       expect(servico.obterLivroOficial).toHaveBeenCalledTimes(4)
+      expect(pagina.livro.value?.notaDosLeitores).toBeNull()
+
+      servico.obterLivroOficial.mockResolvedValue(livroOficial(comNota))
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(pagina.livro.value?.notaDosLeitores).toEqual(comNota.notaDosLeitores)
+      expect(pagina.livro.value?.distribuicao).toEqual(comNota.distribuicao)
+    })
+
+    it('uma consulta da mesma rodada que chega depois de uma mais nova é descartada', async () => {
+      const servico = servicoFalso()
+      const pagina = useLivroOficial({ servico })
+      await pagina.carregar('livro-1')
+      let responderPrimeira: (valor: ReturnType<typeof livroOficial>) => void = () => undefined
+      servico.obterLivroOficial
+        .mockImplementationOnce(() => new Promise((resolver) => (responderPrimeira = resolver)))
+        .mockResolvedValue(livroOficial(comNota))
+
+      pagina.recarregarNotas()
+      await vi.advanceTimersByTimeAsync(15_000)
+      expect(pagina.livro.value?.notaDosLeitores).toEqual(comNota.notaDosLeitores)
+
+      // A de 2 s, com o estado de antes da escrita, termina depois da de 6 e 15 s.
+      responderPrimeira(livroOficial())
+      await vi.advanceTimersByTimeAsync(0)
+      expect(pagina.livro.value?.notaDosLeitores).toEqual(comNota.notaDosLeitores)
+      expect(pagina.livro.value?.distribuicao).toEqual(comNota.distribuicao)
     })
 
     it('troca só as notas e a distribuição, sem mexer em resenhas, sinopse nem estado', async () => {
@@ -377,7 +417,7 @@ describe('useLivroOficial', () => {
       await vi.advanceTimersByTimeAsync(1)
       expect(servico.obterLivroOficial).toHaveBeenCalledTimes(3)
       await vi.advanceTimersByTimeAsync(60_000)
-      expect(servico.obterLivroOficial).toHaveBeenCalledTimes(5)
+      expect(servico.obterLivroOficial).toHaveBeenCalledTimes(7)
     })
   })
 
