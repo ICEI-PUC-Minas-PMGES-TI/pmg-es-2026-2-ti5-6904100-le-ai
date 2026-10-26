@@ -142,8 +142,8 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 (plano §10)
 
-- [ ] Código (backend `leitura`, mobile) mergeado em `desenvolvimento`
-- [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
+- [x] Código (backend `leitura`, mobile) mergeado em `desenvolvimento` — PR #49, 10/10/2026
+- [x] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)): `ci-back-leitura` e `ci-mobile` verdes na `desenvolvimento` (última execução de cada um até 25/10/2026)
 - [x] Testes unitários e de integração com banco real/container: janelas por data local, criação no meio da janela, finalizados, vários desafios, múltiplas pausas na janela corrente, recálculo, propriedade e idempotência (RNF-TST-02)
 - [x] Testes assíncronos cobrem backfill, consumo duplicado, retentativa e DLQ (RNF-TST-02/03)
 - [x] Testes mobile cobrem estado dos desafios e indisponibilidade/timeout com API simulada (RNF-TST-04/06)
@@ -168,6 +168,10 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - Stack de `leitura` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
 ## Timeline
+
+### 25/10/2026: status atualizado por Renato Douglas
+
+DoD de merge e CI marcados: código na `desenvolvimento` pelo PR #49 (10/10/2026), com `ci-back-leitura` e `ci-mobile` verdes. Sem mudança de escopo ou decisão.
 
 ### Review 10/10/2026: ajustes do review do Henrique no PR #49.
 - Corrigidos: a edição com troca de fuso entre dias diferentes, que descartava por um dia e criava por outro; o `DELETE` sem a trava do leitor; e a chave de idempotência do formulário (criar e editar) sem o fuso.

@@ -58,10 +58,10 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 (plano §10)
 
-- [ ] Código (backend `social`, mobile) mergeado em `desenvolvimento`
-- [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
-- [ ] Testes automatizados: autenticação/autorização, expiração do token, destinatário correto e não lidas; mobile: renovação, reconexão, fallback e sincronização sem duplicar (RNF-TST-02, RNF-TST-04 e RNF-TST-06)
-- [ ] **Spec OpenAPI de `social`** — o endpoint de tempo real (handshake/rota do canal) documentado em `docs/api/social.yaml` no que for expressável; o protocolo do canal (WS/SSE) descrito junto
+- [x] Código (backend `social`, mobile) mergeado em `desenvolvimento` — merge direto da branch `Eman134/F-NOT-2`, 03/10/2026
+- [x] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)): `ci-back-social` e `ci-mobile` verdes na `desenvolvimento` (última execução de cada um até 25/10/2026)
+- [x] Testes automatizados: autenticação/autorização, expiração do token, destinatário correto e não lidas; mobile: renovação, reconexão, fallback e sincronização sem duplicar (RNF-TST-02, RNF-TST-04 e RNF-TST-06) — `NotificacaoControllerIntegracaoTest` (no CI com Postgres), `canal_de_notificacoes_test.dart`, `notificacoes_page_test.dart` e `api_client_test.dart`
+- [x] **Spec OpenAPI de `social`** — o endpoint de tempo real (handshake/rota do canal) documentado em `docs/api/social.yaml` no que for expressável; o protocolo do canal (WS/SSE) descrito junto. `GET /notificacoes/tempo-real` como `implemented`, com o SSE descrito
 - [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)) — **web N/A** (notificações fora do escopo web, §2.1); justificativa registrada aqui em vez de remover o item
 - [ ] Arquivo da feature atualizado: status, pendências, timeline
 - [ ] Divergência protótipo × implementação registrada, se houver
@@ -91,3 +91,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 ### Revisão 29/08/2026: o canal foi alinhado ao token curto de F-AUT: encerra na expiração e reutiliza refresh/reconexão do cliente, sem token em URL e sem sessão paralela. Backplane continua fora do escopo de instância única.
 
 ### Dono 29/09/2026: feature atribuída a **Kayke** na [divisão do Período 2](README.md#divisão-do-período-2-entre-5-pessoas).
+
+### 25/10/2026: status atualizado por Renato Douglas
+
+DoD de merge, CI, testes e spec marcados: código na `desenvolvimento` (merge da `Eman134/F-NOT-2`, 03/10/2026), CI verde, testes de backend e mobile no repositório e rota `implemented` no `social.yaml`. Sem mudança de escopo ou decisão.

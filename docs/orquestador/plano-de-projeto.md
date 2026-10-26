@@ -47,6 +47,8 @@ A faculdade impõe a estrutura de alto nível do repositório. Neste repositóri
 │   ├── diagramas/                  # fontes .mmd dos diagramas (Mermaid)
 │   ├── imagens/                    # figuras renderizadas (.png) dos documentos da disciplina
 │   ├── evidencias/                 # evidências (avaliação heurística etc.)
+│   ├── design/                     # prompts de tela e protótipos por período (+ AGENTS.md)
+│   ├── design-system/              # tokens.json e casos compartilhados entre as stacks
 │   ├── api/                        # specs OpenAPI: um .yaml por serviço (ver §8)
 │   ├── mensageria/                 # catálogo e JSON Schemas dos eventos (ver §8)
 │   ├── plano-de-desenvolvimento/       # features por período (ver §9) — FORA do orquestrador
@@ -59,6 +61,8 @@ A faculdade impõe a estrutura de alto nível do repositório. Neste repositóri
 ├── code/                           # código (ver AGENTS.md raiz §4)
 │   ├── mobile/                     # + AGENTS.md
 │   ├── front/                      # + AGENTS.md
+│   ├── scripts/
+│   │   └── ingestao/               # carga do dump OpenLibrary (Python) + AGENTS.md
 │   └── back/
 │       ├── identidade/             # + AGENTS.md
 │       ├── acervo/                 # + AGENTS.md
@@ -70,7 +74,7 @@ A faculdade impõe a estrutura de alto nível do repositório. Neste repositóri
 └── divulge/                        # apresentação e vídeo
 ```
 
-> O `docs/orquestador/documento-de-design.md` especifica o design system. Os tokens planejados ficam em `docs/design-system/`, e sua criação pertence ao período-0. Os **prompts de tela e os protótipos** ficam em `docs/design/`, agrupados por período e por feature, com as convenções de escrita em `docs/design/AGENTS.md`. As **fontes dos diagramas** (`.mmd`) ficam em `docs/diagramas/`, e `docs/imagens/` guarda as **figuras renderizadas** (`.png`) que os documentos da disciplina referenciam — fonte e figura andam em par: quem edita um `.mmd` regenera o `.png` correspondente na mesma passada (`mmdc -i docs/diagramas/<nome>.mmd -o docs/imagens/<nome>.png -b white -s 3`).
+> O `docs/orquestador/documento-de-design.md` especifica o design system. Os tokens ficam em `docs/design-system/tokens.json`, criado no período-0 (P0-DS). Os **prompts de tela e os protótipos** ficam em `docs/design/`, agrupados por período e por feature, com as convenções de escrita em `docs/design/AGENTS.md`. As **fontes dos diagramas** (`.mmd`) ficam em `docs/diagramas/`, e `docs/imagens/` guarda as **figuras renderizadas** (`.png`) que os documentos da disciplina referenciam — fonte e figura andam em par: quem edita um `.mmd` regenera o `.png` correspondente na mesma passada (`mmdc -i docs/diagramas/<nome>.mmd -o docs/imagens/<nome>.png -b white -s 3`).
 
 Regras:
 
@@ -220,14 +224,14 @@ desenvolvimento  ──►  main  ──►  tag vX.Y.Z
 Regras de merge:
 
 - Commit direto em `desenvolvimento` é o padrão. Como a divisão é vertical (§6), os arquivos alterados por cada pessoa são majoritariamente diferentes e o conflito é raro.
-- **`desenvolvimento` → `main` sempre por PR, com CI verde.** É o único portão obrigatório do fluxo, e é o que garante que o ambiente de DES nunca fique quebrado. Review formal não é exigido; quem estiver de plantão faz o merge.
+- **`desenvolvimento` → `main` sempre por PR, com CI verde e uma aprovação.** São os portões do fluxo, e é o que garante que o ambiente de DES nunca fique quebrado. A proteção da `main` impõe a aprovação de outra pessoa do grupo; o CI verde é combinado do grupo, porque a proteção não exige checks. Com os dois, quem estiver de plantão faz o merge.
 - Ninguém commita direto em `main`.
 - Se você quebrou a `desenvolvimento`, conserta ou reverte antes de sair — os outros 4 estão em cima dela.
 - `git pull --rebase` antes de começar a trabalhar e antes de subir. Com todo mundo na mesma branch, isso mantém o histórico legível e evita merge commit a cada push.
 - Commits em Conventional Commits: `feat:`, `fix:`, `docs:`, `chore:`, `test:`, `refactor:`. Isso alimenta o relatório de contribuição semanal (§12) quase sem trabalho extra.
 - **Migrations:** nome com timestamp, e cada feature só cria migration das tabelas do serviço que ela mexe. Migration é sempre revisada por humano antes de subir — é o único ponto onde o custo de um erro do agente é alto.
 
-CI deve filtrar por caminho: mudança em `code/front/` não roda o pipeline do Flutter, e mudança em `docs/` não roda nada. Sem isso o pipeline fica lento e o grupo começa a ignorar.
+CI deve filtrar por caminho: mudança em `code/front/` não roda o pipeline do Flutter, e mudança em `docs/` não roda nada, salvo os contratos que o código consome (`docs/mensageria/schemas/**`, `docs/api/identidade.yaml` e `docs/design-system/markdown-resenha-casos.json` disparam a CI dos serviços e clientes que os leem). Sem isso o pipeline fica lento e o grupo começa a ignorar.
 
 ---
 
@@ -376,7 +380,7 @@ Feature específica pode acrescentar itens no próprio arquivo. Nunca remover de
 
 ## 11. Design system
 
-O `docs/orquestador/documento-de-design.md` especifica os tokens como valores neutros — paleta, escala tipográfica, espaçamento, raio, elevação — e **não** como classes de framework. A feature P0-DS materializa esses valores em `docs/design-system/tokens.json`, que será a fonte canônica consumida pelas duas stacks.
+O `docs/orquestador/documento-de-design.md` especifica os tokens como valores neutros — paleta, escala tipográfica, espaçamento, raio, elevação — e **não** como classes de framework. A feature P0-DS materializou esses valores em `docs/design-system/tokens.json`, a fonte canônica consumida pelas duas stacks.
 
 Motivo: o design system será implementado duas vezes (na stack web e no `ThemeData` do Flutter). Se os tokens forem neutros, o agente traduz para os dois lados sem divergir. Se forem classes CSS, mobile e web derivam.
 

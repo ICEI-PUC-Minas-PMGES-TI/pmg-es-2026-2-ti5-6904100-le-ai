@@ -72,11 +72,11 @@ Contrato completo em [`docs/api/social.yaml`](../../api/social.yaml) (tag `lista
 
 (plano §10)
 
-- [ ] Código (backend `social`, web, mobile) mergeado em `desenvolvimento`
-- [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
+- [x] Código (backend `social`, web, mobile) mergeado em `desenvolvimento` — commits diretos (05 a 07/10/2026) e PRs #50 (11/10/2026) e #51 (12/10/2026)
+- [x] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)): `ci-back-social`, `ci-back-acervo`, `ci-front` e `ci-mobile` verdes na `desenvolvimento` (última execução de cada um até 25/10/2026)
 - [ ] Testes unitários e de integração com banco real/container: CRUD/propriedade, reordenação atômica, paginação de itens, RN-08, livro pessoal do próprio dono, via lista e idempotência (RNF-TST-02)
 - [ ] Testes web/mobile cobrem reordenação, listas de perfil privado e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
-- [ ] **Spec OpenAPI de `social` atualizado em `docs/api/social.yaml`** com listas/itens e a VIEW `v_lista_livro_pessoal_v1` documentada como contrato
+- [x] **Spec OpenAPI de `social` atualizado em `docs/api/social.yaml`** com listas/itens e a VIEW `v_lista_livro_pessoal_v1` documentada como contrato — as 10 rotas e a VIEW como `implemented`
 - [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
 - [ ] Arquivo da feature atualizado: status, pendências, timeline
 - [ ] Divergência protótipo × implementação registrada, se houver
@@ -285,3 +285,7 @@ Roda depois do merge de `desenvolvimento` para `main` e do deploy no Render. Fec
 ### Revisão visual 11/10/2026: web conferida com capturas (Chrome headless, 1440 e 390 px) e mobile no emulador (Pixel 8), contra os serviços locais e o banco de dev, com três contas de teste (`rev_a_45jsbg` privada com duas listas, `rev_b_45jsbg` seguidora, `rev_c_45jsbg` sem seguir). Web: cinco divergências aceitas e uma corrigida. A folha de ações do item, abaixo de 768px, não dizia de qual livro era; ganhou o cabeçalho com capa, título, autor e `Posição N de M`, como no app, por um slot opcional `cabecalho` na `FolhaAcoes` (componente compartilhado; quem não usa o slot não muda), com teste em `ListaView.spec.ts`. Mobile: reordenar por gesto, menu do item com cabeçalho e bloco de restrição conferidos e aceitos; RN-08 (C vê o bloco, B vê as listas) e RN-15 pela lista (B abre o livro pessoal de A em modo consulta) funcionando. Na árvore de acessibilidade do emulador, `Mais ações`, `Ações de <livro>` e o cartão de lista aparecem acionáveis; a alça de reordenar não aparece como acionável porque só tem as ações de subir e descer, que o `uiautomator` não lista. Ficam para a próxima passada no app: fade ao remover, volta ao excluir a lista, card do formulário e texto do livro pessoal indisponível.
 
 ### Revisão no app, fechamento 11/10/2026: as quatro divergências do mobile que faltavam, conferidas no Pixel 8 com as contas de teste, aceitas como registradas. Remover tira a linha na hora, sem fade, já com contagem e posições novas. Excluir a lista aberta pela seção do perfil volta ao Meu perfil com `Lista excluída.`. `Criar lista` a partir do livro abre o formulário em tela cheia, sobre a barra e sem sino, com o card só com título e autor. B tocando o livro pessoal de A numa lista já aberta, depois de A excluir o livro, vê `Este livro não está mais disponível` com o texto novo e `Voltar à lista`. Com isso não sobra divergência de protótipo em aberto na F-LST.
+
+### 25/10/2026: status atualizado por Renato Douglas
+
+DoD de merge, CI e spec marcados: código na `desenvolvimento` por commits diretos e PRs #50 e #51, CI verde e rotas `implemented` no `social.yaml`. Testes seguem desmarcados: no log do `ci-back-social`, o `ListaControllerIntegracaoTest` aparece com 0 testes executados (os casos estão em classes `@Nested`), e web e mobile não têm teste explícito de timeout. Sem mudança de escopo ou decisão.

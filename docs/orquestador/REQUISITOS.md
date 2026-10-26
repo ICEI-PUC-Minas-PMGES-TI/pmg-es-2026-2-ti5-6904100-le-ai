@@ -1,8 +1,8 @@
 # REQUISITOS
 
-**Versão:** v1.8 — 29/09/2026
+**Versão:** v1.9 — 22/10/2026
 **Baseline:** fechada em 25/08/2026
-**Status:** baseline fechada — público-alvo ampliado para leitores adultos em 29/09/2026 (ver Timeline)
+**Status:** baseline fechada — última alteração em 22/10/2026, sessão cronometrada e saída da conta (ver Timeline)
 
 Este documento é a **fonte de verdade** do projeto. Toda decisão de produto, modelo de dados e regra de negócio mora aqui. Arquivos de feature, specs OpenAPI, diagramas e código derivam deste documento — nunca o contrário.
 

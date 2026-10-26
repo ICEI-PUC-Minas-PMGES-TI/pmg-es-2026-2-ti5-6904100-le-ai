@@ -92,7 +92,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [ ] Testes assíncronos de integração cobrem os oito bindings e schemas v1, destinatário, atomicidade efeito+recibo, ACK pós-commit, duplicação por `eventId`, duplicação semântica por `businessKey`, novo ciclo de inatividade, rejeição imediata de mensagem inválida, retry 1/5/15 e `leai.social.notificacoes.dlq` (RNF-TST-03). *Falta só o retry 1/5/15 e um teste dedicado de ACK pós-commit, ambos do runtime compartilhado de P0-MSG.*
 - [x] Mobile testa estado, paginação, ação de abandonar e indisponibilidade/timeout com API simulada (RNF-TST-04/06)
 - [x] **Spec OpenAPI de `social` atualizado em `docs/api/social.yaml`** com os endpoints de notificação
-- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)) — **web N/A** (notificações fora do escopo web, §2.1); justificativa registrada aqui em vez de remover o item. O mobile entra no merge de fechamento do Período 1: a `main` só recebe o período fechado, e o DES sobe da `main`; não é pendência da feature
+- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)) — **web N/A** (notificações fora do escopo web, §2.1); justificativa registrada aqui em vez de remover o item. O mobile entra no merge de fechamento do Período 1: a `main` só recebe o período fechado, e o DES sobe da `main`; não é pendência da feature. O merge entrou em 29/09/2026 (PR #45, tag `v0.1.0`); a validação em DES ainda não foi registrada.
 - [x] Arquivo da feature atualizado: status, pendências, timeline
 - [x] Divergência protótipo × implementação registrada, se houver
 
@@ -143,6 +143,10 @@ Fonte no código: `notificacao/model/EventoDeNotificacao.java` (uma linha por ev
 - Stack de `social` definida: **Spring (Java)** (arquitetura §2.1).
 
 ## Timeline
+
+### 25/10/2026: status atualizado por Renato Douglas
+
+DoD de DES: registrado que o merge de fechamento entrou em 29/09/2026 (PR #45, tag `v0.1.0`); a validação em DES segue sem registro. Sem mudança de escopo ou decisão.
 
 ### Correção 29/09/2026: as notificações do mobile deixam de ficar empilhadas na aba de origem e abrem e fecham sem animação. Trocar de aba pela barra inferior, ou abrir uma notificação de destino em outra aba, fecha a tela antes, e a aba volta à tela que estava por baixo. Testes de roteador cobrindo a raiz, a sub-tela, o destino em outra aba, o fechamento em dois quadros, a abertura sem transição e a seta de voltar.
 

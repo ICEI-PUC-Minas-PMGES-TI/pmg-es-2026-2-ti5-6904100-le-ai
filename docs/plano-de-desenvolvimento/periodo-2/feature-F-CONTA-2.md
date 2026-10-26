@@ -71,12 +71,12 @@ Cada consumidor é **idempotente** (RNF-ERR-06) e com **DLQ** (RNF-ERR-07); a me
 
 (plano §10)
 
-- [ ] Código (backend `identidade` + consumidores em `leitura`/`social`/`acervo`, web, mobile) mergeado em `desenvolvimento`
-- [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
-- [ ] Testes unitários e de integração: prazo, ocultação, login restrito, cancelamento, username/e-mail reservados, job vencido, recibo sem PII, inventário por schema e invalidação de sessão
+- [x] Código (backend `identidade` + consumidores em `leitura`/`social`/`acervo`, web, mobile) mergeado em `desenvolvimento` — commits diretos (07 e 08/10/2026) e PRs #48 (08/10/2026) e #51 (12/10/2026)
+- [x] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)): `ci-back-identidade`, `ci-back-leitura`, `ci-back-social`, `ci-back-acervo`, `ci-front` e `ci-mobile` verdes na `desenvolvimento` (última execução de cada um até 25/10/2026)
+- [x] Testes unitários e de integração: prazo, ocultação, login restrito, cancelamento, username/e-mail reservados, job vencido, recibo sem PII, inventário por schema e invalidação de sessão — `ExclusaoDeContaIntegracaoTest` e as guardas de exclusão dos quatro serviços, no CI
 - [ ] Testes assíncronos do fan-out: publicação, consumo idempotente, entrega duplicada e DLQ em cada serviço consumidor (RNF-TST-03)
 - [ ] Testes web/mobile cobrem confirmação, login restrito, cancelamento, limpeza de sessão/secure storage e indisponibilidade/timeout (RNF-TST-04/05/06)
-- [ ] **Spec OpenAPI de `identidade` atualizado** com solicitar/cancelar exclusão e endpoint interno do job; schema de `conta.excluida` documentado
+- [x] **Spec OpenAPI de `identidade` atualizado** com solicitar/cancelar exclusão e endpoint interno do job; schema de `conta.excluida` documentado — operações `implemented` em `docs/api/identidade.yaml`; schema em `docs/mensageria/schemas/conta.excluida.v1.schema.json`
 - [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
 - [ ] Arquivo da feature atualizado: status, pendências, timeline
 - [ ] Divergência protótipo × implementação registrada, se houver
@@ -411,3 +411,7 @@ A conferência no emulador fica pendente: esta máquina não tem o Android SDK. 
 ### Roteiros 11/10/2026: escritos em Plano de implementação o roteiro da revisão visual da web (as cinco divergências em Pendências) e o de validação em DES, com a massa nos quatro serviços, o SQL que antecipa o prazo no Neon de DES respeitando os CHECKs de +30 dias e o disparo manual do job. Rodam depois do merge para `main`; nenhum foi executado ainda.
 
 ### Revisão visual 11/10/2026: conferidas com capturas, contra os serviços locais e o banco de dev, as cinco divergências da web, com três contas de teste criadas para isso (`rev_a_45jsbg` privada, `rev_b_45jsbg` seguidora, `rev_c_45jsbg` sem seguir; senha fora do repositório). Todas aceitas como registradas: tela empilhada, confirmação com foco em `Cancelar`, checkbox nativo, consequência sem e-mail e acesso de recuperação só em memória (recarregar `/conta/recuperar` leva ao login; `Exclusão solicitada` sobrevive ao recarregar). **Uma correção:** sem o e-mail, a frase dizia `@username continuam ligados a esta conta e não podem ser usados`; passou ao singular (`continua ligado … não pode ser usado`) na web e no app, com teste nos dois. Web 874 testes e mobile 749 verdes.
+
+### 25/10/2026: status atualizado por Renato Douglas
+
+DoD marcado onde há evidência: merge (commits diretos e PRs #48 e #51), CI verde, testes de integração e spec. Seguem desmarcados os testes assíncronos (o `social` não tem teste de DLQ de `conta.excluida`) e os de web/mobile (o mobile não testa a limpeza da sessão e do secure storage no `202`). Sem mudança de escopo ou decisão.

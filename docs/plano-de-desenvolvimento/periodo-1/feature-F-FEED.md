@@ -90,7 +90,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [ ] Testes assíncronos de integração cobrem os seis bindings de entrada, envelope e schemas v1 canônicos, snapshots, exclusão/recriação de resenha, atomicidade efeito+recibo, reentrega do mesmo `eventId`, duplicação semântica, ACK pós-commit, retry 1/5/15 e `leai.social.feed.dlq`; publicação testa outbox atômica e os três eventos de notificação (RNF-TST-03)
 - [x] Testes web/mobile cobrem paginação, interações, link de livro pessoal e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
 - [x] **Spec OpenAPI de `social` atualizado em `docs/api/social.yaml`** com feed/curtidas/comentários
-- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)) — entra no merge de fechamento do Período 1: a `main` só recebe o período fechado, e o DES sobe da `main`; não é pendência da feature
+- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)) — entra no merge de fechamento do Período 1: a `main` só recebe o período fechado, e o DES sobe da `main`; não é pendência da feature. O merge entrou em 29/09/2026 (PR #45, tag `v0.1.0`); a validação em DES ainda não foi registrada.
 - [x] Arquivo da feature atualizado: status, pendências, timeline
 - [x] Divergência protótipo × implementação registrada, se houver
 
@@ -118,6 +118,10 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Falta para fechar:** validar fila, retry e DLQ contra RabbitMQ real; revisão do Kayke nas mudanças de F-AVA no `social`. "Funciona em DES" e as migrations no Neon do DES chegam com o merge de fechamento do Período 1.
 
 ## Timeline
+
+### 25/10/2026: status atualizado por Renato Douglas
+
+DoD de DES: registrado que o merge de fechamento entrou em 29/09/2026 (PR #45, tag `v0.1.0`); a validação em DES segue sem registro. Sem mudança de escopo ou decisão.
 
 ### 29/09/2026: curtida otimista na web e no app, por decisão do produto: o item muda no toque, o botão não trava, o último toque vale e a falha volta ao último estado confirmado. Ver Pendências.
 

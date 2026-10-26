@@ -27,7 +27,7 @@ RNF atendidos: **RNF-DES-02** (listagens paginadas com teto server-side), **RNF-
 | Infra | implementado (02/10/2026) | migration `0005`: índice trigram do nome da série e CHECK `autor_biografia_ck`, revisada e **aplicada no banco de dev em 02/10/2026** (DES recebe no deploy da `main`). Índice de ano/páginas medido e dispensado (Timeline). Biografias carregadas pelo script `biografias` em dev em 08/10/2026: 905 de 8.126 autores, e 896 de 7.910 depois da unificação de autores do mesmo dia. Em DES, 896 de 7.910 no mesmo dia, antes da `0005` (os dados já cumprem o CHECK) |
 | Backend | implementado (02/10/2026) | `acervo`: filtros avançados em `GET /livros`, `GET /autores/{id}`, `GET /editoras/{id}`, `GET /series/{id}`, `editoraId` e `serie` em `GET /livros/{id}` e biografia na importação por ISBN; contrato `implemented` no `acervo.yaml` |
 | Web | implementado e em `desenvolvimento` (07/10/2026) | filtros no Descobrir (painel recolhível e folha), páginas `/descobrir/autores|editoras|series/:id` e links da ficha com `Assuntos`. Conferido pelo dono no navegador contra os serviços locais, com os ajustes da Timeline. Lint, 734 testes e build verdes |
-| Mobile | implementado e em `desenvolvimento` (07/10/2026); conferido no emulador (10/10/2026) | mesmas telas, com as páginas sob `/descobrir` e `/perfil`. A conferência no emulador achou cinco defeitos, corrigidos na `vicenzo-features` com teste de regressão (Timeline) |
+| Mobile | implementado e em `desenvolvimento` (07/10/2026); conferido no emulador (10/10/2026) | mesmas telas, com as páginas sob `/descobrir` e `/perfil`. A conferência no emulador achou cinco defeitos, corrigidos na `vicenzo-features` com teste de regressão (Timeline) e mergeados em `desenvolvimento` pelo PR #49 (10/10/2026) |
 
 ## Onde continuar (atualizado em 10/10/2026, depois da conferência no emulador)
 
@@ -35,7 +35,7 @@ Backend, web e mobile estão mergeados em `desenvolvimento` (merge da `vicenzo-f
 
 **Falta para o DoD e os critérios de aceite**
 1. **Biografias (critério de RF-ACV-10):** carregadas em dev e DES em 08/10/2026 (Timeline). Em DES a página de autor só existe depois do deploy da `main`. Depois dele, rodar `biografias` de novo no DES (é idempotente) para pegar o autor que a importação por ISBN do código antigo criar até lá. Isso pede o dump de autores na máquina.
-2. ~~**Mobile no emulador**~~: conferido em 10/10/2026, com as correções na `vicenzo-features` (Timeline). Elas entram em `desenvolvimento` no próximo merge da branch.
+2. ~~**Mobile no emulador**~~: conferido em 10/10/2026, com as correções na `vicenzo-features` (Timeline). Elas entraram em `desenvolvimento` pelo PR #49, em 10/10/2026.
 3. **DES (fim do período):** depois do PR `desenvolvimento` → `main`, conferir os filtros e as páginas em DES e a leitura ≤1s p95 (RNF-DES-01).
 
 **Fora desta feature, mas no `acervo` e com o Vicenzo:**
@@ -191,6 +191,10 @@ A biografia fica **no idioma da fonte**: a OpenLibrary costuma devolver em ingl�
 - **Alternativa a avaliar, sem mudar o desenho atual:** reutilizar um componente de página de catálogo para autor/editora/série e criar índices adicionais somente após validar o plano de execução das consultas.
 
 ## Timeline
+
+### 25/10/2026: status atualizado por Renato Douglas
+
+Status e "Onde continuar" atualizados: as correções da conferência no emulador entraram na `desenvolvimento` pelo PR #49 (10/10/2026). Sem mudança de escopo ou decisão.
 
 ### Conferência no emulador 10/10/2026: mobile conferido no emulador Android (API 35, no WSL), com `identidade` e `acervo` locais contra o banco de dev e uma conta de teste.
 - **Conferido e certo:**

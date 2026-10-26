@@ -67,8 +67,8 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 (plano §10)
 
-- [ ] Código (backend `leitura`, mobile) mergeado em `desenvolvimento` (hoje na `vicenzo-features`)
-- [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)): localmente, lint, `tsc`, 221 testes unitários e 226 de integração do `leitura`; `flutter analyze` e 572 testes do mobile, todos verdes
+- [x] Código (backend `leitura`, mobile) mergeado em `desenvolvimento` — PR #49, 10/10/2026
+- [x] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)): `ci-back-leitura` e `ci-mobile` verdes na `desenvolvimento` (última execução de cada um até 25/10/2026). Antes, localmente, lint, `tsc`, 221 testes unitários e 226 de integração do `leitura`; `flutter analyze` e 572 testes do mobile, todos verdes
 - [x] Testes unitários e de integração com banco real/container: página lida, 1×/dia, mudança/último fuso, zeramento por dia vazio, maior sequência e idempotência (RNF-TST-02). Ficam em `src/sequencia/dominio/sequencia.spec.ts` e `test/integracao/sequencia.int-spec.ts`
 - [x] Testes cobrem consumo duplicado, retentativa e DLQ (RNF-TST-02/03)
 - [x] Testes mobile cobrem exibição da sequência e indisponibilidade/timeout com API simulada (RNF-TST-04/06), em `test/features/sequencia/sequencia_test.dart`
@@ -123,6 +123,10 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - Stack de `leitura` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
 ## Timeline
+
+### 25/10/2026: status atualizado por Renato Douglas
+
+DoD de merge e CI marcados: código na `desenvolvimento` pelo PR #49 (10/10/2026), com `ci-back-leitura` e `ci-mobile` verdes. Sem mudança de escopo ou decisão.
 
 ### Conferência no emulador 10/10/2026: mobile conferido no emulador Android (API 35, no WSL). `identidade`, `acervo` e `leitura` rodaram locais contra o banco de dev, com o RabbitMQ de dev e uma conta de teste. Nenhum defeito encontrado.
 - **Zerada:** antes de qualquer progresso, `0` com `leia hoje para começar` e `Recorde: 0 dias`.

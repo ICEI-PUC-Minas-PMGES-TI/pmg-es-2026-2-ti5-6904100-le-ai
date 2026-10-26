@@ -80,7 +80,7 @@ O modelo físico está versionado em `code/back/acervo/drizzle/0001_202609161107
 - [x] Testes unitários e de integração contra banco real/container: normalização de editora/autor/série (RN-12), mapeamento de assuntos (RN-21), descarte de registro inválido, deduplicação em recarga da amostra e contrato da VIEW (RNF-TST-02/08) — 96 unitários e 7 de banco (`tests/test_carga_banco.py`, marcados `banco`), com Postgres descartável no CI e as migrations reais de `acervo`; os dois últimos provam que a edição sem autor vincula só a autora da obra, nunca o tradutor, e que o marcador de catálogo cede lugar ao autor da obra
 - [x] Teste operacional da amostra cobre registro de `ingestao_execucao`, totais coerentes, falha sem carga parcial silenciosa e reexecução idempotente; testes de broker são **N/A**, pois o dump não usa mensageria — um candidato corrompido depois da fase 1 derruba a carga no INSERT de livro, nada entra (nem as editoras gravadas antes) e a execução fica registrada como `falha`
 - [x] **Spec OpenAPI de `acervo` atualizado em `docs/api/acervo.yaml`** — não há endpoint de ingestão; o contrato desta feature é `v_livro_referencia_v1`, conferido em 22/09/2026 em `x-database-contracts` de `acervo.yaml` com `status: implemented`, consumidores `leitura` e `social` e exatamente as oito colunas da VIEW implantada. Os endpoints ficam em [F-ACV-BUSCA](feature-F-ACV-BUSCA.md)/[F-ACV-CADASTRO](feature-F-ACV-CADASTRO.md)
-- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)) — entra no merge de fechamento do Período 1, não é pendência da feature. **Acervo carregado em 24/09/2026** no Neon `leai-db-prd` (~11 k livros); [F-ACV-BUSCA](feature-F-ACV-BUSCA.md), que consome a base, foi implementada em 26/09/2026 e chega ao DES no mesmo merge
+- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)) — entra no merge de fechamento do Período 1, não é pendência da feature. **Acervo carregado em 24/09/2026** no Neon `leai-db-prd` (~11 k livros); [F-ACV-BUSCA](feature-F-ACV-BUSCA.md), que consome a base, foi implementada em 26/09/2026 e chega ao DES no mesmo merge. O merge entrou em 29/09/2026 (PR #45, tag `v0.1.0`); a validação em DES ainda não foi registrada.
 - [x] Arquivo da feature atualizado: status, pendências, timeline
 - [x] Divergência protótipo × implementação registrada, se houver — **N/A**, a feature não tem UI
 
@@ -114,6 +114,10 @@ O modelo físico está versionado em `code/back/acervo/drizzle/0001_202609161107
 - **A conferência dos dados curados é a primeira coisa a rodar.** `python -m leai_ingestao conferir` valida os três CSV entre si sem tocar o banco: slug que não deriva do nome violaria o CHECK, tag fora da forma normalizada nunca casaria em runtime, e mapeamento apontando para assunto inexistente violaria a FK — os três só apareceriam no meio de uma carga de horas.
 
 ## Timeline
+
+### 25/10/2026: status atualizado por Renato Douglas
+
+DoD de DES: registrado que o merge de fechamento entrou em 29/09/2026 (PR #45, tag `v0.1.0`); a validação em DES segue sem registro. Sem mudança de escopo ou decisão.
 
 ### Unificação 08/10/2026: autores, editoras e séries duplicados juntados em dev (`le-ai`, São Paulo) e DES (`le-ai-oregon`), a pedido do dono, depois de achar duas "Suzanne Collins" na página de autor de [F-ACV-DESCOBERTA](../periodo-2/feature-F-ACV-DESCOBERTA.md). Os dois bancos tinham exatamente os mesmos grupos.
 - **Duas causas:**

@@ -87,7 +87,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [ ] Testes assíncronos do produtor cobrem domínio+outbox atômicos no POST, schema/business key, entrega tardia após exclusão e falha do broker sem desfazer a escrita; recibo, deduplicação semântica, backfill e DLQ são critérios das features consumidoras (RNF-TST-03). *Domínio+outbox e schema cobertos; faltam entrega tardia após exclusão e falha do broker.*
 - [x] Testes web/mobile cobrem estado, confirmação, paginação e indisponibilidade/timeout; mobile cobre a **fila offline** e reenvio com a mesma chave (RNF-TST-04/05/06). *Web: `ProgressoView.spec.ts`, `RegistrarProgresso.spec.ts`, `useRegistroProgresso.spec.ts`; mobile: `progresso_test.dart`.*
 - [x] **Spec OpenAPI de `leitura` atualizado em `docs/api/leitura.yaml`** com os endpoints de progresso (sem o `PATCH`, removido em 29/09/2026)
-- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)). *Entra no merge de fechamento do Período 1, não é pendência da feature.*
+- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)). *Entra no merge de fechamento do Período 1, não é pendência da feature.* O merge entrou em 29/09/2026 (PR #45, tag `v0.1.0`); a validação em DES ainda não foi registrada.
 - [x] Arquivo da feature atualizado: status, pendências, timeline
 - [x] Divergência protótipo × implementação registrada, se houver (ver Pendências)
 
@@ -106,6 +106,10 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **A confirmação de exclusão de atualização informa o resultado do recálculo**, não uma frase genérica sobre irreversibilidade, porque é esse número que o leitor precisa para decidir (RN-17.4). Fixado na seção 8 de `atualizacoes-de-progresso.md`.
 
 ## Timeline
+
+### 25/10/2026: status atualizado por Renato Douglas
+
+DoD de DES: registrado que o merge de fechamento entrou em 29/09/2026 (PR #45, tag `v0.1.0`); a validação em DES segue sem registro. Sem mudança de escopo ou decisão.
 
 ### Fechamento 29/09/2026: feature entregue e **em revisão**, aguardando o aval dos professores. Mobile com fila offline FIFO por leitura e pausa em falha de validação (`680c97d`), mergeado pelo PR #42; remoção da edição também na web (`3c4a12e`); correções do mobile por Renato Douglas: a estante recarrega quando a leitura muda em outra tela (`bcbbc90`), a folha de registrar rola em vez de estourar (`43b4aed`) e os sufixos h/min ficam centralizados (`701a1e9`). Prompts de design atualizados sem edição (`909e763`); os protótipos HTML seguem com `Editar` (divergência registrada). Pendências remanescentes: testes de entrega tardia e de falha do broker. O DES chega com o merge de fechamento do Período 1.
 

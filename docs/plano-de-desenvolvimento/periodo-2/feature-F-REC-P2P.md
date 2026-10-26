@@ -82,7 +82,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 (plano §10)
 
-- [ ] Código (backend `social`, web, mobile) mergeado em `desenvolvimento`
+- [x] Código (backend `social`, web, mobile) mergeado em `desenvolvimento` — PR #52, 11/10/2026
 - [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
 - [x] Testes unitários e de integração com banco real/container: regras de envio, descarte pelo destinatário e negativa para terceiro/remetente, expiração, remoção automática, paginação e idempotência (RNF-TST-02)
 - [x] Testes assíncronos: publicação/consumo/DLQ de `recomendacao.recebida` e consumo de `livro.adicionado_a_estante` com duplicação e DLQ (RNF-TST-03)
@@ -128,6 +128,10 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - Stack de `social` definida: **Spring (Java)** (arquitetura §2.1).
 
 ## Timeline
+
+### 25/10/2026: status atualizado por Renato Douglas
+
+DoD de merge marcado: código na `desenvolvimento` pelo PR #52 (11/10/2026). Sem mudança de escopo ou decisão.
 
 ### Revisão 11/10/2026 (validação em DES): fluxo validado em DES pelo dono; critério de aceite e item de DoD de DES marcados. Também: "Ler resenha" do feed (web e mobile) passou a levar à página do livro; o arquivo da F-FEED não foi tocado.
 

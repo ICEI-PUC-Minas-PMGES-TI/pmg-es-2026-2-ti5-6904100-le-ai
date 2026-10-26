@@ -98,7 +98,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [x] Teste assíncrono cobre atomicidade solicitação+outbox, envelope/data canônicos, publisher confirm, consumo+recibo atômicos, duplicação por `eventId`, convergência por ISBN entre eventos distintos, retry `1/5/15 s`, ACK pós-commit e DLQ de `livro.importacao_solicitada` (RNF-TST-03) — *contra Postgres, com o dispatcher, o publisher e o consumidor reais sobre um broker em memória; o broker real foi exercitado à mão com RabbitMQ local em 22/09/2026*
 - [x] Testes web/mobile cobrem acompanhamento da importação, autorização da página pessoal e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06) — *mobile: acompanhamento, 409, indisponível e reprocessar, 429, falha de rede com retentativa e mesma chave, modo dono × consulta, 403/404 como indisponível, upload e recusa de capa. Web: o mesmo conjunto em Vitest, mais a matriz de retentativa do cliente (GET, escrita com e sem chave, 4xx, 500, timeout), mesma chave e correlation-id nos reenvios, polling com relógio simulado (8 s, cold start, teto de 45 consultas), foco e `Esc` no dialog de exclusão e aba ativa por origem*
 - [x] **Spec OpenAPI de `acervo` atualizado em `docs/api/acervo.yaml`** — as sete operações desta feature em `implemented`; a nota da importação passou a descrever o fluxo ligado ao runtime de P0-MSG
-- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)) — entra no merge de fechamento do Período 1, não é pendência da feature
+- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)) — entra no merge de fechamento do Período 1, não é pendência da feature. O merge entrou em 29/09/2026 (PR #45, tag `v0.1.0`); a validação em DES ainda não foi registrada.
 - [x] Arquivo da feature atualizado: status, pendências, timeline
 - [x] Divergência protótipo × implementação registrada, se houver — protótipos versionados em 22/09/2026; divergências do mobile e da web em Pendências, "Divergências protótipo × prompt × implementação"
 
@@ -166,6 +166,10 @@ Divergências do **prompt** que a implementação passou a resolver seguindo o *
 - Sem estado de erro de upload com tint `rubi-fundo` no modo escuro: a área usa só a borda tracejada `rubi`, que o prompt dá como suficiente.
 
 ## Timeline
+
+### 25/10/2026: status atualizado por Renato Douglas
+
+DoD de DES: registrado que o merge de fechamento entrou em 29/09/2026 (PR #45, tag `v0.1.0`); a validação em DES segue sem registro. Sem mudança de escopo ou decisão.
 
 ### Fechamento 29/09/2026: arquivo revisado para o fechamento do Período 1. As frases que dependiam de features vizinhas foram atualizadas: F-ACV-BUSCA (26/09) fez `Abrir página do livro` levar à página oficial, F-AVA (27/09) passou a alimentar nota e resenha do dono e ganhou o bloco "Sua avaliação" na página pessoal, e F-EST/F-PRG (27/09) puseram a situação na estante e o progresso na mesma página. CI confirmado verde no GitHub Actions na `desenvolvimento`. Registrados a divergência do título `Cadastrar livro` e o `titleSmall` do mobile. Situação segue **em revisão**; o DES entra no merge de fechamento.
 

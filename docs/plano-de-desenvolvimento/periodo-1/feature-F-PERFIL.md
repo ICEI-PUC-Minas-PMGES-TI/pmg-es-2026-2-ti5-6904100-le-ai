@@ -146,7 +146,7 @@ Marcado = verificado localmente por teste (24/09/2026, revisto no fechamento de 
 - [ ] Testes genéricos de dispatcher, publisher confirm, broker indisponível, retry e DLQ são entregues por P0-MSG; testes de consumo duplicado/recibo e criação da notificação são entregues por F-NOT. *Não são desta feature.*
 - [x] Testes web/mobile cobrem estado dos botões, conteúdo restrito e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
 - [x] **Spec OpenAPI de `identidade` atualizado em `docs/api/identidade.yaml`** com perfil/seguidores/solicitações e as VIEWs `v_perfil_referencia_v1`/`v_seguimento_aceito_v1` documentadas como contratos
-- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)) — entra no merge de fechamento do Período 1, não é pendência da feature
+- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)) — entra no merge de fechamento do Período 1, não é pendência da feature. O merge entrou em 29/09/2026 (PR #45, tag `v0.1.0`); a validação em DES ainda não foi registrada.
 - [x] Arquivo da feature atualizado: status, pendências, timeline
 - [x] Divergência protótipo × implementação registrada, se houver
 
@@ -199,6 +199,10 @@ Marcado = verificado localmente por teste (24/09/2026, revisto no fechamento de 
 - **"Funciona em DES" chega com o fechamento do Período 1.** A `main` só recebe cada período inteiro, no merge de fechamento, e o DES sobe da `main` ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)); por isso o item não é pendência da feature. O CI ([P0-CI](../periodo-0/feature-P0-CI.md)) já está verde, e a publicação dos eventos usa o runtime de [P0-MSG](../periodo-0/feature-P0-MSG.md).
 
 ## Timeline
+
+### 25/10/2026: status atualizado por Renato Douglas
+
+DoD de DES: registrado que o merge de fechamento entrou em 29/09/2026 (PR #45, tag `v0.1.0`); a validação em DES segue sem registro. Sem mudança de escopo ou decisão.
 
 ### Cabeçalho do shell no leitor de tela 11/10/2026: na revisão no emulador, a árvore de acessibilidade das quatro raízes das abas não tinha o cabeçalho: título, lupa (`Buscar leitor`), engrenagem (`Configurações`) e sino. Para o leitor de tela, a busca de leitor e as Configurações do Meu perfil não existiam. As telas empilhadas, que têm o próprio cabeçalho, não tinham o problema. Correção em `app/shell_autenticado.dart`: o navegador das abas ganhou um contêiner semântico próprio (`Semantics(container: true)`), e o cabeçalho voltou à árvore com as ações tocáveis. A causa provável é o `BlockSemantics` da barreira das rotas, que derruba o que foi pintado antes no mesmo contêiner. Teste de regressão em `router_test.dart`, que reprova sem a correção. O shell é código comum (P0-NAV); a mudança vale para todas as abas. O sino continua sem ação de toque para o leitor de tela (`cabecalho_tela.dart`, `excludeSemantics` sem `onTap`), que é da F-NOT; o aviso vai ao grupo.
 

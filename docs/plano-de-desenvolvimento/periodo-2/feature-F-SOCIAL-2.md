@@ -19,7 +19,7 @@ RNF atendidos: **RNF-SEC-02** (propriedade do comentário no servidor), **RNF-SE
 | Camada | Status | Observação |
 |---|---|---|
 | Infra | concluído | `comentario_mencao` já existia desde a migration do modelo social (sem migration nova); schema `usuario.mencionado.v1` e linha no catálogo |
-| Backend | concluído | `PATCH`/`DELETE /comentarios/{id}`, resolução de menções, outbox e consumidor de `usuario.mencionado`; testes de integração escritos, ainda não executados (sem Postgres local) |
+| Backend | concluído | `PATCH`/`DELETE /comentarios/{id}`, resolução de menções, outbox e consumidor de `usuario.mencionado`; testes de integração rodando no CI com Postgres (`InteracaoControllerIntegracaoTest`, 9 testes verdes) |
 | Web | concluído | menu do próprio comentário, edição no rodapé, exclusão com confirmação, menção como link e `· editado` |
 | Mobile | concluído | mesmas telas e tipo `usuarioMencionado` na lista de notificações |
 
@@ -63,9 +63,9 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 (plano §10)
 
-- [ ] Código (backend `social`, web, mobile) mergeado em `desenvolvimento`
-- [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
-- [ ] Testes unitários e de integração com banco real/container: propriedade na edição/exclusão, cascade da raiz, resolução de menção existente/inexistente, dedup contra `comentario.respondido`, idempotência (RNF-TST-02)
+- [x] Código (backend `social`, web, mobile) mergeado em `desenvolvimento` — commits diretos, 03/10/2026
+- [x] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)): `ci-back-social`, `ci-front` e `ci-mobile` verdes na `desenvolvimento` (última execução de cada um até 25/10/2026)
+- [x] Testes unitários e de integração com banco real/container: propriedade na edição/exclusão, cascade da raiz, resolução de menção existente/inexistente, dedup contra `comentario.respondido`, idempotência (RNF-TST-02) — `InteracaoControllerIntegracaoTest`, no CI com Postgres
 - [ ] Testes assíncronos cobrem schema/publicação, consumo, destinatário, duplicação semântica e DLQ de `usuario.mencionado` (RNF-TST-03)
 - [ ] Testes web/mobile cobrem edição/exclusão, renderização de menção-link sob RN-08 e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
 - [ ] **Spec OpenAPI de `social` atualizado em `docs/api/social.yaml`** com editar/excluir comentário e o schema de `usuario.mencionado`
@@ -96,12 +96,16 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 ### Pendências da implementação
 
-- Rodar os testes de integração de `InteracaoControllerIntegracaoTest` com `DATABASE_URL_TESTE` (não havia Postgres local nem Docker na sessão).
+- ~~Rodar os testes de integração de `InteracaoControllerIntegracaoTest` com `DATABASE_URL_TESTE` (não havia Postgres local nem Docker na sessão).~~ Rodam no `ci-back-social`, com Postgres de serviço: 9 testes verdes.
 - Menu de comentário de outro leitor (`Denunciar comentário`) fica para F-MOD; hoje o `DotsThree` só aparece no próprio comentário.
 - Web: erro de exclusão aparece dentro do dialog; mobile mostra o erro no rodapé da folha, não dentro do sheet de confirmação (divergência do protótipo 5.7).
 - Conflito RN-08 no toque da notificação de menção continua aberto; hoje o toque leva ao feed, como as demais notificações de atividade.
 
 ## Timeline
+
+### 25/10/2026: status atualizado por Renato Douglas
+
+DoD de merge, CI e testes de integração marcados: código na `desenvolvimento` por commits diretos (03/10/2026), CI verde e `InteracaoControllerIntegracaoTest` rodando no CI. Seguem desmarcados: testes assíncronos (sem teste de DLQ próprio de `usuario.mencionado`), web/mobile (sem caso de perfil privado sob RN-08 nem de timeout) e spec (o schema de `usuario.mencionado` está em `docs/mensageria/`, não no `social.yaml`). Sem mudança de escopo ou decisão.
 
 ### Implementação 03/10/2026: backend, web e mobile implementados (issue #18); integração pendente de execução com banco real.
 

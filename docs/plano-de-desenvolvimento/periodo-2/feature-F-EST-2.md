@@ -62,8 +62,8 @@ Favoritos e histórico permanecem recursos do próprio usuário neste escopo; a 
 
 (plano §10)
 
-- [ ] Código (backend `leitura`, web, mobile) mergeado em `desenvolvimento`
-- [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
+- [x] Código (backend `leitura`, web, mobile) mergeado em `desenvolvimento` — commits diretos, 16 a 18/10/2026
+- [x] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)): `ci-back-leitura`, `ci-front` e `ci-mobile` verdes na `desenvolvimento` (última execução de cada um até 25/10/2026)
 - [x] Testes unitários e de integração com banco real/container: favorito; histórico próprio contando só finalizadas; duas conclusões do mesmo livro/ano; pesquisa por título/autor com e sem ano; progresso finalizado somente leitura; negação de leitura/progresso de terceiro (RNF-TST-02)
 - [x] Testes web/mobile cobrem favorito, histórico paginado, pesquisa, seleção de ocorrência, modo histórico sem ações e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
 - [x] **Spec OpenAPI de `leitura` atualizado em `docs/api/leitura.yaml`** com favorito, parâmetros do histórico, ocorrência retornada e consulta de progresso finalizado
@@ -97,6 +97,10 @@ Favoritos e histórico permanecem recursos do próprio usuário neste escopo; a 
 - ~~**Prompts de tela a criar em `docs/design/periodo-2/F-EST-2/`:** `historico-de-leituras.md` e `atualizacoes-de-progresso.md` como edição~~ — desde 27/09/2026 as edições de telas já entregues são **consolidadas por tela** em `docs/design/periodo-2/<tela>/`; o histórico é tela nova e ficou em `F-EST-2/` (ver o item Telas acima).
 
 ## Timeline
+
+### 25/10/2026: status atualizado por Renato Douglas
+
+DoD de merge e CI marcados: código na `desenvolvimento` por commits diretos (16 a 18/10/2026), com `ci-back-leitura`, `ci-front` e `ci-mobile` verdes. Sem mudança de escopo ou decisão.
 
 ### Implementação 16/10/2026: backend (`src/favoritos/`, `src/historico/`, `q` e favorito na estante, OpenAPI), web e mobile na branch `feat/f-est-2-favoritos-historico`, a partir da `desenvolvimento`. Sem migration e sem evento novo. Decisões de contrato e divergências registradas em Pendências. Testes: integração do `leitura` (favoritos, busca, histórico, progresso finalizado), Vitest e `flutter test` no mínimo combinado com a dona.
 

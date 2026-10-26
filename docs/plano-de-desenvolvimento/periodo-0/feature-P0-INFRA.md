@@ -155,8 +155,8 @@ Os transversais são **contratos de saída**, não biblioteca compartilhada: cad
 
 (plano §10 — obrigatórios para toda feature)
 
-- [ ] Código das camadas aplicáveis mergeado em `desenvolvimento`
-- [ ] CI verde (lint, build, testes) — depende de [P0-CI](feature-P0-CI.md); o esqueleto deve passar no pipeline assim que ele existir
+- [x] Código das camadas aplicáveis mergeado em `desenvolvimento` — os quatro serviços, o `front` e o `mobile` desde 12 e 13/09/2026
+- [x] CI verde (lint, build, testes) — depende de [P0-CI](feature-P0-CI.md); o esqueleto deve passar no pipeline assim que ele existir. `ci-back-acervo`, `ci-back-identidade`, `ci-back-leitura`, `ci-back-social`, `ci-front` e `ci-mobile` verdes na `desenvolvimento` (última execução de cada um até 25/10/2026)
 - [ ] Testes automatizados dos casos de uso da feature (mínimo backend): teste do health check e do handler de erro/correlation-id em cada serviço
 - [ ] Spec OpenAPI do serviço atualizado em `docs/api/` (esqueleto dos 4 specs)
 - [ ] Fluxo funcionando em DES/HML — os esqueletos sobem em DES via [P0-DEPLOY](feature-P0-DEPLOY.md)
@@ -181,6 +181,10 @@ Os transversais são **contratos de saída**, não biblioteca compartilhada: cad
 - **Compatibilidade P0-DS com Tailwind 4:** a web usa o plugin oficial `@tailwindcss/vite` e a abordagem CSS-first. Como [P0-DS](feature-P0-DS.md) prevê gerar `tailwind.config`, sua implementação deve gerar tokens no formato CSS-first do Tailwind 4 ou carregar o config gerado por meio de `@config`, preservando `docs/design-system/tokens.json` como fonte única. Nenhum token foi antecipado nesta feature. **Resolvido por [P0-DS](feature-P0-DS.md):** o Tailwind 4 lê o `tokens.json` diretamente, com CSS vars de tema claro/escuro.
 
 ## Timeline
+
+### 25/10/2026: status atualizado por Renato Douglas
+
+DoD de merge e CI marcados: os quatro serviços, o `front` e o `mobile` estão na `desenvolvimento`, com os seis workflows de CI verdes. Sem mudança de escopo ou decisão.
 
 ### Scaffolding Spring 12/09/2026: `identidade` e `social` scaffoldados (**Spring Boot 4.1.1** + **JDK 21 LTS** + **Maven com wrapper** + **Flyway**), fechando os quatro serviços de backend. Entregue por serviço: esqueleto executável (`./mvnw verify` verde, 16 testes cada), `GET /health` devolvendo exatamente `{ status, service, time }` com checagem `SELECT 1`, corpo de erro padrão `{ codigo, mensagem, correlationId }` em todo caminho de erro — inclusive na recusa de CORS e no despacho `/error`, que o `@RestControllerAdvice` não alcança —, correlation-id via filtro + MDC, log JSON ECS nativo no perfil `prod`, CORS restrito por allowlist, cabeçalhos de segurança por filtro próprio, config validada no boot por `@ConfigurationProperties` e migration inicial que cria **só o schema** do serviço, com a `flyway_schema_history` dentro dele. Verificado contra um PostgreSQL 17 real: `/health` 200, rota inexistente 404 (e não 500), origem desconhecida 403 no corpo padrão, `identidade` e `social` criando apenas o próprio schema. Escolha de Maven sobre Gradle, ausência de Spring AMQP/Spring Security e formato do `DATABASE_URL` registrados em **Pendências**. Também criados: esqueleto `docs/api/{identidade,social}.yaml` e `AGENTS.md` dos dois serviços. Pendente para fechar a feature nesses dois: subir em DES (P0-DEPLOY) e entrar no pipeline (P0-CI).
 

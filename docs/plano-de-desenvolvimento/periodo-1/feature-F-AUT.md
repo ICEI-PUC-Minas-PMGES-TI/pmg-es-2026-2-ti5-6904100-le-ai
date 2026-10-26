@@ -118,7 +118,7 @@ Marcado = verificado localmente por teste em 24/09/2026. Nada foi verificado em 
 - [x] E-mail assíncrono em processo (decisão de 24/09, sem evento nem outbox): testes simulam retentativa com backoff e o disjuntor do Brevo sem quebrar o `202` uniforme
 - [x] Testes dos serviços/estado web e mobile cobrem sessão, logout, política de privacidade e tratamento de indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
 - [x] **Spec OpenAPI de `identidade` atualizado em `docs/api/identidade.yaml`** com as rotas de conta/sessão (sobre o esqueleto de P0-NAV)
-- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)) — entra no merge de fechamento do Período 1, não é pendência da feature
+- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)) — entra no merge de fechamento do Período 1, não é pendência da feature. O merge entrou em 29/09/2026 (PR #45, tag `v0.1.0`); a validação em DES ainda não foi registrada.
 - [x] Arquivo da feature atualizado: status, pendências, timeline
 - [x] Divergência protótipo × implementação registrada, se houver
 
@@ -164,6 +164,10 @@ Marcado = verificado localmente por teste em 24/09/2026. Nada foi verificado em 
 - **"Funciona em DES" chega com o fechamento do Período 1.** A `main` só recebe cada período inteiro, no merge de fechamento, e o DES sobe da `main` ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)); por isso o item não é pendência da feature. O CI ([P0-CI](../periodo-0/feature-P0-CI.md)) já está verde. No deploy, continua valendo: `ADMIN_PASSWORD` com 16+ caracteres e acompanhado de `ADMIN_EMAIL`, senão o serviço não sobe.
 
 ## Timeline
+
+### 25/10/2026: status atualizado por Renato Douglas
+
+DoD de DES: registrado que o merge de fechamento entrou em 29/09/2026 (PR #45, tag `v0.1.0`); a validação em DES segue sem registro. Sem mudança de escopo ou decisão.
 
 ### Contrato das requisições 11/10/2026: `ContratoHttp` passou a conferir também a requisição, quando a resposta é 2xx: corpo, parâmetros de consulta e cabeçalhos obrigatórios (lidos do próprio `HttpRequest`, sem mudar os testes). As inválidas de propósito ficam de fora, porque o servidor as recusa. Nenhuma divergência apareceu. Conferido que reprova: com `maxLength` de `identificador` reduzido a 3 de propósito no spec, o login falhou apontando o campo. `./mvnw verify` com 219 testes verdes. Itens de contrato do DoD fechados aqui e na [F-PERFIL](feature-F-PERFIL.md).
 

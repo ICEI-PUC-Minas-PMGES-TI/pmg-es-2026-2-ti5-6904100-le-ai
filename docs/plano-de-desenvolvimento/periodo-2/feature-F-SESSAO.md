@@ -27,7 +27,7 @@ RNF atendidos: **RNF-ERR-05** (fila offline para o registro resultante), **RNF-E
 | Infra | não aplicável | sem infra própria; reusa progresso de `leitura` |
 | Backend | não aplicável | nenhum endpoint novo — só o registro final reusa `POST /leituras/{id}/progresso` de [F-PRG](../periodo-1/feature-F-PRG.md) |
 | Web | não aplicável | **fora do escopo web** — RN-16 inaplicável a aba de navegador (§10.9) |
-| Mobile | implementado | `code/mobile/lib/features/sessao/`: estado local em `shared_preferences`, guarda de rota do modo de foco, cronômetro derivado, pausa, encerramento pela fila de F-PRG (17/10/2026, branch `feat/sessao-leitura-cronometrada`); falta validar em DES |
+| Mobile | implementado | `code/mobile/lib/features/sessao/`: estado local em `shared_preferences`, guarda de rota do modo de foco, cronômetro derivado, pausa, encerramento pela fila de F-PRG (17/10/2026; na `desenvolvimento` pelo PR #56, 23/10/2026); falta validar em DES |
 
 ## Especificação
 
@@ -68,8 +68,8 @@ A sessão é **estado exclusivamente local do dispositivo** (RN-16.7/9/10): **in
 
 (plano §10)
 
-- [ ] Código (mobile) mergeado em `desenvolvimento`
-- [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
+- [x] Código (mobile) mergeado em `desenvolvimento` — PR #56, 23/10/2026
+- [x] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)): `ci-mobile` verde na `desenvolvimento` (última execução em 25/10/2026)
 - [x] Testes automatizados: máquina de estados, recuperação, modo de foco, cronômetro, 12 h, instante/fuso e falha antes/depois do enfileiramento offline (RNF-TST-04) — `code/mobile/test/features/sessao/sessao_test.dart`
 - [x] `docs/api/leitura.yaml` revisado; nenhuma alteração esperada porque a feature reusa sem mudanças `POST /leituras/{id}/progresso` de [F-PRG](../periodo-1/feature-F-PRG.md)
 - [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)) — o registro de progresso chega ao serviço
@@ -101,3 +101,7 @@ A sessão é **estado exclusivamente local do dispositivo** (RN-16.7/9/10): **in
 ### Decisão 22/10/2026: sair da conta, excluí-la ou expirar o acesso com sessão em andamento
 
 A sessão é do aparelho (RN-16.2), e o modo de foco já bloqueia as Configurações enquanto a sessão existe (RN-16.3). Por isso, sair ou excluir a conta exige encerrar ou cancelar a sessão antes, e não há aviso de saída. Token vencido sem renovação encerra a sessão, sem registro, e a tela de entrada informa o motivo. Implementado em `code/mobile/lib/core/session/session_controller.dart`, `code/mobile/lib/features/sessao/sessao_controller.dart` e `code/mobile/lib/features/auth/login_page.dart`. Impacto: REQUISITOS RN-16.2 (v1.9), sem mudança de dados nem de API.
+
+### 25/10/2026: status atualizado por Renato Douglas
+
+DoD de merge e CI marcados e Status sem a branch antiga: código na `desenvolvimento` pelo PR #56 (23/10/2026), com `ci-mobile` verde. Sem mudança de escopo ou decisão.

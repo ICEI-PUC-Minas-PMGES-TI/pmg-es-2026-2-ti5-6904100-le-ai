@@ -157,7 +157,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 (plano §10)
 
-- [ ] Código (backend `leitura`, web, mobile) mergeado em `desenvolvimento` (hoje na `vicenzo-features`, em PR)
+- [x] Código (backend `leitura`, web, mobile) mergeado em `desenvolvimento` — PR #53, 13/10/2026
 - [x] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)): no PR #53 (12/10/2026), todos os checks verdes. Localmente, depois de trazer a `desenvolvimento` com o #51 (12/10/2026), lint, build, 285 unitários e 335 de integração do `leitura`; lint, `vue-tsc` e 959 testes do web; `flutter analyze` e 823 testes do mobile, todos verdes
 - [x] Testes unitários e de integração: totais/médias/séries, páginas abandonadas, exclusão de progresso, nota, recálculo, base histórica e RN-08 em perfil público/privado
 - [x] Testes assíncronos: consumo de `progresso.registrado`/`leitura.finalizada` com duplicação e DLQ (RNF-TST-03)
@@ -189,6 +189,10 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - Stack de `leitura` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
 ## Timeline
+
+### 25/10/2026: status atualizado por Renato Douglas
+
+DoD de merge marcado: código na `desenvolvimento` pelo PR #53 (13/10/2026). Sem mudança de escopo ou decisão.
 
 ### Integração 12/10/2026: `desenvolvimento` trazida de novo, depois do #51 (F-CONTA-2, F-AUT, F-PERFIL e F-LST), que deixou o #53 em conflito.
 - **`conta-excluida.consumer.ts`:** o #51 extraiu a lista de tabelas apagadas para `TABELAS_DA_CONTA`, usada pela guarda de exclusão nova (`test/integracao/guarda-exclusao.int-spec.ts`), ainda com `estatistica_usuario` e `estatistica_anual`. Ficou a constante, sem as duas: a guarda exige que toda tabela declarada exista, e a 0006 as remove.

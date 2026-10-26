@@ -1,7 +1,7 @@
 # Documento de Design
 
 **Versão:** v1.2 - 01/09/2026
-**Status:** baseline de design aberta para o período-0
+**Status:** baseline de design em uso desde o período-0 (última atualização em 25/10/2026, ver §11)
 
 > Este documento define **a linguagem visual e de interação** do aplicativo. Ele é a fonte de verdade de todo tema, componente, layout e prompt de protótipo. `docs/orquestador/REQUISITOS.md` continua sendo a fonte de verdade do produto; este arquivo deriva dele: nada aqui contradiz um requisito, e cada decisão de design existe para atender um ou mais requisitos funcionais ou não funcionais.
 >
@@ -780,7 +780,7 @@ O contrário de cada bala da §7 é a regra:
 
 ### 9.1 Tokens compartilhados (RNF-USA-06)
 
-Um único arquivo de tokens, planejado em `docs/design-system/tokens.json` pela feature P0-DS, será lido pelas duas stacks. Formato pretendido:
+Um único arquivo de tokens, `docs/design-system/tokens.json`, criado pela feature P0-DS, é lido pelas duas stacks. Formato:
 
 ```json
 {
@@ -809,8 +809,8 @@ Um único arquivo de tokens, planejado em `docs/design-system/tokens.json` pela 
 
 Consumo:
 
-- **Web (Vue + Tailwind):** um script gera `tailwind.config.js` a partir do `tokens.json`. Nenhuma cor entra no `tailwind.config` que não venha do JSON.
-- **Mobile (Flutter):** um script gera `lib/design/tokens.dart` com `class DesignTokens { static const Color papel = Color(0xFFF4F2EC); ... }` e uma extensão `ThemeData` que consome esses tokens.
+- **Web (Vue + Tailwind):** o próprio `tailwind.config.js` lê o `tokens.json` na hora do build; não há script gerador. Nenhuma cor entra no `tailwind.config` que não venha do JSON.
+- **Mobile (Flutter):** o script `tool/generate_tokens.dart` gera `lib/design/tokens.dart`, com `class DesignTokens { static const Color papel = Color(0xFFF4F2EC); ... }`, e `lib/design/theme.g.dart`, com o `ThemeData` que consome esses tokens. Com `--check`, ele só confere se os arquivos gerados estão em dia.
 - **Prompts do Claude Design** (`docs/design/periodo-N/<FEATURE>/<tela>.md`): mesmo `tokens.json` é injetado como contexto do prompt, garantindo que a tela gerada usa os tokens corretos por nome.
 
 ### 9.2 Componentes: dois lados, um contrato
@@ -855,6 +855,12 @@ O nome definitivo do aplicativo é **Lê Ai**. A linguagem visual definida neste
 ---
 
 ## 11. Timeline
+
+### Atualização 25/10/2026
+
+- **§9.1:** o `tokens.json` deixou de ser planejado: existe desde P0-DS e é lido pelas duas stacks. A descrição do consumo passa a seguir o código: na web, o `tailwind.config.js` lê o JSON direto, sem script gerador; no mobile, o `tool/generate_tokens.dart` gera os tokens e o tema.
+- **Cabeçalho:** o status deixa de dizer "aberta para o período-0" e passa a apontar a última atualização.
+- Nenhum token, valor, componente ou decisão de design foi alterado. Atualização factual autorizada pelo Renato Douglas.
 
 ### Atualização 29/09/2026
 
