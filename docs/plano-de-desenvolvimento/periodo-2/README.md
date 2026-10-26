@@ -88,6 +88,31 @@ Não adotadas; ficam registradas para rebalancear durante o período:
 - **Vicenzo sobrecarregado:** passar a F-GAM para a Ana. A GAM é pequena, só mobile, e só consome `progresso.registrado`, que é da Ana. Fica 3 para Vicenzo e 3 para Ana, ao custo de dividir o consumidor de métricas em dois.
 - **Renato espalhado em três serviços:** devolver a F-ACV-NOTA para o Vicenzo. A importação da nota geral usa as chaves de dedup da F-ACV-INGESTAO, que são dele. Nesse caso é melhor passar também a GAM para a Ana, para Vicenzo não ficar com cinco features.
 
+## Situação em 25/10/2026
+
+As 14 features estão implementadas em back, web e mobile (a web fica de fora onde o escopo é só mobile) e mergeadas em `desenvolvimento`, com CI verde. Todas estão **em revisão**: no GitHub Projects ficam na coluna `Em revisão (PR)` até o aval dos professores. O DES ainda não tem o Período 2, porque a `main` só o recebe no fechamento de 03/11/2026. Por isso o item "funciona em DES/HML" de cada arquivo fica para depois desse merge.
+
+| Feature | Dono | Situação | O que continua aberto (detalhe no arquivo) |
+|---|---|---|---|
+| [F-CONTA-2](feature-F-CONTA-2.md) | Henrique Carvalho | em revisão | fluxo em DES |
+| [F-LST](feature-F-LST.md) | Henrique Carvalho | em revisão | fluxo em DES |
+| [F-ACV-DESCOBERTA](feature-F-ACV-DESCOBERTA.md) | Vicenzo Fonseca | em revisão | fluxo em DES |
+| [F-DSF](feature-F-DSF.md) | Vicenzo Fonseca | em revisão | fluxo em DES e `backfill:desafios` |
+| [F-STA](feature-F-STA.md) | Vicenzo Fonseca | em revisão | fluxo em DES e `backfill:estatisticas` |
+| [F-GAM](feature-F-GAM.md) | Vicenzo Fonseca | em revisão | fluxo em DES e `backfill:sequencia` |
+| [F-ACV-NOTA](feature-F-ACV-NOTA.md) | Renato Douglas | em revisão | fluxo em DES, com `backfill:notas`, `backfill:capas` e o `notas` da ingestão |
+| [F-AVA-2](feature-F-AVA-2.md) | Renato Douglas | em revisão | fluxo em DES; migrar o `leitura` antes do `acervo` |
+| [F-MOD](feature-F-MOD.md) | Renato Douglas | em revisão | fluxo em DES e o `MODERACAO_TOKEN` no `social` e no `leitura` |
+| [F-EST-2](feature-F-EST-2.md) | Ana Luiza de Freitas | em revisão | fluxo em DES; busca sem acento depende de `unaccent` no `leitura` |
+| [F-SESSAO](feature-F-SESSAO.md) | Ana Luiza de Freitas | em revisão | validação em DES |
+| [F-NOT-2](feature-F-NOT-2.md) | Kayke | em revisão | validação do canal SSE no Render |
+| [F-SOCIAL-2](feature-F-SOCIAL-2.md) | Kayke | em revisão | fluxo em DES |
+| [F-REC-P2P](feature-F-REC-P2P.md) | Kayke | em revisão | o arquivo registra validação em DES em 11/10/2026, antes de o período chegar à `main`: conferir no fechamento |
+
+Os contratos transversais da tabela abaixo estão todos implementados. As decisões de arquitetura do período foram levadas ao [Documento de Arquitetura](../../orquestador/documento-de-arquitetura.md) v1.8 (25/10/2026), com as divergências que pedem decisão do grupo na §8.
+
+Falta o ritual de fechamento (`../../orquestador/plano-de-projeto.md` §12): PR `desenvolvimento` → `main` com CI verde e uma aprovação, validação em DES com os backfills, tag `v0.2.0` com GitHub Release e o planejamento do Período 3.
+
 ## Cross-cutting do período
 
 - **Testes automatizados das features prioritárias** (Período 1) — o checkpoint verifica o DoD de cada feature; não cria uma feature separada nem adia testes que já deveriam acompanhar a implementação.

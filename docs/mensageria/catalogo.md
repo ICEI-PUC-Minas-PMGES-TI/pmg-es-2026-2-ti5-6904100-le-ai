@@ -1,6 +1,6 @@
 # Catálogo de eventos v1
 
-| Evento | Produtor | Consumidor P1 | Business key | Schema de `data` |
+| Evento | Produtor | Consumidor | Business key | Schema de `data` |
 |---|---|---|---|---|
 | `ping.teste` | identidade | acervo | `ping:<eventId>` | [`ping.teste.v1`](schemas/ping.teste.v1.schema.json) |
 | `seguidor.novo` | identidade | social/notificações | `seguimento:<seguimentoId>` | [`seguidor.novo.v1`](schemas/seguidor.novo.v1.schema.json) |

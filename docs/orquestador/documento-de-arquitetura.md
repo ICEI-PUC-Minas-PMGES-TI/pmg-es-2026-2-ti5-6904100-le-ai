@@ -1,7 +1,7 @@
 # Documento de Arquitetura de Software
 
-**Versão:** v1.7 — 25/09/2026
-**Status:** macroarquitetura fechada — alocação de stack por serviço decidida em 02/09/2026 (§2.1)
+**Versão:** v1.8 — 25/10/2026
+**Status:** macroarquitetura fechada — alocação de stack por serviço decidida em 02/09/2026 (§2.1); Período 2 implementado em `desenvolvimento`
 
 > **v1.4 (12/09/2026):** ambiente local passa a usar **Postgres local** — **removida a branch de banco por dev no Neon** (o Neon mantém só a branch de DES/HML). Decisão da equipe; reflexo em §6 e no plano §4.
 
@@ -15,6 +15,15 @@
 > - **Sem replicação** entre os dois. Reflexo em §1, §4.1 e §6 e no plano §4.
 > - Autorizado pelo dono de P0-DEPLOY. Sem mudança de requisito, stack ou fronteira de serviço.
 
+> **v1.8 (25/10/2026):** atualização de fechamento do Período 2, que registra o que as features construíram e decidiram.
+> - **Contratos:** 117 operações HTTP, todas implementadas; 26 JSON Schemas; 11 filas de negócio; 62 tabelas e 10 VIEWs (§4.1, §5).
+> - **Primeira chamada síncrona entre serviços:** `social` → `leitura` na moderação, com segredo de serviço (§3.2, §5.1).
+> - **Tempo real das notificações** por SSE no `social` (§5.1).
+> - **Nota dos leitores** calculada sobre a projeção individual (§3.2).
+> - **Provedores:** cache de capas por upload assinado e pasta por ambiente (§2.5); e-mail do Brevo implementado (§2.6); push FCM ainda não implementado, previsto no Período 3 (§2.7).
+> - **Agendador:** viabilidade do `schedule` confirmada na prática (§2.4).
+> - Autorizado pelo Renato Douglas. Sem mudança de requisito, stack ou fronteira de serviço; as divergências que pedem decisão do grupo estão na §8.
+
 > Este documento descreve **como o sistema é construído**. O *o que* mora em `docs/orquestador/REQUISITOS.md`, que continua sendo a fonte de verdade. Em caso de conflito, o `REQUISITOS.md` vence, e a divergência segue o controle de mudança do `docs/orquestador/plano-de-projeto.md` §3.
 
 ---
@@ -23,7 +32,7 @@
 
 O sistema é um backend de **microsserviços** (RNF-ARQ-02) consumido por HTTP/JSON (RNF-ARQ-01) por dois clientes independentes: o aplicativo móvel em Flutter (produto principal) e a SPA web em Vue + Tailwind (subconjunto). Não há paridade funcional entre os clientes; o corte de escopo recai sobre a web antes do mobile.
 
-São **quatro serviços de backend** — `identidade`, `acervo`, `leitura` e `social` —, um **broker de mensageria** para os fluxos assíncronos (RNF-ARQ-06), um **banco PostgreSQL único no Neon** por ambiente, com separação lógica por schema (RNF-ARQ-07), e um conjunto de **serviços de apoio gratuitos** (e-mail, imagens, push, agendador). Todos os serviços e o site estático são hospedados no Render em plano gratuito (RNF-ARQ-08).
+São **quatro serviços de backend** — `identidade`, `acervo`, `leitura` e `social` —, um **broker de mensageria** para os fluxos assíncronos (RNF-ARQ-06), um **banco PostgreSQL único no Neon** por ambiente, com separação lógica por schema (RNF-ARQ-07), e um conjunto de **serviços de apoio gratuitos** (e-mail, imagens, agendador e, a partir do Período 3, push). Todos os serviços e o site estático são hospedados no Render em plano gratuito (RNF-ARQ-08).
 
 A decomposição segue o ciclo de valor do produto (encontrar livro → registrar leitura → acompanhar progresso → ver amigos), mantendo na mesma fronteira tudo o que participa do mesmo caminho crítico, para não transformar operação de usuário em cadeia de chamadas síncronas entre serviços.
 
@@ -78,8 +87,19 @@ O acervo permanece no PostgreSQL — e não em banco de documentos — porque é
 
 **Consequências aceitas / riscos.**
 
-- O `schedule` do GitHub Actions só roda na branch default, pode atrasar alguns minutos em horário de pico e é **desativado automaticamente após ~60 dias de inatividade do repositório** — irrelevante durante o desenvolvimento ativo, mas a verificar antes da apresentação.
-- **A viabilidade no repositório da faculdade (GitHub Classroom) não está confirmada.** Deve ser testada no **período-0**, não depois. Se as Actions estiverem restritas, migra-se para o cron-job.org sem mudança de desenho — o job continua sendo uma chamada HTTP a um endpoint.
+- O `schedule` do GitHub Actions só roda na branch default, pode atrasar (neste repositório, horas; ver abaixo) e é **desativado automaticamente após ~60 dias de inatividade do repositório** — irrelevante durante o desenvolvimento ativo, mas a verificar antes da apresentação.
+- **A viabilidade no repositório da faculdade está confirmada na prática:** o `job-inatividade.yml` roda pelo `schedule` todo dia desde 30/09/2026, com sucesso. O atraso real ficou entre 4h18 e 8h44 sobre o cron das 06:00 UTC, tolerável para jobs diários. Se as Actions forem restritas, migra-se para o cron-job.org sem mudança de desenho — o job continua sendo uma chamada HTTP a um endpoint.
+
+**Jobs existentes (25/10/2026).**
+
+| Workflow | Chama | Dono |
+|---|---|---|
+| `job-inatividade.yml` | `POST /internal/jobs/inatividade` | `leitura` (RN-05) |
+| `job-exclusao-conta.yml` | `POST /internal/jobs/exclusao-conta` | `identidade` (RN-23) |
+
+Os dois autenticam com o segredo do agendador no header `X-Scheduler-Token`, comparado em tempo constante, e mandam `Idempotency-Key`. O `job-exclusao-conta.yml` só passa a rodar quando chegar à `main`.
+
+**Exceção registrada:** a limpeza diária das recomendações vencidas (F-REC-P2P) é um `@Scheduled` dentro do `social`, às 04:30, e não um job do GitHub Actions. No Render gratuito, ela só roda se o serviço estiver acordado nesse horário. Ver §8.
 
 ### 2.5 P-09 — Armazenamento e transformação de imagens: Cloudinary
 
@@ -90,13 +110,24 @@ O acervo permanece no PostgreSQL — e não em banco de documentos — porque é
 **Consequências aceitas.**
 
 - O *upload preset* sem restrição é vetor de abuso: a pasta de destino, os tipos permitidos e o tamanho máximo são fixados **no próprio preset**, somados à validação de tipo real, tamanho e dimensões no servidor (RNF-SEC-20).
-- Os limites vigentes do plano gratuito devem ser confirmados no período-0. Cloudflare R2 foi descartado como equivalente porque é storage puro, sem transformação nativa — resolveria o armazenamento, mas não a razão pela qual o Cloudinary foi escolhido.
+- Os limites vigentes do plano gratuito devem ser confirmados no período-0 (ainda em aberto em 25/10/2026, §8). Cloudflare R2 foi descartado como equivalente porque é storage puro, sem transformação nativa — resolveria o armazenamento, mas não a razão pela qual o Cloudinary foi escolhido.
+
+**Como ficou implementado (25/10/2026).** Dev e DES usam o mesmo cloud.
+
+| Uso | Quem envia | Como |
+|---|---|---|
+| Avatar | cliente | preset *unsigned* `leai_avatares`; o `identidade` valida a origem da URL (host, cloud, pasta e `publicId`) sem baixar a imagem |
+| Capa de livro pessoal | cliente | preset *unsigned* `leai_capas`; o `acervo` valida a URL |
+| Cache de capa oficial (RN-14) | `acervo` | upload **assinado** pelo servidor, ao consumir `livro.adicionado_a_estante` e `leitura.iniciada`, com `backfill:capas`; pasta por ambiente (`capas-oficiais-dev` e `capas-oficiais`), porque os dois ambientes compartilham o cloud e os ids de livro |
+| Remoção na exclusão de conta | `identidade` e `acervo` | `destroy` assinado do avatar e das capas pessoais; a falha só vai para o log |
+
+No `leai_capas`, a pasta é dinâmica (`asset_folder`): não entra no `public_id` nem na URL. No `leai_avatares`, o `public_id` leva o prefixo `avatares/`, e o `identidade` recusa a URL sem ele. Nos dois presets, o servidor valida só a origem da URL, sem baixar a imagem: tipo e tamanho ficam limitados pelo preset. Só o cache de capa oficial confere os bytes no servidor (§8). As credenciais de API (`CLOUDINARY_API_KEY`/`SECRET`) existem só no `identidade` e no `acervo`; sem elas, a fila de cache de capas não é declarada, e o `backfill:capas` recupera o que ficou para trás.
 
 ### 2.6 P-02 — E-mail transacional: Brevo
 
 **Decisão.** **Brevo** para o e-mail transacional de recuperação de senha (RF-AUT-04).
 
-**Justificativa.** O free tier de 300 e-mails/dia é folgado para o único fluxo transacional do sistema. Oferece API e SMTP, e o volume esperado (reset de senha) é baixo. O envio de e-mail permanece fluxo assíncrono candidato (§7.2 do `REQUISITOS.md`); seu processamento assíncrono ainda não está definido nem implementado.
+**Justificativa.** O free tier de 300 e-mails/dia é folgado para o único fluxo transacional do sistema. Oferece API e SMTP, e o volume esperado (reset de senha) é baixo. O envio de e-mail permanece fluxo assíncrono candidato (§7.2 do `REQUISITOS.md`). Na F-AUT ele foi implementado no `identidade` como envio assíncrono **em processo**, pela API transacional do Brevo: 3 tentativas, com backoff de 2 s e 8 s e disjuntor, sem evento e sem outbox. Não é durável: um e-mail em tentativa se perde se o serviço reiniciar. A prova de envio real em DES continua pendente.
 
 **Consequências aceitas.**
 
@@ -113,6 +144,8 @@ O acervo permanece no PostgreSQL — e não em banco de documentos — porque é
 
 - **A demonstração de push deve ocorrer em Android.** Em iOS, o usuário recebe as mesmas notificações pela lista in-app (RF-NOT-02), sem entrega em segundo plano.
 - Ter um projeto Firebase para o FCM **não** implica usar Firestore, Auth ou qualquer outro produto Firebase. O escopo do Firebase no sistema é a emissão de push, e nada mais.
+
+**Situação em 25/10/2026:** o FCM ainda não está implementado. Existe só a tabela `social.dispositivo_push` da baseline, e o push entra com a F-NOT-OPC no Período 3. Enquanto isso, a entrega em tempo real das notificações in-app é feita por SSE (§5.1), nas duas plataformas, com o app aberto.
 
 ---
 
@@ -131,18 +164,22 @@ O acervo permanece no PostgreSQL — e não em banco de documentos — porque é
 
 ### 3.2 Ajustes de fronteira sobre o anexo original
 
-Quatro pontos de acoplamento que a divisão deixa implícitos são fechados aqui:
+Cinco pontos de acoplamento que a divisão deixa implícitos são fechados aqui:
 
 1. **Curtida/descurtida de resenha fica em `leitura`, junto da resenha** (RF-AVA-05, RF-AVA-08) — não em `social`. A resenha mora em `leitura`; manter o contador transacional com ela evita compor "resenha + contagem" entre dois serviços em toda página de livro. `social` fica com a curtida de **atividade do feed** (RF-SOC-11), que é sua de fato.
-2. **A nota dos leitores (agregada) é uma projeção em `acervo`**, alimentada pelo evento `nota.alterada` e passível de implementação como *materialized view* sobre dados locais dessa projeção. A página do livro lê a média localmente, sem acessar a tabela privada `leitura.nota` nem fazer chamada síncrona a `leitura` no caminho crítico.
-3. **A recomendação algorítmica é hospedada em `social`** (§10.7 do `REQUISITOS.md`), lendo *views* expostas por `leitura` (estante, nota), `identidade` (seguir) e `acervo` (assunto). É onde já vivem as recomendações P2P e o feed.
-4. **O feed guarda snapshot no evento de atividade** — nome do usuário, título e capa do livro no momento — em vez de hidratar por *join* a cada scroll. O feed é o caminho mais lido do app e não deve compor três serviços por requisição, ainda mais com o *cold start* do Render.
+2. **A nota dos leitores (agregada) é uma projeção em `acervo`**, alimentada pelo evento `nota.alterada`. A página do livro lê a média localmente, sem acessar a tabela privada `leitura.nota` nem fazer chamada síncrona a `leitura` no caminho crítico. Como ficou na F-ACV-NOTA:
+   - o consumidor usa o evento só como aviso: trava o livro com `pg_advisory_xact_lock`, relê a nota atual em `leitura.v_nota_publicacao_v1` e grava a projeção individual (`nota_leitor_projecao`) e o agregado (`nota_livro_agregada`). O `backfill:notas` e o consumidor de `conta.excluida` usam a mesma trava;
+   - a página calcula média, contagem e distribuição sobre a projeção individual, numa consulta só, para arredondar uma vez. O agregado continua mantido, como contrato da F-CONTA-2, mas a página não o lê;
+   - a consistência é eventual: com as retentativas do consumidor, a nota pode levar uns 22 s para aparecer, e os clientes reconsultam em silêncio depois da escrita.
+3. **A recomendação algorítmica é hospedada em `social`** (§10.7 do `REQUISITOS.md`), lendo *views* expostas por `leitura` (estante, nota), `identidade` (seguir) e `acervo` (assunto). É onde já vivem as recomendações P2P e o feed. A algorítmica é do Período 3 (F-REC-ALG) e ainda não existe; só a P2P está implementada.
+4. **O feed guarda snapshot no evento de atividade** — nome do usuário, título e capa do livro no momento — em vez de hidratar por *join* a cada scroll. O feed é o caminho mais lido do app e não deve compor três serviços por requisição, ainda mais com o *cold start* do Render. **Divergência registrada na F-AVA, pendente de decisão do grupo:** o feed lê `leitura.v_resenha_publicacao_v1` e `leitura.v_nota_publicacao_v1` para mostrar a resenha e a nota atuais.
+5. **A moderação remove conteúdo de `leitura` por chamada síncrona do `social`** (F-MOD). A denúncia e o painel vivem no `social`, mas a resenha e a frase são do `leitura`. O `social` chama `POST /internal/moderacao/{resenhas|frases}/{id}/remocao` no `leitura`, e o `leitura` publica `resenha.excluida` pela própria outbox. Foi escolhido HTTP direto, e não evento ou saga, porque o administrador precisa da confirmação da remoção. É a **única chamada síncrona entre serviços** do sistema (§5.1).
 
 **Livro pessoal** permanece em `acervo` (é um "livro", com edição e página próprias), mas com trava explícita: fora dos índices de busca e das páginas de autor/editora/série (RNF-SEC-06), com verificação de dono e de privacidade do perfil do dono a cada acesso (RN-15).
 
 ### 3.3 Por que quatro, e não mais
 
-O plano gratuito do Render **hiberna cada serviço após ~15 min de inatividade**, e a primeira chamada seguinte leva 30–60 s (tratado em RNF-ERR-09). Quatro serviços dormindo já é o teto razoável para uma demonstração; um quinto serviço (por exemplo, separar avaliação/conteúdo de `leitura`) só multiplicaria pontos de *cold start* sem ganho de coesão. A decomposição é mantida em quatro.
+O plano gratuito do Render **hiberna cada serviço após ~15 min de inatividade**, e a primeira chamada seguinte leva de 30 s a quase 3 min (tratado em RNF-ERR-09). Em DES foram medidos cerca de 165 s no `identidade` e de 50 a 100 s no `leitura`. Quatro serviços dormindo já é o teto razoável para uma demonstração; um quinto serviço (por exemplo, separar avaliação/conteúdo de `leitura`) só multiplicaria pontos de *cold start* sem ganho de coesão. A decomposição é mantida em quatro.
 
 ---
 
@@ -154,6 +191,17 @@ A persistência usa, em cada ambiente, **um projeto PostgreSQL no Neon** (RNF-AR
 
 A baseline física foi aplicada no Neon em 16/09/2026, com **59 tabelas de domínio e 9 VIEWs de contrato**. Flyway versiona `identidade`/`social`; Drizzle versiona `acervo`/`leitura`. Essa implantação não declara as features funcionais: código de domínio, clientes e mensageria seguem os status dos respectivos arquivos de feature.
 
+**Situação em 25/10/2026: 62 tabelas e 10 VIEWs.** Sobre a baseline entraram as quatro tabelas de recibo `mensagem_processada` (P0-MSG), a `acervo.autor_chave_unificada` (F-ACV-INGESTAO) e a VIEW `leitura.v_reacao_resenha_v1` (F-AVA-2). Saíram `leitura.estatistica_anual` e `leitura.estatistica_usuario`, porque a F-STA passou a calcular tudo dos baldes mensais.
+
+| Serviço | Tabelas | VIEWs |
+|---|---|---|
+| `identidade` | 10 | 2 |
+| `acervo` | 17 | 2 |
+| `leitura` | 19 | 4 |
+| `social` | 16 | 2 |
+
+As migrations posteriores à baseline estão no [`DER.md`](../diagramas/DER.md). A busca do `acervo` usa as extensões `pg_trgm` e `unaccent`, instaladas no schema `public` pela migration `0004`.
+
 Essa escolha preserva o encapsulamento de microsserviço **e** mantém possíveis as junções que os requisitos assumem (recomendação, nota agregada), que seriam inviáveis se os dados estivessem em bancos de paradigmas diferentes. É também o que respeita o teto de armazenamento do plano gratuito (RNF-DES-04): o acervo não deve consumir mais de 20% do limite, com o índice de busca dimensionado como custo dominante (RNF-DES-05).
 
 ### 4.2 Regra de acesso entre schemas
@@ -164,6 +212,17 @@ A separação lógica só se sustenta com uma disciplina de acesso:
 
 Sem essa regra, o schema por serviço degenera em banco compartilhado e a divisão em microsserviços perde o sentido. Com ela, o encapsulamento é preservado e os *joins* legítimos continuam possíveis dentro do mesmo cluster.
 
+Cada spec OpenAPI lista as VIEWs que o serviço expõe em `x-database-contracts`. Quem lê o quê, em 25/10/2026:
+
+| Consumidor | VIEWs que lê |
+|---|---|
+| `acervo` | de `identidade`, perfil e seguimento; de `leitura`, estante, nota, reação e resenha; de `social`, `v_atividade_livro_pessoal_v1` e `v_lista_livro_pessoal_v1` (acesso ao livro pessoal, RN-15) |
+| `leitura` | `acervo.v_livro_referencia_v1`; de `identidade`, perfil e seguimento; de `social`, `v_atividade_livro_pessoal_v1` e `v_lista_livro_pessoal_v1` (resenhas, reações e frases de livro pessoal, RN-15) |
+| `social` | `acervo.v_livro_referencia_v1`; de `identidade`, perfil e seguimento; de `leitura`, `v_estante_publica_v1`, `v_nota_publicacao_v1` e `v_resenha_publicacao_v1` |
+| `identidade` | nenhuma |
+
+Se os serviços passarem a usar roles de banco separados, cada consumidor vai precisar de `GRANT USAGE` no schema e `GRANT SELECT` na VIEW, e esse GRANT não pode ir na migration do consumidor, porque os objetos são do dono do schema.
+
 ### 4.3 Escritas e concorrência
 
 - Escritas concorrentes sobre a mesma entidade são resolvidas por controle de concorrência no banco, sem perda de dados (RNF-ARQ-05).
@@ -172,6 +231,7 @@ Sem essa regra, o schema por serviço degenera em banco compartilhado e a divis�
 - Acesso sempre por consultas parametrizadas ou ORM (RNF-SEC-12).
 - Cada schema produtor mantém uma **outbox transacional**. A alteração de domínio e o evento são gravados na mesma transação; um dispatcher publica com confirmação do broker e retry, fechando RNF-ERR-10 sem transformar falha de publicação em falha da operação síncrona.
 - Cada schema consumidor recebe por migration incremental a tabela técnica `mensagem_processada(consumidor, event_id, processado_em)`, com chave primária `(consumidor, event_id)`. Efeito de domínio e recibo são gravados na mesma transação. As migrations da baseline já aplicada não são reescritas e toda nova migration mantém revisão humana obrigatória.
+- Recálculos de um agregado (nota dos leitores, desafios) não são incrementais: releem o estado atual do fato e são serializados por `pg_advisory_xact_lock` na chave do agregado, na mesma ordem em consumidores, backfills e exclusão de conta.
 
 **Decisões de dados incorporadas em 15/09/2026:** `leitura` persiste instante/fuso/data local da ação de finalizar separadamente da data de fim editável. Janelas de desafio guardam configuração histórica e pausas são retidas para recálculo por captura offline. Edição/exclusão de progresso seguem RN-17 e recalculam efeitos no próprio serviço, sem novo serviço ou evento de broker apenas para comunicação interna. Eventos de progresso acionam leitura do estado atual do fato, evitando reaplicar payload anterior à sua correção/exclusão. Retenção de registros técnicos/auditoria é indeterminada após anonimização de RN-23; validade de tokens e replay HTTP não são estendidos.
 
@@ -187,7 +247,19 @@ Fora do PostgreSQL, o sistema usa o **Firebase apenas para FCM** (§2.7). Nenhum
 
 ### 5.1 Síncrono
 
-Os clientes consomem os serviços por **HTTP/JSON**. Cada serviço publica seu contrato em **OpenAPI 3.0.3** (RNF-ARQ-03), versionado em `docs/api/<servico>.yaml` e agregado num Swagger UI único (plano §8). Cada operação identifica se está implementada ou planejada; existir no spec não significa existir no runtime. Em 17/09/2026, os quatro contratos consolidados somam 66 operações: 21 em `identidade`, 11 em `acervo`, 23 em `leitura` e 11 em `social`. Operações que confirmam ao autor — status na estante, progresso, nota, resenha — são **síncronas**; o evento é publicado **depois** da escrita confirmada (§7.2 do `REQUISITOS.md`).
+Os clientes consomem os serviços por **HTTP/JSON**. Cada serviço publica seu contrato em **OpenAPI 3.0.3** (RNF-ARQ-03), versionado em `docs/api/<servico>.yaml` e agregado num Swagger UI único (plano §8). Cada operação identifica se está implementada ou planejada; existir no spec não significa existir no runtime. Em 17/09/2026, os quatro contratos consolidados somavam 66 operações. **Em 25/10/2026 são 117, todas implementadas:** 24 em `identidade`, 15 em `acervo`, 45 em `leitura` e 33 em `social`. Operações que confirmam ao autor — status na estante, progresso, nota, resenha — são **síncronas**; o evento é publicado **depois** da escrita confirmada (§7.2 do `REQUISITOS.md`).
+
+**Rotas internas.** Não são chamadas pelos clientes e não usam o JWT do usuário; cada uma exige um segredo de serviço num header próprio, comparado em tempo constante:
+
+| Rota | Serviço | Chamada por | Header |
+|---|---|---|---|
+| `POST /internal/jobs/inatividade` | `leitura` | GitHub Actions (§2.4) | `X-Scheduler-Token` |
+| `POST /internal/jobs/exclusao-conta` | `identidade` | GitHub Actions (§2.4) | `X-Scheduler-Token` |
+| `POST /internal/moderacao/{resenhas\|frases}/{id}/remocao` | `leitura` | `social` | `X-Moderacao-Token` |
+
+**Chamada síncrona entre serviços.** A remoção pela moderação (§3.2, item 5) é a única. O cliente do `social` usa uma `Idempotency-Key` fixa por alvo, timeout de conexão de 5 s e de leitura de 60 s, por causa do *cold start* do `leitura`. Só repete uma vez, depois de 2 s, em falha de conexão ou 502/503/504; um timeout de leitura não se repete, e a denúncia continua pendente para o administrador tentar de novo. A chamada fica fora de qualquer transação. Isso diverge do backoff de RNF-ERR-08 (§8).
+
+**Tempo real das notificações (F-NOT-2).** O `social` expõe `GET /notificacoes/tempo-real` em **SSE** (`text/event-stream`), autenticado pelo mesmo JWT das outras rotas, no header. O canal abre com o total de não lidas, empurra cada notificação nova depois do commit e manda um *heartbeat* a cada 25 s, abaixo do corte de conexão ociosa do proxy do Render. O canal fecha quando o JWT expira. Os canais ficam em memória, porque cada serviço roda numa instância só; um *backplane* só seria preciso para escalar. O app reconecta com backoff exponencial de 1 a 30 s. A web não tem notificações (§2.1 do `REQUISITOS.md`), e o canal ainda não foi validado no Render.
 
 ### 5.2 Assíncrono (RabbitMQ)
 
@@ -195,10 +267,10 @@ Os fluxos assíncronos de `REQUISITOS.md` §7.2 e seus serviços produtores/cons
 
 | Fluxo | Evento(s) | Produtor | Consumidor |
 |---|---|---|---|
-| **Notificações in-app** | `seguidor.novo`, `solicitacao.*`, `atividade.curtida`, `atividade.comentada`, `comentario.respondido`, `usuario.mencionado`, `resenha.curtida`, `leitura.em_risco`, `leitura.expirada` | identidade, leitura, social | social (+ FCM em Android) |
+| **Notificações in-app** | `seguidor.novo`, `solicitacao.*`, `atividade.curtida`, `atividade.comentada`, `comentario.respondido`, `usuario.mencionado`, `resenha.curtida`, `recomendacao.recebida`, `leitura.em_risco`, `leitura.expirada` | identidade, leitura, social | social (FCM em Android previsto no Período 3) |
 | **Expiração de leituras** | `leitura.em_risco`, `leitura.expirada` | leitura (job diário) | social |
 | **Ingestão de livros** | `livro.importacao_solicitada` | acervo | acervo |
-| **Cache de capas e remoção de recomendações** | `livro.adicionado_a_estante` | leitura | acervo, social |
+| **Cache de capas e remoção de recomendações** | `livro.adicionado_a_estante` (e `leitura.iniciada`, só para o cache) | leitura | acervo, social |
 | **Busca de sinopse** | `livro.pagina_aberta` | acervo | acervo |
 | **Nota agregada** (§3.2) | `nota.alterada` | leitura | acervo |
 | **Atividades do feed** | `leitura.iniciada`, `leitura.retomada`, `leitura.finalizada`, `leitura.abandonada`, `resenha.publicada`, `resenha.excluida` | leitura | social |
@@ -206,11 +278,19 @@ Os fluxos assíncronos de `REQUISITOS.md` §7.2 e seus serviços produtores/cons
 | **Exclusão definitiva de conta** | `conta.excluida` | identidade | leitura, social, acervo |
 | **Recomendação recebida** | `recomendacao.recebida` | social | social |
 
-`livro.adicionado_a_estante` passa a ter dois consumidores: `acervo`, para cache de capa, e `social`, para remover recomendações recebidas do livro.
+`livro.adicionado_a_estante` passa a ter dois consumidores: `acervo`, para cache de capa, e `social`, para remover recomendações recebidas do livro. O cache de capas ouve também `leitura.iniciada`, porque iniciar a leitura de um livro fora da estante o põe nela sem publicar `livro.adicionado_a_estante`.
+
+`resenha.excluida` também sai da remoção pela moderação (§3.2, item 5). Fica planejado só `lembrete.sequencia`, do Período 3 (F-GAM-OPC), ainda sem schema.
 
 #### Contrato canônico
 
-Os contratos assíncronos ficam em `docs/mensageria/`: `README.md`, catálogo e JSON Schemas Draft 2020-12. O conjunto inicial possui **22 schemas**: envelope, tipos comuns, `ping.teste` e 19 eventos de negócio produzidos no Período 1. Eventos de períodos futuros listados acima recebem schema quando sua feature produtora entrar; não se cria fila acumuladora antes de existir consumidor, e o consumidor futuro executa backfill da fonte contratual antes de ativar o binding.
+Os contratos assíncronos ficam em `docs/mensageria/`: `README.md`, catálogo e JSON Schemas Draft 2020-12. O conjunto inicial possuía **22 schemas**: envelope, tipos comuns, `ping.teste` e 19 eventos de negócio produzidos no Período 1. **Em 25/10/2026 são 26**, com os quatro eventos do Período 2: `usuario.mencionado`, `recomendacao.recebida`, `conta.excluida` e `resenha.curtida`. Eventos de períodos futuros recebem schema quando sua feature produtora entrar; não se cria fila acumuladora antes de existir consumidor.
+
+O consumidor novo recupera, por backfill, o que aconteceu antes da sua fila existir. Na prática ficaram três regimes:
+
+- **Backfill antes ou junto do binding:** `leai.leitura.metricas`.
+- **Backfill depois de o serviço subir:** `leai.acervo.notas` e `leai.acervo.capas`. O runtime declara a fila na partida, e evento publicado antes disso se perde; por isso `backfill:notas` e `backfill:capas` rodam depois do deploy em cada ambiente.
+- **Sem backfill:** `leai.social.recomendacoes`. A rotina diária de limpeza do `social` reconcilia o intervalo.
 
 Todo evento usa o envelope v1:
 
@@ -238,7 +318,21 @@ Todo evento usa o envelope v1:
 | `leai.events.social` | `topic` | social |
 | `leai.dead-letter` | `direct` | DLQs |
 
-A routing key é o `type` exato. As filas do Período 1 são `leai.acervo.importacao`, `leai.acervo.sinopse`, `leai.social.feed` e `leai.social.notificacoes`; cada uma possui `<fila>.dlq` ligada a `leai.dead-letter` pela routing key do nome da fila. `leai.p0.ping`/`.dlq` existem apenas para a prova técnica entre stacks.
+A routing key é o `type` exato. Cada fila possui `<fila>.dlq` ligada a `leai.dead-letter` pela routing key do nome da fila. `leai.p0.ping`/`.dlq` existem apenas para a prova técnica entre stacks. As filas de negócio em 25/10/2026:
+
+| Fila | Exchange(s) | Routing keys | Período |
+|---|---|---|---|
+| `leai.acervo.importacao` | `leai.events.acervo` | `livro.importacao_solicitada` | 1 |
+| `leai.acervo.sinopse` | `leai.events.acervo` | `livro.pagina_aberta` | 1 |
+| `leai.social.feed` | `leai.events.leitura` | os quatro `leitura.*` do feed, `resenha.publicada`, `resenha.excluida` | 1 |
+| `leai.social.notificacoes` | `identidade`, `social` e `leitura` | os eventos de notificação da tabela acima | 1 (ampliada no 2) |
+| `leai.acervo.notas` | `leai.events.leitura` | `nota.alterada` | 2 |
+| `leai.acervo.capas` | `leai.events.leitura` | `livro.adicionado_a_estante`, `leitura.iniciada` | 2 |
+| `leai.leitura.metricas` | `leai.events.leitura` | `progresso.registrado`, `leitura.finalizada` | 2 |
+| `leai.social.recomendacoes` | `leai.events.leitura` | `livro.adicionado_a_estante` | 2 |
+| `leai.acervo.conta`, `leai.leitura.conta`, `leai.social.conta` | `leai.events.identidade` | `conta.excluida` | 2 |
+
+`leai.leitura.metricas` é um consumidor só para desafios, estatísticas e sequência (F-DSF, F-STA e F-GAM). `leai.social.notificacoes` é uma fila ligada a três exchanges.
 
 O dispatcher busca até 50 linhas pendentes por ciclo de 1 segundo, usa `SKIP LOCKED`, publica mensagem persistente e marca `publicado` somente após *publisher confirm*. Falha incrementa `tentativas`, mantém a linha pendente e usa backoff limitado a 60 segundos; outbox não é descartada por quantidade de tentativas.
 
@@ -248,7 +342,7 @@ Filas duráveis, *publisher confirms* e DLQ protegem mensagens já recebidas pel
 
 ### 5.3 Resiliência
 
-Timeout e retentativa com backoff em toda chamada externa, com circuit breaker (RNF-ERR-03/08); fila offline no cliente móvel para registros de progresso (RNF-ERR-05), preservando a captura original para recompor desafios e streak, inclusive períodos encerrados; tratamento explícito da hibernação do Render, com estado de carregamento prolongado na primeira chamada (RNF-ERR-09).
+Timeout e retentativa com backoff em toda chamada externa, com circuit breaker (RNF-ERR-03/08); fila offline no cliente móvel para registros de progresso (RNF-ERR-05), preservando a captura original para recompor desafios e streak, inclusive períodos encerrados; tratamento explícito da hibernação do Render, com estado de carregamento prolongado na primeira chamada (RNF-ERR-09). As chamadas a provedores externos de metadados e capas (OpenLibrary, Google Books) passam por um cliente HTTP único no `acervo`, com allowlist de hosts (SSRF), timeout, limite de tamanho lido em *streaming*, backoff de 1, 5 e 15 s e circuit breaker.
 
 ---
 
@@ -256,14 +350,14 @@ Timeout e retentativa com backoff em toda chamada externa, com circuit breaker (
 
 | Componente | Provedor | Plano | Observação |
 |---|---|---|---|
-| Serviços de backend (×4) | Render | gratuito | região Oregon; hibernam após ~15 min; *cold start* tratado em RNF-ERR-09 |
+| Serviços de backend (×4) | Render | gratuito | região Oregon; hibernam após ~15 min; *cold start* tratado em RNF-ERR-09; runtime Node para `acervo` e `leitura` e Docker para `identidade` e `social` (`render.yaml`) |
 | Site estático (web Vue) | Render | gratuito | build da SPA |
 | Banco de dados | Neon (PostgreSQL) | gratuito | um projeto por ambiente, schema por serviço, sem branch por dev: DES/HML `le-ai-oregon` em `aws-us-west-2` (Oregon, junto do Render) e desenvolvimento `le-ai` em `aws-sa-east-1` (São Paulo); sem replicação entre eles |
 | Mensageria | CloudAMQP (RabbitMQ) | gratuito | uma instância por ambiente: DES/HML `Le-ai-oregon` (Oregon) e desenvolvimento `Le-ai` (São Paulo); limite de conexões — uma por serviço |
-| Imagens | Cloudinary | gratuito | transformação por URL + cache de capas |
+| Imagens | Cloudinary | gratuito | transformação por URL + cache de capas; um cloud para os dois ambientes, com pasta de capas por ambiente (§2.5) |
 | E-mail transacional | Brevo | gratuito | 300 e-mails/dia |
-| Push (Android) | Firebase Cloud Messaging | gratuito | somente FCM |
-| Agendador de jobs | GitHub Actions (`schedule`) | gratuito | fallback cron-job.org; validar no repo da faculdade |
+| Push (Android) | Firebase Cloud Messaging | gratuito | somente FCM; ainda não implementado (Período 3) |
+| Agendador de jobs | GitHub Actions (`schedule`) | gratuito | fallback cron-job.org; funcionando no repo da faculdade desde 30/09/2026 |
 | CI/CD | GitHub Actions | gratuito | lint, build, testes, deploy a partir de `main` |
 
 Ambientes conforme o plano §4:
@@ -278,6 +372,8 @@ As migrations aplicadas localmente só alteram o banco de desenvolvimento; o DES
 ## 7. Transversais (aplicados nos quatro serviços)
 
 - **Segurança:** controle de acesso validado no servidor em todo recurso protegido (RNF-SEC-01 a 07); HTTPS/TLS (RNF-SEC-08); senhas com Argon2/bcrypt/scrypt (RNF-SEC-09); tokens de acesso curtos e renovação revogável (RNF-SEC-30); rate limiting em auth e ações sociais (RNF-SEC-17/18); CORS restrito às origens conhecidas (RNF-SEC-21); validação por schema de toda entrada (RNF-SEC-13); proteção contra IDOR por identificador não sequencial (RNF-SEC-05).
+- **Autenticação entre clientes e serviços:** o `identidade` emite o JWT de acesso (HS256, 15 min) e o *refresh token* (30 dias, revogável); os outros três serviços validam o mesmo token com o `JWT_SECRET` compartilhado, sem chamar o `identidade`. O papel de administrador vai na claim `papel`. As rotas internas usam segredos de serviço próprios (§5.1).
+- **Estado em memória:** rate limiting, contagem de tentativas de login e canais SSE vivem na memória do processo. Não é estado de sessão (RNF-ARQ-04), e funciona porque cada serviço roda numa instância só; escalar horizontalmente exigiria mover esse estado.
 - **Observabilidade:** log estruturado com `correlation-id` propagado entre serviços e mensagens (RNF-OBS-01); health check por serviço (RNF-OBS-02); log de falhas de auth, autorização e ações de moderação (RNF-SEC-35).
 - **Erros:** corpo de erro padronizado com código interno, mensagem exibível e id de correlação (RNF-ERR-01); códigos HTTP semânticos; mensagens em pt-BR sem detalhe técnico (RNF-USA-05).
 - **Testes:** unitários das regras de negócio, com prioridade obrigatória para a máquina de estados de leitura (RN-04), a regra de inatividade (RN-05) e o controle de acesso a perfil privado (RN-08); integração com banco real; testes dos fluxos assíncronos incluindo idempotência e DLQ (RNF-TST-01 a 08).
@@ -300,6 +396,26 @@ Nenhuma decisão remove requisito do escopo. As duas que o `REQUISITOS.md` marca
 
 ### Itens a validar ou decidir no período-0
 
-- Viabilidade do GitHub Actions `schedule` no repositório do GitHub Classroom (P-08).
-- Limites vigentes dos planos gratuitos de Cloudinary, CloudAMQP, Brevo e Neon.
-- Emissão de push FCM em dispositivo Android real de demonstração (P-04).
+Situação em 25/10/2026:
+
+| Item | Situação |
+|---|---|
+| Viabilidade do GitHub Actions `schedule` no repositório do GitHub Classroom (P-08) | **confirmada na prática:** `job-inatividade.yml` roda todo dia desde 30/09/2026; os arquivos de P0-MSG e F-EST ainda a registram como não confirmada |
+| Limites vigentes dos planos gratuitos de Cloudinary, CloudAMQP, Brevo e Neon | **em aberto:** nenhum arquivo registra a conferência. Medido só o tamanho do acervo no Neon, cerca de 11 MB |
+| Emissão de push FCM em dispositivo Android real de demonstração (P-04) | **adiada** para o Período 3, com a F-NOT-OPC |
+
+### Divergências e itens abertos no fechamento do Período 2
+
+Registrados nos arquivos das features. Os que pedem decisão do grupo não foram resolvidos aqui:
+
+| Item | Origem | Situação |
+|---|---|---|
+| O feed lê VIEWs do `leitura` para resenha e nota, contra o snapshot da §3.2, item 4 | F-AVA | decisão do grupo pendente |
+| A chamada `social` → `leitura` na moderação usa uma retentativa só e timeout de 60 s, e não o backoff de RNF-ERR-08 | F-MOD | divergência registrada, por causa do *cold start* |
+| Limpeza diária de recomendações em `@Scheduled` no próprio `social`, e não no GitHub Actions (§2.4) | F-REC-P2P | no Render gratuito, só roda se o serviço estiver acordado às 04:30 |
+| `garantirEstante` põe o livro na estante sem publicar `livro.adicionado_a_estante`; as recomendações desse livro não são removidas por evento | F-ACV-NOTA (lacuna do `leitura`) | o cache de capas contorna ouvindo `leitura.iniciada`; a limpeza diária remove as recomendações |
+| E-mail de recuperação de senha sem prova de envio real em DES | F-AUT | pendente |
+| Avatar e capa pessoal sobem direto ao Cloudinary pelo preset, e o servidor valida só a origem da URL, não o tipo real, o tamanho e as dimensões da imagem (§2.5, RNF-SEC-20) | F-PERFIL e F-ACV-CADASTRO | limites fixados no preset; registrado nas features |
+| Canal SSE sem validação no Render | F-NOT-2 | pendente, depende do merge na `main` |
+| O dispatcher começa a publicar antes de as filas serem declaradas, e um evento publicado nesse intervalo se perde | F-ACV-BUSCA (defeito do runtime de P0-MSG) | só acontece com backlog na primeira subida; correção sugerida: esperar a topologia dos consumidores antes de despachar |
+| Uma queda de rede derruba o processo do `acervo` e do `leitura` quando o driver `pg` emite erro sem ouvinte | F-ACV-DESCOBERTA | levado a P0-INFRA; no Render, cada oscilação de rede reiniciaria o serviço |

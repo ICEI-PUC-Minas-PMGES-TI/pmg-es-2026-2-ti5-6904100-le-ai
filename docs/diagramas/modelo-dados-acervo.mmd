@@ -13,6 +13,7 @@ erDiagram
   SERIE o|..o{ LIVRO : "agrupa"
   LIVRO ||--o{ LIVRO_AUTOR : "tem"
   AUTOR ||--o{ LIVRO_AUTOR : "escreve"
+  AUTOR ||..o{ AUTOR_CHAVE_UNIFICADA : "unifica"
   LIVRO ||--o{ LIVRO_ASSUNTO : "classificado"
   ASSUNTO ||--o{ LIVRO_ASSUNTO : "classifica"
   LIVRO ||--o{ NOTA_LEITOR_PROJECAO : "recebe"
@@ -52,6 +53,10 @@ erDiagram
     string nome_normalizado "dedup fallback (RN-12)"
     string ol_author_key UK "nullable"
     string biografia "OpenLibrary; nullable (P2)"
+  }
+  AUTOR_CHAVE_UNIFICADA {
+    string ol_author_key PK "chave do autor duplicado"
+    uuid autor_id FK "autor canônico"
   }
   EDITORA {
     uuid id PK
@@ -153,6 +158,7 @@ erDiagram
     direction LR
     LIVRO
     AUTOR
+    AUTOR_CHAVE_UNIFICADA
     EDITORA
     SERIE
     ASSUNTO
@@ -183,6 +189,8 @@ erDiagram
   %% fica fora do catálogo. RN-15 exige via feed/lista e autorização do dono.
   %% RN-12: AUTOR dedup por chave externa, fallback de nome normalizado quando
   %% chave ausente; homônimos com chaves distintas não são fundidos por nome.
+  %% AUTOR_CHAVE_UNIFICADA (P1, migration 0006): chave do autor que a OpenLibrary
+  %% duplicou, gravada pelo `unificar` da ingestão; carga e ISBN a consultam antes de criar.
   %% Biografia somente OpenLibrary: sem dado, omitir seção; demais fallbacks
   %% de ISBN/sinopse continuam conforme requisitos. Não criar entidade Obra.
   %% RN-06: rating externo por ol_work_key replicado em edições; notas locais

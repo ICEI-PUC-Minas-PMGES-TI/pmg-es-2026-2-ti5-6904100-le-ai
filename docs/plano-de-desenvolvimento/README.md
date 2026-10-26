@@ -41,8 +41,9 @@ Cada feature pertence a um serviço, definido pela decomposição de `../orquest
 
 - [OpenAPI por serviço](../api/README.md): contratos HTTP implementados e planejados, com estado explícito por operação.
 - [Mensageria](../mensageria/README.md): envelope, catálogo e JSON Schemas canônicos dos eventos.
-- [DER implantado](../diagramas/DER.md): baseline de 59 tabelas de domínio e 9 VIEWs de contrato aplicada no Neon em 16/09/2026; com as 4 tabelas de recibo `mensagem_processada` de P0-MSG (19/09/2026), são **63 tabelas**.
+- [DER implantado](../diagramas/DER.md): baseline de 59 tabelas de domínio e 9 VIEWs de contrato aplicada no Neon em 16/09/2026. Com as migrations dos Períodos 1 e 2, são **62 tabelas e 10 VIEWs** em 25/10/2026.
 - [Período 1](periodo-1/README.md): divisão das dez features em cinco frentes verticais, ordem de execução e [fechamento do período](periodo-1/README.md#fechamento-do-período-1-29092026).
+- [Período 2](periodo-2/README.md): divisão das 14 features entre cinco pessoas e [situação em 25/10/2026](periodo-2/README.md#situação-em-25102026).
 
 A baseline de dados e a existência do contrato não significam que a feature está implementada.
 
@@ -50,7 +51,13 @@ A baseline de dados e a existência do contrato não significam que a feature es
 
 Granularidade atual: features "maiores" — cerca de uma por módulo de RF, por banda de prioridade, dentro de um serviço. Um módulo cujos RFs cruzam bandas de prioridade vira mais de uma feature (uma por período). Poderemos granularizar mais adiante.
 
-**Situação em 29/09/2026:** as 10 features do Período 1 estão entregues em `desenvolvimento` e **em revisão** (aguardam o aval dos professores); o DES recebe o período inteiro no merge de fechamento em `main`. O estado de cada uma fica no arquivo da feature e no [fechamento do Período 1](periodo-1/README.md#fechamento-do-período-1-29092026). As features dos Períodos 2 e 3 ainda não foram iniciadas.
+**Situação em 25/10/2026:**
+
+- **Período 1:** as 10 features estão **em revisão** (aguardam o aval dos professores). O período foi para a `main` em 29/09/2026 (PR #45, release `v0.1.0`). Detalhe no [fechamento do Período 1](periodo-1/README.md#fechamento-do-período-1-29092026).
+- **Período 2:** as 14 features estão implementadas e mergeadas em `desenvolvimento`, **em revisão**. Chegam à `main` e ao DES no fechamento de 03/11/2026. Detalhe na [situação do Período 2](periodo-2/README.md#situação-em-25102026).
+- **Período 3:** protótipos das 15 telas prontos (PR #54, 21/10/2026); as features ainda não foram iniciadas.
+
+O estado de cada feature fica no arquivo dela.
 
 | ID | Feature | Serviço | Período | Prioridade | RFs | Dono |
 |---|---|---|---|---|---|---|
@@ -105,6 +112,8 @@ Os 130 RFs de `../orquestador/REQUISITOS.md` §5 estão todos alocados: **54 Ess
 
 ## Próximo passo
 
-O **Período 1 fechou em 29/09/2026** com as dez features prioritárias entregues e em revisão ([fechamento](periodo-1/README.md#fechamento-do-período-1-29092026)). Falta o ritual de fechamento do `../orquestador/plano-de-projeto.md` §12: PR `desenvolvimento` → `main` com CI verde, validação dos fluxos em DES, tag `vX.Y.Z` com GitHub Release e atualização do Documento de Arquitetura pelo grupo.
+O **Período 1 fechou em 29/09/2026** com as dez features prioritárias entregues e em revisão ([fechamento](periodo-1/README.md#fechamento-do-período-1-29092026)). O PR `desenvolvimento` → `main` entrou no mesmo dia, com a tag `v0.1.0` e a GitHub Release.
 
-O **[Período 2](periodo-2/README.md)** começa em **06/10/2026** (Sprint 5, fechamento em 03/11 com a Entrega 5): features desejáveis mais o checkpoint dos testes das prioritárias. As 14 features já têm dono desde 29/09/2026 ([divisão do Período 2](periodo-2/README.md#divisão-do-período-2-entre-5-pessoas)). Todos os períodos já têm as features detalhadas; as decisões dos donos registradas nos arquivos não devem ser antecipadas.
+O **[Período 2](periodo-2/README.md)** fecha em **03/11/2026** (Entrega 5). As 14 features estão implementadas em `desenvolvimento`. Falta o ritual de fechamento do `../orquestador/plano-de-projeto.md` §12: PR `desenvolvimento` → `main` com CI verde, validação dos fluxos em DES (com os backfills de cada feature), tag `v0.2.0` com GitHub Release. O Documento de Arquitetura já foi atualizado para o período (v1.8, 25/10/2026).
+
+O **[Período 3](periodo-3/README.md)** começa em **10/11/2026**: opcionais, refino, testes das desejáveis e ATAM. As decisões dos donos registradas nos arquivos não devem ser antecipadas.

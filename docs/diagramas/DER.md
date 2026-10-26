@@ -41,9 +41,13 @@ Drizzle nao entram nessa contagem.
 
 ## Migrations posteriores ao modelo
 
-Aplicadas depois da baseline de 16/09/2026, durante o Periodo 1. Com as quatro
-tabelas `mensagem_processada`, o total passa a **63 tabelas** de dominio e
-recibo, mantidas as nove views.
+Aplicadas depois da baseline de 16/09/2026, nos Periodos 1 e 2. No Periodo 1,
+as quatro tabelas `mensagem_processada` levaram o total a 63 tabelas, mantidas
+as nove views. No Periodo 2 entraram `acervo.autor_chave_unificada` e a view
+`leitura.v_reacao_resenha_v1`, e sairam `leitura.estatistica_anual` e
+`leitura.estatistica_usuario`. Em 25/10/2026 sao **62 tabelas** de dominio e
+recibo e **10 views**: `identidade` 10/2, `acervo` 17/2, `leitura` 19/4 e
+`social` 16/2.
 
 | Schema | Migration | Origem | Efeito |
 |---|---|---|---|
@@ -59,10 +63,18 @@ recibo, mantidas as nove views.
 | `social` | `V20260919100000__agenda_retry_outbox.sql` | P0-MSG, 19/09 | backoff da outbox |
 | `social` | `V20260925140000__adiciona_comentario_respondido_id.sql` | F-FEED, 25/09 | `comentario.comentario_respondido_id`, FK composta com `atividade_id`, `ON DELETE SET NULL` |
 | `social` | `V20260927002000__snap_livro_autor_anulavel.sql` | F-AVA, 27/09 | `atividade.snap_livro_autor` passa a aceitar nulo (701 livros oficiais sem autor) |
+| `acervo` | `0005_20261002200217_descoberta.sql` | F-ACV-DESCOBERTA, 02/10 | `CHECK` `autor_biografia_ck` e indice trigram do nome da serie |
+| `social` | `V20261003180000__corrige_username_citext_na_outbox.sql` | correcao do `social`, 03/10 | so dados: corrige o `username` `citext` gravado como objeto nos payloads pendentes da outbox |
+| `social` | `V20261005100000__limites_lista.sql` | F-LST, 05/10 | `CHECK`s de tamanho em `lista`: titulo ate 80 e descricao ate 300 caracteres |
+| `acervo` | `0006_20261008004153_autor_chave_unificada.sql` | F-ACV-INGESTAO, 08/10 | tabela nova `autor_chave_unificada` |
+| `leitura` | `0005_20261009161113_cria_v_reacao_resenha_v1.sql` | F-AVA-2, 09/10 | view nova `v_reacao_resenha_v1` (reacoes ativas) |
+| `leitura` | `0006_20261011031028_estatistica_buckets_mensais.sql` | F-STA, 11/10 | remove `estatistica_anual` e `estatistica_usuario`; colunas novas em `estatistica_mensal` |
+| `social` | `V20261018120000__moderacao_denuncia_e_auditoria.sql` | F-MOD, 18/10 | colunas de contexto e indices unicos em `denuncia` e `log_moderacao`, sem tabela nova |
 
 Flyway aplica as migrations de `identidade` e `social` no boot, e o
 `start:prod` de `acervo` e `leitura` aplica as do Drizzle. No DES, as que ainda
-nao estiverem la entram com o deploy da `main` no fechamento do Periodo 1. A
+nao estiverem la entram com o deploy da `main` no fechamento de cada periodo;
+as do Periodo 2 entram no de 03/11/2026. A
 revisao humana das migrations (plano de projeto) continua obrigatoria antes
 desse deploy; a `V20260927002000` foi escrita por F-AVA no servico do `social`
 e aguarda a revisao do dono (ver `code/back/social/AGENTS.md`).

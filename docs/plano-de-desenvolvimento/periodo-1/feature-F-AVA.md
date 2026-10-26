@@ -86,7 +86,7 @@ O feed não consome VIEW de resenha; consome exclusivamente `resenha.publicada`.
 - [x] Testes assíncronos de F-AVA cobrem schemas canônicos, atomicidade domínio+outbox, operações/valores de `nota.alterada`, snapshots de `resenha.publicada`, repetição HTTP sem segunda linha de outbox e edição sem segunda `resenha.publicada`. O teste ponta a ponta de RNF-TST-03 para `resenha.*` inclui o consumidor F-FEED; consumo/backfill de `nota.alterada` pertence a F-ACV-NOTA. *(O ponta a ponta com o consumidor do F-FEED está em Pendências.)* Dispatcher, confirm, recibo, retry e DLQ genéricos pertencem a P0-MSG.
 - [x] Testes web/mobile cobrem estrelas, spoiler, confirmações, perfil privado e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
 - [x] **Spec OpenAPI de `leitura` em `docs/api/leitura.yaml` implementado sem divergência** para nota/resenha/minha avaliação/perfil e contratos de VIEW; trocar `x-implementation-status: planned` somente após a implementação
-- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)) — entra no merge de fechamento do Período 1, não é pendência da feature
+- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)) — entra no merge de fechamento do Período 1, não é pendência da feature. O merge entrou em 29/09/2026 (PR #45, tag `v0.1.0`); a validação em DES ainda não foi registrada.
 - [x] Arquivo da feature atualizado: status, pendências, timeline
 - [x] Divergência protótipo × implementação registrada, se houver
 

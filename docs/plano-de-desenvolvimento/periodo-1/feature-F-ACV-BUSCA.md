@@ -79,7 +79,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [x] Teste assíncrono da sinopse cobre schema canônico, atomicidade domínio+outbox, publicação e consumo pela topologia de P0-MSG, recibo+efeito atômicos, entrega duplicada sem novo efeito, ausência terminal, falha pós-retentativa sem `pendente` órfão e DLQ (RNF-TST-03); a suíte genérica de dispatcher/confirm/retry/DLQ continua pertencendo a P0-MSG
 - [x] Testes web/mobile cobrem paginação, polling limitado da sinopse, ausência/carregamento e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
 - [x] **Spec OpenAPI de `acervo` em `docs/api/acervo.yaml` implementado sem divergência** para `GET /livros`, `GET /livros/{id}` e `GET /livros/{id}/resenhas`; remover `x-contract-status: planned` somente após a implementação
-- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)) — entra no merge de fechamento do Período 1, não é pendência da feature
+- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)) — entra no merge de fechamento do Período 1, não é pendência da feature. O merge entrou em 29/09/2026 (PR #45, tag `v0.1.0`); a validação em DES ainda não foi registrada.
 - [x] Arquivo da feature atualizado: status, pendências, timeline
 - [x] Divergência protótipo × implementação registrada, se houver
 
