@@ -78,3 +78,11 @@ Realizado nota geral, nota dos leitores e histograma na página do livro, na web
 Realizado cache de capas oficiais no Cloudinary, com backfill
 Realizado correções das revisões do PR da F-ACV-NOTA: retentativa do Cloudinary, download de capa, recarga da nota dos leitores e histograma com texto ampliado
 Realizado merge da F-ACV-NOTA na desenvolvimento
+Realizado ajuste do contrato do leitura para a VIEW de notas lida pelo consumidor e pelo backfill do acervo
+Realizado Documento de Arquitetura v1.8 e documentação da disciplina atualizada para o fechamento do Período 2
+Realizado atualização do status das features dos Períodos 1 e 2, do plano de projeto, do design e do cabeçalho dos requisitos
+Realizado orçamento do projeto e previsão do orçamento (gerência)
+
+### Semana 4 (28/10 - 03/11)
+
+Realizado plano de testes das funcionalidades prioritárias (versão final), com os casos ligados aos testes automatizados e os resultados do CI
