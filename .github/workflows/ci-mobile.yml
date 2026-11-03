@@ -105,8 +105,19 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      # O APK de DES aponta para os serviços do Render (P0-DEPLOY). Sem os --dart-define, o
+      # app_config.dart cai nos padrões de localhost e o app instalado não alcança nada.
+      # Os presets do Cloudinary são unsigned e públicos, os mesmos da web no render.yaml.
       - name: Build release APK
-        run: flutter build apk --release
+        run: >-
+          flutter build apk --release
+          --dart-define=IDENTIDADE_BASE_URL=https://leai-identidade.onrender.com
+          --dart-define=ACERVO_BASE_URL=https://leai-acervo.onrender.com
+          --dart-define=LEITURA_BASE_URL=https://leai-leitura.onrender.com
+          --dart-define=SOCIAL_BASE_URL=https://leai-social.onrender.com
+          --dart-define=CLOUDINARY_CLOUD_NAME=leai
+          --dart-define=CLOUDINARY_UPLOAD_PRESET=leai_capas
+          --dart-define=CLOUDINARY_AVATAR_PRESET=leai_avatares
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
