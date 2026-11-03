@@ -1,4 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Sem isto o APK release não tem rede: debug e profile declaram INTERNET nos próprios
+         manifests, por isso o app funcionava no `flutter run` e não no APK do CI. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="Lê Aí"
         android:name="${applicationName}"
