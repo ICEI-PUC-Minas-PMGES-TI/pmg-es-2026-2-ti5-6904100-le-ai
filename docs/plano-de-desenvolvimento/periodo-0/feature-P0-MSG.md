@@ -220,7 +220,7 @@ P0-MSG entrega o envelope, os tipos comuns, `ping.teste` e os validadores. Cada 
 - [x] `correlationId` atravessa o broker e aparece nos logs.
 - [x] Exchanges, filas e DLQs usam exatamente os nomes documentados.
 - [x] Eventos sem consumidor atual não criam fila acumuladora.
-- [ ] `schedule` ou fallback foi validado em ambiente real.
+- [x] `schedule` ou fallback foi validado em ambiente real. *O `job-inatividade.yml` roda pelo `schedule` todo dia, com sucesso, desde 30/09/2026.*
 - [ ] Cloudinary, Brevo, FCM, CloudAMQP e Neon tiveram limites/provas registrados.
 
 ## Definition of Done
@@ -233,7 +233,7 @@ P0-MSG entrega o envelope, os tipos comuns, `ping.teste` e os validadores. Cada 
 - [ ] Prova Spring → Node funcionando em DES/HML
 - [x] Variáveis e segredos configurados sem valor versionado
 - [ ] Limites e provas das integrações registrados na Timeline
-- [ ] CI verde
+- [x] CI verde — `ci-back-acervo`, `ci-back-identidade`, `ci-back-leitura` e `ci-back-social` verdes na `desenvolvimento` (última execução de cada um até 25/10/2026)
 - [ ] Arquivo da feature atualizado com status e pendências finais
 
 OpenAPI é N/A para o broker. O endpoint interno do agendador entra no spec de `leitura` com F-EST.
@@ -244,7 +244,7 @@ OpenAPI é N/A para o broker. O endpoint interno do agendador entra no spec de `
 - Provisionamento e evidências das contas gratuitas precisam ser registrados; informação verbal de que estão configuradas não substitui a prova do critério de aceite.
 - A revisão humana das novas migrations de recibo é obrigatória.
 - Payloads de negócio não são pendência desta feature: ficam nos schemas das features produtoras.
-- **Viabilidade das Actions `schedule` no GitHub Classroom não confirmada** (P-08) — se restrita, adotar cron-job.org.
+- ~~**Viabilidade das Actions `schedule` no GitHub Classroom não confirmada** (P-08) — se restrita, adotar cron-job.org.~~ Confirmada na prática: o `job-inatividade.yml` roda pelo `schedule` todo dia, com sucesso, desde 30/09/2026, com chamada HTTP autenticada ao `leitura`; o cron-job.org não foi preciso.
 - Cliente AMQP por serviço definido com a stack (02/09/2026): **Spring AMQP** em `identidade` e `social`; **`amqplib`** em `acervo` e `leitura`.
 - Bibliotecas de validação definidas e implementadas: `networknt json-schema-validator` no Java e `ajv` + `ajv-formats` no TypeScript — RNF-SEC-32.
 - Limites vigentes dos planos gratuitos a confirmar e anotar (Cloudinary, CloudAMQP, Brevo, Neon).
@@ -271,3 +271,7 @@ OpenAPI é N/A para o broker. O endpoint interno do agendador entra no spec de `
 ### Configuração de ambiente 19/09/2026: variáveis do Brevo preparadas no serviço `identidade` e no blueprint do Render. A prova real de envio permanece pendente até preencher as chaves no ambiente e confirmar o remetente verificado.
 
 ### Blueprint 22/09/2026: `AMQP_ENABLED=true` declarado nos quatro serviços do `render.yaml`; `AMQP_URL` permanece como segredo `sync: false` e deve ser preenchido no painel antes do deploy da `main` ao fim do Período 1. O status de DES/HML permanece pendente até esse deploy.
+
+### 25/10/2026: status atualizado por Renato Douglas
+
+P-08 confirmado na prática: o `job-inatividade.yml` roda pelo `schedule` todo dia, com sucesso, desde 30/09/2026. Critério do `schedule` e CI verde marcados; o texto antigo da pendência ficou riscado. Sem mudança de escopo ou decisão.

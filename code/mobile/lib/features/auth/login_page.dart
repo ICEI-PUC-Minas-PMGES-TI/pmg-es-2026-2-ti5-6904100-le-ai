@@ -55,6 +55,7 @@ class _LoginPageState extends State<LoginPage> {
   bool _bordaDeErroCredencial = false;
 
   String? _bannerErro;
+  String? _avisoDeSaida;
 
   // Bloqueio progressivo (§4.3) é alerta (ambar), não erro (rubi) — banner e botão diferentes.
   bool _bloqueado = false;
@@ -68,6 +69,7 @@ class _LoginPageState extends State<LoginPage> {
     // novo, e é o único jeito de sair do bloqueio sem reabrir a tela.
     _identificadorController.addListener(_liberarBloqueioAoEditar);
     _senhaController.addListener(_liberarBloqueioAoEditar);
+    _avisoDeSaida = widget.sessionController.consumirAvisoDeSaida();
   }
 
   @override
@@ -130,14 +132,21 @@ class _LoginPageState extends State<LoginPage> {
 
     setState(() => _enviando = true);
     try {
-      final sessao = await widget.authService.entrar(
+      final resultado = await widget.authService.entrar(
         identificador: _identificadorController.text.trim(),
         senha: _senhaController.text,
       );
-      await widget.sessionController.entrar(
-        sessao.accessToken,
-        refreshToken: sessao.refreshToken,
-      );
+      switch (resultado) {
+        case LoginComSessao(:final sessao):
+          await widget.sessionController.entrar(
+            sessao.accessToken,
+            refreshToken: sessao.refreshToken,
+          );
+        case LoginDeRecuperacao(:final acesso):
+          // Conta em exclusão (F-CONTA-2): sem sessão. A guarda de rota leva à recuperação.
+          widget.sessionController.guardarRecuperacao(acesso);
+          return;
+      }
       if (!mounted) {
         return;
       }
@@ -171,6 +180,10 @@ class _LoginPageState extends State<LoginPage> {
               const SizedBox(height: DesignTokens.space10),
               Text('Entrar', style: theme.displayTitle),
               const SizedBox(height: DesignTokens.space8),
+              if (_avisoDeSaida != null) ...<Widget>[
+                BannerAviso(variante: VarianteAviso.alerta, mensagem: _avisoDeSaida!),
+                const SizedBox(height: DesignTokens.space6),
+              ],
               if (_bannerErro != null) ...<Widget>[
                 BannerAviso(
                   variante: _bloqueado ? VarianteAviso.alerta : VarianteAviso.erro,

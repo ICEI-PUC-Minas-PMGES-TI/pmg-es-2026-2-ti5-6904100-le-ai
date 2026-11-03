@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:le_ai_mobile/core/network/api_client.dart';
+import 'package:le_ai_mobile/features/descobrir/filtros_da_busca.dart';
 import 'package:le_ai_mobile/features/livros/livro_oficial.dart';
 
 import '../livros/apoio.dart';
@@ -146,5 +147,79 @@ void main() {
       ),
     );
     expect(livro?.autoresParaExibir, 'Ana, Bruno');
+  });
+
+  group('filtros e páginas de catálogo (F-ACV-DESCOBERTA)', () {
+    test('manda só os filtros preenchidos', () async {
+      late Uri pedida;
+      final servico = acervoSimulado((request) async {
+        pedida = request.url;
+        return json(paginaJson(<Map<String, Object?>>[]), 200);
+      });
+
+      await servico.buscarLivros(
+        filtros: const FiltrosDaBusca(editora: 'Pallas', ano: 2003, paginasMin: 100),
+      );
+
+      expect(pedida.queryParameters, <String, String>{
+        'editora': 'Pallas',
+        'ano': '2003',
+        'paginasMin': '100',
+        'page': '1',
+        'limit': '20',
+      });
+    });
+
+    test('autor, editora e série pedem a página pelo id, com página e limite', () async {
+      final pedidas = <Uri>[];
+      final servico = acervoSimulado((request) async {
+        pedidas.add(request.url);
+        return json(<String, Object?>{
+          'id': 'x',
+          'nome': 'X',
+          'biografia': null,
+          'autores': <Object?>[],
+          'livros': paginaJson(<Map<String, Object?>>[]),
+        }, 200);
+      });
+
+      await servico.obterAutor('a 1', page: 2);
+      await servico.obterEditora('e1');
+      await servico.obterSerie('s1');
+
+      expect(pedidas.map((uri) => uri.path), <String>['/autores/a%201', '/editoras/e1', '/series/s1']);
+      expect(pedidas.first.queryParameters, <String, String>{'page': '2', 'limit': '20'});
+    });
+
+    test('lê biografia, autores da série e o número de ordem de cada livro', () async {
+      final servico = acervoSimulado(
+        (request) async => json(<String, Object?>{
+          'id': 's1',
+          'nome': 'O Tempo e o Vento',
+          'autores': <Object?>[
+            <String, String>{'id': 'verissimo', 'nome': 'Erico Verissimo'},
+          ],
+          'livros': paginaJson(<Map<String, Object?>>[
+            <String, Object?>{...livroJson('v1', 'O Continente'), 'numeroNaSerie': 1},
+            <String, Object?>{...livroJson('extra', 'Ana Terra'), 'numeroNaSerie': null},
+          ]),
+        }, 200),
+      );
+
+      final pagina = await servico.obterSerie('s1');
+
+      expect(pagina.biografia, isNull);
+      expect(pagina.autores.single.nome, 'Erico Verissimo');
+      expect(pagina.livros.itens.map((livro) => livro.numeroNaSerie), <int?>[1, null]);
+    });
+
+    test('corpo fora do contrato vira resposta inválida', () async {
+      final servico = acervoSimulado((request) async => json(<String, Object?>{'id': 'x'}, 200));
+
+      await expectLater(
+        servico.obterEditora('x'),
+        throwsA(isA<ApiException>().having((e) => e.kind, 'kind', ApiFailureKind.invalidResponse)),
+      );
+    });
   });
 }

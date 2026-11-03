@@ -4,6 +4,7 @@ import br.com.leai.social.config.AppProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * Serviço {@code social} — feed e atividades, curtidas de atividade, comentários, listas,
@@ -16,6 +17,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
  */
 @SpringBootApplication
 @EnableConfigurationProperties(AppProperties.class)
+@EnableScheduling
 public class SocialApplication {
 
   public static void main(String[] args) {

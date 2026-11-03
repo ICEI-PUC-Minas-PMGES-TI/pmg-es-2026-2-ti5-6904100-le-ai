@@ -1,4 +1,5 @@
 import { getToken } from '../session'
+import type { ViaDeAcesso } from './acervo'
 import { ApiError, createApiClient, type ApiClientOptions } from './api'
 import { renovarSessao } from './renovacao'
 
@@ -27,11 +28,53 @@ export interface Resenha {
   atualizadoEm: string
 }
 
+export type TipoDeReacao = 'curtida' | 'descurtida'
+
+/** `Reacoes` do contrato (F-AVA-2): contagens separadas e a reação de quem olha (RF-AVA-08). */
+export interface EstadoDasReacoes {
+  minhaReacao: TipoDeReacao | null
+  curtidas: number
+  descurtidas: number
+}
+
+/**
+ * A via de RN-15 pela qual o leitor abriu um livro pessoal de outra pessoa (`ViaDeAcesso` do
+ * acervo): o servidor só aceita a reação à resenha do dono com ela. Em livro oficial não vai.
+ */
+export type { ViaDeAcesso }
+
+/** `MinhaResenha` do contrato: a resenha do próprio leitor com as contagens, só para leitura. */
+export interface MinhaResenha extends Resenha {
+  curtidas: number
+  descurtidas: number
+}
+
 /** Ausente é `null`, nunca valor inventado: nota `0` é uma nota. */
 export interface MinhaAvaliacao {
   livroId: string
   nota: Nota | null
-  resenha: Resenha | null
+  /** Depois de salvar no editor, as contagens podem faltar até a próxima carga. */
+  resenha: (Resenha & Partial<Pick<MinhaResenha, 'curtidas' | 'descurtidas'>>) | null
+}
+
+/** `Frase` do contrato (F-AVA-2, RN-11): trecho de até 500 caracteres com a página. */
+export interface Frase {
+  id: string
+  livroId: string
+  texto: string
+  pagina: number
+  criadoEm: string
+  autor: { id: string; username: string; nome: string; avatarUrl: string | null }
+  /** A frase é de quem pediu: só ela tem excluir. */
+  minha: boolean
+}
+
+export interface PaginaFrases {
+  itens: Frase[]
+  paginacao: { page: number; limite: number; totalItens: number; totalPaginas: number }
+  /** Quantas frases do livro são de quem pediu, para a linha da cota. */
+  minhasFrases: number
+  limitePorLivro: number
 }
 
 /** `LivroDaResenha` do contrato: o que o card do perfil mostra do livro. */
@@ -44,8 +87,8 @@ export interface LivroDaResenha {
   capaUrl: string | null
 }
 
-/** `ResenhaDoPerfil` do contrato: a resenha com o livro e a nota do autor. */
-export interface ResenhaDoPerfil extends Resenha {
+/** `ResenhaDoPerfil` do contrato: a resenha com o livro, a nota do autor e as reações. */
+export interface ResenhaDoPerfil extends Resenha, EstadoDasReacoes {
   livro: LivroDaResenha
   nota: number | null
 }
@@ -85,6 +128,7 @@ export interface ItemEstante {
   totalPaginas?: number | null
   percentualConcluido?: number | null
   adicionadoEm: string
+  favorito?: boolean
 }
 
 export interface Paginacao {
@@ -100,6 +144,49 @@ export interface PaginaEstante {
   itens: ItemEstante[]
   paginacao: Paginacao
   totaisPorStatus: TotaisEstante
+  totalFavoritos?: number
+}
+
+export interface Favorito {
+  livroId: string
+  favorito: boolean
+  favoritadoEm: string | null
+}
+
+export interface ItemFavorito {
+  livro: LivroDaResenha
+  status: StatusEstante | null
+  favoritadoEm: string
+}
+
+export interface PaginaFavoritos {
+  itens: ItemFavorito[]
+  paginacao: Paginacao
+}
+
+export interface OcorrenciaHistorico {
+  leituraId: string
+  livro: LivroDaResenha
+  dataInicio: string
+  dataFim: string
+  releitura: boolean
+  duracaoDias: number
+  paginaFinal: number
+  totalPaginas: number | null
+}
+
+export interface PaginaHistorico {
+  itens: OcorrenciaHistorico[]
+  paginacao: Paginacao
+  anos: { ano: number; total: number }[]
+  totais: { livros: number; leituras: number }
+}
+
+export interface FiltroHistorico {
+  ano?: number
+  q?: string
+  page?: number
+  limite?: number
 }
 
 export interface Leitura {
@@ -128,6 +215,7 @@ export interface ConclusoesLivro {
 
 export interface FiltroEstante {
   status?: StatusEstante
+  q?: string
   ordenacao?: OrdenacaoEstante
   page?: number
   limite?: number
@@ -197,12 +285,65 @@ export interface FiltroProgresso {
   limite?: number
 }
 
+/** Um ano de calendário ou toda a conta (F-STA). */
+export type PeriodoEstatisticas = number | 'acumulado'
+
+export interface TotaisEstatistica {
+  livrosConcluidos: number
+  paginasLidas: number
+  minutosLidos: number
+}
+
+/** `GET /me/estatisticas`: médias sem denominador vêm com `valor` nulo. */
+export interface Estatisticas {
+  /** Nulo no acumulado. */
+  ano: number | null
+  /** Anos com progresso ou leitura concluída, do mais recente ao mais antigo. */
+  anos: { ano: number; livrosConcluidos: number }[]
+  /** Data (`AAAA-MM-DD`) do primeiro progresso ou fim de leitura concluída. */
+  primeiroRegistro: string | null
+  totais: TotaisEstatistica
+  medias: {
+    paginasPorDia: { valor: number | null; paginasLidas: number; diasComLeitura: number }
+    diasPorLivro: { valor: number | null; dias: number; leiturasConcluidas: number }
+    notaMedia: { valor: number | null; quantidade: number }
+  }
+}
+
+export interface PontoEstatistica {
+  ano: number
+  /** 1 a 12 na série mensal; nulo na série anual. */
+  mes: number | null
+  paginasLidas: number
+  livrosConcluidos: number
+}
+
+/** `GET /me/estatisticas/graficos`: um ponto por mês num ano, um por ano no acumulado. */
+export interface GraficosEstatisticas {
+  ano: number | null
+  granularidade: 'mes' | 'ano'
+  pontos: PontoEstatistica[]
+}
+
+/** `GET /perfis/{id}/estatisticas`: só os totais do ano (RN-08). */
+export interface EstatisticasPerfil extends TotaisEstatistica {
+  ano: number
+}
+
 const NAO_ENCONTRADO = 404
 
 export function consultaDaEstante(filtro: FiltroEstante = {}): string {
   const parametros = new URLSearchParams()
   if (filtro.status) parametros.set('status', filtro.status)
+  if (filtro.q) parametros.set('q', filtro.q)
   if (filtro.ordenacao) parametros.set('ordenacao', filtro.ordenacao)
+  return comPaginacao(parametros, filtro)
+}
+
+export function consultaDoHistorico(filtro: FiltroHistorico = {}): string {
+  const parametros = new URLSearchParams()
+  if (filtro.ano !== undefined) parametros.set('ano', String(filtro.ano))
+  if (filtro.q) parametros.set('q', filtro.q)
   return comPaginacao(parametros, filtro)
 }
 
@@ -309,6 +450,28 @@ export function createLeituraService(options: ApiClientOptions = {}) {
 
   const caminhoDoLivro = (livroId: string) => `/livros/${encodeURIComponent(livroId)}`
 
+  function consultarFavorito(livroId: string): Promise<Favorito> {
+    return request<Favorito>(`${caminhoDoLivro(livroId)}/favorito`)
+  }
+
+  function marcarFavorito(livroId: string, chave: string): Promise<Favorito> {
+    return request<Favorito>(`${caminhoDoLivro(livroId)}/favorito`, { method: 'PUT', idempotencyKey: chave })
+  }
+
+  async function desmarcarFavorito(livroId: string, chave: string): Promise<void> {
+    await request<void>(`${caminhoDoLivro(livroId)}/favorito`, { method: 'DELETE', idempotencyKey: chave })
+  }
+
+  function listarFavoritos(filtro: Pick<FiltroEstante, 'q' | 'page' | 'limite'> = {}): Promise<PaginaFavoritos> {
+    const parametros = new URLSearchParams()
+    if (filtro.q) parametros.set('q', filtro.q)
+    return request<PaginaFavoritos>(`/me/favoritos${comPaginacao(parametros, filtro)}`)
+  }
+
+  function listarHistorico(filtro?: FiltroHistorico): Promise<PaginaHistorico> {
+    return request<PaginaHistorico>(`/me/historico${consultaDoHistorico(filtro)}`)
+  }
+
   function obterMinhaAvaliacao(livroId: string): Promise<MinhaAvaliacao> {
     return request<MinhaAvaliacao>(`${caminhoDoLivro(livroId)}/minha-avaliacao`)
   }
@@ -343,18 +506,84 @@ export function createLeituraService(options: ApiClientOptions = {}) {
     })
   }
 
+  const daReacao = (resenhaId: string) => `/resenhas/${encodeURIComponent(resenhaId)}/reacao`
+
+  /** Curte ou descurte a resenha de outro leitor (RF-AVA-05); devolve o estado depois da escrita. */
+  function reagir(
+    resenhaId: string,
+    tipo: TipoDeReacao,
+    via: ViaDeAcesso | undefined,
+    chave: string,
+  ): Promise<EstadoDasReacoes> {
+    return request<EstadoDasReacoes>(daReacao(resenhaId), {
+      method: 'PUT',
+      json: { tipo, ...via },
+      idempotencyKey: chave,
+    })
+  }
+
+  /** Retira a reação. A via vai na consulta, porque o `DELETE` não tem corpo. */
+  function removerReacao(resenhaId: string, via: ViaDeAcesso | undefined, chave: string): Promise<EstadoDasReacoes> {
+    const consulta = via ? `?${new URLSearchParams({ via: via.via, referenciaId: via.referenciaId })}` : ''
+    return request<EstadoDasReacoes>(`${daReacao(resenhaId)}${consulta}`, {
+      method: 'DELETE',
+      idempotencyKey: chave,
+    })
+  }
+
+  /** Frases do livro que o leitor pode ver (RN-08 por autor), mais recentes primeiro. */
+  function listarFrases(livroId: string, page = 1, limite = 20): Promise<PaginaFrases> {
+    const query = new URLSearchParams({ page: String(page), limite: String(limite) })
+    return request<PaginaFrases>(`${caminhoDoLivro(livroId)}/frases?${query}`)
+  }
+
+  function criarFrase(livroId: string, entrada: { texto: string; pagina: number }, chave: string): Promise<Frase> {
+    return request<Frase>(`${caminhoDoLivro(livroId)}/frases`, { method: 'POST', json: entrada, idempotencyKey: chave })
+  }
+
+  async function excluirFrase(fraseId: string, chave: string): Promise<void> {
+    await request<void>(`/frases/${encodeURIComponent(fraseId)}`, { method: 'DELETE', idempotencyKey: chave })
+  }
+
   /** Resenhas autorizadas de um perfil (RN-08): página iniciada em 1, até 50 por página. */
   function listarResenhasPerfil(usuarioId: string, page = 1, limite = 20): Promise<PaginaResenhasPerfil> {
     const query = new URLSearchParams({ page: String(page), limite: String(limite) })
     return request<PaginaResenhasPerfil>(`/perfis/${encodeURIComponent(usuarioId)}/resenhas?${query}`)
   }
 
+  const doPeriodo = (periodo?: PeriodoEstatisticas) =>
+    periodo === undefined ? '' : `?${new URLSearchParams({ periodo: String(periodo) })}`
+
+  /** Totais e médias do leitor (RF-STA-01/02); sem período, o ano corrente. */
+  function consultarMinhasEstatisticas(periodo?: PeriodoEstatisticas): Promise<Estatisticas> {
+    return request<Estatisticas>(`/me/estatisticas${doPeriodo(periodo)}`)
+  }
+
+  /** Séries dos gráficos (RF-STA-03). */
+  function consultarGraficosEstatisticas(periodo?: PeriodoEstatisticas): Promise<GraficosEstatisticas> {
+    return request<GraficosEstatisticas>(`/me/estatisticas/graficos${doPeriodo(periodo)}`)
+  }
+
+  /** Totais do ano de um perfil autorizado (RN-08); sem ano, o corrente. */
+  function consultarEstatisticasPerfil(usuarioId: string, ano?: number): Promise<EstatisticasPerfil> {
+    const consulta = ano === undefined ? '' : `?${new URLSearchParams({ ano: String(ano) })}`
+    return request<EstatisticasPerfil>(`/perfis/${encodeURIComponent(usuarioId)}/estatisticas${consulta}`)
+  }
+
   return {
+    consultarMinhasEstatisticas,
+    consultarGraficosEstatisticas,
+    consultarEstatisticasPerfil,
     obterMinhaAvaliacao,
     salvarNota,
     excluirNota,
     salvarResenha,
     excluirResenha,
+    reagir,
+    removerReacao,
+    listarFrases,
+    criarFrase,
+    excluirFrase,
     listarResenhasPerfil,
     listarEstante,
     listarEstantePerfil,
@@ -368,6 +597,11 @@ export function createLeituraService(options: ApiClientOptions = {}) {
     retomarLeitura,
     detalharLeitura,
     consultarConclusoes,
+    consultarFavorito,
+    marcarFavorito,
+    desmarcarFavorito,
+    listarFavoritos,
+    listarHistorico,
     registrarProgresso,
     listarProgresso,
     excluirTrechoProgresso,

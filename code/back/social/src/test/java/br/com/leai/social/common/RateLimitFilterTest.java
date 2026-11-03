@@ -130,6 +130,23 @@ class RateLimitFilterTest {
   }
 
   @Test
+  @DisplayName("POST /denuncias é limitado; caminho que só termina em /denuncias não (F-MOD)")
+  void postDenunciasEhLimitado() throws Exception {
+    for (int i = 0; i < LIMITE; i++) {
+      executar("POST", "/denuncias", IP);
+    }
+
+    assertThat(executar("POST", "/denuncias", IP).getStatus())
+        .isEqualTo(HttpStatus.TOO_MANY_REQUESTS.value());
+    assertThat(executar("POST", "/admin/denuncias", "198.51.100.9").getStatus())
+        .isEqualTo(HttpStatus.OK.value());
+    for (int i = 0; i < LIMITE * 3; i++) {
+      assertThat(executar("GET", "/admin/denuncias", "198.51.100.9").getStatus())
+          .isEqualTo(HttpStatus.OK.value());
+    }
+  }
+
+  @Test
   @DisplayName("rota fora do feed não é limitada")
   void foraDoFeedNaoEhLimitado() throws Exception {
     for (int i = 0; i < LIMITE * 3; i++) {

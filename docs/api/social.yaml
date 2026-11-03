@@ -7,7 +7,9 @@ info:
     interações em atividades e notificações in-app. As operações de F-FEED e
     F-NOT do Período 1 estão implementadas. A exclusão de comentário
     pertence a F-SOCIAL-2 (Período 2) e aparece apenas para tornar explícito o
-    contrato futuro e sua regra de propriedade.
+    contrato futuro e sua regra de propriedade. As listas de livros pertencem a
+    F-LST (Período 2); as rotas estão implementadas no social desde 05/10/2026,
+    e a via lista na página de livro pessoal do acervo entra na etapa seguinte.
 
     Atividades e notificações são criadas exclusivamente por consumidores
     idempotentes de eventos do broker. Não há endpoint HTTP público de ingestão.
@@ -23,18 +25,54 @@ info:
       - POST /atividades/{atividadeId}/comentarios
       - GET /atividades/{atividadeId}/comentarios
       - GET /comentarios/{comentarioRaizId}/respostas
+      - PATCH /comentarios/{comentarioId}
+      - DELETE /comentarios/{comentarioId}
       - GET /notificacoes
       - POST /notificacoes/marcar-lidas
-    planned-periodo-2:
-      - DELETE /comentarios/{comentarioId}
+      - GET /notificacoes/tempo-real
+      - POST /recomendacoes
+      - GET /recomendacoes/candidatos
+      - GET /recomendacoes/recebidas
+      - DELETE /recomendacoes/{recomendacaoId}
+      - POST /listas
+      - GET /listas/{listaId}
+      - PATCH /listas/{listaId}
+      - DELETE /listas/{listaId}
+      - GET /listas/{listaId}/livros
+      - POST /listas/{listaId}/livros
+      - DELETE /listas/{listaId}/livros/{livroId}
+      - PUT /listas/{listaId}/livros/{itemId}/posicao
+      - GET /perfis/{usuarioId}/listas
+      - GET /me/listas
+      - POST /denuncias
+      - GET /admin/denuncias
+      - POST /admin/denuncias/{denunciaId}/arquivar
+      - POST /admin/denuncias/{denunciaId}/remover
+      - GET /admin/moderacao/logs
+      - DELETE /admin/frases/{fraseId}
 x-database-contracts:
   - name: v_atividade_livro_pessoal_v1
     x-implementation-status: implemented
     description: >-
       Comprova a via feed para livro pessoal. Expõe somente atividades ativas;
       o consumidor ainda precisa revalidar seguimento aceito, autoria e vínculo
-      entre atividade e livro.
+      entre atividade e livro. Consumidores: acervo (página do livro pessoal)
+      e leitura (reação à resenha do dono, F-AVA-2).
     columns: [atividade_id, dono_id, livro_id]
+  - name: v_lista_livro_pessoal_v1
+    x-implementation-status: implemented
+    description: >-
+      Comprova a via lista para livro pessoal (RN-15, segunda via). Expõe um
+      par lista/livro por item de lista ativa; lista excluída sai da VIEW na
+      mesma transação. A VIEW existe no banco desde a migration do modelo
+      social e é alimentada pelas rotas de listas; o consumo em acervo entra
+      com a etapa 3 de F-LST. O consumidor ainda precisa
+      revalidar o vínculo lista, dono e livro e a privacidade do dono (RN-08):
+      perfil público libera qualquer leitor autenticado; perfil privado exige
+      seguimento aceito. Diferente da via feed, seguir não é exigido quando o
+      perfil é público. Consumidores: acervo (página do livro pessoal) e
+      leitura (reação à resenha do dono, F-AVA-2), com a mesma regra.
+    columns: [lista_id, dono_id, livro_id]
 x-event-consumers:
   description: >-
     Registros de atividade e notificação são projeções criadas por consumidores
@@ -68,10 +106,15 @@ x-event-consumers:
       - atividade.curtida
       - atividade.comentada
       - comentario.respondido
+      - usuario.mencionado
       - leitura.em_risco
       - leitura.expirada
+      - recomendacao.recebida
+      - resenha.curtida
     effect: >-
-      Cria uma notificação para destinatarioId. A deduplicação semântica usa
+      Cria uma notificação para destinatarioId. resenha.curtida (F-AVA-2) só
+      chega na primeira curtida do par resenha e leitor, e a chave de negócio
+      `resenha:<resenhaId>:curtida:<autorAcaoId>` impede a segunda. A deduplicação semântica usa
       destinatário, tipo e chave de negócio; para inatividade, inclui leitura,
       versão do ciclo e limiar de 20, 30 ou 40 dias. A notificação guarda um
       snapshot de quem agiu, do livro e da atividade alvo; a frase em pt-BR é
@@ -80,12 +123,23 @@ x-event-consumers:
     required-envelope-fields:
       [eventId, type, version, occurredAt, correlationId, businessKey, data]
     required-data-fields: [destinatarioId]
+  recomendacoes:
+    x-implementation-status: implemented
+    queue: leai.social.recomendacoes
+    events:
+      - livro.adicionado_a_estante
+    effect: >-
+      Remove fisicamente todas as recomendações do livro recebidas pelo leitor
+      que o adicionou à estante (RF-REC-16, RN-22.10), sem notificar o
+      remetente. Reentrega não tem efeito adicional. Uma rotina diária do
+      próprio serviço apaga as recomendações vencidas (RN-22.9) e reconcilia
+      com leitura.v_estante_publica_v1 as que o consumidor não viu, o que cobre
+      o backfill do intervalo antes de a fila existir.
+    required-envelope-fields:
+      [eventId, type, version, occurredAt, correlationId, businessKey, data]
   planned-future-events:
     x-implementation-status: planned-after-periodo-1
     events:
-      - usuario.mencionado
-      - resenha.curtida
-      - recomendacao.recebida
       - lembrete.sequencia
     description: >-
       Só entram no consumidor quando a feature produtora definir nome, schema,
@@ -110,8 +164,14 @@ tags:
     description: Feed cronológico e detalhe de atividade
   - name: interacoes
     description: Curtidas, comentários e respostas
+  - name: listas
+    description: Listas de livros curadas pelo leitor (F-LST)
   - name: notificacoes
     description: Notificações in-app do leitor autenticado
+  - name: recomendacoes
+    description: Recomendação de livro entre leitores com seguimento mútuo (F-REC-P2P)
+  - name: moderacao
+    description: Denúncia de resenhas e comentários e moderação pelo administrador (F-MOD)
   - name: health
     description: Sondagem de disponibilidade
 security:
@@ -296,17 +356,48 @@ paths:
   /comentarios/{comentarioId}:
     parameters:
       - $ref: '#/components/parameters/ComentarioId'
+    patch:
+      tags: [interacoes]
+      summary: Edita um comentário pertencente ao leitor (RF-SOC-13)
+      operationId: editarComentario
+      x-implementation-status: implemented
+      description: >-
+        Somente o autor pode editar. Raiz, alvo e nível não mudam (RN-10). As
+        menções do texto são reprocessadas: username existente vira menção,
+        inexistente continua texto (RN-10.1). usuario.mencionado só sai para
+        destinatário que este comentário ainda não notificou, nunca para o
+        autor nem para o alvo de comentario.respondido. Menções que notificam
+        têm rate limiting próprio (RN-10.3); estourar recusa a edição com 429.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EditarComentario' }
+      responses:
+        '200':
+          description: Comentário com o texto novo e as menções resolvidas.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Comentario' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/Proibido' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
     delete:
       tags: [interacoes]
       summary: Exclui um comentário pertencente ao leitor (RF-SOC-13)
       operationId: excluirComentario
-      x-implementation-status: planned-periodo-2
+      x-implementation-status: implemented
       description: >-
-        Contrato futuro de F-SOCIAL-2, não implementado por F-FEED no Período
-        1. Somente o autor pode excluir. Excluir comentário-raiz remove suas
-        respostas por cascade; excluir resposta remove somente ela. O cliente
-        exige confirmação explícita e o servidor não aceita autoria informada
-        pelo cliente.
+        Somente o autor pode excluir. Exclusão física: excluir comentário-raiz
+        remove suas respostas e menções por cascade (RN-10.5); excluir resposta
+        remove somente ela. O cliente exige confirmação explícita e o servidor
+        não aceita autoria informada pelo cliente.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       responses:
@@ -314,6 +405,418 @@ paths:
           description: Comentário próprio excluído.
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '403': { $ref: '#/components/responses/Proibido' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /listas:
+    post:
+      tags: [listas]
+      summary: Cria uma lista do leitor (RF-LST-01)
+      operationId: criarLista
+      x-implementation-status: implemented
+      description: >-
+        Cria uma lista cujo dono é sempre o leitor autenticado; o servidor não
+        aceita dono informado pelo cliente. Com livroId, a lista nasce com esse
+        livro na posição 1, na mesma transação, para que criar a partir da
+        página do livro nunca deixe uma lista sem o livro. O livro precisa
+        estar ativo e ser oficial ou livro pessoal do próprio leitor (RN-15.1).
+        Título e descrição são texto puro. Sujeito a rate limiting.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CriarLista' }
+      responses:
+        '201':
+          description: Lista criada, ou resposta reproduzida pela mesma chave.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Lista' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '422': { $ref: '#/components/responses/RegraNegocioInvalida' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /listas/{listaId}:
+    parameters:
+      - $ref: '#/components/parameters/ListaId'
+    get:
+      tags: [listas]
+      summary: Obtém os metadados de uma lista visível (RF-LST-04)
+      operationId: obterLista
+      x-implementation-status: implemented
+      description: >-
+        O dono sempre vê a própria lista. Terceiros veem se o perfil do dono
+        é público ou se seguem o dono com solicitação aceita (RN-08). Perfil
+        privado sem seguimento responde 403 com mensagem de perfil privado, e
+        o cliente mostra o bloco de restrição. Lista inexistente, excluída ou
+        de conta suspensa ou em exclusão responde 404. Os itens são
+        consultados pela rota própria, paginada.
+      responses:
+        '200':
+          description: Metadados da lista.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Lista' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/PerfilPrivado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+    patch:
+      tags: [listas]
+      summary: Edita título e descrição da própria lista (RF-LST-03)
+      operationId: editarLista
+      x-implementation-status: implemented
+      description: >-
+        Owner-only. Campo omitido permanece; descricao nula apaga a descrição.
+        Lista alheia responde 404, sem confirmar sua existência.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EditarLista' }
+      responses:
+        '200':
+          description: Lista atualizada.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Lista' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+    delete:
+      tags: [listas]
+      summary: Exclui a própria lista (RF-LST-03)
+      operationId: excluirLista
+      x-implementation-status: implemented
+      description: >-
+        Owner-only. O cliente exige confirmação explícita (RNF-USA-04). A
+        exclusão é lógica: a lista deixa de aparecer em todas as rotas e em
+        v_lista_livro_pessoal_v1 na mesma transação, o que encerra na hora a
+        via lista para os livros pessoais que ela continha. Lista já excluída
+        mantém o resultado idempotente.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: Lista própria ausente após a operação.
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /listas/{listaId}/livros:
+    parameters:
+      - $ref: '#/components/parameters/ListaId'
+    get:
+      tags: [listas]
+      summary: Lista os livros de uma lista visível, na ordem do dono (RF-LST-04)
+      operationId: listarLivrosDaLista
+      x-implementation-status: implemented
+      description: >-
+        Paginação por cursor estável, em ordem crescente de posição. Aplica a
+        mesma visibilidade de obterLista. Livro inativo não é exibido. Em livro
+        pessoal visto por terceiro, o link traz via=lista e referenciaId igual
+        à lista; o serviço acervo revalida a autorização ao abrir a página, em
+        modo consulta (RN-15.3).
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/CursorLimit'
+      responses:
+        '200':
+          description: Segmento de itens e cursor para o próximo segmento.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ListaItens' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/PerfilPrivado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+    post:
+      tags: [listas]
+      summary: Adiciona um livro à própria lista (RF-LST-02, RF-LST-05)
+      operationId: adicionarLivroNaLista
+      x-implementation-status: implemented
+      description: >-
+        Owner-only. O livro entra na última posição. Precisa estar ativo e ser
+        oficial ou livro pessoal do próprio leitor; livro pessoal de outro
+        leitor responde 422 (RN-15.1). Livro já presente não é duplicado nem
+        muda de posição: a resposta é 200 com o item existente, para que o
+        cliente trate a lista como marcada.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdicionarLivroNaLista' }
+      responses:
+        '201':
+          description: Livro adicionado, ou resposta reproduzida pela mesma chave.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ItemDeLista' }
+        '200':
+          description: O livro já estava na lista; item existente, sem alteração.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ItemDeLista' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '422': { $ref: '#/components/responses/RegraNegocioInvalida' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /listas/{listaId}/livros/{livroId}:
+    parameters:
+      - $ref: '#/components/parameters/ListaId'
+      - $ref: '#/components/parameters/LivroId'
+    delete:
+      tags: [listas]
+      summary: Remove um livro da própria lista (RF-LST-02)
+      operationId: removerLivroDaLista
+      x-implementation-status: implemented
+      description: >-
+        Owner-only. Os itens seguintes sobem uma posição na mesma transação.
+        Livro ausente da lista mantém o resultado idempotente. Não pede
+        confirmação: o livro continua no acervo e na estante.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: Livro ausente da lista após a operação.
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /listas/{listaId}/livros/{itemId}/posicao:
+    parameters:
+      - $ref: '#/components/parameters/ListaId'
+      - $ref: '#/components/parameters/ItemId'
+    put:
+      tags: [listas]
+      summary: Move um livro para outra posição da própria lista (RF-LST-02)
+      operationId: moverLivroNaLista
+      x-implementation-status: implemented
+      description: >-
+        Owner-only. Move um item por vez, o que funciona com a lista paginada,
+        com arrastar no mobile e com os controles de subir e descer da web. Os
+        itens entre a posição antiga e a nova se deslocam uma casa, em uma
+        transação: nunca fica ordem parcial. Posição fora de 1 até a
+        quantidade de livros responde 400. Item de outra lista responde 404.
+        Mover para a posição atual mantém o resultado.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MoverLivroNaLista' }
+      responses:
+        '200':
+          description: Item na nova posição.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ItemDeLista' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /perfis/{usuarioId}/listas:
+    parameters:
+      - $ref: '#/components/parameters/UsuarioId'
+    get:
+      tags: [listas]
+      summary: Lista as listas de um leitor (RF-LST-04, RF-SOC-02)
+      operationId: listarListasDoPerfil
+      x-implementation-status: implemented
+      description: >-
+        Índice das listas ativas do leitor, da alterada mais recentemente para
+        a mais antiga, com contagem e até três capas por lista. Aplica RN-08:
+        o próprio leitor e perfis públicos são visíveis; perfil privado sem
+        seguimento aceito responde 403. Conta inexistente, suspensa ou em
+        exclusão responde 404.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Página de listas do leitor.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaListas' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/PerfilPrivado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /me/listas:
+    get:
+      tags: [listas]
+      summary: Lista as listas do próprio leitor, marcando as que contêm um livro
+      operationId: listarMinhasListas
+      x-implementation-status: implemented
+      description: >-
+        Alimenta o sheet Adicionar à lista. Mesma ordem e forma de
+        listarListasDoPerfil para o próprio leitor; com livroId, cada lista
+        traz contemLivro. Sem livroId, contemLivro é omitido.
+      parameters:
+        - name: livroId
+          in: query
+          required: false
+          description: Livro da página de origem do sheet.
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Página de listas do leitor autenticado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaListas' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /recomendacoes:
+    post:
+      tags: [recomendacoes]
+      summary: Recomenda um livro oficial a um ou mais leitores (RF-REC-01/03/06/07)
+      operationId: recomendarLivro
+      x-implementation-status: implemented
+      description: >-
+        Cria uma recomendação independente por destinatário, sem estado de
+        aceitação (RN-22). Livro pessoal ou inexistente rejeita o envio inteiro.
+        Cada destinatário é avaliado isoladamente: sem seguimento mútuo
+        (RN-22.1), já tem o livro na estante em qualquer status (RN-22.3), par
+        com 50 recomendações ativas (RN-22.4) ou recomendação ativa do mesmo
+        livro já enviada pelo remetente bloqueiam só aquele destinatário. A
+        resposta traz o resultado de cada um, na ordem do pedido; o cliente
+        mantém a tela aberta e mostra o motivo quando algum foi bloqueado. Cada
+        recomendação criada grava recomendacao.recebida na outbox na mesma
+        transação. Rate limiting por leitor (RNF-SEC-18).
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CriarRecomendacao' }
+      responses:
+        '200':
+          description: Resultado do envio por destinatário.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ResultadoRecomendacao' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '422':
+          description: >-
+            O livro é pessoal (RF-REC-06, RN-22.5). Código
+            ENTIDADE_NAO_PROCESSAVEL.
+          headers:
+            X-Correlation-Id: { $ref: '#/components/headers/CorrelationId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /recomendacoes/candidatos:
+    get:
+      tags: [recomendacoes]
+      summary: Lista os mútuos do leitor que podem receber um livro
+      operationId: listarCandidatosARecomendacao
+      x-implementation-status: implemented
+      description: >-
+        Devolve todos os leitores com seguimento mútuo do leitor autenticado,
+        ordenados por nomeExibicao, para a busca local da tela Recomendar. Cada
+        um informa se já tem o livro na estante e se o par atingiu o limite de
+        recomendações ativas; o cliente mostra a linha desabilitada com o motivo.
+        Livro pessoal responde 422 e livro inexistente 404. A lista é limitada
+        a 500 leitores; seguimento mútuo é uma relação pequena por natureza.
+      parameters:
+        - name: livroId
+          in: query
+          required: true
+          description: Livro oficial que será recomendado.
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Mútuos do leitor com a situação de cada um para o livro.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ListaCandidatos' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '422':
+          description: O livro é pessoal. Código ENTIDADE_NAO_PROCESSAVEL.
+          headers:
+            X-Correlation-Id: { $ref: '#/components/headers/CorrelationId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /recomendacoes/recebidas:
+    get:
+      tags: [recomendacoes]
+      summary: Lista as recomendações recebidas pelo leitor (RF-REC-04/05/13/14)
+      operationId: listarRecomendacoesRecebidas
+      x-implementation-status: implemented
+      description: >-
+        Somente recomendações cujo destinatário é o leitor autenticado, ativas
+        e não expiradas (RN-22.9, 90 dias), da mais recente para a mais antiga.
+        O mesmo livro recomendado por remetentes diferentes aparece uma vez por
+        remetente (RN-22.7). Recomendações continuam visíveis mesmo que o
+        seguimento mútuo se desfaça depois do envio (RN-22.15). Remetente que
+        saiu de v_perfil_referencia_v1 (suspenso ou em exclusão) some da lista.
+        Alimenta a seção P2P da aba Recomendações, que funciona sem a fonte
+        algorítmica.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Página de recomendações recebidas.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaRecomendacoes' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /recomendacoes/{recomendacaoId}:
+    parameters:
+      - $ref: '#/components/parameters/RecomendacaoId'
+    delete:
+      tags: [recomendacoes]
+      summary: Descarta uma recomendação recebida (RF-REC-15, RN-22.11)
+      operationId: descartarRecomendacao
+      x-implementation-status: implemented
+      description: >-
+        Exclusivo do destinatário autenticado, sem motivo e sem avisar o
+        remetente. Recomendação inexistente, expirada ou de outro leitor,
+        inclusive do próprio remetente, responde 404 sem confirmar a existência.
+        Repetir a mesma Idempotency-Key reproduz o 204.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: Recomendação descartada.
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
         '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
         '503': { $ref: '#/components/responses/Indisponivel' }
@@ -371,6 +874,273 @@ paths:
         '404': { $ref: '#/components/responses/NaoEncontrado' }
         '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
         '503': { $ref: '#/components/responses/Indisponivel' }
+  /notificacoes/tempo-real:
+    get:
+      tags: [notificacoes]
+      summary: Canal SSE de notificações em tempo real (RF-NOT-06)
+      operationId: abrirCanalDeNotificacoes
+      x-implementation-status: implemented
+      description: >-
+        Server-Sent Events (`text/event-stream`) do leitor autenticado. O token
+        vai no cabeçalho `Authorization`, nunca na URL. Protocolo:
+
+
+        - `event: sincronizacao` — primeiro evento do canal; `data` é
+        `SincronizacaoTempoReal`. Depois de uma reconexão, o cliente recarrega a
+        primeira página de `GET /notificacoes` e mescla por `id`.
+
+        - `event: notificacao` — uma notificação nova do leitor; `id` é o id da
+        notificação e `data` é `NotificacaoTempoReal`.
+
+        - `: heartbeat` — comentário a cada 25 s para a conexão não ser cortada
+        por ociosidade; o cliente ignora.
+
+
+        O servidor encerra o canal quando o token expira (o cliente renova a
+        sessão e reconecta com backoff) e quando o serviço para ou hiberna. O
+        canal é só entrega antecipada: a lista paginada continua sendo a fonte
+        de verdade e nada se perde enquanto ele está fechado.
+      responses:
+        '200':
+          description: Canal aberto; eventos conforme a descrição.
+          content:
+            text/event-stream:
+              schema: { type: string }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /denuncias:
+    post:
+      tags: [moderacao]
+      summary: Denuncia uma resenha ou um comentário (RF-MOD-01)
+      operationId: criarDenuncia
+      x-implementation-status: implemented
+      description: >-
+        O motivo é um único texto livre, obrigatório, com até 500 caracteres
+        contados em code points, sem enum nem descrição separada. O servidor
+        confere o acesso atual ao alvo: comentário pela visibilidade da
+        atividade (RN-08/RN-09); resenha de livro oficial por perfil público
+        ou seguimento aceito; resenha de livro pessoal só pela via de RN-15.4
+        (`via` e `referenciaId`, na mesma regra de reagir à resenha). Sem
+        acesso, 404, igual a inexistente. Se o leitor já tem denúncia pendente
+        sobre o mesmo alvo, a resposta é 200 com essa denúncia, sem criar outra
+        nem trocar o motivo. Rate limiting por leitor (10 por minuto) e por IP
+        (RNF-SEC-18).
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CriarDenuncia' }
+      responses:
+        '201':
+          description: Denúncia registrada.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Denuncia' }
+        '200':
+          description: O leitor já tinha denúncia pendente sobre o alvo; ela é devolvida.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Denuncia' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403':
+          description: >-
+            A conta de quem denuncia está fora da VIEW de perfil (suspensa ou
+            em exclusão). Código ACESSO_NEGADO.
+          headers:
+            X-Correlation-Id: { $ref: '#/components/headers/CorrelationId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '422':
+          description: >-
+            O conteúdo é do próprio leitor. Código ENTIDADE_NAO_PROCESSAVEL.
+          headers:
+            X-Correlation-Id: { $ref: '#/components/headers/CorrelationId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /admin/denuncias:
+    get:
+      tags: [moderacao]
+      summary: Denúncias pendentes, da mais antiga para a mais recente (RF-MOD-02)
+      operationId: listarDenunciasPendentes
+      x-implementation-status: implemented
+      description: >-
+        Só o administrador (claim papel igual a admin no token; RNF-SEC-04);
+        leitor recebe 403. Paginação por cursor, e não por número de página:
+        a fila encolhe a cada ação, e uma página numerada pularia denúncias
+        (divergência registrada na F-MOD). Sem total de pendentes. Cada item
+        traz o conteúdo inteiro, com spoiler à mostra, o contexto gravado na
+        denúncia e remocaoNaoConfirmada quando uma remoção foi pedida ao
+        leitura e a confirmação não chegou. Conteúdo excluído pelo autor vem
+        com conteudo nulo; pessoa fora da VIEW de perfil, nula.
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - name: limite
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+      responses:
+        '200':
+          description: Página de denúncias pendentes.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaDenuncias' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/Proibido' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /admin/denuncias/{denunciaId}/arquivar:
+    parameters:
+      - name: denunciaId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [moderacao]
+      summary: Arquiva a denúncia como improcedente (RF-MOD-03)
+      operationId: arquivarDenuncia
+      x-implementation-status: implemented
+      description: >-
+        Fecha só a denúncia escolhida; as outras do mesmo conteúdo continuam
+        na fila. Grava o log de auditoria. 409 DENUNCIA_JA_RESOLVIDA se ela já
+        foi resolvida; 409 REMOCAO_EM_ANDAMENTO se há remoção do conteúdo
+        esperando confirmação do leitura (o painel oferece tentar de novo).
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Denúncias fechadas.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ResultadoModeracao' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/Proibido' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409':
+          description: >-
+            DENUNCIA_JA_RESOLVIDA, REMOCAO_EM_ANDAMENTO ou chave de
+            idempotência reutilizada com outros dados (CONFLITO).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+  /admin/denuncias/{denunciaId}/remover:
+    parameters:
+      - name: denunciaId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [moderacao]
+      summary: Remove o conteúdo denunciado e fecha as denúncias dele (RF-MOD-03)
+      operationId: removerConteudoDenunciado
+      x-implementation-status: implemented
+      description: >-
+        Comentário: apagado aqui, com as respostas (RN-10.5); fecha as
+        denúncias dele e das respostas. Resenha: o social chama o comando
+        interno autenticado e idempotente do leitura, com chave fixa por
+        resenha, fora da transação; confirmada a remoção, fecha as denúncias
+        da resenha e dos comentários da atividade dela, apaga a atividade e
+        grava um único log, sem recusar. Timeout ou leitura fora do ar deixam
+        a denúncia pendente, marcada como remoção não confirmada; repetir com
+        a mesma chave não remove duas vezes. Conteúdo já excluído pelo autor
+        é 409 CONTEUDO_JA_EXCLUIDO, e o painel oferece arquivar.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Denúncias fechadas.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ResultadoModeracao' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/Proibido' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409':
+          description: DENUNCIA_JA_RESOLVIDA, CONTEUDO_JA_EXCLUIDO ou CONFLITO.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+        '503':
+          description: O leitura não respondeu ou está sem o segredo. A denúncia continua pendente.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+        '504':
+          description: A remoção não foi confirmada a tempo. A denúncia continua pendente.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+  /admin/frases/{fraseId}:
+    parameters:
+      - name: fraseId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    delete:
+      tags: [moderacao]
+      summary: Remove uma frase direto, sem denúncia (RN-11)
+      operationId: removerFrasePeloAdmin
+      x-implementation-status: implemented
+      description: >-
+        Frases não têm fluxo de denúncia; o administrador remove direto, da
+        lista de frases do livro. O social chama o comando interno do leitura
+        (chave fixa por frase) e grava o log de auditoria com alvo frase, sem
+        denúncia. Remover de novo uma frase que a moderação já removeu repete o 204, sem outro log (a chave fixa repete a resposta do leitura por 24 horas); frase excluída pela autora, ou fora dessa janela, é 409 CONTEUDO_JA_EXCLUIDO.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: Frase removida.
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/Proibido' }
+        '409':
+          description: CONTEUDO_JA_EXCLUIDO ou CONFLITO.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+        '503':
+          description: O leitura não respondeu ou está sem o segredo.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+        '504':
+          description: A remoção não foi confirmada a tempo.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+  /admin/moderacao/logs:
+    get:
+      tags: [moderacao]
+      summary: Registro de auditoria, da ação mais recente para a mais antiga (RF-MOD-05)
+      operationId: listarRegistrosDeModeracao
+      x-implementation-status: implemented
+      description: >-
+        Só o administrador. Autor, ação, alvo e momento, sem o texto removido,
+        o motivo nem quem denunciou (RNF-SEC-36). Alvo de conta excluída vem
+        anonimizado (RN-23.7). Paginação por cursor.
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - name: limite
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+      responses:
+        '200':
+          description: Página do registro.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaRegistrosDeModeracao' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/Proibido' }
   /health:
     get:
       security: []
@@ -411,6 +1181,36 @@ components:
       in: path
       required: true
       description: UUID não sequencial do comentário ou resposta.
+      schema: { type: string, format: uuid }
+    ListaId:
+      name: listaId
+      in: path
+      required: true
+      description: UUID não sequencial da lista.
+      schema: { type: string, format: uuid }
+    LivroId:
+      name: livroId
+      in: path
+      required: true
+      description: UUID do livro no serviço acervo.
+      schema: { type: string, format: uuid }
+    ItemId:
+      name: itemId
+      in: path
+      required: true
+      description: UUID do item da lista, retornado em ItemDeLista.id.
+      schema: { type: string, format: uuid }
+    RecomendacaoId:
+      name: recomendacaoId
+      in: path
+      required: true
+      description: UUID não sequencial da recomendação.
+      schema: { type: string, format: uuid }
+    UsuarioId:
+      name: usuarioId
+      in: path
+      required: true
+      description: UUID do leitor no serviço identidade.
       schema: { type: string, format: uuid }
     Page:
       name: page
@@ -483,6 +1283,19 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Erro' }
+    PerfilPrivado:
+      description: >-
+        O perfil do dono é privado e o leitor não o segue com solicitação
+        aceita (RN-08). Código ACESSO_NEGADO, com mensagem de perfil privado.
+      headers:
+        X-Correlation-Id: { $ref: '#/components/headers/CorrelationId' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
+          example:
+            codigo: ACESSO_NEGADO
+            mensagem: Este perfil é privado. Siga para ver as listas.
+            correlationId: 3f1c9a52-7d7e-4c2b-9a0e-5b2f1d8c6e40
     NaoEncontrado:
       description: >-
         Recurso inexistente, não pertencente ao leitor ou não visível. A
@@ -587,11 +1400,15 @@ components:
         livroId: { type: string, format: uuid }
         via:
           type: string
-          enum: [catalogo, feed]
+          enum: [catalogo, feed, lista]
+          description: >-
+            feed nas atividades; lista nos itens de lista (F-LST). catalogo
+            para livro oficial.
         referenciaId:
           type: string
           format: uuid
           nullable: true
+          description: Atividade na via feed; lista na via lista; nulo em catalogo.
     ResenhaSnapshot:
       type: object
       nullable: true
@@ -674,6 +1491,29 @@ components:
           description: >-
             Omitido para comentário-raiz. Pode apontar para raiz ou resposta; o
             servidor deriva a raiz e o usuário respondido.
+    EditarComentario:
+      type: object
+      required: [texto]
+      additionalProperties: false
+      properties:
+        texto:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: Texto puro. HTML não é interpretado.
+    Mencao:
+      type: object
+      required: [posicao, comprimento, usuarioId, username]
+      description: >-
+        Menção resolvida: o trecho [posicao, posicao + comprimento) do texto,
+        em unidades UTF-16, é desenhado como link para o perfil. Conta que sai
+        de v_perfil_referencia_v1 (suspensa, exclusão pendente) some daqui e a
+        menção volta a ser texto comum.
+      properties:
+        posicao: { type: integer, minimum: 0 }
+        comprimento: { type: integer, minimum: 2 }
+        usuarioId: { type: string, format: uuid }
+        username: { type: string }
     Comentario:
       type: object
       required:
@@ -681,9 +1521,11 @@ components:
         - atividadeId
         - autor
         - texto
+        - mencoes
         - nivel
         - criadoEm
         - pertenceAoSolicitante
+        - editado
       properties:
         id: { type: string, format: uuid }
         atividadeId: { type: string, format: uuid }
@@ -705,6 +1547,10 @@ components:
         texto:
           type: string
           description: Texto puro; deve ser renderizado com escape.
+        mencoes:
+          type: array
+          description: Menções resolvidas, em ordem de posição.
+          items: { $ref: '#/components/schemas/Mencao' }
         nivel:
           type: string
           enum: [RAIZ, RESPOSTA]
@@ -714,7 +1560,10 @@ components:
           description: Presente em comentário-raiz.
         pertenceAoSolicitante:
           type: boolean
-          description: Informa se o leitor pode usar a futura exclusão owner-only.
+          description: Informa se o leitor pode editar e excluir (owner-only).
+        editado:
+          type: boolean
+          description: Texto alterado depois de publicado; criadoEm não muda.
         criadoEm: { type: string, format: date-time }
         atualizadoEm:
           type: string
@@ -748,8 +1597,9 @@ components:
     TipoNotificacao:
       type: string
       description: >-
-        Tipos produzidos no Período 1. Menção, curtida em resenha,
-        recomendação e lembrete de sequência dependem de features posteriores.
+        Tipos produzidos no Período 1, a menção de F-SOCIAL-2, a curtida em
+        resenha de F-AVA-2 e a recomendação recebida de F-REC-P2P. Lembrete de
+        sequência depende de feature posterior.
       enum:
         - NOVO_SEGUIDOR
         - SOLICITACAO_CRIADA
@@ -757,12 +1607,12 @@ components:
         - ATIVIDADE_CURTIDA
         - ATIVIDADE_COMENTADA
         - COMENTARIO_RESPONDIDO
+        - USUARIO_MENCIONADO
         - LEITURA_EM_RISCO
         - LEITURA_EXPIRADA
-      x-planned-future-values:
-        - USUARIO_MENCIONADO
-        - RESENHA_CURTIDA
         - RECOMENDACAO_RECEBIDA
+        - RESENHA_CURTIDA
+      x-planned-future-values:
         - LEMBRETE_SEQUENCIA
     AcaoNotificacao:
       type: object
@@ -826,6 +1676,13 @@ components:
           allOf:
             - $ref: '#/components/schemas/LivroDaNotificacao'
           nullable: true
+        recomendacaoMensagem:
+          type: string
+          maxLength: 280
+          nullable: true
+          description: >-
+            Mensagem do remetente em RECOMENDACAO_RECEBIDA, quando houver.
+            Texto puro; o cliente aplica escape ao renderizar.
         acao: { $ref: '#/components/schemas/AcaoNotificacao' }
         lida: { type: boolean }
         lidaEm:
@@ -837,8 +1694,11 @@ components:
       type: object
       description: >-
         Snapshot do livro nas notificações de inatividade (LEITURA_EM_RISCO e
-        LEITURA_EXPIRADA): título para a confirmação de abandono e id/tipo
-        para o destino da notificação.
+        LEITURA_EXPIRADA) e na curtida em resenha (RESENHA_CURTIDA): título
+        para a confirmação de abandono e para a frase, e id/tipo para o destino
+        da notificação (página do livro oficial ou do livro pessoal). Em
+        RECOMENDACAO_RECEBIDA, o livro recomendado: a notificação leva à página
+        dele (RF-REC-05).
       required: [id, tipo, titulo]
       properties:
         id: { type: string, format: uuid }
@@ -889,6 +1749,424 @@ components:
           minimum: 0
           description: Quantidade alterada nesta operação.
         totalNaoLidas: { type: integer, format: int64, minimum: 0 }
+    SincronizacaoTempoReal:
+      type: object
+      description: Dado do evento SSE `sincronizacao`, o primeiro de todo canal aberto.
+      required: [totalNaoLidas]
+      properties:
+        totalNaoLidas: { type: integer, format: int64, minimum: 0 }
+    NotificacaoTempoReal:
+      type: object
+      description: >-
+        Dado do evento SSE `notificacao`: a notificação recém-gravada, no mesmo
+        formato da lista, e o novo total de não lidas para o badge.
+      required: [notificacao, totalNaoLidas]
+      properties:
+        notificacao: { $ref: '#/components/schemas/Notificacao' }
+        totalNaoLidas: { type: integer, format: int64, minimum: 0 }
+    CriarRecomendacao:
+      type: object
+      required: [livroId, destinatarios]
+      additionalProperties: false
+      properties:
+        livroId: { type: string, format: uuid }
+        destinatarios:
+          type: array
+          minItems: 1
+          maxItems: 20
+          uniqueItems: true
+          items: { type: string, format: uuid }
+        mensagem:
+          type: string
+          minLength: 1
+          maxLength: 280
+          nullable: true
+          description: >-
+            Opcional (RF-REC-03). Texto puro; espaços nas pontas são removidos e
+            texto que fica vazio é tratado como ausente.
+    ResultadoPorDestinatario:
+      type: object
+      required: [destinatarioId, status]
+      properties:
+        destinatarioId: { type: string, format: uuid }
+        status:
+          type: string
+          enum: [CRIADA, BLOQUEADA]
+        recomendacaoId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Presente quando status é CRIADA.
+        motivo:
+          type: string
+          nullable: true
+          enum: [SEM_MUTUO, JA_TEM_LIVRO, LIMITE_ATINGIDO, JA_RECOMENDADO, null]
+          description: >-
+            Presente quando status é BLOQUEADA. SEM_MUTUO, RN-22.1;
+            JA_TEM_LIVRO, RN-22.3; LIMITE_ATINGIDO, 50 ativas no par (RN-22.4);
+            JA_RECOMENDADO, o remetente já tem recomendação ativa deste livro
+            para o destinatário.
+    ResultadoRecomendacao:
+      type: object
+      required: [resultados, totalCriadas]
+      properties:
+        resultados:
+          type: array
+          items: { $ref: '#/components/schemas/ResultadoPorDestinatario' }
+        totalCriadas: { type: integer, minimum: 0 }
+    CandidatoARecomendacao:
+      type: object
+      required: [leitor, jaTemLivro, limiteAtingido]
+      properties:
+        leitor: { $ref: '#/components/schemas/AutorSnapshot' }
+        jaTemLivro: { type: boolean }
+        limiteAtingido: { type: boolean }
+    ListaCandidatos:
+      type: object
+      required: [itens]
+      properties:
+        itens:
+          type: array
+          maxItems: 500
+          items: { $ref: '#/components/schemas/CandidatoARecomendacao' }
+    RecomendacaoRecebida:
+      type: object
+      required: [id, remetente, livro, criadoEm, expiraEm]
+      properties:
+        id: { type: string, format: uuid }
+        remetente: { $ref: '#/components/schemas/AutorSnapshot' }
+        livro: { $ref: '#/components/schemas/LivroSnapshot' }
+        mensagem:
+          type: string
+          maxLength: 280
+          nullable: true
+          description: Texto puro; o cliente aplica escape ao renderizar.
+        criadoEm:
+          type: string
+          format: date-time
+          description: Base do tempo relativo, calculado no cliente.
+        expiraEm: { type: string, format: date-time }
+    PaginaRecomendacoes:
+      type: object
+      required: [itens, pagina, tamanho, totalItens, totalPaginas, ultima]
+      properties:
+        itens:
+          type: array
+          items: { $ref: '#/components/schemas/RecomendacaoRecebida' }
+        pagina: { type: integer, minimum: 0 }
+        tamanho: { type: integer, minimum: 1, maximum: 50 }
+        totalItens: { type: integer, format: int64, minimum: 0 }
+        totalPaginas: { type: integer, minimum: 0 }
+        ultima: { type: boolean }
+    CriarLista:
+      type: object
+      required: [titulo]
+      additionalProperties: false
+      properties:
+        titulo:
+          type: string
+          minLength: 1
+          maxLength: 80
+          description: Texto puro, sem espaço só; HTML não é interpretado.
+          example: Romances do sertão
+        descricao:
+          type: string
+          nullable: true
+          maxLength: 300
+          description: Texto puro. Vazio ou nulo significa sem descrição.
+        livroId:
+          type: string
+          format: uuid
+          description: >-
+            Opcional. Cria a lista já com este livro na posição 1, na mesma
+            transação.
+    EditarLista:
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        titulo:
+          type: string
+          minLength: 1
+          maxLength: 80
+        descricao:
+          type: string
+          nullable: true
+          maxLength: 300
+          description: Nulo apaga a descrição; omitido mantém.
+    AdicionarLivroNaLista:
+      type: object
+      required: [livroId]
+      additionalProperties: false
+      properties:
+        livroId: { type: string, format: uuid }
+    MoverLivroNaLista:
+      type: object
+      required: [posicao]
+      additionalProperties: false
+      properties:
+        posicao:
+          type: integer
+          minimum: 1
+          description: Nova posição, de 1 até a quantidade de livros da lista.
+    DonoDaLista:
+      type: object
+      description: Dados públicos atuais do dono, lidos de v_perfil_referencia_v1.
+      required: [id, username, nomeExibicao]
+      properties:
+        id: { type: string, format: uuid }
+        username: { type: string, example: marinableu }
+        nomeExibicao: { type: string, example: Marina Beltrão }
+        avatarUrl:
+          type: string
+          format: uri
+          nullable: true
+    Lista:
+      type: object
+      required:
+        - id
+        - dono
+        - titulo
+        - quantidadeLivros
+        - pertenceAoSolicitante
+        - criadaEm
+        - atualizadaEm
+      properties:
+        id: { type: string, format: uuid }
+        dono: { $ref: '#/components/schemas/DonoDaLista' }
+        titulo:
+          type: string
+          description: Texto puro; o cliente aplica escape ao renderizar.
+        descricao:
+          type: string
+          nullable: true
+          description: Texto puro; o cliente aplica escape ao renderizar.
+        quantidadeLivros: { type: integer, minimum: 0 }
+        pertenceAoSolicitante:
+          type: boolean
+          description: Libera no cliente editar, excluir, adicionar, remover e mover.
+        criadaEm: { type: string, format: date-time }
+        atualizadaEm:
+          type: string
+          format: date-time
+          description: Muda a cada edição, inclusão, remoção ou movimento de livro.
+    CapaDaLista:
+      type: object
+      required: [livroId, tipo, titulo]
+      properties:
+        livroId: { type: string, format: uuid }
+        tipo:
+          type: string
+          enum: [OFICIAL, PESSOAL]
+        titulo:
+          type: string
+          description: Usado pelo placeholder quando não há capa.
+        capaUrl:
+          type: string
+          format: uri
+          nullable: true
+    ListaResumo:
+      type: object
+      required: [id, titulo, quantidadeLivros, capas, atualizadaEm]
+      properties:
+        id: { type: string, format: uuid }
+        titulo: { type: string }
+        descricao:
+          type: string
+          nullable: true
+        quantidadeLivros: { type: integer, minimum: 0 }
+        capas:
+          type: array
+          maxItems: 3
+          description: Os três primeiros livros ativos pela ordem do dono.
+          items: { $ref: '#/components/schemas/CapaDaLista' }
+        atualizadaEm: { type: string, format: date-time }
+        contemLivro:
+          type: boolean
+          description: Presente somente em listarMinhasListas com livroId.
+    PaginaListas:
+      type: object
+      required: [itens, pagina, tamanho, totalItens, totalPaginas, ultima]
+      properties:
+        itens:
+          type: array
+          items: { $ref: '#/components/schemas/ListaResumo' }
+        pagina: { type: integer, minimum: 0 }
+        tamanho: { type: integer, minimum: 1, maximum: 50 }
+        totalItens: { type: integer, format: int64, minimum: 0 }
+        totalPaginas: { type: integer, minimum: 0 }
+        ultima: { type: boolean }
+    LivroDaLista:
+      type: object
+      description: >-
+        Dados atuais do livro, lidos de v_livro_referencia_v1 na consulta; não
+        é snapshot.
+      required: [id, tipo, titulo, link]
+      properties:
+        id: { type: string, format: uuid }
+        tipo:
+          type: string
+          enum: [OFICIAL, PESSOAL]
+        titulo: { type: string }
+        autor:
+          type: string
+          nullable: true
+          description: Nulo em livro sem autor; o cliente esconde a linha.
+        capaUrl:
+          type: string
+          format: uri
+          nullable: true
+        link:
+          allOf:
+            - $ref: '#/components/schemas/LinkLivro'
+          description: >-
+            catalogo em livro oficial. Em livro pessoal, via=lista e
+            referenciaId igual à lista; o acervo dispensa a via quando quem
+            abre é o dono do livro.
+    ItemDeLista:
+      type: object
+      required: [id, listaId, livro, posicao, adicionadoEm]
+      properties:
+        id: { type: string, format: uuid }
+        listaId: { type: string, format: uuid }
+        livro: { $ref: '#/components/schemas/LivroDaLista' }
+        posicao:
+          type: integer
+          minimum: 1
+          description: Posição contínua, sem buracos, a partir de 1.
+        adicionadoEm: { type: string, format: date-time }
+    ListaItens:
+      type: object
+      required: [itens, temMais]
+      properties:
+        itens:
+          type: array
+          maxItems: 50
+          items: { $ref: '#/components/schemas/ItemDeLista' }
+        proximoCursor:
+          type: string
+          nullable: true
+          description: Cursor opaco; ausente quando temMais é falso.
+        temMais: { type: boolean }
+    CriarDenuncia:
+      type: object
+      required: [alvoTipo, alvoId, motivo]
+      properties:
+        alvoTipo:
+          type: string
+          enum: [resenha, comentario]
+        alvoId: { type: string, format: uuid }
+        motivo:
+          type: string
+          description: >-
+            Texto livre obrigatório; espaços das pontas são removidos. Até 500
+            caracteres em code points.
+          example: Conta o final sem aviso de spoiler.
+        via:
+          type: string
+          enum: [feed, lista]
+          description: Só para resenha de livro pessoal (RN-15.4).
+        referenciaId:
+          type: string
+          format: uuid
+          description: Atividade (via feed) ou lista (via lista) pela qual o leitor chegou.
+    Denuncia:
+      type: object
+      description: >-
+        Denúncia registrada. Não devolve o motivo nem dados do alvo: a resposta
+        fica no recibo de idempotência.
+      required: [id, estado, criadoEm]
+      properties:
+        id: { type: string, format: uuid }
+        estado:
+          type: string
+          enum: [pendente, removida, arquivada]
+        criadoEm: { type: string, format: date-time }
+    PessoaDaModeracao:
+      type: object
+      nullable: true
+      required: [id, username, nomeExibicao]
+      properties:
+        id: { type: string, format: uuid }
+        username: { type: string }
+        nomeExibicao: { type: string }
+        avatarUrl: { type: string, nullable: true }
+    DenunciaPendente:
+      type: object
+      required: [id, tipo, criadoEm, motivo, remocaoNaoConfirmada]
+      properties:
+        id: { type: string, format: uuid }
+        tipo: { type: string, enum: [resenha, comentario] }
+        criadoEm: { type: string, format: date-time }
+        motivo: { type: string }
+        denunciante: { $ref: '#/components/schemas/PessoaDaModeracao' }
+        autor: { $ref: '#/components/schemas/PessoaDaModeracao' }
+        livro:
+          type: object
+          nullable: true
+          properties:
+            id: { type: string, format: uuid }
+            titulo: { type: string }
+            pessoal: { type: boolean }
+        atividade:
+          type: object
+          nullable: true
+          description: Só no comentário. visivelParaAdmin decide o link Ver no feed.
+          properties:
+            id: { type: string, format: uuid }
+            tipo: { type: string }
+            autorNome: { type: string }
+            livroTitulo: { type: string }
+            visivelParaAdmin: { type: boolean }
+        conteudo:
+          type: object
+          nullable: true
+          description: Nulo quando o autor já excluiu o conteúdo.
+          properties:
+            texto: { type: string, description: Resenha em Markdown cru (RN-13). }
+            spoiler: { type: boolean }
+            nota: { type: number, nullable: true }
+            publicadoEm: { type: string, format: date-time }
+            respostas: { type: integer }
+        remocaoNaoConfirmada: { type: boolean }
+    PaginaDenuncias:
+      type: object
+      required: [itens, temMais]
+      properties:
+        itens:
+          type: array
+          items: { $ref: '#/components/schemas/DenunciaPendente' }
+        proximoCursor: { type: string, nullable: true }
+        temMais: { type: boolean }
+    ResultadoModeracao:
+      type: object
+      required: [denunciasFechadas]
+      properties:
+        denunciasFechadas:
+          type: array
+          items: { type: string, format: uuid }
+    RegistroDeModeracao:
+      type: object
+      required: [id, criadoEm, acao, alvoTipo, comDenuncia, anonimizado]
+      properties:
+        id: { type: string, format: uuid }
+        criadoEm: { type: string, format: date-time }
+        acao: { type: string, enum: [remover_conteudo, arquivar_denuncia] }
+        alvoTipo: { type: string, enum: [resenha, comentario, frase] }
+        comDenuncia: { type: boolean }
+        alvoAutor: { type: string, nullable: true, description: Username de quem escreveu. }
+        atividadeAutor: { type: string, nullable: true }
+        livroTitulo: { type: string, nullable: true }
+        anonimizado: { type: boolean }
+    PaginaRegistrosDeModeracao:
+      type: object
+      required: [itens, temMais]
+      properties:
+        itens:
+          type: array
+          items: { $ref: '#/components/schemas/RegistroDeModeracao' }
+        proximoCursor: { type: string, nullable: true }
+        temMais: { type: boolean }
     ViolacaoCampo:
       type: object
       required: [campo, mensagem]

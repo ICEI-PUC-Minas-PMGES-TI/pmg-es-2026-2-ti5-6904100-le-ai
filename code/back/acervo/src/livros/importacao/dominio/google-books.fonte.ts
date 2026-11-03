@@ -1,4 +1,8 @@
-import { FonteDeMetadados, MetadadosLivro } from './fonte-metadados';
+import {
+  FonteDeMetadados,
+  MetadadosLivro,
+  notaExterna,
+} from './fonte-metadados';
 import { HttpExterno } from './http-externo';
 import { PoliticaDeResiliencia } from './politica-resiliencia';
 import { extrairAno } from './openlibrary.fonte';
@@ -24,6 +28,8 @@ interface VolumeGoogle {
     publishedDate?: string;
     pageCount?: number;
     imageLinks?: { thumbnail?: string };
+    averageRating?: number;
+    ratingsCount?: number;
   };
 }
 
@@ -67,6 +73,8 @@ export class GoogleBooksFonte implements FonteDeMetadados {
       capaUrl: info.imageLinks?.thumbnail?.replace(/^http:/, 'https:') ?? null,
       olEditionKey: null,
       olWorkKey: null,
+      // Já na escala de 1 a 5; só vale quando o Google é a fonte do livro.
+      notaGeral: notaExterna(info.averageRating, info.ratingsCount),
     };
   }
 }

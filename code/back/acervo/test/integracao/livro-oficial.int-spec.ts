@@ -5,9 +5,12 @@ import request from 'supertest';
 import { criarApp, novoUsuario, tokenDe } from './app';
 import { contar, limpar, prepararBanco } from './banco';
 import {
+  inserirAssunto,
   inserirAutor,
+  inserirEditora,
   inserirLivroOficial,
   inserirLivroPessoal,
+  inserirSerie,
   isbn,
 } from './massa';
 
@@ -117,6 +120,7 @@ describe('página do livro oficial (integração)', () => {
         titulo: 'Torto arado',
         autores: [{ id: autor, nome: 'Itamar Vieira Junior' }],
         editora: null,
+        editoraId: null,
         anoPublicacao: 2019,
         paginas: 200,
         capa: {
@@ -124,8 +128,12 @@ describe('página do livro oficial (integração)', () => {
           origem: 'externa',
         },
         assuntos: [],
+        serie: null,
         isbn: alvo,
         sinopse: { status: 'pendente', texto: null },
+        notaGeral: null,
+        notaDosLeitores: null,
+        distribuicao: [],
         resenhas: { itens: [], limit: 10, proximoCursor: null },
       });
       expect(await sinopse(id)).toBe('pendente');
@@ -134,6 +142,55 @@ describe('página do livro oficial (integração)', () => {
         'SELECT payload FROM acervo.outbox_acervo',
       );
       expect(rows[0].payload).toEqual({ livroId: id });
+    });
+
+    it('a ficha traz editora e série com número, para os links (F-ACV-DESCOBERTA)', async () => {
+      const editora = await inserirEditora(pool, 'Rocco');
+      const serie = await inserirSerie(pool, 'Harry Potter');
+      const id = await inserirLivroOficial(
+        pool,
+        novoIsbn(),
+        'Harry Potter e a câmara secreta',
+        { editoraId: editora, serieId: serie, numeroSerie: 2 },
+      );
+      const semNumero = await inserirLivroOficial(
+        pool,
+        novoIsbn(),
+        'Animais fantásticos',
+        { serieId: serie },
+      );
+
+      const { body } = await abrir(id);
+
+      expect(body).toMatchObject({
+        editora: 'Rocco',
+        editoraId: editora,
+        serie: { id: serie, nome: 'Harry Potter', numero: 2 },
+      });
+      expect((await abrir(semNumero)).body.serie).toEqual({
+        id: serie,
+        nome: 'Harry Potter',
+        numero: null,
+      });
+    });
+
+    it('cada assunto da página filtra a busca pelo próprio id (RF-ACV-21)', async () => {
+      const romance = await inserirAssunto(pool, 'Romance', 'romance');
+      const id = await inserirLivroOficial(pool, novoIsbn(), 'Vidas secas', {
+        assuntos: [romance],
+      });
+      await inserirLivroOficial(pool, novoIsbn(), 'Outro livro');
+
+      const { body } = await abrir(id);
+      const [assunto] = body.assuntos as { id: string; nome: string }[];
+      const busca = await request(app.getHttpServer())
+        .get('/livros')
+        .query({ assunto: assunto.id })
+        .set('Authorization', `Bearer ${tokenDe(leitor)}`);
+
+      expect(assunto).toEqual({ id: romance, nome: 'Romance' });
+      expect(busca.status).toBe(200);
+      expect(busca.body.itens.map((l: { id: string }) => l.id)).toEqual([id]);
     });
 
     it('reabrir não gera outro evento, nem em aberturas concorrentes', async () => {
@@ -237,6 +294,82 @@ describe('página do livro oficial (integração)', () => {
     });
   });
 
+  describe('nota geral e nota dos leitores (RF-ACV-16, RF-ACV-04)', () => {
+    async function notaGeral(id: string, valor: number, quantidade: number) {
+      await pool.query(
+        'UPDATE acervo.livro SET nota_geral = $2, nota_geral_qtd = $3 WHERE id = $1',
+        [id, valor, quantidade],
+      );
+    }
+
+    async function notas(id: string, valores: number[]) {
+      for (const valor of valores) {
+        await pool.query(
+          `INSERT INTO acervo.nota_leitor_projecao (usuario_id, livro_id, valor)
+           VALUES (gen_random_uuid(), $1, $2)`,
+          [id, valor],
+        );
+      }
+    }
+
+    const faixas = (quantidades: Record<number, number>) =>
+      [5, 4.5, 4, 3.5, 3, 2.5, 2, 1.5, 1, 0.5, 0].map((valor) => ({
+        valor,
+        quantidade: quantidades[valor] ?? 0,
+      }));
+
+    it('só a nota geral: sem nota dos leitores e sem distribuição (RN-06.1)', async () => {
+      const id = await inserirLivroOficial(pool, novoIsbn());
+      await notaGeral(id, 4.3, 412);
+
+      const { body } = await abrir(id);
+
+      expect(body).toMatchObject({
+        notaGeral: { valor: 4.3, quantidade: 412 },
+        notaDosLeitores: null,
+        distribuicao: [],
+      });
+    });
+
+    it('só a nota dos leitores: a contagem é a soma das 11 faixas', async () => {
+      const id = await inserirLivroOficial(pool, novoIsbn());
+      await notas(id, [5, 5, 4.5, 3, 0]);
+
+      const { body } = await abrir(id);
+
+      expect(body.notaGeral).toBeNull();
+      expect(body.notaDosLeitores).toEqual({ valor: 3.5, quantidade: 5 });
+      expect(body.distribuicao).toEqual(faixas({ 5: 2, 4.5: 1, 3: 1, 0: 1 }));
+      const soma = (body.distribuicao as { quantidade: number }[]).reduce(
+        (total, faixa) => total + faixa.quantidade,
+        0,
+      );
+      expect(soma).toBe(body.notaDosLeitores.quantidade);
+    });
+
+    it('as duas, separadas e nunca combinadas', async () => {
+      const id = await inserirLivroOficial(pool, novoIsbn());
+      await notaGeral(id, 3.9, 1);
+      await notas(id, [2]);
+
+      const { body } = await abrir(id);
+
+      expect(body.notaGeral).toEqual({ valor: 3.9, quantidade: 1 });
+      expect(body.notaDosLeitores).toEqual({ valor: 2, quantidade: 1 });
+      expect(body.distribuicao).toEqual(faixas({ 2: 1 }));
+    });
+
+    it('arredonda uma vez só, sobre os valores individuais (53 notas, soma 225: 4,2)', async () => {
+      const id = await inserirLivroOficial(pool, novoIsbn());
+      // 225 / 53 = 4,245…: pela média de 2 casas (4,25) daria 4,3.
+      await notas(id, [...Array<number>(50).fill(4.5), 0, 0, 0]);
+
+      const { body } = await abrir(id);
+
+      expect(body.notaDosLeitores).toEqual({ valor: 4.2, quantidade: 53 });
+    });
+  });
+
   describe('resenhas e RN-08', () => {
     it('mostra público e privado seguido; esconde privado não seguido, ausente da VIEW e a do próprio leitor', async () => {
       const id = await inserirLivroOficial(pool, novoIsbn(), 'Torto arado');
@@ -313,6 +446,44 @@ describe('página do livro oficial (integração)', () => {
         terceira.body.itens.map((r: { texto: string }) => r.texto),
       ).toEqual(['C']);
       expect(terceira.body.proximoCursor).toBeNull();
+    });
+
+    it('cada resenha traz as contagens e só a reação de quem está vendo (F-AVA-2)', async () => {
+      const id = await inserirLivroOficial(pool, novoIsbn(), 'Com reações');
+      const [autora, outra] = [novoUsuario(), novoUsuario()];
+      await perfil(autora, 'Autora Reagida');
+      await perfil(outra, 'Outra Autora');
+      await perfil(leitor, 'Leitor Atual');
+      const reagida = randomUUID();
+      await pool.query(
+        `INSERT INTO leitura.v_resenha_publicacao_v1
+         VALUES ($1, $2, $3, 'Reagida.', false, now(), now(), 3, 1)`,
+        [reagida, autora, id],
+      );
+      await resenha(
+        id,
+        outra,
+        'Sem reação minha.',
+        `now() - interval '1 minute'`,
+      );
+      await pool.query(
+        `INSERT INTO leitura.v_reacao_resenha_v1 VALUES ($1, $2, 'curtida'), ($1, $3, 'descurtida')`,
+        [reagida, leitor, outra],
+      );
+
+      const itens = (await resenhas(id)).body.itens;
+
+      expect(itens[0]).toMatchObject({
+        id: reagida,
+        curtidas: 3,
+        descurtidas: 1,
+        minhaReacao: 'curtida',
+      });
+      expect(itens[1]).toMatchObject({
+        curtidas: 0,
+        descurtidas: 0,
+        minhaReacao: null,
+      });
     });
 
     it('cursor forjado, limite acima de 50 e livro pessoal são recusados', async () => {

@@ -45,6 +45,31 @@ export interface LoginResultado {
   usuario: UsuarioResposta
 }
 
+/**
+ * `AcessoDeRecuperacao` do contrato (F-CONTA-2, RN-23.3): o login de conta com exclusão pendente
+ * devolve um token curto que só serve para cancelar a exclusão, sem renovação, e as datas que a
+ * tela de recuperação mostra.
+ */
+export interface AcessoDeRecuperacao {
+  accessToken: string
+  expiresIn: number
+  exclusaoSolicitadaEm: string
+  exclusaoPrevistaEm: string
+  username: string
+  nomeExibicao: string
+}
+
+/** O login entra na conta ou, com a exclusão pendente, só abre a recuperação. */
+export type ResultadoDoLogin = LoginResultado | { recuperacao: AcessoDeRecuperacao }
+
+/** `ExclusaoSolicitada` do contrato: a janela de 30 dias aberta pelo pedido. */
+export interface ExclusaoSolicitada {
+  exclusaoSolicitadaEm: string
+  exclusaoPrevistaEm: string
+}
+
+const TIPO_RECUPERACAO = 'recuperacao_exclusao'
+
 type ComLock = <T>(tarefa: () => Promise<T>) => Promise<T>
 
 export interface AuthServiceOptions extends ApiClientOptions {
@@ -90,16 +115,45 @@ export function createAuthService(options: AuthServiceOptions = {}) {
    * explícito do token recém-emitido, não o da sessão global, que só passa a existir depois que
    * quem chamou `entrar()` gravar o resultado (`iniciarSessao`, em `session.ts`).
    */
-  async function entrar(dados: LoginRequisicao): Promise<LoginResultado> {
-    const sessao = await requestPublico<SessaoResposta>('/auth/login', {
-      method: 'POST',
-      json: dados,
-      idempotencyKey: novaChaveIdempotencia(),
-    })
+  async function entrar(dados: LoginRequisicao): Promise<ResultadoDoLogin> {
+    const resposta = await requestPublico<SessaoResposta | (AcessoDeRecuperacao & { tipo: string })>(
+      '/auth/login',
+      { method: 'POST', json: dados, idempotencyKey: novaChaveIdempotencia() },
+    )
+    // Conta em exclusão (F-CONTA-2): o token só vale para cancelar, então nem o `/me` é chamado.
+    if ('tipo' in resposta && resposta.tipo === TIPO_RECUPERACAO) {
+      return { recuperacao: resposta as AcessoDeRecuperacao }
+    }
+    const sessao = resposta as SessaoResposta
     const usuario = await request<UsuarioResposta>('/me', {
       headers: { Authorization: `Bearer ${sessao.accessToken}` },
     })
     return { sessao, usuario }
+  }
+
+  /**
+   * Pede a exclusão da conta (RF-AUT-07, RN-23.1): senha atual, confirmação explícita e chave de
+   * quem chama, que a repete ao reenviar depois de um erro para o pedido não duplicar. O
+   * servidor revoga todas as renovações; a tela limpa a sessão local ao receber o `202`.
+   */
+  async function solicitarExclusao(senha: string, idempotencyKey: string): Promise<ExclusaoSolicitada> {
+    return request<ExclusaoSolicitada>('/me/conta', {
+      method: 'DELETE',
+      json: { senha, confirmacao: true },
+      idempotencyKey,
+    })
+  }
+
+  /**
+   * Cancela a exclusão com o acesso de recuperação, nunca com a sessão normal (RN-23.4). Sem
+   * renovação: `401` aqui é o acesso de 15 minutos que venceu.
+   */
+  async function cancelarExclusao(accessToken: string, idempotencyKey: string): Promise<void> {
+    await requestPublico<void>('/me/conta/cancelar-exclusao', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}` },
+      idempotencyKey,
+    })
   }
 
   /** Identidade do portador da sessão atual — usado para restaurar o usuário ao recarregar. */
@@ -170,13 +224,24 @@ export function createAuthService(options: AuthServiceOptions = {}) {
   ): Promise<LoginResultado | null> {
     await request<void>('/auth/password/change', { method: 'POST', json: dados, idempotencyKey })
     try {
-      return await entrar({ identificador: usuario.username, senha: dados.novaSenha })
+      const resultado = await entrar({ identificador: usuario.username, senha: dados.novaSenha })
+      return 'recuperacao' in resultado ? null : resultado
     } catch {
       return null
     }
   }
 
-  return { cadastrar, entrar, buscarUsuarioAtual, sair, solicitarRecuperacao, redefinirSenha, alterarSenha }
+  return {
+    cadastrar,
+    entrar,
+    buscarUsuarioAtual,
+    sair,
+    solicitarRecuperacao,
+    redefinirSenha,
+    alterarSenha,
+    solicitarExclusao,
+    cancelarExclusao,
+  }
 }
 
 export const authService = createAuthService()

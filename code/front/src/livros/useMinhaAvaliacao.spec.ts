@@ -36,9 +36,22 @@ function servicoFalso(inicial: MinhaAvaliacao = { livroId: 'l1', nota: null, res
     retomarLeitura: vi.fn(),
     detalharLeitura: vi.fn(),
     consultarConclusoes: vi.fn(),
+    consultarFavorito: vi.fn(),
+    marcarFavorito: vi.fn(),
+    desmarcarFavorito: vi.fn(),
+    listarFavoritos: vi.fn(),
+    listarHistorico: vi.fn(),
     registrarProgresso: vi.fn(),
     listarProgresso: vi.fn(),
     excluirTrechoProgresso: vi.fn(),
+    reagir: vi.fn(),
+    removerReacao: vi.fn(),
+    listarFrases: vi.fn(),
+    criarFrase: vi.fn(),
+    excluirFrase: vi.fn(),
+    consultarMinhasEstatisticas: vi.fn(),
+    consultarGraficosEstatisticas: vi.fn(),
+    consultarEstatisticasPerfil: vi.fn(),
   } satisfies LeituraService
 }
 
@@ -62,6 +75,26 @@ describe('useMinhaAvaliacao', () => {
     await avaliacao.carregar('l1')
 
     expect(avaliacao.estado.value).toBe('erro')
+  })
+
+  it('aoAlterarNota roda depois de salvar e de remover a nota, não na carga, na resenha nem na falha', async () => {
+    const servico = servicoFalso()
+    const aoAlterarNota = vi.fn()
+    const avaliacao = useMinhaAvaliacao({ servico, aoAlterarNota })
+
+    await avaliacao.carregar('l1')
+    await avaliacao.salvarResenha('Texto.', false)
+    await avaliacao.excluirResenha()
+    expect(aoAlterarNota).not.toHaveBeenCalled()
+
+    await avaliacao.salvarNota(5)
+    expect(aoAlterarNota).toHaveBeenCalledTimes(1)
+    await avaliacao.removerNota()
+    expect(aoAlterarNota).toHaveBeenCalledTimes(2)
+
+    servico.salvarNota.mockRejectedValueOnce(new ApiError('x', 500, 'ERRO_INTERNO'))
+    await expect(avaliacao.salvarNota(4)).rejects.toThrow(ApiError)
+    expect(aoAlterarNota).toHaveBeenCalledTimes(2)
   })
 
   it('reenviar a mesma nota repete a chave; outro valor é outra chave', async () => {

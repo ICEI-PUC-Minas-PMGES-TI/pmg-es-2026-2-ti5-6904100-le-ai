@@ -1,5 +1,6 @@
 package br.com.leai.social.config;
 
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import java.util.Arrays;
@@ -33,7 +34,21 @@ public record AppProperties(
         @Size(min = 32, message = "JWT_SECRET precisa de pelo menos 32 caracteres (HS256)")
         String jwtSecret,
     String adminEmail,
-    String adminPassword) {
+    String adminPassword,
+    // F-MOD: o comando interno de remoção no `leitura`. A URL tem default local; o segredo é
+    // opcional para o serviço e os testes subirem sem ele, e sem ele a remoção responde 503.
+    String leituraBaseUrl,
+    String moderacaoToken) {
+
+  /** Vazio vale (remoção desligada); preenchido, com o mesmo mínimo do `leitura`. */
+  @AssertTrue(message = "MODERACAO_TOKEN precisa de pelo menos 32 caracteres")
+  public boolean isModeracaoTokenValido() {
+    return moderacaoToken == null || moderacaoToken.isEmpty() || moderacaoToken.length() >= 32;
+  }
+
+  public boolean moderacaoConfigurada() {
+    return moderacaoToken != null && !moderacaoToken.isEmpty();
+  }
 
   /**
    * Origens liberadas para CORS, sem curinga (RNF-SEC-21). Lista vazia significa nenhuma origem

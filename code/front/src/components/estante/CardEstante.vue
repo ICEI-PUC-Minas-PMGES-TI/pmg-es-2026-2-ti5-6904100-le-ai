@@ -1,20 +1,27 @@
-<script setup lang="ts">
-import { PhArrowsClockwise, PhCheck } from '@phosphor-icons/vue'
+<script setup lang="ts" generic="T extends ItemDoCard">
+import { PhArrowsClockwise, PhCheck, PhHeart } from '@phosphor-icons/vue'
 import { computed } from 'vue'
 
 import CapaLivro from '../livros/CapaLivro.vue'
-import { TEXTOS_DA_ESTANTE, textoParouNaPagina, textoVezesLido } from '../../estante/textos'
-import type { ItemEstante, StatusEstante } from '../../services/leitura'
+import type { ItemDoCard } from '../../estante/itemDoCard'
+import {
+  TEXTOS_DA_ESTANTE,
+  TEXTOS_DO_FAVORITO,
+  TEXTOS_DO_FILTRO_FAVORITOS,
+  textoParouNaPagina,
+  textoVezesLido,
+} from '../../estante/textos'
+import type { StatusEstante } from '../../services/leitura'
 import StatusPill from './StatusPill.vue'
 
-const props = withDefaults(defineProps<{ item: ItemEstante; acionavel?: boolean }>(), { acionavel: true })
-const emit = defineEmits<{ abrir: [item: ItemEstante] }>()
+const props = withDefaults(defineProps<{ item: T; acionavel?: boolean }>(), { acionavel: true })
+const emit = defineEmits<{ abrir: [item: T] }>()
 
 const EM_ANDAMENTO: readonly StatusEstante[] = ['LENDO', 'RELENDO']
 
 const percentual = computed(() => {
-  const valor = props.item.percentualConcluido
-  return EM_ANDAMENTO.includes(props.item.status) && valor != null ? Math.round(valor) : null
+  const { status, percentualConcluido: valor } = props.item
+  return status && EM_ANDAMENTO.includes(status) && valor != null ? Math.round(valor) : null
 })
 
 const paradaNaPagina = computed(() => {
@@ -47,6 +54,19 @@ function abrir(): void {
         class="aspect-[2/3] w-full transition-shadow duration-dur-fast motion-reduce:transition-none"
         :class="acionavel ? 'group-hover:shadow-2' : ''"
       />
+      <span
+        v-if="item.favorito"
+        class="absolute left-space-2 top-space-2 flex size-7 items-center justify-center rounded-full bg-papel shadow-1"
+        data-favorito
+      >
+        <PhHeart
+          :size="16"
+          weight="fill"
+          class="text-musgo"
+          aria-hidden="true"
+        />
+        <span class="sr-only">{{ TEXTOS_DO_FAVORITO.marca }}</span>
+      </span>
       <span
         v-if="item.status === 'LIDO' || item.status === 'RELENDO'"
         class="absolute right-space-2 top-space-2 flex size-7 items-center justify-center rounded-full bg-papel shadow-1"
@@ -103,9 +123,16 @@ function abrir(): void {
     </p>
 
     <StatusPill
+      v-if="item.status"
       class="mt-space-2 self-start"
       :status="item.status"
     />
+    <p
+      v-else
+      class="mt-space-2 text-caption text-grafite"
+    >
+      {{ TEXTOS_DO_FILTRO_FAVORITOS.foraDaEstante }}
+    </p>
 
     <p
       v-if="paradaNaPagina"
@@ -114,7 +141,7 @@ function abrir(): void {
       {{ paradaNaPagina }}
     </p>
     <p
-      v-if="item.vezesLido > 0"
+      v-if="item.vezesLido"
       class="mt-space-1 text-caption text-grafite"
     >
       {{ textoVezesLido(item.vezesLido) }}

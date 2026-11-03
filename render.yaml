@@ -52,6 +52,19 @@ services:
         sync: false
       - key: CLOUDINARY_CLOUD_NAME # valida a URL de capa de livro pessoal (RNF-SEC-20)
         sync: false
+      # F-CONTA-2: credencial da Upload API, para apagar as capas de livro pessoal
+      # na exclusão definitiva de conta (RN-23.7). Sem ela a capa fica no Cloudinary.
+      # F-ACV-NOTA: a mesma credencial liga o cache de capas oficiais; sem ela a
+      # fila leai.acervo.capas não é criada.
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      # F-ACV-NOTA: pasta e prefixo do public_id das capas oficiais. Dev usa
+      # capas-oficiais-dev no mesmo cloud. Download com os padrões do env.ts
+      # (allowlist própria, 15 s, 5 MB).
+      - key: CLOUDINARY_PASTA_CAPAS_OFICIAIS
+        value: capas-oficiais
       - key: GOOGLE_BOOKS_API_KEY # fonte secundária do cadastro por ISBN; sem ela o Google responde 429 por cota (P-14)
         sync: false
 
@@ -90,6 +103,11 @@ services:
       # workflow job-inatividade. Mínimo de 32 caracteres; o MESMO valor vai no
       # secret LEITURA_SCHEDULER_TOKEN do GitHub. Sem ele o job responde 401.
       - key: SCHEDULER_TOKEN
+        sync: false
+      # F-MOD: segredo do comando interno de remoção (/internal/moderacao/*), chamado
+      # só pelo leai-social. Mínimo de 32 caracteres; o MESMO valor vai no
+      # MODERACAO_TOKEN do leai-social. Sem ele, a remoção responde 503.
+      - key: MODERACAO_TOKEN
         sync: false
 
   # ------------------------------------------------------------ identidade
@@ -149,6 +167,17 @@ services:
         sync: false
       - key: ADMIN_PASSWORD # senha forte, distinta de qualquer default (RNF-SEC-31)
         sync: false
+      # F-CONTA-2: token do job diário de exclusão de conta, chamado pelo workflow
+      # job-exclusao-conta. Mínimo de 32 caracteres; o MESMO valor vai no secret
+      # IDENTIDADE_SCHEDULER_TOKEN do GitHub. Sem ele o job responde 401.
+      - key: SCHEDULER_TOKEN
+        sync: false
+      # F-CONTA-2: credencial da Upload API, para apagar o avatar na exclusão
+      # definitiva (RN-23.7). Sem ela o asset fica e o publicId vai para o log.
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
 
   # ---------------------------------------------------------------- social
   # Spring Boot (Java) — requer Dockerfile em code/back/social/Dockerfile.
@@ -183,6 +212,12 @@ services:
       # F-FEED/F-NOT: obrigatório (AppProperties exige @NotBlank, 32+ caracteres);
       # sem ele o serviço não sobe. MESMO valor do leai-identidade.
       - key: JWT_SECRET
+        sync: false
+      # F-MOD: comando interno de remoção de resenha e frase no leitura. A URL é
+      # pública; o token é o MESMO MODERACAO_TOKEN do leai-leitura.
+      - key: LEITURA_BASE_URL
+        value: https://leai-leitura.onrender.com
+      - key: MODERACAO_TOKEN
         sync: false
 
   # ------------------------------------------------------- site estático web

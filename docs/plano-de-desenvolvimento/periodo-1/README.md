@@ -86,7 +86,7 @@ Estas divergências não podem ser decididas pelos arquivos de feature e devem s
 
 ## Fechamento do Período 1 (29/09/2026)
 
-As dez features foram implementadas em back, web e mobile (a web fica de fora onde o escopo é só mobile, como em F-NOT) e mergeadas em `desenvolvimento`, com CI verde. Todas estão **entregues e em revisão**: aguardam o aval dos professores. **O DES ainda não tem o Período 1**: a `main` só recebe o período fechado, e os itens "funciona em DES/HML" de cada arquivo entram no merge de fechamento `desenvolvimento` → `main`, não são pendência da feature.
+As dez features foram implementadas em back, web e mobile (a web fica de fora onde o escopo é só mobile, como em F-NOT) e mergeadas em `desenvolvimento`, com CI verde. Todas estão **entregues e em revisão**: aguardam o aval dos professores. A `main` só recebe o período fechado, e os itens "funciona em DES/HML" de cada arquivo entram no merge de fechamento `desenvolvimento` → `main`, não são pendência da feature. Esse merge entrou em 29/09/2026 (PR #45, tag `v0.1.0`); a validação dos fluxos em DES não foi registrada nos arquivos.
 
 | Feature | Dono | Situação | O que continua aberto (detalhe no arquivo) |
 |---|---|---|---|
@@ -95,7 +95,7 @@ As dez features foram implementadas em back, web e mobile (a web fica de fora on
 | [F-ACV-BUSCA](feature-F-ACV-BUSCA.md) | Renato Douglas | entregue, em revisão | achados de dados da carga (títulos só de pontuação, acento decomposto) |
 | [F-ACV-CADASTRO](feature-F-ACV-CADASTRO.md) | Vicenzo Fonseca | entregue, em revisão | divergências de protótipo registradas no arquivo |
 | [F-ACV-INGESTAO](feature-F-ACV-INGESTAO.md) | Vicenzo Fonseca | entregue, em revisão | 701 livros oficiais sem autor; limpeza de dados apontada pela busca |
-| [F-EST](feature-F-EST.md) | Ana Luiza de Freitas | entregue, em revisão | secrets `LEITURA_URL`/`LEITURA_SCHEDULER_TOKEN` e prova P-08 do agendador de inatividade |
+| [F-EST](feature-F-EST.md) | Ana Luiza de Freitas | entregue, em revisão | secrets `LEITURA_URL`/`LEITURA_SCHEDULER_TOKEN` e prova P-08 do agendador de inatividade (confirmados na prática: o job roda todo dia desde 30/09/2026) |
 | [F-PRG](feature-F-PRG.md) | Ana Luiza de Freitas | entregue, em revisão | protótipo HTML de atualizações ainda mostra "Editar" (a edição foi removida em 29/09) |
 | [F-AVA](feature-F-AVA.md) | Renato Douglas | entregue, em revisão | revisão do Kayke nas mudanças feitas no `social`; feed lendo `v_resenha_publicacao_v1` |
 | [F-FEED](feature-F-FEED.md) | Kayke | entregue, em revisão | fila, retry e DLQ contra RabbitMQ real; revisão da migration `V20260927002000` |
@@ -105,7 +105,7 @@ As dez features foram implementadas em back, web e mobile (a web fica de fora on
 
 - **RNF-SEC-41 × RF-AUT-07** e **composição de RF-SOC-02**: seguem abertas como descrito em [Pendências de consistência da baseline](#pendências-de-consistência-da-baseline). Até a decisão, a exclusão de conta fica com F-CONTA-2 e as listas no perfil com F-LST, ambas no Período 2.
 - **Feed lendo `v_resenha_publicacao_v1`**: o `social` lê texto, spoiler e nota da resenha pela VIEW de `leitura` em vez de guardar snapshot, contrariando a arquitetura §3.2 item 4 (ver [Pendências de consistência da baseline](#pendências-de-consistência-da-baseline)). Decisão do grupo.
-- **Documento de Arquitetura**: o plano de projeto §12 pede a atualização no fechamento, com as decisões do período (feed lendo VIEW de `leitura`, envio de recuperação de senha em processo, job de inatividade por `schedule` do GitHub Actions, busca com `pg_trgm`). Fica com o grupo, porque agentes não editam `docs/orquestador/`.
+- **Documento de Arquitetura**: o plano de projeto §12 pede a atualização no fechamento, com as decisões do período (feed lendo VIEW de `leitura`, envio de recuperação de senha em processo, job de inatividade por `schedule` do GitHub Actions, busca com `pg_trgm`). Feito junto com o Período 2, na v1.8 (25/10/2026), autorizada pelo Renato Douglas.
 
 Nada desceu para o Período 2 pela regra de corte: o que ficou aberto são resíduos registrados em cada feature ou itens que já pertenciam ao Período 2.
 

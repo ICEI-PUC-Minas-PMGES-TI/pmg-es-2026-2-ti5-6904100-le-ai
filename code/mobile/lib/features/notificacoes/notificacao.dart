@@ -8,8 +8,11 @@ enum TipoNotificacao {
   atividadeCurtida,
   atividadeComentada,
   comentarioRespondido,
+  usuarioMencionado,
   leituraEmRisco,
-  leituraExpirada;
+  leituraExpirada,
+  recomendacaoRecebida,
+  resenhaCurtida;
 
   static const Map<String, TipoNotificacao> _doContrato = <String, TipoNotificacao>{
     'NOVO_SEGUIDOR': novoSeguidor,
@@ -18,8 +21,11 @@ enum TipoNotificacao {
     'ATIVIDADE_CURTIDA': atividadeCurtida,
     'ATIVIDADE_COMENTADA': atividadeComentada,
     'COMENTARIO_RESPONDIDO': comentarioRespondido,
+    'USUARIO_MENCIONADO': usuarioMencionado,
     'LEITURA_EM_RISCO': leituraEmRisco,
     'LEITURA_EXPIRADA': leituraExpirada,
+    'RECOMENDACAO_RECEBIDA': recomendacaoRecebida,
+    'RESENHA_CURTIDA': resenhaCurtida,
   };
 
   /// Nulo para um tipo que o servidor passou a gerar depois desta versão do app: a lista não
@@ -63,6 +69,7 @@ class Notificacao {
   final String? atividadeId;
   final String? leituraId;
   final LivroDaNotificacao? livro;
+  final String? recomendacaoMensagem;
 
   /// Presente só na leitura em risco: a ação de abandonar, que sempre pede confirmação.
   final bool podeAbandonar;
@@ -77,6 +84,7 @@ class Notificacao {
     this.atividadeId,
     this.leituraId,
     this.livro,
+    this.recomendacaoMensagem,
     this.podeAbandonar = false,
     required this.lida,
     required this.criadoEm,
@@ -90,6 +98,7 @@ class Notificacao {
     atividadeId: atividadeId,
     leituraId: leituraId,
     livro: livro,
+    recomendacaoMensagem: recomendacaoMensagem,
     podeAbandonar: podeAbandonar,
     lida: true,
     criadoEm: criadoEm,
@@ -111,6 +120,7 @@ class Notificacao {
       atividadeId: json['atividadeId'] as String?,
       leituraId: json['leituraId'] as String?,
       livro: livro is Map<String, dynamic> ? LivroDaNotificacao.fromJson(livro) : null,
+      recomendacaoMensagem: json['recomendacaoMensagem'] as String?,
       podeAbandonar: acao is Map<String, dynamic> && acao['tipo'] == 'ABANDONAR_LEITURA',
       lida: json['lida'] as bool,
       criadoEm: DateTime.parse(json['criadoEm'] as String).toLocal(),

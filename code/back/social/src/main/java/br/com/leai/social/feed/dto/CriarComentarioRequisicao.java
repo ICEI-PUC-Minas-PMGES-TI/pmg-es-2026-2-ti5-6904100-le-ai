@@ -13,6 +13,9 @@ import java.util.UUID;
 @Schema(name = "CriarComentario")
 public record CriarComentarioRequisicao(
     @NotBlank(message = "Informe o texto do comentário.")
-        @Size(min = 1, max = 2000, message = "Use entre 1 e 2000 caracteres.")
+        @Size(min = 1, max = CriarComentarioRequisicao.TEXTO_MAXIMO, message = "Use entre 1 e 2000 caracteres.")
         String texto,
-    UUID comentarioRespondidoId) {}
+    UUID comentarioRespondidoId) {
+
+  public static final int TEXTO_MAXIMO = 2000;
+}

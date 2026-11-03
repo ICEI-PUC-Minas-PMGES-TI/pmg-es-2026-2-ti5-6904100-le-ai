@@ -10,7 +10,11 @@ info:
     utilitário, não uma API HTTP; por isso não há rotas administrativas de
     ingestão, recarga ou associação de assuntos neste período. O contrato é
     publicado em runtime por @nestjs/swagger em /docs e versionado aqui
-    conforme RNF-ARQ-03.
+    conforme RNF-ARQ-03. No Período 2, F-ACV-DESCOBERTA acrescentou os filtros
+    avançados de GET /livros, as páginas de autor, editora e série e os campos
+    de série e editora da página do livro, implementados em 02/10/2026.
+    F-ACV-NOTA acrescentou à página a nota geral, a nota dos leitores e a
+    distribuição das notas dos leitores.
 x-contract-status: implemented
 x-implementation-notes:
   - >-
@@ -28,6 +32,11 @@ x-implementation-notes:
     dono sobre o livro no feed do solicitante, por seguimento aceito, nenhum
     terceiro obtém acesso, que é o comportamento fail-closed correto.
   - >-
+    GET /livros/pessoal/{id} com via=lista depende de
+    social.v_lista_livro_pessoal_v1 (F-LST), identidade.v_perfil_referencia_v1
+    e identidade.v_seguimento_aceito_v1. VIEW ausente ou sem GRANT responde
+    503, nunca 403.
+  - >-
     notaDoDono e resenhaDoDono vêm das VIEWs de leitura, alimentadas por F-AVA
     desde 27/09/2026, e saem null quando o dono não deu nota ou não escreveu
     resenha. Ausência é resposta normal, nunca erro.
@@ -43,7 +52,28 @@ x-implementation-notes:
     F-AVA desde 27/09/2026, filtradas por RN-08; com a VIEW inacessível,
     resenhas vem null em GET /livros/{id} e GET /livros/{id}/resenhas
     responde 503.
-x-implemented-features: [F-ACV-CADASTRO, F-ACV-BUSCA, F-ACV-INGESTAO]
+  - >-
+    Desde F-AVA-2 (09/10/2026), cada resenha (ResenhaResumo, na página do livro
+    oficial e em resenhaDoDono) traz curtidas e descurtidas de
+    leitura.v_resenha_publicacao_v1 e a reação de quem está vendo
+    (minhaReacao) de leitura.v_reacao_resenha_v1. No deploy, enquanto a
+    migration do leitura que cria essa VIEW não rodar, as resenhas seguem o
+    comportamento acima: null na página e 503 na listagem; a resenhaDoDono sai
+    null.
+  - >-
+    nota.alterada é consumido desde F-ACV-NOTA pelo consumidor acervo.notas
+    (fila leai.acervo.notas, na exchange leai.events.leitura), que ignora o
+    valor do evento, relê leitura.v_nota_publicacao_v1 e leva a
+    nota_leitor_projecao e a nota_livro_agregada ao estado atual. O backfill
+    `npm run backfill:notas` roda depois de o serviço subir em cada ambiente,
+    porque evento publicado antes de a fila existir se perde.
+  - >-
+    O cache de capas oficiais (F-ACV-NOTA) consome livro.adicionado_a_estante e
+    leitura.iniciada na fila leai.acervo.capas, e só é registrado com
+    CLOUDINARY_API_KEY e CLOUDINARY_API_SECRET. O backfill `npm run
+    backfill:capas` lê leitura.v_estante_publica_v1 e roda depois de o serviço
+    subir em cada ambiente.
+x-implemented-features: [F-ACV-CADASTRO, F-ACV-BUSCA, F-ACV-INGESTAO, F-ACV-DESCOBERTA, F-ACV-NOTA]
 x-database-contracts:
   - name: v_livro_referencia_v1
     owner: acervo
@@ -76,6 +106,10 @@ servers:
 tags:
   - name: health
   - name: livros
+  - name: catalogo
+    description: >-
+      Páginas de autor, editora e série (F-ACV-DESCOBERTA). Não são perfis: não
+      têm dono, não recebem conteúdo de usuário e não são editáveis.
   - name: importacoes
   - name: livros-pessoais
 security:
@@ -120,6 +154,18 @@ paths:
         continua representando uma edição (RN-01), e as edições de mesmo título
         e mesmos autores chegam contíguas, para o cliente agrupá-las. `limit`
         acima de 50 é 400.
+
+        Filtros avançados (F-ACV-DESCOBERTA, RF-ACV-03): `autor`,
+        `editora` e `serie` são texto livre e casam como o `q`, por trecho, sem
+        acento e palavra por palavra, cada um no seu campo, e a editora casa
+        também pelos sinônimos da curadoria (RN-12); `ano` é um valor
+        único; `paginasMin` e `paginasMax` formam uma faixa fechada, e cada lado
+        vale sozinho. Todos se somam (AND) entre si, ao `q` e ao `assunto`.
+        Com eles, qualquer critério basta: o 400 por falta de critério passa a
+        sair só quando nenhum dos oito parâmetros vem preenchido, ainda no campo
+        `q`. `paginasMin` maior que `paginasMax` é 400 no campo `paginasMax`.
+        Sem `q`, a ordem continua por título. Livro pessoal continua fora
+        (RNF-SEC-06).
       parameters:
         - name: q
           in: query
@@ -133,6 +179,41 @@ paths:
           in: query
           description: Identificador do assunto curado.
           schema: { type: string, format: uuid }
+        - name: autor
+          in: query
+          description: >-
+            Trecho do nome de um mesmo autor (F-ACV-DESCOBERTA). Mesmo
+            tratamento do `q`: controle vira espaço, pontas aparadas, só espaços
+            é 400.
+          schema: { type: string, minLength: 1, maxLength: 200 }
+          example: conceicao evaristo
+        - name: editora
+          in: query
+          description: >-
+            Trecho do nome canônico da editora ou de um dos seus sinônimos da
+            curadoria (RN-12, F-ACV-DESCOBERTA). Mesmo tratamento do `q`.
+          schema: { type: string, minLength: 1, maxLength: 200 }
+          example: companhia
+        - name: serie
+          in: query
+          description: >-
+            Trecho do nome da série (F-ACV-DESCOBERTA). Mesmo tratamento do `q`.
+          schema: { type: string, minLength: 1, maxLength: 200 }
+        - name: ano
+          in: query
+          description: Ano de publicação da edição (F-ACV-DESCOBERTA).
+          schema: { type: integer, minimum: 1, maximum: 9999 }
+          example: 2019
+        - name: paginasMin
+          in: query
+          description: Nº mínimo de páginas, inclusive (F-ACV-DESCOBERTA).
+          schema: { type: integer, minimum: 1, maximum: 100000 }
+        - name: paginasMax
+          in: query
+          description: >-
+            Nº máximo de páginas, inclusive (F-ACV-DESCOBERTA); menor que
+            `paginasMin` é 400.
+          schema: { type: integer, minimum: 1, maximum: 100000 }
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Limit'
       responses:
@@ -186,10 +267,22 @@ paths:
         resposta normal, não erro. A primeira página traz até 10 resenhas de
         outros leitores (RF-ACV-04): a do próprio solicitante não entra. Quando
         os contratos de leitura ou identidade estão indisponíveis, resenhas vem
-        null e a página abre mesmo assim. Nota geral, nota dos leitores e
-        distribuição não fazem parte deste contrato do Período 1. A rota tem
+        null e a página abre mesmo assim. A rota tem
         rate limiting por identidade e IP, porque a abertura dispara consulta a
         fonte externa.
+
+        F-ACV-DESCOBERTA acrescenta `editoraId` e `serie` (id, nome e
+        número de ordem) para os links da ficha às páginas de editora e série; o
+        id de cada autor já vem em `autores`. Cada assunto em `assuntos` é
+        acionável como filtro: o cliente leva o `id` a GET /livros?assunto=<id>
+        (RF-ACV-21, RN-21).
+
+        F-ACV-NOTA acrescenta `notaGeral`, `notaDosLeitores` e `distribuicao`
+        (RF-ACV-15, RF-ACV-16, RF-ACV-04). Os dois indicadores são distintos e
+        nunca combinados; cada um vem null quando ausente, nunca zero (RN-06).
+        A nota dos leitores e a distribuição são calculadas numa consulta só
+        sobre a projeção individual, com a média arredondada uma vez, a 1 casa;
+        a contagem é sempre a soma das faixas.
       parameters:
         - $ref: '#/components/parameters/LivroId'
       responses:
@@ -228,6 +321,97 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/PaginaResenhas' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
+  /autores/{id}:
+    get:
+      operationId: obterAutor
+      x-contract-status: implemented
+      x-implemented-by: F-ACV-DESCOBERTA
+      tags: [catalogo]
+      summary: Obtém a página de um autor
+      description: >-
+        Página de autor (RF-ACV-10): nome, biografia curta e os livros oficiais
+        ativos daquele autor, paginados. A biografia vem da OpenLibrary, gravada
+        pela ingestão e pela importação por ISBN; sem biografia na fonte o campo
+        vem null e a seção não é exibida. Nada é consultado na fonte durante a
+        requisição. Os livros vêm do ano mais recente do grupo para o mais
+        antigo, com as edições de mesmo título e autores contíguas (RN-01) e os
+        grupos sem ano no fim; `livros.totalItens` conta edições e é o "N livros
+        no acervo". Autor que existe sem livro oficial ativo responde 200 com a
+        lista vazia; autor inexistente, 404. Livro pessoal nunca aparece
+        (RNF-SEC-06).
+      parameters:
+        - $ref: '#/components/parameters/AutorId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Página do autor.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaDoAutor' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
+  /editoras/{id}:
+    get:
+      operationId: obterEditora
+      x-contract-status: implemented
+      x-implemented-by: F-ACV-DESCOBERTA
+      tags: [catalogo]
+      summary: Obtém a página de uma editora
+      description: >-
+        Página de editora (RF-ACV-11): nome canônico (RN-12) e os livros
+        oficiais ativos daquela editora, paginados, na mesma ordem da página de
+        autor. Editora que existe sem livro oficial ativo responde 200 com a
+        lista vazia; editora inexistente, 404. Livro pessoal nunca aparece
+        (RNF-SEC-06).
+      parameters:
+        - $ref: '#/components/parameters/EditoraId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Página da editora.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaDaEditora' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
+  /series/{id}:
+    get:
+      operationId: obterSerie
+      x-contract-status: implemented
+      x-implemented-by: F-ACV-DESCOBERTA
+      tags: [catalogo]
+      summary: Obtém a página de uma série
+      description: >-
+        Página de série (RF-ACV-12): nome, autores dos livros da série e os
+        livros oficiais ativos, paginados, em ordem crescente do número de ordem
+        (RN-12). Livros sem número vêm no fim, por título. Lacuna na numeração
+        não gera item. Edições com o mesmo número ficam contíguas, da mais
+        recente para a mais antiga. Série que existe sem livro oficial ativo
+        responde 200 com a lista e os autores vazios; série inexistente, 404.
+        Livro pessoal nunca aparece (RNF-SEC-06).
+      parameters:
+        - $ref: '#/components/parameters/SerieId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Página da série.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaDaSerie' }
         '400': { $ref: '#/components/responses/RequisicaoInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
@@ -374,25 +558,40 @@ paths:
     get:
       operationId: obterLivroPessoal
       x-contract-status: implemented
-      x-implemented-by: F-ACV-CADASTRO
+      x-implemented-by: F-ACV-CADASTRO, F-LST
       tags: [livros-pessoais]
       summary: Obtém um livro pessoal com autorização RN-15
       description: >-
-        O dono acessa diretamente, sem via. No Período 1, terceiro deve informar
-        via=feed e referenciaId de uma atividade ativa do dono que referencia o
-        mesmo livro e integra seu feed por seguimento aceito. A autorização e a
-        privacidade do perfil são revalidadas nesta requisição, inclusive para
-        perfil público. Conhecer o ID, forjar a referência ou omitir a via não
-        concede acesso. A via por lista não integra este contrato do Período 1.
+        O dono acessa diretamente, sem via (uma via informada pelo dono é
+        ignorada). Terceiro acessa por uma das duas vias de RN-15, e a
+        autorização é revalidada nesta requisição. Conhecer o ID, forjar a
+        referência ou omitir a via não concede acesso.
+
+        Via feed (F-ACV-CADASTRO): via=feed e referenciaId de uma atividade
+        ativa do dono que referencia o mesmo livro e integra o feed do
+        solicitante por seguimento aceito, inclusive com perfil público.
+
+        Via lista (F-LST): via=lista e referenciaId de uma lista ativa do dono
+        que contém o mesmo livro, comprovada por social.v_lista_livro_pessoal_v1.
+        Diferente da via feed, vale a privacidade da lista (RN-08): perfil
+        público do dono libera qualquer leitor autenticado, sem exigir
+        seguimento; perfil privado exige seguimento aceito. Lista excluída ou
+        livro removido da lista encerram o acesso. Dono suspenso ou em
+        exclusão não libera nenhuma das vias. Terceiro fica sempre em modo
+        consulta.
       parameters:
         - $ref: '#/components/parameters/LivroPessoalId'
         - name: via
           in: query
-          description: Prova de origem exigida somente para acesso de terceiro.
-          schema: { type: string, enum: [feed] }
+          description: >-
+            Prova de origem exigida somente para acesso de terceiro. Valor fora
+            do enum responde 400.
+          schema: { type: string, enum: [feed, lista] }
         - name: referenciaId
           in: query
-          description: UUID da atividade de feed que comprova a via RN-15.
+          description: >-
+            UUID que comprova a via RN-15: a atividade de feed em via=feed ou
+            a lista do dono em via=lista.
           schema: { type: string, format: uuid }
       responses:
         '200':
@@ -473,6 +672,24 @@ components:
       in: path
       required: true
       description: Identificador não sequencial do livro oficial.
+      schema: { type: string, format: uuid }
+    AutorId:
+      name: id
+      in: path
+      required: true
+      description: Identificador não sequencial do autor.
+      schema: { type: string, format: uuid }
+    EditoraId:
+      name: id
+      in: path
+      required: true
+      description: Identificador não sequencial da editora.
+      schema: { type: string, format: uuid }
+    SerieId:
+      name: id
+      in: path
+      required: true
+      description: Identificador não sequencial da série.
       schema: { type: string, format: uuid }
     LivroPessoalId:
       name: id
@@ -653,7 +870,14 @@ components:
       type: object
       additionalProperties: false
       required: [origem]
-      description: Resolução na ordem cópia própria, URL externa e placeholder.
+      description: >-
+        Resolução na ordem cópia própria, URL externa e placeholder (RN-14.4).
+        Desde F-ACV-NOTA, a cópia própria do livro oficial é gravada pelo cache
+        de capas na primeira vez que o livro entra numa estante (ou tem uma
+        leitura iniciada): o servidor baixa a capa externa, valida a imagem e a
+        envia ao Cloudinary em `<pasta>/<livroId>`. Até lá, e quando a origem
+        falha, a origem é `externa`. A capa de livro pessoal continua sendo a do
+        dono.
       properties:
         url: { type: string, format: uri, nullable: true }
         origem: { type: string, enum: [propria, externa, placeholder] }
@@ -693,7 +917,7 @@ components:
     ResenhaResumo:
       type: object
       additionalProperties: false
-      required: [id, autorId, autorNome, texto, spoiler, criadoEm, atualizadoEm]
+      required: [id, autorId, autorNome, texto, spoiler, criadoEm, atualizadoEm, curtidas, descurtidas, minhaReacao]
       properties:
         id: { type: string, format: uuid }
         autorId: { type: string, format: uuid }
@@ -703,6 +927,21 @@ components:
         spoiler: { type: boolean }
         criadoEm: { type: string, format: date-time }
         atualizadoEm: { type: string, format: date-time }
+        curtidas:
+          type: integer
+          minimum: 0
+          description: Curtidas ativas (RF-AVA-08, F-AVA-2).
+        descurtidas:
+          type: integer
+          minimum: 0
+          description: Descurtidas ativas, contadas à parte (RF-AVA-08).
+        minhaReacao:
+          type: string
+          enum: [curtida, descurtida]
+          nullable: true
+          description: >-
+            Reação de quem está vendo (F-AVA-2); nula sem reação e na resenha do
+            próprio leitor.
     PaginaResenhas:
       type: object
       additionalProperties: false
@@ -729,10 +968,131 @@ components:
       type: object
       additionalProperties: false
       description: >-
-        Os campos de LivroOficialResumo mais ISBN, sinopse e a primeira página de
-        resenhas. Declarado por extenso, e não como allOf, porque o resumo tem
+        Os campos de LivroOficialResumo mais editoraId, série, ISBN, sinopse,
+        as notas e a primeira página de resenhas. Declarado por extenso, e não como allOf, porque o resumo tem
         additionalProperties false e recusaria os campos a mais.
-      required: [id, titulo, autores, editora, anoPublicacao, paginas, capa, assuntos, isbn, sinopse, resenhas]
+      required: [id, titulo, autores, editora, editoraId, anoPublicacao, paginas, capa, assuntos, serie, isbn, sinopse, notaGeral, notaDosLeitores, distribuicao, resenhas]
+      properties:
+        id: { type: string, format: uuid }
+        titulo: { type: string, minLength: 1, maxLength: 500 }
+        autores:
+          type: array
+          minItems: 0
+          items: { $ref: '#/components/schemas/AutorResumo' }
+        editora: { type: string, minLength: 1, maxLength: 200, nullable: true }
+        editoraId:
+          type: string
+          format: uuid
+          nullable: true
+          description: >-
+            Leva à página da editora (F-ACV-DESCOBERTA); null quando o livro não
+            tem editora.
+        anoPublicacao: { type: integer, minimum: 1, maximum: 9999, nullable: true }
+        paginas: { type: integer, minimum: 1 }
+        capa: { $ref: '#/components/schemas/Capa' }
+        assuntos:
+          type: array
+          description: >-
+            Cada assunto é acionável como filtro: GET /livros?assunto=<id>
+            (RF-ACV-21).
+          items: { $ref: '#/components/schemas/AssuntoResumo' }
+        serie:
+          allOf:
+            - $ref: '#/components/schemas/SerieDoLivro'
+          nullable: true
+          description: >-
+            Leva à página da série (F-ACV-DESCOBERTA); null quando o livro não
+            pertence a uma série.
+        isbn:
+          type: string
+          pattern: '^97[89][0-9]{10}$'
+          example: '9788535914849'
+        sinopse: { $ref: '#/components/schemas/Sinopse' }
+        notaGeral:
+          allOf:
+            - $ref: '#/components/schemas/NotaDoLivro'
+          nullable: true
+          description: >-
+            Nota da fonte externa e quantas avaliações a originaram (RF-ACV-15),
+            somente leitura; null quando a fonte não tem nota.
+        notaDosLeitores:
+          allOf:
+            - $ref: '#/components/schemas/NotaDoLivro'
+          nullable: true
+          description: >-
+            Média das notas dos leitores do app, arredondada a 1 casa, e quantos
+            leitores deram nota (RF-ACV-16); null sem nenhuma nota.
+        distribuicao:
+          type: array
+          description: >-
+            Distribuição das notas dos leitores (RF-ACV-04): as 11 faixas de 5 a
+            0, de meia em meia estrela, quando há nota dos leitores; vazia
+            quando não há. A soma das quantidades é notaDosLeitores.quantidade.
+          maxItems: 11
+          items: { $ref: '#/components/schemas/FaixaDaDistribuicao' }
+        resenhas:
+          allOf:
+            - $ref: '#/components/schemas/PaginaResenhas'
+          nullable: true
+          description: >-
+            null quando os contratos de leitura ou identidade estão
+            indisponíveis; a página abre mesmo assim.
+    NotaDoLivro:
+      type: object
+      additionalProperties: false
+      required: [valor, quantidade]
+      properties:
+        valor: { type: number, minimum: 0, maximum: 5, example: 4.3 }
+        quantidade: { type: integer, minimum: 1, example: 412 }
+    FaixaDaDistribuicao:
+      type: object
+      additionalProperties: false
+      required: [valor, quantidade]
+      properties:
+        valor: { type: number, minimum: 0, maximum: 5, multipleOf: 0.5 }
+        quantidade: { type: integer, minimum: 0 }
+    SerieDoLivro:
+      type: object
+      additionalProperties: false
+      required: [id, nome, numero]
+      properties:
+        id: { type: string, format: uuid }
+        nome: { type: string, minLength: 1, maxLength: 200 }
+        numero:
+          type: integer
+          minimum: 1
+          nullable: true
+          description: Número de ordem do livro na série; null quando a fonte não o tem.
+    PaginaDoAutor:
+      type: object
+      additionalProperties: false
+      required: [id, nome, biografia, livros]
+      properties:
+        id: { type: string, format: uuid }
+        nome: { type: string, minLength: 1, maxLength: 200 }
+        biografia:
+          type: string
+          nullable: true
+          maxLength: 2000
+          description: >-
+            Texto puro da OpenLibrary, no idioma da fonte. null quando a fonte
+            não tem biografia: a seção não é exibida (RF-ACV-10).
+        livros: { $ref: '#/components/schemas/PaginaLivros' }
+    PaginaDaEditora:
+      type: object
+      additionalProperties: false
+      required: [id, nome, livros]
+      properties:
+        id: { type: string, format: uuid }
+        nome: { type: string, minLength: 1, maxLength: 200 }
+        livros: { $ref: '#/components/schemas/PaginaLivros' }
+    LivroDaSerieResumo:
+      type: object
+      additionalProperties: false
+      description: >-
+        Os campos de LivroOficialResumo mais o número de ordem. Declarado por
+        extenso pelo mesmo motivo de LivroOficialDetalhe.
+      required: [id, titulo, autores, editora, anoPublicacao, paginas, capa, assuntos, numeroNaSerie]
       properties:
         id: { type: string, format: uuid }
         titulo: { type: string, minLength: 1, maxLength: 500 }
@@ -747,18 +1107,33 @@ components:
         assuntos:
           type: array
           items: { $ref: '#/components/schemas/AssuntoResumo' }
-        isbn:
-          type: string
-          pattern: '^97[89][0-9]{10}$'
-          example: '9788535914849'
-        sinopse: { $ref: '#/components/schemas/Sinopse' }
-        resenhas:
-          allOf:
-            - $ref: '#/components/schemas/PaginaResenhas'
-          nullable: true
+        numeroNaSerie: { type: integer, minimum: 1, nullable: true }
+    PaginaLivrosDaSerie:
+      type: object
+      additionalProperties: false
+      required: [itens, page, limit, totalItens, totalPaginas]
+      properties:
+        itens:
+          type: array
+          items: { $ref: '#/components/schemas/LivroDaSerieResumo' }
+        page: { type: integer, minimum: 1 }
+        limit: { type: integer, minimum: 1, maximum: 50 }
+        totalItens: { type: integer, minimum: 0 }
+        totalPaginas: { type: integer, minimum: 0 }
+    PaginaDaSerie:
+      type: object
+      additionalProperties: false
+      required: [id, nome, autores, livros]
+      properties:
+        id: { type: string, format: uuid }
+        nome: { type: string, minLength: 1, maxLength: 200 }
+        autores:
+          type: array
           description: >-
-            null quando os contratos de leitura ou identidade estão
-            indisponíveis; a página abre mesmo assim.
+            Autores distintos dos livros oficiais ativos da série, por nome,
+            para a linha de autoria da página.
+          items: { $ref: '#/components/schemas/AutorResumo' }
+        livros: { $ref: '#/components/schemas/PaginaLivrosDaSerie' }
     SolicitarImportacao:
       type: object
       additionalProperties: false

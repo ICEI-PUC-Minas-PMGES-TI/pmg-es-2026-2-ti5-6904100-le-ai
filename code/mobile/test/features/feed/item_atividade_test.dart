@@ -74,6 +74,29 @@ void main() {
     expect(find.text('Ler resenha'), findsOneWidget);
   });
 
+  testWidgets('Ler resenha abre a página do livro', (tester) async {
+    final eventos = await _montar(tester, _atividade(tipo: 'RESENHA_PUBLICADA'));
+
+    await tester.tap(find.text('Ler resenha'));
+    await tester.pump();
+
+    expect(eventos, <String>['livro']);
+  });
+
+  testWidgets('a prévia da resenha sai sem a marcação do Markdown (F-AVA-2)', (tester) async {
+    final json = atividadeJson(tipo: 'RESENHA_PUBLICADA');
+    json['resenha'] = <String, Object?>{
+      'id': 'r1',
+      'texto': '**Um** livro *grandioso*.\n\n> Para reler.',
+      'spoiler': false,
+      'nota': null,
+    };
+    await _montar(tester, Atividade.fromJson(json));
+
+    expect(find.text('Um livro grandioso.\nPara reler.'), findsOneWidget);
+    expect(find.textContaining('**'), findsNothing);
+  });
+
   testWidgets('resenha sem nota não mostra estrelas', (tester) async {
     await _montar(tester, _atividade(tipo: 'RESENHA_PUBLICADA'));
 

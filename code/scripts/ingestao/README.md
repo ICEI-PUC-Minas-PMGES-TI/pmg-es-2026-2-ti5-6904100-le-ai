@@ -102,6 +102,17 @@ SELECT a.nome, count(*) FROM acervo.livro_assunto la
 
 Reexecutar a mesma carga não deve mudar as contagens: a deduplicação por ISBN-13 e `ol_edition_key` torna a operação idempotente.
 
+### 9. Unificar duplicados (manutenção)
+
+A fonte cadastra a mesma pessoa com mais de uma chave de autor, às vezes ligando a edição a um homônimo, e manda parte dos nomes decomposta (NFD). O `unificar` junta o que `dados/autores_unificados.csv` diz ser a mesma pessoa e recalcula, a partir do nome em NFC, a chave de autor, editora e série, juntando as que passarem a colidir:
+
+```bash
+python -m leai_ingestao unificar --dry-run   # mostra os números e desfaz
+python -m leai_ingestao unificar
+```
+
+Reexecutar não muda nada. A lista `autores_com_nome_repetido` do resumo é o ponto de partida da próxima curadoria do CSV: ou é homônimo de verdade, ou é duplicado novo.
+
 ## Testes
 
 ```bash

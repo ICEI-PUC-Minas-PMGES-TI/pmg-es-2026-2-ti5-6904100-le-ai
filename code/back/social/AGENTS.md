@@ -24,12 +24,12 @@ Idêntica à de [`identidade`](../identidade/AGENTS.md) — os dois serviços Sp
 - **Runtime:** **JDK 21 LTS** (Temurin no CI). O `maven-enforcer-plugin` recusa o build em outro JDK.
 - **Build:** **Maven** com wrapper — `mvnw` / `mvnw.cmd` / `.mvn/wrapper/maven-wrapper.properties` versionados, tipo `only-script` (**sem jar no repositório**).
 - **Versões fixadas (RNF-SEC-25):** o BOM `spring-boot-starter-parent:4.1.1` faz o papel do lockfile, mais `springdoc-openapi 3.1.1` declarado à mão (está fora do BOM) e a regra `banDynamicVersions` do enforcer.
-- **ORM/migrations:** **Flyway** (`flyway-core` + `flyway-database-postgresql` + o módulo `spring-boot-flyway`), migrations em `src/main/resources/db/migration/V<timestamp>__<descricao>.sql`, só do schema `social`, cada uma revisada por humano (plano §5). `spring.flyway.default-schema` mantém a `flyway_schema_history` dentro do schema do serviço. **Spring Data JPA** presente, ainda sem `@Entity`; `ddl-auto: none`.
+- **ORM/migrations:** **Flyway** (`flyway-core` + `flyway-database-postgresql` + o módulo `spring-boot-flyway`), migrations em `src/main/resources/db/migration/V<timestamp>__<descricao>.sql`, só do schema `social`, cada uma revisada por humano (plano §5). `spring.flyway.default-schema` mantém a `flyway_schema_history` dentro do schema do serviço. **Spring Data JPA** presente, com poucas `@Entity` (`Atividade`, `Comentario`, `CurtidaAtividade`); o resto usa `JdbcTemplate`. `ddl-auto: none`.
 - **Config:** `application.yml` + `config/AppProperties` validado — não sobe com env inválida. `.env` local lido por `spring.config.import: optional:file:.env[.properties]` (formato `.properties`, não dotenv). `.env.example` versionado, `.env` nunca (RNF-SEC-11).
-- **Estrutura** (`src/main/java/br/com/leai/social/`): `SocialApplication`, `common/` (correlation-id, cabeçalhos de segurança, corpo de erro padrão, `/error`), `config/` (env, CORS, OpenAPI), `health/`.
+- **Estrutura** (`src/main/java/br/com/leai/social/`): `SocialApplication`, `common/` (correlation-id, cabeçalhos de segurança, corpo de erro padrão, `/error`), `config/` (env, CORS, OpenAPI), `health/`, `messaging/` e os módulos de feature `conta/`, `feed/`, `lista/`, `moderacao/`, `notificacao/` e `recomendacao/`.
 - **Comandos:** `./mvnw spring-boot:run` · `./mvnw verify` · `./mvnw test` · `./mvnw clean package` · `java -jar target/leai-social-0.0.1.jar`. Sempre **a partir desta pasta** — é onde o `.env` é procurado.
-- **Testes:** JUnit 5 + AssertJ + Mockito, `@DisplayName` em pt-BR, **sem banco e sem rede**.
-- **OpenAPI:** spec em `/v3/api-docs`, Swagger UI em `/docs`; esqueleto commitado em [`docs/api/social.yaml`](../../../docs/api/social.yaml).
+- **Testes:** JUnit 5 + AssertJ + Mockito, `@DisplayName` em pt-BR. Os unitários rodam **sem banco e sem rede**; os de integração (`integracao/`, base `IntegracaoComPostgres`) usam Postgres real e só rodam com `DATABASE_URL_TESTE` definida, como no CI.
+- **OpenAPI:** spec em `/v3/api-docs`, Swagger UI em `/docs`; contrato commitado em [`docs/api/social.yaml`](../../../docs/api/social.yaml).
 - **Log:** legível em dev; **JSON ECS** no perfil `prod` (`logging.structured.format.console`), com o MDC — e portanto o `correlationId` — dentro do JSON.
 - **Porta:** `8081` (o `identidade` fica na `8080`, para os dois subirem juntos em local).
 - **Armadilhas do Boot 4.x** (starter `webmvc`, módulo `spring-boot-flyway`, `spring-boot-starter-webmvc-test`, pacotes movidos, Jackson 3): a lista está no [`AGENTS.md` do `identidade`](../identidade/AGENTS.md#armadilhas-do-spring-boot-4x-a-maior-parte-do-material-na-internet-ainda-é-3x).
@@ -51,9 +51,41 @@ Feitas por F-AVA com autorização do Renato e **mergeadas na `desenvolvimento` 
 - **Flyway no banco de dev:** a migration é aplicada na próxima vez que alguém subir o `social` local a partir da `desenvolvimento`. Migration nova no `social` precisa de versão maior que `V20260927002000`, ou o Flyway recusa a ordem.
 - **Ordem dos eventos:** o despachante do `leitura` segura só a linha que falhou, então um `resenha.excluida` pode chegar antes do `resenha.publicada` da mesma resenha. Hoje o `excluida` vira no-op e o `publicada` cria a atividade depois. É raro; fica registrado.
 
+### 08/10/2026 — F-CONTA-2 (Henrique): consumidor de `conta.excluida`
+
+Previsto na [divisão do Período 2](../../../docs/plano-de-desenvolvimento/periodo-2/README.md#o-que-ainda-cruza-entre-pessoas): o dono da F-CONTA-2 escreve os consumidores da exclusão nos três serviços. Avisar o Kayke.
+
+- **`conta/service/ConsumidorDeContaExcluida`**, fila `leai.social.conta` no exchange do `identidade`. Apaga o que é da conta excluída: atividades (o CASCADE leva curtidas e comentários de outros nelas), comentários (leva as respostas abaixo dos comentários-raiz dela), menções, curtidas, listas, recomendações enviadas e recebidas, sugestões descartadas, notificações para ela ou com ela como ator ou autor da atividade, preferências e dispositivos. Apaga também as denúncias feitas por ela ou contra o conteúdo que some. Anonimiza o `log_moderacao` desse conteúdo, os recibos de idempotência dela e os eventos da outbox que a citam; os pendentes saem.
+- **Constantes** em `MessagingConstants` (`CONTA_*`, `EVENTO_CONTA_EXCLUIDA`), schema no `MessageValidator` e cópia de `conta.excluida.v1.schema.json`.
+- **Sem migration.** Matriz completa no [arquivo da F-CONTA-2](../../../docs/plano-de-desenvolvimento/periodo-2/feature-F-CONTA-2.md#etapa-3-consumidores).
+- **Testes:** `ConsumidorDeContaExcluidaIntegracaoTest` e `ContaExcluidaSchemaTest`.
+
+### 09/10/2026 — F-AVA-2 (Renato): curtida em resenha
+
+Previsto na [divisão do Período 2](../../../docs/plano-de-desenvolvimento/periodo-2/README.md#o-que-ainda-cruza-entre-pessoas): quem cria um tipo de notificação entrega o mapeamento no consumidor. Avisar o Kayke.
+
+- **Tipo `RESENHA_CURTIDA`** (`resenha_curtida`, que o CHECK já aceitava, então **sem migration**): linha nova em `EventoDeNotificacao` (exchange do `leitura`, ator `autorAcao`, copia `resenhaId` para `DadosDeNotificacao.RESENHA_ID`) e frase "X curtiu sua resenha de Y." em `RedacaoDeNotificacao`. O `livro` do evento vira o destino.
+- **Constante** `EVENTO_RESENHA_CURTIDA`, schema no `MessageValidator` e cópia de `resenha.curtida.v1.schema.json`, conferida à mão contra `docs/mensageria/schemas/` (o `social` não tem teste para isso).
+- **O produtor só manda a primeira curtida do par resenha e leitor;** a chave de negócio `resenha:<resenhaId>:curtida:<autorAcaoId>` segura o resto. A preferência de notificação ainda não é lida (F-NOT-OPC).
+- **Copy a combinar com o Kayke:** curtir a atividade de uma resenha no feed gera a mesma frase ("curtiu sua resenha de Y"), com ícone diferente. Não foi mexida.
+- **Testes:** casos em `EventosDeNotificacaoDeTeste`, `ConsumidorDeNotificacaoIntegracaoTest`, `ConsumidorDeNotificacaoBrokerTest` e `NotificacaoControllerIntegracaoTest`.
+
+### 18/10/2026 — F-MOD (Renato): denúncia
+
+Plano em [`plano-F-MOD.md`](../../../docs/plano-de-desenvolvimento/periodo-2/renato-periodo-2/plano-F-MOD.md).
+
+- **Migration `V20261018120000__moderacao_denuncia_e_auditoria`** (revisão humana antes de subir): `denuncia` ganha `alvo_autor_id` (NOT NULL; a tabela estava vazia em dev e no DES), `alvo_livro_id`, `atividade_id`, `atividade_autor_id`, `remocao_solicitada_em`, o limite de 500 no motivo e o índice único de uma pendente por leitor e alvo. `log_moderacao` ganha `alvo_autor_id`, `alvo_livro_id`, `atividade_autor_id` (a CHECK de anonimização exige as três nulas) e o índice único de um log de remoção por alvo. Migration nova precisa de versão maior que `V20261018120000`.
+- **Pacote `moderacao/`:** `POST /denuncias` (`DenunciaController`, `ServicoDeDenuncia`). Comentário pela visibilidade da atividade (`AtividadeRepository.visivelPara`); resenha pelo porte da regra de `leitura/src/reacoes/reacoes.service.ts#exigirAcesso`, com as vias de RN-15 em `ConteudoDenunciavel` (`viaFeed` exige seguir mesmo com perfil público; `viaLista` aceita perfil público). Mudou a regra de lá, mude aqui. O `INSERT ... ON CONFLICT DO NOTHING` no índice único devolve a denúncia pendente que já existia (200).
+- **Rate limit:** `limiteDeDenunciar` (10 por minuto) em `LimitesDeInteracao` e `POST /denuncias` (caminho exato) no `RateLimitFilter`.
+- **`ConsumidorDeContaExcluida` (do Henrique):** também anonimiza e apaga por `alvo_autor_id` e `atividade_autor_id`, que acham o conteúdo que a moderação já apagou, inclusive frases. O teste dele ganhou o caso e, por causa do índice único, o segundo log do mesmo comentário passou a ser de arquivamento.
+- **Papel de administrador (`SecurityConfig`):** um `JwtAuthenticationConverter` transforma só `papel == "admin"` em `ROLE_ADMIN`, e `/admin/**` exige o papel; o 403 vai para o log com o `sub` e o caminho. Teste de integração com papel: `IntegracaoComPostgres.token(id, papel)`.
+- **Painel (`ModeracaoController`, `ServicoDeModeracao`, `ModeracaoRepository`):** fila e registro por cursor (o mesmo `CursorComentario`), arquivar (só a escolhida), remover comentário (local, com as respostas) e remover resenha. Os 409 próprios (`DENUNCIA_JA_RESOLVIDA`, `CONTEUDO_JA_EXCLUIDO`, `REMOCAO_EM_ANDAMENTO`) ficam no fim do `CodigoErro`.
+- **Frase (RN-11):** `DELETE /admin/frases/{id}`, sem denúncia, com o mesmo fluxo da resenha (recibo, `leitura` fora da transação, log único com `alvo_tipo = 'frase'`), 204.
+- **Primeira chamada a outro serviço (`ClienteDeLeitura`):** `RestClient` sobre o `HttpClient` do JDK, header `X-Moderacao-Token` e chave fixa por alvo (`UUID` de `moderacao:<tipo>:<id>`), timeout de leitura de 60 s e uma retentativa só em falha de conexão ou 502/503/504. A remoção da resenha chama o `leitura` **fora** da transação do recibo (`ServicoDeIdempotencia.consultar` olha o recibo antes) e marca `remocao_solicitada_em` enquanto espera; confirmada, nunca recusa. Configuração: `LEITURA_BASE_URL` (default local 3001) e `MODERACAO_TOKEN` (opcional; sem ele, 503). Os tempos têm propriedade (`leai.moderacao.*`) só para o teste, que simula o `leitura` em `LeituraSimulada`.
+
 ## Pontos de atenção (ver `REQUISITOS.md`)
 
-- É o **consumidor** do fluxo de **notificações in-app** (fan-out); adiciona FCM em Android (arquitetura §5.2). Curtida de **atividade de feed** fica aqui; curtida de **resenha** fica em `leitura`. **Spring AMQP já entrou** (runtime de [P0-MSG](../../../docs/plano-de-desenvolvimento/periodo-0/feature-P0-MSG.md), 19/09): o `social` consome pelas filas `leai.social.feed` (F-FEED) e `leai.social.notificacoes` (F-NOT), declaradas em `messaging/MessagingConstants.java`. FCM ainda não entrou.
+- É o **consumidor** do fluxo de **notificações in-app** (fan-out); adiciona FCM em Android (arquitetura §5.2). Curtida de **atividade de feed** fica aqui; curtida de **resenha** fica em `leitura`. **Spring AMQP já entrou** (runtime de [P0-MSG](../../../docs/plano-de-desenvolvimento/periodo-0/feature-P0-MSG.md), 19/09): o `social` consome pelas filas `leai.social.feed` (F-FEED), `leai.social.notificacoes` (F-NOT), `leai.social.recomendacoes` (F-REC-P2P) e `leai.social.conta` (F-CONTA-2), declaradas em `messaging/MessagingConstants.java`. FCM ainda não entrou.
 - **Comentários (RN-10):** um nível de aninhamento; resposta a resposta é irmã, com menção `@username`. Menção resolve só se o username existir; sujeita a rate limiting.
 - **Recomendação P2P (RN-22):** só entre seguimento mútuo; sem aceitar/recusar; expira em 90 dias; limite de 50 ativas por par; quatro vias de remoção convergem para a mesma operação. Livro pessoal não é recomendável.
 - **Moderação (RF-MOD):** apenas resenhas e comentários são denunciáveis; painel restrito ao administrador (verificação no servidor); toda ação em **log de auditoria**.

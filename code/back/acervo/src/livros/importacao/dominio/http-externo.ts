@@ -19,6 +19,15 @@ import { FonteIndisponivel } from './fonte-metadados';
  *    **sempre** responde 302 para `/books/{olid}.json`. RNF-SEC-39 proíbe o
  *    redirect *fora* da allowlist; cada salto é revalidado como a URL original,
  *    com teto de saltos e o mesmo timeout para a cadeia inteira.
+ *
+ * A URL inicial passa pelas mesmas regras de um salto: https, host da
+ * allowlist, sem credencial e sem porta explícita.
+ *
+ * `baixarImagem` (F-ACV-NOTA, cache de capas) usa uma instância própria, com
+ * `permitirSufixo`: as capas da OpenLibrary terminam em `iaNNNNNN.us.archive.org`,
+ * que muda a cada pedido. Só nessa instância uma entrada que começa com ponto
+ * (`.us.archive.org`) aceita subdomínios; as outras entradas continuam por
+ * igualdade exata, e as fontes de metadados não ligam a opção.
  */
 const MAX_REDIRECTS = 3;
 export interface ConfiguracaoHttpExterno {
@@ -27,6 +36,26 @@ export interface ConfiguracaoHttpExterno {
   limiteRespostaBytes: number;
   userAgent: string;
   fetch?: typeof globalThis.fetch;
+  /** Entrada `.dominio` aceita subdomínios. Desligado por padrão. */
+  permitirSufixo?: boolean;
+}
+
+/**
+ * Desfecho do download de uma imagem. Só a indisponibilidade (timeout, rede,
+ * 5xx, 429 e 420) lança `FonteIndisponivel`, para o runtime tentar de novo;
+ * ausência e recusa são respostas, e repetir não muda nada.
+ */
+export type ResultadoDoDownload =
+  | { tipo: 'ok'; bytes: Uint8Array; contentType: string | null }
+  | { tipo: 'ausente' }
+  | { tipo: 'recusada'; motivo: string };
+
+/** 429 e o 420 que algumas CDNs usam para limite de taxa: passa com o tempo. */
+const STATUS_DE_LIMITE = new Set([420, 429]);
+
+/** Corpo que não vai ser lido: cancelado, para não segurar a conexão. */
+async function descartarCorpo(resposta: Response): Promise<void> {
+  await resposta.body?.cancel().catch(() => undefined);
 }
 
 export class HttpExterno {
@@ -34,8 +63,23 @@ export class HttpExterno {
 
   hostPermitido(url: URL): boolean {
     const host = url.hostname.toLowerCase();
-    return this.configuracao.hostsPermitidos.some(
-      (permitido) => permitido.trim().toLowerCase() === host,
+    return this.configuracao.hostsPermitidos.some((entrada) => {
+      const permitido = entrada.trim().toLowerCase();
+      if (this.configuracao.permitirSufixo && permitido.startsWith('.')) {
+        return host.endsWith(permitido) && host.length > permitido.length;
+      }
+      return permitido === host;
+    });
+  }
+
+  /** https, host da allowlist, sem credencial e sem porta explícita. */
+  private urlPermitida(url: URL): boolean {
+    return (
+      url.protocol === 'https:' &&
+      !url.username &&
+      !url.password &&
+      !url.port &&
+      this.hostPermitido(url)
     );
   }
 
@@ -44,7 +88,7 @@ export class HttpExterno {
    * Lança `FonteIndisponivel` quando não deu para saber.
    */
   async buscarJson(fonte: string, url: URL): Promise<unknown | null> {
-    if (url.protocol !== 'https:' || !this.hostPermitido(url)) {
+    if (!this.urlPermitida(url)) {
       throw new FonteIndisponivel(fonte, 'destino fora da allowlist');
     }
 
@@ -106,6 +150,90 @@ export class HttpExterno {
   }
 
   /**
+   * Baixa uma imagem com as mesmas proteções de `buscarJson` e devolve o
+   * desfecho discriminado. Fora da allowlist, redirecionamento recusado, corpo
+   * acima do limite e 4xx que não seja 404, 410 ou limite de taxa são
+   * `recusada`; 404 e 410 são `ausente`.
+   *
+   * Todo corpo que não é lido (o dos saltos, o das respostas descartadas e o
+   * que declara tamanho acima do limite) é cancelado, e a requisição é abortada
+   * no fim em qualquer caminho: nada fica aberto depois de o método voltar.
+   */
+  async baixarImagem(fonte: string, url: URL): Promise<ResultadoDoDownload> {
+    if (!this.urlPermitida(url)) {
+      return { tipo: 'recusada', motivo: 'destino fora da allowlist' };
+    }
+
+    const executar = this.configuracao.fetch ?? globalThis.fetch;
+    const controle = new AbortController();
+    const expira = setTimeout(
+      () => controle.abort(),
+      this.configuracao.timeoutMs,
+    );
+
+    try {
+      let alvo = url;
+      let resposta: Response;
+      for (let saltos = 0; ; saltos += 1) {
+        resposta = await executar(alvo.toString(), {
+          method: 'GET',
+          headers: {
+            Accept: 'image/*',
+            'User-Agent': this.configuracao.userAgent,
+          },
+          redirect: 'manual',
+          signal: controle.signal,
+        });
+        if (resposta.status < 300 || resposta.status >= 400) {
+          break;
+        }
+        await descartarCorpo(resposta);
+        const destino = this.destinoDoRedirect(alvo, resposta);
+        if (!destino || saltos >= MAX_REDIRECTS) {
+          return { tipo: 'recusada', motivo: 'redirecionamento recusado' };
+        }
+        alvo = destino;
+      }
+
+      if (resposta.status === 404 || resposta.status === 410) {
+        await descartarCorpo(resposta);
+        return { tipo: 'ausente' };
+      }
+      if (STATUS_DE_LIMITE.has(resposta.status) || resposta.status >= 500) {
+        await descartarCorpo(resposta);
+        throw new FonteIndisponivel(fonte, `resposta ${resposta.status}`);
+      }
+      if (!resposta.ok) {
+        await descartarCorpo(resposta);
+        return { tipo: 'recusada', motivo: `resposta ${resposta.status}` };
+      }
+
+      const bytes = await this.lerBytesComLimite(resposta);
+      if (!bytes) {
+        return { tipo: 'recusada', motivo: 'resposta acima do limite' };
+      }
+      return {
+        tipo: 'ok',
+        bytes,
+        contentType: resposta.headers.get('content-type'),
+      };
+    } catch (erro) {
+      if (erro instanceof FonteIndisponivel) {
+        throw erro;
+      }
+      if (controle.signal.aborted) {
+        throw new FonteIndisponivel(fonte, 'tempo esgotado');
+      }
+      throw new FonteIndisponivel(fonte, 'falha de rede');
+    } finally {
+      clearTimeout(expira);
+      // Encerra a requisição em todo caminho; depois de um corpo lido inteiro,
+      // não tem efeito.
+      controle.abort();
+    }
+  }
+
+  /**
    * Destino do redirect, só se ele passaria pelas mesmas regras da URL original:
    * https e host da allowlist por igualdade exata. Caminho relativo resolve
    * contra a URL atual. Qualquer outra coisa é `null`, e o chamador recusa.
@@ -121,13 +249,7 @@ export class HttpExterno {
     } catch {
       return null;
     }
-    if (destino.protocol !== 'https:' || !this.hostPermitido(destino)) {
-      return null;
-    }
-    if (destino.username || destino.password || destino.port) {
-      return null;
-    }
-    return destino;
+    return this.urlPermitida(destino) ? destino : null;
   }
 
   /**
@@ -170,5 +292,46 @@ export class HttpExterno {
     }
 
     return texto + decodificador.decode();
+  }
+
+  /** Como `lerComLimite`, em bytes; `null` quando passa do limite. */
+  private async lerBytesComLimite(
+    resposta: Response,
+  ): Promise<Uint8Array | null> {
+    const limite = this.configuracao.limiteRespostaBytes;
+    const declarado = Number(resposta.headers.get('content-length') ?? '0');
+    if (declarado > limite) {
+      await descartarCorpo(resposta);
+      return null;
+    }
+
+    const corpo = resposta.body;
+    if (!corpo) {
+      const bytes = new Uint8Array(await resposta.arrayBuffer());
+      return bytes.byteLength > limite ? null : bytes;
+    }
+
+    const leitor = corpo.getReader();
+    const pedacos: Uint8Array[] = [];
+    let total = 0;
+    for (;;) {
+      const { done, value } = await leitor.read();
+      if (done) {
+        break;
+      }
+      total += value.byteLength;
+      if (total > limite) {
+        await leitor.cancel();
+        return null;
+      }
+      pedacos.push(value);
+    }
+    const bytes = new Uint8Array(total);
+    let posicao = 0;
+    for (const pedaco of pedacos) {
+      bytes.set(pedaco, posicao);
+      posicao += pedaco.byteLength;
+    }
+    return bytes;
   }
 }

@@ -6,13 +6,15 @@ import SobreposicaoModal from './SobreposicaoModal.vue'
 
 /**
  * Menu de ações em bottom sheet, só no mobile (livro-pessoal.md §4.4): itens de 56px com ícone
- * e rótulo, divisor entre eles, e `Cancelar` no fim. Item destrutivo em `rubi`.
+ * e rótulo, divisor entre eles, e `Cancelar` no fim. Item destrutivo em `rubi`. O slot
+ * `cabecalho`, opcional, diz sobre o que é o menu (a lista usa capa, título e posição).
  */
 export interface AcaoDaFolha {
   id: string
   rotulo: string
   icone: Component
   destrutiva?: boolean
+  detalhe?: string
 }
 
 defineProps<{
@@ -31,6 +33,12 @@ const emit = defineEmits<{ escolher: [id: string]; fechar: [] }>()
     somente-folha
     @fechar="emit('fechar')"
   >
+    <div
+      v-if="$slots.cabecalho"
+      class="border-b border-linha pb-space-4"
+    >
+      <slot name="cabecalho" />
+    </div>
     <ul class="divide-y divide-linha">
       <li
         v-for="acao in acoes"
@@ -38,17 +46,24 @@ const emit = defineEmits<{ escolher: [id: string]; fechar: [] }>()
       >
         <button
           type="button"
-          class="flex h-14 w-full items-center gap-space-4 text-left text-body focus-visible:outline-none focus-visible:underline"
-          :class="acao.destrutiva ? 'text-rubi' : 'text-tinta'"
+          class="flex w-full items-center gap-space-4 text-left text-body focus-visible:outline-none focus-visible:underline"
+          :class="[acao.destrutiva ? 'text-rubi' : 'text-tinta', acao.detalhe ? 'min-h-[72px] py-space-3' : 'h-14']"
           @click="emit('escolher', acao.id)"
         >
           <component
             :is="acao.icone"
             :size="20"
             weight="regular"
+            class="shrink-0"
             aria-hidden="true"
           />
-          {{ acao.rotulo }}
+          <span class="flex flex-col">
+            {{ acao.rotulo }}
+            <span
+              v-if="acao.detalhe"
+              class="text-caption text-grafite"
+            >{{ acao.detalhe }}</span>
+          </span>
         </button>
       </li>
     </ul>

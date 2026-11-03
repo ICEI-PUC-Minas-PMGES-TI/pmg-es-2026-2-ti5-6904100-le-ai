@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import os
 import re
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -270,3 +271,321 @@ def test_falha_no_meio_nao_deixa_carga_parcial(conexao, capsys, tmp_path):
         conexao, "SELECT status, total_inseridos FROM acervo.ingestao_execucao"
     )
     assert (status, inseridos) == ("falha", 0)
+
+
+def _biografias(conexao) -> dict[str, str | None]:
+    with conexao.cursor() as cursor:
+        cursor.execute(
+            "SELECT ol_author_key, biografia FROM acervo.autor WHERE ol_author_key IS NOT NULL"
+        )
+        return dict(cursor.fetchall())
+
+
+def test_biografias_preenche_so_quem_nao_tem_e_reexecutar_nao_muda_nada(conexao, capsys, tmp_path):
+    """F-ACV-DESCOBERTA (RF-ACV-10): o subcomando que o grupo roda depois da carga."""
+    _rodar(capsys, "semear", "--database-url", URL)
+    _carga_da_amostra(capsys, tmp_path)
+    conexao.commit()
+    # A importação por ISBN já gravou a deste autor: o script não a sobrescreve.
+    with conexao.cursor() as cursor:
+        cursor.execute(
+            "UPDATE acervo.autor SET biografia = 'Gravada pela importação.' "
+            "WHERE ol_author_key = 'OL10000003A'"
+        )
+    conexao.commit()
+    dump = str(AMOSTRA / "autores_amostra.jsonl")
+
+    simulacao = _rodar(
+        capsys, "biografias", "--database-url", URL, "--dump-autores", dump, "--dry-run"
+    )
+    assert simulacao["simulacao"] is True
+    assert simulacao["atualizados"] == 0
+    assert _biografias(conexao)["OL10000001A"] is None
+
+    resumo = _rodar(capsys, "biografias", "--database-url", URL, "--dump-autores", dump)
+
+    assert resumo["atualizados"] == 1
+    assert resumo["com_biografia_no_dump"] == 1
+    biografias = _biografias(conexao)
+    assert biografias["OL10000001A"] == "Escritor e geógrafo baiano, autor de *Torto arado* ."
+    assert biografias["OL10000003A"] == "Gravada pela importação."
+    # Quem a fonte não tem continua sem: a seção não aparece na página.
+    assert biografias["OL10000002A"] is None
+
+    de_novo = _rodar(capsys, "biografias", "--database-url", URL, "--dump-autores", dump)
+    assert de_novo["atualizados"] == 0
+
+
+def _executar(conexao, consulta: str, *parametros):
+    with conexao.cursor() as cursor:
+        cursor.execute(consulta, parametros)
+    conexao.commit()
+
+
+def _autores_do_livro(conexao, livro_id) -> list[str]:
+    with conexao.cursor() as cursor:
+        cursor.execute(
+            """SELECT a.ol_author_key FROM acervo.livro_autor la
+                 JOIN acervo.autor a ON a.id = la.autor_id
+                WHERE la.livro_id = %s ORDER BY 1""",
+            (livro_id,),
+        )
+        return [linha[0] for linha in cursor.fetchall()]
+
+
+def _livro_de(conexao, ol_author_key: str):
+    return _um(
+        conexao,
+        """SELECT la.livro_id FROM acervo.livro_autor la
+             JOIN acervo.autor a ON a.id = la.autor_id
+            WHERE a.ol_author_key = %s ORDER BY la.livro_id LIMIT 1""",
+        ol_author_key,
+    )[0]
+
+
+def test_unificar_junta_o_duplicado_no_canonico_e_a_carga_nao_o_recria(conexao, capsys, tmp_path):
+    """A fonte cadastra a mesma pessoa com outra chave e, às vezes, com a biografia
+    de um homônimo (Suzanne Collins nas edições portuguesas de Jogos Vorazes)."""
+    _rodar(capsys, "semear", "--database-url", URL)
+    _carga_da_amostra(capsys, tmp_path)
+    conexao.commit()
+    com_os_dois = _livro_de(conexao, "OL10000003A")
+    so_do_duplicado = _livro_de(conexao, "OL10000001A")
+    _executar(conexao, "UPDATE acervo.autor SET biografia = 'Escritor carioca.' WHERE ol_author_key = 'OL10000003A'")
+    _executar(
+        conexao,
+        """INSERT INTO acervo.autor (nome, nome_normalizado, ol_author_key, biografia)
+           VALUES ('Machado de Assis', 'machado de assis', 'OL99999991A', 'Homônimo.')""",
+    )
+    _executar(
+        conexao,
+        """INSERT INTO acervo.livro_autor (livro_id, autor_id)
+           SELECT l, a.id FROM unnest(%s::uuid[]) l, acervo.autor a WHERE a.ol_author_key = 'OL99999991A'""",
+        [com_os_dois, so_do_duplicado],
+    )
+    dados = tmp_path / "dados"
+    dados.mkdir()
+    (dados / "autores_unificados.csv").write_text(
+        "ol_author_key,ol_author_key_canonica,nome,evidencia\n"
+        "OL99999991A,OL10000003A,Machado de Assis,mesmo nome\n",
+        encoding="utf-8",
+    )
+    unificar = ("--dados", str(dados), "unificar", "--database-url", URL)
+
+    simulacao = _rodar(capsys, *unificar, "--dry-run")
+    assert simulacao["autores"]["duplicados_removidos"] == 1
+    assert _um(conexao, "SELECT count(*) FROM acervo.autor WHERE ol_author_key = 'OL99999991A'")[0] == 1
+
+    resumo = _rodar(capsys, *unificar)
+
+    assert resumo["autores"]["duplicados_removidos"] == 1
+    assert resumo["autores"]["vinculos_movidos"] == 1
+    assert resumo["autores"]["chaves_registradas"] == 1
+    assert _autores_do_livro(conexao, com_os_dois) == ["OL10000003A"]
+    assert _autores_do_livro(conexao, so_do_duplicado) == ["OL10000001A", "OL10000003A"]
+    assert _um(conexao, "SELECT count(*) FROM acervo.autor WHERE ol_author_key = 'OL99999991A'")[0] == 0
+    # A biografia do homônimo vai embora com ele; a do canônico fica.
+    assert _biografias(conexao)["OL10000003A"] == "Escritor carioca."
+
+    de_novo = _rodar(capsys, *unificar)
+    assert de_novo["autores"]["duplicados_removidos"] == 0
+    assert de_novo["autores"]["chaves_registradas"] == 0
+
+    # Uma recarga que ainda traga a chave duplicada liga o livro ao canônico.
+    recarga = tmp_path / "recarga"
+    recarga.mkdir()
+    _rodar(
+        capsys, "filtrar",
+        "--dump", str(AMOSTRA / "edicoes_amostra.jsonl"),
+        "--saida", str(recarga / "todos.jsonl"),
+        "--saida-chaves", str(recarga / "chaves.json"),
+    )
+    candidato = json.loads((recarga / "todos.jsonl").read_text(encoding="utf-8").splitlines()[0])
+    candidato["autores_ol"] = ["OL99999991A"]
+    (recarga / "candidatos.jsonl").write_text(json.dumps(candidato) + "\n", encoding="utf-8")
+    (recarga / "autores.jsonl").write_text(
+        json.dumps({"ol_author_key": "OL99999991A", "nome": "Machado de Assis"}) + "\n",
+        encoding="utf-8",
+    )
+    for nome in ("assuntos.jsonl", "autor_obra.jsonl"):
+        (recarga / nome).write_text("", encoding="utf-8")
+    _rodar(
+        capsys, "carregar", "--database-url", URL,
+        "--candidatos", str(recarga / "candidatos.jsonl"),
+        "--autores", str(recarga / "autores.jsonl"),
+        "--assuntos", str(recarga / "assuntos.jsonl"),
+        "--autor-obra", str(recarga / "autor_obra.jsonl"),
+        "--tipo", "recarga",
+    )
+    assert _um(conexao, "SELECT count(*) FROM acervo.autor WHERE ol_author_key = 'OL99999991A'")[0] == 0
+    livro = _um(conexao, "SELECT id FROM acervo.livro WHERE isbn13 = %s", candidato["isbn13"])[0]
+    assert "OL10000003A" in _autores_do_livro(conexao, livro)
+
+
+def test_unificar_corrige_nome_decomposto_e_junta_editora_e_serie(conexao, capsys, tmp_path):
+    """A fonte manda nomes em NFD, e a normalização antiga quebrava a chave
+    ("joa o"). Editora e série com a chave quebrada viravam uma segunda entidade."""
+    import unicodedata
+
+    nfd = lambda texto: unicodedata.normalize("NFD", texto)  # noqa: E731
+    _rodar(capsys, "semear", "--database-url", URL)
+    _carga_da_amostra(capsys, tmp_path)
+    conexao.commit()
+    livro = _livro_de(conexao, "OL10000001A")
+    outro = _livro_de(conexao, "OL10000002A")
+
+    _executar(
+        conexao,
+        """INSERT INTO acervo.editora (nome, nome_normalizado) VALUES
+             ('Arquipélago Imaginário', 'arquipélago imaginário'),
+             (%s, 'arquipe lago imagina rio')""",
+        nfd("Arquipélago Imaginário"),
+    )
+    _executar(
+        conexao,
+        """UPDATE acervo.livro SET editora_id =
+             (SELECT id FROM acervo.editora WHERE nome_normalizado = 'arquipe lago imagina rio')
+            WHERE id = %s""",
+        livro,
+    )
+    _executar(
+        conexao,
+        """INSERT INTO acervo.sinonimo_editora (forma_externa, editora_id)
+           SELECT 'arquipelago imaginario', id FROM acervo.editora WHERE nome_normalizado = 'arquipe lago imagina rio'""",
+    )
+    _executar(
+        conexao,
+        "INSERT INTO acervo.serie (nome, nome_normalizado) VALUES (%s, 'colec a o filosofia')",
+        nfd("Coleção Filosofia"),
+    )
+    _executar(
+        conexao,
+        """UPDATE acervo.livro SET serie_id =
+             (SELECT id FROM acervo.serie WHERE nome_normalizado = 'colec a o filosofia')
+            WHERE id = %s""",
+        outro,
+    )
+    _executar(
+        conexao,
+        "UPDATE acervo.autor SET nome = %s, nome_normalizado = 'alui sio azevedo' WHERE ol_author_key = 'OL10000004A'",
+        nfd("Aluísio Azevedo"),
+    )
+    dados = tmp_path / "dados"
+    dados.mkdir()
+    (dados / "autores_unificados.csv").write_text(
+        "ol_author_key,ol_author_key_canonica,nome,evidencia\n", encoding="utf-8"
+    )
+
+    resumo = _rodar(capsys, "--dados", str(dados), "unificar", "--database-url", URL)
+
+    assert resumo["editoras"] == {"unificadas": 1, "renormalizadas": 0}
+    assert resumo["series"] == {"unificadas": 0, "renormalizadas": 1}
+    assert resumo["autores"]["renormalizados"] == 1
+    assert _um(
+        conexao,
+        """SELECT e.nome_normalizado FROM acervo.livro l JOIN acervo.editora e ON e.id = l.editora_id
+            WHERE l.id = %s""",
+        livro,
+    )[0] == "arquipélago imaginário"
+    assert _um(
+        conexao,
+        """SELECT e.nome_normalizado FROM acervo.sinonimo_editora s
+             JOIN acervo.editora e ON e.id = s.editora_id WHERE s.forma_externa = 'arquipelago imaginario'""",
+    )[0] == "arquipélago imaginário"
+    assert _um(
+        conexao,
+        "SELECT s.nome, s.nome_normalizado FROM acervo.livro l JOIN acervo.serie s ON s.id = l.serie_id WHERE l.id = %s",
+        outro,
+    ) == ("Coleção Filosofia", "coleção filosofia")
+    assert _um(
+        conexao, "SELECT nome, nome_normalizado FROM acervo.autor WHERE ol_author_key = 'OL10000004A'"
+    ) == ("Aluísio Azevedo", "aluisio azevedo")
+
+    de_novo = _rodar(capsys, "--dados", str(dados), "unificar", "--database-url", URL)
+    assert de_novo["editoras"] == de_novo["series"] == {"unificadas": 0, "renormalizadas": 0}
+    assert de_novo["autores"]["renormalizados"] == 0
+
+
+def _notas_gerais(conexao) -> dict:
+    with conexao.cursor() as cursor:
+        cursor.execute(
+            """SELECT isbn13, ol_work_key, nota_geral, nota_geral_qtd, atualizado_em
+                 FROM acervo.livro WHERE tipo = 'oficial'"""
+        )
+        return {linha[0]: linha[1:] for linha in cursor.fetchall()}
+
+
+def test_notas_replica_por_obra_limpa_na_recarga_e_nao_toca_atualizado_em(conexao, capsys, tmp_path):
+    """F-ACV-NOTA (RF-ACV-15): o subcomando `notas` depois da carga."""
+    _rodar(capsys, "semear", "--database-url", URL)
+    _carga_da_amostra(capsys, tmp_path)
+    conexao.commit()
+    # Uma obra com duas edições (a segunda entra com outro ISBN) e outra obra.
+    obra, isbn_da_obra = _um(
+        conexao,
+        "SELECT ol_work_key, isbn13 FROM acervo.livro WHERE ol_work_key IS NOT NULL ORDER BY isbn13 LIMIT 1",
+    )
+    outra, = _um(
+        conexao,
+        "SELECT ol_work_key FROM acervo.livro WHERE ol_work_key IS NOT NULL AND ol_work_key <> %s "
+        "ORDER BY isbn13 LIMIT 1",
+        obra,
+    )
+    edicoes_da_outra, = _um(conexao, "SELECT count(*) FROM acervo.livro WHERE ol_work_key = %s", outra)
+    edicoes_da_obra = 1 + _um(conexao, "SELECT count(*) FROM acervo.livro WHERE ol_work_key = %s", obra)[0]
+    _executar(
+        conexao,
+        """INSERT INTO acervo.livro (isbn13, titulo, paginas, capa_url_externa, tipo, ol_work_key)
+           VALUES ('9780000000002', 'Segunda edição', 100, 'https://covers.openlibrary.org/b/id/2-L.jpg',
+                   'oficial', %s)""",
+        obra,
+    )
+    # Livro importado pelo Google Books, sem obra: o script não o vê.
+    _executar(
+        conexao,
+        """INSERT INTO acervo.livro (isbn13, titulo, paginas, capa_url_externa, tipo,
+                                     nota_geral, nota_geral_qtd)
+           VALUES ('9780000000019', 'Do Google', 100, 'https://books.google.com/x', 'oficial', 3.5, 8)""",
+    )
+    antes = _notas_gerais(conexao)
+    dump = tmp_path / "ratings.txt"
+    dump.write_text(
+        f"/works/{obra}\t\\N\t5\t2020-01-01\n"
+        f"/works/{obra}\t\\N\t4\t2020-01-01\n"
+        f"/works/{obra}\t\\N\t4\t2020-01-01\n"
+        f"/works/{obra}\t\\N\t4\t2020-01-01\n"
+        f"/works/{outra}\t\\N\t2\t2020-01-01\n"
+        "/works/OL1W\t\\N\t9\t2020-01-01\n",
+        encoding="utf-8",
+    )
+
+    simulacao = _rodar(capsys, "notas", "--database-url", URL, "--arquivo", str(dump), "--dry-run")
+    assert simulacao["simulacao"] is True
+    assert simulacao["linhas_lidas"] == 6
+    assert simulacao["linhas_descartadas"] == 1
+    assert simulacao["edicoes_atualizadas"] == edicoes_da_obra + edicoes_da_outra
+    assert _notas_gerais(conexao) == antes
+
+    resumo = _rodar(capsys, "notas", "--database-url", URL, "--arquivo", str(dump))
+    assert resumo["obras_do_acervo_com_nota"] == 2
+    assert resumo["edicoes_atualizadas"] == edicoes_da_obra + edicoes_da_outra
+    assert resumo["edicoes_limpas"] == 0
+    depois = _notas_gerais(conexao)
+    # (5 + 4 + 4 + 4) / 4 = 4,25: meia para cima, 4,3, nas duas edições da obra.
+    assert depois[isbn_da_obra][1:3] == (Decimal("4.3"), 4)
+    assert depois["9780000000002"][1:3] == (Decimal("4.3"), 4)
+    assert depois["9780000000019"][1:3] == (Decimal("3.5"), 8)
+    # O relógio da sinopse não anda.
+    assert all(depois[isbn][3] == antes[isbn][3] for isbn in antes)
+
+    de_novo = _rodar(capsys, "notas", "--database-url", URL, "--arquivo", str(dump))
+    assert de_novo["edicoes_atualizadas"] == 0
+
+    # Recarga com um dump em que a obra saiu: as duas edições perdem a nota.
+    dump.write_text(f"/works/{outra}\t\\N\t2\t2020-01-01\n", encoding="utf-8")
+    recarga = _rodar(capsys, "notas", "--database-url", URL, "--arquivo", str(dump))
+    assert recarga["edicoes_limpas"] == edicoes_da_obra
+    final = _notas_gerais(conexao)
+    assert final[isbn_da_obra][1:3] == (None, None)
+    assert final["9780000000002"][1:3] == (None, None)
+    assert final["9780000000019"][1:3] == (Decimal("3.5"), 8)

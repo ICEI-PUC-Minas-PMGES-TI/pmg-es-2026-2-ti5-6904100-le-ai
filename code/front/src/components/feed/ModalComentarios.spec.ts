@@ -1,4 +1,4 @@
-import { DOMWrapper, flushPromises, mount } from '@vue/test-utils'
+import { DOMWrapper, RouterLinkStub, flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ApiError } from '../../services/api'
@@ -12,6 +12,9 @@ vi.mock('../../services/social', async (importOriginal) => ({
     listarComentariosRaiz: vi.fn(),
     listarRespostas: vi.fn(),
     comentar: vi.fn(),
+    editarComentario: vi.fn(),
+    excluirComentario: vi.fn(),
+    denunciar: vi.fn(),
   },
 }))
 
@@ -52,9 +55,11 @@ function comentario(sobrescreve: Partial<Comentario> = {}): Comentario {
     usuarioRespondido: null,
     autor: DANDARA,
     texto: 'Reli esse ano e travei na segunda parte.',
+    mencoes: [],
     nivel: 'RAIZ',
     totalRespostas: 0,
     pertenceAoSolicitante: false,
+    editado: false,
     criadoEm: new Date(Date.now() - 60 * 60_000).toISOString(),
     atualizadoEm: null,
     ...sobrescreve,
@@ -85,9 +90,18 @@ function meuPerfil(): Perfil {
  * (com `attachTo`), que tem a mesma API (`get`/`find`/`findAll`/`text`).
  */
 function montar(props: { atividade: Atividade; aberto: boolean }) {
-  const wrapper = mount(ModalComentarios, { props, attachTo: document.body })
+  const wrapper = mount(ModalComentarios, {
+    props,
+    attachTo: document.body,
+    global: { stubs: { RouterLink: RouterLinkStub } },
+  })
   const tela = new DOMWrapper(document.body)
   return { wrapper, tela }
+}
+
+/** O alternador "Ver N respostas"; desde a F-MOD o menu do comentário de outra pessoa também tem `aria-expanded`. */
+function alternadorDeRespostas(tela: DOMWrapper<Element>) {
+  return tela.findAll('[aria-expanded="false"]').find((elemento) => elemento.text().startsWith('Ver '))!
 }
 
 describe('ModalComentarios', () => {
@@ -171,7 +185,7 @@ describe('ModalComentarios', () => {
     const { tela } = montar({ atividade: atividade(), aberto: true })
     await flushPromises()
 
-    const alternador = tela.get('[aria-expanded="false"]')
+    const alternador = alternadorDeRespostas(tela)
     expect(alternador.text()).toBe('Ver 2 respostas')
     await alternador.trigger('click')
     await flushPromises()
@@ -198,7 +212,7 @@ describe('ModalComentarios', () => {
 
     const { tela } = montar({ atividade: atividade(), aberto: true })
     await flushPromises()
-    await tela.get('[aria-expanded="false"]').trigger('click')
+    await alternadorDeRespostas(tela).trigger('click')
     await flushPromises()
 
     // Responder à resposta existente (de Rafael), não à raiz.
@@ -325,5 +339,173 @@ describe('ModalComentarios', () => {
 
     await tela.get('button[aria-label="Fechar comentários"]').trigger('click')
     expect(wrapper.emitted('fechar')).toHaveLength(1)
+  })
+
+  describe('comentário próprio (F-SOCIAL-2)', () => {
+    const MARINA = { id: 'me', username: 'marinableu', nomeExibicao: 'Marina Beltrão', avatarUrl: null }
+    const TEXTO = 'Comecei semana passada, por indicação da @nadiasampaio.'
+
+    function meu(sobrescreve: Partial<Comentario> = {}): Comentario {
+      return comentario({ id: 'm1', autor: MARINA, texto: TEXTO, pertenceAoSolicitante: true, ...sobrescreve })
+    }
+
+    function botao(tela: DOMWrapper<Element>, rotulo: string) {
+      return tela.findAll('button').find((b) => b.text() === rotulo)!
+    }
+
+    async function escolherNoMenu(tela: DOMWrapper<Element>, acao: 'Editar' | 'Excluir') {
+      await tela.get('button[aria-label="Ações do seu comentário"]').trigger('click')
+      await tela.findAll('[role="menuitem"]').find((b) => b.text() === acao)!.trigger('click')
+      await flushPromises()
+    }
+
+    beforeEach(() => {
+      social.editarComentario.mockReset()
+      social.excluirComentario.mockReset()
+      vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true }))
+    })
+
+    afterEach(() => {
+      vi.unstubAllGlobals()
+    })
+
+    it('menção resolvida vira link para o perfil; username inexistente continua texto', async () => {
+      social.listarComentariosRaiz.mockResolvedValue(
+        pagina([
+          meu({
+            texto: 'Indicação da @nadiasampaio e da @helenaprof.',
+            mencoes: [{ posicao: 13, comprimento: 13, usuarioId: 'u9', username: 'nadiasampaio' }],
+          }),
+        ]),
+      )
+      const { wrapper, tela } = montar({ atividade: atividade(), aberto: true })
+      await flushPromises()
+
+      const links = wrapper.findAllComponents(RouterLinkStub)
+      expect(links).toHaveLength(1)
+      expect(links[0]!.props('to')).toEqual({ name: 'perfil-de-outro', params: { username: 'nadiasampaio' } })
+      expect(links[0]!.text()).toBe('@nadiasampaio')
+      expect(tela.text()).toContain('Indicação da @nadiasampaio e da @helenaprof.')
+    })
+
+    it('texto com HTML é exibido como texto, nunca interpretado', async () => {
+      social.listarComentariosRaiz.mockResolvedValue(pagina([meu({ texto: '<img src=x onerror=alert(1)>' })]))
+      const { tela } = montar({ atividade: atividade(), aberto: true })
+      await flushPromises()
+
+      expect(tela.find('img[src="x"]').exists()).toBe(false)
+      expect(tela.text()).toContain('<img src=x onerror=alert(1)>')
+    })
+
+    it('comentário de outra pessoa não oferece editar nem excluir', async () => {
+      social.listarComentariosRaiz.mockResolvedValue(pagina([comentario()]))
+      const { tela } = montar({ atividade: atividade(), aberto: true })
+      await flushPromises()
+
+      expect(tela.find('button[aria-label="Ações do seu comentário"]').exists()).toBe(false)
+    })
+
+    it('comentário de outra pessoa só oferece Denunciar comentário, que abre a denúncia por cima (F-MOD)', async () => {
+      social.listarComentariosRaiz.mockResolvedValue(pagina([comentario()]))
+      const { tela } = montar({ atividade: atividade(), aberto: true })
+      await flushPromises()
+
+      await tela.get('button[aria-label="Ações do comentário"]').trigger('click')
+      const itens = tela.findAll('[role="menuitem"]')
+      expect(itens.map((item) => item.text())).toEqual(['Denunciar comentário'])
+      await itens[0]!.trigger('click')
+      await flushPromises()
+
+      expect(tela.findAll('[role="dialog"]')).toHaveLength(2)
+      expect(tela.text()).toContain('Denunciar comentário')
+      expect(tela.text()).toContain('Resposta em Os Sertões')
+      expect(tela.text()).toContain('Reli esse ano e travei na segunda parte.')
+      expect(social.excluirComentario).not.toHaveBeenCalled()
+    })
+
+    it('editar leva o texto ao campo, só troca a lista depois do servidor e marca editado', async () => {
+      social.listarComentariosRaiz.mockResolvedValue(pagina([meu()]))
+      const { tela } = montar({ atividade: atividade(), aberto: true })
+      await flushPromises()
+
+      await escolherNoMenu(tela, 'Editar')
+      expect(tela.text()).toContain('Editando comentário')
+      expect(tela.get('textarea').element.value).toBe(TEXTO)
+      expect(botao(tela, 'Salvar').attributes('disabled')).toBeDefined()
+
+      const novoTexto = `${TEXTO} Obrigada!`
+      await tela.get('textarea').setValue(novoTexto)
+      let confirmar!: (c: Comentario) => void
+      social.editarComentario.mockReturnValue(new Promise((resolve) => (confirmar = resolve)))
+      await botao(tela, 'Salvar').trigger('click')
+      await flushPromises()
+
+      expect(social.editarComentario).toHaveBeenCalledWith('m1', novoTexto, expect.any(String))
+      expect(tela.findAll('p').some((p) => p.text() === novoTexto)).toBe(false)
+
+      confirmar(meu({ texto: novoTexto, editado: true }))
+      await flushPromises()
+
+      expect(tela.findAll('p').some((p) => p.text() === novoTexto)).toBe(true)
+      expect(tela.text()).toContain('· editado')
+      expect(tela.text()).not.toContain('Editando comentário')
+      expect(tela.get('textarea').element.value).toBe('')
+    })
+
+    it('limite de menções ao salvar mostra o alerta e preserva o texto no campo', async () => {
+      social.listarComentariosRaiz.mockResolvedValue(pagina([meu()]))
+      const { tela } = montar({ atividade: atividade(), aberto: true })
+      await flushPromises()
+
+      await escolherNoMenu(tela, 'Editar')
+      await tela.get('textarea').setValue(`${TEXTO} @ana @bia`)
+      social.editarComentario.mockRejectedValue(new ApiError('Muitas menções', 429, 'MUITAS_REQUISICOES'))
+      await botao(tela, 'Salvar').trigger('click')
+      await flushPromises()
+
+      expect(tela.text()).toContain('Muitas menções seguidas. Espere alguns minutos para salvar de novo.')
+      expect(tela.get('textarea').element.value).toBe(`${TEXTO} @ana @bia`)
+    })
+
+    it('excluir raiz com resposta confirma citando quem respondeu, remove as duas e informa a contagem', async () => {
+      social.listarComentariosRaiz.mockResolvedValue(pagina([meu({ totalRespostas: 1 })]))
+      social.listarRespostas.mockResolvedValue({
+        itens: [comentario({ id: 'r1', nivel: 'RESPOSTA', comentarioRaizId: 'm1', autor: RAFAEL, texto: 'A Terra engata depois.' })],
+        proximoCursor: null,
+        temMais: false,
+      })
+      const { wrapper, tela } = montar({ atividade: atividade(), aberto: true })
+      await flushPromises()
+      await botao(tela, 'Ver 1 resposta').trigger('click')
+      await flushPromises()
+
+      await escolherNoMenu(tela, 'Excluir')
+      expect(tela.text()).toContain('Excluir comentário?')
+      expect(tela.text()).toContain('Seu comentário e a resposta de Rafael Okamoto serão apagados. Não dá para desfazer.')
+
+      social.excluirComentario.mockResolvedValue(undefined)
+      await botao(tela, 'Excluir comentário').trigger('click')
+      await flushPromises()
+
+      expect(social.excluirComentario).toHaveBeenCalledWith('m1', expect.any(String))
+      expect(tela.text()).not.toContain(TEXTO)
+      expect(tela.text()).not.toContain('A Terra engata depois.')
+      expect(wrapper.emitted('comentarios-excluidos')).toEqual([[2]])
+    })
+
+    it('falha ao excluir mantém o comentário e mostra o erro na confirmação', async () => {
+      social.listarComentariosRaiz.mockResolvedValue(pagina([meu()]))
+      const { wrapper, tela } = montar({ atividade: atividade(), aberto: true })
+      await flushPromises()
+
+      await escolherNoMenu(tela, 'Excluir')
+      social.excluirComentario.mockRejectedValue(new ApiError('Indisponível', 503, 'SERVICO_INDISPONIVEL'))
+      await botao(tela, 'Excluir comentário').trigger('click')
+      await flushPromises()
+
+      expect(tela.text()).toContain('Não foi possível excluir o comentário. Ele continua publicado. Tente de novo.')
+      expect(tela.text()).toContain(TEXTO)
+      expect(wrapper.emitted('comentarios-excluidos')).toBeUndefined()
+    })
   })
 })

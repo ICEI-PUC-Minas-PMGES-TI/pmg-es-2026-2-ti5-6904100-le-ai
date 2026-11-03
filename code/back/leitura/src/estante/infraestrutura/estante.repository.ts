@@ -1,10 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { type SQL, and, asc, count, desc, eq, sql } from 'drizzle-orm';
+import { type SQL, and, asc, count, desc, eq, exists, sql } from 'drizzle-orm';
+import { tituloOuAutorContem } from '../../common/busca-textual';
 import { ServicoIndisponivel } from '../../common/erros-de-negocio';
 import { ehFalhaDeContratoExterno } from '../../common/pg-erros';
 import { vLivroReferencia } from '../../db/contratos-externos';
 import { DRIZZLE, type DrizzleDB } from '../../db/drizzle.module';
-import { estante, leitura } from '../../db/schema';
+import { estante, favorito, leitura } from '../../db/schema';
 import type { Tx } from '../../db/tipos';
 import type {
   SnapshotEstante,
@@ -22,6 +23,7 @@ export interface LinhaEstante {
   ultimaLeitura: UltimaLeitura | null;
   paginaAtual: number | null;
   totalPaginas: number | null;
+  favorito: boolean;
   livro: LivroItemEstante;
 }
 
@@ -41,6 +43,7 @@ export interface VinculoEstante {
 
 export interface FiltroEstante {
   status?: StatusEstante;
+  q?: string;
   ordenacao: OrdenacaoEstante;
   offset: number;
   limite: number;
@@ -172,6 +175,7 @@ export class EstanteRepository {
     const onde = and(
       eq(estante.usuarioId, usuarioId),
       filtro.status ? eq(estante.status, filtro.status) : undefined,
+      filtro.q ? tituloOuAutorContem(filtro.q) : undefined,
     );
 
     return this.consultar(async () => {
@@ -184,6 +188,10 @@ export class EstanteRepository {
       const [{ total }] = await this.db
         .select({ total: count() })
         .from(estante)
+        .leftJoin(
+          vLivroReferencia,
+          eq(vLivroReferencia.livroId, estante.livroId),
+        )
         .where(onde);
 
       return { linhas: linhas.map(paraLinha), totalItens: total };
@@ -254,6 +262,17 @@ export class EstanteRepository {
         ultimaLeituraReleitura: ultima.releitura,
         paginaAtual: ultima.paginaAtual,
         totalPaginas: vLivroReferencia.paginas,
+        favorito: exists(
+          this.db
+            .select({ id: favorito.id })
+            .from(favorito)
+            .where(
+              and(
+                eq(favorito.usuarioId, estante.usuarioId),
+                eq(favorito.livroId, estante.livroId),
+              ),
+            ),
+        ).mapWith(Boolean),
         titulo: vLivroReferencia.titulo,
         autor: vLivroReferencia.autorExibicao,
         capaUrl: vLivroReferencia.capaResolvida,
@@ -291,6 +310,7 @@ interface LinhaConsultada {
   ultimaLeituraReleitura: boolean | null;
   paginaAtual: number | null;
   totalPaginas: number | null;
+  favorito: boolean;
   titulo: string | null;
   autor: string | null;
   capaUrl: string | null;

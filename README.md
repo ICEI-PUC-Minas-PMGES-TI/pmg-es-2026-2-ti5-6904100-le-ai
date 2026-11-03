@@ -20,7 +20,7 @@ O produto principal é um **app mobile nativo em Flutter**, acompanhado de uma *
 
 ## Instruções de utilização
 
-> O Período 1 (funcionalidades prioritárias) foi concluído em 29/09/2026 e está em revisão. O ambiente de homologação (DES/HML) sobe no Render a partir da branch `main`.
+> O Período 1 (funcionalidades prioritárias) foi concluído em 29/09/2026 (release `v0.1.0`) e está em revisão. As 14 features do Período 2 (desejáveis) estão implementadas na branch `desenvolvimento` e chegam à `main` no fechamento do período, em 03/11/2026. O ambiente de homologação (DES/HML) sobe no Render a partir da branch `main`.
 
 Cada cliente e serviço traz no próprio `AGENTS.md` os pré-requisitos, as variáveis de ambiente (a partir do `.env.example` versionado) e os comandos para instalar, rodar e testar localmente:
 

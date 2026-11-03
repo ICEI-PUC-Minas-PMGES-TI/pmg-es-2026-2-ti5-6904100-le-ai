@@ -4,6 +4,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 
 import { routes } from '../router'
 import { iniciarSessao } from '../session'
+import { tokenComPapel } from '../testes/tokens'
 import SidebarNavegacao from './SidebarNavegacao.vue'
 
 function stubMatchMedia(bateNaFaixaDeRetracao: boolean) {
@@ -14,9 +15,9 @@ function stubMatchMedia(bateNaFaixaDeRetracao: boolean) {
   }))
 }
 
-async function montarNaRota(caminho: string) {
+async function montarNaRota(caminho: string, token = 'jwt') {
   iniciarSessao(
-    { accessToken: 'jwt', refreshToken: 'renovacao' },
+    { accessToken: token, refreshToken: 'renovacao' },
     { id: 'u1', username: 'marinableu', displayName: 'Marina Beltrão' },
   )
   const router = createRouter({ history: createMemoryHistory(), routes })
@@ -69,6 +70,27 @@ describe('SidebarNavegacao', () => {
     const wrapper = await montarNaRota('/estante')
 
     expect(wrapper.get('nav').classes()).toContain('w-[72px]')
+  })
+
+  it('administrador ganha o quinto item, Moderação, depois do divisor (F-MOD)', async () => {
+    const wrapper = await montarNaRota('/moderacao', tokenComPapel('admin'))
+
+    const links = wrapper.findAll('a')
+    expect(links.map((link) => link.attributes('href'))).toEqual([
+      '/estante',
+      '/descobrir',
+      '/feed',
+      '/perfil',
+      '/moderacao',
+    ])
+    expect(links[4]!.text()).toBe('Moderação')
+    expect(links[4]!.classes()).toContain('bg-musgo-fundo')
+  })
+
+  it('leitor não vê Moderação', async () => {
+    const wrapper = await montarNaRota('/feed', tokenComPapel('leitor'))
+
+    expect(wrapper.text()).not.toContain('Moderação')
   })
 
   it('o botão retrai e expande de novo ao clicar, anunciando o estado', async () => {

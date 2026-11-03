@@ -34,6 +34,7 @@ const double _alvoDeToque = 48;
 const double _iconeDaAcao = 20;
 const double _iconeDoAviso = 16;
 const double _distanciaParaCarregarMais = 300;
+const double _percentualCheio = 100;
 const int _linhasDoEsqueleto = 5;
 
 class ProgressoPage extends StatefulWidget {
@@ -325,6 +326,10 @@ class _ProgressoPageState extends State<ProgressoPage> {
     }
     final pendentes = _fila.pendentesDe(widget.leituraId);
     final vazio = _lista.itens.isEmpty && pendentes.isEmpty;
+    final leitura = _leitura;
+    final conclusao = leitura != null && leitura.dataFim != null && !leitura.incompleta
+        ? leitura
+        : null;
     final margem = const EdgeInsets.symmetric(horizontal: DesignTokens.space5);
     return <Widget>[
       Padding(
@@ -339,6 +344,7 @@ class _ProgressoPageState extends State<ProgressoPage> {
           livro: _livro,
           dataInicio: _leitura?.dataInicio,
           registros: _lista.total,
+          conclusao: conclusao,
         ),
       ),
       Divider(height: 1, color: theme.divider),
@@ -365,8 +371,12 @@ class _ProgressoPageState extends State<ProgressoPage> {
         EstadoVazio(
           icone: PhosphorIconsRegular.clock,
           solto: true,
-          titulo: TextosDasAtualizacoes.vazioTitulo,
-          texto: TextosDasAtualizacoes.vazioTexto,
+          titulo: conclusao == null
+              ? TextosDasAtualizacoes.vazioTitulo
+              : TextosDasAtualizacoes.vazioConcluidaTitulo,
+          texto: conclusao == null
+              ? TextosDasAtualizacoes.vazioTexto
+              : TextosDasAtualizacoes.vazioConcluidaTexto,
           rodape: _somenteLeitura
               ? null
               : BotaoPrimario(
@@ -409,11 +419,15 @@ class _BlocoDeResumo extends StatelessWidget {
   final String? dataInicio;
   final int registros;
 
+  /// Ocorrência finalizada aberta pelo histórico (F-EST-2): o resumo vira o modo histórico.
+  final Leitura? conclusao;
+
   const _BlocoDeResumo({
     required this.resumo,
     required this.livro,
     required this.dataInicio,
     required this.registros,
+    this.conclusao,
   });
 
   @override
@@ -429,6 +443,17 @@ class _BlocoDeResumo extends StatelessWidget {
               : TextosDasAtualizacoes.iniciadaEm(dataIsoPorExtenso(inicio)))
         : rotuloPaginaDeTotal(resumo.paginaAtual, resumo.totalPaginas);
     final autor = livro?.autor;
+    final conclusao = this.conclusao;
+    final fim = conclusao?.dataFim;
+    final linhasDaConclusao = conclusao == null || fim == null
+        ? null
+        : <String>[
+            TextosDasAtualizacoes.concluidaEm(dataIsoPorExtenso(fim)),
+            TextosDasAtualizacoes.inicioEm(
+              dataIsoPorExtenso(conclusao.dataInicio),
+              textoDuracaoEmDias(duracaoEmDias(conclusao.dataInicio, fim)),
+            ),
+          ];
     return Semantics(
       liveRegion: true,
       child: Column(
@@ -450,6 +475,27 @@ class _BlocoDeResumo extends StatelessWidget {
                       style: theme.textTheme.titleSmall,
                     ),
                     if (autor != null) Text(autor, style: legenda),
+                    if (conclusao != null) ...<Widget>[
+                      const SizedBox(height: DesignTokens.space1),
+                      Row(
+                        children: <Widget>[
+                          if (conclusao.releitura) ...<Widget>[
+                            Icon(
+                              PhosphorIconsRegular.arrowsClockwise,
+                              size: 16,
+                              color: theme.progressColor,
+                            ),
+                            const SizedBox(width: DesignTokens.space1),
+                          ],
+                          Text(
+                            conclusao.releitura
+                                ? TextosDasAtualizacoes.releitura
+                                : TextosDasAtualizacoes.leitura,
+                            style: legenda?.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -457,32 +503,46 @@ class _BlocoDeResumo extends StatelessWidget {
           ),
           const SizedBox(height: DesignTokens.space4),
           BarraDeProgresso(
-            percentual: percentual,
-            rotulo: iniciada ? TextosDasAtualizacoes.iniciada : '${percentual.toInt()}%',
+            percentual: linhasDaConclusao == null ? percentual : _percentualCheio,
+            rotulo: linhasDaConclusao != null
+                ? TextosDasAtualizacoes.concluida
+                : (iniciada ? TextosDasAtualizacoes.iniciada : '${percentual.toInt()}%'),
           ),
           const SizedBox(height: DesignTokens.space1),
-          Text(detalhe, style: legenda),
-          const SizedBox(height: DesignTokens.space4),
-          IntrinsicHeight(
-            child: Row(
+          for (final linha in linhasDaConclusao ?? <String>[detalhe]) Text(linha, style: legenda),
+          if (linhasDaConclusao == null || registros > 0) ...<Widget>[
+            const SizedBox(height: DesignTokens.space4),
+            IntrinsicHeight(
+              child: Row(
+                children: <Widget>[
+                  _Valor(
+                    valor: rotuloPaginas(resumo.paginaAtual),
+                    rotulo: TextosDasAtualizacoes.rotuloLidas,
+                  ),
+                  VerticalDivider(width: 1, thickness: 1, color: theme.divider),
+                  _Valor(
+                    valor: rotuloDuracao(resumo.minutosTotais),
+                    rotulo: TextosDasAtualizacoes.rotuloTempo,
+                  ),
+                  VerticalDivider(width: 1, thickness: 1, color: theme.divider),
+                  _Valor(
+                    valor: rotuloRegistros(registros),
+                    rotulo: TextosDasAtualizacoes.rotuloRegistros,
+                  ),
+                ],
+              ),
+            ),
+          ],
+          if (linhasDaConclusao != null) ...<Widget>[
+            const SizedBox(height: DesignTokens.space4),
+            Row(
               children: <Widget>[
-                _Valor(
-                  valor: rotuloPaginas(resumo.paginaAtual),
-                  rotulo: TextosDasAtualizacoes.rotuloLidas,
-                ),
-                VerticalDivider(width: 1, thickness: 1, color: theme.divider),
-                _Valor(
-                  valor: rotuloDuracao(resumo.minutosTotais),
-                  rotulo: TextosDasAtualizacoes.rotuloTempo,
-                ),
-                VerticalDivider(width: 1, thickness: 1, color: theme.divider),
-                _Valor(
-                  valor: rotuloRegistros(registros),
-                  rotulo: TextosDasAtualizacoes.rotuloRegistros,
-                ),
+                Icon(PhosphorIconsRegular.info, size: 16, color: theme.secondaryText),
+                const SizedBox(width: DesignTokens.space2),
+                Expanded(child: Text(TextosDasAtualizacoes.somenteConsulta, style: legenda)),
               ],
             ),
-          ),
+          ],
         ],
       ),
     );

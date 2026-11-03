@@ -15,6 +15,9 @@ String formatarNota(double nota) {
   return nota.toStringAsFixed(1).replaceAll('.', ',');
 }
 
+/// `setembro`, com [mes] de 1 a 12.
+String nomeDoMes(int mes) => _meses[mes - 1];
+
 /// `12 de setembro de 2026`, sem zero à esquerda no dia.
 String formatarData(DateTime data) {
   final local = data.toLocal();

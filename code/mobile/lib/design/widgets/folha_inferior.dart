@@ -16,10 +16,12 @@ import 'botao_textual.dart';
 Future<T?> mostrarFolhaInferior<T>(
   BuildContext context, {
   required WidgetBuilder builder,
+  bool semMovimento = false,
 }) {
   final theme = Theme.of(context);
   return showModalBottomSheet<T>(
     context: context,
+    sheetAnimationStyle: semMovimento ? AnimationStyle.noAnimation : null,
     useSafeArea: true,
     isScrollControlled: true,
     backgroundColor: theme.isDark ? theme.elevatedSurface : theme.pageBackground,
@@ -65,9 +67,12 @@ Future<bool> confirmarAcaoDestrutiva(
   required String titulo,
   required String texto,
   required String acao,
+  String cancelar = 'Cancelar',
+  bool semMovimento = false,
 }) async {
   final confirmado = await mostrarFolhaInferior<bool>(
     context,
+    semMovimento: semMovimento,
     builder: (context) {
       final theme = Theme.of(context);
       return Column(
@@ -76,18 +81,18 @@ Future<bool> confirmarAcaoDestrutiva(
         children: <Widget>[
           Text(titulo, style: theme.textTheme.titleMedium),
           const SizedBox(height: DesignTokens.space3),
-          Text(
-            texto,
-            style: theme.textTheme.bodyMedium?.copyWith(color: theme.secondaryText),
-          ),
+          Text(texto, style: theme.textTheme.bodyMedium?.copyWith(color: theme.secondaryText)),
           const SizedBox(height: DesignTokens.space6),
           BotaoDestrutivo(texto: acao, onPressed: () => Navigator.of(context).pop(true)),
           const SizedBox(height: DesignTokens.space3),
-          BotaoTextual(
-            texto: 'Cancelar',
-            neutro: true,
-            larguraTotal: true,
-            onPressed: () => Navigator.of(context).pop(false),
+          Focus(
+            autofocus: true,
+            child: BotaoTextual(
+              texto: cancelar,
+              neutro: true,
+              larguraTotal: true,
+              onPressed: () => Navigator.of(context).pop(false),
+            ),
           ),
         ],
       );

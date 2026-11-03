@@ -56,6 +56,12 @@ public enum EventoDeNotificacao {
       TipoNotificacao.COMENTARIO_RESPONDIDO,
       "autorAcao",
       List.of(DadosDeNotificacao.ATIVIDADE_ID, DadosDeNotificacao.COMENTARIO_ID)),
+  USUARIO_MENCIONADO(
+      MessagingConstants.EVENTO_USUARIO_MENCIONADO,
+      MessagingConstants.SOCIAL_EXCHANGE,
+      TipoNotificacao.USUARIO_MENCIONADO,
+      "autorAcao",
+      List.of(DadosDeNotificacao.ATIVIDADE_ID, DadosDeNotificacao.COMENTARIO_ID)),
   LEITURA_EM_RISCO(
       MessagingConstants.EVENTO_LEITURA_EM_RISCO,
       MessagingConstants.LEITURA_EXCHANGE,
@@ -67,7 +73,23 @@ public enum EventoDeNotificacao {
       MessagingConstants.LEITURA_EXCHANGE,
       TipoNotificacao.LEITURA_EXPIRADA,
       null,
-      List.of(DadosDeNotificacao.LEITURA_ID, DadosDeNotificacao.LIMIAR_DIAS));
+      List.of(DadosDeNotificacao.LEITURA_ID, DadosDeNotificacao.LIMIAR_DIAS)),
+  RECOMENDACAO_RECEBIDA(
+      MessagingConstants.EVENTO_RECOMENDACAO_RECEBIDA,
+      MessagingConstants.SOCIAL_EXCHANGE,
+      TipoNotificacao.RECOMENDACAO_RECEBIDA,
+      "autorAcao",
+      List.of(DadosDeNotificacao.RECOMENDACAO_ID, DadosDeNotificacao.RECOMENDACAO_MENSAGEM)),
+  /**
+   * F-AVA-2: o {@code leitura} só publica a primeira curtida do par resenha e leitor, então
+   * recurtir não chega aqui. O {@code livro} do {@code data} vira o snapshot do destino.
+   */
+  RESENHA_CURTIDA(
+      MessagingConstants.EVENTO_RESENHA_CURTIDA,
+      MessagingConstants.LEITURA_EXCHANGE,
+      TipoNotificacao.RESENHA_CURTIDA,
+      "autorAcao",
+      List.of(DadosDeNotificacao.RESENHA_ID));
 
   private static final String CAMPO_DESTINATARIO = "destinatarioId";
   private static final String CAMPO_LIVRO = "livro";

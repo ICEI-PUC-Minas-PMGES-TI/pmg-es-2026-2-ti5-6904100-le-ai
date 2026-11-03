@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://leai.app/schemas/mensageria/conta.excluida.v1.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["usuarioId"],
+  "properties": {
+    "usuarioId": { "type": "string", "format": "uuid" }
+  }
+}

@@ -31,6 +31,7 @@ void main() {
     Map<String, Object?>? inicial,
     int falhasDoGet = 0,
     Future<http.Response> Function(http.Request)? escrita,
+    void Function()? aoMudarNota,
   }) async {
     pedidos = <http.Request>[];
     var falhas = falhasDoGet;
@@ -54,7 +55,7 @@ void main() {
           ? json(notaJson(_id, (corpo['valor'] as num).toDouble()), 200)
           : json(_resenha(corpo['texto'] as String), 200);
     });
-    final controller = AvaliacaoController(servico, _id);
+    final controller = AvaliacaoController(servico, _id, aoMudarNota: aoMudarNota);
     addTearDown(controller.dispose);
     await controller.carregar();
     return controller;
@@ -150,5 +151,37 @@ void main() {
     await avaliacao.excluirResenha();
 
     expect(avisos, 4);
+  });
+
+  // F-ACV-NOTA: é o que faz a página do livro oficial recarregar a nota dos leitores.
+  test('aoMudarNota só ao salvar ou remover a nota, não na carga nem na resenha', () async {
+    var mudancas = 0;
+    final avaliacao = await montar(aoMudarNota: () => mudancas++);
+    expect(mudancas, 0);
+
+    await avaliacao.salvarNota(5);
+    expect(mudancas, 1);
+    await avaliacao.salvarNota(4);
+    expect(mudancas, 2);
+    await avaliacao.removerNota();
+    expect(mudancas, 3);
+
+    await avaliacao.salvarResenha('Bom.', spoiler: false);
+    await avaliacao.excluirResenha();
+    await avaliacao.carregar();
+    expect(mudancas, 3);
+  });
+
+  test('a nota que não foi salva não chama aoMudarNota', () async {
+    var mudancas = 0;
+    final avaliacao = await montar(
+      escrita: (_) async => erro(422, 'ENTIDADE_NAO_PROCESSAVEL', 'Erro.'),
+      aoMudarNota: () => mudancas++,
+    );
+
+    await expectLater(avaliacao.salvarNota(4), throwsA(isA<ApiException>()));
+    await expectLater(avaliacao.removerNota(), throwsA(isA<ApiException>()));
+
+    expect(mudancas, 0);
   });
 }

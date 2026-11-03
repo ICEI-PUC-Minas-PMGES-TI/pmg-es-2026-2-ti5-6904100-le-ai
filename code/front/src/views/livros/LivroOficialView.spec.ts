@@ -24,7 +24,15 @@ vi.mock('../../services/leitura', () => ({
     excluirNota: vi.fn(),
     consultarItemEstante: vi.fn(),
     consultarConclusoes: vi.fn(),
+    consultarFavorito: vi.fn().mockResolvedValue({ livroId: 'livro-1', favorito: false, favoritadoEm: null }),
     detalharLeitura: vi.fn(),
+    // F-AVA-2: a seção de frases carrega à parte; aqui, sem frases.
+    listarFrases: vi.fn().mockResolvedValue({
+      itens: [],
+      paginacao: { page: 1, limite: 3, totalItens: 0, totalPaginas: 0 },
+      minhasFrases: 0,
+      limitePorLivro: 10,
+    }),
   },
 }))
 
@@ -137,6 +145,65 @@ describe('LivroOficialView', () => {
     const rotulos = wrapper.findAll('dt').map((dt) => dt.text())
     expect(rotulos).toEqual(['ISBN'])
     expect(wrapper.text()).toContain('2019 · 264 páginas')
+  })
+
+  it('ficha: autor, editora e série levam às páginas de catálogo, com o volume fora do link', async () => {
+    servico.obterLivroOficial.mockResolvedValue(
+      livroOficial({ editoraId: 'ed-1', serie: { id: 'se-1', nome: 'Trilogia da Bahia', numero: 1 } }),
+    )
+    const { wrapper } = await abrir()
+
+    expect(wrapper.findAll('dt').map((dt) => dt.text())).toEqual(['Autor', 'Editora', 'Série', 'ISBN'])
+    const links = wrapper.findAll('dd a').map((link) => [link.text(), link.attributes('href')])
+    expect(links).toEqual([
+      ['Itamar Vieira Junior', '/descobrir/autores/a1'],
+      ['Todavia', '/descobrir/editoras/ed-1'],
+      ['Trilogia da Bahia', '/descobrir/series/se-1'],
+    ])
+    const serie = wrapper.findAll('dd').find((dd) => dd.text().includes('Trilogia'))!
+    expect(serie.text()).toContain('volume 1')
+    expect(serie.get('a').text()).not.toContain('volume')
+    // O autor do título não vira link.
+    expect(wrapper.get('article header').find('a').exists()).toBe(false)
+  })
+
+  it('ficha: editora sem página fica texto, série sem número só com o nome e coautoria com um link por autor', async () => {
+    servico.obterLivroOficial.mockResolvedValue(
+      livroOficial({
+        autores: [
+          { id: 'a1', nome: 'Itamar Vieira Junior' },
+          { id: 'a2', nome: 'Outra Pessoa' },
+        ],
+        editoraId: null,
+        serie: { id: 'se-1', nome: 'Trilogia da Bahia', numero: null },
+      }),
+    )
+    const { wrapper } = await abrir()
+
+    expect(wrapper.findAll('dt').map((dt) => dt.text())).toEqual(['Autores', 'Editora', 'Série', 'ISBN'])
+    expect(wrapper.findAll('dd a').map((link) => link.attributes('href'))).toEqual([
+      '/descobrir/autores/a1',
+      '/descobrir/autores/a2',
+      '/descobrir/series/se-1',
+    ])
+    expect(wrapper.text()).not.toContain('volume')
+  })
+
+  it('assuntos levam ao Descobrir filtrado; sem assuntos, a seção some', async () => {
+    servico.obterLivroOficial.mockResolvedValue(livroOficial({ assuntos: [{ id: 'romance', nome: 'Romance' }] }))
+    servico.buscarLivros.mockResolvedValue({ itens: [], page: 1, limit: 20, totalItens: 0, totalPaginas: 0 })
+    const { wrapper, router } = await abrir()
+
+    const assunto = wrapper.get('a[aria-label="Buscar livros de Romance"]')
+    expect(assunto.attributes('href')).toBe('/descobrir?assunto=romance')
+    await assunto.trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.fullPath).toBe('/descobrir?assunto=romance')
+
+    servico.obterLivroOficial.mockResolvedValue(livroOficial())
+    await router.push('/livros/livro-2')
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('Assuntos')
   })
 
   it('sinopse pendente é skeleton; o polling troca pelo texto sem mexer nas resenhas', async () => {
@@ -275,6 +342,137 @@ describe('LivroOficialView', () => {
     expect(wrapper.find('[role="alert"]').exists()).toBe(false)
   })
 
+  describe('notas (F-ACV-NOTA)', () => {
+    const DISTRIBUICAO = [12, 9, 7, 3, 2, 1, 1, 0, 1, 0, 0].map((quantidade, indice) => ({
+      valor: 5 - indice * 0.5,
+      quantidade,
+    }))
+
+    it('as duas notas e o histograma, entre a barra de ação e "Sua avaliação"', async () => {
+      servico.obterLivroOficial.mockResolvedValue(
+        livroOficial({
+          notaGeral: { valor: 4.3, quantidade: 412 },
+          notaDosLeitores: { valor: 4.2, quantidade: 36 },
+          distribuicao: DISTRIBUICAO,
+        }),
+      )
+      const { wrapper } = await abrir()
+
+      const secao = wrapper.get('[data-secao-de-notas]')
+      const leituras = secao.findAll('[data-bloco-de-nota] .sr-only').map((p) => p.text())
+      expect(leituras).toEqual(['Nota geral, 4,3 de 5, 412 avaliações', 'Nota dos leitores, 4,2 de 5, 36 leitores'])
+      expect(secao.text()).toContain('Distribuição das notas dos leitores')
+      expect(secao.findAll('ul > li')).toHaveLength(11)
+
+      // Abaixo de 1024px, a ordem do DOM: barra de ação, notas, "Sua avaliação". A partir de 1024px,
+      // `lg:-order-1` leva a seção para logo abaixo do título.
+      const html = wrapper.get('article').html()
+      const notas = html.indexOf('data-secao-de-notas')
+      expect(html.indexOf('Recomendar a um leitor')).toBeLessThan(notas)
+      expect(notas).toBeLessThan(html.indexOf('Sua avaliação'))
+      expect(secao.classes()).toContain('lg:-order-1')
+    })
+
+    it('sem nota dos leitores, o histograma não aparece', async () => {
+      servico.obterLivroOficial.mockResolvedValue(livroOficial({ notaGeral: { valor: 3.9, quantidade: 27 } }))
+      const { wrapper } = await abrir()
+
+      const secao = wrapper.get('[data-secao-de-notas]')
+      expect(secao.text()).toContain('27 avaliações')
+      expect(secao.findAll('[data-bloco-de-nota] .sr-only')[1]!.text()).toBe('Nota dos leitores, sem nota')
+      expect(wrapper.text()).not.toContain('Distribuição das notas dos leitores')
+    })
+
+    it('sem nenhuma nota, os dois blocos em "Sem nota" e nada de histograma', async () => {
+      const { wrapper } = await abrir()
+
+      const secao = wrapper.get('[data-secao-de-notas]')
+      expect(secao.findAll('[data-bloco-de-nota] .sr-only').map((p) => p.text())).toEqual([
+        'Nota geral, sem nota',
+        'Nota dos leitores, sem nota',
+      ])
+      expect(secao.find('ul').exists()).toBe(false)
+    })
+
+    it('salvar e remover a própria nota recarregam as notas em silêncio, sem mexer nas resenhas', async () => {
+      function botao(texto: string) {
+        return [...document.body.querySelectorAll('button')].find((b) => b.textContent?.trim() === texto)
+      }
+      const salvaEm = '2026-10-24T12:00:00Z'
+      leitura.salvarNota.mockReset().mockImplementation(async (livroId: string, valor: number) => ({
+        livroId,
+        valor,
+        criadoEm: salvaEm,
+        atualizadoEm: salvaEm,
+      }))
+      leitura.excluirNota.mockReset().mockResolvedValue(undefined)
+      servico.obterLivroOficial.mockResolvedValue(
+        livroOficial({ resenhas: paginaDeResenhas([resenha('r1', 'Marina', 'A terra.')]) }),
+      )
+      const { wrapper } = await abrir()
+      const leiturasDaSecao = () =>
+        wrapper.get('[data-secao-de-notas]').findAll('[data-bloco-de-nota] .sr-only').map((p) => p.text())
+      // A carga da avaliação não reconsulta o livro.
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(servico.obterLivroOficial).toHaveBeenCalledTimes(1)
+
+      // Salva 5, e o acervo passa a responder média 5 de um leitor.
+      await wrapper.get('button[aria-label="Sem nota. Dar nota"]').trigger('click')
+      await flushPromises()
+      document.body.querySelector('[role="slider"]')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'End' }))
+      await flushPromises()
+      botao('Salvar nota')!.click()
+      await flushPromises()
+      expect(leitura.salvarNota).toHaveBeenCalledWith('livro-1', 5, expect.any(String))
+      servico.obterLivroOficial.mockResolvedValue(
+        livroOficial({
+          resenhas: paginaDeResenhas([]),
+          notaDosLeitores: { valor: 5, quantidade: 1 },
+          distribuicao: [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0].map((quantidade, indice) => ({
+            valor: 5 - indice * 0.5,
+            quantidade,
+          })),
+        }),
+      )
+      expect(leiturasDaSecao()[1]).toBe('Nota dos leitores, sem nota')
+
+      await vi.advanceTimersByTimeAsync(2_000)
+      await flushPromises()
+
+      const secao = wrapper.get('[data-secao-de-notas]')
+      expect(leiturasDaSecao()[1]).toBe('Nota dos leitores, 5 de 5, 1 leitor')
+      expect(secao.text()).toContain('1 leitor')
+      expect(secao.text()).toContain('Distribuição das notas dos leitores')
+      expect(secao.findAll('ul > li')).toHaveLength(11)
+      expect(wrapper.text()).toContain('A terra.')
+
+      // Remove a nota, e o acervo volta a responder sem nota dos leitores.
+      await wrapper.get('button[aria-label="Sua nota: 5. Alterar"]').trigger('click')
+      await flushPromises()
+      botao('Remover nota')!.click()
+      await flushPromises()
+      botao('Remover nota')!.click()
+      await flushPromises()
+      expect(leitura.excluirNota).toHaveBeenCalledTimes(1)
+      servico.obterLivroOficial.mockResolvedValue(livroOficial({ resenhas: paginaDeResenhas([]) }))
+
+      await vi.advanceTimersByTimeAsync(2_000)
+      await flushPromises()
+
+      expect(leiturasDaSecao()).toEqual(['Nota geral, sem nota', 'Nota dos leitores, sem nota'])
+      expect(wrapper.get('[data-secao-de-notas]').find('ul').exists()).toBe(false)
+      expect(wrapper.text()).toContain('A terra.')
+    })
+
+    it('o esqueleto tem o retângulo de 104px das notas', async () => {
+      servico.obterLivroOficial.mockImplementationOnce(() => new Promise(() => undefined))
+      const { wrapper } = await abrir()
+
+      const esqueleto = wrapper.get('[aria-busy="true"] [data-esqueleto-das-notas]')
+      expect(esqueleto.classes()).toEqual(expect.arrayContaining(['h-[104px]', 'rounded-md', 'bg-capa-placeholder']))
+    })
+  })
+
   it('o título vem antes da ficha no DOM, para o leitor de tela começar pelo h1', async () => {
     const { wrapper } = await abrir()
 
@@ -307,7 +505,7 @@ describe('LivroOficialView', () => {
       await flushPromises()
 
       const acoes = [...document.body.querySelectorAll('[role="dialog"] ul button')].map((b) => b.textContent!.trim())
-      expect(acoes).toEqual(['Adicionar como Quero ler', 'Iniciar leitura'])
+      expect(acoes).toEqual(['Adicionar como Quero ler', 'Iniciar leitura', 'Favoritar'])
     })
 
     it('lendo: status, página atual, Lido N vezes e Registrar progresso abre o registro', async () => {

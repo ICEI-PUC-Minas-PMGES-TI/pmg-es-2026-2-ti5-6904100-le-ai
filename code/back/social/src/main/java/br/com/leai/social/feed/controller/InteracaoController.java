@@ -6,6 +6,7 @@ import br.com.leai.social.common.idempotencia.RespostaIdempotente;
 import br.com.leai.social.common.idempotencia.ServicoDeIdempotencia;
 import br.com.leai.social.feed.dto.ComentarioResposta;
 import br.com.leai.social.feed.dto.CriarComentarioRequisicao;
+import br.com.leai.social.feed.dto.EditarComentarioRequisicao;
 import br.com.leai.social.feed.dto.EstadoCurtidaResposta;
 import br.com.leai.social.feed.dto.ListaRespostasResposta;
 import br.com.leai.social.feed.dto.PaginaComentariosResposta;
@@ -28,6 +29,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -167,6 +169,73 @@ public class InteracaoController {
                     servico.comentar(
                         eu, atividadeId, requisicao.texto(), requisicao.comentarioRespondidoId())));
     return ResponseEntity.status(resposta.status()).body(resposta.corpo());
+  }
+
+  @PatchMapping("/comentarios/{comentarioId}")
+  @Operation(
+      summary = "Edita o próprio comentário (RF-SOC-13)",
+      description =
+          "Só o autor edita (RNF-SEC-02). Raiz, alvo e nível não mudam (RN-10). As menções são "
+              + "reprocessadas e só destinatário novo recebe usuario.mencionado. Aplica rate "
+              + "limiting de comentário e de menção.")
+  @ApiResponse(responseCode = "200", description = "Comentário com o texto novo.")
+  @ApiResponse(
+      responseCode = "403",
+      description = "O comentário é de outra pessoa.",
+      content = @Content(schema = @Schema(ref = "#/components/schemas/Erro")))
+  @ApiResponse(
+      responseCode = "404",
+      description = "Comentário inexistente ou atividade não visível.",
+      content = @Content(schema = @Schema(ref = "#/components/schemas/Erro")))
+  @ApiResponse(
+      responseCode = "429",
+      description = "Limite de comentários ou de menções atingido.",
+      content = @Content(schema = @Schema(ref = "#/components/schemas/Erro")))
+  public ResponseEntity<ComentarioResposta> editarComentario(
+      @AuthenticationPrincipal Jwt token,
+      @PathVariable UUID comentarioId,
+      @RequestHeader(name = ChaveDeIdempotencia.CABECALHO, required = false) String chave,
+      @Valid @RequestBody EditarComentarioRequisicao requisicao) {
+    UUID eu = autenticado(token);
+    RespostaIdempotente<ComentarioResposta> resposta =
+        executar(
+            eu,
+            OperacaoIdempotente.EDITAR_COMENTARIO,
+            chave,
+            Map.of("comentarioId", comentarioId.toString(), "texto", requisicao.texto()),
+            ComentarioResposta.class,
+            () ->
+                new RespostaIdempotente<>(
+                    HttpStatus.OK.value(), servico.editar(eu, comentarioId, requisicao.texto())));
+    return ResponseEntity.status(resposta.status()).body(resposta.corpo());
+  }
+
+  @DeleteMapping("/comentarios/{comentarioId}")
+  @Operation(
+      summary = "Exclui fisicamente o próprio comentário (RF-SOC-13)",
+      description =
+          "Só o autor exclui (RNF-SEC-02). Excluir uma raiz remove as respostas dela por cascade "
+              + "(RN-10.5); não existe estado de comentário excluído.")
+  @ApiResponse(responseCode = "204", description = "Comentário excluído.")
+  @ApiResponse(
+      responseCode = "403",
+      description = "O comentário é de outra pessoa.",
+      content = @Content(schema = @Schema(ref = "#/components/schemas/Erro")))
+  @ApiResponse(
+      responseCode = "404",
+      description = "Comentário inexistente.",
+      content = @Content(schema = @Schema(ref = "#/components/schemas/Erro")))
+  public ResponseEntity<Void> excluirComentario(
+      @AuthenticationPrincipal Jwt token,
+      @PathVariable UUID comentarioId,
+      @RequestHeader(name = ChaveDeIdempotencia.CABECALHO, required = false) String chave) {
+    UUID eu = autenticado(token);
+    return semCorpo(
+        eu,
+        OperacaoIdempotente.EXCLUIR_COMENTARIO,
+        chave,
+        Map.of("comentarioId", comentarioId.toString()),
+        () -> servico.excluir(eu, comentarioId));
   }
 
   @GetMapping("/comentarios/{comentarioRaizId}/respostas")

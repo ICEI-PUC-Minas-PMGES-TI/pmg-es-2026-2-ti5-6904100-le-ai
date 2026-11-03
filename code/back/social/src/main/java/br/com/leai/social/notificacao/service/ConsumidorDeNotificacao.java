@@ -7,10 +7,12 @@ import br.com.leai.social.messaging.MessageHandler;
 import br.com.leai.social.messaging.MessagingConstants;
 import br.com.leai.social.notificacao.model.DadosDeNotificacao;
 import br.com.leai.social.notificacao.model.EventoDeNotificacao;
+import br.com.leai.social.notificacao.model.NotificacaoGravada;
 import br.com.leai.social.notificacao.model.NovaNotificacao;
 import br.com.leai.social.notificacao.repository.NotificacaoRepository;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 /**
@@ -29,10 +31,14 @@ import org.springframework.stereotype.Component;
 public class ConsumidorDeNotificacao implements MessageHandler {
 
   private final NotificacaoRepository notificacoes;
+  private final ApplicationEventPublisher eventos;
 
   public ConsumidorDeNotificacao(
-      AmqpConsumerService consumidor, NotificacaoRepository notificacoes) {
+      AmqpConsumerService consumidor,
+      NotificacaoRepository notificacoes,
+      ApplicationEventPublisher eventos) {
     this.notificacoes = notificacoes;
+    this.eventos = eventos;
     consumidor.register(
         new ConsumerDefinition(
             MessagingConstants.NOTIFICACOES_CONSUMER_NAME,
@@ -61,13 +67,17 @@ public class ConsumidorDeNotificacao implements MessageHandler {
             ? UUID.fromString((String) dados.get(DadosDeNotificacao.LEITURA_ID))
             : null;
 
-    notificacoes.inserir(
-        new NovaNotificacao(
-            UUID.fromString(evento.destinatarioId(envelope.data())),
-            evento.tipo(),
-            leituraRef,
-            dados,
-            envelope.eventId(),
-            envelope.businessKey()));
+    UUID destinatarioId = UUID.fromString(evento.destinatarioId(envelope.data()));
+
+    notificacoes
+        .inserir(
+            new NovaNotificacao(
+                destinatarioId,
+                evento.tipo(),
+                leituraRef,
+                dados,
+                envelope.eventId(),
+                envelope.businessKey()))
+        .ifPresent(id -> eventos.publishEvent(new NotificacaoGravada(id, destinatarioId)));
   }
 }

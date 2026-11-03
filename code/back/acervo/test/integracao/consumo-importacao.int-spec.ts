@@ -205,6 +205,115 @@ describe('consumo de livro.importacao_solicitada (integração)', () => {
     expect(await contar(pool, 'acervo.livro_autor')).toBe(1);
   });
 
+  it('chave de autor unificada liga o livro ao canônico, sem recriar o duplicado nem levar a biografia', async () => {
+    const { rows } = await pool.query<{ id: string }>(
+      `INSERT INTO acervo.autor (nome, nome_normalizado, ol_author_key, biografia)
+       VALUES ('Suzanne Collins', 'suzanne collins', 'OL1394359A', 'American author.')
+       RETURNING id`,
+    );
+    await pool.query(
+      `INSERT INTO acervo.autor_chave_unificada (ol_author_key, autor_id)
+       VALUES ('OL12737091A', $1)`,
+      [rows[0].id],
+    );
+    const alvo = isbn('978972234239');
+    fontes[0].buscarPorIsbn.mockResolvedValue(
+      metadados(alvo, {
+        titulo: 'Os Jogos da Fome',
+        autores: [
+          {
+            nome: 'Suzanne Collins',
+            olAuthorKey: 'OL12737091A',
+            biografia: 'Marketing instructor.',
+          },
+        ],
+      }),
+    );
+
+    await solicitar(alvo);
+    await publicarEConsumir();
+
+    const { rows: autores } = await pool.query(
+      `SELECT a.id, a.ol_author_key, a.biografia FROM acervo.livro_autor la
+         JOIN acervo.autor a ON a.id = la.autor_id`,
+    );
+    expect(autores).toEqual([
+      {
+        id: rows[0].id,
+        ol_author_key: 'OL1394359A',
+        biografia: 'American author.',
+      },
+    ]);
+    expect(await contar(pool, 'acervo.autor')).toBe(1);
+  });
+
+  describe('biografia do autor (F-ACV-DESCOBERTA)', () => {
+    const biografia = async () => {
+      const { rows } = await pool.query<{ biografia: string | null }>(
+        `SELECT biografia FROM acervo.autor WHERE ol_author_key = 'OL7654321A'`,
+      );
+      return rows[0]?.biografia;
+    };
+    const comBiografia = (alvo: string, bio: string) =>
+      metadados(alvo, {
+        autores: [
+          {
+            nome: 'Itamar Vieira Junior',
+            olAuthorKey: 'OL7654321A',
+            biografia: bio,
+          },
+        ],
+      });
+
+    it('autor novo chega com a biografia em texto puro, cortada no teto', async () => {
+      const alvo = isbn('978655692100');
+      const longa = `Escritor <b>baiano</b>. ${'palavra '.repeat(400)}\n\n[1]: https://exemplo.org`;
+      fontes[0].buscarPorIsbn.mockResolvedValue(comBiografia(alvo, longa));
+
+      await solicitar(alvo);
+      await publicarEConsumir();
+
+      const texto = await biografia();
+      expect(texto?.startsWith('Escritor baiano. palavra')).toBe(true);
+      expect(texto).not.toContain('<b>');
+      expect(texto).not.toContain('[1]:');
+      expect([...(texto ?? '')].length).toBeLessThanOrEqual(2000);
+      expect(texto?.endsWith('…')).toBe(true);
+    });
+
+    it('autor que já existia sem biografia a recebe; a existente nunca é sobrescrita', async () => {
+      await pool.query(
+        `INSERT INTO acervo.autor (nome, nome_normalizado, ol_author_key)
+         VALUES ('Itamar Vieira Junior', 'itamar vieira junior', 'OL7654321A')`,
+      );
+      const primeiro = isbn('978655692101');
+      fontes[0].buscarPorIsbn.mockResolvedValue(
+        comBiografia(primeiro, 'Primeira biografia.'),
+      );
+      await solicitar(primeiro);
+      await publicarEConsumir();
+      expect(await biografia()).toBe('Primeira biografia.');
+
+      const segundo = isbn('978655692102');
+      fontes[0].buscarPorIsbn.mockResolvedValue(
+        comBiografia(segundo, 'Outra biografia.'),
+      );
+      await solicitar(segundo);
+      await publicarEConsumir();
+      expect(await biografia()).toBe('Primeira biografia.');
+    });
+
+    it('biografia só de marcação vira null, sem violar o CHECK', async () => {
+      const alvo = isbn('978655692103');
+      fontes[0].buscarPorIsbn.mockResolvedValue(comBiografia(alvo, '<p> </p>'));
+
+      await solicitar(alvo);
+      await publicarEConsumir();
+
+      expect(await biografia()).toBeNull();
+    });
+  });
+
   it('reentrega do mesmo eventId não repete o efeito', async () => {
     const alvo = isbn('978655692024');
     fontes[0].buscarPorIsbn.mockResolvedValue(metadados(alvo));
@@ -322,5 +431,58 @@ describe('consumo de livro.importacao_solicitada (integração)', () => {
     expect((await importacao(id)).estado).toBe('pendente');
     expect(await contar(pool, 'acervo.mensagem_processada')).toBe(0);
     expect(broker.nacks).toHaveLength(1);
+  });
+  describe('nota geral na inserção (F-ACV-NOTA)', () => {
+    async function notaDoLivro(livroId: string | null) {
+      const { rows } = await pool.query(
+        'SELECT nota_geral::float AS valor, nota_geral_qtd AS quantidade FROM acervo.livro WHERE id = $1',
+        [livroId],
+      );
+      return rows[0] as { valor: number | null; quantidade: number | null };
+    }
+
+    it('grava a nota e a contagem que a fonte trouxe', async () => {
+      const alvo = isbn('978655692031');
+      fontes[0].buscarPorIsbn.mockResolvedValue(
+        metadados(alvo, { notaGeral: { valor: 4.3, quantidade: 412 } }),
+      );
+      const id = await solicitar(alvo);
+
+      await publicarEConsumir();
+
+      const final = await importacao(id);
+      expect(final.estado).toBe('concluida');
+      expect(await notaDoLivro(final.livro_id)).toEqual({
+        valor: 4.3,
+        quantidade: 412,
+      });
+    });
+
+    it('sem nota na fonte ou com nota fora da faixa, o livro entra sem nota', async () => {
+      const [semNota, foraDaFaixa] = [
+        isbn('978655692048'),
+        isbn('978655692055'),
+      ];
+      fontes[0].buscarPorIsbn.mockImplementation(async (isbn13: string) =>
+        isbn13 === semNota
+          ? metadados(isbn13, { olWorkKey: 'OL2W' })
+          : metadados(isbn13, {
+              olWorkKey: 'OL3W',
+              notaGeral: { valor: 9, quantidade: 3 },
+            }),
+      );
+      const ids = [await solicitar(semNota), await solicitar(foraDaFaixa)];
+
+      await publicarEConsumir();
+
+      for (const id of ids) {
+        const final = await importacao(id);
+        expect(final.estado).toBe('concluida');
+        expect(await notaDoLivro(final.livro_id)).toEqual({
+          valor: null,
+          quantidade: null,
+        });
+      }
+    });
   });
 });

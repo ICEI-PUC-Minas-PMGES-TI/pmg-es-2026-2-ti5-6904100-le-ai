@@ -23,8 +23,11 @@ export interface LivroAvaliado {
  *
  * O livro vem em `carregar(id)`, como na página: trocar de livro na mesma rota não remonta a view.
  * Uma resposta atrasada do livro anterior é descartada pelo contador de geração.
+ *
+ * `aoAlterarNota` roda depois de salvar ou remover a nota com sucesso, nunca na carga: a página do
+ * livro oficial o usa para reconsultar os indicadores do `acervo` (F-ACV-NOTA).
  */
-export function useMinhaAvaliacao(opcoes: { servico?: LeituraService } = {}) {
+export function useMinhaAvaliacao(opcoes: { servico?: LeituraService; aoAlterarNota?: () => void } = {}) {
   const servico = opcoes.servico ?? leituraService
 
   const estado = ref<EstadoDaAvaliacao>('carregando')
@@ -85,18 +88,24 @@ export function useMinhaAvaliacao(opcoes: { servico?: LeituraService } = {}) {
   async function salvarNota(valor: number): Promise<void> {
     const salva = await servico.salvarNota(livroId, valor, chaveDa('nota', String(valor)))
     aplicar('nota', { nota: salva })
+    opcoes.aoAlterarNota?.()
   }
 
   /** Remove a nota depois da confirmação da tela (RNF-USA-04). A resenha não é afetada. */
   async function removerNota(): Promise<void> {
     await servico.excluirNota(livroId, chaveDa('remocao', nota.value?.atualizadoEm ?? ''))
     aplicar('remocao', { nota: null })
+    opcoes.aoAlterarNota?.()
   }
 
   /** Publica ou salva a resenha. Lança o erro da API para o editor preservar o texto. */
   async function salvarResenha(texto: string, spoiler: boolean): Promise<void> {
     const salva = await servico.salvarResenha(livroId, texto, spoiler, chaveDa('resenha', `${spoiler}|${texto}`))
-    aplicar('resenha', { resenha: salva })
+    // O `PUT` devolve a resenha sem as contagens: editar não mexe nas reações, que continuam as de antes.
+    const anterior = resenha.value
+    aplicar('resenha', {
+      resenha: anterior?.id === salva.id ? { ...salva, curtidas: anterior.curtidas, descurtidas: anterior.descurtidas } : salva,
+    })
   }
 
   /** Exclui a resenha depois da confirmação irreversível (RNF-USA-04). A nota não é afetada. */

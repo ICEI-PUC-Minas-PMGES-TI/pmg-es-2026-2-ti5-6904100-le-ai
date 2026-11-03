@@ -41,13 +41,13 @@ function abrirComentarios(atividade: Atividade): void {
   atividadeEmComentario.value = atividade
 }
 
-function aoComentar(): void {
+function alterarTotalDeComentarios(delta: number): void {
   const id = atividadeEmComentario.value?.id
   if (!id) {
     return
   }
-  itens.value = itens.value.map((item) => (item.id === id ? { ...item, totalComentarios: item.totalComentarios + 1 } : item))
-  atividadeEmComentario.value = { ...atividadeEmComentario.value!, totalComentarios: atividadeEmComentario.value!.totalComentarios + 1 }
+  itens.value = itens.value.map((item) => (item.id === id ? { ...item, totalComentarios: item.totalComentarios + delta } : item))
+  atividadeEmComentario.value = { ...atividadeEmComentario.value!, totalComentarios: atividadeEmComentario.value!.totalComentarios + delta }
 }
 
 const erroDeCurtida = ref<string | null>(null)
@@ -161,7 +161,8 @@ const { alternar: alternarCurtida, descartarPendentes: descartarCurtidas } = use
       :atividade="atividadeEmComentario"
       :aberto="true"
       @fechar="atividadeEmComentario = null"
-      @comentario-criado="aoComentar"
+      @comentario-criado="alterarTotalDeComentarios(1)"
+      @comentarios-excluidos="alterarTotalDeComentarios(-$event)"
     />
   </div>
 </template>

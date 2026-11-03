@@ -900,6 +900,9 @@ void main() {
               if (request.url.path.startsWith('/leituras/')) {
                 return json(leituraJson('le1'), 200);
               }
+              if (request.url.path.endsWith('/favorito')) {
+                return json(<String, Object?>{'favorito': false}, 200);
+              }
               consultasDaEstante++;
               return json(
                 itemJson(

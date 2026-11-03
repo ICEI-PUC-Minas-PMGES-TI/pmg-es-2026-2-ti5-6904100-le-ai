@@ -1,7 +1,8 @@
 import { mount } from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 
+import { encerrarSessao, iniciarSessao } from '../../session'
 import { resenha } from '../../testes/massaDoLivro'
 import CardResenha from './CardResenha.vue'
 
@@ -37,6 +38,24 @@ describe('CardResenha', () => {
     expect(wrapper.text()).toContain('<img src=x onerror=alert(1)>')
   })
 
+  it('o texto sai em Markdown, só com o subconjunto do RN-13 (F-AVA-2)', () => {
+    const wrapper = mount(CardResenha, {
+      props: { resenha: resenha('r1', 'Marina', '**forte** e *leve*\n\n- um\n- dois\n\n[link](javascript:alert(1))') },
+    })
+
+    expect(wrapper.get('strong').text()).toBe('forte')
+    expect(wrapper.get('em').text()).toBe('leve')
+    expect(wrapper.findAll('li').map((item) => item.text())).toEqual(['um', 'dois'])
+    expect(wrapper.find('a').exists()).toBe(false)
+    expect(wrapper.text()).toContain('[link](javascript:alert(1))')
+  })
+
+  it('resenha antiga com quebras de linha continua com as quebras', () => {
+    const wrapper = mount(CardResenha, { props: { resenha: resenha('r1', 'Marina', 'Primeira linha\nsegunda linha') } })
+
+    expect(wrapper.findAll('br')).toHaveLength(1)
+  })
+
   it('sem o campo spoiler, o texto fica fechado por segurança', () => {
     const semCampo = { ...resenha('r1', 'Rafael', 'O final revela tudo.'), spoiler: undefined as unknown as boolean }
     const wrapper = mount(CardResenha, { props: { resenha: semCampo } })
@@ -55,5 +74,32 @@ describe('CardResenha', () => {
 
     expect(document.activeElement?.textContent?.trim()).toBe('O final revela tudo.')
     wrapper.unmount()
+  })
+})
+
+describe('CardResenha: denunciar (F-MOD)', () => {
+  afterEach(() => {
+    encerrarSessao()
+    vi.unstubAllGlobals()
+  })
+
+  it('resenha de outra pessoa tem o menu com Denunciar resenha, que emite denunciar', async () => {
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true }))
+    iniciarSessao({ accessToken: 'jwt', refreshToken: 'r' }, { id: 'eu', username: 'eu', displayName: 'Eu' })
+    const wrapper = mount(CardResenha, { props: { resenha: resenha('r1', 'Marina', 'Texto') } })
+
+    await wrapper.get('button[aria-label="Mais ações da resenha"]').trigger('click')
+    const item = wrapper.get('[role="menuitem"]')
+    expect(item.text()).toBe('Denunciar resenha')
+    await item.trigger('click')
+
+    expect(wrapper.emitted('denunciar')).toHaveLength(1)
+  })
+
+  it('a própria resenha não tem o menu', () => {
+    iniciarSessao({ accessToken: 'jwt', refreshToken: 'r' }, { id: 'autor-r1', username: 'eu', displayName: 'Eu' })
+    const wrapper = mount(CardResenha, { props: { resenha: resenha('r1', 'Eu', 'Texto') } })
+
+    expect(wrapper.find('button[aria-label="Mais ações da resenha"]').exists()).toBe(false)
   })
 })

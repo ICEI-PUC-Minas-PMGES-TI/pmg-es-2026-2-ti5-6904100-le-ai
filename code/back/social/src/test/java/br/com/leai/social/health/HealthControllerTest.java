@@ -36,6 +36,8 @@ class HealthControllerTest {
           null,
           null,
           null,
+          null,
+          null,
           null);
 
   private DatabaseHealthChecker banco;

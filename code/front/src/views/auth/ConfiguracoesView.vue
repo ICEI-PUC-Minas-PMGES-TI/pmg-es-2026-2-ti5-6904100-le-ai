@@ -26,7 +26,7 @@ import { useSession } from '../../session'
 const VERSAO_DO_APP = '1.0.0'
 
 const router = useRouter()
-const { usuario } = useSession()
+const { usuario, ehAdmin } = useSession()
 
 const conta = ref<UsuarioProprio | null>(null)
 const carregandoConta = ref(true)
@@ -123,6 +123,38 @@ async function sair(): Promise<void> {
             aria-hidden="true"
           />
         </RouterLink>
+        <!-- F-CONTA-2: sem `rubi` e sem ícone; a ação destrutiva é o botão lá dentro (§4). -->
+        <RouterLink
+          to="/perfil/configuracoes/excluir-conta"
+          class="flex h-14 items-center justify-between border-b border-linha text-body text-tinta"
+        >
+          Excluir conta
+          <PhCaretRight
+            :size="20"
+            weight="regular"
+            class="text-grafite-suave"
+            aria-hidden="true"
+          />
+        </RouterLink>
+        <!-- F-MOD: abaixo de 768px a barra inferior não tem o quinto item; a moderação entra
+             aqui, só para o administrador (divergência registrada na feature, sem design). -->
+        <template v-if="ehAdmin">
+          <h2 class="mt-space-4 pb-space-3 text-label text-grafite">
+            Administração
+          </h2>
+          <RouterLink
+            to="/moderacao"
+            class="flex h-14 items-center justify-between border-b border-linha text-body text-tinta"
+          >
+            Moderação
+            <PhCaretRight
+              :size="20"
+              weight="regular"
+              class="text-grafite-suave"
+              aria-hidden="true"
+            />
+          </RouterLink>
+        </template>
       </nav>
 
       <!-- Web: navegação da coluna esquerda, com a política aberta ao lado. -->
@@ -142,6 +174,12 @@ async function sair(): Promise<void> {
         >
           Política de privacidade
         </span>
+        <RouterLink
+          to="/perfil/configuracoes/excluir-conta"
+          class="flex h-11 items-center rounded-base px-space-4 text-body-strong text-tinta transition-colors duration-dur-fast hover:bg-linha focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo"
+        >
+          Excluir conta
+        </RouterLink>
       </nav>
 
       <BotaoDestrutivo

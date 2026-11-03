@@ -9,11 +9,18 @@ import br.com.leai.social.notificacao.model.EventoDeNotificacao;
 import br.com.leai.social.notificacao.service.ConsumidorDeNotificacao;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.UncheckedIOException;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -26,12 +33,14 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * partir dos envelopes dos produtores, e são lidas e marcadas por HTTP com JWT, passando por
  * Spring Security, validação, idempotência e Postgres. Cobre lista paginada com não lidas
  * (RF-NOT-02), marcação individual e em lote (RF-NOT-03), a ação de abandonar da leitura em risco
- * (RF-NOT-04) e o isolamento por destinatário (RNF-SEC-02).
+ * (RF-NOT-04), o isolamento por destinatário (RNF-SEC-02) e o canal SSE de tempo real
+ * (RF-NOT-06).
  */
 @EnabledIfEnvironmentVariable(named = "DATABASE_URL_TESTE", matches = ".+")
 class NotificacaoControllerIntegracaoTest extends IntegracaoComPostgres {
 
   private static final ObjectMapper JSON = new ObjectMapper();
+  private static final String CANAL = "/notificacoes/tempo-real";
 
   @Autowired private ConsumidorDeNotificacao consumidor;
   @Autowired private JdbcTemplate jdbc;
@@ -121,6 +130,28 @@ class NotificacaoControllerIntegracaoTest extends IntegracaoComPostgres {
   }
 
   @Test
+  @DisplayName("curtida em resenha traz o livro do destino e a frase da curtida")
+  void curtidaEmResenhaTrazLivroEFrase() throws Exception {
+    UUID eu = UUID.randomUUID();
+    UUID leitora = UUID.randomUUID();
+    jdbc.update("INSERT INTO identidade.usuario (id) VALUES (?)", leitora);
+    notificar(EventoDeNotificacao.RESENHA_CURTIDA, Fato.para(eu).comAtor(leitora));
+
+    JsonNode item = listar(token(eu), 0, 20).get("itens").get(0);
+
+    assertThat(item.get("tipo").asText()).isEqualTo("RESENHA_CURTIDA");
+    assertThat(item.get("livro").get("tipo").asText()).isEqualTo("oficial");
+    assertThat(item.get("livro").get("titulo").asText())
+        .isEqualTo(EventosDeNotificacaoDeTeste.TITULO_LIVRO);
+    assertThat(item.get("mensagem").asText())
+        .isEqualTo(
+            EventosDeNotificacaoDeTeste.NOME_ATOR
+                + " curtiu sua resenha de "
+                + EventosDeNotificacaoDeTeste.TITULO_LIVRO
+                + ".");
+  }
+
+  @Test
   @DisplayName("ator visivel aparece na notificacao; ator suspenso some e vira 'Um leitor'")
   void atorSuspensoNaoEExposto() throws Exception {
     UUID eu = UUID.randomUUID();
@@ -140,6 +171,36 @@ class NotificacaoControllerIntegracaoTest extends IntegracaoComPostgres {
     JsonNode doSuspenso = itens.get(1);
     assertThat(doSuspenso.get("ator").isNull()).isTrue();
     assertThat(doSuspenso.get("mensagem").asText()).isEqualTo("Um leitor começou a seguir você.");
+  }
+
+  @Test
+  @DisplayName("recomendacao recebida traz livro e mensagem; de remetente suspenso, sem a mensagem")
+  void recomendacaoRecebidaTrazLivroEMensagem() throws Exception {
+    UUID eu = UUID.randomUUID();
+    UUID visivel = UUID.randomUUID();
+    UUID suspenso = UUID.randomUUID();
+    jdbc.update("INSERT INTO identidade.usuario (id) VALUES (?)", visivel);
+    jdbc.update("INSERT INTO identidade.usuario (id, suspenso) VALUES (?, true)", suspenso);
+    notificar(EventoDeNotificacao.RECOMENDACAO_RECEBIDA, Fato.para(eu).comAtor(suspenso));
+    notificar(EventoDeNotificacao.RECOMENDACAO_RECEBIDA, Fato.para(eu).comAtor(visivel));
+
+    JsonNode itens = listar(token(eu), 0, 20).get("itens");
+
+    JsonNode doVisivel = itens.get(0);
+    assertThat(doVisivel.get("tipo").asText()).isEqualTo("RECOMENDACAO_RECEBIDA");
+    assertThat(doVisivel.get("mensagem").asText())
+        .isEqualTo(
+            EventosDeNotificacaoDeTeste.NOME_ATOR
+                + " te recomendou "
+                + EventosDeNotificacaoDeTeste.TITULO_LIVRO
+                + ".");
+    assertThat(doVisivel.get("recomendacaoMensagem").asText())
+        .isEqualTo(EventosDeNotificacaoDeTeste.MENSAGEM_RECOMENDACAO);
+    assertThat(doVisivel.get("livro").get("tipo").asText()).isEqualTo("oficial");
+    JsonNode doSuspenso = itens.get(1);
+    assertThat(doSuspenso.get("mensagem").asText())
+        .isEqualTo("Um leitor te recomendou " + EventosDeNotificacaoDeTeste.TITULO_LIVRO + ".");
+    assertThat(doSuspenso.get("recomendacaoMensagem").isNull()).isTrue();
   }
 
   @Test
@@ -250,6 +311,149 @@ class NotificacaoControllerIntegracaoTest extends IntegracaoComPostgres {
         enviar(HttpRequest.newBuilder(uri("/notificacoes")).GET().build());
 
     assertThat(resposta.statusCode()).isEqualTo(401);
+  }
+
+  @Test
+  @DisplayName("tempo real: sem token ou com token invalido o canal nao abre")
+  void tempoRealExigeTokenValido() {
+    HttpResponse<String> semToken =
+        enviar(HttpRequest.newBuilder(uri(CANAL)).GET().build());
+    HttpResponse<String> tokenInvalido =
+        enviar(
+            HttpRequest.newBuilder(uri(CANAL))
+                .header("Authorization", "Bearer nao-e-um-jwt")
+                .GET()
+                .build());
+
+    assertThat(semToken.statusCode()).isEqualTo(401);
+    assertThat(tokenInvalido.statusCode()).isEqualTo(401);
+  }
+
+  @Test
+  @DisplayName("tempo real: abre sincronizando as nao lidas e empurra a notificacao nova do dono")
+  void tempoRealEmpurraANotificacaoDoDono() throws Exception {
+    UUID eu = UUID.randomUUID();
+    UUID outro = UUID.randomUUID();
+    notificar(EventoDeNotificacao.SEGUIDOR_NOVO, Fato.para(eu));
+
+    try (CanalSse canal = abrirCanal(token(eu))) {
+      EventoSse sincronizacao = canal.proximo();
+      assertThat(sincronizacao.nome()).isEqualTo("sincronizacao");
+      assertThat(JSON.readTree(sincronizacao.dado()).get("totalNaoLidas").asInt()).isEqualTo(1);
+
+      notificar(EventoDeNotificacao.SEGUIDOR_NOVO, Fato.para(outro));
+      UUID minha = notificar(EventoDeNotificacao.ATIVIDADE_CURTIDA, Fato.para(eu));
+
+      EventoSse recebido = canal.proximo();
+      JsonNode dado = JSON.readTree(recebido.dado());
+      assertThat(recebido.nome()).isEqualTo("notificacao");
+      assertThat(recebido.id()).isEqualTo(minha.toString());
+      assertThat(dado.get("notificacao").get("id").asText()).isEqualTo(minha.toString());
+      assertThat(dado.get("notificacao").get("lida").asBoolean()).isFalse();
+      assertThat(dado.get("totalNaoLidas").asInt()).isEqualTo(2);
+    }
+  }
+
+  @Test
+  @DisplayName("tempo real: reentrega do mesmo evento nao empurra de novo")
+  void tempoRealNaoReentregaDuplicata() throws Exception {
+    UUID eu = UUID.randomUUID();
+    MessageEnvelope envelope =
+        EventosDeNotificacaoDeTeste.envelope(EventoDeNotificacao.SEGUIDOR_NOVO, Fato.para(eu));
+
+    try (CanalSse canal = abrirCanal(token(eu))) {
+      canal.proximo();
+      consumidor.handle(envelope);
+      consumidor.handle(envelope);
+      UUID seguinte = notificar(EventoDeNotificacao.ATIVIDADE_COMENTADA, Fato.para(eu));
+
+      assertThat(canal.proximo().id()).isNotNull();
+      assertThat(canal.proximo().id()).isEqualTo(seguinte.toString());
+    }
+  }
+
+  @Test
+  @DisplayName("tempo real: o servidor encerra o canal quando o token expira")
+  void tempoRealEncerraNaExpiracaoDoToken() throws Exception {
+    try (CanalSse canal = abrirCanal(token(UUID.randomUUID(), Duration.ofSeconds(2)))) {
+      assertThat(canal.proximo().nome()).isEqualTo("sincronizacao");
+
+      assertThat(canal.encerrado(Duration.ofSeconds(10))).isTrue();
+    }
+  }
+
+  private CanalSse abrirCanal(String bearer) throws Exception {
+    HttpResponse<Stream<String>> resposta =
+        HTTP.send(
+            HttpRequest.newBuilder(uri(CANAL))
+                .header("Authorization", "Bearer " + bearer)
+                .header("Accept", "text/event-stream")
+                .GET()
+                .build(),
+            HttpResponse.BodyHandlers.ofLines());
+    assertThat(resposta.statusCode()).isEqualTo(200);
+    assertThat(resposta.headers().firstValue("Content-Type")).hasValueSatisfying(
+        tipo -> assertThat(tipo).startsWith("text/event-stream"));
+    return new CanalSse(resposta.body());
+  }
+
+  private record EventoSse(String nome, String id, String dado) {}
+
+  /** Lê o stream SSE numa thread própria; ignora heartbeats. */
+  private static final class CanalSse implements AutoCloseable {
+
+    private static final Duration ESPERA = Duration.ofSeconds(10);
+    private static final EventoSse FIM = new EventoSse(null, null, null);
+
+    private final Stream<String> linhas;
+    private final BlockingQueue<EventoSse> eventos = new LinkedBlockingQueue<>();
+    private final Thread leitor;
+
+    CanalSse(Stream<String> linhas) {
+      this.linhas = linhas;
+      this.leitor = Thread.ofVirtual().start(this::ler);
+    }
+
+    private void ler() {
+      String[] atual = new String[3];
+      try {
+        linhas.forEach(
+            linha -> {
+              if (linha.isEmpty()) {
+                if (atual[0] != null || atual[2] != null) {
+                  eventos.add(new EventoSse(atual[0], atual[1], atual[2]));
+                }
+                Arrays.fill(atual, null);
+              } else if (linha.startsWith("event:")) {
+                atual[0] = linha.substring("event:".length());
+              } else if (linha.startsWith("id:")) {
+                atual[1] = linha.substring("id:".length());
+              } else if (linha.startsWith("data:")) {
+                atual[2] = linha.substring("data:".length());
+              }
+            });
+      } catch (UncheckedIOException fechado) {
+        // close() durante a leitura.
+      } finally {
+        eventos.add(FIM);
+      }
+    }
+
+    EventoSse proximo() throws InterruptedException {
+      EventoSse evento = eventos.poll(ESPERA.toMillis(), TimeUnit.MILLISECONDS);
+      assertThat(evento).as("evento SSE dentro de %s", ESPERA).isNotNull().isNotSameAs(FIM);
+      return evento;
+    }
+
+    boolean encerrado(Duration limite) throws InterruptedException {
+      return eventos.poll(limite.toMillis(), TimeUnit.MILLISECONDS) == FIM;
+    }
+
+    @Override
+    public void close() throws InterruptedException {
+      linhas.close();
+      leitor.join(ESPERA.toMillis());
+    }
   }
 
   private UUID notificar(EventoDeNotificacao evento, Fato fato) {

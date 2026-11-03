@@ -26,6 +26,7 @@ import {
   aplicarEvento,
 } from '../../leituras/dominio/maquina-estados';
 import { livroAdicionadoAEstante } from '../../leituras/dominio/eventos';
+import { FavoritosService } from '../../favoritos/aplicacao/favoritos.service';
 import { OutboxRepository } from '../../outbox/outbox.repository';
 import { percentualConcluido } from '../../progresso/dominio/progresso';
 import { ReferenciasExternas } from '../../referencias/referencias-externas.service';
@@ -59,6 +60,7 @@ export class EstanteService {
     private readonly idempotencia: IdempotenciaService,
     private readonly referencias: ReferenciasExternas,
     private readonly outbox: OutboxRepository,
+    private readonly favoritos: FavoritosService,
   ) {}
 
   adicionar(
@@ -103,11 +105,17 @@ export class EstanteService {
           tx,
           livroAdicionadoAEstante({ usuarioId, livroId }),
         );
+        const favoritadoEm = await this.favoritos.favoritadoEm(
+          usuarioId,
+          livroId,
+          tx,
+        );
 
         return {
           status: HttpStatus.CREATED,
-          corpo: paraItem({
+          corpo: paraItemProprio({
             ...vinculo,
+            favorito: favoritadoEm !== null,
             leituraEmAndamentoId: null,
             ultimaLeitura: null,
             paginaAtual: null,
@@ -148,11 +156,15 @@ export class EstanteService {
     );
   }
 
-  listarMinha(
+  async listarMinha(
     usuarioId: string,
     consulta: ConsultaEstanteDto,
   ): Promise<PaginaEstante> {
-    return this.listar(usuarioId, consulta);
+    const [pagina, totalFavoritos] = await Promise.all([
+      this.listar(usuarioId, consulta, paraItemProprio),
+      this.favoritos.contar(usuarioId),
+    ]);
+    return { ...pagina, totalFavoritos };
   }
 
   async listarDoPerfil(
@@ -175,7 +187,7 @@ export class EstanteService {
         throw new AcessoNegado('Este perfil é privado.');
       }
     }
-    return this.listar(usuarioId, consulta);
+    return this.listar(usuarioId, consulta, paraItem);
   }
 
   async consultarItem(
@@ -186,7 +198,7 @@ export class EstanteService {
     if (!linha) {
       throw new NaoEncontrado(LIVRO_FORA_DA_ESTANTE);
     }
-    return paraItem(linha);
+    return paraItemProprio(linha);
   }
 
   async consultarConclusoes(
@@ -210,6 +222,7 @@ export class EstanteService {
   private async listar(
     usuarioId: string,
     consulta: ConsultaEstanteDto,
+    mapear: (linha: LinhaEstante) => ItemEstante,
   ): Promise<PaginaEstante> {
     const page = consulta.page ?? PAGINA_PADRAO;
     const limite = Math.min(consulta.limite ?? LIMITE_PADRAO, LIMITE_MAXIMO);
@@ -217,6 +230,7 @@ export class EstanteService {
     const [{ linhas, totalItens }, contagens] = await Promise.all([
       this.repositorio.listar(usuarioId, {
         status: consulta.status && statusParaBanco(consulta.status),
+        q: consulta.q,
         ordenacao: consulta.ordenacao ?? ORDENACAO_PADRAO,
         offset: (page - 1) * limite,
         limite,
@@ -225,7 +239,7 @@ export class EstanteService {
     ]);
 
     return {
-      itens: linhas.map(paraItem),
+      itens: linhas.map(mapear),
       paginacao: {
         page,
         limite,
@@ -262,6 +276,10 @@ function erroDaTransicao({ erro }: { erro: TransicaoInvalida }): ErroDeNegocio {
 }
 
 const STATUS_COM_PROGRESSO: readonly StatusEstante[] = ['lendo', 'abandonado'];
+
+function paraItemProprio(linha: LinhaEstante): ItemEstante {
+  return { ...paraItem(linha), favorito: linha.favorito };
+}
 
 function paraItem(linha: LinhaEstante): ItemEstante {
   const paginaAtual = STATUS_COM_PROGRESSO.includes(linha.status)

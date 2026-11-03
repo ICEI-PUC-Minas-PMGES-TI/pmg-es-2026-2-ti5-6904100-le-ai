@@ -21,6 +21,7 @@ public record NotificacaoResposta(
     String leituraId,
     Integer limiarDias,
     LivroDaNotificacaoResposta livro,
+    String recomendacaoMensagem,
     AcaoNotificacaoResposta acao,
     boolean lida,
     Instant lidaEm,

@@ -1,15 +1,19 @@
 name: ci-back-identidade
 
 on:
+  # O spec entra no filtro porque os testes de integração validam cada resposta contra
+  # ele (ContratoHttp): mudar o contrato precisa rodar o teste de contrato.
   push:
     paths:
       - 'code/back/identidade/**'
       - '!code/back/identidade/**.md'
+      - 'docs/api/identidade.yaml'
       - '.github/workflows/ci-back-identidade.yml'
   pull_request:
     paths:
       - 'code/back/identidade/**'
       - '!code/back/identidade/**.md'
+      - 'docs/api/identidade.yaml'
       - '.github/workflows/ci-back-identidade.yml'
   workflow_dispatch:
 

@@ -27,12 +27,59 @@ public class LimitesDeInteracao {
         Clock.systemUTC());
   }
 
+  public static final int MENCOES_POR_MINUTO = 10;
+
+  @Bean
+  LimitePorUsuario limiteDeMencionar() {
+    return new LimitePorUsuario(
+        MENCOES_POR_MINUTO,
+        "Muitas menções seguidas. Espere alguns minutos para salvar de novo.",
+        Clock.systemUTC());
+  }
+
+  // Conta por envio, não por destinatário: o teto de 20 destinatários já limita o lote.
+  public static final int RECOMENDACOES_POR_MINUTO = 10;
+
+  @Bean
+  LimitePorUsuario limiteDeRecomendar() {
+    return new LimitePorUsuario(
+        RECOMENDACOES_POR_MINUTO,
+        "Muitas recomendações em pouco tempo. Tente de novo em instantes.",
+        Clock.systemUTC());
+  }
+
   /** Criar comentário (`criarComentario`), inclusive respostas. */
   @Bean
   LimitePorUsuario limiteDeComentar() {
     return new LimitePorUsuario(
         INTERACOES_POR_MINUTO,
         "Muitos comentários em pouco tempo. Tente de novo em instantes.",
+        Clock.systemUTC());
+  }
+
+  /**
+   * Todas as escritas de listas (F-LST): criar, editar, excluir, adicionar, remover e mover. Mesmo
+   * teto das outras interações; nenhuma fonte fixa um valor próprio para listas.
+   */
+  @Bean
+  LimitePorUsuario limiteDeListas() {
+    return new LimitePorUsuario(
+        INTERACOES_POR_MINUTO,
+        "Muitas alterações em listas em pouco tempo. Tente de novo em instantes.",
+        Clock.systemUTC());
+  }
+
+  /**
+   * Denunciar resenha ou comentário (F-MOD, RNF-SEC-18). Mais baixo que curtir e comentar: denúncia
+   * vira trabalho do administrador, e dez por minuto já é muito para um leitor de boa-fé.
+   */
+  public static final int DENUNCIAS_POR_MINUTO = 10;
+
+  @Bean
+  LimitePorUsuario limiteDeDenunciar() {
+    return new LimitePorUsuario(
+        DENUNCIAS_POR_MINUTO,
+        "Você enviou muitas denúncias em pouco tempo. Espere alguns minutos e tente de novo.",
         Clock.systemUTC());
   }
 }

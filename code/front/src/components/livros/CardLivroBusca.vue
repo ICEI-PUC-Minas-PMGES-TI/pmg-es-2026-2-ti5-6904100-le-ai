@@ -14,7 +14,14 @@ import CapaLivro from './CapaLivro.vue'
  * dele, expandindo as outras edições logo abaixo, cada uma abrindo a sua. Nenhuma nota: ela só
  * existe a partir de F-ACV-NOTA.
  */
-const props = defineProps<{ grupo: GrupoDeEdicoes }>()
+const props = withDefaults(
+  defineProps<{
+    grupo: GrupoDeEdicoes
+    /** Página da série (pagina-da-serie.md): `Livro N` na primeira linha; `null` não mostra nada. */
+    numeroNaSerie?: number | null
+  }>(),
+  { numeroNaSerie: null },
+)
 
 const expandido = ref(false)
 const livro = computed(() => props.grupo.principal)
@@ -47,6 +54,12 @@ function destino(id: string) {
         class="h-[120px] w-20"
       />
       <div class="flex min-w-0 flex-1 flex-col items-start">
+        <p
+          v-if="numeroNaSerie !== null"
+          class="mb-space-1 text-caption font-semibold text-grafite"
+        >
+          Livro <span class="font-mono">{{ numeroNaSerie }}</span>
+        </p>
         <h3 class="line-clamp-2 text-title-sm text-tinta">
           <RouterLink
             :to="destino(livro.id)"

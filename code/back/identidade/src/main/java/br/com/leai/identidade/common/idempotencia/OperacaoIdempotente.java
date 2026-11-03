@@ -25,7 +25,9 @@ public enum OperacaoIdempotente {
   DEIXAR_DE_SEGUIR("deixarDeSeguirPerfil", false),
   REMOVER_SEGUIDOR("removerSeguidor", false),
   ACEITAR_SOLICITACAO("aceitarSolicitacao", false),
-  RECUSAR_SOLICITACAO("recusarSolicitacao", false);
+  RECUSAR_SOLICITACAO("recusarSolicitacao", false),
+  SOLICITAR_EXCLUSAO_CONTA("solicitarExclusaoConta", false),
+  CANCELAR_EXCLUSAO_CONTA("cancelarExclusaoConta", false);
 
   private final String operationId;
   private final boolean respostaSensivel;

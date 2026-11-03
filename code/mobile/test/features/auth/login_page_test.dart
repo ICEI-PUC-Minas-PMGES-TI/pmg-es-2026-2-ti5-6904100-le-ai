@@ -241,4 +241,64 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(IndicadorDeEnvio), findsNothing);
   });
+
+  testWidgets('"Esqueci minha senha" chama aoEsquecerSenha sem tocar no servidor', (tester) async {
+    var chamado = false;
+    var esqueceu = false;
+    await tester.pumpWidget(
+      _wrap(
+        LoginPage(
+          authService: servico((request) async {
+            chamado = true;
+            return http.Response('{}', 200);
+          }),
+          sessionController: sessionController,
+          aoEsquecerSenha: () => esqueceu = true,
+        ),
+      ),
+    );
+
+    final link = find.text('Esqueci minha senha');
+    await tester.ensureVisible(link);
+    await tester.tap(link);
+    await tester.pump();
+
+    expect(esqueceu, isTrue);
+    expect(chamado, isFalse);
+  });
+
+  testWidgets('conta em exclusão guarda o acesso de recuperação, sem sessão e sem aoEntrar', (
+    tester,
+  ) async {
+    var aoEntrarChamado = false;
+    await tester.pumpWidget(
+      _wrap(
+        LoginPage(
+          authService: servico(
+            (request) async => http.Response(
+              '{"tipo":"recuperacao_exclusao","accessToken":"jwt-r","tokenType":"Bearer",'
+              '"expiresIn":900,"exclusaoSolicitadaEm":"2026-09-29T12:00:00Z",'
+              '"exclusaoPrevistaEm":"2026-10-29T12:00:00Z","username":"marinableu",'
+              '"nomeExibicao":"Marina Beltrão"}',
+              200,
+              headers: <String, String>{'content-type': 'application/json; charset=utf-8'},
+            ),
+          ),
+          sessionController: sessionController,
+          aoEntrar: () => aoEntrarChamado = true,
+        ),
+      ),
+    );
+
+    final campos = find.byType(TextField);
+    await tester.enterText(campos.at(0), 'marinableu');
+    await tester.enterText(campos.at(1), 'senha-bem-comprida');
+    await _tocarBotaoPrincipal(tester, 'Entrar');
+    await tester.pumpAndSettle();
+
+    expect(sessionController.recuperacao?.accessToken, 'jwt-r');
+    expect(sessionController.token, isNull);
+    expect(sessionController.refreshToken, isNull);
+    expect(aoEntrarChamado, isFalse);
+  });
 }

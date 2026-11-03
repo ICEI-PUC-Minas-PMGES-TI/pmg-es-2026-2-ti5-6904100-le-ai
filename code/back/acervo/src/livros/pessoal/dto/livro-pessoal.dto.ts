@@ -116,6 +116,17 @@ export class ResenhaResumoDto {
   @ApiProperty() spoiler!: boolean;
   @ApiProperty({ format: 'date-time' }) criadoEm!: string;
   @ApiProperty({ format: 'date-time' }) atualizadoEm!: string;
+  /** Curtidas ativas (RF-AVA-08, F-AVA-2). */
+  @ApiProperty({ minimum: 0 }) curtidas!: number;
+  /** Descurtidas ativas, contadas à parte (RF-AVA-08). */
+  @ApiProperty({ minimum: 0 }) descurtidas!: number;
+  /** Reação ativa de quem está vendo; `null` sem reação e na resenha do próprio leitor. */
+  @ApiProperty({
+    enum: ['curtida', 'descurtida'],
+    nullable: true,
+    type: String,
+  })
+  minhaReacao!: 'curtida' | 'descurtida' | null;
 }
 
 /**

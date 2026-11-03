@@ -3,7 +3,7 @@ import type { Pool } from 'pg';
 
 /**
  * Massa dos testes de integração, gravada nas tabelas que fazem papel das VIEWs
- * de `acervo` e `identidade` (ver `banco.ts`).
+ * de `acervo`, `identidade` e `social` (ver `banco.ts`).
  */
 
 export interface LivroDeTeste {
@@ -86,4 +86,34 @@ export async function seguir(
      VALUES ($1, $2)`,
     [seguidorId, seguidoId],
   );
+}
+
+/** Atividade ativa do dono sobre o livro pessoal: a via do feed de RN-15. */
+export async function publicarNoFeed(
+  pool: Pool,
+  donoId: string,
+  livroId: string,
+): Promise<string> {
+  const atividadeId = randomUUID();
+  await pool.query(
+    `INSERT INTO social.v_atividade_livro_pessoal_v1 (atividade_id, dono_id, livro_id)
+     VALUES ($1, $2, $3)`,
+    [atividadeId, donoId, livroId],
+  );
+  return atividadeId;
+}
+
+/** Livro pessoal numa lista ativa do dono: a via da lista de RN-15. */
+export async function incluirEmLista(
+  pool: Pool,
+  donoId: string,
+  livroId: string,
+): Promise<string> {
+  const listaId = randomUUID();
+  await pool.query(
+    `INSERT INTO social.v_lista_livro_pessoal_v1 (lista_id, dono_id, livro_id)
+     VALUES ($1, $2, $3)`,
+    [listaId, donoId, livroId],
+  );
+  return listaId;
 }

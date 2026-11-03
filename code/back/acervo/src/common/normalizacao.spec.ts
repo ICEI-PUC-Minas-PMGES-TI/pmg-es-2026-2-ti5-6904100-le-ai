@@ -48,6 +48,26 @@ describe('normalização RN-12', () => {
     );
   });
 
+  // A fonte manda parte dos nomes decomposta (NFD). O acento solto não é letra,
+  // e sem compor antes ele virava espaço: "João" saía "joa o".
+  it.each([
+    [normalizarNomeAutor, 'João Guimarães Rosa', 'joao guimaraes rosa'],
+    [normalizarEditora, 'Civilização Brasileira', 'civilização brasileira'],
+    [
+      normalizarNome,
+      'Coleção Memória da educação',
+      'coleção memória da educação',
+    ],
+  ])(
+    'nome decomposto normaliza igual ao composto (%#)',
+    (funcao, composto, esperado) => {
+      const decomposto = composto.normalize('NFD');
+      expect(decomposto).not.toBe(composto);
+      expect(funcao(decomposto)).toBe(esperado);
+      expect(funcao(composto)).toBe(esperado);
+    },
+  );
+
   it.each([
     '[author not identified]',
     '[Unknown]',

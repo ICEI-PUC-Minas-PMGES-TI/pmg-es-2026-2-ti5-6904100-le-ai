@@ -3,8 +3,13 @@ import {
   normalizarEditora,
   normalizarNomeAutor,
 } from '../../common/normalizacao';
+import { LIMITE_DA_BIOGRAFIA, textoPuro } from '../../common/texto-puro';
 import type { Tx } from '../../db/tipos';
-import type { AutorExterno, MetadadosLivro } from './dominio/fonte-metadados';
+import {
+  notaExterna,
+  type AutorExterno,
+  type MetadadosLivro,
+} from './dominio/fonte-metadados';
 import type { RepositorioDeConvergencia } from './dominio/processador-importacao';
 
 /** Mesmo teto de título do livro pessoal (`LivroPessoalEntrada`). */
@@ -48,11 +53,12 @@ export class ConvergenciaRepository implements RepositorioDeConvergencia {
     const criado = await this.primeiroId(sql`
       INSERT INTO acervo.livro (
         isbn13, ol_edition_key, ol_work_key, titulo, ano_publicacao, paginas,
-        capa_url_externa, tipo, editora_id, ativo
+        capa_url_externa, tipo, editora_id, ativo, nota_geral, nota_geral_qtd
       ) VALUES (
         ${dados.isbn13}, ${dados.olEditionKey}, ${dados.olWorkKey},
         ${dados.titulo}, ${dados.anoPublicacao}, ${dados.paginas},
-        ${dados.capaUrl}, 'oficial', ${editoraId}, true
+        ${dados.capaUrl}, 'oficial', ${editoraId}, true,
+        ${dados.notaGeral?.valor ?? null}, ${dados.notaGeral?.quantidade ?? null}
       )
       ON CONFLICT (isbn13) WHERE isbn13 IS NOT NULL DO NOTHING
       RETURNING id
@@ -155,9 +161,19 @@ export class ConvergenciaRepository implements RepositorioDeConvergencia {
     const normalizado = normalizarNomeAutor(autor.nome);
 
     if (autor.olAuthorKey) {
+      // Chave que a ingestão juntou a outro autor (`unificar`, a partir de
+      // `autores_unificados.csv`): o livro vai para o canônico, e a biografia
+      // da fonte, que muitas vezes é de um homônimo, fica de fora.
+      const unificado = await this.primeiroId(sql`
+        SELECT autor_id AS id FROM acervo.autor_chave_unificada
+         WHERE ol_author_key = ${autor.olAuthorKey}
+      `);
+      if (unificado) return unificado;
+
+      const biografia = autor.biografia ?? null;
       await this.tx.execute(sql`
-        INSERT INTO acervo.autor (nome, nome_normalizado, ol_author_key)
-        VALUES (${autor.nome}, ${normalizado}, ${autor.olAuthorKey})
+        INSERT INTO acervo.autor (nome, nome_normalizado, ol_author_key, biografia)
+        VALUES (${autor.nome}, ${normalizado}, ${autor.olAuthorKey}, ${biografia})
         ON CONFLICT (ol_author_key) WHERE ol_author_key IS NOT NULL DO NOTHING
       `);
       const id = await this.primeiroId(sql`
@@ -165,6 +181,14 @@ export class ConvergenciaRepository implements RepositorioDeConvergencia {
       `);
       if (!id)
         throw new Error(`autor ${autor.olAuthorKey} sumiu após conflito`);
+      // Autor que já existia sem biografia (carga anterior ao script de
+      // biografias) a recebe agora; a que já existe nunca é sobrescrita.
+      if (biografia) {
+        await this.tx.execute(sql`
+          UPDATE acervo.autor SET biografia = ${biografia}
+           WHERE id = ${id} AND biografia IS NULL
+        `);
+      }
       return id;
     }
 
@@ -221,8 +245,21 @@ export function sanear(m: MetadadosLivro) {
     editora: m.editora?.trim() ? m.editora.trim().slice(0, 200) : null,
     olEditionKey: m.olEditionKey,
     olWorkKey: m.olWorkKey,
+    // Só na inserção: livro existente não é reimportado. As duas colunas
+    // andam juntas (CHECK), e a nota passa de novo pela validação.
+    notaGeral: m.notaGeral
+      ? notaExterna(m.notaGeral.valor, m.notaGeral.quantidade)
+      : null,
     autores: m.autores
-      .map((a) => ({ ...a, nome: a.nome.trim().slice(0, 200) }))
+      .map((a) => ({
+        ...a,
+        nome: a.nome.trim().slice(0, 200),
+        // Mesmo tratamento da sinopse: sem marcação, com o teto do CHECK
+        // `autor_biografia_ck`; vazio vira null.
+        biografia: a.biografia
+          ? textoPuro(a.biografia, LIMITE_DA_BIOGRAFIA)
+          : null,
+      }))
       .filter((a) => {
         const chave = a.olAuthorKey ?? normalizarNomeAutor(a.nome);
         if (!a.nome || !normalizarNomeAutor(a.nome) || autoresVistos.has(chave))

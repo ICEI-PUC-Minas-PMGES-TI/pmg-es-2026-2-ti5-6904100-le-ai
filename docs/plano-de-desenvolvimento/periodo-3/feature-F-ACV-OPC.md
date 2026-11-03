@@ -1,7 +1,7 @@
 # F-ACV-OPC — Extras de acervo
 
 **Período:** 3 · **Prioridade:** opcional
-**Dono:** a definir · **Serviços afetados:** `acervo` (backend) + **script utilitário de carga** (fora dos 4 serviços) + web + mobile
+**Dono:** Renato Douglas · **Serviços afetados:** `acervo` (backend) + **script utilitário de carga** (fora dos 4 serviços) + web + mobile
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.2 (RF-ACV-14, 22), RN-03, RN-12, RN-14, RN-19, RN-21, §10.1, §10.2. Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §2.1, §2.4, §4.1. Processo e template: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §9. Regras compartilhadas do projeto: [`../periodo-1/README.md#regras-de-implementação-compartilhadas`](../periodo-1/README.md#regras-de-implementação-compartilhadas). Em caso de conflito, o `REQUISITOS.md` ganha; protótipo é referência visual, não spec de pixel (plano §7).
 
@@ -95,6 +95,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 ## Pendências
 
+- **Telas (design P3):** lote 4, prompts de edição escritos em 11/10/2026: [`cadastro-pessoal.md`](../../design/periodo-3/cadastro-pessoal/cadastro-pessoal.md) ([protótipo](../../design/periodo-3/cadastro-pessoal/prototipos/cadastro-pessoal.html)) (W+M, campo opcional `Assuntos` entre `Número de páginas` e `Sinopse`, em criar e editar, seletor com os 31 assuntos curados e busca que só filtra; acima de 5 só avisa; falha ao carregar não impede salvar) e [`livro-pessoal.md`](../../design/periodo-3/livro-pessoal/livro-pessoal.md) ([protótipo](../../design/periodo-3/livro-pessoal/prototipos/livro-pessoal.html)) (W+M, linha `Assuntos` na ficha em texto, não clicável, para o dono e no modo consulta; some quando vazia). A ratificar: texto e não chip, ordem alfabética, fechar o seletor sem `Concluir` descarta, texto do aviso. Contratos a confirmar: `GET /assuntos` reaproveitado ou novo, erro de assunto inexistente, `assuntos[]` na leitura do livro pessoal também no modo consulta. RF-ACV-14 (recarga do dump) não tem tela. Protótipos exportados em 21/10/2026.
 - **Depende de** [F-ACV-INGESTAO](../periodo-1/feature-F-ACV-INGESTAO.md) (script, tabelas, conjunto curado, tabelas de mapeamento e de sinônimos), [F-ACV-CADASTRO](../periodo-1/feature-F-ACV-CADASTRO.md) (endpoints de livro pessoal), [F-ACV-BUSCA](../periodo-1/feature-F-ACV-BUSCA.md) (exibição na página do livro), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md). Não depende de mensageria.
 - **Decisão encerrada em 15/09/2026:** atualização automática removida; esta feature mantém somente a recarga manual já planejada.
 - **Assuntos de livro pessoal na recomendação algorítmica:** [F-REC-ALG](feature-F-REC-ALG.md) exclui livro pessoal de terceiros (RF-REC-10); resta ao grupo decidir se os assuntos do livro pessoal **do próprio leitor** contam como sinal de gosto na seção "Do seu gosto". Não decidir aqui.

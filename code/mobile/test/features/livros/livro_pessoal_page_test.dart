@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 
+import 'dart:convert';
+
+import 'package:le_ai_mobile/features/feed/social_service.dart';
 import 'package:le_ai_mobile/features/livros/livro_pessoal_page.dart';
 
+import '../feed/apoio.dart' show socialSimulado;
 import 'apoio.dart';
 
 const _id = 'dddddddd-4444-4444-8444-dddddddddddd';
@@ -56,6 +60,7 @@ void main() {
     String? referenciaId,
     VoidCallback? aoExcluir,
     Future<void> Function(String)? aoEditar,
+    SocialService? social,
   }) async {
     usarTelaDeCelular(tester);
     await tester.pumpWidget(
@@ -74,6 +79,7 @@ void main() {
           referenciaId: referenciaId,
           aoExcluir: aoExcluir,
           aoEditar: aoEditar,
+          social: social,
         ),
       ),
     );
@@ -135,6 +141,45 @@ void main() {
     expect(pedidosDeLeitura, isEmpty);
   });
 
+  testWidgets('terceiro denuncia a resenha do dono com a via que abriu a página (F-MOD)', (tester) async {
+    final denuncias = <http.Request>[];
+    await montar(
+      tester,
+      (_) async => json(_livro(consulta: true, comAvaliacao: true), 200),
+      via: 'lista',
+      referenciaId: _atividade,
+      social: socialSimulado((pedido) async {
+        denuncias.add(pedido);
+        return json(<String, Object?>{}, 201);
+      }),
+    );
+
+    await tocar(tester, find.byTooltip('Mais ações da resenha'));
+    await tester.pumpAndSettle();
+    await tocar(tester, find.text('Denunciar resenha'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey<String>('campo-motivo')), 'Spam');
+    await tocar(tester, find.text('Revisar denúncia'));
+    await tester.pumpAndSettle();
+    await tocar(tester, find.text('Enviar denúncia'));
+    await tester.pumpAndSettle();
+
+    final corpo = jsonDecode(denuncias.single.body) as Map<String, dynamic>;
+    expect(corpo['alvoId'], '11111111-1111-4111-8111-111111111111');
+    expect(corpo['via'], 'lista');
+    expect(corpo['referenciaId'], _atividade);
+  });
+
+  testWidgets('o dono não tem o menu de denúncia', (tester) async {
+    await montar(
+      tester,
+      (_) async => json(_livro(comAvaliacao: true), 200),
+      social: socialSimulado((_) async => json(<String, Object?>{}, 201)),
+    );
+
+    expect(find.byTooltip('Mais ações da resenha'), findsNothing);
+  });
+
   testWidgets('terceiro: resenha do dono com spoiler fica fora da árvore até o toque', (
     tester,
   ) async {
@@ -182,11 +227,44 @@ void main() {
       );
 
       expect(find.text('Este livro não está mais disponível'), findsOneWidget);
-      expect(find.text('Ele pode ter sido excluído por quem o cadastrou.'), findsOneWidget);
+      expect(
+        find.text('Quem o cadastrou pode ter excluído o livro ou deixado de compartilhá-lo.'),
+        findsOneWidget,
+      );
       expect(find.text('Voltar ao feed'), findsOneWidget);
       expect(find.text('Cartas de um sertanejo'), findsNothing);
     });
   }
+
+  // F-LST: até a etapa 3, o `acervo` recusa `via=lista` com 400; para quem chega pela lista, é o
+  // mesmo indisponível, com a volta à lista.
+  for (final status in <int>[400, 403]) {
+    testWidgets('pela lista, $status: indisponível com "Voltar à lista"', (tester) async {
+      await montar(
+        tester,
+        (_) async => erro(status, 'REQUISICAO_INVALIDA', 'Via de acesso inválida.'),
+        via: 'lista',
+        referenciaId: _atividade,
+      );
+
+      expect(pedidos.single.url.queryParameters['via'], 'lista');
+      expect(find.text('Este livro não está mais disponível'), findsOneWidget);
+      expect(find.text('Voltar à lista'), findsOneWidget);
+      expect(find.text('Voltar ao feed'), findsNothing);
+    });
+  }
+
+  testWidgets('400 fora da lista continua sendo falha, não indisponível', (tester) async {
+    await montar(
+      tester,
+      (_) async => erro(400, 'REQUISICAO_INVALIDA', 'Via de acesso inválida.'),
+      via: 'feed',
+      referenciaId: _atividade,
+    );
+
+    expect(find.text('Este livro não está mais disponível'), findsNothing);
+    expect(find.text('Tentar de novo'), findsOneWidget);
+  });
 
   testWidgets('dono exclui pelo menu, com confirmação que nomeia o livro', (tester) async {
     var excluido = false;

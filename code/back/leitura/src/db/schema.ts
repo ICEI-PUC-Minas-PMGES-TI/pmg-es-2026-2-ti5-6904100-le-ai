@@ -473,31 +473,13 @@ export const diaLeitura = leituraSchema.table(
   ],
 );
 
-export const estatisticaAnual = leituraSchema.table(
-  'estatistica_anual',
-  {
-    usuarioId: uuid('usuario_id').notNull(),
-    ano: integer('ano').notNull(),
-    livrosConcluidos: integer('livros_concluidos').notNull().default(0),
-    paginasLidas: integer('paginas_lidas').notNull().default(0),
-    minutosLidos: integer('minutos_lidos').notNull().default(0),
-    recalculadoEm: timestamp('recalculado_em', { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-  },
-  (table) => [
-    primaryKey({
-      name: 'estatistica_anual_pk',
-      columns: [table.usuarioId, table.ano],
-    }),
-    check('estatistica_anual_ano_ck', sql`${table.ano} between 1 and 9999`),
-    check(
-      'estatistica_anual_totais_ck',
-      sql`${table.livrosConcluidos} >= 0 and ${table.paginasLidas} >= 0 and ${table.minutosLidos} >= 0`,
-    ),
-  ],
-);
-
+/**
+ * Estatísticas do leitor (F-STA) em baldes mensais: o ano é a soma dos seus
+ * meses e o acumulado, a soma de todos. Dias com leitura somam sem contar duas
+ * vezes porque cada data local cai num só mês; a nota média sai de
+ * `notas_soma / notas_quantidade`. Recomposto do estado atual pelo consumidor
+ * de métricas e pelas mutações locais (RF-STA-05).
+ */
 export const estatisticaMensal = leituraSchema.table(
   'estatistica_mensal',
   {
@@ -507,6 +489,18 @@ export const estatisticaMensal = leituraSchema.table(
     livrosConcluidos: integer('livros_concluidos').notNull().default(0),
     paginasLidas: integer('paginas_lidas').notNull().default(0),
     minutosLidos: integer('minutos_lidos').notNull().default(0),
+    diasComLeitura: integer('dias_com_leitura').notNull().default(0),
+    diasEmLivrosConcluidos: integer('dias_em_livros_concluidos')
+      .notNull()
+      .default(0),
+    notasQuantidade: integer('notas_quantidade').notNull().default(0),
+    notasSoma: numeric('notas_soma', {
+      precision: 10,
+      scale: 1,
+      mode: 'number',
+    })
+      .notNull()
+      .default(0),
     recalculadoEm: timestamp('recalculado_em', { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -520,39 +514,7 @@ export const estatisticaMensal = leituraSchema.table(
     check('estatistica_mensal_mes_ck', sql`${table.mes} between 1 and 12`),
     check(
       'estatistica_mensal_totais_ck',
-      sql`${table.livrosConcluidos} >= 0 and ${table.paginasLidas} >= 0 and ${table.minutosLidos} >= 0`,
-    ),
-  ],
-);
-
-export const estatisticaUsuario = leituraSchema.table(
-  'estatistica_usuario',
-  {
-    usuarioId: uuid('usuario_id').primaryKey(),
-    livrosConcluidos: integer('livros_concluidos').notNull().default(0),
-    paginasLidas: integer('paginas_lidas').notNull().default(0),
-    minutosLidos: integer('minutos_lidos').notNull().default(0),
-    diasComLeitura: integer('dias_com_leitura').notNull().default(0),
-    diasEmLivrosConcluidos: integer('dias_em_livros_concluidos')
-      .notNull()
-      .default(0),
-    notaMedia: numeric('nota_media', {
-      precision: 2,
-      scale: 1,
-      mode: 'number',
-    }),
-    recalculadoEm: timestamp('recalculado_em', { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-  },
-  (table) => [
-    check(
-      'estatistica_usuario_totais_ck',
-      sql`${table.livrosConcluidos} >= 0 and ${table.paginasLidas} >= 0 and ${table.minutosLidos} >= 0 and ${table.diasComLeitura} >= 0 and ${table.diasEmLivrosConcluidos} >= 0`,
-    ),
-    check(
-      'estatistica_usuario_nota_media_ck',
-      sql`${table.notaMedia} is null or (${table.notaMedia} >= 0 and ${table.notaMedia} <= 5)`,
+      sql`${table.livrosConcluidos} >= 0 and ${table.paginasLidas} >= 0 and ${table.minutosLidos} >= 0 and ${table.diasComLeitura} >= 0 and ${table.diasEmLivrosConcluidos} >= 0 and ${table.notasQuantidade} >= 0 and ${table.notasSoma} >= 0`,
     ),
   ],
 );
@@ -673,6 +635,22 @@ export const vResenhaPublicacaoV1 = leituraSchema.view(
   from ${resenha}
   left join ${reacaoResenha} on ${reacaoResenha.resenhaId} = ${resenha.id}
   group by ${resenha.id}`);
+
+/**
+ * Reação ativa de cada leitor a cada resenha (F-AVA-2). O `acervo` lê esta VIEW para devolver,
+ * junto das resenhas da página do livro, a reação de quem está vendo (`minhaReacao`). Reação
+ * retirada (`ativa = false`) não aparece, igual às contagens de `v_resenha_publicacao_v1`.
+ */
+export const vReacaoResenhaV1 = leituraSchema.view('v_reacao_resenha_v1', {
+  resenhaId: uuid('resenha_id').notNull(),
+  usuarioId: uuid('usuario_id').notNull(),
+  tipo: text('tipo').notNull(),
+}).as(sql`select
+    ${reacaoResenha.resenhaId} as resenha_id,
+    ${reacaoResenha.usuarioId} as usuario_id,
+    ${reacaoResenha.tipo} as tipo
+  from ${reacaoResenha}
+  where ${reacaoResenha.ativa}`);
 
 export const vNotaPublicacaoV1 = leituraSchema.view('v_nota_publicacao_v1', {
   usuarioId: uuid('usuario_id').notNull(),

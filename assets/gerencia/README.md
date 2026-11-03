@@ -68,6 +68,23 @@ trabalho novo na EAP exige linha nova aqui; pacote removido tem sua linha removi
 > do que foi entregue no período 0, e não de uma autoavaliação da equipe. O grupo confirma ou corrige
 > antes da coleta de assinaturas.
 
+## Orçamento do Projeto
+
+Elaborado em **26/10/2026**. Distribui por mês o custo estimado no TAP nº 01, item 4
+(**R$ 46.420,88**, com desembolso de **R$ 0,00**), estima o custo de recursos humanos por etapa da
+EAP e acompanha orçado x realizado na data de status. Sem apontamento de horas, o realizado repete a
+base do orçado: o CPI de 1,00 é premissa, não medição.
+
+| Arquivo | Conteúdo |
+| --- | --- |
+| [`orcamento_do_projeto.md`](orcamento_do_projeto.md) | **Versão canônica**: bases das estimativas, custos por recurso e por etapa, linha de base, requisitos de recursos financeiros e fluxo de caixa. |
+| [`orcamento_do_projeto.docx`](orcamento_do_projeto.docx) | Template da disciplina preenchido, com aprovação dos cinco integrantes. **Derivado** do `.md`. |
+| [`Previsoes-do-Orcamento-Le-Ai.xlsx`](Previsoes-do-Orcamento-Le-Ai.xlsx) | Planilha da disciplina: orçado e realizado mês a mês, status e parâmetros. As bases ficam na aba `Param` e alimentam as fórmulas. |
+
+> Os valores do `.md` e da planilha precisam bater. Mudança de base (valor-hora, câmbio, horas) altera
+> a linha de base e passa pelo controle de mudança; a cada revisão de status, atualizar a data e o
+> último mês realizado na aba `Param`.
+
 ## Processo e planejamento
 
 O processo de trabalho (branches, Definition of Done, rituais, prazos e períodos) não vive aqui — é fonte de verdade em [`../../docs/orquestador/plano-de-projeto.md`](../../docs/orquestador/plano-de-projeto.md). O acompanhamento das 37 features está no quadro Kanban do projeto: https://github.com/orgs/ICEI-PUC-Minas-PMGES-TI/projects/738

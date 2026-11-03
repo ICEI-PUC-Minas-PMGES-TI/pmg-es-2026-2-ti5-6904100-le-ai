@@ -5,6 +5,7 @@
 **Não funcionais:** RNF-SEC-20 (upload de imagem valida tipo real, tamanho e dimensões), RNF-SEC-02 (propriedade validada no servidor), RNF-USA-04 (confirmação na exclusão), RNF-USA-02 (responsiva na web), RNF-USA-03 (contraste WCAG AA), RNF-USA-05 (erro em pt-BR e acionável), RNF-ERR-09 (cold start é carregamento)
 **Regras de negócio:** RN-02 (livro pessoal não possui ISBN: o campo é ausente, não vazio), RN-03 (edição e exclusão exclusivas do dono; fora da busca, do catálogo e das páginas de autor, editora e série), RN-14.7 (a capa do livro pessoal é enviada pelo dono e não passa pelo cache de capas)
 **Versão web:** sim. RF-ACV-08 e RF-ACV-09 têm marcação na coluna Web de `REQUISITOS.md` §5.2.
+**Editada por:** ../../periodo-3/cadastro-pessoal/cadastro-pessoal.md
 
 ---
 

@@ -23,6 +23,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from .assuntos import MapaDeAssuntos
+from .biografia import extrair_biografia
 from .dump import chave_curta, ler_registros, primeiro_autor_da_obra
 from .edicao import normalizar
 from .normalizacao import nome_de_autor_utilizavel
@@ -148,6 +149,29 @@ def resolver_autores(caminho_dump: Path, chaves: set[str], saida: Path, formato:
             encontrados += 1
 
     return encontrados
+
+
+def extrair_biografias(
+    caminho_dump: Path, chaves: set[str], formato: str = "auto"
+) -> tuple[list[tuple[str, str]], int]:
+    """Biografias do dump de autores, só das chaves pedidas (RF-ACV-10).
+
+    Devolve `([(chave, biografia)], autores_encontrados)`: quantos dos autores
+    pedidos apareceram no dump, com ou sem biografia, para o resumo mostrar a
+    diferença entre "a fonte não tem" e "não estava no dump". As chaves são as
+    dos autores já carregados, poucos milhares, então a lista cabe em memória.
+    """
+    biografias: list[tuple[str, str]] = []
+    encontrados = 0
+    for bruto in ler_registros(caminho_dump, formato):
+        chave = chave_curta(bruto.get("key"))
+        if chave not in chaves:
+            continue
+        encontrados += 1
+        biografia = extrair_biografia(bruto)
+        if biografia:
+            biografias.append((chave, biografia))
+    return biografias, encontrados
 
 
 def resolver_obras(

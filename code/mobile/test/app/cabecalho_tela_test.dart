@@ -5,6 +5,7 @@ import 'package:phosphor_icons/phosphor_icons.dart';
 import 'package:le_ai_mobile/app/cabecalho_tela.dart';
 import 'package:le_ai_mobile/core/network/api_client.dart';
 import 'package:le_ai_mobile/design/theme.dart';
+import 'package:le_ai_mobile/features/notificacoes/canal_de_notificacoes.dart';
 import 'package:le_ai_mobile/features/notificacoes/contador_de_nao_lidas.dart';
 import 'package:le_ai_mobile/features/notificacoes/notificacoes_service.dart';
 
@@ -23,7 +24,8 @@ Widget _noShell(Widget child, ContadorDeNaoLidas contador, {VoidCallback? aoAbri
 ContadorDeNaoLidas _contador(int total) {
   // Nunca chamado: o total é definido direto, como a tela de notificações faz.
   final cliente = ApiClient(baseUrl: 'https://nao-usado.example.com');
-  return ContadorDeNaoLidas(NotificacoesService(cliente, cliente))..definir(total);
+  final servico = NotificacoesService(cliente, cliente);
+  return ContadorDeNaoLidas(servico, CanalDeNotificacoes(servico.abrirTempoReal))..definir(total);
 }
 
 void main() {

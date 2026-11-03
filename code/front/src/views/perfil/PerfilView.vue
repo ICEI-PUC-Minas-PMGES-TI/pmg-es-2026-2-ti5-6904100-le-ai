@@ -1,13 +1,25 @@
 <script setup lang="ts">
 import { PhCaretRight, PhGear, PhMagnifyingGlass, PhUserPlus, PhWarning } from '@phosphor-icons/vue'
-import { onMounted, ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { computed, onMounted, ref, watch } from 'vue'
+import { RouterLink, useRoute } from 'vue-router'
 
+import CardEstante from '../../components/estante/CardEstante.vue'
+import BlocoEstatisticasDoAno from '../../components/estatisticas/BlocoEstatisticasDoAno.vue'
+import EsqueletoEstante from '../../components/estante/EsqueletoEstante.vue'
+import ListasDoPerfil from '../../components/listas/ListasDoPerfil.vue'
 import AvatarLeitor from '../../components/perfil/AvatarLeitor.vue'
 import ChipPrivacidade from '../../components/perfil/ChipPrivacidade.vue'
+import FimDaLista from '../../components/perfil/FimDaLista.vue'
 import SecoesDeLeitura from '../../components/perfil/SecoesDeLeitura.vue'
+import BannerAviso from '../../components/ui/BannerAviso.vue'
 import BotaoTextual from '../../components/ui/BotaoTextual.vue'
+import { TEXTOS_DA_ESTANTE_DE_PERFIL } from '../../estante/textos'
+import { useEstante } from '../../estante/useEstante'
+import { hojeEmSaoPaulo } from '../../estatisticas/formatos'
+import { TEXTOS_DO_BLOCO } from '../../estatisticas/textos'
+import { useEstatisticasDoAno } from '../../estatisticas/useEstatisticasDoAno'
 import { contagem } from '../../perfil/textos'
+import { leituraService } from '../../services/leitura'
 import { perfilService, type Perfil } from '../../services/perfil'
 
 /**
@@ -16,14 +28,19 @@ import { perfilService, type Perfil } from '../../services/perfil'
  * linha com divisor. Web: coluna de identidade de 300px com os contadores empilhados, e a linha
  * de solicitações no topo da coluna direita, sobre as abas Estante/Resenhas.
  *
- * **Resenhas do `leitura`** (`listarResenhasPerfil`, F-AVA, 27/09/2026) e **estante no estado
- * vazio**: `listarEstantePerfil` existe, mas esta tela ainda não passa o slot `estante` a
- * `SecoesDeLeitura` (divergência registrada em F-PERFIL). Sem o contador `livros lidos`, que o
- * `Perfil` de `identidade` não traz.
+ * **Estante e Resenhas do `leitura`** (`listarEstantePerfil`, F-EST, e `listarResenhasPerfil`,
+ * F-AVA). A estante usa o mesmo grid só leitura do perfil de outro leitor; vazia ou indisponível,
+ * fica o vazio de `SecoesDeLeitura`, com o CTA "Buscar livros". O contador `livros lidos` vem dos
+ * totais da estante e leva a ela filtrada por `Lido`; aparece só depois que a estante carrega.
  *
  * Sem sino na web, o perfil é o único lugar em que um pedido para seguir aparece (§1): a contagem
  * vem de uma página de um item da caixa, e falhar nela só esconde a linha.
+ *
+ * **Estatísticas do ano (F-STA)** no fim da coluna de identidade, com `Ver estatísticas`: os
+ * mesmos totais do painel para o ano corrente. O protótipo web não desenha o bloco; ele segue o
+ * do perfil de outro leitor e o §4.8 de `meu-perfil.md` (decisão do dono, 12/10/2026).
  */
+const route = useRoute()
 const perfil = ref<Perfil | null>(null)
 const carregando = ref(true)
 const falhou = ref(false)
@@ -49,10 +66,35 @@ async function contarPedidos(): Promise<void> {
   }
 }
 
+const anoCorrente = hojeEmSaoPaulo().ano
+const estatisticas = useEstatisticasDoAno(async () => {
+  const resposta = await leituraService.consultarMinhasEstatisticas()
+  // Sem nenhum registro, a frase no lugar dos totais e sem `Ver estatísticas` (§4.6).
+  return { totais: resposta.totais, vazio: resposta.anos.length === 0 && resposta.primeiroRegistro === null }
+})
+
 onMounted(() => {
   void carregar()
   void contarPedidos()
+  void estatisticas.carregar()
 })
+
+const estante = useEstante((filtro) => leituraService.listarEstantePerfil(perfil.value?.id ?? '', filtro))
+watch(
+  () => perfil.value?.id,
+  (id) => {
+    if (id) {
+      void estante.carregar()
+    }
+  },
+)
+
+const livrosLidos = computed(() => (estante.indisponivel.value ? null : estante.livrosLidos.value))
+
+/** Sem livros (ou com o `leitura` respondendo 404), vale o vazio padrão da seção, com o CTA. */
+const mostraEstante = computed(
+  () => !estante.indisponivel.value && (estante.carregando.value || estante.falhou.value || estante.itens.value.length > 0),
+)
 
 // Célula: dá a folga entre o hover e o divisor (mobile, dos dois lados; web, em cima e embaixo).
 const CELULA_DE_CONTADOR = 'flex p-space-1 md:px-0'
@@ -78,6 +120,16 @@ const LINK_DE_CONTADOR =
       <span class="h-[15px] w-[80%] rounded-sm bg-capa-placeholder" />
       <!-- A barra do botão só existe no skeleton web; o mobile do protótipo não tem. -->
       <span class="mt-space-4 hidden h-10 w-full rounded-base bg-capa-placeholder md:block" />
+      <!-- Bloco de estatísticas do ano (web): título e três linhas. -->
+      <span class="mt-space-6 hidden h-[17px] w-[60%] rounded-sm bg-capa-placeholder md:block" />
+      <span
+        v-for="i in 3"
+        :key="i"
+        class="hidden w-full justify-between py-space-1 md:flex"
+      >
+        <span class="h-[15px] w-[20%] rounded-sm bg-capa-placeholder" />
+        <span class="h-[15px] w-[40%] rounded-sm bg-capa-placeholder" />
+      </span>
     </div>
 
     <div
@@ -162,10 +214,28 @@ const LINK_DE_CONTADOR =
              que não tem raio; o link dentro dela tem padding e hover arredondado próprios, sem
              encostar no separador. -->
         <nav
-          class="mt-space-6 grid w-full grid-cols-2 border-b border-linha md:grid-cols-1 md:border-b-0"
-          aria-label="Conexões"
+          class="mt-space-6 grid w-full border-b border-linha md:grid-cols-1 md:border-b-0"
+          :class="livrosLidos === null ? 'grid-cols-2' : 'grid-cols-3'"
+          aria-label="Contadores"
         >
-          <div :class="CELULA_DE_CONTADOR">
+          <div
+            v-if="livrosLidos !== null"
+            :class="CELULA_DE_CONTADOR"
+          >
+            <RouterLink
+              to="/estante?status=LIDO"
+              :class="LINK_DE_CONTADOR"
+              :aria-label="contagem(livrosLidos, 'livro lido', 'livros lidos')"
+            >
+              <span class="text-caption text-grafite md:text-body">
+                {{ livrosLidos === 1 ? 'livro lido' : 'livros lidos' }}
+              </span>
+              <span class="font-mono text-num-inline tabular-nums text-tinta">
+                {{ livrosLidos }}
+              </span>
+            </RouterLink>
+          </div>
+          <div :class="[CELULA_DE_CONTADOR, livrosLidos === null ? '' : 'border-l border-linha md:border-l-0 md:border-t']">
             <RouterLink
               to="/perfil/conexoes?aba=seguidores"
               :class="LINK_DE_CONTADOR"
@@ -194,6 +264,17 @@ const LINK_DE_CONTADOR =
             </RouterLink>
           </div>
         </nav>
+
+        <BlocoEstatisticasDoAno
+          v-if="estatisticas.estado.value !== 'oculto'"
+          :estado="estatisticas.estado.value"
+          :totais="estatisticas.totais.value"
+          :ano="anoCorrente"
+          proprio
+          :texto-vazio="TEXTOS_DO_BLOCO.vazioProprio"
+          :texto-erro="TEXTOS_DO_BLOCO.erroProprio"
+          @tentar-de-novo="estatisticas.carregar()"
+        />
       </section>
 
       <div>
@@ -225,8 +306,60 @@ const LINK_DE_CONTADOR =
         <SecoesDeLeitura
           :proprio="true"
           :usuario-id="perfil.id"
+          :aba-inicial="typeof route.query.aba === 'string' ? route.query.aba : undefined"
           :class="pedidosPendentes > 0 ? 'mt-space-12 md:mt-space-6' : 'mt-space-6 md:mt-0'"
-        />
+        >
+          <template #listas>
+            <ListasDoPerfil
+              :usuario-id="perfil.id"
+              :proprio="true"
+              :privacidade="perfil.privacidade"
+            />
+          </template>
+          <template
+            v-if="mostraEstante"
+            #estante
+          >
+            <div class="mt-space-5 md:mt-0 md:pt-space-6">
+              <EsqueletoEstante
+                v-if="estante.carregando.value"
+                :rotulo="TEXTOS_DA_ESTANTE_DE_PERFIL.carregando"
+              />
+              <BannerAviso
+                v-else-if="estante.falhou.value"
+                variante="erro"
+              >
+                {{ TEXTOS_DA_ESTANTE_DE_PERFIL.erroTexto }}
+                <BotaoTextual
+                  class="mt-space-2"
+                  @click="estante.carregar()"
+                >
+                  Tentar de novo
+                </BotaoTextual>
+              </BannerAviso>
+              <template v-else>
+                <ul class="grid grid-cols-2 gap-space-4 md:grid-cols-4 lg:grid-cols-6">
+                  <li
+                    v-for="item in estante.itens.value"
+                    :key="item.id"
+                    class="flex"
+                  >
+                    <CardEstante
+                      :item="item"
+                      :acionavel="false"
+                    />
+                  </li>
+                </ul>
+                <FimDaLista
+                  v-if="estante.temMais.value || estante.falhouMais.value"
+                  :falhou="estante.falhouMais.value"
+                  :carregando="estante.carregandoMais.value"
+                  @carregar="estante.carregarMais()"
+                />
+              </template>
+            </div>
+          </template>
+        </SecoesDeLeitura>
       </div>
     </div>
   </div>

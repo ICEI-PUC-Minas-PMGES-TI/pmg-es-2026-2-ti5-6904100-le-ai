@@ -1,14 +1,24 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:le_ai_mobile/features/livros/livro_oficial_page.dart';
 
+import 'package:le_ai_mobile/design/tokens.dart';
+import 'package:le_ai_mobile/design/widgets/seletor_de_nota.dart';
+import 'package:le_ai_mobile/features/avaliacao/bloco_sua_avaliacao.dart';
+import 'package:le_ai_mobile/features/livros/notas_do_livro.dart';
+
 import 'package:le_ai_mobile/features/estante/estante_service.dart';
+import 'package:le_ai_mobile/features/feed/social_service.dart';
+import 'package:le_ai_mobile/features/listas/rotas_listas.dart';
 
 import '../estante/apoio_estante.dart';
+import '../feed/apoio.dart' show socialSimulado;
+import '../listas/apoio_listas.dart' show listasSimulado, perfilSimulado;
 import '../progresso/apoio_progresso.dart';
 import 'apoio.dart';
 
@@ -38,6 +48,7 @@ Map<String, Object?> _livro({
   List<Map<String, String>> autores = const <Map<String, String>>[
     <String, String>{'id': 'a1', 'nome': 'Itamar Vieira Junior'},
   ],
+  Map<String, Object?> extras = const <String, Object?>{},
 }) => <String, Object?>{
   'id': _id,
   'titulo': 'Torto Arado',
@@ -50,24 +61,42 @@ Map<String, Object?> _livro({
   'isbn': '9788588808911',
   'sinopse': <String, Object?>{'status': status, 'texto': status == 'disponivel' ? texto : null},
   'resenhas': resenhas,
+  ...extras,
 };
 
 Map<String, Object?> _pagina(List<Map<String, Object?>> itens, {String? cursor}) =>
     <String, Object?>{'itens': itens, 'limit': 10, 'proximoCursor': cursor};
 
+/// O `Sem nota` de "Sua avaliação", e não o da seção de notas (F-ACV-NOTA), que também o mostra.
+Finder get _semNotaDaAvaliacao =>
+    find.descendant(of: find.byType(BlocoSuaAvaliacao), matching: find.text('Sem nota'));
+
+/// As onze faixas de 5 a 0 (pagina-do-livro.md §5.2).
+List<Map<String, Object?>> _distribuicao() => <Map<String, Object?>>[
+  for (final (valor, quantidade) in <(num, int)>[
+    (5, 12), (4.5, 9), (4, 7), (3.5, 3), (3, 2), (2.5, 1),
+    (2, 1), (1.5, 0), (1, 1), (0.5, 0), (0, 0),
+  ])
+    <String, Object?>{'valor': valor, 'quantidade': quantidade},
+];
+
 void main() {
   late List<Uri> pedidas;
   late int voltas;
+  late List<String> navegacoes;
 
   Future<void> montar(
     WidgetTester tester,
     Future<http.Response> Function(http.Request request) responder, {
     Future<http.Response> Function(http.Request request)? leitura,
     EstanteService? estante,
+    DependenciasDeListas? listas,
+    SocialService? social,
   }) async {
     usarTelaDeCelular(tester);
     pedidas = <Uri>[];
     voltas = 0;
+    navegacoes = <String>[];
     await tester.pumpWidget(
       envolver(
         LivroOficialPage(
@@ -80,6 +109,12 @@ void main() {
           aoVoltar: () => voltas++,
           estante: estante,
           progresso: estante == null ? null : progressoEmMemoria(),
+          listas: listas,
+          social: social,
+          aoAbrirAutor: (id) => navegacoes.add('autor:$id'),
+          aoAbrirEditora: (id) => navegacoes.add('editora:$id'),
+          aoAbrirSerie: (id) => navegacoes.add('serie:$id'),
+          aoBuscarAssunto: (id) => navegacoes.add('assunto:$id'),
         ),
       ),
     );
@@ -102,7 +137,7 @@ void main() {
     // F-AVA: o bloco existe e, sem nota, diz "Sem nota" (nunca 0,0). Sem serviço de estante, o
     // bloco de estante não aparece.
     expect(find.text('Sua avaliação'), findsOneWidget);
-    expect(find.text('Sem nota'), findsOneWidget);
+    expect(_semNotaDaAvaliacao, findsOneWidget);
     expect(find.bySemanticsLabel('Sem nota. Dar nota'), findsOneWidget);
     expect(find.textContaining('Registrar progresso'), findsNothing);
   });
@@ -119,7 +154,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('0'), findsOneWidget);
-    expect(find.text('Sem nota'), findsNothing);
+    expect(_semNotaDaAvaliacao, findsNothing);
     expect(find.bySemanticsLabel('Sua nota: 0. Alterar'), findsOneWidget);
   });
 
@@ -269,6 +304,40 @@ void main() {
     expect(find.text('O final revela tudo.'), findsOneWidget);
     expect(find.text('Rafael Bittencourt'), findsOneWidget);
     expect(find.text('3 de agosto de 2026'), findsOneWidget);
+  });
+
+  testWidgets('resenha de outra pessoa tem o menu com Denunciar resenha (F-MOD)', (tester) async {
+    final livro = json(
+      _livro(resenhas: _pagina(<Map<String, Object?>>[_resenha('r1', 'Letícia Nakamura', 'Conta *tudo*.')])),
+      200,
+    );
+    await montar(
+      tester,
+      (request) async => livro,
+      social: socialSimulado((_) async => json(<String, Object?>{}, 201)),
+    );
+    await tester.pumpAndSettle();
+
+    await tocar(tester, find.byTooltip('Mais ações da resenha'));
+    await tester.pumpAndSettle();
+    await tocar(tester, find.text('Denunciar resenha'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Resenha de Torto Arado'), findsOneWidget);
+    expect(find.text('Revisar denúncia'), findsOneWidget);
+  });
+
+  testWidgets('sem o serviço do social, a resenha fica sem o menu', (tester) async {
+    await montar(
+      tester,
+      (request) async => json(
+        _livro(resenhas: _pagina(<Map<String, Object?>>[_resenha('r1', 'Letícia', 'Texto')])),
+        200,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Mais ações da resenha'), findsNothing);
   });
 
   testWidgets('sem resenhas diz que é para você, não que o livro não tem', (tester) async {
@@ -531,6 +600,9 @@ void main() {
     ) async {
       var chamadas = 0;
       final estante = estanteSimulada((request) async {
+        if (request.url.path.endsWith('/favorito')) {
+          return json(<String, Object?>{'livroId': _id, 'favorito': false, 'favoritadoEm': null}, 200);
+        }
         chamadas++;
         return chamadas <= 3
             ? erro(503, 'INDISPONIVEL', 'Fora do ar.')
@@ -571,5 +643,315 @@ void main() {
       expect(find.text('Adicionar à estante'), findsNothing);
       expect(find.text('Ações de leitura'), findsOneWidget);
     });
+  });
+
+  group('links da ficha e assuntos (F-ACV-DESCOBERTA)', () {
+    testWidgets('autor, editora e série levam às páginas de catálogo, com o volume fora do link', (
+      tester,
+    ) async {
+      await montar(
+        tester,
+        (request) async => json(
+          _livro(
+            extras: <String, Object?>{
+              'editoraId': 'ed-1',
+              'serie': <String, Object?>{'id': 'se-1', 'nome': 'Trilogia da Bahia', 'numero': 1},
+            },
+          ),
+          200,
+        ),
+      );
+
+      // `Trilogia da Bahia >` e `· volume 1` na mesma linha, como em pagina-do-livro.html. A fonte
+      // de teste é larga: numa tela mais larga, cabe numa linha, como no aparelho.
+      tester.view.physicalSize = const Size(2400, 2532);
+      await tester.pump();
+      expect(find.text('· volume 1'), findsOneWidget);
+      expect(
+        tester.getCenter(find.text('· volume 1')).dy,
+        moreOrLessEquals(tester.getCenter(find.text('Trilogia da Bahia')).dy, epsilon: 2),
+      );
+      await tocar(tester, find.bySemanticsLabel('Ver página de autor: Itamar Vieira Junior'));
+      await tocar(tester, find.bySemanticsLabel('Ver página de editora: Todavia'));
+      await tocar(tester, find.text('Trilogia da Bahia'));
+
+      expect(navegacoes, <String>['autor:a1', 'editora:ed-1', 'serie:se-1']);
+    });
+
+    testWidgets('cada link da ficha é um nó só, com o volume no rótulo', (tester) async {
+      final semantica = tester.ensureSemantics();
+      await montar(
+        tester,
+        (request) async => json(
+          _livro(
+            extras: <String, Object?>{
+              'editoraId': 'ed-1',
+              'serie': <String, Object?>{'id': 'se-1', 'nome': 'Trilogia da Bahia', 'numero': 1},
+            },
+          ),
+          200,
+        ),
+      );
+
+      final serie = find.bySemanticsLabel('Ver página da série: Trilogia da Bahia, volume 1');
+      expect(serie, findsOneWidget);
+      expect(tester.getSemantics(serie).getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+      // O texto da linha não se repete num segundo nó.
+      expect(find.bySemanticsLabel(RegExp(r'^Série$')), findsNothing);
+      semantica.dispose();
+    });
+
+    testWidgets('editora sem página fica texto; coautoria tem um alvo por autor', (tester) async {
+      await montar(
+        tester,
+        (request) async => json(
+          _livro(
+            autores: const <Map<String, String>>[
+              <String, String>{'id': 'a1', 'nome': 'Itamar Vieira Junior'},
+              <String, String>{'id': 'a2', 'nome': 'Outra Pessoa'},
+            ],
+          ),
+          200,
+        ),
+      );
+
+      expect(find.text('Autores'), findsOneWidget);
+      expect(find.bySemanticsLabel('Ver página de editora: Todavia'), findsNothing);
+      await tocar(tester, find.bySemanticsLabel('Ver página de autor: Outra Pessoa'));
+      await tester.tap(find.text('Todavia').last, warnIfMissed: false);
+
+      expect(navegacoes, <String>['autor:a2']);
+      expect(find.text('Série'), findsNothing);
+    });
+
+    testWidgets('assuntos levam à busca filtrada; sem assuntos, a seção some', (tester) async {
+      await montar(
+        tester,
+        (request) async => json(
+          _livro(
+            extras: <String, Object?>{
+              'assuntos': <Object?>[
+                <String, String>{'id': 'romance', 'nome': 'Romance'},
+              ],
+            },
+          ),
+          200,
+        ),
+      );
+
+      expect(find.text('Assuntos'), findsOneWidget);
+      expect(find.text('ROMANCE'), findsOneWidget);
+      await tocar(tester, find.bySemanticsLabel('Buscar livros de Romance'));
+      expect(navegacoes, <String>['assunto:romance']);
+    });
+
+    testWidgets('sem assuntos, a seção não existe', (tester) async {
+      await montar(tester, (request) async => json(_livro(), 200));
+
+      expect(find.text('Assuntos'), findsNothing);
+    });
+  });
+
+  group('notas do livro (F-ACV-NOTA)', () {
+    testWidgets('as duas notas e o histograma, entre a barra de ação e "Sua avaliação"', (
+      tester,
+    ) async {
+      await montar(
+        tester,
+        (request) async => json(
+          _livro(
+            extras: <String, Object?>{
+              'notaGeral': <String, Object?>{'valor': 4.3, 'quantidade': 412},
+              'notaDosLeitores': <String, Object?>{'valor': 4.2, 'quantidade': 36},
+              'distribuicao': _distribuicao(),
+            },
+          ),
+          200,
+        ),
+        estante: estanteVazia(),
+      );
+      await tester.pump();
+
+      expect(find.text('4,3'), findsOneWidget);
+      expect(find.text('412 avaliações'), findsOneWidget);
+      expect(find.text('4,2'), findsOneWidget);
+      expect(find.text('36 leitores'), findsOneWidget);
+      expect(find.text('Distribuição das notas dos leitores'), findsOneWidget);
+      expect(find.text('12 leitores'), findsOneWidget);
+      // Com as duas notas, o único `Sem nota` é o de "Sua avaliação".
+      expect(find.text('Sem nota'), findsOneWidget);
+      expect(_semNotaDaAvaliacao, findsOneWidget);
+
+      final barraDeAcao = tester.getBottomLeft(find.text('Adicionar à estante')).dy;
+      final notas = tester.getRect(find.byType(NotasDoLivro));
+      expect(notas.top, greaterThan(barraDeAcao));
+      expect(notas.bottom, lessThan(tester.getTopLeft(find.text('Sua avaliação')).dy));
+    });
+
+    testWidgets('resposta sem os campos novos: os dois blocos em Sem nota, sem histograma', (
+      tester,
+    ) async {
+      await montar(tester, (request) async => json(_livro(), 200));
+
+      expect(find.text('Nota geral'), findsOneWidget);
+      expect(find.text('Nota dos leitores'), findsOneWidget);
+      expect(
+        find.descendant(of: find.byType(NotasDoLivro), matching: find.text('Sem nota')),
+        findsNWidgets(2),
+      );
+      expect(find.text('Distribuição das notas dos leitores'), findsNothing);
+    });
+
+    testWidgets('só nota geral (4.6): leitores em Sem nota e sem histograma', (tester) async {
+      await montar(
+        tester,
+        (request) async => json(
+          _livro(
+            extras: <String, Object?>{
+              'notaGeral': <String, Object?>{'valor': 3.9, 'quantidade': 27},
+              'notaDosLeitores': null,
+              'distribuicao': <Object?>[],
+            },
+          ),
+          200,
+        ),
+      );
+
+      expect(find.text('3,9'), findsOneWidget);
+      expect(find.text('27 avaliações'), findsOneWidget);
+      expect(
+        find.descendant(of: find.byType(NotasDoLivro), matching: find.text('Sem nota')),
+        findsOneWidget,
+      );
+      expect(find.text('Distribuição das notas dos leitores'), findsNothing);
+    });
+
+    testWidgets('carregando: o esqueleto tem o retângulo de 104px do container de notas', (
+      tester,
+    ) async {
+      final demorada = Completer<http.Response>();
+      await montar(tester, (request) => demorada.future);
+
+      final retangulo = find.byWidgetPredicate(
+        (widget) =>
+            widget is Container &&
+            widget.decoration is BoxDecoration &&
+            (widget.decoration! as BoxDecoration).borderRadius ==
+                BorderRadius.circular(DesignTokens.radiusMd),
+      );
+      expect(retangulo, findsOneWidget);
+      final tamanho = tester.getSize(retangulo);
+      expect(tamanho.height, 104);
+      // Largura total da área de conteúdo: 390 menos `space-5` de cada lado.
+      expect(tamanho.width, 390 - 2 * DesignTokens.space5);
+      expect(find.byType(NotasDoLivro), findsNothing);
+
+      demorada.complete(json(_livro(), 200));
+      await tester.pump();
+      await tester.pump();
+      expect(find.byType(NotasDoLivro), findsOneWidget);
+    });
+
+    // Achado da revisão do PR #57: a seção acompanha a nota que o próprio leitor salva ou remove,
+    // reconsultando o acervo, que recompõe a média de forma assíncrona.
+    testWidgets('salvar e remover a própria nota recarregam a nota dos leitores', (tester) async {
+      double? notaNoAcervo;
+      Map<String, Object?> livroDoAcervo() => _livro(
+        resenhas: _pagina(<Map<String, Object?>>[_resenha('r1', 'Marina Antunes', 'A terra.')]),
+        extras: <String, Object?>{
+          'notaDosLeitores': notaNoAcervo == null
+              ? null
+              : <String, Object?>{'valor': notaNoAcervo, 'quantidade': 1},
+          'distribuicao': <Map<String, Object?>>[
+            for (final valor in <num>[5, 4.5, 4, 3.5, 3, 2.5, 2, 1.5, 1, 0.5, 0])
+              <String, Object?>{'valor': valor, 'quantidade': valor == notaNoAcervo ? 1 : 0},
+          ],
+        },
+      );
+      await montar(
+        tester,
+        (request) async => json(livroDoAcervo(), 200),
+        leitura: (request) async {
+          if (request.method == 'PUT') {
+            notaNoAcervo = 5;
+            return json(notaJson(_id, 5), 200);
+          }
+          if (request.method == 'DELETE') {
+            notaNoAcervo = null;
+            return http.Response('', 204);
+          }
+          return json(semAvaliacao(_id), 200);
+        },
+      );
+      await tester.pump();
+      Finder naSecao(Finder alvo) => find.descendant(of: find.byType(NotasDoLivro), matching: alvo);
+
+      // A carga da própria avaliação não recarrega nada.
+      await tester.pump(const Duration(seconds: 20));
+      expect(consultasDaPagina(), 1);
+      expect(naSecao(find.text('Sem nota')), findsNWidgets(2));
+
+      await tocar(tester, find.bySemanticsLabel('Sem nota. Dar nota'));
+      await tester.pumpAndSettle();
+      // A metade direita da quinta estrela: 5.
+      final seletor = tester.getTopLeft(find.byType(SeletorDeNota));
+      await tester.tapAt(
+        seletor + const Offset(4 * SeletorDeNota.alvo + 36, SeletorDeNota.alvo / 2),
+      );
+      await tester.pump();
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Salvar nota'));
+      await tester.pumpAndSettle();
+
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pump();
+
+      expect(consultasDaPagina(), 2);
+      // O 5 do bloco e o da faixa; `1 leitor` no bloco e na faixa de 5.
+      expect(naSecao(find.text('5')), findsNWidgets(2));
+      expect(naSecao(find.text('1 leitor')), findsNWidgets(2));
+      expect(find.text('Distribuição das notas dos leitores'), findsOneWidget);
+      expect(find.byKey(const ValueKey<String>('barra-5')), findsOneWidget);
+      // A sinopse e as resenhas já carregadas continuam.
+      expect(find.text('Bibiana e Belonísia crescem no interior da Bahia.'), findsOneWidget);
+      expect(find.text('A terra.'), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 15));
+      await tocar(tester, find.bySemanticsLabel('Sua nota: 5. Alterar'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Remover nota'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Remover nota'));
+      await tester.pumpAndSettle();
+
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pump();
+
+      expect(naSecao(find.text('Sem nota')), findsNWidgets(2));
+      expect(find.text('Distribuição das notas dos leitores'), findsNothing);
+      expect(find.text('A terra.'), findsOneWidget);
+
+      // As reconsultas param depois da última espera.
+      await tester.pump(const Duration(seconds: 40));
+      final consultas = consultasDaPagina();
+      await tester.pump(const Duration(minutes: 1));
+      expect(consultasDaPagina(), consultas);
+    });
+  });
+
+  testWidgets('"Mais ações" do header responde ao toque do leitor de tela', (tester) async {
+    final semantica = tester.ensureSemantics();
+    await montar(
+      tester,
+      (request) async => json(_livro(), 200),
+      listas: DependenciasDeListas(
+        servico: listasSimulado((_) async => json(<String, Object?>{}, 200)),
+        perfil: perfilSimulado((_) async => json(<String, Object?>{}, 200)),
+      ),
+    );
+
+    final botao = find.bySemanticsLabel('Mais ações');
+    expect(botao, findsOneWidget);
+    expect(tester.getSemantics(botao).getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+    semantica.dispose();
   });
 }

@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 
 import br.com.leai.identidade.email.EmailNotificationService;
 import br.com.leai.identidade.integracao.IntegracaoComPostgres;
+import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
@@ -126,6 +127,27 @@ class AdminIntegracaoTest extends IntegracaoComPostgres {
 
     assertThat(resposta.statusCode()).isEqualTo(403);
     assertThat(entrar(EMAIL, SENHA).statusCode()).isEqualTo(200);
+  }
+
+  @Test
+  @DisplayName("admin não pede exclusão da conta (F-CONTA-2): 403, e o login continua normal")
+  void adminNaoExcluiConta() {
+    String accessToken = sessao(EMAIL, SENHA).get("accessToken").asString();
+
+    HttpResponse<String> resposta =
+        enviar(
+            HttpRequest.newBuilder(uri("/me/conta"))
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Idempotency-Key", UUID.randomUUID().toString())
+                .method(
+                    "DELETE",
+                    HttpRequest.BodyPublishers.ofString(
+                        "{\"senha\":\"" + SENHA + "\",\"confirmacao\":true}"))
+                .build());
+
+    assertThat(resposta.statusCode()).isEqualTo(403);
+    assertThat(sessao(EMAIL, SENHA).get("tipo").asString()).isEqualTo("sessao");
   }
 
   @Test

@@ -210,6 +210,12 @@ export const autor = acervoSchema.table(
       'autor_nome_normalizado_nao_vazio_ck',
       sql`btrim(${table.nomeNormalizado}) <> ''`,
     ),
+    // F-ACV-DESCOBERTA: biografia curta da OpenLibrary (RF-ACV-10), cortada
+    // pela ingestão e pela importação antes de gravar; vazia vira NULL.
+    check(
+      'autor_biografia_ck',
+      sql`${table.biografia} IS NULL OR (char_length(${table.biografia}) <= 2000 AND btrim(${table.biografia}) <> '')`,
+    ),
   ],
 );
 
@@ -379,6 +385,27 @@ export const sinonimoEditora = acervoSchema.table(
     check(
       'sinonimo_editora_forma_externa_nao_vazia_ck',
       sql`btrim(${table.formaExterna}) <> ''`,
+    ),
+  ],
+);
+
+// Chave OpenLibrary de autor que a fonte cadastrou de novo para a mesma pessoa
+// (ou ligou a um homônimo) e que o subcomando `unificar` da ingestão juntou ao
+// canônico, a partir de `dados/autores_unificados.csv`. A carga do dump e a
+// importação por ISBN consultam a tabela antes de criar autor pela chave.
+export const autorChaveUnificada = acervoSchema.table(
+  'autor_chave_unificada',
+  {
+    olAuthorKey: text('ol_author_key').primaryKey(),
+    autorId: uuid('autor_id')
+      .notNull()
+      .references(() => autor.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    index('autor_chave_unificada_autor_id_idx').on(table.autorId),
+    check(
+      'autor_chave_unificada_formato_ck',
+      sql`${table.olAuthorKey} ~ '^OL[0-9]+A$'`,
     ),
   ],
 );

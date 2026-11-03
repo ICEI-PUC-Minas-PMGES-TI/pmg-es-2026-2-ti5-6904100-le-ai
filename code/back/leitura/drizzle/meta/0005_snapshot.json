@@ -1,0 +1,2426 @@
+{
+  "id": "00c7bd6e-70d1-43f7-9545-02567754d2d4",
+  "prevId": "4becb5f7-9d7e-42e1-9729-b252822eb4ca",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "leitura.atualizacao_progresso": {
+      "name": "atualizacao_progresso",
+      "schema": "leitura",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "leitura_id": {
+          "name": "leitura_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ordem": {
+          "name": "ordem",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "pagina": {
+          "name": "pagina",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "paginas_lidas": {
+          "name": "paginas_lidas",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "minutos": {
+          "name": "minutos",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "registrado_em_dispositivo": {
+          "name": "registrado_em_dispositivo",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fuso_horario_dispositivo": {
+          "name": "fuso_horario_dispositivo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "data_local": {
+          "name": "data_local",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "chave_idempotencia": {
+          "name": "chave_idempotencia",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "atualizacao_progresso_data_local_idx": {
+          "name": "atualizacao_progresso_data_local_idx",
+          "columns": [
+            {
+              "expression": "data_local",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "leitura_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "atualizacao_progresso_leitura_id_leitura_id_fk": {
+          "name": "atualizacao_progresso_leitura_id_leitura_id_fk",
+          "tableFrom": "atualizacao_progresso",
+          "tableTo": "leitura",
+          "schemaTo": "leitura",
+          "columnsFrom": [
+            "leitura_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "atualizacao_progresso_leitura_ordem_uk": {
+          "name": "atualizacao_progresso_leitura_ordem_uk",
+          "nullsNotDistinct": false,
+          "columns": [
+            "leitura_id",
+            "ordem"
+          ]
+        },
+        "atualizacao_progresso_chave_idempotencia_uk": {
+          "name": "atualizacao_progresso_chave_idempotencia_uk",
+          "nullsNotDistinct": false,
+          "columns": [
+            "chave_idempotencia"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "atualizacao_progresso_ordem_ck": {
+          "name": "atualizacao_progresso_ordem_ck",
+          "value": "\"leitura\".\"atualizacao_progresso\".\"ordem\" > 0"
+        },
+        "atualizacao_progresso_pagina_ck": {
+          "name": "atualizacao_progresso_pagina_ck",
+          "value": "\"leitura\".\"atualizacao_progresso\".\"pagina\" > 0"
+        },
+        "atualizacao_progresso_paginas_lidas_ck": {
+          "name": "atualizacao_progresso_paginas_lidas_ck",
+          "value": "\"leitura\".\"atualizacao_progresso\".\"paginas_lidas\" > 0"
+        },
+        "atualizacao_progresso_minutos_ck": {
+          "name": "atualizacao_progresso_minutos_ck",
+          "value": "\"leitura\".\"atualizacao_progresso\".\"minutos\" >= 0"
+        },
+        "atualizacao_progresso_atualizado_ck": {
+          "name": "atualizacao_progresso_atualizado_ck",
+          "value": "\"leitura\".\"atualizacao_progresso\".\"atualizado_em\" >= \"leitura\".\"atualizacao_progresso\".\"criado_em\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "leitura.contribuicao_desafio": {
+      "name": "contribuicao_desafio",
+      "schema": "leitura",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "janela_id": {
+          "name": "janela_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "origem_tipo": {
+          "name": "origem_tipo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "origem_id": {
+          "name": "origem_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valor": {
+          "name": "valor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ocorrido_em": {
+          "name": "ocorrido_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "data_local": {
+          "name": "data_local",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "contribuicao_desafio_data_idx": {
+          "name": "contribuicao_desafio_data_idx",
+          "columns": [
+            {
+              "expression": "janela_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "data_local",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "contribuicao_desafio_origem_idx": {
+          "name": "contribuicao_desafio_origem_idx",
+          "columns": [
+            {
+              "expression": "origem_tipo",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "origem_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "contribuicao_desafio_janela_id_janela_desafio_id_fk": {
+          "name": "contribuicao_desafio_janela_id_janela_desafio_id_fk",
+          "tableFrom": "contribuicao_desafio",
+          "tableTo": "janela_desafio",
+          "schemaTo": "leitura",
+          "columnsFrom": [
+            "janela_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "contribuicao_desafio_origem_uk": {
+          "name": "contribuicao_desafio_origem_uk",
+          "nullsNotDistinct": false,
+          "columns": [
+            "janela_id",
+            "origem_tipo",
+            "origem_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "contribuicao_desafio_origem_tipo_ck": {
+          "name": "contribuicao_desafio_origem_tipo_ck",
+          "value": "\"leitura\".\"contribuicao_desafio\".\"origem_tipo\" in ('progresso', 'leitura_finalizada')"
+        },
+        "contribuicao_desafio_valor_ck": {
+          "name": "contribuicao_desafio_valor_ck",
+          "value": "\"leitura\".\"contribuicao_desafio\".\"valor\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "leitura.desafio": {
+      "name": "desafio",
+      "schema": "leitura",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "usuario_id": {
+          "name": "usuario_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "unidade": {
+          "name": "unidade",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "janela": {
+          "name": "janela",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valor_alvo": {
+          "name": "valor_alvo",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fuso_horario": {
+          "name": "fuso_horario",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "pausado": {
+          "name": "pausado",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "desafio_usuario_idx": {
+          "name": "desafio_usuario_idx",
+          "columns": [
+            {
+              "expression": "usuario_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "criado_em",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "desafio_unidade_ck": {
+          "name": "desafio_unidade_ck",
+          "value": "\"leitura\".\"desafio\".\"unidade\" in ('paginas', 'minutos', 'livros')"
+        },
+        "desafio_janela_ck": {
+          "name": "desafio_janela_ck",
+          "value": "\"leitura\".\"desafio\".\"janela\" in ('diaria', 'semanal', 'mensal', 'anual')"
+        },
+        "desafio_valor_alvo_ck": {
+          "name": "desafio_valor_alvo_ck",
+          "value": "\"leitura\".\"desafio\".\"valor_alvo\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "leitura.dia_leitura": {
+      "name": "dia_leitura",
+      "schema": "leitura",
+      "columns": {
+        "usuario_id": {
+          "name": "usuario_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "data": {
+          "name": "data",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "dia_leitura_data_idx": {
+          "name": "dia_leitura_data_idx",
+          "columns": [
+            {
+              "expression": "data",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "dia_leitura_pk": {
+          "name": "dia_leitura_pk",
+          "columns": [
+            "usuario_id",
+            "data"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "leitura.estante": {
+      "name": "estante",
+      "schema": "leitura",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "usuario_id": {
+          "name": "usuario_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "livro_id": {
+          "name": "livro_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "vezes_lido": {
+          "name": "vezes_lido",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "adicionado_em": {
+          "name": "adicionado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "estante_usuario_status_idx": {
+          "name": "estante_usuario_status_idx",
+          "columns": [
+            {
+              "expression": "usuario_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "estante_livro_idx": {
+          "name": "estante_livro_idx",
+          "columns": [
+            {
+              "expression": "livro_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "estante_usuario_livro_uk": {
+          "name": "estante_usuario_livro_uk",
+          "nullsNotDistinct": false,
+          "columns": [
+            "usuario_id",
+            "livro_id"
+          ]
+        },
+        "estante_id_usuario_livro_uk": {
+          "name": "estante_id_usuario_livro_uk",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "usuario_id",
+            "livro_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "estante_status_ck": {
+          "name": "estante_status_ck",
+          "value": "\"leitura\".\"estante\".\"status\" in ('quero_ler', 'lendo', 'lido', 'relendo', 'abandonado')"
+        },
+        "estante_vezes_lido_ck": {
+          "name": "estante_vezes_lido_ck",
+          "value": "\"leitura\".\"estante\".\"vezes_lido\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "leitura.estatistica_anual": {
+      "name": "estatistica_anual",
+      "schema": "leitura",
+      "columns": {
+        "usuario_id": {
+          "name": "usuario_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ano": {
+          "name": "ano",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "livros_concluidos": {
+          "name": "livros_concluidos",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "paginas_lidas": {
+          "name": "paginas_lidas",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "minutos_lidos": {
+          "name": "minutos_lidos",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "recalculado_em": {
+          "name": "recalculado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "estatistica_anual_pk": {
+          "name": "estatistica_anual_pk",
+          "columns": [
+            "usuario_id",
+            "ano"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "estatistica_anual_ano_ck": {
+          "name": "estatistica_anual_ano_ck",
+          "value": "\"leitura\".\"estatistica_anual\".\"ano\" between 1 and 9999"
+        },
+        "estatistica_anual_totais_ck": {
+          "name": "estatistica_anual_totais_ck",
+          "value": "\"leitura\".\"estatistica_anual\".\"livros_concluidos\" >= 0 and \"leitura\".\"estatistica_anual\".\"paginas_lidas\" >= 0 and \"leitura\".\"estatistica_anual\".\"minutos_lidos\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "leitura.estatistica_mensal": {
+      "name": "estatistica_mensal",
+      "schema": "leitura",
+      "columns": {
+        "usuario_id": {
+          "name": "usuario_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ano": {
+          "name": "ano",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mes": {
+          "name": "mes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "livros_concluidos": {
+          "name": "livros_concluidos",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "paginas_lidas": {
+          "name": "paginas_lidas",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "minutos_lidos": {
+          "name": "minutos_lidos",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "recalculado_em": {
+          "name": "recalculado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "estatistica_mensal_pk": {
+          "name": "estatistica_mensal_pk",
+          "columns": [
+            "usuario_id",
+            "ano",
+            "mes"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "estatistica_mensal_ano_ck": {
+          "name": "estatistica_mensal_ano_ck",
+          "value": "\"leitura\".\"estatistica_mensal\".\"ano\" between 1 and 9999"
+        },
+        "estatistica_mensal_mes_ck": {
+          "name": "estatistica_mensal_mes_ck",
+          "value": "\"leitura\".\"estatistica_mensal\".\"mes\" between 1 and 12"
+        },
+        "estatistica_mensal_totais_ck": {
+          "name": "estatistica_mensal_totais_ck",
+          "value": "\"leitura\".\"estatistica_mensal\".\"livros_concluidos\" >= 0 and \"leitura\".\"estatistica_mensal\".\"paginas_lidas\" >= 0 and \"leitura\".\"estatistica_mensal\".\"minutos_lidos\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "leitura.estatistica_usuario": {
+      "name": "estatistica_usuario",
+      "schema": "leitura",
+      "columns": {
+        "usuario_id": {
+          "name": "usuario_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "livros_concluidos": {
+          "name": "livros_concluidos",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "paginas_lidas": {
+          "name": "paginas_lidas",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "minutos_lidos": {
+          "name": "minutos_lidos",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "dias_com_leitura": {
+          "name": "dias_com_leitura",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "dias_em_livros_concluidos": {
+          "name": "dias_em_livros_concluidos",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "nota_media": {
+          "name": "nota_media",
+          "type": "numeric(2, 1)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "recalculado_em": {
+          "name": "recalculado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "estatistica_usuario_totais_ck": {
+          "name": "estatistica_usuario_totais_ck",
+          "value": "\"leitura\".\"estatistica_usuario\".\"livros_concluidos\" >= 0 and \"leitura\".\"estatistica_usuario\".\"paginas_lidas\" >= 0 and \"leitura\".\"estatistica_usuario\".\"minutos_lidos\" >= 0 and \"leitura\".\"estatistica_usuario\".\"dias_com_leitura\" >= 0 and \"leitura\".\"estatistica_usuario\".\"dias_em_livros_concluidos\" >= 0"
+        },
+        "estatistica_usuario_nota_media_ck": {
+          "name": "estatistica_usuario_nota_media_ck",
+          "value": "\"leitura\".\"estatistica_usuario\".\"nota_media\" is null or (\"leitura\".\"estatistica_usuario\".\"nota_media\" >= 0 and \"leitura\".\"estatistica_usuario\".\"nota_media\" <= 5)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "leitura.favorito": {
+      "name": "favorito",
+      "schema": "leitura",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "usuario_id": {
+          "name": "usuario_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "livro_id": {
+          "name": "livro_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "favorito_livro_idx": {
+          "name": "favorito_livro_idx",
+          "columns": [
+            {
+              "expression": "livro_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "favorito_usuario_livro_uk": {
+          "name": "favorito_usuario_livro_uk",
+          "nullsNotDistinct": false,
+          "columns": [
+            "usuario_id",
+            "livro_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "leitura.frase": {
+      "name": "frase",
+      "schema": "leitura",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "usuario_id": {
+          "name": "usuario_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "livro_id": {
+          "name": "livro_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "texto": {
+          "name": "texto",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "pagina": {
+          "name": "pagina",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "frase_usuario_livro_idx": {
+          "name": "frase_usuario_livro_idx",
+          "columns": [
+            {
+              "expression": "usuario_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "livro_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "frase_livro_idx": {
+          "name": "frase_livro_idx",
+          "columns": [
+            {
+              "expression": "livro_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "frase_texto_ck": {
+          "name": "frase_texto_ck",
+          "value": "char_length(\"leitura\".\"frase\".\"texto\") between 1 and 500"
+        },
+        "frase_pagina_ck": {
+          "name": "frase_pagina_ck",
+          "value": "\"leitura\".\"frase\".\"pagina\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "leitura.idempotencia_leitura": {
+      "name": "idempotencia_leitura",
+      "schema": "leitura",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "subject_ref": {
+          "name": "subject_ref",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "operacao": {
+          "name": "operacao",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "chave": {
+          "name": "chave",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "payload_hash": {
+          "name": "payload_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status_http": {
+          "name": "status_http",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "resposta": {
+          "name": "resposta",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "replay_ate": {
+          "name": "replay_ate",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "anonimizado_em": {
+          "name": "anonimizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "idempotencia_leitura_subject_operacao_chave_uk": {
+          "name": "idempotencia_leitura_subject_operacao_chave_uk",
+          "columns": [
+            {
+              "expression": "subject_ref",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "operacao",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "chave",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"leitura\".\"idempotencia_leitura\".\"subject_ref\" is not null and \"leitura\".\"idempotencia_leitura\".\"chave\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idempotencia_leitura_replay_idx": {
+          "name": "idempotencia_leitura_replay_idx",
+          "columns": [
+            {
+              "expression": "replay_ate",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "idempotencia_leitura_operacao_ck": {
+          "name": "idempotencia_leitura_operacao_ck",
+          "value": "char_length(\"leitura\".\"idempotencia_leitura\".\"operacao\") > 0"
+        },
+        "idempotencia_leitura_status_http_ck": {
+          "name": "idempotencia_leitura_status_http_ck",
+          "value": "\"leitura\".\"idempotencia_leitura\".\"status_http\" between 100 and 599"
+        },
+        "idempotencia_leitura_replay_ck": {
+          "name": "idempotencia_leitura_replay_ck",
+          "value": "\"leitura\".\"idempotencia_leitura\".\"replay_ate\" >= \"leitura\".\"idempotencia_leitura\".\"criado_em\""
+        },
+        "idempotencia_leitura_anonimizacao_ck": {
+          "name": "idempotencia_leitura_anonimizacao_ck",
+          "value": "(\"leitura\".\"idempotencia_leitura\".\"anonimizado_em\" is null and \"leitura\".\"idempotencia_leitura\".\"subject_ref\" is not null and \"leitura\".\"idempotencia_leitura\".\"chave\" is not null and btrim(\"leitura\".\"idempotencia_leitura\".\"chave\") <> '' and \"leitura\".\"idempotencia_leitura\".\"payload_hash\" is not null and btrim(\"leitura\".\"idempotencia_leitura\".\"payload_hash\") <> '' and \"leitura\".\"idempotencia_leitura\".\"resposta\" is not null) or (\"leitura\".\"idempotencia_leitura\".\"anonimizado_em\" is not null and \"leitura\".\"idempotencia_leitura\".\"anonimizado_em\" >= \"leitura\".\"idempotencia_leitura\".\"criado_em\" and \"leitura\".\"idempotencia_leitura\".\"subject_ref\" is null and \"leitura\".\"idempotencia_leitura\".\"chave\" is null and \"leitura\".\"idempotencia_leitura\".\"payload_hash\" is null and \"leitura\".\"idempotencia_leitura\".\"resposta\" is null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "leitura.janela_desafio": {
+      "name": "janela_desafio",
+      "schema": "leitura",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "desafio_id": {
+          "name": "desafio_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "inicio": {
+          "name": "inicio",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fim": {
+          "name": "fim",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "unidade": {
+          "name": "unidade",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "periodicidade": {
+          "name": "periodicidade",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valor_alvo": {
+          "name": "valor_alvo",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fuso_horario": {
+          "name": "fuso_horario",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "acumulado": {
+          "name": "acumulado",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "cumprida": {
+          "name": "cumprida",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "encerrada_em": {
+          "name": "encerrada_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "recalculada_em": {
+          "name": "recalculada_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "janela_desafio_corrente_idx": {
+          "name": "janela_desafio_corrente_idx",
+          "columns": [
+            {
+              "expression": "desafio_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "encerrada_em",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "janela_desafio_desafio_id_desafio_id_fk": {
+          "name": "janela_desafio_desafio_id_desafio_id_fk",
+          "tableFrom": "janela_desafio",
+          "tableTo": "desafio",
+          "schemaTo": "leitura",
+          "columnsFrom": [
+            "desafio_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "janela_desafio_periodo_uk": {
+          "name": "janela_desafio_periodo_uk",
+          "nullsNotDistinct": false,
+          "columns": [
+            "desafio_id",
+            "inicio",
+            "fim"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "janela_desafio_unidade_ck": {
+          "name": "janela_desafio_unidade_ck",
+          "value": "\"leitura\".\"janela_desafio\".\"unidade\" in ('paginas', 'minutos', 'livros')"
+        },
+        "janela_desafio_periodicidade_ck": {
+          "name": "janela_desafio_periodicidade_ck",
+          "value": "\"leitura\".\"janela_desafio\".\"periodicidade\" in ('diaria', 'semanal', 'mensal', 'anual')"
+        },
+        "janela_desafio_periodo_ck": {
+          "name": "janela_desafio_periodo_ck",
+          "value": "\"leitura\".\"janela_desafio\".\"fim\" >= \"leitura\".\"janela_desafio\".\"inicio\""
+        },
+        "janela_desafio_valor_alvo_ck": {
+          "name": "janela_desafio_valor_alvo_ck",
+          "value": "\"leitura\".\"janela_desafio\".\"valor_alvo\" > 0"
+        },
+        "janela_desafio_acumulado_ck": {
+          "name": "janela_desafio_acumulado_ck",
+          "value": "\"leitura\".\"janela_desafio\".\"acumulado\" >= 0"
+        },
+        "janela_desafio_cumprida_ck": {
+          "name": "janela_desafio_cumprida_ck",
+          "value": "\"leitura\".\"janela_desafio\".\"cumprida\" = (\"leitura\".\"janela_desafio\".\"acumulado\" >= \"leitura\".\"janela_desafio\".\"valor_alvo\")"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "leitura.leitura": {
+      "name": "leitura",
+      "schema": "leitura",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "estante_id": {
+          "name": "estante_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "usuario_id": {
+          "name": "usuario_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "livro_id": {
+          "name": "livro_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "releitura": {
+          "name": "releitura",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "incompleta": {
+          "name": "incompleta",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "data_inicio": {
+          "name": "data_inicio",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "data_fim": {
+          "name": "data_fim",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "finalizada_em": {
+          "name": "finalizada_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "finalizacao_fuso_horario": {
+          "name": "finalizacao_fuso_horario",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "finalizacao_data_local": {
+          "name": "finalizacao_data_local",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pagina_atual": {
+          "name": "pagina_atual",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "ultima_atividade_em": {
+          "name": "ultima_atividade_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "inatividade_versao": {
+          "name": "inatividade_versao",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "leitura_em_andamento_usuario_livro_uk": {
+          "name": "leitura_em_andamento_usuario_livro_uk",
+          "columns": [
+            {
+              "expression": "usuario_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "livro_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"leitura\".\"leitura\".\"status\" = 'lendo'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "leitura_estante_criado_idx": {
+          "name": "leitura_estante_criado_idx",
+          "columns": [
+            {
+              "expression": "estante_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "criado_em",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "leitura_usuario_data_fim_idx": {
+          "name": "leitura_usuario_data_fim_idx",
+          "columns": [
+            {
+              "expression": "usuario_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "data_fim",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "leitura_inatividade_idx": {
+          "name": "leitura_inatividade_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "ultima_atividade_em",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "leitura_livro_idx": {
+          "name": "leitura_livro_idx",
+          "columns": [
+            {
+              "expression": "livro_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "leitura_estante_usuario_livro_fk": {
+          "name": "leitura_estante_usuario_livro_fk",
+          "tableFrom": "leitura",
+          "tableTo": "estante",
+          "schemaTo": "leitura",
+          "columnsFrom": [
+            "estante_id",
+            "usuario_id",
+            "livro_id"
+          ],
+          "columnsTo": [
+            "id",
+            "usuario_id",
+            "livro_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "leitura_status_ck": {
+          "name": "leitura_status_ck",
+          "value": "\"leitura\".\"leitura\".\"status\" in ('lendo', 'lido', 'abandonado')"
+        },
+        "leitura_pagina_atual_ck": {
+          "name": "leitura_pagina_atual_ck",
+          "value": "\"leitura\".\"leitura\".\"pagina_atual\" >= 0"
+        },
+        "leitura_inatividade_versao_ck": {
+          "name": "leitura_inatividade_versao_ck",
+          "value": "\"leitura\".\"leitura\".\"inatividade_versao\" > 0"
+        },
+        "leitura_data_fim_ck": {
+          "name": "leitura_data_fim_ck",
+          "value": "\"leitura\".\"leitura\".\"data_fim\" is null or \"leitura\".\"leitura\".\"data_fim\" >= \"leitura\".\"leitura\".\"data_inicio\""
+        },
+        "leitura_finalizacao_campos_ck": {
+          "name": "leitura_finalizacao_campos_ck",
+          "value": "(\"leitura\".\"leitura\".\"finalizada_em\" is null and \"leitura\".\"leitura\".\"finalizacao_fuso_horario\" is null and \"leitura\".\"leitura\".\"finalizacao_data_local\" is null) or (\"leitura\".\"leitura\".\"finalizada_em\" is not null and \"leitura\".\"leitura\".\"finalizacao_fuso_horario\" is not null and \"leitura\".\"leitura\".\"finalizacao_data_local\" is not null)"
+        },
+        "leitura_estado_ck": {
+          "name": "leitura_estado_ck",
+          "value": "(\"leitura\".\"leitura\".\"status\" = 'lendo' and \"leitura\".\"leitura\".\"data_fim\" is null and \"leitura\".\"leitura\".\"finalizada_em\" is null and not \"leitura\".\"leitura\".\"incompleta\") or (\"leitura\".\"leitura\".\"status\" = 'abandonado' and not \"leitura\".\"leitura\".\"releitura\" and not \"leitura\".\"leitura\".\"incompleta\" and \"leitura\".\"leitura\".\"data_fim\" is null and \"leitura\".\"leitura\".\"finalizada_em\" is null) or (\"leitura\".\"leitura\".\"status\" = 'lido' and ((\"leitura\".\"leitura\".\"incompleta\" and \"leitura\".\"leitura\".\"releitura\" and \"leitura\".\"leitura\".\"data_fim\" is null and \"leitura\".\"leitura\".\"finalizada_em\" is null) or (not \"leitura\".\"leitura\".\"incompleta\" and \"leitura\".\"leitura\".\"data_fim\" is not null and \"leitura\".\"leitura\".\"finalizada_em\" is not null)))"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "leitura.limiar_inatividade": {
+      "name": "limiar_inatividade",
+      "schema": "leitura",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "leitura_id": {
+          "name": "leitura_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "inatividade_versao": {
+          "name": "inatividade_versao",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "limiar_dias": {
+          "name": "limiar_dias",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tipo": {
+          "name": "tipo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "processado_em": {
+          "name": "processado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "limiar_inatividade_event_id_uk": {
+          "name": "limiar_inatividade_event_id_uk",
+          "columns": [
+            {
+              "expression": "event_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"leitura\".\"limiar_inatividade\".\"event_id\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "limiar_inatividade_leitura_id_leitura_id_fk": {
+          "name": "limiar_inatividade_leitura_id_leitura_id_fk",
+          "tableFrom": "limiar_inatividade",
+          "tableTo": "leitura",
+          "schemaTo": "leitura",
+          "columnsFrom": [
+            "leitura_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "limiar_inatividade_leitura_versao_dias_uk": {
+          "name": "limiar_inatividade_leitura_versao_dias_uk",
+          "nullsNotDistinct": false,
+          "columns": [
+            "leitura_id",
+            "inatividade_versao",
+            "limiar_dias"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "limiar_inatividade_tipo_ck": {
+          "name": "limiar_inatividade_tipo_ck",
+          "value": "\"leitura\".\"limiar_inatividade\".\"tipo\" in ('risco', 'expiracao')"
+        },
+        "limiar_inatividade_regra_ck": {
+          "name": "limiar_inatividade_regra_ck",
+          "value": "(\"leitura\".\"limiar_inatividade\".\"limiar_dias\" in (20, 30) and \"leitura\".\"limiar_inatividade\".\"tipo\" = 'risco') or (\"leitura\".\"limiar_inatividade\".\"limiar_dias\" = 40 and \"leitura\".\"limiar_inatividade\".\"tipo\" = 'expiracao')"
+        },
+        "limiar_inatividade_versao_ck": {
+          "name": "limiar_inatividade_versao_ck",
+          "value": "\"leitura\".\"limiar_inatividade\".\"inatividade_versao\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "leitura.nota": {
+      "name": "nota",
+      "schema": "leitura",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "usuario_id": {
+          "name": "usuario_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "livro_id": {
+          "name": "livro_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valor": {
+          "name": "valor",
+          "type": "numeric(2, 1)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "nota_livro_idx": {
+          "name": "nota_livro_idx",
+          "columns": [
+            {
+              "expression": "livro_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "nota_usuario_livro_uk": {
+          "name": "nota_usuario_livro_uk",
+          "nullsNotDistinct": false,
+          "columns": [
+            "usuario_id",
+            "livro_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "nota_valor_ck": {
+          "name": "nota_valor_ck",
+          "value": "\"leitura\".\"nota\".\"valor\" >= 0 and \"leitura\".\"nota\".\"valor\" <= 5 and mod(\"leitura\".\"nota\".\"valor\", 0.5) = 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "leitura.outbox_leitura": {
+      "name": "outbox_leitura",
+      "schema": "leitura",
+      "columns": {
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tipo": {
+          "name": "tipo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "versao": {
+          "name": "versao",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "chave_negocio": {
+          "name": "chave_negocio",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "correlation_id": {
+          "name": "correlation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "payload": {
+          "name": "payload",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pendente'"
+        },
+        "tentativas": {
+          "name": "tentativas",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "proxima_tentativa_em": {
+          "name": "proxima_tentativa_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "publicado_em": {
+          "name": "publicado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "anonimizado_em": {
+          "name": "anonimizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "outbox_leitura_dispatch_idx": {
+          "name": "outbox_leitura_dispatch_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "criado_em",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "outbox_leitura_tipo_ck": {
+          "name": "outbox_leitura_tipo_ck",
+          "value": "char_length(\"leitura\".\"outbox_leitura\".\"tipo\") > 0"
+        },
+        "outbox_leitura_versao_ck": {
+          "name": "outbox_leitura_versao_ck",
+          "value": "\"leitura\".\"outbox_leitura\".\"versao\" > 0"
+        },
+        "outbox_leitura_status_ck": {
+          "name": "outbox_leitura_status_ck",
+          "value": "\"leitura\".\"outbox_leitura\".\"status\" in ('pendente', 'publicado')"
+        },
+        "outbox_leitura_tentativas_ck": {
+          "name": "outbox_leitura_tentativas_ck",
+          "value": "\"leitura\".\"outbox_leitura\".\"tentativas\" >= 0"
+        },
+        "outbox_leitura_publicacao_ck": {
+          "name": "outbox_leitura_publicacao_ck",
+          "value": "(\"leitura\".\"outbox_leitura\".\"status\" = 'pendente' and \"leitura\".\"outbox_leitura\".\"publicado_em\" is null) or (\"leitura\".\"outbox_leitura\".\"status\" = 'publicado' and \"leitura\".\"outbox_leitura\".\"publicado_em\" is not null and \"leitura\".\"outbox_leitura\".\"publicado_em\" >= \"leitura\".\"outbox_leitura\".\"criado_em\")"
+        },
+        "outbox_leitura_anonimizacao_ck": {
+          "name": "outbox_leitura_anonimizacao_ck",
+          "value": "(\"leitura\".\"outbox_leitura\".\"anonimizado_em\" is null and \"leitura\".\"outbox_leitura\".\"chave_negocio\" is not null and btrim(\"leitura\".\"outbox_leitura\".\"chave_negocio\") <> '' and \"leitura\".\"outbox_leitura\".\"correlation_id\" is not null and \"leitura\".\"outbox_leitura\".\"payload\" is not null) or (\"leitura\".\"outbox_leitura\".\"anonimizado_em\" is not null and \"leitura\".\"outbox_leitura\".\"anonimizado_em\" >= \"leitura\".\"outbox_leitura\".\"criado_em\" and \"leitura\".\"outbox_leitura\".\"status\" = 'publicado' and \"leitura\".\"outbox_leitura\".\"chave_negocio\" is null and \"leitura\".\"outbox_leitura\".\"correlation_id\" is null and \"leitura\".\"outbox_leitura\".\"payload\" is null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "leitura.pausa_desafio": {
+      "name": "pausa_desafio",
+      "schema": "leitura",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "desafio_id": {
+          "name": "desafio_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "inicio_em": {
+          "name": "inicio_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fim_em": {
+          "name": "fim_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "pausa_desafio_aberta_uk": {
+          "name": "pausa_desafio_aberta_uk",
+          "columns": [
+            {
+              "expression": "desafio_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"leitura\".\"pausa_desafio\".\"fim_em\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "pausa_desafio_periodo_idx": {
+          "name": "pausa_desafio_periodo_idx",
+          "columns": [
+            {
+              "expression": "desafio_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "inicio_em",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "pausa_desafio_desafio_id_desafio_id_fk": {
+          "name": "pausa_desafio_desafio_id_desafio_id_fk",
+          "tableFrom": "pausa_desafio",
+          "tableTo": "desafio",
+          "schemaTo": "leitura",
+          "columnsFrom": [
+            "desafio_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "pausa_desafio_periodo_ck": {
+          "name": "pausa_desafio_periodo_ck",
+          "value": "\"leitura\".\"pausa_desafio\".\"fim_em\" is null or \"leitura\".\"pausa_desafio\".\"fim_em\" > \"leitura\".\"pausa_desafio\".\"inicio_em\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "leitura.reacao_resenha": {
+      "name": "reacao_resenha",
+      "schema": "leitura",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "resenha_id": {
+          "name": "resenha_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "usuario_id": {
+          "name": "usuario_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tipo": {
+          "name": "tipo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ativa": {
+          "name": "ativa",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "primeira_curtida_em": {
+          "name": "primeira_curtida_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "reacao_resenha_contagem_idx": {
+          "name": "reacao_resenha_contagem_idx",
+          "columns": [
+            {
+              "expression": "resenha_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "ativa",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "tipo",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "reacao_resenha_usuario_idx": {
+          "name": "reacao_resenha_usuario_idx",
+          "columns": [
+            {
+              "expression": "usuario_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "reacao_resenha_resenha_id_resenha_id_fk": {
+          "name": "reacao_resenha_resenha_id_resenha_id_fk",
+          "tableFrom": "reacao_resenha",
+          "tableTo": "resenha",
+          "schemaTo": "leitura",
+          "columnsFrom": [
+            "resenha_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "reacao_resenha_resenha_usuario_uk": {
+          "name": "reacao_resenha_resenha_usuario_uk",
+          "nullsNotDistinct": false,
+          "columns": [
+            "resenha_id",
+            "usuario_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "reacao_resenha_tipo_ck": {
+          "name": "reacao_resenha_tipo_ck",
+          "value": "\"leitura\".\"reacao_resenha\".\"tipo\" in ('curtida', 'descurtida')"
+        },
+        "reacao_resenha_primeira_curtida_ck": {
+          "name": "reacao_resenha_primeira_curtida_ck",
+          "value": "\"leitura\".\"reacao_resenha\".\"tipo\" <> 'curtida' or \"leitura\".\"reacao_resenha\".\"primeira_curtida_em\" is not null"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "leitura.resenha": {
+      "name": "resenha",
+      "schema": "leitura",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "usuario_id": {
+          "name": "usuario_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "livro_id": {
+          "name": "livro_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "texto": {
+          "name": "texto",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "spoiler": {
+          "name": "spoiler",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "resenha_livro_criado_idx": {
+          "name": "resenha_livro_criado_idx",
+          "columns": [
+            {
+              "expression": "livro_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "criado_em",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "resenha_usuario_livro_uk": {
+          "name": "resenha_usuario_livro_uk",
+          "nullsNotDistinct": false,
+          "columns": [
+            "usuario_id",
+            "livro_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "resenha_texto_ck": {
+          "name": "resenha_texto_ck",
+          "value": "char_length(\"leitura\".\"resenha\".\"texto\") between 1 and 5000"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "leitura.sequencia_leitura": {
+      "name": "sequencia_leitura",
+      "schema": "leitura",
+      "columns": {
+        "usuario_id": {
+          "name": "usuario_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "sequencia_atual": {
+          "name": "sequencia_atual",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "maior_sequencia": {
+          "name": "maior_sequencia",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "ultimo_dia": {
+          "name": "ultimo_dia",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ultimo_fuso_horario": {
+          "name": "ultimo_fuso_horario",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ultimo_fuso_registrado_em": {
+          "name": "ultimo_fuso_registrado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "sequencia_leitura_valores_ck": {
+          "name": "sequencia_leitura_valores_ck",
+          "value": "\"leitura\".\"sequencia_leitura\".\"sequencia_atual\" >= 0 and \"leitura\".\"sequencia_leitura\".\"maior_sequencia\" >= \"leitura\".\"sequencia_leitura\".\"sequencia_atual\""
+        },
+        "sequencia_leitura_ultimo_registro_ck": {
+          "name": "sequencia_leitura_ultimo_registro_ck",
+          "value": "(\"leitura\".\"sequencia_leitura\".\"ultimo_dia\" is null and \"leitura\".\"sequencia_leitura\".\"ultimo_fuso_horario\" is null and \"leitura\".\"sequencia_leitura\".\"ultimo_fuso_registrado_em\" is null) or (\"leitura\".\"sequencia_leitura\".\"ultimo_dia\" is not null and \"leitura\".\"sequencia_leitura\".\"ultimo_fuso_horario\" is not null and \"leitura\".\"sequencia_leitura\".\"ultimo_fuso_registrado_em\" is not null)"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {
+    "leitura": "leitura"
+  },
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {
+    "leitura.v_estante_publica_v1": {
+      "columns": {
+        "usuario_id": {
+          "name": "usuario_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "livro_id": {
+          "name": "livro_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "vezes_lido": {
+          "name": "vezes_lido",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "definition": "select\n    \"leitura\".\"estante\".\"usuario_id\" as usuario_id,\n    \"leitura\".\"estante\".\"livro_id\" as livro_id,\n    \"leitura\".\"estante\".\"status\" as status,\n    \"leitura\".\"estante\".\"vezes_lido\" as vezes_lido\n  from \"leitura\".\"estante\"",
+      "name": "v_estante_publica_v1",
+      "schema": "leitura",
+      "isExisting": false,
+      "materialized": false
+    },
+    "leitura.v_nota_publicacao_v1": {
+      "columns": {
+        "usuario_id": {
+          "name": "usuario_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "livro_id": {
+          "name": "livro_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valor": {
+          "name": "valor",
+          "type": "numeric(2, 1)",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "definition": "select\n    \"leitura\".\"nota\".\"usuario_id\" as usuario_id,\n    \"leitura\".\"nota\".\"livro_id\" as livro_id,\n    \"leitura\".\"nota\".\"valor\" as valor\n  from \"leitura\".\"nota\"",
+      "name": "v_nota_publicacao_v1",
+      "schema": "leitura",
+      "isExisting": false,
+      "materialized": false
+    },
+    "leitura.v_reacao_resenha_v1": {
+      "columns": {
+        "resenha_id": {
+          "name": "resenha_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "usuario_id": {
+          "name": "usuario_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tipo": {
+          "name": "tipo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "definition": "select\n    \"leitura\".\"reacao_resenha\".\"resenha_id\" as resenha_id,\n    \"leitura\".\"reacao_resenha\".\"usuario_id\" as usuario_id,\n    \"leitura\".\"reacao_resenha\".\"tipo\" as tipo\n  from \"leitura\".\"reacao_resenha\"\n  where \"leitura\".\"reacao_resenha\".\"ativa\"",
+      "name": "v_reacao_resenha_v1",
+      "schema": "leitura",
+      "isExisting": false,
+      "materialized": false
+    },
+    "leitura.v_resenha_publicacao_v1": {
+      "columns": {
+        "resenha_id": {
+          "name": "resenha_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "usuario_id": {
+          "name": "usuario_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "livro_id": {
+          "name": "livro_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "texto": {
+          "name": "texto",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "spoiler": {
+          "name": "spoiler",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "curtidas": {
+          "name": "curtidas",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "descurtidas": {
+          "name": "descurtidas",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "definition": "select\n    \"leitura\".\"resenha\".\"id\" as resenha_id,\n    \"leitura\".\"resenha\".\"usuario_id\" as usuario_id,\n    \"leitura\".\"resenha\".\"livro_id\" as livro_id,\n    \"leitura\".\"resenha\".\"texto\" as texto,\n    \"leitura\".\"resenha\".\"spoiler\" as spoiler,\n    \"leitura\".\"resenha\".\"criado_em\" as criado_em,\n    \"leitura\".\"resenha\".\"atualizado_em\" as atualizado_em,\n    count(\"leitura\".\"reacao_resenha\".\"id\") filter (where \"leitura\".\"reacao_resenha\".\"ativa\" and \"leitura\".\"reacao_resenha\".\"tipo\" = 'curtida') as curtidas,\n    count(\"leitura\".\"reacao_resenha\".\"id\") filter (where \"leitura\".\"reacao_resenha\".\"ativa\" and \"leitura\".\"reacao_resenha\".\"tipo\" = 'descurtida') as descurtidas\n  from \"leitura\".\"resenha\"\n  left join \"leitura\".\"reacao_resenha\" on \"leitura\".\"reacao_resenha\".\"resenha_id\" = \"leitura\".\"resenha\".\"id\"\n  group by \"leitura\".\"resenha\".\"id\"",
+      "name": "v_resenha_publicacao_v1",
+      "schema": "leitura",
+      "isExisting": false,
+      "materialized": false
+    }
+  },
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

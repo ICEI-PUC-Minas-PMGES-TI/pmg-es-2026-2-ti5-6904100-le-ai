@@ -238,9 +238,11 @@ describe('FeedView', () => {
       usuarioRespondido: null,
       autor: AUTOR,
       texto: 'Comentário',
+      mencoes: [],
       nivel: 'RAIZ',
       totalRespostas: 0,
       pertenceAoSolicitante: true,
+      editado: false,
       criadoEm: new Date().toISOString(),
       atualizadoEm: null,
     })

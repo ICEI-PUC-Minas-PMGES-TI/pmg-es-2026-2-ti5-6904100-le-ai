@@ -1,16 +1,20 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 
 import '../../core/network/api_client.dart';
+import 'canal_de_notificacoes.dart';
 import 'notificacoes_service.dart';
 
-/// Total de não lidas do leitor, que é o número do badge do sino (RF-NOT-02). No Período 1 a
-/// entrega é in-app e carregada pelo cliente, sem tempo real (RF-NOT-06): o total é buscado ao
-/// entrar no shell e ao voltar o app para o primeiro plano, e a tela de notificações o mantém
-/// em dia a cada página e marcação.
+/// Total de não lidas do leitor, que é o número do badge do sino (RF-NOT-02), atualizado por cada
+/// evento do canal de tempo real (RF-NOT-06) e, com ele fechado, pela tela e pelo shell.
 class ContadorDeNaoLidas extends ChangeNotifier {
   final NotificacoesService _servico;
+  late final StreamSubscription<EventoDeNotificacoes> _tempoReal;
 
-  ContadorDeNaoLidas(this._servico);
+  ContadorDeNaoLidas(this._servico, CanalDeNotificacoes canal) {
+    _tempoReal = canal.eventos.listen((evento) => definir(evento.totalNaoLidas));
+  }
 
   int _total = 0;
 
@@ -32,6 +36,12 @@ class ContadorDeNaoLidas extends ChangeNotifier {
     }
     _total = total;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    unawaited(_tempoReal.cancel());
+    super.dispose();
   }
 }
 

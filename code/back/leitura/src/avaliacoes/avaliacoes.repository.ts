@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { and, eq, sql } from 'drizzle-orm';
 import { vLivroReferencia, vPerfilReferencia } from '../db/contratos-externos';
 import type { DrizzleDB } from '../db/drizzle.module';
-import { nota, resenha } from '../db/schema';
+import { nota, reacaoResenha, resenha } from '../db/schema';
 import type { Tx } from '../db/tipos';
 
 /** Leitura dentro ou fora de uma transação. */
@@ -201,6 +201,22 @@ export class AvaliacoesRepository {
     return removida?.id ?? null;
   }
 
+  /**
+   * Remoção pela moderação (F-MOD): pelo id, sem filtro de dono. Devolve quem escreveu e o
+   * livro, para o evento e para a auditoria do `social`; `null` quando já não existia.
+   */
+  async excluirResenhaPorId(
+    tx: Tx,
+    resenhaId: string,
+  ): Promise<{ usuarioId: string; livroId: string } | null> {
+    const [removida] = await tx
+      .delete(resenha)
+      .where(eq(resenha.id, resenhaId))
+      .returning({ usuarioId: resenha.usuarioId, livroId: resenha.livroId });
+
+    return removida ?? null;
+  }
+
   async resenhaAtual(
     leitor: Leitor,
     usuarioId: string,
@@ -223,5 +239,24 @@ export class AvaliacoesRepository {
       .limit(1);
 
     return linha ?? null;
+  }
+
+  /** Curtidas e descurtidas ativas da resenha (RF-AVA-08), contadas à parte. */
+  async contagensDaResenha(
+    leitor: Leitor,
+    resenhaId: string,
+  ): Promise<{ curtidas: number; descurtidas: number }> {
+    const [linha] = await leitor
+      .select({
+        curtidas: sql<string>`count(*) filter (where ${reacaoResenha.ativa} and ${reacaoResenha.tipo} = 'curtida')`,
+        descurtidas: sql<string>`count(*) filter (where ${reacaoResenha.ativa} and ${reacaoResenha.tipo} = 'descurtida')`,
+      })
+      .from(reacaoResenha)
+      .where(eq(reacaoResenha.resenhaId, resenhaId));
+
+    return {
+      curtidas: Number(linha?.curtidas ?? 0),
+      descurtidas: Number(linha?.descurtidas ?? 0),
+    };
   }
 }

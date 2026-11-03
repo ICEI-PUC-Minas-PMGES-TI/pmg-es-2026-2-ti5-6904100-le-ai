@@ -90,7 +90,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [ ] Testes assíncronos de integração cobrem os seis bindings de entrada, envelope e schemas v1 canônicos, snapshots, exclusão/recriação de resenha, atomicidade efeito+recibo, reentrega do mesmo `eventId`, duplicação semântica, ACK pós-commit, retry 1/5/15 e `leai.social.feed.dlq`; publicação testa outbox atômica e os três eventos de notificação (RNF-TST-03)
 - [x] Testes web/mobile cobrem paginação, interações, link de livro pessoal e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
 - [x] **Spec OpenAPI de `social` atualizado em `docs/api/social.yaml`** com feed/curtidas/comentários
-- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)) — entra no merge de fechamento do Período 1: a `main` só recebe o período fechado, e o DES sobe da `main`; não é pendência da feature
+- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)) — entra no merge de fechamento do Período 1: a `main` só recebe o período fechado, e o DES sobe da `main`; não é pendência da feature. O merge entrou em 29/09/2026 (PR #45, tag `v0.1.0`); a validação em DES ainda não foi registrada.
 - [x] Arquivo da feature atualizado: status, pendências, timeline
 - [x] Divergência protótipo × implementação registrada, se houver
 
@@ -111,9 +111,17 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Divergência protótipo × implementação (mobile, 29/09):** o campo de comentário usa `radius-lg` (20px) em vez de `radius-full`. Numa linha continua quase uma pílula; com três ou quatro linhas, o `radius-full` virava uma cápsula alta e estranha, e o `radius-lg` faz o campo parecer uma caixa de texto.
 - **Divergência protótipo × implementação (mobile, 29/09):** com o teclado aberto, a folha de comentários vai até o topo da tela, em vez dos 88% do protótipo, porque nos 88% o campo e a faixa "Respondendo a" não cabiam acima do teclado (`c16f741`, `3c529c3`).
 - **Pendência (mobile, 29/09): a folha de comentários ainda transborda com o teclado aberto em telas baixas.** Com o teclado, a folha vai até o topo, mas só a lista encolhe: alça, cabeçalho, resumo da atividade, faixa "Respondendo a" e campo somam mais de 300dp. Medido em teste widget: cabe no S25 Ultra (384×832), no Pixel 7 (412×915) e num Galaxy A (360×780) com fonte a 100%. Transborda em 360×640, com o celular deitado e, com fonte a 130% e o campo em quatro linhas, também no S25 e no Galaxy A. Solução proposta, ainda não feita: com o teclado aberto, deixar fixos só a faixa e o campo e fazer cabeçalho e resumo rolarem junto com a lista.
+- **Revisão de 10/10/2026 (Henrique, dono de F-PERFIL e F-LST): dependências já entregues que o feed ainda não usa.**
+  - **"Ler resenha" continua sem destino, mas o bloqueio caiu.** A divergência acima dizia que a página de resenha era de F-AVA. F-AVA entregou em 27/09 e F-AVA-2 em 09/10: a resenha completa e formatada fica na página do livro, e o próprio item já sabe abrir essa página (`linkDoLivro` em `ItemAtividade.vue`, `aoAbrirLivro` no mobile, com `via=feed` para livro pessoal). Falta ligar o botão: web em `code/front/src/components/feed/ItemAtividade.vue` (o `<button>` "Ler resenha" não tem `@click`) e mobile em `code/mobile/lib/features/feed/item_atividade.dart` (`onPressed: () {}`). Também apontado em [F-AVA](feature-F-AVA.md) e em `code/back/social/AGENTS.md`. **Pendente, dono: Kayke.**
+  - **Feito pelo dono de F-PERFIL em `rotas_feed.dart` (mobile):** o perfil de outro leitor aberto pelo feed (`/feed/leitores/:username`) recebia só `listas`, sem `estante` nem `resenhas`, e mostrava "ainda não tem livros na estante" e "ainda não escreveu resenhas" para quem tinha os dois. `rotaDoFeed` ganhou `estante` e `resenhasDoAutor`, passados pelo `router.dart` como na aba Perfil, com teste em `test/app/router_test.dart`. Revise se quiser; o comportamento agora é o mesmo da aba Perfil.
+  - **Feito pelo dono de F-LST no `router.dart`:** o ramo do Feed ganhou `rotaDoLivroOficial(raiz: rotaFeedRaiz)` e as rotas de catálogo (autor, editora, série), usadas pelo livro oficial aberto de uma lista no Feed. **Sugestão, baixa prioridade:** o livro oficial aberto pelo próprio item do feed ainda usa `rotaLivroOficial` (`/descobrir/livro/:id`). Na prática a aba Feed continua ativa, porque o `go_router` empilha na aba atual, mas a seta sem pilha volta a `/descobrir`. Trocar para `'$rotaFeedRaiz/livro/$id'` em `aoAbrirLivro` deixa o caminho coerente com pagina-do-livro.md §4.1 e com a rota que já existe.
 - **Falta para fechar:** validar fila, retry e DLQ contra RabbitMQ real; revisão do Kayke nas mudanças de F-AVA no `social`. "Funciona em DES" e as migrations no Neon do DES chegam com o merge de fechamento do Período 1.
 
 ## Timeline
+
+### 25/10/2026: status atualizado por Renato Douglas
+
+DoD de DES: registrado que o merge de fechamento entrou em 29/09/2026 (PR #45, tag `v0.1.0`); a validação em DES segue sem registro. Sem mudança de escopo ou decisão.
 
 ### 29/09/2026: curtida otimista na web e no app, por decisão do produto: o item muda no toque, o botão não trava, o último toque vale e a falha volta ao último estado confirmado. Ver Pendências.
 

@@ -8,6 +8,7 @@ const int _naoEncontrado = 404;
 
 class ListaDaEstante extends ListaPaginada<ItemEstante> {
   Map<StatusEstante, int>? totais;
+  int? totalFavoritos;
   bool restrita = false;
   bool indisponivel = false;
 
@@ -21,6 +22,7 @@ class ListaDaEstante extends ListaPaginada<ItemEstante> {
         final resposta = await listar(pagina + 1);
         lista
           ..totais = resposta.totaisPorStatus
+          ..totalFavoritos = resposta.totalFavoritos
           ..restrita = false
           ..indisponivel = false;
         return Pagina<ItemEstante>(
@@ -42,5 +44,13 @@ class ListaDaEstante extends ListaPaginada<ItemEstante> {
   int? get totalGeral {
     final atuais = totais;
     return atuais?.values.fold<int>(0, (soma, valor) => soma + valor);
+  }
+
+  /// Livros concluídos ao menos uma vez. Pela máquina de RN-04, um livro concluído só volta a
+  /// `Relendo` ou fica em `Lido` (releitura abandonada também volta a `Lido`), então a soma dos
+  /// dois é exata.
+  int? get livrosLidos {
+    final atuais = totais;
+    return atuais == null ? null : (atuais[StatusEstante.lido] ?? 0) + (atuais[StatusEstante.relendo] ?? 0);
   }
 }

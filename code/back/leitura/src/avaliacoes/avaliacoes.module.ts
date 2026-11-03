@@ -1,4 +1,5 @@
 import { Module, OnModuleInit } from '@nestjs/common';
+import { EstatisticasModule } from '../estatisticas/estatisticas.module';
 import { MessageValidator } from '../messaging/message-validator';
 import { MessagingModule } from '../messaging/messaging.module';
 import notaAlteradaSchema from '../messaging/schemas/nota.alterada.v1.schema.json';
@@ -11,7 +12,7 @@ import { NOTA_ALTERADA, RESENHA_EXCLUIDA, RESENHA_PUBLICADA } from './eventos';
 
 /** F-AVA: nota e resenha do leitor para um livro. */
 @Module({
-  imports: [MessagingModule],
+  imports: [MessagingModule, EstatisticasModule],
   controllers: [AvaliacoesController],
   providers: [AvaliacoesService, AvaliacoesRepository],
 })

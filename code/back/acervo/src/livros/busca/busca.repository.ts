@@ -3,14 +3,41 @@ import { sql, SQL } from 'drizzle-orm';
 import { DRIZZLE, DrizzleDB } from '../../db/drizzle.module';
 import { assunto } from '../../db/schema';
 
+/**
+ * Ordem da página:
+ *
+ * - `relevancia`: a da busca (pontuação do grupo; sem `q`, por título);
+ * - `ano-do-grupo`: páginas de autor e editora, do grupo de ano mais recente
+ *   para o mais antigo, com os grupos sem ano no fim;
+ * - `serie`: página de série, pelo número de ordem (RN-12), com os livros sem
+ *   número no fim, por título.
+ */
+export type OrdemDaPagina = 'relevancia' | 'ano-do-grupo' | 'serie';
+
 export interface CriteriosDeBusca {
-  /** Texto já aparado; ausente na busca só por assunto. */
+  /** Texto já aparado; ausente na busca só por filtros. */
   q?: string;
   /** As palavras de `q` (`palavrasDaBusca`); todas casam no mesmo campo. */
   palavras?: string[];
   /** ISBN-13 normalizado, quando o `q` é um ISBN-13 ou ISBN-10 válido. */
   isbn13?: string | null;
   assuntoId?: string;
+  /**
+   * Palavras dos filtros de texto de RF-ACV-03 (`palavrasDaBusca`): todas
+   * precisam aparecer no nome de um mesmo autor, da editora ou da série.
+   */
+  autorPalavras?: string[];
+  editoraPalavras?: string[];
+  seriePalavras?: string[];
+  ano?: number;
+  paginasMin?: number;
+  paginasMax?: number;
+  /** Páginas de catálogo (RF-ACV-10/11/12): o livro é desse autor, editora ou série. */
+  autorId?: string;
+  editoraId?: string;
+  serieId?: string;
+  /** `relevancia` quando ausente. */
+  ordem?: OrdemDaPagina;
   limit: number;
   offset: number;
 }
@@ -25,11 +52,29 @@ export interface LinhaDeLivroEncontrado {
   capaUrlExterna: string | null;
   autores: { id: string; nome: string }[];
   assuntos: { id: string; nome: string }[];
+  /** Número de ordem na série; só a página da série o expõe. */
+  numeroSerie: number | null;
 }
 
 /** Normalização do banco (migration `0004`): sem acento, em minúsculas. */
 const normalizar = (valor: SQL | string): SQL =>
   sql`acervo.f_busca_normalizar(${valor})`;
+
+/**
+ * `%`, `_` e `\` do texto viram literais, escapados depois de normalizar: o
+ * LIKE usa `\` como escape por padrão.
+ */
+const padrao = (palavra: string): SQL =>
+  sql`'%' || replace(replace(replace(${normalizar(palavra)}, '\\', '\\\\'), '%', '\\%'), '_', '\\_') || '%'`;
+
+/** Um `LIKE` por palavra, cada um indexável pelo GIN trigram do campo. */
+const contemTodas = (campo: SQL, palavras: string[]): SQL =>
+  sql.join(
+    palavras.map(
+      (palavra) => sql`${normalizar(campo)} LIKE ${padrao(palavra)}`,
+    ),
+    sql` AND `,
+  );
 
 /**
  * Colunas do `LivroOficialResumo` sobre `acervo.livro l` e `acervo.editora ed`,
@@ -44,6 +89,7 @@ export const COLUNAS_DO_RESUMO = sql`
   ed.nome AS editora,
   l.capa_url_propria AS "capaUrlPropria",
   l.capa_url_externa AS "capaUrlExterna",
+  l.numero_serie AS "numeroSerie",
   coalesce(
     (
       SELECT json_agg(json_build_object('id', a.id, 'nome', a.nome)
@@ -114,8 +160,9 @@ export class BuscaRepository {
    * **Grupo** é título normalizado + autores (RN-01: o cliente agrupa as
    * edições). Livro sem autor usa o próprio `id` como chave: são centenas no
    * acervo carregado, e sem isso todos os "sem autor" de mesmo título virariam
-   * uma obra só. A pontuação do grupo é a melhor das suas edições, e dentro do
-   * grupo a mais recente vem primeiro.
+   * uma obra só. A pontuação do grupo é a melhor das suas edições, o ano do
+   * grupo é o mais recente delas, e dentro do grupo a mais recente vem primeiro.
+   * O `livro_id` fecha o desempate: a ordem não muda entre uma página e outra.
    *
    * A página é recortada antes de montar autores e assuntos, para o `json_agg`
    * rodar só nas linhas devolvidas.
@@ -127,8 +174,10 @@ export class BuscaRepository {
         SELECT
           e.livro_id,
           l.ano_publicacao,
+          l.numero_serie,
           g.grupo,
-          max(e.pontuacao) OVER (PARTITION BY g.grupo) AS pontuacao_grupo
+          max(e.pontuacao) OVER (PARTITION BY g.grupo) AS pontuacao_grupo,
+          max(l.ano_publicacao) OVER (PARTITION BY g.grupo) AS ano_grupo
         FROM encontrados e
         JOIN acervo.livro l ON l.id = e.livro_id
         CROSS JOIN LATERAL (
@@ -146,7 +195,7 @@ export class BuscaRepository {
         SELECT
           o.livro_id,
           row_number() OVER (
-            ORDER BY o.pontuacao_grupo DESC, o.grupo,
+            ORDER BY ${ORDEM[criterios.ordem ?? 'relevancia']},
                      o.ano_publicacao DESC NULLS LAST, o.livro_id
           ) AS posicao
         FROM ordenados o
@@ -180,18 +229,13 @@ export class BuscaRepository {
    * antes.
    */
   private encontrados(criterios: CriteriosDeBusca): SQL {
-    const filtroDeAssunto = criterios.assuntoId
-      ? sql`AND EXISTS (
-          SELECT 1 FROM acervo.livro_assunto fa
-          WHERE fa.livro_id = l.id AND fa.assunto_id = ${criterios.assuntoId}
-        )`
-      : sql``;
+    const filtros = this.filtros(criterios);
 
     if (!criterios.q) {
       return sql`encontrados AS (
         SELECT l.id AS livro_id, 0::float8 AS pontuacao
         FROM acervo.livro l
-        WHERE l.tipo = 'oficial' AND l.ativo ${filtroDeAssunto}
+        WHERE l.tipo = 'oficial' AND l.ativo ${filtros}
       )`;
     }
 
@@ -199,18 +243,7 @@ export class BuscaRepository {
     const palavras = criterios.palavras?.length
       ? criterios.palavras
       : [criterios.q];
-    // `%`, `_` e `\` do texto viram literais, escapados depois de normalizar:
-    // o LIKE usa `\` como escape por padrão.
-    const padrao = (palavra: string): SQL =>
-      sql`'%' || replace(replace(replace(${normalizar(palavra)}, '\\', '\\\\'), '%', '\\%'), '_', '\\_') || '%'`;
-    // Um `LIKE` por palavra, cada um indexável pelo GIN do campo.
-    const contemTodas = (campo: SQL): SQL =>
-      sql.join(
-        palavras.map(
-          (palavra) => sql`${normalizar(campo)} LIKE ${padrao(palavra)}`,
-        ),
-        sql` AND `,
-      );
+    const contemAsPalavras = (campo: SQL): SQL => contemTodas(campo, palavras);
     const semelhanca = (campo: SQL): SQL =>
       sql`(0.75 * public.word_similarity(${termo}, ${normalizar(campo)})
          + 0.25 * public.similarity(${termo}, ${normalizar(campo)}))::float8`;
@@ -231,32 +264,118 @@ export class BuscaRepository {
                + ${semelhanca(sql`l.titulo`)}
         FROM acervo.livro l
         WHERE l.tipo = 'oficial' AND l.ativo
-          AND ${contemTodas(sql`l.titulo`)}
+          AND ${contemAsPalavras(sql`l.titulo`)}
         UNION ALL
         SELECT la.livro_id,
                CASE WHEN ${integral(sql`a.nome`)} THEN 10 ELSE 4 END
                + ${semelhanca(sql`a.nome`)}
         FROM acervo.autor a
         JOIN acervo.livro_autor la ON la.autor_id = a.id
-        WHERE ${contemTodas(sql`a.nome`)}
+        WHERE ${contemAsPalavras(sql`a.nome`)}
         UNION ALL
         SELECT l.id, 2 + ${semelhanca(sql`e.nome`)}
         FROM acervo.editora e
         JOIN acervo.livro l ON l.editora_id = e.id
-        WHERE ${contemTodas(sql`e.nome`)}
+        WHERE ${contemAsPalavras(sql`e.nome`)}
         UNION ALL
         SELECT ls.livro_id, ${semelhanca(sql`s.nome`)}
         FROM acervo.assunto s
         JOIN acervo.livro_assunto ls ON ls.assunto_id = s.id
-        WHERE ${contemTodas(sql`s.nome`)}
+        WHERE ${contemAsPalavras(sql`s.nome`)}
         ${porIsbn}
       ),
       encontrados AS (
         SELECT c.livro_id, max(c.pontuacao) AS pontuacao
         FROM candidatos c
         JOIN acervo.livro l ON l.id = c.livro_id
-        WHERE l.tipo = 'oficial' AND l.ativo ${filtroDeAssunto}
+        WHERE l.tipo = 'oficial' AND l.ativo ${filtros}
         GROUP BY c.livro_id
       )`;
   }
+
+  /**
+   * Predicados sobre `acervo.livro l` que restringem o conjunto, já com o `AND`
+   * na frente: o assunto (RF-ACV-02), os filtros de RF-ACV-03 e o autor, a
+   * editora ou a série das páginas de catálogo. Entram no `WHERE` que já tem o
+   * predicado literal de livro oficial ativo, então livro pessoal nunca passa
+   * (RNF-SEC-06).
+   *
+   * Os filtros de texto casam como o `q`: por trecho, sem acento e palavra por
+   * palavra, todas no nome de um **mesmo** autor. A editora casa também pelos
+   * sinônimos da curadoria (RN-12), então "cia das letras" acha a Companhia
+   * das Letras.
+   */
+  private filtros(criterios: CriteriosDeBusca): SQL {
+    const partes: SQL[] = [];
+
+    if (criterios.assuntoId) {
+      partes.push(sql`EXISTS (
+        SELECT 1 FROM acervo.livro_assunto fa
+        WHERE fa.livro_id = l.id AND fa.assunto_id = ${criterios.assuntoId}
+      )`);
+    }
+    if (criterios.autorId) {
+      partes.push(sql`EXISTS (
+        SELECT 1 FROM acervo.livro_autor fla
+        WHERE fla.livro_id = l.id AND fla.autor_id = ${criterios.autorId}
+      )`);
+    }
+    if (criterios.editoraId) {
+      partes.push(sql`l.editora_id = ${criterios.editoraId}`);
+    }
+    if (criterios.serieId) {
+      partes.push(sql`l.serie_id = ${criterios.serieId}`);
+    }
+    if (criterios.autorPalavras?.length) {
+      partes.push(sql`EXISTS (
+        SELECT 1 FROM acervo.livro_autor fla
+        JOIN acervo.autor fa ON fa.id = fla.autor_id
+        WHERE fla.livro_id = l.id
+          AND ${contemTodas(sql`fa.nome`, criterios.autorPalavras)}
+      )`);
+    }
+    if (criterios.editoraPalavras?.length) {
+      const palavras = criterios.editoraPalavras;
+      partes.push(sql`EXISTS (
+        SELECT 1 FROM acervo.editora fe
+        WHERE fe.id = l.editora_id
+          AND (${contemTodas(sql`fe.nome`, palavras)}
+               OR EXISTS (
+                 SELECT 1 FROM acervo.sinonimo_editora fse
+                 WHERE fse.editora_id = fe.id
+                   AND ${contemTodas(sql`fse.forma_externa`, palavras)}
+               ))
+      )`);
+    }
+    if (criterios.seriePalavras?.length) {
+      partes.push(sql`EXISTS (
+        SELECT 1 FROM acervo.serie fs
+        WHERE fs.id = l.serie_id
+          AND ${contemTodas(sql`fs.nome`, criterios.seriePalavras)}
+      )`);
+    }
+    if (criterios.ano !== undefined) {
+      partes.push(sql`l.ano_publicacao = ${criterios.ano}`);
+    }
+    if (criterios.paginasMin !== undefined) {
+      partes.push(sql`l.paginas >= ${criterios.paginasMin}`);
+    }
+    if (criterios.paginasMax !== undefined) {
+      partes.push(sql`l.paginas <= ${criterios.paginasMax}`);
+    }
+
+    return partes.length > 0 ? sql`AND ${sql.join(partes, sql` AND `)}` : sql``;
+  }
 }
+
+/**
+ * Início do `ORDER BY` de cada ordem, sobre a CTE `ordenados o`; o desempate
+ * por ano da edição e `livro_id` é comum. `o.grupo` começa pelo título
+ * normalizado, então ordenar por ele é ordenar por título mantendo as edições
+ * do grupo juntas.
+ */
+const ORDEM: Record<OrdemDaPagina, SQL> = {
+  relevancia: sql`o.pontuacao_grupo DESC, o.grupo`,
+  'ano-do-grupo': sql`o.ano_grupo DESC NULLS LAST, o.grupo`,
+  serie: sql`o.numero_serie ASC NULLS LAST, o.grupo`,
+};

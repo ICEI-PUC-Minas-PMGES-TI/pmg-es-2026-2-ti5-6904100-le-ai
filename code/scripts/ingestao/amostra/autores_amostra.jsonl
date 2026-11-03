@@ -1,6 +1,6 @@
-{"type": {"key": "/type/author"}, "key": "/authors/OL10000001A", "name": "Itamar Vieira Junior"}
+{"type": {"key": "/type/author"}, "key": "/authors/OL10000001A", "name": "Itamar Vieira Junior", "bio": "Escritor e geógrafo baiano, autor de *Torto arado* ([fonte][1]).\n\n[1]: https://pt.wikipedia.org/wiki/Itamar_Vieira_Junior"}
 {"type": {"key": "/type/author"}, "key": "/authors/OL10000002A", "name": "Carolina Maria de Jesus"}
-{"type": {"key": "/type/author"}, "key": "/authors/OL10000003A", "name": "Machado de Assis"}
+{"type": {"key": "/type/author"}, "key": "/authors/OL10000003A", "name": "Machado de Assis", "bio": {"type": "/type/text", "value": "Joaquim Maria <b>Machado de Assis</b> foi um escritor brasileiro."}}
 {"type": {"key": "/type/author"}, "key": "/authors/OL10000004A", "name": "Aluísio Azevedo"}
 {"type": {"key": "/type/author"}, "key": "/authors/OL10000005A", "name": "Clarice Lispector"}
 {"type": {"key": "/type/author"}, "key": "/authors/OL10000006A", "name": "Graciliano Ramos"}

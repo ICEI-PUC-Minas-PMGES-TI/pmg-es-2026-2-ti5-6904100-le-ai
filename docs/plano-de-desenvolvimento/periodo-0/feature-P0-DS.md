@@ -92,8 +92,8 @@ Anotadas aqui para que quem implementar componentes não reintroduza: um único 
 
 (plano §10)
 
-- [ ] Código (tokens.json + scripts + config/tema) mergeado em `desenvolvimento`
-- [ ] CI verde ([P0-CI](feature-P0-CI.md)) — web/mobile buildam com os tokens aplicados
+- [x] Código (tokens.json + scripts + config/tema) mergeado em `desenvolvimento` — `tokens.json` (02/09/2026), config do Tailwind (12/09/2026) e gerador do mobile (13/09/2026); em uso nas duas stacks
+- [x] CI verde ([P0-CI](feature-P0-CI.md)) — web/mobile buildam com os tokens aplicados: `ci-front` (lint, build e testes) e `ci-mobile` (`generate_tokens.dart --check`, analyze, testes e APK) verdes na `desenvolvimento` (última execução em 25/10/2026)
 - [ ] Testes automatizados dos casos de uso — a Web possui teste do consumo direto do JSON pelo Tailwind; o teste de geração Dart permanece pendente com o mobile
 - [ ] Spec OpenAPI do serviço atualizado em `docs/api/` — **N/A**: feature de front/mobile, sem serviço de backend. Justificativa registrada aqui em vez de remover o item.
 - [ ] Fluxo funcionando em DES/HML — os tokens aparecem no site em DES ([P0-DEPLOY](feature-P0-DEPLOY.md)); o APK de DES ([P0-CI](feature-P0-CI.md)) usa o tema
@@ -111,6 +111,10 @@ Anotadas aqui para que quem implementar componentes não reintroduza: um único 
 - Os **componentes** de §4 (botão, input, estrela, card, status pill, progresso, streak, feed, modo de foco) e os protótipos ficam para depois; aqui entra no máximo um componente-piloto para validar o contrato dos dois lados.
 
 ## Timeline
+
+### 25/10/2026: status atualizado por Renato Douglas
+
+DoD de merge e CI marcados: `tokens.json` em uso na web e no mobile da `desenvolvimento`, com `ci-front` e `ci-mobile` verdes. Sem mudança de escopo ou decisão.
 
 ### Web concluída em 12/09/2026: Tailwind 4 passou a consumir diretamente `docs/design-system/tokens.json` via `@config`, sem `code/front/scripts` ou arquivos intermediários. Foram aplicados CSS vars claro/escuro, preferência do sistema, toggle persistido no `localStorage`, quatro famílias tipográficas, Phosphor Icons e o título centralizado `Lê Ai`. `npm run lint`, `npm test` e `npm run build` passam; a camada mobile foi concluída em 13/09/2026.
 

@@ -17,6 +17,7 @@ import br.com.leai.identidade.common.ErroDeNegocioException;
 import br.com.leai.identidade.common.RateLimitFilter;
 import br.com.leai.identidade.config.AppProperties;
 import br.com.leai.identidade.config.JwtConfig;
+import br.com.leai.identidade.conta.service.TokenDeRecuperacao;
 import br.com.leai.identidade.usuario.Usuario;
 import br.com.leai.identidade.usuario.UsuarioRepositorio;
 import java.time.LocalDate;
@@ -86,7 +87,8 @@ class ServicoDeAutenticacaoTest {
             controleDeTentativas,
             new PoliticaDeSenha(),
             gestorDeRenovacao,
-            new ContaAdministradora());
+            new ContaAdministradora(),
+            new TokenDeRecuperacao(propriedades));
   }
 
   private static CadastroRequisicao cadastro() {
@@ -194,7 +196,8 @@ class ServicoDeAutenticacaoTest {
     given(repositorio.findByEmailIgnoreCaseOrUsernameIgnoreCase("marinableu", "marinableu"))
         .willReturn(Optional.of(usuario));
 
-    SessaoResposta resposta = servico.entrar(new LoginRequisicao("marinableu", SENHA));
+    SessaoResposta resposta =
+        (SessaoResposta) servico.entrar(new LoginRequisicao("marinableu", SENHA));
 
     assertThat(resposta.tokenType()).isEqualTo("Bearer");
     assertThat(resposta.expiresIn()).isEqualTo(900L);

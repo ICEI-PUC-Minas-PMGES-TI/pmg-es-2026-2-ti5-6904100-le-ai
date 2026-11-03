@@ -1,7 +1,7 @@
 # F-SOCIAL-2 — Comentários (edição) e menções-link
 
 **Período:** 2 · **Prioridade:** desejavel
-**Dono:** a definir · **Serviços afetados:** `social` (backend) + web + mobile
+**Dono:** Kayke · **Serviços afetados:** `social` (backend) + web + mobile
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.9 (RF-SOC-13, 15), RN-10, RN-08. Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §3.1, §4.2, §5.2. Processo e template: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §9. Regras compartilhadas do projeto: [`../periodo-1/README.md#regras-de-implementação-compartilhadas`](../periodo-1/README.md#regras-de-implementação-compartilhadas). Em caso de conflito, o `REQUISITOS.md` ganha; protótipo é referência visual, não spec de pixel (plano §7).
 
@@ -18,10 +18,10 @@ RNF atendidos: **RNF-SEC-02** (propriedade do comentário no servidor), **RNF-SE
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | não iniciado | associação de menções; publisher e mapeamento consumidor de `usuario.mencionado` |
-| Backend | não iniciado | `social`: editar/excluir comentário, resolver menções, publicar evento e gerar notificação |
-| Web | não iniciado | editar/excluir comentário; menção renderizada como link (sob RN-08) |
-| Mobile | não iniciado | mesmas telas |
+| Infra | concluído | `comentario_mencao` já existia desde a migration do modelo social (sem migration nova); schema `usuario.mencionado.v1` e linha no catálogo |
+| Backend | concluído | `PATCH`/`DELETE /comentarios/{id}`, resolução de menções, outbox e consumidor de `usuario.mencionado`; testes de integração rodando no CI com Postgres (`InteracaoControllerIntegracaoTest`, 9 testes verdes) |
+| Web | concluído | menu do próprio comentário, edição no rodapé, exclusão com confirmação, menção como link e `· editado` |
+| Mobile | concluído | mesmas telas e tipo `usuarioMencionado` na lista de notificações |
 
 ## Especificação
 
@@ -63,9 +63,9 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 (plano §10)
 
-- [ ] Código (backend `social`, web, mobile) mergeado em `desenvolvimento`
-- [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
-- [ ] Testes unitários e de integração com banco real/container: propriedade na edição/exclusão, cascade da raiz, resolução de menção existente/inexistente, dedup contra `comentario.respondido`, idempotência (RNF-TST-02)
+- [x] Código (backend `social`, web, mobile) mergeado em `desenvolvimento` — commits diretos, 03/10/2026
+- [x] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)): `ci-back-social`, `ci-front` e `ci-mobile` verdes na `desenvolvimento` (última execução de cada um até 25/10/2026)
+- [x] Testes unitários e de integração com banco real/container: propriedade na edição/exclusão, cascade da raiz, resolução de menção existente/inexistente, dedup contra `comentario.respondido`, idempotência (RNF-TST-02) — `InteracaoControllerIntegracaoTest`, no CI com Postgres
 - [ ] Testes assíncronos cobrem schema/publicação, consumo, destinatário, duplicação semântica e DLQ de `usuario.mencionado` (RNF-TST-03)
 - [ ] Testes web/mobile cobrem edição/exclusão, renderização de menção-link sob RN-08 e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
 - [ ] **Spec OpenAPI de `social` atualizado em `docs/api/social.yaml`** com editar/excluir comentário e o schema de `usuario.mencionado`
@@ -86,10 +86,33 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - Stack de `social` definida: **Spring (Java)** (arquitetura §2.1).
 - **Telas (design P2):** editar e excluir o próprio comentário (`DotsThree`, edição no campo do rodapé com a barra `Editando comentário`, confirmação que avisa que as respostas saem junto) e menção resolvida como link em `musgo` entram na edição consolidada [`comentarios.md`](../../design/periodo-2/comentarios/comentarios.md) ([protótipo](../../design/periodo-2/comentarios/prototipos/comentarios.html)), prompt escrito e protótipo exportado em 29/09/2026. Decisões a ratificar: marcador `· editado`, lista desabilitada durante a edição, cancelar edição sem confirmar, `Ctrl` + `Enter` salva na web, confirmação mobile em sheet empilhado, sem toast depois de editar ou excluir, autor da atividade não remove comentário alheio. **Contratos a confirmar:** `editadoEm` no comentário; quantidade de respostas que saem com a raiz (a copy da confirmação usa o número); se o rate limit de menção recusa o comentário ou só a notificação; renderização de menção a conta oculta depois (suspensa ou com exclusão pendente).
 
+### Decisões da implementação (03/10/2026)
+
+- **Rate limit de menção recusa a escrita** com 429 (`Muitas menções seguidas...`): conta um uso por destinatário novo, `MENCOES_POR_MINUTO = 10` por usuário. O valor não vem de nenhuma fonte; **confirmar com o grupo**.
+- **Contrato da menção:** `Comentario.mencoes[] = {posicao, comprimento, usuarioId, username}`, em unidades UTF-16. O comprimento é recalculado do texto na leitura; conta que sai de `v_perfil_referencia_v1` (suspensa, exclusão pendente) volta a ser texto comum.
+- **`editado`** é derivado de `atualizado_em` não nulo; não há coluna nova. Limite do texto mantido em 2000 caracteres na edição.
+- Username casado sem diferenciar maiúsculas (`lower(username)`, igual ao login); ponto final e e-mail não viram menção.
+- Notificação: `X mencionou você num comentário na atividade de Y.`; chave `mencao:<comentarioId>:<mencionadoId>`.
+
+### Pendências da implementação
+
+- ~~Rodar os testes de integração de `InteracaoControllerIntegracaoTest` com `DATABASE_URL_TESTE` (não havia Postgres local nem Docker na sessão).~~ Rodam no `ci-back-social`, com Postgres de serviço: 9 testes verdes.
+- Menu de comentário de outro leitor (`Denunciar comentário`) fica para F-MOD; hoje o `DotsThree` só aparece no próprio comentário.
+- Web: erro de exclusão aparece dentro do dialog; mobile mostra o erro no rodapé da folha, não dentro do sheet de confirmação (divergência do protótipo 5.7).
+- Conflito RN-08 no toque da notificação de menção continua aberto; hoje o toque leva ao feed, como as demais notificações de atividade.
+
 ## Timeline
+
+### 25/10/2026: status atualizado por Renato Douglas
+
+DoD de merge, CI e testes de integração marcados: código na `desenvolvimento` por commits diretos (03/10/2026), CI verde e `InteracaoControllerIntegracaoTest` rodando no CI. Seguem desmarcados: testes assíncronos (sem teste de DLQ próprio de `usuario.mencionado`), web/mobile (sem caso de perfil privado sob RN-08 nem de timeout) e spec (o schema de `usuario.mencionado` está em `docs/mensageria/`, não no `social.yaml`). Sem mudança de escopo ou decisão.
+
+### Implementação 03/10/2026: backend, web e mobile implementados (issue #18); integração pendente de execução com banco real.
 
 ### Revisão 01/09/2026: exclusão física/cascade confirmada; menção passou a ser modelada por ocorrência e posição, permitindo repetição do mesmo usuário com notificação deduplicada.
 
 ### Criação 28/08/2026: arquivo criado a partir do escopo de F-SOCIAL-2 no [periodo-2/README.md](README.md), de RF-SOC-13/15 do [`REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.9 e da RN-10. Continua a fronteira que [F-FEED](../periodo-1/feature-F-FEED.md) fixou (edição de comentário e menção-link no P2); dedup de notificação entre `comentario.respondido` e `usuario.mencionado` registrado como contrato a fechar.
 
 ### Revisão 29/08/2026: identidade pública de perfil privado alinhada a RN-08; menções passaram a ter associação e chave semântica para edição sem spam. A feature passou a entregar também o mapeamento consumidor/DLQ de `usuario.mencionado` em `social`.
+
+### Dono 29/09/2026: feature atribuída a **Kayke** na [divisão do Período 2](README.md#divisão-do-período-2-entre-5-pessoas).

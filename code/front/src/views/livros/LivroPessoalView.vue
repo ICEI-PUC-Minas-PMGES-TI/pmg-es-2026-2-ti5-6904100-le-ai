@@ -1,20 +1,27 @@
 <script setup lang="ts">
-import { PhBookOpen, PhDotsThreeVertical, PhPencilSimple, PhTrash } from '@phosphor-icons/vue'
+import { PhBookOpen, PhDotsThreeVertical, PhFlag, PhListPlus, PhPencilSimple, PhTrash } from '@phosphor-icons/vue'
 import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import SituacaoNaEstante from '../../components/estante/SituacaoNaEstante.vue'
+import AdicionarALista from '../../components/listas/AdicionarALista.vue'
 import BlocoDeSpoiler from '../../components/livros/BlocoDeSpoiler.vue'
 import BlocoSuaAvaliacao from '../../components/livros/BlocoSuaAvaliacao.vue'
 import CapaLivro from '../../components/livros/CapaLivro.vue'
 import EstrelasNota from '../../components/livros/EstrelasNota.vue'
+import ReacoesDaResenha from '../../components/livros/ReacoesDaResenha.vue'
+import SecaoFrases from '../../components/livros/SecaoFrases.vue'
+import TextoDaResenha from '../../components/livros/TextoDaResenha.vue'
+import DenunciaDeConteudo from '../../components/moderacao/DenunciaDeConteudo.vue'
 import BannerAviso from '../../components/ui/BannerAviso.vue'
 import BotaoTextual from '../../components/ui/BotaoTextual.vue'
 import DialogoConfirmacao from '../../components/ui/DialogoConfirmacao.vue'
 import EstadoVazio from '../../components/ui/EstadoVazio.vue'
 import FolhaAcoes, { type AcaoDaFolha } from '../../components/ui/FolhaAcoes.vue'
+import MenuDeAcoes from '../../components/ui/MenuDeAcoes.vue'
 import { formatarData, formatarPaginas } from '../../livros/formatos'
 import { useMinhaAvaliacao } from '../../livros/useMinhaAvaliacao'
+import type { AlvoDaDenuncia } from '../../moderacao/useDenunciar'
 import { acervoService, type LivroPessoalDetalhe, type ViaDeAcesso } from '../../services/acervo'
 import { ApiError, novaChaveIdempotencia } from '../../services/api'
 
@@ -44,15 +51,43 @@ const confirmandoExclusao = ref(false)
 const excluindo = ref(false)
 const erroDaExclusao = ref<string | null>(null)
 
+/** As duas vias de terceiros (RN-15): feed e lista do dono. */
 const acesso = computed<ViaDeAcesso | undefined>(() =>
-  route.query.via === 'feed' && typeof route.query.referenciaId === 'string'
-    ? { via: 'feed', referenciaId: route.query.referenciaId }
+  (route.query.via === 'feed' || route.query.via === 'lista') && typeof route.query.referenciaId === 'string'
+    ? { via: route.query.via, referenciaId: route.query.referenciaId }
     : undefined,
 )
+const veioDaLista = computed(() => acesso.value?.via === 'lista')
+const adicionandoALista = ref(false)
 
 const ehDono = computed(() => livro.value !== null && !livro.value.modoConsulta)
 const nomeDoDono = computed(() => livro.value?.dono?.nome ?? null)
 const primeiroNome = computed(() => nomeDoDono.value?.split(/\s+/)[0] ?? null)
+
+/**
+ * F-MOD: o terceiro denuncia a resenha do dono pela mesma via que abriu a página (RN-15.4); o
+ * `Denunciar` em texto do Período 1 virou o `DotsThree` ao lado do título (livro-pessoal.md, lote 7).
+ */
+const ACOES_DA_RESENHA: AcaoDaFolha[] = [{ id: 'denunciar', rotulo: 'Denunciar resenha', icone: PhFlag, destrutiva: true }]
+const denunciando = ref<AlvoDaDenuncia | null>(null)
+
+function denunciarResenha(): void {
+  const resenha = livro.value?.resenhaDoDono
+  if (!livro.value || !resenha || !acesso.value) {
+    return
+  }
+  denunciando.value = {
+    tipo: 'resenha',
+    id: resenha.id,
+    autorNome: nomeDoDono.value ?? resenha.autorNome,
+    autorAvatarUrl: livro.value.dono?.avatarUrl ?? resenha.autorAvatarUrl ?? null,
+    livroTitulo: livro.value.titulo,
+    texto: resenha.texto,
+    spoiler: resenha.spoiler,
+    via: acesso.value.via,
+    referenciaId: acesso.value.referenciaId,
+  }
+}
 const avaliado = computed(() => livro.value !== null && (livro.value.notaDoDono !== null || livro.value.resenhaDoDono !== null))
 
 /**
@@ -64,7 +99,7 @@ const rotaDoEditor = computed(() => ({ name: 'escrever-resenha-pessoal', params:
 
 /** Resenha do dono com spoiler, vista por terceiro: fora do DOM até a ação (RF-AVA-03). */
 const spoilerRevelado = ref(false)
-const textoDaResenhaDoDono = useTemplateRef<HTMLParagraphElement>('textoDaResenhaDoDono')
+const textoDaResenhaDoDono = useTemplateRef<HTMLDivElement>('textoDaResenhaDoDono')
 
 /** Ao revelar o spoiler, o foco vai para o texto, para o leitor de tela continuar dali. */
 async function revelarSpoiler(): Promise<void> {
@@ -77,8 +112,17 @@ const livroAvaliado = computed(() => ({
   autor: livro.value?.autor ?? null,
   capaUrl: livro.value?.capaUrl ?? null,
 }))
+/** F-AVA-2: só o dono vê e guarda frases do livro pessoal (RN-15). */
+const livroDaFrase = computed(() => ({
+  ...livroAvaliado.value,
+  id: String(route.params.id),
+  paginas: livro.value?.paginas ?? 0,
+}))
 
+// F-LST: `Adicionar à lista` no topo do menu do dono (livro-pessoal.md P2 §4.3). Sem `Recomendar`:
+// livro pessoal não pode ser recomendado (RF-REC-06).
 const acoesDoMenu: AcaoDaFolha[] = [
+  { id: 'lista', rotulo: 'Adicionar à lista', icone: PhListPlus },
   { id: 'editar', rotulo: 'Editar livro', icone: PhPencilSimple },
   { id: 'excluir', rotulo: 'Excluir livro', icone: PhTrash, destrutiva: true },
 ]
@@ -100,7 +144,12 @@ async function carregar(): Promise<void> {
     }
   } catch (erro) {
     livro.value = null
-    if (erro instanceof ApiError && (erro.status === 403 || erro.status === 404)) {
+    // Pela lista, um 400 do `acervo` (que aceita `via=lista` desde a etapa 3 da F-LST) continua
+    // sendo o mesmo "indisponível" para quem chega, sem confirmar nada sobre o livro.
+    if (
+      erro instanceof ApiError &&
+      (erro.status === 403 || erro.status === 404 || (veioDaLista.value && erro.status === 400))
+    ) {
       indisponivel.value = true
     } else {
       erroDeCarga.value = erro instanceof ApiError ? erro.message : 'Não foi possível acessar o servidor. Tente novamente.'
@@ -116,7 +165,9 @@ function editar(): void {
 
 function escolherNoMenu(id: string): void {
   menuAberto.value = false
-  if (id === 'editar') {
+  if (id === 'lista') {
+    adicionandoALista.value = true
+  } else if (id === 'editar') {
     editar()
   } else {
     confirmandoExclusao.value = true
@@ -165,9 +216,17 @@ async function excluir(): Promise<void> {
       class="mx-auto max-w-[480px] pt-space-2"
     >
       <p class="mt-space-3 text-body text-grafite">
-        Ele pode ter sido excluído por quem o cadastrou.
+        Quem o cadastrou pode ter excluído o livro ou deixado de compartilhá-lo.
       </p>
       <BotaoTextual
+        v-if="veioDaLista"
+        class="mt-space-6 min-h-12 md:min-h-10"
+        @click="router.back()"
+      >
+        Voltar à lista
+      </BotaoTextual>
+      <BotaoTextual
+        v-else
         class="mt-space-6 min-h-12 md:min-h-10"
         @click="router.push('/feed')"
       >
@@ -229,6 +288,15 @@ async function excluir(): Promise<void> {
               v-if="ehDono"
               class="hidden shrink-0 items-center gap-space-4 md:flex"
             >
+              <BotaoTextual @click="adicionandoALista = true">
+                <PhListPlus
+                  :size="20"
+                  weight="regular"
+                  class="mr-space-2"
+                  aria-hidden="true"
+                />
+                Adicionar à lista
+              </BotaoTextual>
               <BotaoTextual @click="editar">
                 Editar
               </BotaoTextual>
@@ -309,32 +377,60 @@ async function excluir(): Promise<void> {
               v-if="livro.resenhaDoDono"
               class="py-space-5"
             >
-              <h3 class="text-title-sm text-tinta">
-                {{ `Resenha de ${primeiroNome ?? 'quem cadastrou'}` }}
-              </h3>
+              <div class="flex items-center justify-between gap-space-3">
+                <h3 class="text-title-sm text-tinta">
+                  {{ `Resenha de ${primeiroNome ?? 'quem cadastrou'}` }}
+                </h3>
+                <MenuDeAcoes
+                  v-if="acesso && livro.resenhaDoDono.id"
+                  class="-my-space-2 -mr-space-3 shrink-0"
+                  discreto
+                  rotulo="Mais ações da resenha"
+                  :acoes="ACOES_DA_RESENHA"
+                  @escolher="denunciarResenha"
+                />
+              </div>
               <BlocoDeSpoiler
                 v-if="livro.resenhaDoDono.spoiler && !spoilerRevelado"
                 class="mt-space-3"
                 @revelar="revelarSpoiler"
               />
-              <p
+              <div
                 v-else
                 ref="textoDaResenhaDoDono"
                 tabindex="-1"
                 lang="pt-BR"
-                class="mt-space-3 max-w-[68ch] outline-none whitespace-pre-line font-editorial text-body-lg text-tinta"
+                class="mt-space-3 max-w-[68ch] outline-none"
               >
-                {{ livro.resenhaDoDono.texto }}
-              </p>
+                <TextoDaResenha :texto="livro.resenhaDoDono.texto" />
+              </div>
               <p class="mt-space-3 text-caption text-grafite-suave">
                 {{ formatarData(livro.resenhaDoDono.atualizadoEm) }}
               </p>
+              <!-- Terceiro reage pela mesma via que abriu a página (RN-15.4). -->
+              <ReacoesDaResenha
+                class="mt-space-3"
+                :resenha-id="livro.resenhaDoDono.id"
+                :reacoes="livro.resenhaDoDono"
+                :via="acesso"
+              />
             </section>
           </template>
           <!-- Sem avaliação do dono, o terceiro não vê nada (§4.6). -->
+          <SecaoFrases
+            v-if="ehDono"
+            class="py-space-5"
+            :livro="livroDaFrase"
+            :rota-das-frases="{ name: 'frases-do-livro-pessoal', params: { id: livroDaFrase.id } }"
+          />
         </div>
       </div>
     </article>
+
+    <DenunciaDeConteudo
+      :alvo="denunciando"
+      @fechar="denunciando = null"
+    />
 
     <!-- Menu de três pontos no header, só abaixo de 768px e só para o dono (§4 e §5). -->
     <Teleport
@@ -362,6 +458,13 @@ async function excluir(): Promise<void> {
       :acoes="acoesDoMenu"
       @escolher="escolherNoMenu"
       @fechar="menuAberto = false"
+    />
+
+    <AdicionarALista
+      v-if="livro && ehDono"
+      :aberto="adicionandoALista"
+      :livro="{ id: livro.id, titulo: livro.titulo, autor: livro.autor, capaUrl: livro.capaUrl, pessoal: true }"
+      @fechar="adicionandoALista = false"
     />
 
     <DialogoConfirmacao

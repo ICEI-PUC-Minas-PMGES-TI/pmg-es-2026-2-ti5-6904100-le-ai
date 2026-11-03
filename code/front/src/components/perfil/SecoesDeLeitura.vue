@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { PhBooks } from '@phosphor-icons/vue'
-import { onMounted, ref, useId, watch } from 'vue'
+import { computed, onMounted, ref, useId, useSlots, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 
 import { useResenhasDoPerfil } from '../../perfil/useResenhasDoPerfil'
@@ -26,7 +26,10 @@ const props = defineProps<{
   nome?: string
   /** Dono do perfil: com ele, as resenhas são carregadas do `leitura`. */
   usuarioId?: string
+  /** Aba aberta ao montar (`?aba=listas` no retorno de uma lista, F-LST). */
+  abaInicial?: string
 }>()
+const slots = useSlots()
 
 const resenhas = useResenhasDoPerfil()
 onMounted(() => {
@@ -43,15 +46,18 @@ watch(
   },
 )
 
-type Aba = 'estante' | 'resenhas'
+type Aba = 'estante' | 'resenhas' | 'listas'
 
-const aba = ref<Aba>('estante')
 const id = useId()
 
-const ABAS: { chave: Aba; rotulo: string }[] = [
+/** A terceira aba, `Listas` (F-LST), só existe quando quem usa passa o slot `listas`. */
+const ABAS = computed<{ chave: Aba; rotulo: string }[]>(() => [
   { chave: 'estante', rotulo: 'Estante' },
   { chave: 'resenhas', rotulo: 'Resenhas' },
-]
+  ...(slots.listas ? [{ chave: 'listas' as const, rotulo: 'Listas' }] : []),
+])
+
+const aba = ref<Aba>(ABAS.value.some((item) => item.chave === props.abaInicial) ? (props.abaInicial as Aba) : 'estante')
 
 const textoDaEstante = props.proprio
   ? 'Os livros que você adicionar aparecem aqui.'
@@ -66,7 +72,9 @@ function aoTeclar(evento: KeyboardEvent): void {
     return
   }
   evento.preventDefault()
-  aba.value = aba.value === 'estante' ? 'resenhas' : 'estante'
+  const chaves = ABAS.value.map((item) => item.chave)
+  const passo = evento.key === 'ArrowRight' ? 1 : -1
+  aba.value = chaves[(chaves.indexOf(aba.value) + passo + chaves.length) % chaves.length]
   document.getElementById(`${id}-aba-${aba.value}`)?.focus()
 }
 </script>
@@ -76,7 +84,7 @@ function aoTeclar(evento: KeyboardEvent): void {
     <div
       class="hidden gap-space-6 border-b border-linha md:flex"
       role="tablist"
-      aria-label="Estante e resenhas"
+      :aria-label="slots.listas ? 'Estante, resenhas e listas' : 'Estante e resenhas'"
     >
       <button
         v-for="item in ABAS"
@@ -193,6 +201,19 @@ function aoTeclar(evento: KeyboardEvent): void {
       >
         {{ textoDasResenhas }}
       </p>
+    </section>
+
+    <!-- F-LST: abaixo de 768px, a seção `Listas` é a última (meu-perfil.md §4.2 E); o título e
+         `Ver todas` moram no próprio conteúdo do slot. -->
+    <section
+      v-if="slots.listas"
+      :id="`${id}-painel-listas`"
+      role="tabpanel"
+      :aria-labelledby="`${id}-aba-listas`"
+      class="mt-space-8 md:mt-0"
+      :class="aba === 'listas' ? '' : 'md:hidden'"
+    >
+      <slot name="listas" />
     </section>
   </div>
 </template>

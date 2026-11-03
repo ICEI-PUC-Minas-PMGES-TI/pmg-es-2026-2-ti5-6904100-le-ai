@@ -10,11 +10,13 @@ import '../../design/widgets/botao_textual.dart';
 import '../../design/widgets/campo_texto.dart';
 import '../../design/widgets/capa_livro.dart';
 import '../../design/widgets/cartao_progresso.dart';
+import '../../design/widgets/coracao_animado.dart';
 import '../../design/widgets/dialogo_confirmacao.dart';
 import '../../design/widgets/folha_inferior.dart';
 import 'acao_leitura_controller.dart';
 import 'acoes_disponiveis.dart';
 import 'cartao_estante.dart';
+import 'controlador_favorito.dart';
 import 'datas_de_leitura.dart';
 import 'estante_service.dart';
 import 'textos.dart';
@@ -30,11 +32,15 @@ class LivroDaAcao {
   final StatusEstante? status;
   final String? leituraId;
 
+  /// Nulo quando quem abre não sabe: a folha consulta o servidor.
+  final bool? favorito;
+
   const LivroDaAcao({
     required this.livroId,
     required this.livro,
     required this.status,
     this.leituraId,
+    this.favorito,
   });
 
   factory LivroDaAcao.doItem(ItemEstante item) => LivroDaAcao(
@@ -42,6 +48,7 @@ class LivroDaAcao {
     livro: item.livro,
     status: item.status,
     leituraId: item.leituraParaAcoes,
+    favorito: item.favorito,
   );
 }
 
@@ -50,6 +57,7 @@ Future<EstadoDeLeitura?> abrirAcoesDeLeitura(
   required EstanteService servico,
   required LivroDaAcao livro,
   ValueChanged<Leitura>? aoRegistrarProgresso,
+  ValueChanged<Leitura>? aoIniciarSessao,
   ValueChanged<Leitura>? aoVerAtualizacoes,
   DateTime Function() agora = DateTime.now,
 }) {
@@ -59,6 +67,7 @@ Future<EstadoDeLeitura?> abrirAcoesDeLeitura(
       servico: servico,
       livro: livro,
       aoRegistrarProgresso: aoRegistrarProgresso,
+      aoIniciarSessao: aoIniciarSessao,
       aoVerAtualizacoes: aoVerAtualizacoes,
       agora: agora,
     ),
@@ -69,6 +78,7 @@ class FolhaDeAcoesDeLeitura extends StatefulWidget {
   final EstanteService servico;
   final LivroDaAcao livro;
   final ValueChanged<Leitura>? aoRegistrarProgresso;
+  final ValueChanged<Leitura>? aoIniciarSessao;
   final ValueChanged<Leitura>? aoVerAtualizacoes;
   final DateTime Function() agora;
 
@@ -77,6 +87,7 @@ class FolhaDeAcoesDeLeitura extends StatefulWidget {
     required this.servico,
     required this.livro,
     this.aoRegistrarProgresso,
+    this.aoIniciarSessao,
     this.aoVerAtualizacoes,
     this.agora = DateTime.now,
   });
@@ -87,6 +98,11 @@ class FolhaDeAcoesDeLeitura extends StatefulWidget {
 
 class _FolhaDeAcoesDeLeituraState extends State<FolhaDeAcoesDeLeitura> {
   late final AcaoLeituraController _acao = AcaoLeituraController(widget.servico);
+  late final ControladorFavorito _favorito = ControladorFavorito(
+    widget.servico,
+    widget.livro.livroId,
+    inicial: widget.livro.favorito,
+  );
   Leitura? _leitura;
   bool _carregandoLeitura = false;
   bool _falhouLeitura = false;
@@ -96,12 +112,19 @@ class _FolhaDeAcoesDeLeituraState extends State<FolhaDeAcoesDeLeitura> {
   void initState() {
     super.initState();
     _acao.addListener(_aoMudar);
+    _favorito.addListener(_aoMudar);
     _carregarLeitura();
+    if (widget.livro.favorito == null) {
+      _favorito.carregar();
+    }
   }
 
   @override
   void dispose() {
     _acao
+      ..removeListener(_aoMudar)
+      ..dispose();
+    _favorito
       ..removeListener(_aoMudar)
       ..dispose();
     super.dispose();
@@ -165,6 +188,7 @@ class _FolhaDeAcoesDeLeituraState extends State<FolhaDeAcoesDeLeitura> {
             ? null
             : PedidoDeAcao(acao: id, livroId: livroId, leituraId: leituraId);
       case IdAcao.registrarProgresso:
+      case IdAcao.iniciarSessao:
       case IdAcao.verAtualizacoes:
         return null;
     }
@@ -231,6 +255,8 @@ class _FolhaDeAcoesDeLeituraState extends State<FolhaDeAcoesDeLeitura> {
     switch (id) {
       case IdAcao.registrarProgresso:
         return leitura?.totalPaginas == null ? null : widget.aoRegistrarProgresso;
+      case IdAcao.iniciarSessao:
+        return leitura?.totalPaginas == null ? null : widget.aoIniciarSessao;
       case IdAcao.verAtualizacoes:
         return widget.aoVerAtualizacoes;
       default:
@@ -296,10 +322,25 @@ class _FolhaDeAcoesDeLeituraState extends State<FolhaDeAcoesDeLeitura> {
           else if (_falhouLeitura) ...<Widget>[
             const BannerAviso(variante: VarianteAviso.erro, mensagem: TextosDeAcao.erroAoCarregar),
             BotaoTextual(texto: TextosDaEstante.erroBotao, onPressed: _carregarLeitura),
-          ] else
-            for (final acao in acoes) ...<Widget>[
-              if (acao.tom == TomDaAcao.destrutiva)
-                Divider(height: DesignTokens.space4, color: theme.divider),
+          ] else ...<Widget>[
+            for (final acao in acoes.where((acao) => acao.tom != TomDaAcao.destrutiva))
+              _LinhaDeAcao(
+                acao: acao,
+                salvandoEsta: _acao.acaoEmCurso == acao.id,
+                habilitada: !_acao.salvando,
+                aoTocar: () => _escolher(acao),
+              ),
+            if (_favorito.favorito != null) ...<Widget>[
+              Divider(height: DesignTokens.space4, color: theme.divider),
+              _LinhaDeFavorito(
+                favorito: _favorito.favorito!,
+                habilitada: !_acao.salvando && !_favorito.salvando,
+                falhou: _favorito.falhou,
+                aoTocar: _favorito.alternar,
+              ),
+            ],
+            for (final acao in acoes.where((acao) => acao.tom == TomDaAcao.destrutiva)) ...<Widget>[
+              Divider(height: DesignTokens.space4, color: theme.divider),
               _LinhaDeAcao(
                 acao: acao,
                 salvandoEsta: _acao.acaoEmCurso == acao.id,
@@ -307,6 +348,7 @@ class _FolhaDeAcoesDeLeituraState extends State<FolhaDeAcoesDeLeitura> {
                 aoTocar: () => _escolher(acao),
               ),
             ],
+          ],
           if (status == StatusEstante.abandonado &&
               leitura != null &&
               leitura.retomavel) ...<Widget>[
@@ -398,6 +440,7 @@ class _LinhaDeAcao extends StatelessWidget {
     IdAcao.adicionarQueroLer: PhosphorIconsRegular.bookmarkSimple,
     IdAcao.iniciarLeitura: PhosphorIconsRegular.bookOpen,
     IdAcao.registrarProgresso: PhosphorIconsRegular.plusCircle,
+    IdAcao.iniciarSessao: PhosphorIconsRegular.timer,
     IdAcao.verAtualizacoes: PhosphorIconsRegular.listBullets,
     IdAcao.finalizarLeitura: PhosphorIconsRegular.checkCircle,
     IdAcao.finalizarReleitura: PhosphorIconsRegular.checkCircle,
@@ -444,6 +487,78 @@ class _LinhaDeAcao extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _LinhaDeFavorito extends StatelessWidget {
+  final bool favorito;
+  final bool habilitada;
+  final bool falhou;
+  final VoidCallback aoTocar;
+
+  const _LinhaDeFavorito({
+    required this.favorito,
+    required this.habilitada,
+    required this.falhou,
+    required this.aoTocar,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final rotulo = favorito ? TextosDoFavorito.remover : TextosDoFavorito.favoritar;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Semantics(
+          button: true,
+          toggled: favorito,
+          enabled: habilitada,
+          child: InkWell(
+            onTap: habilitada ? aoTocar : null,
+            splashFactory: NoSplash.splashFactory,
+            child: SizedBox(
+              height: _alturaDaAcao,
+              child: Row(
+                children: <Widget>[
+                  CoracaoAnimado(
+                    ativo: favorito,
+                    tamanho: 24,
+                    corInativa: theme.colorScheme.onSurface,
+                  ),
+                  const SizedBox(width: DesignTokens.space4),
+                  Expanded(
+                    child: Text(
+                      rotulo,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        if (falhou)
+          Semantics(
+            liveRegion: true,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Icon(PhosphorIconsRegular.warning, size: 16, color: theme.colorScheme.error),
+                const SizedBox(width: DesignTokens.space2),
+                Expanded(
+                  child: Text(
+                    TextosDoFavorito.erro,
+                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

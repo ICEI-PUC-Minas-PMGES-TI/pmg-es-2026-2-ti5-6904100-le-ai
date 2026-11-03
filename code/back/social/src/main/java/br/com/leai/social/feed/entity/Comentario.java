@@ -103,6 +103,15 @@ public class Comentario {
         Instant.now());
   }
 
+  public void editar(String novoTexto) {
+    this.texto = novoTexto;
+    this.atualizadoEm = Instant.now();
+  }
+
+  public boolean foiEditado() {
+    return atualizadoEm != null;
+  }
+
   public UUID id() {
     return id;
   }

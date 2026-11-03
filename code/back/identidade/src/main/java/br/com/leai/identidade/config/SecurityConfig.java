@@ -2,15 +2,23 @@ package br.com.leai.identidade.config;
 
 import br.com.leai.identidade.common.CodigoErro;
 import br.com.leai.identidade.common.EscritorDeErro;
+import br.com.leai.identidade.conta.service.TokenDeRecuperacao;
+import java.util.Arrays;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
+import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.util.matcher.OrRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 
 /**
  * Cadeia de segurança do serviço (P0-NAV).
@@ -54,25 +62,54 @@ public class SecurityConfig {
     "/auth/logout",
     "/auth/password/forgot",
     "/auth/password/reset",
+    // Sem JWT: o job se autentica pelo X-Scheduler-Token, conferido no controller.
+    "/internal/jobs/exclusao-conta",
     "/v3/api-docs/**",
     "/docs/**",
     "/swagger-ui/**",
     "/error"
   };
 
+  /** Única rota que aceita o acesso de recuperação (F-CONTA-2, RN-23.3). */
+  public static final String ROTA_CANCELAR_EXCLUSAO = "/me/conta/cancelar-exclusao";
+
+  /**
+   * Cadeia do acesso de recuperação, avaliada antes da principal. Só cobre a rota de cancelar e
+   * valida com o decoder de recuperação: o token de acesso normal falha aqui pela assinatura, e o
+   * de recuperação falha em todas as outras rotas, que usam o decoder normal.
+   */
   @Bean
+  @Order(1)
+  SecurityFilterChain cadeiaDeRecuperacao(
+      HttpSecurity http, EscritorDeErro escritorDeErro, TokenDeRecuperacao tokenDeRecuperacao)
+      throws Exception {
+    return base(http.securityMatcher(ROTA_CANCELAR_EXCLUSAO), escritorDeErro)
+        .authorizeHttpRequests(rotas -> rotas.anyRequest().authenticated())
+        .oauth2ResourceServer(
+            oauth ->
+                oauth
+                    .jwt(jwt -> jwt.decoder(tokenDeRecuperacao.decodificador()))
+                    .authenticationEntryPoint(
+                        (requisicao, resposta, excecao) ->
+                            escritorDeErro.escrever(resposta, CodigoErro.NAO_AUTENTICADO))
+                    .accessDeniedHandler(
+                        (requisicao, resposta, excecao) ->
+                            escritorDeErro.escrever(resposta, CodigoErro.ACESSO_NEGADO)))
+        .build();
+  }
+
+  @Bean
+  @Order(2)
   SecurityFilterChain cadeiaDeFiltros(HttpSecurity http, EscritorDeErro escritorDeErro)
       throws Exception {
-    return http.csrf(csrf -> csrf.disable())
-        .cors(cors -> cors.disable())
-        .headers(headers -> headers.disable())
-        .sessionManagement(sessao -> sessao.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+    return base(http, escritorDeErro)
         .authorizeHttpRequests(
             rotas -> rotas.requestMatchers(ROTAS_PUBLICAS).permitAll().anyRequest().authenticated())
         .oauth2ResourceServer(
             oauth ->
                 oauth
                     .jwt(Customizer.withDefaults())
+                    .bearerTokenResolver(ignorandoRotasPublicas())
                     // O resource server instala um entry point próprio, que ganha do global
                     // abaixo quando o token existe mas é inválido ou expirou. Sem esta linha,
                     // esse 401 sai com corpo vazio e quebra o contrato de erro (RNF-ERR-01):
@@ -83,6 +120,32 @@ public class SecurityConfig {
                     .accessDeniedHandler(
                         (requisicao, resposta, excecao) ->
                             escritorDeErro.escrever(resposta, CodigoErro.ACESSO_NEGADO)))
+        .build();
+  }
+
+  /**
+   * Rota pública não lê o {@code Authorization}. Sem isto, o filtro de bearer valida o token antes
+   * da autorização e responde 401 a um token vencido mesmo no login ou na renovação, justamente
+   * as rotas que o cliente chama quando o acesso venceu. Nenhuma rota pública usa a identidade
+   * do token.
+   */
+  private static BearerTokenResolver ignorandoRotasPublicas() {
+    DefaultBearerTokenResolver padrao = new DefaultBearerTokenResolver();
+    RequestMatcher publicas =
+        new OrRequestMatcher(
+            Arrays.stream(ROTAS_PUBLICAS)
+                .<RequestMatcher>map(rota -> PathPatternRequestMatcher.withDefaults().matcher(rota))
+                .toList());
+    return requisicao -> publicas.matches(requisicao) ? null : padrao.resolve(requisicao);
+  }
+
+  /** O que as duas cadeias têm em comum: sem estado, sem CSRF e com o corpo de erro padrão. */
+  private static HttpSecurity base(HttpSecurity http, EscritorDeErro escritorDeErro)
+      throws Exception {
+    return http.csrf(csrf -> csrf.disable())
+        .cors(cors -> cors.disable())
+        .headers(headers -> headers.disable())
+        .sessionManagement(sessao -> sessao.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         // Cobre o caso sem Authorization nenhum, que nem chega ao filtro de bearer token.
         .exceptionHandling(
             erros ->
@@ -92,8 +155,7 @@ public class SecurityConfig {
                             escritorDeErro.escrever(resposta, CodigoErro.NAO_AUTENTICADO))
                     .accessDeniedHandler(
                         (requisicao, resposta, excecao) ->
-                            escritorDeErro.escrever(resposta, CodigoErro.ACESSO_NEGADO)))
-        .build();
+                            escritorDeErro.escrever(resposta, CodigoErro.ACESSO_NEGADO)));
   }
 
   /**

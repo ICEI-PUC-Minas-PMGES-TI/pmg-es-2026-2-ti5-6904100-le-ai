@@ -125,6 +125,17 @@
       <artifactId>mockito-core</artifactId>
       <scope>test</scope>
     </dependency>
+    <!-- Teste de contrato: cada resposta dos testes de integração é validada contra
+         docs/api/identidade.yaml (ContratoHttp). Fica na linha 2.x: a 3.0.0 (renomeada
+         openapi-request-validator-core) exige com.networknt:json-schema-validator 2.x, e o
+         código principal usa a 1.5.9 nos schemas de evento. A 2.x valida com java-json-tools,
+         sem conflito. Usa Jackson 2 por dentro, que convive com o Jackson 3 do Boot. -->
+    <dependency>
+      <groupId>com.atlassian.oai</groupId>
+      <artifactId>swagger-request-validator-core</artifactId>
+      <version>2.46.1</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>

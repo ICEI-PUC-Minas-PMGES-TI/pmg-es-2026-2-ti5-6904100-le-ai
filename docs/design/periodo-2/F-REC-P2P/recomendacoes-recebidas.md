@@ -1,6 +1,7 @@
 # F-REC-P2P · Recomendações recebidas
 
 **Feature:** ../../../plano-de-desenvolvimento/periodo-2/feature-F-REC-P2P.md
+**Editada por:** ../../periodo-3/recomendacoes-recebidas/recomendacoes-recebidas.md
 **Requisitos:** RF-REC-04 (ver as recomendações recebidas, com o livro, quem recomendou e a mensagem, quando houver), RF-REC-05 (acionar leva à página do livro), RF-REC-15 (descartar uma recomendação recebida, sem motivo e sem avisar quem recomendou)
 **Não funcionais:** RNF-DES-02 (listagem paginada com teto de itens), RNF-SEC-02 (só o destinatário descarta), RNF-USA-05 (mensagem acionável), RNF-ERR-09 (cold start é carregamento)
 **Regras de negócio:** RN-22.2 (sem mensagem, a recomendação aparece como "Fulano te recomendou X"), RN-22.6 (sem aceitar nem recusar), RN-22.7 (vários remetentes do mesmo livro geram recomendações distintas que coexistem), RN-22.9 (some depois de 90 dias), RN-22.10 (some quando o leitor põe o livro na estante), RN-22.11 (descarte individual, sem motivo, sem aviso ao remetente), RN-22.14 (recomendação removida não é restaurável)

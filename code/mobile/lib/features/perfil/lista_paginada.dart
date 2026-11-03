@@ -63,6 +63,18 @@ class ListaPaginada<T> extends ChangeNotifier {
     }
   }
 
+  /// Põe no topo os itens que chegaram depois da carga, ignorando os que a lista já tem.
+  void mesclarNoTopo(List<T> novos) {
+    final vistos = itens.map(_idDe).toSet();
+    final ineditos = novos.where((item) => vistos.add(_idDe(item))).toList();
+    if (ineditos.isEmpty) {
+      return;
+    }
+    itens = <T>[...ineditos, ...itens];
+    total += ineditos.length;
+    notifyListeners();
+  }
+
   /// Troca um item pela versão nova depois de uma ação que deu certo (curtir, comentar), sem
   /// recarregar a lista nem mover a rolagem.
   void substituir(T novo) {

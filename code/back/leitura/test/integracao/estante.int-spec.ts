@@ -97,6 +97,7 @@ describe('estante (integração)', () => {
         totalPaginas: 320,
         percentualConcluido: null,
         adicionadoEm: expect.any(String),
+        favorito: false,
       });
       expect(await contar(pool, 'leitura.leitura')).toBe(0);
       const { rows } = await pool.query(

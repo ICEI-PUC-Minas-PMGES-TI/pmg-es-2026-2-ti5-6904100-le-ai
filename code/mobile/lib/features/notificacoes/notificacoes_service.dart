@@ -31,6 +31,8 @@ class NotificacoesService {
     return PaginaDeNotificacoes.fromJson(json);
   }
 
+  Future<Stream<List<int>>> abrirTempoReal() => _social.abrirFluxo('/notificacoes/tempo-real');
+
   /// Marcação individual (um id) ou do lote escolhido. Devolve o novo total de não lidas.
   Future<int> marcarLidas(List<String> ids, {required String idempotencyKey}) =>
       _marcar(<String, Object>{'modo': 'SELECIONADAS', 'ids': ids}, idempotencyKey);

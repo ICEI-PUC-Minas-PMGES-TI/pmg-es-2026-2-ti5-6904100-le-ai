@@ -7,8 +7,10 @@ import {
   getToken,
   initializeSession,
   iniciarSessao,
+  papelDoToken,
   useSession,
 } from './session'
+import { tokenComPapel } from './testes/tokens'
 
 const USUARIO = { id: 'u1', username: 'marinableu', displayName: 'Marina Beltrão' }
 
@@ -116,5 +118,48 @@ describe('session', () => {
 
     expect(getToken()).toBeNull()
     expect(useSession().autenticado.value).toBe(false)
+  })
+})
+
+describe('papel do token (F-MOD)', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    encerrarSessao()
+  })
+
+  it('lê o claim papel; sem token, malformado ou sem o claim vale leitor', () => {
+    expect(papelDoToken(tokenComPapel('admin'))).toBe('admin')
+    expect(papelDoToken(tokenComPapel('leitor'))).toBe('leitor')
+    expect(papelDoToken(null)).toBe('leitor')
+    expect(papelDoToken('jwt')).toBe('leitor')
+    expect(papelDoToken('a.%%%.c')).toBe('leitor')
+    expect(papelDoToken(tokenComPapel('leitor', { papel: undefined }))).toBe('leitor')
+  })
+
+  it('ehAdmin acompanha o token: login, renovação e saída, sem gravar o papel', () => {
+    const { ehAdmin } = useSession()
+    expect(ehAdmin.value).toBe(false)
+
+    iniciarSessao({ accessToken: tokenComPapel('admin'), refreshToken: 'r' }, USUARIO)
+    expect(ehAdmin.value).toBe(true)
+    expect(localStorage.getItem('le-ai-sessao')).not.toContain('papel')
+
+    atualizarTokens({ accessToken: tokenComPapel('leitor'), refreshToken: 'r2' })
+    expect(ehAdmin.value).toBe(false)
+
+    atualizarTokens({ accessToken: tokenComPapel('admin'), refreshToken: 'r3' })
+    encerrarSessao()
+    expect(ehAdmin.value).toBe(false)
+  })
+
+  it('a sessão restaurada do localStorage também traz o papel', () => {
+    localStorage.setItem(
+      'le-ai-sessao',
+      JSON.stringify({ token: tokenComPapel('admin'), refreshToken: 'r', usuario: USUARIO }),
+    )
+
+    initializeSession()
+
+    expect(useSession().ehAdmin.value).toBe(true)
   })
 })

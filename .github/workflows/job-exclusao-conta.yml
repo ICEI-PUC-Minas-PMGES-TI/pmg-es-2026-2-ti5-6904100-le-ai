@@ -1,0 +1,40 @@
+name: job-exclusao-conta
+
+# F-CONTA-2 (RN-23.5): finaliza as exclusões de conta cujo prazo de 30 dias venceu.
+# Mesmo desenho do job-inatividade. Não há data de referência: o endpoint não
+# deixa finalizar conta antes do prazo.
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: job-exclusao-conta
+  cancel-in-progress: false
+
+jobs:
+  exclusao:
+    name: finalizar exclusões de conta vencidas
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: POST /internal/jobs/exclusao-conta
+        env:
+          IDENTIDADE_URL: ${{ secrets.IDENTIDADE_URL }}
+          SCHEDULER_TOKEN: ${{ secrets.IDENTIDADE_SCHEDULER_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${IDENTIDADE_URL}" ] || [ -z "${SCHEDULER_TOKEN}" ]; then
+            echo "::error::Configure os secrets IDENTIDADE_URL e IDENTIDADE_SCHEDULER_TOKEN."
+            exit 1
+          fi
+          chave="$(uuidgen)"
+          curl --fail-with-body --silent --show-error \
+            --retry 3 --retry-delay 30 --max-time 300 \
+            -X POST "${IDENTIDADE_URL%/}/internal/jobs/exclusao-conta" \
+            -H "X-Scheduler-Token: ${SCHEDULER_TOKEN}" \
+            -H "Idempotency-Key: ${chave}"
+          echo

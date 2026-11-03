@@ -173,10 +173,39 @@ export function getRefreshToken(): string | null {
   return refreshToken.value
 }
 
+/**
+ * O papel vem do claim `papel` do token de acesso (`leitor` | `admin`, F-AUT), lido sem
+ * verificar a assinatura: serve só para a interface mostrar ou esconder o que é do administrador
+ * (F-MOD). Quem decide é sempre o servidor, que verifica o token e devolve 403. Não é gravado no
+ * `localStorage`: deriva do token, então acompanha login, renovação, recarga e as outras abas.
+ * Token malformado ou sem o claim vale como leitor.
+ */
+export function papelDoToken(bruto: string | null): 'admin' | 'leitor' {
+  if (bruto === null) {
+    return 'leitor'
+  }
+  try {
+    const carga = bruto.split('.')[1]
+    if (!carga) {
+      return 'leitor'
+    }
+    const base64 = carga.replace(/-/g, '+').replace(/_/g, '/')
+    const json: unknown = JSON.parse(window.atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '=')))
+    return typeof json === 'object' && json !== null && (json as Record<string, unknown>).papel === 'admin'
+      ? 'admin'
+      : 'leitor'
+  } catch {
+    return 'leitor'
+  }
+}
+
+const ehAdmin = computed(() => papelDoToken(token.value) === 'admin')
+
 export function useSession() {
   return {
     usuario: computed(() => usuario.value),
     autenticado: computed(() => token.value !== null),
+    ehAdmin,
     iniciarSessao,
     encerrarSessao,
   }

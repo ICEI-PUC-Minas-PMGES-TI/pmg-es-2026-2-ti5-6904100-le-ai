@@ -3,6 +3,7 @@
 > **Prompt de edição.** Rode este prompt **sobre o canvas já existente** de `Descobrir`, gerado por `docs/design/periodo-1/F-ACV-BUSCA/descobrir.md`. Ele **não** cria um canvas novo: acrescenta, substitui e remove só o que está descrito abaixo. **Tudo que não estiver aqui permanece exatamente como está.**
 
 **Edita:** ../../periodo-1/F-ACV-BUSCA/descobrir.md
+**Editada por:** ../../periodo-3/descobrir/descobrir.md
 **Features:** ../../../plano-de-desenvolvimento/periodo-2/feature-F-ACV-DESCOBERTA.md, ../../../plano-de-desenvolvimento/periodo-2/feature-F-REC-P2P.md
 **Requisitos que entram:** F-ACV-DESCOBERTA: RF-ACV-03 (filtrar a busca por autor, editora, série, ano de publicação e faixa de número de páginas, combinável com o assunto de RF-ACV-02) · F-REC-P2P: RF-REC-13 (a "aba Recomendações", que é uma seção rotulada dentro de `Descobrir`), RF-REC-14 (a seção funciona só com a fonte P2P, sem a algorítmica), RF-REC-04 (cada recomendação mostra o livro, quem recomendou e a mensagem, quando houver), RF-REC-05 (acionar leva à página do livro)
 **Não funcionais:** RNF-DES-02 (paginação com teto de itens), RNF-SEC-06 (livro pessoal nunca aparece em busca nem em filtro), RNF-USA-02, RNF-USA-03, RNF-USA-05, RNF-ERR-09 (cold start é carregamento)

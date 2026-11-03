@@ -116,7 +116,11 @@ export class LivroPessoalService {
     // A página mostra a avaliação do DONO, inclusive para o terceiro (RN-03).
     const [nota, resenha, dono] = await Promise.all([
       this.leituraDoDono.nota(encontrado.donoId, encontrado.id),
-      this.leituraDoDono.resenha(encontrado.donoId, encontrado.id),
+      this.leituraDoDono.resenha(
+        encontrado.donoId,
+        encontrado.id,
+        solicitanteId,
+      ),
       this.leituraDoDono.dono(encontrado.donoId),
     ]);
 
@@ -167,7 +171,7 @@ export class LivroPessoalService {
 
         const [nota, resenha, dono] = await Promise.all([
           this.leituraDoDono.nota(donoId, atualizado.id),
-          this.leituraDoDono.resenha(donoId, atualizado.id),
+          this.leituraDoDono.resenha(donoId, atualizado.id, donoId),
           this.leituraDoDono.dono(donoId),
         ]);
 

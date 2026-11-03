@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../livros/rotas_livros.dart';
 import '../perfil/rotas_perfil.dart';
+import 'canal_de_notificacoes.dart';
 import 'contador_de_nao_lidas.dart';
 import 'notificacao.dart';
 import 'notificacoes_page.dart';
@@ -21,10 +22,15 @@ bool ehRotaDeNotificacoes(String caminho) => caminho.endsWith('/$_segmento');
 /// para o app inteiro: é o número do badge em todo cabeçalho.
 class DependenciasDeNotificacoes {
   final NotificacoesService servico;
+  final CanalDeNotificacoes canal;
   final ContadorDeNaoLidas contador;
   final FechamentoDeNotificacoes fechamento = FechamentoDeNotificacoes();
 
-  DependenciasDeNotificacoes(this.servico) : contador = ContadorDeNaoLidas(servico);
+  DependenciasDeNotificacoes(NotificacoesService servico)
+    : this._(servico, CanalDeNotificacoes(servico.abrirTempoReal));
+
+  DependenciasDeNotificacoes._(this.servico, this.canal)
+    : contador = ContadorDeNaoLidas(servico, canal);
 
   factory DependenciasDeNotificacoes.padrao({
     required String? Function() getToken,
@@ -49,7 +55,7 @@ class FechamentoDeNotificacoes {
 }
 
 /// Destino de cada tipo (§4, item de notificação). Os comentários da atividade ainda não existem
-/// no app (o feed mobile é placeholder), então os três tipos de atividade levam ao feed.
+/// no app (o feed mobile é placeholder), então os tipos de atividade e a menção levam ao feed.
 String destinoDaNotificacao(Notificacao notificacao) {
   switch (notificacao.tipo) {
     case TipoNotificacao.novoSeguidor:
@@ -61,9 +67,14 @@ String destinoDaNotificacao(Notificacao notificacao) {
     case TipoNotificacao.atividadeCurtida:
     case TipoNotificacao.atividadeComentada:
     case TipoNotificacao.comentarioRespondido:
+    case TipoNotificacao.usuarioMencionado:
       return rotaFeedRaiz;
     case TipoNotificacao.leituraEmRisco:
     case TipoNotificacao.leituraExpirada:
+    case TipoNotificacao.recomendacaoRecebida:
+    // F-AVA-2: a página do livro da resenha curtida, onde ela aparece em "Sua avaliação". A
+    // notificação não leva o id da resenha, então não rola até ela (divergência registrada).
+    case TipoNotificacao.resenhaCurtida:
       final livro = notificacao.livro;
       if (livro == null) {
         return rotaEstanteRaiz;
@@ -86,6 +97,7 @@ GoRoute rotaDeNotificacoes(DependenciasDeNotificacoes deps, String raizDaAba) =>
     child: NotificacoesPage(
       servico: deps.servico,
       contador: deps.contador,
+      canal: deps.canal,
       aoVoltar: () => context.canPop() ? context.pop() : context.go(raizDaAba),
       aoAbrir: (notificacao) =>
           _irPara(context, deps, raizDaAba, destinoDaNotificacao(notificacao)),

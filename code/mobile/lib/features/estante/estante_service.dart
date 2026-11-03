@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../core/network/api_client.dart';
+import '../perfil/perfil_service.dart';
 
 const int _naoEncontrado = 404;
 
@@ -62,6 +63,7 @@ class ItemEstante {
   final int? totalPaginas;
   final double? percentualConcluido;
   final DateTime adicionadoEm;
+  final bool favorito;
 
   String? get leituraParaAcoes => ultimaLeituraId ?? leituraEmAndamentoId;
 
@@ -77,6 +79,7 @@ class ItemEstante {
     required this.totalPaginas,
     required this.percentualConcluido,
     required this.adicionadoEm,
+    this.favorito = false,
   });
 
   factory ItemEstante.fromJson(Map<String, dynamic> json) => ItemEstante(
@@ -91,6 +94,7 @@ class ItemEstante {
     totalPaginas: (json['totalPaginas'] as num?)?.toInt(),
     percentualConcluido: (json['percentualConcluido'] as num?)?.toDouble(),
     adicionadoEm: DateTime.parse(json['adicionadoEm'] as String),
+    favorito: json['favorito'] as bool? ?? false,
   );
 }
 
@@ -101,6 +105,7 @@ class PaginaEstante {
   final int totalItens;
   final int totalPaginas;
   final Map<StatusEstante, int> totaisPorStatus;
+  final int? totalFavoritos;
 
   const PaginaEstante({
     required this.itens,
@@ -109,6 +114,7 @@ class PaginaEstante {
     required this.totalItens,
     required this.totalPaginas,
     required this.totaisPorStatus,
+    this.totalFavoritos,
   });
 
   factory PaginaEstante.fromJson(Map<String, dynamic> json) {
@@ -126,6 +132,7 @@ class PaginaEstante {
         for (final status in StatusEstante.values)
           status: (totais[status.valor] as num?)?.toInt() ?? 0,
       },
+      totalFavoritos: (json['totalFavoritos'] as num?)?.toInt(),
     );
   }
 }
@@ -178,17 +185,119 @@ class Leitura {
 class FiltroEstante {
   final StatusEstante? status;
   final OrdenacaoEstante? ordenacao;
+  final String? busca;
   final int? pagina;
   final int? limite;
 
-  const FiltroEstante({this.status, this.ordenacao, this.pagina, this.limite});
+  const FiltroEstante({this.status, this.ordenacao, this.busca, this.pagina, this.limite});
 
   Map<String, String> get consulta => <String, String>{
     'status': ?status?.valor,
+    'q': ?busca,
     'ordenacao': ?ordenacao?.valor,
     'page': ?pagina?.toString(),
     'limite': ?limite?.toString(),
   };
+}
+
+class LivroReferenciado {
+  final String id;
+  final String tipo;
+  final LivroDaEstante livro;
+
+  const LivroReferenciado({required this.id, required this.tipo, required this.livro});
+
+  factory LivroReferenciado.fromJson(Map<String, dynamic> json) => LivroReferenciado(
+    id: json['id'] as String,
+    tipo: json['tipo'] as String,
+    livro: LivroDaEstante.fromJson(json),
+  );
+}
+
+class ItemFavorito {
+  final LivroReferenciado livro;
+  final StatusEstante? status;
+
+  const ItemFavorito({required this.livro, required this.status});
+
+  factory ItemFavorito.fromJson(Map<String, dynamic> json) {
+    final status = json['status'] as String?;
+    return ItemFavorito(
+      livro: LivroReferenciado.fromJson(json['livro'] as Map<String, dynamic>),
+      status: status == null ? null : StatusEstante.deValor(status),
+    );
+  }
+}
+
+Pagina<T> paginaDoLeitura<T>(
+  Map<String, dynamic> json,
+  T Function(Map<String, dynamic> bruto) item,
+) {
+  final paginacao = json['paginacao'] as Map<String, dynamic>;
+  return Pagina<T>(
+    itens: (json['itens'] as List<dynamic>)
+        .map((bruto) => item(bruto as Map<String, dynamic>))
+        .toList(),
+    pagina: (paginacao['page'] as num).toInt() - 1,
+    totalElementos: (paginacao['totalItens'] as num).toInt(),
+    totalPaginas: (paginacao['totalPaginas'] as num).toInt(),
+  );
+}
+
+class OcorrenciaHistorico {
+  final String leituraId;
+  final LivroReferenciado livro;
+  final String dataInicio;
+  final String dataFim;
+  final bool releitura;
+  final int duracaoDias;
+
+  const OcorrenciaHistorico({
+    required this.leituraId,
+    required this.livro,
+    required this.dataInicio,
+    required this.dataFim,
+    required this.releitura,
+    required this.duracaoDias,
+  });
+
+  int get ano => int.parse(dataFim.substring(0, 4));
+
+  factory OcorrenciaHistorico.fromJson(Map<String, dynamic> json) => OcorrenciaHistorico(
+    leituraId: json['leituraId'] as String,
+    livro: LivroReferenciado.fromJson(json['livro'] as Map<String, dynamic>),
+    dataInicio: json['dataInicio'] as String,
+    dataFim: json['dataFim'] as String,
+    releitura: json['releitura'] as bool,
+    duracaoDias: (json['duracaoDias'] as num).toInt(),
+  );
+}
+
+class PaginaHistorico {
+  final Pagina<OcorrenciaHistorico> pagina;
+  final Map<int, int> anos;
+  final int livros;
+  final int leituras;
+
+  const PaginaHistorico({
+    required this.pagina,
+    required this.anos,
+    required this.livros,
+    required this.leituras,
+  });
+
+  factory PaginaHistorico.fromJson(Map<String, dynamic> json) {
+    final totais = json['totais'] as Map<String, dynamic>;
+    return PaginaHistorico(
+      pagina: paginaDoLeitura<OcorrenciaHistorico>(json, OcorrenciaHistorico.fromJson),
+      anos: <int, int>{
+        for (final bruto in json['anos'] as List<dynamic>)
+          ((bruto as Map<String, dynamic>)['ano'] as num).toInt(): (bruto['total'] as num).toInt(),
+      },
+      livros: (totais['livros'] as num).toInt(),
+      leituras: (totais['leituras'] as num).toInt(),
+    );
+  }
 }
 
 class EstanteService {
@@ -317,6 +426,43 @@ class EstanteService {
   Future<Leitura> detalharLeitura(String leituraId) async {
     final json = await client.getJson(_daLeitura(leituraId));
     return Leitura.fromJson(json);
+  }
+
+  String _doFavorito(String livroId) => '/livros/${Uri.encodeComponent(livroId)}/favorito';
+
+  Future<bool> consultarFavorito(String livroId) async {
+    final json = await client.getJson(_doFavorito(livroId));
+    return json['favorito'] as bool? ?? false;
+  }
+
+  Future<void> marcarFavorito(String livroId, {required String idempotencyKey}) async {
+    await client.putJson(_doFavorito(livroId), idempotencyKey: idempotencyKey);
+    alteracoes.value++;
+  }
+
+  Future<void> desmarcarFavorito(String livroId, {required String idempotencyKey}) async {
+    await client.deleteVazio(_doFavorito(livroId), idempotencyKey: idempotencyKey);
+    alteracoes.value++;
+  }
+
+  Future<Pagina<ItemFavorito>> listarFavoritos({String? busca, int? pagina}) async {
+    final consulta = <String, String>{'q': ?busca, 'page': ?pagina?.toString()};
+    final json = await client.getJson(
+      Uri(path: '/me/favoritos', queryParameters: consulta.isEmpty ? null : consulta).toString(),
+    );
+    return paginaDoLeitura<ItemFavorito>(json, ItemFavorito.fromJson);
+  }
+
+  Future<PaginaHistorico> listarHistorico({int? ano, String? busca, int? pagina}) async {
+    final consulta = <String, String>{
+      'ano': ?ano?.toString(),
+      'q': ?busca,
+      'page': ?pagina?.toString(),
+    };
+    final json = await client.getJson(
+      Uri(path: '/me/historico', queryParameters: consulta.isEmpty ? null : consulta).toString(),
+    );
+    return PaginaHistorico.fromJson(json);
   }
 
   Future<int> consultarConclusoes(String livroId) async {

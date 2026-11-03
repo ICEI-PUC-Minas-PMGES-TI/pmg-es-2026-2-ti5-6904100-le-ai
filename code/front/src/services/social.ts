@@ -21,7 +21,8 @@ export type TipoLivro = 'OFICIAL' | 'PESSOAL'
 
 export interface LinkLivro {
   livroId: string
-  via: 'catalogo' | 'feed'
+  /** `lista` nos itens de lista (F-LST): `referenciaId` é a lista. */
+  via: 'catalogo' | 'feed' | 'lista'
   referenciaId: string | null
 }
 
@@ -56,6 +57,28 @@ export interface Atividade {
 
 export type NivelComentario = 'RAIZ' | 'RESPOSTA'
 
+/** Pedido de denúncia (F-MOD, RF-MOD-01). `via`/`referenciaId` só na resenha de livro pessoal. */
+export interface CriarDenuncia {
+  alvoTipo: 'resenha' | 'comentario'
+  alvoId: string
+  motivo: string
+  via?: 'feed' | 'lista'
+  referenciaId?: string
+}
+
+export interface Denuncia {
+  id: string
+  estado: 'pendente' | 'removida' | 'arquivada'
+  criadoEm: string
+}
+
+export interface Mencao {
+  posicao: number
+  comprimento: number
+  usuarioId: string
+  username: string
+}
+
 export interface Comentario {
   id: string
   atividadeId: string
@@ -64,9 +87,11 @@ export interface Comentario {
   usuarioRespondido: AutorSnapshot | null
   autor: AutorSnapshot
   texto: string
+  mencoes: Mencao[]
   nivel: NivelComentario
   totalRespostas?: number
   pertenceAoSolicitante: boolean
+  editado: boolean
   criadoEm: string
   atualizadoEm: string | null
 }
@@ -95,6 +120,41 @@ export interface ListaRespostas {
   itens: Comentario[]
   proximoCursor: string | null
   temMais: boolean
+}
+
+export interface CandidatoARecomendacao {
+  leitor: AutorSnapshot
+  jaTemLivro: boolean
+  limiteAtingido: boolean
+}
+
+export type MotivoBloqueio = 'SEM_MUTUO' | 'JA_TEM_LIVRO' | 'LIMITE_ATINGIDO' | 'JA_RECOMENDADO'
+
+export interface ResultadoPorDestinatario {
+  destinatarioId: string
+  status: 'CRIADA' | 'BLOQUEADA'
+  recomendacaoId: string | null
+  motivo: MotivoBloqueio | null
+}
+
+export interface ResultadoRecomendacao {
+  resultados: ResultadoPorDestinatario[]
+  totalCriadas: number
+}
+
+export interface RecomendacaoRecebida {
+  id: string
+  remetente: AutorSnapshot
+  livro: LivroSnapshot
+  mensagem: string | null
+  criadoEm: string
+  expiraEm: string
+}
+
+export interface CriarRecomendacao {
+  livroId: string
+  destinatarios: string[]
+  mensagem?: string
 }
 
 function paraPagina<T>(resp: PaginaHttp<T>): Pagina<T> {
@@ -156,7 +216,40 @@ export function createSocialService(options: ApiClientOptions = {}) {
         idempotencyKey,
       })
     },
+    editarComentario(comentarioId: string, texto: string, idempotencyKey: string): Promise<Comentario> {
+      return request<Comentario>(`/comentarios/${encodeURIComponent(comentarioId)}`, {
+        method: 'PATCH',
+        json: { texto },
+        idempotencyKey,
+      })
+    },
+    excluirComentario(comentarioId: string, idempotencyKey: string): Promise<void> {
+      return request<void>(`/comentarios/${encodeURIComponent(comentarioId)}`, { method: 'DELETE', idempotencyKey })
+    },
+    async listarCandidatos(livroId: string): Promise<CandidatoARecomendacao[]> {
+      const resposta = await request<{ itens: CandidatoARecomendacao[] }>(
+        `/recomendacoes/candidatos?livroId=${encodeURIComponent(livroId)}`,
+      )
+      return resposta.itens
+    },
+    recomendar(dados: CriarRecomendacao, idempotencyKey: string): Promise<ResultadoRecomendacao> {
+      return request<ResultadoRecomendacao>('/recomendacoes', { method: 'POST', json: dados, idempotencyKey })
+    },
+    async listarRecebidas(page: number, size = TAMANHO_DA_PAGINA): Promise<Pagina<RecomendacaoRecebida>> {
+      return paraPagina(
+        await request<PaginaHttp<RecomendacaoRecebida>>(`/recomendacoes/recebidas?page=${page}&size=${size}`),
+      )
+    },
+    descartarRecomendacao(id: string, idempotencyKey: string): Promise<void> {
+      return request<void>(`/recomendacoes/${encodeURIComponent(id)}`, { method: 'DELETE', idempotencyKey })
+    },
+    /** 201 cria; 200 devolve a denúncia pendente que o leitor já tinha sobre o alvo. */
+    denunciar(dados: CriarDenuncia, idempotencyKey: string): Promise<Denuncia> {
+      return request<Denuncia>('/denuncias', { method: 'POST', json: dados, idempotencyKey })
+    },
   }
 }
+
+export type SocialService = ReturnType<typeof createSocialService>
 
 export const socialService = createSocialService()

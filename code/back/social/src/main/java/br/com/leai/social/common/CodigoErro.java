@@ -28,6 +28,13 @@ public enum CodigoErro {
   TEMPO_ESGOTADO(
       HttpStatus.GATEWAY_TIMEOUT, "A operação demorou mais que o esperado. Tente novamente."),
 
+  // Conflitos próprios da moderação (F-MOD). Vêm depois dos genéricos de propósito: `deStatus`
+  // pega o primeiro código de cada status, e um 409 sem código próprio continua `CONFLITO`.
+  DENUNCIA_JA_RESOLVIDA(HttpStatus.CONFLICT, "Esta denúncia já foi resolvida."),
+  CONTEUDO_JA_EXCLUIDO(HttpStatus.CONFLICT, "O conteúdo denunciado já não existe."),
+  REMOCAO_EM_ANDAMENTO(
+      HttpStatus.CONFLICT, "Há uma remoção deste conteúdo esperando confirmação."),
+
   /** Fallback para status HTTP fora do mapa acima. */
   ERRO_HTTP(HttpStatus.INTERNAL_SERVER_ERROR, "Não foi possível concluir a operação."),
 

@@ -9,6 +9,7 @@ import {
   ehFalhaDeContratoExterno,
 } from '../../common/pg-erros';
 import { DRIZZLE, DrizzleDB } from '../../db/drizzle.module';
+import { notaGeral, notasDosLeitores } from '../notas/notas-da-pagina';
 import { OutboxRepository } from '../outbox/outbox.repository';
 import {
   chaveDeNegocioDaSinopse,
@@ -45,6 +46,13 @@ export class LivroOficialService {
    * fonte externa (RN-19.5): quando a sinopse deve ser buscada, a abertura só
    * troca o estado para `pendente` e grava a outbox, e quem consulta as fontes é
    * o consumidor.
+   *
+   * A ficha leva às páginas de catálogo de F-ACV-DESCOBERTA: o id de cada autor
+   * já vem em `autores`, e `editoraId` e `serie` completam os links. Os
+   * assuntos são acionáveis como filtro de busca pelo próprio id (RF-ACV-21).
+   *
+   * Nota geral e nota dos leitores são indicadores separados, nunca combinados
+   * (RF-ACV-16, RN-06), e a ausência de cada um é `null`, nunca zero.
    */
   async obter(id: string, leitorId: string): Promise<LivroOficialDetalheDto> {
     const livro = await this.livros.obter(id);
@@ -61,11 +69,22 @@ export class LivroOficialService {
 
     return {
       ...paraResumo(livro),
+      editoraId: livro.editoraId ?? null,
+      serie:
+        livro.serieId && livro.serieNome
+          ? {
+              id: livro.serieId,
+              nome: livro.serieNome,
+              numero: livro.numeroSerie ?? null,
+            }
+          : null,
       isbn: livro.isbn,
       sinopse: {
         status,
         texto: status === 'disponivel' ? livro.sinopse : null,
       },
+      notaGeral: notaGeral(livro.notaGeral, livro.notaGeralQtd),
+      ...notasDosLeitores(await this.livros.notasDosLeitores(id)),
       resenhas: await this.primeiraPaginaDeResenhas(id, leitorId),
     };
   }

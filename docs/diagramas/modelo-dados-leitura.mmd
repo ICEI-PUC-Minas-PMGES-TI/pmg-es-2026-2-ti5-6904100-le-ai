@@ -162,14 +162,6 @@ erDiagram
     uuid usuario_id PK "→ identidade.usuario (P2)"
     date data PK "local; ao menos um progresso"
   }
-  ESTATISTICA_ANUAL {
-    uuid usuario_id PK "→ identidade.usuario (P2)"
-    int ano PK
-    int livros_concluidos
-    int paginas_lidas
-    int minutos_lidos
-    timestamp recalculado_em
-  }
   ESTATISTICA_MENSAL {
     uuid usuario_id PK "→ identidade.usuario (P2)"
     int ano PK
@@ -177,16 +169,10 @@ erDiagram
     int livros_concluidos
     int paginas_lidas
     int minutos_lidos
-    timestamp recalculado_em
-  }
-  ESTATISTICA_USUARIO {
-    uuid usuario_id PK "→ identidade.usuario (P2)"
-    int livros_concluidos
-    int paginas_lidas
-    int minutos_lidos
-    int dias_com_leitura "dias distintos com progresso"
-    int dias_em_livros_concluidos "duração total, inclusive abandono"
-    decimal nota_media "nullable sem notas"
+    int dias_com_leitura "dias locais distintos com progresso"
+    int dias_em_livros_concluidos "fim-inicio+1, no mês de data_fim"
+    int notas_quantidade
+    decimal notas_soma "nota no mês de atualizado_em"
     timestamp recalculado_em
   }
   IDEMPOTENCIA_LEITURA {
@@ -248,9 +234,7 @@ erDiagram
     direction TB
     SEQUENCIA_LEITURA
     DIA_LEITURA
-    ESTATISTICA_ANUAL
     ESTATISTICA_MENSAL
-    ESTATISTICA_USUARIO
   end
   subgraph tecnico ["Registros técnicos"]
     direction TB
@@ -291,6 +275,8 @@ erDiagram
   %% RN-11: máximo 10 frases por usuário/livro; pessoal somente do próprio dono.
   %% Médias: páginas / dias com progresso; dias/livro = soma(fim-inicio+1) /
   %% conclusões, incluindo abandono/releituras; ausência de denominador = ausente.
+  %% ESTATISTICA_MENSAL é o único agregado (P2, migration 0006): ano = soma dos
+  %% meses, acumulado = soma de todos; recomposta do próprio schema, nunca somando eventos.
   %% Positivos: pagina, paginas_lidas, valor_alvo; minutos e contadores >= 0.
   %% Expõe v_estante_publica_v1, v_resenha_publicacao_v1 e v_nota_publicacao_v1.
   %% RN-16: sessão cronometrada e fila offline ficam no dispositivo, sem tabela.

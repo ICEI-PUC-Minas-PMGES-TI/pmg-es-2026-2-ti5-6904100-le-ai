@@ -1,9 +1,19 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { PhDotsThree, PhFlag, PhPencilSimple, PhTrash } from '@phosphor-icons/vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
+import type { RouteLocationRaw } from 'vue-router'
 
 import AvatarLeitor from '../perfil/AvatarLeitor.vue'
+import FolhaAcoes, { type AcaoDaFolha } from '../ui/FolhaAcoes.vue'
+import { trechosDoComentario } from '../../feed/mencoes'
 import { contagem, tempoDeEspera } from '../../perfil/textos'
 import type { Comentario } from '../../services/social'
+
+const LARGURA_WEB = '(min-width: 768px)'
+const ESPACO_DO_DROPDOWN = 8
+/** Itens de 44px mais o `space-2` de cima e de baixo do menu. */
+const ALTURA_DO_ITEM = 44
+const MARGEM_DO_DROPDOWN = 16
 
 const props = withDefaults(
   defineProps<{
@@ -11,55 +21,220 @@ const props = withDefaults(
     mostrarAlternadorDeRespostas?: boolean
     respostasExpandidas?: boolean
     carregandoRespostas?: boolean
+    emEdicao?: boolean
+    acoesDesabilitadas?: boolean
   }>(),
-  { mostrarAlternadorDeRespostas: false, respostasExpandidas: false, carregandoRespostas: false },
+  {
+    mostrarAlternadorDeRespostas: false,
+    respostasExpandidas: false,
+    carregandoRespostas: false,
+    emEdicao: false,
+    acoesDesabilitadas: false,
+  },
 )
 
-const emit = defineEmits<{ responder: [comentario: Comentario]; 'alternar-respostas': [] }>()
+const emit = defineEmits<{
+  responder: [comentario: Comentario]
+  'alternar-respostas': []
+  editar: [comentario: Comentario]
+  excluir: [comentario: Comentario]
+  denunciar: [comentario: Comentario]
+}>()
 
 const ehResposta = computed(() => props.comentario.nivel === 'RESPOSTA')
+const trechos = computed(() => trechosDoComentario(props.comentario.texto, props.comentario.mencoes))
 
-const mencao = computed(() => {
-  const alvo = props.comentario.usuarioRespondido
-  if (!alvo) {
-    return null
-  }
-  const prefixo = `@${alvo.username} `
-  return props.comentario.texto.startsWith(prefixo) ? prefixo.trimEnd() : null
-})
-
-const restoDoTexto = computed(() =>
-  mencao.value ? props.comentario.texto.slice(mencao.value.length) : props.comentario.texto,
-)
+function perfilDe(username: string): RouteLocationRaw {
+  return { name: 'perfil-de-outro', params: { username } }
+}
 
 const rotuloAlternador = computed(() =>
   props.respostasExpandidas ? 'Ocultar respostas' : `Ver ${contagem(props.comentario.totalRespostas ?? 0, 'resposta', 'respostas')}`,
 )
+
+const meu = computed(() => props.comentario.pertenceAoSolicitante)
+
+const rotuloDoMenu = computed(() => {
+  if (meu.value) {
+    return ehResposta.value ? 'Sua resposta' : 'Seu comentário'
+  }
+  return ehResposta.value
+    ? `Resposta de ${props.comentario.autor.nomeExibicao}`
+    : `Comentário de ${props.comentario.autor.nomeExibicao}`
+})
+
+const rotuloDoBotao = computed(() => {
+  if (meu.value) {
+    return ehResposta.value ? 'Ações da sua resposta' : 'Ações do seu comentário'
+  }
+  return ehResposta.value ? 'Ações da resposta' : 'Ações do comentário'
+})
+
+/** Comentário próprio: editar e excluir. De outra pessoa: só denunciar (comentarios.md, F-MOD). */
+const ACOES_PROPRIAS: AcaoDaFolha[] = [
+  { id: 'editar', rotulo: 'Editar', icone: PhPencilSimple },
+  { id: 'excluir', rotulo: 'Excluir', icone: PhTrash, destrutiva: true },
+]
+const ACOES_DE_OUTRA_PESSOA: AcaoDaFolha[] = [
+  { id: 'denunciar', rotulo: 'Denunciar comentário', icone: PhFlag, destrutiva: true },
+]
+const acoes = computed(() => (meu.value ? ACOES_PROPRIAS : ACOES_DE_OUTRA_PESSOA))
+
+const folhaAberta = ref(false)
+const dropdownAberto = ref(false)
+const botaoDoMenu = ref<HTMLElement | null>(null)
+const dropdown = ref<HTMLElement | null>(null)
+const posicaoDoDropdown = ref<Record<string, string>>({})
+
+function fecharAoClicarFora(evento: MouseEvent): void {
+  const alvo = evento.target as Node
+  if (!botaoDoMenu.value?.contains(alvo) && !dropdown.value?.contains(alvo)) {
+    fecharDropdown()
+  }
+}
+
+function fecharDropdown(): void {
+  dropdownAberto.value = false
+  document.removeEventListener('mousedown', fecharAoClicarFora)
+  window.removeEventListener('scroll', fecharDropdown, true)
+  window.removeEventListener('resize', fecharDropdown)
+}
+
+function posicionarDropdown(): void {
+  const botao = botaoDoMenu.value!.getBoundingClientRect()
+  const direita = `${window.innerWidth - botao.right}px`
+  const altura = acoes.value.length * ALTURA_DO_ITEM + MARGEM_DO_DROPDOWN
+  const cabeEmbaixo = botao.bottom + ESPACO_DO_DROPDOWN + altura <= window.innerHeight
+  posicaoDoDropdown.value = cabeEmbaixo
+    ? { top: `${botao.bottom + ESPACO_DO_DROPDOWN}px`, right: direita }
+    : { bottom: `${window.innerHeight - botao.top + ESPACO_DO_DROPDOWN}px`, right: direita }
+}
+
+function abrirMenu(): void {
+  if (dropdownAberto.value) {
+    fecharDropdown()
+    return
+  }
+  if (window.matchMedia(LARGURA_WEB).matches) {
+    posicionarDropdown()
+    dropdownAberto.value = true
+    document.addEventListener('mousedown', fecharAoClicarFora)
+    window.addEventListener('scroll', fecharDropdown, true)
+    window.addEventListener('resize', fecharDropdown)
+  } else {
+    folhaAberta.value = true
+  }
+}
+
+function escolher(id: string): void {
+  folhaAberta.value = false
+  fecharDropdown()
+  if (id === 'editar') {
+    emit('editar', props.comentario)
+  } else if (id === 'excluir') {
+    emit('excluir', props.comentario)
+  } else if (id === 'denunciar') {
+    emit('denunciar', props.comentario)
+  }
+}
+
+onBeforeUnmount(fecharDropdown)
 </script>
 
 <template>
   <div
-    class="flex gap-space-3 py-space-4"
-    :class="ehResposta ? 'pl-space-10 md:pl-space-12' : ''"
+    class="flex gap-space-3 rounded-base py-space-4"
+    :class="[ehResposta ? 'pl-space-10 md:pl-space-12' : '', emEdicao ? 'bg-musgo-fundo px-space-2' : '']"
   >
     <AvatarLeitor
       :url="comentario.autor.avatarUrl"
       :tamanho="ehResposta ? 28 : 32"
     />
     <div class="flex min-w-0 flex-1 flex-col">
-      <p>
-        <span class="text-body-strong text-tinta">{{ comentario.autor.nomeExibicao }}</span>
-        <span class="text-caption text-grafite-suave"> · {{ tempoDeEspera(comentario.criadoEm) }}</span>
-      </p>
+      <div class="flex items-start justify-between gap-space-2">
+        <p>
+          <span class="text-body-strong text-tinta">{{ comentario.autor.nomeExibicao }}</span>
+          <span class="text-caption text-grafite-suave"> · {{ tempoDeEspera(comentario.criadoEm) }}</span>
+          <span
+            v-if="comentario.editado"
+            class="text-caption text-grafite-suave"
+          > · editado</span>
+        </p>
+        <div
+          class="-my-space-3 -mr-space-3 md:-my-space-1 md:mr-0"
+          @keydown.esc="fecharDropdown"
+        >
+          <button
+            ref="botaoDoMenu"
+            type="button"
+            :aria-label="rotuloDoBotao"
+            :aria-expanded="dropdownAberto"
+            :disabled="acoesDesabilitadas"
+            class="flex size-12 cursor-pointer items-center justify-center rounded-full text-grafite transition-colors duration-dur-fast hover:bg-linha disabled:cursor-not-allowed disabled:text-grafite-suave md:size-8"
+            @click="abrirMenu"
+          >
+            <PhDotsThree
+              :size="20"
+              weight="regular"
+              aria-hidden="true"
+            />
+          </button>
+          <Teleport to="body">
+            <ul
+              v-if="dropdownAberto"
+              ref="dropdown"
+              role="menu"
+              class="fixed z-40 w-[220px] rounded-base border border-linha bg-papel py-space-2 shadow-2"
+              :style="posicaoDoDropdown"
+              @keydown.esc="fecharDropdown"
+            >
+              <li
+                v-for="acao in acoes"
+                :key="acao.id"
+                role="none"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  class="flex h-11 w-full cursor-pointer items-center gap-space-3 px-space-4 text-left text-body hover:bg-linha focus-visible:bg-linha focus-visible:outline-none"
+                  :class="acao.destrutiva ? 'text-rubi' : 'text-tinta'"
+                  @click="escolher(acao.id)"
+                >
+                  <component
+                    :is="acao.icone"
+                    :size="20"
+                    weight="regular"
+                    aria-hidden="true"
+                  />
+                  {{ acao.rotulo }}
+                </button>
+              </li>
+            </ul>
+          </Teleport>
+        </div>
+      </div>
       <p class="mt-space-1 whitespace-pre-wrap text-body text-tinta">
-        <span
-          v-if="mencao"
-          class="text-body-strong"
-        >{{ mencao }}</span>{{ restoDoTexto }}
+        <template
+          v-for="(trecho, indice) in trechos"
+          :key="indice"
+        >
+          <RouterLink
+            v-if="trecho.tipo === 'mencao'"
+            :to="perfilDe(trecho.username)"
+            :aria-label="`Perfil de @${trecho.username}`"
+            class="font-semibold text-musgo transition-colors duration-dur-fast hover:text-musgo-vivo hover:underline"
+          >
+            {{ trecho.texto }}
+          </RouterLink>
+          <template v-else>
+            {{ trecho.texto }}
+          </template>
+        </template>
       </p>
       <button
         type="button"
-        class="mt-space-2 min-h-12 w-fit cursor-pointer text-caption font-semibold text-grafite hover:underline focus-visible:underline md:min-h-9"
+        :disabled="acoesDesabilitadas"
+        class="mt-space-2 min-h-12 w-fit cursor-pointer text-caption font-semibold text-grafite hover:underline focus-visible:underline disabled:cursor-not-allowed disabled:text-grafite-suave disabled:no-underline md:min-h-9"
         @click="emit('responder', comentario)"
       >
         Responder
@@ -75,5 +250,12 @@ const rotuloAlternador = computed(() =>
         {{ rotuloAlternador }}
       </button>
     </div>
+    <FolhaAcoes
+      :aberta="folhaAberta"
+      :rotulo="rotuloDoMenu"
+      :acoes="acoes"
+      @escolher="escolher"
+      @fechar="folhaAberta = false"
+    />
   </div>
 </template>

@@ -1,7 +1,8 @@
 # F-ACV-DESCOBERTA — Filtros e páginas de autor/editora/série
 
 **Período:** 2 · **Prioridade:** desejavel
-**Dono:** a definir · **Serviços afetados:** `acervo` (backend) + web + mobile
+**Dono:** Vicenzo Fonseca · **Serviços afetados:** `acervo` (backend) + web + mobile
+**Situação:** entregue, **em revisão** (aguarda o aval dos professores para ser marcada como concluída no GitHub Projects) desde 07/10/2026. Biografias carregadas em dev e DES em 08/10/2026. Mobile conferido no emulador em 10/10/2026, com cinco correções. Falta, no fim do período, conferir tudo em DES depois do deploy da `main`; ver "Onde continuar".
 
 > Fonte de verdade: [`../../orquestador/REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.2 (RF-ACV-03, 10, 11, 12, 21), RN-21, §10.1. Arquitetura: [`../../orquestador/documento-de-arquitetura.md`](../../orquestador/documento-de-arquitetura.md) §2.2, §3.2, §4.2. Processo e template: [`../../orquestador/plano-de-projeto.md`](../../orquestador/plano-de-projeto.md) §9. Regras compartilhadas do projeto: [`../periodo-1/README.md#regras-de-implementação-compartilhadas`](../periodo-1/README.md#regras-de-implementação-compartilhadas). Em caso de conflito, o `REQUISITOS.md` ganha; protótipo é referência visual, não spec de pixel (plano §7).
 
@@ -23,10 +24,29 @@ RNF atendidos: **RNF-DES-02** (listagens paginadas com teto server-side), **RNF-
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | não iniciado | índices para filtros (ano, nº páginas) e para páginas de autor/editora/série |
-| Backend | não iniciado | `acervo`: filtros avançados em `GET /livros` + endpoints de autor/editora/série + assunto acionável |
-| Web | não iniciado | filtros na busca; páginas de autor/editora/série; assuntos clicáveis na página do livro |
-| Mobile | não iniciado | mesmas telas |
+| Infra | implementado (02/10/2026) | migration `0005`: índice trigram do nome da série e CHECK `autor_biografia_ck`, revisada e **aplicada no banco de dev em 02/10/2026** (DES recebe no deploy da `main`). Índice de ano/páginas medido e dispensado (Timeline). Biografias carregadas pelo script `biografias` em dev em 08/10/2026: 905 de 8.126 autores, e 896 de 7.910 depois da unificação de autores do mesmo dia. Em DES, 896 de 7.910 no mesmo dia, antes da `0005` (os dados já cumprem o CHECK) |
+| Backend | implementado (02/10/2026) | `acervo`: filtros avançados em `GET /livros`, `GET /autores/{id}`, `GET /editoras/{id}`, `GET /series/{id}`, `editoraId` e `serie` em `GET /livros/{id}` e biografia na importação por ISBN; contrato `implemented` no `acervo.yaml` |
+| Web | implementado e em `desenvolvimento` (07/10/2026) | filtros no Descobrir (painel recolhível e folha), páginas `/descobrir/autores|editoras|series/:id` e links da ficha com `Assuntos`. Conferido pelo dono no navegador contra os serviços locais, com os ajustes da Timeline. Lint, 734 testes e build verdes |
+| Mobile | implementado e em `desenvolvimento` (07/10/2026); conferido no emulador (10/10/2026) | mesmas telas, com as páginas sob `/descobrir` e `/perfil`. A conferência no emulador achou cinco defeitos, corrigidos na `vicenzo-features` com teste de regressão (Timeline) e mergeados em `desenvolvimento` pelo PR #49 (10/10/2026) |
+
+## Onde continuar (atualizado em 10/10/2026, depois da conferência no emulador)
+
+Backend, web e mobile estão mergeados em `desenvolvimento` (merge da `vicenzo-features` em 07/10/2026). A `vicenzo-features` continua existindo, a pedido do dono. Os commits estão na Timeline.
+
+**Falta para o DoD e os critérios de aceite**
+1. **Biografias (critério de RF-ACV-10):** carregadas em dev e DES em 08/10/2026 (Timeline). Em DES a página de autor só existe depois do deploy da `main`. Depois dele, rodar `biografias` de novo no DES (é idempotente) para pegar o autor que a importação por ISBN do código antigo criar até lá. Isso pede o dump de autores na máquina.
+2. ~~**Mobile no emulador**~~: conferido em 10/10/2026, com as correções na `vicenzo-features` (Timeline). Elas entraram em `desenvolvimento` pelo PR #49, em 10/10/2026.
+3. **DES (fim do período):** depois do PR `desenvolvimento` → `main`, conferir os filtros e as páginas em DES e a leitura ≤1s p95 (RNF-DES-01).
+
+**Fora desta feature, mas no `acervo` e com o Vicenzo:**
+- A etapa 3 da [F-LST](feature-F-LST.md#etapa-3-via-lista-no-acervo), a via lista no livro pessoal. Ela foi delegada pelo Henrique em 05/10/2026 e bloqueia o RF-LST-06 e o DoD da F-LST.
+- ~~O `npm audit --audit-level=high` do `acervo` falhava desde 07/10/2026~~: resolvido em 08/10/2026 (Pendências).
+
+**Para retomar rápido**
+- **Testes do backend:** `npm test` e `DATABASE_URL_TESTE=postgresql://postgres:teste@localhost:55432/leai_teste npm run test:integration` em `code/back/acervo`. O container `leai-pg-teste` já existe localmente.
+- **Testes da ingestão:** `.venv/bin/python -m pytest` em `code/scripts/ingestao`.
+- **Protótipos:** autor, editora e série em `docs/design/periodo-2/F-ACV-DESCOBERTA/`; filtros em `docs/design/periodo-2/descobrir/`; ficha em `docs/design/periodo-2/pagina-do-livro/`.
+- **Banco de dev:** o banco de dev no Neon se chama `leai-db-prd`, mas é o projeto de **dev** (`le-ai`, São Paulo). O DES fica em Oregon.
 
 ## Especificação
 
@@ -50,30 +70,117 @@ Sem novos eventos e sem VIEW cross-schema: a feature lê e serve dados do própr
 
 - Mesmas telas com `ThemeData` de [P0-DS](../periodo-0/feature-P0-DS.md); paginação incremental nas listas. Alvo de demonstração Android.
 
+### Contrato implementado (backend, 02/10/2026)
+
+- **`GET /livros`:** `autor`, `editora` e `serie` são texto livre e casam como o `q`: por trecho, sem acento e palavra por palavra, todas no nome de um **mesmo** autor. A editora casa também pelos sinônimos de `acervo.sinonimo_editora` ("cia das letras" acha a Companhia das Letras). `ano` é um valor único. `paginasMin`/`paginasMax` formam faixa fechada, e cada lado vale sozinho. Tudo se soma (AND) ao `q` e ao `assunto`. **Qualquer critério basta**: o 400 por falta de critério só sai sem nenhum dos oito, ainda no campo `q`, com a mensagem "Informe um texto de busca, um assunto ou um filtro.". `paginasMin > paginasMax` é 400 em `paginasMax`. Sem `q`, a ordem continua por título.
+- **`GET /autores/{id}`**, **`/editoras/{id}`** e **`/series/{id}`** (`page`, `limit` ≤ 50):
+  - **Autor:** `{ id, nome, biografia | null, livros }`.
+  - **Editora:** `{ id, nome, livros }`.
+  - **Série:** `{ id, nome, autores[], livros }`. Cada item da série traz `numeroNaSerie`.
+  - **Contagem:** `livros.totalItens` é o "N livros no acervo", contando edições.
+  - **Ordem de autor e editora:** pelo ano mais recente do grupo (título normalizado + autores, como na busca), com as edições juntas e os grupos sem ano no fim.
+  - **Ordem da série:** pelo número de ordem. Sem número vai no fim, por título. Lacuna não gera item, e edições de mesmo número ficam juntas, da mais recente para a mais antiga.
+  - **Respostas:** entidade sem livro oficial ativo dá 200 com a lista vazia; inexistente dá 404; id malformado dá 400 em `id`. Não há rate limit próprio, porque a rota não chama fonte externa.
+- **`GET /livros/{id}`:** acrescenta `editoraId` e `serie { id, nome, numero | null }`. O id de cada assunto já filtra `GET /livros?assunto=` (RF-ACV-21), o que o teste de integração prova.
+- **Biografia:** `autor.biografia` em texto puro (gêmeos `textoPuro` no TS e `texto_puro` no Python), com teto de 2000 e nunca vazia (CHECK). Duas origens:
+  - o script `biografias`, para os autores já carregados;
+  - a importação por ISBN, que já consultava `/authors/{key}.json` e agora grava o `bio` do autor novo e completa o do autor existente sem sobrescrever.
+- **Código:**
+  - `src/livros/catalogo/` (controller, service, repository, DTOs);
+  - `BuscaRepository` com filtros, filtros por id e as ordens `relevancia`, `ano-do-grupo` e `serie`;
+  - `BuscaService.paginar()`, compartilhado pela busca e pelas três páginas.
+
+### Como carregar as biografias (Vicenzo, na máquina com o dump)
+
+O dump de autores (`ol_dump_authors_*.txt.gz`, ~0,7 GB) é o mesmo da carga de 24/09/2026. O script lê o dump em streaming e só procura os autores já carregados com `biografia IS NULL`. Grava tudo numa transação, com `UPDATE ... WHERE biografia IS NULL`. Reexecutar não muda nada, e a biografia que a importação por ISBN gravou nunca é sobrescrita.
+
+1. **Migration primeiro:** o CHECK `autor_biografia_ck` vem da `0005`. Em dev, rode `npm run db:migrate` em `code/back/acervo` depois da revisão humana. Em DES, ela entra no deploy da `main` (`start:prod` aplica as migrations).
+2. **Ambiente do script:** em `code/scripts/ingestao`, rode `pip install -e .[banco]`. A `DATABASE_URL` do ambiente-alvo vem do `.env` do `acervo` (dev) ou do painel do Neon (DES) e nunca é versionada.
+3. **Simular** (grava numa transação desfeita e só mostra os números):
+   ```bash
+   DATABASE_URL='postgresql://...' python -m leai_ingestao biografias \
+     --dump-autores dumps/ol_dump_authors_latest.txt.gz --dry-run
+   ```
+4. **Gravar:** o mesmo comando sem `--dry-run`. O resumo mostra `autores_sem_biografia`, `encontrados_no_dump`, `com_biografia_no_dump` e `atualizados`.
+5. **Conferir:**
+   ```sql
+   SELECT count(*) FILTER (WHERE biografia IS NOT NULL) AS com_biografia, count(*) AS autores
+     FROM acervo.autor;
+   ```
+6. Repetir em DES depois do merge na `main`. Registrar os números na Timeline.
+
+A biografia fica **no idioma da fonte**: a OpenLibrary costuma devolver em inglês. Ver Pendências.
+
 ## Critérios de aceite
 
-- [ ] Busca aceita filtros por **autor, editora, série, ano e faixa de nº de páginas** (RF-ACV-03), combináveis com assunto, paginada e indexada.
-- [ ] Páginas de **autor/editora/série** listam os livros oficiais corretos, paginados; a de série ordena por **número de ordem** (RF-ACV-12).
-- [ ] Página de autor entrega a biografia curta exigida por RF-ACV-10 a partir da fonte aprovada pelo grupo.
-- [ ] Nenhuma dessas páginas/filtros expõe **livro pessoal** (SEC-06, RN-03); elas não têm ações de perfil (não editáveis, sem conteúdo de usuário).
-- [ ] Na página do livro, cada **assunto é acionável** e leva à busca filtrada por aquele assunto (RF-ACV-21, RN-21).
+- [x] Busca aceita filtros por **autor, editora, série, ano e faixa de nº de páginas** (RF-ACV-03), combináveis com assunto, paginada e indexada.
+- [x] Páginas de **autor/editora/série** listam os livros oficiais corretos, paginados; a de série ordena por **número de ordem** (RF-ACV-12).
+- [ ] Página de autor entrega a biografia curta exigida por RF-ACV-10 a partir da fonte aprovada pelo grupo. *(Código e testes prontos; biografias carregadas em dev e DES em 08/10/2026. Falta a página chegar ao DES com o deploy da `main`.)*
+- [x] Nenhuma dessas páginas/filtros expõe **livro pessoal** (SEC-06, RN-03); elas não têm ações de perfil (não editáveis, sem conteúdo de usuário).
+- [x] Na página do livro, cada **assunto é acionável** e leva à busca filtrada por aquele assunto (RF-ACV-21, RN-21).
 - [ ] Filtros e páginas funcionam **em DES**, com leitura ≤1s p95 desconsiderando cold start (RNF-DES-01).
 
 ## Definition of Done
 
 (plano §10)
 
-- [ ] Código (backend `acervo`, web, mobile) mergeado em `desenvolvimento`
-- [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
-- [ ] Testes unitários e de integração com banco real/container: filtros/combinações, biografia, série ordenada/paginada, exclusão de livro pessoal e assunto acionável (RNF-TST-02)
-- [ ] Testes web/mobile cobrem filtros, navegação às páginas de autor/editora/série e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
-- [ ] **Spec OpenAPI de `acervo` atualizado em `docs/api/acervo.yaml`** com os filtros de `GET /livros` e os endpoints de autor/editora/série
+- [x] Código (backend `acervo`, web, mobile) mergeado em `desenvolvimento` — 07/10/2026
+- [x] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)) — `ci-front` e `ci-mobile` no merge `6d4a725`, 07/10/2026
+- [x] Testes unitários e de integração com banco real/container: filtros/combinações, biografia, série ordenada/paginada, exclusão de livro pessoal e assunto acionável (RNF-TST-02) — 02/10/2026
+- [x] Testes web/mobile cobrem filtros, navegação às páginas de autor/editora/série e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06) — 07/10/2026
+- [x] **Spec OpenAPI de `acervo` atualizado em `docs/api/acervo.yaml`** com os filtros de `GET /livros` e os endpoints de autor/editora/série — 02/10/2026
 - [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
-- [ ] Arquivo da feature atualizado: status, pendências, timeline
-- [ ] Divergência protótipo × implementação registrada, se houver
+- [x] Arquivo da feature atualizado: status, pendências, timeline — 07/10/2026
+- [x] Divergência protótipo × implementação registrada, se houver (Pendências, ratificadas em 07/10/2026)
 
 ## Pendências
 
+- **Backend pronto em 02/10/2026; web e mobile em 07/10/2026.** Antes do merge em `desenvolvimento`:
+  - **aviso ao Renato**, integrador da página do livro (alerta deixado nas Pendências da [F-ACV-NOTA](feature-F-ACV-NOTA.md) em 07/10/2026), de que `LivroOficialDetalhe` ganhou `editoraId` e `serie`, só como acréscimos (a F-ACV-NOTA mexe no mesmo DTO). Avise também que a tela dele mudou nas duas plataformas:
+    - **web:** a ficha de `LivroOficialView.vue` aceita linha com link e complemento, e há a seção `Assuntos` depois da sinopse;
+    - **mobile:** a `_Ficha` de `livro_oficial_page.dart` foi reescrita com links, e há a `_Secao('Assuntos')`.
+    - Registrado também nos `AGENTS.md` de `code/front` e `code/mobile`;
+  - ~~**conferir em execução real**~~: a web foi conferida pelo dono no navegador em 07/10/2026, e o mobile no emulador em 10/10/2026 (Timeline);
+  - ~~**rodar o script `biografias`** em dev e DES~~: rodado nos dois em 08/10/2026. Depois do deploy da `main`, uma reexecução no DES cobre os autores criados até lá.
+- ~~**`npm audit` do `acervo` (07/10/2026)**~~ — **resolvido em 08/10/2026.** O CI roda `npm audit --audit-level=high`, e o `acervo` falhava por avisos publicados depois de 03/10:
+  - **`proxy-addr` (crítico):** saiu com `npm audit fix`, só no lockfile.
+  - **`js-yaml` (alto):** só a 4.3.0 que o `@nestjs/swagger` 11 fixa estava na faixa do aviso. Um `overrides` no `package.json` força a 4.3.2, da mesma linha 4.x, só dentro do swagger. O `js-yaml` 3.x do Jest fica fora da faixa.
+  - **O que sobra é moderado** (`ts-jest`, `sprintf-js`), e o CI só reprova a partir de alto.
+  - **Conferido:** `npm ci`, lint, build, 302 unitários, 126 de integração e audit, todos verdes.
+  - **No `leitura`:** o mesmo `proxy-addr` continua lá, e cabe ao dono do `leitura` (aviso deixado aqui).
+  - **No front:** o `source-map-js` (alto) foi corrigido com `npm audit fix` (`53305f2`).
+- **Queda dos serviços Nest sem rede (07/10/2026, fora desta feature):** numa queda de rede, o `acervo` e o `leitura` morreram com `read ETIMEDOUT` num cliente `pg` em uso, emitido como evento `error` sem ouvinte. O `pool.on('error')` de `drizzle.module.ts` só cobre a conexão ociosa. Levar a quem cuida da infra (P0-INFRA): no Render, cada oscilação de rede reiniciaria o serviço.
+- **Divergências protótipo × implementação (web e mobile, 07/10/2026)**, escolhidas na sessão de implementação e **ratificadas pelo dono em 07/10/2026**:
+  - **Web, página de catálogo:** fica a seta de voltar do header, como na página do livro. O protótipo não tem voltar na web.
+  - **Web, faixa de páginas:** os dois campos ficam lado a lado também no painel, como no protótipo renderizado. O `descobrir.md` diz "um embaixo do outro".
+  - **Web, bloco Filtros (decisão do dono, 07/10/2026):** fica no topo do painel, acima de `Assuntos`, e é recolhível. Ele começa fechado, e o título mostra `Filtros · N ativos`. O protótipo põe o bloco abaixo de `Assuntos` e sempre aberto.
+  - **Web, sufixo da faixa (decisão do dono, 07/10/2026):** fica `págs`, e não `páginas`. Com `páginas`, os dígitos ficavam cortados nos campos de cerca de 110px do painel. O mobile mantém `páginas`.
+  - **Web, largura do painel (decisão do dono, 07/10/2026):** 280px, não os 240px do protótipo. Assim os campos de mínimo e máximo ficam com espaço para os dígitos.
+  - **Mobile, header da página de catálogo:** mostra o tipo (`Autor`, `Editora`, `Série`), e o nome vem abaixo, marcado como cabeçalho. Na web o tipo aparece só abaixo de 768px, junto da seta, e o `h1` é o nome. No mobile web ficam dois `h1`, o do tipo e o do nome.
+  - **Mobile, aba das páginas de catálogo:** abertas da ficha de um livro na aba Perfil, ficam no Perfil (`/perfil/autor/:id`), como a própria página do livro. O protótipo diz que a aba ativa continua sendo Descobrir. Na web elas ficam sempre sob `/descobrir`.
+  - **Assunto tocado na ficha:** abre o Descobrir só com aquele assunto e limpa o texto e os filtros. É o comportamento da URL `/descobrir?assunto=<id>` nas duas plataformas.
+  - **Ano zero:** sem copy no protótipo. A mensagem ficou `Use um ano maior que zero.`, e ano e páginas só aceitam dígitos (até 4 e 5).
+  - **Biografia:** sem `Ler mais`, como pede o protótipo. O texto vem no idioma da OpenLibrary (ver abaixo).
+  - **Mobile, assunto ativo à vista (10/10/2026):** a faixa de assuntos rola até o chip ativo quando ele está fora da tela, e o centraliza. O protótipo não trata o caso, mas quem chegava pela ficha com um assunto do fim da faixa não via o que filtrava a lista. A faixa deixou de ser construída sob demanda; são poucas dezenas de chips.
+  - **Mobile, foco do campo de busca (10/10/2026):** abrir um livro dos resultados solta o foco do campo. Antes, a rota devolvia o foco na volta, e o teclado reabria sobre os resultados, inclusive ao chegar por um assunto da ficha.
+- **Achados da conferência no emulador que não são desta feature (10/10/2026):**
+  - **Dados da ingestão ([F-ACV-INGESTAO](../periodo-1/feature-F-ACV-INGESTAO.md)):**
+    - série duplicada `Harry Potter (Nº 1)`, com uma edição da Pedra Filosofal, ao lado de `Harry Potter`;
+    - volumes sem número: a Câmara Secreta e duas edições da Pedra Filosofal;
+    - título com acentuação quebrada (`A canc a o dos drago es`, Anne McCaffrey);
+    - assunto improvável (`12 Regras Para a Vida` em `Fantasia`).
+  - **Acessibilidade fora desta feature:** botões com `Semantics(excludeSemantics: true)` sem `onTap` ficam sem ação para o leitor de tela. O `Mais ações` do header do livro oficial é da F-LST (Henrique), e as pílulas de status da Estante (`Todos`, `Lendo`…) são da F-EST. Avisar os donos.
+- **Selo de status na estante nos cards (Lido, Lendo, Quero ler)**, pedido pelos protótipos de autor, editora e série e já pedido pelo Descobrir do P1. Fica **fora do backend desta entrega por decisão do dono (02/10/2026)**. O dado é do serviço `leitura`, que não tem consulta em lote. O caminho previsto é o `acervo` ler uma VIEW de estante do `leitura` (a `v_estante_publica_v1` existente ou uma nova), feito quando a F-EST-2 da Ana amadurecer. Até lá os cards saem sem o selo.
+- **Idioma da biografia:** sai como a OpenLibrary devolve, muitas vezes em inglês, sem tradução e sem completar com outra fonte (RF-ACV-10, decisão de 15/09/2026). O prompt `pagina-do-autor.md` usa texto em português no mock. Levar ao grupo se incomodar na demonstração.
+- **Decisões do dono ratificadas em 02/10/2026** (eram "a ratificar" no prompt):
+  - listas de autor e editora pelo ano mais recente do grupo, com os sem ano no fim;
+  - série sem número no fim, por título;
+  - lacuna sem marcador;
+  - contagem pelo `totalItens`;
+  - filtros de autor, editora e série em texto livre;
+  - `ano` como valor único;
+  - busca só com filtros permitida.
+  - Os dois conflitos de contrato abaixo foram resolvidos pelo `acervo.yaml`.
 - **Telas (design P2):** prompts escritos em 28/09/2026 e protótipos exportados em 29/09/2026: [`pagina-do-autor.md`](../../design/periodo-2/F-ACV-DESCOBERTA/pagina-do-autor.md) ([protótipo](../../design/periodo-2/F-ACV-DESCOBERTA/prototipos/pagina-do-autor.html)), [`pagina-da-editora.md`](../../design/periodo-2/F-ACV-DESCOBERTA/pagina-da-editora.md) ([protótipo](../../design/periodo-2/F-ACV-DESCOBERTA/prototipos/pagina-da-editora.html)) e [`pagina-da-serie.md`](../../design/periodo-2/F-ACV-DESCOBERTA/pagina-da-serie.md) ([protótipo](../../design/periodo-2/F-ACV-DESCOBERTA/prototipos/pagina-da-serie.html)) (mesmo esqueleto de página de catálogo); filtros avançados na edição consolidada [`descobrir.md`](../../design/periodo-2/descobrir/descobrir.md) ([protótipo](../../design/periodo-2/descobrir/prototipos/descobrir.html)); assuntos acionáveis e ficha com links na edição consolidada [`pagina-do-livro.md`](../../design/periodo-2/pagina-do-livro/pagina-do-livro.md) ([protótipo](../../design/periodo-2/pagina-do-livro/prototipos/pagina-do-livro.html)). Decisões do prompt a ratificar pelo dono: ordem das listas de autor e editora por ano (o RF não fixa), livros de série sem número de ordem agrupados no fim, lacuna na numeração sem marcador, idioma da biografia (a OpenLibrary costuma devolver em inglês), contagem `N livros no acervo` pressupondo total no endpoint. **Conflitos de contrato:** `GET /livros` não diz se `autor`, `editora` e `serie` são id ou texto (o protótipo usa texto livre sem autocompletar) e `ano` é valor único; `GET /livros/{id}` precisa trazer série e número de ordem para a ficha.
 - **Esta feature preenche a aba `Descobrir`, criada em 01/09/2026.** A busca do acervo deixou de ser tela filha da estante e virou o quarto item da navegação ([P0-NAV](../periodo-0/feature-P0-NAV.md), [`descobrir.md`](../../design/periodo-1/F-ACV-BUSCA/descobrir.md)). No Período 1 a aba aterrissa magra de propósito: campo de busca e faixa de assuntos, sem destaques e sem histórico. Os filtros avançados de RF-ACV-03 e os links para as páginas de autor, editora e série entram **nesta aba**, e junto com a seção de recomendações de [F-REC-P2P](feature-F-REC-P2P.md) são o que dá corpo à aterrissagem. **Atenção ao nome:** `descobrir.md` corrige a afirmação de que esta feature entregaria "descoberta aberta" com livros em destaque ou mais lidos. Ela entrega filtros e páginas de consulta; curadoria de destaques não é escopo de nenhum RF.
 - **Depende de** [F-ACV-BUSCA](../periodo-1/feature-F-ACV-BUSCA.md) (busca e página do livro que esta feature estende) e [F-ACV-INGESTAO](../periodo-1/feature-F-ACV-INGESTAO.md) (autor/editora/série/assunto normalizados e número de ordem), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md).
@@ -85,6 +192,88 @@ Sem novos eventos e sem VIEW cross-schema: a feature lê e serve dados do própr
 
 ## Timeline
 
+### 25/10/2026: status atualizado por Renato Douglas
+
+Status e "Onde continuar" atualizados: as correções da conferência no emulador entraram na `desenvolvimento` pelo PR #49 (10/10/2026). Sem mudança de escopo ou decisão.
+
+### Conferência no emulador 10/10/2026: mobile conferido no emulador Android (API 35, no WSL), com `identidade` e `acervo` locais contra o banco de dev e uma conta de teste.
+- **Conferido e certo:**
+  - folha de filtros: campos, validação ao sair do campo (ano zero e faixa invertida) e folha que não fecha com erro;
+  - chips, badge e remoção de um filtro só;
+  - vazio com filtros;
+  - texto e filtro somados: `dom casmurro` com `Autor: machado` dá 6, contra 7 sem filtro;
+  - sinônimo de editora: `cia das letras` acha a Companhia das Letras;
+  - ficha com links para autor, editora e série;
+  - página de autor com biografia e `Fonte: OpenLibrary`, e sem biografia (a seção some, `1 livro no acervo`);
+  - rolagem infinita: 32 edições em 24 grupos, as duas páginas;
+  - editora;
+  - série com `Livro N` em ordem, `Sem número na série` em ordem alfabética e o link `de J. K. Rowling`;
+  - erro da página com o `acervo` fora e `Tentar de novo` com ele de volta;
+  - assunto da ficha filtrando o Descobrir.
+- **Defeitos achados e corrigidos, cada um com teste de regressão:**
+  1. **Folha de filtros pela aba:** a barra inferior ficava por cima da folha e cobria `Aplicar filtros` e `Limpar filtros`. Agora abre pelo navegador raiz, como pede o `AGENTS.md` do mobile.
+  2. **Volume da série em linha própria:** saía `volume 5` embaixo do nome. Agora sai `Harry Potter > · volume 5`, na mesma linha, como no protótipo.
+  3. **Leitor de tela na ficha:**
+     - os rótulos passaram a ser os do protótipo (`Ver página de autor: X`, `de editora`, `da série`);
+     - a linha da série deixou de ser lida duas vezes;
+     - cada link tem nó próprio.
+  4. **Mesmo assunto tocado de novo:** não limpava o texto nem os filtros, porque `/descobrir?assunto=<id>` não mudava. Agora a página consome o pedido (`aoConsumirAssunto`, o roteador volta a `/descobrir`), e o próximo toque vale como novo.
+  5. **Teclado reaberto** ao voltar do livro ou ao chegar por um assunto: o campo guardava o foco (Divergências).
+  
+  A faixa passou a mostrar o assunto ativo (Divergências).
+- **Testes:** mobile com 725, `analyze` limpo.
+
+### Biografias 08/10/2026: script `biografias` rodado no banco de dev (`le-ai`, São Paulo) pelo dono, com o dump de autores de 30/09/2026 (`ol_dump_authors_2026-09-30`, 746 MB). É mais novo que o da carga de 24/09, o que não importa, porque o script casa pela chave OpenLibrary do autor.
+- **Simulação (`--dry-run`) e gravação, com os mesmos números:** 8.126 autores sem biografia, 8.123 encontrados no dump, 905 com biografia no dump e **905 atualizados**. Cada leitura do dump levou cerca de 1 minuto.
+- **Conferência (só leitura):** 905 de 8.126 autores com biografia, de 1.999 caracteres no máximo (teto de 2.000) e 543 em média. Entre os autores com mais livros, Stephen King, Isaac Asimov e Machado de Assis têm biografia, em inglês, como a OpenLibrary devolve (ver Pendências).
+- **Idempotência:** uma nova simulação depois da gravação deu 7.221 sem biografia, 0 com biografia no dump e 0 a atualizar.
+- **Não conferido pela API:** `GET /autores/{id}` lê a coluna direto e é coberto pelo `catalogo.int-spec.ts`. Falta DES, depois do merge na `main`.
+- **Autores duplicados (mesmo dia):** o dono achou duas "Suzanne Collins" no Descobrir. A segunda era outro registro da OpenLibrary, ligado às edições portuguesas, com a biografia de uma homônima (instrutora de marketing).
+  - A correção é da [F-ACV-INGESTAO](../periodo-1/feature-F-ACV-INGESTAO.md) (Timeline "Unificação 08/10/2026"). Os 216 duplicados foram juntados ao autor canônico em dev e DES, e as biografias de homônimos saíram com eles.
+  - Em dev ficaram **896 de 7.910 autores com biografia**. A página da Suzanne Collins tem os 7 livros e a biografia certa.
+  - Um link salvo para o id de um duplicado removido passa a dar 404.
+- **DES, no mesmo dia, antes do deploy:** a pedido do dono, para tirar a dependência do dump nesta máquina, o script rodou no banco de DES (`le-ai-oregon`), já com a unificação aplicada.
+  - **Simulação e gravação:** 7.910 autores sem biografia, 7.908 encontrados no dump, 896 com biografia e **896 atualizados**.
+  - **Conferência, só leitura:** 896 de 7.910 com biografia, de no máximo 1.999 caracteres, e nenhuma violaria o `autor_biografia_ck`. Por isso a `0005` aplica sem erro no deploy.
+  - **Visibilidade:** a página de autor só aparece em DES com o código do deploy da `main`.
+
+### Web e mobile 07/10/2026: implementados na `vicenzo-features` (`47e31be` web, `af7c5d4` mobile), depois de sincronizar a branch com a `desenvolvimento` (25 commits de F-SOCIAL-2, F-NOT-2 e F-LST, por fast-forward). Antes de começar, a base estava verde: `acervo` com 299 testes no Jest 30 que o `npm audit` trouxe, front com 693 e mobile com 498.
+- **Web:** os testes foram de 693 para 731 (filtros, URL, folha e painel, chips, vazio com filtros, as três páginas com 404, erro, falha de paginação e cold start, e os links da ficha). Lint e build verdes.
+- **Mobile:** os testes foram de 498 para 531 (modelo e validação dos filtros, serviço, controller, folha, páginas de catálogo, ficha e navegação no `router_test`). `analyze`, tokens e `build apk --debug` verdes.
+- **Não conferido em execução real:** falta subir `identidade` e `acervo` e entrar com uma conta de dev.
+
+### Ajustes na web 07/10/2026: conferência no navegador pelo dono.
+- **Layout do Descobrir:** com filtro ativo, os chips e os resultados desciam para o meio da página. O painel lateral ocupava duas linhas do grid, e o navegador repartia a altura dele entre a linha dos chips e a dos resultados. Agora chips, contagem e resultados são um bloco só na coluna da direita.
+- **Filtros:** o bloco foi para cima de `Assuntos`, ficou recolhível (começa fechado) e o sufixo virou `págs`. O `CampoTexto` reserva à direita o espaço do sufixo.
+- Segunda rodada:
+  - o painel passou para 280px;
+  - o bloco Filtros anima ao recolher e expandir (altura e opacidade em `dur-base`, seta girando) e, fechado, fica `inert`;
+  - o `Tentar de novo` dos avisos de erro do Descobrir e da página de catálogo foi para uma linha própria, porque estava desalinhando o texto do ícone.
+- 734 testes; lint e build verdes.
+
+### Fechamento 07/10/2026: verificação final e merge da `vicenzo-features` em `desenvolvimento`.
+- **`acervo`:** lint, 299 unitários, 125 de integração em Postgres de container e build.
+- **Ingestão:** 111 testes; os 8 de banco ficam pulados sem a variável de banco.
+- **Front:** lint, 734 testes, build e `npm audit` alto zerado depois de `53305f2`.
+- **Mobile:** tokens, `analyze` e 531 testes.
+- **Critérios cobertos por teste:** filtros e combinações; páginas paginadas e série por número; livro pessoal fora da busca e das páginas (`busca.int-spec.ts` "nunca traz livro pessoal, mesmo só com filtros" e `catalogo.int-spec.ts` "livro pessoal nunca aparece nas páginas"); assunto acionável.
+- **Ficam abertos:** a biografia (falta o script), o mobile no emulador e o DES.
+
+### Migration 02/10/2026: `0005` aplicada no banco de dev (`le-ai`, São Paulo) pelo dono, com `npm run db:migrate`. Próximo passo de dados: rodar o script `biografias` com o dump de autores.
+
+### Backend 02/10/2026: implementado na branch `vicenzo-features`, contrato publicado antes (`83bc4ab`) e trocado para `implemented` ao fim.
+- **Migration:** `0005`.
+- **Código:** filtros em `GET /livros`, páginas de autor, editora e série, `editoraId`/`serie` na página do livro, biografia na importação por ISBN e o script `biografias`.
+- **Testes, todos verdes:**
+  - acervo: 299 unitários e 125 de integração em Postgres real, com o novo `catalogo.int-spec.ts` e casos novos em `busca`, `livro-oficial` e `consumo-importacao`;
+  - ingestão: 119 testes, incluindo os de banco.
+  - As saídas do `textoPuro` (TS) e do `texto_puro` (Python) foram conferidas iguais nos mesmos casos.
+- **Desempenho medido** com `EXPLAIN ANALYZE` no banco de dev (11.019 livros, 8.126 autores, 1.374 séries), em transação `READ ONLY` e ainda sem a `0005`:
+  - o pior caso foi a página de `editora=companhia`, com 154 ms de execução e 118 ms de plano na primeira consulta;
+  - `ano=2019` e a faixa de páginas ficaram abaixo de 25 ms;
+  - as três páginas de catálogo ficaram abaixo de 6 ms.
+  - Conclusão: RNF-DES-01 folgado e índice de ano/páginas dispensado, como previa a alternativa "índices só após medir". Web e mobile não iniciados.
+
 ### Revisão 15/09/2026: grupo definiu OpenLibrary como fonte de biografia e omissão quando ausente. DER atualizado; implementação não iniciada.
 
 ### Revisão 01/09/2026: reúso de página de catálogo e índices orientados por medição registrados apenas como alternativas de implementação.
@@ -92,3 +281,5 @@ Sem novos eventos e sem VIEW cross-schema: a feature lê e serve dados do própr
 ### Criação 28/08/2026: arquivo criado a partir do escopo de F-ACV-DESCOBERTA no [periodo-2/README.md](README.md), de RF-ACV-03/10/11/12/21 do [`REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.2 e da RN-21. Continua a fronteira que [F-ACV-BUSCA](../periodo-1/feature-F-ACV-BUSCA.md) fixou (filtros avançados, páginas de consulta e assunto acionável no P2); origem da bio do autor registrada como pendência, sem inventar fonte.
 
 ### Revisão 29/08/2026: paginação da série foi explicitada. A biografia deixou de aceitar ausência como solução definitiva: sua fonte continua decisão humana bloqueante de RF-ACV-10, sem antecipar nova integração.
+
+### Dono 29/09/2026: feature atribuída a **Vicenzo Fonseca** na [divisão do Período 2](README.md#divisão-do-período-2-entre-5-pessoas).

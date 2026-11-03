@@ -178,6 +178,21 @@ describe('ProgressoView', () => {
     expect(document.querySelector('[data-registrar]')).toBeNull()
   })
 
+  it('ocorrência concluída do histórico mostra conclusão, tipo e datas, sem ações', async () => {
+    servico.listarProgresso.mockResolvedValue(pagina(ITENS, { somenteLeitura: true }))
+    servico.detalharLeitura.mockResolvedValue(
+      leitura({ status: 'LIDO', releitura: true, dataInicio: '2025-11-02', dataFim: '2025-11-16' }),
+    )
+    const { wrapper } = await montar()
+
+    expect(resumoTexto(wrapper)).toContain('Releitura')
+    expect(resumoTexto(wrapper)).toContain('Concluída em 16 de novembro de 2025')
+    expect(resumoTexto(wrapper)).toContain('Início em 2 de novembro de 2025 · 15 dias')
+    expect(resumoTexto(wrapper)).toContain(TEXTOS_DAS_ATUALIZACOES.somenteConsulta)
+    expect(wrapper.find('[data-excluir]').exists()).toBe(false)
+    expect(document.querySelector('[data-registrar]')).toBeNull()
+  })
+
   it('mostra o vazio com Iniciada e o convite a registrar', async () => {
     servico.listarProgresso.mockResolvedValue(pagina([], { paginaAtual: 0, minutosTotais: 0 }))
     const { wrapper } = await montar()

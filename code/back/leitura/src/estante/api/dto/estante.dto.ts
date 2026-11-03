@@ -7,6 +7,7 @@ import {
   ORDENACOES_ESTANTE,
   type OrdenacaoEstante,
 } from '../../dominio/estante';
+import { CampoDeBusca } from '../../../common/busca-textual';
 import {
   STATUS_ESTANTE_API,
   type StatusEstanteApi,
@@ -27,6 +28,11 @@ export class ConsultaEstanteDto {
   @IsOptional()
   @IsIn(STATUS_ESTANTE_API, { message: 'Status de estante inválido.' })
   status?: StatusEstanteApi;
+
+  @CampoDeBusca(
+    'Busca por título ou autor dentro da estante; combina com `status`.',
+  )
+  q?: string;
 
   @ApiPropertyOptional({ enum: ORDENACOES_ESTANTE, default: ORDENACAO_PADRAO })
   @IsOptional()
@@ -64,6 +70,7 @@ export interface ItemEstante {
   totalPaginas: number | null;
   percentualConcluido: number | null;
   adicionadoEm: string;
+  favorito?: boolean;
 }
 
 export type TotaisEstante = Record<StatusEstanteApi, number>;
@@ -79,6 +86,7 @@ export interface PaginaEstante {
   itens: ItemEstante[];
   paginacao: Paginacao;
   totaisPorStatus: TotaisEstante;
+  totalFavoritos?: number;
 }
 
 export interface ConclusoesLivro {

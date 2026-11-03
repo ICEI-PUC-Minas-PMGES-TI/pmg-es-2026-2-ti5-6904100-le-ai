@@ -5,9 +5,18 @@ import { useRouter } from 'vue-router'
 import RegistrarProgresso from '../progresso/RegistrarProgresso.vue'
 import BannerAviso from '../ui/BannerAviso.vue'
 import BotaoTextual from '../ui/BotaoTextual.vue'
+import CoracaoAnimado from '../ui/CoracaoAnimado.vue'
 import AcoesLeitura from './AcoesLeitura.vue'
 import StatusPill from './StatusPill.vue'
-import { TEXTOS_DA_ESTANTE, TEXTOS_DO_PAINEL, ACOES_DE_LEITURA, textoPaginaDe, textoVezesLido } from '../../estante/textos'
+import {
+  TEXTOS_DA_ESTANTE,
+  TEXTOS_DO_FAVORITO,
+  TEXTOS_DO_PAINEL,
+  ACOES_DE_LEITURA,
+  textoPaginaDe,
+  textoVezesLido,
+} from '../../estante/textos'
+import { useFavorito } from '../../estante/useFavorito'
 import { usePainelDeAcoes } from '../../estante/usePainelDeAcoes'
 import { caminhoDoProgresso } from '../../progresso/caminhos'
 import { useDialogoDeRegistro } from '../../progresso/useDialogoDeRegistro'
@@ -33,6 +42,7 @@ const abrindoRegistro = ref(false)
 const registroFalhou = ref(false)
 const painel = usePainelDeAcoes((leituraId) => leituraService.detalharLeitura(leituraId))
 const registro = useDialogoDeRegistro()
+const favorito = useFavorito()
 
 const livroDoPainel = computed(() => ({
   livroId: props.livroId,
@@ -106,7 +116,14 @@ function verAtualizacoes(leituraId: string): void {
   void router.push(caminhoDoProgresso(leituraId))
 }
 
-watch(() => props.livroId, () => void carregar(), { immediate: true })
+watch(
+  () => props.livroId,
+  (livroId) => {
+    void carregar()
+    void favorito.carregar(livroId)
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -153,13 +170,38 @@ watch(() => props.livroId, () => void carregar(), { immediate: true })
       >
         {{ leituraAberta ? ACOES_DE_LEITURA.registrarProgresso : TEXTOS_DO_PAINEL.adicionarNaEstante }}
       </button>
-      <BotaoTextual
-        v-if="naEstante"
-        :disabled="painel.preparando.value"
-        @click="abrirAcoes"
+      <div class="flex items-center gap-space-3">
+        <BotaoTextual
+          v-if="naEstante"
+          :disabled="painel.preparando.value"
+          @click="abrirAcoes"
+        >
+          {{ TEXTOS_DO_PAINEL.alterarStatus }}
+        </BotaoTextual>
+        <button
+          v-if="favorito.favorito.value !== null"
+          type="button"
+          class="flex size-12 items-center justify-center rounded-base border border-linha text-tinta transition-colors duration-dur-fast hover:bg-linha focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo disabled:opacity-60 motion-reduce:transition-none md:size-10"
+          :aria-pressed="favorito.favorito.value"
+          :aria-label="favorito.favorito.value ? TEXTOS_DO_FAVORITO.remover : TEXTOS_DO_FAVORITO.favoritar"
+          :disabled="favorito.salvando.value"
+          data-favoritar
+          @click="favorito.alternar(livroId)"
+        >
+          <CoracaoAnimado
+            :ativo="favorito.favorito.value"
+            :tamanho="20"
+            :class="favorito.favorito.value ? 'text-musgo' : ''"
+          />
+        </button>
+      </div>
+      <p
+        v-if="favorito.falhou.value"
+        role="alert"
+        class="text-caption text-rubi"
       >
-        {{ TEXTOS_DO_PAINEL.alterarStatus }}
-      </BotaoTextual>
+        {{ TEXTOS_DO_FAVORITO.erro }}
+      </p>
     </template>
     <BannerAviso
       v-if="falhou || painel.falhou.value || registroFalhou"
@@ -180,7 +222,9 @@ watch(() => props.livroId, () => void carregar(), { immediate: true })
       :aberta="painel.aberto.value"
       :livro="painel.livro.value"
       :estado="painel.estado.value"
+      :favorito="favorito.favorito.value ?? undefined"
       @fechar="painel.fechar()"
+      @favorito-alterado="favorito.definir"
       @registrar-progresso="abrirRegistroDoPainel"
       @ver-atualizacoes="verAtualizacoes"
       @atualizado="carregar()"

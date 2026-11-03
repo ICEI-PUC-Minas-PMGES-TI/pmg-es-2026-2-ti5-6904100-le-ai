@@ -7,11 +7,15 @@ info:
     scaffolding P0-INFRA. Nota, resenha, minha avaliação e as resenhas do
     perfil estão implementadas por F-AVA (27/09/2026); os contratos de F-EST
     e de F-PRG estão implementados (F-PRG em 27/09/2026, com a edição de
-    progresso removida em 29/09/2026). Cada operação traz
+    progresso removida em 29/09/2026). A sequência diária está implementada
+    por F-GAM (08/10/2026), os desafios por F-DSF (09/10/2026) e as
+    estatísticas por F-STA (11/10/2026). Cada operação traz
     `x-implementation-status`.
     Nota e resenha pertencem ao livro, não a uma ocorrência de leitura.
-    Sessões cronometradas, favoritos, histórico, reações e Markdown não fazem
-    parte deste contrato do Período 1.
+    As reações à resenha (curtir e descurtir) e as frases e trechos estão
+    implementadas por F-AVA-2 (09/10/2026). Favoritos, histórico de leituras
+    concluídas e busca na estante estão implementados por F-EST-2
+    (16/10/2026). Sessões cronometradas ainda não fazem parte deste contrato.
 x-database-contracts:
   - name: v_estante_publica_v1
     x-implementation-status: implemented
@@ -28,11 +32,21 @@ x-database-contracts:
       snapshot"); a decisão está pendente com o grupo (feature-F-AVA.md).
       As colunas não mudam enquanto isso.
     columns: [resenha_id, usuario_id, livro_id, texto, spoiler, criado_em, atualizado_em, curtidas, descurtidas]
+  - name: v_reacao_resenha_v1
+    x-implementation-status: implemented
+    x-implemented-by: F-AVA-2
+    description: >-
+      Reação ativa de cada leitor a cada resenha (reação retirada não aparece).
+      O acervo a lê para devolver, junto das resenhas da página do livro oficial
+      e da resenha do dono do livro pessoal, a reação de quem está vendo
+      (`minhaReacao`). As contagens continuam em v_resenha_publicacao_v1.
+    columns: [resenha_id, usuario_id, tipo]
   - name: v_nota_publicacao_v1
     x-implementation-status: implemented
     description: >-
-      Projeção para nota do dono de livro pessoal e para backfill futuro. A
-      projeção incremental do acervo usa o evento nota.alterada.
+      Projeção para nota do dono de livro pessoal e para a nota dos leitores
+      do livro oficial. O acervo a relê no consumidor de nota.alterada (o
+      evento só avisa que a nota mudou) e no backfill:notas.
     columns: [usuario_id, livro_id, valor]
 servers:
   - url: http://localhost:3001
@@ -48,8 +62,18 @@ tags:
     description: Atualizações manuais de progresso
   - name: avaliacoes
     description: Nota e resenha do leitor para um livro
+  - name: reacoes
+    description: Curtidas e descurtidas em resenhas de outros leitores
+  - name: frases
+    description: Frases e trechos de um livro, com a página de referência
   - name: perfis
     description: Projeções autorizadas para composição de perfil
+  - name: sequencia
+    description: Sequência diária de leitura (streak), só mobile
+  - name: desafios
+    description: Desafios de leitura por janela de calendário, só mobile
+  - name: estatisticas
+    description: Totais, médias e séries de leitura do leitor
   - name: interno
     description: Operações exclusivas de serviços e do agendador
 security:
@@ -109,9 +133,14 @@ paths:
       x-implemented-by: F-EST
       description: >-
         Lista paginada para agrupamento por status. O filtro de status pode ser
-        combinado com a ordenação. Busca textual pertence ao Período 2.
+        combinado com a ordenação e com `q`, que busca por título ou autor
+        somente dentro da estante do leitor (RF-EST-13), sem diferenciar
+        maiúsculas; `%` e `_` são literais. Cada item traz `favorito` e a
+        página traz `totalFavoritos`, que conta também favoritos fora da
+        estante (F-EST-2).
       parameters:
         - { $ref: '#/components/parameters/StatusEstante' }
+        - { $ref: '#/components/parameters/BuscaTituloAutor' }
         - { $ref: '#/components/parameters/OrdenacaoEstante' }
         - { $ref: '#/components/parameters/Pagina' }
         - { $ref: '#/components/parameters/Limite' }
@@ -377,6 +406,132 @@ paths:
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
 
+  /livros/{livroId}/favorito:
+    get:
+      tags: [favoritos]
+      summary: Consulta se o livro é favorito do leitor
+      operationId: consultarFavorito
+      x-implementation-status: implemented
+      x-implemented-by: F-EST-2
+      parameters:
+        - { $ref: '#/components/parameters/LivroId' }
+      description: >-
+        Só do próprio leitor, inclusive para livro fora da estante. Livro não
+        favoritado responde `favorito: false`.
+      responses:
+        '200':
+          description: Estado do favorito.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Favorito' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+    put:
+      tags: [favoritos]
+      summary: Marca o livro como favorito do leitor
+      operationId: marcarFavorito
+      x-implementation-status: implemented
+      x-implemented-by: F-EST-2
+      parameters:
+        - { $ref: '#/components/parameters/LivroId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      description: >-
+        Favorito é relação própria, independente da estante: não cria vínculo,
+        não muda status e não altera a máquina de estados (RN-04). Livro
+        pessoal de outra pessoa é 403, como em `adicionarLivroEstante`
+        (RN-15, RNF-SEC-07); livro inexistente ou inativo é 404. Marcar de novo
+        responde 200 sem duplicar. Sem evento.
+      responses:
+        '200':
+          description: Livro marcado como favorito.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Favorito' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/Proibido' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+    delete:
+      tags: [favoritos]
+      summary: Desmarca o livro como favorito do leitor
+      operationId: desmarcarFavorito
+      x-implementation-status: implemented
+      x-implemented-by: F-EST-2
+      parameters:
+        - { $ref: '#/components/parameters/LivroId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      description: >-
+        Não confere o livro e não altera a estante. Sem favorito para remover,
+        responde 204.
+      responses:
+        '204': { description: 'Favorito removido, já ausente ou repetição idempotente concluída.' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+
+  /me/favoritos:
+    get:
+      tags: [favoritos]
+      summary: Lista os favoritos do leitor, dentro ou fora da estante
+      operationId: listarMeusFavoritos
+      x-implementation-status: implemented
+      x-implemented-by: F-EST-2
+      parameters:
+        - { $ref: '#/components/parameters/BuscaTituloAutor' }
+        - { $ref: '#/components/parameters/Pagina' }
+        - { $ref: '#/components/parameters/Limite' }
+      description: >-
+        Só do próprio leitor, do favoritado mais recente ao mais antigo. Livro
+        fora da estante vem com `status` nulo. Livro inativo não aparece. `q`
+        busca por título ou autor, como na estante (RF-EST-13).
+      responses:
+        '200':
+          description: Página de favoritos.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaFavoritos' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
+  /me/historico:
+    get:
+      tags: [historico]
+      summary: Lista as leituras concluídas do leitor, uma ocorrência por conclusão
+      operationId: listarMeuHistorico
+      x-implementation-status: implemented
+      x-implemented-by: F-EST-2
+      parameters:
+        - name: ano
+          in: query
+          required: false
+          description: Restringe às leituras concluídas nesse ano, pela data de fim.
+          schema: { type: integer, minimum: 1000, maximum: 9999 }
+        - { $ref: '#/components/parameters/BuscaTituloAutor' }
+        - { $ref: '#/components/parameters/Pagina' }
+        - { $ref: '#/components/parameters/Limite' }
+      description: >-
+        Só do próprio leitor (RF-EST-10). Conta leitura e releitura finalizadas
+        (RN-04.4); releitura incompleta e leitura abandonada ficam de fora. O
+        mesmo livro aparece uma vez por conclusão, inclusive duas no mesmo ano.
+        Ordena pela data de fim, da mais recente. `q` pesquisa título ou autor
+        em todos os anos e combina com `ano`. `anos` lista os anos com
+        conclusão e a contagem de cada um, sem considerar `ano` nem `q`;
+        `totais` conta livros distintos e leituras do filtro atual. Cada
+        ocorrência abre suas atualizações em `listarProgressos`, em modo
+        somente leitura.
+      responses:
+        '200':
+          description: Página do histórico, anos e totais.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaHistorico' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
   /leituras/{leituraId}/progresso:
     post:
       tags: [progresso]
@@ -422,8 +577,10 @@ paths:
         - { $ref: '#/components/parameters/Limite' }
       description: >-
         Valida propriedade. Leituras em andamento permitem as mutações
-        previstas; leituras finalizadas são retornadas somente para consulta.
-        O resumo independe da página solicitada.
+        previstas; leituras finalizadas são retornadas somente para consulta
+        (`somenteLeitura: true`), inclusive a ocorrência selecionada no
+        histórico (F-EST-2): registrar e excluir nelas respondem 409. Leitura
+        de outra pessoa responde 404. O resumo independe da página solicitada.
       responses:
         '200':
           description: Página de atualizações e resumo atual.
@@ -605,7 +762,9 @@ paths:
         - { $ref: '#/components/parameters/LivroId' }
       description: >-
         Nota e resenha ausentes são nulas, nunca valores inventados. Livro
-        inexistente, inativo ou pessoal de outra pessoa é 404.
+        inexistente, inativo ou pessoal de outra pessoa é 404. A resenha traz
+        as contagens de curtidas e descurtidas (F-AVA-2), que o dono vê só para
+        leitura.
       responses:
         '200':
           description: Avaliação atual, ainda que ambos os campos estejam ausentes.
@@ -616,6 +775,174 @@ paths:
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
         '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
+  /resenhas/{resenhaId}/reacao:
+    put:
+      tags: [reacoes]
+      summary: Curte ou descurte a resenha de outro leitor
+      operationId: reagirResenha
+      x-implementation-status: implemented
+      x-implemented-by: F-AVA-2
+      parameters:
+        - { $ref: '#/components/parameters/ResenhaId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      description: >-
+        Uma reação por leitor e resenha, alternável (RF-AVA-05): reagir com o
+        outro tipo troca, e reagir de novo com o mesmo tipo não grava nada. A
+        resposta traz as contagens separadas e a reação de quem pediu
+        (RF-AVA-08). O acesso é revalidado: livro oficial sob RN-08 (autor
+        público ou seguido); livro pessoal só com `via` e `referenciaId`
+        válidos (RN-15: `feed` com a atividade do dono, que exige seguimento
+        aceito, ou `lista` com a lista ativa do dono, que exige perfil público
+        ou seguimento aceito). Resenha inexistente, livro inativo, autor fora
+        da VIEW de perfil e qualquer falha de acesso são 404. Reagir à própria
+        resenha é 422 `REACAO_PROPRIA`. Conta de quem reage suspensa ou em
+        exclusão é 403. A primeira curtida do par resenha e leitor grava
+        `resenha.curtida` para o autor, na mesma transação; retirar e recurtir,
+        alternar e descurtir não publicam (decisão de 15/09/2026). A reação
+        retirada fica guardada, com `primeira_curtida_em`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReacaoEntrada' }
+      responses:
+        '200':
+          description: Estado das reações depois da escrita.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Reacoes' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/Proibido' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+        '413': { $ref: '#/components/responses/CorpoMuitoGrande' }
+        '422': { $ref: '#/components/responses/EntidadeInvalida' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+    delete:
+      tags: [reacoes]
+      summary: Retira a reação do leitor à resenha
+      operationId: removerReacaoResenha
+      x-implementation-status: implemented
+      x-implemented-by: F-AVA-2
+      parameters:
+        - { $ref: '#/components/parameters/ResenhaId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { $ref: '#/components/parameters/Via' }
+        - { $ref: '#/components/parameters/ReferenciaId' }
+      description: >-
+        Revalida o acesso como o PUT, com a via na consulta. Quem perdeu o
+        acesso recebe 404, e a reação continua contada. Sem reação ativa,
+        responde 200 com o estado atual. Nunca publica evento.
+      responses:
+        '200':
+          description: Estado das reações depois da escrita.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Reacoes' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/Proibido' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+        '422': { $ref: '#/components/responses/EntidadeInvalida' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
+  /livros/{livroId}/frases:
+    get:
+      tags: [frases]
+      summary: Lista as frases do livro que o leitor pode ver
+      operationId: listarFrases
+      x-implementation-status: implemented
+      x-implemented-by: F-AVA-2
+      parameters:
+        - { $ref: '#/components/parameters/LivroId' }
+        - { $ref: '#/components/parameters/Pagina' }
+        - { $ref: '#/components/parameters/Limite' }
+      description: >-
+        Frases de todos os leitores, mais recentes primeiro, sob RN-08 por
+        autor: perfil público, privado seguido ou a própria frase; o
+        administrador (claim papel igual a admin, F-MOD) vê todas. Conta
+        suspensa ou em exclusão some. Em livro pessoal, só o dono lista (o modo
+        consulta de RN-15 não expõe frases). Livro inexistente, inativo ou
+        pessoal de outra pessoa é 404. A resposta traz a cota de quem pede
+        (`minhasFrases` de `limitePorLivro`).
+      responses:
+        '200':
+          description: Página de frases.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaFrases' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+    post:
+      tags: [frases]
+      summary: Guarda um trecho do livro com a página
+      operationId: cadastrarFrase
+      x-implementation-status: implemented
+      x-implemented-by: F-AVA-2
+      parameters:
+        - { $ref: '#/components/parameters/LivroId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      description: >-
+        RN-11: texto de 1 a 500 caracteres Unicode (code points), página
+        obrigatória de 1 ao total de páginas do livro e no máximo 10 frases
+        por leitor e livro. Texto que não é string ou página que não é inteiro
+        é 400; texto só com espaços ou invisíveis, acima do limite, página fora
+        do livro (422 com `campos`) e a 11ª frase (422 `LIMITE_DE_FRASES`) são
+        regra de negócio. O limite vale também com duas requisições
+        simultâneas (trigger com advisory lock). Livro inexistente, inativo ou
+        pessoal de outra pessoa é 404; conta suspensa ou em exclusão é 403.
+        Não publica evento.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FraseEntrada' }
+      responses:
+        '201':
+          description: Frase guardada.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Frase' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/Proibido' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+        '413': { $ref: '#/components/responses/CorpoMuitoGrande' }
+        '422': { $ref: '#/components/responses/EntidadeInvalida' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
+  /frases/{fraseId}:
+    delete:
+      tags: [frases]
+      summary: Exclui a própria frase
+      operationId: excluirFrase
+      x-implementation-status: implemented
+      x-implemented-by: F-AVA-2
+      parameters:
+        - name: fraseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      description: >-
+        A confirmação é do cliente (RNF-USA-04). Frase inexistente ou de outra
+        pessoa é 404, sem revelar qual. A remoção pela moderação é de F-MOD, pelo comando interno.
+      responses:
+        '204': { description: Frase excluída ou repetição idempotente concluída. }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+        '429': { $ref: '#/components/responses/LimiteExcedido' }
 
   /perfis/{usuarioId}/resenhas:
     get:
@@ -630,7 +957,8 @@ paths:
         exclusão pendente é 404. Resenhas com spoiler permanecem marcadas para
         ocultação pelo cliente até ação explícita de revelar. Cada item traz o
         livro (título, autor, capa) e a nota do autor, que o card do perfil
-        mostra. Mais recentes primeiro. Livro inativo não aparece. Resenha de
+        mostra, as contagens de curtidas e descurtidas e a reação de quem pede
+        (F-AVA-2). Mais recentes primeiro. Livro inativo não aparece. Resenha de
         livro pessoal só aparece para o próprio dono: terceiros só chegam ao
         livro pessoal pelo feed ou pela lista do dono (RN-15).
       parameters:
@@ -647,6 +975,300 @@ paths:
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '403': { $ref: '#/components/responses/Proibido' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
+  /perfis/{usuarioId}/estatisticas:
+    get:
+      tags: [perfis, estatisticas]
+      summary: Consulta os totais do ano de um perfil autorizado
+      operationId: consultarEstatisticasPerfil
+      x-implementation-status: implemented
+      x-implemented-by: F-STA
+      description: >-
+        Autoriza o próprio usuário e perfis públicos. Perfil privado exige
+        seguimento aceito (403 sem ele). Conta inexistente, suspensa ou em
+        exclusão pendente é 404. Só os três totais do ano, somados dos mesmos
+        baldes mensais de `/me/estatisticas`; médias e gráficos ficam no painel
+        próprio.
+      parameters:
+        - { $ref: '#/components/parameters/UsuarioId' }
+        - { $ref: '#/components/parameters/AnoEstatisticas' }
+      responses:
+        '200':
+          description: Totais do ano, ainda que zerados.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EstatisticasPerfil' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/Proibido' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
+  /me/estatisticas:
+    get:
+      tags: [estatisticas]
+      summary: Consulta totais e médias de leitura de um ano ou do acumulado
+      operationId: consultarMinhasEstatisticas
+      x-implementation-status: implemented
+      x-implemented-by: F-STA
+      description: >-
+        Só do próprio leitor (RNF-SEC-02). Os valores vêm de baldes mensais
+        recompostos do estado atual de progresso, leitura e nota: pelo consumo
+        assíncrono de `progresso.registrado` e `leitura.finalizada` (RF-STA-05),
+        que pode chegar com atraso de segundos, e na própria transação da
+        exclusão de trecho e das escritas de nota. Progresso conta no mês da
+        data local do dispositivo, inclusive de leitura abandonada (RN-04) e
+        de sincronização tardia; leitura concluída conta no mês de `dataFim`,
+        releituras como ocorrências próprias; nota conta no mês em que foi
+        dada pela última vez, no fuso America/Sao_Paulo. Médias sem
+        denominador são nulas. O bloco "Estatísticas do ano" do Meu perfil usa
+        esta mesma consulta com o ano corrente.
+      parameters:
+        - { $ref: '#/components/parameters/PeriodoEstatisticas' }
+      responses:
+        '200':
+          description: Estatísticas do período, ainda que zeradas.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Estatisticas' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
+  /me/estatisticas/graficos:
+    get:
+      tags: [estatisticas]
+      summary: Séries de páginas e livros concluídos por mês ou por ano
+      operationId: consultarGraficosEstatisticas
+      x-implementation-status: implemented
+      x-implemented-by: F-STA
+      description: >-
+        Só do próprio leitor (RF-STA-03). Num ano, um ponto por mês: começa no
+        primeiro mês com registro se for o primeiro ano do leitor, senão em
+        janeiro, e termina no mês corrente se for o ano corrente, senão em
+        dezembro. No acumulado, um ponto por ano, do primeiro com registro até
+        o corrente. Meses e anos sem leitura entram com zero. Nota não abre
+        mês nem ano.
+      parameters:
+        - { $ref: '#/components/parameters/PeriodoEstatisticas' }
+      responses:
+        '200':
+          description: Série do período, vazia sem nenhum registro no acumulado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GraficosEstatisticas' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
+  /me/sequencia:
+    get:
+      tags: [sequencia]
+      summary: Consulta a sequência diária atual e a maior já alcançada
+      operationId: consultarMinhaSequencia
+      x-implementation-status: implemented
+      x-implemented-by: F-GAM
+      description: >-
+        Só do próprio leitor (RNF-SEC-02). Um dia conta quando tem ao menos uma
+        atualização de progresso com página lida, no calendário do fuso do
+        dispositivo no momento do registro, uma vez por dia (RN-18.1 a 18.3).
+        A atual zera quando um dia se encerra sem leitura, apurado no último
+        fuso registrado pelo dispositivo, nunca no de quem consulta (RN-18.4);
+        a maior é preservada (RN-18.6). Os valores são recompostos dos
+        progressos atuais pelo consumo assíncrono de `progresso.registrado` e
+        pela exclusão de trecho, então podem chegar com atraso de segundos
+        depois de um registro. Sem progresso, zeros e `ultimoDiaComLeitura`
+        nulo.
+      responses:
+        '200':
+          description: Sequência do leitor, ainda que zerada.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sequencia' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
+  /desafios:
+    post:
+      tags: [desafios]
+      summary: Cria um desafio
+      operationId: criarDesafio
+      x-implementation-status: implemented
+      x-implemented-by: F-DSF
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      description: >-
+        Qualquer unidade combina com qualquer janela, e o leitor pode manter
+        vários desafios ao mesmo tempo (RF-DSF-01, RN-20). As janelas são de
+        calendário no fuso informado (RN-20.1); a semana vai de segunda a
+        domingo (ISO 8601). Criado no meio da janela, o desafio já considera o
+        que foi registrado nela, como um anual criado em agosto contando desde
+        janeiro (RN-20.2). `valorAlvo` que não é inteiro positivo é 400; acima
+        do teto da unidade (100.000 páginas, 100.000 minutos ou 1.000 livros) é
+        422, com `campos`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DesafioEntrada' }
+      responses:
+        '201':
+          description: Desafio criado com a janela corrente.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Desafio' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+        '413': { $ref: '#/components/responses/CorpoMuitoGrande' }
+        '422': { $ref: '#/components/responses/EntidadeInvalida' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+    get:
+      tags: [desafios]
+      summary: Lista os desafios com o progresso da janela corrente
+      operationId: listarDesafios
+      x-implementation-status: implemented
+      x-implemented-by: F-DSF
+      parameters:
+        - { $ref: '#/components/parameters/Pagina' }
+        - { $ref: '#/components/parameters/Limite' }
+      description: >-
+        Só os desafios do próprio leitor (RNF-SEC-02), cada um com o acumulado
+        e o alvo da janela corrente (RF-DSF-03). Ordem: ativos antes dos
+        pausados; dentro de cada grupo, janela mais curta primeiro (diária,
+        semanal, mensal, anual) e, na mesma janela, o mais novo primeiro.
+        `paginacao.totalItens` conta todos, pausados inclusive. O acumulado é
+        recomposto pelo consumo assíncrono de `progresso.registrado` e
+        `leitura.finalizada` e pela exclusão de trecho de progresso, então pode
+        chegar com atraso de segundos depois de um registro. Páginas e minutos
+        contam pela data local de captura do progresso; livros, pelo dia local
+        da ação de finalizar, nunca pela data de fim editável (RN-20.3). Livros
+        pessoais contam (RN-20.4); releitura incompleta e leitura abandonada
+        não. A janela que começou desde a última consulta é criada aqui, sem
+        job (RN-20.9). Histórico de janelas encerradas é RF-DSF-05 (Período 3)
+        e não é exposto.
+      responses:
+        '200':
+          description: Página de desafios, possivelmente vazia.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaDesafios' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
+  /desafios/{desafioId}:
+    patch:
+      tags: [desafios]
+      summary: Edita unidade, janela, alvo ou fuso de um desafio
+      operationId: editarDesafio
+      x-implementation-status: implemented
+      x-implemented-by: F-DSF
+      parameters:
+        - { $ref: '#/components/parameters/DesafioId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      description: >-
+        Recalcula somente a janela corrente (RN-20.7): os períodos já
+        decorridos são encerrados com a configuração antiga e guardam unidade,
+        periodicidade, alvo e fuso de quando valeram; a janela corrente é
+        refeita com a configuração nova e já considera o registrado nela.
+        Campos ausentes mantêm o valor atual; `fusoHorario` é sempre o do
+        dispositivo; com fuso novo, a janela corrente é a que contém o dia de
+        hoje nesse fuso. Sem mudança, responde 200 sem recalcular a configuração.
+        Desafio pausado continua pausado. Desafio de outra pessoa é 404. O teto
+        do alvo segue a unidade resultante (422).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DesafioEdicao' }
+      responses:
+        '200':
+          description: Desafio editado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Desafio' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+        '413': { $ref: '#/components/responses/CorpoMuitoGrande' }
+        '422': { $ref: '#/components/responses/EntidadeInvalida' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+    delete:
+      tags: [desafios]
+      summary: Exclui um desafio
+      operationId: excluirDesafio
+      x-implementation-status: implemented
+      x-implemented-by: F-DSF
+      parameters:
+        - { $ref: '#/components/parameters/DesafioId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      description: >-
+        Apaga o desafio com suas janelas, contribuições e pausas. A
+        confirmação é do cliente. Desafio inexistente ou de outra pessoa é 404;
+        repetir a chave depois de excluir responde 204.
+      responses:
+        '204': { description: Desafio excluído ou repetição idempotente concluída. }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
+  /desafios/{desafioId}/pausar:
+    post:
+      tags: [desafios]
+      summary: Pausa um desafio
+      operationId: pausarDesafio
+      x-implementation-status: implemented
+      x-implemented-by: F-DSF
+      parameters:
+        - { $ref: '#/components/parameters/DesafioId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      description: >-
+        Abre um intervalo de pausa no instante do servidor (RN-20.6). O que
+        ocorrer durante a pausa não conta para este desafio, mesmo que seja
+        sincronizado depois da retomada: vale o instante de captura do
+        progresso no dispositivo e o instante da finalização. A janela
+        corrente não é avaliada enquanto pausado. Desafio já pausado é 409.
+      responses:
+        '200':
+          description: Desafio pausado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Desafio' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
+  /desafios/{desafioId}/retomar:
+    post:
+      tags: [desafios]
+      summary: Retoma um desafio pausado
+      operationId: retomarDesafio
+      x-implementation-status: implemented
+      x-implemented-by: F-DSF
+      parameters:
+        - { $ref: '#/components/parameters/DesafioId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      description: >-
+        Fecha o intervalo de pausa; só conta o que ocorrer a partir de agora
+        (RN-20.6). Os intervalos ficam guardados para o recálculo de
+        sincronizações tardias. Desafio que não está pausado é 409.
+      responses:
+        '200':
+          description: Desafio retomado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Desafio' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflito' }
         '503': { $ref: '#/components/responses/ServicoIndisponivel' }
 
   /internal/jobs/inatividade:
@@ -681,6 +1303,71 @@ paths:
         '400': { $ref: '#/components/responses/RequisicaoInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '409': { $ref: '#/components/responses/Conflito' }
+  /internal/moderacao/resenhas/{resenhaId}/remocao:
+    post:
+      tags: [interno]
+      summary: Remove uma resenha pela moderação (F-MOD, RF-MOD-03)
+      operationId: removerResenhaPelaModeracao
+      x-implementation-status: implemented
+      x-implemented-by: F-MOD
+      security:
+        - moderacaoToken: []
+      parameters:
+        - name: resenhaId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      description: >-
+        Comando HTTP interno do social, que é quem grava a auditoria. Apaga a
+        resenha de qualquer autor, com as reações (CASCADE), e publica o mesmo
+        resenha.excluida da exclusão pelo autor, que tira a atividade do feed.
+        O recibo de idempotência usa um sujeito fixo da moderação, e o social
+        manda uma chave fixa por resenha: repetir depois de um timeout devolve
+        o mesmo removida true em vez de um removida false. Resenha que já não
+        existe responde 200 com removida false, sem evento. Depois de 24 horas
+        o recibo vence e a mesma chave recebe 409.
+      responses:
+        '200':
+          description: Resultado da remoção.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RemocaoPelaModeracao' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+        '503':
+          description: MODERACAO_TOKEN não configurado no serviço.
+  /internal/moderacao/frases/{fraseId}/remocao:
+    post:
+      tags: [interno]
+      summary: Remove uma frase pela moderação (F-MOD, RN-11)
+      operationId: removerFrasePelaModeracao
+      x-implementation-status: implemented
+      x-implemented-by: F-MOD
+      security:
+        - moderacaoToken: []
+      parameters:
+        - name: fraseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      description: >-
+        Mesmo contrato da remoção de resenha, sem evento: frase não tem
+        consumidor. Apaga a frase de qualquer autor; quem grava a auditoria é o
+        social. Frase que já não existe responde 200 com removida false.
+      responses:
+        '200':
+          description: Resultado da remoção.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RemocaoPelaModeracao' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+        '503':
+          description: MODERACAO_TOKEN não configurado no serviço.
 
 components:
   securitySchemes:
@@ -694,6 +1381,13 @@ components:
       in: header
       name: X-Scheduler-Token
       description: Segredo exclusivo do agendador, fornecido por variável de ambiente.
+    moderacaoToken:
+      type: apiKey
+      in: header
+      name: X-Moderacao-Token
+      description: >-
+        Segredo compartilhado só com o social (F-MOD), fornecido por variável
+        de ambiente. Nunca vai ao log.
 
   parameters:
     IdempotencyKey:
@@ -726,6 +1420,15 @@ components:
       in: query
       required: false
       schema: { $ref: '#/components/schemas/StatusEstante' }
+    BuscaTituloAutor:
+      name: q
+      in: query
+      required: false
+      description: >-
+        Trecho do título ou do autor, sem diferenciar maiúsculas. Espaços nas
+        pontas são ignorados e texto vazio equivale a ausente. Ainda diferencia
+        acentos.
+      schema: { type: string, maxLength: 100 }
     OrdenacaoEstante:
       name: ordenacao
       in: query
@@ -759,6 +1462,45 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    DesafioId:
+      name: desafioId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    ResenhaId:
+      name: resenhaId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    Via:
+      name: via
+      in: query
+      required: false
+      description: Via de RN-15; obrigatória só quando a resenha é de livro pessoal.
+      schema: { type: string, enum: [feed, lista] }
+    ReferenciaId:
+      name: referenciaId
+      in: query
+      required: false
+      description: Id da atividade (via feed) ou da lista do dono (via lista).
+      schema: { type: string, format: uuid }
+    PeriodoEstatisticas:
+      name: periodo
+      in: query
+      required: false
+      description: >-
+        Ano de calendário com quatro dígitos ou `acumulado`; ausente, o ano
+        corrente no fuso America/Sao_Paulo.
+      schema:
+        type: string
+        pattern: '^([1-9][0-9]{3}|acumulado)$'
+        example: '2026'
+    AnoEstatisticas:
+      name: ano
+      in: query
+      required: false
+      description: Ano de calendário; ausente, o ano corrente no fuso America/Sao_Paulo.
+      schema: { type: integer, minimum: 1000, maximum: 9999, example: 2026 }
 
   responses:
     RequisicaoInvalida:
@@ -814,6 +1556,15 @@ components:
           schema: { $ref: '#/components/schemas/Erro' }
 
   schemas:
+    RemocaoPelaModeracao:
+      type: object
+      required: [removida, autorId, livroId]
+      properties:
+        removida:
+          type: boolean
+          description: false quando o conteúdo já não existia.
+        autorId: { type: string, format: uuid, nullable: true }
+        livroId: { type: string, format: uuid, nullable: true }
     Health:
       type: object
       additionalProperties: false
@@ -898,6 +1649,12 @@ components:
         totalPaginas: { type: integer, minimum: 1, nullable: true }
         percentualConcluido: { type: number, format: float, minimum: 0, maximum: 100, nullable: true }
         adicionadoEm: { type: string, format: date-time }
+        favorito:
+          type: boolean
+          description: >-
+            Presente só na estante do próprio leitor (`listarMinhaEstante`,
+            `consultarItemEstante`, `adicionarLivroEstante`); a estante de
+            perfil não revela favoritos.
 
     TotaisEstante:
       type: object
@@ -930,6 +1687,100 @@ components:
           items: { $ref: '#/components/schemas/ItemEstante' }
         paginacao: { $ref: '#/components/schemas/Paginacao' }
         totaisPorStatus: { $ref: '#/components/schemas/TotaisEstante' }
+        totalFavoritos:
+          type: integer
+          minimum: 0
+          description: >-
+            Favoritos do leitor, dentro ou fora da estante. Presente só em
+            `listarMinhaEstante`.
+
+    LivroReferenciado:
+      type: object
+      additionalProperties: false
+      required: [id, tipo, titulo, autor, capaUrl]
+      description: Snapshot de `v_livro_referencia_v1`.
+      properties:
+        id: { type: string, format: uuid }
+        tipo: { type: string, enum: [oficial, pessoal] }
+        titulo: { type: string }
+        autor: { type: string, nullable: true }
+        capaUrl: { type: string, format: uri, nullable: true }
+
+    Favorito:
+      type: object
+      additionalProperties: false
+      required: [livroId, favorito, favoritadoEm]
+      properties:
+        livroId: { type: string, format: uuid }
+        favorito: { type: boolean }
+        favoritadoEm: { type: string, format: date-time, nullable: true }
+
+    ItemFavorito:
+      type: object
+      additionalProperties: false
+      required: [livro, status, favoritadoEm]
+      properties:
+        livro: { $ref: '#/components/schemas/LivroReferenciado' }
+        status:
+          type: string
+          enum: [QUERO_LER, LENDO, LIDO, RELENDO, ABANDONADO]
+          nullable: true
+          description: Status na estante; nulo quando o livro está fora dela.
+        favoritadoEm: { type: string, format: date-time }
+
+    PaginaFavoritos:
+      type: object
+      additionalProperties: false
+      required: [itens, paginacao]
+      properties:
+        itens:
+          type: array
+          items: { $ref: '#/components/schemas/ItemFavorito' }
+        paginacao: { $ref: '#/components/schemas/Paginacao' }
+
+    OcorrenciaHistorico:
+      type: object
+      additionalProperties: false
+      required: [leituraId, livro, dataInicio, dataFim, releitura, duracaoDias, paginaFinal, totalPaginas]
+      properties:
+        leituraId: { type: string, format: uuid }
+        livro: { $ref: '#/components/schemas/LivroReferenciado' }
+        dataInicio: { type: string, format: date }
+        dataFim: { type: string, format: date }
+        releitura: { type: boolean }
+        duracaoDias:
+          type: integer
+          minimum: 1
+          description: Dias de `dataInicio` a `dataFim`, contando os dois.
+        paginaFinal: { type: integer, minimum: 0 }
+        totalPaginas: { type: integer, minimum: 1, nullable: true }
+
+    PaginaHistorico:
+      type: object
+      additionalProperties: false
+      required: [itens, paginacao, anos, totais]
+      properties:
+        itens:
+          type: array
+          items: { $ref: '#/components/schemas/OcorrenciaHistorico' }
+        paginacao: { $ref: '#/components/schemas/Paginacao' }
+        anos:
+          type: array
+          description: Anos com leitura concluída, do mais recente; ignora `ano` e `q`.
+          items:
+            type: object
+            additionalProperties: false
+            required: [ano, total]
+            properties:
+              ano: { type: integer }
+              total: { type: integer, minimum: 1 }
+        totais:
+          type: object
+          additionalProperties: false
+          required: [livros, leituras]
+          properties:
+            livros: { type: integer, minimum: 0 }
+            leituras: { type: integer, minimum: 0 }
 
     IniciarLeituraEntrada:
       type: object
@@ -1138,8 +1989,12 @@ components:
           minLength: 1
           maxLength: 5000
           description: >-
-            Texto cru; HTML e Markdown não são interpretados no Período 1. O
-            limite conta caracteres Unicode (code points), não unidades UTF-16.
+            Texto cru, gravado e devolvido como chegou. Os clientes o renderizam
+            como Markdown só com o subconjunto do RN-13 (negrito, itálico,
+            tachado com `~~`, listas e citação em bloco), com HTML desligado no
+            parser e sanitização antes do DOM (RNF-SEC-15, F-AVA-2); o servidor
+            não interpreta nada. O limite conta caracteres Unicode (code
+            points), não unidades UTF-16, marcação incluída.
         spoiler: { type: boolean }
 
     Resenha:
@@ -1155,6 +2010,269 @@ components:
         criadoEm: { type: string, format: date-time }
         atualizadoEm: { type: string, format: date-time }
 
+    Sequencia:
+      type: object
+      additionalProperties: false
+      required: [sequenciaAtual, maiorSequencia, ultimoDiaComLeitura]
+      properties:
+        sequenciaAtual:
+          type: integer
+          minimum: 0
+          example: 12
+          description: >-
+            Dias seguidos com leitura até hoje ou ontem, no último fuso do
+            dispositivo; 0 quando um dia se encerrou sem leitura.
+        maiorSequencia:
+          type: integer
+          minimum: 0
+          example: 31
+          description: Maior sequência já alcançada; preservada quando a atual zera.
+        ultimoDiaComLeitura:
+          type: string
+          format: date
+          nullable: true
+          example: '2026-10-08'
+          description: Último dia de calendário local com progresso.
+
+    TotaisEstatistica:
+      type: object
+      additionalProperties: false
+      required: [livrosConcluidos, paginasLidas, minutosLidos]
+      properties:
+        livrosConcluidos:
+          type: integer
+          minimum: 0
+          example: 9
+          description: >-
+            Leituras concluídas no período, pela data de fim; releituras contam
+            como ocorrências próprias.
+        paginasLidas:
+          type: integer
+          minimum: 0
+          example: 3818
+          description: >-
+            Páginas derivadas das atualizações de progresso (RN-17.1), inclusive
+            de leituras abandonadas (RN-04).
+        minutosLidos:
+          type: integer
+          minimum: 0
+          example: 5130
+          description: Minutos informados nas atualizações de progresso.
+
+    Estatisticas:
+      type: object
+      additionalProperties: false
+      required: [ano, anos, primeiroRegistro, totais, medias]
+      properties:
+        ano:
+          type: integer
+          nullable: true
+          example: 2026
+          description: Ano do recorte; nulo no acumulado.
+        anos:
+          type: array
+          description: >-
+            Anos com progresso ou leitura concluída, do mais recente ao mais
+            antigo, para o seletor. Nota sozinha não abre ano.
+          items:
+            type: object
+            additionalProperties: false
+            required: [ano, livrosConcluidos]
+            properties:
+              ano: { type: integer, example: 2026 }
+              livrosConcluidos: { type: integer, minimum: 0, example: 9 }
+        primeiroRegistro:
+          type: string
+          format: date
+          nullable: true
+          example: '2023-11-12'
+          description: >-
+            Primeira data com progresso ou fim de leitura concluída, para o
+            "desde" do acumulado; nulo sem registro.
+        totais: { $ref: '#/components/schemas/TotaisEstatistica' }
+        medias:
+          type: object
+          additionalProperties: false
+          required: [paginasPorDia, diasPorLivro, notaMedia]
+          properties:
+            paginasPorDia:
+              type: object
+              additionalProperties: false
+              required: [valor, paginasLidas, diasComLeitura]
+              properties:
+                valor:
+                  type: number
+                  nullable: true
+                  example: 20.4
+                  description: >-
+                    Páginas por dia com leitura, uma casa decimal; nulo sem dia
+                    com leitura.
+                paginasLidas: { type: integer, minimum: 0, example: 3818 }
+                diasComLeitura:
+                  type: integer
+                  minimum: 0
+                  example: 187
+                  description: Datas locais distintas com progresso no período.
+            diasPorLivro:
+              type: object
+              additionalProperties: false
+              required: [valor, dias, leiturasConcluidas]
+              properties:
+                valor:
+                  type: number
+                  nullable: true
+                  example: 19.1
+                  description: >-
+                    Dias por leitura concluída, uma casa decimal; nulo sem
+                    leitura concluída.
+                dias:
+                  type: integer
+                  minimum: 0
+                  example: 172
+                  description: >-
+                    Soma de `dataFim − dataInicio + 1` das leituras concluídas
+                    no período, com dias sem leitura e intervalos de abandono.
+                leiturasConcluidas: { type: integer, minimum: 0, example: 9 }
+            notaMedia:
+              type: object
+              additionalProperties: false
+              required: [valor, quantidade]
+              properties:
+                valor:
+                  type: number
+                  nullable: true
+                  minimum: 0
+                  maximum: 5
+                  example: 4.1
+                  description: >-
+                    Média das notas dadas no período, uma casa decimal; nulo
+                    sem nota.
+                quantidade:
+                  type: integer
+                  minimum: 0
+                  example: 8
+                  description: >-
+                    Notas dadas no período, pela data da última vez que foram
+                    dadas (fuso America/Sao_Paulo).
+
+    GraficosEstatisticas:
+      type: object
+      additionalProperties: false
+      required: [ano, granularidade, pontos]
+      properties:
+        ano:
+          type: integer
+          nullable: true
+          example: 2026
+          description: Ano do recorte; nulo no acumulado.
+        granularidade:
+          type: string
+          enum: [mes, ano]
+          description: Um ponto por mês num ano; um ponto por ano no acumulado.
+        pontos:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [ano, mes, paginasLidas, livrosConcluidos]
+            properties:
+              ano: { type: integer, example: 2026 }
+              mes:
+                type: integer
+                nullable: true
+                minimum: 1
+                maximum: 12
+                example: 9
+                description: Mês (1–12) na série mensal; nulo na série anual.
+              paginasLidas: { type: integer, minimum: 0, example: 412 }
+              livrosConcluidos: { type: integer, minimum: 0, example: 1 }
+
+    EstatisticasPerfil:
+      type: object
+      additionalProperties: false
+      required: [ano, livrosConcluidos, paginasLidas, minutosLidos]
+      description: Os mesmos totais de `TotaisEstatistica`, com o ano do recorte.
+      properties:
+        ano: { type: integer, example: 2026 }
+        livrosConcluidos: { type: integer, minimum: 0, example: 9 }
+        paginasLidas: { type: integer, minimum: 0, example: 3818 }
+        minutosLidos: { type: integer, minimum: 0, example: 5130 }
+
+    UnidadeDesafio:
+      type: string
+      enum: [paginas, minutos, livros]
+    JanelaDesafio:
+      type: string
+      enum: [diaria, semanal, mensal, anual]
+      description: Janela de calendário; a semanal vai de segunda a domingo.
+    DesafioEntrada:
+      type: object
+      additionalProperties: false
+      required: [unidade, janela, valorAlvo, fusoHorario]
+      properties:
+        unidade: { $ref: '#/components/schemas/UnidadeDesafio' }
+        janela: { $ref: '#/components/schemas/JanelaDesafio' }
+        valorAlvo:
+          type: integer
+          minimum: 1
+          description: >-
+            Teto por unidade: 100.000 páginas, 100.000 minutos ou 1.000 livros
+            (422 acima dele).
+        fusoHorario:
+          type: string
+          example: America/Sao_Paulo
+          description: Identificador IANA do dispositivo; define o dia de hoje.
+    DesafioEdicao:
+      type: object
+      additionalProperties: false
+      required: [fusoHorario]
+      properties:
+        unidade: { $ref: '#/components/schemas/UnidadeDesafio' }
+        janela: { $ref: '#/components/schemas/JanelaDesafio' }
+        valorAlvo: { type: integer, minimum: 1 }
+        fusoHorario: { type: string, example: America/Sao_Paulo }
+    JanelaCorrenteDesafio:
+      type: object
+      additionalProperties: false
+      required: [inicio, fim, acumulado, cumprida]
+      properties:
+        inicio: { type: string, format: date }
+        fim: { type: string, format: date }
+        acumulado:
+          type: integer
+          minimum: 0
+          description: Soma na unidade do desafio dos registros da janela, fora das pausas.
+        cumprida:
+          type: boolean
+          description: O acumulado atingiu o alvo (RN-20.8).
+    Desafio:
+      type: object
+      additionalProperties: false
+      required: [id, unidade, janela, valorAlvo, fusoHorario, pausado, pausadoDesde, criadoEm, janelaCorrente]
+      properties:
+        id: { type: string, format: uuid }
+        unidade: { $ref: '#/components/schemas/UnidadeDesafio' }
+        janela: { $ref: '#/components/schemas/JanelaDesafio' }
+        valorAlvo: { type: integer, minimum: 1 }
+        fusoHorario: { type: string, example: America/Sao_Paulo }
+        pausado: { type: boolean }
+        pausadoDesde:
+          type: string
+          format: date-time
+          nullable: true
+          description: Início da pausa em curso; nulo quando ativo.
+        criadoEm: { type: string, format: date-time }
+        janelaCorrente: { $ref: '#/components/schemas/JanelaCorrenteDesafio' }
+    PaginaDesafios:
+      type: object
+      additionalProperties: false
+      required: [itens, paginacao]
+      properties:
+        itens:
+          type: array
+          items: { $ref: '#/components/schemas/Desafio' }
+        paginacao: { $ref: '#/components/schemas/Paginacao' }
+
     MinhaAvaliacao:
       type: object
       additionalProperties: false
@@ -1167,8 +2285,105 @@ components:
           nullable: true
         resenha:
           allOf:
-            - { $ref: '#/components/schemas/Resenha' }
+            - { $ref: '#/components/schemas/MinhaResenha' }
           nullable: true
+
+    MinhaResenha:
+      description: >-
+        A resenha do próprio leitor com as contagens de reações (F-AVA-2). Fica
+        separada de Resenha para a resposta do PUT da resenha não mudar.
+      type: object
+      additionalProperties: false
+      required: [id, usuarioId, livroId, texto, spoiler, criadoEm, atualizadoEm, curtidas, descurtidas]
+      properties:
+        id: { type: string, format: uuid }
+        usuarioId: { type: string, format: uuid }
+        livroId: { type: string, format: uuid }
+        texto: { type: string, maxLength: 5000 }
+        spoiler: { type: boolean }
+        criadoEm: { type: string, format: date-time }
+        atualizadoEm: { type: string, format: date-time }
+        curtidas: { type: integer, minimum: 0 }
+        descurtidas: { type: integer, minimum: 0 }
+
+    FraseEntrada:
+      type: object
+      additionalProperties: false
+      required: [texto, pagina]
+      properties:
+        texto: { type: string, minLength: 1, maxLength: 500 }
+        pagina: { type: integer, minimum: 1 }
+
+    Frase:
+      type: object
+      additionalProperties: false
+      required: [id, livroId, texto, pagina, criadoEm, autor, minha]
+      properties:
+        id: { type: string, format: uuid }
+        livroId: { type: string, format: uuid }
+        texto: { type: string, maxLength: 500 }
+        pagina: { type: integer, minimum: 1 }
+        criadoEm: { type: string, format: date-time }
+        autor:
+          type: object
+          additionalProperties: false
+          required: [id, username, nome, avatarUrl]
+          properties:
+            id: { type: string, format: uuid }
+            username: { type: string }
+            nome: { type: string }
+            avatarUrl: { type: string, format: uri, nullable: true }
+        minha:
+          type: boolean
+          description: A frase é de quem pediu; só ela pode ser excluída.
+
+    PaginaFrases:
+      type: object
+      additionalProperties: false
+      required: [itens, paginacao, minhasFrases, limitePorLivro]
+      properties:
+        itens:
+          type: array
+          items: { $ref: '#/components/schemas/Frase' }
+        paginacao: { $ref: '#/components/schemas/Paginacao' }
+        minhasFrases:
+          type: integer
+          minimum: 0
+          maximum: 10
+          description: Quantas frases deste livro são de quem pediu.
+        limitePorLivro: { type: integer, example: 10 }
+
+    TipoDeReacao:
+      type: string
+      enum: [curtida, descurtida]
+
+    ReacaoEntrada:
+      type: object
+      additionalProperties: false
+      required: [tipo]
+      properties:
+        tipo: { $ref: '#/components/schemas/TipoDeReacao' }
+        via:
+          type: string
+          enum: [feed, lista]
+          description: Via de RN-15; obrigatória só em resenha de livro pessoal.
+        referenciaId:
+          type: string
+          format: uuid
+          description: Id da atividade (via feed) ou da lista do dono (via lista).
+
+    Reacoes:
+      description: Contagens separadas (RF-AVA-08) e a reação de quem pediu.
+      type: object
+      additionalProperties: false
+      required: [minhaReacao, curtidas, descurtidas]
+      properties:
+        minhaReacao:
+          allOf:
+            - { $ref: '#/components/schemas/TipoDeReacao' }
+          nullable: true
+        curtidas: { type: integer, minimum: 0 }
+        descurtidas: { type: integer, minimum: 0 }
 
     LivroDaResenha:
       type: object
@@ -1187,7 +2402,7 @@ components:
     ResenhaDoPerfil:
       type: object
       additionalProperties: false
-      required: [id, usuarioId, livroId, texto, spoiler, criadoEm, atualizadoEm, livro, nota]
+      required: [id, usuarioId, livroId, texto, spoiler, criadoEm, atualizadoEm, livro, nota, curtidas, descurtidas, minhaReacao]
       properties:
         id: { type: string, format: uuid }
         usuarioId: { type: string, format: uuid }
@@ -1205,6 +2420,13 @@ components:
           multipleOf: 0.5
           nullable: true
           description: Nota do autor para o livro; nula quando ele não deu nota.
+        curtidas: { type: integer, minimum: 0 }
+        descurtidas: { type: integer, minimum: 0 }
+        minhaReacao:
+          allOf:
+            - { $ref: '#/components/schemas/TipoDeReacao' }
+          nullable: true
+          description: Reação de quem pede; nula sem reação e na própria resenha.
 
     PaginaResenhasPerfil:
       type: object

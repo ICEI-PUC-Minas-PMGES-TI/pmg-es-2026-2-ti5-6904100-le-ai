@@ -14,4 +14,11 @@ extension DesignThemeExtras on ThemeData {
   Color get coverPlaceholder => brightness == Brightness.dark
       ? DesignTokens.capaPlaceholderNoite
       : DesignTokens.capaPlaceholder;
+
+  /// Número e chama da sequência diária (documento-de-design.md §4.8). O §4.8 e o protótipo de
+  /// meu-perfil pedem `broto`, mas `broto` sobre `papel-elevado` fica em 2,3:1, abaixo do 3:1 de
+  /// texto grande; no claro vale `musgo` (6,2:1), como as colunas de F-STA, e no escuro
+  /// `broto-vivo`. Decisão do dono de F-GAM em 08/10/2026, registrada como divergência na feature.
+  Color get streakColor =>
+      brightness == Brightness.dark ? DesignTokens.brotoVivo : DesignTokens.musgo;
 }

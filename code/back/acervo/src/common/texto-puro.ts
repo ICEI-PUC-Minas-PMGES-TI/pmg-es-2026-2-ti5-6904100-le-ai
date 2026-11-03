@@ -12,6 +12,13 @@
  */
 export const LIMITE_DA_SINOPSE = 4_000;
 
+/**
+ * Biografia curta de autor (RF-ACV-10), com o mesmo tratamento da sinopse:
+ * também vem da OpenLibrary, com o mesmo Markdown de referência. Teto do CHECK
+ * `autor_biografia_ck` (migration `0005`).
+ */
+export const LIMITE_DA_BIOGRAFIA = 2_000;
+
 const ENTIDADES: Record<string, string> = {
   amp: '&',
   lt: '<',

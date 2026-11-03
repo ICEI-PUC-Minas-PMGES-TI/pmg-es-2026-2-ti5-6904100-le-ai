@@ -1,9 +1,11 @@
-import { flushPromises } from '@vue/test-utils'
+import { DOMWrapper, flushPromises } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { acervoService } from '../services/acervo'
 import { ApiError } from '../services/api'
+import { socialService } from '../services/social'
 import { ASSUNTOS, livro, pagina } from '../testes/massaDaBusca'
+import { paginaDeRecomendacoes, recomendacao } from '../testes/massaDeRecomendacoes'
 import { montarNaRota } from '../testes/montarNaRota'
 
 vi.mock('../services/acervo', () => ({
@@ -13,7 +15,13 @@ vi.mock('../services/acervo', () => ({
   },
 }))
 
+vi.mock('../services/social', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../services/social')>()),
+  socialService: { listarRecebidas: vi.fn(), descartarRecomendacao: vi.fn() },
+}))
+
 const servico = vi.mocked(acervoService)
+const social = vi.mocked(socialService)
 
 const RESULTADOS = pagina(
   [
@@ -39,6 +47,8 @@ describe('DescobrirView', () => {
     localStorage.clear()
     servico.listarAssuntos.mockReset().mockResolvedValue(ASSUNTOS)
     servico.buscarLivros.mockReset().mockResolvedValue(RESULTADOS)
+    social.listarRecebidas.mockReset().mockResolvedValue(paginaDeRecomendacoes([]))
+    social.descartarRecomendacao.mockReset()
   })
   afterEach(() => {
     vi.useRealTimers()
@@ -55,6 +65,71 @@ describe('DescobrirView', () => {
     expect(wrapper.text()).toContain('Romance')
     expect(wrapper.text()).not.toContain('encontrado')
     expect(servico.buscarLivros).not.toHaveBeenCalled()
+  })
+
+  it('aterrissagem mostra as recomendações recebidas, que somem quando a busca começa', async () => {
+    social.listarRecebidas.mockResolvedValue(
+      paginaDeRecomendacoes([
+        recomendacao('r1', 'A Hora da Estrela', 'Júlia Figueiredo', 'Curtinho e devastador.'),
+        recomendacao('r2', 'Quarto de Despejo', 'Caio Rezende'),
+        recomendacao('r3', 'Tudo É Rio', 'Beatriz Okada'),
+        recomendacao('r4', 'Um Defeito de Cor', 'Henrique Sampaio'),
+      ]),
+    )
+    const montagem = await montarNaRota('/descobrir')
+    await flushPromises()
+
+    expect(social.listarRecebidas).toHaveBeenCalledWith(0, 4)
+    const secao = montagem.wrapper.get('section[aria-labelledby="titulo-recomendacoes"]')
+    expect(secao.text()).toContain('Júlia Figueiredo te recomendou')
+    expect(secao.text()).toContain('Curtinho e devastador.')
+    expect(secao.findAll('li').at(3)!.classes()).toContain('hidden')
+    expect(secao.get('a[href="/descobrir/recomendacoes"]').text()).toBe('Ver todas')
+    expect(secao.find('a[href^="/livros/r1-livro"]').exists()).toBe(true)
+
+    await digitar(montagem, 'ponciá')
+    expect(montagem.wrapper.find('section[aria-labelledby="titulo-recomendacoes"]').exists()).toBe(false)
+  })
+
+  it('aterrissagem sem recomendações diz onde elas aparecem, sem Ver todas; falha oferece tentar de novo', async () => {
+    const { wrapper } = await montarNaRota('/descobrir')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Livros que outros leitores recomendarem para você aparecem aqui.')
+    expect(wrapper.find('a[href="/descobrir/recomendacoes"]').exists()).toBe(false)
+
+    document.body.innerHTML = ''
+    social.listarRecebidas.mockReset().mockRejectedValueOnce(new TypeError('offline'))
+      .mockResolvedValue(paginaDeRecomendacoes([recomendacao('r1', 'Tudo É Rio', 'Beatriz Okada')]))
+    const outra = await montarNaRota('/descobrir')
+    await flushPromises()
+    expect(outra.wrapper.text()).toContain('Não foi possível carregar suas recomendações.')
+    await outra.wrapper.findAll('button').find((b) => b.text() === 'Tentar de novo')!.trigger('click')
+    await flushPromises()
+    expect(outra.wrapper.text()).toContain('Tudo É Rio')
+  })
+
+  it('o menu de uma recomendação da aterrissagem descarta só ela e a vaga é preenchida', async () => {
+    const ESTRELA = recomendacao('r1', 'A Hora da Estrela', 'Júlia Figueiredo')
+    const DESPEJO = recomendacao('r2', 'Quarto de Despejo', 'Caio Rezende')
+    social.listarRecebidas
+      .mockResolvedValueOnce(paginaDeRecomendacoes([ESTRELA, DESPEJO]))
+      .mockResolvedValue(paginaDeRecomendacoes([ESTRELA]))
+    social.descartarRecomendacao.mockResolvedValue()
+    const { wrapper } = await montarNaRota('/descobrir')
+    await flushPromises()
+    const secao = wrapper.get('section[aria-labelledby="titulo-recomendacoes"]')
+
+    await secao.get('button[aria-label^="Mais ações para Quarto de Despejo"]').trigger('click')
+    await new DOMWrapper(document.body)
+      .findAll('button')
+      .find((b) => b.text().startsWith('Descartar recomendação'))!
+      .trigger('click')
+    await flushPromises()
+
+    expect(social.descartarRecomendacao).toHaveBeenCalledWith('r2', expect.any(String))
+    expect(secao.text()).not.toContain('Quarto de Despejo')
+    expect(secao.text()).toContain('A Hora da Estrela')
+    expect(document.body.textContent).toContain('Recomendação descartada.')
   })
 
   it('resultados: contagem, card com as edições agrupadas e o link da edição principal', async () => {
@@ -257,5 +332,184 @@ describe('DescobrirView', () => {
   it('o campo aceita no máximo 200 caracteres, como o contrato', async () => {
     const { wrapper } = await montarNaRota('/descobrir')
     expect(wrapper.get('input[type="search"]').attributes('maxlength')).toBe('200')
+  })
+
+  describe('filtros avançados (F-ACV-DESCOBERTA)', () => {
+    /** A folha vai para o `body` por Teleport, fora do wrapper. */
+    function naFolha<T extends Element = HTMLElement>(seletor: string): T {
+      const elemento = document.body.querySelector<T>(`[role="dialog"] ${seletor}`)
+      if (!elemento) {
+        throw new Error(`não achei ${seletor} na folha`)
+      }
+      return elemento
+    }
+
+    async function preencher(campo: HTMLInputElement, valor: string) {
+      campo.value = valor
+      campo.dispatchEvent(new Event('input'))
+      await flushPromises()
+    }
+
+    async function aplicarNaFolha() {
+      naFolha('form').dispatchEvent(new Event('submit'))
+      await flushPromises()
+    }
+
+    async function abrirFolha({ wrapper }: Montagem) {
+      await wrapper.get('button[aria-haspopup="dialog"]').trigger('click')
+      await flushPromises()
+    }
+
+    it('mobile: a folha aplica os filtros, que viram chips, badge e URL', async () => {
+      const montagem = await montarNaRota('/descobrir')
+      await flushPromises()
+      const { wrapper, router } = montagem
+      expect(wrapper.get('button[aria-haspopup="dialog"]').attributes('aria-label')).toBe('Filtros')
+
+      await abrirFolha(montagem)
+      expect(document.activeElement?.textContent?.trim()).toBe('Filtros')
+      await preencher(naFolha('#filtros-folha-editora'), 'Pallas')
+      await preencher(naFolha('#filtros-folha-paginas-min'), '100')
+      await preencher(naFolha('#filtros-folha-paginas-max'), '150')
+      await aplicarNaFolha()
+
+      expect(servico.buscarLivros).toHaveBeenLastCalledWith({
+        q: null,
+        assunto: null,
+        editora: 'Pallas',
+        paginasMin: 100,
+        paginasMax: 150,
+      })
+      expect(document.body.querySelector('[role="dialog"]')).toBeNull()
+      expect(router.currentRoute.value.query).toMatchObject({ editora: 'Pallas', paginasMin: '100', paginasMax: '150' })
+      expect(wrapper.get('button[aria-haspopup="dialog"]').attributes('aria-label')).toBe('Filtros, 2 ativos')
+      const chips = wrapper.findAll('[aria-label^="Remover filtro"]').map((chip) => chip.attributes('aria-label'))
+      expect(chips).toEqual(['Remover filtro Editora: Pallas', 'Remover filtro 100 a 150 páginas'])
+      expect(wrapper.text()).toContain('12 livros encontrados')
+    })
+
+    it('mobile: faixa invertida não envia, mantém a folha aberta e foca o mínimo', async () => {
+      const montagem = await montarNaRota('/descobrir')
+      await flushPromises()
+
+      await abrirFolha(montagem)
+      await preencher(naFolha('#filtros-folha-paginas-min'), '200')
+      await preencher(naFolha('#filtros-folha-paginas-max'), '100')
+      await aplicarNaFolha()
+
+      expect(servico.buscarLivros).not.toHaveBeenCalled()
+      expect(naFolha('form').textContent).toContain('O mínimo não pode ser maior que o máximo.')
+      expect(naFolha('[role="alert"]').textContent?.trim()).toBe('O mínimo não pode ser maior que o máximo.')
+      expect(document.activeElement).toBe(naFolha('#filtros-folha-paginas-min'))
+      expect(naFolha('#filtros-folha-paginas-max').getAttribute('aria-invalid')).toBe('true')
+    })
+
+    it('a faixa usa o sufixo curto "págs"', async () => {
+      const montagem = await montarNaRota('/descobrir')
+      await flushPromises()
+      await abrirFolha(montagem)
+
+      const sufixos = [...document.body.querySelectorAll('[role="dialog"] form span[aria-hidden="true"]')]
+        .map((sufixo) => sufixo.textContent?.trim())
+        .filter((texto) => texto?.startsWith('pág'))
+      expect(sufixos).toEqual(['págs', 'págs'])
+    })
+
+    it('abre com os filtros da URL, e remover um chip tira só aquele filtro', async () => {
+      const { wrapper, router } = await montarNaRota('/descobrir?editora=Pallas&ano=2003')
+      await flushPromises()
+
+      expect(servico.buscarLivros).toHaveBeenCalledExactlyOnceWith({ q: null, assunto: null, editora: 'Pallas', ano: 2003 })
+      await wrapper.get('[aria-label="Remover filtro Editora: Pallas"]').trigger('click')
+      await flushPromises()
+
+      expect(servico.buscarLivros).toHaveBeenLastCalledWith({ q: null, assunto: null, ano: 2003 })
+      expect(router.currentRoute.value.query).toEqual({ ano: '2003' })
+      expect(wrapper.text()).toContain('12 livros encontrados')
+    })
+
+    it('vazio com filtros não oferece cadastro, e "Limpar filtros" volta à aterrissagem', async () => {
+      servico.buscarLivros.mockResolvedValue(pagina([]))
+      const { wrapper, router } = await montarNaRota('/descobrir?paginasMin=5000')
+      await flushPromises()
+
+      expect(wrapper.text()).toContain('Nenhum livro com esses filtros')
+      expect(wrapper.text()).toContain('Remova um filtro ou amplie a faixa de páginas para ver mais resultados.')
+      expect(wrapper.text()).not.toContain('Cadastrar por ISBN')
+      expect(wrapper.get('p[role="status"]').text()).toBe('Nenhum livro com esses filtros')
+
+      const limpar = wrapper.findAll('button').filter((botao) => botao.text() === 'Limpar filtros')
+      await limpar[limpar.length - 1]!.trigger('click')
+      await flushPromises()
+
+      expect(router.currentRoute.value.query).toEqual({})
+      expect(wrapper.text()).not.toContain('Nenhum livro')
+    })
+
+    async function abrirPainel(wrapper: Montagem['wrapper']) {
+      const titulo = wrapper.get('button[aria-controls="filtros-painel-corpo"]')
+      await titulo.trigger('click')
+      return wrapper.get('form[aria-labelledby="filtros-painel-titulo"]')
+    }
+
+    it('web: Filtros fica acima de Assuntos, recolhido ao abrir, e mostra quantos estão ativos', async () => {
+      const { wrapper } = await montarNaRota('/descobrir?editora=Pallas&ano=2003', { largo: true })
+      await flushPromises()
+
+      const titulo = wrapper.get('button[aria-controls="filtros-painel-corpo"]')
+      expect(titulo.attributes('aria-expanded')).toBe('false')
+      expect(titulo.text()).toContain('Filtros · 2 ativos')
+      expect(wrapper.get('#filtros-painel-corpo').attributes('inert')).toBeDefined()
+      const html = wrapper.html()
+      expect(html.indexOf('filtros-painel-titulo')).toBeLessThan(html.indexOf('titulo-assuntos'))
+
+      await titulo.trigger('click')
+      expect(titulo.attributes('aria-expanded')).toBe('true')
+      expect(wrapper.get('#filtros-painel-corpo').attributes('inert')).toBeUndefined()
+      expect(wrapper.get('#filtros-painel-corpo').classes()).toContain('aberto')
+      expect((wrapper.get('#filtros-painel-editora').element as HTMLInputElement).value).toBe('Pallas')
+    })
+
+    it('web: chips, contagem e resultados ficam num bloco só, ao lado do painel', async () => {
+      const { wrapper } = await montarNaRota('/descobrir?editora=Pallas', { largo: true })
+      await flushPromises()
+
+      const chips = wrapper.get('[aria-label="Filtros aplicados"]')
+      const resultados = wrapper.get('section[aria-label="Resultados da busca"]')
+      expect(chips.element.parentElement).toBe(resultados.element.parentElement)
+      expect(wrapper.get('p[role="status"]').element.parentElement).toBe(resultados.element.parentElement)
+    })
+
+    it('web: bloco Filtros no painel, Enter aplica e "Limpar filtros" só aparece com campo preenchido', async () => {
+      const { wrapper, router } = await montarNaRota('/descobrir', { largo: true })
+      await flushPromises()
+
+      expect(wrapper.find('button[aria-haspopup="dialog"]').exists()).toBe(false)
+      const painel = await abrirPainel(wrapper)
+      expect(painel.text()).toContain('Aplicar filtros')
+      expect(painel.text()).not.toContain('Limpar filtros')
+
+      await painel.get('#filtros-painel-autor').setValue('evaristo')
+      expect(painel.text()).toContain('Limpar filtros')
+      await painel.trigger('submit')
+      await flushPromises()
+
+      expect(servico.buscarLivros).toHaveBeenLastCalledWith({ q: null, assunto: null, autor: 'evaristo' })
+      expect(router.currentRoute.value.query).toEqual({ autor: 'evaristo' })
+      expect(wrapper.text()).toContain('Autor: evaristo')
+    })
+
+    it('web: zero páginas mostra o erro no próprio campo ao sair dele', async () => {
+      const { wrapper } = await montarNaRota('/descobrir', { largo: true })
+      await flushPromises()
+      const painel = await abrirPainel(wrapper)
+
+      const minimo = painel.get('#filtros-painel-paginas-min')
+      await minimo.setValue('0')
+      await minimo.trigger('blur')
+
+      expect(painel.text()).toContain('Use um número de páginas maior que zero.')
+      expect(servico.buscarLivros).not.toHaveBeenCalled()
+    })
   })
 })

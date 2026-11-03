@@ -77,4 +77,10 @@ export const TEXTOS_DAS_ATUALIZACOES = {
   vazioBotao: 'Registrar progresso',
   erroTexto: 'Não foi possível carregar suas atualizações. Verifique sua conexão e tente de novo.',
   erroBotao: 'Tentar de novo',
+  concluida: 'Concluída',
+  concluidaEm: (dataPorExtenso: string) => `Concluída em ${dataPorExtenso}`,
+  inicioEm: (dataPorExtenso: string, duracao: string) => `Início em ${dataPorExtenso} · ${duracao}`,
+  somenteConsulta: 'Leitura concluída. Os registros ficam só para consulta.',
+  vazioConcluidaTitulo: 'Nenhuma atualização registrada',
+  vazioConcluidaTexto: 'Esta leitura foi concluída sem registros de página.',
 } as const

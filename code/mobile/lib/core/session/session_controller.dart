@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import '../network/api_client.dart';
+import 'acesso_de_recuperacao.dart';
 import 'token_store.dart';
 
 /// Par de tokens que o login e a renovação devolvem (`Sessao` em `docs/api/identidade.yaml`).
@@ -36,8 +37,30 @@ class SessionController extends ChangeNotifier {
   String? _refreshToken;
   bool _carregando = true;
   Future<bool>? _renovacaoEmCurso;
+  AcessoDeRecuperacao? _recuperacao;
+  bool _saindoPorExpiracao = false;
+  String? _avisoDeSaida;
 
   SessionController(this.store);
+
+  /// Acesso de recuperação da conta com exclusão pendente (F-CONTA-2, RN-23.3). **Só em
+  /// memória**, nunca no [store]: vale 15 minutos e só cancela a exclusão, então fechar o app e
+  /// entrar de novo custa pouco, e não fica token restrito esquecido no Keystore. Não conta como
+  /// sessão: [estaAutenticado] continua falso.
+  AcessoDeRecuperacao? get recuperacao => _recuperacao;
+
+  /// Guardado pelo login. Avisa os ouvintes, e a guarda de rota leva à recuperação.
+  void guardarRecuperacao(AcessoDeRecuperacao acesso) {
+    _recuperacao = acesso;
+    notifyListeners();
+  }
+
+  /// Descartado ao sair, ao recuperar a conta e ao expirar (recuperar-conta.md §9). **Não avisa
+  /// os ouvintes**: a tela de recuperação continua aberta para mostrar `Conta recuperada` ou o
+  /// acesso expirado, e a guarda só a recusa na próxima navegação.
+  void descartarRecuperacao() {
+    _recuperacao = null;
+  }
 
   String? get token => _token;
 
@@ -114,6 +137,29 @@ class SessionController extends ChangeNotifier {
     }
   }
 
+  /// Verdadeiro só durante a saída forçada pela renovação recusada: quem ouve a saída sabe que a
+  /// pessoa não pediu para sair.
+  bool get saindoPorExpiracao => _saindoPorExpiracao;
+
+  /// Mensagem que a tela de entrada mostra para explicar uma saída que a pessoa não pediu.
+  void avisarSaida(String mensagem) => _avisoDeSaida = mensagem;
+
+  /// Devolve o aviso pendente e o apaga: a tela de entrada mostra cada aviso uma vez.
+  String? consumirAvisoDeSaida() {
+    final aviso = _avisoDeSaida;
+    _avisoDeSaida = null;
+    return aviso;
+  }
+
+  Future<void> _sairPorExpiracao() async {
+    _saindoPorExpiracao = true;
+    try {
+      await sair();
+    } finally {
+      _saindoPorExpiracao = false;
+    }
+  }
+
   /// Renova se [tokenQueFalhou] ainda é o token da sessão, chamando [chamada] com o token de
   /// renovação. Devolve se vale repetir a requisição que recebeu `401`. Chamadas simultâneas
   /// compartilham a mesma renovação.
@@ -137,7 +183,7 @@ class SessionController extends ChangeNotifier {
     }
     final refresh = _refreshToken;
     if (refresh == null) {
-      await sair();
+      await _sairPorExpiracao();
       return false;
     }
     try {
@@ -148,7 +194,7 @@ class SessionController extends ChangeNotifier {
       // 401 é token vencido, revogado ou reusado: a sessão acabou. Rede fora ou 5xx não é
       // motivo para deslogar; a chamada original devolve o erro dela.
       if (erro.status == 401) {
-        await sair();
+        await _sairPorExpiracao();
       }
       return false;
     }

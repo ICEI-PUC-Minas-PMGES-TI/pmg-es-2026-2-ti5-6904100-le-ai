@@ -42,9 +42,22 @@ async function montar(notaSalva: number | null, comEscreverResenha = false) {
     retomarLeitura: vi.fn(),
     detalharLeitura: vi.fn(),
     consultarConclusoes: vi.fn(),
+    consultarFavorito: vi.fn(),
+    marcarFavorito: vi.fn(),
+    desmarcarFavorito: vi.fn(),
+    listarFavoritos: vi.fn(),
+    listarHistorico: vi.fn(),
     registrarProgresso: vi.fn(),
     listarProgresso: vi.fn(),
     excluirTrechoProgresso: vi.fn(),
+    reagir: vi.fn(),
+    removerReacao: vi.fn(),
+    listarFrases: vi.fn(),
+    criarFrase: vi.fn(),
+    excluirFrase: vi.fn(),
+    consultarMinhasEstatisticas: vi.fn(),
+    consultarGraficosEstatisticas: vi.fn(),
+    consultarEstatisticasPerfil: vi.fn(),
   } satisfies LeituraService
   const avaliacao = useMinhaAvaliacao({ servico })
   await avaliacao.carregar('l1')

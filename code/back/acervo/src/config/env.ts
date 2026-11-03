@@ -64,7 +64,39 @@ export const envSchema = z
     // Capa de livro pessoal: o upload vai direto do cliente ao Cloudinary e o
     // servidor só valida que a URL aponta para o nosso próprio serviço (SEC-20).
     CLOUDINARY_CLOUD_NAME: z.string().default('leai'),
+    // Credencial da Upload API, para apagar as capas de livro pessoal na
+    // exclusão definitiva de conta (F-CONTA-2, RN-23.7). Sem ela, o consumidor
+    // registra o publicId no log e a capa fica no Cloudinary.
+    CLOUDINARY_API_KEY: z.string().optional(),
+    CLOUDINARY_API_SECRET: z.string().optional(),
     CAPA_HOSTS_PERMITIDOS: z.string().default('res.cloudinary.com'),
+
+    // Cache de capas oficiais (F-ACV-NOTA, RF-ACV-17): o servidor baixa a capa
+    // externa e a envia ao Cloudinary com a credencial acima. A allowlist do
+    // download é própria e aceita sufixo (`.us.archive.org`), porque as capas da
+    // OpenLibrary terminam num servidor `iaNNNNNN.us.archive.org` que muda; o
+    // sentido de `FONTES_HOSTS_PERMITIDOS` não muda (RNF-SEC-39).
+    CAPAS_DOWNLOAD_HOSTS: z
+      .string()
+      .default(
+        'covers.openlibrary.org,archive.org,.us.archive.org,books.google.com',
+      ),
+    CAPAS_DOWNLOAD_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(15000),
+    CAPAS_DOWNLOAD_LIMITE_BYTES: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(5_242_880),
+    // Pasta e prefixo do `public_id`: dev e DES usam o mesmo cloud e os mesmos
+    // ids de livro. `capas-oficiais` no Render; o padrão é o de dev.
+    CLOUDINARY_PASTA_CAPAS_OFICIAIS: z
+      .string()
+      .regex(/^[a-z0-9-]+$/)
+      .default('capas-oficiais-dev'),
   })
   .superRefine((config, ctx) => {
     // Em produção, subir sem `JWT_SECRET` significaria um serviço no ar em que

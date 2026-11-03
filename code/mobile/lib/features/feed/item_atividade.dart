@@ -1,12 +1,12 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 
 import '../../design/theme.dart';
 import '../../design/tokens.dart';
 import '../../design/widgets/capa_livro.dart';
+import '../../design/widgets/coracao_animado.dart';
 import '../../design/widgets/estrelas_de_nota.dart';
+import '../avaliacao/markdown_resenha.dart';
 import '../livros/formatos.dart';
 import '../perfil/textos.dart';
 import '../perfil/widgets_de_perfil.dart';
@@ -42,7 +42,9 @@ class ItemAtividade extends StatelessWidget {
     final tempo = tempoDeEspera(atividade.criadoEm.toLocal());
     return Container(
       padding: const EdgeInsets.all(DesignTokens.space5),
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: theme.divider))),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: theme.divider)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -69,7 +71,10 @@ class ItemAtividade extends StatelessWidget {
                         baseline: TextBaseline.alphabetic,
                         child: GestureDetector(
                           onTap: aoAbrirAutor,
-                          child: Text(atividade.autor.nomeExibicao, style: theme.textTheme.titleMedium),
+                          child: Text(
+                            atividade.autor.nomeExibicao,
+                            style: theme.textTheme.titleMedium,
+                          ),
                         ),
                       ),
                       TextSpan(text: ' · $tempo', style: theme.textTheme.bodySmall),
@@ -80,10 +85,7 @@ class ItemAtividade extends StatelessWidget {
             ],
           ),
           const SizedBox(height: DesignTokens.space2),
-          Text(
-            verbo,
-            style: theme.textTheme.bodyMedium?.copyWith(color: theme.secondaryText),
-          ),
+          Text(verbo, style: theme.textTheme.bodyMedium?.copyWith(color: theme.secondaryText)),
           const SizedBox(height: DesignTokens.space3),
           InkWell(
             onTap: aoAbrirLivro,
@@ -139,21 +141,23 @@ class ItemAtividade extends StatelessWidget {
               ),
               const SizedBox(height: DesignTokens.space2),
             ],
+            // Prévia sem a marcação do Markdown (F-AVA-2): a resenha formatada fica na página do
+            // livro.
             Semantics(
               hint: 'Trecho truncado',
               child: Text(
-                resenha.texto,
+                textoSemMarcacao(resenha.texto),
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
                 style: theme.editorialBody.copyWith(color: theme.secondaryText),
               ),
             ),
-            // A página de resenha é de F-AVA; até lá, o botão existe sem destino. O respiro dos lados
-            // é do realce do toque; o deslocamento mantém o texto alinhado ao trecho da resenha.
+            // A resenha formatada fica na página do livro. O respiro dos lados é do realce do toque;
+            // o deslocamento mantém o texto alinhado ao trecho da resenha.
             Transform.translate(
               offset: const Offset(-DesignTokens.space3, 0),
               child: TextButton(
-                onPressed: () {},
+                onPressed: aoAbrirLivro,
                 style: TextButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: DesignTokens.space3),
                   minimumSize: const Size(0, 48),
@@ -174,7 +178,11 @@ class ItemAtividade extends StatelessWidget {
                     '${contagem(atividade.totalCurtidas, 'curtida', 'curtidas')}',
                 ativo: atividade.curtidaPeloSolicitante,
                 aoTocar: atividade.curtidaPeloSolicitante ? aoDescurtir : aoCurtir,
-                icone: _CoracaoDeCurtida(curtida: atividade.curtidaPeloSolicitante),
+                icone: CoracaoAnimado(
+                  ativo: atividade.curtidaPeloSolicitante,
+                  tamanho: 20,
+                  corInativa: theme.secondaryText,
+                ),
                 numero: atividade.totalCurtidas,
               ),
               const SizedBox(width: DesignTokens.space3),
@@ -262,6 +270,7 @@ class _BotaoDeAcao extends StatelessWidget {
       enabled: aoTocar != null,
       label: rotulo,
       excludeSemantics: true,
+      onTap: aoTocar,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: aoTocar,
@@ -295,91 +304,4 @@ class _BotaoDeAcao extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Coração de curtir. Por decisão do produto (igual à web), ao passar a curtido pulsa até 1.15
-/// e solta seis partículas em `musgo`, contrariando feed.md §4.2.
-class _CoracaoDeCurtida extends StatefulWidget {
-  final bool curtida;
-
-  const _CoracaoDeCurtida({required this.curtida});
-
-  @override
-  State<_CoracaoDeCurtida> createState() => _CoracaoDeCurtidaState();
-}
-
-class _CoracaoDeCurtidaState extends State<_CoracaoDeCurtida> with SingleTickerProviderStateMixin {
-  late final AnimationController _controle = AnimationController(
-    vsync: this,
-    duration: DesignTokens.durBase,
-  );
-
-  static final Animatable<double> _escala = TweenSequence<double>(<TweenSequenceItem<double>>[
-    TweenSequenceItem<double>(tween: Tween<double>(begin: 1, end: 1.15), weight: 35),
-    TweenSequenceItem<double>(tween: Tween<double>(begin: 1.15, end: 1), weight: 65),
-  ]).chain(CurveTween(curve: DesignTokens.easeOut));
-
-  @override
-  void didUpdateWidget(_CoracaoDeCurtida antigo) {
-    super.didUpdateWidget(antigo);
-    if (widget.curtida && !antigo.curtida) {
-      _controle.forward(from: 0);
-    }
-  }
-
-  @override
-  void dispose() {
-    _controle.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final icone = Icon(
-      widget.curtida ? PhosphorIconsFill.heart : PhosphorIconsRegular.heart,
-      size: 20,
-      color: widget.curtida ? theme.primaryAccent : theme.secondaryText,
-    );
-    return AnimatedBuilder(
-      animation: _controle,
-      builder: (context, filho) => CustomPaint(
-        foregroundPainter: _controle.isAnimating
-            ? _Particulas(progresso: _controle.value, cor: theme.primaryAccent)
-            : null,
-        child: Transform.scale(scale: _escala.evaluate(_controle), child: filho),
-      ),
-      child: icone,
-    );
-  }
-}
-
-class _Particulas extends CustomPainter {
-  static const int _total = 6;
-  static const double _raio = 2;
-
-  final double progresso;
-  final Color cor;
-
-  const _Particulas({required this.progresso, required this.cor});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final centro = size.center(Offset.zero);
-    // Mesma trajetória da web: sai a 10px do centro, chega a 18px em 60% e some a 20px.
-    final distancia = progresso < 0.6 ? 10 + 8 * (progresso / 0.6) : 18 + 2 * ((progresso - 0.6) / 0.4);
-    final fim = progresso < 0.6 ? 1.0 : 1 - (progresso - 0.6) / 0.4;
-    final pincel = Paint()..color = cor.withValues(alpha: fim);
-    for (var i = 0; i < _total; i++) {
-      final angulo = 2 * math.pi * i / _total - math.pi / 2;
-      canvas.drawCircle(
-        centro + Offset(math.cos(angulo), math.sin(angulo)) * distancia,
-        _raio * fim,
-        pincel,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(_Particulas antigo) => antigo.progresso != progresso || antigo.cor != cor;
 }

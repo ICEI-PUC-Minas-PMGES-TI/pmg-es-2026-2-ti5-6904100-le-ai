@@ -44,8 +44,25 @@ public final class MessagingConstants {
   public static final String EVENTO_ATIVIDADE_CURTIDA = "atividade.curtida";
   public static final String EVENTO_ATIVIDADE_COMENTADA = "atividade.comentada";
   public static final String EVENTO_COMENTARIO_RESPONDIDO = "comentario.respondido";
+  public static final String EVENTO_USUARIO_MENCIONADO = "usuario.mencionado";
   public static final String EVENTO_LEITURA_EM_RISCO = "leitura.em_risco";
   public static final String EVENTO_LEITURA_EXPIRADA = "leitura.expirada";
+  public static final String EVENTO_RECOMENDACAO_RECEBIDA = "recomendacao.recebida";
+
+  public static final String RECOMENDACOES_CONSUMER_NAME = "social.recomendacoes";
+
+  public static final String RECOMENDACOES_QUEUE = "leai.social.recomendacoes";
+  public static final String EVENTO_LIVRO_ADICIONADO_A_ESTANTE = "livro.adicionado_a_estante";
+  public static final List<String> RECOMENDACOES_ROUTING_KEYS =
+      List.of(EVENTO_LIVRO_ADICIONADO_A_ESTANTE);
+
+  public static final String EVENTO_RESENHA_CURTIDA = "resenha.curtida";
+
+  /** Topologia do consumidor da exclusão definitiva de conta (F-CONTA-2, RN-23.5). */
+  public static final String CONTA_CONSUMER_NAME = "social.conta";
+
+  public static final String CONTA_QUEUE = "leai.social.conta";
+  public static final String EVENTO_CONTA_EXCLUIDA = "conta.excluida";
 
   private MessagingConstants() {}
 

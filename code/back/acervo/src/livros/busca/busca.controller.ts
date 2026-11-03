@@ -35,7 +35,7 @@ export class BuscaController {
     operationId: 'buscarLivrosOficiais',
     summary: 'Busca livros oficiais',
     description:
-      'Busca por título, autor, editora, assunto ou ISBN-13, sem acento e por trecho, com filtro opcional por assunto. q ou assunto é obrigatório. Livro pessoal nunca aparece (RNF-SEC-06). As edições de mesmo título e autores chegam contíguas (RN-01).',
+      'Busca por título, autor, editora, assunto ou ISBN-13, sem acento e por trecho, com filtros opcionais por assunto (RF-ACV-02) e por autor, editora, série, ano e faixa de páginas (RF-ACV-03), todos combináveis. Algum critério é obrigatório. Livro pessoal nunca aparece (RNF-SEC-06). As edições de mesmo título e autores chegam contíguas (RN-01).',
   })
   @ApiOkResponse({ type: PaginaLivrosDto })
   buscar(@Query() query: BuscaLivrosQueryDto): Promise<PaginaLivrosDto> {

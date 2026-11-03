@@ -1,13 +1,19 @@
 import { flushPromises } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { ApiError } from '../../services/api'
 import { leituraService } from '../../services/leitura'
 import { perfilService, type Perfil } from '../../services/perfil'
+import { hojeEmSaoPaulo } from '../../estatisticas/formatos'
+import { itemEstante, paginaEstante } from '../../testes/estante'
+import { estatisticas, SEM_REGISTRO } from '../../testes/estatisticas'
 import { montarNaRota } from '../../testes/montarNaRota'
 
 vi.mock('../../services/perfil', () => ({ perfilService: { obterMeuPerfil: vi.fn(), listarSolicitacoes: vi.fn() } }))
 
-vi.mock('../../services/leitura', () => ({ leituraService: { listarResenhasPerfil: vi.fn() } }))
+vi.mock('../../services/leitura', () => ({
+  leituraService: { listarEstantePerfil: vi.fn(), listarResenhasPerfil: vi.fn(), consultarMinhasEstatisticas: vi.fn() },
+}))
 
 const servico = vi.mocked(perfilService)
 const leitura = vi.mocked(leituraService)
@@ -39,6 +45,9 @@ describe('PerfilView', () => {
           atualizadoEm: '2026-09-12T12:00:00Z',
           livro: { id: 'livro-1', tipo: 'oficial', titulo: 'Torto Arado', autor: null, capaUrl: null },
           nota: null,
+          curtidas: 3,
+          descurtidas: 0,
+          minhaReacao: null,
         },
       ],
       paginacao: { page: 1, limite: 5, totalItens: 1, totalPaginas: 1 },
@@ -55,6 +64,8 @@ describe('PerfilView', () => {
     localStorage.clear()
     servico.obterMeuPerfil.mockReset().mockResolvedValue(PERFIL)
     leitura.listarResenhasPerfil.mockReset().mockResolvedValue({ itens: [], paginacao: { page: 1, limite: 5, totalItens: 0, totalPaginas: 0 } })
+    leitura.listarEstantePerfil.mockReset().mockResolvedValue(paginaEstante([]))
+    leitura.consultarMinhasEstatisticas.mockReset().mockResolvedValue(estatisticas())
     servico.listarSolicitacoes
       .mockReset()
       .mockResolvedValue({ items: [], page: 0, size: 1, totalElements: 0, totalPages: 0 })
@@ -96,8 +107,27 @@ describe('PerfilView', () => {
     expect(wrapper.find('[aria-label="84 seguidores"]').exists()).toBe(true)
     expect(wrapper.find('[aria-label="1 seguindo"]').exists()).toBe(true)
     expect(wrapper.get('a[href="/perfil/editar"]').text()).toBe('Editar perfil')
-    // Sem o dado de `leitura` ainda: nada de contador de livros lidos.
+  })
+
+  it('livros lidos vem da estante (Lido + Relendo) e leva a ela filtrada por Lido', async () => {
+    leitura.listarEstantePerfil.mockResolvedValue(
+      paginaEstante([itemEstante('l1', 'Dom Casmurro', { status: 'RELENDO', vezesLido: 1 })], {
+        totais: { QUERO_LER: 5, LENDO: 1, LIDO: 11, RELENDO: 1, ABANDONADO: 0 },
+      }),
+    )
+    const { wrapper } = await montarNaRota('/perfil')
+    await flushPromises()
+
+    expect(wrapper.get('a[href="/estante?status=LIDO"]').attributes('aria-label')).toBe('12 livros lidos')
+  })
+
+  it('sem a estante (404), o contador de livros lidos não aparece', async () => {
+    leitura.listarEstantePerfil.mockRejectedValue(new ApiError('Não encontrado.', 404, 'NAO_ENCONTRADO'))
+    const { wrapper } = await montarNaRota('/perfil')
+    await flushPromises()
+
     expect(wrapper.text()).not.toContain('livros lidos')
+    expect(wrapper.find('[aria-label="84 seguidores"]').exists()).toBe(true)
   })
 
   it('Estante e Resenhas aparecem no estado vazio, com o CTA para Descobrir e as abas na web', async () => {
@@ -122,6 +152,45 @@ describe('PerfilView', () => {
     expect(painelDasResenhas.classes()).not.toContain('md:hidden')
   })
 
+  it('a própria estante aparece em cards só leitura, paginada, no lugar do vazio', async () => {
+    leitura.listarEstantePerfil
+      .mockResolvedValueOnce(paginaEstante([itemEstante('l1', 'Dom Casmurro', { status: 'LENDO' })], { totalPaginas: 2, totalItens: 2 }))
+      .mockResolvedValueOnce(paginaEstante([itemEstante('l2', 'O Cortiço')], { page: 2, totalPaginas: 2, totalItens: 2 }))
+    const { wrapper } = await montarNaRota('/perfil')
+    await flushPromises()
+
+    expect(leitura.listarEstantePerfil).toHaveBeenCalledWith('u1', { page: 1 })
+    const secao = wrapper.get('section[id$="-painel-estante"]')
+    expect(secao.text()).toContain('Dom Casmurro')
+    expect(secao.text()).not.toContain('Os livros que você adicionar aparecem aqui.')
+    expect(secao.findAll('li button')).toHaveLength(0)
+
+    await secao.findAll('button').find((b) => b.text() === 'Carregar mais')!.trigger('click')
+    await flushPromises()
+    expect(leitura.listarEstantePerfil).toHaveBeenLastCalledWith('u1', { page: 2 })
+    expect(secao.findAll('li')).toHaveLength(2)
+  })
+
+  it('falha da estante mostra erro com Tentar de novo; 404 fica no vazio com o CTA', async () => {
+    leitura.listarEstantePerfil.mockRejectedValueOnce(new ApiError('Falha.', 0, 'SERVICO_INDISPONIVEL'))
+    leitura.listarEstantePerfil.mockResolvedValueOnce(paginaEstante([itemEstante('l1', 'Dom Casmurro')]))
+    const { wrapper } = await montarNaRota('/perfil')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Não foi possível carregar a estante. Verifique sua conexão e tente de novo.')
+    const secao = wrapper.get('section[id$="-painel-estante"]')
+    await secao.findAll('button').find((b) => b.text() === 'Tentar de novo')!.trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Dom Casmurro')
+
+    document.body.innerHTML = ''
+    leitura.listarEstantePerfil.mockRejectedValueOnce(new ApiError('Não encontrado.', 404, 'NAO_ENCONTRADO'))
+    const outra = await montarNaRota('/perfil')
+    await flushPromises()
+    expect(outra.wrapper.text()).toContain('Os livros que você adicionar aparecem aqui.')
+    expect(outra.wrapper.text()).not.toContain('Não foi possível carregar a estante')
+  })
+
   it('perfil privado troca o chip e explica quem vê o conteúdo', async () => {
     servico.obterMeuPerfil.mockResolvedValue({ ...PERFIL, privacidade: 'privado' })
     const { wrapper } = await montarNaRota('/perfil')
@@ -144,5 +213,54 @@ describe('PerfilView', () => {
 
     expect(servico.obterMeuPerfil).toHaveBeenCalledTimes(2)
     expect(wrapper.text()).toContain('Marina Beltrão')
+  })
+
+  describe('Estatísticas do ano (F-STA)', () => {
+    const ANO = hojeEmSaoPaulo().ano
+
+    it('os totais do ano corrente, com Ver estatísticas levando ao painel', async () => {
+      const { wrapper, router } = await montarNaRota('/perfil', { largo: true })
+      await flushPromises()
+
+      expect(leitura.consultarMinhasEstatisticas).toHaveBeenCalledWith()
+      const bloco = wrapper.get('[aria-labelledby="titulo-estatisticas-do-ano"]')
+      expect(bloco.text()).toContain('Estatísticas do ano')
+      expect(bloco.text()).toContain(`${ANO}, até hoje`)
+      expect(bloco.text()).toContain('livros concluídos')
+      expect(bloco.text()).toContain('3.818')
+      expect(bloco.text()).toContain('71 h 20 min')
+      expect(bloco.text()).toContain('de leitura')
+
+      const ver = bloco.findAll('a').find((a) => a.text() === 'Ver estatísticas')!
+      expect(ver.attributes('href')).toBe('/perfil/estatisticas')
+      await ver.trigger('click')
+      await flushPromises()
+      expect(router.currentRoute.value.path).toBe('/perfil/estatisticas')
+    })
+
+    it('sem registro, a frase no lugar dos totais e sem Ver estatísticas', async () => {
+      leitura.consultarMinhasEstatisticas.mockResolvedValue(SEM_REGISTRO)
+      const { wrapper } = await montarNaRota('/perfil', { largo: true })
+      await flushPromises()
+
+      const bloco = wrapper.get('[aria-labelledby="titulo-estatisticas-do-ano"]')
+      expect(bloco.text()).toContain('Suas estatísticas começam no primeiro registro de progresso.')
+      expect(bloco.text()).not.toContain('Ver estatísticas')
+      expect(bloco.text()).not.toContain('até hoje')
+    })
+
+    it('falha só no bloco, com Tentar de novo; o perfil continua de pé', async () => {
+      leitura.consultarMinhasEstatisticas.mockRejectedValueOnce(new ApiError('Falha.', 0, 'SERVICO_INDISPONIVEL'))
+      const { wrapper } = await montarNaRota('/perfil', { largo: true })
+      await flushPromises()
+
+      const bloco = wrapper.get('[aria-labelledby="titulo-estatisticas-do-ano"]')
+      expect(bloco.get('[role="alert"]').text()).toContain('Não foi possível carregar suas estatísticas.')
+      expect(wrapper.text()).toContain('Marina Beltrão')
+
+      await bloco.findAll('button').find((b) => b.text() === 'Tentar de novo')!.trigger('click')
+      await flushPromises()
+      expect(wrapper.get('[aria-labelledby="titulo-estatisticas-do-ano"]').text()).toContain('3.818')
+    })
   })
 })

@@ -86,6 +86,36 @@ class AppPropertiesTest {
   }
 
   @Test
+  @DisplayName("MODERACAO_TOKEN é opcional, mas preenchido precisa de 32 caracteres (F-MOD)")
+  void tokenDaModeracao() {
+    String[] minimo = {
+      "leai.service-name=social",
+      "leai.db-schema=social",
+      "leai.database-url=jdbc:postgresql://localhost:5432/leai",
+      "leai.cors-allowed-origins=http://localhost:5173",
+      "leai.jwt-secret=" + SEGREDO_VALIDO
+    };
+    runner
+        .withPropertyValues(minimo)
+        .withPropertyValues("leai.moderacao-token=")
+        .run(
+            contexto -> {
+              assertThat(contexto).hasNotFailed();
+              assertThat(contexto.getBean(AppProperties.class).moderacaoConfigurada()).isFalse();
+            });
+    runner
+        .withPropertyValues(minimo)
+        .withPropertyValues("leai.moderacao-token=curto")
+        .run(contexto -> assertThat(contexto).hasFailed());
+    runner
+        .withPropertyValues(minimo)
+        .withPropertyValues("leai.moderacao-token=" + SEGREDO_VALIDO)
+        .run(
+            contexto ->
+                assertThat(contexto.getBean(AppProperties.class).moderacaoConfigurada()).isTrue());
+  }
+
+  @Test
   @DisplayName("descarta curinga e espaço em branco na lista de origens do CORS")
   void descartaCuringaNasOrigens() {
     AppProperties propriedades =
@@ -94,6 +124,8 @@ class AppPropertiesTest {
             "social",
             "jdbc:postgresql://localhost:5432/leai",
             " http://localhost:5173 , * , https://leai-web.onrender.com ,",
+            null,
+            null,
             null,
             null,
             null,

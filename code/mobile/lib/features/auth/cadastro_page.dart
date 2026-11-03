@@ -345,10 +345,15 @@ class _CadastroPageState extends State<CadastroPage> {
       // O cadastro não emite token (RF-AUT-03 é do login). Entrar na sequência é o que faz a
       // tela "sair autenticada", como o prompt pede (cadastro.md §1), sem pedir a senha de
       // novo.
-      final sessao = await widget.authService.entrar(
+      final resultado = await widget.authService.entrar(
         identificador: usuarioCriado.username,
         senha: _senhaController.text,
       );
+      // Conta recém-criada não tem exclusão pendente; o caso existe só pelo tipo do login.
+      if (resultado is! LoginComSessao) {
+        return;
+      }
+      final sessao = resultado.sessao;
       await widget.sessionController.entrar(
         sessao.accessToken,
         refreshToken: sessao.refreshToken,

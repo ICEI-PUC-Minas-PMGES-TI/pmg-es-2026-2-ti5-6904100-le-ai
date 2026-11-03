@@ -110,14 +110,18 @@ class _FeedPageState extends State<FeedPage> {
       social: widget.social,
       perfil: widget.perfil,
       atividade: atividade,
-      aoComentar: () {
-        final atual = _lista.itens.firstWhere(
-          (item) => item.id == atividade.id,
-          orElse: () => atividade,
-        );
-        _lista.substituir(atual.copiar(totalComentarios: atual.totalComentarios + 1));
-      },
+      aoComentar: () => _alterarTotalDeComentarios(atividade, 1),
+      aoExcluir: (quantidade) => _alterarTotalDeComentarios(atividade, -quantidade),
+      aoAbrirPerfil: widget.aoAbrirAutor,
     );
+  }
+
+  void _alterarTotalDeComentarios(Atividade atividade, int delta) {
+    final atual = _lista.itens.firstWhere(
+      (item) => item.id == atividade.id,
+      orElse: () => atividade,
+    );
+    _lista.substituir(atual.copiar(totalComentarios: atual.totalComentarios + delta));
   }
 
   bool _pertoDoFim(ScrollNotification notificacao) {

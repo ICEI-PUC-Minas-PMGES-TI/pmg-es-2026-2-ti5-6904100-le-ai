@@ -110,9 +110,12 @@ public abstract class IntegracaoComPostgres {
     return enviar(requisicao.build());
   }
 
+  /** Toda chamada dos testes passa aqui, e a resposta é conferida contra o spec (ContratoHttp). */
   protected static HttpResponse<String> enviar(HttpRequest requisicao) {
     try {
-      return HTTP.send(requisicao, HttpResponse.BodyHandlers.ofString());
+      HttpResponse<String> resposta = HTTP.send(requisicao, HttpResponse.BodyHandlers.ofString());
+      ContratoHttp.validar(requisicao, resposta);
+      return resposta;
     } catch (java.io.IOException erro) {
       throw new java.io.UncheckedIOException(erro);
     } catch (InterruptedException erro) {

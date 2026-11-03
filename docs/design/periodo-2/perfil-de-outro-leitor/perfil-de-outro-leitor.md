@@ -3,6 +3,7 @@
 > **Prompt de edição.** Rode este prompt **sobre o canvas já existente** de `Perfil de outro leitor`, gerado por `docs/design/periodo-1/F-PERFIL/perfil-de-outro-leitor.md`. Ele **não** cria um canvas novo: acrescenta, substitui e remove só o que está descrito abaixo. **Tudo que não estiver aqui permanece exatamente como está.**
 
 **Edita:** ../../periodo-1/F-PERFIL/perfil-de-outro-leitor.md
+**Editada por:** ../../periodo-3/perfil-de-outro-leitor/perfil-de-outro-leitor.md
 **Features:** ../../../plano-de-desenvolvimento/periodo-2/feature-F-STA.md, ../../../plano-de-desenvolvimento/periodo-2/feature-F-LST.md, ../../../plano-de-desenvolvimento/periodo-2/feature-F-AVA-2.md
 **Requisitos que entram:**
 - F-STA: RF-STA-01 (só o bloco `Estatísticas do ano` do perfil visitado, com os três totais do ano corrente, sob RN-08, pelo endpoint público de estatísticas). **Sem entrada para o painel**: o painel é só do próprio leitor.

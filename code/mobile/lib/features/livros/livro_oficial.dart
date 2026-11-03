@@ -6,6 +6,8 @@
 /// inválida (quem faz isso é o serviço).
 library;
 
+import '../avaliacao/reacoes.dart';
+
 class AssuntoResumo {
   final String id;
   final String nome;
@@ -59,6 +61,10 @@ class LivroOficialResumo {
   final String? capaUrl;
   final List<AssuntoResumo> assuntos;
 
+  /// Só na página de série (`LivroDaSerieResumo`, F-ACV-DESCOBERTA): o número de ordem do livro
+  /// na série, nulo quando a fonte não o tem. Fora dela, sempre nulo.
+  final int? numeroNaSerie;
+
   const LivroOficialResumo({
     required this.id,
     required this.titulo,
@@ -68,6 +74,7 @@ class LivroOficialResumo {
     required this.paginas,
     required this.capaUrl,
     required this.assuntos,
+    this.numeroNaSerie,
   });
 
   /// Autores para exibição, na ordem do servidor (por nome). Nulo quando não há autor.
@@ -88,6 +95,7 @@ class LivroOficialResumo {
     final ano = bruto['anoPublicacao'];
     final capa = bruto['capa'];
     final url = capa is Map<String, dynamic> ? capa['url'] : null;
+    final numero = bruto['numeroNaSerie'];
     return LivroOficialResumo(
       id: id,
       titulo: titulo,
@@ -97,6 +105,7 @@ class LivroOficialResumo {
       paginas: paginas.toInt(),
       capaUrl: url is String ? url : null,
       assuntos: _lista(bruto['assuntos'], AssuntoResumo.deJson),
+      numeroNaSerie: numero is num ? numero.toInt() : null,
     );
   }
 }
@@ -186,6 +195,9 @@ class ResenhaDoLivro {
   final bool spoiler;
   final DateTime criadoEm;
 
+  /// Contagens e a reação de quem olha (F-AVA-2).
+  final EstadoDasReacoes reacoes;
+
   const ResenhaDoLivro({
     required this.id,
     required this.autorNome,
@@ -193,6 +205,7 @@ class ResenhaDoLivro {
     required this.texto,
     required this.spoiler,
     required this.criadoEm,
+    this.reacoes = const EstadoDasReacoes(),
   });
 
   static ResenhaDoLivro? deJson(Object? bruto) {
@@ -215,6 +228,7 @@ class ResenhaDoLivro {
       // Só `false` explícito abre o texto: campo ausente fica fechado, na dúvida.
       spoiler: bruto['spoiler'] != false,
       criadoEm: criadoEm,
+      reacoes: EstadoDasReacoes.fromJson(bruto),
     );
   }
 }
@@ -238,6 +252,100 @@ class PaginaDeResenhas {
   }
 }
 
+/// A série de um livro oficial (`SerieDoLivro`, F-ACV-DESCOBERTA). [numero] é o lugar do livro
+/// na série, nulo quando a fonte não o tem.
+class SerieDoLivro {
+  final String id;
+  final String nome;
+  final int? numero;
+
+  const SerieDoLivro({required this.id, required this.nome, required this.numero});
+
+  static SerieDoLivro? deJson(Object? bruto) {
+    if (bruto is! Map<String, dynamic>) {
+      return null;
+    }
+    final id = bruto['id'];
+    final nome = bruto['nome'];
+    final numero = bruto['numero'];
+    if (id is! String || nome is! String) {
+      return null;
+    }
+    return SerieDoLivro(id: id, nome: nome, numero: numero is num ? numero.toInt() : null);
+  }
+}
+
+/// Um indicador de nota da página do livro (F-ACV-NOTA): [valor] de 0 a 5 e [quantidade], as
+/// avaliações da fonte externa (nota geral) ou os leitores do app (nota dos leitores), sempre ≥ 1.
+/// Ausente é nulo, nunca zero (RN-06.3).
+class IndicadorDeNota {
+  final double valor;
+  final int quantidade;
+
+  const IndicadorDeNota({required this.valor, required this.quantidade});
+
+  /// Nulo quando o campo falta, é nulo ou sai do contrato (valor fora de 0 a 5, quantidade < 1).
+  static IndicadorDeNota? deJson(Object? bruto) {
+    if (bruto is! Map<String, dynamic>) {
+      return null;
+    }
+    final valor = _notaDe0a5(bruto['valor']);
+    final quantidade = _inteiroNaoNegativo(bruto['quantidade']);
+    if (valor == null || quantidade == null || quantidade < 1) {
+      return null;
+    }
+    return IndicadorDeNota(valor: valor, quantidade: quantidade);
+  }
+}
+
+/// Uma faixa do histograma das notas dos leitores (F-ACV-NOTA): quantos leitores deram [valor].
+class FaixaDaDistribuicao {
+  final double valor;
+  final int quantidade;
+
+  const FaixaDaDistribuicao({required this.valor, required this.quantidade});
+
+  /// As faixas da resposta, ou lista vazia se a lista faltar ou qualquer faixa sair do contrato
+  /// (valor fora dos passos de 0,5 entre 0 e 5, quantidade negativa ou valor repetido): o histograma
+  /// não se desenha pela metade.
+  static List<FaixaDaDistribuicao> listaDeJson(Object? bruto) {
+    if (bruto is! List) {
+      return const <FaixaDaDistribuicao>[];
+    }
+    final faixas = <FaixaDaDistribuicao>[];
+    final vistos = <double>{};
+    for (final item in bruto) {
+      if (item is! Map<String, dynamic>) {
+        return const <FaixaDaDistribuicao>[];
+      }
+      final valor = _notaDe0a5(item['valor']);
+      final quantidade = _inteiroNaoNegativo(item['quantidade']);
+      if (valor == null || quantidade == null || valor * 2 != (valor * 2).roundToDouble()) {
+        return const <FaixaDaDistribuicao>[];
+      }
+      if (!vistos.add(valor)) {
+        return const <FaixaDaDistribuicao>[];
+      }
+      faixas.add(FaixaDaDistribuicao(valor: valor, quantidade: quantidade));
+    }
+    return List<FaixaDaDistribuicao>.unmodifiable(faixas);
+  }
+}
+
+double? _notaDe0a5(Object? bruto) {
+  if (bruto is! num || !bruto.isFinite || bruto < 0 || bruto > 5) {
+    return null;
+  }
+  return bruto.toDouble();
+}
+
+int? _inteiroNaoNegativo(Object? bruto) {
+  if (bruto is! num || !bruto.isFinite || bruto < 0 || bruto != bruto.roundToDouble()) {
+    return null;
+  }
+  return bruto.toInt();
+}
+
 /// Página do livro oficial (`LivroOficialDetalhe`). [resenhas] nulo quer dizer que os contratos de
 /// `leitura` ou `identidade` estavam indisponíveis: a página abre mesmo assim.
 class LivroOficialDetalhe {
@@ -246,12 +354,46 @@ class LivroOficialDetalhe {
   final SinopseDoLivro sinopse;
   final PaginaDeResenhas? resenhas;
 
+  /// Leva à página da editora; nulo quando o livro não tem editora (F-ACV-DESCOBERTA).
+  final String? editoraId;
+
+  /// Leva à página da série; nula quando o livro não pertence a uma.
+  final SerieDoLivro? serie;
+
+  /// Nota da fonte externa (F-ACV-NOTA); nula quando a fonte não tem.
+  final IndicadorDeNota? notaGeral;
+
+  /// Média dos leitores do app, já arredondada no servidor; nula quando ninguém avaliou.
+  final IndicadorDeNota? notaDosLeitores;
+
+  /// As onze faixas de 5 a 0 quando há [notaDosLeitores]; vazia quando não há.
+  final List<FaixaDaDistribuicao> distribuicao;
+
   const LivroOficialDetalhe({
     required this.resumo,
     required this.isbn,
     required this.sinopse,
     required this.resenhas,
+    this.editoraId,
+    this.serie,
+    this.notaGeral,
+    this.notaDosLeitores,
+    this.distribuicao = const <FaixaDaDistribuicao>[],
   });
+
+  /// Este detalhe com as três notas de [outro] (F-ACV-NOTA): a recarga depois da nota do leitor
+  /// não mexe na sinopse nem nas resenhas.
+  LivroOficialDetalhe comNotasDe(LivroOficialDetalhe outro) => LivroOficialDetalhe(
+    resumo: resumo,
+    isbn: isbn,
+    sinopse: sinopse,
+    resenhas: resenhas,
+    editoraId: editoraId,
+    serie: serie,
+    notaGeral: outro.notaGeral,
+    notaDosLeitores: outro.notaDosLeitores,
+    distribuicao: outro.distribuicao,
+  );
 
   static LivroOficialDetalhe? deJson(Map<String, dynamic> json) {
     final resumo = LivroOficialResumo.deJson(json);
@@ -259,11 +401,62 @@ class LivroOficialDetalhe {
     if (resumo == null || isbn is! String) {
       return null;
     }
+    final editoraId = json['editoraId'];
+    final notaDosLeitores = IndicadorDeNota.deJson(json['notaDosLeitores']);
     return LivroOficialDetalhe(
       resumo: resumo,
       isbn: isbn,
       sinopse: SinopseDoLivro.deJson(json['sinopse']),
       resenhas: PaginaDeResenhas.deJson(json['resenhas']),
+      editoraId: editoraId is String ? editoraId : null,
+      serie: SerieDoLivro.deJson(json['serie']),
+      notaGeral: IndicadorDeNota.deJson(json['notaGeral']),
+      notaDosLeitores: notaDosLeitores,
+      // Sem nota dos leitores, sem histograma (RN-06.3), mesmo que a lista venha preenchida.
+      distribuicao: notaDosLeitores == null
+          ? const <FaixaDaDistribuicao>[]
+          : FaixaDaDistribuicao.listaDeJson(json['distribuicao']),
+    );
+  }
+}
+
+/// Página de autor, editora ou série (`PaginaDoAutor`, `PaginaDaEditora`, `PaginaDaSerie`,
+/// F-ACV-DESCOBERTA). As três têm `id`, `nome` e `livros`; [biografia] só vem do autor e
+/// [autores] só da série, e o que não vem fica vazio.
+class PaginaDeCatalogo {
+  final String id;
+  final String nome;
+  final String? biografia;
+  final List<AutorResumo> autores;
+  final PaginaLivros livros;
+
+  const PaginaDeCatalogo({
+    required this.id,
+    required this.nome,
+    required this.livros,
+    this.biografia,
+    this.autores = const <AutorResumo>[],
+  });
+
+  /// Nula quando o corpo não tem a forma do contrato: o serviço transforma em resposta inválida.
+  static PaginaDeCatalogo? deJson(Map<String, dynamic> json) {
+    final id = json['id'];
+    final nome = json['nome'];
+    final livros = json['livros'];
+    if (id is! String || nome is! String || livros is! Map<String, dynamic>) {
+      return null;
+    }
+    final pagina = PaginaLivros.deJson(livros);
+    if (pagina == null) {
+      return null;
+    }
+    final biografia = json['biografia'];
+    return PaginaDeCatalogo(
+      id: id,
+      nome: nome,
+      livros: pagina,
+      biografia: biografia is String && biografia.trim().isNotEmpty ? biografia : null,
+      autores: _lista(json['autores'], AutorResumo.deJson),
     );
   }
 }

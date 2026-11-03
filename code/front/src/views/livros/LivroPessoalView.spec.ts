@@ -15,6 +15,7 @@ vi.mock('../../services/leitura', () => ({
   leituraService: {
     consultarItemEstante: vi.fn(),
     consultarConclusoes: vi.fn(),
+    consultarFavorito: vi.fn().mockResolvedValue({ livroId: 'livro-1', favorito: false, favoritadoEm: null }),
     registrarProgresso: vi.fn(),
     listarProgresso: vi.fn(),
     excluirTrechoProgresso: vi.fn(),
@@ -22,6 +23,13 @@ vi.mock('../../services/leitura', () => ({
     obterMinhaAvaliacao: vi.fn(),
     salvarNota: vi.fn(),
     excluirNota: vi.fn(),
+    // F-AVA-2: a seção de frases carrega à parte; aqui, sem frases.
+    listarFrases: vi.fn().mockResolvedValue({
+      itens: [],
+      paginacao: { page: 1, limite: 3, totalItens: 0, totalPaginas: 0 },
+      minhasFrases: 0,
+      limitePorLivro: 10,
+    }),
   },
 }))
 
@@ -57,6 +65,9 @@ const EM_CONSULTA: LivroPessoalDetalhe = {
     spoiler: false,
     criadoEm: '2026-09-12T12:00:00Z',
     atualizadoEm: '2026-09-12T12:00:00Z',
+    curtidas: 12,
+    descurtidas: 2,
+    minhaReacao: null,
   },
 }
 
@@ -121,6 +132,29 @@ describe('LivroPessoalView', () => {
     expect(barra.findAll('a')[2]!.get('span').classes()).toContain('text-musgo')
   })
 
+  it('terceiro denuncia a resenha do dono pelo DotsThree, com a via de RN-15.4 (F-MOD)', async () => {
+    servico.obterLivroPessoal.mockResolvedValue(EM_CONSULTA)
+    await montarNaRota('/livros/pessoal/l1?via=lista&referenciaId=lista-1', { largo: true })
+    await flushPromises()
+
+    document.body.querySelector<HTMLButtonElement>('button[aria-label="Mais ações da resenha"]')!.click()
+    await flushPromises()
+    document.body.querySelector<HTMLButtonElement>('[role="menuitem"]')!.click()
+    await flushPromises()
+
+    const dialogo = document.body.querySelector('[role="dialog"]')!
+    expect(dialogo.textContent).toContain('Denunciar resenha')
+    expect(dialogo.textContent).toContain('Resenha de Cartas de um sertanejo')
+    expect(dialogo.textContent).toContain('Comprei numa feira e li em duas noites.')
+  })
+
+  it('o dono não vê o menu de denúncia', async () => {
+    await montarNaRota('/livros/pessoal/l1')
+    await flushPromises()
+
+    expect(document.body.querySelector('button[aria-label="Mais ações da resenha"]')).toBeNull()
+  })
+
   it('terceiro: resenha do dono com spoiler fica fora do DOM até a ação', async () => {
     servico.obterLivroPessoal.mockResolvedValue({
       ...EM_CONSULTA,
@@ -157,7 +191,7 @@ describe('LivroPessoalView', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('Este livro não está mais disponível')
-    expect(wrapper.text()).toContain('Ele pode ter sido excluído por quem o cadastrou.')
+    expect(wrapper.text()).toContain('Quem o cadastrou pode ter excluído o livro ou deixado de compartilhá-lo.')
     botao('Voltar ao feed')!.click()
     await flushPromises()
     expect(router.currentRoute.value.path).toBe('/feed')
@@ -224,7 +258,7 @@ describe('LivroPessoalView', () => {
     await flushPromises()
 
     const acoes = [...document.body.querySelectorAll('[role="dialog"] ul button')].map((b) => b.textContent!.trim())
-    expect(acoes).toEqual(['Adicionar como Quero ler', 'Iniciar leitura'])
+    expect(acoes).toEqual(['Adicionar como Quero ler', 'Iniciar leitura', 'Favoritar'])
   })
 
   it('dono com leitura em andamento: status, Lido N vezes e Alterar status com a leitura atual', async () => {
@@ -248,7 +282,7 @@ describe('LivroPessoalView', () => {
 
     expect(leituras.detalharLeitura).toHaveBeenCalledWith('lei-1')
     const acoes = [...document.body.querySelectorAll('[role="dialog"] ul button')].map((b) => b.textContent!.trim())
-    expect(acoes).toEqual(['Registrar progresso', 'Finalizar releitura', 'Abandonar releitura'])
+    expect(acoes).toEqual(['Registrar progresso', 'Finalizar releitura', 'Favoritar', 'Abandonar releitura'])
   })
 
   it('dono com primeira leitura abandonada: Alterar status oferece Retomar leitura', async () => {
@@ -264,7 +298,7 @@ describe('LivroPessoalView', () => {
 
     expect(leituras.detalharLeitura).toHaveBeenCalledWith('lei-2')
     const acoes = [...document.body.querySelectorAll('[role="dialog"] ul button')].map((b) => b.textContent!.trim())
-    expect(acoes).toEqual(['Retomar leitura'])
+    expect(acoes).toEqual(['Retomar leitura', 'Favoritar'])
   })
 
   it('modo consulta não consulta a estante de quem vê', async () => {

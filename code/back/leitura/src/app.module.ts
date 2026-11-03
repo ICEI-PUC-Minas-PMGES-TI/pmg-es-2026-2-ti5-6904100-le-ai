@@ -2,23 +2,34 @@ import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { LoggerModule } from 'nestjs-pino';
+import { REDACAO_DO_LOG } from './common/redacao-do-log';
 import { validateEnv } from './config/env';
 import { getCorrelationId } from './common/als';
 import { AllExceptionsFilter } from './common/all-exceptions.filter';
 import { AuthModule } from './auth/auth.module';
 import { AvaliacoesModule } from './avaliacoes/avaliacoes.module';
+import { ContaModule } from './conta/conta.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { IdempotenciaModule } from './common/idempotencia/idempotencia.module';
 import { DrizzleModule } from './db/drizzle.module';
 import { EstanteModule } from './estante/estante.module';
+import { EstatisticasModule } from './estatisticas/estatisticas.module';
+import { FavoritosModule } from './favoritos/favoritos.module';
+import { FrasesModule } from './frases/frases.module';
+import { HistoricoModule } from './historico/historico.module';
+import { ModeracaoModule } from './moderacao/moderacao.module';
 import { HealthModule } from './health/health.module';
 import { InatividadeModule } from './jobs/inatividade/inatividade.module';
 import { LeiturasModule } from './leituras/leituras.module';
 import { MessagingModule } from './messaging/messaging.module';
+import { MetricasModule } from './metricas/metricas.module';
 import { OutboxModule } from './outbox/outbox.module';
 import { PerfisModule } from './perfis/perfis.module';
 import { ProgressoModule } from './progresso/progresso.module';
+import { ReacoesModule } from './reacoes/reacoes.module';
 import { ReferenciasModule } from './referencias/referencias.module';
+import { SequenciaModule } from './sequencia/sequencia.module';
+import { DesafiosModule } from './desafios/desafios.module';
 
 @Module({
   imports: [
@@ -35,17 +46,7 @@ import { ReferenciasModule } from './referencias/referencias.module';
           return correlationId ? { correlationId } : {};
         },
         // Nunca logar dados sensíveis (RNF-SEC-36).
-        redact: {
-          paths: [
-            'req.headers.authorization',
-            'req.headers.cookie',
-            '*.password',
-            '*.senha',
-            '*.token',
-            '*.hash',
-          ],
-          remove: true,
-        },
+        redact: REDACAO_DO_LOG,
         transport:
           process.env.NODE_ENV !== 'production'
             ? { target: 'pino-pretty' }
@@ -57,13 +58,23 @@ import { ReferenciasModule } from './referencias/referencias.module';
     IdempotenciaModule,
     HealthModule,
     MessagingModule,
+    ContaModule,
     OutboxModule,
     ReferenciasModule,
     AvaliacoesModule,
+    ReacoesModule,
+    FrasesModule,
+    ModeracaoModule,
     PerfisModule,
     EstanteModule,
+    FavoritosModule,
+    HistoricoModule,
     LeiturasModule,
     ProgressoModule,
+    SequenciaModule,
+    DesafiosModule,
+    EstatisticasModule,
+    MetricasModule,
     InatividadeModule,
   ],
   providers: [

@@ -84,6 +84,38 @@ describe('ItemAtividade', () => {
     expect(comResenha.text()).toContain('Ler resenha')
   })
 
+  it('"Ler resenha" leva à página do livro, oficial ou pessoal', async () => {
+    const oficial = await montar({
+      atividade: atividade({ tipo: 'RESENHA_PUBLICADA', resenha: { id: 'r1', texto: 'Grandioso.', spoiler: false, nota: null } }),
+    })
+    const ler = oficial.findAll('a').find((link) => link.text() === 'Ler resenha')!
+    expect(ler.attributes('href')).toBe('/livros/l1')
+
+    const pessoal = await montar({
+      atividade: atividade({
+        tipo: 'RESENHA_PUBLICADA',
+        livro: { id: 'lp1', tipo: 'PESSOAL', titulo: 'Meu diário', autor: 'Caio Ferraz', capaUrl: null },
+        resenha: { id: 'r2', texto: 'Íntimo.', spoiler: false, nota: null },
+      }),
+    })
+    const lerPessoal = pessoal.findAll('a').find((link) => link.text() === 'Ler resenha')!
+    expect(lerPessoal.attributes('href')).toBe('/livros/pessoal/lp1?via=feed&referenciaId=a1')
+  })
+
+  it('a prévia da resenha sai sem a marcação do Markdown (F-AVA-2)', async () => {
+    const wrapper = await montar({
+      atividade: atividade({
+        tipo: 'RESENHA_PUBLICADA',
+        resenha: { id: 'r1', texto: '**Um** livro *grandioso*.\n\n> Para reler.', spoiler: false, nota: null },
+      }),
+    })
+
+    expect(wrapper.text()).toContain('Um livro grandioso.')
+    expect(wrapper.text()).toContain('Para reler.')
+    expect(wrapper.text()).not.toContain('**')
+    expect(wrapper.find('strong').exists()).toBe(false)
+  })
+
   // RF-AVA-03: com spoiler, o texto não está no DOM até a ação de revelar.
   it('resenha com spoiler fica fora do DOM até "Mostrar mesmo assim"', async () => {
     const wrapper = await montar({

@@ -73,7 +73,7 @@ Alocação de stack por serviço **decidida pela equipe em 02/09/2026**: `identi
 │   │   ├── documento-de-arquitetura.md
 │   │   └── documento-de-design.md
 │   ├── README.md             # capa/SUMÁRIO do documento da disciplina
-│   ├── 1.apresentacao.md … 8.avaliacao_arquitetura.md  # docs da disciplina (DERIVADOS)
+│   ├── 1.apresentacao.md … 9.plano_de_testes.md  # docs da disciplina (DERIVADOS)
 │   ├── api/                  # um spec OpenAPI por serviço
 │   ├── mensageria/           # envelope, catálogo e JSON Schemas canônicos
 │   ├── design/               # prompts de tela e protótipos — + AGENTS.md e CLAUDE.md
@@ -130,7 +130,7 @@ Estrutura mínima do arquivo de feature: objetivo (referenciando a seção de `R
 - **Tags** `vX.Y.Z` ao fim de cada período → GitHub Release (o artefato "Release do software" da disciplina).
 - `git pull --rebase` antes de começar e antes de subir. Quem quebrou a `desenvolvimento` conserta ou reverte na hora.
 - **Conventional Commits:** `feat:`, `fix:`, `docs:`, `chore:`, `test:`, `refactor:` — alimenta o relatório de contribuição semanal.
-- **CI filtra por caminho:** mudança em `code/front/` não roda o pipeline do Flutter; mudança em `docs/` não roda nada.
+- **CI filtra por caminho:** mudança em `code/front/` não roda o pipeline do Flutter; mudança em `docs/` não roda nada, salvo os contratos que o código consome: `docs/mensageria/schemas/**` roda o `acervo` e o `leitura`, `docs/api/identidade.yaml` roda o `identidade`, e `docs/design-system/markdown-resenha-casos.json` roda a web e o mobile.
 
 **Ambientes:** **local** · **DES/HML** (branch `main`, deploy a cada merge — é o que vale como "release" da sprint) · **PROD** (tag `vX.Y.Z`, só a partir de 24/11). Segredos por variável de ambiente e GitHub Secrets: `.env.example` versionado, `.env` **nunca**.
 

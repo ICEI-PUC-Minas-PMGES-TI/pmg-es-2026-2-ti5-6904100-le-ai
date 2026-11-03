@@ -49,3 +49,40 @@ Realizado atualização da documentação de F-ACV-BUSCA, do contrato do acervo 
 Realizado correção da estante no mobile, que agora recarrega quando a leitura muda em outra tela
 Realizado correção da folha de registrar progresso no mobile, que passou a rolar em vez de estourar a tela
 Realizado alinhamento dos sufixos h e min do tempo gasto no registro de progresso do mobile
+
+# Sprint 5
+
+### Semana 1 (30/09 - 06/10)
+
+Realizado revisão do PR de fechamento do Período 1
+Realizado previsões do cronograma (tarefa 7 de gerência)
+
+### Semana 2 (07/10 - 20/10)
+
+Realizado curtir e descurtir resenhas, com notificação de curtida (F-AVA-2)
+Realizado resenha em Markdown com pré-visualização, na web e no mobile
+Realizado frases e trechos dos livros, com página
+Realizado atualização do handlebars no leitura e no acervo
+Realizado denúncia de resenhas e comentários (F-MOD)
+Realizado painel de moderação com fila, remoção, arquivamento e registro de auditoria
+Realizado remoção de frases pela moderação
+
+### Semana 3 (21/10 - 27/10)
+
+Realizado correções da F-MOD: aviso da denúncia sobre os comentários, painel que retoma remoção não confirmada e pagina a fila
+Realizado merge da F-MOD na desenvolvimento
+Realizado atualização de dependências do front e do acervo pelo npm audit
+Realizado plano de implementação da F-ACV-NOTA
+Realizado importação da nota geral do dump do OpenLibrary e na importação por ISBN (F-ACV-NOTA)
+Realizado nota geral, nota dos leitores e histograma na página do livro, na web e no mobile
+Realizado cache de capas oficiais no Cloudinary, com backfill
+Realizado correções das revisões do PR da F-ACV-NOTA: retentativa do Cloudinary, download de capa, recarga da nota dos leitores e histograma com texto ampliado
+Realizado merge da F-ACV-NOTA na desenvolvimento
+Realizado ajuste do contrato do leitura para a VIEW de notas lida pelo consumidor e pelo backfill do acervo
+Realizado Documento de Arquitetura v1.8 e documentação da disciplina atualizada para o fechamento do Período 2
+Realizado atualização do status das features dos Períodos 1 e 2, do plano de projeto, do design e do cabeçalho dos requisitos
+Realizado orçamento do projeto e previsão do orçamento (gerência)
+
+### Semana 4 (28/10 - 03/11)
+
+Realizado plano de testes das funcionalidades prioritárias (versão final), com os casos ligados aos testes automatizados e os resultados do CI

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 
 import '../../core/network/api_client.dart';
@@ -10,9 +11,13 @@ import '../../design/widgets/botao_textual.dart';
 import '../../design/widgets/capa_livro.dart';
 import '../../design/widgets/dialogo_confirmacao.dart';
 import '../../design/widgets/estrelas_de_nota.dart';
+import '../../design/widgets/faixa_informativa.dart';
 import '../../design/widgets/toggle_spoiler.dart';
 import '../livros/formatos.dart';
 import 'avaliacao_controller.dart';
+import 'barra_de_formatacao.dart';
+import 'markdown_edicao.dart';
+import 'markdown_resenha.dart';
 import 'painel_de_nota.dart';
 
 const int limiteDaResenha = 5000;
@@ -53,9 +58,11 @@ Future<void> abrirEditorDeResenha(
 
 /// Editor de resenha (RF-AVA-02..04, a partir de `escrever-resenha.html`).
 ///
-/// - Texto puro em Newsreader, sem borda: Markdown é do Período 2.
+/// - Texto cru em Newsreader, sem borda, com a marcação do Markdown visível (F-AVA-2, RN-13). A
+///   barra de formatação fica acima da barra de spoiler e contador, encostada no teclado, e o
+///   `Visualizar` mostra a resenha como o leitor vai ver (escrever-resenha.md §4.1 e §5).
 /// - O texto nunca é cortado nem bloqueado na digitação; acima de 5.000 caracteres só a
-///   publicação fica bloqueada, e o autor decide o que tirar.
+///   publicação fica bloqueada, e o autor decide o que tirar. A marcação conta no limite.
 /// - O contador é permanente, com três faixas: `grafite`, `ambar` a partir de 4.750 e `rubi`
 ///   acima de 5.000. O leitor de tela ouve só quando a faixa muda.
 /// - Fechar com texto não salvo pede confirmação; nada é descartado em silêncio.
@@ -75,7 +82,9 @@ class _EscreverResenhaPageState extends State<EscreverResenhaPage> {
   late final TextEditingController _texto = TextEditingController(
     text: widget.avaliacao.resenha?.texto ?? '',
   );
+  final FocusNode _foco = FocusNode(debugLabel: 'texto da resenha');
   late bool _spoiler = widget.avaliacao.resenha?.spoiler ?? false;
+  bool _visualizando = false;
   bool _enviando = false;
   bool _excluindo = false;
   String? _erro;
@@ -97,7 +106,23 @@ class _EscreverResenhaPageState extends State<EscreverResenhaPage> {
   @override
   void dispose() {
     _texto.dispose();
+    _foco.dispose();
     super.dispose();
+  }
+
+  /// Aplica a edição da barra e devolve o cursor ao campo, com o teclado aberto.
+  void _formatar(TextEditingValue valor) {
+    _texto.value = valor;
+    _foco.requestFocus();
+  }
+
+  /// Trocar de modo não publica, não salva e não descarta (§9). O campo continua montado, só fora
+  /// da tela, e volta com o cursor e a rolagem de antes; a pré-visualização fecha o teclado.
+  void _trocarModo(bool visualizar) {
+    if (visualizar) {
+      _foco.unfocus();
+    }
+    setState(() => _visualizando = visualizar);
   }
 
   _Faixa _faixaDe(int total) => total > limiteDaResenha
@@ -201,6 +226,32 @@ class _EscreverResenhaPageState extends State<EscreverResenhaPage> {
     }
   }
 
+  Widget _campo(ThemeData theme) => TextField(
+    controller: _texto,
+    focusNode: _foco,
+    readOnly: _enviando,
+    expands: true,
+    maxLines: null,
+    keyboardType: TextInputType.multiline,
+    textCapitalization: TextCapitalization.sentences,
+    cursorColor: theme.primaryAccent,
+    style: theme.editorialBody,
+    // `Enter` dentro de uma lista continua com o próximo marcador (§4.1).
+    inputFormatters: const <TextInputFormatter>[ContinuarListaNoEnter()],
+    // Área de texto sem borda nem fundo ("Área de texto"): o tema dá contorno e preenchimento a
+    // todo campo, e o `collapsed` não os desliga.
+    decoration: InputDecoration(
+      isCollapsed: true,
+      filled: false,
+      border: InputBorder.none,
+      enabledBorder: InputBorder.none,
+      focusedBorder: InputBorder.none,
+      disabledBorder: InputBorder.none,
+      hintText: 'Escreva sobre o livro. O que ficou, o que incomodou, para quem você indicaria.',
+      hintStyle: theme.editorialBody.copyWith(color: theme.tertiaryText),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -277,37 +328,31 @@ class _EscreverResenhaPageState extends State<EscreverResenhaPage> {
                       ),
               ),
               Divider(height: 1, color: theme.divider),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: DesignTokens.space5,
+                  vertical: DesignTokens.space3,
+                ),
+                child: AlternanciaDeModo(
+                  visualizando: _visualizando,
+                  aoMudar: _enviando ? null : _trocarModo,
+                ),
+              ),
               Expanded(
                 child: Padding(
+                  // A área de texto começa `space-2` abaixo da linha da alternância, e não mais `space-5`.
                   padding: const EdgeInsets.fromLTRB(
                     DesignTokens.space5,
-                    DesignTokens.space5,
+                    DesignTokens.space2,
                     DesignTokens.space5,
                     0,
                   ),
-                  child: TextField(
-                    controller: _texto,
-                    readOnly: _enviando,
-                    expands: true,
-                    maxLines: null,
-                    keyboardType: TextInputType.multiline,
-                    textCapitalization: TextCapitalization.sentences,
-                    cursorColor: theme.primaryAccent,
-                    style: theme.editorialBody,
-                    // Área de texto sem borda nem fundo ("Área de texto"): o tema dá contorno e
-                    // preenchimento a todo campo, e o `collapsed` não os desliga.
-                    decoration: InputDecoration(
-                      isCollapsed: true,
-                      filled: false,
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      disabledBorder: InputBorder.none,
-                      hintText:
-                          'Escreva sobre o livro. O que ficou, o que incomodou, para quem você '
-                          'indicaria.',
-                      hintStyle: theme.editorialBody.copyWith(color: theme.tertiaryText),
-                    ),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: <Widget>[
+                      Offstage(offstage: _visualizando, child: _campo(theme)),
+                      if (_visualizando) _PreVisualizacao(texto: _texto.text),
+                    ],
                   ),
                 ),
               ),
@@ -324,8 +369,8 @@ class _EscreverResenhaPageState extends State<EscreverResenhaPage> {
               else if (_faixa == _Faixa.excedido)
                 _LinhaDeAviso(
                   texto:
-                      'Sua resenha passou do limite em ${_caracteres(total - limiteDaResenha)}. '
-                      'Corte um trecho para publicar.',
+                      'Sua resenha passou do limite em ${_caracteres(total - limiteDaResenha)}, '
+                      'contando a formatação. Corte um trecho para publicar.',
                   cor: theme.colorScheme.error,
                 )
               else if (_spoiler)
@@ -334,6 +379,9 @@ class _EscreverResenhaPageState extends State<EscreverResenhaPage> {
                       'Sua resenha será exibida oculta. Quem quiser ler precisa tocar para revelar.',
                   cor: theme.warningColor,
                 ),
+              // Acima do rodapé e abaixo dos avisos; não existe no `Visualizar` (§5.3).
+              if (!_visualizando)
+                BarraDeFormatacao(valor: _texto.value, aoAplicar: _enviando ? null : _formatar),
               DecoratedBox(
                 decoration: BoxDecoration(
                   color: theme.elevatedSurface,
@@ -499,6 +547,56 @@ class _CabecalhoDoLivro extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// Pré-visualização (escrever-resenha.md §5.3 a §5.6): a resenha como o leitor vai ver, no mesmo
+/// lugar da área de texto, sem véu de spoiler e sem barra. Sem texto, o `Eye` e uma frase, sem
+/// botão: o segmento `Escrever` logo acima já é a ação.
+class _PreVisualizacao extends StatelessWidget {
+  final String texto;
+
+  const _PreVisualizacao({required this.texto});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    if (texto.trim().isEmpty) {
+      return Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 260),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(PhosphorIconsRegular.eye, size: 32, color: theme.tertiaryText),
+              const SizedBox(height: DesignTokens.space4),
+              Text(
+                'Nada para visualizar ainda. Escreva sua resenha para ver como ela vai aparecer.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(color: theme.secondaryText),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return SingleChildScrollView(
+      padding: const EdgeInsets.only(bottom: DesignTokens.space5),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          if (temMarcacaoForaDoSubconjunto(texto)) ...<Widget>[
+            const FaixaInformativa(
+              mensagem:
+                  'Links, imagens, tabelas, títulos, código e HTML aparecem como você digitou. A '
+                  'resenha aceita negrito, itálico, tachado, listas e citação.',
+            ),
+            const SizedBox(height: DesignTokens.space4),
+          ],
+          TextoDaResenha(texto),
+        ],
+      ),
     );
   }
 }

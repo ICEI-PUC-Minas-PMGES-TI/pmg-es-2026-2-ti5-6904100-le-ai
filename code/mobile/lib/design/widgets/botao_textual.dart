@@ -11,6 +11,7 @@ class BotaoTextual extends StatelessWidget {
   final bool neutro;
   final bool destrutivo;
   final bool larguraTotal;
+  final IconData? icone;
 
   const BotaoTextual({
     super.key,
@@ -19,25 +20,30 @@ class BotaoTextual extends StatelessWidget {
     this.neutro = false,
     this.destrutivo = false,
     this.larguraTotal = false,
+    this.icone,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final botao = TextButton(
-      onPressed: onPressed,
-      style: TextButton.styleFrom(
-        minimumSize: const Size(48, 48),
-        foregroundColor: destrutivo
-            ? theme.colorScheme.error
-            : neutro
-            ? theme.secondaryText
-            : theme.primaryAccent,
-        textStyle: theme.textTheme.labelLarge,
-        splashFactory: NoSplash.splashFactory,
-      ),
-      child: Text(texto),
+    final estilo = TextButton.styleFrom(
+      minimumSize: const Size(48, 48),
+      foregroundColor: destrutivo
+          ? theme.colorScheme.error
+          : neutro
+          ? theme.secondaryText
+          : theme.primaryAccent,
+      textStyle: theme.textTheme.labelLarge,
+      splashFactory: NoSplash.splashFactory,
     );
+    final botao = icone == null
+        ? TextButton(onPressed: onPressed, style: estilo, child: Text(texto))
+        : TextButton.icon(
+            onPressed: onPressed,
+            style: estilo,
+            icon: Icon(icone, size: 20),
+            label: Text(texto),
+          );
     return larguraTotal ? SizedBox(width: double.infinity, child: botao) : botao;
   }
 }

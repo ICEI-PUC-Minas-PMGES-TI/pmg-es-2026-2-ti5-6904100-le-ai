@@ -34,6 +34,7 @@ abstract final class TextosDoRegistro {
   static const String botaoSalvar = 'Salvar';
   static const String botaoSalvando = 'Salvando';
   static const String botaoCancelar = 'Cancelar';
+  static const String ajudaSessao = 'O app mede o tempo e pede a página quando você encerrar.';
 
   static String ajudaPagina(int minima, int maxima) =>
       'Entre $minima e $maxima. Informe onde você parou, não quantas páginas leu.';
@@ -72,6 +73,18 @@ abstract final class TextosDasAtualizacoes {
       'O registro da página $pagina ainda não foi enviado e será perdido.';
 
   static String iniciadaEm(String dataPorExtenso) => 'Iniciada em $dataPorExtenso';
+
+  static const String concluida = 'Concluída';
+  static const String leitura = 'Leitura';
+  static const String releitura = 'Releitura';
+  static const String somenteConsulta = 'Leitura concluída. Os registros ficam só para consulta.';
+  static const String vazioConcluidaTitulo = 'Nenhuma atualização registrada';
+  static const String vazioConcluidaTexto = 'Esta leitura foi concluída sem registros de página.';
+
+  static String concluidaEm(String dataPorExtenso) => 'Concluída em $dataPorExtenso';
+
+  static String inicioEm(String dataPorExtenso, String duracao) =>
+      'Início em $dataPorExtenso · $duracao';
 
   static String itemPagina(int pagina) => 'página $pagina';
 

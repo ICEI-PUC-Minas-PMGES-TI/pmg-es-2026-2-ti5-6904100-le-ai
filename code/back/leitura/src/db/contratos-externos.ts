@@ -3,7 +3,8 @@ import { boolean, integer, pgSchema, text, uuid } from 'drizzle-orm/pg-core';
 /**
  * VIEWs de contrato dos outros serviços que `leitura` consome (arquitetura
  * §4.2), com as colunas exatas que o spec de cada dono publica em
- * `x-database-contracts` (`docs/api/acervo.yaml`, `docs/api/identidade.yaml`).
+ * `x-database-contracts` (`docs/api/acervo.yaml`, `docs/api/identidade.yaml`,
+ * `docs/api/social.yaml`).
  *
  * Nenhum serviço lê tabela crua de outro schema. Duas coisas aqui são
  * deliberadas e não devem ser "arrumadas", como no `acervo`:
@@ -22,6 +23,7 @@ import { boolean, integer, pgSchema, text, uuid } from 'drizzle-orm/pg-core';
 
 const acervo = pgSchema('acervo');
 const identidade = pgSchema('identidade');
+const social = pgSchema('social');
 
 /**
  * Referência de livro (dono: `acervo`). Valida existência, tipo, dono e estado
@@ -63,5 +65,29 @@ export const vSeguimentoAceito = identidade
   .view('v_seguimento_aceito_v1', {
     seguidorId: uuid('seguidor_id'),
     seguidoId: uuid('seguido_id'),
+  })
+  .existing();
+
+/**
+ * Via do feed de RN-15 (dono: `social`): atividade **ativa** do dono que referencia o livro
+ * pessoal. F-AVA-2 a usa para autorizar a reação de terceiro à resenha do dono.
+ */
+export const vAtividadeLivroPessoal = social
+  .view('v_atividade_livro_pessoal_v1', {
+    atividadeId: uuid('atividade_id'),
+    donoId: uuid('dono_id'),
+    livroId: uuid('livro_id'),
+  })
+  .existing();
+
+/**
+ * Via da lista de RN-15 (dono: `social`): lista **ativa** do dono que contém o livro pessoal.
+ * F-AVA-2 a usa para autorizar a reação de terceiro à resenha do dono.
+ */
+export const vListaLivroPessoal = social
+  .view('v_lista_livro_pessoal_v1', {
+    listaId: uuid('lista_id'),
+    donoId: uuid('dono_id'),
+    livroId: uuid('livro_id'),
   })
   .existing();

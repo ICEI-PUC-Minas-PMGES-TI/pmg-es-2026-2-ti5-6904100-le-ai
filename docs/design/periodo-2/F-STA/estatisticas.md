@@ -1,6 +1,7 @@
 # F-STA · Estatísticas
 
 **Feature:** ../../../plano-de-desenvolvimento/periodo-2/feature-F-STA.md
+**Editada por:** ../../periodo-3/estatisticas/estatisticas.md
 **Requisitos:** RF-STA-01 (totais de livros concluídos, páginas lidas e tempo de leitura, por ano e no acumulado), RF-STA-02 (médias de páginas por dia, dias por livro e nota média atribuída), RF-STA-03 (gráficos de evolução de páginas por mês e de livros concluídos por mês)
 **Requisito que esta tela não desenha:** RF-STA-05 (recálculo assíncrono) é requisito de sistema e não gera tela; aqui ele aparece só como efeito, numa linha de rodapé. RF-STA-04 (distribuição das notas que o leitor deu) é Opcional, do Período 3, e fica fora.
 **Não funcionais:** RNF-SEC-02 (o painel é do próprio leitor, validado no servidor), RNF-USA-02, RNF-USA-03 (contraste dos gráficos), RNF-USA-05, RNF-ERR-09 (cold start é carregamento)

@@ -12,6 +12,9 @@ vi.mock('../services/leitura', () => ({
     detalharLeitura: vi.fn(),
     removerEstante: vi.fn(),
     registrarProgresso: vi.fn(),
+    listarFavoritos: vi.fn(),
+    consultarItemEstante: vi.fn(),
+    consultarFavorito: vi.fn(),
   },
 }))
 
@@ -49,6 +52,7 @@ function botao(wrapper: Wrapper, texto: string) {
 describe('EstanteView', () => {
   beforeEach(() => {
     localStorage.clear()
+    servico.consultarFavorito.mockResolvedValue({ livroId: 'l1', favorito: false, favoritadoEm: null })
     servico.listarEstante
       .mockReset()
       .mockResolvedValue(paginaEstante([TORTO_ARADO, VIDAS_SECAS, CIDADE_DE_DEUS], { totalItens: 10, totais: TOTAIS }))
@@ -69,6 +73,7 @@ describe('EstanteView', () => {
       'Lido 3',
       'Relendo 1',
       'Abandonado 1',
+      'Favoritos',
     ])
     expect(pills(wrapper)[0]!.attributes('aria-pressed')).toBe('true')
     expect(wrapper.text()).toContain('10 livros')
@@ -149,9 +154,57 @@ describe('EstanteView', () => {
     expect(servico.listarEstante).toHaveBeenLastCalledWith({ status: 'RELENDO', ordenacao: 'progresso_desc', page: 1 })
 
     document.body.innerHTML = ''
-    await montarNaRota('/estante?status=FAVORITOS&ordenacao=nota')
+    await montarNaRota('/estante?status=DESCONHECIDO&ordenacao=nota')
     await flushPromises()
     expect(servico.listarEstante).toHaveBeenLastCalledWith({ status: undefined, ordenacao: 'adicionado_desc', page: 1 })
+  })
+
+  it('a busca filtra por título e autor dentro do status ativo e, sem resultado, oferece o acervo', async () => {
+    vi.useFakeTimers()
+    try {
+      const { wrapper, router } = await montarNaRota('/estante?status=LENDO')
+      await flushPromises()
+      servico.listarEstante.mockResolvedValueOnce(paginaEstante([], { totais: TOTAIS }))
+
+      await wrapper.get('input[data-busca-estante]').setValue('saramago')
+      await vi.runAllTimersAsync()
+      await flushPromises()
+
+      expect(router.currentRoute.value.query).toEqual({ status: 'LENDO', q: 'saramago' })
+      expect(servico.listarEstante).toHaveBeenLastCalledWith({ status: 'LENDO', ordenacao: 'adicionado_desc', q: 'saramago', page: 1 })
+      expect(wrapper.text()).toContain('0 livros encontrados na sua estante')
+      expect(wrapper.find('[data-busca-vazia]').exists()).toBe(true)
+
+      await botao(wrapper, 'Buscar no acervo').trigger('click')
+      await flushPromises()
+      expect(router.currentRoute.value.fullPath).toBe('/descobrir?q=saramago')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('o pill Favoritos lista os favoritos, inclusive fora da estante, sem mexer nos totais da estante', async () => {
+    servico.listarEstante.mockResolvedValue({
+      ...paginaEstante([], { totalItens: 10, totais: TOTAIS }),
+      totalFavoritos: 2,
+    })
+    servico.listarFavoritos.mockResolvedValue({
+      itens: [
+        { livro: { id: 'l9', tipo: 'oficial', titulo: "Olhos d'água", autor: 'Conceição Evaristo', capaUrl: null }, status: null, favoritadoEm: '2026-09-02T12:00:00Z' },
+        { livro: { id: 'l2', tipo: 'oficial', titulo: 'Vidas Secas', autor: 'Graciliano Ramos', capaUrl: null }, status: 'LIDO', favoritadoEm: '2026-09-01T12:00:00Z' },
+      ],
+      paginacao: { page: 1, limite: 20, totalItens: 2, totalPaginas: 1 },
+    })
+    const { wrapper } = await montarNaRota('/estante?status=FAVORITOS')
+    await flushPromises()
+
+    expect(servico.listarFavoritos).toHaveBeenCalledWith({ q: undefined, page: 1 })
+    expect(pills(wrapper).at(-1)!.text().replace(/\s+/g, ' ').trim()).toBe('Favoritos 2')
+    expect(pills(wrapper).at(-1)!.attributes('aria-pressed')).toBe('true')
+    const cards = wrapper.findAll('ul[aria-label="Livros da estante"] > li')
+    expect(cards).toHaveLength(2)
+    expect(cards[0]!.text()).toContain('Fora da estante')
+    expect(cards.every((card) => card.find('[data-favorito]').exists())).toBe(true)
   })
 
   it('rolagem pede a próxima página e acrescenta no fim; trocar o filtro recomeça', async () => {
@@ -181,7 +234,7 @@ describe('EstanteView', () => {
     await flushPromises()
 
     expect(wrapper.find('[aria-busy="true"]').exists()).toBe(true)
-    expect(pills(wrapper).map((pill) => pill.text())).toEqual(['Todos', 'Lendo', 'Quero ler', 'Lido', 'Relendo', 'Abandonado'])
+    expect(pills(wrapper).map((pill) => pill.text())).toEqual(['Todos', 'Lendo', 'Quero ler', 'Lido', 'Relendo', 'Abandonado', 'Favoritos'])
   })
 
   it('estante vazia: pills zerados, Buscar livros leva a Descobrir e o cadastro por ISBN continua', async () => {
@@ -250,7 +303,7 @@ describe('EstanteView', () => {
     expect(dialogo.textContent).toContain('Torto Arado')
     expect(dialogo.textContent).toContain('Lendo')
     const acoes = [...dialogo.querySelectorAll('ul button')].map((b) => b.textContent!.trim())
-    expect(acoes).toEqual(['Registrar progresso', 'Finalizar leitura', 'Abandonar leitura'])
+    expect(acoes).toEqual(['Registrar progresso', 'Finalizar leitura', 'Favoritar', 'Abandonar leitura'])
   })
 
   it('toque no card Abandonado busca a última leitura e oferece Retomar leitura', async () => {
@@ -267,7 +320,7 @@ describe('EstanteView', () => {
     const dialogo = document.body.querySelector('[role="dialog"]')!
     expect(dialogo.textContent).toContain('Cidade de Deus')
     const acoes = [...dialogo.querySelectorAll('ul button')].map((b) => b.textContent!.trim())
-    expect(acoes).toEqual(['Retomar leitura'])
+    expect(acoes).toEqual(['Retomar leitura', 'Favoritar'])
   })
 
   it('ação salva recarrega a estante com os novos totais', async () => {

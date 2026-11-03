@@ -1,9 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { comContratoExterno } from '../common/contrato-externo';
 import {
   AcessoNegado,
   EntidadeInvalida,
   NaoEncontrado,
-  ServicoIndisponivel,
 } from '../common/erros-de-negocio';
 import {
   OPERACOES,
@@ -13,12 +13,9 @@ import {
   IdempotenciaService,
   RespostaIdempotente,
 } from '../common/idempotencia/idempotencia.service';
-import {
-  codigoDoPostgres,
-  ehFalhaDeContratoExterno,
-  VIOLACAO_DE_CHECK,
-} from '../common/pg-erros';
+import { codigoDoPostgres, VIOLACAO_DE_CHECK } from '../common/pg-erros';
 import { DRIZZLE, DrizzleDB } from '../db/drizzle.module';
+import { EstatisticasService } from '../estatisticas/aplicacao/estatisticas.service';
 import type { Tx } from '../db/tipos';
 import { OutboxRepository } from '../outbox/outbox.repository';
 import {
@@ -55,6 +52,7 @@ export class AvaliacoesService {
     private readonly repositorio: AvaliacoesRepository,
     private readonly idempotencia: IdempotenciaService,
     private readonly outbox: OutboxRepository,
+    private readonly estatisticas: EstatisticasService,
   ) {}
 
   async salvarNota(
@@ -65,7 +63,7 @@ export class AvaliacoesService {
   ): Promise<RespostaIdempotente<NotaDto>> {
     validarValorDaNota(valor);
 
-    return this.comContratoExterno(() =>
+    return comContratoExterno(() =>
       this.idempotencia.executar<NotaDto>(
         {
           subjectRef: usuarioId,
@@ -98,6 +96,9 @@ export class AvaliacoesService {
             operacao: gravada.criada ? 'criada' : 'atualizada',
             nota: gravada.valor,
           });
+          // A nota média (F-STA) se recompõe aqui: `nota.alterada` não tem
+          // consumidor no próprio serviço.
+          await this.estatisticas.recalcular(tx, usuarioId);
           return { status: 200, corpo: paraNota(livroId, gravada) };
         },
       ),
@@ -109,7 +110,7 @@ export class AvaliacoesService {
     livroId: string,
     chave: string,
   ): Promise<RespostaIdempotente<null>> {
-    return this.comContratoExterno(() =>
+    return comContratoExterno(() =>
       this.idempotencia.executar<null>(
         {
           subjectRef: usuarioId,
@@ -134,6 +135,7 @@ export class AvaliacoesService {
               operacao: 'excluida',
               nota: null,
             });
+            await this.estatisticas.recalcular(tx, usuarioId);
           }
           return { status: 204, corpo: null };
         },
@@ -149,7 +151,7 @@ export class AvaliacoesService {
   ): Promise<RespostaIdempotente<ResenhaDto>> {
     validarTextoDaResenha(entrada.texto);
 
-    return this.comContratoExterno(() =>
+    return comContratoExterno(() =>
       this.idempotencia.executar<ResenhaDto>(
         {
           subjectRef: usuarioId,
@@ -216,7 +218,7 @@ export class AvaliacoesService {
     livroId: string,
     chave: string,
   ): Promise<RespostaIdempotente<null>> {
-    return this.comContratoExterno(() =>
+    return comContratoExterno(() =>
       this.idempotencia.executar<null>(
         {
           subjectRef: usuarioId,
@@ -250,17 +252,23 @@ export class AvaliacoesService {
     usuarioId: string,
     livroId: string,
   ): Promise<MinhaAvaliacaoDto> {
-    return this.comContratoExterno(async () => {
+    return comContratoExterno(async () => {
       await this.exigirLivroAcessivel(this.db, livroId, usuarioId);
 
       const [atual, resenha] = await Promise.all([
         this.repositorio.notaAtual(this.db, usuarioId, livroId),
         this.repositorio.resenhaAtual(this.db, usuarioId, livroId),
       ]);
+      const contagens = resenha
+        ? await this.repositorio.contagensDaResenha(this.db, resenha.id)
+        : null;
       return {
         livroId,
         nota: atual ? paraNota(livroId, atual) : null,
-        resenha: resenha ? paraResenha(resenha) : null,
+        resenha:
+          resenha && contagens
+            ? { ...paraResenha(resenha), ...contagens }
+            : null,
       };
     });
   }
@@ -315,21 +323,6 @@ export class AvaliacoesService {
             mensagem: 'A resenha precisa ter de 1 a 5.000 caracteres.',
           },
         ]);
-      }
-      throw erro;
-    }
-  }
-
-  /**
-   * VIEW de outro serviço inacessível (GRANT faltando, VIEW ainda não criada) é
-   * indisponibilidade de dependência: 503, nunca um 500 cru.
-   */
-  private async comContratoExterno<T>(operacao: () => Promise<T>): Promise<T> {
-    try {
-      return await operacao();
-    } catch (erro) {
-      if (ehFalhaDeContratoExterno(erro)) {
-        throw new ServicoIndisponivel();
       }
       throw erro;
     }

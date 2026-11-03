@@ -4,6 +4,7 @@
 
 **Edita:** ../../periodo-0/P0-NAV/login.md
 **Feature:** ../../../plano-de-desenvolvimento/periodo-1/feature-F-AUT.md
+**Editada por:** ../../periodo-3/login/login.md
 **Requisitos que entram:** RF-AUT-04 (solicitar recuperação de senha por e-mail)
 **Não funcionais:** RNF-USA-03 (contraste WCAG AA), RNF-SEC-28 (a recuperação não revela se a conta existe, e a porta de entrada dela também não)
 **Regras de negócio:** nenhuma RN se aplica a esta tela

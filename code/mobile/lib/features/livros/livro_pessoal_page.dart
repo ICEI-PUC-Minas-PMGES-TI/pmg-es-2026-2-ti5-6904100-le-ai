@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 
 import '../../app/cabecalho_tela.dart';
@@ -18,9 +19,19 @@ import '../../design/widgets/folha_inferior.dart';
 import '../avaliacao/avaliacao_controller.dart';
 import '../avaliacao/bloco_sua_avaliacao.dart';
 import '../avaliacao/leitura_service.dart';
+import '../avaliacao/markdown_resenha.dart';
+import '../feed/social_service.dart';
+import '../moderacao/folha_denunciar.dart';
 import '../avaliacao/painel_de_nota.dart';
+import '../avaliacao/reacoes.dart';
+import '../avaliacao/adicionar_frase.dart';
+import '../avaliacao/reacoes_da_resenha.dart';
+import '../avaliacao/secao_frases.dart';
 import '../estante/estante_service.dart';
 import '../estante/situacao_na_estante.dart';
+import '../listas/folha_adicionar_a_lista.dart';
+import '../listas/lista_form_page.dart';
+import '../listas/rotas_listas.dart';
 import '../progresso/rotas_progresso.dart';
 import 'acervo_service.dart';
 import 'formatos.dart';
@@ -29,7 +40,8 @@ import 'formatos.dart';
 /// docs/design/periodo-1/F-ACV-CADASTRO/livro-pessoal.md §4 e §8.
 ///
 /// Dois públicos, e quem decide qual é o **servidor** (`modoConsulta`): o dono vê as ações de
-/// editar e excluir; o terceiro, que só chega pelo feed, vê a página em modo consulta, em que
+/// editar e excluir; o terceiro, que só chega pelo feed ou pela lista do dono, vê a página em
+/// modo consulta, em que
 /// essas ações **não existem** — não são botões cinzas (RN-15.3).
 ///
 /// Nota e resenha: o dono avalia pelo bloco "Sua avaliação" (F-AVA, RN-03), que carrega do
@@ -53,6 +65,15 @@ class LivroPessoalPage extends StatefulWidget {
   final DependenciasDeProgresso? progresso;
   final ValueChanged<String>? aoVerAtualizacoes;
 
+  /// `Adicionar à lista` no topo do menu do dono (livro-pessoal.md P2 §4.3, RF-LST-05).
+  final DependenciasDeListas? listas;
+
+  /// `Ver todas as frases` do dono (F-AVA-2).
+  final VoidCallback? aoVerFrases;
+
+  /// Menu de denúncia da resenha do dono para o terceiro (F-MOD, RN-15.4). Sem ele, sem menu.
+  final SocialService? social;
+
   const LivroPessoalPage({
     super.key,
     required this.servico,
@@ -67,6 +88,9 @@ class LivroPessoalPage extends StatefulWidget {
     this.estante,
     this.progresso,
     this.aoVerAtualizacoes,
+    this.aoVerFrases,
+    this.listas,
+    this.social,
   });
 
   @override
@@ -85,6 +109,16 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
 
   /// Resenha do dono com spoiler, vista por terceiro: fora da árvore até o toque (RF-AVA-03).
   bool _spoilerRevelado = false;
+
+  /// A via de RN-15 pela qual o terceiro chegou: a reação à resenha do dono vai com ela.
+  ViaDeAcesso? get _viaDeAcesso {
+    final via = widget.via;
+    final referenciaId = widget.referenciaId;
+    if ((via == 'feed' || via == 'lista') && referenciaId != null) {
+      return ViaDeAcesso(via: via!, referenciaId: referenciaId);
+    }
+    return null;
+  }
 
   @override
   void initState() {
@@ -124,8 +158,11 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
       }
       setState(() {
         // Livro excluído e acesso negado são o MESMO estado, com a mesma copy: nada pode
-        // confirmar a existência do livro a quem não tem acesso (§4.8, §10).
-        if (erro.status == 404 || erro.status == 403) {
+        // confirmar a existência do livro a quem não tem acesso (§4.8, §10). Pela lista, um 400
+        // do `acervo` (que aceita `via=lista` desde a etapa 3 da F-LST) é o mesmo estado.
+        if (erro.status == 404 ||
+            erro.status == 403 ||
+            (widget.via == 'lista' && erro.status == 400)) {
           _carga = _Carga.indisponivel;
         } else {
           _carga = _Carga.falha;
@@ -164,6 +201,15 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
+            if (widget.listas != null) ...<Widget>[
+              item(
+                'lista',
+                PhosphorIconsRegular.listPlus,
+                'Adicionar à lista',
+                theme.colorScheme.onSurface,
+              ),
+              Divider(height: 1, color: theme.divider),
+            ],
             item(
               'editar',
               PhosphorIconsRegular.pencilSimple,
@@ -186,7 +232,23 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
     if (!mounted || escolha == null) {
       return;
     }
-    if (escolha == 'editar') {
+    final listas = widget.listas;
+    final livro = _livro;
+    if (escolha == 'lista' && listas != null && livro != null) {
+      await abrirAdicionarALista(
+        context,
+        servico: listas.servico,
+        livro: LivroDeOrigem(
+          id: livro.id,
+          titulo: livro.titulo,
+          autor: livro.autor,
+          capaUrl: livro.capaUrl,
+          pessoal: true,
+        ),
+        obterPrivacidade: listas.minhaPrivacidade,
+        aoVerLista: (id) => GoRouter.maybeOf(context)?.go(rotaMinhaLista(id)),
+      );
+    } else if (escolha == 'editar') {
       await widget.aoEditar?.call(widget.livroId);
       if (mounted) {
         await _carregar();
@@ -276,10 +338,13 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
               EstadoVazio(
                 icone: PhosphorIconsRegular.bookOpen,
                 titulo: 'Este livro não está mais disponível',
-                texto: 'Ele pode ter sido excluído por quem o cadastrou.',
+                // As duas vias de RN-15 e o que encerra o acesso (livro-pessoal.md P2 §4.5).
+                texto: 'Quem o cadastrou pode ter excluído o livro ou deixado de compartilhá-lo.',
                 rodape: Padding(
                   padding: const EdgeInsets.only(top: DesignTokens.space6),
-                  child: BotaoTextual(texto: 'Voltar ao feed', onPressed: widget.aoVoltarAoFeed),
+                  child: widget.via == 'lista'
+                      ? BotaoTextual(texto: 'Voltar à lista', onPressed: widget.aoVoltar)
+                      : BotaoTextual(texto: 'Voltar ao feed', onPressed: widget.aoVoltarAoFeed),
                 ),
               ),
             ],
@@ -423,6 +488,21 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
                 ),
               ),
             ]),
+            // F-AVA-2: só o dono vê e guarda frases do livro pessoal (RN-15).
+            divisor(),
+            secao(<Widget>[
+              SecaoFrases(
+                leitura: widget.leitura,
+                livro: LivroDaFrase(
+                  id: livro.id,
+                  titulo: livro.titulo,
+                  autor: livro.autor,
+                  capaUrl: livro.capaUrl,
+                  paginas: livro.paginas,
+                ),
+                aoVerTodas: widget.aoVerFrases,
+              ),
+            ]),
           ],
           // O terceiro vê a nota e a resenha do dono, sem ação nenhuma (RN-15.2). Sem avaliação,
           // nem o convite aparece (§4.6).
@@ -440,19 +520,50 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
           if (consulta && resenha != null) ...<Widget>[
             divisor(),
             secao(<Widget>[
-              Text(
-                'Resenha de ${primeiroNome ?? 'quem cadastrou'}',
-                style: theme.textTheme.titleMedium,
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
+                      'Resenha de ${primeiroNome ?? 'quem cadastrou'}',
+                      style: theme.textTheme.titleMedium,
+                    ),
+                  ),
+                  // O `Denunciar` em texto do Período 1 virou o `DotsThree` (livro-pessoal.md,
+                  // lote 7), com a mesma via que abriu a página (RN-15.4).
+                  if ((widget.social, _viaDeAcesso) case (final social?, final via?)
+                      when resenha.id.isNotEmpty)
+                    MenuDaResenhaDeOutraPessoa(
+                      social: social,
+                      alvo: AlvoDaDenuncia.resenha(
+                        id: resenha.id,
+                        autorNome: nomeDoDono ?? resenha.autorNome,
+                        autorAvatarUrl: livro.dono?.avatarUrl ?? resenha.autorAvatarUrl,
+                        livroTitulo: livro.titulo,
+                        texto: resenha.texto,
+                        spoiler: resenha.spoiler,
+                        via: via.via,
+                        referenciaId: via.referenciaId,
+                      ),
+                    ),
+                ],
               ),
               const SizedBox(height: DesignTokens.space3),
               if (resenha.spoiler && !_spoilerRevelado)
                 BlocoDeSpoiler(aoRevelar: () => setState(() => _spoilerRevelado = true))
               else if (resenha.spoiler)
-                TextoRevelado(child: Text(resenha.texto, style: theme.editorialBody))
+                TextoRevelado(child: TextoDaResenha(resenha.texto))
               else
-                Text(resenha.texto, style: theme.editorialBody),
+                TextoDaResenha(resenha.texto),
               const SizedBox(height: DesignTokens.space3),
               Text(formatarData(resenha.atualizadoEm), style: theme.textTheme.bodySmall),
+              // O terceiro reage pela mesma via que abriu a página (RN-15.4).
+              const SizedBox(height: DesignTokens.space3),
+              ReacoesDaResenha(
+                resenhaId: resenha.id,
+                reacoes: resenha.reacoes,
+                leitura: widget.leitura,
+                via: _viaDeAcesso,
+              ),
             ]),
           ],
           const SizedBox(height: DesignTokens.space12),

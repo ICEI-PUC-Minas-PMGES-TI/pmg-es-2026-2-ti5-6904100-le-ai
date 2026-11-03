@@ -20,6 +20,9 @@ const CONTRATOS_EXTERNOS = `
   CREATE TABLE social.v_atividade_livro_pessoal_v1 (
     atividade_id uuid, dono_id uuid, livro_id uuid
   );
+  CREATE TABLE social.v_lista_livro_pessoal_v1 (
+    lista_id uuid, dono_id uuid, livro_id uuid
+  );
   CREATE TABLE identidade.v_perfil_referencia_v1 (
     id uuid, username text, nome_exibicao text, avatar_url text,
     privacidade text, opt_out_recomendacao boolean
@@ -27,13 +30,19 @@ const CONTRATOS_EXTERNOS = `
   CREATE TABLE identidade.v_seguimento_aceito_v1 (
     seguidor_id uuid, seguido_id uuid
   );
+  CREATE TABLE leitura.v_estante_publica_v1 (
+    usuario_id uuid, livro_id uuid, status text, vezes_lido integer
+  );
   CREATE TABLE leitura.v_nota_publicacao_v1 (
     usuario_id uuid, livro_id uuid, valor numeric
   );
   CREATE TABLE leitura.v_resenha_publicacao_v1 (
     resenha_id uuid, usuario_id uuid, livro_id uuid, texto text,
     spoiler boolean, criado_em timestamptz, atualizado_em timestamptz,
-    curtidas integer, descurtidas integer
+    curtidas bigint, descurtidas bigint
+  );
+  CREATE TABLE leitura.v_reacao_resenha_v1 (
+    resenha_id uuid, usuario_id uuid, tipo text
   );
 `;
 
@@ -44,6 +53,7 @@ const TABELAS_DE_DADOS = [
   'acervo.importacao_livro',
   'acervo.livro_autor',
   'acervo.livro_assunto',
+  'acervo.autor_chave_unificada',
   'acervo.livro',
   'acervo.autor',
   'acervo.assunto',
@@ -51,10 +61,13 @@ const TABELAS_DE_DADOS = [
   'acervo.sinonimo_editora',
   'acervo.editora',
   'social.v_atividade_livro_pessoal_v1',
+  'social.v_lista_livro_pessoal_v1',
   'identidade.v_perfil_referencia_v1',
   'identidade.v_seguimento_aceito_v1',
+  'leitura.v_estante_publica_v1',
   'leitura.v_nota_publicacao_v1',
   'leitura.v_resenha_publicacao_v1',
+  'leitura.v_reacao_resenha_v1',
 ];
 
 export async function prepararBanco(): Promise<Pool> {

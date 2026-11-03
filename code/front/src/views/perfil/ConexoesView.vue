@@ -65,7 +65,7 @@ const textoDaAcao = computed(() => {
     return 'Essa pessoa deixa de seguir você e perde o acesso ao seu conteúdo restrito. Ela pode pedir para seguir de novo.'
   }
   return acao.value.leitor.privacidade === 'privado'
-    ? 'As atividades dessa pessoa saem do seu feed, e você perde o acesso à estante e às resenhas. Seguir de novo exige uma solicitação nova.'
+    ? 'As atividades dessa pessoa saem do seu feed, e você perde o acesso à estante, às resenhas, às listas e às estatísticas. Seguir de novo exige uma solicitação nova.'
     : 'As atividades dessa pessoa saem do seu feed. Você pode seguir de novo quando quiser.'
 })
 
