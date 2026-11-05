@@ -62,6 +62,10 @@ Plano em [`plano-F-ACV-NOTA.md`](plano-F-ACV-NOTA.md), de 22/10/2026, revisado n
 
 A [F-CONTA-2](../feature-F-CONTA-2.md) já foi entregue, e o consumidor de `conta.excluida` do `leitura` já remove `reacao_resenha` e `frase`. A F-AVA-2 não criou tabela nova (a VIEW `v_reacao_resenha_v1` não guarda dados). As colunas novas da F-MOD já entraram no consumidor do `social` (feito na própria F-MOD). A F-ACV-NOTA não criou tabela nova: `nota_leitor_projecao` e `nota_livro_agregada` já estão no consumidor, e a cópia própria da capa oficial é catálogo. Henrique avisado no PR.
 
+### 7. DES do Período 2 — validado em 05/11/2026
+
+As três features (F-AVA-2, F-MOD e F-ACV-NOTA) foram testadas e validadas em DES pelo dono depois das releases v0.2.0 e v0.2.1; os itens de DES foram marcados nos arquivos de feature. O Período 3 continua em [`../../periodo-3/renato-periodo-3/`](../../periodo-3/renato-periodo-3/README.md).
+
 ### Fora da sequência
 
 - Contribuição semanal da semana de 30/09 a 06/10 (tarefa 7 de gerência) ainda não registrada em [`assets/contribuicao_semanal/renato.md`](../../../../assets/contribuicao_semanal/renato.md).
