@@ -394,4 +394,36 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('sessão encerrada pela suspensão: tocar Entrar com os campos vazios mantém o banner', (
+    tester,
+  ) async {
+    var chamadas = 0;
+    sessionController
+      ..avisarSaida(SessionController.avisoDeContaSuspensa)
+      ..avisarLeituraDescartada();
+
+    await tester.pumpWidget(
+      _wrap(
+        LoginPage(
+          authService: servico((request) async {
+            chamadas++;
+            return http.Response('{}', 200);
+          }),
+          sessionController: sessionController,
+        ),
+      ),
+    );
+
+    await _tocarBotaoPrincipal(tester, 'Entrar');
+    await tester.pumpAndSettle();
+
+    expect(chamadas, 0);
+    expect(find.text('Informe sua senha.'), findsOneWidget);
+    expect(find.text('Sua sessão foi encerrada porque esta conta foi suspensa.'), findsOneWidget);
+    expect(
+      find.text('A sessão de leitura em andamento foi encerrada, e o tempo medido não foi registrado.'),
+      findsOneWidget,
+    );
+  });
 }

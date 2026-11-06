@@ -314,6 +314,30 @@ void main() {
       expect(tester.widget<TextField>(find.byType(TextField)).enabled, isFalse);
     });
 
+    testWidgets('F-MOD-OPC: conta suspensa encerra a sessão pela suspensão, sem o erro de envio', (
+      tester,
+    ) async {
+      respostas.add(() => _erro(403, 'CONTA_SUSPENSA'));
+      var encerradaPorSuspensao = 0;
+      await tester.pumpWidget(
+        _wrap(
+          ExcluirContaPage(
+            servico: servico(),
+            authService: authService(),
+            aoExclusaoSolicitada: (previstaEm) async => solicitadaAte = previstaEm,
+            aoContaSuspensa: () async => encerradaPorSuspensao++,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await marcarCaixa(tester);
+      await preencherEConfirmar(tester);
+
+      expect(encerradaPorSuspensao, 1);
+      expect(find.textContaining('Não foi possível pedir a exclusão.'), findsNothing);
+      expect(solicitadaAte, isNull);
+    });
+
     testWidgets('falha de envio preserva a senha e reenvia com a mesma chave', (tester) async {
       respostas
         ..add(() => _erro(500, 'ERRO_INTERNO'))

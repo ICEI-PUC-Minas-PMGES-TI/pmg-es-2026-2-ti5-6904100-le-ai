@@ -243,4 +243,21 @@ void main() {
     expect(controller.estaAutenticado, isFalse);
     expect(store.value, isNull);
   });
+
+  test('F-MOD-OPC: encerrarPorSuspensao sai uma vez, com o aviso de suspensão', () async {
+    final store = _FakeTokenStore();
+    final controller = SessionController(store);
+    await controller.entrar('jwt', refreshToken: 'renovacao');
+    var avisos = 0;
+    controller.addListener(() => avisos++);
+
+    await controller.encerrarPorSuspensao();
+    await controller.encerrarPorSuspensao();
+
+    expect(controller.estaAutenticado, isFalse);
+    expect(store.value, isNull);
+    expect(avisos, 1);
+    expect(controller.consumirAvisoDeSaida(), SessionController.avisoDeContaSuspensa);
+    expect(controller.consumirAvisoDeSaida(), isNull);
+  });
 }

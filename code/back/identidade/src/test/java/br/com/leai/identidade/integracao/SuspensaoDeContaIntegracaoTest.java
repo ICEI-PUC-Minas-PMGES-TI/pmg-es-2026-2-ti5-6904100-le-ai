@@ -6,10 +6,16 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
+import javax.sql.DataSource;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
@@ -49,6 +55,7 @@ class SuspensaoDeContaIntegracaoTest extends IntegracaoComPostgres {
   @Autowired private ObjectMapper objectMapper;
   @Autowired private JdbcTemplate jdbc;
   @Autowired private JwtEncoder jwtEncoder;
+  @Autowired private DataSource dataSource;
 
   private record Leitor(String username, UUID id) {}
 
@@ -411,8 +418,9 @@ class SuspensaoDeContaIntegracaoTest extends IntegracaoComPostgres {
     String refresh = sessao(alvo).get("refreshToken").asString();
     assertThat(renovar(refresh).statusCode()).isEqualTo(200);
   }
+
   @Test
-  @DisplayName("reativar apaga as renovações revogadas: o token antigo é 401 comum, sem alarme de reuso")
+  @DisplayName("reativar apaga as renovações revogadas pela suspensão: o token antigo é 401 comum, sem alarme de reuso")
   void tokenAntigoDepoisDaReativacao(CapturedOutput saida) {
     Leitor alvo = novoLeitor();
     String antigo = sessao(alvo).get("refreshToken").asString();
@@ -429,10 +437,100 @@ class SuspensaoDeContaIntegracaoTest extends IntegracaoComPostgres {
   }
 
   @Test
+  @DisplayName("reativar mantém as renovações revogadas antes da suspensão: o reuso delas ainda alarma")
+  void reusoAnteriorAhSuspensaoContinuaDetectado(CapturedOutput saida) {
+    Leitor alvo = novoLeitor();
+    String rotacionado = sessao(alvo).get("refreshToken").asString();
+    HttpResponse<String> rotacao = renovar(rotacionado);
+    assertThat(rotacao.statusCode()).isEqualTo(200);
+    suspender(alvo.id());
+    reativar(alvo.id());
+    String novo = sessao(alvo).get("refreshToken").asString();
+
+    HttpResponse<String> reuso = renovar(rotacionado);
+
+    assertThat(reuso.statusCode()).isEqualTo(401);
+    assertThat(saida.getOut()).contains("Reuso de token de renovação revogado");
+    // RNF-SEC-30: o reuso derruba as sessões da conta, inclusive a aberta depois da reativação.
+    assertThat(renovar(novo).statusCode()).isEqualTo(401);
+  }
+
+  @Test
+  @DisplayName("login no meio da suspensão espera ela commitar e recebe 403, sem sessão viva")
+  void loginNoMeioDaSuspensao() throws Exception {
+    Leitor alvo = novoLeitor();
+    HttpResponse<String> login =
+        duranteASuspensaoNaoCommitada(alvo.id(), () -> entrar(alvo.username(), SENHA));
+    assertThat(login.statusCode()).isEqualTo(403);
+    assertThat(codigo(login)).isEqualTo("CONTA_SUSPENSA");
+    assertThat(renovacoesAtivas(alvo.id())).isZero();
+  }
+
+  @Test
+  @DisplayName("renovação no meio da suspensão espera ela commitar e recebe 403, sem sessão viva")
+  void renovacaoNoMeioDaSuspensao() throws Exception {
+    Leitor alvo = novoLeitor();
+    String refresh = sessao(alvo).get("refreshToken").asString();
+    HttpResponse<String> renovacao =
+        duranteASuspensaoNaoCommitada(alvo.id(), () -> renovar(refresh));
+    assertThat(renovacao.statusCode()).isEqualTo(403);
+    assertThat(codigo(renovacao)).isEqualTo("CONTA_SUSPENSA");
+    assertThat(renovacoesAtivas(alvo.id())).isZero();
+  }
+
+  /**
+   * Reproduz a corrida: a suspensão marca a conta numa transação aberta, a requisição corre
+   * junto, e só depois de ela travar na conta a suspensão revoga as renovações e commita, na ordem
+   * do ServicoDeSuspensao. Sem a trava, a requisição não espera e emite sessão que sobrevive.
+   */
+  private HttpResponse<String> duranteASuspensaoNaoCommitada(
+      UUID alvo, Supplier<HttpResponse<String>> requisicao) throws Exception {
+    CompletableFuture<HttpResponse<String>> resposta;
+    try (Connection conexao = dataSource.getConnection()) {
+      conexao.setAutoCommit(false);
+      try (PreparedStatement marca =
+          conexao.prepareStatement(
+              "UPDATE usuario SET suspenso = true, suspenso_em = now() WHERE id = ?")) {
+        marca.setObject(1, alvo);
+        marca.executeUpdate();
+      }
+      resposta = CompletableFuture.supplyAsync(requisicao);
+      boolean travou = esperarAlguemTravado(resposta);
+      try (PreparedStatement revoga =
+          conexao.prepareStatement(
+              "UPDATE refresh_token SET revogado = true, revogado_em = now()"
+                  + " WHERE usuario_id = ? AND revogado = false")) {
+        revoga.setObject(1, alvo);
+        revoga.executeUpdate();
+      }
+      conexao.commit();
+      assertThat(travou).as("a requisição precisa esperar a suspensão na trava da conta").isTrue();
+    }
+    return resposta.get(15, TimeUnit.SECONDS);
+  }
+
+  private boolean esperarAlguemTravado(CompletableFuture<?> resposta) throws InterruptedException {
+    long limite = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+    while (System.nanoTime() < limite && !resposta.isDone()) {
+      Integer travados =
+          jdbc.queryForObject(
+              "SELECT count(*) FROM pg_stat_activity"
+                  + " WHERE datname = current_database() AND wait_event_type = 'Lock'",
+              Integer.class);
+      if (travados != null && travados > 0) {
+        return true;
+      }
+      Thread.sleep(25);
+    }
+    return false;
+  }
+
+  @Test
   @DisplayName("contadores do perfil não contam conta suspensa e voltam a contar na reativação")
   void contadoresSemContaSuspensa() {
     Leitor alvo = novoLeitor();
     Leitor seguidor = novoLeitor();
+    Leitor terceiro = novoLeitor();
     String acessoDoSeguidor = sessao(seguidor).get("accessToken").asString();
     enviar(
         HttpRequest.newBuilder(uri("/perfis/" + alvo.username() + "/seguir"))
@@ -441,21 +539,35 @@ class SuspensaoDeContaIntegracaoTest extends IntegracaoComPostgres {
             .POST(HttpRequest.BodyPublishers.noBody())
             .build());
     String acessoDoAlvo = sessao(alvo).get("accessToken").asString();
+    String acessoDoTerceiro = sessao(terceiro).get("accessToken").asString();
 
-    assertThat(seguidores(acessoDoAlvo)).isEqualTo(1);
+    assertThat(contador(acessoDoAlvo, "/me/perfil", "seguidores")).isEqualTo(1);
+    assertThat(contador(acessoDoSeguidor, "/me/perfil", "seguidos")).isEqualTo(1);
+    String perfilDoAlvo = "/perfis/" + alvo.username();
+    String perfilDoSeguidor = "/perfis/" + seguidor.username();
+    assertThat(contador(acessoDoTerceiro, perfilDoAlvo, "seguidores")).isEqualTo(1);
+
     suspender(seguidor.id());
-    assertThat(seguidores(acessoDoAlvo)).isZero();
+    assertThat(contador(acessoDoAlvo, "/me/perfil", "seguidores")).isZero();
+    assertThat(contador(acessoDoTerceiro, perfilDoAlvo, "seguidores")).isZero();
+    // O próprio suspenso, enquanto o token de acesso vale, vê os números dele (o outro lado está
+    // visível), como nas listas de /me/seguidos.
+    assertThat(contador(acessoDoSeguidor, "/me/perfil", "seguidos")).isEqualTo(1);
+
     reativar(seguidor.id());
-    assertThat(seguidores(acessoDoAlvo)).isEqualTo(1);
+    assertThat(contador(acessoDoAlvo, "/me/perfil", "seguidores")).isEqualTo(1);
+    assertThat(contador(acessoDoTerceiro, perfilDoAlvo, "seguidores")).isEqualTo(1);
+    assertThat(contador(acessoDoTerceiro, perfilDoSeguidor, "seguidos")).isEqualTo(1);
   }
 
-  private long seguidores(String acesso) {
+  private long contador(String acesso, String rota, String qual) {
     HttpResponse<String> perfil =
         enviar(
-            HttpRequest.newBuilder(uri("/me/perfil"))
+            HttpRequest.newBuilder(uri(rota))
                 .header("Authorization", "Bearer " + acesso)
                 .GET()
                 .build());
-    return objectMapper.readTree(perfil.body()).get("contadores").get("seguidores").asLong();
+    assertThat(perfil.statusCode()).isEqualTo(200);
+    return objectMapper.readTree(perfil.body()).get("contadores").get(qual).asLong();
   }
 }

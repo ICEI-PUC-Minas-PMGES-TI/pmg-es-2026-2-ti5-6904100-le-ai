@@ -44,9 +44,10 @@ const contaSuspensa = ref<'sessao' | 'login' | null>(null)
 const bannerDaSuspensao = ref<InstanceType<typeof BannerContaSuspensa> | null>(null)
 
 onMounted(() => {
-  // Consome o motivo mesmo quando veio pela URL: o banner aparece uma vez só.
-  const motivo = consumirMotivoDoFimDeSessao()
-  if (route.query.motivo === 'suspensa' || motivo === 'suspensa') {
+  // Consome o motivo: o banner aparece uma vez só. Vale só o motivo que esta aba guardou ao
+  // encerrar a sessão; o `?motivo=suspensa` da URL sozinho não mostra o banner (um link assim
+  // assustaria quem nunca foi suspenso). Revisão de 06/11/2026.
+  if (consumirMotivoDoFimDeSessao() === 'suspensa') {
     contaSuspensa.value = 'sessao'
   }
   // Tira o motivo da URL: recarregar ou voltar pelo histórico não repete o banner.

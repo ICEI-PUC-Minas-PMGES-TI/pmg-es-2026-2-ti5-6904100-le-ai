@@ -164,7 +164,8 @@ class SessionController extends ChangeNotifier {
   /// F-MOD-OPC: o aviso é gravado **antes** de [sair], porque o `notifyListeners` de [sair] pode
   /// levar ao login antes de o aviso existir. Não liga [saindoPorExpiracao]: o ouvinte da sessão
   /// de leitura (`features/sessao/sessao_controller.dart`) só troca o aviso nesse caso, então o de
-  /// suspensão fica. A sessão de leitura em curso é descartada em silêncio (consequência aceita).
+  /// suspensão fica. A sessão de leitura em curso é descartada, e o ouvinte dela marca
+  /// [avisarLeituraDescartada] para o banner do login avisar o descarte.
   Future<void> _sairPorSuspensao() async {
     avisarSaida(avisoDeContaSuspensa);
     _saindoPorSuspensao = true;
@@ -173,6 +174,17 @@ class SessionController extends ChangeNotifier {
     } finally {
       _saindoPorSuspensao = false;
     }
+  }
+
+  /// F-MOD-OPC: saída pela suspensão pedida de fora da renovação, quando uma chamada autenticada
+  /// recebe o 403 [codigoContaSuspensa] dentro dos 15 minutos do token de acesso (por exemplo, o
+  /// pedido de exclusão de conta). Sem sessão, não faz nada: não sai duas vezes nem troca o aviso.
+  Future<void> encerrarPorSuspensao() async {
+    await _renovacaoEmCurso;
+    if (_token == null) {
+      return;
+    }
+    await _sairPorSuspensao();
   }
 
   /// Verdadeiro só durante a saída pela suspensão: o ouvinte da sessão de leitura usa para avisar

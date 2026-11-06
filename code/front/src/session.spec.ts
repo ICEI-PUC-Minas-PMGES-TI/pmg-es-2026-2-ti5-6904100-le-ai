@@ -177,6 +177,17 @@ describe('papel do token (F-MOD)', () => {
     expect(motivoDoFimDeSessao()).toBe('suspensa')
   })
 
+  it('F-MOD-OPC: a remoção da chave comum por outra aba não apaga o motivo desta (revisão, 06/11/2026)', () => {
+    initializeSession()
+    iniciarSessao({ accessToken: 'jwt', refreshToken: 'r' }, USUARIO)
+
+    window.dispatchEvent(new StorageEvent('storage', { key: 'le-ai-fim-de-sessao', newValue: 'suspensa' }))
+    window.dispatchEvent(new StorageEvent('storage', { key: 'le-ai-fim-de-sessao', newValue: null }))
+
+    expect(consumirMotivoDoFimDeSessao()).toBe('suspensa')
+    expect(consumirMotivoDoFimDeSessao()).toBeNull()
+  })
+
   it('F-MOD-OPC: o motivo é consumido uma vez, e o logout manual e o login novo não o trazem', () => {
     iniciarSessao({ accessToken: 'jwt', refreshToken: 'r' }, USUARIO)
     encerrarSessao({ motivo: 'suspensa' })

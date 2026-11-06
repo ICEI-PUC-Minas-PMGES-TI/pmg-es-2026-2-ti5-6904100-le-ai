@@ -48,7 +48,10 @@ x-database-contracts:
       as rotas HTTP tratam como inexistentes: conhecer o id não contorna a
       ocultação. `opt_out_recomendacao` é extensão prevista para F-REC-ALG, fora
       das rotas HTTP do Período 1 (hoje sempre `false`). Mudança incompatível
-      nasce como `v2`, sem alterar esta.
+      nasce como `v2`, sem alterar esta. Desde a F-MOD-OPC (06/11/2026), a VIEW
+      `leitura.v_resenha_publicacao_v1` depende desta no próprio banco: `DROP`
+      desta VIEW falha, `DROP ... CASCADE` derruba a do `leitura` sem aviso, e
+      recriá-la mudando coluna exige recriar a do `leitura` junto.
     consumers: [acervo, leitura, social]
     columns:
       - { name: id, type: uuid, nullable: false }
@@ -659,6 +662,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/EstadoDaSuspensao'
+        '400':
+          $ref: '#/components/responses/RequisicaoInvalida'
         '401':
           $ref: '#/components/responses/NaoAutenticado'
         '403':
@@ -695,6 +700,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/EstadoDaSuspensao'
+        '400':
+          $ref: '#/components/responses/RequisicaoInvalida'
         '401':
           $ref: '#/components/responses/NaoAutenticado'
         '403':

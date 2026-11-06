@@ -145,13 +145,16 @@ class _LoginPageState extends State<LoginPage> {
     setState(() {
       _bannerErro = null;
       _bordaDeErroCredencial = false;
-      _suspensaComSessaoEncerrada = null;
     });
     if (!_validarCliente()) {
+      // O banner de sessão encerrada por suspensão fica: nada foi ao servidor ainda.
       return;
     }
 
-    setState(() => _enviando = true);
+    setState(() {
+      _suspensaComSessaoEncerrada = null;
+      _enviando = true;
+    });
     try {
       final resultado = await widget.authService.entrar(
         identificador: _identificadorController.text.trim(),

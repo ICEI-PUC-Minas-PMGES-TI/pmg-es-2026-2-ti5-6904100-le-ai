@@ -5,7 +5,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import { acessoDeRecuperacao } from '../../contaEmExclusao'
 import { ApiError } from '../../services/api'
 import { authService } from '../../services/auth'
-import { encerrarSessao, getToken, useSession } from '../../session'
+import { encerrarSessao, getToken, initializeSession, useSession } from '../../session'
 import LoginView from './LoginView.vue'
 
 vi.mock('../../services/auth', () => ({
@@ -227,6 +227,34 @@ describe('LoginView', () => {
     await segundo.router.push('/login')
     await flushPromises()
     expect(segundo.wrapper.text()).not.toContain('suspensa')
+  })
+
+  it('/login?motivo=suspensa aberto sem sessão encerrada não mostra o banner (revisão, 06/11/2026)', async () => {
+    sessionStorage.clear()
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/login', component: LoginView }],
+    })
+    await router.push('/login?motivo=suspensa')
+    const wrapper = mount(LoginView, { global: { plugins: [router] } })
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('suspensa')
+    expect(router.currentRoute.value.fullPath).toBe('/login')
+  })
+
+  it('outra aba: o banner aparece mesmo depois de a primeira consumir a chave comum', async () => {
+    sessionStorage.clear()
+    initializeSession()
+    // A outra aba suspensa grava o motivo; esta recebe o evento e guarda a cópia dela.
+    window.dispatchEvent(new StorageEvent('storage', { key: 'le-ai-fim-de-sessao', newValue: 'suspensa' }))
+    // A primeira aba abre o login e consome a chave comum; o evento de remoção chega aqui.
+    window.dispatchEvent(new StorageEvent('storage', { key: 'le-ai-fim-de-sessao', newValue: null }))
+    const { wrapper, router } = montarComRouter()
+    await router.push('/login?motivo=suspensa')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Sua sessão foi encerrada porque esta conta foi suspensa.')
   })
 
   it('logout manual e exclusão de conta não mostram o banner', async () => {

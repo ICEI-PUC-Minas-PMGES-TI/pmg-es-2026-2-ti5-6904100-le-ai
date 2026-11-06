@@ -246,6 +246,52 @@ class OcultacaoDeContaSuspensaIntegracaoTest extends IntegracaoComPostgres {
         .isEqualTo("Concordo com @suspensa e com @terceira.");
   }
 
+  @Test
+  @DisplayName("Editar comentário com menção a conta suspensa mantém a menção, na posição nova")
+  void edicaoMantemMencaoOculta() throws Exception {
+    HttpResponse<String> criado =
+        enviar(
+            HttpRequest.newBuilder(uri("/atividades/" + atividade + "/comentarios"))
+                .header("Authorization", "Bearer " + token(leitora))
+                .header("Content-Type", "application/json")
+                .header("Idempotency-Key", UUID.randomUUID().toString())
+                .POST(
+                    HttpRequest.BodyPublishers.ofString(
+                        json.writeValueAsString(Map.of("texto", "Oi @suspensa"))))
+                .build());
+    assertThat(criado.statusCode()).as(criado.body()).isEqualTo(201);
+    String id = corpo(criado).get("id").asString();
+    base.suspender(suspensa);
+    long eventosAntes = massa.contar("SELECT count(*) FROM outbox_social");
+
+    HttpResponse<String> editado =
+        enviar(
+            HttpRequest.newBuilder(uri("/comentarios/" + id))
+                .header("Authorization", "Bearer " + token(leitora))
+                .header("Content-Type", "application/json")
+                .header("Idempotency-Key", UUID.randomUUID().toString())
+                .method(
+                    "PATCH",
+                    HttpRequest.BodyPublishers.ofString(
+                        json.writeValueAsString(
+                            Map.of("texto", "Olá de novo, @SUSPENSA e @terceira!"))))
+                .build());
+    assertThat(editado.statusCode()).as(editado.body()).isEqualTo(200);
+
+    JsonNode durante = comentarioPorId(id, dona);
+    assertThat(durante.get("texto").asString()).isEqualTo("Olá de novo, um leitor e @terceira!");
+    assertThat(durante.get("mencoes")).hasSize(1);
+    // Só a menção nova à terceira notifica; a conta suspensa não recebe nada.
+    assertThat(massa.contar("SELECT count(*) FROM outbox_social")).isEqualTo(eventosAntes + 1);
+
+    base.reativar(suspensa);
+    JsonNode depois = comentarioPorId(id, dona);
+    assertThat(depois.get("texto").asString()).isEqualTo("Olá de novo, @SUSPENSA e @terceira!");
+    assertThat(depois.get("mencoes")).extracting(m -> m.get("username").asString())
+        .containsExactly("suspensa", "terceira");
+    assertThat(depois.get("mencoes").get(0).get("posicao").asInt()).isEqualTo(13);
+  }
+
   private long totalCurtidas(UUID quem) throws Exception {
     return corpo(get("/atividades/" + atividade, quem)).get("totalCurtidas").asLong();
   }

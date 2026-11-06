@@ -52,6 +52,15 @@ const naoConfirmada = computed(() =>
     : 'A reativação não foi confirmada a tempo. A conta continua suspensa. Tente de novo: se a reativação já tiver acontecido, ela não é aplicada duas vezes.',
 )
 
+// perfil-de-outro-leitor.md §9: a consequência descreve o dialog, e o confirmar desabilitado diz
+// por que está indisponível (revisão de 06/11/2026).
+const idConsequencia = `${idCampo}-consequencia`
+const idIndisponivel = `${idCampo}-indisponivel`
+const indisponivel = computed(() => !podeConfirmar.value && !enviando.value)
+const motivoDaIndisponibilidade = computed(() =>
+  excede.value ? 'Use até 500 caracteres para continuar.' : 'Escreva o motivo para continuar.',
+)
+
 function fechar(): void {
   if (!enviando.value) {
     emit('fechar')
@@ -71,6 +80,7 @@ async function confirmar(): Promise<void> {
     :aberta="true"
     :rotulo="titulo"
     foco-inicial="textarea"
+    :id-da-descricao="idConsequencia"
     @fechar="fechar"
   >
     <h2 class="text-title-sm text-tinta">
@@ -96,7 +106,10 @@ async function confirmar(): Promise<void> {
         </p>
       </div>
     </div>
-    <p class="mt-space-3 text-body text-grafite">
+    <p
+      :id="idConsequencia"
+      class="mt-space-3 text-body text-grafite"
+    >
       {{ consequencia }}
     </p>
 
@@ -153,14 +166,19 @@ async function confirmar(): Promise<void> {
       >
         Cancelar
       </BotaoTextual>
+      <span
+        :id="idIndisponivel"
+        class="sr-only"
+      >{{ motivoDaIndisponibilidade }}</span>
       <button
         v-if="suspender"
         type="button"
         data-confirmar
-        :disabled="!podeConfirmar && !enviando"
+        :disabled="indisponivel"
+        :aria-describedby="indisponivel ? idIndisponivel : undefined"
         :aria-busy="enviando ? 'true' : undefined"
         class="inline-flex h-12 w-full items-center justify-center gap-space-2 whitespace-nowrap rounded-base border border-rubi bg-transparent px-space-5 text-body-strong text-rubi transition-colors duration-dur-fast focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo enabled:hover:bg-rubi-fundo disabled:cursor-not-allowed md:h-10 md:w-auto"
-        :class="!podeConfirmar && !enviando ? 'opacity-40' : ''"
+        :class="indisponivel ? 'opacity-40' : ''"
         @click="confirmar"
       >
         <PhProhibit
@@ -174,10 +192,11 @@ async function confirmar(): Promise<void> {
         v-else
         type="button"
         data-confirmar
-        :disabled="!podeConfirmar && !enviando"
+        :disabled="indisponivel"
+        :aria-describedby="indisponivel ? idIndisponivel : undefined"
         :aria-busy="enviando ? 'true' : undefined"
         class="inline-flex h-12 w-full items-center justify-center gap-space-2 whitespace-nowrap rounded-full bg-musgo px-space-5 text-body-strong text-papel transition-colors duration-dur-fast focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo disabled:cursor-not-allowed md:h-10 md:w-auto"
-        :class="!podeConfirmar && !enviando ? 'opacity-40' : ''"
+        :class="indisponivel ? 'opacity-40' : ''"
         @click="confirmar"
       >
         <PhArrowCounterClockwise

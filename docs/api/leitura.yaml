@@ -30,7 +30,16 @@ x-database-contracts:
       Desde 26/09/2026 o feed (social) também lê texto, spoiler e nota por
       esta VIEW, o que contraria a arquitetura §3.2 item 4 ("o feed guarda
       snapshot"); a decisão está pendente com o grupo (feature-F-AVA.md).
-      As colunas não mudam enquanto isso.
+      As colunas não mudam enquanto isso. Desde a F-MOD-OPC (migration 0007,
+      06/11/2026), curtidas e descurtidas contam só as reações ativas de
+      contas visíveis: a reação de conta suspensa ou com exclusão pendente
+      fica gravada, mas sai da contagem até a reativação. Para isso a VIEW
+      depende, no próprio banco, de identidade.v_perfil_referencia_v1 (a
+      primeira dependência de schema para schema entre migrations): o
+      identidade não consegue dar DROP nessa VIEW nem recriá-la mudando
+      nome ou tipo de coluna sem recriar esta junto; um DROP ... CASCADE
+      derruba esta VIEW sem aviso (e o journal do drizzle não a recria); e
+      num banco novo o identidade precisa migrar antes do leitura.
     columns: [resenha_id, usuario_id, livro_id, texto, spoiler, criado_em, atualizado_em, curtidas, descurtidas]
   - name: v_reacao_resenha_v1
     x-implementation-status: implemented

@@ -63,6 +63,7 @@ const faixa = computed(() => {
       </span>
       <button
         type="button"
+        data-reativar
         class="mt-space-6 inline-flex h-12 w-full items-center justify-center gap-space-2 rounded-base border border-linha text-body-strong text-tinta transition-colors duration-dur-fast hover:bg-papel-elevado focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo md:h-10"
         @click="$emit('reativar')"
       >

@@ -50,6 +50,38 @@ export const STORAGE_KEY = 'le-ai-sessao'
 export const CHAVE_DO_FIM_DE_SESSAO = 'le-ai-fim-de-sessao'
 export type MotivoDoFimDeSessao = 'suspensa'
 
+/**
+ * Cópia do motivo no `sessionStorage` desta aba (revisão de 06/11/2026). A chave do
+ * `localStorage` é de todas as abas: a primeira que abre o login a consome, e o evento de remoção
+ * apagaria o motivo das outras antes de o login delas montar. A cópia por aba sobrevive a isso, e
+ * é só o que o login aceita: `/login?motivo=suspensa` aberto do nada não mostra o banner.
+ */
+const CHAVE_DO_FIM_NESTA_ABA = 'le-ai-fim-de-sessao-aba'
+
+function gravarMotivoNestaAba(motivo: MotivoDoFimDeSessao): void {
+  try {
+    window.sessionStorage.setItem(CHAVE_DO_FIM_NESTA_ABA, motivo)
+  } catch {
+    // Armazenamento bloqueado: fica o motivo em memória.
+  }
+}
+
+function motivoNestaAba(): MotivoDoFimDeSessao | null {
+  try {
+    return window.sessionStorage.getItem(CHAVE_DO_FIM_NESTA_ABA) === 'suspensa' ? 'suspensa' : null
+  } catch {
+    return null
+  }
+}
+
+function apagarMotivoNestaAba(): void {
+  try {
+    window.sessionStorage.removeItem(CHAVE_DO_FIM_NESTA_ABA)
+  } catch {
+    // Nada a apagar.
+  }
+}
+
 const token = ref<string | null>(null)
 const motivoDoFim = ref<MotivoDoFimDeSessao | null>(null)
 const refreshToken = ref<string | null>(null)
@@ -130,6 +162,9 @@ export function initializeSession(): void {
     window.addEventListener('storage', (evento) => {
       if (evento.key === CHAVE_DO_FIM_DE_SESSAO) {
         motivoDoFim.value = evento.newValue === 'suspensa' ? 'suspensa' : null
+        if (motivoDoFim.value) {
+          gravarMotivoNestaAba(motivoDoFim.value)
+        }
         return
       }
       // `key === null` é o `localStorage.clear()` de outra aba.
@@ -178,6 +213,7 @@ export function sincronizarComArmazenamento(): void {
 export function encerrarSessao(opcoes: { motivo?: MotivoDoFimDeSessao } = {}): void {
   if (opcoes.motivo) {
     motivoDoFim.value = opcoes.motivo
+    gravarMotivoNestaAba(opcoes.motivo)
     window.localStorage.setItem(CHAVE_DO_FIM_DE_SESSAO, opcoes.motivo)
   }
   aplicar(null)
@@ -189,7 +225,10 @@ export function motivoDoFimDeSessao(): MotivoDoFimDeSessao | null {
   if (motivoDoFim.value) {
     return motivoDoFim.value
   }
-  return window.localStorage.getItem(CHAVE_DO_FIM_DE_SESSAO) === 'suspensa' ? 'suspensa' : null
+  if (window.localStorage.getItem(CHAVE_DO_FIM_DE_SESSAO) === 'suspensa') {
+    return 'suspensa'
+  }
+  return motivoNestaAba()
 }
 
 /** Lê e apaga o motivo: o banner aparece uma vez, no login que a sessão encerrada abriu. */
@@ -201,6 +240,7 @@ export function consumirMotivoDoFimDeSessao(): MotivoDoFimDeSessao | null {
 
 function descartarMotivoDoFim(): void {
   motivoDoFim.value = null
+  apagarMotivoNestaAba()
   window.localStorage.removeItem(CHAVE_DO_FIM_DE_SESSAO)
 }
 

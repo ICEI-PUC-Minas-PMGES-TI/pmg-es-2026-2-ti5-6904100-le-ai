@@ -8,7 +8,7 @@
 |---|---|---|
 | 1. Planejar | concluída em 05/11/2026, revisada em duas rodadas (15 + 9 achados) | [`plano-F-MOD-OPC.md`](plano-F-MOD-OPC.md) nesta pasta |
 | 2. Realizar | concluída em 05/11/2026 | commits `feat(back)` e `feat(clientes)` na `renato-features` + [PR #61](https://github.com/ICEI-PUC-Minas-PMGES-TI/pmg-es-2026-2-ti5-6904100-le-ai/pull/61) |
-| 3. Validar | validação e teste manual concluídos em 06/11/2026; débitos da feature fechados no mesmo dia, **falta revisá-los com contexto limpo** (etapa 3b); DES só no fechamento de novembro | 4 validadores de contexto limpo, commit `fix` com as correções, teste manual em web e app; commit `fix: débitos da F-MOD-OPC` (`e566229`) e migration `0007` do `leitura` aplicada no dev |
+| 3. Validar | validação e teste manual concluídos em 06/11/2026; débitos da feature fechados no mesmo dia; etapa 3b ampliada para a feature inteira (`7411f07..HEAD`) e revisada em 06/11/2026 por 5 agentes de contexto limpo: testes verdes em todas as camadas, nenhum achado alto, 4 médios e ~15 baixos, corrigidos no mesmo dia (commit `fix: correções da revisão da F-MOD-OPC`); **falta o OK do dono à migration `V20261106130000` do `identidade` antes de aplicá-la no dev**; DES só no fechamento de novembro | 4 validadores de contexto limpo, commit `fix` com as correções, teste manual em web e app; commit `fix: débitos da F-MOD-OPC` (`e566229`) e migration `0007` do `leitura` aplicada no dev |
 
 Quem terminar uma etapa atualiza esta tabela (situação e data).
 

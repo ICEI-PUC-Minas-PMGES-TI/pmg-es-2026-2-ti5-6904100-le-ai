@@ -50,6 +50,24 @@ describe('DialogoSuspensao', () => {
     expect(confirmar(tela).attributes('disabled')).toBeDefined()
   })
 
+  it('a consequência descreve o dialog e o confirmar desabilitado diz o porquê (§9, revisão de 06/11/2026)', async () => {
+    const { tela } = montar()
+    await flushPromises()
+
+    const dialogo = tela.get('[role="dialog"]')
+    const consequencia = document.getElementById(dialogo.attributes('aria-describedby')!)
+    expect(consequencia?.textContent).toContain('Sérgio deixa de conseguir entrar no Lê Ai')
+
+    const porque = () => document.getElementById(confirmar(tela).attributes('aria-describedby') ?? '')?.textContent
+    expect(porque()).toBe('Escreva o motivo para continuar.')
+
+    await tela.get('textarea').setValue('😀'.repeat(501))
+    expect(porque()).toBe('Use até 500 caracteres para continuar.')
+
+    await tela.get('textarea').setValue('Ataques pessoais repetidos.')
+    expect(confirmar(tela).attributes('aria-describedby')).toBeUndefined()
+  })
+
   it('acima de 500 caracteres o contador e o helper avisam e o confirmar fica desabilitado', async () => {
     const { tela } = montar()
     await tela.get('textarea').setValue('😀'.repeat(501))

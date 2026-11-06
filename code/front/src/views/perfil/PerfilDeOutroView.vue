@@ -10,7 +10,7 @@ import {
   PhUserCircle,
   PhUserPlus,
 } from '@phosphor-icons/vue'
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import CardEstante from '../../components/estante/CardEstante.vue'
@@ -85,7 +85,15 @@ const username = computed(() => String(route.params.username ?? ''))
 const nome = computed(() => (perfil.value ? primeiroNome(perfil.value.displayName) : ''))
 const privado = computed(() => perfil.value?.privacidade === 'privado')
 
+/**
+ * Cada carga leva um número; a resposta de uma carga que já não é a última (o username mudou no
+ * meio) é descartada, para não pintar a conta de um username na URL de outro.
+ */
+let cargaAtual = 0
+
 async function carregar(): Promise<void> {
+  const carga = ++cargaAtual
+  const atual = () => carga === cargaAtual
   carregando.value = true
   naoEncontrado.value = false
   falhou.value = false
@@ -93,33 +101,80 @@ async function carregar(): Promise<void> {
   contaSuspensa.value = null
   try {
     const encontrado = await perfilService.obterPerfil(username.value)
+    if (!atual()) {
+      return
+    }
     if (encontrado.relacao === 'proprio') {
       await router.replace('/perfil')
       return
     }
     perfil.value = encontrado
   } catch (erro) {
-    if (erro instanceof ApiError && erro.status === 404) {
+    if (!atual()) {
+      return
+    }
+    if (erro instanceof ApiError && erro.status === 404 && ehAdmin.value) {
       // Para o admin, o 404 pode ser uma conta suspensa: o painel a enxerga pela VIEW da moderação.
-      contaSuspensa.value = ehAdmin.value ? await contaSuspensaPeloAdmin() : null
-      naoEncontrado.value = contaSuspensa.value === null
+      const consulta = await contaSuspensaPeloAdmin()
+      if (!atual()) {
+        return
+      }
+      if (consulta === 'falhou') {
+        falhou.value = true
+      } else {
+        contaSuspensa.value = consulta
+        naoEncontrado.value = consulta === null
+      }
+    } else if (erro instanceof ApiError && erro.status === 404) {
+      naoEncontrado.value = true
     } else {
       falhou.value = true
     }
   } finally {
-    carregando.value = false
+    if (atual()) {
+      carregando.value = false
+    }
   }
 }
 
 watch(username, () => void carregar(), { immediate: true })
 
-async function contaSuspensaPeloAdmin(): Promise<ContaDaModeracao | null> {
+/**
+ * A conta suspensa, `null` quando não há conta suspensa com esse username (404 ou conta ativa), e
+ * `'falhou'` em qualquer outro erro: o `social` fora ou acordando não pode virar "Perfil não
+ * encontrado", que tiraria do admin o `Reativar conta` (revisão de 06/11/2026).
+ */
+async function contaSuspensaPeloAdmin(): Promise<ContaDaModeracao | null | 'falhou'> {
   try {
     const conta = await moderacaoService.contaPorUsername(username.value)
     return conta.suspensa ? conta : null
-  } catch {
-    return null
+  } catch (erro) {
+    return erro instanceof ApiError && erro.status === 404 ? null : 'falhou'
   }
+}
+
+/**
+ * O item do menu que abriu o dialog some do DOM, e o foco cairia no `body`: ele volta ao
+ * `DotsThree` (§9), como no painel. Depois de suspender, o `DotsThree` dá lugar à visão da conta
+ * suspensa, e o foco vai ao `Reativar conta` dela, a ação que a substitui. Revisão de 06/11/2026.
+ */
+const menuDeModeracao = ref<HTMLElement | null>(null)
+const visaoDaContaSuspensa = ref<InstanceType<typeof ContaSuspensaDoAdmin> | null>(null)
+
+async function focarAcaoDaConta(): Promise<void> {
+  await nextTick()
+  const menu = menuDeModeracao.value?.querySelector<HTMLButtonElement>('button')
+  if (menu) {
+    menu.focus()
+    return
+  }
+  const raiz = visaoDaContaSuspensa.value?.$el as HTMLElement | undefined
+  raiz?.querySelector<HTMLButtonElement>('[data-reativar]')?.focus()
+}
+
+function fecharDialogoDeConta(): void {
+  dialogoDeConta.value = null
+  void focarAcaoDaConta()
 }
 
 /** Sem estado otimista: a página só muda depois da confirmação, recarregando o perfil. */
@@ -133,6 +188,7 @@ async function contaConfirmada(conta: ContaModerada): Promise<void> {
       }
     : { texto: `Conta de ${nomeDaConta} reativada.`, icone: PhArrowCounterClockwise }
   await carregar()
+  await focarAcaoDaConta()
 }
 
 const estante = useEstante((filtro) => leituraService.listarEstantePerfil(perfil.value?.id ?? '', filtro))
@@ -265,6 +321,7 @@ const textoDaConfirmacao = computed(() =>
 
     <ContaSuspensaDoAdmin
       v-else-if="contaSuspensa"
+      ref="visaoDaContaSuspensa"
       :conta="contaSuspensa"
       @reativar="dialogoDeConta = 'reativar'"
     />
@@ -290,6 +347,7 @@ const textoDaConfirmacao = computed(() =>
          então o botão fica no topo do conteúdo, alinhado à direita. -->
     <div
       v-if="ehAdmin && perfil && !carregando && !naoEncontrado && !contaSuspensa && !falhou"
+      ref="menuDeModeracao"
       class="-mt-space-2 mb-space-2 flex justify-end"
     >
       <MenuDeAcoes
@@ -572,7 +630,7 @@ const textoDaConfirmacao = computed(() =>
       :acao="dialogoDeConta"
       :usuario-id="contaSuspensa?.id ?? perfil!.id"
       :nome="contaSuspensa?.nomeExibicao ?? perfil!.displayName"
-      @fechar="dialogoDeConta = null"
+      @fechar="fecharDialogoDeConta"
       @concluida="contaConfirmada"
     />
     <AvisoFlutuante

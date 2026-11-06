@@ -77,28 +77,38 @@ public class ServicoDeSuspensao {
   @Transactional
   public EstadoDaSuspensaoResposta reativar(UUID usuarioId, UUID adminId) {
     recusarAdmin(usuarioId);
-    List<Instant> reativadoEm =
-        jdbc.query(
-            "UPDATE usuario SET suspenso = false, suspenso_em = NULL, reativado_em = now(),"
-                + " atualizado_em = now()"
-                + " WHERE id = ? AND suspenso AND exclusao_solicitada_em IS NULL"
-                + " RETURNING reativado_em",
-            (rs, linha) -> instante(rs, "reativado_em"),
-            usuarioId);
-    if (reativadoEm.isEmpty()) {
-      return estadoAtual(usuarioId);
-    }
     // As renovações que a suspensão revogou saem: reapresentada depois da reativação, uma delas
     // seria lida como reuso de token vazado, com WARN e as sessões novas derrubadas. Desconhecida,
-    // é o 401 comum de sessão expirada.
+    // é o 401 comum de sessão expirada. Só as revogadas a partir de `suspenso_em` (a suspensão
+    // grava as duas datas com o mesmo now()): as revogadas antes continuam provando reuso.
+    // Antes do UPDATE, que apaga `suspenso_em`; a linha da conta fica travada pelo FOR UPDATE.
+    List<Instant> suspensaDesde =
+        jdbc.query(
+            "SELECT suspenso_em FROM usuario"
+                + " WHERE id = ? AND suspenso AND exclusao_solicitada_em IS NULL FOR UPDATE",
+            (rs, linha) -> instante(rs, "suspenso_em"),
+            usuarioId);
+    if (suspensaDesde.isEmpty()) {
+      return estadoAtual(usuarioId);
+    }
     int apagadas =
-        jdbc.update("DELETE FROM refresh_token WHERE usuario_id = ? AND revogado", usuarioId);
+        jdbc.update(
+            "DELETE FROM refresh_token r USING usuario u"
+                + " WHERE r.usuario_id = u.id AND u.id = ? AND r.revogado"
+                + " AND r.revogado_em >= u.suspenso_em",
+            usuarioId);
+    Instant reativadoEm =
+        jdbc.queryForObject(
+            "UPDATE usuario SET suspenso = false, suspenso_em = NULL, reativado_em = now(),"
+                + " atualizado_em = now() WHERE id = ? RETURNING reativado_em",
+            (rs, linha) -> instante(rs, "reativado_em"),
+            usuarioId);
     log.info(
-        "Conta {} reativada pelo admin {}; {} renovação(ões) revogada(s) apagada(s)",
+        "Conta {} reativada pelo admin {}; {} renovação(ões) revogada(s) pela suspensão apagada(s)",
         usuarioId,
         adminId,
         apagadas);
-    return new EstadoDaSuspensaoResposta(usuarioId, false, null, reativadoEm.getFirst(), true);
+    return new EstadoDaSuspensaoResposta(usuarioId, false, null, reativadoEm, true);
   }
 
   private void recusarAdmin(UUID usuarioId) {

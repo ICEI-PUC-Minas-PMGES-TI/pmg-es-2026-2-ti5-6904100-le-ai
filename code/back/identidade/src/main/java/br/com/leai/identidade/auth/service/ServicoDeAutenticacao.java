@@ -151,8 +151,9 @@ public class ServicoDeAutenticacao {
     controleDeTentativas.registrarSucesso(identificador);
     Usuario usuario = encontrado.get();
     // F-MOD-OPC: só depois de a senha conferir, para não virar oráculo de contas (RNF-SEC-28).
-    // Prevalece sobre a exclusão pendente: a conta suspensa não chega à recuperação.
-    if (usuario.suspenso()) {
+    // Prevalece sobre a exclusão pendente: a conta suspensa não chega à recuperação. Lida de novo
+    // com trava, e não da entidade carregada acima, para não emitir sessão no meio da suspensão.
+    if (repositorio.suspensoComTrava(usuario.id()).orElse(false)) {
       throw erroDeContaSuspensa();
     }
     if (usuario.exclusaoPendente()) {
@@ -175,6 +176,9 @@ public class ServicoDeAutenticacao {
    */
   @Transactional
   public SessaoResposta renovar(RefreshRequisicao requisicao) {
+    // F-MOD-OPC: trava a conta antes de consumir o token, na mesma ordem da suspensão (conta,
+    // depois renovações). Na ordem inversa, as duas transações se esperariam (deadlock).
+    gestorDeRenovacao.donoDe(requisicao.refreshToken()).ifPresent(repositorio::suspensoComTrava);
     UUID usuarioId = gestorDeRenovacao.consumir(requisicao.refreshToken());
     Usuario usuario =
         repositorio

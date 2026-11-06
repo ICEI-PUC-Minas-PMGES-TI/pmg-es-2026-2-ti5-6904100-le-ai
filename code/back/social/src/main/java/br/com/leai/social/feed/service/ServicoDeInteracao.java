@@ -196,9 +196,12 @@ public class ServicoDeInteracao {
         destinatariosNovos(comentario, mencoes, eventos.jaMencionados(comentarioId));
     limiteDeMencionar.registrar(usuarioId, aNotificar.size());
 
+    List<MencaoResolvida> gravadas = new ArrayList<>(mencoes);
+    gravadas.addAll(mencoesOcultasMantidas(comentario, texto));
+
     comentario.editar(texto);
     comentarioRepository.saveAndFlush(comentario);
-    mencaoRepository.substituir(comentarioId, porPosicao(mencoes));
+    mencaoRepository.substituir(comentarioId, porPosicao(gravadas));
     aNotificar.forEach(
         id -> eventos.usuarioMencionado(comentario.atividadeId(), comentarioId, id, usuarioId));
 
@@ -319,6 +322,33 @@ public class ServicoDeInteracao {
     }
     ids.removeAll(jaMencionados);
     return ids;
+  }
+
+  /**
+   * F-MOD-OPC: a menção a conta fora da VIEW de perfil (suspensa ou em exclusão) não se resolve
+   * pelo username, e a edição a apagaria de vez: o texto passaria a mostrar o {@code @username}
+   * cru e a reativação não devolveria o link. Mantém a menção gravada onde o mesmo {@code
+   * @username} continua no texto novo, na posição nova, sem notificar ninguém (a conta está
+   * oculta, e já foi notificada quando mencionada).
+   */
+  private List<MencaoResolvida> mencoesOcultasMantidas(Comentario comentario, String textoNovo) {
+    List<Mencao> antigas =
+        mencaoRepository.porComentarios(List.of(comentario.id())).getOrDefault(comentario.id(), List.of());
+    if (antigas.isEmpty()) {
+      return List.of();
+    }
+    Set<UUID> visiveis = perfis.porIds(antigas.stream().map(Mencao::mencionadoId).toList()).keySet();
+    Map<String, UUID> ocultaPorChave = new HashMap<>();
+    for (Mencao antiga : antigas) {
+      if (visiveis.contains(antiga.mencionadoId())) {
+        continue;
+      }
+      String username = ResolvedorDeMencoes.usernameEm(comentario.texto(), antiga.posicao());
+      if (username != null) {
+        ocultaPorChave.put(PerfisDeReferencia.chave(username), antiga.mencionadoId());
+      }
+    }
+    return ResolvedorDeMencoes.casar(textoNovo, ocultaPorChave);
   }
 
   private static Map<Integer, UUID> porPosicao(List<MencaoResolvida> mencoes) {

@@ -114,6 +114,30 @@ class AppPropertiesTest {
   }
 
   @Test
+  @DisplayName("MODERACAO_TOKEN: vazio sobe, curto não sobe, com 32 caracteres sobe (F-MOD-OPC)")
+  void moderacaoToken() {
+    String[] base = {
+      "leai.service-name=identidade",
+      "leai.db-schema=identidade",
+      "leai.database-url=jdbc:postgresql://localhost:5432/leai",
+      "leai.cors-allowed-origins=http://localhost:5173",
+      "leai.jwt-secret=" + SEGREDO_VALIDO
+    };
+    runner
+        .withPropertyValues(base)
+        .withPropertyValues("leai.moderacao-token=")
+        .run(contexto -> assertThat(contexto).hasNotFailed());
+    runner
+        .withPropertyValues(base)
+        .withPropertyValues("leai.moderacao-token=curto-demais")
+        .run(contexto -> assertThat(contexto).hasFailed());
+    runner
+        .withPropertyValues(base)
+        .withPropertyValues("leai.moderacao-token=" + SEGREDO_VALIDO)
+        .run(contexto -> assertThat(contexto).hasNotFailed());
+  }
+
+  @Test
   @DisplayName("descarta curinga e espaço em branco na lista de origens do CORS")
   void descartaCuringaNasOrigens() {
     AppProperties propriedades =

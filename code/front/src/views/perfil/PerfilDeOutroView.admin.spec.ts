@@ -112,6 +112,88 @@ describe('PerfilDeOutroView, administrador', () => {
     expect(wrapper.text()).toContain('Conta suspensa')
     expect(wrapper.text()).toContain('Motivo registrado')
     expect(document.body.textContent).toContain('Conta de Sérgio Valadares suspensa.')
+    // O DotsThree saiu da página: o foco vai ao `Reativar conta`, e não ao `body` (revisão, 06/11/2026).
+    expect(document.activeElement?.textContent?.trim()).toBe('Reativar conta')
+  })
+
+  it('Cancelar no dialog devolve o foco ao DotsThree (revisão, 06/11/2026)', async () => {
+    const { wrapper } = await montarNaRota('/leitores/svaladares', { admin: true, largo: true })
+    await flushPromises()
+
+    await wrapper.get('[aria-label="Ações de moderação"]').trigger('click')
+    await flushPromises()
+    await wrapper.findAll('[role="menuitem"]').find((b) => b.text() === 'Suspender conta')!.trigger('click')
+    await flushPromises()
+    botaoNoCorpo('Cancelar')!.click()
+    await flushPromises()
+
+    expect(document.body.textContent).not.toContain('Suspender a conta de Sérgio Valadares?')
+    expect(document.activeElement?.getAttribute('aria-label')).toBe('Ações de moderação')
+  })
+
+  it('reativar devolve o foco ao DotsThree do perfil que volta (revisão, 06/11/2026)', async () => {
+    perfis.obterPerfil.mockRejectedValue(naoEncontrado())
+    moderacao.contaPorUsername.mockResolvedValue(SUSPENSA)
+    moderacao.reativarConta.mockResolvedValue({ usuarioId: 'u9', suspensa: false, suspensaEm: null, reativadaEm: '2026-10-12T10:00:00' })
+    await montarNaRota('/leitores/svaladares', { admin: true })
+    await flushPromises()
+
+    perfis.obterPerfil.mockResolvedValue(SERGIO)
+    botaoNoCorpo('Reativar conta')!.click()
+    await flushPromises()
+    const campo = document.body.querySelector('textarea')!
+    campo.value = 'Revisto.'
+    campo.dispatchEvent(new Event('input'))
+    await flushPromises()
+    document.body.querySelector<HTMLButtonElement>('[data-confirmar]')!.click()
+    await flushPromises()
+
+    expect(document.activeElement?.getAttribute('aria-label')).toBe('Ações de moderação')
+  })
+
+  it('falha da consulta da moderação não vira Perfil não encontrado (revisão, 06/11/2026)', async () => {
+    perfis.obterPerfil.mockRejectedValue(naoEncontrado())
+    moderacao.contaPorUsername.mockRejectedValue(new ApiError('Serviço indisponível.', 503, 'SERVICO_INDISPONIVEL'))
+    const { wrapper } = await montarNaRota('/leitores/svaladares', { admin: true })
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('Perfil não encontrado')
+    expect(wrapper.text()).toContain('Não foi possível carregar este perfil.')
+
+    // `Tentar de novo` consulta de novo e, com o social de volta, abre a conta suspensa.
+    moderacao.contaPorUsername.mockResolvedValue(SUSPENSA)
+    await wrapper.findAll('button').find((b) => b.text() === 'Tentar de novo')!.trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Reativar conta')
+  })
+
+  it('falha de rede na consulta da moderação também mostra o erro (revisão, 06/11/2026)', async () => {
+    perfis.obterPerfil.mockRejectedValue(naoEncontrado())
+    moderacao.contaPorUsername.mockRejectedValue(new TypeError('Failed to fetch'))
+    const { wrapper } = await montarNaRota('/leitores/svaladares', { admin: true })
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('Perfil não encontrado')
+    expect(wrapper.text()).toContain('Não foi possível carregar este perfil.')
+  })
+
+  it('resposta atrasada de outro username é descartada (revisão, 06/11/2026)', async () => {
+    let responderAntigo: (perfil: Perfil) => void = () => {}
+    perfis.obterPerfil.mockImplementation((nome: string) =>
+      nome === 'svaladares'
+        ? new Promise<Perfil>((resolver) => { responderAntigo = resolver })
+        : Promise.resolve({ ...SERGIO, id: 'u7', username: 'tiagomoreira', displayName: 'Tiago Moreira', biografia: null }),
+    )
+    const { wrapper, router } = await montarNaRota('/leitores/svaladares')
+    await router.push('/leitores/tiagomoreira')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Tiago Moreira')
+
+    responderAntigo(SERGIO)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Tiago Moreira')
+    expect(wrapper.text()).not.toContain('Sérgio Valadares')
   })
 
   it('admin abre conta suspensa: etiqueta, faixa, motivo, Reativar conta e o link do registro', async () => {

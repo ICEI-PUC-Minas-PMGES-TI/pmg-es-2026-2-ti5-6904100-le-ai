@@ -186,6 +186,33 @@ describe('resenhas do perfil (integração)', () => {
       expect(doDono.body.itens).toHaveLength(2);
     });
 
+    it('F-MOD-OPC: reação de conta suspensa não conta, e volta a contar na reativação', async () => {
+      const resenhaId = await resenhar(await inserirLivro(pool), 'Oficial.');
+      const suspensa = novoUsuario();
+      await inserirPerfil(pool, { id: suspensa, username: 'suspensa' });
+      await pool.query(
+        `INSERT INTO leitura.reacao_resenha (resenha_id, usuario_id, tipo, primeira_curtida_em)
+         VALUES ($1, $2, 'curtida', now()), ($1, $3, 'descurtida', NULL)`,
+        [resenhaId, suspensa, leitora],
+      );
+      const contagens = async () => {
+        const [item] = (await listar(autora, leitora)).body.itens;
+        return { curtidas: item.curtidas, descurtidas: item.descurtidas };
+      };
+
+      expect(await contagens()).toEqual({ curtidas: 1, descurtidas: 1 });
+
+      // A suspensão tira a conta da VIEW de perfil (aqui, uma tabela).
+      await pool.query(
+        'DELETE FROM identidade.v_perfil_referencia_v1 WHERE id = $1',
+        [suspensa],
+      );
+      expect(await contagens()).toEqual({ curtidas: 0, descurtidas: 1 });
+
+      await inserirPerfil(pool, { id: suspensa, username: 'suspensa' });
+      expect(await contagens()).toEqual({ curtidas: 1, descurtidas: 1 });
+    });
+
     it('livro inativo não aparece', async () => {
       await resenhar(
         await inserirLivro(pool, {
