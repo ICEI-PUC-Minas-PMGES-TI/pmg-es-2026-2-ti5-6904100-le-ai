@@ -191,15 +191,25 @@ public class ServicoDeInteracao {
     Comentario comentario = buscarProprio(usuarioId, comentarioId);
     servicoDeFeed.validarVisivel(usuarioId, comentario.atividadeId());
 
-    List<MencaoResolvida> mencoes = resolvedorDeMencoes.resolver(texto);
+    List<Mencao> antigas =
+        mencaoRepository.porComentarios(List.of(comentarioId)).getOrDefault(comentarioId, List.of());
+    Map<UUID, AutorSnapshotResposta> perfisMencionados =
+        perfis.porIds(antigas.stream().map(Mencao::mencionadoId).toList());
+    // Os editores partem do texto mascarado da listagem: o "um leitor" que sobrou volta a ser o
+    // @username gravado antes de resolver as menções (revisão do PR #61).
+    TextoVisivel exibido = textoVisivel(comentario.texto(), antigas, perfisMencionados);
+    String textoNovo = MascaraDeMencoes.desmascarar(exibido.texto(), exibido.ocultas(), texto);
+
+    List<MencaoResolvida> mencoes = resolvedorDeMencoes.resolver(textoNovo);
     Set<UUID> aNotificar =
         destinatariosNovos(comentario, mencoes, eventos.jaMencionados(comentarioId));
     limiteDeMencionar.registrar(usuarioId, aNotificar.size());
 
     List<MencaoResolvida> gravadas = new ArrayList<>(mencoes);
-    gravadas.addAll(mencoesOcultasMantidas(comentario, texto));
+    gravadas.addAll(
+        mencoesOcultasMantidas(comentario, antigas, perfisMencionados.keySet(), textoNovo));
 
-    comentario.editar(texto);
+    comentario.editar(textoNovo);
     comentarioRepository.saveAndFlush(comentario);
     mencaoRepository.substituir(comentarioId, porPosicao(gravadas));
     aNotificar.forEach(
@@ -331,13 +341,11 @@ public class ServicoDeInteracao {
    * @username} continua no texto novo, na posição nova, sem notificar ninguém (a conta está
    * oculta, e já foi notificada quando mencionada).
    */
-  private List<MencaoResolvida> mencoesOcultasMantidas(Comentario comentario, String textoNovo) {
-    List<Mencao> antigas =
-        mencaoRepository.porComentarios(List.of(comentario.id())).getOrDefault(comentario.id(), List.of());
+  private static List<MencaoResolvida> mencoesOcultasMantidas(
+      Comentario comentario, List<Mencao> antigas, Set<UUID> visiveis, String textoNovo) {
     if (antigas.isEmpty()) {
       return List.of();
     }
-    Set<UUID> visiveis = perfis.porIds(antigas.stream().map(Mencao::mencionadoId).toList()).keySet();
     Map<String, UUID> ocultaPorChave = new HashMap<>();
     for (Mencao antiga : antigas) {
       if (visiveis.contains(antiga.mencionadoId())) {
@@ -415,8 +423,12 @@ public class ServicoDeInteracao {
   /** O que entra no lugar da menção a uma conta que saiu da visibilidade (F-MOD-OPC). */
   static final String MENCAO_OCULTA = "um leitor";
 
-  /** Texto e menções que o leitor vê. */
-  record TextoVisivel(String texto, List<MencaoResposta> mencoes) {}
+  /**
+   * Texto e menções que o leitor vê. {@code ocultas} fica no servidor: é o que a edição usa para
+   * desfazer a máscara ({@link MascaraDeMencoes}).
+   */
+  record TextoVisivel(
+      String texto, List<MencaoResposta> mencoes, List<MascaraDeMencoes.Oculta> ocultas) {}
 
   /**
    * F-MOD-OPC: a menção a conta suspensa ou em exclusão (fora da VIEW de perfil) perde o link e o
@@ -430,6 +442,7 @@ public class ServicoDeInteracao {
     ordenadas.sort(java.util.Comparator.comparingInt(Mencao::posicao));
     StringBuilder resultado = new StringBuilder();
     List<MencaoResposta> visiveis = new ArrayList<>();
+    List<MascaraDeMencoes.Oculta> ocultas = new ArrayList<>();
     int cursor = 0;
     int deslocamento = 0;
     for (Mencao mencao : ordenadas) {
@@ -444,12 +457,17 @@ public class ServicoDeInteracao {
                 mencao.posicao() + deslocamento, comprimento, perfil.id(), perfil.username()));
         continue;
       }
-      resultado.append(texto, cursor, mencao.posicao()).append(MENCAO_OCULTA);
+      resultado.append(texto, cursor, mencao.posicao());
+      ocultas.add(
+          new MascaraDeMencoes.Oculta(
+              resultado.length(),
+              texto.substring(mencao.posicao() + 1, mencao.posicao() + comprimento)));
+      resultado.append(MENCAO_OCULTA);
       cursor = mencao.posicao() + comprimento;
       deslocamento += MENCAO_OCULTA.length() - comprimento;
     }
     resultado.append(texto, cursor, texto.length());
-    return new TextoVisivel(resultado.toString(), visiveis);
+    return new TextoVisivel(resultado.toString(), visiveis, ocultas);
   }
 
   private static ComentarioResposta mapear(

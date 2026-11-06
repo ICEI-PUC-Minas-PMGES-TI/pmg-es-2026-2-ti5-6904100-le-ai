@@ -292,6 +292,77 @@ class OcultacaoDeContaSuspensaIntegracaoTest extends IntegracaoComPostgres {
     assertThat(depois.get("mencoes").get(0).get("posicao").asInt()).isEqualTo(13);
   }
 
+  @Test
+  @DisplayName("Editar pelo texto mascarado da listagem, como a web e o app, mantém a menção oculta")
+  void edicaoPeloTextoDaListagem() throws Exception {
+    HttpResponse<String> criado =
+        enviar(
+            HttpRequest.newBuilder(uri("/atividades/" + atividade + "/comentarios"))
+                .header("Authorization", "Bearer " + token(leitora))
+                .header("Content-Type", "application/json")
+                .header("Idempotency-Key", UUID.randomUUID().toString())
+                .POST(
+                    HttpRequest.BodyPublishers.ofString(
+                        json.writeValueAsString(
+                            Map.of("texto", "Oi @suspensa, @terceira e @Suspensa"))))
+                .build());
+    assertThat(criado.statusCode()).as(criado.body()).isEqualTo(201);
+    String id = corpo(criado).get("id").asString();
+    base.suspender(suspensa);
+    long eventosAntes = massa.contar("SELECT count(*) FROM outbox_social");
+
+    // O que os dois editores fazem: partem do `texto` que a listagem devolveu ao próprio autor.
+    String exibido = comentarioPorId(id, leitora).get("texto").asString();
+    assertThat(exibido).isEqualTo("Oi um leitor, @terceira e um leitor");
+    assertThat(editar(id, leitora, exibido + "!").statusCode()).isEqualTo(200);
+
+    assertThat(textoGravado(id)).isEqualTo("Oi @suspensa, @terceira e @Suspensa!");
+    assertThat(mencoesGravadas(id)).isEqualTo(3);
+    assertThat(massa.contar("SELECT count(*) FROM outbox_social")).isEqualTo(eventosAntes);
+    JsonNode durante = comentarioPorId(id, leitora);
+    assertThat(durante.get("texto").asString()).isEqualTo("Oi um leitor, @terceira e um leitor!");
+    assertThat(durante.get("mencoes")).hasSize(1);
+
+    // Apagar um dos trechos mascarados tira só aquela menção; editar de novo continua estável.
+    String semOPrimeiro =
+        comentarioPorId(id, leitora).get("texto").asString().replace("Oi um leitor, ", "Oi ");
+    assertThat(editar(id, leitora, semOPrimeiro).statusCode()).isEqualTo(200);
+    assertThat(textoGravado(id)).isEqualTo("Oi @terceira e @Suspensa!");
+    assertThat(mencoesGravadas(id)).isEqualTo(2);
+
+    base.reativar(suspensa);
+    JsonNode depois = comentarioPorId(id, leitora);
+    assertThat(depois.get("texto").asString()).isEqualTo("Oi @terceira e @Suspensa!");
+    assertThat(depois.get("mencoes")).extracting(m -> m.get("username").asString())
+        .containsExactly("terceira", "suspensa");
+  }
+
+  private HttpResponse<String> editar(String id, UUID quem, String texto) throws Exception {
+    HttpResponse<String> resposta =
+        enviar(
+            HttpRequest.newBuilder(uri("/comentarios/" + id))
+                .header("Authorization", "Bearer " + token(quem))
+                .header("Content-Type", "application/json")
+                .header("Idempotency-Key", UUID.randomUUID().toString())
+                .method(
+                    "PATCH",
+                    HttpRequest.BodyPublishers.ofString(
+                        json.writeValueAsString(Map.of("texto", texto))))
+                .build());
+    assertThat(resposta.statusCode()).as(resposta.body()).isEqualTo(200);
+    return resposta;
+  }
+
+  private String textoGravado(String id) {
+    return jdbc.queryForObject(
+        "SELECT texto FROM comentario WHERE id = ?::uuid", String.class, id);
+  }
+
+  private long mencoesGravadas(String id) {
+    return jdbc.queryForObject(
+        "SELECT count(*) FROM comentario_mencao WHERE comentario_id = ?::uuid", Long.class, id);
+  }
+
   private long totalCurtidas(UUID quem) throws Exception {
     return corpo(get("/atividades/" + atividade, quem)).get("totalCurtidas").asLong();
   }
