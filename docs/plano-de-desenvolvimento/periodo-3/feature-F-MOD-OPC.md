@@ -129,7 +129,7 @@ Plano em [`renato-periodo-3/plano-F-MOD-OPC.md`](renato-periodo-3/plano-F-MOD-OP
 
 ## Timeline
 
-### Débitos 06/11/2026: fechados os débitos da feature, com testes (`OcultacaoDeContaSuspensaIntegracaoTest`, `SuspensaoDeContaIntegracaoTest` do `identidade` e do `social`, `reacao.int-spec.ts`, `PerfilDeOutroView.admin.spec.ts`, `login_page_test.dart`, `sessao_test.dart`). Migration `0007` do `leitura` à espera do OK do dono para o banco de dev.
+### Débitos 06/11/2026: fechados os débitos da feature, com testes (`OcultacaoDeContaSuspensaIntegracaoTest`, `SuspensaoDeContaIntegracaoTest` do `identidade` e do `social`, `reacao.int-spec.ts`, `PerfilDeOutroView.admin.spec.ts`, `login_page_test.dart`, `sessao_test.dart`). Migration `0007` do `leitura` aplicada no banco de dev com o OK do dono.
 
 ### Validação 06/11/2026: quatro validadores de contexto limpo (`identidade`, `social`, web, mobile), sem achado importante. Os menores foram corrigidos com teste no commit `fix`: timeout de conexão sem retentativa nos dois clientes do `social`, motivo com U+0000 suspendendo sem log, ícone do toast, contador do motivo, foco ao cancelar, alinhamento do registro, fila a 390px, banner repetido ao recarregar o login e dois banners no app. Migrations aplicadas no banco de dev com o OK do dono. Teste manual completo do roteiro do plano: web no Edge (1440 e 390 px, claro e escuro), app no emulador, `identidade` parado sem auditoria falsa e reativação pelo registro.
 
