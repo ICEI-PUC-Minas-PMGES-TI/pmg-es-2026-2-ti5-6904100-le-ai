@@ -209,10 +209,17 @@ describe('LoginView', () => {
 
   it('sessão encerrada pela suspensão: o login abre com o banner, uma vez só', async () => {
     encerrarSessao({ motivo: 'suspensa' })
-    const primeiro = montarComRouter()
-    await primeiro.router.push('/login?motivo=suspensa')
+    // Como no app: a navegação chega ao login antes de a tela montar.
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/login', component: LoginView }],
+    })
+    await router.push('/login?motivo=suspensa')
+    const primeiro = { router, wrapper: mount(LoginView, { global: { plugins: [router] } }) }
     await flushPromises()
     expect(primeiro.wrapper.text()).toContain('Sua sessão foi encerrada porque esta conta foi suspensa.')
+    // O motivo sai da URL: recarregar não repete o banner (validação, 06/11/2026).
+    expect(primeiro.router.currentRoute.value.fullPath).toBe('/login')
     primeiro.wrapper.unmount()
 
     // Abrir o login de novo, sem o motivo na URL, não repete o banner.

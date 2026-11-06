@@ -276,6 +276,22 @@ describe('PainelModeracaoView', () => {
     // Suspender não resolve a denúncia.
     expect(botao(tela, 'Remover comentário')).toBeDefined()
     expect(document.activeElement?.getAttribute('aria-label')).toBe('Ações sobre a conta de Sérgio Valadares')
+    // O toast traz o ícone do design (validação, 06/11/2026).
+    expect(tela.find('#avisos-flutuantes [role="status"] svg').exists()).toBe(true)
+  })
+
+  it('Cancelar no dialog da conta devolve o foco ao DotsThree', async () => {
+    const { tela } = await montar(servicoFalso([denunciaDeComentario('d2')]))
+
+    await tela.get('[aria-label="Ações sobre a conta de Sérgio Valadares"]').trigger('click')
+    await flushPromises()
+    await botao(tela, 'Suspender conta do autor')!.trigger('click')
+    await flushPromises()
+    await botao(tela, 'Cancelar')!.trigger('click')
+    await flushPromises()
+
+    expect(tela.text()).not.toContain('Suspender a conta de Sérgio Valadares?')
+    expect(document.activeElement?.getAttribute('aria-label')).toBe('Ações sobre a conta de Sérgio Valadares')
   })
 
   it('autor já suspenso: o DotsThree oferece reativar', async () => {

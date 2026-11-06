@@ -2285,7 +2285,7 @@ components:
           items: { type: string, format: uuid }
     RegistroDeModeracao:
       type: object
-      required: [id, criadoEm, acao, alvoTipo, comDenuncia, anonimizado]
+      required: [id, criadoEm, acao, alvoTipo, comDenuncia, anonimizado, suspensaoVigente]
       properties:
         id: { type: string, format: uuid }
         criadoEm: { type: string, format: date-time }

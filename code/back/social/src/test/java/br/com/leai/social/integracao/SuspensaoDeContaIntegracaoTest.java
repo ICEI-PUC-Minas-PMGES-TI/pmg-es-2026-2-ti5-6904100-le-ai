@@ -216,6 +216,9 @@ class SuspensaoDeContaIntegracaoTest extends IntegracaoComPostgres {
     assertThat(acao("reativar", autora, tokenAdmin(), chave(), "").statusCode()).isEqualTo(422);
     assertThat(acao("suspender", autora, tokenAdmin(), chave(), "😀".repeat(501)).statusCode())
         .isEqualTo(422);
+    // U+0000 o Postgres recusa no log: barrado antes de suspender (validação, 06/11/2026).
+    assertThat(acao("suspender", autora, tokenAdmin(), chave(), "spam" + (char) 0).statusCode())
+        .isEqualTo(422);
     assertThat(IDENTIDADE.chamadas()).isEmpty();
 
     assertThat(acao("suspender", autora, tokenAdmin(), chave(), "😀".repeat(500)).statusCode())

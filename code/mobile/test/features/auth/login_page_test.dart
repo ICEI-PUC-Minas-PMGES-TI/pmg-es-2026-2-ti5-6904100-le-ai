@@ -335,6 +335,9 @@ void main() {
     expect(tester.widget<TextField>(campos.at(0)).controller!.text, 'svaladares');
     expect(tester.widget<TextField>(campos.at(1)).controller!.text, isEmpty);
     expect(tester.widget<TextField>(campos.at(0)).decoration!.errorText, isNull);
+    expect(tester.widget<TextField>(campos.at(1)).decoration!.errorText, isNull);
+    final borda = tester.widget<TextField>(campos.at(0)).decoration!.enabledBorder as OutlineInputBorder;
+    expect(borda.borderSide.color, isNot(AppTheme.light().colorScheme.error));
     expect(sessionController.estaAutenticado, isFalse);
   });
 

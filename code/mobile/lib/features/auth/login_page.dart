@@ -117,6 +117,8 @@ class _LoginPageState extends State<LoginPage> {
       if (erro.codigo == SessionController.codigoContaSuspensa) {
         // Os campos ficam sem erro: o que foi digitado está certo. A senha é limpa.
         _suspensaComSessaoEncerrada = false;
+        // Um banner só: o aviso de uma saída anterior deixa de valer (validação, 06/11/2026).
+        _avisoDeSaida = null;
         _senhaController.clear();
         return;
       }

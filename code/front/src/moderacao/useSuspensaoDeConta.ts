@@ -37,7 +37,8 @@ export function useSuspensaoDeConta(
   let temporizador: ReturnType<typeof setTimeout> | undefined
   let chave: { payload: string; valor: string } | null = null
 
-  const caracteres = computed(() => [...motivo.value].length)
+  // Como o servidor: o limite conta sem os espaços das pontas (validação, 06/11/2026).
+  const caracteres = computed(() => [...motivo.value.trim()].length)
   const excede = computed(() => caracteres.value > LIMITE_DO_MOTIVO_DA_CONTA)
   const podeConfirmar = computed(() => motivo.value.trim() !== '' && !excede.value && !enviando.value)
 

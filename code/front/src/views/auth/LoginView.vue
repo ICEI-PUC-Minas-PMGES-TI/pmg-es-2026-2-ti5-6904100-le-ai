@@ -49,6 +49,10 @@ onMounted(() => {
   if (route.query.motivo === 'suspensa' || motivo === 'suspensa') {
     contaSuspensa.value = 'sessao'
   }
+  // Tira o motivo da URL: recarregar ou voltar pelo histórico não repete o banner.
+  if (route.query.motivo !== undefined) {
+    void router.replace({ path: route.path })
+  }
 })
 
 // O servidor não devolve quando o bloqueio expira (sem cabeçalho Retry-After) e o protótipo

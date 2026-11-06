@@ -60,6 +60,12 @@ describe('DialogoSuspensao', () => {
 
     await tela.get('textarea').setValue('😀'.repeat(500))
     expect(confirmar(tela).attributes('disabled')).toBeUndefined()
+
+    // Como o servidor, os espaços das pontas não contam (validação, 06/11/2026).
+    await tela.get('textarea').setValue(`${'😀'.repeat(500)}
+  `)
+    expect(tela.text()).toContain('500 de 500')
+    expect(confirmar(tela).attributes('disabled')).toBeUndefined()
   })
 
   it('suspende com o motivo aparado e avisa quem abriu', async () => {

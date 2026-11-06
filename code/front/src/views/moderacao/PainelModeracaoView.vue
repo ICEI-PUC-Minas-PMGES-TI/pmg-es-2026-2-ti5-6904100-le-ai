@@ -151,6 +151,20 @@ function reativarPeloRegistro(linha: RegistroDeModeracao): void {
   }
 }
 
+/** O item do menu que abriu o dialog some do DOM: o foco volta ao `DotsThree` (design §4.11). */
+async function focarMenuDaConta(): Promise<void> {
+  await nextTick()
+  menuDaConta.value?.querySelector<HTMLButtonElement>('button')?.focus()
+}
+
+function fecharDialogoDaConta(): void {
+  const origem = dialogoDeConta.value?.origem
+  dialogoDeConta.value = null
+  if (origem === 'detalhe') {
+    void focarMenuDaConta()
+  }
+}
+
 async function contaConfirmada(conta: ContaModerada): Promise<void> {
   const dialogo = dialogoDeConta.value
   dialogoDeConta.value = null
@@ -163,8 +177,7 @@ async function contaConfirmada(conta: ContaModerada): Promise<void> {
     return
   }
   // O foco volta ao `DotsThree` do detalhe (painel-de-moderacao.md §9).
-  await nextTick()
-  menuDaConta.value?.querySelector<HTMLButtonElement>('button')?.focus()
+  await focarMenuDaConta()
 }
 
 watch(fila, (atual) => {
@@ -307,7 +320,7 @@ onMounted(() => {
                 :aria-current="selecionadaId === denuncia.id ? 'true' : undefined"
                 @click="abrir(denuncia.id)"
               >
-                <span class="flex items-center justify-between gap-space-3">
+                <span class="flex flex-wrap items-center justify-between gap-x-space-3 gap-y-space-2">
                   <span class="flex items-center gap-space-2">
                     <span class="inline-flex h-6 items-center rounded-full border border-linha px-space-3 text-label text-grafite">
                       {{ denuncia.tipo === 'resenha' ? 'Resenha' : 'Comentário' }}
@@ -667,11 +680,13 @@ onMounted(() => {
                 </th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-linha">
+            <!-- Linhas pelo topo (as de conta crescem com o motivo), com o respiro que centraliza
+                 as de uma linha só nos 56px (painel-de-moderacao.md §4, 5.11). -->
+            <tbody class="divide-y divide-linha [&>tr>td]:py-space-4">
               <tr
                 v-for="linha in registro.itens.value"
                 :key="linha.id"
-                class="h-14 align-middle"
+                class="align-top"
               >
                 <td class="font-mono text-body text-tinta tabular-nums">
                   {{ dataDoRegistro(linha.criadoEm) }}
@@ -684,14 +699,14 @@ onMounted(() => {
                 </td>
                 <td
                   v-if="ehLinhaDeConta(linha)"
-                  class="py-space-3 text-body text-tinta"
+                  class="text-body text-tinta"
                 >
                   <div class="flex flex-wrap items-center justify-between gap-x-space-4 gap-y-space-2">
                     <span class="truncate">{{ alvoDoRegistro(linha) }}</span>
                     <!-- Decisão 10: reativar pela linha da suspensão vigente (sem artboard). -->
                     <BotaoTextual
                       v-if="linha.suspensaoVigente && linha.alvoId"
-                      class="min-h-12 md:min-h-10"
+                      class="-my-space-2 min-h-12 md:min-h-10"
                       @click="reativarPeloRegistro(linha)"
                     >
                       <PhArrowCounterClockwise
@@ -754,11 +769,12 @@ onMounted(() => {
       :usuario-id="dialogoDeConta.usuarioId"
       :nome="dialogoDeConta.nome"
       :servico="props.servico"
-      @fechar="dialogoDeConta = null"
+      @fechar="fecharDialogoDaConta"
       @concluida="contaConfirmada"
     />
     <AvisoFlutuante
       :aberto="aviso !== null"
+      :icone="aviso?.icone === 'suspender' ? PhProhibit : aviso?.icone === 'reativar' ? PhArrowCounterClockwise : undefined"
       @fechar="aviso = null"
     >
       {{ aviso?.texto }}

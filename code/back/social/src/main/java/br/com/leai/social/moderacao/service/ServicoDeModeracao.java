@@ -385,6 +385,12 @@ public class ServicoDeModeracao {
       throw new ErroDeNegocioException(
           CodigoErro.ENTIDADE_NAO_PROCESSAVEL, "O motivo passou do limite de 500 caracteres.");
     }
+    // O Postgres recusa U+0000 em text: sem esta barreira, o identidade suspenderia e o log
+    // falharia depois, deixando a ação sem auditoria (validação da F-MOD-OPC, 06/11/2026).
+    if (motivo.indexOf(0) >= 0) {
+      throw new ErroDeNegocioException(
+          CodigoErro.ENTIDADE_NAO_PROCESSAVEL, "O motivo tem um caractere inválido.");
+    }
     return motivo;
   }
 
