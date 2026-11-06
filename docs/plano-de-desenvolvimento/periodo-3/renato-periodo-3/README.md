@@ -18,7 +18,7 @@ Feature maior e mais arriscada do período: dois serviços Spring (`social` e `i
 
 - Prompt das três etapas (planejar, realizar, validar): [`prompt-F-MOD-OPC.md`](prompt-F-MOD-OPC.md).
 - Plano: [`plano-F-MOD-OPC.md`](plano-F-MOD-OPC.md), de 05/11/2026, revisado em duas rodadas (15 + 9 achados).
-- Implementada em 05 e 06/11/2026: [PR #61](https://github.com/ICEI-PUC-Minas-PMGES-TI/pmg-es-2026-2-ti5-6904100-le-ai/pull/61) para a `desenvolvimento`, validado por quatro agentes de contexto limpo e pelo teste manual (web no Edge, app no emulador) contra os serviços locais e o banco de dev. Falta a revisão do colega, o merge e o DES (segredos no Render). Status em [`feature-F-MOD-OPC.md`](../feature-F-MOD-OPC.md).
+- Implementada em 05 e 06/11/2026: [PR #61](https://github.com/ICEI-PUC-Minas-PMGES-TI/pmg-es-2026-2-ti5-6904100-le-ai/pull/61) para a `desenvolvimento`, validado por quatro agentes de contexto limpo e pelo teste manual (web no Edge, app no emulador) contra os serviços locais e o banco de dev. Débitos da feature fechados em 06/11 (commit `e566229`), a revisar com contexto limpo pela etapa 3b do prompt; segredos já no Render. Falta a revisão do colega e o merge na `desenvolvimento`. Status em [`feature-F-MOD-OPC.md`](../feature-F-MOD-OPC.md).
 
 ### 2. F-ACV-OPC — Extras de acervo — depois da F-MOD-OPC
 

@@ -8,7 +8,7 @@
 |---|---|---|
 | 1. Planejar | concluída em 05/11/2026, revisada em duas rodadas (15 + 9 achados) | [`plano-F-MOD-OPC.md`](plano-F-MOD-OPC.md) nesta pasta |
 | 2. Realizar | concluída em 05/11/2026 | commits `feat(back)` e `feat(clientes)` na `renato-features` + [PR #61](https://github.com/ICEI-PUC-Minas-PMGES-TI/pmg-es-2026-2-ti5-6904100-le-ai/pull/61) |
-| 3. Validar | validação e teste manual concluídos em 06/11/2026; falta o DES, depois do merge na `main` | 4 validadores de contexto limpo, commit `fix` com as correções, teste manual em web e app |
+| 3. Validar | validação e teste manual concluídos em 06/11/2026; débitos da feature fechados no mesmo dia, **falta revisá-los com contexto limpo** (etapa 3b); DES só no fechamento de novembro | 4 validadores de contexto limpo, commit `fix` com as correções, teste manual em web e app; commit `fix: débitos da F-MOD-OPC` (`e566229`) e migration `0007` do `leitura` aplicada no dev |
 
 Quem terminar uma etapa atualiza esta tabela (situação e data).
 
@@ -128,3 +128,14 @@ Registre as respostas na seção "Decisões do dono (data)" do plano.
 4. **Push e PR** para a `desenvolvimento` (`gh pr create --base desenvolvimento --head renato-features`), corpo no formato dos PRs anteriores do Renato (resumo, Backend, Web, Mobile, Decisões, avisos aos donos alheios, Testes, DES), destacando as migrations e os segredos novos do Render. Sem linha de atribuição.
 5. **DES:** depois do merge na `main`, conferir o fluxo no DES (segredos no Render, migrations aplicadas no `le-ai-oregon`) e marcar os itens de DES da feature só com o fluxo testado lá.
 6. Relatório final ao Renato: o que foi validado, os achados e correções, o que ficou como débito e o que depende dele.
+
+---
+
+## Etapa 3b — Revisar a correção dos débitos
+
+> **Prompt:** Revise com contexto limpo o commit `e566229` (`fix: débitos da F-MOD-OPC`) da `renato-features`, que fechou os débitos listados em "Pendências" do `feature-F-MOD-OPC.md`. Faça a leitura obrigatória do "Contexto comum" e leia o plano. Não peça aprovação no meio.
+
+- **O que o commit fez:** perfil web do admin (`PerfilDeOutroView.vue`, `ContaSuspensaDoAdmin.vue`, `GET /admin/usuarios?username=` no `social`); contagens sem a conta suspensa (curtidas de atividade no `social`, reações de resenha no `leitura` com a migration `0007` e a VIEW `v_resenha_publicacao_v1`, seguidores e seguidos no `identidade` por `v_seguimento_aceito_v1`); menção a conta oculta virando "um leitor" (`ServicoDeInteracao.textoVisivel`); reativação apagando as renovações revogadas (`ServicoDeSuspensao.reativar`); aviso de leitura descartada no app (`session_controller.dart`, `sessao_controller.dart`, `login_page.dart`); `MenuDeAcoes`/`FolhaAcoes` com `tom` e `larguraMinima`. Veja `git show e566229 --stat`.
+- **O que conferir:** que cada débito está de fato fechado e volta ao normal na reativação; que nada do que já funcionava quebrou para quem não é admin nem suspenso (contagens, menções com posições certas, perfil do leitor comum, menu de quem não passa `tom`); desempenho das contagens novas (subconsultas por linha); a VIEW `0007` com as mesmas colunas; autorização do endpoint novo (só admin); as notas nos `AGENTS.md` dos donos e os specs OpenAPI.
+- **Regras:** só ler e testar, sem editar, commitar nem trocar de branch. Testes de integração em Postgres descartável (Docker), **nunca o Neon**. Comandos por camada: `identidade`/`social` `./mvnw verify` com `DATABASE_URL_TESTE`; `leitura` `npm test` e `npm run test:integration`; web `npm run lint`, `npm run build`, `npm test`; mobile `flutter analyze`, `flutter test`. No Windows, o `npm run lint` do `leitura` acusa `␍` (checkout com CRLF) em todos os arquivos: isso não é achado.
+- **Saída:** só achados confirmados, com caminho/linha, como reproduzir e gravidade. Atualize a tabela "Andamento" (linha da etapa 3) ao terminar e entregue o relatório curto ao Renato.
