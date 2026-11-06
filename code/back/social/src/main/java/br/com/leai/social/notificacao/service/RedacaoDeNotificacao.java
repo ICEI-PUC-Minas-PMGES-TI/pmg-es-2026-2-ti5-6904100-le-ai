@@ -16,12 +16,24 @@ final class RedacaoDeNotificacao {
   /** Nome exibido quando quem agiu não é mais um perfil visível (conta suspensa ou excluída). */
   static final String ATOR_OCULTO = "Um leitor";
 
+  /** F-MOD-OPC: dono da atividade que saiu da visibilidade; o snapshot guarda o nome antigo. */
+  static final String AUTOR_DA_ATIVIDADE_OCULTO = "um leitor";
+
   private static final String TIPO_ATIVIDADE_RESENHA = "resenha_publicada";
 
   private RedacaoDeNotificacao() {}
 
   static String mensagem(
       TipoNotificacao tipo, Map<String, Object> dados, String nomeDoAtor, UUID destinatarioId) {
+    return mensagem(tipo, dados, nomeDoAtor, destinatarioId, true);
+  }
+
+  static String mensagem(
+      TipoNotificacao tipo,
+      Map<String, Object> dados,
+      String nomeDoAtor,
+      UUID destinatarioId,
+      boolean autorDaAtividadeVisivel) {
     return switch (tipo) {
       case NOVO_SEGUIDOR -> nomeDoAtor + " começou a seguir você.";
       case SOLICITACAO_CRIADA -> nomeDoAtor + " pediu para seguir você.";
@@ -30,9 +42,15 @@ final class RedacaoDeNotificacao {
       case ATIVIDADE_COMENTADA ->
           nomeDoAtor + " comentou " + objetoDaAtividade(dados, "a sua") + ".";
       case COMENTARIO_RESPONDIDO ->
-          nomeDoAtor + " respondeu ao seu comentário" + ondeFoiOComentario(dados, destinatarioId) + ".";
+          nomeDoAtor
+              + " respondeu ao seu comentário"
+              + ondeFoiOComentario(dados, destinatarioId, autorDaAtividadeVisivel)
+              + ".";
       case USUARIO_MENCIONADO ->
-          nomeDoAtor + " mencionou você num comentário" + ondeFoiOComentario(dados, destinatarioId) + ".";
+          nomeDoAtor
+              + " mencionou você num comentário"
+              + ondeFoiOComentario(dados, destinatarioId, autorDaAtividadeVisivel)
+              + ".";
       case LEITURA_EM_RISCO ->
           "Você não registra progresso em "
               + tituloDoLivro(dados)
@@ -62,13 +80,17 @@ final class RedacaoDeNotificacao {
     return possessivo + " " + objeto + " de " + atividade.get(DadosDeNotificacao.ATIVIDADE_LIVRO_TITULO);
   }
 
-  private static String ondeFoiOComentario(Map<String, Object> dados, UUID destinatarioId) {
+  private static String ondeFoiOComentario(
+      Map<String, Object> dados, UUID destinatarioId, boolean autorDaAtividadeVisivel) {
     Map<String, Object> atividade = mapa(dados, DadosDeNotificacao.ATIVIDADE);
     if (atividade == null) {
       return "";
     }
     if (destinatarioId.toString().equals(atividade.get(DadosDeNotificacao.ATIVIDADE_AUTOR_ID))) {
       return " na sua atividade";
+    }
+    if (!autorDaAtividadeVisivel) {
+      return " na atividade de " + AUTOR_DA_ATIVIDADE_OCULTO;
     }
     return " na atividade de " + atividade.get(DadosDeNotificacao.ATIVIDADE_AUTOR_NOME);
   }

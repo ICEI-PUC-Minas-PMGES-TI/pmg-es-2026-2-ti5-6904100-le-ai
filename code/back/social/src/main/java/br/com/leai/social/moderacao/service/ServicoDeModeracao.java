@@ -9,9 +9,11 @@ import br.com.leai.social.feed.repository.AtividadeRepository;
 import br.com.leai.social.feed.repository.CursorComentario;
 import br.com.leai.social.feed.repository.CursorInvalidoException;
 import br.com.leai.social.moderacao.dto.AtividadeDaDenuncia;
+import br.com.leai.social.moderacao.dto.ContaModeradaResposta;
 import br.com.leai.social.moderacao.dto.ConteudoDenunciado;
 import br.com.leai.social.moderacao.dto.DenunciaPendenteResposta;
 import br.com.leai.social.moderacao.dto.LivroDaDenuncia;
+import br.com.leai.social.moderacao.dto.MotivoDaContaRequisicao;
 import br.com.leai.social.moderacao.dto.PaginaDenunciasResposta;
 import br.com.leai.social.moderacao.dto.PaginaRegistrosResposta;
 import br.com.leai.social.moderacao.dto.PessoaDaModeracao;
@@ -43,6 +45,8 @@ public class ServicoDeModeracao {
 
   static final String REMOVER = "remover_conteudo";
   static final String ARQUIVAR = "arquivar_denuncia";
+  static final String SUSPENDER = "suspender_conta";
+  static final String REATIVAR = "reativar_conta";
 
   private static final int STATUS_OK = HttpStatus.OK.value();
 
@@ -50,16 +54,19 @@ public class ServicoDeModeracao {
   private final AtividadeRepository atividades;
   private final ServicoDeIdempotencia idempotencia;
   private final ClienteDeLeitura leitura;
+  private final ClienteDeIdentidade identidade;
 
   public ServicoDeModeracao(
       ModeracaoRepository repositorio,
       AtividadeRepository atividades,
       ServicoDeIdempotencia idempotencia,
-      ClienteDeLeitura leitura) {
+      ClienteDeLeitura leitura,
+      ClienteDeIdentidade identidade) {
     this.repositorio = repositorio;
     this.atividades = atividades;
     this.idempotencia = idempotencia;
     this.leitura = leitura;
+    this.identidade = identidade;
   }
 
   // ------------------------------------------------------------------ fila
@@ -306,6 +313,81 @@ public class ServicoDeModeracao {
         });
   }
 
+  // ------------------------------------------------------------------ conta
+
+  /**
+   * Suspende a conta (F-MOD-OPC, RF-MOD-04). Mesmo fluxo da remoção de resenha: o recibo é
+   * consultado antes, o {@code identidade} é chamado fora de transação, e só depois de ele
+   * confirmar o log é gravado, com o instante que ele devolveu. Falha ou timeout não grava nada.
+   * Não resolve as denúncias do autor (decisão 5).
+   */
+  public RespostaIdempotente<ContaModeradaResposta> suspender(
+      UUID admin, String jwtDoAdmin, UUID usuarioId, String motivoBruto, String chave) {
+    return moderarConta(admin, jwtDoAdmin, usuarioId, motivoBruto, chave, true);
+  }
+
+  /** Reativa a conta. Sem reativação real ({@code reativadoEm} nulo), não há log. */
+  public RespostaIdempotente<ContaModeradaResposta> reativar(
+      UUID admin, String jwtDoAdmin, UUID usuarioId, String motivoBruto, String chave) {
+    return moderarConta(admin, jwtDoAdmin, usuarioId, motivoBruto, chave, false);
+  }
+
+  private RespostaIdempotente<ContaModeradaResposta> moderarConta(
+      UUID admin,
+      String jwtDoAdmin,
+      UUID usuarioId,
+      String motivoBruto,
+      String chave,
+      boolean suspender) {
+    String motivo = motivoDaConta(motivoBruto);
+    OperacaoIdempotente operacao =
+        suspender ? OperacaoIdempotente.SUSPENDER_CONTA : OperacaoIdempotente.REATIVAR_CONTA;
+    Map<String, Object> payload = Map.of("usuarioId", usuarioId.toString(), "motivo", motivo);
+    var anterior =
+        idempotencia.consultar(admin, operacao, chave, payload, ContaModeradaResposta.class);
+    if (anterior.isPresent()) {
+      return anterior.get();
+    }
+    ClienteDeIdentidade.EstadoDaConta estado =
+        suspender
+            ? identidade.suspender(usuarioId, jwtDoAdmin)
+            : identidade.reativar(usuarioId, jwtDoAdmin);
+    return idempotencia.executar(
+        admin,
+        operacao,
+        chave,
+        payload,
+        ContaModeradaResposta.class,
+        () -> {
+          java.time.Instant instante = suspender ? estado.suspensoEm() : estado.reativadoEm();
+          if (instante != null) {
+            repositorio.registrarConta(
+                admin.toString(), suspender ? SUSPENDER : REATIVAR, usuarioId, motivo, instante);
+          }
+          return new RespostaIdempotente<>(
+              STATUS_OK,
+              new ContaModeradaResposta(
+                  usuarioId.toString(),
+                  estado.suspenso(),
+                  estado.suspensoEm(),
+                  estado.reativadoEm()));
+        });
+  }
+
+  /** Obrigatório nas duas ações (decisão 5), até 500 code points sem os espaços das pontas. */
+  static String motivoDaConta(String bruto) {
+    String motivo = bruto == null ? "" : bruto.strip();
+    if (motivo.isEmpty()) {
+      throw new ErroDeNegocioException(
+          CodigoErro.ENTIDADE_NAO_PROCESSAVEL, "Escreva o motivo para continuar.");
+    }
+    if (motivo.codePointCount(0, motivo.length()) > MotivoDaContaRequisicao.MOTIVO_MAXIMO) {
+      throw new ErroDeNegocioException(
+          CodigoErro.ENTIDADE_NAO_PROCESSAVEL, "O motivo passou do limite de 500 caracteres.");
+    }
+    return motivo;
+  }
+
   // ------------------------------------------------------------------ registro
 
   public PaginaRegistrosResposta registros(String cursor, int limite) {
@@ -318,6 +400,7 @@ public class ServicoDeModeracao {
     Set<UUID> livros = new HashSet<>();
     for (ModeracaoRepository.Registro r : pagina) {
       Stream.of(r.alvoAutorId(), r.atividadeAutorId()).filter(Objects::nonNull).forEach(pessoas::add);
+      if (ehDeConta(r) && r.alvoId() != null) pessoas.add(r.alvoId());
       if (r.alvoLivroId() != null) livros.add(r.alvoLivroId());
     }
     Map<UUID, PessoaDaModeracao> perfis = repositorio.perfis(pessoas);
@@ -338,7 +421,11 @@ public class ServicoDeModeracao {
                         r.alvoLivroId() == null || !porLivro.containsKey(r.alvoLivroId())
                             ? null
                             : porLivro.get(r.alvoLivroId()).titulo(),
-                        r.anonimizado()))
+                        r.anonimizado(),
+                        ehDeConta(r) && r.alvoId() != null ? r.alvoId().toString() : null,
+                        ehDeConta(r) ? username(perfis.get(r.alvoId())) : null,
+                        ehDeConta(r) ? r.detalhe() : null,
+                        suspensaoVigente(r, perfis)))
             .toList();
     ModeracaoRepository.Registro ultimo = pagina.isEmpty() ? null : pagina.getLast();
     String proximo =
@@ -355,6 +442,23 @@ public class ServicoDeModeracao {
     } catch (CursorInvalidoException erro) {
       throw new ErroDeNegocioException(CodigoErro.REQUISICAO_INVALIDA, "Cursor de paginação inválido.");
     }
+  }
+
+  private static boolean ehDeConta(ModeracaoRepository.Registro r) {
+    return "usuario".equals(r.alvoTipo());
+  }
+
+  /** A linha da suspensão em vigor: o instante dela é o {@code suspenso_em} atual da conta. */
+  private static boolean suspensaoVigente(
+      ModeracaoRepository.Registro r, Map<UUID, PessoaDaModeracao> perfis) {
+    if (!SUSPENDER.equals(r.acao()) || r.alvoId() == null) {
+      return false;
+    }
+    PessoaDaModeracao conta = perfis.get(r.alvoId());
+    return conta != null
+        && conta.suspensa()
+        && conta.suspensaEm() != null
+        && conta.suspensaEm().equals(r.criadoEm());
   }
 
   private static String username(PessoaDaModeracao pessoa) {

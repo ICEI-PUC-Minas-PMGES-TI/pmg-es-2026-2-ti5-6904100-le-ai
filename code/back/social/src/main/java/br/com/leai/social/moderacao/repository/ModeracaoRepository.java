@@ -61,7 +61,9 @@ public class ModeracaoRepository {
       UUID alvoAutorId,
       UUID atividadeAutorId,
       UUID alvoLivroId,
-      boolean anonimizado) {}
+      boolean anonimizado,
+      UUID alvoId,
+      String detalhe) {}
 
   private static final String COLUNAS_DA_DENUNCIA =
       "d.id, d.denunciante_id, d.alvo_tipo, d.alvo_id, d.motivo, d.estado, d.criado_em,"
@@ -118,19 +120,25 @@ public class ModeracaoRepository {
     if (ids.isEmpty()) {
       return Map.of();
     }
+    // F-MOD-OPC: a VIEW da moderação traz também as contas suspensas, que a de perfil omite. Só
+    // este pacote a lê; nada daqui chega a outro leitor.
     Map<UUID, PessoaDaModeracao> perfis = new HashMap<>();
     jdbc.query(
-        "SELECT id, username, nome_exibicao, avatar_url FROM identidade.v_perfil_referencia_v1"
+        "SELECT id, username, nome_exibicao, avatar_url, suspenso, suspenso_em"
+            + " FROM identidade.v_conta_moderacao_v1"
             + " WHERE id IN (" + marcadores(ids.size()) + ")",
         rs -> {
           UUID id = rs.getObject("id", UUID.class);
+          Timestamp suspensaEm = rs.getTimestamp("suspenso_em");
           perfis.put(
               id,
               new PessoaDaModeracao(
                   id.toString(),
                   rs.getString("username"),
                   rs.getString("nome_exibicao"),
-                  rs.getString("avatar_url")));
+                  rs.getString("avatar_url"),
+                  rs.getBoolean("suspenso"),
+                  suspensaEm == null ? null : suspensaEm.toInstant()));
         },
         ids.toArray());
     return perfis;
@@ -350,6 +358,25 @@ public class ModeracaoRepository {
         atividadeAutorId);
   }
 
+  /**
+   * Log de suspensão ou reativação de conta (F-MOD-OPC). O {@code criado_em} é o instante que o
+   * {@code identidade} devolveu, e o índice {@code log_moderacao_conta_uk} faz da repetição, dos
+   * dois cliques e da retentativa depois de timeout o mesmo episódio: no máximo uma linha.
+   */
+  public void registrarConta(
+      String admin, String acao, UUID usuarioId, String motivo, Instant instante) {
+    jdbc.update(
+        "INSERT INTO log_moderacao (admin, acao, alvo_tipo, alvo_id, detalhe, criado_em)"
+            + " VALUES (?, ?, 'usuario', ?, ?, ?)"
+            + " ON CONFLICT (alvo_id, acao, criado_em)"
+            + " WHERE alvo_tipo = 'usuario' AND alvo_id IS NOT NULL DO NOTHING",
+        admin,
+        acao,
+        usuarioId,
+        motivo,
+        Timestamp.from(instante));
+  }
+
   // ------------------------------------------------------------------ registro
 
   /** Da ação mais recente para a mais antiga, a partir do cursor; uma a mais para o temMais. */
@@ -357,7 +384,7 @@ public class ModeracaoRepository {
     String colunas =
         "SELECT id, criado_em, acao, alvo_tipo, denuncia_id IS NOT NULL AS com_denuncia,"
             + " alvo_autor_id, atividade_autor_id, alvo_livro_id,"
-            + " anonimizado_em IS NOT NULL AS anonimizado FROM log_moderacao";
+            + " anonimizado_em IS NOT NULL AS anonimizado, alvo_id, detalhe FROM log_moderacao";
     RowMapper<Registro> mapa =
         (rs, n) ->
             new Registro(
@@ -369,7 +396,9 @@ public class ModeracaoRepository {
                 rs.getObject("alvo_autor_id", UUID.class),
                 rs.getObject("atividade_autor_id", UUID.class),
                 rs.getObject("alvo_livro_id", UUID.class),
-                rs.getBoolean("anonimizado"));
+                rs.getBoolean("anonimizado"),
+                rs.getObject("alvo_id", UUID.class),
+                rs.getString("detalhe"));
     if (antesDe == null) {
       return jdbc.query(colunas + " ORDER BY criado_em DESC, id DESC LIMIT ?", mapa, limite + 1);
     }

@@ -142,7 +142,8 @@ public class ServicoDeFeed {
       Map<UUID, String> tiposLivro,
       Map<UUID, ResenhaSnapshotResposta> resenhas) {
     long totalCurtidas = curtidaRepository.countByAtividadeId(atividade.id());
-    long totalComentarios = comentarioRepository.countByAtividadeId(atividade.id());
+    long totalComentarios =
+        comentarioRepository.contarVisiveisPorAtividade(atividade.id(), usuarioId);
     boolean curtidaPeloSolicitante =
         curtidaRepository.existsByAtividadeIdAndUsuarioId(atividade.id(), usuarioId);
 

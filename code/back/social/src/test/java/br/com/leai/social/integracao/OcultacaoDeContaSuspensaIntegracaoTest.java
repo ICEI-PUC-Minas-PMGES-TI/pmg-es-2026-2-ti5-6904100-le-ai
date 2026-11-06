@@ -1,0 +1,280 @@
+package br.com.leai.social.integracao;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import br.com.leai.social.feed.entity.Comentario;
+import br.com.leai.social.feed.repository.ComentarioRepository;
+import br.com.leai.social.notificacao.dto.NotificacaoResposta;
+import br.com.leai.social.notificacao.service.ServicoDeNotificacao;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.jdbc.core.JdbcTemplate;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+
+/**
+ * Ocultação no {@code social} da conta suspensa (F-MOD-OPC, parte 3): comentários, respostas,
+ * contagens, responder e denunciar, e as notificações que citam a conta. A suspensão é simulada na
+ * VIEW falsa do {@code identidade}, como o serviço real faria; a reativação devolve tudo.
+ *
+ * <p>Massa: {@code dona} publica a atividade; {@code suspensa} comenta (raiz) e recebe a resposta
+ * de {@code terceira}; {@code leitora} segue a dona e vê a atividade.
+ */
+@EnabledIfEnvironmentVariable(named = "DATABASE_URL_TESTE", matches = ".+")
+class OcultacaoDeContaSuspensaIntegracaoTest extends IntegracaoComPostgres {
+
+  @Autowired private JdbcTemplate jdbc;
+  @Autowired private ObjectMapper json;
+  @Autowired private ServicoDeNotificacao notificacoes;
+  @Autowired private ComentarioRepository comentarios;
+
+  private MassaDeModeracao massa;
+  private MassaDeRecomendacao base;
+  private UUID dona;
+  private UUID suspensa;
+  private UUID terceira;
+  private UUID leitora;
+  private UUID atividade;
+  private UUID raizDaSuspensa;
+  private UUID respostaDaTerceira;
+  private UUID raizDaTerceira;
+
+  @BeforeEach
+  void preparar() {
+    massa = new MassaDeModeracao(jdbc);
+    massa.preparar();
+    base = new MassaDeRecomendacao(jdbc);
+    jdbc.execute("TRUNCATE notificacao");
+    dona = massa.leitor("dona");
+    suspensa = massa.leitor("suspensa");
+    terceira = massa.leitor("terceira");
+    leitora = massa.leitor("leitora");
+    massa.segue(leitora, dona);
+    massa.segue(suspensa, dona);
+    massa.segue(terceira, dona);
+    atividade = massa.atividadeDeLeitura(dona, massa.livroOficial("Torto Arado"));
+    raizDaSuspensa = massa.comentario(atividade, suspensa, null, "Raiz da suspensa");
+    respostaDaTerceira = massa.comentario(atividade, terceira, raizDaSuspensa, "Resposta");
+    raizDaTerceira = massa.comentario(atividade, terceira, null, "Raiz da terceira");
+    massa.comentario(atividade, suspensa, raizDaTerceira, "Resposta da suspensa");
+  }
+
+  @Test
+  @DisplayName("Raiz de conta suspensa some com a thread inteira, e as contagens a acompanham")
+  void comentariosEContagens() throws Exception {
+    assertThat(raizes(leitora)).hasSize(2);
+    assertThat(totalComentarios(leitora)).isEqualTo(4);
+
+    base.suspender(suspensa);
+
+    List<JsonNode> raizes = raizes(leitora);
+    assertThat(raizes).hasSize(1);
+    assertThat(raizes.getFirst().get("id").asString()).isEqualTo(raizDaTerceira.toString());
+    // Só a resposta da suspensa sob a raiz visível some.
+    assertThat(raizes.getFirst().get("totalRespostas").asInt()).isZero();
+    assertThat(totalComentarios(leitora)).isEqualTo(1);
+    assertThat(
+            corpo(get("/atividades/" + atividade + "/comentarios", leitora))
+                .get("totalItens")
+                .asLong())
+        .isEqualTo(1);
+    assertThat(respostas(raizDaTerceira, leitora)).isEmpty();
+    // A thread da raiz oculta, mesmo com a resposta de uma conta ativa: 404.
+    assertThat(get("/comentarios/" + raizDaSuspensa + "/respostas", leitora).statusCode())
+        .isEqualTo(404);
+
+    base.reativar(suspensa);
+    assertThat(raizes(leitora)).hasSize(2);
+    assertThat(totalComentarios(leitora)).isEqualTo(4);
+    assertThat(respostas(raizDaSuspensa, leitora)).hasSize(1);
+  }
+
+  @Test
+  @DisplayName("Responder ou denunciar comentário oculto é 404, sem evento para a conta suspensa")
+  void responderEDenunciarOculto() throws Exception {
+    base.suspender(suspensa);
+    long eventosAntes = massa.contar("SELECT count(*) FROM outbox_social");
+
+    assertThat(comentar(leitora, raizDaSuspensa).statusCode()).isEqualTo(404);
+    assertThat(comentar(leitora, respostaDaTerceira).statusCode()).isEqualTo(404);
+    assertThat(denunciar(leitora, raizDaSuspensa).statusCode()).isEqualTo(404);
+    assertThat(denunciar(leitora, respostaDaTerceira).statusCode()).isEqualTo(404);
+    assertThat(massa.contar("SELECT count(*) FROM outbox_social")).isEqualTo(eventosAntes);
+
+    base.reativar(suspensa);
+    assertThat(comentar(leitora, raizDaSuspensa).statusCode()).isEqualTo(201);
+    assertThat(denunciar(leitora, raizDaSuspensa).statusCode()).isEqualTo(201);
+  }
+
+  @Test
+  @DisplayName("O próprio autor ainda vê os seus comentários")
+  void autorVeOsSeus() throws Exception {
+    base.suspender(terceira);
+    // Pelo repositório: a conta suspensa também sai do seguimento e não chegaria à atividade
+    // pela rota. O filtro de comentário, sozinho, ainda mostra a ela o que ela escreveu.
+    assertThat(
+            comentarios
+                .buscarRaizesPorAtividade(atividade, terceira, PageRequest.of(0, 10))
+                .getContent())
+        .extracting(Comentario::id)
+        .contains(raizDaTerceira);
+    assertThat(comentarios.visivelPara(respostaDaTerceira, terceira)).isTrue();
+    assertThat(comentarios.visivelPara(respostaDaTerceira, leitora)).isFalse();
+    assertThat(comentarios.visivelPara(raizDaTerceira, leitora)).isFalse();
+    assertThat(raizes(leitora))
+        .extracting(r -> r.get("id").asString())
+        .containsExactly(raizDaSuspensa.toString());
+  }
+
+  @Test
+  @DisplayName("Notificação: autor da atividade oculto vira \"um leitor\", sem links")
+  void notificacaoComAutorDaAtividadeOculto() throws Exception {
+    // A terceira foi respondida pela leitora na atividade da suspensa.
+    UUID atividadeDaSuspensa =
+        massa.atividadeDeLeitura(suspensa, massa.livroOficial("Vidas Secas"));
+    massa.segue(terceira, suspensa);
+    UUID comentario = massa.comentario(atividadeDaSuspensa, terceira, null, "Oi");
+    notificar(
+        terceira,
+        "comentario_respondido",
+        Map.of(
+            "ator", Map.of("id", leitora.toString(), "username", "leitora", "nomeExibicao", "Leitora"),
+            "atividadeId", atividadeDaSuspensa.toString(),
+            "comentarioId", comentario.toString(),
+            "atividade",
+                Map.of(
+                    "tipo", "leitura_iniciada",
+                    "livroTitulo", "Vidas Secas",
+                    "autorId", suspensa.toString(),
+                    "autorNome", "Nome Antigo")));
+
+    NotificacaoResposta antes = unica(terceira);
+    assertThat(antes.mensagem()).contains("na atividade de Nome Antigo");
+    assertThat(antes.atividadeId()).isEqualTo(atividadeDaSuspensa.toString());
+
+    base.suspender(suspensa);
+    NotificacaoResposta depois = unica(terceira);
+    assertThat(depois.mensagem())
+        .isEqualTo("Leitora respondeu ao seu comentário na atividade de um leitor.");
+    assertThat(depois.atividadeId()).isNull();
+    assertThat(depois.comentarioId()).isNull();
+    // A lista HTTP usa o mesmo mapeamento.
+    JsonNode item = corpo(get("/notificacoes", terceira)).get("itens").get(0);
+    assertThat(item.get("mensagem").asString()).doesNotContain("Nome Antigo");
+    assertThat(item.get("atividadeId").isNull()).isTrue();
+  }
+
+  @Test
+  @DisplayName("Notificação: comentário em thread de raiz oculta perde o link, a atividade não")
+  void notificacaoComComentarioEmThreadOculta() throws Exception {
+    notificar(
+        dona,
+        "atividade_comentada",
+        Map.of(
+            "ator", Map.of("id", terceira.toString(), "username", "terceira", "nomeExibicao", "T"),
+            "atividadeId", atividade.toString(),
+            "comentarioId", respostaDaTerceira.toString()));
+
+    assertThat(unica(dona).comentarioId()).isEqualTo(respostaDaTerceira.toString());
+
+    base.suspender(suspensa);
+    NotificacaoResposta depois = unica(dona);
+    assertThat(depois.ator()).isNotNull();
+    assertThat(depois.atividadeId()).isEqualTo(atividade.toString());
+    assertThat(depois.comentarioId()).isNull();
+
+    base.reativar(suspensa);
+    assertThat(unica(dona).comentarioId()).isEqualTo(respostaDaTerceira.toString());
+  }
+
+  // ------------------------------------------------------------------ apoio
+
+  private void notificar(UUID destinatario, String tipo, Map<String, Object> dados)
+      throws Exception {
+    jdbc.update(
+        "INSERT INTO notificacao (destinatario_id, tipo, dados, event_id, chave_negocio)"
+            + " VALUES (?, ?, ?::jsonb, ?, ?)",
+        destinatario,
+        tipo,
+        json.writeValueAsString(dados),
+        UUID.randomUUID(),
+        "teste:" + UUID.randomUUID());
+  }
+
+  /** O mesmo caminho do SSE ({@code CanaisDeNotificacao} usa {@code buscar}). */
+  private NotificacaoResposta unica(UUID destinatario) {
+    UUID id =
+        jdbc.queryForObject(
+            "SELECT id FROM notificacao WHERE destinatario_id = ?", UUID.class, destinatario);
+    return notificacoes.buscar(destinatario, id).orElseThrow();
+  }
+
+  private List<JsonNode> raizes(UUID quem) throws Exception {
+    List<JsonNode> itens = new ArrayList<>();
+    corpo(get("/atividades/" + atividade + "/comentarios", quem)).get("itens").forEach(itens::add);
+    return itens;
+  }
+
+  private List<JsonNode> respostas(UUID raiz, UUID quem) throws Exception {
+    HttpResponse<String> resposta = get("/comentarios/" + raiz + "/respostas", quem);
+    assertThat(resposta.statusCode()).as(resposta.body()).isEqualTo(200);
+    List<JsonNode> itens = new ArrayList<>();
+    corpo(resposta).get("itens").forEach(itens::add);
+    return itens;
+  }
+
+  private long totalComentarios(UUID quem) throws Exception {
+    return corpo(get("/atividades/" + atividade, quem)).get("totalComentarios").asLong();
+  }
+
+  private HttpResponse<String> comentar(UUID quem, UUID alvo) throws Exception {
+    return enviar(
+        HttpRequest.newBuilder(uri("/atividades/" + atividade + "/comentarios"))
+            .header("Authorization", "Bearer " + token(quem))
+            .header("Content-Type", "application/json")
+            .header("Idempotency-Key", UUID.randomUUID().toString())
+            .POST(
+                HttpRequest.BodyPublishers.ofString(
+                    json.writeValueAsString(
+                        Map.of("texto", "Resposta", "comentarioRespondidoId", alvo.toString()))))
+            .build());
+  }
+
+  private HttpResponse<String> denunciar(UUID quem, UUID comentario) throws Exception {
+    return enviar(
+        HttpRequest.newBuilder(uri("/denuncias"))
+            .header("Authorization", "Bearer " + token(quem))
+            .header("Content-Type", "application/json")
+            .header("Idempotency-Key", UUID.randomUUID().toString())
+            .POST(
+                HttpRequest.BodyPublishers.ofString(
+                    json.writeValueAsString(
+                        Map.of(
+                            "alvoTipo", "comentario",
+                            "alvoId", comentario.toString(),
+                            "motivo", "Spam"))))
+            .build());
+  }
+
+  private HttpResponse<String> get(String caminho, UUID quem) throws Exception {
+    return enviar(
+        HttpRequest.newBuilder(uri(caminho))
+            .header("Authorization", "Bearer " + token(quem))
+            .GET()
+            .build());
+  }
+
+  private JsonNode corpo(HttpResponse<String> resposta) {
+    return json.readTree(resposta.body());
+  }
+}

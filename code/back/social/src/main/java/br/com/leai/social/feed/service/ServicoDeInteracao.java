@@ -155,7 +155,7 @@ public class ServicoDeInteracao {
     UUID comentarioRaizId = null;
     UUID respondidoUsuarioId = null;
     if (comentarioRespondidoId != null) {
-      Comentario alvo = buscarAlvoNaAtividade(atividadeId, comentarioRespondidoId);
+      Comentario alvo = buscarAlvoNaAtividade(usuarioId, atividadeId, comentarioRespondidoId);
       comentarioRaizId = alvo.ehRaiz() ? alvo.id() : alvo.comentarioRaizId();
       respondidoUsuarioId = alvo.autorId();
     }
@@ -203,7 +203,9 @@ public class ServicoDeInteracao {
         id -> eventos.usuarioMencionado(comentario.atividadeId(), comentarioId, id, usuarioId));
 
     Integer totalRespostas =
-        comentario.ehRaiz() ? (int) comentarioRepository.countByComentarioRaizId(comentarioId) : null;
+        comentario.ehRaiz()
+            ? (int) comentarioRepository.contarRespostasVisiveis(comentarioId, usuarioId)
+            : null;
     return mapearUm(comentario, usuarioId, totalRespostas);
   }
 
@@ -220,9 +222,10 @@ public class ServicoDeInteracao {
     servicoDeFeed.validarVisivel(usuarioId, atividadeId);
 
     Page<Comentario> pagina =
-        comentarioRepository.buscarRaizesPorAtividade(atividadeId, PageRequest.of(page, size));
+        comentarioRepository.buscarRaizesPorAtividade(
+            atividadeId, usuarioId, PageRequest.of(page, size));
     List<Comentario> raizes = pagina.getContent();
-    Map<UUID, Long> totalRespostas = contarRespostas(raizes);
+    Map<UUID, Long> totalRespostas = contarRespostas(raizes, usuarioId);
 
     List<ComentarioResposta> itens =
         mapearVarios(
@@ -246,11 +249,18 @@ public class ServicoDeInteracao {
             .orElseThrow(
                 () -> new ErroDeNegocioException(CodigoErro.RECURSO_NAO_ENCONTRADO, COMENTARIO_NAO_ENCONTRADO));
     servicoDeFeed.validarVisivel(usuarioId, raiz.atividadeId());
+    // F-MOD-OPC: raiz de conta suspensa some com a thread (decisão 11).
+    if (!comentarioRepository.visivelPara(comentarioRaizId, usuarioId)) {
+      throw new ErroDeNegocioException(
+          CodigoErro.RECURSO_NAO_ENCONTRADO, COMENTARIO_NAO_ENCONTRADO);
+    }
 
     // Busca um a mais que o limite só para saber se há próxima página, sem contar tudo.
     List<Comentario> pagina;
     try {
-      pagina = comentarioRepository.buscarRespostasPorRaiz(comentarioRaizId, cursor, limit + 1);
+      pagina =
+          comentarioRepository.buscarRespostasPorRaiz(
+              comentarioRaizId, usuarioId, cursor, limit + 1);
     } catch (CursorInvalidoException erro) {
       throw new ErroDeNegocioException(
           CodigoErro.REQUISICAO_INVALIDA, "Cursor de paginação inválido.");
@@ -271,13 +281,18 @@ public class ServicoDeInteracao {
     return new ListaRespostasResposta(itens, proximoCursor, temMais);
   }
 
-  private Comentario buscarAlvoNaAtividade(UUID atividadeId, UUID comentarioId) {
+  /**
+   * Alvo da resposta. Oculto (autor suspenso ou thread de raiz oculta, F-MOD-OPC) é o mesmo 404
+   * de inexistente, e nada é publicado para a conta suspensa.
+   */
+  private Comentario buscarAlvoNaAtividade(UUID usuarioId, UUID atividadeId, UUID comentarioId) {
     Comentario alvo =
         comentarioRepository
             .findById(comentarioId)
             .orElseThrow(
                 () -> new ErroDeNegocioException(CodigoErro.RECURSO_NAO_ENCONTRADO, COMENTARIO_NAO_ENCONTRADO));
-    if (!alvo.atividadeId().equals(atividadeId)) {
+    if (!alvo.atividadeId().equals(atividadeId)
+        || !comentarioRepository.visivelPara(comentarioId, usuarioId)) {
       throw new ErroDeNegocioException(CodigoErro.RECURSO_NAO_ENCONTRADO, COMENTARIO_NAO_ENCONTRADO);
     }
     return alvo;
@@ -329,10 +344,10 @@ public class ServicoDeInteracao {
     throw erro;
   }
 
-  private Map<UUID, Long> contarRespostas(Collection<Comentario> raizes) {
+  private Map<UUID, Long> contarRespostas(Collection<Comentario> raizes, UUID leitor) {
     Map<UUID, Long> mapa = new HashMap<>();
     for (Comentario raiz : raizes) {
-      mapa.put(raiz.id(), comentarioRepository.countByComentarioRaizId(raiz.id()));
+      mapa.put(raiz.id(), comentarioRepository.contarRespostasVisiveis(raiz.id(), leitor));
     }
     return mapa;
   }

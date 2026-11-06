@@ -131,6 +131,7 @@ class AppPropertiesTest {
             null,
             null,
             null,
+            null,
             null);
 
     assertThat(propriedades.originsPermitidas())

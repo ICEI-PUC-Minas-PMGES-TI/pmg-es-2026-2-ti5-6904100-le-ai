@@ -5,6 +5,8 @@ import br.com.leai.social.common.ErroDeNegocioException;
 import br.com.leai.social.common.Paginacao;
 import br.com.leai.social.common.idempotencia.ChaveDeIdempotencia;
 import br.com.leai.social.common.idempotencia.RespostaIdempotente;
+import br.com.leai.social.moderacao.dto.ContaModeradaResposta;
+import br.com.leai.social.moderacao.dto.MotivoDaContaRequisicao;
 import br.com.leai.social.moderacao.dto.PaginaDenunciasResposta;
 import br.com.leai.social.moderacao.dto.PaginaRegistrosResposta;
 import br.com.leai.social.moderacao.dto.ResultadoModeracaoResposta;
@@ -20,14 +22,16 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Painel de moderação (F-MOD, RF-MOD-02/03/05). Toda rota de {@code /admin} exige o papel de
- * administrador no {@code SecurityConfig} (RNF-SEC-04); o leitor recebe 403.
+ * Painel de moderação (F-MOD, RF-MOD-02/03/05; F-MOD-OPC, RF-MOD-04). Toda rota de {@code /admin}
+ * exige o papel de administrador no {@code SecurityConfig} (RNF-SEC-04); o leitor recebe 403. As
+ * ações de conta repassam o JWT do admin ao {@code identidade}, que revalida o papel.
  */
 @RestController
 @RequestMapping("/admin")
@@ -87,6 +91,35 @@ public class ModeracaoController {
     return ResponseEntity.status(resposta.status()).build();
   }
 
+  @PostMapping("/usuarios/{usuarioId}/suspender")
+  @Operation(
+      operationId = "suspenderConta",
+      summary = "Suspende a conta do leitor pelo identidade e audita (RF-MOD-04)")
+  public ResponseEntity<ContaModeradaResposta> suspender(
+      @AuthenticationPrincipal Jwt token,
+      @PathVariable UUID usuarioId,
+      @RequestHeader(name = ChaveDeIdempotencia.CABECALHO, required = false) String chave,
+      @RequestBody(required = false) MotivoDaContaRequisicao corpo) {
+    String exigida = ChaveDeIdempotencia.exigir(chave);
+    return responderConta(
+        servico.suspender(
+            admin(token), token.getTokenValue(), usuarioId, motivo(corpo), exigida));
+  }
+
+  @PostMapping("/usuarios/{usuarioId}/reativar")
+  @Operation(
+      operationId = "reativarConta",
+      summary = "Reativa a conta suspensa pelo identidade e audita (RF-MOD-04)")
+  public ResponseEntity<ContaModeradaResposta> reativar(
+      @AuthenticationPrincipal Jwt token,
+      @PathVariable UUID usuarioId,
+      @RequestHeader(name = ChaveDeIdempotencia.CABECALHO, required = false) String chave,
+      @RequestBody(required = false) MotivoDaContaRequisicao corpo) {
+    String exigida = ChaveDeIdempotencia.exigir(chave);
+    return responderConta(
+        servico.reativar(admin(token), token.getTokenValue(), usuarioId, motivo(corpo), exigida));
+  }
+
   @GetMapping("/moderacao/logs")
   @Operation(
       operationId = "listarRegistrosDeModeracao",
@@ -99,6 +132,15 @@ public class ModeracaoController {
   private static ResponseEntity<ResultadoModeracaoResposta> responder(
       RespostaIdempotente<ResultadoModeracaoResposta> resposta) {
     return ResponseEntity.status(resposta.status()).body(resposta.corpo());
+  }
+
+  private static ResponseEntity<ContaModeradaResposta> responderConta(
+      RespostaIdempotente<ContaModeradaResposta> resposta) {
+    return ResponseEntity.status(resposta.status()).body(resposta.corpo());
+  }
+
+  private static String motivo(MotivoDaContaRequisicao corpo) {
+    return corpo == null ? null : corpo.motivo();
   }
 
   private static int limiteValido(int limite) {

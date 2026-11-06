@@ -61,6 +61,24 @@ Usuário, autenticação, perfil, privacidade, seguidores e solicitações de se
 - `@MockBean` foi removido — use `@MockitoBean`.
 - **Jackson 3** (`tools.jackson.*`), não mais `com.fasterxml.jackson.databind`.
 
+## Mudanças feitas por outras features
+
+### 05/11/2026 — F-MOD-OPC (Renato): suspensão e reativação de conta
+
+Plano em [`plano-F-MOD-OPC.md`](../../../docs/plano-de-desenvolvimento/periodo-3/renato-periodo-3/plano-F-MOD-OPC.md). Avisado no grupo; a revisão do Henrique entra pelo PR.
+
+- **Por quê:** RF-MOD-04. O painel de moderação vive no `social`, mas o efeito na conta é daqui, e o `social` não escreve no schema `identidade` (arquitetura §4.2).
+- **Migration `V20261105120000__suspensao_de_conta`** (comentário no topo): `usuario.suspenso_em` e `reativado_em`, a CHECK `usuario_suspensao_coerente` (`suspenso = (suspenso_em IS NOT NULL)`) e a VIEW `v_conta_moderacao_v1`, lida só pela moderação do `social` (inclui a conta suspensa; omite a exclusão pendente). Migration nova precisa de versão maior que `V20261105120000`.
+- **Armadilha da CHECK:** quem grava `suspenso = true` por SQL precisa gravar `suspenso_em` junto. Os três testes que faziam isso (`ContratosDePerfilIntegracaoTest`, `PerfilDeOutroIntegracaoTest`, `SeguimentoIntegracaoTest`) foram ajustados, e o `SeedDeIdentidade` anula `suspenso_em` e `reativado_em` ao voltar `suspenso = false`.
+- **Pacote novo `moderacao/`:** `POST /internal/moderacao/usuarios/{id}/suspensao` e `/reativacao` (`ModeracaoInternaController`, `ServicoDeSuspensao`, `TokenDeModeracao`). Ficam **fora** de `ROTAS_PUBLICAS`: a cadeia do Spring exige JWT (401); depois vêm o `X-Moderacao-Token` (503 sem `MODERACAO_TOKEN`, 401 errado), o `papel = admin` e, com o admin provisionado, o `sub` dele (403); por fim o alvo (404 inexistente ou em exclusão, 422 conta administradora). Idempotente pelo estado, sem recibo: repetir devolve `alterado: false` e o mesmo instante, que o `social` usa como `criado_em` do log. Suspender revoga as renovações ativas (`revogarAtivos`).
+- **`CodigoErro.CONTA_SUSPENSA`** (403, "Esta conta está suspensa."), declarado **depois** de `ACESSO_NEGADO` para o `deStatus(403)` continuar genérico.
+- **`ServicoDeAutenticacao`:** `entrar` responde 403 `CONTA_SUSPENSA` só depois de a senha conferir (senha errada continua o 401 único) e antes do ramo de exclusão pendente: a suspensão prevalece. `renovar` também barra. `AutenticacaoController.renovar`: o reuso de um token que a suspensão revogou responde 403, **sem** o WARN de reuso e sem derrubar nada (`contaSuspensa`).
+- **`ServicoDeExclusaoDeConta.solicitar`:** conta suspensa responde 403 `CONTA_SUSPENSA`, conferido na linha já travada (decisão 12).
+- **`ContaAdministradora.definida()`**, **`Usuario.suspenso()`**, **`AppProperties.moderacaoToken`** (opcional, 32+), `application.yml`, `.env.example` e `render.yaml` (`MODERACAO_TOKEN` com `sync: false`, o **mesmo valor** do `leai-social` e do `leai-leitura`).
+- **Recuperação de senha:** sem mudança. O reset funciona, e o login seguinte continua 403.
+- **Contrato:** `docs/api/identidade.yaml` (tag `interno`, scheme `moderacaoToken`, o 403 em `/auth/login`, `/auth/refresh` e `DELETE /me/conta`, a VIEW nova em `x-database-contracts`).
+- **Testes:** `SuspensaoDeContaIntegracaoTest`, `SuspensaoSemTokenIntegracaoTest` e `auth/service/SuspensaoComAdminIntegracaoTest` (este no pacote do `AdminIntegracaoTest`, para provisionar o admin).
+
 ## Pontos de atenção (ver `REQUISITOS.md` §8)
 
 - **Senhas com bcrypt** (custo 12, via `PasswordEncoder` do próprio Spring Security — decidido em P0-NAV, 14/09/2026). **Token de acesso**: JWT HS256, 15 minutos, emitido por `EmissorDeToken`. Claim `papel` (`leitor` ou `admin`) sempre presente: é o que os outros serviços leem para restringir rota ao admin. **Renovação** (F-AUT): `GestorDeRenovacao`, token opaco de 256 bits, só o SHA-256 no banco, 30 dias, rotação atômica e detecção de reuso (token revogado reapresentado derruba todas as renovações do usuário). Logout, troca e redefinição de senha revogam renovações.

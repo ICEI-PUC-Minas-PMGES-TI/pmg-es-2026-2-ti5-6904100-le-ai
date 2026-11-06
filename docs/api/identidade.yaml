@@ -71,6 +71,24 @@ x-database-contracts:
     columns:
       - { name: seguidor_id, type: uuid, nullable: false }
       - { name: seguido_id, type: uuid, nullable: false }
+  - name: v_conta_moderacao_v1
+    owner: identidade
+    status: implemented
+    description: >-
+      F-MOD-OPC (05/11/2026). Conta vista pela moderação: inclui as suspensas,
+      que as VIEWs públicas omitem, e omite as com exclusão pendente. Lida só
+      pelo pacote `moderacao` do `social` (painel e registro do admin); nunca
+      serve para exibir conta a outros leitores. `suspenso_em` é o instante da
+      suspensão vigente, igual ao `criado_em` da linha de auditoria dela.
+    consumers: [social]
+    columns:
+      - { name: id, type: uuid, nullable: false }
+      - { name: username, type: citext, nullable: false }
+      - { name: nome_exibicao, type: varchar(60), nullable: false }
+      - { name: avatar_url, type: text, nullable: true }
+      - { name: privacidade, type: text, nullable: false, values: [publico, privado] }
+      - { name: suspenso, type: boolean, nullable: false }
+      - { name: suspenso_em, type: timestamptz, nullable: true }
 servers:
   - url: http://localhost:8080
     description: Local
@@ -84,7 +102,9 @@ tags:
   - name: conta
     description: Exclusão e recuperação da conta (F-CONTA-2)
   - name: interno
-    description: Endpoints chamados pelo agendador, fora do uso dos clientes
+    description: >-
+      Endpoints chamados pelo agendador ou por outro serviço (moderação de
+      conta, F-MOD-OPC), fora do uso dos clientes
   - name: perfil
     description: Perfil público, edição e busca exata
   - name: seguimento
@@ -158,6 +178,11 @@ paths:
         aceito somente em `POST /me/conta/cancelar-exclusao` e recusado com `401`
         por todas as demais rotas de todos os serviços (RN-23.3). O cliente
         distingue as duas respostas pelo campo `tipo`.
+
+        F-MOD-OPC: conta suspensa com senha válida recebe `403`
+        `CONTA_SUSPENSA`, inclusive se também tiver exclusão pendente (a
+        suspensão prevalece). Com senha errada, a resposta continua o `401`
+        único: a suspensão não ajuda a enumerar contas.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -193,6 +218,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Erro'
+        '403':
+          $ref: '#/components/responses/ContaSuspensa'
         '409':
           $ref: '#/components/responses/IdempotenciaEmConflito'
         '429':
@@ -217,7 +244,9 @@ paths:
         contar como reuso; renovações simultâneas com chaves diferentes contam, e
         por isso o cliente deve serializá-las (por exemplo, entre abas). Conta
         com exclusão pendente recebe `401` (F-CONTA-2): a solicitação já
-        revogou todas as renovações.
+        revogou todas as renovações. Conta suspensa recebe `403`
+        `CONTA_SUSPENSA` (F-MOD-OPC), também ao reapresentar o token que a
+        suspensão revogou, sem tratá-lo como reuso.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -237,6 +266,8 @@ paths:
           $ref: '#/components/responses/RequisicaoInvalida'
         '401':
           $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/ContaSuspensa'
         '409':
           $ref: '#/components/responses/IdempotenciaEmConflito'
         '429':
@@ -494,7 +525,10 @@ paths:
         '401':
           $ref: '#/components/responses/NaoAutenticado'
         '403':
-          description: Conta administradora, que não pode ser excluída.
+          description: >-
+            Conta administradora, que não pode ser excluída (`ACESSO_NEGADO`),
+            ou conta suspensa pela moderação (`CONTA_SUSPENSA`, F-MOD-OPC), que
+            não pede exclusão enquanto estiver suspensa.
           headers:
             X-Correlation-Id:
               $ref: '#/components/headers/CorrelationId'
@@ -592,6 +626,83 @@ paths:
           $ref: '#/components/responses/RequisicaoInvalida'
         '401':
           $ref: '#/components/responses/NaoAutenticado'
+        '503':
+          $ref: '#/components/responses/ServicoIndisponivel'
+
+  /internal/moderacao/usuarios/{id}/suspensao:
+    post:
+      operationId: suspenderContaInterno
+      x-implementation-status: implemented
+      x-implemented-by: F-MOD-OPC
+      tags: [interno]
+      summary: Suspende a conta e revoga as renovações (RF-MOD-04)
+      description: >-
+        Chamado só pelo painel de moderação do `social`, com o segredo
+        `X-Moderacao-Token` **e** o token de acesso do administrador repassado:
+        sem JWT válido, `401`; sem `MODERACAO_TOKEN` configurado, `503`; segredo
+        ausente ou errado, `401`; token sem `papel: admin` (ou de outro `sub`
+        quando o admin está provisionado), `403`. Marca a conta como suspensa e
+        revoga as renovações ativas; o token de acesso remanescente expira no
+        prazo de 15 minutos. Idempotente pelo estado: suspender conta já
+        suspensa devolve o estado atual com `alterado: false` e o mesmo
+        `suspensoEm`. Conta inexistente ou com exclusão pendente, `404`; a
+        conta administradora, `422`. Sem corpo e sem `Idempotency-Key`.
+      security:
+        - bearerAuth: []
+          moderacaoToken: []
+      parameters:
+        - $ref: '#/components/parameters/UsuarioId'
+      responses:
+        '200':
+          description: Conta suspensa, ou já estava.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EstadoDaSuspensao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/AcessoNegado'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '422':
+          $ref: '#/components/responses/ContaAdministradora'
+        '503':
+          $ref: '#/components/responses/ServicoIndisponivel'
+
+  /internal/moderacao/usuarios/{id}/reativacao:
+    post:
+      operationId: reativarContaInterno
+      x-implementation-status: implemented
+      x-implemented-by: F-MOD-OPC
+      tags: [interno]
+      summary: Reativa a conta suspensa (RF-MOD-04)
+      description: >-
+        Simétrico à suspensão, com a mesma autenticação. Login, renovação e as
+        VIEWs públicas voltam a valer, com a privacidade e os seguidores de
+        antes (RN-08). Reativar conta ativa devolve o estado atual com
+        `alterado: false`; `reativadoEm` é o da última reativação, ou nulo se a
+        conta nunca foi suspensa.
+      security:
+        - bearerAuth: []
+          moderacaoToken: []
+      parameters:
+        - $ref: '#/components/parameters/UsuarioId'
+      responses:
+        '200':
+          description: Conta reativada, ou já estava ativa.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EstadoDaSuspensao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/AcessoNegado'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '422':
+          $ref: '#/components/responses/ContaAdministradora'
         '503':
           $ref: '#/components/responses/ServicoIndisponivel'
 
@@ -1069,6 +1180,14 @@ components:
       description: >-
         Segredo compartilhado com o agendador (`SCHEDULER_TOKEN`), comparado em
         tempo constante, como no job de inatividade do leitura.
+    moderacaoToken:
+      type: apiKey
+      in: header
+      name: X-Moderacao-Token
+      description: >-
+        F-MOD-OPC. Segredo compartilhado com o `social` (`MODERACAO_TOKEN`, o
+        mesmo do `leitura`), comparado em tempo constante. Sozinho não basta:
+        as rotas exigem também o `bearerAuth` do administrador.
 
   headers:
     CorrelationId:
@@ -1124,6 +1243,14 @@ components:
       description: Username exato do outro leitor.
       schema:
         $ref: '#/components/schemas/Username'
+    UsuarioId:
+      name: id
+      in: path
+      required: true
+      description: Identificador da conta alvo.
+      schema:
+        type: string
+        format: uuid
     SolicitacaoId:
       name: id
       in: path
@@ -1154,6 +1281,35 @@ components:
             $ref: '#/components/schemas/Erro'
     NaoAutenticado:
       description: Token ausente, inválido, expirado, revogado quando aplicável ou assinado por outro segredo.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+    AcessoNegado:
+      description: Autenticado, mas sem permissão para a ação.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+    ContaSuspensa:
+      description: >-
+        F-MOD-OPC: conta suspensa pela moderação, com o código `CONTA_SUSPENSA`
+        e a mensagem `Esta conta está suspensa.`.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+    ContaAdministradora:
+      description: A conta administradora não pode ser suspensa nem reativada.
       headers:
         X-Correlation-Id:
           $ref: '#/components/headers/CorrelationId'
@@ -1461,6 +1617,30 @@ components:
           type: integer
           minimum: 0
           description: Contas finalizadas nesta execução.
+
+    EstadoDaSuspensao:
+      type: object
+      additionalProperties: false
+      required: [usuarioId, suspenso, suspensoEm, reativadoEm, alterado]
+      properties:
+        usuarioId:
+          type: string
+          format: uuid
+        suspenso:
+          type: boolean
+        suspensoEm:
+          type: string
+          format: date-time
+          nullable: true
+          description: Instante da suspensão vigente; nulo com a conta ativa.
+        reativadoEm:
+          type: string
+          format: date-time
+          nullable: true
+          description: Instante da última reativação; nulo se nunca houve.
+        alterado:
+          type: boolean
+          description: Falso na repetição, quando a conta já estava no estado pedido.
 
     MensagemResposta:
       type: object

@@ -147,7 +147,8 @@ class PerfilDeOutroIntegracaoTest extends IntegracaoComPostgres {
     Leitor eu = novoLeitor();
     Leitor suspensa = novoLeitor();
     Leitor excluindo = novoLeitor();
-    jdbc.update("UPDATE usuario SET suspenso = true WHERE id = ?", suspensa.id());
+    jdbc.update(
+        "UPDATE usuario SET suspenso = true, suspenso_em = now() WHERE id = ?", suspensa.id());
     jdbc.update(
         "UPDATE usuario SET exclusao_solicitada_em = now(),"
             + " exclusao_prevista_em = now() + interval '30 days' WHERE id = ?",

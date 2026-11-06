@@ -30,7 +30,9 @@ public enum OperacaoIdempotente {
   CRIAR_DENUNCIA("criarDenuncia"),
   ARQUIVAR_DENUNCIA("arquivarDenuncia"),
   REMOVER_CONTEUDO_DENUNCIADO("removerConteudoDenunciado"),
-  REMOVER_FRASE("removerFrasePeloAdmin");
+  REMOVER_FRASE("removerFrasePeloAdmin"),
+  SUSPENDER_CONTA("suspenderConta"),
+  REATIVAR_CONTA("reativarConta");
 
   private final String operationId;
 

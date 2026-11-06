@@ -4,6 +4,7 @@ import br.com.leai.social.common.CodigoErro;
 import br.com.leai.social.common.ErroDeNegocioException;
 import br.com.leai.social.common.LimitePorUsuario;
 import br.com.leai.social.feed.repository.AtividadeRepository;
+import br.com.leai.social.feed.repository.ComentarioRepository;
 import br.com.leai.social.lista.model.LivroDeReferencia;
 import br.com.leai.social.lista.model.PerfilDoDono;
 import br.com.leai.social.lista.repository.ReferenciasDeLista;
@@ -33,18 +34,21 @@ public class ServicoDeDenuncia {
   private final AtividadeRepository atividades;
   private final DenunciaRepository denuncias;
   private final LimitePorUsuario limiteDeDenunciar;
+  private final ComentarioRepository comentarios;
 
   public ServicoDeDenuncia(
       ConteudoDenunciavel conteudo,
       ReferenciasDeLista referencias,
       AtividadeRepository atividades,
       DenunciaRepository denuncias,
-      @Qualifier("limiteDeDenunciar") LimitePorUsuario limiteDeDenunciar) {
+      @Qualifier("limiteDeDenunciar") LimitePorUsuario limiteDeDenunciar,
+      ComentarioRepository comentarios) {
     this.conteudo = conteudo;
     this.referencias = referencias;
     this.atividades = atividades;
     this.denuncias = denuncias;
     this.limiteDeDenunciar = limiteDeDenunciar;
+    this.comentarios = comentarios;
   }
 
   /** Denúncia criada ou a pendente que o leitor já tinha sobre o alvo. */
@@ -87,14 +91,18 @@ public class ServicoDeDenuncia {
     return motivo;
   }
 
-  /** O comentário segue a visibilidade da atividade dele (RN-08/RN-09). */
+  /**
+   * O comentário segue a visibilidade da atividade dele (RN-08/RN-09) e a do autor e da raiz: o
+   * de conta suspensa, ou numa thread de raiz oculta, é 404 (F-MOD-OPC, decisão 11).
+   */
   private AlvoDaDenuncia comentarioAcessivel(UUID eu, UUID comentarioId) {
     ConteudoDenunciavel.Comentario comentario =
         conteudo.comentario(comentarioId).orElseThrow(ServicoDeDenuncia::naoEncontrado);
     if (comentario.autorId().equals(eu)) {
       throw proprio("Você não pode denunciar o seu próprio comentário.");
     }
-    if (!atividades.visivelPara(eu, comentario.atividadeId())) {
+    if (!atividades.visivelPara(eu, comentario.atividadeId())
+        || !comentarios.visivelPara(comentario.id(), eu)) {
       throw naoEncontrado();
     }
     return new AlvoDaDenuncia(
