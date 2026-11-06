@@ -19,10 +19,10 @@ RNF atendidos: **RNF-SEC-04** (operação restrita ao administrador, verificada 
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | não iniciado | campo de suspensão em `usuario` (`identidade`); reuso de `log_moderacao` (`social`) |
-| Backend | não iniciado | `social`: ação no painel + auditoria; `identidade`: aplicar suspensão e revogar sessões |
-| Web | não iniciado | ação de suspender/reativar no painel de moderação (admin) |
-| Mobile | não iniciado | **sem painel**; trata a própria sessão suspensa com mensagem e logout |
+| Infra | implementado, aplicado no dev (06/11/2026) | migrations `V20261105120000__suspensao_de_conta` (`identidade`: `suspenso_em`, `reativado_em`, CHECK e VIEW `v_conta_moderacao_v1`) e `V20261105120000__auditoria_de_conta` (`social`: CHECK e índice único das linhas de conta em `log_moderacao`); `MODERACAO_TOKEN` no `leai-identidade` a cadastrar no Render |
+| Backend | implementado, em revisão no [PR #61](https://github.com/ICEI-PUC-Minas-PMGES-TI/pmg-es-2026-2-ti5-6904100-le-ai/pull/61) | `identidade`: `/internal/moderacao/usuarios/{id}/suspensao` e `/reativacao`, 403 `CONTA_SUSPENSA` em login, renovação e pedido de exclusão; `social`: `/admin/usuarios/{id}/suspender` e `/reativar`, auditoria, ocultação de comentários e notificações |
+| Web | implementado, em revisão no PR #61 | suspender e reativar no painel (pela denúncia e pela linha vigente do registro), etiqueta, faixa, registro com o motivo; logout com banner e banner no login |
+| Mobile | implementado, em revisão no PR #61 | **sem painel**; logout uma vez na renovação negada, banner de conta suspensa no login |
 
 ## Especificação
 
@@ -59,34 +59,70 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 ## Critérios de aceite
 
-- [ ] Suspender e reativar são **restritos ao administrador**, verificados no servidor; não-admin recebe negação (RF-MOD-04, SEC-01/04).
-- [ ] `social` **não escreve** no schema `identidade`: o efeito ocorre por comando autorizado ao serviço dono, que **revalida** (§4.2).
-- [ ] Conta suspensa **não autentica** e tem os refresh tokens **revogados**; a sessão ativa cai ao expirar o access token (SEC-30).
-- [ ] Suspensão oculta perfil/conteúdo aos demais leitores sem apagar; reativação restaura acesso/visibilidade sob RN-08. Painel autorizado consegue localizar e reativar conta suspensa.
-- [ ] Suspender conta já suspensa é **idempotente** e não gera segunda linha de auditoria (RNF-ERR-04).
-- [ ] Toda suspensão/reativação aparece no `GET /admin/moderacao/logs` com autor, alvo, ação, motivo e timestamp, sem dado sensível excedente (RF-MOD-05, SEC-35/36/37).
-- [ ] A ação pede **confirmação** no cliente antes de executar (RNF-USA-04).
-- [ ] Mensagem ao leitor suspenso é pt-BR, clara e sem detalhe técnico, e não permite enumerar contas (RNF-USA-05).
-- [ ] O mobile de um leitor suspenso faz **logout** com mensagem, sem loop de retentativa.
-- [ ] Suspensão e reativação funcionam **em DES**.
+Evidência de 05 e 06/11/2026: testes automáticos (`identidade` 233, `social` 274, web 1064, mobile 897) e teste manual local contra o banco de dev (web no Edge em 1440 e 390 px, claro e escuro; app no emulador `Pixel_8_API_35`).
+
+- [x] Suspender e reativar são **restritos ao administrador**, verificados no servidor; não-admin recebe negação (RF-MOD-04, SEC-01/04). `/admin/**` exige o papel no `social` (leitor 403, também no manual), e o `identidade` revalida o JWT repassado (`SuspensaoDeContaIntegracaoTest.autorizacaoEmCamadas`, `SuspensaoComAdminIntegracaoTest`).
+- [x] `social` **não escreve** no schema `identidade`: o efeito ocorre por comando autorizado ao serviço dono, que **revalida** (§4.2). Comando HTTP com `X-Moderacao-Token` mais o JWT do admin; o `social` só lê a VIEW `v_conta_moderacao_v1`.
+- [x] Conta suspensa **não autentica** e tem os refresh tokens **revogados**; a sessão ativa cai ao expirar o access token (SEC-30). Login 403 só com a senha certa, renovação 403 (também com o token revogado, sem alarme de reuso), reset de senha não contorna; no manual, web e app saíram na renovação seguinte.
+- [x] Suspensão oculta perfil/conteúdo aos demais leitores sem apagar; reativação restaura acesso/visibilidade sob RN-08. Painel autorizado consegue localizar e reativar conta suspensa. Manual: B deixou de ver perfil, feed, atividade, resenha no livro e no perfil e a thread do comentário, e voltou a ver tudo depois da reativação feita pela linha do registro com a denúncia já arquivada. Comentários e notificações em `OcultacaoDeContaSuspensaIntegracaoTest`.
+- [x] Suspender conta já suspensa é **idempotente** e não gera segunda linha de auditoria (RNF-ERR-04). Repetição, dois cliques e retentativa depois de timeout caem no mesmo episódio (`SuspensaoDeContaIntegracaoTest`); no manual, suspender de novo com outra chave manteve uma linha.
+- [x] Toda suspensão/reativação aparece no `GET /admin/moderacao/logs` com autor, alvo, ação, motivo e timestamp, sem dado sensível excedente (RF-MOD-05, SEC-35/36/37). O motivo aparece só nas linhas de conta.
+- [x] A ação pede **confirmação** no cliente antes de executar (RNF-USA-04). Dialog com motivo obrigatório (`DialogoSuspensao.spec.ts`, manual).
+- [x] Mensagem ao leitor suspenso é pt-BR, clara e sem detalhe técnico, e não permite enumerar contas (RNF-USA-05). Copy do design; senha errada continua a mensagem única (teste e manual).
+- [x] O mobile de um leitor suspenso faz **logout** com mensagem, sem loop de retentativa (`session_controller_test.dart`, manual no emulador).
+- [ ] Suspensão e reativação funcionam **em DES**. Depois do merge na `main`, com os segredos no Render.
 
 ## Definition of Done
 
 (plano §10)
 
-- [ ] Código (backend `social` + efeito em `identidade`, web, tratamento no mobile) mergeado em `desenvolvimento`
-- [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
-- [ ] Testes unitários e de integração com banco real/container: autorização admin, negativa para não-admin, suspensão bloqueando login e renovação, revogação de refresh tokens, idempotência, reativação e registro de auditoria (RNF-TST-02)
-- [ ] Teste do comando cross-service cobre autorização, revalidação em `identidade`, repetição idempotente e falha **sem** estado local falso em `social` (RNF-TST-02; RNF-TST-03 se o contrato aprovado for assíncrono)
-- [ ] Testes web/mobile: web cobre a ação com confirmação e o log; mobile cobre a sessão suspensa levando a logout; ambos tratam indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
-- [ ] **Specs OpenAPI**: `docs/api/social.yaml` com as ações de suspensão/reativação do painel; `docs/api/identidade.yaml` com o comando autorizado e o efeito na autenticação
-- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
-- [ ] Arquivo da feature atualizado: status, pendências, timeline
-- [ ] Divergência protótipo × implementação registrada, se houver
+- [ ] Código (backend `social` + efeito em `identidade`, web, tratamento no mobile) mergeado em `desenvolvimento`. Está no [PR #61](https://github.com/ICEI-PUC-Minas-PMGES-TI/pmg-es-2026-2-ti5-6904100-le-ai/pull/61), aguardando a revisão.
+- [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)). Conferir no PR antes do merge.
+- [x] Testes unitários e de integração com banco real/container: autorização admin, negativa para não-admin, suspensão bloqueando login e renovação, revogação de refresh tokens, idempotência, reativação e registro de auditoria (RNF-TST-02). `SuspensaoDeContaIntegracaoTest`, `SuspensaoSemTokenIntegracaoTest` e `SuspensaoComAdminIntegracaoTest` no `identidade`; `SuspensaoDeContaIntegracaoTest` e `OcultacaoDeContaSuspensaIntegracaoTest` no `social`, em Postgres 17 descartável.
+- [x] Teste do comando cross-service cobre autorização, revalidação em `identidade`, repetição idempotente e falha **sem** estado local falso em `social` (RNF-TST-02). O `identidade` simulado (`IdentidadeSimulada`) num `HttpServer` do JDK: timeout, retentativa, 503, 404, 422 e 403.
+- [x] Testes web/mobile: web cobre a ação com confirmação e o log; mobile cobre a sessão suspensa levando a logout; ambos tratam indisponibilidade/timeout com API simulada (RNF-TST-04/05/06). `DialogoSuspensao.spec.ts`, `PainelModeracaoView.spec.ts`, `renovacao.spec.ts`, `session.spec.ts` e `LoginView.spec.ts`; `session_controller_test.dart`, `login_page_test.dart` e `sessao_test.dart`.
+- [x] **Specs OpenAPI**: `docs/api/social.yaml` com as ações de suspensão/reativação do painel; `docs/api/identidade.yaml` com o comando autorizado e o efeito na autenticação (validado pelo `ContratoHttp` nos testes do `identidade`).
+- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)). Depois do merge na `main`.
+- [x] Arquivo da feature atualizado: status, pendências, timeline
+- [x] Divergência protótipo × implementação registrada, se houver (Pendências)
 
-**Item próprio:** fixar com `identidade` **um único contrato** de ação administrativa sobre a conta (autorização, revalidação, retorno idempotente e auditoria em `social`), reaproveitando o desenho que [F-MOD](../periodo-2/feature-F-MOD.md) já fechou para a remoção de resenha — não dois padrões diferentes para o mesmo problema.
+**Item próprio** (cumprido, com a divergência registrada nas Pendências): fixar com `identidade` **um único contrato** de ação administrativa sobre a conta (autorização, revalidação, retorno idempotente e auditoria em `social`), reaproveitando o desenho que [F-MOD](../periodo-2/feature-F-MOD.md) já fechou para a remoção de resenha — não dois padrões diferentes para o mesmo problema.
 
 ## Pendências
+
+### Implementação de 05 e 06/11/2026 (Renato)
+
+Plano em [`renato-periodo-3/plano-F-MOD-OPC.md`](renato-periodo-3/plano-F-MOD-OPC.md), com as decisões do dono 1 a 13 de 05/11/2026. Ratificadas ali as propostas do design que estavam "a ratificar" abaixo: motivo obrigatório também na reativação (até 500 code points); suspender não resolve as denúncias; no login, a suspensão prevalece sobre a exclusão pendente; o admin no app vê `Perfil não encontrado`; o registro mostra só o motivo do admin (RNF-SEC-36).
+
+**Divergências (registradas e aceitas pelo dono no plano):**
+- Leitura da conta pelo painel por VIEW nova, `identidade.v_conta_moderacao_v1` (inclui as suspensas, omite a exclusão pendente), no lugar do `GET /interno/usuarios/{id}/moderacao` ilustrado acima. Os comandos continuam HTTP.
+- Rotas internas em `/internal/moderacao/usuarios/{id}/suspensao` e `/reativacao`, no padrão do `leitura`, e não `/interno/...`.
+- O motivo vai em `log_moderacao.detalhe`, que existia e nunca era preenchida: sem coluna nova.
+- **Item próprio do DoD:** o contrato reaproveita o da F-MOD (`X-Moderacao-Token`, timeout e retentativa, auditoria só depois da confirmação), com duas diferenças: o JWT do admin vai repassado junto (só o segredo não basta) e a idempotência no `identidade` é pelo estado, sem recibo, porque um recibo por alvo devolveria um episódio velho depois de suspender, reativar e suspender de novo.
+- Logout forçado na web igual ao mobile, com o banner `Sua sessão foi encerrada porque esta conta foi suspensa.`, sem artboard (decisão 6).
+- Reativar também pela ação `Reativar conta` na linha da suspensão vigente do registro, sem artboard (decisão 10): é o caminho que sobra quando a denúncia já foi resolvida.
+- O perfil web do admin ficou fora (corte firme, decisão 10): sem a visão do admin da conta suspensa nem o `DotsThree` no perfil; `Conta de @x` no registro não é link.
+- No mobile, dentro dos 15 minutos do token de acesso, o `leitura` responde 403 às escritas, e o logout só vem na renovação seguinte.
+- O 403 `CONTA_SUSPENSA` do pedido de exclusão não ganhou tratamento novo nos clientes (decisão 13).
+- O item do menu `Suspender conta do autor` usa o `MenuDeAcoes` compartilhado (texto `body`, hover `linha`, 240px), e não o desenho próprio do design (`body-strong`, hover `rubi-fundo`/`musgo-fundo`, 280px).
+- A ordem da etapa 3 do prompt mudou: a validação de contexto limpo e o teste manual rodaram em paralelo à revisão do PR (decisão 9).
+
+**Débitos:**
+- O perfil web do admin (decisão 10), a fazer depois de 17/11 se houver período.
+- Curtidas e reações de conta suspensa continuam contadas, assim como `qtdSeguidores`/`qtdSeguidos`, e o `@username` dela continua no texto das respostas (decisão 3).
+- Com sessão de leitura ativa no app, a sessão é descartada em silêncio, sem o aviso de tempo não registrado.
+- Depois da reativação, um aparelho que ficou desligado durante a suspensão e reapresenta o token que a suspensão revogou cai no alarme de reuso e derruba as sessões abertas depois da reativação (observação da validação de 06/11; o plano só eximia a conta suspensa).
+- A nota dos leitores continua contando a conta suspensa (decisão 4, de propósito).
+
+**Código de outras pessoas** (nota datada nos `AGENTS.md` de cada um e lista no PR):
+- Henrique (`identidade`): migration, `ServicoDeAutenticacao`, `AutenticacaoController`, `ServicoDeExclusaoDeConta`, `CodigoErro`, `AppProperties`, `ContaAdministradora`, `Usuario`, `SeedDeIdentidade`, `application.yml`, `.env.example`, pacote novo `moderacao/` e três testes que gravavam `suspenso` por SQL; no `social`, um caso em `ConsumidorDeContaExcluidaIntegracaoTest`; nos clientes, `session.ts`, `services/renovacao.ts`, `router/index.ts`, `LoginView.vue`, `ui/AvisoFlutuante.vue` (prop `icone`), `session_controller.dart` e `login_page.dart`.
+- Kayke (`social`): `ComentarioRepository`, `ServicoDeInteracao`, `ServicoDeFeed`, `RedacaoDeNotificacao`, `NotificacaoRepository`, `ServicoDeNotificacao`, `MassaDeRecomendacao` e dois testes ajustados às assinaturas novas.
+- Ana: `features/sessao/sessao_controller.dart` não mudou; ganhou um teste em `sessao_test.dart`.
+- Grupo: `render.yaml` (`MODERACAO_TOKEN` no `leai-identidade`, `IDENTIDADE_BASE_URL` no `leai-social`).
+
+**Para o DES (depois do merge na `main`):** cadastrar no Render o `MODERACAO_TOKEN` do `leai-identidade` com o **mesmo valor** do `leai-social` (e do `leai-leitura`); `IDENTIDADE_BASE_URL` já está no `render.yaml`. As duas migrations rodam no deploy; em 06/11 o DES tinha 0 contas suspensas e 0 linhas de auditoria de conta.
+
+### Histórico (antes da implementação)
 
 - **Telas (design P3):** lote 3, prompt de edição escrito em 11/10/2026: [`perfil-de-outro-leitor.md`](../../design/periodo-3/perfil-de-outro-leitor/perfil-de-outro-leitor.md) ([protótipo](../../design/periodo-3/perfil-de-outro-leitor/prototipos/perfil-de-outro-leitor.html)) (web, `DotsThree` de moderação no header só para o admin, dialog `Suspender conta` com motivo obrigatório até 500 caracteres, espera, falha, visão do admin da conta suspensa com `Reativar conta`; para os demais leitores, W+M, a conta suspensa é o `Perfil não encontrado` já existente). Lote 4, prompts escritos em 11/10/2026: [`painel-de-moderacao.md`](../../design/periodo-3/painel-de-moderacao/painel-de-moderacao.md) ([protótipo](../../design/periodo-3/painel-de-moderacao/prototipos/painel-de-moderacao.html)) (web, `DotsThree` da conta do autor no detalhe da denúncia, o mesmo dialog, autor suspenso na fila e no detalhe, linhas de conta no registro com o motivo do admin) e [`login.md`](../../design/periodo-3/login/login.md) ([protótipo](../../design/periodo-3/login/prototipos/login.html)) (W+M, banner `Conta suspensa` só depois de credenciais corretas, sessão encerrada por suspensão no mobile). A ratificar também: suspender não resolve a denúncia; suspensão prevalece sobre exclusão pendente no login; logout forçado na web declarado sem artboard. Contrato a confirmar também: marca de autor suspenso no payload da denúncia. A ratificar: motivo obrigatório também na reativação; admin no app vê `Perfil não encontrado`. **Motivo no registro, decidido em 11/10/2026 (Henrique, a ratificar pelo dono):** o registro de auditoria mostra só o motivo do admin na suspensão e na reativação; motivo de denúncia e conteúdo removido continuam fora (RNF-SEC-36). Hoje `log_moderacao` não tem coluna de motivo: a migration desta feature precisa acrescentá-la. Contratos a confirmar: `GET /interno/usuarios/{id}/moderacao` com identidade, data, hora e motivo; data e hora na resposta de suspender. Protótipos exportados em 21/10/2026.
 - **Depende de** [F-MOD](../periodo-2/feature-F-MOD.md) (painel, log de auditoria e o padrão cross-service), [F-AUT](../periodo-1/feature-F-AUT.md) (conta admin, refresh tokens, logout), [F-PERFIL](../periodo-1/feature-F-PERFIL.md) (`v_perfil_referencia_v1`), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md).
@@ -96,6 +132,12 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - Stack definida (arquitetura §2.1): `social` e `identidade` em Spring.
 
 ## Timeline
+
+### Validação 06/11/2026: quatro validadores de contexto limpo (`identidade`, `social`, web, mobile), sem achado importante. Os menores foram corrigidos com teste no commit `fix`: timeout de conexão sem retentativa nos dois clientes do `social`, motivo com U+0000 suspendendo sem log, ícone do toast, contador do motivo, foco ao cancelar, alinhamento do registro, fila a 390px, banner repetido ao recarregar o login e dois banners no app. Migrations aplicadas no banco de dev com o OK do dono. Teste manual completo do roteiro do plano: web no Edge (1440 e 390 px, claro e escuro), app no emulador, `identidade` parado sem auditoria falsa e reativação pelo registro.
+
+### Implementação 05/11/2026: backend (`identidade` e `social`), web e mobile em dois commits na `renato-features`, e o [PR #61](https://github.com/ICEI-PUC-Minas-PMGES-TI/pmg-es-2026-2-ti5-6904100-le-ai/pull/61) para a `desenvolvimento`. Testes: `identidade` 233, `social` 273, web 1063, mobile 897.
+
+### Planejamento 05/11/2026: [plano](renato-periodo-3/plano-F-MOD-OPC.md) revisado em duas rodadas de contexto limpo (15 + 9 achados), com as decisões do dono 1 a 13.
 
 ### Revisão 15/09/2026: grupo aprovou ocultação e reativação; consulta administrativa do alvo separada das VIEWs públicas filtradas. Planejamento e DER atualizados; implementação não iniciada.
 

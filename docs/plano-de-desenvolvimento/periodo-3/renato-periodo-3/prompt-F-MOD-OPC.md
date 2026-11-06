@@ -6,9 +6,9 @@
 
 | Etapa | Situação | Saída |
 |---|---|---|
-| 1. Planejar | a fazer | `plano-F-MOD-OPC.md` nesta pasta, revisado |
-| 2. Realizar | aguardando a etapa 1 | commits na `renato-features` + PR para a `desenvolvimento` |
-| 3. Validar | aguardando a etapa 2 | relatório de validação + correções + DES |
+| 1. Planejar | concluída em 05/11/2026, revisada em duas rodadas (15 + 9 achados) | [`plano-F-MOD-OPC.md`](plano-F-MOD-OPC.md) nesta pasta |
+| 2. Realizar | concluída em 05/11/2026 | commits `feat(back)` e `feat(clientes)` na `renato-features` + [PR #61](https://github.com/ICEI-PUC-Minas-PMGES-TI/pmg-es-2026-2-ti5-6904100-le-ai/pull/61) |
+| 3. Validar | validação e teste manual concluídos em 06/11/2026; falta o DES, depois do merge na `main` | 4 validadores de contexto limpo, commit `fix` com as correções, teste manual em web e app |
 
 Quem terminar uma etapa atualiza esta tabela (situação e data).
 
@@ -113,6 +113,8 @@ Registre as respostas na seção "Decisões do dono (data)" do plano.
 - Passe direto para a etapa 3 (validação) antes do push.
 
 ## Etapa 3 — Validar
+
+> **Nota (decisão 9 do plano, 05/11/2026):** a validação roda **em paralelo à revisão do PR**, e não antes do push como o passo 4 abaixo descreve: o PR abre logo depois dos commits de entrega, com os testes automáticos verdes, e as correções dos validadores e da revisão do colega entram no mesmo PR, num commit `fix`.
 
 > **Prompt:** Valide a F-MOD-OPC implementada na `renato-features` sem pedir aprovação ao Renato no meio; o que precisar do aval dele fica para o relatório final.
 
