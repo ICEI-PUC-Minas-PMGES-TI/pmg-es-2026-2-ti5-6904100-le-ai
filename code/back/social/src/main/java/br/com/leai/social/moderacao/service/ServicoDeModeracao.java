@@ -21,7 +21,10 @@ import br.com.leai.social.moderacao.dto.PessoaDaModeracao;
 import br.com.leai.social.moderacao.dto.RegistroDeModeracaoResposta;
 import br.com.leai.social.moderacao.dto.ResultadoModeracaoResposta;
 import br.com.leai.social.moderacao.repository.ModeracaoRepository;
+import br.com.leai.social.moderacao.repository.ModeracaoRepository.ComandoDeConta;
 import br.com.leai.social.moderacao.repository.ModeracaoRepository.Denuncia;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -319,8 +322,17 @@ public class ServicoDeModeracao {
   /**
    * Suspende a conta (F-MOD-OPC, RF-MOD-04). Mesmo fluxo da remoção de resenha: o recibo é
    * consultado antes, o {@code identidade} é chamado fora de transação, e só depois de ele
-   * confirmar o log é gravado, com o instante que ele devolveu. Falha ou timeout não grava nada.
-   * Não resolve as denúncias do autor (decisão 5).
+   * confirmar o log é gravado, com o instante que ele devolveu. Não resolve as denúncias do autor
+   * (decisão 5).
+   *
+   * <p><b>Intenção durável</b> (revisão do PR #61): antes da chamada, a intenção fica gravada em
+   * {@code comando_de_conta} com um id derivado do admin, da ação e da chave, e o {@code
+   * identidade} guarda o resultado pelo mesmo id. Falha ou timeout não grava log nem recibo, mas a
+   * intenção fica. A repetição com a mesma chave recebe do {@code identidade} o resultado gravado,
+   * sem executar de novo. Uma ação nova sobre a mesma conta primeiro resolve as intenções
+   * pendentes dela: grava a auditoria do episódio original, com o motivo original, ou cancela no
+   * {@code identidade} a que nunca rodou. Assim, suspender (504), reativar e repetir a suspensão
+   * não perde a linha da suspensão nem suspende de novo.
    */
   public RespostaIdempotente<ContaModeradaResposta> suspender(
       UUID admin, String jwtDoAdmin, UUID usuarioId, String motivoBruto, String chave) {
@@ -340,39 +352,133 @@ public class ServicoDeModeracao {
       String motivoBruto,
       String chave,
       boolean suspender) {
-    String motivo = motivoDaConta(motivoBruto);
-    OperacaoIdempotente operacao =
-        suspender ? OperacaoIdempotente.SUSPENDER_CONTA : OperacaoIdempotente.REATIVAR_CONTA;
-    Map<String, Object> payload = Map.of("usuarioId", usuarioId.toString(), "motivo", motivo);
+    String acao = suspender ? SUSPENDER : REATIVAR;
+    ComandoDeConta pedido =
+        new ComandoDeConta(
+            idDoComando(admin, acao, chave),
+            admin,
+            acao,
+            chave,
+            usuarioId,
+            motivoDaConta(motivoBruto));
     var anterior =
-        idempotencia.consultar(admin, operacao, chave, payload, ContaModeradaResposta.class);
+        idempotencia.consultar(
+            admin, operacao(acao), chave, payload(pedido), ContaModeradaResposta.class);
     if (anterior.isPresent()) {
       return anterior.get();
     }
-    ClienteDeIdentidade.EstadoDaConta estado =
-        suspender
-            ? identidade.suspender(usuarioId, jwtDoAdmin)
-            : identidade.reativar(usuarioId, jwtDoAdmin);
-    return idempotencia.executar(
-        admin,
-        operacao,
-        chave,
-        payload,
-        ContaModeradaResposta.class,
-        () -> {
-          java.time.Instant instante = suspender ? estado.suspensoEm() : estado.reativadoEm();
-          if (instante != null) {
-            repositorio.registrarConta(
-                admin.toString(), suspender ? SUSPENDER : REATIVAR, usuarioId, motivo, instante);
-          }
-          return new RespostaIdempotente<>(
-              STATUS_OK,
-              new ContaModeradaResposta(
-                  usuarioId.toString(),
-                  estado.suspenso(),
-                  estado.suspensoEm(),
-                  estado.reativadoEm()));
-        });
+    ComandoDeConta reservado = repositorio.reservarComando(pedido);
+    if (!reservado.usuarioId().equals(usuarioId) || !reservado.motivo().equals(pedido.motivo())) {
+      // A mesma chave, numa tentativa sem resposta, foi usada com outra conta ou outro motivo.
+      throw new ErroDeNegocioException(
+          CodigoErro.CONFLITO, "Essa chave de idempotência já foi usada com outros dados.");
+    }
+    resolverPendentes(usuarioId, jwtDoAdmin, pedido.id());
+
+    ClienteDeIdentidade.EstadoDaConta estado;
+    try {
+      estado =
+          suspender
+              ? identidade.suspender(usuarioId, jwtDoAdmin, pedido.id())
+              : identidade.reativar(usuarioId, jwtDoAdmin, pedido.id());
+    } catch (ClienteDeIdentidade.ComandoCancelado cancelado) {
+      // Uma ação mais nova sobre a conta resolveu esta intenção antes de ela rodar.
+      repositorio.descartarComando(pedido.id());
+      throw new ErroDeNegocioException(
+          CodigoErro.ACAO_SUPERADA, CodigoErro.ACAO_SUPERADA.mensagem());
+    } catch (ErroDeNegocioException erro) {
+      descartarSeNaoRodou(pedido.id(), erro);
+      throw erro;
+    }
+    return concluir(pedido, estado);
+  }
+
+  /**
+   * Conclui as intenções da conta que ficaram sem resposta, da mais antiga para a mais nova: o
+   * {@code identidade} devolve o resultado gravado de cada uma (e aqui saem o log, com o admin e o
+   * motivo dela, e o recibo da chave dela), ou a cancela, se ela nunca rodou.
+   */
+  private void resolverPendentes(UUID usuarioId, String jwtDoAdmin, UUID atual) {
+    for (ComandoDeConta pendente : repositorio.comandosPendentes(usuarioId, atual)) {
+      ClienteDeIdentidade.EstadoDaConta estado;
+      try {
+        estado = identidade.resolver(usuarioId, jwtDoAdmin, pendente.id());
+      } catch (ClienteDeIdentidade.ComandoCancelado cancelado) {
+        repositorio.descartarComando(pendente.id());
+        continue;
+      } catch (ErroDeNegocioException erro) {
+        descartarSeNaoRodou(pendente.id(), erro);
+        throw erro;
+      }
+      try {
+        concluir(pendente, estado);
+      } catch (ErroDeNegocioException recibo) {
+        if (recibo.codigo() != CodigoErro.CONFLITO) {
+          throw recibo;
+        }
+        // Recibo vencido da mesma chave: ele e o log foram gravados juntos, e só a intenção ficou.
+        repositorio.descartarComando(pendente.id());
+      }
+    }
+  }
+
+  /** Log, recibo e o fim da intenção na mesma transação. */
+  private RespostaIdempotente<ContaModeradaResposta> concluir(
+      ComandoDeConta comando, ClienteDeIdentidade.EstadoDaConta estado) {
+    boolean suspender = SUSPENDER.equals(comando.acao());
+    RespostaIdempotente<ContaModeradaResposta> resposta =
+        idempotencia.executar(
+            comando.admin(),
+            operacao(comando.acao()),
+            comando.chave(),
+            payload(comando),
+            ContaModeradaResposta.class,
+            () -> {
+              Instant instante = suspender ? estado.suspensoEm() : estado.reativadoEm();
+              if (instante != null) {
+                repositorio.registrarConta(
+                    comando.admin().toString(),
+                    comando.acao(),
+                    comando.usuarioId(),
+                    comando.motivo(),
+                    instante);
+              }
+              repositorio.descartarComando(comando.id());
+              return new RespostaIdempotente<>(
+                  STATUS_OK,
+                  new ContaModeradaResposta(
+                      comando.usuarioId().toString(),
+                      estado.suspenso(),
+                      estado.suspensoEm(),
+                      estado.reativadoEm()));
+            });
+    // O recibo já existia (outra requisição concluiu antes): a intenção sai do mesmo jeito.
+    repositorio.descartarComando(comando.id());
+    return resposta;
+  }
+
+  /** 404 e 422 do {@code identidade} são recusas: o comando não rodou e não vai rodar. */
+  private void descartarSeNaoRodou(UUID comandoId, ErroDeNegocioException erro) {
+    if (erro.codigo() == CodigoErro.RECURSO_NAO_ENCONTRADO
+        || erro.codigo() == CodigoErro.ENTIDADE_NAO_PROCESSAVEL) {
+      repositorio.descartarComando(comandoId);
+    }
+  }
+
+  /** Um id por intenção: o mesmo admin, a mesma ação e a mesma chave de idempotência. */
+  static UUID idDoComando(UUID admin, String acao, String chave) {
+    return UUID.nameUUIDFromBytes(
+        ("moderacao:conta:" + admin + ":" + acao + ":" + chave).getBytes(StandardCharsets.UTF_8));
+  }
+
+  private static OperacaoIdempotente operacao(String acao) {
+    return SUSPENDER.equals(acao)
+        ? OperacaoIdempotente.SUSPENDER_CONTA
+        : OperacaoIdempotente.REATIVAR_CONTA;
+  }
+
+  private static Map<String, Object> payload(ComandoDeConta comando) {
+    return Map.of("usuarioId", comando.usuarioId().toString(), "motivo", comando.motivo());
   }
 
   /** Obrigatório nas duas ações (decisão 5), até 500 code points sem os espaços das pontas. */

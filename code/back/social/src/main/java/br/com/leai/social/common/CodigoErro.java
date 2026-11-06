@@ -34,6 +34,10 @@ public enum CodigoErro {
   CONTEUDO_JA_EXCLUIDO(HttpStatus.CONFLICT, "O conteúdo denunciado já não existe."),
   REMOCAO_EM_ANDAMENTO(
       HttpStatus.CONFLICT, "Há uma remoção deste conteúdo esperando confirmação."),
+  /** F-MOD-OPC: a ação sobre a conta não rodou e outra, mais recente, tomou o lugar dela. */
+  ACAO_SUPERADA(
+      HttpStatus.CONFLICT,
+      "Esta ação não chegou a valer e outra mais recente tomou o lugar dela. Recarregue a conta."),
 
   /** Fallback para status HTTP fora do mapa acima. */
   ERRO_HTTP(HttpStatus.INTERNAL_SERVER_ERROR, "Não foi possível concluir a operação."),

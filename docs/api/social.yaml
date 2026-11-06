@@ -1171,9 +1171,17 @@ paths:
         revalida o papel. Só depois da confirmação grava o log `suspender_conta`
         com o motivo e o instante que o identidade devolveu: repetir, dois
         cliques ou conta já suspensa não geram segunda linha. Falha ou timeout
-        não grava nada; a retentativa com a mesma chave grava a linha que
-        faltou. Não resolve as denúncias do autor. O motivo é obrigatório, com
-        até 500 code points depois de tirar os espaços das pontas.
+        não grava log nem recibo; a retentativa com a mesma chave grava a linha
+        que faltou. Não resolve as denúncias do autor. O motivo é obrigatório,
+        com até 500 code points depois de tirar os espaços das pontas.
+        Intenção durável (revisão do PR #61): antes de chamar o identidade, o
+        social grava a intenção (admin, chave, conta e motivo) e manda um id
+        derivado dela em `X-Comando-Id`; o identidade guarda o resultado por
+        esse id. Uma ação nova sobre a mesma conta primeiro resolve as
+        intenções dela que ficaram sem resposta: grava o log do episódio
+        original, com o motivo original, ou cancela a que nunca rodou. Assim,
+        suspender com timeout, reativar e reenviar a suspensão mantém os dois
+        logs e devolve o resultado original sem suspender de novo.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -1191,7 +1199,14 @@ paths:
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '403': { $ref: '#/components/responses/Proibido' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
-        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '409':
+          description: >-
+            `CONFLITO`, a chave já foi usada com outra conta ou outro motivo; ou
+            `ACAO_SUPERADA`, a intenção desta chave não chegou a rodar e uma ação
+            mais nova sobre a conta a cancelou.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
         '422':
           description: Motivo vazio ou acima de 500, ou a conta administradora.
           content:
@@ -1220,7 +1235,7 @@ paths:
         Simétrico a suspender, com o motivo também obrigatório. O identidade
         restaura login e visibilidade sob RN-08. Reativar conta ativa responde
         200 sem log. O painel chama a partir da denúncia ou da linha da
-        suspensão vigente no registro.
+        suspensão vigente no registro. Mesma intenção durável da suspensão.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -1238,7 +1253,14 @@ paths:
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '403': { $ref: '#/components/responses/Proibido' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
-        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '409':
+          description: >-
+            `CONFLITO`, a chave já foi usada com outra conta ou outro motivo; ou
+            `ACAO_SUPERADA`, a intenção desta chave não chegou a rodar e uma ação
+            mais nova sobre a conta a cancelou.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
         '422':
           description: Motivo vazio ou acima de 500, ou a conta administradora.
           content:

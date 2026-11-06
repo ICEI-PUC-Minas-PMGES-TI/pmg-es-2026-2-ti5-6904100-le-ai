@@ -25,15 +25,19 @@ import org.springframework.web.client.RestClientResponseException;
  * retentativa depois de 2 s só em falha de conexão ou 502/503/504.
  *
  * <p>Além do segredo, repassa o JWT do administrador: o {@code identidade} revalida o papel e não
- * aceita só o segredo (decisão 2). Sem chave de idempotência: o {@code identidade} é idempotente
- * pelo estado, e a repetição devolve o mesmo instante.
+ * aceita só o segredo (decisão 2). Cada comando leva em {@code X-Comando-Id} o id da intenção
+ * (revisão do PR #61): o {@code identidade} guarda o resultado por ele, e repetir o id devolve o
+ * resultado gravado sem executar de novo. {@link #resolver} recupera esse resultado, ou cancela o
+ * comando que nunca rodou.
  *
  * <ul>
  *   <li>404 e 422 continuam 404 e 422, com a mensagem do painel.
+ *   <li>409 {@code COMANDO_CANCELADO} vira {@link ComandoCancelado}; outro 409 é defeito: ERROR e
+ *       503.
  *   <li>401 ou 403 do {@code identidade} é configuração divergente (segredo ou admin): ERROR no log
  *       e 503 para o painel.
- *   <li>Timeout de leitura é 504 e não repete: o comando pode ter chegado. A repetição do admin
- *       cai no mesmo episódio.
+ *   <li>Timeout de leitura é 504 e não repete: o comando pode ter chegado. A repetição do admin,
+ *       com o mesmo id, recebe o resultado gravado.
  * </ul>
  */
 @Component
@@ -42,6 +46,7 @@ public class ClienteDeIdentidade {
   private static final Logger log = LoggerFactory.getLogger(ClienteDeIdentidade.class);
 
   static final String CABECALHO_TOKEN = "X-Moderacao-Token";
+  static final String CABECALHO_COMANDO = "X-Comando-Id";
 
   /** Resposta de {@code EstadoDaSuspensao} do {@code identidade}. */
   public record EstadoDaConta(
@@ -79,37 +84,54 @@ public class ClienteDeIdentidade {
     }
   }
 
-  public EstadoDaConta suspender(UUID usuarioId, String jwtDoAdmin) {
-    return comandar("suspensao", usuarioId, jwtDoAdmin);
+  public EstadoDaConta suspender(UUID usuarioId, String jwtDoAdmin, UUID comandoId) {
+    return comandar("suspensao", usuarioId, jwtDoAdmin, comandoId);
   }
 
-  public EstadoDaConta reativar(UUID usuarioId, String jwtDoAdmin) {
-    return comandar("reativacao", usuarioId, jwtDoAdmin);
+  public EstadoDaConta reativar(UUID usuarioId, String jwtDoAdmin, UUID comandoId) {
+    return comandar("reativacao", usuarioId, jwtDoAdmin, comandoId);
   }
 
-  private EstadoDaConta comandar(String acao, UUID usuarioId, String jwtDoAdmin) {
+  /**
+   * O resultado do comando que ficou sem resposta, se ele rodou. Se não rodou, o {@code
+   * identidade} o cancela, para que ele não rode mais, e aqui vira {@link ComandoCancelado}.
+   */
+  public EstadoDaConta resolver(UUID usuarioId, String jwtDoAdmin, UUID comandoId) {
+    return comandar("resolucao", usuarioId, jwtDoAdmin, comandoId);
+  }
+
+  private EstadoDaConta comandar(String acao, UUID usuarioId, String jwtDoAdmin, UUID comandoId) {
     if (token == null) {
       log.error("MODERACAO_TOKEN ausente: a suspensão de conta está desligada");
       throw indisponivel();
     }
     try {
-      return chamar(acao, usuarioId, jwtDoAdmin);
+      return chamar(acao, usuarioId, jwtDoAdmin, comandoId);
     } catch (FalhaRetentavel primeira) {
       log.warn("identidade indisponível na {} da conta {}; nova tentativa", acao, usuarioId);
       esperar();
       try {
-        return chamar(acao, usuarioId, jwtDoAdmin);
+        return chamar(acao, usuarioId, jwtDoAdmin, comandoId);
       } catch (FalhaRetentavel segunda) {
         throw indisponivel();
       }
     }
   }
 
-  private EstadoDaConta chamar(String acao, UUID usuarioId, String jwtDoAdmin) {
+  private EstadoDaConta chamar(String acao, UUID usuarioId, String jwtDoAdmin, UUID comandoId) {
     try {
+      RestClient.RequestBodySpec pedido =
+          "resolucao".equals(acao)
+              ? http.post()
+                  .uri(
+                      "/internal/moderacao/usuarios/{id}/comandos/{comando}/resolucao",
+                      usuarioId,
+                      comandoId)
+              : http.post()
+                  .uri("/internal/moderacao/usuarios/{id}/{acao}", usuarioId, acao)
+                  .header(CABECALHO_COMANDO, comandoId.toString());
       EstadoDaConta corpo =
-          http.post()
-              .uri("/internal/moderacao/usuarios/{id}/{acao}", usuarioId, acao)
+          pedido
               .header(CABECALHO_TOKEN, token)
               .header("Authorization", "Bearer " + jwtDoAdmin)
               .retrieve()
@@ -129,6 +151,9 @@ public class ClienteDeIdentidade {
       if (status == 422) {
         throw new ErroDeNegocioException(
             CodigoErro.ENTIDADE_NAO_PROCESSAVEL, "A conta administradora não pode ser suspensa.");
+      }
+      if (status == 409 && erro.getResponseBodyAsString().contains("\"COMANDO_CANCELADO\"")) {
+        throw new ComandoCancelado();
       }
       if (status == 502 || status == 503 || status == 504) {
         throw new FalhaRetentavel();
@@ -178,6 +203,13 @@ public class ClienteDeIdentidade {
     return new ErroDeNegocioException(
         CodigoErro.SERVICO_INDISPONIVEL,
         "Não foi possível falar com o serviço de contas. Nada foi alterado.");
+  }
+
+  /** O comando não rodou e não roda mais: o {@code identidade} o cancelou numa resolução. */
+  public static final class ComandoCancelado extends RuntimeException {
+    ComandoCancelado() {
+      super(null, null, false, false);
+    }
   }
 
   /** Falha antes de o {@code identidade} responder: conexão recusada ou 502/503/504. */

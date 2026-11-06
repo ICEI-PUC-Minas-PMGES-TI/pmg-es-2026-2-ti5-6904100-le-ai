@@ -379,6 +379,62 @@ public class ModeracaoRepository {
   }
 
   /**
+   * Intenção de suspender ou reativar conta, gravada antes da chamada ao {@code identidade}
+   * (revisão do PR #61). {@code id} é o {@code X-Comando-Id}.
+   */
+  public record ComandoDeConta(
+      UUID id, UUID admin, String acao, String chave, UUID usuarioId, String motivo) {}
+
+  /**
+   * Grava a intenção, se ainda não existe, e devolve a que ficou: a desta requisição, ou a de uma
+   * tentativa anterior com o mesmo id (mesma chave), que pode ter outra conta ou outro motivo.
+   */
+  public ComandoDeConta reservarComando(ComandoDeConta comando) {
+    jdbc.update(
+        "INSERT INTO comando_de_conta (id, admin_id, acao, chave, usuario_id, motivo)"
+            + " VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO NOTHING",
+        comando.id(),
+        comando.admin(),
+        comando.acao(),
+        comando.chave(),
+        comando.usuarioId(),
+        comando.motivo());
+    return jdbc
+        .query(
+            "SELECT id, admin_id, acao, chave, usuario_id, motivo FROM comando_de_conta WHERE id = ?",
+            ModeracaoRepository::comando,
+            comando.id())
+        .stream()
+        .findFirst()
+        // Concluída por outra requisição entre o INSERT e o SELECT: vale a desta.
+        .orElse(comando);
+  }
+
+  /** As intenções da conta ainda sem resultado, da mais antiga para a mais nova, menos uma. */
+  public List<ComandoDeConta> comandosPendentes(UUID usuarioId, UUID exceto) {
+    return jdbc.query(
+        "SELECT id, admin_id, acao, chave, usuario_id, motivo FROM comando_de_conta"
+            + " WHERE usuario_id = ? AND id <> ? ORDER BY criado_em, id",
+        ModeracaoRepository::comando,
+        usuarioId,
+        exceto);
+  }
+
+  public void descartarComando(UUID id) {
+    jdbc.update("DELETE FROM comando_de_conta WHERE id = ?", id);
+  }
+
+  private static ComandoDeConta comando(ResultSet rs, int linha) throws SQLException {
+    return new ComandoDeConta(
+        rs.getObject("id", UUID.class),
+        rs.getObject("admin_id", UUID.class),
+        rs.getString("acao"),
+        rs.getString("chave"),
+        rs.getObject("usuario_id", UUID.class),
+        rs.getString("motivo"));
+  }
+
+  /**
    * A conta pelo username exato, para o perfil do administrador (F-MOD-OPC). Inclui a suspensa e
    * omite a exclusão pendente (VIEW {@code v_conta_moderacao_v1}). O motivo é o da linha da
    * suspensão vigente, a de {@code criado_em} igual ao {@code suspenso_em} da conta.

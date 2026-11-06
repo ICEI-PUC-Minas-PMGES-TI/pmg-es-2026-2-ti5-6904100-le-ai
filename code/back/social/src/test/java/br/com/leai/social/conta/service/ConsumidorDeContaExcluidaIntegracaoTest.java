@@ -328,6 +328,13 @@ class ConsumidorDeContaExcluidaIntegracaoTest extends IntegracaoComPostgres {
               + " ('admin', 'reativar_conta', 'usuario', ?, 'Revisto', now())",
           alvo,
           alvo);
+      // Intenção sem resposta (timeout) sobre a conta, com o motivo do admin.
+      jdbc.update(
+          "INSERT INTO comando_de_conta (id, admin_id, acao, chave, usuario_id, motivo)"
+              + " VALUES (?, ?, 'suspender_conta', 'chave', ?, 'Spam')",
+          UUID.randomUUID(),
+          UUID.randomUUID(),
+          alvo);
     }
 
     String anonimizadas =
@@ -343,6 +350,10 @@ class ConsumidorDeContaExcluidaIntegracaoTest extends IntegracaoComPostgres {
                 "SELECT count(*) FROM log_moderacao WHERE alvo_id = ? AND detalhe IS NOT NULL",
                 outra))
         .isEqualTo(2);
+    assertThat(contar("SELECT count(*) FROM comando_de_conta WHERE usuario_id = ?", excluida))
+        .isZero();
+    assertThat(contar("SELECT count(*) FROM comando_de_conta WHERE usuario_id = ?", outra))
+        .isEqualTo(1);
   }
 
   @Test

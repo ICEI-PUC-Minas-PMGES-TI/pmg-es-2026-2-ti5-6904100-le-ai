@@ -82,6 +82,8 @@ public class ConsumidorDeContaExcluida implements MessageHandler {
         u,
         u,
         u);
+    // Intenções de suspender ou reativar a conta que ficaram sem resposta: o motivo é sobre ela.
+    jdbc.update("DELETE FROM comando_de_conta WHERE usuario_id = ?", u);
     jdbc.update(
         "DELETE FROM denuncia WHERE denunciante_id = ?"
             + " OR alvo_autor_id = ? OR atividade_autor_id = ?"

@@ -77,7 +77,9 @@ public final class MassaDeModeracao {
         )
         """);
     jdbc.execute("TRUNCATE leitura.resenha, leitura.reacao_resenha, leitura.nota");
-    jdbc.execute("TRUNCATE log_moderacao, denuncia, atividade, lista, idempotencia_social CASCADE");
+    jdbc.execute(
+        "TRUNCATE log_moderacao, denuncia, atividade, lista, idempotencia_social, comando_de_conta"
+            + " CASCADE");
   }
 
   public UUID leitor(String username) {

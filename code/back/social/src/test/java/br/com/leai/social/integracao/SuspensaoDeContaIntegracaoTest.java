@@ -173,6 +173,88 @@ class SuspensaoDeContaIntegracaoTest extends IntegracaoComPostgres {
   }
 
   @Test
+  @DisplayName("Timeout, reativar e reenviar a suspensão: os dois logs ficam e a conta não volta a ser suspensa")
+  void timeoutReativarEReenviar() throws Exception {
+    IDENTIDADE.modo(IdentidadeSimulada.Modo.APLICA_E_DEMORA);
+    IDENTIDADE.demora(2500);
+    String suspensao = chave();
+
+    HttpResponse<String> estourou = acao("suspender", autora, tokenAdmin(), suspensao, "Spam");
+    assertThat(estourou.statusCode()).isEqualTo(504);
+    assertThat(logsDeConta()).isZero();
+    assertThat(pendentes()).isEqualTo(1);
+
+    // O perfil recarregado já oferece Reativar: a reativação conclui antes a suspensão perdida.
+    HttpResponse<String> reativada = acao("reativar", autora, tokenAdmin(), chave(), "Revisto");
+    assertThat(reativada.statusCode()).as(reativada.body()).isEqualTo(200);
+    assertThat(corpo(reativada).get("suspensa").asBoolean()).isFalse();
+    Map<String, Object> suspensaoLog =
+        jdbc.queryForMap(
+            "SELECT admin, detalhe, criado_em FROM log_moderacao WHERE acao = 'suspender_conta'");
+    assertThat(suspensaoLog.get("admin")).isEqualTo(admin.toString());
+    assertThat(suspensaoLog.get("detalhe")).isEqualTo("Spam");
+    Timestamp reativadaEm =
+        jdbc.queryForObject(
+            "SELECT criado_em FROM log_moderacao WHERE acao = 'reativar_conta'", Timestamp.class);
+    assertThat((Timestamp) suspensaoLog.get("criado_em")).isBefore(reativadaEm);
+    assertThat(pendentes()).isZero();
+
+    // Reenviar a suspensão antiga devolve o resultado original sem suspender de novo.
+    HttpResponse<String> reenvio = acao("suspender", autora, tokenAdmin(), suspensao, "Spam");
+    assertThat(reenvio.statusCode()).isEqualTo(200);
+    assertThat(corpo(reenvio).get("suspensa").asBoolean()).isTrue();
+    assertThat(corpo(reenvio).get("suspensaEm").asString())
+        .isEqualTo(((Timestamp) suspensaoLog.get("criado_em")).toInstant().toString());
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT suspenso FROM identidade.usuario WHERE id = ?", Boolean.class, autora))
+        .isFalse();
+    assertThat(IDENTIDADE.comandosAplicados()).isEqualTo(2);
+    assertThat(logsDeConta()).isEqualTo(2);
+    // Todo comando levou o id da intenção.
+    assertThat(IDENTIDADE.chamadas()).allSatisfy(c -> assertThat(c.comandoId()).isNotNull());
+  }
+
+  @Test
+  @DisplayName("Pedido perdido antes de rodar: a ação seguinte o cancela, e o reenvio é 409 sem efeito")
+  void pedidoPerdidoECancelado() throws Exception {
+    assertThat(acao("suspender", autora, tokenAdmin(), chave(), "Spam").statusCode())
+        .isEqualTo(200);
+    IDENTIDADE.modo(IdentidadeSimulada.Modo.PERDE);
+    IDENTIDADE.demora(2500);
+    String perdida = chave();
+    assertThat(acao("reativar", autora, tokenAdmin(), perdida, "Engano").statusCode())
+        .isEqualTo(504);
+
+    HttpResponse<String> deNovo = acao("reativar", autora, tokenAdmin(), chave(), "Revisto");
+    assertThat(deNovo.statusCode()).as(deNovo.body()).isEqualTo(200);
+    assertThat(pendentes()).isZero();
+
+    HttpResponse<String> reenvio = acao("reativar", autora, tokenAdmin(), perdida, "Engano");
+    assertThat(reenvio.statusCode()).isEqualTo(409);
+    assertThat(codigo(reenvio)).isEqualTo("ACAO_SUPERADA");
+    assertThat(pendentes()).isZero();
+    assertThat(
+            jdbc.queryForList(
+                "SELECT detalhe FROM log_moderacao WHERE alvo_tipo = 'usuario' ORDER BY criado_em",
+                String.class))
+        .containsExactly("Spam", "Revisto");
+  }
+
+  @Test
+  @DisplayName("A mesma chave, depois de uma tentativa sem resposta, com outro motivo é 409")
+  void mesmaChaveOutroMotivoPendente() throws Exception {
+    IDENTIDADE.modo(IdentidadeSimulada.Modo.INDISPONIVEL);
+    String chave = chave();
+    assertThat(acao("suspender", autora, tokenAdmin(), chave, "Spam").statusCode()).isEqualTo(503);
+    IDENTIDADE.modo(IdentidadeSimulada.Modo.APLICA);
+
+    HttpResponse<String> outro = acao("suspender", autora, tokenAdmin(), chave, "Outro motivo");
+    assertThat(outro.statusCode()).isEqualTo(409);
+    assertThat(codigo(outro)).isEqualTo("CONFLITO");
+  }
+
+  @Test
   @DisplayName("identidade parado: 503, nenhum log; religado, a mesma chave grava uma linha")
   void identidadeParado() throws Exception {
     IDENTIDADE.modo(IdentidadeSimulada.Modo.INDISPONIVEL);
@@ -350,6 +432,10 @@ class SuspensaoDeContaIntegracaoTest extends IntegracaoComPostgres {
   }
 
   // ------------------------------------------------------------------ apoio
+
+  private long pendentes() {
+    return jdbc.queryForObject("SELECT count(*) FROM comando_de_conta", Long.class);
+  }
 
   private long logsDeConta() {
     return jdbc.queryForObject(
