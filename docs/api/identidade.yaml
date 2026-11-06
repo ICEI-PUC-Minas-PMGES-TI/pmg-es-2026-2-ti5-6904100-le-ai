@@ -1710,6 +1710,10 @@ components:
     ContadoresPerfil:
       type: object
       additionalProperties: false
+      description: >-
+        Contam só seguimentos aceitos com as duas contas visíveis
+        (`v_seguimento_aceito_v1`): conta suspensa ou em exclusão sai dos
+        números dos outros e volta na reativação (F-MOD-OPC).
       required: [seguidores, seguidos]
       properties:
         seguidores:

@@ -39,6 +39,8 @@ class SessionController extends ChangeNotifier {
   Future<bool>? _renovacaoEmCurso;
   AcessoDeRecuperacao? _recuperacao;
   bool _saindoPorExpiracao = false;
+  bool _saindoPorSuspensao = false;
+  bool _leituraDescartadaNaSaida = false;
   String? _avisoDeSaida;
 
   SessionController(this.store);
@@ -165,7 +167,26 @@ class SessionController extends ChangeNotifier {
   /// suspensão fica. A sessão de leitura em curso é descartada em silêncio (consequência aceita).
   Future<void> _sairPorSuspensao() async {
     avisarSaida(avisoDeContaSuspensa);
-    await sair();
+    _saindoPorSuspensao = true;
+    try {
+      await sair();
+    } finally {
+      _saindoPorSuspensao = false;
+    }
+  }
+
+  /// Verdadeiro só durante a saída pela suspensão: o ouvinte da sessão de leitura usa para avisar
+  /// que a leitura em andamento foi descartada, sem trocar o aviso de suspensão.
+  bool get saindoPorSuspensao => _saindoPorSuspensao;
+
+  /// A sessão de leitura em andamento foi descartada na saída por suspensão (F-MOD-OPC).
+  void avisarLeituraDescartada() => _leituraDescartadaNaSaida = true;
+
+  /// Devolve e apaga a marca: a tela de entrada a mostra uma vez, junto do banner.
+  bool consumirLeituraDescartada() {
+    final descartada = _leituraDescartadaNaSaida;
+    _leituraDescartadaNaSaida = false;
+    return descartada;
   }
 
   Future<void> _sairPorExpiracao() async {

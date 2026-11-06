@@ -10,6 +10,10 @@ const String explicacaoDaSuspensao =
     'A moderação do Lê Ai suspendeu o acesso. Enquanto isso, ninguém consegue entrar nela, e os '
     'dados continuam guardados.';
 
+/// Quando a sessão de leitura em andamento foi descartada na saída (F-MOD-OPC).
+const String leituraDescartadaNaSuspensao =
+    'A sessão de leitura em andamento foi encerrada, e o tempo medido não foi registrado.';
+
 /// Primeira linha quando a senha conferiu numa conta suspensa.
 const String contaSuspensaNoLogin = 'Esta conta está suspensa.';
 
@@ -20,7 +24,14 @@ const String contaSuspensaNoLogin = 'Esta conta está suspensa.';
 class BannerContaSuspensa extends StatelessWidget {
   final bool sessaoEncerrada;
 
-  const BannerContaSuspensa({super.key, this.sessaoEncerrada = false});
+  /// Acrescenta a frase da leitura descartada (só com [sessaoEncerrada]).
+  final bool leituraDescartada;
+
+  const BannerContaSuspensa({
+    super.key,
+    this.sessaoEncerrada = false,
+    this.leituraDescartada = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -51,6 +62,10 @@ class BannerContaSuspensa extends StatelessWidget {
                   Text(primeira, style: theme.textTheme.labelLarge),
                   const SizedBox(height: DesignTokens.space1),
                   Text(explicacaoDaSuspensao, style: theme.textTheme.bodyMedium),
+                  if (sessaoEncerrada && leituraDescartada) ...<Widget>[
+                    const SizedBox(height: DesignTokens.space1),
+                    Text(leituraDescartadaNaSuspensao, style: theme.textTheme.bodyMedium),
+                  ],
                 ],
               ),
             ),

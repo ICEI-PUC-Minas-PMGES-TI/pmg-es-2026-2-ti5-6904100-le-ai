@@ -101,26 +101,22 @@ Plano em [`renato-periodo-3/plano-F-MOD-OPC.md`](renato-periodo-3/plano-F-MOD-OP
 - **Item próprio do DoD:** o contrato reaproveita o da F-MOD (`X-Moderacao-Token`, timeout e retentativa, auditoria só depois da confirmação), com duas diferenças: o JWT do admin vai repassado junto (só o segredo não basta) e a idempotência no `identidade` é pelo estado, sem recibo, porque um recibo por alvo devolveria um episódio velho depois de suspender, reativar e suspender de novo.
 - Logout forçado na web igual ao mobile, com o banner `Sua sessão foi encerrada porque esta conta foi suspensa.`, sem artboard (decisão 6).
 - Reativar também pela ação `Reativar conta` na linha da suspensão vigente do registro, sem artboard (decisão 10): é o caminho que sobra quando a denúncia já foi resolvida.
-- O perfil web do admin ficou fora (corte firme, decisão 10): sem a visão do admin da conta suspensa nem o `DotsThree` no perfil; `Conta de @x` no registro não é link.
+- Perfil web do admin (feito em 06/11, depois do corte da decisão 10): o `DotsThree` de moderação fica no topo do conteúdo, alinhado à direita, e não no header, porque o `Voltar` mora no shell. A visão da conta suspensa usa `GET /admin/usuarios?username=` (VIEW da moderação), e `Conta de @x` no registro virou link.
+- Menção a conta suspensa: o `@username` vira "um leitor" no texto, sem link, em vez de sumir; volta na reativação.
 - No mobile, dentro dos 15 minutos do token de acesso, o `leitura` responde 403 às escritas, e o logout só vem na renovação seguinte.
 - O 403 `CONTA_SUSPENSA` do pedido de exclusão não ganhou tratamento novo nos clientes (decisão 13).
-- O item do menu `Suspender conta do autor` usa o `MenuDeAcoes` compartilhado (texto `body`, hover `linha`, 240px), e não o desenho próprio do design (`body-strong`, hover `rubi-fundo`/`musgo-fundo`, 280px).
 - A ordem da etapa 3 do prompt mudou: a validação de contexto limpo e o teste manual rodaram em paralelo à revisão do PR (decisão 9).
 
-**Débitos:**
-- O perfil web do admin (decisão 10), a fazer depois de 17/11 se houver período.
-- Curtidas e reações de conta suspensa continuam contadas, assim como `qtdSeguidores`/`qtdSeguidos`, e o `@username` dela continua no texto das respostas (decisão 3).
-- Com sessão de leitura ativa no app, a sessão é descartada em silêncio, sem o aviso de tempo não registrado.
-- Depois da reativação, um aparelho que ficou desligado durante a suspensão e reapresenta o token que a suspensão revogou cai no alarme de reuso e derruba as sessões abertas depois da reativação (observação da validação de 06/11; o plano só eximia a conta suspensa).
-- A nota dos leitores continua contando a conta suspensa (decisão 4, de propósito).
+**Débitos:** fechados em 06/11/2026 (perfil web do admin; curtidas, reações e seguidores/seguidos sem a conta suspensa; menção mascarada; aviso de leitura descartada no app; renovações revogadas apagadas na reativação, sem alarme de reuso; menu com o desenho do design, 280px e tons). Fica só a nota dos leitores, que continua contando a conta suspensa (decisão 4, de propósito).
 
 **Código de outras pessoas** (nota datada nos `AGENTS.md` de cada um e lista no PR):
 - Henrique (`identidade`): migration, `ServicoDeAutenticacao`, `AutenticacaoController`, `ServicoDeExclusaoDeConta`, `CodigoErro`, `AppProperties`, `ContaAdministradora`, `Usuario`, `SeedDeIdentidade`, `application.yml`, `.env.example`, pacote novo `moderacao/` e três testes que gravavam `suspenso` por SQL; no `social`, um caso em `ConsumidorDeContaExcluidaIntegracaoTest`; nos clientes, `session.ts`, `services/renovacao.ts`, `router/index.ts`, `LoginView.vue`, `ui/AvisoFlutuante.vue` (prop `icone`), `session_controller.dart` e `login_page.dart`.
 - Kayke (`social`): `ComentarioRepository`, `ServicoDeInteracao`, `ServicoDeFeed`, `RedacaoDeNotificacao`, `NotificacaoRepository`, `ServicoDeNotificacao`, `MassaDeRecomendacao` e dois testes ajustados às assinaturas novas.
-- Ana: `features/sessao/sessao_controller.dart` não mudou; ganhou um teste em `sessao_test.dart`.
+- Ana: `features/sessao/sessao_controller.dart` passou a avisar a leitura descartada na suspensão (06/11), com testes em `sessao_test.dart`.
+- Henrique, em 06/11: `UsuarioRepositorio`, `PerfilResposta`, `ServicoDePerfil` (contadores), `ServicoDeSuspensao` e, no web, `PerfilDeOutroView.vue`. Kayke: `CurtidaAtividadeRepository`. Leitura: migration `0007` (VIEW `v_resenha_publicacao_v1`) e as contagens de reação. Grupo: `ui/MenuDeAcoes.vue` e `ui/FolhaAcoes.vue`.
 - Grupo: `render.yaml` (`MODERACAO_TOKEN` no `leai-identidade`, `IDENTIDADE_BASE_URL` no `leai-social`).
 
-**Para o DES (depois do merge na `main`):** cadastrar no Render o `MODERACAO_TOKEN` do `leai-identidade` com o **mesmo valor** do `leai-social` (e do `leai-leitura`); `IDENTIDADE_BASE_URL` já está no `render.yaml`. As duas migrations rodam no deploy; em 06/11 o DES tinha 0 contas suspensas e 0 linhas de auditoria de conta.
+**Render:** `MODERACAO_TOKEN` com o mesmo valor no `leai-identidade`, `leai-social` e `leai-leitura`, cadastrado em 06/11 pelo MCP; os três redeploys ficaram `live`. As migrations rodam no deploy quando o código chegar na `main`.
 
 ### Histórico (antes da implementação)
 
@@ -132,6 +128,8 @@ Plano em [`renato-periodo-3/plano-F-MOD-OPC.md`](renato-periodo-3/plano-F-MOD-OP
 - Stack definida (arquitetura §2.1): `social` e `identidade` em Spring.
 
 ## Timeline
+
+### Débitos 06/11/2026: fechados os débitos da feature, com testes (`OcultacaoDeContaSuspensaIntegracaoTest`, `SuspensaoDeContaIntegracaoTest` do `identidade` e do `social`, `reacao.int-spec.ts`, `PerfilDeOutroView.admin.spec.ts`, `login_page_test.dart`, `sessao_test.dart`). Migration `0007` do `leitura` à espera do OK do dono para o banco de dev.
 
 ### Validação 06/11/2026: quatro validadores de contexto limpo (`identidade`, `social`, web, mobile), sem achado importante. Os menores foram corrigidos com teste no commit `fix`: timeout de conexão sem retentativa nos dois clientes do `social`, motivo com U+0000 suspendendo sem log, ícone do toast, contador do motivo, foco ao cancelar, alinhamento do registro, fila a 390px, banner repetido ao recarregar o login e dois banners no app. Migrations aplicadas no banco de dev com o OK do dono. Teste manual completo do roteiro do plano: web no Edge (1440 e 390 px, claro e escuro), app no emulador, `identidade` parado sem auditoria falsa e reativação pelo registro.
 

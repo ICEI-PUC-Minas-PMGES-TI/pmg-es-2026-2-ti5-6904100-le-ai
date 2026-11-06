@@ -65,6 +65,7 @@ class _LoginPageState extends State<LoginPage> {
   // F-MOD-OPC (login.md P3): conta suspensa. `sessaoEncerrada` quando o app saiu pela renovação
   // negada; falso quando a senha conferiu numa conta suspensa. Nulo sem suspensão.
   bool? _suspensaComSessaoEncerrada;
+  bool _leituraDescartada = false;
 
   @override
   void initState() {
@@ -77,6 +78,7 @@ class _LoginPageState extends State<LoginPage> {
     final aviso = widget.sessionController.consumirAvisoDeSaida();
     if (aviso == SessionController.avisoDeContaSuspensa) {
       _suspensaComSessaoEncerrada = true;
+      _leituraDescartada = widget.sessionController.consumirLeituraDescartada();
     } else {
       _avisoDeSaida = aviso;
     }
@@ -200,7 +202,10 @@ class _LoginPageState extends State<LoginPage> {
               Text('Entrar', style: theme.displayTitle),
               const SizedBox(height: DesignTokens.space8),
               if (_suspensaComSessaoEncerrada != null) ...<Widget>[
-                BannerContaSuspensa(sessaoEncerrada: _suspensaComSessaoEncerrada!),
+                BannerContaSuspensa(
+                  sessaoEncerrada: _suspensaComSessaoEncerrada!,
+                  leituraDescartada: _leituraDescartada,
+                ),
                 const SizedBox(height: DesignTokens.space6),
               ],
               if (_avisoDeSaida != null) ...<Widget>[

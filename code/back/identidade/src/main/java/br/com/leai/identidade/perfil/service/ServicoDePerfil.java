@@ -41,7 +41,8 @@ public class ServicoDePerfil {
 
   @Transactional(readOnly = true)
   public PerfilResposta meu(UUID usuarioId) {
-    return PerfilResposta.proprio(conta(usuarioId));
+    Usuario usuario = conta(usuarioId);
+    return PerfilResposta.proprio(usuario, contadores(usuario.id()));
   }
 
   @Transactional
@@ -68,7 +69,7 @@ public class ServicoDePerfil {
         avatarAssetId,
         requisicao.privacidade());
     repositorio.flush();
-    return PerfilResposta.proprio(usuario);
+    return PerfilResposta.proprio(usuario, contadores(usuario.id()));
   }
 
   /**
@@ -87,7 +88,10 @@ public class ServicoDePerfil {
                     new ErroDeNegocioException(CodigoErro.RECURSO_NAO_ENCONTRADO, NAO_ENCONTRADO));
     String relacao = relacoes.entre(quemPergunta, perfil.id());
     return PerfilResposta.de(
-        perfil, relacao, RelacaoEntrePerfis.conteudoRestrito(perfil.ehPrivado(), relacao));
+        perfil,
+        relacao,
+        RelacaoEntrePerfis.conteudoRestrito(perfil.ehPrivado(), relacao),
+        contadores(perfil.id()));
   }
 
   /**
@@ -101,6 +105,13 @@ public class ServicoDePerfil {
         .buscarVisivelPorUsername(username)
         .map(perfil -> List.of(PerfilResumoResposta.de(perfil, relacoes.entre(quemPergunta, perfil.id()))))
         .orElse(List.of());
+  }
+
+  /** F-MOD-OPC: seguidores e seguidos visíveis, sem conta suspensa ou em exclusão. */
+  private PerfilResposta.Contadores contadores(UUID usuarioId) {
+    return new PerfilResposta.Contadores(
+        repositorio.contarSeguidoresVisiveis(usuarioId),
+        repositorio.contarSeguidosVisiveis(usuarioId));
   }
 
   private Usuario conta(UUID usuarioId) {

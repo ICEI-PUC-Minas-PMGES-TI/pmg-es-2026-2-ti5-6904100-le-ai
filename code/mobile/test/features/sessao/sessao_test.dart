@@ -321,6 +321,8 @@ void main() {
       // A sessão de leitura é descartada em silêncio (consequência aceita no plano).
       expect(sessao.sessao, isNull);
       expect(conta.consumirAvisoDeSaida(), SessionController.avisoDeContaSuspensa);
+      expect(conta.consumirLeituraDescartada(), isTrue);
+      expect(conta.consumirLeituraDescartada(), isFalse);
     });
 
     test('renovar o token da mesma conta mantém a sessão', () async {

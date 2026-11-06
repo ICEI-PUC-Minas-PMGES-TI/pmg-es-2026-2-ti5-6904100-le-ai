@@ -328,6 +328,27 @@ class SuspensaoDeContaIntegracaoTest extends IntegracaoComPostgres {
         .isEqualTo(1);
   }
 
+  @Test
+  @DisplayName("Admin acha a conta pelo username, também suspensa, com o motivo vigente; leitor 403")
+  void contaPorUsername() throws Exception {
+    JsonNode ativa = corpo(get("/admin/usuarios?username=AUTORA", tokenAdmin()));
+    assertThat(ativa.get("id").asString()).isEqualTo(autora.toString());
+    assertThat(ativa.get("suspensa").asBoolean()).isFalse();
+    assertThat(ativa.get("motivo").isNull()).isTrue();
+
+    acao("suspender", autora, tokenAdmin(), chave(), "Ataques repetidos.");
+    JsonNode suspensa = corpo(get("/admin/usuarios?username=autora", tokenAdmin()));
+    assertThat(suspensa.get("suspensa").asBoolean()).isTrue();
+    assertThat(suspensa.get("suspensaEm").isNull()).isFalse();
+    assertThat(suspensa.get("motivo").asString()).isEqualTo("Ataques repetidos.");
+
+    assertThat(get("/admin/usuarios?username=ninguem", tokenAdmin()).statusCode()).isEqualTo(404);
+    massa.emExclusao(leitora);
+    assertThat(get("/admin/usuarios?username=leitora", tokenAdmin()).statusCode()).isEqualTo(404);
+    assertThat(get("/admin/usuarios?username=autora", token(leitora, "leitor")).statusCode())
+        .isEqualTo(403);
+  }
+
   // ------------------------------------------------------------------ apoio
 
   private long logsDeConta() {

@@ -162,6 +162,13 @@ Plano em [`plano-F-MOD.md`](../../../docs/plano-de-desenvolvimento/periodo-2/ren
 - **Papel no token:** `UsuarioAutenticado.papel` (`leitor` | `admin`) vem do claim `papel`; só `admin` exato vale. Hoje só `GET /livros/{id}/frases` o lê: o administrador lista todas as frases, sem o filtro de RN-08, para poder moderá-las. `tokenDe(id, username, { papel })` nos testes.
 - **Log:** a lista do `redact` saiu para `src/common/redacao-do-log.ts` e ganhou `x-scheduler-token` e `x-moderacao-token`, que o `pino-http` logava junto com os cabeçalhos.
 
+## F-MOD-OPC — reações de conta suspensa (06/11/2026, Renato)
+
+Plano em [`plano-F-MOD-OPC.md`](../../../docs/plano-de-desenvolvimento/periodo-3/renato-periodo-3/plano-F-MOD-OPC.md).
+
+- **Migration `0007_20261106120000_reacoes_sem_conta_oculta`** (comentário no topo): recria `v_resenha_publicacao_v1` com as contagens filtradas por `identidade.v_perfil_referencia_v1`. Mesmas colunas.
+- O mesmo filtro em `AvaliacoesRepository.contagensDaResenha`, `PerfisRepository` e `ReacoesRepository`: reação de conta suspensa fica guardada e volta a contar na reativação. Teste em `test/integracao/reacao.int-spec.ts`.
+
 ## Pontos de atenção (ver `REQUISITOS.md`) — prioridade de teste
 
 - **Máquina de estados da leitura (RN-04)** — Quero ler / Lendo / Lido / Relendo / Abandonado, releitura, retomada. **Teste obrigatório e prioritário** (RNF-TST-01).

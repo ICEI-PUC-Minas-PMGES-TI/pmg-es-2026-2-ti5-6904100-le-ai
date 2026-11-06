@@ -49,6 +49,7 @@ info:
       - POST /admin/denuncias/{denunciaId}/arquivar
       - POST /admin/denuncias/{denunciaId}/remover
       - GET /admin/moderacao/logs
+      - GET /admin/usuarios
       - DELETE /admin/frases/{fraseId}
 x-database-contracts:
   - name: v_atividade_livro_pessoal_v1
@@ -1126,6 +1127,34 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Erro' }
+  /admin/usuarios:
+    get:
+      tags: [moderacao]
+      summary: Busca uma conta pelo username, na visão do administrador
+      operationId: buscarContaPeloAdmin
+      x-implementation-status: implemented
+      x-implemented-by: F-MOD-OPC
+      description: >-
+        Só o administrador. Lê `identidade.v_conta_moderacao_v1`, que inclui a
+        conta suspensa (o perfil público a responde como inexistente). Username
+        sem diferença de caixa. `motivo` é o do log `suspender_conta` do
+        episódio vigente (mesmo `criado_em` de `suspensaEm`); nulo sem
+        suspensão. Conta inexistente ou em exclusão é 404.
+      parameters:
+        - name: username
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: A conta.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContaDaModeracao' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/Proibido' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
   /admin/usuarios/{usuarioId}/suspender:
     parameters:
       - $ref: '#/components/parameters/UsuarioIdModerado'
@@ -1570,7 +1599,13 @@ components:
         livro: { $ref: '#/components/schemas/LivroSnapshot' }
         resenha: { $ref: '#/components/schemas/ResenhaSnapshot' }
         criadoEm: { type: string, format: date-time }
-        totalCurtidas: { type: integer, minimum: 0 }
+        totalCurtidas:
+          type: integer
+          minimum: 0
+          description: >-
+            Só curtidas que o solicitante enxerga: a dele e as de contas em
+            `v_perfil_referencia_v1` (F-MOD-OPC: conta suspensa sai do total e
+            volta na reativação).
         totalComentarios: { type: integer, minimum: 0 }
         curtidaPeloSolicitante: { type: boolean }
     PaginaAtividades:
@@ -1667,7 +1702,11 @@ components:
           description: Texto puro; deve ser renderizado com escape.
         mencoes:
           type: array
-          description: Menções resolvidas, em ordem de posição.
+          description: >-
+            Menções resolvidas, em ordem de posição. F-MOD-OPC: menção a conta
+            fora da visibilidade sai da lista, e o `@username` dela vira
+            "um leitor" no `texto`, com as posições seguintes ajustadas; volta
+            com a reativação.
           items: { $ref: '#/components/schemas/Mencao' }
         nivel:
           type: string
@@ -2214,6 +2253,18 @@ components:
         avatarUrl: { type: string, nullable: true }
         suspensa: { type: boolean }
         suspensaEm: { type: string, format: date-time, nullable: true }
+    ContaDaModeracao:
+      type: object
+      required: [id, username, nomeExibicao, privacidade, suspensa]
+      properties:
+        id: { type: string, format: uuid }
+        username: { type: string }
+        nomeExibicao: { type: string }
+        avatarUrl: { type: string, nullable: true }
+        privacidade: { type: string, enum: [publico, privado] }
+        suspensa: { type: boolean }
+        suspensaEm: { type: string, format: date-time, nullable: true }
+        motivo: { type: string, nullable: true }
     MotivoDaModeracaoDeConta:
       type: object
       required: [motivo]

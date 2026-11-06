@@ -5,6 +5,7 @@ import br.com.leai.social.common.ErroDeNegocioException;
 import br.com.leai.social.common.Paginacao;
 import br.com.leai.social.common.idempotencia.ChaveDeIdempotencia;
 import br.com.leai.social.common.idempotencia.RespostaIdempotente;
+import br.com.leai.social.moderacao.dto.ContaDaModeracaoResposta;
 import br.com.leai.social.moderacao.dto.ContaModeradaResposta;
 import br.com.leai.social.moderacao.dto.MotivoDaContaRequisicao;
 import br.com.leai.social.moderacao.dto.PaginaDenunciasResposta;
@@ -89,6 +90,17 @@ public class ModeracaoController {
     RespostaIdempotente<Void> resposta =
         servico.removerFrase(admin(token), fraseId, ChaveDeIdempotencia.exigir(chave));
     return ResponseEntity.status(resposta.status()).build();
+  }
+
+  @GetMapping("/usuarios")
+  @Operation(
+      operationId = "buscarContaPeloAdmin",
+      summary = "Conta pelo username exato, também a suspensa, para o perfil do admin (RF-MOD-04)")
+  public ContaDaModeracaoResposta contaPorUsername(@RequestParam String username) {
+    if (username == null || username.isBlank()) {
+      throw new ErroDeNegocioException(CodigoErro.REQUISICAO_INVALIDA, "Informe o nome de usuário.");
+    }
+    return servico.contaPorUsername(username.strip());
   }
 
   @PostMapping("/usuarios/{usuarioId}/suspender")

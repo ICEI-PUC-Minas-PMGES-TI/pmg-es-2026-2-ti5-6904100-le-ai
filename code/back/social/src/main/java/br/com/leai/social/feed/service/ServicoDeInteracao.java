@@ -122,7 +122,7 @@ public class ServicoDeInteracao {
       eventos.atividadeCurtida(atividadeId, atividade.autorId(), usuarioId);
     }
 
-    long total = curtidaRepository.countByAtividadeId(atividadeId);
+    long total = curtidaRepository.contarVisiveisPorAtividade(atividadeId, usuarioId);
     return new EstadoCurtidaResposta(atividadeId.toString(), true, total);
   }
 
@@ -377,29 +377,56 @@ public class ServicoDeInteracao {
                     c,
                     solicitanteId,
                     perfisPorId,
-                    mencoesVisiveis(c, mencoes.getOrDefault(c.id(), List.of()), perfisPorId),
+                    textoVisivel(c.texto(), mencoes.getOrDefault(c.id(), List.of()), perfisPorId),
                     totalRespostas.apply(c)))
         .toList();
   }
 
-  private static List<MencaoResposta> mencoesVisiveis(
-      Comentario comentario, List<Mencao> mencoes, Map<UUID, AutorSnapshotResposta> perfisPorId) {
+  /** O que entra no lugar da menção a uma conta que saiu da visibilidade (F-MOD-OPC). */
+  static final String MENCAO_OCULTA = "um leitor";
+
+  /** Texto e menções que o leitor vê. */
+  record TextoVisivel(String texto, List<MencaoResposta> mencoes) {}
+
+  /**
+   * F-MOD-OPC: a menção a conta suspensa ou em exclusão (fora da VIEW de perfil) perde o link e o
+   * {@code @username} no texto vira {@value #MENCAO_OCULTA}, como nas notificações; as posições das
+   * menções visíveis seguintes acompanham a troca. O texto gravado não muda, e a reativação devolve
+   * a menção.
+   */
+  static TextoVisivel textoVisivel(
+      String texto, List<Mencao> mencoes, Map<UUID, AutorSnapshotResposta> perfisPorId) {
+    List<Mencao> ordenadas = new ArrayList<>(mencoes);
+    ordenadas.sort(java.util.Comparator.comparingInt(Mencao::posicao));
+    StringBuilder resultado = new StringBuilder();
     List<MencaoResposta> visiveis = new ArrayList<>();
-    for (Mencao mencao : mencoes) {
-      AutorSnapshotResposta perfil = perfisPorId.get(mencao.mencionadoId());
-      int comprimento = ResolvedorDeMencoes.comprimentoEm(comentario.texto(), mencao.posicao());
-      if (perfil != null && comprimento > 0) {
-        visiveis.add(new MencaoResposta(mencao.posicao(), comprimento, perfil.id(), perfil.username()));
+    int cursor = 0;
+    int deslocamento = 0;
+    for (Mencao mencao : ordenadas) {
+      int comprimento = ResolvedorDeMencoes.comprimentoEm(texto, mencao.posicao());
+      if (comprimento <= 0 || mencao.posicao() < cursor) {
+        continue;
       }
+      AutorSnapshotResposta perfil = perfisPorId.get(mencao.mencionadoId());
+      if (perfil != null) {
+        visiveis.add(
+            new MencaoResposta(
+                mencao.posicao() + deslocamento, comprimento, perfil.id(), perfil.username()));
+        continue;
+      }
+      resultado.append(texto, cursor, mencao.posicao()).append(MENCAO_OCULTA);
+      cursor = mencao.posicao() + comprimento;
+      deslocamento += MENCAO_OCULTA.length() - comprimento;
     }
-    return visiveis;
+    resultado.append(texto, cursor, texto.length());
+    return new TextoVisivel(resultado.toString(), visiveis);
   }
 
   private static ComentarioResposta mapear(
       Comentario comentario,
       UUID solicitanteId,
       Map<UUID, AutorSnapshotResposta> autores,
-      List<MencaoResposta> mencoes,
+      TextoVisivel visivel,
       Integer totalRespostas) {
     AutorSnapshotResposta autor = autores.get(comentario.autorId());
     AutorSnapshotResposta usuarioRespondido =
@@ -412,8 +439,8 @@ public class ServicoDeInteracao {
         comentario.comentarioRespondidoId() == null ? null : comentario.comentarioRespondidoId().toString(),
         usuarioRespondido,
         autor,
-        comentario.texto(),
-        mencoes,
+        visivel.texto(),
+        visivel.mencoes(),
         comentario.ehRaiz() ? "RAIZ" : "RESPOSTA",
         totalRespostas,
         comentario.autorId().equals(solicitanteId),

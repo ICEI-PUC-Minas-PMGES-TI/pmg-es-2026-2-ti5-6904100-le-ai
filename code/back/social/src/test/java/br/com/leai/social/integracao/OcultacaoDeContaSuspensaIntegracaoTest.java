@@ -197,6 +197,68 @@ class OcultacaoDeContaSuspensaIntegracaoTest extends IntegracaoComPostgres {
     assertThat(unica(dona).comentarioId()).isEqualTo(respostaDaTerceira.toString());
   }
 
+  @Test
+  @DisplayName("Curtida de conta suspensa sai do total da atividade e volta na reativação")
+  void curtidaDeContaSuspensa() throws Exception {
+    jdbc.update(
+        "INSERT INTO curtida_atividade (atividade_id, usuario_id) VALUES (?, ?), (?, ?)",
+        atividade, suspensa, atividade, terceira);
+    assertThat(totalCurtidas(leitora)).isEqualTo(2);
+
+    base.suspender(suspensa);
+    assertThat(totalCurtidas(leitora)).isEqualTo(1);
+
+    base.reativar(suspensa);
+    assertThat(totalCurtidas(leitora)).isEqualTo(2);
+  }
+
+  @Test
+  @DisplayName("Menção a conta suspensa vira \"um leitor\" no texto, sem link, e volta na reativação")
+  void mencaoDeContaSuspensa() throws Exception {
+    HttpResponse<String> criado =
+        enviar(
+            HttpRequest.newBuilder(uri("/atividades/" + atividade + "/comentarios"))
+                .header("Authorization", "Bearer " + token(leitora))
+                .header("Content-Type", "application/json")
+                .header("Idempotency-Key", UUID.randomUUID().toString())
+                .POST(
+                    HttpRequest.BodyPublishers.ofString(
+                        json.writeValueAsString(
+                            Map.of("texto", "Concordo com @suspensa e com @terceira."))))
+                .build());
+    assertThat(criado.statusCode()).as(criado.body()).isEqualTo(201);
+    String id = corpo(criado).get("id").asString();
+
+    base.suspender(suspensa);
+    JsonNode comentario = comentarioPorId(id, dona);
+    assertThat(comentario.get("texto").asString())
+        .isEqualTo("Concordo com um leitor e com @terceira.");
+    assertThat(comentario.get("mencoes")).hasSize(1);
+    JsonNode visivel = comentario.get("mencoes").get(0);
+    assertThat(visivel.get("username").asString()).isEqualTo("terceira");
+    String texto = comentario.get("texto").asString();
+    int posicao = visivel.get("posicao").asInt();
+    assertThat(texto.substring(posicao, posicao + visivel.get("comprimento").asInt()))
+        .isEqualTo("@terceira");
+
+    base.reativar(suspensa);
+    assertThat(comentarioPorId(id, dona).get("texto").asString())
+        .isEqualTo("Concordo com @suspensa e com @terceira.");
+  }
+
+  private long totalCurtidas(UUID quem) throws Exception {
+    return corpo(get("/atividades/" + atividade, quem)).get("totalCurtidas").asLong();
+  }
+
+  private JsonNode comentarioPorId(String id, UUID quem) throws Exception {
+    for (JsonNode raiz : raizes(quem)) {
+      if (raiz.get("id").asString().equals(id)) {
+        return raiz;
+      }
+    }
+    throw new AssertionError("comentário não encontrado");
+  }
+
   // ------------------------------------------------------------------ apoio
 
   private void notificar(UUID destinatario, String tipo, Map<String, Object> dados)

@@ -800,7 +800,10 @@ paths:
         exclusão é 403. A primeira curtida do par resenha e leitor grava
         `resenha.curtida` para o autor, na mesma transação; retirar e recurtir,
         alternar e descurtir não publicam (decisão de 15/09/2026). A reação
-        retirada fica guardada, com `primeira_curtida_em`.
+        retirada fica guardada, com `primeira_curtida_em`. F-MOD-OPC: as
+        contagens (aqui, na resenha e na VIEW `v_resenha_publicacao_v1`) só
+        incluem reações de contas em `v_perfil_referencia_v1`; a reação de
+        conta suspensa fica guardada e volta a contar na reativação.
       requestBody:
         required: true
         content:

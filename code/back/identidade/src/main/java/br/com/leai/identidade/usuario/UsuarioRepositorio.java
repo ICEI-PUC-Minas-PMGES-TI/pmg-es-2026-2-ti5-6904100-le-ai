@@ -18,6 +18,21 @@ import org.springframework.data.repository.query.Param;
 public interface UsuarioRepositorio extends JpaRepository<Usuario, UUID> {
 
   /**
+   * F-MOD-OPC: seguidores que os outros veem, pela VIEW de seguimento (sem conta suspensa ou com
+   * exclusão pendente nos dois lados). Os contadores gravados continuam contando todos, e a
+   * reativação devolve a conta à contagem sem nenhuma escrita.
+   */
+  @Query(
+      value = "SELECT count(*) FROM v_seguimento_aceito_v1 WHERE seguido_id = :id",
+      nativeQuery = true)
+  long contarSeguidoresVisiveis(@Param("id") UUID id);
+
+  @Query(
+      value = "SELECT count(*) FROM v_seguimento_aceito_v1 WHERE seguidor_id = :id",
+      nativeQuery = true)
+  long contarSeguidosVisiveis(@Param("id") UUID id);
+
+  /**
    * Resolve o identificador do login, que pode ser e-mail <b>ou</b> username (RF-AUT-02), numa
    * consulta só. O chamador passa o mesmo valor nos dois parâmetros.
    */

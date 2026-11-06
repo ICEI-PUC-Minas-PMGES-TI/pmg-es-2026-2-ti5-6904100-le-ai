@@ -368,7 +368,30 @@ void main() {
     expect(find.text('Sua sessão foi encerrada porque esta conta foi suspensa.'), findsOneWidget);
     expect(find.textContaining('A moderação do Lê Ai suspendeu o acesso.'), findsOneWidget);
     expect(sessionController.consumirAvisoDeSaida(), isNull);
+    expect(find.textContaining('o tempo medido não foi registrado'), findsNothing);
     final campos = find.byType(TextField);
     expect(tester.widget<TextField>(campos.at(0)).controller!.text, isEmpty);
+  });
+  testWidgets('suspensão com sessão de leitura descartada: o banner diz que o tempo não foi registrado', (
+    tester,
+  ) async {
+    sessionController
+      ..avisarSaida(SessionController.avisoDeContaSuspensa)
+      ..avisarLeituraDescartada();
+
+    await tester.pumpWidget(
+      _wrap(
+        LoginPage(
+          authService: servico((request) async => http.Response('{}', 200)),
+          sessionController: sessionController,
+        ),
+      ),
+    );
+
+    expect(find.text('Sua sessão foi encerrada porque esta conta foi suspensa.'), findsOneWidget);
+    expect(
+      find.text('A sessão de leitura em andamento foi encerrada, e o tempo medido não foi registrado.'),
+      findsOneWidget,
+    );
   });
 }

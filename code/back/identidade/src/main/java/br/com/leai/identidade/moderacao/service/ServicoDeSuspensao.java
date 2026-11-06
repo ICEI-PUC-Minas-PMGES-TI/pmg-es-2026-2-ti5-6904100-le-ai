@@ -88,7 +88,16 @@ public class ServicoDeSuspensao {
     if (reativadoEm.isEmpty()) {
       return estadoAtual(usuarioId);
     }
-    log.info("Conta {} reativada pelo admin {}", usuarioId, adminId);
+    // As renovações que a suspensão revogou saem: reapresentada depois da reativação, uma delas
+    // seria lida como reuso de token vazado, com WARN e as sessões novas derrubadas. Desconhecida,
+    // é o 401 comum de sessão expirada.
+    int apagadas =
+        jdbc.update("DELETE FROM refresh_token WHERE usuario_id = ? AND revogado", usuarioId);
+    log.info(
+        "Conta {} reativada pelo admin {}; {} renovação(ões) revogada(s) apagada(s)",
+        usuarioId,
+        adminId,
+        apagadas);
     return new EstadoDaSuspensaoResposta(usuarioId, false, null, reativadoEm.getFirst(), true);
   }
 

@@ -1,6 +1,7 @@
 package br.com.leai.social.moderacao.repository;
 
 import br.com.leai.social.feed.repository.CursorComentario;
+import br.com.leai.social.moderacao.dto.ContaDaModeracaoResposta;
 import br.com.leai.social.moderacao.dto.LivroDaDenuncia;
 import br.com.leai.social.moderacao.dto.PessoaDaModeracao;
 import java.math.BigDecimal;
@@ -375,6 +376,36 @@ public class ModeracaoRepository {
         usuarioId,
         motivo,
         Timestamp.from(instante));
+  }
+
+  /**
+   * A conta pelo username exato, para o perfil do administrador (F-MOD-OPC). Inclui a suspensa e
+   * omite a exclusão pendente (VIEW {@code v_conta_moderacao_v1}). O motivo é o da linha da
+   * suspensão vigente, a de {@code criado_em} igual ao {@code suspenso_em} da conta.
+   */
+  public Optional<ContaDaModeracaoResposta> contaPorUsername(String username) {
+    return jdbc
+        .query(
+            "SELECT c.id, c.username, c.nome_exibicao, c.avatar_url, c.privacidade, c.suspenso,"
+                + " c.suspenso_em, (SELECT l.detalhe FROM log_moderacao l"
+                + " WHERE l.alvo_tipo = 'usuario' AND l.alvo_id = c.id"
+                + " AND l.acao = 'suspender_conta' AND l.criado_em = c.suspenso_em) AS motivo"
+                + " FROM identidade.v_conta_moderacao_v1 c WHERE lower(c.username) = lower(?)",
+            (rs, n) -> {
+              Timestamp suspensaEm = rs.getTimestamp("suspenso_em");
+              return new ContaDaModeracaoResposta(
+                  rs.getObject("id", UUID.class).toString(),
+                  rs.getString("username"),
+                  rs.getString("nome_exibicao"),
+                  rs.getString("avatar_url"),
+                  rs.getString("privacidade"),
+                  rs.getBoolean("suspenso"),
+                  suspensaEm == null ? null : suspensaEm.toInstant(),
+                  rs.getString("motivo"));
+            },
+            username)
+        .stream()
+        .findFirst();
   }
 
   // ------------------------------------------------------------------ registro

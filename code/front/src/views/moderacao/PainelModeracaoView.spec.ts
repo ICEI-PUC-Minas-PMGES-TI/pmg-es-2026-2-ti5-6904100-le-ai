@@ -335,6 +335,7 @@ describe('PainelModeracaoView', () => {
     expect(tela.text()).toContain('Suspendeu a conta')
     expect(tela.text()).toContain('Reativou a conta')
     expect(tela.text()).toContain('Conta de @svaladares')
+    expect(tela.find('a[aria-label="Abrir a conta de @svaladares"]').attributes('href')).toBe('/leitores/svaladares')
     expect(tela.text()).toContain('Motivo: Ataques repetidos.')
     expect(tela.findAll('button').filter((b) => b.text() === 'Reativar conta')).toHaveLength(1)
 

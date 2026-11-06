@@ -78,6 +78,7 @@ Plano em [`plano-F-MOD-OPC.md`](../../../docs/plano-de-desenvolvimento/periodo-3
 - **Recuperação de senha:** sem mudança. O reset funciona, e o login seguinte continua 403.
 - **Contrato:** `docs/api/identidade.yaml` (tag `interno`, scheme `moderacaoToken`, o 403 em `/auth/login`, `/auth/refresh` e `DELETE /me/conta`, a VIEW nova em `x-database-contracts`).
 - **Testes:** `SuspensaoDeContaIntegracaoTest`, `SuspensaoSemTokenIntegracaoTest` e `auth/service/SuspensaoComAdminIntegracaoTest` (este no pacote do `AdminIntegracaoTest`, para provisionar o admin).
+- **06/11/2026, débitos fechados:** os contadores do perfil saem de `UsuarioRepositorio.contarSeguidoresVisiveis`/`contarSeguidosVisiveis` (nativas em `v_seguimento_aceito_v1`), e não mais das colunas, para conta suspensa não contar nos números dos outros. `PerfilResposta.proprio` e `de` recebem os contadores (`ServicoDePerfil.contadores`). As colunas continuam mantidas pelo seguimento. `ServicoDeSuspensao.reativar` apaga as renovações **revogadas** da conta, para o token antigo reapresentado depois da reativação não disparar a detecção de reuso.
 
 ## Pontos de atenção (ver `REQUISITOS.md` §8)
 

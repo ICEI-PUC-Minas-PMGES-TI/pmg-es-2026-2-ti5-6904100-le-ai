@@ -411,4 +411,51 @@ class SuspensaoDeContaIntegracaoTest extends IntegracaoComPostgres {
     String refresh = sessao(alvo).get("refreshToken").asString();
     assertThat(renovar(refresh).statusCode()).isEqualTo(200);
   }
+  @Test
+  @DisplayName("reativar apaga as renovações revogadas: o token antigo é 401 comum, sem alarme de reuso")
+  void tokenAntigoDepoisDaReativacao(CapturedOutput saida) {
+    Leitor alvo = novoLeitor();
+    String antigo = sessao(alvo).get("refreshToken").asString();
+    suspender(alvo.id());
+    reativar(alvo.id());
+    String novo = sessao(alvo).get("refreshToken").asString();
+
+    HttpResponse<String> reuso = renovar(antigo);
+
+    assertThat(reuso.statusCode()).isEqualTo(401);
+    assertThat(saida.getOut()).doesNotContain("Reuso de token de renovação revogado");
+    // A sessão aberta depois da reativação não cai.
+    assertThat(renovar(novo).statusCode()).isEqualTo(200);
+  }
+
+  @Test
+  @DisplayName("contadores do perfil não contam conta suspensa e voltam a contar na reativação")
+  void contadoresSemContaSuspensa() {
+    Leitor alvo = novoLeitor();
+    Leitor seguidor = novoLeitor();
+    String acessoDoSeguidor = sessao(seguidor).get("accessToken").asString();
+    enviar(
+        HttpRequest.newBuilder(uri("/perfis/" + alvo.username() + "/seguir"))
+            .header("Authorization", "Bearer " + acessoDoSeguidor)
+            .header("Idempotency-Key", UUID.randomUUID().toString())
+            .POST(HttpRequest.BodyPublishers.noBody())
+            .build());
+    String acessoDoAlvo = sessao(alvo).get("accessToken").asString();
+
+    assertThat(seguidores(acessoDoAlvo)).isEqualTo(1);
+    suspender(seguidor.id());
+    assertThat(seguidores(acessoDoAlvo)).isZero();
+    reativar(seguidor.id());
+    assertThat(seguidores(acessoDoAlvo)).isEqualTo(1);
+  }
+
+  private long seguidores(String acesso) {
+    HttpResponse<String> perfil =
+        enviar(
+            HttpRequest.newBuilder(uri("/me/perfil"))
+                .header("Authorization", "Bearer " + acesso)
+                .GET()
+                .build());
+    return objectMapper.readTree(perfil.body()).get("contadores").get("seguidores").asLong();
+  }
 }

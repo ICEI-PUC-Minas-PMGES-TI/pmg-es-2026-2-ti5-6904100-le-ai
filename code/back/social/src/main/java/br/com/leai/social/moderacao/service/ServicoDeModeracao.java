@@ -9,6 +9,7 @@ import br.com.leai.social.feed.repository.AtividadeRepository;
 import br.com.leai.social.feed.repository.CursorComentario;
 import br.com.leai.social.feed.repository.CursorInvalidoException;
 import br.com.leai.social.moderacao.dto.AtividadeDaDenuncia;
+import br.com.leai.social.moderacao.dto.ContaDaModeracaoResposta;
 import br.com.leai.social.moderacao.dto.ContaModeradaResposta;
 import br.com.leai.social.moderacao.dto.ConteudoDenunciado;
 import br.com.leai.social.moderacao.dto.DenunciaPendenteResposta;
@@ -392,6 +393,19 @@ public class ServicoDeModeracao {
           CodigoErro.ENTIDADE_NAO_PROCESSAVEL, "O motivo tem um caractere inválido.");
     }
     return motivo;
+  }
+
+  /**
+   * A conta para o perfil do administrador (F-MOD-OPC). Inexistente ou em exclusão pendente é o
+   * mesmo 404 do perfil: o administrador também não lê conta em exclusão.
+   */
+  public ContaDaModeracaoResposta contaPorUsername(String username) {
+    return repositorio
+        .contaPorUsername(username)
+        .orElseThrow(
+            () ->
+                new ErroDeNegocioException(
+                    CodigoErro.RECURSO_NAO_ENCONTRADO, "Não encontramos esta conta."));
   }
 
   // ------------------------------------------------------------------ registro

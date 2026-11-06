@@ -11,7 +11,7 @@ import {
   PhWarning,
 } from '@phosphor-icons/vue'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 
 import EstrelasNota from '../../components/livros/EstrelasNota.vue'
 import TextoDaResenha from '../../components/livros/TextoDaResenha.vue'
@@ -121,8 +121,8 @@ const menuDaConta = ref<HTMLElement | null>(null)
 const autorSuspenso = computed(() => selecionada.value?.autor?.suspensa ?? false)
 const acoesDaConta = computed<AcaoDaFolha[]>(() =>
   autorSuspenso.value
-    ? [{ id: 'reativar', rotulo: 'Reativar conta do autor', icone: PhArrowCounterClockwise }]
-    : [{ id: 'suspender', rotulo: 'Suspender conta do autor', icone: PhProhibit, destrutiva: true }],
+    ? [{ id: 'reativar', rotulo: 'Reativar conta do autor', icone: PhArrowCounterClockwise, tom: 'musgo' }]
+    : [{ id: 'suspender', rotulo: 'Suspender conta do autor', icone: PhProhibit, destrutiva: true, tom: 'rubi' }],
 )
 
 function abrirDialogoDaConta(acao: string): void {
@@ -186,9 +186,15 @@ watch(fila, (atual) => {
   }
 })
 
+const route = useRoute()
+
 onMounted(() => {
   aquecerLeitura()
   void painel.carregar()
+  // `Ver no registro de auditoria`, do perfil do administrador (F-MOD-OPC).
+  if (route.query.aba === 'registro') {
+    trocarAba('registro')
+  }
 })
 </script>
 
@@ -424,6 +430,7 @@ onMounted(() => {
               <MenuDeAcoes
                 :rotulo="`Ações sobre a conta de ${selecionada.autor.nomeExibicao}`"
                 :acoes="acoesDaConta"
+                largura-minima="280px"
                 discreto
                 @escolher="abrirDialogoDaConta"
               />
@@ -702,7 +709,18 @@ onMounted(() => {
                   class="text-body text-tinta"
                 >
                   <div class="flex flex-wrap items-center justify-between gap-x-space-4 gap-y-space-2">
-                    <span class="truncate">{{ alvoDoRegistro(linha) }}</span>
+                    <span
+                      v-if="linha.alvoConta && !linha.anonimizado"
+                      class="truncate"
+                    >Conta de <RouterLink
+                      :to="{ name: 'perfil-de-outro', params: { username: linha.alvoConta } }"
+                      :aria-label="`Abrir a conta de @${linha.alvoConta}`"
+                      class="text-body-strong text-musgo hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo"
+                    >@{{ linha.alvoConta }}</RouterLink></span>
+                    <span
+                      v-else
+                      class="truncate"
+                    >{{ alvoDoRegistro(linha) }}</span>
                     <!-- Decisão 10: reativar pela linha da suspensão vigente (sem artboard). -->
                     <BotaoTextual
                       v-if="linha.suspensaoVigente && linha.alvoId"

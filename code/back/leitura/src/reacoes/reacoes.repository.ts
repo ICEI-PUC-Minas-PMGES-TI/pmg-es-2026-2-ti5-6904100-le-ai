@@ -223,8 +223,9 @@ export class ReacoesRepository {
   ): Promise<EstadoDasReacoes> {
     const [linha] = await leitor
       .select({
-        curtidas: sql<string>`count(*) filter (where ${reacaoResenha.ativa} and ${reacaoResenha.tipo} = 'curtida')`,
-        descurtidas: sql<string>`count(*) filter (where ${reacaoResenha.ativa} and ${reacaoResenha.tipo} = 'descurtida')`,
+        // F-MOD-OPC: reação de conta suspensa ou em exclusão não conta (fora da VIEW de perfil).
+        curtidas: sql<string>`count(*) filter (where ${reacaoResenha.ativa} and ${reacaoResenha.tipo} = 'curtida' and exists (select 1 from "identidade"."v_perfil_referencia_v1" p where p.id = ${reacaoResenha.usuarioId}))`,
+        descurtidas: sql<string>`count(*) filter (where ${reacaoResenha.ativa} and ${reacaoResenha.tipo} = 'descurtida' and exists (select 1 from "identidade"."v_perfil_referencia_v1" p where p.id = ${reacaoResenha.usuarioId}))`,
         minhaReacao: sql<
           string | null
         >`max(${reacaoResenha.tipo}) filter (where ${reacaoResenha.ativa} and ${reacaoResenha.usuarioId} = ${usuarioId})`,
