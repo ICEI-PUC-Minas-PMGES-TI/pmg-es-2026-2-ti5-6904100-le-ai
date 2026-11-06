@@ -144,6 +144,59 @@ void main() {
       expect(store.value, isNull);
     });
 
+    test('F-MOD-OPC: CONTA_SUSPENSA sai uma vez, com o aviso gravado antes de notificar', () async {
+      String? avisoAoNotificar;
+      var notificacoes = 0;
+      controller.addListener(() {
+        notificacoes++;
+        // O login abre no notify do sair(): o aviso já precisa estar lá.
+        avisoAoNotificar ??= controller.consumirAvisoDeSaida();
+      });
+      var chamadas = 0;
+      Future<TokensDaSessao> suspensa(String _) async {
+        chamadas++;
+        throw const ApiException(
+          kind: ApiFailureKind.invalidResponse,
+          correlationId: 'c1',
+          message: 'Esta conta está suspensa.',
+          codigo: 'CONTA_SUSPENSA',
+          status: 403,
+        );
+      }
+
+      final renovou = await controller.renovar('jwt-a', suspensa);
+
+      expect(renovou, isFalse);
+      expect(controller.estaAutenticado, isFalse);
+      expect(store.value, isNull);
+      expect(controller.saindoPorExpiracao, isFalse);
+      expect(avisoAoNotificar, SessionController.avisoDeContaSuspensa);
+      expect(notificacoes, 1);
+
+      // Uma segunda chamada com 401 não renova nem sai de novo: não há loop.
+      expect(await controller.renovar('jwt-a', suspensa), isFalse);
+      expect(chamadas, 1);
+      expect(notificacoes, 1);
+    });
+
+    test('F-MOD-OPC: timeout e 503 na renovação não saem por suspensão', () async {
+      for (final erro in <ApiException>[
+        const ApiException(kind: ApiFailureKind.coldStart, correlationId: 'c1', message: 'Demorou.'),
+        const ApiException(
+          kind: ApiFailureKind.invalidResponse,
+          correlationId: 'c2',
+          message: 'Indisponível.',
+          codigo: 'SERVICO_INDISPONIVEL',
+          status: 503,
+        ),
+      ]) {
+        final renovou = await controller.renovar('jwt-a', (_) async => throw erro);
+        expect(renovou, isFalse);
+        expect(controller.token, 'jwt-a');
+        expect(controller.consumirAvisoDeSaida(), isNull);
+      }
+    });
+
     test('servidor fora não desloga', () async {
       final renovou = await controller.renovar(
         'jwt-a',

@@ -1,29 +1,38 @@
 <script setup lang="ts">
 import {
   PhArchive,
+  PhArrowCounterClockwise,
   PhArrowLeft,
   PhCaretRight,
   PhInfo,
+  PhProhibit,
   PhShieldCheck,
   PhTrash,
   PhWarning,
 } from '@phosphor-icons/vue'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 
 import EstrelasNota from '../../components/livros/EstrelasNota.vue'
 import TextoDaResenha from '../../components/livros/TextoDaResenha.vue'
+import DialogoSuspensao from '../../components/moderacao/DialogoSuspensao.vue'
 import AvatarLeitor from '../../components/perfil/AvatarLeitor.vue'
 import AvisoFlutuante from '../../components/ui/AvisoFlutuante.vue'
 import BotaoTextual from '../../components/ui/BotaoTextual.vue'
 import DialogoConfirmacao from '../../components/ui/DialogoConfirmacao.vue'
+import FaixaInformativa from '../../components/ui/FaixaInformativa.vue'
+import type { AcaoDaFolha } from '../../components/ui/FolhaAcoes.vue'
+import MenuDeAcoes from '../../components/ui/MenuDeAcoes.vue'
 import {
   acaoDoRegistro,
   alvoDoRegistro,
   consequenciaDaRemocao,
   CONTA_EXCLUIDA,
+  conteudoOcultoPelaSuspensao,
   dataCurta,
   dataDoRegistro,
+  ehLinhaDeConta,
+  faixaDaContaSuspensa,
   linhaDoCard,
   lugarDaDenuncia,
   nomeDoAutor,
@@ -31,7 +40,8 @@ import {
 } from '../../moderacao/textos'
 import { usePainelDeModeracao, type OpcoesDoPainel } from '../../moderacao/usePainelDeModeracao'
 import { useRegistroDeModeracao, type OpcoesDoRegistro } from '../../moderacao/useRegistroDeModeracao'
-import { aquecerLeitura } from '../../services/moderacao'
+import type { AcaoSobreConta, OpcoesDaSuspensao } from '../../moderacao/useSuspensaoDeConta'
+import { aquecerLeitura, type ContaModerada, type RegistroDeModeracao } from '../../services/moderacao'
 
 /**
  * Painel de moderação (F-MOD, painel-de-moderacao.md), só web e só para o administrador. Duas abas:
@@ -39,7 +49,9 @@ import { aquecerLeitura } from '../../services/moderacao'
  * auditoria. Quem garante que só o administrador chega aqui é o servidor (403); a rota e a
  * sidebar só escondem.
  */
-const props = defineProps<{ servico?: OpcoesDoPainel['servico'] & OpcoesDoRegistro['servico'] }>()
+const props = defineProps<{
+  servico?: OpcoesDoPainel['servico'] & OpcoesDoRegistro['servico'] & OpcoesDaSuspensao['servico']
+}>()
 
 const registro = useRegistroDeModeracao({ servico: props.servico })
 const painel = usePainelDeModeracao({ servico: props.servico, aoResolver: () => registro.invalidar() })
@@ -93,6 +105,66 @@ function trocarAba(nova: 'denuncias' | 'registro'): void {
 async function confirmarRemocao(): Promise<void> {
   confirmandoRemocao.value = false
   await painel.remover()
+}
+
+// ------------------------------------------------------------------ conta do autor (F-MOD-OPC)
+
+/** O dialog de suspensão ou reativação aberto, e de onde ele veio, para devolver o foco. */
+const dialogoDeConta = ref<{
+  acao: AcaoSobreConta
+  usuarioId: string
+  nome: string
+  origem: 'detalhe' | 'registro'
+} | null>(null)
+const menuDaConta = ref<HTMLElement | null>(null)
+
+const autorSuspenso = computed(() => selecionada.value?.autor?.suspensa ?? false)
+const acoesDaConta = computed<AcaoDaFolha[]>(() =>
+  autorSuspenso.value
+    ? [{ id: 'reativar', rotulo: 'Reativar conta do autor', icone: PhArrowCounterClockwise }]
+    : [{ id: 'suspender', rotulo: 'Suspender conta do autor', icone: PhProhibit, destrutiva: true }],
+)
+
+function abrirDialogoDaConta(acao: string): void {
+  const autor = selecionada.value?.autor
+  if (!autor) {
+    return
+  }
+  dialogoDeConta.value = {
+    acao: acao === 'reativar' ? 'reativar' : 'suspender',
+    usuarioId: autor.id,
+    nome: autor.nomeExibicao,
+    origem: 'detalhe',
+  }
+}
+
+/** Decisão 10: reativar também pela linha da suspensão vigente, quando a denúncia já saiu. */
+function reativarPeloRegistro(linha: RegistroDeModeracao): void {
+  if (!linha.alvoId) {
+    return
+  }
+  dialogoDeConta.value = {
+    acao: 'reativar',
+    usuarioId: linha.alvoId,
+    nome: `@${linha.alvoConta ?? ''}`,
+    origem: 'registro',
+  }
+}
+
+async function contaConfirmada(conta: ContaModerada): Promise<void> {
+  const dialogo = dialogoDeConta.value
+  dialogoDeConta.value = null
+  if (!dialogo) {
+    return
+  }
+  painel.atualizarConta(conta, dialogo.nome)
+  if (dialogo.origem === 'registro') {
+    void registro.carregar()
+    return
+  }
+  // O foco volta ao `DotsThree` do detalhe (painel-de-moderacao.md §9).
+  await nextTick()
+  menuDaConta.value?.querySelector<HTMLButtonElement>('button')?.focus()
 }
 
 watch(fila, (atual) => {
@@ -244,6 +316,17 @@ onMounted(() => {
                       v-if="denuncia.livro?.pessoal"
                       class="inline-flex h-6 items-center rounded-full bg-musgo-fundo px-space-3 text-label text-musgo"
                     >Livro pessoal</span>
+                    <span
+                      v-if="denuncia.autor?.suspensa"
+                      class="inline-flex h-6 items-center gap-space-1 rounded-full border border-linha px-space-3 text-label text-grafite"
+                    >
+                      <PhProhibit
+                        :size="16"
+                        weight="regular"
+                        aria-hidden="true"
+                      />
+                      Conta suspensa
+                    </span>
                   </span>
                   <span class="font-mono text-caption text-grafite">{{ dataCurta(denuncia.criadoEm) }}</span>
                 </span>
@@ -314,12 +397,34 @@ onMounted(() => {
             </p>
           </div>
 
-          <h2 class="text-title-lg text-tinta">
-            {{ ehResenha ? 'Denúncia de resenha' : 'Denúncia de comentário' }}
-          </h2>
+          <div class="flex items-start justify-between gap-space-3">
+            <h2 class="text-title-lg text-tinta">
+              {{ ehResenha ? 'Denúncia de resenha' : 'Denúncia de comentário' }}
+            </h2>
+            <!-- F-MOD-OPC: ações sobre a conta do autor; some com a conta excluída (RN-23.7). -->
+            <div
+              v-if="selecionada.autor"
+              ref="menuDaConta"
+              data-menu-conta
+              class="-mr-space-2 shrink-0"
+            >
+              <MenuDeAcoes
+                :rotulo="`Ações sobre a conta de ${selecionada.autor.nomeExibicao}`"
+                :acoes="acoesDaConta"
+                discreto
+                @escolher="abrirDialogoDaConta"
+              />
+            </div>
+          </div>
           <p class="mt-space-2 text-caption text-grafite">
             {{ quemDenunciou(selecionada) }}
           </p>
+          <FaixaInformativa
+            v-if="autorSuspenso"
+            class="mt-space-4"
+          >
+            {{ faixaDaContaSuspensa(selecionada) }}
+          </FaixaInformativa>
 
           <h3 class="mt-space-6 text-title-sm text-tinta">
             Motivo
@@ -399,8 +504,14 @@ onMounted(() => {
             >
               {{ selecionada.conteudo.texto }}
             </p>
+            <p
+              v-if="autorSuspenso"
+              class="mt-space-4 text-caption text-grafite"
+            >
+              {{ conteudoOcultoPelaSuspensao(selecionada) }}
+            </p>
             <RouterLink
-              v-if="ehResenha && selecionada.livro && !selecionada.livro.pessoal"
+              v-else-if="ehResenha && selecionada.livro && !selecionada.livro.pessoal"
               :to="{ name: 'livro-oficial', params: { id: selecionada.livro.id } }"
               class="mt-space-4 inline-flex min-h-12 items-center gap-space-1 text-body-strong text-musgo hover:underline md:min-h-10"
             >
@@ -498,8 +609,8 @@ onMounted(() => {
       class="mt-space-6 max-w-[1080px]"
     >
       <p class="text-caption text-grafite">
-        Toda ação de moderação fica registrada, da mais recente para a mais antiga. Conteúdo removido e
-        motivos não ficam no registro.
+        Toda ação de moderação fica registrada, da mais recente para a mais antiga. Motivos de denúncia
+        e conteúdo removido não ficam no registro.
       </p>
       <p
         v-if="registro.estado.value === 'carregando'"
@@ -560,7 +671,7 @@ onMounted(() => {
               <tr
                 v-for="linha in registro.itens.value"
                 :key="linha.id"
-                class="h-14"
+                class="h-14 align-middle"
               >
                 <td class="font-mono text-body text-tinta tabular-nums">
                   {{ dataDoRegistro(linha.criadoEm) }}
@@ -572,6 +683,35 @@ onMounted(() => {
                   {{ acaoDoRegistro(linha) }}
                 </td>
                 <td
+                  v-if="ehLinhaDeConta(linha)"
+                  class="py-space-3 text-body text-tinta"
+                >
+                  <div class="flex flex-wrap items-center justify-between gap-x-space-4 gap-y-space-2">
+                    <span class="truncate">{{ alvoDoRegistro(linha) }}</span>
+                    <!-- Decisão 10: reativar pela linha da suspensão vigente (sem artboard). -->
+                    <BotaoTextual
+                      v-if="linha.suspensaoVigente && linha.alvoId"
+                      class="min-h-12 md:min-h-10"
+                      @click="reativarPeloRegistro(linha)"
+                    >
+                      <PhArrowCounterClockwise
+                        :size="20"
+                        weight="regular"
+                        class="mr-space-2"
+                        aria-hidden="true"
+                      />
+                      Reativar conta
+                    </BotaoTextual>
+                  </div>
+                  <p
+                    v-if="linha.motivo"
+                    class="mt-space-1 whitespace-pre-line break-words text-body text-grafite"
+                  >
+                    <span class="text-body-strong">Motivo: </span>{{ linha.motivo }}
+                  </p>
+                </td>
+                <td
+                  v-else
                   class="truncate text-body text-tinta"
                   :aria-label="alvoDoRegistro(linha)"
                 >
@@ -608,6 +748,15 @@ onMounted(() => {
     >
       {{ selecionada ? consequenciaDaRemocao(selecionada) : '' }}
     </DialogoConfirmacao>
+    <DialogoSuspensao
+      v-if="dialogoDeConta"
+      :acao="dialogoDeConta.acao"
+      :usuario-id="dialogoDeConta.usuarioId"
+      :nome="dialogoDeConta.nome"
+      :servico="props.servico"
+      @fechar="dialogoDeConta = null"
+      @concluida="contaConfirmada"
+    />
     <AvisoFlutuante
       :aberto="aviso !== null"
       @fechar="aviso = null"

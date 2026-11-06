@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { PhUser } from '@phosphor-icons/vue'
-import { ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { nextTick, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
+import BannerContaSuspensa from '../../components/auth/BannerContaSuspensa.vue'
 import BannerAviso from '../../components/ui/BannerAviso.vue'
 import BotaoPrimario from '../../components/ui/BotaoPrimario.vue'
 import BotaoTextual from '../../components/ui/BotaoTextual.vue'
@@ -13,7 +14,7 @@ import { guardarAcessoDeRecuperacao } from '../../contaEmExclusao'
 import LayoutAutenticacao from '../../layouts/LayoutAutenticacao.vue'
 import { ApiError } from '../../services/api'
 import { authService } from '../../services/auth'
-import { iniciarSessao } from '../../session'
+import { consumirMotivoDoFimDeSessao, iniciarSessao } from '../../session'
 
 /**
  * Login (RF-AUT-02/03). Layout e cópia de docs/design/periodo-0/P0-NAV/login.md, com a edição de
@@ -23,6 +24,7 @@ import { iniciarSessao } from '../../session'
  */
 
 const router = useRouter()
+const route = useRoute()
 
 const identificador = ref('')
 const senha = ref('')
@@ -36,6 +38,18 @@ const bannerErro = ref('')
 // Bloqueio progressivo (§4.3) é alerta (ambar), não erro (rubi) — banner e botão diferentes.
 const bloqueado = ref(false)
 const enviando = ref(false)
+// F-MOD-OPC (login.md P3): `sessao` quando a sessão foi encerrada pela suspensão; `login` quando
+// a senha conferiu numa conta suspensa. Só quem acerta a senha descobre a suspensão.
+const contaSuspensa = ref<'sessao' | 'login' | null>(null)
+const bannerDaSuspensao = ref<InstanceType<typeof BannerContaSuspensa> | null>(null)
+
+onMounted(() => {
+  // Consome o motivo mesmo quando veio pela URL: o banner aparece uma vez só.
+  const motivo = consumirMotivoDoFimDeSessao()
+  if (route.query.motivo === 'suspensa' || motivo === 'suspensa') {
+    contaSuspensa.value = 'sessao'
+  }
+})
 
 // O servidor não devolve quando o bloqueio expira (sem cabeçalho Retry-After) e o protótipo
 // proíbe contagem regressiva animada; editar qualquer campo é o sinal de que a pessoa quer
@@ -52,6 +66,7 @@ function limparErros(): void {
   erroSenha.value = ''
   bordaDeErroCredencial.value = false
   bannerErro.value = ''
+  contaSuspensa.value = null
 }
 
 function validarCliente(): boolean {
@@ -68,6 +83,14 @@ function tratarErro(erro: unknown): void {
   if (erro.code === 'MUITAS_REQUISICOES') {
     bloqueado.value = true
     bannerErro.value = erro.message
+    return
+  }
+  if (erro.code === 'CONTA_SUSPENSA') {
+    // Os campos ficam sem erro: o que foi digitado está certo. A senha é limpa, como em qualquer
+    // recusa, e o foco vai para o banner.
+    contaSuspensa.value = 'login'
+    senha.value = ''
+    void nextTick(() => bannerDaSuspensao.value?.focar())
     return
   }
   if (erro.code === 'NAO_AUTENTICADO') {
@@ -119,8 +142,14 @@ async function enviar(): Promise<void> {
       Entrar
     </h1>
 
+    <BannerContaSuspensa
+      v-if="contaSuspensa"
+      ref="bannerDaSuspensao"
+      :sessao-encerrada="contaSuspensa === 'sessao'"
+      class="mt-space-6"
+    />
     <BannerAviso
-      v-if="bannerErro"
+      v-else-if="bannerErro"
       :variante="bloqueado ? 'alerta' : 'erro'"
       class="mt-space-6"
     >

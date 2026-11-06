@@ -11,6 +11,7 @@ import '../../design/widgets/campo_senha.dart';
 import '../../design/widgets/campo_texto.dart';
 import '../../design/widgets/logo_leai.dart';
 import 'auth_service.dart';
+import 'banner_conta_suspensa.dart';
 import 'indicador_de_envio.dart';
 import 'link_do_rodape.dart';
 
@@ -61,6 +62,10 @@ class _LoginPageState extends State<LoginPage> {
   bool _bloqueado = false;
   bool _enviando = false;
 
+  // F-MOD-OPC (login.md P3): conta suspensa. `sessaoEncerrada` quando o app saiu pela renovação
+  // negada; falso quando a senha conferiu numa conta suspensa. Nulo sem suspensão.
+  bool? _suspensaComSessaoEncerrada;
+
   @override
   void initState() {
     super.initState();
@@ -69,7 +74,12 @@ class _LoginPageState extends State<LoginPage> {
     // novo, e é o único jeito de sair do bloqueio sem reabrir a tela.
     _identificadorController.addListener(_liberarBloqueioAoEditar);
     _senhaController.addListener(_liberarBloqueioAoEditar);
-    _avisoDeSaida = widget.sessionController.consumirAvisoDeSaida();
+    final aviso = widget.sessionController.consumirAvisoDeSaida();
+    if (aviso == SessionController.avisoDeContaSuspensa) {
+      _suspensaComSessaoEncerrada = true;
+    } else {
+      _avisoDeSaida = aviso;
+    }
   }
 
   @override
@@ -104,6 +114,12 @@ class _LoginPageState extends State<LoginPage> {
 
   void _tratarErro(ApiException erro) {
     setState(() {
+      if (erro.codigo == SessionController.codigoContaSuspensa) {
+        // Os campos ficam sem erro: o que foi digitado está certo. A senha é limpa.
+        _suspensaComSessaoEncerrada = false;
+        _senhaController.clear();
+        return;
+      }
       if (erro.codigo == 'MUITAS_REQUISICOES') {
         _bloqueado = true;
         _bannerErro = erro.message;
@@ -125,6 +141,7 @@ class _LoginPageState extends State<LoginPage> {
     setState(() {
       _bannerErro = null;
       _bordaDeErroCredencial = false;
+      _suspensaComSessaoEncerrada = null;
     });
     if (!_validarCliente()) {
       return;
@@ -180,6 +197,10 @@ class _LoginPageState extends State<LoginPage> {
               const SizedBox(height: DesignTokens.space10),
               Text('Entrar', style: theme.displayTitle),
               const SizedBox(height: DesignTokens.space8),
+              if (_suspensaComSessaoEncerrada != null) ...<Widget>[
+                BannerContaSuspensa(sessaoEncerrada: _suspensaComSessaoEncerrada!),
+                const SizedBox(height: DesignTokens.space6),
+              ],
               if (_avisoDeSaida != null) ...<Widget>[
                 BannerAviso(variante: VarianteAviso.alerta, mensagem: _avisoDeSaida!),
                 const SizedBox(height: DesignTokens.space6),

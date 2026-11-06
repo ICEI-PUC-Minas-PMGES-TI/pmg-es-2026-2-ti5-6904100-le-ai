@@ -41,7 +41,17 @@ interface SessaoPersistida {
 
 export const STORAGE_KEY = 'le-ai-sessao'
 
+/**
+ * F-MOD-OPC: por que a sessão terminou, quando não foi o leitor que saiu. Chave própria, gravada
+ * **antes** de apagar a sessão, para as outras abas saberem o motivo pelo evento `storage` antes
+ * de verem a sessão sumir. O login a consome ao abrir, e `iniciarSessao` a apaga: logout manual e
+ * exclusão de conta nunca mostram o banner.
+ */
+export const CHAVE_DO_FIM_DE_SESSAO = 'le-ai-fim-de-sessao'
+export type MotivoDoFimDeSessao = 'suspensa'
+
 const token = ref<string | null>(null)
+const motivoDoFim = ref<MotivoDoFimDeSessao | null>(null)
 const refreshToken = ref<string | null>(null)
 const usuario = ref<UsuarioSessao | null>(null)
 
@@ -118,6 +128,10 @@ export function initializeSession(): void {
   if (!sincronizandoAbas) {
     sincronizandoAbas = true
     window.addEventListener('storage', (evento) => {
+      if (evento.key === CHAVE_DO_FIM_DE_SESSAO) {
+        motivoDoFim.value = evento.newValue === 'suspensa' ? 'suspensa' : null
+        return
+      }
       // `key === null` é o `localStorage.clear()` de outra aba.
       if (evento.key === STORAGE_KEY || evento.key === null) {
         aplicar(lerSessaoPersistida())
@@ -128,6 +142,7 @@ export function initializeSession(): void {
 
 /** Grava a sessão depois de um login bem-sucedido (o cadastro entra em seguida). */
 export function iniciarSessao(tokens: TokensDaSessao, novoUsuario: UsuarioSessao): void {
+  descartarMotivoDoFim()
   gravar({ token: tokens.accessToken, refreshToken: tokens.refreshToken, usuario: novoUsuario })
 }
 
@@ -155,10 +170,38 @@ export function sincronizarComArmazenamento(): void {
   aplicar(lerSessaoPersistida())
 }
 
-/** Limpa a sessão local. A revogação no servidor é do `authService.sair()`. */
-export function encerrarSessao(): void {
+/**
+ * Limpa a sessão local. A revogação no servidor é do `authService.sair()`. Com `motivo`
+ * (F-MOD-OPC, conta suspensa), grava o motivo antes de apagar a sessão; sem ele, não mexe no
+ * motivo, para uma segunda aba que encerra em seguida não apagar o da primeira.
+ */
+export function encerrarSessao(opcoes: { motivo?: MotivoDoFimDeSessao } = {}): void {
+  if (opcoes.motivo) {
+    motivoDoFim.value = opcoes.motivo
+    window.localStorage.setItem(CHAVE_DO_FIM_DE_SESSAO, opcoes.motivo)
+  }
   aplicar(null)
   window.localStorage.removeItem(STORAGE_KEY)
+}
+
+/** O motivo do fim da sessão desta aba, sem consumir: a navegação para o login olha aqui. */
+export function motivoDoFimDeSessao(): MotivoDoFimDeSessao | null {
+  if (motivoDoFim.value) {
+    return motivoDoFim.value
+  }
+  return window.localStorage.getItem(CHAVE_DO_FIM_DE_SESSAO) === 'suspensa' ? 'suspensa' : null
+}
+
+/** Lê e apaga o motivo: o banner aparece uma vez, no login que a sessão encerrada abriu. */
+export function consumirMotivoDoFimDeSessao(): MotivoDoFimDeSessao | null {
+  const motivo = motivoDoFimDeSessao()
+  descartarMotivoDoFim()
+  return motivo
+}
+
+function descartarMotivoDoFim(): void {
+  motivoDoFim.value = null
+  window.localStorage.removeItem(CHAVE_DO_FIM_DE_SESSAO)
 }
 
 /**

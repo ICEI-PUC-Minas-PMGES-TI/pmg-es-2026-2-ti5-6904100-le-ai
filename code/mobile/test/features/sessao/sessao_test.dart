@@ -297,6 +297,32 @@ void main() {
       expect(conta.consumirAvisoDeSaida(), isNull);
     });
 
+    test('F-MOD-OPC: conta suspensa com sessão de leitura ativa mantém o aviso de suspensão', () async {
+      final cenario = _Cenario();
+      final conta = SessionController(_CofreDeTokens());
+      await conta.load();
+      await conta.entrar('acesso', refreshToken: 'renovacao');
+      final sessao = await _iniciada(cenario);
+      sessao.acompanharConta(conta);
+
+      final renovou = await conta.renovar(
+        'acesso',
+        (_) async => throw const ApiException(
+          kind: ApiFailureKind.invalidResponse,
+          correlationId: 'c1',
+          message: 'Esta conta está suspensa.',
+          codigo: 'CONTA_SUSPENSA',
+          status: 403,
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(renovou, false);
+      // A sessão de leitura é descartada em silêncio (consequência aceita no plano).
+      expect(sessao.sessao, isNull);
+      expect(conta.consumirAvisoDeSaida(), SessionController.avisoDeContaSuspensa);
+    });
+
     test('renovar o token da mesma conta mantém a sessão', () async {
       final cenario = _Cenario();
       final conta = SessionController(_CofreDeTokens());

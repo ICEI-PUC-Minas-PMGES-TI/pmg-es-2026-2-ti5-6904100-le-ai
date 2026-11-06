@@ -141,6 +141,14 @@ class SessionController extends ChangeNotifier {
   /// pessoa não pediu para sair.
   bool get saindoPorExpiracao => _saindoPorExpiracao;
 
+  /// F-MOD-OPC: primeira linha do banner de sessão encerrada por suspensão (login.md P3 §8). A
+  /// tela de entrada reconhece este aviso e mostra o banner de conta suspensa no lugar do comum.
+  static const String avisoDeContaSuspensa =
+      'Sua sessão foi encerrada porque esta conta foi suspensa.';
+
+  /// Código do 403 do `identidade` para conta suspensa.
+  static const String codigoContaSuspensa = 'CONTA_SUSPENSA';
+
   /// Mensagem que a tela de entrada mostra para explicar uma saída que a pessoa não pediu.
   void avisarSaida(String mensagem) => _avisoDeSaida = mensagem;
 
@@ -149,6 +157,15 @@ class SessionController extends ChangeNotifier {
     final aviso = _avisoDeSaida;
     _avisoDeSaida = null;
     return aviso;
+  }
+
+  /// F-MOD-OPC: o aviso é gravado **antes** de [sair], porque o `notifyListeners` de [sair] pode
+  /// levar ao login antes de o aviso existir. Não liga [saindoPorExpiracao]: o ouvinte da sessão
+  /// de leitura (`features/sessao/sessao_controller.dart`) só troca o aviso nesse caso, então o de
+  /// suspensão fica. A sessão de leitura em curso é descartada em silêncio (consequência aceita).
+  Future<void> _sairPorSuspensao() async {
+    avisarSaida(avisoDeContaSuspensa);
+    await sair();
   }
 
   Future<void> _sairPorExpiracao() async {
@@ -177,7 +194,11 @@ class SessionController extends ChangeNotifier {
     String tokenQueFalhou,
     Future<TokensDaSessao> Function(String refreshToken) chamada,
   ) async {
-    if (_token != tokenQueFalhou && _token != null) {
+    if (_token == null) {
+      // A sessão já acabou (por exemplo, pela suspensão): não sai de novo nem troca o aviso.
+      return false;
+    }
+    if (_token != tokenQueFalhou) {
       // Outra chamada já renovou enquanto esta esperava a resposta do 401.
       return true;
     }
@@ -195,6 +216,10 @@ class SessionController extends ChangeNotifier {
       // motivo para deslogar; a chamada original devolve o erro dela.
       if (erro.status == 401) {
         await _sairPorExpiracao();
+      } else if (erro.codigo == codigoContaSuspensa) {
+        // F-MOD-OPC: a moderação suspendeu a conta. Sai uma vez, com o aviso; sem sessão, a
+        // próxima chamada não renova de novo.
+        await _sairPorSuspensao();
       }
       return false;
     }

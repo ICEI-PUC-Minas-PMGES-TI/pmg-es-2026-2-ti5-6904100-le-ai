@@ -5,7 +5,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import { acessoDeRecuperacao } from '../../contaEmExclusao'
 import { ApiError } from '../../services/api'
 import { authService } from '../../services/auth'
-import { getToken, useSession } from '../../session'
+import { encerrarSessao, getToken, useSession } from '../../session'
 import LoginView from './LoginView.vue'
 
 vi.mock('../../services/auth', () => ({
@@ -182,5 +182,52 @@ describe('LoginView', () => {
     await flushPromises()
 
     expect(router.currentRoute.value.path).toBe('/recuperar-senha')
+  })
+  // ------------------------------------------------------------------ F-MOD-OPC
+
+  it('conta suspensa com a senha certa: banner âmbar, campos sem erro e senha limpa', async () => {
+    const { wrapper } = montarComRouter()
+    const campos = wrapper.findAll('input')
+    await campos[0]!.setValue('svaladares')
+    await campos[1]!.setValue('senha-bem-comprida')
+    vi.mocked(authService.entrar).mockRejectedValue(
+      new ApiError('Esta conta está suspensa.', 403, 'CONTA_SUSPENSA', 'c1'),
+    )
+
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Esta conta está suspensa.')
+    expect(wrapper.text()).toContain('A moderação do Lê Ai suspendeu o acesso.')
+    expect(wrapper.find('.bg-ambar-fundo').exists()).toBe(true)
+    expect(wrapper.find('.bg-rubi-fundo').exists()).toBe(false)
+    expect(campos[0]!.classes()).not.toContain('border-rubi')
+    expect((campos[0]!.element as HTMLInputElement).value).toBe('svaladares')
+    expect((campos[1]!.element as HTMLInputElement).value).toBe('')
+    expect(getToken()).toBeNull()
+  })
+
+  it('sessão encerrada pela suspensão: o login abre com o banner, uma vez só', async () => {
+    encerrarSessao({ motivo: 'suspensa' })
+    const primeiro = montarComRouter()
+    await primeiro.router.push('/login?motivo=suspensa')
+    await flushPromises()
+    expect(primeiro.wrapper.text()).toContain('Sua sessão foi encerrada porque esta conta foi suspensa.')
+    primeiro.wrapper.unmount()
+
+    // Abrir o login de novo, sem o motivo na URL, não repete o banner.
+    const segundo = montarComRouter()
+    await segundo.router.push('/login')
+    await flushPromises()
+    expect(segundo.wrapper.text()).not.toContain('suspensa')
+  })
+
+  it('logout manual e exclusão de conta não mostram o banner', async () => {
+    useSession().encerrarSessao()
+    const { wrapper, router } = montarComRouter()
+    await router.push('/login')
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('suspensa')
   })
 })
