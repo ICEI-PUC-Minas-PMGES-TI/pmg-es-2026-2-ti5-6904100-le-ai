@@ -59,6 +59,7 @@ class SuspensaoSemTokenIntegracaoTest extends IntegracaoComPostgres {
                     uri("/internal/moderacao/usuarios/" + UUID.randomUUID() + "/suspensao"))
                 .header("Authorization", "Bearer " + admin)
                 .header("X-Moderacao-Token", "qualquer-token-com-32-caracteres!!!")
+                .header("X-Comando-Id", UUID.randomUUID().toString())
                 .POST(HttpRequest.BodyPublishers.noBody())
                 .build());
 

@@ -27,6 +27,7 @@ class GuardaDeExclusaoIntegracaoTest extends IntegracaoComPostgres {
   /** Saem pelo ON DELETE CASCADE de {@code usuario}. */
   private static final Map<String, String> POR_CASCATA =
       Map.of(
+          "comando_de_conta", "usuario",
           "refresh_token", "usuario",
           "reset_token", "usuario",
           "seguidor", "usuario",

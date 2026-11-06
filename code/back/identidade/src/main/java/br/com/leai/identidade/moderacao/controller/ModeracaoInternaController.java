@@ -7,6 +7,7 @@ import br.com.leai.identidade.common.ErroDeNegocioException;
 import br.com.leai.identidade.moderacao.dto.EstadoDaSuspensaoResposta;
 import br.com.leai.identidade.moderacao.service.ServicoDeSuspensao;
 import br.com.leai.identidade.moderacao.service.TokenDeModeracao;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,10 +26,15 @@ import org.springframework.web.bind.annotation.RestController;
  * social} (F-MOD-OPC). Ficam fora das rotas públicas: a cadeia do Spring já exige um JWT válido
  * (401) antes de chegar aqui. Depois vêm o segredo compartilhado (503 sem configuração, 401
  * errado), o papel de admin (403) e o alvo (404 ou 422). Conhecer a rota e o segredo não basta.
+ *
+ * <p>Cada comando traz em {@value #CABECALHO_COMANDO} o id da intenção do administrador; a
+ * resolução conclui ou cancela um comando cujo resultado se perdeu (revisão do PR #61).
  */
 @RestController
 @Tag(name = "interno", description = "Comandos internos entre serviços")
 public class ModeracaoInternaController {
+
+  static final String CABECALHO_COMANDO = "X-Comando-Id";
 
   private static final Logger log = LoggerFactory.getLogger(ModeracaoInternaController.class);
 
@@ -54,8 +60,11 @@ public class ModeracaoInternaController {
   public EstadoDaSuspensaoResposta suspender(
       @PathVariable UUID id,
       @RequestHeader(name = TokenDeModeracao.CABECALHO, required = false) String token,
+      @Parameter(description = "Id da intenção, gerado pelo social; repetir devolve o resultado")
+          @RequestHeader(name = CABECALHO_COMANDO)
+          UUID comandoId,
       @AuthenticationPrincipal Jwt jwt) {
-    return servico.suspender(id, exigirAdmin(token, jwt, id));
+    return servico.suspender(id, exigirAdmin(token, jwt, id), comandoId);
   }
 
   @PostMapping("/internal/moderacao/usuarios/{id}/reativacao")
@@ -65,8 +74,32 @@ public class ModeracaoInternaController {
   public EstadoDaSuspensaoResposta reativar(
       @PathVariable UUID id,
       @RequestHeader(name = TokenDeModeracao.CABECALHO, required = false) String token,
+      @Parameter(description = "Id da intenção, gerado pelo social; repetir devolve o resultado")
+          @RequestHeader(name = CABECALHO_COMANDO)
+          UUID comandoId,
       @AuthenticationPrincipal Jwt jwt) {
-    return servico.reativar(id, exigirAdmin(token, jwt, id));
+    return servico.reativar(id, exigirAdmin(token, jwt, id), comandoId);
+  }
+
+  @PostMapping("/internal/moderacao/usuarios/{id}/comandos/{comandoId}/resolucao")
+  @SecurityRequirement(name = "bearerAuth")
+  @SecurityRequirement(name = "moderacaoToken")
+  @Operation(
+      operationId = "resolverComandoDeContaInterno",
+      summary =
+          "Conclui ou cancela um comando de suspensão ou reativação sem resposta: o resultado"
+              + " gravado, ou 409 COMANDO_CANCELADO se ele não tinha rodado (e não roda mais)")
+  public EstadoDaSuspensaoResposta resolver(
+      @PathVariable UUID id,
+      @PathVariable UUID comandoId,
+      @RequestHeader(name = TokenDeModeracao.CABECALHO, required = false) String token,
+      @AuthenticationPrincipal Jwt jwt) {
+    return servico
+        .resolver(id, exigirAdmin(token, jwt, id), comandoId)
+        .orElseThrow(
+            () ->
+                new ErroDeNegocioException(
+                    CodigoErro.COMANDO_CANCELADO, CodigoErro.COMANDO_CANCELADO.mensagem()));
   }
 
   /** Revalida a autorização no serviço dono (RNF-SEC-04). Devolve o id do admin. */

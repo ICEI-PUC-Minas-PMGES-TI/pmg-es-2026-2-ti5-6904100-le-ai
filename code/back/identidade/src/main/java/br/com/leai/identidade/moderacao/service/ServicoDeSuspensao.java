@@ -10,6 +10,7 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,19 +19,29 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Suspende e reativa a conta (F-MOD-OPC, RF-MOD-04). Idempotente pelo estado, sem recibo: repetir
- * devolve o estado atual com {@code alterado = false}. Um recibo por alvo devolveria um episódio
- * velho depois de suspender, reativar e suspender de novo.
+ * Suspende e reativa a conta (F-MOD-OPC, RF-MOD-04). Idempotente pelo estado: um comando novo
+ * sobre a conta que já está no estado pedido devolve o estado atual com {@code alterado = false}.
  *
- * <p>O {@code UPDATE} condicional resolve a corrida com o pedido de exclusão (que trava a mesma
- * linha): só suspende conta ativa e sem exclusão pendente. Quando não altera, um {@code SELECT}
- * decide entre o 404 e a repetição.
+ * <p><b>Identidade do comando</b> (revisão do PR #61): cada intenção do administrador chega com o
+ * id que o {@code social} gerou para ela, e o resultado fica em {@code comando_de_conta}. Repetir o
+ * mesmo id devolve o resultado gravado sem executar de novo, mesmo que outra ação tenha mudado a
+ * conta depois: uma suspensão reenviada após a reativação não suspende outra vez. O id é por
+ * intenção, não por alvo, então suspender, reativar e suspender de novo são três episódios. A
+ * {@link #resolver resolução} conclui ou cancela um comando cujo resultado o {@code social}
+ * perdeu, antes de uma ação nova sobre a mesma conta.
+ *
+ * <p>Toda escrita começa travando a linha da conta: o comando atrasado e a resolução do mesmo id
+ * se serializam ali, e o pedido de exclusão (que trava a mesma linha) também. Só suspende conta
+ * ativa e sem exclusão pendente; quando não altera, um {@code SELECT} decide entre o 404 e a
+ * repetição.
  */
 @Service
 public class ServicoDeSuspensao {
 
   static final String CONTA_DO_ADMIN = "A conta administradora não pode ser suspensa.";
   static final String CONTA_NAO_ENCONTRADA = "Não encontramos esta conta.";
+  static final String SUSPENSAO = "suspensao";
+  static final String REATIVACAO = "reativacao";
 
   private static final Logger log = LoggerFactory.getLogger(ServicoDeSuspensao.class);
 
@@ -49,8 +60,18 @@ public class ServicoDeSuspensao {
 
   /** Suspende e revoga as renovações ativas (RNF-SEC-30). */
   @Transactional
-  public EstadoDaSuspensaoResposta suspender(UUID usuarioId, UUID adminId) {
+  public EstadoDaSuspensaoResposta suspender(UUID usuarioId, UUID adminId, UUID comandoId) {
     recusarAdmin(usuarioId);
+    travarConta(usuarioId);
+    Optional<EstadoDaSuspensaoResposta> anterior =
+        comandoAplicado(comandoId, usuarioId, SUSPENSAO);
+    if (anterior.isPresent()) {
+      return anterior.get();
+    }
+    return gravar(comandoId, SUSPENSAO, aplicarSuspensao(usuarioId, adminId));
+  }
+
+  private EstadoDaSuspensaoResposta aplicarSuspensao(UUID usuarioId, UUID adminId) {
     List<Instant> suspensoEm =
         jdbc.query(
             "UPDATE usuario SET suspenso = true, suspenso_em = now(), atualizado_em = now()"
@@ -75,8 +96,45 @@ public class ServicoDeSuspensao {
 
   /** Reativa: login e VIEWs voltam a valer, com a privacidade e os seguidores de antes. */
   @Transactional
-  public EstadoDaSuspensaoResposta reativar(UUID usuarioId, UUID adminId) {
+  public EstadoDaSuspensaoResposta reativar(UUID usuarioId, UUID adminId, UUID comandoId) {
     recusarAdmin(usuarioId);
+    travarConta(usuarioId);
+    Optional<EstadoDaSuspensaoResposta> anterior =
+        comandoAplicado(comandoId, usuarioId, REATIVACAO);
+    if (anterior.isPresent()) {
+      return anterior.get();
+    }
+    return gravar(comandoId, REATIVACAO, aplicarReativacao(usuarioId, adminId));
+  }
+
+  /**
+   * Resolve um comando cujo resultado o {@code social} não recebeu: o estado gravado, se ele já
+   * rodou; vazio, se não, e então ele fica cancelado e nunca mais roda (o atrasado recebe 409).
+   * Não lança o 409 aqui dentro, porque a exceção desfaria o cancelamento: quem responde é o
+   * controller, depois do commit.
+   */
+  @Transactional
+  public Optional<EstadoDaSuspensaoResposta> resolver(
+      UUID usuarioId, UUID adminId, UUID comandoId) {
+    travarConta(usuarioId);
+    Optional<Comando> gravado = comando(comandoId);
+    if (gravado.isPresent()) {
+      exigirMesmaConta(gravado.get(), usuarioId);
+      return gravado.get().aplicado() ? Optional.of(gravado.get().estado()) : Optional.empty();
+    }
+    jdbc.update(
+        "INSERT INTO comando_de_conta (id, usuario_id, estado) VALUES (?, ?, 'cancelado')",
+        comandoId,
+        usuarioId);
+    log.info(
+        "Comando {} da conta {} cancelado pelo admin {} antes de rodar",
+        comandoId,
+        usuarioId,
+        adminId);
+    return Optional.empty();
+  }
+
+  private EstadoDaSuspensaoResposta aplicarReativacao(UUID usuarioId, UUID adminId) {
     // As renovações que a suspensão revogou saem: reapresentada depois da reativação, uma delas
     // seria lida como reuso de token vazado, com WARN e as sessões novas derrubadas. Desconhecida,
     // é o 401 comum de sessão expirada. Só as revogadas a partir de `suspenso_em` (a suspensão
@@ -110,6 +168,87 @@ public class ServicoDeSuspensao {
         apagadas);
     return new EstadoDaSuspensaoResposta(usuarioId, false, null, reativadoEm, true);
   }
+
+  /**
+   * Trava a linha da conta até o fim da transação; conta inexistente é 404. A conta em exclusão
+   * pendente passa daqui: o comando decide o 404 dela, e a resolução ainda conclui o que já rodou.
+   */
+  private void travarConta(UUID usuarioId) {
+    if (jdbc.queryForList("SELECT id FROM usuario WHERE id = ? FOR UPDATE", usuarioId).isEmpty()) {
+      throw new ErroDeNegocioException(CodigoErro.RECURSO_NAO_ENCONTRADO, CONTA_NAO_ENCONTRADA);
+    }
+  }
+
+  /** O resultado gravado do mesmo comando, se ele já rodou; 409 se ele foi cancelado. */
+  private Optional<EstadoDaSuspensaoResposta> comandoAplicado(
+      UUID comandoId, UUID usuarioId, String acao) {
+    Optional<Comando> gravado = comando(comandoId);
+    if (gravado.isEmpty()) {
+      return Optional.empty();
+    }
+    exigirMesmaConta(gravado.get(), usuarioId);
+    if (!gravado.get().aplicado()) {
+      log.info("Comando {} da conta {} chegou depois de cancelado; não roda", comandoId, usuarioId);
+      throw new ErroDeNegocioException(
+          CodigoErro.COMANDO_CANCELADO, CodigoErro.COMANDO_CANCELADO.mensagem());
+    }
+    if (!acao.equals(gravado.get().acao())) {
+      throw comandoDivergente(comandoId);
+    }
+    return Optional.of(gravado.get().estado());
+  }
+
+  private static void exigirMesmaConta(Comando gravado, UUID usuarioId) {
+    if (!gravado.estado().usuarioId().equals(usuarioId)) {
+      throw comandoDivergente(gravado.id());
+    }
+  }
+
+  /** O social deriva o id da intenção: o mesmo id com outra conta ou ação é defeito dele. */
+  private static ErroDeNegocioException comandoDivergente(UUID comandoId) {
+    log.error("Comando {} reapresentado com outra conta ou outra ação", comandoId);
+    return new ErroDeNegocioException(CodigoErro.CONFLITO, CodigoErro.CONFLITO.mensagem());
+  }
+
+  private EstadoDaSuspensaoResposta gravar(
+      UUID comandoId, String acao, EstadoDaSuspensaoResposta estado) {
+    jdbc.update(
+        "INSERT INTO comando_de_conta"
+            + " (id, usuario_id, acao, estado, suspenso, suspenso_em, reativado_em, alterado)"
+            + " VALUES (?, ?, ?, 'aplicado', ?, ?, ?, ?)",
+        comandoId,
+        estado.usuarioId(),
+        acao,
+        estado.suspenso(),
+        estado.suspensoEm() == null ? null : Timestamp.from(estado.suspensoEm()),
+        estado.reativadoEm() == null ? null : Timestamp.from(estado.reativadoEm()),
+        estado.alterado());
+    return estado;
+  }
+
+  private Optional<Comando> comando(UUID comandoId) {
+    return jdbc
+        .query(
+            "SELECT id, usuario_id, acao, estado, suspenso, suspenso_em, reativado_em, alterado"
+                + " FROM comando_de_conta WHERE id = ?",
+            (rs, linha) ->
+                new Comando(
+                    rs.getObject("id", UUID.class),
+                    rs.getString("acao"),
+                    "aplicado".equals(rs.getString("estado")),
+                    new EstadoDaSuspensaoResposta(
+                        rs.getObject("usuario_id", UUID.class),
+                        rs.getBoolean("suspenso"),
+                        instante(rs, "suspenso_em"),
+                        instante(rs, "reativado_em"),
+                        rs.getBoolean("alterado"))),
+            comandoId)
+        .stream()
+        .findFirst();
+  }
+
+  private record Comando(
+      UUID id, String acao, boolean aplicado, EstadoDaSuspensaoResposta estado) {}
 
   private void recusarAdmin(UUID usuarioId) {
     if (contaAdministradora.eh(usuarioId)) {

@@ -121,9 +121,17 @@ class SuspensaoDeContaIntegracaoTest extends IntegracaoComPostgres {
 
   private HttpResponse<String> comando(
       String acao, UUID alvo, String bearer, String tokenDeModeracao) {
+    return comando(acao, alvo, bearer, tokenDeModeracao, UUID.randomUUID());
+  }
+
+  private HttpResponse<String> comando(
+      String acao, UUID alvo, String bearer, String tokenDeModeracao, UUID comandoId) {
     HttpRequest.Builder requisicao =
         HttpRequest.newBuilder(uri("/internal/moderacao/usuarios/" + alvo + "/" + acao))
             .POST(HttpRequest.BodyPublishers.noBody());
+    if (comandoId != null) {
+      requisicao.header("X-Comando-Id", comandoId.toString());
+    }
     if (bearer != null) {
       requisicao.header("Authorization", "Bearer " + bearer);
     }
@@ -232,6 +240,101 @@ class SuspensaoDeContaIntegracaoTest extends IntegracaoComPostgres {
     assertThat(deNovo.get("suspenso").asBoolean()).isFalse();
     assertThat(deNovo.get("reativadoEm").asString())
         .isEqualTo(reativada.get("reativadoEm").asString());
+  }
+
+  @Test
+  @DisplayName("sem X-Comando-Id é 400 e nada muda")
+  void semIdDoComando() {
+    Leitor alvo = novoLeitor();
+    assertThat(
+            comando("suspensao", alvo.id(), tokenDeAdmin(), TOKEN_DE_MODERACAO, null).statusCode())
+        .isEqualTo(400);
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT suspenso FROM usuario WHERE id = ?", Boolean.class, alvo.id()))
+        .isFalse();
+  }
+
+  @Test
+  @DisplayName("o mesmo comando reenviado depois da reativação devolve o resultado gravado e não suspende de novo")
+  void mesmoComandoDepoisDaReativacao() {
+    Leitor alvo = novoLeitor();
+    UUID suspensao = UUID.randomUUID();
+    HttpResponse<String> primeira =
+        comando("suspensao", alvo.id(), tokenDeAdmin(), TOKEN_DE_MODERACAO, suspensao);
+    assertThat(primeira.statusCode()).isEqualTo(200);
+    reativar(alvo.id());
+
+    HttpResponse<String> reenvio =
+        comando("suspensao", alvo.id(), tokenDeAdmin(), TOKEN_DE_MODERACAO, suspensao);
+    assertThat(reenvio.statusCode()).isEqualTo(200);
+    assertThat(reenvio.body()).isEqualTo(primeira.body());
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT suspenso FROM usuario WHERE id = ?", Boolean.class, alvo.id()))
+        .isFalse();
+    // O mesmo id com outra ação é defeito do chamador: 409, sem efeito.
+    assertThat(
+            comando("reativacao", alvo.id(), tokenDeAdmin(), TOKEN_DE_MODERACAO, suspensao)
+                .statusCode())
+        .isEqualTo(409);
+  }
+
+  @Test
+  @DisplayName("resolver devolve o resultado de comando que rodou; o que não rodou fica cancelado e nunca roda")
+  void resolverComando() {
+    Leitor alvo = novoLeitor();
+    UUID rodou = UUID.randomUUID();
+    HttpResponse<String> suspensa =
+        comando("suspensao", alvo.id(), tokenDeAdmin(), TOKEN_DE_MODERACAO, rodou);
+    reativar(alvo.id());
+
+    HttpResponse<String> resolvido = resolucao(alvo.id(), rodou);
+    assertThat(resolvido.statusCode()).isEqualTo(200);
+    assertThat(resolvido.body()).isEqualTo(suspensa.body());
+
+    UUID perdido = UUID.randomUUID();
+    HttpResponse<String> cancelado = resolucao(alvo.id(), perdido);
+    assertThat(cancelado.statusCode()).isEqualTo(409);
+    assertThat(codigo(cancelado)).isEqualTo("COMANDO_CANCELADO");
+    // O comando que chega depois do cancelamento é recusado e a conta continua ativa.
+    HttpResponse<String> atrasado =
+        comando("suspensao", alvo.id(), tokenDeAdmin(), TOKEN_DE_MODERACAO, perdido);
+    assertThat(atrasado.statusCode()).isEqualTo(409);
+    assertThat(codigo(atrasado)).isEqualTo("COMANDO_CANCELADO");
+    assertThat(resolucao(alvo.id(), perdido).statusCode()).isEqualTo(409);
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT suspenso FROM usuario WHERE id = ?", Boolean.class, alvo.id()))
+        .isFalse();
+
+    // Exige as mesmas credenciais dos comandos, e conta inexistente é 404.
+    assertThat(
+            enviar(
+                    HttpRequest.newBuilder(
+                            uri(
+                                "/internal/moderacao/usuarios/"
+                                    + alvo.id()
+                                    + "/comandos/"
+                                    + rodou
+                                    + "/resolucao"))
+                        .header("Authorization", "Bearer " + token(alvo.id(), "leitor"))
+                        .header("X-Moderacao-Token", TOKEN_DE_MODERACAO)
+                        .POST(HttpRequest.BodyPublishers.noBody())
+                        .build())
+                .statusCode())
+        .isEqualTo(403);
+    assertThat(resolucao(UUID.randomUUID(), UUID.randomUUID()).statusCode()).isEqualTo(404);
+  }
+
+  private HttpResponse<String> resolucao(UUID alvo, UUID comandoId) {
+    return enviar(
+        HttpRequest.newBuilder(
+                uri("/internal/moderacao/usuarios/" + alvo + "/comandos/" + comandoId + "/resolucao"))
+            .header("Authorization", "Bearer " + tokenDeAdmin())
+            .header("X-Moderacao-Token", TOKEN_DE_MODERACAO)
+            .POST(HttpRequest.BodyPublishers.noBody())
+            .build());
   }
 
   @Test

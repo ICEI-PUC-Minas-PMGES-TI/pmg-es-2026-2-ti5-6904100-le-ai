@@ -75,6 +75,7 @@ class SuspensaoComAdminIntegracaoTest extends IntegracaoComPostgres {
         HttpRequest.newBuilder(uri("/internal/moderacao/usuarios/" + alvo + "/suspensao"))
             .header("Authorization", "Bearer " + bearer)
             .header("X-Moderacao-Token", TOKEN_DE_MODERACAO)
+            .header("X-Comando-Id", UUID.randomUUID().toString())
             .POST(HttpRequest.BodyPublishers.noBody())
             .build());
   }

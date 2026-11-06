@@ -649,15 +649,21 @@ paths:
         prazo de 15 minutos. Idempotente pelo estado: suspender conta já
         suspensa devolve o estado atual com `alterado: false` e o mesmo
         `suspensoEm`. Conta inexistente ou com exclusão pendente, `404`; a
-        conta administradora, `422`. Sem corpo e sem `Idempotency-Key`.
+        conta administradora, `422`. Sem corpo e sem `Idempotency-Key`: a
+        identidade da intenção vem em `X-Comando-Id` (revisão do PR #61). O
+        resultado fica gravado por esse id, e repetir o id devolve o resultado
+        gravado sem executar de novo, mesmo depois de uma reativação. Id já
+        cancelado por uma resolução, `409 COMANDO_CANCELADO`; o mesmo id com
+        outra conta ou outra ação, `409 CONFLITO`.
       security:
         - bearerAuth: []
           moderacaoToken: []
       parameters:
         - $ref: '#/components/parameters/UsuarioId'
+        - $ref: '#/components/parameters/ComandoId'
       responses:
         '200':
-          description: Conta suspensa, ou já estava.
+          description: Conta suspensa, ou já estava, ou o resultado gravado do mesmo comando.
           content:
             application/json:
               schema:
@@ -670,6 +676,8 @@ paths:
           $ref: '#/components/responses/AcessoNegado'
         '404':
           $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          $ref: '#/components/responses/ComandoRecusado'
         '422':
           $ref: '#/components/responses/ContaAdministradora'
         '503':
@@ -687,15 +695,16 @@ paths:
         VIEWs públicas voltam a valer, com a privacidade e os seguidores de
         antes (RN-08). Reativar conta ativa devolve o estado atual com
         `alterado: false`; `reativadoEm` é o da última reativação, ou nulo se a
-        conta nunca foi suspensa.
+        conta nunca foi suspensa. O mesmo `X-Comando-Id` da suspensão.
       security:
         - bearerAuth: []
           moderacaoToken: []
       parameters:
         - $ref: '#/components/parameters/UsuarioId'
+        - $ref: '#/components/parameters/ComandoId'
       responses:
         '200':
-          description: Conta reativada, ou já estava ativa.
+          description: Conta reativada, ou já estava ativa, ou o resultado gravado do mesmo comando.
           content:
             application/json:
               schema:
@@ -708,8 +717,58 @@ paths:
           $ref: '#/components/responses/AcessoNegado'
         '404':
           $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          $ref: '#/components/responses/ComandoRecusado'
         '422':
           $ref: '#/components/responses/ContaAdministradora'
+        '503':
+          $ref: '#/components/responses/ServicoIndisponivel'
+
+  /internal/moderacao/usuarios/{id}/comandos/{comandoId}/resolucao:
+    post:
+      operationId: resolverComandoDeContaInterno
+      x-implementation-status: implemented
+      x-implemented-by: F-MOD-OPC
+      tags: [interno]
+      summary: Conclui ou cancela um comando de conta que ficou sem resposta
+      description: >-
+        Revisão do PR #61. Antes de uma ação nova sobre a conta, o `social`
+        resolve as intenções dela que ficaram sem resposta (timeout). Se o
+        comando já rodou, devolve o resultado gravado, para a auditoria do
+        episódio original; se não rodou, grava o cancelamento e responde `409
+        COMANDO_CANCELADO`, e o comando que chegar depois com esse id também
+        recebe `409`, sem efeito. Trava a conta como os comandos, então o
+        comando atrasado e a resolução nunca se cruzam. Mesma autenticação dos
+        comandos; conta inexistente, `404`.
+      security:
+        - bearerAuth: []
+          moderacaoToken: []
+      parameters:
+        - $ref: '#/components/parameters/UsuarioId'
+        - name: comandoId
+          in: path
+          required: true
+          description: O `X-Comando-Id` do comando a resolver.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: O comando rodou; este é o resultado gravado dele.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EstadoDaSuspensao'
+        '400':
+          $ref: '#/components/responses/RequisicaoInvalida'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/AcessoNegado'
+        '404':
+          $ref: '#/components/responses/NaoEncontrado'
+        '409':
+          $ref: '#/components/responses/ComandoRecusado'
         '503':
           $ref: '#/components/responses/ServicoIndisponivel'
 
@@ -1258,6 +1317,17 @@ components:
       schema:
         type: string
         format: uuid
+    ComandoId:
+      name: X-Comando-Id
+      in: header
+      required: true
+      description: >-
+        Id da intenção do administrador, gerado pelo `social` a partir do admin,
+        da ação e da chave de idempotência do painel. Repetir o id devolve o
+        resultado gravado sem executar de novo.
+      schema:
+        type: string
+        format: uuid
     SolicitacaoId:
       name: id
       in: path
@@ -1317,6 +1387,18 @@ components:
             $ref: '#/components/schemas/Erro'
     ContaAdministradora:
       description: A conta administradora não pode ser suspensa nem reativada.
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+    ComandoRecusado:
+      description: >-
+        `COMANDO_CANCELADO`, o comando foi cancelado por uma resolução antes de
+        rodar e não roda mais; ou `CONFLITO`, o mesmo id veio com outra conta ou
+        outra ação.
       headers:
         X-Correlation-Id:
           $ref: '#/components/headers/CorrelationId'
