@@ -17,16 +17,21 @@ import '../../design/widgets/campo_texto.dart';
 import '../../design/widgets/cartao_progresso.dart';
 import '../../design/widgets/folha_inferior.dart';
 import 'acervo_service.dart';
+import 'campo_assuntos.dart';
 import 'capa.dart';
+import 'livro_oficial.dart';
+import 'seletor_de_assuntos.dart';
+import 'seletor_de_assuntos_controller.dart';
 
 const int _limiteDaSinopse = 4000;
 const int _avisoDaSinopse = 3800;
 
-/// Cadastro e edição de livro pessoal (RF-ACV-08, RF-ACV-09). Estrutura e cópia de
-/// docs/design/periodo-1/F-ACV-CADASTRO/cadastro-pessoal.md §4 e §8.
+/// Cadastro e edição de livro pessoal (RF-ACV-08, RF-ACV-09, RF-ACV-22). Estrutura e cópia de
+/// docs/design/periodo-1/F-ACV-CADASTRO/cadastro-pessoal.md §4 e §8, com o campo `Assuntos` de
+/// docs/design/periodo-3/cadastro-pessoal/cadastro-pessoal.md §4.1.
 ///
-/// **Não existe campo de ISBN**, nem de editora, série ou assunto (RN-02, RN-03, RF-ACV-22 é
-/// do Período 3): o formulário é título, autor, páginas, sinopse e capa.
+/// **Não existe campo de ISBN**, nem de editora ou série (RN-02, RN-03): o formulário é título,
+/// autor, páginas, assuntos do conjunto curado, sinopse e capa.
 class LivroPessoalFormPage extends StatefulWidget {
   final AcervoService servico;
   final SeletorDeImagem seletor;
@@ -72,6 +77,14 @@ class _LivroPessoalFormPageState extends State<LivroPessoalFormPage> {
   double _progressoDaCapa = 0;
   String? _erroDaCapa;
 
+  // Assuntos escolhidos, em ordem alfabética. A lista do seletor carrega na primeira abertura e
+  // a falha dela nunca bloqueia o `Salvar`: o assunto é opcional.
+  List<AssuntoResumo> _assuntos = const <AssuntoResumo>[];
+  late final SeletorDeAssuntosController _seletorDeAssuntos = SeletorDeAssuntosController(
+    servico: widget.servico,
+  );
+  final FocusNode _focoDosAssuntos = FocusNode(debugLabel: 'Assuntos');
+
   final Map<String, String> _erros = <String, String>{};
   final Set<String> _tocados = <String>{};
   String? _banner;
@@ -105,6 +118,8 @@ class _LivroPessoalFormPageState extends State<LivroPessoalFormPage> {
   @override
   void dispose() {
     _coldStartTimer?.cancel();
+    _seletorDeAssuntos.dispose();
+    _focoDosAssuntos.dispose();
     _titulo.dispose();
     _autor.dispose();
     _paginas.dispose();
@@ -128,6 +143,7 @@ class _LivroPessoalFormPageState extends State<LivroPessoalFormPage> {
         _paginas.text = '${livro.paginas}';
         _sinopse.text = livro.sinopse ?? '';
         _capaUrl = livro.capaUrl;
+        _assuntos = ordenarAssuntos(livro.assuntos);
         _estadoDaCapa = livro.capaUrl == null ? EstadoDaCapa.vazia : EstadoDaCapa.preenchida;
         _tituloOriginal = livro.titulo;
         _erros.clear();
@@ -250,6 +266,33 @@ class _LivroPessoalFormPageState extends State<LivroPessoalFormPage> {
     });
   }
 
+  Future<void> _escolherAssuntos() async {
+    final escolha = await escolherAssuntos(
+      context,
+      controller: _seletorDeAssuntos,
+      atuais: _assuntos,
+    );
+    if (escolha == null || !mounted) {
+      return;
+    }
+    setState(() {
+      _assuntos = escolha;
+      _erros.remove('assuntos');
+      _banner = null;
+    });
+  }
+
+  void _removerAssunto(AssuntoResumo assunto) {
+    setState(() {
+      _assuntos = <AssuntoResumo>[
+        for (final a in _assuntos)
+          if (a.id != assunto.id) a,
+      ];
+      _erros.remove('assuntos');
+      _banner = null;
+    });
+  }
+
   Future<void> _salvar() async {
     final paginas = _paginasValidas;
     if (paginas == null) {
@@ -263,7 +306,9 @@ class _LivroPessoalFormPageState extends State<LivroPessoalFormPage> {
       paginas: paginas,
       sinopse: sinopse.isEmpty ? null : sinopse,
       capaUrl: _capaUrl,
+      assuntos: <String>[for (final a in _assuntos) a.id],
     );
+    // `paraJson` ordena os ids: a mesma escolha em outra ordem não troca a chave.
     final conteudo = jsonEncode(dados.paraJson(edicao: _edicao));
     if (_conteudoDaChave != conteudo) {
       _chave = ApiClient.newIdempotencyKey();
@@ -306,6 +351,16 @@ class _LivroPessoalFormPageState extends State<LivroPessoalFormPage> {
             } else {
               _erros[key] = value;
             }
+          }
+          // Um assunto saiu do conjunto curado: o foco vai para `Alterar assuntos` (§4.1 C).
+          if (campos.containsKey('assuntos')) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              final contexto = _focoDosAssuntos.context;
+              if (mounted && contexto != null) {
+                Scrollable.ensureVisible(contexto);
+                _focoDosAssuntos.requestFocus();
+              }
+            });
           }
         } else {
           _banner = erro.message;
@@ -452,6 +507,15 @@ class _LivroPessoalFormPageState extends State<LivroPessoalFormPage> {
                           style: theme.textTheme.bodySmall?.copyWith(color: theme.secondaryText),
                         ),
                       ],
+                      const SizedBox(height: DesignTokens.space5),
+                      CampoAssuntos(
+                        assuntos: _assuntos,
+                        erro: _erros['assuntos'],
+                        habilitado: !bloqueado,
+                        aoEscolher: _escolherAssuntos,
+                        aoRemover: _removerAssunto,
+                        focoDaAcao: _focoDosAssuntos,
+                      ),
                       const SizedBox(height: DesignTokens.space5),
                       CampoTexto(
                         controller: _sinopse,

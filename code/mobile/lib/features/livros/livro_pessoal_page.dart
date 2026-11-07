@@ -35,6 +35,7 @@ import '../listas/rotas_listas.dart';
 import '../progresso/rotas_progresso.dart';
 import 'acervo_service.dart';
 import 'formatos.dart';
+import 'seletor_de_assuntos_controller.dart' show juntarComE;
 
 /// Página do livro pessoal (RN-03, RN-15). Estrutura e cópia de
 /// docs/design/periodo-1/F-ACV-CADASTRO/livro-pessoal.md §4 e §8.
@@ -456,14 +457,23 @@ class _LivroPessoalPageState extends State<LivroPessoalPage> {
           ],
           const SizedBox(height: DesignTokens.space6),
           divisor(),
-          // Ficha: só páginas. Sem editora, ISBN ou série, que não existem aqui (§4.1).
+          // Ficha: páginas e, quando houver, assuntos. Sem editora, ISBN ou série, que não existem
+          // aqui (§4.1).
           Padding(
             padding: const EdgeInsets.symmetric(vertical: DesignTokens.space5),
-            child: Row(
+            child: Column(
               children: <Widget>[
-                Text('Páginas', style: theme.textTheme.labelMedium),
-                const Spacer(),
-                Text(formatarPaginas(livro.paginas), style: theme.textTheme.bodyMedium),
+                Row(
+                  children: <Widget>[
+                    Text('Páginas', style: theme.textTheme.labelMedium),
+                    const Spacer(),
+                    Text(formatarPaginas(livro.paginas), style: theme.textTheme.bodyMedium),
+                  ],
+                ),
+                if (livro.assuntos.isNotEmpty) ...<Widget>[
+                  const SizedBox(height: DesignTokens.space3),
+                  _LinhaDeAssuntos(nomes: <String>[for (final a in livro.assuntos) a.nome]),
+                ],
               ],
             ),
           ),
@@ -648,6 +658,42 @@ class _Esqueleto extends StatelessWidget {
           const SizedBox(height: DesignTokens.space2),
           const BarraSkeleton(altura: 14, fracaoDaLargura: 0.7),
         ],
+      ),
+    );
+  }
+}
+
+/// Linha `Assuntos` da ficha (livro-pessoal.md §4.1): texto, não chip, porque livro pessoal não
+/// entra em busca nem em filtro (RN-03). Nomes na ordem do servidor (alfabética), separados por
+/// vírgula; o valor ocupa até 70% da linha e quebra alinhado à direita, com o rótulo no topo.
+/// Igual para o dono e no modo consulta.
+class _LinhaDeAssuntos extends StatelessWidget {
+  final List<String> nomes;
+
+  const _LinhaDeAssuntos({required this.nomes});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Semantics(
+      label: 'Assuntos: ${juntarComE(nomes)}',
+      excludeSemantics: true,
+      child: LayoutBuilder(
+        builder: (context, restricoes) => Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text('Assuntos', style: theme.textTheme.labelMedium, softWrap: false),
+            const Spacer(),
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: restricoes.maxWidth * 0.7),
+              child: Text(
+                nomes.join(', '),
+                style: theme.textTheme.bodyMedium,
+                textAlign: TextAlign.right,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

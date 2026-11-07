@@ -74,6 +74,26 @@ Convenções do app mobile. Complementa o [`AGENTS.md`](../../AGENTS.md) da raiz
 
 ## Mudanças feitas por outras features
 
+### 06/11/2026 — F-ACV-OPC (Renato): assuntos no livro pessoal
+
+Plano em [`plano-F-ACV-OPC.md`](../../docs/plano-de-desenvolvimento/periodo-3/renato-periodo-3/plano-F-ACV-OPC.md) (Parte 3). RF-ACV-22: o leitor escolhe assuntos do conjunto curado ao cadastrar e editar um livro pessoal. Design: `docs/design/periodo-3/cadastro-pessoal/` (campo e seletor) e `docs/design/periodo-3/livro-pessoal/` (linha da ficha). Os arquivos de livro pessoal são do Vicenzo: avisar.
+
+- **`acervo_service.dart` (do Vicenzo):** `LivroPessoal.assuntos` (`List<AssuntoResumo>`, reaproveita `AssuntoResumo.deJson`; ausente, nulo ou fora do contrato vira lista vazia) e `DadosLivroPessoal.assuntos` (ids). `paraJson` manda os ids **ordenados e sem repetição**; na criação só quando há algum, na edição sempre (o array vazio limpa). O `GET /assuntos` continua o mesmo do Descobrir.
+- **Novos em `features/livros/`:**
+  - `seletor_de_assuntos_controller.dart`: `SeletorDeAssuntosController` (`ChangeNotifier`). Carrega o `GET /assuntos` na primeira abertura e reaproveita; só a falha faz a próxima abertura tentar de novo. Filtro com `semAcento` (de `descobrir/agrupar_edicoes.dart`) sobre o nome em minúsculas, seleção **provisória** (`abrir` copia a do formulário) e cold start aos 3 s. Também `ordenarAssuntos` (alfabética sem acento) e `juntarComE` ("História e Memórias").
+  - `seletor_de_assuntos.dart`: `escolherAssuntos` abre a folha **pelo navegador raiz** (tem campo de texto) e devolve a seleção só no `Concluir`; scrim, arrastar, voltar e `Fechar` (na falha) devolvem `null` e descartam. Até 85% da altura, chips rolando com fade e rodapé fixo. Chips `ChipDeEscolhaDeAssunto` com `Semantics(checked:)` e alvo de 48px. Estados carregando (skeleton, busca e `Concluir` desabilitados), sem resultado e falha (`Tentar de novo`, foco nele).
+  - `campo_assuntos.dart`: `CampoAssuntos`. Gatilho `Escolher assuntos` sem assunto; com assuntos, chips com `X` (`Remover <nome>`, 48 por 48) e `Alterar assuntos`. Helper, aviso a partir do 6º (`assuntosRecomendados = 5`, não bloqueia) e o erro do servidor no lugar do helper, com `liveRegion`. Ao remover, o foco vai ao `X` seguinte ou à ação do campo.
+- **`livro_pessoal_form_page.dart` (do Vicenzo):** o campo entre `Número de páginas` e `Sinopse`; na edição chega preenchido. Os ids entram no conteúdo da chave de idempotência pelo `paraJson`, já ordenados. O 400 com `campos[{campo:'assuntos'}]` cai em `_erros['assuntos']`, aparece no campo (sem banner) e leva o foco a `Alterar assuntos`. A falha ou o timeout do `/assuntos` fica só na folha: **nunca bloqueia o `Salvar`**.
+- **`livro_pessoal_page.dart` (do Vicenzo):** a ficha virou uma `Column`. A linha `Assuntos` vem depois de `Páginas` (`_LinhaDeAssuntos`): texto com vírgula, não chip; valor alinhado à direita com até 70% da largura; `Semantics(label: 'Assuntos: X e Y')`. Some quando vazia e é igual para o dono e no modo consulta.
+- **Testes:** `seletor_de_assuntos_test.dart`, `campo_assuntos_test.dart`, `livro_pessoal_service_test.dart` e a massa `apoio_assuntos.dart`, todos novos. Em `livro_pessoal_form_page_test.dart` entrou o grupo de assuntos (timeout e 503 da lista salvam, ids ordenados, chave nova, 400 no campo, edição). O PATCH do teste de edição agora espera `'assuntos': []`. Em `livro_pessoal_page_test.dart` entrou a linha da ficha (dono, consulta, ausente, resposta sem o campo).
+- **Armadilhas:**
+  - O formulário não chama `/assuntos` ao montar, só ao abrir a folha: teste que conta pedidos (`pedidos.single`) continua valendo.
+  - O `paraJson` de edição passou a ter `assuntos`: quem comparar o corpo inteiro do PATCH precisa incluir o campo.
+  - `find.text('História')` acha o chip do formulário e o da folha aberta. Nos testes, procure dentro de `FolhaDeAssuntos`.
+- **Desvios:**
+  - Ao abrir a folha, o foco não vai para a busca: subiria o teclado e cobriria os chips. É o mesmo critério da folha de filtros do Descobrir.
+  - O vão entre os chips do formulário é de 12px, não 8px: os 12px transparentes depois do chip completam o alvo de 48px do `X`.
+
 ### 05/11/2026 — F-MOD-OPC (Renato): sessão encerrada por conta suspensa
 
 Plano em [`plano-F-MOD-OPC.md`](../../docs/plano-de-desenvolvimento/periodo-3/renato-periodo-3/plano-F-MOD-OPC.md). O app não tem painel de moderação; só trata a própria sessão suspensa. Avisar o Henrique e a Ana.

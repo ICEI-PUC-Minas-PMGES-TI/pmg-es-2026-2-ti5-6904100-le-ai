@@ -9,6 +9,7 @@ import 'package:le_ai_mobile/features/livros/livro_pessoal_page.dart';
 
 import '../feed/apoio.dart' show socialSimulado;
 import 'apoio.dart';
+import 'apoio_assuntos.dart';
 
 const _id = 'dddddddd-4444-4444-8444-dddddddddddd';
 const _dono = 'eeeeeeee-5555-4555-8555-eeeeeeeeeeee';
@@ -18,6 +19,7 @@ Map<String, Object?> _livro({
   bool consulta = false,
   bool comAvaliacao = false,
   String? sinopse = 'Reunião de cartas trocadas entre 1978 e 1984.',
+  List<String>? assuntos = const <String>[],
 }) => <String, Object?>{
   'id': _id,
   'tipo': 'pessoal',
@@ -42,6 +44,9 @@ Map<String, Object?> _livro({
         }
       : null,
   'dono': <String, Object?>{'nome': 'Rafaela Siqueira', 'avatarUrl': null},
+  // `null` simula a resposta sem o campo (servidor anterior a F-ACV-OPC).
+  if (assuntos != null)
+    'assuntos': <Map<String, String>>[for (final id in assuntos) assuntoJson(id)],
 };
 
 void main() {
@@ -312,5 +317,66 @@ void main() {
 
     expect(find.text('Não foi possível conectar ao serviço.'), findsOneWidget);
     expect(find.text('Tentar de novo'), findsOneWidget);
+  });
+
+  group('linha Assuntos da ficha (F-ACV-OPC)', () {
+    testWidgets('dono: depois de Páginas, em texto com vírgula e leitura com "e"', (tester) async {
+      await montar(tester, (_) async => json(_livro(assuntos: <String>[idHistoria, idMemorias]), 200));
+
+      expect(find.text('Assuntos'), findsOneWidget);
+      expect(find.text('História, Memórias'), findsOneWidget);
+      expect(find.bySemanticsLabel('Assuntos: História e Memórias'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text('Assuntos')).dy,
+        greaterThan(tester.getTopLeft(find.text('Páginas')).dy),
+      );
+      // Texto, não chip: nada acionável na linha.
+      expect(
+        find.descendant(of: find.bySemanticsLabel('Assuntos: História e Memórias'), matching: find.byType(InkWell)),
+        findsNothing,
+      );
+    });
+
+    testWidgets('o valor ocupa no máximo 70% da linha e quebra alinhado à direita', (tester) async {
+      await montar(
+        tester,
+        (_) async => json(
+          _livro(assuntos: <String>[idBiografia, idCronica, idHistoria, idMemorias, idPolitica]),
+          200,
+        ),
+      );
+
+      final valor = find.text('Biografia, Crônica, História, Memórias, Política');
+      expect(valor, findsOneWidget);
+      final linha = find.ancestor(of: valor, matching: find.byType(Row)).first;
+      expect(tester.getSize(valor).width, lessThanOrEqualTo(tester.getSize(linha).width * 0.7 + 0.5));
+      expect(tester.widget<Text>(valor).textAlign, TextAlign.right);
+      expect(tester.getTopRight(valor).dx, closeTo(tester.getTopRight(linha).dx, 0.5));
+    });
+
+    testWidgets('terceiro em modo consulta vê a mesma linha', (tester) async {
+      await montar(
+        tester,
+        (_) async => json(_livro(consulta: true, assuntos: <String>[idHistoria, idMemorias]), 200),
+        via: 'feed',
+        referenciaId: _atividade,
+      );
+
+      expect(menu(), findsNothing);
+      expect(find.text('História, Memórias'), findsOneWidget);
+      expect(find.bySemanticsLabel('Assuntos: História e Memórias'), findsOneWidget);
+    });
+
+    testWidgets('sem assunto, a linha não existe', (tester) async {
+      await montar(tester, (_) async => json(_livro(), 200));
+      expect(find.text('184 páginas'), findsOneWidget);
+      expect(find.text('Assuntos'), findsNothing);
+    });
+
+    testWidgets('resposta sem o campo assuntos vale como lista vazia', (tester) async {
+      await montar(tester, (_) async => json(_livro(assuntos: null), 200));
+      expect(find.text('184 páginas'), findsOneWidget);
+      expect(find.text('Assuntos'), findsNothing);
+    });
   });
 }
