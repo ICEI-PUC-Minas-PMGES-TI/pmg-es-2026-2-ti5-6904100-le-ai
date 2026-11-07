@@ -6,9 +6,9 @@
 
 | Etapa | Agente | Situação | Saída |
 |---|---|---|---|
-| 1. Planejar | 1º | a fazer | `plano-F-ACV-OPC.md` nesta pasta, com as decisões do dono |
-| 2. Revisar o plano | 2º | aguardando a etapa 1 | plano corrigido, com "revisado com N achados" no topo |
-| 3. Realizar e revisar | 3º | aguardando a etapa 2 | commits na `renato-features` (sem PR), validados e testados à mão |
+| 1. Planejar | 1º | feita em 06/11/2026 | [`plano-F-ACV-OPC.md`](plano-F-ACV-OPC.md) nesta pasta, com as decisões do dono (1 a 8) |
+| 2. Revisar o plano | 2º | feita em 06/11/2026 por um agente de contexto limpo | plano corrigido com 12 achados (veredito: aprovar com ajustes), mais a decisão 9 do dono (a recarga não mexe em `ol_work_key`) |
+| 3. Realizar e revisar | 3º | em andamento desde 06/11/2026 | commits na `renato-features` (sem PR), validados e testados à mão |
 | 4. Revisão independente e PR | 4º | aguardando a etapa 3 | commit `fix` com as correções + PR para a `desenvolvimento` |
 
 Quem terminar uma etapa atualiza esta tabela (situação, data e saída) e o item 2 do [`README.md`](README.md) desta pasta.
