@@ -410,14 +410,23 @@ public class ModeracaoRepository {
         .orElse(comando);
   }
 
-  /** As intenções da conta ainda sem resultado, da mais antiga para a mais nova, menos uma. */
-  public List<ComandoDeConta> comandosPendentes(UUID usuarioId, UUID exceto) {
+  /**
+   * As intenções da conta ainda sem resultado reservadas <b>antes</b> de {@code atual}, da mais
+   * antiga para a mais nova (revisão do PR #61, segunda rodada). A precedência é a ordem de
+   * reserva, {@code (criado_em, id)}: uma intenção só resolve as anteriores, nunca as mais novas,
+   * então a antiga que retoma depois não cancela a recente. A mais nova resolve todas as antigas
+   * antes de rodar, e a resolução é definitiva no {@code identidade}, então a antiga também nunca
+   * roda depois dela.
+   */
+  public List<ComandoDeConta> comandosAnteriores(UUID usuarioId, UUID atual) {
     return jdbc.query(
-        "SELECT id, admin_id, acao, chave, usuario_id, motivo FROM comando_de_conta"
-            + " WHERE usuario_id = ? AND id <> ? ORDER BY criado_em, id",
+        "SELECT c.id, c.admin_id, c.acao, c.chave, c.usuario_id, c.motivo"
+            + " FROM comando_de_conta c, comando_de_conta a"
+            + " WHERE a.id = ? AND c.usuario_id = ? AND (c.criado_em, c.id) < (a.criado_em, a.id)"
+            + " ORDER BY c.criado_em, c.id",
         ModeracaoRepository::comando,
-        usuarioId,
-        exceto);
+        atual,
+        usuarioId);
   }
 
   public void descartarComando(UUID id) {

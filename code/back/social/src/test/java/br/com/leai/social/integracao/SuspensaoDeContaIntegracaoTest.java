@@ -7,6 +7,7 @@ import java.net.http.HttpResponse;
 import java.sql.Timestamp;
 import java.util.Map;
 import java.util.UUID;
+import br.com.leai.social.moderacao.service.ServicoDeModeracao;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -239,6 +240,71 @@ class SuspensaoDeContaIntegracaoTest extends IntegracaoComPostgres {
                 "SELECT detalhe FROM log_moderacao WHERE alvo_tipo = 'usuario' ORDER BY criado_em",
                 String.class))
         .containsExactly("Spam", "Revisto");
+  }
+
+  @Test
+  @DisplayName("Duas intenções reservadas: a mais antiga retoma depois e não cancela a mais nova")
+  void antigaNaoCancelaNova() throws Exception {
+    String antiga = chave();
+    String nova = chave();
+    // As duas reservas feitas, na ordem, antes de qualquer uma chegar ao identidade.
+    reservar("suspender_conta", antiga, "Spam", "2 seconds");
+    reservar("reativar_conta", nova, "Revisto", "1 second");
+
+    HttpResponse<String> suspensa = acao("suspender", autora, tokenAdmin(), antiga, "Spam");
+    assertThat(suspensa.statusCode()).as(suspensa.body()).isEqualTo(200);
+    // A antiga não resolveu (nem cancelou) a nova.
+    assertThat(IDENTIDADE.chamadas()).extracting(IdentidadeSimulada.Chamada::acao)
+        .containsExactly("suspensao");
+
+    HttpResponse<String> reativada = acao("reativar", autora, tokenAdmin(), nova, "Revisto");
+    assertThat(reativada.statusCode()).as(reativada.body()).isEqualTo(200);
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT suspenso FROM identidade.usuario WHERE id = ?", Boolean.class, autora))
+        .isFalse();
+    assertThat(
+            jdbc.queryForList(
+                "SELECT acao FROM log_moderacao WHERE alvo_tipo = 'usuario' ORDER BY criado_em",
+                String.class))
+        .containsExactly("suspender_conta", "reativar_conta");
+    assertThat(pendentes()).isZero();
+  }
+
+  @Test
+  @DisplayName("Duas intenções reservadas: a mais nova roda primeiro, e a antiga vira 409 sem efeito")
+  void novaCancelaAntiga() throws Exception {
+    String antiga = chave();
+    String nova = chave();
+    reservar("suspender_conta", antiga, "Spam", "2 seconds");
+    reservar("reativar_conta", nova, "Revisto", "1 second");
+
+    assertThat(acao("reativar", autora, tokenAdmin(), nova, "Revisto").statusCode())
+        .isEqualTo(200);
+    HttpResponse<String> superada = acao("suspender", autora, tokenAdmin(), antiga, "Spam");
+
+    assertThat(superada.statusCode()).isEqualTo(409);
+    assertThat(codigo(superada)).isEqualTo("ACAO_SUPERADA");
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT suspenso FROM identidade.usuario WHERE id = ?", Boolean.class, autora))
+        .isFalse();
+    assertThat(IDENTIDADE.comandosAplicados()).isEqualTo(1);
+    assertThat(pendentes()).isZero();
+  }
+
+  /** A reserva que {@code moderarConta} faz, com o instante ajustado para fixar a ordem. */
+  private void reservar(String acao, String chave, String motivo, String atras) {
+    jdbc.update(
+        "INSERT INTO comando_de_conta (id, admin_id, acao, chave, usuario_id, motivo, criado_em)"
+            + " VALUES (?, ?, ?, ?, ?, ?, clock_timestamp() - ?::interval)",
+        ServicoDeModeracao.idDoComando(admin, acao, chave),
+        admin,
+        acao,
+        chave,
+        autora,
+        motivo,
+        atras);
   }
 
   @Test

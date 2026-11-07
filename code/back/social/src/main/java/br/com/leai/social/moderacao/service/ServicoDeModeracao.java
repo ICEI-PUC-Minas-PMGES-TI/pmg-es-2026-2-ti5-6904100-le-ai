@@ -330,8 +330,8 @@ public class ServicoDeModeracao {
    * identidade} guarda o resultado pelo mesmo id. Falha ou timeout não grava log nem recibo, mas a
    * intenção fica. A repetição com a mesma chave recebe do {@code identidade} o resultado gravado,
    * sem executar de novo. Uma ação nova sobre a mesma conta primeiro resolve as intenções
-   * pendentes dela: grava a auditoria do episódio original, com o motivo original, ou cancela no
-   * {@code identidade} a que nunca rodou. Assim, suspender (504), reativar e repetir a suspensão
+   * pendentes reservadas antes dela (nunca as mais novas): grava a auditoria do episódio
+   * original, com o motivo original, ou cancela no {@code identidade} a que nunca rodou. Assim, suspender (504), reativar e repetir a suspensão
    * não perde a linha da suspensão nem suspende de novo.
    */
   public RespostaIdempotente<ContaModeradaResposta> suspender(
@@ -394,12 +394,13 @@ public class ServicoDeModeracao {
   }
 
   /**
-   * Conclui as intenções da conta que ficaram sem resposta, da mais antiga para a mais nova: o
-   * {@code identidade} devolve o resultado gravado de cada uma (e aqui saem o log, com o admin e o
-   * motivo dela, e o recibo da chave dela), ou a cancela, se ela nunca rodou.
+   * Conclui as intenções da conta reservadas antes desta e ainda sem resposta, da mais antiga para
+   * a mais nova: o {@code identidade} devolve o resultado gravado de cada uma (e aqui saem o log,
+   * com o admin e o motivo dela, e o recibo da chave dela), ou a cancela, se ela nunca rodou. As
+   * mais novas ficam com quem as reservou: a precedência é a ordem de reserva.
    */
   private void resolverPendentes(UUID usuarioId, String jwtDoAdmin, UUID atual) {
-    for (ComandoDeConta pendente : repositorio.comandosPendentes(usuarioId, atual)) {
+    for (ComandoDeConta pendente : repositorio.comandosAnteriores(usuarioId, atual)) {
       ClienteDeIdentidade.EstadoDaConta estado;
       try {
         estado = identidade.resolver(usuarioId, jwtDoAdmin, pendente.id());
@@ -466,7 +467,7 @@ public class ServicoDeModeracao {
   }
 
   /** Um id por intenção: o mesmo admin, a mesma ação e a mesma chave de idempotência. */
-  static UUID idDoComando(UUID admin, String acao, String chave) {
+  public static UUID idDoComando(UUID admin, String acao, String chave) {
     return UUID.nameUUIDFromBytes(
         ("moderacao:conta:" + admin + ":" + acao + ":" + chave).getBytes(StandardCharsets.UTF_8));
   }
