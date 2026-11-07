@@ -33,6 +33,7 @@ const { estado, coldStart, assuntos, filtrados, busca, marcados } = tela
 const idBusca = useId()
 const campoDeBusca = ref<HTMLInputElement | null>(null)
 const tentarDeNovo = ref<HTMLButtonElement | null>(null)
+const titulo = ref<HTMLHeadingElement | null>(null)
 
 const escolhidosNoTitulo = computed(() =>
   marcados.value.length === 0 ? 'Nenhum escolhido' : contagem(marcados.value.length, 'escolhido', 'escolhidos'),
@@ -89,6 +90,21 @@ async function limparBusca(): Promise<void> {
   await nextTick()
   campoDeBusca.value?.focus()
 }
+
+// `Limpar` some quando nada fica marcado; com o foco nele, o foco iria para o `body`, fora do
+// painel (Esc não fecharia e o Tab sairia para a página). Vai para a busca.
+async function limpar(): Promise<void> {
+  tela.limpar()
+  await nextTick()
+  campoDeBusca.value?.focus()
+}
+
+// `Tentar de novo` dá lugar ao skeleton, e a busca segue desabilitada até a lista chegar: o foco
+// fica no título do painel, como na abertura com a lista carregando.
+function tentarCarregarDeNovo(): void {
+  titulo.value?.focus()
+  void tela.carregar()
+}
 </script>
 
 <template>
@@ -104,6 +120,7 @@ async function limparBusca(): Promise<void> {
         <div class="min-w-0 flex-1">
           <div class="flex items-baseline justify-between gap-space-4">
             <h2
+              ref="titulo"
               data-titulo
               tabindex="-1"
               class="text-title-sm text-tinta outline-none"
@@ -234,7 +251,7 @@ async function limparBusca(): Promise<void> {
             ref="tentarDeNovo"
             type="button"
             class="mt-space-4 inline-flex h-12 cursor-pointer items-center gap-space-2 rounded-base border border-linha px-space-4 text-body-strong text-tinta transition-colors duration-dur-fast hover:bg-papel-elevado focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo md:h-11"
-            @click="tela.carregar()"
+            @click="tentarCarregarDeNovo"
           >
             <PhArrowClockwise
               :size="20"
@@ -264,8 +281,10 @@ async function limparBusca(): Promise<void> {
           >
             {{ resultado }}
           </p>
+          <!-- Chip de 32px visíveis dentro de alvo de 48px no celular (§2, como o FiltroAssuntos do
+               Descobrir); na web larga o alvo é o próprio chip, com 16px entre as linhas. -->
           <ul
-            class="flex flex-wrap gap-x-space-2 gap-y-space-4 pb-space-6"
+            class="flex flex-wrap gap-x-space-2 pb-space-6 md:gap-y-space-4"
             :aria-label="buscando ? undefined : `${assuntos.length} assuntos da lista`"
           >
             <li
@@ -276,19 +295,23 @@ async function limparBusca(): Promise<void> {
                 type="button"
                 role="checkbox"
                 :aria-checked="tela.marcado(assunto.id)"
-                class="inline-flex h-8 cursor-pointer items-center gap-space-1 whitespace-nowrap rounded-full px-space-3 text-caption focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo motion-safe:transition-colors motion-safe:duration-dur-fast"
-                :class="tela.marcado(assunto.id)
-                  ? 'bg-musgo-fundo font-semibold text-musgo'
-                  : 'border border-linha text-tinta hover:bg-papel-elevado'"
+                class="group flex min-h-12 cursor-pointer items-center outline-none md:min-h-0"
                 @click="tela.alternar(assunto.id)"
               >
-                <PhCheck
-                  v-if="tela.marcado(assunto.id)"
-                  :size="16"
-                  weight="regular"
-                  aria-hidden="true"
-                />
-                {{ assunto.nome }}
+                <span
+                  class="inline-flex h-8 items-center gap-space-1 whitespace-nowrap rounded-full px-space-3 text-caption group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-musgo motion-safe:transition-colors motion-safe:duration-dur-fast"
+                  :class="tela.marcado(assunto.id)
+                    ? 'bg-musgo-fundo font-semibold text-musgo'
+                    : 'border border-linha text-tinta group-hover:bg-papel-elevado'"
+                >
+                  <PhCheck
+                    v-if="tela.marcado(assunto.id)"
+                    :size="16"
+                    weight="regular"
+                    aria-hidden="true"
+                  />
+                  {{ assunto.nome }}
+                </span>
               </button>
             </li>
           </ul>
@@ -306,7 +329,7 @@ async function limparBusca(): Promise<void> {
           v-if="marcados.length > 0 && estado === 'pronto'"
           class="min-h-12 md:min-h-10"
           tom="grafite"
-          @click="tela.limpar()"
+          @click="limpar"
         >
           Limpar
         </BotaoTextual>
@@ -320,7 +343,7 @@ async function limparBusca(): Promise<void> {
         </BotaoTextual>
         <BotaoPrimario
           v-else
-          class="ml-auto h-12 w-auto md:ml-0 md:h-10"
+          class="ml-auto h-12 max-md:w-auto md:ml-0 md:h-10 md:w-auto"
           aparencia-desabilitada="esmaecida"
           :disabled="estado !== 'pronto'"
           @click="concluir"

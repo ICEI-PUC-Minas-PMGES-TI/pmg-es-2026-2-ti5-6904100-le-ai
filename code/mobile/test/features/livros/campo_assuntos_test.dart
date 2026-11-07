@@ -85,6 +85,23 @@ void main() {
     expect(find.text(_helper), findsOneWidget);
   });
 
+  testWidgets('o vão visível entre dois chips é de 12px, o resto do alvo de 48px do X', (
+    tester,
+  ) async {
+    await montar(tester, iniciais: _assuntos(<String>[idHistoria, idMemorias]));
+
+    // Fundo do X de História (36x32 dentro do alvo de 48) e fundo do nome de Memórias.
+    final fundoDoX = find.descendant(
+      of: find.bySemanticsLabel('Remover História'),
+      matching: find.byWidgetPredicate((w) => w is Container && w.constraints?.maxWidth == 36),
+    );
+    final fundoDoNome = find.ancestor(of: find.text('Memórias'), matching: find.byType(Container));
+    final x = tester.getRect(fundoDoX);
+    final nome = tester.getRect(fundoDoNome.first);
+    expect(nome.center.dy, moreOrLessEquals(x.center.dy));
+    expect(nome.left - x.right, moreOrLessEquals(12));
+  });
+
   testWidgets('a partir do sexto assunto o helper vira aviso, sem erro', (tester) async {
     await montar(
       tester,

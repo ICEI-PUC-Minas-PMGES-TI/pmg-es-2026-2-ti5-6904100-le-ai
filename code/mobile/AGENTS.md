@@ -93,6 +93,7 @@ Plano em [`plano-F-ACV-OPC.md`](../../docs/plano-de-desenvolvimento/periodo-3/re
 - **Desvios:**
   - Ao abrir a folha, o foco não vai para a busca: subiria o teclado e cobriria os chips. É o mesmo critério da folha de filtros do Descobrir.
   - O vão entre os chips do formulário é de 12px, não 8px: os 12px transparentes depois do chip completam o alvo de 48px do `X`.
+- **Revisão de 07/11/2026 (etapa 4):** o `Wrap` dos chips do formulário estava com `spacing: space2` além dos 12px transparentes, e o vão visível era de 20px; agora é `0` com o `X` (12px, medido em teste) e volta ao `space2` no estado salvando, sem `X`. A busca da folha perdeu o `Semantics(label:)` de fora: o TalkBack lia "Buscar assunto" duas vezes (o placeholder já dá o nome). O rodapé da folha é um `OverflowBar`: em 320 dp `Limpar` e `Concluir` estouravam a linha; agora `Concluir` desce, alinhado à direita, quando não cabe.
 
 ### 05/11/2026 — F-MOD-OPC (Renato): sessão encerrada por conta suspensa
 

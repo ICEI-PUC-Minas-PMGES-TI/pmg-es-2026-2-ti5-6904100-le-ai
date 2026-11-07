@@ -125,6 +125,7 @@ A recarga passa um dump mais novo sobre o acervo que já existe (F-ACV-OPC, deci
 - **Livro sem `ol_work_key`** (importado pelo Google Books) fica intacto, mesmo com o ISBN no dump: nada da linha muda e ele não perde assunto (só recebe acréscimo, como na carga inicial). Decisão do dono de 07/11/2026.
 - **Não toca:** total de páginas (o `leitura` lê o total ao vivo; mudar deixaria leitura acima de 100%), `ol_work_key` (o livro importado pelo Google Books continua sem chave e com a nota dele), capa própria, sinopse, `atualizado_em`, nota geral, notas dos leitores, `ativo` e o livro pessoal.
 - **Livro que saiu do dump ou dos filtros** continua no banco, intacto e ativo. A recarga não apaga livro.
+- **Casa só por ISBN-13:** a edição que continua no dump com a mesma `ol_edition_key` mas com outro ISBN não é atualizada nem inserida (o `NOT EXISTS` por `ol_edition_key` a barra), e não aparece em nenhum total. Se a conferência apontar uma, a correção é manual.
 - **Linha igual não é reescrita:** rodar a mesma recarga de novo dá `livros_atualizados = 0` e `vinculos_assunto_removidos = 0`.
 
 `ingestao_execucao` grava `tipo = 'recarga'` e `total_inseridos` = livros **novos**. A atualização não tem coluna própria: aparece no resumo que o comando imprime (`livros_atualizados`, `vinculos_assunto_removidos`), e é esse número que vai para a Timeline.
@@ -141,7 +142,7 @@ Um banco por vez: **primeiro o dev** (`le-ai`), depois o DES (`le-ai-oregon`). A
    curl -L -o dumps/ol_dump_ratings_latest.txt.gz https://openlibrary.org/data/ol_dump_ratings_latest.txt.gz
    ```
 
-2. **Medir e contar antes**, no banco-alvo (com `DATABASE_URL` dele exportada), e anotar os dois resultados: o passo 8 compara com eles.
+2. **Medir e contar antes**, no banco-alvo (com `DATABASE_URL` dele exportada), e anotar os dois resultados: o passo 9 compara com eles.
 
    ```sql
    SELECT pg_size_pretty(sum(pg_total_relation_size(c.oid)))
@@ -167,7 +168,13 @@ Um banco por vez: **primeiro o dev** (`le-ai`), depois o DES (`le-ai-oregon`). A
    python -m leai_ingestao notas --arquivo dumps/ol_dump_ratings_latest.txt.gz
    ```
 
-8. **Conferir**, sempre com `tipo = 'oficial'`, contra as contagens do passo 2:
+8. **Rodar `biografias`**: o autor que a recarga criou chega sem biografia, e o comando só procura os que ainda não têm (F-ACV-DESCOBERTA, RF-ACV-10). Idempotente.
+
+   ```bash
+   python -m leai_ingestao biografias --dump-autores dumps/ol_dump_authors.txt.gz
+   ```
+
+9. **Conferir**, sempre com `tipo = 'oficial'`, contra as contagens do passo 2:
 
    ```sql
    SELECT tipo, status, total_processados, total_descartados, total_inseridos
@@ -187,8 +194,8 @@ Um banco por vez: **primeiro o dev** (`le-ai`), depois o DES (`le-ai-oregon`). A
     WHERE NOT EXISTS (SELECT 1 FROM acervo.livro l WHERE l.serie_id = r.id);
    ```
 
-9. **Medir o schema depois** (a mesma query do passo 2) e registrar na Timeline da feature: o tempo, os totais do passo 6, o tamanho antes e depois e a fração do plano Neon (RNF-DES-04, RNF-DES-05).
-9. **Repetir no DES**, a partir do passo 2, só depois de o dev conferir.
+10. **Medir o schema depois** (a mesma query do passo 2) e registrar na Timeline da feature: o tempo, os totais do passo 6, o tamanho antes e depois e a fração do plano Neon (RNF-DES-04, RNF-DES-05).
+11. **Repetir no DES**, a partir do passo 2, só depois de o dev conferir.
 
 ## Testes
 

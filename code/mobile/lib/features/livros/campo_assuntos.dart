@@ -98,7 +98,9 @@ class _CampoAssuntosState extends State<CampoAssuntos> {
           )
         else ...<Widget>[
           Wrap(
-            spacing: DesignTokens.space2,
+            // Com o `X`, os 12px transparentes do alvo de 48px já são o vão até o próximo chip;
+            // somar o `space-2` daria 20px. Sem o `X` (salvando), o vão volta ao `space-2`.
+            spacing: widget.habilitado ? 0 : DesignTokens.space2,
             children: <Widget>[
               for (final (indice, assunto) in assuntos.indexed)
                 _ChipEscolhido(

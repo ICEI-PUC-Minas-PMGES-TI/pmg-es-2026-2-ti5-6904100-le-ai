@@ -143,6 +143,48 @@ describe('SeletorDeAssuntos', () => {
     expect(wrapper.emitted('concluir')).toEqual([[[]]])
   })
 
+  it('Limpar com o foco nele leva o foco à busca e o Esc continua fechando (revisão da F-ACV-OPC)', async () => {
+    const { wrapper } = montar()
+    await flushPromises()
+
+    const limpar = botao('Limpar')!
+    limpar.focus()
+    limpar.click()
+    await flushPromises()
+
+    expect(botao('Limpar')).toBeUndefined()
+    expect(dialogo().contains(document.activeElement)).toBe(true)
+    expect(document.activeElement).toBe(dialogo().querySelector('input[type="search"]'))
+    document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    expect(wrapper.emitted('fechar')).toHaveLength(1)
+  })
+
+  it('Tentar de novo leva o foco ao título enquanto a lista recarrega e o Esc fecha (revisão da F-ACV-OPC)', async () => {
+    const listar = vi
+      .fn()
+      .mockRejectedValueOnce(new ApiError('Não foi possível acessar o servidor. Tente novamente.', 0, 'SERVICO_INDISPONIVEL'))
+      .mockReturnValueOnce(new Promise<never>(() => {}))
+    const { wrapper } = montar(listar)
+    await flushPromises()
+
+    botao('Tentar de novo')!.click()
+    await flushPromises()
+
+    expect(dialogo().querySelector('[role="status"]')?.textContent).toContain('Carregando assuntos')
+    expect(document.activeElement?.hasAttribute('data-titulo')).toBe(true)
+    document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    expect(wrapper.emitted('fechar')).toHaveLength(1)
+  })
+
+  it('o chip tem 32px visíveis dentro de um alvo de 48px no celular (revisão da F-ACV-OPC)', async () => {
+    montar()
+    await flushPromises()
+
+    const alvo = chip('História')
+    expect(alvo.className).toContain('min-h-12')
+    expect(alvo.querySelector('span')!.className).toContain('h-8')
+  })
+
   it('fechar sem Concluir (Esc, scrim) descarta: reabrir volta à seleção do formulário', async () => {
     const { wrapper } = montar()
     await flushPromises()

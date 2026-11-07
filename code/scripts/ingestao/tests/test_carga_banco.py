@@ -853,16 +853,30 @@ def test_recarga_preserva_o_que_nao_vem_do_dump(conexao, capsys, tmp_path):
     assert antes["assuntos_pessoal"] == ["fantasia"]
     assert antes["assuntos_importado"] == ["historia"]
 
-    recarga = _recarga(capsys, tmp_path / "recarga", _amostra_modificada(tmp_path / "amostra"))
+    # A obra de SAPIENS passa a mapear outro assunto: um livro com obra teria o
+    # conjunto substituído, e o do Google só pode ganhar (decisão de 07/11/2026).
+    google = antes["google"]["id"]
+    assuntos_google = _assuntos(conexao, google)
+    assert assuntos_google and "ficcao-cientifica" not in assuntos_google
+    amostra = _amostra_modificada(tmp_path / "amostra")
+    obras = _ler_linhas(amostra / "obras_amostra.jsonl")
+    for obra in obras:
+        if obra["key"] == "/works/OL20000013W":
+            obra["subjects"] = ["Science fiction"]
+    _gravar_linhas(amostra / "obras_amostra.jsonl", obras)
+
+    recarga = _recarga(capsys, tmp_path / "recarga", amostra)
 
     assert recarga["totais"]["livros_atualizados"] > 0
     # A linha de TORTO foi atualizada (título novo), e mesmo assim o resto ficou.
     assert _livro(conexao, TORTO)["titulo"] == "Torto Arado (edição revista)"
     assert retrato() == antes
+    assert _assuntos(conexao, google) == sorted({*assuntos_google, "ficcao-cientifica"})
 
     _rodar(capsys, "notas", "--database-url", URL, "--arquivo", str(ratings))
 
     assert retrato() == antes
+    assert _assuntos(conexao, google) == sorted({*assuntos_google, "ficcao-cientifica"})
 
 
 def test_recarga_aplica_o_que_o_dump_traz_e_mantem_o_que_ele_nao_traz(conexao, capsys, tmp_path):
@@ -908,6 +922,44 @@ def test_recarga_aplica_o_que_o_dump_traz_e_mantem_o_que_ele_nao_traz(conexao, c
                           JOIN acervo.serie s ON s.id = l.serie_id WHERE l.isbn13 = %s"""
     assert _um(conexao, serie_e_numero, MESTRE) == ("Coleção Recarga", 3)
     assert _um(conexao, serie_e_numero, AIA) == ("Série Nova Sem Número", None)
+
+
+def test_recarga_numero_da_serie_acompanha_a_serie(conexao, capsys, tmp_path):
+    """O número só fica quando a série fica: linha atualizada sem série no dump
+    mantém série e número; troca de série sem número no dump zera o número."""
+    _rodar(capsys, "semear", "--database-url", URL)
+    _carga_da_amostra(capsys, tmp_path / "inicial")
+    conexao.commit()
+    antes = _livro(conexao, DUNA)
+    assert antes["numero_serie"] == 1 and antes["serie_id"] is not None
+
+    def amostra_com(destino: Path, **mudancas) -> Path:
+        destino.mkdir()
+        for nome in ("obras_amostra.jsonl", "autores_amostra.jsonl"):
+            (destino / nome).write_text((AMOSTRA / nome).read_text(encoding="utf-8"), encoding="utf-8")
+        edicoes = _ler_linhas(AMOSTRA / "edicoes_amostra.jsonl")
+        for edicao in edicoes:
+            if edicao["key"] == "/books/OL30000009M":
+                edicao.update(mudancas)
+                if mudancas.get("series") is None:
+                    edicao.pop("series", None)
+        _gravar_linhas(destino / "edicoes_amostra.jsonl", edicoes)
+        return destino
+
+    # Título novo e o dump sem série: a linha é atualizada, série e número ficam.
+    sem_serie = amostra_com(tmp_path / "sem-serie", title="Duna (sem série no dump)", series=None)
+    totais = _carga_da_amostra(capsys, tmp_path / "recarga-1", sem_serie, "recarga")["totais"]
+    assert totais["livros_atualizados"] == 1
+    duna = _livro(conexao, DUNA)
+    assert duna["titulo"] == "Duna (sem série no dump)"
+    assert (duna["serie_id"], duna["numero_serie"]) == (antes["serie_id"], 1)
+
+    # Outra série, sem número: o número antigo não passa para a série nova.
+    outra = amostra_com(tmp_path / "outra-serie", series=["Outra Série Qualquer"])
+    _carga_da_amostra(capsys, tmp_path / "recarga-2", outra, "recarga")
+    serie_e_numero = """SELECT s.nome, l.numero_serie FROM acervo.livro l
+                          JOIN acervo.serie s ON s.id = l.serie_id WHERE l.isbn13 = %s"""
+    assert _um(conexao, serie_e_numero, DUNA) == ("Outra Série Qualquer", None)
 
 
 def test_livro_que_saiu_dos_filtros_continua_intacto(conexao, capsys, tmp_path):

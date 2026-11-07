@@ -135,25 +135,23 @@ class _FolhaDeAssuntosState extends State<FolhaDeAssuntos> {
             style: theme.textTheme.bodySmall?.copyWith(color: theme.secondaryText),
           ),
           const SizedBox(height: DesignTokens.space4),
-          // O título da folha é o label visível; o leitor de tela ouve `Buscar assunto`.
-          Semantics(
-            label: 'Buscar assunto',
-            child: CampoTexto(
-              controller: _busca,
-              label: '',
-              placeholder: 'Buscar assunto',
-              icone: PhosphorIconsRegular.magnifyingGlass,
-              enabled: pronto,
-              onChanged: _c.buscar,
-              trailing: pronto && _busca.text.isNotEmpty
-                  ? IconButton(
-                      tooltip: 'Limpar busca',
-                      constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-                      icon: Icon(PhosphorIconsRegular.x, size: 20, color: theme.secondaryText),
-                      onPressed: _limparBusca,
-                    )
-                  : null,
-            ),
+          // O título da folha é o label visível; o leitor de tela ouve `Buscar assunto` uma vez,
+          // pelo placeholder (um `Semantics(label:)` por fora somaria um segundo nome igual).
+          CampoTexto(
+            controller: _busca,
+            label: '',
+            placeholder: 'Buscar assunto',
+            icone: PhosphorIconsRegular.magnifyingGlass,
+            enabled: pronto,
+            onChanged: _c.buscar,
+            trailing: pronto && _busca.text.isNotEmpty
+                ? IconButton(
+                    tooltip: 'Limpar busca',
+                    constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                    icon: Icon(PhosphorIconsRegular.x, size: 20, color: theme.secondaryText),
+                    onPressed: _limparBusca,
+                  )
+                : null,
           ),
           const SizedBox(height: DesignTokens.space4),
           Flexible(child: _corpo(theme, estado)),
@@ -246,11 +244,16 @@ class _FolhaDeAssuntosState extends State<FolhaDeAssuntos> {
 
   Widget _rodape(EstadoDaListaDeAssuntos estado) {
     final pronto = estado == EstadoDaListaDeAssuntos.pronto;
-    return Row(
+    final comLimpar = pronto && _c.quantidade > 0;
+    // `OverflowBar`: em tela estreita ou com fonte ampliada, `Concluir` desce para baixo de
+    // `Limpar`, alinhado à direita, em vez de estourar a linha.
+    return OverflowBar(
+      alignment: comLimpar ? MainAxisAlignment.spaceBetween : MainAxisAlignment.end,
+      overflowAlignment: OverflowBarAlignment.end,
+      spacing: DesignTokens.space2,
+      overflowSpacing: DesignTokens.space2,
       children: <Widget>[
-        if (pronto && _c.quantidade > 0)
-          BotaoTextual(texto: 'Limpar', neutro: true, onPressed: _c.limpar),
-        const Spacer(),
+        if (comLimpar) BotaoTextual(texto: 'Limpar', neutro: true, onPressed: _c.limpar),
         if (estado == EstadoDaListaDeAssuntos.erro)
           BotaoTextual(texto: 'Fechar', neutro: true, onPressed: () => Navigator.of(context).pop())
         else

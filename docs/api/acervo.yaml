@@ -528,7 +528,7 @@ paths:
     post:
       operationId: criarLivroPessoal
       x-contract-status: implemented
-      x-implemented-by: F-ACV-CADASTRO
+      x-implemented-by: F-ACV-CADASTRO, F-ACV-OPC
       tags: [livros-pessoais]
       summary: Cria um livro pessoal
       description: >-
@@ -589,7 +589,7 @@ paths:
     get:
       operationId: obterLivroPessoal
       x-contract-status: implemented
-      x-implemented-by: F-ACV-CADASTRO, F-LST
+      x-implemented-by: F-ACV-CADASTRO, F-LST, F-ACV-OPC
       tags: [livros-pessoais]
       summary: Obtém um livro pessoal com autorização RN-15
       description: >-
@@ -638,7 +638,7 @@ paths:
     patch:
       operationId: atualizarLivroPessoal
       x-contract-status: implemented
-      x-implemented-by: F-ACV-CADASTRO
+      x-implemented-by: F-ACV-CADASTRO, F-ACV-OPC
       tags: [livros-pessoais]
       summary: Atualiza um livro pessoal do próprio usuário
       description: >-
@@ -659,7 +659,33 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/LivroPessoalDetalhe' }
-        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '400':
+          description: >-
+            Corpo inválido. Inclui assunto fora do conjunto curado ou texto
+            livre em `assuntos` (F-ACV-OPC). Para quem não é dono, o 403 vem
+            antes: a propriedade é conferida antes dos assuntos.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErroValidacao' }
+              examples:
+                assuntoInexistente:
+                  summary: Um dos ids não está mais no conjunto curado
+                  value:
+                    codigo: REQUISICAO_INVALIDA
+                    mensagem: Os dados enviados são inválidos.
+                    correlationId: 7d0c6c1e-8f0e-4a55-9b39-0f0b1f6f2a10
+                    campos:
+                      - campo: assuntos
+                        mensagem: Um dos assuntos escolhidos não está mais na lista do Lê Ai. Revise e salve de novo.
+                textoLivre:
+                  summary: Texto livre em vez de id
+                  value:
+                    codigo: REQUISICAO_INVALIDA
+                    mensagem: Os dados enviados são inválidos.
+                    correlationId: 7d0c6c1e-8f0e-4a55-9b39-0f0b1f6f2a10
+                    campos:
+                      - campo: assuntos
+                        mensagem: Escolha os assuntos da lista do Lê Ai.
         '413': { $ref: '#/components/responses/CorpoMuitoGrande' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '403': { $ref: '#/components/responses/AcessoNegado' }

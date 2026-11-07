@@ -124,8 +124,12 @@ void main() {
       List<AssuntoResumo> atuais = const <AssuntoResumo>[],
       required void Function(List<AssuntoResumo>?) aoFechar,
       bool assentar = true,
+      double? largura,
     }) async {
       usarTelaDeCelular(tester);
+      if (largura != null) {
+        tester.view.physicalSize = Size(largura * 3, 2532);
+      }
       await tester.pumpWidget(
         envolver(
           Builder(
@@ -379,6 +383,50 @@ void main() {
       await tester.pumpAndSettle();
       expect(escolha, isNull);
     });
+
+    testWidgets('a busca tem um nome só para o leitor de tela', (tester) async {
+      final semantica = tester.ensureSemantics();
+      final controller = SeletorDeAssuntosController(
+        servico: acervoSimulado((_) async => json(listaDeAssuntos(), 200)),
+      );
+      addTearDown(controller.dispose);
+      await abrirEEsperar(tester, controller, aoFechar: (_) {});
+
+      // §9: um rótulo oculto `Buscar assunto`, lido uma vez (não "Buscar assunto\nBuscar assunto").
+      expect(
+        tester.getSemantics(naFolha(find.byType(EditableText))),
+        isSemantics(label: 'Buscar assunto', isTextField: true),
+      );
+      semantica.dispose();
+    });
+
+    for (final escala in <double>[1, 1.3]) {
+      testWidgets('rodapé com Limpar e Concluir cabe em 320 dp com fonte ${escala}x', (
+        tester,
+      ) async {
+        tester.platformDispatcher.textScaleFactorTestValue = escala;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        final controller = SeletorDeAssuntosController(
+          servico: acervoSimulado((_) async => json(listaDeAssuntos(), 200)),
+        );
+        addTearDown(controller.dispose);
+        await abrirEEsperar(
+          tester,
+          controller,
+          atuais: const <AssuntoResumo>[_historia, _memorias],
+          aoFechar: (_) {},
+          largura: 320,
+        );
+
+        expect(tester.takeException(), isNull);
+        expect(naFolha(find.text('Limpar')), findsOneWidget);
+        expect(naFolha(find.text('Concluir')), findsOneWidget);
+        // Concluir continua à direita de Limpar ou abaixo dele, nunca por cima.
+        final limpar = tester.getRect(naFolha(find.text('Limpar')));
+        final concluir = tester.getRect(naFolha(find.text('Concluir')));
+        expect(limpar.overlaps(concluir), isFalse);
+      });
+    }
 
     testWidgets('Fechar na falha descarta', (tester) async {
       final controller = SeletorDeAssuntosController(
