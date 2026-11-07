@@ -84,3 +84,51 @@ Future<void> assentar(WidgetTester tester) async {
     await tester.pump(const Duration(milliseconds: 1));
   }
 }
+
+/// `JanelaEncerrada` do contrato (F-DSF-OPC). A semana padrão é a de 14 a 20/09/2026.
+Map<String, Object?> janelaJson({
+  String inicio = '2026-09-14',
+  String fim = '2026-09-20',
+  String unidade = 'minutos',
+  String periodicidade = 'semanal',
+  int alvo = 150,
+  int acumulado = 170,
+  bool? cumprida,
+  String pausa = 'nenhuma',
+}) => <String, Object?>{
+  'inicio': inicio,
+  'fim': fim,
+  'unidade': unidade,
+  'periodicidade': periodicidade,
+  'valorAlvo': alvo,
+  'acumulado': acumulado,
+  'cumprida': cumprida ?? acumulado >= alvo,
+  'pausa': pausa,
+};
+
+Map<String, Object?> paginaDeJanelas(
+  List<Map<String, Object?>> itens, {
+  int page = 1,
+  int? totalItens,
+  int? totalPaginas,
+}) => <String, Object?>{
+  'itens': itens,
+  'paginacao': <String, Object?>{
+    'page': page,
+    'limite': 20,
+    'totalItens': totalItens ?? itens.length,
+    'totalPaginas': totalPaginas ?? (itens.isEmpty ? 0 : 1),
+  },
+};
+
+/// O histórico do mock do protótipo (`150 minutos por semana`, §3): meta de 120 editada para 150
+/// em 02/09, pausado de 17 a 23/08, semana vazia de 10 a 16/08 e criação em 05/08.
+List<Map<String, Object?>> historicoDoPrototipo() => <Map<String, Object?>>[
+  janelaJson(),
+  janelaJson(inicio: '2026-09-07', fim: '2026-09-13', acumulado: 150),
+  janelaJson(inicio: '2026-08-31', fim: '2026-09-06', acumulado: 85),
+  janelaJson(inicio: '2026-08-24', fim: '2026-08-30', alvo: 120, acumulado: 130),
+  janelaJson(inicio: '2026-08-17', fim: '2026-08-23', alvo: 120, acumulado: 0, pausa: 'inteira'),
+  janelaJson(inicio: '2026-08-10', fim: '2026-08-16', alvo: 120, acumulado: 0),
+  janelaJson(inicio: '2026-08-03', fim: '2026-08-09', alvo: 120, acumulado: 140),
+];

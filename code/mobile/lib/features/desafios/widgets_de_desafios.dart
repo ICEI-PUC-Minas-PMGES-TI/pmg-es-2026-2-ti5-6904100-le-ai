@@ -55,29 +55,43 @@ class BarraDoDesafio extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final acumulado = desafio.janelaCorrente.acumulado;
     final alvo = desafio.valorAlvo;
-    final fracao = alvo <= 0 ? 0.0 : (acumulado / alvo).clamp(0.0, 1.0);
     return Semantics(
       label: tituloDe(desafio),
       value: '${acumulado > alvo ? alvo : acumulado} de $alvo',
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(DesignTokens.radiusFull),
-        child: SizedBox(
-          height: 6,
-          child: Stack(
-            fit: StackFit.expand,
-            children: <Widget>[
-              ColoredBox(color: theme.accentTint),
-              FractionallySizedBox(
-                key: const ValueKey<String>('preenchimento-do-desafio'),
-                alignment: Alignment.centerLeft,
-                widthFactor: fracao,
-                child: ColoredBox(color: theme.progressColor),
-              ),
-            ],
-          ),
+      child: BarraDeProgressoDeDesafio(acumulado: acumulado, alvo: alvo),
+    );
+  }
+}
+
+/// A geometria e as cores da barra do desafio, sem semântica: o card a anuncia pela
+/// [BarraDoDesafio], e a linha do histórico (F-DSF-OPC) não a anuncia, porque repete a fração.
+class BarraDeProgressoDeDesafio extends StatelessWidget {
+  final int acumulado;
+  final int alvo;
+
+  const BarraDeProgressoDeDesafio({super.key, required this.acumulado, required this.alvo});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final fracao = alvo <= 0 ? 0.0 : (acumulado / alvo).clamp(0.0, 1.0);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(DesignTokens.radiusFull),
+      child: SizedBox(
+        height: 6,
+        child: Stack(
+          fit: StackFit.expand,
+          children: <Widget>[
+            ColoredBox(color: theme.accentTint),
+            FractionallySizedBox(
+              key: const ValueKey<String>('preenchimento-do-desafio'),
+              alignment: Alignment.centerLeft,
+              widthFactor: fracao,
+              child: ColoredBox(color: theme.progressColor),
+            ),
+          ],
         ),
       ),
     );
