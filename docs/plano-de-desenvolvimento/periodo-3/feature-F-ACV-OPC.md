@@ -20,10 +20,10 @@ RNF atendidos: **RNF-SEC-33** (dado externo validado e normalizado antes de pers
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | não iniciado | modo `recarga` em `ingestao_execucao`; associação `livro_assunto` para livro pessoal |
-| Backend | não iniciado | `acervo`: `assuntos[]` no cadastro/edição de livro pessoal e listagem do conjunto curado |
-| Web | não iniciado | seletor de assuntos no formulário de livro pessoal |
-| Mobile | não iniciado | mesmo seletor no formulário de livro pessoal |
+| Infra | implementado (sem migration) | `ingestao_execucao` já aceitava `recarga` e `livro_assunto` já aceitava livro pessoal; modo `recarga` no script (`carregar --tipo recarga`), validado só na amostra em Postgres descartável |
+| Backend | implementado | `acervo`: `assuntos[]` em `POST`/`PATCH`/`GET /livros/pessoal`; `GET /assuntos` reaproveitado de F-ACV-BUSCA |
+| Web | implementado | seletor de assuntos no formulário (criar e editar) e linha `Assuntos` na página do livro pessoal |
+| Mobile | implementado | mesmo seletor e mesma linha |
 
 ## Especificação
 
@@ -67,34 +67,40 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 ## Critérios de aceite
 
-- [ ] A recarga usa o **mesmo script** da carga inicial em modo `recarga` e registra a execução com totais em `ingestao_execucao` (RF-ACV-14).
-- [ ] Reexecutar a recarga sobre a mesma amostra **não duplica** livro, autor, editora, série ou assunto (RN-02, RN-12, RNF-ARQ-05).
-- [ ] A recarga **não apaga** livro pessoal, cópia própria da capa (RN-14.6), sinopse já obtida (RN-19.2) nem nota geral/projeção de nota; ausência no dump não é tratada como remoção.
-- [ ] Livro já existente que deixe de passar nos filtros **não é removido** da base.
-- [ ] Cadastrar/editar livro pessoal aceita **`assuntos[]` do conjunto curado**; id inexistente e texto livre são rejeitados (RF-ACV-22, RN-21.1/21.4/21.5).
-- [ ] Só o **dono** altera os assuntos do seu livro pessoal (RN-03, SEC-02); terceiro com via válida apenas visualiza.
-- [ ] Assuntos de livro pessoal **não** aparecem em busca, filtros ou páginas de autor/editora/série, e não alteram contadores de catálogo (RN-03, SEC-06).
-- [ ] Web e mobile mostram o seletor a partir do conjunto curado, sem campo livre.
-- [ ] Recarga e assuntos em livro pessoal funcionam **em DES**.
+- [x] A recarga usa o **mesmo script** da carga inicial em modo `recarga` e registra a execução com totais em `ingestao_execucao` (RF-ACV-14). Evidência: `tests/test_carga_banco.py` (execuções `tipo=recarga`, `concluida`).
+- [x] Reexecutar a recarga sobre a mesma amostra **não duplica** livro, autor, editora, série ou assunto (RN-02, RN-12, RNF-ARQ-05). Evidência: teste de idempotência (segunda rodada com 0 atualizados e contagens iguais).
+- [x] A recarga **não apaga** livro pessoal, cópia própria da capa (RN-14.6), sinopse já obtida (RN-19.2) nem nota geral/projeção de nota; ausência no dump não é tratada como remoção. Evidência: teste de preservação, também depois do `notas`.
+- [x] Livro já existente que deixe de passar nos filtros **não é removido** da base. Evidência: teste "livro fora dos filtros".
+- [x] Cadastrar/editar livro pessoal aceita **`assuntos[]` do conjunto curado**; id inexistente e texto livre são rejeitados (RF-ACV-22, RN-21.1/21.4/21.5). Evidência: `test/integracao/assuntos-livro-pessoal.int-spec.ts` e teste manual da API no banco de dev.
+- [x] Só o **dono** altera os assuntos do seu livro pessoal (RN-03, SEC-02); terceiro com via válida apenas visualiza. Evidência: integração (feed e lista) e teste manual (PATCH de outra conta: 403; consulta pela lista na web).
+- [x] Assuntos de livro pessoal **não** aparecem em busca, filtros ou páginas de autor/editora/série, e não alteram contadores de catálogo (RN-03, SEC-06). Evidência: teste de isolamento com livro criado pela API com assunto (busca, filtro, `totalItens`, página de autor, `v_livro_recomendacao_v1`, `GET /assuntos`) e teste manual no dev.
+- [x] Web e mobile mostram o seletor a partir do conjunto curado, sem campo livre. Evidência: testes dos clientes e teste manual (Edge e emulador).
+- [ ] Recarga e assuntos em livro pessoal funcionam **em DES**. Desmarcado: o DES vem com o merge na `main`, no fechamento de novembro; a recarga real é pendência do grupo (decisão 4 do plano).
 
 ## Definition of Done
 
 (plano §10)
 
-- [ ] Script (modo recarga) + backend `acervo` + web + mobile mergeados em `desenvolvimento`
-- [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)) — o CI não roda o dump inteiro; valida a recarga contra a **amostra reproduzível** de RNF-TST-08
-- [ ] Testes unitários e de integração com banco real/container: recarga idempotente sobre a amostra, preservação de capa própria/sinopse/nota/livro pessoal, validação de `assuntos[]` contra o conjunto curado, rejeição de texto livre e de id inexistente, propriedade do livro pessoal e isolamento de busca/filtros (RNF-TST-02/08)
-- [ ] Testes assíncronos — **N/A**: nenhuma das duas partes usa mensageria; a recarga é execução local do script. Justificativa registrada aqui em vez de remover o item
-- [ ] Testes web/mobile cobrem o seletor de assuntos e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
-- [ ] **Spec OpenAPI de `acervo` atualizado em `docs/api/acervo.yaml`** com `assuntos[]` no livro pessoal e a listagem do conjunto curado
-- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
-- [ ] Arquivo da feature atualizado: status, pendências, timeline
-- [ ] Divergência protótipo × implementação registrada, se houver
+- [ ] Script (modo recarga) + backend `acervo` + web + mobile mergeados em `desenvolvimento` — commits na `renato-features`; o PR é da etapa 4
+- [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)) — o CI não roda o dump inteiro; valida a recarga contra a **amostra reproduzível** de RNF-TST-08. Confere-se no PR (etapa 4)
+- [x] Testes unitários e de integração com banco real/container: recarga idempotente sobre a amostra, preservação de capa própria/sinopse/nota/livro pessoal, validação de `assuntos[]` contra o conjunto curado, rejeição de texto livre e de id inexistente, propriedade do livro pessoal e isolamento de busca/filtros (RNF-TST-02/08)
+- [x] Testes assíncronos — **N/A**: nenhuma das duas partes usa mensageria; a recarga é execução local do script. Justificativa registrada aqui em vez de remover o item
+- [x] Testes web/mobile cobrem o seletor de assuntos e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
+- [x] **Spec OpenAPI de `acervo` atualizado em `docs/api/acervo.yaml`** com `assuntos[]` no livro pessoal e a listagem do conjunto curado
+- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)) — desmarcado: vem com o merge na `main`, no fechamento de novembro
+- [x] Arquivo da feature atualizado: status, pendências, timeline
+- [x] Divergência protótipo × implementação registrada, se houver (ver Pendências)
 
 **Item próprio:** registrar na Timeline o **volume real recarregado** e a variação de armazenamento no plano Neon (revalidação de RNF-DES-04/05), e documentar se `GET /assuntos` foi criado aqui ou reaproveitado de F-ACV-BUSCA.
 
 ## Pendências
 
+- **Decisões do dono (06/11/2026), no [`plano-F-ACV-OPC.md`](renato-periodo-3/plano-F-ACV-OPC.md):** o teto de 5 assuntos é só aviso do cliente (o servidor aceita até 100, o tamanho do conjunto; RN-21.2 diz "recomendado"); design P3 ratificado (texto e não chip, ordem alfabética, fechar sem `Concluir` descarta, texto do aviso, assuntos também no modo consulta); recarga atualiza título, ano, capa externa, editora e série, substitui os assuntos só quando o livro mapeia ao menos um e só acrescenta autores; **páginas de livro existente não mudam** (o `leitura` lê o total ao vivo; divergência pequena da decisão 3, registrada); a recarga não mexe em `ol_work_key` (decisão 9).
+- **Recarga real (volume real recarregado):** pendência do **grupo** no fechamento (decisão 4): baixar os dumps, rodar em dev e depois em DES com o roteiro "Recarga (RF-ACV-14)" do `code/scripts/ingestao/README.md`, rodar `notas` em seguida e registrar aqui o volume e a fração do plano Neon (item próprio do DoD, desmarcado). Nenhuma etapa desta feature rodou a recarga no Neon.
+- **A confirmar com o Renato (achado da etapa 3):** um livro importado pelo Google Books, sem `ol_work_key`, cujo ISBN apareça no dump fica com a chave, a nota, a sinopse e as páginas preservadas, mas **título, capa externa e editora passam a ser os do dump**, porque o `UPDATE` casa por ISBN (como o plano manda). Se ele quiser esse livro intacto, basta `AND l.ol_work_key IS NOT NULL` no `WHERE` de `SQL_LIVRO_ATUALIZAR`.
+- **Divergências protótipo × implementação (pequenas):** web: espaço vertical de 16 px entre as linhas de chips do seletor (protótipo) em vez de `space-2` do `.md`; `Concluir` desabilitado com a opacidade de 60% do `BotaoPrimario`; durante a carga o foco vai para o título do painel e passa à busca quando a lista chega. Mobile: o foco não vai para a busca ao abrir a folha (o teclado cobriria os chips, mesmo critério dos filtros do Descobrir); 12 px entre os chips do formulário para completar o alvo de 48 px do `X`; contagem do título escondida também na falha.
+- **Código alheio alterado (Vicenzo, com nota datada nos `AGENTS.md`):** `acervo` (livro pessoal: DTO, controller, service, repository; teste novo `assuntos-livro-pessoal.int-spec.ts`), web (`LivroPessoalFormView.vue`, `LivroPessoalView.vue`, `services/acervo.ts`), mobile (`livro_pessoal_form_page.dart`, `livro_pessoal_page.dart`, `acervo_service.dart`) e script (`carga.py`, `cli.py`, `README.md`, `tests/test_carga_banco.py`). Do Henrique, só um caso novo em `consumo-conta-excluida.int-spec.ts` (o CASCADE leva os assuntos). A `v_livro_recomendacao_v1` não mudou.
+- **Débito alheio visto no teste (não desta feature):** a página do livro pessoal no app estoura ~37 px na horizontal em telas de 320 dp mesmo sem assuntos, e a linha `Páginas` estoura com fonte a partir de 1,3x. A linha `Assuntos` foi corrigida nesta feature; o resto é da página do Vicenzo.
 - **Telas (design P3):** lote 4, prompts de edição escritos em 11/10/2026: [`cadastro-pessoal.md`](../../design/periodo-3/cadastro-pessoal/cadastro-pessoal.md) ([protótipo](../../design/periodo-3/cadastro-pessoal/prototipos/cadastro-pessoal.html)) (W+M, campo opcional `Assuntos` entre `Número de páginas` e `Sinopse`, em criar e editar, seletor com os 31 assuntos curados e busca que só filtra; acima de 5 só avisa; falha ao carregar não impede salvar) e [`livro-pessoal.md`](../../design/periodo-3/livro-pessoal/livro-pessoal.md) ([protótipo](../../design/periodo-3/livro-pessoal/prototipos/livro-pessoal.html)) (W+M, linha `Assuntos` na ficha em texto, não clicável, para o dono e no modo consulta; some quando vazia). A ratificar: texto e não chip, ordem alfabética, fechar o seletor sem `Concluir` descarta, texto do aviso. Contratos a confirmar: `GET /assuntos` reaproveitado ou novo, erro de assunto inexistente, `assuntos[]` na leitura do livro pessoal também no modo consulta. RF-ACV-14 (recarga do dump) não tem tela. Protótipos exportados em 21/10/2026.
 - **Depende de** [F-ACV-INGESTAO](../periodo-1/feature-F-ACV-INGESTAO.md) (script, tabelas, conjunto curado, tabelas de mapeamento e de sinônimos), [F-ACV-CADASTRO](../periodo-1/feature-F-ACV-CADASTRO.md) (endpoints de livro pessoal), [F-ACV-BUSCA](../periodo-1/feature-F-ACV-BUSCA.md) (exibição na página do livro), [P0-INFRA](../periodo-0/feature-P0-INFRA.md), [P0-DS](../periodo-0/feature-P0-DS.md), [P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md), [P0-CI](../periodo-0/feature-P0-CI.md). Não depende de mensageria.
 - **Decisão encerrada em 15/09/2026:** atualização automática removida; esta feature mantém somente a recarga manual já planejada.
@@ -103,6 +109,8 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - Stack de `acervo` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
 ## Timeline
+
+### Implementação 06 e 07/11/2026 (etapa 3): (a) e (b) implementadas, sem migration, validadas e testadas à mão. Commits na `renato-features`: `35984bc` (`acervo` + web + mobile + contrato + notas), `887d77c` (recarga no script), `98c9690` (ajustes da validação). `GET /assuntos` **reaproveitado** de F-ACV-BUSCA, sem rota nova (item próprio do DoD). Testes: `acervo` 392 unitários e 189 de integração em Postgres descartável; script 142 (16 de banco, nenhum pulado); web 1115; mobile 947. Quatro validadores de contexto limpo (um por camada): `acervo` sem achados; script com duas lacunas no roteiro do README (contagem de antes; `conferir` e `semear` antes de filtrar), corrigidas; web com três achados de acessibilidade (foco fora do seletor enquanto a lista carrega, sem-resultado não anunciado, reenvio com o mesmo 400 sem levar o foco), corrigidos com teste; mobile com a linha `Assuntos` estourando em 320–360 dp, corrigida com teste. Teste manual contra o banco de dev com contas próprias (`.invalid`): API (400 de id inexistente e de texto livre, 403 do PATCH de outra conta e do GET sem via, isolamento na busca e no filtro), web no Edge headless (1440 e 390 px, claro e escuro: criar com a busca do seletor, 6 assuntos com aviso, Esc descarta, esvaziar some a linha, `/assuntos` em 503 não impede salvar, leitor B pela lista pública vê a linha sem ação de editar) e app no emulador `Pixel_8_API_35` (criar com a busca, aviso no 6º, voltar descarta, esvaziar some a linha). A recarga foi validada só na amostra em Postgres descartável, nunca no Neon.
 
 ### Revisão 15/09/2026: delta removido pelo grupo; recarga manual preservada. Planejamento atualizado; implementação não iniciada.
 
