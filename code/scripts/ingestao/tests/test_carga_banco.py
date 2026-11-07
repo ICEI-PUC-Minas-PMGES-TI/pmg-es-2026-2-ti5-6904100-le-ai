@@ -835,7 +835,9 @@ def test_recarga_preserva_o_que_nao_vem_do_dump(conexao, capsys, tmp_path):
     def retrato() -> dict:
         return {
             "torto": _linha(conexao, colunas_preservadas, TORTO),
-            "google": _linha(conexao, colunas_preservadas, SAPIENS),
+            # Livro do Google inteiro: título, capa externa e editora também ficam
+            # (decisão do dono de 07/11/2026), apesar de a amostra trazer o ISBN.
+            "google": _linha(conexao, "SELECT * FROM acervo.livro WHERE isbn13 = %s", SAPIENS),
             "pessoal": _linha(conexao, "SELECT * FROM acervo.livro WHERE id = %s", pessoal),
             "importado": _linha(conexao, "SELECT * FROM acervo.livro WHERE id = %s", importado),
             "assuntos_pessoal": _assuntos(conexao, pessoal),

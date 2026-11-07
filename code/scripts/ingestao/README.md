@@ -122,6 +122,7 @@ A recarga passa um dump mais novo sobre o acervo que já existe (F-ACV-OPC, deci
 - **Atualiza:** título e capa externa; ano, editora e série só quando o dump traz valor (ausente mantém o atual). Com a mesma série sem número no dump, o número atual fica; com série nova sem número, fica sem número.
 - **Assuntos:** passam a ser os do mapeamento atual, mas só se o livro mapear ao menos um assunto que existe em `acervo.assunto`. Sem nenhum, o livro mantém os que tem.
 - **Autores:** só acrescenta, como na carga inicial.
+- **Livro sem `ol_work_key`** (importado pelo Google Books) fica intacto, mesmo com o ISBN no dump: nada da linha muda e ele não perde assunto (só recebe acréscimo, como na carga inicial). Decisão do dono de 07/11/2026.
 - **Não toca:** total de páginas (o `leitura` lê o total ao vivo; mudar deixaria leitura acima de 100%), `ol_work_key` (o livro importado pelo Google Books continua sem chave e com a nota dele), capa própria, sinopse, `atualizado_em`, nota geral, notas dos leitores, `ativo` e o livro pessoal.
 - **Livro que saiu do dump ou dos filtros** continua no banco, intacto e ativo. A recarga não apaga livro.
 - **Linha igual não é reescrita:** rodar a mesma recarga de novo dá `livros_atualizados = 0` e `vinculos_assunto_removidos = 0`.

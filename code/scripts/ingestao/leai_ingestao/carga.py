@@ -116,6 +116,9 @@ ON CONFLICT (isbn13) WHERE isbn13 IS NOT NULL DO NOTHING;
 # capa própria e asset, sinopse, `atualizado_em` (relógio da sinopse), nota
 # geral e `ativo`. O `IS DISTINCT FROM` deixa intacta a linha que não muda: a
 # segunda recarga do mesmo dump não atualiza nada nem gera WAL à toa.
+# Livro sem `ol_work_key` (importado pelo Google Books) fica intacto, mesmo com
+# o ISBN no dump: é a mesma regra da decisão 9 ("livro sem `ol_work_key` fica
+# como está"), confirmada pelo dono em 07/11/2026.
 SQL_LIVRO_ATUALIZAR = """
 UPDATE acervo.livro l
    SET titulo = n.titulo,
@@ -138,6 +141,7 @@ UPDATE acervo.livro l
   ) n
  WHERE l.isbn13 = n.isbn13
    AND l.tipo = 'oficial'
+   AND l.ol_work_key IS NOT NULL
    AND (
          l.titulo IS DISTINCT FROM n.titulo
       OR (n.ano_publicacao IS NOT NULL AND l.ano_publicacao IS DISTINCT FROM n.ano_publicacao)
@@ -180,12 +184,14 @@ ON CONFLICT DO NOTHING;
 # conjunto curado não conta: livro só com slug desconhecido, ou sem tag mapeada,
 # fica com os assuntos que tem. Aqui só se remove o que saiu; o
 # `SQL_LIVRO_ASSUNTO` logo depois acrescenta o que falta. O livro pessoal não
-# tem ISBN e nunca casa.
+# tem ISBN e nunca casa. O livro sem `ol_work_key` (Google Books) não perde
+# assunto: só recebe acréscimos, como na carga inicial.
 SQL_LIVRO_ASSUNTO_SUBSTITUIR = """
 WITH novo AS (
   SELECT DISTINCT l.id AS livro_id, a.id AS assunto_id
     FROM stg_livro_assunto s
     JOIN acervo.livro   l ON l.isbn13 = s.isbn13 AND l.tipo = 'oficial'
+                         AND l.ol_work_key IS NOT NULL
     JOIN acervo.assunto a ON a.slug = s.slug
 )
 DELETE FROM acervo.livro_assunto la
