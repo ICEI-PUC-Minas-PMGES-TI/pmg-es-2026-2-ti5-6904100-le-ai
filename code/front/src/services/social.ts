@@ -94,6 +94,8 @@ export interface Comentario {
   editado: boolean
   criadoEm: string
   atualizadoEm: string | null
+  /** Só no comentário do próprio leitor: a versão da apresentação, devolvida ao editar. */
+  versao?: string | null
 }
 
 interface PaginaHttp<T> {
@@ -216,10 +218,19 @@ export function createSocialService(options: ApiClientOptions = {}) {
         idempotencyKey,
       })
     },
-    editarComentario(comentarioId: string, texto: string, idempotencyKey: string): Promise<Comentario> {
+    /**
+     * `versao` é a do comentário que o editor carregou: com ela, o servidor recusa (409
+     * `COMENTARIO_DESATUALIZADO`) a edição feita sobre uma apresentação que mudou (F-MOD-OPC).
+     */
+    editarComentario(
+      comentarioId: string,
+      texto: string,
+      versao: string | null | undefined,
+      idempotencyKey: string,
+    ): Promise<Comentario> {
       return request<Comentario>(`/comentarios/${encodeURIComponent(comentarioId)}`, {
         method: 'PATCH',
-        json: { texto },
+        json: versao ? { texto, versao } : { texto },
         idempotencyKey,
       })
     },

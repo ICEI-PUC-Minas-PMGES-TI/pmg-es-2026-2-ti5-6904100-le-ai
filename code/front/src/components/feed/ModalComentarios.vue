@@ -186,7 +186,12 @@ async function salvarEdicao(): Promise<void> {
   salvando.value = true
   erroDeEdicao.value = null
   try {
-    const editado = await socialService.editarComentario(editando.value.id, texto.value, novaChaveIdempotencia())
+    const editado = await socialService.editarComentario(
+      editando.value.id,
+      texto.value,
+      editando.value.versao,
+      novaChaveIdempotencia(),
+    )
     substituirComentarioLocal(editado)
     cancelarEdicao()
   } catch (erro) {
@@ -194,6 +199,9 @@ async function salvarEdicao(): Promise<void> {
       mencoesLimitadas.value = true
     } else if (erro instanceof ApiError && erro.status === 404) {
       comentarioSumiu.value = true
+    } else if (erro instanceof ApiError && erro.code === 'COMENTARIO_DESATUALIZADO') {
+      // A apresentação mudou desde que a edição começou (F-MOD-OPC): o texto fica no campo.
+      erroDeEdicao.value = 'Este comentário mudou enquanto você editava. Recarregue os comentários e edite de novo.'
     } else {
       erroDeEdicao.value = 'Não foi possível salvar a edição. O texto continua no campo. Tente de novo.'
     }
