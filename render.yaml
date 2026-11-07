@@ -172,6 +172,11 @@ services:
       # IDENTIDADE_SCHEDULER_TOKEN do GitHub. Sem ele o job responde 401.
       - key: SCHEDULER_TOKEN
         sync: false
+      # F-MOD-OPC: rotas internas de suspensão e reativação de conta, chamadas só
+      # pelo leai-social junto do JWT do admin. Mínimo de 32 caracteres; o MESMO
+      # valor do MODERACAO_TOKEN do leai-social. Sem ele, as rotas respondem 503.
+      - key: MODERACAO_TOKEN
+        sync: false
       # F-CONTA-2: credencial da Upload API, para apagar o avatar na exclusão
       # definitiva (RN-23.7). Sem ela o asset fica e o publicId vai para o log.
       - key: CLOUDINARY_API_KEY
@@ -217,6 +222,10 @@ services:
       # pública; o token é o MESMO MODERACAO_TOKEN do leai-leitura.
       - key: LEITURA_BASE_URL
         value: https://leai-leitura.onrender.com
+      # F-MOD-OPC: comando interno de suspensão e reativação de conta no
+      # identidade, que recebe o mesmo MODERACAO_TOKEN (os três serviços iguais).
+      - key: IDENTIDADE_BASE_URL
+        value: https://leai-identidade.onrender.com
       - key: MODERACAO_TOKEN
         sync: false
 

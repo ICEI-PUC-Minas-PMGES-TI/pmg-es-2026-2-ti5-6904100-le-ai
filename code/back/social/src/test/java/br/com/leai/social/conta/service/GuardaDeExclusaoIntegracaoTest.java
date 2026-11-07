@@ -36,7 +36,8 @@ class GuardaDeExclusaoIntegracaoTest extends IntegracaoComPostgres {
           "notificacao",
           "preferencia_notificacao",
           "dispositivo_push",
-          "denuncia");
+          "denuncia",
+          "comando_de_conta");
 
   /** Saem pelo ON DELETE CASCADE de outra tabela (filha → mãe). */
   private static final Map<String, String> POR_CASCATA = Map.of("lista_item", "lista");

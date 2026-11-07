@@ -63,7 +63,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [x] `resenha.curtida` é publicado após a escrita, com destinatário = autor da resenha, e consumido uma vez por `social`.
 - [x] Frase exige **página** e **≤500 caracteres**, com **máximo de 10** por usuário+livro (RN-11); listar é paginado; excluir é **owner-only** com confirmação; frases de livro pessoal são exclusivas do dono.
 - [x] Resenha aceita o **subconjunto Markdown** (RN-13) com **preview**; HTML/link/imagem/código/tabela **não** são interpretados; parser com HTML **desabilitado** e saída **sanitizada** na web (SEC-15); marcação não suportada exibida literal; mesmo subconjunto em web e mobile.
-- [ ] Reações, frases e Markdown funcionam **em DES**. Débito: entra no merge de fechamento do Período 2.
+- [x] Reações, frases e Markdown funcionam **em DES**. Validado em DES pelo dono em 05/11/2026, depois do merge de fechamento do Período 2 (releases v0.2.0 e v0.2.1).
 
 ## Definition of Done
 
@@ -75,7 +75,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [x] Testes assíncronos cobrem publicação, consumo em `social`, destinatário, duplicação semântica e DLQ de `resenha.curtida` (RNF-TST-03)
 - [x] Testes web/mobile cobrem reações, **render/sanitização do Markdown** (SEC-15), preview, frases e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
 - [x] **Spec OpenAPI de `leitura` atualizado em `docs/api/leitura.yaml`** com reações, frases, contagens e o schema de `resenha.curtida`; a adição de contagens a `v_resenha_publicacao_v1` documentada
-- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)). Débito do merge de fechamento
+- [x] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)). Validado em 05/11/2026
 - [x] Arquivo da feature atualizado: status, pendências, timeline
 - [x] Divergência protótipo × implementação registrada, se houver
 
@@ -106,7 +106,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Preferência de notificação:** o `social` ainda não lê a preferência (fica para a F-NOT-OPC). O critério "mesmo se suprimida por preferência" é garantido pelo produtor (`primeira_curtida_em`) e pelo `UNIQUE (destinatario_id, tipo, chave_negocio)` da notificação.
 - **Débitos:**
   - **Copy das duas curtidas, com o Kayke** (decisão 9).
-  - **DES:** reações, frases e Markdown entram no DES no merge de fechamento do Período 2, com a migration `0005` aplicada no banco de Oregon antes do `acervo`.
+  - ~~**DES:** reações, frases e Markdown entram no DES no merge de fechamento do Período 2, com a migration `0005` aplicada no banco de Oregon antes do `acervo`.~~ Resolvido: validado em DES pelo dono em 05/11/2026, depois do merge de fechamento do Período 2 (releases v0.2.0 e v0.2.1).
 - **Código de outras pessoas alterado** (registrado no `AGENTS.md` de cada serviço e cliente; avisar os donos no grupo):
   - Kayke: consumidor de notificações do `social` (`EventoDeNotificacao`, `TipoNotificacao`, `RedacaoDeNotificacao`, `docs/api/social.yaml`), notificações do app (tipo, ícone e rota) e a prévia do feed (`ItemAtividade.vue` e `item_atividade.dart`).
   - Vicenzo: `acervo` (repositórios de resenhas, DTO do livro pessoal, `contratos-externos.ts`, fixture de integração) e `acervo_service.dart`.
@@ -123,6 +123,10 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - Stack de `leitura` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
 ## Timeline
+
+### 05/11/2026: validada em DES
+
+Reações, frases e Markdown testados e validados em DES pelo dono, depois do merge de fechamento do Período 2 (releases v0.2.0 e v0.2.1). Os dois itens de DES do aceite e do DoD foram marcados.
 
 ### 09/10/2026: implementação, testes e teste manual. Três commits na `renato-features`, mergeados na `desenvolvimento` e enviados ao GitHub no mesmo dia:
 

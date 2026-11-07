@@ -170,6 +170,34 @@ describe('reações à resenha (integração)', () => {
       ).toBe(2);
     });
 
+    it('F-MOD-OPC: reação de conta suspensa sai das contagens e da VIEW, e volta na reativação', async () => {
+      const resenhaId = await resenhar(await inserirLivro(pool));
+      const suspensa = novoUsuario();
+      await inserirPerfil(pool, { id: suspensa, username: 'suspensa' });
+      const outra = novoUsuario();
+      await inserirPerfil(pool, { id: outra });
+      await reagir(resenhaId, { tipo: 'curtida' }, { quem: suspensa });
+      await reagir(resenhaId, { tipo: 'descurtida' }, { quem: outra });
+
+      // A suspensão tira a conta da VIEW de perfil (aqui, uma tabela).
+      await pool.query('DELETE FROM identidade.v_perfil_referencia_v1 WHERE id = $1', [suspensa]);
+
+      const minha = await reagir(resenhaId, { tipo: 'curtida' });
+      expect(minha.body).toEqual({ minhaReacao: 'curtida', curtidas: 1, descurtidas: 1 });
+      const naView = await pool.query(
+        'SELECT curtidas, descurtidas FROM leitura.v_resenha_publicacao_v1 WHERE resenha_id = $1',
+        [resenhaId],
+      );
+      expect(naView.rows[0]).toEqual({ curtidas: '1', descurtidas: '1' });
+
+      await inserirPerfil(pool, { id: suspensa, username: 'suspensa' });
+      const deVolta = await pool.query(
+        'SELECT curtidas FROM leitura.v_resenha_publicacao_v1 WHERE resenha_id = $1',
+        [resenhaId],
+      );
+      expect(deVolta.rows[0]).toEqual({ curtidas: '2' });
+    });
+
     it('retirar e recurtir não notifica de novo', async () => {
       const resenhaId = await resenhar(await inserirLivro(pool));
 

@@ -117,6 +117,9 @@ leai:
   # F-MOD: comando interno de remoção no `leitura` (porta local 3001).
   leitura-base-url: ${LEITURA_BASE_URL:http://localhost:3001}
   moderacao-token: ${MODERACAO_TOKEN:}
+  # F-MOD-OPC: comando interno de suspensão e reativação de conta no `identidade` (porta
+  # local 8080), com o mesmo MODERACAO_TOKEN.
+  identidade-base-url: ${IDENTIDADE_BASE_URL:http://localhost:8080}
 
 ---
 # --- perfil prod ----------------------------------------------------------

@@ -38,6 +38,9 @@ public class ServicoDeAutenticacao {
    */
   public static final String CREDENCIAL_INVALIDA = "E-mail, nome de usuário ou senha incorretos.";
 
+  /** Primeira linha do banner de login.md §8 (F-MOD-OPC); o cliente monta o resto. */
+  public static final String CONTA_SUSPENSA = "Esta conta está suspensa.";
+
   /** Cópia de alterar-senha.md §4.2. */
   static final String SENHA_ATUAL_INCORRETA = "Senha atual incorreta.";
 
@@ -147,6 +150,12 @@ public class ServicoDeAutenticacao {
 
     controleDeTentativas.registrarSucesso(identificador);
     Usuario usuario = encontrado.get();
+    // F-MOD-OPC: só depois de a senha conferir, para não virar oráculo de contas (RNF-SEC-28).
+    // Prevalece sobre a exclusão pendente: a conta suspensa não chega à recuperação. Lida de novo
+    // com trava, e não da entidade carregada acima, para não emitir sessão no meio da suspensão.
+    if (repositorio.suspensoComTrava(usuario.id()).orElse(false)) {
+      throw erroDeContaSuspensa();
+    }
     if (usuario.exclusaoPendente()) {
       log.info("Login de recuperação emitido para a conta em exclusão {}", usuario.id());
       return AcessoDeRecuperacaoResposta.de(
@@ -167,6 +176,9 @@ public class ServicoDeAutenticacao {
    */
   @Transactional
   public SessaoResposta renovar(RefreshRequisicao requisicao) {
+    // F-MOD-OPC: trava a conta antes de consumir o token, na mesma ordem da suspensão (conta,
+    // depois renovações). Na ordem inversa, as duas transações se esperariam (deadlock).
+    gestorDeRenovacao.donoDe(requisicao.refreshToken()).ifPresent(repositorio::suspensoComTrava);
     UUID usuarioId = gestorDeRenovacao.consumir(requisicao.refreshToken());
     Usuario usuario =
         repositorio
@@ -177,7 +189,25 @@ public class ServicoDeAutenticacao {
                 () ->
                     new ErroDeNegocioException(
                         CodigoErro.NAO_AUTENTICADO, GestorDeRenovacao.SESSAO_EXPIRADA));
+    if (usuario.suspenso()) {
+      // A suspensão já revogou as renovações; esta é a segunda barreira (F-MOD-OPC).
+      throw erroDeContaSuspensa();
+    }
     return sessaoPara(usuario);
+  }
+
+  /**
+   * Reuso de um token revogado de conta suspensa não é suspeita de vazamento: a própria
+   * suspensão revogou as renovações. O controller pergunta antes de derrubar as sessões.
+   */
+  @Transactional(readOnly = true)
+  public boolean contaSuspensa(UUID usuarioId) {
+    return repositorio.findById(usuarioId).map(Usuario::suspenso).orElse(false);
+  }
+
+  /** Erro de conta suspensa, com a mensagem do design (login.md §8). */
+  public static ErroDeNegocioException erroDeContaSuspensa() {
+    return new ErroDeNegocioException(CodigoErro.CONTA_SUSPENSA, CONTA_SUSPENSA);
   }
 
   /** Encerra a sessão revogando o token de renovação dela (RF-AUT-06, RNF-SEC-30). */

@@ -1,6 +1,16 @@
 <script setup lang="ts">
-import { PhBooks, PhCaretRight, PhCheck, PhClock, PhLock, PhUserCircle, PhUserPlus } from '@phosphor-icons/vue'
-import { computed, ref, watch } from 'vue'
+import {
+  PhArrowCounterClockwise,
+  PhBooks,
+  PhCaretRight,
+  PhCheck,
+  PhClock,
+  PhLock,
+  PhProhibit,
+  PhUserCircle,
+  PhUserPlus,
+} from '@phosphor-icons/vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import CardEstante from '../../components/estante/CardEstante.vue'
@@ -10,6 +20,11 @@ import ChipPrivacidade from '../../components/perfil/ChipPrivacidade.vue'
 import FimDaLista from '../../components/perfil/FimDaLista.vue'
 import SecoesDeLeitura from '../../components/perfil/SecoesDeLeitura.vue'
 import ListasDoPerfil from '../../components/listas/ListasDoPerfil.vue'
+import ContaSuspensaDoAdmin from '../../components/moderacao/ContaSuspensaDoAdmin.vue'
+import DialogoSuspensao from '../../components/moderacao/DialogoSuspensao.vue'
+import AvisoFlutuante from '../../components/ui/AvisoFlutuante.vue'
+import type { AcaoDaFolha } from '../../components/ui/FolhaAcoes.vue'
+import MenuDeAcoes from '../../components/ui/MenuDeAcoes.vue'
 import BannerAviso from '../../components/ui/BannerAviso.vue'
 import BotaoPrimario from '../../components/ui/BotaoPrimario.vue'
 import BotaoTextual from '../../components/ui/BotaoTextual.vue'
@@ -24,7 +39,9 @@ import { useEstante } from '../../estante/useEstante'
 import { contagem, primeiroNome } from '../../perfil/textos'
 import { ApiError, novaChaveIdempotencia } from '../../services/api'
 import { leituraService } from '../../services/leitura'
+import { moderacaoService, type ContaDaModeracao, type ContaModerada } from '../../services/moderacao'
 import { perfilService, type Perfil } from '../../services/perfil'
+import { useSession } from '../../session'
 
 /**
  * Perfil de outro leitor (RF-SOC-02, RF-SOC-05..07, RN-08), a partir de
@@ -53,34 +70,126 @@ const erroDaAcao = ref<string | null>(null)
 const confirmando = ref(false)
 const erroDaConfirmacao = ref<string | null>(null)
 
+// F-MOD-OPC (Renato, 06/11/2026): visão e ações do administrador (perfil-de-outro-leitor.md P3).
+// Quem decide é o servidor (`/admin/**` exige o papel); aqui só se mostra ou esconde.
+const { ehAdmin } = useSession()
+/** A conta suspensa, que o perfil público responde como inexistente; só o admin a vê. */
+const contaSuspensa = ref<ContaDaModeracao | null>(null)
+const dialogoDeConta = ref<'suspender' | 'reativar' | null>(null)
+const avisoDaConta = ref<{ texto: string; icone: typeof PhProhibit } | null>(null)
+const acoesDeModeracao: AcaoDaFolha[] = [
+  { id: 'suspender', rotulo: 'Suspender conta', icone: PhProhibit, destrutiva: true, tom: 'rubi' },
+]
+
 const username = computed(() => String(route.params.username ?? ''))
 const nome = computed(() => (perfil.value ? primeiroNome(perfil.value.displayName) : ''))
 const privado = computed(() => perfil.value?.privacidade === 'privado')
 
+/**
+ * Cada carga leva um número; a resposta de uma carga que já não é a última (o username mudou no
+ * meio) é descartada, para não pintar a conta de um username na URL de outro.
+ */
+let cargaAtual = 0
+
 async function carregar(): Promise<void> {
+  const carga = ++cargaAtual
+  const atual = () => carga === cargaAtual
   carregando.value = true
   naoEncontrado.value = false
   falhou.value = false
   erroDaAcao.value = null
+  contaSuspensa.value = null
   try {
     const encontrado = await perfilService.obterPerfil(username.value)
+    if (!atual()) {
+      return
+    }
     if (encontrado.relacao === 'proprio') {
       await router.replace('/perfil')
       return
     }
     perfil.value = encontrado
   } catch (erro) {
-    if (erro instanceof ApiError && erro.status === 404) {
+    if (!atual()) {
+      return
+    }
+    if (erro instanceof ApiError && erro.status === 404 && ehAdmin.value) {
+      // Para o admin, o 404 pode ser uma conta suspensa: o painel a enxerga pela VIEW da moderação.
+      const consulta = await contaSuspensaPeloAdmin()
+      if (!atual()) {
+        return
+      }
+      if (consulta === 'falhou') {
+        falhou.value = true
+      } else {
+        contaSuspensa.value = consulta
+        naoEncontrado.value = consulta === null
+      }
+    } else if (erro instanceof ApiError && erro.status === 404) {
       naoEncontrado.value = true
     } else {
       falhou.value = true
     }
   } finally {
-    carregando.value = false
+    if (atual()) {
+      carregando.value = false
+    }
   }
 }
 
 watch(username, () => void carregar(), { immediate: true })
+
+/**
+ * A conta suspensa, `null` quando não há conta suspensa com esse username (404 ou conta ativa), e
+ * `'falhou'` em qualquer outro erro: o `social` fora ou acordando não pode virar "Perfil não
+ * encontrado", que tiraria do admin o `Reativar conta` (revisão de 06/11/2026).
+ */
+async function contaSuspensaPeloAdmin(): Promise<ContaDaModeracao | null | 'falhou'> {
+  try {
+    const conta = await moderacaoService.contaPorUsername(username.value)
+    return conta.suspensa ? conta : null
+  } catch (erro) {
+    return erro instanceof ApiError && erro.status === 404 ? null : 'falhou'
+  }
+}
+
+/**
+ * O item do menu que abriu o dialog some do DOM, e o foco cairia no `body`: ele volta ao
+ * `DotsThree` (§9), como no painel. Depois de suspender, o `DotsThree` dá lugar à visão da conta
+ * suspensa, e o foco vai ao `Reativar conta` dela, a ação que a substitui. Revisão de 06/11/2026.
+ */
+const menuDeModeracao = ref<HTMLElement | null>(null)
+const visaoDaContaSuspensa = ref<InstanceType<typeof ContaSuspensaDoAdmin> | null>(null)
+
+async function focarAcaoDaConta(): Promise<void> {
+  await nextTick()
+  const menu = menuDeModeracao.value?.querySelector<HTMLButtonElement>('button')
+  if (menu) {
+    menu.focus()
+    return
+  }
+  const raiz = visaoDaContaSuspensa.value?.$el as HTMLElement | undefined
+  raiz?.querySelector<HTMLButtonElement>('[data-reativar]')?.focus()
+}
+
+function fecharDialogoDeConta(): void {
+  dialogoDeConta.value = null
+  void focarAcaoDaConta()
+}
+
+/** Sem estado otimista: a página só muda depois da confirmação, recarregando o perfil. */
+async function contaConfirmada(conta: ContaModerada): Promise<void> {
+  const nomeDaConta = contaSuspensa.value?.nomeExibicao ?? perfil.value?.displayName ?? ''
+  dialogoDeConta.value = null
+  avisoDaConta.value = conta.suspensa
+    ? {
+        texto: `Conta de ${nomeDaConta} suspensa. O perfil e o conteúdo ficaram ocultos para os leitores.`,
+        icone: PhProhibit,
+      }
+    : { texto: `Conta de ${nomeDaConta} reativada.`, icone: PhArrowCounterClockwise }
+  await carregar()
+  await focarAcaoDaConta()
+}
 
 const estante = useEstante((filtro) => leituraService.listarEstantePerfil(perfil.value?.id ?? '', filtro))
 
@@ -210,6 +319,13 @@ const textoDaConfirmacao = computed(() =>
       </EstadoVazio>
     </div>
 
+    <ContaSuspensaDoAdmin
+      v-else-if="contaSuspensa"
+      ref="visaoDaContaSuspensa"
+      :conta="contaSuspensa"
+      @reativar="dialogoDeConta = 'reativar'"
+    />
+
     <BannerAviso
       v-else-if="falhou || !perfil"
       variante="erro"
@@ -227,8 +343,22 @@ const textoDaConfirmacao = computed(() =>
       </span>
     </BannerAviso>
 
+    <!-- F-MOD-OPC: o `DotsThree` de moderação, só para o administrador. O `Voltar` mora no shell,
+         então o botão fica no topo do conteúdo, alinhado à direita. -->
     <div
-      v-else
+      v-if="ehAdmin && perfil && !carregando && !naoEncontrado && !contaSuspensa && !falhou"
+      ref="menuDeModeracao"
+      class="-mt-space-2 mb-space-2 flex justify-end"
+    >
+      <MenuDeAcoes
+        rotulo="Ações de moderação"
+        :acoes="acoesDeModeracao"
+        discreto
+        @escolher="dialogoDeConta = 'suspender'"
+      />
+    </div>
+    <div
+      v-if="!carregando && !naoEncontrado && !contaSuspensa && !falhou && perfil"
       class="md:grid md:grid-cols-[300px_minmax(0,1fr)] md:gap-space-12"
     >
       <section
@@ -494,5 +624,21 @@ const textoDaConfirmacao = computed(() =>
     >
       {{ textoDaConfirmacao }}
     </DialogoConfirmacao>
+
+    <DialogoSuspensao
+      v-if="dialogoDeConta && (contaSuspensa || perfil)"
+      :acao="dialogoDeConta"
+      :usuario-id="contaSuspensa?.id ?? perfil!.id"
+      :nome="contaSuspensa?.nomeExibicao ?? perfil!.displayName"
+      @fechar="fecharDialogoDeConta"
+      @concluida="contaConfirmada"
+    />
+    <AvisoFlutuante
+      :aberto="avisoDaConta !== null"
+      :icone="avisoDaConta?.icone"
+      @fechar="avisoDaConta = null"
+    >
+      {{ avisoDaConta?.texto }}
+    </AvisoFlutuante>
   </div>
 </template>

@@ -132,6 +132,9 @@ leai:
   # F-CONTA-2, lido pelo TokenDoAgendador. Vazio (ou com menos de 32 caracteres) recusa toda
   # chamada ao job de exclusão com 401.
   scheduler-token: ${SCHEDULER_TOKEN:}
+  # F-MOD-OPC, validado no AppProperties e lido pelo TokenDeModeracao. O MESMO valor do
+  # MODERACAO_TOKEN do social. Vazio sobe o serviço, e as rotas /internal/moderacao dão 503.
+  moderacao-token: ${MODERACAO_TOKEN:}
   # Idem, lido só pelo ExecucaoDoSeed (perfil seed). Senha das quatro contas do seed.
   seed-senha: ${SEED_SENHA:}
 

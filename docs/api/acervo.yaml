@@ -930,11 +930,11 @@ components:
         curtidas:
           type: integer
           minimum: 0
-          description: Curtidas ativas (RF-AVA-08, F-AVA-2).
+          description: Curtidas ativas (RF-AVA-08, F-AVA-2), sem as de conta suspensa ou com exclusão pendente (F-MOD-OPC).
         descurtidas:
           type: integer
           minimum: 0
-          description: Descurtidas ativas, contadas à parte (RF-AVA-08).
+          description: Descurtidas ativas, contadas à parte (RF-AVA-08), sem as de conta suspensa ou com exclusão pendente (F-MOD-OPC).
         minhaReacao:
           type: string
           enum: [curtida, descurtida]

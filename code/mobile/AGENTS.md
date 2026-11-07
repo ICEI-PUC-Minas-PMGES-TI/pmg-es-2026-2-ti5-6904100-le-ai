@@ -72,6 +72,21 @@ Convenções do app mobile. Complementa o [`AGENTS.md`](../../AGENTS.md) da raiz
 - `android/` e `ios/`: plataformas nativas geradas pelo Flutter; o build iOS depende de macOS/Xcode.
 - `test/`: testes unitários e widget, espelhando a árvore de `lib/`.
 
+## Mudanças feitas por outras features
+
+### 05/11/2026 — F-MOD-OPC (Renato): sessão encerrada por conta suspensa
+
+Plano em [`plano-F-MOD-OPC.md`](../../docs/plano-de-desenvolvimento/periodo-3/renato-periodo-3/plano-F-MOD-OPC.md). O app não tem painel de moderação; só trata a própria sessão suspensa. Avisar o Henrique e a Ana.
+
+- **`core/session/session_controller.dart` (do Henrique):** na renovação, `ApiException` com `codigo == 'CONTA_SUSPENSA'` (403 do `identidade`) chama `_sairPorSuspensao()`, que grava o aviso `SessionController.avisoDeContaSuspensa` **antes** de `sair()`, porque o `notifyListeners` de `sair()` pode abrir o login antes. Não liga `saindoPorExpiracao`. `_executarRenovacao` agora devolve `false` logo de cara quando a sessão já acabou (`_token == null`): sem isso, um 401 atrasado de outra chamada sairia de novo por expiração e trocaria o aviso.
+- **Ana (`features/sessao/sessao_controller.dart`), mudou em 06/11/2026:** o ouvinte, quando `conta.saindoPorSuspensao` e havia sessão de leitura, chama `conta.avisarLeituraDescartada()`. O login mostra no banner de suspensão a linha `leituraDescartadaNaSuspensao` (consumida uma vez, `consumirLeituraDescartada`). O aviso de expiração dela não mudou. Testes em `test/features/sessao/sessao_test.dart` e `login_page_test.dart`.
+- **`features/auth/login_page.dart` (do Henrique, com a Ana):** `CONTA_SUSPENSA` no login e o aviso de sessão encerrada mostram `features/auth/banner_conta_suspensa.dart` (âmbar, `PhosphorIconsRegular.prohibit`, duas linhas, `Semantics(liveRegion)`, tokens do `ThemeData`), com os campos sem erro e a senha limpa.
+- **Mudou em 06/11/2026 (revisão da feature):**
+  - `SessionController.encerrarPorSuspensao()` é a saída por suspensão para quem recebe o 403 `CONTA_SUSPENSA` fora da renovação. Ela espera a renovação em curso e não faz nada sem sessão, então não sai duas vezes.
+  - **Henrique (`features/conta/excluir_conta_page.dart`, F-CONTA-2):** a página ganhou o callback opcional `aoContaSuspensa`, que o `router.dart` liga a `encerrarPorSuspensao`. Antes, o 403 `CONTA_SUSPENSA` do `DELETE /me/conta` mostrava "Verifique sua conexão", e repetir dava o mesmo erro. Agora a sessão acaba e o login explica a suspensão. Os outros códigos de erro não mudaram. Teste em `test/features/conta/exclusao_test.dart`.
+  - No login, o banner de sessão encerrada por suspensão só some quando o pedido vai de fato ao servidor; tocar "Entrar" com os campos vazios mantém o banner.
+- **Divergência aceita:** dentro dos 15 minutos do token de acesso, o `leitura` responde 403 "Sua conta não está disponível…" às escritas, e o logout só vem na renovação seguinte.
+
 ## Comandos
 
 Executar na pasta `code/mobile`: `flutter pub get`, `dart run tool/generate_tokens.dart --check`, `flutter analyze`, `flutter test` e `flutter build apk --debug`. Quando `tokens.json` mudar, rode `dart run tool/generate_tokens.dart` antes da validação.

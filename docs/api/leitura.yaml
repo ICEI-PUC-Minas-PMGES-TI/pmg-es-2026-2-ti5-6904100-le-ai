@@ -30,7 +30,16 @@ x-database-contracts:
       Desde 26/09/2026 o feed (social) também lê texto, spoiler e nota por
       esta VIEW, o que contraria a arquitetura §3.2 item 4 ("o feed guarda
       snapshot"); a decisão está pendente com o grupo (feature-F-AVA.md).
-      As colunas não mudam enquanto isso.
+      As colunas não mudam enquanto isso. Desde a F-MOD-OPC (migration 0007,
+      06/11/2026), curtidas e descurtidas contam só as reações ativas de
+      contas visíveis: a reação de conta suspensa ou com exclusão pendente
+      fica gravada, mas sai da contagem até a reativação. Para isso a VIEW
+      depende, no próprio banco, de identidade.v_perfil_referencia_v1 (a
+      primeira dependência de schema para schema entre migrations): o
+      identidade não consegue dar DROP nessa VIEW nem recriá-la mudando
+      nome ou tipo de coluna sem recriar esta junto; um DROP ... CASCADE
+      derruba esta VIEW sem aviso (e o journal do drizzle não a recria); e
+      num banco novo o identidade precisa migrar antes do leitura.
     columns: [resenha_id, usuario_id, livro_id, texto, spoiler, criado_em, atualizado_em, curtidas, descurtidas]
   - name: v_reacao_resenha_v1
     x-implementation-status: implemented
@@ -800,7 +809,10 @@ paths:
         exclusão é 403. A primeira curtida do par resenha e leitor grava
         `resenha.curtida` para o autor, na mesma transação; retirar e recurtir,
         alternar e descurtir não publicam (decisão de 15/09/2026). A reação
-        retirada fica guardada, com `primeira_curtida_em`.
+        retirada fica guardada, com `primeira_curtida_em`. F-MOD-OPC: as
+        contagens (aqui, na resenha e na VIEW `v_resenha_publicacao_v1`) só
+        incluem reações de contas em `v_perfil_referencia_v1`; a reação de
+        conta suspensa fica guardada e volta a contar na reativação.
       requestBody:
         required: true
         content:

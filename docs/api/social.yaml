@@ -49,6 +49,7 @@ info:
       - POST /admin/denuncias/{denunciaId}/arquivar
       - POST /admin/denuncias/{denunciaId}/remover
       - GET /admin/moderacao/logs
+      - GET /admin/usuarios
       - DELETE /admin/frases/{fraseId}
 x-database-contracts:
   - name: v_atividade_livro_pessoal_v1
@@ -280,7 +281,11 @@ paths:
       description: >-
         Lista somente comentários-raiz, paginados e ordenados do mais antigo
         para o mais recente. As respostas são consultadas pela rota própria. A
-        atividade precisa continuar visível ao solicitante.
+        atividade precisa continuar visível ao solicitante. F-MOD-OPC: some o
+        comentário de conta suspensa ou em exclusão (fora de
+        `v_perfil_referencia_v1`), salvo para o próprio autor, e a thread de
+        raiz oculta some inteira; `totalItens`, `totalRespostas` e o
+        `totalComentarios` da atividade contam só o que o solicitante vê.
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/PageSize'
@@ -339,7 +344,9 @@ paths:
       description: >-
         Paginação por cursor estável. Retorna apenas respostas irmãs sob a raiz,
         inclusive quando foram criadas em resposta a outra resposta. Revalida a
-        visibilidade da atividade antes de retornar qualquer comentário.
+        visibilidade da atividade antes de retornar qualquer comentário. Raiz
+        de conta suspensa é 404 (F-MOD-OPC), e as respostas de conta suspensa
+        não aparecem. Responder ou denunciar comentário oculto também é 404.
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/CursorLimit'
@@ -368,6 +375,15 @@ paths:
         destinatário que este comentário ainda não notificou, nunca para o
         autor nem para o alvo de comentario.respondido. Menções que notificam
         têm rate limiting próprio (RN-10.3); estourar recusa a edição com 429.
+        F-MOD-OPC: a menção a conta suspensa ou em exclusão chega aos clientes
+        como "um leitor", e o editor parte desse texto; o servidor devolve ao
+        `@username` gravado cada trecho mascarado que sobrou. Isso só vale
+        contra a apresentação que o editor carregou: o cliente devolve a
+        `versao` do comentário, e versão diferente da atual (a conta foi
+        suspensa ou reativada, ou houve outra edição) é 409
+        `COMENTARIO_DESATUALIZADO`, sem mudança. Com menção gravada, a
+        `versao` é obrigatória; sem menção, o cliente antigo continua editando
+        sem ela.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -385,7 +401,14 @@ paths:
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '403': { $ref: '#/components/responses/Proibido' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
-        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '409':
+          description: >-
+            `COMENTARIO_DESATUALIZADO`, a apresentação mudou desde a leitura
+            (ou faltou a `versao` com menção gravada); ou `CONFLITO`, a chave
+            de idempotência já foi usada com outro payload.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
         '429': { $ref: '#/components/responses/LimiteExcedido' }
         '503': { $ref: '#/components/responses/Indisponivel' }
     delete:
@@ -831,6 +854,10 @@ paths:
         ordem cronológica decrescente. Inclui estado lida/não lida e a contagem
         total de não lidas para o badge. Notificações de conta suspensa ou
         conteúdo que perdeu visibilidade não expõem o snapshot ao cliente.
+        F-MOD-OPC: com o autor da atividade fora da visibilidade, a frase diz
+        "na atividade de um leitor" e `atividadeId`/`comentarioId` vêm nulos;
+        `comentarioId` também vem nulo quando o comentário ou a raiz dele não
+        é visível. O canal em tempo real usa o mesmo mapeamento.
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/PageSize'
@@ -1116,6 +1143,155 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Erro' }
+  /admin/usuarios:
+    get:
+      tags: [moderacao]
+      summary: Busca uma conta pelo username, na visão do administrador
+      operationId: buscarContaPeloAdmin
+      x-implementation-status: implemented
+      x-implemented-by: F-MOD-OPC
+      description: >-
+        Só o administrador. Lê `identidade.v_conta_moderacao_v1`, que inclui a
+        conta suspensa (o perfil público a responde como inexistente). Username
+        sem diferença de caixa. `motivo` é o do log `suspender_conta` do
+        episódio vigente (mesmo `criado_em` de `suspensaEm`); nulo sem
+        suspensão. Conta inexistente ou em exclusão é 404.
+      parameters:
+        - name: username
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: A conta.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContaDaModeracao' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/Proibido' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+  /admin/usuarios/{usuarioId}/suspender:
+    parameters:
+      - $ref: '#/components/parameters/UsuarioIdModerado'
+    post:
+      tags: [moderacao]
+      summary: Suspende a conta do leitor (RF-MOD-04)
+      operationId: suspenderConta
+      x-implementation-status: implemented
+      x-implemented-by: F-MOD-OPC
+      description: >-
+        Só o administrador. O social não grava no schema do identidade: chama o
+        comando interno `POST /internal/moderacao/usuarios/{id}/suspensao` com o
+        `X-Moderacao-Token` e o JWT do administrador repassado, e o identidade
+        revalida o papel. Só depois da confirmação grava o log `suspender_conta`
+        com o motivo e o instante que o identidade devolveu: repetir, dois
+        cliques ou conta já suspensa não geram segunda linha. Falha ou timeout
+        não grava log nem recibo; a retentativa com a mesma chave grava a linha
+        que faltou. Não resolve as denúncias do autor. O motivo é obrigatório,
+        com até 500 code points depois de tirar os espaços das pontas.
+        Intenção durável (revisão do PR #61): antes de chamar o identidade, o
+        social grava a intenção (admin, chave, conta e motivo) e manda um id
+        derivado dela em `X-Comando-Id`; o identidade guarda o resultado por
+        esse id. Uma ação nova sobre a mesma conta primeiro resolve as
+        intenções dela que ficaram sem resposta: grava o log do episódio
+        original, com o motivo original, ou cancela a que nunca rodou. Assim,
+        suspender com timeout, reativar e reenviar a suspensão mantém os dois
+        logs e devolve o resultado original sem suspender de novo.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MotivoDaModeracaoDeConta' }
+      responses:
+        '200':
+          description: Conta suspensa, ou já estava.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContaModerada' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/Proibido' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409':
+          description: >-
+            `CONFLITO`, a chave já foi usada com outra conta ou outro motivo; ou
+            `ACAO_SUPERADA`, a intenção desta chave não chegou a rodar e uma ação
+            mais nova sobre a conta a cancelou.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+        '422':
+          description: Motivo vazio ou acima de 500, ou a conta administradora.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+        '503':
+          description: O identidade não respondeu, recusou o segredo ou está sem ele.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+        '504':
+          description: A ação não foi confirmada a tempo.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+  /admin/usuarios/{usuarioId}/reativar:
+    parameters:
+      - $ref: '#/components/parameters/UsuarioIdModerado'
+    post:
+      tags: [moderacao]
+      summary: Reativa a conta suspensa (RF-MOD-04)
+      operationId: reativarConta
+      x-implementation-status: implemented
+      x-implemented-by: F-MOD-OPC
+      description: >-
+        Simétrico a suspender, com o motivo também obrigatório. O identidade
+        restaura login e visibilidade sob RN-08. Reativar conta ativa responde
+        200 sem log. O painel chama a partir da denúncia ou da linha da
+        suspensão vigente no registro. Mesma intenção durável da suspensão.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MotivoDaModeracaoDeConta' }
+      responses:
+        '200':
+          description: Conta reativada, ou já estava ativa.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContaModerada' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/Proibido' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409':
+          description: >-
+            `CONFLITO`, a chave já foi usada com outra conta ou outro motivo; ou
+            `ACAO_SUPERADA`, a intenção desta chave não chegou a rodar e uma ação
+            mais nova sobre a conta a cancelou.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+        '422':
+          description: Motivo vazio ou acima de 500, ou a conta administradora.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+        '503':
+          description: O identidade não respondeu, recusou o segredo ou está sem ele.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+        '504':
+          description: A ação não foi confirmada a tempo.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
   /admin/moderacao/logs:
     get:
       tags: [moderacao]
@@ -1123,9 +1299,12 @@ paths:
       operationId: listarRegistrosDeModeracao
       x-implementation-status: implemented
       description: >-
-        Só o administrador. Autor, ação, alvo e momento, sem o texto removido,
-        o motivo nem quem denunciou (RNF-SEC-36). Alvo de conta excluída vem
-        anonimizado (RN-23.7). Paginação por cursor.
+        Só o administrador. Autor, ação, alvo e momento, sem o texto removido
+        nem quem denunciou (RNF-SEC-36). Alvo de conta excluída vem
+        anonimizado (RN-23.7). Paginação por cursor. F-MOD-OPC: as linhas de
+        conta (`alvoTipo: usuario`) trazem a conta, o motivo do administrador
+        e `suspensaoVigente`, verdadeiro só na suspensão em vigor; nas demais
+        linhas esses campos vêm nulos e falso.
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - name: limite
@@ -1164,6 +1343,12 @@ components:
       bearerFormat: JWT
       description: Token de acesso de curta duração emitido pelo serviço identidade.
   parameters:
+    UsuarioIdModerado:
+      name: usuarioId
+      in: path
+      required: true
+      description: Conta alvo da suspensão ou reativação.
+      schema: { type: string, format: uuid }
     AtividadeId:
       name: atividadeId
       in: path
@@ -1452,7 +1637,13 @@ components:
         livro: { $ref: '#/components/schemas/LivroSnapshot' }
         resenha: { $ref: '#/components/schemas/ResenhaSnapshot' }
         criadoEm: { type: string, format: date-time }
-        totalCurtidas: { type: integer, minimum: 0 }
+        totalCurtidas:
+          type: integer
+          minimum: 0
+          description: >-
+            Só curtidas que o solicitante enxerga: a dele e as de contas em
+            `v_perfil_referencia_v1` (F-MOD-OPC: conta suspensa sai do total e
+            volta na reativação).
         totalComentarios: { type: integer, minimum: 0 }
         curtidaPeloSolicitante: { type: boolean }
     PaginaAtividades:
@@ -1501,6 +1692,12 @@ components:
           minLength: 1
           maxLength: 2000
           description: Texto puro. HTML não é interpretado.
+        versao:
+          type: string
+          maxLength: 64
+          description: >-
+            A `versao` do comentário que o editor carregou (F-MOD-OPC).
+            Obrigatória quando o comentário tem menção gravada.
     Mencao:
       type: object
       required: [posicao, comprimento, usuarioId, username]
@@ -1549,7 +1746,11 @@ components:
           description: Texto puro; deve ser renderizado com escape.
         mencoes:
           type: array
-          description: Menções resolvidas, em ordem de posição.
+          description: >-
+            Menções resolvidas, em ordem de posição. F-MOD-OPC: menção a conta
+            fora da visibilidade sai da lista, e o `@username` dela vira
+            "um leitor" no `texto`, com as posições seguintes ajustadas; volta
+            com a reativação.
           items: { $ref: '#/components/schemas/Mencao' }
         nivel:
           type: string
@@ -1569,6 +1770,14 @@ components:
           type: string
           format: date-time
           nullable: true
+        versao:
+          type: string
+          nullable: true
+          description: >-
+            Só no comentário do próprio leitor (nulo nos outros): identifica a
+            apresentação recebida (texto mascarado e onde estão os trechos
+            mascarados), sem carregar o username oculto. Vai de volta no PATCH
+            (F-MOD-OPC).
     PaginaComentarios:
       type: object
       required: [itens, pagina, tamanho, totalItens, totalPaginas, ultima]
@@ -2085,12 +2294,44 @@ components:
     PessoaDaModeracao:
       type: object
       nullable: true
-      required: [id, username, nomeExibicao]
+      description: >-
+        Lida de `identidade.v_conta_moderacao_v1` (F-MOD-OPC): a conta suspensa
+        aparece com `suspensa`. Nula para conta em exclusão ou excluída.
+      required: [id, username, nomeExibicao, suspensa]
       properties:
         id: { type: string, format: uuid }
         username: { type: string }
         nomeExibicao: { type: string }
         avatarUrl: { type: string, nullable: true }
+        suspensa: { type: boolean }
+        suspensaEm: { type: string, format: date-time, nullable: true }
+    ContaDaModeracao:
+      type: object
+      required: [id, username, nomeExibicao, privacidade, suspensa]
+      properties:
+        id: { type: string, format: uuid }
+        username: { type: string }
+        nomeExibicao: { type: string }
+        avatarUrl: { type: string, nullable: true }
+        privacidade: { type: string, enum: [publico, privado] }
+        suspensa: { type: boolean }
+        suspensaEm: { type: string, format: date-time, nullable: true }
+        motivo: { type: string, nullable: true }
+    MotivoDaModeracaoDeConta:
+      type: object
+      required: [motivo]
+      properties:
+        motivo:
+          type: string
+          description: Até 500 code points, sem contar os espaços das pontas.
+    ContaModerada:
+      type: object
+      required: [usuarioId, suspensa]
+      properties:
+        usuarioId: { type: string, format: uuid }
+        suspensa: { type: boolean }
+        suspensaEm: { type: string, format: date-time, nullable: true }
+        reativadaEm: { type: string, format: date-time, nullable: true }
     DenunciaPendente:
       type: object
       required: [id, tipo, criadoEm, motivo, remocaoNaoConfirmada]
@@ -2147,17 +2388,35 @@ components:
           items: { type: string, format: uuid }
     RegistroDeModeracao:
       type: object
-      required: [id, criadoEm, acao, alvoTipo, comDenuncia, anonimizado]
+      required: [id, criadoEm, acao, alvoTipo, comDenuncia, anonimizado, suspensaoVigente]
       properties:
         id: { type: string, format: uuid }
         criadoEm: { type: string, format: date-time }
-        acao: { type: string, enum: [remover_conteudo, arquivar_denuncia] }
-        alvoTipo: { type: string, enum: [resenha, comentario, frase] }
+        acao:
+          type: string
+          enum: [remover_conteudo, arquivar_denuncia, suspender_conta, reativar_conta]
+        alvoTipo: { type: string, enum: [resenha, comentario, frase, usuario] }
         comDenuncia: { type: boolean }
         alvoAutor: { type: string, nullable: true, description: Username de quem escreveu. }
         atividadeAutor: { type: string, nullable: true }
         livroTitulo: { type: string, nullable: true }
         anonimizado: { type: boolean }
+        alvoId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Só nas linhas de conta; é o id para reativar.
+        alvoConta:
+          type: string
+          nullable: true
+          description: Username da conta, nas linhas de conta.
+        motivo:
+          type: string
+          nullable: true
+          description: Motivo do administrador, só nas linhas de conta (RNF-SEC-36).
+        suspensaoVigente:
+          type: boolean
+          description: A linha é a suspensão em vigor da conta.
     PaginaRegistrosDeModeracao:
       type: object
       required: [itens, temMais]

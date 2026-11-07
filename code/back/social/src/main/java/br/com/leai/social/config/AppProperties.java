@@ -38,7 +38,10 @@ public record AppProperties(
     // F-MOD: o comando interno de remoção no `leitura`. A URL tem default local; o segredo é
     // opcional para o serviço e os testes subirem sem ele, e sem ele a remoção responde 503.
     String leituraBaseUrl,
-    String moderacaoToken) {
+    String moderacaoToken,
+    // F-MOD-OPC: o comando interno de suspensão e reativação de conta no `identidade`, com o
+    // mesmo MODERACAO_TOKEN. Default local (8080).
+    String identidadeBaseUrl) {
 
   /** Vazio vale (remoção desligada); preenchido, com o mesmo mínimo do `leitura`. */
   @AssertTrue(message = "MODERACAO_TOKEN precisa de pelo menos 32 caracteres")

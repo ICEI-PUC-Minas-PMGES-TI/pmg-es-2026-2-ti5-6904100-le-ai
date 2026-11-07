@@ -10,6 +10,7 @@ import '../../design/widgets/botao_destrutivo.dart';
 import '../../design/widgets/botao_textual.dart';
 import '../../design/widgets/campo_senha.dart';
 import '../../design/widgets/folha_inferior.dart';
+import '../../core/session/session_controller.dart';
 import '../auth/auth_service.dart';
 import 'exclusao_service.dart';
 import 'validacao_de_senha.dart';
@@ -32,12 +33,17 @@ class ExcluirContaPage extends StatefulWidget {
   final VoidCallback? aoVoltar;
   final Future<void> Function(DateTime previstaEm) aoExclusaoSolicitada;
 
+  /// F-MOD-OPC: o pedido recebeu o 403 de conta suspensa (o token de acesso ainda valia). Quem
+  /// recebe encerra a sessão pela suspensão, e o login mostra o banner próprio.
+  final Future<void> Function()? aoContaSuspensa;
+
   const ExcluirContaPage({
     super.key,
     required this.servico,
     required this.authService,
     required this.aoExclusaoSolicitada,
     this.aoVoltar,
+    this.aoContaSuspensa,
   });
 
   @override
@@ -137,6 +143,12 @@ class _ExcluirContaPageState extends State<ExcluirContaPage> {
       await widget.aoExclusaoSolicitada(resposta.previstaEm);
     } on ApiException catch (erro) {
       if (!mounted) {
+        return;
+      }
+      final aoContaSuspensa = widget.aoContaSuspensa;
+      if (erro.codigo == SessionController.codigoContaSuspensa && aoContaSuspensa != null) {
+        // Repetir daria o mesmo 403: a sessão acaba aqui, com a explicação no login.
+        await aoContaSuspensa();
         return;
       }
       setState(() {
