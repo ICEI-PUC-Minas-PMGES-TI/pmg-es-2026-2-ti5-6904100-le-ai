@@ -12,14 +12,14 @@ Aqui ficam a ordem de trabalho (este arquivo), os prompts de cada etapa (`prompt
 
 As três features do Período 2 ([F-AVA-2](../../periodo-2/feature-F-AVA-2.md), [F-MOD](../../periodo-2/feature-F-MOD.md) e [F-ACV-NOTA](../../periodo-2/feature-F-ACV-NOTA.md)) foram testadas e validadas em DES pelo dono depois das releases v0.2.0 e v0.2.1. Os itens de DES foram marcados nos três arquivos.
 
-### 1. F-MOD-OPC — Suspensão de conta — pronta, aguardando revisão do PR #61
+### 1. F-MOD-OPC — Suspensão de conta — concluída, mergeada na `desenvolvimento` em 06/11/2026
 
 Feature maior e mais arriscada do período: dois serviços Spring (`social` e `identidade`, este do Henrique), migration nos dois e ocultação de conteúdo que atravessa feed, listas, notificações e recomendações de outros donos. Vem primeiro para ter folga até 17/11.
 
 - Prompt das três etapas (planejar, realizar, validar): [`prompt-F-MOD-OPC.md`](prompt-F-MOD-OPC.md).
 - Plano: [`plano-F-MOD-OPC.md`](plano-F-MOD-OPC.md), de 05/11/2026, revisado em duas rodadas (15 + 9 achados).
-- Implementada em 05 e 06/11/2026: [PR #61](https://github.com/ICEI-PUC-Minas-PMGES-TI/pmg-es-2026-2-ti5-6904100-le-ai/pull/61) para a `desenvolvimento`, validado por quatro agentes de contexto limpo e pelo teste manual (web no Edge, app no emulador) contra os serviços locais e o banco de dev. Débitos da feature fechados em 06/11 (commit `e566229`); a etapa 3b revisou a feature inteira com contexto limpo no mesmo dia e as correções entraram no commit `a43abef`; migrations aplicadas no dev; segredos já no Render. Falta só a revisão do Vicenzo (pedida em 06/11) e o merge na `desenvolvimento`. **Próximo passo: planejar a F-ACV-OPC (item 2).** Status em [`feature-F-MOD-OPC.md`](../feature-F-MOD-OPC.md).
+- Implementada em 05 e 06/11/2026: [PR #61](https://github.com/ICEI-PUC-Minas-PMGES-TI/pmg-es-2026-2-ti5-6904100-le-ai/pull/61) para a `desenvolvimento`, validado por quatro agentes de contexto limpo e pelo teste manual (web no Edge, app no emulador) contra os serviços locais e o banco de dev. Débitos da feature fechados em 06/11 (commit `e566229`); a etapa 3b revisou a feature inteira com contexto limpo no mesmo dia e as correções entraram no commit `a43abef`; migrations aplicadas no dev; segredos já no Render. O Vicenzo aprovou depois de duas rodadas de revisão e o PR foi mergeado na `desenvolvimento` em 06/11/2026 às 22:44 (`1281aa1`); as migrations `V20261106200000__comando_de_conta` da revisão foram aplicadas no dev logo depois. O DES vem com o merge da `main`, no fechamento de novembro. Status em [`feature-F-MOD-OPC.md`](../feature-F-MOD-OPC.md).
 
-### 2. F-ACV-OPC — Extras de acervo — depois da F-MOD-OPC
+### 2. F-ACV-OPC — Extras de acervo — prompt pronto, planejamento a fazer
 
-Planejada só depois de a F-MOD-OPC estar implementada e validada. Ordem interna sugerida: (a) assuntos em livro pessoal (backend → web → mobile); (b) recarga manual do dump, por último, combinada com o grupo porque roda no Neon. Se o prazo apertar, (b) é o primeiro corte.
+Prompt das quatro etapas, cada uma com um agente de contexto limpo (planejar, revisar o plano, realizar e revisar, revisão independente e PR): [`prompt-F-ACV-OPC.md`](prompt-F-ACV-OPC.md), de 06/11/2026. **Próximo passo: etapa 1 (planejar).** Ordem interna sugerida: (a) assuntos em livro pessoal (backend → web → mobile); (b) recarga manual do dump, por último, combinada com o grupo porque roda no Neon. Se o prazo apertar, (b) é o primeiro corte.

@@ -19,10 +19,10 @@ RNF atendidos: **RNF-SEC-04** (operação restrita ao administrador, verificada 
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | implementado, aplicado no dev (06/11/2026) | migrations `V20261105120000__suspensao_de_conta` (`identidade`: `suspenso_em`, `reativado_em`, CHECK e VIEW `v_conta_moderacao_v1`) e `V20261105120000__auditoria_de_conta` (`social`: CHECK e índice único das linhas de conta em `log_moderacao`); `MODERACAO_TOKEN` no `leai-identidade` a cadastrar no Render |
-| Backend | implementado, em revisão no [PR #61](https://github.com/ICEI-PUC-Minas-PMGES-TI/pmg-es-2026-2-ti5-6904100-le-ai/pull/61) | `identidade`: `/internal/moderacao/usuarios/{id}/suspensao` e `/reativacao`, 403 `CONTA_SUSPENSA` em login, renovação e pedido de exclusão; `social`: `/admin/usuarios/{id}/suspender` e `/reativar`, auditoria, ocultação de comentários e notificações |
-| Web | implementado, em revisão no PR #61 | suspender e reativar no painel (pela denúncia e pela linha vigente do registro), etiqueta, faixa, registro com o motivo; logout com banner e banner no login |
-| Mobile | implementado, em revisão no PR #61 | **sem painel**; logout uma vez na renovação negada, banner de conta suspensa no login |
+| Infra | implementado, aplicado no dev (06/11/2026), inclusive as `V20261106200000__comando_de_conta` da revisão | migrations `V20261105120000__suspensao_de_conta` (`identidade`: `suspenso_em`, `reativado_em`, CHECK e VIEW `v_conta_moderacao_v1`) e `V20261105120000__auditoria_de_conta` (`social`: CHECK e índice único das linhas de conta em `log_moderacao`); `MODERACAO_TOKEN` cadastrado no Render em 06/11 |
+| Backend | mergeado na `desenvolvimento` em 06/11/2026 ([PR #61](https://github.com/ICEI-PUC-Minas-PMGES-TI/pmg-es-2026-2-ti5-6904100-le-ai/pull/61)) | `identidade`: `/internal/moderacao/usuarios/{id}/suspensao` e `/reativacao`, 403 `CONTA_SUSPENSA` em login, renovação e pedido de exclusão; `social`: `/admin/usuarios/{id}/suspender` e `/reativar`, auditoria, ocultação de comentários e notificações |
+| Web | mergeado na `desenvolvimento` em 06/11/2026 (PR #61) | suspender e reativar no painel (pela denúncia e pela linha vigente do registro), etiqueta, faixa, registro com o motivo; logout com banner e banner no login |
+| Mobile | mergeado na `desenvolvimento` em 06/11/2026 (PR #61) | **sem painel**; logout uma vez na renovação negada, banner de conta suspensa no login |
 
 ## Especificação
 
@@ -76,7 +76,7 @@ Evidência de 05 e 06/11/2026: testes automáticos (`identidade` 233, `social` 2
 
 (plano §10)
 
-- [ ] Código (backend `social` + efeito em `identidade`, web, tratamento no mobile) mergeado em `desenvolvimento`. Está no [PR #61](https://github.com/ICEI-PUC-Minas-PMGES-TI/pmg-es-2026-2-ti5-6904100-le-ai/pull/61), aguardando a revisão.
+- [x] Código (backend `social` + efeito em `identidade`, web, tratamento no mobile) mergeado em `desenvolvimento`: [PR #61](https://github.com/ICEI-PUC-Minas-PMGES-TI/pmg-es-2026-2-ti5-6904100-le-ai/pull/61), aprovado pelo Vicenzo e mergeado em 06/11/2026 (`1281aa1`).
 - [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)). Conferir no PR antes do merge.
 - [x] Testes unitários e de integração com banco real/container: autorização admin, negativa para não-admin, suspensão bloqueando login e renovação, revogação de refresh tokens, idempotência, reativação e registro de auditoria (RNF-TST-02). `SuspensaoDeContaIntegracaoTest`, `SuspensaoSemTokenIntegracaoTest` e `SuspensaoComAdminIntegracaoTest` no `identidade`; `SuspensaoDeContaIntegracaoTest` e `OcultacaoDeContaSuspensaIntegracaoTest` no `social`, em Postgres 17 descartável.
 - [x] Teste do comando cross-service cobre autorização, revalidação em `identidade`, repetição idempotente e falha **sem** estado local falso em `social` (RNF-TST-02). O `identidade` simulado (`IdentidadeSimulada`) num `HttpServer` do JDK: timeout, retentativa, 503, 404, 422 e 403.
@@ -121,7 +121,7 @@ Plano em [`renato-periodo-3/plano-F-MOD-OPC.md`](renato-periodo-3/plano-F-MOD-OP
 
 **Segunda rodada do PR #61 (07/11/2026):** Kayke, `ComentarioResposta`, `EditarComentarioRequisicao`, `InteracaoController`, `ServicoDeInteracao.editar`, `MascaraDeMencoes`, `InteracaoControllerIntegracaoTest` e `OcultacaoDeContaSuspensaIntegracaoTest`; nos clientes, `services/social.ts`, `ModalComentarios.vue` e o spec dele, `social_service.dart`, `folha_comentarios.dart` e os testes do feed do app. Sem migration nova.
 
-**Revisão do PR #61 (06/11/2026):** três pedidos do Vicenzo, corrigidos com teste (ver Timeline). Código de outras pessoas: Henrique, a migration `V20261106200000__comando_de_conta`, `CodigoErro`, `ServicoDeSuspensao`, `ModeracaoInternaController`, `docs/api/identidade.yaml` e os três testes das rotas internas; no `social`, `ConsumidorDeContaExcluida` e o teste dele. Kayke: `ServicoDeInteracao.editar` e `textoVisivel`, `MascaraDeMencoes` (novo, no pacote dele), `ServicoDeFeedIntegracaoTest` e `OcultacaoDeContaSuspensaIntegracaoTest`. **Migrations novas (`identidade` e `social`, as duas `V20261106200000__comando_de_conta`) aguardam a revisão humana e não foram aplicadas no banco de dev.**
+**Revisão do PR #61 (06/11/2026):** três pedidos do Vicenzo, corrigidos com teste (ver Timeline). Código de outras pessoas: Henrique, a migration `V20261106200000__comando_de_conta`, `CodigoErro`, `ServicoDeSuspensao`, `ModeracaoInternaController`, `docs/api/identidade.yaml` e os três testes das rotas internas; no `social`, `ConsumidorDeContaExcluida` e o teste dele. Kayke: `ServicoDeInteracao.editar` e `textoVisivel`, `MascaraDeMencoes` (novo, no pacote dele), `ServicoDeFeedIntegracaoTest` e `OcultacaoDeContaSuspensaIntegracaoTest`. As migrations novas (`identidade` e `social`, as duas `V20261106200000__comando_de_conta`) foram aplicadas no banco de dev em 06/11/2026, depois do merge.
 
 **Render:** `MODERACAO_TOKEN` com o mesmo valor no `leai-identidade`, `leai-social` e `leai-leitura`, cadastrado em 06/11 pelo MCP; os três redeploys ficaram `live`. As migrations rodam no deploy quando o código chegar na `main`.
 
@@ -135,6 +135,8 @@ Plano em [`renato-periodo-3/plano-F-MOD-OPC.md`](renato-periodo-3/plano-F-MOD-OP
 - Stack definida (arquitetura §2.1): `social` e `identidade` em Spring.
 
 ## Timeline
+
+### Merge 06/11/2026: o Vicenzo aprovou o PR #61 depois da segunda rodada (294 testes do `social` em Postgres novo, 1079 da web, 49 do feed no app, build da web e CI verdes) e ele foi mergeado na `desenvolvimento` às 22:44 (`1281aa1`). As duas `V20261106200000__comando_de_conta` foram aplicadas no banco de dev logo depois, subindo o `identidade` e o `social` com o `.env` local. O DES recebe tudo no merge da `main`, no fechamento de novembro.
 
 ### Segunda rodada do PR #61 07/11/2026: o Vicenzo confirmou as três correções e apontou dois casos restantes, corrigidos com teste. (1) Duas intenções em andamento: a mais antiga, retomando depois, podia cancelar a mais nova. Agora uma intenção só resolve as reservadas antes dela, pela ordem de reserva; a mais nova resolve as antigas antes de rodar, e a antiga que chega depois é 409 `ACAO_SUPERADA`. (2) Conta suspensa ou reativada com o editor de comentário aberto: a desmáscara usava a apresentação do momento do PATCH. Agora o autor recebe a `versao` da apresentação, a web e o app a devolvem no PATCH, e versão diferente é 409 `COMENTARIO_DESATUALIZADO`, com o texto preservado no campo e o pedido de recarga. Com menção gravada, a versão é obrigatória; um APK antigo não consegue editar comentário com menção até ser atualizado. Testes: `social` 294 (`verify` em Postgres 17 novo), web 1079, mobile `test/features/feed` 49; o `identidade` não mudou nesta rodada.
 
