@@ -74,6 +74,29 @@ class MascaraDeMencoesTest {
   }
 
   @Test
+  @DisplayName("A versão muda com a apresentação: menção oculta e 'um leitor' literal não coincidem")
+  void versao() {
+    List<Mencao> mencoes = List.of(mencao(OCULTA, 3));
+    ServicoDeInteracao.TextoVisivel oculta =
+        ServicoDeInteracao.textoVisivel("Oi @suspensa", mencoes, PERFIS);
+    ServicoDeInteracao.TextoVisivel literal =
+        ServicoDeInteracao.textoVisivel("Oi um leitor", List.of(), PERFIS);
+    ServicoDeInteracao.TextoVisivel reativada =
+        ServicoDeInteracao.textoVisivel(
+            "Oi @suspensa",
+            mencoes,
+            Map.of(OCULTA, new AutorSnapshotResposta(OCULTA.toString(), "suspensa", "S", null)));
+
+    assertThat(oculta.texto()).isEqualTo(literal.texto());
+    assertThat(oculta.versao()).isNotEqualTo(literal.versao());
+    assertThat(oculta.versao()).isNotEqualTo(reativada.versao());
+    assertThat(oculta.versao())
+        .isEqualTo(ServicoDeInteracao.textoVisivel("Oi @suspensa", mencoes, PERFIS).versao())
+        .hasSize(22)
+        .doesNotContain("suspensa");
+  }
+
+  @Test
   @DisplayName("Sem menção oculta, o texto editado passa intacto, inclusive um 'um leitor' digitado")
   void semOculta() {
     List<Mencao> mencoes = List.of(mencao(VISIVEL, 3));

@@ -283,15 +283,25 @@ class InteracaoControllerIntegracaoTest extends IntegracaoComPostgres {
     leitor("nadiasampaio");
     leitor("rafaokamoto");
     String bearer = token(solicitante);
-    String id = idDe(comentar(atividadeId, bearer, "Por indicação da @nadiasampaio.", null));
+    HttpResponse<String> criado =
+        comentar(atividadeId, bearer, "Por indicação da @nadiasampaio.", null);
+    String id = idDe(criado);
 
+    // Comentário com menção exige a versão da apresentação carregada (F-MOD-OPC).
     HttpResponse<String> mesmaMencao =
-        editar(id, bearer, "Por indicação da @nadiasampaio, obrigada.", UUID.randomUUID().toString());
+        editar(
+            id,
+            bearer,
+            "Por indicação da @nadiasampaio, obrigada.",
+            UUID.randomUUID().toString(),
+            versaoDe(criado));
     assertThat(mesmaMencao.statusCode()).isEqualTo(200);
     assertThat(mesmaMencao.body()).contains("\"editado\":true").contains("\"nivel\":\"RAIZ\"");
     assertThat(eventosDeMencao(id)).isEqualTo(1L);
 
-    HttpResponse<String> semMencao = editar(id, bearer, "Sem menção agora.", UUID.randomUUID().toString());
+    HttpResponse<String> semMencao =
+        editar(
+            id, bearer, "Sem menção agora.", UUID.randomUUID().toString(), versaoDe(mesmaMencao));
     assertThat(semMencao.body()).contains("\"mencoes\":[]");
     assertThat(linhasDeMencao(id)).isZero();
 
@@ -460,13 +470,28 @@ class InteracaoControllerIntegracaoTest extends IntegracaoComPostgres {
   }
 
   private HttpResponse<String> editar(String comentarioId, String bearer, String texto, String chave) {
+    return editar(comentarioId, bearer, texto, chave, null);
+  }
+
+  private HttpResponse<String> editar(
+      String comentarioId, String bearer, String texto, String chave, String versao) {
+    String corpo =
+        versao == null
+            ? "{\"texto\":\"" + texto + "\"}"
+            : "{\"texto\":\"" + texto + "\",\"versao\":\"" + versao + "\"}";
     return enviar(
         HttpRequest.newBuilder(uri("/comentarios/" + comentarioId))
             .header("Authorization", "Bearer " + bearer)
             .header("Idempotency-Key", chave)
             .header("Content-Type", "application/json")
-            .method("PATCH", HttpRequest.BodyPublishers.ofString("{\"texto\":\"" + texto + "\"}"))
+            .method("PATCH", HttpRequest.BodyPublishers.ofString(corpo))
             .build());
+  }
+
+  private static String versaoDe(HttpResponse<String> resposta) {
+    Matcher versao = Pattern.compile("\"versao\":\"([^\"]+)\"").matcher(resposta.body());
+    assertThat(versao.find()).as("corpo sem versao: %s", resposta.body()).isTrue();
+    return versao.group(1);
   }
 
   private HttpResponse<String> excluir(String comentarioId, String bearer, String chave) {

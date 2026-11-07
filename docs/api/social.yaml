@@ -375,6 +375,15 @@ paths:
         destinatário que este comentário ainda não notificou, nunca para o
         autor nem para o alvo de comentario.respondido. Menções que notificam
         têm rate limiting próprio (RN-10.3); estourar recusa a edição com 429.
+        F-MOD-OPC: a menção a conta suspensa ou em exclusão chega aos clientes
+        como "um leitor", e o editor parte desse texto; o servidor devolve ao
+        `@username` gravado cada trecho mascarado que sobrou. Isso só vale
+        contra a apresentação que o editor carregou: o cliente devolve a
+        `versao` do comentário, e versão diferente da atual (a conta foi
+        suspensa ou reativada, ou houve outra edição) é 409
+        `COMENTARIO_DESATUALIZADO`, sem mudança. Com menção gravada, a
+        `versao` é obrigatória; sem menção, o cliente antigo continua editando
+        sem ela.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -392,7 +401,14 @@ paths:
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '403': { $ref: '#/components/responses/Proibido' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
-        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '409':
+          description: >-
+            `COMENTARIO_DESATUALIZADO`, a apresentação mudou desde a leitura
+            (ou faltou a `versao` com menção gravada); ou `CONFLITO`, a chave
+            de idempotência já foi usada com outro payload.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
         '429': { $ref: '#/components/responses/LimiteExcedido' }
         '503': { $ref: '#/components/responses/Indisponivel' }
     delete:
@@ -1676,6 +1692,12 @@ components:
           minLength: 1
           maxLength: 2000
           description: Texto puro. HTML não é interpretado.
+        versao:
+          type: string
+          maxLength: 64
+          description: >-
+            A `versao` do comentário que o editor carregou (F-MOD-OPC).
+            Obrigatória quando o comentário tem menção gravada.
     Mencao:
       type: object
       required: [posicao, comprimento, usuarioId, username]
@@ -1748,6 +1770,14 @@ components:
           type: string
           format: date-time
           nullable: true
+        versao:
+          type: string
+          nullable: true
+          description: >-
+            Só no comentário do próprio leitor (nulo nos outros): identifica a
+            apresentação recebida (texto mascarado e onde estão os trechos
+            mascarados), sem carregar o username oculto. Vai de volta no PATCH
+            (F-MOD-OPC).
     PaginaComentarios:
       type: object
       required: [itens, pagina, tamanho, totalItens, totalPaginas, ultima]

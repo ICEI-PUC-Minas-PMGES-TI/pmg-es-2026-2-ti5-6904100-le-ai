@@ -185,8 +185,15 @@ public class ServicoDeInteracao {
     return mapearUm(novo, usuarioId, novo.ehRaiz() ? 0 : null);
   }
 
+  /**
+   * Edita o próprio comentário. {@code versao} é a da apresentação que o editor carregou ({@code
+   * Comentario.versao}); obrigatória quando o comentário tem menção gravada, que é quando a
+   * máscara de conta oculta pode ter mudado. Diferente da atual, ou ausente nesse caso, é 409
+   * {@code COMENTARIO_DESATUALIZADO}, e nada muda.
+   */
   @Transactional
-  public ComentarioResposta editar(UUID usuarioId, UUID comentarioId, String texto) {
+  public ComentarioResposta editar(
+      UUID usuarioId, UUID comentarioId, String texto, String versao) {
     limiteDeComentar.registrar(usuarioId);
     Comentario comentario = buscarProprio(usuarioId, comentarioId);
     servicoDeFeed.validarVisivel(usuarioId, comentario.atividadeId());
@@ -198,6 +205,13 @@ public class ServicoDeInteracao {
     // Os editores partem do texto mascarado da listagem: o "um leitor" que sobrou volta a ser o
     // @username gravado antes de resolver as menções (revisão do PR #61).
     TextoVisivel exibido = textoVisivel(comentario.texto(), antigas, perfisMencionados);
+    boolean versaoExigida = versao != null || !antigas.isEmpty();
+    if (versaoExigida && !exibido.versao().equals(versao)) {
+      // A apresentação mudou desde a leitura (conta suspensa ou reativada, ou outra edição):
+      // desmascarar pela de agora apagaria a menção ou criaria uma (revisão do PR #61).
+      throw new ErroDeNegocioException(
+          CodigoErro.COMENTARIO_DESATUALIZADO, CodigoErro.COMENTARIO_DESATUALIZADO.mensagem());
+    }
     String textoNovo = MascaraDeMencoes.desmascarar(exibido.texto(), exibido.ocultas(), texto);
 
     List<MencaoResolvida> mencoes = resolvedorDeMencoes.resolver(textoNovo);
@@ -428,7 +442,13 @@ public class ServicoDeInteracao {
    * desfazer a máscara ({@link MascaraDeMencoes}).
    */
   record TextoVisivel(
-      String texto, List<MencaoResposta> mencoes, List<MascaraDeMencoes.Oculta> ocultas) {}
+      String texto, List<MencaoResposta> mencoes, List<MascaraDeMencoes.Oculta> ocultas) {
+
+    /** A versão da apresentação, que o autor devolve ao editar. */
+    String versao() {
+      return MascaraDeMencoes.versao(texto, ocultas);
+    }
+  }
 
   /**
    * F-MOD-OPC: a menção a conta suspensa ou em exclusão (fora da VIEW de perfil) perde o link e o
@@ -494,7 +514,9 @@ public class ServicoDeInteracao {
         comentario.autorId().equals(solicitanteId),
         comentario.foiEditado(),
         comentario.criadoEm(),
-        comentario.atualizadoEm());
+        comentario.atualizadoEm(),
+        // Só o autor edita, e só ele precisa da versão.
+        comentario.autorId().equals(solicitanteId) ? visivel.versao() : null);
   }
 
   private static void validarLimite(int limit) {

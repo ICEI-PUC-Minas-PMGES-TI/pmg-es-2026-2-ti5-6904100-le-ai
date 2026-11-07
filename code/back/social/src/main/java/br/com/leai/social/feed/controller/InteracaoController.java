@@ -188,6 +188,12 @@ public class InteracaoController {
       description = "Comentário inexistente ou atividade não visível.",
       content = @Content(schema = @Schema(ref = "#/components/schemas/Erro")))
   @ApiResponse(
+      responseCode = "409",
+      description =
+          "COMENTARIO_DESATUALIZADO: a versão enviada não é a da apresentação atual, ou faltou com"
+              + " menção gravada. Nada muda; o editor recarrega.",
+      content = @Content(schema = @Schema(ref = "#/components/schemas/Erro")))
+  @ApiResponse(
       responseCode = "429",
       description = "Limite de comentários ou de menções atingido.",
       content = @Content(schema = @Schema(ref = "#/components/schemas/Erro")))
@@ -206,7 +212,8 @@ public class InteracaoController {
             ComentarioResposta.class,
             () ->
                 new RespostaIdempotente<>(
-                    HttpStatus.OK.value(), servico.editar(eu, comentarioId, requisicao.texto())));
+                    HttpStatus.OK.value(),
+                    servico.editar(eu, comentarioId, requisicao.texto(), requisicao.versao())));
     return ResponseEntity.status(resposta.status()).body(resposta.corpo());
   }
 

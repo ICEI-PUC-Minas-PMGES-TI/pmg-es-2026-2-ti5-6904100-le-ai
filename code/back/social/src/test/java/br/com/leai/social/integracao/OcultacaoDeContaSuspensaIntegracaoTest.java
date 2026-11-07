@@ -264,19 +264,8 @@ class OcultacaoDeContaSuspensaIntegracaoTest extends IntegracaoComPostgres {
     base.suspender(suspensa);
     long eventosAntes = massa.contar("SELECT count(*) FROM outbox_social");
 
-    HttpResponse<String> editado =
-        enviar(
-            HttpRequest.newBuilder(uri("/comentarios/" + id))
-                .header("Authorization", "Bearer " + token(leitora))
-                .header("Content-Type", "application/json")
-                .header("Idempotency-Key", UUID.randomUUID().toString())
-                .method(
-                    "PATCH",
-                    HttpRequest.BodyPublishers.ofString(
-                        json.writeValueAsString(
-                            Map.of("texto", "Olá de novo, @SUSPENSA e @terceira!"))))
-                .build());
-    assertThat(editado.statusCode()).as(editado.body()).isEqualTo(200);
+    String versao = comentarioPorId(id, leitora).get("versao").asString();
+    editar(id, leitora, "Olá de novo, @SUSPENSA e @terceira!", versao);
 
     JsonNode durante = comentarioPorId(id, dona);
     assertThat(durante.get("texto").asString()).isEqualTo("Olá de novo, um leitor e @terceira!");
@@ -312,9 +301,10 @@ class OcultacaoDeContaSuspensaIntegracaoTest extends IntegracaoComPostgres {
     long eventosAntes = massa.contar("SELECT count(*) FROM outbox_social");
 
     // O que os dois editores fazem: partem do `texto` que a listagem devolveu ao próprio autor.
-    String exibido = comentarioPorId(id, leitora).get("texto").asString();
+    JsonNode carregado = comentarioPorId(id, leitora);
+    String exibido = carregado.get("texto").asString();
     assertThat(exibido).isEqualTo("Oi um leitor, @terceira e um leitor");
-    assertThat(editar(id, leitora, exibido + "!").statusCode()).isEqualTo(200);
+    editar(id, leitora, exibido + "!", carregado.get("versao").asString());
 
     assertThat(textoGravado(id)).isEqualTo("Oi @suspensa, @terceira e @Suspensa!");
     assertThat(mencoesGravadas(id)).isEqualTo(3);
@@ -324,9 +314,9 @@ class OcultacaoDeContaSuspensaIntegracaoTest extends IntegracaoComPostgres {
     assertThat(durante.get("mencoes")).hasSize(1);
 
     // Apagar um dos trechos mascarados tira só aquela menção; editar de novo continua estável.
-    String semOPrimeiro =
-        comentarioPorId(id, leitora).get("texto").asString().replace("Oi um leitor, ", "Oi ");
-    assertThat(editar(id, leitora, semOPrimeiro).statusCode()).isEqualTo(200);
+    JsonNode deNovo = comentarioPorId(id, leitora);
+    String semOPrimeiro = deNovo.get("texto").asString().replace("Oi um leitor, ", "Oi ");
+    editar(id, leitora, semOPrimeiro, deNovo.get("versao").asString());
     assertThat(textoGravado(id)).isEqualTo("Oi @terceira e @Suspensa!");
     assertThat(mencoesGravadas(id)).isEqualTo(2);
 
@@ -337,20 +327,94 @@ class OcultacaoDeContaSuspensaIntegracaoTest extends IntegracaoComPostgres {
         .containsExactly("terceira", "suspensa");
   }
 
-  private HttpResponse<String> editar(String id, UUID quem, String texto) throws Exception {
-    HttpResponse<String> resposta =
+  @Test
+  @DisplayName("Editor aberto com 'um leitor' e a conta reativada antes de salvar: 409, a menção fica")
+  void edicaoDepoisDaReativacaoPedeRecarga() throws Exception {
+    String id = criarComentario(leitora, "Oi @suspensa");
+    base.suspender(suspensa);
+    JsonNode carregado = comentarioPorId(id, leitora);
+    assertThat(carregado.get("texto").asString()).isEqualTo("Oi um leitor");
+
+    base.reativar(suspensa);
+    HttpResponse<String> salvo =
+        patch(id, leitora, carregado.get("texto").asString() + "!", carregado.get("versao").asString());
+
+    assertThat(salvo.statusCode()).isEqualTo(409);
+    assertThat(corpo(salvo).get("codigo").asString()).isEqualTo("COMENTARIO_DESATUALIZADO");
+    assertThat(textoGravado(id)).isEqualTo("Oi @suspensa");
+    assertThat(mencoesGravadas(id)).isEqualTo(1);
+    // Recarregado, o editor recebe a apresentação nova e a edição passa.
+    JsonNode recarregado = comentarioPorId(id, leitora);
+    editar(id, leitora, recarregado.get("texto").asString() + "!", recarregado.get("versao").asString());
+    assertThat(textoGravado(id)).isEqualTo("Oi @suspensa!");
+  }
+
+  @Test
+  @DisplayName("Editor aberto com a conta ativa e suspensa antes de salvar: 409, sem menção nova")
+  void edicaoDepoisDaSuspensaoPedeRecarga() throws Exception {
+    String id = criarComentario(leitora, "Oi @suspensa e um leitor");
+    JsonNode carregado = comentarioPorId(id, leitora);
+    assertThat(carregado.get("texto").asString()).isEqualTo("Oi @suspensa e um leitor");
+
+    base.suspender(suspensa);
+    HttpResponse<String> salvo =
+        patch(id, leitora, carregado.get("texto").asString() + "!", carregado.get("versao").asString());
+
+    assertThat(salvo.statusCode()).isEqualTo(409);
+    assertThat(textoGravado(id)).isEqualTo("Oi @suspensa e um leitor");
+    assertThat(mencoesGravadas(id)).isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName("Com menção gravada, editar sem versão é 409; versão só para o autor")
+  void versaoObrigatoriaComMencao() throws Exception {
+    String id = criarComentario(leitora, "Oi @terceira");
+    HttpResponse<String> semVersao = patch(id, leitora, "Oi @terceira!", null);
+    assertThat(semVersao.statusCode()).isEqualTo(409);
+    assertThat(textoGravado(id)).isEqualTo("Oi @terceira");
+    assertThat(comentarioPorId(id, dona).get("versao").isNull()).isTrue();
+
+    // Sem menção gravada, o cliente antigo (sem versão) continua editando.
+    String semMencao = criarComentario(leitora, "Sem menção");
+    assertThat(patch(semMencao, leitora, "Sem menção!", null).statusCode()).isEqualTo(200);
+  }
+
+  private String criarComentario(UUID quem, String texto) throws Exception {
+    HttpResponse<String> criado =
         enviar(
-            HttpRequest.newBuilder(uri("/comentarios/" + id))
+            HttpRequest.newBuilder(uri("/atividades/" + atividade + "/comentarios"))
                 .header("Authorization", "Bearer " + token(quem))
                 .header("Content-Type", "application/json")
                 .header("Idempotency-Key", UUID.randomUUID().toString())
-                .method(
-                    "PATCH",
+                .POST(
                     HttpRequest.BodyPublishers.ofString(
                         json.writeValueAsString(Map.of("texto", texto))))
                 .build());
+    assertThat(criado.statusCode()).as(criado.body()).isEqualTo(201);
+    return corpo(criado).get("id").asString();
+  }
+
+  private HttpResponse<String> editar(String id, UUID quem, String texto, String versao)
+      throws Exception {
+    HttpResponse<String> resposta = patch(id, quem, texto, versao);
     assertThat(resposta.statusCode()).as(resposta.body()).isEqualTo(200);
     return resposta;
+  }
+
+  private HttpResponse<String> patch(String id, UUID quem, String texto, String versao)
+      throws Exception {
+    Map<String, Object> corpo = new java.util.HashMap<>();
+    corpo.put("texto", texto);
+    if (versao != null) {
+      corpo.put("versao", versao);
+    }
+    return enviar(
+        HttpRequest.newBuilder(uri("/comentarios/" + id))
+            .header("Authorization", "Bearer " + token(quem))
+            .header("Content-Type", "application/json")
+            .header("Idempotency-Key", UUID.randomUUID().toString())
+            .method("PATCH", HttpRequest.BodyPublishers.ofString(json.writeValueAsString(corpo)))
+            .build());
   }
 
   private String textoGravado(String id) {

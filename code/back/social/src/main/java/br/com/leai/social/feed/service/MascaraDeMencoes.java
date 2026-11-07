@@ -1,6 +1,10 @@
 package br.com.leai.social.feed.service;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 
 /**
@@ -19,6 +23,13 @@ import java.util.List;
  * apagou ou alterou não casa e sai; o que ficou volta a ser o {@code @username} original. Um
  * "um leitor" que o autor digitou de próprio punho só vira menção se ocupar o lugar de uma
  * menção apagada, com a mesma vizinhança; aparece igual enquanto a conta estiver oculta.
+ *
+ * <p><b>Versão da apresentação</b> (segunda rodada da revisão): a desmáscara só vale contra a
+ * apresentação que o editor carregou. Se a conta mencionada foi suspensa ou reativada entre a
+ * leitura e o PATCH, a apresentação de agora é outra, e deduzir dela apagaria a menção ou
+ * transformaria um "um leitor" literal em menção. Por isso o autor recebe a {@link #versao} da
+ * apresentação, devolve-a no PATCH, e a edição com versão diferente é recusada (409) para o
+ * editor recarregar.
  */
 final class MascaraDeMencoes {
 
@@ -29,6 +40,26 @@ final class MascaraDeMencoes {
   record Oculta(int posicao, String username) {}
 
   private MascaraDeMencoes() {}
+
+  /**
+   * Identifica a apresentação: o texto mascarado e onde estão os trechos mascarados (um "um
+   * leitor" literal e um mascarado dão versões diferentes). Não carrega o username oculto.
+   */
+  static String versao(String mascarado, List<Oculta> ocultas) {
+    StringBuilder fonte = new StringBuilder(mascarado).append('\u0000');
+    for (Oculta oculta : ocultas) {
+      fonte.append(oculta.posicao()).append(',');
+    }
+    try {
+      byte[] hash =
+          MessageDigest.getInstance("SHA-256")
+              .digest(fonte.toString().getBytes(StandardCharsets.UTF_8));
+      return Base64.getUrlEncoder().withoutPadding().encodeToString(hash).substring(0, 22);
+    } catch (NoSuchAlgorithmException impossivel) {
+      // SHA-256 é algoritmo obrigatório em toda JVM.
+      throw new IllegalStateException("SHA-256 indisponível", impossivel);
+    }
+  }
 
   static String desmascarar(String mascarado, List<Oculta> ocultas, String editado) {
     if (ocultas.isEmpty()) {
