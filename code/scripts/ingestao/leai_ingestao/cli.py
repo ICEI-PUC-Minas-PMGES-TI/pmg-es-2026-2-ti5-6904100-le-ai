@@ -162,7 +162,10 @@ def comando_carregar(args) -> int:
                 args.autor_obra,
                 sinonimos,
                 limite=args.limite,
+                recarga=args.tipo == "recarga",
             )
+            # Só livro novo: a atualização da recarga não tem coluna própria
+            # (sem migration) e aparece em `livros_atualizados`, no resumo abaixo.
             execucao.inseridos = totais.livros
 
         print(json.dumps({"execucao": execucao.id, **totais.como_dict()}, ensure_ascii=False, indent=2))

@@ -104,6 +104,53 @@ SELECT s.isbn13, s.ol_edition_key, s.ol_work_key, s.titulo, s.ano_publicacao, s.
 ON CONFLICT (isbn13) WHERE isbn13 IS NOT NULL DO NOTHING;
 """
 
+# Recarga (RF-ACV-14, F-ACV-OPC): o livro oficial que continua no dump recebe
+# o que a fonte traz de novo (decisão 3 do dono, 06/11/2026). Título e capa
+# externa sempre vêm (o filtro da fase 1 exige os dois); ano, editora e série só
+# trocam quando o dump traz valor, e ausência mantém o atual. O número da série
+# segue a série: a mesma série sem número no dump mantém o número atual, e uma
+# série nova sem número fica sem número (`livro_numero_serie_exige_serie_ck`).
+# Fica de fora, de propósito: `paginas` (decisão 5: o `leitura` lê o total ao
+# vivo, e mudá-lo deixaria leitura acima de 100%), `ol_work_key` (decisão 9: o
+# livro do Google Books continua sem chave e o `notas` não troca a nota dele),
+# capa própria e asset, sinopse, `atualizado_em` (relógio da sinopse), nota
+# geral e `ativo`. O `IS DISTINCT FROM` deixa intacta a linha que não muda: a
+# segunda recarga do mesmo dump não atualiza nada nem gera WAL à toa.
+SQL_LIVRO_ATUALIZAR = """
+UPDATE acervo.livro l
+   SET titulo = n.titulo,
+       ano_publicacao = coalesce(n.ano_publicacao, l.ano_publicacao),
+       capa_url_externa = n.capa_url_externa,
+       editora_id = coalesce(n.editora_id, l.editora_id),
+       serie_id = coalesce(n.serie_id, l.serie_id),
+       numero_serie = CASE
+         WHEN n.serie_id IS NULL THEN l.numero_serie
+         ELSE coalesce(n.numero_serie, CASE WHEN n.serie_id = l.serie_id THEN l.numero_serie END)
+       END
+  FROM (
+    SELECT DISTINCT ON (s.isbn13)
+           s.isbn13, s.titulo, s.ano_publicacao, s.capa_url_externa, s.numero_serie,
+           e.id AS editora_id, r.id AS serie_id
+      FROM stg_livro s
+      LEFT JOIN acervo.editora e ON e.nome_normalizado = s.editora_normalizada
+      LEFT JOIN acervo.serie   r ON r.nome_normalizado = s.serie_normalizada
+     ORDER BY s.isbn13, s.ol_edition_key
+  ) n
+ WHERE l.isbn13 = n.isbn13
+   AND l.tipo = 'oficial'
+   AND (
+         l.titulo IS DISTINCT FROM n.titulo
+      OR (n.ano_publicacao IS NOT NULL AND l.ano_publicacao IS DISTINCT FROM n.ano_publicacao)
+      OR l.capa_url_externa IS DISTINCT FROM n.capa_url_externa
+      OR (n.editora_id IS NOT NULL AND l.editora_id IS DISTINCT FROM n.editora_id)
+      OR (n.serie_id IS NOT NULL AND (
+               l.serie_id IS DISTINCT FROM n.serie_id
+            OR l.numero_serie IS DISTINCT FROM coalesce(
+                 n.numero_serie, CASE WHEN n.serie_id = l.serie_id THEN l.numero_serie END)
+          ))
+   );
+"""
+
 SQL_LIVRO_AUTOR = """
 INSERT INTO acervo.livro_autor (livro_id, autor_id)
 SELECT l.id, coalesce(u.autor_id, a.id)
@@ -127,6 +174,27 @@ SELECT l.id, a.id
 ON CONFLICT DO NOTHING;
 """
 
+# Recarga: os assuntos do livro oficial passam a ser os do mapeamento atual,
+# mas só quando o livro mapeia ao menos um assunto que existe (decisão 3). O
+# conjunto novo sai do mesmo JOIN de `SQL_LIVRO_ASSUNTO`, então slug fora do
+# conjunto curado não conta: livro só com slug desconhecido, ou sem tag mapeada,
+# fica com os assuntos que tem. Aqui só se remove o que saiu; o
+# `SQL_LIVRO_ASSUNTO` logo depois acrescenta o que falta. O livro pessoal não
+# tem ISBN e nunca casa.
+SQL_LIVRO_ASSUNTO_SUBSTITUIR = """
+WITH novo AS (
+  SELECT DISTINCT l.id AS livro_id, a.id AS assunto_id
+    FROM stg_livro_assunto s
+    JOIN acervo.livro   l ON l.isbn13 = s.isbn13 AND l.tipo = 'oficial'
+    JOIN acervo.assunto a ON a.slug = s.slug
+)
+DELETE FROM acervo.livro_assunto la
+ WHERE la.livro_id IN (SELECT livro_id FROM novo)
+   AND NOT EXISTS (
+         SELECT 1 FROM novo n WHERE n.livro_id = la.livro_id AND n.assunto_id = la.assunto_id
+       );
+"""
+
 
 @dataclass
 class TotaisDaCarga:
@@ -136,6 +204,9 @@ class TotaisDaCarga:
     autores: int = 0
     vinculos_autor: int = 0
     vinculos_assunto: int = 0
+    # Só a recarga mexe nestes dois; na carga inicial ficam em zero.
+    livros_atualizados: int = 0
+    vinculos_assunto_removidos: int = 0
 
     def como_dict(self) -> dict:
         return {
@@ -145,6 +216,8 @@ class TotaisDaCarga:
             "autores": self.autores,
             "vinculos_autor": self.vinculos_autor,
             "vinculos_assunto": self.vinculos_assunto,
+            "livros_atualizados": self.livros_atualizados,
+            "vinculos_assunto_removidos": self.vinculos_assunto_removidos,
         }
 
 
@@ -179,11 +252,17 @@ def carregar(
     autor_obra: Path,
     sinonimos: dict[str, str],
     limite: int | None = None,
+    recarga: bool = False,
 ) -> TotaisDaCarga:
     """Executa a fase 3 inteira em uma transação.
 
     Ou o lote inteiro entra, ou nada entra: falha no meio não deixa carga
     parcial silenciosa, que é o que o teste operacional da feature exige.
+
+    Com `recarga` (RF-ACV-14), o livro oficial que continua no dump também é
+    atualizado (`SQL_LIVRO_ATUALIZAR`) e tem os assuntos substituídos pelo
+    mapeamento atual (`SQL_LIVRO_ASSUNTO_SUBSTITUIR`). Sem ela, a carga só
+    acrescenta, como sempre fez. Autor é só acréscimo nos dois modos.
     """
     totais = TotaisDaCarga()
     assuntos_por_obra = _ler_assuntos_por_obra(assuntos)
@@ -271,8 +350,14 @@ def carregar(
         totais.autores = cursor.rowcount
         cursor.execute(SQL_LIVRO)
         totais.livros = cursor.rowcount
+        if recarga:
+            cursor.execute(SQL_LIVRO_ATUALIZAR)
+            totais.livros_atualizados = cursor.rowcount
         cursor.execute(SQL_LIVRO_AUTOR)
         totais.vinculos_autor = cursor.rowcount
+        if recarga:
+            cursor.execute(SQL_LIVRO_ASSUNTO_SUBSTITUIR)
+            totais.vinculos_assunto_removidos = cursor.rowcount
         cursor.execute(SQL_LIVRO_ASSUNTO)
         totais.vinculos_assunto = cursor.rowcount
 

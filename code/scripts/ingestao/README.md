@@ -97,7 +97,9 @@ SELECT * FROM acervo.ingestao_execucao ORDER BY iniciado_em DESC LIMIT 1;
 SELECT count(*) FROM acervo.livro WHERE tipo = 'oficial';
 SELECT count(*) FROM acervo.livro WHERE tipo = 'oficial' AND capa_url_externa IS NULL;  -- deve ser 0
 SELECT a.nome, count(*) FROM acervo.livro_assunto la
-  JOIN acervo.assunto a ON a.id = la.assunto_id GROUP BY a.nome ORDER BY 2 DESC;
+  JOIN acervo.assunto a ON a.id = la.assunto_id
+  JOIN acervo.livro   l ON l.id = la.livro_id AND l.tipo = 'oficial'
+ GROUP BY a.nome ORDER BY 2 DESC;  -- só oficiais: o livro pessoal também tem assunto (F-ACV-OPC)
 ```
 
 Reexecutar a mesma carga não deve mudar as contagens: a deduplicação por ISBN-13 e `ol_edition_key` torna a operação idempotente.
@@ -113,6 +115,78 @@ python -m leai_ingestao unificar
 
 Reexecutar não muda nada. A lista `autores_com_nome_repetido` do resumo é o ponto de partida da próxima curadoria do CSV: ou é homônimo de verdade, ou é duplicado novo.
 
+## Recarga (RF-ACV-14)
+
+A recarga passa um dump mais novo sobre o acervo que já existe (F-ACV-OPC, decisões do dono de 06/11/2026). O caminho é o mesmo da carga inicial, com `carregar --tipo recarga`, e tudo continua numa transação só. A diferença está no livro oficial que já existe e continua no dump:
+
+- **Atualiza:** título e capa externa; ano, editora e série só quando o dump traz valor (ausente mantém o atual). Com a mesma série sem número no dump, o número atual fica; com série nova sem número, fica sem número.
+- **Assuntos:** passam a ser os do mapeamento atual, mas só se o livro mapear ao menos um assunto que existe em `acervo.assunto`. Sem nenhum, o livro mantém os que tem.
+- **Autores:** só acrescenta, como na carga inicial.
+- **Não toca:** total de páginas (o `leitura` lê o total ao vivo; mudar deixaria leitura acima de 100%), `ol_work_key` (o livro importado pelo Google Books continua sem chave e com a nota dele), capa própria, sinopse, `atualizado_em`, nota geral, notas dos leitores, `ativo` e o livro pessoal.
+- **Livro que saiu do dump ou dos filtros** continua no banco, intacto e ativo. A recarga não apaga livro.
+- **Linha igual não é reescrita:** rodar a mesma recarga de novo dá `livros_atualizados = 0` e `vinculos_assunto_removidos = 0`.
+
+`ingestao_execucao` grava `tipo = 'recarga'` e `total_inseridos` = livros **novos**. A atualização não tem coluna própria: aparece no resumo que o comando imprime (`livros_atualizados`, `vinculos_assunto_removidos`), e é esse número que vai para a Timeline.
+
+**Nunca teste a recarga no Neon.** Ela foi validada contra a amostra em Postgres descartável (`tests/test_carga_banco.py`). A execução real é operação do grupo, com o roteiro abaixo.
+
+### Roteiro de operação
+
+Um banco por vez: **primeiro o dev** (`le-ai`), depois o DES (`le-ai-oregon`). Avise o grupo antes de começar em cada um, porque a recarga segura o lock das linhas de livro durante a transação (a sinopse e a capa própria só esperam, não perdem escrita).
+
+1. **Baixar os dumps** mais recentes (passo 2 do roteiro completo), mais o de notas:
+
+   ```bash
+   curl -L -o dumps/ol_dump_ratings_latest.txt.gz https://openlibrary.org/data/ol_dump_ratings_latest.txt.gz
+   ```
+
+2. **Medir o schema antes**, no banco-alvo:
+
+   ```sql
+   SELECT pg_size_pretty(sum(pg_total_relation_size(c.oid)))
+     FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'acervo' AND c.relkind IN ('r', 'm');
+   ```
+
+3. **Filtrar** (passo 5) e anotar `lidos` e `descartados` do JSON. Anote também o tempo: a recarga real nunca foi cronometrada.
+4. **Resolver** (passo 6).
+5. **Carregar como recarga:**
+
+   ```bash
+   python -m leai_ingestao carregar --tipo recarga --processados <lidos> --descartados <descartados>
+   ```
+
+   Guarde o JSON (`livros`, `livros_atualizados`, `vinculos_assunto_removidos`, ...) e a tabela de tamanhos que sai no stderr.
+
+6. **Rodar `notas` em seguida**, sempre: a nota geral segue a fonte, e a da obra que saiu do dump de ratings é limpa (F-ACV-NOTA).
+
+   ```bash
+   python -m leai_ingestao notas --arquivo dumps/ol_dump_ratings_latest.txt.gz
+   ```
+
+7. **Conferir**, sempre com `tipo = 'oficial'`:
+
+   ```sql
+   SELECT tipo, status, total_processados, total_descartados, total_inseridos
+     FROM acervo.ingestao_execucao ORDER BY iniciado_em DESC LIMIT 1;           -- recarga, concluida
+   SELECT count(*) FROM acervo.livro WHERE tipo = 'oficial';                    -- antes + total_inseridos
+   SELECT count(*) FROM acervo.livro WHERE tipo = 'pessoal';                    -- igual ao de antes
+   SELECT count(*) FROM acervo.livro WHERE tipo = 'oficial' AND capa_url_externa IS NULL;  -- 0
+   SELECT a.nome, count(*) FROM acervo.livro_assunto la
+     JOIN acervo.assunto a ON a.id = la.assunto_id
+     JOIN acervo.livro   l ON l.id = la.livro_id AND l.tipo = 'oficial'
+    GROUP BY a.nome ORDER BY 2 DESC;
+   -- editora ou série sem livro depois de uma troca no dump: só conferir, não há limpeza automática
+   SELECT e.nome FROM acervo.editora e
+    WHERE NOT EXISTS (SELECT 1 FROM acervo.livro l WHERE l.editora_id = e.id)
+      AND NOT EXISTS (SELECT 1 FROM acervo.sinonimo_editora s WHERE s.editora_id = e.id);
+   SELECT r.nome FROM acervo.serie r
+    WHERE NOT EXISTS (SELECT 1 FROM acervo.livro l WHERE l.serie_id = r.id);
+   ```
+
+8. **Medir o schema depois** (a mesma query do passo 2) e registrar na Timeline da feature: o tempo, os totais do passo 5, o tamanho antes e depois e a fração do plano Neon (RNF-DES-04, RNF-DES-05).
+9. **Repetir no DES**, a partir do passo 2, só depois de o dev conferir.
+
 ## Testes
 
 ```bash
@@ -121,7 +195,7 @@ python -m pytest
 
 Roda sem banco e sem rede, contra `amostra/`. A amostra tem 16 edições aceitas e 8 descartadas, uma por motivo de descarte. Uma das aceitas (`OL30000015M`) vem sem `authors`, e a obra dela lista o autor seguido da tradutora: prova que o autor herdado da obra é só o primeiro. Outra (`OL30000016M`) vincula o marcador `[author not identified]`, e a obra dela lista Austin Kleon: prova que o marcador conta como ausente e cede ao autor da obra. É o que o CI executa — o DoD da feature diz que o CI não roda o dump inteiro.
 
-Os testes marcados `banco` (`tests/test_carga_banco.py`) passam a amostra pelo roteiro inteiro — `semear`, `filtrar`, `resolver`, `carregar` — contra um Postgres descartável, com as migrations reais de `acervo`. Provam o registro em `ingestao_execucao`, a transação única (falha no meio não deixa carga parcial e fica registrada como `falha`) e a reexecução sem duplicar. Sem `DATABASE_URL_TESTE` eles são pulados:
+Os testes marcados `banco` (`tests/test_carga_banco.py`) passam a amostra pelo roteiro inteiro — `semear`, `filtrar`, `resolver`, `carregar` — contra um Postgres descartável, com as migrations reais de `acervo`. Provam o registro em `ingestao_execucao`, a transação única (falha no meio não deixa carga parcial e fica registrada como `falha`) e a reexecução sem duplicar. A recarga é provada com uma amostra modificada, montada no próprio teste: o que ela atualiza, o que preserva e a segunda rodada sem mudança nenhuma. Sem `DATABASE_URL_TESTE` eles são pulados:
 
 ```bash
 docker run -d --name leai-pg-teste -e POSTGRES_PASSWORD=teste -e POSTGRES_DB=leai_teste \
@@ -138,4 +212,4 @@ DATABASE_URL_TESTE=postgresql://postgres:teste@localhost:55432/leai_teste python
 - **Não importa nota geral** (RF-ACV-15 é F-ACV-NOTA, Período 2).
 - **Não baixa capas** (RN-14 — cache sob demanda, disparado pela entrada na estante).
 - **Não cria assuntos** (RN-21.1 — conjunto curado e fechado).
-- **Não publica evento nenhum.** Recarga manual do dump é RF-ACV-14, alocada a F-ACV-OPC no Período 3; o `tipo=recarga` já existe na tabela, mas a operação é daquela feature.
+- **Não publica evento nenhum.** Nem na recarga (RF-ACV-14, seção acima), que também não apaga livro.
