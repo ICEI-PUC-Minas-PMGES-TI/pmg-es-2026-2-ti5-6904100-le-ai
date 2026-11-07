@@ -354,6 +354,42 @@ void main() {
       expect(tester.getTopRight(valor).dx, closeTo(tester.getTopRight(linha).dx, 0.5));
     });
 
+    // Validação da F-ACV-OPC: com Spacer + valor fixo em 70%, o rótulo estourava a linha em 320 e
+    // 360 dp. Os outros testes rodam em 390 dp e não pegavam.
+    for (final largura in <double>[320, 360]) {
+      testWidgets('não estoura em $largura dp com muitos assuntos', (tester) async {
+        tester.view.physicalSize = Size(largura * 3, 2400);
+        tester.view.devicePixelRatio = 3;
+        addTearDown(tester.view.reset);
+        // Sem `montar`, que fixa a tela de 390 dp.
+        await tester.pumpWidget(
+          envolver(
+            LivroPessoalPage(
+              servico: acervoSimulado(
+                (_) async => json(
+                  _livro(assuntos: <String>[idBiografia, idCronica, idHistoria, idMemorias, idPolitica]),
+                  200,
+                ),
+              ),
+              leitura: leituraSimulada((_) async => json(semAvaliacao(_id), 200)),
+              livroId: _id,
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+
+        // A página tem um estouro anterior a esta feature em 320 dp, fora desta linha (existe também
+        // sem assuntos); por isso a prova é a geometria da linha, não a ausência de erro na página.
+        tester.takeException();
+        final valor = find.text('Biografia, Crônica, História, Memórias, Política');
+        final rotulo = find.text('Assuntos');
+        final linha = find.ancestor(of: valor, matching: find.byType(Row)).first;
+        expect(tester.getTopRight(valor).dx, lessThanOrEqualTo(tester.getTopRight(linha).dx + 0.5));
+        expect(tester.getTopRight(rotulo).dx, lessThan(tester.getTopLeft(valor).dx));
+      });
+    }
+
     testWidgets('terceiro em modo consulta vê a mesma linha', (tester) async {
       await montar(
         tester,

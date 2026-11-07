@@ -290,6 +290,12 @@ describe('LivroPessoalFormView', () => {
       expect(wrapper.find('[role="alert"]').exists()).toBe(false)
       expect(wrapper.findAll('[role="group"] li').map((li) => li.text())).toEqual(['História'])
       expect(document.activeElement).toBe(wrapper.get('[data-alterar]').element)
+
+      // Reenvio com o mesmo 400 leva o foco de novo (validação da F-ACV-OPC).
+      ;(document.activeElement as HTMLElement).blur()
+      await wrapper.get('form').trigger('submit')
+      await flushPromises()
+      expect(document.activeElement).toBe(wrapper.get('[data-alterar]').element)
     })
 
     it('lista indisponível por timeout: o seletor mostra a falha e o livro ainda salva sem assuntos', async () => {

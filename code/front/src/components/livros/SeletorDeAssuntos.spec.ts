@@ -89,6 +89,26 @@ describe('SeletorDeAssuntos', () => {
     expect(dialogo().textContent).not.toMatch(/criar|adicionar/i)
   })
 
+  it('sem resultado é anunciado na região viva (validação da F-ACV-OPC)', async () => {
+    montar()
+    await flushPromises()
+
+    await buscar('realismo mágico')
+
+    expect(dialogo().querySelector('[aria-live="polite"]')?.textContent?.trim()).toBe('Nenhum assunto com "realismo mágico".')
+  })
+
+  it('com a lista carregando, o foco entra no painel e Esc fecha (validação da F-ACV-OPC)', async () => {
+    const { wrapper } = montar(vi.fn(() => new Promise<never>(() => {})))
+    await flushPromises()
+
+    expect(dialogo().contains(document.activeElement)).toBe(true)
+    expect(document.activeElement?.hasAttribute('data-titulo')).toBe(true)
+    document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await flushPromises()
+    expect(wrapper.emitted('fechar')).toHaveLength(1)
+  })
+
   it('Concluir aplica a seleção em ordem alfabética', async () => {
     const { wrapper } = montar()
     await flushPromises()

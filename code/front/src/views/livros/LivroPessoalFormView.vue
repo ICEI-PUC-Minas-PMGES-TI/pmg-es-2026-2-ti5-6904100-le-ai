@@ -249,6 +249,8 @@ async function salvar(): Promise<void> {
   if (!podeSalvar.value) {
     return
   }
+  // Limpo a cada envio: o mesmo 400 de novo precisa mudar o valor para o campo levar o foco outra vez.
+  erroDosAssuntos.value = null
 
   const dados: DadosLivroPessoal = {
     titulo: campos.titulo.trim(),

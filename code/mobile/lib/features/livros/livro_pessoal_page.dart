@@ -683,13 +683,20 @@ class _LinhaDeAssuntos extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Text('Assuntos', style: theme.textTheme.labelMedium, softWrap: false),
-            const Spacer(),
-            ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: restricoes.maxWidth * 0.7),
-              child: Text(
-                nomes.join(', '),
-                style: theme.textTheme.bodyMedium,
-                textAlign: TextAlign.right,
+            const SizedBox(width: DesignTokens.space4),
+            // Flexível, e não Spacer + valor fixo: em 320–360 dp o rótulo passava dos 30% que
+            // sobravam e a linha estourava (validação da F-ACV-OPC).
+            Expanded(
+              child: Align(
+                alignment: Alignment.topRight,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: restricoes.maxWidth * 0.7),
+                  child: Text(
+                    nomes.join(', '),
+                    style: theme.textTheme.bodyMedium,
+                    textAlign: TextAlign.right,
+                  ),
+                ),
               ),
             ),
           ],

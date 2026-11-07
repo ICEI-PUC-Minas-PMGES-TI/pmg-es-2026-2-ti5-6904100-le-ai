@@ -140,17 +140,19 @@ Um banco por vez: **primeiro o dev** (`le-ai`), depois o DES (`le-ai-oregon`). A
    curl -L -o dumps/ol_dump_ratings_latest.txt.gz https://openlibrary.org/data/ol_dump_ratings_latest.txt.gz
    ```
 
-2. **Medir o schema antes**, no banco-alvo:
+2. **Medir e contar antes**, no banco-alvo (com `DATABASE_URL` dele exportada), e anotar os dois resultados: o passo 8 compara com eles.
 
    ```sql
    SELECT pg_size_pretty(sum(pg_total_relation_size(c.oid)))
      FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
     WHERE n.nspname = 'acervo' AND c.relkind IN ('r', 'm');
+   SELECT tipo, count(*) FROM acervo.livro GROUP BY tipo;
    ```
 
-3. **Filtrar** (passo 5) e anotar `lidos` e `descartados` do JSON. Anote também o tempo: a recarga real nunca foi cronometrada.
-4. **Resolver** (passo 6).
-5. **Carregar como recarga:**
+3. **Conferir e semear** (passos 3 e 4 do roteiro completo, os dois idempotentes): `conferir` e depois `semear`. Sem isso, um assunto novo dos CSVs curados ainda não estaria em `acervo.assunto`, e a substituição tiraria o assunto antigo do livro sem pôr o novo.
+4. **Filtrar** (passo 5) e anotar `lidos` e `descartados` do JSON. Anote também o tempo: a recarga real nunca foi cronometrada.
+5. **Resolver** (passo 6).
+6. **Carregar como recarga:**
 
    ```bash
    python -m leai_ingestao carregar --tipo recarga --processados <lidos> --descartados <descartados>
@@ -158,13 +160,13 @@ Um banco por vez: **primeiro o dev** (`le-ai`), depois o DES (`le-ai-oregon`). A
 
    Guarde o JSON (`livros`, `livros_atualizados`, `vinculos_assunto_removidos`, ...) e a tabela de tamanhos que sai no stderr.
 
-6. **Rodar `notas` em seguida**, sempre: a nota geral segue a fonte, e a da obra que saiu do dump de ratings é limpa (F-ACV-NOTA).
+7. **Rodar `notas` em seguida**, sempre: a nota geral segue a fonte, e a da obra que saiu do dump de ratings é limpa (F-ACV-NOTA).
 
    ```bash
    python -m leai_ingestao notas --arquivo dumps/ol_dump_ratings_latest.txt.gz
    ```
 
-7. **Conferir**, sempre com `tipo = 'oficial'`:
+8. **Conferir**, sempre com `tipo = 'oficial'`, contra as contagens do passo 2:
 
    ```sql
    SELECT tipo, status, total_processados, total_descartados, total_inseridos
@@ -184,7 +186,7 @@ Um banco por vez: **primeiro o dev** (`le-ai`), depois o DES (`le-ai-oregon`). A
     WHERE NOT EXISTS (SELECT 1 FROM acervo.livro l WHERE l.serie_id = r.id);
    ```
 
-8. **Medir o schema depois** (a mesma query do passo 2) e registrar na Timeline da feature: o tempo, os totais do passo 5, o tamanho antes e depois e a fração do plano Neon (RNF-DES-04, RNF-DES-05).
+9. **Medir o schema depois** (a mesma query do passo 2) e registrar na Timeline da feature: o tempo, os totais do passo 6, o tamanho antes e depois e a fração do plano Neon (RNF-DES-04, RNF-DES-05).
 9. **Repetir no DES**, a partir do passo 2, só depois de o dev conferir.
 
 ## Testes

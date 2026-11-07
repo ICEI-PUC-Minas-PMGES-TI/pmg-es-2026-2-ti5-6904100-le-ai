@@ -39,7 +39,17 @@ const escolhidosNoTitulo = computed(() =>
 )
 const buscando = computed(() => busca.value.trim() !== '')
 const resultado = computed(() => contagem(filtrados.value.length, 'assunto', 'assuntos'))
-const anuncioDaBusca = computed(() => (estado.value === 'pronto' && buscando.value && filtrados.value.length > 0 ? resultado.value : ''))
+// Sem resultado também é anunciado (§9): o bloco "Nenhum assunto com …" não fica numa região viva.
+const anuncioDaBusca = computed(() => {
+  if (estado.value !== 'pronto' || !buscando.value) {
+    return ''
+  }
+  return filtrados.value.length > 0 ? resultado.value : `Nenhum assunto com "${busca.value.trim()}".`
+})
+// Enquanto a lista carrega, a busca está desabilitada e não recebe foco. O foco vai para o título
+// do painel, senão fica atrás do scrim: Esc não fecharia e o Tab andaria pela página. O watch de
+// `estado` leva o foco para a busca quando a lista chega.
+const focoInicial = computed(() => (estado.value === 'pronto' ? '[data-busca]' : '[data-titulo]'))
 
 watch(
   () => props.aberta,
@@ -86,14 +96,18 @@ async function limparBusca(): Promise<void> {
     :aberta="aberta"
     rotulo="Assuntos"
     largura-dialogo="560px"
-    foco-inicial="[data-busca]"
+    :foco-inicial="focoInicial"
     @fechar="fechar"
   >
     <div class="-mx-space-6 -mb-space-6 flex max-h-[calc(85dvh-3rem)] flex-col md:max-h-[592px]">
       <header class="flex items-start justify-between gap-space-4 px-space-6">
         <div class="min-w-0 flex-1">
           <div class="flex items-baseline justify-between gap-space-4">
-            <h2 class="text-title-sm text-tinta">
+            <h2
+              data-titulo
+              tabindex="-1"
+              class="text-title-sm text-tinta outline-none"
+            >
               Assuntos
             </h2>
             <p
