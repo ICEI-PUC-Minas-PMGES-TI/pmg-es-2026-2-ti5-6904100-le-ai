@@ -53,6 +53,12 @@ Convenções do app mobile. Complementa o [`AGENTS.md`](../../AGENTS.md) da raiz
   - Rotas e dependências: `rotas_desafios.dart` (`DependenciasDeDesafios`, montado em `rotasDoPerfil`).
   - Textos compostos no cliente (título, janela, `Faltam`, `Cumprido`) em `textos.dart`; a barra (`broto` sobre `musgo-fundo`) e os cards em `widgets_de_desafios.dart`.
   - Recarga: a tela e o bloco recarregam na hora com `DesafiosService.alteracoes` e em silêncio, 3 s depois do último aviso, com os avisos de progresso e da estante (leitura finalizada), porque o acumulado vem do consumo assíncrono.
+- Histórico do desafio (F-DSF-OPC, 07/11/2026), em `lib/features/desafios/`:
+  - `historico_do_desafio_page.dart` em `/perfil/desafios/:id/historico` (`rotaHistoricoDoDesafio`), aberta pelo item `Ver histórico` do menu do card (`DesafiosPage.aoVerHistorico`, obrigatório) com o `Desafio` por `extra`; sem ele, volta para a lista.
+  - `historico_do_desafio.dart`: `HistoricoDoDesafio` (paginação no molde de `ListaPaginada`, mas com o tipo da falha: sem rede × servidor) e `agruparHistorico` (grupos e marcas de mudança sobre a lista acumulada). Textos em `textos_do_historico.dart`.
+  - Cabeçalho de grupo preso ao topo com `SliverMainAxisGroup` + `PinnedHeaderSliver`, o primeiro do projeto: o grupo seguinte empurra o anterior sem código próprio.
+  - `BarraDeProgressoDeDesafio` (`widgets_de_desafios.dart`) é a barra sem semântica; `BarraDoDesafio` a usa e acrescenta o rótulo do card.
+  - **Peso com `google_fonts`:** `copyWith(fontWeight: …)` sobre um estilo do tema mantém a família do peso de origem (`Manrope_regular`), e o texto não fica mais pesado. Para `caption` 600, partir de `labelLarge` (`body-strong`) e trocar tamanho e altura, como o `Cumprido` do histórico.
 - `lib/features/estatisticas/` (F-STA):
   - `EstatisticasService` (`/me/estatisticas`, `/me/estatisticas/graficos` e `/perfis/{id}/estatisticas` no `leitura`, no mesmo client da estante; `buildRouter(estatisticas:)` injeta). O "hoje" é o de São Paulo em UTC−3 fixo (`hojeEmSaoPaulo`), o fuso do servidor.
   - Painel em `/perfil/estatisticas` (`estatisticas_page.dart`), com o período na rota (`?periodo=`). O gráfico de colunas é feito à mão em `widgets_de_estatisticas.dart`, sem pacote; a escala do eixo (`escala.dart`), os formatos (`formatos.dart`) e a copy (`textos.dart`) espelham `code/front/src/estatisticas/`.
@@ -73,6 +79,13 @@ Convenções do app mobile. Complementa o [`AGENTS.md`](../../AGENTS.md) da raiz
 - `test/`: testes unitários e widget, espelhando a árvore de `lib/`.
 
 ## Mudanças feitas por outras features
+
+### 07/11/2026 — F-DSF-OPC (Vicenzo): parâmetros opcionais em componentes compartilhados
+
+Nada muda para quem já usa; avisar o grupo.
+
+- **`app/cabecalho_tela.dart`:** `conteudoDoTitulo` (widget no lugar do texto do título, como o título do desafio com número em mono; `titulo` continua sendo o rótulo de cabeçalho para o leitor de tela) e `subtitulo` (linha em `caption` `grafite` abaixo). Com qualquer um dos dois, o título usa `title`, vai até duas linhas e o header cresce a partir de 72px em vez de ter altura fixa.
+- **`design/widgets/banner_aviso.dart`:** `iconeNaCorDaVariante`, para o ícone próprio sair na cor da variante (o `WifiSlash` em `ambar` do sem conexão) em vez de `tinta`.
 
 ### 05/11/2026 — F-MOD-OPC (Renato): sessão encerrada por conta suspensa
 
