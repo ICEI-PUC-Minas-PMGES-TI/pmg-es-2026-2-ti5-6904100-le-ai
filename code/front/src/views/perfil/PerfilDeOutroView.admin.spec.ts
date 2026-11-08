@@ -67,7 +67,7 @@ describe('PerfilDeOutroView, administrador', () => {
       .mockResolvedValue({ itens: [], paginacao: { page: 1, limite: 5, totalItens: 0, totalPaginas: 0 } })
     leitura.consultarEstatisticasPerfil
       .mockReset()
-      .mockResolvedValue({ ano: hojeEmSaoPaulo().ano, livrosConcluidos: 0, paginasLidas: 0, minutosLidos: 0 })
+      .mockResolvedValue({ ano: hojeEmSaoPaulo().ano, livrosConcluidos: 0, paginasLidas: 0, minutosLidos: 0, distribuicaoNotas: null })
     listas.listarDoPerfil.mockReset().mockResolvedValue({ items: [], page: 0, size: 20, totalElements: 0, totalPages: 0 })
     moderacao.contaPorUsername.mockReset()
     moderacao.suspenderConta.mockReset()

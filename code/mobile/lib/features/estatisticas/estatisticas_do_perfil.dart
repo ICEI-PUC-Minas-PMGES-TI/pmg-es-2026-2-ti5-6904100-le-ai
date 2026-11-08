@@ -12,15 +12,23 @@ import '../../design/widgets/entrada_suave.dart';
 import 'estatisticas_service.dart';
 import 'formatos.dart';
 import 'textos.dart';
+import 'widgets_de_notas.dart';
 
-/// O que o bloco mostra: os totais do ano e se o leitor não tem o que mostrar (a frase no lugar
-/// dos cards).
-typedef ResultadoDoBloco = ({TotaisEstatistica totais, bool vazio});
+/// O que o bloco mostra: os totais do ano, a distribuição das notas e se o leitor não tem o que
+/// mostrar (a frase no lugar dos cards).
+typedef ResultadoDoBloco = ({
+  TotaisEstatistica totais,
+  bool vazio,
+  DistribuicaoNotas? distribuicao,
+});
 
 /// Bloco `Estatísticas do ano` dos perfis (F-STA, RF-STA-01): os três totais do ano corrente, os
 /// mesmos do painel, numa faixa de cards que rola e sangra pela borda direita (artboard
 /// `Sequência, estatísticas e desafios (rolada)` de meu-perfil; `Estatísticas e estante (rolada)`
 /// do perfil de outro leitor). Só o próprio perfil tem `Ver estatísticas` ([aoVerEstatisticas]).
+///
+/// No perfil de outro leitor ([nomeDoLeitor] informado), o histograma compacto das notas do ano
+/// vem logo abaixo, mesmo quando os totais estão vazios: nota não depende de progresso.
 ///
 /// Carrega à parte da página; a falha mostra o banner do bloco sem derrubar o resto. Um 403 ou 404
 /// do `leitura` (perfil privado sem seguimento, conta ausente) esconde o bloco: a página já trata
@@ -31,6 +39,7 @@ class EstatisticasDoPerfil extends StatefulWidget {
   final int ano;
   final String textoVazio;
   final String textoErro;
+  final String? nomeDoLeitor;
   final VoidCallback? aoVerEstatisticas;
   final Listenable? alteracoes;
   final Duration atrasoDaRecarga;
@@ -41,6 +50,7 @@ class EstatisticasDoPerfil extends StatefulWidget {
     required this.ano,
     required this.textoVazio,
     required this.textoErro,
+    this.nomeDoLeitor,
     this.aoVerEstatisticas,
     this.alteracoes,
     this.atrasoDaRecarga = const Duration(seconds: 3),
@@ -58,6 +68,7 @@ class _EstatisticasDoPerfilState extends State<EstatisticasDoPerfil> {
 
   _Carga _carga = _Carga.carregando;
   TotaisEstatistica? _totais;
+  DistribuicaoNotas? _distribuicao;
   Timer? _agendada;
   late final RecargaEmSequencia _recarga = RecargaEmSequencia(() => _carregar(silencioso: true));
 
@@ -104,6 +115,7 @@ class _EstatisticasDoPerfilState extends State<EstatisticasDoPerfil> {
       if (mounted) {
         setState(() {
           _totais = resultado.totais;
+          _distribuicao = resultado.distribuicao;
           _carga = resultado.vazio ? _Carga.vazia : _Carga.pronta;
         });
       }
@@ -184,6 +196,14 @@ class _EstatisticasDoPerfilState extends State<EstatisticasDoPerfil> {
           _Carga.pronta => <Widget>[_faixa(_cards(_totais!))],
           _Carga.oculta => const <Widget>[],
         },
+        if (widget.nomeDoLeitor != null && _comDados) ...<Widget>[
+          const SizedBox(height: DesignTokens.space4),
+          NotasDoPerfil(
+            distribuicao: _distribuicao,
+            nome: widget.nomeDoLeitor!,
+            ano: widget.ano,
+          ),
+        ],
       ],
     );
   }

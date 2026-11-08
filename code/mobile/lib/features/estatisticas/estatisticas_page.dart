@@ -20,6 +20,7 @@ import 'formatos.dart';
 import 'seletor.dart';
 import 'textos.dart';
 import 'widgets_de_estatisticas.dart';
+import 'widgets_de_notas.dart';
 
 /// Painel de estatísticas (F-STA, RF-STA-01/02/03), a partir de `F-STA/prototipos/estatisticas.html`
 /// (4.1 a 4.9): faixa de períodos, linha do intervalo, `Totais` e `Médias` em containers de
@@ -347,6 +348,12 @@ class _EstatisticasPageState extends State<EstatisticasPage> {
           ],
         ),
         const SizedBox(height: DesignTokens.space6),
+        GraficoDeNotas(
+          distribuicao: estatisticas.distribuicaoNotas,
+          periodo: periodo,
+          primeiroRegistro: estatisticas.primeiroRegistro,
+        ),
+        const SizedBox(height: DesignTokens.space4),
         GraficoDeColunas(medida: Medida.paginas, pontos: pontos, periodo: periodo, hoje: _hoje),
         const SizedBox(height: DesignTokens.space4),
         GraficoDeColunas(medida: Medida.livros, pontos: pontos, periodo: periodo, hoje: _hoje),
