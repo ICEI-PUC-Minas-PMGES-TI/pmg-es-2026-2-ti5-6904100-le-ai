@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 
 import '../../design/theme.dart';
@@ -174,7 +175,10 @@ class _GraficoDeNotasState extends State<GraficoDeNotas> {
   static const double _folgaNoTopo = DesignTokens.space8;
   static const double _folgaDoBalao = DesignTokens.space2;
 
+  static const double _espessuraDoFoco = 2;
+
   bool _tabela = false;
+  bool _focado = false;
   int? _ativo;
 
   @override
@@ -189,6 +193,31 @@ class _GraficoDeNotasState extends State<GraficoDeNotas> {
     if (_ativo != null) {
       setState(() => _ativo = null);
     }
+  }
+
+  KeyEventResult _teclar(FocusNode no, KeyEvent evento) {
+    final distribuicao = widget.distribuicao;
+    if (evento is KeyUpEvent || distribuicao == null) {
+      return KeyEventResult.ignored;
+    }
+    final total = distribuicao.faixas.length;
+    final tecla = evento.logicalKey;
+    int? destino;
+    if (tecla == LogicalKeyboardKey.arrowRight) {
+      destino = ((_ativo ?? -1) + 1).clamp(0, total - 1);
+    } else if (tecla == LogicalKeyboardKey.arrowLeft) {
+      destino = ((_ativo ?? total) - 1).clamp(0, total - 1);
+    } else if (tecla == LogicalKeyboardKey.home) {
+      destino = 0;
+    } else if (tecla == LogicalKeyboardKey.end) {
+      destino = total - 1;
+    } else if (tecla == LogicalKeyboardKey.escape && _ativo != null) {
+      _fechar();
+      return KeyEventResult.handled;
+    }
+    if (destino == null) return KeyEventResult.ignored;
+    setState(() => _ativo = destino);
+    return KeyEventResult.handled;
   }
 
   @override
@@ -223,7 +252,10 @@ class _GraficoDeNotasState extends State<GraficoDeNotas> {
                 style: legenda,
               ),
               const SizedBox(height: DesignTokens.space4),
-              if (_tabela) _construirTabela(theme, distribuicao) else _construirGrafico(distribuicao),
+              if (_tabela)
+                _construirTabela(theme, distribuicao)
+              else
+                _construirGrafico(distribuicao),
               if (!_tabela) ...<Widget>[
                 const SizedBox(height: DesignTokens.space2),
                 Text(TextosDasNotas.legenda, style: legenda),
@@ -262,55 +294,72 @@ class _GraficoDeNotasState extends State<GraficoDeNotas> {
 
   Widget _construirGrafico(DistribuicaoNotas distribuicao) {
     final faixas = distribuicao.faixas;
+    final theme = Theme.of(context);
     return TapRegion(
       onTapOutside: (_) => _fechar(),
-      child: Semantics(
-        container: true,
-        explicitChildNodes: true,
-        label: resumoDasNotas(widget.periodo, distribuicao),
-        child: LayoutBuilder(
-          builder: (context, restricoes) {
-            final larguraDaFaixa = restricoes.maxWidth / faixas.length;
-            final ativo = _ativo;
-            return Stack(
-              clipBehavior: Clip.none,
-              children: <Widget>[
-                Padding(
-                  padding: const EdgeInsets.only(top: _folgaNoTopo),
-                  child: ColunasDeNotas(
-                    faixas: faixas,
-                    ativo: ativo,
-                    aoTocar: (indice) => setState(() => _ativo = indice),
-                  ),
-                ),
-                if (ativo != null)
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: ExcludeSemantics(
-                        child: CustomSingleChildLayout(
-                          delegate: PosicaoDoBalao(
-                            centro: larguraDaFaixa * (ativo + 0.5),
-                            pontaDaColuna:
-                                _folgaNoTopo +
-                                ColunasDeNotas.alturaDaArea(compacto: false) -
-                                ColunasDeNotas.alturaDaColuna(
-                                  faixas,
-                                  faixas[ativo].quantidade,
-                                  compacto: false,
-                                ) -
-                                _folgaDoBalao,
-                          ),
-                          child: BalaoDeValor(
-                            titulo: tituloDoBalaoDaNota(faixas[ativo]),
-                            valor: quantidadeDeLivros(faixas[ativo].quantidade),
+      child: Focus(
+        onKeyEvent: _teclar,
+        onFocusChange: (focado) {
+          setState(() => _focado = focado);
+          if (!focado) _fechar();
+        },
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(DesignTokens.radiusSm),
+            border: Border.all(
+              color: _focado ? theme.primaryAccent : Colors.transparent,
+              width: _espessuraDoFoco,
+            ),
+          ),
+          child: Semantics(
+            container: true,
+            explicitChildNodes: true,
+            label: resumoDasNotas(widget.periodo, distribuicao),
+            child: LayoutBuilder(
+              builder: (context, restricoes) {
+                final larguraDaFaixa = restricoes.maxWidth / faixas.length;
+                final ativo = _ativo;
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: <Widget>[
+                    Padding(
+                      padding: const EdgeInsets.only(top: _folgaNoTopo),
+                      child: ColunasDeNotas(
+                        faixas: faixas,
+                        ativo: ativo,
+                        aoTocar: (indice) => setState(() => _ativo = indice),
+                      ),
+                    ),
+                    if (ativo != null)
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: ExcludeSemantics(
+                            child: CustomSingleChildLayout(
+                              delegate: PosicaoDoBalao(
+                                centro: larguraDaFaixa * (ativo + 0.5),
+                                pontaDaColuna:
+                                    _folgaNoTopo +
+                                    ColunasDeNotas.alturaDaArea(compacto: false) -
+                                    ColunasDeNotas.alturaDaColuna(
+                                      faixas,
+                                      faixas[ativo].quantidade,
+                                      compacto: false,
+                                    ) -
+                                    _folgaDoBalao,
+                              ),
+                              child: BalaoDeValor(
+                                titulo: tituloDoBalaoDaNota(faixas[ativo]),
+                                valor: quantidadeDeLivros(faixas[ativo].quantidade),
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ),
-              ],
-            );
-          },
+                  ],
+                );
+              },
+            ),
+          ),
         ),
       ),
     );

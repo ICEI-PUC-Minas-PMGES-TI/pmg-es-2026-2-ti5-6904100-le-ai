@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:le_ai_mobile/features/estatisticas/estatisticas_service.dart';
@@ -66,6 +67,24 @@ void main() {
     expect(find.text('2 livros'), findsOneWidget);
     expect(find.byKey(const ValueKey<String>('contagem-da-nota')), findsNWidgets(10));
     expect(find.byKey(const ValueKey<String>('faixa-da-nota')), findsOneWidget);
+  });
+
+  testWidgets('teclado: End e seta movem o balão entre as notas e Esc fecha', (tester) async {
+    await montar(tester, _distribuicao(notas2026));
+    Focus.of(tester.element(find.byType(ColunasDeNotas))).requestFocus();
+    await tester.pump();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.end);
+    await tester.pump();
+    expect(find.text('Nota 5'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pump();
+    expect(find.text('Nota 4,5'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    expect(find.text('Nota 4,5'), findsNothing);
   });
 
   testWidgets('a tabela lista as onze notas e fecha com o total', (tester) async {
