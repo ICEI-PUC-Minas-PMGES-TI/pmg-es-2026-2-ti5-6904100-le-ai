@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 
@@ -96,72 +98,111 @@ class _FolhaDeAssuntosState extends State<FolhaDeAssuntos> {
     final theme = Theme.of(context);
     final estado = _c.estado;
     final pronto = estado == EstadoDaListaDeAssuntos.pronto;
-    // Até 85% da viewport, descontados a alça e os paddings da folha (§5.1).
+    // Até 85% da viewport, descontados a alça e os paddings da folha (§5.1). Com o teclado
+    // aberto, a área útil é só a que sobra acima dele: `mostrarFolhaInferior` não desconta o
+    // `viewInsets`, e sem isso a busca filtrada, os resultados e o `Concluir` ficavam atrás do
+    // teclado. O `Padding` ergue a folha; o limite mantém busca e rodapé dentro da tela.
     final media = MediaQuery.of(context);
+    final teclado = media.viewInsets.bottom;
     final alturaMaxima =
-        media.size.height * 0.85 -
+        math.min(media.size.height * 0.85, media.size.height - media.padding.top - teclado) -
         DesignTokens.space3 -
         4 -
         DesignTokens.space5 -
         DesignTokens.space6 -
         media.padding.bottom;
 
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: alturaMaxima < 200 ? 200 : alturaMaxima),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: <Widget>[
-              Expanded(
-                child: Semantics(
-                  header: true,
-                  child: Text('Assuntos', style: theme.textTheme.titleMedium),
-                ),
-              ),
-              if (pronto)
-                Text(
-                  _contagemEscolhidos(_c.quantidade),
-                  style: theme.textTheme.bodySmall?.copyWith(color: theme.secondaryText),
-                ),
-            ],
-          ),
-          const SizedBox(height: DesignTokens.space2),
-          Text(
-            'Os assuntos vêm de uma lista fixa do Lê Ai.',
-            style: theme.textTheme.bodySmall?.copyWith(color: theme.secondaryText),
-          ),
-          const SizedBox(height: DesignTokens.space4),
-          // O título da folha é o label visível; o leitor de tela ouve `Buscar assunto` uma vez,
-          // pelo placeholder (um `Semantics(label:)` por fora somaria um segundo nome igual).
-          CampoTexto(
-            controller: _busca,
-            label: '',
-            placeholder: 'Buscar assunto',
-            icone: PhosphorIconsRegular.magnifyingGlass,
-            enabled: pronto,
-            onChanged: _c.buscar,
-            trailing: pronto && _busca.text.isNotEmpty
-                ? IconButton(
-                    tooltip: 'Limpar busca',
-                    constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-                    icon: Icon(PhosphorIconsRegular.x, size: 20, color: theme.secondaryText),
-                    onPressed: _limparBusca,
-                  )
-                : null,
-          ),
-          const SizedBox(height: DesignTokens.space4),
-          Flexible(child: _corpo(theme, estado)),
-          Divider(height: 1, color: theme.divider),
-          Padding(
-            padding: const EdgeInsets.only(top: DesignTokens.space4),
-            child: _rodape(estado),
-          ),
-        ],
+    return Padding(
+      padding: EdgeInsets.only(bottom: teclado),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: alturaMaxima < 200 ? 200 : alturaMaxima),
+        child: LayoutBuilder(
+          builder: (context, limites) {
+            // Título, busca e rodapé somam ~190 dp fixos. Com o celular deitado e o teclado
+            // aberto, a área pode ser menor que isso mais um mínimo útil de lista: aí a folha
+            // inteira rola, com a lista numa janela de altura fixa, em vez de estourar.
+            final minimo = MediaQuery.textScalerOf(context).scale(_alturaMinimaSemRolar);
+            if (limites.maxHeight >= minimo) {
+              return _conteudo(theme, estado, pronto);
+            }
+            return SingleChildScrollView(
+              child: _conteudo(theme, estado, pronto, alturaDoCorpo: _alturaDoCorpoCompacto),
+            );
+          },
+        ),
       ),
+    );
+  }
+
+  /// Abaixo disto, a folha inteira rola (celular deitado com teclado, fonte grande).
+  static const double _alturaMinimaSemRolar = 320;
+
+  /// Janela da lista quando a folha inteira rola: duas linhas e meia de chips.
+  static const double _alturaDoCorpoCompacto = 120;
+
+  Widget _conteudo(
+    ThemeData theme,
+    EstadoDaListaDeAssuntos estado,
+    bool pronto, {
+    double? alturaDoCorpo,
+  }) {
+    final corpo = _corpo(theme, estado);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: <Widget>[
+            Expanded(
+              child: Semantics(
+                header: true,
+                child: Text('Assuntos', style: theme.textTheme.titleMedium),
+              ),
+            ),
+            if (pronto)
+              Text(
+                _contagemEscolhidos(_c.quantidade),
+                style: theme.textTheme.bodySmall?.copyWith(color: theme.secondaryText),
+              ),
+          ],
+        ),
+        const SizedBox(height: DesignTokens.space2),
+        Text(
+          'Os assuntos vêm de uma lista fixa do Lê Ai.',
+          style: theme.textTheme.bodySmall?.copyWith(color: theme.secondaryText),
+        ),
+        const SizedBox(height: DesignTokens.space4),
+        // O título da folha é o label visível; o leitor de tela ouve `Buscar assunto` uma vez,
+        // pelo placeholder (um `Semantics(label:)` por fora somaria um segundo nome igual).
+        CampoTexto(
+          controller: _busca,
+          label: '',
+          placeholder: 'Buscar assunto',
+          icone: PhosphorIconsRegular.magnifyingGlass,
+          enabled: pronto,
+          onChanged: _c.buscar,
+          trailing: pronto && _busca.text.isNotEmpty
+              ? IconButton(
+                  tooltip: 'Limpar busca',
+                  constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                  icon: Icon(PhosphorIconsRegular.x, size: 20, color: theme.secondaryText),
+                  onPressed: _limparBusca,
+                )
+              : null,
+        ),
+        const SizedBox(height: DesignTokens.space4),
+        if (alturaDoCorpo == null)
+          Flexible(child: corpo)
+        else
+          SizedBox(height: alturaDoCorpo, child: corpo),
+        Divider(height: 1, color: theme.divider),
+        Padding(
+          padding: const EdgeInsets.only(top: DesignTokens.space4),
+          child: _rodape(estado),
+        ),
+      ],
     );
   }
 

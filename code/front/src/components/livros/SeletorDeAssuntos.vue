@@ -115,7 +115,10 @@ function tentarCarregarDeNovo(): void {
     :foco-inicial="focoInicial"
     @fechar="fechar"
   >
-    <div class="-mx-space-6 -mb-space-6 flex max-h-[calc(85dvh-3rem)] flex-col md:max-h-[592px]">
+    <!-- Altura máxima sempre pela viewport, também no dialog: 592px ou o que couber na tela, menos
+         os 32px do scrim em cima e embaixo e o padding superior do painel (5.5rem). Assim, com o
+         celular deitado ou numa janela baixa, título, busca e rodapé ficam visíveis e só o miolo rola. -->
+    <div class="-mx-space-6 -mb-space-6 flex max-h-[calc(85dvh-3rem)] flex-col md:max-h-[min(592px,calc(100dvh-5.5rem))]">
       <header class="flex items-start justify-between gap-space-4 px-space-6">
         <div class="min-w-0 flex-1">
           <div class="flex items-baseline justify-between gap-space-4">

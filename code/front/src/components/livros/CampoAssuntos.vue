@@ -136,30 +136,38 @@ async function concluir(assuntos: AssuntoResumo[]): Promise<void> {
     </button>
 
     <template v-else>
-      <ul class="flex flex-wrap gap-space-2">
+      <!-- No celular, cada linha tem 48px e nenhum intervalo vertical: a pílula de 32px fica no
+           meio e o alvo de 48px do `X` ocupa a linha inteira, sem invadir a linha vizinha (antes,
+           com linhas de 32px e 8px de intervalo, um toque no `X` de cima podia remover o de baixo).
+           Na web larga o alvo é a própria pílula, com 8px entre as linhas. -->
+      <ul class="flex flex-wrap gap-x-space-2 md:gap-y-space-2">
         <li
           v-for="(assunto, indice) in escolhidos"
           :key="assunto.id"
-          class="inline-flex h-8 items-center gap-space-1 rounded-full text-caption"
-          :class="desabilitado
-            ? 'bg-papel-elevado px-space-3 text-grafite'
-            : 'bg-musgo-fundo pl-space-3 pr-space-2 font-semibold text-musgo'"
+          class="flex h-12 items-center md:h-auto"
         >
-          {{ assunto.nome }}
-          <button
-            v-if="!desabilitado"
-            type="button"
-            :data-remover="assunto.id"
-            :aria-label="`Remover ${assunto.nome}`"
-            class="-my-space-2 -mr-space-2 flex size-12 cursor-pointer items-center justify-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-[-8px] focus-visible:outline-musgo md:my-0 md:size-8 md:-mr-space-1"
-            @click="remover(indice)"
+          <span
+            class="inline-flex h-8 items-center gap-space-1 rounded-full text-caption"
+            :class="desabilitado
+              ? 'bg-papel-elevado px-space-3 text-grafite'
+              : 'bg-musgo-fundo pl-space-3 pr-space-2 font-semibold text-musgo'"
           >
-            <PhX
-              :size="16"
-              weight="regular"
-              aria-hidden="true"
-            />
-          </button>
+            {{ assunto.nome }}
+            <button
+              v-if="!desabilitado"
+              type="button"
+              :data-remover="assunto.id"
+              :aria-label="`Remover ${assunto.nome}`"
+              class="-my-space-2 -mr-space-2 flex size-12 cursor-pointer items-center justify-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-[-8px] focus-visible:outline-musgo md:my-0 md:size-8 md:-mr-space-1"
+              @click="remover(indice)"
+            >
+              <PhX
+                :size="16"
+                weight="regular"
+                aria-hidden="true"
+              />
+            </button>
+          </span>
         </li>
       </ul>
       <button

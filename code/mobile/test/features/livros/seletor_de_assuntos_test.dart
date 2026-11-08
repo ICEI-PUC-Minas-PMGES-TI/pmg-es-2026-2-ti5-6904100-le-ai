@@ -265,6 +265,88 @@ void main() {
       expect(naFolha(find.text('2 assuntos')), findsNothing);
     });
 
+    testWidgets('com o teclado aberto, busca, resultados e Concluir ficam acima dele', (
+      tester,
+    ) async {
+      final controller = SeletorDeAssuntosController(
+        servico: acervoSimulado((_) async => json(listaDeAssuntos(), 200)),
+      );
+      addTearDown(controller.dispose);
+      await abrirEEsperar(tester, controller, aoFechar: (_) {});
+
+      // Teclado de 300 dp numa tela de 390×844 dp: começa em y=544.
+      tester.view.viewInsets = const FakeViewPadding(bottom: 900);
+      await tester.pumpAndSettle();
+      const topoDoTeclado = 844.0 - 300.0;
+
+      void conferirAcimaDoTeclado(List<Finder> alvos) {
+        for (final alvo in alvos) {
+          final area = tester.getRect(alvo);
+          expect(area.top, greaterThanOrEqualTo(0), reason: '$alvo acima da tela');
+          expect(area.bottom, lessThanOrEqualTo(topoDoTeclado), reason: '$alvo atrás do teclado');
+        }
+        expect(tester.takeException(), isNull);
+      }
+
+      await tester.enterText(naFolha(find.byType(TextField)), 'hist');
+      await tester.pumpAndSettle();
+      conferirAcimaDoTeclado(<Finder>[
+        naFolha(find.byType(TextField)),
+        chip('História'),
+        chip('Romance histórico'),
+        naFolha(find.text('Concluir')),
+      ]);
+
+      // Sem filtro, a lista inteira rola numa área que também termina acima do teclado.
+      await tester.tap(find.byTooltip('Limpar busca'));
+      await tester.pumpAndSettle();
+      conferirAcimaDoTeclado(<Finder>[naFolha(find.byType(TextField)), naFolha(find.text('Concluir'))]);
+    });
+
+    for (final (largura, altura, tecladoDp) in <(double, double, double)>[
+      (844, 390, 200),
+      (844, 390, 160),
+      (320, 568, 260),
+    ]) {
+      testWidgets(
+        'em ${largura.toInt()}×${altura.toInt()} com teclado de ${tecladoDp.toInt()} dp a folha '
+        'rola inteira, sem estourar, e o Concluir alcança',
+        (tester) async {
+          final controller = SeletorDeAssuntosController(
+            servico: acervoSimulado((_) async => json(listaDeAssuntos(), 200)),
+          );
+          addTearDown(controller.dispose);
+          List<AssuntoResumo>? escolha;
+          await abrirEEsperar(tester, controller, aoFechar: (r) => escolha = r);
+          tester.view.physicalSize = Size(largura * 3, altura * 3);
+          tester.view.viewInsets = FakeViewPadding(bottom: tecladoDp * 3);
+          await tester.pumpAndSettle();
+          final topoDoTeclado = altura - tecladoDp;
+
+          await tester.enterText(naFolha(find.byType(TextField)), 'hist');
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+
+          await tester.ensureVisible(chip('História'));
+          await tester.pumpAndSettle();
+          expect(tester.getRect(chip('História')).bottom, lessThanOrEqualTo(topoDoTeclado));
+          await tester.tap(chip('História'));
+          await tester.pump();
+
+          final concluir = naFolha(find.text('Concluir'));
+          await tester.ensureVisible(concluir);
+          await tester.pumpAndSettle();
+          final area = tester.getRect(concluir);
+          expect(area.top, greaterThanOrEqualTo(0));
+          expect(area.bottom, lessThanOrEqualTo(topoDoTeclado));
+          await tester.tap(concluir);
+          await tester.pumpAndSettle();
+          expect(escolha?.map((a) => a.nome), <String>['História']);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+
     testWidgets('busca sem resultado não oferece criar assunto', (tester) async {
       final controller = SeletorDeAssuntosController(
         servico: acervoSimulado((_) async => json(listaDeAssuntos(), 200)),
