@@ -33,6 +33,7 @@ class TokensDaSessao {
 /// mostra a tela de verificação de sessão.
 class SessionController extends ChangeNotifier {
   final TokenStore store;
+  final Future<void> Function()? revogarDispositivo;
   String? _token;
   String? _refreshToken;
   bool _carregando = true;
@@ -43,7 +44,7 @@ class SessionController extends ChangeNotifier {
   bool _leituraDescartadaNaSaida = false;
   String? _avisoDeSaida;
 
-  SessionController(this.store);
+  SessionController(this.store, {this.revogarDispositivo});
 
   /// Acesso de recuperação da conta com exclusão pendente (F-CONTA-2, RN-23.3). **Só em
   /// memória**, nunca no [store]: vale 15 minutos e só cancela a exclusão, então fechar o app e
@@ -125,6 +126,7 @@ class SessionController extends ChangeNotifier {
   Future<void> sairRevogando(
     Future<void> Function(String refreshToken) revogar,
   ) async {
+    await _revogarDispositivoDePush();
     // Uma renovação em curso gravaria a sessão de novo depois desta limpeza.
     await _renovacaoEmCurso;
     final refresh = _refreshToken;
@@ -136,6 +138,16 @@ class SessionController extends ChangeNotifier {
       // Revogação é melhor esforço; ver acima.
     } finally {
       await sair();
+    }
+  }
+
+  /// RF-NOT-07: antes do refresh e da limpeza, porque a revogação do dispositivo usa o token da
+  /// sessão, e uma renovação feita por ela troca o refresh que [sairRevogando] vai ler.
+  Future<void> _revogarDispositivoDePush() async {
+    try {
+      await revogarDispositivo?.call();
+    } on Object {
+      return;
     }
   }
 

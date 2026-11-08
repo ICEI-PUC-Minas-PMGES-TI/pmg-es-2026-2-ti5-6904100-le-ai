@@ -14,6 +14,12 @@ import 'design/theme_controller.dart';
 import 'features/auth/auth_service.dart';
 import 'features/estante/estante_service.dart';
 import 'features/livros/rotas_livros.dart';
+import 'features/notificacoes/abertura_por_push.dart';
+import 'features/notificacoes/dispositivo_push_store.dart';
+import 'features/notificacoes/dispositivos_push_service.dart';
+import 'features/notificacoes/mensageria_firebase.dart';
+import 'features/notificacoes/rotas_notificacoes.dart';
+import 'features/notificacoes/servico_de_push_fcm.dart';
 import 'features/progresso/fila_de_progresso.dart';
 import 'features/progresso/rotas_progresso.dart';
 
@@ -23,7 +29,13 @@ Future<void> main() async {
   final themeController = ThemeController(SharedPreferencesThemeStore());
   await themeController.load();
 
-  final sessionController = SessionController(SecureTokenStore());
+  final mensageria = await abrirMensageria();
+
+  late final ServicoDePushFcm servicoDePush;
+  final sessionController = SessionController(
+    SecureTokenStore(),
+    revogarDispositivo: () => servicoDePush.revogar(),
+  );
   // Fire-and-forget: ler o secure storage é assíncrono, mas nada aqui precisa esperar por ele
   // antes do primeiro frame. Enquanto não resolve, `router.dart` mostra `VerificandoSessaoPage`
   // (shell-de-navegacao.md §4.4) e reage sozinho via `refreshListenable` quando `load()` termina.
@@ -50,6 +62,19 @@ Future<void> main() async {
   final progresso = DependenciasDeProgresso.padrao(leituraClient);
   unawaited(progresso.sessao?.carregar());
 
+  servicoDePush = ServicoDePushFcm(
+    mensageria: mensageria,
+    api: DispositivosPushService.padrao(
+      getToken: () => sessionController.token,
+      renovarSessao: renovarSessao,
+    ),
+    store: SecureDispositivoPushStore(),
+  );
+  final notificacoes = DependenciasDeNotificacoes.padrao(
+    getToken: () => sessionController.token,
+    renovarSessao: renovarSessao,
+  );
+
   runApp(
     LeAiApp(
       themeController: themeController,
@@ -61,6 +86,13 @@ Future<void> main() async {
       ),
       estante: EstanteService(leituraClient),
       progresso: progresso,
+      notificacoes: notificacoes,
+      servicoDePush: servicoDePush,
+      aberturaPorPush: AberturaPorPush(
+        mensageria: mensageria,
+        sessao: sessionController,
+        notificacoes: notificacoes,
+      ),
     ),
   );
 }
@@ -72,6 +104,9 @@ class LeAiApp extends StatefulWidget {
   final DependenciasDeLivros? livros;
   final EstanteService? estante;
   final DependenciasDeProgresso? progresso;
+  final DependenciasDeNotificacoes? notificacoes;
+  final ServicoDePushFcm? servicoDePush;
+  final AberturaPorPush? aberturaPorPush;
 
   const LeAiApp({
     required this.themeController,
@@ -80,6 +115,9 @@ class LeAiApp extends StatefulWidget {
     this.livros,
     this.estante,
     this.progresso,
+    this.notificacoes,
+    this.servicoDePush,
+    this.aberturaPorPush,
     super.key,
   });
 
@@ -96,6 +134,8 @@ class _LeAiAppState extends State<LeAiApp> {
     livros: widget.livros,
     estante: widget.estante,
     progresso: widget.progresso,
+    notificacoes: widget.notificacoes,
+    servicoDePush: widget.servicoDePush,
   );
 
   late final ReenvioDaFila? _reenvio = widget.progresso == null
@@ -106,10 +146,14 @@ class _LeAiAppState extends State<LeAiApp> {
   void initState() {
     super.initState();
     _reenvio?.iniciar();
+    widget.servicoDePush?.acompanhar(widget.sessionController);
+    widget.aberturaPorPush?.iniciar(_router);
   }
 
   @override
   void dispose() {
+    widget.aberturaPorPush?.dispose();
+    widget.servicoDePush?.dispose();
     _reenvio?.dispose();
     super.dispose();
   }
