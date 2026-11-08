@@ -254,8 +254,6 @@ abstract final class TextosDoBloco {
 abstract final class TextosDasNotas {
   static const String titulo = 'Notas que você deu';
   static const String legenda = 'Nota em estrelas. Sobre cada coluna, o número de livros.';
-  static const String ajuda =
-      'Cada livro conta uma vez, com a nota que você deu a ele. Livros pessoais entram.';
   static const String nenhumLivro = 'Nenhum livro';
   static const String total = 'Total';
   static const String colunaNota = 'Nota';

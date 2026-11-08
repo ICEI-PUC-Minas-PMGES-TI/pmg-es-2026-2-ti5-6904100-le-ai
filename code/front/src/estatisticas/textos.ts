@@ -246,7 +246,6 @@ export const TEXTOS_DO_BLOCO = {
 export const TEXTOS_DAS_NOTAS = {
   titulo: 'Notas que você deu',
   legenda: 'Nota em estrelas. Sobre cada coluna, o número de livros.',
-  ajuda: 'Cada livro conta uma vez, com a nota que você deu a ele. Livros pessoais entram.',
   nenhumLivro: 'Nenhum livro',
   total: 'Total',
   colunaNota: 'Nota',

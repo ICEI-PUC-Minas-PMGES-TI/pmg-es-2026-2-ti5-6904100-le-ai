@@ -206,9 +206,6 @@ function teclar(evento: KeyboardEvent): void {
       >
         {{ T.legenda }}
       </p>
-      <p class="mt-space-3 text-caption text-grafite">
-        {{ T.ajuda }}
-      </p>
 
       <BotaoTextual
         class="mt-space-3 min-h-12 gap-space-2"

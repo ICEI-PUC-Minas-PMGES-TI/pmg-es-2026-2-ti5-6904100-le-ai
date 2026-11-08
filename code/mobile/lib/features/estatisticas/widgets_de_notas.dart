@@ -229,8 +229,6 @@ class _GraficoDeNotasState extends State<GraficoDeNotas> {
                 Text(TextosDasNotas.legenda, style: legenda),
               ],
               const SizedBox(height: DesignTokens.space3),
-              Text(TextosDasNotas.ajuda, style: legenda),
-              const SizedBox(height: DesignTokens.space3),
               Align(
                 alignment: Alignment.centerLeft,
                 child: TextButton.icon(
