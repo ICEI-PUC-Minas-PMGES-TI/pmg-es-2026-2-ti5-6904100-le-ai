@@ -2062,7 +2062,7 @@ components:
     Estatisticas:
       type: object
       additionalProperties: false
-      required: [ano, anos, primeiroRegistro, totais, medias]
+      required: [ano, anos, primeiroRegistro, totais, medias, distribuicaoNotas]
       properties:
         ano:
           type: integer
@@ -2154,6 +2154,7 @@ components:
                   description: >-
                     Notas dadas no período, pela data da última vez que foram
                     dadas (fuso America/Sao_Paulo).
+        distribuicaoNotas: { $ref: '#/components/schemas/DistribuicaoNotas' }
 
     GraficosEstatisticas:
       type: object
@@ -2190,13 +2191,53 @@ components:
     EstatisticasPerfil:
       type: object
       additionalProperties: false
-      required: [ano, livrosConcluidos, paginasLidas, minutosLidos]
-      description: Os mesmos totais de `TotaisEstatistica`, com o ano do recorte.
+      required:
+        [ano, livrosConcluidos, paginasLidas, minutosLidos, distribuicaoNotas]
+      description: >-
+        Os mesmos totais de `TotaisEstatistica`, com o ano do recorte e a
+        distribuição das notas do ano.
       properties:
         ano: { type: integer, example: 2026 }
         livrosConcluidos: { type: integer, minimum: 0, example: 9 }
         paginasLidas: { type: integer, minimum: 0, example: 3818 }
         minutosLidos: { type: integer, minimum: 0, example: 5130 }
+        distribuicaoNotas: { $ref: '#/components/schemas/DistribuicaoNotas' }
+
+    DistribuicaoNotas:
+      type: object
+      additionalProperties: false
+      nullable: true
+      required: [total, faixas]
+      description: >-
+        Quantos livros receberam cada nota no período (RF-STA-04). Derivada
+        por agrupamento das notas do leitor, uma por livro, livro pessoal
+        incluído; atribuída ao período como `notaMedia`. Nulo sem nenhuma nota
+        no período: nunca onze zeros (RN-06.3).
+      properties:
+        total:
+          type: integer
+          minimum: 1
+          example: 8
+          description: Notas do período; igual a `medias.notaMedia.quantidade`.
+        faixas:
+          type: array
+          minItems: 11
+          maxItems: 11
+          description: >-
+            Sempre as onze notas da escala (0 a 5, passo 0,5), em ordem
+            crescente, inclusive as de contagem zero.
+          items:
+            type: object
+            additionalProperties: false
+            required: [valor, quantidade]
+            properties:
+              valor:
+                type: number
+                minimum: 0
+                maximum: 5
+                multipleOf: 0.5
+                example: 4.5
+              quantidade: { type: integer, minimum: 0, example: 2 }
 
     UnidadeDesafio:
       type: string

@@ -17,6 +17,7 @@ import {
 import {
   anosComRegistro,
   lerPeriodo,
+  montarDistribuicao,
   type MesCorrente,
   type Periodo,
   resumir,
@@ -54,9 +55,13 @@ export class EstatisticasService {
     agora = new Date(),
   ): Promise<EstatisticasDto> {
     const periodo = periodoDe(periodoTexto, mesCorrente(agora).ano);
-    const [baldes, primeiroRegistro] = await Promise.all([
+    const [baldes, primeiroRegistro, notas] = await Promise.all([
       this.repositorio.baldes(usuarioId),
       this.repositorio.primeiroRegistro(usuarioId),
+      this.repositorio.contagemDeNotas(
+        usuarioId,
+        periodo.tipo === 'ano' ? periodo.ano : undefined,
+      ),
     ]);
     const resumo = resumir(baldes, periodo);
     return {
@@ -80,6 +85,7 @@ export class EstatisticasService {
           quantidade: resumo.notaMedia.denominador,
         },
       },
+      distribuicaoNotas: montarDistribuicao(notas),
     };
   }
 
@@ -125,12 +131,17 @@ export class EstatisticasService {
       }
     }
     const doAno = ano ?? mesCorrente(agora).ano;
-    const soma = somar(await this.repositorio.baldes(usuarioId, doAno));
+    const [baldes, notas] = await Promise.all([
+      this.repositorio.baldes(usuarioId, doAno),
+      this.repositorio.contagemDeNotas(usuarioId, doAno),
+    ]);
+    const soma = somar(baldes);
     return {
       ano: doAno,
       livrosConcluidos: soma.livrosConcluidos,
       paginasLidas: soma.paginasLidas,
       minutosLidos: soma.minutosLidos,
+      distribuicaoNotas: montarDistribuicao(notas),
     };
   }
 
