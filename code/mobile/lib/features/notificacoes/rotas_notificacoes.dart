@@ -15,8 +15,12 @@ const String _segmento = 'notificacoes';
 /// (notificacoes.md §4): `/estante/notificacoes`, `/feed/notificacoes`...
 String rotaNotificacoes(String raizDaAba) => '$raizDaAba/$_segmento';
 
-/// Se [caminho] é a tela de notificações de alguma aba, a de [rotaNotificacoes].
-bool ehRotaDeNotificacoes(String caminho) => caminho.endsWith('/$_segmento');
+/// Se [caminho] é a tela de notificações de alguma aba, a de [rotaNotificacoes]. Só a raiz da aba
+/// e o segmento: `/perfil/configuracoes/notificacoes` são as preferências, não a lista.
+bool ehRotaDeNotificacoes(String caminho) {
+  final segmentos = Uri.parse(caminho).pathSegments;
+  return segmentos.length == 2 && segmentos.last == _segmento;
+}
 
 /// O que F-NOT precisa do mundo lá fora, no molde de `DependenciasDePerfil`. O contador é um só
 /// para o app inteiro: é o número do badge em todo cabeçalho.

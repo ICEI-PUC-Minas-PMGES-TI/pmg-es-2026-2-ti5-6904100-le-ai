@@ -19,6 +19,7 @@ import '../perfil/textos.dart';
 import '../perfil/widgets_de_perfil.dart';
 import 'canal_de_notificacoes.dart';
 import 'contador_de_nao_lidas.dart';
+import 'icone_da_notificacao.dart';
 import 'notificacao.dart';
 import 'notificacoes_service.dart';
 
@@ -703,27 +704,15 @@ class _PontoEIcone extends StatelessWidget {
           ),
           const SizedBox(width: DesignTokens.space2),
           // Só o Warning tem cor própria: é o único que pede ação do leitor.
-          Icon(_icone(tipo), size: 24, color: emRisco ? theme.warningColor : theme.secondaryText),
+          Icon(
+            iconeDaNotificacao(tipo),
+            size: 24,
+            color: emRisco ? theme.warningColor : theme.secondaryText,
+          ),
         ],
       ),
     );
   }
-
-  static IconData _icone(TipoNotificacao tipo) => switch (tipo) {
-    TipoNotificacao.atividadeCurtida => PhosphorIconsRegular.heart,
-    TipoNotificacao.atividadeComentada ||
-    TipoNotificacao.comentarioRespondido => PhosphorIconsRegular.chatCircle,
-    TipoNotificacao.novoSeguidor ||
-    TipoNotificacao.solicitacaoCriada => PhosphorIconsRegular.userPlus,
-    TipoNotificacao.solicitacaoAceita => PhosphorIconsRegular.userCheck,
-    TipoNotificacao.usuarioMencionado => PhosphorIconsRegular.at,
-    TipoNotificacao.leituraEmRisco => PhosphorIconsRegular.warning,
-    TipoNotificacao.leituraExpirada => PhosphorIconsRegular.pauseCircle,
-    TipoNotificacao.recomendacaoRecebida => PhosphorIconsRegular.paperPlaneTilt,
-    // F-AVA-2: o mesmo ícone do botão de curtir na resenha, para não confundir com o `Heart` da
-    // curtida em atividade (notificacoes.md §5).
-    TipoNotificacao.resenhaCurtida => PhosphorIconsRegular.thumbsUp,
-  };
 }
 
 /// Frase do servidor, com o nome de quem agiu em `body-strong` quando ela começa por ele.
