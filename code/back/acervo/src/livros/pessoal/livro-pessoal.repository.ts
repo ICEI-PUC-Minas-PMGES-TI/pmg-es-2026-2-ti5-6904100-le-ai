@@ -1,8 +1,13 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray, notInArray, sql } from 'drizzle-orm';
 import { DRIZZLE, DrizzleDB } from '../../db/drizzle.module';
-import { livro } from '../../db/schema';
+import { assunto, livro, livroAssunto } from '../../db/schema';
 import type { Tx } from '../../db/tipos';
+
+export interface AssuntoDoLivro {
+  id: string;
+  nome: string;
+}
 
 /**
  * Derivação de `sinopse` e `sinopse_status`, que **sempre** andam juntos.
@@ -137,6 +142,66 @@ export class LivroPessoalRepository {
       .update(livro)
       .set({ ativo: false, atualizadoEm: new Date() })
       .where(and(eq(livro.id, id), eq(livro.tipo, 'pessoal')));
+  }
+
+  /**
+   * Quantos dos ids existem no conjunto curado (RN-21.1). Os ids chegam
+   * normalizados (minúsculas, sem repetidos), então contagem menor que o pedido
+   * significa id inexistente.
+   */
+  async contarAssuntosExistentes(tx: Tx, ids: string[]): Promise<number> {
+    if (ids.length === 0) {
+      return 0;
+    }
+    const [linha] = await tx
+      .select({ total: sql<number>`count(*)::int` })
+      .from(assunto)
+      .where(inArray(assunto.id, ids));
+    return linha?.total ?? 0;
+  }
+
+  /**
+   * Troca o conjunto de assuntos do livro pessoal pelo informado (F-ACV-OPC).
+   * Apaga só os que saíram e insere os que faltam: reenviar o mesmo conjunto
+   * não escreve nada. Esses vínculos nunca alimentam busca, filtros, páginas
+   * nem contadores: toda consulta de catálogo filtra `tipo = 'oficial'`
+   * (RN-03, RNF-SEC-06).
+   */
+  async substituirAssuntos(
+    tx: Tx,
+    livroId: string,
+    ids: string[],
+  ): Promise<void> {
+    await tx
+      .delete(livroAssunto)
+      .where(
+        ids.length === 0
+          ? eq(livroAssunto.livroId, livroId)
+          : and(
+              eq(livroAssunto.livroId, livroId),
+              notInArray(livroAssunto.assuntoId, ids),
+            ),
+      );
+    if (ids.length > 0) {
+      await tx
+        .insert(livroAssunto)
+        .values(ids.map((assuntoId) => ({ livroId, assuntoId })))
+        .onConflictDoNothing();
+    }
+  }
+
+  /**
+   * Assuntos do livro na ordem do `GET /assuntos` (sem acento, depois o nome).
+   * Dentro do efeito idempotente, passe o `tx`: só ele enxerga a troca que
+   * acabou de gravar. Sem `tx`, lê pelo pool (o `GET`).
+   */
+  async assuntosDe(livroId: string, tx?: Tx): Promise<AssuntoDoLivro[]> {
+    return (tx ?? this.db)
+      .select({ id: assunto.id, nome: assunto.nome })
+      .from(livroAssunto)
+      .innerJoin(assunto, eq(assunto.id, livroAssunto.assuntoId))
+      .where(eq(livroAssunto.livroId, livroId))
+      .orderBy(sql`acervo.f_busca_normalizar(${assunto.nome})`, assunto.nome);
   }
 
   private paraRegistro(linha: typeof livro.$inferSelect): LivroPessoalRegistro {

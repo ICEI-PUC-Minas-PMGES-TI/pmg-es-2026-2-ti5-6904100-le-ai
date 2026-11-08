@@ -8,13 +8,17 @@ info:
     implementadas por F-ACV-CADASTRO em 18/09/2026; a busca, os assuntos e a
     página do livro, por F-ACV-BUSCA em 26/09/2026. A ingestão inicial do dump é um script
     utilitário, não uma API HTTP; por isso não há rotas administrativas de
-    ingestão, recarga ou associação de assuntos neste período. O contrato é
+    ingestão nem de recarga (a recarga manual de RF-ACV-14 é um modo do mesmo
+    script, F-ACV-OPC). O contrato é
     publicado em runtime por @nestjs/swagger em /docs e versionado aqui
     conforme RNF-ARQ-03. No Período 2, F-ACV-DESCOBERTA acrescentou os filtros
     avançados de GET /livros, as páginas de autor, editora e série e os campos
     de série e editora da página do livro, implementados em 02/10/2026.
     F-ACV-NOTA acrescentou à página a nota geral, a nota dos leitores e a
-    distribuição das notas dos leitores.
+    distribuição das notas dos leitores. No Período 3, F-ACV-OPC acrescentou
+    `assuntos[]` ao cadastro, à edição e à leitura do livro pessoal (RF-ACV-22),
+    escolhidos do conjunto curado de GET /assuntos; esses assuntos nunca
+    alimentam busca, filtros, páginas nem contadores (RN-03, RNF-SEC-06).
 x-contract-status: implemented
 x-implementation-notes:
   - >-
@@ -73,7 +77,7 @@ x-implementation-notes:
     CLOUDINARY_API_KEY e CLOUDINARY_API_SECRET. O backfill `npm run
     backfill:capas` lê leitura.v_estante_publica_v1 e roda depois de o serviço
     subir em cada ambiente.
-x-implemented-features: [F-ACV-CADASTRO, F-ACV-BUSCA, F-ACV-INGESTAO, F-ACV-DESCOBERTA, F-ACV-NOTA]
+x-implemented-features: [F-ACV-CADASTRO, F-ACV-BUSCA, F-ACV-INGESTAO, F-ACV-DESCOBERTA, F-ACV-NOTA, F-ACV-OPC]
 x-database-contracts:
   - name: v_livro_referencia_v1
     owner: acervo
@@ -236,7 +240,9 @@ paths:
       description: >-
         Assuntos para o filtro da busca (RF-ACV-02, RN-21), ordenados por nome.
         O conjunto é curado e fechado, com cerca de 30 itens; o servidor impõe
-        o teto de 100 (RNF-DES-02).
+        o teto de 100 (RNF-DES-02). Também alimenta o seletor de assuntos do
+        livro pessoal (RF-ACV-22, F-ACV-OPC), que reaproveita esta rota em vez
+        de criar outra.
       responses:
         '200':
           description: Assuntos disponíveis para o filtro.
@@ -522,7 +528,7 @@ paths:
     post:
       operationId: criarLivroPessoal
       x-contract-status: implemented
-      x-implemented-by: F-ACV-CADASTRO
+      x-implemented-by: F-ACV-CADASTRO, F-ACV-OPC
       tags: [livros-pessoais]
       summary: Cria um livro pessoal
       description: >-
@@ -548,7 +554,32 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/LivroPessoalDetalhe' }
-        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '400':
+          description: >-
+            Corpo inválido. Inclui assunto fora do conjunto curado ou texto
+            livre em `assuntos` (F-ACV-OPC).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErroValidacao' }
+              examples:
+                assuntoInexistente:
+                  summary: Um dos ids não está mais no conjunto curado
+                  value:
+                    codigo: REQUISICAO_INVALIDA
+                    mensagem: Os dados enviados são inválidos.
+                    correlationId: 7d0c6c1e-8f0e-4a55-9b39-0f0b1f6f2a10
+                    campos:
+                      - campo: assuntos
+                        mensagem: Um dos assuntos escolhidos não está mais na lista do Lê Ai. Revise e salve de novo.
+                textoLivre:
+                  summary: Texto livre em vez de id
+                  value:
+                    codigo: REQUISICAO_INVALIDA
+                    mensagem: Os dados enviados são inválidos.
+                    correlationId: 7d0c6c1e-8f0e-4a55-9b39-0f0b1f6f2a10
+                    campos:
+                      - campo: assuntos
+                        mensagem: Escolha os assuntos da lista do Lê Ai.
         '413': { $ref: '#/components/responses/CorpoMuitoGrande' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '409': { $ref: '#/components/responses/Conflito' }
@@ -558,7 +589,7 @@ paths:
     get:
       operationId: obterLivroPessoal
       x-contract-status: implemented
-      x-implemented-by: F-ACV-CADASTRO, F-LST
+      x-implemented-by: F-ACV-CADASTRO, F-LST, F-ACV-OPC
       tags: [livros-pessoais]
       summary: Obtém um livro pessoal com autorização RN-15
       description: >-
@@ -607,7 +638,7 @@ paths:
     patch:
       operationId: atualizarLivroPessoal
       x-contract-status: implemented
-      x-implemented-by: F-ACV-CADASTRO
+      x-implemented-by: F-ACV-CADASTRO, F-ACV-OPC
       tags: [livros-pessoais]
       summary: Atualiza um livro pessoal do próprio usuário
       description: >-
@@ -628,7 +659,33 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/LivroPessoalDetalhe' }
-        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '400':
+          description: >-
+            Corpo inválido. Inclui assunto fora do conjunto curado ou texto
+            livre em `assuntos` (F-ACV-OPC). Para quem não é dono, o 403 vem
+            antes: a propriedade é conferida antes dos assuntos.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErroValidacao' }
+              examples:
+                assuntoInexistente:
+                  summary: Um dos ids não está mais no conjunto curado
+                  value:
+                    codigo: REQUISICAO_INVALIDA
+                    mensagem: Os dados enviados são inválidos.
+                    correlationId: 7d0c6c1e-8f0e-4a55-9b39-0f0b1f6f2a10
+                    campos:
+                      - campo: assuntos
+                        mensagem: Um dos assuntos escolhidos não está mais na lista do Lê Ai. Revise e salve de novo.
+                textoLivre:
+                  summary: Texto livre em vez de id
+                  value:
+                    codigo: REQUISICAO_INVALIDA
+                    mensagem: Os dados enviados são inválidos.
+                    correlationId: 7d0c6c1e-8f0e-4a55-9b39-0f0b1f6f2a10
+                    campos:
+                      - campo: assuntos
+                        mensagem: Escolha os assuntos da lista do Lê Ai.
         '413': { $ref: '#/components/responses/CorpoMuitoGrande' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '403': { $ref: '#/components/responses/AcessoNegado' }
@@ -1194,6 +1251,17 @@ components:
           format: uri
           nullable: true
           description: URL do asset validado enviado diretamente ao Cloudinary.
+        assuntos:
+          type: array
+          nullable: true
+          maxItems: 100
+          items: { type: string, format: uuid }
+          description: >-
+            Ids do conjunto curado (GET /assuntos), RF-ACV-22. Repetidos são
+            ignorados e a ordem não importa (inclusive para o Idempotency-Key).
+            Id inexistente, texto livre ou item que não é UUID respondem 400
+            REQUISICAO_INVALIDA com `campos[{campo: assuntos}]`. Até 5 é
+            recomendado (RN-21.2), mas só o cliente avisa.
     LivroPessoalAtualizacao:
       type: object
       additionalProperties: false
@@ -1204,6 +1272,18 @@ components:
         paginas: { type: integer, minimum: 1 }
         sinopse: { type: string, maxLength: 4000, nullable: true }
         capaUrl: { type: string, format: uri, nullable: true }
+        assuntos:
+          type: array
+          nullable: true
+          maxItems: 100
+          items: { type: string, format: uuid }
+          description: >-
+            Ids do conjunto curado (GET /assuntos), RF-ACV-22. Repetidos são
+            ignorados e a ordem não importa (inclusive para o Idempotency-Key).
+            Id inexistente, texto livre ou item que não é UUID respondem 400
+            REQUISICAO_INVALIDA com `campos[{campo: assuntos}]`. Até 5 é
+            recomendado (RN-21.2), mas só o cliente avisa. Ausente preserva;
+            `[]` ou `null` limpa.
     NotaDoDono:
       type: object
       additionalProperties: false
@@ -1229,7 +1309,7 @@ components:
     LivroPessoalDetalhe:
       type: object
       additionalProperties: false
-      required: [id, tipo, donoId, titulo, autor, paginas, sinopse, capaUrl, modoConsulta, notaDoDono, resenhaDoDono, dono]
+      required: [id, tipo, donoId, titulo, autor, paginas, sinopse, capaUrl, modoConsulta, notaDoDono, resenhaDoDono, dono, assuntos]
       properties:
         id: { type: string, format: uuid }
         tipo: { type: string, enum: [pessoal] }
@@ -1257,3 +1337,11 @@ components:
           description: >-
             `null` quando o perfil do dono não está na VIEW (conta suspensa ou com exclusão
             pendente) ou quando a VIEW falha; a página não inventa um nome.
+        assuntos:
+          type: array
+          maxItems: 100
+          items: { $ref: '#/components/schemas/AssuntoResumo' }
+          description: >-
+            Assuntos escolhidos pelo dono (F-ACV-OPC), em ordem alfabética sem
+            acento; `[]` quando não há. Vai também ao terceiro em modo consulta,
+            que só lê.

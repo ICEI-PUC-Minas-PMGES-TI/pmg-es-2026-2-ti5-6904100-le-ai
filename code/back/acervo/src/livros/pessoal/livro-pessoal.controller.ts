@@ -40,6 +40,7 @@ const CAMPOS_ATUALIZAVEIS = [
   'paginas',
   'sinopse',
   'capaUrl',
+  'assuntos',
 ];
 
 @ApiTags('livros-pessoais')

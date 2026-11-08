@@ -4,10 +4,58 @@ import {
   IsOptional,
   IsString,
   IsUrl,
+  isUUID,
   MaxLength,
   Min,
   MinLength,
+  ValidateBy,
 } from 'class-validator';
+import { AssuntoResumoDto } from '../../busca/dto/busca.dto';
+
+/** Teto de `assuntos[]`: o mesmo do `GET /assuntos`, que lista o conjunto inteiro. */
+export const MAXIMO_DE_ASSUNTOS = 100;
+
+/** Texto livre ou item que não é id do conjunto curado (RN-21.4). */
+export const MENSAGEM_ASSUNTO_FORA_DA_LISTA =
+  'Escolha os assuntos da lista do Lê Ai.';
+
+/**
+ * `assuntos[]` do livro pessoal (RF-ACV-22, F-ACV-OPC): ids do conjunto curado.
+ *
+ * O teto de 5 de RN-21.2 é recomendação e só o cliente avisa (decisão do dono
+ * de 06/11/2026); o servidor aceita até o tamanho do conjunto. Toda mensagem é
+ * explícita: o `validacao.ts` só traduz o `whitelistValidation`, e sem
+ * `message` o 400 sairia em inglês. É **um** validador só, e não
+ * `IsArray` + `ArrayMaxSize` + `IsUUID`: com três, um texto solto gerava três
+ * entradas em `campos`. A existência dos ids é conferida no service, dentro
+ * da transação.
+ */
+function CampoAssuntos(): PropertyDecorator {
+  return (alvo, chave) => {
+    ApiPropertyOptional({
+      type: [String],
+      format: 'uuid',
+      maxItems: MAXIMO_DE_ASSUNTOS,
+      nullable: true,
+      description:
+        'Ids do conjunto curado (GET /assuntos). Repetidos são ignorados. No PATCH, ausente preserva; [] ou null limpa.',
+    })(alvo, chave);
+    IsOptional()(alvo, chave);
+    ValidateBy({
+      name: 'assuntosDoConjuntoCurado',
+      validator: {
+        validate: (valor: unknown) =>
+          Array.isArray(valor) &&
+          valor.length <= MAXIMO_DE_ASSUNTOS &&
+          valor.every((id) => typeof id === 'string' && isUUID(id, 'all')),
+        defaultMessage: (args) =>
+          Array.isArray(args?.value) && args.value.length > MAXIMO_DE_ASSUNTOS
+            ? `Escolha no máximo ${MAXIMO_DE_ASSUNTOS} assuntos.`
+            : MENSAGEM_ASSUNTO_FORA_DA_LISTA,
+      },
+    })(alvo, chave);
+  };
+}
 
 /**
  * Entrada de `POST /livros/pessoal` (RF-ACV-08).
@@ -54,6 +102,9 @@ export class LivroPessoalEntradaDto {
     { message: 'Informe uma URL de capa válida.' },
   )
   capaUrl?: string | null;
+
+  @CampoAssuntos()
+  assuntos?: string[] | null;
 }
 
 /**
@@ -99,6 +150,9 @@ export class LivroPessoalAtualizacaoDto {
     { message: 'Informe uma URL de capa válida.' },
   )
   capaUrl?: string | null;
+
+  @CampoAssuntos()
+  assuntos?: string[] | null;
 }
 
 /** Nota individual do dono. Nunca média nem contagem (RN-03). */
@@ -171,4 +225,8 @@ export class LivroPessoalDetalheDto {
 
   @ApiProperty({ type: DonoResumoDto, nullable: true })
   dono!: DonoResumoDto | null;
+
+  /** Em ordem alfabética e sempre presente; `[]` sem assuntos (F-ACV-OPC). */
+  @ApiProperty({ type: [AssuntoResumoDto] })
+  assuntos!: AssuntoResumoDto[];
 }

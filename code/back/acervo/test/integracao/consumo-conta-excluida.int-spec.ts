@@ -223,6 +223,32 @@ describe('consumo de conta.excluida (integração)', () => {
     ).toBe(1);
   });
 
+  // F-ACV-OPC (Renato, 06/11/2026): o livro pessoal agora tem assuntos, e o
+  // CASCADE de `livro_assunto` precisa levá-los junto com o livro.
+  it('os assuntos dos livros pessoais da conta vão junto', async () => {
+    const excluida = randomUUID();
+    const outra = randomUUID();
+    const daExcluida = await livroPessoal(excluida);
+    const daOutra = await livroPessoal(outra);
+    const { rows } = await pool.query<{ id: string }>(
+      `INSERT INTO acervo.assunto (nome, slug) VALUES ('Romance', 'romance') RETURNING id`,
+    );
+    await pool.query(
+      `INSERT INTO acervo.livro_assunto (livro_id, assunto_id) VALUES ($1, $3), ($2, $3)`,
+      [daExcluida, daOutra, rows[0].id],
+    );
+
+    publicar({ usuarioId: excluida });
+    await broker.entregar(FILA);
+
+    expect(
+      await contar(pool, 'acervo.livro_assunto', 'livro_id = $1', [daExcluida]),
+    ).toBe(0);
+    expect(
+      await contar(pool, 'acervo.livro_assunto', 'livro_id = $1', [daOutra]),
+    ).toBe(1);
+  });
+
   it('livro sem nenhuma nota restante fica sem agregado', async () => {
     const excluida = randomUUID();
     const oficial = await inserirLivroOficial(
