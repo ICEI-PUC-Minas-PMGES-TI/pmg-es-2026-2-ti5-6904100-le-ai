@@ -21,9 +21,9 @@ RNF atendidos: **RNF-SEC-33** (dado externo validado e normalizado antes de pers
 | Camada | Status | Observação |
 |---|---|---|
 | Infra | implementado (sem migration) | `ingestao_execucao` já aceitava `recarga` e `livro_assunto` já aceitava livro pessoal; modo `recarga` no script (`carregar --tipo recarga`), validado só na amostra em Postgres descartável |
-| Backend | implementado | `acervo`: `assuntos[]` em `POST`/`PATCH`/`GET /livros/pessoal`; `GET /assuntos` reaproveitado de F-ACV-BUSCA |
-| Web | implementado | seletor de assuntos no formulário (criar e editar) e linha `Assuntos` na página do livro pessoal |
-| Mobile | implementado | mesmo seletor e mesma linha |
+| Backend | mergeado na `desenvolvimento` em 08/11/2026 ([PR #62](https://github.com/ICEI-PUC-Minas-PMGES-TI/pmg-es-2026-2-ti5-6904100-le-ai/pull/62)) | `acervo`: `assuntos[]` em `POST`/`PATCH`/`GET /livros/pessoal`; `GET /assuntos` reaproveitado de F-ACV-BUSCA |
+| Web | mergeado na `desenvolvimento` em 08/11/2026 (PR #62) | seletor de assuntos no formulário (criar e editar) e linha `Assuntos` na página do livro pessoal |
+| Mobile | mergeado na `desenvolvimento` em 08/11/2026 (PR #62) | mesmo seletor e mesma linha |
 
 ## Especificação
 
@@ -81,7 +81,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 (plano §10)
 
-- [ ] Script (modo recarga) + backend `acervo` + web + mobile mergeados em `desenvolvimento` — [PR #62](https://github.com/ICEI-PUC-Minas-PMGES-TI/pmg-es-2026-2-ti5-6904100-le-ai/pull/62) aberto em 07/11/2026, aguardando revisão e merge
+- [x] Script (modo recarga) + backend `acervo` + web + mobile mergeados em `desenvolvimento`: [PR #62](https://github.com/ICEI-PUC-Minas-PMGES-TI/pmg-es-2026-2-ti5-6904100-le-ai/pull/62), aprovado pelo Vicenzo e mergeado em 08/11/2026 (`97a2f95`).
 - [x] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md)) — o CI não roda o dump inteiro; valida a recarga contra a **amostra reproduzível** de RNF-TST-08. Verde no PR #62 em 07/11/2026 (7 de 7: `acervo`, script com banco, web e mobile)
 - [x] Testes unitários e de integração com banco real/container: recarga idempotente sobre a amostra, preservação de capa própria/sinopse/nota/livro pessoal, validação de `assuntos[]` contra o conjunto curado, rejeição de texto livre e de id inexistente, propriedade do livro pessoal e isolamento de busca/filtros (RNF-TST-02/08)
 - [x] Testes assíncronos — **N/A**: nenhuma das duas partes usa mensageria; a recarga é execução local do script. Justificativa registrada aqui em vez de remover o item
@@ -111,6 +111,8 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - Stack de `acervo` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
 ## Timeline
+
+### Merge 08/11/2026: o Vicenzo conferiu o `0ccaee4` e todo o delta desde a primeira revisão, aprovou o PR #62 e ele foi mergeado na `desenvolvimento` às 00:35 (`97a2f95`), com a CI verde. Sem migration, nada a aplicar no dev. Card #31 em "Concluído". Continuam abertos: a recarga real em dev e DES (pendência do grupo, decisão 4) e o fluxo em DES, que vem com o merge da `main` no fechamento de novembro, com o `acervo` subindo junto ou antes da web (ordem de deploy acima).
 
 ### Correções da revisão do Vicenzo no PR #62 07/11/2026: três pedidos de mudança (P2) de interação/layout, todos corrigidos. **Mobile**, a folha do seletor não descontava o teclado (`mostrarFolhaInferior` não aplica `viewInsets`): com a busca filtrada, os resultados e o `Concluir` ficavam atrás dele; agora a folha sobe com `Padding(bottom: viewInsets.bottom)` e a altura máxima é a menor entre 85% da tela e o que sobra acima do teclado. Teste de widget novo com teclado de 300 dp em 390×844 dp confere busca, resultados e `Concluir` acima do teclado, com e sem filtro; ele falha no código anterior. Um validador de contexto limpo confirmou os três itens e achou um efeito colateral, corrigido: com o celular deitado e o teclado aberto (844×390 com teclado de 200 e 160 dp; 320×568 com 260 dp), a área ficava menor que título + busca + rodapé e a folha estourava (63, 23 e 25 px). Abaixo de 320 dp úteis (escalados pela fonte), a folha inteira rola, com a lista numa janela de 120 dp; três testes novos cobrem esses tamanhos, tocam num resultado e no `Concluir`, e falham sem a correção. **Web estreita**, os alvos de 48px do `X` dos chips do formulário invadiam 8px a linha vizinha (um toque em Remover Biografia removia História); agora cada linha tem 48px sem intervalo vertical no celular, com a pílula de 32px no meio, e na web larga continua como era. **Seletor web em tela larga e baixa** (celular deitado), `md:max-h-[592px]` ignorava a altura da viewport e cortava título, busca e rodapé; agora o limite é `min(592px, 100dvh − 5.5rem)`, e só o miolo rola. As duas da web conferidas com os componentes reais e o CSS do projeto no Edge headless (página temporária do Vite, removida): em 390×844 os seis alvos não se sobrepõem e o hit-test dentro de cada círculo acerta só o próprio assunto; o seletor fica inteiro na tela em 844×390, 768×360, 1024×500, 1280×800 (ainda com 592px) e 390×844. Verificação: web lint, `vue-tsc` e 1118 testes; mobile `flutter analyze` sem avisos e 955 testes. Divergência pequena: na web estreita, as linhas de chips do formulário passam de 32px+8px para 48px.
 

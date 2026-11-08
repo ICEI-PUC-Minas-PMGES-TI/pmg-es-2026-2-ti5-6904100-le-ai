@@ -103,4 +103,5 @@ Realizado plano de implementação da F-ACV-OPC, com revisão independente do pl
 Realizado assuntos do conjunto curado no livro pessoal, no acervo, na web e no app (F-ACV-OPC)
 Realizado recarga manual do dump do OpenLibrary sem apagar dado local, validada na amostra (F-ACV-OPC)
 Realizado validação da F-ACV-OPC por revisores independentes, teste manual na web e no app e correções
+Realizado correções da revisão do PR #62 (teclado no seletor do app, chips e seletor na web) e merge da F-ACV-OPC na desenvolvimento
 Realizado revisão independente da F-ACV-OPC com as correções de acessibilidade, layout e testes da recarga, e PR #62 para a desenvolvimento

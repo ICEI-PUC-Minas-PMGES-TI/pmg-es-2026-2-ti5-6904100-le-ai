@@ -9,7 +9,7 @@
 | 1. Planejar | 1º | feita em 06/11/2026 | [`plano-F-ACV-OPC.md`](plano-F-ACV-OPC.md) nesta pasta, com as decisões do dono (1 a 8) |
 | 2. Revisar o plano | 2º | feita em 06/11/2026 por um agente de contexto limpo | plano corrigido com 12 achados (veredito: aprovar com ajustes), mais a decisão 9 do dono (a recarga não mexe em `ol_work_key`) |
 | 3. Realizar e revisar | 3º | feita em 06 e 07/11/2026 | commits `35984bc`, `887d77c`, `98c9690`, `c243f49` (docs) e `5973464` (livro do Google intacto na recarga, decisão do Renato de 07/11) na `renato-features`, validados por quatro agentes de contexto limpo e testados à mão (Edge e emulador) |
-| 4. Revisão independente e PR | 4º | feita em 07/11/2026 | quatro revisores de contexto limpo (`acervo` sem achados; web, mobile e script com achados baixos), corrigidos com teste no commit `e5874da`; [PR #62](https://github.com/ICEI-PUC-Minas-PMGES-TI/pmg-es-2026-2-ti5-6904100-le-ai/pull/62) para a `desenvolvimento`, sem migration; card #31 em "Em revisão (PR)" |
+| 4. Revisão independente e PR | 4º | feita em 07/11/2026; PR aprovado pelo Vicenzo (ajustes no `0ccaee4`) e mergeado na `desenvolvimento` em 08/11/2026 (`97a2f95`) | quatro revisores de contexto limpo (`acervo` sem achados; web, mobile e script com achados baixos), corrigidos com teste no commit `e5874da`; [PR #62](https://github.com/ICEI-PUC-Minas-PMGES-TI/pmg-es-2026-2-ti5-6904100-le-ai/pull/62) para a `desenvolvimento`, sem migration; card #31 em "Em revisão (PR)" |
 
 Quem terminar uma etapa atualiza esta tabela (situação, data e saída) e o item 2 do [`README.md`](README.md) desta pasta.
 
