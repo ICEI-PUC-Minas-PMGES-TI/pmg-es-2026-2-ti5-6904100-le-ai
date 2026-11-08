@@ -256,6 +256,7 @@ describe('estatísticas (integração)', () => {
         ano: ANO_CORRENTE,
         anos: [],
         primeiroRegistro: null,
+        distribuicaoNotas: null,
         totais: { livrosConcluidos: 0, paginasLidas: 0, minutosLidos: 0 },
         medias: {
           paginasPorDia: { valor: null, paginasLidas: 0, diasComLeitura: 0 },
@@ -324,6 +325,7 @@ describe('estatísticas (integração)', () => {
           { ano: RETRASADO, livrosConcluidos: 1 },
         ],
         primeiroRegistro: `${RETRASADO}-03-02`,
+        distribuicaoNotas: null,
         totais: { livrosConcluidos: 2, paginasLidas: 200, minutosLidos: 135 },
         medias: {
           paginasPorDia: { valor: 66.7, paginasLidas: 200, diasComLeitura: 3 },
