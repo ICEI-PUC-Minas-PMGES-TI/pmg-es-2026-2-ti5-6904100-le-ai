@@ -64,7 +64,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [x] A **nota geral** é importada com a quantidade de avaliações, **somente leitura**, ausência como ausente (RN-06.3), escala convertida (RN-12), dado externo validado (SEC-33).
 - [x] A página exibe **nota geral** e **nota dos leitores** como indicadores **distintos e rotulados**, nunca combinados (RF-ACV-16, RN-06); livro pessoal não exibe nenhum dos dois.
 - [x] Livro oficial com avaliações dos leitores exibe distribuição por valor; ausência retorna distribuição vazia, sem tabela adicional (RF-ACV-04).
-- [ ] Projeção, cache e import funcionam **em DES**.
+- [x] Projeção, cache e import funcionam **em DES**. Validado em DES pelo dono em 05/11/2026, depois do merge de fechamento do Período 2 (releases v0.2.0 e v0.2.1).
 
 ## Definition of Done
 
@@ -76,7 +76,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [x] Testes assíncronos: consumo de `nota.alterada` e `livro.adicionado_a_estante` com entrega duplicada, backfill precedendo o incremento, falha de download reprocessável e DLQ (RNF-TST-03)
 - [x] Testes web/mobile cobrem indicadores distintos, distribuição, ausência sem zero e cold start (RNF-TST-04/05/06)
 - [x] **Spec OpenAPI de `acervo` atualizado em `docs/api/acervo.yaml`** com indicadores e distribuição na página do livro; `v_livro_referencia_v1` reflete a capa resolvida
-- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)). Débito do merge de fechamento
+- [x] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)). Validado em 05/11/2026
 - [x] Arquivo da feature atualizado: status, pendências, timeline
 - [x] Divergência protótipo × implementação registrada, se houver
 
@@ -129,7 +129,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
   - **Fila de capas ausente sem credencial:** sem `CLOUDINARY_API_KEY` e `CLOUDINARY_API_SECRET`, o consumidor não se registra e os eventos se perdem; o `backfill:capas` recupera.
   - **`npm audit`:** a CI do `acervo` e a do front falhavam por vulnerabilidades altas publicadas depois de 21/10, que já falhavam na `desenvolvimento`. Resolvido no próprio PR, a pedido da revisão: `undici` 8.12.3 no front; body-parser, multer, fast-uri e **zod 4.6.7** (major) no `acervo`, com o `env.ts` conferido. Sobram 4 moderados do `drizzle-kit`, abaixo do nível `high` da CI.
 - **Componentes a levar ao `documento-de-design.md`:** o container `Nota geral` × `Nota dos leitores` (`papel-elevado`, radius 16, divisor vertical, `Sem nota` sem estrela) e o histograma de 11 faixas (linhas de 20px, trilha de 8px, maior faixa com a trilha inteira, `nenhum` na faixa vazia, sem percentual). Sem edição de `docs/orquestador` aqui.
-- **Débitos de DES (depois do merge de fechamento para a `main`):** com o `leai-acervo` no ar, rodar da máquina local, com as variáveis só no shell: `backfill:notas` e `backfill:capas` com a `DATABASE_URL` do `le-ai-oregon` (este com `CLOUDINARY_PASTA_CAPAS_OFICIAIS=capas-oficiais`), e o `notas` da ingestão, com `--dry-run` antes.
+- ~~**Débitos de DES (depois do merge de fechamento para a `main`):** com o `leai-acervo` no ar, rodar da máquina local, com as variáveis só no shell: `backfill:notas` e `backfill:capas` com a `DATABASE_URL` do `le-ai-oregon` (este com `CLOUDINARY_PASTA_CAPAS_OFICIAIS=capas-oficiais`), e o `notas` da ingestão, com `--dry-run` antes.~~ Resolvido: validado em DES pelo dono em 05/11/2026, depois do merge de fechamento do Período 2 (releases v0.2.0 e v0.2.1).
 - **Código de outras pessoas alterado** (registrado nos `AGENTS.md`; avisar no PR):
   - Vicenzo: ingestão (`notas`, `carga.py`, `cli.py`, `AGENTS.md`), `HttpExterno` (`baixarImagem`, sufixo por instância, porta na URL inicial), `openlibrary.fonte.ts`, `google-books.fonte.ts`, `convergencia.repository.ts`, `livros.module.ts`, `LivroOficialView.vue`, `livro_oficial_page.dart`, `livro-oficial.int-spec.ts`, `massaDoLivro.ts` e os finders de `Sem nota` de `livro_oficial_page_test.dart`.
   - Henrique: `conta-excluida.consumer.ts` (trava em ordem e `recalcularAgregados`) e `remocao-de-asset.ts` (assinatura em `src/common/cloudinary.ts`).
@@ -140,6 +140,10 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - Stack de `acervo` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
 ## Timeline
+
+### 05/11/2026: validada em DES
+
+Nota geral, nota dos leitores e cache de capas testados e validados em DES pelo dono, depois do merge de fechamento do Período 2 (releases v0.2.0 e v0.2.1). Os dois itens de DES do aceite e do DoD foram marcados.
 
 ### 25/10/2026: PR #57 aprovado e mergeado na `desenvolvimento`
 

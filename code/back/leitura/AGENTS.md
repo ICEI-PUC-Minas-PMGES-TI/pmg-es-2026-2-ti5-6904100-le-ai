@@ -162,6 +162,14 @@ Plano em [`plano-F-MOD.md`](../../../docs/plano-de-desenvolvimento/periodo-2/ren
 - **Papel no token:** `UsuarioAutenticado.papel` (`leitor` | `admin`) vem do claim `papel`; só `admin` exato vale. Hoje só `GET /livros/{id}/frases` o lê: o administrador lista todas as frases, sem o filtro de RN-08, para poder moderá-las. `tokenDe(id, username, { papel })` nos testes.
 - **Log:** a lista do `redact` saiu para `src/common/redacao-do-log.ts` e ganhou `x-scheduler-token` e `x-moderacao-token`, que o `pino-http` logava junto com os cabeçalhos.
 
+## F-MOD-OPC — reações de conta suspensa (06/11/2026, Renato)
+
+Plano em [`plano-F-MOD-OPC.md`](../../../docs/plano-de-desenvolvimento/periodo-3/renato-periodo-3/plano-F-MOD-OPC.md).
+
+- **Migration `0007_20261106120000_reacoes_sem_conta_oculta`** (comentário no topo): recria `v_resenha_publicacao_v1` com as contagens filtradas por `identidade.v_perfil_referencia_v1`. Mesmas colunas.
+- O mesmo filtro em `AvaliacoesRepository.contagensDaResenha`, `PerfisRepository` e `ReacoesRepository`: reação de conta suspensa fica guardada e volta a contar na reativação. Testes em `test/integracao/reacao.int-spec.ts` (VIEW e reagir), `perfis.int-spec.ts` (`GET /perfis/:id/resenhas`) e `resenha.int-spec.ts` (`minha-avaliacao`).
+- **Dependência de banco entre schemas (armadilha):** a `0007` é a primeira migration do `leitura` cuja VIEW depende, no próprio Postgres, de um objeto de outro schema (`identidade.v_perfil_referencia_v1`). Consequências: (1) uma migration do `identidade` que dê `DROP VIEW` nela, ou a recrie mudando nome ou tipo de coluna, falha com `cannot drop ... because other objects depend on it`; (2) com `CASCADE`, a `v_resenha_publicacao_v1` cai sem aviso e o drizzle não a recria (a `0007` já está no journal): a página do livro no `acervo` e o feed/moderação do `social` quebram — recrie-a numa migration nova; (3) num banco novo, o `identidade` precisa migrar antes do `leitura`, senão a `0007` falha e o `start:prod` não sobe. A nota espelhada está no `AGENTS.md` do `identidade` e no `x-database-contracts` do `leitura.yaml`.
+
 ## Pontos de atenção (ver `REQUISITOS.md`) — prioridade de teste
 
 - **Máquina de estados da leitura (RN-04)** — Quero ler / Lendo / Lido / Relendo / Abandonado, releitura, retomada. **Teste obrigatório e prioritário** (RNF-TST-01).

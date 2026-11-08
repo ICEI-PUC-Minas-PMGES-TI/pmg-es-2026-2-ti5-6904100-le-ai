@@ -22,6 +22,9 @@ import { ApiError, createApiClient, novaChaveIdempotencia } from './api'
 
 export const NOME_DO_LOCK = 'le-ai-sessao'
 
+/** Código do 403 do `identidade` para conta suspensa (F-MOD-OPC). */
+export const CONTA_SUSPENSA = 'CONTA_SUSPENSA'
+
 type ComLock = <T>(tarefa: () => Promise<T>) => Promise<T>
 
 export interface RenovadorOptions {
@@ -71,6 +74,10 @@ export function createRenovador(options: RenovadorOptions) {
         // 5xx não é motivo para deslogar; a chamada original devolve o erro dela.
         if (erro instanceof ApiError && erro.status === 401) {
           encerrarSessao()
+        } else if (erro instanceof ApiError && erro.code === CONTA_SUSPENSA) {
+          // F-MOD-OPC: a moderação suspendeu a conta. Sai uma vez, com o motivo para o login
+          // mostrar o banner; sem sessão, nenhuma chamada seguinte tenta renovar de novo.
+          encerrarSessao({ motivo: 'suspensa' })
         }
         return false
       }

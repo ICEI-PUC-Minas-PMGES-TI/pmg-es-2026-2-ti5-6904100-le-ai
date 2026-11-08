@@ -360,7 +360,12 @@ class _FolhaComentariosState extends State<FolhaComentarios> {
     });
     _relogioDeColdStart = Timer(_aposEsteTempoEColdStart, () => setState(() => _demorando = true));
     try {
-      final editado = await widget.social.editarComentario(alvo.id, texto: texto, idempotencyKey: chave);
+      final editado = await widget.social.editarComentario(
+        alvo.id,
+        texto: texto,
+        versao: alvo.versao,
+        idempotencyKey: chave,
+      );
       if (!mounted) {
         return;
       }
@@ -372,6 +377,9 @@ class _FolhaComentariosState extends State<FolhaComentarios> {
         _mencoesLimitadas = true;
       } else if (erro.status == 404) {
         _comentarioSumiu = true;
+      } else if (erro.codigo == 'COMENTARIO_DESATUALIZADO') {
+        // A apresentação mudou desde que a edição começou (F-MOD-OPC): o texto fica no campo.
+        _erroDeEdicao = 'Este comentário mudou enquanto você editava. Recarregue os comentários e edite de novo.';
       } else {
         _erroDeEdicao = 'Não foi possível salvar a edição. O texto continua no campo. Tente de novo.';
       }

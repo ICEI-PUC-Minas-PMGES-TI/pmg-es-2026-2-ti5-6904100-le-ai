@@ -21,8 +21,10 @@ public class GlobalExceptionHandler {
     MapeadorErro.ErroMapeado mapeado = MapeadorErro.mapear(erro);
     String correlationId = CorrelationIdFilter.atual();
 
-    if (mapeado.status().is5xxServerError()) {
-      // 5xx: registra o erro real (com stack) no log; nunca na resposta.
+    // 5xx inesperado: registra o erro real (com stack) no log; nunca na resposta. O 5xx lançado de
+    // propósito pelo código (ErroDeNegocioException, como a moderação sem MODERACAO_TOKEN da
+    // F-MOD-OPC) é um estado conhecido e vai como WARN, sem stack, como os 4xx.
+    if (mapeado.status().is5xxServerError() && !(erro instanceof ErroDeNegocioException)) {
       log.error("Erro não tratado", erro);
     } else {
       log.warn("{} ({}): {}", mapeado.codigo().name(), mapeado.status().value(), mapeado.mensagem());

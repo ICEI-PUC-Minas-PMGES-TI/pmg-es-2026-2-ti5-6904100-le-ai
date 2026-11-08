@@ -67,7 +67,8 @@ class ContratosDePerfilIntegracaoTest extends IntegracaoComPostgres {
   }
 
   private void suspender(Leitor leitor) {
-    jdbc.update("UPDATE usuario SET suspenso = true WHERE id = ?", leitor.id());
+    jdbc.update(
+        "UPDATE usuario SET suspenso = true, suspenso_em = now() WHERE id = ?", leitor.id());
   }
 
   private void pedirExclusao(Leitor leitor) {

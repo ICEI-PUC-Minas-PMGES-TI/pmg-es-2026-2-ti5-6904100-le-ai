@@ -18,7 +18,12 @@ function servicoFalso(fila: DenunciaPendente[]) {
     arquivar: vi.fn(),
     remover: vi.fn(),
     listarRegistros: vi.fn().mockResolvedValue(pagina([registro('r1')])),
-  } satisfies Pick<ModeracaoService, 'listarDenuncias' | 'arquivar' | 'remover' | 'listarRegistros'>
+    suspenderConta: vi.fn(),
+    reativarConta: vi.fn(),
+  } satisfies Pick<
+    ModeracaoService,
+    'listarDenuncias' | 'arquivar' | 'remover' | 'listarRegistros' | 'suspenderConta' | 'reativarConta'
+  >
 }
 
 async function montar(servico: ReturnType<typeof servicoFalso>) {
@@ -226,5 +231,122 @@ describe('PainelModeracaoView', () => {
     await montar(servicoFalso([]))
 
     expect(vi.mocked(fetch)).toHaveBeenCalledWith('http://leitura.teste/health')
+  })
+  // ------------------------------------------------------------------ F-MOD-OPC
+
+  it('DotsThree da conta do autor no detalhe; sem ele quando a conta foi excluída', async () => {
+    const { tela } = await montar(servicoFalso([denunciaDeComentario('d2'), denunciaDeResenha('d1', { autor: null })]))
+
+    expect(tela.find('[aria-label="Ações sobre a conta de Sérgio Valadares"]').exists()).toBe(true)
+
+    await tela.findAll('li button')[1]!.trigger('click')
+    await flushPromises()
+    expect(tela.find('[aria-label^="Ações sobre a conta"]').exists()).toBe(false)
+  })
+
+  it('suspender pelo DotsThree: confirma, mostra a etiqueta, a faixa, o conteúdo oculto e o toast', async () => {
+    const servico = servicoFalso([denunciaDeComentario('d2', {
+      atividade: { id: 'at1', tipo: 'resenha_publicada', autorNome: 'Rafael', livroTitulo: 'Os Sertões', visivelParaAdmin: true },
+    })])
+    servico.suspenderConta.mockResolvedValue({
+      usuarioId: 'a2', suspensa: true, suspensaEm: '2026-10-11T14:32:00', reativadaEm: null,
+    })
+    const { tela } = await montar(servico)
+    expect(tela.text()).toContain('Ver no feed')
+
+    await tela.get('[aria-label="Ações sobre a conta de Sérgio Valadares"]').trigger('click')
+    await flushPromises()
+    await botao(tela, 'Suspender conta do autor')!.trigger('click')
+    await flushPromises()
+    expect(tela.text()).toContain('Suspender a conta de Sérgio Valadares?')
+
+    await tela.get('textarea').setValue('Ataques pessoais repetidos.')
+    await tela.get('[data-confirmar]').trigger('click')
+    await flushPromises()
+
+    expect(servico.suspenderConta).toHaveBeenCalledWith('a2', 'Ataques pessoais repetidos.', expect.any(String))
+    expect(tela.text()).not.toContain('Suspender a conta de Sérgio Valadares?')
+    expect(tela.text()).toContain('Conta suspensa')
+    expect(tela.text()).toContain(
+      'A conta de Sérgio Valadares está suspensa desde 11 de outubro de 2026, às 14:32. A denúncia continua pendente: decida sobre o comentário como de costume.',
+    )
+    expect(tela.text()).toContain('O comentário está oculto para os leitores enquanto a conta estiver suspensa.')
+    expect(tela.text()).not.toContain('Ver no feed')
+    expect(tela.text()).toContain('Conta de Sérgio Valadares suspensa. O perfil e o conteúdo ficaram ocultos para os leitores.')
+    // Suspender não resolve a denúncia.
+    expect(botao(tela, 'Remover comentário')).toBeDefined()
+    expect(document.activeElement?.getAttribute('aria-label')).toBe('Ações sobre a conta de Sérgio Valadares')
+    // O toast traz o ícone do design (validação, 06/11/2026).
+    expect(tela.find('#avisos-flutuantes [role="status"] svg').exists()).toBe(true)
+  })
+
+  it('Cancelar no dialog da conta devolve o foco ao DotsThree', async () => {
+    const { tela } = await montar(servicoFalso([denunciaDeComentario('d2')]))
+
+    await tela.get('[aria-label="Ações sobre a conta de Sérgio Valadares"]').trigger('click')
+    await flushPromises()
+    await botao(tela, 'Suspender conta do autor')!.trigger('click')
+    await flushPromises()
+    await botao(tela, 'Cancelar')!.trigger('click')
+    await flushPromises()
+
+    expect(tela.text()).not.toContain('Suspender a conta de Sérgio Valadares?')
+    expect(document.activeElement?.getAttribute('aria-label')).toBe('Ações sobre a conta de Sérgio Valadares')
+  })
+
+  it('autor já suspenso: o DotsThree oferece reativar', async () => {
+    const suspensa = denunciaDeComentario('d2')
+    suspensa.autor = { ...suspensa.autor!, suspensa: true, suspensaEm: '2026-10-11T14:32:00' }
+    const servico = servicoFalso([suspensa])
+    servico.reativarConta.mockResolvedValue({ usuarioId: 'a2', suspensa: false, suspensaEm: null, reativadaEm: '2026-10-12T10:00:00' })
+    const { tela } = await montar(servico)
+
+    await tela.get('[aria-label="Ações sobre a conta de Sérgio Valadares"]').trigger('click')
+    await flushPromises()
+    expect(botao(tela, 'Suspender conta do autor')).toBeUndefined()
+    await botao(tela, 'Reativar conta do autor')!.trigger('click')
+    await flushPromises()
+    await tela.get('textarea').setValue('Revisto')
+    await tela.get('[data-confirmar]').trigger('click')
+    await flushPromises()
+
+    expect(tela.text()).toContain('Conta de Sérgio Valadares reativada.')
+    expect(tela.text()).not.toContain('está suspensa desde')
+  })
+
+  it('registro: linhas de conta com o motivo; Reativar conta só na suspensão vigente', async () => {
+    const servico = servicoFalso([])
+    servico.listarRegistros.mockResolvedValue(pagina([
+      registro('r3', { acao: 'suspender_conta', alvoTipo: 'usuario', alvoAutor: null, atividadeAutor: null, livroTitulo: null,
+        comDenuncia: false, alvoId: 'a2', alvoConta: 'svaladares', motivo: 'Ataques repetidos.', suspensaoVigente: true }),
+      registro('r2', { acao: 'reativar_conta', alvoTipo: 'usuario', alvoAutor: null, atividadeAutor: null, livroTitulo: null,
+        comDenuncia: false, alvoId: 'a9', alvoConta: 'tiagomoreira', motivo: 'Revisto.', suspensaoVigente: false }),
+      registro('r1', { acao: 'suspender_conta', alvoTipo: 'usuario', alvoAutor: null, atividadeAutor: null, livroTitulo: null,
+        comDenuncia: false, alvoId: 'a9', alvoConta: 'tiagomoreira', motivo: 'Antigo.', suspensaoVigente: false }),
+      registro('r0'),
+    ]))
+    servico.reativarConta.mockResolvedValue({ usuarioId: 'a2', suspensa: false, suspensaEm: null, reativadaEm: '2026-10-12T10:00:00' })
+    const { tela } = await montar(servico)
+
+    await tela.findAll('[role="tab"]')[1]!.trigger('click')
+    await flushPromises()
+
+    expect(tela.text()).toContain('Motivos de denúncia e conteúdo removido não ficam no registro.')
+    expect(tela.text()).toContain('Suspendeu a conta')
+    expect(tela.text()).toContain('Reativou a conta')
+    expect(tela.text()).toContain('Conta de @svaladares')
+    expect(tela.find('a[aria-label="Abrir a conta de @svaladares"]').attributes('href')).toBe('/leitores/svaladares')
+    expect(tela.text()).toContain('Motivo: Ataques repetidos.')
+    expect(tela.findAll('button').filter((b) => b.text() === 'Reativar conta')).toHaveLength(1)
+
+    await botao(tela, 'Reativar conta')!.trigger('click')
+    await flushPromises()
+    expect(tela.text()).toContain('Reativar a conta de @svaladares?')
+    await tela.get('textarea').setValue('Denúncia já arquivada, revisto.')
+    await tela.get('[data-confirmar]').trigger('click')
+    await flushPromises()
+
+    expect(servico.reativarConta).toHaveBeenCalledWith('a2', 'Denúncia já arquivada, revisto.', expect.any(String))
+    expect(servico.listarRegistros).toHaveBeenCalledTimes(2)
   })
 })

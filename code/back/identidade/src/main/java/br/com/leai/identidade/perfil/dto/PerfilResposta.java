@@ -26,11 +26,16 @@ public record PerfilResposta(
   public record Contadores(long seguidores, long seguidos) {}
 
   /** O próprio perfil: relação `proprio`, nada restrito. */
-  public static PerfilResposta proprio(Usuario usuario) {
-    return de(usuario, "proprio", false);
+  public static PerfilResposta proprio(Usuario usuario, Contadores contadores) {
+    return de(usuario, "proprio", false, contadores);
   }
 
-  public static PerfilResposta de(Usuario usuario, String relacao, boolean conteudoRestrito) {
+  /**
+   * {@code contadores} vêm de fora desde a F-MOD-OPC: contam só as contas visíveis (sem suspensa ou
+   * em exclusão), e não os `qtd_*` gravados.
+   */
+  public static PerfilResposta de(
+      Usuario usuario, String relacao, boolean conteudoRestrito, Contadores contadores) {
     return new PerfilResposta(
         usuario.id().toString(),
         usuario.username(),
@@ -40,6 +45,6 @@ public record PerfilResposta(
         conteudoRestrito,
         relacao,
         usuario.biografia(),
-        new Contadores(usuario.qtdSeguidores(), usuario.qtdSeguidos()));
+        contadores);
   }
 }

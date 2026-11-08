@@ -412,7 +412,7 @@ class ServicoDeInteracaoIntegracaoTest extends IntegracaoComPostgres {
     Comentario entidadeResposta =
         comentarioRepository.findById(UUID.fromString(respostaDaResposta.id())).orElseThrow();
     assertThat(entidadeResposta.comentarioRaizId()).isEqualTo(UUID.fromString(raiz.id()));
-    assertThat(comentarioRepository.countByComentarioRaizId(UUID.fromString(raiz.id()))).isEqualTo(2);
+    assertThat(comentarioRepository.contarRespostasVisiveis(UUID.fromString(raiz.id()), solicitante)).isEqualTo(2);
 
     // Exatamente um evento por escrita: 3 comentarios (1 raiz + 2 respostas) => 3 linhas na outbox.
     Long totalEventosDaAtividade =

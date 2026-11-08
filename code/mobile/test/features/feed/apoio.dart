@@ -68,6 +68,7 @@ Map<String, Object?> comentarioJson({
   bool meu = false,
   bool editado = false,
   List<Map<String, Object?>> mencoes = const <Map<String, Object?>>[],
+  String? versao,
 }) => <String, Object?>{
   'id': id,
   'atividadeId': 'a1',
@@ -83,4 +84,5 @@ Map<String, Object?> comentarioJson({
   'editado': editado,
   'criadoEm': DateTime.now().subtract(const Duration(minutes: 5)).toUtc().toIso8601String(),
   'atualizadoEm': null,
+  'versao': versao,
 };

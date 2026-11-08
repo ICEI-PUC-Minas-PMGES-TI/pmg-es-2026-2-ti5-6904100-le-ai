@@ -407,6 +407,38 @@ describe('resenha (integração)', () => {
     });
   });
 
+  it('F-MOD-OPC: minha-avaliacao não conta a reação de conta suspensa, e volta a contar na reativação', async () => {
+    const livroId = await inserirLivro(pool);
+    const criada = await salvar(livroId, { texto: 'Bom.', spoiler: false });
+    const suspensa = novoUsuario();
+    await inserirPerfil(pool, { id: suspensa, username: 'suspensa' });
+    const outra = novoUsuario();
+    await inserirPerfil(pool, { id: outra, username: 'outra' });
+    await pool.query(
+      `INSERT INTO leitura.reacao_resenha (resenha_id, usuario_id, tipo, primeira_curtida_em)
+       VALUES ($1, $2, 'curtida', now()), ($1, $3, 'descurtida', NULL)`,
+      [criada.body.id, suspensa, outra],
+    );
+    const contagens = async () =>
+      (
+        await http()
+          .get(`/livros/${livroId}/minha-avaliacao`)
+          .set('Authorization', `Bearer ${tokenDe(usuario)}`)
+      ).body.resenha;
+
+    expect(await contagens()).toMatchObject({ curtidas: 1, descurtidas: 1 });
+
+    // A suspensão tira a conta da VIEW de perfil (aqui, uma tabela).
+    await pool.query(
+      'DELETE FROM identidade.v_perfil_referencia_v1 WHERE id = $1',
+      [suspensa],
+    );
+    expect(await contagens()).toMatchObject({ curtidas: 0, descurtidas: 1 });
+
+    await inserirPerfil(pool, { id: suspensa, username: 'suspensa' });
+    expect(await contagens()).toMatchObject({ curtidas: 1, descurtidas: 1 });
+  });
+
   // RNF-TST-03 até o envelope: o consumidor é F-FEED, na fila leai.social.feed.
   it('resenha.publicada e resenha.excluida saem do despachante como envelopes válidos', async () => {
     const livroId = await inserirLivro(pool, { autor: null });

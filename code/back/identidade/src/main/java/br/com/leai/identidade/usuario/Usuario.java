@@ -177,6 +177,11 @@ public class Usuario {
     return exclusaoPrevistaEm;
   }
 
+  /** Conta suspensa pela moderação (F-MOD-OPC, RF-MOD-04). */
+  public boolean suspenso() {
+    return suspenso;
+  }
+
   /** Conta dentro da janela de recuperação de 30 dias (RN-23.2). */
   public boolean exclusaoPendente() {
     return exclusaoSolicitadaEm != null;

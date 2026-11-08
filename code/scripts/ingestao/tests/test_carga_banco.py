@@ -60,23 +60,31 @@ def _rodar(capsys, *argv) -> dict:
     return json.loads(capsys.readouterr().out.split("\n\n")[0])
 
 
-def _carga_da_amostra(capsys, trabalho: Path) -> dict:
-    """O roteiro do README, na ordem que importa."""
+def _carga_da_amostra(
+    capsys, trabalho: Path, amostra: Path = AMOSTRA, tipo: str = "carga_inicial", ajustar=None
+) -> dict:
+    """O roteiro do README, na ordem que importa.
+
+    `ajustar(trabalho)` roda entre `resolver` e `carregar`, para simular no
+    arquivo intermediário o que a amostra sozinha não produz.
+    """
     resumo = _rodar(
         capsys, "filtrar",
-        "--dump", str(AMOSTRA / "edicoes_amostra.jsonl"),
+        "--dump", str(amostra / "edicoes_amostra.jsonl"),
         "--saida", str(trabalho / "candidatos.jsonl"),
         "--saida-chaves", str(trabalho / "chaves.json"),
     )
     _rodar(
         capsys, "resolver",
         "--chaves", str(trabalho / "chaves.json"),
-        "--dump-autores", str(AMOSTRA / "autores_amostra.jsonl"),
-        "--dump-obras", str(AMOSTRA / "obras_amostra.jsonl"),
+        "--dump-autores", str(amostra / "autores_amostra.jsonl"),
+        "--dump-obras", str(amostra / "obras_amostra.jsonl"),
         "--saida-autores", str(trabalho / "autores.jsonl"),
         "--saida-assuntos", str(trabalho / "assuntos.jsonl"),
         "--saida-autor-obra", str(trabalho / "autor_obra.jsonl"),
     )
+    if ajustar:
+        ajustar(trabalho)
     totais = _rodar(
         capsys, "carregar",
         "--database-url", URL,
@@ -86,6 +94,7 @@ def _carga_da_amostra(capsys, trabalho: Path) -> dict:
         "--autor-obra", str(trabalho / "autor_obra.jsonl"),
         "--processados", str(resumo["lidos"]),
         "--descartados", str(resumo["descartados"]),
+        "--tipo", tipo,
     )
     return {"resumo": resumo, "totais": totais}
 
@@ -589,3 +598,402 @@ def test_notas_replica_por_obra_limpa_na_recarga_e_nao_toca_atualizado_em(conexa
     assert final[isbn_da_obra][1:3] == (None, None)
     assert final["9780000000002"][1:3] == (None, None)
     assert final["9780000000019"][1:3] == (Decimal("3.5"), 8)
+
+
+# --- Recarga (RF-ACV-14, F-ACV-OPC) ------------------------------------------
+#
+# A amostra modificada simula o dump de uma recarga: o mesmo acervo, com o que a
+# fonte mudou desde a carga inicial. Cada livro abaixo exercita um caso das
+# decisões 3 e 5 do dono, de 06/11/2026.
+
+TORTO = "9788588808911"     # título, capa, ano, editora e páginas novos; assunto mapeado trocado
+QUARTO = "9788535901481"    # título novo, sem editora e sem ano no dump; só slug desconhecido (`_so_slug_desconhecido`)
+CORTICO = "9788535902778"   # obra sem tag mapeada
+BRAS = "9788556521040"      # um autor a mais
+DUNA = "9788585045272"      # título novo e a mesma série, agora sem número
+MESTRE = "9788556520777"    # série nova com número
+AIA = "9788535909227"       # série nova sem número
+PRINCIPE = "9788525007476"  # perdeu a capa: sai dos filtros
+SAPIENS = "9788556520494"   # usado como o livro "do Google" no teste de preservação
+NOVO = "9788535901702"      # edição que só existe na recarga
+
+ATUALIZADOS_NA_MODIFICADA = 5  # TORTO, QUARTO, DUNA, MESTRE e AIA; os outros mudam só vínculo, ou nada
+
+CONTAR = """SELECT (SELECT count(*) FROM acervo.livro),
+                   (SELECT count(*) FROM acervo.autor),
+                   (SELECT count(*) FROM acervo.editora),
+                   (SELECT count(*) FROM acervo.serie),
+                   (SELECT count(*) FROM acervo.assunto),
+                   (SELECT count(*) FROM acervo.livro_autor),
+                   (SELECT count(*) FROM acervo.livro_assunto)"""
+
+
+def _ler_linhas(caminho: Path) -> list[dict]:
+    return [json.loads(linha) for linha in caminho.read_text(encoding="utf-8").splitlines() if linha.strip()]
+
+
+def _gravar_linhas(caminho: Path, registros: list[dict]) -> None:
+    caminho.write_text(
+        "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in registros), encoding="utf-8"
+    )
+
+
+def _amostra_modificada(destino: Path) -> Path:
+    """A amostra reproduzível com as mudanças de uma recarga, montada em `tmp_path`."""
+    destino.mkdir()
+    edicoes = _ler_linhas(AMOSTRA / "edicoes_amostra.jsonl")
+    edicao = {e["key"].rsplit("/", 1)[-1]: e for e in edicoes}
+    edicao["OL30000001M"].update(
+        title="Torto Arado (edição revista)",
+        covers=[99990001],
+        publishers=["Editora Nova Recarga"],
+        publish_date="2021",
+        number_of_pages=999,
+    )
+    # Título novo junto: a linha é atualizada, e editora e ano têm de sobreviver ao SET.
+    del edicao["OL30000002M"]["publishers"], edicao["OL30000002M"]["publish_date"]
+    edicao["OL30000002M"]["title"] = "Quarto de Despejo: diário de uma favelada"
+    edicao["OL30000003M"]["authors"].append({"key": "/authors/OL10000099A"})
+    # Título novo junto: a linha é atualizada, e o número tem de sobreviver ao SET.
+    edicao["OL30000009M"].update(title="Duna (nova tradução)", series=["Crônicas de Duna"])
+    edicao["OL30000010M"]["series"] = ["Coleção Recarga, #3"]
+    edicao["OL30000012M"]["series"] = ["Série Nova Sem Número"]
+    edicao["OL30000014M"]["covers"] = []
+    edicoes.append({
+        "type": {"key": "/type/edition"}, "key": "/books/OL30000017M",
+        "title": "Livro novo da recarga", "languages": [{"key": "/languages/por"}],
+        "isbn_13": [NOVO], "number_of_pages": 150, "covers": [99990017],
+        "publishers": ["Record"], "publish_date": "2026",
+        "works": [{"key": "/works/OL20000013W"}], "authors": [{"key": "/authors/OL10000012A"}],
+    })
+    _gravar_linhas(destino / "edicoes_amostra.jsonl", edicoes)
+
+    obras = _ler_linhas(AMOSTRA / "obras_amostra.jsonl")
+    obra = {o["key"].rsplit("/", 1)[-1]: o for o in obras}
+    obra["OL20000001W"]["subjects"] = ["Science fiction"]
+    obra["OL20000004W"]["subjects"] = ["Nonsense tag"]
+    _gravar_linhas(destino / "obras_amostra.jsonl", obras)
+
+    autores = _ler_linhas(AMOSTRA / "autores_amostra.jsonl")
+    autores.append(
+        {"type": {"key": "/type/author"}, "key": "/authors/OL10000099A", "name": "Autora Nova da Recarga"}
+    )
+    _gravar_linhas(destino / "autores_amostra.jsonl", autores)
+    return destino
+
+
+def _so_slug_desconhecido(trabalho: Path) -> None:
+    """O conjunto curado só produz slug que existe; aqui a obra de QUARTO passa a
+    mapear só um slug fora de `acervo.assunto`, que não pode contar."""
+    caminho = trabalho / "assuntos.jsonl"
+    registros = _ler_linhas(caminho)
+    alvo = [r for r in registros if r["ol_work_key"] == "OL20000002W"]
+    assert alvo, "a obra de QUARTO deveria ter assunto mapeado na amostra"
+    alvo[0]["assuntos"] = ["slug-que-nao-existe"]
+    _gravar_linhas(caminho, registros)
+
+
+def _recarga(capsys, trabalho: Path, amostra: Path) -> dict:
+    return _carga_da_amostra(capsys, trabalho, amostra, "recarga", _so_slug_desconhecido)
+
+
+def _linha(conexao, consulta: str, *parametros) -> dict:
+    with conexao.cursor() as cursor:
+        cursor.execute(consulta, parametros)
+        valores = cursor.fetchone()
+        return dict(zip([coluna.name for coluna in cursor.description], valores))
+
+
+def _livro(conexao, isbn13: str) -> dict:
+    return _linha(conexao, "SELECT * FROM acervo.livro WHERE isbn13 = %s", isbn13)
+
+
+def _assuntos(conexao, livro_id) -> list[str]:
+    with conexao.cursor() as cursor:
+        cursor.execute(
+            """SELECT a.slug FROM acervo.livro_assunto la JOIN acervo.assunto a ON a.id = la.assunto_id
+                WHERE la.livro_id = %s ORDER BY 1""",
+            (livro_id,),
+        )
+        return [linha[0] for linha in cursor.fetchall()]
+
+
+def _todas(conexao, consulta: str) -> list[tuple]:
+    with conexao.cursor() as cursor:
+        cursor.execute(consulta)
+        return cursor.fetchall()
+
+
+def test_recarga_atualiza_uma_vez_e_a_segunda_nao_muda_nada(conexao, capsys, tmp_path):
+    _rodar(capsys, "semear", "--database-url", URL)
+    inicial = _carga_da_amostra(capsys, tmp_path / "inicial")
+    amostra = _amostra_modificada(tmp_path / "amostra")
+
+    primeira = _recarga(capsys, tmp_path / "recarga-1", amostra)
+
+    totais = primeira["totais"]
+    assert totais["livros"] == 1  # só NOVO
+    assert totais["livros_atualizados"] == ATUALIZADOS_NA_MODIFICADA
+    assert totais["vinculos_assunto_removidos"] > 0
+    antes = _um(conexao, CONTAR)
+
+    segunda = _recarga(capsys, tmp_path / "recarga-2", amostra)
+
+    totais = segunda["totais"]
+    assert (totais["livros"], totais["livros_atualizados"], totais["vinculos_assunto_removidos"]) == (0, 0, 0)
+    assert totais["vinculos_assunto"] == totais["vinculos_autor"] == 0
+    assert _um(conexao, CONTAR) == antes
+    # `inseridos` continua contando só livro novo.
+    lidos_inicial, lidos_recarga = inicial["resumo"]["lidos"], primeira["resumo"]["lidos"]
+    assert _todas(
+        conexao,
+        """SELECT tipo, status, total_processados, total_inseridos
+             FROM acervo.ingestao_execucao ORDER BY iniciado_em""",
+    ) == [
+        ("carga_inicial", "concluida", lidos_inicial, ACEITOS_NA_AMOSTRA),
+        ("recarga", "concluida", lidos_recarga, 1),
+        ("recarga", "concluida", lidos_recarga, 0),
+    ]
+
+
+def test_recarga_preserva_o_que_nao_vem_do_dump(conexao, capsys, tmp_path):
+    """Decisões 3, 6 e 9: capa própria, sinopse, `atualizado_em`, notas, livro
+    pessoal, livro importado fora do dump e a chave vazia do livro do Google
+    ficam como estão, depois da recarga e depois do `notas` que vem em seguida."""
+    _rodar(capsys, "semear", "--database-url", URL)
+    # Importado pelo Google Books antes da carga: sem obra, com a nota do Google,
+    # e com um ISBN que a amostra também traz.
+    _executar(
+        conexao,
+        """INSERT INTO acervo.livro (isbn13, titulo, paginas, capa_url_externa, tipo,
+                                     nota_geral, nota_geral_qtd)
+           VALUES (%s, 'Sapiens (Google Books)', 443, 'https://books.google.com/sapiens',
+                   'oficial', 3.5, 8)""",
+        SAPIENS,
+    )
+    _carga_da_amostra(capsys, tmp_path / "inicial")
+    ratings = tmp_path / "ratings.txt"
+    ratings.write_text(
+        "/works/OL20000001W\t\\N\t4\t2020-01-01\n"
+        "/works/OL20000001W\t\\N\t5\t2020-01-01\n"
+        "/works/OL20000013W\t\\N\t1\t2020-01-01\n",
+        encoding="utf-8",
+    )
+    _rodar(capsys, "notas", "--database-url", URL, "--arquivo", str(ratings))
+    conexao.commit()
+
+    torto = _livro(conexao, TORTO)["id"]
+    _executar(
+        conexao,
+        """UPDATE acervo.livro
+              SET capa_url_propria = 'https://r2.example/capas/torto.jpg', capa_asset_id = 'capas/torto.jpg',
+                  sinopse = 'Sinopse gravada pelo acervo.', sinopse_status = 'disponivel',
+                  atualizado_em = '2026-01-02T03:04:05Z'
+            WHERE id = %s""",
+        torto,
+    )
+    _executar(
+        conexao,
+        """INSERT INTO acervo.nota_leitor_projecao (usuario_id, livro_id, valor, atualizado_em)
+           VALUES (gen_random_uuid(), %s, 4.5, '2026-01-03T00:00:00Z')""",
+        torto,
+    )
+    _executar(
+        conexao,
+        """INSERT INTO acervo.nota_livro_agregada (livro_id, media, quantidade, atualizado_em)
+           VALUES (%s, 4.50, 1, '2026-01-03T00:00:00Z')""",
+        torto,
+    )
+    pessoal = _um(
+        conexao,
+        """INSERT INTO acervo.livro (titulo, autor_informado, paginas, tipo, dono_id, sinopse_status)
+           VALUES ('Meu caderno de contos', 'Autora do leitor', 120, 'pessoal', gen_random_uuid(), 'ausente')
+           RETURNING id""",
+    )[0]
+    importado = _um(
+        conexao,
+        """INSERT INTO acervo.livro (isbn13, ol_edition_key, ol_work_key, titulo, ano_publicacao, paginas,
+                                     capa_url_externa, tipo)
+           VALUES ('9780000000002', 'OL39999999M', 'OL29999999W', 'Importado por ISBN', 2010, 100,
+                   'https://covers.openlibrary.org/b/id/2-L.jpg', 'oficial')
+           RETURNING id""",
+    )[0]
+    conexao.commit()
+    _executar(
+        conexao,
+        """INSERT INTO acervo.livro_assunto (livro_id, assunto_id)
+           SELECT %s, id FROM acervo.assunto WHERE slug = 'fantasia'
+           UNION ALL SELECT %s, id FROM acervo.assunto WHERE slug = 'historia'""",
+        pessoal, importado,
+    )
+
+    colunas_preservadas = """SELECT capa_url_propria, capa_asset_id, sinopse, sinopse_status, atualizado_em,
+                                    nota_geral, nota_geral_qtd, paginas, ativo, ol_work_key, ol_edition_key,
+                                    criado_em
+                               FROM acervo.livro WHERE isbn13 = %s"""
+
+    def retrato() -> dict:
+        return {
+            "torto": _linha(conexao, colunas_preservadas, TORTO),
+            # Livro do Google inteiro: título, capa externa e editora também ficam
+            # (decisão do dono de 07/11/2026), apesar de a amostra trazer o ISBN.
+            "google": _linha(conexao, "SELECT * FROM acervo.livro WHERE isbn13 = %s", SAPIENS),
+            "pessoal": _linha(conexao, "SELECT * FROM acervo.livro WHERE id = %s", pessoal),
+            "importado": _linha(conexao, "SELECT * FROM acervo.livro WHERE id = %s", importado),
+            "assuntos_pessoal": _assuntos(conexao, pessoal),
+            "assuntos_importado": _assuntos(conexao, importado),
+            "projecao": _todas(conexao, "SELECT * FROM acervo.nota_leitor_projecao"),
+            "agregada": _todas(conexao, "SELECT * FROM acervo.nota_livro_agregada"),
+        }
+
+    antes = retrato()
+    assert antes["torto"]["nota_geral"] == Decimal("4.5")
+    assert antes["google"]["ol_work_key"] is None
+    assert (antes["google"]["nota_geral"], antes["google"]["nota_geral_qtd"]) == (Decimal("3.5"), 8)
+    assert antes["assuntos_pessoal"] == ["fantasia"]
+    assert antes["assuntos_importado"] == ["historia"]
+
+    # A obra de SAPIENS passa a mapear outro assunto: um livro com obra teria o
+    # conjunto substituído, e o do Google só pode ganhar (decisão de 07/11/2026).
+    google = antes["google"]["id"]
+    assuntos_google = _assuntos(conexao, google)
+    assert assuntos_google and "ficcao-cientifica" not in assuntos_google
+    amostra = _amostra_modificada(tmp_path / "amostra")
+    obras = _ler_linhas(amostra / "obras_amostra.jsonl")
+    for obra in obras:
+        if obra["key"] == "/works/OL20000013W":
+            obra["subjects"] = ["Science fiction"]
+    _gravar_linhas(amostra / "obras_amostra.jsonl", obras)
+
+    recarga = _recarga(capsys, tmp_path / "recarga", amostra)
+
+    assert recarga["totais"]["livros_atualizados"] > 0
+    # A linha de TORTO foi atualizada (título novo), e mesmo assim o resto ficou.
+    assert _livro(conexao, TORTO)["titulo"] == "Torto Arado (edição revista)"
+    assert retrato() == antes
+    assert _assuntos(conexao, google) == sorted({*assuntos_google, "ficcao-cientifica"})
+
+    _rodar(capsys, "notas", "--database-url", URL, "--arquivo", str(ratings))
+
+    assert retrato() == antes
+    assert _assuntos(conexao, google) == sorted({*assuntos_google, "ficcao-cientifica"})
+
+
+def test_recarga_aplica_o_que_o_dump_traz_e_mantem_o_que_ele_nao_traz(conexao, capsys, tmp_path):
+    _rodar(capsys, "semear", "--database-url", URL)
+    _carga_da_amostra(capsys, tmp_path / "inicial")
+    conexao.commit()
+    antes = {isbn: _livro(conexao, isbn) for isbn in (TORTO, QUARTO, CORTICO, BRAS, DUNA, MESTRE, AIA)}
+    assuntos_antes = {isbn: _assuntos(conexao, linha["id"]) for isbn, linha in antes.items()}
+    assert assuntos_antes[TORTO] and "ficcao-cientifica" not in assuntos_antes[TORTO]
+    assert assuntos_antes[QUARTO] and assuntos_antes[CORTICO]
+    assert antes[DUNA]["numero_serie"] == 1
+
+    totais = _recarga(capsys, tmp_path / "recarga", _amostra_modificada(tmp_path / "amostra"))["totais"]
+
+    assert totais["livros_atualizados"] == ATUALIZADOS_NA_MODIFICADA
+    torto = _livro(conexao, TORTO)
+    assert torto["titulo"] == "Torto Arado (edição revista)"
+    assert torto["capa_url_externa"] == "https://covers.openlibrary.org/b/id/99990001-L.jpg"
+    assert torto["ano_publicacao"] == 2021
+    assert _um(conexao, "SELECT nome FROM acervo.editora WHERE id = %s", torto["editora_id"])[0] == (
+        "Editora Nova Recarga"
+    )
+    # Decisão 5: o total de páginas do livro existente não muda.
+    assert torto["paginas"] == antes[TORTO]["paginas"] == 264
+    # Assunto mapeado diferente substitui o conjunto.
+    assert _assuntos(conexao, torto["id"]) == ["ficcao-cientifica"]
+    assert totais["vinculos_assunto_removidos"] == len(assuntos_antes[TORTO])
+    # Editora e ano ausentes no dump mantêm os atuais; só slug desconhecido mantém os assuntos.
+    quarto = _livro(conexao, QUARTO)
+    assert quarto["titulo"] == "Quarto de Despejo: diário de uma favelada"
+    assert quarto == {**antes[QUARTO], "titulo": quarto["titulo"]}
+    assert quarto["editora_id"] is not None and quarto["ano_publicacao"] == 2014
+    assert _assuntos(conexao, antes[QUARTO]["id"]) == assuntos_antes[QUARTO]
+    # Obra sem tag mapeada mantém os assuntos.
+    assert _assuntos(conexao, antes[CORTICO]["id"]) == assuntos_antes[CORTICO]
+    # Autor novo é acrescentado e o antigo fica.
+    assert _autores_do_livro(conexao, antes[BRAS]["id"]) == ["OL10000003A", "OL10000099A"]
+    # A mesma série sem número no dump mantém o número, mesmo com a linha atualizada.
+    duna = _livro(conexao, DUNA)
+    assert duna["titulo"] == "Duna (nova tradução)"
+    assert (duna["serie_id"], duna["numero_serie"]) == (antes[DUNA]["serie_id"], 1)
+    serie_e_numero = """SELECT s.nome, l.numero_serie FROM acervo.livro l
+                          JOIN acervo.serie s ON s.id = l.serie_id WHERE l.isbn13 = %s"""
+    assert _um(conexao, serie_e_numero, MESTRE) == ("Coleção Recarga", 3)
+    assert _um(conexao, serie_e_numero, AIA) == ("Série Nova Sem Número", None)
+
+
+def test_recarga_numero_da_serie_acompanha_a_serie(conexao, capsys, tmp_path):
+    """O número só fica quando a série fica: linha atualizada sem série no dump
+    mantém série e número; troca de série sem número no dump zera o número."""
+    _rodar(capsys, "semear", "--database-url", URL)
+    _carga_da_amostra(capsys, tmp_path / "inicial")
+    conexao.commit()
+    antes = _livro(conexao, DUNA)
+    assert antes["numero_serie"] == 1 and antes["serie_id"] is not None
+
+    def amostra_com(destino: Path, **mudancas) -> Path:
+        destino.mkdir()
+        for nome in ("obras_amostra.jsonl", "autores_amostra.jsonl"):
+            (destino / nome).write_text((AMOSTRA / nome).read_text(encoding="utf-8"), encoding="utf-8")
+        edicoes = _ler_linhas(AMOSTRA / "edicoes_amostra.jsonl")
+        for edicao in edicoes:
+            if edicao["key"] == "/books/OL30000009M":
+                edicao.update(mudancas)
+                if mudancas.get("series") is None:
+                    edicao.pop("series", None)
+        _gravar_linhas(destino / "edicoes_amostra.jsonl", edicoes)
+        return destino
+
+    # Título novo e o dump sem série: a linha é atualizada, série e número ficam.
+    sem_serie = amostra_com(tmp_path / "sem-serie", title="Duna (sem série no dump)", series=None)
+    totais = _carga_da_amostra(capsys, tmp_path / "recarga-1", sem_serie, "recarga")["totais"]
+    assert totais["livros_atualizados"] == 1
+    duna = _livro(conexao, DUNA)
+    assert duna["titulo"] == "Duna (sem série no dump)"
+    assert (duna["serie_id"], duna["numero_serie"]) == (antes["serie_id"], 1)
+
+    # Outra série, sem número: o número antigo não passa para a série nova.
+    outra = amostra_com(tmp_path / "outra-serie", series=["Outra Série Qualquer"])
+    _carga_da_amostra(capsys, tmp_path / "recarga-2", outra, "recarga")
+    serie_e_numero = """SELECT s.nome, l.numero_serie FROM acervo.livro l
+                          JOIN acervo.serie s ON s.id = l.serie_id WHERE l.isbn13 = %s"""
+    assert _um(conexao, serie_e_numero, DUNA) == ("Outra Série Qualquer", None)
+
+
+def test_livro_que_saiu_dos_filtros_continua_intacto(conexao, capsys, tmp_path):
+    _rodar(capsys, "semear", "--database-url", URL)
+    _carga_da_amostra(capsys, tmp_path / "inicial")
+    conexao.commit()
+    antes = _livro(conexao, PRINCIPE)
+    assuntos_antes = _assuntos(conexao, antes["id"])
+    autores_antes = _autores_do_livro(conexao, antes["id"])
+
+    _recarga(capsys, tmp_path / "recarga", _amostra_modificada(tmp_path / "amostra"))
+
+    candidatos = _ler_linhas(tmp_path / "recarga" / "candidatos.jsonl")
+    assert PRINCIPE not in {c["isbn13"] for c in candidatos}
+    depois = _livro(conexao, PRINCIPE)
+    assert depois == antes and depois["ativo"] is True
+    assert _assuntos(conexao, antes["id"]) == assuntos_antes
+    assert _autores_do_livro(conexao, antes["id"]) == autores_antes
+
+
+def test_carga_inicial_sobre_base_existente_nao_atualiza_nada(conexao, capsys, tmp_path):
+    """Regressão: sem `--tipo recarga`, a carga só acrescenta, como antes da F-ACV-OPC."""
+    _rodar(capsys, "semear", "--database-url", URL)
+    _carga_da_amostra(capsys, tmp_path / "inicial")
+    conexao.commit()
+    livros_antes = {linha[0]: linha for linha in _todas(conexao, "SELECT * FROM acervo.livro")}
+    vinculos_antes = set(_todas(conexao, "SELECT livro_id, assunto_id FROM acervo.livro_assunto"))
+
+    totais = _carga_da_amostra(
+        capsys, tmp_path / "de-novo", _amostra_modificada(tmp_path / "amostra"),
+        "carga_inicial", _so_slug_desconhecido,
+    )["totais"]
+
+    assert (totais["livros"], totais["livros_atualizados"], totais["vinculos_assunto_removidos"]) == (1, 0, 0)
+    livros_depois = {linha[0]: linha for linha in _todas(conexao, "SELECT * FROM acervo.livro")}
+    assert {chave: livros_depois[chave] for chave in livros_antes} == livros_antes
+    assert vinculos_antes <= set(_todas(conexao, "SELECT livro_id, assunto_id FROM acervo.livro_assunto"))

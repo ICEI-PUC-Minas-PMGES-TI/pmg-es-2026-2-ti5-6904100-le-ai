@@ -40,6 +40,7 @@ class EmissorDeTokenTest {
          null,
          segredo,
          null,
+         null,
          null);
   }
 

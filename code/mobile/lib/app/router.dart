@@ -429,6 +429,7 @@ GoRouter buildRouter({
                           servico: servicoDeExclusao,
                           authService: authService,
                           aoVoltar: () => context.go(rotaConfiguracoes),
+                          aoContaSuspensa: sessionController.encerrarPorSuspensao,
                           aoExclusaoSolicitada: (previstaEm) async {
                             // O roteador é pego antes: limpar a sessão leva a guarda ao login,
                             // e esta página sai da árvore. A navegação seguinte substitui aquela.

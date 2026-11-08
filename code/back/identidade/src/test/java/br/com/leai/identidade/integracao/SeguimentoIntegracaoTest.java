@@ -367,7 +367,8 @@ class SeguimentoIntegracaoTest extends IntegracaoComPostgres {
     seguir(visivel, eu);
     seguir(suspenso, eu);
     seguir(saindo, eu);
-    jdbc.update("UPDATE usuario SET suspenso = true WHERE id = ?", suspenso.id());
+    jdbc.update(
+        "UPDATE usuario SET suspenso = true, suspenso_em = now() WHERE id = ?", suspenso.id());
     jdbc.update(
         "UPDATE usuario SET exclusao_solicitada_em = now(),"
             + " exclusao_prevista_em = now() + interval '30 days' WHERE id = ?",

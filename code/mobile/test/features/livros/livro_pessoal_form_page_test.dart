@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -5,18 +6,26 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
+import 'package:le_ai_mobile/core/network/api_client.dart';
 import 'package:le_ai_mobile/features/livros/acervo_service.dart';
 import 'package:le_ai_mobile/features/livros/capa.dart';
 import 'package:le_ai_mobile/features/livros/livro_pessoal_form_page.dart';
+import 'package:le_ai_mobile/features/livros/seletor_de_assuntos.dart';
 
 import 'apoio.dart';
+import 'apoio_assuntos.dart';
 
 const _id = 'dddddddd-4444-4444-8444-dddddddddddd';
 const _dono = 'eeeeeeee-5555-4555-8555-eeeeeeeeeeee';
 const _capa = 'https://res.cloudinary.com/leai/image/upload/v1/capas/abc.jpg';
 
-Map<String, Object?> _livro({String titulo = 'Cartas de um sertanejo', String? capaUrl}) =>
+Map<String, Object?> _livro({
+  String titulo = 'Cartas de um sertanejo',
+  String? capaUrl,
+  List<String> assuntos = const <String>[],
+}) =>
     <String, Object?>{
       'id': _id,
       'tipo': 'pessoal',
@@ -29,6 +38,7 @@ Map<String, Object?> _livro({String titulo = 'Cartas de um sertanejo', String? c
       'modoConsulta': false,
       'notaDoDono': null,
       'resenhaDoDono': null,
+      'assuntos': <Map<String, String>>[for (final id in assuntos) assuntoJson(id)],
     };
 
 class _SeletorFixo implements SeletorDeImagem {
@@ -83,15 +93,27 @@ void main() {
     EnviadorDeCapa? enviador,
     void Function(LivroPessoal)? aoSalvar,
     VoidCallback? aoExcluir,
+    Duration? timeout,
   }) async {
     usarTelaDeCelular(tester);
+    Future<http.Response> registrar(http.Request pedido) {
+      pedidos.add(pedido);
+      return handler(pedido);
+    }
+
     await tester.pumpWidget(
       envolver(
         LivroPessoalFormPage(
-          servico: acervoSimulado((pedido) {
-            pedidos.add(pedido);
-            return handler(pedido);
-          }),
+          servico: timeout == null
+              ? acervoSimulado(registrar)
+              : AcervoService(
+                  ApiClient(
+                    baseUrl: 'https://acervo.example.com',
+                    client: MockClient(registrar),
+                    timeout: timeout,
+                    esperasDeRetentativa: const <Duration>[Duration.zero, Duration.zero],
+                  ),
+                ),
           seletor: seletor ?? _SeletorFixo(null),
           enviador: enviador ?? _EnviadorFixo(),
           livroId: livroId,
@@ -332,6 +354,8 @@ void main() {
       'paginas': 184,
       'sinopse': null,
       'capaUrl': _capa,
+      // Na edição o array vai sempre (F-ACV-OPC): vazio limpa os assuntos.
+      'assuntos': <String>[],
     });
 
     await tocar(tester, find.widgetWithText(OutlinedButton, 'Excluir livro'));
@@ -358,5 +382,255 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(pedidos.where((p) => p.method == 'DELETE'), isEmpty);
+  });
+
+  group('assuntos (F-ACV-OPC)', () {
+    Finder naFolha(Finder alvo) =>
+        find.descendant(of: find.byType(FolhaDeAssuntos), matching: alvo);
+
+    Finder chipDaFolha(String nome) => naFolha(
+      find.byWidgetPredicate((w) => w is ChipDeEscolhaDeAssunto && w.nome == nome),
+    );
+
+    Future<void> preencherObrigatorios(WidgetTester tester) async {
+      await preencher(tester, 'Título', 'Cartas de um sertanejo');
+      await preencher(tester, 'Autor', 'Marina Albuquerque');
+      await preencher(tester, 'Número de páginas', '184');
+    }
+
+    Future<void> abrirSeletor(WidgetTester tester, String acao) async {
+      await tocar(tester, find.text(acao));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> escolher(WidgetTester tester, List<String> nomes) async {
+      for (final nome in nomes) {
+        await tester.ensureVisible(chipDaFolha(nome));
+        await tester.tap(chipDaFolha(nome));
+        await tester.pump();
+      }
+      await tester.tap(naFolha(find.text('Concluir')));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> salvar(WidgetTester tester, String texto) async {
+      await tocar(tester, botao(texto));
+      await tester.pump();
+      await tester.pump();
+    }
+
+    Future<http.Response> servidor(http.Request pedido) async {
+      if (pedido.url.path == '/assuntos') {
+        return json(listaDeAssuntos(), 200);
+      }
+      return json(_livro(), 201);
+    }
+
+    testWidgets('o campo fica entre páginas e sinopse e a lista só carrega ao abrir', (
+      tester,
+    ) async {
+      await montar(tester, servidor);
+
+      final yPaginas = tester.getTopLeft(find.text('Número de páginas')).dy;
+      final yAssuntos = tester.getTopLeft(find.text('Assuntos')).dy;
+      final ySinopse = tester.getTopLeft(find.text('Sinopse')).dy;
+      expect(yAssuntos, greaterThan(yPaginas));
+      expect(yAssuntos, lessThan(ySinopse));
+      expect(pedidos, isEmpty);
+
+      await abrirSeletor(tester, 'Escolher assuntos');
+      expect(pedidos.single.url.path, '/assuntos');
+    });
+
+    testWidgets('criação manda os ids ordenados e a chave muda quando os assuntos mudam', (
+      tester,
+    ) async {
+      var tentativas = 0;
+      await montar(tester, (pedido) async {
+        if (pedido.url.path == '/assuntos') {
+          return json(listaDeAssuntos(), 200);
+        }
+        tentativas++;
+        return erro(500, 'ERRO_INTERNO', 'Não foi possível salvar agora. Tente de novo.');
+      });
+      await preencherObrigatorios(tester);
+
+      await abrirSeletor(tester, 'Escolher assuntos');
+      await escolher(tester, <String>['Biografia', 'Memórias']);
+      expect(find.text('Biografia'), findsOneWidget);
+      expect(find.text('Memórias'), findsOneWidget);
+
+      await salvar(tester, 'Salvar livro');
+      final primeiro = pedidos.lastWhere((p) => p.method == 'POST');
+      // Biografia tem o id maior: o corpo segue a ordem dos ids, não a dos nomes.
+      expect(
+        (jsonDecode(primeiro.body) as Map<String, dynamic>)['assuntos'],
+        <String>[idMemorias, idBiografia],
+      );
+
+      await abrirSeletor(tester, 'Alterar assuntos');
+      await escolher(tester, <String>['História']);
+      await salvar(tester, 'Salvar livro');
+      final segundo = pedidos.lastWhere((p) => p.method == 'POST');
+      expect(
+        (jsonDecode(segundo.body) as Map<String, dynamic>)['assuntos'],
+        <String>[idMemorias, idHistoria, idBiografia],
+      );
+      expect(tentativas, 2);
+      expect(segundo.headers['Idempotency-Key'], isNot(primeiro.headers['Idempotency-Key']));
+    });
+
+    testWidgets('fechar o seletor sem Concluir não muda o formulário', (tester) async {
+      await montar(tester, servidor);
+
+      await abrirSeletor(tester, 'Escolher assuntos');
+      await tester.tap(chipDaFolha('Fantasia'));
+      await tester.pump();
+      await tester.tapAt(const Offset(20, 20));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(FolhaDeAssuntos), findsNothing);
+      expect(find.text('Escolher assuntos'), findsOneWidget);
+      expect(find.text('Fantasia'), findsNothing);
+    });
+
+    testWidgets('503 da lista não impede salvar: o livro vai sem assuntos', (tester) async {
+      LivroPessoal? salvo;
+      await montar(tester, (pedido) async {
+        if (pedido.url.path == '/assuntos') {
+          return erro(503, 'INDISPONIVEL', 'Serviço indisponível.');
+        }
+        return json(_livro(), 201);
+      }, aoSalvar: (livro) => salvo = livro);
+      await preencherObrigatorios(tester);
+
+      await abrirSeletor(tester, 'Escolher assuntos');
+      expect(naFolha(find.text('Não foi possível carregar os assuntos.')), findsOneWidget);
+      await tester.tap(naFolha(find.text('Fechar')));
+      await tester.pumpAndSettle();
+
+      expect(tester.widget<ElevatedButton>(botao('Salvar livro')).onPressed, isNotNull);
+      await salvar(tester, 'Salvar livro');
+
+      final post = pedidos.singleWhere((p) => p.method == 'POST');
+      final corpo = jsonDecode(post.body) as Map<String, dynamic>;
+      // O que foi digitado continua lá, e o livro vai sem assuntos.
+      expect(corpo['titulo'], 'Cartas de um sertanejo');
+      expect(corpo.containsKey('assuntos'), isFalse);
+      expect(salvo?.id, _id);
+    });
+
+    testWidgets('timeout da lista não impede salvar', (tester) async {
+      LivroPessoal? salvo;
+      await montar(
+        tester,
+        (pedido) {
+          if (pedido.url.path == '/assuntos') {
+            return Completer<http.Response>().future;
+          }
+          return Future<http.Response>.value(json(_livro(), 201));
+        },
+        timeout: const Duration(seconds: 5),
+        aoSalvar: (livro) => salvo = livro,
+      );
+      await preencherObrigatorios(tester);
+
+      await tocar(tester, find.text('Escolher assuntos'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 4));
+      expect(
+        naFolha(find.text('O serviço está iniciando. Isso pode levar alguns segundos.')),
+        findsOneWidget,
+      );
+      // Três tentativas de 5 s (o GET retenta), e a folha mostra a falha.
+      await tester.pump(const Duration(seconds: 12));
+      await tester.pumpAndSettle();
+      expect(naFolha(find.text('Não foi possível carregar os assuntos.')), findsOneWidget);
+
+      await tester.tapAt(const Offset(20, 20));
+      await tester.pumpAndSettle();
+      await salvar(tester, 'Salvar livro');
+
+      final post = pedidos.singleWhere((p) => p.method == 'POST');
+      expect((jsonDecode(post.body) as Map<String, dynamic>).containsKey('assuntos'), isFalse);
+      expect(salvo?.id, _id);
+    });
+
+    testWidgets('400 de assuntos aparece no campo, sem banner, com o foco em Alterar', (
+      tester,
+    ) async {
+      const mensagem =
+          'Um dos assuntos escolhidos não está mais na lista do Lê Ai. Revise e salve de novo.';
+      await montar(tester, (pedido) async {
+        if (pedido.url.path == '/assuntos') {
+          return json(listaDeAssuntos(), 200);
+        }
+        return erro(400, 'REQUISICAO_INVALIDA', 'Confira os campos.', <String, Object>{
+          'campos': <Map<String, String>>[
+            <String, String>{'campo': 'assuntos', 'mensagem': mensagem},
+          ],
+        });
+      });
+      await preencherObrigatorios(tester);
+      await abrirSeletor(tester, 'Escolher assuntos');
+      await escolher(tester, <String>['História']);
+
+      await salvar(tester, 'Salvar livro');
+      await tester.pump();
+
+      expect(find.text(mensagem), findsOneWidget);
+      expect(find.text('Confira os campos.'), findsNothing);
+      expect(find.text('História'), findsOneWidget);
+      expect(find.text('Opcional. Escolha da lista do Lê Ai, de preferência até 5.'), findsNothing);
+      expect(FocusManager.instance.primaryFocus?.debugLabel, 'Assuntos');
+
+      // Escolher de novo limpa o erro.
+      await abrirSeletor(tester, 'Alterar assuntos');
+      await escolher(tester, <String>['História']);
+      expect(find.text(mensagem), findsNothing);
+    });
+
+    testWidgets('edição chega preenchida e o PATCH manda o array, vazio quando esvaziado', (
+      tester,
+    ) async {
+      await montar(tester, (pedido) async {
+        switch (pedido.method) {
+          case 'GET':
+            return json(_livro(assuntos: <String>[idMemorias, idHistoria]), 200);
+          default:
+            return json(_livro(), 200);
+        }
+      }, livroId: _id);
+      await tester.pump();
+
+      expect(find.text('História'), findsOneWidget);
+      expect(find.text('Memórias'), findsOneWidget);
+      // Ordem alfabética, mesmo que o servidor mande fora dela.
+      expect(
+        tester.getTopLeft(find.text('História')).dx,
+        lessThan(tester.getTopLeft(find.text('Memórias')).dx),
+      );
+
+      await tocar(tester, botao('Salvar alterações'));
+      await tester.pump();
+      await tester.pump();
+      var patch = pedidos.lastWhere((p) => p.method == 'PATCH');
+      expect(
+        (jsonDecode(patch.body) as Map<String, dynamic>)['assuntos'],
+        <String>[idMemorias, idHistoria],
+      );
+
+      await tocar(tester, find.bySemanticsLabel('Remover História'));
+      await tester.pump();
+      await tocar(tester, find.bySemanticsLabel('Remover Memórias'));
+      await tester.pump();
+      expect(find.text('Escolher assuntos'), findsOneWidget);
+
+      await tocar(tester, botao('Salvar alterações'));
+      await tester.pump();
+      await tester.pump();
+      patch = pedidos.lastWhere((p) => p.method == 'PATCH');
+      expect((jsonDecode(patch.body) as Map<String, dynamic>)['assuntos'], <String>[]);
+    });
   });
 }

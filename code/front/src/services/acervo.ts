@@ -72,6 +72,11 @@ export interface LivroPessoalDetalhe {
   resenhaDoDono: ResenhaDoDono | null
   /** `null` quando o perfil do dono não está disponível; a página não inventa um nome. */
   dono: { nome: string; avatarUrl: string | null } | null
+  /**
+   * F-ACV-OPC (RF-ACV-22): assuntos do conjunto curado, em ordem alfabética, sempre presentes
+   * (vazio quando não há), para o dono e no modo consulta.
+   */
+  assuntos: AssuntoResumo[]
 }
 
 /** Campos do formulário. Sem ISBN: em livro pessoal o campo é ausente, não vazio (RN-02). */
@@ -81,6 +86,8 @@ export interface DadosLivroPessoal {
   paginas: number
   sinopse: string | null
   capaUrl: string | null
+  /** Ids do conjunto curado (`GET /assuntos`). Vazio é "nenhum assunto". */
+  assuntos: string[]
 }
 
 export interface AssuntoResumo {
@@ -242,7 +249,8 @@ export interface ViaDeAcesso {
 
 /**
  * Na criação, opcional ausente não vai no corpo. Na edição, `null` explícito limpa o campo no
- * servidor (`capaUrl: null` remove a capa), então os cinco vão sempre.
+ * servidor (`capaUrl: null` remove a capa), então os cinco vão sempre. `assuntos` (F-ACV-OPC)
+ * segue a mesma ideia: na criação só vai com algum; na edição vai sempre, e o array vazio limpa.
  */
 export function corpoDoLivroPessoal(dados: DadosLivroPessoal, edicao: boolean): Record<string, unknown> {
   const corpo: Record<string, unknown> = { titulo: dados.titulo, autor: dados.autor, paginas: dados.paginas }
@@ -251,6 +259,9 @@ export function corpoDoLivroPessoal(dados: DadosLivroPessoal, edicao: boolean): 
   }
   if (edicao || dados.capaUrl !== null) {
     corpo.capaUrl = dados.capaUrl
+  }
+  if (edicao || dados.assuntos.length > 0) {
+    corpo.assuntos = [...dados.assuntos]
   }
   return corpo
 }
@@ -319,7 +330,7 @@ export function createAcervoService(options: ApiClientOptions = {}) {
     return request<LivroPessoalDetalhe>(`/livros/pessoal/${encodeURIComponent(id)}${consulta}`)
   }
 
-  /** `GET /assuntos`: o conjunto curado para o filtro da busca (RN-21). */
+  /** `GET /assuntos`: o conjunto curado para o filtro da busca e o seletor do livro pessoal (RN-21). */
   async function listarAssuntos(): Promise<AssuntoResumo[]> {
     const lista = await request<{ itens?: AssuntoResumo[] }>('/assuntos')
     return lista?.itens ?? []

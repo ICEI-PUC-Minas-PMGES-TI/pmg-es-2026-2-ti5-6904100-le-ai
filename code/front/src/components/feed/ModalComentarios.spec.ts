@@ -346,7 +346,7 @@ describe('ModalComentarios', () => {
     const TEXTO = 'Comecei semana passada, por indicação da @nadiasampaio.'
 
     function meu(sobrescreve: Partial<Comentario> = {}): Comentario {
-      return comentario({ id: 'm1', autor: MARINA, texto: TEXTO, pertenceAoSolicitante: true, ...sobrescreve })
+      return comentario({ id: 'm1', autor: MARINA, texto: TEXTO, pertenceAoSolicitante: true, versao: 'v-m1', ...sobrescreve })
     }
 
     function botao(tela: DOMWrapper<Element>, rotulo: string) {
@@ -440,7 +440,7 @@ describe('ModalComentarios', () => {
       await botao(tela, 'Salvar').trigger('click')
       await flushPromises()
 
-      expect(social.editarComentario).toHaveBeenCalledWith('m1', novoTexto, expect.any(String))
+      expect(social.editarComentario).toHaveBeenCalledWith('m1', novoTexto, 'v-m1', expect.any(String))
       expect(tela.findAll('p').some((p) => p.text() === novoTexto)).toBe(false)
 
       confirmar(meu({ texto: novoTexto, editado: true }))
@@ -450,6 +450,21 @@ describe('ModalComentarios', () => {
       expect(tela.text()).toContain('· editado')
       expect(tela.text()).not.toContain('Editando comentário')
       expect(tela.get('textarea').element.value).toBe('')
+    })
+
+    it('apresentação mudada desde a leitura: 409 pede recarga e preserva o texto no campo', async () => {
+      social.listarComentariosRaiz.mockResolvedValue(pagina([meu()]))
+      const { tela } = montar({ atividade: atividade(), aberto: true })
+      await flushPromises()
+
+      await escolherNoMenu(tela, 'Editar')
+      await tela.get('textarea').setValue(`${TEXTO}!`)
+      social.editarComentario.mockRejectedValue(new ApiError('mudou', 409, 'COMENTARIO_DESATUALIZADO'))
+      await botao(tela, 'Salvar').trigger('click')
+      await flushPromises()
+
+      expect(tela.text()).toContain('Este comentário mudou enquanto você editava. Recarregue os comentários e edite de novo.')
+      expect(tela.get('textarea').element.value).toBe(`${TEXTO}!`)
     })
 
     it('limite de menções ao salvar mostra o alerta e preserva o texto no campo', async () => {

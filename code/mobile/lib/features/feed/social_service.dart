@@ -175,6 +175,10 @@ class Comentario {
   final bool editado;
   final DateTime criadoEm;
 
+  /// Só no comentário do próprio leitor: a versão da apresentação, devolvida ao editar
+  /// (F-MOD-OPC). Com ela, o servidor recusa a edição feita sobre uma apresentação que mudou.
+  final String? versao;
+
   const Comentario({
     required this.id,
     required this.comentarioRaizId,
@@ -186,6 +190,7 @@ class Comentario {
     this.meu = false,
     this.editado = false,
     required this.criadoEm,
+    this.versao,
   });
 
   factory Comentario.fromJson(Map<String, dynamic> json) => Comentario(
@@ -201,6 +206,7 @@ class Comentario {
     meu: json['pertenceAoSolicitante'] as bool? ?? false,
     editado: json['editado'] as bool? ?? false,
     criadoEm: DateTime.parse(json['criadoEm'] as String),
+    versao: json['versao'] as String?,
   );
 }
 
@@ -376,11 +382,12 @@ class SocialService {
   Future<Comentario> editarComentario(
     String comentarioId, {
     required String texto,
+    String? versao,
     required String idempotencyKey,
   }) async => Comentario.fromJson(
     await _api.patchJson(
       '/comentarios/${_id(comentarioId)}',
-      body: <String, Object?>{'texto': texto},
+      body: <String, Object?>{'texto': texto, 'versao': ?versao},
       idempotencyKey: idempotencyKey,
     ),
   );

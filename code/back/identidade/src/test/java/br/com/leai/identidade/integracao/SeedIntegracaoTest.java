@@ -78,6 +78,10 @@ class SeedIntegracaoTest extends IntegracaoComPostgres {
   @Test
   @DisplayName("rodar duas vezes não duplica nada e deixa os contadores coerentes")
   void idempotente() {
+    // O contexto (e o schema) é compartilhado com as outras classes de integração, que deixam
+    // eventos no outbox: o que se confere é que o seed não acrescenta nenhum.
+    int outboxAntes = contar("SELECT count(*) FROM outbox_identidade");
+
     seed.semear(SENHA);
     seed.semear(SENHA);
 
@@ -93,7 +97,7 @@ class SeedIntegracaoTest extends IntegracaoComPostgres {
     assertThat(contadores(DONO)).containsExactly(1, 0);
     assertThat(contadores(PRIVADO)).containsExactly(1, 0);
     assertThat(contadores(SEGUIDOR)).containsExactly(0, 2);
-    assertThat(contar("SELECT count(*) FROM outbox_identidade")).isZero();
+    assertThat(contar("SELECT count(*) FROM outbox_identidade")).isEqualTo(outboxAntes);
   }
 
   @Test

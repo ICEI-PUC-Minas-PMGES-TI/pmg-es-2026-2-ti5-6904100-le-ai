@@ -73,7 +73,7 @@ Alocação de stack por serviço **decidida pela equipe em 02/09/2026**: `identi
 │   │   ├── documento-de-arquitetura.md
 │   │   └── documento-de-design.md
 │   ├── README.md             # capa/SUMÁRIO do documento da disciplina
-│   ├── 1.apresentacao.md … 8.avaliacao_arquitetura.md  # docs da disciplina (DERIVADOS)
+│   ├── 1.apresentacao.md … 9.plano_de_testes.md  # docs da disciplina (DERIVADOS)
 │   ├── api/                  # um spec OpenAPI por serviço
 │   ├── mensageria/           # envelope, catálogo e JSON Schemas canônicos
 │   ├── design/               # prompts de tela e protótipos — + AGENTS.md e CLAUDE.md

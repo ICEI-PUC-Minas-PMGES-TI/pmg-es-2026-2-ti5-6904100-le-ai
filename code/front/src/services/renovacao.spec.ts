@@ -1,6 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { encerrarSessao, getRefreshToken, getToken, iniciarSessao, useSession } from '../session'
+import {
+  consumirMotivoDoFimDeSessao,
+  encerrarSessao,
+  getRefreshToken,
+  getToken,
+  iniciarSessao,
+  motivoDoFimDeSessao,
+  useSession,
+} from '../session'
 import { ApiError } from './api'
 import { createRenovador } from './renovacao'
 
@@ -20,6 +28,7 @@ describe('createRenovador', () => {
   beforeEach(() => {
     localStorage.clear()
     encerrarSessao()
+    consumirMotivoDoFimDeSessao()
     iniciarSessao({ accessToken: 'jwt-a', refreshToken: 'renovacao-a' }, USUARIO)
   })
 
@@ -100,5 +109,29 @@ describe('createRenovador', () => {
 
     expect(renovar).not.toHaveBeenCalled()
     expect(useSession().autenticado.value).toBe(false)
+  })
+  it('F-MOD-OPC: 403 CONTA_SUSPENSA encerra a sessão uma vez, com o motivo, sem nova renovação', async () => {
+    const renovar = vi.fn().mockRejectedValue(new ApiError('Esta conta está suspensa.', 403, 'CONTA_SUSPENSA'))
+    const { renovar: renovarSessao } = createRenovador({ renovar, comLock: criarLock() })
+
+    await expect(renovarSessao('jwt-a')).resolves.toBe(false)
+
+    expect(useSession().autenticado.value).toBe(false)
+    expect(motivoDoFimDeSessao()).toBe('suspensa')
+    expect(localStorage.getItem('le-ai-fim-de-sessao')).toBe('suspensa')
+
+    // Sem sessão, a próxima chamada que receber 401 não renova de novo: não há loop.
+    await expect(renovarSessao('jwt-a')).resolves.toBe(false)
+    expect(renovar).toHaveBeenCalledTimes(1)
+    expect(motivoDoFimDeSessao()).toBe('suspensa')
+  })
+
+  it('F-MOD-OPC: outro 403 não desloga', async () => {
+    const renovar = vi.fn().mockRejectedValue(new ApiError('Proibido', 403, 'ACESSO_NEGADO'))
+    const { renovar: renovarSessao } = createRenovador({ renovar, comLock: criarLock() })
+
+    await expect(renovarSessao('jwt-a')).resolves.toBe(false)
+    expect(getToken()).toBe('jwt-a')
+    expect(motivoDoFimDeSessao()).toBeNull()
   })
 })
