@@ -33,7 +33,7 @@ const alturaDaColuna = (quantidade: number) => `${(quantidade / maior.value) * p
 </script>
 
 <template>
-  <div>
+  <div class="@container">
     <ul class="sr-only">
       <li
         v-for="faixa in faixas"
@@ -85,6 +85,7 @@ const alturaDaColuna = (quantidade: number) => `${(quantidade / maior.value) * p
         v-for="faixa in faixas"
         :key="faixa.valor"
         class="min-w-0 flex-1 text-center text-caption tabular-nums text-grafite"
+        :class="Number.isInteger(faixa.valor) ? '' : '@max-3xs:invisible'"
       >{{ formatarNota(faixa.valor) }}</span>
     </div>
   </div>
