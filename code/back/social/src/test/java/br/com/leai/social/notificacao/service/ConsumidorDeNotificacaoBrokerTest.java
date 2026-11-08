@@ -21,6 +21,7 @@ import br.com.leai.social.notificacao.model.EventoDeNotificacao;
 import br.com.leai.social.notificacao.model.NovaNotificacao;
 import br.com.leai.social.notificacao.model.TipoNotificacao;
 import br.com.leai.social.notificacao.repository.NotificacaoRepository;
+import br.com.leai.social.notificacao.repository.PreferenciaNotificacaoRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.rabbitmq.client.AMQP.BasicProperties;
@@ -72,7 +73,8 @@ class ConsumidorDeNotificacaoBrokerTest {
             jdbc,
             mock(PlatformTransactionManager.class));
 
-    new ConsumidorDeNotificacao(consumidor, repositorio, evento -> {});
+    new ConsumidorDeNotificacao(
+        consumidor, repositorio, mock(PreferenciaNotificacaoRepository.class), evento -> {});
 
     ArgumentCaptor<DeliverCallback> captor = ArgumentCaptor.forClass(DeliverCallback.class);
     verify(canal)

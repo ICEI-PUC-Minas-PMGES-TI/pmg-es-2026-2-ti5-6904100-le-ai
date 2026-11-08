@@ -10,6 +10,7 @@ import br.com.leai.social.notificacao.model.EventoDeNotificacao;
 import br.com.leai.social.notificacao.model.NotificacaoGravada;
 import br.com.leai.social.notificacao.model.NovaNotificacao;
 import br.com.leai.social.notificacao.repository.NotificacaoRepository;
+import br.com.leai.social.notificacao.repository.PreferenciaNotificacaoRepository;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.context.ApplicationEventPublisher;
@@ -31,13 +32,16 @@ import org.springframework.stereotype.Component;
 public class ConsumidorDeNotificacao implements MessageHandler {
 
   private final NotificacaoRepository notificacoes;
+  private final PreferenciaNotificacaoRepository preferencias;
   private final ApplicationEventPublisher eventos;
 
   public ConsumidorDeNotificacao(
       AmqpConsumerService consumidor,
       NotificacaoRepository notificacoes,
+      PreferenciaNotificacaoRepository preferencias,
       ApplicationEventPublisher eventos) {
     this.notificacoes = notificacoes;
+    this.preferencias = preferencias;
     this.eventos = eventos;
     consumidor.register(
         new ConsumerDefinition(
@@ -56,6 +60,11 @@ public class ConsumidorDeNotificacao implements MessageHandler {
                     new IllegalArgumentException(
                         "Evento nao suportado pelo consumidor de notificacoes: "
                             + envelope.type()));
+    UUID destinatarioId = UUID.fromString(evento.destinatarioId(envelope.data()));
+    if (preferencias.desabilitou(destinatarioId, evento.tipo())) {
+      return;
+    }
+
     Map<String, Object> dados = evento.snapshot(envelope.data());
     if (dados.get(DadosDeNotificacao.ATIVIDADE_ID) instanceof String atividadeId) {
       notificacoes
@@ -66,8 +75,6 @@ public class ConsumidorDeNotificacao implements MessageHandler {
         evento.tipo().referenciaLeitura()
             ? UUID.fromString((String) dados.get(DadosDeNotificacao.LEITURA_ID))
             : null;
-
-    UUID destinatarioId = UUID.fromString(evento.destinatarioId(envelope.data()));
 
     notificacoes
         .inserir(
