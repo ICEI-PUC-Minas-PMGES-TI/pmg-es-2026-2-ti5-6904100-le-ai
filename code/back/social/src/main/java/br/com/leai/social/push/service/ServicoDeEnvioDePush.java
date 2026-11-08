@@ -14,7 +14,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class ServicoDeEnvioDePush {
 
-  static final String TITULO = "Lê Ai";
+  static final String TITULO = "Lê Aí";
   static final int CORPO_MAXIMO = 140;
   private static final String RETICENCIAS = "…";
 
@@ -40,12 +40,25 @@ public class ServicoDeEnvioDePush {
     }
     notificacoes
         .buscar(gravada.destinatarioId(), gravada.id())
-        .ifPresent(notificacao -> ativos.forEach(d -> enviarAo(d, gravada, notificacao)));
+        .ifPresent(notificacao -> ativos.forEach(d -> enviarSemPropagar(d, gravada, notificacao)));
+  }
+
+  private void enviarSemPropagar(
+      DispositivoPush dispositivo, NotificacaoGravada gravada, NotificacaoResposta notificacao) {
+    try {
+      enviarAo(dispositivo, gravada, notificacao);
+    } catch (RuntimeException inesperado) {
+      log.atError()
+          .addKeyValue("notificacaoId", gravada.id())
+          .addKeyValue("dispositivoId", dispositivo.id())
+          .setCause(inesperado)
+          .log("Push: falha inesperada no envio, os demais dispositivos seguem");
+    }
   }
 
   private void enviarAo(
       DispositivoPush dispositivo, NotificacaoGravada gravada, NotificacaoResposta notificacao) {
-    if (!dispositivos.reservarEnvio(gravada.id(), dispositivo.id())) {
+    if (!dispositivos.reservarEnvio(gravada.id(), dispositivo.id(), gravada.destinatarioId())) {
       return;
     }
     MensagemDePush mensagem =
@@ -70,6 +83,9 @@ public class ServicoDeEnvioDePush {
           .addKeyValue("dispositivoId", dispositivo.id())
           .setCause(indisponivel)
           .log("Push: FCM indisponível, a notificação segue só no aplicativo");
+    } catch (RuntimeException inesperado) {
+      dispositivos.liberarEnvio(gravada.id(), dispositivo.id());
+      throw inesperado;
     }
   }
 

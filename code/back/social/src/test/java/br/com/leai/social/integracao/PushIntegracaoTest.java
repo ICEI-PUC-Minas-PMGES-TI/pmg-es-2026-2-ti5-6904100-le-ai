@@ -162,7 +162,7 @@ class PushIntegracaoTest extends IntegracaoComPostgres {
     await().atMost(LIMITE).until(() -> fcm.enviadas().size() == 2);
     assertThat(fcm.enviadas()).extracting(MensagemDePush::token).containsExactlyInAnyOrder("token-1", "token-2");
     MensagemDePush mensagem = fcm.enviadas().getFirst();
-    assertThat(mensagem.titulo()).isEqualTo("Lê Ai");
+    assertThat(mensagem.titulo()).isEqualTo("Lê Aí");
     assertThat(mensagem.corpo()).isEqualTo(EventosDeNotificacaoDeTeste.NOME_ATOR + " começou a seguir você.");
     assertThat(mensagem.dados())
         .containsOnly(
@@ -225,8 +225,8 @@ class PushIntegracaoTest extends IntegracaoComPostgres {
 
     UUID id = notificar(EventoDeNotificacao.SEGUIDOR_NOVO, Fato.para(eu));
 
+    await().atMost(LIMITE).until(() -> fcm.tentativas() == 1);
     await()
-        .during(AUSENCIA)
         .atMost(LIMITE)
         .until(() -> jdbc.queryForObject("SELECT count(*) FROM envio_push", Integer.class) == 0);
     JsonNode lista = listar(eu);

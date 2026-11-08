@@ -17,6 +17,8 @@ public class DispositivoPushRepository {
        WHERE id = ?
       """;
 
+  private static final int MAXIMO_DE_DISPOSITIVOS_ATIVOS = 10;
+
   private final JdbcTemplate jdbc;
 
   public DispositivoPushRepository(JdbcTemplate jdbc) {
@@ -24,6 +26,23 @@ public class DispositivoPushRepository {
   }
 
   public RegistroDeDispositivo registrar(UUID usuarioId, String token) {
+    RegistroDeDispositivo registro = gravar(usuarioId, token);
+    jdbc.update(
+        """
+        UPDATE dispositivo_push
+           SET ativo = false, revogado_em = now(), atualizado_em = now()
+         WHERE id IN (
+           SELECT id FROM dispositivo_push
+            WHERE usuario_id = ? AND ativo
+            ORDER BY atualizado_em DESC, id
+           OFFSET ?)
+        """,
+        usuarioId,
+        MAXIMO_DE_DISPOSITIVOS_ATIVOS);
+    return registro;
+  }
+
+  private RegistroDeDispositivo gravar(UUID usuarioId, String token) {
     return jdbc.queryForObject(
         """
         INSERT INTO dispositivo_push (usuario_id, fcm_token, plataforma)
@@ -58,15 +77,17 @@ public class DispositivoPushRepository {
         usuarioId);
   }
 
-  public boolean reservarEnvio(UUID notificacaoId, UUID dispositivoId) {
+  public boolean reservarEnvio(UUID notificacaoId, UUID dispositivoId, UUID usuarioId) {
     return jdbc.update(
             """
             INSERT INTO envio_push (notificacao_id, dispositivo_id)
-            VALUES (?, ?)
+            SELECT ?, id FROM dispositivo_push
+             WHERE id = ? AND usuario_id = ? AND ativo
             ON CONFLICT DO NOTHING
             """,
             notificacaoId,
-            dispositivoId)
+            dispositivoId,
+            usuarioId)
         == 1;
   }
 
