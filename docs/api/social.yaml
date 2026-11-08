@@ -935,6 +935,111 @@ paths:
               schema: { type: string }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '503': { $ref: '#/components/responses/Indisponivel' }
+  /me/notificacoes/preferencias:
+    get:
+      tags: [notificacoes]
+      summary: Lista as preferências de notificação por tipo (RF-NOT-05)
+      operationId: listarPreferenciasDeNotificacao
+      x-implementation-status: planned
+      description: >-
+        Devolve todos os tipos configuráveis com o estado de cada um, inclusive
+        os nunca alterados, que vêm habilitados. A ordem é fixa e igual à da
+        tela de preferências. Só o dono lê as próprias preferências.
+      responses:
+        '200':
+          description: Uma entrada por tipo configurável.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PreferenciasDeNotificacao' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+    put:
+      tags: [notificacoes]
+      summary: Atualiza preferências de notificação por tipo (RF-NOT-05)
+      operationId: atualizarPreferenciasDeNotificacao
+      x-implementation-status: planned
+      description: >-
+        Atualiza, de forma idempotente, os tipos enviados; os demais ficam como
+        estão. Tipo desconhecido ou repetido no corpo é rejeitado com 400 e
+        nada é alterado. Desabilitar um tipo não remove notificações já
+        gravadas, e reabilitar não recupera eventos suprimidos: o filtro age no
+        consumidor, antes de gravar, e o evento suprimido é reconhecido sem DLQ.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AtualizarPreferenciasDeNotificacao' }
+      responses:
+        '200':
+          description: Conjunto completo de preferências depois da atualização.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PreferenciasDeNotificacao' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /me/dispositivos-push:
+    post:
+      tags: [notificacoes]
+      summary: Registra ou renova o token FCM do dispositivo (RF-NOT-07)
+      operationId: registrarDispositivoPush
+      x-implementation-status: planned
+      description: >-
+        O token é único. Reenviar o mesmo token do mesmo leitor atualiza o
+        registro e o reativa, sem duplicar. Token que pertencia a outra conta
+        passa a pertencer ao leitor autenticado, para o aparelho não receber
+        notificação de quem não está mais logado nele. Só `android` é aceito;
+        iOS não recebe push (P-04).
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegistrarDispositivoPush' }
+      responses:
+        '200':
+          description: Dispositivo já existia; registro atualizado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DispositivoPush' }
+        '201':
+          description: Dispositivo registrado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DispositivoPush' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /me/dispositivos-push/{id}:
+    delete:
+      tags: [notificacoes]
+      summary: Revoga o dispositivo de push (RF-NOT-07)
+      operationId: revogarDispositivoPush
+      x-implementation-status: planned
+      description: >-
+        Chamado pelo aplicativo no logout, para o aparelho deslogado deixar de
+        receber push. Só o dono revoga o próprio dispositivo; id alheio ou
+        inexistente responde 404. Revogar de novo um dispositivo já revogado
+        também responde 204.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: UUID do dispositivo devolvido no registro.
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: Dispositivo revogado.
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
   /denuncias:
     post:
       tags: [moderacao]
@@ -1958,6 +2063,84 @@ components:
           minimum: 0
           description: Quantidade alterada nesta operação.
         totalNaoLidas: { type: integer, format: int64, minimum: 0 }
+    TipoPreferenciaNotificacao:
+      type: string
+      description: >-
+        Tipos configuráveis (RF-NOT-05): os de `TipoNotificacao` mais
+        `LEMBRETE_SEQUENCIA`, que só passa a ser gerado pela F-GAM-OPC mas já é
+        configurável. `SOLICITACAO_CRIADA` corresponde ao literal
+        `solicitacao_seguir` do banco.
+      enum:
+        - NOVO_SEGUIDOR
+        - SOLICITACAO_CRIADA
+        - SOLICITACAO_ACEITA
+        - ATIVIDADE_CURTIDA
+        - ATIVIDADE_COMENTADA
+        - COMENTARIO_RESPONDIDO
+        - USUARIO_MENCIONADO
+        - LEITURA_EM_RISCO
+        - LEITURA_EXPIRADA
+        - RECOMENDACAO_RECEBIDA
+        - RESENHA_CURTIDA
+        - LEMBRETE_SEQUENCIA
+    PreferenciaDeNotificacao:
+      type: object
+      required: [tipo, habilitada]
+      properties:
+        tipo: { $ref: '#/components/schemas/TipoPreferenciaNotificacao' }
+        habilitada: { type: boolean }
+    PreferenciasDeNotificacao:
+      type: object
+      required: [preferencias]
+      properties:
+        preferencias:
+          type: array
+          minItems: 12
+          maxItems: 12
+          items: { $ref: '#/components/schemas/PreferenciaDeNotificacao' }
+    AtualizarPreferenciasDeNotificacao:
+      type: object
+      required: [preferencias]
+      additionalProperties: false
+      properties:
+        preferencias:
+          type: array
+          minItems: 1
+          maxItems: 12
+          items: { $ref: '#/components/schemas/PreferenciaDeNotificacao' }
+          description: Um item por tipo; tipo repetido é rejeitado.
+    RegistrarDispositivoPush:
+      type: object
+      required: [token, plataforma]
+      additionalProperties: false
+      properties:
+        token:
+          type: string
+          minLength: 1
+          maxLength: 4096
+          description: Token de registro FCM.
+        plataforma:
+          type: string
+          enum: [android]
+    DispositivoPush:
+      type: object
+      required: [id, plataforma, ativo]
+      properties:
+        id: { type: string, format: uuid }
+        plataforma:
+          type: string
+          enum: [android]
+        ativo: { type: boolean }
+    PayloadDePush:
+      type: object
+      description: >-
+        Campos `data` da mensagem FCM. O corpo visível é uma frase curta em
+        pt-BR sem dado sensível (SEC-36); ao tocar, o aplicativo busca o item
+        autenticado em `GET /notificacoes`.
+      required: [notificacaoId, tipo]
+      properties:
+        notificacaoId: { type: string, format: uuid }
+        tipo: { $ref: '#/components/schemas/TipoNotificacao' }
     SincronizacaoTempoReal:
       type: object
       description: Dado do evento SSE `sincronizacao`, o primeiro de todo canal aberto.
