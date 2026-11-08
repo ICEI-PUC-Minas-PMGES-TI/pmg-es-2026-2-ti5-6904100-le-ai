@@ -22,9 +22,9 @@ RNF atendidos: **RNF-SEC-02** (dados do próprio usuário), **RNF-SEC-03** (priv
 | Camada | Status | Observação |
 |---|---|---|
 | Infra | **não aplicável** | nenhuma tabela ou campo novo — o histograma agrega as notas já persistidas por F-AVA |
-| Backend | não iniciado | `leitura`: bloco de distribuição em `/me/estatisticas` e no recorte de perfil |
-| Web | não iniciado | gráfico de distribuição no painel de estatísticas |
-| Mobile | não iniciado | mesmo gráfico |
+| Backend | implementado, aguardando CI | `leitura`: `distribuicaoNotas` em `/me/estatisticas` e em `/perfis/{usuarioId}/estatisticas`; spec OpenAPI atualizado. Testes de integração escritos, ainda não rodados (sem Postgres descartável no ambiente de desenvolvimento) |
+| Web | implementado, aguardando CI | card `Notas que você deu` no painel e histograma compacto no perfil alheio; testes do recorte passam |
+| Mobile | implementado, aguardando CI | mesmo card no painel e no perfil alheio; `flutter analyze` limpo, testes de estatísticas e perfil passam |
 
 ## Especificação
 
@@ -79,7 +79,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
 - [ ] Testes unitários e de integração com banco real/container: os onze buckets, leitor sem notas, buckets de contagem zero, soma conferindo com o total avaliado, livro pessoal contando, ciclo criar/editar/remover nota, coerência com a média e RN-08 em perfil público/privado (RNF-TST-02)
 - [ ] Testes assíncronos — **N/A**: a feature não produz nem consome evento; a distribuição é derivada em consulta. Justificativa registrada aqui em vez de remover o item
-- [ ] Testes web/mobile cobrem render do gráfico, estado vazio e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
+- [x] Testes web/mobile cobrem render do gráfico, estado vazio e resposta fora do contrato com API simulada (RNF-TST-04/05/06); a indisponibilidade/timeout já é coberta pelos testes do painel de F-STA
 - [ ] **Spec OpenAPI de `leitura` atualizado em `docs/api/leitura.yaml`** com o bloco de distribuição em `/me/estatisticas` e no recorte de perfil
 - [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
 - [ ] Arquivo da feature atualizado: status, pendências, timeline
@@ -98,6 +98,8 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - Stack de `leitura` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
 ## Timeline
+
+### Implementação 07/11/2026: backend, web e mobile na branch `feat/f-sta-opc-distribuicao-notas`. A distribuição é calculada em consulta (`GROUP BY nota.valor` filtrado pelo ano de `nota.atualizado_em` no fuso padrão, o mesmo critério de `recompor`), sem tabela, migration nem evento; a alternativa de persistir os buckets em `estatistica_mensal` segue descartada até haver medição em DES. Decisões ratificadas na implementação: a distribuição entra no DTO público do perfil (ano corrente, sob RN-08) e o formato é a contagem, sem percentual. Divergências protótipo × implementação: (1) o balão do gráfico web é posicionado por CSS (ancorado à esquerda nas duas primeiras notas e à direita nas duas últimas), sem medir o elemento; (2) o eixo X não reduz às notas inteiras com texto grande (§9 do prompt de design); (3) o gráfico do app não tem navegação por teclado, só toque e TalkBack. Pendente para o DoD: CI verde, testes de integração do `leitura` em Postgres descartável e fluxo em DES/HML após o merge na `main`.
 
 ### Contrato fixado 07/11/2026: início da implementação. `GET /me/estatisticas?periodo=` e `GET /perfis/{usuarioId}/estatisticas?ano=` ganham o campo `distribuicaoNotas`: `null` quando o período não tem nota; senão `{ total, faixas }` com sempre as onze faixas `{ valor, quantidade }` em ordem crescente, inclusive as de contagem zero. A distribuição entra no DTO público do perfil (ano corrente, sob RN-08) e o formato é a contagem, sem percentual. Período e atribuição temporal idênticos aos da nota média (mês de `nota.atualizado_em` no fuso padrão), de modo que `total` é igual a `medias.notaMedia.quantidade`. Sem tabela, campo, migration nem evento novo.
 
