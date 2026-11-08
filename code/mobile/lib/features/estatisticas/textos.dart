@@ -250,3 +250,69 @@ abstract final class TextosDoBloco {
       'Não foi possível carregar as estatísticas de $nome. Verifique sua conexão e tente de novo.';
   static const String carregando = 'Carregando estatísticas do ano';
 }
+
+abstract final class TextosDasNotas {
+  static const String titulo = 'Notas que você deu';
+  static const String legenda = 'Nota em estrelas. Sobre cada coluna, o número de livros.';
+  static const String ajuda =
+      'Cada livro conta uma vez, com a nota que você deu a ele. Livros pessoais entram.';
+  static const String nenhumLivro = 'Nenhum livro';
+  static const String total = 'Total';
+  static const String colunaNota = 'Nota';
+  static const String colunaLivros = 'Livros';
+}
+
+String rotuloNotas(int quantidade) =>
+    '${formatarMilhar(quantidade)} ${quantidade == 1 ? 'nota' : 'notas'}';
+
+/// `0 estrelas`, `0,5 estrela`, `1 estrela`, `1,5 estrela`, `2 estrelas`.
+String rotuloEstrelas(double valor) =>
+    '${formatarNota(valor)} ${valor == 0 || valor >= 2 ? 'estrelas' : 'estrela'}';
+
+String quantidadeDeLivros(int quantidade) =>
+    quantidade == 0 ? TextosDasNotas.nenhumLivro : rotuloLivros(quantidade);
+
+/// `8 notas em 2026`, `31 notas desde 2023`.
+String subtituloDasNotas(PeriodoEstatisticas periodo, int total, DateTime? primeiroRegistro) {
+  final notas = rotuloNotas(total);
+  return switch (periodo) {
+    PeriodoAno(:final ano) => '$notas em $ano',
+    PeriodoAcumulado() =>
+      primeiroRegistro == null ? notas : '$notas desde ${primeiroRegistro.year}',
+  };
+}
+
+String semNotasNoPeriodo(PeriodoEstatisticas periodo) => '${MediaAusente.notaMedia(periodo)}.';
+
+String leituraDaNota(FaixaDeNota faixa) =>
+    'Nota ${formatarNota(faixa.valor)}: ${faixa.quantidade == 0 ? 'nenhum livro' : rotuloLivros(faixa.quantidade)}';
+
+String tituloDoBalaoDaNota(FaixaDeNota faixa) => 'Nota ${formatarNota(faixa.valor)}';
+
+String _listaComE(List<String> itens) => itens.length <= 1
+    ? itens.join()
+    : '${itens.sublist(0, itens.length - 1).join(', ')} e ${itens.last}';
+
+/// Resumo do gráfico para o TalkBack (§9).
+String resumoDasNotas(PeriodoEstatisticas periodo, DistribuicaoNotas distribuicao) {
+  final maior = distribuicao.faixas.map((f) => f.quantidade).reduce((a, b) => a > b ? a : b);
+  final maisFrequentes = distribuicao.faixas.where((f) => f.quantidade == maior).toList();
+  final valores = _listaComE(<String>[for (final f in maisFrequentes) formatarNota(f.valor)]);
+  final cada = maisFrequentes.length > 1 ? ' cada' : '';
+  return 'Gráfico de colunas, notas que você deu ${_em(periodo).trim()}, '
+      '${rotuloNotas(distribuicao.total)}. Mais frequentes: $valores estrelas, '
+      'com ${rotuloLivros(maior)}$cada.';
+}
+
+abstract final class TextosDasNotasDoPerfil {
+  static String titulo(int ano) => 'Notas dadas em $ano';
+  static String semNotas(String nome, int ano) => '$nome não deu notas em $ano.';
+  static String resumo(String nome, int ano, DistribuicaoNotas distribuicao) {
+    final comNota = <String>[
+      for (final f in distribuicao.faixas)
+        if (f.quantidade > 0) leituraDaNota(f),
+    ];
+    return 'Notas que $nome deu em $ano, ${rotuloNotas(distribuicao.total)}. '
+        '${comNota.join('. ')}. As outras notas: nenhum livro.';
+  }
+}

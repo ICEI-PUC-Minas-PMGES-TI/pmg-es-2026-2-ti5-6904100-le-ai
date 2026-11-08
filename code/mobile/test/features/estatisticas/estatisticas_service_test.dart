@@ -28,6 +28,10 @@ void main() {
     expect(estatisticas.anos.first.ano, 2026);
     expect(estatisticas.primeiroRegistro, DateTime(2023, 11, 12));
     expect(estatisticas.semRegistro, isFalse);
+    expect(estatisticas.distribuicaoNotas?.total, 8);
+    expect(estatisticas.distribuicaoNotas?.faixas.map((f) => f.valor), <double>[
+      for (var i = 0; i <= 10; i++) i / 2,
+    ]);
   });
 
   test('média sem denominador vem nula; sem registro nenhum, `semRegistro`', () async {
@@ -38,6 +42,23 @@ void main() {
     expect(estatisticas.diasPorLivro.valor, isNull);
     expect(estatisticas.notaMedia.valor, isNull);
     expect(estatisticas.semRegistro, isTrue);
+    expect(estatisticas.distribuicaoNotas, isNull);
+  });
+
+  test('distribuição que não traz as onze faixas é resposta inválida', () async {
+    final incompleta = estatisticasJson()
+      ..['distribuicaoNotas'] = <String, Object?>{
+        'total': 1,
+        'faixas': <Map<String, Object?>>[
+          <String, Object?>{'valor': 4, 'quantidade': 1},
+        ],
+      };
+    final servico = estatisticasSimulado((_) async => json(incompleta, 200));
+
+    await expectLater(
+      servico.consultar(const PeriodoAno(2026)),
+      throwsA(isA<ApiException>().having((e) => e.kind, 'kind', ApiFailureKind.invalidResponse)),
+    );
   });
 
   test('perfil: id escapado e só os totais do ano', () async {

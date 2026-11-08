@@ -101,6 +101,9 @@ class Estatisticas {
   final MediaEstatistica diasPorLivro;
   final MediaEstatistica notaMedia;
 
+  /// Nula quando o período não tem nota.
+  final DistribuicaoNotas? distribuicaoNotas;
+
   const Estatisticas({
     required this.ano,
     required this.anos,
@@ -109,6 +112,7 @@ class Estatisticas {
     required this.paginasPorDia,
     required this.diasPorLivro,
     required this.notaMedia,
+    required this.distribuicaoNotas,
   });
 
   /// Leitor sem nenhum registro de leitura: o painel e o bloco do perfil viram o vazio.
@@ -150,6 +154,48 @@ class Estatisticas {
         valor: _decimal(notaMedia['valor']),
         quantidade: _inteiro(notaMedia, 'quantidade'),
       ),
+      distribuicaoNotas: DistribuicaoNotas.deJson(json['distribuicaoNotas']),
+    );
+  }
+}
+
+class FaixaDeNota {
+  final double valor;
+  final int quantidade;
+
+  const FaixaDeNota({required this.valor, required this.quantidade});
+}
+
+/// `DistribuicaoNotas` do contrato (RF-STA-04): sempre as onze notas da escala, em ordem
+/// crescente; o contrato devolve `null` no lugar quando o período não tem nota.
+class DistribuicaoNotas {
+  static const int _faixasDaEscala = 11;
+
+  final int total;
+  final List<FaixaDeNota> faixas;
+
+  const DistribuicaoNotas({required this.total, required this.faixas});
+
+  static DistribuicaoNotas? deJson(Object? valor) {
+    if (valor == null) {
+      return null;
+    }
+    if (valor is! Map<String, dynamic>) {
+      throw const FormatException('Distribuição de notas fora do contrato.');
+    }
+    final faixas = valor['faixas'];
+    if (faixas is! List || faixas.length != _faixasDaEscala) {
+      throw const FormatException('Distribuição sem as onze faixas.');
+    }
+    return DistribuicaoNotas(
+      total: _inteiro(valor, 'total'),
+      faixas: <FaixaDeNota>[
+        for (final faixa in faixas)
+          if (faixa is Map<String, dynamic>)
+            FaixaDeNota(valor: _decimal(faixa['valor'])!, quantidade: _inteiro(faixa, 'quantidade'))
+          else
+            throw const FormatException('Faixa fora do contrato.'),
+      ],
     );
   }
 }
@@ -201,15 +247,23 @@ class GraficosEstatisticas {
   }
 }
 
-/// `EstatisticasPerfil`: só os totais do ano de um perfil autorizado (RN-08).
+/// `EstatisticasPerfil`: totais e distribuição das notas do ano de um perfil autorizado (RN-08).
 class EstatisticasPerfil {
   final int ano;
   final TotaisEstatistica totais;
+  final DistribuicaoNotas? distribuicaoNotas;
 
-  const EstatisticasPerfil({required this.ano, required this.totais});
+  const EstatisticasPerfil({
+    required this.ano,
+    required this.totais,
+    required this.distribuicaoNotas,
+  });
 
-  factory EstatisticasPerfil.fromJson(Map<String, dynamic> json) =>
-      EstatisticasPerfil(ano: _inteiro(json, 'ano'), totais: TotaisEstatistica.fromJson(json));
+  factory EstatisticasPerfil.fromJson(Map<String, dynamic> json) => EstatisticasPerfil(
+    ano: _inteiro(json, 'ano'),
+    totais: TotaisEstatistica.fromJson(json),
+    distribuicaoNotas: DistribuicaoNotas.deJson(json['distribuicaoNotas']),
+  );
 }
 
 class EstatisticasService {
