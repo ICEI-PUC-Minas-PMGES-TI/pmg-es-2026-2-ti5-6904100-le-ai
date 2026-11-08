@@ -5,6 +5,7 @@ import java.util.concurrent.TimeoutException;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.QueryTimeoutException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.jdbc.CannotGetJdbcConnectionException;
 import org.springframework.web.ErrorResponse;
 
@@ -45,7 +46,8 @@ public final class MapeadorErro {
     if (erro instanceof QueryTimeoutException || erro instanceof TimeoutException) {
       return de(CodigoErro.TEMPO_ESGOTADO);
     }
-    if (erro instanceof ConstraintViolationException) {
+    if (erro instanceof ConstraintViolationException
+        || erro instanceof HttpMessageNotReadableException) {
       return de(CodigoErro.REQUISICAO_INVALIDA);
     }
     if (erro instanceof ErrorResponse resposta) {

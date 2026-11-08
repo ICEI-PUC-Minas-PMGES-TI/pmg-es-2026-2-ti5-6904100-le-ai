@@ -2,6 +2,7 @@ package br.com.leai.social.push.service;
 
 import br.com.leai.social.push.model.MensagemDePush;
 import com.google.firebase.messaging.AndroidConfig;
+import com.google.firebase.messaging.AndroidNotification;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.Message;
@@ -40,7 +41,13 @@ public class EnviadorFcm implements EnviadorDePush {
                     .setBody(mensagem.corpo())
                     .build())
             .setAndroidConfig(
-                AndroidConfig.builder().setPriority(AndroidConfig.Priority.HIGH).build())
+                AndroidConfig.builder()
+                    .setPriority(AndroidConfig.Priority.HIGH)
+                    .setNotification(
+                        AndroidNotification.builder()
+                            .setVisibility(AndroidNotification.Visibility.PRIVATE)
+                            .build())
+                    .build())
             .putAllData(mensagem.dados())
             .build();
     try {

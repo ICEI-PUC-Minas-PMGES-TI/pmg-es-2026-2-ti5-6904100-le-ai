@@ -1,12 +1,14 @@
 package br.com.leai.social.push.dto;
 
 import br.com.leai.social.push.model.DispositivoPush;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 @Schema(name = "RegistrarDispositivoPush")
+@JsonIgnoreProperties(ignoreUnknown = false)
 public record RegistrarDispositivoPushRequisicao(
     @NotBlank(message = "Informe o token do dispositivo.")
         @Size(max = RegistrarDispositivoPushRequisicao.TOKEN_MAXIMO, message = "O token é longo demais.")

@@ -64,4 +64,9 @@ public record AppProperties(
         .filter(origem -> !origem.isEmpty() && !"*".equals(origem))
         .toList();
   }
+
+  @Override
+  public String toString() {
+    return "AppProperties[serviceName=" + serviceName + "]";
+  }
 }
