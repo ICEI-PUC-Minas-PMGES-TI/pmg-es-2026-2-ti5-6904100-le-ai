@@ -59,6 +59,19 @@ describe('GraficoDeNotas', () => {
     expect(wrapper.find('[data-balao]').exists()).toBe(false)
   })
 
+  it('o mouse saindo do gráfico não fecha o balão aberto pelo teclado', async () => {
+    const wrapper = montar()
+    const grupo = wrapper.get('[role="group"]')
+
+    await grupo.trigger('keydown', { key: 'End' })
+    await grupo.trigger('mouseleave')
+    expect(wrapper.find('[data-balao]').exists()).toBe(true)
+
+    await wrapper.findAll('[data-nota]')[8]!.trigger('mouseenter')
+    await grupo.trigger('mouseleave')
+    expect(wrapper.find('[data-balao]').exists()).toBe(false)
+  })
+
   it('a tabela lista as onze notas e fecha com o total', async () => {
     const wrapper = montar()
 

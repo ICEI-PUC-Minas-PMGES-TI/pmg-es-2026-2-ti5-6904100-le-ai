@@ -30,6 +30,7 @@ const BORDA_DIREITA = 9
 const idDoTitulo = useId()
 const modo = ref<'grafico' | 'tabela'>('grafico')
 const ativo = ref<number | null>(null)
+const porTeclado = ref(false)
 const anuncio = ref('')
 
 const faixas = computed(() => props.distribuicao?.faixas ?? [])
@@ -52,6 +53,16 @@ watch(
 
 function fechar(): void {
   ativo.value = null
+  porTeclado.value = false
+}
+
+function sairComOMouse(): void {
+  if (!porTeclado.value) fechar()
+}
+
+function ativarComOMouse(indice: number): void {
+  porTeclado.value = false
+  ativo.value = indice
 }
 
 function teclar(evento: KeyboardEvent): void {
@@ -65,6 +76,7 @@ function teclar(evento: KeyboardEvent): void {
   const destino = destinos[evento.key]
   if (destino) {
     evento.preventDefault()
+    porTeclado.value = true
     ativo.value = destino()
     anuncio.value = leituraDaNota(faixas.value[ativo.value]!)
   } else if (evento.key === 'Escape' && ativo.value !== null) {
@@ -106,14 +118,14 @@ function teclar(evento: KeyboardEvent): void {
         :aria-label="resumoDasNotas(periodo, distribuicao)"
         @keydown="teclar"
         @blur="fechar"
-        @mouseleave="fechar"
+        @mouseleave="sairComOMouse"
       >
         <ColunasDeNotas
           class="pt-space-10"
           :faixas="faixas"
           :ativo="ativo"
           interativo
-          @ativar="ativo = $event"
+          @ativar="ativarComOMouse"
         />
 
         <div
