@@ -296,9 +296,12 @@ function listaComE(itens: readonly string[]): string {
 export function resumoDasNotas(periodo: PeriodoEstatisticas, distribuicao: DistribuicaoNotas): string {
   const maior = Math.max(...distribuicao.faixas.map((f) => f.quantidade))
   const maisFrequentes = distribuicao.faixas.filter((f) => f.quantidade === maior)
-  const valores = listaComE(maisFrequentes.map((f) => formatarNota(f.valor)))
-  const cada = maisFrequentes.length > 1 ? ' cada' : ''
-  return `Gráfico de colunas, notas que você deu em ${rotuloDoPeriodo(periodo)}, ${rotuloNotas(distribuicao.total)}. Mais frequentes: ${valores} estrelas, com ${rotuloLivros(maior)}${cada}.`
+  const unica = maisFrequentes.length === 1
+  const valores = unica
+    ? rotuloEstrelas(maisFrequentes[0]!.valor)
+    : `${listaComE(maisFrequentes.map((f) => formatarNota(f.valor)))} estrelas`
+  const cada = unica ? '' : ' cada'
+  return `Gráfico de colunas, notas que você deu em ${rotuloDoPeriodo(periodo)}, ${rotuloNotas(distribuicao.total)}. Mais frequentes: ${valores}, com ${rotuloLivros(maior)}${cada}.`
 }
 
 export const TEXTOS_DAS_NOTAS_DO_PERFIL = {
@@ -306,6 +309,7 @@ export const TEXTOS_DAS_NOTAS_DO_PERFIL = {
   semNotas: (nome: string, ano: number) => `${nome} não deu notas em ${ano}.`,
   resumo: (nome: string, ano: number, distribuicao: DistribuicaoNotas): string => {
     const comNota = distribuicao.faixas.filter((f) => f.quantidade > 0).map(leituraDaNota)
-    return `Notas que ${nome} deu em ${ano}, ${rotuloNotas(distribuicao.total)}. ${comNota.join('. ')}. As outras notas: nenhum livro.`
+    const semNota = comNota.length < distribuicao.faixas.length ? ' As outras notas: nenhum livro.' : ''
+    return `Notas que ${nome} deu em ${ano}, ${rotuloNotas(distribuicao.total)}. ${comNota.join('. ')}.${semNota}`
   },
 }

@@ -71,3 +71,11 @@ describe('GraficoDeNotas', () => {
     expect(wrapper.text()).toContain('Ver como gráfico')
   })
 })
+
+describe('rótulo acessível do gráfico', () => {
+  it('uma nota só no topo usa o singular de estrela', () => {
+    const wrapper = montar({ distribuicao: distribuicaoDe({ 1: 5 }) })
+
+    expect(wrapper.get('[role="group"]').attributes('aria-label')).toContain('Mais frequentes: 1 estrela, com 5 livros.')
+  })
+})
