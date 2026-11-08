@@ -120,6 +120,8 @@ leai:
   # F-MOD-OPC: comando interno de suspensão e reativação de conta no `identidade` (porta
   # local 8080), com o mesmo MODERACAO_TOKEN.
   identidade-base-url: ${IDENTIDADE_BASE_URL:http://localhost:8080}
+  # F-NOT-OPC: push FCM em Android. Vazio desliga o envio.
+  firebase-credentials-json: ${FIREBASE_CREDENTIALS_JSON:}
 
 ---
 # --- perfil prod ----------------------------------------------------------

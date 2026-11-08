@@ -228,6 +228,10 @@ services:
         value: https://leai-identidade.onrender.com
       - key: MODERACAO_TOKEN
         sync: false
+      # F-NOT-OPC: JSON da conta de serviço do Firebase, usado só para o FCM
+      # (Android). Vazio desliga o envio do push; o serviço sobe do mesmo jeito.
+      - key: FIREBASE_CREDENTIALS_JSON
+        sync: false
 
   # ------------------------------------------------------- site estático web
   - type: web

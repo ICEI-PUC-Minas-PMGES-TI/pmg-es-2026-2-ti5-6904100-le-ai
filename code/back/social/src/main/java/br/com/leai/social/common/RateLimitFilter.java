@@ -57,6 +57,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
   /** Denunciar (F-MOD): só {@code POST /denuncias}, caminho exato. */
   private static final String CAMINHO_DENUNCIAS = "/denuncias";
 
+  private static final String CAMINHO_DISPOSITIVOS_PUSH = "/me/dispositivos-push";
+
   private static final Set<HttpMethod> METODOS_CURTIR = Set.of(HttpMethod.POST, HttpMethod.DELETE);
 
   private static final int LIMITE_PADRAO = 60;
@@ -115,7 +117,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
     if (caminho.endsWith(SUFIXO_COMENTARIOS)) {
       return HttpMethod.POST.equals(metodo);
     }
-    if (caminho.equals(CAMINHO_DENUNCIAS)) {
+    if (caminho.equals(CAMINHO_DENUNCIAS) || caminho.equals(CAMINHO_DISPOSITIVOS_PUSH)) {
       return HttpMethod.POST.equals(metodo);
     }
     return false;

@@ -940,7 +940,7 @@ paths:
       tags: [notificacoes]
       summary: Lista as preferências de notificação por tipo (RF-NOT-05)
       operationId: listarPreferenciasDeNotificacao
-      x-implementation-status: planned
+      x-implementation-status: implemented
       description: >-
         Devolve todos os tipos configuráveis com o estado de cada um, inclusive
         os nunca alterados, que vêm habilitados. A ordem é fixa e igual à da
@@ -957,7 +957,7 @@ paths:
       tags: [notificacoes]
       summary: Atualiza preferências de notificação por tipo (RF-NOT-05)
       operationId: atualizarPreferenciasDeNotificacao
-      x-implementation-status: planned
+      x-implementation-status: implemented
       description: >-
         Atualiza, de forma idempotente, os tipos enviados; os demais ficam como
         estão. Tipo desconhecido ou repetido no corpo é rejeitado com 400 e
@@ -986,7 +986,7 @@ paths:
       tags: [notificacoes]
       summary: Registra ou renova o token FCM do dispositivo (RF-NOT-07)
       operationId: registrarDispositivoPush
-      x-implementation-status: planned
+      x-implementation-status: implemented
       description: >-
         O token é único. Reenviar o mesmo token do mesmo leitor atualiza o
         registro e o reativa, sem duplicar. Token que pertencia a outra conta
@@ -1020,7 +1020,7 @@ paths:
       tags: [notificacoes]
       summary: Revoga o dispositivo de push (RF-NOT-07)
       operationId: revogarDispositivoPush
-      x-implementation-status: planned
+      x-implementation-status: implemented
       description: >-
         Chamado pelo aplicativo no logout, para o aparelho deslogado deixar de
         receber push. Só o dono revoga o próprio dispositivo; id alheio ou
