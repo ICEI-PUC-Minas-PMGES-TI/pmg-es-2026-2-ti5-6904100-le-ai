@@ -1,4 +1,5 @@
-import type { PeriodoEstatisticas, PontoEstatistica } from '../services/leitura'
+import { formatarNota } from '../livros/formatos'
+import type { DistribuicaoNotas, FaixaDeNota, PeriodoEstatisticas, PontoEstatistica } from '../services/leitura'
 import { capitalizar, type DataLocal, diaEMes, formatarInteiro, lerData, MESES, MESES_ABREVIADOS } from './formatos'
 
 /**
@@ -241,3 +242,70 @@ export const TEXTOS_DO_BLOCO = {
   carregando: 'Carregando estatísticas do ano',
 }
 
+
+export const TEXTOS_DAS_NOTAS = {
+  titulo: 'Notas que você deu',
+  legenda: 'Nota em estrelas. Sobre cada coluna, o número de livros.',
+  ajuda: 'Cada livro conta uma vez, com a nota que você deu a ele. Livros pessoais entram.',
+  nenhumLivro: 'Nenhum livro',
+  total: 'Total',
+  colunaNota: 'Nota',
+  colunaLivros: 'Livros',
+}
+
+export function rotuloNotas(quantidade: number): string {
+  return `${formatarInteiro(quantidade)} ${quantidade === 1 ? 'nota' : 'notas'}`
+}
+
+export function rotuloEstrelas(valor: number): string {
+  return `${formatarNota(valor)} ${valor === 0 || valor >= 2 ? 'estrelas' : 'estrela'}`
+}
+
+export function quantidadeDeLivros(quantidade: number): string {
+  return quantidade === 0 ? TEXTOS_DAS_NOTAS.nenhumLivro : rotuloLivros(quantidade)
+}
+
+export function subtituloDasNotas(
+  periodo: PeriodoEstatisticas,
+  total: number,
+  primeiroRegistro: string | null,
+): string {
+  const notas = rotuloNotas(total)
+  if (periodo !== 'acumulado') return `${notas} em ${periodo}`
+  return primeiroRegistro ? `${notas} desde ${lerData(primeiroRegistro).ano}` : notas
+}
+
+export function semNotasNoPeriodo(periodo: PeriodoEstatisticas): string {
+  return `${MEDIA_AUSENTE.notaMedia(periodo)}.`
+}
+
+export function leituraDaNota(faixa: FaixaDeNota): string {
+  const livros = faixa.quantidade === 0 ? 'nenhum livro' : rotuloLivros(faixa.quantidade)
+  return `Nota ${formatarNota(faixa.valor)}: ${livros}`
+}
+
+export function tituloDoBalaoDaNota(faixa: FaixaDeNota): string {
+  return `Nota ${formatarNota(faixa.valor)}`
+}
+
+function listaComE(itens: readonly string[]): string {
+  if (itens.length <= 1) return itens.join('')
+  return `${itens.slice(0, -1).join(', ')} e ${itens[itens.length - 1]}`
+}
+
+export function resumoDasNotas(periodo: PeriodoEstatisticas, distribuicao: DistribuicaoNotas): string {
+  const maior = Math.max(...distribuicao.faixas.map((f) => f.quantidade))
+  const maisFrequentes = distribuicao.faixas.filter((f) => f.quantidade === maior)
+  const valores = listaComE(maisFrequentes.map((f) => formatarNota(f.valor)))
+  const cada = maisFrequentes.length > 1 ? ' cada' : ''
+  return `Gráfico de colunas, notas que você deu em ${rotuloDoPeriodo(periodo)}, ${rotuloNotas(distribuicao.total)}. Mais frequentes: ${valores} estrelas, com ${rotuloLivros(maior)}${cada}.`
+}
+
+export const TEXTOS_DAS_NOTAS_DO_PERFIL = {
+  titulo: (ano: number) => `Notas dadas em ${ano}`,
+  semNotas: (nome: string, ano: number) => `${nome} não deu notas em ${ano}.`,
+  resumo: (nome: string, ano: number, distribuicao: DistribuicaoNotas): string => {
+    const comNota = distribuicao.faixas.filter((f) => f.quantidade > 0).map(leituraDaNota)
+    return `Notas que ${nome} deu em ${ano}, ${rotuloNotas(distribuicao.total)}. ${comNota.join('. ')}. As outras notas: nenhum livro.`
+  },
+}
