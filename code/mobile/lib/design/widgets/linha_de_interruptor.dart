@@ -46,9 +46,8 @@ class LinhaDeInterruptor extends StatelessWidget {
       liveRegion: mensagemDeErro != null,
       onTap: aoAlternar,
       excludeSemantics: true,
-      child: GestureDetector(
+      child: InkWell(
         onTap: aoAlternar,
-        behavior: HitTestBehavior.opaque,
         child: Column(
           children: <Widget>[
             ConstrainedBox(

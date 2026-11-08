@@ -141,8 +141,6 @@ class SessionController extends ChangeNotifier {
     }
   }
 
-  /// RF-NOT-07: antes do refresh e da limpeza, porque a revogação do dispositivo usa o token da
-  /// sessão, e uma renovação feita por ela troca o refresh que [sairRevogando] vai ler.
   Future<void> _revogarDispositivoDePush() async {
     try {
       await revogarDispositivo?.call();

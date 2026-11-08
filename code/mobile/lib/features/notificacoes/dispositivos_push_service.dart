@@ -24,6 +24,8 @@ class DispositivosPushService {
     return json['id'] as String;
   }
 
-  Future<void> revogar(String id) =>
-      _social.deleteVazio('/me/dispositivos-push/${Uri.encodeComponent(id)}');
+  Future<void> revogar(String id) => _social.deleteVazio(
+    '/me/dispositivos-push/${Uri.encodeComponent(id)}',
+    idempotencyKey: ApiClient.newIdempotencyKey(),
+  );
 }

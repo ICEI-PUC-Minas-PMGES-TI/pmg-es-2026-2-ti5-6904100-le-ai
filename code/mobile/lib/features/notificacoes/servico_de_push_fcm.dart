@@ -19,6 +19,8 @@ class ServicoDePushFcm implements ServicoDePush {
   AppLifecycleListener? _ciclo;
   StreamSubscription<String>? _tokens;
   bool _ativo = false;
+  bool _revogando = false;
+  Future<void>? _emCurso;
 
   ServicoDePushFcm({
     required MensageriaPush mensageria,
@@ -42,14 +44,23 @@ class ServicoDePushFcm implements ServicoDePush {
   }
 
   Future<void> revogar() async {
+    _revogando = true;
     _ativo = false;
     await _pararDeAcompanharToken();
+    try {
+      await _emCurso;
+    } on Object {
+      _emCurso = null;
+    }
     final id = await _store.read();
     if (id == null) {
       return;
     }
-    await _api.revogar(id).timeout(prazoDaRevogacaoNoLogout);
-    await _store.delete();
+    try {
+      await _api.revogar(id).timeout(prazoDaRevogacaoNoLogout);
+    } finally {
+      await _store.delete();
+    }
   }
 
   void dispose() {
@@ -60,16 +71,23 @@ class ServicoDePushFcm implements ServicoDePush {
 
   void _aoMudarSessao() {
     final autenticado = _sessao!.estaAutenticado;
-    if (autenticado == _ativo) {
+    if (!autenticado) {
+      _revogando = false;
+    }
+    if (_revogando || autenticado == _ativo) {
       return;
     }
     _ativo = autenticado;
-    unawaited(autenticado ? _iniciar(pedirPermissao: true) : _pararDeAcompanharToken());
+    if (autenticado) {
+      _emCurso = _iniciar(pedirPermissao: true);
+    } else {
+      unawaited(_pararDeAcompanharToken());
+    }
   }
 
   void _aoRetomar() {
     if (_ativo && _tokens == null) {
-      unawaited(_iniciar(pedirPermissao: false));
+      _emCurso = _iniciar(pedirPermissao: false);
     }
   }
 
@@ -80,14 +98,17 @@ class ServicoDePushFcm implements ServicoDePush {
     if (!permitido || !_ativo || _tokens != null) {
       return;
     }
-    _tokens = _mensageria.tokenRenovado.listen((token) => unawaited(_registrar(token)));
+    _tokens = _mensageria.tokenRenovado.listen((token) => _emCurso = _registrar(token));
     final token = await _mensageria.obterToken();
-    if (token != null) {
+    if (token != null && _ativo) {
       await _registrar(token);
     }
   }
 
   Future<void> _registrar(String token) async {
+    if (!_ativo) {
+      return;
+    }
     try {
       await _store.write(await _api.registrar(token));
     } on ApiException {

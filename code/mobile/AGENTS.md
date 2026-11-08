@@ -15,6 +15,7 @@ Convenções do app mobile. Complementa o [`AGENTS.md`](../../AGENTS.md) da raiz
 - HTTP: `package:http` 1.6.0.
 - Preferência local: `shared_preferences` 2.5.5, usando `SharedPreferencesAsync`.
 - Persistência segura: `flutter_secure_storage` 11.1.1 (Keystore/Keychain) — decidido em P0-NAV (14/09/2026) para o token de sessão, que não pode viver em preferência comum.
+- Push (F-NOT-OPC): `firebase_core` 5.1.0 e `firebase_messaging` 17.0.1 (só FCM, Android; iOS e web usam `MensageriaIndisponivel`). O plugin `com.google.gms.google-services` 4.4.4 só é aplicado se `android/app/google-services.json` existir (arquivo no `.gitignore`); sem ele o app compila e roda sem push. Canal `leai_notificacoes` e o `MethodChannel` `leai/ajustes` (abrir ajustes de notificação) ficam em `MainActivity.kt`. Em primeiro plano o push não é tratado (o SSE já atualiza a lista); não há handler de background porque as mensagens trazem `notification`. `getToken` e `onTokenRefresh` seguem em uso apesar de deprecados, porque `register()` entrega o Firebase Installation ID e não o token FCM que o backend espera.
 - Tipografia: `google_fonts` 8.2.1.
 - Iconografia: `phosphor_icons` 3.0.1; use Phosphor regular por padrão e fill somente para estados ativos.
 - Markdown da resenha: `markdown` 7.3.1 (dart-lang), só o parser. O `flutter_markdown` foi descontinuado e não entra: a árvore vira widget em `markdown_resenha.dart`.

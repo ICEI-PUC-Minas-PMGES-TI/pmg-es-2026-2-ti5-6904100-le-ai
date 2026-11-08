@@ -63,8 +63,13 @@ class MensageriaFirebase implements MensageriaPush {
   }
 
   @override
-  Future<void> abrirAjustesDeNotificacao() =>
-      _canalDeAjustes.invokeMethod<void>(_metodoAbrirAjustesDeNotificacao);
+  Future<void> abrirAjustesDeNotificacao() async {
+    try {
+      await _canalDeAjustes.invokeMethod<void>(_metodoAbrirAjustesDeNotificacao);
+    } on PlatformException {
+      return;
+    }
+  }
 
   static bool _autorizada(AuthorizationStatus status) =>
       status == AuthorizationStatus.authorized || status == AuthorizationStatus.provisional;

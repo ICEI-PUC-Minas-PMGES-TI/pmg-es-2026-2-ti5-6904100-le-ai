@@ -20,6 +20,7 @@ class _Mensageria implements MensageriaPush {
   bool concedida;
   bool concedeAoPedir;
   String? token = 'fcm-1';
+  Completer<void>? portao;
   int pedidosDePermissao = 0;
   final StreamController<String> renovacoes = StreamController<String>.broadcast();
 
@@ -36,7 +37,10 @@ class _Mensageria implements MensageriaPush {
   }
 
   @override
-  Future<String?> obterToken() async => token;
+  Future<String?> obterToken() async {
+    await portao?.future;
+    return token;
+  }
 
   @override
   Stream<String> get tokenRenovado => renovacoes.stream;
@@ -175,6 +179,23 @@ void main() {
       final revogacao = servidor.revogacoes.single;
       expect(revogacao.url.path, '/me/dispositivos-push/$_idDoDispositivo');
       expect(revogacao.headers['Authorization'], 'Bearer jwt');
+      expect(revogacao.headers['Idempotency-Key'], isNotEmpty);
+      expect(dispositivo.id, isNull);
+      expect(sessao.estaAutenticado, isFalse);
+    });
+
+    test('logout com o registro ainda em andamento nao deixa o dispositivo registrado', () async {
+      mensageria.portao = Completer<void>();
+      await sessao.entrar('jwt', refreshToken: 'renovacao');
+      await pumpEventQueue();
+
+      final saida = sessao.sairRevogando((_) async {});
+      await pumpEventQueue();
+      mensageria.portao!.complete();
+      await saida;
+      await pumpEventQueue();
+
+      expect(servidor.registros, isEmpty);
       expect(dispositivo.id, isNull);
       expect(sessao.estaAutenticado, isFalse);
     });

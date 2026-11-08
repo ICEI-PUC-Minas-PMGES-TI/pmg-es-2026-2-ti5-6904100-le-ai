@@ -3,6 +3,7 @@ package com.example.le_ai_mobile
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
@@ -21,8 +22,12 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CANAL_DE_AJUSTES)
             .setMethodCallHandler { chamada, resultado ->
                 if (chamada.method == METODO_ABRIR_AJUSTES_DE_NOTIFICACAO) {
-                    abrirAjustesDeNotificacao()
-                    resultado.success(null)
+                    try {
+                        abrirAjustesDeNotificacao()
+                        resultado.success(null)
+                    } catch (erro: ActivityNotFoundException) {
+                        resultado.error(ERRO_SEM_TELA_DE_AJUSTES, erro.message, null)
+                    }
                 } else {
                     resultado.notImplemented()
                 }
@@ -52,5 +57,6 @@ class MainActivity : FlutterActivity() {
         const val NOME_DO_CANAL = "Notificações"
         const val CANAL_DE_AJUSTES = "leai/ajustes"
         const val METODO_ABRIR_AJUSTES_DE_NOTIFICACAO = "abrirAjustesDeNotificacao"
+        const val ERRO_SEM_TELA_DE_AJUSTES = "sem_tela_de_ajustes"
     }
 }
