@@ -109,8 +109,12 @@ export class EstatisticasRepository {
     `);
   }
 
-  async baldes(usuarioId: string, ano?: number): Promise<BaldeMensal[]> {
-    return this.db
+  async baldes(
+    usuarioId: string,
+    ano?: number,
+    executor: DrizzleDB | Tx = this.db,
+  ): Promise<BaldeMensal[]> {
+    return executor
       .select(COLUNAS_DO_BALDE)
       .from(estatisticaMensal)
       .where(
@@ -122,11 +126,25 @@ export class EstatisticasRepository {
       .orderBy(asc(estatisticaMensal.ano), asc(estatisticaMensal.mes));
   }
 
-  async contagemDeNotas(
+  async baldesENotas(
     usuarioId: string,
-    ano?: number,
+    recortes: { anoDosBaldes?: number; anoDasNotas?: number },
+  ): Promise<{ baldes: BaldeMensal[]; notas: FaixaDeNota[] }> {
+    return this.db.transaction(
+      async (tx) => ({
+        baldes: await this.baldes(usuarioId, recortes.anoDosBaldes, tx),
+        notas: await this.contagemDeNotas(usuarioId, recortes.anoDasNotas, tx),
+      }),
+      { isolationLevel: 'repeatable read', accessMode: 'read only' },
+    );
+  }
+
+  private async contagemDeNotas(
+    usuarioId: string,
+    ano: number | undefined,
+    executor: DrizzleDB | Tx,
   ): Promise<FaixaDeNota[]> {
-    const resultado = await this.db.execute<FaixaDeNota>(sql`
+    const resultado = await executor.execute<FaixaDeNota>(sql`
       SELECT n.valor::float8 AS valor, count(*)::int AS quantidade
         FROM ${nota} n
        WHERE n.usuario_id = ${usuarioId}

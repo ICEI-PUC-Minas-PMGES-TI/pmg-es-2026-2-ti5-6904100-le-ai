@@ -55,13 +55,11 @@ export class EstatisticasService {
     agora = new Date(),
   ): Promise<EstatisticasDto> {
     const periodo = periodoDe(periodoTexto, mesCorrente(agora).ano);
-    const [baldes, primeiroRegistro, notas] = await Promise.all([
-      this.repositorio.baldes(usuarioId),
+    const [{ baldes, notas }, primeiroRegistro] = await Promise.all([
+      this.repositorio.baldesENotas(usuarioId, {
+        anoDasNotas: periodo.tipo === 'ano' ? periodo.ano : undefined,
+      }),
       this.repositorio.primeiroRegistro(usuarioId),
-      this.repositorio.contagemDeNotas(
-        usuarioId,
-        periodo.tipo === 'ano' ? periodo.ano : undefined,
-      ),
     ]);
     const resumo = resumir(baldes, periodo);
     return {
@@ -131,10 +129,10 @@ export class EstatisticasService {
       }
     }
     const doAno = ano ?? mesCorrente(agora).ano;
-    const [baldes, notas] = await Promise.all([
-      this.repositorio.baldes(usuarioId, doAno),
-      this.repositorio.contagemDeNotas(usuarioId, doAno),
-    ]);
+    const { baldes, notas } = await this.repositorio.baldesENotas(usuarioId, {
+      anoDosBaldes: doAno,
+      anoDasNotas: doAno,
+    });
     const soma = somar(baldes);
     return {
       ano: doAno,

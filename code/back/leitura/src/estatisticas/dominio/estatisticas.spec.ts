@@ -275,6 +275,15 @@ describe('montarDistribuicao (RF-STA-04)', () => {
     ]);
   });
 
+  it('valor fora da escala não entra no total, que continua igual à soma das faixas', () => {
+    const distribuicao = montarDistribuicao([
+      { valor: 4, quantidade: 2 },
+      { valor: 4.4999, quantidade: 5 },
+    ]);
+    expect(distribuicao?.total).toBe(2);
+    expect(distribuicao?.faixas.reduce((s, f) => s + f.quantidade, 0)).toBe(2);
+  });
+
   it('o total é a soma das contagens', () => {
     expect(
       montarDistribuicao([

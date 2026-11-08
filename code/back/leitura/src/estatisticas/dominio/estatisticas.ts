@@ -261,15 +261,10 @@ function ponto(
 export function montarDistribuicao(
   contagens: readonly FaixaDeNota[],
 ): DistribuicaoDeNotas | null {
-  const total = contagens.reduce((soma, c) => soma + c.quantidade, 0);
-  if (total === 0) {
-    return null;
-  }
-  return {
-    total,
-    faixas: VALORES_DA_ESCALA.map((valor) => ({
-      valor,
-      quantidade: contagens.find((c) => c.valor === valor)?.quantidade ?? 0,
-    })),
-  };
+  const faixas = VALORES_DA_ESCALA.map((valor) => ({
+    valor,
+    quantidade: contagens.find((c) => c.valor === valor)?.quantidade ?? 0,
+  }));
+  const total = faixas.reduce((soma, f) => soma + f.quantidade, 0);
+  return total === 0 ? null : { total, faixas };
 }
