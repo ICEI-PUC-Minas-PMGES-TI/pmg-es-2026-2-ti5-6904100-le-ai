@@ -297,10 +297,13 @@ String _listaComE(List<String> itens) => itens.length <= 1
 String resumoDasNotas(PeriodoEstatisticas periodo, DistribuicaoNotas distribuicao) {
   final maior = distribuicao.faixas.map((f) => f.quantidade).reduce((a, b) => a > b ? a : b);
   final maisFrequentes = distribuicao.faixas.where((f) => f.quantidade == maior).toList();
-  final valores = _listaComE(<String>[for (final f in maisFrequentes) formatarNota(f.valor)]);
-  final cada = maisFrequentes.length > 1 ? ' cada' : '';
+  final unica = maisFrequentes.length == 1;
+  final valores = unica
+      ? rotuloEstrelas(maisFrequentes.first.valor)
+      : '${_listaComE(<String>[for (final f in maisFrequentes) formatarNota(f.valor)])} estrelas';
+  final cada = unica ? '' : ' cada';
   return 'Gráfico de colunas, notas que você deu ${_em(periodo).trim()}, '
-      '${rotuloNotas(distribuicao.total)}. Mais frequentes: $valores estrelas, '
+      '${rotuloNotas(distribuicao.total)}. Mais frequentes: $valores, '
       'com ${rotuloLivros(maior)}$cada.';
 }
 
@@ -312,7 +315,10 @@ abstract final class TextosDasNotasDoPerfil {
       for (final f in distribuicao.faixas)
         if (f.quantidade > 0) leituraDaNota(f),
     ];
+    final semNota = comNota.length < distribuicao.faixas.length
+        ? ' As outras notas: nenhum livro.'
+        : '';
     return 'Notas que $nome deu em $ano, ${rotuloNotas(distribuicao.total)}. '
-        '${comNota.join('. ')}. As outras notas: nenhum livro.';
+        '${comNota.join('. ')}.$semNota';
   }
 }

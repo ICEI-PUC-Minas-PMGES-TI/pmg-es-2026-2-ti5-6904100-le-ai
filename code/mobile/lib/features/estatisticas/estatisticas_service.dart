@@ -192,7 +192,7 @@ class DistribuicaoNotas {
       faixas: <FaixaDeNota>[
         for (final faixa in faixas)
           if (faixa is Map<String, dynamic>)
-            FaixaDeNota(valor: _decimal(faixa['valor'])!, quantidade: _inteiro(faixa, 'quantidade'))
+            FaixaDeNota(valor: _nota(faixa), quantidade: _inteiro(faixa, 'quantidade'))
           else
             throw const FormatException('Faixa fora do contrato.'),
       ],
@@ -344,6 +344,14 @@ int? _inteiroOuNulo(Object? valor) {
     throw const FormatException('Número fora do contrato.');
   }
   return valor.toInt();
+}
+
+double _nota(Map<String, dynamic> faixa) {
+  final valor = faixa['valor'];
+  if (valor is! num) {
+    throw const FormatException('Nota da faixa fora do contrato.');
+  }
+  return valor.toDouble();
 }
 
 double? _decimal(Object? valor) {
