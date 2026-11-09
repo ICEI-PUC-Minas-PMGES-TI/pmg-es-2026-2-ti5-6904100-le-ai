@@ -145,7 +145,7 @@ No `leai_capas`, a pasta é dinâmica (`asset_folder`): não entra no `public_id
 - **A demonstração de push deve ocorrer em Android.** Em iOS, o usuário recebe as mesmas notificações pela lista in-app (RF-NOT-02), sem entrega em segundo plano.
 - Ter um projeto Firebase para o FCM **não** implica usar Firestore, Auth ou qualquer outro produto Firebase. O escopo do Firebase no sistema é a emissão de push, e nada mais.
 
-**Situação em 25/10/2026:** o FCM ainda não está implementado. Existe só a tabela `social.dispositivo_push` da baseline, e o push entra com a F-NOT-OPC no Período 3. Enquanto isso, a entrega em tempo real das notificações in-app é feita por SSE (§5.1), nas duas plataformas, com o app aberto.
+**Situação em 08/11/2026:** o FCM está implementado no código pela F-NOT-OPC. O `social` envia depois do commit da notificação, idempotente por `(notificacao, dispositivo)` na tabela `envio_push`, com retry e circuit breaker; sem a variável `FIREBASE_CREDENTIALS_JSON` o envio fica desativado. **Falta** o projeto Firebase, o `google-services.json` no app e a validação em dispositivo Android real. A entrega em tempo real das notificações in-app continua por SSE (§5.1), nas duas plataformas, com o app aberto.
 
 ---
 
@@ -402,7 +402,7 @@ Situação em 25/10/2026:
 |---|---|
 | Viabilidade do GitHub Actions `schedule` no repositório do GitHub Classroom (P-08) | **confirmada na prática:** `job-inatividade.yml` roda todo dia desde 30/09/2026; os arquivos de P0-MSG e F-EST ainda a registram como não confirmada |
 | Limites vigentes dos planos gratuitos de Cloudinary, CloudAMQP, Brevo e Neon | **em aberto:** nenhum arquivo registra a conferência. Medido só o tamanho do acervo no Neon, cerca de 11 MB |
-| Emissão de push FCM em dispositivo Android real de demonstração (P-04) | **adiada** para o Período 3, com a F-NOT-OPC |
+| Emissão de push FCM em dispositivo Android real de demonstração (P-04) | código pronto na F-NOT-OPC; **validação pendente** do projeto Firebase, do `google-services.json` e do aparelho real |
 
 ### Divergências e itens abertos no fechamento do Período 2
 

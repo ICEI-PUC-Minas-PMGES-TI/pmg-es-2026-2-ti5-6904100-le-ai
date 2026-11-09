@@ -157,7 +157,7 @@ Protótipo é referência visual. Em conflito, o REQUISITOS vence.
   - `ConsumidorDeNotificacaoIntegracaoTest`: mesma resenha e mesmo reator com outro `eventId` não duplica;
   - `ConsumidorDeNotificacaoBrokerTest`: `resenha.curtida` sem `resenhaId` vai para a DLQ sem gravar; binding novo em `amarraAsTresOrigens`;
   - `EventosDeNotificacaoDeTeste`: `resenhaId` no `Fato`, case em `chaveDeNegocio` e em `dados()` (o compilador não cobra este) e um caso com `livro` pessoal.
-- **Registrar na feature:** a preferência de notificação ainda não é lida pelo `social` (fica para a F-NOT-OPC). O critério "mesmo se suprimida por preferência" é garantido pelo produtor (`primeira_curtida_em`) e pelo `UNIQUE (destinatario_id, tipo, chave_negocio)`.
+- **Registrar na feature:** a preferência de notificação não era lida pelo `social` na época; desde a F-NOT-OPC (08/11/2026) ele a lê antes de gravar. O critério "mesmo se suprimida por preferência" é garantido pelo produtor (`primeira_curtida_em`) e pelo `UNIQUE (destinatario_id, tipo, chave_negocio)`.
 
 ### `acervo` (NestJS)
 
@@ -344,7 +344,7 @@ O backend não muda. Em `leitura.yaml`, só a descrição de `ResenhaEntrada` pa
   - status por camada; DoD; timeline;
   - decisões do dono a comunicar;
   - **divergências registradas:** decisões 8, 9 e 10, os detalhes de design não seguidos e o comportamento no deploy do `acervo`;
-  - preferência de notificação ainda não lida;
+  - preferência de notificação (lida pelo `social` desde a F-NOT-OPC);
   - **débitos:** copy das curtidas com o Kayke; DES no merge de fechamento;
   - contas de teste criadas no dev.
 - **`renato-periodo-2/`:**
