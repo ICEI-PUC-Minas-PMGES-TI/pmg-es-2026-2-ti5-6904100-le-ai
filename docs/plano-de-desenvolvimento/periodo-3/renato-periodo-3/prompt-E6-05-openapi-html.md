@@ -53,7 +53,7 @@ Quem terminar uma etapa atualiza esta tabela e a linha E6-05 do [`README.md`](RE
 
 > **Prompt:** Execute o `plano-E6-05-openapi-html.md` desta pasta. Não peça aprovação no meio.
 
-1. `git fetch` e a branch da tarefa, `renato-e6-05`, criada a partir da `renato-features` (que tem estes prompts) e atualizada com a `origin/desenvolvimento` (ver contexto comum).
+1. `git fetch` e a worktree da tarefa, com a branch `renato-e6-05` criada a partir da `origin/desenvolvimento` (ver contexto comum). O plano e o Andamento são lidos e commitados na `renato-features`.
 2. Crie o gerador, gere os quatro HTML e o índice e atualize `docs/api/README.md` e `docs/README.md` (Ferramentas) com o comando e os links.
 3. Abra cada HTML no Edge headless (`playwright-core`, `file://`), sem rede, e tire um print. Confira que renderiza, que as operações dos quatro serviços aparecem e que nada vem de CDN (bloqueie as requisições externas no Playwright).
 4. **Validação por um agente de contexto limpo** (só lê e testa). Ele roda o gerador do zero numa pasta limpa, compara o resultado com o versionado, confere a versão fixa e os links. Corrija os achados.

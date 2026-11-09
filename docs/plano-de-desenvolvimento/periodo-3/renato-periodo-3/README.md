@@ -1,6 +1,8 @@
 # Planejamento do Renato — Período 3
 
-Pasta do **Renato Douglas** para os planos das features dele no Período 3 ([F-MOD-OPC](../feature-F-MOD-OPC.md) e [F-ACV-OPC](../feature-F-ACV-OPC.md)) e das tarefas da Entrega 6 que ele assumiu (item 3). Segue o formato de [`../../periodo-2/renato-periodo-2/`](../../periodo-2/renato-periodo-2/README.md).
+Pasta do **Renato Douglas** para os planos das features dele no Período 3 ([F-MOD-OPC](../feature-F-MOD-OPC.md) e [F-ACV-OPC](../feature-F-ACV-OPC.md)) e das tarefas da Entrega 6 que ele assumiu (item 3).
+
+> **Esta pasta existe só na branch `renato-features`** (decisão do Renato, 09/11/2026). Ela foi retirada da `desenvolvimento`, junto com os planos já usados dos Períodos 1 e 2. Nunca abra PR da `renato-features` nem a mergeie na `desenvolvimento`: o trabalho das tarefas da Entrega 6 vai em branches `renato-e6-NN` criadas da `origin/desenvolvimento` (ver [`prompt-E6-contexto-comum.md`](prompt-E6-contexto-comum.md)).
 
 Aqui ficam a ordem de trabalho (este arquivo), os prompts de cada etapa (`prompt-F-*.md`) e um plano por feature (`plano-F-*.md`). Status, pendências e timeline continuam no arquivo de cada feature, que prevalece sobre o que estiver aqui.
 

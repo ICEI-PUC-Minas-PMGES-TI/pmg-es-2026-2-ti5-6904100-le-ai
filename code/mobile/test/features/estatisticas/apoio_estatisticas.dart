@@ -34,6 +34,7 @@ Map<String, Object?> estatisticasJson({
   double? diasPorLivro = 19.1,
   double? notaMedia = 4.2,
   int notas = 8,
+  List<(double, int)>? notasPorValor = const <(double, int)>[(3, 1), (3.5, 1), (4, 2), (4.5, 2), (5, 2)],
 }) => <String, Object?>{
   'ano': ano,
   'anos':
@@ -63,7 +64,22 @@ Map<String, Object?> estatisticasJson({
     },
     'notaMedia': <String, Object?>{'valor': notaMedia, 'quantidade': notaMedia == null ? 0 : notas},
   },
+  'distribuicaoNotas': distribuicaoJson(notasPorValor),
 };
+
+/// Onze faixas da escala (RN-06) em ordem crescente; `null` quando o período não tem nota.
+Map<String, Object?>? distribuicaoJson(List<(double, int)>? contagens) {
+  if (contagens == null) {
+    return null;
+  }
+  return <String, Object?>{
+    'total': contagens.fold<int>(0, (a, c) => a + c.$2),
+    'faixas': <Map<String, Object?>>[
+      for (var i = 0; i <= 10; i++)
+        <String, Object?>{'valor': i / 2, 'quantidade': contagens.where((c) => c.$1 == i / 2).fold<int>(0, (a, c) => a + c.$2)},
+    ],
+  };
+}
 
 /// Leitor sem nenhum registro (4.7).
 Map<String, Object?> semRegistroJson() => estatisticasJson(
@@ -75,6 +91,7 @@ Map<String, Object?> semRegistroJson() => estatisticasJson(
   paginasPorDia: null,
   diasPorLivro: null,
   notaMedia: null,
+  notasPorValor: null,
 );
 
 Map<String, Object?> pontoJson(int? mes, int paginas, [int livros = 0, int ano = 2026]) =>

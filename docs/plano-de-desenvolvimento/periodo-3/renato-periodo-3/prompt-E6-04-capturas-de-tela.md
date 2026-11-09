@@ -59,7 +59,7 @@ O DES roda o Período 2, então as telas do Período 3 (suspensão de conta, ass
 
 > **Prompt:** Execute o `plano-E6-04-capturas-de-tela.md` desta pasta, só com os OKs registrados nele. Não peça aprovação no meio.
 
-1. `git fetch` e a branch da tarefa, `renato-e6-04`, criada a partir da `renato-features` (que tem estes prompts) e atualizada com a `origin/desenvolvimento` (ver contexto comum).
+1. `git fetch` e a worktree da tarefa, com a branch `renato-e6-04` criada a partir da `origin/desenvolvimento` (ver contexto comum). O plano e o Andamento são lidos e commitados na `renato-features`.
 2. Acorde os serviços do DES (`GET /health` em cada um) antes de começar, para não capturar a tela de carregamento do cold start.
 3. Monte os dados pelo roteiro do plano.
 4. **Web:** script `playwright-core` + Edge headless numa pasta do scratchpad, com login, navegação e `page.screenshot` por tela. Espere ~700 ms depois de cada navegação para a transição de cor terminar.

@@ -87,16 +87,21 @@ void main() {
               carregar: proprio
                   ? () async {
                       final e = await servico.consultar(const PeriodoAno(2026));
-                      return (totais: e.totais, vazio: e.semRegistro);
+                      return (totais: e.totais, vazio: e.semRegistro, distribuicao: null);
                     }
                   : () async {
                       final p = await servico.doPerfil('u2');
-                      return (totais: p.totais, vazio: p.totais.zerados);
+                      return (
+                        totais: p.totais,
+                        vazio: p.totais.zerados,
+                        distribuicao: p.distribuicaoNotas,
+                      );
                     },
               textoVazio: proprio
                   ? TextosDoBloco.vazioProprio
                   : TextosDoBloco.vazioDeOutro('Rafael', 2026),
               textoErro: proprio ? TextosDoBloco.erroProprio : TextosDoBloco.erroDeOutro('Rafael'),
+              nomeDoLeitor: proprio ? null : 'Rafael',
               aoVerEstatisticas: proprio ? () => verEstatisticas++ : null,
             ),
           ),
@@ -155,6 +160,50 @@ void main() {
       });
     }
 
+    testWidgets('outro leitor: histograma compacto com as notas do ano, mesmo sem leitura', (
+      tester,
+    ) async {
+      await montar(
+        tester,
+        proprio: false,
+        (_) async => json(<String, Object?>{
+          'ano': 2026,
+          'livrosConcluidos': 0,
+          'paginasLidas': 0,
+          'minutosLidos': 0,
+          'distribuicaoNotas': distribuicaoJson(const <(double, int)>[(4, 3), (5, 1)]),
+        }, 200),
+      );
+
+      expect(find.text('Notas dadas em 2026'), findsOneWidget);
+      expect(find.text('4 notas'), findsOneWidget);
+      expect(find.byKey(const ValueKey<String>('coluna-da-nota')), findsNWidgets(2));
+      expect(find.text('Rafael ainda não registrou leituras em 2026.'), findsOneWidget);
+    });
+
+    testWidgets('outro leitor sem nota no ano: a frase e nenhum gráfico', (tester) async {
+      await montar(
+        tester,
+        proprio: false,
+        (_) async => json(<String, Object?>{
+          'ano': 2026,
+          'livrosConcluidos': 2,
+          'paginasLidas': 300,
+          'minutosLidos': 60,
+          'distribuicaoNotas': null,
+        }, 200),
+      );
+
+      expect(find.text('Rafael não deu notas em 2026.'), findsOneWidget);
+      expect(find.byKey(const ValueKey<String>('coluna-da-nota')), findsNothing);
+    });
+
+    testWidgets('o próprio perfil não mostra o histograma', (tester) async {
+      await montar(tester, (_) async => json(estatisticasJson(), 200));
+
+      expect(find.text('Notas dadas em 2026'), findsNothing);
+    });
+
     testWidgets('outro leitor: totais zerados viram a frase com o primeiro nome, sem botão', (
       tester,
     ) async {
@@ -188,7 +237,7 @@ void main() {
               ano: ano,
               carregar: () async {
                 final e = await d.servico.consultar(PeriodoAno(ano));
-                return (totais: e.totais, vazio: e.semRegistro);
+                return (totais: e.totais, vazio: e.semRegistro, distribuicao: null);
               },
               textoVazio: TextosDoBloco.vazioProprio,
               textoErro: TextosDoBloco.erroProprio,
@@ -216,7 +265,7 @@ void main() {
               ano: ano,
               carregar: () async {
                 final e = await d.servico.consultar(PeriodoAno(ano));
-                return (totais: e.totais, vazio: e.semRegistro);
+                return (totais: e.totais, vazio: e.semRegistro, distribuicao: null);
               },
               textoVazio: TextosDoBloco.vazioProprio,
               textoErro: TextosDoBloco.erroProprio,

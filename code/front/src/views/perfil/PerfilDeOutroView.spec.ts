@@ -7,6 +7,7 @@ import { listasService } from '../../services/listas'
 import { perfilService, type Perfil } from '../../services/perfil'
 import { hojeEmSaoPaulo } from '../../estatisticas/formatos'
 import { itemEstante, paginaEstante } from '../../testes/estante'
+import { distribuicaoDe } from '../../testes/estatisticas'
 import { montarNaRota } from '../../testes/montarNaRota'
 
 vi.mock('../../services/perfil', () => ({
@@ -83,7 +84,7 @@ describe('PerfilDeOutroView', () => {
     servico.obterPerfil.mockReset().mockResolvedValue(PUBLICO)
     leitura.consultarEstatisticasPerfil
       .mockReset()
-      .mockResolvedValue({ ano: hojeEmSaoPaulo().ano, livrosConcluidos: 14, paginasLidas: 4920, minutosLidos: 5800 })
+      .mockResolvedValue({ ano: hojeEmSaoPaulo().ano, livrosConcluidos: 14, paginasLidas: 4920, minutosLidos: 5800, distribuicaoNotas: null })
     listas.listarDoPerfil.mockReset().mockResolvedValue({ items: [], page: 0, size: 20, totalElements: 0, totalPages: 0 })
     servico.seguir.mockReset()
     servico.deixarDeSeguir.mockReset().mockResolvedValue(undefined)
@@ -398,8 +399,32 @@ describe('PerfilDeOutroView', () => {
       expect(bloco(wrapper).exists()).toBe(false)
     })
 
+    it('mostra as notas do ano e, sem nota, a frase com o primeiro nome', async () => {
+      leitura.consultarEstatisticasPerfil.mockResolvedValue({
+        ano: ANO,
+        livrosConcluidos: 0,
+        paginasLidas: 0,
+        minutosLidos: 0,
+        distribuicaoNotas: distribuicaoDe({ 4: 3, 5: 1 }),
+      })
+      const { wrapper } = await montarNaRota('/leitores/rafaokamoto', { largo: true })
+      await flushPromises()
+
+      const notas = wrapper.get(`[aria-label^="Notas que Rafael deu em ${ANO}, 4 notas."]`)
+      expect(notas.findAll('[data-coluna]')).toHaveLength(2)
+      expect(wrapper.text()).toContain(`Notas dadas em ${ANO}`)
+    })
+
+    it('sem nota no ano, o card traz a frase e nenhum gráfico', async () => {
+      const { wrapper } = await montarNaRota('/leitores/rafaokamoto', { largo: true })
+      await flushPromises()
+
+      expect(wrapper.text()).toContain(`Rafael não deu notas em ${ANO}.`)
+      expect(wrapper.find('[data-nota]').exists()).toBe(false)
+    })
+
     it('ano sem leitura vira a frase com o primeiro nome', async () => {
-      leitura.consultarEstatisticasPerfil.mockResolvedValue({ ano: ANO, livrosConcluidos: 0, paginasLidas: 0, minutosLidos: 0 })
+      leitura.consultarEstatisticasPerfil.mockResolvedValue({ ano: ANO, livrosConcluidos: 0, paginasLidas: 0, minutosLidos: 0, distribuicaoNotas: null })
       const { wrapper } = await montarNaRota('/leitores/rafaokamoto', { largo: true })
       await flushPromises()
 

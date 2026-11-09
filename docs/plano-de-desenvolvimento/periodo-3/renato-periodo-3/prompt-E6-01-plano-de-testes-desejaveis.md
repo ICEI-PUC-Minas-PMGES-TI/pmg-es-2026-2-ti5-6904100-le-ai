@@ -115,7 +115,7 @@ Topo do plano: "Plano de DD/MM/2026, ainda não revisado". Atualize o Andamento 
 
 > **Prompt:** Execute o `plano-E6-01-plano-de-testes-desejaveis.md` desta pasta, que prevalece sobre este prompt nos detalhes. Não peça aprovação no meio.
 
-1. `git fetch` e a branch da tarefa, `renato-e6-01`, criada a partir da `renato-features` (que tem estes prompts) e atualizada com a `origin/desenvolvimento` (ver contexto comum).
+1. `git fetch` e a worktree da tarefa, com a branch `renato-e6-01` criada a partir da `origin/desenvolvimento` (ver contexto comum). O plano e o Andamento são lidos e commitados na `renato-features`.
 2. Divida conforme o plano: um agente por grupo de features, cada um escrevendo as suas subseções num arquivo do scratchpad. Consolide no `docs/9.plano_de_testes.md`.
 3. §9.7: rode `gh run list --branch desenvolvimento --workflow <wf> --limit 1` para cada workflow e leia os totais nos logs (`gh run view --log`). Se o run mais recente falhou, **diga isso na tabela**, não esconda.
 4. §9.8: lacunas novas a partir de L-13, no mesmo formato, com uma coluna para o dono da área (acrescente-a também em L-01..L-12). Se a E6-02 já tiver fechado alguma de L-01..L-12, atualize a situação dela.

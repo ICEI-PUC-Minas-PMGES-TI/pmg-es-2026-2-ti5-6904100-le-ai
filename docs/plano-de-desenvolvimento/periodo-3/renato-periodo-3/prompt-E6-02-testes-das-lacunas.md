@@ -80,7 +80,7 @@ Confira cada uma no código da `origin/desenvolvimento` antes de planejar: algum
 
 > **Prompt:** Execute o `plano-E6-02-testes-das-lacunas.md` desta pasta, que prevalece nos detalhes. Não peça aprovação no meio.
 
-1. `git fetch` e a branch da tarefa, `renato-e6-02`, criada a partir da `renato-features` (que tem estes prompts) e atualizada com a `origin/desenvolvimento` (ver contexto comum).
+1. `git fetch` e a worktree da tarefa, com a branch `renato-e6-02` criada a partir da `origin/desenvolvimento` (ver contexto comum). O plano e o Andamento são lidos e commitados na `renato-features`.
 2. Escreva os testes na ordem do plano, rodando a verificação completa do projeto antes de cada commit. Testes de integração só em Postgres descartável. Um commit por lacuna ou por projeto, por exemplo `test(leitura): nota e resenha sobrevivem ao abandono (L-02)`.
 3. Bug encontrado: siga a regra decidida na etapa 1. Correção em código alheio leva a nota no `AGENTS.md` do dono, no mesmo commit.
 4. Atualize `docs/9.plano_de_testes.md`: §9.8 com a situação de cada lacuna ("fechada por `arquivo › nome`" ou "verificada manualmente: evidência") e os casos novos em §9.6, no formato e com os IDs da seção da funcionalidade. Se a E6-01 estiver em andamento noutra branch, combine pelo relatório para não haver conflito no mesmo arquivo.

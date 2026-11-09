@@ -81,7 +81,7 @@ Estimativa em horas. Topo: "Plano de DD/MM/2026, ainda não revisado". Atualize 
 
 > **Prompt:** Escreva o rascunho do relatório de encerramento seguindo o `plano-E6-06-relatorio-de-encerramento.md` desta pasta. Não peça aprovação no meio.
 
-1. `git fetch` e a branch da tarefa, `renato-e6-06`, criada a partir da `renato-features` (que tem estes prompts) e atualizada com a `origin/desenvolvimento` (ver contexto comum).
+1. `git fetch` e a worktree da tarefa, com a branch `renato-e6-06` criada a partir da `origin/desenvolvimento` (ver contexto comum). O plano e o Andamento são lidos e commitados na `renato-features`.
 2. Crie `assets/gerencia/relatorio_de_encerramento.md` com todas as seções. Preencha o que já tem evidência: Períodos 0 a 2, marcos até 03/11, riscos ocorridos até agora e números verificados. Cada número cita a fonte.
 3. O que depende de depois de 24/11 fica com o marcador `> A completar após 24/11: <o que falta e de onde virá>`. O que depende do grupo (lições aprendidas, por exemplo) fica com `> A completar com o grupo: <perguntas>`. **Não invente conteúdo** para preencher seção.
 4. Acrescente a linha do relatório no `assets/gerencia/README.md`, marcada como rascunho.

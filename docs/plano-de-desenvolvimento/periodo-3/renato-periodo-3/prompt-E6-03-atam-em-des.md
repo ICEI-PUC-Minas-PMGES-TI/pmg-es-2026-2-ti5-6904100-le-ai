@@ -63,7 +63,7 @@ O plano gratuito do Render hiberna os serviços, e há rate limiting nas rotas d
 
 > **Prompt:** Execute o roteiro do `plano-E6-03-atam-em-des.md` desta pasta, só com os OKs que o Renato deu (estão registrados no plano). O que não tiver OK fica de fora e vai para o relatório. Não peça aprovação no meio.
 
-1. `git fetch` e a branch da tarefa, `renato-e6-03`, criada a partir da `renato-features` (que tem estes prompts) e atualizada com a `origin/desenvolvimento` (ver contexto comum).
+1. `git fetch` e a worktree da tarefa, com a branch `renato-e6-03` criada a partir da `origin/desenvolvimento` (ver contexto comum). O plano e o Andamento são lidos e commitados na `renato-features`.
 2. Antes de medir, acorde os serviços (um `GET /health` em cada um, esperando o cold start) e registre o horário. Se um serviço estiver fora do ar ou com deploy falhando, consulte os logs pelo MCP do Render e relate. Não tente corrigir o DES.
 3. Meça cenário por cenário, guardando a evidência no caminho do plano. Imagens comprimidas, para não pesar o repositório.
 4. **Resultado negativo é resultado.** Se o p95 passar de 1 s, ou um acesso não for negado, registre como está, com a evidência, e trate como risco nas Considerações. **Não ajuste código nesta tarefa.** Se o achado for de segurança (vazamento de perfil privado ou IDOR), pare a etapa e comunique ao Renato no relatório, em destaque.

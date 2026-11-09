@@ -49,7 +49,13 @@ interface Estatisticas {
     };
     notaMedia: { valor: number | null; quantidade: number };
   };
+  distribuicaoNotas: {
+    total: number;
+    faixas: { valor: number; quantidade: number }[];
+  } | null;
 }
+
+const ESCALA = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
 
 interface Graficos {
   ano: number | null;
@@ -250,6 +256,7 @@ describe('estatísticas (integração)', () => {
         ano: ANO_CORRENTE,
         anos: [],
         primeiroRegistro: null,
+        distribuicaoNotas: null,
         totais: { livrosConcluidos: 0, paginasLidas: 0, minutosLidos: 0 },
         medias: {
           paginasPorDia: { valor: null, paginasLidas: 0, diasComLeitura: 0 },
@@ -318,6 +325,7 @@ describe('estatísticas (integração)', () => {
           { ano: RETRASADO, livrosConcluidos: 1 },
         ],
         primeiroRegistro: `${RETRASADO}-03-02`,
+        distribuicaoNotas: null,
         totais: { livrosConcluidos: 2, paginasLidas: 200, minutosLidos: 135 },
         medias: {
           paginasPorDia: { valor: 66.7, paginasLidas: 200, diasComLeitura: 3 },
@@ -472,6 +480,86 @@ describe('estatísticas (integração)', () => {
       expect(semNota.anos).toEqual([]);
     });
 
+    it('distribuição de notas: onze faixas, ausente sem nota, coerente com a média e com o ciclo da nota', async () => {
+      const usuario = await leitor();
+      expect((await estatisticas(usuario)).distribuicaoNotas).toBeNull();
+
+      const livroPessoal = await inserirLivro(pool, {
+        tipo: 'pessoal',
+        donoId: usuario,
+      });
+      const livros = [await inserirLivro(pool), await inserirLivro(pool)];
+      await darNota(usuario, livros[0], 4);
+      await darNota(usuario, livros[1], 4.5);
+      await darNota(usuario, livroPessoal, 0);
+
+      const painel = await estatisticas(usuario);
+      expect(painel.distribuicaoNotas?.faixas.map((f) => f.valor)).toEqual(
+        ESCALA,
+      );
+      expect(
+        Object.fromEntries(
+          painel
+            .distribuicaoNotas!.faixas.filter((f) => f.quantidade > 0)
+            .map((f) => [f.valor, f.quantidade]),
+        ),
+      ).toEqual({ 0: 1, 4: 1, 4.5: 1 });
+      expect(painel.distribuicaoNotas?.total).toBe(
+        painel.medias.notaMedia.quantidade,
+      );
+
+      await darNota(usuario, livros[0], 4.5);
+      await tirarNota(usuario, livroPessoal);
+      const depois = await estatisticas(usuario);
+      expect(depois.distribuicaoNotas?.total).toBe(2);
+      expect(
+        depois.distribuicaoNotas?.faixas.find((f) => f.valor === 4.5)
+          ?.quantidade,
+      ).toBe(2);
+      expect(
+        depois.distribuicaoNotas?.faixas.find((f) => f.valor === 4)?.quantidade,
+      ).toBe(0);
+
+      await tirarNota(usuario, livros[0]);
+      await tirarNota(usuario, livros[1]);
+      expect((await estatisticas(usuario)).distribuicaoNotas).toBeNull();
+    });
+
+    it('distribuição de notas segue o período: ano, acumulado e ano sem nota', async () => {
+      const usuario = await leitor();
+      const antigo = await inserirLivro(pool);
+      const recente = await inserirLivro(pool);
+      await darNota(usuario, antigo, 2);
+      await darNota(usuario, recente, 5);
+      await pool.query(
+        `UPDATE leitura.nota SET atualizado_em = $1 WHERE usuario_id = $2 AND livro_id = $3`,
+        [`${RETRASADO}-06-15T15:00:00Z`, usuario, antigo],
+      );
+
+      const quantidadeEm = (
+        d: Estatisticas['distribuicaoNotas'],
+        valor: number,
+      ) => d?.faixas.find((f) => f.valor === valor)?.quantidade;
+
+      const doAntigo = (await estatisticas(usuario, RETRASADO))
+        .distribuicaoNotas;
+      expect(doAntigo?.total).toBe(1);
+      expect(quantidadeEm(doAntigo, 2)).toBe(1);
+      expect(quantidadeEm(doAntigo, 5)).toBe(0);
+
+      const corrente = (await estatisticas(usuario)).distribuicaoNotas;
+      expect(corrente?.total).toBe(1);
+      expect(quantidadeEm(corrente, 5)).toBe(1);
+
+      const acumulado = (await estatisticas(usuario, 'acumulado'))
+        .distribuicaoNotas;
+      expect(acumulado?.total).toBe(2);
+
+      expect(
+        (await estatisticas(usuario, PASSADO)).distribuicaoNotas,
+      ).toBeNull();
+    });
+
     it('backfill recompõe o histórico e limpa quem ficou sem nada', async () => {
       const usuario = await leitor();
       const { leituraId } = await iniciar(usuario, `${PASSADO}-10-01`);
@@ -570,7 +658,11 @@ describe('estatísticas (integração)', () => {
     it('o próprio leitor vê o perfil privado dele', async () => {
       await comLeituras('privado');
       const res = await doPerfil(autora, autora, `?ano=${PASSADO}`).expect(200);
-      expect(res.body).toEqual({ ano: PASSADO, ...TOTAIS });
+      expect(res.body).toEqual({
+        ano: PASSADO,
+        ...TOTAIS,
+        distribuicaoNotas: null,
+      });
     });
 
     it('perfil público: qualquer leitor vê só os totais do ano', async () => {
@@ -580,7 +672,11 @@ describe('estatísticas (integração)', () => {
         await leitor(),
         `?ano=${PASSADO}`,
       ).expect(200);
-      expect(res.body).toEqual({ ano: PASSADO, ...TOTAIS });
+      expect(res.body).toEqual({
+        ano: PASSADO,
+        ...TOTAIS,
+        distribuicaoNotas: null,
+      });
     });
 
     it('sem ano, o ano corrente', async () => {
@@ -591,7 +687,33 @@ describe('estatísticas (integração)', () => {
         livrosConcluidos: 0,
         paginasLidas: 0,
         minutosLidos: 0,
+        distribuicaoNotas: null,
       });
+    });
+
+    it('o perfil devolve a distribuição do ano, ausente sem nota, e privado a respeita (RN-08)', async () => {
+      await comLeituras('privado');
+      const livro = await inserirLivro(pool);
+      await darNota(autora, livro, 3.5);
+      const seguidora = await leitor();
+
+      await doPerfil(autora, seguidora).expect(403);
+      await seguir(pool, seguidora, autora);
+
+      const corrente = await doPerfil(autora, seguidora).expect(200);
+      expect(corrente.body.distribuicaoNotas.total).toBe(1);
+      expect(
+        corrente.body.distribuicaoNotas.faixas.map(
+          (f: { valor: number }) => f.valor,
+        ),
+      ).toEqual(ESCALA);
+
+      const passado = await doPerfil(
+        autora,
+        seguidora,
+        `?ano=${PASSADO}`,
+      ).expect(200);
+      expect(passado.body.distribuicaoNotas).toBeNull();
     });
 
     it('perfil privado sem seguimento aceito responde 403', async () => {
@@ -607,7 +729,11 @@ describe('estatísticas (integração)', () => {
       const res = await doPerfil(autora, seguidora, `?ano=${PASSADO}`).expect(
         200,
       );
-      expect(res.body).toEqual({ ano: PASSADO, ...TOTAIS });
+      expect(res.body).toEqual({
+        ano: PASSADO,
+        ...TOTAIS,
+        distribuicaoNotas: null,
+      });
     });
 
     // Conta inexistente, suspensa ou em exclusão: sem linha na VIEW de perfil.
@@ -622,7 +748,11 @@ describe('estatísticas (integração)', () => {
         await leitor(),
         `?ano=${PASSADO}`,
       ).expect(200);
-      expect(res.body).toEqual({ ano: PASSADO, ...TOTAIS });
+      expect(res.body).toEqual({
+        ano: PASSADO,
+        ...TOTAIS,
+        distribuicaoNotas: null,
+      });
     });
 
     it('usuarioId malformado responde 400 no campo usuarioId', async () => {

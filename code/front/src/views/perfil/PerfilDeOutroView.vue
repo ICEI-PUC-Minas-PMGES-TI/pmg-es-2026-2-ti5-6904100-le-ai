@@ -31,6 +31,7 @@ import BotaoTextual from '../../components/ui/BotaoTextual.vue'
 import DialogoConfirmacao from '../../components/ui/DialogoConfirmacao.vue'
 import EstadoVazio from '../../components/ui/EstadoVazio.vue'
 import BlocoEstatisticasDoAno from '../../components/estatisticas/BlocoEstatisticasDoAno.vue'
+import NotasDoPerfil from '../../components/estatisticas/NotasDoPerfil.vue'
 import { hojeEmSaoPaulo } from '../../estatisticas/formatos'
 import { TEXTOS_DO_BLOCO } from '../../estatisticas/textos'
 import { useEstatisticasDoAno } from '../../estatisticas/useEstatisticasDoAno'
@@ -198,7 +199,7 @@ const anoCorrente = hojeEmSaoPaulo().ano
 const estatisticas = useEstatisticasDoAno(async () => {
   const totais = await leituraService.consultarEstatisticasPerfil(perfil.value?.id ?? '')
   const vazio = totais.livrosConcluidos === 0 && totais.paginasLidas === 0 && totais.minutosLidos === 0
-  return { totais, vazio }
+  return { totais, vazio, distribuicao: totais.distribuicaoNotas }
 })
 
 watch(estanteVisivel, (id) => {
@@ -523,6 +524,12 @@ const textoDaConfirmacao = computed(() =>
           :texto-vazio="TEXTOS_DO_BLOCO.vazioDeOutro(nome, anoCorrente)"
           :texto-erro="TEXTOS_DO_BLOCO.erroDeOutro(nome)"
           @tentar-de-novo="estatisticas.carregar()"
+        />
+        <NotasDoPerfil
+          v-if="!restrito && (estatisticas.estado.value === 'pronto' || estatisticas.estado.value === 'vazio')"
+          :distribuicao="estatisticas.distribuicao.value"
+          :nome="nome"
+          :ano="anoCorrente"
         />
       </section>
 

@@ -133,7 +133,7 @@ Para quem mexe no cadastro e na importação saber que isto mudou por baixo:
     - Id fora do conjunto é 400 `campos[{campo:'assuntos'}]`, conferido **dentro** do efeito idempotente (sem recibo, nada gravado); o `23503` da FK, se o assunto sumir no meio, vira o mesmo 400.
     - Validador único de propósito: `IsArray` + `ArrayMaxSize` + `IsUUID` geravam três entradas em `campos` para um texto solto.
     - O teto do servidor é 100 (o tamanho do `GET /assuntos`); o "até 5" de RN-21.2 é só aviso do cliente (decisão do dono).
-    - **Esses vínculos nunca podem aparecer no catálogo.** Toda consulta que lê `livro_assunto` filtra `tipo = 'oficial' AND ativo` (inventário no `plano-F-ACV-OPC.md`). Consulta nova sobre assunto precisa do mesmo predicado.
+    - **Esses vínculos nunca podem aparecer no catálogo.** Toda consulta que lê `livro_assunto` filtra `tipo = 'oficial' AND ativo` (inventário no `plano-F-ACV-OPC.md`, na branch `renato-features`). Consulta nova sobre assunto precisa do mesmo predicado.
     - A exclusão lógica do livro pessoal mantém as linhas de `livro_assunto`; o livro inativo some de tudo.
 
 ## Decisões de F-ACV-NOTA que valem como regra

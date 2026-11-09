@@ -61,8 +61,12 @@ Renato Douglas (git `RenatoDNS`). As tarefas são entregáveis do grupo que o Re
 - **DES é ambiente compartilhado.** Nada de apagar, esvaziar fila, publicar em massa, carga pesada ou mudança de configuração no DES (Render, Neon `le-ai-oregon`, CloudAMQP `Le-ai-oregon`) sem OK do Renato. Leitura e uso normal do app são livres.
 - **Contas de teste:** as contas seed não funcionam no dev (`SEED_SENHA` vazia). Crie contas próprias pelo `/auth/register` com e-mail `.invalid`. No DES, só com o OK do Renato dado no plano da tarefa.
 - **Commits:** Conventional Commits, **só o assunto, em pt-BR acentuado, sem corpo**, **sem `Co-Authored-By` e sem rodapé de ferramenta**. PR também sem linha de atribuição.
-- **Branch: uma por tarefa, `renato-e6-NN`** (por exemplo, `renato-e6-01`). A branch nasce da `renato-features`, que tem estes prompts, e o PR sai dela para a `desenvolvimento`. Assim, o trabalho de uma tarefa que ainda não passou por revisão não vaza para o PR de outra (o rascunho da E6-06, por exemplo, fica semanas sem PR). A `renato-features` continua sendo a branch das features do Renato e **não** recebe o trabalho das tarefas, só estes prompts. Antes de começar e antes do PR: `git fetch` e integrar a `origin/desenvolvimento`. Para rodar duas tarefas ao mesmo tempo, cada uma vai numa worktree própria (`git worktree add ../le-ai-e6-NN renato-e6-NN`). Nunca trocar de branch na pasta principal se houver outro agente trabalhando.
-- **Mudanças nesta pasta de prompts** (tabela Andamento, `README.md`, planos `plano-E6-*.md`) vão no commit da própria tarefa, na branch dela.
+- **Esta pasta (`renato-periodo-3/`) existe só na `renato-features`.** Por decisão do Renato (09/11/2026), ela foi retirada da `desenvolvimento` e nunca volta para lá. Consequências:
+  - **nunca abrir PR da `renato-features`** nem fazer merge dela na `desenvolvimento`, porque isso traria a pasta de volta;
+  - a pasta principal do repositório fica na `renato-features`, que é de onde se leem os prompts e os planos;
+  - **prompts, planos (`plano-E6-*.md`), tabela Andamento e `README.md` desta pasta** são commitados só na `renato-features`, num commit `docs: ...` próprio, separado do trabalho da tarefa;
+  - para trazer a `desenvolvimento` para a `renato-features`, use `git merge origin/desenvolvimento`. Se a pasta entrar em conflito (modify/delete), mantenha a versão da `renato-features` com `git checkout HEAD -- docs/plano-de-desenvolvimento/periodo-3/renato-periodo-3`.
+- **Trabalho da tarefa: uma branch por tarefa, `renato-e6-NN`** (por exemplo, `renato-e6-01`), **criada a partir da `origin/desenvolvimento`** numa worktree própria: `git fetch && git worktree add -b renato-e6-NN ../le-ai-e6-NN origin/desenvolvimento`. O PR sai dela para a `desenvolvimento`. Assim, nada desta pasta vai junto, e o trabalho de uma tarefa que ainda não passou por revisão não vaza para o PR de outra (o rascunho da E6-06, por exemplo, fica semanas sem PR). Antes do PR, integre de novo a `origin/desenvolvimento`. Nunca trocar de branch na pasta principal se houver outro agente trabalhando.
 - **PR só para a `desenvolvimento`.** O merge na `main` e o DES são do grupo, no fechamento de novembro.
 - **Débito da própria tarefa é corrigido**, não só registrado.
 - **Relatórios ao Renato: curtos e diretos, o essencial primeiro.** Nada de relatório denso.
@@ -90,7 +94,7 @@ Renato Douglas (git `RenatoDNS`). As tarefas são entregáveis do grupo que o Re
 
 ## Fechamento de cada tarefa (sem o Renato pedir)
 
-- Atualizar a tabela **Andamento** do prompt da tarefa e a linha dela no [`README.md`](README.md) desta pasta.
+- Atualizar a tabela **Andamento** do prompt da tarefa e a linha dela no [`README.md`](README.md) desta pasta, **commitando na `renato-features`**, nunca na branch da tarefa.
 - **Contribuição semanal:** linhas "Realizado ..." em `assets/contribuicao_semanal/renato.md`, sob `# Sprint 6` / `### Semana K (dd/mm - dd/mm)`. Semana 1 = 04/11–10/11, Semana 2 = 11/11–17/11, Semana 3 = 18/11–24/11, Semana 4 = 25/11–01/12. Confira `git log --author=RenatoDNS` da semana para não faltar nada.
 - **Kanban:** projeto "Lê Ai — Kanban" (org `ICEI-PUC-Minas-PMGES-TI`, nº 738). Se houver card da tarefa, mova para "Em revisão (PR)" ao abrir o PR. Se não houver, pergunte no relatório se o Renato quer um.
 - Conferir os documentos que citam o artefato (por exemplo, o SUMÁRIO em `docs/README.md` quando uma seção mudar de nome ou ganhar subseção).

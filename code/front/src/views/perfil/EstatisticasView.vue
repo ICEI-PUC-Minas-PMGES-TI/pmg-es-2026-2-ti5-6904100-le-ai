@@ -5,6 +5,7 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import EsqueletoEstatisticas from '../../components/estatisticas/EsqueletoEstatisticas.vue'
 import GraficoDeColunas from '../../components/estatisticas/GraficoDeColunas.vue'
+import GraficoDeNotas from '../../components/estatisticas/GraficoDeNotas.vue'
 import MetricaMedia from '../../components/estatisticas/MetricaMedia.vue'
 import MetricaTotal from '../../components/estatisticas/MetricaTotal.vue'
 import SeletorDePeriodo from '../../components/estatisticas/SeletorDePeriodo.vue'
@@ -224,6 +225,13 @@ const METRICA = 'px-space-5 py-space-4 md:rounded-md md:bg-papel-elevado md:p-sp
               />
             </div>
           </section>
+
+          <GraficoDeNotas
+            class="mt-space-6"
+            :distribuicao="dados.distribuicaoNotas"
+            :periodo="periodo"
+            :primeiro-registro="primeiroRegistro"
+          />
 
           <!-- Lado a lado a partir de 1280px; o card mais baixo não estica (5.4). -->
           <div class="mt-space-6 grid gap-space-4 xl:grid-cols-2 xl:items-start xl:gap-space-6">

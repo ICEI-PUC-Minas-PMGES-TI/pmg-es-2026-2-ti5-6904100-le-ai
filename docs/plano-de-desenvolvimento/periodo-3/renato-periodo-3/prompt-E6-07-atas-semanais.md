@@ -54,7 +54,7 @@ Nomenclatura: `ATA-AAAA-MM-DD.md`. **A última é de 30/10.** Faltam as reuniõe
 
 > **Prompt:** Com o rascunho aprovado pelo Renato, finalize a ata de DD/MM.
 
-1. `git fetch` e a branch da tarefa, `renato-e6-07`, criada a partir da `renato-features` (que tem estes prompts) e atualizada com a `origin/desenvolvimento` (ver contexto comum).
+1. `git fetch` e a worktree da tarefa, com a branch `renato-e6-07` criada a partir da `origin/desenvolvimento` (ver contexto comum). O plano e o Andamento são lidos e commitados na `renato-features`.
 2. Salve `assets/atas/ATA-AAAA-MM-DD.md`.
 3. Gere o `.docx` a partir do template da disciplina (use o `.docx` de 30/10 como base, preservando formatação, cabeçalho e tabelas) e o `.pdf` a partir dele. Abra o PDF e confira se nada saiu cortado ou desformatado.
 4. Acrescente a linha na tabela do `assets/atas/README.md`.
