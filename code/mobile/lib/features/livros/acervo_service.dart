@@ -176,6 +176,10 @@ class LivroPessoal {
   /// `null` quando o perfil do dono não está disponível; a página não inventa um nome.
   final DonoResumo? dono;
 
+  /// Assuntos do conjunto curado (RF-ACV-22), em ordem alfabética, para o dono e no modo
+  /// consulta. Ausente na resposta vira lista vazia.
+  final List<AssuntoResumo> assuntos;
+
   const LivroPessoal({
     required this.id,
     required this.donoId,
@@ -188,12 +192,14 @@ class LivroPessoal {
     required this.notaDoDono,
     required this.resenhaDoDono,
     required this.dono,
+    this.assuntos = const <AssuntoResumo>[],
   });
 
   factory LivroPessoal.fromJson(Map<String, dynamic> json) {
     final nota = json['notaDoDono'] as Map<String, dynamic>?;
     final resenha = json['resenhaDoDono'] as Map<String, dynamic>?;
     final dono = json['dono'] as Map<String, dynamic>?;
+    final assuntos = json['assuntos'];
     return LivroPessoal(
       id: json['id'] as String,
       donoId: json['donoId'] as String,
@@ -206,6 +212,9 @@ class LivroPessoal {
       notaDoDono: (nota?['valor'] as num?)?.toDouble(),
       resenhaDoDono: resenha == null ? null : ResenhaDoDono.fromJson(resenha),
       dono: dono == null ? null : DonoResumo.fromJson(dono),
+      assuntos: assuntos is List
+          ? <AssuntoResumo>[for (final item in assuntos) ?AssuntoResumo.deJson(item)]
+          : const <AssuntoResumo>[],
     );
   }
 }
@@ -219,23 +228,31 @@ class DadosLivroPessoal {
   final String? sinopse;
   final String? capaUrl;
 
+  /// Ids do conjunto curado (RF-ACV-22).
+  final List<String> assuntos;
+
   const DadosLivroPessoal({
     required this.titulo,
     required this.autor,
     required this.paginas,
     this.sinopse,
     this.capaUrl,
+    this.assuntos = const <String>[],
   });
 
   /// Na criação, opcional ausente não vai no corpo. Na edição, `null` explícito limpa o campo
-  /// no servidor (`capaUrl: null` remove a capa), então tudo vai.
+  /// no servidor (`capaUrl: null` remove a capa), então tudo vai; `assuntos: []` limpa os
+  /// assuntos. Os ids vão ordenados e sem repetição: a mesma escolha em outra ordem é o mesmo
+  /// corpo e, no formulário, a mesma chave de idempotência.
   Map<String, Object?> paraJson({required bool edicao}) {
+    final ids = assuntos.toSet().toList()..sort();
     return <String, Object?>{
       'titulo': titulo,
       'autor': autor,
       'paginas': paginas,
       if (edicao || sinopse != null) 'sinopse': sinopse,
       if (edicao || capaUrl != null) 'capaUrl': capaUrl,
+      if (edicao || ids.isNotEmpty) 'assuntos': ids,
     };
   }
 }
@@ -245,7 +262,8 @@ class AcervoService {
 
   const AcervoService(this.client);
 
-  /// `GET /assuntos`: o conjunto curado para o filtro da busca (RN-21).
+  /// `GET /assuntos`: o conjunto curado, para o filtro da busca e o seletor do livro pessoal
+  /// (RN-21).
   Future<List<AssuntoResumo>> listarAssuntos() async {
     final json = await client.getJson('/assuntos');
     final itens = json['itens'];

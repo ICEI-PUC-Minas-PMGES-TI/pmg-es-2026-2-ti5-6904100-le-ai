@@ -133,6 +133,34 @@ export class MediasEstatisticaDto {
   notaMedia!: NotaMediaDto;
 }
 
+export class FaixaDeNotaDto {
+  @ApiProperty({ minimum: 0, maximum: 5, multipleOf: 0.5, example: 4.5 })
+  valor!: number;
+
+  @ApiProperty({ type: 'integer', minimum: 0, example: 2 })
+  quantidade!: number;
+}
+
+export class DistribuicaoNotasDto {
+  @ApiProperty({
+    type: 'integer',
+    minimum: 1,
+    description: 'Notas do período; igual a `medias.notaMedia.quantidade`.',
+    example: 8,
+  })
+  total!: number;
+
+  @ApiProperty({
+    type: [FaixaDeNotaDto],
+    description:
+      'Sempre as onze notas da escala (0 a 5, passo 0,5), em ordem crescente, inclusive as de contagem zero (RN-06).',
+  })
+  faixas!: FaixaDeNotaDto[];
+}
+
+const DESCRICAO_DISTRIBUICAO =
+  'Quantos livros receberam cada nota no período; nulo sem nenhuma nota, nunca onze zeros (RN-06.3).';
+
 export class AnoComRegistroDto {
   @ApiProperty({ example: 2026 })
   ano!: number;
@@ -173,6 +201,13 @@ export class EstatisticasDto {
 
   @ApiProperty({ type: MediasEstatisticaDto })
   medias!: MediasEstatisticaDto;
+
+  @ApiProperty({
+    type: DistribuicaoNotasDto,
+    nullable: true,
+    description: DESCRICAO_DISTRIBUICAO,
+  })
+  distribuicaoNotas!: DistribuicaoNotasDto | null;
 }
 
 export class PontoEstatisticaDto {
@@ -220,4 +255,11 @@ export class GraficosEstatisticasDto {
 export class EstatisticasPerfilDto extends TotaisEstatisticaDto {
   @ApiProperty({ example: 2026 })
   ano!: number;
+
+  @ApiProperty({
+    type: DistribuicaoNotasDto,
+    nullable: true,
+    description: DESCRICAO_DISTRIBUICAO,
+  })
+  distribuicaoNotas!: DistribuicaoNotasDto | null;
 }

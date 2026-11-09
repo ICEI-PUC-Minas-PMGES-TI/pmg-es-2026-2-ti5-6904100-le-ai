@@ -122,6 +122,20 @@ Para quem mexe no cadastro e na importação saber que isto mudou por baixo:
 
 - **09/10/2026, reações nas resenhas:** `ResenhaResumo` ganhou `curtidas`, `descurtidas` e `minhaReacao`, na página do livro oficial (`resenhas.repository.ts`) e na resenha do dono do livro pessoal (`leitura-do-dono.repository.ts`, que agora recebe quem está vendo). As contagens vêm de `v_resenha_publicacao_v1` (`bigint`, declarado com `mode: 'number'`) e a reação de quem vê, da VIEW nova `leitura.v_reacao_resenha_v1`, por LEFT JOIN. Até a migration do `leitura` rodar num ambiente, as resenhas degradam como já degradavam (null e 503). Avisar o Vicenzo, dono do livro pessoal.
 
+## Mudanças feitas pelo Renato (F-ACV-OPC)
+
+- **06/11/2026, `assuntos[]` no livro pessoal (RF-ACV-22), código do Vicenzo (F-ACV-CADASTRO):**
+  - **O quê:** `POST` e `PATCH /livros/pessoal` aceitam `assuntos` (ids do conjunto curado), e as três respostas (`GET`, `POST`, `PATCH`) trazem `assuntos: [{id, nome}]`, sempre presente e em ordem alfabética sem acento, também para o terceiro em modo consulta. No `PATCH`, ausente preserva e `[]`/`null` limpa (`'assuntos'` entrou em `CAMPOS_ATUALIZAVEIS`). Sem migration: `livro_assunto` já aceitava livro pessoal.
+  - **Onde:** `dto/livro-pessoal.dto.ts` (`CampoAssuntos`, um `ValidateBy` só), `livro-pessoal.service.ts` (`normalizarAssuntos`, `exigirAssuntosExistentes`, `gravarAssuntos`), `livro-pessoal.repository.ts` (`contarAssuntosExistentes`, `substituirAssuntos`, `assuntosDe`) e o teste `test/integracao/assuntos-livro-pessoal.int-spec.ts`. Um caso novo em `consumo-conta-excluida.int-spec.ts` (do Henrique) prova que o CASCADE leva os assuntos.
+  - **Armadilhas:**
+    - O hash de idempotência **mantém a ordem dos arrays**. Por isso `normalizarAssuntos` (minúsculas, sem repetidos, ordenado) roda **antes** de montar o payload: `[a,b]`, `[b,a]` e `[A,b]` são a mesma intenção e dão replay, não 409. Sem `assuntos` no corpo, o payload fica igual ao de antes.
+    - As minúsculas não são estética: o `isUUID` aceita maiúsculas e o Postgres compara uuid sem caixa, e a conferência de existência é por contagem.
+    - Id fora do conjunto é 400 `campos[{campo:'assuntos'}]`, conferido **dentro** do efeito idempotente (sem recibo, nada gravado); o `23503` da FK, se o assunto sumir no meio, vira o mesmo 400.
+    - Validador único de propósito: `IsArray` + `ArrayMaxSize` + `IsUUID` geravam três entradas em `campos` para um texto solto.
+    - O teto do servidor é 100 (o tamanho do `GET /assuntos`); o "até 5" de RN-21.2 é só aviso do cliente (decisão do dono).
+    - **Esses vínculos nunca podem aparecer no catálogo.** Toda consulta que lê `livro_assunto` filtra `tipo = 'oficial' AND ativo` (inventário no `plano-F-ACV-OPC.md`, na branch `renato-features`). Consulta nova sobre assunto precisa do mesmo predicado.
+    - A exclusão lógica do livro pessoal mantém as linhas de `livro_assunto`; o livro inativo some de tudo.
+
 ## Decisões de F-ACV-NOTA que valem como regra
 
 Implementado em 23/10/2026 (Renato).

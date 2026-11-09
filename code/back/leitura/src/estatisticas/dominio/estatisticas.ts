@@ -61,6 +61,22 @@ export interface MesCorrente {
   mes: number;
 }
 
+export type FaixaDeNota = {
+  valor: number;
+  quantidade: number;
+};
+
+export interface DistribuicaoDeNotas {
+  total: number;
+  faixas: FaixaDeNota[];
+}
+
+const PASSOS_DA_ESCALA = 10;
+const VALORES_DA_ESCALA: readonly number[] = Array.from(
+  { length: PASSOS_DA_ESCALA + 1 },
+  (_, passo) => passo / 2,
+);
+
 const PERIODO_ACUMULADO = 'acumulado';
 const ANO = /^[1-9]\d{3}$/;
 
@@ -240,4 +256,15 @@ function ponto(
     paginasLidas: soma.paginasLidas,
     livrosConcluidos: soma.livrosConcluidos,
   };
+}
+
+export function montarDistribuicao(
+  contagens: readonly FaixaDeNota[],
+): DistribuicaoDeNotas | null {
+  const faixas = VALORES_DA_ESCALA.map((valor) => ({
+    valor,
+    quantidade: contagens.find((c) => c.valor === valor)?.quantidade ?? 0,
+  }));
+  const total = faixas.reduce((soma, f) => soma + f.quantidade, 0);
+  return total === 0 ? null : { total, faixas };
 }

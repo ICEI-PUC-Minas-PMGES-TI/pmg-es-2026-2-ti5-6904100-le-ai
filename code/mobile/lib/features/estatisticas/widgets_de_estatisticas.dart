@@ -251,6 +251,30 @@ class SkeletonDoPainel extends StatelessWidget {
                   ),
               ],
             ),
+            const SizedBox(height: DesignTokens.space6),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: theme.elevatedSurface,
+                borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(DesignTokens.space5),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    const BarraDeSkeleton(altura: 17, fracao: 0.45),
+                    const SizedBox(height: DesignTokens.space4),
+                    Container(
+                      height: 160,
+                      decoration: BoxDecoration(
+                        color: theme.coverPlaceholder,
+                        borderRadius: BorderRadius.circular(DesignTokens.radiusSm),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -511,7 +535,7 @@ class _GraficoDeColunasState extends State<GraficoDeColunas> {
                     child: IgnorePointer(
                       child: ExcludeSemantics(
                         child: CustomSingleChildLayout(
-                          delegate: _PosicaoDoBalao(
+                          delegate: PosicaoDoBalao(
                             centro:
                                 larguraDoEixo +
                                 DesignTokens.space2 +
@@ -519,7 +543,7 @@ class _GraficoDeColunasState extends State<GraficoDeColunas> {
                             pontaDaColuna:
                                 _folgaNoTopo + altura - proporcao(valores[_ativo!]) - _folgaDoBalao,
                           ),
-                          child: _Balao(
+                          child: BalaoDeValor(
                             titulo: tituloDoBalao(widget.pontos[_ativo!], widget.hoje),
                             valor: valorDoBalao(widget.medida, widget.pontos[_ativo!]),
                           ),
@@ -678,11 +702,11 @@ class _Mes extends StatelessWidget {
 
 /// Balão acima da coluna, centralizado nela, sem sair da área: encosta na borda no primeiro e no
 /// último mês e no topo quando a coluna é alta.
-class _PosicaoDoBalao extends SingleChildLayoutDelegate {
+class PosicaoDoBalao extends SingleChildLayoutDelegate {
   final double centro;
   final double pontaDaColuna;
 
-  const _PosicaoDoBalao({required this.centro, required this.pontaDaColuna});
+  const PosicaoDoBalao({required this.centro, required this.pontaDaColuna});
 
   @override
   BoxConstraints getConstraintsForChild(BoxConstraints constraints) => constraints.loosen();
@@ -694,15 +718,15 @@ class _PosicaoDoBalao extends SingleChildLayoutDelegate {
   );
 
   @override
-  bool shouldRelayout(_PosicaoDoBalao antigo) =>
+  bool shouldRelayout(PosicaoDoBalao antigo) =>
       antigo.centro != centro || antigo.pontaDaColuna != pontaDaColuna;
 }
 
-class _Balao extends StatelessWidget {
+class BalaoDeValor extends StatelessWidget {
   final String titulo;
   final String valor;
 
-  const _Balao({required this.titulo, required this.valor});
+  const BalaoDeValor({super.key, required this.titulo, required this.valor});
 
   @override
   Widget build(BuildContext context) {
