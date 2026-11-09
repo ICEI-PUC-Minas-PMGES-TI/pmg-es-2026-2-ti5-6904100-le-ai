@@ -19,12 +19,14 @@ void main() {
     usarTelaDeCelular(tester);
     final deps = DependenciasDeDesafios(
       servico: desafiosSimulado(
-        (_) async => json(
-          paginaDeDesafios(<Map<String, Object?>>[
-            desafioJson(unidade: 'minutos', janela: 'semanal', alvo: 150, acumulado: 95),
-          ]),
-          200,
-        ),
+        (pedido) async => pedido.url.path.endsWith('/janelas')
+            ? json(paginaDeJanelas(historicoDoPrototipo()), 200)
+            : json(
+                paginaDeDesafios(<Map<String, Object?>>[
+                  desafioJson(unidade: 'minutos', janela: 'semanal', alvo: 150, acumulado: 95),
+                ]),
+                200,
+              ),
       ),
     );
     roteador = GoRouter(
@@ -73,6 +75,31 @@ void main() {
 
     expect(roteador.state.uri.path, rotaDesafios);
     expect(find.text('150 minutos por semana', findRichText: true), findsOneWidget);
+  });
+
+  testWidgets('"Ver histórico" abre o histórico do desafio do card, e voltar retorna à lista', (
+    tester,
+  ) async {
+    await montar(tester, inicial: rotaDesafios);
+
+    await tester.tap(_acoes('150 minutos por semana'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ver histórico'));
+    await tester.pumpAndSettle();
+
+    expect(roteador.state.uri.path, rotaHistoricoDoDesafio(idDoDesafio));
+    expect(find.text('Histórico'), findsOneWidget);
+    expect(find.text('14 a 20 de setembro', findRichText: true), findsOneWidget);
+
+    await tester.tap(find.bySemanticsLabel('Voltar'));
+    await tester.pumpAndSettle();
+    expect(roteador.state.uri.path, rotaDesafios);
+  });
+
+  testWidgets('o histórico aberto sem o desafio (link direto) volta para a lista', (tester) async {
+    await montar(tester, inicial: rotaHistoricoDoDesafio(idDoDesafio));
+
+    expect(roteador.state.uri.path, rotaDesafios);
   });
 
   testWidgets('"Novo desafio" do header abre a criação', (tester) async {

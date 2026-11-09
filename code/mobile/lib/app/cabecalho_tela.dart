@@ -42,6 +42,14 @@ class CabecalhoTela extends StatelessWidget {
   /// Sem o divisor inferior, como nos protótipos de F-AUT e F-PERFIL.
   final bool semDivisor;
 
+  /// No lugar do texto de [titulo], para título com número em mono (o desafio no histórico,
+  /// F-DSF-OPC). [titulo] continua sendo o rótulo de cabeçalho para o leitor de tela.
+  final Widget? conteudoDoTitulo;
+
+  /// Linha de baixo em `caption` `grafite`, `space-1` abaixo do título (`Histórico`). Com ela ou
+  /// com [conteudoDoTitulo], o título vai até duas linhas e o header cresce em vez de cortar.
+  final String? subtitulo;
+
   const CabecalhoTela({
     super.key,
     required this.titulo,
@@ -50,7 +58,11 @@ class CabecalhoTela extends StatelessWidget {
     this.comSino = true,
     this.fechar = false,
     this.semDivisor = false,
+    this.conteudoDoTitulo,
+    this.subtitulo,
   });
+
+  bool get _composto => conteudoDoTitulo != null || subtitulo != null;
 
   @override
   Widget build(BuildContext context) {
@@ -63,7 +75,9 @@ class CabecalhoTela extends StatelessWidget {
       child: SafeArea(
         bottom: false,
         child: ConstrainedBox(
-          constraints: const BoxConstraints.tightFor(height: altura),
+          constraints: _composto
+              ? const BoxConstraints(minHeight: altura)
+              : const BoxConstraints.tightFor(height: altura),
           child: Padding(
             // Com sino, a caixa de toque de 48px do sino entra 12px além do ícone; o padding final
             // cai esses 12px para o ícone continuar a `space-5` da borda.
@@ -97,12 +111,14 @@ class CabecalhoTela extends StatelessWidget {
                   ),
                 ],
                 Expanded(
-                  child: Text(
-                    titulo,
-                    style: theme.displayTitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  child: _composto
+                      ? _tituloComposto(theme)
+                      : Text(
+                          titulo,
+                          style: theme.displayTitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                 ),
                 // Ações e sino são alvos de 48px com o ícone centralizado, sem espaço entre eles:
                 // 24px de ícone a ícone, o mais perto dos 16px do protótipo sem encolher o toque.
@@ -112,6 +128,36 @@ class CabecalhoTela extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _tituloComposto(ThemeData theme) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: DesignTokens.space3),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Semantics(
+            header: true,
+            label: titulo,
+            excludeSemantics: true,
+            child: DefaultTextStyle.merge(
+              style: theme.textTheme.titleLarge,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              child: conteudoDoTitulo ?? Text(titulo),
+            ),
+          ),
+          if (subtitulo != null) ...<Widget>[
+            const SizedBox(height: DesignTokens.space1),
+            Text(
+              subtitulo!,
+              style: theme.textTheme.bodySmall?.copyWith(color: theme.secondaryText),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -135,11 +181,7 @@ class _Sino extends StatelessWidget {
       child: GestureDetector(
         onTap: escopo?.aoAbrir,
         behavior: HitTestBehavior.opaque,
-        child: SizedBox(
-          width: 48,
-          height: 48,
-          child: Center(child: _icone(theme, naoLidas)),
-        ),
+        child: SizedBox(width: 48, height: 48, child: Center(child: _icone(theme, naoLidas))),
       ),
     );
   }

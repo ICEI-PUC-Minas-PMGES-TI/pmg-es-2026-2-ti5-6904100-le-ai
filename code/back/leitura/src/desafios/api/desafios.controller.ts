@@ -15,6 +15,7 @@ import {
   ApiCreatedResponse,
   ApiHeader,
   ApiNoContentResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -29,10 +30,12 @@ import { emMinusculas } from '../../common/minusculas.pipe';
 import { DesafiosService } from '../aplicacao/desafios.service';
 import {
   ConsultaDesafiosDto,
+  ConsultaJanelasDto,
   CriarDesafioEntradaDto,
   DesafioDto,
   EditarDesafioEntradaDto,
   PaginaDesafiosDto,
+  PaginaJanelasDto,
 } from './dto/desafios.dto';
 
 const CABECALHO_IDEMPOTENCIA = {
@@ -79,6 +82,25 @@ export class DesafiosController {
     @Query() consulta: ConsultaDesafiosDto,
   ): Promise<PaginaDesafiosDto> {
     return this.servico.listar(usuario.id, consulta);
+  }
+
+  @Get(':desafioId/janelas')
+  @ApiOperation({
+    operationId: 'listarJanelasDesafio',
+    summary: 'Lista o histórico de janelas encerradas de um desafio',
+    description:
+      'Janelas encerradas da mais recente para a mais antiga, com unidade, periodicidade e alvo vigentes em cada uma (RN-20.7), períodos sem progresso como não cumpridos (RN-20.9) e a pausa da janela (RN-20.6). Só o dono: desafio de outra pessoa é 404 (RF-DSF-05).',
+  })
+  @ApiOkResponse({ type: PaginaJanelasDto })
+  @ApiNotFoundResponse({
+    description: 'Desafio inexistente ou de outra pessoa.',
+  })
+  listarJanelas(
+    @UsuarioAtual() usuario: UsuarioAutenticado,
+    @Param('desafioId', idDoDesafio, emMinusculas) desafioId: string,
+    @Query() consulta: ConsultaJanelasDto,
+  ): Promise<PaginaJanelasDto> {
+    return this.servico.listarJanelas(usuario.id, desafioId, consulta);
   }
 
   @Patch(':desafioId')

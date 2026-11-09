@@ -7,6 +7,7 @@ import 'desafio_form_page.dart';
 import 'desafios_do_perfil.dart';
 import 'desafios_page.dart';
 import 'desafios_service.dart';
+import 'historico_do_desafio_page.dart';
 
 /// Os desafios moram sob a aba Perfil (desafios.md §2): a lista, a criação e a edição ficam
 /// empilhadas sobre ela, com `Perfil` ativo na barra inferior.
@@ -14,6 +15,8 @@ const String rotaDesafios = '/perfil/desafios';
 const String rotaNovoDesafio = '$rotaDesafios/novo';
 
 String rotaEditarDesafio(String id) => '$rotaDesafios/${Uri.encodeComponent(id)}/editar';
+
+String rotaHistoricoDoDesafio(String id) => '$rotaDesafios/${Uri.encodeComponent(id)}/historico';
 
 /// O que as telas de F-DSF precisam do mundo lá fora. Um único [servico] para o app inteiro: o
 /// aviso de `alteracoes` é o que faz o bloco do perfil e a lista recarregarem depois de uma
@@ -42,9 +45,9 @@ void _voltar(BuildContext context, String destino) {
   }
 }
 
-/// Lista, criação e edição, sob `/perfil`. A edição recebe o desafio por `extra`: o contrato não
-/// tem `GET /desafios/{id}`, e quem edita sempre parte da lista. Sem ele (rota aberta direto),
-/// volta para a lista.
+/// Lista, criação, edição e histórico, sob `/perfil`. A edição e o histórico recebem o desafio por
+/// `extra`: o contrato não tem `GET /desafios/{id}`, e os dois sempre partem do menu do card. Sem
+/// ele (rota aberta direto), voltam para a lista.
 List<RouteBase> rotasDosDesafios(DependenciasDeDesafios deps) => <RouteBase>[
   GoRoute(
     path: 'desafios',
@@ -54,6 +57,7 @@ List<RouteBase> rotasDosDesafios(DependenciasDeDesafios deps) => <RouteBase>[
       aoVoltar: () => _voltar(context, rotaPerfilRaiz),
       aoCriar: () => context.push(rotaNovoDesafio),
       aoEditar: (desafio) => context.push(rotaEditarDesafio(desafio.id), extra: desafio),
+      aoVerHistorico: (desafio) => context.push(rotaHistoricoDoDesafio(desafio.id), extra: desafio),
     ),
     routes: <RouteBase>[
       GoRoute(
@@ -73,6 +77,19 @@ List<RouteBase> rotasDosDesafios(DependenciasDeDesafios deps) => <RouteBase>[
             servico: deps.servico,
             desafio: desafio,
             aoConcluir: () => _voltar(context, rotaDesafios),
+          );
+        },
+      ),
+      GoRoute(
+        path: ':id/historico',
+        redirect: (context, state) => state.extra is Desafio ? null : rotaDesafios,
+        builder: (context, state) {
+          final desafio = state.extra! as Desafio;
+          return HistoricoDoDesafioPage(
+            key: ValueKey<String>('historico-do-desafio-${desafio.id}'),
+            servico: deps.servico,
+            desafio: desafio,
+            aoVoltar: () => _voltar(context, rotaDesafios),
           );
         },
       ),
