@@ -1,6 +1,6 @@
 # Planejamento do Renato — Período 3
 
-Pasta do **Renato Douglas** para os planos das features dele no Período 3: [F-MOD-OPC](../feature-F-MOD-OPC.md) e [F-ACV-OPC](../feature-F-ACV-OPC.md). Segue o formato de [`../../periodo-2/renato-periodo-2/`](../../periodo-2/renato-periodo-2/README.md).
+Pasta do **Renato Douglas** para os planos das features dele no Período 3 ([F-MOD-OPC](../feature-F-MOD-OPC.md) e [F-ACV-OPC](../feature-F-ACV-OPC.md)) e das tarefas da Entrega 6 que ele assumiu (item 3). Segue o formato de [`../../periodo-2/renato-periodo-2/`](../../periodo-2/renato-periodo-2/README.md).
 
 Aqui ficam a ordem de trabalho (este arquivo), os prompts de cada etapa (`prompt-F-*.md`) e um plano por feature (`plano-F-*.md`). Status, pendências e timeline continuam no arquivo de cada feature, que prevalece sobre o que estiver aqui.
 
@@ -28,3 +28,21 @@ Prompt das quatro etapas, cada uma com um agente de contexto limpo (planejar, re
 - Implementada em 06 e 07/11/2026 (etapa 3), sem migration: (a) assuntos do conjunto curado no livro pessoal (`acervo`, web e app) e (b) recarga manual do dump no script, validada só na amostra em Postgres descartável. Quatro validadores de contexto limpo; os achados entraram no commit `98c9690`. Teste manual na web (Edge) e no app (emulador) contra o banco de dev. Status em [`feature-F-ACV-OPC.md`](../feature-F-ACV-OPC.md).
 - Revisão independente (etapa 4) em 07/11/2026: quatro revisores de contexto limpo, um por camada. `acervo` sem achados; os achados baixos da web (foco e alvo de toque do seletor, largura do `Concluir`), do mobile (rótulo repetido, vão entre chips, rodapé em 320 dp) e do script (dois testes que faltavam, passo `biografias` no roteiro) foram corrigidos com teste no commit `e5874da`. Testes: `acervo` 392 + 189 de integração, script 143 (17 de banco), web 1118, mobile 951.
 - **[PR #62](https://github.com/ICEI-PUC-Minas-PMGES-TI/pmg-es-2026-2-ti5-6904100-le-ai/pull/62)** aberto para a `desenvolvimento` em 07/11/2026, sem migration. O Vicenzo pediu três ajustes de layout (teclado na folha do app, alvos dos chips na web estreita, seletor web em tela baixa), corrigidos com teste no commit `0ccaee4`; aprovou e o PR foi mergeado na `desenvolvimento` em 08/11/2026 às 00:35 (`97a2f95`); card #31 em "Concluído". A execução real da recarga em dev e DES é pendência do grupo (decisão 4); o DES vem com o merge da `main`, no fechamento de novembro.
+
+### 3. Entrega 6 — tarefas além das features (08/11/2026)
+
+O que **dá para fazer ou adiantar agora**, sem esperar as features dos outros. Cada tarefa tem um prompt com etapas feitas por agentes de contexto limpo (planejar → realizar → revisar e PR). As regras, as ferramentas e o fechamento comuns a todas ficam em [`prompt-E6-contexto-comum.md`](prompt-E6-contexto-comum.md). Para usar: *"Leia `<prompt>` e execute a etapa N."*
+
+| Tarefa | Item da entrega | Prompt | Depende de | Situação |
+|---|---|---|---|---|
+| E6-01 — Test Plan das desejáveis | Test Plan (desejáveis), versão final | [`prompt-E6-01-plano-de-testes-desejaveis.md`](prompt-E6-01-plano-de-testes-desejaveis.md) | nada; as 14 desejáveis estão na `main` desde a v0.2.0 | não iniciada |
+| E6-02 — Testes que faltam na área do Renato | Implementação de testes + refino do código | [`prompt-E6-02-testes-das-lacunas.md`](prompt-E6-02-testes-das-lacunas.md) | só a área do Renato (decisão do grupo de 30/10); as lacunas das desejáveis dele saem da E6-01 ou do próprio plano | não iniciada |
+| E6-03 — ATAM com medições em DES | Avaliação da Arquitetura, versão final | [`prompt-E6-03-atam-em-des.md`](prompt-E6-03-atam-em-des.md) | OKs do Renato para contas, carga e mensagens no DES; refazer o que o Período 3 mudar | não iniciada |
+| E6-04 — Telas reais no `7.solucao.md` | Documento final (seção 7) | [`prompt-E6-04-capturas-de-tela.md`](prompt-E6-04-capturas-de-tela.md) | contas de demonstração no DES; Período 3 depois do merge da `main` | não iniciada |
+| E6-05 — HTML estático dos OpenAPI | Anexo do Documento de Arquitetura | [`prompt-E6-05-openapi-html.md`](prompt-E6-05-openapi-html.md) | regerar depois de 17/11 | não iniciada |
+| E6-06 — Relatório de encerramento | Relatório de encerramento | [`prompt-E6-06-relatorio-de-encerramento.md`](prompt-E6-06-relatorio-de-encerramento.md) | template da disciplina; fecha depois de 24/11 com as respostas do grupo | não iniciada |
+| E6-07 — Atas semanais da Sprint 6 | Atas de reunião semanais | [`prompt-E6-07-atas-semanais.md`](prompt-E6-07-atas-semanais.md) | as anotações de cada reunião (última ata: 30/10) | não iniciada |
+
+**Ordem sugerida:** E6-01 → E6-02 (usa as lacunas da E6-01), com a E6-05 e a E6-07 encaixadas quando houver folga. Cada tarefa tem a sua branch, `renato-e6-NN`, e o seu PR. A E6-03 e a E6-04 compartilham as contas de demonstração do DES, então os OKs saem juntos. A E6-06 tem rascunho agora e fechamento depois de 24/11.
+
+**Ficam para depois, sem prompt ainda:** Documento de Arquitetura final (depois do congelamento de 17/11; editar `docs/orquestador/` exige a autorização do Renato), release + tag + deploy de produção (grupo, fim de novembro), vídeo e slides do pitch (24/11) e o fechamento da Sprint 6 (status, Kanban e contribuição semanal).
