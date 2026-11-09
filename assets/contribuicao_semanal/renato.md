@@ -104,3 +104,5 @@ Realizado assuntos do conjunto curado no livro pessoal, no acervo, na web e no a
 Realizado recarga manual do dump do OpenLibrary sem apagar dado local, validada na amostra (F-ACV-OPC)
 Realizado validação da F-ACV-OPC por revisores independentes, teste manual na web e no app e correções
 Realizado revisão independente da F-ACV-OPC com as correções de acessibilidade, layout e testes da recarga, e PR #62 para a desenvolvimento
+Realizado correções da revisão do PR #62 (teclado no seletor do app, chips e seletor na web) e merge da F-ACV-OPC na desenvolvimento
+Realizado prompts das tarefas da Entrega 6 (plano de testes das desejáveis, testes, ATAM, telas, OpenAPI, encerramento e atas) e remoção dos planos já usados da desenvolvimento

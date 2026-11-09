@@ -76,7 +76,7 @@ Convenções do app mobile. Complementa o [`AGENTS.md`](../../AGENTS.md) da raiz
 
 ### 06/11/2026 — F-ACV-OPC (Renato): assuntos no livro pessoal
 
-Plano em [`plano-F-ACV-OPC.md`](../../docs/plano-de-desenvolvimento/periodo-3/renato-periodo-3/plano-F-ACV-OPC.md) (Parte 3). RF-ACV-22: o leitor escolhe assuntos do conjunto curado ao cadastrar e editar um livro pessoal. Design: `docs/design/periodo-3/cadastro-pessoal/` (campo e seletor) e `docs/design/periodo-3/livro-pessoal/` (linha da ficha). Os arquivos de livro pessoal são do Vicenzo: avisar.
+Plano em `plano-F-ACV-OPC.md` (Parte 3), na branch `renato-features` (pasta `docs/plano-de-desenvolvimento/periodo-3/renato-periodo-3/`). RF-ACV-22: o leitor escolhe assuntos do conjunto curado ao cadastrar e editar um livro pessoal. Design: `docs/design/periodo-3/cadastro-pessoal/` (campo e seletor) e `docs/design/periodo-3/livro-pessoal/` (linha da ficha). Os arquivos de livro pessoal são do Vicenzo: avisar.
 
 - **`acervo_service.dart` (do Vicenzo):** `LivroPessoal.assuntos` (`List<AssuntoResumo>`, reaproveita `AssuntoResumo.deJson`; ausente, nulo ou fora do contrato vira lista vazia) e `DadosLivroPessoal.assuntos` (ids). `paraJson` manda os ids **ordenados e sem repetição**; na criação só quando há algum, na edição sempre (o array vazio limpa). O `GET /assuntos` continua o mesmo do Descobrir.
 - **Novos em `features/livros/`:**
@@ -97,7 +97,7 @@ Plano em [`plano-F-ACV-OPC.md`](../../docs/plano-de-desenvolvimento/periodo-3/re
 
 ### 05/11/2026 — F-MOD-OPC (Renato): sessão encerrada por conta suspensa
 
-Plano em [`plano-F-MOD-OPC.md`](../../docs/plano-de-desenvolvimento/periodo-3/renato-periodo-3/plano-F-MOD-OPC.md). O app não tem painel de moderação; só trata a própria sessão suspensa. Avisar o Henrique e a Ana.
+Plano em `plano-F-MOD-OPC.md`, na branch `renato-features` (pasta `docs/plano-de-desenvolvimento/periodo-3/renato-periodo-3/`). O app não tem painel de moderação; só trata a própria sessão suspensa. Avisar o Henrique e a Ana.
 
 - **`core/session/session_controller.dart` (do Henrique):** na renovação, `ApiException` com `codigo == 'CONTA_SUSPENSA'` (403 do `identidade`) chama `_sairPorSuspensao()`, que grava o aviso `SessionController.avisoDeContaSuspensa` **antes** de `sair()`, porque o `notifyListeners` de `sair()` pode abrir o login antes. Não liga `saindoPorExpiracao`. `_executarRenovacao` agora devolve `false` logo de cara quando a sessão já acabou (`_token == null`): sem isso, um 401 atrasado de outra chamada sairia de novo por expiração e trocaria o aviso.
 - **Ana (`features/sessao/sessao_controller.dart`), mudou em 06/11/2026:** o ouvinte, quando `conta.saindoPorSuspensao` e havia sessão de leitura, chama `conta.avisarLeituraDescartada()`. O login mostra no banner de suspensão a linha `leituraDescartadaNaSuspensao` (consumida uma vez, `consumirLeituraDescartada`). O aviso de expiração dela não mudou. Testes em `test/features/sessao/sessao_test.dart` e `login_page_test.dart`.
