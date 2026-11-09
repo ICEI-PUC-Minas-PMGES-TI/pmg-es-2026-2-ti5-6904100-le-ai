@@ -85,6 +85,24 @@ base do orçado: o CPI de 1,00 é premissa, não medição.
 > a linha de base e passa pelo controle de mudança; a cada revisão de status, atualizar a data e o
 > último mês realizado na aba `Param`.
 
+## Plano de Qualidade
+
+Elaborado em **09/11/2026**, na abertura do Período 3. Lista os artefatos verificados, o tipo de
+revisão de cada um (classificação do template: informal, apresentação, *walkthrough*, revisão técnica
+e revisão técnica formal), datas, responsáveis, métricas e ação para não conformidade, além das normas,
+do ambiente, da equipe e dos processos de qualidade. Não cria processo novo: organiza o que o
+[`plano-de-projeto.md`](../../docs/orquestador/plano-de-projeto.md) e o
+[`9.plano_de_testes.md`](../../docs/9.plano_de_testes.md) já definem e planeja as verificações até o
+encerramento.
+
+| Arquivo | Conteúdo |
+| --- | --- |
+| [`plano_de_qualidade.md`](plano_de_qualidade.md) | **Versão canônica**: as cinco seções do template, rastreabilidade e pendências. |
+| [`plano_de_qualidade.docx`](plano_de_qualidade.docx) | Template da disciplina (`Template Plano de Qualidade`) preenchido, em paisagem. **Derivado** do `.md`. |
+
+> Pendência: parte das atribuições da equipe da qualidade é proposta deste plano, sem registro anterior
+> no repositório (ver a pendência da seção 4 do `.md`). O grupo confirma antes da entrega.
+
 ## Processo e planejamento
 
 O processo de trabalho (branches, Definition of Done, rituais, prazos e períodos) não vive aqui — é fonte de verdade em [`../../docs/orquestador/plano-de-projeto.md`](../../docs/orquestador/plano-de-projeto.md). O acompanhamento das 37 features está no quadro Kanban do projeto: https://github.com/orgs/ICEI-PUC-Minas-PMGES-TI/projects/738
