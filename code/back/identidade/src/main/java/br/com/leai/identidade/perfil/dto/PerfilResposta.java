@@ -20,14 +20,19 @@ public record PerfilResposta(
     boolean conteudoRestrito,
     String relacao,
     String biografia,
-    Contadores contadores) {
+    Contadores contadores,
+    @Schema(
+            description =
+                "F-REC-ALG: só no próprio perfil; nulo no perfil de outro leitor, porque a "
+                    + "preferência não é pública.")
+        Boolean optOutRecomendacao) {
 
   @Schema(name = "ContadoresPerfil")
   public record Contadores(long seguidores, long seguidos) {}
 
-  /** O próprio perfil: relação `proprio`, nada restrito. */
+  /** O próprio perfil: relação `proprio`, nada restrito, e a preferência de sugestões. */
   public static PerfilResposta proprio(Usuario usuario, Contadores contadores) {
-    return de(usuario, "proprio", false, contadores);
+    return montar(usuario, "proprio", false, contadores, usuario.optOutRecomendacao());
   }
 
   /**
@@ -36,6 +41,15 @@ public record PerfilResposta(
    */
   public static PerfilResposta de(
       Usuario usuario, String relacao, boolean conteudoRestrito, Contadores contadores) {
+    return montar(usuario, relacao, conteudoRestrito, contadores, null);
+  }
+
+  private static PerfilResposta montar(
+      Usuario usuario,
+      String relacao,
+      boolean conteudoRestrito,
+      Contadores contadores,
+      Boolean optOutRecomendacao) {
     return new PerfilResposta(
         usuario.id().toString(),
         usuario.username(),
@@ -45,6 +59,7 @@ public record PerfilResposta(
         conteudoRestrito,
         relacao,
         usuario.biografia(),
-        contadores);
+        contadores,
+        optOutRecomendacao);
   }
 }

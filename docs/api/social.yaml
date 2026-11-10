@@ -34,6 +34,10 @@ info:
       - GET /recomendacoes/candidatos
       - GET /recomendacoes/recebidas
       - DELETE /recomendacoes/{recomendacaoId}
+      - GET /recomendacoes/recebidas/restantes
+      - POST /recomendacoes/descartar-lote
+      - GET /recomendacoes/sugestoes
+      - POST /recomendacoes/sugestoes/{livroId}/descartar
       - POST /listas
       - GET /listas/{listaId}
       - PATCH /listas/{listaId}
@@ -842,6 +846,133 @@ paths:
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
         '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /recomendacoes/recebidas/restantes:
+    get:
+      tags: [recomendacoes]
+      summary: Conta as recomendações ativas de um livro na lista do leitor (RN-22.12)
+      operationId: contarRecomendacoesDoLivro
+      x-implementation-status: implemented
+      description: >-
+        F-REC-ALG. O cliente consulta no terceiro descarte do mesmo livro na
+        sessão, para decidir se oferece o descarte em lote. A contagem de
+        descartes e a supressão da pergunta vivem só no cliente (RN-22.13); o
+        servidor não guarda nenhum dos dois. Conta o mesmo que a lista mostra:
+        ativas, de remetente visível e de livro ativo.
+      parameters:
+        - name: livroId
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Quantas restam.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RestantesDoLivro' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /recomendacoes/descartar-lote:
+    post:
+      tags: [recomendacoes]
+      summary: Descarta todas as recomendações recebidas de um livro (RF-REC-17, RN-22.12)
+      operationId: descartarRecomendacoesDoLivro
+      x-implementation-status: implemented
+      description: >-
+        F-REC-ALG. Quarta via de remoção de RN-22: remove fisicamente todas as
+        recomendações ativas daquele livro recebidas pelo leitor autenticado,
+        num pedido só (tudo ou nada). Não avisa os remetentes (RN-22.11) e não
+        tem restauração (RN-22.14). Lote já vazio responde 200 com zero.
+        Repetir a mesma Idempotency-Key reproduz a contagem original.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DescartarLote' }
+      responses:
+        '200':
+          description: Quantas recomendações saíram da lista do leitor.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DescarteEmLote' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /recomendacoes/sugestoes:
+    get:
+      tags: [recomendacoes]
+      summary: Sugere livros pelas leituras de quem o leitor segue e pelo gosto dele (RF-REC-08/09/10/11)
+      operationId: listarSugestoes
+      x-implementation-status: implemented
+      description: >-
+        F-REC-ALG. Calculado em tempo de consulta, sem estrutura derivada
+        (REQUISITOS §10.7). Sem `secao`, devolve a primeira página das duas
+        seções; com `secao` e `offset`, só a continuação daquela seção, e a
+        outra vem nula. O tamanho da página e o teto de cada seção são do
+        servidor (RNF-DES-02). A paginação é por `offset` e não por página
+        porque o descarte de um item desloca os seguintes.
+
+
+        `seguidos` (RF-REC-09): livros concluídos por leitores que o autenticado
+        segue com seguimento aceito, com piso de leitores e de nota média. Sai
+        do sinal quem pediu opt-out (`opt_out_recomendacao`), está suspenso ou
+        em exclusão. O motivo diz quantos leram, nunca quem (RN-08).
+
+
+        `gosto` (RF-REC-08): livros da mesma série, do mesmo autor ou dos
+        assuntos mais frequentes da estante do leitor (menos o abandonado). Cada
+        livro leva o motivo mais forte, nessa ordem.
+
+
+        Nas duas seções ficam fora o livro já na estante do leitor em qualquer
+        status, o livro pessoal e a sugestão descartada (RF-REC-10/12). Lê só
+        VIEWs de contrato: `v_seguimento_aceito_v1` e `v_perfil_referencia_v1`
+        (identidade), `v_estante_publica_v1` e `v_nota_publicacao_v1` (leitura),
+        `v_livro_recomendacao_v1` e `v_livro_autor_recomendacao_v1` (acervo).
+      parameters:
+        - name: secao
+          in: query
+          required: false
+          schema: { type: string, enum: [seguidos, gosto] }
+        - name: offset
+          in: query
+          required: false
+          description: O `proximoOffset` devolvido pela seção. Exige `secao`.
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        '200':
+          description: Sugestões com o motivo de cada uma.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sugestoes' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /recomendacoes/sugestoes/{livroId}/descartar:
+    post:
+      tags: [recomendacoes]
+      summary: Descarta uma sugestão, que não volta a aparecer (RF-REC-12)
+      operationId: descartarSugestao
+      x-implementation-status: implemented
+      description: >-
+        F-REC-ALG. Exclusivo do leitor autenticado. Grava `sugestao_descartada`
+        com unicidade por leitor e livro, o que torna a operação naturalmente
+        idempotente: repetir não é erro e não exige Idempotency-Key. O livro
+        some das duas seções. Livro pessoal, inativo ou inexistente responde 404.
+      parameters:
+        - name: livroId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Sugestão descartada.
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
         '503': { $ref: '#/components/responses/Indisponivel' }
   /notificacoes:
     get:
@@ -2055,6 +2186,67 @@ components:
           format: date-time
           description: Base do tempo relativo, calculado no cliente.
         expiraEm: { type: string, format: date-time }
+    RestantesDoLivro:
+      type: object
+      required: [restantes]
+      properties:
+        restantes: { type: integer, minimum: 0 }
+    DescartarLote:
+      type: object
+      required: [livroId]
+      properties:
+        livroId: { type: string, format: uuid }
+    DescarteEmLote:
+      type: object
+      required: [removidas]
+      properties:
+        removidas:
+          type: integer
+          minimum: 0
+          description: Recomendações do livro que saíram da lista do leitor.
+    Sugestoes:
+      type: object
+      required: [seguidos, gosto]
+      properties:
+        seguidos:
+          allOf: [{ $ref: '#/components/schemas/SecaoDeSugestoes' }]
+          nullable: true
+          description: Nula quando a consulta pediu só a outra seção.
+        gosto:
+          allOf: [{ $ref: '#/components/schemas/SecaoDeSugestoes' }]
+          nullable: true
+          description: Nula quando a consulta pediu só a outra seção.
+    SecaoDeSugestoes:
+      type: object
+      required: [itens, proximoOffset]
+      properties:
+        itens:
+          type: array
+          description: Vazia quando não há sinal; o cliente esconde a seção.
+          items: { $ref: '#/components/schemas/Sugestao' }
+        proximoOffset:
+          type: integer
+          nullable: true
+          description: O que mandar em `offset` para pedir mais; nulo quando a seção acabou.
+    Sugestao:
+      type: object
+      required: [livro, motivo]
+      properties:
+        livro: { $ref: '#/components/schemas/LivroSnapshot' }
+        motivo: { $ref: '#/components/schemas/MotivoDaSugestao' }
+    MotivoDaSugestao:
+      type: object
+      required: [tipo, texto]
+      properties:
+        tipo:
+          type: string
+          enum: [SEGUIDOS, SERIE, AUTOR, ASSUNTO]
+        texto:
+          type: string
+          description: >-
+            Pronto para exibir, montado no servidor a partir do critério que
+            trouxe o livro (RF-REC-11).
+          example: 2 pessoas que você segue leram
     PaginaRecomendacoes:
       type: object
       required: [itens, pagina, tamanho, totalItens, totalPaginas, ultima]

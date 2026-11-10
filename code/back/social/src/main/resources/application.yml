@@ -120,6 +120,14 @@ leai:
   # F-MOD-OPC: comando interno de suspensão e reativação de conta no `identidade` (porta
   # local 8080), com o mesmo MODERACAO_TOKEN.
   identidade-base-url: ${IDENTIDADE_BASE_URL:http://localhost:8080}
+  # F-REC-ALG: pisos e tamanhos das sugestões, calibráveis por ambiente sem mexer em código.
+  sugestoes:
+    minimo-de-leitores: ${SUGESTOES_MINIMO_DE_LEITORES:1}
+    nota-media-minima: ${SUGESTOES_NOTA_MEDIA_MINIMA:3.5}
+    minimo-de-livros-por-assunto: ${SUGESTOES_MINIMO_DE_LIVROS_POR_ASSUNTO:2}
+    assuntos-considerados: ${SUGESTOES_ASSUNTOS_CONSIDERADOS:3}
+    tamanho-da-pagina: ${SUGESTOES_TAMANHO_DA_PAGINA:4}
+    teto-por-secao: ${SUGESTOES_TETO_POR_SECAO:24}
 
 ---
 # --- perfil prod ----------------------------------------------------------

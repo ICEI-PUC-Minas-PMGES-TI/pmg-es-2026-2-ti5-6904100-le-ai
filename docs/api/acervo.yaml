@@ -104,6 +104,16 @@ x-database-contracts:
     description: Uma linha por livro oficial ativo e assunto; assunto pode ser nulo.
     consumers: [social]
     columns: [livro_id, titulo, autor_exibicao, capa_resolvida, serie_id, serie_nome, assunto_id, assunto_nome]
+  - name: v_livro_autor_recomendacao_v1
+    owner: acervo
+    status: implemented
+    description: >-
+      F-REC-ALG (10/11/2026). O par livro-autor dos livros oficiais ativos, uma
+      linha por autor do livro. Dá ao social a identidade do autor para a
+      sugestão "do mesmo autor", que v_livro_recomendacao_v1 não permite porque
+      só traz o nome concatenado. Nunca expõe livro pessoal.
+    consumers: [social]
+    columns: [livro_id, autor_id]
 servers:
   - url: http://localhost:3000
     description: local

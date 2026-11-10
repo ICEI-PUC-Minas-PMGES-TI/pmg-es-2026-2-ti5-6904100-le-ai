@@ -117,6 +117,7 @@ Para quem mexe no cadastro e na importação saber que isto mudou por baixo:
   - anonimiza recibos e eventos que a citam.
 
   Livro oficial nunca é afetado. As capas exigem `CLOUDINARY_API_KEY` e `CLOUDINARY_API_SECRET`; sem elas, o `publicId` vai para o log. Teste em `test/integracao/consumo-conta-excluida.int-spec.ts`.
+- **09/11/2026, VIEW `v_livro_autor_recomendacao_v1` (F-REC-ALG):** `livro_id` e `autor_id` dos livros oficiais ativos, para o `social` achar "do mesmo autor" (a `v_livro_recomendacao_v1` só traz o nome concatenado). Declarada em `schema.ts` ao lado das outras e versionada na migration `0007_20261109120000_view_autor_recomendacao.sql` (só o `CREATE VIEW`). Nunca expõe livro pessoal. Contrato em `docs/api/acervo.yaml`; o DER e `docs/4.modelagem.md` ainda não a citam (pendência da feature). Avisar o Vicenzo.
 
 ## Mudanças feitas pelo Renato (F-AVA-2)
 

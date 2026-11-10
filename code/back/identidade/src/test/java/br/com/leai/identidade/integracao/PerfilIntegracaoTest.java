@@ -136,6 +136,70 @@ class PerfilIntegracaoTest extends IntegracaoComPostgres {
         .isEqualTo(400);
   }
 
+  private HttpResponse<String> preferencia(String token, String corpo, String chave) {
+    HttpRequest.Builder requisicao =
+        HttpRequest.newBuilder(uri("/me/perfil"))
+            .header("Content-Type", "application/json")
+            .header("Idempotency-Key", chave)
+            .method("PATCH", HttpRequest.BodyPublishers.ofString(corpo));
+    if (token != null) {
+      requisicao.header("Authorization", "Bearer " + token);
+    }
+    return enviar(requisicao.build());
+  }
+
+  @Test
+  @DisplayName("opt-out de sugestões grava sozinho, aparece só no próprio perfil e sobrevive à edição")
+  void optOutDeSugestoes() {
+    String token = leitorComToken();
+    assertThat(meuPerfil(token).get("optOutRecomendacao").asBoolean()).isFalse();
+
+    HttpResponse<String> resposta =
+        preferencia(token, "{\"optOutRecomendacao\":true}", UUID.randomUUID().toString());
+
+    assertThat(resposta.statusCode()).isEqualTo(200);
+    assertThat(objectMapper.readTree(resposta.body()).get("optOutRecomendacao").asBoolean())
+        .isTrue();
+    JsonNode perfil = meuPerfil(token);
+    assertThat(perfil.get("optOutRecomendacao").asBoolean()).isTrue();
+    // Não mexe no resto do perfil, e a edição do perfil não desfaz a preferência.
+    assertThat(perfil.get("displayName").asString()).isEqualTo("Leitora");
+    assertThat(perfil.get("privacidade").asString()).isEqualTo("publico");
+    editar(token, corpo("Marina", null, null, "privado"), UUID.randomUUID().toString());
+    assertThat(meuPerfil(token).get("optOutRecomendacao").asBoolean()).isTrue();
+
+    // A preferência não é pública: outro leitor não a vê.
+    String username = meuPerfil(token).get("username").asString();
+    HttpResponse<String> deOutro =
+        enviar(
+            HttpRequest.newBuilder(uri("/perfis/" + username))
+                .header("Authorization", "Bearer " + leitorComToken())
+                .GET()
+                .build());
+    assertThat(deOutro.statusCode()).isEqualTo(200);
+    assertThat(objectMapper.readTree(deOutro.body()).get("optOutRecomendacao").isNull()).isTrue();
+
+    preferencia(token, "{\"optOutRecomendacao\":false}", UUID.randomUUID().toString());
+    assertThat(meuPerfil(token).get("optOutRecomendacao").asBoolean()).isFalse();
+  }
+
+  @Test
+  @DisplayName("opt-out sem o campo ou com ele nulo é 400, e sem token é 401")
+  void optOutValidacao() {
+    String token = leitorComToken();
+
+    assertThat(preferencia(token, "{}", UUID.randomUUID().toString()).statusCode()).isEqualTo(400);
+    assertThat(
+            preferencia(token, "{\"optOutRecomendacao\":null}", UUID.randomUUID().toString())
+                .statusCode())
+        .isEqualTo(400);
+    assertThat(
+            preferencia(null, "{\"optOutRecomendacao\":true}", UUID.randomUUID().toString())
+                .statusCode())
+        .isEqualTo(401);
+    assertThat(meuPerfil(token).get("optOutRecomendacao").asBoolean()).isFalse();
+  }
+
   @Test
   @DisplayName("mesma chave com outro corpo é 409; sem token é 401")
   void idempotenciaESeguranca() {

@@ -46,8 +46,9 @@ x-database-contracts:
       para aplicar RN-08 e montar snapshots; nunca e-mail, nascimento, hash ou
       biografia. Omite contas suspensas ou com exclusão pendente, as mesmas que
       as rotas HTTP tratam como inexistentes: conhecer o id não contorna a
-      ocultação. `opt_out_recomendacao` é extensão prevista para F-REC-ALG, fora
-      das rotas HTTP do Período 1 (hoje sempre `false`). Mudança incompatível
+      ocultação. `opt_out_recomendacao` é gravado por `PATCH /me/perfil` desde a
+      F-REC-ALG (10/11/2026) e lido pelo `social` para tirar do sinal das
+      sugestões quem pediu opt-out. Mudança incompatível
       nasce como `v2`, sem alterar esta. Desde a F-MOD-OPC (06/11/2026), a VIEW
       `leitura.v_resenha_publicacao_v1` depende desta no próprio banco: `DROP`
       desta VIEW falha, `DROP ... CASCADE` derruba a do `leitura` sem aviso, e
@@ -844,6 +845,44 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Erro'
+        '503':
+          $ref: '#/components/responses/ServicoIndisponivel'
+    patch:
+      operationId: definirPreferenciaDeSugestoes
+      x-implementation-status: implemented
+      tags: [perfil]
+      summary: Grava a preferência de uso das leituras em sugestões
+      description: >-
+        Implementado em F-REC-ALG (REQUISITOS §10.7, opt-out aprovado em
+        15/09/2026). Grava só `optOutRecomendacao`, sem exigir o resto do perfil,
+        para o `switch` de Configurações salvar sozinho. Com `true`, as leituras
+        do leitor saem do sinal, da contagem e da atribuição das sugestões de
+        outros leitores, que o `social` lê por `v_perfil_referencia_v1` a cada
+        consulta. Não muda a visibilidade do perfil nem as sugestões que o
+        próprio leitor recebe.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreferenciaDeSugestoes'
+      responses:
+        '200':
+          description: Perfil com a preferência gravada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Perfil'
+        '400':
+          $ref: '#/components/responses/RequisicaoInvalida'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '409':
+          $ref: '#/components/responses/IdempotenciaEmConflito'
         '503':
           $ref: '#/components/responses/ServicoIndisponivel'
 
@@ -1858,6 +1897,25 @@ components:
           properties:
             contadores:
               $ref: '#/components/schemas/ContadoresPerfil'
+            optOutRecomendacao:
+              type: boolean
+              nullable: true
+              description: >-
+                F-REC-ALG (REQUISITOS §10.7). Só no próprio perfil: `true` quando o
+                leitor tirou suas leituras do sinal das sugestões de outros
+                leitores. No perfil de outro leitor vem `null`, porque a
+                preferência não é pública.
+
+    PreferenciaDeSugestoes:
+      type: object
+      additionalProperties: false
+      required: [optOutRecomendacao]
+      properties:
+        optOutRecomendacao:
+          type: boolean
+          description: >-
+            `true` tira as leituras do leitor do sinal, da contagem e da
+            atribuição das sugestões de outros leitores; `false` devolve.
 
     ResultadoSeguir:
       type: object

@@ -21,6 +21,7 @@ public enum OperacaoIdempotente {
   SOLICITAR_RECUPERACAO("solicitarRecuperacaoSenha", false),
   REDEFINIR_SENHA("redefinirSenha", false),
   ATUALIZAR_PERFIL("atualizarMeuPerfil", false),
+  DEFINIR_PREFERENCIA_DE_SUGESTOES("definirPreferenciaDeSugestoes", false),
   SEGUIR_PERFIL("seguirPerfil", false),
   DEIXAR_DE_SEGUIR("deixarDeSeguirPerfil", false),
   REMOVER_SEGUIDOR("removerSeguidor", false),

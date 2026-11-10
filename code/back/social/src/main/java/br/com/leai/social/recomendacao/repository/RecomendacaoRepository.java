@@ -171,6 +171,20 @@ public class RecomendacaoRepository {
         > 0;
   }
 
+  /** As que a lista mostra para o livro: ativas, de remetente visível e de livro ativo. */
+  public long contarRecebidasDoLivro(UUID destinatarioId, UUID livroId) {
+    return jdbc.queryForObject(
+        "SELECT count(*)" + RECEBIDAS + " AND r.livro_id = ?", Long.class, destinatarioId, livroId);
+  }
+
+  /** RF-REC-17: todas as ativas do livro, inclusive as de remetente oculto, que voltariam. */
+  public void removerAtivasDoLivro(UUID destinatarioId, UUID livroId) {
+    jdbc.update(
+        "DELETE FROM recomendacao WHERE destinatario_id = ? AND livro_id = ? AND expira_em > now()",
+        destinatarioId,
+        livroId);
+  }
+
   public int removerDoLivroNaEstante(UUID destinatarioId, UUID livroId) {
     return jdbc.update(
         "DELETE FROM recomendacao WHERE destinatario_id = ? AND livro_id = ?",
