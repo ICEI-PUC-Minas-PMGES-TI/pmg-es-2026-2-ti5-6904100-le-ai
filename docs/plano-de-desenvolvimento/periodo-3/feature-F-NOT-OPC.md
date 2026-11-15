@@ -21,9 +21,9 @@ RNF atendidos: **RNF-SEC-02** (só o dono lê e altera suas preferências e seus
 | Camada | Status | Observação |
 |---|---|---|
 | Infra | parcial | tabelas `preferencia_notificacao`, `dispositivo_push` e `envio_push` (migration `V20261108120000`) aplicadas no banco de dev; **falta** projeto Firebase, `google-services.json` e segredo do FCM em DES |
-| Backend | implementado, validação pendente | `social`: preferências, filtro no consumidor, registro/revogação de dispositivo e envio FCM idempotente; testes de integração escritos e compilam, **não rodaram** (sem Postgres de teste) |
+| Backend | implementado e validado em Postgres | `social`: preferências, filtro no consumidor, registro/revogação de dispositivo e envio FCM idempotente; `./mvnw verify` com Postgres 17 descartável: 336 testes, 0 falhas (15/11/2026). **Falta** FCM real (sem credencial) |
 | Web | **não aplicável** | notificações estão **fora do escopo web** (`REQUISITOS.md` §2.1) |
-| Mobile | implementado, validação pendente | tela de preferências, permissão, registro/refresh/revogação do token e abertura pela notificação; **não testado em Android real** |
+| Mobile | implementado, validação pendente | tela de preferências, permissão, registro/refresh/revogação do token e abertura pela notificação; `flutter analyze` limpo e 985 testes passando (15/11/2026); **não testado em Android real** |
 
 ## Especificação
 
@@ -63,13 +63,13 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 ## Critérios de aceite
 
-- [ ] GET/PUT cobrem cada tipo individualmente; tipo desconhecido é rejeitado; só o dono acessa/edita suas preferências.
-- [ ] Tipo desabilitado não gera in-app nem push; evento é reconhecido sem DLQ e o histórico anterior permanece intacto.
-- [ ] Registrar o mesmo token duas vezes **não duplica** dispositivo; token que muda de conta passa a pertencer à conta atual.
+- [x] GET/PUT cobrem cada tipo individualmente; tipo desconhecido é rejeitado; só o dono acessa/edita suas preferências.
+- [x] Tipo desabilitado não gera in-app nem push; evento é reconhecido sem DLQ e o histórico anterior permanece intacto.
+- [x] Registrar o mesmo token duas vezes **não duplica** dispositivo; token que muda de conta passa a pertencer à conta atual.
 - [ ] O **logout revoga** o token daquele aparelho, que deixa de receber push.
-- [ ] Notificação gravada gera **um** push por dispositivo ativo; reentrega do mesmo evento **não** gera segundo push (RNF-ERR-06).
-- [ ] Token inválido/não registrado **inativa** o dispositivo e não é reprocessado; indisponibilidade do FCM usa backoff e termina em **DLQ** sem travar a fila (RNF-ERR-03/07/08).
-- [ ] Falha no push **não** impede nem desfaz a notificação in-app.
+- [x] Notificação gravada gera **um** push por dispositivo ativo; reentrega do mesmo evento **não** gera segundo push (RNF-ERR-06).
+- [x] Token inválido/não registrado **inativa** o dispositivo e não é reprocessado; indisponibilidade do FCM usa backoff e termina em **DLQ** sem travar a fila (RNF-ERR-03/07/08).
+- [x] Falha no push **não** impede nem desfaz a notificação in-app.
 - [ ] O push não carrega dado sensível e, ao ser tocado, leva à tela correta com busca autenticada (SEC-36).
 - [ ] Recusar a permissão de notificação no Android mantém o aplicativo funcional, com a lista in-app.
 - [ ] Push **não** é enviado a iOS (P-04); o leitor iOS recebe pela lista in-app.
@@ -81,9 +81,9 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 - [ ] Código (backend `social`, mobile) mergeado em `desenvolvimento`
 - [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
-- [ ] Testes unitários e de integração com banco real/container: leitura/escrita de preferências, filtro por tipo antes da gravação, propriedade, registro/renovação/revogação de token, unicidade do token e idempotência HTTP (RNF-TST-02)
-- [ ] Testes assíncronos: envio por dispositivo ativo, duplicação por `eventId` sem segundo push, token inválido inativando o dispositivo, indisponibilidade do FCM com backoff e DLQ, e notificação in-app preservada quando o push falha (RNF-TST-03)
-- [ ] Testes mobile cobrem preferências, permissão concedida e recusada, registro/revogação de token, abertura pela notificação e indisponibilidade/timeout com API simulada (RNF-TST-04/06)
+- [x] Testes unitários e de integração com banco real/container: leitura/escrita de preferências, filtro por tipo antes da gravação, propriedade, registro/renovação/revogação de token, unicidade do token e idempotência HTTP (RNF-TST-02)
+- [x] Testes assíncronos: envio por dispositivo ativo, duplicação por `eventId` sem segundo push, token inválido inativando o dispositivo, indisponibilidade do FCM com backoff e DLQ, e notificação in-app preservada quando o push falha (RNF-TST-03)
+- [x] Testes mobile cobrem preferências, permissão concedida e recusada, registro/revogação de token, abertura pela notificação e indisponibilidade/timeout com API simulada (RNF-TST-04/06)
 - [x] **Spec OpenAPI de `social` atualizado em `docs/api/social.yaml`** com preferências e registro de dispositivo push
 - [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)) — **web N/A** (notificações fora do escopo web, §2.1); justificativa registrada aqui em vez de remover o item
 - [x] Arquivo da feature atualizado: status, pendências, timeline
@@ -114,6 +114,8 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Abertura pela notificação:** sem item na primeira página de `GET /notificacoes`, o app abre a lista de notificações. `AberturaPorPush` tem testes para a sessão ainda carregando e para a notificação fora da primeira página; o toque com a lista de notificações já aberta e a marcação como lida seguem sem teste.
 
 ## Timeline
+
+### Validação 15/11/2026: `./mvnw verify` do `social` em Postgres 17 descartável (336 testes) e `flutter analyze` + `flutter test` do mobile (985 testes) passam. A rodada achou `OcultacaoDeContaSuspensaIntegracaoTest` falhando com `TRUNCATE notificacao` por causa da FK de `envio_push`; corrigido com `CASCADE`. Critérios de backend marcados; seguem abertos logout/iOS/permissão em aparelho, push em Android real e DES, que dependem do projeto Firebase e do `google-services.json`.
 
 ### Implementação 08/11/2026: contrato, preferências, dispositivos e envio FCM no `social`; tela de preferências e push no mobile. Migration `envio_push` (chave `(notificacao, dispositivo)`) aplicada no banco de dev. Revisão independente de backend, mobile e segurança corrigiu: `DELETE` do dispositivo sem `Idempotency-Key` (a revogação no logout nunca funcionava), corridas do logout com registro de token em voo, falha inesperada num dispositivo pulando os demais, janela de entrega a conta errada na migração de token e título "Lê Aí". Pendentes: validação em Postgres e em Android real, e as decisões listadas em Pendências.
 
