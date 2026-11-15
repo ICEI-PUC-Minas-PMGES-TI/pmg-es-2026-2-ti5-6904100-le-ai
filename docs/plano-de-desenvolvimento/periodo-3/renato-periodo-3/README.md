@@ -37,7 +37,7 @@ O que **dá para fazer ou adiantar agora**, sem esperar as features dos outros. 
 
 | Tarefa | Item da entrega | Prompt | Depende de | Situação |
 |---|---|---|---|---|
-| E6-01 — Test Plan das desejáveis | Test Plan (desejáveis), versão final | [`prompt-E6-01-plano-de-testes-desejaveis.md`](prompt-E6-01-plano-de-testes-desejaveis.md) | nada; as 14 desejáveis estão na `main` desde a v0.2.0 | não iniciada |
+| E6-01 — Test Plan das desejáveis | Test Plan (desejáveis), versão final | [`prompt-E6-01-plano-de-testes-desejaveis.md`](prompt-E6-01-plano-de-testes-desejaveis.md) | nada; as 14 desejáveis estão na `main` desde a v0.2.0 | etapa 1 concluída em 14/11/2026 ([plano](plano-E6-01-plano-de-testes-desejaveis.md), ainda não revisado); próxima: etapa 2 |
 | E6-02 — Testes que faltam na área do Renato | Implementação de testes + refino do código | [`prompt-E6-02-testes-das-lacunas.md`](prompt-E6-02-testes-das-lacunas.md) | só a área do Renato (decisão do grupo de 30/10); as lacunas das desejáveis dele saem da E6-01 ou do próprio plano | não iniciada |
 | E6-03 — ATAM com medições em DES | Avaliação da Arquitetura, versão final | [`prompt-E6-03-atam-em-des.md`](prompt-E6-03-atam-em-des.md) | OKs do Renato para contas, carga e mensagens no DES; refazer o que o Período 3 mudar | não iniciada |
 | E6-04 — Telas reais no `7.solucao.md` | Documento final (seção 7) | [`prompt-E6-04-capturas-de-tela.md`](prompt-E6-04-capturas-de-tela.md) | contas de demonstração no DES; Período 3 depois do merge da `main` | não iniciada |
