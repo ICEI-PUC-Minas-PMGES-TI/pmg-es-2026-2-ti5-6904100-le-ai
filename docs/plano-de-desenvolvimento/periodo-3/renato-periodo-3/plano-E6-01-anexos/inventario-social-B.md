@@ -1,8 +1,10 @@
 # Inventário de testes — grupo social-B (F-LST e F-REC-P2P)
 
+> Revisado em 15/11/2026 (etapa 2): 6 correções aplicadas.
+
 Levantado em 14/11/2026 sobre o código no disco (igual à `origin/desenvolvimento`). Somente leitura.
 
-Fontes lidas: `docs/9.plano_de_testes.md` (§9.6 a §9.8; nenhum caso de listas ou de recomendação existe lá), `docs/plano-de-desenvolvimento/periodo-2/feature-F-LST.md`, `docs/plano-de-desenvolvimento/periodo-2/feature-F-REC-P2P.md`, `docs/orquestador/REQUISITOS.md` (§5.6, §5.13, RN-08, RN-15, RN-22, §8 A01, §9, §10.8) e o log do `ci-back-social` da execução 39883097401 (a referência da §9.7).
+Fontes lidas: `docs/9.plano_de_testes.md` (§9.6 a §9.8; nenhum caso de listas ou de recomendação existe lá), `docs/plano-de-desenvolvimento/periodo-2/feature-F-LST.md`, `docs/plano-de-desenvolvimento/periodo-2/feature-F-REC-P2P.md`, `docs/orquestador/REQUISITOS.md` (§5.6, §5.13, RN-08, RN-15, RN-22, §8 A01, §9, §10.8) e o log do `ci-back-social` da execução 39883097401 (a referência da §9.7 do Período 2; a contagem atual vale pelo run 42325694285, ver §1.4).
 
 Prefixos como no plano: `SO/` = `code/back/social/src/test/java/br/com/leai/social/`, `AC/` = `code/back/acervo/`, `WEB/` = `code/front/src/`, `MOB/` = `code/mobile/test/`.
 
@@ -70,11 +72,11 @@ Nenhum dos arquivos citados tem `@Disabled`, `it.skip`, `xit`, `describe.skip` n
 | CT-LST-18 | RF-LST-05, RN-15.1 | Regra de quem pode pôr um livro pessoal na lista | Só o dono, só nas listas dele | unitário | `SO/lista/RegrasDeListaTest.java` › "RN-15.1: livro pessoal só entra na lista do próprio dono" |
 | CT-LST-19 | RNF-ERR-04 | Repetir a criação com a mesma `Idempotency-Key` e o mesmo corpo | Mesma resposta; uma lista só | integração | `SO/integracao/ListaControllerIntegracaoTest.java` › idempotência › "mesma chave e payload reproduz a resposta sem criar duas listas" |
 | CT-LST-20 | RNF-ERR-04 | Mesma chave com outro corpo | 409 | integração | `SO/integracao/ListaControllerIntegracaoTest.java` › idempotência › "mesma chave com outro payload responde 409" |
-| CT-LST-21 | RF-LST-06, RN-15, RN-08 | Terceiro abre o livro pessoal pela lista de um dono com perfil público | Página em modo consulta, sem exigir que o terceiro siga o dono | integração | `AC/test/integracao/livro-pessoal.int-spec.ts` › livro pessoal (integração) › terceiro pela lista do dono (RN-15, RN-08) › "perfil público libera qualquer leitor, sem exigir seguimento" |
-| CT-LST-22 | RF-LST-06, RN-15.5, RNF-SEC-03 | Terceiro que não segue um dono com perfil privado | 403 | integração | `AC/test/integracao/livro-pessoal.int-spec.ts` › livro pessoal (integração) › terceiro pela lista do dono (RN-15, RN-08) › "não seguidor de perfil privado é negado" |
-| CT-LST-23 | RF-LST-06, RNF-SEC-06 | `referenciaId` forjado | 403 | integração | `AC/test/integracao/livro-pessoal.int-spec.ts` › livro pessoal (integração) › terceiro pela lista do dono (RN-15, RN-08) › "referência forjada é negada" |
-| CT-LST-24 | RN-15.6 | Lista excluída ou livro tirado da lista | O acesso do terceiro acaba na hora | integração | `AC/test/integracao/livro-pessoal.int-spec.ts` › livro pessoal (integração) › terceiro pela lista do dono (RN-15, RN-08) › "lista excluída ou livro retirado corta o acesso na hora (RN-15.6)" |
-| CT-LST-25 | RN-15.3, RNF-SEC-07 | Terceiro chega pela lista e tenta escrever no livro | Escrita negada | integração | `AC/test/integracao/livro-pessoal.int-spec.ts` › livro pessoal (integração) › terceiro pela lista do dono (RN-15, RN-08) › "a via da lista não libera escrita a terceiro (RN-15.3)" |
+| CT-LST-21 | RF-LST-06, RN-15, RN-08 | Terceiro abre o livro pessoal pela lista de um dono com perfil público | Página em modo consulta, sem exigir que o terceiro siga o dono | integração | `AC/test/integracao/livro-pessoal.int-spec.ts` › terceiro pela lista do dono (RN-15, RN-08) › "perfil público libera qualquer leitor, sem exigir seguimento" |
+| CT-LST-22 | RF-LST-06, RN-15.5, RNF-SEC-03 | Terceiro que não segue um dono com perfil privado | 403 | integração | `AC/test/integracao/livro-pessoal.int-spec.ts` › terceiro pela lista do dono (RN-15, RN-08) › "não seguidor de perfil privado é negado" |
+| CT-LST-23 | RF-LST-06, RNF-SEC-06 | `referenciaId` forjado | 403 | integração | `AC/test/integracao/livro-pessoal.int-spec.ts` › terceiro pela lista do dono (RN-15, RN-08) › "referência forjada é negada" |
+| CT-LST-24 | RN-15.6 | A linha da lista some de `v_lista_livro_pessoal_v1` (o `acervo` revalida a cada pedido) | Sem a linha na VIEW (simulada no teste), o acesso volta a 403 | integração | `AC/test/integracao/livro-pessoal.int-spec.ts` › terceiro pela lista do dono (RN-15, RN-08) › "lista excluída ou livro retirado corta o acesso na hora (RN-15.6)" |
+| CT-LST-25 | RN-15.3 (edição), RNF-SEC-02 | Terceiro tenta editar o livro pessoal de um dono que o pôs numa lista | PATCH de terceiro: 403. O teste não usa a via (`via`/`referenciaId`) | integração | `AC/test/integracao/livro-pessoal.int-spec.ts` › terceiro pela lista do dono (RN-15, RN-08) › "a via da lista não libera escrita a terceiro (RN-15.3)" |
 | CT-LST-26 | RF-LST-02 | Web: mover um livro para baixo | Troca de lugar com o vizinho e envia a posição visível | web | `WEB/views/listas/ListaView.spec.ts` › ListaView › "mover para baixo troca com o vizinho e envia a posição visível" |
 | CT-LST-27 | RF-LST-02, RNF-ERR-04 | Web: falha ao mover | A ordem volta e "Tentar de novo" reenvia com a mesma chave | web | `WEB/views/listas/ListaView.spec.ts` › ListaView › "falha ao mover: volta à ordem anterior e oferece repetir com a mesma chave" |
 | CT-LST-28 | RF-LST-04, RF-LST-06 | Web: lista de outro leitor | Só leitura; o livro pessoal abre com `via=lista` | web | `WEB/views/listas/ListaView.spec.ts` › ListaView › "outro leitor: só leitura, linha de dono, e livro pessoal abre com via=lista" |
@@ -84,8 +86,9 @@ Nenhum dos arquivos citados tem `@Disabled`, `it.skip`, `xit`, `describe.skip` n
 | CT-LST-32 | RN-08 | Mobile: perfil privado sem acesso (403) | Bloco de restrição; nada da lista aparece | mobile | `MOB/features/listas/lista_page_test.dart` › "perfil privado sem acesso (403): bloco de restrição, nada da lista" |
 | CT-LST-33 | RNF-TST-06 | Mobile: serviço fora do ar | Banner com "Tentar de novo"; tentar de novo carrega | mobile | `MOB/features/listas/lista_page_test.dart` › "serviço fora do ar: banner com "Tentar de novo", e tentar de novo carrega" |
 | CT-LST-34 | RF-LST-03, RNF-USA-04 | Mobile: excluir a lista | Pede confirmação com o título e só então chama `DELETE` | mobile | `MOB/features/listas/lista_form_page_test.dart` › "excluir pede confirmação com o título salvo e só então apaga" |
+| CT-LST-35 | RNF-SEC-07, RN-15.3 | Leitor tenta pôr na estante o livro pessoal de outro leitor | 403 `LIVRO_PESSOAL_DE_TERCEIRO`; nada na estante nem na outbox | integração | `LE/test/integracao/estante.int-spec.ts` › POST /estante › "livro pessoal de terceiro é recusado (SEC-07)" |
 
-São 34 casos, acima da faixa de 10 a 22. A feature tem 6 RFs e mexe em dois serviços (`social` e `acervo`) e em dois clientes. Se for preciso cortar, CT-LST-11, 13, 16, 20 e 31 são os que menos perdem.
+São 35 casos, acima da faixa de 10 a 22. O CT-LST-35 é do `leitura` e não é citado no Período 1; é a prova de servidor do critério "sem ação de estante" (RNF-SEC-07). A feature tem 6 RFs e mexe em dois serviços (`social` e `acervo`) e em dois clientes. Se for preciso cortar, CT-LST-11, 13, 16, 20 e 31 são os que menos perdem.
 
 Outros testes que valem como caso alternativo, sem ID: "/me/listas com livroId marca contemLivro em cada lista" e "escrita sem Idempotency-Key responde 400" (`ListaControllerIntegracaoTest`). Também: "seguidor aceito de perfil privado abre em modo consulta", "dono suspenso ou em exclusão não libera, mesmo com lista válida", "VIEW de listas indisponível responde 503, nunca 500 nem 403" e "id de atividade do feed não vale como lista, nem o inverso" (`livro-pessoal.int-spec.ts`). E "outro leitor com conteúdo restrito: bloco RN-08 sem consultar o social" (`listas_do_leitor_test.dart`).
 
@@ -105,19 +108,18 @@ Outros testes que valem como caso alternativo, sem ID: "/me/listas com livroId m
 | 10 | Web: seção e aba `Listas` do **próprio** perfil (`ListasDoPerfil.vue`), índice (`ListasDoLeitorView.vue`) e entrada `Adicionar à lista` no menu `Mais ações` do livro oficial ou pessoal | RF-LST-01/02/04 na web | Esses `.vue` não têm spec. Procurei "Adicionar à lista" nos specs da web: nenhum resultado. No mobile, `listas_do_leitor_test.dart` cobre o equivalente |
 | 11 | Teste **unitário** de RN-08 nas listas | RNF-TST-01 | `RegrasDeListaTest` não tem RN-08. Engrossa a L-01 da §9.8 |
 | 12 | "Listas funcionam em DES" | Critério de aceite; item de DoD desmarcado | Teste manual. A validação em DES ainda não foi feita (etapa 6 pendente) |
+| 13 | Remover o livro da lista tira a linha de `v_lista_livro_pessoal_v1` | RN-15.6 | O CT-LST-24 apaga a linha à mão na tabela que simula a VIEW no `acervo`. No `social`, a VIEW só é conferida depois de excluir a lista (CT-LST-06); o CT-LST-10 não olha a VIEW |
 
 ### 1.4 Divergências e coisas estranhas
 
 - **Serviços:** a tabela recebida diz "serviço social". O arquivo de feature lista `social` + web + mobile, mas a etapa 3 (07/10) mudou o `acervo` (`autorizacao-rn15.service.ts`, `contratos-externos.ts`), com 13 testes de integração e 2 unitários lá. Os RFs batem: RF-LST-01..06.
-- **CI não conta os 24 testes de `ListaControllerIntegracaoTest`.** Conferi no log da execução 39883097401 (a usada na §9.7):
-  - a classe aparece com `Tests run: 0, … -- in br.com.leai.social.integracao.ListaControllerIntegracaoTest`;
-  - a soma das linhas por classe dá exatamente os 254 do total;
-  - mas o log mostra os contextos Spring das classes `$CriarEEditar`, `$Propriedade`, `$Livros`, `$Privacidade`, `$ExcluirEIndice` e `$Idempotencia`, além de respostas 400, 404 e 422 dentro do bloco da classe. Ou seja, os testes **rodam**.
-
-  Duas consequências: os 254 da §9.7 deixam de fora esses 24, e o resumo do surefire 3.5.6 não mostra se eles passaram. Vale conferir pelo XML do relatório ou rodando localmente. A Timeline da F-LST (25/10) já registra o "0 testes".
+- **Os 24 testes de `ListaControllerIntegracaoTest` rodam no CI.** No run 42325694285 do `ci-back-social`, o Surefire lista as classes `@Nested` pelo `@DisplayName` ("criar e editar", "livros da lista" etc.), sem o nome da classe externa. Por isso a classe aparece com "Tests run: 0", mas as linhas somam os 294 do total (plano §5.7). O "0 testes" da Timeline da F-LST (25/10) não é teste deixado de fora.
 - **Comentário desatualizado no mobile:** `MOB/features/livros/livro_pessoal_page_test.dart`, antes de "pela lista, $status: indisponível com "Voltar à lista"", ainda diz "até a etapa 3, o `acervo` recusa `via=lista` com 400". A etapa 3 foi entregue em 07/10. O teste ainda vale para 403, mas o 400 deixou de ser o cenário real.
 - **Contagens do arquivo de feature:** a Timeline de 05/10 fala em "23 novos em `ListaControllerIntegracaoTest`"; o arquivo tem 24, como diz o Status. A Timeline do `acervo` fala em "14 casos de integração": são 13 no `describe` "terceiro pela lista do dono", mais "via desconhecida é pedido malformado", que fica no `describe` da via feed.
-- **DoD:** os itens de teste ("Testes unitários e de integração…" e "Testes web/mobile cobrem reordenação…") estão desmarcados.
+- **DoD:** os itens de teste ("Testes unitários e de integração…" e "Testes web/mobile cobrem reordenação…") estão desmarcados, pelo "0 testes" já desmentido acima.
+- **Testes que provam menos do que o nome diz:**
+  - CT-LST-24: apaga à mão a linha da tabela que simula a VIEW do `social`. Prova que o `acervo` revalida a cada pedido, não que tirar o livro da lista tira a linha da VIEW real (item 13 de §1.3).
+  - CT-LST-25: faz só um `PATCH` de terceiro, sem `via` nem `referenciaId`. Prova a exclusividade da edição, não RNF-SEC-07; essa fica no CT-LST-35.
 
 ---
 
@@ -130,7 +132,7 @@ Outros testes que valem como caso alternativo, sem ID: "/me/listas com livroId m
 | Arquivo | Testes no arquivo | Da F-REC-P2P | Cobre |
 |---|---|---|---|
 | `SO/integracao/RecomendacaoControllerIntegracaoTest.java` | 9 | 9 | RF-REC-01..07/15, RN-22.1-5/7/9/11/15, RNF-SEC-02/18, RNF-ERR-04, RNF-DES-02, outbox de `recomendacao.recebida` |
-| `SO/recomendacao/service/RemocaoDeRecomendacoesIntegracaoTest.java` | 4 | 4 | RF-REC-16, RN-22.9/10, RNF-ERR-06 |
+| `SO/recomendacao/service/RemocaoDeRecomendacoesIntegracaoTest.java` | 4 | 4 | RF-REC-16, RN-22.9/10 (efeito idempotente, não RNF-ERR-06) |
 | `SO/recomendacao/service/ConsumidorDeLivroNaEstanteBrokerTest.java` | 3 | 3 | Fila `leai.social.recomendacoes` ligada a `livro.adicionado_a_estante`, ACK e DLQ (RNF-ERR-07). O `Channel` é mock |
 | `SO/messaging/MessageValidatorTest.java` | 7 | 2 | Schemas de `recomendacao.recebida` e `livro.adicionado_a_estante` (RNF-SEC-32) |
 | `SO/integracao/NotificacaoControllerIntegracaoTest.java` | 15 | 1 | RF-REC-02: a notificação traz o livro e a mensagem |
@@ -164,7 +166,7 @@ Outros testes que valem como caso alternativo, sem ID: "/me/listas com livroId m
 | CT-REC-10 | RF-REC-02 | Notificação de recomendação recebida, incluindo uma de remetente suspenso | Traz o livro e a mensagem; a do suspenso vem sem a mensagem | integração | `SO/integracao/NotificacaoControllerIntegracaoTest.java` › "recomendacao recebida traz livro e mensagem; de remetente suspenso, sem a mensagem" |
 | CT-REC-11 | RF-REC-02, RNF-SEC-32 | `recomendacao.recebida` com mensagem acima de 280 caracteres | Recusada pelo schema | unitário | `SO/messaging/MessageValidatorTest.java` › "rejeita recomendacao.recebida com mensagem acima de 280 caracteres" |
 | CT-REC-12 | RF-REC-16, RN-22.10 | O destinatário põe o livro na estante | Somem todas as recomendações desse livro para ele, de todos os remetentes; as de outro livro e as de outro leitor ficam | mensageria | `SO/recomendacao/service/RemocaoDeRecomendacoesIntegracaoTest.java` › "Livro na estante remove todas as recomendações dele ao leitor, de todos os remetentes" |
-| CT-REC-13 | RF-REC-16, RNF-ERR-06 | `livro.adicionado_a_estante` entregue duas vezes | Sem efeito a mais | mensageria | `SO/recomendacao/service/RemocaoDeRecomendacoesIntegracaoTest.java` › "Reentrega do mesmo fato não tem efeito adicional" |
+| CT-REC-13 | RF-REC-16, RN-22.10 (efeito idempotente) | `livro.adicionado_a_estante` entregue duas vezes direto ao consumidor | A segunda entrega direta ao consumidor não muda nada; não passa pelo recibo de `eventId` | mensageria | `SO/recomendacao/service/RemocaoDeRecomendacoesIntegracaoTest.java` › "Reentrega do mesmo fato não tem efeito adicional" |
 | CT-REC-14 | RF-REC-16, RNF-ERR-07 | Ligações da fila de recomendações | Ligada a `livro.adicionado_a_estante` do `leitura`, com DLQ | mensageria | `SO/recomendacao/service/ConsumidorDeLivroNaEstanteBrokerTest.java` › "a fila de recomendacoes recebe livro.adicionado_a_estante de leitura, com DLQ" |
 | CT-REC-15 | RF-REC-16, RNF-ERR-07, RNF-SEC-32 | Evento sem `livroId` | Recusado pelo schema, vai para a DLQ e não é processado | mensageria | `SO/recomendacao/service/ConsumidorDeLivroNaEstanteBrokerTest.java` › "evento sem livroId e rejeitado pelo schema e vai para a DLQ sem processar" |
 | CT-REC-16 | RN-22.9 | Rotina diária de limpeza | Apaga as vencidas e as de livro que já está na estante; mantém as ativas | integração | `SO/recomendacao/service/RemocaoDeRecomendacoesIntegracaoTest.java` › "Rotina diária apaga vencidas e as de livro já na estante, e mantém as ativas" |
@@ -194,7 +196,8 @@ Outros testes que valem como caso alternativo, sem ID: "Rotina apaga em lotes at
 | 5 | Timeout explícito com API simulada | RNF-TST-06; o DoD marca como coberto | Procurei `timeout`, `TimeoutException` e "tempo limite" nos specs de recomendação da web e do mobile. Só há `TypeError('offline')` e 503 |
 | 6 | Web: entrada `Recomendar a um leitor` (menu `Mais ações` e botão) abrindo o `DialogoRecomendar` | RF-REC-01 na web | `LivroOficialView.spec.ts` só confere a posição do botão, num teste da F-ACV-NOTA. No mobile, a entrada é testada (CT-REC-22 e "o item do menu Mais ações também abre a tela de recomendar") |
 | 7 | "A aba funciona sem a algorítmica" provado de forma explícita | RF-REC-14 | Só de forma implícita: a algorítmica ainda não existe, e os testes da seção mostram só a P2P. Não há teste que simule a algorítmica indisponível |
-| 8 | Mensagem de cold start nas recebidas | RNF-ERR-09 | Não implementado nas recebidas (divergência registrada no arquivo de feature), então não há teste |
+| 8 | Mensagem de cold start nas recebidas: não implementado (divergência registrada no arquivo da feature) | RNF-ERR-09 | Sem implementação nas recebidas, não há o que testar |
+| 9 | Reentrega de `livro.adicionado_a_estante` pelo `AmqpConsumerService` (recibo de `eventId`) | RNF-ERR-06; critério "consumidor idempotente" e item de DoD de duplicação | O CT-REC-13 chama `ConsumidorDeLivroNaEstante.handle` direto, e esse método não deduplica. O recibo (`social.mensagem_processada`) fica no `AmqpConsumerService`, que nenhum teste da feature exercita com evento repetido |
 
 ### 2.4 Divergências e coisas estranhas
 
@@ -202,7 +205,7 @@ Outros testes que valem como caso alternativo, sem ID: "Rotina apaga em lotes at
 - **RF-REC-02 na web:** o REQUISITOS §5.13 marca a coluna Web como ❌. A web não tem notificação de recomendação (`RECOMENDACAO_RECEBIDA` só aparece em `mobile/lib` e `mobile/test`), então a falta de teste web aqui é esperada.
 - **DoD × código:** o DoD marca "indisponibilidade/timeout com API simulada" como coberto, mas só achei testes de indisponibilidade (503 e falha de rede), nenhum de timeout. "CI verde" está desmarcado no DoD, mas a §9.7 mostra o `ci-back-social`, o `ci-front` e o `ci-mobile` verdes.
 - **Testes que provam menos do que o nome diz:**
-  - `SO/recomendacao/service/RemocaoDeRecomendacoesIntegracaoTest.java` › "Reentrega do mesmo fato não tem efeito adicional": chama `consumidor.handle` duas vezes direto, sem passar pela deduplicação por `eventId` do `AmqpConsumerService`. Como a primeira chamada já apaga tudo, a segunda não teria o que mudar de qualquer jeito. Prova que o `DELETE` é idempotente, não que a reentrega é descartada.
+  - `SO/recomendacao/service/RemocaoDeRecomendacoesIntegracaoTest.java` › "Reentrega do mesmo fato não tem efeito adicional": chama `consumidor.handle` duas vezes direto, sem passar pela deduplicação por `eventId` do `AmqpConsumerService`. Como a primeira chamada já apaga tudo, a segunda não teria o que mudar de qualquer jeito. Prova que o `DELETE` é idempotente, não que a reentrega é descartada. Por isso o CT-REC-13 não cita RNF-ERR-06 (item 9 de §2.3).
   - `MOB/features/recomendacoes/recomendacoes_recebidas_test.dart` › seção do Descobrir, menu da recomendação › "descartar tira a recomendação da seção sem avisar o remetente": é um teste de widget e não tem como provar que o remetente não é avisado. Quem prova é o CT-REC-08 (outbox vazia depois do descarte).
   - `SO/recomendacao/service/ConsumidorDeLivroNaEstanteBrokerTest.java`: o nome sugere broker, mas o `Channel` é mock (sem RabbitMQ real). É o mesmo padrão do CT-NOT-03 do Período 1.
 - **F-REC-ALG fora da conta:** `AC/test/integracao/livro-pessoal.int-spec.ts` › "livro pessoal fica fora do contrato de recomendação e do catálogo" (`v_livro_recomendacao_v1`) e a coluna `opt_out_recomendacao` nas massas do `social` são da algorítmica e não entraram na conta.
@@ -213,5 +216,5 @@ Outros testes que valem como caso alternativo, sem ID: "Rotina apaga em lotes at
 
 | Feature | Arquivos com testes da feature | Testes da feature | Casos previstos | Lacunas candidatas |
 |---|---|---|---|---|
-| F-LST | 19 (+4 só tangenciais) | 118 | 34 | 12 |
-| F-REC-P2P | 12 (+4 só tangenciais) | 60 | 26 | 8 |
+| F-LST | 19 (+4 só tangenciais) | 118 | 35 | 13 |
+| F-REC-P2P | 12 (+4 só tangenciais) | 60 | 26 | 9 |

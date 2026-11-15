@@ -1,5 +1,7 @@
 # Inventário de testes — grupo leitura-A (F-EST-2, F-SESSAO, F-AVA-2)
 
+> Revisado em 15/11/2026 (etapa 2): 8 correções aplicadas.
+
 Levantamento feito sobre o código no disco (idêntico à `origin/desenvolvimento`), em 14/11/2026. Nomes de teste copiados do código e conferidos com busca no arquivo. Contagem: cada `it`/`test`/`testWidgets`/`@Test`/`@ParameterizedTest` conta 1; `it.each` e laço `for` que gera testes contam 1. Nenhum `skip`, `todo`, `only`, `xit` ou `@Disabled` nos arquivos citados.
 
 Prefixos: `LE/` = `code/back/leitura/`, `WEB/` = `code/front/src/`, `MOB/` = `code/mobile/test/`, `SO/` = `code/back/social/src/test/java/br/com/leai/social/`, `AC/` = `code/back/acervo/`.
@@ -40,7 +42,7 @@ Commits de origem dos testes: `4f5ad9d` e `bc98d35` (backend, 16/10), `515a953` 
 | CT-ES2-04 | RF-EST-09, RN-04 | Favoritar livro fora da estante | Nenhuma linha em `estante` nem em `leitura`; `GET /estante/{id}` 404 | integração | `LE/test/integracao/favoritos.int-spec.ts` › favoritos e busca na estante (integração) › marcar e desmarcar › "favoritar fora da estante não cria vínculo nem leitura" |
 | CT-ES2-05 | RF-EST-09, RNF-SEC-02 | Listar favoritos dentro e fora da estante, buscar por `q` e consultar como outra pessoa | Os dois, `status` nulo para o de fora, busca sem diferenciar maiúsculas; lista vazia para a outra pessoa | integração | `LE/test/integracao/favoritos.int-spec.ts` › favoritos e busca na estante (integração) › GET /me/favoritos › "lista dentro e fora da estante, só do próprio leitor" |
 | CT-ES2-06 | RF-EST-09 | Estante com um favorito, um comum e um favorito fora da estante | `favorito` certo em cada item; `totalFavoritos` = 2 | integração | `LE/test/integracao/favoritos.int-spec.ts` › favoritos e busca na estante (integração) › estante › "marca o favorito no item e conta favoritos de dentro e de fora" |
-| CT-ES2-07 | RF-EST-09, RN-08 | Estante consultada pelo perfil | Sem `favorito` no item e sem `totalFavoritos` | integração | `LE/test/integracao/favoritos.int-spec.ts` › favoritos e busca na estante (integração) › estante › "a estante de outro perfil não revela favoritos" |
+| CT-ES2-07 | RF-EST-09, RNF-SEC-02 | A dona consulta a própria estante pela rota de perfil (`/perfis/{dona}/estante`) | Sem `favorito` no item e sem `totalFavoritos` | integração | `LE/test/integracao/favoritos.int-spec.ts` › favoritos e busca na estante (integração) › estante › "a estante de outro perfil não revela favoritos" |
 | CT-ES2-08 | RF-EST-13 | Buscar na estante por título, por autor, combinado com `status=LENDO`, e por `%` e `_` | Só os livros que casam; status restringe; `%` e `_` tratados como literais | integração | `LE/test/integracao/favoritos.int-spec.ts` › favoritos e busca na estante (integração) › estante › "busca por título ou autor, combinada com o status" |
 | CT-ES2-09 | RF-EST-10, RN-04 | Leitura e releitura finalizadas do mesmo livro no mesmo ano, mais uma releitura e uma leitura abandonadas | Só as duas finalizadas, da mais recente, releitura marcada, `anos` e `totais` certos | integração | `LE/test/integracao/historico.int-spec.ts` › histórico de leituras (integração) › "conta só leituras finalizadas, uma ocorrência por conclusão, da mais recente" |
 | CT-ES2-10 | RF-EST-10 | Conclusões em 2025 (iniciada em 2024) e 2026, filtrando `ano=2025` | Agrupado pelo ano da data de fim; filtro devolve uma; `anos` ignora o filtro | integração | `LE/test/integracao/historico.int-spec.ts` › histórico de leituras (integração) › "agrupa por ano da data de fim e filtra por ano" |
@@ -100,9 +102,8 @@ Sem caso web, porque a feature é fora do escopo web (§10.9), e sem caso de bac
 | ID | Requisito | Cenário | Resultado esperado | Nível | Teste automatizado |
 |---|---|---|---|---|---|
 | CT-SES-01 | RF-PRG-05, RN-16.1, RN-16.2, RN-16.10 | Iniciar em Quero ler, depois em Relendo e de novo com sessão ativa | Recusa, aceita, recusa; nenhuma chamada ao servidor | mobile | `MOB/features/sessao/sessao_test.dart` › SessaoController › "só inicia em Lendo ou Relendo e uma por aparelho" |
-| CT-SES-02 | RF-PRG-05, RN-16.1 | Ações oferecidas por status | `Iniciar sessão` só em Lendo e Relendo (mesmo teste de CT-EST-22) | mobile | `MOB/features/estante/estante_test.dart` › acoesDisponiveis (RN-04) › "cada status oferece só as transições válidas, destrutiva por último" |
 | CT-SES-03 | RF-PRG-06, RN-16.3, RN-16.4, RN-16.20 | Navegar para `/perfil` e `/descobrir` com sessão ativa, em pausa e pendente, e depois de descartar | Toda rota volta a `/sessao`, inclusive na pausa; pendente vai à confirmação; descartada volta à origem e libera a navegação | mobile | `MOB/features/sessao/sessao_test.dart` › modo de foco › "a sessão ativa leva toda rota à tela da sessão e a pendente à de confirmação" |
-| CT-SES-04 | RF-PRG-09, RF-PRG-10, RN-16.5, RN-16.9 | Reabrir o app 47 min 12 s depois | Sessão em andamento com o tempo derivado do relógio | mobile | `MOB/features/sessao/sessao_test.dart` › SessaoController › "o tempo vem do relógio e a sessão é recuperada ao reabrir o app" |
+| CT-SES-04 | RF-PRG-09, RF-PRG-10, RN-16.9 | Reabrir o app 47 min 12 s depois | Sessão em andamento com o tempo derivado do relógio | mobile | `MOB/features/sessao/sessao_test.dart` › SessaoController › "o tempo vem do relógio e a sessão é recuperada ao reabrir o app" |
 | CT-SES-05 | RF-PRG-10 | Formatar o cronômetro e a contagem da pausa | `0:47:12`, `11:59:59`, `6:38` | mobile | `MOB/features/sessao/sessao_test.dart` › regras › "cronômetro em h:mm:ss sem zero à esquerda na hora" |
 | CT-SES-06 | RF-PRG-07, RN-16.11 | Converter tempo medido em minutos | 29 s vira 1; 47:29 vira 47; 47:30 vira 48; 13 h vira 720 | mobile | `MOB/features/sessao/sessao_test.dart` › regras › "arredonda para o minuto mais próximo, com mínimo de 1 e teto de 12 horas" |
 | CT-SES-07 | RF-PRG-07, RN-16.7, RN-17.2 | Validar a página do encerramento | Igual à atual é válida; menor, acima do total ou ausente é recusada com a mensagem | mobile | `MOB/features/sessao/sessao_test.dart` › regras › "página igual à atual é válida; menor ou acima do total não" |
@@ -112,28 +113,31 @@ Sem caso web, porque a feature é fora do escopo web (§10.9), e sem caso de bac
 | CT-SES-11 | RF-PRG-07, RNF-ERR-05 | Encerrar sem rede | Registro na fila com página 131 e 47 minutos; só então a sessão some | mobile | `MOB/features/sessao/sessao_test.dart` › SessaoController › "sem rede o registro vai para a fila e só então a sessão some" |
 | CT-SES-12 | RNF-ERR-04 | Encerrar com 503 e repetir depois de reabrir o app | Sessão mantida com erro; a nova tentativa usa a mesma chave e o mesmo corpo (instante e fuso) | mobile | `MOB/features/sessao/sessao_test.dart` › SessaoController › "erro do servidor mantém a sessão e a nova tentativa reusa chave e instante" |
 | CT-SES-13 | RN-17.2 | Encerrar com 422 porque outro aparelho avançou | Página base vira 140, mensagem própria, sessão mantida | mobile | `MOB/features/sessao/sessao_test.dart` › SessaoController › "página recusada porque outro aparelho avançou atualiza a página base" |
-| CT-SES-14 | RN-16.2 (decisão de 22/10) | Token vencido sem renovação com sessão ativa | Sessão encerrada sem registro e aviso de expiração para a tela de entrada | mobile | `MOB/features/sessao/sessao_test.dart` › conta dona da sessão › "token vencido sem renovação encerra a sessão e deixa o aviso para a entrada" |
+| CT-SES-14 | RN-16.2 (decisão de 22/10) | Token vencido sem renovação com sessão ativa | Sessão e armazenamento apagados; aviso de expiração guardado para a tela de entrada | mobile | `MOB/features/sessao/sessao_test.dart` › conta dona da sessão › "token vencido sem renovação encerra a sessão e deixa o aviso para a entrada" |
 | CT-SES-15 | RN-16.2 | Renovar o token da mesma conta | Sessão mantida | mobile | `MOB/features/sessao/sessao_test.dart` › conta dona da sessão › "renovar o token da mesma conta mantém a sessão" |
 | CT-SES-16 | RN-16.2 | Abrir o app sem conta logada e com sessão guardada | Sessão descartada | mobile | `MOB/features/sessao/sessao_test.dart` › conta dona da sessão › "abrir o app sem conta logada descarta a sessão guardada de antes" |
-| CT-SES-17 | RN-16.2 | Saída da conta com sessão ativa (caminho defensivo) | Sessão e armazenamento apagados, sem aviso nem marca de leitura descartada | mobile | `MOB/features/sessao/sessao_test.dart` › conta dona da sessão › "sair da conta encerra a sessão em andamento e apaga o que foi guardado" |
-| CT-SES-18 | RN-16.2 | Logout voluntário revogando o refresh (adicionado por F-MOD-OPC) | Refresh revogado, sessão apagada, sem marca de leitura descartada | mobile | `MOB/features/sessao/sessao_test.dart` › conta dona da sessão › "logout voluntário com sessão de leitura ativa não marca leitura descartada" |
+| CT-SES-17 | Decisão de 22/10, caminho defensivo (proteção de dados) | Saída da conta com sessão ativa (caminho defensivo) | Sessão e armazenamento apagados, sem aviso nem marca de leitura descartada | mobile | `MOB/features/sessao/sessao_test.dart` › conta dona da sessão › "sair da conta encerra a sessão em andamento e apaga o que foi guardado" |
+| CT-SES-18 | Decisão de 22/10, caminho defensivo (proteção de dados) | Logout voluntário revogando o refresh (adicionado por F-MOD-OPC) | Refresh revogado, sessão apagada, sem marca de leitura descartada | mobile | `MOB/features/sessao/sessao_test.dart` › conta dona da sessão › "logout voluntário com sessão de leitura ativa não marca leitura descartada" |
 | CT-SES-19 | RF-PRG-08, RN-16.8, RNF-USA-04 | Cancelar uma sessão em andamento | Pede confirmação, descarta o tempo, não faz POST | mobile | — (sem teste; ver 2.3) |
+
+**Outros testes da feature:** `MOB/features/estante/estante_test.dart` › acoesDisponiveis (RN-04) › "cada status oferece só as transições válidas, destrutiva por último" (CT-SES-02, cortado na revisão: mesmo teste do CT-EST-22; RF-PRG-05 e RN-16.1 ficam no CT-SES-01).
 
 ### 2.3 Sem teste aparente (candidatos a lacuna) — dono: Ana Luiza de Freitas
 
-1. **Cancelar (RF-PRG-08, RN-16.8, RNF-USA-04):** nenhum teste cancela uma sessão em andamento. `descartar()` só aparece no teste do modo de foco, sobre a sessão pendente, e ali não se confere a ausência de POST. Também não há teste do diálogo de confirmação. Busquei `cancelar`, `descartar` e `confirmar` em `MOB/features/sessao/`.
+1. **Cancelar (RF-PRG-08, RN-16.8, RNF-USA-04):** nenhum teste cancela uma sessão em andamento. `descartar()` só aparece no teste do modo de foco, sobre a sessão pendente, e ali não se confere a ausência de POST. Também não há teste do diálogo de confirmação. Busquei `cancelar`, `descartar` e `confirmar` em `MOB/features/sessao/`. **O RF-PRG-08 fica sem caso nenhum** (CT-SES-19 é só a linha "sem teste").
 2. **Telas da sessão sem teste de widget:** `/sessao` e `/sessao/pendente` não têm `testWidgets`. Ficam sem cobertura o cronômetro na tela (RF-PRG-10 só por `formatarCronometro`), o botão voltar do sistema bloqueado (RN-16.4), as opções de pausa na tela e o "zero motion".
 3. **Durações de pausa 10 e 15 min:** só a pausa de 5 min é exercida. Nada confere que só 5, 10 e 15 são aceitos (RF-PRG-11).
-4. **Reabrir com sessão ativa leva direto a `/sessao` (RN-16.5):** coberto pela função `guardaDaSessao`. No `router_test.dart` não há teste da guarda de sessão no roteador real; lá a sessão de leitura só aparece no caso de F-MOD-OPC.
+4. **Reabrir com sessão ativa leva direto a `/sessao` (RN-16.5):** só parcial, pela função `guardaDaSessao` (CT-SES-03); o CT-SES-04 não confere a tela. No `router_test.dart` não há teste da guarda de sessão no roteador real; lá a sessão de leitura só aparece no caso de F-MOD-OPC.
 5. **Encerrar sessão pendente (pausa esgotada) informando a página:** nenhum teste encerra com página a partir de `pausaEsgotada`. Também não há teste de descartar a sessão expirada (RN-16.11 e RN-16.19 dizem "informar a página ou descartar").
 6. **Aviso de expiração na tela de entrada:** o critério da decisão de 22/10 pede que "a tela de entrada informe o motivo". `login_page_test.dart` só testa o banner de suspensão (F-MOD-OPC). Para a expiração, o teste é só no controlador (`consumirAvisoDeSaida`).
 7. **Metadados `registradoEmDispositivo`/`fusoHorarioDispositivo`:** nenhum teste confere que vão no corpo nem seus valores. O CT-SES-12 prova só que o corpo da nova tentativa é idêntico ao da primeira.
 8. **Fluxo em DES:** critério e DoD desmarcados. É verificação manual.
+9. **Token vencido sem registro de progresso (decisão de 22/10):** o CT-SES-14 não confere que nenhum POST foi feito (`cenario.envios` vazio). O "sem registro" é só implícito.
 
 ### 2.4 Divergências e observações
 
 - A tabela recebida ("SÓ MOBILE; leitura sem endpoint novo") confere com o arquivo da feature.
-- **Critério desmarcado com teste:** "Token vencido sem renovação encerra a sessão sem registro de progresso, e a tela de entrada informa o motivo" está `[ ]`. O comportamento está implementado (decisão de 22/10) e tem teste no controlador (CT-SES-14). Falta só a parte da tela (lacuna 6).
+- **Critério desmarcado com teste:** "Token vencido sem renovação encerra a sessão sem registro de progresso, e a tela de entrada informa o motivo" está `[ ]`. O comportamento está implementado (decisão de 22/10) e tem teste no controlador (CT-SES-14), que não confere o "sem registro" (lacuna 9). Falta também a parte da tela (lacuna 6).
 - **DoD desmarcado:** "Arquivo da feature atualizado" e "Divergência protótipo × implementação registrada" estão `[ ]`, mas o arquivo já tem Timeline de 25/10 e divergências registradas.
 - **Teste que contradiz a regra no nome:** "sair da conta encerra a sessão em andamento e apaga o que foi guardado". A decisão de 22/10 e a RN-16.2 dizem que sair com sessão ativa "não é possível", porque o modo de foco bloqueia as Configurações. O teste chama `SessionController.sair()` direto, num caminho defensivo que a interface não alcança. Não prova a regra de produto, só que a sessão não sobrevive a uma saída.
 - O DoD aponta só `sessao_test.dart`, mas F-SESSAO também ajustou `estante_test.dart` (`iniciarSessao`).
@@ -155,7 +159,7 @@ Commits de origem: `ca9da42` (reações), `93aa6a9` (frases) e `11020b1` (Markdo
 | `LE/test/integracao/frase.int-spec.ts` | 15 | 14 (1 é de F-MOD) | RF-AVA-06/07, RN-11 (página, 500 code points, 10 por livro, concorrência), RN-08, RN-15 (pessoal só do dono), RNF-DES-02, RNF-ERR-04, RNF-SEC-02 |
 | `LE/src/reacoes/regras.spec.ts` | 6 | 6 | `mudancaAoReagir`: quando gravar e quando notificar |
 | `LE/src/frases/regras.spec.ts` | 3 | 3 | RN-11: code points, só espaços ou invisíveis, faixa da página |
-| `LE/test/integracao/perfis.int-spec.ts`, `LE/test/integracao/resenha.int-spec.ts` | — | 0 novos | só ajustes de contrato (`curtidas`, `descurtidas`, `minhaReacao`) |
+| `LE/test/integracao/perfis.int-spec.ts`, `LE/test/integracao/resenha.int-spec.ts` | — | 0 novos | só ajustes de contrato (`curtidas`, `descurtidas`, `minhaReacao`). O CT-AV2-61 cita um teste da F-AVA (`9b8f477`) em `resenha.int-spec.ts` |
 | `AC/test/integracao/livro-oficial.int-spec.ts` | 17 | 1 | RF-AVA-08 e `minhaReacao` na página do livro oficial |
 | `AC/test/integracao/livro-pessoal.int-spec.ts` | 32 | 1 | RF-AVA-08 e RN-15.4: resenha do dono com contagens para quem chegou pela via |
 | `SO/notificacao/service/ConsumidorDeNotificacaoIntegracaoTest.java` | 7 | 2 (+1 parametrizado por `EventoDeNotificacao`, que inclui `RESENHA_CURTIDA`) | Consumo, idempotência semântica, livro pessoal |
@@ -251,6 +255,7 @@ São mais casos que o típico porque a feature junta cinco RFs, três serviços 
 | CT-AV2-58 | RF-AVA-09 (decisão 3) | Web: prévia da resenha no feed | Sem a marcação, cada bloco numa linha | web | `WEB/components/feed/ItemAtividade.spec.ts` › ItemAtividade › "a prévia da resenha sai sem a marcação do Markdown (F-AVA-2)" |
 | CT-AV2-59 | RF-AVA-05 (notificação) | Mobile: notificação `RESENHA_CURTIDA` | Ícone ThumbsUp; abre o livro da resenha | mobile | `MOB/features/notificacoes/notificacoes_page_test.dart` › "curtida em resenha aparece com o ThumbsUp e leva ao livro da resenha" |
 | CT-AV2-60 | RF-AVA-05, RN-15 (decisão 8) | Mobile: rota da notificação de curtida | Livro oficial ou pessoal, conforme `livro.tipo` | mobile | `MOB/features/notificacoes/rotas_notificacoes_test.dart` › "curtida em resenha leva a pagina do livro da resenha, oficial ou pessoal" |
+| CT-AV2-61 | RN-13 (nenhum HTML no servidor), RF-AVA-09 | Salvar resenha com `<b>` e `<script>` no texto | Resposta e linha em `leitura.resenha` com o texto idêntico, cru | integração | `LE/test/integracao/resenha.int-spec.ts` › criação › "o texto é guardado cru, com HTML e tudo" |
 
 ### 3.3 Sem teste aparente (candidatos a lacuna) — dono: Renato Douglas
 
@@ -258,10 +263,10 @@ São mais casos que o típico porque a feature junta cinco RFs, três serviços 
 2. **Excluir a resenha limpa as reações** (decisão do grupo de 15/09): a exclusão pelo autor (`resenha.int-spec.ts` › exclusão) não confere `reacao_resenha`. Só a remoção pela moderação confere (`LE/test/integracao/moderacao.int-spec.ts` › "remove a resenha de qualquer autor, leva as reações e publica resenha.excluida", que é de F-MOD).
 3. **Trecho de frase como texto (RNF-SEC-14):** nenhum teste web ou mobile mostra que HTML numa frase aparece literal. Procurei `<script`, `<b>` e `escap` nos specs de frases.
 4. **Página do livro pessoal repassa `via` e `referenciaId` da rota:** na web isso só aparece no composable (`useReacao` › "leva a via de RN-15 e retira pelo DELETE") e no componente. `LivroPessoalView.spec.ts` só ganhou fixtures (`curtidas`/`descurtidas`/`minhaReacao`), sem teste de reação vindo da rota.
-5. **Nenhum HTML gerado ou persistido no servidor (RN-13):** não há teste de backend dizendo que a resenha com marcação é guardada e devolvida crua. É implícito, porque o backend não mudou.
+5. *(Retirado na revisão: a RN-13 no servidor está coberta pelo CT-AV2-61.)*
 6. **Serviços web (RNF-TST-05):** `WEB/services/*.spec.ts` não têm casos para `reagir`, `retirarReacao`, `listarFrases`, `cadastrarFrase` e `excluirFrase`. Só há mocks.
 7. **Timeout no mobile para frases:** `frases_test.dart` simula só 503. A web cobre 503 e timeout em `SecaoFrases`.
-8. **"Mesmo se a primeira foi suprimida por preferência":** o `social` ainda não lê preferência (fica para F-NOT-OPC, segundo o arquivo). A garantia vem do produtor (`primeira_curtida_em`, CT-AV2-03) e do `UNIQUE` do consumidor (CT-AV2-24). Não há teste com a preferência desligada.
+8. **"Mesmo se a primeira foi suprimida por preferência":** sem teste com a preferência desligada; o `social` ainda não lê a preferência (depende da F-NOT-OPC). A garantia vem do produtor (`primeira_curtida_em`, CT-AV2-03) e do `UNIQUE` do consumidor (CT-AV2-24).
 
 ### 3.4 Divergências e observações
 

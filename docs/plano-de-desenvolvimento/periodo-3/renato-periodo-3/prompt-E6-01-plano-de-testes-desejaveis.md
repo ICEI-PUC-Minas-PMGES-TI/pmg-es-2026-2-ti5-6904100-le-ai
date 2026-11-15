@@ -7,7 +7,7 @@
 | Etapa | Situação | Saída |
 |---|---|---|
 | 1. Planejar | concluída em 14/11/2026: escopo com as opcionais mergeadas, 425 casos candidatos (alvo ≈ 350 + ≈ 86 das opcionais), lacunas L-13 a L-44 | [`plano-E6-01-plano-de-testes-desejaveis.md`](plano-E6-01-plano-de-testes-desejaveis.md) nesta pasta, com os inventários em [`plano-E6-01-anexos/`](plano-E6-01-anexos/) |
-| 2. Revisar o plano | não iniciada | plano corrigido |
+| 2. Revisar o plano | concluída em 15/11/2026: 55 achados, todos corrigidos (veredito: aprovado com correções); 428 casos candidatos nas desejáveis (alvo ≈ 346) e 95 nas opcionais (alvo ≈ 85); RF-PRG-08 sem caso (L-24) | plano e anexos corrigidos, registro em §10 do plano |
 | 3. Realizar e validar | não iniciada | `docs/9.plano_de_testes.md` com as desejáveis |
 | 4. Revisão independente e PR | não iniciada | PR para a `desenvolvimento` |
 

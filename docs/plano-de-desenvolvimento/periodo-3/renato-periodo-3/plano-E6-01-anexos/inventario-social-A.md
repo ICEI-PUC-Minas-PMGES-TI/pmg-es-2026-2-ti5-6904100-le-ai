@@ -1,5 +1,7 @@
 # Inventário de testes: grupo social-A (F-SOCIAL-2, F-MOD, F-NOT-2)
 
+> Revisado em 15/11/2026 (etapa 2): 8 correções aplicadas.
+
 Levantamento sobre o código da `desenvolvimento` (cópia no disco), em 14/11/2026. Somente leitura. Nomes copiados do código e conferidos com Grep no arquivo.
 
 Prefixos: `SO/` = `code/back/social/src/test/java/br/com/leai/social/`, `LE/` = `code/back/leitura/`, `WEB/` = `code/front/src/`, `MOB/` = `code/mobile/test/`.
@@ -29,6 +31,8 @@ Ficam de fora porque são da F-MOD-OPC, embora mexam na edição com menção: `
 
 ### 1.2 Casos previstos
 
+São 21 casos, com 7 web e 6 mobile, acima do limite de 4 + 4 do §3. Corte sugerido (regra 2, o par web/mobile que prova o mesmo): CT-SOC-12, 13 e 14 (ficam os mobile 17, 18 e 19), CT-SOC-20 (fica o web 15) e CT-SOC-16 (a menção resolvida fica no web 09 e no backend 04; o nome do teste está desatualizado, §1.4). Sem eles, ficam 16: 4 web (09, 10, 11, 15) e 4 mobile (17, 18, 19, 21).
+
 | ID | Requisito | Cenário | Resultado esperado | Nível | Teste automatizado |
 |---|---|---|---|---|---|
 | CT-SOC-01 | RF-SOC-13, RNF-SEC-02 | Editar e excluir o comentário de outra pessoa | 403 `ACESSO_NEGADO`, texto intacto | integração | `SO/integracao/InteracaoControllerIntegracaoTest.java` › "Editar e excluir comentário de outra pessoa responde 403 e não muda nada" |
@@ -41,7 +45,7 @@ Ficam de fora porque são da F-MOD-OPC, embora mexam na edição com menção: `
 | CT-SOC-08 | RN-10.2, RF-NOT-01 | Consumo de `usuario.mencionado` | Uma notificação `usuario_mencionado` para o destinatário (invocação `USUARIO_MENCIONADO`; mesmo teste do CT-NOT-01) | mensageria | `SO/notificacao/service/ConsumidorDeNotificacaoIntegracaoTest.java` › "cada evento gera uma notificacao do tipo certo para o destinatario do evento" |
 | CT-SOC-09 | RF-SOC-15, RN-10.1 | Web: comentário com menção resolvida e outra inexistente | Só a resolvida vira link para `perfil-de-outro`; o resto continua texto | web | `WEB/components/feed/ModalComentarios.spec.ts` › ModalComentarios › comentário próprio (F-SOCIAL-2) › "menção resolvida vira link para o perfil; username inexistente continua texto" |
 | CT-SOC-10 | RNF-SEC-14 | Web: comentário com HTML | Exibido como texto, sem montar elemento | web | `WEB/components/feed/ModalComentarios.spec.ts` › ModalComentarios › comentário próprio (F-SOCIAL-2) › "texto com HTML é exibido como texto, nunca interpretado" |
-| CT-SOC-11 | RF-SOC-13, RNF-SEC-02 | Web: comentário de outra pessoa | Sem o menu de editar e excluir | web | `WEB/components/feed/ModalComentarios.spec.ts` › ModalComentarios › comentário próprio (F-SOCIAL-2) › "comentário de outra pessoa não oferece editar nem excluir" |
+| CT-SOC-11 | RF-SOC-13, RNF-SEC-02 | Web: abrir o menu do comentário de outra pessoa | O menu só tem `Denunciar comentário`, sem Editar e Excluir | web | `WEB/components/feed/ModalComentarios.spec.ts` › ModalComentarios › comentário próprio (F-SOCIAL-2) › "comentário de outra pessoa só oferece Denunciar comentário, que abre a denúncia por cima (F-MOD)" |
 | CT-SOC-12 | RF-SOC-13 | Web: editar o próprio comentário | Texto vai ao campo; a lista só muda depois do servidor; marca `· editado` | web | `WEB/components/feed/ModalComentarios.spec.ts` › ModalComentarios › comentário próprio (F-SOCIAL-2) › "editar leva o texto ao campo, só troca a lista depois do servidor e marca editado" |
 | CT-SOC-13 | RN-10.3 | Web: 429 de menções ao salvar a edição | Alerta próprio e texto preservado no campo | web | `WEB/components/feed/ModalComentarios.spec.ts` › ModalComentarios › comentário próprio (F-SOCIAL-2) › "limite de menções ao salvar mostra o alerta e preserva o texto no campo" |
 | CT-SOC-14 | RF-SOC-13, RN-10.5, RNF-USA-04 | Web: excluir a raiz que tem resposta | A confirmação cita quem respondeu; somem as duas; emite a contagem 2 | web | `WEB/components/feed/ModalComentarios.spec.ts` › ModalComentarios › comentário próprio (F-SOCIAL-2) › "excluir raiz com resposta confirma citando quem respondeu, remove as duas e informa a contagem" |
@@ -51,7 +55,9 @@ Ficam de fora porque são da F-MOD-OPC, embora mexam na edição com menção: `
 | CT-SOC-18 | RN-10.3 | Mobile: 429 de menções ao salvar | Alerta próprio e texto preservado | mobile | `MOB/features/feed/folha_comentarios_test.dart` › comentário próprio (F-SOCIAL-2) › "limite de menções mostra o alerta e preserva o texto" |
 | CT-SOC-19 | RF-SOC-13, RN-10.5, RNF-USA-04 | Mobile: excluir a raiz que tem resposta | Confirmação com a contagem; `DELETE`; somem as duas | mobile | `MOB/features/feed/folha_comentarios_test.dart` › comentário próprio (F-SOCIAL-2) › "excluir raiz com resposta confirma, remove as duas e avisa a contagem" |
 | CT-SOC-20 | RF-SOC-13, RNF-TST-06 | Mobile: 503 ao excluir | O comentário fica, com a explicação | mobile | `MOB/features/feed/folha_comentarios_test.dart` › comentário próprio (F-SOCIAL-2) › "falha ao excluir mantém o comentário e explica" |
-| CT-SOC-21 | RF-SOC-15, RF-NOT-01 | Mobile: notificação de menção | Mostra a frase do servidor e leva ao feed | mobile | `MOB/features/notificacoes/notificacoes_page_test.dart` › "mencao aparece com a frase do servidor e leva ao feed" |
+| CT-SOC-21 | RN-10.2, RF-NOT-01 | Mobile: notificação de menção | Mostra a frase do servidor e leva ao feed | mobile | `MOB/features/notificacoes/notificacoes_page_test.dart` › "mencao aparece com a frase do servidor e leva ao feed" |
+
+Outros testes da feature: `ModalComentarios.spec.ts` › "comentário de outra pessoa não oferece editar nem excluir" (trocado no CT-SOC-11: só confere que falta o botão `Ações do seu comentário`, sem abrir o menu `Ações do comentário`).
 
 ### 1.3 Lacunas candidatas (dono: Kayke)
 
@@ -64,7 +70,7 @@ Ficam de fora porque são da F-MOD-OPC, embora mexam na edição com menção: `
 | 5 | RNF-SEC-13 no PATCH: texto vazio ou acima de 2000 caracteres | "2000" em `InteracaoControllerIntegracaoTest` e `ServicoDeFeedValidacaoTest` | Sem teste da edição |
 | 6 | Idempotência do PATCH com a mesma `Idempotency-Key` | `InteracaoControllerIntegracaoTest` | Só o DELETE tem replay; cada PATCH usa uma chave nova |
 | 7 | Regras do `ResolvedorDeMencoes`: ponto final e e-mail não viram menção (decisão de 03/10) e RNF-TST-01 (teste unitário) | Teste para `ResolvedorDeMencoes` em `SO/feed/` | Não existe teste unitário; a resolução só é exercida pela integração |
-| 8 | RNF-TST-06 nos clientes: timeout ao editar e excluir | `ModalComentarios.spec.ts` e `folha_comentarios_test.dart` | Só o 503 na exclusão; a edição não tem caso de indisponibilidade nem de timeout. Pendência já registrada no arquivo da feature |
+| 8 | RNF-TST-06 nos clientes: indisponibilidade e timeout ao editar e excluir | "503" e "timeout" em `ModalComentarios.spec.ts` e `folha_comentarios_test.dart` | Edição sem 503 nem timeout; exclusão sem timeout, na web e no mobile. O único 503 é o da exclusão (CT-SOC-15 e 20). Pendência já registrada no arquivo da feature |
 | 9 | "Duas ocorrências do mesmo `@username` renderizadas nas posições corretas" nos clientes | Mesmos specs | O backend prova as posições (CT-SOC-04), mas os clientes testam uma menção só |
 | 10 | Rotas novas `PATCH`/`DELETE /comentarios/{id}` sem token | `InteracaoControllerIntegracaoTest` | Coberto só pelo caso genérico CT-TRV-05 |
 | 11 | "Edição/exclusão e menção-link funcionam em DES" | Arquivo da feature | Critério desmarcado; não é teste automatizado |
@@ -82,7 +88,7 @@ Ficam de fora porque são da F-MOD-OPC, embora mexam na edição com menção: `
 
 ## 2. F-MOD: moderação (CT-MOD)
 
-Dono: **Renato Douglas**. Serviços conforme o arquivo da feature: `social` + **`leitura`** (remoção de resenha e frase) + web + mobile (só a denúncia; o painel é só web). RF-MOD-01, 02, 03 e 05; RN-11, RN-15, RN-23.7.
+Dono: **Renato Douglas**. Serviços conforme o arquivo da feature: `social` + **`leitura`** (remoção de resenha e frase) + web + mobile (só a denúncia; o painel é só web). RF-MOD-01, 02, 03 e 05; RN-11, RN-15.4, RN-23.7.
 
 ### 2.1 Arquivos de teste
 
@@ -123,7 +129,7 @@ Ficam de fora porque são da F-MOD-OPC: `SO/integracao/SuspensaoDeContaIntegraca
 
 ### 2.2 Casos previstos
 
-São 34 casos, acima da faixa típica, porque a feature tem 4 RFs, a RN-11 e a remoção entre serviços. Para enxugar, os primeiros a cortar são CT-MOD-07, 08, 18 e 22; sem eles, ficam 30.
+São 34 casos, acima da faixa típica, porque a feature tem 4 RFs, a RN-11 e a remoção entre serviços. Há 6 casos web (26 a 31), acima do limite de 4 do §3. Corte sugerido: CT-MOD-26 e 28, que mostram a apresentação (a regra fica no CT-MOD-01 e no 11). Sem eles, ficam 32, acima do alvo ≤ 30; o resto é o único caso de uma regra, de autorização (CT-MOD-22 é o único 401 do comando interno) ou de mensageria, e fica.
 
 | ID | Requisito | Cenário | Resultado esperado | Nível | Teste automatizado |
 |---|---|---|---|---|---|
@@ -148,7 +154,7 @@ São 34 casos, acima da faixa típica, porque a feature tem 4 RFs, a RN-11 e a r
 | CT-MOD-19 | RN-11, RF-MOD-05 | Remover frase sem denúncia | 204 (o replay também); uma chamada ao `leitura` com a chave fixa; log de frase sem `denuncia_id` | integração | `SO/integracao/ModeracaoIntegracaoTest.java` › "Remover frase sem denúncia: leitura com a chave fixa, 204 e um log de frase" |
 | CT-MOD-20 | RF-MOD-05, RNF-SEC-36, RNF-SEC-37 | Consultar o registro de auditoria | Da mais recente para a mais antiga, por cursor, sem motivo nem texto do conteúdo | integração | `SO/integracao/ModeracaoIntegracaoTest.java` › "Registro da mais recente para a mais antiga, sem motivo nem texto, e com cursor" |
 | CT-MOD-21 | RN-23.7 | `conta.excluida` da autora de conteúdo que a moderação já removeu | Denúncias saem e o log é anonimizado, achados pelo autor gravado | mensageria | `SO/conta/service/ConsumidorDeContaExcluidaIntegracaoTest.java` › "conteúdo que a moderação já apagou é achado pelo autor gravado (F-MOD, RN-23.7)" |
-| CT-MOD-22 | RNF-SEC-04 | Comando interno do `leitura` sem o token, ou com o token errado | 401, sem efeito nem evento | integração | `LE/test/integracao/moderacao.int-spec.ts` › remoção pela moderação, comando interno (F-MOD, integração) › "sem o token ou com o token errado é 401, e nada sai" |
+| CT-MOD-22 | RNF-SEC-04 | Comando interno do `leitura` sem o token, ou com o token errado | 401, e a resenha continua | integração | `LE/test/integracao/moderacao.int-spec.ts` › remoção pela moderação, comando interno (F-MOD, integração) › "sem o token ou com o token errado é 401, e nada sai" |
 | CT-MOD-23 | RF-MOD-03 | `leitura` remove a resenha pela moderação | Remove a resenha de qualquer autor com as reações e publica `resenha.excluida` (a atividade sai pelo consumidor do feed, CT-FEE-09) | integração | `LE/test/integracao/moderacao.int-spec.ts` › remoção pela moderação, comando interno (F-MOD, integração) › "remove a resenha de qualquer autor, leva as reações e publica resenha.excluida" |
 | CT-MOD-24 | RF-MOD-03, RNF-ERR-04 | Mesma chave reenviada depois de um timeout | Repete `removida: true`, sem outro evento | integração | `LE/test/integracao/moderacao.int-spec.ts` › remoção pela moderação, comando interno (F-MOD, integração) › "a mesma chave depois de um timeout repete removida: true, sem outro evento" |
 | CT-MOD-25 | RNF-SEC-36 | Cabeçalhos logados no `leitura` | O token da moderação e o bearer saem redigidos | unitário | `LE/src/common/redacao-do-log.spec.ts` › redação do log (RNF-SEC-36) › "tira o token da moderação, o do agendador e o bearer dos cabeçalhos logados" |
@@ -176,6 +182,7 @@ Outros nomes úteis para trocar ou acrescentar: `SO/integracao/DenunciaIntegraca
 | 6 | RNF-TST-01: teste unitário das regras de acesso da denúncia (RN-08/RN-15.4) | `SO/moderacao/service/` | Há só `ServicoDeDenunciaTest` (motivo); as regras de acesso são testadas só por integração, como a L-01 do plano |
 | 7 | Débito: notificações `RESENHA_CURTIDA` continuam depois da remoção da resenha | — | Registrado como débito, não como critério; sem teste |
 | 8 | "Denúncia e moderação funcionam em DES" | Arquivo da feature | Validado manualmente em 05/11/2026; não é automatizado |
+| 9 | Rotas novas sem token: `POST /denuncias`, `POST /admin/denuncias/{id}/remover`, `DELETE /admin/frases/{id}` e `GET /admin/moderacao/logs` | "401" em `ModeracaoIntegracaoTest` e `DenunciaIntegracaoTest` | Só `GET /admin/denuncias` sem token tem 401 (CT-MOD-10). As outras ficam com o caso genérico, que cobre o filtro, não a rota. O `/arquivar` também não tem 401 próprio |
 
 ### 2.4 Divergências e estranhezas
 
@@ -237,7 +244,7 @@ Teste restante da feature, sem caso próprio: `canal_de_notificacoes_test.dart` 
 | 4 | Fan-out a várias conexões do mesmo destinatário | `NotificacaoControllerIntegracaoTest` | Cada teste abre um canal só |
 | 5 | App: o canal conecta com o shell montado e o app em primeiro plano, e desconecta em `paused` (`ShellAutenticado.didChangeAppLifecycleState`) | "AppLifecycleState", "ShellAutenticado" e "conectar(" em `MOB/` | Nenhum teste do ciclo de vida do shell; o `CanalDeNotificacoes` só é testado isolado e na página de notificações |
 | 6 | Token fora do log do servidor | `SO/` | O mobile prova a URL sem query (CT-NT2-05); nada prova a ausência no log do `social` |
-| 7 | Fallback à lista paginada enquanto desconectado | `notificacoes_page_test.dart` | Coberto só indiretamente: a página sempre lê por REST, e CT-NT2-19 prova a sincronização. Não há caso explícito de "desconectado → lista" |
+| 7 | Fallback explícito à lista paginada enquanto desconectado (critério 4) | `notificacoes_page_test.dart` | Sem caso explícito. Durante a queda, o CT-NT2-19 só confere que não aparece `BannerAviso`, não que a lista continua na tela; a página sempre lê por REST, então o fallback é só implícito |
 | 8 | "A entrega em tempo real funciona no app em DES" e o item próprio (SSE no Render free com hibernação) | Arquivo da feature | Desmarcados, sem validação registrada; não é automatizável |
 
 ### 3.4 Divergências e estranhezas

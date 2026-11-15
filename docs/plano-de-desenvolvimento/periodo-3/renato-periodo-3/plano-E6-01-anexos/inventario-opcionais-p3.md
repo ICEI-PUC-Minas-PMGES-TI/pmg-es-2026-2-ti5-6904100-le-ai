@@ -1,5 +1,7 @@
 # Inventário de testes — opcionais do Período 3 (F-MOD-OPC, F-ACV-OPC, F-STA-OPC, F-DSF-OPC)
 
+> Revisado em 15/11/2026 (etapa 2): 6 correções aplicadas.
+
 Levantado em 14/11/2026, somente leitura, sobre o disco (igual à `origin/desenvolvimento`, `7d988ac`). F-DSF-OPC lida de `origin/vicenzo-features` (`90bdd24`) por `git show`.
 
 Convenções:
@@ -85,10 +87,10 @@ Convenções:
 | CT-MDO-18 | RF-MOD-04, RN-08 | Reativar a conta | Login, renovação e VIEWs voltam, com a privacidade e os seguidores de antes | integração | `ID/integracao/SuspensaoDeContaIntegracaoTest.java` › "reativar devolve login, renovação e as VIEWs, com privacidade e seguidores de antes" |
 | CT-MDO-19 | RF-MOD-04 | Contadores do perfil com seguidor suspenso | Não contam a conta suspensa e voltam a contar na reativação | integração | `ID/integracao/SuspensaoDeContaIntegracaoTest.java` › "contadores do perfil não contam conta suspensa e voltam a contar na reativação" |
 | CT-MDO-20 | RF-MOD-04, RNF-ARQ-05 | Login durante a transação de suspensão | Espera o commit e recebe 403, sem sessão viva | integração | `ID/integracao/SuspensaoDeContaIntegracaoTest.java` › "login no meio da suspensão espera ela commitar e recebe 403, sem sessão viva" |
-| CT-MDO-21 | RF-MOD-04 | Comentário raiz de conta suspensa | Some com a thread inteira, e as contagens acompanham | integração | `SO/integracao/OcultacaoDeContaSuspensaIntegracaoTest.java` › "Raiz de conta suspensa some com a thread inteira, e as contagens a acompanham" |
-| CT-MDO-22 | RF-MOD-04 | Notificação cujo autor da atividade foi suspenso | Vira "um leitor", sem links | integração | `SO/integracao/OcultacaoDeContaSuspensaIntegracaoTest.java` › "Notificação: autor da atividade oculto vira \"um leitor\", sem links" |
-| CT-MDO-23 | RF-MOD-04 | Menção a conta suspensa | Vira "um leitor" no texto, sem link, e volta na reativação | integração | `SO/integracao/OcultacaoDeContaSuspensaIntegracaoTest.java` › "Menção a conta suspensa vira \"um leitor\" no texto, sem link, e volta na reativação" |
-| CT-MDO-24 | RF-MOD-04 | Reação de conta suspensa numa resenha | Sai das contagens e da VIEW, e volta na reativação | integração | `LE/test/integracao/reacao.int-spec.ts` › reações à resenha (integração) › reagir em livro oficial › "F-MOD-OPC: reação de conta suspensa sai das contagens e da VIEW, e volta na reativação" |
+| CT-MDO-21 | RF-MOD-04 | Comentário raiz de conta suspensa | Some com a thread inteira, e as contagens acompanham (VIEW de perfil simulada no teste) | integração | `SO/integracao/OcultacaoDeContaSuspensaIntegracaoTest.java` › "Raiz de conta suspensa some com a thread inteira, e as contagens a acompanham" |
+| CT-MDO-22 | RF-MOD-04 | Notificação cujo autor da atividade foi suspenso | Vira "um leitor", sem links (VIEW de perfil simulada no teste) | integração | `SO/integracao/OcultacaoDeContaSuspensaIntegracaoTest.java` › "Notificação: autor da atividade oculto vira \"um leitor\", sem links" |
+| CT-MDO-23 | RF-MOD-04 | Menção a conta suspensa | Vira "um leitor" no texto, sem link, e volta na reativação (VIEW de perfil simulada no teste) | integração | `SO/integracao/OcultacaoDeContaSuspensaIntegracaoTest.java` › "Menção a conta suspensa vira \"um leitor\" no texto, sem link, e volta na reativação" |
+| CT-MDO-24 | RF-MOD-04 | Reação de conta suspensa numa resenha | Sai das contagens e da VIEW, e volta na reativação (VIEW de perfil simulada no teste) | integração | `LE/test/integracao/reacao.int-spec.ts` › reações à resenha (integração) › reagir em livro oficial › "F-MOD-OPC: reação de conta suspensa sai das contagens e da VIEW, e volta na reativação" |
 | CT-MDO-25 | RF-MOD-05, RNF-SEC-36, RNF-SEC-37 | Registro com linhas de conteúdo | A linha de conteúdo não traz motivo nem alvo de conta | integração | `SO/integracao/SuspensaoDeContaIntegracaoTest.java` › "Linha de conteúdo não traz motivo nem alvo de conta (RNF-SEC-36)" |
 | CT-MDO-26 | RF-MOD-04 | Admin procura conta suspensa por username; leitor tenta o mesmo | Admin acha, com o motivo vigente; leitor 403 | integração | `SO/integracao/SuspensaoDeContaIntegracaoTest.java` › "Admin acha a conta pelo username, também suspensa, com o motivo vigente; leitor 403" |
 | CT-MDO-27 | RF-MOD-04, RNF-USA-04 | Web: abrir o dialog de suspensão | Confirmar desabilitado sem motivo, foco no motivo | web | `WEB/components/moderacao/DialogoSuspensao.spec.ts` › DialogoSuspensao › "copy do design, foco no motivo e confirmar desabilitado sem motivo" |
@@ -119,7 +121,7 @@ Convenções:
 - **DoD:** "CI verde" continua desmarcado no arquivo de feature, embora o PR #61 esteja mergeado. Os números de teste citados mudam ao longo do arquivo (233/274 nos critérios; 242/288 e 294 na Timeline).
 - `ID/auth/service/SuspensaoComAdminIntegracaoTest.java` é de integração, mas está no pacote `auth/service`.
 - `SO/config/AppPropertiesTest.java` › "MODERACAO_TOKEN é opcional, mas preenchido precisa de 32 caracteres (F-MOD)" é da F-MOD (P2), não desta feature; não foi contado.
-- **Risco de deriva:** os testes do feed no `social` (`ServicoDeFeedIntegracaoTest`) criam a própria versão das VIEWs do `identidade`, com o filtro `suspenso = false`. Eles provam o filtro de uma cópia, não o da VIEW real.
+- **Risco de deriva:** os testes do feed no `social` (`ServicoDeFeedIntegracaoTest`) criam a própria versão das VIEWs do `identidade`, com o filtro `suspenso = false`. Eles provam o filtro de uma cópia, não o da VIEW real. O mesmo vale para `OcultacaoDeContaSuspensaIntegracaoTest` (CT-MDO-21 a 23, massa de `MassaDeRecomendacao`) e para CT-MDO-24 (no `leitura`, `v_perfil_referencia_v1` é uma tabela do teste).
 - Os testes `*` de P1/P2 (perfil, estante, listas, notificações, recomendações, livro pessoal) gravam a suspensão por SQL (`UPDATE usuario SET suspenso = true, suspenso_em = now()`), não pelo comando. Provam a regra da VIEW, não o fluxo do admin.
 
 ---
@@ -156,7 +158,7 @@ Convenções:
 |---|---|---|---|---|---|
 | CT-ACO-01 | RF-ACV-14, RN-02, RNF-ARQ-05 | Recarga da amostra modificada, duas vezes | A 1ª insere só o livro novo e atualiza os alterados; a 2ª não muda nada; `ingestao_execucao` registra `recarga`/`concluida` com os totais | script | `ING/test_carga_banco.py` › `test_recarga_atualiza_uma_vez_e_a_segunda_nao_muda_nada` |
 | CT-ACO-02 | RF-ACV-14, RN-03, RN-14.6, RN-19.2, RN-06.6 | Recarga sobre livros com capa própria, sinopse, notas, livro pessoal e livro do Google Books | Nada disso é apagado nem sobrescrito, também depois do `notas` | script | `ING/test_carga_banco.py` › `test_recarga_preserva_o_que_nao_vem_do_dump` |
-| CT-ACO-03 | RF-ACV-14, RN-12, RN-21.3, RN-21.4 | Dump com título, capa externa e assuntos novos; obra sem tag mapeada | Aplica o que o dump traz; obra sem tag mapeada mantém os assuntos; nenhum assunto novo é criado | script | `ING/test_carga_banco.py` › `test_recarga_aplica_o_que_o_dump_traz_e_mantem_o_que_ele_nao_traz` |
+| CT-ACO-03 | RF-ACV-14, RN-12, RN-21.3, RN-21.4 | Dump com título, capa externa e assuntos novos; obra sem tag mapeada | Aplica o que o dump traz; tag sem mapeamento e slug desconhecido não mudam os assuntos do livro | script | `ING/test_carga_banco.py` › `test_recarga_aplica_o_que_o_dump_traz_e_mantem_o_que_ele_nao_traz` |
 | CT-ACO-04 | RF-ACV-14, RN-12 | Série ausente ou trocada no dump | O número acompanha a série | script | `ING/test_carga_banco.py` › `test_recarga_numero_da_serie_acompanha_a_serie` |
 | CT-ACO-05 | RF-ACV-14, RN-12 | Livro existente passa a violar um filtro (ex.: sem capa) | Continua intacto na base | script | `ING/test_carga_banco.py` › `test_livro_que_saiu_dos_filtros_continua_intacto` |
 | CT-ACO-06 | RF-ACV-14 | Carga inicial (sem `--tipo recarga`) sobre base existente | Só acrescenta; não atualiza nada | script | `ING/test_carga_banco.py` › `test_carga_inicial_sobre_base_existente_nao_atualiza_nada` |
@@ -168,7 +170,7 @@ Convenções:
 | CT-ACO-12 | RNF-ERR-04 | Mesma `Idempotency-Key` com a lista em outra ordem ou caixa | Replay, não 409 | integração | `AC/test/integracao/assuntos-livro-pessoal.int-spec.ts` › assuntos do livro pessoal (integração) › idempotência › "a mesma chave com a lista em outra ordem ou caixa é replay, não 409" |
 | CT-ACO-13 | RF-ACV-22, RN-03, RNF-SEC-02 | Terceiro abre o livro pelo feed e tenta editar os assuntos | Vê os assuntos; a edição é 403 | integração | `AC/test/integracao/assuntos-livro-pessoal.int-spec.ts` › assuntos do livro pessoal (integração) › propriedade e leitura (RN-03, RN-15) › "terceiro que vê o livro pelo feed recebe os assuntos e não consegue editá-los" |
 | CT-ACO-14 | RN-03, RN-15 | Terceiro pela lista do dono e sem via | Pela lista vê; sem via, 403 | integração | `AC/test/integracao/assuntos-livro-pessoal.int-spec.ts` › assuntos do livro pessoal (integração) › propriedade e leitura (RN-03, RN-15) › "terceiro pela lista vê os assuntos; sem via, 403" |
-| CT-ACO-15 | RN-03, RN-21.5, RNF-SEC-06 | Livro pessoal com assunto | Fora da busca, do filtro, do `totalItens`, da página de autor, da `v_livro_recomendacao_v1` e da contagem de `GET /assuntos` | integração | `AC/test/integracao/assuntos-livro-pessoal.int-spec.ts` › assuntos do livro pessoal (integração) › isolamento (RN-03, RNF-SEC-06) › "o livro pessoal com assunto não aparece em busca, filtro, contagem, página de autor nem na VIEW de recomendação" |
+| CT-ACO-15 | RN-03, RN-21.5, RNF-SEC-06 | Livro pessoal com assunto | Fora da busca, do filtro, do `totalItens`, da página de autor, da `v_livro_recomendacao_v1` e da contagem de `GET /assuntos` (editora e série: o CHECK `livro_oficial_pessoal_ck` impede livro pessoal com editora ou série) | integração | `AC/test/integracao/assuntos-livro-pessoal.int-spec.ts` › assuntos do livro pessoal (integração) › isolamento (RN-03, RNF-SEC-06) › "o livro pessoal com assunto não aparece em busca, filtro, contagem, página de autor nem na VIEW de recomendação" |
 | CT-ACO-16 | RF-ACV-22, RN-21.4 | Corrida: assunto some entre a validação e a gravação | A FK violada vira o mesmo 400 | unitário | `AC/src/livros/pessoal/livro-pessoal.service.spec.ts` › assuntos do livro pessoal (F-ACV-OPC) › "a FK violada na gravação vira o mesmo 400" |
 | CT-ACO-17 | RF-ACV-22, RN-23 | `conta.excluida` de dono com livro pessoal com assuntos | Os vínculos de assunto vão junto | mensageria | `AC/test/integracao/consumo-conta-excluida.int-spec.ts` › consumo de conta.excluida (integração) › "os assuntos dos livros pessoais da conta vão junto" |
 | CT-ACO-18 | RF-ACV-22, RN-21.4 | Web: busca no seletor sem resultado | Aponta a escolha mais próxima e não oferece criar assunto | web | `WEB/components/livros/SeletorDeAssuntos.spec.ts` › SeletorDeAssuntos › "sem resultado aponta a escolha mais próxima e não oferece criar" |
@@ -184,16 +186,17 @@ Convenções:
 
 | # | Item | Requisito | O que procurei e onde |
 |---|---|---|---|
-| ACO-L1 | Isolamento nas páginas de **editora** e **série** | RN-03, RNF-SEC-06, critério "não aparecem em ... páginas de autor/editora/série" | O teste de isolamento (`assuntos-livro-pessoal.int-spec.ts`, linhas 326–370) só consulta busca, filtro, `/autores/{id}`, `v_livro_recomendacao_v1` e `GET /assuntos`; nenhuma chamada a `/editoras` ou `/series` |
 | ACO-L2 | `POST`/`PATCH /livros/pessoal` com `assuntos` **sem token** (401) | RNF-SEC-01 | Nenhum `401` em `assuntos-livro-pessoal.int-spec.ts` nem em `livro-pessoal.int-spec.ts`; os 401 do `acervo` estão em `autenticacao.int-spec.ts`, `busca.int-spec.ts` e `catalogo.int-spec.ts` |
 | ACO-L3 | Recarga aplica a tabela de **sinônimos de editora** sem criar variante que a carga inicial já unificou | RN-12 | `test_carga_banco.py`: a amostra modificada usa uma editora nova ("Editora Nova Recarga"); nenhum teste de recarga passa um sinônimo de editora existente |
 | ACO-L4 | Mobile: formulário de **edição** chega com os assuntos preenchidos e esvaziar manda `[]` (a web tem `"edição: chega preenchido pelo detalhe, e esvaziar manda o array vazio"`) | RF-ACV-22 | `livro_pessoal_form_page_test.dart`, grupo `assuntos (F-ACV-OPC)`: 5 testes, todos de criação, 503, timeout e 400; só o serviço testa o array vazio na edição |
 | ACO-L5 | Recarga real (volume e fração do plano Neon) e fluxo em DES | RF-ACV-14, RNF-DES-04/05, item próprio do DoD | Manual, pendência do grupo; não automatizável |
 
+ACO-L1 (isolamento nas páginas de editora e série) saiu na revisão: o CHECK `livro_oficial_pessoal_ck` impede livro pessoal com editora ou série, e as duas páginas usam o mesmo `BuscaService.paginar`, que já exclui livro pessoal (ver CT-ACO-15).
+
 ### 2.4. Divergências e estranhezas
 
 - **RN-21.2 × servidor:** o servidor aceita até 100 assuntos; o teto de 5 é só aviso do cliente (decisão do dono). O teste CT-ACO-08 fixa isso.
-- O nome do teste de isolamento fala de "página de autor" e cumpre o que diz; o critério de aceite promete também editora e série (ACO-L1).
+- O nome do teste de isolamento fala de "página de autor" e cumpre o que diz; o critério de aceite promete também editora e série, que o CHECK `livro_oficial_pessoal_ck` já garante (CT-ACO-15).
 - A recarga só foi validada na amostra, em Postgres descartável; nunca no Neon.
 - CT-ACO-10 é `it.each` com três casos (`texto livre`, `número`, `não-array`); o nome no código é `'%s: 400 com a mensagem em pt-BR'`.
 
@@ -228,17 +231,18 @@ Convenções:
 | CT-STO-05 | RF-STA-04, RN-03, RN-06, RF-STA-02 | `/me/estatisticas` com notas em livros oficiais e pessoal; depois editar e remover notas | Onze faixas; livro pessoal conta; `total` = `notaMedia.quantidade`; editar e remover mudam na hora; sem notas volta a `null` | integração | `LE/test/integracao/estatisticas.int-spec.ts` › estatísticas (integração) › GET /me/estatisticas › "distribuição de notas: onze faixas, ausente sem nota, coerente com a média e com o ciclo da nota" |
 | CT-STO-06 | RF-STA-04 | Notas em anos diferentes | A distribuição segue o período: ano, acumulado e ano sem nota | integração | `LE/test/integracao/estatisticas.int-spec.ts` › estatísticas (integração) › GET /me/estatisticas › "distribuição de notas segue o período: ano, acumulado e ano sem nota" |
 | CT-STO-07 | RF-STA-04, RN-08, RNF-SEC-03 | Perfil privado: não seguidor e depois seguidor aceito | Não seguidor 403; seguidor vê a distribuição do ano; ano sem nota `null` | integração | `LE/test/integracao/estatisticas.int-spec.ts` › estatísticas (integração) › GET /perfis/{usuarioId}/estatisticas (RN-08) › "o perfil devolve a distribuição do ano, ausente sem nota, e privado a respeita (RN-08)" |
-| CT-STO-08 | RNF-SEC-01 | `/me/estatisticas` sem token | 401 (teste da F-STA, que agora devolve também a distribuição) | integração | `LE/test/integracao/estatisticas.int-spec.ts` › estatísticas (integração) › GET /me/estatisticas › "sem token é 401" |
 | CT-STO-09 | RF-STA-04 | Web: gráfico com notas | Onze notas no eixo, contagem sobre cada uma e coluna só onde há livro | web | `WEB/components/estatisticas/GraficoDeNotas.spec.ts` › GraficoDeNotas › "onze notas no eixo, contagem sobre cada uma e coluna só onde há livro" |
 | CT-STO-10 | RN-06.3 | Web: período sem nota | Não desenha gráfico, só a frase | web | `WEB/components/estatisticas/GraficoDeNotas.spec.ts` › GraficoDeNotas › "sem nota no período não desenha gráfico, só a frase" |
 | CT-STO-11 | RF-STA-04, RNF-USA-03 | Web: navegação por teclado | Setas, Home e End movem; Esc fecha o balão | web | `WEB/components/estatisticas/GraficoDeNotas.spec.ts` › GraficoDeNotas › "setas movem entre as notas, Home e End vão às pontas e Esc fecha o balão" |
 | CT-STO-12 | RF-STA-04 | Web: `Ver como tabela` | Lista as onze notas e fecha com o total | web | `WEB/components/estatisticas/GraficoDeNotas.spec.ts` › GraficoDeNotas › "a tabela lista as onze notas e fecha com o total" |
-| CT-STO-13 | RF-STA-04, RN-08 | Web: perfil alheio sem nota no ano | O card traz a frase e nenhum gráfico | web | `WEB/views/perfil/PerfilDeOutroView.spec.ts` › PerfilDeOutroView › Estatísticas do ano (F-STA) › "sem nota no ano, o card traz a frase e nenhum gráfico" |
+| CT-STO-13 | RF-STA-04, RN-06.3 | Web: perfil alheio sem nota no ano | O card traz a frase e nenhum gráfico | web | `WEB/views/perfil/PerfilDeOutroView.spec.ts` › PerfilDeOutroView › Estatísticas do ano (F-STA) › "sem nota no ano, o card traz a frase e nenhum gráfico" |
 | CT-STO-14 | RF-STA-04 | Mobile: gráfico com notas | Onze notas no eixo, contagem em todas e coluna só onde há livro | mobile | `MOB/features/estatisticas/graficos_de_notas_test.dart` › "onze notas no eixo, contagem em todas e coluna só onde há livro" |
 | CT-STO-15 | RN-06.3 | Mobile: período sem nota | Só a frase, sem gráfico nem tabela | mobile | `MOB/features/estatisticas/graficos_de_notas_test.dart` › "sem nota no período: só a frase, sem gráfico nem tabela" |
 | CT-STO-16 | RNF-TST-04 | Mobile: resposta sem as onze faixas | Resposta inválida (`invalidResponse`) | mobile | `MOB/features/estatisticas/estatisticas_service_test.dart` › "distribuição que não traz as onze faixas é resposta inválida" |
-| CT-STO-17 | RF-STA-04, RN-08 | Mobile: perfil de outro leitor | Histograma compacto com as notas do ano, mesmo sem leitura | mobile | `MOB/features/estatisticas/estatisticas_do_perfil_test.dart` › bloco isolado › "outro leitor: histograma compacto com as notas do ano, mesmo sem leitura" |
+| CT-STO-17 | RF-STA-04 | Mobile: perfil de outro leitor | Histograma compacto com as notas do ano, mesmo sem leitura | mobile | `MOB/features/estatisticas/estatisticas_do_perfil_test.dart` › bloco isolado › "outro leitor: histograma compacto com as notas do ano, mesmo sem leitura" |
 | CT-STO-18 | RF-STA-04 | Mobile: o próprio perfil | Não mostra o histograma | mobile | `MOB/features/estatisticas/estatisticas_do_perfil_test.dart` › bloco isolado › "o próprio perfil não mostra o histograma" |
+
+Outros testes da feature: CT-STO-08 (`"sem token é 401"`, cortado na revisão: é o mesmo teste do CT-STA-01 e só confere o 401, nada da distribuição).
 
 ### 3.3. Sem teste aparente (candidatos a lacuna) — dona: Ana Luiza
 
@@ -283,7 +287,7 @@ Convenções:
 |---|---|---|---|---|---|
 | CT-DSO-01 | RF-DSF-05, RNF-SEC-01 | Histórico sem token; id malformado | 401; 400 | integração | `LE/test/integracao/desafios.int-spec.ts` › desafios (integração) › histórico de janelas (RF-DSF-05, F-DSF-OPC) › "sem token é 401; id malformado é 400" |
 | CT-DSO-02 | RF-DSF-05, RN-20.9 | Desafio criado há alguns períodos, com janelas sem progresso | Só as encerradas, da mais recente à da criação; as vazias com zero e não cumpridas | integração | `LE/test/integracao/desafios.int-spec.ts` › desafios (integração) › histórico de janelas (RF-DSF-05, F-DSF-OPC) › "lista só as encerradas, da mais recente à da criação, com as vazias não cumpridas (RN-20.9)" |
-| CT-DSO-03 | RF-DSF-05, RN-20.8 | Janela que acabou de terminar, sem fato novo | Entra pela consulta (selagem preguiçosa), sem job | integração | `LE/test/integracao/desafios.int-spec.ts` › desafios (integração) › histórico de janelas (RF-DSF-05, F-DSF-OPC) › "a janela que acabou de terminar entra pela consulta, sem outro registro" |
+| CT-DSO-03 | RF-DSF-05, RN-20.9 | Janela que acabou de terminar, sem fato novo | Entra pela consulta (selagem preguiçosa), sem job | integração | `LE/test/integracao/desafios.int-spec.ts` › desafios (integração) › histórico de janelas (RF-DSF-05, F-DSF-OPC) › "a janela que acabou de terminar entra pela consulta, sem outro registro" |
 | CT-DSO-04 | RF-DSF-05 | Desafio sem janela encerrada | Lista vazia | integração | `LE/test/integracao/desafios.int-spec.ts` › desafios (integração) › histórico de janelas (RF-DSF-05, F-DSF-OPC) › "sem janela encerrada é lista vazia" |
 | CT-DSO-05 | RF-DSF-05, RN-20.7, RN-20.10 | Editar o desafio e depois sincronizar captura offline de janela antiga | Cada janela mantém a configuração de quando valeu; a captura tardia corrige a janela antiga pelo consumidor | mensageria | `LE/test/integracao/desafios.int-spec.ts` › desafios (integração) › histórico de janelas (RF-DSF-05, F-DSF-OPC) › "cada janela mantém a configuração de quando valeu, e a captura tardia a corrige (RN-20.7/20.10)" |
 | CT-DSO-06 | RF-DSF-05, RN-20.6 | Janelas com pausa inteira, parcial e nenhuma | Campo `pausa` com `inteira`, `parcial` e `nenhuma` | integração | `LE/test/integracao/desafios.int-spec.ts` › desafios (integração) › histórico de janelas (RF-DSF-05, F-DSF-OPC) › "marca a pausa por janela: inteira, parcial ou nenhuma (RN-20.6)" |
@@ -291,8 +295,6 @@ Convenções:
 | CT-DSO-08 | RF-DSF-05, RNF-DES-02 | Paginação, `limite=500`, `page=0` e `limite=0` | Mais recentes primeiro; limite rebaixado a 50; 400 para 0 | integração | `LE/test/integracao/desafios.int-spec.ts` › desafios (integração) › histórico de janelas (RF-DSF-05, F-DSF-OPC) › "pagina com limite do servidor (RNF-DES-02)" |
 | CT-DSO-09 | RF-DSF-05, RNF-SEC-02 | Outro leitor ou id inexistente | 404, sem materializar janela nenhuma | integração | `LE/test/integracao/desafios.int-spec.ts` › desafios (integração) › histórico de janelas (RF-DSF-05, F-DSF-OPC) › "é só do dono: de outra pessoa ou inexistente é 404, sem materializar (SEC-02)" |
 | CT-DSO-10 | RF-DSF-04, RF-DSF-05 | Excluir o desafio | O histórico vai junto; a consulta passa a 404 | integração | `LE/test/integracao/desafios.int-spec.ts` › desafios (integração) › histórico de janelas (RF-DSF-05, F-DSF-OPC) › "excluir o desafio leva o histórico junto (RF-DSF-04)" |
-| CT-DSO-11 | RNF-ERR-06, RNF-TST-03 | Reentrega do mesmo `eventId` ao consumidor que sela (teste da F-DSF) | Não repete efeito | mensageria | `LE/test/integracao/desafios.int-spec.ts` › desafios (integração) › consumo (RNF-ERR-06/07, RNF-TST-03) › "reentrega do mesmo eventId não repete efeito" |
-| CT-DSO-12 | RNF-ERR-07, RNF-TST-03 | Falha persistente no consumidor (teste da F-DSF) | Vai para a DLQ sem recibo | mensageria | `LE/test/integracao/desafios.int-spec.ts` › desafios (integração) › consumo (RNF-ERR-06/07, RNF-TST-03) › "falha persistente vai para a DLQ sem recibo" |
 | CT-DSO-13 | RF-DSF-05 | Mobile: lista de janelas | Agrupadas, com a meta de cada uma e sem porcentagem | mobile | `MOB/features/desafios/historico_do_desafio_page_test.dart` › "mostra as janelas encerradas agrupadas, com a meta de cada uma e sem porcentagem" |
 | CT-DSO-14 | RF-DSF-05, RNF-USA-03 | Mobile: cumprida × não cumprida | Forma e palavra diferentes (não só cor) | mobile | `MOB/features/desafios/historico_do_desafio_page_test.dart` › "cumprido e não cumprido têm forma e palavra diferentes" |
 | CT-DSO-15 | RN-20.6, RN-20.9 | Mobile: semana pausada × semana vazia | Distinguem-se só pela linha de pausa | mobile | `MOB/features/desafios/historico_do_desafio_page_test.dart` › "a semana pausada se distingue da semana vazia só pela linha de pausa" |
@@ -302,12 +304,14 @@ Convenções:
 | CT-DSO-19 | RNF-TST-04 | Mobile: janela fora do contrato | Resposta inválida | mobile | `MOB/features/desafios/historico_do_desafio_test.dart` › DesafiosService.listarJanelas › "janela fora do contrato é resposta inválida" |
 | CT-DSO-20 | RNF-TST-04, RNF-DES-02 | Mobile: páginas seguintes | Acumula sem repetir período e diz quando acabou | mobile | `MOB/features/desafios/historico_do_desafio_test.dart` › HistoricoDoDesafio › "acumula as páginas sem repetir período e diz quando acabou" |
 
+Outros testes da feature: CT-DSO-11 (`"reentrega do mesmo eventId não repete efeito"`) e CT-DSO-12 (`"falha persistente vai para a DLQ sem recibo"`), cortados na revisão: são os mesmos testes de CT-DSF-24 e CT-DSF-26; a mensageria do histórico é a do CT-DSF.
+
 ### 4.3. Sem teste aparente (candidatos a lacuna) — dono: Vicenzo
 
 | # | Item | Requisito | O que procurei e onde |
 |---|---|---|---|
 | DSO-L1 | O histórico independe do fuso de quem consulta | RN-20.1, critério de aceite | Bloco `histórico de janelas`: nenhum teste varia o fuso do consultante; os testes de fuso (`"fuso para trás: ..."`, `"fuso para a frente: ..."`) são da edição (F-DSF) e não chamam `GET /desafios/{id}/janelas` |
-| DSO-L2 | Selagem pelo **consumidor** quando chega fato de janela posterior (sem consulta) | RN-20.8, critério "dentro do consumidor de `progresso.registrado`/`leitura.finalizada`" | CT-DSO-05 corrige janela antiga pelo consumidor, e `"um fato de hoje não refaz as janelas encerradas de outros dias"` (F-DSF) é vizinho; nenhum teste prova que o fato posterior **sela** a janela anterior sem passar pela consulta |
+| DSO-L2 | Selagem pelo **consumidor** quando chega fato de janela posterior (sem consulta) | RN-20.9, critério "dentro do consumidor de `progresso.registrado`/`leitura.finalizada`" | CT-DSO-05 corrige janela antiga pelo consumidor, e `"um fato de hoje não refaz as janelas encerradas de outros dias"` (F-DSF) é vizinho; nenhum teste prova que o fato posterior **sela** a janela anterior sem passar pela consulta |
 | DSO-L3 | Exclusão de conta limpa o histórico | critério "a exclusão de conta o limpa por F-CONTA-2" | Só a guarda estrutural (`LE/test/integracao/guarda-exclusao.int-spec.ts`, tabelas com destino na exclusão); `consumo-conta-excluida.int-spec.ts` não cita desafio nem `janela_desafio` |
 | DSO-L4 | Fluxo em DES | critério de aceite / DoD | Pendente: PR aberto, merge de fechamento |
 
@@ -315,5 +319,5 @@ Convenções:
 
 - **PR aberto:** o arquivo de feature na `desenvolvimento` é a versão anterior (sem as seções de implementação). Esta análise usou a versão da `vicenzo-features`.
 - **Teto da paginação:** o arquivo diz "`page` e `limite` fora da faixa são 400", mas o teste mostra que `limite=500` é **rebaixado a 50** (200), e só `page=0` e `limite=0` dão 400. O comportamento é coerente com "teto 50 no servidor"; o texto é que generaliza.
-- Duplicata, retry e DLQ do histórico **não** têm teste próprio: o DoD declara o reuso dos testes da F-DSF no mesmo consumidor (CT-DSO-11 e 12).
+- Duplicata, retry e DLQ do histórico **não** têm teste próprio: o DoD declara o reuso dos testes da F-DSF no mesmo consumidor (CT-DSF-24 e 26; os antigos CT-DSO-11 e 12 foram cortados).
 - O critério "nenhuma tabela nova" é verificável pelo diff do PR (sem migration), não por teste.
