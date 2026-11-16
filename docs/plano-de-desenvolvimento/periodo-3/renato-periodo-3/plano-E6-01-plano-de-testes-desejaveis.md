@@ -412,3 +412,24 @@ Ficaram acima do alvo, pelo §3 (casos únicos de critério ou RN que a validaç
 **Avisos novos aos donos** (além do §2.4):
 - F-PRG (Ana): o arquivo ainda diz que a entrega tardia "não tem teste";
 - F-ACV-DESCOBERTA (Vicenzo), F-REC-P2P (Kayke), F-LST (Henrique) e F-MOD (Renato): o DoD ou o plano dizem que o timeout do cliente é testado, e não é (L-14).
+
+## 12. Etapa 4 (16/11/2026)
+
+- **Revisão independente** por amostragem aleatória: 51 casos (3 por subseção) e 7 lacunas. Três achados, corrigidos: a L-06 passou a dizer que a idempotência de criar já tem teste (CT-ACO-11), uma aspa sobrando na L-08 e "dialog" virou "diálogo".
+- **F-NOT-OPC:** o PR #65 entrou na `desenvolvimento` em 15/11, depois da etapa 3. Pela decisão 1b, a feature entrou no plano:
+  - subseção 9.6.29 (CT-NOO), com 26 casos;
+  - lacunas L-39 a L-42 e as partes da feature em L-13 e L-14;
+  - a L-31 foi reescrita, porque o `social` agora lê a preferência;
+  - um validador de contexto limpo achou 4 problemas, todos corrigidos.
+- **§9.7:** os runs de `ci-back-social` (43781841389) e `ci-mobile` (43781841514) mudaram para o commit `fbb4e2a`. O total passou a 4.073 testes.
+- **Commits** na `renato-e6-01`:
+  - merge da `origin/desenvolvimento`;
+  - `a70a415`, `docs: correções da revisão do plano de testes`, que inclui a contribuição semanal.
+- **PR:** [#66](https://github.com/ICEI-PUC-Minas-PMGES-TI/pmg-es-2026-2-ti5-6904100-le-ai/pull/66).
+- **Kanban:** o quadro só tem features, então não foi criado card.
+- **Avisos aos donos ficam para depois**, por decisão do Renato de 16/11. Somam-se aos do §2.4 e do §11 os da F-NOT-OPC (Kayke):
+  - o arquivo cita RNF-SEC-36 para o push sem dado sensível;
+  - a DLQ do push está marcada como feita, mas não existe;
+  - o timeout no mobile está marcado no DoD, mas não é testado;
+  - "mergeado" e "CI verde" estão desmarcados;
+  - "a marcação como lida segue sem teste" está desatualizado: o CT-NOO-26 testa.
