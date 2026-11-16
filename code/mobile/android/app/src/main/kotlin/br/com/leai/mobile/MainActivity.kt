@@ -1,4 +1,4 @@
-package com.example.le_ai_mobile
+package br.com.leai.mobile
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
