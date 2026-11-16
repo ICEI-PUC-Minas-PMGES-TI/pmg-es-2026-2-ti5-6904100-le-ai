@@ -29,6 +29,7 @@ import 'package:le_ai_mobile/features/livros/capa.dart';
 import 'package:le_ai_mobile/features/livros/rotas_livros.dart';
 import 'package:le_ai_mobile/features/notificacoes/notificacoes_page.dart';
 import 'package:le_ai_mobile/features/notificacoes/notificacoes_service.dart';
+import 'package:le_ai_mobile/features/notificacoes/preferencias_de_notificacao_service.dart';
 import 'package:le_ai_mobile/features/notificacoes/rotas_notificacoes.dart';
 import 'package:le_ai_mobile/features/perfil/avatar.dart';
 import 'package:le_ai_mobile/features/perfil/perfil_service.dart';
@@ -333,6 +334,7 @@ void main() {
         enviador: _SemEnvio(),
       ),
       exclusao: _exclusaoSimulada(),
+      preferenciasDeNotificacao: _preferenciasSimuladas(),
     );
   });
 
@@ -699,6 +701,24 @@ void main() {
 
     expect(find.text('Alterar senha'), findsOneWidget);
     expect(find.text('Sair da conta'), findsOneWidget);
+  });
+
+  testWidgets('Notificações, em Configurações, abre as preferências e volta', (tester) async {
+    await sessionController.entrar('jwt-valido');
+    await tester.pumpWidget(_wrap(router));
+    await tester.pumpAndSettle();
+    router.go(rotaConfiguracoes);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Notificações'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Novo seguidor'), findsOneWidget);
+    expect(find.text('Alterar senha'), findsNothing);
+
+    await tester.tap(find.bySemanticsLabel('Voltar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Alterar senha'), findsOneWidget);
   });
 
   group('F-CONTA-2', () {
@@ -1132,6 +1152,23 @@ GoRouter _roteadorComNotificacoes(SessionController sessionController) {
     ),
   );
 }
+
+PreferenciasDeNotificacaoService _preferenciasSimuladas() => PreferenciasDeNotificacaoService(
+  ApiClient(
+    baseUrl: 'http://localhost:8081',
+    client: MockClient(
+      (request) async => http.Response(
+        jsonEncode(<String, Object?>{
+          'preferencias': <Object?>[
+            <String, Object?>{'tipo': 'NOVO_SEGUIDOR', 'habilitada': true},
+          ],
+        }),
+        200,
+        headers: const <String, String>{'content-type': 'application/json; charset=utf-8'},
+      ),
+    ),
+  ),
+);
 
 /// `identidade` simulado para a exclusão (F-CONTA-2): o pedido responde `202` com as datas e o
 /// cancelamento, `204`.

@@ -105,6 +105,19 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      # F-NOT-OPC: o google-services.json (base64, secret GOOGLE_SERVICES_JSON_BASE64) liga o
+      # push no APK de DES. Sem o secret o APK sai igual, sem FCM (o plugin só é aplicado
+      # quando o arquivo existe).
+      - name: Write google-services.json
+        env:
+          GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON_BASE64" ]; then
+            echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 -d > android/app/google-services.json
+          else
+            echo "::warning::GOOGLE_SERVICES_JSON_BASE64 ausente: APK sem push"
+          fi
+
       # O APK de DES aponta para os serviços do Render (P0-DEPLOY). Sem os --dart-define, o
       # app_config.dart cai nos padrões de localhost e o app instalado não alcança nada.
       # Os presets do Cloudinary são unsigned e públicos, os mesmos da web no render.yaml.

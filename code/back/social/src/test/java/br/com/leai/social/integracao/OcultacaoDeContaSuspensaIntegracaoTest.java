@@ -54,7 +54,7 @@ class OcultacaoDeContaSuspensaIntegracaoTest extends IntegracaoComPostgres {
     massa = new MassaDeModeracao(jdbc);
     massa.preparar();
     base = new MassaDeRecomendacao(jdbc);
-    jdbc.execute("TRUNCATE notificacao");
+    jdbc.execute("TRUNCATE notificacao CASCADE");
     dona = massa.leitor("dona");
     suspensa = massa.leitor("suspensa");
     terceira = massa.leitor("terceira");
