@@ -65,7 +65,7 @@ Usuário, autenticação, perfil, privacidade, seguidores e solicitações de se
 
 ### 05/11/2026 — F-MOD-OPC (Renato): suspensão e reativação de conta
 
-Plano em [`plano-F-MOD-OPC.md`](../../../docs/plano-de-desenvolvimento/periodo-3/renato-periodo-3/plano-F-MOD-OPC.md). Avisado no grupo; a revisão do Henrique entra pelo PR.
+Plano em `plano-F-MOD-OPC.md`, na branch `renato-features` (pasta `docs/plano-de-desenvolvimento/periodo-3/renato-periodo-3/`). Avisado no grupo; a revisão do Henrique entra pelo PR.
 
 - **Por quê:** RF-MOD-04. O painel de moderação vive no `social`, mas o efeito na conta é daqui, e o `social` não escreve no schema `identidade` (arquitetura §4.2).
 - **Migration `V20261105120000__suspensao_de_conta`** (comentário no topo): `usuario.suspenso_em` e `reativado_em`, a CHECK `usuario_suspensao_coerente` (`suspenso = (suspenso_em IS NOT NULL)`) e a VIEW `v_conta_moderacao_v1`, lida só pela moderação do `social` (inclui a conta suspensa; omite a exclusão pendente). Migration nova precisa de versão maior que `V20261105120000`.

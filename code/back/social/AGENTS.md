@@ -38,7 +38,7 @@ Idêntica à de [`identidade`](../identidade/AGENTS.md) — os dois serviços Sp
 
 ### 27/09/2026 — F-AVA (Renato): autor nulo no feed e spoiler escondido
 
-Feitas por F-AVA com autorização do Renato e **mergeadas na `desenvolvimento` em 27/09/2026 por decisão dele**, para F-AVA fechar a sprint. **A revisão do Kayke continua pendente**; qualquer ajuste entra num commit novo. Motivo e decisão em [`docs/mensageria/README.md`](../../../docs/mensageria/README.md) (Histórico) e no [plano de F-AVA](../../../docs/plano-de-desenvolvimento/periodo-1/plano-F-AVA.md), fatia 2.4.
+Feitas por F-AVA com autorização do Renato e **mergeadas na `desenvolvimento` em 27/09/2026 por decisão dele**, para F-AVA fechar a sprint. **A revisão do Kayke continua pendente**; qualquer ajuste entra num commit novo. Motivo e decisão em [`docs/mensageria/README.md`](../../../docs/mensageria/README.md) (Histórico) e na [F-AVA](../../../docs/plano-de-desenvolvimento/periodo-1/feature-F-AVA.md).
 
 - **Por quê:** 701 livros oficiais do acervo não têm autor. `LivroSnapshot.autor` do `common-v1` passou a aceitar `null` (26/09), e os eventos `resenha.publicada` e `leitura.*` desses livros chegam com `autor: null`.
 - **Migration** `V20260927002000__snap_livro_autor_anulavel.sql`: só `DROP NOT NULL` em `atividade.snap_livro_autor`. O CHECK `atividade_snap_livro_autor_preenchido` não mudou: aceita `NULL` e continua proibindo texto vazio.
@@ -72,7 +72,7 @@ Previsto na [divisão do Período 2](../../../docs/plano-de-desenvolvimento/peri
 
 ### 18/10/2026 — F-MOD (Renato): denúncia
 
-Plano em [`plano-F-MOD.md`](../../../docs/plano-de-desenvolvimento/periodo-2/renato-periodo-2/plano-F-MOD.md).
+Feature em [`feature-F-MOD.md`](../../../docs/plano-de-desenvolvimento/periodo-2/feature-F-MOD.md).
 
 - **Migration `V20261018120000__moderacao_denuncia_e_auditoria`** (revisão humana antes de subir): `denuncia` ganha `alvo_autor_id` (NOT NULL; a tabela estava vazia em dev e no DES), `alvo_livro_id`, `atividade_id`, `atividade_autor_id`, `remocao_solicitada_em`, o limite de 500 no motivo e o índice único de uma pendente por leitor e alvo. `log_moderacao` ganha `alvo_autor_id`, `alvo_livro_id`, `atividade_autor_id` (a CHECK de anonimização exige as três nulas) e o índice único de um log de remoção por alvo. Migration nova precisa de versão maior que `V20261018120000`.
 - **Pacote `moderacao/`:** `POST /denuncias` (`DenunciaController`, `ServicoDeDenuncia`). Comentário pela visibilidade da atividade (`AtividadeRepository.visivelPara`); resenha pelo porte da regra de `leitura/src/reacoes/reacoes.service.ts#exigirAcesso`, com as vias de RN-15 em `ConteudoDenunciavel` (`viaFeed` exige seguir mesmo com perfil público; `viaLista` aceita perfil público). Mudou a regra de lá, mude aqui. O `INSERT ... ON CONFLICT DO NOTHING` no índice único devolve a denúncia pendente que já existia (200).
@@ -85,7 +85,7 @@ Plano em [`plano-F-MOD.md`](../../../docs/plano-de-desenvolvimento/periodo-2/ren
 
 ### 05/11/2026 — F-MOD-OPC (Renato): suspensão de conta e ocultação do conteúdo dela
 
-Plano em [`plano-F-MOD-OPC.md`](../../../docs/plano-de-desenvolvimento/periodo-3/renato-periodo-3/plano-F-MOD-OPC.md). Avisar o Kayke: a parte de comentários e notificações é código dele.
+Plano em `plano-F-MOD-OPC.md`, na branch `renato-features` (pasta `docs/plano-de-desenvolvimento/periodo-3/renato-periodo-3/`). Avisar o Kayke: a parte de comentários e notificações é código dele.
 
 - **Migration `V20261105120000__auditoria_de_conta`** (só `log_moderacao`): CHECK `log_moderacao_conta_coerente` (ações de conta exigem `alvo_tipo = 'usuario'` e, se não anonimizadas, `detalhe` de 1 a 500 caracteres; `detalhe` guarda o motivo do admin) e o índice único parcial `log_moderacao_conta_uk (alvo_id, acao, criado_em)`. Migration nova precisa de versão maior que `V20261105120000`.
 - **Moderação (Renato):** `POST /admin/usuarios/{id}/suspender` e `/reativar` com `Idempotency-Key` e `{motivo}` obrigatório (422 vazio ou acima de 500 code points). `ClienteDeIdentidade` (molde do `ClienteDeLeitura`) chama `/internal/moderacao/usuarios/{id}/suspensao|reativacao` do `identidade` com o `X-Moderacao-Token` **e o JWT do admin**; 404 e 422 passam, 401/403 viram ERROR e 503, timeout 504. O log usa como `criado_em` o instante que o `identidade` devolveu, e o `ON CONFLICT` no índice novo faz da repetição o mesmo episódio. Falha não grava nada. Configuração nova: `IDENTIDADE_BASE_URL` (default local 8080); o `MODERACAO_TOKEN` é o mesmo dos três serviços, e a partida avisa (WARN) quando ele falta.

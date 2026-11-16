@@ -92,7 +92,7 @@ Evidência de 05 e 06/11/2026: testes automáticos (`identidade` 233, `social` 2
 
 ### Implementação de 05 e 06/11/2026 (Renato)
 
-Plano em [`renato-periodo-3/plano-F-MOD-OPC.md`](renato-periodo-3/plano-F-MOD-OPC.md), com as decisões do dono 1 a 13 de 05/11/2026. Ratificadas ali as propostas do design que estavam "a ratificar" abaixo: motivo obrigatório também na reativação (até 500 code points); suspender não resolve as denúncias; no login, a suspensão prevalece sobre a exclusão pendente; o admin no app vê `Perfil não encontrado`; o registro mostra só o motivo do admin (RNF-SEC-36).
+Plano em `plano-F-MOD-OPC.md`, na branch `renato-features` (pasta `renato-periodo-3/`), com as decisões do dono 1 a 13 de 05/11/2026. Ratificadas ali as propostas do design que estavam "a ratificar" abaixo: motivo obrigatório também na reativação (até 500 code points); suspender não resolve as denúncias; no login, a suspensão prevalece sobre a exclusão pendente; o admin no app vê `Perfil não encontrado`; o registro mostra só o motivo do admin (RNF-SEC-36).
 
 **Divergências (registradas e aceitas pelo dono no plano):**
 - Leitura da conta pelo painel por VIEW nova, `identidade.v_conta_moderacao_v1` (inclui as suspensas, omite a exclusão pendente), no lugar do `GET /interno/usuarios/{id}/moderacao` ilustrado acima. Os comandos continuam HTTP.
@@ -150,7 +150,7 @@ Plano em [`renato-periodo-3/plano-F-MOD-OPC.md`](renato-periodo-3/plano-F-MOD-OP
 
 ### Implementação 05/11/2026: backend (`identidade` e `social`), web e mobile em dois commits na `renato-features`, e o [PR #61](https://github.com/ICEI-PUC-Minas-PMGES-TI/pmg-es-2026-2-ti5-6904100-le-ai/pull/61) para a `desenvolvimento`. Testes: `identidade` 233, `social` 273, web 1063, mobile 897.
 
-### Planejamento 05/11/2026: [plano](renato-periodo-3/plano-F-MOD-OPC.md) revisado em duas rodadas de contexto limpo (15 + 9 achados), com as decisões do dono 1 a 13.
+### Planejamento 05/11/2026: plano (branch `renato-features`) revisado em duas rodadas de contexto limpo (15 + 9 achados), com as decisões do dono 1 a 13.
 
 ### Revisão 15/09/2026: grupo aprovou ocultação e reativação; consulta administrativa do alvo separada das VIEWs públicas filtradas. Planejamento e DER atualizados; implementação não iniciada.
 
