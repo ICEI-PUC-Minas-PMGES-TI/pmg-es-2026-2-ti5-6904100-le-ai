@@ -106,3 +106,9 @@ Realizado validação da F-ACV-OPC por revisores independentes, teste manual na 
 Realizado revisão independente da F-ACV-OPC com as correções de acessibilidade, layout e testes da recarga, e PR #62 para a desenvolvimento
 Realizado correções da revisão do PR #62 (teclado no seletor do app, chips e seletor na web) e merge da F-ACV-OPC na desenvolvimento
 Realizado prompts das tarefas da Entrega 6 (plano de testes das desejáveis, testes, ATAM, telas, OpenAPI, encerramento e atas) e remoção dos planos já usados da desenvolvimento
+
+### Semana 2 (11/11 - 17/11)
+
+Realizado plano da E6-01 (Test Plan das funcionalidades desejáveis), com o inventário dos testes das 14 desejáveis e das opcionais e revisão independente do plano
+Realizado plano de testes das funcionalidades desejáveis e das opcionais integradas: 637 casos ligados aos testes automatizados, execução do CI atualizada e lacunas com o dono de cada área
+Realizado validação do plano de testes por revisores independentes e PR para a desenvolvimento
