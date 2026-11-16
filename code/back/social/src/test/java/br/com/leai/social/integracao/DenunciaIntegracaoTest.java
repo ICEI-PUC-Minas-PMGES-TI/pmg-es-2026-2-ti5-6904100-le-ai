@@ -296,6 +296,27 @@ class DenunciaIntegracaoTest extends IntegracaoComPostgres {
         .isEqualTo(429);
   }
 
+  @Test
+  @DisplayName("Denunciar sem token é 401")
+  void semToken() throws Exception {
+    UUID resenha = massa.resenha(autora, massa.livroOficial("Livro"), "Texto");
+
+    HttpResponse<String> resposta =
+        enviar(
+            HttpRequest.newBuilder(uri("/denuncias"))
+                .header("Content-Type", "application/json")
+                .header("Idempotency-Key", chave())
+                .POST(
+                    HttpRequest.BodyPublishers.ofString(
+                        json.writeValueAsString(corpo("resenha", resenha, "Spoiler"))))
+                .build());
+
+    assertThat(resposta.statusCode()).isEqualTo(401);
+    assertThat(resposta.body()).contains("\"codigo\":\"NAO_AUTENTICADO\"");
+    assertThat(massa.contar("SELECT count(*) FROM denuncia")).isZero();
+    assertThat(massa.contar("SELECT count(*) FROM idempotencia_social")).isZero();
+  }
+
   // ---------------------------------------------------------------- apoio
 
   private static String chave() {
