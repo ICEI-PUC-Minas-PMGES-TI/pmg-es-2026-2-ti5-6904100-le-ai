@@ -273,6 +273,47 @@ describe('consumo de conta.excluida (integração)', () => {
     ).toBe(0);
   });
 
+  it('conta excluída tira a nota dos leitores e deixa a nota geral (RN-06.4)', async () => {
+    const excluida = randomUUID();
+    const outra = randomUUID();
+    const oficial = await inserirLivroOficial(
+      pool,
+      isbn('978300000004'),
+      'Livro',
+    );
+    await pool.query(
+      'UPDATE acervo.livro SET nota_geral = $2, nota_geral_qtd = $3 WHERE id = $1',
+      [oficial, 4.4, 512],
+    );
+    await votar(excluida, oficial, 1);
+    await votar(outra, oficial, 5);
+    await pool.query(
+      `INSERT INTO acervo.nota_livro_agregada (livro_id, media, quantidade)
+       VALUES ($1, 3, 2)`,
+      [oficial],
+    );
+
+    publicar({ usuarioId: excluida });
+    await broker.entregar(FILA);
+
+    expect(broker.acks).toHaveLength(1);
+    const agregado = await pool.query<{ media: number; quantidade: number }>(
+      `SELECT media::float AS media, quantidade
+         FROM acervo.nota_livro_agregada WHERE livro_id = $1`,
+      [oficial],
+    );
+    expect(agregado.rows).toEqual([{ media: 5, quantidade: 1 }]);
+    const livro = await pool.query<{
+      nota_geral: number;
+      nota_geral_qtd: number;
+    }>(
+      `SELECT nota_geral::float AS nota_geral, nota_geral_qtd
+         FROM acervo.livro WHERE id = $1`,
+      [oficial],
+    );
+    expect(livro.rows).toEqual([{ nota_geral: 4.4, nota_geral_qtd: 512 }]);
+  });
+
   it('reentrega do mesmo eventId não repete efeito', async () => {
     const excluida = randomUUID();
     await livroPessoal(excluida, 'capas/x');

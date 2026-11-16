@@ -234,6 +234,44 @@ describe('assuntos do livro pessoal (integração)', () => {
     });
   });
 
+  describe('autenticação (L-13)', () => {
+    it('sem token, criar e editar com assuntos são 401 e nada é gravado', async () => {
+      const dono = novoUsuario();
+      const { body } = await criar(dono, { assuntos: [romance] });
+      const livrosAntes = await contar(pool, 'acervo.livro');
+      const recibosAntes = await contar(pool, 'acervo.idempotencia_acervo');
+
+      const semTokenCriar = await http()
+        .post('/livros/pessoal')
+        .set('Idempotency-Key', randomUUID())
+        .send({
+          titulo: 'Sem dono',
+          autor: 'Ninguém',
+          paginas: 10,
+          assuntos: [fantasia, historia],
+        });
+      const semTokenEditar = await http()
+        .patch(`/livros/pessoal/${body.id}`)
+        .set('Idempotency-Key', randomUUID())
+        .send({ titulo: 'Trocado', assuntos: [fantasia, historia] });
+
+      for (const resposta of [semTokenCriar, semTokenEditar]) {
+        expect(resposta.status).toBe(401);
+        expect(resposta.body).toMatchObject({ codigo: 'NAO_AUTENTICADO' });
+      }
+      expect(await contar(pool, 'acervo.livro')).toBe(livrosAntes);
+      expect(await contar(pool, 'acervo.idempotencia_acervo')).toBe(
+        recibosAntes,
+      );
+      expect(await contar(pool, 'acervo.livro_assunto')).toBe(1);
+      const atual = await http()
+        .get(`/livros/pessoal/${body.id}`)
+        .set(como(dono));
+      expect(atual.body.titulo).toBe('Diário de bordo');
+      expect(nomes(atual.body)).toEqual(['Romance']);
+    });
+  });
+
   describe('idempotência', () => {
     it('a mesma chave com a lista em outra ordem ou caixa é replay, não 409', async () => {
       const dono = novoUsuario();

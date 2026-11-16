@@ -135,6 +135,34 @@ describe('busca de livros oficiais (integração)', () => {
       ]);
     });
 
+    it('texto que só aparece na sinopse não encontra o livro (RN-19)', async () => {
+      const autor = await inserirAutor(pool, 'Itamar Vieira Junior');
+      const livro = await inserirLivroOficial(pool, novoIsbn(), 'Torto arado', {
+        autores: [autor],
+      });
+      await pool.query(
+        `UPDATE acervo.livro
+            SET sinopse_status = 'disponivel',
+                sinopse = 'Bibiana e Belonísia encontram uma faca na mala da avó.'
+          WHERE id = $1`,
+        [livro],
+      );
+
+      for (const q of ['belonisia', 'faca na mala', 'Bibiana']) {
+        const resposta = await buscar({ q });
+        expect(resposta.status).toBe(200);
+        expect(resposta.body.itens).toEqual([]);
+        expect(resposta.body.totalItens).toBe(0);
+      }
+      // O mesmo livro continua achável pelo título e pelo autor.
+      expect(titulos((await buscar({ q: 'torto' })).body)).toEqual([
+        'Torto arado',
+      ]);
+      expect(titulos((await buscar({ q: 'itamar' })).body)).toEqual([
+        'Torto arado',
+      ]);
+    });
+
     it('ignora acentos e maiúsculas dos dois lados', async () => {
       const autor = await inserirAutor(pool, 'Conceição Evaristo');
       await inserirLivroOficial(pool, novoIsbn(), 'Ponciá Vicêncio', {
