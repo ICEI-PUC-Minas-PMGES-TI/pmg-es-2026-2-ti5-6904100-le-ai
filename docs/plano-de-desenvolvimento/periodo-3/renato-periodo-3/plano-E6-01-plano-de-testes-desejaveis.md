@@ -433,3 +433,20 @@ Ficaram acima do alvo, pelo §3 (casos únicos de critério ou RN que a validaç
   - o timeout no mobile está marcado no DoD, mas não é testado;
   - "mergeado" e "CI verde" estão desmarcados;
   - "a marcação como lida segue sem teste" está desatualizado: o CT-NOO-26 testa.
+
+## 13. Complemento F-DSF-OPC (16/11/2026)
+
+O PR #66 foi mergeado às 19:22 e o PR #64 (F-DSF-OPC) às 19:41 (`1555482`). Pela decisão 1b, a feature entrou no plano pelo PR #67, da branch `renato-e6-01-dsf`:
+
+- **9.6.30**, com 24 casos (CT-DSO-01 a 24). Os nomes foram conferidos de novo contra a `desenvolvimento`. Em relação ao anexo `inventario-opcionais-p3.md` §4, mudaram três coisas:
+  - entrou o teste "pausar e retomar dentro da janela deixa a pausa parcial";
+  - entraram os casos do menu e da rota;
+  - entrou o "um fato de hoje não refaz as janelas encerradas de outros dias", que prova a selagem pelo consumidor.
+- **Lacunas:** L-43 (fuso de quem consulta) e L-44 (exclusão de conta com desafio), as duas do Vicenzo. A DSO-L2 do anexo (selagem pelo consumidor) saiu porque já tem teste. A DSO-L4 (DES) fica nos riscos.
+- **§9.7:** `ci-back-leitura` 43972538370 (670 testes) e `ci-mobile` 43972538220 (1.024), no commit `1555482`. São 4.123 testes no total.
+- **Validador de contexto limpo:** 4 achados, todos corrigidos:
+  - posição do item no menu do pausado;
+  - RNF-USA-03 sem base;
+  - nível do CT-DSO-06, que passou de mensageria a integração;
+  - L-44 antiga, que já tinha teste.
+- **Aviso ao Vicenzo,** que se soma aos pendentes. O arquivo da feature diz que "`page` e `limite` fora da faixa são 400", mas `limite=500` é rebaixado a 50. O arquivo também cita RNF-USA-03 para a forma e a palavra do resultado.
