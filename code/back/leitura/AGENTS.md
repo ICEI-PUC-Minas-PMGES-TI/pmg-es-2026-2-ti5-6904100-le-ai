@@ -133,6 +133,13 @@ Módulos `src/estante/`, `src/leituras/` e `src/jobs/inatividade/`, com `src/ref
 - **Backfill:** `npm run backfill:desafios` (`node dist/desafios/backfill.js` no build), idempotente; rodar antes de o binding de `leitura.finalizada` subir num ambiente.
 - **Testes:** `src/desafios/dominio/*.spec.ts` e `test/integracao/desafios.int-spec.ts` (CRUD, propriedade, idempotência, RN-20.2 a 20.10, pausas, edição, backfill, duplicata, retry e DLQ).
 
+## F-DSF-OPC — histórico de janelas dos desafios (07/11/2026)
+
+- **`GET /desafios/{id}/janelas?page=&limite=`** no mesmo `DesafiosController`: janelas encerradas (`encerrada_em` preenchido), de `inicio` desc, com o snapshot de cada uma. Paginação igual à de `GET /desafios` (helper `paginacao` no service). Desafio de outra pessoa é 404, conferido **antes** de materializar.
+- **Selagem na consulta:** `materializarSePreciso` (extraído de `listar`) roda antes de ler, então a janela que terminou desde a última leitura entra sem job. O consumidor de métricas continua selando como antes.
+- **`pausa` (`inteira | parcial | nenhuma`)** é calculada no SQL de `listarEncerradas`: o intervalo da janela no fuso dela (`inicio::timestamp AT TIME ZONE fuso_horario` até `(fim + 1)` no mesmo fuso) contra `pausa_desafio`. `inteira` exige uma única pausa cobrindo tudo.
+- **Testes:** bloco `histórico de janelas` em `test/integracao/desafios.int-spec.ts`.
+
 ## F-STA — estatísticas (11/10/2026)
 
 - **`src/estatisticas/`** (`EstatisticasModule`), em camadas: `GET /me/estatisticas?periodo=<ano>|acumulado`, `GET /me/estatisticas/graficos?periodo=…` e `GET /perfis/{usuarioId}/estatisticas?ano=`. O perfil segue RN-08 como `EstanteService.listarDoPerfil` (404, 403, 503) e devolve só os três totais do ano.

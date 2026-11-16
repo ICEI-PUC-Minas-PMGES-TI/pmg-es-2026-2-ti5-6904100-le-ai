@@ -8,8 +8,9 @@ info:
     perfil estão implementadas por F-AVA (27/09/2026); os contratos de F-EST
     e de F-PRG estão implementados (F-PRG em 27/09/2026, com a edição de
     progresso removida em 29/09/2026). A sequência diária está implementada
-    por F-GAM (08/10/2026), os desafios por F-DSF (09/10/2026) e as
-    estatísticas por F-STA (11/10/2026). Cada operação traz
+    por F-GAM (08/10/2026), os desafios por F-DSF (09/10/2026), o histórico
+    de janelas dos desafios por F-DSF-OPC (07/11/2026) e as estatísticas por
+    F-STA (11/10/2026). Cada operação traz
     `x-implementation-status`.
     Nota e resenha pertencem ao livro, não a uma ocorrência de leitura.
     As reações à resenha (curtir e descurtir) e as frases e trechos estão
@@ -1158,8 +1159,8 @@ paths:
         da ação de finalizar, nunca pela data de fim editável (RN-20.3). Livros
         pessoais contam (RN-20.4); releitura incompleta e leitura abandonada
         não. A janela que começou desde a última consulta é criada aqui, sem
-        job (RN-20.9). Histórico de janelas encerradas é RF-DSF-05 (Período 3)
-        e não é exposto.
+        job (RN-20.9). As janelas encerradas ficam em
+        `GET /desafios/{desafioId}/janelas` (RF-DSF-05).
       responses:
         '200':
           description: Página de desafios, possivelmente vazia.
@@ -1227,6 +1228,41 @@ paths:
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
         '409': { $ref: '#/components/responses/Conflito' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
+  /desafios/{desafioId}/janelas:
+    get:
+      tags: [desafios]
+      summary: Lista o histórico de janelas encerradas de um desafio
+      operationId: listarJanelasDesafio
+      x-implementation-status: implemented
+      x-implemented-by: F-DSF-OPC
+      parameters:
+        - { $ref: '#/components/parameters/DesafioId' }
+        - { $ref: '#/components/parameters/Pagina' }
+        - { $ref: '#/components/parameters/Limite' }
+      description: >-
+        Janelas encerradas do desafio, da mais recente para a mais antiga
+        (RF-DSF-05), sem a corrente. Cada uma traz unidade, periodicidade e
+        alvo de quando valeu, nunca os atuais do desafio (RN-20.7). Entram
+        todos os períodos desde a janela de criação, inclusive os sem progresso,
+        com acumulado zero e não cumpridos; nada antes dela (RN-20.9). A janela
+        que terminou desde a última consulta é encerrada aqui, sem job. O
+        resultado de uma janela encerrada ainda pode mudar com captura offline
+        tardia ou exclusão de trecho de progresso, sempre com a configuração
+        histórica (RN-20.10). `pausa` diz quanto da janela o desafio passou
+        pausado (RN-20.6), para o cliente distinguir o período pausado do
+        período vazio. Só o dono: desafio inexistente ou de outra pessoa é 404
+        (RNF-SEC-02). Excluir o desafio leva o histórico junto.
+      responses:
+        '200':
+          description: Página de janelas encerradas, possivelmente vazia.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaJanelasDesafio' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
         '503': { $ref: '#/components/responses/ServicoIndisponivel' }
 
   /desafios/{desafioId}/pausar:
@@ -2326,6 +2362,52 @@ components:
           items: { $ref: '#/components/schemas/Desafio' }
         paginacao: { $ref: '#/components/schemas/Paginacao' }
 
+    PausaDaJanelaDesafio:
+      type: string
+      enum: [inteira, parcial, nenhuma]
+      description: >-
+        Quanto da janela o desafio passou pausado, no fuso da janela (da
+        meia-noite do primeiro dia à meia-noite seguinte ao último). `inteira`
+        quando uma única pausa cobre a janela toda; `parcial` quando alguma
+        pausa a alcança só em parte (inclusive pausar e retomar dentro dela);
+        `nenhuma` sem pausa.
+    JanelaEncerradaDesafio:
+      type: object
+      additionalProperties: false
+      required: [inicio, fim, unidade, periodicidade, valorAlvo, acumulado, cumprida, pausa]
+      properties:
+        inicio: { type: string, format: date }
+        fim: { type: string, format: date }
+        unidade:
+          allOf: [{ $ref: '#/components/schemas/UnidadeDesafio' }]
+          description: Unidade vigente nesta janela (RN-20.7).
+        periodicidade:
+          allOf: [{ $ref: '#/components/schemas/JanelaDesafio' }]
+          description: Periodicidade vigente nesta janela (RN-20.7).
+        valorAlvo:
+          type: integer
+          minimum: 1
+          description: Alvo vigente nesta janela (RN-20.7).
+        acumulado:
+          type: integer
+          minimum: 0
+          description: >-
+            Soma na unidade da janela dos registros dela, fora das pausas; zero
+            no período sem progresso (RN-20.9).
+        cumprida:
+          type: boolean
+          description: O acumulado atingiu o alvo desta janela (RN-20.8).
+        pausa: { $ref: '#/components/schemas/PausaDaJanelaDesafio' }
+    PaginaJanelasDesafio:
+      type: object
+      additionalProperties: false
+      required: [itens, paginacao]
+      properties:
+        itens:
+          type: array
+          description: Da mais recente para a mais antiga.
+          items: { $ref: '#/components/schemas/JanelaEncerradaDesafio' }
+        paginacao: { $ref: '#/components/schemas/Paginacao' }
     MinhaAvaliacao:
       type: object
       additionalProperties: false

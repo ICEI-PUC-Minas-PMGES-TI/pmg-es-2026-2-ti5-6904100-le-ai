@@ -20,9 +20,10 @@ import '../perfil/perfil_service.dart';
 import '../perfil/widgets_de_perfil.dart';
 import 'desafios_service.dart';
 import 'textos.dart';
+import 'textos_do_historico.dart';
 import 'widgets_de_desafios.dart';
 
-enum _Acao { editar, pausar, retomar, excluir }
+enum _Acao { historico, editar, pausar, retomar, excluir }
 
 /// Lista de desafios (docs/design/periodo-2/F-DSF/desafios.md, RF-DSF-03/04): cada desafio com o
 /// acumulado da janela corrente, os ativos primeiro e os pausados no grupo `Pausados`. A ordem é
@@ -43,6 +44,9 @@ class DesafiosPage extends StatefulWidget {
   final VoidCallback aoCriar;
   final ValueChanged<Desafio> aoEditar;
 
+  /// `Ver histórico`, no topo do menu do card ativo e do pausado (F-DSF-OPC).
+  final ValueChanged<Desafio> aoVerHistorico;
+
   const DesafiosPage({
     super.key,
     required this.servico,
@@ -51,6 +55,7 @@ class DesafiosPage extends StatefulWidget {
     this.aoVoltar,
     required this.aoCriar,
     required this.aoEditar,
+    required this.aoVerHistorico,
   });
 
   @override
@@ -158,6 +163,8 @@ class _DesafiosPageState extends State<DesafiosPage> {
       return;
     }
     switch (acao) {
+      case _Acao.historico:
+        widget.aoVerHistorico(desafio);
       case _Acao.editar:
         widget.aoEditar(desafio);
       case _Acao.pausar:
@@ -187,6 +194,7 @@ class _DesafiosPageState extends State<DesafiosPage> {
           await widget.servico.retomar(desafio.id, idempotencyKey: chave);
         case _Acao.excluir:
           await widget.servico.excluir(desafio.id, idempotencyKey: chave);
+        case _Acao.historico:
         case _Acao.editar:
           return;
       }
@@ -386,8 +394,9 @@ class _DesafiosPageState extends State<DesafiosPage> {
   }
 }
 
-/// Menu de ações (desafios.md §4.3): cabeçalho com o desafio e a situação da janela, `Editar`,
-/// `Pausar` ou `Retomar` com a segunda linha que diz o efeito, e `Excluir` por último, em `rubi`.
+/// Menu de ações (desafios.md §4.3 e a edição de P3): cabeçalho com o desafio e a situação da
+/// janela, `Ver histórico` no topo (a única ação que só lê), `Editar`, `Pausar` ou `Retomar` com a
+/// segunda linha que diz o efeito, e `Excluir` por último, em `rubi`.
 class _MenuDoDesafio extends StatelessWidget {
   final Desafio desafio;
 
@@ -401,11 +410,15 @@ class _MenuDoDesafio extends StatelessWidget {
       IconData icone,
       String rotulo, {
       String? detalhe,
+      String? rotuloAcessivel,
       bool destrutiva = false,
     }) {
       final cor = destrutiva ? theme.colorScheme.error : theme.colorScheme.onSurface;
       return Semantics(
         button: true,
+        label: rotuloAcessivel,
+        excludeSemantics: rotuloAcessivel != null,
+        onTap: rotuloAcessivel == null ? null : () => Navigator.of(context).pop(acao),
         child: InkWell(
           onTap: () => Navigator.of(context).pop(acao),
           child: ConstrainedBox(
@@ -439,6 +452,12 @@ class _MenuDoDesafio extends StatelessWidget {
     }
 
     final opcoes = <Widget>[
+      opcao(
+        _Acao.historico,
+        PhosphorIconsRegular.clockCounterClockwise,
+        'Ver histórico',
+        rotuloAcessivel: rotuloDoItemDeHistorico(desafio),
+      ),
       opcao(_Acao.editar, PhosphorIconsRegular.pencilSimple, 'Editar desafio'),
       if (desafio.pausado)
         opcao(

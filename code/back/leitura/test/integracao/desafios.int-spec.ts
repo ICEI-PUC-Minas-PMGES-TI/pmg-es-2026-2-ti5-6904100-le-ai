@@ -5,6 +5,7 @@ import type { Pool } from 'pg';
 import request from 'supertest';
 import * as schema from '../../src/db/schema';
 import { DRIZZLE, type DrizzleDB } from '../../src/db/drizzle.module';
+import { somarDias } from '../../src/common/datas';
 import { DesafiosService } from '../../src/desafios/aplicacao/desafios.service';
 import { janelaQueContem } from '../../src/desafios/dominio/janelas';
 import { DesafiosRepository } from '../../src/desafios/infraestrutura/desafios.repository';
@@ -53,6 +54,18 @@ interface PaginaDesafios {
     totalItens: number;
     totalPaginas: number;
   };
+}
+
+interface JanelaEncerrada extends Janela {
+  unidade: string;
+  periodicidade: string;
+  valorAlvo: number;
+  pausa: 'inteira' | 'parcial' | 'nenhuma';
+}
+
+interface PaginaJanelas {
+  itens: JanelaEncerrada[];
+  paginacao: PaginaDesafios['paginacao'];
 }
 
 interface JanelaGravada {
@@ -1009,6 +1022,267 @@ describe('desafios (integração)', () => {
       10,
     );
     expect(await contar(pool, 'leitura.contribuicao_desafio')).toBe(2);
+  });
+
+  describe('histórico de janelas (RF-DSF-05, F-DSF-OPC)', () => {
+    function historico(usuario: string, id: string, consulta = '') {
+      return http()
+        .get(`/desafios/${id}/janelas${consulta}`)
+        .set('Authorization', `Bearer ${tokenDe(usuario)}`);
+    }
+
+    async function encerradas(
+      usuario: string,
+      id: string,
+      consulta = '',
+    ): Promise<PaginaJanelas> {
+      const res = await historico(usuario, id, consulta).expect(200);
+      return res.body as PaginaJanelas;
+    }
+
+    const dia = (dias: number) => dataLocal(diasAtras(dias), SP);
+
+    /** Pausa gravada direto, com os instantes do passado. */
+    async function pausaGravada(
+      desafioId: string,
+      inicio: Date,
+      fim: Date | null,
+    ): Promise<void> {
+      await pool.query(
+        `INSERT INTO leitura.pausa_desafio (desafio_id, inicio_em, fim_em)
+         VALUES ($1, $2, $3)`,
+        [desafioId, inicio, fim],
+      );
+      if (!fim) {
+        await pool.query(
+          'UPDATE leitura.desafio SET pausado = true WHERE id = $1',
+          [desafioId],
+        );
+      }
+    }
+
+    it('sem token é 401; id malformado é 400', async () => {
+      await http().get(`/desafios/${randomUUID()}/janelas`).expect(401);
+      const usuario = await leitor();
+      await historico(usuario, 'nao-e-uuid').expect(400);
+    });
+
+    it('lista só as encerradas, da mais recente à da criação, com as vazias não cumpridas (RN-20.9)', async () => {
+      const usuario = await leitor();
+      const leituraId = await iniciarLeitura(usuario);
+      const id = await criadoHa(usuario, 3, 'diaria', 'paginas', 10);
+      await progresso(usuario, leituraId, 12, diasAtras(2));
+      await progresso(usuario, leituraId, 30, new Date());
+      await processar();
+
+      const pagina = await encerradas(usuario, id);
+
+      expect(pagina.itens).toEqual(
+        [1, 2, 3].map((dias) => ({
+          inicio: dia(dias),
+          fim: dia(dias),
+          unidade: 'paginas',
+          periodicidade: 'diaria',
+          valorAlvo: 10,
+          acumulado: dias === 2 ? 12 : 0,
+          cumprida: dias === 2,
+          pausa: 'nenhuma',
+        })),
+      );
+      expect(pagina.paginacao).toEqual({
+        page: 1,
+        limite: 20,
+        totalItens: 3,
+        totalPaginas: 1,
+      });
+    });
+
+    it('a janela que acabou de terminar entra pela consulta, sem outro registro', async () => {
+      const usuario = await leitor();
+      const id = await criadoHa(usuario, 1, 'diaria');
+      // Materializada ontem: a de ontem ainda era a corrente.
+      await pool.query(
+        `INSERT INTO leitura.janela_desafio
+           (desafio_id, inicio, fim, unidade, periodicidade, valor_alvo,
+            fuso_horario)
+         VALUES ($1, $2, $2, 'paginas', 'diaria', 10, $3)`,
+        [id, dia(1), SP],
+      );
+
+      const pagina = await encerradas(usuario, id);
+
+      expect(pagina.itens.map((janela) => janela.inicio)).toEqual([dia(1)]);
+      expect((await janelas(id)).map((janela) => janela.encerrada)).toEqual([
+        true,
+        false,
+      ]);
+    });
+
+    it('sem janela encerrada é lista vazia', async () => {
+      const usuario = await leitor();
+      const criado = await criar(usuario, {
+        janela: 'anual',
+        unidade: 'livros',
+      });
+
+      expect(await encerradas(usuario, criado.id)).toEqual({
+        itens: [],
+        paginacao: { page: 1, limite: 20, totalItens: 0, totalPaginas: 0 },
+      });
+    });
+
+    it('cada janela mantém a configuração de quando valeu, e a captura tardia a corrige (RN-20.7/20.10)', async () => {
+      const usuario = await leitor();
+      const leituraId = await iniciarLeitura(usuario);
+      const id = await criadoHa(usuario, 2, 'diaria', 'paginas', 10);
+      await progresso(usuario, leituraId, 15, diasAtras(2), 40);
+      await processar();
+
+      await http()
+        .patch(`/desafios/${id}`)
+        .set('Authorization', `Bearer ${tokenDe(usuario)}`)
+        .set('Idempotency-Key', randomUUID())
+        .send({ fusoHorario: SP, unidade: 'minutos', valorAlvo: 30 })
+        .expect(200);
+      // Capturado offline ontem, sincronizado depois da edição.
+      await progresso(usuario, leituraId, 20, diasAtras(1), 50);
+      await processar();
+
+      const { itens } = await encerradas(usuario, id);
+
+      expect(itens).toEqual([
+        expect.objectContaining({
+          inicio: dia(1),
+          unidade: 'paginas',
+          valorAlvo: 10,
+          acumulado: 5,
+          cumprida: false,
+        }),
+        expect.objectContaining({
+          inicio: dia(2),
+          unidade: 'paginas',
+          valorAlvo: 10,
+          acumulado: 15,
+          cumprida: true,
+        }),
+      ]);
+    });
+
+    it('marca a pausa por janela: inteira, parcial ou nenhuma (RN-20.6)', async () => {
+      const usuario = await leitor();
+      const leituraId = await iniciarLeitura(usuario);
+      const id = await criadoHa(usuario, 4, 'diaria', 'paginas', 10);
+      // Do meio-dia de 3 dias atrás ao meio-dia de ontem.
+      await pausaGravada(id, diasAtras(3), diasAtras(1));
+      await progresso(usuario, leituraId, 20, diasAtras(2));
+      await processar();
+
+      const { itens } = await encerradas(usuario, id);
+
+      expect(
+        itens.map(({ inicio, acumulado, pausa }) => ({
+          inicio,
+          acumulado,
+          pausa,
+        })),
+      ).toEqual([
+        { inicio: dia(1), acumulado: 0, pausa: 'parcial' },
+        { inicio: dia(2), acumulado: 0, pausa: 'inteira' },
+        { inicio: dia(3), acumulado: 0, pausa: 'parcial' },
+        { inicio: dia(4), acumulado: 0, pausa: 'nenhuma' },
+      ]);
+    });
+
+    it('pausa aberta cobre as janelas encerradas desde o início dela', async () => {
+      const usuario = await leitor();
+      const id = await criadoHa(usuario, 3, 'diaria');
+      await pausaGravada(id, diasAtras(2), null);
+
+      const { itens } = await encerradas(usuario, id);
+
+      expect(itens.map((janela) => janela.pausa)).toEqual([
+        'inteira',
+        'parcial',
+        'nenhuma',
+      ]);
+    });
+
+    it('pausar e retomar dentro da janela deixa a pausa parcial', async () => {
+      const usuario = await leitor();
+      // Sete dias atrás é sempre a semana anterior.
+      const id = await criadoHa(usuario, 7, 'semanal');
+      const semana = janelaQueContem(dia(0), 'semanal');
+      const anterior = janelaQueContem(somarDias(semana.inicio, -1), 'semanal');
+      const comeco = Date.parse(`${anterior.inicio}T03:00:00.000Z`);
+      // Duas pausas que juntas cobrem a semana anterior, com um intervalo.
+      await pausaGravada(
+        id,
+        new Date(comeco - DIA_MS),
+        new Date(comeco + 2 * DIA_MS),
+      );
+      await pausaGravada(
+        id,
+        new Date(comeco + 2 * DIA_MS + 60_000),
+        new Date(comeco + 8 * DIA_MS),
+      );
+
+      const { itens } = await encerradas(usuario, id);
+
+      expect(itens).toEqual([
+        expect.objectContaining({ ...anterior, pausa: 'parcial' }),
+      ]);
+    });
+
+    it('pagina com limite do servidor (RNF-DES-02)', async () => {
+      const usuario = await leitor();
+      const id = await criadoHa(usuario, 5, 'diaria');
+
+      const primeira = await encerradas(usuario, id, '?limite=2');
+      const ultima = await encerradas(usuario, id, '?limite=2&page=3');
+      const teto = await encerradas(usuario, id, '?limite=500');
+
+      expect(primeira.itens.map((janela) => janela.inicio)).toEqual([
+        dia(1),
+        dia(2),
+      ]);
+      expect(primeira.paginacao).toEqual({
+        page: 1,
+        limite: 2,
+        totalItens: 5,
+        totalPaginas: 3,
+      });
+      expect(ultima.itens.map((janela) => janela.inicio)).toEqual([dia(5)]);
+      expect(teto.paginacao.limite).toBe(50);
+      await historico(usuario, id, '?page=0').expect(400);
+      await historico(usuario, id, '?limite=0').expect(400);
+    });
+
+    it('é só do dono: de outra pessoa ou inexistente é 404, sem materializar (SEC-02)', async () => {
+      const dono = await leitor();
+      const outro = await leitor();
+      const id = await criadoHa(dono, 3, 'diaria');
+
+      const res = await historico(outro, id).expect(404);
+      await historico(dono, randomUUID()).expect(404);
+
+      expect(res.body).toMatchObject({ codigo: expect.any(String) });
+      expect(await janelas(id)).toEqual([]);
+    });
+
+    it('excluir o desafio leva o histórico junto (RF-DSF-04)', async () => {
+      const usuario = await leitor();
+      const id = await criadoHa(usuario, 3, 'diaria');
+      expect((await encerradas(usuario, id)).itens).toHaveLength(3);
+
+      await http()
+        .delete(`/desafios/${id}`)
+        .set('Authorization', `Bearer ${tokenDe(usuario)}`)
+        .set('Idempotency-Key', randomUUID())
+        .expect(204);
+
+      await historico(usuario, id).expect(404);
+      expect(await contar(pool, 'leitura.janela_desafio')).toBe(0);
+    });
   });
 
   describe('consumo (RNF-ERR-06/07, RNF-TST-03)', () => {

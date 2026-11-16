@@ -3,8 +3,8 @@ import 'package:flutter/foundation.dart';
 import '../../core/network/api_client.dart';
 import '../estante/datas_de_leitura.dart';
 
-/// Desafios de leitura do `leitura` (F-DSF, RF-DSF-01..04, `docs/api/leitura.yaml`, tag
-/// `desafios`). Toda escrita leva `Idempotency-Key`; quem chama guarda a chave da intenção e a
+/// Desafios de leitura do `leitura` (F-DSF, RF-DSF-01..04, e o histórico de F-DSF-OPC, RF-DSF-05;
+/// `docs/api/leitura.yaml`, tag `desafios`). Toda escrita leva `Idempotency-Key`; quem chama guarda a chave da intenção e a
 /// repete no reenvio, como pede o `ApiClient`.
 
 enum UnidadeDesafio {
@@ -159,6 +159,97 @@ class PaginaDesafios {
   }
 }
 
+/// Quanto da janela encerrada o desafio passou pausado (RN-20.6): separa o período pausado do
+/// período vazio no histórico.
+enum PausaDaJanela {
+  inteira('inteira'),
+  parcial('parcial'),
+  nenhuma('nenhuma');
+
+  final String valor;
+
+  const PausaDaJanela(this.valor);
+
+  static PausaDaJanela deValor(Object? valor) => values.firstWhere(
+    (pausa) => pausa.valor == valor,
+    orElse: () => throw FormatException('Pausa de janela desconhecida: $valor.'),
+  );
+}
+
+/// Janela encerrada do histórico (F-DSF-OPC, RF-DSF-05), com a configuração de quando valeu:
+/// [unidade], [periodicidade] e [valorAlvo] são os dela, nunca os atuais do desafio (RN-20.7).
+class JanelaEncerrada {
+  final DateTime inicio;
+  final DateTime fim;
+  final UnidadeDesafio unidade;
+  final JanelaDesafio periodicidade;
+  final int valorAlvo;
+  final int acumulado;
+  final bool cumprida;
+  final PausaDaJanela pausa;
+
+  const JanelaEncerrada({
+    required this.inicio,
+    required this.fim,
+    required this.unidade,
+    required this.periodicidade,
+    required this.valorAlvo,
+    required this.acumulado,
+    required this.cumprida,
+    required this.pausa,
+  });
+
+  factory JanelaEncerrada.fromJson(Map<String, dynamic> json) {
+    final valorAlvo = json['valorAlvo'];
+    final acumulado = json['acumulado'];
+    final cumprida = json['cumprida'];
+    if (valorAlvo is! num || acumulado is! num || cumprida is! bool) {
+      throw const FormatException('Janela encerrada fora do contrato.');
+    }
+    return JanelaEncerrada(
+      inicio: JanelaCorrente._data(json['inicio']),
+      fim: JanelaCorrente._data(json['fim']),
+      unidade: UnidadeDesafio.deValor(json['unidade']),
+      periodicidade: JanelaDesafio.deValor(json['periodicidade']),
+      valorAlvo: valorAlvo.toInt(),
+      acumulado: acumulado.toInt(),
+      cumprida: cumprida,
+      pausa: PausaDaJanela.deValor(json['pausa']),
+    );
+  }
+
+  /// Chave de deduplicação entre páginas: o período é único por desafio.
+  String get chave => '${inicio.toIso8601String()}/${fim.toIso8601String()}';
+}
+
+class PaginaJanelas {
+  final List<JanelaEncerrada> itens;
+  final int pagina;
+  final int totalItens;
+  final int totalPaginas;
+
+  const PaginaJanelas({
+    required this.itens,
+    required this.pagina,
+    required this.totalItens,
+    required this.totalPaginas,
+  });
+
+  factory PaginaJanelas.fromJson(Map<String, dynamic> json) {
+    final itens = json['itens'];
+    final paginacao = json['paginacao'];
+    if (itens is! List<dynamic> || paginacao is! Map<String, dynamic>) {
+      throw const FormatException('Página de janelas fora do contrato.');
+    }
+    return PaginaJanelas(
+      itens: itens.map((bruto) => JanelaEncerrada.fromJson(bruto as Map<String, dynamic>)).toList(),
+      pagina: (paginacao['page'] as num).toInt(),
+      totalItens: (paginacao['totalItens'] as num).toInt(),
+      totalPaginas: (paginacao['totalPaginas'] as num).toInt(),
+    );
+  }
+}
+
 class DesafiosService {
   final ApiClient _api;
 
@@ -201,6 +292,13 @@ class DesafiosService {
   Future<PaginaDesafios> listar({int pagina = 1, int limite = 20}) async {
     final json = await _api.getJson('/desafios?page=$pagina&limite=$limite');
     return _ler(() => PaginaDesafios.fromJson(json));
+  }
+
+  /// Histórico do desafio (F-DSF-OPC): janelas encerradas, da mais recente para a mais antiga.
+  /// [pagina] começa em 1. Desafio de outra pessoa ou excluído é 404.
+  Future<PaginaJanelas> listarJanelas(String id, {int pagina = 1, int limite = 20}) async {
+    final json = await _api.getJson('/desafios/${_id(id)}/janelas?page=$pagina&limite=$limite');
+    return _ler(() => PaginaJanelas.fromJson(json));
   }
 
   Future<Desafio> criar({
