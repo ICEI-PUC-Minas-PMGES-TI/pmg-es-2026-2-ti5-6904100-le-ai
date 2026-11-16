@@ -42,6 +42,21 @@ CREATE TEMP TABLE stg_livro_autor (isbn13 text, ol_author_key text) ON COMMIT DR
 CREATE TEMP TABLE stg_livro_assunto (isbn13 text, slug text) ON COMMIT DROP;
 """
 
+# Sinônimo que só existe no banco (RN-12): o CSV é a fonte versionada, mas
+# `acervo.sinonimo_editora` é a de runtime, a mesma que o importador por ISBN do
+# `acervo` consulta (`convergencia.repository.ts`). A editora juntada no banco,
+# fora do CSV, vira sinônimo da canônica; sem este passo, `SQL_EDITORA` recriava
+# a variante e a recarga devolvia o livro a ela (L-38, E6-02). Roda depois do
+# `resolver_editora` do CSV, só na forma que ainda não é a da editora apontada.
+SQL_EDITORA_SINONIMO = """
+UPDATE stg_livro s
+   SET editora_nome = e.nome, editora_normalizada = e.nome_normalizado
+  FROM acervo.sinonimo_editora se
+  JOIN acervo.editora e ON e.id = se.editora_id
+ WHERE se.forma_externa = s.editora_normalizada
+   AND s.editora_normalizada IS DISTINCT FROM e.nome_normalizado;
+"""
+
 # A entidade Editora nasce da forma normalizada (RN-12). `DISTINCT ON` escolhe
 # uma forma de exibição estável para cada chave normalizada.
 SQL_EDITORA = """
@@ -348,6 +363,7 @@ def carregar(
         _copiar(cursor, "stg_livro_autor", ["isbn13", "ol_author_key"], vinculos_autor)
         _copiar(cursor, "stg_livro_assunto", ["isbn13", "slug"], vinculos_assunto)
 
+        cursor.execute(SQL_EDITORA_SINONIMO)
         cursor.execute(SQL_EDITORA)
         totais.editoras = cursor.rowcount
         cursor.execute(SQL_SERIE)

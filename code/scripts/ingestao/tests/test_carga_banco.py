@@ -997,3 +997,99 @@ def test_carga_inicial_sobre_base_existente_nao_atualiza_nada(conexao, capsys, t
     livros_depois = {linha[0]: linha for linha in _todas(conexao, "SELECT * FROM acervo.livro")}
     assert {chave: livros_depois[chave] for chave in livros_antes} == livros_antes
     assert vinculos_antes <= set(_todas(conexao, "SELECT livro_id, assunto_id FROM acervo.livro_assunto"))
+
+
+# --- Recarga com sinônimo de editora (L-38, E6-02) ----------------------------
+#
+# A editora chega à carga pela forma normalizada (RN-12): o CSV de sinônimos
+# junta as variantes que a normalização não junta, e `acervo.sinonimo_editora`
+# é a mesma tabela em tempo de execução, lida também pelo importador por ISBN do
+# serviço `acervo`. Escrito pelo Renato em 16/11/2026 (E6-02, lacuna L-38).
+
+CEGUEIRA = "9788535902815"  # "Companhia das Letras" na amostra
+
+
+def _editora_do_livro(conexao, isbn13: str) -> tuple:
+    return _um(
+        conexao,
+        """SELECT e.id, e.nome, e.nome_normalizado FROM acervo.livro l
+             JOIN acervo.editora e ON e.id = l.editora_id WHERE l.isbn13 = %s""",
+        isbn13,
+    )
+
+
+def test_recarga_com_sinonimo_de_editora_mantem_a_editora_canonica(conexao, capsys, tmp_path):
+    """O dump passa a trazer uma variante do CSV ("Cia das Letras") para a
+    editora que o livro já tem: a recarga não cria editora nem troca o vínculo."""
+    _rodar(capsys, "semear", "--database-url", URL)
+    _carga_da_amostra(capsys, tmp_path / "inicial")
+    conexao.commit()
+    antes = _editora_do_livro(conexao, CEGUEIRA)
+    assert antes[1:] == ("Companhia das Letras", "companhia das letras")
+    editoras_antes = _um(conexao, "SELECT count(*) FROM acervo.editora")[0]
+
+    amostra = tmp_path / "amostra"
+    amostra.mkdir()
+    for nome in ("obras_amostra.jsonl", "autores_amostra.jsonl"):
+        (amostra / nome).write_text((AMOSTRA / nome).read_text(encoding="utf-8"), encoding="utf-8")
+    edicoes = _ler_linhas(AMOSTRA / "edicoes_amostra.jsonl")
+    for edicao in edicoes:
+        if edicao["key"] == "/books/OL30000011M":
+            edicao["publishers"] = ["Cia das Letras"]
+    _gravar_linhas(amostra / "edicoes_amostra.jsonl", edicoes)
+
+    totais = _carga_da_amostra(capsys, tmp_path / "recarga", amostra, "recarga")["totais"]
+
+    assert (totais["editoras"], totais["livros"], totais["livros_atualizados"]) == (0, 0, 0)
+    assert _editora_do_livro(conexao, CEGUEIRA) == antes
+    assert _um(conexao, "SELECT count(*) FROM acervo.editora")[0] == editoras_antes
+
+
+def test_recarga_depois_de_unificar_no_banco_nao_recria_a_editora_juntada(conexao, capsys, tmp_path):
+    """A editora foi juntada só no banco: o livro passou para a canônica e a
+    variante virou linha de `acervo.sinonimo_editora`, sem entrar no CSV. A
+    recarga do mesmo dump não pode recriar a variante nem devolver o livro a ela,
+    como o importador por ISBN do `acervo`, que já consulta a tabela."""
+
+    def editora_sem_acento(trabalho: Path) -> None:
+        caminho = trabalho / "candidatos.jsonl"
+        registros = _ler_linhas(caminho)
+        alvo = [r for r in registros if r["isbn13"] == TORTO]
+        assert alvo, "TORTO deveria estar entre os candidatos da amostra"
+        alvo[0]["editora_nome"] = "Arquipelago Imaginario"
+        _gravar_linhas(caminho, registros)
+
+    _rodar(capsys, "semear", "--database-url", URL)
+    _carga_da_amostra(capsys, tmp_path / "inicial", ajustar=editora_sem_acento)
+    conexao.commit()
+    assert _editora_do_livro(conexao, TORTO)[2] == "arquipelago imaginario"
+
+    # A junção feita no banco, fora do CSV.
+    canonica = _um(
+        conexao,
+        """INSERT INTO acervo.editora (nome, nome_normalizado)
+           VALUES ('Arquipélago Imaginário', 'arquipélago imaginário') RETURNING id""",
+    )[0]
+    variante = _editora_do_livro(conexao, TORTO)[0]
+    _executar(conexao, "UPDATE acervo.livro SET editora_id = %s WHERE editora_id = %s", canonica, variante)
+    _executar(
+        conexao,
+        "INSERT INTO acervo.sinonimo_editora (forma_externa, editora_id) VALUES ('arquipelago imaginario', %s)",
+        canonica,
+    )
+    _executar(conexao, "DELETE FROM acervo.editora WHERE id = %s", variante)
+    conexao.commit()
+    editoras_antes = _um(conexao, "SELECT count(*) FROM acervo.editora")[0]
+
+    totais = _carga_da_amostra(
+        capsys, tmp_path / "recarga", AMOSTRA, "recarga", editora_sem_acento
+    )["totais"]
+
+    assert (totais["editoras"], totais["livros_atualizados"]) == (0, 0)
+    assert _editora_do_livro(conexao, TORTO) == (
+        canonica, "Arquipélago Imaginário", "arquipélago imaginário"
+    )
+    assert _um(
+        conexao, "SELECT count(*) FROM acervo.editora WHERE nome_normalizado = 'arquipelago imaginario'"
+    )[0] == 0
+    assert _um(conexao, "SELECT count(*) FROM acervo.editora")[0] == editoras_antes
