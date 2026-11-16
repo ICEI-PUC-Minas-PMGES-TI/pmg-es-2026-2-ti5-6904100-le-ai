@@ -147,6 +147,73 @@ describe('remoção pela moderação, comando interno (F-MOD, integração)', ()
       .expect(401);
   });
 
+  // L-30 (E6-02): o `social` manda chave fixa por alvo. Dentro de 24 h ela
+  // repete a resposta; depois, o recibo vence e a mesma chave é 409, sem
+  // reexecutar a remoção nem publicar outro evento (feature-F-MOD.md).
+  it.each([
+    ['frase', 'frases', 'removerFrasePelaModeracao', 0],
+    ['resenha', 'resenhas', 'removerResenhaPelaModeracao', 1],
+  ])(
+    'depois da janela de 24 h, a mesma chave fixa da %s é conflito e nada muda',
+    async (_alvo, rota, operacao, eventosEsperados) => {
+      const autor = novoUsuario();
+      const livroId = await inserirLivro(pool);
+      const id =
+        rota === 'resenhas'
+          ? await resenha(autor, livroId)
+          : (
+              await pool.query<{ id: string }>(
+                `INSERT INTO leitura.frase (usuario_id, livro_id, texto, pagina)
+                 VALUES ($1, $2, 'Trecho.', 1) RETURNING id`,
+                [autor, livroId],
+              )
+            ).rows[0].id;
+      const chave = randomUUID();
+      const removerComAChaveFixa = () =>
+        request(app.getHttpServer())
+          .post(`/internal/moderacao/${rota}/${id}/remocao`)
+          .set('X-Moderacao-Token', TOKEN)
+          .set('Idempotency-Key', chave)
+          .send();
+      const recibo = async () =>
+        (
+          await pool.query(
+            `SELECT status_http, resposta, replay_ate
+               FROM leitura.idempotencia_leitura
+              WHERE subject_ref = $1 AND operacao = $2`,
+            [SUJEITO_MODERACAO, `${operacao}:${id}`],
+          )
+        ).rows;
+
+      const primeira = await removerComAChaveFixa().expect(200);
+      expect(primeira.body).toEqual({
+        removida: true,
+        autorId: autor,
+        livroId,
+      });
+      await removerComAChaveFixa().expect(200);
+      // O recibo "envelhece" 25 h; o CHECK exige replay_ate >= criado_em.
+      await pool.query(
+        `UPDATE leitura.idempotencia_leitura
+            SET criado_em = criado_em - interval '25 hours',
+                replay_ate = replay_ate - interval '25 hours'
+          WHERE subject_ref = $1 AND operacao = $2`,
+        [SUJEITO_MODERACAO, `${operacao}:${id}`],
+      );
+      const vencido = await recibo();
+
+      const depois = await removerComAChaveFixa();
+
+      expect(depois.status).toBe(409);
+      expect(depois.body.codigo).toBe('CHAVE_IDEMPOTENCIA_CONFLITANTE');
+      expect(await recibo()).toEqual(vencido);
+      expect(vencido).toHaveLength(1);
+      expect(await contar(pool, 'leitura.outbox_leitura')).toBe(
+        eventosEsperados,
+      );
+    },
+  );
+
   it('id inválido é 400 e falta de chave é 400', async () => {
     await remover('nao-e-uuid').expect(400);
     await request(app.getHttpServer())
