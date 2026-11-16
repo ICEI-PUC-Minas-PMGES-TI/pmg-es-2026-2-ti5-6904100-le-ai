@@ -8,7 +8,7 @@
 |---|---|---|
 | 1. Planejar | concluída em 14/11/2026: escopo com as opcionais mergeadas, 425 casos candidatos (alvo ≈ 350 + ≈ 86 das opcionais), lacunas L-13 a L-44 | [`plano-E6-01-plano-de-testes-desejaveis.md`](plano-E6-01-plano-de-testes-desejaveis.md) nesta pasta, com os inventários em [`plano-E6-01-anexos/`](plano-E6-01-anexos/) |
 | 2. Revisar o plano | concluída em 15/11/2026: 55 achados, todos corrigidos (veredito: aprovado com correções); 428 casos candidatos nas desejáveis (alvo ≈ 346) e 95 nas opcionais (alvo ≈ 85); RF-PRG-08 sem caso (L-24) | plano e anexos corrigidos, registro em §10 do plano |
-| 3. Realizar e validar | não iniciada | `docs/9.plano_de_testes.md` com as desejáveis |
+| 3. Realizar e validar | concluída em 15/11/2026: 352 casos das desejáveis e 69 das opcionais integradas (F-MOD-OPC, F-ACV-OPC, F-STA-OPC; F-DSF-OPC fora, PR #64 aberto), 611 no total; lacunas novas L-13 a L-38; L-08 fechada; seis validadores de contexto limpo, achados corrigidos (registro em §11 do plano) | `docs/9.plano_de_testes.md` na branch `renato-e6-01` (commit `2a0a98e`), sem PR |
 | 4. Revisão independente e PR | não iniciada | PR para a `desenvolvimento` |
 
 Quem terminar uma etapa atualiza esta tabela e a linha E6-01 do [`README.md`](README.md).

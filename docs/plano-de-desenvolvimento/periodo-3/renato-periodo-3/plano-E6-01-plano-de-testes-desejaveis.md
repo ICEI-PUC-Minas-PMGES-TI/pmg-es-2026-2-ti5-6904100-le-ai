@@ -364,3 +364,51 @@ O SUMÁRIO lista o §9 só até o nível 9.x. Como nenhuma seção muda de nome,
   - F-SOCIAL-2: o alvo passou para ≤ 16. A regra 3 de §3 limita a 4 casos web e 4 mobile, e os cortes sugeridos estão no anexo.
   - F-MOD: os cortes sugeridos passaram a ser 2 casos web (CT-MOD-26 e 28), não mais de backend. Ela fica com 32 casos, acima do teto de 30, como §3 permite.
 - **Avisos novos aos donos**, em §2.4: F-LST (Henrique) e F-DSF-OPC (Vicenzo, RN-20.9).
+
+## 11. Execução da etapa 3 (15/11/2026)
+
+**Saída:** `docs/9.plano_de_testes.md` na branch `renato-e6-01` (commit `2a0a98e`, a partir da `origin/desenvolvimento` `7d988ac`). PR ainda não aberto (etapa 4).
+
+**Escopo.** A `desenvolvimento` não mudou desde 14/11. O PR #64 (F-DSF-OPC) continua aberto, então não há 9.6.29 e a L-35 do plano saiu; nenhuma outra opcional entrou.
+
+**Casos (611 no total).**
+
+| Feature | Casos | | Feature | Casos |
+|---|---|---|---|---|
+| F-CONTA-2 | 31 | | F-GAM | 24 |
+| F-SOCIAL-2 | 16 | | F-LST | 29 |
+| F-ACV-DESCOBERTA | 25 | | F-REC-P2P | 24 |
+| F-ACV-NOTA | 25 | | F-MOD | 31 |
+| F-EST-2 | 22 | | F-NOT-2 | 19 |
+| F-SESSAO | 17 | | F-MOD-OPC | 29 |
+| F-AVA-2 | 31 | | F-ACV-OPC | 23 |
+| F-DSF | 30 | | F-STA-OPC | 17 |
+| F-STA | 28 | | Período 1 | 190 |
+
+Ficaram acima do alvo, pelo §3 (casos únicos de critério ou RN que a validação achou): F-CONTA-2, F-AVA-2, F-DSF, F-LST, F-MOD-OPC e F-ACV-OPC, cada uma com 1 ou 2 a mais. A F-MOD ficou com 31: saiu o unitário de code points da denúncia (CT-MOD-07 do anexo), porque o teste de integração prova a mesma regra.
+
+**Decisões tomadas na execução.**
+- **L-44 juntada à L-01:** listas e denúncia entram na L-01 (RN-08 sem unitário).
+- **L-08 fechada:** CT-STA-19 e CT-GAM-10 provam que o `progresso.registrado` de um registro já excluído é confirmado sem efeito, e o consumidor de métricas é o único do evento.
+- **L-42 saiu:** o teste do formulário mobile cobre a edição com assuntos e o `[]` (CT-ACO-22).
+- **Renumeração das lacunas:** L-13..L-34 como no plano; L-39→L-35, L-40→L-36, L-41→L-37, L-43→L-38.
+- **§9.3.3, RNF-TST-04:** as listas saíram da "fila offline", porque não existe fila offline nas listas nem nos desafios do mobile.
+
+**Verificação.**
+- Um script (scratchpad) conferiu os 611 casos: o nome do teste e os `describe` intermediários no arquivo da worktree, o arquivo no log do run da §9.7 (a ingestão só pelo total, porque o `pytest -q` não lista arquivos) e a numeração sem buraco.
+- Os runs da §9.7 são os de §5.7, todos verdes, sem teste pulado: 4.011 testes no total.
+- Seis validadores de contexto limpo leram cada caso no corpo do teste. Foram cerca de 45 achados confirmados, todos corrigidos. Os tipos foram:
+  - resultados esperados que prometiam mais do que o teste prova;
+  - níveis trocados (mensageria e integração, script e script com banco);
+  - 6 casos que faltavam: CT-CNT-14, CT-AV2-09, CT-DSF-30, CT-LST-29, CT-MDO-21 e CT-ACO-23;
+  - textos de lacunas;
+  - exceções da §9.5;
+  - a §9.2 da F-MOD-OPC (sem `acervo`).
+- Achados não aplicados:
+  - caso web de tabela na F-STA: passaria do teto de 4 casos web, e o RF-STA-03 tem caso mobile;
+  - caso de listagem de frases do livro pessoal: a mesma regra já tem caso no cadastro;
+  - casos extras da F-EST-2 (histórico web, busca mobile, mesma chave): a feature já está no alvo, e os RFs têm caso.
+
+**Avisos novos aos donos** (além do §2.4):
+- F-PRG (Ana): o arquivo ainda diz que a entrega tardia "não tem teste";
+- F-ACV-DESCOBERTA (Vicenzo), F-REC-P2P (Kayke), F-LST (Henrique) e F-MOD (Renato): o DoD ou o plano dizem que o timeout do cliente é testado, e não é (L-14).
