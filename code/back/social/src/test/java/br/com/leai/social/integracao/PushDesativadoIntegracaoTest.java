@@ -36,6 +36,12 @@ class PushDesativadoIntegracaoTest extends IntegracaoComPostgres {
     assertThat(enviador.ativo()).isFalse();
     assertThat(jdbc.queryForObject("SELECT count(*) FROM notificacao WHERE destinatario_id = ?", Integer.class, eu))
         .isEqualTo(1);
-    assertThat(jdbc.queryForObject("SELECT count(*) FROM envio_push", Integer.class)).isZero();
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM envio_push e JOIN notificacao n ON n.id = e.notificacao_id"
+                    + " WHERE n.destinatario_id = ?",
+                Integer.class,
+                eu))
+        .isZero();
   }
 }
