@@ -6,7 +6,7 @@
 
 | Etapa | Situação | Saída |
 |---|---|---|
-| 1. Planejar | não iniciada | `plano-E6-02-testes-das-lacunas.md` nesta pasta |
+| 1. Planejar | concluída em 16/11/2026, plano ainda não revisado: 16 lacunas da área do Renato, ≈ 43,5 h de escrita (≈ 55 h com validação e PR), avisos a outros donos e 4 pendências para o Renato | [`plano-E6-02-testes-das-lacunas.md`](plano-E6-02-testes-das-lacunas.md) |
 | 2. Realizar e validar | não iniciada | testes novos nos projetos, §9.8 atualizada |
 | 3. Revisão independente e PR | não iniciada | PR para a `desenvolvimento` |
 
