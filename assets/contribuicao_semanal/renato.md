@@ -112,3 +112,4 @@ Realizado prompts das tarefas da Entrega 6 (plano de testes das desejáveis, tes
 Realizado plano da E6-01 (Test Plan das funcionalidades desejáveis), com o inventário dos testes das 14 desejáveis e das opcionais e revisão independente do plano
 Realizado plano de testes das funcionalidades desejáveis e das opcionais integradas: 637 casos ligados aos testes automatizados, execução do CI atualizada e lacunas com o dono de cada área
 Realizado validação do plano de testes por revisores independentes e PR para a desenvolvimento
+Realizado inclusão da F-DSF-OPC (histórico de janelas de desafio) no plano de testes depois do merge do PR #64: 24 casos, duas lacunas novas e execução do CI atualizada
