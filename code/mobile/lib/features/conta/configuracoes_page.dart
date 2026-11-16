@@ -22,6 +22,7 @@ class ConfiguracoesPage extends StatefulWidget {
   final Future<void> Function() aoSair;
   final VoidCallback? aoVoltar;
   final VoidCallback? aoAlterarSenha;
+  final VoidCallback? aoAbrirNotificacoes;
   final VoidCallback? aoAbrirPolitica;
 
   /// `Excluir conta` (F-CONTA-2), última linha do grupo `Privacidade e dados`.
@@ -33,6 +34,7 @@ class ConfiguracoesPage extends StatefulWidget {
     required this.aoSair,
     this.aoVoltar,
     this.aoAlterarSenha,
+    this.aoAbrirNotificacoes,
     this.aoAbrirPolitica,
     this.aoExcluirConta,
   });
@@ -97,6 +99,7 @@ class _ConfiguracoesPageState extends State<ConfiguracoesPage> {
                 Divider(height: 1, thickness: 1, color: theme.divider),
                 _TituloDeGrupo(texto: 'Conta', theme: theme),
                 _Linha(rotulo: 'Alterar senha', aoTocar: widget.aoAlterarSenha, theme: theme),
+                _Linha(rotulo: 'Notificações', aoTocar: widget.aoAbrirNotificacoes, theme: theme),
                 _TituloDeGrupo(texto: 'Privacidade e dados', theme: theme),
                 _Linha(
                   rotulo: 'Política de privacidade',

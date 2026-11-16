@@ -41,7 +41,8 @@ public record AppProperties(
     String moderacaoToken,
     // F-MOD-OPC: o comando interno de suspensão e reativação de conta no `identidade`, com o
     // mesmo MODERACAO_TOKEN. Default local (8080).
-    String identidadeBaseUrl) {
+    String identidadeBaseUrl,
+    String firebaseCredentialsJson) {
 
   /** Vazio vale (remoção desligada); preenchido, com o mesmo mínimo do `leitura`. */
   @AssertTrue(message = "MODERACAO_TOKEN precisa de pelo menos 32 caracteres")
@@ -62,5 +63,10 @@ public record AppProperties(
         .map(String::trim)
         .filter(origem -> !origem.isEmpty() && !"*".equals(origem))
         .toList();
+  }
+
+  @Override
+  public String toString() {
+    return "AppProperties[serviceName=" + serviceName + "]";
   }
 }

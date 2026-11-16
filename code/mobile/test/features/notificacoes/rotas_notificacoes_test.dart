@@ -67,6 +67,7 @@ void main() {
     expect(ehRotaDeNotificacoes('/perfil/notificacoes'), isTrue);
     expect(ehRotaDeNotificacoes('/estante'), isFalse);
     expect(ehRotaDeNotificacoes('/perfil/solicitacoes'), isFalse);
+    expect(ehRotaDeNotificacoes('/perfil/configuracoes/notificacoes'), isFalse);
     expect(ehRotaDeNotificacoes('/estante/notificacoes/outra'), isFalse);
   });
 
