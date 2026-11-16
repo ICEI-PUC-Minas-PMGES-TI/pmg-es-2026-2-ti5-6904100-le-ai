@@ -232,6 +232,50 @@ void main() {
     },
   );
 
+  // L-14 (E6-02): o tempo esgotado do cliente (cold start) numa reconsulta tem o mesmo destino
+  // do erro do servidor: ignorado em silêncio, sem tirar a página do ar.
+  testWidgets('tempo esgotado numa reconsulta é ignorado e a seguinte ainda vale', (tester) async {
+    consultas = 0;
+    final controller = LivroOficialController(
+      acervoSimulado(timeout: const Duration(milliseconds: 100), (request) async {
+        consultas++;
+        if (consultas == 1) {
+          return json(_livro(), 200);
+        }
+        if (consultas == 2) {
+          // Responde depois do timeout do cliente: a resposta atrasada não vale.
+          await Future<void>.delayed(const Duration(seconds: 1));
+          return json(_comANotaDoLeitor(), 200);
+        }
+        return json(_comANotaDoLeitor(), 200);
+      }),
+      _id,
+    );
+    addTearDown(controller.dispose);
+    await controller.carregar();
+    var avisos = 0;
+    controller.addListener(() => avisos++);
+
+    controller.recarregarNotas();
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(consultas, 2);
+    expect(controller.estado, EstadoDaPagina.pronta);
+    expect(controller.mensagemDoErro, isNull);
+    expect(controller.livro!.notaDosLeitores, isNull);
+    expect(avisos, 0);
+    // A resposta que chega depois do tempo esgotado não é aplicada.
+    await tester.pump(const Duration(seconds: 1));
+    expect(controller.livro!.notaDosLeitores, isNull);
+    expect(avisos, 0);
+
+    await tester.pump(const Duration(seconds: 3));
+    expect(consultas, 3);
+    expect(controller.livro!.notaDosLeitores?.valor, 5);
+    expect(avisos, 1);
+    await tester.pump(const Duration(minutes: 1));
+  });
+
   testWidgets('dispose cancela as reconsultas agendadas', (tester) async {
     final controller = LivroOficialController(
       acervoSimulado((request) async {

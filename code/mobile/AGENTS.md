@@ -81,6 +81,15 @@ Convenções do app mobile. Complementa o [`AGENTS.md`](../../AGENTS.md) da raiz
 
 ## Mudanças feitas por outras features
 
+### 16/11/2026 — E6-02 (Renato): testes das lacunas (L-14, L-31, L-32, L-37)
+
+Só testes; nenhum código de produção mudou. Avisar o Vicenzo.
+
+- **`test/features/livros/apoio.dart` (do Vicenzo):** `acervoSimulado` e `leituraSimulada` ganharam o parâmetro opcional `timeout` (padrão de 90 s, o mesmo do `ApiClient`), no molde do `estanteSimulada`. Com um valor curto e um handler que demora mais, o teste simula o tempo esgotado do cliente (`ApiFailureKind.coldStart`). As chamadas existentes não mudam.
+- **`test/features/livros/livro_pessoal_page_test.dart` (do Vicenzo):** o `leituraSimulada` do `montar` responde a `PUT`/`DELETE /resenhas/:id/reacao` (antes só devolvia `minha-avaliacao`); o caso novo "terceiro curte a resenha do dono com a via que abriu a página" confere a via e a referência no corpo do `PUT` e na consulta do `DELETE`. Os testes do dono e do terceiro pelo feed agora conferem a ausência de `Nota geral`, `Nota dos leitores` e `NotasDoLivro` (RN-06.5).
+- **Armadilha:** o tempo esgotado não é retentado pelo `ApiClient`, mas a resposta atrasada do handler continua como timer pendente; o teste precisa bombear além dela (`tester.pump` com a duração do atraso) antes de terminar, senão o `testWidgets` acusa timer pendente. `pumpAndSettle` sozinho não avança esse timer.
+- Os helpers da Ana (`ArmazemEmMemoria` e `pendente`, de `apoio_progresso.dart`) e o `socialSimulado` do Kayke só foram importados. Em `test/features/moderacao/conta_suspensa_nas_escritas_test.dart` (L-37), o `ApiClient` do `leitura` é montado no teste, ligado a um `SessionController` real (token e renovação), para provar que o 403 não encerra a sessão. Na denúncia, o `ApiClient` com timeout curto é montado no próprio `folha_denunciar_test.dart`.
+
 ### 07/11/2026 — F-DSF-OPC (Vicenzo): parâmetros opcionais em componentes compartilhados
 
 Nada muda para quem já usa; avisar o grupo.
