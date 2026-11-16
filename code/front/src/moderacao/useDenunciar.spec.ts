@@ -82,6 +82,27 @@ describe('useDenunciar', () => {
     expect(denunciar.mock.calls[0]![1]).toBe(denunciar.mock.calls[1]![1])
   })
 
+  // E6-02 (L-14): o tempo esgotado do próprio cliente e o 503 que sobra depois das retentativas.
+  it.each([
+    ['tempo esgotado', new ApiError('O servidor demorou para responder. Tente novamente.', 0, 'TEMPO_LIMITE_EXCEDIDO')],
+    ['503', new ApiError('Serviço temporariamente indisponível.', 503, 'SERVICO_INDISPONIVEL')],
+  ])('%s vira falha de conexão e repete a mesma chave', async (_, falha) => {
+    const { tela, denunciar } = montar()
+    denunciar.mockRejectedValueOnce(falha).mockResolvedValueOnce({})
+    tela.motivo.value = 'Spam'
+    tela.revisar()
+
+    expect(await tela.enviar()).toBe(false)
+    expect(tela.falha.value).toBe('conexao')
+    expect(tela.passo.value).toBe('confirmar')
+    expect(tela.motivo.value).toBe('Spam')
+    expect(tela.enviando.value).toBe(false)
+
+    expect(await tela.enviar()).toBe(true)
+    expect(denunciar).toHaveBeenCalledTimes(2)
+    expect(denunciar.mock.calls[1]![1]).toBe(denunciar.mock.calls[0]![1])
+  })
+
   it('429 vira a faixa de frequência; 404 vira conteúdo indisponível', async () => {
     const { tela, denunciar } = montar()
     tela.motivo.value = 'Spam'
