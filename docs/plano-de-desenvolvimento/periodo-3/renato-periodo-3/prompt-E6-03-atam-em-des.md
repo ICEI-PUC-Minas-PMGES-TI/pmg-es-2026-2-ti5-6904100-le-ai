@@ -6,9 +6,9 @@
 
 | Etapa | Situação | Saída |
 |---|---|---|
-| 1. Planejar o roteiro de medição | não iniciada | `plano-E6-03-atam-em-des.md` nesta pasta |
+| 1. Planejar o roteiro de medição | concluída em 19/11/2026: plano ainda não revisado, com as contas de demonstração (compartilhadas com a E6-04), carga leve (até 10 clientes, teto de 10 req/s), cenário 5 local em Docker, ≈ 25,5 h e 4 pendências | [`plano-E6-03-atam-em-des.md`](plano-E6-03-atam-em-des.md) |
 | 2. Medir e escrever | não iniciada | `docs/8.avaliacao_arquitetura.md` com as medições e as evidências |
-| 3. Revisão independente e PR | não iniciada | PR para a `desenvolvimento` |
+| 3. Revisão independente e merge direto (sem PR, decisão do Renato de 19/11/2026) | não iniciada | commit, push da `renato-e6-03` e merge direto na `desenvolvimento` pelo orquestrador |
 | 4. Atualização pós-Período 3 | depois do merge da `main` no fim de novembro | só o que o Período 3 mudar |
 
 Quem terminar uma etapa atualiza esta tabela e a linha E6-03 do [`README.md`](README.md).
