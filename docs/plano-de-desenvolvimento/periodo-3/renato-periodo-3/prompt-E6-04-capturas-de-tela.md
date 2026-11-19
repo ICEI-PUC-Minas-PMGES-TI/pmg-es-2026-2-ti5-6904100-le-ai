@@ -6,10 +6,10 @@
 
 | Etapa | Situação | Saída |
 |---|---|---|
-| 1. Planejar | não iniciada | `plano-E6-04-capturas-de-tela.md` nesta pasta |
+| 1. Planejar | concluída em 19/11/2026 (plano ainda não revisado) | [`plano-E6-04-capturas-de-tela.md`](plano-E6-04-capturas-de-tela.md): 93 figuras (38 + 41 + 14), Períodos 1 e 2 do DES e Período 3 local contra o dev, ≈ 26,5 h, 6 pendências; sem PR (merge direto pelo orquestrador) |
 | 2. Capturar e escrever (Períodos 1 e 2) | não iniciada | imagens em `docs/imagens/` e `docs/7.solucao.md` com as telas |
 | 3. Revisão independente e PR | não iniciada | PR para a `desenvolvimento` |
-| 4. Telas do Período 3 | depois do merge da `main` no fim de novembro | §7.3 com as telas das opcionais |
+| 4. Telas do Período 3 | pelo plano, o Período 3 entra na etapa 2 (local, contra o dev); a etapa 4 fica opcional, refazendo no DES se o merge da `main` sair até 28/11 | §7.3 com as telas das opcionais |
 
 Quem terminar uma etapa atualiza esta tabela e a linha E6-04 do [`README.md`](README.md).
 
