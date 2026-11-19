@@ -109,6 +109,21 @@ describe('progresso manual (integração)', () => {
     return rows[0];
   }
 
+  // F-MOD-OPC: a suspensão tira a conta de `v_perfil_referencia_v1`, que nos
+  // testes é uma tabela; a reativação a devolve.
+  function suspender(usuario: string) {
+    return pool.query(
+      'DELETE FROM identidade.v_perfil_referencia_v1 WHERE id = $1',
+      [usuario],
+    );
+  }
+
+  function eventosDeProgresso(): Promise<number> {
+    return contar(pool, 'leitura.outbox_leitura', 'tipo = $1', [
+      TIPO_EVENTO.PROGRESSO_REGISTRADO,
+    ]);
+  }
+
   describe('registrar', () => {
     it('cria o registro, deriva páginas lidas, zera a inatividade e grava a outbox', async () => {
       const { usuario, leituraId } = await leituraEmAndamento();
@@ -284,6 +299,35 @@ describe('progresso manual (integração)', () => {
       expect(lista.body.itens).toHaveLength(1);
     });
 
+    it('F-MOD-OPC: conta suspensa recebe 403 ACESSO_NEGADO, sem gravar progresso nem evento; reativada, a mesma chave registra', async () => {
+      const { usuario, leituraId } = await leituraEmAndamento();
+      await registrar(usuario, leituraId, 10);
+      const antes = await leituraNoBanco(leituraId);
+      await suspender(usuario);
+      const chave = randomUUID();
+      const caminho = `/leituras/${leituraId}/progresso`;
+
+      const negado = await autenticado('post', usuario, caminho, chave)
+        .send(corpo(20))
+        .expect(403);
+      expect(negado.body).toMatchObject({
+        codigo: 'ACESSO_NEGADO',
+        mensagem: 'Sua conta não está disponível para esta ação.',
+      });
+      expect(await contar(pool, 'leitura.atualizacao_progresso')).toBe(1);
+      expect(await eventosDeProgresso()).toBe(1);
+      expect(await leituraNoBanco(leituraId)).toEqual(antes);
+
+      // A fila offline do app reenvia o mesmo registro depois da reativação:
+      // o 403 não deixou recibo, então a chave executa de verdade.
+      await inserirPerfil(pool, { id: usuario });
+      const aceito = await autenticado('post', usuario, caminho, chave)
+        .send(corpo(20))
+        .expect(201);
+      expect(aceito.body.progresso).toMatchObject({ pagina: 20, posicao: 2 });
+      expect(await eventosDeProgresso()).toBe(2);
+    });
+
     it('mesma chave e corpo reproduzem a resposta; corpo diferente é 409', async () => {
       const { usuario, leituraId } = await leituraEmAndamento();
       const chave = randomUUID();
@@ -446,6 +490,24 @@ describe('progresso manual (integração)', () => {
         inatividade_versao: antes.inatividade_versao + 1,
       });
       expect(await contar(pool, 'leitura.atualizacao_progresso')).toBe(1);
+    });
+
+    it('F-MOD-OPC: conta suspensa recebe 403 ACESSO_NEGADO e nada é apagado', async () => {
+      const { usuario, leituraId } = await leituraEmAndamento();
+      const { progresso } = await registrar(usuario, leituraId, 10);
+      const antes = await leituraNoBanco(leituraId);
+      await suspender(usuario);
+
+      const negado = await autenticado(
+        'delete',
+        usuario,
+        `/progresso/${progresso.id}`,
+      )
+        .send({ ultimoProgressoIdConfirmado: progresso.id })
+        .expect(403);
+      expect(negado.body.codigo).toBe('ACESSO_NEGADO');
+      expect(await contar(pool, 'leitura.atualizacao_progresso')).toBe(1);
+      expect(await leituraNoBanco(leituraId)).toEqual(antes);
     });
 
     it('409 quando o último confirmado não é mais o último, sem apagar nada', async () => {

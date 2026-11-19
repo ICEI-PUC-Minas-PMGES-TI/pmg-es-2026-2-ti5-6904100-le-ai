@@ -78,6 +78,16 @@ export class AcessoNegado extends ErroDeNegocio {
   }
 }
 
+/**
+ * Conta fora de `v_perfil_referencia_v1` (suspensa ou com exclusão pendente)
+ * escrevendo na própria leitura: transições e progresso (F-MOD-OPC).
+ */
+export class ContaIndisponivel extends AcessoNegado {
+  constructor() {
+    super('Sua conta não está disponível para esta ação.');
+  }
+}
+
 export class NaoEncontrado extends ErroDeNegocio {
   constructor(mensagem = 'Não encontramos o que você procura.') {
     super(HttpStatus.NOT_FOUND, 'RECURSO_NAO_ENCONTRADO', mensagem);
