@@ -114,3 +114,8 @@ Realizado plano de testes das funcionalidades desejáveis e das opcionais integr
 Realizado validação do plano de testes por revisores independentes e PR para a desenvolvimento
 Realizado inclusão da F-DSF-OPC (histórico de janelas de desafio) no plano de testes depois do merge do PR #64: 24 casos, duas lacunas novas e execução do CI atualizada
 Realizado testes das lacunas da minha área no plano de testes (E6-02): 61 casos novos em acervo, leitura, social, web, mobile e script, com RN-08 em teste unitário e a correção da recarga do dump que recriava editora unificada
+
+### Semana 3 (18/11 - 24/11)
+
+Realizado HTML estático dos quatro contratos OpenAPI (Redoc), com gerador de um comando, para anexo do Documento de Arquitetura
+Realizado execução do CI atualizada no plano de testes depois do merge dos testes das lacunas: 4.217 testes verdes
