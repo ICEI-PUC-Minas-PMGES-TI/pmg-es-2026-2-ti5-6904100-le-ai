@@ -6,8 +6,8 @@
 
 | Etapa | Situação | Saída |
 |---|---|---|
-| 1. Planejar | não iniciada | `plano-E6-06-relatorio-de-encerramento.md` nesta pasta |
-| 2. Rascunho até o Período 2 | não iniciada | `assets/gerencia/relatorio_de_encerramento.md` com o que já dá para escrever |
+| 1. Planejar | concluída em 19/11/2026 ([plano](plano-E6-06-relatorio-de-encerramento.md), ainda não revisado; decisões fechadas pelo Renato no mesmo dia) | `plano-E6-06-relatorio-de-encerramento.md` nesta pasta |
+| 2. Rascunho até o Período 2 | concluída em 19/11/2026: rascunho com o Período 3 até 19/11, validado por agente de contexto limpo (8 achados corrigidos); branch `renato-e6-06` com push (`fd2e832`), sem PR; merge direto na `desenvolvimento` depois da etapa 3 | `assets/gerencia/relatorio_de_encerramento.md` com o que já dá para escrever |
 | 3. Completar, revisar e PR | depois de 24/11 (release, produção e pitch) | relatório final em `.md`, `.docx` e `.pdf` + PR |
 
 Quem terminar uma etapa atualiza esta tabela e a linha E6-06 do [`README.md`](README.md).
