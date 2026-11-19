@@ -7,7 +7,7 @@
 | Etapa | Situação | Saída |
 |---|---|---|
 | 1. Planejar | concluída em 16/11/2026, plano ainda não revisado: 16 lacunas da área do Renato, ≈ 43,5 h de escrita (≈ 55 h com validação e PR), avisos a outros donos e 4 pendências para o Renato | [`plano-E6-02-testes-das-lacunas.md`](plano-E6-02-testes-das-lacunas.md) |
-| 2. Realizar e validar | não iniciada | testes novos nos projetos, §9.8 atualizada |
+| 2. Realizar e validar | concluída em 19/11/2026 (escrita em 16/11, validação interrompida por limite de uso e retomada em 19/11): as 16 lacunas da área do Renato fechadas na sua parte; 61 casos novos no `9.plano_de_testes.md` (722 no total); refactor da RN-08 em função pura no `acervo` e na denúncia; bug da recarga do dump corrigido (L-38); CI do `social` passa a rodar com migration do `identidade`; três validadores de contexto limpo, um achado (o gatilho do CI), corrigido. Ponto aberto: a L-37 mostrou que o registro de progresso é aceito para conta suspensa | branch `renato-e6-02` (16 commits, com push), sem PR |
 | 3. Revisão independente e PR | não iniciada | PR para a `desenvolvimento` |
 
 Quem terminar uma etapa atualiza esta tabela e a linha E6-02 do [`README.md`](README.md).
