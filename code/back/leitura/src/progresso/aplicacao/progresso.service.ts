@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import {
   ChaveIdempotenciaConflitante,
+  ContaIndisponivel,
   EntidadeInvalida,
   EstadoInvalido,
   LeituraNaoEncontrada,
@@ -205,6 +206,7 @@ export class ProgressoService {
             ? new NaoEncontrado(alcance.erro.motivo)
             : new EstadoInvalido(alcance.erro.motivo);
         }
+        await this.exigirContaDisponivel(tx, usuarioId);
         const totalPaginas = await this.totalDePaginas(tx, alvo.livroId);
 
         const datasRemovidas = await this.repositorio.excluir(
@@ -269,6 +271,7 @@ export class ProgressoService {
     }
     const minutos = entrada.minutos ?? SEM_TEMPO;
     exigirMinutos(minutos);
+    await this.exigirContaDisponivel(tx, usuarioId);
 
     const registradoEm = new Date(entrada.registradoEmDispositivo);
     const fuso = entrada.fusoHorarioDispositivo;
@@ -339,6 +342,19 @@ export class ProgressoService {
       throw new NaoEncontrado('Não encontramos este progresso.');
     }
     return { alvo, registros };
+  }
+
+  /**
+   * F-MOD-OPC: conta suspensa (fora de `v_perfil_referencia_v1`) não escreve
+   * progresso, com o mesmo 403 das transições (`snapshotDoUsuario` em
+   * `LeiturasService`). Uma consulta por id, depois das validações e antes da
+   * primeira escrita; o rollback não deixa recibo, então a mesma chave vale
+   * depois da reativação.
+   */
+  private async exigirContaDisponivel(tx: Tx, usuarioId: string) {
+    if (!(await this.referencias.buscarPerfil(usuarioId, tx))) {
+      throw new ContaIndisponivel();
+    }
   }
 
   private async totalDePaginas(
