@@ -113,3 +113,4 @@ Realizado plano da E6-01 (Test Plan das funcionalidades desejáveis), com o inve
 Realizado plano de testes das funcionalidades desejáveis e das opcionais integradas: 637 casos ligados aos testes automatizados, execução do CI atualizada e lacunas com o dono de cada área
 Realizado validação do plano de testes por revisores independentes e PR para a desenvolvimento
 Realizado inclusão da F-DSF-OPC (histórico de janelas de desafio) no plano de testes depois do merge do PR #64: 24 casos, duas lacunas novas e execução do CI atualizada
+Realizado testes das lacunas da minha área no plano de testes (E6-02): 61 casos novos em acervo, leitura, social, web, mobile e script, com RN-08 em teste unitário e a correção da recarga do dump que recriava editora unificada
