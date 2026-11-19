@@ -6,9 +6,9 @@
 
 | Etapa | Situação | Saída |
 |---|---|---|
-| 1. Planejar e decidir | não iniciada | `plano-E6-05-openapi-html.md` nesta pasta |
-| 2. Realizar, validar e PR | não iniciada | gerador + HTML dos 4 specs + PR para a `desenvolvimento` |
-| 3. Regerar depois do congelamento | depois de 17/11 | HTML com os specs finais |
+| 1. Planejar e decidir | concluída em 19/11/2026 | [`plano-E6-05-openapi-html.md`](plano-E6-05-openapi-html.md): Redoc (`@redocly/cli` 2.75.0); decisões fechadas pelo Renato |
+| 2. Realizar, validar e PR | concluída em 19/11/2026 | gerador `code/scripts/openapi-html/gerar.mjs`, `docs/api/html/` (4 HTML + índice), links nos dois README; validada por agente de contexto limpo; sem PR (merge direto autorizado): branch `renato-e6-05` com push, commit `55dced4` |
+| 3. Regerar depois do congelamento | fundida com a etapa 2 (19/11/2026) | a geração já usa os specs depois do congelamento de 17/11 |
 
 Quem terminar uma etapa atualiza esta tabela e a linha E6-05 do [`README.md`](README.md).
 
