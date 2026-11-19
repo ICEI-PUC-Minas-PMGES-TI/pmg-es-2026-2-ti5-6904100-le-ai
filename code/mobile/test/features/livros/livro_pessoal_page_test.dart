@@ -6,6 +6,7 @@ import 'dart:convert';
 
 import 'package:le_ai_mobile/features/feed/social_service.dart';
 import 'package:le_ai_mobile/features/livros/livro_pessoal_page.dart';
+import 'package:le_ai_mobile/features/livros/notas_do_livro.dart';
 
 import '../feed/apoio.dart' show socialSimulado;
 import 'apoio.dart';
@@ -77,6 +78,11 @@ void main() {
           }),
           leitura: leituraSimulada((pedido) async {
             pedidosDeLeitura.add(pedido);
+            // Reação do terceiro à resenha do dono (F-AVA-2): o `leitura` devolve o estado novo.
+            if (pedido.url.path.endsWith('/reacao')) {
+              final curtiu = pedido.method == 'PUT';
+              return json(<String, Object?>{'minhaReacao': curtiu ? 'curtida' : null, 'curtidas': curtiu ? 1 : 0, 'descurtidas': 0}, 200);
+            }
             return json(semAvaliacao(_id), 200);
           }),
           livroId: _id,
@@ -111,6 +117,10 @@ void main() {
     // Nada do que não existe em livro pessoal (RN-02, RN-03).
     expect(find.text('ISBN'), findsNothing);
     expect(find.text('Editora'), findsNothing);
+    // Nem os dois indicadores do livro oficial (RN-06.5, L-32 da E6-02).
+    expect(find.textContaining('Nota geral'), findsNothing);
+    expect(find.textContaining('Nota dos leitores'), findsNothing);
+    expect(find.byType(NotasDoLivro), findsNothing);
   });
 
   testWidgets('dono sem sinopse: a seção inteira some', (tester) async {
@@ -144,6 +154,39 @@ void main() {
     // Em livro pessoal só o dono avalia (RN-03): o terceiro nem consulta o `leitura`.
     expect(find.text('Sua avaliação'), findsNothing);
     expect(pedidosDeLeitura, isEmpty);
+    // Só a nota do dono: nem nota geral nem nota dos leitores em livro pessoal (RN-06.5, L-32 da E6-02).
+    expect(find.textContaining('Nota geral'), findsNothing);
+    expect(find.textContaining('Nota dos leitores'), findsNothing);
+    expect(find.byType(NotasDoLivro), findsNothing);
+  });
+
+  // L-31 (E6-02): o servidor só aceita a reação à resenha do dono pela via de RN-15 que abriu a
+  // página; curtir e retirar levam a mesma via e a mesma referência.
+  testWidgets('terceiro curte a resenha do dono com a via que abriu a página', (tester) async {
+    await montar(
+      tester,
+      (_) async => json(_livro(consulta: true, comAvaliacao: true), 200),
+      via: 'feed',
+      referenciaId: _atividade,
+    );
+
+    await tocar(tester, find.byKey(const ValueKey<String>('reacao-curtida')));
+    await tester.pumpAndSettle();
+
+    final curtir = pedidosDeLeitura.single;
+    expect(curtir.method, 'PUT');
+    expect(curtir.url.path, '/resenhas/11111111-1111-4111-8111-111111111111/reacao');
+    expect(jsonDecode(curtir.body), <String, Object?>{'tipo': 'curtida', 'via': 'feed', 'referenciaId': _atividade});
+    expect(find.text('1 curtida'), findsOneWidget);
+
+    await tocar(tester, find.byKey(const ValueKey<String>('reacao-curtida')));
+    await tester.pumpAndSettle();
+
+    final retirar = pedidosDeLeitura.last;
+    expect(pedidosDeLeitura, hasLength(2));
+    expect(retirar.method, 'DELETE');
+    expect(retirar.url.queryParameters, <String, String>{'via': 'feed', 'referenciaId': _atividade});
+    expect(find.text('0 curtidas'), findsOneWidget);
   });
 
   testWidgets('terceiro denuncia a resenha do dono com a via que abriu a página (F-MOD)', (tester) async {

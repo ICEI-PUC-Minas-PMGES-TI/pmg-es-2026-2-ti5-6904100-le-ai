@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { acervoService } from '../../services/acervo'
 import { ApiError } from '../../services/api'
 import { leituraService } from '../../services/leitura'
+import { socialService } from '../../services/social'
 import { itemEstante, leitura as leituraDaEstante } from '../../testes/estante'
 import { livroOficial, paginaDeResenhas, resenha } from '../../testes/massaDoLivro'
 import { montarNaRota } from '../../testes/montarNaRota'
@@ -488,6 +489,55 @@ describe('LivroOficialView', () => {
 
     expect(wrapper.text()).toContain('Muitas requisições em pouco tempo.')
     expect(wrapper.text()).not.toContain('A conexão falhou')
+  })
+
+  it('denunciar a resenha de outro leitor abre a denúncia com o alvo certo (F-MOD)', async () => {
+    const denunciar = vi
+      .spyOn(socialService, 'denunciar')
+      .mockResolvedValue({ id: 'd1', estado: 'pendente', criadoEm: '2026-10-18T12:00:00Z' })
+    servico.obterLivroOficial.mockResolvedValue(
+      livroOficial({
+        resenhas: paginaDeResenhas([resenha('r1', 'Marina', 'A terra.'), resenha('r2', 'Letícia', 'Conta o final.')]),
+      }),
+    )
+    try {
+      await montarNaRota('/livros/livro-1?origem=descobrir', { largo: true })
+      await flushPromises()
+
+      const menus = document.body.querySelectorAll<HTMLButtonElement>('button[aria-label="Mais ações da resenha"]')
+      expect(menus).toHaveLength(2)
+      menus[1]!.click()
+      await flushPromises()
+      document.body.querySelector<HTMLButtonElement>('[role="menuitem"]')!.click()
+      await flushPromises()
+
+      const dialogo = document.body.querySelector('[role="dialog"]')!
+      expect(dialogo.textContent).toContain('Denunciar resenha')
+      expect(dialogo.textContent).toContain('Resenha de Torto Arado')
+      expect(dialogo.textContent).toContain('Conta o final.')
+      expect(dialogo.textContent).not.toContain('A terra.')
+
+      const motivo = dialogo.querySelector('textarea')!
+      motivo.value = 'Conta o final sem aviso.'
+      motivo.dispatchEvent(new Event('input'))
+      await flushPromises()
+      const noDialogo = (texto: string) =>
+        [...document.body.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find(
+          (b) => b.textContent?.trim() === texto,
+        )!
+      noDialogo('Revisar denúncia').click()
+      await flushPromises()
+      noDialogo('Enviar denúncia').click()
+      await flushPromises()
+
+      // Resenha de livro oficial: sem via nem referência (só o livro pessoal leva RN-15.4).
+      expect(denunciar).toHaveBeenCalledWith(
+        { alvoTipo: 'resenha', alvoId: 'r2', motivo: 'Conta o final sem aviso.' },
+        expect.any(String),
+      )
+    } finally {
+      denunciar.mockRestore()
+    }
   })
 
   describe('situação na estante', () => {

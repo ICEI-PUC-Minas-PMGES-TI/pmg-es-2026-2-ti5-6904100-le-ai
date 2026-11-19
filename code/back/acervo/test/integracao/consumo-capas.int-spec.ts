@@ -277,6 +277,10 @@ describe('cache de capas oficiais (integração)', () => {
 
     expect(broker.nacks).toHaveLength(1);
     expect(broker.acks).toHaveLength(0);
+    // e a mensagem chega na .dlq: nack sem requeue, roteado pela DLX da fila.
+    expect(broker.requeues).toEqual([false]);
+    expect(broker.filas.get(`${FILA}.dlq`)).toEqual(broker.nacks);
+    expect(broker.filas.get(FILA)).toEqual([]);
     // Sem retentativa aninhada: uma ida por tentativa do runtime. Depois da
     // terceira falha seguida o circuito abre, e a quarta tentativa falha sem
     // sair para a rede.
@@ -297,6 +301,57 @@ describe('cache de capas oficiais (integração)', () => {
 
     expect(broker.nacks).toHaveLength(1);
     expect(downloads).toHaveLength(0);
+  });
+
+  it('sem credencial do Cloudinary a fila de capas não é declarada e o serviço sobe', async () => {
+    // O app deste arquivo subiu sem CLOUDINARY_API_KEY e CLOUDINARY_API_SECRET:
+    // o ambiente de integração não as define.
+    expect(process.env.CLOUDINARY_API_KEY).toBeUndefined();
+    expect(process.env.CLOUDINARY_API_SECRET).toBeUndefined();
+    const saude = await request(app.getHttpServer()).get('/health');
+    expect(saude.status).toBe(200);
+
+    const semCredencial = new BrokerEmMemoria();
+    const validador = new MessageValidator();
+    const consumidor = new ConsumidorSemEspera(
+      semCredencial.conexao,
+      validador,
+      drizzle(pool, { schema }),
+    );
+    const nenhum = criarCacheDeCapas(
+      {
+        CLOUDINARY_CLOUD_NAME: 'leai',
+        CLOUDINARY_API_KEY: undefined,
+        CLOUDINARY_API_SECRET: undefined,
+        CLOUDINARY_PASTA_CAPAS_OFICIAIS: PASTA,
+        CAPA_HOSTS_PERMITIDOS: 'res.cloudinary.com',
+        CAPAS_DOWNLOAD_HOSTS: 'covers.openlibrary.org',
+        CAPAS_DOWNLOAD_TIMEOUT_MS: 1000,
+        CAPAS_DOWNLOAD_LIMITE_BYTES: 5_242_880,
+        FONTES_USER_AGENT: 'LeAi/teste',
+      },
+      { fetch: fetchSimulado as typeof globalThis.fetch },
+    );
+    expect(nenhum).toBeNull();
+
+    new CapaConsumer(consumidor, validador, nenhum).onModuleInit();
+    consumidor.onModuleInit();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    expect(semCredencial.filas.has(FILA)).toBe(false);
+    expect(semCredencial.filas.has(`${FILA}.dlq`)).toBe(false);
+    // Sem fila ligada, o evento publicado se perde (o backfill:capas recupera).
+    const livro = await inserirLivroOficial(pool, novoIsbn());
+    semCredencial.canal.publish(
+      EXCHANGES.leitura,
+      'livro.adicionado_a_estante',
+      Buffer.from(JSON.stringify({ livroId: livro }), 'utf8'),
+      { persistent: true },
+      () => undefined,
+    );
+    expect(semCredencial.filas.size).toBe(0);
+    expect(downloads).toHaveLength(0);
+    expect((await capa(livro)).capa_url_propria).toBeNull();
   });
 
   it('backfill: oficiais distintos da estante sem cópia, um por vez', async () => {

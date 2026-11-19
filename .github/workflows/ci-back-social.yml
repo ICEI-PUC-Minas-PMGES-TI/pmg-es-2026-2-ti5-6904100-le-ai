@@ -5,11 +5,13 @@ on:
     paths:
       - 'code/back/social/**'
       - '!code/back/social/**.md'
+      - 'code/back/identidade/src/main/resources/db/migration/**'
       - '.github/workflows/ci-back-social.yml'
   pull_request:
     paths:
       - 'code/back/social/**'
       - '!code/back/social/**.md'
+      - 'code/back/identidade/src/main/resources/db/migration/**'
       - '.github/workflows/ci-back-social.yml'
   workflow_dispatch:
 

@@ -27,12 +27,17 @@ Widget envolver(Widget tela, {bool escuro = false}) {
   );
 }
 
-/// Serviço de acervo sobre um `MockClient`, sem espera entre retentativas.
-AcervoService acervoSimulado(Future<http.Response> Function(http.Request) handler) {
+/// Serviço de acervo sobre um `MockClient`, sem espera entre retentativas. [timeout] curto
+/// simula o tempo esgotado do cliente.
+AcervoService acervoSimulado(
+  Future<http.Response> Function(http.Request) handler, {
+  Duration timeout = const Duration(seconds: 90),
+}) {
   return AcervoService(
     ApiClient(
       baseUrl: 'https://acervo.example.com',
       client: MockClient(handler),
+      timeout: timeout,
       esperasDeRetentativa: const <Duration>[Duration.zero, Duration.zero],
     ),
   );
@@ -42,10 +47,11 @@ AcervoService acervoSimulado(Future<http.Response> Function(http.Request) handle
 ///
 /// As páginas de livro carregam também a seção de frases (F-AVA-2). Com [semFrases], o simulador
 /// responde a lista de frases vazia sozinho, e os testes que não tratam de frases não precisam
-/// saber dela.
+/// saber dela. [timeout] curto simula o tempo esgotado do cliente.
 LeituraService leituraSimulada(
   Future<http.Response> Function(http.Request) handler, {
   bool semFrases = true,
+  Duration timeout = const Duration(seconds: 90),
 }) {
   return LeituraService(
     ApiClient(
@@ -56,6 +62,7 @@ LeituraService leituraSimulada(
         }
         return handler(pedido);
       }),
+      timeout: timeout,
       esperasDeRetentativa: const <Duration>[Duration.zero, Duration.zero],
     ),
   );

@@ -82,6 +82,32 @@ class SuspensaoDeContaIntegracaoTest extends IntegracaoComPostgres {
     assertThat(logsDeConta()).isZero();
   }
 
+  @Test
+  @DisplayName("Suspender e reativar sem token são 401, e o identidade nem é chamado")
+  void semTokenNaoSuspende() throws Exception {
+    for (String acao : new String[] {"suspender", "reativar"}) {
+      HttpResponse<String> resposta =
+          enviar(
+              HttpRequest.newBuilder(uri("/admin/usuarios/" + autora + "/" + acao))
+                  .header("Content-Type", "application/json")
+                  .header("Idempotency-Key", chave())
+                  .POST(
+                      HttpRequest.BodyPublishers.ofString(
+                          json.writeValueAsString(Map.of("motivo", "Spam"))))
+                  .build());
+
+      assertThat(resposta.statusCode()).as(acao).isEqualTo(401);
+      assertThat(resposta.body()).contains("\"codigo\":\"NAO_AUTENTICADO\"");
+    }
+    assertThat(IDENTIDADE.chamadas()).isEmpty();
+    assertThat(logsDeConta()).isZero();
+    assertThat(massa.contar("SELECT count(*) FROM comando_de_conta")).isZero();
+    assertThat(
+            massa.contar(
+                "SELECT count(*) FROM identidade.usuario WHERE id = ? AND suspenso = false", autora))
+        .isEqualTo(1);
+  }
+
   // ------------------------------------------------------------------ fluxo
 
   @Test

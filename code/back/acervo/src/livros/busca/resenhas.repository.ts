@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm';
 import { DRIZZLE, DrizzleDB } from '../../db/drizzle.module';
 import { ResenhaResumoDto } from '../pessoal/dto/livro-pessoal.dto';
 import { codificarCursor, PosicaoDaResenha } from './cursor-de-resenhas';
+import { podeVerResenhaDeOutroLeitor } from './privacidade-de-resenha';
 
 export interface PaginaDeResenhas {
   itens: ResenhaResumoDto[];
@@ -21,6 +22,8 @@ interface LinhaDeResenha {
   curtidas: string | number;
   descurtidas: string | number;
   minhaReacao: string | null;
+  privacidade: string | null;
+  segue: boolean;
   posicao: string;
 }
 
@@ -37,6 +40,12 @@ interface LinhaDeResenha {
  * crua. A `v_perfil_referencia_v1` já omite conta suspensa e em exclusão, então
  * o `JOIN` com ela também tira essas resenhas. Falha de acesso às VIEWs sobe
  * como está: quem decide entre `resenhas: null` e 503 é o service.
+ *
+ * O filtro fica no SQL por causa do `LIMIT` e do cursor. A consulta devolve
+ * também `privacidade` e `segue`, e cada linha passa por
+ * `podeVerResenhaDeOutroLeitor` como guarda final: é a regra de RN-08 em
+ * função pura, com teste unitário (L-01). O cursor continua saindo da última
+ * linha que o SQL devolveu na página.
  */
 @Injectable()
 export class ResenhasRepository {
@@ -62,6 +71,11 @@ export class ResenhasRepository {
         r.curtidas,
         r.descurtidas,
         rr.tipo AS "minhaReacao",
+        p.privacidade,
+        EXISTS (
+          SELECT 1 FROM identidade.v_seguimento_aceito_v1 s
+           WHERE s.seguidor_id = ${leitorId} AND s.seguido_id = r.usuario_id
+        ) AS segue,
         to_char(r.criado_em AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS posicao
       FROM leitura.v_resenha_publicacao_v1 r
       JOIN identidade.v_perfil_referencia_v1 p ON p.id = r.usuario_id
@@ -90,19 +104,28 @@ export class ResenhasRepository {
     const pagina = temMais ? linhas.slice(0, limit) : linhas;
     const ultima = pagina.at(-1);
     return {
-      itens: pagina.map((linha) => ({
-        id: linha.id,
-        autorId: linha.autorId,
-        autorNome: linha.autorNome,
-        autorAvatarUrl: linha.autorAvatarUrl ?? null,
-        texto: linha.texto ?? '',
-        spoiler: linha.spoiler ?? false,
-        criadoEm: new Date(linha.criadoEm).toISOString(),
-        atualizadoEm: new Date(linha.atualizadoEm).toISOString(),
-        curtidas: Number(linha.curtidas ?? 0),
-        descurtidas: Number(linha.descurtidas ?? 0),
-        minhaReacao: reacaoConhecida(linha.minhaReacao),
-      })),
+      itens: pagina
+        .filter((linha) =>
+          podeVerResenhaDeOutroLeitor({
+            leitorId,
+            autorId: linha.autorId,
+            privacidade: linha.privacidade,
+            segue: linha.segue === true,
+          }),
+        )
+        .map((linha) => ({
+          id: linha.id,
+          autorId: linha.autorId,
+          autorNome: linha.autorNome,
+          autorAvatarUrl: linha.autorAvatarUrl ?? null,
+          texto: linha.texto ?? '',
+          spoiler: linha.spoiler ?? false,
+          criadoEm: new Date(linha.criadoEm).toISOString(),
+          atualizadoEm: new Date(linha.atualizadoEm).toISOString(),
+          curtidas: Number(linha.curtidas ?? 0),
+          descurtidas: Number(linha.descurtidas ?? 0),
+          minhaReacao: reacaoConhecida(linha.minhaReacao),
+        })),
       proximoCursor:
         temMais && ultima
           ? codificarCursor({ criadoEm: ultima.posicao, id: ultima.id })

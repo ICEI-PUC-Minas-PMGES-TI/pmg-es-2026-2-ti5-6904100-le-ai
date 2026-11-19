@@ -23,6 +23,8 @@ vi.mock('../../services/leitura', () => ({
     obterMinhaAvaliacao: vi.fn(),
     salvarNota: vi.fn(),
     excluirNota: vi.fn(),
+    reagir: vi.fn(),
+    removerReacao: vi.fn(),
     // F-AVA-2: a seção de frases carrega à parte; aqui, sem frases.
     listarFrases: vi.fn().mockResolvedValue({
       itens: [],
@@ -107,6 +109,10 @@ describe('LivroPessoalView', () => {
     expect(botao('Editar')).toBeDefined()
     expect(botao('Excluir')).toBeDefined()
     expect(document.body.querySelector('button[aria-label="Ações do livro"]')).not.toBeNull()
+    // Livro pessoal não tem os indicadores do livro oficial (RN-06.5).
+    expect(wrapper.text()).not.toContain('Nota geral')
+    expect(wrapper.text()).not.toContain('Nota dos leitores')
+    expect(document.body.querySelector('[data-secao-de-notas]')).toBeNull()
   })
 
   describe('linha Assuntos da ficha (F-ACV-OPC)', () => {
@@ -179,6 +185,31 @@ describe('LivroPessoalView', () => {
     // Aberto pelo feed, o Feed fica ativo no shell.
     const barra = wrapper.findAll('nav[aria-label="Navegação principal"]')[1]!
     expect(barra.findAll('a')[2]!.get('span').classes()).toContain('text-musgo')
+    // Nem para o terceiro: a nota é só a do dono, sem nota geral nem dos leitores (RN-06.5).
+    expect(wrapper.text()).not.toContain('Nota geral')
+    expect(wrapper.text()).not.toContain('Nota dos leitores')
+    expect(document.body.querySelector('[data-secao-de-notas]')).toBeNull()
+  })
+
+  it('terceiro curte a resenha do dono com a via que abriu a página (RN-15.4)', async () => {
+    servico.obterLivroPessoal.mockResolvedValue(EM_CONSULTA)
+    const curtida = { curtidas: 13, descurtidas: 2, minhaReacao: 'curtida' as const }
+    leituras.reagir.mockReset().mockResolvedValue(curtida)
+    leituras.removerReacao.mockReset().mockResolvedValue({ curtidas: 12, descurtidas: 2, minhaReacao: null })
+    await montarNaRota('/livros/pessoal/l1?via=lista&referenciaId=lista-1')
+    await flushPromises()
+
+    document.body.querySelector<HTMLButtonElement>('button[aria-label^="Curtir resenha"]')!.click()
+    await flushPromises()
+
+    const via = { via: 'lista', referenciaId: 'lista-1' }
+    expect(leituras.reagir).toHaveBeenCalledWith('r1', 'curtida', via, expect.any(String))
+    expect(document.body.querySelector('button[aria-label="Curtir resenha, 13 curtidas"]')).not.toBeNull()
+
+    document.body.querySelector<HTMLButtonElement>('button[aria-label^="Curtir resenha"]')!.click()
+    await flushPromises()
+
+    expect(leituras.removerReacao).toHaveBeenCalledWith('r1', via, expect.any(String))
   })
 
   it('terceiro denuncia a resenha do dono pelo DotsThree, com a via de RN-15.4 (F-MOD)', async () => {

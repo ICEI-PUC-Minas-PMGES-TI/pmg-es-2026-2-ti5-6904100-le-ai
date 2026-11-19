@@ -308,6 +308,46 @@ describe('resenha (integração)', () => {
       });
     });
 
+    // L-31 (E6-02): decisão de 15/09, as reações saem pelo ON DELETE CASCADE.
+    // A de outra resenha, no mesmo livro, fica.
+    it('excluir a resenha leva junto as reações dela', async () => {
+      const livroId = await inserirLivro(pool);
+      const criada = await salvar(livroId, { texto: 'Bom.', spoiler: false });
+      const {
+        rows: [outra],
+      } = await pool.query<{ id: string }>(
+        `INSERT INTO leitura.resenha (usuario_id, livro_id, texto)
+         VALUES ($1, $2, 'Também gostei.') RETURNING id`,
+        [novoUsuario(), livroId],
+      );
+      const reagir = (resenhaId: string, tipo: string, ativa = true) =>
+        pool.query(
+          `INSERT INTO leitura.reacao_resenha
+             (resenha_id, usuario_id, tipo, ativa, primeira_curtida_em)
+           VALUES ($1, $2, $3, $4, now())`,
+          [resenhaId, novoUsuario(), tipo, ativa],
+        );
+      await reagir(criada.body.id, 'curtida');
+      await reagir(criada.body.id, 'descurtida');
+      await reagir(criada.body.id, 'curtida', false);
+      await reagir(outra.id, 'curtida');
+
+      const resposta = await excluir(livroId);
+
+      expect(resposta.status).toBe(204);
+      expect(
+        await contar(pool, 'leitura.reacao_resenha', 'resenha_id = $1', [
+          criada.body.id,
+        ]),
+      ).toBe(0);
+      expect(
+        await contar(pool, 'leitura.reacao_resenha', 'resenha_id = $1', [
+          outra.id,
+        ]),
+      ).toBe(1);
+      expect(await contar(pool, 'leitura.resenha')).toBe(1);
+    });
+
     it('sem resenha para excluir responde 204 sem evento', async () => {
       const livroId = await inserirLivro(pool);
 

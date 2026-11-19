@@ -263,6 +263,43 @@ describe('reações à resenha (integração)', () => {
       expect(resposta.status).toBe(400);
       expect(resposta.body.codigo).toBe('REQUISICAO_INVALIDA');
     });
+
+    // L-13 (E6-02): o 401 genérico (CT-TRV-05) cobre o filtro; aqui, a rota.
+    it('sem token, reagir e retirar a reação são 401 e nada muda', async () => {
+      const resenhaId = await resenhar(await inserirLivro(pool));
+      await reagir(resenhaId, { tipo: 'curtida' }).expect(200);
+      const estadoAntes = await pool.query(
+        'SELECT usuario_id, tipo, ativa FROM leitura.reacao_resenha',
+      );
+
+      const semTokenPut = await http()
+        .put(`/resenhas/${resenhaId}/reacao`)
+        .set('Idempotency-Key', randomUUID())
+        .send({ tipo: 'descurtida' });
+      const semTokenDelete = await http()
+        .delete(`/resenhas/${resenhaId}/reacao`)
+        .set('Idempotency-Key', randomUUID());
+
+      for (const resposta of [semTokenPut, semTokenDelete]) {
+        expect(resposta.status).toBe(401);
+        expect(resposta.body.codigo).toBe('NAO_AUTENTICADO');
+      }
+      expect(
+        (
+          await pool.query(
+            'SELECT usuario_id, tipo, ativa FROM leitura.reacao_resenha',
+          )
+        ).rows,
+      ).toEqual(estadoAntes.rows);
+      expect(await curtidasPublicadas()).toHaveLength(1);
+      expect(
+        await contar(
+          pool,
+          'leitura.idempotencia_leitura',
+          `operacao LIKE 'reagirResenha:%' OR operacao LIKE 'removerReacaoResenha:%'`,
+        ),
+      ).toBe(1);
+    });
   });
 
   describe('quem pode reagir', () => {
