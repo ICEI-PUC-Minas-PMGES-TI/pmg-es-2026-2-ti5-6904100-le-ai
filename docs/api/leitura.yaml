@@ -689,7 +689,7 @@ paths:
         inativo (RN-06). Livro inexistente ou de outra pessoa responde 204 sem
         evento, porque o leitor não tem nota ali.
       responses:
-        '204': { description: Nota removida, já ausente ou repetição idempotente concluída. }
+        '204': { description: 'Nota removida, já ausente ou repetição idempotente concluída.' }
         '400': { $ref: '#/components/responses/RequisicaoInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '409': { $ref: '#/components/responses/Conflito' }
@@ -755,7 +755,7 @@ paths:
         continua possível depois que o livro fica inativo (RF-AVA-04). Livro
         inexistente ou de outra pessoa responde 204 sem evento.
       responses:
-        '204': { description: Resenha removida, já ausente ou repetição idempotente concluída. }
+        '204': { description: 'Resenha removida, já ausente ou repetição idempotente concluída.' }
         '400': { $ref: '#/components/responses/RequisicaoInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '409': { $ref: '#/components/responses/Conflito' }

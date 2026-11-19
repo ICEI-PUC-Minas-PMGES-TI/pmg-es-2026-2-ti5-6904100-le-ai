@@ -13,4 +13,16 @@ Em 25/10/2026, com o Período 2 implementado, as 117 operações dos quatro cont
 
 Na implementação, o spec exposto em runtime (`/v3/api-docs` no Spring ou `@nestjs/swagger` no NestJS) deve permanecer equivalente ao arquivo commitado. A feature só troca o estado de `planned` após implementar e testar a operação.
 
+## HTML estático
+
+Os quatro contratos também estão em HTML, um arquivo por serviço, que abre com duplo clique, sem servidor e sem internet: **[`html/index.html`](html/index.html)**, com [`identidade`](html/identidade.html), [`acervo`](html/acervo.html), [`leitura`](html/leitura.html) e [`social`](html/social.html). O estado de cada operação (`implementation-status` ou `contract-status`) aparece logo abaixo do título dela. É o anexo dos contratos do Documento de Arquitetura.
+
+Os arquivos são gerados com Redoc (`@redocly/cli` **2.75.0**, versão fixa no `package.json` e no `package-lock.json` do gerador) e não são editados à mão. Depois de mudar um YAML, gere de novo e commite o YAML e o HTML juntos:
+
+```sh
+node code/scripts/openapi-html/gerar.mjs
+```
+
+Precisa só do Node 20.19+ ou 22.12+; na primeira vez, o gerador instala a ferramenta com `npm ci` na pasta dele. Detalhes em [`code/scripts/openapi-html/README.md`](../../code/scripts/openapi-html/README.md). Para navegar e testar as rotas com o Swagger UI, use o `docker-compose.docs.yml` da raiz.
+
 Os contratos assíncronos ficam separados em [`../mensageria/`](../mensageria/README.md). As VIEWs listadas em `x-database-contracts` são contratos de leitura entre schemas, não endpoints e não substituem autorização no servidor.
