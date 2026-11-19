@@ -2,6 +2,8 @@
 
 > **Plano de 19/11/2026, ainda não revisado.** Prompt: [`prompt-E6-04-capturas-de-tela.md`](prompt-E6-04-capturas-de-tela.md). Regras: [`prompt-E6-contexto-comum.md`](prompt-E6-contexto-comum.md). Este plano prevalece sobre o prompt nos detalhes.
 
+> **Contas alinhadas com a E6-03 (19/11/2026), prevalece sobre o resto deste plano:** as contas de demonstração são as três do [`plano-E6-03-atam-em-des.md`](plano-E6-03-atam-em-des.md): `leai.demo.marina` (perfil privado), `leai.demo.caio` (público, com livro pessoal e lista) e `leai.demo.bia` (pública). Onde este plano diz `clara.demo` (leitora principal pública), use o Caio; `bruno.demo` (segundo leitor), a Bia; `davi.demo` (perfil privado), a Marina. Senhas no mesmo arquivo da E6-03, fora do repositório. Quem criar primeiro (E6-03 ou E6-04) cria as três.
+
 ## Resumo
 
 - **93 figuras**: 38 do Período 1, 41 do Período 2 (2 delas no tema escuro) e 14 do Período 3.
