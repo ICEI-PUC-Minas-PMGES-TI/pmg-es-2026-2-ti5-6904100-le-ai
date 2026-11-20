@@ -260,11 +260,11 @@ async function sair(): Promise<void> {
           descricao="Desligado, suas leituras deixam de contar nas sugestões de outros leitores."
           @alternar="preferencia.alternar()"
         />
-        <p class="mt-space-4 text-caption text-grafite [&_a:focus-visible]:underline [&_a:hover]:underline [&_a]:text-musgo">
+        <p class="mt-space-4 text-caption text-grafite">
           Isso não muda quem vê seu perfil e não desliga as sugestões que você recebe. Para deixar o perfil
           <!-- Quebrar a linha antes do ponto o separaria do link por um espaço. -->
-          <!-- eslint-disable-next-line vue/singleline-html-element-content-newline -->
-          privado, use <RouterLink :to="EDITAR_PERFIL">Editar perfil</RouterLink>.
+          <!-- eslint-disable-next-line vue/singleline-html-element-content-newline, vue/max-attributes-per-line -->
+          privado, use <RouterLink :to="EDITAR_PERFIL" class="text-musgo hover:underline focus-visible:underline">Editar perfil</RouterLink>.
         </p>
       </section>
     </div>
