@@ -74,6 +74,15 @@ describe('SecaoFrases', () => {
     expect(wrapper.text()).toContain('Ver todas as frases')
   })
 
+  it('trecho com HTML aparece como texto, nunca interpretado (RNF-SEC-14)', async () => {
+    const carga = '<img src=x data-injetado onerror=alert(1)><b data-injetado>negrito</b>'
+    const wrapper = await montar(vi.fn().mockResolvedValue(pagina([{ ...frase('a', 57), texto: carga }], 1)))
+
+    expect(wrapper.find('[data-injetado]').exists()).toBe(false)
+    expect(wrapper.find('blockquote img').exists()).toBe(false)
+    expect(wrapper.get('blockquote').text()).toBe(carga)
+  })
+
   it.each([
     ['503', new ApiError('Indisponível.', 503, 'SERVICO_INDISPONIVEL')],
     ['timeout', new DOMException('Tempo esgotado.', 'TimeoutError')],

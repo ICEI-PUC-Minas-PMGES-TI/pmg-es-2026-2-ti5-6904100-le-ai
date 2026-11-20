@@ -206,12 +206,20 @@ void main() {
       expect(find.text('11 curtidas'), findsOneWidget);
     });
 
+    // O tempo esgotado do cliente entrou na E6-02 (L-14): a resposta chega depois do timeout curto.
     for (final (nome, resposta) in <(String, Future<http.Response> Function())>[
       ('503', () async => erro(503, 'SERVICO_INDISPONIVEL', 'Indisponível.')),
       ('queda de rede', () => Future<http.Response>.error(http.ClientException('sem rede'))),
+      (
+        'tempo esgotado',
+        () => Future<http.Response>.delayed(
+          const Duration(seconds: 1),
+          () => json(_estadoJson('descurtida', 12, 1), 200),
+        ),
+      ),
     ]) {
       testWidgets('falha ($nome) volta ao estado anterior e avisa', (tester) async {
-        final leitura = leituraSimulada((pedido) => resposta());
+        final leitura = leituraSimulada((pedido) => resposta(), timeout: const Duration(milliseconds: 100));
         await tester.pumpWidget(
           envolver(
             ReacoesDaResenha(resenhaId: 'r1', reacoes: const EstadoDasReacoes(curtidas: 12), leitura: leitura),
@@ -219,7 +227,10 @@ void main() {
         );
 
         await tester.tap(find.byKey(const ValueKey<String>('reacao-descurtida')));
+        await tester.pump(const Duration(milliseconds: 200));
         await tester.pumpAndSettle();
+        // A resposta que chega depois do tempo esgotado não muda nada.
+        await tester.pump(const Duration(seconds: 1));
 
         expect(find.text('0 descurtidas'), findsOneWidget);
         expect(find.text(mensagemDeFalhaDaReacao), findsOneWidget);

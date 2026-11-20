@@ -31,7 +31,10 @@ import '../features/historico/historico_page.dart';
 import '../features/feed/rotas_feed.dart';
 import '../features/listas/rotas_listas.dart';
 import '../features/livros/rotas_livros.dart';
+import '../features/notificacoes/preferencias_de_notificacao_page.dart';
+import '../features/notificacoes/preferencias_de_notificacao_service.dart';
 import '../features/notificacoes/rotas_notificacoes.dart';
+import '../features/notificacoes/servico_de_push.dart';
 import '../features/perfil/perfil_page.dart';
 import '../features/perfil/rotas_perfil.dart';
 import '../features/perfil/widgets_de_identidade.dart';
@@ -74,6 +77,8 @@ GoRouter buildRouter({
   EstanteService? estante,
   DependenciasDeProgresso? progresso,
   DependenciasDeNotificacoes? notificacoes,
+  PreferenciasDeNotificacaoService? preferenciasDeNotificacao,
+  ServicoDePush? servicoDePush,
   DependenciasDeListas? listas,
   ExclusaoService? exclusao,
   SequenciaService? sequencia,
@@ -133,6 +138,12 @@ GoRouter buildRouter({
   final depsDeNotificacoes =
       notificacoes ??
       DependenciasDeNotificacoes.padrao(
+        getToken: () => sessionController.token,
+        renovarSessao: renovar,
+      );
+  final servicoDePreferencias =
+      preferenciasDeNotificacao ??
+      PreferenciasDeNotificacaoService.padrao(
         getToken: () => sessionController.token,
         renovarSessao: renovar,
       );
@@ -397,6 +408,7 @@ GoRouter buildRouter({
                       authService: authService,
                       aoVoltar: () => context.go('/perfil'),
                       aoAlterarSenha: () => context.go('$rotaConfiguracoes/alterar-senha'),
+                      aoAbrirNotificacoes: () => context.go('$rotaConfiguracoes/notificacoes'),
                       aoAbrirPolitica: () => context.go('$rotaConfiguracoes/privacidade'),
                       aoExcluirConta: () => context.go('$rotaConfiguracoes/excluir-conta'),
                       aoSair: () async {
@@ -414,6 +426,14 @@ GoRouter buildRouter({
                         builder: (context, state) => AlterarSenhaPage(
                           authService: authService,
                           sessionController: sessionController,
+                          aoVoltar: () => context.go(rotaConfiguracoes),
+                        ),
+                      ),
+                      GoRoute(
+                        path: 'notificacoes',
+                        builder: (context, state) => PreferenciasDeNotificacaoPage(
+                          servico: servicoDePreferencias,
+                          servicoDePush: servicoDePush,
                           aoVoltar: () => context.go(rotaConfiguracoes),
                         ),
                       ),

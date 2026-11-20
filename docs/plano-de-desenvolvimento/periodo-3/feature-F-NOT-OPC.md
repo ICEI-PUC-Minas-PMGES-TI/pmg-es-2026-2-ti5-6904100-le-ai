@@ -20,10 +20,10 @@ RNF atendidos: **RNF-SEC-02** (só o dono lê e altera suas preferências e seus
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | não iniciado | tabelas `preferencia_notificacao` e `dispositivo_push`; projeto Firebase e segredo do FCM |
-| Backend | não iniciado | `social`: preferências, registro de dispositivo e envio FCM no consumidor existente |
+| Infra | concluída no código | tabelas `preferencia_notificacao`, `dispositivo_push` e `envio_push` (migration `V20261108120000`) no banco de dev; `FIREBASE_CREDENTIALS_JSON` declarado no `render.yaml` e `google-services.json` lido pelo job `apk`; projeto Firebase criado **só para o ambiente local** (credenciais no `.env` e no `google-services.json` do desenvolvedor); **falta** o projeto na conta oficial do grupo e as credenciais de produção (ver Pendências) |
+| Backend | concluído | `social`: preferências, filtro no consumidor, registro/revogação de dispositivo e envio FCM idempotente; `./mvnw verify` com Postgres 17 descartável: 336 testes, 0 falhas (15/11/2026) |
 | Web | **não aplicável** | notificações estão **fora do escopo web** (`REQUISITOS.md` §2.1) |
-| Mobile | não iniciado | tela de preferências, permissão e token FCM, abertura pela notificação |
+| Mobile | concluído | tela de preferências, permissão, registro/refresh/revogação do token e abertura pela notificação; `flutter analyze` limpo e 985 testes passando (15/11/2026); `applicationId` `br.com.leai.mobile` |
 
 ## Especificação
 
@@ -63,16 +63,16 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 ## Critérios de aceite
 
-- [ ] GET/PUT cobrem cada tipo individualmente; tipo desconhecido é rejeitado; só o dono acessa/edita suas preferências.
-- [ ] Tipo desabilitado não gera in-app nem push; evento é reconhecido sem DLQ e o histórico anterior permanece intacto.
-- [ ] Registrar o mesmo token duas vezes **não duplica** dispositivo; token que muda de conta passa a pertencer à conta atual.
-- [ ] O **logout revoga** o token daquele aparelho, que deixa de receber push.
-- [ ] Notificação gravada gera **um** push por dispositivo ativo; reentrega do mesmo evento **não** gera segundo push (RNF-ERR-06).
-- [ ] Token inválido/não registrado **inativa** o dispositivo e não é reprocessado; indisponibilidade do FCM usa backoff e termina em **DLQ** sem travar a fila (RNF-ERR-03/07/08).
-- [ ] Falha no push **não** impede nem desfaz a notificação in-app.
-- [ ] O push não carrega dado sensível e, ao ser tocado, leva à tela correta com busca autenticada (SEC-36).
-- [ ] Recusar a permissão de notificação no Android mantém o aplicativo funcional, com a lista in-app.
-- [ ] Push **não** é enviado a iOS (P-04); o leitor iOS recebe pela lista in-app.
+- [x] GET/PUT cobrem cada tipo individualmente; tipo desconhecido é rejeitado; só o dono acessa/edita suas preferências.
+- [x] Tipo desabilitado não gera in-app nem push; evento é reconhecido sem DLQ e o histórico anterior permanece intacto.
+- [x] Registrar o mesmo token duas vezes **não duplica** dispositivo; token que muda de conta passa a pertencer à conta atual.
+- [x] O **logout revoga** o token daquele aparelho, que deixa de receber push.
+- [x] Notificação gravada gera **um** push por dispositivo ativo; reentrega do mesmo evento **não** gera segundo push (RNF-ERR-06).
+- [x] Token inválido/não registrado **inativa** o dispositivo e não é reprocessado; indisponibilidade do FCM usa backoff e termina em **DLQ** sem travar a fila (RNF-ERR-03/07/08).
+- [x] Falha no push **não** impede nem desfaz a notificação in-app.
+- [x] O push não carrega dado sensível e, ao ser tocado, leva à tela correta com busca autenticada (SEC-36).
+- [x] Recusar a permissão de notificação no Android mantém o aplicativo funcional, com a lista in-app.
+- [x] Push **não** é enviado a iOS (P-04); o leitor iOS recebe pela lista in-app.
 - [ ] Preferências e push funcionam **em DES**, com push demonstrado em **dispositivo Android real**.
 
 ## Definition of Done
@@ -81,13 +81,13 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 - [ ] Código (backend `social`, mobile) mergeado em `desenvolvimento`
 - [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
-- [ ] Testes unitários e de integração com banco real/container: leitura/escrita de preferências, filtro por tipo antes da gravação, propriedade, registro/renovação/revogação de token, unicidade do token e idempotência HTTP (RNF-TST-02)
-- [ ] Testes assíncronos: envio por dispositivo ativo, duplicação por `eventId` sem segundo push, token inválido inativando o dispositivo, indisponibilidade do FCM com backoff e DLQ, e notificação in-app preservada quando o push falha (RNF-TST-03)
-- [ ] Testes mobile cobrem preferências, permissão concedida e recusada, registro/revogação de token, abertura pela notificação e indisponibilidade/timeout com API simulada (RNF-TST-04/06)
-- [ ] **Spec OpenAPI de `social` atualizado em `docs/api/social.yaml`** com preferências e registro de dispositivo push
+- [x] Testes unitários e de integração com banco real/container: leitura/escrita de preferências, filtro por tipo antes da gravação, propriedade, registro/renovação/revogação de token, unicidade do token e idempotência HTTP (RNF-TST-02)
+- [x] Testes assíncronos: envio por dispositivo ativo, duplicação por `eventId` sem segundo push, token inválido inativando o dispositivo, indisponibilidade do FCM com backoff e DLQ, e notificação in-app preservada quando o push falha (RNF-TST-03)
+- [x] Testes mobile cobrem preferências, permissão concedida e recusada, registro/revogação de token, abertura pela notificação e indisponibilidade/timeout com API simulada (RNF-TST-04/06)
+- [x] **Spec OpenAPI de `social` atualizado em `docs/api/social.yaml`** com preferências e registro de dispositivo push
 - [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)) — **web N/A** (notificações fora do escopo web, §2.1); justificativa registrada aqui em vez de remover o item
-- [ ] Arquivo da feature atualizado: status, pendências, timeline
-- [ ] Divergência protótipo × implementação registrada, se houver
+- [x] Arquivo da feature atualizado: status, pendências, timeline
+- [x] Divergência protótipo × implementação registrada, se houver (ver Pendências)
 
 **Item próprio:** manter o catálogo de tipos configuráveis alinhado aos tipos gerados e documentar o comportamento de push e token inválido.
 
@@ -101,8 +101,39 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Consumidora direta:** [F-GAM-OPC](feature-F-GAM-OPC.md) depende deste push para que o lembrete de sequência tenha função (§5.12) — ordenar as duas features na sprint.
 - **Compartilha `social`** com as demais features sociais — sinalizar no grupo (plano §6). Preferências e dispositivos são limpos por [F-CONTA-2](../periodo-2/feature-F-CONTA-2.md) na exclusão de conta.
 - Stack de `social` definida: **Spring (Java)** (arquitetura §2.1).
+- **Divergência (decisão do grupo): DLQ do push.** A spec manda o envio indisponível terminar em DLQ. O push roda depois do commit, fora da fila AMQP, então não há DLQ aplicável: esgotadas as 3 tentativas (backoff 0,5 s e 1 s) ou com o circuito aberto (30 s), o push daquela notificação **se perde** e só há log estruturado; a lista in-app é a garantia. Reenvio de verdade (varredura de notificações sem `envio_push`) não foi implementado.
+- **Saída forçada não revoga o dispositivo:** refresh recusado, suspensão e exclusão de conta não chamam `DELETE /me/dispositivos-push/{id}` (o token de acesso já é inválido). O aparelho continua registrado para a conta anterior até o próximo login no aparelho reatribuir o token.
+- **`INVALID_ARGUMENT` do FCM inativa o dispositivo** (junto de `UNREGISTERED` e `SENDER_ID_MISMATCH`), para token lixo não abrir o circuit breaker. Um payload malformado nosso inativaria dispositivos; o payload é fixo e pequeno.
+- **Limite de 10 dispositivos ativos por usuário:** ao passar disso, o mais antigo é inativado. `POST /me/dispositivos-push` entra no rate limit por IP (60/min compartilhado com as interações).
+- **Conteúdo na tela de bloqueio:** o corpo do push traz o nome do ator e o título do livro; `LEITURA_EM_RISCO` e `LEITURA_EXPIRADA` revelam hábito de leitura. O envio define visibilidade **privada** no Android, então a tela de bloqueio esconde o conteúdo até o aparelho ser desbloqueado (SEC-36). O grupo decide se, além disso, passa a corpo genérico por tipo.
+- **Corrigido no `common` do `social`:** JSON ilegível ou com tipo errado (ex.: `habilitada: "abc"`) respondia 500 e agora responde 400 `REQUISICAO_INVALIDA` (`MapeadorErro`, com teste em `GlobalExceptionHandlerTest`). Os corpos de `PUT /me/notificacoes/preferencias` e `POST /me/dispositivos-push` rejeitam campo desconhecido, como o contrato declara (`additionalProperties: false`), e o PUT limita a lista a 12 itens.
+- **Única pendência: configurar o push no ambiente de produção** (ver [Ativar o push](#ativar-o-push)). Existe um projeto Firebase **apenas para o ambiente local**; falta criar o projeto na **conta oficial do grupo** (só FCM) e, nele, registrar o app `br.com.leai.mobile`, gerar a conta de serviço, definir `FIREBASE_CREDENTIALS_JSON` no `leai-social` (Render), o secret `GOOGLE_SERVICES_JSON_BASE64` no GitHub e repetir a demonstração do push em Android real com as credenciais de produção. As credenciais do projeto local não devem ir para DES/produção. Sem as credenciais o backend sobe com o envio desativado e o app segue com a lista in-app. Os itens de aceite e do DoD que dependem disso (DES, aparelho real) e do merge/CI do PR ficam abertos até lá.
+- **Divergências protótipo × implementação (mobile):** o ícone `ArrowSquareOut` do aviso de push negado fica à esquerda do texto (o `BotaoTextual` só aceita ícone à esquerda); o rótulo acessível da seta de voltar é "Voltar" (rótulo fixo do `CabecalhoTela`); o toque durante o salvamento de uma linha é ignorado; o título do push é "Lê Aí".
+- **Componentes novos a incorporar ao `documento-de-design.md`** (pelo controle de mudança do grupo): switch, linha de preferência, aviso de permissão negada e ícones `BellSlash` e `ArrowSquareOut`.
+- **Documentos de outras features/orquestador a atualizar pelo grupo** (este arquivo não os altera): `documento-de-arquitetura.md` §2.7 (linha 148, "FCM ainda não implementado") e §8 (linha 405, push "adiado"); `periodo-3/README.md` e `feature-F-GAM-OPC.md`, que ainda dizem "categoria"; `feature-F-AVA-2.md`, que diz que o `social` ainda não lê a preferência.
+- **Abertura pela notificação:** sem item na primeira página de `GET /notificacoes`, o app abre a lista de notificações. `AberturaPorPush` tem testes para a sessão ainda carregando e para a notificação fora da primeira página; o toque com a lista de notificações já aberta e a marcação como lida seguem sem teste.
+
+## Ativar o push
+
+Tudo no código e na infraestrutura já está pronto; faltam só as duas credenciais do Firebase. `applicationId` do app: `br.com.leai.mobile`.
+
+1. **Firebase Console:** o projeto atual é só de desenvolvimento local; para DES/produção, criar outro na conta oficial do grupo (Analytics desligado; só FCM) e adicionar um app **Android** com o pacote `br.com.leai.mobile`. Baixar o `google-services.json`.
+2. **Conta de serviço:** Configurações do projeto → Contas de serviço → Gerar nova chave privada (JSON). Confirmar que a API *Firebase Cloud Messaging API (V1)* está ativa.
+3. **Conferir as duas credenciais** (mesmo projeto e mesmo `applicationId`):
+   `node code/scripts/push/verificar-firebase.mjs <google-services.json> <conta-de-servico.json>`
+4. **Local:** copiar o `google-services.json` para `code/mobile/android/app/` (fora do git; há um `.example` ao lado) e colocar no `code/back/social/.env` a linha gerada por `... --env`. Rodar em Android real ou emulador com Google Play.
+5. **DES:** `FIREBASE_CREDENTIALS_JSON` no serviço `leai-social` do Render (valor de `... --render`, `sync: false` já declarado no `render.yaml`) e o secret `GOOGLE_SERVICES_JSON_BASE64` (`base64 -w0 google-services.json`) no GitHub, lido pelo job `apk` do `ci-mobile.yml` na `main`.
+6. **Demonstração:** logar no aparelho, aceitar a permissão, e disparar um evento de outra conta (curtida, comentário, seguidor). Sem o app aberto, o push chega com título "Lê Aí" e o toque abre o item.
 
 ## Timeline
+
+### Conclusão 15/11/2026: feature dada como concluída no código (backend, mobile, contrato, testes e guia de ativação). Resta apenas a configuração do Firebase no ambiente de produção (projeto Firebase na conta oficial; o atual é só local), registrada em Pendências. O push foi validado pelo autor em ambiente local, com o projeto Firebase local.
+
+### Preparo do push 15/11/2026: `applicationId` e `namespace` definitivos (`br.com.leai.mobile`, `MainActivity` movida); `google-services.json.example`; `code/scripts/push/verificar-firebase.mjs` (confere projeto e pacote e gera a linha do `.env`/segredo); job `apk` do CI grava o `google-services.json` a partir do secret `GOOGLE_SERVICES_JSON_BASE64`. APK debug compila com e sem o arquivo.
+
+### Validação 15/11/2026: `./mvnw verify` do `social` em Postgres 17 descartável (336 testes) e `flutter analyze` + `flutter test` do mobile (985 testes) passam. A rodada achou `OcultacaoDeContaSuspensaIntegracaoTest` falhando com `TRUNCATE notificacao` por causa da FK de `envio_push`; corrigido com `CASCADE`. Critérios de backend marcados; seguem abertos logout/iOS/permissão em aparelho, push em Android real e DES, que dependem do projeto Firebase e do `google-services.json`.
+
+### Implementação 08/11/2026: contrato, preferências, dispositivos e envio FCM no `social`; tela de preferências e push no mobile. Migration `envio_push` (chave `(notificacao, dispositivo)`) aplicada no banco de dev. Revisão independente de backend, mobile e segurança corrigiu: `DELETE` do dispositivo sem `Idempotency-Key` (a revogação no logout nunca funcionava), corridas do logout com registro de token em voo, falha inesperada num dispositivo pulando os demais, janela de entrega a conta errada na migração de token e título "Lê Aí". Pendentes: validação em Postgres e em Android real, e as decisões listadas em Pendências.
 
 ### Revisão 15/09/2026: grupo aprovou controle individual por tipo para qualquer notificação. DER e especificação atualizados; implementação permanece não iniciada.
 

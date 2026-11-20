@@ -42,7 +42,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 - **Job diário** no agendador decidido em P-08 (GitHub Actions `schedule`, fallback cron-job.org), chamando um **endpoint interno autenticado** de `leitura` — o mesmo desenho do job de inatividade de [F-EST](../periodo-1/feature-F-EST.md) (§10.2, arquitetura §2.4).
 - **Seleção:** leitores com **sequência ativa** (atual maior que zero) que **ainda não têm registro no dia local corrente**, calculado pelo **último fuso registrado pelo dispositivo** — o mesmo critério que F-GAM já usa para derivar o zeramento, sem fan-out por fuso horário.
-- **Publica `sequencia.lembrete`**, consumido pelo consumidor de notificações de `social`, que grava a notificação do tipo **`lembrete_sequencia`** — tipo **já previsto** em RF-NOT-01 e no enum de `notificacao` de [F-NOT](../periodo-1/feature-F-NOT.md) —, entregue por **push** de [F-NOT-OPC](feature-F-NOT-OPC.md) e sujeita à **preferência de categoria** do leitor.
+- **Publica `sequencia.lembrete`**, consumido pelo consumidor de notificações de `social`, que grava a notificação do tipo **`lembrete_sequencia`** — tipo **já previsto** em RF-NOT-01 e no enum de `notificacao` de [F-NOT](../periodo-1/feature-F-NOT.md) —, entregue por **push** de [F-NOT-OPC](feature-F-NOT-OPC.md) e sujeita à **preferência do tipo `lembrete_sequencia`** do leitor.
 - **Idempotência (RNF-ERR-06):** chave de negócio **`(usuarioId, dataLocal)`**, além do `eventId`. Reexecução do job no mesmo dia **não** gera segundo lembrete; o dia seguinte gera um novo normalmente. Mensagem com schema inválido é rejeitada antes do processamento (SEC-32); falha após o máximo de tentativas vai para **DLQ** sem travar a fila (RNF-ERR-07).
 - **Uma execução por dia**, tolerante a imprecisão de horário (§10.2). O lembrete é conveniência: atraso do agendador não é falha de negócio, e **não** altera a sequência — a sequência continua sendo apurada só pelo registro de progresso (RN-18.7).
 - **Não há lembrete para quem não tem sequência ativa** (RF-GAM-05 é explícito), nem segundo lembrete no mesmo dia.
@@ -53,7 +53,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 ### Backend / API — `social`
 
-- Acrescenta ao consumidor de [F-NOT](../periodo-1/feature-F-NOT.md) o **mapeamento `sequencia.lembrete` → notificação `lembrete_sequencia`**, com schema, chave de negócio, idempotência e DLQ próprios — exatamente o que `F-NOT` exige de qualquer tipo novo antes de ativá-lo. Respeita a preferência de categoria de [F-NOT-OPC](feature-F-NOT-OPC.md) e sai por push quando o dispositivo estiver registrado.
+- Acrescenta ao consumidor de [F-NOT](../periodo-1/feature-F-NOT.md) o **mapeamento `sequencia.lembrete` → notificação `lembrete_sequencia`**, com schema, chave de negócio, idempotência e DLQ próprios — exatamente o que `F-NOT` exige de qualquer tipo novo antes de ativá-lo. Respeita a preferência do tipo `lembrete_sequencia` de [F-NOT-OPC](feature-F-NOT-OPC.md) e sai por push quando o dispositivo estiver registrado.
 
 ### App Flutter (`code/mobile`)
 
@@ -73,7 +73,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [ ] O job diário seleciona **apenas** leitores com sequência **ativa** e **sem registro no dia local corrente** (RF-GAM-05).
 - [ ] Reexecutar o job no mesmo dia **não** gera segundo lembrete; a chave `(usuarioId, dataLocal)` sustenta a deduplicação (RNF-ERR-06).
 - [ ] Schema inválido é rejeitado antes de processar (SEC-32); falha repetida vai para **DLQ** sem travar a fila (RNF-ERR-07).
-- [ ] O lembrete respeita a **preferência de categoria** e sai por **push** quando há dispositivo registrado; sem push, permanece na lista in-app.
+- [ ] O lembrete respeita a **preferência do tipo `lembrete_sequencia`** e sai por **push** quando há dispositivo registrado; sem push, permanece na lista in-app.
 - [ ] Atraso ou falha do job **não altera** a sequência do leitor (RN-18).
 - [ ] Calendário e lembrete funcionam **em DES**, com o lembrete demonstrado em Android.
 

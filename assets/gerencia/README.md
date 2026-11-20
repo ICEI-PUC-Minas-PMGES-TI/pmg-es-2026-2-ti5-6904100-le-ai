@@ -85,6 +85,17 @@ base do orçado: o CPI de 1,00 é premissa, não medição.
 > a linha de base e passa pelo controle de mudança; a cada revisão de status, atualizar a data e o
 > último mês realizado na aba `Param`.
 
+## Relatório de Encerramento
+
+**Rascunho de 19/11/2026**, ainda não revisado pelo grupo. Compara o planejado no TAP nº 01, na
+Declaração de Escopo, na EAP, no orçamento e no plano de projeto com o realizado até 19/11/2026, citando
+a fonte de cada número e de cada data. Fecha depois de 24/11, com a release final, a produção, o pitch e
+as respostas do grupo (lições aprendidas, horas e aceite).
+
+| Arquivo | Conteúdo |
+| --- | --- |
+| [`relatorio_de_encerramento.md`](relatorio_de_encerramento.md) | **Rascunho.** Dez seções (identificação, objetivos, escopo, cronograma, custos, qualidade, riscos, lições aprendidas, situação final e aceite), com os marcadores do que falta. O `.docx`/`.pdf` sai no fechamento. |
+
 ## Processo e planejamento
 
 O processo de trabalho (branches, Definition of Done, rituais, prazos e períodos) não vive aqui — é fonte de verdade em [`../../docs/orquestador/plano-de-projeto.md`](../../docs/orquestador/plano-de-projeto.md). O acompanhamento das 37 features está no quadro Kanban do projeto: https://github.com/orgs/ICEI-PUC-Minas-PMGES-TI/projects/738

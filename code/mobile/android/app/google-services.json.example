@@ -1,0 +1,17 @@
+{
+  "project_info": {
+    "project_number": "000000000000",
+    "project_id": "SEU-PROJETO-FIREBASE",
+    "storage_bucket": "SEU-PROJETO-FIREBASE.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:000000000000:android:0000000000000000000000",
+        "android_client_info": { "package_name": "br.com.leai.mobile" }
+      },
+      "api_key": [{ "current_key": "SUBSTITUA" }]
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { createAcervoService } from '../services/acervo'
 import { ApiError } from '../services/api'
 import { livroOficial, paginaDeResenhas, resenha } from '../testes/massaDoLivro'
 import { ESPERAS_DA_SINOPSE_MS, useLivroOficial } from './useLivroOficial'
@@ -361,6 +362,45 @@ describe('useLivroOficial', () => {
 
       await vi.advanceTimersByTimeAsync(4_000)
       expect(pagina.livro.value?.notaDosLeitores).toEqual(comNota.notaDosLeitores)
+    })
+
+    // E6-02 (L-14): pelo cliente HTTP de verdade, com o tempo esgotado que ele mesmo produz.
+    it('tempo esgotado numa reconsulta é ignorado e a seguinte ainda vale', async () => {
+      let chamadas = 0
+      const fetchMock = vi.fn<typeof fetch>().mockImplementation((_url, init) => {
+        chamadas += 1
+        if (chamadas === 2) {
+          // A reconsulta de 2 s nunca responde: só o abort do cliente a encerra.
+          return new Promise((_resolver, rejeitar) =>
+            init?.signal?.addEventListener('abort', () => rejeitar(new DOMException('abortada', 'AbortError'))),
+          )
+        }
+        const corpo = chamadas === 1 ? livroOficial() : livroOficial(comNota)
+        return Promise.resolve(
+          new Response(JSON.stringify(corpo), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+        )
+      })
+      const acervo = createAcervoService({
+        baseUrl: 'https://acervo.example.com',
+        fetch: fetchMock,
+        getToken: () => 'jwt',
+        timeoutMs: 1_000,
+      })
+      const pagina = useLivroOficial({ servico: acervo })
+      await pagina.carregar('livro-1')
+
+      pagina.recarregarNotas()
+      await vi.advanceTimersByTimeAsync(3_000)
+      // O tempo esgotado não repete a chamada, não vira erro de tela e não mexe nas notas.
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      expect(pagina.estado.value).toBe('pronta')
+      expect(pagina.mensagemDoErro.value).toBeNull()
+      expect(pagina.livro.value?.notaDosLeitores).toBeNull()
+
+      await vi.advanceTimersByTimeAsync(3_000)
+      expect(fetchMock).toHaveBeenCalledTimes(3)
+      expect(pagina.livro.value?.notaDosLeitores).toEqual(comNota.notaDosLeitores)
+      expect(pagina.livro.value?.distribuicao).toEqual(comNota.distribuicao)
     })
 
     it('trocar de livro cancela, e a resposta atrasada do anterior é descartada', async () => {

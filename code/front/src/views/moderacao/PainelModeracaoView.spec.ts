@@ -227,6 +227,78 @@ describe('PainelModeracaoView', () => {
     expect(servico.listarRegistros).toHaveBeenCalledTimes(2)
   })
 
+  // ------------------------------------------------------------------ E6-02 (L-30, L-14)
+
+  it('comentário denunciado com HTML aparece como texto, sem elemento novo (RNF-SEC-14)', async () => {
+    const carga = '<img src=x data-injetado onerror=alert(1)><script data-injetado>alert(2)</script>'
+    const denuncia = denunciaDeComentario('d2')
+    denuncia.conteudo = { ...denuncia.conteudo!, texto: carga }
+    const { tela } = await montar(servicoFalso([denuncia]))
+
+    expect(tela.text()).toContain('Denúncia de comentário')
+    expect(tela.find('[data-injetado]').exists()).toBe(false)
+    expect(tela.find('img[src="x"]').exists()).toBe(false)
+    expect(tela.text()).toContain(carga)
+  })
+
+  it('resenha denunciada com HTML passa pela sanitização: marcação literal, só o subconjunto do RN-13 (RNF-SEC-15)', async () => {
+    const denuncia = denunciaDeResenha('d1')
+    denuncia.conteudo = {
+      ...denuncia.conteudo!,
+      texto: '<img src=x data-injetado onerror=alert(1)>\n\n<script data-injetado>alert(2)</script> e **forte**',
+    }
+    const { tela } = await montar(servicoFalso([denuncia]))
+
+    expect(tela.text()).toContain('Denúncia de resenha')
+    expect(tela.find('[data-injetado]').exists()).toBe(false)
+    expect(tela.find('img[src="x"]').exists()).toBe(false)
+    expect(tela.text()).toContain('<img src=x data-injetado onerror=alert(1)>')
+    expect(tela.text()).toContain('<script data-injetado>alert(2)</script>')
+    // O texto passou pelo renderizador da resenha: o negrito do subconjunto vira elemento.
+    expect(tela.get('strong').text()).toBe('forte')
+  })
+
+  it('tempo esgotado do cliente ao remover deixa a denúncia como não confirmada e o reenvio usa a mesma chave', async () => {
+    const servico = servicoFalso([denunciaDeResenha('d1')])
+    servico.remover
+      .mockRejectedValueOnce(new ApiError('O servidor demorou para responder. Tente novamente.', 0, 'TEMPO_LIMITE_EXCEDIDO'))
+      .mockResolvedValueOnce({ denunciasFechadas: ['d1'] })
+    const { tela } = await montar(servico)
+    const confirmarRemocao = async () => {
+      await botao(tela, 'Remover resenha')!.trigger('click')
+      await flushPromises()
+      await tela.findAll('[role="dialog"] button').find((b) => b.text() === 'Remover resenha')!.trigger('click')
+      await flushPromises()
+    }
+
+    await confirmarRemocao()
+
+    expect(tela.text()).toContain('A remoção não foi confirmada a tempo. A denúncia continua pendente.')
+    expect(tela.text()).toContain('Letícia Nakamura · Torto Arado')
+    expect(botao(tela, 'Arquivar como improcedente')).toBeUndefined()
+
+    await confirmarRemocao()
+
+    expect(servico.remover).toHaveBeenCalledTimes(2)
+    expect(servico.remover.mock.calls[1]![1]).toBe(servico.remover.mock.calls[0]![1])
+    expect(tela.text()).toContain('Resenha removida. A denúncia saiu da fila.')
+  })
+
+  it('tempo esgotado do cliente ao arquivar avisa a falha e a denúncia continua na fila', async () => {
+    const servico = servicoFalso([denunciaDeResenha('d1')])
+    servico.arquivar.mockRejectedValueOnce(
+      new ApiError('O servidor demorou para responder. Tente novamente.', 0, 'TEMPO_LIMITE_EXCEDIDO'),
+    )
+    const { tela } = await montar(servico)
+
+    await botao(tela, 'Arquivar como improcedente')!.trigger('click')
+    await flushPromises()
+
+    expect(tela.text()).toContain('Não foi possível arquivar a denúncia. Verifique sua conexão e tente de novo.')
+    expect(tela.text()).toContain('Letícia Nakamura · Torto Arado')
+    expect(botao(tela, 'Arquivar como improcedente')).toBeDefined()
+  })
+
   it('acorda o leitura ao abrir', async () => {
     await montar(servicoFalso([]))
 

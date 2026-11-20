@@ -15,6 +15,7 @@ Convenções do app mobile. Complementa o [`AGENTS.md`](../../AGENTS.md) da raiz
 - HTTP: `package:http` 1.6.0.
 - Preferência local: `shared_preferences` 2.5.5, usando `SharedPreferencesAsync`.
 - Persistência segura: `flutter_secure_storage` 11.1.1 (Keystore/Keychain) — decidido em P0-NAV (14/09/2026) para o token de sessão, que não pode viver em preferência comum.
+- Push (F-NOT-OPC): `firebase_core` 5.1.0 e `firebase_messaging` 17.0.1 (só FCM, Android; iOS e web usam `MensageriaIndisponivel`). O plugin `com.google.gms.google-services` 4.4.4 só é aplicado se `android/app/google-services.json` existir (arquivo no `.gitignore`); sem ele o app compila e roda sem push. Canal `leai_notificacoes` e o `MethodChannel` `leai/ajustes` (abrir ajustes de notificação) ficam em `MainActivity.kt`. Em primeiro plano o push não é tratado (o SSE já atualiza a lista); não há handler de background porque as mensagens trazem `notification`. `getToken` e `onTokenRefresh` seguem em uso apesar de deprecados, porque `register()` entrega o Firebase Installation ID e não o token FCM que o backend espera.
 - Tipografia: `google_fonts` 8.2.1.
 - Iconografia: `phosphor_icons` 3.0.1; use Phosphor regular por padrão e fill somente para estados ativos.
 - Markdown da resenha: `markdown` 7.3.1 (dart-lang), só o parser. O `flutter_markdown` foi descontinuado e não entra: a árvore vira widget em `markdown_resenha.dart`.
@@ -53,6 +54,12 @@ Convenções do app mobile. Complementa o [`AGENTS.md`](../../AGENTS.md) da raiz
   - Rotas e dependências: `rotas_desafios.dart` (`DependenciasDeDesafios`, montado em `rotasDoPerfil`).
   - Textos compostos no cliente (título, janela, `Faltam`, `Cumprido`) em `textos.dart`; a barra (`broto` sobre `musgo-fundo`) e os cards em `widgets_de_desafios.dart`.
   - Recarga: a tela e o bloco recarregam na hora com `DesafiosService.alteracoes` e em silêncio, 3 s depois do último aviso, com os avisos de progresso e da estante (leitura finalizada), porque o acumulado vem do consumo assíncrono.
+- Histórico do desafio (F-DSF-OPC, 07/11/2026), em `lib/features/desafios/`:
+  - `historico_do_desafio_page.dart` em `/perfil/desafios/:id/historico` (`rotaHistoricoDoDesafio`), aberta pelo item `Ver histórico` do menu do card (`DesafiosPage.aoVerHistorico`, obrigatório) com o `Desafio` por `extra`; sem ele, volta para a lista.
+  - `historico_do_desafio.dart`: `HistoricoDoDesafio` (paginação no molde de `ListaPaginada`, mas com o tipo da falha: sem rede × servidor) e `agruparHistorico` (grupos e marcas de mudança sobre a lista acumulada). Textos em `textos_do_historico.dart`.
+  - Cabeçalho de grupo preso ao topo com `SliverMainAxisGroup` + `PinnedHeaderSliver`, o primeiro do projeto: o grupo seguinte empurra o anterior sem código próprio.
+  - `BarraDeProgressoDeDesafio` (`widgets_de_desafios.dart`) é a barra sem semântica; `BarraDoDesafio` a usa e acrescenta o rótulo do card.
+  - **Peso com `google_fonts`:** `copyWith(fontWeight: …)` sobre um estilo do tema mantém a família do peso de origem (`Manrope_regular`), e o texto não fica mais pesado. Para `caption` 600, partir de `labelLarge` (`body-strong`) e trocar tamanho e altura, como o `Cumprido` do histórico.
 - `lib/features/estatisticas/` (F-STA):
   - `EstatisticasService` (`/me/estatisticas`, `/me/estatisticas/graficos` e `/perfis/{id}/estatisticas` no `leitura`, no mesmo client da estante; `buildRouter(estatisticas:)` injeta). O "hoje" é o de São Paulo em UTC−3 fixo (`hojeEmSaoPaulo`), o fuso do servidor.
   - Painel em `/perfil/estatisticas` (`estatisticas_page.dart`), com o período na rota (`?periodo=`). O gráfico de colunas é feito à mão em `widgets_de_estatisticas.dart`, sem pacote; a escala do eixo (`escala.dart`), os formatos (`formatos.dart`) e a copy (`textos.dart`) espelham `code/front/src/estatisticas/`.
@@ -73,6 +80,22 @@ Convenções do app mobile. Complementa o [`AGENTS.md`](../../AGENTS.md) da raiz
 - `test/`: testes unitários e widget, espelhando a árvore de `lib/`.
 
 ## Mudanças feitas por outras features
+
+### 16/11/2026 — E6-02 (Renato): testes das lacunas (L-14, L-31, L-32, L-37)
+
+Só testes; nenhum código de produção mudou. Avisar o Vicenzo.
+
+- **`test/features/livros/apoio.dart` (do Vicenzo):** `acervoSimulado` e `leituraSimulada` ganharam o parâmetro opcional `timeout` (padrão de 90 s, o mesmo do `ApiClient`), no molde do `estanteSimulada`. Com um valor curto e um handler que demora mais, o teste simula o tempo esgotado do cliente (`ApiFailureKind.coldStart`). As chamadas existentes não mudam.
+- **`test/features/livros/livro_pessoal_page_test.dart` (do Vicenzo):** o `leituraSimulada` do `montar` responde a `PUT`/`DELETE /resenhas/:id/reacao` (antes só devolvia `minha-avaliacao`); o caso novo "terceiro curte a resenha do dono com a via que abriu a página" confere a via e a referência no corpo do `PUT` e na consulta do `DELETE`. Os testes do dono e do terceiro pelo feed agora conferem a ausência de `Nota geral`, `Nota dos leitores` e `NotasDoLivro` (RN-06.5).
+- **Armadilha:** o tempo esgotado não é retentado pelo `ApiClient`, mas a resposta atrasada do handler continua como timer pendente; o teste precisa bombear além dela (`tester.pump` com a duração do atraso) antes de terminar, senão o `testWidgets` acusa timer pendente. `pumpAndSettle` sozinho não avança esse timer.
+- Os helpers da Ana (`ArmazemEmMemoria` e `pendente`, de `apoio_progresso.dart`) e o `socialSimulado` do Kayke só foram importados. Em `test/features/moderacao/conta_suspensa_nas_escritas_test.dart` (L-37), o `ApiClient` do `leitura` é montado no teste, ligado a um `SessionController` real (token e renovação), para provar que o 403 não encerra a sessão. Na denúncia, o `ApiClient` com timeout curto é montado no próprio `folha_denunciar_test.dart`.
+
+### 07/11/2026 — F-DSF-OPC (Vicenzo): parâmetros opcionais em componentes compartilhados
+
+Nada muda para quem já usa; avisar o grupo.
+
+- **`app/cabecalho_tela.dart`:** `conteudoDoTitulo` (widget no lugar do texto do título, como o título do desafio com número em mono; `titulo` continua sendo o rótulo de cabeçalho para o leitor de tela) e `subtitulo` (linha em `caption` `grafite` abaixo). Com qualquer um dos dois, o título usa `title`, vai até duas linhas e o header cresce a partir de 72px em vez de ter altura fixa.
+- **`design/widgets/banner_aviso.dart`:** `iconeNaCorDaVariante`, para o ícone próprio sair na cor da variante (o `WifiSlash` em `ambar` do sem conexão) em vez de `tinta`.
 
 ### 06/11/2026 — F-ACV-OPC (Renato): assuntos no livro pessoal
 

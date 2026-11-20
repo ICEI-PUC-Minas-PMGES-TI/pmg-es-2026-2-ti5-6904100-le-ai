@@ -54,7 +54,7 @@ class OcultacaoDeContaSuspensaIntegracaoTest extends IntegracaoComPostgres {
     massa = new MassaDeModeracao(jdbc);
     massa.preparar();
     base = new MassaDeRecomendacao(jdbc);
-    jdbc.execute("TRUNCATE notificacao");
+    jdbc.execute("TRUNCATE notificacao CASCADE");
     dona = massa.leitor("dona");
     suspensa = massa.leitor("suspensa");
     terceira = massa.leitor("terceira");
@@ -134,6 +134,28 @@ class OcultacaoDeContaSuspensaIntegracaoTest extends IntegracaoComPostgres {
     assertThat(raizes(leitora))
         .extracting(r -> r.get("id").asString())
         .containsExactly(raizDaSuspensa.toString());
+  }
+
+  /**
+   * L-35: o feed e o detalhe da atividade dependem de {@code v_seguimento_aceito_v1}, que tira os
+   * pares com conta suspensa. A cópia da VIEW usada aqui é conferida contra a migration do {@code
+   * identidade} em {@code CopiaDasViewsDoIdentidadeIntegracaoTest}.
+   */
+  @Test
+  @DisplayName("Atividade de autora suspensa some do feed e volta na reativação")
+  void atividadeDeAutoraSuspensaNoFeed() throws Exception {
+    assertThat(feed(leitora)).containsExactly(atividade.toString());
+
+    base.suspender(dona);
+
+    assertThat(feed(leitora)).isEmpty();
+    assertThat(corpo(get("/feed", leitora)).get("totalItens").asLong()).isZero();
+    assertThat(get("/atividades/" + atividade, leitora).statusCode()).isEqualTo(404);
+
+    base.reativar(dona);
+
+    assertThat(feed(leitora)).containsExactly(atividade.toString());
+    assertThat(get("/atividades/" + atividade, leitora).statusCode()).isEqualTo(200);
   }
 
   @Test
@@ -460,6 +482,14 @@ class OcultacaoDeContaSuspensaIntegracaoTest extends IntegracaoComPostgres {
         jdbc.queryForObject(
             "SELECT id FROM notificacao WHERE destinatario_id = ?", UUID.class, destinatario);
     return notificacoes.buscar(destinatario, id).orElseThrow();
+  }
+
+  private List<String> feed(UUID quem) throws Exception {
+    HttpResponse<String> resposta = get("/feed", quem);
+    assertThat(resposta.statusCode()).as(resposta.body()).isEqualTo(200);
+    List<String> ids = new ArrayList<>();
+    corpo(resposta).get("itens").forEach(item -> ids.add(item.get("id").asString()));
+    return ids;
   }
 
   private List<JsonNode> raizes(UUID quem) throws Exception {

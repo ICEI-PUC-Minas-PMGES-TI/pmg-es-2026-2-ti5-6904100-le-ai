@@ -9,6 +9,13 @@ import { dataLocal } from '../../progresso/dominio/progresso';
 export const PERIODICIDADES = ['diaria', 'semanal', 'mensal', 'anual'] as const;
 export type Periodicidade = (typeof PERIODICIDADES)[number];
 
+/**
+ * Quanto de uma janela encerrada o desafio passou pausado (RN-20.6,
+ * F-DSF-OPC): o histórico distingue o período pausado do período vazio.
+ */
+export const PAUSAS_DA_JANELA = ['inteira', 'parcial', 'nenhuma'] as const;
+export type PausaDaJanela = (typeof PAUSAS_DA_JANELA)[number];
+
 /** Período de calendário fechado nas duas pontas, em datas `YYYY-MM-DD`. */
 export interface Periodo {
   inicio: string;
