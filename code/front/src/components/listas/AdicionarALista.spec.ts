@@ -100,6 +100,83 @@ describe('AdicionarALista', () => {
     expect(linha('Quero ler em 2027').getAttribute('aria-pressed')).toBe('true')
   })
 
+  // L-14 (E6-02): o tempo esgotado do cliente é `TEMPO_LIMITE_EXCEDIDO`, sem status.
+  it('tempo esgotado ao carregar as listas: banner com Tentar de novo, que carrega', async () => {
+    listas.listarMinhas.mockRejectedValueOnce(
+      new ApiError('O servidor demorou para responder. Tente novamente.', 0, 'TEMPO_LIMITE_EXCEDIDO'),
+    )
+    montar()
+    await flushPromises()
+
+    expect(document.body.textContent).toContain('Não foi possível carregar suas listas. Verifique sua conexão e tente de novo.')
+    expect(document.body.textContent).not.toContain('Você ainda não tem listas')
+    ;[...document.body.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Tentar de novo')!.click()
+    await flushPromises()
+
+    expect(listas.listarMinhas).toHaveBeenCalledTimes(2)
+    expect(linha('Quero ler em 2027')).toBeDefined()
+  })
+
+  it('tempo esgotado ao adicionar: a marca volta e tocar reenvia com a mesma chave', async () => {
+    listas.adicionar
+      .mockRejectedValueOnce(new ApiError('O servidor demorou para responder. Tente novamente.', 0, 'TEMPO_LIMITE_EXCEDIDO'))
+      .mockResolvedValueOnce({} as never)
+    montar()
+    await flushPromises()
+
+    linha('Quero ler em 2027').click()
+    await flushPromises()
+    expect(linha('Quero ler em 2027').getAttribute('aria-pressed')).toBe('false')
+    expect(linha('Quero ler em 2027').textContent).toContain('0 livros')
+    expect(document.body.textContent).toContain('Não foi possível adicionar. Toque para tentar de novo.')
+
+    linha('Quero ler em 2027').click()
+    await flushPromises()
+    const [primeira, segunda] = listas.adicionar.mock.calls
+    expect(segunda).toEqual(primeira)
+    expect(linha('Quero ler em 2027').getAttribute('aria-pressed')).toBe('true')
+    expect(linha('Quero ler em 2027').textContent).toContain('1 livro')
+  })
+
+  it('tempo esgotado ao remover: a marca volta e tocar reenvia a remoção, não uma adição', async () => {
+    listas.remover
+      .mockRejectedValueOnce(new ApiError('O servidor demorou para responder. Tente novamente.', 0, 'TEMPO_LIMITE_EXCEDIDO'))
+      .mockResolvedValueOnce(undefined)
+    montar()
+    await flushPromises()
+
+    linha('Para ler numa viagem').click()
+    await flushPromises()
+    expect(linha('Para ler numa viagem').getAttribute('aria-pressed')).toBe('true')
+    expect(document.body.textContent).toContain('Não foi possível remover. Toque para tentar de novo.')
+
+    linha('Para ler numa viagem').click()
+    await flushPromises()
+    const [primeira, segunda] = listas.remover.mock.calls
+    expect(segunda).toEqual(primeira)
+    expect(listas.adicionar).not.toHaveBeenCalled()
+    expect(linha('Para ler numa viagem').getAttribute('aria-pressed')).toBe('false')
+  })
+
+  // L-28 (E6-02): texto de usuário com escape (RNF-SEC-14).
+  it('título de lista com marcação aparece como texto na linha', async () => {
+    const titulo = '<img src=x onerror="alert(1)"><b>Favoritos</b>'
+    listas.listarMinhas.mockResolvedValue({
+      items: [resumo('l9', titulo, 2, false)],
+      page: 0,
+      size: 20,
+      totalElements: 1,
+      totalPages: 1,
+    })
+    montar()
+    await flushPromises()
+
+    const botao = linha('Favoritos')
+    expect(botao.textContent).toContain(titulo)
+    expect(botao.querySelector('img, b')).toBeNull()
+    expect(document.body.querySelector('img[src="x"]')).toBeNull()
+  })
+
   it('sem listas: convite para criar a primeira', async () => {
     listas.listarMinhas.mockResolvedValue({ items: [], page: 0, size: 20, totalElements: 0, totalPages: 0 })
     montar()

@@ -112,6 +112,42 @@ describe('FormularioDeLista', () => {
     expect(segunda[1]).toBe(primeira[1])
   })
 
+  // L-14 (E6-02): o cliente espera o cold start (aviso aos 3 s) e, se estourar, lança
+  // `TEMPO_LIMITE_EXCEDIDO`; a intenção não muda, então o reenvio repete a chave.
+  it('cold start e tempo esgotado ao salvar: aviso aos 3 s, depois o erro com o texto mantido e a mesma chave', async () => {
+    vi.useFakeTimers()
+    try {
+      let estourar: (erro: unknown) => void = () => undefined
+      listas.editar
+        .mockImplementationOnce(() => new Promise((_, rejeitar) => (estourar = rejeitar)))
+        .mockResolvedValueOnce({ ...LISTA, titulo: 'Contos breves' })
+      const wrapper = montar({ lista: LISTA })
+      await flushPromises()
+      await digitar('input', 'Contos breves')
+
+      botao('Salvar alterações').click()
+      await flushPromises()
+      expect(document.body.textContent).not.toContain('O serviço está iniciando.')
+      await vi.advanceTimersByTimeAsync(3000)
+      expect(document.body.textContent).toContain('O serviço está iniciando. Isso pode levar alguns segundos.')
+
+      estourar(new ApiError('O servidor demorou para responder. Tente novamente.', 0, 'TEMPO_LIMITE_EXCEDIDO'))
+      await flushPromises()
+      expect(document.body.textContent).toContain('Não foi possível salvar as alterações. Verifique sua conexão e tente de novo.')
+      expect(document.body.textContent).not.toContain('O serviço está iniciando.')
+      expect(campo('input').value).toBe('Contos breves')
+      expect(wrapper.emitted('salva')).toBeUndefined()
+
+      botao('Salvar alterações').click()
+      await flushPromises()
+      const [primeira, segunda] = listas.editar.mock.calls
+      expect(segunda).toEqual(primeira)
+      expect(wrapper.emitted('salva')).toHaveLength(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('edição: envia só o que mudou e fica desabilitada sem mudança', async () => {
     listas.editar.mockResolvedValue({ ...LISTA, titulo: 'Contos para quem acha que não gosta de conto' })
     const wrapper = montar({ lista: LISTA })

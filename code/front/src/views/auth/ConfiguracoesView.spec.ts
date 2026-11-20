@@ -39,6 +39,29 @@ describe('ConfiguracoesView', () => {
     expect(wrapper.text()).toContain('Lê Ai · versão 1.0.0')
   })
 
+  // L-19 (E6-02): a entrada de F-CONTA-2, nas duas navegações (celular e web).
+  it('a linha Excluir conta, no celular e na web, leva à tela de exclusão empilhada sobre Configurações', async () => {
+    const { router, wrapper } = await montarNaRota('/perfil/configuracoes')
+    await flushPromises()
+
+    const [celular, web] = wrapper.findAll('nav[aria-label="Configurações"]')
+    for (const nav of [celular!, web!]) {
+      const linha = nav.findAll('a').find((a) => a.text() === 'Excluir conta')!
+      expect(linha.attributes('href')).toBe('/perfil/configuracoes/excluir-conta')
+    }
+    // Sem `rubi` na linha: a ação destrutiva é o botão lá dentro (excluir-conta.md §4).
+    expect(celular!.findAll('a').find((a) => a.text() === 'Excluir conta')!.classes()).not.toContain('text-rubi')
+    // A ordem das linhas do celular: a exclusão vem depois da política, no grupo de dados.
+    expect(celular!.findAll('a').map((a) => a.text())).toEqual(['Alterar senha', 'Política de privacidade', 'Excluir conta'])
+
+    await web!.findAll('a').find((a) => a.text() === 'Excluir conta')!.trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.name).toBe('excluir-conta')
+    expect(wrapper.text()).toContain('Excluir sua conta')
+    expect(wrapper.text()).toContain('Você pode pedir a exclusão agora e mudar de ideia em até 30 dias.')
+  })
+
   it('só o administrador tem a linha Moderação, no celular (F-MOD)', async () => {
     const leitor = await montarNaRota('/perfil/configuracoes')
     await flushPromises()
