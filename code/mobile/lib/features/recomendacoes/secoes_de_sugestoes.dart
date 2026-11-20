@@ -16,6 +16,10 @@ import 'item_recomendacao.dart';
 
 const String _descartar = 'descartar';
 
+// Padding horizontal do `TextButton`: descontado para o rótulo do botão textual alinhar com o
+// texto da seção, como no desenho (descobrir.md do Período 3, §5).
+const double _paddingDoBotaoTextual = 12;
+
 enum _Estado { carregando, pronta, erro }
 
 class _Secao {
@@ -267,13 +271,21 @@ class _SecoesDeSugestoesState extends State<SecoesDeSugestoes> {
                     'Não foi possível carregar mais sugestões.',
                     style: theme.textTheme.bodyMedium?.copyWith(color: theme.secondaryText),
                   ),
-                  BotaoTextual(texto: 'Tentar de novo', onPressed: () => _mostrarMais(secao)),
+                  Transform.translate(
+                    offset: const Offset(-_paddingDoBotaoTextual, 0),
+                    child: BotaoTextual(texto: 'Tentar de novo', onPressed: () => _mostrarMais(secao)),
+                  ),
                 ],
               ),
             )
           else if (atual.proximoOffset != null)
             Padding(
-              padding: const EdgeInsets.fromLTRB(DesignTokens.space5, DesignTokens.space3, 0, 0),
+              padding: const EdgeInsets.fromLTRB(
+                DesignTokens.space5 - _paddingDoBotaoTextual,
+                DesignTokens.space3,
+                0,
+                0,
+              ),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: BotaoTextual(texto: 'Mostrar mais', onPressed: () => _mostrarMais(secao)),
