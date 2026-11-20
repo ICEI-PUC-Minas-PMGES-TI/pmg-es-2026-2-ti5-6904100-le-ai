@@ -1,0 +1,66 @@
+{
+  "medidoEm": "2026-11-19T22:17:04.964Z",
+  "rota": "GET /livros?q=<termo>&limit=20",
+  "consultas": [
+    {
+      "tipo": "titulo",
+      "q": "dom casmurro",
+      "totalItens": 7,
+      "primeiro": "Dom Casmurro"
+    },
+    {
+      "tipo": "titulo",
+      "q": "vidas secas",
+      "totalItens": 2,
+      "primeiro": "Vidas Secas"
+    },
+    {
+      "tipo": "titulo",
+      "q": "capitaes da areia",
+      "totalItens": 2,
+      "primeiro": "Capitães da Areia"
+    },
+    {
+      "tipo": "autor",
+      "q": "machado de assis",
+      "totalItens": 41,
+      "primeiro": "Casa velha"
+    },
+    {
+      "tipo": "autor",
+      "q": "clarice lispector",
+      "totalItens": 25,
+      "primeiro": "Clarice Lispector"
+    },
+    {
+      "tipo": "autor",
+      "q": "jorge amado",
+      "totalItens": 12,
+      "primeiro": "Jorge Amado"
+    },
+    {
+      "tipo": "isbn",
+      "q": "9788506004234",
+      "totalItens": 1,
+      "primeiro": "Memórias póstumas de Brás Cubas"
+    },
+    {
+      "tipo": "isbn",
+      "q": "9788508040841",
+      "totalItens": 1,
+      "primeiro": "Quincas Borba"
+    },
+    {
+      "tipo": "isbn",
+      "q": "9788500714900",
+      "totalItens": 1,
+      "primeiro": "O cortiço"
+    },
+    {
+      "tipo": "amplo",
+      "q": "amor",
+      "totalItens": 149,
+      "primeiro": "Amor"
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+Cenário 5.2 - eventId duplicado, local (Docker), 2026-11-19T22:32:10.399Z
+Republicado o mesmo envelope (eventId edb55465-f3c1-4932-a7b0-25c9dd19c486): {"routed":true}
+Entregas confirmadas (ack) pelo acervo para o eventId: 2
+Recibos em acervo.mensagem_processada para o eventId: 1
+Mensagens na DLQ leai.p0.ping.dlq: 0
+O handler só roda quando o INSERT do recibo devolve linha (ON CONFLICT DO NOTHING), na mesma transação: a segunda entrega é confirmada sem segundo efeito.

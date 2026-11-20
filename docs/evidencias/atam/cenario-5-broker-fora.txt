@@ -1,0 +1,8 @@
+Cenário 5.5 - broker fora durante uma escrita, local (Docker), 2026-11-19T22:33:10.615Z
+2026-11-19T22:33:11.218Z docker stop atam-rabbit
+2026-11-19T22:33:13.222Z POST /perfis/{username}/seguir com o broker parado -> HTTP 201 em 64.1 ms, corpo {"estado":"seguindo","solicitacaoId":null}
+2026-11-19T22:33:16.301Z outbox com o broker parado: 9ad8e3ca-9bbd-4711-8080-a534909c478a | seguidor.novo | pendente | 2026-11-19 22:33:13.25902+00 |
+2026-11-19T22:33:16.443Z seguimento gravado: 1 linha(s)
+2026-11-19T22:33:16.889Z docker start atam-rabbit
+2026-11-19T22:33:26.632Z outbox depois da volta do broker: 9ad8e3ca-9bbd-4711-8080-a534909c478a | seguidor.novo | publicado | 2026-11-19 22:33:13.25902+00 | 2026-11-19 22:33:26.151922+00
+Tempo do docker start até a linha publicada (polling de 500 ms, inclui a subida do RabbitMQ e a reconexão): ~10 s
