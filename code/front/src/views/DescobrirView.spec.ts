@@ -17,7 +17,7 @@ vi.mock('../services/acervo', () => ({
 
 vi.mock('../services/social', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../services/social')>()),
-  socialService: { listarRecebidas: vi.fn(), descartarRecomendacao: vi.fn() },
+  socialService: { listarRecebidas: vi.fn(), descartarRecomendacao: vi.fn(), listarSugestoes: vi.fn() },
 }))
 
 const servico = vi.mocked(acervoService)
@@ -49,6 +49,8 @@ describe('DescobrirView', () => {
     servico.buscarLivros.mockReset().mockResolvedValue(RESULTADOS)
     social.listarRecebidas.mockReset().mockResolvedValue(paginaDeRecomendacoes([]))
     social.descartarRecomendacao.mockReset()
+    // F-REC-ALG: sem sugestões, a aterrissagem é a do Período 2 (RF-REC-14).
+    social.listarSugestoes.mockReset().mockResolvedValue({ seguidos: { itens: [], proximoOffset: null }, gosto: { itens: [], proximoOffset: null } })
   })
   afterEach(() => {
     vi.useRealTimers()

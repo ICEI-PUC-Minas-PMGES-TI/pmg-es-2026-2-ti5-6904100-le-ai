@@ -6,6 +6,8 @@ import { RouterLink, useRouter } from 'vue-router'
 import PoliticaDePrivacidade from '../../components/auth/PoliticaDePrivacidade.vue'
 import BotaoDestrutivo from '../../components/ui/BotaoDestrutivo.vue'
 import DialogoConfirmacao from '../../components/ui/DialogoConfirmacao.vue'
+import LinhaUsarLeituras from '../../components/auth/LinhaUsarLeituras.vue'
+import { usePreferenciaDeSugestoes } from '../../recomendacoes/usePreferenciaDeSugestoes'
 import { authService, type UsuarioProprio } from '../../services/auth'
 import { useSession } from '../../session'
 
@@ -25,6 +27,14 @@ import { useSession } from '../../session'
 
 const VERSAO_DO_APP = '1.0.0'
 
+/** Itens da coluna esquerda da web que abrem um painel à direita, entre `Alterar senha` e `Excluir conta`. */
+const ITENS_DO_PAINEL = [
+  { id: 'sugestoes', rotulo: 'Leituras em sugestões' },
+  { id: 'politica', rotulo: 'Política de privacidade' },
+] as const
+
+const EDITAR_PERFIL = '/perfil/editar'
+
 const router = useRouter()
 const { usuario, ehAdmin } = useSession()
 
@@ -32,7 +42,13 @@ const conta = ref<UsuarioProprio | null>(null)
 const carregandoConta = ref(true)
 const identificacao = computed(() => conta.value ?? usuario.value)
 
+// F-REC-ALG: o opt-out das sugestões. Na web, o item `Leituras em sugestões` troca o painel da
+// coluna direita, que abre com a política, como antes.
+const preferencia = usePreferenciaDeSugestoes()
+const painel = ref<'politica' | 'sugestoes'>('politica')
+
 onMounted(async () => {
+  void preferencia.carregar()
   try {
     conta.value = await authService.buscarUsuarioAtual()
   } catch {
@@ -111,6 +127,14 @@ async function sair(): Promise<void> {
         <h2 class="mt-space-4 pb-space-3 text-label text-grafite">
           Privacidade e dados
         </h2>
+        <LinhaUsarLeituras
+          :usar="preferencia.usar.value"
+          :salvando="preferencia.salvando.value"
+          :erro="preferencia.erro.value"
+          :desabilitada="saindo"
+          descricao="Os livros que você lê ajudam a sugerir leituras para quem segue você. Seu perfil continua como está."
+          @alternar="preferencia.alternar()"
+        />
         <RouterLink
           to="/perfil/configuracoes/privacidade"
           class="flex h-14 items-center justify-between border-b border-linha text-body text-tinta"
@@ -168,12 +192,17 @@ async function sair(): Promise<void> {
         >
           Alterar senha
         </RouterLink>
-        <span
-          class="flex h-11 items-center rounded-base bg-musgo-fundo px-space-4 text-body-strong text-musgo"
-          aria-current="page"
+        <button
+          v-for="item in ITENS_DO_PAINEL"
+          :key="item.id"
+          type="button"
+          class="flex h-11 items-center rounded-base px-space-4 text-left text-body-strong transition-colors duration-dur-fast focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo"
+          :class="painel === item.id ? 'bg-musgo-fundo text-musgo' : 'text-tinta hover:bg-linha'"
+          :aria-current="painel === item.id ? 'page' : undefined"
+          @click="painel = item.id"
         >
-          Política de privacidade
-        </span>
+          {{ item.rotulo }}
+        </button>
         <RouterLink
           to="/perfil/configuracoes/excluir-conta"
           class="flex h-11 items-center rounded-base px-space-4 text-body-strong text-tinta transition-colors duration-dur-fast hover:bg-linha focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-musgo"
@@ -206,7 +235,38 @@ async function sair(): Promise<void> {
     </div>
 
     <div class="hidden md:block">
-      <PoliticaDePrivacidade />
+      <PoliticaDePrivacidade v-if="painel === 'politica'" />
+      <section
+        v-else
+        aria-labelledby="titulo-leituras-em-sugestoes"
+      >
+        <h2
+          id="titulo-leituras-em-sugestoes"
+          class="text-title-lg text-tinta"
+        >
+          Leituras em sugestões
+        </h2>
+        <p class="mt-space-3 max-w-[640px] text-body text-grafite">
+          Quando alguém que segue você abre Descobrir, uma das sugestões é a de livros que pessoas que ela segue
+          leram. Seus livros lidos entram nessa conta.
+        </p>
+        <LinhaUsarLeituras
+          class="mt-space-6"
+          variante="web"
+          :usar="preferencia.usar.value"
+          :salvando="preferencia.salvando.value"
+          :erro="preferencia.erro.value"
+          :desabilitada="saindo"
+          descricao="Desligado, suas leituras deixam de contar nas sugestões de outros leitores."
+          @alternar="preferencia.alternar()"
+        />
+        <p class="mt-space-4 text-caption text-grafite [&_a:focus-visible]:underline [&_a:hover]:underline [&_a]:text-musgo">
+          Isso não muda quem vê seu perfil e não desliga as sugestões que você recebe. Para deixar o perfil
+          <!-- Quebrar a linha antes do ponto o separaria do link por um espaço. -->
+          <!-- eslint-disable-next-line vue/singleline-html-element-content-newline -->
+          privado, use <RouterLink :to="EDITAR_PERFIL">Editar perfil</RouterLink>.
+        </p>
+      </section>
     </div>
 
     <DialogoConfirmacao

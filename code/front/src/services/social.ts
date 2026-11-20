@@ -159,6 +159,31 @@ export interface CriarRecomendacao {
   mensagem?: string
 }
 
+/** F-REC-ALG: as duas seções da recomendação algorítmica (RF-REC-08/09). */
+export type SecaoDeSugestao = 'seguidos' | 'gosto'
+
+export interface MotivoDaSugestao {
+  tipo: 'SEGUIDOS' | 'SERIE' | 'AUTOR' | 'ASSUNTO'
+  /** Montado no servidor a partir do critério que trouxe o livro (RF-REC-11): o cliente não monta frase. */
+  texto: string
+}
+
+export interface Sugestao {
+  livro: LivroSnapshot
+  motivo: MotivoDaSugestao
+}
+
+export interface PaginaDeSugestoes {
+  itens: Sugestao[]
+  /** O que mandar em `offset` para pedir mais; nulo quando a seção acabou. */
+  proximoOffset: number | null
+}
+
+export interface Sugestoes {
+  seguidos: PaginaDeSugestoes | null
+  gosto: PaginaDeSugestoes | null
+}
+
 function paraPagina<T>(resp: PaginaHttp<T>): Pagina<T> {
   return {
     items: resp.itens,
@@ -253,6 +278,31 @@ export function createSocialService(options: ApiClientOptions = {}) {
     },
     descartarRecomendacao(id: string, idempotencyKey: string): Promise<void> {
       return request<void>(`/recomendacoes/${encodeURIComponent(id)}`, { method: 'DELETE', idempotencyKey })
+    },
+    /** Quantas recomendações daquele livro ainda estão na lista (RN-22.12, F-REC-ALG). */
+    async contarRestantesDoLivro(livroId: string): Promise<number> {
+      const resposta = await request<{ restantes: number }>(
+        `/recomendacoes/recebidas/restantes?livroId=${encodeURIComponent(livroId)}`,
+      )
+      return resposta.restantes
+    },
+    /** Descarte em lote (RF-REC-17): tudo ou nada, devolve quantas saíram. */
+    async descartarRecomendacoesDoLivro(livroId: string, idempotencyKey: string): Promise<number> {
+      const resposta = await request<{ removidas: number }>('/recomendacoes/descartar-lote', {
+        method: 'POST',
+        json: { livroId },
+        idempotencyKey,
+      })
+      return resposta.removidas
+    },
+    /** Sem `secao`, a primeira página das duas; com ela, só a continuação daquela seção. */
+    listarSugestoes(secao?: SecaoDeSugestao, offset = 0): Promise<Sugestoes> {
+      const consulta = secao ? `?secao=${secao}&offset=${offset}` : ''
+      return request<Sugestoes>(`/recomendacoes/sugestoes${consulta}`)
+    },
+    /** Sem `Idempotency-Key`: a unicidade por leitor e livro já faz da repetição um no-op. */
+    descartarSugestao(livroId: string): Promise<void> {
+      return request<void>(`/recomendacoes/sugestoes/${encodeURIComponent(livroId)}/descartar`, { method: 'POST' })
     },
     /** 201 cria; 200 devolve a denúncia pendente que o leitor já tinha sobre o alvo. */
     denunciar(dados: CriarDenuncia, idempotencyKey: string): Promise<Denuncia> {
