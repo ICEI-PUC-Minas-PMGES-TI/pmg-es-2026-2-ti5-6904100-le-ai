@@ -304,6 +304,61 @@ class ResultadoPorDestinatario {
   );
 }
 
+/// As duas seções da recomendação algorítmica (F-REC-ALG, RF-REC-08/09).
+enum SecaoDeSugestao {
+  seguidos('seguidos', 'Quem você segue leu'),
+  gosto('gosto', 'Do seu gosto');
+
+  final String valor;
+  final String titulo;
+
+  const SecaoDeSugestao(this.valor, this.titulo);
+}
+
+/// Schema `Sugestao`: o motivo vem pronto do servidor (RF-REC-11) e diz quantos leram, nunca quem.
+class Sugestao {
+  final LivroSnapshot livro;
+  final String motivo;
+
+  const Sugestao({required this.livro, required this.motivo});
+
+  factory Sugestao.fromJson(Map<String, dynamic> json) => Sugestao(
+    livro: LivroSnapshot.fromJson(json['livro'] as Map<String, dynamic>),
+    motivo: (json['motivo'] as Map<String, dynamic>)['texto'] as String,
+  );
+}
+
+/// Schema `SecaoDeSugestoes`: [proximoOffset] nulo quando a seção acabou.
+class PaginaDeSugestoes {
+  final List<Sugestao> itens;
+  final int? proximoOffset;
+
+  const PaginaDeSugestoes({required this.itens, required this.proximoOffset});
+
+  static const PaginaDeSugestoes vazia = PaginaDeSugestoes(itens: <Sugestao>[], proximoOffset: null);
+
+  static PaginaDeSugestoes? fromJson(Map<String, dynamic>? json) => json == null
+      ? null
+      : PaginaDeSugestoes(
+          itens: (json['itens'] as List<dynamic>? ?? const <dynamic>[])
+              .map((bruto) => Sugestao.fromJson(bruto as Map<String, dynamic>))
+              .toList(),
+          proximoOffset: (json['proximoOffset'] as num?)?.toInt(),
+        );
+}
+
+/// Schema `Sugestoes`: a seção que a consulta não pediu vem nula.
+class Sugestoes {
+  final Map<SecaoDeSugestao, PaginaDeSugestoes?> secoes;
+
+  const Sugestoes(this.secoes);
+
+  factory Sugestoes.fromJson(Map<String, dynamic> json) => Sugestoes(<SecaoDeSugestao, PaginaDeSugestoes?>{
+    for (final secao in SecaoDeSugestao.values)
+      secao: PaginaDeSugestoes.fromJson(json[secao.valor] as Map<String, dynamic>?),
+  });
+}
+
 class SocialService {
   final ApiClient _api;
 
@@ -405,6 +460,40 @@ class SocialService {
 
   Future<void> descartarRecomendacao(String id, {required String idempotencyKey}) =>
       _api.deleteVazio('/recomendacoes/${_id(id)}', idempotencyKey: idempotencyKey);
+
+  /// Quantas recomendações daquele livro ainda estão na lista (RN-22.12, F-REC-ALG).
+  Future<int> contarRestantesDoLivro(String livroId) async {
+    final json = await _api.getJson(
+      Uri(
+        path: '/recomendacoes/recebidas/restantes',
+        queryParameters: <String, String>{'livroId': livroId},
+      ).toString(),
+    );
+    return (json['restantes'] as num?)?.toInt() ?? 0;
+  }
+
+  /// Descarte em lote (RF-REC-17): tudo ou nada, devolve quantas saíram.
+  Future<int> descartarRecomendacoesDoLivro(String livroId, {required String idempotencyKey}) async {
+    final json = await _api.postJson(
+      '/recomendacoes/descartar-lote',
+      body: <String, Object?>{'livroId': livroId},
+      idempotencyKey: idempotencyKey,
+    );
+    return (json['removidas'] as num?)?.toInt() ?? 0;
+  }
+
+  /// Sem [secao], a primeira página das duas seções; com ela, só a continuação daquela seção.
+  Future<Sugestoes> listarSugestoes({SecaoDeSugestao? secao, int offset = 0}) async {
+    final caminho = secao == null
+        ? '/recomendacoes/sugestoes'
+        : '/recomendacoes/sugestoes?secao=${secao.valor}&offset=$offset';
+    return Sugestoes.fromJson(await _api.getJson(caminho));
+  }
+
+  /// Sem `Idempotency-Key`: a unicidade por leitor e livro já faz da repetição um no-op.
+  Future<void> descartarSugestao(String livroId) async {
+    await _api.postJson('/recomendacoes/sugestoes/${_id(livroId)}/descartar');
+  }
 
   Future<List<CandidatoARecomendacao>> listarCandidatos(String livroId) async {
     final json = await _api.getJson(

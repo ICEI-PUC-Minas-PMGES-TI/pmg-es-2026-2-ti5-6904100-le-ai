@@ -731,6 +731,8 @@ void main() {
       router.go(rotaConfiguracoes);
       await tester.pumpAndSettle();
 
+      // A linha de sugestões (F-REC-ALG) desceu `Excluir conta` para baixo da dobra.
+      await tester.ensureVisible(find.text('Excluir conta'));
       await tester.tap(find.text('Excluir conta'));
       await tester.pumpAndSettle();
       expect(find.text('Oculta a partir de agora'), findsOneWidget);

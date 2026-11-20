@@ -68,7 +68,7 @@ class LinhaDeInterruptor extends StatelessWidget {
                       const SizedBox(width: DesignTokens.space4),
                       Expanded(child: _textos(theme, mensagemDeErro)),
                       const SizedBox(width: DesignTokens.space4),
-                      Center(child: _Trilho(ligado: ligado)),
+                      Center(child: TrilhoDeInterruptor(ligado: ligado)),
                     ],
                   ),
                 ),
@@ -120,10 +120,12 @@ class LinhaDeInterruptor extends StatelessWidget {
   }
 }
 
-class _Trilho extends StatelessWidget {
+/// O trilho de 52 x 32px sozinho, para linhas que não seguem o desenho de [LinhaDeInterruptor]
+/// (a de sugestões das Configurações não tem ícone, F-REC-ALG).
+class TrilhoDeInterruptor extends StatelessWidget {
   final bool ligado;
 
-  const _Trilho({required this.ligado});
+  const TrilhoDeInterruptor({super.key, required this.ligado});
 
   @override
   Widget build(BuildContext context) {

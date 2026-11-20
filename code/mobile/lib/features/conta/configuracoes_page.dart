@@ -6,7 +6,10 @@ import '../../design/theme.dart';
 import '../../design/tokens.dart';
 import '../../design/widgets/botao_destrutivo.dart';
 import '../../design/widgets/botao_textual.dart';
+import '../../core/network/api_client.dart';
+import '../../design/widgets/linha_de_interruptor.dart';
 import '../auth/auth_service.dart';
+import '../perfil/perfil_service.dart';
 
 /// Configurações (RF-AUT-06, acesso a RF-AUT-05 e RNF-SEC-42). Estrutura e cópia de
 /// docs/design/periodo-1/F-AUT/configuracoes.md §4.
@@ -19,6 +22,9 @@ import '../auth/auth_service.dart';
 /// melhor esforço e limpa a sessão; a guarda de rota leva ao login sozinha.
 class ConfiguracoesPage extends StatefulWidget {
   final AuthService authService;
+
+  /// F-REC-ALG: lê e grava o opt-out das sugestões. Sem ele, a linha fica no skeleton.
+  final PerfilService? perfilService;
   final Future<void> Function() aoSair;
   final VoidCallback? aoVoltar;
   final VoidCallback? aoAlterarSenha;
@@ -31,6 +37,7 @@ class ConfiguracoesPage extends StatefulWidget {
   const ConfiguracoesPage({
     super.key,
     required this.authService,
+    this.perfilService,
     required this.aoSair,
     this.aoVoltar,
     this.aoAlterarSenha,
@@ -49,10 +56,74 @@ class _ConfiguracoesPageState extends State<ConfiguracoesPage> {
   UsuarioResposta? _usuario;
   bool _saindo = false;
 
+  // F-REC-ALG: a tela pergunta pelo sim (`Usar minhas leituras em sugestões`) e o contrato guarda
+  // o não (`optOutRecomendacao`). Nulo até `GET /me/perfil` responder, e se a leitura falhar.
+  bool? _usarLeituras;
+  bool _salvandoPreferencia = false;
+  bool _falhouPreferencia = false;
+  ({bool valor, String chave})? _gravacaoPendente;
+
   @override
   void initState() {
     super.initState();
     _carregarUsuario();
+    _carregarPreferencia();
+  }
+
+  Future<void> _carregarPreferencia() async {
+    final servico = widget.perfilService;
+    if (servico == null) {
+      return;
+    }
+    try {
+      final perfil = await servico.obterMeuPerfil();
+      if (mounted) {
+        setState(() => _usarLeituras = perfil.optOutRecomendacao != true);
+      }
+    } on Object {
+      // A linha mantém o skeleton do `switch` e não responde, sem erro desenhado (§4.5).
+    }
+  }
+
+  /// Sem botão de salvar: o toque move o `switch` na hora e grava. Se falhar, ele volta e a linha
+  /// diz o motivo; tentar de novo é tocar outra vez, com a mesma chave se o destino for o mesmo.
+  Future<void> _alternarPreferencia() async {
+    final servico = widget.perfilService;
+    final anterior = _usarLeituras;
+    if (servico == null || anterior == null || _salvandoPreferencia || _saindo) {
+      return;
+    }
+    final novo = !anterior;
+    final pendente = _gravacaoPendente;
+    final chave = pendente != null && pendente.valor == novo
+        ? pendente.chave
+        : ApiClient.newIdempotencyKey();
+    _gravacaoPendente = (valor: novo, chave: chave);
+    setState(() {
+      _usarLeituras = novo;
+      _salvandoPreferencia = true;
+    });
+    try {
+      final perfil = await servico.definirOptOutRecomendacao(!novo, idempotencyKey: chave);
+      _gravacaoPendente = null;
+      if (mounted) {
+        setState(() {
+          _usarLeituras = perfil.optOutRecomendacao != true;
+          _falhouPreferencia = false;
+        });
+      }
+    } on ApiException {
+      if (mounted) {
+        setState(() {
+          _usarLeituras = anterior;
+          _falhouPreferencia = true;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _salvandoPreferencia = false);
+      }
+    }
   }
 
   Future<void> _carregarUsuario() async {
@@ -101,6 +172,13 @@ class _ConfiguracoesPageState extends State<ConfiguracoesPage> {
                 _Linha(rotulo: 'Alterar senha', aoTocar: widget.aoAlterarSenha, theme: theme),
                 _Linha(rotulo: 'Notificações', aoTocar: widget.aoAbrirNotificacoes, theme: theme),
                 _TituloDeGrupo(texto: 'Privacidade e dados', theme: theme),
+                _LinhaDeSugestoes(
+                  usar: _usarLeituras,
+                  falhou: _falhouPreferencia,
+                  desabilitada: _saindo,
+                  aoAlternar: _alternarPreferencia,
+                  theme: theme,
+                ),
                 _Linha(
                   rotulo: 'Política de privacidade',
                   aoTocar: widget.aoAbrirPolitica,
@@ -245,6 +323,114 @@ class _Linha extends StatelessWidget {
               ExcludeSemantics(
                 child: Icon(PhosphorIconsRegular.caretRight, size: 20, color: theme.tertiaryText),
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Linha `Usar minhas leituras em sugestões` (F-REC-ALG, configuracoes.md do Período 3 §4): a
+/// única linha com controle. Sem ícone, descrição sempre visível, o `switch` no lugar do
+/// `CaretRight`. A linha inteira alterna. [usar] nulo é o carregamento: retângulo de 52 x 32px em
+/// `capa-placeholder` no lugar do trilho, e a linha não responde. Saindo, trilho a 40%.
+class _LinhaDeSugestoes extends StatelessWidget {
+  final bool? usar;
+  final bool falhou;
+  final bool desabilitada;
+  final VoidCallback aoAlternar;
+  final ThemeData theme;
+
+  const _LinhaDeSugestoes({
+    required this.usar,
+    required this.falhou,
+    required this.desabilitada,
+    required this.aoAlternar,
+    required this.theme,
+  });
+
+  static const String _rotulo = 'Usar minhas leituras em sugestões';
+  static const String _descricao =
+      'Os livros que você lê ajudam a sugerir leituras para quem segue você. Seu perfil continua '
+      'como está.';
+  static const String _erro = 'Não foi possível salvar. Verifique sua conexão e tente de novo.';
+
+  @override
+  Widget build(BuildContext context) {
+    final estado = usar;
+    final ativa = estado != null && !desabilitada;
+    return Semantics(
+      toggled: estado ?? false,
+      enabled: ativa,
+      label: _rotulo,
+      hint: falhou ? '$_descricao $_erro' : _descricao,
+      liveRegion: falhou,
+      onTap: ativa ? aoAlternar : null,
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: ativa ? aoAlternar : null,
+        splashFactory: NoSplash.splashFactory,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 72),
+          padding: const EdgeInsets.symmetric(
+            horizontal: DesignTokens.space5,
+            vertical: DesignTokens.space3,
+          ),
+          decoration: BoxDecoration(border: Border(bottom: BorderSide(color: theme.divider))),
+          child: Row(
+            children: <Widget>[
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(_rotulo, style: theme.textTheme.bodyMedium),
+                    const SizedBox(height: DesignTokens.space1),
+                    Text(
+                      _descricao,
+                      style: theme.textTheme.bodySmall?.copyWith(color: theme.secondaryText),
+                    ),
+                    if (falhou) ...<Widget>[
+                      const SizedBox(height: DesignTokens.space2),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Icon(
+                            PhosphorIconsRegular.warning,
+                            size: 16,
+                            color: theme.colorScheme.error,
+                          ),
+                          const SizedBox(width: DesignTokens.space1),
+                          Expanded(
+                            child: Text(
+                              _erro,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.error,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: DesignTokens.space4),
+              if (estado == null)
+                Container(
+                  key: const ValueKey<String>('skeleton-do-switch'),
+                  width: 52,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: theme.coverPlaceholder,
+                    borderRadius: BorderRadius.circular(DesignTokens.radiusFull),
+                  ),
+                )
+              else
+                Opacity(
+                  opacity: desabilitada ? 0.4 : 1,
+                  child: TrilhoDeInterruptor(ligado: estado),
+                ),
             ],
           ),
         ),

@@ -8,7 +8,9 @@ import '../../design/widgets/aviso.dart';
 import '../../design/widgets/capa_livro.dart';
 import '../../design/widgets/folha_de_acoes.dart';
 import '../feed/social_service.dart';
+import 'folha_descarte_em_lote.dart';
 import 'item_recomendacao.dart';
+import 'sessao_do_descarte_em_lote.dart';
 
 const String _verPerfil = 'perfil';
 const String _descartar = 'descartar';
@@ -26,6 +28,51 @@ mixin DescarteDeRecomendacoes<T extends StatefulWidget> on State<T> {
 
   /// Chamado quando o servidor confirma o descarte, ou diz que a recomendação já saiu.
   void aoDescartada(String id);
+
+  /// F-REC-ALG: só a lista `Recomendações recebidas` faz a pergunta de descarte em lote; a seção do
+  /// Descobrir conta os descartes, mas não pergunta (descobrir.md do Período 3, §10).
+  bool get perguntaDescarteEmLote => false;
+
+  /// Tira da lista todas as recomendações do livro, depois que o servidor confirmou o lote.
+  void aoRemoverDoLivro(String livroId) {}
+
+  /// No terceiro descarte do mesmo livro, sem recusa anterior, pergunta ao servidor quantas restam
+  /// e, havendo alguma, abre a pergunta no lugar do aviso. Se a contagem falhar, o descarte já
+  /// valeu e o aviso de sempre aparece. Devolve se a pergunta tomou o lugar do aviso.
+  Future<bool> _ofereceuDescarteEmLote(LivroSnapshot livro) async {
+    if (!registrarDescarte(livro.id) || !perguntaDescarteEmLote) {
+      return false;
+    }
+    final int restantes;
+    try {
+      restantes = await social.contarRestantesDoLivro(livro.id);
+    } on ApiException {
+      return false;
+    }
+    if (restantes == 0 || !mounted) {
+      return false;
+    }
+    final removidas = await perguntarDescarteEmLote(
+      context,
+      social: social,
+      livro: livro,
+      restantes: restantes,
+    );
+    if (removidas == null) {
+      recusarPergunta(livro.id);
+      return true;
+    }
+    aoRemoverDoLivro(livro.id);
+    if (mounted && removidas > 0) {
+      mostrarAviso(
+        context,
+        removidas == 1
+            ? '1 recomendação de ${livro.titulo} descartada.'
+            : '$removidas recomendações de ${livro.titulo} descartadas.',
+      );
+    }
+    return true;
+  }
 
   bool estaEmDescarte(String id) => _emDescarte.contains(id);
 
@@ -62,13 +109,12 @@ mixin DescarteDeRecomendacoes<T extends StatefulWidget> on State<T> {
     }
     final chave = _chavesDeDescarte.putIfAbsent(id, ApiClient.newIdempotencyKey);
     setState(() => _emDescarte.add(id));
+    var confirmado = false;
     try {
       await social.descartarRecomendacao(id, idempotencyKey: chave);
       _chavesDeDescarte.remove(id);
       aoDescartada(id);
-      if (mounted) {
-        mostrarAviso(context, 'Recomendação descartada.');
-      }
+      confirmado = true;
     } on ApiException catch (erro) {
       if (erro.status == 404) {
         // Já saiu por outra via (estante, expiração): não há o que descartar.
@@ -87,6 +133,14 @@ mixin DescarteDeRecomendacoes<T extends StatefulWidget> on State<T> {
       if (mounted) {
         setState(() => _emDescarte.remove(id));
       }
+    }
+    // Só o descarte que o servidor confirmou conta para a pergunta, uma vez, mesmo depois de uma
+    // falha repetida com a mesma chave (recomendacoes-recebidas.md do Período 3, §1).
+    if (!confirmado || !mounted) {
+      return;
+    }
+    if (!await _ofereceuDescarteEmLote(recomendacao.livro) && mounted) {
+      mostrarAviso(context, 'Recomendação descartada.');
     }
   }
 }
