@@ -152,6 +152,23 @@ class NotificacaoControllerIntegracaoTest extends IntegracaoComPostgres {
   }
 
   @Test
+  @DisplayName("lembrete de sequencia sai sem ator, livro e acao, com o numero na frase")
+  void lembreteDeSequenciaTrazAFrase() throws Exception {
+    UUID eu = UUID.randomUUID();
+    notificar(EventoDeNotificacao.LEMBRETE_SEQUENCIA, Fato.para(eu));
+
+    JsonNode item = listar(token(eu), 0, 20).get("itens").get(0);
+
+    assertThat(item.get("tipo").asText()).isEqualTo("LEMBRETE_SEQUENCIA");
+    assertThat(item.get("mensagem").asText())
+        .isEqualTo("Sua sequência está em 12 dias e hoje ainda não tem leitura registrada.");
+    assertThat(item.get("ator").isNull()).isTrue();
+    assertThat(item.get("livro").isNull()).isTrue();
+    assertThat(item.get("acao").isNull()).isTrue();
+    assertThat(item.get("leituraId").isNull()).isTrue();
+  }
+
+  @Test
   @DisplayName("ator visivel aparece na notificacao; ator suspenso some e vira 'Um leitor'")
   void atorSuspensoNaoEExposto() throws Exception {
     UUID eu = UUID.randomUUID();
