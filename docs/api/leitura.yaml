@@ -10,7 +10,8 @@ info:
     progresso removida em 29/09/2026). A sequência diária está implementada
     por F-GAM (08/10/2026), os desafios por F-DSF (09/10/2026), o histórico
     de janelas dos desafios por F-DSF-OPC (07/11/2026) e as estatísticas por
-    F-STA (11/10/2026). Cada operação traz
+    F-STA (11/10/2026); o calendário da sequência e o job do lembrete de
+    sequência por F-GAM-OPC (19/11/2026). Cada operação traz
     `x-implementation-status`.
     Nota e resenha pertencem ao livro, não a uma ocorrência de leitura.
     As reações à resenha (curtir e descurtir) e as frases e trechos estão
@@ -1102,6 +1103,42 @@ paths:
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '503': { $ref: '#/components/responses/ServicoIndisponivel' }
 
+  /me/sequencia/calendario:
+    get:
+      tags: [sequencia]
+      summary: Lista os dias com leitura de um mês da janela recente
+      operationId: consultarCalendarioDaSequencia
+      x-implementation-status: implemented
+      x-implemented-by: F-GAM-OPC
+      description: >-
+        Só do próprio leitor (RNF-SEC-02). Devolve os dias do mês pedido que
+        tiveram ao menos uma atualização de progresso com página lida, pela
+        data local de RN-18.2 e pelas mesmas regras da sequência (RN-18.1):
+        iniciar, concluir ou abandonar não marca o dia, então o calendário e
+        `GET /me/sequencia` nunca divergem. Somente leitura: não há marcação
+        manual (RN-17). A janela é limitada pelo servidor (RNF-DES-02): o mês
+        corrente e os cinco anteriores, sem recuar antes do mês do primeiro
+        dia com leitura (sem nenhum, só o mês corrente). O mês corrente e o
+        `hoje` são apurados no último fuso registrado pelo dispositivo, como a
+        sequência; sem progresso, em America/Sao_Paulo. Mês fora da janela é
+        422 com `campos.mes`.
+      parameters:
+        - name: mes
+          in: query
+          required: false
+          description: Mês no formato AAAA-MM. Ausente, o mês corrente.
+          schema: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$', example: '2026-09' }
+      responses:
+        '200':
+          description: Dias com leitura do mês, com os limites da janela.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CalendarioSequencia' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '422': { $ref: '#/components/responses/EntidadeInvalida' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
   /desafios:
     post:
       tags: [desafios]
@@ -1348,6 +1385,41 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ResultadoJobInatividade' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+  /internal/jobs/lembrete-sequencia:
+    post:
+      tags: [interno]
+      summary: Publica diariamente o lembrete de sequência
+      operationId: enviarLembretesDeSequencia
+      x-implementation-status: implemented
+      x-implemented-by: F-GAM-OPC
+      security:
+        - schedulerToken: []
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      description: >-
+        Endpoint não exposto aos clientes, chamado uma vez por dia pelo
+        agendador (RF-GAM-05, RNF-ARQ-09). Seleciona os leitores com sequência
+        ativa cujo último dia com leitura é ontem no último fuso registrado
+        pelo dispositivo, isto é, que ainda não registraram progresso no dia
+        local corrente, e grava `lembrete.sequencia` na outbox. Conta suspensa
+        ou em exclusão fica de fora. O `eventId` é derivado de
+        `(usuarioId, dataLocal)`, então reexecutar no mesmo dia não grava um
+        segundo lembrete (`jaLembrados`); o dia seguinte gera um novo. Atraso
+        ou falha do job não altera a sequência (RN-18).
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false }
+      responses:
+        '200':
+          description: Ciclo processado, inclusive quando ninguém é elegível.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ResultadoJobLembreteSequencia' }
         '400': { $ref: '#/components/responses/RequisicaoInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '409': { $ref: '#/components/responses/Conflito' }
@@ -2082,6 +2154,38 @@ components:
           example: '2026-10-08'
           description: Último dia de calendário local com progresso.
 
+    CalendarioSequencia:
+      type: object
+      additionalProperties: false
+      required: [mes, mesAtual, mesMaisAntigo, hoje, dias]
+      properties:
+        mes:
+          type: string
+          example: '2026-09'
+          description: Mês devolvido, AAAA-MM.
+        mesAtual:
+          type: string
+          example: '2026-09'
+          description: >-
+            Mês corrente no último fuso do dispositivo; limite à frente da
+            navegação.
+        mesMaisAntigo:
+          type: string
+          example: '2026-04'
+          description: >-
+            Mês mais antigo disponível na janela; limite para trás da
+            navegação.
+        hoje:
+          type: string
+          format: date
+          example: '2026-09-24'
+          description: Dia corrente no mesmo fuso que apura a sequência.
+        dias:
+          type: array
+          description: Dias do mês com leitura, em ordem crescente, sem repetição.
+          items: { type: string, format: date }
+          example: ['2026-09-01', '2026-09-02', '2026-09-24']
+
     TotaisEstatistica:
       type: object
       additionalProperties: false
@@ -2593,3 +2697,22 @@ components:
         alertasDia20: { type: integer, minimum: 0 }
         alertasDia30: { type: integer, minimum: 0 }
         abandonosDia40: { type: integer, minimum: 0 }
+
+    ResultadoJobLembreteSequencia:
+      type: object
+      additionalProperties: false
+      required: [instanteReferencia, elegiveis, lembretesPublicados, jaLembrados]
+      properties:
+        instanteReferencia: { type: string, format: date-time }
+        elegiveis:
+          type: integer
+          minimum: 0
+          description: Leitores com sequência ativa e sem registro no dia local corrente.
+        lembretesPublicados:
+          type: integer
+          minimum: 0
+          description: Lembretes gravados na outbox nesta execução.
+        jaLembrados:
+          type: integer
+          minimum: 0
+          description: Elegíveis que já tinham o lembrete do dia (reexecução).
