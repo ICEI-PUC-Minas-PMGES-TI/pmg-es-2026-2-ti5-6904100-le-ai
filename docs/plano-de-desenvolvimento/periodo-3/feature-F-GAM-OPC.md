@@ -123,7 +123,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Arquitetura v1.10:** situação do push em §2.7, §6 e §8.
 - **Arquivo da F-NOT-OPC:** Firebase criado, DoD de merge e CI e a pendência de DES.
 - **`3.requisitos.md`:** status de RF-GAM-04/05, RF-NOT-05/07 e das opcionais já mergeadas (RF-ACV-14/22, RF-DSF-05, RF-STA-04, RF-MOD-04) de "A iniciar" para "Em revisão".
-- **Plano de testes:** seção 9.6.31 (CT-GAO-01 a 31) e CT-PER-17.
+- **Plano de testes:** seção 9.6.31 (CT-GAO-01 a 31) e CT-PER-25.
 - **README do período:** contrato `lembrete.sequencia` como aprovado.
 
 ### Validação no emulador 20/11/2026: os quatro serviços rodaram localmente (banco e RabbitMQ de dev) e o app rodou num emulador Android 16 com Google Play, com o projeto Firebase `leai-ti5`. Antes, `verificar-firebase.mjs` conferiu as duas credenciais, e um envio `validate_only` ao FCM respondeu 200.
@@ -133,7 +133,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Lembrete:** o job publicou o lembrete e o push chegou com "Sua sequência está em 3 dias e hoje ainda não tem leitura registrada."; repetir a chave devolveu a mesma resposta e uma chave nova deu `jaLembrados`.
 - **Destino:** o toque no push abriu a folha de registrar progresso da única leitura, e o item da lista in-app (ícone `Flame`, já lido) também. Depois do registro, a sequência foi a 4, o dia 20 ficou marcado e o job seguinte não selecionou mais o leitor.
 - **Correção:** o helper do cartão do perfil cortava "1 página." com `maxLines: 3`; o limite saiu (divergência 7) e os testes de sequência e perfil passam.
-- **Corrigido fora da feature:** o contador de seguidores do Meu perfil ficava em 0 depois de um novo seguidor, embora `GET /me/perfil` já devolvesse 1, porque a aba fica viva no shell e só relia o perfil ao voltar de uma tela empilhada. Agora `PerfilPage` ouve o canal de tempo real: seguidor novo, pedido criado ou aceito e a reconexão do canal releem o perfil em silêncio (CT-PER-17).
+- **Corrigido fora da feature:** o contador de seguidores do Meu perfil ficava em 0 depois de um novo seguidor, embora `GET /me/perfil` já devolvesse 1, porque a aba fica viva no shell e só relia o perfil ao voltar de uma tela empilhada. Agora `PerfilPage` ouve o canal de tempo real: seguidor novo, pedido criado ou aceito e a reconexão do canal releem o perfil em silêncio (CT-PER-25).
 
 ### Implementação 19/11/2026: depois do merge da F-NOT-OPC (#65), o evento foi definido como `lembrete.sequencia`. Com o aval do dono, ele entrou pontualmente no orquestrador (REQUISITOS v1.10 e arquitetura v1.9, §7.2 e §5.2).
 - **`leitura`:** calendário mensal sobre `dia_leitura` com janela de seis meses, e job `POST /internal/jobs/lembrete-sequencia` com `eventId` UUID v5 e `inserirSeNovo` na outbox. Workflow `job-lembrete-sequencia.yml`.

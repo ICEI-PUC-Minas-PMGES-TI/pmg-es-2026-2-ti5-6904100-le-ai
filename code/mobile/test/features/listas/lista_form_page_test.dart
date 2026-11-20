@@ -35,6 +35,7 @@ void main() {
     Lista? lista,
     LivroDeOrigem? livro,
     Privacidade privacidade = Privacidade.publico,
+    Duration timeout = const Duration(seconds: 90),
   }) async {
     usarTelaDeCelular(tester);
     await tester.pumpWidget(
@@ -43,7 +44,7 @@ void main() {
           servico: listasSimulado((pedido) {
             pedidos.add(pedido);
             return handler(pedido);
-          }),
+          }, timeout: timeout),
           obterPrivacidade: () async => privacidade,
           lista: lista,
           livro: livro,
@@ -126,6 +127,59 @@ void main() {
     final posts = pedidos.where((p) => p.method == 'POST').toList();
     expect(posts, hasLength(2));
     expect(posts[1].headers['Idempotency-Key'], posts[0].headers['Idempotency-Key']);
+  });
+
+  // L-14 (E6-02): o aviso de cold start aos 3 s e, depois, o tempo esgotado do cliente, com o
+  // `ApiClient` real e um timeout de 5 s; o servidor só responderia aos 8 s.
+  testWidgets('cold start e tempo esgotado ao salvar: aviso aos 3 s, erro e a mesma chave', (
+    tester,
+  ) async {
+    const timeout = Duration(seconds: 5);
+    const atraso = Duration(seconds: 8);
+    var demorar = true;
+    await montar(
+      tester,
+      (_) async {
+        if (demorar) {
+          demorar = false;
+          await Future<void>.delayed(atraso);
+        }
+        return json(listaJson(titulo: 'Contos breves'), 200);
+      },
+      lista: Lista.fromJson(listaJson()),
+      timeout: timeout,
+    );
+
+    await tester.enterText(campoTitulo(), 'Contos breves');
+    await tester.pump();
+    await tocar(tester, botao('Salvar alterações'));
+    await tester.pump();
+    expect(find.text('O serviço está iniciando. Isso pode levar alguns segundos.'), findsNothing);
+
+    await tester.pump(const Duration(seconds: 3));
+    expect(
+      find.text('O serviço está iniciando. Isso pode levar alguns segundos.'),
+      findsOneWidget,
+    );
+
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pump();
+    expect(
+      find.text('Não foi possível salvar as alterações. Verifique sua conexão e tente de novo.'),
+      findsOneWidget,
+    );
+    expect(find.text('O serviço está iniciando. Isso pode levar alguns segundos.'), findsNothing);
+    expect(find.text('Contos breves'), findsOneWidget);
+    // A resposta atrasada fica como timer pendente: bombear além dela antes de seguir.
+    await tester.pump(atraso);
+
+    await tocar(tester, botao('Salvar alterações'));
+    await tester.pumpAndSettle();
+
+    final patches = pedidos.where((p) => p.method == 'PATCH').toList();
+    expect(patches, hasLength(2));
+    expect(patches[1].headers['Idempotency-Key'], patches[0].headers['Idempotency-Key']);
+    expect(jsonDecode(patches[1].body), jsonDecode(patches[0].body));
   });
 
   testWidgets('edição: só o que mudou vai no PATCH; sem mudança, o botão fica desabilitado', (

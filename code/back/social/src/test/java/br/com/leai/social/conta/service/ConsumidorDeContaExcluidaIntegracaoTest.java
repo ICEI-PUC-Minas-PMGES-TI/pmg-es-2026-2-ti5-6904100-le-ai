@@ -17,9 +17,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * {@link ConsumidorDeContaExcluida} contra Postgres real (F-CONTA-2, RNF-TST-02): a matriz de
  * remoção do {@code social} com massa de duas pessoas, para provar que o que é da outra fica.
  *
- * <p>O envelope vai direto ao handler, como em {@code ConsumidorDeAtividadeIntegracaoTest}: a
- * validação de schema, o recibo, o retry e a DLQ são do {@code AmqpConsumerService} e já têm teste
- * próprio; o schema de {@code conta.excluida} está em {@code MessageValidatorTest}.
+ * <p>O envelope vai direto ao handler, como em {@code ConsumidorDeAtividadeIntegracaoTest}. O
+ * caminho pelo {@code AmqpConsumerService} (validação de schema, recibo do {@code eventId},
+ * entrega duplicada e DLQ) está em {@link ConsumoDeContaExcluidaPeloBrokerIntegracaoTest} (L-17).
  */
 @EnabledIfEnvironmentVariable(named = "DATABASE_URL_TESTE", matches = ".+")
 class ConsumidorDeContaExcluidaIntegracaoTest extends IntegracaoComPostgres {

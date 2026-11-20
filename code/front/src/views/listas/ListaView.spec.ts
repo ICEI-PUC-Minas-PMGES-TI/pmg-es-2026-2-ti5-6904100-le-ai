@@ -214,8 +214,12 @@ describe('ListaView', () => {
     expect(wrapper.find('[role="alert"]').exists()).toBe(false)
   })
 
+  // O erro é o que `services/api.ts` lança na falha de rede depois das retentativas. Antes, o
+  // teste simulava `TEMPO_ESGOTADO`, código que o cliente não emite (L-14).
   it('falha de rede (API simulada fora do ar): banner com Tentar de novo', async () => {
-    listas.obter.mockRejectedValueOnce(new ApiError('Tempo esgotado.', 0, 'TEMPO_ESGOTADO'))
+    listas.obter.mockRejectedValueOnce(
+      new ApiError('Não foi possível acessar o servidor. Tente novamente.', 0, 'SERVICO_INDISPONIVEL'),
+    )
     const { wrapper } = await montarNaRota('/perfil/listas/l1')
     await flushPromises()
 
@@ -223,6 +227,64 @@ describe('ListaView', () => {
     ;[...document.body.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Tentar de novo')!.click()
     await flushPromises()
     expect(wrapper.text()).toContain('Contos que eu indico')
+  })
+
+  // L-14 (E6-02): o tempo esgotado do cliente é `TEMPO_LIMITE_EXCEDIDO`, sem status.
+  it('tempo esgotado ao abrir: banner com Tentar de novo, sem virar lista inexistente nem restrita', async () => {
+    listas.obter.mockRejectedValueOnce(
+      new ApiError('O servidor demorou para responder. Tente novamente.', 0, 'TEMPO_LIMITE_EXCEDIDO'),
+    )
+    const { wrapper } = await montarNaRota('/perfil/listas/l1')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Não foi possível carregar esta lista. Verifique sua conexão e tente de novo.')
+    expect(wrapper.text()).not.toContain('Lista não encontrada')
+    expect(wrapper.text()).not.toContain('perfil privado')
+    expect(listas.listarItens).not.toHaveBeenCalled()
+
+    ;[...document.body.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Tentar de novo')!.click()
+    await flushPromises()
+    expect(listas.obter).toHaveBeenCalledTimes(2)
+    expect(titulos()).toEqual(['Olhos d’Água', 'Laços de Família', 'Sagarana'])
+  })
+
+  it('tempo esgotado ao mover: a ordem volta e Tentar de novo repete com a mesma chave', async () => {
+    listas.mover.mockRejectedValueOnce(
+      new ApiError('O servidor demorou para responder. Tente novamente.', 0, 'TEMPO_LIMITE_EXCEDIDO'),
+    )
+    await montarNaRota('/perfil/listas/l1')
+    await flushPromises()
+
+    botaoPorRotulo('Mover para baixo', 0).click()
+    await flushPromises()
+
+    expect(titulos()).toEqual(['Olhos d’Água', 'Laços de Família', 'Sagarana'])
+    expect(document.body.textContent).toContain('Não foi possível salvar a nova ordem. A lista voltou como estava.')
+
+    listas.mover.mockResolvedValueOnce(item('i1', 'Olhos d’Água', 2))
+    ;[...document.body.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Tentar de novo')!.click()
+    await flushPromises()
+
+    const [primeira, segunda] = listas.mover.mock.calls
+    expect(segunda).toEqual(primeira)
+    expect(titulos()).toEqual(['Laços de Família', 'Olhos d’Água', 'Sagarana'])
+  })
+
+  // L-28 (E6-02): texto de usuário com escape (RNF-SEC-14), para o dono e para outro leitor.
+  it('título e descrição com marcação aparecem como texto, sem virar HTML', async () => {
+    const titulo = '<img src=x onerror="alert(1)">Minha lista'
+    const descricao = '<b>negrito</b> e <script>alert(2)</script>'
+    listas.obter.mockResolvedValue(lista({ titulo, descricao, dono: RAFAEL, pertenceAoSolicitante: false }))
+    await montarNaRota('/leitores/rafaokamoto/listas/l1')
+    await flushPromises()
+
+    const bloco = document.body.querySelector('section[aria-labelledby="titulo-da-lista"]')!
+    expect(bloco.querySelector('h2')!.textContent?.trim()).toBe(titulo)
+    expect(bloco.textContent).toContain(descricao)
+    expect(document.body.querySelector('img[src="x"]')).toBeNull()
+    expect(bloco.querySelector('b, script')).toBeNull()
+    // O rótulo da lista de livros também leva o título como texto de atributo.
+    expect(document.body.querySelector('[aria-label^="Livros de"]')!.getAttribute('aria-label')).toBe(`Livros de ${titulo}`)
   })
 
   it('lista vazia do dono aponta para o Descobrir', async () => {

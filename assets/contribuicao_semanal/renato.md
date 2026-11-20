@@ -119,3 +119,5 @@ Realizado testes das lacunas da minha área no plano de testes (E6-02): 61 casos
 
 Realizado HTML estático dos quatro contratos OpenAPI (Redoc), com gerador de um comando, para anexo do Documento de Arquitetura
 Realizado execução do CI atualizada no plano de testes depois do merge dos testes das lacunas: 4.217 testes verdes
+Realizado correção da suspensão de conta: o registro e a exclusão de progresso passam a recusar conta suspensa, com teste
+Realizado rascunho do relatório de encerramento e planos do ATAM em DES e das telas reais da solução

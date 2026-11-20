@@ -9,26 +9,41 @@ export '../livros/apoio.dart' show envolver, erro, json, tocar, usarTelaDeCelula
 
 const String idDaLista = 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa';
 
-/// Serviço de listas sobre um `MockClient`, sem espera entre retentativas.
-ListasService listasSimulado(Future<http.Response> Function(http.Request) handler) {
+/// Serviço de listas sobre um `MockClient`, sem espera entre retentativas. [timeout] curto, com
+/// um handler que demora mais, simula o tempo esgotado do cliente (`ApiFailureKind.coldStart`);
+/// o padrão é o do `ApiClient`.
+ListasService listasSimulado(
+  Future<http.Response> Function(http.Request) handler, {
+  Duration timeout = const Duration(seconds: 90),
+}) {
   return ListasService(
     ApiClient(
       baseUrl: 'https://social.example.com',
       client: MockClient(handler),
+      timeout: timeout,
       esperasDeRetentativa: const <Duration>[Duration.zero, Duration.zero],
     ),
   );
 }
 
-PerfilService perfilSimulado(Future<http.Response> Function(http.Request) handler) {
+PerfilService perfilSimulado(
+  Future<http.Response> Function(http.Request) handler, {
+  Duration timeout = const Duration(seconds: 90),
+}) {
   return PerfilService(
     ApiClient(
       baseUrl: 'https://identidade.example.com',
       client: MockClient(handler),
+      timeout: timeout,
       esperasDeRetentativa: const <Duration>[Duration.zero, Duration.zero],
     ),
   );
 }
+
+/// Atraso do handler nos testes de tempo esgotado, maior que o [timeoutCurto]. O teste precisa
+/// bombear além dele antes de terminar: a resposta atrasada fica como timer pendente.
+const Duration atrasoDoServidor = Duration(seconds: 2);
+const Duration timeoutCurto = Duration(milliseconds: 500);
 
 Map<String, Object?> perfilJson({
   String id = 'u-rafael',

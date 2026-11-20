@@ -26,6 +26,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.BooleanSupplier;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -252,11 +253,37 @@ public class ServicoDeListas {
    * VIEW de perfil (suspenso, em exclusão, inexistente) é 404, inclusive para ele mesmo.
    */
   private PerfilDoDono exigirVisivel(UUID eu, UUID donoId, String mensagemDe404) {
-    PerfilDoDono dono = perfilOu404(donoId, mensagemDe404);
-    if (donoId.equals(eu) || dono.publico() || referencias.segue(eu, donoId)) {
-      return dono;
+    Optional<PerfilDoDono> dono = referencias.perfil(donoId);
+    return switch (decidirAcesso(eu, donoId, dono, () -> referencias.segue(eu, donoId))) {
+      case LIBERADO -> dono.get();
+      case NAO_ENCONTRADO -> throw naoEncontrado(mensagemDe404);
+      case PERFIL_PRIVADO -> throw new ErroDeNegocioException(CodigoErro.ACESSO_NEGADO, PERFIL_PRIVADO);
+    };
+  }
+
+  /** Resultado da decisão de RN-08 sobre o conteúdo de listas de um dono. */
+  public enum AcessoAsListas {
+    LIBERADO,
+    /** 404: dono fora de {@code v_perfil_referencia_v1} (suspenso, em exclusão, inexistente). */
+    NAO_ENCONTRADO,
+    /** 403 de perfil privado: terceiro sem seguimento aceito. */
+    PERFIL_PRIVADO
+  }
+
+  /**
+   * RN-08 das listas, sem banco: dono fora da VIEW de perfil é 404, inclusive para ele mesmo; o
+   * próprio dono vê; terceiro vê perfil público ou, se privado, só com seguimento aceito. {@code
+   * segue} só é consultado quando a decisão depende dele.
+   */
+  public static AcessoAsListas decidirAcesso(
+      UUID eu, UUID donoId, Optional<PerfilDoDono> dono, BooleanSupplier segue) {
+    if (dono.isEmpty()) {
+      return AcessoAsListas.NAO_ENCONTRADO;
     }
-    throw new ErroDeNegocioException(CodigoErro.ACESSO_NEGADO, PERFIL_PRIVADO);
+    if (donoId.equals(eu) || dono.get().publico() || segue.getAsBoolean()) {
+      return AcessoAsListas.LIBERADO;
+    }
+    return AcessoAsListas.PERFIL_PRIVADO;
   }
 
   /**

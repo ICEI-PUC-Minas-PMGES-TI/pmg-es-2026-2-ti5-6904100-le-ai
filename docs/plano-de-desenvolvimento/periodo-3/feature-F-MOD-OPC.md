@@ -104,7 +104,7 @@ Plano em `plano-F-MOD-OPC.md`, na branch `renato-features` (pasta `renato-period
 - Reativar também pela ação `Reativar conta` na linha da suspensão vigente do registro, sem artboard (decisão 10): é o caminho que sobra quando a denúncia já foi resolvida.
 - Perfil web do admin (feito em 06/11, depois do corte da decisão 10): o `DotsThree` de moderação fica no topo do conteúdo, alinhado à direita, e não no header, porque o `Voltar` mora no shell. A visão da conta suspensa usa `GET /admin/usuarios?username=` (VIEW da moderação), e `Conta de @x` no registro virou link.
 - Menção a conta suspensa: o `@username` vira "um leitor" no texto, sem link, em vez de sumir; volta na reativação.
-- No mobile, dentro dos 15 minutos do token de acesso, o `leitura` responde 403 às escritas, e o logout só vem na renovação seguinte.
+- No mobile, dentro dos 15 minutos do token de acesso, o `leitura` responde 403 `ACESSO_NEGADO` ("Sua conta não está disponível para esta ação.") às transições da leitura (iniciar, reler, finalizar, abandonar e retomar) e ao progresso (registrar, inclusive o da sessão cronometrada e o da fila offline, e excluir trecho). Escrever resenha, cadastrar frase, reagir e retirar a reação têm o próprio 403. As outras escritas do `leitura` (adicionar e remover da estante, nota, favoritos, desafios e excluir a própria resenha ou frase) não consultam o perfil e são aceitas. O logout só vem na renovação seguinte. O progresso entrou em 19/11/2026 (L-37 do plano de testes).
 - Na mesma janela de 15 minutos, o `identidade` (seguir, pedir para seguir) e o `social` (comentar, curtir, mencionar, recomendar) não barram as escritas da conta suspensa: o conteúdo novo já nasce oculto, e as notificações a terceiros saem com "Um leitor", sem link. Aceito na revisão de 06/11/2026, em vez de barrar as escritas no código do Henrique e do Kayke.
 - O 403 `CONTA_SUSPENSA` do pedido de exclusão não ganhou tratamento novo na web (decisão 13). No mobile, desde a revisão de 06/11/2026, ele encerra a sessão pela suspensão (`aoContaSuspensa`), em vez de mostrar "Verifique sua conexão".
 - A ordem da etapa 3 do prompt mudou: a validação de contexto limpo e o teste manual rodaram em paralelo à revisão do PR (decisão 9).
@@ -135,6 +135,8 @@ Plano em `plano-F-MOD-OPC.md`, na branch `renato-features` (pasta `renato-period
 - Stack definida (arquitetura §2.1): `social` e `identidade` em Spring.
 
 ## Timeline
+
+### Correção 19/11/2026: o `leitura` aceitava o registro de progresso da conta suspensa, achado pela E6-02 (L-37). O Renato decidiu que era bug. `ProgressoService` passou a consultar `v_perfil_referencia_v1` antes de gravar, ao registrar e ao excluir trecho, com o mesmo 403 das transições (erro `ContaIndisponivel`, que agora as transições também usam). O 403 não deixa recibo de idempotência, então a fila do app reenvia com a mesma chave depois da reativação. Testes: CT-MDO-38 e CT-MDO-39 em `progresso.int-spec.ts`. O mobile já tratava o 403 (CT-MDO-37).
 
 ### Merge 06/11/2026: o Vicenzo aprovou o PR #61 depois da segunda rodada (294 testes do `social` em Postgres novo, 1079 da web, 49 do feed no app, build da web e CI verdes) e ele foi mergeado na `desenvolvimento` às 22:44 (`1281aa1`). As duas `V20261106200000__comando_de_conta` foram aplicadas no banco de dev logo depois, subindo o `identidade` e o `social` com o `.env` local. O DES recebe tudo no merge da `main`, no fechamento de novembro.
 

@@ -312,6 +312,68 @@ void main() {
       expect(cabecalho.titulo, 'Privacidade');
       expect(cabecalho.semDivisor, isFalse);
     });
+
+    // L-19 (E6-02): o texto da versão 1.1 (retenção e exclusão, RNF-SEC-42), igual ao da web.
+    testWidgets('versão 1.1 com os quatro blocos, na ordem, e títulos como cabeçalho', (
+      tester,
+    ) async {
+      final semantica = tester.ensureSemantics();
+      await tester.pumpWidget(_wrap(const PoliticaDePrivacidadePage()));
+
+      expect(find.text('Versão 1.1, de 29 de setembro de 2026'), findsOneWidget);
+      const titulos = <String>[
+        'Dados que coletamos',
+        'Para que usamos',
+        'Por quanto tempo guardamos',
+        'Seus direitos',
+      ];
+      double? anterior;
+      for (final titulo in titulos) {
+        expect(find.text(titulo), findsOneWidget);
+        expect(
+          tester.getSemantics(find.text(titulo)).getSemanticsData().flagsCollection.isHeader,
+          isTrue,
+          reason: titulo,
+        );
+        final topo = tester.getTopLeft(find.text(titulo)).dy;
+        if (anterior != null) {
+          expect(topo, greaterThan(anterior), reason: titulo);
+        }
+        anterior = topo;
+      }
+      semantica.dispose();
+    });
+
+    testWidgets('retenção e exclusão: 30 dias ocultos com cancelamento, depois apagamento', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_wrap(const PoliticaDePrivacidadePage()));
+
+      final retencao = find.text(
+        'Enquanto a conta existir. Se você pedir a exclusão, seus dados ficam guardados e '
+        'ocultos para os outros leitores por 30 dias, e você pode cancelar nesse prazo. Depois '
+        'disso, eles são apagados definitivamente, e só restam registros técnicos sem nada que '
+        'identifique você. O token de recuperação de senha vale por 1 hora. Registros de acesso '
+        'ficam por 6 meses.',
+      );
+      await tester.ensureVisible(retencao);
+      expect(retencao, findsOneWidget);
+      expect(
+        find.text(
+          'Você pode acessar e corrigir seus dados pelo perfil, pedir a exclusão da conta em '
+          'Configurações e pedir suporte pelo e-mail de contato do projeto.',
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('aberta pelo cadastro, sem sessão, mostra o mesmo texto', (tester) async {
+      await tester.pumpWidget(_wrap(const PoliticaDePrivacidadePage(semSessao: true)));
+
+      expect(find.text('Versão 1.1, de 29 de setembro de 2026'), findsOneWidget);
+      expect(find.text('Por quanto tempo guardamos'), findsOneWidget);
+      expect(find.textContaining('por 30 dias, e você pode cancelar nesse prazo'), findsOneWidget);
+    });
   });
 
   group('ConfiguracoesPage', () {
