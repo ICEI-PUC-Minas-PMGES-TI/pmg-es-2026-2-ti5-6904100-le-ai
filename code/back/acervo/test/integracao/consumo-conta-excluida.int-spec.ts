@@ -340,8 +340,18 @@ describe('consumo de conta.excluida (integração)', () => {
     await broker.entregar(FILA);
 
     expect(broker.nacks).toHaveLength(1);
+    expect(broker.acks).toHaveLength(0);
     expect(await contar(pool, 'acervo.livro', 'dono_id = $1', [excluida])).toBe(
       1,
     );
+    expect(remocao.apagar).not.toHaveBeenCalled();
+    // e a mensagem chega na .dlq: nack sem requeue, roteado pela DLX da fila
+    // (L-15), e não volta para a fila de origem.
+    expect(broker.argumentos.get(FILA)).toMatchObject({
+      'x-dead-letter-exchange': expect.any(String),
+    });
+    expect(broker.requeues).toEqual([false]);
+    expect(broker.filas.get(`${FILA}.dlq`)).toEqual(broker.nacks);
+    expect(broker.filas.get(FILA)).toEqual([]);
   });
 });
