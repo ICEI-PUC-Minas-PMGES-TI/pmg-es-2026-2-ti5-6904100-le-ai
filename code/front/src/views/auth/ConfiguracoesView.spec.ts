@@ -3,12 +3,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { reagirAoFimDaSessao } from '../../router'
 import { authService } from '../../services/auth'
+import { perfilService } from '../../services/perfil'
 import { encerrarSessao } from '../../session'
 import { montarNaRota } from '../../testes/montarNaRota'
 
 vi.mock('../../services/auth', async (original) => {
   const real = await original<typeof import('../../services/auth')>()
   return { ...real, authService: { ...real.authService, sair: vi.fn(), buscarUsuarioAtual: vi.fn() } }
+})
+
+vi.mock('../../services/perfil', async (original) => {
+  const real = await original<typeof import('../../services/perfil')>()
+  return {
+    ...real,
+    perfilService: { ...real.perfilService, obterMeuPerfil: vi.fn(), definirOptOutRecomendacao: vi.fn() },
+  }
 })
 
 describe('ConfiguracoesView', () => {
@@ -89,5 +98,98 @@ describe('ConfiguracoesView', () => {
     expect(authService.sair).toHaveBeenCalledTimes(1)
     expect(router.currentRoute.value.path).toBe('/login')
     expect(router.currentRoute.value.query).toEqual({})
+  })
+
+  describe('Usar minhas leituras em sugestões (F-REC-ALG)', () => {
+    function perfil(optOutRecomendacao: boolean) {
+      return {
+        id: 'u1',
+        username: 'marinableu',
+        displayName: 'Marina Beltrão',
+        avatarUrl: null,
+        privacidade: 'publico' as const,
+        conteudoRestrito: false,
+        relacao: 'proprio' as const,
+        biografia: null,
+        contadores: { seguidores: 0, seguidos: 0 },
+        optOutRecomendacao,
+      }
+    }
+
+    // A linha do celular vem antes da do painel da web, que fica no DOM escondida por CSS.
+    const linha = (wrapper: Awaited<ReturnType<typeof montarNaRota>>['wrapper']) =>
+      wrapper.findAll('[role="switch"]')[0]!
+
+    beforeEach(() => {
+      vi.mocked(perfilService.obterMeuPerfil).mockReset().mockResolvedValue(perfil(false))
+      vi.mocked(perfilService.definirOptOutRecomendacao).mockReset()
+    })
+
+    it('o switch é a frase positiva: ligado quando optOutRecomendacao é falso', async () => {
+      const { wrapper } = await montarNaRota('/perfil/configuracoes')
+      await flushPromises()
+
+      expect(linha(wrapper).text()).toContain('Usar minhas leituras em sugestões')
+      expect(linha(wrapper).attributes('aria-checked')).toBe('true')
+    })
+
+    it('antes de ler o perfil, o switch é um skeleton e o toque não grava', async () => {
+      vi.mocked(perfilService.obterMeuPerfil).mockReturnValue(new Promise(() => {}))
+      const { wrapper } = await montarNaRota('/perfil/configuracoes')
+
+      await linha(wrapper).trigger('click')
+
+      expect(linha(wrapper).attributes('aria-checked')).toBe('false')
+      expect(linha(wrapper).attributes('aria-disabled')).toBe('true')
+      expect(perfilService.definirOptOutRecomendacao).not.toHaveBeenCalled()
+    })
+
+    it('desligar grava optOutRecomendacao verdadeiro, sem botão de salvar', async () => {
+      vi.mocked(perfilService.definirOptOutRecomendacao).mockResolvedValue(perfil(true))
+      const { wrapper } = await montarNaRota('/perfil/configuracoes')
+      await flushPromises()
+
+      await linha(wrapper).trigger('click')
+      expect(linha(wrapper).attributes('aria-checked')).toBe('false')
+      await flushPromises()
+
+      expect(perfilService.definirOptOutRecomendacao).toHaveBeenCalledWith(true, expect.any(String))
+      expect(linha(wrapper).attributes('aria-checked')).toBe('false')
+      expect(wrapper.text()).not.toContain('Não foi possível salvar')
+    })
+
+    it('falha devolve o switch e diz o motivo; tocar de novo repete com a mesma chave', async () => {
+      vi.mocked(perfilService.definirOptOutRecomendacao)
+        .mockRejectedValueOnce(new TypeError('offline'))
+        .mockResolvedValueOnce(perfil(true))
+      const { wrapper } = await montarNaRota('/perfil/configuracoes')
+      await flushPromises()
+
+      await linha(wrapper).trigger('click')
+      await flushPromises()
+
+      expect(linha(wrapper).attributes('aria-checked')).toBe('true')
+      expect(linha(wrapper).text()).toContain('Não foi possível salvar. Verifique sua conexão e tente de novo.')
+
+      await linha(wrapper).trigger('click')
+      await flushPromises()
+
+      const [primeira, segunda] = vi.mocked(perfilService.definirOptOutRecomendacao).mock.calls
+      expect(segunda![1]).toBe(primeira![1])
+      expect(linha(wrapper).text()).not.toContain('Não foi possível salvar')
+    })
+
+    it('na web, o item Leituras em sugestões abre o painel no lugar da política', async () => {
+      const { wrapper } = await montarNaRota('/perfil/configuracoes', { largo: true })
+      await flushPromises()
+
+      const item = wrapper.findAll('button').find((b) => b.text() === 'Leituras em sugestões')!
+      await item.trigger('click')
+
+      expect(item.attributes('aria-current')).toBe('page')
+      expect(wrapper.text()).toContain('Seus livros lidos entram nessa conta.')
+      expect(wrapper.text()).not.toContain('Dados que coletamos')
+      expect(wrapper.get('a[href="/perfil/editar"]').text()).toBe('Editar perfil')
+    })
   })
 })

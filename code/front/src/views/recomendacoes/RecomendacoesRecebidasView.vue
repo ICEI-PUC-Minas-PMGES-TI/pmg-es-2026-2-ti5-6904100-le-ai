@@ -7,19 +7,36 @@ import FimDaLista from '../../components/perfil/FimDaLista.vue'
 import ItemRecomendacao from '../../components/recomendacoes/ItemRecomendacao.vue'
 import AvisoDoDescarte from '../../components/recomendacoes/AvisoDoDescarte.vue'
 import MenuDaRecomendacao from '../../components/recomendacoes/MenuDaRecomendacao.vue'
+import PerguntaDeDescarteEmLote from '../../components/recomendacoes/PerguntaDeDescarteEmLote.vue'
 import BannerAviso from '../../components/ui/BannerAviso.vue'
 import BotaoPrimario from '../../components/ui/BotaoPrimario.vue'
 import BotaoTextual from '../../components/ui/BotaoTextual.vue'
 import EstadoVazio from '../../components/ui/EstadoVazio.vue'
 import { usePaginacao } from '../../perfil/usePaginacao'
 import { useDescarteDeRecomendacao } from '../../recomendacoes/useDescarteDeRecomendacao'
-import { socialService } from '../../services/social'
+import { socialService, type RecomendacaoRecebida } from '../../services/social'
 
 const router = useRouter()
 const lista = usePaginacao((pagina) => socialService.listarRecebidas(pagina))
 const { itens, total, carregando, carregandoMais, falhou, falhouMais, temMais } = lista
 
-const { descartando, aviso, escolher, tentarDeNovo } = useDescarteDeRecomendacao(lista.retirar)
+// F-REC-ALG: no terceiro descarte do mesmo livro na sessão, a pergunta de descarte em lote.
+const { descartando, aviso, escolher, tentarDeNovo, pergunta, removendo, erroDoLote, removerTodas, recusar } =
+  useDescarteDeRecomendacao(lista.retirar, {
+    aoRemoverDoLivro: (livroId) => {
+      for (const recomendacao of itens.value.filter((item) => item.livro.id === livroId)) {
+        lista.retirar(recomendacao.id)
+      }
+    },
+  })
+
+/** Esmaecido enquanto o servidor responde: o descarte individual ou o lote do mesmo livro. */
+function esmaecido(recomendacao: RecomendacaoRecebida): boolean {
+  return (
+    descartando.value.includes(recomendacao.id) ||
+    (removendo.value && pergunta.value?.livro.id === recomendacao.livro.id)
+  )
+}
 
 onMounted(() => void lista.carregar())
 </script>
@@ -94,7 +111,7 @@ onMounted(() => void lista.carregar())
           v-for="recomendacao in itens"
           :key="recomendacao.id"
           class="py-space-4 transition-opacity duration-dur-base md:rounded-base md:p-space-4 md:transition-colors md:hover:bg-papel-elevado"
-          :class="descartando.includes(recomendacao.id) ? 'pointer-events-none opacity-50' : ''"
+          :class="esmaecido(recomendacao) ? 'pointer-events-none opacity-50' : ''"
         >
           <ItemRecomendacao
             :recomendacao="recomendacao"
@@ -127,6 +144,13 @@ onMounted(() => void lista.carregar())
       :aviso="aviso"
       @tentar-de-novo="tentarDeNovo"
       @fechar="aviso = null"
+    />
+    <PerguntaDeDescarteEmLote
+      :pergunta="pergunta"
+      :removendo="removendo"
+      :erro="erroDoLote"
+      @remover="removerTodas"
+      @recusar="recusar"
     />
   </div>
 </template>

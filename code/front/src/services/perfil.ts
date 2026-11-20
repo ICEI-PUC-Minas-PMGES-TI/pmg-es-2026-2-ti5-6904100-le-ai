@@ -21,6 +21,8 @@ export interface Perfil {
   relacao: RelacaoPerfil
   biografia: string | null
   contadores: { seguidores: number; seguidos: number }
+  /** F-REC-ALG: só no próprio perfil; nulo ou ausente no de terceiros. */
+  optOutRecomendacao?: boolean | null
 }
 
 export interface Avatar {
@@ -85,6 +87,10 @@ export function createPerfilService(options: ApiClientOptions = {}) {
     },
     atualizarMeuPerfil(dados: EditarPerfil, idempotencyKey: string): Promise<Perfil> {
       return request<Perfil>('/me/perfil', { method: 'PUT', json: dados, idempotencyKey })
+    },
+    /** F-REC-ALG: grava só a preferência das sugestões, sem tocar nos campos do perfil. */
+    definirOptOutRecomendacao(optOutRecomendacao: boolean, idempotencyKey: string): Promise<Perfil> {
+      return request<Perfil>('/me/perfil', { method: 'PATCH', json: { optOutRecomendacao }, idempotencyKey })
     },
     /** Zero ou um perfil: o servidor só compara o username inteiro (RNF-SEC-19/44). */
     buscarPorUsername(username: string): Promise<PerfilResumo[]> {

@@ -406,6 +406,7 @@ GoRouter buildRouter({
                     path: 'configuracoes',
                     builder: (context, state) => ConfiguracoesPage(
                       authService: authService,
+                      perfilService: depsDePerfil.servico,
                       aoVoltar: () => context.go('/perfil'),
                       aoAlterarSenha: () => context.go('$rotaConfiguracoes/alterar-senha'),
                       aoAbrirNotificacoes: () => context.go('$rotaConfiguracoes/notificacoes'),

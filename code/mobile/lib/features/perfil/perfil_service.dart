@@ -42,6 +42,9 @@ class Perfil {
   final int seguidores;
   final int seguidos;
 
+  /// F-REC-ALG: só no próprio perfil; nulo no de terceiros.
+  final bool? optOutRecomendacao;
+
   const Perfil({
     required this.id,
     required this.username,
@@ -53,6 +56,7 @@ class Perfil {
     required this.biografia,
     required this.seguidores,
     required this.seguidos,
+    this.optOutRecomendacao,
   });
 
   factory Perfil.fromJson(Map<String, dynamic> json) {
@@ -68,6 +72,7 @@ class Perfil {
       biografia: json['biografia'] as String?,
       seguidores: (contadores['seguidores'] as num?)?.toInt() ?? 0,
       seguidos: (contadores['seguidos'] as num?)?.toInt() ?? 0,
+      optOutRecomendacao: json['optOutRecomendacao'] as bool?,
     );
   }
 }
@@ -187,6 +192,17 @@ class PerfilService {
   PerfilService(this._api);
 
   Future<Perfil> obterMeuPerfil() async => Perfil.fromJson(await _api.getJson('/me/perfil'));
+
+  /// F-REC-ALG: grava só a preferência das sugestões, sem tocar nos campos do perfil.
+  Future<Perfil> definirOptOutRecomendacao(bool optOut, {required String idempotencyKey}) async {
+    return Perfil.fromJson(
+      await _api.patchJson(
+        '/me/perfil',
+        body: <String, Object?>{'optOutRecomendacao': optOut},
+        idempotencyKey: idempotencyKey,
+      ),
+    );
+  }
 
   Future<Perfil> atualizarMeuPerfil(EditarPerfil dados, {required String idempotencyKey}) async {
     return Perfil.fromJson(

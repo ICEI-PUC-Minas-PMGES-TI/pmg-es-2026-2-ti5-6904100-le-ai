@@ -50,6 +50,16 @@ class _RecomendacoesRecebidasPageState extends State<RecomendacoesRecebidasPage>
   @override
   void aoDescartada(String id) => _lista.retirar(id);
 
+  // F-REC-ALG: no terceiro descarte do mesmo livro na sessão, a pergunta de descarte em lote.
+  @override
+  bool get perguntaDescarteEmLote => true;
+
+  @override
+  void aoRemoverDoLivro(String livroId) {
+    final doLivro = _lista.itens.where((r) => r.livro.id == livroId).map((r) => r.id).toList();
+    doLivro.forEach(_lista.retirar);
+  }
+
   @override
   void initState() {
     super.initState();
