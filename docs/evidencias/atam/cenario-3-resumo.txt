@@ -1,0 +1,26 @@
+Cenário 3 - DES (Render/Neon/CloudAMQP Oregon), cliente no Brasil, 2026-11-19T22:20:24.667Z. Teto global 10 req/s, ciclo fechado.
+Percentil nearest-rank sobre as respostas 200. Linha de base da rede (mediana de 20 GET /health do acervo): 252.5 ms.
+
+Fase A (1 cliente(s), 30 s, 3.9 req/s): n= 117 erros=0 p50=249.5 ms p95=322 ms p99=424.3 ms max=434.6 ms
+    titulo n=  36 erros=0 p50=249.2 ms p95=386.1 ms p99=434.6 ms max=434.6 ms
+    autor  n=  36 erros=0 p50=249.8 ms p95=363.6 ms p99=368.6 ms max=368.6 ms
+    isbn   n=  34 erros=0 p50=244.9 ms p95=279.2 ms p99=424.3 ms max=424.3 ms
+    amplo  n=  11 erros=0 p50=255.1 ms p95=271.7 ms p99=271.7 ms max=271.7 ms
+Fase B (5 cliente(s), 60 s, 10.0 req/s): n= 599 erros=0 p50=257.1 ms p95=358.7 ms p99=653 ms max=788.9 ms
+    titulo n= 180 erros=0 p50=254.2 ms p95=301.4 ms p99=679.1 ms max=697.5 ms
+    autor  n= 180 erros=0 p50=259.8 ms p95=373.9 ms p99=653 ms max=683.6 ms
+    isbn   n= 179 erros=0 p50=257 ms p95=368.6 ms p99=599.9 ms max=676.9 ms
+    amplo  n=  60 erros=0 p50=258.6 ms p95=309.4 ms p99=788.9 ms max=788.9 ms
+Fase C (10 cliente(s), 60 s, 10.0 req/s): n= 600 erros=0 p50=256.3 ms p95=295.6 ms p99=437.2 ms max=693.3 ms
+    titulo n= 180 erros=0 p50=255.3 ms p95=291.2 ms p99=418.8 ms max=436.3 ms
+    autor  n= 180 erros=0 p50=257.7 ms p95=306 ms p99=379.1 ms max=437.2 ms
+    isbn   n= 180 erros=0 p50=252 ms p95=287 ms p99=684.7 ms max=693.3 ms
+    amplo  n=  60 erros=0 p50=260.8 ms p95=293.1 ms p99=634.7 ms max=634.7 ms
+
+Critério do cenário 3: p95 <= 1000 ms na fase C.
+Resultado: p95 da fase C = 295.6 ms -> atende (medido no cliente, inclui a ida e volta Brasil-Oregon).
+
+Complemento (RNF-DES-01, fora do cenário 3): 30 leituras sequenciais por rota
+    GET /estante (Marina)                  n=  30 erros=0 p50=261.8 ms p95=617.9 ms p99=710 ms max=710 ms
+    GET /feed (Caio)                       n=  30 erros=0 p50=426.5 ms p95=872.7 ms p99=900.7 ms max=900.7 ms
+    GET /perfis/{marinaId}/estante (Caio)  n=  30 erros=0 p50=268.6 ms p95=303.6 ms p99=670.6 ms max=670.6 ms

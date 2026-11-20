@@ -1,0 +1,32 @@
+Cenário 1 - DES (Render/Neon/CloudAMQP Oregon), 2026-11-19T22:16:03.529Z. Códigos de negação conforme docs/api na f1f5c7e.
+Tentativas não autorizadas: 14; negadas: 14; vazamentos: 0.
+Controles positivos e verificações de conteúdo: 14/14 ok.
+
+ok    | bia       | negado    | 403 | esperado 403/404 | GET leitura /perfis/9eef1b27-2f5f-40a3-bf31-768364537fdf/estante
+ok    | bia       | negado    | 403 | esperado 403/404 | GET leitura /perfis/9eef1b27-2f5f-40a3-bf31-768364537fdf/resenhas
+ok    | bia       | negado    | 403 | esperado 403/404 | GET leitura /perfis/9eef1b27-2f5f-40a3-bf31-768364537fdf/estatisticas
+ok    | bia       | negado    | 403 | esperado 403/404 | GET social /perfis/9eef1b27-2f5f-40a3-bf31-768364537fdf/listas
+ok    | bia       | negado    | 403 | esperado 403/404 | GET social /listas/d805a5be-524e-4c78-be50-4ced9146baaf
+ok    | bia       | negado    | 403 | esperado 403/404 | GET social /listas/d805a5be-524e-4c78-be50-4ced9146baaf/livros
+ok    | bia       | negado    | 404 | esperado 404 | GET social /atividades/ffa6aee3-2ed0-4ba4-898e-9bc249b16d2f
+ok    | caio      | permitido | 200 | esperado 200/201 | GET leitura /perfis/9eef1b27-2f5f-40a3-bf31-768364537fdf/estante
+ok    | caio      | permitido | 200 | esperado 200/201 | GET leitura /perfis/9eef1b27-2f5f-40a3-bf31-768364537fdf/resenhas
+ok    | caio      | permitido | 200 | esperado 200/201 | GET leitura /perfis/9eef1b27-2f5f-40a3-bf31-768364537fdf/estatisticas
+ok    | caio      | permitido | 200 | esperado 200/201 | GET social /perfis/9eef1b27-2f5f-40a3-bf31-768364537fdf/listas
+ok    | caio      | permitido | 200 | esperado 200/201 | GET social /listas/d805a5be-524e-4c78-be50-4ced9146baaf
+ok    | caio      | permitido | 200 | esperado 200/201 | GET social /listas/d805a5be-524e-4c78-be50-4ced9146baaf/livros
+ok    | caio      | permitido | 200 | esperado 200/201 | GET social /atividades/ffa6aee3-2ed0-4ba4-898e-9bc249b16d2f
+ok    | sem token | sem-token | 401 | esperado 401 | GET leitura /perfis/9eef1b27-2f5f-40a3-bf31-768364537fdf/estante
+ok    | sem token | sem-token | 401 | esperado 401 | GET leitura /perfis/9eef1b27-2f5f-40a3-bf31-768364537fdf/resenhas
+ok    | sem token | sem-token | 401 | esperado 401 | GET leitura /perfis/9eef1b27-2f5f-40a3-bf31-768364537fdf/estatisticas
+ok    | sem token | sem-token | 401 | esperado 401 | GET social /perfis/9eef1b27-2f5f-40a3-bf31-768364537fdf/listas
+ok    | sem token | sem-token | 401 | esperado 401 | GET social /listas/d805a5be-524e-4c78-be50-4ced9146baaf
+ok    | sem token | sem-token | 401 | esperado 401 | GET social /listas/d805a5be-524e-4c78-be50-4ced9146baaf/livros
+ok    | sem token | sem-token | 401 | esperado 401 | GET social /atividades/ffa6aee3-2ed0-4ba4-898e-9bc249b16d2f
+ok    | bia       | livre     | 200 | esperado ver avaliação | GET social /feed?page=0&size=50
+ok    | bia       | livre     | 200 | esperado ver avaliação | GET identidade /perfis/leai.demo.marina
+ok    | caio      | livre     | 200 | esperado ver avaliação | GET identidade /perfis/leai.demo.marina
+ok    | bia       | livre     | 200 | esperado ver avaliação | GET identidade /perfis?username=leai.demo.marina
+ok    | bia       | livre     | 405 | esperado ver avaliação | GET identidade /seguidores/leai.demo.marina
+ok    | bia       | livre     | 200 | esperado ver avaliação | GET acervo /livros/0cd822ee-3139-426f-aa63-cbfbced796d4/resenhas
+ok    | caio      | livre     | 200 | esperado ver avaliação | GET acervo /livros/0cd822ee-3139-426f-aa63-cbfbced796d4/resenhas

@@ -1,0 +1,5 @@
+Cenário 5.3 - schema inválido, local (Docker), 2026-11-19T22:32:15.860Z
+Envelope inválido (data.mensagem = "pong", fora do ping.teste.v1): eventId 9a5d5cd6-be19-45c4-be9c-eb66d46eac5d
+DLQ leai.p0.ping.dlq: 0 -> 1 (contagem da API de gestão, que se atualiza a cada ~5 s; o tempo até a DLQ não é medido aqui)
+Recibos do inválido: 0 (sem retentativa: nack sem requeue na validação)
+Ping válido publicado em seguida (eventId 4c86b72e-568c-4f1f-8118-f6f7602c5905): [19:32:15.607] INFO (19760): Mensagem consumida eventId=4c86b72e-568c-4f1f-8118-f6f7602c5905 correlationId=b9700a4b-f66a-42ee-ba38-234f6d2c83e1
