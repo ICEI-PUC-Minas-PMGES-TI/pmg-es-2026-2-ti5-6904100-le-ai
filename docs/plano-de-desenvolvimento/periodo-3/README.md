@@ -22,6 +22,12 @@
 - **Refino** geral e pendências acumuladas dos períodos anteriores.
 - **ATAM inicial** — avaliação de arquitetura (`../../orquestador/documento-de-arquitetura.md` §7 + `../../orquestador/REQUISITOS.md` §7/§8), alimentando o `docs/8.avaliacao_arquitetura.md`.
 
+## Fechamento do período: ajustes manuais no deploy
+
+Itens que o merge na `main` não resolve sozinho. Cada feature mantém o passo a passo no próprio arquivo.
+
+- **F-GAM-OPC e F-NOT-OPC (push):** definir `FIREBASE_CREDENTIALS_JSON` no `leai-social` do Render (projeto Firebase `leai-ti5`) e validar o push e o lembrete num Android físico. Ver [Deploy na `main`](feature-F-GAM-OPC.md#deploy-na-main-fechamento-do-período-3).
+
 ## Arquivos de feature
 
 Template em `../../orquestador/plano-de-projeto.md` §9. As **regras de implementação compartilhadas** do projeto (idempotência de escrita, paginação, envelope/schema de evento, backfill antes de consumir, testes por feature) valem também aqui e estão em [`../periodo-1/README.md`](../periodo-1/README.md#regras-de-implementação-compartilhadas).
