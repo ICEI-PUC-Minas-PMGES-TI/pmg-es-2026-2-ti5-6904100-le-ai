@@ -24,6 +24,7 @@ void main() {
     Future<http.Response> Function(http.Request) handler, {
     String? usernameDoDono,
     Future<http.Response> Function(http.Request)? identidade,
+    Duration timeout = const Duration(seconds: 90),
   }) async {
     usarTelaDeCelular(tester);
     await tester.pumpWidget(
@@ -32,7 +33,7 @@ void main() {
           servico: listasSimulado((pedido) {
             pedidos.add(pedido);
             return handler(pedido);
-          }),
+          }, timeout: timeout),
           perfil: perfilSimulado(
             identidade ?? (_) async => json(perfilJson(relacao: 'proprio'), 200),
           ),
@@ -314,5 +315,100 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Contos que eu indico'), findsOneWidget);
+  });
+
+  // L-14 (E6-02): tempo esgotado do cliente (`ApiFailureKind.coldStart`), com o `ApiClient` real
+  // e um timeout curto. O timeout não se repete, e a resposta atrasada fica como timer pendente.
+  testWidgets('tempo esgotado ao abrir: banner com "Tentar de novo", sem bloco de restrição', (
+    tester,
+  ) async {
+    var demorar = true;
+    await montar(tester, (pedido) async {
+      if (demorar) {
+        await Future<void>.delayed(atrasoDoServidor);
+      }
+      return donoCom(pedido, tresLivros);
+    }, timeout: timeoutCurto);
+
+    await tester.pump(timeoutCurto);
+    await tester.pump();
+
+    expect(
+      find.text('Não foi possível carregar esta lista. Verifique sua conexão e tente de novo.'),
+      findsOneWidget,
+    );
+    expect(find.text('Lista não encontrada'), findsNothing);
+    expect(find.text('Esta lista é de um perfil privado'), findsNothing);
+    // Só o pedido da lista, sem retentativa automática do timeout.
+    expect(pedidos, hasLength(1));
+
+    // A resposta atrasada chega depois e não muda a tela.
+    await tester.pump(atrasoDoServidor);
+    expect(find.text('Contos que eu indico'), findsNothing);
+
+    demorar = false;
+    await tester.tap(find.text('Tentar de novo'));
+    await tester.pumpAndSettle();
+    expect(find.text('Contos que eu indico'), findsOneWidget);
+    expect(find.text('Sagarana'), findsWidgets);
+  });
+
+  testWidgets('tempo esgotado ao mover: a lista volta e "Tentar de novo" repete a mesma chave', (
+    tester,
+  ) async {
+    var demorar = true;
+    await montar(tester, (pedido) async {
+      if (pedido.method == 'PUT' && demorar) {
+        demorar = false;
+        await Future<void>.delayed(atrasoDoServidor);
+      }
+      return donoCom(pedido, tresLivros);
+    }, timeout: timeoutCurto);
+
+    await tester.tap(find.bySemanticsLabel('Ações de Sagarana'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mover para baixo'));
+    await tester.pump();
+    await tester.pump(timeoutCurto);
+    await tester.pump();
+
+    expect(
+      find.text('Não foi possível salvar a nova ordem. A lista voltou como estava.'),
+      findsOneWidget,
+    );
+    expect(
+      tester.getTopLeft(find.text('Sagarana').last).dy,
+      lessThan(tester.getTopLeft(find.text('Torto Arado').last).dy),
+    );
+    await tester.pump(atrasoDoServidor);
+
+    await tester.tap(find.text('Tentar de novo'));
+    await tester.pumpAndSettle();
+
+    final movimentos = pedidos.where((p) => p.method == 'PUT').toList();
+    expect(movimentos, hasLength(2));
+    expect(movimentos[1].headers['Idempotency-Key'], movimentos[0].headers['Idempotency-Key']);
+    expect(jsonDecode(movimentos[1].body), jsonDecode(movimentos[0].body));
+  });
+
+  // L-28 (E6-02): `Text` não interpreta marcação; o título e a descrição saem literais
+  // (RNF-SEC-14).
+  testWidgets('título e descrição com marcação aparecem como texto literal', (tester) async {
+    const titulo = '<img src=x onerror="alert(1)">Minha lista';
+    const descricao = '<b>negrito</b> e <script>alert(2)</script>';
+    await montar(tester, (pedido) async {
+      if (pedido.url.path.endsWith('/livros')) {
+        return json(itensJson(tresLivros), 200);
+      }
+      return json(
+        listaJson(titulo: titulo, descricao: descricao, dono: false, nomeDoDono: 'Rafael Okamoto'),
+        200,
+      );
+    }, usernameDoDono: 'rafael');
+
+    expect(find.text(titulo), findsOneWidget);
+    expect(find.text(descricao), findsOneWidget);
+    expect(find.text('Minha lista'), findsNothing);
+    expect(find.text('negrito'), findsNothing);
   });
 }

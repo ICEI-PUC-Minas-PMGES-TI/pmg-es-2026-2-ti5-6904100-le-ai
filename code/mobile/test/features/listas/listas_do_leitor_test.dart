@@ -21,6 +21,7 @@ void main() {
     String? username,
     required Future<http.Response> Function(http.Request) social,
     required Future<http.Response> Function(http.Request) identidade,
+    Duration timeout = const Duration(seconds: 90),
   }) async {
     usarTelaDeCelular(tester);
     await tester.pumpWidget(
@@ -29,8 +30,8 @@ void main() {
           servico: listasSimulado((pedido) {
             pedidos.add(pedido);
             return social(pedido);
-          }),
-          perfil: perfilSimulado(identidade),
+          }, timeout: timeout),
+          perfil: perfilSimulado(identidade, timeout: timeout),
           username: username,
           aoAbrirLista: abertas.add,
           aoAbrirPerfil: (_) {},
@@ -133,6 +134,75 @@ void main() {
 
     expect(find.text('Este perfil é privado'), findsOneWidget);
     expect(find.text('Ver perfil de Beatriz'), findsOneWidget);
+  });
+
+  // L-14 (E6-02): tempo esgotado do cliente, com o `ApiClient` real e um timeout curto. A
+  // resposta atrasada fica como timer pendente; o teste bombeia além dela antes de terminar.
+  testWidgets('minhas listas, tempo esgotado: banner com "Tentar de novo", que carrega', (
+    tester,
+  ) async {
+    var demorar = true;
+    await montarIndice(
+      tester,
+      social: (_) async {
+        if (demorar) {
+          await Future<void>.delayed(atrasoDoServidor);
+        }
+        return json(tresListas, 200);
+      },
+      identidade: (_) async => json(perfilJson(relacao: 'proprio'), 200),
+      timeout: timeoutCurto,
+    );
+    await tester.pump(timeoutCurto);
+    await tester.pump();
+
+    expect(
+      find.text('Não foi possível carregar as listas. Verifique sua conexão e tente de novo.'),
+      findsOneWidget,
+    );
+    expect(find.text('Você ainda não tem listas'), findsNothing);
+    expect(pedidos, hasLength(1));
+    await tester.pump(atrasoDoServidor);
+
+    demorar = false;
+    await tester.tap(find.text('Tentar de novo'));
+    await tester.pumpAndSettle();
+    expect(find.text('Contos que eu indico'), findsOneWidget);
+    expect(find.text('3 listas'), findsOneWidget);
+  });
+
+  testWidgets('outro leitor, tempo esgotado no perfil do dono: banner, sem pedir as listas', (
+    tester,
+  ) async {
+    var demorar = true;
+    await montarIndice(
+      tester,
+      username: 'rafael',
+      social: (_) async => json(tresListas, 200),
+      identidade: (_) async {
+        if (demorar) {
+          await Future<void>.delayed(atrasoDoServidor);
+        }
+        return json(perfilJson(), 200);
+      },
+      timeout: timeoutCurto,
+    );
+    await tester.pump(timeoutCurto);
+    await tester.pump();
+
+    expect(
+      find.text('Não foi possível carregar as listas. Verifique sua conexão e tente de novo.'),
+      findsOneWidget,
+    );
+    expect(find.text('Este perfil é privado'), findsNothing);
+    expect(pedidos, isEmpty);
+    await tester.pump(atrasoDoServidor);
+
+    demorar = false;
+    await tester.tap(find.text('Tentar de novo'));
+    await tester.pumpAndSettle();
+    expect(pedidos.single.url.path, '/perfis/u-rafael/listas');
+    expect(find.text('Contos que eu indico'), findsOneWidget);
   });
 
   testWidgets('seção do perfil: três listas, "Ver todas" e "Nova lista" do dono', (tester) async {

@@ -81,6 +81,14 @@ Convenções do app mobile. Complementa o [`AGENTS.md`](../../AGENTS.md) da raiz
 
 ## Mudanças feitas por outras features
 
+### 20/11/2026 — E6-02 (Henrique): testes das lacunas de listas e da política
+
+Só testes; nenhum código de produção mudou.
+
+- **`test/features/listas/apoio_listas.dart`:** `listasSimulado` e `perfilSimulado` ganharam o parâmetro opcional `timeout` (padrão de 90 s, como o `ApiClient`), no molde do `apoio.dart` do Vicenzo, e as constantes `atrasoDoServidor` e `timeoutCurto`. As chamadas existentes não mudam. Os testes de tempo esgotado bombeiam além do atraso, pela armadilha da E6-02 do Renato abaixo.
+- **`test/features/listas/livro_pessoal_pela_lista_test.dart` (novo):** monta as rotas reais `rotasDasListasDoLeitor` e `rotaDoLivroPessoal` num `GoRouter` sob `/perfil`. Se a rota do livro pessoal (do Vicenzo) mudar de parâmetro, este teste acompanha.
+- **`test/features/conta/conta_test.dart`:** o grupo `PoliticaDePrivacidade` fixa o texto da política 1.1; mudou o texto, muda o teste junto (também na web).
+
 ### 16/11/2026 — E6-02 (Renato): testes das lacunas (L-14, L-31, L-32, L-37)
 
 Só testes; nenhum código de produção mudou. Avisar o Vicenzo.
