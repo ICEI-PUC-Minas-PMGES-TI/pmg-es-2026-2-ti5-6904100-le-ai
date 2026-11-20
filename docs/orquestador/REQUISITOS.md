@@ -2,7 +2,7 @@
 
 **Versão:** v1.9 — 22/10/2026
 **Baseline:** fechada em 25/08/2026
-**Status:** baseline fechada — última alteração em 22/10/2026, sessão cronometrada e saída da conta (ver Timeline)
+**Status:** baseline fechada — última alteração em 19/11/2026, fluxo do lembrete de sequência (ver Timeline)
 
 Este documento é a **fonte de verdade** do projeto. Toda decisão de produto, modelo de dados e regra de negócio mora aqui. Arquivos de feature, specs OpenAPI, diagramas e código derivam deste documento — nunca o contrário.
 
@@ -698,11 +698,12 @@ Fluxos assíncronos definidos para esta versão:
 | **Atividades do feed** | `leitura.iniciada`, `leitura.retomada`, `leitura.finalizada`, `leitura.abandonada`, `resenha.publicada`, `resenha.excluida` | `social` mantém a projeção do feed sem chamada síncrona a `leitura` |
 | **Estatísticas, desafios e sequência** | `progresso.registrado`, `leitura.finalizada` | Recálculo assíncrono e efeitos idempotentes a partir dos fatos de leitura |
 | **Exclusão definitiva de conta** | `conta.excluida` | Cada serviço remove os dados de seu próprio schema após o prazo de recuperação |
+| **Lembrete de sequência** | `lembrete.sequencia` | Seleção em lote diária em `leitura`; a notificação e o push saem pelo consumidor de `social`, um lembrete por leitor e dia local (RF-GAM-05) |
 | **Recomendação P2P** | `recomendacao.recebida`, `livro.adicionado_a_estante` | Notifica o destinatário e remove recomendações quando o livro entra na estante |
 
 **Não são assíncronos:** mudança de status na estante, registro de progresso, criação de nota e de resenha. Essas operações confirmam de forma síncrona ao autor; o evento é publicado **após** a escrita confirmada.
 
-Fluxos candidatos a inclusão futura, cujo desenho já é compatível: lembrete de sequência diária e envio de e-mail transacional.
+Fluxo candidato a inclusão futura, cujo desenho já é compatível: envio de e-mail transacional.
 
 > ℹ️ **P-06 decidida: RabbitMQ (CloudAMQP).** Atende aos critérios de plano gratuito permanente, *dead-letter queue* nativa e cliente maduro nas duas linguagens. Justificativa e consequências no Documento de Arquitetura §2.3.
 
@@ -1078,6 +1079,12 @@ Registrado explicitamente para evitar reabertura de discussão:
 ---
 
 ## 12. Timeline
+
+### v1.10 — Alteração 19/11/2026: fluxo do lembrete de sequência
+
+- **§7.2:** o lembrete de sequência diária sai de "candidato a inclusão futura" e entra como fluxo assíncrono, com o evento `lembrete.sequencia` (produtor: job diário de `leitura`; consumidor: notificações de `social`). Sem mudança de requisito: RF-GAM-05 e o tipo `lembrete de sequência diária` de RF-NOT-01 já existiam.
+- **Autorização:** dono de F-GAM-OPC, com o aval para incluir o evento, em 19/11/2026.
+- **Impacto:** F-GAM-OPC (contrato em `docs/mensageria/`, OpenAPI de `leitura` e `social`); arquitetura §5.2; sem mudança de dados.
 
 ### v1.9 — Alteração 22/10/2026: sessão cronometrada e saída da conta
 
