@@ -31,7 +31,7 @@ Template em `../../orquestador/plano-de-projeto.md` §9. As **regras de implemen
 | Contrato | Produtor/dono | Consumidor | Situação no Período 3 |
 |---|---|---|---|
 | `v_livro_recomendacao_v1` | `acervo` | `social` / F-REC-ALG | previsto no DER e em `docs/4.modelagem.md` §4.2 como item do Período 3; **conteúdo a fechar com `acervo` no arquivo de F-REC-ALG, antes da migration** |
-| `sequencia.lembrete` | `leitura` / F-GAM-OPC | `social` / extensão do consumidor de F-NOT | contrato futuro ainda não aprovado; F-GAM-OPC deve fechar nome, schema, chave, consumidor e DLQ antes de ativar o tipo |
+| `lembrete.sequencia` | `leitura` / F-GAM-OPC (job diário) | `social` / extensão do consumidor de F-NOT | **aprovado em 19/11/2026** (`REQUISITOS.md` v1.10 §7.2, arquitetura v1.9 §5.2): schema `lembrete.sequencia.v1`, chave `sequencia:<usuarioId>:lembrete:<dataLocal>`, retry e DLQ padrão da fila de notificações |
 | entrega push (FCM Android) | `social` / F-NOT-OPC | — | a arquitetura §5.2 já prevê o consumidor como "social (+ FCM em Android)"; novo é o **registro de dispositivo**, não o fluxo |
 | preferência por tipo de notificação | `social` / F-NOT-OPC | — | incorporado em 15/09/2026: cada tipo configurável individualmente, sem agrupamento |
 | suspensão e reativação | `social` / F-MOD-OPC | `identidade` | aprovado: comando HTTP autenticado/idempotente; conteúdo suspenso oculto; consulta administrativa permite reativar |
