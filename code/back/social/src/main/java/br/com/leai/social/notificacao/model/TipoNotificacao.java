@@ -3,8 +3,8 @@ package br.com.leai.social.notificacao.model;
 /**
  * Tipos de notificação gerados ({@code TipoNotificacao} de {@code docs/api/social.yaml}). O nome
  * segue o contrato HTTP; o literal é o valor aceito pelo CHECK {@code notificacao_tipo_valido} da
- * migration {@code V20260916024928__cria_modelo_social.sql}. Os tipos futuros já previstos no CHECK
- * (recomendação, lembrete) entram aqui junto do contrato do produtor, não antes.
+ * migration {@code V20260916024928__cria_modelo_social.sql}. O lembrete de sequência entrou com o
+ * contrato do produtor (F-GAM-OPC, {@code lembrete.sequencia}).
  */
 public enum TipoNotificacao {
   NOVO_SEGUIDOR("novo_seguidor"),
@@ -17,7 +17,8 @@ public enum TipoNotificacao {
   LEITURA_EM_RISCO("leitura_em_risco"),
   LEITURA_EXPIRADA("leitura_expirada"),
   RECOMENDACAO_RECEBIDA("recomendacao_recebida"),
-  RESENHA_CURTIDA("resenha_curtida");
+  RESENHA_CURTIDA("resenha_curtida"),
+  LEMBRETE_SEQUENCIA("lembrete_sequencia");
 
   private final String literal;
 

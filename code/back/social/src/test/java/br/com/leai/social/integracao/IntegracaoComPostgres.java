@@ -67,6 +67,10 @@ public abstract class IntegracaoComPostgres {
     registro.add("leai.cors-allowed-origins", () -> ORIGEM_WEB);
     registro.add("leai.jwt-secret", () -> JWT_SECRET_TESTE);
     registro.add("leai.amqp-enabled", () -> "false");
+    // Sem FCM real nos testes, mesmo com FIREBASE_CREDENTIALS_JSON no .env local: o FirebaseApp
+    // tem nome fixo, e o segundo contexto do Spring falharia com "already exists". Quem precisa
+    // de push troca o enviador inteiro (PushIntegracaoTest).
+    registro.add("leai.firebase-credentials-json", () -> "");
     // Tudo sai de 127.0.0.1: com o limite de produção (60/min) a suíte bateria no 429 no meio.
     // O limite em si é coberto pelo RateLimitFilterTest.
     registro.add("leai.rate-limit.interacoes-por-minuto", () -> "100000");

@@ -20,7 +20,7 @@ RNF atendidos: **RNF-SEC-02** (só o dono lê e altera suas preferências e seus
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | concluída no código | tabelas `preferencia_notificacao`, `dispositivo_push` e `envio_push` (migration `V20261108120000`) no banco de dev; `FIREBASE_CREDENTIALS_JSON` declarado no `render.yaml` e `google-services.json` lido pelo job `apk`; projeto Firebase criado **só para o ambiente local** (credenciais no `.env` e no `google-services.json` do desenvolvedor); **falta** o projeto na conta oficial do grupo e as credenciais de produção (ver Pendências) |
+| Infra | concluída no código | tabelas `preferencia_notificacao`, `dispositivo_push` e `envio_push` (migration `V20261108120000`) no banco de dev; `FIREBASE_CREDENTIALS_JSON` declarado no `render.yaml` e `google-services.json` lido pelo job `apk`; projeto Firebase `leai-ti5` criado em 20/11/2026 (só FCM), com o secret `GOOGLE_SERVICES_JSON_BASE64` no GitHub; **falta** só `FIREBASE_CREDENTIALS_JSON` no `leai-social` do Render, no deploy de fechamento do período (ver Pendências) |
 | Backend | concluído | `social`: preferências, filtro no consumidor, registro/revogação de dispositivo e envio FCM idempotente; `./mvnw verify` com Postgres 17 descartável: 336 testes, 0 falhas (15/11/2026) |
 | Web | **não aplicável** | notificações estão **fora do escopo web** (`REQUISITOS.md` §2.1) |
 | Mobile | concluído | tela de preferências, permissão, registro/refresh/revogação do token e abertura pela notificação; `flutter analyze` limpo e 985 testes passando (15/11/2026); `applicationId` `br.com.leai.mobile` |
@@ -79,8 +79,8 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 (plano §10)
 
-- [ ] Código (backend `social`, mobile) mergeado em `desenvolvimento`
-- [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
+- [x] Código (backend `social`, mobile) mergeado em `desenvolvimento` (PR #65)
+- [x] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
 - [x] Testes unitários e de integração com banco real/container: leitura/escrita de preferências, filtro por tipo antes da gravação, propriedade, registro/renovação/revogação de token, unicidade do token e idempotência HTTP (RNF-TST-02)
 - [x] Testes assíncronos: envio por dispositivo ativo, duplicação por `eventId` sem segundo push, token inválido inativando o dispositivo, indisponibilidade do FCM com backoff e DLQ, e notificação in-app preservada quando o push falha (RNF-TST-03)
 - [x] Testes mobile cobrem preferências, permissão concedida e recusada, registro/revogação de token, abertura pela notificação e indisponibilidade/timeout com API simulada (RNF-TST-04/06)
@@ -107,17 +107,17 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Limite de 10 dispositivos ativos por usuário:** ao passar disso, o mais antigo é inativado. `POST /me/dispositivos-push` entra no rate limit por IP (60/min compartilhado com as interações).
 - **Conteúdo na tela de bloqueio:** o corpo do push traz o nome do ator e o título do livro; `LEITURA_EM_RISCO` e `LEITURA_EXPIRADA` revelam hábito de leitura. O envio define visibilidade **privada** no Android, então a tela de bloqueio esconde o conteúdo até o aparelho ser desbloqueado (SEC-36). O grupo decide se, além disso, passa a corpo genérico por tipo.
 - **Corrigido no `common` do `social`:** JSON ilegível ou com tipo errado (ex.: `habilitada: "abc"`) respondia 500 e agora responde 400 `REQUISICAO_INVALIDA` (`MapeadorErro`, com teste em `GlobalExceptionHandlerTest`). Os corpos de `PUT /me/notificacoes/preferencias` e `POST /me/dispositivos-push` rejeitam campo desconhecido, como o contrato declara (`additionalProperties: false`), e o PUT limita a lista a 12 itens.
-- **Única pendência: configurar o push no ambiente de produção** (ver [Ativar o push](#ativar-o-push)). Existe um projeto Firebase **apenas para o ambiente local**; falta criar o projeto na **conta oficial do grupo** (só FCM) e, nele, registrar o app `br.com.leai.mobile`, gerar a conta de serviço, definir `FIREBASE_CREDENTIALS_JSON` no `leai-social` (Render), o secret `GOOGLE_SERVICES_JSON_BASE64` no GitHub e repetir a demonstração do push em Android real com as credenciais de produção. As credenciais do projeto local não devem ir para DES/produção. Sem as credenciais o backend sobe com o envio desativado e o app segue com a lista in-app. Os itens de aceite e do DoD que dependem disso (DES, aparelho real) e do merge/CI do PR ficam abertos até lá.
+- **Única pendência: DES** (ver [Ativar o push](#ativar-o-push)). O projeto Firebase `leai-ti5` foi criado em 20/11/2026, com o app `br.com.leai.mobile` e a conta de serviço conferidos, e o secret `GOOGLE_SERVICES_JSON_BASE64` já está no GitHub. O push foi validado num emulador Android com Google Play (ver Timeline). Falta definir `FIREBASE_CREDENTIALS_JSON` no `leai-social` do Render no deploy de fechamento do período e repetir a demonstração em DES num aparelho físico. Sem a credencial, o backend sobe com o envio desativado e o app segue com a lista in-app. O item de aceite e o do DoD que dependem de DES ficam abertos até lá.
 - **Divergências protótipo × implementação (mobile):** o ícone `ArrowSquareOut` do aviso de push negado fica à esquerda do texto (o `BotaoTextual` só aceita ícone à esquerda); o rótulo acessível da seta de voltar é "Voltar" (rótulo fixo do `CabecalhoTela`); o toque durante o salvamento de uma linha é ignorado; o título do push é "Lê Aí".
 - **Componentes novos a incorporar ao `documento-de-design.md`** (pelo controle de mudança do grupo): switch, linha de preferência, aviso de permissão negada e ícones `BellSlash` e `ArrowSquareOut`.
-- **Documentos de outras features/orquestador a atualizar pelo grupo** (este arquivo não os altera): `documento-de-arquitetura.md` §2.7 (linha 148, "FCM ainda não implementado") e §8 (linha 405, push "adiado"); `periodo-3/README.md` e `feature-F-GAM-OPC.md`, que ainda dizem "categoria"; `feature-F-AVA-2.md`, que diz que o `social` ainda não lê a preferência.
+- **Documentos de outras features/orquestador (resolvido em 20/11/2026):** a arquitetura v1.10 atualizou §2.7, a tabela de provedores (§6) e a §8; `periodo-3/README.md`, `feature-F-GAM-OPC.md` e `feature-F-AVA-2.md` já não citavam "categoria" nem a preferência ignorada.
 - **Abertura pela notificação:** sem item na primeira página de `GET /notificacoes`, o app abre a lista de notificações. `AberturaPorPush` tem testes para a sessão ainda carregando e para a notificação fora da primeira página; o toque com a lista de notificações já aberta e a marcação como lida seguem sem teste.
 
 ## Ativar o push
 
 Tudo no código e na infraestrutura já está pronto; faltam só as duas credenciais do Firebase. `applicationId` do app: `br.com.leai.mobile`.
 
-1. **Firebase Console:** o projeto atual é só de desenvolvimento local; para DES/produção, criar outro na conta oficial do grupo (Analytics desligado; só FCM) e adicionar um app **Android** com o pacote `br.com.leai.mobile`. Baixar o `google-services.json`.
+1. **Firebase Console:** feito em 20/11/2026, projeto `leai-ti5` (Analytics desligado; só FCM), com o app **Android** `br.com.leai.mobile`. O `google-services.json` vem de lá.
 2. **Conta de serviço:** Configurações do projeto → Contas de serviço → Gerar nova chave privada (JSON). Confirmar que a API *Firebase Cloud Messaging API (V1)* está ativa.
 3. **Conferir as duas credenciais** (mesmo projeto e mesmo `applicationId`):
    `node code/scripts/push/verificar-firebase.mjs <google-services.json> <conta-de-servico.json>`
@@ -126,6 +126,10 @@ Tudo no código e na infraestrutura já está pronto; faltam só as duas credenc
 6. **Demonstração:** logar no aparelho, aceitar a permissão, e disparar um evento de outra conta (curtida, comentário, seguidor). Sem o app aberto, o push chega com título "Lê Aí" e o toque abre o item.
 
 ## Timeline
+
+### Firebase e validação no emulador 20/11/2026: projeto Firebase `leai-ti5` criado, com o app `br.com.leai.mobile` e a conta de serviço conferidos por `verificar-firebase.mjs` e um envio `validate_only` ao FCM (200). Secret `GOOGLE_SERVICES_JSON_BASE64` criado no GitHub.
+- **Validação:** com os quatro serviços locais e o app num emulador Android 16 com Google Play, o push de novo seguidor chegou com o app em segundo plano, com título "Lê Aí" e visibilidade privada. O lembrete de sequência da F-GAM-OPC também chegou, e o toque abriu o item.
+- **Falta:** `FIREBASE_CREDENTIALS_JSON` no Render e a demonstração em DES num aparelho físico, no fechamento do período.
 
 ### Conclusão 15/11/2026: feature dada como concluída no código (backend, mobile, contrato, testes e guia de ativação). Resta apenas a configuração do Firebase no ambiente de produção (projeto Firebase na conta oficial; o atual é só local), registrada em Pendências. O push foi validado pelo autor em ambiente local, com o projeto Firebase local.
 

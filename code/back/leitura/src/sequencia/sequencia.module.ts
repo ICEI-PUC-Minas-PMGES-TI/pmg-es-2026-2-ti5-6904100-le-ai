@@ -7,6 +7,6 @@ import { SequenciaService } from './sequencia.service';
 @Module({
   controllers: [SequenciaController],
   providers: [SequenciaService, SequenciaRepository],
-  exports: [SequenciaService],
+  exports: [SequenciaService, SequenciaRepository],
 })
 export class SequenciaModule {}

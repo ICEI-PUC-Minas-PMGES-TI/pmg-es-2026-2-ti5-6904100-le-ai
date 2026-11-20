@@ -1,0 +1,45 @@
+name: job-lembrete-sequencia
+
+# F-GAM-OPC (RF-GAM-05): lembrete diário para quem tem sequência ativa e ainda
+# não registrou progresso no dia local. 22h UTC = 19h em Brasília, com tempo
+# para registrar antes do fim do dia. O "hoje" de cada leitor é calculado no
+# servidor, no último fuso do dispositivo; atraso do agendador não altera a
+# sequência, e reexecutar no mesmo dia não gera segundo lembrete.
+
+on:
+  schedule:
+    - cron: '0 22 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: job-lembrete-sequencia
+  cancel-in-progress: false
+
+jobs:
+  lembrete:
+    name: enviar lembretes de sequência
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: POST /internal/jobs/lembrete-sequencia
+        env:
+          LEITURA_URL: ${{ secrets.LEITURA_URL }}
+          SCHEDULER_TOKEN: ${{ secrets.LEITURA_SCHEDULER_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${LEITURA_URL}" ] || [ -z "${SCHEDULER_TOKEN}" ]; then
+            echo "::error::Configure os secrets LEITURA_URL e LEITURA_SCHEDULER_TOKEN."
+            exit 1
+          fi
+          chave="$(uuidgen)"
+          curl --fail-with-body --silent --show-error \
+            --retry 3 --retry-delay 30 --max-time 300 \
+            -X POST "${LEITURA_URL%/}/internal/jobs/lembrete-sequencia" \
+            -H "Content-Type: application/json" \
+            -H "X-Scheduler-Token: ${SCHEDULER_TOKEN}" \
+            -H "Idempotency-Key: ${chave}" \
+            -d '{}'
+          echo

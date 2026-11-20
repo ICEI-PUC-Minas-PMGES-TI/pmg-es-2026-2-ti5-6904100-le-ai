@@ -163,6 +163,28 @@ class ConsumidorDeNotificacaoIntegracaoTest extends IntegracaoComPostgres {
     assertThat(dados.get("leitura_ref")).isNull();
   }
 
+  @Test
+  @DisplayName("lembrete do mesmo leitor e dia com outro eventId nao duplica (job reexecutado)")
+  void lembreteComOutroEventIdNaoDuplica() {
+    UUID destinatario = UUID.randomUUID();
+    Fato fato = Fato.para(destinatario);
+
+    consumidor.handle(
+        EventosDeNotificacaoDeTeste.envelope(EventoDeNotificacao.LEMBRETE_SEQUENCIA, fato));
+    consumidor.handle(
+        EventosDeNotificacaoDeTeste.envelope(EventoDeNotificacao.LEMBRETE_SEQUENCIA, fato));
+
+    assertThat(total(destinatario)).isEqualTo(1);
+    Map<String, Object> dados =
+        jdbc.queryForMap(
+            "SELECT dados->>'sequenciaAtual' AS sequencia, dados->>'dataLocal' AS dia,"
+                + " jsonb_exists(dados, 'ator') AS com_ator FROM notificacao WHERE destinatario_id = ?",
+            destinatario);
+    assertThat(dados.get("sequencia")).isEqualTo("12");
+    assertThat(dados.get("dia")).isEqualTo(EventosDeNotificacaoDeTeste.DATA_LEMBRETE);
+    assertThat(dados.get("com_ator")).isEqualTo(false);
+  }
+
   private int total(UUID destinatario) {
     return jdbc.queryForObject(
         "SELECT count(*) FROM notificacao WHERE destinatario_id = ?", Integer.class, destinatario);

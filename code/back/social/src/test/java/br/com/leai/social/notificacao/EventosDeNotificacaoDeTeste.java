@@ -17,6 +17,8 @@ public final class EventosDeNotificacaoDeTeste {
   public static final String NOME_ATOR = "Caio Ferraz";
   public static final String TITULO_LIVRO = "O Avesso da Pele";
   public static final String MENSAGEM_RECOMENDACAO = "Terminei ontem e ainda estou pensando nele.";
+  public static final String DATA_LEMBRETE = "2026-09-25";
+  public static final int SEQUENCIA_LEMBRETE = 12;
 
   private EventosDeNotificacaoDeTeste() {}
 
@@ -88,6 +90,8 @@ public final class EventosDeNotificacaoDeTeste {
               + ":"
               + fato.limiarDias();
       case RECOMENDACAO_RECEBIDA -> "recomendacao:" + fato.recursoId();
+      case LEMBRETE_SEQUENCIA ->
+          "sequencia:" + fato.destinatarioId() + ":lembrete:" + DATA_LEMBRETE;
     };
   }
 
@@ -147,6 +151,10 @@ public final class EventosDeNotificacaoDeTeste {
         dados.put("autorAcao", usuario(fato.atorId()));
         dados.put("livro", livro);
         dados.put("mensagem", MENSAGEM_RECOMENDACAO);
+      }
+      case LEMBRETE_SEQUENCIA -> {
+        dados.put("dataLocal", DATA_LEMBRETE);
+        dados.put("sequenciaAtual", SEQUENCIA_LEMBRETE);
       }
     }
     return dados;

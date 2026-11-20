@@ -20,6 +20,7 @@ import { HistoricoModule } from './historico/historico.module';
 import { ModeracaoModule } from './moderacao/moderacao.module';
 import { HealthModule } from './health/health.module';
 import { InatividadeModule } from './jobs/inatividade/inatividade.module';
+import { LembreteSequenciaModule } from './jobs/lembrete-sequencia/lembrete-sequencia.module';
 import { LeiturasModule } from './leituras/leituras.module';
 import { MessagingModule } from './messaging/messaging.module';
 import { MetricasModule } from './metricas/metricas.module';
@@ -76,6 +77,7 @@ import { DesafiosModule } from './desafios/desafios.module';
     EstatisticasModule,
     MetricasModule,
     InatividadeModule,
+    LembreteSequenciaModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

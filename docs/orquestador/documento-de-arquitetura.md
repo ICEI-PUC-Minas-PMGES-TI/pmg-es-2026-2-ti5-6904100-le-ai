@@ -1,6 +1,6 @@
 # Documento de Arquitetura de Software
 
-**Versão:** v1.8 — 25/10/2026
+**Versão:** v1.10 — 20/11/2026
 **Status:** macroarquitetura fechada — alocação de stack por serviço decidida em 02/09/2026 (§2.1); Período 2 implementado em `desenvolvimento`
 
 > **v1.4 (12/09/2026):** ambiente local passa a usar **Postgres local** — **removida a branch de banco por dev no Neon** (o Neon mantém só a branch de DES/HML). Decisão da equipe; reflexo em §6 e no plano §4.
@@ -23,6 +23,10 @@
 > - **Provedores:** cache de capas por upload assinado e pasta por ambiente (§2.5); e-mail do Brevo implementado (§2.6); push FCM ainda não implementado, previsto no Período 3 (§2.7).
 > - **Agendador:** viabilidade do `schedule` confirmada na prática (§2.4).
 > - Autorizado pelo Renato Douglas. Sem mudança de requisito, stack ou fronteira de serviço; as divergências que pedem decisão do grupo estão na §8.
+
+> **v1.9 (19/11/2026):** fluxo `lembrete.sequencia` (F-GAM-OPC) incluído na §5.2, com o REQUISITOS §7.2; 27 JSON Schemas.
+
+> **v1.10 (20/11/2026):** push FCM validado ponta a ponta: projeto Firebase `leai-ti5` criado (só FCM), `google-services.json` no secret `GOOGLE_SERVICES_JSON_BASE64` do GitHub e push de seguidor e do lembrete de sequência recebidos num emulador Android com Google Play. Falta só a credencial no Render, no deploy de fechamento do período. Reflexo em §2.7, na tabela de provedores (§6) e na §8. Sem mudança de requisito, stack ou fronteira de serviço.
 
 > Este documento descreve **como o sistema é construído**. O *o que* mora em `docs/orquestador/REQUISITOS.md`, que continua sendo a fonte de verdade. Em caso de conflito, o `REQUISITOS.md` vence, e a divergência segue o controle de mudança do `docs/orquestador/plano-de-projeto.md` §3.
 
@@ -146,6 +150,8 @@ No `leai_capas`, a pasta é dinâmica (`asset_folder`): não entra no `public_id
 - Ter um projeto Firebase para o FCM **não** implica usar Firestore, Auth ou qualquer outro produto Firebase. O escopo do Firebase no sistema é a emissão de push, e nada mais.
 
 **Situação em 08/11/2026:** o FCM está implementado no código pela F-NOT-OPC. O `social` envia depois do commit da notificação, idempotente por `(notificacao, dispositivo)` na tabela `envio_push`, com retry e circuit breaker; sem a variável `FIREBASE_CREDENTIALS_JSON` o envio fica desativado. **Falta** o projeto Firebase, o `google-services.json` no app e a validação em dispositivo Android real. A entrega em tempo real das notificações in-app continua por SSE (§5.1), nas duas plataformas, com o app aberto.
+
+**Situação em 20/11/2026:** o projeto Firebase `leai-ti5` existe, com o app Android `br.com.leai.mobile` e a conta de serviço conferidos por `code/scripts/push/verificar-firebase.mjs`. O `google-services.json` está no secret `GOOGLE_SERVICES_JSON_BASE64` do GitHub, lido pelo job `apk` do CI na `main`. O push foi validado contra os serviços locais num emulador Android 16 com Google Play: o de novo seguidor e o lembrete de sequência (`lembrete.sequencia`, F-GAM-OPC) chegam com o app em segundo plano, e o toque abre o item. **Falta** `FIREBASE_CREDENTIALS_JSON` no `leai-social` do Render, no deploy de fechamento do período, e repetir a demonstração em DES num aparelho físico.
 
 ---
 
@@ -277,14 +283,15 @@ Os fluxos assíncronos de `REQUISITOS.md` §7.2 e seus serviços produtores/cons
 | **Estatísticas, desafios e streak** | `progresso.registrado`, `leitura.finalizada` | leitura | leitura |
 | **Exclusão definitiva de conta** | `conta.excluida` | identidade | leitura, social, acervo |
 | **Recomendação recebida** | `recomendacao.recebida` | social | social |
+| **Lembrete de sequência** | `lembrete.sequencia` | leitura (job diário) | social (+ FCM em Android) |
 
 `livro.adicionado_a_estante` passa a ter dois consumidores: `acervo`, para cache de capa, e `social`, para remover recomendações recebidas do livro. O cache de capas ouve também `leitura.iniciada`, porque iniciar a leitura de um livro fora da estante o põe nela sem publicar `livro.adicionado_a_estante`.
 
-`resenha.excluida` também sai da remoção pela moderação (§3.2, item 5). Fica planejado só `lembrete.sequencia`, do Período 3 (F-GAM-OPC), ainda sem schema.
+`resenha.excluida` também sai da remoção pela moderação (§3.2, item 5). `lembrete.sequencia` (F-GAM-OPC, 19/11/2026) sai do job diário do `leitura` (§2.4) com `eventId` derivado de leitor e dia local, então reexecutar o job no mesmo dia não duplica.
 
 #### Contrato canônico
 
-Os contratos assíncronos ficam em `docs/mensageria/`: `README.md`, catálogo e JSON Schemas Draft 2020-12. O conjunto inicial possuía **22 schemas**: envelope, tipos comuns, `ping.teste` e 19 eventos de negócio produzidos no Período 1. **Em 25/10/2026 são 26**, com os quatro eventos do Período 2: `usuario.mencionado`, `recomendacao.recebida`, `conta.excluida` e `resenha.curtida`. Eventos de períodos futuros recebem schema quando sua feature produtora entrar; não se cria fila acumuladora antes de existir consumidor.
+Os contratos assíncronos ficam em `docs/mensageria/`: `README.md`, catálogo e JSON Schemas Draft 2020-12. O conjunto inicial possuía **22 schemas**: envelope, tipos comuns, `ping.teste` e 19 eventos de negócio produzidos no Período 1. **Em 25/10/2026 são 26**, com os quatro eventos do Período 2: `usuario.mencionado`, `recomendacao.recebida`, `conta.excluida` e `resenha.curtida`. **Em 19/11/2026 são 27**, com `lembrete.sequencia` (F-GAM-OPC). Eventos de períodos futuros recebem schema quando sua feature produtora entrar; não se cria fila acumuladora antes de existir consumidor.
 
 O consumidor novo recupera, por backfill, o que aconteceu antes da sua fila existir. Na prática ficaram três regimes:
 
@@ -356,7 +363,7 @@ Timeout e retentativa com backoff em toda chamada externa, com circuit breaker (
 | Mensageria | CloudAMQP (RabbitMQ) | gratuito | uma instância por ambiente: DES/HML `Le-ai-oregon` (Oregon) e desenvolvimento `Le-ai` (São Paulo); limite de conexões — uma por serviço |
 | Imagens | Cloudinary | gratuito | transformação por URL + cache de capas; um cloud para os dois ambientes, com pasta de capas por ambiente (§2.5) |
 | E-mail transacional | Brevo | gratuito | 300 e-mails/dia |
-| Push (Android) | Firebase Cloud Messaging | gratuito | somente FCM; ainda não implementado (Período 3) |
+| Push (Android) | Firebase Cloud Messaging | gratuito | somente FCM; projeto `leai-ti5`, implementado na F-NOT-OPC (§2.7) |
 | Agendador de jobs | GitHub Actions (`schedule`) | gratuito | fallback cron-job.org; funcionando no repo da faculdade desde 30/09/2026 |
 | CI/CD | GitHub Actions | gratuito | lint, build, testes, deploy a partir de `main` |
 
@@ -402,7 +409,7 @@ Situação em 25/10/2026:
 |---|---|
 | Viabilidade do GitHub Actions `schedule` no repositório do GitHub Classroom (P-08) | **confirmada na prática:** `job-inatividade.yml` roda todo dia desde 30/09/2026; os arquivos de P0-MSG e F-EST ainda a registram como não confirmada |
 | Limites vigentes dos planos gratuitos de Cloudinary, CloudAMQP, Brevo e Neon | **em aberto:** nenhum arquivo registra a conferência. Medido só o tamanho do acervo no Neon, cerca de 11 MB |
-| Emissão de push FCM em dispositivo Android real de demonstração (P-04) | código pronto na F-NOT-OPC; **validação pendente** do projeto Firebase, do `google-services.json` e do aparelho real |
+| Emissão de push FCM em dispositivo Android real de demonstração (P-04) | **validado em emulador Android com Google Play em 20/11/2026** (projeto Firebase `leai-ti5`); falta a credencial no Render e a demonstração em DES num aparelho físico, no fechamento do período |
 
 ### Divergências e itens abertos no fechamento do Período 2
 

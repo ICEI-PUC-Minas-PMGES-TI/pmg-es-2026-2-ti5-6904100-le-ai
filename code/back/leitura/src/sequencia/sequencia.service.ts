@@ -1,7 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DRIZZLE, type DrizzleDB } from '../db/drizzle.module';
 import type { Tx } from '../db/tipos';
+import { EntidadeInvalida } from '../common/erros-de-negocio';
+import { CalendarioSequenciaDto } from './api/calendario.dto';
 import { SequenciaDto } from './api/sequencia.dto';
+import {
+  dentroDaJanela,
+  intervaloDoMes,
+  janelaDoCalendario,
+} from './dominio/calendario';
 import { apurar, sequenciaVigente } from './dominio/sequencia';
 import { SequenciaRepository } from './sequencia.repository';
 
@@ -58,6 +65,47 @@ export class SequenciaService {
       sequenciaAtual: sequenciaVigente(estado, agora),
       maiorSequencia: estado.maiorSequencia,
       ultimoDiaComLeitura: estado.ultimoDia,
+    };
+  }
+
+  /**
+   * `GET /me/sequencia/calendario` (RF-GAM-04): os dias com leitura de um mês
+   * da janela, lidos de `dia_leitura`, a mesma fonte da sequência. Só leitura,
+   * só do próprio leitor. Mês fora da janela é 422 (RNF-DES-02).
+   */
+  async calendario(
+    usuarioId: string,
+    mes: string | undefined,
+    agora = new Date(),
+  ): Promise<CalendarioSequenciaDto> {
+    const [estado, primeiroDia] = await Promise.all([
+      this.repositorio.obter(usuarioId),
+      this.repositorio.primeiroDia(usuarioId),
+    ]);
+    const janela = janelaDoCalendario(
+      agora,
+      estado?.ultimoFusoHorario ?? null,
+      primeiroDia,
+    );
+    const pedido = mes ?? janela.mesAtual;
+    if (!dentroDaJanela(pedido, janela)) {
+      throw new EntidadeInvalida(
+        [
+          {
+            campo: 'mes',
+            mensagem: `Escolha um mês entre ${janela.mesMaisAntigo} e ${janela.mesAtual}.`,
+          },
+        ],
+        'Este mês está fora do calendário disponível.',
+      );
+    }
+    const { de, ate } = intervaloDoMes(pedido);
+    return {
+      mes: pedido,
+      mesAtual: janela.mesAtual,
+      mesMaisAntigo: janela.mesMaisAntigo,
+      hoje: janela.hoje,
+      dias: await this.repositorio.diasNoIntervalo(usuarioId, de, ate),
     };
   }
 

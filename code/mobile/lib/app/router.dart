@@ -41,6 +41,7 @@ import '../features/perfil/widgets_de_identidade.dart';
 import '../features/progresso/rotas_progresso.dart';
 import '../features/sessao/rotas_sessao.dart';
 import '../features/sessao/sessao_controller.dart';
+import '../features/sequencia/rotas_sequencia.dart';
 import '../features/sequencia/sequencia_do_perfil.dart';
 import '../features/sequencia/sequencia_service.dart';
 import 'shell_autenticado.dart';
@@ -259,6 +260,10 @@ GoRouter buildRouter({
                   aoBuscarNoAcervo: (termo) => context.go(
                     Uri(path: '/descobrir', queryParameters: <String, String>{'q': termo}).toString(),
                   ),
+                  // F-GAM-OPC: o lembrete de sequência chega com `?lembrete=sequencia`.
+                  lembreteDeSequencia:
+                      state.uri.queryParameters[parametroDoLembrete] == valorDoLembreteDeSequencia,
+                  aoConsumirLembrete: () => context.go(rotaEstante),
                 ),
                 routes: <RouteBase>[
                   GoRoute(
@@ -363,9 +368,13 @@ GoRouter buildRouter({
                   sequencia: () => SequenciaDoPerfil(
                     servico: servicoDeSequencia,
                     alteracoes: depsDeProgresso.servico.alteracoes,
+                    // F-GAM-OPC: o bloco abre o calendário empilhado sobre o perfil.
+                    aoAbrirCalendario: () => context.push<void>(rotaCalendarioDaSequencia),
                   ),
                   estatisticas: () => secaoDasEstatisticas(context, depsDeEstatisticas),
                   desafios: () => secaoDosDesafios(context, depsDeDesafios),
+                  // Seguidor novo e pedidos atualizam os contadores com a aba já aberta.
+                  eventosDeNotificacoes: depsDeNotificacoes.canal.eventos,
                 ),
                 routes: <RouteBase>[
                   ...rotasDoPerfil(
@@ -402,6 +411,11 @@ GoRouter buildRouter({
                   ),
                   ...rotasDeCatalogo(deps, raiz: '/perfil'),
                   rotaDeNotificacoes(depsDeNotificacoes, rotaPerfilRaiz),
+                  rotaDoCalendarioDaSequencia(
+                    servicoDeSequencia,
+                    fila: depsDeProgresso.fila,
+                    alteracoes: depsDeProgresso.servico.alteracoes,
+                  ),
                   GoRoute(
                     path: 'configuracoes',
                     builder: (context, state) => ConfiguracoesPage(

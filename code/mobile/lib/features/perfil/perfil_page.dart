@@ -11,6 +11,8 @@ import '../../design/widgets/banner_aviso.dart';
 import '../../design/widgets/botao_textual.dart';
 import '../estante/estante_de_perfil.dart';
 import '../estante/estante_service.dart';
+import '../notificacoes/canal_de_notificacoes.dart';
+import '../notificacoes/notificacao.dart';
 import 'conexoes_page.dart';
 import 'perfil_service.dart';
 import 'textos.dart';
@@ -74,6 +76,11 @@ class PerfilPage extends StatefulWidget {
   /// seções de leitura (meu-perfil.md §4.1 B).
   final Widget Function()? desafios;
 
+  /// Eventos do canal de tempo real (RF-NOT-06). A aba fica viva no shell, então sem eles os
+  /// contadores só mudariam ao voltar de uma tela empilhada: um seguidor novo, um pedido recebido
+  /// ou aceito e a reconexão depois do app em segundo plano releem o perfil em silêncio.
+  final Stream<EventoDeNotificacoes>? eventosDeNotificacoes;
+
   const PerfilPage({
     super.key,
     required this.servico,
@@ -90,6 +97,7 @@ class PerfilPage extends StatefulWidget {
     this.sequencia,
     this.estatisticas,
     this.desafios,
+    this.eventosDeNotificacoes,
   });
 
   @override
@@ -110,10 +118,52 @@ class _PerfilPageState extends State<PerfilPage> {
     widget.alteracoesDoProgresso,
   ]);
 
+  StreamSubscription<EventoDeNotificacoes>? _tempoReal;
+
+  /// Tipos que mudam um contador ou a linha de pedidos pendentes.
+  static const Set<TipoNotificacao> _tiposDeConexao = <TipoNotificacao>{
+    TipoNotificacao.novoSeguidor,
+    TipoNotificacao.solicitacaoCriada,
+    TipoNotificacao.solicitacaoAceita,
+  };
+
   @override
   void initState() {
     super.initState();
     _carregar();
+    _tempoReal = widget.eventosDeNotificacoes?.listen(_aoReceber);
+  }
+
+  @override
+  void dispose() {
+    unawaited(_tempoReal?.cancel());
+    super.dispose();
+  }
+
+  void _aoReceber(EventoDeNotificacoes evento) {
+    final relevante = switch (evento) {
+      SincronizacaoDeNotificacoes() => true,
+      NotificacaoRecebida(:final notificacao) => _tiposDeConexao.contains(notificacao?.tipo),
+    };
+    if (relevante) {
+      unawaited(_recarregarEmSilencio());
+    }
+  }
+
+  /// Relê perfil e pedidos sem o skeleton e sem o banner: falhar aqui mantém o que já está na tela.
+  Future<void> _recarregarEmSilencio() async {
+    if (_carregando || _perfil == null) {
+      return;
+    }
+    unawaited(_contarPedidos());
+    try {
+      final perfil = await widget.servico.obterMeuPerfil();
+      if (mounted) {
+        setState(() => _perfil = perfil);
+      }
+    } on ApiException {
+      // Sem conexão: o próximo evento ou a volta de uma tela empilhada tenta de novo.
+    }
   }
 
   /// A contagem vem de uma página de um item da caixa; falhar nela só esconde a linha.

@@ -64,6 +64,10 @@ final class RedacaoDeNotificacao {
               + " dias sem progresso.";
       case RECOMENDACAO_RECEBIDA -> nomeDoAtor + " te recomendou " + tituloDoLivro(dados) + ".";
       case RESENHA_CURTIDA -> nomeDoAtor + " curtiu sua resenha de " + tituloDoLivro(dados) + ".";
+      case LEMBRETE_SEQUENCIA ->
+          "Sua sequência está em "
+              + diasDaSequencia(dados)
+              + " e hoje ainda não tem leitura registrada.";
     };
   }
 
@@ -93,6 +97,12 @@ final class RedacaoDeNotificacao {
       return " na atividade de " + AUTOR_DA_ATIVIDADE_OCULTO;
     }
     return " na atividade de " + atividade.get(DadosDeNotificacao.ATIVIDADE_AUTOR_NOME);
+  }
+
+  /** "1 dia", "12 dias" (copy de {@code docs/design/periodo-3/notificacoes/notificacoes.md} §8). */
+  private static String diasDaSequencia(Map<String, Object> dados) {
+    int dias = ((Number) dados.get(DadosDeNotificacao.SEQUENCIA_ATUAL)).intValue();
+    return dias + (dias == 1 ? " dia" : " dias");
   }
 
   private static String tituloDoLivro(Map<String, Object> dados) {
