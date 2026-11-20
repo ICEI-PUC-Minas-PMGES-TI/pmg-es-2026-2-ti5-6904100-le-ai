@@ -73,6 +73,22 @@ public class ServicoDePerfil {
   }
 
   /**
+   * F-REC-ALG (REQUISITOS §10.7): tira ou devolve as leituras do leitor ao sinal das sugestões
+   * dos outros. O `social` lê o campo por `v_perfil_referencia_v1`, a cada consulta.
+   */
+  @Transactional
+  public PerfilResposta definirOptOutRecomendacao(UUID usuarioId, boolean optOut) {
+    Usuario usuario =
+        repositorio
+            .buscarParaAtualizar(usuarioId)
+            .orElseThrow(
+                () -> new ErroDeNegocioException(CodigoErro.NAO_AUTENTICADO, SESSAO_EXPIRADA));
+    usuario.definirOptOutRecomendacao(optOut);
+    repositorio.flush();
+    return PerfilResposta.proprio(usuario, contadores(usuario.id()));
+  }
+
+  /**
    * Perfil de outro leitor (RF-SOC-02, RN-08). Identidade, biografia e contadores são públicos
    * em qualquer privacidade; `conteudoRestrito` diz aos clientes se os serviços donos vão recusar
    * o conteúdo social. Perfil privado para não-seguidor não é `403`: é o mesmo `200` com a
