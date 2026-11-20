@@ -1,0 +1,12 @@
+import { abrir, ir, foto, botoes } from './cap.mjs';
+const conta = process.argv[2] || 'caio';
+const { browser, page } = await abrir({ conta });
+await ir(page, '/feed');
+const item = page.locator('article, li').filter({ hasText: 'publicou uma resenha' }).filter({ hasText: 'Caio Demo' }).first();
+console.log('itens', await item.count());
+await item.scrollIntoViewIfNeeded();
+await item.getByRole('button').nth(1).click();
+await page.waitForTimeout(1500);
+await foto(page, `x-thread-${conta}`);
+console.log(await botoes(page));
+await browser.close();

@@ -1,0 +1,11 @@
+import { req, login } from './api.mjs';
+const caio = (await login('caio')).accessToken, bia = (await login('bia')).accessToken;
+const p = (s, r) => { console.log(s, r.status, JSON.stringify(r.json).slice(0, 260)); return r.json; };
+p('progresso', await req('leitura', 'POST', '/leituras/fdcf5606-93dd-47bd-9e09-2a2110a2c5da/progresso', { token: caio, corpo: { pagina: 34, minutos: 40, registradoEmDispositivo: new Date().toISOString(), fusoHorarioDispositivo: 'America/Sao_Paulo' } }));
+const feed = (await req('social', 'GET', '/feed', { token: bia })).json.itens;
+for (const a of feed) console.log(a.id, a.tipo, a.livro?.titulo);
+const res = feed.find(a => a.tipo.includes('RESENHA')) || feed[0];
+const c = p('comentario bia', await req('social', 'POST', `/atividades/${res.id}/comentarios`, { token: bia, corpo: { texto: 'Discordo! Para mim a Capitu é inocente, e o livro inteiro é o ciúme do narrador falando.' } }));
+p('curtida bia', await req('social', 'POST', `/atividades/${res.id}/curtir`, { token: bia }));
+p('denuncia caio', await req('social', 'POST', '/denuncias', { token: caio, corpo: { alvoTipo: 'comentario', alvoId: c.id, motivo: 'Teste de demonstração: comentário fora do tema do livro.' } }));
+console.log('ATIV', res.id);

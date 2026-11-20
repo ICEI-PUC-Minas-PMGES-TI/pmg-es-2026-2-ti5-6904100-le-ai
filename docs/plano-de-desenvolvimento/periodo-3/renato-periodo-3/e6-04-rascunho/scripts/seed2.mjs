@@ -1,0 +1,10 @@
+import { req, login } from './api.mjs';
+const caio = (await login('caio')).accessToken, bia = (await login('bia')).accessToken, marina = (await login('marina')).accessToken;
+const p = (s, r) => console.log(s, r.status, JSON.stringify(r.json).slice(0, 220));
+p('marina privada', await req('identidade', 'PUT', '/me/perfil', { token: marina, corpo: { displayName: 'Marina Demo', biografia: 'Conta de demonstração.', avatar: null, privacidade: 'privado' } }));
+p('caio perfil', await req('identidade', 'PUT', '/me/perfil', { token: caio, corpo: { displayName: 'Caio Demo', biografia: 'Leitor de clássicos brasileiros. Conta de demonstração.', avatar: null, privacidade: 'publico' } }));
+p('bia perfil', await req('identidade', 'PUT', '/me/perfil', { token: bia, corpo: { displayName: 'Bia Demo', biografia: 'Conta de demonstração.', avatar: null, privacidade: 'publico' } }));
+p('bia segue caio', await req('identidade', 'POST', '/perfis/leai.demo.caio/seguir', { token: bia }));
+p('caio segue bia', await req('identidade', 'POST', '/perfis/leai.demo.bia/seguir', { token: caio }));
+const as = await req('acervo', 'GET', '/assuntos', { token: caio });
+console.log('assuntos', JSON.stringify(as.json).slice(0, 600));
