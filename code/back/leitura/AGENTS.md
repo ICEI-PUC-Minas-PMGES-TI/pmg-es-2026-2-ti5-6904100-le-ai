@@ -123,6 +123,15 @@ Módulos `src/estante/`, `src/leituras/` e `src/jobs/inatividade/`, com `src/ref
 - **Backfill:** `npm run backfill:sequencia` (`node dist/sequencia/backfill.js` no build), idempotente; rodar antes de o binding subir num ambiente.
 - **Testes:** `src/sequencia/dominio/sequencia.spec.ts` e `test/integracao/sequencia.int-spec.ts` (API → outbox → despachante → broker em memória → consumidor, com duplicata, retry e DLQ).
 
+## F-GAM-OPC — calendário e lembrete de sequência (19/11/2026)
+
+- **Calendário:** `GET /me/sequencia/calendario?mes=AAAA-MM` no `SequenciaController`. Lê `dia_leitura` (a mesma fonte da sequência, então os dois não divergem). Janela em `dominio/calendario.ts`: o mês corrente e os cinco anteriores (`JANELA_MESES`), sem recuar antes do mês do primeiro dia com leitura. O mês corrente e o `hoje` são apurados no último fuso do dispositivo, com `America/Sao_Paulo` para quem não tem progresso. Formato inválido é 400; mês fora da janela, 422 com `campos.mes`.
+- **Lembrete:** `POST /internal/jobs/lembrete-sequencia` (`src/jobs/lembrete-sequencia/`), mesmo `SchedulerTokenGuard`, sujeito do agendador e idempotência HTTP do job de inatividade. Agendado em `.github/workflows/job-lembrete-sequencia.yml`, às 22h UTC (19h em Brasília).
+  - Seleciona em `sequencia_leitura`, com `identidade.v_perfil_referencia_v1` (conta suspensa ou em exclusão fica de fora). Depois relê cada leitor sob a trava `sequencia:<id>` e aplica `lembreteDevido` (`dominio/lembrete.ts`): o último dia com leitura precisa ser exatamente ontem no último fuso.
+  - Grava `lembrete.sequencia` com `eventId` UUID v5 de `(usuarioId, dataLocal)` por `OutboxRepository.inserirSeNovo` (`ON CONFLICT DO NOTHING` na chave primária). Reexecutar no mesmo dia conta em `jaLembrados` e não grava. **Não mude o namespace do UUID**, senão a deduplicação do dia quebra.
+  - O job não escreve em `sequencia_leitura` nem em `dia_leitura`. Fora de uma requisição não há correlation-id, e a outbox o exige: o serviço só roda pela rota (nos testes, dentro de `als.run`).
+- **Testes:** `src/sequencia/dominio/calendario.spec.ts`, `lembrete.spec.ts` e `test/integracao/sequencia-opc.int-spec.ts`.
+
 ## F-DSF — desafios (09/10/2026)
 
 - **`src/desafios/`** (`DesafiosModule`), em camadas: `POST/GET /desafios`, `PATCH/DELETE /desafios/{id}`, `POST /desafios/{id}/pausar` e `/retomar`. Tabelas da baseline DER (migration 0001: `desafio`, `janela_desafio`, `contribuicao_desafio`, `pausa_desafio`), sem migration nova.
