@@ -12,7 +12,10 @@ enum TipoNotificacao {
   leituraEmRisco,
   leituraExpirada,
   recomendacaoRecebida,
-  resenhaCurtida;
+  resenhaCurtida,
+
+  /// F-GAM-OPC (RF-GAM-05): sem ator, livro nem ação; o número da sequência vem na `mensagem`.
+  lembreteSequencia;
 
   static const Map<String, TipoNotificacao> _doContrato = <String, TipoNotificacao>{
     'NOVO_SEGUIDOR': novoSeguidor,
@@ -26,6 +29,7 @@ enum TipoNotificacao {
     'LEITURA_EXPIRADA': leituraExpirada,
     'RECOMENDACAO_RECEBIDA': recomendacaoRecebida,
     'RESENHA_CURTIDA': resenhaCurtida,
+    'LEMBRETE_SEQUENCIA': lembreteSequencia,
   };
 
   /// Nulo para um tipo que o servidor passou a gerar depois desta versão do app: a lista não

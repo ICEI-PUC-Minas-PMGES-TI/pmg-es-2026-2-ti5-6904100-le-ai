@@ -16,4 +16,6 @@ IconData iconeDaNotificacao(TipoNotificacao tipo) => switch (tipo) {
   // F-AVA-2: o mesmo ícone do botão de curtir na resenha, para não confundir com o `Heart` da
   // curtida em atividade (notificacoes.md §5).
   TipoNotificacao.resenhaCurtida => PhosphorIconsRegular.thumbsUp,
+  // F-GAM-OPC: o ícone do streak, em `grafite` como os outros (notificacoes.md P3 §4.1).
+  TipoNotificacao.lembreteSequencia => PhosphorIconsRegular.flame,
 };
