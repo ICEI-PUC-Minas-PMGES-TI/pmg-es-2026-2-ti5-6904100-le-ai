@@ -373,6 +373,8 @@ GoRouter buildRouter({
                   ),
                   estatisticas: () => secaoDasEstatisticas(context, depsDeEstatisticas),
                   desafios: () => secaoDosDesafios(context, depsDeDesafios),
+                  // Seguidor novo e pedidos atualizam os contadores com a aba já aberta.
+                  eventosDeNotificacoes: depsDeNotificacoes.canal.eventos,
                 ),
                 routes: <RouteBase>[
                   ...rotasDoPerfil(
