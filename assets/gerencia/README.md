@@ -95,6 +95,7 @@ e os que apareceram nas atas.
 | --- | --- |
 | [`lista_de_riscos.md`](lista_de_riscos.md) | **Versão canônica**: regra de classificação, os dez riscos, rastreabilidade e controle de mudança. |
 | [`Lista-de-Riscos-Le-Ai.xlsx`](Lista-de-Riscos-Le-Ai.xlsx) | Template da disciplina preenchido. A coluna **Risco** é calculada por fórmula a partir da probabilidade e do impacto. **Derivada** do `.md`. |
+| [`lista_de_riscos.pdf`](lista_de_riscos.pdf) | Versão para entrega, em uma página A4 paisagem. **Derivado** da planilha. |
 
 > Os riscos do `.md` e da planilha precisam bater: mudança começa no `.md` e é repetida na planilha na
 > mesma passada.
