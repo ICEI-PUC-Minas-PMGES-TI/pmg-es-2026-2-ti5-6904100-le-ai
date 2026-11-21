@@ -1344,7 +1344,7 @@
           "email": {
             "type": "string",
             "format": "email",
-            "example": "marina.beltrao@gmail.com",
+            "example": "exemplo@leai.invalid",
             "maxLength": 254,
             "minLength": 0
           },
@@ -1475,7 +1475,7 @@
           "email": {
             "type": "string",
             "format": "email",
-            "example": "marina.beltrao@gmail.com",
+            "example": "exemplo@leai.invalid",
             "maxLength": 254,
             "minLength": 0
           }
@@ -1681,7 +1681,7 @@
           "email": {
             "type": "string",
             "format": "email",
-            "example": "marina.beltrao@gmail.com"
+            "example": "exemplo@leai.invalid"
           }
         }
       },

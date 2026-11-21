@@ -1,6 +1,6 @@
 # Evidências da avaliação da arquitetura (ATAM)
 
-Dados brutos das medições do [`docs/8.avaliacao_arquitetura.md`](../../8.avaliacao_arquitetura.md) §8.5, coletados em **19/11/2026** (e uma segunda rodada do cenário 4 em 21/11/2026, 00:58 a 01:05 UTC) pela E6-03 com os scripts de [`code/scripts/atam/`](../../../code/scripts/atam/README.md). Horários em UTC. Nenhum arquivo contém token, refresh token ou senha. Ids são UUID não sequenciais, e os e-mails das contas de demonstração são `.invalid`.
+Dados brutos das medições do [`docs/8.avaliacao_arquitetura.md`](../../8.avaliacao_arquitetura.md) §8.5, coletados em **19/11/2026** (e uma segunda rodada do cenário 4 em 21/11/2026, 00:58 a 01:06 UTC) pela E6-03 com os scripts de [`code/scripts/atam/`](../../../code/scripts/atam/README.md). Horários em UTC. Nenhum arquivo contém token, refresh token ou senha. Ids são UUID não sequenciais, e os e-mails das contas de demonstração são `.invalid`.
 
 **Ambientes**
 
@@ -33,3 +33,5 @@ Dados brutos das medições do [`docs/8.avaliacao_arquitetura.md`](../../8.avali
 | `cenario-6-acoplamento.txt` | 6 | repositório | Análise estática de acoplamento entre serviços, com a classificação manual dos achados |
 
 **Impacto no DES:** o tempo ativo do compute do Neon `le-ai-oregon` (`active_time` do projeto, lido pelo MCP) passou de 44.128 s (22:08 UTC) para 44.892 s (22:34 UTC), +764 s, contando também qualquer outro uso do DES nessa janela. Nada foi apagado, e nenhuma fila, configuração ou mensagem do broker de DES foi tocada.
+
+**Dado retirado:** o `cenario-6-runtime-identidade.json` copia o spec exposto em runtime, que traz como `example` de e-mail um endereço `@gmail.com` vindo das anotações `@Schema` do `identidade`. Na cópia versionada aqui, esse valor foi trocado por `exemplo@leai.invalid` (20/11/2026). Nenhum outro campo foi alterado.
