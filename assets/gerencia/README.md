@@ -85,6 +85,20 @@ base do orçado: o CPI de 1,00 é premissa, não medição.
 > a linha de base e passa pelo controle de mudança; a cada revisão de status, atualizar a data e o
 > último mês realizado na aba `Param`.
 
+## Lista de Riscos
+
+Elaborada em **20/11/2026**. Dez riscos do projeto, com probabilidade, impacto, risco resultante e
+medidas de prevenção e de contingência. Consolida os riscos do plano de projeto §13, o do orçamento §5
+e os que apareceram nas atas.
+
+| Arquivo | Conteúdo |
+| --- | --- |
+| [`lista_de_riscos.md`](lista_de_riscos.md) | **Versão canônica**: regra de classificação, os dez riscos, rastreabilidade e controle de mudança. |
+| [`Lista-de-Riscos-Le-Ai.xlsx`](Lista-de-Riscos-Le-Ai.xlsx) | Template da disciplina preenchido. A coluna **Risco** é calculada por fórmula a partir da probabilidade e do impacto. **Derivada** do `.md`. |
+
+> Os riscos do `.md` e da planilha precisam bater: mudança começa no `.md` e é repetida na planilha na
+> mesma passada.
+
 ## Processo e planejamento
 
 O processo de trabalho (branches, Definition of Done, rituais, prazos e períodos) não vive aqui — é fonte de verdade em [`../../docs/orquestador/plano-de-projeto.md`](../../docs/orquestador/plano-de-projeto.md). O acompanhamento das 37 features está no quadro Kanban do projeto: https://github.com/orgs/ICEI-PUC-Minas-PMGES-TI/projects/738
