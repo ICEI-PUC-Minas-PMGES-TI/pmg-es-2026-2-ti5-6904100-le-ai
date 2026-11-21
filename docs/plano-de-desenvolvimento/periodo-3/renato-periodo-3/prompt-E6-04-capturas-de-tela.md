@@ -7,8 +7,8 @@
 | Etapa | Situação | Saída |
 |---|---|---|
 | 1. Planejar | concluída em 19/11/2026 (plano ainda não revisado) | [`plano-E6-04-capturas-de-tela.md`](plano-E6-04-capturas-de-tela.md): 93 figuras (38 + 41 + 14), Períodos 1 e 2 do DES e Período 3 local contra o dev, ≈ 26,5 h, 6 pendências; sem PR (merge direto pelo orquestrador) |
-| 2. Capturar e escrever (Períodos 1 e 2) | não iniciada | imagens em `docs/imagens/` e `docs/7.solucao.md` com as telas |
-| 3. Revisão independente e PR | não iniciada | PR para a `desenvolvimento` |
+| 2. Capturar e escrever (Períodos 1 e 2) | interrompida em 19/11/2026 (limite de uso do agente): 48 capturas de rascunho e os scripts em [`e6-04-rascunho/`](e6-04-rascunho/README.md), commit `9a3a2e1` na `renato-features`; nada no `7.solucao.md` ainda | imagens em `docs/imagens/solucao/` e `docs/7.solucao.md` com as telas |
+| 3. Revisão independente e merge direto (sem PR, decisão do Renato de 19/11/2026) | não iniciada | commit, push da `renato-e6-04` e merge direto na `desenvolvimento` |
 | 4. Telas do Período 3 | pelo plano, o Período 3 entra na etapa 2 (local, contra o dev); a etapa 4 fica opcional, refazendo no DES se o merge da `main` sair até 28/11 | §7.3 com as telas das opcionais |
 
 Quem terminar uma etapa atualiza esta tabela e a linha E6-04 do [`README.md`](README.md).
@@ -26,7 +26,7 @@ Quem terminar uma etapa atualiza esta tabela e a linha E6-04 do [`README.md`](RE
 - web: `https://leai-web.onrender.com`
 - mobile: APK `le-ai-v0.2.1-android.apk` do release `v0.2.1` (`gh release download v0.2.1 -p '*.apk'`), instalado no emulador `Pixel_8_API_35`
 
-O DES roda o Período 2, então as telas do Período 3 (suspensão de conta, assuntos no livro pessoal e distribuição de notas) só entram na etapa 4.
+O DES roda o Período 2. Pelo plano, as telas do Período 3 (suspensão de conta, assuntos no livro pessoal e distribuição de notas) são capturadas já na etapa 2, com os serviços locais contra o banco de dev; a etapa 4 só as refaz no DES se o merge da `main` sair a tempo.
 
 **Dados nas telas:** uma tela vazia não mostra a solução. As capturas precisam de uma conta com estante, leituras, resenhas, listas, desafios etc. Os dados do DES não são replicados do dev. Ninguém pode aparecer com dado pessoal real de colega nas imagens sem o OK do Renato.
 
@@ -59,6 +59,8 @@ O DES roda o Período 2, então as telas do Período 3 (suspensão de conta, ass
 
 > **Prompt:** Execute o `plano-E6-04-capturas-de-tela.md` desta pasta, só com os OKs registrados nele. Não peça aprovação no meio.
 
+**Retomada (20/11/2026).** A etapa 2 já começou: as 48 capturas e os scripts de [`e6-04-rascunho/`](e6-04-rascunho/README.md) são o ponto de partida. Antes de capturar de novo, olhe cada uma com a ferramenta Read: aproveite as boas e refaça só as que mostrarem dado de leitor que não seja das contas de demonstração (resenhas de terceiros, busca, filtros, ações, progresso e cadastro estavam na fila para refazer), skeleton, erro ou teclado aberto. Faltam as cerca de 45 figuras restantes do plano. As contas de demonstração já existem no DES e no dev; as senhas ficam em `%USERPROFILE%\.leai\contas-demo-des.env` e `contas-demo-dev.env`, fora do repositório. A pasta de rascunho fica só na `renato-features`: copie as imagens aprovadas para a worktree da `renato-e6-04`, nunca a pasta.
+
 1. `git fetch` e a worktree da tarefa, com a branch `renato-e6-04` criada a partir da `origin/desenvolvimento` (ver contexto comum). O plano e o Andamento são lidos e commitados na `renato-features`.
 2. Acorde os serviços do DES (`GET /health` em cada um) antes de começar, para não capturar a tela de carregamento do cold start.
 3. Monte os dados pelo roteiro do plano.
@@ -75,17 +77,17 @@ O DES roda o Período 2, então as telas do Período 3 (suspensão de conta, ass
 
 ---
 
-## Etapa 3 — Revisão independente e PR
+## Etapa 3 — Revisão independente e merge direto
 
-> **Prompt:** Revise com contexto limpo o `docs/7.solucao.md` e as imagens novas da `renato-e6-04` e abra o PR para a `desenvolvimento`.
+> **Prompt:** Revise com contexto limpo o `docs/7.solucao.md` e as imagens novas da `renato-e6-04` e faça o merge direto na `desenvolvimento` (sem PR, decisão do Renato de 19/11/2026).
 
 1. Confira a cobertura: toda linha de §7.1 e §7.2 tem pelo menos uma figura, ou um motivo para não ter. Confira também legendas, links, tamanho total adicionado ao repositório (`git diff --stat`) e ausência de dado pessoal.
 2. Corrija os achados num commit `docs: correções da revisão das telas da solução`.
-3. Integre a `origin/desenvolvimento`, faça o push e abra o PR. Corpo: número de telas por período, origem (DES v0.2.1), contas de demonstração criadas e o que fica para a etapa 4. Sem linha de atribuição.
-4. Fechamento conforme o contexto comum. Relatório com o link do PR.
+3. Integre a `origin/desenvolvimento`, faça o push da `renato-e6-04` e o merge direto na `desenvolvimento`. Sem linha de atribuição nos commits.
+4. Fechamento conforme o contexto comum. Relatório curto: número de telas por período, origem de cada grupo (DES v0.2.1 ou local contra o dev), o que fica para a etapa 4 e o commit do merge.
 
 ---
 
 ## Etapa 4 — Telas do Período 3
 
-> **Prompt:** Depois do merge da `main` com o Período 3 no DES, acrescente a §7.3 com as telas das opcionais implementadas, nas mesmas convenções. As de F-MOD-OPC, F-ACV-OPC e F-STA-OPC já estão na `desenvolvimento`; as outras, se entrarem até 17/11. Abra um PR curto para a `desenvolvimento`.
+> **Prompt:** Depois do merge da `main` com o Período 3 no DES, acrescente a §7.3 com as telas das opcionais implementadas, nas mesmas convenções. As de F-MOD-OPC, F-ACV-OPC e F-STA-OPC já estão na `desenvolvimento`; as outras, se entrarem até 17/11. Merge direto na `desenvolvimento`, sem PR.
