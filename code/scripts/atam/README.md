@@ -35,3 +35,14 @@ Nunca contra o DES nem contra o broker de dev. Os scripts recusam host que não 
 6. Sobe o `identidade` de novo, com `P0_PING_ENABLED=true`: o ping vai para a outbox e é publicado.
 7. `node cenario-5-mensageria.mjs <log do acervo>` e `node cenario-5-broker-fora.mjs`.
 8. `docker rm -f atam-rabbit atam-pg`.
+
+## Relatório para entrega (.docx/.pdf)
+
+`gerar-relatorio-docx.py` monta o `assets/arquitetura/Relatorio_ATAM_LeAi.docx` sobre o template da disciplina (`Template_Relatorio_ATAM_PUC_2026.docx`, que fica fora do repositório), com o mesmo conteúdo de `docs/8.avaliacao_arquitetura.md`. Precisa de `python-docx`. O texto está no próprio script: mudou o `.md`, mude o script também.
+
+```
+python -I code/scripts/atam/gerar-relatorio-docx.py <template.docx> docs/imagens/componentes.png assets/arquitetura/Relatorio_ATAM_LeAi.docx
+```
+
+O `.pdf` sai do Word (Arquivo > Exportar > PDF, ou `ExportAsFixedFormat` pelo COM). Confira o PDF página por página: o bloco de assinaturas começa numa página própria.
+

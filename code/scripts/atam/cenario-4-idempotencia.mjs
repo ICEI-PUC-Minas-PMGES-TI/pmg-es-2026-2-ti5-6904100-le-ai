@@ -17,6 +17,7 @@ const corpo = { pagina: paginaAtual + 5, minutos: 10, registradoEmDispositivo: n
 const r1 = await marina.chamar('POST', url, corpo, { 'Idempotency-Key': chave });
 const r2 = await marina.chamar('POST', url, corpo, { 'Idempotency-Key': chave });
 const depois = await listar();
+const canonico = (v) => JSON.stringify(v, (_k, x) => (x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.entries(x).sort(([m], [n]) => m.localeCompare(n))) : x));
 const id = (r) => r.json?.progresso?.id ?? r.json?.id ?? null;
 const resultado = {
   medidoEm: new Date().toISOString(),
@@ -26,7 +27,9 @@ const resultado = {
   pagina: corpo.pagina,
   primeiro: { status: r1.status, progressoId: id(r1), correlationId: r1.correlationId, ms: r1.ms },
   repeticaoComAMesmaChave: { status: r2.status, progressoId: id(r2), correlationId: r2.correlationId, ms: r2.ms },
-  mesmaResposta: r1.status === r2.status && r1.texto === r2.texto,
+  // O replay devolve o corpo gravado em jsonb, que reordena as chaves: compara-se o conteúdo.
+  mesmaResposta: r1.status === r2.status && canonico(r1.json) === canonico(r2.json),
+  mesmoTextoBruto: r1.texto === r2.texto,
   registrosAntes: antes?.itens?.length ?? null,
   registrosDepois: depois?.itens?.length ?? null,
   registrosComAPagina: (depois?.itens ?? []).filter((p) => p.pagina === corpo.pagina).length,
