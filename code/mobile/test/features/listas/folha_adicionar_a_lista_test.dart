@@ -26,6 +26,7 @@ void main() {
     WidgetTester tester,
     Future<http.Response> Function(http.Request) handler, {
     LivroDeOrigem livro = _livro,
+    Duration timeout = const Duration(seconds: 90),
   }) async {
     usarTelaDeCelular(tester);
     await tester.pumpWidget(
@@ -34,7 +35,7 @@ void main() {
           servico: listasSimulado((pedido) {
             pedidos.add(pedido);
             return handler(pedido);
-          }),
+          }, timeout: timeout),
           livro: livro,
         ),
       ),
@@ -105,6 +106,73 @@ void main() {
     expect(remocoes, hasLength(2));
     expect(remocoes[1].headers['Idempotency-Key'], remocoes[0].headers['Idempotency-Key']);
     expect(find.text('3 livros'), findsOneWidget);
+  });
+
+  // L-14 (E6-02): tempo esgotado do cliente, com o `ApiClient` real e um timeout curto.
+  testWidgets('tempo esgotado ao carregar as listas: banner com "Tentar de novo", que carrega', (
+    tester,
+  ) async {
+    var demorar = true;
+    await montar(tester, (_) async {
+      if (demorar) {
+        await Future<void>.delayed(atrasoDoServidor);
+      }
+      return json(duasListas, 200);
+    }, timeout: timeoutCurto);
+    await tester.pump(timeoutCurto);
+    await tester.pump();
+
+    expect(
+      find.text('Não foi possível carregar suas listas. Verifique sua conexão e tente de novo.'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Você ainda não tem listas. Crie a primeira e este livro já entra nela.'),
+      findsNothing,
+    );
+    expect(pedidos, hasLength(1));
+    await tester.pump(atrasoDoServidor);
+
+    demorar = false;
+    await tester.tap(find.text('Tentar de novo'));
+    await tester.pumpAndSettle();
+    expect(find.text('Para ler numa viagem'), findsOneWidget);
+    expect(find.text('Quero ler em 2027'), findsOneWidget);
+  });
+
+  testWidgets('tempo esgotado ao adicionar: a marca volta e tocar reenvia com a mesma chave', (
+    tester,
+  ) async {
+    var demorar = true;
+    await montar(tester, (pedido) async {
+      if (pedido.method == 'POST') {
+        if (demorar) {
+          demorar = false;
+          await Future<void>.delayed(atrasoDoServidor);
+        }
+        return json(itemJson(1), 201);
+      }
+      return json(duasListas, 200);
+    }, timeout: timeoutCurto);
+
+    await tester.tap(find.text('Quero ler em 2027'));
+    await tester.pump();
+    await tester.pump(timeoutCurto);
+    // A troca da marca é animada; o `pumpAndSettle` não avança o timer da resposta atrasada.
+    await tester.pumpAndSettle();
+
+    expect(find.text('Não foi possível adicionar. Toque para tentar de novo.'), findsOneWidget);
+    expect(find.byIcon(PhosphorIconsFill.checkCircle), findsOneWidget);
+    await tester.pump(atrasoDoServidor);
+
+    await tester.tap(find.text('Quero ler em 2027'));
+    await tester.pumpAndSettle();
+
+    final adicoes = pedidos.where((p) => p.method == 'POST').toList();
+    expect(adicoes, hasLength(2));
+    expect(adicoes[1].headers['Idempotency-Key'], adicoes[0].headers['Idempotency-Key']);
+    expect(find.text('1 livro'), findsOneWidget);
+    expect(find.byIcon(PhosphorIconsFill.checkCircle), findsNWidgets(2));
   });
 
   testWidgets('sem listas: convite a criar a primeira; livro pessoal ganha a faixa', (
