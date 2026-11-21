@@ -1,6 +1,6 @@
 # Evidências da avaliação da arquitetura (ATAM)
 
-Dados brutos das medições do [`docs/8.avaliacao_arquitetura.md`](../../8.avaliacao_arquitetura.md) §8.2, coletados em **19/11/2026** pela E6-03 com os scripts de [`code/scripts/atam/`](../../../code/scripts/atam/README.md). Horários em UTC. Nenhum arquivo contém token, refresh token ou senha. Ids são UUID não sequenciais, e os e-mails das contas de demonstração são `.invalid`.
+Dados brutos das medições do [`docs/8.avaliacao_arquitetura.md`](../../8.avaliacao_arquitetura.md) §8.5, coletados em **19/11/2026** (e uma segunda rodada do cenário 4 em 21/11/2026, 00:58 a 01:05 UTC) pela E6-03 com os scripts de [`code/scripts/atam/`](../../../code/scripts/atam/README.md). Horários em UTC. Nenhum arquivo contém token, refresh token ou senha. Ids são UUID não sequenciais, e os e-mails das contas de demonstração são `.invalid`.
 
 **Ambientes**
 
@@ -19,7 +19,9 @@ Dados brutos das medições do [`docs/8.avaliacao_arquitetura.md`](../../8.avali
 | `cenario-3-latencias.json` | 3 | DES | Uma linha por busca (fase, cliente, consulta, início, ms, status, `X-Correlation-Id`), a linha de base da rede e o complemento de leituras |
 | `cenario-3-resumo.txt` | 3 | DES | p50/p95/p99/máximo por fase e por tipo de consulta, calculados pelo `p95.mjs` (nearest-rank) |
 | `cenario-4-cold-start.json` | 4 | DES | Primeira e segunda chamada a `GET /health` de cada serviço depois de período sem tráfego (22:06 UTC) |
-§§LINHAS4§§
+| `cenario-4-cold-start-2.json` | 4 | DES | Segunda rodada, em 21/11/2026 às 00:58 UTC, com limite de 300 s na primeira chamada |
+| `cenario-4-idempotencia.json` | 4 | DES | Mesmo `POST /leituras/{id}/progresso` da Marina enviado duas vezes com a mesma `Idempotency-Key` (21/11/2026, 01:05 UTC): status, progresso devolvido, contagem de registros antes e depois |
+| `cenario-4-web-cold-start.json` | 4 | DES | Login da Marina na web: segundos até sair do login e se o aviso de servidor iniciando apareceu. Os prints não foram versionados. O serviço provavelmente não estava hibernado nessa hora (ver `docs/8.avaliacao_arquitetura.md` §8.5) |
 | `cenario-5-ping.txt` | 5 | local | `ping.teste` Spring → Nest: envelope, propriedades AMQP, outbox, recibo e log com o mesmo `correlationId` |
 | `cenario-5-duplicado.txt` | 5 | local | Reentrega do mesmo `eventId` |
 | `cenario-5-dlq-schema.txt` | 5 | local | Schema inválido para a DLQ e a fila seguindo |
