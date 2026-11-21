@@ -7,7 +7,7 @@
 | Etapa | Situação | Saída |
 |---|---|---|
 | 1. Planejar | concluída em 19/11/2026 (plano ainda não revisado) | [`plano-E6-04-capturas-de-tela.md`](plano-E6-04-capturas-de-tela.md): 93 figuras (38 + 41 + 14), Períodos 1 e 2 do DES e Período 3 local contra o dev, ≈ 26,5 h, 6 pendências; sem PR (merge direto pelo orquestrador) |
-| 2. Capturar e escrever (Períodos 1 e 2) | interrompida em 19/11/2026 (limite de uso do agente): 48 capturas de rascunho e os scripts em [`e6-04-rascunho/`](e6-04-rascunho/README.md), commit `9a3a2e1` na `renato-features`; nada no `7.solucao.md` ainda | imagens em `docs/imagens/solucao/` e `docs/7.solucao.md` com as telas |
+| 2. Capturar e escrever (Períodos 1, 2 e 3) | concluída em 20/11/2026: 93 figuras no `docs/7.solucao.md` (P1 38, P2 41, P3 14; 46 do rascunho aproveitadas, 2 refeitas, 45 novas), ~4,2 MB, 3 validadores de contexto limpo com achados corrigidos; branch `renato-e6-04` com push (`68f7eb7`), sem merge | imagens em `docs/imagens/solucao/` e `docs/7.solucao.md` com as telas |
 | 3. Revisão independente e merge direto (sem PR, decisão do Renato de 19/11/2026) | não iniciada | commit, push da `renato-e6-04` e merge direto na `desenvolvimento` |
 | 4. Telas do Período 3 | pelo plano, o Período 3 entra na etapa 2 (local, contra o dev); a etapa 4 fica opcional, refazendo no DES se o merge da `main` sair até 28/11 | §7.3 com as telas das opcionais |
 
