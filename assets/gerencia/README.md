@@ -100,6 +100,23 @@ e os que apareceram nas atas.
 > Os riscos do `.md` e da planilha precisam bater: mudança começa no `.md` e é repetida na planilha na
 > mesma passada.
 
+## Plano de Comunicação
+
+Elaborado em **23/11/2026**. Para cada entregável, registra o público-alvo, o método de comunicação, a
+frequência e o responsável, além das ferramentas (WhatsApp, Google Meet, GitHub e Canvas), dos papéis
+e dos princípios gerais, entre eles a LGPD. As linhas de plano de qualidade, checklists de inspeção e
+plano de aquisições do template foram mapeadas para o Plano de Testes, o Definition of Done com a
+revisão de PR e o orçamento, que cumprem esses papéis no projeto.
+
+| Arquivo | Conteúdo |
+| --- | --- |
+| [`plano_de_comunicacao.md`](plano_de_comunicacao.md) | **Versão canônica**: matriz de comunicação, ferramentas, papéis, princípios e controle de mudança. |
+| [`plano_de_comunicacao.docx`](plano_de_comunicacao.docx) | Template da disciplina preenchido. **Derivado** do `.md`. |
+| [`plano_de_comunicacao.pdf`](plano_de_comunicacao.pdf) | Versão para entrega, em três páginas A4. **Derivado** do `.docx`. |
+
+> Os riscos de comunicação já estão cobertos pela lista de riscos (R3: aviso no grupo antes de mexer em
+> serviço de outro dono; R9: segredos e dados pessoais), que não precisou mudar.
+
 ## Processo e planejamento
 
 O processo de trabalho (branches, Definition of Done, rituais, prazos e períodos) não vive aqui — é fonte de verdade em [`../../docs/orquestador/plano-de-projeto.md`](../../docs/orquestador/plano-de-projeto.md). O acompanhamento das 37 features está no quadro Kanban do projeto: https://github.com/orgs/ICEI-PUC-Minas-PMGES-TI/projects/738
