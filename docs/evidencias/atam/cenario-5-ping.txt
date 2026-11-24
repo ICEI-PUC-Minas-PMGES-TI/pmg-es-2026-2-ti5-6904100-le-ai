@@ -1,0 +1,7 @@
+Cenário 5.1 - ping.teste do identidade (Spring) ao acervo (NestJS), local (Docker), 2026-11-19T22:32:09.811Z
+Envelope publicado (cópia da fila atam.captura): {"eventId":"edb55465-f3c1-4932-a7b0-25c9dd19c486","type":"ping.teste","version":1,"occurredAt":"2026-11-19T22:32:02.214172Z","correlationId":"db1a00b0-4478-48bb-b81a-4032717f369d","businessKey":"ping:edb55465-f3c1-4932-a7b0-25c9dd19c486","data":{"mensagem":"ping"}}
+Propriedades AMQP: {"type":"ping.teste","message_id":"edb55465-f3c1-4932-a7b0-25c9dd19c486","correlation_id":"db1a00b0-4478-48bb-b81a-4032717f369d","delivery_mode":2,"headers":{"x-business-key":"ping:edb55465-f3c1-4932-a7b0-25c9dd19c486","x-event-version":1},"content_type":"application/json"}
+Outbox do identidade: edb55465-f3c1-4932-a7b0-25c9dd19c486 | ping.teste | publicado | db1a00b0-4478-48bb-b81a-4032717f369d | 2026-11-19 22:32:02.214172+00 | 2026-11-19 22:32:03.11661+00
+Recibo no acervo: acervo.p0.ping | edb55465-f3c1-4932-a7b0-25c9dd19c486 | 2026-11-19 22:32:03.232698+00
+Log do acervo com o mesmo correlationId:
+[19:32:03.244] INFO (19760): Mensagem consumida eventId=edb55465-f3c1-4932-a7b0-25c9dd19c486 correlationId=db1a00b0-4478-48bb-b81a-4032717f369d

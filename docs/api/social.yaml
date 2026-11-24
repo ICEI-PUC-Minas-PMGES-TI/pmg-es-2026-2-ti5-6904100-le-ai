@@ -34,6 +34,10 @@ info:
       - GET /recomendacoes/candidatos
       - GET /recomendacoes/recebidas
       - DELETE /recomendacoes/{recomendacaoId}
+      - GET /recomendacoes/recebidas/restantes
+      - POST /recomendacoes/descartar-lote
+      - GET /recomendacoes/sugestoes
+      - POST /recomendacoes/sugestoes/{livroId}/descartar
       - POST /listas
       - GET /listas/{listaId}
       - PATCH /listas/{listaId}
@@ -49,6 +53,7 @@ info:
       - POST /admin/denuncias/{denunciaId}/arquivar
       - POST /admin/denuncias/{denunciaId}/remover
       - GET /admin/moderacao/logs
+      - GET /admin/usuarios
       - DELETE /admin/frases/{fraseId}
 x-database-contracts:
   - name: v_atividade_livro_pessoal_v1
@@ -111,8 +116,12 @@ x-event-consumers:
       - leitura.expirada
       - recomendacao.recebida
       - resenha.curtida
+      - lembrete.sequencia
     effect: >-
-      Cria uma notificação para destinatarioId. resenha.curtida (F-AVA-2) só
+      Cria uma notificação para destinatarioId. lembrete.sequencia (F-GAM-OPC)
+      vem do job diário do leitura, com a chave de negócio
+      `sequencia:<usuarioId>:lembrete:<dataLocal>`: um lembrete por leitor e
+      dia local. resenha.curtida (F-AVA-2) só
       chega na primeira curtida do par resenha e leitor, e a chave de negócio
       `resenha:<resenhaId>:curtida:<autorAcaoId>` impede a segunda. A deduplicação semântica usa
       destinatário, tipo e chave de negócio; para inatividade, inclui leitura,
@@ -137,13 +146,6 @@ x-event-consumers:
       o backfill do intervalo antes de a fila existir.
     required-envelope-fields:
       [eventId, type, version, occurredAt, correlationId, businessKey, data]
-  planned-future-events:
-    x-implementation-status: planned-after-periodo-1
-    events:
-      - lembrete.sequencia
-    description: >-
-      Só entram no consumidor quando a feature produtora definir nome, schema,
-      chave de negócio, retentativa, DLQ e testes. Não são gerados no Período 1.
 x-external-actions:
   abandonar-leitura-em-risco:
     x-implementation-status: implemented
@@ -280,7 +282,11 @@ paths:
       description: >-
         Lista somente comentários-raiz, paginados e ordenados do mais antigo
         para o mais recente. As respostas são consultadas pela rota própria. A
-        atividade precisa continuar visível ao solicitante.
+        atividade precisa continuar visível ao solicitante. F-MOD-OPC: some o
+        comentário de conta suspensa ou em exclusão (fora de
+        `v_perfil_referencia_v1`), salvo para o próprio autor, e a thread de
+        raiz oculta some inteira; `totalItens`, `totalRespostas` e o
+        `totalComentarios` da atividade contam só o que o solicitante vê.
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/PageSize'
@@ -339,7 +345,9 @@ paths:
       description: >-
         Paginação por cursor estável. Retorna apenas respostas irmãs sob a raiz,
         inclusive quando foram criadas em resposta a outra resposta. Revalida a
-        visibilidade da atividade antes de retornar qualquer comentário.
+        visibilidade da atividade antes de retornar qualquer comentário. Raiz
+        de conta suspensa é 404 (F-MOD-OPC), e as respostas de conta suspensa
+        não aparecem. Responder ou denunciar comentário oculto também é 404.
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/CursorLimit'
@@ -368,6 +376,15 @@ paths:
         destinatário que este comentário ainda não notificou, nunca para o
         autor nem para o alvo de comentario.respondido. Menções que notificam
         têm rate limiting próprio (RN-10.3); estourar recusa a edição com 429.
+        F-MOD-OPC: a menção a conta suspensa ou em exclusão chega aos clientes
+        como "um leitor", e o editor parte desse texto; o servidor devolve ao
+        `@username` gravado cada trecho mascarado que sobrou. Isso só vale
+        contra a apresentação que o editor carregou: o cliente devolve a
+        `versao` do comentário, e versão diferente da atual (a conta foi
+        suspensa ou reativada, ou houve outra edição) é 409
+        `COMENTARIO_DESATUALIZADO`, sem mudança. Com menção gravada, a
+        `versao` é obrigatória; sem menção, o cliente antigo continua editando
+        sem ela.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -385,7 +402,14 @@ paths:
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '403': { $ref: '#/components/responses/Proibido' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
-        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '409':
+          description: >-
+            `COMENTARIO_DESATUALIZADO`, a apresentação mudou desde a leitura
+            (ou faltou a `versao` com menção gravada); ou `CONFLITO`, a chave
+            de idempotência já foi usada com outro payload.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
         '429': { $ref: '#/components/responses/LimiteExcedido' }
         '503': { $ref: '#/components/responses/Indisponivel' }
     delete:
@@ -820,6 +844,133 @@ paths:
         '404': { $ref: '#/components/responses/NaoEncontrado' }
         '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
         '503': { $ref: '#/components/responses/Indisponivel' }
+  /recomendacoes/recebidas/restantes:
+    get:
+      tags: [recomendacoes]
+      summary: Conta as recomendações ativas de um livro na lista do leitor (RN-22.12)
+      operationId: contarRecomendacoesDoLivro
+      x-implementation-status: implemented
+      description: >-
+        F-REC-ALG. O cliente consulta no terceiro descarte do mesmo livro na
+        sessão, para decidir se oferece o descarte em lote. A contagem de
+        descartes e a supressão da pergunta vivem só no cliente (RN-22.13); o
+        servidor não guarda nenhum dos dois. Conta o mesmo que a lista mostra:
+        ativas, de remetente visível e de livro ativo.
+      parameters:
+        - name: livroId
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Quantas restam.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RestantesDoLivro' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /recomendacoes/descartar-lote:
+    post:
+      tags: [recomendacoes]
+      summary: Descarta todas as recomendações recebidas de um livro (RF-REC-17, RN-22.12)
+      operationId: descartarRecomendacoesDoLivro
+      x-implementation-status: implemented
+      description: >-
+        F-REC-ALG. Quarta via de remoção de RN-22: remove fisicamente todas as
+        recomendações ativas daquele livro recebidas pelo leitor autenticado,
+        num pedido só (tudo ou nada). Não avisa os remetentes (RN-22.11) e não
+        tem restauração (RN-22.14). Lote já vazio responde 200 com zero.
+        Repetir a mesma Idempotency-Key reproduz a contagem original.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DescartarLote' }
+      responses:
+        '200':
+          description: Quantas recomendações saíram da lista do leitor.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DescarteEmLote' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /recomendacoes/sugestoes:
+    get:
+      tags: [recomendacoes]
+      summary: Sugere livros pelas leituras de quem o leitor segue e pelo gosto dele (RF-REC-08/09/10/11)
+      operationId: listarSugestoes
+      x-implementation-status: implemented
+      description: >-
+        F-REC-ALG. Calculado em tempo de consulta, sem estrutura derivada
+        (REQUISITOS §10.7). Sem `secao`, devolve a primeira página das duas
+        seções; com `secao` e `offset`, só a continuação daquela seção, e a
+        outra vem nula. O tamanho da página e o teto de cada seção são do
+        servidor (RNF-DES-02). A paginação é por `offset` e não por página
+        porque o descarte de um item desloca os seguintes.
+
+
+        `seguidos` (RF-REC-09): livros concluídos por leitores que o autenticado
+        segue com seguimento aceito, com piso de leitores e de nota média. Sai
+        do sinal quem pediu opt-out (`opt_out_recomendacao`), está suspenso ou
+        em exclusão. O motivo diz quantos leram, nunca quem (RN-08).
+
+
+        `gosto` (RF-REC-08): livros da mesma série, do mesmo autor ou dos
+        assuntos mais frequentes da estante do leitor (menos o abandonado). Cada
+        livro leva o motivo mais forte, nessa ordem.
+
+
+        Nas duas seções ficam fora o livro já na estante do leitor em qualquer
+        status, o livro pessoal e a sugestão descartada (RF-REC-10/12). Lê só
+        VIEWs de contrato: `v_seguimento_aceito_v1` e `v_perfil_referencia_v1`
+        (identidade), `v_estante_publica_v1` e `v_nota_publicacao_v1` (leitura),
+        `v_livro_recomendacao_v1` e `v_livro_autor_recomendacao_v1` (acervo).
+      parameters:
+        - name: secao
+          in: query
+          required: false
+          schema: { type: string, enum: [seguidos, gosto] }
+        - name: offset
+          in: query
+          required: false
+          description: O `proximoOffset` devolvido pela seção. Exige `secao`.
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        '200':
+          description: Sugestões com o motivo de cada uma.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sugestoes' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /recomendacoes/sugestoes/{livroId}/descartar:
+    post:
+      tags: [recomendacoes]
+      summary: Descarta uma sugestão, que não volta a aparecer (RF-REC-12)
+      operationId: descartarSugestao
+      x-implementation-status: implemented
+      description: >-
+        F-REC-ALG. Exclusivo do leitor autenticado. Grava `sugestao_descartada`
+        com unicidade por leitor e livro, o que torna a operação naturalmente
+        idempotente: repetir não é erro e não exige Idempotency-Key. O livro
+        some das duas seções. Livro pessoal, inativo ou inexistente responde 404.
+      parameters:
+        - name: livroId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Sugestão descartada.
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
   /notificacoes:
     get:
       tags: [notificacoes]
@@ -831,6 +982,10 @@ paths:
         ordem cronológica decrescente. Inclui estado lida/não lida e a contagem
         total de não lidas para o badge. Notificações de conta suspensa ou
         conteúdo que perdeu visibilidade não expõem o snapshot ao cliente.
+        F-MOD-OPC: com o autor da atividade fora da visibilidade, a frase diz
+        "na atividade de um leitor" e `atividadeId`/`comentarioId` vêm nulos;
+        `comentarioId` também vem nulo quando o comentário ou a raiz dele não
+        é visível. O canal em tempo real usa o mesmo mapeamento.
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/PageSize'
@@ -907,6 +1062,111 @@ paths:
             text/event-stream:
               schema: { type: string }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /me/notificacoes/preferencias:
+    get:
+      tags: [notificacoes]
+      summary: Lista as preferências de notificação por tipo (RF-NOT-05)
+      operationId: listarPreferenciasDeNotificacao
+      x-implementation-status: implemented
+      description: >-
+        Devolve todos os tipos configuráveis com o estado de cada um, inclusive
+        os nunca alterados, que vêm habilitados. A ordem é fixa e igual à da
+        tela de preferências. Só o dono lê as próprias preferências.
+      responses:
+        '200':
+          description: Uma entrada por tipo configurável.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PreferenciasDeNotificacao' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+    put:
+      tags: [notificacoes]
+      summary: Atualiza preferências de notificação por tipo (RF-NOT-05)
+      operationId: atualizarPreferenciasDeNotificacao
+      x-implementation-status: implemented
+      description: >-
+        Atualiza, de forma idempotente, os tipos enviados; os demais ficam como
+        estão. Tipo desconhecido ou repetido no corpo é rejeitado com 400 e
+        nada é alterado. Desabilitar um tipo não remove notificações já
+        gravadas, e reabilitar não recupera eventos suprimidos: o filtro age no
+        consumidor, antes de gravar, e o evento suprimido é reconhecido sem DLQ.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AtualizarPreferenciasDeNotificacao' }
+      responses:
+        '200':
+          description: Conjunto completo de preferências depois da atualização.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PreferenciasDeNotificacao' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /me/dispositivos-push:
+    post:
+      tags: [notificacoes]
+      summary: Registra ou renova o token FCM do dispositivo (RF-NOT-07)
+      operationId: registrarDispositivoPush
+      x-implementation-status: implemented
+      description: >-
+        O token é único. Reenviar o mesmo token do mesmo leitor atualiza o
+        registro e o reativa, sem duplicar. Token que pertencia a outra conta
+        passa a pertencer ao leitor autenticado, para o aparelho não receber
+        notificação de quem não está mais logado nele. Só `android` é aceito;
+        iOS não recebe push (P-04).
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegistrarDispositivoPush' }
+      responses:
+        '200':
+          description: Dispositivo já existia; registro atualizado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DispositivoPush' }
+        '201':
+          description: Dispositivo registrado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DispositivoPush' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
+        '503': { $ref: '#/components/responses/Indisponivel' }
+  /me/dispositivos-push/{id}:
+    delete:
+      tags: [notificacoes]
+      summary: Revoga o dispositivo de push (RF-NOT-07)
+      operationId: revogarDispositivoPush
+      x-implementation-status: implemented
+      description: >-
+        Chamado pelo aplicativo no logout, para o aparelho deslogado deixar de
+        receber push. Só o dono revoga o próprio dispositivo; id alheio ou
+        inexistente responde 404. Revogar de novo um dispositivo já revogado
+        também responde 204.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: UUID do dispositivo devolvido no registro.
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: Dispositivo revogado.
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409': { $ref: '#/components/responses/ConflitoIdempotencia' }
         '503': { $ref: '#/components/responses/Indisponivel' }
   /denuncias:
     post:
@@ -1116,6 +1376,155 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Erro' }
+  /admin/usuarios:
+    get:
+      tags: [moderacao]
+      summary: Busca uma conta pelo username, na visão do administrador
+      operationId: buscarContaPeloAdmin
+      x-implementation-status: implemented
+      x-implemented-by: F-MOD-OPC
+      description: >-
+        Só o administrador. Lê `identidade.v_conta_moderacao_v1`, que inclui a
+        conta suspensa (o perfil público a responde como inexistente). Username
+        sem diferença de caixa. `motivo` é o do log `suspender_conta` do
+        episódio vigente (mesmo `criado_em` de `suspensaEm`); nulo sem
+        suspensão. Conta inexistente ou em exclusão é 404.
+      parameters:
+        - name: username
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: A conta.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContaDaModeracao' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/Proibido' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+  /admin/usuarios/{usuarioId}/suspender:
+    parameters:
+      - $ref: '#/components/parameters/UsuarioIdModerado'
+    post:
+      tags: [moderacao]
+      summary: Suspende a conta do leitor (RF-MOD-04)
+      operationId: suspenderConta
+      x-implementation-status: implemented
+      x-implemented-by: F-MOD-OPC
+      description: >-
+        Só o administrador. O social não grava no schema do identidade: chama o
+        comando interno `POST /internal/moderacao/usuarios/{id}/suspensao` com o
+        `X-Moderacao-Token` e o JWT do administrador repassado, e o identidade
+        revalida o papel. Só depois da confirmação grava o log `suspender_conta`
+        com o motivo e o instante que o identidade devolveu: repetir, dois
+        cliques ou conta já suspensa não geram segunda linha. Falha ou timeout
+        não grava log nem recibo; a retentativa com a mesma chave grava a linha
+        que faltou. Não resolve as denúncias do autor. O motivo é obrigatório,
+        com até 500 code points depois de tirar os espaços das pontas.
+        Intenção durável (revisão do PR #61): antes de chamar o identidade, o
+        social grava a intenção (admin, chave, conta e motivo) e manda um id
+        derivado dela em `X-Comando-Id`; o identidade guarda o resultado por
+        esse id. Uma ação nova sobre a mesma conta primeiro resolve as
+        intenções dela que ficaram sem resposta: grava o log do episódio
+        original, com o motivo original, ou cancela a que nunca rodou. Assim,
+        suspender com timeout, reativar e reenviar a suspensão mantém os dois
+        logs e devolve o resultado original sem suspender de novo.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MotivoDaModeracaoDeConta' }
+      responses:
+        '200':
+          description: Conta suspensa, ou já estava.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContaModerada' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/Proibido' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409':
+          description: >-
+            `CONFLITO`, a chave já foi usada com outra conta ou outro motivo; ou
+            `ACAO_SUPERADA`, a intenção desta chave não chegou a rodar e uma ação
+            mais nova sobre a conta a cancelou.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+        '422':
+          description: Motivo vazio ou acima de 500, ou a conta administradora.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+        '503':
+          description: O identidade não respondeu, recusou o segredo ou está sem ele.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+        '504':
+          description: A ação não foi confirmada a tempo.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+  /admin/usuarios/{usuarioId}/reativar:
+    parameters:
+      - $ref: '#/components/parameters/UsuarioIdModerado'
+    post:
+      tags: [moderacao]
+      summary: Reativa a conta suspensa (RF-MOD-04)
+      operationId: reativarConta
+      x-implementation-status: implemented
+      x-implemented-by: F-MOD-OPC
+      description: >-
+        Simétrico a suspender, com o motivo também obrigatório. O identidade
+        restaura login e visibilidade sob RN-08. Reativar conta ativa responde
+        200 sem log. O painel chama a partir da denúncia ou da linha da
+        suspensão vigente no registro. Mesma intenção durável da suspensão.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MotivoDaModeracaoDeConta' }
+      responses:
+        '200':
+          description: Conta reativada, ou já estava ativa.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContaModerada' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '403': { $ref: '#/components/responses/Proibido' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
+        '409':
+          description: >-
+            `CONFLITO`, a chave já foi usada com outra conta ou outro motivo; ou
+            `ACAO_SUPERADA`, a intenção desta chave não chegou a rodar e uma ação
+            mais nova sobre a conta a cancelou.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+        '422':
+          description: Motivo vazio ou acima de 500, ou a conta administradora.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+        '503':
+          description: O identidade não respondeu, recusou o segredo ou está sem ele.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
+        '504':
+          description: A ação não foi confirmada a tempo.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Erro' }
   /admin/moderacao/logs:
     get:
       tags: [moderacao]
@@ -1123,9 +1532,12 @@ paths:
       operationId: listarRegistrosDeModeracao
       x-implementation-status: implemented
       description: >-
-        Só o administrador. Autor, ação, alvo e momento, sem o texto removido,
-        o motivo nem quem denunciou (RNF-SEC-36). Alvo de conta excluída vem
-        anonimizado (RN-23.7). Paginação por cursor.
+        Só o administrador. Autor, ação, alvo e momento, sem o texto removido
+        nem quem denunciou (RNF-SEC-36). Alvo de conta excluída vem
+        anonimizado (RN-23.7). Paginação por cursor. F-MOD-OPC: as linhas de
+        conta (`alvoTipo: usuario`) trazem a conta, o motivo do administrador
+        e `suspensaoVigente`, verdadeiro só na suspensão em vigor; nas demais
+        linhas esses campos vêm nulos e falso.
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - name: limite
@@ -1164,6 +1576,12 @@ components:
       bearerFormat: JWT
       description: Token de acesso de curta duração emitido pelo serviço identidade.
   parameters:
+    UsuarioIdModerado:
+      name: usuarioId
+      in: path
+      required: true
+      description: Conta alvo da suspensão ou reativação.
+      schema: { type: string, format: uuid }
     AtividadeId:
       name: atividadeId
       in: path
@@ -1452,7 +1870,13 @@ components:
         livro: { $ref: '#/components/schemas/LivroSnapshot' }
         resenha: { $ref: '#/components/schemas/ResenhaSnapshot' }
         criadoEm: { type: string, format: date-time }
-        totalCurtidas: { type: integer, minimum: 0 }
+        totalCurtidas:
+          type: integer
+          minimum: 0
+          description: >-
+            Só curtidas que o solicitante enxerga: a dele e as de contas em
+            `v_perfil_referencia_v1` (F-MOD-OPC: conta suspensa sai do total e
+            volta na reativação).
         totalComentarios: { type: integer, minimum: 0 }
         curtidaPeloSolicitante: { type: boolean }
     PaginaAtividades:
@@ -1501,6 +1925,12 @@ components:
           minLength: 1
           maxLength: 2000
           description: Texto puro. HTML não é interpretado.
+        versao:
+          type: string
+          maxLength: 64
+          description: >-
+            A `versao` do comentário que o editor carregou (F-MOD-OPC).
+            Obrigatória quando o comentário tem menção gravada.
     Mencao:
       type: object
       required: [posicao, comprimento, usuarioId, username]
@@ -1549,7 +1979,11 @@ components:
           description: Texto puro; deve ser renderizado com escape.
         mencoes:
           type: array
-          description: Menções resolvidas, em ordem de posição.
+          description: >-
+            Menções resolvidas, em ordem de posição. F-MOD-OPC: menção a conta
+            fora da visibilidade sai da lista, e o `@username` dela vira
+            "um leitor" no `texto`, com as posições seguintes ajustadas; volta
+            com a reativação.
           items: { $ref: '#/components/schemas/Mencao' }
         nivel:
           type: string
@@ -1569,6 +2003,14 @@ components:
           type: string
           format: date-time
           nullable: true
+        versao:
+          type: string
+          nullable: true
+          description: >-
+            Só no comentário do próprio leitor (nulo nos outros): identifica a
+            apresentação recebida (texto mascarado e onde estão os trechos
+            mascarados), sem carregar o username oculto. Vai de volta no PATCH
+            (F-MOD-OPC).
     PaginaComentarios:
       type: object
       required: [itens, pagina, tamanho, totalItens, totalPaginas, ultima]
@@ -1598,8 +2040,9 @@ components:
       type: string
       description: >-
         Tipos produzidos no Período 1, a menção de F-SOCIAL-2, a curtida em
-        resenha de F-AVA-2 e a recomendação recebida de F-REC-P2P. Lembrete de
-        sequência depende de feature posterior.
+        resenha de F-AVA-2, a recomendação recebida de F-REC-P2P e o lembrete
+        de sequência de F-GAM-OPC. O lembrete não tem ator, livro nem ação; o
+        número da sequência vai na `mensagem`.
       enum:
         - NOVO_SEGUIDOR
         - SOLICITACAO_CRIADA
@@ -1612,7 +2055,6 @@ components:
         - LEITURA_EXPIRADA
         - RECOMENDACAO_RECEBIDA
         - RESENHA_CURTIDA
-      x-planned-future-values:
         - LEMBRETE_SEQUENCIA
     AcaoNotificacao:
       type: object
@@ -1749,6 +2191,83 @@ components:
           minimum: 0
           description: Quantidade alterada nesta operação.
         totalNaoLidas: { type: integer, format: int64, minimum: 0 }
+    TipoPreferenciaNotificacao:
+      type: string
+      description: >-
+        Tipos configuráveis (RF-NOT-05): os mesmos de `TipoNotificacao`.
+        `SOLICITACAO_CRIADA` corresponde ao literal
+        `solicitacao_seguir` do banco.
+      enum:
+        - NOVO_SEGUIDOR
+        - SOLICITACAO_CRIADA
+        - SOLICITACAO_ACEITA
+        - ATIVIDADE_CURTIDA
+        - ATIVIDADE_COMENTADA
+        - COMENTARIO_RESPONDIDO
+        - USUARIO_MENCIONADO
+        - LEITURA_EM_RISCO
+        - LEITURA_EXPIRADA
+        - RECOMENDACAO_RECEBIDA
+        - RESENHA_CURTIDA
+        - LEMBRETE_SEQUENCIA
+    PreferenciaDeNotificacao:
+      type: object
+      required: [tipo, habilitada]
+      properties:
+        tipo: { $ref: '#/components/schemas/TipoPreferenciaNotificacao' }
+        habilitada: { type: boolean }
+    PreferenciasDeNotificacao:
+      type: object
+      required: [preferencias]
+      properties:
+        preferencias:
+          type: array
+          minItems: 12
+          maxItems: 12
+          items: { $ref: '#/components/schemas/PreferenciaDeNotificacao' }
+    AtualizarPreferenciasDeNotificacao:
+      type: object
+      required: [preferencias]
+      additionalProperties: false
+      properties:
+        preferencias:
+          type: array
+          minItems: 1
+          maxItems: 12
+          items: { $ref: '#/components/schemas/PreferenciaDeNotificacao' }
+          description: Um item por tipo; tipo repetido é rejeitado.
+    RegistrarDispositivoPush:
+      type: object
+      required: [token, plataforma]
+      additionalProperties: false
+      properties:
+        token:
+          type: string
+          minLength: 1
+          maxLength: 4096
+          description: Token de registro FCM.
+        plataforma:
+          type: string
+          enum: [android]
+    DispositivoPush:
+      type: object
+      required: [id, plataforma, ativo]
+      properties:
+        id: { type: string, format: uuid }
+        plataforma:
+          type: string
+          enum: [android]
+        ativo: { type: boolean }
+    PayloadDePush:
+      type: object
+      description: >-
+        Campos `data` da mensagem FCM. O corpo visível é uma frase curta em
+        pt-BR sem dado sensível (SEC-36); ao tocar, o aplicativo busca o item
+        autenticado em `GET /notificacoes`.
+      required: [notificacaoId, tipo]
+      properties:
+        notificacaoId: { type: string, format: uuid }
+        tipo: { $ref: '#/components/schemas/TipoNotificacao' }
     SincronizacaoTempoReal:
       type: object
       description: Dado do evento SSE `sincronizacao`, o primeiro de todo canal aberto.
@@ -1846,6 +2365,67 @@ components:
           format: date-time
           description: Base do tempo relativo, calculado no cliente.
         expiraEm: { type: string, format: date-time }
+    RestantesDoLivro:
+      type: object
+      required: [restantes]
+      properties:
+        restantes: { type: integer, minimum: 0 }
+    DescartarLote:
+      type: object
+      required: [livroId]
+      properties:
+        livroId: { type: string, format: uuid }
+    DescarteEmLote:
+      type: object
+      required: [removidas]
+      properties:
+        removidas:
+          type: integer
+          minimum: 0
+          description: Recomendações do livro que saíram da lista do leitor.
+    Sugestoes:
+      type: object
+      required: [seguidos, gosto]
+      properties:
+        seguidos:
+          allOf: [{ $ref: '#/components/schemas/SecaoDeSugestoes' }]
+          nullable: true
+          description: Nula quando a consulta pediu só a outra seção.
+        gosto:
+          allOf: [{ $ref: '#/components/schemas/SecaoDeSugestoes' }]
+          nullable: true
+          description: Nula quando a consulta pediu só a outra seção.
+    SecaoDeSugestoes:
+      type: object
+      required: [itens, proximoOffset]
+      properties:
+        itens:
+          type: array
+          description: Vazia quando não há sinal; o cliente esconde a seção.
+          items: { $ref: '#/components/schemas/Sugestao' }
+        proximoOffset:
+          type: integer
+          nullable: true
+          description: O que mandar em `offset` para pedir mais; nulo quando a seção acabou.
+    Sugestao:
+      type: object
+      required: [livro, motivo]
+      properties:
+        livro: { $ref: '#/components/schemas/LivroSnapshot' }
+        motivo: { $ref: '#/components/schemas/MotivoDaSugestao' }
+    MotivoDaSugestao:
+      type: object
+      required: [tipo, texto]
+      properties:
+        tipo:
+          type: string
+          enum: [SEGUIDOS, SERIE, AUTOR, ASSUNTO]
+        texto:
+          type: string
+          description: >-
+            Pronto para exibir, montado no servidor a partir do critério que
+            trouxe o livro (RF-REC-11).
+          example: 2 pessoas que você segue leram
     PaginaRecomendacoes:
       type: object
       required: [itens, pagina, tamanho, totalItens, totalPaginas, ultima]
@@ -2085,12 +2665,44 @@ components:
     PessoaDaModeracao:
       type: object
       nullable: true
-      required: [id, username, nomeExibicao]
+      description: >-
+        Lida de `identidade.v_conta_moderacao_v1` (F-MOD-OPC): a conta suspensa
+        aparece com `suspensa`. Nula para conta em exclusão ou excluída.
+      required: [id, username, nomeExibicao, suspensa]
       properties:
         id: { type: string, format: uuid }
         username: { type: string }
         nomeExibicao: { type: string }
         avatarUrl: { type: string, nullable: true }
+        suspensa: { type: boolean }
+        suspensaEm: { type: string, format: date-time, nullable: true }
+    ContaDaModeracao:
+      type: object
+      required: [id, username, nomeExibicao, privacidade, suspensa]
+      properties:
+        id: { type: string, format: uuid }
+        username: { type: string }
+        nomeExibicao: { type: string }
+        avatarUrl: { type: string, nullable: true }
+        privacidade: { type: string, enum: [publico, privado] }
+        suspensa: { type: boolean }
+        suspensaEm: { type: string, format: date-time, nullable: true }
+        motivo: { type: string, nullable: true }
+    MotivoDaModeracaoDeConta:
+      type: object
+      required: [motivo]
+      properties:
+        motivo:
+          type: string
+          description: Até 500 code points, sem contar os espaços das pontas.
+    ContaModerada:
+      type: object
+      required: [usuarioId, suspensa]
+      properties:
+        usuarioId: { type: string, format: uuid }
+        suspensa: { type: boolean }
+        suspensaEm: { type: string, format: date-time, nullable: true }
+        reativadaEm: { type: string, format: date-time, nullable: true }
     DenunciaPendente:
       type: object
       required: [id, tipo, criadoEm, motivo, remocaoNaoConfirmada]
@@ -2147,17 +2759,35 @@ components:
           items: { type: string, format: uuid }
     RegistroDeModeracao:
       type: object
-      required: [id, criadoEm, acao, alvoTipo, comDenuncia, anonimizado]
+      required: [id, criadoEm, acao, alvoTipo, comDenuncia, anonimizado, suspensaoVigente]
       properties:
         id: { type: string, format: uuid }
         criadoEm: { type: string, format: date-time }
-        acao: { type: string, enum: [remover_conteudo, arquivar_denuncia] }
-        alvoTipo: { type: string, enum: [resenha, comentario, frase] }
+        acao:
+          type: string
+          enum: [remover_conteudo, arquivar_denuncia, suspender_conta, reativar_conta]
+        alvoTipo: { type: string, enum: [resenha, comentario, frase, usuario] }
         comDenuncia: { type: boolean }
         alvoAutor: { type: string, nullable: true, description: Username de quem escreveu. }
         atividadeAutor: { type: string, nullable: true }
         livroTitulo: { type: string, nullable: true }
         anonimizado: { type: boolean }
+        alvoId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Só nas linhas de conta; é o id para reativar.
+        alvoConta:
+          type: string
+          nullable: true
+          description: Username da conta, nas linhas de conta.
+        motivo:
+          type: string
+          nullable: true
+          description: Motivo do administrador, só nas linhas de conta (RNF-SEC-36).
+        suspensaoVigente:
+          type: boolean
+          description: A linha é a suspensão em vigor da conta.
     PaginaRegistrosDeModeracao:
       type: object
       required: [itens, temMais]

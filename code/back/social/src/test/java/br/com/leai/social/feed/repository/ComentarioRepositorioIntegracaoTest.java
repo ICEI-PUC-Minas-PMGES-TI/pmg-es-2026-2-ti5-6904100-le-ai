@@ -6,26 +6,36 @@ import br.com.leai.social.feed.entity.Atividade;
 import br.com.leai.social.feed.entity.Comentario;
 import br.com.leai.social.feed.entity.TipoAtividade;
 import br.com.leai.social.integracao.IntegracaoComPostgres;
+import br.com.leai.social.integracao.MassaDeRecomendacao;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
  * {@link ComentarioRepository} contra Postgres real: paginação de comentários-raiz e cursor de
- * respostas (RF-SOC-15/18). Só usa o schema `social`, já migrado pelo {@code
- * IntegracaoComPostgres} desta classe — sem precisar recriar views de outro serviço.
+ * respostas (RF-SOC-15/18). Desde a F-MOD-OPC (05/11/2026) as consultas filtram pela VIEW de
+ * perfil do {@code identidade}, então a massa da recomendação cria as VIEWs falsas; aqui o leitor
+ * é o próprio autor, que sempre vê o que escreveu.
  */
 @EnabledIfEnvironmentVariable(named = "DATABASE_URL_TESTE", matches = ".+")
 class ComentarioRepositorioIntegracaoTest extends IntegracaoComPostgres {
 
   @Autowired private AtividadeRepository atividadeRepository;
   @Autowired private ComentarioRepository comentarioRepository;
+  @Autowired private JdbcTemplate jdbc;
+
+  @BeforeEach
+  void viewsDoIdentidade() {
+    new MassaDeRecomendacao(jdbc).preparar();
+  }
 
   private UUID novaAtividade(String chaveFato) {
     Atividade atividade =
@@ -66,9 +76,9 @@ class ComentarioRepositorioIntegracaoTest extends IntegracaoComPostgres {
     Comentario raiz3 = comentarioRepository.save(Comentario.novo(atividadeId, autor, null, null, null, "terceiro"));
 
     Page<Comentario> primeiraPagina =
-        comentarioRepository.buscarRaizesPorAtividade(atividadeId, PageRequest.of(0, 2));
+        comentarioRepository.buscarRaizesPorAtividade(atividadeId, autor, PageRequest.of(0, 2));
     Page<Comentario> segundaPagina =
-        comentarioRepository.buscarRaizesPorAtividade(atividadeId, PageRequest.of(1, 2));
+        comentarioRepository.buscarRaizesPorAtividade(atividadeId, autor, PageRequest.of(1, 2));
 
     assertThat(primeiraPagina.getTotalElements()).isEqualTo(3);
     assertThat(primeiraPagina.getContent())
@@ -85,7 +95,7 @@ class ComentarioRepositorioIntegracaoTest extends IntegracaoComPostgres {
     Comentario raiz = comentarioRepository.save(Comentario.novo(atividadeId, autor, null, null, null, "raiz"));
     comentarioRepository.save(Comentario.novo(atividadeId, autor, raiz.id(), autor, null, "resposta"));
 
-    Page<Comentario> pagina = comentarioRepository.buscarRaizesPorAtividade(atividadeId, PageRequest.of(0, 10));
+    Page<Comentario> pagina = comentarioRepository.buscarRaizesPorAtividade(atividadeId, autor, PageRequest.of(0, 10));
 
     assertThat(pagina.getContent()).extracting(Comentario::id).containsExactly(raiz.id());
     assertThat(pagina.getTotalElements()).isEqualTo(1);
@@ -118,31 +128,31 @@ class ComentarioRepositorioIntegracaoTest extends IntegracaoComPostgres {
       espacarRelogio();
     }
 
-    List<Comentario> primeiraPagina = comentarioRepository.buscarRespostasPorRaiz(raiz.id(), null, 2);
+    List<Comentario> primeiraPagina = comentarioRepository.buscarRespostasPorRaiz(raiz.id(), autor, null, 2);
     assertThat(primeiraPagina)
         .extracting(Comentario::id)
         .containsExactly(respostasIds.get(0), respostasIds.get(1));
 
     String cursor1 =
         new CursorComentario(primeiraPagina.get(1).criadoEm(), primeiraPagina.get(1).id()).codificar();
-    List<Comentario> segundaPagina = comentarioRepository.buscarRespostasPorRaiz(raiz.id(), cursor1, 2);
+    List<Comentario> segundaPagina = comentarioRepository.buscarRespostasPorRaiz(raiz.id(), autor, cursor1, 2);
     assertThat(segundaPagina)
         .extracting(Comentario::id)
         .containsExactly(respostasIds.get(2), respostasIds.get(3));
 
     String cursor2 =
         new CursorComentario(segundaPagina.get(1).criadoEm(), segundaPagina.get(1).id()).codificar();
-    List<Comentario> terceiraPagina = comentarioRepository.buscarRespostasPorRaiz(raiz.id(), cursor2, 2);
+    List<Comentario> terceiraPagina = comentarioRepository.buscarRespostasPorRaiz(raiz.id(), autor, cursor2, 2);
     assertThat(terceiraPagina).extracting(Comentario::id).containsExactly(respostasIds.get(4));
 
     String cursor3 =
         new CursorComentario(terceiraPagina.get(0).criadoEm(), terceiraPagina.get(0).id()).codificar();
-    List<Comentario> quartaPagina = comentarioRepository.buscarRespostasPorRaiz(raiz.id(), cursor3, 2);
+    List<Comentario> quartaPagina = comentarioRepository.buscarRespostasPorRaiz(raiz.id(), autor, cursor3, 2);
     assertThat(quartaPagina).isEmpty();
   }
 
   @Test
-  @DisplayName("countByComentarioRaizId conta so as respostas daquela raiz")
+  @DisplayName("contarRespostasVisiveis conta so as respostas daquela raiz")
   void countByComentarioRaizIdContaRespostas() {
     UUID atividadeId = novaAtividade("chave-cursor-2");
     UUID autor = UUID.randomUUID();
@@ -152,7 +162,7 @@ class ComentarioRepositorioIntegracaoTest extends IntegracaoComPostgres {
     comentarioRepository.save(Comentario.novo(atividadeId, autor, raiz.id(), autor, null, "r2"));
     comentarioRepository.save(Comentario.novo(atividadeId, autor, outraRaiz.id(), autor, null, "r-outra"));
 
-    assertThat(comentarioRepository.countByComentarioRaizId(raiz.id())).isEqualTo(2);
-    assertThat(comentarioRepository.countByComentarioRaizId(outraRaiz.id())).isEqualTo(1);
+    assertThat(comentarioRepository.contarRespostasVisiveis(raiz.id(), autor)).isEqualTo(2);
+    assertThat(comentarioRepository.contarRespostasVisiveis(outraRaiz.id(), autor)).isEqualTo(1);
   }
 }

@@ -2,7 +2,7 @@ import { flushPromises } from '@vue/test-utils'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createMemoryHistory, createRouter, START_LOCATION, type RouteLocationNormalized } from 'vue-router'
 
-import { encerrarSessao, iniciarSessao } from '../session'
+import { consumirMotivoDoFimDeSessao, encerrarSessao, iniciarSessao } from '../session'
 import { tokenComPapel } from '../testes/tokens'
 import { guardaDeSessao, reagirAoFimDaSessao, routes } from './index'
 
@@ -92,5 +92,19 @@ describe('guardaDeSessao', () => {
     const to = resolverPara('/cadastro')
 
     expect(guardaDeSessao(to, START_LOCATION, () => {})).toEqual({ path: '/estante' })
+  })
+  it('F-MOD-OPC: conta suspensa vai ao login com o motivo, de qualquer rota', async () => {
+    iniciarSessao({ accessToken: 'jwt', refreshToken: 'renovacao' }, USUARIO)
+    const alvo = createRouter({ history: createMemoryHistory(), routes })
+    alvo.beforeEach(guardaDeSessao)
+    reagirAoFimDaSessao(alvo)
+    await alvo.push('/feed')
+
+    encerrarSessao({ motivo: 'suspensa' })
+    await flushPromises()
+
+    expect(alvo.currentRoute.value.path).toBe('/login')
+    expect(alvo.currentRoute.value.query).toEqual({ motivo: 'suspensa' })
+    consumirMotivoDoFimDeSessao()
   })
 })

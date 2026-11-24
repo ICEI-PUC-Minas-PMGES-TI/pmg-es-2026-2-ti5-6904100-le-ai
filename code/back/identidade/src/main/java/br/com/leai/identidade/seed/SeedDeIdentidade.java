@@ -103,7 +103,8 @@ public class SeedDeIdentidade {
             + " username = EXCLUDED.username, nome_exibicao = EXCLUDED.nome_exibicao,"
             + " senha_hash = EXCLUDED.senha_hash, biografia = EXCLUDED.biografia,"
             + " avatar_url = NULL, avatar_asset_id = NULL, privacidade = EXCLUDED.privacidade,"
-            + " suspenso = false, exclusao_solicitada_em = NULL, exclusao_prevista_em = NULL,"
+            + " suspenso = false, suspenso_em = NULL, reativado_em = NULL,"
+            + " exclusao_solicitada_em = NULL, exclusao_prevista_em = NULL,"
             + " atualizado_em = now()",
         conta.id(),
         conta.username() + "@seed.leai.invalid",

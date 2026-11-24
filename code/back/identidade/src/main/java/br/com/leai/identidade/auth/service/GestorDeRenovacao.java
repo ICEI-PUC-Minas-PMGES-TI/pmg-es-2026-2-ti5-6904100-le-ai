@@ -10,6 +10,7 @@ import java.time.Duration;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -77,6 +78,18 @@ public class GestorDeRenovacao {
   }
 
   /**
+   * Dono do token, sem travar nem alterar nada, em qualquer estado. Serve para quem precisa travar
+   * a conta antes de {@link #consumir} (F-MOD-OPC).
+   */
+  public Optional<UUID> donoDe(String token) {
+    return jdbc
+        .queryForList(
+            "SELECT usuario_id FROM refresh_token WHERE token_hash = ?", UUID.class, hash(token))
+        .stream()
+        .findFirst();
+  }
+
+  /**
    * Revoga o token apresentado e devolve o dono, para quem chamou emitir o par novo na mesma
    * transação. Token desconhecido, expirado ou já revogado é 401, sempre com a mesma mensagem.
    */
@@ -85,7 +98,7 @@ public class GestorDeRenovacao {
     List<UUID> dono =
         jdbc.queryForList(
             """
-            UPDATE refresh_token SET revogado = true
+            UPDATE refresh_token SET revogado = true, revogado_em = now()
              WHERE token_hash = ? AND revogado = false AND expira_em > now()
             RETURNING usuario_id
             """,
@@ -130,14 +143,16 @@ public class GestorDeRenovacao {
    */
   public void revogar(String token) {
     jdbc.update(
-        "UPDATE refresh_token SET revogado = true WHERE token_hash = ? AND revogado = false",
+        "UPDATE refresh_token SET revogado = true, revogado_em = now()"
+            + " WHERE token_hash = ? AND revogado = false",
         hash(token));
   }
 
   /** Revoga todas as renovações ativas do usuário. Devolve quantas estavam ativas. */
   public int revogarAtivos(UUID usuarioId) {
     return jdbc.update(
-        "UPDATE refresh_token SET revogado = true WHERE usuario_id = ? AND revogado = false",
+        "UPDATE refresh_token SET revogado = true, revogado_em = now()"
+            + " WHERE usuario_id = ? AND revogado = false",
         usuarioId);
   }
 

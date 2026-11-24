@@ -1,5 +1,6 @@
 package br.com.leai.identidade.config;
 
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import java.util.Arrays;
@@ -38,7 +39,16 @@ public record AppProperties(
         @Size(min = 32, message = "JWT_SECRET precisa de pelo menos 32 caracteres (HS256)")
         String jwtSecret,
     String adminEmail,
-    String adminPassword) {
+    String adminPassword,
+    // F-MOD-OPC: segredo das rotas /internal/moderacao, o MESMO do `social`. Opcional: vazio
+    // deixa o serviço subir e as rotas respondem 503.
+    String moderacaoToken) {
+
+  /** Vazio vale (moderação de conta desligada); preenchido, o mesmo mínimo do `social`. */
+  @AssertTrue(message = "MODERACAO_TOKEN precisa de pelo menos 32 caracteres")
+  public boolean isModeracaoTokenValido() {
+    return moderacaoToken == null || moderacaoToken.isEmpty() || moderacaoToken.length() >= 32;
+  }
 
   /**
    * Origens liberadas para CORS, sem curinga (RNF-SEC-21). Lista vazia significa nenhuma origem

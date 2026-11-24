@@ -367,4 +367,32 @@ describe('frases (integração)', () => {
       ).toBe(201);
     });
   });
+
+  // L-13 (E6-02): o 401 genérico (CT-TRV-05) cobre o filtro; aqui, cada rota.
+  it('sem token, listar, criar e excluir frase são 401', async () => {
+    const livroId = await inserirLivro(pool);
+    const guardada = await cadastrar(livroId, { texto: 'Fica.', pagina: 1 });
+    expect(guardada.status).toBe(201);
+
+    const respostas = [
+      await http().get(`/livros/${livroId}/frases`),
+      await http()
+        .post(`/livros/${livroId}/frases`)
+        .set('Idempotency-Key', randomUUID())
+        .send({ texto: 'Sem dono.', pagina: 2 }),
+      await http()
+        .delete(`/frases/${guardada.body.id}`)
+        .set('Idempotency-Key', randomUUID()),
+    ];
+
+    for (const resposta of respostas) {
+      expect(resposta.status).toBe(401);
+      expect(resposta.body.codigo).toBe('NAO_AUTENTICADO');
+      expect(resposta.body).not.toHaveProperty('itens');
+    }
+    expect(await contar(pool, 'leitura.frase')).toBe(1);
+    expect(
+      await contar(pool, 'leitura.frase', 'id = $1', [guardada.body.id]),
+    ).toBe(1);
+  });
 });

@@ -5,7 +5,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import { acessoDeRecuperacao } from '../../contaEmExclusao'
 import { ApiError } from '../../services/api'
 import { authService } from '../../services/auth'
-import { getToken, useSession } from '../../session'
+import { encerrarSessao, getToken, initializeSession, useSession } from '../../session'
 import LoginView from './LoginView.vue'
 
 vi.mock('../../services/auth', () => ({
@@ -182,5 +182,87 @@ describe('LoginView', () => {
     await flushPromises()
 
     expect(router.currentRoute.value.path).toBe('/recuperar-senha')
+  })
+  // ------------------------------------------------------------------ F-MOD-OPC
+
+  it('conta suspensa com a senha certa: banner âmbar, campos sem erro e senha limpa', async () => {
+    const { wrapper } = montarComRouter()
+    const campos = wrapper.findAll('input')
+    await campos[0]!.setValue('svaladares')
+    await campos[1]!.setValue('senha-bem-comprida')
+    vi.mocked(authService.entrar).mockRejectedValue(
+      new ApiError('Esta conta está suspensa.', 403, 'CONTA_SUSPENSA', 'c1'),
+    )
+
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Esta conta está suspensa.')
+    expect(wrapper.text()).toContain('A moderação do Lê Ai suspendeu o acesso.')
+    expect(wrapper.find('.bg-ambar-fundo').exists()).toBe(true)
+    expect(wrapper.find('.bg-rubi-fundo').exists()).toBe(false)
+    expect(campos[0]!.classes()).not.toContain('border-rubi')
+    expect((campos[0]!.element as HTMLInputElement).value).toBe('svaladares')
+    expect((campos[1]!.element as HTMLInputElement).value).toBe('')
+    expect(getToken()).toBeNull()
+  })
+
+  it('sessão encerrada pela suspensão: o login abre com o banner, uma vez só', async () => {
+    encerrarSessao({ motivo: 'suspensa' })
+    // Como no app: a navegação chega ao login antes de a tela montar.
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/login', component: LoginView }],
+    })
+    await router.push('/login?motivo=suspensa')
+    const primeiro = { router, wrapper: mount(LoginView, { global: { plugins: [router] } }) }
+    await flushPromises()
+    expect(primeiro.wrapper.text()).toContain('Sua sessão foi encerrada porque esta conta foi suspensa.')
+    // O motivo sai da URL: recarregar não repete o banner (validação, 06/11/2026).
+    expect(primeiro.router.currentRoute.value.fullPath).toBe('/login')
+    primeiro.wrapper.unmount()
+
+    // Abrir o login de novo, sem o motivo na URL, não repete o banner.
+    const segundo = montarComRouter()
+    await segundo.router.push('/login')
+    await flushPromises()
+    expect(segundo.wrapper.text()).not.toContain('suspensa')
+  })
+
+  it('/login?motivo=suspensa aberto sem sessão encerrada não mostra o banner (revisão, 06/11/2026)', async () => {
+    sessionStorage.clear()
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/login', component: LoginView }],
+    })
+    await router.push('/login?motivo=suspensa')
+    const wrapper = mount(LoginView, { global: { plugins: [router] } })
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('suspensa')
+    expect(router.currentRoute.value.fullPath).toBe('/login')
+  })
+
+  it('outra aba: o banner aparece mesmo depois de a primeira consumir a chave comum', async () => {
+    sessionStorage.clear()
+    initializeSession()
+    // A outra aba suspensa grava o motivo; esta recebe o evento e guarda a cópia dela.
+    window.dispatchEvent(new StorageEvent('storage', { key: 'le-ai-fim-de-sessao', newValue: 'suspensa' }))
+    // A primeira aba abre o login e consome a chave comum; o evento de remoção chega aqui.
+    window.dispatchEvent(new StorageEvent('storage', { key: 'le-ai-fim-de-sessao', newValue: null }))
+    const { wrapper, router } = montarComRouter()
+    await router.push('/login?motivo=suspensa')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Sua sessão foi encerrada porque esta conta foi suspensa.')
+  })
+
+  it('logout manual e exclusão de conta não mostram o banner', async () => {
+    useSession().encerrarSessao()
+    const { wrapper, router } = montarComRouter()
+    await router.push('/login')
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('suspensa')
   })
 })

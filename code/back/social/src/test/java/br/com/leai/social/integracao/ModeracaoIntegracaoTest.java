@@ -2,18 +2,25 @@ package br.com.leai.social.integracao;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import br.com.leai.social.feed.service.ConsumidorDeAtividade;
+import br.com.leai.social.messaging.MessageEnvelope;
+import br.com.leai.social.messaging.MessageValidator;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -46,6 +53,8 @@ class ModeracaoIntegracaoTest extends IntegracaoComPostgres {
 
   @Autowired private JdbcTemplate jdbc;
   @Autowired private ObjectMapper json;
+  @Autowired private ConsumidorDeAtividade consumidorDoFeed;
+  @Autowired private MessageValidator validador;
   private MassaDeModeracao massa;
 
   private final UUID admin = UUID.randomUUID();
@@ -81,6 +90,75 @@ class ModeracaoIntegracaoTest extends IntegracaoComPostgres {
         .isEqualTo(401);
     assertThat(get("/admin/denuncias", tokenAdmin()).statusCode()).isEqualTo(200);
     assertThat(estado(denuncia)).isEqualTo("pendente");
+  }
+
+  @Test
+  @DisplayName("Leitor recebe 403 ao remover, a denúncia fica pendente e o leitura não é chamado")
+  void leitorNaoRemove() throws Exception {
+    UUID resenha = massa.resenha(autora, livro, "Texto");
+    UUID denuncia = denunciarResenha(leitora, resenha);
+    removerComoOLeitura(resenha);
+
+    assertThat(
+            post("/admin/denuncias/" + denuncia + "/remover", token(leitora, "leitor"), chave())
+                .statusCode())
+        .isEqualTo(403);
+    assertThat(post("/admin/denuncias/" + denuncia + "/remover", token(leitora), chave()).statusCode())
+        .isEqualTo(403);
+
+    assertThat(estado(denuncia)).isEqualTo("pendente");
+    assertThat(LEITURA.chamadas()).isEmpty();
+    assertThat(massa.contar("SELECT count(*) FROM leitura.resenha WHERE id = ?", resenha)).isEqualTo(1);
+    assertThat(massa.contar("SELECT count(*) FROM log_moderacao")).isZero();
+    assertThat(massa.contar("SELECT count(*) FROM denuncia WHERE remocao_solicitada_em IS NOT NULL"))
+        .isZero();
+  }
+
+  /** L-13: o 401 de cada rota da moderação, e não só o da fila (CT-MOD-09). */
+  @ParameterizedTest(name = "{0} {1}")
+  @CsvSource({
+    "GET, /admin/denuncias",
+    "POST, /admin/denuncias/{denuncia}/arquivar",
+    "POST, /admin/denuncias/{denuncia}/remover",
+    "DELETE, /admin/frases/{alvo}",
+    "GET, /admin/moderacao/logs",
+    "GET, /admin/usuarios?username=autora",
+    "POST, /admin/usuarios/{autora}/suspender",
+    "POST, /admin/usuarios/{autora}/reativar"
+  })
+  @DisplayName("Sem token, todas as rotas de moderação são 401 e nada é gravado")
+  void semTokenTodasAsRotas(String metodo, String modelo) throws Exception {
+    UUID resenha = massa.resenha(autora, livro, "Texto");
+    UUID denuncia = denunciarResenha(leitora, resenha);
+    removerComoOLeitura(resenha);
+    long recibosAntes = massa.contar("SELECT count(*) FROM idempotencia_social");
+    String caminho =
+        modelo
+            .replace("{denuncia}", denuncia.toString())
+            .replace("{alvo}", UUID.randomUUID().toString())
+            .replace("{autora}", autora.toString());
+    HttpRequest.BodyPublisher corpo =
+        "POST".equals(metodo)
+            ? HttpRequest.BodyPublishers.ofString(json.writeValueAsString(Map.of("motivo", "Spam")))
+            : HttpRequest.BodyPublishers.noBody();
+
+    HttpResponse<String> resposta =
+        enviar(
+            HttpRequest.newBuilder(uri(caminho))
+                .header("Content-Type", "application/json")
+                .header("Idempotency-Key", chave())
+                .method(metodo, corpo)
+                .build());
+
+    assertThat(resposta.statusCode()).isEqualTo(401);
+    assertThat(corpo(resposta).get("codigo").asString()).isEqualTo("NAO_AUTENTICADO");
+    assertThat(estado(denuncia)).isEqualTo("pendente");
+    assertThat(LEITURA.chamadas()).isEmpty();
+    assertThat(massa.contar("SELECT count(*) FROM log_moderacao")).isZero();
+    assertThat(massa.contar("SELECT count(*) FROM comando_de_conta")).isZero();
+    assertThat(massa.contar("SELECT count(*) FROM idempotencia_social")).isEqualTo(recibosAntes);
+    assertThat(massa.contar("SELECT count(*) FROM denuncia WHERE remocao_solicitada_em IS NOT NULL"))
+        .isZero();
   }
 
   // ------------------------------------------------------------------ fila
@@ -304,6 +382,69 @@ class ModeracaoIntegracaoTest extends IntegracaoComPostgres {
     assertThat(massa.contar("SELECT count(*) FROM log_moderacao")).isEqualTo(1);
   }
 
+  // ------------------------------------------------------------------ resenha removida e o feed
+
+  /**
+   * L-30: em vez do {@code DELETE} de {@link #removerComoOLeitura}, o {@code resenha.excluida}
+   * que o {@code leitura} publica ao remover passa pelo validador de schema e pelo consumidor real
+   * do feed, ainda durante a chamada (o despachante do {@code leitura} pode ser mais rápido que a
+   * resposta). A seguidora deixa de ver a atividade já ali, e a remoção fecha normalmente.
+   */
+  @Test
+  @DisplayName("Resenha removida pela moderação some do feed quando o resenha.excluida chega")
+  void resenhaRemovidaSomeDoFeedPeloEvento() throws Exception {
+    UUID resenha = massa.resenha(autora, livro, "Texto");
+    UUID atividade = massa.atividadeDeResenha(autora, livro, resenha);
+    massa.segue(leitora, autora);
+    UUID denuncia = denunciarResenha(leitora, resenha);
+    assertThat(feed(leitora)).containsExactly(atividade.toString());
+    AtomicReference<List<String>> feedLogoDepoisDoEvento = new AtomicReference<>();
+    LEITURA.autoria(autora, livro);
+    LEITURA.aoRemover(
+        id -> {
+          massa.apagarResenha(id);
+          entregarResenhaExcluida(id);
+          feedLogoDepoisDoEvento.set(feed(leitora));
+        });
+
+    HttpResponse<String> remocao =
+        post("/admin/denuncias/" + denuncia + "/remover", tokenAdmin(), chave());
+
+    assertThat(feedLogoDepoisDoEvento.get()).isEmpty();
+    assertThat(remocao.statusCode()).as(remocao.body()).isEqualTo(200);
+    assertThat(estado(denuncia)).isEqualTo("removida");
+    assertThat(feed(leitora)).isEmpty();
+    assertThat(massa.contar("SELECT count(*) FROM atividade WHERE id = ?", atividade)).isZero();
+    assertThat(massa.contar("SELECT count(*) FROM log_moderacao")).isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName(
+      "Sem o evento, a remoção já tira a resenha do feed, e o resenha.excluida atrasado não falha")
+  void resenhaRemovidaSomeDoFeedSemOEvento() throws Exception {
+    UUID resenha = massa.resenha(autora, livro, "Texto");
+    UUID atividade = massa.atividadeDeResenha(autora, livro, resenha);
+    massa.segue(leitora, autora);
+    UUID denuncia = denunciarResenha(leitora, resenha);
+    assertThat(feed(leitora)).containsExactly(atividade.toString());
+    LEITURA.autoria(autora, livro);
+    // Só o que o leitura faz na hora: a resenha sai da VIEW. O evento chega depois.
+    LEITURA.aoRemover(massa::apagarResenha);
+
+    HttpResponse<String> remocao =
+        post("/admin/denuncias/" + denuncia + "/remover", tokenAdmin(), chave());
+
+    assertThat(remocao.statusCode()).as(remocao.body()).isEqualTo(200);
+    assertThat(feed(leitora)).isEmpty();
+    assertThat(massa.contar("SELECT count(*) FROM atividade WHERE id = ?", atividade)).isZero();
+
+    entregarResenhaExcluida(resenha);
+
+    assertThat(feed(leitora)).isEmpty();
+    assertThat(estado(denuncia)).isEqualTo("removida");
+    assertThat(massa.contar("SELECT count(*) FROM log_moderacao")).isEqualTo(1);
+  }
+
   // ------------------------------------------------------------------ frase
 
   @Test
@@ -333,6 +474,43 @@ class ModeracaoIntegracaoTest extends IntegracaoComPostgres {
 
     JsonNode registro = corpo(get("/admin/moderacao/logs", tokenAdmin())).get("itens").get(0);
     assertThat(registro.get("comDenuncia").asBoolean()).isFalse();
+  }
+
+  /**
+   * L-30: o admin repete a remoção com outra chave dentro da janela de 24 h do recibo do {@code
+   * leitura}. A chave enviada ao {@code leitura} é a fixa do alvo, então ele repete a resposta, e o
+   * {@code ON CONFLICT} deixa um log só. Passada a janela, o {@code leitura} responde 409 à mesma
+   * chave fixa (o lado dele fica no {@code moderacao.int-spec.ts}); aqui vira o 409 da frase que já
+   * não existe, sem log novo.
+   */
+  @Test
+  @DisplayName(
+      "Remover a mesma frase com outra chave do admin repete a chave fixa no leitura e grava um log só")
+  void removerFraseComOutraChave() throws Exception {
+    UUID frase = UUID.randomUUID();
+    String fixa =
+        UUID.nameUUIDFromBytes(("moderacao:frase:" + frase).getBytes(StandardCharsets.UTF_8))
+            .toString();
+    LEITURA.autoria(autora, livro);
+
+    assertThat(delete("/admin/frases/" + frase, tokenAdmin(), chave()).statusCode()).isEqualTo(204);
+    assertThat(delete("/admin/frases/" + frase, tokenAdmin(), chave()).statusCode()).isEqualTo(204);
+
+    assertThat(LEITURA.chamadas())
+        .hasSize(2)
+        .extracting(LeituraSimulada.Chamada::chave)
+        .containsOnly(fixa);
+    assertThat(massa.contar("SELECT count(*) FROM log_moderacao WHERE alvo_tipo = 'frase'"))
+        .isEqualTo(1);
+
+    LEITURA.reiniciar();
+    LEITURA.modo(LeituraSimulada.Modo.CONFLITO);
+    HttpResponse<String> depoisDaJanela = delete("/admin/frases/" + frase, tokenAdmin(), chave());
+
+    assertThat(depoisDaJanela.statusCode()).isEqualTo(409);
+    assertThat(corpo(depoisDaJanela).get("codigo").asString()).isEqualTo("CONTEUDO_JA_EXCLUIDO");
+    assertThat(LEITURA.chamadas()).extracting(LeituraSimulada.Chamada::chave).containsExactly(fixa);
+    assertThat(massa.contar("SELECT count(*) FROM log_moderacao")).isEqualTo(1);
   }
 
   @Test
@@ -391,6 +569,37 @@ class ModeracaoIntegracaoTest extends IntegracaoComPostgres {
           massa.apagarResenha(id);
           jdbc.update("DELETE FROM atividade WHERE tipo = 'resenha_publicada' AND origem_id = ?", id);
         });
+  }
+
+  /** O {@code resenha.excluida} que o {@code leitura} publica, validado e entregue ao consumidor. */
+  private void entregarResenhaExcluida(UUID resenha) {
+    MessageEnvelope envelope =
+        new MessageEnvelope(
+            UUID.randomUUID(),
+            "resenha.excluida",
+            1,
+            OffsetDateTime.now(),
+            UUID.randomUUID(),
+            "resenha:" + resenha + ":excluida",
+            Map.of(
+                "usuarioId", autora.toString(),
+                "resenhaId", resenha.toString(),
+                "livroId", livro.toString()));
+    validador.validate(envelope);
+    consumidorDoFeed.handle(envelope);
+  }
+
+  /** Ids das atividades no {@code GET /feed} de quem pede. */
+  private List<String> feed(UUID quem) {
+    try {
+      HttpResponse<String> resposta = get("/feed", token(quem));
+      assertThat(resposta.statusCode()).as(resposta.body()).isEqualTo(200);
+      List<String> ids = new ArrayList<>();
+      corpo(resposta).get("itens").forEach(item -> ids.add(item.get("id").asString()));
+      return ids;
+    } catch (Exception erro) {
+      throw new IllegalStateException(erro);
+    }
   }
 
   private String tokenAdmin() throws Exception {

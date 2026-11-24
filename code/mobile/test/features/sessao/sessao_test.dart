@@ -269,6 +269,25 @@ void main() {
       expect(sessao.sessao, isNull);
       expect(cenario.armazem.conteudo, isNull);
       expect(conta.consumirAvisoDeSaida(), isNull);
+      expect(conta.consumirLeituraDescartada(), isFalse);
+    });
+
+    test('logout voluntário com sessão de leitura ativa não marca leitura descartada', () async {
+      final cenario = _Cenario();
+      final conta = SessionController(_CofreDeTokens());
+      await conta.load();
+      await conta.entrar('acesso', refreshToken: 'renovacao');
+      final sessao = await _iniciada(cenario);
+      sessao.acompanharConta(conta);
+      final revogados = <String>[];
+
+      await conta.sairRevogando((refresh) async => revogados.add(refresh));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(revogados, <String>['renovacao']);
+      expect(sessao.sessao, isNull);
+      expect(conta.consumirAvisoDeSaida(), isNull);
+      expect(conta.consumirLeituraDescartada(), isFalse);
     });
 
     test('token vencido sem renovação encerra a sessão e deixa o aviso para a entrada', () async {
@@ -295,6 +314,35 @@ void main() {
       expect(cenario.armazem.conteudo, isNull);
       expect(conta.consumirAvisoDeSaida(), TextosDoAvisoDeSaida.encerradaPorExpiracao);
       expect(conta.consumirAvisoDeSaida(), isNull);
+      expect(conta.consumirLeituraDescartada(), isFalse);
+    });
+
+    test('F-MOD-OPC: conta suspensa com sessão de leitura ativa mantém o aviso de suspensão', () async {
+      final cenario = _Cenario();
+      final conta = SessionController(_CofreDeTokens());
+      await conta.load();
+      await conta.entrar('acesso', refreshToken: 'renovacao');
+      final sessao = await _iniciada(cenario);
+      sessao.acompanharConta(conta);
+
+      final renovou = await conta.renovar(
+        'acesso',
+        (_) async => throw const ApiException(
+          kind: ApiFailureKind.invalidResponse,
+          correlationId: 'c1',
+          message: 'Esta conta está suspensa.',
+          codigo: 'CONTA_SUSPENSA',
+          status: 403,
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(renovou, false);
+      // A sessão de leitura é descartada, e a marca leva o aviso do descarte ao banner do login.
+      expect(sessao.sessao, isNull);
+      expect(conta.consumirAvisoDeSaida(), SessionController.avisoDeContaSuspensa);
+      expect(conta.consumirLeituraDescartada(), isTrue);
+      expect(conta.consumirLeituraDescartada(), isFalse);
     });
 
     test('renovar o token da mesma conta mantém a sessão', () async {

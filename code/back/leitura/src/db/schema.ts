@@ -630,8 +630,8 @@ export const vResenhaPublicacaoV1 = leituraSchema.view(
     ${resenha.spoiler} as spoiler,
     ${resenha.criadoEm} as criado_em,
     ${resenha.atualizadoEm} as atualizado_em,
-    count(${reacaoResenha.id}) filter (where ${reacaoResenha.ativa} and ${reacaoResenha.tipo} = 'curtida') as curtidas,
-    count(${reacaoResenha.id}) filter (where ${reacaoResenha.ativa} and ${reacaoResenha.tipo} = 'descurtida') as descurtidas
+    count(${reacaoResenha.id}) filter (where ${reacaoResenha.ativa} and ${reacaoResenha.tipo} = 'curtida' and exists (select 1 from "identidade"."v_perfil_referencia_v1" p where p.id = ${reacaoResenha.usuarioId})) as curtidas,
+    count(${reacaoResenha.id}) filter (where ${reacaoResenha.ativa} and ${reacaoResenha.tipo} = 'descurtida' and exists (select 1 from "identidade"."v_perfil_referencia_v1" p where p.id = ${reacaoResenha.usuarioId})) as descurtidas
   from ${resenha}
   left join ${reacaoResenha} on ${reacaoResenha.resenhaId} = ${resenha.id}
   group by ${resenha.id}`);

@@ -29,7 +29,14 @@ const RESUMO = {
   capaUrl: 'https://covers.openlibrary.org/b/id/1-L.jpg',
 }
 
-const dados = { titulo: 'Cartas de um sertanejo', autor: 'Marina Albuquerque', paginas: 184, sinopse: null, capaUrl: null }
+const dados = {
+  titulo: 'Cartas de um sertanejo',
+  autor: 'Marina Albuquerque',
+  paginas: 184,
+  sinopse: null,
+  capaUrl: null,
+  assuntos: [] as string[],
+}
 
 describe('createAcervoService', () => {
   it('solicita a importação só com o ISBN, com a chave da intenção e o token', async () => {
@@ -229,7 +236,37 @@ describe('corpoDoLivroPessoal', () => {
     expect(corpoDoLivroPessoal(dados, false)).toEqual({ titulo: dados.titulo, autor: dados.autor, paginas: 184 })
   })
 
-  it('na edição, null explícito limpa sinopse e capa', () => {
-    expect(corpoDoLivroPessoal(dados, true)).toEqual({ ...dados })
+  it('na edição, null explícito limpa sinopse e capa, e assuntos vazio limpa os assuntos', () => {
+    expect(corpoDoLivroPessoal(dados, true)).toEqual({ ...dados, assuntos: [] })
+  })
+
+  it('assuntos (F-ACV-OPC): na criação só vão com algum; na edição vão sempre', () => {
+    const comAssuntos = { ...dados, assuntos: ['a1', 'b2'] }
+
+    expect(corpoDoLivroPessoal(dados, false)).not.toHaveProperty('assuntos')
+    expect(corpoDoLivroPessoal(comAssuntos, false)).toEqual({
+      titulo: dados.titulo,
+      autor: dados.autor,
+      paginas: 184,
+      assuntos: ['a1', 'b2'],
+    })
+    expect(corpoDoLivroPessoal(comAssuntos, true).assuntos).toEqual(['a1', 'b2'])
+  })
+
+  it('criar e atualizar mandam os assuntos no corpo, com a chave', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => resposta(200, { id: 'l1', assuntos: [] }))
+    const acervo = servico(fetchMock)
+
+    await acervo.criarLivroPessoal({ ...dados, assuntos: ['a1'] }, 'chave-c')
+    await acervo.atualizarLivroPessoal('l1', dados, 'chave-a')
+
+    const [urlCriar, initCriar] = fetchMock.mock.calls[0]!
+    expect(urlCriar).toBe('https://acervo.example.com/livros/pessoal')
+    expect(JSON.parse(initCriar?.body as string).assuntos).toEqual(['a1'])
+    const [urlAtualizar, initAtualizar] = fetchMock.mock.calls[1]!
+    expect(urlAtualizar).toBe('https://acervo.example.com/livros/pessoal/l1')
+    expect(initAtualizar?.method).toBe('PATCH')
+    expect(JSON.parse(initAtualizar?.body as string).assuntos).toEqual([])
+    expect((initAtualizar?.headers as Headers).get('Idempotency-Key')).toBe('chave-a')
   })
 })

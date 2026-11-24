@@ -40,7 +40,7 @@ Núcleo do produto. Estante, leitura, progresso, sessão cronometrada, nota, res
 
 ## Infra comum das features (F-AVA, fatia 0, 26/09/2026)
 
-Copiada do `acervo` e pronta para F-AVA, F-EST e F-PRG. Não existe pacote compartilhado entre serviços: a regra é copiar e adaptar. Plano: [`plano-F-AVA.md`](../../../docs/plano-de-desenvolvimento/periodo-1/plano-F-AVA.md), fatia 0.
+Copiada do `acervo` e pronta para F-AVA, F-EST e F-PRG. Não existe pacote compartilhado entre serviços: a regra é copiar e adaptar.
 
 - **Autenticação (`src/auth/`):** `JwtAuthGuard` global (`APP_GUARD`): toda rota nasce protegida. `@Publico()` libera (só `/health`); o Swagger (`/docs`, `/docs-json`) também responde sem token. `@UsuarioAtual()` dá `{ id, username }` do token — nunca aceite o id do solicitante pelo corpo. HS256, issuer `identidade`, `exp` obrigatório (o `jwt.verify` só confere a expiração quando ela existe), `JWT_SECRET` igual ao do `identidade` (mínimo de 32 caracteres, obrigatório em produção; sem ele o serviço não sobe).
 - **Pipeline HTTP (`src/configurar-app.ts`):** `trust proxy`, correlation-id, helmet, CORS e `ValidationPipe` com `forbidNonWhitelisted` e `exceptionFactory`. O `main.ts` e os testes usam o mesmo.
@@ -68,7 +68,7 @@ Copiada do `acervo` e pronta para F-AVA, F-EST e F-PRG. Não existe pacote compa
 
 ## F-AVA — nota e resenha (27/09/2026)
 
-Módulos `src/avaliacoes/` (nota, resenha, minha avaliação) e `src/perfis/` (resenhas do perfil). Contrato em `docs/api/leitura.yaml`; plano em [`plano-F-AVA.md`](../../../docs/plano-de-desenvolvimento/periodo-1/plano-F-AVA.md).
+Módulos `src/avaliacoes/` (nota, resenha, minha avaliação) e `src/perfis/` (resenhas do perfil). Contrato em `docs/api/leitura.yaml`; feature em [`feature-F-AVA.md`](../../../docs/plano-de-desenvolvimento/periodo-1/feature-F-AVA.md).
 
 - **Livro:** lido de `acervo.v_livro_referencia_v1`. Inexistente, inativo ou pessoal de outra pessoa é **404, nunca 403**: conhecer o id não revela que o livro existe (RNF-SEC-06). Em livro pessoal só o dono avalia (RN-03). **Os DELETE não conferem o livro:** apagam só o que é do leitor, e remover nota ou resenha continua possível depois que o livro fica inativo.
 - **Ids de caminho em minúsculas** (`emMinusculas`, depois do `ParseUUIDPipe`): o mesmo livro sempre com o mesmo `livroId` na resposta e a mesma chave de negócio no evento; no perfil, o dono de perfil privado continua reconhecido.
@@ -81,7 +81,7 @@ Módulos `src/avaliacoes/` (nota, resenha, minha avaliação) e `src/perfis/` (r
 
 ## F-AVA-2 — reações à resenha (09/10/2026)
 
-Módulo `src/reacoes/` (plano, como `avaliacoes/`). Contrato em `docs/api/leitura.yaml`; plano em [`plano-F-AVA-2.md`](../../../docs/plano-de-desenvolvimento/periodo-2/renato-periodo-2/plano-F-AVA-2.md).
+Módulo `src/reacoes/` (plano, como `avaliacoes/`). Contrato em `docs/api/leitura.yaml`; feature em [`feature-F-AVA-2.md`](../../../docs/plano-de-desenvolvimento/periodo-2/feature-F-AVA-2.md).
 
 - **Rotas:** `PUT /resenhas/{resenhaId}/reacao` (`{ tipo, via?, referenciaId? }`) e `DELETE` na mesma rota (via na consulta). As duas respondem `{ minhaReacao, curtidas, descurtidas }`, com idempotência (`reagirResenha:<resenhaId>`, `removerReacaoResenha:<resenhaId>`; via e referência entram no hash) e rate limit de 60 por identidade e 120 por IP.
 - **Ordem das regras, igual no PUT e no DELETE:** resenha existe; livro ativo; resenha de outro (senão **422 `REACAO_PROPRIA`**); autor na VIEW de perfil; reator na VIEW de perfil (senão **403**, porque é dele o `autorAcao`); acesso. Falha de acesso é **404**.
@@ -123,6 +123,15 @@ Módulos `src/estante/`, `src/leituras/` e `src/jobs/inatividade/`, com `src/ref
 - **Backfill:** `npm run backfill:sequencia` (`node dist/sequencia/backfill.js` no build), idempotente; rodar antes de o binding subir num ambiente.
 - **Testes:** `src/sequencia/dominio/sequencia.spec.ts` e `test/integracao/sequencia.int-spec.ts` (API → outbox → despachante → broker em memória → consumidor, com duplicata, retry e DLQ).
 
+## F-GAM-OPC — calendário e lembrete de sequência (19/11/2026)
+
+- **Calendário:** `GET /me/sequencia/calendario?mes=AAAA-MM` no `SequenciaController`. Lê `dia_leitura` (a mesma fonte da sequência, então os dois não divergem). Janela em `dominio/calendario.ts`: o mês corrente e os cinco anteriores (`JANELA_MESES`), sem recuar antes do mês do primeiro dia com leitura. O mês corrente e o `hoje` são apurados no último fuso do dispositivo, com `America/Sao_Paulo` para quem não tem progresso. Formato inválido é 400; mês fora da janela, 422 com `campos.mes`.
+- **Lembrete:** `POST /internal/jobs/lembrete-sequencia` (`src/jobs/lembrete-sequencia/`), mesmo `SchedulerTokenGuard`, sujeito do agendador e idempotência HTTP do job de inatividade. Agendado em `.github/workflows/job-lembrete-sequencia.yml`, às 22h UTC (19h em Brasília).
+  - Seleciona em `sequencia_leitura`, com `identidade.v_perfil_referencia_v1` (conta suspensa ou em exclusão fica de fora). Depois relê cada leitor sob a trava `sequencia:<id>` e aplica `lembreteDevido` (`dominio/lembrete.ts`): o último dia com leitura precisa ser exatamente ontem no último fuso.
+  - Grava `lembrete.sequencia` com `eventId` UUID v5 de `(usuarioId, dataLocal)` por `OutboxRepository.inserirSeNovo` (`ON CONFLICT DO NOTHING` na chave primária). Reexecutar no mesmo dia conta em `jaLembrados` e não grava. **Não mude o namespace do UUID**, senão a deduplicação do dia quebra.
+  - O job não escreve em `sequencia_leitura` nem em `dia_leitura`. Fora de uma requisição não há correlation-id, e a outbox o exige: o serviço só roda pela rota (nos testes, dentro de `als.run`).
+- **Testes:** `src/sequencia/dominio/calendario.spec.ts`, `lembrete.spec.ts` e `test/integracao/sequencia-opc.int-spec.ts`.
+
 ## F-DSF — desafios (09/10/2026)
 
 - **`src/desafios/`** (`DesafiosModule`), em camadas: `POST/GET /desafios`, `PATCH/DELETE /desafios/{id}`, `POST /desafios/{id}/pausar` e `/retomar`. Tabelas da baseline DER (migration 0001: `desafio`, `janela_desafio`, `contribuicao_desafio`, `pausa_desafio`), sem migration nova.
@@ -132,6 +141,13 @@ Módulos `src/estante/`, `src/leituras/` e `src/jobs/inatividade/`, com `src/ref
 - **Edição:** materializa com a configuração antiga, descarta as janelas não terminadas e cria a corrente com a nova. As encerradas guardam o snapshot (RN-20.7).
 - **Backfill:** `npm run backfill:desafios` (`node dist/desafios/backfill.js` no build), idempotente; rodar antes de o binding de `leitura.finalizada` subir num ambiente.
 - **Testes:** `src/desafios/dominio/*.spec.ts` e `test/integracao/desafios.int-spec.ts` (CRUD, propriedade, idempotência, RN-20.2 a 20.10, pausas, edição, backfill, duplicata, retry e DLQ).
+
+## F-DSF-OPC — histórico de janelas dos desafios (07/11/2026)
+
+- **`GET /desafios/{id}/janelas?page=&limite=`** no mesmo `DesafiosController`: janelas encerradas (`encerrada_em` preenchido), de `inicio` desc, com o snapshot de cada uma. Paginação igual à de `GET /desafios` (helper `paginacao` no service). Desafio de outra pessoa é 404, conferido **antes** de materializar.
+- **Selagem na consulta:** `materializarSePreciso` (extraído de `listar`) roda antes de ler, então a janela que terminou desde a última leitura entra sem job. O consumidor de métricas continua selando como antes.
+- **`pausa` (`inteira | parcial | nenhuma`)** é calculada no SQL de `listarEncerradas`: o intervalo da janela no fuso dela (`inicio::timestamp AT TIME ZONE fuso_horario` até `(fim + 1)` no mesmo fuso) contra `pausa_desafio`. `inteira` exige uma única pausa cobrindo tudo.
+- **Testes:** bloco `histórico de janelas` em `test/integracao/desafios.int-spec.ts`.
 
 ## F-STA — estatísticas (11/10/2026)
 
@@ -152,7 +168,7 @@ Módulos `src/estante/`, `src/leituras/` e `src/jobs/inatividade/`, com `src/ref
 
 ## F-MOD — remoção pela moderação (18/10/2026, Renato)
 
-Plano em [`plano-F-MOD.md`](../../../docs/plano-de-desenvolvimento/periodo-2/renato-periodo-2/plano-F-MOD.md).
+Feature em [`feature-F-MOD.md`](../../../docs/plano-de-desenvolvimento/periodo-2/feature-F-MOD.md).
 
 - **Comando interno** `POST /internal/moderacao/resenhas/{id}/remocao` (`src/moderacao/`), chamado só pelo `social`, que grava a auditoria. `@Publico()` + `ModeracaoTokenGuard`: header `X-Moderacao-Token` contra `MODERACAO_TOKEN` (opcional no `env.ts`; sem ele, 503), em tempo constante como o `SchedulerTokenGuard`.
 - **Remoção:** `AvaliacoesRepository.excluirResenhaPorId` apaga sem filtro de dono e o serviço grava o mesmo `resenha.excluida` da exclusão pelo autor. Responde `{removida, autorId, livroId}`; `removida: false` quando já não existia.
@@ -161,6 +177,15 @@ Plano em [`plano-F-MOD.md`](../../../docs/plano-de-desenvolvimento/periodo-2/ren
 - **Frase:** `POST /internal/moderacao/frases/{id}/remocao`, o mesmo contrato sem evento (`FrasesRepository.excluirPorId`), operação `removerFrasePelaModeracao:<id>`.
 - **Papel no token:** `UsuarioAutenticado.papel` (`leitor` | `admin`) vem do claim `papel`; só `admin` exato vale. Hoje só `GET /livros/{id}/frases` o lê: o administrador lista todas as frases, sem o filtro de RN-08, para poder moderá-las. `tokenDe(id, username, { papel })` nos testes.
 - **Log:** a lista do `redact` saiu para `src/common/redacao-do-log.ts` e ganhou `x-scheduler-token` e `x-moderacao-token`, que o `pino-http` logava junto com os cabeçalhos.
+
+## F-MOD-OPC — reações de conta suspensa (06/11/2026, Renato)
+
+Plano em `plano-F-MOD-OPC.md`, na branch `renato-features` (pasta `docs/plano-de-desenvolvimento/periodo-3/renato-periodo-3/`).
+
+- **Migration `0007_20261106120000_reacoes_sem_conta_oculta`** (comentário no topo): recria `v_resenha_publicacao_v1` com as contagens filtradas por `identidade.v_perfil_referencia_v1`. Mesmas colunas.
+- O mesmo filtro em `AvaliacoesRepository.contagensDaResenha`, `PerfisRepository` e `ReacoesRepository`: reação de conta suspensa fica guardada e volta a contar na reativação. Testes em `test/integracao/reacao.int-spec.ts` (VIEW e reagir), `perfis.int-spec.ts` (`GET /perfis/:id/resenhas`) e `resenha.int-spec.ts` (`minha-avaliacao`).
+- **Dependência de banco entre schemas (armadilha):** a `0007` é a primeira migration do `leitura` cuja VIEW depende, no próprio Postgres, de um objeto de outro schema (`identidade.v_perfil_referencia_v1`). Consequências: (1) uma migration do `identidade` que dê `DROP VIEW` nela, ou a recrie mudando nome ou tipo de coluna, falha com `cannot drop ... because other objects depend on it`; (2) com `CASCADE`, a `v_resenha_publicacao_v1` cai sem aviso e o drizzle não a recria (a `0007` já está no journal): a página do livro no `acervo` e o feed/moderação do `social` quebram — recrie-a numa migration nova; (3) num banco novo, o `identidade` precisa migrar antes do `leitura`, senão a `0007` falha e o `start:prod` não sobe. A nota espelhada está no `AGENTS.md` do `identidade` e no `x-database-contracts` do `leitura.yaml`.
+- **Progresso de conta suspensa (19/11/2026, Renato, no código de F-PRG da Ana):** `ProgressoService.registrar` e `excluirTrecho` chamam `exigirContaDisponivel` (consulta `v_perfil_referencia_v1` por id, no mesmo `tx`) depois das validações e antes da primeira escrita, e recusam a conta fora da VIEW com `ContaIndisponivel` (403 `ACESSO_NEGADO`, "Sua conta não está disponível para esta ação."). É o mesmo erro do `snapshotDoUsuario` das transições em `LeiturasService`. Armadilhas: (1) teste que grave progresso por HTTP precisa do perfil (`inserirPerfil`), como já valia para iniciar a leitura; (2) o 403 desfaz a transação sem gravar recibo de idempotência, então a fila do app reenvia com a mesma chave depois da reativação, e isso precisa continuar assim; (3) o replay de uma chave que já deu certo antes da suspensão continua devolvendo o 201 gravado. Testes: `test/integracao/progresso.int-spec.ts` (CT-MDO-38 e CT-MDO-39). Estante, nota, favoritos, desafios e a exclusão da própria resenha ou frase continuam sem essa conferência (L-37 do plano de testes).
 
 ## Pontos de atenção (ver `REQUISITOS.md`) — prioridade de teste
 

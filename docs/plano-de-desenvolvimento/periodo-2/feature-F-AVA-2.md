@@ -63,7 +63,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [x] `resenha.curtida` é publicado após a escrita, com destinatário = autor da resenha, e consumido uma vez por `social`.
 - [x] Frase exige **página** e **≤500 caracteres**, com **máximo de 10** por usuário+livro (RN-11); listar é paginado; excluir é **owner-only** com confirmação; frases de livro pessoal são exclusivas do dono.
 - [x] Resenha aceita o **subconjunto Markdown** (RN-13) com **preview**; HTML/link/imagem/código/tabela **não** são interpretados; parser com HTML **desabilitado** e saída **sanitizada** na web (SEC-15); marcação não suportada exibida literal; mesmo subconjunto em web e mobile.
-- [ ] Reações, frases e Markdown funcionam **em DES**. Débito: entra no merge de fechamento do Período 2.
+- [x] Reações, frases e Markdown funcionam **em DES**. Validado em DES pelo dono em 05/11/2026, depois do merge de fechamento do Período 2 (releases v0.2.0 e v0.2.1).
 
 ## Definition of Done
 
@@ -75,7 +75,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [x] Testes assíncronos cobrem publicação, consumo em `social`, destinatário, duplicação semântica e DLQ de `resenha.curtida` (RNF-TST-03)
 - [x] Testes web/mobile cobrem reações, **render/sanitização do Markdown** (SEC-15), preview, frases e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
 - [x] **Spec OpenAPI de `leitura` atualizado em `docs/api/leitura.yaml`** com reações, frases, contagens e o schema de `resenha.curtida`; a adição de contagens a `v_resenha_publicacao_v1` documentada
-- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)). Débito do merge de fechamento
+- [x] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)). Validado em 05/11/2026
 - [x] Arquivo da feature atualizado: status, pendências, timeline
 - [x] Divergência protótipo × implementação registrada, se houver
 
@@ -83,7 +83,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 
 ## Pendências
 
-- **Telas (design P2):** implementadas a partir de [`pagina-do-livro.md`](../../design/periodo-2/pagina-do-livro/pagina-do-livro.md), [`frases-do-livro.md`](../../design/periodo-2/F-AVA-2/frases-do-livro.md), [`adicionar-frase.md`](../../design/periodo-2/F-AVA-2/adicionar-frase.md), [`escrever-resenha.md`](../../design/periodo-2/escrever-resenha/escrever-resenha.md), [`meu-perfil.md`](../../design/periodo-2/meu-perfil/meu-perfil.md), [`perfil-de-outro-leitor.md`](../../design/periodo-2/perfil-de-outro-leitor/perfil-de-outro-leitor.md), [`livro-pessoal.md`](../../design/periodo-2/livro-pessoal/livro-pessoal.md) e [`notificacoes.md`](../../design/periodo-2/notificacoes/notificacoes.md). Os contratos que estavam "a confirmar" ficaram assim: `GET /livros/{id}/frases` traz `minhasFrases` e `limitePorLivro`; o formulário de frase usa o total de páginas do livro, que é obrigatório no contrato `v_livro_referencia_v1`; o endpoint de resenhas do perfil traz as contagens e `minhaReacao`; a página do livro pessoal repassa `via` e `referenciaId` da rota ao reagir. O plano de execução está em [`renato-periodo-2/plano-F-AVA-2.md`](renato-periodo-2/plano-F-AVA-2.md).
+- **Telas (design P2):** implementadas a partir de [`pagina-do-livro.md`](../../design/periodo-2/pagina-do-livro/pagina-do-livro.md), [`frases-do-livro.md`](../../design/periodo-2/F-AVA-2/frases-do-livro.md), [`adicionar-frase.md`](../../design/periodo-2/F-AVA-2/adicionar-frase.md), [`escrever-resenha.md`](../../design/periodo-2/escrever-resenha/escrever-resenha.md), [`meu-perfil.md`](../../design/periodo-2/meu-perfil/meu-perfil.md), [`perfil-de-outro-leitor.md`](../../design/periodo-2/perfil-de-outro-leitor/perfil-de-outro-leitor.md), [`livro-pessoal.md`](../../design/periodo-2/livro-pessoal/livro-pessoal.md) e [`notificacoes.md`](../../design/periodo-2/notificacoes/notificacoes.md). Os contratos que estavam "a confirmar" ficaram assim: `GET /livros/{id}/frases` traz `minhasFrases` e `limitePorLivro`; o formulário de frase usa o total de páginas do livro, que é obrigatório no contrato `v_livro_referencia_v1`; o endpoint de resenhas do perfil traz as contagens e `minhaReacao`; a página do livro pessoal repassa `via` e `referenciaId` da rota ao reagir.
 - **Decisões do dono (07/10/2026), a comunicar ao grupo; não esperam resposta:**
   1. Resenhas antigas, gravadas em texto puro, passam a ser exibidas como Markdown. O texto gravado não muda e não há migration.
   2. `Enter` simples quebra a linha, igual nos dois parsers.
@@ -103,10 +103,10 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
   - **Barra de formatação na web:** a web põe a barra no topo em qualquer largura (escrever-resenha.md §4.5); a posição junto do rodapé (§4.1) é a do app. Quando a coluna não comporta a alternância e a barra lado a lado (no celular e em janelas de até uns 1.100px com a barra lateral aberta), a barra quebra para a linha de baixo, sem rolagem horizontal.
   - **Prévia do feed na web:** o trecho passou a respeitar as quebras de linha (`whitespace-pre-line`), como o card do perfil e o app. Antes, as quebras de uma resenha antiga sumiam no feed web.
   - **Deploy:** se o `acervo` subir antes da migration `0005` do `leitura`, a resenha do dono no livro pessoal vem `null` e `GET /livros/{id}/resenhas` responde 503 até a VIEW existir. No merge de fechamento, migrar o `leitura` antes de publicar o `acervo`.
-- **Preferência de notificação:** o `social` ainda não lê a preferência (fica para a F-NOT-OPC). O critério "mesmo se suprimida por preferência" é garantido pelo produtor (`primeira_curtida_em`) e pelo `UNIQUE (destinatario_id, tipo, chave_negocio)` da notificação.
+- **Preferência de notificação:** desde a F-NOT-OPC (08/11/2026) o `social` lê a preferência por tipo antes de gravar. Na época desta feature ele ainda não lia. O critério "mesmo se suprimida por preferência" é garantido pelo produtor (`primeira_curtida_em`) e pelo `UNIQUE (destinatario_id, tipo, chave_negocio)` da notificação.
 - **Débitos:**
   - **Copy das duas curtidas, com o Kayke** (decisão 9).
-  - **DES:** reações, frases e Markdown entram no DES no merge de fechamento do Período 2, com a migration `0005` aplicada no banco de Oregon antes do `acervo`.
+  - ~~**DES:** reações, frases e Markdown entram no DES no merge de fechamento do Período 2, com a migration `0005` aplicada no banco de Oregon antes do `acervo`.~~ Resolvido: validado em DES pelo dono em 05/11/2026, depois do merge de fechamento do Período 2 (releases v0.2.0 e v0.2.1).
 - **Código de outras pessoas alterado** (registrado no `AGENTS.md` de cada serviço e cliente; avisar os donos no grupo):
   - Kayke: consumidor de notificações do `social` (`EventoDeNotificacao`, `TipoNotificacao`, `RedacaoDeNotificacao`, `docs/api/social.yaml`), notificações do app (tipo, ícone e rota) e a prévia do feed (`ItemAtividade.vue` e `item_atividade.dart`).
   - Vicenzo: `acervo` (repositórios de resenhas, DTO do livro pessoal, `contratos-externos.ts`, fixture de integração) e `acervo_service.dart`.
@@ -123,6 +123,10 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - Stack de `leitura` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
 ## Timeline
+
+### 05/11/2026: validada em DES
+
+Reações, frases e Markdown testados e validados em DES pelo dono, depois do merge de fechamento do Período 2 (releases v0.2.0 e v0.2.1). Os dois itens de DES do aceite e do DoD foram marcados.
 
 ### 09/10/2026: implementação, testes e teste manual. Três commits na `renato-features`, mergeados na `desenvolvimento` e enviados ao GitHub no mesmo dia:
 

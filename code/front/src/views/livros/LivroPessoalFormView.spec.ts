@@ -12,6 +12,7 @@ vi.mock('../../services/acervo', () => ({
     atualizarLivroPessoal: vi.fn(),
     excluirLivroPessoal: vi.fn(),
     obterLivroPessoal: vi.fn(),
+    listarAssuntos: vi.fn(),
   },
 }))
 vi.mock('../../services/capa', () => ({ validarCapa: vi.fn(), enviarCapa: vi.fn() }))
@@ -31,7 +32,15 @@ const LIVRO: LivroPessoalDetalhe = {
   notaDoDono: null,
   resenhaDoDono: null,
   dono: { nome: 'Marina Albuquerque', avatarUrl: null },
+  assuntos: [],
 }
+
+// Ids fora da ordem dos nomes, para provar que o corpo vai com os ids ordenados.
+const ASSUNTOS = [
+  { id: 'c-historia', nome: 'História' },
+  { id: 'a-memorias', nome: 'Memórias' },
+  { id: 'b-romance-historico', nome: 'Romance histórico' },
+]
 
 type Wrapper = Awaited<ReturnType<typeof montarNaRota>>['wrapper']
 
@@ -39,6 +48,24 @@ async function preencher(wrapper: Wrapper, valores = { titulo: 'Cartas de um ser
   await wrapper.get('#campo-titulo').setValue(valores.titulo)
   await wrapper.get('#campo-autor').setValue(valores.autor)
   await wrapper.get('#campo-paginas').setValue(valores.paginas)
+}
+
+function noDialogo(seletor: string, texto: string): HTMLElement {
+  const dialogo = document.body.querySelector('[role="dialog"]')!
+  return [...dialogo.querySelectorAll<HTMLElement>(seletor)].find((el) => el.textContent?.trim() === texto)!
+}
+
+/** Abre o seletor pelo campo, marca os nomes e conclui. */
+async function escolherAssuntos(wrapper: Wrapper, nomes: string[]) {
+  const abrir = wrapper.find('[data-gatilho]').exists() ? wrapper.get('[data-gatilho]') : wrapper.get('[data-alterar]')
+  await abrir.trigger('click')
+  await flushPromises()
+  for (const nome of nomes) {
+    noDialogo('[role="checkbox"]', nome).click()
+  }
+  await flushPromises()
+  noDialogo('button', 'Concluir').click()
+  await flushPromises()
 }
 
 function escolherArquivo(wrapper: Wrapper) {
@@ -55,6 +82,7 @@ describe('LivroPessoalFormView', () => {
     servico.atualizarLivroPessoal.mockReset().mockResolvedValue(LIVRO)
     servico.excluirLivroPessoal.mockReset().mockResolvedValue(undefined)
     servico.obterLivroPessoal.mockReset().mockResolvedValue(LIVRO)
+    servico.listarAssuntos.mockReset().mockResolvedValue(ASSUNTOS)
     vi.mocked(validarCapa).mockReset().mockResolvedValue(null)
     vi.mocked(enviarCapa).mockReset()
     URL.createObjectURL = vi.fn(() => 'blob:previa')
@@ -81,7 +109,7 @@ describe('LivroPessoalFormView', () => {
     await flushPromises()
 
     expect(servico.criarLivroPessoal).toHaveBeenCalledWith(
-      { titulo: 'Cartas de um sertanejo', autor: 'Marina Albuquerque', paginas: 184, sinopse: null, capaUrl: null },
+      { titulo: 'Cartas de um sertanejo', autor: 'Marina Albuquerque', paginas: 184, sinopse: null, capaUrl: null, assuntos: [] },
       expect.any(String),
     )
     expect(router.currentRoute.value.path).toBe('/livros/pessoal/l1')
@@ -210,6 +238,109 @@ describe('LivroPessoalFormView', () => {
 
     expect(servico.excluirLivroPessoal).toHaveBeenCalledWith('l1', expect.any(String))
     expect(router.currentRoute.value.path).toBe('/estante')
+  })
+
+  describe('assuntos (F-ACV-OPC)', () => {
+    it('o campo fica entre Páginas e Sinopse, e o corpo leva os ids ordenados', async () => {
+      const { wrapper } = await montarNaRota('/descobrir/adicionar/pessoal')
+      const ordem = wrapper.findAll('label, [role="group"] > span').map((el) => el.text())
+      expect(ordem.indexOf('Assuntos')).toBe(ordem.indexOf('Número de páginas') + 1)
+      expect(ordem.indexOf('Sinopse')).toBe(ordem.indexOf('Assuntos') + 1)
+      await preencher(wrapper)
+
+      await escolherAssuntos(wrapper, ['História', 'Memórias'])
+      expect(wrapper.findAll('[role="group"] li').map((li) => li.text())).toEqual(['História', 'Memórias'])
+      await wrapper.get('form').trigger('submit')
+      await flushPromises()
+
+      expect(servico.criarLivroPessoal.mock.calls[0]![0].assuntos).toEqual(['a-memorias', 'c-historia'])
+    })
+
+    it('a chave muda quando os assuntos mudam e se repete com a mesma escolha', async () => {
+      servico.criarLivroPessoal.mockRejectedValue(new ApiError('Não foi possível acessar o servidor. Tente novamente.', 0, 'SERVICO_INDISPONIVEL'))
+      const { wrapper } = await montarNaRota('/descobrir/adicionar/pessoal')
+      await preencher(wrapper)
+
+      await wrapper.get('form').trigger('submit')
+      await flushPromises()
+      await wrapper.get('form').trigger('submit')
+      await flushPromises()
+      await escolherAssuntos(wrapper, ['Memórias'])
+      await wrapper.get('form').trigger('submit')
+      await flushPromises()
+
+      const chaves = servico.criarLivroPessoal.mock.calls.map((chamada) => chamada[1])
+      expect(chaves[1]).toBe(chaves[0])
+      expect(chaves[2]).not.toBe(chaves[0])
+    })
+
+    it('400 em assuntos vai para o campo, sem banner, com o foco em Alterar assuntos', async () => {
+      const mensagem = 'Um dos assuntos escolhidos não está mais na lista do Lê Ai. Revise e salve de novo.'
+      servico.criarLivroPessoal.mockRejectedValue(
+        new ApiError('Dados inválidos.', 400, 'REQUISICAO_INVALIDA', 'c1', { campos: [{ campo: 'assuntos', mensagem }] }),
+      )
+      const { wrapper } = await montarNaRota('/descobrir/adicionar/pessoal')
+      await preencher(wrapper)
+      await escolherAssuntos(wrapper, ['História'])
+
+      await wrapper.get('form').trigger('submit')
+      await flushPromises()
+
+      expect(wrapper.text()).toContain(mensagem)
+      expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+      expect(wrapper.findAll('[role="group"] li').map((li) => li.text())).toEqual(['História'])
+      expect(document.activeElement).toBe(wrapper.get('[data-alterar]').element)
+
+      // Reenvio com o mesmo 400 leva o foco de novo (validação da F-ACV-OPC).
+      ;(document.activeElement as HTMLElement).blur()
+      await wrapper.get('form').trigger('submit')
+      await flushPromises()
+      expect(document.activeElement).toBe(wrapper.get('[data-alterar]').element)
+    })
+
+    it('lista indisponível por timeout: o seletor mostra a falha e o livro ainda salva sem assuntos', async () => {
+      vi.useFakeTimers()
+      servico.listarAssuntos.mockImplementation(
+        () =>
+          new Promise((_, rejeitar) =>
+            setTimeout(() => rejeitar(new ApiError('O servidor demorou para responder.', 0, 'TIMEOUT')), 90_000),
+          ),
+      )
+      const { wrapper, router } = await montarNaRota('/descobrir/adicionar/pessoal')
+      await preencher(wrapper)
+
+      await wrapper.get('[data-gatilho]').trigger('click')
+      await vi.advanceTimersByTimeAsync(3_000)
+      expect(document.body.querySelector('[role="dialog"]')!.textContent).toContain('O serviço está iniciando.')
+      await vi.advanceTimersByTimeAsync(90_000)
+      expect(document.body.querySelector('[role="dialog"]')!.textContent).toContain('Não foi possível carregar os assuntos.')
+      noDialogo('button', 'Fechar').click()
+      await vi.advanceTimersByTimeAsync(0)
+      expect((wrapper.get('#campo-titulo').element as HTMLInputElement).value).toBe('Cartas de um sertanejo')
+
+      expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeUndefined()
+      await wrapper.get('form').trigger('submit')
+      await vi.advanceTimersByTimeAsync(0)
+
+      expect(servico.criarLivroPessoal).toHaveBeenCalledTimes(1)
+      expect(servico.criarLivroPessoal.mock.calls[0]![0].assuntos).toEqual([])
+      expect(router.currentRoute.value.path).toBe('/livros/pessoal/l1')
+    })
+
+    it('edição: chega preenchido pelo detalhe, e esvaziar manda o array vazio', async () => {
+      servico.obterLivroPessoal.mockResolvedValue({ ...LIVRO, assuntos: [ASSUNTOS[0]!, ASSUNTOS[1]!] })
+      const { wrapper } = await montarNaRota('/livros/pessoal/l1/editar')
+      await flushPromises()
+
+      expect(wrapper.findAll('[role="group"] li').map((li) => li.text())).toEqual(['História', 'Memórias'])
+      expect(servico.listarAssuntos).not.toHaveBeenCalled()
+      await wrapper.get('[data-remover="c-historia"]').trigger('click')
+      await wrapper.get('[data-remover="a-memorias"]').trigger('click')
+      await wrapper.get('form').trigger('submit')
+      await flushPromises()
+
+      expect(servico.atualizarLivroPessoal).toHaveBeenCalledWith('l1', expect.objectContaining({ assuntos: [] }), expect.any(String))
+    })
   })
 
   it('edição de livro alheio ou excluído cai no indisponível', async () => {

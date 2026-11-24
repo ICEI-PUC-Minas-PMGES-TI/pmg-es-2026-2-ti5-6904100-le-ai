@@ -15,7 +15,26 @@ import FolhaAcoes, { type AcaoDaFolha } from './FolhaAcoes.vue'
  * `discreto` é o `DotsThree` de 20px em `grafite` dos cards de resenha e comentário (F-MOD,
  * pagina-do-livro.md P2), menor que o do cabeçalho; o alvo de toque continua 48/40px.
  */
-withDefaults(defineProps<{ rotulo: string; acoes: AcaoDaFolha[]; discreto?: boolean }>(), { discreto: false })
+withDefaults(
+  defineProps<{
+    rotulo: string
+    acoes: AcaoDaFolha[]
+    discreto?: boolean
+    /** Largura mínima do dropdown na web (o menu de conta da moderação usa 280px). */
+    larguraMinima?: string
+  }>(),
+  { discreto: false, larguraMinima: '240px' },
+)
+
+function classeDoItem(acao: AcaoDaFolha): string {
+  if (acao.tom === 'rubi') {
+    return 'text-body-strong text-rubi hover:bg-rubi-fundo focus-visible:bg-rubi-fundo'
+  }
+  if (acao.tom === 'musgo') {
+    return 'text-body-strong text-tinta hover:bg-musgo-fundo focus-visible:bg-musgo-fundo'
+  }
+  return `text-body hover:bg-linha focus-visible:bg-linha ${acao.destrutiva ? 'text-rubi' : 'text-tinta'}`
+}
 const emit = defineEmits<{ escolher: [id: string] }>()
 
 const id = useId()
@@ -105,15 +124,16 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', aoClicarFora))
       :id="`${id}-menu`"
       role="menu"
       :aria-label="rotulo"
-      class="absolute right-0 top-full z-30 mt-space-2 min-w-[240px] rounded-base border border-linha bg-papel py-space-2 shadow-2"
+      class="absolute right-0 top-full z-30 mt-space-2 rounded-base border border-linha bg-papel py-space-2 shadow-2"
+      :style="{ minWidth: larguraMinima }"
     >
       <button
         v-for="acao in acoes"
         :key="acao.id"
         type="button"
         role="menuitem"
-        class="flex w-full items-center gap-space-3 px-space-4 text-left text-body transition-colors duration-dur-fast hover:bg-linha focus-visible:bg-linha focus-visible:outline-none"
-        :class="[acao.destrutiva ? 'text-rubi' : 'text-tinta', acao.detalhe ? 'py-space-2' : 'h-11']"
+        class="flex w-full items-center gap-space-3 px-space-4 text-left transition-colors duration-dur-fast focus-visible:outline-none"
+        :class="[classeDoItem(acao), acao.detalhe ? 'py-space-2' : 'h-11']"
         @click="escolher(acao.id)"
       >
         <component
@@ -121,6 +141,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', aoClicarFora))
           :size="20"
           weight="regular"
           class="shrink-0"
+          :class="acao.tom === 'musgo' ? 'text-musgo' : ''"
           aria-hidden="true"
         />
         <span class="flex flex-col">

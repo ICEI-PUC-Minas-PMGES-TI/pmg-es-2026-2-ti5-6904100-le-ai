@@ -517,6 +517,22 @@ Rodapé de um formulário de **edição** onde fica a ação destrutiva do regis
 - Título em `caption` `grafite` nomeando a ação (`Excluir este livro`); abaixo, `space-3`, botão destrutivo em outline (§4.1), largura total com 48px no mobile e largura do rótulo com 40px na web.
 - O botão abre a confirmação do §4.11; a zona nunca exclui direto (RNF-USA-04). Não existe no formulário de criação.
 
+### 4.20 Interruptor (switch)
+
+Controle de liga e desliga de uma preferência. Origem: F-NOT-OPC (`docs/design/periodo-3/F-NOT-OPC/preferencias-de-notificacao.md` §7).
+
+- Trilho de 52 x 32px em `radius-full`. Ligado: preenchido em `musgo` (`musgo-claro` no escuro) com botão de 24px em `papel`. Desligado: contorno de 2px `grafite-suave` (`grafite-fundo-escuro` no escuro) com botão de 16px, sobre `noite-elevada` no escuro.
+- Nunca é o controle sozinho: vive dentro de uma linha de preferência (§4.21), que é o alvo de toque e carrega a semântica de `switch`.
+
+### 4.21 Linha de preferência
+
+- Ícone de 24px, nome em `body`, descrição em `caption` de até duas linhas e o interruptor (§4.20) à direita. Altura mínima de 72px, linha inteira tocável.
+- Salva a cada toque, sem botão Salvar nem toast. Em falha, o interruptor volta e o erro aparece inline na própria linha.
+
+### 4.22 Aviso de permissão negada do sistema
+
+Bloco em `ambar-fundo` com ícone `BellSlash`, título, texto e botão textual com `ArrowSquareOut` que abre os ajustes do aparelho. Sem botão de fechar: some quando a permissão volta. Os ícones `BellSlash` (push desligado) e `ArrowSquareOut` (ação que abre outro aplicativo) entram na iconografia do §6.
+
 ---
 
 ## 5. Padrões de tela
@@ -932,3 +948,5 @@ Definido:
 - Padrões de tela para estante, página do livro, feed, registrar progresso, perfil, notificações.
 - Lista explícita de coisas a evitar (`§7`) e do estilo positivo (`§8`).
 - Diretriz de tokens compartilhados entre Flutter e Tailwind conforme RNF-USA-06.
+
+Revisão 08/11/2026 (F-NOT-OPC): incorporados os componentes 4.20 a 4.22 (interruptor, linha de preferência e aviso de permissão negada) e os ícones `BellSlash` e `ArrowSquareOut`, que nasceram no prompt de preferências de notificação do Período 3.

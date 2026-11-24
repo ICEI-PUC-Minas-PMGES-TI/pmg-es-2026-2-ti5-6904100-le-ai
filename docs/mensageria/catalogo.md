@@ -26,6 +26,7 @@
 | `recomendacao.recebida` | social | social/notificações | `recomendacao:<recomendacaoId>` | [`recomendacao.recebida.v1`](schemas/recomendacao.recebida.v1.schema.json) |
 | `resenha.curtida` | leitura | social/notificações | `resenha:<resenhaId>:curtida:<autorAcaoId>` | [`resenha.curtida.v1`](schemas/resenha.curtida.v1.schema.json) |
 | `conta.excluida` | identidade | leitura/conta, social/conta, acervo/conta (F-CONTA-2) | `conta:<usuarioId>` | [`conta.excluida.v1`](schemas/conta.excluida.v1.schema.json) |
+| `lembrete.sequencia` | leitura (job diário) | social/notificações (F-GAM-OPC) | `sequencia:<usuarioId>:lembrete:<dataLocal>` | [`lembrete.sequencia.v1`](schemas/lembrete.sequencia.v1.schema.json) |
 
 Eventos com consumidor futuro são publicados sem fila acumuladora. A feature consumidora executa backfill antes de criar o binding.
 
@@ -40,3 +41,5 @@ O cache de capas oficiais do `acervo` (F-ACV-NOTA, RN-14) consome `livro.adicion
 `resenha.curtida` (F-AVA-2) é publicado só na **primeira curtida** do par resenha e leitor: o `leitura` guarda `primeira_curtida_em` na reação, mesmo retirada, e retirar e recurtir, alternar ou descurtir não publicam de novo. O destinatário é o autor da resenha. O `livro` do `data` é o snapshot que o `social` guarda para o destino da notificação.
 
 `resenha.excluida` sai também da **remoção pela moderação** (F-MOD): o comando interno `POST /internal/moderacao/resenhas/{id}/remocao` do `leitura` grava o mesmo evento, com o mesmo `data` e a mesma chave de negócio. O `social` já apaga a atividade na própria transação da moderação, então o consumo do evento depois vira no-op.
+
+`lembrete.sequencia` (F-GAM-OPC, RF-GAM-05) é publicado pelo job diário `POST /internal/jobs/lembrete-sequencia` do `leitura` para cada leitor com sequência ativa cujo último dia com leitura é **ontem** no último fuso registrado pelo dispositivo (RN-18.4): quem já leu hoje, ou já perdeu a sequência, não recebe. O `eventId` é derivado de `(usuarioId, dataLocal)` (UUID v5), então reexecutar o job no mesmo dia colide na chave primária da outbox e não grava um segundo evento; o `social` ainda deduplica pela unicidade `(destinatário, tipo, chave de negócio)`. O consumidor grava a notificação `lembrete_sequencia`, respeitando a preferência do tipo e saindo por push quando há dispositivo registrado (F-NOT-OPC). O lembrete não altera a sequência.

@@ -10,7 +10,7 @@ import { OutboxDispatcherService } from '../../src/messaging/outbox-dispatcher.s
 import { criarApp, novoUsuario, tokenDe } from './app';
 import { contar, limpar, prepararBanco } from './banco';
 import { BrokerEmMemoria } from './broker-em-memoria';
-import { inserirLivro } from './massa';
+import { inserirLivro, inserirPerfil } from './massa';
 
 const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
 
@@ -379,6 +379,133 @@ describe('nota (integração)', () => {
       const resposta = await minhaAvaliacao(livroId);
       expect(resposta.status).toBe(404);
     });
+  });
+
+  // L-02 (E6-02): o ciclo de leitura é dirigido só por HTTP, pela máquina de
+  // estados de F-EST, sem tocar nela. Nota e resenha não têm chave para a
+  // leitura (RN-04.5), e nenhuma transição pode apagá-las ou duplicá-las.
+  describe('RN-04: a avaliação é do livro, não da leitura', () => {
+    const FUSO = 'America/Sao_Paulo';
+
+    beforeEach(() => inserirPerfil(pool, { id: usuario }));
+
+    const comando = (caminho: string, corpo?: object) =>
+      autorizado(
+        http().post(caminho).set('Idempotency-Key', randomUUID()),
+      ).send(corpo);
+
+    const iniciar = async (
+      livroId: string,
+      rota: 'leituras' | 'releituras' = 'leituras',
+    ): Promise<string> => {
+      const resposta = await comando(`/${rota}`, { livroId }).expect(201);
+      return resposta.body.id as string;
+    };
+
+    const finalizar = (leituraId: string) =>
+      comando(`/leituras/${leituraId}/finalizar`, {
+        fusoHorarioDispositivo: FUSO,
+      }).expect(200);
+
+    const resenhar = (livroId: string, texto: string) =>
+      autorizado(
+        http()
+          .put(`/livros/${livroId}/resenha`)
+          .set('Idempotency-Key', randomUUID())
+          .send({ texto, spoiler: false }),
+      ).expect(200);
+
+    const exclusoesPublicadas = () =>
+      contar(
+        pool,
+        'leitura.outbox_leitura',
+        `tipo = 'resenha.excluida' OR payload->>'operacao' = 'excluida'`,
+      );
+
+    it('abandonar não apaga a nota nem a resenha', async () => {
+      const livroId = await inserirLivro(pool);
+      const leituraId = await iniciar(livroId);
+      await salvar(livroId, { valor: 4 }).expect(200);
+      await resenhar(livroId, 'Parei no meio, mas o começo é ótimo.');
+      const antes = (await minhaAvaliacao(livroId)).body;
+
+      const abandono = await comando(`/leituras/${leituraId}/abandonar`);
+
+      expect(abandono.status).toBe(200);
+      expect(abandono.body.status).toBe('ABANDONADO');
+      const depois = await minhaAvaliacao(livroId);
+      expect(depois.status).toBe(200);
+      expect(depois.body).toEqual(antes);
+      expect(depois.body.nota).toMatchObject({ valor: 4 });
+      expect(depois.body.resenha).toMatchObject({
+        texto: 'Parei no meio, mas o começo é ótimo.',
+      });
+      expect(await contar(pool, 'leitura.nota')).toBe(1);
+      expect(await contar(pool, 'leitura.resenha')).toBe(1);
+      expect(await exclusoesPublicadas()).toBe(0);
+    });
+
+    it('releitura concluída não duplica nota nem resenha, e a avaliação continua a mesma', async () => {
+      const livroId = await inserirLivro(pool);
+      await finalizar(await iniciar(livroId));
+      await salvar(livroId, { valor: 3.5 }).expect(200);
+      await resenhar(livroId, 'Primeira leitura.');
+      const antes = (await minhaAvaliacao(livroId)).body;
+
+      const releituraId = await iniciar(livroId, 'releituras');
+      // Durante a releitura o leitor regrava a mesma nota: continua uma linha só.
+      await salvar(livroId, { valor: 3.5 }).expect(200);
+      const lida = await finalizar(releituraId);
+
+      expect(lida.body).toMatchObject({ status: 'LIDO', vezesLido: 2 });
+      expect((await minhaAvaliacao(livroId)).body).toEqual(antes);
+      expect(await contar(pool, 'leitura.nota')).toBe(1);
+      expect(await contar(pool, 'leitura.resenha')).toBe(1);
+      expect(await exclusoesPublicadas()).toBe(0);
+      expect(
+        await contar(pool, 'leitura.outbox_leitura', `tipo = 'nota.alterada'`),
+      ).toBe(1);
+      expect(
+        await contar(
+          pool,
+          'leitura.outbox_leitura',
+          `tipo = 'resenha.publicada'`,
+        ),
+      ).toBe(1);
+
+      // Uma segunda releitura, abandonada, também não mexe na avaliação.
+      const segunda = await iniciar(livroId, 'releituras');
+      await comando(`/leituras/${segunda}/abandonar`).expect(200);
+      expect((await minhaAvaliacao(livroId)).body).toEqual(antes);
+      expect(await contar(pool, 'leitura.nota')).toBe(1);
+      expect(await contar(pool, 'leitura.resenha')).toBe(1);
+    });
+  });
+
+  // L-36 (E6-02): decisão 4 da F-MOD-OPC. A suspensão tira a conta da VIEW de
+  // perfil (no fixture, uma tabela), mas a nota dela continua publicada para a
+  // média dos leitores no `acervo`. Se a VIEW passar a filtrar, este teste cai
+  // e a decisão tem de ser revista junto.
+  it('nota de conta suspensa continua na VIEW de publicação de notas (decisão 4 da F-MOD-OPC)', async () => {
+    const livroId = await inserirLivro(pool);
+    await inserirPerfil(pool, { id: usuario, username: 'suspensa' });
+    await salvar(livroId, { valor: 2.5 }).expect(200);
+    const naView = () =>
+      pool.query<{ usuario_id: string; valor: string }>(
+        `SELECT usuario_id, valor::text AS valor
+           FROM leitura.v_nota_publicacao_v1 WHERE livro_id = $1`,
+        [livroId],
+      );
+
+    await pool.query(
+      'DELETE FROM identidade.v_perfil_referencia_v1 WHERE id = $1',
+      [usuario],
+    );
+
+    expect((await naView()).rows).toEqual([
+      { usuario_id: usuario, valor: '2.5' },
+    ]);
+    expect(await contar(pool, 'leitura.nota')).toBe(1);
   });
 
   // RNF-TST-03 até o envelope: o que F-AVA grava sai do despachante como um

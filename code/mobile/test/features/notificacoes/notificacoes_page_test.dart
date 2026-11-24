@@ -9,6 +9,7 @@ import 'package:http/testing.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 
 import 'package:le_ai_mobile/core/network/api_client.dart';
+import 'package:le_ai_mobile/design/theme.dart';
 import 'package:le_ai_mobile/design/widgets/banner_aviso.dart';
 import 'package:le_ai_mobile/features/notificacoes/canal_de_notificacoes.dart';
 import 'package:le_ai_mobile/features/notificacoes/contador_de_nao_lidas.dart';
@@ -460,6 +461,47 @@ void main() {
 
     expect(find.text('Nada por enquanto'), findsOneWidget);
     expect(find.text('Marcar todas'), findsNothing);
+    // F-GAM-OPC: o texto do vazio cita os lembretes da sequência (notificacoes.md P3 §8).
+    expect(
+      find.text(
+        'Curtidas, comentários, menções, recomendações, novos seguidores, avisos das suas '
+        'leituras e lembretes da sua sequência aparecem aqui.',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('lembrete de sequencia: Flame em grafite, sem acoes, e leva a estante', (
+    tester,
+  ) async {
+    final semantica = tester.ensureSemantics();
+    final tela = _Tela(
+      _Servidor(<Map<String, Object?>>[
+        _notificacao(
+          'n-lembrete',
+          'LEMBRETE_SEQUENCIA',
+          'Sua sequência está em 12 dias e hoje ainda não tem leitura registrada.',
+        ),
+      ]),
+    );
+    await tela.abrir(tester);
+
+    final chama = tester.widget<Icon>(find.byIcon(PhosphorIconsRegular.flame));
+    expect(chama.color, Theme.of(tester.element(find.byType(NotificacoesPage))).secondaryText);
+    expect(find.text('Abandonar leitura'), findsNothing);
+    expect(find.text('Registrar progresso'), findsNothing);
+    expect(
+      find.bySemanticsLabel(RegExp(r'^Não lida\. Sua sequência está em 12 dias.*Abre a estante\.$')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.textContaining('Sua sequência está em 12 dias'));
+    await tester.pumpAndSettle();
+
+    expect(tela.abertas.single.tipo, TipoNotificacao.lembreteSequencia);
+    expect(destinoDaNotificacao(tela.abertas.single), '/estante?lembrete=sequencia');
+    expect(tela.servidor.escritasEm('/notificacoes/marcar-lidas'), hasLength(1));
+    semantica.dispose();
   });
 
   group('tempo real (RF-NOT-06)', () {

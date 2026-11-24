@@ -1,7 +1,7 @@
 import { statusParaApi } from '../../common/status-estante-api';
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import {
-  AcessoNegado,
+  ContaIndisponivel,
   EntidadeInvalida,
   LeituraEmAndamento,
   LeituraNaoEncontrada,
@@ -541,7 +541,7 @@ export class LeiturasService {
   ): Promise<UsuarioSnapshot> {
     const perfil = await this.referencias.buscarPerfil(usuarioId, tx);
     if (!perfil) {
-      throw new AcessoNegado('Sua conta não está disponível para esta ação.');
+      throw new ContaIndisponivel();
     }
     return perfil.snapshot;
   }

@@ -48,6 +48,7 @@ onMounted(carregar)
       <h2
         id="titulo-recomendacoes"
         class="text-title-lg text-tinta"
+        tabindex="-1"
       >
         Recomendações recebidas
       </h2>

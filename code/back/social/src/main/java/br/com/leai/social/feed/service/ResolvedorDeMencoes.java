@@ -30,16 +30,32 @@ class ResolvedorDeMencoes {
     if (candidatas.isEmpty()) {
       return List.of();
     }
-    Map<String, UUID> existentes =
-        perfis.idsPorUsername(candidatas.stream().map(Candidata::username).toList());
+    return casar(
+        texto, perfis.idsPorUsername(candidatas.stream().map(Candidata::username).toList()));
+  }
+
+  /** As menções do texto cujo username (pela {@link PerfisDeReferencia#chave}) está no mapa. */
+  static List<MencaoResolvida> casar(String texto, Map<String, UUID> idPorChave) {
     List<MencaoResolvida> resolvidas = new ArrayList<>();
-    for (Candidata candidata : candidatas) {
-      UUID id = existentes.get(PerfisDeReferencia.chave(candidata.username()));
+    if (idPorChave.isEmpty()) {
+      return resolvidas;
+    }
+    for (Candidata candidata : candidatas(texto)) {
+      UUID id = idPorChave.get(PerfisDeReferencia.chave(candidata.username()));
       if (id != null) {
         resolvidas.add(new MencaoResolvida(candidata.posicao(), id));
       }
     }
     return resolvidas;
+  }
+
+  /** Username da menção que começa exatamente em {@code posicao}, ou {@code null}. */
+  static String usernameEm(String texto, int posicao) {
+    Matcher matcher = MENCAO.matcher(texto);
+    if (posicao < 0 || posicao >= texto.length() || !matcher.find(posicao)) {
+      return null;
+    }
+    return matcher.start() == posicao ? matcher.group(1) : null;
   }
 
   static int comprimentoEm(String texto, int posicao) {

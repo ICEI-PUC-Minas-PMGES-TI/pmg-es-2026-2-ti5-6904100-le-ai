@@ -8,8 +8,10 @@ info:
     perfil estão implementadas por F-AVA (27/09/2026); os contratos de F-EST
     e de F-PRG estão implementados (F-PRG em 27/09/2026, com a edição de
     progresso removida em 29/09/2026). A sequência diária está implementada
-    por F-GAM (08/10/2026), os desafios por F-DSF (09/10/2026) e as
-    estatísticas por F-STA (11/10/2026). Cada operação traz
+    por F-GAM (08/10/2026), os desafios por F-DSF (09/10/2026), o histórico
+    de janelas dos desafios por F-DSF-OPC (07/11/2026) e as estatísticas por
+    F-STA (11/10/2026); o calendário da sequência e o job do lembrete de
+    sequência por F-GAM-OPC (19/11/2026). Cada operação traz
     `x-implementation-status`.
     Nota e resenha pertencem ao livro, não a uma ocorrência de leitura.
     As reações à resenha (curtir e descurtir) e as frases e trechos estão
@@ -30,7 +32,16 @@ x-database-contracts:
       Desde 26/09/2026 o feed (social) também lê texto, spoiler e nota por
       esta VIEW, o que contraria a arquitetura §3.2 item 4 ("o feed guarda
       snapshot"); a decisão está pendente com o grupo (feature-F-AVA.md).
-      As colunas não mudam enquanto isso.
+      As colunas não mudam enquanto isso. Desde a F-MOD-OPC (migration 0007,
+      06/11/2026), curtidas e descurtidas contam só as reações ativas de
+      contas visíveis: a reação de conta suspensa ou com exclusão pendente
+      fica gravada, mas sai da contagem até a reativação. Para isso a VIEW
+      depende, no próprio banco, de identidade.v_perfil_referencia_v1 (a
+      primeira dependência de schema para schema entre migrations): o
+      identidade não consegue dar DROP nessa VIEW nem recriá-la mudando
+      nome ou tipo de coluna sem recriar esta junto; um DROP ... CASCADE
+      derruba esta VIEW sem aviso (e o journal do drizzle não a recria); e
+      num banco novo o identidade precisa migrar antes do leitura.
     columns: [resenha_id, usuario_id, livro_id, texto, spoiler, criado_em, atualizado_em, curtidas, descurtidas]
   - name: v_reacao_resenha_v1
     x-implementation-status: implemented
@@ -679,7 +690,7 @@ paths:
         inativo (RN-06). Livro inexistente ou de outra pessoa responde 204 sem
         evento, porque o leitor não tem nota ali.
       responses:
-        '204': { description: Nota removida, já ausente ou repetição idempotente concluída. }
+        '204': { description: 'Nota removida, já ausente ou repetição idempotente concluída.' }
         '400': { $ref: '#/components/responses/RequisicaoInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '409': { $ref: '#/components/responses/Conflito' }
@@ -745,7 +756,7 @@ paths:
         continua possível depois que o livro fica inativo (RF-AVA-04). Livro
         inexistente ou de outra pessoa responde 204 sem evento.
       responses:
-        '204': { description: Resenha removida, já ausente ou repetição idempotente concluída. }
+        '204': { description: 'Resenha removida, já ausente ou repetição idempotente concluída.' }
         '400': { $ref: '#/components/responses/RequisicaoInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '409': { $ref: '#/components/responses/Conflito' }
@@ -800,7 +811,10 @@ paths:
         exclusão é 403. A primeira curtida do par resenha e leitor grava
         `resenha.curtida` para o autor, na mesma transação; retirar e recurtir,
         alternar e descurtir não publicam (decisão de 15/09/2026). A reação
-        retirada fica guardada, com `primeira_curtida_em`.
+        retirada fica guardada, com `primeira_curtida_em`. F-MOD-OPC: as
+        contagens (aqui, na resenha e na VIEW `v_resenha_publicacao_v1`) só
+        incluem reações de contas em `v_perfil_referencia_v1`; a reação de
+        conta suspensa fica guardada e volta a contar na reativação.
       requestBody:
         required: true
         content:
@@ -1089,6 +1103,42 @@ paths:
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '503': { $ref: '#/components/responses/ServicoIndisponivel' }
 
+  /me/sequencia/calendario:
+    get:
+      tags: [sequencia]
+      summary: Lista os dias com leitura de um mês da janela recente
+      operationId: consultarCalendarioDaSequencia
+      x-implementation-status: implemented
+      x-implemented-by: F-GAM-OPC
+      description: >-
+        Só do próprio leitor (RNF-SEC-02). Devolve os dias do mês pedido que
+        tiveram ao menos uma atualização de progresso com página lida, pela
+        data local de RN-18.2 e pelas mesmas regras da sequência (RN-18.1):
+        iniciar, concluir ou abandonar não marca o dia, então o calendário e
+        `GET /me/sequencia` nunca divergem. Somente leitura: não há marcação
+        manual (RN-17). A janela é limitada pelo servidor (RNF-DES-02): o mês
+        corrente e os cinco anteriores, sem recuar antes do mês do primeiro
+        dia com leitura (sem nenhum, só o mês corrente). O mês corrente e o
+        `hoje` são apurados no último fuso registrado pelo dispositivo, como a
+        sequência; sem progresso, em America/Sao_Paulo. Mês fora da janela é
+        422 com `campos.mes`.
+      parameters:
+        - name: mes
+          in: query
+          required: false
+          description: Mês no formato AAAA-MM. Ausente, o mês corrente.
+          schema: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$', example: '2026-09' }
+      responses:
+        '200':
+          description: Dias com leitura do mês, com os limites da janela.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CalendarioSequencia' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '422': { $ref: '#/components/responses/EntidadeInvalida' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
   /desafios:
     post:
       tags: [desafios]
@@ -1146,8 +1196,8 @@ paths:
         da ação de finalizar, nunca pela data de fim editável (RN-20.3). Livros
         pessoais contam (RN-20.4); releitura incompleta e leitura abandonada
         não. A janela que começou desde a última consulta é criada aqui, sem
-        job (RN-20.9). Histórico de janelas encerradas é RF-DSF-05 (Período 3)
-        e não é exposto.
+        job (RN-20.9). As janelas encerradas ficam em
+        `GET /desafios/{desafioId}/janelas` (RF-DSF-05).
       responses:
         '200':
           description: Página de desafios, possivelmente vazia.
@@ -1215,6 +1265,41 @@ paths:
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '404': { $ref: '#/components/responses/NaoEncontrado' }
         '409': { $ref: '#/components/responses/Conflito' }
+        '503': { $ref: '#/components/responses/ServicoIndisponivel' }
+
+  /desafios/{desafioId}/janelas:
+    get:
+      tags: [desafios]
+      summary: Lista o histórico de janelas encerradas de um desafio
+      operationId: listarJanelasDesafio
+      x-implementation-status: implemented
+      x-implemented-by: F-DSF-OPC
+      parameters:
+        - { $ref: '#/components/parameters/DesafioId' }
+        - { $ref: '#/components/parameters/Pagina' }
+        - { $ref: '#/components/parameters/Limite' }
+      description: >-
+        Janelas encerradas do desafio, da mais recente para a mais antiga
+        (RF-DSF-05), sem a corrente. Cada uma traz unidade, periodicidade e
+        alvo de quando valeu, nunca os atuais do desafio (RN-20.7). Entram
+        todos os períodos desde a janela de criação, inclusive os sem progresso,
+        com acumulado zero e não cumpridos; nada antes dela (RN-20.9). A janela
+        que terminou desde a última consulta é encerrada aqui, sem job. O
+        resultado de uma janela encerrada ainda pode mudar com captura offline
+        tardia ou exclusão de trecho de progresso, sempre com a configuração
+        histórica (RN-20.10). `pausa` diz quanto da janela o desafio passou
+        pausado (RN-20.6), para o cliente distinguir o período pausado do
+        período vazio. Só o dono: desafio inexistente ou de outra pessoa é 404
+        (RNF-SEC-02). Excluir o desafio leva o histórico junto.
+      responses:
+        '200':
+          description: Página de janelas encerradas, possivelmente vazia.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaJanelasDesafio' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '404': { $ref: '#/components/responses/NaoEncontrado' }
         '503': { $ref: '#/components/responses/ServicoIndisponivel' }
 
   /desafios/{desafioId}/pausar:
@@ -1300,6 +1385,41 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ResultadoJobInatividade' }
+        '400': { $ref: '#/components/responses/RequisicaoInvalida' }
+        '401': { $ref: '#/components/responses/NaoAutenticado' }
+        '409': { $ref: '#/components/responses/Conflito' }
+  /internal/jobs/lembrete-sequencia:
+    post:
+      tags: [interno]
+      summary: Publica diariamente o lembrete de sequência
+      operationId: enviarLembretesDeSequencia
+      x-implementation-status: implemented
+      x-implemented-by: F-GAM-OPC
+      security:
+        - schedulerToken: []
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      description: >-
+        Endpoint não exposto aos clientes, chamado uma vez por dia pelo
+        agendador (RF-GAM-05, RNF-ARQ-09). Seleciona os leitores com sequência
+        ativa cujo último dia com leitura é ontem no último fuso registrado
+        pelo dispositivo, isto é, que ainda não registraram progresso no dia
+        local corrente, e grava `lembrete.sequencia` na outbox. Conta suspensa
+        ou em exclusão fica de fora. O `eventId` é derivado de
+        `(usuarioId, dataLocal)`, então reexecutar no mesmo dia não grava um
+        segundo lembrete (`jaLembrados`); o dia seguinte gera um novo. Atraso
+        ou falha do job não altera a sequência (RN-18).
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false }
+      responses:
+        '200':
+          description: Ciclo processado, inclusive quando ninguém é elegível.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ResultadoJobLembreteSequencia' }
         '400': { $ref: '#/components/responses/RequisicaoInvalida' }
         '401': { $ref: '#/components/responses/NaoAutenticado' }
         '409': { $ref: '#/components/responses/Conflito' }
@@ -2034,6 +2154,38 @@ components:
           example: '2026-10-08'
           description: Último dia de calendário local com progresso.
 
+    CalendarioSequencia:
+      type: object
+      additionalProperties: false
+      required: [mes, mesAtual, mesMaisAntigo, hoje, dias]
+      properties:
+        mes:
+          type: string
+          example: '2026-09'
+          description: Mês devolvido, AAAA-MM.
+        mesAtual:
+          type: string
+          example: '2026-09'
+          description: >-
+            Mês corrente no último fuso do dispositivo; limite à frente da
+            navegação.
+        mesMaisAntigo:
+          type: string
+          example: '2026-04'
+          description: >-
+            Mês mais antigo disponível na janela; limite para trás da
+            navegação.
+        hoje:
+          type: string
+          format: date
+          example: '2026-09-24'
+          description: Dia corrente no mesmo fuso que apura a sequência.
+        dias:
+          type: array
+          description: Dias do mês com leitura, em ordem crescente, sem repetição.
+          items: { type: string, format: date }
+          example: ['2026-09-01', '2026-09-02', '2026-09-24']
+
     TotaisEstatistica:
       type: object
       additionalProperties: false
@@ -2062,7 +2214,7 @@ components:
     Estatisticas:
       type: object
       additionalProperties: false
-      required: [ano, anos, primeiroRegistro, totais, medias]
+      required: [ano, anos, primeiroRegistro, totais, medias, distribuicaoNotas]
       properties:
         ano:
           type: integer
@@ -2154,6 +2306,7 @@ components:
                   description: >-
                     Notas dadas no período, pela data da última vez que foram
                     dadas (fuso America/Sao_Paulo).
+        distribuicaoNotas: { $ref: '#/components/schemas/DistribuicaoNotas' }
 
     GraficosEstatisticas:
       type: object
@@ -2190,13 +2343,53 @@ components:
     EstatisticasPerfil:
       type: object
       additionalProperties: false
-      required: [ano, livrosConcluidos, paginasLidas, minutosLidos]
-      description: Os mesmos totais de `TotaisEstatistica`, com o ano do recorte.
+      required:
+        [ano, livrosConcluidos, paginasLidas, minutosLidos, distribuicaoNotas]
+      description: >-
+        Os mesmos totais de `TotaisEstatistica`, com o ano do recorte e a
+        distribuição das notas do ano.
       properties:
         ano: { type: integer, example: 2026 }
         livrosConcluidos: { type: integer, minimum: 0, example: 9 }
         paginasLidas: { type: integer, minimum: 0, example: 3818 }
         minutosLidos: { type: integer, minimum: 0, example: 5130 }
+        distribuicaoNotas: { $ref: '#/components/schemas/DistribuicaoNotas' }
+
+    DistribuicaoNotas:
+      type: object
+      additionalProperties: false
+      nullable: true
+      required: [total, faixas]
+      description: >-
+        Quantos livros receberam cada nota no período (RF-STA-04). Derivada
+        por agrupamento das notas do leitor, uma por livro, livro pessoal
+        incluído; atribuída ao período como `notaMedia`. Nulo sem nenhuma nota
+        no período: nunca onze zeros (RN-06.3).
+      properties:
+        total:
+          type: integer
+          minimum: 1
+          example: 8
+          description: Notas do período; igual a `medias.notaMedia.quantidade`.
+        faixas:
+          type: array
+          minItems: 11
+          maxItems: 11
+          description: >-
+            Sempre as onze notas da escala (0 a 5, passo 0,5), em ordem
+            crescente, inclusive as de contagem zero.
+          items:
+            type: object
+            additionalProperties: false
+            required: [valor, quantidade]
+            properties:
+              valor:
+                type: number
+                minimum: 0
+                maximum: 5
+                multipleOf: 0.5
+                example: 4.5
+              quantidade: { type: integer, minimum: 0, example: 2 }
 
     UnidadeDesafio:
       type: string
@@ -2273,6 +2466,52 @@ components:
           items: { $ref: '#/components/schemas/Desafio' }
         paginacao: { $ref: '#/components/schemas/Paginacao' }
 
+    PausaDaJanelaDesafio:
+      type: string
+      enum: [inteira, parcial, nenhuma]
+      description: >-
+        Quanto da janela o desafio passou pausado, no fuso da janela (da
+        meia-noite do primeiro dia à meia-noite seguinte ao último). `inteira`
+        quando uma única pausa cobre a janela toda; `parcial` quando alguma
+        pausa a alcança só em parte (inclusive pausar e retomar dentro dela);
+        `nenhuma` sem pausa.
+    JanelaEncerradaDesafio:
+      type: object
+      additionalProperties: false
+      required: [inicio, fim, unidade, periodicidade, valorAlvo, acumulado, cumprida, pausa]
+      properties:
+        inicio: { type: string, format: date }
+        fim: { type: string, format: date }
+        unidade:
+          allOf: [{ $ref: '#/components/schemas/UnidadeDesafio' }]
+          description: Unidade vigente nesta janela (RN-20.7).
+        periodicidade:
+          allOf: [{ $ref: '#/components/schemas/JanelaDesafio' }]
+          description: Periodicidade vigente nesta janela (RN-20.7).
+        valorAlvo:
+          type: integer
+          minimum: 1
+          description: Alvo vigente nesta janela (RN-20.7).
+        acumulado:
+          type: integer
+          minimum: 0
+          description: >-
+            Soma na unidade da janela dos registros dela, fora das pausas; zero
+            no período sem progresso (RN-20.9).
+        cumprida:
+          type: boolean
+          description: O acumulado atingiu o alvo desta janela (RN-20.8).
+        pausa: { $ref: '#/components/schemas/PausaDaJanelaDesafio' }
+    PaginaJanelasDesafio:
+      type: object
+      additionalProperties: false
+      required: [itens, paginacao]
+      properties:
+        itens:
+          type: array
+          description: Da mais recente para a mais antiga.
+          items: { $ref: '#/components/schemas/JanelaEncerradaDesafio' }
+        paginacao: { $ref: '#/components/schemas/Paginacao' }
     MinhaAvaliacao:
       type: object
       additionalProperties: false
@@ -2458,3 +2697,22 @@ components:
         alertasDia20: { type: integer, minimum: 0 }
         alertasDia30: { type: integer, minimum: 0 }
         abandonosDia40: { type: integer, minimum: 0 }
+
+    ResultadoJobLembreteSequencia:
+      type: object
+      additionalProperties: false
+      required: [instanteReferencia, elegiveis, lembretesPublicados, jaLembrados]
+      properties:
+        instanteReferencia: { type: string, format: date-time }
+        elegiveis:
+          type: integer
+          minimum: 0
+          description: Leitores com sequência ativa e sem registro no dia local corrente.
+        lembretesPublicados:
+          type: integer
+          minimum: 0
+          description: Lembretes gravados na outbox nesta execução.
+        jaLembrados:
+          type: integer
+          minimum: 0
+          description: Elegíveis que já tinham o lembrete do dia (reexecução).

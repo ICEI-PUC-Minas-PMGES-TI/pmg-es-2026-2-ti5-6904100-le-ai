@@ -10,7 +10,7 @@
 |---|---|---|---|---|---|
 | F-ACV-OPC | Extras de acervo | acervo | opcional | RF-ACV-14, 22 | Recarga manual do data dump; informar assuntos ao cadastrar livro pessoal |
 | F-REC-ALG | Recomendação algorítmica + descarte em lote | social | opcional | RF-REC-08..12, 17 | Sugestões por similaridade e por quem o usuário segue (RN-08), com motivo e descarte; descarte em lote das recomendações de um livro (RN-22) |
-| F-NOT-OPC | Preferências de notificação + push | social | opcional | RF-NOT-05, 07 | Configurar categorias de notificação; entrega por push em Android (FCM) |
+| F-NOT-OPC | Preferências de notificação + push | social | opcional | RF-NOT-05, 07 | Configurar notificações por tipo; entrega por push em Android (FCM) |
 | F-MOD-OPC | Suspensão de conta | social | opcional | RF-MOD-04 | Administrador suspende a conta de um leitor |
 | F-GAM-OPC | Calendário e lembrete de streak | leitura | opcional | RF-GAM-04, 05 | Calendário de dias com progresso; lembrete de sequência ativa (depende de push) |
 | F-STA-OPC | Distribuição de notas | leitura | opcional | RF-STA-04 | Visualizar a distribuição das notas atribuídas |
@@ -22,6 +22,12 @@
 - **Refino** geral e pendências acumuladas dos períodos anteriores.
 - **ATAM inicial** — avaliação de arquitetura (`../../orquestador/documento-de-arquitetura.md` §7 + `../../orquestador/REQUISITOS.md` §7/§8), alimentando o `docs/8.avaliacao_arquitetura.md`.
 
+## Fechamento do período: ajustes manuais no deploy
+
+Itens que o merge na `main` não resolve sozinho. Cada feature mantém o passo a passo no próprio arquivo.
+
+- **F-GAM-OPC e F-NOT-OPC (push):** definir `FIREBASE_CREDENTIALS_JSON` no `leai-social` do Render (projeto Firebase `leai-ti5`) e validar o push e o lembrete num Android físico. Ver [Deploy na `main`](feature-F-GAM-OPC.md#deploy-na-main-fechamento-do-período-3).
+
 ## Arquivos de feature
 
 Template em `../../orquestador/plano-de-projeto.md` §9. As **regras de implementação compartilhadas** do projeto (idempotência de escrita, paginação, envelope/schema de evento, backfill antes de consumir, testes por feature) valem também aqui e estão em [`../periodo-1/README.md`](../periodo-1/README.md#regras-de-implementação-compartilhadas).
@@ -31,7 +37,7 @@ Template em `../../orquestador/plano-de-projeto.md` §9. As **regras de implemen
 | Contrato | Produtor/dono | Consumidor | Situação no Período 3 |
 |---|---|---|---|
 | `v_livro_recomendacao_v1` | `acervo` | `social` / F-REC-ALG | previsto no DER e em `docs/4.modelagem.md` §4.2 como item do Período 3; **conteúdo a fechar com `acervo` no arquivo de F-REC-ALG, antes da migration** |
-| `sequencia.lembrete` | `leitura` / F-GAM-OPC | `social` / extensão do consumidor de F-NOT | contrato futuro ainda não aprovado; F-GAM-OPC deve fechar nome, schema, chave, consumidor e DLQ antes de ativar o tipo |
+| `lembrete.sequencia` | `leitura` / F-GAM-OPC (job diário) | `social` / extensão do consumidor de F-NOT | **aprovado em 19/11/2026** (`REQUISITOS.md` v1.10 §7.2, arquitetura v1.9 §5.2): schema `lembrete.sequencia.v1`, chave `sequencia:<usuarioId>:lembrete:<dataLocal>`, retry e DLQ padrão da fila de notificações |
 | entrega push (FCM Android) | `social` / F-NOT-OPC | — | a arquitetura §5.2 já prevê o consumidor como "social (+ FCM em Android)"; novo é o **registro de dispositivo**, não o fluxo |
 | preferência por tipo de notificação | `social` / F-NOT-OPC | — | incorporado em 15/09/2026: cada tipo configurável individualmente, sem agrupamento |
 | suspensão e reativação | `social` / F-MOD-OPC | `identidade` | aprovado: comando HTTP autenticado/idempotente; conteúdo suspenso oculto; consulta administrativa permite reativar |

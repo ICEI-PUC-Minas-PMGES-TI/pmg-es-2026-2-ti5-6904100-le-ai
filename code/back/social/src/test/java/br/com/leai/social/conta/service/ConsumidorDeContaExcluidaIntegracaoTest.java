@@ -17,9 +17,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * {@link ConsumidorDeContaExcluida} contra Postgres real (F-CONTA-2, RNF-TST-02): a matriz de
  * remoção do {@code social} com massa de duas pessoas, para provar que o que é da outra fica.
  *
- * <p>O envelope vai direto ao handler, como em {@code ConsumidorDeAtividadeIntegracaoTest}: a
- * validação de schema, o recibo, o retry e a DLQ são do {@code AmqpConsumerService} e já têm teste
- * próprio; o schema de {@code conta.excluida} está em {@code MessageValidatorTest}.
+ * <p>O envelope vai direto ao handler, como em {@code ConsumidorDeAtividadeIntegracaoTest}. O
+ * caminho pelo {@code AmqpConsumerService} (validação de schema, recibo do {@code eventId},
+ * entrega duplicada e DLQ) está em {@link ConsumoDeContaExcluidaPeloBrokerIntegracaoTest} (L-17).
  */
 @EnabledIfEnvironmentVariable(named = "DATABASE_URL_TESTE", matches = ".+")
 class ConsumidorDeContaExcluidaIntegracaoTest extends IntegracaoComPostgres {
@@ -314,6 +314,46 @@ class ConsumidorDeContaExcluidaIntegracaoTest extends IntegracaoComPostgres {
                 "%" + excluida + "%"))
         .isZero();
     assertThat(contar(EVENTOS_ANONIMIZADOS)).isEqualTo(eventosAnonimizadosAntes + 1);
+  }
+
+  @Test
+  @DisplayName("F-MOD-OPC: suspensão e reativação da conta excluída são anonimizadas, com o motivo")
+  void logDeContaAnonimizado() {
+    UUID excluida = UUID.randomUUID();
+    UUID outra = UUID.randomUUID();
+    for (UUID alvo : new UUID[] {excluida, outra}) {
+      jdbc.update(
+          "INSERT INTO log_moderacao (admin, acao, alvo_tipo, alvo_id, detalhe, criado_em)"
+              + " VALUES ('admin', 'suspender_conta', 'usuario', ?, 'Spam', now() - interval '1 day'),"
+              + " ('admin', 'reativar_conta', 'usuario', ?, 'Revisto', now())",
+          alvo,
+          alvo);
+      // Intenção sem resposta (timeout) sobre a conta, com o motivo do admin.
+      jdbc.update(
+          "INSERT INTO comando_de_conta (id, admin_id, acao, chave, usuario_id, motivo)"
+              + " VALUES (?, ?, 'suspender_conta', 'chave', ?, 'Spam')",
+          UUID.randomUUID(),
+          UUID.randomUUID(),
+          alvo);
+    }
+
+    String anonimizadas =
+        "SELECT count(*) FROM log_moderacao WHERE alvo_tipo = 'usuario'"
+            + " AND anonimizado_em IS NOT NULL AND alvo_id IS NULL AND detalhe IS NULL";
+    int antes = contar(anonimizadas);
+
+    consumidor.handle(envelope(excluida));
+
+    assertThat(contar(anonimizadas)).isEqualTo(antes + 2);
+    assertThat(
+            contar(
+                "SELECT count(*) FROM log_moderacao WHERE alvo_id = ? AND detalhe IS NOT NULL",
+                outra))
+        .isEqualTo(2);
+    assertThat(contar("SELECT count(*) FROM comando_de_conta WHERE usuario_id = ?", excluida))
+        .isZero();
+    assertThat(contar("SELECT count(*) FROM comando_de_conta WHERE usuario_id = ?", outra))
+        .isEqualTo(1);
   }
 
   @Test

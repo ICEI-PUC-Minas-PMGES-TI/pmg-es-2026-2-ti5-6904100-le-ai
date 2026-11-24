@@ -122,6 +122,53 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Página 57 · @marina.antunes'), findsOneWidget);
     });
+
+    // L-14 (E6-02): o tempo esgotado do cliente tem o mesmo destino do 503.
+    testWidgets('tempo esgotado ao listar mostra o erro e Tentar de novo recarrega', (tester) async {
+      var chamadas = 0;
+      final leitura = leituraSimulada(semFrases: false, timeout: const Duration(milliseconds: 100), (pedido) async {
+        chamadas += 1;
+        if (chamadas == 1) {
+          await Future<void>.delayed(const Duration(seconds: 1));
+        }
+        return json(_pagina(<Map<String, Object?>>[_frase('a', 57)], 1), 200);
+      });
+      await tester.pumpWidget(envolver(SecaoFrases(leitura: leitura, livro: _livro)));
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pumpAndSettle();
+
+      expect(find.text(TextosDasFrases.erroCarga), findsOneWidget);
+      // O tempo esgotado não é retentado pelo cliente: um pedido só.
+      expect(chamadas, 1);
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.text('Página 57 · @marina.antunes'), findsNothing);
+      await tocar(tester, find.text('Tentar de novo'));
+      await tester.pumpAndSettle();
+      expect(find.text('Página 57 · @marina.antunes'), findsOneWidget);
+    });
+
+    // L-31 (E6-02): o trecho é texto puro (RN-11); marcação de HTML ou de Markdown nunca vira
+    // formatação, nem na tela nem no rótulo do leitor de tela.
+    testWidgets('trecho com marcação aparece literal', (tester) async {
+      const trecho = '<b>negrito</b> <script>alert(1)</script> **forte** _ênfase_ <a href="x">link</a>';
+      final leitura = leituraSimulada(
+        semFrases: false,
+        (pedido) async => json(_pagina(<Map<String, Object?>>[<String, Object?>{..._frase('h', 57), 'texto': trecho}], 1), 200),
+      );
+      final semantica = tester.ensureSemantics();
+      await tester.pumpWidget(envolver(SingleChildScrollView(child: SecaoFrases(leitura: leitura, livro: _livro))));
+      await tester.pumpAndSettle();
+
+      final texto = find.text(trecho);
+      expect(texto, findsOneWidget);
+      final widget = tester.widget<Text>(texto);
+      expect(widget.data, trecho);
+      expect(widget.textSpan, isNull);
+      expect(find.text('negrito'), findsNothing);
+      expect(find.text('forte'), findsNothing);
+      expect(find.bySemanticsLabel('Citação: $trecho Página 57.'), findsOneWidget);
+      semantica.dispose();
+    });
   });
 
   group('FolhaAdicionarFrase', () {
@@ -192,6 +239,36 @@ void main() {
       expect(find.text('Salvar frase'), findsNothing);
     });
 
+    // L-14 (E6-02): o tempo esgotado pode ter gravado no servidor; o reenvio repete a chave.
+    testWidgets('tempo esgotado ao salvar mantém o texto e repete a chave', (tester) async {
+      final pedidos = <http.Request>[];
+      final leitura = leituraSimulada(timeout: const Duration(milliseconds: 100), (pedido) async {
+        pedidos.add(pedido);
+        if (pedidos.length == 1) {
+          await Future<void>.delayed(const Duration(seconds: 1));
+        }
+        return json(_frase('n', 74, minha: true), 201);
+      });
+      await abrir(tester, leitura);
+
+      await tester.enterText(find.byKey(const ValueKey<String>('campo-trecho')), 'A gente aprende a ler o céu.');
+      await tester.enterText(find.byKey(const ValueKey<String>('campo-pagina')), '74');
+      await tester.tap(find.text('Salvar frase'));
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pumpAndSettle();
+
+      expect(find.text(TextosDasFrases.erroEnvio), findsOneWidget);
+      expect(find.text('A gente aprende a ler o céu.'), findsOneWidget);
+      expect(pedidos, hasLength(1));
+      await tester.pump(const Duration(seconds: 1));
+      await tester.tap(find.text('Salvar frase'));
+      await tester.pumpAndSettle();
+
+      expect(pedidos, hasLength(2));
+      expect(pedidos.map((p) => p.headers['Idempotency-Key']).toSet(), hasLength(1));
+      expect(find.text('Salvar frase'), findsNothing);
+    });
+
     testWidgets('cota estourada no servidor trava os campos e troca as ações', (tester) async {
       final leitura = leituraSimulada((pedido) async => erro(422, 'LIMITE_DE_FRASES', 'Limite.'));
       await abrir(tester, leitura);
@@ -225,10 +302,11 @@ void main() {
       WidgetTester tester,
       Map<String, Object?> pagina, {
       Future<http.Response> Function(http.Request)? excluir,
+      Duration timeout = const Duration(seconds: 90),
     }) async {
       usarTelaDeCelular(tester);
       final pedidos = <http.Request>[];
-      final leitura = leituraSimulada(semFrases: false, (pedido) async {
+      final leitura = leituraSimulada(semFrases: false, timeout: timeout, (pedido) async {
         pedidos.add(pedido);
         if (pedido.method == 'DELETE') {
           return excluir?.call(pedido) ?? http.Response('', 204);
@@ -315,6 +393,41 @@ void main() {
 
       expect(find.text(TextosDasFrases.excluirFalha), findsOneWidget);
       expect(find.text('Excluir esta frase?'), findsOneWidget);
+    });
+
+    // L-14 (E6-02): tempo esgotado do cliente ao excluir; o novo toque repete a chave.
+    testWidgets('tempo esgotado ao excluir mantém a folha aberta e o novo toque repete a chave', (tester) async {
+      var exclusoes = 0;
+      final pedidos = await abrir(
+        tester,
+        _pagina(<Map<String, Object?>>[_frase('b', 112, minha: true)], 1, minhas: 1),
+        timeout: const Duration(milliseconds: 100),
+        excluir: (_) async {
+          exclusoes += 1;
+          if (exclusoes == 1) {
+            await Future<void>.delayed(const Duration(seconds: 1));
+          }
+          return http.Response('', 204);
+        },
+      );
+
+      await tester.tap(find.byTooltip('Excluir frase da página 112'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey<String>('confirmar-exclusao')));
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pumpAndSettle();
+
+      expect(find.text(TextosDasFrases.excluirFalha), findsOneWidget);
+      expect(find.text('Excluir esta frase?'), findsOneWidget);
+      expect(find.text('Trecho b.'), findsNWidgets(2));
+      await tester.pump(const Duration(seconds: 1));
+      await tester.tap(find.byKey(const ValueKey<String>('confirmar-exclusao')));
+      await tester.pumpAndSettle();
+
+      final exclusoesEnviadas = pedidos.where((p) => p.method == 'DELETE').toList();
+      expect(exclusoesEnviadas, hasLength(2));
+      expect(exclusoesEnviadas.map((p) => p.headers['Idempotency-Key']).toSet(), hasLength(1));
+      expect(find.text('Trecho b.'), findsNothing);
     });
   });
 }

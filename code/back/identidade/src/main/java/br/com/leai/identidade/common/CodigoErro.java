@@ -15,8 +15,19 @@ public enum CodigoErro {
   REQUISICAO_INVALIDA(HttpStatus.BAD_REQUEST, "Os dados enviados são inválidos."),
   NAO_AUTENTICADO(HttpStatus.UNAUTHORIZED, "É necessário autenticar-se para continuar."),
   ACESSO_NEGADO(HttpStatus.FORBIDDEN, "Você não tem permissão para esta ação."),
+  /**
+   * F-MOD-OPC: conta suspensa pela moderação. Fica depois de {@link #ACESSO_NEGADO} para o
+   * {@code deStatus(403)} continuar devolvendo o código genérico.
+   */
+  CONTA_SUSPENSA(HttpStatus.FORBIDDEN, "Esta conta está suspensa."),
   RECURSO_NAO_ENCONTRADO(HttpStatus.NOT_FOUND, "Não encontramos o que você procura."),
   CONFLITO(HttpStatus.CONFLICT, "Este recurso conflita com um já existente."),
+  /**
+   * F-MOD-OPC: comando de suspensão ou reativação que o {@code social} já deu por cancelado antes
+   * de ele rodar. Fica depois de {@link #CONFLITO} para o {@code deStatus(409)} continuar genérico.
+   */
+  COMANDO_CANCELADO(
+      HttpStatus.CONFLICT, "Este comando foi substituído por outro mais recente e não rodou."),
   /** Só no {@code identidade}, para o link de recuperação vencido, usado ou adulterado. */
   RECURSO_EXPIRADO(HttpStatus.GONE, "Este recurso não está mais disponível."),
   ENTIDADE_NAO_PROCESSAVEL(

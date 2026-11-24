@@ -1,0 +1,11 @@
+-- F-MOD-OPC (Renato, 06/11/2026) — data da revogação do token de renovação.
+-- Henrique: migration no schema do `identidade`, escrita pelo dono da F-MOD-OPC com nota datada
+-- em code/back/identidade/AGENTS.md. O que muda:
+--   * `refresh_token` ganha `revogado_em`, gravado junto de `revogado = true` pelo
+--     GestorDeRenovacao (rotação, logout e revogação em massa).
+--   * A reativação de conta apaga só as renovações revogadas a partir de `usuario.suspenso_em`,
+--     isto é, as que a suspensão derrubou. As revogadas antes (rotação, logout, troca de senha,
+--     reuso) ficam, e com elas a detecção de reuso (RNF-SEC-30). Antes desta coluna, a
+--     reativação apagava todas as revogadas da conta.
+-- Linhas antigas ficam com NULL: nunca casam com o filtro da reativação, então não são apagadas.
+ALTER TABLE refresh_token ADD COLUMN revogado_em timestamptz;

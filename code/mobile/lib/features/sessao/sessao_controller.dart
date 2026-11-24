@@ -93,6 +93,11 @@ class SessaoController extends ChangeNotifier {
     if (conta.saindoPorExpiracao && _sessao != null) {
       conta.avisarSaida(TextosDoAvisoDeSaida.encerradaPorExpiracao);
     }
+    // F-MOD-OPC (Renato, 06/11/2026): na suspensão o aviso é o de conta suspensa; só marca que a
+    // leitura em andamento foi descartada, para o banner dizer que o tempo não foi registrado.
+    if (conta.saindoPorSuspensao && _sessao != null) {
+      conta.avisarLeituraDescartada();
+    }
     unawaited(encerrarPorLogout());
   }
 

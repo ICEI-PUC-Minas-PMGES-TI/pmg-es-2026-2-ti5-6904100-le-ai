@@ -3,6 +3,7 @@ import {
   type BaldeMensal,
   lerPeriodo,
   media,
+  montarDistribuicao,
   resumir,
   serie,
   somar,
@@ -242,5 +243,53 @@ describe('série dos gráficos (RF-STA-03)', () => {
         OUTUBRO_DE_2026,
       ),
     ).toEqual({ granularidade: 'ano', pontos: [] });
+  });
+});
+
+describe('montarDistribuicao (RF-STA-04)', () => {
+  const VALORES = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
+
+  it('sem nenhuma nota a distribuição é ausente, nunca onze zeros', () => {
+    expect(montarDistribuicao([])).toBeNull();
+    expect(montarDistribuicao([{ valor: 3, quantidade: 0 }])).toBeNull();
+  });
+
+  it('com ao menos uma nota traz as onze faixas, inclusive as de contagem zero', () => {
+    const distribuicao = montarDistribuicao([{ valor: 4, quantidade: 3 }]);
+    expect(distribuicao?.faixas.map((f) => f.valor)).toEqual(VALORES);
+    expect(distribuicao?.faixas.find((f) => f.valor === 4)?.quantidade).toBe(3);
+    expect(distribuicao?.faixas.filter((f) => f.quantidade === 0)).toHaveLength(
+      10,
+    );
+  });
+
+  it('ordena pela escala, não pela entrada, e não funde meia estrela com estrela cheia', () => {
+    const distribuicao = montarDistribuicao([
+      { valor: 5, quantidade: 1 },
+      { valor: 0, quantidade: 2 },
+      { valor: 4.5, quantidade: 4 },
+      { valor: 4, quantidade: 8 },
+    ]);
+    expect(distribuicao?.faixas.map((f) => f.quantidade)).toEqual([
+      2, 0, 0, 0, 0, 0, 0, 0, 8, 4, 1,
+    ]);
+  });
+
+  it('valor fora da escala não entra no total, que continua igual à soma das faixas', () => {
+    const distribuicao = montarDistribuicao([
+      { valor: 4, quantidade: 2 },
+      { valor: 4.4999, quantidade: 5 },
+    ]);
+    expect(distribuicao?.total).toBe(2);
+    expect(distribuicao?.faixas.reduce((s, f) => s + f.quantidade, 0)).toBe(2);
+  });
+
+  it('o total é a soma das contagens', () => {
+    expect(
+      montarDistribuicao([
+        { valor: 0, quantidade: 2 },
+        { valor: 3.5, quantidade: 5 },
+      ])?.total,
+    ).toBe(7);
   });
 });

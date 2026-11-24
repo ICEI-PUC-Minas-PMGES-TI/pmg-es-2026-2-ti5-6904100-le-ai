@@ -15,6 +15,11 @@ export interface AcaoDaFolha {
   icone: Component
   destrutiva?: boolean
   detalhe?: string
+  /**
+   * F-MOD-OPC: item de moderação no dropdown da web, em `body-strong`. `rubi` (suspender) tem
+   * hover `rubi-fundo`; `musgo` (reativar) tem texto `tinta`, ícone `musgo` e hover `musgo-fundo`.
+   */
+  tom?: 'rubi' | 'musgo'
 }
 
 defineProps<{

@@ -18,6 +18,7 @@ import 'package:le_ai_mobile/features/conta/configuracoes_page.dart';
 import 'package:le_ai_mobile/features/conta/politica_de_privacidade.dart';
 import 'package:le_ai_mobile/features/conta/recuperar_senha_page.dart';
 import 'package:le_ai_mobile/features/conta/redefinir_senha_page.dart';
+import 'package:le_ai_mobile/features/perfil/perfil_service.dart';
 
 class _FakeTokenStore implements TokenStore {
   String? value;
@@ -312,6 +313,68 @@ void main() {
       expect(cabecalho.titulo, 'Privacidade');
       expect(cabecalho.semDivisor, isFalse);
     });
+
+    // L-19 (E6-02): o texto da versão 1.1 (retenção e exclusão, RNF-SEC-42), igual ao da web.
+    testWidgets('versão 1.1 com os quatro blocos, na ordem, e títulos como cabeçalho', (
+      tester,
+    ) async {
+      final semantica = tester.ensureSemantics();
+      await tester.pumpWidget(_wrap(const PoliticaDePrivacidadePage()));
+
+      expect(find.text('Versão 1.1, de 29 de setembro de 2026'), findsOneWidget);
+      const titulos = <String>[
+        'Dados que coletamos',
+        'Para que usamos',
+        'Por quanto tempo guardamos',
+        'Seus direitos',
+      ];
+      double? anterior;
+      for (final titulo in titulos) {
+        expect(find.text(titulo), findsOneWidget);
+        expect(
+          tester.getSemantics(find.text(titulo)).getSemanticsData().flagsCollection.isHeader,
+          isTrue,
+          reason: titulo,
+        );
+        final topo = tester.getTopLeft(find.text(titulo)).dy;
+        if (anterior != null) {
+          expect(topo, greaterThan(anterior), reason: titulo);
+        }
+        anterior = topo;
+      }
+      semantica.dispose();
+    });
+
+    testWidgets('retenção e exclusão: 30 dias ocultos com cancelamento, depois apagamento', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_wrap(const PoliticaDePrivacidadePage()));
+
+      final retencao = find.text(
+        'Enquanto a conta existir. Se você pedir a exclusão, seus dados ficam guardados e '
+        'ocultos para os outros leitores por 30 dias, e você pode cancelar nesse prazo. Depois '
+        'disso, eles são apagados definitivamente, e só restam registros técnicos sem nada que '
+        'identifique você. O token de recuperação de senha vale por 1 hora. Registros de acesso '
+        'ficam por 6 meses.',
+      );
+      await tester.ensureVisible(retencao);
+      expect(retencao, findsOneWidget);
+      expect(
+        find.text(
+          'Você pode acessar e corrigir seus dados pelo perfil, pedir a exclusão da conta em '
+          'Configurações e pedir suporte pelo e-mail de contato do projeto.',
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('aberta pelo cadastro, sem sessão, mostra o mesmo texto', (tester) async {
+      await tester.pumpWidget(_wrap(const PoliticaDePrivacidadePage(semSessao: true)));
+
+      expect(find.text('Versão 1.1, de 29 de setembro de 2026'), findsOneWidget);
+      expect(find.text('Por quanto tempo guardamos'), findsOneWidget);
+      expect(find.textContaining('por 30 dias, e você pode cancelar nesse prazo'), findsOneWidget);
+    });
   });
 
   group('ConfiguracoesPage', () {
@@ -372,6 +435,184 @@ void main() {
       expect(email.dy - handle.dy, 4);
       final cabecalho = tester.widget<CabecalhoTela>(find.byType(CabecalhoTela));
       expect(cabecalho.semDivisor, isTrue);
+    });
+
+    group('Usar minhas leituras em sugestões (F-REC-ALG)', () {
+      Map<String, Object?> perfil(bool optOut) => <String, Object?>{
+        'id': 'u1',
+        'username': 'marinableu',
+        'displayName': 'Marina',
+        'avatarUrl': null,
+        'privacidade': 'publico',
+        'conteudoRestrito': false,
+        'relacao': 'proprio',
+        'biografia': null,
+        'contadores': <String, Object?>{'seguidores': 0, 'seguidos': 0},
+        'optOutRecomendacao': optOut,
+      };
+
+      Future<List<http.Request>> montar(
+        WidgetTester tester,
+        Future<http.Response> Function(http.Request) identidade,
+      ) async {
+        final gravacoes = <http.Request>[];
+        await tester.pumpWidget(
+          _wrap(
+            ConfiguracoesPage(
+              authService: _servico(
+                (_) async => http.Response('{"id":"u1","username":"marinableu","displayName":"Marina"}', 200),
+              ),
+              perfilService: PerfilService(
+                ApiClient(
+                  baseUrl: 'https://identidade.example.com',
+                  client: MockClient((request) {
+                    if (request.method == 'PATCH') {
+                      gravacoes.add(request);
+                    }
+                    return identidade(request);
+                  }),
+                  esperasDeRetentativa: const <Duration>[],
+                ),
+              ),
+              aoSair: () async {},
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        return gravacoes;
+      }
+
+      bool? ligado(WidgetTester tester) => tester
+          .widget<Semantics>(
+            find.byWidgetPredicate(
+              (w) => w is Semantics && w.properties.label == 'Usar minhas leituras em sugestões',
+            ),
+          )
+          .properties
+          .toggled;
+
+      Future<void> alternar(WidgetTester tester) async {
+        final alvo = find.text('Usar minhas leituras em sugestões');
+        await tester.ensureVisible(alvo);
+        await tester.tap(alvo);
+        await tester.pumpAndSettle();
+      }
+
+      http.Response jsonDe(Object corpo, [int status = 200]) => http.Response(
+        jsonEncode(corpo),
+        status,
+        headers: <String, String>{'content-type': 'application/json; charset=utf-8'},
+      );
+
+      testWidgets('o switch é a frase positiva: ligado quando optOutRecomendacao é falso', (
+        tester,
+      ) async {
+        await montar(tester, (_) async => jsonDe(perfil(false)));
+
+        expect(ligado(tester), isTrue);
+        expect(find.byKey(const ValueKey<String>('skeleton-do-switch')), findsNothing);
+      });
+
+      testWidgets('sem a leitura do perfil, fica o skeleton e o toque não grava', (tester) async {
+        final gravacoes = await montar(tester, (_) async => jsonDe(<String, Object?>{}, 500));
+
+        expect(find.byKey(const ValueKey<String>('skeleton-do-switch')), findsOneWidget);
+        await alternar(tester);
+        expect(gravacoes, isEmpty);
+      });
+
+      testWidgets('desligar grava optOutRecomendacao verdadeiro com chave', (tester) async {
+        final gravacoes = await montar(
+          tester,
+          (request) async => jsonDe(perfil(request.method == 'PATCH')),
+        );
+
+        await alternar(tester);
+
+        expect(gravacoes, hasLength(1));
+        expect(jsonDecode(gravacoes.single.body), <String, Object?>{'optOutRecomendacao': true});
+        expect(gravacoes.single.headers['Idempotency-Key'], isNotEmpty);
+        expect(ligado(tester), isFalse);
+      });
+
+      testWidgets('falha devolve o switch e diz o motivo; tocar de novo repete a chave', (
+        tester,
+      ) async {
+        var patches = 0;
+        final gravacoes = await montar(tester, (request) async {
+          if (request.method != 'PATCH') {
+            return jsonDe(perfil(false));
+          }
+          return patches++ == 0
+              ? jsonDe(<String, Object?>{'codigo': 'ERRO_INTERNO', 'mensagem': 'Falhou.'}, 500)
+              : jsonDe(perfil(true));
+        });
+
+        await alternar(tester);
+        expect(ligado(tester), isTrue);
+        expect(
+          find.text('Não foi possível salvar. Verifique sua conexão e tente de novo.'),
+          findsOneWidget,
+        );
+
+        await alternar(tester);
+        expect(gravacoes.map((g) => g.headers['Idempotency-Key']).toSet(), hasLength(1));
+        expect(find.text('Não foi possível salvar. Verifique sua conexão e tente de novo.'), findsNothing);
+        expect(ligado(tester), isFalse);
+      });
+
+      testWidgets('sem estado lido, o leitor de tela não ouve ligado nem desligado (§4.5)', (
+        tester,
+      ) async {
+        final semantica = tester.ensureSemantics();
+        final leitura = Completer<http.Response>();
+        await montar(tester, (_) => leitura.future);
+        final linha = find.bySemanticsLabel('Usar minhas leituras em sugestões');
+
+        expect(
+          tester.getSemantics(linha),
+          isSemantics(hasToggledState: false, hasEnabledState: true, isEnabled: false),
+        );
+
+        leitura.complete(jsonDe(<String, Object?>{}, 500));
+        await tester.pumpAndSettle();
+        expect(
+          tester.getSemantics(linha),
+          isSemantics(hasToggledState: false, isEnabled: false, hasTapAction: false),
+        );
+        semantica.dispose();
+      });
+
+      testWidgets('gravando, a linha é anunciada como ocupada e não aceita outro toque (§9)', (
+        tester,
+      ) async {
+        final semantica = tester.ensureSemantics();
+        final gravacao = Completer<http.Response>();
+        final gravacoes = await montar(
+          tester,
+          (request) => request.method == 'PATCH' ? gravacao.future : Future.value(jsonDe(perfil(false))),
+        );
+        final alvo = find.text('Usar minhas leituras em sugestões');
+        await tester.ensureVisible(alvo);
+        for (var i = 0; i < 3; i++) {
+          await tester.tap(alvo);
+          await tester.pump();
+        }
+
+        expect(gravacoes, hasLength(1));
+        expect(
+          tester.getSemantics(find.bySemanticsLabel('Usar minhas leituras em sugestões')),
+          isSemantics(value: 'Salvando', isEnabled: false, hasTapAction: false),
+        );
+
+        gravacao.complete(jsonDe(perfil(true)));
+        await tester.pumpAndSettle();
+        expect(
+          tester.getSemantics(find.bySemanticsLabel('Usar minhas leituras em sugestões')),
+          isSemantics(hasToggledState: true, isToggled: false, isEnabled: true, hasTapAction: true),
+        );
+        semantica.dispose();
+      });
     });
   });
 }

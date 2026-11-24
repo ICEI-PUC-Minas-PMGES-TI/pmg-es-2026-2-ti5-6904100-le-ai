@@ -1,4 +1,5 @@
 import '../../core/network/api_client.dart';
+import 'calendario.dart';
 
 /// `Sequencia` de docs/api/leitura.yaml (F-GAM, RF-GAM-02).
 class Sequencia {
@@ -31,11 +32,31 @@ class SequenciaService {
     try {
       return Sequencia.fromJson(json);
     } on FormatException {
-      throw const ApiException(
-        kind: ApiFailureKind.invalidResponse,
-        correlationId: '',
-        message: 'O serviço retornou uma resposta inválida.',
-      );
+      throw _respostaInvalida;
     }
   }
+
+  /// `GET /me/sequencia/calendario?mes=` (F-GAM-OPC, RF-GAM-04). Sem [mes], o mês corrente no
+  /// fuso que apura a sequência. Mês fora da janela do servidor é 422.
+  Future<CalendarioDaSequencia> calendario({Mes? mes}) async {
+    final json = await _api.getJson(
+      Uri(
+        path: '/me/sequencia/calendario',
+        queryParameters: mes == null ? null : <String, String>{'mes': mes.valor},
+      ).toString(),
+    );
+    try {
+      return CalendarioDaSequencia.fromJson(json);
+    } on FormatException {
+      throw _respostaInvalida;
+    } on TypeError {
+      throw _respostaInvalida;
+    }
+  }
+
+  static const ApiException _respostaInvalida = ApiException(
+    kind: ApiFailureKind.invalidResponse,
+    correlationId: '',
+    message: 'O serviço retornou uma resposta inválida.',
+  );
 }

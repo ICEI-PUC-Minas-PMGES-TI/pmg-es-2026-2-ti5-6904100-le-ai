@@ -70,6 +70,23 @@ class ServicoDeFeedIntegracaoTest extends IntegracaoComPostgres {
          WHERE u_seguidor.suspenso = false AND u_seguidor.exclusao_solicitada_em IS NULL
            AND u_seguido.suspenso = false AND u_seguido.exclusao_solicitada_em IS NULL
         """);
+    // F-MOD-OPC: as contagens de curtidas e comentários de `mapear` filtram pela VIEW de perfil.
+    // Criada aqui, coluna a coluna como em MassaDeRecomendacao, para a classe rodar sozinha em
+    // banco novo, sem depender de outra classe ter criado a VIEW antes (revisão do PR #61).
+    jdbc.execute("ALTER TABLE identidade.usuario ADD COLUMN IF NOT EXISTS username text");
+    jdbc.execute("ALTER TABLE identidade.usuario ADD COLUMN IF NOT EXISTS nome_exibicao text");
+    jdbc.execute("ALTER TABLE identidade.usuario ADD COLUMN IF NOT EXISTS avatar_url text");
+    jdbc.execute(
+        "ALTER TABLE identidade.usuario ADD COLUMN IF NOT EXISTS privacidade text NOT NULL DEFAULT 'publico'");
+    jdbc.execute(
+        "ALTER TABLE identidade.usuario ADD COLUMN IF NOT EXISTS opt_out_recomendacao boolean NOT NULL DEFAULT false");
+    jdbc.execute(
+        """
+        CREATE OR REPLACE VIEW identidade.v_perfil_referencia_v1 AS
+        SELECT id, username, nome_exibicao, avatar_url, privacidade, opt_out_recomendacao
+          FROM identidade.usuario
+         WHERE suspenso = false AND exclusao_solicitada_em IS NULL
+        """);
 
     jdbc.execute("CREATE SCHEMA IF NOT EXISTS acervo");
     jdbc.execute(
@@ -440,6 +457,39 @@ class ServicoDeFeedIntegracaoTest extends IntegracaoComPostgres {
     assertThat(resposta.id()).isEqualTo(atividade.id().toString());
     assertThat(resposta.totalCurtidas()).isEqualTo(1);
     assertThat(resposta.curtidaPeloSolicitante()).isTrue();
+  }
+
+  @Test
+  @DisplayName("contadores nao contam curtida nem comentario de conta suspensa, e voltam na reativacao")
+  void contadoresIgnoramContaSuspensa() {
+    UUID solicitante = UUID.randomUUID();
+    UUID autor = UUID.randomUUID();
+    UUID ativa = UUID.randomUUID();
+    UUID suspensa = UUID.randomUUID();
+    UUID livroId = UUID.randomUUID();
+    seguir(solicitante, autor);
+    seguir(ativa, autor);
+    seguir(suspensa, autor);
+    livro(livroId, "oficial", true);
+    Atividade atividade = leitura(autor, livroId, "servico-chave-suspensa");
+    for (UUID quem : new UUID[] {solicitante, ativa, suspensa}) {
+      curtidaRepository.save(CurtidaAtividade.nova(atividade.id(), quem));
+      jdbc.update(
+          "INSERT INTO comentario (id, atividade_id, autor_id, texto) VALUES (?, ?, ?, 'Oi')",
+          UUID.randomUUID(),
+          atividade.id(),
+          quem);
+    }
+
+    jdbc.update("UPDATE identidade.usuario SET suspenso = true WHERE id = ?", suspensa);
+    AtividadeResposta durante = servico.obter(solicitante, atividade.id());
+    assertThat(durante.totalCurtidas()).isEqualTo(2);
+    assertThat(durante.totalComentarios()).isEqualTo(2);
+
+    jdbc.update("UPDATE identidade.usuario SET suspenso = false WHERE id = ?", suspensa);
+    AtividadeResposta depois = servico.obter(solicitante, atividade.id());
+    assertThat(depois.totalCurtidas()).isEqualTo(3);
+    assertThat(depois.totalComentarios()).isEqualTo(3);
   }
 
   @Test

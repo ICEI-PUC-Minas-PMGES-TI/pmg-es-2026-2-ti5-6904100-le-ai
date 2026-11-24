@@ -1,0 +1,11 @@
+{
+  "name": "leai-openapi-html",
+  "private": true,
+  "description": "Gera o HTML estático dos contratos OpenAPI de docs/api/ (E6-05).",
+  "scripts": {
+    "gerar": "node gerar.mjs"
+  },
+  "devDependencies": {
+    "@redocly/cli": "2.75.0"
+  }
+}

@@ -19,12 +19,19 @@ import '../perfil/textos.dart';
 import '../perfil/widgets_de_perfil.dart';
 import 'canal_de_notificacoes.dart';
 import 'contador_de_nao_lidas.dart';
+import 'icone_da_notificacao.dart';
 import 'notificacao.dart';
 import 'notificacoes_service.dart';
 
 const int _itensDoSkeleton = 6;
 const int _itensDoSkeletonNoFim = 2;
 const int _linhasDoTexto = 3;
+
+/// Destino no rótulo acessível do lembrete de sequência (notificacoes.md P3 §8). O destino real
+/// depende das leituras em andamento, que a lista não conhece; o rótulo anuncia a estante, de onde
+/// sai o registro de progresso.
+String _destinoAnunciado(Notificacao notificacao) =>
+    notificacao.tipo == TipoNotificacao.lembreteSequencia ? '. Abre a estante.' : '';
 
 /// Notificações in-app (RF-NOT-02/03/04), a partir de docs/design/periodo-1/F-NOT/notificacoes.md.
 /// Não lida é só o ponto `musgo` de 8px; abrir marca como lida, e `Marcar todas` zera o badge. A
@@ -402,8 +409,8 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
                   solto: true,
                   titulo: 'Nada por enquanto',
                   texto:
-                      'Curtidas, comentários, novos seguidores e avisos das suas leituras '
-                      'aparecem aqui.',
+                      'Curtidas, comentários, menções, recomendações, novos seguidores, avisos '
+                      'das suas leituras e lembretes da sua sequência aparecem aqui.',
                 ),
               ),
             ),
@@ -475,7 +482,8 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
                     Semantics(
                       label:
                           '${notificacao.lida ? '' : 'Não lida. '}${notificacao.mensagem} '
-                          '${notificacao.recomendacaoMensagem ?? ''} $tempo',
+                          '${notificacao.recomendacaoMensagem ?? ''} $tempo'
+                          '${_destinoAnunciado(notificacao)}',
                       excludeSemantics: true,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -703,27 +711,15 @@ class _PontoEIcone extends StatelessWidget {
           ),
           const SizedBox(width: DesignTokens.space2),
           // Só o Warning tem cor própria: é o único que pede ação do leitor.
-          Icon(_icone(tipo), size: 24, color: emRisco ? theme.warningColor : theme.secondaryText),
+          Icon(
+            iconeDaNotificacao(tipo),
+            size: 24,
+            color: emRisco ? theme.warningColor : theme.secondaryText,
+          ),
         ],
       ),
     );
   }
-
-  static IconData _icone(TipoNotificacao tipo) => switch (tipo) {
-    TipoNotificacao.atividadeCurtida => PhosphorIconsRegular.heart,
-    TipoNotificacao.atividadeComentada ||
-    TipoNotificacao.comentarioRespondido => PhosphorIconsRegular.chatCircle,
-    TipoNotificacao.novoSeguidor ||
-    TipoNotificacao.solicitacaoCriada => PhosphorIconsRegular.userPlus,
-    TipoNotificacao.solicitacaoAceita => PhosphorIconsRegular.userCheck,
-    TipoNotificacao.usuarioMencionado => PhosphorIconsRegular.at,
-    TipoNotificacao.leituraEmRisco => PhosphorIconsRegular.warning,
-    TipoNotificacao.leituraExpirada => PhosphorIconsRegular.pauseCircle,
-    TipoNotificacao.recomendacaoRecebida => PhosphorIconsRegular.paperPlaneTilt,
-    // F-AVA-2: o mesmo ícone do botão de curtir na resenha, para não confundir com o `Heart` da
-    // curtida em atividade (notificacoes.md §5).
-    TipoNotificacao.resenhaCurtida => PhosphorIconsRegular.thumbsUp,
-  };
 }
 
 /// Frase do servidor, com o nome de quem agiu em `body-strong` quando ela começa por ele.

@@ -65,6 +65,10 @@ public class Usuario {
   @Column(name = "privacidade", nullable = false)
   private String privacidade = "publico";
 
+  /** F-REC-ALG: o leitor tirou as próprias leituras das sugestões dos outros (REQUISITOS §10.7). */
+  @Column(name = "opt_out_recomendacao", nullable = false)
+  private boolean optOutRecomendacao;
+
   // Só leitura aqui: quem mantém é o SQL de seguir e deixar de seguir, com a linha travada. Se o
   // Hibernate regravasse o valor carregado, uma troca de senha simultânea desfaria um incremento.
   @Column(name = "qtd_seguidores", nullable = false, insertable = false, updatable = false)
@@ -169,12 +173,27 @@ public class Usuario {
     return privacidade;
   }
 
+  public boolean optOutRecomendacao() {
+    return optOutRecomendacao;
+  }
+
+  /** Não muda a visibilidade do perfil nem as sugestões que o próprio leitor recebe. */
+  public void definirOptOutRecomendacao(boolean optOut) {
+    this.optOutRecomendacao = optOut;
+    this.atualizadoEm = Instant.now();
+  }
+
   public Instant exclusaoSolicitadaEm() {
     return exclusaoSolicitadaEm;
   }
 
   public Instant exclusaoPrevistaEm() {
     return exclusaoPrevistaEm;
+  }
+
+  /** Conta suspensa pela moderação (F-MOD-OPC, RF-MOD-04). */
+  public boolean suspenso() {
+    return suspenso;
   }
 
   /** Conta dentro da janela de recuperação de 30 dias (RN-23.2). */

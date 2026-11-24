@@ -6,6 +6,7 @@ import {
   eq,
   gte,
   inArray,
+  isNotNull,
   isNull,
   lt,
   lte,
@@ -24,7 +25,7 @@ import {
 } from '../../db/schema';
 import type { Tx } from '../../db/tipos';
 import type { Unidade } from '../dominio/desafio';
-import type { Periodicidade, Periodo } from '../dominio/janelas';
+import type { PausaDaJanela, Periodicidade, Periodo } from '../dominio/janelas';
 
 type Executor = DrizzleDB | Tx;
 
@@ -65,6 +66,18 @@ export interface JanelaCorrente {
   fim: string;
   acumulado: number;
   cumprida: boolean;
+}
+
+/** Janela encerrada com o snapshot dela, para o histórico (RF-DSF-05). */
+export interface JanelaEncerrada {
+  inicio: string;
+  fim: string;
+  unidade: Unidade;
+  periodicidade: Periodicidade;
+  valorAlvo: number;
+  acumulado: number;
+  cumprida: boolean;
+  pausa: PausaDaJanela;
 }
 
 const COLUNAS_DESAFIO = {
@@ -443,6 +456,83 @@ export class DesafiosRepository {
       .where(inArray(janelaDesafio.desafioId, [...desafioIds]))
       .orderBy(janelaDesafio.desafioId, desc(janelaDesafio.fim));
     return new Map(linhas.map((linha) => [linha.desafioId, linha]));
+  }
+
+  /** Se o desafio existe e é do usuário, sem travar (leitura do histórico). */
+  async existeDoUsuario(
+    executor: Executor,
+    id: string,
+    usuarioId: string,
+  ): Promise<boolean> {
+    const linhas = await executor
+      .select({ id: desafio.id })
+      .from(desafio)
+      .where(and(eq(desafio.id, id), eq(desafio.usuarioId, usuarioId)));
+    return linhas.length > 0;
+  }
+
+  /**
+   * Página do histórico (RF-DSF-05): as janelas encerradas do desafio, da mais
+   * recente para a mais antiga, com o snapshot de cada uma (RN-20.7).
+   *
+   * A pausa é cruzada com `pausa_desafio` no fuso da própria janela: a janela
+   * vai da meia-noite do primeiro dia à meia-noite seguinte ao último.
+   * `inteira` exige uma única pausa cobrindo tudo, porque retomar e pausar de
+   * novo deixa um intervalo em que o desafio contou.
+   */
+  async listarEncerradas(
+    executor: Executor,
+    desafioId: string,
+    deslocamento: number,
+    limite: number,
+  ): Promise<{ linhas: JanelaEncerrada[]; totalItens: number }> {
+    const encerradaDoDesafio = and(
+      eq(janelaDesafio.desafioId, desafioId),
+      isNotNull(janelaDesafio.encerradaEm),
+    );
+    const comeco = sql`(${janelaDesafio.inicio}::timestamp AT TIME ZONE ${janelaDesafio.fusoHorario})`;
+    const termino = sql`((${janelaDesafio.fim} + 1)::timestamp AT TIME ZONE ${janelaDesafio.fusoHorario})`;
+    const [linhas, [{ total }]] = await Promise.all([
+      executor
+        .select({
+          inicio: janelaDesafio.inicio,
+          fim: janelaDesafio.fim,
+          unidade: janelaDesafio.unidade,
+          periodicidade: janelaDesafio.periodicidade,
+          valorAlvo: janelaDesafio.valorAlvo,
+          acumulado: janelaDesafio.acumulado,
+          cumprida: janelaDesafio.cumprida,
+          pausa: sql<PausaDaJanela>`CASE
+            WHEN EXISTS (
+              SELECT 1 FROM ${pausaDesafio} pa
+               WHERE pa.desafio_id = ${janelaDesafio.desafioId}
+                 AND pa.inicio_em <= ${comeco}
+                 AND (pa.fim_em IS NULL OR pa.fim_em >= ${termino}))
+              THEN 'inteira'
+            WHEN EXISTS (
+              SELECT 1 FROM ${pausaDesafio} pa
+               WHERE pa.desafio_id = ${janelaDesafio.desafioId}
+                 AND pa.inicio_em < ${termino}
+                 AND (pa.fim_em IS NULL OR pa.fim_em > ${comeco}))
+              THEN 'parcial'
+            ELSE 'nenhuma'
+          END`,
+        })
+        .from(janelaDesafio)
+        .where(encerradaDoDesafio)
+        .orderBy(
+          desc(janelaDesafio.inicio),
+          desc(janelaDesafio.fim),
+          asc(janelaDesafio.id),
+        )
+        .limit(limite)
+        .offset(deslocamento),
+      executor
+        .select({ total: sql<number>`count(*)::int` })
+        .from(janelaDesafio)
+        .where(encerradaDoDesafio),
+    ]);
+    return { linhas: linhas as JanelaEncerrada[], totalItens: total };
   }
 
   /** Início da pausa aberta de cada desafio pausado ("Pausado desde"). */

@@ -22,6 +22,7 @@ import '../features/estatisticas/estatisticas_service.dart';
 import '../features/estatisticas/rotas_estatisticas.dart';
 import '../features/descobrir/descobrir_page.dart';
 import '../features/recomendacoes/rotas_recomendacoes.dart';
+import '../features/recomendacoes/sessao_do_descarte_em_lote.dart';
 import '../core/config/app_config.dart';
 import '../core/network/api_client.dart';
 import '../features/estante/busca_na_estante.dart';
@@ -31,13 +32,17 @@ import '../features/historico/historico_page.dart';
 import '../features/feed/rotas_feed.dart';
 import '../features/listas/rotas_listas.dart';
 import '../features/livros/rotas_livros.dart';
+import '../features/notificacoes/preferencias_de_notificacao_page.dart';
+import '../features/notificacoes/preferencias_de_notificacao_service.dart';
 import '../features/notificacoes/rotas_notificacoes.dart';
+import '../features/notificacoes/servico_de_push.dart';
 import '../features/perfil/perfil_page.dart';
 import '../features/perfil/rotas_perfil.dart';
 import '../features/perfil/widgets_de_identidade.dart';
 import '../features/progresso/rotas_progresso.dart';
 import '../features/sessao/rotas_sessao.dart';
 import '../features/sessao/sessao_controller.dart';
+import '../features/sequencia/rotas_sequencia.dart';
 import '../features/sequencia/sequencia_do_perfil.dart';
 import '../features/sequencia/sequencia_service.dart';
 import 'shell_autenticado.dart';
@@ -74,6 +79,8 @@ GoRouter buildRouter({
   EstanteService? estante,
   DependenciasDeProgresso? progresso,
   DependenciasDeNotificacoes? notificacoes,
+  PreferenciasDeNotificacaoService? preferenciasDeNotificacao,
+  ServicoDePush? servicoDePush,
   DependenciasDeListas? listas,
   ExclusaoService? exclusao,
   SequenciaService? sequencia,
@@ -136,8 +143,16 @@ GoRouter buildRouter({
         getToken: () => sessionController.token,
         renovarSessao: renovar,
       );
+  final servicoDePreferencias =
+      preferenciasDeNotificacao ??
+      PreferenciasDeNotificacaoService.padrao(
+        getToken: () => sessionController.token,
+        renovarSessao: renovar,
+      );
   final sessaoDeLeitura = depsDeProgresso.sessao;
   sessaoDeLeitura?.acompanharConta(sessionController);
+  // F-REC-ALG: a contagem e a recusa da pergunta de descarte em lote saem junto com a conta.
+  acompanharContaDoDescarteEmLote(sessionController);
   return GoRouter(
     initialLocation: rotaVerificandoSessao,
     refreshListenable: Listenable.merge(<Listenable>[sessionController, ?sessaoDeLeitura]),
@@ -248,6 +263,10 @@ GoRouter buildRouter({
                   aoBuscarNoAcervo: (termo) => context.go(
                     Uri(path: '/descobrir', queryParameters: <String, String>{'q': termo}).toString(),
                   ),
+                  // F-GAM-OPC: o lembrete de sequência chega com `?lembrete=sequencia`.
+                  lembreteDeSequencia:
+                      state.uri.queryParameters[parametroDoLembrete] == valorDoLembreteDeSequencia,
+                  aoConsumirLembrete: () => context.go(rotaEstante),
                 ),
                 routes: <RouteBase>[
                   GoRoute(
@@ -352,9 +371,13 @@ GoRouter buildRouter({
                   sequencia: () => SequenciaDoPerfil(
                     servico: servicoDeSequencia,
                     alteracoes: depsDeProgresso.servico.alteracoes,
+                    // F-GAM-OPC: o bloco abre o calendário empilhado sobre o perfil.
+                    aoAbrirCalendario: () => context.push<void>(rotaCalendarioDaSequencia),
                   ),
                   estatisticas: () => secaoDasEstatisticas(context, depsDeEstatisticas),
                   desafios: () => secaoDosDesafios(context, depsDeDesafios),
+                  // Seguidor novo e pedidos atualizam os contadores com a aba já aberta.
+                  eventosDeNotificacoes: depsDeNotificacoes.canal.eventos,
                 ),
                 routes: <RouteBase>[
                   ...rotasDoPerfil(
@@ -391,12 +414,19 @@ GoRouter buildRouter({
                   ),
                   ...rotasDeCatalogo(deps, raiz: '/perfil'),
                   rotaDeNotificacoes(depsDeNotificacoes, rotaPerfilRaiz),
+                  rotaDoCalendarioDaSequencia(
+                    servicoDeSequencia,
+                    fila: depsDeProgresso.fila,
+                    alteracoes: depsDeProgresso.servico.alteracoes,
+                  ),
                   GoRoute(
                     path: 'configuracoes',
                     builder: (context, state) => ConfiguracoesPage(
                       authService: authService,
+                      perfilService: depsDePerfil.servico,
                       aoVoltar: () => context.go('/perfil'),
                       aoAlterarSenha: () => context.go('$rotaConfiguracoes/alterar-senha'),
+                      aoAbrirNotificacoes: () => context.go('$rotaConfiguracoes/notificacoes'),
                       aoAbrirPolitica: () => context.go('$rotaConfiguracoes/privacidade'),
                       aoExcluirConta: () => context.go('$rotaConfiguracoes/excluir-conta'),
                       aoSair: () async {
@@ -418,6 +448,14 @@ GoRouter buildRouter({
                         ),
                       ),
                       GoRoute(
+                        path: 'notificacoes',
+                        builder: (context, state) => PreferenciasDeNotificacaoPage(
+                          servico: servicoDePreferencias,
+                          servicoDePush: servicoDePush,
+                          aoVoltar: () => context.go(rotaConfiguracoes),
+                        ),
+                      ),
+                      GoRoute(
                         path: 'privacidade',
                         builder: (context, state) => PoliticaDePrivacidadePage(
                           aoVoltar: () => context.go(rotaConfiguracoes),
@@ -429,6 +467,7 @@ GoRouter buildRouter({
                           servico: servicoDeExclusao,
                           authService: authService,
                           aoVoltar: () => context.go(rotaConfiguracoes),
+                          aoContaSuspensa: sessionController.encerrarPorSuspensao,
                           aoExclusaoSolicitada: (previstaEm) async {
                             // O roteador é pego antes: limpar a sessão leva a guarda ao login,
                             // e esta página sai da árvore. A navegação seguinte substitui aquela.

@@ -94,7 +94,6 @@ O feed não consome VIEW de resenha; consome exclusivamente `resenha.publicada`.
 
 ## Pendências
 
-- **Plano de implementação:** [`plano-F-AVA.md`](plano-F-AVA.md) (fatias 0 a 4, decisões e divergências).
 - **Revisão do Kayke (não bloqueia mais: o Renato decidiu mergear na `desenvolvimento` em 27/09):** a migration `V20260927002000__snap_livro_autor_anulavel.sql`, `Atividade.java`, a cópia do `common-v1`, `docs/api/social.yaml` e `ItemAtividade.vue` (autor vazio e spoiler escondido no feed) foram feitos por F-AVA com autorização do Renato. Registro em `code/back/social/AGENTS.md`.
 - **Decisões do grupo pendentes:** correção do `common-v1` sem nova versão (feita em 26/09 por decisão do Renato, a comunicar); o feed lê as VIEWs do `leitura`, contra a arquitetura §3.2 item 4; resenhas de livro pessoal no perfil só para o dono (RN-15); componentes novos para o `documento-de-design.md`.
 - **"Funciona em DES" chega com o fechamento do Período 1.** A `main` só recebe cada período inteiro, no merge de fechamento, e o DES sobe da `main`; por isso o item não é pendência da feature. O `JWT_SECRET` do `leai-leitura` foi configurado no Render em 27/09, com o mesmo valor do `leai-identidade`. Antes da primeira resenha, conferir `leai.social.feed` no `Le-ai-oregon`.

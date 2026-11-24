@@ -1,7 +1,7 @@
 import { ref, shallowRef } from 'vue'
 
 import { ApiError } from '../services/api'
-import type { TotaisEstatistica } from '../services/leitura'
+import type { DistribuicaoNotas, TotaisEstatistica } from '../services/leitura'
 
 export type EstadoDoBloco = 'carregando' | 'pronto' | 'vazio' | 'falhou' | 'oculto'
 
@@ -9,6 +9,7 @@ export interface ResultadoDoBloco {
   totais: TotaisEstatistica
   /** O leitor não tem o que mostrar no bloco: vira a frase no lugar dos totais. */
   vazio: boolean
+  distribuicao?: DistribuicaoNotas | null
 }
 
 const PROIBIDO = 403
@@ -23,6 +24,7 @@ const NAO_ENCONTRADO = 404
 export function useEstatisticasDoAno(buscar: () => Promise<ResultadoDoBloco>) {
   const estado = ref<EstadoDoBloco>('carregando')
   const totais = shallowRef<TotaisEstatistica | null>(null)
+  const distribuicao = shallowRef<DistribuicaoNotas | null>(null)
   let pedido = 0
 
   async function carregar(): Promise<void> {
@@ -32,6 +34,7 @@ export function useEstatisticasDoAno(buscar: () => Promise<ResultadoDoBloco>) {
       const resultado = await buscar()
       if (atual !== pedido) return
       totais.value = resultado.totais
+      distribuicao.value = resultado.distribuicao ?? null
       estado.value = resultado.vazio ? 'vazio' : 'pronto'
     } catch (erro) {
       if (atual !== pedido) return
@@ -40,5 +43,5 @@ export function useEstatisticasDoAno(buscar: () => Promise<ResultadoDoBloco>) {
     }
   }
 
-  return { estado, totais, carregar }
+  return { estado, totais, distribuicao, carregar }
 }

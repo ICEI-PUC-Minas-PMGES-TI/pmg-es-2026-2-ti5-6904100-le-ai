@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lê Ai - contratos HTTP</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 44rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; color: #1f2328; background: #fff; }
+    li { margin: .4rem 0; }
+    span, p.nota { color: #59636e; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Lê Ai - contratos HTTP</h1>
+    <p>Um contrato OpenAPI 3.0.3 por serviço. Cada página abre sem servidor e sem internet.
+      O estado de cada operação aparece logo abaixo do título dela
+      (<code>implementation-status</code> ou <code>contract-status</code>).</p>
+    <ul>
+      <li><a href="identidade.html">Lê Ai - identidade</a> <span>(<code>docs/api/identidade.yaml</code>)</span></li>
+      <li><a href="acervo.html">Lê Ai - acervo</a> <span>(<code>docs/api/acervo.yaml</code>)</span></li>
+      <li><a href="leitura.html">Lê Ai - leitura</a> <span>(<code>docs/api/leitura.yaml</code>)</span></li>
+      <li><a href="social.html">Lê Ai - social</a> <span>(<code>docs/api/social.yaml</code>)</span></li>
+    </ul>
+    <p class="nota">Gerado de <code>docs/api/*.yaml</code> por <code>node code/scripts/openapi-html/gerar.mjs</code>,
+      com Redoc (<code>@redocly/cli</code> 2.75.0). Não edite estes arquivos à mão: altere o YAML e gere de novo.</p>
+  </main>
+</body>
+</html>

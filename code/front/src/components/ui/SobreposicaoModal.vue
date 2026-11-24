@@ -18,8 +18,10 @@ const props = withDefaults(
     compacto?: boolean
     /** Largura do dialog na web; sem ela, 360px no compacto e 480px no padrão. */
     larguraDialogo?: string
+    /** Id do texto, dentro da sobreposição, lido como descrição do dialog (`aria-describedby`). */
+    idDaDescricao?: string
   }>(),
-  { focoInicial: undefined, somenteFolha: false, compacto: false, larguraDialogo: undefined },
+  { focoInicial: undefined, somenteFolha: false, compacto: false, larguraDialogo: undefined, idDaDescricao: undefined },
 )
 
 const emit = defineEmits<{ fechar: [] }>()
@@ -92,6 +94,7 @@ function aoTeclar(evento: KeyboardEvent): void {
           role="dialog"
           aria-modal="true"
           :aria-label="rotulo"
+          :aria-describedby="idDaDescricao"
           class="painel w-full min-w-0 rounded-t-lg p-space-6 shadow-3 dark:bg-papel-elevado"
           :class="[
             compacto ? 'bg-papel-elevado' : 'bg-papel',

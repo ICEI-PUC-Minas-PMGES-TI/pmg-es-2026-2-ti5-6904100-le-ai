@@ -33,15 +33,18 @@ class TokensDaSessao {
 /// mostra a tela de verificação de sessão.
 class SessionController extends ChangeNotifier {
   final TokenStore store;
+  final Future<void> Function()? revogarDispositivo;
   String? _token;
   String? _refreshToken;
   bool _carregando = true;
   Future<bool>? _renovacaoEmCurso;
   AcessoDeRecuperacao? _recuperacao;
   bool _saindoPorExpiracao = false;
+  bool _saindoPorSuspensao = false;
+  bool _leituraDescartadaNaSaida = false;
   String? _avisoDeSaida;
 
-  SessionController(this.store);
+  SessionController(this.store, {this.revogarDispositivo});
 
   /// Acesso de recuperação da conta com exclusão pendente (F-CONTA-2, RN-23.3). **Só em
   /// memória**, nunca no [store]: vale 15 minutos e só cancela a exclusão, então fechar o app e
@@ -123,6 +126,7 @@ class SessionController extends ChangeNotifier {
   Future<void> sairRevogando(
     Future<void> Function(String refreshToken) revogar,
   ) async {
+    await _revogarDispositivoDePush();
     // Uma renovação em curso gravaria a sessão de novo depois desta limpeza.
     await _renovacaoEmCurso;
     final refresh = _refreshToken;
@@ -137,9 +141,25 @@ class SessionController extends ChangeNotifier {
     }
   }
 
+  Future<void> _revogarDispositivoDePush() async {
+    try {
+      await revogarDispositivo?.call();
+    } on Object {
+      return;
+    }
+  }
+
   /// Verdadeiro só durante a saída forçada pela renovação recusada: quem ouve a saída sabe que a
   /// pessoa não pediu para sair.
   bool get saindoPorExpiracao => _saindoPorExpiracao;
+
+  /// F-MOD-OPC: primeira linha do banner de sessão encerrada por suspensão (login.md P3 §8). A
+  /// tela de entrada reconhece este aviso e mostra o banner de conta suspensa no lugar do comum.
+  static const String avisoDeContaSuspensa =
+      'Sua sessão foi encerrada porque esta conta foi suspensa.';
+
+  /// Código do 403 do `identidade` para conta suspensa.
+  static const String codigoContaSuspensa = 'CONTA_SUSPENSA';
 
   /// Mensagem que a tela de entrada mostra para explicar uma saída que a pessoa não pediu.
   void avisarSaida(String mensagem) => _avisoDeSaida = mensagem;
@@ -149,6 +169,46 @@ class SessionController extends ChangeNotifier {
     final aviso = _avisoDeSaida;
     _avisoDeSaida = null;
     return aviso;
+  }
+
+  /// F-MOD-OPC: o aviso é gravado **antes** de [sair], porque o `notifyListeners` de [sair] pode
+  /// levar ao login antes de o aviso existir. Não liga [saindoPorExpiracao]: o ouvinte da sessão
+  /// de leitura (`features/sessao/sessao_controller.dart`) só troca o aviso nesse caso, então o de
+  /// suspensão fica. A sessão de leitura em curso é descartada, e o ouvinte dela marca
+  /// [avisarLeituraDescartada] para o banner do login avisar o descarte.
+  Future<void> _sairPorSuspensao() async {
+    avisarSaida(avisoDeContaSuspensa);
+    _saindoPorSuspensao = true;
+    try {
+      await sair();
+    } finally {
+      _saindoPorSuspensao = false;
+    }
+  }
+
+  /// F-MOD-OPC: saída pela suspensão pedida de fora da renovação, quando uma chamada autenticada
+  /// recebe o 403 [codigoContaSuspensa] dentro dos 15 minutos do token de acesso (por exemplo, o
+  /// pedido de exclusão de conta). Sem sessão, não faz nada: não sai duas vezes nem troca o aviso.
+  Future<void> encerrarPorSuspensao() async {
+    await _renovacaoEmCurso;
+    if (_token == null) {
+      return;
+    }
+    await _sairPorSuspensao();
+  }
+
+  /// Verdadeiro só durante a saída pela suspensão: o ouvinte da sessão de leitura usa para avisar
+  /// que a leitura em andamento foi descartada, sem trocar o aviso de suspensão.
+  bool get saindoPorSuspensao => _saindoPorSuspensao;
+
+  /// A sessão de leitura em andamento foi descartada na saída por suspensão (F-MOD-OPC).
+  void avisarLeituraDescartada() => _leituraDescartadaNaSaida = true;
+
+  /// Devolve e apaga a marca: a tela de entrada a mostra uma vez, junto do banner.
+  bool consumirLeituraDescartada() {
+    final descartada = _leituraDescartadaNaSaida;
+    _leituraDescartadaNaSaida = false;
+    return descartada;
   }
 
   Future<void> _sairPorExpiracao() async {
@@ -177,7 +237,11 @@ class SessionController extends ChangeNotifier {
     String tokenQueFalhou,
     Future<TokensDaSessao> Function(String refreshToken) chamada,
   ) async {
-    if (_token != tokenQueFalhou && _token != null) {
+    if (_token == null) {
+      // A sessão já acabou (por exemplo, pela suspensão): não sai de novo nem troca o aviso.
+      return false;
+    }
+    if (_token != tokenQueFalhou) {
       // Outra chamada já renovou enquanto esta esperava a resposta do 401.
       return true;
     }
@@ -195,6 +259,10 @@ class SessionController extends ChangeNotifier {
       // motivo para deslogar; a chamada original devolve o erro dela.
       if (erro.status == 401) {
         await _sairPorExpiracao();
+      } else if (erro.codigo == codigoContaSuspensa) {
+        // F-MOD-OPC: a moderação suspendeu a conta. Sai uma vez, com o aviso; sem sessão, a
+        // próxima chamada não renova de novo.
+        await _sairPorSuspensao();
       }
       return false;
     }

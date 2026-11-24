@@ -4,6 +4,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import { useRoute, useRouter } from 'vue-router'
 
 import AreaUploadCapa, { type EstadoDaCapa } from '../../components/livros/AreaUploadCapa.vue'
+import CampoAssuntos from '../../components/livros/CampoAssuntos.vue'
 import BannerAviso from '../../components/ui/BannerAviso.vue'
 import BotaoDestrutivo from '../../components/ui/BotaoDestrutivo.vue'
 import BotaoPrimario from '../../components/ui/BotaoPrimario.vue'
@@ -12,7 +13,7 @@ import CampoAreaTexto from '../../components/ui/CampoAreaTexto.vue'
 import CampoTexto from '../../components/ui/CampoTexto.vue'
 import DialogoConfirmacao from '../../components/ui/DialogoConfirmacao.vue'
 import EstadoVazio from '../../components/ui/EstadoVazio.vue'
-import { acervoService, type DadosLivroPessoal } from '../../services/acervo'
+import { acervoService, type AssuntoResumo, type DadosLivroPessoal } from '../../services/acervo'
 import { ApiError, novaChaveIdempotencia } from '../../services/api'
 import { enviarCapa, validarCapa } from '../../services/capa'
 
@@ -22,9 +23,11 @@ import { enviarCapa, validarCapa } from '../../services/capa'
  * (capa à esquerda, campos à direita) dentro de 880px; abaixo de 768px, uma coluna com a capa no
  * topo e o dialog de exclusão vira bottom sheet.
  *
- * **Não existe campo de ISBN**, nem de editora, série ou assunto (RN-02, RN-03; RF-ACV-22 é do
- * Período 3). A capa sobe direto ao Cloudinary depois de validada pelos bytes, e o upload nunca
- * trava os campos de texto nem apaga o que foi digitado.
+ * **Não existe campo de ISBN**, nem de editora ou série (RN-02, RN-03). Os assuntos (RF-ACV-22,
+ * F-ACV-OPC) vêm do conjunto curado por `CampoAssuntos`, entre Páginas e Sinopse
+ * (docs/design/periodo-3/cadastro-pessoal/cadastro-pessoal.md §4.1); a lista que não carrega
+ * nunca impede salvar. A capa sobe direto ao Cloudinary depois de validada pelos bytes, e o upload
+ * nunca trava os campos de texto nem apaga o que foi digitado.
  */
 const LIMITE_DA_SINOPSE = 4000
 const AVISO_DA_SINOPSE = 3800
@@ -46,6 +49,8 @@ const origem = computed(() => String(route.params.origem ?? 'estante'))
 const campos = reactive<Record<Campo, string>>({ titulo: '', autor: '', paginas: '', sinopse: '' })
 const erros = reactive<Partial<Record<Campo, string>>>({})
 const tocados = new Set<Campo>()
+const assuntos = ref<AssuntoResumo[]>([])
+const erroDosAssuntos = ref<string | null>(null)
 
 const carregando = ref(false)
 const indisponivel = ref(false)
@@ -106,6 +111,12 @@ for (const campo of Object.keys(campos) as Campo[]) {
   )
 }
 
+// Mexer nos assuntos tira o erro do servidor e o banner, como nos campos de texto.
+watch(assuntos, () => {
+  banner.value = null
+  erroDosAssuntos.value = null
+})
+
 onMounted(() => {
   if (livroId.value) {
     void carregar(livroId.value)
@@ -131,6 +142,8 @@ async function carregar(id: string): Promise<void> {
     campos.autor = livro.autor
     campos.paginas = String(livro.paginas)
     campos.sinopse = livro.sinopse ?? ''
+    // `?? []`: tolera um `acervo` ainda sem o campo (F-ACV-OPC), em vez de quebrar a edição.
+    assuntos.value = livro.assuntos ?? []
     capaUrl.value = livro.capaUrl
     imagemDaCapa.value = livro.capaUrl
     estadoDaCapa.value = livro.capaUrl ? 'preenchida' : 'vazia'
@@ -139,6 +152,7 @@ async function carregar(id: string): Promise<void> {
     for (const campo of Object.keys(erros) as Campo[]) {
       delete erros[campo]
     }
+    erroDosAssuntos.value = null
     banner.value = null
   } catch (erro) {
     if (erro instanceof ApiError && (erro.status === 403 || erro.status === 404)) {
@@ -235,6 +249,8 @@ async function salvar(): Promise<void> {
   if (!podeSalvar.value) {
     return
   }
+  // Limpo a cada envio: o mesmo 400 de novo precisa mudar o valor para o campo levar o foco outra vez.
+  erroDosAssuntos.value = null
 
   const dados: DadosLivroPessoal = {
     titulo: campos.titulo.trim(),
@@ -242,6 +258,8 @@ async function salvar(): Promise<void> {
     paginas: paginasValidas.value!,
     sinopse: campos.sinopse.trim() === '' ? null : campos.sinopse.trim(),
     capaUrl: capaUrl.value,
+    // Ids ordenados: a mesma escolha em outra ordem é a mesma intenção, com a mesma chave.
+    assuntos: assuntos.value.map((assunto) => assunto.id).sort(),
   }
   const conteudo = JSON.stringify(dados)
   if (conteudo !== conteudoDaChave) {
@@ -287,6 +305,9 @@ function tratarErroDeEnvio(erro: unknown): void {
       removerCapa()
       erroDaCapa.value = mensagem
       estadoDaCapa.value = 'erro'
+      algumCampo = true
+    } else if (campo === 'assuntos') {
+      erroDosAssuntos.value = mensagem
       algumCampo = true
     } else if (campo in campos) {
       erros[campo as Campo] = mensagem
@@ -408,6 +429,11 @@ async function excluir(): Promise<void> {
               required
               :helper="erros.paginas ? undefined : 'Usamos as páginas para calcular seu progresso de leitura.'"
               :erro="erros.paginas"
+            />
+            <CampoAssuntos
+              v-model="assuntos"
+              :erro="erroDosAssuntos ?? undefined"
+              :desabilitado="salvando"
             />
             <CampoAreaTexto
               id="campo-sinopse"

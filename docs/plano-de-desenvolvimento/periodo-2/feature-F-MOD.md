@@ -65,7 +65,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [x] Resenha removida deixa de aparecer em atividade associada; frase pode ser removida diretamente pelo admin sem denúncia (RN-11).
 - [x] Toda ação é registrada no log e consultável por `GET /admin/moderacao/logs`, somente pelo admin, sem dado sensível excedente (RF-MOD-05, SEC-35/36/37).
 - [x] Não-admin recebe `403` no painel/ações; ocultar na interface não substitui a checagem (SEC-01/04).
-- [ ] Denúncia e moderação funcionam **em DES**.
+- [x] Denúncia e moderação funcionam **em DES**. Validado em DES pelo dono em 05/11/2026, depois do merge de fechamento do Período 2 (releases v0.2.0 e v0.2.1).
 
 ## Definition of Done
 
@@ -77,7 +77,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [x] Teste da remoção cross-service de resenha/frase cobre comando autorizado, idempotência e falha sem estado local falso (RNF-TST-02; RNF-TST-03 se o contrato aprovado for assíncrono)
 - [x] Testes web/mobile cobrem denúncia; web cobre painel/log admin; ambos tratam indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
 - [x] **Specs OpenAPI**: `docs/api/social.yaml` com denúncia, painel e auditoria; `docs/api/leitura.yaml` com remoção administrativa de resenha/frase
-- [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
+- [x] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md)). Validado em 05/11/2026
 - [x] Arquivo da feature atualizado: status, pendências, timeline
 - [x] Divergência protótipo × implementação registrada, se houver
 
@@ -105,7 +105,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
   - **Repetir a remoção de uma frase** que a moderação já removeu responde 204 de novo, sem outro log, por 24 horas; depois, ou se a autora a excluiu, 409.
   - **Componentes que nascem aqui** (card do conteúdo denunciado, denúncia em dois passos, bloco `Seu motivo`, destrutivo com ícone, estado indisponível, sheet sobre sheet, quinto item da sidebar, fila e detalhe, item da fila, etiqueta de tipo em outline, tabela de registro, estado de ação não confirmada) ficam para incorporar ao `documento-de-design.md`, sem edição de `docs/orquestador` aqui.
 - **Débitos:**
-  - **DES:** a F-MOD entra no DES no merge de fechamento do Período 2, e a migration do `social` roda no deploy. Resolvidos em 22/10/2026: `MODERACAO_TOKEN` (o mesmo valor) em `leai-leitura` e `leai-social` no painel do Render, `LEITURA_BASE_URL` no `leai-social` e `social.denuncia` vazia no `le-ai-oregon`. Continuam abertos "Denúncia e moderação funcionam em DES" e "Fluxo funcionando em DES/HML", que dependem do deploy no merge de fechamento para a `main`.
+  - **DES:** a F-MOD entra no DES no merge de fechamento do Período 2, e a migration do `social` roda no deploy. Resolvidos em 22/10/2026: `MODERACAO_TOKEN` (o mesmo valor) em `leai-leitura` e `leai-social` no painel do Render, `LEITURA_BASE_URL` no `leai-social` e `social.denuncia` vazia no `le-ai-oregon`. ~~Continuam abertos "Denúncia e moderação funcionam em DES" e "Fluxo funcionando em DES/HML", que dependem do deploy no merge de fechamento para a `main`.~~ Resolvido: validado em DES pelo dono em 05/11/2026, depois do merge de fechamento do Período 2 (releases v0.2.0 e v0.2.1).
   - **Notificações `RESENHA_CURTIDA`** continuam depois que a moderação remove a resenha; a notificação abre a página do livro, sem a resenha.
   - **Login do admin no teste manual:** a conta `admin` de dev existe com credencial que o Renato não tinha em mãos; o teste do painel usou um token assinado localmente com `papel=admin`. Trocar `ADMIN_PASSWORD` no `.env` local redefine a senha da conta compartilhada.
 - **Código de outras pessoas alterado** (registrado no `AGENTS.md` de cada serviço e cliente; avisar os donos no PR):
@@ -123,6 +123,10 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - Stack definida (arquitetura §2.1): `social` em Spring, `leitura` em NestJS.
 
 ## Timeline
+
+### 05/11/2026: validada em DES
+
+Denúncia, painel, remoção e registro de auditoria testados e validados em DES pelo dono, depois do merge de fechamento do Período 2 (releases v0.2.0 e v0.2.1). Os dois itens de DES do aceite e do DoD foram marcados.
 
 ### 22/10/2026: merge na `desenvolvimento`
 

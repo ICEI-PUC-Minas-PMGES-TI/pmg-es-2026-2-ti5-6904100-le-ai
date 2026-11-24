@@ -50,6 +50,13 @@
       "when": 1791699029656,
       "tag": "0006_20261011031028_estatistica_buckets_mensais",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793974738985,
+      "tag": "0007_20261106120000_reacoes_sem_conta_oculta",
+      "breakpoints": true
     }
   ]
 }

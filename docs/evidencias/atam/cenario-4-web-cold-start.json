@@ -1,0 +1,24 @@
+{
+  "medidoEm": "2026-11-19T22:35:29.798Z",
+  "ambiente": "DES (Render, Oregon), web estática + identidade; Edge headless no Brasil",
+  "aviso": "O servidor está iniciando",
+  "segundosAteSairDoLogin": 6,
+  "linhaDoTempo": [
+    {
+      "print": "cenario-4-web-cold-start-00.png",
+      "segundosDesdeOClique": 0.9,
+      "url": "/login",
+      "avisoDeInicializacao": true,
+      "botaoEntrando": true,
+      "mensagemDeErro": null
+    },
+    {
+      "print": "cenario-4-web-cold-start-01.png",
+      "segundosDesdeOClique": 6,
+      "url": "/estante",
+      "avisoDeInicializacao": false,
+      "botaoEntrando": false,
+      "mensagemDeErro": null
+    }
+  ]
+}

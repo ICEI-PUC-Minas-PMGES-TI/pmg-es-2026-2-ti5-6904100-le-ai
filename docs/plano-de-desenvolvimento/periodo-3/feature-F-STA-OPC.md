@@ -22,9 +22,9 @@ RNF atendidos: **RNF-SEC-02** (dados do próprio usuário), **RNF-SEC-03** (priv
 | Camada | Status | Observação |
 |---|---|---|
 | Infra | **não aplicável** | nenhuma tabela ou campo novo — o histograma agrega as notas já persistidas por F-AVA |
-| Backend | não iniciado | `leitura`: bloco de distribuição em `/me/estatisticas` e no recorte de perfil |
-| Web | não iniciado | gráfico de distribuição no painel de estatísticas |
-| Mobile | não iniciado | mesmo gráfico |
+| Backend | implementado, aguardando CI | `leitura`: `distribuicaoNotas` em `/me/estatisticas` e em `/perfis/{usuarioId}/estatisticas`; spec OpenAPI atualizado. Testes de integração escritos, ainda não rodados (sem Postgres descartável no ambiente de desenvolvimento) |
+| Web | implementado, aguardando CI | card `Notas que você deu` no painel e histograma compacto no perfil alheio; testes do recorte passam |
+| Mobile | implementado, aguardando CI | mesmo card no painel e no perfil alheio; `flutter analyze` limpo, testes de estatísticas e perfil passam |
 
 ## Especificação
 
@@ -79,11 +79,11 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [ ] CI verde ([P0-CI](../periodo-0/feature-P0-CI.md))
 - [ ] Testes unitários e de integração com banco real/container: os onze buckets, leitor sem notas, buckets de contagem zero, soma conferindo com o total avaliado, livro pessoal contando, ciclo criar/editar/remover nota, coerência com a média e RN-08 em perfil público/privado (RNF-TST-02)
 - [ ] Testes assíncronos — **N/A**: a feature não produz nem consome evento; a distribuição é derivada em consulta. Justificativa registrada aqui em vez de remover o item
-- [ ] Testes web/mobile cobrem render do gráfico, estado vazio e indisponibilidade/timeout com API simulada (RNF-TST-04/05/06)
-- [ ] **Spec OpenAPI de `leitura` atualizado em `docs/api/leitura.yaml`** com o bloco de distribuição em `/me/estatisticas` e no recorte de perfil
+- [x] Testes web/mobile cobrem render do gráfico, estado vazio e resposta fora do contrato com API simulada (RNF-TST-04/05/06); a indisponibilidade/timeout já é coberta pelos testes do painel de F-STA
+- [x] **Spec OpenAPI de `leitura` atualizado em `docs/api/leitura.yaml`** com o bloco de distribuição em `/me/estatisticas` e no recorte de perfil
 - [ ] Fluxo funcionando em DES/HML ([P0-DEPLOY](../periodo-0/feature-P0-DEPLOY.md))
-- [ ] Arquivo da feature atualizado: status, pendências, timeline
-- [ ] Divergência protótipo × implementação registrada, se houver
+- [x] Arquivo da feature atualizado: status, pendências, timeline
+- [x] Divergência protótipo × implementação registrada, se houver
 
 **Item próprio:** registrar na Timeline a decisão sobre o **DTO público** (se a distribuição aparece no perfil alheio) e o formato escolhido para o gráfico — contagem, percentual ou ambos —, para que web e mobile não divirjam na leitura do mesmo dado.
 
@@ -98,5 +98,9 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - Stack de `leitura` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
 ## Timeline
+
+### Implementação 07/11/2026: backend, web e mobile na branch `feat/f-sta-opc-distribuicao-notas`. A distribuição é calculada em consulta (`GROUP BY nota.valor` filtrado pelo ano de `nota.atualizado_em` no fuso padrão, o mesmo critério de `recompor`), sem tabela, migration nem evento; a alternativa de persistir os buckets em `estatistica_mensal` segue descartada até haver medição em DES. Decisões ratificadas na implementação: a distribuição entra no DTO público do perfil (ano corrente, sob RN-08) e o formato é a contagem, sem percentual. Divergência protótipo × implementação: a frase de ajuda do card (`Cada livro conta uma vez…`) foi retirada por decisão da dona da feature, e o design ainda a lista. O balão da web é medido e fica acima da coluna, o eixo X mostra só as notas inteiras quando não cabe (container query em `rem`, que acompanha o texto grande) e o gráfico do app tem ←/→/Home/End/Esc com foco visível, como no design. Revisão de código: `baldes` e as contagens de nota são lidas numa transação `REPEATABLE READ` somente leitura, de modo que `total` e `notaMedia.quantidade` não divergem sob escrita concorrente; `total` é a soma das onze faixas; o balão aberto pelo teclado não fecha com o mouse. Pendente para o DoD: CI verde, testes de integração do `leitura` em Postgres descartável e fluxo em DES/HML após o merge na `main`.
+
+### Contrato fixado 07/11/2026: início da implementação. `GET /me/estatisticas?periodo=` e `GET /perfis/{usuarioId}/estatisticas?ano=` ganham o campo `distribuicaoNotas`: `null` quando o período não tem nota; senão `{ total, faixas }` com sempre as onze faixas `{ valor, quantidade }` em ordem crescente, inclusive as de contagem zero. A distribuição entra no DTO público do perfil (ano corrente, sob RN-08) e o formato é a contagem, sem percentual. Período e atribuição temporal idênticos aos da nota média (mês de `nota.atualizado_em` no fuso padrão), de modo que `total` é igual a `medias.notaMedia.quantidade`. Sem tabela, campo, migration nem evento novo.
 
 ### Criação 01/09/2026: arquivo criado a partir do escopo de F-STA-OPC no [periodo-3/README.md](README.md), de RF-STA-04 do [`REQUISITOS.md`](../../orquestador/REQUISITOS.md) §5.8 e das RN-06/RN-08. Histograma fixado como derivação por agrupamento das notas do próprio leitor, sem entidade, campo ou evento novo, espelhando a solução de F-ACV-NOTA para o histograma do livro; a distinção entre distribuição ausente e buckets de contagem zero foi fixada por RN-06.3. A entrada no DTO público do perfil e o formato do gráfico ficaram como decisões do dono, e a persistência dos buckets permaneceu apenas como alternativa a avaliar.

@@ -9,6 +9,7 @@ import br.com.leai.identidade.common.idempotencia.ServicoDeIdempotencia;
 import br.com.leai.identidade.perfil.dto.EditarPerfilRequisicao;
 import br.com.leai.identidade.perfil.dto.PerfilResposta;
 import br.com.leai.identidade.perfil.dto.PerfilResumoResposta;
+import br.com.leai.identidade.perfil.dto.PreferenciaDeSugestoesRequisicao;
 import br.com.leai.identidade.perfil.service.ServicoDePerfil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -24,6 +25,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -124,6 +126,35 @@ public class PerfilController {
             requisicao,
             PerfilResposta.class,
             () -> new RespostaIdempotente<>(HttpStatus.OK.value(), servico.editar(usuarioId, requisicao)))
+        .corpo();
+  }
+
+  @PatchMapping("/me/perfil")
+  @Operation(
+      summary = "Grava a preferência de uso das leituras em sugestões (F-REC-ALG)",
+      description =
+          "Com optOutRecomendacao true, as leituras do leitor saem do sinal, da contagem e da "
+              + "atribuição das sugestões de outros leitores. Não muda a visibilidade do perfil nem "
+              + "as sugestões que o próprio leitor recebe. Exige Idempotency-Key.")
+  @ApiResponse(responseCode = "200", description = "Perfil com a preferência gravada.")
+  public PerfilResposta definirPreferenciaDeSugestoes(
+      @AuthenticationPrincipal Jwt token,
+      @RequestHeader(name = ChaveDeIdempotencia.CABECALHO, required = false) String chaveBruta,
+      @Valid @RequestBody PreferenciaDeSugestoesRequisicao requisicao) {
+    String chave = ChaveDeIdempotencia.exigir(chaveBruta);
+    UUID usuarioId = UUID.fromString(token.getSubject());
+    return idempotencia
+        .executar(
+            usuarioId,
+            OperacaoIdempotente.DEFINIR_PREFERENCIA_DE_SUGESTOES,
+            chave,
+            requisicao,
+            PerfilResposta.class,
+            () ->
+                new RespostaIdempotente<>(
+                    HttpStatus.OK.value(),
+                    servico.definirOptOutRecomendacao(
+                        usuarioId, requisicao.optOutRecomendacao())))
         .corpo();
   }
 }

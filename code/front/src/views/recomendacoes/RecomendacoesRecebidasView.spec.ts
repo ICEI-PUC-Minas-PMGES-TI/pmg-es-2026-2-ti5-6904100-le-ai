@@ -1,13 +1,19 @@
 import { DOMWrapper, flushPromises } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { zerarSessaoDoDescarteEmLote } from '../../recomendacoes/sessaoDoDescarteEmLote'
 import { socialService } from '../../services/social'
 import { paginaDeRecomendacoes, recomendacao } from '../../testes/massaDeRecomendacoes'
 import { montarNaRota } from '../../testes/montarNaRota'
 
 vi.mock('../../services/social', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../services/social')>()),
-  socialService: { listarRecebidas: vi.fn(), descartarRecomendacao: vi.fn() },
+  socialService: {
+    listarRecebidas: vi.fn(),
+    descartarRecomendacao: vi.fn(),
+    contarRestantesDoLivro: vi.fn(),
+    descartarRecomendacoesDoLivro: vi.fn(),
+  },
 }))
 
 const social = vi.mocked(socialService)
@@ -98,6 +104,200 @@ describe('RecomendacoesRecebidasView', () => {
 
     expect(tela.text()).toContain('Nenhuma recomendação agora')
     expect(tela.text()).not.toContain('Essas são todas')
+  })
+
+  describe('pergunta de descarte em lote (F-REC-ALG, RN-22.12/13)', () => {
+    const RIO = ['Lívia Carvalho', 'Caio Rezende', 'Henrique Sampaio', 'Beatriz Okada', 'Júlia Figueiredo'].map(
+      (quem, indice) => {
+        const item = recomendacao(`rio${indice}`, 'Tudo É Rio', quem)
+        return { ...item, livro: { ...item.livro, id: 'tudo-e-rio' } }
+      },
+    )
+
+    beforeEach(() => {
+      zerarSessaoDoDescarteEmLote()
+      social.listarRecebidas.mockResolvedValue(paginaDeRecomendacoes([...RIO, ESTRELA]))
+      social.descartarRecomendacao.mockResolvedValue()
+      social.contarRestantesDoLivro.mockReset().mockResolvedValue(2)
+      social.descartarRecomendacoesDoLivro.mockReset().mockResolvedValue(2)
+    })
+
+    async function descartarTres(tela: DOMWrapper<Element>) {
+      for (let vez = 0; vez < 3; vez++) {
+        await descartarPeloMenu(tela, 'Tudo É Rio')
+        await flushPromises()
+      }
+    }
+
+    it('só pergunta no terceiro descarte do mesmo livro, com quantas restam e sem o toast', async () => {
+      const { tela } = await abrir()
+
+      await descartarPeloMenu(tela, 'Tudo É Rio')
+      await flushPromises()
+      await descartarPeloMenu(tela, 'Tudo É Rio')
+      await flushPromises()
+      expect(social.contarRestantesDoLivro).not.toHaveBeenCalled()
+
+      await descartarPeloMenu(tela, 'Tudo É Rio')
+      await flushPromises()
+
+      expect(social.contarRestantesDoLivro).toHaveBeenCalledWith('tudo-e-rio')
+      const dialogo = tela.get('[role="dialog"]')
+      expect(dialogo.text()).toContain('Deseja remover todas as recomendações atuais do livro Tudo É Rio?')
+      expect(dialogo.text()).toContain('Ainda restam 2 recomendações deste livro na sua lista.')
+      expect(document.activeElement?.textContent?.trim()).toBe('Agora não')
+      expect(tela.text()).not.toContain('Recomendação descartada.')
+    })
+
+    it('Remover todas tira as restantes juntas, com a contagem e o toast do lote', async () => {
+      const { tela } = await abrir()
+      await descartarTres(tela)
+
+      await tela.findAll('[role="dialog"] button').find((b) => b.text() === 'Remover todas')!.trigger('click')
+      await flushPromises()
+
+      const [livroId, chave] = social.descartarRecomendacoesDoLivro.mock.calls[0]!
+      expect(livroId).toBe('tudo-e-rio')
+      expect(chave).toEqual(expect.any(String))
+      expect(tela.find('[role="dialog"]').exists()).toBe(false)
+      expect(tela.findAll('li').some((li) => li.text().includes('Tudo É Rio'))).toBe(false)
+      expect(tela.text()).toContain('1 recomendação')
+      expect(tela.get('[role="status"]').text()).toContain('2 recomendações de Tudo É Rio descartadas.')
+    })
+
+    it('falha do lote mantém a pergunta aberta com o banner, e repetir usa a mesma chave', async () => {
+      social.descartarRecomendacoesDoLivro.mockReset().mockRejectedValueOnce(new TypeError('offline')).mockResolvedValueOnce(2)
+      const { tela } = await abrir()
+      await descartarTres(tela)
+
+      const remover = () => tela.findAll('[role="dialog"] button').find((b) => b.text() === 'Remover todas')!
+      await remover().trigger('click')
+      await flushPromises()
+
+      expect(tela.get('[role="dialog"]').text()).toContain(
+        'Não foi possível remover as recomendações. Verifique sua conexão e tente de novo.',
+      )
+      expect(tela.text()).toContain('2 recomendações')
+
+      await remover().trigger('click')
+      await flushPromises()
+
+      const [primeira, segunda] = social.descartarRecomendacoesDoLivro.mock.calls
+      expect(segunda![1]).toBe(primeira![1])
+      expect(tela.find('[role="dialog"]').exists()).toBe(false)
+    })
+
+    it('Agora não suprime a pergunta daquele livro na sessão, e uma sessão nova volta a contar', async () => {
+      const { tela, wrapper } = await abrir()
+      await descartarTres(tela)
+
+      await tela.findAll('[role="dialog"] button').find((b) => b.text() === 'Agora não')!.trigger('click')
+      await flushPromises()
+      await descartarPeloMenu(tela, 'Tudo É Rio')
+      await flushPromises()
+
+      expect(social.contarRestantesDoLivro).toHaveBeenCalledTimes(1)
+      expect(tela.find('[role="dialog"]').exists()).toBe(false)
+      expect(tela.get('[role="status"]').text()).toContain('Recomendação descartada.')
+
+      wrapper.unmount()
+      document.body.innerHTML = ''
+      zerarSessaoDoDescarteEmLote()
+      const nova = await abrir()
+      await descartarTres(nova.tela)
+      expect(social.contarRestantesDoLivro).toHaveBeenCalledTimes(2)
+    })
+
+    it('sem restantes no terceiro descarte, é um descarte comum', async () => {
+      social.contarRestantesDoLivro.mockResolvedValue(0)
+      const { tela } = await abrir()
+      await descartarTres(tela)
+
+      expect(tela.find('[role="dialog"]').exists()).toBe(false)
+      expect(tela.get('[role="status"]').text()).toContain('Recomendação descartada.')
+    })
+
+    it('Agora não leva o foco ao item que ocupou o lugar do descartado, nunca ao body (§9)', async () => {
+      const { tela } = await abrir()
+      await descartarTres(tela)
+
+      await tela.findAll('[role="dialog"] button').find((b) => b.text() === 'Agora não')!.trigger('click')
+      await flushPromises()
+
+      expect(document.activeElement?.closest('[data-recomendacao]')?.getAttribute('data-recomendacao')).toBe('rio3')
+    })
+
+    it('Esc também fecha como recusa e devolve o foco ao item seguinte', async () => {
+      const { tela } = await abrir()
+      await descartarTres(tela)
+
+      await tela.get('[role="dialog"]').trigger('keydown', { key: 'Escape' })
+      await flushPromises()
+
+      expect(tela.find('[role="dialog"]').exists()).toBe(false)
+      expect(document.activeElement?.closest('[data-recomendacao]')?.getAttribute('data-recomendacao')).toBe('rio3')
+    })
+
+    it('depois do lote o foco vai ao item que ficou no lugar, ou ao vazio quando a lista acaba', async () => {
+      const { tela, wrapper } = await abrir()
+      await descartarTres(tela)
+      await tela.findAll('[role="dialog"] button').find((b) => b.text() === 'Remover todas')!.trigger('click')
+      await flushPromises()
+
+      expect(document.activeElement?.closest('[data-recomendacao]')?.getAttribute('data-recomendacao')).toBe('r1')
+
+      wrapper.unmount()
+      document.body.innerHTML = ''
+      zerarSessaoDoDescarteEmLote()
+      social.listarRecebidas.mockResolvedValue(paginaDeRecomendacoes([...RIO]))
+      const so = await abrir()
+      await descartarTres(so.tela)
+      await so.tela.findAll('[role="dialog"] button').find((b) => b.text() === 'Remover todas')!.trigger('click')
+      await flushPromises()
+
+      expect(document.activeElement?.hasAttribute('data-lista-vazia')).toBe(true)
+    })
+
+    it('enquanto remove, o primário fica aria-disabled sem perder o foco, e a falha foca o banner', async () => {
+      let falhar!: (erro: Error) => void
+      social.descartarRecomendacoesDoLivro.mockReset()
+        .mockReturnValueOnce(new Promise<number>((_, reject) => (falhar = reject)))
+      const { tela } = await abrir()
+      await descartarTres(tela)
+
+      const remover = tela.findAll('[role="dialog"] button').find((b) => b.text() === 'Remover todas')!
+      ;(remover.element as HTMLButtonElement).focus()
+      await remover.trigger('click')
+      await flushPromises()
+
+      const enviando = tela.findAll('[role="dialog"] button').find((b) => b.text() === 'Removendo…')!
+      expect(enviando.attributes('disabled')).toBeUndefined()
+      expect(enviando.attributes('aria-disabled')).toBe('true')
+      expect(document.activeElement).toBe(enviando.element)
+
+      falhar(new TypeError('offline'))
+      await flushPromises()
+
+      expect(document.activeElement?.getAttribute('role')).toBe('alert')
+      expect(document.activeElement?.textContent).toContain('Não foi possível remover as recomendações.')
+    })
+
+    it('o mesmo descarte repetido depois de uma falha conta uma vez só', async () => {
+      social.descartarRecomendacao.mockReset()
+        .mockResolvedValueOnce()
+        .mockRejectedValueOnce(new TypeError('offline'))
+        .mockResolvedValue()
+      const { tela } = await abrir()
+
+      await descartarPeloMenu(tela, 'Tudo É Rio')
+      await flushPromises()
+      await descartarPeloMenu(tela, 'Tudo É Rio')
+      await flushPromises()
+      await tela.findAll('[role="alert"] button').find((b) => b.text() === 'Tentar de novo')!.trigger('click')
+      await flushPromises()
+
+      expect(social.contarRestantesDoLivro).not.toHaveBeenCalled()
+    })
   })
 
   it('falha ao carregar oferece tentar de novo', async () => {

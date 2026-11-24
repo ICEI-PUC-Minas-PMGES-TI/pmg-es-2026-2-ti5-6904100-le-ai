@@ -1,4 +1,9 @@
-import type { Estatisticas, GraficosEstatisticas, PontoEstatistica } from '../services/leitura'
+import type { DistribuicaoNotas, Estatisticas, GraficosEstatisticas, PontoEstatistica } from '../services/leitura'
+
+export function distribuicaoDe(contagens: Record<number, number>): DistribuicaoNotas {
+  const faixas = Array.from({ length: 11 }, (_, i) => ({ valor: i / 2, quantidade: contagens[i / 2] ?? 0 }))
+  return { total: faixas.reduce((soma, f) => soma + f.quantidade, 0), faixas }
+}
 
 /** Painel de 2026 do protótipo (5.1), com os anos do seletor. */
 export function estatisticas(sobrescrever: Partial<Estatisticas> = {}): Estatisticas {
@@ -17,6 +22,7 @@ export function estatisticas(sobrescrever: Partial<Estatisticas> = {}): Estatist
       diasPorLivro: { valor: 19.1, dias: 172, leiturasConcluidas: 9 },
       notaMedia: { valor: 4.2, quantidade: 8 },
     },
+    distribuicaoNotas: distribuicaoDe({ 3: 1, 3.5: 1, 4: 2, 4.5: 2, 5: 2 }),
     ...sobrescrever,
   }
 }
@@ -31,6 +37,7 @@ export const SEM_REGISTRO: Estatisticas = estatisticas({
     diasPorLivro: { valor: null, dias: 0, leiturasConcluidas: 0 },
     notaMedia: { valor: null, quantidade: 0 },
   },
+  distribuicaoNotas: null,
 })
 
 export function ponto(mes: number | null, paginasLidas: number, livrosConcluidos = 0, ano = 2026): PontoEstatistica {

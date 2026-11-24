@@ -95,8 +95,9 @@ export class PerfisRepository {
         livroAutor: vLivroReferencia.autorExibicao,
         livroCapa: vLivroReferencia.capaResolvida,
         nota: nota.valor,
-        curtidas: sql<string>`(select count(*) from ${reacaoResenha} where ${reacaoResenha.resenhaId} = ${resenha.id} and ${reacaoResenha.ativa} and ${reacaoResenha.tipo} = 'curtida')`,
-        descurtidas: sql<string>`(select count(*) from ${reacaoResenha} where ${reacaoResenha.resenhaId} = ${resenha.id} and ${reacaoResenha.ativa} and ${reacaoResenha.tipo} = 'descurtida')`,
+        // F-MOD-OPC: reação de conta suspensa ou em exclusão não conta (fora da VIEW de perfil).
+        curtidas: sql<string>`(select count(*) from ${reacaoResenha} where ${reacaoResenha.resenhaId} = ${resenha.id} and ${reacaoResenha.ativa} and ${reacaoResenha.tipo} = 'curtida' and exists (select 1 from "identidade"."v_perfil_referencia_v1" p where p.id = ${reacaoResenha.usuarioId}))`,
+        descurtidas: sql<string>`(select count(*) from ${reacaoResenha} where ${reacaoResenha.resenhaId} = ${resenha.id} and ${reacaoResenha.ativa} and ${reacaoResenha.tipo} = 'descurtida' and exists (select 1 from "identidade"."v_perfil_referencia_v1" p where p.id = ${reacaoResenha.usuarioId}))`,
         minhaReacao: sql<
           string | null
         >`(select ${reacaoResenha.tipo} from ${reacaoResenha} where ${reacaoResenha.resenhaId} = ${resenha.id} and ${reacaoResenha.usuarioId} = ${solicitanteId} and ${reacaoResenha.ativa})`,

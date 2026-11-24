@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -21,6 +22,7 @@ import br.com.leai.social.notificacao.model.EventoDeNotificacao;
 import br.com.leai.social.notificacao.model.NovaNotificacao;
 import br.com.leai.social.notificacao.model.TipoNotificacao;
 import br.com.leai.social.notificacao.repository.NotificacaoRepository;
+import br.com.leai.social.notificacao.repository.PreferenciaNotificacaoRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.rabbitmq.client.AMQP.BasicProperties;
@@ -72,7 +74,8 @@ class ConsumidorDeNotificacaoBrokerTest {
             jdbc,
             mock(PlatformTransactionManager.class));
 
-    new ConsumidorDeNotificacao(consumidor, repositorio, evento -> {});
+    new ConsumidorDeNotificacao(
+        consumidor, repositorio, mock(PreferenciaNotificacaoRepository.class), evento -> {});
 
     ArgumentCaptor<DeliverCallback> captor = ArgumentCaptor.forClass(DeliverCallback.class);
     verify(canal)
@@ -95,6 +98,7 @@ class ConsumidorDeNotificacaoBrokerTest {
     verify(canal).queueBind(fila, MessagingConstants.LEITURA_EXCHANGE, "leitura.em_risco");
     verify(canal).queueBind(fila, MessagingConstants.LEITURA_EXCHANGE, "leitura.expirada");
     verify(canal).queueBind(fila, MessagingConstants.LEITURA_EXCHANGE, "resenha.curtida");
+    verify(canal).queueBind(fila, MessagingConstants.LEITURA_EXCHANGE, "lembrete.sequencia");
     verify(canal).queueDeclare(eq(fila), eq(true), eq(false), eq(false), any());
     verify(canal).queueBind(fila + ".dlq", MessagingConstants.DEAD_LETTER_EXCHANGE, fila);
   }
@@ -159,6 +163,25 @@ class ConsumidorDeNotificacaoBrokerTest {
     entrega.handle("tag", delivery(envelope, invalido));
 
     verify(canal).basicNack(TAG, false, false);
+    verify(canal, never()).basicAck(TAG, false);
+    verify(repositorio, never()).inserir(any());
+  }
+
+  @Test
+  @DisplayName("lembrete com sequencia zero ou campo extra e rejeitado pelo schema e vai para a DLQ")
+  void lembreteInvalidoVaiParaDlq() throws Exception {
+    MessageEnvelope envelope =
+        EventosDeNotificacaoDeTeste.envelope(
+            EventoDeNotificacao.LEMBRETE_SEQUENCIA, Fato.para(UUID.randomUUID()));
+    Map<String, Object> zerada = new LinkedHashMap<>(envelope.data());
+    zerada.put("sequenciaAtual", 0);
+    Map<String, Object> extra = new LinkedHashMap<>(envelope.data());
+    extra.put("livro", Map.of());
+
+    entrega.handle("tag", delivery(envelope, zerada));
+    entrega.handle("tag", delivery(envelope, extra));
+
+    verify(canal, times(2)).basicNack(TAG, false, false);
     verify(canal, never()).basicAck(TAG, false);
     verify(repositorio, never()).inserir(any());
   }

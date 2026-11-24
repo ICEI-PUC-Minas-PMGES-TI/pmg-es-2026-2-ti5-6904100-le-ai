@@ -208,6 +208,96 @@ describe('consumo de nota.alterada (integração)', () => {
     expect(await contar(pool, 'acervo.nota_livro_agregada')).toBe(0);
   });
 
+  /** Nota geral externa (RN-06): somente-leitura, nunca mexida pela nota dos leitores. */
+  async function semearNotaGeral(livro: string) {
+    await pool.query(
+      'UPDATE acervo.livro SET nota_geral = $2, nota_geral_qtd = $3 WHERE id = $1',
+      [livro, 4.1, 1234],
+    );
+  }
+
+  async function notaGeral(livro: string) {
+    const { rows } = await pool.query<{
+      nota_geral: number | null;
+      nota_geral_qtd: number | null;
+    }>(
+      `SELECT nota_geral::float AS nota_geral, nota_geral_qtd
+         FROM acervo.livro WHERE id = $1`,
+      [livro],
+    );
+    return rows[0];
+  }
+
+  it('nota.alterada não mexe na nota geral do livro (RN-06.4)', async () => {
+    const livro = await inserirLivroOficial(pool, novoIsbn());
+    await semearNotaGeral(livro);
+    const ana = randomUUID();
+
+    await notaNoLeitura(ana, livro, 2);
+    publicar(evento(ana, livro, 'criada', 2));
+    await broker.entregar(FILA);
+    expect(await agregado(livro)).toEqual({ media: 2, quantidade: 1 });
+    expect(await notaGeral(livro)).toEqual({
+      nota_geral: 4.1,
+      nota_geral_qtd: 1234,
+    });
+
+    await notaNoLeitura(ana, livro, 5);
+    publicar(evento(ana, livro, 'atualizada', 5));
+    await notaNoLeitura(ana, livro, null);
+    publicar(evento(ana, livro, 'excluida', null));
+    await broker.entregar(FILA);
+
+    expect(broker.acks).toHaveLength(3);
+    expect(await agregado(livro)).toBeNull();
+    expect(await notaGeral(livro)).toEqual({
+      nota_geral: 4.1,
+      nota_geral_qtd: 1234,
+    });
+  });
+
+  it('a nota de quem sumiu da VIEW de perfis continua na média e na contagem (decisão 4 da F-MOD-OPC)', async () => {
+    // Conta suspensa sai de `identidade.v_perfil_referencia_v1`, mas a nota
+    // dela continua em `leitura.v_nota_publicacao_v1` e na nota dos leitores:
+    // a projeção não cruza com o perfil.
+    const livro = await inserirLivroOficial(pool, novoIsbn());
+    const ana = randomUUID();
+    const bia = randomUUID();
+    for (const usuario of [ana, bia]) {
+      await pool.query(
+        `INSERT INTO identidade.v_perfil_referencia_v1 (id, username, nome_exibicao, privacidade)
+         VALUES ($1, $2, $2, 'publico')`,
+        [usuario, `leitora-${usuario.slice(0, 8)}`],
+      );
+    }
+    await notaNoLeitura(ana, livro, 2);
+    publicar(evento(ana, livro, 'criada', 2));
+    await notaNoLeitura(bia, livro, 4);
+    publicar(evento(bia, livro, 'criada', 4));
+    await broker.entregar(FILA);
+    expect(await agregado(livro)).toEqual({ media: 3, quantidade: 2 });
+
+    // Ana é suspensa; depois disso Bia muda a nota e o livro é recalculado.
+    await pool.query(
+      'DELETE FROM identidade.v_perfil_referencia_v1 WHERE id = $1',
+      [ana],
+    );
+    await notaNoLeitura(bia, livro, 5);
+    publicar(evento(bia, livro, 'atualizada', 5));
+    // E um evento da própria Ana, já fora da VIEW de perfis, ainda é aplicado.
+    await notaNoLeitura(ana, livro, 3);
+    publicar(evento(ana, livro, 'atualizada', 3));
+    await broker.entregar(FILA);
+
+    expect(await projecao(livro)).toEqual(
+      [
+        { usuario_id: ana, valor: 3 },
+        { usuario_id: bia, valor: 5 },
+      ].sort((a, b) => a.usuario_id.localeCompare(b.usuario_id)),
+    );
+    expect(await agregado(livro)).toEqual({ media: 4, quantidade: 2 });
+  });
+
   it('data fora do schema vai para a DLQ sem gravar nada', async () => {
     const livro = await inserirLivroOficial(pool, novoIsbn());
     const ana = randomUUID();
@@ -220,5 +310,9 @@ describe('consumo de nota.alterada (integração)', () => {
     expect(broker.nacks).toHaveLength(2);
     expect(broker.acks).toHaveLength(0);
     expect(await contar(pool, 'acervo.nota_leitor_projecao')).toBe(0);
+    // e a mensagem chega na .dlq: nack sem requeue, roteado pela DLX da fila.
+    expect(broker.requeues).toEqual([false, false]);
+    expect(broker.filas.get(`${FILA}.dlq`)).toEqual(broker.nacks);
+    expect(broker.filas.get(FILA)).toEqual([]);
   });
 });

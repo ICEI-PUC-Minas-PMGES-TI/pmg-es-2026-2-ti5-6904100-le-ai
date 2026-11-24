@@ -4,6 +4,7 @@ import br.com.leai.social.common.CodigoErro;
 import br.com.leai.social.common.ErroDeNegocioException;
 import br.com.leai.social.config.AppProperties;
 import java.net.http.HttpClient;
+import java.net.http.HttpConnectTimeoutException;
 import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -151,8 +152,16 @@ public class ClienteDeLeitura {
     }
   }
 
-  private static boolean causaDeTimeout(Throwable erro) {
+  /**
+   * Só o timeout de <b>leitura</b>: o pedido pode ter chegado. O de conexão é subclasse de {@link
+   * HttpTimeoutException}, mas nele o pedido certamente não saiu, então é falha de conexão, com a
+   * retentativa (RNF-ERR-08). Achado da validação da F-MOD-OPC, 06/11/2026.
+   */
+  static boolean causaDeTimeout(Throwable erro) {
     for (Throwable causa = erro; causa != null; causa = causa.getCause()) {
+      if (causa instanceof HttpConnectTimeoutException) {
+        return false;
+      }
       if (causa instanceof HttpTimeoutException) {
         return true;
       }

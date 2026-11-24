@@ -6,7 +6,8 @@ import java.util.List;
 
 /**
  * Schema {@code Comentario} de {@code docs/api/social.yaml}. {@code comentarioRaizId} ausente em
- * raiz; {@code totalRespostas} só faz sentido em raiz (nulo em resposta).
+ * raiz; {@code totalRespostas} só faz sentido em raiz (nulo em resposta). {@code versao} vai só
+ * para o autor: é a versão da apresentação que ele devolve ao editar (F-MOD-OPC).
  */
 @Schema(name = "Comentario")
 public record ComentarioResposta(
@@ -23,4 +24,5 @@ public record ComentarioResposta(
     boolean pertenceAoSolicitante,
     boolean editado,
     Instant criadoEm,
-    Instant atualizadoEm) {}
+    Instant atualizadoEm,
+    String versao) {}

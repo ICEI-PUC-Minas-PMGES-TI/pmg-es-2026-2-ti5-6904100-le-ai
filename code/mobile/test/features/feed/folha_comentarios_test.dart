@@ -291,6 +291,7 @@ void main() {
           nome: 'Kayke Eman',
           meu: true,
           editado: editado,
+          versao: 'v-m1',
           mencoes: <Map<String, Object?>>[
             <String, Object?>{'posicao': 17, 'comprimento': 13, 'usuarioId': 'u9', 'username': 'nadiasampaio'},
           ],
@@ -344,9 +345,30 @@ void main() {
 
       expect(servidor.edicoes.single.method, 'PATCH');
       expect(servidor.edicoes.single.url.path, '/comentarios/m1');
+      // A versão da apresentação carregada vai junto (F-MOD-OPC).
+      expect(jsonDecode(servidor.edicoes.single.body), <String, Object?>{
+        'texto': '$texto Obrigado!',
+        'versao': 'v-m1',
+      });
       expect(_comentarioComTexto('$texto Obrigado!'), findsOneWidget);
       expect(find.textContaining('· editado', findRichText: true), findsOneWidget);
       expect(find.text('Editando comentário'), findsNothing);
+    });
+
+    testWidgets('apresentação mudada desde a leitura: 409 pede recarga e preserva o texto', (tester) async {
+      final servidor = _Servidor(raizes: <Map<String, Object?>>[meu()]);
+      servidor.aoEditarOuExcluir = (_) => erro(409, 'COMENTARIO_DESATUALIZADO', 'mudou');
+      await _abrir(tester, servidor);
+
+      await escolher(tester, 'Editar');
+      await tester.enterText(find.byType(TextField), '$texto!');
+      await tester.pump();
+      await tester.tap(find.text('Salvar'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Este comentário mudou enquanto você editava. Recarregue os comentários e edite de novo.'), findsOneWidget);
+      expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, '$texto!');
+      expect(_comentarioComTexto(texto), findsOneWidget);
     });
 
     testWidgets('limite de menções mostra o alerta e preserva o texto', (tester) async {

@@ -656,3 +656,19 @@ export const livroRecomendacaoView = acervoSchema.view(
     LEFT JOIN ${assunto} a ON a.id = la.assunto_id
     WHERE l.tipo = 'oficial' AND l.ativo
   `);
+
+// F-REC-ALG: o par livro-autor dos livros oficiais ativos, para o `social`
+// achar "do mesmo autor" pelo índice de livro_autor. A v_livro_recomendacao_v1
+// só traz o nome concatenado, que não identifica o autor.
+export const livroAutorRecomendacaoView = acervoSchema.view(
+  'v_livro_autor_recomendacao_v1',
+  {
+    livroId: uuid('livro_id'),
+    autorId: uuid('autor_id'),
+  },
+).as(sql`
+    SELECT la.livro_id, la.autor_id
+    FROM ${livroAutor} la
+    JOIN ${livro} l ON l.id = la.livro_id
+    WHERE l.tipo = 'oficial' AND l.ativo
+  `);

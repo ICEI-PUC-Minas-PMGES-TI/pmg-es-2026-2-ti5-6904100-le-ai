@@ -6,9 +6,11 @@ import 'dart:convert';
 
 import 'package:le_ai_mobile/features/feed/social_service.dart';
 import 'package:le_ai_mobile/features/livros/livro_pessoal_page.dart';
+import 'package:le_ai_mobile/features/livros/notas_do_livro.dart';
 
 import '../feed/apoio.dart' show socialSimulado;
 import 'apoio.dart';
+import 'apoio_assuntos.dart';
 
 const _id = 'dddddddd-4444-4444-8444-dddddddddddd';
 const _dono = 'eeeeeeee-5555-4555-8555-eeeeeeeeeeee';
@@ -18,6 +20,7 @@ Map<String, Object?> _livro({
   bool consulta = false,
   bool comAvaliacao = false,
   String? sinopse = 'Reunião de cartas trocadas entre 1978 e 1984.',
+  List<String>? assuntos = const <String>[],
 }) => <String, Object?>{
   'id': _id,
   'tipo': 'pessoal',
@@ -42,6 +45,9 @@ Map<String, Object?> _livro({
         }
       : null,
   'dono': <String, Object?>{'nome': 'Rafaela Siqueira', 'avatarUrl': null},
+  // `null` simula a resposta sem o campo (servidor anterior a F-ACV-OPC).
+  if (assuntos != null)
+    'assuntos': <Map<String, String>>[for (final id in assuntos) assuntoJson(id)],
 };
 
 void main() {
@@ -72,6 +78,11 @@ void main() {
           }),
           leitura: leituraSimulada((pedido) async {
             pedidosDeLeitura.add(pedido);
+            // Reação do terceiro à resenha do dono (F-AVA-2): o `leitura` devolve o estado novo.
+            if (pedido.url.path.endsWith('/reacao')) {
+              final curtiu = pedido.method == 'PUT';
+              return json(<String, Object?>{'minhaReacao': curtiu ? 'curtida' : null, 'curtidas': curtiu ? 1 : 0, 'descurtidas': 0}, 200);
+            }
             return json(semAvaliacao(_id), 200);
           }),
           livroId: _id,
@@ -106,6 +117,10 @@ void main() {
     // Nada do que não existe em livro pessoal (RN-02, RN-03).
     expect(find.text('ISBN'), findsNothing);
     expect(find.text('Editora'), findsNothing);
+    // Nem os dois indicadores do livro oficial (RN-06.5, L-32 da E6-02).
+    expect(find.textContaining('Nota geral'), findsNothing);
+    expect(find.textContaining('Nota dos leitores'), findsNothing);
+    expect(find.byType(NotasDoLivro), findsNothing);
   });
 
   testWidgets('dono sem sinopse: a seção inteira some', (tester) async {
@@ -139,6 +154,39 @@ void main() {
     // Em livro pessoal só o dono avalia (RN-03): o terceiro nem consulta o `leitura`.
     expect(find.text('Sua avaliação'), findsNothing);
     expect(pedidosDeLeitura, isEmpty);
+    // Só a nota do dono: nem nota geral nem nota dos leitores em livro pessoal (RN-06.5, L-32 da E6-02).
+    expect(find.textContaining('Nota geral'), findsNothing);
+    expect(find.textContaining('Nota dos leitores'), findsNothing);
+    expect(find.byType(NotasDoLivro), findsNothing);
+  });
+
+  // L-31 (E6-02): o servidor só aceita a reação à resenha do dono pela via de RN-15 que abriu a
+  // página; curtir e retirar levam a mesma via e a mesma referência.
+  testWidgets('terceiro curte a resenha do dono com a via que abriu a página', (tester) async {
+    await montar(
+      tester,
+      (_) async => json(_livro(consulta: true, comAvaliacao: true), 200),
+      via: 'feed',
+      referenciaId: _atividade,
+    );
+
+    await tocar(tester, find.byKey(const ValueKey<String>('reacao-curtida')));
+    await tester.pumpAndSettle();
+
+    final curtir = pedidosDeLeitura.single;
+    expect(curtir.method, 'PUT');
+    expect(curtir.url.path, '/resenhas/11111111-1111-4111-8111-111111111111/reacao');
+    expect(jsonDecode(curtir.body), <String, Object?>{'tipo': 'curtida', 'via': 'feed', 'referenciaId': _atividade});
+    expect(find.text('1 curtida'), findsOneWidget);
+
+    await tocar(tester, find.byKey(const ValueKey<String>('reacao-curtida')));
+    await tester.pumpAndSettle();
+
+    final retirar = pedidosDeLeitura.last;
+    expect(pedidosDeLeitura, hasLength(2));
+    expect(retirar.method, 'DELETE');
+    expect(retirar.url.queryParameters, <String, String>{'via': 'feed', 'referenciaId': _atividade});
+    expect(find.text('0 curtidas'), findsOneWidget);
   });
 
   testWidgets('terceiro denuncia a resenha do dono com a via que abriu a página (F-MOD)', (tester) async {
@@ -312,5 +360,102 @@ void main() {
 
     expect(find.text('Não foi possível conectar ao serviço.'), findsOneWidget);
     expect(find.text('Tentar de novo'), findsOneWidget);
+  });
+
+  group('linha Assuntos da ficha (F-ACV-OPC)', () {
+    testWidgets('dono: depois de Páginas, em texto com vírgula e leitura com "e"', (tester) async {
+      await montar(tester, (_) async => json(_livro(assuntos: <String>[idHistoria, idMemorias]), 200));
+
+      expect(find.text('Assuntos'), findsOneWidget);
+      expect(find.text('História, Memórias'), findsOneWidget);
+      expect(find.bySemanticsLabel('Assuntos: História e Memórias'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text('Assuntos')).dy,
+        greaterThan(tester.getTopLeft(find.text('Páginas')).dy),
+      );
+      // Texto, não chip: nada acionável na linha.
+      expect(
+        find.descendant(of: find.bySemanticsLabel('Assuntos: História e Memórias'), matching: find.byType(InkWell)),
+        findsNothing,
+      );
+    });
+
+    testWidgets('o valor ocupa no máximo 70% da linha e quebra alinhado à direita', (tester) async {
+      await montar(
+        tester,
+        (_) async => json(
+          _livro(assuntos: <String>[idBiografia, idCronica, idHistoria, idMemorias, idPolitica]),
+          200,
+        ),
+      );
+
+      final valor = find.text('Biografia, Crônica, História, Memórias, Política');
+      expect(valor, findsOneWidget);
+      final linha = find.ancestor(of: valor, matching: find.byType(Row)).first;
+      expect(tester.getSize(valor).width, lessThanOrEqualTo(tester.getSize(linha).width * 0.7 + 0.5));
+      expect(tester.widget<Text>(valor).textAlign, TextAlign.right);
+      expect(tester.getTopRight(valor).dx, closeTo(tester.getTopRight(linha).dx, 0.5));
+    });
+
+    // Validação da F-ACV-OPC: com Spacer + valor fixo em 70%, o rótulo estourava a linha em 320 e
+    // 360 dp. Os outros testes rodam em 390 dp e não pegavam.
+    for (final largura in <double>[320, 360]) {
+      testWidgets('não estoura em $largura dp com muitos assuntos', (tester) async {
+        tester.view.physicalSize = Size(largura * 3, 2400);
+        tester.view.devicePixelRatio = 3;
+        addTearDown(tester.view.reset);
+        // Sem `montar`, que fixa a tela de 390 dp.
+        await tester.pumpWidget(
+          envolver(
+            LivroPessoalPage(
+              servico: acervoSimulado(
+                (_) async => json(
+                  _livro(assuntos: <String>[idBiografia, idCronica, idHistoria, idMemorias, idPolitica]),
+                  200,
+                ),
+              ),
+              leitura: leituraSimulada((_) async => json(semAvaliacao(_id), 200)),
+              livroId: _id,
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+
+        // A página tem um estouro anterior a esta feature em 320 dp, fora desta linha (existe também
+        // sem assuntos); por isso a prova é a geometria da linha, não a ausência de erro na página.
+        tester.takeException();
+        final valor = find.text('Biografia, Crônica, História, Memórias, Política');
+        final rotulo = find.text('Assuntos');
+        final linha = find.ancestor(of: valor, matching: find.byType(Row)).first;
+        expect(tester.getTopRight(valor).dx, lessThanOrEqualTo(tester.getTopRight(linha).dx + 0.5));
+        expect(tester.getTopRight(rotulo).dx, lessThan(tester.getTopLeft(valor).dx));
+      });
+    }
+
+    testWidgets('terceiro em modo consulta vê a mesma linha', (tester) async {
+      await montar(
+        tester,
+        (_) async => json(_livro(consulta: true, assuntos: <String>[idHistoria, idMemorias]), 200),
+        via: 'feed',
+        referenciaId: _atividade,
+      );
+
+      expect(menu(), findsNothing);
+      expect(find.text('História, Memórias'), findsOneWidget);
+      expect(find.bySemanticsLabel('Assuntos: História e Memórias'), findsOneWidget);
+    });
+
+    testWidgets('sem assunto, a linha não existe', (tester) async {
+      await montar(tester, (_) async => json(_livro(), 200));
+      expect(find.text('184 páginas'), findsOneWidget);
+      expect(find.text('Assuntos'), findsNothing);
+    });
+
+    testWidgets('resposta sem o campo assuntos vale como lista vazia', (tester) async {
+      await montar(tester, (_) async => json(_livro(assuntos: null), 200));
+      expect(find.text('184 páginas'), findsOneWidget);
+      expect(find.text('Assuntos'), findsNothing);
+    });
   });
 }

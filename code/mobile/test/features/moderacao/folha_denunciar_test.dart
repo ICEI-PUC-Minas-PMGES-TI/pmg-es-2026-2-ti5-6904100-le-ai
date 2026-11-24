@@ -4,7 +4,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
+import 'package:le_ai_mobile/core/network/api_client.dart';
 import 'package:le_ai_mobile/features/feed/social_service.dart';
 import 'package:le_ai_mobile/features/moderacao/folha_denunciar.dart';
 
@@ -18,13 +20,17 @@ const AlvoDaDenuncia _resenha = AlvoDaDenuncia.resenha(
 );
 
 /// Um botão que abre a denúncia, como as telas fazem, e devolve os pedidos que chegaram.
+///
+/// Com [timeout], o `ApiClient` é montado aqui, com o tempo limite curto: o `socialSimulado`
+/// (de `feed/apoio.dart`, do Kayke) não tem esse parâmetro.
 Future<List<http.Request>> _abrir(
   WidgetTester tester, {
   AlvoDaDenuncia alvo = _resenha,
   Future<http.Response> Function(http.Request)? responder,
+  Duration? timeout,
 }) async {
   final pedidos = <http.Request>[];
-  final SocialService social = socialSimulado((pedido) async {
+  Future<http.Response> handler(http.Request pedido) async {
     pedidos.add(pedido);
     return responder?.call(pedido) ??
         json(<String, Object?>{
@@ -32,7 +38,18 @@ Future<List<http.Request>> _abrir(
           'estado': 'pendente',
           'criadoEm': '2026-10-18T12:00:00Z',
         }, 201);
-  });
+  }
+
+  final SocialService social = timeout == null
+      ? socialSimulado(handler)
+      : SocialService(
+          ApiClient(
+            baseUrl: 'https://social.example.com',
+            client: MockClient(handler),
+            timeout: timeout,
+            esperasDeRetentativa: const <Duration>[Duration.zero, Duration.zero],
+          ),
+        );
   await tester.pumpWidget(
     envolver(
       Builder(
@@ -192,6 +209,52 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text(TextosDaDenuncia.falhaFrequencia), findsOneWidget);
       expect(find.text('Seu motivo'), findsOneWidget);
+      expect(
+        pedidos.map((p) => p.headers['Idempotency-Key']).toSet(),
+        hasLength(1),
+      );
+    },
+  );
+
+  // L-14 (E6-02): o tempo esgotado do cliente cai no mesmo banner de conexão do 503; o motivo
+  // continua na tela e o reenvio repete a chave (a primeira pode ter gravado).
+  testWidgets(
+    'tempo esgotado mostra o banner de conexão e mantém o motivo',
+    (tester) async {
+      var vez = 0;
+      final pedidos = await _abrir(
+        tester,
+        timeout: const Duration(milliseconds: 100),
+        responder: (_) async {
+          vez++;
+          if (vez == 1) {
+            await Future<void>.delayed(const Duration(seconds: 1));
+          }
+          return json(<String, Object?>{
+            'id': 'd1',
+            'estado': 'pendente',
+            'criadoEm': '2026-10-18T12:00:00Z',
+          }, 201);
+        },
+      );
+      await _escreverERevisar(tester, 'Spam disfarçado');
+
+      await tester.tap(find.text(TextosDaDenuncia.enviar));
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pumpAndSettle();
+
+      expect(find.text(TextosDaDenuncia.falhaConexao), findsOneWidget);
+      expect(find.text(TextosDaDenuncia.seuMotivo), findsOneWidget);
+      expect(find.text('Spam disfarçado'), findsOneWidget);
+      expect(find.text(TextosDaDenuncia.enviada), findsNothing);
+      // O tempo esgotado não é retentado pelo cliente.
+      expect(pedidos, hasLength(1));
+      await tester.pump(const Duration(seconds: 1));
+
+      await tester.tap(find.text(TextosDaDenuncia.enviar));
+      await tester.pumpAndSettle();
+      expect(find.text(TextosDaDenuncia.enviada), findsOneWidget);
+      expect(pedidos, hasLength(2));
       expect(
         pedidos.map((p) => p.headers['Idempotency-Key']).toSet(),
         hasLength(1),

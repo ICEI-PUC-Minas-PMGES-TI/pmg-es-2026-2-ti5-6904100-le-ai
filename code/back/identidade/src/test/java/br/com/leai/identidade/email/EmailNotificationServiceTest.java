@@ -116,6 +116,7 @@ class EmailNotificationServiceTest {
         "Lê Ai",
         null,
         null,
+        null,
         null);
   }
 }

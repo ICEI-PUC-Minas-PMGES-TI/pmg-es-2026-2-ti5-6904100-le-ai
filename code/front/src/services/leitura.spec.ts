@@ -381,3 +381,87 @@ describe('estatísticas (F-STA)', () => {
     expect(erro).toMatchObject({ status: 403, code: 'ACESSO_NEGADO' })
   })
 })
+
+// E6-02 (L-20): os casos de F-AVA-2 (Renato) num describe próprio; o arquivo é compartilhado.
+describe('reações e frases (F-AVA-2)', () => {
+  const REACOES = { curtidas: 3, descurtidas: 1, minhaReacao: 'curtida' }
+
+  it('reagir envia o tipo, a via e a chave', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => resposta(200, REACOES))
+    const leitura = servico(fetchMock)
+
+    await expect(
+      leitura.reagir('r 1', 'curtida', { via: 'lista', referenciaId: 'lista-1' }, 'chave-c'),
+    ).resolves.toEqual(REACOES)
+    await leitura.reagir('r2', 'descurtida', undefined, 'chave-d')
+
+    const [url, init] = fetchMock.mock.calls[0]!
+    expect(url).toBe('https://leitura.example.com/resenhas/r%201/reacao')
+    expect(init?.method).toBe('PUT')
+    expect(JSON.parse(String(init?.body))).toEqual({ tipo: 'curtida', via: 'lista', referenciaId: 'lista-1' })
+    expect(new Headers(init?.headers).get('Idempotency-Key')).toBe('chave-c')
+    // Sem via (livro oficial), o corpo leva só o tipo.
+    expect(JSON.parse(String(fetchMock.mock.calls[1]![1]?.body))).toEqual({ tipo: 'descurtida' })
+    expect(new Headers(fetchMock.mock.calls[1]![1]?.headers).get('Idempotency-Key')).toBe('chave-d')
+  })
+
+  it('retirar a reação vai pelo DELETE com a via na consulta', async () => {
+    const semReacao = { curtidas: 2, descurtidas: 1, minhaReacao: null }
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => resposta(200, semReacao))
+    const leitura = servico(fetchMock)
+
+    await expect(
+      leitura.removerReacao('r1', { via: 'feed', referenciaId: 'atv 1' }, 'chave-r'),
+    ).resolves.toEqual(semReacao)
+    await leitura.removerReacao('r2', undefined, 'chave-s')
+
+    const [url, init] = fetchMock.mock.calls[0]!
+    expect(url).toBe('https://leitura.example.com/resenhas/r1/reacao?via=feed&referenciaId=atv+1')
+    expect(init?.method).toBe('DELETE')
+    expect(init?.body).toBeUndefined()
+    expect(new Headers(init?.headers).get('Idempotency-Key')).toBe('chave-r')
+    expect(fetchMock.mock.calls[1]![0]).toBe('https://leitura.example.com/resenhas/r2/reacao')
+  })
+
+  it('lista, cria e exclui frase com a chave recebida', async () => {
+    const frase = {
+      id: 'f1',
+      livroId: 'l1',
+      texto: 'Um trecho.',
+      pagina: 12,
+      criadoEm: '2026-10-09T12:00:00Z',
+      autor: { id: 'u1', username: 'eu', nome: 'Eu', avatarUrl: null },
+      minha: true,
+    }
+    const pagina = {
+      itens: [frase],
+      paginacao: { page: 2, limite: 3, totalItens: 4, totalPaginas: 2 },
+      minhasFrases: 1,
+      limitePorLivro: 10,
+    }
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(resposta(200, pagina))
+      .mockResolvedValueOnce(resposta(200, pagina))
+      .mockResolvedValueOnce(resposta(201, frase))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+    const leitura = servico(fetchMock)
+
+    await expect(leitura.listarFrases('l 1', 2, 3)).resolves.toEqual(pagina)
+    await leitura.listarFrases('l1')
+    await expect(leitura.criarFrase('l1', { texto: 'Um trecho.', pagina: 12 }, 'chave-f')).resolves.toEqual(frase)
+    await expect(leitura.excluirFrase('f 1', 'chave-x')).resolves.toBeUndefined()
+
+    const chamadas = fetchMock.mock.calls
+    expect(chamadas.map(([url, init]) => [init?.method ?? 'GET', url])).toEqual([
+      ['GET', 'https://leitura.example.com/livros/l%201/frases?page=2&limite=3'],
+      ['GET', 'https://leitura.example.com/livros/l1/frases?page=1&limite=20'],
+      ['POST', 'https://leitura.example.com/livros/l1/frases'],
+      ['DELETE', 'https://leitura.example.com/frases/f%201'],
+    ])
+    expect(new Headers(chamadas[0]![1]?.headers).get('Idempotency-Key')).toBeNull()
+    expect(JSON.parse(String(chamadas[2]![1]?.body))).toEqual({ texto: 'Um trecho.', pagina: 12 })
+    expect(new Headers(chamadas[2]![1]?.headers).get('Idempotency-Key')).toBe('chave-f')
+    expect(new Headers(chamadas[3]![1]?.headers).get('Idempotency-Key')).toBe('chave-x')
+  })
+})

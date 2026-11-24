@@ -3,8 +3,10 @@ import { computed, getCurrentScope, onScopeDispose, ref, shallowRef } from 'vue'
 import { ApiError, novaChaveIdempotencia } from '../services/api'
 import {
   moderacaoService,
+  type ContaModerada,
   type DenunciaPendente,
   type ModeracaoService,
+  type PessoaDaModeracao,
   type ResultadoModeracao,
 } from '../services/moderacao'
 
@@ -41,7 +43,7 @@ export function usePainelDeModeracao(opcoes: OpcoesDoPainel = {}) {
   const coldStartDaAcao = ref(false)
   const naoConfirmada = ref(false)
   const erroDaAcao = ref<string | null>(null)
-  const aviso = ref<{ texto: string; icone: 'arquivar' | 'remover' } | null>(null)
+  const aviso = ref<{ texto: string; icone: 'arquivar' | 'remover' | 'suspender' | 'reativar' } | null>(null)
 
   const chavesDeRemocao = new Map<string, string>()
   let temporizador: ReturnType<typeof setTimeout> | undefined
@@ -207,6 +209,26 @@ export function usePainelDeModeracao(opcoes: OpcoesDoPainel = {}) {
     )
   }
 
+  /**
+   * F-MOD-OPC: a conta mudou de estado no servidor. Atualiza a marca de suspensa em toda denúncia
+   * da fila que cita a pessoa, sem recarregar e sem mexer na seleção: suspender não resolve
+   * denúncia. Só chamada depois da confirmação, nunca de forma otimista.
+   */
+  function atualizarConta(conta: ContaModerada, nome: string): void {
+    const marcar = (pessoa: PessoaDaModeracao | null): PessoaDaModeracao | null =>
+      pessoa?.id === conta.usuarioId
+        ? { ...pessoa, suspensa: conta.suspensa, suspensaEm: conta.suspensaEm }
+        : pessoa
+    fila.value = fila.value.map((d) => ({ ...d, autor: marcar(d.autor), denunciante: marcar(d.denunciante) }))
+    aviso.value = conta.suspensa
+      ? {
+          texto: `Conta de ${nome} suspensa. O perfil e o conteúdo ficaram ocultos para os leitores.`,
+          icone: 'suspender',
+        }
+      : { texto: `Conta de ${nome} reativada.`, icone: 'reativar' }
+    opcoes.aoResolver?.()
+  }
+
   if (getCurrentScope()) {
     onScopeDispose(() => {
       pararColdStart()
@@ -233,5 +255,6 @@ export function usePainelDeModeracao(opcoes: OpcoesDoPainel = {}) {
     selecionar,
     arquivar,
     remover,
+    atualizarConta,
   }
 }

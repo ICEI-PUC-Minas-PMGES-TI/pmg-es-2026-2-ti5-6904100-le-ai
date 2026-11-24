@@ -173,6 +173,10 @@ public class AutenticacaoController {
               () -> new RespostaIdempotente<>(HttpStatus.OK.value(), servico.renovar(requisicao)))
           .corpo();
     } catch (RenovacaoReusadaException reuso) {
+      // F-MOD-OPC: o token foi revogado pela suspensão, não vazou. Sem WARN e sem derrubar nada.
+      if (servico.contaSuspensa(reuso.usuarioId())) {
+        throw ServicoDeAutenticacao.erroDeContaSuspensa();
+      }
       // Só chega aqui sem recibo a devolver: não é a repetição desta requisição, é reuso.
       servico.encerrarRenovacoesPorReuso(reuso.usuarioId());
       throw reuso;

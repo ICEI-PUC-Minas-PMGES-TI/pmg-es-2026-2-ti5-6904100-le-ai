@@ -1,0 +1,25 @@
+{
+  "medidoEm": "2026-11-21T01:05:18.787Z",
+  "ambiente": "DES (Render/Neon Oregon), v0.2.1",
+  "rota": "POST /leituras/{leituraId}/progresso",
+  "leituraId": "dd708bd2-3b95-4a50-9011-25c549dc0949",
+  "pagina": 80,
+  "primeiro": {
+    "status": 201,
+    "progressoId": "ea340295-c683-4cd0-aa6f-5ef6e8a3ebfd",
+    "correlationId": "74ca9c35-716d-4447-b723-b01b4f216c79",
+    "ms": 245.6
+  },
+  "repeticaoComAMesmaChave": {
+    "status": 201,
+    "progressoId": "ea340295-c683-4cd0-aa6f-5ef6e8a3ebfd",
+    "correlationId": "1b859c6b-a94a-44fa-89b8-643887a0c68f",
+    "ms": 248.2
+  },
+  "mesmaResposta": true,
+  "mesmoTextoBruto": false,
+  "registrosAntes": 4,
+  "registrosDepois": 5,
+  "registrosComAPagina": 1,
+  "passou": true
+}

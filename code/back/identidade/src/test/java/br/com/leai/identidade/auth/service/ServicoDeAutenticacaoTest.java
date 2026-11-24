@@ -71,6 +71,7 @@ class ServicoDeAutenticacaoTest {
              null,
              "segredo-de-teste-com-32-caracteres",
              null,
+             null,
              null);
     EmissorDeToken emissor =
         new EmissorDeToken(jwtConfig.jwtEncoder(jwtConfig.chaveDeAssinatura(propriedades)));

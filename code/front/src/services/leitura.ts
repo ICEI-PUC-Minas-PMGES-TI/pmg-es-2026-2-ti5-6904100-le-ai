@@ -288,6 +288,16 @@ export interface FiltroProgresso {
 /** Um ano de calendário ou toda a conta (F-STA). */
 export type PeriodoEstatisticas = number | 'acumulado'
 
+export interface FaixaDeNota {
+  valor: number
+  quantidade: number
+}
+
+export interface DistribuicaoNotas {
+  total: number
+  faixas: FaixaDeNota[]
+}
+
 export interface TotaisEstatistica {
   livrosConcluidos: number
   paginasLidas: number
@@ -308,6 +318,7 @@ export interface Estatisticas {
     diasPorLivro: { valor: number | null; dias: number; leiturasConcluidas: number }
     notaMedia: { valor: number | null; quantidade: number }
   }
+  distribuicaoNotas: DistribuicaoNotas | null
 }
 
 export interface PontoEstatistica {
@@ -325,9 +336,10 @@ export interface GraficosEstatisticas {
   pontos: PontoEstatistica[]
 }
 
-/** `GET /perfis/{id}/estatisticas`: só os totais do ano (RN-08). */
+/** `GET /perfis/{id}/estatisticas`: totais e distribuição das notas do ano (RN-08). */
 export interface EstatisticasPerfil extends TotaisEstatistica {
   ano: number
+  distribuicaoNotas: DistribuicaoNotas | null
 }
 
 const NAO_ENCONTRADO = 404

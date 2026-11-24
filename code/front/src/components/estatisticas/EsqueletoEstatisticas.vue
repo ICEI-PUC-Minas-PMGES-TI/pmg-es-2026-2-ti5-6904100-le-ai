@@ -43,6 +43,10 @@ import { TEXTOS_DAS_ESTATISTICAS } from '../../estatisticas/textos'
         </div>
       </div>
     </template>
+    <div class="mt-space-6 rounded-md bg-papel-elevado p-space-5">
+      <div class="h-[17px] w-[45%] rounded-sm bg-capa-placeholder" />
+      <div class="mt-space-4 h-[160px] rounded-sm bg-capa-placeholder md:h-[200px]" />
+    </div>
     <div class="mt-space-6 grid gap-space-4 xl:grid-cols-2 xl:items-start xl:gap-space-6">
       <div
         v-for="i in 2"

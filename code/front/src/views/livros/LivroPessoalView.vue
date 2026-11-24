@@ -19,6 +19,7 @@ import DialogoConfirmacao from '../../components/ui/DialogoConfirmacao.vue'
 import EstadoVazio from '../../components/ui/EstadoVazio.vue'
 import FolhaAcoes, { type AcaoDaFolha } from '../../components/ui/FolhaAcoes.vue'
 import MenuDeAcoes from '../../components/ui/MenuDeAcoes.vue'
+import { listaComE } from '../../livros/assuntos'
 import { formatarData, formatarPaginas } from '../../livros/formatos'
 import { useMinhaAvaliacao } from '../../livros/useMinhaAvaliacao'
 import type { AlvoDaDenuncia } from '../../moderacao/useDenunciar'
@@ -61,6 +62,13 @@ const veioDaLista = computed(() => acesso.value?.via === 'lista')
 const adicionandoALista = ref(false)
 
 const ehDono = computed(() => livro.value !== null && !livro.value.modoConsulta)
+
+/**
+ * F-ACV-OPC: a linha `Assuntos` da ficha, em texto e sem link (livro pessoal não entra em busca,
+ * RN-03), igual para o dono e no modo consulta; some quando vazia (livro-pessoal.md §4.1).
+ * `?? []` tolera um `acervo` ainda sem o campo.
+ */
+const nomesDosAssuntos = computed(() => (livro.value?.assuntos ?? []).map((assunto) => assunto.nome))
 const nomeDoDono = computed(() => livro.value?.dono?.nome ?? null)
 const primeiroNome = computed(() => nomeDoDono.value?.split(/\s+/)[0] ?? null)
 
@@ -262,13 +270,28 @@ async function excluir(): Promise<void> {
         <p class="order-3 mt-space-3 self-center md:order-none md:mt-space-5 md:self-start">
           <span class="inline-flex h-6 items-center rounded-full bg-musgo-fundo px-space-3 text-label text-musgo">Livro pessoal</span>
         </p>
-        <dl class="order-5 mt-space-6 flex items-center justify-between border-y border-linha py-space-5 md:order-none">
-          <dt class="text-label text-grafite">
-            Páginas
-          </dt>
-          <dd class="text-body text-tinta">
-            {{ formatarPaginas(livro.paginas) }}
-          </dd>
+        <dl class="order-5 mt-space-6 flex flex-col gap-space-3 border-y border-linha py-space-5 md:order-none">
+          <div class="flex items-center justify-between gap-space-4">
+            <dt class="text-label text-grafite">
+              Páginas
+            </dt>
+            <dd class="text-body text-tinta">
+              {{ formatarPaginas(livro.paginas) }}
+            </dd>
+          </div>
+          <div
+            v-if="nomesDosAssuntos.length > 0"
+            data-linha-assuntos
+            class="flex items-start justify-between gap-space-4"
+          >
+            <dt class="shrink-0 whitespace-nowrap text-label text-grafite">
+              Assuntos
+            </dt>
+            <dd class="max-w-[70%] text-right text-body text-tinta">
+              <span aria-hidden="true">{{ nomesDosAssuntos.join(', ') }}</span>
+              <span class="sr-only">{{ listaComE(nomesDosAssuntos) }}</span>
+            </dd>
+          </div>
         </dl>
       </div>
 

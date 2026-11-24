@@ -87,17 +87,26 @@ function pessoa(username: string | null, anonimizado: boolean): string {
   return username && !anonimizado ? `@${username}` : CONTA_EXCLUIDA
 }
 
-/** `Removeu comentário`, `Arquivou denúncia`, `Removeu frase, sem denúncia`. */
+/** `Removeu comentário`, `Arquivou denúncia`, `Removeu frase, sem denúncia`, `Suspendeu a conta`. */
 export function acaoDoRegistro(registro: RegistroDeModeracao): string {
   if (registro.acao === 'arquivar_denuncia') {
     return 'Arquivou denúncia'
   }
-  const alvo = { resenha: 'resenha', comentario: 'comentário', frase: 'frase' }[registro.alvoTipo]
+  if (registro.acao === 'suspender_conta') {
+    return 'Suspendeu a conta'
+  }
+  if (registro.acao === 'reativar_conta') {
+    return 'Reativou a conta'
+  }
+  const alvo = { resenha: 'resenha', comentario: 'comentário', frase: 'frase', usuario: 'conta' }[registro.alvoTipo]
   return registro.comDenuncia ? `Removeu ${alvo}` : `Removeu ${alvo}, sem denúncia`
 }
 
 /** `Comentário de @tiago na atividade de @rafa`, `Resenha de conta excluída em Quarto de Despejo`. */
 export function alvoDoRegistro(registro: RegistroDeModeracao): string {
+  if (registro.alvoTipo === 'usuario') {
+    return `Conta de ${pessoa(registro.alvoConta ?? null, registro.anonimizado)}`
+  }
   const autor = pessoa(registro.alvoAutor, registro.anonimizado)
   const livro = registro.livroTitulo && !registro.anonimizado ? ` em ${registro.livroTitulo}` : ''
   if (registro.alvoTipo === 'comentario') {
@@ -107,4 +116,24 @@ export function alvoDoRegistro(registro: RegistroDeModeracao): string {
     return `Comentário de ${autor}${dono}`
   }
   return `${registro.alvoTipo === 'resenha' ? 'Resenha' : 'Frase'} de ${autor}${livro}`
+}
+
+/** Linha de conta do registro (F-MOD-OPC): suspensão ou reativação, com o motivo do administrador. */
+export function ehLinhaDeConta(registro: RegistroDeModeracao): boolean {
+  return registro.alvoTipo === 'usuario'
+}
+
+/** Faixa do detalhe quando o autor da denúncia está suspenso (painel-de-moderacao.md §5.16). */
+export function faixaDaContaSuspensa(denuncia: DenunciaPendente): string {
+  const nome = denuncia.autor?.nomeExibicao ?? CONTA_EXCLUIDA
+  const desde = denuncia.autor?.suspensaEm ? ` desde ${dataComHora(denuncia.autor.suspensaEm)}` : ''
+  const sobre = denuncia.tipo === 'resenha' ? 'a resenha' : 'o comentário'
+  return `A conta de ${nome} está suspensa${desde}. A denúncia continua pendente: decida sobre ${sobre} como de costume.`
+}
+
+/** No lugar de `Ver no feed` ou `Ver na página do livro` enquanto a conta estiver suspensa. */
+export function conteudoOcultoPelaSuspensao(denuncia: DenunciaPendente): string {
+  return denuncia.tipo === 'resenha'
+    ? 'A resenha está oculta para os leitores enquanto a conta estiver suspensa.'
+    : 'O comentário está oculto para os leitores enquanto a conta estiver suspensa.'
 }

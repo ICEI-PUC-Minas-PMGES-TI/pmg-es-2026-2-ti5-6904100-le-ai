@@ -29,10 +29,17 @@ import 'package:le_ai_mobile/features/livros/capa.dart';
 import 'package:le_ai_mobile/features/livros/rotas_livros.dart';
 import 'package:le_ai_mobile/features/notificacoes/notificacoes_page.dart';
 import 'package:le_ai_mobile/features/notificacoes/notificacoes_service.dart';
+import 'package:le_ai_mobile/features/notificacoes/preferencias_de_notificacao_service.dart';
 import 'package:le_ai_mobile/features/notificacoes/rotas_notificacoes.dart';
 import 'package:le_ai_mobile/features/perfil/avatar.dart';
 import 'package:le_ai_mobile/features/perfil/perfil_service.dart';
 import 'package:le_ai_mobile/features/perfil/rotas_perfil.dart';
+import 'package:le_ai_mobile/features/estante/estante_service.dart';
+import 'package:le_ai_mobile/features/progresso/fila_de_progresso.dart';
+import 'package:le_ai_mobile/features/progresso/registrar_progresso.dart';
+import 'package:le_ai_mobile/features/progresso/rotas_progresso.dart';
+import 'package:le_ai_mobile/features/sessao/armazem_da_sessao.dart';
+import 'package:le_ai_mobile/features/sessao/sessao_controller.dart';
 
 import '../features/estante/apoio_estante.dart';
 import '../features/progresso/apoio_progresso.dart';
@@ -327,6 +334,7 @@ void main() {
         enviador: _SemEnvio(),
       ),
       exclusao: _exclusaoSimulada(),
+      preferenciasDeNotificacao: _preferenciasSimuladas(),
     );
   });
 
@@ -695,6 +703,24 @@ void main() {
     expect(find.text('Sair da conta'), findsOneWidget);
   });
 
+  testWidgets('Notificações, em Configurações, abre as preferências e volta', (tester) async {
+    await sessionController.entrar('jwt-valido');
+    await tester.pumpWidget(_wrap(router));
+    await tester.pumpAndSettle();
+    router.go(rotaConfiguracoes);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Notificações'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Novo seguidor'), findsOneWidget);
+    expect(find.text('Alterar senha'), findsNothing);
+
+    await tester.tap(find.bySemanticsLabel('Voltar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Alterar senha'), findsOneWidget);
+  });
+
   group('F-CONTA-2', () {
     testWidgets('excluir conta: o 202 apaga a sessão e o armazenamento antes da tela final', (
       tester,
@@ -705,6 +731,8 @@ void main() {
       router.go(rotaConfiguracoes);
       await tester.pumpAndSettle();
 
+      // A linha de sugestões (F-REC-ALG) desceu `Excluir conta` para baixo da dobra.
+      await tester.ensureVisible(find.text('Excluir conta'));
       await tester.tap(find.text('Excluir conta'));
       await tester.pumpAndSettle();
       expect(find.text('Oculta a partir de agora'), findsOneWidget);
@@ -986,6 +1014,87 @@ void main() {
       expect(find.text('Sua estante está vazia'), findsOneWidget);
     });
   });
+
+  testWidgets(
+    'F-MOD-OPC: renovação recusada por suspensão com leitura ativa leva ao login com o banner',
+    (tester) async {
+      final servicoDeProgresso = progressoSimulado((request) async => http.Response('{}', 200));
+      final fila = FilaDeProgresso(servicoDeProgresso, ArmazemEmMemoria());
+      final sessaoDeLeitura = SessaoController(
+        _ArmazemDaSessaoEmMemoria(),
+        servicoDeProgresso,
+        fila: fila,
+      );
+      await sessaoDeLeitura.carregar();
+      await sessaoDeLeitura.iniciar(
+        const LeituraDoRegistro(
+          leituraId: 'le1',
+          titulo: 'Tudo é rio',
+          autor: 'Carla Madeira',
+          paginaAtual: 88,
+          totalPaginas: 210,
+        ),
+        status: StatusEstante.lendo,
+        origem: '/estante',
+      );
+      final perfil = _perfilSimulado();
+      final roteador = buildRouter(
+        sessionController: sessionController,
+        authService: AuthService(
+          ApiClient(
+            baseUrl: 'http://localhost:8080',
+            client: MockClient((request) async => http.Response('{}', 200)),
+          ),
+        ),
+        perfil: perfil,
+        listas: _listasSimuladas(perfil),
+        feed: _feedSimulado(),
+        estante: estanteVazia(),
+        progresso: DependenciasDeProgresso(
+          servico: servicoDeProgresso,
+          fila: fila,
+          sessao: sessaoDeLeitura,
+        ),
+        exclusao: _exclusaoSimulada(),
+      );
+      await sessionController.entrar('jwt-valido', refreshToken: 'renovacao');
+      await tester.pumpWidget(_wrap(roteador));
+      await tester.pumpAndSettle();
+      expect(find.text('Criar conta'), findsNothing);
+
+      await sessionController.renovar(
+        'jwt-valido',
+        (_) async => throw const ApiException(
+          kind: ApiFailureKind.invalidResponse,
+          correlationId: 'c1',
+          message: 'Esta conta está suspensa.',
+          codigo: 'CONTA_SUSPENSA',
+          status: 403,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Criar conta'), findsOneWidget);
+      expect(find.text('Sua sessão foi encerrada porque esta conta foi suspensa.'), findsOneWidget);
+      expect(
+        find.text(
+          'A sessão de leitura em andamento foi encerrada, e o tempo medido não foi registrado.',
+        ),
+        findsOneWidget,
+      );
+      expect(sessaoDeLeitura.sessao, isNull);
+    },
+  );
+}
+
+class _ArmazemDaSessaoEmMemoria implements ArmazemDaSessao {
+  String? conteudo;
+
+  @override
+  Future<String?> ler() async => conteudo;
+
+  @override
+  Future<void> gravar(String? novo) async => conteudo = novo;
 }
 
 /// Roteador com `notificacoes` simuladas: uma única notificação, de curtida (destino: o feed).
@@ -1045,6 +1154,23 @@ GoRouter _roteadorComNotificacoes(SessionController sessionController) {
     ),
   );
 }
+
+PreferenciasDeNotificacaoService _preferenciasSimuladas() => PreferenciasDeNotificacaoService(
+  ApiClient(
+    baseUrl: 'http://localhost:8081',
+    client: MockClient(
+      (request) async => http.Response(
+        jsonEncode(<String, Object?>{
+          'preferencias': <Object?>[
+            <String, Object?>{'tipo': 'NOVO_SEGUIDOR', 'habilitada': true},
+          ],
+        }),
+        200,
+        headers: const <String, String>{'content-type': 'application/json; charset=utf-8'},
+      ),
+    ),
+  ),
+);
 
 /// `identidade` simulado para a exclusão (F-CONTA-2): o pedido responde `202` com as datas e o
 /// cancelamento, `204`.

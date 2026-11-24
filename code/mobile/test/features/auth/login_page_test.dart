@@ -8,7 +8,9 @@ import 'package:le_ai_mobile/core/network/api_client.dart';
 import 'package:le_ai_mobile/core/session/session_controller.dart';
 import 'package:le_ai_mobile/core/session/token_store.dart';
 import 'package:le_ai_mobile/design/theme.dart';
+import 'package:le_ai_mobile/design/widgets/banner_aviso.dart';
 import 'package:le_ai_mobile/features/auth/auth_service.dart';
+import 'package:le_ai_mobile/features/auth/banner_conta_suspensa.dart';
 import 'package:le_ai_mobile/features/auth/indicador_de_envio.dart';
 import 'package:le_ai_mobile/features/auth/login_page.dart';
 
@@ -300,5 +302,128 @@ void main() {
     expect(sessionController.token, isNull);
     expect(sessionController.refreshToken, isNull);
     expect(aoEntrarChamado, isFalse);
+  });
+  // ------------------------------------------------------------------ F-MOD-OPC
+
+  testWidgets('conta suspensa com a senha certa: banner âmbar, sem erro nos campos, senha limpa', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _wrap(
+        LoginPage(
+          authService: servico(
+            (request) async => http.Response(
+              '{"codigo":"CONTA_SUSPENSA","mensagem":"Esta conta está suspensa.","correlationId":"c1"}',
+              403,
+            ),
+          ),
+          sessionController: sessionController,
+        ),
+      ),
+    );
+
+    final campos = find.byType(TextField);
+    await tester.enterText(campos.at(0), 'svaladares');
+    await tester.enterText(campos.at(1), 'senha-certa');
+    await _tocarBotaoPrincipal(tester, 'Entrar');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Esta conta está suspensa.'), findsOneWidget);
+    expect(find.textContaining('A moderação do Lê Ai suspendeu o acesso.'), findsOneWidget);
+    expect(find.byType(BannerContaSuspensa), findsOneWidget);
+    expect(find.byType(BannerAviso), findsNothing);
+    expect(tester.widget<TextField>(campos.at(0)).controller!.text, 'svaladares');
+    expect(tester.widget<TextField>(campos.at(1)).controller!.text, isEmpty);
+    expect(tester.widget<TextField>(campos.at(0)).decoration!.errorText, isNull);
+    expect(tester.widget<TextField>(campos.at(1)).decoration!.errorText, isNull);
+    final borda = tester.widget<TextField>(campos.at(0)).decoration!.enabledBorder as OutlineInputBorder;
+    expect(borda.borderSide.color, isNot(AppTheme.light().colorScheme.error));
+    expect(sessionController.estaAutenticado, isFalse);
+  });
+
+  testWidgets('sessão encerrada pela suspensão: o login abre com o banner próprio, uma vez', (
+    tester,
+  ) async {
+    await sessionController.entrar('jwt', refreshToken: 'renovacao');
+    await sessionController.renovar(
+      'jwt',
+      (_) async => throw const ApiException(
+        kind: ApiFailureKind.invalidResponse,
+        correlationId: 'c1',
+        message: 'Esta conta está suspensa.',
+        codigo: 'CONTA_SUSPENSA',
+        status: 403,
+      ),
+    );
+
+    await tester.pumpWidget(
+      _wrap(
+        LoginPage(
+          authService: servico((request) async => http.Response('{}', 200)),
+          sessionController: sessionController,
+        ),
+      ),
+    );
+
+    expect(find.text('Sua sessão foi encerrada porque esta conta foi suspensa.'), findsOneWidget);
+    expect(find.textContaining('A moderação do Lê Ai suspendeu o acesso.'), findsOneWidget);
+    expect(sessionController.consumirAvisoDeSaida(), isNull);
+    expect(find.textContaining('o tempo medido não foi registrado'), findsNothing);
+    final campos = find.byType(TextField);
+    expect(tester.widget<TextField>(campos.at(0)).controller!.text, isEmpty);
+  });
+  testWidgets('suspensão com sessão de leitura descartada: o banner diz que o tempo não foi registrado', (
+    tester,
+  ) async {
+    sessionController
+      ..avisarSaida(SessionController.avisoDeContaSuspensa)
+      ..avisarLeituraDescartada();
+
+    await tester.pumpWidget(
+      _wrap(
+        LoginPage(
+          authService: servico((request) async => http.Response('{}', 200)),
+          sessionController: sessionController,
+        ),
+      ),
+    );
+
+    expect(find.text('Sua sessão foi encerrada porque esta conta foi suspensa.'), findsOneWidget);
+    expect(
+      find.text('A sessão de leitura em andamento foi encerrada, e o tempo medido não foi registrado.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('sessão encerrada pela suspensão: tocar Entrar com os campos vazios mantém o banner', (
+    tester,
+  ) async {
+    var chamadas = 0;
+    sessionController
+      ..avisarSaida(SessionController.avisoDeContaSuspensa)
+      ..avisarLeituraDescartada();
+
+    await tester.pumpWidget(
+      _wrap(
+        LoginPage(
+          authService: servico((request) async {
+            chamadas++;
+            return http.Response('{}', 200);
+          }),
+          sessionController: sessionController,
+        ),
+      ),
+    );
+
+    await _tocarBotaoPrincipal(tester, 'Entrar');
+    await tester.pumpAndSettle();
+
+    expect(chamadas, 0);
+    expect(find.text('Informe sua senha.'), findsOneWidget);
+    expect(find.text('Sua sessão foi encerrada porque esta conta foi suspensa.'), findsOneWidget);
+    expect(
+      find.text('A sessão de leitura em andamento foi encerrada, e o tempo medido não foi registrado.'),
+      findsOneWidget,
+    );
   });
 }

@@ -22,10 +22,12 @@ import {
 import { dataLocal } from '../../progresso/dominio/progresso';
 import type {
   ConsultaDesafiosDto,
+  ConsultaJanelasDto,
   CriarDesafioEntradaDto,
   DesafioDto,
   EditarDesafioEntradaDto,
   PaginaDesafiosDto,
+  PaginaJanelasDto,
 } from '../api/dto/desafios.dto';
 import { alvoForaDoLimite, type Unidade } from '../dominio/desafio';
 import { somarDias } from '../../common/datas';
@@ -245,37 +247,14 @@ export class DesafiosService {
 
   /**
    * `GET /desafios` (RF-DSF-03, RNF-DES-02): cada desafio com a janela
-   * corrente. Materializa antes de ler, para que uma janela recém-iniciada
-   * apareça mesmo sem novo registro; com todas as correntes em dia, nem abre
-   * transação.
+   * corrente, materializada antes da leitura.
    */
   async listar(
     usuarioId: string,
     consulta: ConsultaDesafiosDto,
   ): Promise<PaginaDesafiosDto> {
-    const agora = new Date();
-    const desafios = await this.repositorio.paraMaterializar(
-      this.db,
-      usuarioId,
-    );
-    const emDiaTodos = desafios.every((item) =>
-      emDia(item.ultimoFim, item.fusoHorario, agora),
-    );
-    if (!emDiaTodos) {
-      await this.db.transaction(async (tx) => {
-        await this.repositorio.travar(tx, usuarioId);
-        const tocadas = await this.materializar(tx, usuarioId, agora);
-        if (tocadas.length > 0) {
-          await this.repositorio.recomporContribuicoes(tx, usuarioId, agora, {
-            datas: [],
-            janelaIds: tocadas,
-          });
-        }
-      });
-    }
-
-    const page = consulta.page ?? PAGINA_PADRAO;
-    const limite = Math.min(consulta.limite ?? LIMITE_PADRAO, LIMITE_MAXIMO);
+    await this.materializarSePreciso(usuarioId);
+    const { page, limite } = paginacao(consulta);
     const { linhas, totalItens } = await this.repositorio.listarPagina(
       this.db,
       usuarioId,
@@ -291,6 +270,70 @@ export class DesafiosService {
         totalPaginas: Math.ceil(totalItens / limite),
       },
     };
+  }
+
+  /**
+   * `GET /desafios/{id}/janelas` (RF-DSF-05, F-DSF-OPC): as janelas encerradas,
+   * da mais recente para a mais antiga, cada uma com a configuração de quando
+   * valeu (RN-20.7) e os períodos vazios como não cumpridos (RN-20.9). A
+   * selagem é a mesma materialização da listagem, feita antes de ler: a janela
+   * que acabou de terminar entra sem esperar outro registro. Desafio de outra
+   * pessoa é 404, como nas escritas (SEC-02).
+   */
+  async listarJanelas(
+    usuarioId: string,
+    desafioId: string,
+    consulta: ConsultaJanelasDto,
+  ): Promise<PaginaJanelasDto> {
+    if (
+      !(await this.repositorio.existeDoUsuario(this.db, desafioId, usuarioId))
+    ) {
+      throw new NaoEncontrado(DESAFIO_NAO_ENCONTRADO);
+    }
+    await this.materializarSePreciso(usuarioId);
+    const { page, limite } = paginacao(consulta);
+    const { linhas, totalItens } = await this.repositorio.listarEncerradas(
+      this.db,
+      desafioId,
+      (page - 1) * limite,
+      limite,
+    );
+    return {
+      itens: linhas,
+      paginacao: {
+        page,
+        limite,
+        totalItens,
+        totalPaginas: Math.ceil(totalItens / limite),
+      },
+    };
+  }
+
+  /**
+   * Materializa antes de ler, para que uma janela recém-iniciada (e a que
+   * acabou de se encerrar) apareça mesmo sem novo registro; com todas as
+   * correntes em dia, nem abre transação.
+   */
+  private async materializarSePreciso(usuarioId: string): Promise<void> {
+    const agora = new Date();
+    const desafios = await this.repositorio.paraMaterializar(
+      this.db,
+      usuarioId,
+    );
+    const emDiaTodos = desafios.every((item) =>
+      emDia(item.ultimoFim, item.fusoHorario, agora),
+    );
+    if (emDiaTodos) return;
+    await this.db.transaction(async (tx) => {
+      await this.repositorio.travar(tx, usuarioId);
+      const tocadas = await this.materializar(tx, usuarioId, agora);
+      if (tocadas.length > 0) {
+        await this.repositorio.recomporContribuicoes(tx, usuarioId, agora, {
+          datas: [],
+          janelaIds: tocadas,
+        });
+      }
+    });
   }
 
   private alternarPausa(
@@ -443,6 +486,17 @@ export class DesafiosService {
       };
     });
   }
+}
+
+/** Página base 1 e limite com teto do servidor (RNF-DES-02). */
+function paginacao(consulta: ConsultaDesafiosDto): {
+  page: number;
+  limite: number;
+} {
+  return {
+    page: consulta.page ?? PAGINA_PADRAO,
+    limite: Math.min(consulta.limite ?? LIMITE_PADRAO, LIMITE_MAXIMO),
+  };
 }
 
 function exigirAlvo(unidade: Unidade, valorAlvo: number): void {

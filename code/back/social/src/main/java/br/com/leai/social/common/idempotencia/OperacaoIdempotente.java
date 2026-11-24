@@ -19,8 +19,12 @@ public enum OperacaoIdempotente {
   EDITAR_COMENTARIO("editarComentario"),
   EXCLUIR_COMENTARIO("excluirComentario"),
   MARCAR_NOTIFICACOES_LIDAS("marcarNotificacoesLidas"),
+  ATUALIZAR_PREFERENCIAS_DE_NOTIFICACAO("atualizarPreferenciasDeNotificacao"),
+  REGISTRAR_DISPOSITIVO_PUSH("registrarDispositivoPush"),
+  REVOGAR_DISPOSITIVO_PUSH("revogarDispositivoPush"),
   RECOMENDAR_LIVRO("recomendarLivro"),
   DESCARTAR_RECOMENDACAO("descartarRecomendacao"),
+  DESCARTAR_RECOMENDACOES_DO_LIVRO("descartarRecomendacoesDoLivro"),
   CRIAR_LISTA("criarLista"),
   EDITAR_LISTA("editarLista"),
   EXCLUIR_LISTA("excluirLista"),
@@ -30,7 +34,9 @@ public enum OperacaoIdempotente {
   CRIAR_DENUNCIA("criarDenuncia"),
   ARQUIVAR_DENUNCIA("arquivarDenuncia"),
   REMOVER_CONTEUDO_DENUNCIADO("removerConteudoDenunciado"),
-  REMOVER_FRASE("removerFrasePeloAdmin");
+  REMOVER_FRASE("removerFrasePeloAdmin"),
+  SUSPENDER_CONTA("suspenderConta"),
+  REATIVAR_CONTA("reativarConta");
 
   private final String operationId;
 

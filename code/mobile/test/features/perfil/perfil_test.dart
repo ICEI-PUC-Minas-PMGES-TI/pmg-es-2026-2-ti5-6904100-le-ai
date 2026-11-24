@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -9,6 +10,8 @@ import 'package:http/testing.dart';
 
 import 'package:le_ai_mobile/core/network/api_client.dart';
 import 'package:le_ai_mobile/features/livros/capa.dart';
+import 'package:le_ai_mobile/features/notificacoes/canal_de_notificacoes.dart';
+import 'package:le_ai_mobile/features/notificacoes/notificacao.dart';
 import 'package:le_ai_mobile/features/perfil/avatar.dart';
 import 'package:le_ai_mobile/features/perfil/editar_perfil_page.dart';
 import 'package:le_ai_mobile/features/perfil/perfil_page.dart';
@@ -157,6 +160,73 @@ void main() {
   });
 
   group('PerfilPage', () {
+    group('contadores em tempo real', () {
+      Notificacao notificacao(TipoNotificacao tipo) =>
+          Notificacao(id: 'n1', tipo: tipo, mensagem: 'm', lida: false, criadoEm: DateTime(2026, 11, 20));
+
+      Future<(StreamController<EventoDeNotificacoes>, void Function(int))> montar(
+        WidgetTester tester,
+        List<String> leituras,
+      ) async {
+        usarTelaDeCelular(tester);
+        var seguidores = 0;
+        final eventos = StreamController<EventoDeNotificacoes>.broadcast();
+        addTearDown(eventos.close);
+        await tester.pumpWidget(
+          envolver(
+            PerfilPage(
+              servico: _servico((request) async {
+                if (request.url.path.contains('solicitacoes')) {
+                  return json(_paginaVazia, 200);
+                }
+                leituras.add(request.url.path);
+                return json(_perfil(seguidores: seguidores), 200);
+              }),
+              eventosDeNotificacoes: eventos.stream,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        return (eventos, (int n) => seguidores = n);
+      }
+
+      testWidgets('seguidor novo relê o perfil com a aba aberta', (tester) async {
+        final leituras = <String>[];
+        final (eventos, definir) = await montar(tester, leituras);
+        expect(find.bySemanticsLabel('0 seguidores'), findsOneWidget);
+
+        definir(1);
+        eventos.add(NotificacaoRecebida(notificacao(TipoNotificacao.novoSeguidor), 1));
+        await tester.pumpAndSettle();
+
+        expect(find.bySemanticsLabel('1 seguidor'), findsOneWidget);
+        expect(leituras, hasLength(2));
+      });
+
+      testWidgets('a reconexão do canal relê o perfil', (tester) async {
+        final leituras = <String>[];
+        final (eventos, definir) = await montar(tester, leituras);
+
+        definir(3);
+        eventos.add(const SincronizacaoDeNotificacoes(0));
+        await tester.pumpAndSettle();
+
+        expect(find.bySemanticsLabel('3 seguidores'), findsOneWidget);
+      });
+
+      testWidgets('notificação que não mexe em contador não relê', (tester) async {
+        final leituras = <String>[];
+        final (eventos, _) = await montar(tester, leituras);
+
+        eventos
+          ..add(NotificacaoRecebida(notificacao(TipoNotificacao.lembreteSequencia), 1))
+          ..add(const NotificacaoRecebida(null, 2));
+        await tester.pumpAndSettle();
+
+        expect(leituras, hasLength(1));
+      });
+    });
+
     testWidgets('identidade, chip, biografia e contadores com unidade', (tester) async {
       usarTelaDeCelular(tester);
       await tester.pumpWidget(envolver(PerfilPage(servico: _servico((_) async => json(_perfil(), 200)))));

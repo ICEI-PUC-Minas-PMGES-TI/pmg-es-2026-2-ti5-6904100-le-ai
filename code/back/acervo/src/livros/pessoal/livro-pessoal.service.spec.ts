@@ -1,10 +1,17 @@
 import { ConfigService } from '@nestjs/config';
-import { AcessoNegado, NaoEncontrado } from '../../common/erros-de-negocio';
+import {
+  AcessoNegado,
+  ErroDeValidacao,
+  NaoEncontrado,
+} from '../../common/erros-de-negocio';
 import { IdempotenciaService } from '../../common/idempotencia/idempotencia.service';
 import { AutorizacaoRn15 } from './autorizacao-rn15.service';
 import { LeituraDoDonoRepository } from './leitura-do-dono.repository';
 import { LivroPessoalRepository } from './livro-pessoal.repository';
-import { LivroPessoalService } from './livro-pessoal.service';
+import {
+  LivroPessoalService,
+  normalizarAssuntos,
+} from './livro-pessoal.service';
 
 const DONO = 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa';
 const TERCEIRO = 'bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb';
@@ -22,10 +29,18 @@ const REGISTRO = {
   ativo: true,
 };
 
+const ASSUNTO_A = '11111111-aaaa-4aaa-8aaa-111111111111';
+const ASSUNTO_B = '22222222-bbbb-4bbb-8bbb-222222222222';
+const ASSUNTOS = [
+  { id: ASSUNTO_B, nome: 'Fantasia' },
+  { id: ASSUNTO_A, nome: 'Romance' },
+];
+
 function montar(
   opcoes: {
     registro?: typeof REGISTRO | null;
     terceiroAutorizado?: boolean;
+    assuntosExistentes?: number;
   } = {},
 ) {
   const repositorio = {
@@ -34,6 +49,13 @@ function montar(
       .mockResolvedValue(
         opcoes.registro === undefined ? REGISTRO : opcoes.registro,
       ),
+    criar: jest.fn().mockResolvedValue(REGISTRO),
+    atualizar: jest.fn().mockResolvedValue(REGISTRO),
+    assuntosDe: jest.fn().mockResolvedValue(ASSUNTOS),
+    contarAssuntosExistentes: jest
+      .fn()
+      .mockResolvedValue(opcoes.assuntosExistentes ?? 2),
+    substituirAssuntos: jest.fn().mockResolvedValue(undefined),
   } as unknown as LivroPessoalRepository;
 
   const autorizacao = {
@@ -69,7 +91,7 @@ function montar(
     config,
   );
 
-  return { servico, repositorio, autorizacao, leituraDoDono };
+  return { servico, repositorio, autorizacao, leituraDoDono, idempotencia };
 }
 
 describe('LivroPessoalService.obter — autorização RN-15', () => {
@@ -249,5 +271,86 @@ describe('LivroPessoalService — propriedade nas escritas (RNF-SEC-02)', () => 
         new Set(['titulo']),
       ),
     ).rejects.toBeInstanceOf(NaoEncontrado);
+  });
+});
+
+describe('assuntos do livro pessoal (F-ACV-OPC)', () => {
+  it('normalizar: minúsculas, sem repetidos e em ordem; null limpa', () => {
+    expect(
+      normalizarAssuntos([ASSUNTO_B, ASSUNTO_A.toUpperCase(), ASSUNTO_A]),
+    ).toEqual([ASSUNTO_A, ASSUNTO_B]);
+    expect(normalizarAssuntos(null)).toEqual([]);
+    expect(normalizarAssuntos(undefined)).toBeUndefined();
+  });
+
+  it('o terceiro em modo consulta recebe os assuntos', async () => {
+    const { servico } = montar({ terceiroAutorizado: true });
+    const detalhe = await servico.obter(LIVRO, TERCEIRO, {
+      via: 'feed',
+      referenciaId: ATIVIDADE,
+    });
+    expect(detalhe.assuntos).toEqual(ASSUNTOS);
+  });
+
+  it('o hash recebe os assuntos normalizados, e sem assuntos o payload não muda', async () => {
+    const { servico, idempotencia } = montar();
+    const base = { titulo: 'T', autor: 'A', paginas: 10 };
+    await servico.criar(DONO, 'k1', base);
+    await servico.criar(DONO, 'k2', {
+      ...base,
+      assuntos: [ASSUNTO_B, ASSUNTO_A.toUpperCase()],
+    });
+    const chamadas = (idempotencia.executar as jest.Mock).mock.calls;
+    expect(chamadas[0][0].payload).toEqual(base);
+    expect(chamadas[1][0].payload).toEqual({
+      ...base,
+      assuntos: [ASSUNTO_A, ASSUNTO_B],
+    });
+  });
+
+  it('id fora do conjunto curado é 400 no campo assuntos, antes de gravar', async () => {
+    const { servico, repositorio } = montar({ assuntosExistentes: 1 });
+    const erro = await servico
+      .atualizar(
+        LIVRO,
+        DONO,
+        'k',
+        { assuntos: [ASSUNTO_A, ASSUNTO_B] },
+        new Set(['assuntos']),
+      )
+      .catch((e: unknown) => e);
+    expect(erro).toBeInstanceOf(ErroDeValidacao);
+    expect((erro as ErroDeValidacao).extras).toMatchObject({
+      campos: [{ campo: 'assuntos' }],
+    });
+    expect(repositorio.atualizar).not.toHaveBeenCalled();
+  });
+
+  it('a FK violada na gravação vira o mesmo 400', async () => {
+    const { servico, repositorio } = montar();
+    (repositorio.substituirAssuntos as jest.Mock).mockRejectedValue({
+      cause: { code: '23503' },
+    });
+    await expect(
+      servico.atualizar(
+        LIVRO,
+        DONO,
+        'k',
+        { assuntos: [ASSUNTO_A] },
+        new Set(['assuntos']),
+      ),
+    ).rejects.toBeInstanceOf(ErroDeValidacao);
+  });
+
+  it('PATCH sem assuntos não toca os vínculos', async () => {
+    const { servico, repositorio } = montar();
+    await servico.atualizar(
+      LIVRO,
+      DONO,
+      'k',
+      { titulo: 'x' },
+      new Set(['titulo']),
+    );
+    expect(repositorio.substituirAssuntos).not.toHaveBeenCalled();
   });
 });

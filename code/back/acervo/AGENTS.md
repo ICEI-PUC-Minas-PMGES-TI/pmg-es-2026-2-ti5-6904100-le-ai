@@ -117,10 +117,34 @@ Para quem mexe no cadastro e na importação saber que isto mudou por baixo:
   - anonimiza recibos e eventos que a citam.
 
   Livro oficial nunca é afetado. As capas exigem `CLOUDINARY_API_KEY` e `CLOUDINARY_API_SECRET`; sem elas, o `publicId` vai para o log. Teste em `test/integracao/consumo-conta-excluida.int-spec.ts`.
+- **09/11/2026, VIEW `v_livro_autor_recomendacao_v1` (F-REC-ALG):** `livro_id` e `autor_id` dos livros oficiais ativos, para o `social` achar "do mesmo autor" (a `v_livro_recomendacao_v1` só traz o nome concatenado). Declarada em `schema.ts` ao lado das outras e versionada na migration `0007_20261109120000_view_autor_recomendacao.sql` (só o `CREATE VIEW`). Nunca expõe livro pessoal. Contrato em `docs/api/acervo.yaml`; o DER e `docs/4.modelagem.md` ainda não a citam (pendência da feature). Avisar o Vicenzo.
 
 ## Mudanças feitas pelo Renato (F-AVA-2)
 
 - **09/10/2026, reações nas resenhas:** `ResenhaResumo` ganhou `curtidas`, `descurtidas` e `minhaReacao`, na página do livro oficial (`resenhas.repository.ts`) e na resenha do dono do livro pessoal (`leitura-do-dono.repository.ts`, que agora recebe quem está vendo). As contagens vêm de `v_resenha_publicacao_v1` (`bigint`, declarado com `mode: 'number'`) e a reação de quem vê, da VIEW nova `leitura.v_reacao_resenha_v1`, por LEFT JOIN. Até a migration do `leitura` rodar num ambiente, as resenhas degradam como já degradavam (null e 503). Avisar o Vicenzo, dono do livro pessoal.
+
+## Mudanças feitas pelo Renato (F-ACV-OPC)
+
+- **06/11/2026, `assuntos[]` no livro pessoal (RF-ACV-22), código do Vicenzo (F-ACV-CADASTRO):**
+  - **O quê:** `POST` e `PATCH /livros/pessoal` aceitam `assuntos` (ids do conjunto curado), e as três respostas (`GET`, `POST`, `PATCH`) trazem `assuntos: [{id, nome}]`, sempre presente e em ordem alfabética sem acento, também para o terceiro em modo consulta. No `PATCH`, ausente preserva e `[]`/`null` limpa (`'assuntos'` entrou em `CAMPOS_ATUALIZAVEIS`). Sem migration: `livro_assunto` já aceitava livro pessoal.
+  - **Onde:** `dto/livro-pessoal.dto.ts` (`CampoAssuntos`, um `ValidateBy` só), `livro-pessoal.service.ts` (`normalizarAssuntos`, `exigirAssuntosExistentes`, `gravarAssuntos`), `livro-pessoal.repository.ts` (`contarAssuntosExistentes`, `substituirAssuntos`, `assuntosDe`) e o teste `test/integracao/assuntos-livro-pessoal.int-spec.ts`. Um caso novo em `consumo-conta-excluida.int-spec.ts` (do Henrique) prova que o CASCADE leva os assuntos.
+  - **Armadilhas:**
+    - O hash de idempotência **mantém a ordem dos arrays**. Por isso `normalizarAssuntos` (minúsculas, sem repetidos, ordenado) roda **antes** de montar o payload: `[a,b]`, `[b,a]` e `[A,b]` são a mesma intenção e dão replay, não 409. Sem `assuntos` no corpo, o payload fica igual ao de antes.
+    - As minúsculas não são estética: o `isUUID` aceita maiúsculas e o Postgres compara uuid sem caixa, e a conferência de existência é por contagem.
+    - Id fora do conjunto é 400 `campos[{campo:'assuntos'}]`, conferido **dentro** do efeito idempotente (sem recibo, nada gravado); o `23503` da FK, se o assunto sumir no meio, vira o mesmo 400.
+    - Validador único de propósito: `IsArray` + `ArrayMaxSize` + `IsUUID` geravam três entradas em `campos` para um texto solto.
+    - O teto do servidor é 100 (o tamanho do `GET /assuntos`); o "até 5" de RN-21.2 é só aviso do cliente (decisão do dono).
+    - **Esses vínculos nunca podem aparecer no catálogo.** Toda consulta que lê `livro_assunto` filtra `tipo = 'oficial' AND ativo` (inventário no `plano-F-ACV-OPC.md`, na branch `renato-features`). Consulta nova sobre assunto precisa do mesmo predicado.
+    - A exclusão lógica do livro pessoal mantém as linhas de `livro_assunto`; o livro inativo some de tudo.
+
+## Mudanças feitas pelo Renato (E6-02, testes das lacunas)
+
+- **16/11/2026, RN-08 das resenhas em função pura (L-01), código do Renato (F-ACV-BUSCA):** `src/livros/busca/privacidade-de-resenha.ts` (`podeVerResenhaDeOutroLeitor`), com teste unitário. O `ResenhasRepository` continua filtrando no SQL (por causa do `LIMIT` e do cursor), passa a devolver `privacidade` e `segue` e aplica a função em cada linha como guarda final. O cursor sai da última linha que o SQL devolveu, não da última que passou na guarda. Mudança de RN-08 aqui muda **as duas** coisas: o `WHERE` e a função.
+- **16/11/2026, testes em arquivos de outros donos** (decisão do grupo de 30/10: cada dono cobre as lacunas da sua área; só testes, nenhum código de produção alheio):
+  - **Vicenzo (P0-INFRA/P0-MSG), `test/integracao/broker-em-memoria.ts`:** o broker em memória guarda os `arguments` de cada fila e o `requeue` de cada `nack` (`requeues`). Com `requeue=false`, a mensagem segue pela `x-dead-letter-exchange` da fila de origem e chega na `.dlq`; com `requeue=true` (padrão do amqplib), volta para a fila. Por isso: (1) a fila de origem de cada mensagem é registrada em `entregar` e `reentregar`, e um `nack` de mensagem que não passou por eles só é registrado; (2) teste que contar mensagens em `broker.filas` depois de um nack vê a `.dlq` cheia. Os CT-TRV-13 e CT-NOG-19 conferem a chegada na `.dlq` (L-15). O CT-CNT-22 (Henrique) pode fazer o mesmo.
+  - **Vicenzo, `src/health/health.controller.spec.ts`:** um `describe` novo sobe o `HealthController` com o `TerminusModule` e o `DrizzleHealthIndicator` reais, um `DRIZZLE` que falha e o `AllExceptionsFilter`, e confere o 503 `SERVICO_INDISPONIVEL` (L-10). O indicador ganhou `src/health/drizzle.health.spec.ts`.
+  - **Henrique (F-CONTA-2), `test/integracao/consumo-conta-excluida.int-spec.ts`:** caso novo "conta excluída tira a nota dos leitores e deixa a nota geral (RN-06.4)" (L-32).
+  - **CORS (L-09):** arquivo novo `test/integracao/cors.int-spec.ts`. Armadilha: o `ConfigModule.forRoot` valida o ambiente quando o `AppModule` é **carregado**, então o teste define `CORS_ALLOWED_ORIGINS` antes de um `import('./app')` dinâmico; mudar a variável depois do import não tem efeito.
 
 ## Decisões de F-ACV-NOTA que valem como regra
 

@@ -2,9 +2,11 @@ package br.com.leai.social.common;
 
 import jakarta.validation.ConstraintViolationException;
 import java.util.concurrent.TimeoutException;
+import org.springframework.beans.TypeMismatchException;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.QueryTimeoutException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.jdbc.CannotGetJdbcConnectionException;
 import org.springframework.web.ErrorResponse;
 
@@ -45,7 +47,13 @@ public final class MapeadorErro {
     if (erro instanceof QueryTimeoutException || erro instanceof TimeoutException) {
       return de(CodigoErro.TEMPO_ESGOTADO);
     }
-    if (erro instanceof ConstraintViolationException) {
+    if (erro instanceof ConstraintViolationException
+        || erro instanceof HttpMessageNotReadableException) {
+      return de(CodigoErro.REQUISICAO_INVALIDA);
+    }
+    // Parâmetro de caminho ou query que não converte (`offset=abc`, UUID malformado): também não
+    // implementa ErrorResponse, e o erro é do cliente. Igual ao `identidade`.
+    if (erro instanceof TypeMismatchException) {
       return de(CodigoErro.REQUISICAO_INVALIDA);
     }
     if (erro instanceof ErrorResponse resposta) {

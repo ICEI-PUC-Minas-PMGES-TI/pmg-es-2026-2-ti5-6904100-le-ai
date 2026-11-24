@@ -2,16 +2,26 @@ package br.com.leai.social.integracao;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import tools.jackson.databind.JsonNode;
@@ -19,109 +29,74 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * {@code ListaController} contra Postgres real, HTTP de ponta a ponta (F-LST): propriedade,
- * limites, RN-15.1 (livro pessoal), ordem contínua ao mover e remover, cursor, RN-08 e
- * idempotência.
+ * limites, RN-15.1 (livro pessoal), ordem contínua ao mover e remover, cursor, RN-08,
+ * idempotência, limite de escritas, 401 sem token e capa (RN-14.4).
  *
- * <p>Recria o mínimo de {@code identidade} e {@code acervo}, com as mesmas definições de VIEW de
- * {@link InteracaoControllerIntegracaoTest}: as classes compartilham o contexto, e {@code CREATE
- * OR REPLACE VIEW} não remove coluna.
+ * <p>As VIEWs do {@code identidade} vêm de {@link MassaDeRecomendacao}, a cópia compartilhada que
+ * o contrato {@code CopiaDasViewsDoIdentidadeIntegracaoTest} compara com a migration real (L-35).
+ * A {@code acervo.v_livro_referencia_v1} é recriada com a definição lida da migration do {@code
+ * acervo} (L-32).
  */
 @EnabledIfEnvironmentVariable(named = "DATABASE_URL_TESTE", matches = ".+")
 class ListaControllerIntegracaoTest extends IntegracaoComPostgres {
 
   private static final ObjectMapper JSON = new ObjectMapper();
 
+  /** Migrations do {@code acervo}, a partir da pasta do {@code social} (onde o Maven roda). */
+  static final Path MIGRATIONS_DO_ACERVO = Path.of("..", "acervo", "drizzle");
+
   @Autowired private JdbcTemplate jdbc;
+
+  private MassaDeRecomendacao massa;
 
   @BeforeEach
   void preparaSchemaCrossServico() {
-    jdbc.execute("CREATE SCHEMA IF NOT EXISTS identidade");
+    // L-35: as VIEWs do identidade vêm da massa compartilhada, que o CT-MDO-32
+    // (CopiaDasViewsDoIdentidadeIntegracaoTest) confere contra a migration real.
+    massa = new MassaDeRecomendacao(jdbc);
+    massa.preparar();
+    // L-32: a VIEW de livro é a da migration do acervo, e não uma cópia, para a capa (RN-14.4)
+    // vir da mesma expressão que o acervo publica. Mesmas colunas da cópia da massa, então o
+    // CREATE OR REPLACE não muda nada para as outras classes do contexto.
+    jdbc.execute(
+        "CREATE OR REPLACE VIEW acervo.v_livro_referencia_v1 AS "
+            + definicaoNoAcervo("v_livro_referencia_v1"));
+    // Pedido de seguir pendente fica numa tabela própria do identidade, fora da VIEW de seguimento.
     jdbc.execute(
         """
-        CREATE TABLE IF NOT EXISTS identidade.usuario (
-          id uuid PRIMARY KEY,
-          suspenso boolean NOT NULL DEFAULT false,
-          exclusao_solicitada_em timestamptz
+        CREATE TABLE IF NOT EXISTS identidade.solicitacao_seguir (
+          solicitante_id uuid NOT NULL,
+          alvo_id uuid NOT NULL,
+          status text NOT NULL DEFAULT 'pendente'
         )
         """);
-    jdbc.execute("ALTER TABLE identidade.usuario ADD COLUMN IF NOT EXISTS username text");
-    jdbc.execute("ALTER TABLE identidade.usuario ADD COLUMN IF NOT EXISTS nome_exibicao text");
-    jdbc.execute("ALTER TABLE identidade.usuario ADD COLUMN IF NOT EXISTS avatar_url text");
-    jdbc.execute(
-        "ALTER TABLE identidade.usuario ADD COLUMN IF NOT EXISTS privacidade text NOT NULL DEFAULT 'publico'");
-    jdbc.execute(
-        "ALTER TABLE identidade.usuario ADD COLUMN IF NOT EXISTS opt_out_recomendacao boolean NOT NULL DEFAULT false");
-    jdbc.execute(
-        """
-        CREATE TABLE IF NOT EXISTS identidade.seguidor (
-          seguidor_id uuid NOT NULL,
-          seguido_id uuid NOT NULL,
-          PRIMARY KEY (seguidor_id, seguido_id)
-        )
-        """);
-    jdbc.execute(
-        """
-        CREATE OR REPLACE VIEW identidade.v_seguimento_aceito_v1 AS
-        SELECT s.seguidor_id, s.seguido_id
-          FROM identidade.seguidor s
-          JOIN identidade.usuario u_seguidor ON u_seguidor.id = s.seguidor_id
-          JOIN identidade.usuario u_seguido ON u_seguido.id = s.seguido_id
-         WHERE u_seguidor.suspenso = false AND u_seguidor.exclusao_solicitada_em IS NULL
-           AND u_seguido.suspenso = false AND u_seguido.exclusao_solicitada_em IS NULL
-        """);
-    jdbc.execute(
-        """
-        CREATE OR REPLACE VIEW identidade.v_perfil_referencia_v1 AS
-        SELECT id, username, nome_exibicao, avatar_url, privacidade, opt_out_recomendacao
-          FROM identidade.usuario
-         WHERE suspenso = false AND exclusao_solicitada_em IS NULL
-        """);
-
-    jdbc.execute("CREATE SCHEMA IF NOT EXISTS acervo");
-    jdbc.execute(
-        "CREATE TABLE IF NOT EXISTS acervo.autor (id uuid PRIMARY KEY, nome text NOT NULL)");
-    jdbc.execute(
-        """
-        CREATE TABLE IF NOT EXISTS acervo.livro (
-          id uuid PRIMARY KEY,
-          tipo text NOT NULL,
-          dono_id uuid,
-          paginas integer,
-          titulo text NOT NULL,
-          autor_informado text,
-          capa_url_propria text,
-          capa_url_externa text,
-          ativo boolean NOT NULL DEFAULT true
-        )
-        """);
-    jdbc.execute(
-        "CREATE TABLE IF NOT EXISTS acervo.livro_autor (livro_id uuid NOT NULL, autor_id uuid NOT NULL)");
-    jdbc.execute(
-        """
-        CREATE OR REPLACE VIEW acervo.v_livro_referencia_v1 AS (
-          SELECT
-            l.id AS livro_id,
-            l.tipo,
-            l.dono_id,
-            l.paginas,
-            l.titulo,
-            CASE
-              WHEN l.tipo = 'pessoal' THEN l.autor_informado
-              ELSE (
-                SELECT string_agg(a.nome, ', ' ORDER BY a.nome)
-                FROM acervo.livro_autor la
-                JOIN acervo.autor a ON a.id = la.autor_id
-                WHERE la.livro_id = l.id
-              )
-            END AS autor_exibicao,
-            coalesce(l.capa_url_propria, l.capa_url_externa) AS capa_resolvida,
-            l.ativo
-          FROM acervo.livro l
-        )
-        """);
-
+    jdbc.execute("TRUNCATE identidade.solicitacao_seguir");
     jdbc.execute("TRUNCATE lista CASCADE");
-    jdbc.execute("TRUNCATE identidade.seguidor, identidade.usuario, acervo.livro CASCADE");
+  }
+
+  /** O corpo da última {@code CREATE VIEW} da VIEW nas migrations do acervo (Drizzle). */
+  static String definicaoNoAcervo(String view) {
+    Pattern criacao =
+        Pattern.compile(
+            "CREATE\\s+(?:OR\\s+REPLACE\\s+)?VIEW\\s+(?:\"?acervo\"?\\.)?\"?"
+                + Pattern.quote(view)
+                + "\"?\\s+AS\\s+(.*?);",
+            Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+    String ultima = null;
+    try (Stream<Path> arquivos = Files.list(MIGRATIONS_DO_ACERVO)) {
+      for (Path arquivo :
+          arquivos.filter(p -> p.getFileName().toString().endsWith(".sql")).sorted().toList()) {
+        Matcher m = criacao.matcher(Files.readString(arquivo, StandardCharsets.UTF_8));
+        while (m.find()) {
+          ultima = m.group(1);
+        }
+      }
+    } catch (IOException erro) {
+      throw new UncheckedIOException(
+          "Migrations do acervo não encontradas em " + MIGRATIONS_DO_ACERVO.toAbsolutePath(), erro);
+    }
+    assertThat(ultima).as("definição de %s nas migrations do acervo", view).isNotNull();
+    return ultima;
   }
 
   @Nested
@@ -479,7 +454,7 @@ class ListaControllerIntegracaoTest extends IntegracaoComPostgres {
       UUID marina = leitor("marina", "publico");
       UUID bia = leitor("bia", "publico");
       String id = idDe(criar(marina, "{\"titulo\":\"Some\"}"));
-      jdbc.update("UPDATE identidade.usuario SET suspenso = true WHERE id = ?", marina);
+      massa.suspender(marina);
 
       assertThat(get(bia, "/listas/" + id).statusCode()).isEqualTo(404);
       assertThat(get(bia, "/perfis/" + marina + "/listas").statusCode()).isEqualTo(404);
@@ -598,6 +573,352 @@ class ListaControllerIntegracaoTest extends IntegracaoComPostgres {
     }
   }
 
+  @Nested
+  @DisplayName("lacunas da E6-02")
+  class LacunasE602 {
+
+    @Test
+    @DisplayName("limite por usuário: a 31ª escrita em listas no mesmo minuto é 429 e não grava; replay e outro leitor seguem")
+    void limiteDeEscritas() throws Exception {
+      UUID marina = leitor("marina", "publico");
+      UUID bia = leitor("bia", "publico");
+      String chaveDaPrimeira = UUID.randomUUID().toString();
+      HttpResponse<String> primeira = criar(marina, "{\"titulo\":\"Lista 1\"}", chaveDaPrimeira);
+      String id = idDe(primeira);
+      // Mais 29 escritas de tipos diferentes: o limite é de todas as escritas de listas juntas.
+      for (int i = 2; i <= 30; i++) {
+        HttpResponse<String> escrita =
+            i % 2 == 0
+                ? patch(marina, "/listas/" + id, "{\"descricao\":\"versão " + i + "\"}")
+                : adicionar(marina, id, livroOficial("Livro " + i));
+        assertThat(escrita.statusCode()).as("escrita %d", i).isIn(200, 201);
+      }
+      long listas = contar("SELECT count(*) FROM lista");
+      long itens = contar("SELECT count(*) FROM lista_item");
+
+      HttpResponse<String> barrada = criar(marina, "{\"titulo\":\"Lista 31\"}");
+      HttpResponse<String> barradaNoItem = adicionar(marina, id, livroOficial("Livro 31"));
+
+      for (HttpResponse<String> resposta : List.of(barrada, barradaNoItem)) {
+        assertThat(resposta.statusCode()).isEqualTo(429);
+        assertThat(json(resposta).get("codigo").asString()).isEqualTo("MUITAS_REQUISICOES");
+        assertThat(json(resposta).get("mensagem").asString())
+            .isEqualTo("Muitas alterações em listas em pouco tempo. Tente de novo em instantes.");
+      }
+      assertThat(contar("SELECT count(*) FROM lista")).isEqualTo(listas);
+      assertThat(contar("SELECT count(*) FROM lista_item")).isEqualTo(itens);
+      // O replay não executa o efeito, então não conta nem é barrado.
+      HttpResponse<String> replay = criar(marina, "{\"titulo\":\"Lista 1\"}", chaveDaPrimeira);
+      assertThat(replay.statusCode()).isEqualTo(201);
+      assertThat(idDe(replay)).isEqualTo(id);
+      // O limite é por conta: outro leitor escreve normalmente.
+      assertThat(criar(bia, "{\"titulo\":\"Da Bia\"}").statusCode()).isEqualTo(201);
+    }
+
+    @Test
+    @DisplayName("mover com o item de outra lista do mesmo dono responde 404 e não mexe em nenhuma das duas")
+    void moverItemDeOutraLista() throws Exception {
+      UUID marina = leitor("marina", "publico");
+      String a = idDe(criar(marina, "{\"titulo\":\"A\"}"));
+      String b = idDe(criar(marina, "{\"titulo\":\"B\"}"));
+      for (String titulo : List.of("A1", "A2")) {
+        adicionar(marina, a, livroOficial(titulo));
+      }
+      for (String titulo : List.of("B1", "B2")) {
+        adicionar(marina, b, livroOficial(titulo));
+      }
+      String itemDeB = itemDe(marina, b, "B2");
+
+      HttpResponse<String> resposta = mover(marina, a, itemDeB, 1);
+
+      assertThat(resposta.statusCode()).isEqualTo(404);
+      assertThat(json(resposta).get("mensagem").asString())
+          .isEqualTo("Não encontramos este livro na lista.");
+      assertThat(ordem(marina, a)).containsExactly("A1", "A2");
+      assertThat(ordem(marina, b)).containsExactly("B1", "B2");
+      assertThat(posicoes(a)).containsExactly(1, 2);
+      assertThat(posicoes(b)).containsExactly(1, 2);
+    }
+
+    @Test
+    @DisplayName("replay com a mesma Idempotency-Key em adicionar, mover, remover, PATCH e DELETE devolve a resposta gravada sem repetir o efeito")
+    void replayNasOutrasEscritas() throws Exception {
+      UUID marina = leitor("marina", "publico");
+      String id = idDe(criar(marina, "{\"titulo\":\"Antes\"}"));
+      UUID livroA = livroOficial("A");
+      UUID livroB = livroOficial("B");
+
+      // Adicionar: o replay devolve o 201 gravado, não o 200 de "já estava".
+      String chaveAdicionar = UUID.randomUUID().toString();
+      HttpResponse<String> adicionado = adicionar(marina, id, livroA, chaveAdicionar);
+      HttpResponse<String> adicionadoDeNovo = adicionar(marina, id, livroA, chaveAdicionar);
+      assertThat(adicionado.statusCode()).isEqualTo(201);
+      assertThat(adicionadoDeNovo.statusCode()).isEqualTo(201);
+      assertThat(json(adicionadoDeNovo)).isEqualTo(json(adicionado));
+      adicionar(marina, id, livroB);
+      assertThat(contar("SELECT count(*) FROM lista_item")).isEqualTo(2);
+
+      // Mover: B para o início; depois A volta ao início com outra chave; o replay não refaz.
+      String chaveMover = UUID.randomUUID().toString();
+      HttpResponse<String> movido = mover(marina, id, itemDe(marina, id, "B"), 1, chaveMover);
+      mover(marina, id, itemDe(marina, id, "A"), 1);
+      HttpResponse<String> movidoDeNovo = mover(marina, id, itemDe(marina, id, "B"), 1, chaveMover);
+      assertThat(movidoDeNovo.statusCode()).isEqualTo(200);
+      assertThat(json(movidoDeNovo)).isEqualTo(json(movido));
+      assertThat(ordem(marina, id)).containsExactly("A", "B");
+
+      // Remover: o livro volta com outra chave, e o replay da remoção não o tira de novo.
+      String chaveRemover = UUID.randomUUID().toString();
+      assertThat(delete(marina, "/listas/" + id + "/livros/" + livroA, chaveRemover).statusCode())
+          .isEqualTo(204);
+      adicionar(marina, id, livroA);
+      assertThat(delete(marina, "/listas/" + id + "/livros/" + livroA, chaveRemover).statusCode())
+          .isEqualTo(204);
+      assertThat(ordem(marina, id)).containsExactly("B", "A");
+
+      // PATCH: o replay devolve o título gravado e não desfaz a edição feita depois.
+      String chavePatch = UUID.randomUUID().toString();
+      HttpResponse<String> editada = patch(marina, "/listas/" + id, "{\"titulo\":\"Meio\"}", chavePatch);
+      patch(marina, "/listas/" + id, "{\"titulo\":\"Depois\"}");
+      HttpResponse<String> editadaDeNovo =
+          patch(marina, "/listas/" + id, "{\"titulo\":\"Meio\"}", chavePatch);
+      assertThat(editadaDeNovo.statusCode()).isEqualTo(200);
+      assertThat(json(editadaDeNovo).get("titulo").asString()).isEqualTo("Meio");
+      assertThat(json(editadaDeNovo)).isEqualTo(json(editada));
+      assertThat(json(get(marina, "/listas/" + id)).get("titulo").asString()).isEqualTo("Depois");
+      // Mesma chave com outro corpo é 409, e nada muda.
+      assertThat(patch(marina, "/listas/" + id, "{\"titulo\":\"Outro\"}", chavePatch).statusCode())
+          .isEqualTo(409);
+      assertThat(json(get(marina, "/listas/" + id)).get("titulo").asString()).isEqualTo("Depois");
+
+      // DELETE da lista: o replay é 204 com um recibo só.
+      String chaveExcluir = UUID.randomUUID().toString();
+      assertThat(delete(marina, "/listas/" + id, chaveExcluir).statusCode()).isEqualTo(204);
+      assertThat(delete(marina, "/listas/" + id, chaveExcluir).statusCode()).isEqualTo(204);
+      assertThat(
+              contar(
+                  "SELECT count(*) FROM idempotencia_social WHERE subject_ref = '"
+                      + marina
+                      + "' AND operacao = 'excluirLista'"))
+          .isEqualTo(1);
+      assertThat(get(marina, "/listas/" + id).statusCode()).isEqualTo(404);
+    }
+
+    @Test
+    @DisplayName("título e descrição com HTML voltam como o texto enviado, em JSON com nosniff (RNF-SEC-14)")
+    void htmlComoTexto() throws Exception {
+      UUID marina = leitor("marina", "publico");
+      String titulo = "<script>alert('x')</script> & <b>negrito</b>";
+      String descricao = "<img src=x onerror=alert(1)> \"aspas\" e 'apóstrofo'";
+      String corpo =
+          JSON.writeValueAsString(java.util.Map.of("titulo", titulo, "descricao", descricao));
+
+      HttpResponse<String> criada = criar(marina, corpo);
+
+      assertThat(criada.statusCode()).isEqualTo(201);
+      assertThat(criada.headers().firstValue("Content-Type").orElseThrow())
+          .startsWith("application/json");
+      assertThat(criada.headers().firstValue("X-Content-Type-Options")).hasValue("nosniff");
+      // Nem escapado nem limpo: quem exibe trata como texto, e o servidor não muda o dado.
+      assertThat(json(criada).get("titulo").asString()).isEqualTo(titulo);
+      assertThat(json(criada).get("descricao").asString()).isEqualTo(descricao);
+      String id = idDe(criada);
+      HttpResponse<String> lida = get(marina, "/listas/" + id);
+      assertThat(lida.headers().firstValue("X-Content-Type-Options")).hasValue("nosniff");
+      assertThat(json(lida).get("titulo").asString()).isEqualTo(titulo);
+      JsonNode noIndice = json(get(marina, "/perfis/" + marina + "/listas")).get("itens").get(0);
+      assertThat(noIndice.get("titulo").asString()).isEqualTo(titulo);
+      assertThat(noIndice.get("descricao").asString()).isEqualTo(descricao);
+    }
+
+    @Test
+    @DisplayName("pedido de seguir pendente não libera a lista de perfil privado; aceito, libera (RN-08)")
+    void pedidoPendenteNaoLibera() throws Exception {
+      UUID marina = leitor("marina", "privado");
+      UUID bia = leitor("bia", "publico");
+      String id = idDe(criar(marina, "{\"titulo\":\"Privada\"}"));
+      jdbc.update(
+          "INSERT INTO identidade.solicitacao_seguir (solicitante_id, alvo_id) VALUES (?, ?)",
+          bia,
+          marina);
+
+      for (String caminho :
+          List.of("/listas/" + id, "/listas/" + id + "/livros", "/perfis/" + marina + "/listas")) {
+        HttpResponse<String> negada = get(bia, caminho);
+        assertThat(negada.statusCode()).as(caminho).isEqualTo(403);
+        assertThat(json(negada).get("mensagem").asString())
+            .isEqualTo("Este perfil é privado. Siga para ver as listas.");
+      }
+
+      // Aceitar grava o seguimento, como o identidade faz; aí a VIEW passa a liberar.
+      jdbc.update(
+          "UPDATE identidade.solicitacao_seguir SET status = 'aceita' WHERE solicitante_id = ?",
+          bia);
+      massa.segue(bia, marina);
+      assertThat(get(bia, "/listas/" + id).statusCode()).isEqualTo(200);
+      assertThat(get(bia, "/perfis/" + marina + "/listas").statusCode()).isEqualTo(200);
+    }
+
+    @Test
+    @DisplayName("/perfis/{id}/listas: tamanho acima de 50, zero e página negativa são 400; 50 passa")
+    void tetoDePaginacaoDoPerfil() throws Exception {
+      UUID marina = leitor("marina", "publico");
+      UUID bia = leitor("bia", "publico");
+      idDe(criar(marina, "{\"titulo\":\"Uma\"}"));
+      String base = "/perfis/" + marina + "/listas";
+
+      for (String consulta : List.of("?size=51", "?size=0", "?page=-1")) {
+        HttpResponse<String> resposta = get(bia, base + consulta);
+        assertThat(resposta.statusCode()).as(consulta).isEqualTo(400);
+        assertThat(json(resposta).get("codigo").asString()).isEqualTo("REQUISICAO_INVALIDA");
+      }
+      JsonNode pagina = json(get(bia, base + "?size=50"));
+      assertThat(pagina.get("totalItens").asInt()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("tirar o livro pessoal da lista tira a linha de v_lista_livro_pessoal_v1; a de outra lista fica (RN-15.6)")
+    void removerTiraDaViewDeViaLista() throws Exception {
+      UUID marina = leitor("marina", "publico");
+      UUID pessoal = livroPessoal(marina, "Meu caderno");
+      String a = idDe(criar(marina, "{\"titulo\":\"A\",\"livroId\":\"" + pessoal + "\"}"));
+      String b = idDe(criar(marina, "{\"titulo\":\"B\",\"livroId\":\"" + pessoal + "\"}"));
+      String naView = "SELECT count(*) FROM v_lista_livro_pessoal_v1 WHERE lista_id = ?::uuid"
+          + " AND livro_id = ? AND dono_id = ?";
+      assertThat(jdbc.queryForObject(naView, Long.class, a, pessoal, marina)).isEqualTo(1);
+
+      assertThat(delete(marina, "/listas/" + a + "/livros/" + pessoal).statusCode()).isEqualTo(204);
+
+      assertThat(jdbc.queryForObject(naView, Long.class, a, pessoal, marina)).isZero();
+      assertThat(jdbc.queryForObject(naView, Long.class, b, pessoal, marina)).isEqualTo(1);
+      // Voltar com o livro devolve a linha.
+      adicionar(marina, a, pessoal);
+      assertThat(jdbc.queryForObject(naView, Long.class, a, pessoal, marina)).isEqualTo(1);
+    }
+
+    @ParameterizedTest(name = "{0} {1}")
+    @CsvSource({
+      "POST, /listas",
+      "GET, /listas/{lista}",
+      "PATCH, /listas/{lista}",
+      "DELETE, /listas/{lista}",
+      "GET, /listas/{lista}/livros",
+      "POST, /listas/{lista}/livros",
+      "DELETE, /listas/{lista}/livros/{livro}",
+      "PUT, /listas/{lista}/livros/{item}/posicao",
+      "GET, /perfis/{dono}/listas",
+      "GET, /me/listas"
+    })
+    @DisplayName("sem token, todas as rotas de listas são 401 NAO_AUTENTICADO e nada é gravado")
+    void semTokenTodasAsRotas(String metodo, String modelo) throws Exception {
+      UUID marina = leitor("marina", "publico");
+      UUID livro = livroOficial("Livro");
+      String id = idDe(criar(marina, "{\"titulo\":\"Minha\",\"livroId\":\"" + livro + "\"}"));
+      String item = primeiroItem(marina, id);
+      long recibos = contar("SELECT count(*) FROM idempotencia_social");
+      String caminho =
+          modelo
+              .replace("{lista}", id)
+              .replace("{livro}", livro.toString())
+              .replace("{item}", item)
+              .replace("{dono}", marina.toString());
+      String corpo =
+          switch (metodo) {
+            case "POST" -> caminho.endsWith("/livros")
+                ? "{\"livroId\":\"" + livroOficial("Outro") + "\"}"
+                : "{\"titulo\":\"Intrusa\"}";
+            case "PATCH" -> "{\"titulo\":\"Hackeada\"}";
+            case "PUT" -> "{\"posicao\":1}";
+            default -> null;
+          };
+
+      HttpResponse<String> resposta =
+          enviar(
+              HttpRequest.newBuilder(uri(caminho))
+                  .header("Content-Type", "application/json")
+                  .header("Idempotency-Key", UUID.randomUUID().toString())
+                  .method(
+                      metodo,
+                      corpo == null
+                          ? HttpRequest.BodyPublishers.noBody()
+                          : HttpRequest.BodyPublishers.ofString(corpo))
+                  .build());
+
+      assertThat(resposta.statusCode()).isEqualTo(401);
+      assertThat(json(resposta).get("codigo").asString()).isEqualTo("NAO_AUTENTICADO");
+      assertThat(contar("SELECT count(*) FROM lista")).isEqualTo(1);
+      assertThat(contar("SELECT count(*) FROM lista WHERE ativo AND titulo = 'Minha'")).isEqualTo(1);
+      assertThat(contar("SELECT count(*) FROM lista_item")).isEqualTo(1);
+      assertThat(contar("SELECT count(*) FROM idempotencia_social")).isEqualTo(recibos);
+    }
+
+    @Test
+    @DisplayName("itens e capas do índice usam a cópia própria da capa quando existe; sem ela, a externa (RN-14.4)")
+    void capaPropria() throws Exception {
+      UUID marina = leitor("marina", "publico");
+      UUID comCopia =
+          livroComCapa("Com cópia", "https://res.cloudinary.com/leai/capa.jpg", "https://covers.example/1.jpg");
+      UUID soExterna = livroComCapa("Só externa", null, "https://covers.example/2.jpg");
+      UUID semCapa = livroComCapa("Sem capa", null, null);
+      String id = idDe(criar(marina, "{\"titulo\":\"Capas\"}"));
+      for (UUID livro : List.of(comCopia, soExterna, semCapa)) {
+        adicionar(marina, id, livro);
+      }
+
+      JsonNode itens = json(get(marina, "/listas/" + id + "/livros")).get("itens");
+      assertThat(itens.get(0).get("livro").get("capaUrl").asString())
+          .isEqualTo("https://res.cloudinary.com/leai/capa.jpg");
+      assertThat(itens.get(1).get("livro").get("capaUrl").asString())
+          .isEqualTo("https://covers.example/2.jpg");
+      assertThat(itens.get(2).get("livro").get("capaUrl").isNull()).isTrue();
+      JsonNode capas = json(get(marina, "/perfis/" + marina + "/listas")).get("itens").get(0).get("capas");
+      assertThat(capas.get(0).get("capaUrl").asString())
+          .isEqualTo("https://res.cloudinary.com/leai/capa.jpg");
+      assertThat(capas.get(1).get("capaUrl").asString()).isEqualTo("https://covers.example/2.jpg");
+
+      // O acervo cacheia a capa depois (CT-NOG-14): a lista passa a mostrar a cópia sem regravar nada.
+      jdbc.update(
+          "UPDATE acervo.livro SET capa_url_propria = 'https://res.cloudinary.com/leai/2.jpg'"
+              + " WHERE id = ?",
+          soExterna);
+      assertThat(
+              json(get(marina, "/listas/" + id + "/livros"))
+                  .get("itens")
+                  .get(1)
+                  .get("livro")
+                  .get("capaUrl")
+                  .asString())
+          .isEqualTo("https://res.cloudinary.com/leai/2.jpg");
+    }
+
+    @Test
+    @DisplayName("dona suspensa: lista, itens e índice somem (404) até para quem segue, e voltam intactos na reativação")
+    void suspensaSomeEVolta() throws Exception {
+      UUID marina = leitor("marina", "privado");
+      UUID seguidora = leitor("seguidora", "publico");
+      massa.segue(seguidora, marina);
+      String id = idDe(criar(marina, "{\"titulo\":\"Privada\"}"));
+      adicionar(marina, id, livroOficial("A"));
+      List<String> caminhos =
+          List.of("/listas/" + id, "/listas/" + id + "/livros", "/perfis/" + marina + "/listas");
+
+      massa.suspender(marina);
+
+      for (String caminho : caminhos) {
+        assertThat(get(seguidora, caminho).statusCode()).as(caminho).isEqualTo(404);
+        assertThat(get(marina, caminho).statusCode()).as("a própria dona: " + caminho)
+            .isEqualTo(404);
+      }
+
+      massa.reativar(marina);
+
+      for (String caminho : caminhos) {
+        assertThat(get(seguidora, caminho).statusCode()).as(caminho).isEqualTo(200);
+      }
+      assertThat(ordem(seguidora, id)).containsExactly("A");
+    }
+  }
+
   // ---------------------------------------------------------------- dados
 
   private UUID leitor(String username, String privacidade) {
@@ -627,6 +948,18 @@ class ListaControllerIntegracaoTest extends IntegracaoComPostgres {
         id,
         titulo,
         ativo);
+    return id;
+  }
+
+  private UUID livroComCapa(String titulo, String capaPropria, String capaExterna) {
+    UUID id = UUID.randomUUID();
+    jdbc.update(
+        "INSERT INTO acervo.livro (id, tipo, titulo, capa_url_propria, capa_url_externa)"
+            + " VALUES (?, 'oficial', ?, ?, ?)",
+        id,
+        titulo,
+        capaPropria,
+        capaExterna);
     return id;
   }
 
@@ -663,30 +996,48 @@ class ListaControllerIntegracaoTest extends IntegracaoComPostgres {
   }
 
   private HttpResponse<String> adicionar(UUID eu, String listaId, UUID livroId) throws Exception {
+    return adicionar(eu, listaId, livroId, UUID.randomUUID().toString());
+  }
+
+  private HttpResponse<String> adicionar(UUID eu, String listaId, UUID livroId, String chave)
+      throws Exception {
     return escrever(
-        eu, "POST", "/listas/" + listaId + "/livros", "{\"livroId\":\"" + livroId + "\"}",
-        UUID.randomUUID().toString());
+        eu, "POST", "/listas/" + listaId + "/livros", "{\"livroId\":\"" + livroId + "\"}", chave);
   }
 
   private HttpResponse<String> mover(UUID eu, String listaId, String itemId, int posicao)
       throws Exception {
+    return mover(eu, listaId, itemId, posicao, UUID.randomUUID().toString());
+  }
+
+  private HttpResponse<String> mover(
+      UUID eu, String listaId, String itemId, int posicao, String chave) throws Exception {
     return escrever(
         eu,
         "PUT",
         "/listas/" + listaId + "/livros/" + itemId + "/posicao",
         "{\"posicao\":" + posicao + "}",
-        UUID.randomUUID().toString());
+        chave);
   }
 
   private HttpResponse<String> patch(UUID eu, String caminho, String corpo) throws Exception {
-    return escrever(eu, "PATCH", caminho, corpo, UUID.randomUUID().toString());
+    return patch(eu, caminho, corpo, UUID.randomUUID().toString());
+  }
+
+  private HttpResponse<String> patch(UUID eu, String caminho, String corpo, String chave)
+      throws Exception {
+    return escrever(eu, "PATCH", caminho, corpo, chave);
   }
 
   private HttpResponse<String> delete(UUID eu, String caminho) throws Exception {
+    return delete(eu, caminho, UUID.randomUUID().toString());
+  }
+
+  private HttpResponse<String> delete(UUID eu, String caminho, String chave) throws Exception {
     return enviar(
         HttpRequest.newBuilder(uri(caminho))
             .header("Authorization", "Bearer " + token(eu))
-            .header("Idempotency-Key", UUID.randomUUID().toString())
+            .header("Idempotency-Key", chave)
             .DELETE()
             .build());
   }

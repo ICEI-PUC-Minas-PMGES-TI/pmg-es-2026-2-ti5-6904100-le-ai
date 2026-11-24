@@ -132,6 +132,46 @@ describe('backfill da nota dos leitores (integração)', () => {
     expect(await agregado(livro)).toEqual({ media: 3.5, quantidade: 1 });
   });
 
+  it('o backfill não mexe na nota geral (RN-06.4)', async () => {
+    const comNotas = await inserirLivroOficial(pool, novoIsbn());
+    const semNotas = await inserirLivroOficial(pool, novoIsbn());
+    await pool.query(
+      'UPDATE acervo.livro SET nota_geral = $2, nota_geral_qtd = $3 WHERE id = ANY($1::uuid[])',
+      [[comNotas, semNotas], 3.9, 870],
+    );
+    await notaNoLeitura(randomUUID(), comNotas, 1);
+    // Projeção velha do outro livro, que o backfill apaga.
+    await pool.query(
+      `INSERT INTO acervo.nota_leitor_projecao (usuario_id, livro_id, valor)
+       VALUES ($1, $2, 5)`,
+      [randomUUID(), semNotas],
+    );
+    await pool.query(
+      `INSERT INTO acervo.nota_livro_agregada (livro_id, media, quantidade)
+       VALUES ($1, 5, 1)`,
+      [semNotas],
+    );
+
+    await backfillDeNotas(db());
+
+    expect(await agregado(comNotas)).toEqual({ media: 1, quantidade: 1 });
+    expect(await agregado(semNotas)).toBeNull();
+    const { rows } = await pool.query<{
+      id: string;
+      nota_geral: number;
+      nota_geral_qtd: number;
+    }>(
+      `SELECT id, nota_geral::float AS nota_geral, nota_geral_qtd
+         FROM acervo.livro WHERE id = ANY($1::uuid[]) ORDER BY id`,
+      [[comNotas, semNotas]],
+    );
+    expect(rows).toEqual(
+      [comNotas, semNotas]
+        .sort()
+        .map((id) => ({ id, nota_geral: 3.9, nota_geral_qtd: 870 })),
+    );
+  });
+
   describe('junto com o consumidor, em duas conexões', () => {
     let segunda: PoolClient;
     let broker: BrokerEmMemoria;

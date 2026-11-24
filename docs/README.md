@@ -64,8 +64,15 @@ _**Resumo**. O Lê Ai é um aplicativo social de leitura, no modelo Skoob/Letter
 7. [Solução](7.solucao.md#solucao "Projeto da Solução") <br />
 
 8. [Avaliação Arquitetura](8.avaliacao_arquitetura.md#avaliacao "Avaliação da Arquitetura") <br />
-   8.1. Cenários <br />
-   8.2. Avaliação <br />
+   8.1. Resumo executivo <br />
+   8.2. Objetivos de negócio e direcionadores arquiteturais <br />
+   8.3. Topologia e abordagem da arquitetura <br />
+   8.4. Árvore de utilidade e inventário de cenários <br />
+   8.5. Resultados das medições <br />
+   8.6. Inventário analítico rastreável <br />
+   8.7. Plano de ação e recomendações técnicas <br />
+   8.8. Avaliação final <br />
+   8.9. Evidências dos testes realizados <br />
 
 9. [Plano de Testes](9.plano_de_testes.md#plano-de-testes "Plano de Testes") <br />
    9.1. Objetivo <br />
@@ -89,3 +96,4 @@ _**Resumo**. O Lê Ai é um aplicativo social de leitura, no modelo Skoob/Letter
 | Repositório de código | GitHub     | https://github.com/ICEI-PUC-Minas-PMGES-TI/pmg-es-2026-2-ti5-6904100-le-ai |
 | Hospedagem do site    | Render     | https://leai-web.onrender.com                                              |
 | Protótipo Interativo  | Claude Design | Protótipos HTML por período e feature em `docs/design/` (ex.: `docs/design/periodo-1/`) |
+| Contratos HTTP (OpenAPI) | Redoc (HTML estático) | [`docs/api/html/index.html`](api/html/index.html): um HTML por serviço, abre sem servidor e sem internet ([como gerar](api/README.md#html-estático)) |

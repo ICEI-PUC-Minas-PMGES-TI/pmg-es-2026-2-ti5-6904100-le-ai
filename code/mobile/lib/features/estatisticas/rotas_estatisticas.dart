@@ -78,7 +78,7 @@ Widget secaoDasEstatisticas(BuildContext context, DependenciasDeEstatisticas dep
     ano: ano,
     carregar: () async {
       final estatisticas = await deps.servico.consultar(PeriodoAno(ano));
-      return (totais: estatisticas.totais, vazio: estatisticas.semRegistro);
+      return (totais: estatisticas.totais, vazio: estatisticas.semRegistro, distribuicao: null);
     },
     textoVazio: TextosDoBloco.vazioProprio,
     textoErro: TextosDoBloco.erroProprio,
@@ -96,9 +96,14 @@ Widget estatisticasDeOutroLeitor(DependenciasDeEstatisticas deps, String usuario
     ano: ano,
     carregar: () async {
       final doPerfil = await deps.servico.doPerfil(usuarioId);
-      return (totais: doPerfil.totais, vazio: doPerfil.totais.zerados);
+      return (
+        totais: doPerfil.totais,
+        vazio: doPerfil.totais.zerados,
+        distribuicao: doPerfil.distribuicaoNotas,
+      );
     },
     textoVazio: TextosDoBloco.vazioDeOutro(nome, ano),
     textoErro: TextosDoBloco.erroDeOutro(nome),
+    nomeDoLeitor: nome,
   );
 }

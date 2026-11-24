@@ -6,8 +6,8 @@ export function denunciaDeResenha(id: string, extras: Partial<DenunciaPendente> 
     tipo: 'resenha',
     criadoEm: '2026-09-27T21:08:00',
     motivo: 'Conta o final sem aviso de spoiler.',
-    denunciante: { id: 'd1', username: 'otaviobrandao', nomeExibicao: 'Otávio Brandão', avatarUrl: null },
-    autor: { id: 'a1', username: 'leticia', nomeExibicao: 'Letícia Nakamura', avatarUrl: null },
+    denunciante: { id: 'd1', username: 'otaviobrandao', nomeExibicao: 'Otávio Brandão', avatarUrl: null, suspensa: false, suspensaEm: null },
+    autor: { id: 'a1', username: 'leticia', nomeExibicao: 'Letícia Nakamura', avatarUrl: null, suspensa: false, suspensaEm: null },
     livro: { id: 'l1', titulo: 'Torto Arado', pessoal: false },
     atividade: null,
     conteudo: {
@@ -28,8 +28,8 @@ export function denunciaDeComentario(id: string, extras: Partial<DenunciaPendent
     tipo: 'comentario',
     criadoEm: '2026-09-28T16:40:00',
     motivo: 'Ofende quem gostou do livro.',
-    denunciante: { id: 'd2', username: 'dandaralp', nomeExibicao: 'Dandara Lopes', avatarUrl: null },
-    autor: { id: 'a2', username: 'sergiov', nomeExibicao: 'Sérgio Valadares', avatarUrl: null },
+    denunciante: { id: 'd2', username: 'dandaralp', nomeExibicao: 'Dandara Lopes', avatarUrl: null, suspensa: false, suspensaEm: null },
+    autor: { id: 'a2', username: 'sergiov', nomeExibicao: 'Sérgio Valadares', avatarUrl: null, suspensa: false, suspensaEm: null },
     livro: { id: 'l2', titulo: 'Os Sertões', pessoal: false },
     atividade: {
       id: 'at1',

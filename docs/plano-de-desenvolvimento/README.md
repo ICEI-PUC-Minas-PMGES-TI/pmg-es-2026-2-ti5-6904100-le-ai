@@ -55,7 +55,7 @@ Granularidade atual: features "maiores" — cerca de uma por módulo de RF, por 
 
 - **Período 1:** as 10 features estão **em revisão** (aguardam o aval dos professores). O período foi para a `main` em 29/09/2026 (PR #45, release `v0.1.0`). Detalhe no [fechamento do Período 1](periodo-1/README.md#fechamento-do-período-1-29092026).
 - **Período 2:** as 14 features estão implementadas e mergeadas em `desenvolvimento`, **em revisão**. Chegam à `main` e ao DES no fechamento de 03/11/2026. Detalhe na [situação do Período 2](periodo-2/README.md#situação-em-25102026).
-- **Período 3:** protótipos das 15 telas prontos (PR #54, 21/10/2026); as features ainda não foram iniciadas.
+- **Período 3:** protótipos das 15 telas prontos (PR #54, 21/10/2026). Em 07/11/2026: F-MOD-OPC mergeada na `desenvolvimento` (PR #61) e F-ACV-OPC em revisão no PR #62; o estado das demais fica no arquivo de cada uma.
 
 O estado de cada feature fica no arquivo dela.
 

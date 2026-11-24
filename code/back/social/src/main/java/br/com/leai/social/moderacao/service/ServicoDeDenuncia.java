@@ -4,6 +4,7 @@ import br.com.leai.social.common.CodigoErro;
 import br.com.leai.social.common.ErroDeNegocioException;
 import br.com.leai.social.common.LimitePorUsuario;
 import br.com.leai.social.feed.repository.AtividadeRepository;
+import br.com.leai.social.feed.repository.ComentarioRepository;
 import br.com.leai.social.lista.model.LivroDeReferencia;
 import br.com.leai.social.lista.model.PerfilDoDono;
 import br.com.leai.social.lista.repository.ReferenciasDeLista;
@@ -12,7 +13,9 @@ import br.com.leai.social.moderacao.dto.DenunciaResposta;
 import br.com.leai.social.moderacao.model.AlvoDaDenuncia;
 import br.com.leai.social.moderacao.repository.ConteudoDenunciavel;
 import br.com.leai.social.moderacao.repository.DenunciaRepository;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.function.BooleanSupplier;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
@@ -33,18 +36,21 @@ public class ServicoDeDenuncia {
   private final AtividadeRepository atividades;
   private final DenunciaRepository denuncias;
   private final LimitePorUsuario limiteDeDenunciar;
+  private final ComentarioRepository comentarios;
 
   public ServicoDeDenuncia(
       ConteudoDenunciavel conteudo,
       ReferenciasDeLista referencias,
       AtividadeRepository atividades,
       DenunciaRepository denuncias,
-      @Qualifier("limiteDeDenunciar") LimitePorUsuario limiteDeDenunciar) {
+      @Qualifier("limiteDeDenunciar") LimitePorUsuario limiteDeDenunciar,
+      ComentarioRepository comentarios) {
     this.conteudo = conteudo;
     this.referencias = referencias;
     this.atividades = atividades;
     this.denuncias = denuncias;
     this.limiteDeDenunciar = limiteDeDenunciar;
+    this.comentarios = comentarios;
   }
 
   /** Denúncia criada ou a pendente que o leitor já tinha sobre o alvo. */
@@ -87,14 +93,18 @@ public class ServicoDeDenuncia {
     return motivo;
   }
 
-  /** O comentário segue a visibilidade da atividade dele (RN-08/RN-09). */
+  /**
+   * O comentário segue a visibilidade da atividade dele (RN-08/RN-09) e a do autor e da raiz: o
+   * de conta suspensa, ou numa thread de raiz oculta, é 404 (F-MOD-OPC, decisão 11).
+   */
   private AlvoDaDenuncia comentarioAcessivel(UUID eu, UUID comentarioId) {
     ConteudoDenunciavel.Comentario comentario =
         conteudo.comentario(comentarioId).orElseThrow(ServicoDeDenuncia::naoEncontrado);
     if (comentario.autorId().equals(eu)) {
       throw proprio("Você não pode denunciar o seu próprio comentário.");
     }
-    if (!atividades.visivelPara(eu, comentario.atividadeId())) {
+    if (!atividades.visivelPara(eu, comentario.atividadeId())
+        || !comentarios.visivelPara(comentario.id(), eu)) {
       throw naoEncontrado();
     }
     return new AlvoDaDenuncia(
@@ -123,18 +133,19 @@ public class ServicoDeDenuncia {
     if (resenha.autorId().equals(eu)) {
       throw proprio("Você não pode denunciar a sua própria resenha.");
     }
-    PerfilDoDono autor = referencias.perfil(resenha.autorId()).orElseThrow(ServicoDeDenuncia::naoEncontrado);
-    if (referencias.perfil(eu).isEmpty()) {
-      throw new ErroDeNegocioException(
-          CodigoErro.ACESSO_NEGADO, "Sua conta não pode enviar denúncias agora.");
-    }
-
-    boolean liberado =
-        livro.pessoal()
-            ? liberadoPelaVia(eu, resenha, livro, pedido)
-            : autor.publico() || referencias.segue(eu, resenha.autorId());
-    if (!liberado) {
-      throw naoEncontrado();
+    AcessoAResenha acesso =
+        decidirAcessoAResenha(
+            referencias.perfil(resenha.autorId()),
+            referencias.perfil(eu).isPresent(),
+            livro.pessoal(),
+            () -> referencias.segue(eu, resenha.autorId()),
+            () -> liberadoPelaVia(eu, resenha, livro, pedido));
+    switch (acesso) {
+      case NAO_ENCONTRADO -> throw naoEncontrado();
+      case ACESSO_NEGADO ->
+          throw new ErroDeNegocioException(
+              CodigoErro.ACESSO_NEGADO, "Sua conta não pode enviar denúncias agora.");
+      case LIBERADO -> {}
     }
     UUID atividadeId = conteudo.atividadeDaResenha(resenha.id()).orElse(null);
     return new AlvoDaDenuncia(
@@ -144,6 +155,38 @@ public class ServicoDeDenuncia {
         resenha.livroId(),
         atividadeId,
         atividadeId == null ? null : resenha.autorId());
+  }
+
+  /** Resultado da decisão de RN-08 sobre a resenha denunciada. */
+  enum AcessoAResenha {
+    LIBERADO,
+    /** 404, igual a resenha inexistente: não revela que o conteúdo existe. */
+    NAO_ENCONTRADO,
+    /** 403: quem denuncia está fora da VIEW de perfis (suspenso ou em exclusão). */
+    ACESSO_NEGADO
+  }
+
+  /**
+   * Decisão de RN-08 (e RN-15.4, no livro pessoal) sobre a resenha, sem consulta: a autora fora
+   * de {@code v_perfil_referencia_v1} (suspensa ou em exclusão) é 404; quem denuncia fora dela, 403;
+   * livro pessoal só pela via válida; livro oficial, perfil público ou seguimento aceito. {@code
+   * segue} e {@code viaValida} só são consultados quando a decisão depende deles.
+   */
+  static AcessoAResenha decidirAcessoAResenha(
+      Optional<PerfilDoDono> autora,
+      boolean leitorNaView,
+      boolean livroPessoal,
+      BooleanSupplier segue,
+      BooleanSupplier viaValida) {
+    if (autora.isEmpty()) {
+      return AcessoAResenha.NAO_ENCONTRADO;
+    }
+    if (!leitorNaView) {
+      return AcessoAResenha.ACESSO_NEGADO;
+    }
+    boolean liberado =
+        livroPessoal ? viaValida.getAsBoolean() : autora.get().publico() || segue.getAsBoolean();
+    return liberado ? AcessoAResenha.LIBERADO : AcessoAResenha.NAO_ENCONTRADO;
   }
 
   /** Livro pessoal: só o dono escreve resenha (RN-07), e terceiros chegam pelo feed ou pela lista. */

@@ -169,6 +169,34 @@ public class NotificacaoRepository {
         "SELECT id FROM identidade.v_perfil_referencia_v1 WHERE id IN (", usuarioIds);
   }
 
+  /**
+   * F-MOD-OPC: comentários, entre {@code ids}, que o leitor ainda vê. Mesmo filtro de {@code
+   * ComentarioRepository.VISIVEL}: autor próprio ou na VIEW de perfil, e a raiz também.
+   */
+  public Set<UUID> comentariosVisiveis(Collection<UUID> ids, UUID leitor) {
+    if (ids.isEmpty()) {
+      return Set.of();
+    }
+    Object[] parametros = new Object[ids.size() + 2];
+    int i = 0;
+    for (UUID id : ids) {
+      parametros[i++] = id;
+    }
+    parametros[i++] = leitor;
+    parametros[i] = leitor;
+    return new HashSet<>(
+        jdbc.query(
+            "SELECT c.id FROM comentario c WHERE c.id IN ("
+                + marcadores(ids)
+                + ") AND (c.autor_id = ? OR EXISTS (SELECT 1 FROM identidade.v_perfil_referencia_v1"
+                + " p WHERE p.id = c.autor_id))"
+                + " AND (c.comentario_raiz_id IS NULL OR EXISTS (SELECT 1 FROM comentario r"
+                + " WHERE r.id = c.comentario_raiz_id AND (r.autor_id = ? OR EXISTS (SELECT 1"
+                + " FROM identidade.v_perfil_referencia_v1 pr WHERE pr.id = r.autor_id))))",
+            (rs, linha) -> rs.getObject("id", UUID.class),
+            parametros));
+  }
+
   /** Atividades que ainda existem (resenha excluída remove a atividade fisicamente). */
   public Set<UUID> atividadesExistentes(Collection<UUID> atividadeIds) {
     return idsExistentes("SELECT id FROM atividade WHERE id IN (", atividadeIds);

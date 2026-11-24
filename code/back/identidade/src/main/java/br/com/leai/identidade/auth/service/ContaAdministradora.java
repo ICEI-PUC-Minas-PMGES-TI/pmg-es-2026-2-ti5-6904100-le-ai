@@ -20,6 +20,11 @@ public class ContaAdministradora {
     this.id = id;
   }
 
+  /** Há admin provisionado neste ambiente (F-MOD-OPC confere o {@code sub} só nesse caso). */
+  public boolean definida() {
+    return id != null;
+  }
+
   public boolean eh(UUID usuarioId) {
     return usuarioId != null && usuarioId.equals(id);
   }

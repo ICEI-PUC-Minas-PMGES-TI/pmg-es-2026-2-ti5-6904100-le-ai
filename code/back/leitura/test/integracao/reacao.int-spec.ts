@@ -170,6 +170,34 @@ describe('reações à resenha (integração)', () => {
       ).toBe(2);
     });
 
+    it('F-MOD-OPC: reação de conta suspensa sai das contagens e da VIEW, e volta na reativação', async () => {
+      const resenhaId = await resenhar(await inserirLivro(pool));
+      const suspensa = novoUsuario();
+      await inserirPerfil(pool, { id: suspensa, username: 'suspensa' });
+      const outra = novoUsuario();
+      await inserirPerfil(pool, { id: outra });
+      await reagir(resenhaId, { tipo: 'curtida' }, { quem: suspensa });
+      await reagir(resenhaId, { tipo: 'descurtida' }, { quem: outra });
+
+      // A suspensão tira a conta da VIEW de perfil (aqui, uma tabela).
+      await pool.query('DELETE FROM identidade.v_perfil_referencia_v1 WHERE id = $1', [suspensa]);
+
+      const minha = await reagir(resenhaId, { tipo: 'curtida' });
+      expect(minha.body).toEqual({ minhaReacao: 'curtida', curtidas: 1, descurtidas: 1 });
+      const naView = await pool.query(
+        'SELECT curtidas, descurtidas FROM leitura.v_resenha_publicacao_v1 WHERE resenha_id = $1',
+        [resenhaId],
+      );
+      expect(naView.rows[0]).toEqual({ curtidas: '1', descurtidas: '1' });
+
+      await inserirPerfil(pool, { id: suspensa, username: 'suspensa' });
+      const deVolta = await pool.query(
+        'SELECT curtidas FROM leitura.v_resenha_publicacao_v1 WHERE resenha_id = $1',
+        [resenhaId],
+      );
+      expect(deVolta.rows[0]).toEqual({ curtidas: '2' });
+    });
+
     it('retirar e recurtir não notifica de novo', async () => {
       const resenhaId = await resenhar(await inserirLivro(pool));
 
@@ -234,6 +262,43 @@ describe('reações à resenha (integração)', () => {
 
       expect(resposta.status).toBe(400);
       expect(resposta.body.codigo).toBe('REQUISICAO_INVALIDA');
+    });
+
+    // L-13 (E6-02): o 401 genérico (CT-TRV-05) cobre o filtro; aqui, a rota.
+    it('sem token, reagir e retirar a reação são 401 e nada muda', async () => {
+      const resenhaId = await resenhar(await inserirLivro(pool));
+      await reagir(resenhaId, { tipo: 'curtida' }).expect(200);
+      const estadoAntes = await pool.query(
+        'SELECT usuario_id, tipo, ativa FROM leitura.reacao_resenha',
+      );
+
+      const semTokenPut = await http()
+        .put(`/resenhas/${resenhaId}/reacao`)
+        .set('Idempotency-Key', randomUUID())
+        .send({ tipo: 'descurtida' });
+      const semTokenDelete = await http()
+        .delete(`/resenhas/${resenhaId}/reacao`)
+        .set('Idempotency-Key', randomUUID());
+
+      for (const resposta of [semTokenPut, semTokenDelete]) {
+        expect(resposta.status).toBe(401);
+        expect(resposta.body.codigo).toBe('NAO_AUTENTICADO');
+      }
+      expect(
+        (
+          await pool.query(
+            'SELECT usuario_id, tipo, ativa FROM leitura.reacao_resenha',
+          )
+        ).rows,
+      ).toEqual(estadoAntes.rows);
+      expect(await curtidasPublicadas()).toHaveLength(1);
+      expect(
+        await contar(
+          pool,
+          'leitura.idempotencia_leitura',
+          `operacao LIKE 'reagirResenha:%' OR operacao LIKE 'removerReacaoResenha:%'`,
+        ),
+      ).toBe(1);
     });
   });
 

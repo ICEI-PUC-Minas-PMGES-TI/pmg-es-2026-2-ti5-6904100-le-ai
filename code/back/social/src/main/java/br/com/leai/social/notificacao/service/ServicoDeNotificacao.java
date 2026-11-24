@@ -45,17 +45,12 @@ public class ServicoDeNotificacao {
     Paginacao.validar(page, size);
 
     List<Notificacao> pagina = notificacoes.listar(destinatarioId, page, size);
-    Set<UUID> atoresVisiveis =
-        notificacoes.atoresVisiveis(idsDe(pagina, DadosDeNotificacao.ATOR));
-    Set<UUID> atividadesExistentes =
-        notificacoes.atividadesExistentes(idsDe(pagina, DadosDeNotificacao.ATIVIDADE_ID));
+    Visibilidade visibilidade = visibilidade(pagina, destinatarioId);
     long totalItens = notificacoes.contar(destinatarioId);
     int totalPaginas = (int) ((totalItens + size - 1) / size);
 
     return new PaginaNotificacoesResposta(
-        pagina.stream()
-            .map(n -> mapear(n, destinatarioId, atoresVisiveis, atividadesExistentes))
-            .toList(),
+        pagina.stream().map(n -> mapear(n, destinatarioId, visibilidade)).toList(),
         page,
         size,
         totalItens,
@@ -73,10 +68,33 @@ public class ServicoDeNotificacao {
                 mapear(
                     notificacao,
                     destinatarioId,
-                    notificacoes.atoresVisiveis(
-                        idsDe(List.of(notificacao), DadosDeNotificacao.ATOR)),
-                    notificacoes.atividadesExistentes(
-                        idsDe(List.of(notificacao), DadosDeNotificacao.ATIVIDADE_ID))));
+                    visibilidade(List.of(notificacao), destinatarioId)));
+  }
+
+  /**
+   * O que a página pode mostrar ao destinatário. F-MOD-OPC: além dos atores, o autor da atividade
+   * citada passa pela VIEW de perfil, e o comentário citado pelo filtro de comentário visível
+   * (autor e raiz). Conta suspensa não aparece por nome nem por link.
+   */
+  private record Visibilidade(
+      Set<UUID> pessoas, Set<UUID> atividadesExistentes, Set<UUID> comentariosVisiveis) {}
+
+  private Visibilidade visibilidade(List<Notificacao> pagina, UUID destinatarioId) {
+    Set<UUID> pessoas = new HashSet<>(idsDe(pagina, DadosDeNotificacao.ATOR));
+    for (Notificacao notificacao : pagina) {
+      Map<String, Object> atividade = mapa(notificacao.dados(), DadosDeNotificacao.ATIVIDADE);
+      if (atividade != null) {
+        UUID autor = uuid(atividade, DadosDeNotificacao.ATIVIDADE_AUTOR_ID);
+        if (autor != null) {
+          pessoas.add(autor);
+        }
+      }
+    }
+    return new Visibilidade(
+        notificacoes.atoresVisiveis(pessoas),
+        notificacoes.atividadesExistentes(idsDe(pagina, DadosDeNotificacao.ATIVIDADE_ID)),
+        notificacoes.comentariosVisiveis(
+            idsDe(pagina, DadosDeNotificacao.COMENTARIO_ID), destinatarioId));
   }
 
   @Transactional(readOnly = true)
@@ -120,14 +138,18 @@ public class ServicoDeNotificacao {
   }
 
   private static NotificacaoResposta mapear(
-      Notificacao notificacao,
-      UUID destinatarioId,
-      Set<UUID> atoresVisiveis,
-      Set<UUID> atividadesExistentes) {
+      Notificacao notificacao, UUID destinatarioId, Visibilidade visibilidade) {
     Map<String, Object> dados = notificacao.dados();
-    AutorSnapshotResposta ator = ator(dados, atoresVisiveis);
+    AutorSnapshotResposta ator = ator(dados, visibilidade.pessoas());
     UUID atividadeId = uuid(dados, DadosDeNotificacao.ATIVIDADE_ID);
-    boolean atividadeExiste = atividadeId != null && atividadesExistentes.contains(atividadeId);
+    boolean autorDaAtividadeVisivel = autorDaAtividadeVisivel(dados, destinatarioId, visibilidade);
+    boolean atividadeExiste =
+        atividadeId != null
+            && visibilidade.atividadesExistentes().contains(atividadeId)
+            && autorDaAtividadeVisivel;
+    UUID comentarioId = uuid(dados, DadosDeNotificacao.COMENTARIO_ID);
+    boolean comentarioVisivel =
+        comentarioId != null && visibilidade.comentariosVisiveis().contains(comentarioId);
     String leituraId =
         notificacao.leituraRef() == null ? null : notificacao.leituraRef().toString();
 
@@ -138,10 +160,13 @@ public class ServicoDeNotificacao {
             notificacao.tipo(),
             dados,
             ator == null ? RedacaoDeNotificacao.ATOR_OCULTO : ator.nomeExibicao(),
-            destinatarioId),
+            destinatarioId,
+            autorDaAtividadeVisivel),
         ator,
         atividadeExiste ? (String) dados.get(DadosDeNotificacao.ATIVIDADE_ID) : null,
-        atividadeExiste ? (String) dados.get(DadosDeNotificacao.COMENTARIO_ID) : null,
+        atividadeExiste && comentarioVisivel
+            ? (String) dados.get(DadosDeNotificacao.COMENTARIO_ID)
+            : null,
         leituraId,
         (Integer) dados.get(DadosDeNotificacao.LIMIAR_DIAS),
         livro(dados),
@@ -153,6 +178,19 @@ public class ServicoDeNotificacao {
         notificacao.lidaEm() != null,
         notificacao.lidaEm(),
         notificacao.criadoEm());
+  }
+
+  /** Sem snapshot de atividade, ou atividade do próprio destinatário, não há o que esconder. */
+  private static boolean autorDaAtividadeVisivel(
+      Map<String, Object> dados, UUID destinatarioId, Visibilidade visibilidade) {
+    Map<String, Object> atividade = mapa(dados, DadosDeNotificacao.ATIVIDADE);
+    if (atividade == null) {
+      return true;
+    }
+    UUID autor = uuid(atividade, DadosDeNotificacao.ATIVIDADE_AUTOR_ID);
+    return autor == null
+        || autor.equals(destinatarioId)
+        || visibilidade.pessoas().contains(autor);
   }
 
   private static AutorSnapshotResposta ator(Map<String, Object> dados, Set<UUID> visiveis) {

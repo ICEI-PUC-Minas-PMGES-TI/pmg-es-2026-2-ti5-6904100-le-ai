@@ -89,7 +89,18 @@ public enum EventoDeNotificacao {
       MessagingConstants.LEITURA_EXCHANGE,
       TipoNotificacao.RESENHA_CURTIDA,
       "autorAcao",
-      List.of(DadosDeNotificacao.RESENHA_ID));
+      List.of(DadosDeNotificacao.RESENHA_ID)),
+  /**
+   * F-GAM-OPC: o job diário do {@code leitura} manda um por leitor e dia local (chave {@code
+   * sequencia:<usuarioId>:lembrete:<dataLocal>}). Sem ator e sem livro: só o número da sequência
+   * para a frase.
+   */
+  LEMBRETE_SEQUENCIA(
+      MessagingConstants.EVENTO_LEMBRETE_SEQUENCIA,
+      MessagingConstants.LEITURA_EXCHANGE,
+      TipoNotificacao.LEMBRETE_SEQUENCIA,
+      null,
+      List.of(DadosDeNotificacao.SEQUENCIA_ATUAL, DadosDeNotificacao.DATA_LOCAL));
 
   private static final String CAMPO_DESTINATARIO = "destinatarioId";
   private static final String CAMPO_LIVRO = "livro";

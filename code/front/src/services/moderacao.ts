@@ -2,12 +2,40 @@ import { getToken } from '../session'
 import { createApiClient, type ApiClientOptions } from './api'
 import { renovarSessao } from './renovacao'
 
-/** Pessoa citada no painel; nula quando a conta saiu da VIEW de perfil (conta excluída). */
+/**
+ * Pessoa citada no painel, da VIEW de moderação (F-MOD-OPC): a conta suspensa continua aqui, com
+ * `suspensa`. Nula quando a conta está em exclusão ou foi excluída (`conta excluída`).
+ */
 export interface PessoaDaModeracao {
   id: string
   username: string
   nomeExibicao: string
   avatarUrl: string | null
+  suspensa: boolean
+  suspensaEm: string | null
+}
+
+/**
+ * A conta vista pelo administrador no perfil (F-MOD-OPC, `ContaDaModeracao`): também a suspensa,
+ * que o perfil público responde como inexistente. `motivo` é o da suspensão vigente.
+ */
+export interface ContaDaModeracao {
+  id: string
+  username: string
+  nomeExibicao: string
+  avatarUrl: string | null
+  privacidade: 'publico' | 'privado'
+  suspensa: boolean
+  suspensaEm: string | null
+  motivo: string | null
+}
+
+/** Estado da conta confirmado pelo `identidade` depois de suspender ou reativar (F-MOD-OPC). */
+export interface ContaModerada {
+  usuarioId: string
+  suspensa: boolean
+  suspensaEm: string | null
+  reativadaEm: string | null
 }
 
 /** Item da fila do painel (F-MOD, `DenunciaPendente` de `docs/api/social.yaml`). */
@@ -50,13 +78,19 @@ export interface ResultadoModeracao {
 export interface RegistroDeModeracao {
   id: string
   criadoEm: string
-  acao: 'remover_conteudo' | 'arquivar_denuncia'
-  alvoTipo: 'resenha' | 'comentario' | 'frase'
+  acao: 'remover_conteudo' | 'arquivar_denuncia' | 'suspender_conta' | 'reativar_conta'
+  alvoTipo: 'resenha' | 'comentario' | 'frase' | 'usuario'
   comDenuncia: boolean
   alvoAutor: string | null
   atividadeAutor: string | null
   livroTitulo: string | null
   anonimizado: boolean
+  /** Só nas linhas de conta: o id para reativar, o username e o motivo do administrador. */
+  alvoId?: string | null
+  alvoConta?: string | null
+  motivo?: string | null
+  /** A linha é a suspensão em vigor: só nela o registro oferece `Reativar conta`. */
+  suspensaoVigente?: boolean
 }
 
 function comCursor(caminho: string, cursor?: string | null): string {
@@ -98,6 +132,25 @@ export function createModeracaoService(options: ApiClientOptions = {}) {
     /** Remoção direta de frase (RN-11), sem denúncia; 204. */
     removerFrase(fraseId: string, idempotencyKey: string): Promise<void> {
       return acao<void>(`/admin/frases/${encodeURIComponent(fraseId)}`, { method: 'DELETE', idempotencyKey })
+    },
+    /** A conta pelo username exato, também a suspensa (perfil do administrador). */
+    contaPorUsername(username: string): Promise<ContaDaModeracao> {
+      return request<ContaDaModeracao>(`/admin/usuarios?username=${encodeURIComponent(username)}`)
+    },
+    /** Suspende pelo `identidade` (F-MOD-OPC); a mesma chave no reenvio não suspende duas vezes. */
+    suspenderConta(usuarioId: string, motivo: string, idempotencyKey: string): Promise<ContaModerada> {
+      return acao<ContaModerada>(`/admin/usuarios/${encodeURIComponent(usuarioId)}/suspender`, {
+        method: 'POST',
+        json: { motivo },
+        idempotencyKey,
+      })
+    },
+    reativarConta(usuarioId: string, motivo: string, idempotencyKey: string): Promise<ContaModerada> {
+      return acao<ContaModerada>(`/admin/usuarios/${encodeURIComponent(usuarioId)}/reativar`, {
+        method: 'POST',
+        json: { motivo },
+        idempotencyKey,
+      })
     },
     listarRegistros(cursor?: string | null): Promise<PaginaPorCursor<RegistroDeModeracao>> {
       return request<PaginaPorCursor<RegistroDeModeracao>>(comCursor('/admin/moderacao/logs', cursor))

@@ -9,7 +9,7 @@ import {
 } from 'vue-router'
 
 import ShellAutenticado from '../layouts/ShellAutenticado.vue'
-import { getToken, papelDoToken, useSession } from '../session'
+import { getToken, motivoDoFimDeSessao, papelDoToken, useSession } from '../session'
 import AlterarSenhaView from '../views/auth/AlterarSenhaView.vue'
 import BuscarLeitorView from '../views/perfil/BuscarLeitorView.vue'
 import CadastroView from '../views/auth/CadastroView.vue'
@@ -477,7 +477,18 @@ export function reagirAoFimDaSessao(alvo: Router): void {
   const { autenticado } = useSession()
   watch(autenticado, (agora) => {
     const atual = alvo.currentRoute.value
-    if (!agora && atual.meta.requerSessao) {
+    if (agora) {
+      return
+    }
+    // F-MOD-OPC: conta suspensa vai ao login com o banner de qualquer rota, sem `destino`: a
+    // conta não volta a entrar enquanto estiver suspensa.
+    if (motivoDoFimDeSessao() === 'suspensa') {
+      if (atual.path !== '/login' || atual.query.motivo !== 'suspensa') {
+        void alvo.replace({ path: '/login', query: { motivo: 'suspensa' } })
+      }
+      return
+    }
+    if (atual.meta.requerSessao) {
       void alvo.replace({ path: '/login', query: { destino: atual.fullPath } })
     }
   })

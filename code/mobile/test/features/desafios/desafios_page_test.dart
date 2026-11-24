@@ -25,6 +25,7 @@ void main() {
   late DesafiosService servico;
   late int criacoes;
   late List<Desafio> edicoes;
+  late List<Desafio> historicos;
 
   Future<void> montar(
     WidgetTester tester,
@@ -37,6 +38,7 @@ void main() {
     pedidos = <http.Request>[];
     criacoes = 0;
     edicoes = <Desafio>[];
+    historicos = <Desafio>[];
     servico = desafiosSimulado((pedido) {
       pedidos.add(pedido);
       return responder(pedido);
@@ -48,6 +50,7 @@ void main() {
           alteracoesDeLeitura: alteracoesDeLeitura,
           aoCriar: () => criacoes++,
           aoEditar: edicoes.add,
+          aoVerHistorico: historicos.add,
         ),
         escuro: escuro,
       ),
@@ -273,6 +276,41 @@ void main() {
     await tester.tap(find.text('Editar desafio'));
     await tester.pumpAndSettle();
     expect(edicoes.single.id, _outro);
+  });
+
+  testWidgets('"Ver histórico" vem no topo do menu, sem segunda linha, e abre o histórico', (
+    tester,
+  ) async {
+    final semantica = tester.ensureSemantics();
+    await montar(tester, (_) async => json(paginaDeDesafios(tres()), 200));
+
+    await tocar(tester, _acoes('150 minutos por semana'));
+    await tester.pumpAndSettle();
+    final historico = tester.getTopLeft(find.text('Ver histórico')).dy;
+    expect(historico, lessThan(tester.getTopLeft(find.text('Editar desafio')).dy));
+    expect(find.byIcon(PhosphorIconsRegular.clockCounterClockwise), findsOneWidget);
+    expect(
+      find.bySemanticsLabel('Ver histórico do desafio 150 minutos por semana'),
+      findsOneWidget,
+    );
+
+    tester.semantics.tap(find.semantics.byLabel('Ver histórico do desafio 150 minutos por semana'));
+    await tester.pumpAndSettle();
+    expect(historicos.single.id, _outro);
+    expect(find.text('Editar desafio'), findsNothing);
+    semantica.dispose();
+  });
+
+  testWidgets('o menu do pausado também tem "Ver histórico"', (tester) async {
+    await montar(tester, (_) async => json(paginaDeDesafios(tres()), 200));
+
+    await tocar(tester, _acoes('4 livros por mês'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ver histórico'));
+    await tester.pumpAndSettle();
+
+    expect(historicos.single.id, _pausado);
+    expect(pedidos.where((p) => p.method != 'GET'), isEmpty);
   });
 
   testWidgets('o menu do pausado oferece retomar e diz desde quando', (tester) async {

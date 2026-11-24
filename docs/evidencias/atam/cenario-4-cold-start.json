@@ -1,0 +1,78 @@
+{
+  "medidoEm": "2026-11-19T22:06:45.325Z",
+  "ambiente": "DES (Render, Oregon)",
+  "servicos": [
+    {
+      "servico": "identidade",
+      "primeiro": {
+        "iniciadoEm": "2026-11-19T22:06:45.327Z",
+        "ms": 180009.9,
+        "status": null,
+        "erro": "The operation was aborted due to timeout",
+        "corpo": ""
+      },
+      "segundo": {
+        "iniciadoEm": "2026-11-19T22:09:45.341Z",
+        "ms": 4601.7,
+        "status": 200
+      }
+    },
+    {
+      "servico": "acervo",
+      "primeiro": {
+        "iniciadoEm": "2026-11-19T22:09:49.943Z",
+        "ms": 52475.6,
+        "status": 200,
+        "erro": null,
+        "corpo": {
+          "status": "ok",
+          "service": "acervo",
+          "time": "2026-11-19T22:10:42.435Z"
+        }
+      },
+      "segundo": {
+        "iniciadoEm": "2026-11-19T22:10:42.419Z",
+        "ms": 263.5,
+        "status": 200
+      }
+    },
+    {
+      "servico": "leitura",
+      "primeiro": {
+        "iniciadoEm": "2026-11-19T22:10:42.683Z",
+        "ms": 57607,
+        "status": 200,
+        "erro": null,
+        "corpo": {
+          "status": "ok",
+          "service": "leitura",
+          "time": "2026-11-19T22:11:40.305Z"
+        }
+      },
+      "segundo": {
+        "iniciadoEm": "2026-11-19T22:11:40.292Z",
+        "ms": 261.5,
+        "status": 200
+      }
+    },
+    {
+      "servico": "social",
+      "primeiro": {
+        "iniciadoEm": "2026-11-19T22:11:40.554Z",
+        "ms": 167525.6,
+        "status": 200,
+        "erro": null,
+        "corpo": {
+          "status": "ok",
+          "service": "social",
+          "time": "2026-11-19T22:14:28.095Z"
+        }
+      },
+      "segundo": {
+        "iniciadoEm": "2026-11-19T22:14:28.080Z",
+        "ms": 268.5,
+        "status": 200
+      }
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { PhX } from '@phosphor-icons/vue'
+import type { Component } from 'vue'
 
 import BotaoTextual from './BotaoTextual.vue'
 
@@ -19,8 +20,10 @@ withDefaults(
     tom?: 'musgo' | 'rubi'
     /** Rótulo da ação à direita (`Ver lista`, `Tentar de novo`); sem ele, só o texto e o `X`. */
     acao?: string
+    /** Ícone de 20px à esquerda, na cor do tom (F-MOD-OPC: `Prohibit`, `ArrowCounterClockwise`). */
+    icone?: Component
   }>(),
-  { tom: 'musgo', acao: undefined },
+  { tom: 'musgo', acao: undefined, icone: undefined },
 )
 const emit = defineEmits<{ acao: []; fechar: [] }>()
 </script>
@@ -37,6 +40,15 @@ const emit = defineEmits<{ acao: []; fechar: [] }>()
         :class="tom === 'rubi' ? 'border-rubi' : 'border-musgo'"
         :role="tom === 'rubi' ? 'alert' : 'status'"
       >
+        <component
+          :is="icone"
+          v-if="icone"
+          :size="20"
+          weight="regular"
+          class="shrink-0"
+          :class="tom === 'rubi' ? 'text-rubi' : 'text-musgo'"
+          aria-hidden="true"
+        />
         <p class="min-w-0 flex-1 py-space-1 text-body text-tinta">
           <slot />
         </p>

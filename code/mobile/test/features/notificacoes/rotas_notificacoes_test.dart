@@ -62,11 +62,28 @@ void main() {
     );
   });
 
+  test('lembrete de sequencia leva a estante, que decide entre registro, Lendo e Todos', () {
+    expect(destinoDaNotificacao(_de(TipoNotificacao.lembreteSequencia)), '/estante?lembrete=sequencia');
+    final lembrete = Notificacao.fromJson(<String, dynamic>{
+      'id': 'n2',
+      'tipo': 'LEMBRETE_SEQUENCIA',
+      'mensagem': 'Sua sequência está em 1 dia e hoje ainda não tem leitura registrada.',
+      'ator': null,
+      'livro': null,
+      'acao': null,
+      'lida': false,
+      'criadoEm': '2026-09-25T12:00:00Z',
+    });
+    expect(lembrete?.tipo, TipoNotificacao.lembreteSequencia);
+    expect(lembrete?.podeAbandonar, isFalse);
+  });
+
   test('reconhece a tela de notificacoes de qualquer aba, e so ela', () {
     expect(ehRotaDeNotificacoes(rotaNotificacoes('/estante')), isTrue);
     expect(ehRotaDeNotificacoes('/perfil/notificacoes'), isTrue);
     expect(ehRotaDeNotificacoes('/estante'), isFalse);
     expect(ehRotaDeNotificacoes('/perfil/solicitacoes'), isFalse);
+    expect(ehRotaDeNotificacoes('/perfil/configuracoes/notificacoes'), isFalse);
     expect(ehRotaDeNotificacoes('/estante/notificacoes/outra'), isFalse);
   });
 

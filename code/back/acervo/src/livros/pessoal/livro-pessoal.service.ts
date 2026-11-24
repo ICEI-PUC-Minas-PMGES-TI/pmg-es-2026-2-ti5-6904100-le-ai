@@ -1,12 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { AcessoNegado, NaoEncontrado } from '../../common/erros-de-negocio';
+import {
+  AcessoNegado,
+  ErroDeValidacao,
+  NaoEncontrado,
+} from '../../common/erros-de-negocio';
 import { IdempotenciaService } from '../../common/idempotencia/idempotencia.service';
 import { OPERACOES } from '../../common/idempotencia/idempotencia.constantes';
+import { codigoDoPostgres } from '../../common/pg-erros';
 import { validarUrlDeCapa } from '../../common/url-capa';
+import type { Tx } from '../../db/tipos';
 import { AutorizacaoRn15 } from './autorizacao-rn15.service';
 import { LeituraDoDonoRepository } from './leitura-do-dono.repository';
 import {
+  AssuntoDoLivro,
   LivroPessoalRegistro,
   LivroPessoalRepository,
 } from './livro-pessoal.repository';
@@ -15,6 +22,31 @@ import {
   LivroPessoalDetalheDto,
   LivroPessoalEntradaDto,
 } from './dto/livro-pessoal.dto';
+
+/** Copy do design (`cadastro-pessoal.md`) para id que saiu do conjunto curado. */
+export const MENSAGEM_ASSUNTO_INEXISTENTE =
+  'Um dos assuntos escolhidos não está mais na lista do Lê Ai. Revise e salve de novo.';
+
+/** FK violada: o assunto sumiu entre a conferência e o INSERT. */
+const VIOLACAO_DE_FK = '23503';
+
+/**
+ * Forma canônica de `assuntos[]`: minúsculas, sem repetidos e em ordem.
+ *
+ * Roda **antes** do hash de idempotência: o hash mantém a ordem dos arrays, e
+ * sem isto `[a,b]` e `[b,a]` (a mesma intenção) dariam 409 com a mesma chave.
+ * As minúsculas importam porque o `@IsUUID` aceita maiúsculas e o Postgres
+ * compara uuid sem caixa: `[A,a]` seria um id só no banco e dois na contagem.
+ * `null` vira `[]` (limpar).
+ */
+export function normalizarAssuntos(
+  assuntos: string[] | null | undefined,
+): string[] | undefined {
+  if (assuntos === undefined) {
+    return undefined;
+  }
+  return [...new Set((assuntos ?? []).map((id) => id.toLowerCase()))].sort();
+}
 
 export interface ConsultaDeLivroPessoal {
   via?: string;
@@ -42,15 +74,24 @@ export class LivroPessoalService {
 
   async criar(donoId: string, chave: string, entrada: LivroPessoalEntradaDto) {
     const capa = this.validarCapa(entrada.capaUrl);
+    const assuntos = normalizarAssuntos(entrada.assuntos);
+    // Sem `assuntos` no corpo, o payload fica igual ao de antes da F-ACV-OPC.
+    const payload: Record<string, unknown> = { ...entrada };
+    if (assuntos === undefined) {
+      delete payload.assuntos;
+    } else {
+      payload.assuntos = assuntos;
+    }
 
     return this.idempotencia.executar<LivroPessoalDetalheDto>(
       {
         subjectRef: donoId,
         operacao: OPERACOES.CRIAR_LIVRO_PESSOAL,
         chave,
-        payload: { ...entrada },
+        payload,
       },
       async (tx) => {
+        await this.exigirAssuntosExistentes(tx, assuntos);
         const criado = await this.repositorio.criar(tx, {
           donoId,
           titulo: entrada.titulo,
@@ -59,6 +100,9 @@ export class LivroPessoalService {
           sinopse: entrada.sinopse ?? null,
           capa,
         });
+        const gravados = assuntos?.length
+          ? await this.gravarAssuntos(tx, criado.id, assuntos)
+          : [];
 
         // Livro recém-criado não tem nota nem resenha: não vale ir ao banco
         // buscar o que necessariamente não existe. O dono existe.
@@ -69,6 +113,7 @@ export class LivroPessoalService {
             nota: null,
             resenha: null,
             dono: await this.leituraDoDono.dono(donoId),
+            assuntos: gravados,
           }),
         };
       },
@@ -114,7 +159,9 @@ export class LivroPessoalService {
     }
 
     // A página mostra a avaliação do DONO, inclusive para o terceiro (RN-03).
-    const [nota, resenha, dono] = await Promise.all([
+    // Os assuntos também vão ao terceiro em modo consulta (decisão do dono de
+    // 06/11/2026): ele vê, mas não edita (RN-03).
+    const [nota, resenha, dono, assuntos] = await Promise.all([
       this.leituraDoDono.nota(encontrado.donoId, encontrado.id),
       this.leituraDoDono.resenha(
         encontrado.donoId,
@@ -122,6 +169,7 @@ export class LivroPessoalService {
         solicitanteId,
       ),
       this.leituraDoDono.dono(encontrado.donoId),
+      this.repositorio.assuntosDe(encontrado.id),
     ]);
 
     return this.montarDetalhe(encontrado, {
@@ -129,6 +177,7 @@ export class LivroPessoalService {
       nota,
       resenha,
       dono,
+      assuntos,
     });
   }
 
@@ -144,6 +193,17 @@ export class LivroPessoalService {
     const capa = camposPresentes.has('capaUrl')
       ? this.validarCapa(entrada.capaUrl)
       : undefined;
+    // Ausente preserva; `[]` ou `null` limpa.
+    const assuntos = camposPresentes.has('assuntos')
+      ? (normalizarAssuntos(entrada.assuntos) ?? [])
+      : undefined;
+    const payload: Record<string, unknown> = {
+      id,
+      ...this.somentePresentes(entrada, camposPresentes),
+    };
+    if (assuntos !== undefined) {
+      payload.assuntos = assuntos;
+    }
 
     return this.idempotencia.executar<LivroPessoalDetalheDto>(
       {
@@ -152,13 +212,14 @@ export class LivroPessoalService {
         chave,
         // O id entra no hash, não na operação: reusar a chave em outro livro
         // precisa dar 409, e é isso que o contrato descreve.
-        payload: { id, ...this.somentePresentes(entrada, camposPresentes) },
+        payload,
       },
       async (tx) => {
         // Propriedade verificada DENTRO do efeito, depois da leitura do recibo:
         // o replay de uma chave já processada devolve a resposta original, em
         // vez de reavaliar um estado que a própria operação mudou (RNF-ERR-04).
         const atual = await this.exigirPropriedade(id, donoId);
+        await this.exigirAssuntosExistentes(tx, assuntos);
         const atualizado = await this.repositorio.atualizar(tx, atual.id, {
           titulo: camposPresentes.has('titulo') ? entrada.titulo : undefined,
           autor: camposPresentes.has('autor') ? entrada.autor : undefined,
@@ -168,6 +229,10 @@ export class LivroPessoalService {
             : undefined,
           capa,
         });
+        const gravados =
+          assuntos !== undefined
+            ? await this.gravarAssuntos(tx, atualizado.id, assuntos)
+            : await this.repositorio.assuntosDe(atualizado.id, tx);
 
         const [nota, resenha, dono] = await Promise.all([
           this.leituraDoDono.nota(donoId, atualizado.id),
@@ -182,6 +247,7 @@ export class LivroPessoalService {
             nota,
             resenha,
             dono,
+            assuntos: gravados,
           }),
         };
       },
@@ -229,6 +295,42 @@ export class LivroPessoalService {
     return encontrado;
   }
 
+  /**
+   * Id fora do conjunto curado é 400 no campo `assuntos` (RN-21.4). Conferido
+   * dentro do efeito: o erro desfaz a transação e não grava recibo.
+   */
+  private async exigirAssuntosExistentes(
+    tx: Tx,
+    assuntos: string[] | undefined,
+  ): Promise<void> {
+    if (!assuntos?.length) {
+      return;
+    }
+    const existentes = await this.repositorio.contarAssuntosExistentes(
+      tx,
+      assuntos,
+    );
+    if (existentes < assuntos.length) {
+      throw assuntoInexistente();
+    }
+  }
+
+  private async gravarAssuntos(
+    tx: Tx,
+    livroId: string,
+    assuntos: string[],
+  ): Promise<AssuntoDoLivro[]> {
+    try {
+      await this.repositorio.substituirAssuntos(tx, livroId, assuntos);
+    } catch (erro) {
+      if (codigoDoPostgres(erro) === VIOLACAO_DE_FK) {
+        throw assuntoInexistente();
+      }
+      throw erro;
+    }
+    return assuntos.length ? this.repositorio.assuntosDe(livroId, tx) : [];
+  }
+
   private validarCapa(capaUrl: string | null | undefined) {
     if (!capaUrl) {
       return null;
@@ -257,6 +359,7 @@ export class LivroPessoalService {
       nota: LivroPessoalDetalheDto['notaDoDono'];
       resenha: LivroPessoalDetalheDto['resenhaDoDono'];
       dono: LivroPessoalDetalheDto['dono'];
+      assuntos: AssuntoDoLivro[];
     },
   ): LivroPessoalDetalheDto {
     // Objeto literal e não `plainToInstance`: `notaDoDono`, `resenhaDoDono` e `dono` são
@@ -275,6 +378,13 @@ export class LivroPessoalService {
       notaDoDono: extras.nota,
       resenhaDoDono: extras.resenha,
       dono: extras.dono,
+      assuntos: extras.assuntos,
     };
   }
+}
+
+function assuntoInexistente(): ErroDeValidacao {
+  return new ErroDeValidacao([
+    { campo: 'assuntos', mensagem: MENSAGEM_ASSUNTO_INEXISTENTE },
+  ]);
 }

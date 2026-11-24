@@ -9,7 +9,7 @@ import {
 } from '../../db/schema';
 import type { Tx } from '../../db/tipos';
 import { FUSO_HORARIO_PADRAO } from '../../leituras/aplicacao/leituras.service';
-import type { BaldeMensal } from '../dominio/estatisticas';
+import type { BaldeMensal, FaixaDeNota } from '../dominio/estatisticas';
 
 const COLUNAS_DO_BALDE = {
   ano: estatisticaMensal.ano,
@@ -22,6 +22,8 @@ const COLUNAS_DO_BALDE = {
   notasQuantidade: estatisticaMensal.notasQuantidade,
   notasSoma: estatisticaMensal.notasSoma,
 };
+
+const MOMENTO_LOCAL_DA_NOTA = sql`n.atualizado_em AT TIME ZONE ${FUSO_HORARIO_PADRAO}`;
 
 /**
  * Baldes mensais das estatísticas (F-STA), só do schema `leitura`. Os
@@ -94,8 +96,8 @@ export class EstatisticasRepository {
              AND l.finalizada_em IS NOT NULL
            GROUP BY 1, 2
           UNION ALL
-          SELECT extract(year FROM n.atualizado_em AT TIME ZONE ${FUSO_HORARIO_PADRAO})::int,
-                 extract(month FROM n.atualizado_em AT TIME ZONE ${FUSO_HORARIO_PADRAO})::int,
+          SELECT extract(year FROM ${MOMENTO_LOCAL_DA_NOTA})::int,
+                 extract(month FROM ${MOMENTO_LOCAL_DA_NOTA})::int,
                  0, 0, 0, 0, 0,
                  count(*)::bigint,
                  sum(n.valor)::numeric
@@ -107,8 +109,12 @@ export class EstatisticasRepository {
     `);
   }
 
-  async baldes(usuarioId: string, ano?: number): Promise<BaldeMensal[]> {
-    return this.db
+  async baldes(
+    usuarioId: string,
+    ano?: number,
+    executor: DrizzleDB | Tx = this.db,
+  ): Promise<BaldeMensal[]> {
+    return executor
       .select(COLUNAS_DO_BALDE)
       .from(estatisticaMensal)
       .where(
@@ -118,6 +124,34 @@ export class EstatisticasRepository {
         ),
       )
       .orderBy(asc(estatisticaMensal.ano), asc(estatisticaMensal.mes));
+  }
+
+  async baldesENotas(
+    usuarioId: string,
+    recortes: { anoDosBaldes?: number; anoDasNotas?: number },
+  ): Promise<{ baldes: BaldeMensal[]; notas: FaixaDeNota[] }> {
+    return this.db.transaction(
+      async (tx) => ({
+        baldes: await this.baldes(usuarioId, recortes.anoDosBaldes, tx),
+        notas: await this.contagemDeNotas(usuarioId, recortes.anoDasNotas, tx),
+      }),
+      { isolationLevel: 'repeatable read', accessMode: 'read only' },
+    );
+  }
+
+  private async contagemDeNotas(
+    usuarioId: string,
+    ano: number | undefined,
+    executor: DrizzleDB | Tx,
+  ): Promise<FaixaDeNota[]> {
+    const resultado = await executor.execute<FaixaDeNota>(sql`
+      SELECT n.valor::float8 AS valor, count(*)::int AS quantidade
+        FROM ${nota} n
+       WHERE n.usuario_id = ${usuarioId}
+         ${ano === undefined ? sql`` : sql`AND extract(year FROM ${MOMENTO_LOCAL_DA_NOTA})::int = ${ano}`}
+       GROUP BY n.valor
+    `);
+    return resultado.rows;
   }
 
   /**

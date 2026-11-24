@@ -25,6 +25,12 @@ class BannerAviso extends StatelessWidget {
   /// Ícone próprio do alerta, como `Clock` no limite de frequência e `Info` no envio em parte.
   final IconData? icone;
 
+  /// Com [icone], pinta o ícone próprio na cor da variante em vez de `tinta`, como o `WifiSlash`
+  /// em `ambar` do sem conexão (historico-do-desafio.md §4.7).
+  final bool iconeNaCorDaVariante;
+
+  final String? titulo;
+
   const BannerAviso({
     super.key,
     required this.variante,
@@ -32,6 +38,8 @@ class BannerAviso extends StatelessWidget {
     this.acao,
     this.triangulo = false,
     this.icone,
+    this.iconeNaCorDaVariante = false,
+    this.titulo,
   });
 
   @override
@@ -59,18 +67,24 @@ class BannerAviso extends StatelessWidget {
                       ? PhosphorIconsRegular.warningCircle
                       : PhosphorIconsRegular.warning),
               size: 20,
-              color: icone == null ? corIcone : theme.colorScheme.onSurface,
+              color: icone == null || iconeNaCorDaVariante ? corIcone : theme.colorScheme.onSurface,
             ),
             const SizedBox(width: DesignTokens.space3),
             Expanded(
-              child: acao == null
+              child: titulo == null && acao == null
                   ? Text(mensagem, style: theme.textTheme.bodyMedium)
                   : Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
+                        if (titulo != null) ...<Widget>[
+                          Text(titulo!, style: theme.textTheme.labelLarge),
+                          const SizedBox(height: DesignTokens.space1),
+                        ],
                         Text(mensagem, style: theme.textTheme.bodyMedium),
-                        const SizedBox(height: DesignTokens.space3),
-                        acao!,
+                        if (acao != null) ...<Widget>[
+                          const SizedBox(height: DesignTokens.space3),
+                          acao!,
+                        ],
                       ],
                     ),
             ),

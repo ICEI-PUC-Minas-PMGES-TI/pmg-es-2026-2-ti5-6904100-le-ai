@@ -2,6 +2,7 @@ package br.com.leai.identidade.conta.service;
 
 import br.com.leai.identidade.auth.service.ContaAdministradora;
 import br.com.leai.identidade.auth.service.GestorDeRenovacao;
+import br.com.leai.identidade.auth.service.ServicoDeAutenticacao;
 import br.com.leai.identidade.common.CodigoErro;
 import br.com.leai.identidade.common.CorrelationIdFilter;
 import br.com.leai.identidade.common.ErroDeNegocioException;
@@ -116,6 +117,12 @@ public class ServicoDeExclusaoDeConta {
                 () ->
                     new ErroDeNegocioException(
                         CodigoErro.NAO_AUTENTICADO, SESSAO_EXPIRADA));
+
+    // F-MOD-OPC (decisão 12): conferido na linha travada, para não correr com a suspensão.
+    if (usuario.suspenso()) {
+      throw new ErroDeNegocioException(
+          CodigoErro.CONTA_SUSPENSA, ServicoDeAutenticacao.CONTA_SUSPENSA);
+    }
 
     if (!codificadorDeSenha.matches(requisicao.senha(), usuario.senhaHash())) {
       limiteDeSenha.registrar(usuarioId);

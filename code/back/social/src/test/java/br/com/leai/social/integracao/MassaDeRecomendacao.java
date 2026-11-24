@@ -55,6 +55,16 @@ public final class MassaDeRecomendacao {
           FROM identidade.usuario
          WHERE suspenso = false AND exclusao_solicitada_em IS NULL
         """);
+    // F-MOD-OPC: a VIEW da moderação, que inclui a conta suspensa. A coluna nova entra antes da
+    // VIEW, porque outras classes criam a tabela sem ela e o contexto é compartilhado.
+    jdbc.execute("ALTER TABLE identidade.usuario ADD COLUMN IF NOT EXISTS suspenso_em timestamptz");
+    jdbc.execute(
+        """
+        CREATE OR REPLACE VIEW identidade.v_conta_moderacao_v1 AS
+        SELECT id, username, nome_exibicao, avatar_url, privacidade, suspenso, suspenso_em
+          FROM identidade.usuario
+         WHERE exclusao_solicitada_em IS NULL
+        """);
 
     jdbc.execute("CREATE SCHEMA IF NOT EXISTS acervo");
     jdbc.execute("CREATE TABLE IF NOT EXISTS acervo.autor (id uuid PRIMARY KEY, nome text NOT NULL)");
@@ -129,6 +139,22 @@ public final class MassaDeRecomendacao {
         username,
         "Leitor " + username);
     return id;
+  }
+
+  /** F-MOD-OPC: suspende como o {@code identidade} faria; devolve o {@code suspenso_em}. */
+  public java.time.Instant suspender(UUID usuario) {
+    return jdbc
+        .queryForObject(
+            "UPDATE identidade.usuario SET suspenso = true, suspenso_em = now() WHERE id = ?"
+                + " RETURNING suspenso_em",
+            java.sql.Timestamp.class,
+            usuario)
+        .toInstant();
+  }
+
+  public void reativar(UUID usuario) {
+    jdbc.update(
+        "UPDATE identidade.usuario SET suspenso = false, suspenso_em = NULL WHERE id = ?", usuario);
   }
 
   public UUID mutuoDe(UUID outro, String username) {

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://leai.app/schemas/mensageria/lembrete.sequencia.v1.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["destinatarioId", "dataLocal", "sequenciaAtual"],
+  "properties": {
+    "destinatarioId": { "type": "string", "format": "uuid" },
+    "dataLocal": { "type": "string", "format": "date" },
+    "sequenciaAtual": { "type": "integer", "minimum": 1 }
+  }
+}

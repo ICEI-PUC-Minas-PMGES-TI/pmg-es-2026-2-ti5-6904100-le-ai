@@ -2,11 +2,13 @@ import { beforeEach, describe, expect, it } from 'vitest'
 
 import {
   atualizarTokens,
+  consumirMotivoDoFimDeSessao,
   encerrarSessao,
   getRefreshToken,
   getToken,
   initializeSession,
   iniciarSessao,
+  motivoDoFimDeSessao,
   papelDoToken,
   useSession,
 } from './session'
@@ -18,6 +20,7 @@ describe('session', () => {
   beforeEach(() => {
     localStorage.clear()
     encerrarSessao()
+    consumirMotivoDoFimDeSessao()
   })
 
   it('começa sem sessão e sem token', () => {
@@ -161,5 +164,44 @@ describe('papel do token (F-MOD)', () => {
     initializeSession()
 
     expect(useSession().ehAdmin.value).toBe(true)
+  })
+  it('F-MOD-OPC: o motivo da suspensão chega à outra aba antes da sessão sumir', () => {
+    initializeSession()
+    iniciarSessao({ accessToken: 'jwt', refreshToken: 'r' }, USUARIO)
+
+    window.dispatchEvent(new StorageEvent('storage', { key: 'le-ai-fim-de-sessao', newValue: 'suspensa' }))
+    localStorage.removeItem('le-ai-sessao')
+    window.dispatchEvent(new StorageEvent('storage', { key: 'le-ai-sessao', newValue: null }))
+
+    expect(useSession().autenticado.value).toBe(false)
+    expect(motivoDoFimDeSessao()).toBe('suspensa')
+  })
+
+  it('F-MOD-OPC: a remoção da chave comum por outra aba não apaga o motivo desta (revisão, 06/11/2026)', () => {
+    initializeSession()
+    iniciarSessao({ accessToken: 'jwt', refreshToken: 'r' }, USUARIO)
+
+    window.dispatchEvent(new StorageEvent('storage', { key: 'le-ai-fim-de-sessao', newValue: 'suspensa' }))
+    window.dispatchEvent(new StorageEvent('storage', { key: 'le-ai-fim-de-sessao', newValue: null }))
+
+    expect(consumirMotivoDoFimDeSessao()).toBe('suspensa')
+    expect(consumirMotivoDoFimDeSessao()).toBeNull()
+  })
+
+  it('F-MOD-OPC: o motivo é consumido uma vez, e o logout manual e o login novo não o trazem', () => {
+    iniciarSessao({ accessToken: 'jwt', refreshToken: 'r' }, USUARIO)
+    encerrarSessao({ motivo: 'suspensa' })
+
+    expect(consumirMotivoDoFimDeSessao()).toBe('suspensa')
+    expect(consumirMotivoDoFimDeSessao()).toBeNull()
+
+    iniciarSessao({ accessToken: 'jwt', refreshToken: 'r' }, USUARIO)
+    encerrarSessao()
+    expect(motivoDoFimDeSessao()).toBeNull()
+
+    encerrarSessao({ motivo: 'suspensa' })
+    iniciarSessao({ accessToken: 'jwt', refreshToken: 'r' }, USUARIO)
+    expect(motivoDoFimDeSessao()).toBeNull()
+    expect(localStorage.getItem('le-ai-fim-de-sessao')).toBeNull()
   })
 })
