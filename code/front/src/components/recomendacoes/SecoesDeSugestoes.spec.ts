@@ -2,6 +2,7 @@ import { DOMWrapper, flushPromises } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { acervoService } from '../../services/acervo'
+import { ApiError } from '../../services/api'
 import { socialService, type Sugestao, type Sugestoes } from '../../services/social'
 import { paginaDeRecomendacoes } from '../../testes/massaDeRecomendacoes'
 import { montarNaRota } from '../../testes/montarNaRota'
@@ -168,5 +169,58 @@ describe('SecoesDeSugestoes (F-REC-ALG)', () => {
 
     expect(social.descartarSugestao).toHaveBeenCalledTimes(2)
     expect(tela.text()).not.toContain('Mulheres Empilhadas')
+  })
+
+  it('livro nas duas seções sai das duas ao ser descartado, e o offset de cada uma desce', async () => {
+    const PASSARO_NO_GOSTO = { ...PASSARO, motivo: { tipo: 'AUTOR' as const, texto: 'Do mesmo autor de Pequena Coreografia do Adeus' } }
+    social.listarSugestoes.mockReset()
+      .mockResolvedValueOnce({
+        seguidos: { itens: [EMPILHADAS, PASSARO], proximoOffset: 2 },
+        gosto: { itens: [ARQUIPELAGO, PASSARO_NO_GOSTO], proximoOffset: 2 },
+      })
+      .mockResolvedValueOnce({ seguidos: null, gosto: { itens: [SOL], proximoOffset: null } })
+    const { tela } = await abrir()
+
+    await tela.get('[data-secao="seguidos"] button[aria-label="Mais ações para O Peso do Pássaro Morto"]').trigger('click')
+    await tela.findAll('button').find((b) => b.text().startsWith('Descartar sugestão'))!.trigger('click')
+    await flushPromises()
+
+    expect(tela.text()).not.toContain('O Peso do Pássaro Morto')
+    await tela.get('[data-secao="gosto"]').findAll('button').find((b) => b.text() === 'Mostrar mais')!.trigger('click')
+    await flushPromises()
+    expect(social.listarSugestoes).toHaveBeenLastCalledWith('gosto', 1)
+  })
+
+  it('descarte que volta 404 tira o item como no sucesso, sem oferecer tentar de novo', async () => {
+    social.descartarSugestao.mockReset().mockRejectedValueOnce(new ApiError('Livro não encontrado.', 404, 'NAO_ENCONTRADO'))
+    const { tela } = await abrir()
+
+    await descartarPeloMenu(tela, 'Mulheres Empilhadas')
+    await flushPromises()
+
+    expect(tela.text()).not.toContain('Mulheres Empilhadas')
+    expect(tela.findAll('[role="alert"]').some((a) => a.text().includes('descartar a sugestão'))).toBe(false)
+    expect(tela.text()).toContain('Sugestão descartada.')
+  })
+
+  it('descarte confirmado enquanto a página seguinte vem desconta do offset que ela traz', async () => {
+    let entregar!: (valor: Sugestoes) => void
+    social.listarSugestoes.mockReset()
+      .mockResolvedValueOnce(resposta([EMPILHADAS, PASSARO], [], 2))
+      .mockReturnValueOnce(new Promise<Sugestoes>((resolve) => (entregar = resolve)))
+      .mockResolvedValueOnce({ seguidos: { itens: [SOL], proximoOffset: null }, gosto: null })
+    const { tela } = await abrir()
+
+    await tela.findAll('button').find((b) => b.text() === 'Mostrar mais')!.trigger('click')
+    await descartarPeloMenu(tela, 'Mulheres Empilhadas')
+    await flushPromises()
+    // O servidor montou esta página antes do descarte: o próximo seria 3, e agora é 2.
+    entregar({ seguidos: { itens: [SOLITARIA], proximoOffset: 3 }, gosto: null })
+    await flushPromises()
+
+    await tela.findAll('button').find((b) => b.text() === 'Mostrar mais')!.trigger('click')
+    await flushPromises()
+    expect(social.listarSugestoes).toHaveBeenLastCalledWith('seguidos', 2)
+    expect(tela.text()).toContain('O Sol na Cabeça')
   })
 })

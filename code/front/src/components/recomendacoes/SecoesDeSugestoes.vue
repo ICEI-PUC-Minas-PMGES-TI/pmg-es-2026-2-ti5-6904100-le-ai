@@ -5,6 +5,7 @@ import BannerAviso from '../ui/BannerAviso.vue'
 import AvisoFlutuante from '../ui/AvisoFlutuante.vue'
 import BotaoTextual from '../ui/BotaoTextual.vue'
 import ItemSugestao from './ItemSugestao.vue'
+import { ApiError } from '../../services/api'
 import { socialService, type SecaoDeSugestao, type Sugestao, type Sugestoes } from '../../services/social'
 
 /**
@@ -17,15 +18,21 @@ import { socialService, type SecaoDeSugestao, type Sugestao, type Sugestoes } fr
  * - **`Mostrar mais`** acrescenta a página seguinte na mesma seção, pelo `proximoOffset` do
  *   servidor. Cada descarte desloca os seguintes uma posição para trás no servidor, por isso o
  *   offset guardado desce um a cada descarte confirmado: sem isso, a página seguinte pularia um livro.
+ *   Descarte confirmado enquanto a página seguinte ainda vem desconta também do `proximoOffset` que
+ *   ela trouxer, calculado antes dele.
  * - **Descarte** sem confirmação, item a 50% até o servidor responder, toast sem `Desfazer` (§5.6).
- *   O foco vai para o item que subiu; sem ele, para o título da seção seguinte ou para o das
- *   recebidas (§9).
+ *   O mesmo livro pode estar nas duas seções, e o descarte vale para as duas (RF-REC-12): sai de
+ *   todas e o offset de cada uma desce. `404` (livro pessoal, inativo ou que já não existe) também
+ *   tira o livro, porque ele não volta. O foco vai para o item que subiu; sem ele, para o título
+ *   da seção seguinte ou para o das recebidas (§9).
  */
 interface EstadoDaSecao {
   itens: Sugestao[]
   proximoOffset: number | null
   carregandoMais: boolean
   falhouMais: boolean
+  /** Descartes confirmados que tiraram um livro desta seção, para corrigir a página em voo. */
+  descartados: number
 }
 
 const TITULOS: Record<SecaoDeSugestao, string> = { seguidos: 'Quem você segue leu', gosto: 'Do seu gosto' }
@@ -33,9 +40,11 @@ const ORDEM: SecaoDeSugestao[] = ['seguidos', 'gosto']
 
 const estado = ref<'carregando' | 'pronta' | 'erro'>('carregando')
 const secoes = reactive<Record<SecaoDeSugestao, EstadoDaSecao>>({
-  seguidos: { itens: [], proximoOffset: null, carregandoMais: false, falhouMais: false },
-  gosto: { itens: [], proximoOffset: null, carregandoMais: false, falhouMais: false },
+  seguidos: { itens: [], proximoOffset: null, carregandoMais: false, falhouMais: false, descartados: 0 },
+  gosto: { itens: [], proximoOffset: null, carregandoMais: false, falhouMais: false, descartados: 0 },
 })
+/** Livros descartados nesta tela: uma página que já vinha a caminho não os traz de volta. */
+const descartados = new Set<string>()
 const descartando = ref<string[]>([])
 const aviso = ref<{ texto: string; falhou?: { secao: SecaoDeSugestao; sugestao: Sugestao } } | null>(null)
 const anuncio = ref('')
@@ -72,12 +81,14 @@ async function mostrarMais(secao: SecaoDeSugestao): Promise<void> {
   }
   atual.carregandoMais = true
   atual.falhouMais = false
+  const descartadosAntes = atual.descartados
   try {
     const pagina = (await socialService.listarSugestoes(secao, atual.proximoOffset))[secao]
     const vistos = new Set(atual.itens.map((item) => item.livro.id))
-    const novos = (pagina?.itens ?? []).filter((item) => !vistos.has(item.livro.id))
+    const novos = (pagina?.itens ?? []).filter((item) => !vistos.has(item.livro.id) && !descartados.has(item.livro.id))
     atual.itens = [...atual.itens, ...novos]
-    atual.proximoOffset = pagina?.proximoOffset ?? null
+    const proximo = pagina?.proximoOffset ?? null
+    atual.proximoOffset = proximo === null ? null : Math.max(0, proximo - (atual.descartados - descartadosAntes))
     anuncio.value = novos.length === 1 ? '1 sugestão carregada' : `${novos.length} sugestões carregadas`
     await nextTick()
     const alvo = novos[0] ?? atual.itens[atual.itens.length - 1]
@@ -99,20 +110,30 @@ async function descartar(secao: SecaoDeSugestao, sugestao: Sugestao): Promise<vo
   descartando.value = [...descartando.value, livroId]
   try {
     await socialService.descartarSugestao(livroId)
-  } catch {
-    aviso.value = {
-      texto: 'Não foi possível descartar a sugestão. Verifique sua conexão e tente de novo.',
-      falhou: { secao, sugestao },
+  } catch (erro) {
+    if (!(erro instanceof ApiError && erro.status === 404)) {
+      aviso.value = {
+        texto: 'Não foi possível descartar a sugestão. Verifique sua conexão e tente de novo.',
+        falhou: { secao, sugestao },
+      }
+      return
     }
-    return
   } finally {
     descartando.value = descartando.value.filter((outro) => outro !== livroId)
   }
   const atual = secoes[secao]
   const posicao = atual.itens.findIndex((item) => item.livro.id === livroId)
-  atual.itens = atual.itens.filter((item) => item.livro.id !== livroId)
-  if (atual.proximoOffset !== null) {
-    atual.proximoOffset = Math.max(0, atual.proximoOffset - 1)
+  descartados.add(livroId)
+  for (const outra of ORDEM) {
+    const daSecao = secoes[outra]
+    if (!daSecao.itens.some((item) => item.livro.id === livroId)) {
+      continue
+    }
+    daSecao.itens = daSecao.itens.filter((item) => item.livro.id !== livroId)
+    daSecao.descartados += 1
+    if (daSecao.proximoOffset !== null) {
+      daSecao.proximoOffset = Math.max(0, daSecao.proximoOffset - 1)
+    }
   }
   aviso.value = { texto: 'Sugestão descartada.' }
   await nextTick()
@@ -186,7 +207,10 @@ onMounted(carregar)
     >
       Não foi possível carregar as sugestões. Verifique sua conexão e tente de novo.
       <span class="mt-space-1 flex">
-        <BotaoTextual @click="carregar()">
+        <BotaoTextual
+          class="min-h-12 md:min-h-10"
+          @click="carregar()"
+        >
           Tentar de novo
         </BotaoTextual>
       </span>

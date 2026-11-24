@@ -139,9 +139,10 @@ describe('ConfiguracoesView', () => {
       }
     }
 
-    // A linha do celular vem antes da do painel da web, que fica no DOM escondida por CSS.
+    // A linha do celular vem antes da do painel da web, que fica no DOM escondida por CSS. Antes
+    // de ler o perfil ela ainda não é `switch`, por isso a busca é pelo texto.
     const linha = (wrapper: Awaited<ReturnType<typeof montarNaRota>>['wrapper']) =>
-      wrapper.findAll('[role="switch"]')[0]!
+      wrapper.findAll('button').find((b) => b.text().startsWith('Usar minhas leituras em sugestões'))!
 
     beforeEach(() => {
       vi.mocked(perfilService.obterMeuPerfil).mockReset().mockResolvedValue(perfil(false))
@@ -162,9 +163,32 @@ describe('ConfiguracoesView', () => {
 
       await linha(wrapper).trigger('click')
 
-      expect(linha(wrapper).attributes('aria-checked')).toBe('false')
+      // Estado desconhecido: não afirma ligado nem desligado (configuracoes.md §4.5).
+      expect(linha(wrapper).attributes('role')).toBeUndefined()
+      expect(linha(wrapper).attributes('aria-checked')).toBeUndefined()
       expect(linha(wrapper).attributes('aria-disabled')).toBe('true')
       expect(perfilService.definirOptOutRecomendacao).not.toHaveBeenCalled()
+    })
+
+    it('para o leitor de tela, o nome é só o rótulo; descrição e erro são a dica, em região educada', async () => {
+      vi.mocked(perfilService.definirOptOutRecomendacao).mockRejectedValueOnce(new TypeError('offline'))
+      const { wrapper } = await montarNaRota('/perfil/configuracoes')
+      await flushPromises()
+
+      const botao = linha(wrapper)
+      expect(botao.attributes('role')).toBe('switch')
+      const rotulo = wrapper.get(`[id="${botao.attributes('aria-labelledby')}"]`)
+      expect(rotulo.text()).toBe('Usar minhas leituras em sugestões')
+      const [idDescricao, idErro] = botao.attributes('aria-describedby')!.split(' ')
+      expect(wrapper.get(`[id="${idDescricao}"]`).text()).toContain('Os livros que você lê ajudam a sugerir leituras')
+
+      await botao.trigger('click')
+      await flushPromises()
+
+      const erro = wrapper.get(`[id="${idErro}"]`)
+      expect(erro.attributes('aria-live')).toBe('polite')
+      expect(erro.text()).toBe('Não foi possível salvar. Verifique sua conexão e tente de novo.')
+      expect(wrapper.find('[role="alert"]').exists()).toBe(false)
     })
 
     it('desligar grava optOutRecomendacao verdadeiro, sem botão de salvar', async () => {

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { PhPaperPlaneTilt } from '@phosphor-icons/vue'
-import { onMounted } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import FimDaLista from '../../components/perfil/FimDaLista.vue'
@@ -20,9 +20,29 @@ const router = useRouter()
 const lista = usePaginacao((pagina) => socialService.listarRecebidas(pagina))
 const { itens, total, carregando, carregandoMais, falhou, falhouMais, temMais } = lista
 
+const raiz = ref<HTMLElement | null>(null)
+
+/**
+ * Vizinhos do último item descartado, do mais próximo ao mais distante. A pergunta de lote abre
+ * depois que o item já saiu, então o foco que a sobreposição devolveria (o `DotsThree` dele) não
+ * existe mais: ao fechar, ele vai para quem ocupou o lugar (recomendacoes-recebidas.md §9).
+ */
+let vizinhos: { depois: string[]; antes: string[] } = { depois: [], antes: [] }
+
+function retirarDescartada(id: string): void {
+  const posicao = itens.value.findIndex((item) => item.id === id)
+  if (posicao >= 0) {
+    vizinhos = {
+      depois: itens.value.slice(posicao + 1).map((item) => item.id),
+      antes: itens.value.slice(0, posicao).map((item) => item.id).reverse(),
+    }
+  }
+  lista.retirar(id)
+}
+
 // F-REC-ALG: no terceiro descarte do mesmo livro na sessão, a pergunta de descarte em lote.
 const { descartando, aviso, escolher, tentarDeNovo, pergunta, removendo, erroDoLote, removerTodas, recusar } =
-  useDescarteDeRecomendacao(lista.retirar, {
+  useDescarteDeRecomendacao(retirarDescartada, {
     aoRemoverDoLivro: (livroId) => {
       for (const recomendacao of itens.value.filter((item) => item.livro.id === livroId)) {
         lista.retirar(recomendacao.id)
@@ -38,11 +58,35 @@ function esmaecido(recomendacao: RecomendacaoRecebida): boolean {
   )
 }
 
+/** Fechada a pergunta por qualquer via: o item seguinte que ficou, o anterior, ou o vazio. */
+function focarQuemFicou(): void {
+  const presentes = new Set(itens.value.map((item) => item.id))
+  const alvo = vizinhos.depois.find((id) => presentes.has(id)) ?? vizinhos.antes.find((id) => presentes.has(id))
+  const destino = alvo
+    ? raiz.value?.querySelector<HTMLElement>(`[data-recomendacao="${alvo}"] a`)
+    : raiz.value?.querySelector<HTMLElement>('[data-lista-vazia]')
+  destino?.focus()
+}
+
+// `post`: depois de a sobreposição devolver o foco e de a lista já sem o lote estar no DOM.
+watch(
+  () => pergunta.value !== null,
+  (aberta, estavaAberta) => {
+    if (estavaAberta && !aberta) {
+      focarQuemFicou()
+    }
+  },
+  { flush: 'post' },
+)
+
 onMounted(() => void lista.carregar())
 </script>
 
 <template>
-  <div class="max-w-[1120px] pb-space-10 pt-space-2 md:pt-space-4">
+  <div
+    ref="raiz"
+    class="max-w-[1120px] pb-space-10 pt-space-2 md:pt-space-4"
+  >
     <ul
       v-if="carregando"
       class="entrada divide-y divide-linha md:grid md:grid-cols-2 md:gap-space-5 md:divide-y-0"
@@ -81,6 +125,8 @@ onMounted(() => void lista.carregar())
       v-else-if="itens.length === 0"
       :icone="PhPaperPlaneTilt"
       solto
+      data-lista-vazia
+      tabindex="-1"
       titulo="Nenhuma recomendação agora"
       class="mx-auto mt-space-12 max-w-[320px] md:mt-space-16"
     >
@@ -110,6 +156,7 @@ onMounted(() => void lista.carregar())
         <li
           v-for="recomendacao in itens"
           :key="recomendacao.id"
+          :data-recomendacao="recomendacao.id"
           class="py-space-4 transition-opacity duration-dur-base md:rounded-base md:p-space-4 md:transition-colors md:hover:bg-papel-elevado"
           :class="esmaecido(recomendacao) ? 'pointer-events-none opacity-50' : ''"
         >

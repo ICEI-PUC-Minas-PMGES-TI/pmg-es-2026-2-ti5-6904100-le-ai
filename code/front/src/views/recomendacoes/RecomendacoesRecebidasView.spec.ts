@@ -217,6 +217,71 @@ describe('RecomendacoesRecebidasView', () => {
       expect(tela.get('[role="status"]').text()).toContain('Recomendação descartada.')
     })
 
+    it('Agora não leva o foco ao item que ocupou o lugar do descartado, nunca ao body (§9)', async () => {
+      const { tela } = await abrir()
+      await descartarTres(tela)
+
+      await tela.findAll('[role="dialog"] button').find((b) => b.text() === 'Agora não')!.trigger('click')
+      await flushPromises()
+
+      expect(document.activeElement?.closest('[data-recomendacao]')?.getAttribute('data-recomendacao')).toBe('rio3')
+    })
+
+    it('Esc também fecha como recusa e devolve o foco ao item seguinte', async () => {
+      const { tela } = await abrir()
+      await descartarTres(tela)
+
+      await tela.get('[role="dialog"]').trigger('keydown', { key: 'Escape' })
+      await flushPromises()
+
+      expect(tela.find('[role="dialog"]').exists()).toBe(false)
+      expect(document.activeElement?.closest('[data-recomendacao]')?.getAttribute('data-recomendacao')).toBe('rio3')
+    })
+
+    it('depois do lote o foco vai ao item que ficou no lugar, ou ao vazio quando a lista acaba', async () => {
+      const { tela, wrapper } = await abrir()
+      await descartarTres(tela)
+      await tela.findAll('[role="dialog"] button').find((b) => b.text() === 'Remover todas')!.trigger('click')
+      await flushPromises()
+
+      expect(document.activeElement?.closest('[data-recomendacao]')?.getAttribute('data-recomendacao')).toBe('r1')
+
+      wrapper.unmount()
+      document.body.innerHTML = ''
+      zerarSessaoDoDescarteEmLote()
+      social.listarRecebidas.mockResolvedValue(paginaDeRecomendacoes([...RIO]))
+      const so = await abrir()
+      await descartarTres(so.tela)
+      await so.tela.findAll('[role="dialog"] button').find((b) => b.text() === 'Remover todas')!.trigger('click')
+      await flushPromises()
+
+      expect(document.activeElement?.hasAttribute('data-lista-vazia')).toBe(true)
+    })
+
+    it('enquanto remove, o primário fica aria-disabled sem perder o foco, e a falha foca o banner', async () => {
+      let falhar!: (erro: Error) => void
+      social.descartarRecomendacoesDoLivro.mockReset()
+        .mockReturnValueOnce(new Promise<number>((_, reject) => (falhar = reject)))
+      const { tela } = await abrir()
+      await descartarTres(tela)
+
+      const remover = tela.findAll('[role="dialog"] button').find((b) => b.text() === 'Remover todas')!
+      ;(remover.element as HTMLButtonElement).focus()
+      await remover.trigger('click')
+      await flushPromises()
+
+      const enviando = tela.findAll('[role="dialog"] button').find((b) => b.text() === 'Removendo…')!
+      expect(enviando.attributes('disabled')).toBeUndefined()
+      expect(enviando.attributes('aria-disabled')).toBe('true')
+      expect(document.activeElement).toBe(enviando.element)
+
+      falhar(new TypeError('offline'))
+      await flushPromises()
+
+      expect(document.activeElement?.getAttribute('role')).toBe('alert')
+      expect(document.activeElement?.textContent).toContain('Não foi possível remover as recomendações.')
+    })
+
     it('o mesmo descarte repetido depois de uma falha conta uma vez só', async () => {
       social.descartarRecomendacao.mockReset()
         .mockResolvedValueOnce()
