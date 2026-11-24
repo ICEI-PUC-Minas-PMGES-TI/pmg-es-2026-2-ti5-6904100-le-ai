@@ -24,7 +24,7 @@ RNF atendidos: **RNF-SEC-02/03** (propriedade e privacidade verificadas no servi
 
 | Camada | Status | Observação |
 |---|---|---|
-| Infra | implementado | 09/11/2026: `sugestao_descartada` e `v_livro_recomendacao_v1` já existiam desde o DER; entrou a VIEW `v_livro_autor_recomendacao_v1` no `acervo` (migration `0007_20261109120000_view_autor_recomendacao`, revisar antes de aplicar). Sem migration no `social` nem no `identidade`. Falta aplicar em dev e DES |
+| Infra | implementado | 09/11/2026: `sugestao_descartada` e `v_livro_recomendacao_v1` já existiam desde o DER; entrou a VIEW `v_livro_autor_recomendacao_v1` no `acervo` (migration `0007_20261109120000_view_autor_recomendacao`), revisada pelo Vicenzo (dono do `acervo`) e aplicada no banco de dev em 24/11/2026. Sem migration no `social` nem no `identidade`. Falta aplicar em DES (sai no deploy da `main`) |
 | Backend | implementado | 09 e 10/11/2026. `social`: `GET /recomendacoes/sugestoes`, `POST /recomendacoes/sugestoes/{livroId}/descartar`, `GET /recomendacoes/recebidas/restantes`, `POST /recomendacoes/descartar-lote` (`SugestaoRepository`, `ServicoDeSugestao`, `SugestaoController`; 8 testes de integração). `identidade`: `optOutRecomendacao` em `GET /me/perfil` e `PATCH /me/perfil` (2 testes). Suítes completas dos três serviços verdes em Postgres local. Falta o fluxo em DES |
 | Web | implementado | 20/11/2026: seções `Quem você segue leu` e `Do seu gosto` no Descobrir (`SecoesDeSugestoes.vue`), pergunta de descarte em lote em `RecomendacoesRecebidasView`, item `Leituras em sugestões` em `ConfiguracoesView.vue`; 1175 testes, lint e build verdes; conferida no navegador em 20/11/2026. Falta o fluxo em DES |
 | Mobile | implementado | 20/11/2026: as mesmas telas (`secoes_de_sugestoes.dart`, `folha_descarte_em_lote.dart`, linha com `switch` em `configuracoes_page.dart`); 1050 testes e `flutter analyze` verdes; conferido no emulador em 20/11/2026. Falta o fluxo em DES |
@@ -142,17 +142,27 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - **Compartilha `social`** com as demais features sociais — sinalizar no grupo (plano §6). Sugestões descartadas são limpas por [F-CONTA-2](../periodo-2/feature-F-CONTA-2.md) na exclusão de conta.
 - Stack definida (arquitetura §2.1): `social` em Spring, `acervo` em NestJS.
 - **Entrou depois do congelamento de 17/11.** O plano de projeto fecha a entrada de feature em 17/11; a web, o mobile e a integração do backend na `desenvolvimento` são de 20/11/2026, por decisão do dono de levar a feature até o fim. O grupo precisa saber disso antes do merge para a `main` e do congelamento de código de 24/11.
-- **Migration `0007` do `acervo` não aplicada.** Só cria a VIEW `v_livro_autor_recomendacao_v1`; precisa de revisão humana (plano §7) e de ser aplicada em dev e DES antes de o `social` subir com as sugestões, senão `GET /recomendacoes/sugestoes` responde 500 por VIEW inexistente.
+- **Migration `0007` do `acervo`:** revisada pelo Vicenzo e aplicada no banco de dev em 24/11/2026. Em DES entra no deploy da `main` (o `start:prod` do `acervo` aplica as migrations antes de subir); até lá, `GET /recomendacoes/sugestoes` responde 500 por VIEW inexistente.
 - **Divergências da web e do app (20/11/2026), protótipo é referência visual (plano §7):**
   - Web: a pergunta de descarte em lote usa a `SobreposicaoModal` com `role="dialog"`, não `alertdialog`; a pergunta é o rótulo e o texto é a descrição (`aria-describedby`).
   - Web: o painel `Leituras em sugestões` das Configurações abre por estado local, não por rota; recarregar a página volta à política, como antes.
   - Web: o menu da sugestão é o `MenuDeAcoes` de sempre (dropdown de 280px), sem cabeçalho de livro, igual ao menu das recebidas.
   - App: depois do descarte de uma sugestão e de `Mostrar mais`, o foco não é movido de propósito, e não há o anúncio `N sugestões carregadas` (§9 do descobrir.md); a web faz os dois.
-  - App: enquanto `Removendo…`, o voltar do sistema e o toque no scrim não fecham a folha (`PopScope`); arrastar a folha para baixo não foi conferido.
+  - App: enquanto `Removendo…`, o voltar do sistema e o toque no scrim não fecham a folha (`PopScope`), e a folha do lote não é arrastável (24/11/2026).
   - Os dois clientes leem o opt-out em `GET /me/perfil`, como fechado no contrato de 10/11, e não em `GET /me`, como o prompt de configuracoes.md descreve.
   - Os descartes feitos na seção do Descobrir também contam para a pergunta, mas ela só aparece na lista `Recomendações recebidas` (descobrir.md §10). Quem descartar três vezes o mesmo livro só pela seção vê a pergunta no próximo descarte desse livro na lista.
 
 ## Timeline
+
+### Revisão do PR #68 24/11/2026: correções aplicadas direto na `desenvolvimento`, por decisão do Vicenzo para fechar o período.
+
+- **Revisão** (Vicenzo, backend, web e app em checkout isolado, com reprodução de cada apontamento): backend sem bloqueante; quatro problemas nos clientes.
+- **Corrigido nos dois clientes:** o livro descartado numa seção sai também da outra (o `social` não deduplica entre `seguidos` e `gosto`) e o offset de cada seção que o tinha desce; a contagem e a recusa da pergunta de lote zeram quando a conta muda (antes passavam de uma conta para outra na mesma aba/processo); 404 no descarte de sugestão vale como "já saiu"; o switch `Usar minhas leituras` não afirma ligado nem desligado antes de ler o perfil.
+- **Só no app:** a folha do lote não fecha por arrasto durante `Removendo…` (antes o lote concluía sem retorno e virava recusa); uma pergunta por livro de cada vez (não empilha duas folhas); o total da lista segue o `removidas` do servidor; título e motivo do cabeçalho do menu com reticências.
+- **Só na web:** foco da pergunta de lote (fica no painel durante o envio, vai ao banner na falha e ao item vizinho ou ao vazio ao fechar); nome acessível do switch só com o rótulo e erro em região `polite`; trilho desligado no escuro em `grafite-claro`; corrida `Mostrar mais` x descarte; `Tentar de novo` do banner com 48px no celular.
+- **`social`:** `rs.wasNull()` de `quantidade` em `SugestaoRepository`; parâmetro de caminho ou query que não converte (UUID malformado, `offset=abc`) responde 400 `REQUISICAO_INVALIDA`, como o `identidade` (antes 500, em todas as rotas do serviço).
+- **Validação:** `social` 401 testes em Postgres 17 descartável; web 1219 testes, `vue-tsc`, `eslint` e build; app 1109 testes e `flutter analyze`.
+- **Continua pendente:** a contagem do lote pode sair maior em dois lotes simultâneos com chaves diferentes (só o número exibido; o lote segue tudo ou nada); no app, as sugestões não recarregam ao voltar da página do livro.
 
 ### Implementação 20/11/2026: web e mobile; backend integrado na `desenvolvimento`.
 
