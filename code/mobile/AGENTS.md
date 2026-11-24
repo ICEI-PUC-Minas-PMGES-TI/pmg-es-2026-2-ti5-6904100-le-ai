@@ -88,6 +88,20 @@ Convenções do app mobile. Complementa o [`AGENTS.md`](../../AGENTS.md) da raiz
 
 ## Mudanças feitas por outras features
 
+### 20/11/2026 — F-REC-ALG (Henrique): sugestões, descarte em lote e opt-out
+
+Feature em `docs/plano-de-desenvolvimento/periodo-3/feature-F-REC-ALG.md`. Mexe em código do Kayke (F-REC-P2P e F-NOT-OPC): avisar.
+
+- **`features/feed/social_service.dart` (do Kayke):** modelos `SecaoDeSugestao` (enum com `valor` e `titulo`), `Sugestao` (o motivo é só o texto do servidor), `PaginaDeSugestoes` e `Sugestoes`; chamadas `listarSugestoes({secao, offset})`, `descartarSugestao(livroId)` (sem `Idempotency-Key`), `contarRestantesDoLivro(livroId)` e `descartarRecomendacoesDoLivro(livroId, idempotencyKey:)`.
+- **`features/recomendacoes/descarte_de_recomendacoes.dart` (do Kayke):** o mixin conta todo descarte confirmado em `sessao_do_descarte_em_lote.dart` (memória do processo; reabrir o app zera) e ganhou `perguntaDescarteEmLote` (falso por padrão) e `aoRemoverDoLivro`. Só a `RecomendacoesRecebidasPage` liga a pergunta: no terceiro descarte do mesmo livro, sem recusa, ela pede `restantes` e abre `folha_descarte_em_lote.dart` no lugar do aviso. O aviso `Recomendação descartada.` saiu de dentro do `try`: agora sai depois do `finally`, só se a pergunta não tomou o lugar dele.
+- **Novos em `features/recomendacoes/`:** `secoes_de_sugestoes.dart` (`SecoesDeSugestoes` e `ItemSugestao`), `folha_descarte_em_lote.dart` e `sessao_do_descarte_em_lote.dart`. `rotas_recomendacoes.dart`: `secaoDeRecomendacoes` devolve uma `Column` com as recebidas e as sugestões, cada fonte com a sua chamada.
+- **`design/widgets/linha_de_interruptor.dart` (do Kayke, F-NOT-OPC):** o `_Trilho` virou público, `TrilhoDeInterruptor`, sem outra mudança. A linha de sugestões das Configurações não tem ícone e usa só o trilho.
+- **`features/conta/configuracoes_page.dart`:** `perfilService` opcional (o `router.dart` passa `depsDePerfil.servico`) e a linha `Usar minhas leituras em sugestões` no topo de `Privacidade e dados`. `features/perfil/perfil_service.dart`: `Perfil.optOutRecomendacao` e `definirOptOutRecomendacao` (`PATCH /me/perfil`).
+- **Armadilhas:**
+  - A linha nova desceu `Excluir conta` abaixo da dobra no viewport padrão dos testes: quem tocar nela precisa de `ensureVisible` (o `router_test.dart` já foi ajustado).
+  - A capa sem URL desenha o título no placeholder: `find.text(<título>)` acha dois widgets num item de sugestão ou de recomendação.
+  - Teste que descarte o mesmo livro três vezes precisa de `zerarSessaoDoDescarteEmLote()` no `setUp`, ou a contagem de um teste vaza para o seguinte.
+
 ### 20/11/2026 — E6-02 (Henrique): testes das lacunas de listas e da política
 
 Só testes; nenhum código de produção mudou.

@@ -18,6 +18,7 @@ import 'package:le_ai_mobile/features/conta/configuracoes_page.dart';
 import 'package:le_ai_mobile/features/conta/politica_de_privacidade.dart';
 import 'package:le_ai_mobile/features/conta/recuperar_senha_page.dart';
 import 'package:le_ai_mobile/features/conta/redefinir_senha_page.dart';
+import 'package:le_ai_mobile/features/perfil/perfil_service.dart';
 
 class _FakeTokenStore implements TokenStore {
   String? value;
@@ -434,6 +435,131 @@ void main() {
       expect(email.dy - handle.dy, 4);
       final cabecalho = tester.widget<CabecalhoTela>(find.byType(CabecalhoTela));
       expect(cabecalho.semDivisor, isTrue);
+    });
+
+    group('Usar minhas leituras em sugestões (F-REC-ALG)', () {
+      Map<String, Object?> perfil(bool optOut) => <String, Object?>{
+        'id': 'u1',
+        'username': 'marinableu',
+        'displayName': 'Marina',
+        'avatarUrl': null,
+        'privacidade': 'publico',
+        'conteudoRestrito': false,
+        'relacao': 'proprio',
+        'biografia': null,
+        'contadores': <String, Object?>{'seguidores': 0, 'seguidos': 0},
+        'optOutRecomendacao': optOut,
+      };
+
+      Future<List<http.Request>> montar(
+        WidgetTester tester,
+        Future<http.Response> Function(http.Request) identidade,
+      ) async {
+        final gravacoes = <http.Request>[];
+        await tester.pumpWidget(
+          _wrap(
+            ConfiguracoesPage(
+              authService: _servico(
+                (_) async => http.Response('{"id":"u1","username":"marinableu","displayName":"Marina"}', 200),
+              ),
+              perfilService: PerfilService(
+                ApiClient(
+                  baseUrl: 'https://identidade.example.com',
+                  client: MockClient((request) {
+                    if (request.method == 'PATCH') {
+                      gravacoes.add(request);
+                    }
+                    return identidade(request);
+                  }),
+                  esperasDeRetentativa: const <Duration>[],
+                ),
+              ),
+              aoSair: () async {},
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        return gravacoes;
+      }
+
+      bool? ligado(WidgetTester tester) => tester
+          .widget<Semantics>(
+            find.byWidgetPredicate(
+              (w) => w is Semantics && w.properties.label == 'Usar minhas leituras em sugestões',
+            ),
+          )
+          .properties
+          .toggled;
+
+      Future<void> alternar(WidgetTester tester) async {
+        final alvo = find.text('Usar minhas leituras em sugestões');
+        await tester.ensureVisible(alvo);
+        await tester.tap(alvo);
+        await tester.pumpAndSettle();
+      }
+
+      http.Response jsonDe(Object corpo, [int status = 200]) => http.Response(
+        jsonEncode(corpo),
+        status,
+        headers: <String, String>{'content-type': 'application/json; charset=utf-8'},
+      );
+
+      testWidgets('o switch é a frase positiva: ligado quando optOutRecomendacao é falso', (
+        tester,
+      ) async {
+        await montar(tester, (_) async => jsonDe(perfil(false)));
+
+        expect(ligado(tester), isTrue);
+        expect(find.byKey(const ValueKey<String>('skeleton-do-switch')), findsNothing);
+      });
+
+      testWidgets('sem a leitura do perfil, fica o skeleton e o toque não grava', (tester) async {
+        final gravacoes = await montar(tester, (_) async => jsonDe(<String, Object?>{}, 500));
+
+        expect(find.byKey(const ValueKey<String>('skeleton-do-switch')), findsOneWidget);
+        await alternar(tester);
+        expect(gravacoes, isEmpty);
+      });
+
+      testWidgets('desligar grava optOutRecomendacao verdadeiro com chave', (tester) async {
+        final gravacoes = await montar(
+          tester,
+          (request) async => jsonDe(perfil(request.method == 'PATCH')),
+        );
+
+        await alternar(tester);
+
+        expect(gravacoes, hasLength(1));
+        expect(jsonDecode(gravacoes.single.body), <String, Object?>{'optOutRecomendacao': true});
+        expect(gravacoes.single.headers['Idempotency-Key'], isNotEmpty);
+        expect(ligado(tester), isFalse);
+      });
+
+      testWidgets('falha devolve o switch e diz o motivo; tocar de novo repete a chave', (
+        tester,
+      ) async {
+        var patches = 0;
+        final gravacoes = await montar(tester, (request) async {
+          if (request.method != 'PATCH') {
+            return jsonDe(perfil(false));
+          }
+          return patches++ == 0
+              ? jsonDe(<String, Object?>{'codigo': 'ERRO_INTERNO', 'mensagem': 'Falhou.'}, 500)
+              : jsonDe(perfil(true));
+        });
+
+        await alternar(tester);
+        expect(ligado(tester), isTrue);
+        expect(
+          find.text('Não foi possível salvar. Verifique sua conexão e tente de novo.'),
+          findsOneWidget,
+        );
+
+        await alternar(tester);
+        expect(gravacoes.map((g) => g.headers['Idempotency-Key']).toSet(), hasLength(1));
+        expect(find.text('Não foi possível salvar. Verifique sua conexão e tente de novo.'), findsNothing);
+        expect(ligado(tester), isFalse);
+      });
     });
   });
 }

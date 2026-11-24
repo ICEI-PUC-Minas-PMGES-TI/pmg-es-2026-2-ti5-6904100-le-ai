@@ -9,6 +9,7 @@ import FiltroAssuntos from '../components/livros/FiltroAssuntos.vue'
 import FiltrosAvancados from '../components/livros/FiltrosAvancados.vue'
 import FimDaLista from '../components/perfil/FimDaLista.vue'
 import SecaoRecomendacoes from '../components/recomendacoes/SecaoRecomendacoes.vue'
+import SecoesDeSugestoes from '../components/recomendacoes/SecoesDeSugestoes.vue'
 import BannerAviso from '../components/ui/BannerAviso.vue'
 import BotaoPrimario from '../components/ui/BotaoPrimario.vue'
 import BotaoTextual from '../components/ui/BotaoTextual.vue'
@@ -334,10 +335,14 @@ const anuncio = computed(() => {
           {{ anuncio }}
         </p>
 
-        <SecaoRecomendacoes
+        <div
           v-if="estado === 'aterrissagem'"
           class="mt-space-6 md:mt-0"
-        />
+        >
+          <SecaoRecomendacoes />
+          <!-- F-REC-ALG: as duas seções de sugestão, abaixo das recebidas e em chamada própria. -->
+          <SecoesDeSugestoes />
+        </div>
         <section
           v-else
           aria-label="Resultados da busca"
