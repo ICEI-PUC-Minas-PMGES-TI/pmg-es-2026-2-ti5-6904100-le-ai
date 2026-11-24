@@ -2,11 +2,13 @@ package br.com.leai.social.common;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
+import org.springframework.beans.TypeMismatchException;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -135,5 +137,16 @@ class GlobalExceptionHandlerTest {
     assertThat(corpo).isNotNull();
     assertThat(corpo.codigo()).isEqualTo("REQUISICAO_INVALIDA");
     assertThat(corpo.correlationId()).isEqualTo("teste-123");
+  }
+
+  @Test
+  @DisplayName("parâmetro que não converte (UUID malformado, offset=abc) vira 400 e não 500")
+  void parametroQueNaoConverteVira400() {
+    ResponseEntity<ErroResposta> resposta =
+        handler.tratar(new TypeMismatchException("nao-uuid", UUID.class));
+
+    assertThat(resposta.getStatusCode().value()).isEqualTo(400);
+    assertThat(resposta.getBody()).isNotNull();
+    assertThat(resposta.getBody().codigo()).isEqualTo("REQUISICAO_INVALIDA");
   }
 }

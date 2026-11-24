@@ -199,14 +199,15 @@ public class SugestaoRepository {
   }
 
   private static Sugestao sugestaoDe(ResultSet rs) throws SQLException {
-    long quantidade = rs.getLong("quantidade");
+    long valor = rs.getLong("quantidade");
+    Long quantidade = rs.wasNull() ? null : valor;
     return new Sugestao(
         rs.getObject("livro_id", UUID.class),
         rs.getString("titulo"),
         rs.getString("autor_exibicao"),
         rs.getString("capa_resolvida"),
         rs.getString("tipo"),
-        rs.wasNull() ? null : quantidade,
+        quantidade,
         rs.getString("referencia"));
   }
 
