@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { asc, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, between, desc, eq, min, sql } from 'drizzle-orm';
 import { DRIZZLE, type DrizzleDB } from '../db/drizzle.module';
 import {
   atualizacaoProgresso,
@@ -105,8 +105,11 @@ export class SequenciaRepository {
       .where(eq(sequenciaLeitura.usuarioId, usuarioId));
   }
 
-  async obter(usuarioId: string): Promise<EstadoSequencia | null> {
-    const [linha] = await this.db
+  async obter(
+    usuarioId: string,
+    executor: Tx | DrizzleDB = this.db,
+  ): Promise<EstadoSequencia | null> {
+    const [linha] = await executor
       .select({
         sequenciaAtual: sequenciaLeitura.sequenciaAtual,
         maiorSequencia: sequenciaLeitura.maiorSequencia,
@@ -116,6 +119,34 @@ export class SequenciaRepository {
       .from(sequenciaLeitura)
       .where(eq(sequenciaLeitura.usuarioId, usuarioId));
     return linha ?? null;
+  }
+
+  /** Dias com leitura do intervalo, crescentes (calendário, F-GAM-OPC). */
+  async diasNoIntervalo(
+    usuarioId: string,
+    de: string,
+    ate: string,
+  ): Promise<string[]> {
+    const linhas = await this.db
+      .select({ data: diaLeitura.data })
+      .from(diaLeitura)
+      .where(
+        and(
+          eq(diaLeitura.usuarioId, usuarioId),
+          between(diaLeitura.data, de, ate),
+        ),
+      )
+      .orderBy(asc(diaLeitura.data));
+    return linhas.map((l) => l.data);
+  }
+
+  /** Primeiro dia com leitura do leitor, ou nulo sem nenhum. */
+  async primeiroDia(usuarioId: string): Promise<string | null> {
+    const [linha] = await this.db
+      .select({ data: min(diaLeitura.data) })
+      .from(diaLeitura)
+      .where(eq(diaLeitura.usuarioId, usuarioId));
+    return linha?.data ?? null;
   }
 
   /**

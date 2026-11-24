@@ -58,6 +58,9 @@ public final class MessagingConstants {
 
   public static final String EVENTO_RESENHA_CURTIDA = "resenha.curtida";
 
+  /** Job diário do {@code leitura} (F-GAM-OPC, RF-GAM-05). */
+  public static final String EVENTO_LEMBRETE_SEQUENCIA = "lembrete.sequencia";
+
   /** Topologia do consumidor da exclusão definitiva de conta (F-CONTA-2, RN-23.5). */
   public static final String CONTA_CONSUMER_NAME = "social.conta";
 

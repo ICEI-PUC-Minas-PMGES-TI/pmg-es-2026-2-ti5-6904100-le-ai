@@ -45,6 +45,13 @@ class EstantePage extends StatefulWidget {
   /// Botão do vazio da busca, que leva o termo digitado ao acervo.
   final ValueChanged<String>? aoBuscarNoAcervo;
 
+  /// Chegada pelo lembrete de sequência (F-GAM-OPC; notificacoes.md P3 §3, `?lembrete=sequencia`):
+  /// com uma única leitura em `Lendo` ou `Relendo`, abre o registro de progresso dela; com mais de
+  /// uma, o filtro `Lendo`; sem nenhuma, `Todos`. [aoConsumirLembrete] tira o pedido da rota, para
+  /// a mesma notificação tocada de novo valer como pedido novo.
+  final bool lembreteDeSequencia;
+  final VoidCallback? aoConsumirLembrete;
+
   const EstantePage({
     super.key,
     required this.servico,
@@ -56,6 +63,8 @@ class EstantePage extends StatefulWidget {
     this.aoMudarFiltro,
     this.busca,
     this.aoBuscarNoAcervo,
+    this.lembreteDeSequencia = false,
+    this.aoConsumirLembrete,
   });
 
   @override
@@ -110,6 +119,9 @@ class _EstantePageState extends State<EstantePage> {
       fila.addListener(_aoMudar);
       fila.carregar();
     }
+    if (widget.lembreteDeSequencia) {
+      _agendarLembrete();
+    }
   }
 
   @override
@@ -119,6 +131,55 @@ class _EstantePageState extends State<EstantePage> {
     if (status != antigo.statusInicial && status != _status) {
       setState(() => _status = status);
       _lista.carregar();
+    }
+    if (widget.lembreteDeSequencia && !antigo.lembreteDeSequencia) {
+      _agendarLembrete();
+    }
+  }
+
+  /// Depois do quadro: consumir o pedido navega, e navegar durante o build não é permitido.
+  void _agendarLembrete() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _seguirLembrete();
+      }
+    });
+  }
+
+  Future<void> _seguirLembrete() async {
+    widget.aoConsumirLembrete?.call();
+    try {
+      final totais = (await widget.servico.listarEstante(
+        const FiltroEstante(limite: 1),
+      )).totaisPorStatus;
+      final lendo = totais[StatusEstante.lendo] ?? 0;
+      final relendo = totais[StatusEstante.relendo] ?? 0;
+      if (!mounted) {
+        return;
+      }
+      if (lendo + relendo == 0) {
+        _filtrar(null);
+        return;
+      }
+      if (lendo + relendo > 1) {
+        _filtrar(StatusEstante.lendo);
+        return;
+      }
+      final status = lendo == 1 ? StatusEstante.lendo : StatusEstante.relendo;
+      final item = (await widget.servico.listarEstante(
+        FiltroEstante(status: status, limite: 1),
+      )).itens.firstOrNull;
+      final leituraId = item?.leituraEmAndamentoId;
+      if (item == null || leituraId == null) {
+        return;
+      }
+      final leitura = await widget.servico.detalharLeitura(leituraId);
+      if (mounted) {
+        await _registrarProgresso(item, leitura);
+      }
+    } on ApiException {
+      // Sem a contagem, o leitor fica na estante: dali ele registra o progresso.
+      return;
     }
   }
 

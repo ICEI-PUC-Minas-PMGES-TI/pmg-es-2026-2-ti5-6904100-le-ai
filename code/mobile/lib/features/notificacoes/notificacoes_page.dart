@@ -27,6 +27,12 @@ const int _itensDoSkeleton = 6;
 const int _itensDoSkeletonNoFim = 2;
 const int _linhasDoTexto = 3;
 
+/// Destino no rótulo acessível do lembrete de sequência (notificacoes.md P3 §8). O destino real
+/// depende das leituras em andamento, que a lista não conhece; o rótulo anuncia a estante, de onde
+/// sai o registro de progresso.
+String _destinoAnunciado(Notificacao notificacao) =>
+    notificacao.tipo == TipoNotificacao.lembreteSequencia ? '. Abre a estante.' : '';
+
 /// Notificações in-app (RF-NOT-02/03/04), a partir de docs/design/periodo-1/F-NOT/notificacoes.md.
 /// Não lida é só o ponto `musgo` de 8px; abrir marca como lida, e `Marcar todas` zera o badge. A
 /// leitura em risco oferece `Abandonar leitura`, que sempre passa pelo modal (RNF-USA-04), ao
@@ -403,8 +409,8 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
                   solto: true,
                   titulo: 'Nada por enquanto',
                   texto:
-                      'Curtidas, comentários, novos seguidores e avisos das suas leituras '
-                      'aparecem aqui.',
+                      'Curtidas, comentários, menções, recomendações, novos seguidores, avisos '
+                      'das suas leituras e lembretes da sua sequência aparecem aqui.',
                 ),
               ),
             ),
@@ -476,7 +482,8 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
                     Semantics(
                       label:
                           '${notificacao.lida ? '' : 'Não lida. '}${notificacao.mensagem} '
-                          '${notificacao.recomendacaoMensagem ?? ''} $tempo',
+                          '${notificacao.recomendacaoMensagem ?? ''} $tempo'
+                          '${_destinoAnunciado(notificacao)}',
                       excludeSemantics: true,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,

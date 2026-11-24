@@ -23,10 +23,14 @@ class SequenciaDoPerfil extends StatefulWidget {
   final ValueListenable<int>? alteracoes;
   final Duration atrasoDaRecarga;
 
+  /// F-GAM-OPC: o bloco inteiro abre o calendário da sequência (meu-perfil.md P3 §4.1).
+  final VoidCallback? aoAbrirCalendario;
+
   const SequenciaDoPerfil({
     super.key,
     required this.servico,
     this.alteracoes,
+    this.aoAbrirCalendario,
     this.atrasoDaRecarga = const Duration(seconds: 3),
   });
 
@@ -110,7 +114,11 @@ class _SequenciaDoPerfilState extends State<SequenciaDoPerfil> {
           acao: BotaoTextual(texto: 'Tentar de novo', onPressed: _carregar),
         );
       case _Carga.pronta:
-        return CartaoDeSequencia(atual: sequencia!.atual, recorde: sequencia.maior);
+        return CartaoDeSequencia(
+          atual: sequencia!.atual,
+          recorde: sequencia.maior,
+          aoAbrir: widget.aoAbrirCalendario,
+        );
     }
   }
 }

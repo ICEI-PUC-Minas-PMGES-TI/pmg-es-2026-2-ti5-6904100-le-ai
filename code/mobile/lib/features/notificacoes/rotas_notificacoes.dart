@@ -15,6 +15,14 @@ const String _segmento = 'notificacoes';
 /// (notificacoes.md §4): `/estante/notificacoes`, `/feed/notificacoes`...
 String rotaNotificacoes(String raizDaAba) => '$raizDaAba/$_segmento';
 
+/// Destino do lembrete de sequência (F-GAM-OPC; notificacoes.md P3 §3): a estante decide, pelo
+/// número de leituras em andamento, entre abrir o registro de progresso da única, o filtro `Lendo`
+/// ou `Todos` (`EstantePage.lembreteDeSequencia`).
+const String parametroDoLembrete = 'lembrete';
+const String valorDoLembreteDeSequencia = 'sequencia';
+const String rotaDoLembreteDeSequencia =
+    '$rotaEstanteRaiz?$parametroDoLembrete=$valorDoLembreteDeSequencia';
+
 bool ehRotaDeNotificacoes(String caminho) {
   final segmentos = Uri.parse(caminho).pathSegments;
   return segmentos.length == 2 && segmentos.last == _segmento;
@@ -66,6 +74,8 @@ String destinoDaNotificacao(Notificacao notificacao) {
       return ator == null ? rotaPerfilRaiz : rotaPerfilDeOutro(ator.username);
     case TipoNotificacao.solicitacaoCriada:
       return rotaSolicitacoes;
+    case TipoNotificacao.lembreteSequencia:
+      return rotaDoLembreteDeSequencia;
     case TipoNotificacao.atividadeCurtida:
     case TipoNotificacao.atividadeComentada:
     case TipoNotificacao.comentarioRespondido:

@@ -112,8 +112,12 @@ x-event-consumers:
       - leitura.expirada
       - recomendacao.recebida
       - resenha.curtida
+      - lembrete.sequencia
     effect: >-
-      Cria uma notificação para destinatarioId. resenha.curtida (F-AVA-2) só
+      Cria uma notificação para destinatarioId. lembrete.sequencia (F-GAM-OPC)
+      vem do job diário do leitura, com a chave de negócio
+      `sequencia:<usuarioId>:lembrete:<dataLocal>`: um lembrete por leitor e
+      dia local. resenha.curtida (F-AVA-2) só
       chega na primeira curtida do par resenha e leitor, e a chave de negócio
       `resenha:<resenhaId>:curtida:<autorAcaoId>` impede a segunda. A deduplicação semântica usa
       destinatário, tipo e chave de negócio; para inatividade, inclui leitura,
@@ -138,13 +142,6 @@ x-event-consumers:
       o backfill do intervalo antes de a fila existir.
     required-envelope-fields:
       [eventId, type, version, occurredAt, correlationId, businessKey, data]
-  planned-future-events:
-    x-implementation-status: planned-after-periodo-1
-    events:
-      - lembrete.sequencia
-    description: >-
-      Só entram no consumidor quando a feature produtora definir nome, schema,
-      chave de negócio, retentativa, DLQ e testes. Não são gerados no Período 1.
 x-external-actions:
   abandonar-leitura-em-risco:
     x-implementation-status: implemented
@@ -1912,8 +1909,9 @@ components:
       type: string
       description: >-
         Tipos produzidos no Período 1, a menção de F-SOCIAL-2, a curtida em
-        resenha de F-AVA-2 e a recomendação recebida de F-REC-P2P. Lembrete de
-        sequência depende de feature posterior.
+        resenha de F-AVA-2, a recomendação recebida de F-REC-P2P e o lembrete
+        de sequência de F-GAM-OPC. O lembrete não tem ator, livro nem ação; o
+        número da sequência vai na `mensagem`.
       enum:
         - NOVO_SEGUIDOR
         - SOLICITACAO_CRIADA
@@ -1926,7 +1924,6 @@ components:
         - LEITURA_EXPIRADA
         - RECOMENDACAO_RECEBIDA
         - RESENHA_CURTIDA
-      x-planned-future-values:
         - LEMBRETE_SEQUENCIA
     AcaoNotificacao:
       type: object
@@ -2066,9 +2063,8 @@ components:
     TipoPreferenciaNotificacao:
       type: string
       description: >-
-        Tipos configuráveis (RF-NOT-05): os de `TipoNotificacao` mais
-        `LEMBRETE_SEQUENCIA`, que só passa a ser gerado pela F-GAM-OPC mas já é
-        configurável. `SOLICITACAO_CRIADA` corresponde ao literal
+        Tipos configuráveis (RF-NOT-05): os mesmos de `TipoNotificacao`.
+        `SOLICITACAO_CRIADA` corresponde ao literal
         `solicitacao_seguir` do banco.
       enum:
         - NOVO_SEGUIDOR

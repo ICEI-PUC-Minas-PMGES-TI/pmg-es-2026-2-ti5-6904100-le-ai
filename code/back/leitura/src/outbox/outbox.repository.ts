@@ -38,20 +38,45 @@ export class OutboxRepository {
 
     const [linha] = await tx
       .insert(outboxLeitura)
-      .values({
-        eventId: evento.eventId,
-        tipo: evento.tipo,
-        versao: evento.versao,
-        chaveNegocio: evento.chaveNegocio,
-        // `correlation_id` é `uuid NOT NULL` em linha viva
-        // (`outbox_leitura_anonimizacao_ck`). O middleware de correlação
-        // garante que o valor no ALS é sempre um UUID, mesmo quando o cliente
-        // manda lixo.
-        correlationId: getCorrelationId() ?? null,
-        payload: evento.payload as Record<string, unknown>,
-      })
+      .values(this.linha(evento))
       .returning({ eventId: outboxLeitura.eventId });
 
     return linha.eventId;
+  }
+
+  /**
+   * Para evento com `eventId` determinístico (lembrete de sequência,
+   * F-GAM-OPC): grava só se o id ainda não existe. `false` quando a outbox já
+   * tinha o evento, publicado ou não; a chave primária resolve a corrida
+   * entre duas execuções.
+   */
+  async inserirSeNovo(
+    tx: Tx,
+    evento: EventoDaOutbox & { eventId: string },
+  ): Promise<boolean> {
+    this.validador.validarDados(evento.tipo, evento.versao, evento.payload);
+
+    const inseridas = await tx
+      .insert(outboxLeitura)
+      .values(this.linha(evento))
+      .onConflictDoNothing({ target: outboxLeitura.eventId })
+      .returning({ eventId: outboxLeitura.eventId });
+
+    return inseridas.length > 0;
+  }
+
+  private linha(evento: EventoDaOutbox) {
+    return {
+      eventId: evento.eventId,
+      tipo: evento.tipo,
+      versao: evento.versao,
+      chaveNegocio: evento.chaveNegocio,
+      // `correlation_id` é `uuid NOT NULL` em linha viva
+      // (`outbox_leitura_anonimizacao_ck`). O middleware de correlação
+      // garante que o valor no ALS é sempre um UUID, mesmo quando o cliente
+      // manda lixo.
+      correlationId: getCorrelationId() ?? null,
+      payload: evento.payload as Record<string, unknown>,
+    };
   }
 }

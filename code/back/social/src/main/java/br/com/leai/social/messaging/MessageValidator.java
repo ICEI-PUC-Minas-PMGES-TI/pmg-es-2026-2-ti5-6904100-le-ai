@@ -45,6 +45,7 @@ public final class MessageValidator {
           MessagingConstants.EVENTO_RECOMENDACAO_RECEBIDA,
           MessagingConstants.EVENTO_LIVRO_ADICIONADO_A_ESTANTE,
           MessagingConstants.EVENTO_RESENHA_CURTIDA,
+          MessagingConstants.EVENTO_LEMBRETE_SEQUENCIA,
           MessagingConstants.EVENTO_CONTA_EXCLUIDA);
 
   private final ObjectMapper mapper =

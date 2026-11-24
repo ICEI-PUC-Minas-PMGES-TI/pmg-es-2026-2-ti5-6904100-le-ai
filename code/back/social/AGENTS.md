@@ -51,6 +51,19 @@ Feitas por F-AVA com autorização do Renato e **mergeadas na `desenvolvimento` 
 - **Flyway no banco de dev:** a migration é aplicada na próxima vez que alguém subir o `social` local a partir da `desenvolvimento`. Migration nova no `social` precisa de versão maior que `V20260927002000`, ou o Flyway recusa a ordem.
 - **Ordem dos eventos:** o despachante do `leitura` segura só a linha que falhou, então um `resenha.excluida` pode chegar antes do `resenha.publicada` da mesma resenha. Hoje o `excluida` vira no-op e o `publicada` cria a atividade depois. É raro; fica registrado.
 
+### 19/11/2026 — F-GAM-OPC (Vicenzo): notificação `LEMBRETE_SEQUENCIA`
+
+Quem cria um tipo de notificação entrega o mapeamento no consumidor. Avisar o Kayke.
+
+- **Tipo `LEMBRETE_SEQUENCIA`** (`lembrete_sequencia`, que o CHECK já aceitava, então **sem migration**): o tipo entra em `TipoNotificacao`, e `TipoPreferenciaNotificacao` passa a apontar para ele.
+- **`EventoDeNotificacao`:** uma linha nova no exchange do `leitura`, sem ator, copiando `sequenciaAtual` e `dataLocal` para o snapshot (`DadosDeNotificacao`).
+- **Frase em `RedacaoDeNotificacao`:** "Sua sequência está em N dias e hoje ainda não tem leitura registrada.", com singular em 1 dia. A resposta sai sem ator, livro e ação; o push usa a mesma frase.
+- **Constante e schema:** `EVENTO_LEMBRETE_SEQUENCIA`, schema no `MessageValidator` e cópia de `lembrete.sequencia.v1.schema.json`.
+- **Deduplicação:** a chave de negócio `sequencia:<usuarioId>:lembrete:<dataLocal>` segura o mesmo dia; o produtor já deduplica pelo `eventId`.
+- **Testes:**
+  - os parametrizados por evento passam a cobrir o tipo pela fixture `EventosDeNotificacaoDeTeste`;
+  - os casos próprios ficam em `ConsumidorDeNotificacaoIntegracaoTest`, `ConsumidorDeNotificacaoBrokerTest` (binding e DLQ), `NotificacaoControllerIntegracaoTest` e `RedacaoDeNotificacaoTest`.
+
 ### 08/10/2026 — F-CONTA-2 (Henrique): consumidor de `conta.excluida`
 
 Previsto na [divisão do Período 2](../../../docs/plano-de-desenvolvimento/periodo-2/README.md#o-que-ainda-cruza-entre-pessoas): o dono da F-CONTA-2 escreve os consumidores da exclusão nos três serviços. Avisar o Kayke.

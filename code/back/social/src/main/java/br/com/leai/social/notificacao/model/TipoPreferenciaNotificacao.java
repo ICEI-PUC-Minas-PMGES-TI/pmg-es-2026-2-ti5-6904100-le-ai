@@ -15,7 +15,7 @@ public enum TipoPreferenciaNotificacao {
   LEITURA_EXPIRADA(TipoNotificacao.LEITURA_EXPIRADA),
   RECOMENDACAO_RECEBIDA(TipoNotificacao.RECOMENDACAO_RECEBIDA),
   RESENHA_CURTIDA(TipoNotificacao.RESENHA_CURTIDA),
-  LEMBRETE_SEQUENCIA("lembrete_sequencia");
+  LEMBRETE_SEQUENCIA(TipoNotificacao.LEMBRETE_SEQUENCIA);
 
   private final String literal;
 

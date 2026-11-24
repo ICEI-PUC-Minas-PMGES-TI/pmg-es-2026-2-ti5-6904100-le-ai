@@ -94,7 +94,7 @@ enum TipoPreferenciaNotificacao {
     SecaoDePreferencias.leituras,
     'Lembrete de sequência',
     'Um aviso por dia, se você tem sequência ativa e ainda não registrou progresso.',
-    null,
+    TipoNotificacao.lembreteSequencia,
   );
 
   final String valorDoContrato;

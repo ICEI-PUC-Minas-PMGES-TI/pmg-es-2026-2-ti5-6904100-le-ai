@@ -25,6 +25,7 @@ export const OPERACOES = {
   ABANDONAR_LEITURA: 'abandonarLeitura',
   RETOMAR_LEITURA: 'retomarLeitura',
   PROCESSAR_INATIVIDADE_LEITURAS: 'processarInatividadeLeituras',
+  ENVIAR_LEMBRETES_SEQUENCIA: 'enviarLembretesDeSequencia',
   REGISTRAR_PROGRESSO: 'registrarProgresso',
   EXCLUIR_TRECHO_PROGRESSO: 'excluirTrechoProgresso',
   CRIAR_DESAFIO: 'criarDesafio',
