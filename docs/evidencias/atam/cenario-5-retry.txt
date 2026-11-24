@@ -1,0 +1,15 @@
+Cenário 5.4 - falha técnica transitória com retentativa e DLQ, local (Docker), 2026-11-19T22:32:40.862Z
+Falha provocada: ALTER TABLE acervo.mensagem_processada RENAME (o INSERT do recibo falha a cada tentativa); restaurada depois da DLQ.
+Mensagem A (eventId 00d3a1f8-7718-47bf-ac9e-d1ab10ecf69d) publicada em 2026-11-19T22:32:16.152Z; mensagem B (eventId f2085ae3-6f11-49c1-af33-f58ce58a9b76) publicada em 2026-11-19T22:32:19.170Z, durante a espera de A.
+Erros do INSERT do recibo no log do Postgres (A e, depois da DLQ de A, B antes da restauração), 5 linha(s):
+    2026-11-19 22:32:16.164 UTC [65] ERROR:  relation "acervo.mensagem_processada" does not exist at character 22
+    2026-11-19 22:32:17.170 UTC [65] ERROR:  relation "acervo.mensagem_processada" does not exist at character 22
+    2026-11-19 22:32:22.175 UTC [65] ERROR:  relation "acervo.mensagem_processada" does not exist at character 22
+    2026-11-19 22:32:37.177 UTC [65] ERROR:  relation "acervo.mensagem_processada" does not exist at character 22
+    2026-11-19 22:32:37.181 UTC [65] ERROR:  relation "acervo.mensagem_processada" does not exist at character 22
+Intervalos entre as tentativas de A (ms, relógio do Postgres): 1006, 5005, 15002
+Log do acervo para A: [19:32:37.178] ERROR (19760): Mensagem enviada à DLQ eventId=00d3a1f8-7718-47bf-ac9e-d1ab10ecf69d correlationId=6ebcffe2-a0b7-4e6b-8cfa-edd8dad86de1: Failed query: 
+DLQ leai.p0.ping.dlq: 1 -> 2
+Tabela restaurada em 2026-11-19T22:32:37.503Z. Log do acervo para B: [19:32:38.191] INFO (19760): Mensagem consumida após retry eventId=f2085ae3-6f11-49c1-af33-f58ce58a9b76 correlationId=802e3e9e-88af-4948-92e4-8b51af412ed2
+Recibo de B: 2026-11-19 22:32:38.18387+00
+B só foi processada depois que A saiu para a DLQ: com prefetch=1, a retentativa no próprio consumidor segura a fila daquele consumidor durante a espera (~21 s).

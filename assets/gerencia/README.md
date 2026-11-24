@@ -85,6 +85,38 @@ base do orçado: o CPI de 1,00 é premissa, não medição.
 > a linha de base e passa pelo controle de mudança; a cada revisão de status, atualizar a data e o
 > último mês realizado na aba `Param`.
 
+## Lista de Riscos
+
+Elaborada em **20/11/2026**. Dez riscos do projeto, com probabilidade, impacto, risco resultante e
+medidas de prevenção e de contingência. Consolida os riscos do plano de projeto §13, o do orçamento §5
+e os que apareceram nas atas.
+
+| Arquivo | Conteúdo |
+| --- | --- |
+| [`lista_de_riscos.md`](lista_de_riscos.md) | **Versão canônica**: regra de classificação, os dez riscos, rastreabilidade e controle de mudança. |
+| [`Lista-de-Riscos-Le-Ai.xlsx`](Lista-de-Riscos-Le-Ai.xlsx) | Template da disciplina preenchido. A coluna **Risco** é calculada por fórmula a partir da probabilidade e do impacto. **Derivada** do `.md`. |
+| [`lista_de_riscos.pdf`](lista_de_riscos.pdf) | Versão para entrega, em uma página A4 paisagem. **Derivado** da planilha. |
+
+> Os riscos do `.md` e da planilha precisam bater: mudança começa no `.md` e é repetida na planilha na
+> mesma passada.
+
+## Plano de Comunicação
+
+Elaborado em **23/11/2026**. Para cada entregável, registra o público-alvo, o método de comunicação, a
+frequência e o responsável, além das ferramentas (WhatsApp, Google Meet, GitHub e Canvas), dos papéis
+e dos princípios gerais, entre eles a LGPD. As linhas de plano de qualidade, checklists de inspeção e
+plano de aquisições do template foram mapeadas para o Plano de Testes, o Definition of Done com a
+revisão de PR e o orçamento, que cumprem esses papéis no projeto.
+
+| Arquivo | Conteúdo |
+| --- | --- |
+| [`plano_de_comunicacao.md`](plano_de_comunicacao.md) | **Versão canônica**: matriz de comunicação, ferramentas, papéis, princípios e controle de mudança. |
+| [`plano_de_comunicacao.docx`](plano_de_comunicacao.docx) | Template da disciplina preenchido. **Derivado** do `.md`. |
+| [`plano_de_comunicacao.pdf`](plano_de_comunicacao.pdf) | Versão para entrega, em três páginas A4. **Derivado** do `.docx`. |
+
+> Os riscos de comunicação já estão cobertos pela lista de riscos (R3: aviso no grupo antes de mexer em
+> serviço de outro dono; R9: segredos e dados pessoais), que não precisou mudar.
+
 ## Processo e planejamento
 
 O processo de trabalho (branches, Definition of Done, rituais, prazos e períodos) não vive aqui — é fonte de verdade em [`../../docs/orquestador/plano-de-projeto.md`](../../docs/orquestador/plano-de-projeto.md). O acompanhamento das 37 features está no quadro Kanban do projeto: https://github.com/orgs/ICEI-PUC-Minas-PMGES-TI/projects/738

@@ -1,0 +1,1792 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Lê Ai — identidade",
+    "description": "Contrato do serviço identidade (P0-NAV: esqueleto de auth).",
+    "version": "0.0.1"
+  },
+  "servers": [
+    {
+      "url": "https://leai-identidade.onrender.com",
+      "description": "Generated server url"
+    }
+  ],
+  "tags": [
+    {
+      "name": "usuario",
+      "description": "Identidade do leitor autenticado"
+    },
+    {
+      "name": "seguimento",
+      "description": "Seguidores, seguidos e solicitações de seguir"
+    },
+    {
+      "name": "conta",
+      "description": "Exclusão e recuperação da conta"
+    },
+    {
+      "name": "auth",
+      "description": "Cadastro e autenticação"
+    },
+    {
+      "name": "perfil",
+      "description": "Perfil público, edição e busca exata"
+    }
+  ],
+  "paths": {
+    "/me/perfil": {
+      "get": {
+        "tags": [
+          "perfil"
+        ],
+        "summary": "Consulta o próprio perfil (RF-SOC-01)",
+        "operationId": "meu",
+        "responses": {
+          "200": {
+            "description": "Perfil do usuário autenticado.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Perfil"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "perfil"
+        ],
+        "summary": "Substitui os campos editáveis do próprio perfil (RF-SOC-01/04)",
+        "description": "Nome de exibição, biografia (texto, nunca HTML), avatar e privacidade. O avatar é a URL e o publicId do upload direto ao Cloudinary; o servidor confere a origem e nunca baixa a imagem (RNF-SEC-38). Mudar para privado não remove seguidores. Exige Idempotency-Key.",
+        "operationId": "editar",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditarPerfilRequisicao"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Perfil atualizado.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Perfil"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Avatar fora do Cloudinary do projeto, da pasta de avatares ou dos formatos.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/solicitacoes/{id}/recusar": {
+      "post": {
+        "tags": [
+          "seguimento"
+        ],
+        "summary": "Recusa uma solicitação de seguir recebida (RF-SOC-06)",
+        "operationId": "recusar",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Solicitação recusada."
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/solicitacoes/{id}/aceitar": {
+      "post": {
+        "tags": [
+          "seguimento"
+        ],
+        "summary": "Aceita uma solicitação de seguir recebida (RF-SOC-06)",
+        "description": "Cria o seguimento e publica solicitacao.aceita. Pedido de outra pessoa é 404, como o inexistente; pedido já respondido é 409.",
+        "operationId": "aceitar",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Aceita e seguimento criado."
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/perfis/{username}/seguir": {
+      "post": {
+        "tags": [
+          "seguimento"
+        ],
+        "summary": "Segue um perfil público ou pede para seguir um privado (RF-SOC-05/06)",
+        "description": "Público: seguimento imediato e evento seguidor.novo. Privado: pedido pendente e evento solicitacao.criada. Auto-seguimento, relação existente e pedido pendente são 409. Limite de 30 por minuto por usuário (RNF-SEC-18).",
+        "operationId": "seguir",
+        "parameters": [
+          {
+            "name": "username",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Seguindo ou pedido pendente.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultadoSeguir"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Próprio perfil, já segue, já pediu ou chave reutilizada.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "seguimento"
+        ],
+        "summary": "Deixa de seguir outro leitor (RF-SOC-07)",
+        "operationId": "deixarDeSeguir",
+        "parameters": [
+          {
+            "name": "username",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Seguimento removido ou já ausente."
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/me/conta/cancelar-exclusao": {
+      "post": {
+        "tags": [
+          "conta"
+        ],
+        "summary": "Cancela a exclusão pendente dentro do prazo (RN-23.4)",
+        "operationId": "cancelarExclusaoConta",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "recuperacaoAuth": []
+          }
+        ]
+      }
+    },
+    "/internal/jobs/exclusao-conta": {
+      "post": {
+        "tags": [
+          "conta"
+        ],
+        "summary": "Job diário que finaliza exclusões vencidas (RN-23.5)",
+        "operationId": "finalizarExclusoesVencidas",
+        "parameters": [
+          {
+            "name": "X-Scheduler-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultadoJobExclusao"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "schedulerToken": []
+          }
+        ]
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Cria uma conta de leitor (RF-AUT-01)",
+        "description": "Senha com hash bcrypt (RNF-SEC-09), mínimo de 8 caracteres e fora da lista de senhas comuns (RNF-SEC-27). Recusa menores de 18 anos (RNF-SEC-43).",
+        "operationId": "cadastrar",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CadastroRequisicao"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Conta criada.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Usuario"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dados inválidos: senha curta ou comum, menor de 18, e-mail malformado, Idempotency-Key ausente, vazia ou longa demais.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "E-mail ou nome de usuário já em uso.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Limite de requisições por IP excedido (RNF-SEC-17).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Rotaciona o token de renovação e emite uma nova sessão (RF-AUT-03)",
+        "description": "O token apresentado é revogado no mesmo ato. Reapresentar um token já revogado revoga todas as renovações do usuário (RNF-SEC-30). Exige Idempotency-Key: repetir a mesma chave devolve a mesma sessão, sem contar como reuso.",
+        "operationId": "renovar",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshRequisicao"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Sessão renovada.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sessao"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corpo inválido ou Idempotency-Key ausente.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Token desconhecido, expirado, revogado ou já usado.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency-Key já usada com outro token.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/password/reset": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Redefine a senha pelo link de recuperação (RF-AUT-04)",
+        "description": "Consome o link, troca a senha (RNF-SEC-27) e revoga todas as renovações da conta (RNF-SEC-30). Link desconhecido, vencido ou já usado é sempre 410 com a mesma mensagem, sem dado da conta. Exige Idempotency-Key.",
+        "operationId": "redefinirSenha",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RedefinirSenhaRequisicao"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Senha redefinida e renovações revogadas."
+          },
+          "400": {
+            "description": "Senha nova curta ou comum, corpo inválido ou Idempotency-Key ausente.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency-Key já usada com outro corpo.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Link desconhecido, vencido ou já usado.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/password/forgot": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Pede o link de recuperação de senha por e-mail (RF-AUT-04)",
+        "description": "Sempre 202 com o mesmo corpo, exista ou não a conta e qualquer que seja o resultado do envio (RNF-SEC-28). O link vale 1 hora e um uso (RNF-SEC-10). A mesma Idempotency-Key não reenvia o e-mail. Exige Idempotency-Key.",
+        "operationId": "solicitarRecuperacao",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EsqueciSenhaRequisicao"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Pedido recebido, sem confirmar conta ou envio.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/MensagemResposta"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "E-mail inválido ou Idempotency-Key ausente.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency-Key já usada com outro e-mail.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/password/change": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Altera a senha do usuário autenticado (RF-AUT-05)",
+        "description": "Exige a senha atual. A nova segue a mesma política do cadastro (RNF-SEC-27). O sucesso revoga todas as renovações da conta, inclusive a deste aparelho (RNF-SEC-30), e é registrado em log sem senha, token ou hash (RNF-SEC-35/36). Exige Idempotency-Key.",
+        "operationId": "alterarSenha",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AlterarSenhaRequisicao"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Senha alterada e renovações revogadas."
+          },
+          "400": {
+            "description": "Corpo inválido, senha nova curta ou Idempotency-Key ausente.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Token de acesso ausente, inválido ou expirado.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency-Key já usada com outro corpo.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Senha atual incorreta ou senha nova na lista de senhas comuns.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Encerra a sessão revogando o token de renovação (RF-AUT-06)",
+        "description": "Sempre 204: token desconhecido ou já revogado não é erro, para não revelar o estado do token. O token de acesso emitido antes continua válido até expirar (15 min), por ser stateless (RNF-ARQ-04); o cliente o descarta. Exige Idempotency-Key.",
+        "operationId": "sair",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshRequisicao"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Sessão encerrada ou já encerrada."
+          },
+          "400": {
+            "description": "Corpo inválido ou Idempotency-Key ausente.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency-Key já usada com outro token.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Autentica por e-mail ou nome de usuário (RF-AUT-02)",
+        "description": "Emite token de acesso de curta duração e token de renovação rotativo (RF-AUT-03). A resposta de credencial inválida é a mesma para conta inexistente e senha errada (RNF-SEC-28).",
+        "operationId": "entrar",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequisicao"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Sessão emitida; para conta com exclusão pendente, acesso de recuperação (F-CONTA-2), distinguido pelo campo tipo.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/AcessoDeRecuperacao"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Sessao"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Credencial inválida.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Limite por IP excedido (RNF-SEC-17) ou identidade em bloqueio temporário progressivo por falhas sucessivas (RNF-SEC-29).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/solicitacoes": {
+      "get": {
+        "tags": [
+          "seguimento"
+        ],
+        "summary": "Lista as solicitações de seguir recebidas, mais recentes primeiro",
+        "operationId": "solicitacoes",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Página de pedidos pendentes recebidos.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginaSolicitacaoSeguir"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/perfis": {
+      "get": {
+        "tags": [
+          "perfil"
+        ],
+        "summary": "Busca um perfil por username exato (RF-SOC-03)",
+        "description": "Só o username completo, sem diferenciar maiúsculas. Sem prefixo, parcial, sugestão ou listagem (RNF-SEC-19/44): devolve zero ou um perfil. Limite defensivo de 30 buscas por minuto por usuário.",
+        "operationId": "buscar",
+        "parameters": [
+          {
+            "name": "username",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Zero ou um perfil.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PerfilResumo"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Username fora do formato.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Buscas demais em pouco tempo.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/perfis/{username}": {
+      "get": {
+        "tags": [
+          "perfil"
+        ],
+        "summary": "Consulta o perfil de outro leitor (RF-SOC-02, RN-08)",
+        "description": "Identidade, biografia e contadores são públicos. Em perfil privado, quem não é o dono nem seguidor aceito recebe conteudoRestrito true, e os serviços donos recusam o conteúdo social. Conta suspensa ou em exclusão é 404, como a inexistente.",
+        "operationId": "deOutro",
+        "parameters": [
+          {
+            "name": "username",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Perfil e estado de acesso.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Perfil"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Leitor inexistente ou oculto.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/me": {
+      "get": {
+        "tags": [
+          "usuario"
+        ],
+        "summary": "Devolve o leitor dono do token de acesso",
+        "operationId": "eu",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsuarioProprio"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/me/seguidos": {
+      "get": {
+        "tags": [
+          "seguimento"
+        ],
+        "summary": "Lista os perfis seguidos pelo usuário autenticado (RF-SOC-08)",
+        "description": "Só do próprio dono: não existe lista de seguidos de terceiros (SEC-19/44).",
+        "operationId": "seguidos",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Página de seguidos, mais recentes primeiro.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginaPerfilResumo"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/me/seguidores": {
+      "get": {
+        "tags": [
+          "seguimento"
+        ],
+        "summary": "Lista os seguidores do usuário autenticado (RF-SOC-08)",
+        "description": "Só do próprio dono: não existe lista de seguidores de terceiros (SEC-19/44).",
+        "operationId": "seguidores",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Página de seguidores, mais recentes primeiro.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginaPerfilResumo"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Health check do serviço (RNF-OBS-02)",
+        "operationId": "verificar",
+        "responses": {
+          "200": {
+            "description": "Serviço e banco saudáveis.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Serviço indisponível (ex.: banco fora do ar).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/seguidores/{username}": {
+      "delete": {
+        "tags": [
+          "seguimento"
+        ],
+        "summary": "Remove um seguidor do usuário autenticado (RF-SOC-07)",
+        "operationId": "removerSeguidor",
+        "parameters": [
+          {
+            "name": "username",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Seguidor removido ou relação já ausente."
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/me/conta": {
+      "delete": {
+        "tags": [
+          "conta"
+        ],
+        "summary": "Solicita a exclusão da própria conta (RF-AUT-07)",
+        "description": "Exige senha atual, confirmação e Idempotency-Key. Abre 30 dias de recuperação, oculta a conta e revoga as renovações.",
+        "operationId": "solicitarExclusaoConta",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SolicitarExclusaoRequisicao"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExclusaoSolicitada"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Avatar": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "maxLength": 2048,
+            "minLength": 0
+          },
+          "publicId": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "publicId",
+          "url"
+        ]
+      },
+      "EditarPerfilRequisicao": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "maxLength": 60,
+            "minLength": 0
+          },
+          "biografia": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 0
+          },
+          "avatar": {
+            "$ref": "#/components/schemas/Avatar"
+          },
+          "privacidade": {
+            "type": "string",
+            "pattern": "publico|privado"
+          }
+        },
+        "required": [
+          "displayName",
+          "privacidade"
+        ]
+      },
+      "ContadoresPerfil": {
+        "type": "object",
+        "properties": {
+          "seguidores": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "seguidos": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "Perfil": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "avatarUrl": {
+            "type": "string"
+          },
+          "privacidade": {
+            "type": "string"
+          },
+          "conteudoRestrito": {
+            "type": "boolean"
+          },
+          "relacao": {
+            "type": "string"
+          },
+          "biografia": {
+            "type": "string"
+          },
+          "contadores": {
+            "$ref": "#/components/schemas/ContadoresPerfil"
+          }
+        }
+      },
+      "ResultadoSeguir": {
+        "type": "object",
+        "properties": {
+          "estado": {
+            "type": "string"
+          },
+          "solicitacaoId": {
+            "type": "string"
+          }
+        }
+      },
+      "ResultadoJobExclusao": {
+        "type": "object",
+        "properties": {
+          "finalizadas": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Contas finalizadas nesta execução"
+          }
+        }
+      },
+      "CadastroRequisicao": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "exemplo@leai.invalid",
+            "maxLength": 254,
+            "minLength": 0
+          },
+          "username": {
+            "type": "string",
+            "example": "marinableu",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._]{3,30}$"
+          },
+          "displayName": {
+            "type": "string",
+            "example": "Marina Beltrão",
+            "maxLength": 60,
+            "minLength": 0
+          },
+          "dataNascimento": {
+            "type": "string",
+            "format": "date",
+            "example": "1999-03-14"
+          },
+          "senha": {
+            "type": "string",
+            "format": "password",
+            "maxLength": 72,
+            "minLength": 8
+          }
+        },
+        "required": [
+          "dataNascimento",
+          "displayName",
+          "email",
+          "senha",
+          "username"
+        ]
+      },
+      "Usuario": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "username": {
+            "type": "string",
+            "example": "marinableu"
+          },
+          "displayName": {
+            "type": "string",
+            "example": "Marina Beltrão"
+          }
+        }
+      },
+      "RefreshRequisicao": {
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "type": "string",
+            "maxLength": 512,
+            "minLength": 0,
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "refreshToken"
+        ]
+      },
+      "Sessao": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/RespostaDeLogin"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "accessToken": {
+                "type": "string",
+                "description": "JWT assinado em HS256"
+              },
+              "tokenType": {
+                "type": "string",
+                "example": "Bearer"
+              },
+              "expiresIn": {
+                "type": "integer",
+                "format": "int64",
+                "description": "Validade do token de acesso em segundos",
+                "example": 900
+              },
+              "refreshToken": {
+                "type": "string",
+                "description": "Token opaco, rotativo e revogável"
+              },
+              "tipo": {
+                "type": "string",
+                "enum": [
+                  "sessao"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "RedefinirSenhaRequisicao": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 512,
+            "minLength": 0,
+            "writeOnly": true
+          },
+          "novaSenha": {
+            "type": "string",
+            "format": "password",
+            "maxLength": 72,
+            "minLength": 8,
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "novaSenha",
+          "token"
+        ]
+      },
+      "EsqueciSenhaRequisicao": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "exemplo@leai.invalid",
+            "maxLength": 254,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "MensagemResposta": {
+        "type": "object",
+        "properties": {
+          "mensagem": {
+            "type": "string"
+          }
+        }
+      },
+      "AlterarSenhaRequisicao": {
+        "type": "object",
+        "properties": {
+          "senhaAtual": {
+            "type": "string",
+            "format": "password",
+            "maxLength": 72,
+            "minLength": 0,
+            "writeOnly": true
+          },
+          "novaSenha": {
+            "type": "string",
+            "format": "password",
+            "maxLength": 72,
+            "minLength": 8,
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "novaSenha",
+          "senhaAtual"
+        ]
+      },
+      "LoginRequisicao": {
+        "type": "object",
+        "properties": {
+          "identificador": {
+            "type": "string",
+            "description": "E-mail ou nome de usuário",
+            "example": "marinableu",
+            "minLength": 1
+          },
+          "senha": {
+            "type": "string",
+            "format": "password",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "identificador",
+          "senha"
+        ]
+      },
+      "AcessoDeRecuperacao": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/RespostaDeLogin"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "accessToken": {
+                "type": "string",
+                "description": "JWT de recuperação, assinado com chave própria"
+              },
+              "tokenType": {
+                "type": "string",
+                "example": "Bearer"
+              },
+              "expiresIn": {
+                "type": "integer",
+                "format": "int64",
+                "example": 900
+              },
+              "tipo": {
+                "type": "string",
+                "enum": [
+                  "recuperacao_exclusao"
+                ]
+              },
+              "exclusaoSolicitadaEm": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "exclusaoPrevistaEm": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "username": {
+                "type": "string"
+              },
+              "nomeExibicao": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "RespostaDeLogin": {
+        "discriminator": {
+          "propertyName": "tipo"
+        },
+        "properties": {
+          "tipo": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tipo"
+        ]
+      },
+      "PaginaSolicitacaoSeguir": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SolicitacaoSeguir"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "PerfilResumo": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "biografia": {
+            "type": "string"
+          },
+          "avatarUrl": {
+            "type": "string"
+          },
+          "privacidade": {
+            "type": "string"
+          },
+          "conteudoRestrito": {
+            "type": "boolean"
+          },
+          "relacao": {
+            "type": "string"
+          }
+        }
+      },
+      "SolicitacaoSeguir": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "solicitante": {
+            "$ref": "#/components/schemas/PerfilResumo"
+          },
+          "criadaEm": {
+            "type": "string"
+          }
+        }
+      },
+      "UsuarioProprio": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "username": {
+            "type": "string",
+            "example": "marinableu"
+          },
+          "displayName": {
+            "type": "string",
+            "example": "Marina Beltrão"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "exemplo@leai.invalid"
+          }
+        }
+      },
+      "PaginaPerfilResumo": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PerfilResumo"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "Erro": {
+        "type": "object",
+        "description": "Corpo de erro padronizado (RNF-ERR-01) — pt-BR, sem detalhe técnico.",
+        "properties": {
+          "codigo": {
+            "type": "string",
+            "example": "RECURSO_NAO_ENCONTRADO"
+          },
+          "mensagem": {
+            "type": "string",
+            "example": "Não encontramos o que você procura."
+          },
+          "correlationId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "Health": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "ok"
+          },
+          "service": {
+            "type": "string",
+            "example": "identidade"
+          },
+          "time": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-08-25T12:00:00.000Z"
+          }
+        }
+      },
+      "SolicitarExclusaoRequisicao": {
+        "type": "object",
+        "properties": {
+          "senha": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 0
+          },
+          "confirmacao": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "confirmacao",
+          "senha"
+        ]
+      },
+      "ExclusaoSolicitada": {
+        "type": "object",
+        "properties": {
+          "exclusaoSolicitadaEm": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "exclusaoPrevistaEm": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Remoção definitiva, exatamente 30 dias após a solicitação"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "description": "Token de acesso emitido por POST /auth/login.",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}

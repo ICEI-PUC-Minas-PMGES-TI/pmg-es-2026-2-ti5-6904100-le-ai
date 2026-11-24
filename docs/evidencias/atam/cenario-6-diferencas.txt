@@ -1,0 +1,164 @@
+Cenário 6 - spec em runtime (DES, 2026-11-19T22:21:38.147Z) x docs/api/*.yaml na f1f5c7e.
+Comparação por (método, caminho) das operações marcadas implemented no YAML; depois operationId e códigos de status.
+status diferente = conjunto de códigos declarados difere; código de sucesso diferente = o 2xx declarado difere.
+
+== identidade (GET /v3/api-docs): {"runtime":24,"yaml":24,"yamlImplementadas":24,"implementadasPresentesNoRuntime":24,"faltaNoRuntime":0,"sobraNoRuntime":0,"operationIdDiferente":18,"statusDiferente":23,"codigoDeSucessoDiferente":2,"statusDiferenteSoPorErrosOmitidosNoRuntime":21}
+  código de sucesso diferente: DELETE /me/conta: yaml [202] runtime [200]
+  código de sucesso diferente: POST /me/conta/cancelar-exclusao: yaml [204] runtime [200]
+  operationId diferente: POST /auth/register: yaml=cadastrarUsuario runtime=cadastrar
+  operationId diferente: POST /auth/login: yaml=autenticarUsuario runtime=entrar
+  operationId diferente: POST /auth/refresh: yaml=renovarSessao runtime=renovar
+  operationId diferente: POST /auth/logout: yaml=encerrarSessao runtime=sair
+  operationId diferente: POST /auth/password/forgot: yaml=solicitarRecuperacaoSenha runtime=solicitarRecuperacao
+  operationId diferente: GET /me: yaml=obterUsuarioAutenticado runtime=eu
+  operationId diferente: GET /me/perfil: yaml=obterMeuPerfil runtime=meu
+  operationId diferente: PUT /me/perfil: yaml=atualizarMeuPerfil runtime=editar
+  operationId diferente: GET /perfis: yaml=buscarPerfilPorUsername runtime=buscar
+  operationId diferente: GET /perfis/{username}: yaml=obterPerfil runtime=deOutro
+  operationId diferente: POST /perfis/{username}/seguir: yaml=seguirPerfil runtime=seguir
+  operationId diferente: DELETE /perfis/{username}/seguir: yaml=deixarDeSeguirPerfil runtime=deixarDeSeguir
+  operationId diferente: GET /solicitacoes: yaml=listarSolicitacoesRecebidas runtime=solicitacoes
+  operationId diferente: POST /solicitacoes/{id}/aceitar: yaml=aceitarSolicitacao runtime=aceitar
+  operationId diferente: POST /solicitacoes/{id}/recusar: yaml=recusarSolicitacao runtime=recusar
+  operationId diferente: GET /me/seguidores: yaml=listarMeusSeguidores runtime=seguidores
+  operationId diferente: GET /me/seguidos: yaml=listarPerfisSeguidos runtime=seguidos
+  operationId diferente: GET /health: yaml=consultarSaude runtime=verificar
+  status diferente: POST /auth/register: só no yaml [503] só no runtime []
+  status diferente: POST /auth/login: só no yaml [400, 409, 503] só no runtime []
+  status diferente: POST /auth/refresh: só no yaml [429, 503] só no runtime []
+  status diferente: POST /auth/logout: só no yaml [429, 503] só no runtime []
+  status diferente: POST /auth/password/forgot: só no yaml [429, 503] só no runtime []
+  status diferente: POST /auth/password/reset: só no yaml [429, 503] só no runtime []
+  status diferente: POST /auth/password/change: só no yaml [403, 429, 503] só no runtime []
+  status diferente: GET /me: só no yaml [401, 503] só no runtime []
+  status diferente: DELETE /me/conta: só no yaml [202, 400, 401, 403, 409, 422, 429, 503] só no runtime [200]
+  status diferente: POST /me/conta/cancelar-exclusao: só no yaml [204, 400, 401, 409, 410, 503] só no runtime [200]
+  status diferente: POST /internal/jobs/exclusao-conta: só no yaml [400, 401, 503] só no runtime []
+  status diferente: GET /me/perfil: só no yaml [401, 503] só no runtime []
+  status diferente: PUT /me/perfil: só no yaml [400, 401, 409, 503] só no runtime []
+  status diferente: GET /perfis: só no yaml [401, 503] só no runtime []
+  status diferente: GET /perfis/{username}: só no yaml [401, 503] só no runtime []
+  status diferente: POST /perfis/{username}/seguir: só no yaml [400, 401, 404, 429, 503] só no runtime []
+  status diferente: DELETE /perfis/{username}/seguir: só no yaml [400, 401, 404, 409, 503] só no runtime []
+  status diferente: GET /solicitacoes: só no yaml [400, 401, 503] só no runtime []
+  status diferente: POST /solicitacoes/{id}/aceitar: só no yaml [400, 401, 404, 409, 503] só no runtime []
+  status diferente: POST /solicitacoes/{id}/recusar: só no yaml [400, 401, 404, 409, 503] só no runtime []
+  status diferente: DELETE /seguidores/{username}: só no yaml [400, 401, 404, 409, 503] só no runtime []
+  status diferente: GET /me/seguidores: só no yaml [400, 401, 503] só no runtime []
+  status diferente: GET /me/seguidos: só no yaml [400, 401, 503] só no runtime []
+
+== social (GET /v3/api-docs): {"runtime":33,"yaml":33,"yamlImplementadas":33,"implementadasPresentesNoRuntime":33,"faltaNoRuntime":0,"sobraNoRuntime":0,"operationIdDiferente":14,"statusDiferente":32,"codigoDeSucessoDiferente":1,"statusDiferenteSoPorErrosOmitidosNoRuntime":31}
+  código de sucesso diferente: DELETE /admin/frases/{fraseId}: yaml [204] runtime [200]
+  operationId diferente: GET /feed: yaml=listarFeed runtime=feed
+  operationId diferente: GET /atividades/{atividadeId}: yaml=obterAtividade runtime=obter
+  operationId diferente: POST /atividades/{atividadeId}/curtir: yaml=curtirAtividade runtime=curtir
+  operationId diferente: DELETE /atividades/{atividadeId}/curtir: yaml=descurtirAtividade runtime=descurtir
+  operationId diferente: GET /atividades/{atividadeId}/comentarios: yaml=listarComentariosRaiz runtime=listarComentarios
+  operationId diferente: POST /atividades/{atividadeId}/comentarios: yaml=criarComentario runtime=comentar
+  operationId diferente: POST /recomendacoes: yaml=recomendarLivro runtime=recomendar
+  operationId diferente: GET /recomendacoes/candidatos: yaml=listarCandidatosARecomendacao runtime=candidatos
+  operationId diferente: GET /recomendacoes/recebidas: yaml=listarRecomendacoesRecebidas runtime=recebidas
+  operationId diferente: DELETE /recomendacoes/{recomendacaoId}: yaml=descartarRecomendacao runtime=descartar
+  operationId diferente: GET /notificacoes: yaml=listarNotificacoes runtime=listar
+  operationId diferente: POST /notificacoes/marcar-lidas: yaml=marcarNotificacoesLidas runtime=marcarLidas
+  operationId diferente: GET /notificacoes/tempo-real: yaml=abrirCanalDeNotificacoes runtime=tempoReal
+  operationId diferente: GET /health: yaml=verificarSaude runtime=verificar
+  status diferente: GET /feed: só no yaml [401, 503] só no runtime []
+  status diferente: GET /atividades/{atividadeId}: só no yaml [401, 503] só no runtime []
+  status diferente: POST /atividades/{atividadeId}/curtir: só no yaml [401, 409, 429, 503] só no runtime []
+  status diferente: DELETE /atividades/{atividadeId}/curtir: só no yaml [401, 404, 409, 429, 503] só no runtime []
+  status diferente: GET /atividades/{atividadeId}/comentarios: só no yaml [400, 401, 503] só no runtime []
+  status diferente: POST /atividades/{atividadeId}/comentarios: só no yaml [400, 401, 409, 429, 503] só no runtime []
+  status diferente: GET /comentarios/{comentarioRaizId}/respostas: só no yaml [400, 401, 503] só no runtime []
+  status diferente: PATCH /comentarios/{comentarioId}: só no yaml [400, 401, 409, 503] só no runtime []
+  status diferente: DELETE /comentarios/{comentarioId}: só no yaml [401, 409, 503] só no runtime []
+  status diferente: POST /listas: só no yaml [400, 401, 409, 429, 503] só no runtime []
+  status diferente: GET /listas/{listaId}: só no yaml [401, 404, 503] só no runtime []
+  status diferente: PATCH /listas/{listaId}: só no yaml [400, 401, 404, 409, 429, 503] só no runtime []
+  status diferente: DELETE /listas/{listaId}: só no yaml [401, 404, 409, 429, 503] só no runtime []
+  status diferente: GET /listas/{listaId}/livros: só no yaml [400, 401, 403, 404, 503] só no runtime []
+  status diferente: POST /listas/{listaId}/livros: só no yaml [400, 401, 404, 409, 422, 429, 503] só no runtime []
+  status diferente: DELETE /listas/{listaId}/livros/{livroId}: só no yaml [401, 404, 409, 429, 503] só no runtime []
+  status diferente: PUT /listas/{listaId}/livros/{itemId}/posicao: só no yaml [400, 401, 404, 409, 429, 503] só no runtime []
+  status diferente: GET /perfis/{usuarioId}/listas: só no yaml [400, 401, 403, 404, 503] só no runtime []
+  status diferente: GET /me/listas: só no yaml [400, 401, 503] só no runtime []
+  status diferente: POST /recomendacoes: só no yaml [400, 401, 404, 409, 429, 503] só no runtime []
+  status diferente: GET /recomendacoes/candidatos: só no yaml [400, 401, 404, 422, 503] só no runtime []
+  status diferente: GET /recomendacoes/recebidas: só no yaml [400, 401, 503] só no runtime []
+  status diferente: DELETE /recomendacoes/{recomendacaoId}: só no yaml [401, 409, 503] só no runtime []
+  status diferente: GET /notificacoes: só no yaml [401, 503] só no runtime []
+  status diferente: POST /notificacoes/marcar-lidas: só no yaml [401, 409, 503] só no runtime []
+  status diferente: GET /notificacoes/tempo-real: só no yaml [503] só no runtime []
+  status diferente: POST /denuncias: só no yaml [400, 401, 403, 409, 429, 503] só no runtime []
+  status diferente: GET /admin/denuncias: só no yaml [400, 401, 403, 503] só no runtime []
+  status diferente: POST /admin/denuncias/{denunciaId}/arquivar: só no yaml [401, 403, 404, 409] só no runtime []
+  status diferente: POST /admin/denuncias/{denunciaId}/remover: só no yaml [401, 403, 404, 409, 503, 504] só no runtime []
+  status diferente: DELETE /admin/frases/{fraseId}: só no yaml [204, 401, 403, 409, 503, 504] só no runtime [200]
+  status diferente: GET /admin/moderacao/logs: só no yaml [400, 401, 403] só no runtime []
+
+== acervo (GET /docs-json): {"runtime":15,"yaml":15,"yamlImplementadas":15,"implementadasPresentesNoRuntime":15,"faltaNoRuntime":0,"sobraNoRuntime":0,"operationIdDiferente":1,"statusDiferente":15,"codigoDeSucessoDiferente":0,"statusDiferenteSoPorErrosOmitidosNoRuntime":15}
+  operationId diferente: GET /health: yaml=consultarSaude runtime=HealthController_check
+  status diferente: GET /health: só no yaml [503] só no runtime []
+  status diferente: GET /livros: só no yaml [400, 401, 503] só no runtime []
+  status diferente: GET /assuntos: só no yaml [401, 503] só no runtime []
+  status diferente: GET /livros/{id}: só no yaml [400, 401, 404, 429, 503] só no runtime []
+  status diferente: GET /livros/{id}/resenhas: só no yaml [400, 401, 404, 503] só no runtime []
+  status diferente: GET /autores/{id}: só no yaml [400, 401, 404, 503] só no runtime []
+  status diferente: GET /editoras/{id}: só no yaml [400, 401, 404, 503] só no runtime []
+  status diferente: GET /series/{id}: só no yaml [400, 401, 404, 503] só no runtime []
+  status diferente: POST /livros/oficial: só no yaml [400, 413, 401, 429, 503] só no runtime []
+  status diferente: GET /livros/importacoes/{id}: só no yaml [400, 401, 403, 404, 503] só no runtime []
+  status diferente: POST /livros/importacoes/{id}/reprocessar: só no yaml [400, 401, 403, 404, 409, 429, 503] só no runtime []
+  status diferente: POST /livros/pessoal: só no yaml [400, 413, 401, 409, 503] só no runtime []
+  status diferente: GET /livros/pessoal/{id}: só no yaml [400, 401, 403, 404, 503] só no runtime []
+  status diferente: PATCH /livros/pessoal/{id}: só no yaml [400, 413, 401, 403, 404, 409, 503] só no runtime []
+  status diferente: DELETE /livros/pessoal/{id}: só no yaml [400, 401, 404, 409, 503] só no runtime []
+
+== leitura (GET /docs-json): {"runtime":45,"yaml":45,"yamlImplementadas":45,"implementadasPresentesNoRuntime":45,"faltaNoRuntime":0,"sobraNoRuntime":0,"operationIdDiferente":1,"statusDiferente":45,"codigoDeSucessoDiferente":1,"statusDiferenteSoPorErrosOmitidosNoRuntime":44}
+  código de sucesso diferente: POST /internal/jobs/inatividade: yaml [200] runtime [201]
+  operationId diferente: POST /internal/jobs/inatividade: yaml=processarInatividadeLeituras runtime=InatividadeController_executar
+  status diferente: GET /health: só no yaml [503] só no runtime []
+  status diferente: POST /estante: só no yaml [400, 401, 403, 404, 409, 422] só no runtime []
+  status diferente: GET /estante: só no yaml [400, 401] só no runtime []
+  status diferente: GET /estante/{livroId}: só no yaml [400, 401, 404] só no runtime []
+  status diferente: DELETE /estante/{livroId}: só no yaml [401, 403, 404, 409] só no runtime []
+  status diferente: GET /perfis/{usuarioId}/estante: só no yaml [400, 401, 403, 404] só no runtime []
+  status diferente: POST /leituras: só no yaml [400, 401, 403, 404, 409, 422] só no runtime []
+  status diferente: POST /releituras: só no yaml [400, 401, 403, 404, 409, 422] só no runtime []
+  status diferente: GET /leituras/{leituraId}: só no yaml [401, 403, 404] só no runtime []
+  status diferente: POST /leituras/{leituraId}/finalizar: só no yaml [400, 401, 403, 404, 409, 422] só no runtime []
+  status diferente: POST /leituras/{leituraId}/abandonar: só no yaml [401, 403, 404, 409] só no runtime []
+  status diferente: POST /leituras/{leituraId}/retomar: só no yaml [401, 403, 404, 409] só no runtime []
+  status diferente: GET /livros/{livroId}/conclusoes: só no yaml [401, 404] só no runtime []
+  status diferente: GET /livros/{livroId}/favorito: só no yaml [400, 401] só no runtime []
+  status diferente: PUT /livros/{livroId}/favorito: só no yaml [400, 401, 403, 404, 409, 503] só no runtime []
+  status diferente: DELETE /livros/{livroId}/favorito: só no yaml [400, 401, 409] só no runtime []
+  status diferente: GET /me/favoritos: só no yaml [400, 401, 503] só no runtime []
+  status diferente: GET /me/historico: só no yaml [400, 401, 503] só no runtime []
+  status diferente: POST /leituras/{leituraId}/progresso: só no yaml [400, 401, 403, 404, 409, 422] só no runtime []
+  status diferente: GET /leituras/{leituraId}/progresso: só no yaml [400, 401, 403, 404] só no runtime []
+  status diferente: DELETE /progresso/{progressoId}: só no yaml [400, 401, 403, 404, 409] só no runtime []
+  status diferente: PUT /livros/{livroId}/nota: só no yaml [400, 401, 404, 409, 413, 422, 429, 503] só no runtime []
+  status diferente: DELETE /livros/{livroId}/nota: só no yaml [400, 401, 409, 429] só no runtime []
+  status diferente: PUT /livros/{livroId}/resenha: só no yaml [400, 401, 403, 404, 409, 413, 422, 429, 503] só no runtime []
+  status diferente: DELETE /livros/{livroId}/resenha: só no yaml [400, 401, 409, 429] só no runtime []
+  status diferente: GET /livros/{livroId}/minha-avaliacao: só no yaml [400, 401, 404, 503] só no runtime []
+  status diferente: PUT /resenhas/{resenhaId}/reacao: só no yaml [400, 401, 403, 404, 409, 413, 422, 429, 503] só no runtime []
+  status diferente: DELETE /resenhas/{resenhaId}/reacao: só no yaml [400, 401, 403, 404, 409, 422, 429, 503] só no runtime []
+  status diferente: GET /livros/{livroId}/frases: só no yaml [400, 401, 404, 503] só no runtime []
+  status diferente: POST /livros/{livroId}/frases: só no yaml [400, 401, 403, 404, 409, 413, 422, 429, 503] só no runtime []
+  status diferente: DELETE /frases/{fraseId}: só no yaml [400, 401, 404, 409, 429] só no runtime []
+  status diferente: GET /perfis/{usuarioId}/resenhas: só no yaml [400, 401, 403, 404, 503] só no runtime []
+  status diferente: GET /perfis/{usuarioId}/estatisticas: só no yaml [400, 401, 403, 404, 503] só no runtime []
+  status diferente: GET /me/estatisticas: só no yaml [400, 401, 503] só no runtime []
+  status diferente: GET /me/estatisticas/graficos: só no yaml [400, 401, 503] só no runtime []
+  status diferente: GET /me/sequencia: só no yaml [401, 503] só no runtime []
+  status diferente: POST /desafios: só no yaml [400, 401, 409, 413, 422, 503] só no runtime []
+  status diferente: GET /desafios: só no yaml [400, 401, 503] só no runtime []
+  status diferente: PATCH /desafios/{desafioId}: só no yaml [400, 401, 404, 409, 413, 422, 503] só no runtime []
+  status diferente: DELETE /desafios/{desafioId}: só no yaml [400, 401, 404, 409, 503] só no runtime []
+  status diferente: POST /desafios/{desafioId}/pausar: só no yaml [400, 401, 404, 409, 503] só no runtime []
+  status diferente: POST /desafios/{desafioId}/retomar: só no yaml [400, 401, 404, 409, 503] só no runtime []
+  status diferente: POST /internal/jobs/inatividade: só no yaml [200, 400, 401, 409] só no runtime [201]
+  status diferente: POST /internal/moderacao/resenhas/{resenhaId}/remocao: só no yaml [400, 401, 409, 503] só no runtime []
+  status diferente: POST /internal/moderacao/frases/{fraseId}/remocao: só no yaml [400, 401, 409, 503] só no runtime []

@@ -64,8 +64,15 @@ _**Resumo**. O Lê Ai é um aplicativo social de leitura, no modelo Skoob/Letter
 7. [Solução](7.solucao.md#solucao "Projeto da Solução") <br />
 
 8. [Avaliação Arquitetura](8.avaliacao_arquitetura.md#avaliacao "Avaliação da Arquitetura") <br />
-   8.1. Cenários <br />
-   8.2. Avaliação <br />
+   8.1. Resumo executivo <br />
+   8.2. Objetivos de negócio e direcionadores arquiteturais <br />
+   8.3. Topologia e abordagem da arquitetura <br />
+   8.4. Árvore de utilidade e inventário de cenários <br />
+   8.5. Resultados das medições <br />
+   8.6. Inventário analítico rastreável <br />
+   8.7. Plano de ação e recomendações técnicas <br />
+   8.8. Avaliação final <br />
+   8.9. Evidências dos testes realizados <br />
 
 9. [Plano de Testes](9.plano_de_testes.md#plano-de-testes "Plano de Testes") <br />
    9.1. Objetivo <br />

@@ -1,0 +1,25 @@
+Cenário 5 - testes automatizados de mensageria (RNF-TST-03), evidência complementar. Levantado em 19/11/2026.
+
+Últimas execuções verdes do CI na branch desenvolvimento (gh run list --branch desenvolvimento --status success):
+- ci-back-acervo      run 44617499030, commit c872dab, 19/11/2026
+- ci-back-leitura     run 44624822421, commit 0e0f123, 19/11/2026
+- ci-back-social      run 44617498939, commit c872dab, 19/11/2026
+- ci-back-identidade  run 42325694283, commit 1281aa1, 07/11/2026 (último run verde do workflow na desenvolvimento)
+
+Testes de mensageria que esses workflows executam (nomes como estão no código):
+acervo e leitura (src/messaging/*.spec.ts, mesma base nas duas stacks Nest):
+- AmqpConsumerService: "declares the main queue and its DLQ with the documented topology";
+  "commits the receipt before ACK and propagates correlation-id to the handler";
+  "ACKs duplicate delivery without executing the handler again";
+  "a failing handler rolls back its transaction and never ACKs";
+  "sends invalid messages directly to the DLQ";
+  "retries transient failures and sends the delivery to the DLQ after the third retry"
+- OutboxDispatcherService: "marks an outbox row as published only after publisher success";
+  "keeps a failed outbox row pending and increments its retry schedule"
+- amqp-publisher.service.spec.ts, message-validator.spec.ts e schemas.spec.ts ("schemas runtime de mensageria": cópia idêntica ao canônico)
+identidade e social (Spring):
+- AmqpPublisherServiceTest: "publica mensagem persistente e aguarda publisher confirm"; "falha quando o broker rejeita o publisher confirm"
+- OutboxRetryScheduleTest (identidade): "calcula proxima tentativa a partir do estado persistido"
+- MessageValidatorTest, ContaExcluidaSchemaTest e EventosDePerfilSchemaTest (identidade)
+
+Os testes são unitários (broker simulado). As medições dos arquivos cenario-5-*.txt rodaram com broker e Postgres reais em Docker.
