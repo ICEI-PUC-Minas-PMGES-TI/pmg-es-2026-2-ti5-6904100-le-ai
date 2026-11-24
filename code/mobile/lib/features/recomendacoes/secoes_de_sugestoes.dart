@@ -145,17 +145,16 @@ class _SecoesDeSugestoesState extends State<SecoesDeSugestoes> {
       if (!mounted) {
         return;
       }
-      final atual = _secoes[secao]!;
-      setState(() {
-        atual.itens = atual.itens.where((s) => s.livro.id != livroId).toList();
-        final offset = atual.proximoOffset;
-        if (offset != null) {
-          atual.proximoOffset = offset > 0 ? offset - 1 : 0;
-        }
-      });
+      _retirarDasSecoes(livroId);
       mostrarAviso(context, 'Sugestão descartada.');
-    } on ApiException {
-      if (mounted) {
+    } on ApiException catch (erro) {
+      if (erro.status == 404) {
+        // Livro pessoal, inativo ou que deixou de existir: não há o que descartar, e ele já não
+        // vem do servidor. Sai da tela como nas recebidas, sem aviso e sem `Tentar de novo`.
+        if (mounted) {
+          _retirarDasSecoes(livroId);
+        }
+      } else if (mounted) {
         mostrarAviso(
           context,
           'Não foi possível descartar a sugestão. Verifique sua conexão e tente de novo.',
@@ -169,6 +168,22 @@ class _SecoesDeSugestoesState extends State<SecoesDeSugestoes> {
         setState(() => _emDescarte.remove(livroId));
       }
     }
+  }
+
+  /// O descarte vale para as duas seções (o mesmo livro pode vir em `seguidos` e em `gosto`): o
+  /// livro sai de cada seção que o tinha, e o offset de cada uma delas desce um, porque o servidor
+  /// também o tirou de lá.
+  void _retirarDasSecoes(String livroId) {
+    setState(() {
+      for (final atual in _secoes.values) {
+        final antes = atual.itens.length;
+        atual.itens = atual.itens.where((s) => s.livro.id != livroId).toList();
+        final offset = atual.proximoOffset;
+        if (atual.itens.length < antes && offset != null) {
+          atual.proximoOffset = offset > 0 ? offset - 1 : 0;
+        }
+      }
+    });
   }
 
   @override
@@ -431,9 +446,16 @@ class _CabecalhoDoMenu extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Text(livro.titulo, style: theme.textTheme.titleSmall),
+              Text(
+                livro.titulo,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleSmall,
+              ),
               Text(
                 sugestao.motivo,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodySmall?.copyWith(color: theme.secondaryText),
               ),
             ],

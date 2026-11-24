@@ -13,14 +13,20 @@ import 'botao_textual.dart';
 /// O conteúdo do [builder] fica num `Flexible`: quando não cabe (tela baixa, teclado aberto,
 /// fonte grande), o `SingleChildScrollView` dele rola. Sem isso a coluna dava altura infinita ao
 /// conteúdo, o scroll nunca rolava e a folha estourava com a faixa de overflow.
+///
+/// [arrastavel] falso tira o fechamento por arrasto. Serve à folha que precisa ficar aberta
+/// enquanto um pedido corre: o `PopScope` segura o voltar e o scrim, mas o arrasto do
+/// `showModalBottomSheet` fecha com `Navigator.pop` sem consultá-lo.
 Future<T?> mostrarFolhaInferior<T>(
   BuildContext context, {
   required WidgetBuilder builder,
   bool semMovimento = false,
+  bool arrastavel = true,
 }) {
   final theme = Theme.of(context);
   return showModalBottomSheet<T>(
     context: context,
+    enableDrag: arrastavel,
     sheetAnimationStyle: semMovimento ? AnimationStyle.noAnimation : null,
     useSafeArea: true,
     isScrollControlled: true,

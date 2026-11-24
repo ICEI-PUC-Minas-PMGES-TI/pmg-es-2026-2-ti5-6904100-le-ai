@@ -175,6 +175,7 @@ class _ConfiguracoesPageState extends State<ConfiguracoesPage> {
                 _LinhaDeSugestoes(
                   usar: _usarLeituras,
                   falhou: _falhouPreferencia,
+                  salvando: _salvandoPreferencia,
                   desabilitada: _saindo,
                   aoAlternar: _alternarPreferencia,
                   theme: theme,
@@ -335,9 +336,14 @@ class _Linha extends StatelessWidget {
 /// única linha com controle. Sem ícone, descrição sempre visível, o `switch` no lugar do
 /// `CaretRight`. A linha inteira alterna. [usar] nulo é o carregamento: retângulo de 52 x 32px em
 /// `capa-placeholder` no lugar do trilho, e a linha não responde. Saindo, trilho a 40%.
+///
+/// Para o leitor de tela (§4.5 e §9): sem estado lido, a linha não diz ligado nem desligado e fica
+/// desabilitada; gravando, ela é anunciada como ocupada (`Salvando`) e desabilitada, sem a ação de
+/// toque, enquanto o desenho não muda.
 class _LinhaDeSugestoes extends StatelessWidget {
   final bool? usar;
   final bool falhou;
+  final bool salvando;
   final bool desabilitada;
   final VoidCallback aoAlternar;
   final ThemeData theme;
@@ -345,6 +351,7 @@ class _LinhaDeSugestoes extends StatelessWidget {
   const _LinhaDeSugestoes({
     required this.usar,
     required this.falhou,
+    required this.salvando,
     required this.desabilitada,
     required this.aoAlternar,
     required this.theme,
@@ -360,13 +367,15 @@ class _LinhaDeSugestoes extends StatelessWidget {
   Widget build(BuildContext context) {
     final estado = usar;
     final ativa = estado != null && !desabilitada;
+    final acionavel = ativa && !salvando;
     return Semantics(
-      toggled: estado ?? false,
-      enabled: ativa,
+      toggled: estado,
+      enabled: acionavel,
       label: _rotulo,
+      value: salvando ? 'Salvando' : null,
       hint: falhou ? '$_descricao $_erro' : _descricao,
       liveRegion: falhou,
-      onTap: ativa ? aoAlternar : null,
+      onTap: acionavel ? aoAlternar : null,
       excludeSemantics: true,
       child: InkWell(
         onTap: ativa ? aoAlternar : null,

@@ -21,6 +21,7 @@ const double _opacidadeDescartando = 0.5;
 mixin DescarteDeRecomendacoes<T extends StatefulWidget> on State<T> {
   final Set<String> _emDescarte = <String>{};
   final Map<String, String> _chavesDeDescarte = <String, String>{};
+  final Set<String> _perguntasEmAndamento = <String>{};
 
   SocialService get social;
 
@@ -34,15 +35,28 @@ mixin DescarteDeRecomendacoes<T extends StatefulWidget> on State<T> {
   bool get perguntaDescarteEmLote => false;
 
   /// Tira da lista todas as recomendações do livro, depois que o servidor confirmou o lote.
-  void aoRemoverDoLivro(String livroId) {}
+  /// [removidas] é a contagem do servidor, que inclui as que a lista ainda não carregou.
+  void aoRemoverDoLivro(String livroId, int removidas) {}
 
   /// No terceiro descarte do mesmo livro, sem recusa anterior, pergunta ao servidor quantas restam
   /// e, havendo alguma, abre a pergunta no lugar do aviso. Se a contagem falhar, o descarte já
-  /// valeu e o aviso de sempre aparece. Devolve se a pergunta tomou o lugar do aviso.
+  /// valeu e o aviso de sempre aparece. Devolve se a pergunta tomou o lugar do aviso. Uma pergunta
+  /// por livro de cada vez: outro descarte do mesmo livro enquanto ela está em andamento (a
+  /// contagem ainda correndo, ou a folha aberta) é um descarte comum, com o aviso de sempre.
   Future<bool> _ofereceuDescarteEmLote(LivroSnapshot livro) async {
-    if (!registrarDescarte(livro.id) || !perguntaDescarteEmLote) {
+    if (!registrarDescarte(livro.id) ||
+        !perguntaDescarteEmLote ||
+        !_perguntasEmAndamento.add(livro.id)) {
       return false;
     }
+    try {
+      return await _perguntarDescarteEmLote(livro);
+    } finally {
+      _perguntasEmAndamento.remove(livro.id);
+    }
+  }
+
+  Future<bool> _perguntarDescarteEmLote(LivroSnapshot livro) async {
     final int restantes;
     try {
       restantes = await social.contarRestantesDoLivro(livro.id);
@@ -52,18 +66,24 @@ mixin DescarteDeRecomendacoes<T extends StatefulWidget> on State<T> {
     if (restantes == 0 || !mounted) {
       return false;
     }
-    final removidas = await perguntarDescarteEmLote(
+    final resposta = await perguntarDescarteEmLote(
       context,
       social: social,
       livro: livro,
       restantes: restantes,
     );
-    if (removidas == null) {
+    if (resposta.recusada) {
       recusarPergunta(livro.id);
       return true;
     }
-    aoRemoverDoLivro(livro.id);
-    if (mounted && removidas > 0) {
+    final removidas = resposta.removidas;
+    if (removidas == null || !mounted) {
+      // A tela saiu, ou o lote foi pedido, a folha saiu por fora e o pedido falhou: nem recusa,
+      // nem lote para aplicar.
+      return false;
+    }
+    aoRemoverDoLivro(livro.id, removidas);
+    if (removidas > 0) {
       mostrarAviso(
         context,
         removidas == 1
@@ -220,9 +240,16 @@ class _CabecalhoDoMenu extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Text(livro.titulo, style: theme.textTheme.titleSmall),
+              Text(
+                livro.titulo,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleSmall,
+              ),
               Text(
                 '${recomendacao.remetente.nomeExibicao} te recomendou',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodySmall?.copyWith(color: theme.secondaryText),
               ),
             ],

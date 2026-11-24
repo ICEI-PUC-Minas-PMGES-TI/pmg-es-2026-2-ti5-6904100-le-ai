@@ -560,6 +560,59 @@ void main() {
         expect(find.text('Não foi possível salvar. Verifique sua conexão e tente de novo.'), findsNothing);
         expect(ligado(tester), isFalse);
       });
+
+      testWidgets('sem estado lido, o leitor de tela não ouve ligado nem desligado (§4.5)', (
+        tester,
+      ) async {
+        final semantica = tester.ensureSemantics();
+        final leitura = Completer<http.Response>();
+        await montar(tester, (_) => leitura.future);
+        final linha = find.bySemanticsLabel('Usar minhas leituras em sugestões');
+
+        expect(
+          tester.getSemantics(linha),
+          isSemantics(hasToggledState: false, hasEnabledState: true, isEnabled: false),
+        );
+
+        leitura.complete(jsonDe(<String, Object?>{}, 500));
+        await tester.pumpAndSettle();
+        expect(
+          tester.getSemantics(linha),
+          isSemantics(hasToggledState: false, isEnabled: false, hasTapAction: false),
+        );
+        semantica.dispose();
+      });
+
+      testWidgets('gravando, a linha é anunciada como ocupada e não aceita outro toque (§9)', (
+        tester,
+      ) async {
+        final semantica = tester.ensureSemantics();
+        final gravacao = Completer<http.Response>();
+        final gravacoes = await montar(
+          tester,
+          (request) => request.method == 'PATCH' ? gravacao.future : Future.value(jsonDe(perfil(false))),
+        );
+        final alvo = find.text('Usar minhas leituras em sugestões');
+        await tester.ensureVisible(alvo);
+        for (var i = 0; i < 3; i++) {
+          await tester.tap(alvo);
+          await tester.pump();
+        }
+
+        expect(gravacoes, hasLength(1));
+        expect(
+          tester.getSemantics(find.bySemanticsLabel('Usar minhas leituras em sugestões')),
+          isSemantics(value: 'Salvando', isEnabled: false, hasTapAction: false),
+        );
+
+        gravacao.complete(jsonDe(perfil(true)));
+        await tester.pumpAndSettle();
+        expect(
+          tester.getSemantics(find.bySemanticsLabel('Usar minhas leituras em sugestões')),
+          isSemantics(hasToggledState: true, isToggled: false, isEnabled: true, hasTapAction: true),
+        );
+        semantica.dispose();
+      });
     });
   });
 }

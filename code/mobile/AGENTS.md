@@ -101,6 +101,13 @@ Feature em `docs/plano-de-desenvolvimento/periodo-3/feature-F-REC-ALG.md`. Mexe 
   - A linha nova desceu `Excluir conta` abaixo da dobra no viewport padrão dos testes: quem tocar nela precisa de `ensureVisible` (o `router_test.dart` já foi ajustado).
   - A capa sem URL desenha o título no placeholder: `find.text(<título>)` acha dois widgets num item de sugestão ou de recomendação.
   - Teste que descarte o mesmo livro três vezes precisa de `zerarSessaoDoDescarteEmLote()` no `setUp`, ou a contagem de um teste vaza para o seguinte.
+- **Revisão do PR #68 (24/11/2026):**
+  - `secoes_de_sugestoes.dart`: o descarte tira o livro das **duas** seções (o servidor não deduplica `seguidos` e `gosto`) e desce o offset de cada seção que o tinha; o 404 do descarte é "já saiu", como nas recebidas, sem `Tentar de novo`. Título e motivo do cabeçalho do menu com `maxLines` (o mesmo no menu das recebidas).
+  - `design/widgets/folha_inferior.dart`: `mostrarFolhaInferior` ganhou `arrastavel` (padrão `true`, os outros usos não mudam). O arrasto do `showModalBottomSheet` fecha com `Navigator.pop` sem passar pelo `PopScope`; a folha do lote usa `arrastavel: false`.
+  - `folha_descarte_em_lote.dart`: `perguntarDescarteEmLote` devolve `RespostaDoLote` (`recusada`, `removidas`). Se a rota da folha sair por fora depois de `Remover todas`, o pedido em curso é esperado e vale; nunca vira recusa.
+  - `descarte_de_recomendacoes.dart`: uma pergunta por livro de cada vez (`_perguntasEmAndamento`); `aoRemoverDoLivro(livroId, removidas)` recebe a contagem do servidor, e a `RecomendacoesRecebidasPage` ajusta o total por ela (o lote tira também o que não foi carregado).
+  - `sessao_do_descarte_em_lote.dart`: `acompanharContaDoDescarteEmLote(SessionController)`, ligado no `router.dart`, zera contagem e recusa quando a conta sai.
+  - `configuracoes_page.dart`: sem estado lido, a semântica não tem `toggled` (não diz ligado nem desligado); gravando, a linha fica desabilitada para o leitor de tela, sem ação de toque e com o valor `Salvando`.
 
 ### 20/11/2026 — E6-02 (Henrique): testes das lacunas de listas e da política
 

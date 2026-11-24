@@ -54,10 +54,17 @@ class _RecomendacoesRecebidasPageState extends State<RecomendacoesRecebidasPage>
   @override
   bool get perguntaDescarteEmLote => true;
 
+  /// O total segue a contagem do servidor, porque o lote também tira as recomendações do livro que
+  /// ainda não foram carregadas (páginas seguintes).
   @override
-  void aoRemoverDoLivro(String livroId) {
+  void aoRemoverDoLivro(String livroId, int removidas) {
+    if (!mounted) {
+      return;
+    }
+    final total = _lista.total;
     final doLivro = _lista.itens.where((r) => r.livro.id == livroId).map((r) => r.id).toList();
     doLivro.forEach(_lista.retirar);
+    setState(() => _lista.total = total - removidas < 0 ? 0 : total - removidas);
   }
 
   @override

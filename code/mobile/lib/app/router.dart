@@ -22,6 +22,7 @@ import '../features/estatisticas/estatisticas_service.dart';
 import '../features/estatisticas/rotas_estatisticas.dart';
 import '../features/descobrir/descobrir_page.dart';
 import '../features/recomendacoes/rotas_recomendacoes.dart';
+import '../features/recomendacoes/sessao_do_descarte_em_lote.dart';
 import '../core/config/app_config.dart';
 import '../core/network/api_client.dart';
 import '../features/estante/busca_na_estante.dart';
@@ -150,6 +151,8 @@ GoRouter buildRouter({
       );
   final sessaoDeLeitura = depsDeProgresso.sessao;
   sessaoDeLeitura?.acompanharConta(sessionController);
+  // F-REC-ALG: a contagem e a recusa da pergunta de descarte em lote saem junto com a conta.
+  acompanharContaDoDescarteEmLote(sessionController);
   return GoRouter(
     initialLocation: rotaVerificandoSessao,
     refreshListenable: Listenable.merge(<Listenable>[sessionController, ?sessaoDeLeitura]),
