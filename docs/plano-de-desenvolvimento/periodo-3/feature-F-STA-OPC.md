@@ -22,9 +22,9 @@ RNF atendidos: **RNF-SEC-02** (dados do próprio usuário), **RNF-SEC-03** (priv
 | Camada | Status | Observação |
 |---|---|---|
 | Infra | **não aplicável** | nenhuma tabela ou campo novo — o histograma agrega as notas já persistidas por F-AVA |
-| Backend | implementado, aguardando CI | `leitura`: `distribuicaoNotas` em `/me/estatisticas` e em `/perfis/{usuarioId}/estatisticas`; spec OpenAPI atualizado. Testes de integração escritos, ainda não rodados (sem Postgres descartável no ambiente de desenvolvimento) |
-| Web | implementado, aguardando CI | card `Notas que você deu` no painel e histograma compacto no perfil alheio; testes do recorte passam |
-| Mobile | implementado, aguardando CI | mesmo card no painel e no perfil alheio; `flutter analyze` limpo, testes de estatísticas e perfil passam |
+| Backend | concluído | `leitura`: `distribuicaoNotas` em `/me/estatisticas` e em `/perfis/{usuarioId}/estatisticas`; spec OpenAPI atualizado. PR #63 mergeado na `desenvolvimento` em 08/11/2026 com CI verde; na `main` pelo PR #70 (`ec39afa`, release v0.3.0, 24/11/2026), com o `ci-back-leitura` verde, inclusive os testes de integração em Postgres descartável. **Pendente: fluxo em DES sem validação registrada** |
+| Web | concluído | card `Notas que você deu` no painel e histograma compacto no perfil alheio; mesmo caminho até a `main` (PR #63 → PR #70), `ci-front` verde em 24/11/2026. **Pendente: fluxo em DES sem validação registrada** |
+| Mobile | concluído | mesmo card no painel e no perfil alheio; mesmo caminho até a `main` (PR #63 → PR #70), `ci-mobile` verde em 24/11/2026. **Pendente: fluxo em DES sem validação registrada** |
 
 ## Especificação
 
