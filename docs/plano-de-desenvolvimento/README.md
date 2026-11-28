@@ -44,6 +44,7 @@ Cada feature pertence a um serviço, definido pela decomposição de `../orquest
 - [DER implantado](../diagramas/DER.md): baseline de 59 tabelas de domínio e 9 VIEWs de contrato aplicada no Neon em 16/09/2026. Com as migrations dos Períodos 1 e 2, são **62 tabelas e 10 VIEWs** em 25/10/2026.
 - [Período 1](periodo-1/README.md): divisão das dez features em cinco frentes verticais, ordem de execução e [fechamento do período](periodo-1/README.md#fechamento-do-período-1-29092026).
 - [Período 2](periodo-2/README.md): divisão das 14 features entre cinco pessoas e [situação em 25/10/2026](periodo-2/README.md#situação-em-25102026).
+- [Período 3](periodo-3/README.md): as sete opcionais e o [fechamento do período e da Sprint 6](periodo-3/README.md#fechamento-do-período-3-e-da-sprint-6-28112026).
 
 A baseline de dados e a existência do contrato não significam que a feature está implementada.
 
@@ -51,11 +52,11 @@ A baseline de dados e a existência do contrato não significam que a feature es
 
 Granularidade atual: features "maiores" — cerca de uma por módulo de RF, por banda de prioridade, dentro de um serviço. Um módulo cujos RFs cruzam bandas de prioridade vira mais de uma feature (uma por período). Poderemos granularizar mais adiante.
 
-**Situação em 25/10/2026:**
+**Situação em 28/11/2026 (fechamento da Entrega 6):** as 37 features dos quatro períodos estão implementadas e na `main`.
 
-- **Período 1:** as 10 features estão **em revisão** (aguardam o aval dos professores). O período foi para a `main` em 29/09/2026 (PR #45, release `v0.1.0`). Detalhe no [fechamento do Período 1](periodo-1/README.md#fechamento-do-período-1-29092026).
-- **Período 2:** as 14 features estão implementadas e mergeadas em `desenvolvimento`, **em revisão**. Chegam à `main` e ao DES no fechamento de 03/11/2026. Detalhe na [situação do Período 2](periodo-2/README.md#situação-em-25102026).
-- **Período 3:** protótipos das 15 telas prontos (PR #54, 21/10/2026). Em 07/11/2026: F-MOD-OPC mergeada na `desenvolvimento` (PR #61) e F-ACV-OPC em revisão no PR #62; o estado das demais fica no arquivo de cada uma.
+- **Período 1:** as 10 prioritárias foram para a `main` em 29/09/2026 (PR #45, release `v0.1.0`). Detalhe no [fechamento do Período 1](periodo-1/README.md#fechamento-do-período-1-29092026).
+- **Período 2:** as 14 desejáveis foram para a `main` em 03/11/2026 (releases `v0.2.0` e `v0.2.1`, esta com a correção do APK). Detalhe na [situação do Período 2](periodo-2/README.md#situação-em-25102026).
+- **Período 3:** as 7 opcionais foram para a `main` em 24/11/2026 (PR #70, release `v0.3.0`), seguidas do refinamento do card da estante em 27/11/2026. Detalhe no [fechamento do Período 3](periodo-3/README.md#fechamento-do-período-3-e-da-sprint-6-28112026).
 
 O estado de cada feature fica no arquivo dela.
 
@@ -110,10 +111,6 @@ O estado de cada feature fica no arquivo dela.
 
 Os 130 RFs de `../orquestador/REQUISITOS.md` §5 estão todos alocados: **54 Essenciais**, **61 Desejáveis** e **15 Opcionais**. Nenhum RF fica sem período; nenhum aparece em dois.
 
-## Próximo passo
+## Encerramento
 
-O **Período 1 fechou em 29/09/2026** com as dez features prioritárias entregues e em revisão ([fechamento](periodo-1/README.md#fechamento-do-período-1-29092026)). O PR `desenvolvimento` → `main` entrou no mesmo dia, com a tag `v0.1.0` e a GitHub Release.
-
-O **[Período 2](periodo-2/README.md)** fecha em **03/11/2026** (Entrega 5). As 14 features estão implementadas em `desenvolvimento`. Falta o ritual de fechamento do `../orquestador/plano-de-projeto.md` §12: PR `desenvolvimento` → `main` com CI verde, validação dos fluxos em DES (com os backfills de cada feature), tag `v0.2.0` com GitHub Release. O Documento de Arquitetura já foi atualizado para o período (v1.8, 25/10/2026).
-
-O **[Período 3](periodo-3/README.md)** começa em **10/11/2026**: opcionais, refino, testes das desejáveis e ATAM. As decisões dos donos registradas nos arquivos não devem ser antecipadas.
+Os três períodos de features fecharam no prazo: o Período 1 em 29/09/2026 (`v0.1.0`), o Período 2 em 03/11/2026 (`v0.2.0` e `v0.2.1`) e o Período 3 em 24/11/2026 (`v0.3.0`). Com o refinamento do card da estante (27/11/2026), a release final `v0.4.0` fecha a Entrega 6. Nenhuma feature desceu de nível pela regra de corte: os 130 RFs alocados entraram, com as exceções e lacunas de teste registradas no [plano de testes](../9.plano_de_testes.md) §9.8.

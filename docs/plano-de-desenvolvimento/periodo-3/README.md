@@ -22,11 +22,37 @@
 - **Refino** geral e pendências acumuladas dos períodos anteriores.
 - **ATAM inicial** — avaliação de arquitetura (`../../orquestador/documento-de-arquitetura.md` §7 + `../../orquestador/REQUISITOS.md` §7/§8), alimentando o `docs/8.avaliacao_arquitetura.md`.
 
+## Fechamento do Período 3 e da Sprint 6 (28/11/2026)
+
+As sete opcionais foram implementadas e integradas à `desenvolvimento` até 24/11/2026 (PRs #61, #62, #68 e #69) e levadas à `main` pelo PR #70 (`ec39afa`), com CI verde e a release [`v0.3.0`](https://github.com/ICEI-PUC-Minas-PMGES-TI/pmg-es-2026-2-ti5-6904100-le-ai/releases/tag/v0.3.0) e o APK Android. O deploy de DES no Render saiu no mesmo dia, com as migrations do período. Depois do congelamento de features, entrou só um refinamento de navegação: [o card da estante abre a página do livro](#refinamento-depois-da-v030) (27/11/2026).
+
+| Feature | Dono | Situação | O que continua aberto (detalhe no arquivo) |
+|---|---|---|---|
+| [F-ACV-OPC](feature-F-ACV-OPC.md) | Renato Douglas | entregue, na `main` e em DES | recarga real do dump (decisão do grupo); conferência em DES não registrada no arquivo |
+| [F-REC-ALG](feature-F-REC-ALG.md) | Henrique Carvalho | entregue, na `main` e em DES | fluxo em DES não registrado; lacunas L-45 a L-48 do plano de testes |
+| [F-NOT-OPC](feature-F-NOT-OPC.md) | Kayke | entregue e validada em DES (push num Android físico, 24/11/2026) | lacunas L-39 a L-42 do plano de testes |
+| [F-MOD-OPC](feature-F-MOD-OPC.md) | Renato Douglas | entregue, na `main` e em DES | conferência em DES não registrada no arquivo |
+| [F-GAM-OPC](feature-F-GAM-OPC.md) | Vicenzo Fonseca | entregue; em DES, o job do lembrete respondeu 200 | ver o lembrete chegar num Android, com uma conta que tenha lido na véspera e não no dia |
+| [F-STA-OPC](feature-F-STA-OPC.md) | Ana Luiza de Freitas | entregue, na `main` e em DES | lacuna L-34 do plano de testes |
+| [F-DSF-OPC](feature-F-DSF-OPC.md) | Vicenzo Fonseca | entregue, na `main` e em DES | lacunas L-43 e L-44 do plano de testes |
+
+**Cross-cutting do período:**
+
+- **Testes das desejáveis:** as 14 features do Período 2 têm seção no [plano de testes](../../9.plano_de_testes.md) (9.6.12 a 9.6.25), e as opcionais e o refinamento também (9.6.26 a 9.6.33). Na última execução do CI, passaram os 4.489 testes dos sete projetos, sem falha e sem teste pulado (seção 9.7). Das 48 lacunas levantadas (9.8), 11 foram fechadas, 9 parcialmente e 28 seguem abertas, cada uma com dono.
+- **ATAM:** feito em 19 e 20/11/2026 contra a `v0.2.1` em DES ([`8.avaliacao_arquitetura.md`](../../8.avaliacao_arquitetura.md) e a versão para assinatura em `assets/arquitetura/`). As features do Período 3 ficaram fora das medições.
+- **Documento de Arquitetura:** versão final v1.11 (28/11/2026), com a recomendação algorítmica, as VIEWs novas e a contagem do banco de DES (65 tabelas e 12 VIEWs).
+
+Nada desceu de nível pela regra de corte: as sete opcionais entraram. O que fica aberto são as validações em DES ainda sem registro nos arquivos das features e as lacunas de teste listadas acima.
+
+### Refinamento depois da v0.3.0
+
+Em 27/11/2026 (`3e03eaa`), a capa e o título do card da estante passaram a abrir a página do livro, na web e no mobile; o resto do card e um botão de mais ações (⋯) abrem o painel de ações. Nos perfis, capa e título também levam ao livro, e o livro pessoal fica sem link no perfil de outro leitor (RN-15). O `leitura` passou a devolver `livro.tipo` nos itens da estante. Testado no emulador Android com os serviços locais e conferido em DES depois do deploy automático (`leai-leitura` e `leai-web` no ar com o commit). Casos de teste na seção 9.6.33 do plano.
+
 ## Fechamento do período: ajustes manuais no deploy
 
 Itens que o merge na `main` não resolve sozinho. Cada feature mantém o passo a passo no próprio arquivo.
 
-- **F-GAM-OPC e F-NOT-OPC (push):** definir `FIREBASE_CREDENTIALS_JSON` no `leai-social` do Render (projeto Firebase `leai-ti5`) e validar o push e o lembrete num Android físico. Ver [Deploy na `main`](feature-F-GAM-OPC.md#deploy-na-main-fechamento-do-período-3).
+- **F-GAM-OPC e F-NOT-OPC (push):** definir `FIREBASE_CREDENTIALS_JSON` no `leai-social` do Render (projeto Firebase `leai-ti5`) e validar o push e o lembrete num Android físico. **Feito em 24/11/2026:** credencial gravada e push recebido num Android físico; falta ver o lembrete de sequência chegar. Ver [Deploy na `main`](feature-F-GAM-OPC.md#deploy-na-main-fechamento-do-período-3).
 
 ## Arquivos de feature
 
@@ -56,4 +82,4 @@ As 7 features do Período 3 estão detalhadas:
 - [F-STA-OPC — Distribuição de notas](feature-F-STA-OPC.md)
 - [F-DSF-OPC — Histórico de janelas de desafio](feature-F-DSF-OPC.md)
 
-Com o detalhamento fechado, o que resta do período é o **cross-cutting** acima: testes das desejáveis, refino das pendências acumuladas e o ATAM inicial.
+O período está fechado: ver o [fechamento](#fechamento-do-período-3-e-da-sprint-6-28112026).

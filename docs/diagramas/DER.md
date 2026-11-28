@@ -49,6 +49,13 @@ as nove views. No Periodo 2 entraram `acervo.autor_chave_unificada` e a view
 recibo e **10 views**: `identidade` 10/2, `acervo` 17/2, `leitura` 19/4 e
 `social` 16/2.
 
+No Periodo 3 entraram as tabelas do push (`social.dispositivo_push` e
+`social.envio_push`, F-NOT-OPC), a do comando de conta (`identidade`,
+F-MOD-OPC) e as views `identidade.v_conta_moderacao_v1` (F-MOD-OPC) e
+`acervo.v_livro_autor_recomendacao_v1` (F-REC-ALG). Contagem conferida no banco
+de DES em 28/11/2026: **65 tabelas** e **12 views**: `identidade` 11/3,
+`acervo` 17/3, `leitura` 19/4 e `social` 18/2.
+
 | Schema | Migration | Origem | Efeito |
 |---|---|---|---|
 | `acervo` | `0002_youthful_newton_destine.sql` | P0-MSG, 19/09 | `outbox_acervo.proxima_tentativa_em` (backoff do dispatcher) |
@@ -113,8 +120,10 @@ e aguarda a revisao do dono (ver `code/back/social/AGENTS.md`).
 |---|---|---|
 | `identidade` | `v_perfil_referencia_v1` | perfil publico de referencia; omite suspensao e exclusao pendente |
 | `identidade` | `v_seguimento_aceito_v1` | pares seguidor/seguido visiveis |
+| `identidade` | `v_conta_moderacao_v1` | conta, suspensao e reativacao (F-MOD-OPC), lida pelo painel do `social` |
 | `acervo` | `v_livro_referencia_v1` | livro, tipo, dono, paginas, titulo, autor, capa e atividade |
 | `acervo` | `v_livro_recomendacao_v1` | uma linha por livro oficial e assunto; assunto pode ser nulo |
+| `acervo` | `v_livro_autor_recomendacao_v1` | uma linha por livro oficial e autor (F-REC-ALG, migration `0007`) |
 | `leitura` | `v_estante_publica_v1` | usuario, livro, status e conclusoes |
 | `leitura` | `v_resenha_publicacao_v1` | resenha e contagens separadas de reacoes ativas de contas visiveis (sem suspensa nem exclusao pendente; depende de `identidade.v_perfil_referencia_v1`) |
 | `leitura` | `v_reacao_resenha_v1` | reacao ativa de cada leitor a cada resenha (F-AVA-2) |

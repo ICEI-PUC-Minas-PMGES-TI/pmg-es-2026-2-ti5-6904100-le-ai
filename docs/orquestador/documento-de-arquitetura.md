@@ -1,7 +1,7 @@
 # Documento de Arquitetura de Software
 
-**Versão:** v1.10 — 20/11/2026
-**Status:** macroarquitetura fechada — alocação de stack por serviço decidida em 02/09/2026 (§2.1); Período 2 implementado em `desenvolvimento`
+**Versão:** v1.11 — 28/11/2026 (versão final da Entrega 6)
+**Status:** macroarquitetura fechada — alocação de stack por serviço decidida em 02/09/2026 (§2.1); Períodos 1, 2 e 3 implementados e na `main` (release `v0.3.0`, 24/11/2026), mais o refinamento do card da estante (27/11/2026)
 
 > **v1.4 (12/09/2026):** ambiente local passa a usar **Postgres local** — **removida a branch de banco por dev no Neon** (o Neon mantém só a branch de DES/HML). Decisão da equipe; reflexo em §6 e no plano §4.
 
@@ -27,6 +27,8 @@
 > **v1.9 (19/11/2026):** fluxo `lembrete.sequencia` (F-GAM-OPC) incluído na §5.2, com o REQUISITOS §7.2; 27 JSON Schemas.
 
 > **v1.10 (20/11/2026):** push FCM validado ponta a ponta: projeto Firebase `leai-ti5` criado (só FCM), `google-services.json` no secret `GOOGLE_SERVICES_JSON_BASE64` do GitHub e push de seguidor e do lembrete de sequência recebidos num emulador Android com Google Play. Falta só a credencial no Render, no deploy de fechamento do período. Reflexo em §2.7, na tabela de provedores (§6) e na §8. Sem mudança de requisito, stack ou fronteira de serviço.
+
+> **v1.11 (28/11/2026):** versão final, no fechamento do Período 3 e da Entrega 6. A recomendação algorítmica (F-REC-ALG) existe e é calculada em consulta no `social` (§3.2, item 3); o `acervo` passou a expor `v_livro_autor_recomendacao_v1`, e o `identidade`, `v_conta_moderacao_v1` (F-MOD-OPC). Contagem do DES conferida no banco em 28/11/2026: 65 tabelas e 12 VIEWs (§4.1), com o mapa de quem lê o quê atualizado (§4.2). Push FCM no ar em DES desde 24/11/2026, com a credencial no Render e demonstração num Android físico (§8). O item da estante passou a trazer `livro.tipo`, para o card abrir a página do livro certa (refinamento de 27/11/2026, `docs/api/leitura.yaml`). Sem mudança de requisito, stack ou fronteira de serviço.
 
 > Este documento descreve **como o sistema é construído**. O *o que* mora em `docs/orquestador/REQUISITOS.md`, que continua sendo a fonte de verdade. Em caso de conflito, o `REQUISITOS.md` vence, e a divergência segue o controle de mudança do `docs/orquestador/plano-de-projeto.md` §3.
 
@@ -177,7 +179,7 @@ Cinco pontos de acoplamento que a divisão deixa implícitos são fechados aqui:
    - o consumidor usa o evento só como aviso: trava o livro com `pg_advisory_xact_lock`, relê a nota atual em `leitura.v_nota_publicacao_v1` e grava a projeção individual (`nota_leitor_projecao`) e o agregado (`nota_livro_agregada`). O `backfill:notas` e o consumidor de `conta.excluida` usam a mesma trava;
    - a página calcula média, contagem e distribuição sobre a projeção individual, numa consulta só, para arredondar uma vez. O agregado continua mantido, como contrato da F-CONTA-2, mas a página não o lê;
    - a consistência é eventual: com as retentativas do consumidor, a nota pode levar uns 22 s para aparecer, e os clientes reconsultam em silêncio depois da escrita.
-3. **A recomendação algorítmica é hospedada em `social`** (§10.7 do `REQUISITOS.md`), lendo *views* expostas por `leitura` (estante, nota), `identidade` (seguir) e `acervo` (assunto). É onde já vivem as recomendações P2P e o feed. A algorítmica é do Período 3 (F-REC-ALG) e ainda não existe; só a P2P está implementada.
+3. **A recomendação algorítmica é hospedada em `social`** (§10.7 do `REQUISITOS.md`), lendo *views* expostas por `leitura` (estante, nota), `identidade` (seguir) e `acervo` (assunto). É onde já vivem as recomendações P2P e o feed. A algorítmica entrou no Período 3 (F-REC-ALG) e é **calculada em consulta**, sem tabela derivada e sem evento: as seções "Quem você segue leu" e "Do seu gosto" juntam `acervo.v_livro_recomendacao_v1` e `acervo.v_livro_autor_recomendacao_v1` (série, autor e assuntos), `leitura.v_estante_publica_v1` e `leitura.v_nota_publicacao_v1`, e o seguimento e o perfil do `identidade`, que respeita o opt-out do leitor. O que o `social` grava é só o descarte (`sugestao_descartada`) e o descarte em lote das recomendações recebidas de um livro (RN-22).
 4. **O feed guarda snapshot no evento de atividade** — nome do usuário, título e capa do livro no momento — em vez de hidratar por *join* a cada scroll. O feed é o caminho mais lido do app e não deve compor três serviços por requisição, ainda mais com o *cold start* do Render. **Divergência registrada na F-AVA, pendente de decisão do grupo:** o feed lê `leitura.v_resenha_publicacao_v1` e `leitura.v_nota_publicacao_v1` para mostrar a resenha e a nota atuais.
 5. **A moderação remove conteúdo de `leitura` por chamada síncrona do `social`** (F-MOD). A denúncia e o painel vivem no `social`, mas a resenha e a frase são do `leitura`. O `social` chama `POST /internal/moderacao/{resenhas|frases}/{id}/remocao` no `leitura`, e o `leitura` publica `resenha.excluida` pela própria outbox. Foi escolhido HTTP direto, e não evento ou saga, porque o administrador precisa da confirmação da remoção. É a **única chamada síncrona entre serviços** do sistema (§5.1).
 
@@ -206,6 +208,15 @@ A baseline física foi aplicada no Neon em 16/09/2026, com **59 tabelas de domí
 | `leitura` | 19 | 4 |
 | `social` | 16 | 2 |
 
+**Situação no fechamento do Período 3, conferida no banco de DES em 28/11/2026: 65 tabelas e 12 VIEWs.** Entraram as tabelas do push (`dispositivo_push` e `envio_push`, F-NOT-OPC), a do comando de conta (F-MOD-OPC) e as VIEWs `identidade.v_conta_moderacao_v1` (F-MOD-OPC) e `acervo.v_livro_autor_recomendacao_v1` (F-REC-ALG); a `acervo.v_livro_recomendacao_v1`, prevista desde a baseline, passou a ser lida.
+
+| Serviço | Tabelas | VIEWs |
+|---|---|---|
+| `identidade` | 11 | 3 |
+| `acervo` | 17 | 3 |
+| `leitura` | 19 | 4 |
+| `social` | 18 | 2 |
+
 As migrations posteriores à baseline estão no [`DER.md`](../diagramas/DER.md). A busca do `acervo` usa as extensões `pg_trgm` e `unaccent`, instaladas no schema `public` pela migration `0004`.
 
 Essa escolha preserva o encapsulamento de microsserviço **e** mantém possíveis as junções que os requisitos assumem (recomendação, nota agregada), que seriam inviáveis se os dados estivessem em bancos de paradigmas diferentes. É também o que respeita o teto de armazenamento do plano gratuito (RNF-DES-04): o acervo não deve consumir mais de 20% do limite, com o índice de busca dimensionado como custo dominante (RNF-DES-05).
@@ -218,13 +229,13 @@ A separação lógica só se sustenta com uma disciplina de acesso:
 
 Sem essa regra, o schema por serviço degenera em banco compartilhado e a divisão em microsserviços perde o sentido. Com ela, o encapsulamento é preservado e os *joins* legítimos continuam possíveis dentro do mesmo cluster.
 
-Cada spec OpenAPI lista as VIEWs que o serviço expõe em `x-database-contracts`. Quem lê o quê, em 25/10/2026:
+Cada spec OpenAPI lista as VIEWs que o serviço expõe em `x-database-contracts`. Quem lê o quê, em 28/11/2026:
 
 | Consumidor | VIEWs que lê |
 |---|---|
 | `acervo` | de `identidade`, perfil e seguimento; de `leitura`, estante, nota, reação e resenha; de `social`, `v_atividade_livro_pessoal_v1` e `v_lista_livro_pessoal_v1` (acesso ao livro pessoal, RN-15) |
 | `leitura` | `acervo.v_livro_referencia_v1`; de `identidade`, perfil e seguimento; de `social`, `v_atividade_livro_pessoal_v1` e `v_lista_livro_pessoal_v1` (resenhas, reações e frases de livro pessoal, RN-15) |
-| `social` | `acervo.v_livro_referencia_v1`; de `identidade`, perfil e seguimento; de `leitura`, `v_estante_publica_v1`, `v_nota_publicacao_v1` e `v_resenha_publicacao_v1` |
+| `social` | de `acervo`, `v_livro_referencia_v1` e, para a recomendação algorítmica, `v_livro_recomendacao_v1` e `v_livro_autor_recomendacao_v1`; de `identidade`, perfil, seguimento e `v_conta_moderacao_v1` (painel de suspensão); de `leitura`, `v_estante_publica_v1`, `v_nota_publicacao_v1` e `v_resenha_publicacao_v1` |
 | `identidade` | nenhuma |
 
 Se os serviços passarem a usar roles de banco separados, cada consumidor vai precisar de `GRANT USAGE` no schema e `GRANT SELECT` na VIEW, e esse GRANT não pode ir na migration do consumidor, porque os objetos são do dono do schema.
@@ -370,7 +381,7 @@ Timeout e retentativa com backoff em toda chamada externa, com circuit breaker (
 Ambientes conforme o plano §4:
 - **local:** banco e broker de desenvolvimento, em São Paulo; testes de integração em Postgres descartável;
 - **DES/HML:** branch `main`, deploy a cada merge, com banco e broker próprios em Oregon;
-- **PROD:** tag `vX.Y.Z`, a partir de 24/11.
+- **PROD:** tag `vX.Y.Z`, a partir de 24/11. Releases publicadas: `v0.1.0` (Período 1), `v0.2.0` e `v0.2.1` (Período 2) e `v0.3.0` (Período 3, 24/11/2026), cada uma com o APK Android anexado.
 
 As migrations aplicadas localmente só alteram o banco de desenvolvimento; o DES/HML as recebe no deploy da `main`. Deploy só a partir de código versionado, por pipeline automatizado (RNF-SEC-34). Segredos por variável de ambiente e GitHub Secrets, nunca versionados (RNF-SEC-11).
 
@@ -409,7 +420,7 @@ Situação em 25/10/2026:
 |---|---|
 | Viabilidade do GitHub Actions `schedule` no repositório do GitHub Classroom (P-08) | **confirmada na prática:** `job-inatividade.yml` roda todo dia desde 30/09/2026; os arquivos de P0-MSG e F-EST ainda a registram como não confirmada |
 | Limites vigentes dos planos gratuitos de Cloudinary, CloudAMQP, Brevo e Neon | **em aberto:** nenhum arquivo registra a conferência. Medido só o tamanho do acervo no Neon, cerca de 11 MB |
-| Emissão de push FCM em dispositivo Android real de demonstração (P-04) | **validado em emulador Android com Google Play em 20/11/2026** (projeto Firebase `leai-ti5`); falta a credencial no Render e a demonstração em DES num aparelho físico, no fechamento do período |
+| Emissão de push FCM em dispositivo Android real de demonstração (P-04) | **validado em DES num Android físico em 24/11/2026**, com o APK da `v0.3.0` e a credencial `FIREBASE_CREDENTIALS_JSON` no `leai-social` do Render (antes, em emulador com Google Play, em 20/11/2026) |
 
 ### Divergências e itens abertos no fechamento do Período 2
 
