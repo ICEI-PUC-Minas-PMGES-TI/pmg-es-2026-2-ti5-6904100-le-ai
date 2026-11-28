@@ -1,0 +1,685 @@
+{
+  "medidoEm": "2026-11-28T04:20:13.221Z",
+  "ambiente": "DES (Render/Neon/CloudAMQP Oregon)",
+  "contrato": "v0.4.0",
+  "resumo": {
+    "tentativasNaoAutorizadas": 14,
+    "negadas": 14,
+    "vazamentos": 0,
+    "controlesEVerificacoes": 14,
+    "controlesEVerificacoesOk": 14
+  },
+  "registros": [
+    {
+      "cenario": 1,
+      "papel": "bia",
+      "metodo": "GET",
+      "rota": "leitura /perfis/9eef1b27-2f5f-40a3-bf31-768364537fdf/estante",
+      "rotaContrato": "GET /perfis/{usuarioId}/estante",
+      "codigosDeclaradosNoContrato": [
+        200,
+        400,
+        401,
+        403,
+        404
+      ],
+      "tipo": "negado",
+      "esperado": [
+        403,
+        404
+      ],
+      "status": 403,
+      "passou": true,
+      "contemConteudoProtegido": false,
+      "correlationId": "7e7c2430-4aca-4741-bb33-aa6fe9196b37",
+      "ms": 279.1,
+      "trecho": "{\"codigo\":\"ACESSO_NEGADO\",\"mensagem\":\"Este perfil é privado.\",\"correlationId\":\"7e7c2430-4aca-4741-bb33-aa6fe9196b37\"}"
+    },
+    {
+      "cenario": 1,
+      "papel": "bia",
+      "metodo": "GET",
+      "rota": "leitura /perfis/9eef1b27-2f5f-40a3-bf31-768364537fdf/resenhas",
+      "rotaContrato": "GET /perfis/{usuarioId}/resenhas",
+      "codigosDeclaradosNoContrato": [
+        200,
+        400,
+        401,
+        403,
+        404,
+        503
+      ],
+      "tipo": "negado",
+      "esperado": [
+        403,
+        404
+      ],
+      "status": 403,
+      "passou": true,
+      "contemConteudoProtegido": false,
+      "correlationId": "60d871a0-d263-4344-860a-2062148848d9",
+      "ms": 212.1,
+      "trecho": "{\"codigo\":\"ACESSO_NEGADO\",\"mensagem\":\"Este perfil é privado. Siga para ver as resenhas.\",\"correlationId\":\"60d871a0-d263-4344-860a-2062148848d9\"}"
+    },
+    {
+      "cenario": 1,
+      "papel": "bia",
+      "metodo": "GET",
+      "rota": "leitura /perfis/9eef1b27-2f5f-40a3-bf31-768364537fdf/estatisticas",
+      "rotaContrato": "GET /perfis/{usuarioId}/estatisticas",
+      "codigosDeclaradosNoContrato": [
+        200,
+        400,
+        401,
+        403,
+        404,
+        503
+      ],
+      "tipo": "negado",
+      "esperado": [
+        403,
+        404
+      ],
+      "status": 403,
+      "passou": true,
+      "contemConteudoProtegido": false,
+      "correlationId": "d560e5d3-d8c2-496c-af84-8bc380c72519",
+      "ms": 233.4,
+      "trecho": "{\"codigo\":\"ACESSO_NEGADO\",\"mensagem\":\"Este perfil é privado.\",\"correlationId\":\"d560e5d3-d8c2-496c-af84-8bc380c72519\"}"
+    },
+    {
+      "cenario": 1,
+      "papel": "bia",
+      "metodo": "GET",
+      "rota": "social /perfis/9eef1b27-2f5f-40a3-bf31-768364537fdf/listas",
+      "rotaContrato": "GET /perfis/{usuarioId}/listas",
+      "codigosDeclaradosNoContrato": [
+        200,
+        400,
+        401,
+        403,
+        404,
+        503
+      ],
+      "tipo": "negado",
+      "esperado": [
+        403,
+        404
+      ],
+      "status": 403,
+      "passou": true,
+      "contemConteudoProtegido": false,
+      "correlationId": "670d0024-cb69-446d-ba9f-058e5bc79152",
+      "ms": 514.2,
+      "trecho": "{\"codigo\":\"ACESSO_NEGADO\",\"mensagem\":\"Este perfil é privado. Siga para ver as listas.\",\"correlationId\":\"670d0024-cb69-446d-ba9f-058e5bc79152\"}"
+    },
+    {
+      "cenario": 1,
+      "papel": "bia",
+      "metodo": "GET",
+      "rota": "social /listas/d805a5be-524e-4c78-be50-4ced9146baaf",
+      "rotaContrato": "GET /listas/{listaId}",
+      "codigosDeclaradosNoContrato": [
+        200,
+        401,
+        403,
+        404,
+        503
+      ],
+      "tipo": "negado",
+      "esperado": [
+        403,
+        404
+      ],
+      "status": 403,
+      "passou": true,
+      "contemConteudoProtegido": false,
+      "correlationId": "3d65441b-fcbe-4ad6-997b-1b317a1d7abe",
+      "ms": 461.4,
+      "trecho": "{\"codigo\":\"ACESSO_NEGADO\",\"mensagem\":\"Este perfil é privado. Siga para ver as listas.\",\"correlationId\":\"3d65441b-fcbe-4ad6-997b-1b317a1d7abe\"}"
+    },
+    {
+      "cenario": 1,
+      "papel": "bia",
+      "metodo": "GET",
+      "rota": "social /listas/d805a5be-524e-4c78-be50-4ced9146baaf/livros",
+      "rotaContrato": "GET /listas/{listaId}/livros",
+      "codigosDeclaradosNoContrato": [
+        200,
+        400,
+        401,
+        403,
+        404,
+        503
+      ],
+      "tipo": "negado",
+      "esperado": [
+        403,
+        404
+      ],
+      "status": 403,
+      "passou": true,
+      "contemConteudoProtegido": false,
+      "correlationId": "269a6160-0048-4bfa-be41-1911894006a2",
+      "ms": 405.3,
+      "trecho": "{\"codigo\":\"ACESSO_NEGADO\",\"mensagem\":\"Este perfil é privado. Siga para ver as listas.\",\"correlationId\":\"269a6160-0048-4bfa-be41-1911894006a2\"}"
+    },
+    {
+      "cenario": 1,
+      "papel": "bia",
+      "metodo": "GET",
+      "rota": "social /atividades/ffa6aee3-2ed0-4ba4-898e-9bc249b16d2f",
+      "rotaContrato": "GET /atividades/{atividadeId}",
+      "codigosDeclaradosNoContrato": [
+        200,
+        401,
+        404,
+        503
+      ],
+      "tipo": "negado",
+      "esperado": [
+        404
+      ],
+      "status": 404,
+      "passou": true,
+      "contemConteudoProtegido": false,
+      "correlationId": "28dd6640-4e29-4baa-8cba-6d6a05f51f39",
+      "ms": 3594,
+      "trecho": "{\"codigo\":\"RECURSO_NAO_ENCONTRADO\",\"mensagem\":\"Não encontramos o que você procura.\",\"correlationId\":\"28dd6640-4e29-4baa-8cba-6d6a05f51f39\"}"
+    },
+    {
+      "cenario": 1,
+      "papel": "caio",
+      "metodo": "GET",
+      "rota": "leitura /perfis/9eef1b27-2f5f-40a3-bf31-768364537fdf/estante",
+      "rotaContrato": "GET /perfis/{usuarioId}/estante",
+      "codigosDeclaradosNoContrato": [
+        200,
+        400,
+        401,
+        403,
+        404
+      ],
+      "tipo": "permitido",
+      "esperado": [
+        200,
+        201
+      ],
+      "status": 200,
+      "passou": true,
+      "contemConteudoProtegido": true,
+      "correlationId": "f6b73f33-0765-46dc-a046-cd63f22d18b4",
+      "ms": 380.7,
+      "trecho": "{\"itens\":[{\"livroId\":\"513a1914-c0af-4d69-ac93-071208aedcf1\",\"livro\":{\"tipo\":\"oficial\",\"titulo\":\"Memórias póstumas de Brás Cubas\",\"autor\":\"Machado de Assis\",\"capaUrl\":\"https://covers.openlibrary.org/b/id/15156100-L.jpg\"},\"status\":\"LIDO\",\"vez"
+    },
+    {
+      "cenario": 1,
+      "papel": "caio",
+      "metodo": "GET",
+      "rota": "leitura /perfis/9eef1b27-2f5f-40a3-bf31-768364537fdf/resenhas",
+      "rotaContrato": "GET /perfis/{usuarioId}/resenhas",
+      "codigosDeclaradosNoContrato": [
+        200,
+        400,
+        401,
+        403,
+        404,
+        503
+      ],
+      "tipo": "permitido",
+      "esperado": [
+        200,
+        201
+      ],
+      "status": 200,
+      "passou": true,
+      "contemConteudoProtegido": true,
+      "correlationId": "f2612991-f768-45a1-a628-229c808be292",
+      "ms": 276.5,
+      "trecho": "{\"itens\":[{\"id\":\"a11145ff-8ab9-4cff-ba6b-402393d90acd\",\"usuarioId\":\"9eef1b27-2f5f-40a3-bf31-768364537fdf\",\"livroId\":\"0cd822ee-3139-426f-aa63-cbfbced796d4\",\"texto\":\"Resenha de demonstração da Marina: releitura que valeu cada página.\",\"spoile"
+    },
+    {
+      "cenario": 1,
+      "papel": "caio",
+      "metodo": "GET",
+      "rota": "leitura /perfis/9eef1b27-2f5f-40a3-bf31-768364537fdf/estatisticas",
+      "rotaContrato": "GET /perfis/{usuarioId}/estatisticas",
+      "codigosDeclaradosNoContrato": [
+        200,
+        400,
+        401,
+        403,
+        404,
+        503
+      ],
+      "tipo": "permitido",
+      "esperado": [
+        200,
+        201
+      ],
+      "status": 200,
+      "passou": true,
+      "contemConteudoProtegido": false,
+      "correlationId": "d6fc1d33-c62e-4a96-a2b2-45707e9d38a7",
+      "ms": 247.9,
+      "trecho": "{\"ano\":2026,\"livrosConcluidos\":2,\"paginasLidas\":217,\"minutosLidos\":260,\"distribuicaoNotas\":{\"total\":2,\"faixas\":[{\"valor\":0,\"quantidade\":0},{\"valor\":0.5,\"quantidade\":0},{\"valor\":1,\"quantidade\":0},{\"valor\":1.5,\"quantidade\":0},{\"valor\":2,\"quan"
+    },
+    {
+      "cenario": 1,
+      "papel": "caio",
+      "metodo": "GET",
+      "rota": "social /perfis/9eef1b27-2f5f-40a3-bf31-768364537fdf/listas",
+      "rotaContrato": "GET /perfis/{usuarioId}/listas",
+      "codigosDeclaradosNoContrato": [
+        200,
+        400,
+        401,
+        403,
+        404,
+        503
+      ],
+      "tipo": "permitido",
+      "esperado": [
+        200,
+        201
+      ],
+      "status": 200,
+      "passou": true,
+      "contemConteudoProtegido": true,
+      "correlationId": "b7eca66a-d90e-4a14-b1f9-13cce4adc1b1",
+      "ms": 594.7,
+      "trecho": "{\"itens\":[{\"id\":\"d805a5be-524e-4c78-be50-4ced9146baaf\",\"titulo\":\"Favoritos de novembro (demo)\",\"descricao\":\"Lista de demonstração.\",\"quantidadeLivros\":2,\"capas\":[{\"livroId\":\"0cd822ee-3139-426f-aa63-cbfbced796d4\",\"tipo\":\"OFICIAL\",\"titulo\":\"C"
+    },
+    {
+      "cenario": 1,
+      "papel": "caio",
+      "metodo": "GET",
+      "rota": "social /listas/d805a5be-524e-4c78-be50-4ced9146baaf",
+      "rotaContrato": "GET /listas/{listaId}",
+      "codigosDeclaradosNoContrato": [
+        200,
+        401,
+        403,
+        404,
+        503
+      ],
+      "tipo": "permitido",
+      "esperado": [
+        200,
+        201
+      ],
+      "status": 200,
+      "passou": true,
+      "contemConteudoProtegido": true,
+      "correlationId": "182a9c10-4b2e-4475-986e-d456fc2403bb",
+      "ms": 400.3,
+      "trecho": "{\"id\":\"d805a5be-524e-4c78-be50-4ced9146baaf\",\"dono\":{\"id\":\"9eef1b27-2f5f-40a3-bf31-768364537fdf\",\"username\":\"leai.demo.marina\",\"nomeExibicao\":\"Marina Demo\",\"avatarUrl\":null},\"titulo\":\"Favoritos de novembro (demo)\",\"descricao\":\"Lista de demo"
+    },
+    {
+      "cenario": 1,
+      "papel": "caio",
+      "metodo": "GET",
+      "rota": "social /listas/d805a5be-524e-4c78-be50-4ced9146baaf/livros",
+      "rotaContrato": "GET /listas/{listaId}/livros",
+      "codigosDeclaradosNoContrato": [
+        200,
+        400,
+        401,
+        403,
+        404,
+        503
+      ],
+      "tipo": "permitido",
+      "esperado": [
+        200,
+        201
+      ],
+      "status": 200,
+      "passou": true,
+      "contemConteudoProtegido": true,
+      "correlationId": "a5978925-ad54-4ed2-adce-9123154dd6be",
+      "ms": 303.7,
+      "trecho": "{\"itens\":[{\"id\":\"9fbdf164-2a91-4dca-9774-6f9df909d451\",\"listaId\":\"d805a5be-524e-4c78-be50-4ced9146baaf\",\"livro\":{\"id\":\"0cd822ee-3139-426f-aa63-cbfbced796d4\",\"tipo\":\"OFICIAL\",\"titulo\":\"Comentários da semana\",\"autor\":\"Machado de Assis\",\"capaU"
+    },
+    {
+      "cenario": 1,
+      "papel": "caio",
+      "metodo": "GET",
+      "rota": "social /atividades/ffa6aee3-2ed0-4ba4-898e-9bc249b16d2f",
+      "rotaContrato": "GET /atividades/{atividadeId}",
+      "codigosDeclaradosNoContrato": [
+        200,
+        401,
+        404,
+        503
+      ],
+      "tipo": "permitido",
+      "esperado": [
+        200,
+        201
+      ],
+      "status": 200,
+      "passou": true,
+      "contemConteudoProtegido": false,
+      "correlationId": "e819ef2b-f5eb-415b-88fd-467b720f2955",
+      "ms": 5097.6,
+      "trecho": "{\"id\":\"ffa6aee3-2ed0-4ba4-898e-9bc249b16d2f\",\"tipo\":\"LEITURA_ABANDONADA\",\"autor\":{\"id\":\"9eef1b27-2f5f-40a3-bf31-768364537fdf\",\"username\":\"leai.demo.marina\",\"nomeExibicao\":\"Marina Demo\",\"avatarUrl\":null},\"livro\":{\"id\":\"cdca749e-5023-47fa-800"
+    },
+    {
+      "cenario": 1,
+      "papel": "sem token",
+      "metodo": "GET",
+      "rota": "leitura /perfis/9eef1b27-2f5f-40a3-bf31-768364537fdf/estante",
+      "rotaContrato": "GET /perfis/{usuarioId}/estante",
+      "codigosDeclaradosNoContrato": [
+        200,
+        400,
+        401,
+        403,
+        404
+      ],
+      "tipo": "sem-token",
+      "esperado": [
+        401
+      ],
+      "status": 401,
+      "passou": true,
+      "contemConteudoProtegido": false,
+      "correlationId": "2182efc5-dc2f-455a-8e18-249f9b2386f3",
+      "ms": 651.9,
+      "trecho": "{\"codigo\":\"NAO_AUTENTICADO\",\"mensagem\":\"É necessário autenticar-se para continuar.\",\"correlationId\":\"2182efc5-dc2f-455a-8e18-249f9b2386f3\"}"
+    },
+    {
+      "cenario": 1,
+      "papel": "sem token",
+      "metodo": "GET",
+      "rota": "leitura /perfis/9eef1b27-2f5f-40a3-bf31-768364537fdf/resenhas",
+      "rotaContrato": "GET /perfis/{usuarioId}/resenhas",
+      "codigosDeclaradosNoContrato": [
+        200,
+        400,
+        401,
+        403,
+        404,
+        503
+      ],
+      "tipo": "sem-token",
+      "esperado": [
+        401
+      ],
+      "status": 401,
+      "passou": true,
+      "contemConteudoProtegido": false,
+      "correlationId": "9f689878-f5ce-4033-ab35-dfa2dbd34760",
+      "ms": 233.8,
+      "trecho": "{\"codigo\":\"NAO_AUTENTICADO\",\"mensagem\":\"É necessário autenticar-se para continuar.\",\"correlationId\":\"9f689878-f5ce-4033-ab35-dfa2dbd34760\"}"
+    },
+    {
+      "cenario": 1,
+      "papel": "sem token",
+      "metodo": "GET",
+      "rota": "leitura /perfis/9eef1b27-2f5f-40a3-bf31-768364537fdf/estatisticas",
+      "rotaContrato": "GET /perfis/{usuarioId}/estatisticas",
+      "codigosDeclaradosNoContrato": [
+        200,
+        400,
+        401,
+        403,
+        404,
+        503
+      ],
+      "tipo": "sem-token",
+      "esperado": [
+        401
+      ],
+      "status": 401,
+      "passou": true,
+      "contemConteudoProtegido": false,
+      "correlationId": "f731439e-e8c7-4205-8cad-c041d9513401",
+      "ms": 222.2,
+      "trecho": "{\"codigo\":\"NAO_AUTENTICADO\",\"mensagem\":\"É necessário autenticar-se para continuar.\",\"correlationId\":\"f731439e-e8c7-4205-8cad-c041d9513401\"}"
+    },
+    {
+      "cenario": 1,
+      "papel": "sem token",
+      "metodo": "GET",
+      "rota": "social /perfis/9eef1b27-2f5f-40a3-bf31-768364537fdf/listas",
+      "rotaContrato": "GET /perfis/{usuarioId}/listas",
+      "codigosDeclaradosNoContrato": [
+        200,
+        400,
+        401,
+        403,
+        404,
+        503
+      ],
+      "tipo": "sem-token",
+      "esperado": [
+        401
+      ],
+      "status": 401,
+      "passou": true,
+      "contemConteudoProtegido": false,
+      "correlationId": "ee33eed5-9cdd-4ba1-a9e2-a5d912c60a37",
+      "ms": 238.7,
+      "trecho": "{\"codigo\":\"NAO_AUTENTICADO\",\"mensagem\":\"É necessário autenticar-se para continuar.\",\"correlationId\":\"ee33eed5-9cdd-4ba1-a9e2-a5d912c60a37\"}"
+    },
+    {
+      "cenario": 1,
+      "papel": "sem token",
+      "metodo": "GET",
+      "rota": "social /listas/d805a5be-524e-4c78-be50-4ced9146baaf",
+      "rotaContrato": "GET /listas/{listaId}",
+      "codigosDeclaradosNoContrato": [
+        200,
+        401,
+        403,
+        404,
+        503
+      ],
+      "tipo": "sem-token",
+      "esperado": [
+        401
+      ],
+      "status": 401,
+      "passou": true,
+      "contemConteudoProtegido": false,
+      "correlationId": "7dbf290d-514c-4c2a-b908-ebef6038abe1",
+      "ms": 229.7,
+      "trecho": "{\"codigo\":\"NAO_AUTENTICADO\",\"mensagem\":\"É necessário autenticar-se para continuar.\",\"correlationId\":\"7dbf290d-514c-4c2a-b908-ebef6038abe1\"}"
+    },
+    {
+      "cenario": 1,
+      "papel": "sem token",
+      "metodo": "GET",
+      "rota": "social /listas/d805a5be-524e-4c78-be50-4ced9146baaf/livros",
+      "rotaContrato": "GET /listas/{listaId}/livros",
+      "codigosDeclaradosNoContrato": [
+        200,
+        400,
+        401,
+        403,
+        404,
+        503
+      ],
+      "tipo": "sem-token",
+      "esperado": [
+        401
+      ],
+      "status": 401,
+      "passou": true,
+      "contemConteudoProtegido": false,
+      "correlationId": "a5dccf38-097d-4b0e-98d8-b8dcf659bd71",
+      "ms": 230.1,
+      "trecho": "{\"codigo\":\"NAO_AUTENTICADO\",\"mensagem\":\"É necessário autenticar-se para continuar.\",\"correlationId\":\"a5dccf38-097d-4b0e-98d8-b8dcf659bd71\"}"
+    },
+    {
+      "cenario": 1,
+      "papel": "sem token",
+      "metodo": "GET",
+      "rota": "social /atividades/ffa6aee3-2ed0-4ba4-898e-9bc249b16d2f",
+      "rotaContrato": "GET /atividades/{atividadeId}",
+      "codigosDeclaradosNoContrato": [
+        200,
+        401,
+        404,
+        503
+      ],
+      "tipo": "sem-token",
+      "esperado": [
+        401
+      ],
+      "status": 401,
+      "passou": true,
+      "contemConteudoProtegido": false,
+      "correlationId": "f1ada451-4dae-46b4-ba9a-6e6aee052b74",
+      "ms": 210.2,
+      "trecho": "{\"codigo\":\"NAO_AUTENTICADO\",\"mensagem\":\"É necessário autenticar-se para continuar.\",\"correlationId\":\"f1ada451-4dae-46b4-ba9a-6e6aee052b74\"}"
+    },
+    {
+      "cenario": 1,
+      "papel": "bia",
+      "metodo": "GET",
+      "rota": "social /feed?page=0&size=50",
+      "rotaContrato": "GET /feed",
+      "codigosDeclaradosNoContrato": [
+        200,
+        400,
+        401,
+        503
+      ],
+      "tipo": "livre",
+      "esperado": "ver avaliação",
+      "status": 200,
+      "passou": true,
+      "contemConteudoProtegido": false,
+      "correlationId": "f51283a3-b50d-44c0-ad04-67df74524df1",
+      "ms": 2679.4,
+      "trecho": "{\"itens\":[{\"id\":\"cdc5e00f-f6c2-4e95-9828-7748fdef34fa\",\"tipo\":\"RESENHA_PUBLICADA\",\"autor\":{\"id\":\"4afa78d4-ddf6-45dd-a001-9931ac7d6771\",\"username\":\"leai.demo.caio\",\"nomeExibicao\":\"Caio Demo\",\"avatarUrl\":null},\"livro\":{\"id\":\"513a1914-c0af-4d6"
+    },
+    {
+      "cenario": 1,
+      "papel": "bia",
+      "metodo": "GET",
+      "rota": "identidade /perfis/leai.demo.marina",
+      "rotaContrato": "GET /perfis/{username}",
+      "codigosDeclaradosNoContrato": [
+        200,
+        401,
+        404,
+        503
+      ],
+      "tipo": "livre",
+      "esperado": "ver avaliação",
+      "status": 200,
+      "passou": true,
+      "contemConteudoProtegido": false,
+      "correlationId": "a94c56d0-ef13-4f7b-9605-55b4da27fcc0",
+      "ms": 1009.8,
+      "trecho": "{\"id\":\"9eef1b27-2f5f-40a3-bf31-768364537fdf\",\"username\":\"leai.demo.marina\",\"displayName\":\"Marina Demo\",\"avatarUrl\":null,\"privacidade\":\"privado\",\"conteudoRestrito\":true,\"relacao\":\"nenhuma\",\"biografia\":\"Conta de demonstração do Lê Aí.\",\"conta"
+    },
+    {
+      "cenario": 1,
+      "papel": "caio",
+      "metodo": "GET",
+      "rota": "identidade /perfis/leai.demo.marina",
+      "rotaContrato": "GET /perfis/{username}",
+      "codigosDeclaradosNoContrato": [
+        200,
+        401,
+        404,
+        503
+      ],
+      "tipo": "livre",
+      "esperado": "ver avaliação",
+      "status": 200,
+      "passou": true,
+      "contemConteudoProtegido": false,
+      "correlationId": "11ba9348-4760-497e-bc2a-91c8a5cb8f1f",
+      "ms": 269.4,
+      "trecho": "{\"id\":\"9eef1b27-2f5f-40a3-bf31-768364537fdf\",\"username\":\"leai.demo.marina\",\"displayName\":\"Marina Demo\",\"avatarUrl\":null,\"privacidade\":\"privado\",\"conteudoRestrito\":false,\"relacao\":\"seguindo\",\"biografia\":\"Conta de demonstração do Lê Aí.\",\"con"
+    },
+    {
+      "cenario": 1,
+      "papel": "bia",
+      "metodo": "GET",
+      "rota": "identidade /perfis?username=leai.demo.marina",
+      "rotaContrato": "GET /perfis",
+      "codigosDeclaradosNoContrato": [
+        200,
+        400,
+        401,
+        429,
+        503
+      ],
+      "tipo": "livre",
+      "esperado": "ver avaliação",
+      "status": 200,
+      "passou": true,
+      "contemConteudoProtegido": false,
+      "correlationId": "2a162897-dea8-4938-ba32-9dc2b8f864aa",
+      "ms": 294.2,
+      "trecho": "[{\"id\":\"9eef1b27-2f5f-40a3-bf31-768364537fdf\",\"username\":\"leai.demo.marina\",\"displayName\":\"Marina Demo\",\"biografia\":\"Conta de demonstração do Lê Aí.\",\"avatarUrl\":null,\"privacidade\":\"privado\",\"conteudoRestrito\":true,\"relacao\":\"nenhuma\"}]"
+    },
+    {
+      "cenario": 1,
+      "papel": "bia",
+      "metodo": "GET",
+      "rota": "identidade /seguidores/leai.demo.marina",
+      "rotaContrato": "GET /seguidores/{username}",
+      "codigosDeclaradosNoContrato": null,
+      "tipo": "livre",
+      "esperado": "ver avaliação",
+      "status": 405,
+      "passou": true,
+      "contemConteudoProtegido": false,
+      "correlationId": "b236097d-8c33-468e-9eb3-f990171e0902",
+      "ms": 305.4,
+      "trecho": "{\"codigo\":\"ERRO_HTTP\",\"mensagem\":\"Não foi possível concluir a operação.\",\"correlationId\":\"b236097d-8c33-468e-9eb3-f990171e0902\"}"
+    },
+    {
+      "cenario": 1,
+      "papel": "bia",
+      "metodo": "GET",
+      "rota": "acervo /livros/0cd822ee-3139-426f-aa63-cbfbced796d4/resenhas",
+      "rotaContrato": "GET /livros/{id}/resenhas",
+      "codigosDeclaradosNoContrato": [
+        200,
+        400,
+        401,
+        404,
+        503
+      ],
+      "tipo": "livre",
+      "esperado": "ver avaliação",
+      "status": 200,
+      "passou": true,
+      "contemConteudoProtegido": false,
+      "correlationId": "7ea6272f-9c46-42fa-882c-c9a78dbb3123",
+      "ms": 314.7,
+      "trecho": "{\"itens\":[{\"id\":\"d9b49d70-19ab-404c-8800-188c0b6f44dc\",\"autorId\":\"4afa78d4-ddf6-45dd-a001-9931ac7d6771\",\"autorNome\":\"Caio Demo\",\"autorAvatarUrl\":null,\"texto\":\"Resenha de demonstração do Caio sobre o mesmo livro.\",\"spoiler\":false,\"criadoEm\":"
+    },
+    {
+      "cenario": 1,
+      "papel": "caio",
+      "metodo": "GET",
+      "rota": "acervo /livros/0cd822ee-3139-426f-aa63-cbfbced796d4/resenhas",
+      "rotaContrato": "GET /livros/{id}/resenhas",
+      "codigosDeclaradosNoContrato": [
+        200,
+        400,
+        401,
+        404,
+        503
+      ],
+      "tipo": "livre",
+      "esperado": "ver avaliação",
+      "status": 200,
+      "passou": true,
+      "contemConteudoProtegido": true,
+      "correlationId": "44f86ef1-f4ee-4205-b3d8-49c5129e32c1",
+      "ms": 241.6,
+      "trecho": "{\"itens\":[{\"id\":\"a11145ff-8ab9-4cff-ba6b-402393d90acd\",\"autorId\":\"9eef1b27-2f5f-40a3-bf31-768364537fdf\",\"autorNome\":\"Marina Demo\",\"autorAvatarUrl\":null,\"texto\":\"Resenha de demonstração da Marina: releitura que valeu cada página.\",\"spoiler\":"
+    }
+  ]
+}

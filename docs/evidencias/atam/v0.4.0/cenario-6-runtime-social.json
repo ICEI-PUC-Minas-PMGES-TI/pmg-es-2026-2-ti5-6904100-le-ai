@@ -1,0 +1,3763 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Lê Ai — social",
+    "description": "Contrato do serviço social (esqueleto — P0-INFRA).",
+    "version": "0.0.1"
+  },
+  "servers": [
+    {
+      "url": "https://leai-social.onrender.com",
+      "description": "Generated server url"
+    }
+  ],
+  "tags": [
+    {
+      "name": "listas",
+      "description": "Listas de livros curadas pelo leitor (F-LST)"
+    },
+    {
+      "name": "recomendacoes",
+      "description": "Recomendação de livro entre leitores com seguimento mútuo (F-REC-P2P)"
+    },
+    {
+      "name": "feed",
+      "description": "Feed cronológico e detalhe de atividade"
+    },
+    {
+      "name": "notificacoes",
+      "description": "Notificações in-app do leitor autenticado"
+    },
+    {
+      "name": "interacoes",
+      "description": "Curtidas, comentários e respostas"
+    },
+    {
+      "name": "notificacoes",
+      "description": "Dispositivos Android que recebem push (RF-NOT-07)"
+    },
+    {
+      "name": "moderacao",
+      "description": "Denúncias e moderação de conteúdo"
+    }
+  ],
+  "paths": {
+    "/me/notificacoes/preferencias": {
+      "get": {
+        "tags": [
+          "notificacoes"
+        ],
+        "summary": "Lista as preferências de notificação por tipo (RF-NOT-05)",
+        "description": "Todos os tipos configuráveis em ordem fixa, inclusive os nunca alterados, que vêm habilitados. Só o dono lê as próprias preferências.",
+        "operationId": "listar",
+        "responses": {
+          "200": {
+            "description": "Uma entrada por tipo configurável.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreferenciasDeNotificacao"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "notificacoes"
+        ],
+        "summary": "Atualiza preferências de notificação por tipo (RF-NOT-05)",
+        "description": "Atualiza, de forma idempotente, os tipos enviados; os demais ficam como estão. Tipo desconhecido ou repetido responde 400 sem alterar nada. Repetir a mesma chave devolve o mesmo resultado.",
+        "operationId": "atualizar",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AtualizarPreferenciasDeNotificacao"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Conjunto completo depois da atualização.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreferenciasDeNotificacao"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corpo vazio, tipo desconhecido ou tipo repetido.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/listas/{listaId}/livros/{itemId}/posicao": {
+      "put": {
+        "tags": [
+          "listas"
+        ],
+        "summary": "Move um livro para outra posição da própria lista (RF-LST-02)",
+        "description": "Owner-only. Os itens do intervalo se deslocam uma casa em uma transação. Posição fora de 1 até a quantidade de livros responde 400; item de outra lista, 404.",
+        "operationId": "moverLivroNaLista",
+        "parameters": [
+          {
+            "name": "listaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoverLivroNaLista"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Item na nova posição.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemDeLista"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/recomendacoes": {
+      "post": {
+        "tags": [
+          "recomendacoes"
+        ],
+        "summary": "Recomenda um livro oficial a um ou mais leitores (RF-REC-01/03/06/07)",
+        "description": "Cria uma recomendação por destinatário elegível e devolve o resultado de cada um. Livro pessoal rejeita o envio inteiro; sem mútuo, já tem o livro, limite do par ou recomendação ativa repetida bloqueiam só aquele destinatário.",
+        "operationId": "recomendar",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CriarRecomendacao"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Resultado do envio por destinatário.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultadoRecomendacao"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "O livro é pessoal.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/recomendacoes/sugestoes/{livroId}/descartar": {
+      "post": {
+        "tags": [
+          "recomendacoes"
+        ],
+        "summary": "Descarta uma sugestão, que não volta a aparecer (RF-REC-12)",
+        "description": "Exclusivo do próprio leitor. Repetir o descarte não é erro, com ou sem Idempotency-Key.",
+        "operationId": "descartar",
+        "parameters": [
+          {
+            "name": "livroId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Sugestão descartada."
+          },
+          "404": {
+            "description": "O livro não existe no catálogo.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/recomendacoes/descartar-lote": {
+      "post": {
+        "tags": [
+          "recomendacoes"
+        ],
+        "summary": "Descarta todas as recomendações recebidas de um livro (RF-REC-17, RN-22.12)",
+        "description": "Exclusivo do destinatário, sem avisar os remetentes e sem restauração. Lote já vazio responde sucesso com zero.",
+        "operationId": "descartarLote",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DescartarLote"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Quantas recomendações saíram.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DescarteEmLote"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/notificacoes/marcar-lidas": {
+      "post": {
+        "tags": [
+          "notificacoes"
+        ],
+        "summary": "Marca notificações como lidas, individualmente ou em lote (RF-NOT-03)",
+        "description": "SELECIONADAS exige ids (um id é a marcação individual, até 100 formam o lote); TODAS não aceita ids e marca todas as não lidas. Id de outro destinatário responde 404 sem alterar nada. Repetir a mesma chave devolve o mesmo resultado.",
+        "operationId": "marcarLidas",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarcarLidas"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Estado de leitura atualizado.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultadoMarcarLidas"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Modo ausente, ids em TODAS, ids ausentes/repetidos em SELECIONADAS.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Alguma notificação inexistente ou de outro destinatário.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/me/dispositivos-push": {
+      "post": {
+        "tags": [
+          "notificacoes"
+        ],
+        "summary": "Registra ou renova o token FCM do dispositivo (RF-NOT-07)",
+        "description": "O token é único. Reenviar o mesmo token atualiza o registro e o reativa, sem duplicar. Token que pertencia a outra conta passa a pertencer ao leitor autenticado. Só android é aceito.",
+        "operationId": "registrar",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegistrarDispositivoPush"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Dispositivo já existia; registro atualizado.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DispositivoPush"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Dispositivo registrado.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DispositivoPush"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Token ausente ou longo demais, ou plataforma diferente de android.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/listas": {
+      "post": {
+        "tags": [
+          "listas"
+        ],
+        "summary": "Cria uma lista do leitor (RF-LST-01)",
+        "description": "O dono é sempre o leitor autenticado. Com livroId, a lista nasce com esse livro na posição 1, na mesma transação. O livro precisa estar ativo e ser oficial ou livro pessoal do próprio leitor (RN-15.1).",
+        "operationId": "criarLista",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CriarLista"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Lista criada, ou resposta reproduzida pela mesma chave.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Lista"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Livro inativo, inexistente ou pessoal de outro leitor.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/listas/{listaId}/livros": {
+      "get": {
+        "tags": [
+          "listas"
+        ],
+        "summary": "Lista os livros de uma lista visível, na ordem do dono (RF-LST-04)",
+        "description": "Cursor estável, em ordem crescente de posição, com a visibilidade de obterLista. Livro inativo não é exibido. Livro pessoal sai com via=lista e referenciaId da lista.",
+        "operationId": "listarLivrosDaLista",
+        "parameters": [
+          {
+            "name": "listaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Segmento de itens e cursor para o próximo.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListaItens"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "listas"
+        ],
+        "summary": "Adiciona um livro à própria lista (RF-LST-02, RF-LST-05)",
+        "description": "Owner-only. Entra na última posição. Livro já presente não duplica: 200 com o item existente. Livro pessoal de outro leitor responde 422 (RN-15.1).",
+        "operationId": "adicionarLivroNaLista",
+        "parameters": [
+          {
+            "name": "listaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdicionarLivroNaLista"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "O livro já estava na lista; item existente.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemDeLista"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Livro adicionado, ou resposta reproduzida pela mesma chave.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemDeLista"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/denuncias": {
+      "post": {
+        "tags": [
+          "moderacao"
+        ],
+        "summary": "Denuncia uma resenha ou um comentário (RF-MOD-01)",
+        "description": "Exige acesso atual ao alvo (RN-08; resenha de livro pessoal pela via de RN-15.4). Se o leitor já tem denúncia pendente sobre o mesmo alvo, devolve essa, com 200.",
+        "operationId": "criarDenuncia",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CriarDenuncia"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "O leitor já tinha denúncia pendente sobre o alvo.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Denuncia"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Denúncia registrada.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Denuncia"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "O alvo não existe ou o leitor não tem acesso a ele.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "O conteúdo é do próprio leitor.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/atividades/{atividadeId}/curtir": {
+      "post": {
+        "tags": [
+          "interacoes"
+        ],
+        "summary": "Curte uma atividade visível (RF-SOC-11)",
+        "description": "Cria no máximo uma curtida por leitor e atividade. Revalida visibilidade e aplica rate limiting. Repetir a mesma chave com o mesmo payload devolve o mesmo efeito. Grava atividade.curtida na outbox só quando a curtida é efetivamente nova.",
+        "operationId": "curtir",
+        "parameters": [
+          {
+            "name": "atividadeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Curtida criada, ou resposta reproduzida pela mesma chave.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EstadoCurtida"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Atividade inexistente ou não visível.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "interacoes"
+        ],
+        "summary": "Remove a própria curtida de uma atividade (RF-SOC-11)",
+        "description": "Remove somente a curtida do leitor autenticado. Ausência da própria curtida mantém o resultado idempotente (204).",
+        "operationId": "descurtir",
+        "parameters": [
+          {
+            "name": "atividadeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Curtida própria ausente após a operação."
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/atividades/{atividadeId}/comentarios": {
+      "get": {
+        "tags": [
+          "interacoes"
+        ],
+        "summary": "Lista comentários-raiz de uma atividade",
+        "description": "Só comentários-raiz, paginados do mais antigo para o mais recente. Respostas são consultadas pela rota própria. A atividade precisa continuar visível.",
+        "operationId": "listarComentarios",
+        "parameters": [
+          {
+            "name": "atividadeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Página de comentários-raiz.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginaComentarios"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Atividade inexistente ou não visível.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "interacoes"
+        ],
+        "summary": "Comenta uma atividade ou responde a um comentário (RF-SOC-12)",
+        "description": "Sem comentarioRespondidoId cria comentário-raiz. Com o campo, cria uma resposta: se o alvo já é resposta, o novo registro vira irmão sob a mesma raiz (RN-10) — o servidor deriva a raiz e usuarioRespondido do alvo, nunca do cliente. Revalida visibilidade e aplica rate limiting. Publica atividade.comentada ou comentario.respondido, nunca os dois.",
+        "operationId": "comentar",
+        "parameters": [
+          {
+            "name": "atividadeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CriarComentario"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Comentário ou resposta criado.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Comentario"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Atividade ou comentário respondido inexistente/não visível.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Regra de negócio de nesting violada (cinto de segurança do trigger).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/usuarios/{usuarioId}/suspender": {
+      "post": {
+        "tags": [
+          "moderacao"
+        ],
+        "summary": "Suspende a conta do leitor pelo identidade e audita (RF-MOD-04)",
+        "operationId": "suspenderConta",
+        "parameters": [
+          {
+            "name": "usuarioId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MotivoDaModeracaoDeConta"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContaModerada"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/usuarios/{usuarioId}/reativar": {
+      "post": {
+        "tags": [
+          "moderacao"
+        ],
+        "summary": "Reativa a conta suspensa pelo identidade e audita (RF-MOD-04)",
+        "operationId": "reativarConta",
+        "parameters": [
+          {
+            "name": "usuarioId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MotivoDaModeracaoDeConta"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContaModerada"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/denuncias/{denunciaId}/remover": {
+      "post": {
+        "tags": [
+          "moderacao"
+        ],
+        "summary": "Remove o conteúdo denunciado e fecha as denúncias dele (RF-MOD-03)",
+        "operationId": "removerConteudoDenunciado",
+        "parameters": [
+          {
+            "name": "denunciaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultadoModeracao"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/denuncias/{denunciaId}/arquivar": {
+      "post": {
+        "tags": [
+          "moderacao"
+        ],
+        "summary": "Arquiva a denúncia como improcedente (RF-MOD-03)",
+        "operationId": "arquivarDenuncia",
+        "parameters": [
+          {
+            "name": "denunciaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultadoModeracao"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/listas/{listaId}": {
+      "get": {
+        "tags": [
+          "listas"
+        ],
+        "summary": "Obtém os metadados de uma lista visível (RF-LST-04)",
+        "description": "O dono sempre vê. Terceiros veem perfil público, ou privado com seguimento aceito (RN-08); sem isso, 403 de perfil privado.",
+        "operationId": "obterLista",
+        "parameters": [
+          {
+            "name": "listaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Metadados da lista.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Lista"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil privado sem seguimento aceito.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "listas"
+        ],
+        "summary": "Exclui a própria lista (RF-LST-03)",
+        "description": "Owner-only e lógica: a lista sai de todas as rotas e de v_lista_livro_pessoal_v1 na mesma transação. Lista já excluída mantém o 204.",
+        "operationId": "excluirLista",
+        "parameters": [
+          {
+            "name": "listaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Lista própria ausente após a operação."
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "listas"
+        ],
+        "summary": "Edita título e descrição da própria lista (RF-LST-03)",
+        "description": "Owner-only. Campo omitido permanece; descricao nula apaga a descrição. Lista alheia responde 404.",
+        "operationId": "editarLista",
+        "parameters": [
+          {
+            "name": "listaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditarLista"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Lista atualizada.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Lista"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/comentarios/{comentarioId}": {
+      "delete": {
+        "tags": [
+          "interacoes"
+        ],
+        "summary": "Exclui fisicamente o próprio comentário (RF-SOC-13)",
+        "description": "Só o autor exclui (RNF-SEC-02). Excluir uma raiz remove as respostas dela por cascade (RN-10.5); não existe estado de comentário excluído.",
+        "operationId": "excluirComentario",
+        "parameters": [
+          {
+            "name": "comentarioId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Comentário excluído."
+          },
+          "403": {
+            "description": "O comentário é de outra pessoa.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Comentário inexistente.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "interacoes"
+        ],
+        "summary": "Edita o próprio comentário (RF-SOC-13)",
+        "description": "Só o autor edita (RNF-SEC-02). Raiz, alvo e nível não mudam (RN-10). As menções são reprocessadas e só destinatário novo recebe usuario.mencionado. Aplica rate limiting de comentário e de menção.",
+        "operationId": "editarComentario",
+        "parameters": [
+          {
+            "name": "comentarioId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditarComentario"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Comentário com o texto novo.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Comentario"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "O comentário é de outra pessoa.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Comentário inexistente ou atividade não visível.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "COMENTARIO_DESATUALIZADO: a versão enviada não é a da apresentação atual, ou faltou com menção gravada. Nada muda; o editor recarrega.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Limite de comentários ou de menções atingido.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/recomendacoes/sugestoes": {
+      "get": {
+        "tags": [
+          "recomendacoes"
+        ],
+        "summary": "Sugere livros pelas leituras de quem o leitor segue e pelo gosto dele (RF-REC-08/09/10/11)",
+        "description": "Sem secao, devolve a primeira página das duas seções. Com secao (seguidos ou gosto) e offset, devolve só a continuação daquela seção. O tamanho da página e o teto de cada seção são do servidor. Livro na estante do leitor, livro pessoal e sugestão descartada nunca aparecem; o motivo diz quantos leram, nunca quem (RN-08).",
+        "operationId": "sugestoes",
+        "parameters": [
+          {
+            "name": "secao",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sugestões com o motivo de cada uma.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sugestoes"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Seção desconhecida ou offset sem seção.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/recomendacoes/recebidas": {
+      "get": {
+        "tags": [
+          "recomendacoes"
+        ],
+        "summary": "Lista as recomendações recebidas pelo leitor (RF-REC-04/05/13/14)",
+        "description": "Só ativas e não expiradas, da mais recente para a mais antiga.",
+        "operationId": "recebidas",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Página de recomendações recebidas.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginaRecomendacoes"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/recomendacoes/recebidas/restantes": {
+      "get": {
+        "tags": [
+          "recomendacoes"
+        ],
+        "summary": "Conta as recomendações ativas de um livro na lista do leitor (RN-22.12)",
+        "description": "O cliente consulta no terceiro descarte do mesmo livro, para decidir se oferece o descarte em lote. A contagem de descartes e a supressão da pergunta são do cliente.",
+        "operationId": "restantes",
+        "parameters": [
+          {
+            "name": "livroId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Quantas restam.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestantesDoLivro"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/recomendacoes/candidatos": {
+      "get": {
+        "tags": [
+          "recomendacoes"
+        ],
+        "summary": "Lista os mútuos do leitor que podem receber um livro",
+        "description": "Todos os mútuos, para a busca local, com jaTemLivro e limiteAtingido para o livro.",
+        "operationId": "candidatos",
+        "parameters": [
+          {
+            "name": "livroId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Mútuos com a situação de cada um.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListaCandidatos"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/perfis/{usuarioId}/listas": {
+      "get": {
+        "tags": [
+          "listas"
+        ],
+        "summary": "Lista as listas de um leitor (RF-LST-04, RF-SOC-02)",
+        "description": "Listas ativas, da alterada mais recentemente para a mais antiga, com contagem e até três capas. RN-08: perfil privado sem seguimento aceito responde 403.",
+        "operationId": "listarListasDoPerfil",
+        "parameters": [
+          {
+            "name": "usuarioId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Página de listas do leitor.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginaListas"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/notificacoes": {
+      "get": {
+        "tags": [
+          "notificacoes"
+        ],
+        "summary": "Lista as notificações do leitor (RF-NOT-02)",
+        "description": "Somente notificações cujo destinatário é o leitor autenticado, da mais recente para a mais antiga, com estado lida/não lida e o total de não lidas para o badge. Quem agiu e perdeu a visibilidade (conta suspensa ou em exclusão) não é exposto.",
+        "operationId": "listar_1",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Página de notificações do leitor autenticado.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginaNotificacoes"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Página negativa ou tamanho fora de 1 a 50.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/notificacoes/tempo-real": {
+      "get": {
+        "tags": [
+          "notificacoes"
+        ],
+        "summary": "Canal SSE de notificações em tempo real (RF-NOT-06)",
+        "description": "Server-Sent Events do leitor autenticado, com o token no cabeçalho Authorization. Abre com o evento `sincronizacao` (total de não lidas); cada notificação nova chega como `notificacao` (NotificacaoTempoReal). Comentários de heartbeat mantêm a conexão viva. O servidor encerra o canal quando o token expira; o cliente renova a sessão e reconecta com backoff. A lista paginada continua sendo a fonte de verdade.",
+        "operationId": "tempoReal",
+        "responses": {
+          "200": {
+            "description": "Canal aberto (text/event-stream).",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/SseEmitter"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Token ausente, inválido ou expirado.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/me/listas": {
+      "get": {
+        "tags": [
+          "listas"
+        ],
+        "summary": "Lista as listas do próprio leitor, marcando as que contêm um livro",
+        "description": "Com livroId, cada lista traz contemLivro; sem ele, o campo é omitido.",
+        "operationId": "listarMinhasListas",
+        "parameters": [
+          {
+            "name": "livroId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Página de listas do leitor autenticado.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginaListas"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Health check do serviço (RNF-OBS-02)",
+        "operationId": "verificar",
+        "responses": {
+          "200": {
+            "description": "Serviço e banco saudáveis.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Serviço indisponível (ex.: banco fora do ar).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/feed": {
+      "get": {
+        "tags": [
+          "feed"
+        ],
+        "summary": "Lista o feed cronológico do leitor (RF-SOC-09)",
+        "description": "Atividades de quem o solicitante segue, mais recentes primeiro. A autorização é revalidada a cada consulta: deixar de seguir, perfil suspenso, conteúdo privado sem seguimento aceito ou livro ausente/inativo tiram a atividade do resultado.",
+        "operationId": "feed",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Página do feed em ordem cronológica decrescente.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginaAtividades"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Página negativa ou tamanho fora de 1 a 50.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/comentarios/{comentarioRaizId}/respostas": {
+      "get": {
+        "tags": [
+          "interacoes"
+        ],
+        "summary": "Lista respostas diretas de um comentário-raiz",
+        "description": "Paginação por cursor estável. Só respostas irmãs sob a raiz, inclusive as criadas em resposta a outra resposta (RN-10). Revalida visibilidade da atividade antes de retornar qualquer comentário.",
+        "operationId": "listarRespostas",
+        "parameters": [
+          {
+            "name": "comentarioRaizId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Segmento de respostas e cursor para o próximo segmento.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListaRespostas"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Comentário-raiz inexistente ou atividade não visível.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/atividades/{atividadeId}": {
+      "get": {
+        "tags": [
+          "feed"
+        ],
+        "summary": "Obtém o detalhe de uma atividade visível",
+        "description": "Revalida se a atividade ainda integra o feed do solicitante sob RN-08 e RN-09. Para evitar enumeração, uma atividade existente mas não visível responde como não encontrada.",
+        "operationId": "obter",
+        "parameters": [
+          {
+            "name": "atividadeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Atividade visível com snapshot e contadores atuais.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Atividade"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Atividade inexistente ou não visível ao solicitante.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/usuarios": {
+      "get": {
+        "tags": [
+          "moderacao"
+        ],
+        "summary": "Conta pelo username exato, também a suspensa, para o perfil do admin (RF-MOD-04)",
+        "operationId": "buscarContaPeloAdmin",
+        "parameters": [
+          {
+            "name": "username",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContaDaModeracao"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/moderacao/logs": {
+      "get": {
+        "tags": [
+          "moderacao"
+        ],
+        "summary": "Registro de auditoria, da ação mais recente para a mais antiga (RF-MOD-05)",
+        "operationId": "listarRegistrosDeModeracao",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limite",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginaRegistrosDeModeracao"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/denuncias": {
+      "get": {
+        "tags": [
+          "moderacao"
+        ],
+        "summary": "Denúncias pendentes, da mais antiga para a mais recente (RF-MOD-02)",
+        "operationId": "listarDenunciasPendentes",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limite",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginaDenuncias"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/recomendacoes/{recomendacaoId}": {
+      "delete": {
+        "tags": [
+          "recomendacoes"
+        ],
+        "summary": "Descarta uma recomendação recebida (RF-REC-15, RN-22.11)",
+        "description": "Exclusivo do destinatário, sem motivo e sem avisar o remetente. Recomendação de outro leitor responde 404, sem confirmar a existência.",
+        "operationId": "descartar_1",
+        "parameters": [
+          {
+            "name": "recomendacaoId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Recomendação descartada."
+          },
+          "404": {
+            "description": "Recomendação inexistente, expirada ou de outro leitor.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/me/dispositivos-push/{id}": {
+      "delete": {
+        "tags": [
+          "notificacoes"
+        ],
+        "summary": "Revoga o dispositivo de push (RF-NOT-07)",
+        "description": "Só o dono revoga o próprio dispositivo; id alheio ou inexistente responde 404. Revogar de novo um dispositivo já revogado também responde 204.",
+        "operationId": "revogar",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Dispositivo revogado."
+          },
+          "404": {
+            "description": "Dispositivo inexistente ou de outro leitor.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Erro"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/listas/{listaId}/livros/{livroId}": {
+      "delete": {
+        "tags": [
+          "listas"
+        ],
+        "summary": "Remove um livro da própria lista (RF-LST-02)",
+        "description": "Owner-only. Os itens seguintes sobem uma posição na mesma transação. Livro ausente mantém o 204.",
+        "operationId": "removerLivroDaLista",
+        "parameters": [
+          {
+            "name": "listaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "livroId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Livro ausente da lista após a operação."
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/frases/{fraseId}": {
+      "delete": {
+        "tags": [
+          "moderacao"
+        ],
+        "summary": "Remove uma frase direto, sem denúncia (RN-11), com auditoria",
+        "operationId": "removerFrasePeloAdmin",
+        "parameters": [
+          {
+            "name": "fraseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AtualizarPreferenciasDeNotificacao": {
+        "type": "object",
+        "properties": {
+          "preferencias": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PreferenciaDeNotificacaoEntrada"
+            },
+            "maxItems": 12,
+            "minItems": 0
+          }
+        },
+        "required": [
+          "preferencias"
+        ]
+      },
+      "PreferenciaDeNotificacaoEntrada": {
+        "type": "object",
+        "properties": {
+          "tipo": {
+            "type": "string"
+          },
+          "habilitada": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "habilitada",
+          "tipo"
+        ]
+      },
+      "PreferenciaDeNotificacao": {
+        "type": "object",
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "NOVO_SEGUIDOR",
+              "SOLICITACAO_CRIADA",
+              "SOLICITACAO_ACEITA",
+              "ATIVIDADE_CURTIDA",
+              "ATIVIDADE_COMENTADA",
+              "COMENTARIO_RESPONDIDO",
+              "USUARIO_MENCIONADO",
+              "LEITURA_EM_RISCO",
+              "LEITURA_EXPIRADA",
+              "RECOMENDACAO_RECEBIDA",
+              "RESENHA_CURTIDA",
+              "LEMBRETE_SEQUENCIA"
+            ]
+          },
+          "habilitada": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PreferenciasDeNotificacao": {
+        "type": "object",
+        "properties": {
+          "preferencias": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PreferenciaDeNotificacao"
+            }
+          }
+        }
+      },
+      "MoverLivroNaLista": {
+        "type": "object",
+        "properties": {
+          "posicao": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "posicao"
+        ]
+      },
+      "ItemDeLista": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "listaId": {
+            "type": "string"
+          },
+          "livro": {
+            "$ref": "#/components/schemas/LivroDaLista"
+          },
+          "posicao": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "adicionadoEm": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "LinkLivro": {
+        "type": "object",
+        "properties": {
+          "livroId": {
+            "type": "string"
+          },
+          "via": {
+            "type": "string"
+          },
+          "referenciaId": {
+            "type": "string"
+          }
+        }
+      },
+      "LivroDaLista": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tipo": {
+            "type": "string"
+          },
+          "titulo": {
+            "type": "string"
+          },
+          "autor": {
+            "type": "string"
+          },
+          "capaUrl": {
+            "type": "string"
+          },
+          "link": {
+            "$ref": "#/components/schemas/LinkLivro"
+          }
+        }
+      },
+      "CriarRecomendacao": {
+        "type": "object",
+        "properties": {
+          "livroId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "destinatarios": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "maxItems": 20,
+            "minItems": 0
+          },
+          "mensagem": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "destinatarios",
+          "livroId"
+        ]
+      },
+      "ResultadoPorDestinatario": {
+        "type": "object",
+        "properties": {
+          "destinatarioId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "recomendacaoId": {
+            "type": "string"
+          },
+          "motivo": {
+            "type": "string"
+          }
+        }
+      },
+      "ResultadoRecomendacao": {
+        "type": "object",
+        "properties": {
+          "resultados": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResultadoPorDestinatario"
+            }
+          },
+          "totalCriadas": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "DescartarLote": {
+        "type": "object",
+        "properties": {
+          "livroId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "livroId"
+        ]
+      },
+      "DescarteEmLote": {
+        "type": "object",
+        "properties": {
+          "removidas": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "MarcarLidas": {
+        "type": "object",
+        "properties": {
+          "modo": {
+            "type": "string",
+            "enum": [
+              "SELECIONADAS",
+              "TODAS"
+            ]
+          },
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "maxItems": 100,
+            "minItems": 1
+          }
+        },
+        "required": [
+          "modo"
+        ]
+      },
+      "ResultadoMarcarLidas": {
+        "type": "object",
+        "properties": {
+          "marcadas": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalNaoLidas": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "RegistrarDispositivoPush": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 4096,
+            "minLength": 0
+          },
+          "plataforma": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "android"
+          }
+        },
+        "required": [
+          "plataforma",
+          "token"
+        ]
+      },
+      "DispositivoPush": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "plataforma": {
+            "type": "string"
+          },
+          "ativo": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CriarLista": {
+        "type": "object",
+        "properties": {
+          "titulo": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 0
+          },
+          "descricao": {
+            "type": "string",
+            "maxLength": 300,
+            "minLength": 0
+          },
+          "livroId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "titulo"
+        ]
+      },
+      "DonoDaLista": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "nomeExibicao": {
+            "type": "string"
+          },
+          "avatarUrl": {
+            "type": "string"
+          }
+        }
+      },
+      "Lista": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "dono": {
+            "$ref": "#/components/schemas/DonoDaLista"
+          },
+          "titulo": {
+            "type": "string"
+          },
+          "descricao": {
+            "type": "string"
+          },
+          "quantidadeLivros": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "pertenceAoSolicitante": {
+            "type": "boolean"
+          },
+          "criadaEm": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "atualizadaEm": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AdicionarLivroNaLista": {
+        "type": "object",
+        "properties": {
+          "livroId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "livroId"
+        ]
+      },
+      "CriarDenuncia": {
+        "type": "object",
+        "properties": {
+          "alvoTipo": {
+            "type": "string",
+            "pattern": "resenha|comentario"
+          },
+          "alvoId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "motivo": {
+            "type": "string"
+          },
+          "via": {
+            "type": "string",
+            "pattern": "feed|lista"
+          },
+          "referenciaId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "alvoId",
+          "alvoTipo"
+        ]
+      },
+      "Denuncia": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "estado": {
+            "type": "string"
+          },
+          "criadoEm": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "EstadoCurtida": {
+        "type": "object",
+        "properties": {
+          "atividadeId": {
+            "type": "string"
+          },
+          "curtida": {
+            "type": "boolean"
+          },
+          "totalCurtidas": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "CriarComentario": {
+        "type": "object",
+        "properties": {
+          "texto": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1
+          },
+          "comentarioRespondidoId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "texto"
+        ]
+      },
+      "AutorSnapshot": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "nomeExibicao": {
+            "type": "string"
+          },
+          "avatarUrl": {
+            "type": "string"
+          }
+        }
+      },
+      "Comentario": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "atividadeId": {
+            "type": "string"
+          },
+          "comentarioRaizId": {
+            "type": "string"
+          },
+          "comentarioRespondidoId": {
+            "type": "string"
+          },
+          "usuarioRespondido": {
+            "$ref": "#/components/schemas/AutorSnapshot"
+          },
+          "autor": {
+            "$ref": "#/components/schemas/AutorSnapshot"
+          },
+          "texto": {
+            "type": "string"
+          },
+          "mencoes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Mencao"
+            }
+          },
+          "nivel": {
+            "type": "string"
+          },
+          "totalRespostas": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pertenceAoSolicitante": {
+            "type": "boolean"
+          },
+          "editado": {
+            "type": "boolean"
+          },
+          "criadoEm": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "atualizadoEm": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "versao": {
+            "type": "string"
+          }
+        }
+      },
+      "Mencao": {
+        "type": "object",
+        "properties": {
+          "posicao": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "comprimento": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "usuarioId": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        }
+      },
+      "MotivoDaModeracaoDeConta": {
+        "type": "object",
+        "properties": {
+          "motivo": {
+            "type": "string"
+          }
+        }
+      },
+      "ContaModerada": {
+        "type": "object",
+        "properties": {
+          "usuarioId": {
+            "type": "string"
+          },
+          "suspensa": {
+            "type": "boolean"
+          },
+          "suspensaEm": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reativadaEm": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ResultadoModeracao": {
+        "type": "object",
+        "properties": {
+          "denunciasFechadas": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "EditarLista": {
+        "type": "object",
+        "properties": {
+          "titulo": {
+            "type": "string",
+            "writeOnly": true
+          },
+          "descricao": {
+            "type": "string",
+            "writeOnly": true
+          }
+        }
+      },
+      "EditarComentario": {
+        "type": "object",
+        "properties": {
+          "texto": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1
+          },
+          "versao": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "texto"
+        ]
+      },
+      "LivroSnapshot": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tipo": {
+            "type": "string"
+          },
+          "titulo": {
+            "type": "string"
+          },
+          "autor": {
+            "type": "string"
+          },
+          "capaUrl": {
+            "type": "string"
+          },
+          "link": {
+            "$ref": "#/components/schemas/LinkLivro"
+          }
+        }
+      },
+      "MotivoDaSugestao": {
+        "type": "object",
+        "properties": {
+          "tipo": {
+            "type": "string"
+          },
+          "texto": {
+            "type": "string"
+          }
+        }
+      },
+      "SecaoDeSugestoes": {
+        "type": "object",
+        "properties": {
+          "itens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Sugestao"
+            }
+          },
+          "proximoOffset": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "Sugestao": {
+        "type": "object",
+        "properties": {
+          "livro": {
+            "$ref": "#/components/schemas/LivroSnapshot"
+          },
+          "motivo": {
+            "$ref": "#/components/schemas/MotivoDaSugestao"
+          }
+        }
+      },
+      "Sugestoes": {
+        "type": "object",
+        "properties": {
+          "seguidos": {
+            "$ref": "#/components/schemas/SecaoDeSugestoes"
+          },
+          "gosto": {
+            "$ref": "#/components/schemas/SecaoDeSugestoes"
+          }
+        }
+      },
+      "PaginaRecomendacoes": {
+        "type": "object",
+        "properties": {
+          "itens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecomendacaoRecebida"
+            }
+          },
+          "pagina": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "tamanho": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalItens": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPaginas": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ultima": {
+            "type": "boolean"
+          }
+        }
+      },
+      "RecomendacaoRecebida": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "remetente": {
+            "$ref": "#/components/schemas/AutorSnapshot"
+          },
+          "livro": {
+            "$ref": "#/components/schemas/LivroSnapshot"
+          },
+          "mensagem": {
+            "type": "string"
+          },
+          "criadoEm": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiraEm": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "RestantesDoLivro": {
+        "type": "object",
+        "properties": {
+          "restantes": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "CandidatoARecomendacao": {
+        "type": "object",
+        "properties": {
+          "leitor": {
+            "$ref": "#/components/schemas/AutorSnapshot"
+          },
+          "jaTemLivro": {
+            "type": "boolean"
+          },
+          "limiteAtingido": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ListaCandidatos": {
+        "type": "object",
+        "properties": {
+          "itens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CandidatoARecomendacao"
+            }
+          }
+        }
+      },
+      "CapaDaLista": {
+        "type": "object",
+        "properties": {
+          "livroId": {
+            "type": "string"
+          },
+          "tipo": {
+            "type": "string"
+          },
+          "titulo": {
+            "type": "string"
+          },
+          "capaUrl": {
+            "type": "string"
+          }
+        }
+      },
+      "ListaResumo": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "titulo": {
+            "type": "string"
+          },
+          "descricao": {
+            "type": "string"
+          },
+          "quantidadeLivros": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "capas": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CapaDaLista"
+            }
+          },
+          "atualizadaEm": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "contemLivro": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PaginaListas": {
+        "type": "object",
+        "properties": {
+          "itens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ListaResumo"
+            }
+          },
+          "pagina": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "tamanho": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalItens": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPaginas": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ultima": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AcaoNotificacao": {
+        "type": "object",
+        "properties": {
+          "tipo": {
+            "type": "string"
+          },
+          "rotulo": {
+            "type": "string"
+          },
+          "service": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "recursoId": {
+            "type": "string"
+          },
+          "requerConfirmacao": {
+            "type": "boolean"
+          }
+        }
+      },
+      "LivroDaNotificacao": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tipo": {
+            "type": "string"
+          },
+          "titulo": {
+            "type": "string"
+          }
+        }
+      },
+      "Notificacao": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "NOVO_SEGUIDOR",
+              "SOLICITACAO_CRIADA",
+              "SOLICITACAO_ACEITA",
+              "ATIVIDADE_CURTIDA",
+              "ATIVIDADE_COMENTADA",
+              "COMENTARIO_RESPONDIDO",
+              "USUARIO_MENCIONADO",
+              "LEITURA_EM_RISCO",
+              "LEITURA_EXPIRADA",
+              "RECOMENDACAO_RECEBIDA",
+              "RESENHA_CURTIDA",
+              "LEMBRETE_SEQUENCIA"
+            ]
+          },
+          "mensagem": {
+            "type": "string"
+          },
+          "ator": {
+            "$ref": "#/components/schemas/AutorSnapshot"
+          },
+          "atividadeId": {
+            "type": "string"
+          },
+          "comentarioId": {
+            "type": "string"
+          },
+          "leituraId": {
+            "type": "string"
+          },
+          "limiarDias": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "livro": {
+            "$ref": "#/components/schemas/LivroDaNotificacao"
+          },
+          "recomendacaoMensagem": {
+            "type": "string"
+          },
+          "acao": {
+            "$ref": "#/components/schemas/AcaoNotificacao"
+          },
+          "lida": {
+            "type": "boolean"
+          },
+          "lidaEm": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "criadoEm": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PaginaNotificacoes": {
+        "type": "object",
+        "properties": {
+          "itens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Notificacao"
+            }
+          },
+          "pagina": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "tamanho": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalItens": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPaginas": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ultima": {
+            "type": "boolean"
+          },
+          "totalNaoLidas": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "SseEmitter": {
+        "type": "object",
+        "properties": {
+          "timeout": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "ListaItens": {
+        "type": "object",
+        "properties": {
+          "itens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItemDeLista"
+            }
+          },
+          "proximoCursor": {
+            "type": "string"
+          },
+          "temMais": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Erro": {
+        "type": "object",
+        "description": "Corpo de erro padronizado (RNF-ERR-01) — pt-BR, sem detalhe técnico.",
+        "properties": {
+          "codigo": {
+            "type": "string",
+            "example": "RECURSO_NAO_ENCONTRADO"
+          },
+          "mensagem": {
+            "type": "string",
+            "example": "Não encontramos o que você procura."
+          },
+          "correlationId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "Health": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "ok"
+          },
+          "service": {
+            "type": "string",
+            "example": "social"
+          },
+          "time": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-08-25T12:00:00.000Z"
+          }
+        }
+      },
+      "Atividade": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tipo": {
+            "type": "string"
+          },
+          "autor": {
+            "$ref": "#/components/schemas/AutorSnapshot"
+          },
+          "livro": {
+            "$ref": "#/components/schemas/LivroSnapshot"
+          },
+          "resenha": {
+            "$ref": "#/components/schemas/ResenhaSnapshot"
+          },
+          "criadoEm": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "totalCurtidas": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalComentarios": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "curtidaPeloSolicitante": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PaginaAtividades": {
+        "type": "object",
+        "properties": {
+          "itens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Atividade"
+            }
+          },
+          "pagina": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "tamanho": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalItens": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPaginas": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ultima": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ResenhaSnapshot": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "texto": {
+            "type": "string"
+          },
+          "spoiler": {
+            "type": "boolean"
+          },
+          "nota": {
+            "type": "number"
+          }
+        }
+      },
+      "ListaRespostas": {
+        "type": "object",
+        "properties": {
+          "itens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Comentario"
+            }
+          },
+          "proximoCursor": {
+            "type": "string"
+          },
+          "temMais": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PaginaComentarios": {
+        "type": "object",
+        "properties": {
+          "itens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Comentario"
+            }
+          },
+          "pagina": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "tamanho": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalItens": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPaginas": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ultima": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ContaDaModeracao": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "nomeExibicao": {
+            "type": "string"
+          },
+          "avatarUrl": {
+            "type": "string"
+          },
+          "privacidade": {
+            "type": "string"
+          },
+          "suspensa": {
+            "type": "boolean"
+          },
+          "suspensaEm": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "motivo": {
+            "type": "string"
+          }
+        }
+      },
+      "PaginaRegistrosDeModeracao": {
+        "type": "object",
+        "properties": {
+          "itens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RegistroDeModeracao"
+            }
+          },
+          "proximoCursor": {
+            "type": "string"
+          },
+          "temMais": {
+            "type": "boolean"
+          }
+        }
+      },
+      "RegistroDeModeracao": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "criadoEm": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "acao": {
+            "type": "string"
+          },
+          "alvoTipo": {
+            "type": "string"
+          },
+          "comDenuncia": {
+            "type": "boolean"
+          },
+          "alvoAutor": {
+            "type": "string"
+          },
+          "atividadeAutor": {
+            "type": "string"
+          },
+          "livroTitulo": {
+            "type": "string"
+          },
+          "anonimizado": {
+            "type": "boolean"
+          },
+          "alvoId": {
+            "type": "string"
+          },
+          "alvoConta": {
+            "type": "string"
+          },
+          "motivo": {
+            "type": "string"
+          },
+          "suspensaoVigente": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AtividadeDaDenuncia": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tipo": {
+            "type": "string"
+          },
+          "autorNome": {
+            "type": "string"
+          },
+          "livroTitulo": {
+            "type": "string"
+          },
+          "visivelParaAdmin": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ConteudoDenunciado": {
+        "type": "object",
+        "properties": {
+          "texto": {
+            "type": "string"
+          },
+          "spoiler": {
+            "type": "boolean"
+          },
+          "nota": {
+            "type": "number"
+          },
+          "publicadoEm": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "respostas": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "DenunciaPendente": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tipo": {
+            "type": "string"
+          },
+          "criadoEm": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "motivo": {
+            "type": "string"
+          },
+          "denunciante": {
+            "$ref": "#/components/schemas/PessoaDaModeracao"
+          },
+          "autor": {
+            "$ref": "#/components/schemas/PessoaDaModeracao"
+          },
+          "livro": {
+            "$ref": "#/components/schemas/LivroDaDenuncia"
+          },
+          "atividade": {
+            "$ref": "#/components/schemas/AtividadeDaDenuncia"
+          },
+          "conteudo": {
+            "$ref": "#/components/schemas/ConteudoDenunciado"
+          },
+          "remocaoNaoConfirmada": {
+            "type": "boolean"
+          }
+        }
+      },
+      "LivroDaDenuncia": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "titulo": {
+            "type": "string"
+          },
+          "pessoal": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PaginaDenuncias": {
+        "type": "object",
+        "properties": {
+          "itens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DenunciaPendente"
+            }
+          },
+          "proximoCursor": {
+            "type": "string"
+          },
+          "temMais": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PessoaDaModeracao": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "nomeExibicao": {
+            "type": "string"
+          },
+          "avatarUrl": {
+            "type": "string"
+          },
+          "suspensa": {
+            "type": "boolean"
+          },
+          "suspensaEm": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  }
+}

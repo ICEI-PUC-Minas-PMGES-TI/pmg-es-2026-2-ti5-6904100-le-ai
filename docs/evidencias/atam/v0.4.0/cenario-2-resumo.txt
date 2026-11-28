@@ -1,0 +1,20 @@
+Cenário 2 - DES (Render/Neon/CloudAMQP Oregon), 2026-11-28T04:20:13.221Z. Códigos de negação conforme docs/api na v0.4.0.
+Tentativas não autorizadas: 12; negadas: 12; vazamentos: 0.
+Controles positivos e verificações de conteúdo: 3/3 ok.
+Conferência do dono depois das tentativas: {"progressosAntes":5,"progressosDepois":5,"ultimoProgressoAntes":"ea340295-c683-4cd0-aa6f-5ef6e8a3ebfd","ultimoProgressoDepois":"ea340295-c683-4cd0-aa6f-5ef6e8a3ebfd","tituloListaDepois":"Favoritos de novembro (demo)","nadaMudou":true}
+
+ok    | bia       | negado    | 403 | esperado 403/404 | GET acervo /livros/pessoal/734b4b55-b5c5-4ba0-959a-d0f7dec49655
+ok    | bia       | permitido | 200 | esperado 200/201 | GET acervo /livros/pessoal/734b4b55-b5c5-4ba0-959a-d0f7dec49655?via=lista&referenciaId=630b8257-bffc-4f7b-9447-0b324bc03712
+ok    | bia       | negado    | 403 | esperado 403/404 | GET acervo /livros/pessoal/734b4b55-b5c5-4ba0-959a-d0f7dec49655?via=lista&referenciaId=dd4e6928-2913-43c6-a835-7f5ec293b033
+ok    | bia       | negado    | 403 | esperado 403/404 | GET acervo /livros/pessoal/734b4b55-b5c5-4ba0-959a-d0f7dec49655?via=feed&referenciaId=ffa6aee3-2ed0-4ba4-898e-9bc249b16d2f
+ok    | bia       | negado    | 403 | esperado 403/404 | GET acervo /livros/pessoal/734b4b55-b5c5-4ba0-959a-d0f7dec49655?via=feed&referenciaId=93c2aa4b-15a3-4a5c-a6e7-a83802691ed4
+ok    | bia       | negado    | 403 | esperado 403/404 | GET acervo /livros/pessoal/1a8b8f7a-3bc0-4eda-a8e6-c12d1842353c?via=lista&referenciaId=d805a5be-524e-4c78-be50-4ced9146baaf
+ok    | caio      | permitido | 200 | esperado 200/201 | GET acervo /livros/pessoal/1a8b8f7a-3bc0-4eda-a8e6-c12d1842353c?via=lista&referenciaId=d805a5be-524e-4c78-be50-4ced9146baaf
+ok    | bia       | negado    | 403 | esperado 403/404 | POST leitura /estante
+ok    | bia       | negado    | 403 | esperado 403/404 | PUT leitura /livros/734b4b55-b5c5-4ba0-959a-d0f7dec49655/favorito
+ok    | bia       | negado    | 403 | esperado 403/404 | POST leitura /leituras
+ok    | bia       | livre     | 200 | esperado ver avaliação | GET acervo /livros?q=Mem%C3%B3rias%20do%20S%C3%ADtio%20Azul&limit=50
+ok    | bia       | negado    | 404 | esperado 403/404 | GET leitura /leituras/dd708bd2-3b95-4a50-9011-25c549dc0949
+ok    | bia       | negado    | 404 | esperado 403/404 | POST leitura /leituras/dd708bd2-3b95-4a50-9011-25c549dc0949/progresso
+ok    | bia       | negado    | 404 | esperado 403/404 | DELETE leitura /progresso/ea340295-c683-4cd0-aa6f-5ef6e8a3ebfd
+ok    | bia       | negado    | 404 | esperado 404 | PATCH social /listas/d805a5be-524e-4c78-be50-4ced9146baaf

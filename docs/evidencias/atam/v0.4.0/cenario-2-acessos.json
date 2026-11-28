@@ -1,0 +1,409 @@
+{
+  "medidoEm": "2026-11-28T04:20:13.221Z",
+  "ambiente": "DES (Render/Neon/CloudAMQP Oregon)",
+  "contrato": "v0.4.0",
+  "resumo": {
+    "tentativasNaoAutorizadas": 12,
+    "negadas": 12,
+    "vazamentos": 0,
+    "controlesEVerificacoes": 3,
+    "controlesEVerificacoesOk": 3
+  },
+  "conferenciaDoDono": {
+    "progressosAntes": 5,
+    "progressosDepois": 5,
+    "ultimoProgressoAntes": "ea340295-c683-4cd0-aa6f-5ef6e8a3ebfd",
+    "ultimoProgressoDepois": "ea340295-c683-4cd0-aa6f-5ef6e8a3ebfd",
+    "tituloListaDepois": "Favoritos de novembro (demo)",
+    "nadaMudou": true
+  },
+  "registros": [
+    {
+      "cenario": 2,
+      "papel": "bia",
+      "metodo": "GET",
+      "rota": "acervo /livros/pessoal/734b4b55-b5c5-4ba0-959a-d0f7dec49655",
+      "rotaContrato": "GET /livros/pessoal/{id}",
+      "codigosDeclaradosNoContrato": [
+        200,
+        400,
+        401,
+        403,
+        404,
+        503
+      ],
+      "tipo": "negado",
+      "esperado": [
+        403,
+        404
+      ],
+      "status": 403,
+      "passou": true,
+      "contemConteudoProtegido": false,
+      "correlationId": "866a1488-6d90-46a9-ba53-f0565ee4734a",
+      "ms": 591.3,
+      "trecho": "{\"codigo\":\"ACESSO_NEGADO\",\"mensagem\":\"Você não tem permissão para esta ação.\",\"correlationId\":\"866a1488-6d90-46a9-ba53-f0565ee4734a\"}"
+    },
+    {
+      "cenario": 2,
+      "papel": "bia",
+      "metodo": "GET",
+      "rota": "acervo /livros/pessoal/734b4b55-b5c5-4ba0-959a-d0f7dec49655?via=lista&referenciaId=630b8257-bffc-4f7b-9447-0b324bc03712",
+      "rotaContrato": "GET /livros/pessoal/{id}",
+      "codigosDeclaradosNoContrato": [
+        200,
+        400,
+        401,
+        403,
+        404,
+        503
+      ],
+      "tipo": "permitido",
+      "esperado": [
+        200,
+        201
+      ],
+      "status": 200,
+      "passou": true,
+      "contemConteudoProtegido": false,
+      "correlationId": "7b8ad6d8-5457-47fc-8e11-b9a991123672",
+      "ms": 277.7,
+      "trecho": "{\"id\":\"734b4b55-b5c5-4ba0-959a-d0f7dec49655\",\"tipo\":\"pessoal\",\"donoId\":\"4afa78d4-ddf6-45dd-a001-9931ac7d6771\",\"titulo\":\"Memórias do Sítio Azul (demo)\",\"autor\":\"Caio Demo\",\"paginas\":200,\"sinopse\":null,\"capaUrl\":null,\"modoConsulta\":true,\"nota"
+    },
+    {
+      "cenario": 2,
+      "papel": "bia",
+      "metodo": "GET",
+      "rota": "acervo /livros/pessoal/734b4b55-b5c5-4ba0-959a-d0f7dec49655?via=lista&referenciaId=dd4e6928-2913-43c6-a835-7f5ec293b033",
+      "rotaContrato": "GET /livros/pessoal/{id}",
+      "codigosDeclaradosNoContrato": [
+        200,
+        400,
+        401,
+        403,
+        404,
+        503
+      ],
+      "tipo": "negado",
+      "esperado": [
+        403,
+        404
+      ],
+      "status": 403,
+      "passou": true,
+      "contemConteudoProtegido": false,
+      "correlationId": "d5dd1417-c2c1-4fb0-9919-63d89ee2f485",
+      "ms": 248.3,
+      "trecho": "{\"codigo\":\"ACESSO_NEGADO\",\"mensagem\":\"Você não tem permissão para esta ação.\",\"correlationId\":\"d5dd1417-c2c1-4fb0-9919-63d89ee2f485\"}"
+    },
+    {
+      "cenario": 2,
+      "papel": "bia",
+      "metodo": "GET",
+      "rota": "acervo /livros/pessoal/734b4b55-b5c5-4ba0-959a-d0f7dec49655?via=feed&referenciaId=ffa6aee3-2ed0-4ba4-898e-9bc249b16d2f",
+      "rotaContrato": "GET /livros/pessoal/{id}",
+      "codigosDeclaradosNoContrato": [
+        200,
+        400,
+        401,
+        403,
+        404,
+        503
+      ],
+      "tipo": "negado",
+      "esperado": [
+        403,
+        404
+      ],
+      "status": 403,
+      "passou": true,
+      "contemConteudoProtegido": false,
+      "correlationId": "b1736d38-3599-4ad4-99f6-0145a32813f8",
+      "ms": 252,
+      "trecho": "{\"codigo\":\"ACESSO_NEGADO\",\"mensagem\":\"Você não tem permissão para esta ação.\",\"correlationId\":\"b1736d38-3599-4ad4-99f6-0145a32813f8\"}"
+    },
+    {
+      "cenario": 2,
+      "papel": "bia",
+      "metodo": "GET",
+      "rota": "acervo /livros/pessoal/734b4b55-b5c5-4ba0-959a-d0f7dec49655?via=feed&referenciaId=93c2aa4b-15a3-4a5c-a6e7-a83802691ed4",
+      "rotaContrato": "GET /livros/pessoal/{id}",
+      "codigosDeclaradosNoContrato": [
+        200,
+        400,
+        401,
+        403,
+        404,
+        503
+      ],
+      "tipo": "negado",
+      "esperado": [
+        403,
+        404
+      ],
+      "status": 403,
+      "passou": true,
+      "contemConteudoProtegido": false,
+      "correlationId": "f83326e4-044f-4c63-9465-66e8ad8ec504",
+      "ms": 257.2,
+      "trecho": "{\"codigo\":\"ACESSO_NEGADO\",\"mensagem\":\"Você não tem permissão para esta ação.\",\"correlationId\":\"f83326e4-044f-4c63-9465-66e8ad8ec504\"}"
+    },
+    {
+      "cenario": 2,
+      "papel": "bia",
+      "metodo": "GET",
+      "rota": "acervo /livros/pessoal/1a8b8f7a-3bc0-4eda-a8e6-c12d1842353c?via=lista&referenciaId=d805a5be-524e-4c78-be50-4ced9146baaf",
+      "rotaContrato": "GET /livros/pessoal/{id}",
+      "codigosDeclaradosNoContrato": [
+        200,
+        400,
+        401,
+        403,
+        404,
+        503
+      ],
+      "tipo": "negado",
+      "esperado": [
+        403,
+        404
+      ],
+      "status": 403,
+      "passou": true,
+      "contemConteudoProtegido": false,
+      "correlationId": "489935f1-b2ce-4ee1-917d-094afad7f639",
+      "ms": 231.8,
+      "trecho": "{\"codigo\":\"ACESSO_NEGADO\",\"mensagem\":\"Você não tem permissão para esta ação.\",\"correlationId\":\"489935f1-b2ce-4ee1-917d-094afad7f639\"}"
+    },
+    {
+      "cenario": 2,
+      "papel": "caio",
+      "metodo": "GET",
+      "rota": "acervo /livros/pessoal/1a8b8f7a-3bc0-4eda-a8e6-c12d1842353c?via=lista&referenciaId=d805a5be-524e-4c78-be50-4ced9146baaf",
+      "rotaContrato": "GET /livros/pessoal/{id}",
+      "codigosDeclaradosNoContrato": [
+        200,
+        400,
+        401,
+        403,
+        404,
+        503
+      ],
+      "tipo": "permitido",
+      "esperado": [
+        200,
+        201
+      ],
+      "status": 200,
+      "passou": true,
+      "contemConteudoProtegido": true,
+      "correlationId": "8bef63b9-9ffe-4265-bff7-d6b003fc0505",
+      "ms": 260.9,
+      "trecho": "{\"id\":\"1a8b8f7a-3bc0-4eda-a8e6-c12d1842353c\",\"tipo\":\"pessoal\",\"donoId\":\"9eef1b27-2f5f-40a3-bf31-768364537fdf\",\"titulo\":\"Caderno de Viagem da Marina (demo)\",\"autor\":\"Marina Demo\",\"paginas\":120,\"sinopse\":null,\"capaUrl\":null,\"modoConsulta\":tru"
+    },
+    {
+      "cenario": 2,
+      "papel": "bia",
+      "metodo": "POST",
+      "rota": "leitura /estante",
+      "rotaContrato": "POST /estante",
+      "codigosDeclaradosNoContrato": [
+        201,
+        400,
+        401,
+        403,
+        404,
+        409,
+        422
+      ],
+      "tipo": "negado",
+      "esperado": [
+        403,
+        404
+      ],
+      "status": 403,
+      "passou": true,
+      "contemConteudoProtegido": false,
+      "correlationId": "bb8dbbe9-c512-47d4-9a2c-aca701416260",
+      "ms": 329.2,
+      "trecho": "{\"codigo\":\"LIVRO_PESSOAL_DE_TERCEIRO\",\"mensagem\":\"Este livro pessoal pertence a outro leitor.\",\"correlationId\":\"bb8dbbe9-c512-47d4-9a2c-aca701416260\"}"
+    },
+    {
+      "cenario": 2,
+      "papel": "bia",
+      "metodo": "PUT",
+      "rota": "leitura /livros/734b4b55-b5c5-4ba0-959a-d0f7dec49655/favorito",
+      "rotaContrato": "PUT /livros/{livroId}/favorito",
+      "codigosDeclaradosNoContrato": [
+        200,
+        400,
+        401,
+        403,
+        404,
+        409,
+        503
+      ],
+      "tipo": "negado",
+      "esperado": [
+        403,
+        404
+      ],
+      "status": 403,
+      "passou": true,
+      "contemConteudoProtegido": false,
+      "correlationId": "bf12e786-376d-455e-b972-6ec849222ae0",
+      "ms": 231.9,
+      "trecho": "{\"codigo\":\"LIVRO_PESSOAL_DE_TERCEIRO\",\"mensagem\":\"Este livro pessoal pertence a outro leitor.\",\"correlationId\":\"bf12e786-376d-455e-b972-6ec849222ae0\"}"
+    },
+    {
+      "cenario": 2,
+      "papel": "bia",
+      "metodo": "POST",
+      "rota": "leitura /leituras",
+      "rotaContrato": "POST /leituras",
+      "codigosDeclaradosNoContrato": [
+        201,
+        400,
+        401,
+        403,
+        404,
+        409,
+        422
+      ],
+      "tipo": "negado",
+      "esperado": [
+        403,
+        404
+      ],
+      "status": 403,
+      "passou": true,
+      "contemConteudoProtegido": false,
+      "correlationId": "9b9ec2a1-9df9-44d9-9c93-a6ab8751327d",
+      "ms": 283,
+      "trecho": "{\"codigo\":\"LIVRO_PESSOAL_DE_TERCEIRO\",\"mensagem\":\"Este livro pessoal pertence a outro leitor.\",\"correlationId\":\"9b9ec2a1-9df9-44d9-9c93-a6ab8751327d\"}"
+    },
+    {
+      "cenario": 2,
+      "papel": "bia",
+      "metodo": "GET",
+      "rota": "acervo /livros?q=Mem%C3%B3rias%20do%20S%C3%ADtio%20Azul&limit=50",
+      "rotaContrato": "GET /livros",
+      "codigosDeclaradosNoContrato": [
+        200,
+        400,
+        401,
+        503
+      ],
+      "tipo": "livre",
+      "esperado": "ver avaliação",
+      "status": 200,
+      "passou": true,
+      "contemConteudoProtegido": false,
+      "correlationId": "903e9b77-dd92-40e5-a20a-05398e6c6ab7",
+      "ms": 298.9,
+      "trecho": "{\"itens\":[],\"page\":1,\"limit\":50,\"totalItens\":0,\"totalPaginas\":0}"
+    },
+    {
+      "cenario": 2,
+      "papel": "bia",
+      "metodo": "GET",
+      "rota": "leitura /leituras/dd708bd2-3b95-4a50-9011-25c549dc0949",
+      "rotaContrato": "GET /leituras/{leituraId}",
+      "codigosDeclaradosNoContrato": [
+        200,
+        401,
+        403,
+        404
+      ],
+      "tipo": "negado",
+      "esperado": [
+        403,
+        404
+      ],
+      "status": 404,
+      "passou": true,
+      "contemConteudoProtegido": false,
+      "correlationId": "c14a421f-95c2-43ec-aa31-9144ccdf8a5d",
+      "ms": 220.2,
+      "trecho": "{\"codigo\":\"LEITURA_NAO_ENCONTRADA\",\"mensagem\":\"Não encontramos esta leitura.\",\"correlationId\":\"c14a421f-95c2-43ec-aa31-9144ccdf8a5d\"}"
+    },
+    {
+      "cenario": 2,
+      "papel": "bia",
+      "metodo": "POST",
+      "rota": "leitura /leituras/dd708bd2-3b95-4a50-9011-25c549dc0949/progresso",
+      "rotaContrato": "POST /leituras/{leituraId}/progresso",
+      "codigosDeclaradosNoContrato": [
+        201,
+        400,
+        401,
+        403,
+        404,
+        409,
+        422
+      ],
+      "tipo": "negado",
+      "esperado": [
+        403,
+        404
+      ],
+      "status": 404,
+      "passou": true,
+      "contemConteudoProtegido": false,
+      "correlationId": "f3597e67-e866-4c25-9d7f-943995f7b7ff",
+      "ms": 232.8,
+      "trecho": "{\"codigo\":\"LEITURA_NAO_ENCONTRADA\",\"mensagem\":\"Não encontramos esta leitura.\",\"correlationId\":\"f3597e67-e866-4c25-9d7f-943995f7b7ff\"}"
+    },
+    {
+      "cenario": 2,
+      "papel": "bia",
+      "metodo": "DELETE",
+      "rota": "leitura /progresso/ea340295-c683-4cd0-aa6f-5ef6e8a3ebfd",
+      "rotaContrato": "DELETE /progresso/{progressoId}",
+      "codigosDeclaradosNoContrato": [
+        200,
+        400,
+        401,
+        403,
+        404,
+        409
+      ],
+      "tipo": "negado",
+      "esperado": [
+        403,
+        404
+      ],
+      "status": 404,
+      "passou": true,
+      "contemConteudoProtegido": false,
+      "correlationId": "a36423d7-17bd-40b3-a824-f8d953d0aed7",
+      "ms": 328.8,
+      "trecho": "{\"codigo\":\"RECURSO_NAO_ENCONTRADO\",\"mensagem\":\"Não encontramos este progresso.\",\"correlationId\":\"a36423d7-17bd-40b3-a824-f8d953d0aed7\"}"
+    },
+    {
+      "cenario": 2,
+      "papel": "bia",
+      "metodo": "PATCH",
+      "rota": "social /listas/d805a5be-524e-4c78-be50-4ced9146baaf",
+      "rotaContrato": "PATCH /listas/{listaId}",
+      "codigosDeclaradosNoContrato": [
+        200,
+        400,
+        401,
+        404,
+        409,
+        429,
+        503
+      ],
+      "tipo": "negado",
+      "esperado": [
+        404
+      ],
+      "status": 404,
+      "passou": true,
+      "contemConteudoProtegido": false,
+      "correlationId": "af116a65-f9ae-4b58-a1fe-27b129d880e9",
+      "ms": 1101.7,
+      "trecho": "{\"codigo\":\"RECURSO_NAO_ENCONTRADO\",\"mensagem\":\"Não encontramos esta lista.\",\"correlationId\":\"af116a65-f9ae-4b58-a1fe-27b129d880e9\"}"
+    }
+  ]
+}

@@ -1,0 +1,83 @@
+Cenário 6 - acoplamento entre serviços no commit v0.4.0 (2026-11-28)
+
+## 1 e 2. Referências a schema de outro serviço (código de produção, sem testes)
+identidade -> acervo: VIEWs [] | achados brutos fora de VIEW: 0
+identidade -> leitura: VIEWs [] | achados brutos fora de VIEW: 0
+identidade -> social: VIEWs [] | achados brutos fora de VIEW: 0
+acervo -> identidade: VIEWs [identidade.v_perfil_referencia_v1 identidade.v_seguimento_aceito_v1] | achados brutos fora de VIEW: 0
+acervo -> leitura: VIEWs [leitura.v_estante_publica_v1 leitura.v_nota_publicacao_v1 leitura.v_reacao_resenha_v1 leitura.v_resenha_publicacao_v1] | achados brutos fora de VIEW: 6
+    code/back/acervo/src/livros/capas/capa.consumer.ts:9:import leituraIniciadaSchema from '../../messaging/schemas/leitura.iniciada.v1.schema.json';
+    code/back/acervo/src/livros/capas/capa.consumer.ts:20:  tipo: 'leitura.iniciada',
+    code/back/acervo/src/livros/capas/capa.consumer.ts:35: * Ouve `livro.adicionado_a_estante` e também `leitura.iniciada`: iniciar a
+    code/back/acervo/src/livros/pessoal/leitura-do-dono.repository.ts:23: * `leitura.nota` — o `AGENTS.md` do serviço é explícito sobre isso.
+    code/back/acervo/src/messaging/message-validator.ts:36:    // Eventos do `leitura` (como `leitura.iniciada`, consumido pelo cache de
+    code/back/acervo/src/messaging/schemas/leitura.iniciada.v1.schema.json:3:  "$id": "https://leai.app/schemas/mensageria/leitura.iniciada.v1.schema.json",
+acervo -> social: VIEWs [] | achados brutos fora de VIEW: 0
+leitura -> identidade: VIEWs [identidade.v_perfil_referencia_v1] | achados brutos fora de VIEW: 1
+    code/back/leitura/src/db/contratos-externos.ts:6: * `x-database-contracts` (`docs/api/acervo.yaml`, `docs/api/identidade.yaml`,
+leitura -> acervo: VIEWs [acervo.v_livro_referencia_v1] | achados brutos fora de VIEW: 1
+    code/back/leitura/src/db/contratos-externos.ts:6: * `x-database-contracts` (`docs/api/acervo.yaml`, `docs/api/identidade.yaml`,
+leitura -> social: VIEWs [] | achados brutos fora de VIEW: 2
+    code/back/leitura/src/avaliacoes/eventos.ts:35: * consumidor é F-FEED, na fila `leai.social.feed`.
+    code/back/leitura/src/db/contratos-externos.ts:7: * `docs/api/social.yaml`).
+social -> identidade: VIEWs [identidade.v_conta_moderacao_v1 identidade.v_perfil_referencia_v1 identidade.v_seguimento_aceito_v1] | achados brutos fora de VIEW: 18
+    code/back/social/src/main/java/br/com/leai/social/common/ErroDeNegocioException.java:5: * identidade.common.ErroDeNegocioException} — mesmo racional.
+    code/back/social/src/main/java/br/com/leai/social/common/EscritorDeErro.java:12: * identidade.common.EscritorDeErro}.
+    code/back/social/src/main/java/br/com/leai/social/common/LimitePorUsuario.java:14: * Porte de {@code identidade.common.LimitePorUsuario}. Serve às escritas em que o limite por IP
+    code/back/social/src/main/java/br/com/leai/social/common/LimitesDeInteracao.java:10: * {@code identidade.perfil.LimitesDeUso#limiteDeSeguir}.
+    code/back/social/src/main/java/br/com/leai/social/common/RateLimitFilter.java:28: * padrão (RNF-ERR-01). Porte de {@code identidade.common.RateLimitFilter}, com a lista de rotas
+    code/back/social/src/main/java/br/com/leai/social/common/idempotencia/ChaveDeIdempotencia.java:9: * identidade.common.idempotencia.ChaveDeIdempotencia}, com uma diferença: {@code
+    code/back/social/src/main/java/br/com/leai/social/common/idempotencia/OperacaoIdempotente.java:5: * identidade.common.idempotencia.OperacaoIdempotente}, sem {@code respostaSensivel}: nenhuma
+    code/back/social/src/main/java/br/com/leai/social/common/idempotencia/RespostaIdempotente.java:5: * {@code identidade.common.idempotencia.RespostaIdempotente}.
+    code/back/social/src/main/java/br/com/leai/social/common/idempotencia/ServicoDeIdempotencia.java:24: * {@code identidade.common.idempotencia.ServicoDeIdempotencia}, com duas simplificações:
+    code/back/social/src/main/java/br/com/leai/social/config/JwtConfig.java:14: * identidade.config.JwtConfig}, sem o {@code JwtEncoder}: {@code social} nunca emite token, só
+    code/back/social/src/main/java/br/com/leai/social/config/SecurityConfig.java:23: * Cadeia de segurança do serviço. Porte de {@code identidade.config.SecurityConfig}: toda rota de
+    code/back/social/src/main/java/br/com/leai/social/feed/controller/FeedController.java:22: * comentar são a Task 4. Padrão exato de {@code identidade.seguimento.SeguimentoController}
+    code/back/social/src/main/java/br/com/leai/social/feed/controller/InteracaoController.java:42: * {@code identidade.seguimento.SeguimentoController} (`@AuthenticationPrincipal Jwt`,
+    code/back/social/src/main/java/br/com/leai/social/feed/service/EventosDeInteracao.java:15: * identidade.seguimento.EventosDeSeguimento}: se a transação do fato for desfeita, a linha some
+    code/back/social/src/main/java/br/com/leai/social/moderacao/service/ServicoDeModeracao.java:382:              ? identidade.suspender(usuarioId, jwtDoAdmin, pedido.id())
+    code/back/social/src/main/java/br/com/leai/social/moderacao/service/ServicoDeModeracao.java:383:              : identidade.reativar(usuarioId, jwtDoAdmin, pedido.id());
+    code/back/social/src/main/java/br/com/leai/social/moderacao/service/ServicoDeModeracao.java:406:        estado = identidade.resolver(usuarioId, jwtDoAdmin, pendente.id());
+    code/back/social/src/main/resources/db/migration/V20261003180000__corrige_username_citext_na_outbox.sql:1:-- identidade.usuario.username e citext: o snapshot dos eventos de interacao lia a coluna 
+social -> acervo: VIEWs [acervo.v_livro_autor_recomendacao_v1 acervo.v_livro_recomendacao_v1 acervo.v_livro_referencia_v1] | achados brutos fora de VIEW: 0
+social -> leitura: VIEWs [leitura.v_estante_publica_v1 leitura.v_nota_publicacao_v1 leitura.v_resenha_publicacao_v1] | achados brutos fora de VIEW: 15
+    code/back/social/src/main/java/br/com/leai/social/feed/service/ConsumidorDeAtividade.java:17: * Projeta {@code leitura.iniciada/retomada/finalizada/abandonada} e {@code resenha.publicada} em
+    code/back/social/src/main/java/br/com/leai/social/messaging/MessagingConstants.java:22:  public static final String EVENTO_LEITURA_INICIADA = "leitura.iniciada";
+    code/back/social/src/main/java/br/com/leai/social/messaging/MessagingConstants.java:23:  public static final String EVENTO_LEITURA_RETOMADA = "leitura.retomada";
+    code/back/social/src/main/java/br/com/leai/social/messaging/MessagingConstants.java:24:  public static final String EVENTO_LEITURA_FINALIZADA = "leitura.finalizada";
+    code/back/social/src/main/java/br/com/leai/social/messaging/MessagingConstants.java:25:  public static final String EVENTO_LEITURA_ABANDONADA = "leitura.abandonada";
+    code/back/social/src/main/java/br/com/leai/social/messaging/MessagingConstants.java:48:  public static final String EVENTO_LEITURA_EM_RISCO = "leitura.em_risco";
+    code/back/social/src/main/java/br/com/leai/social/messaging/MessagingConstants.java:49:  public static final String EVENTO_LEITURA_EXPIRADA = "leitura.expirada";
+    code/back/social/src/main/java/br/com/leai/social/moderacao/service/ServicoDeModeracao.java:248:    ClienteDeLeitura.Remocao remocao = leitura.removerResenha(d.alvoId());
+    code/back/social/src/main/java/br/com/leai/social/moderacao/service/ServicoDeModeracao.java:295:    ClienteDeLeitura.Remocao remocao = leitura.removerFrase(fraseId);
+    code/back/social/src/main/resources/messaging/schemas/leitura.abandonada.v1.schema.json:3:  "$id": "https://leai.app/schemas/mensageria/leitura.abandonada.v1.schema.json",
+    code/back/social/src/main/resources/messaging/schemas/leitura.em_risco.v1.schema.json:3:  "$id": "https://leai.app/schemas/mensageria/leitura.em_risco.v1.schema.json",
+    code/back/social/src/main/resources/messaging/schemas/leitura.expirada.v1.schema.json:3:  "$id": "https://leai.app/schemas/mensageria/leitura.expirada.v1.schema.json",
+    code/back/social/src/main/resources/messaging/schemas/leitura.finalizada.v1.schema.json:3:  "$id": "https://leai.app/schemas/mensageria/leitura.finalizada.v1.schema.json",
+    code/back/social/src/main/resources/messaging/schemas/leitura.iniciada.v1.schema.json:3:  "$id": "https://leai.app/schemas/mensageria/leitura.iniciada.v1.schema.json",
+    code/back/social/src/main/resources/messaging/schemas/leitura.retomada.v1.schema.json:3:  "$id": "https://leai.app/schemas/mensageria/leitura.retomada.v1.schema.json",
+
+## 2b. Drizzle (acervo e leitura): schemas de outro serviço declarados por pgSchema()
+    code/back/acervo/src/db/contratos-externos.ts:38:const social = pgSchema('social');
+    code/back/acervo/src/db/contratos-externos.ts:39:const identidade = pgSchema('identidade');
+    code/back/acervo/src/db/contratos-externos.ts:40:const leitura = pgSchema('leitura');
+    code/back/leitura/src/db/contratos-externos.ts:24:const acervo = pgSchema('acervo');
+    code/back/leitura/src/db/contratos-externos.ts:25:const identidade = pgSchema('identidade');
+    code/back/leitura/src/db/contratos-externos.ts:26:const social = pgSchema('social');
+VIEWs declaradas sobre esses schemas:
+          2 .view('v_atividade_livro_pessoal_v1'
+          1 .view('v_estante_publica_v1'
+          2 .view('v_lista_livro_pessoal_v1'
+          1 .view('v_livro_referencia_v1'
+          1 .view('v_nota_publicacao_v1'
+          2 .view('v_perfil_referencia_v1'
+          1 .view('v_reacao_resenha_v1'
+          1 .view('v_resenha_publicacao_v1'
+          2 .view('v_seguimento_aceito_v1'
+Tabelas (.table) declaradas sobre schema de outro serviço: 0
+
+## 3. Import de código de outro serviço
+Java (social importando pacote de identidade/acervo/leitura): 0
+Java (identidade importando pacote de social/acervo/leitura): 0
+TS (acervo/leitura importando caminho de outro serviço em code/back): 0
+TS (dependência de pacote de outro serviço no package.json): 0

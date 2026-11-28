@@ -136,6 +136,8 @@ Plano em `plano-F-MOD-OPC.md`, na branch `renato-features` (pasta `renato-period
 
 ## Timeline
 
+### DES 28/11/2026: não validada. O `code/scripts/atam/validacao-periodo-3.mjs` tem o passo de suspender e reativar uma conta de demonstração, mas ele só roda com a senha do administrador do DES no arquivo de contas (`LEAI_ADMIN_IDENTIFICADOR` e `LEAI_ADMIN_SENHA`), que não estava lá. O banco de DES não tem nenhum comando de suspensão.
+
 ### Correção 19/11/2026: o `leitura` aceitava o registro de progresso da conta suspensa, achado pela E6-02 (L-37). O Renato decidiu que era bug. `ProgressoService` passou a consultar `v_perfil_referencia_v1` antes de gravar, ao registrar e ao excluir trecho, com o mesmo 403 das transições (erro `ContaIndisponivel`, que agora as transições também usam). O 403 não deixa recibo de idempotência, então a fila do app reenvia com a mesma chave depois da reativação. Testes: CT-MDO-38 e CT-MDO-39 em `progresso.int-spec.ts`. O mobile já tratava o 403 (CT-MDO-37).
 
 ### Merge 06/11/2026: o Vicenzo aprovou o PR #61 depois da segunda rodada (294 testes do `social` em Postgres novo, 1079 da web, 49 do feed no app, build da web e CI verdes) e ele foi mergeado na `desenvolvimento` às 22:44 (`1281aa1`). As duas `V20261106200000__comando_de_conta` foram aplicadas no banco de dev logo depois, subindo o `identidade` e o `social` com o `.env` local. O DES recebe tudo no merge da `main`, no fechamento de novembro.

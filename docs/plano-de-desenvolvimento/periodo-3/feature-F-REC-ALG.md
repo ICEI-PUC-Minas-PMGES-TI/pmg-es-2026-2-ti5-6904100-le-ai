@@ -88,7 +88,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [ ] A pergunta ocorre ao terceiro descarte do mesmo livro na sessão; recusada, não volta nela; reabrir zera contagem/supressão e exige três novos descartes. Nada disso é persistido no servidor.
 - [ ] Opt-out é configurável pelo dono em web/mobile e exclui suas leituras do sinal e da atribuição nas sugestões alheias, sem ocultar o perfil.
 - [ ] A aba continua funcionando com a seção algorítmica vazia (RF-REC-14).
-- [ ] Sugestões e descarte em lote funcionam **em DES**.
+- [ ] Sugestões e descarte em lote funcionam **em DES**. **Sugestões e descarte validados pela API em 28/11/2026** (ver Timeline); o descarte em lote não foi exercitado em DES.
 
 ## Definition of Done
 
@@ -153,6 +153,8 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
   - Os descartes feitos na seção do Descobrir também contam para a pergunta, mas ela só aparece na lista `Recomendações recebidas` (descobrir.md §10). Quem descartar três vezes o mesmo livro só pela seção vê a pergunta no próximo descarte desse livro na lista.
 
 ## Timeline
+
+### DES 28/11/2026: sugestões e descarte validados pelo `code/scripts/atam/validacao-periodo-3.mjs`, com as contas de demonstração do DES e a release `v0.4.0` no ar ([`validacao-periodo-3-des.json`](../../evidencias/atam/v0.4.0/validacao-periodo-3-des.json)). A validação foi pela API, com as mesmas chamadas que a web e o app fazem; as telas em DES não foram conferidas uma a uma. Para o Caio, a seção "Do seu gosto" trouxe 4 sugestões com motivo ("Continuação de…", "Do mesmo autor de…"), e "Quem você segue leu" veio vazia, porque quem ele segue não tem livro lido fora da estante dele. Uma sugestão descartada (204) não voltou na consulta seguinte. O descarte em lote não foi exercitado em DES.
 
 ### Revisão do PR #68 24/11/2026: correções aplicadas direto na `desenvolvimento`, por decisão do Vicenzo para fechar o período.
 

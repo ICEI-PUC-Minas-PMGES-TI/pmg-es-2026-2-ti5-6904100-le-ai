@@ -82,7 +82,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [x] Schema inválido é rejeitado antes de processar (SEC-32); falha repetida vai para **DLQ** sem travar a fila (RNF-ERR-07).
 - [x] O lembrete respeita a **preferência do tipo `lembrete_sequencia`** e sai por **push** quando há dispositivo registrado; sem push, permanece na lista in-app. (Validado em 20/11/2026 no emulador Android com Google Play, com o projeto Firebase `leai-ti5`: o push do lembrete chega e o toque abre o destino; ver Timeline.)
 - [x] Atraso ou falha do job **não altera** a sequência do leitor (RN-18).
-- [ ] Calendário e lembrete funcionam **em DES**, com o lembrete demonstrado em Android.
+- [ ] Calendário e lembrete funcionam **em DES**, com o lembrete demonstrado em Android. **Calendário validado pela API em 28/11/2026**; o lembrete segue sem conta elegível (ver Timeline).
 
 ## Definition of Done
 
@@ -134,6 +134,8 @@ O que muda fora do código quando o período for para a `main`. Nada disso é au
    - Marcar os itens de DES dos critérios de aceite e do DoD, aqui e na [F-NOT-OPC](feature-F-NOT-OPC.md).
 
 ## Timeline
+
+### DES 28/11/2026: calendário validado pelo `code/scripts/atam/validacao-periodo-3.mjs`, com as contas de demonstração do DES e a release `v0.4.0` no ar ([`validacao-periodo-3-des.json`](../../evidencias/atam/v0.4.0/validacao-periodo-3-des.json)). A validação foi pela API, com as mesmas chamadas que a web e o app fazem; as telas em DES não foram conferidas uma a uma. `GET /me/sequencia/calendario` do Caio (200) trouxe novembro com 2 dias de leitura. O job do lembrete rodou no horário em 25, 26 e 27/11/2026 com `elegiveis: 0`: nenhuma conta do DES leu na véspera sem ler no dia, então o lembrete ainda não foi visto chegar.
 
 ### DES 24/11/2026: PR #69 mergeado na `desenvolvimento` e o período levado para a `main` pelo PR #70 (`ec39afa`), com o deploy do `leitura` e do `social`. `FIREBASE_CREDENTIALS_JSON` no `leai-social` e push validado num Android físico com o APK da `main`. O `job-lembrete-sequencia.yml` foi disparado à mão em DES e respondeu 200 (`elegiveis: 0`, `lembretesPublicados: 0`, `jaLembrados: 0`); a partir daqui roda todo dia às 22h UTC. Merge e CI do DoD marcados. Continuam abertos os itens de DES, até ver o lembrete chegar no aparelho.
 

@@ -1,0 +1,211 @@
+{
+  "executadoEm": "2026-11-28T04:19:24.772Z",
+  "passos": [
+    {
+      "feature": "Refinamento",
+      "nome": "GET /estante traz livro.tipo",
+      "ok": true,
+      "detalhe": {
+        "status": 200,
+        "itens": 15,
+        "tipos": [
+          "oficial",
+          "pessoal"
+        ]
+      }
+    },
+    {
+      "feature": "F-ACV-OPC",
+      "nome": "GET /assuntos",
+      "ok": true,
+      "detalhe": {
+        "status": 200,
+        "total": 31
+      }
+    },
+    {
+      "feature": "F-ACV-OPC",
+      "nome": "criar livro pessoal com 2 assuntos e ler de volta",
+      "ok": true,
+      "detalhe": {
+        "criar": 201,
+        "ler": 200,
+        "assuntos": 2
+      }
+    },
+    {
+      "feature": "F-ACV-OPC",
+      "nome": "apagar o livro de teste",
+      "ok": true,
+      "detalhe": {
+        "status": 204
+      }
+    },
+    {
+      "feature": "F-REC-ALG",
+      "nome": "GET /recomendacoes/sugestoes",
+      "ok": {
+        "itens": [
+          {
+            "livro": {
+              "id": "28aa7693-3dc6-4a4c-a48b-61e67e1cb3da",
+              "tipo": "OFICIAL",
+              "titulo": "A escrava Isaura",
+              "autor": "Bernardo Guimarães",
+              "capaUrl": "https://covers.openlibrary.org/b/id/8123151-L.jpg",
+              "link": {
+                "livroId": "28aa7693-3dc6-4a4c-a48b-61e67e1cb3da",
+                "via": "catalogo",
+                "referenciaId": null
+              }
+            },
+            "motivo": {
+              "tipo": "SERIE",
+              "texto": "Continuação de Coleção Prestígio --"
+            }
+          },
+          {
+            "livro": {
+              "id": "57d475e4-750b-4c30-a13b-aee427305acb",
+              "tipo": "OFICIAL",
+              "titulo": "O Ateneu",
+              "autor": "Raul Pompéia",
+              "capaUrl": "https://covers.openlibrary.org/b/id/12347040-L.jpg",
+              "link": {
+                "livroId": "57d475e4-750b-4c30-a13b-aee427305acb",
+                "via": "catalogo",
+                "referenciaId": null
+              }
+            },
+            "motivo": {
+              "tipo": "SERIE",
+              "texto": "Continuação de Coleção Prestígio --"
+            }
+          },
+          {
+            "livro": {
+              "id": "0087e9a9-4d90-44c7-a10f-94d08445b28b",
+              "tipo": "OFICIAL",
+              "titulo": "Dom Casmurro",
+              "autor": "Machado de Assis",
+              "capaUrl": "https://covers.openlibrary.org/b/id/15156099-L.jpg",
+              "link": {
+                "livroId": "0087e9a9-4d90-44c7-a10f-94d08445b28b",
+                "via": "catalogo",
+                "referenciaId": null
+              }
+            },
+            "motivo": {
+              "tipo": "AUTOR",
+              "texto": "Do mesmo autor de Comentários da semana"
+            }
+          },
+          {
+            "livro": {
+              "id": "05b87a12-65a8-4d45-8c64-68d7812b9e1f",
+              "tipo": "OFICIAL",
+              "titulo": "De São Paulo: Cinco Crônicas de Mário de Andrade",
+              "autor": "Mário de Andrade",
+              "capaUrl": "https://covers.openlibrary.org/b/id/5433875-L.jpg",
+              "link": {
+                "livroId": "05b87a12-65a8-4d45-8c64-68d7812b9e1f",
+                "via": "catalogo",
+                "referenciaId": null
+              }
+            },
+            "motivo": {
+              "tipo": "AUTOR",
+              "texto": "Do mesmo autor de Macunaíma"
+            }
+          }
+        ],
+        "proximoOffset": 4
+      },
+      "detalhe": {
+        "status": 200,
+        "seguidos": 0,
+        "gosto": 4,
+        "motivos": [
+          {
+            "tipo": "SERIE",
+            "texto": "Continuação de Coleção Prestígio --"
+          },
+          {
+            "tipo": "SERIE",
+            "texto": "Continuação de Coleção Prestígio --"
+          },
+          {
+            "tipo": "AUTOR",
+            "texto": "Do mesmo autor de Comentários da semana"
+          }
+        ]
+      }
+    },
+    {
+      "feature": "F-REC-ALG",
+      "nome": "descartar uma sugestão e ela sumir",
+      "ok": true,
+      "detalhe": {
+        "descartar": 204,
+        "aindaAparece": false
+      }
+    },
+    {
+      "feature": "F-STA-OPC",
+      "nome": "GET /me/estatisticas traz distribuicaoNotas",
+      "ok": true,
+      "detalhe": {
+        "status": 200,
+        "distribuicao": "com faixas"
+      }
+    },
+    {
+      "feature": "F-DSF-OPC",
+      "nome": "GET /desafios",
+      "ok": true,
+      "detalhe": {
+        "status": 200,
+        "desafios": 3
+      }
+    },
+    {
+      "feature": "F-DSF-OPC",
+      "nome": "GET /desafios/{id}/janelas",
+      "ok": true,
+      "detalhe": {
+        "status": 200,
+        "janelas": 9
+      }
+    },
+    {
+      "feature": "F-GAM-OPC",
+      "nome": "GET /me/sequencia/calendario",
+      "ok": true,
+      "detalhe": {
+        "status": 200,
+        "mes": "2026-11",
+        "diasComLeitura": 2
+      }
+    },
+    {
+      "feature": "F-NOT-OPC",
+      "nome": "GET /me/notificacoes/preferencias",
+      "ok": true,
+      "detalhe": {
+        "status": 200
+      }
+    },
+    {
+      "feature": "F-MOD-OPC",
+      "nome": "suspender e reativar",
+      "ok": true,
+      "detalhe": {
+        "observacao": "sem LEAI_ADMIN_IDENTIFICADOR/LEAI_ADMIN_SENHA no arquivo de contas; não exercitado"
+      }
+    }
+  ],
+  "resumo": {
+    "passos": 12,
+    "falhas": 0
+  }
+}

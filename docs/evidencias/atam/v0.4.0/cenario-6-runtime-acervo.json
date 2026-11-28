@@ -1,0 +1,1742 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "HealthController_check",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Serviço e banco saudáveis.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "status": "ok",
+                    "service": "acervo",
+                    "time": "2026-08-25T12:00:00.000Z"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/livros/oficial": {
+      "post": {
+        "description": "Aceita somente ISBN-13 válido, nunca URL (RNF-SEC-38). ISBN novo cria a solicitação, grava a outbox de livro.importacao_solicitada na mesma transação e responde 202 sem aguardar as fontes externas. ISBN já existente responde 409 com livroId.",
+        "operationId": "solicitarImportacaoPorIsbn",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SolicitarImportacaoDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportacaoAceitaDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ISBN já cadastrado; o corpo traz livroId."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Solicita a importação assíncrona de um livro oficial por ISBN-13",
+        "tags": [
+          "importacoes"
+        ]
+      }
+    },
+    "/livros/importacoes/{id}": {
+      "get": {
+        "description": "Somente o solicitante consulta. nao_encontrado habilita o cadastro pessoal; falha_transitoria é indisponibilidade e não se confunde com ausência do livro.",
+        "operationId": "obterImportacaoPorIsbn",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportacaoDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Consulta uma importação por ISBN",
+        "tags": [
+          "importacoes"
+        ]
+      }
+    },
+    "/livros/importacoes/{id}/reprocessar": {
+      "post": {
+        "description": "Somente o solicitante reenfileira, e somente a partir de falha_transitoria. Mantém o mesmo importacaoId e o mesmo ISBN normalizado.",
+        "operationId": "reprocessarImportacaoPorIsbn",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportacaoAceitaDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Reprocessa uma importação com falha transitória",
+        "tags": [
+          "importacoes"
+        ]
+      }
+    },
+    "/livros/pessoal": {
+      "post": {
+        "description": "Cria um livro sem ISBN, pertencente ao usuário autenticado. O livro fica fora da busca, do catálogo e das páginas de autor, editora e série (RN-03, RNF-SEC-06).",
+        "operationId": "criarLivroPessoal",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LivroPessoalEntradaDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LivroPessoalDetalheDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cria um livro pessoal (RF-ACV-08)",
+        "tags": [
+          "livros-pessoais"
+        ]
+      }
+    },
+    "/livros/pessoal/{id}": {
+      "get": {
+        "description": "O dono acessa diretamente. Terceiro só acessa em modo consulta, por uma de duas vias: via=feed com referenciaId de uma atividade ativa do dono que referencia o mesmo livro, com seguimento aceito; ou via=lista com referenciaId de uma lista ativa do dono que contém o livro, com perfil do dono público ou seguimento aceito (RN-08). Conhecer o id não concede acesso.",
+        "operationId": "obterLivroPessoal",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "via",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "feed",
+                "lista"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "referenciaId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LivroPessoalDetalheDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtém um livro pessoal com autorização RN-15",
+        "tags": [
+          "livros-pessoais"
+        ]
+      },
+      "patch": {
+        "description": "Propriedade validada no servidor (RNF-SEC-02). Campo ausente é preservado; campo enviado como null é limpo.",
+        "operationId": "atualizarLivroPessoal",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LivroPessoalAtualizacaoDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LivroPessoalDetalheDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Atualiza um livro pessoal do próprio usuário (RF-ACV-09)",
+        "tags": [
+          "livros-pessoais"
+        ]
+      },
+      "delete": {
+        "description": "Exclusivo do dono. Após a exclusão o livro fica inativo em v_livro_referencia_v1 e todo acesso de terceiro cessa imediatamente (RN-15.6). A confirmação explícita ocorre no cliente (RNF-USA-04).",
+        "operationId": "excluirLivroPessoal",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Livro pessoal excluído; resposta sem corpo."
+          },
+          "403": {
+            "description": "Usuário não é o dono do livro."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Exclui um livro pessoal do próprio usuário (RF-ACV-09)",
+        "tags": [
+          "livros-pessoais"
+        ]
+      }
+    },
+    "/assuntos": {
+      "get": {
+        "description": "Assuntos para o filtro da busca (RF-ACV-02, RN-21), ordenados por nome, com teto de 100.",
+        "operationId": "listarAssuntos",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListaAssuntosDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Lista os assuntos do conjunto curado",
+        "tags": [
+          "livros"
+        ]
+      }
+    },
+    "/livros": {
+      "get": {
+        "description": "Busca por título, autor, editora, assunto ou ISBN-13, sem acento e por trecho, com filtros opcionais por assunto (RF-ACV-02) e por autor, editora, série, ano e faixa de páginas (RF-ACV-03), todos combináveis. Algum critério é obrigatório. Livro pessoal nunca aparece (RNF-SEC-06). As edições de mesmo título e autores chegam contíguas (RN-01).",
+        "operationId": "buscarLivrosOficiais",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100000,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minLength": 1,
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          {
+            "name": "assunto",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "autor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minLength": 1,
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          {
+            "name": "editora",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minLength": 1,
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          {
+            "name": "serie",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minLength": 1,
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          {
+            "name": "ano",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 9999,
+              "type": "number"
+            }
+          },
+          {
+            "name": "paginasMin",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100000,
+              "type": "number"
+            }
+          },
+          {
+            "name": "paginasMax",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100000,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginaLivrosDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Busca livros oficiais",
+        "tags": [
+          "livros"
+        ]
+      }
+    },
+    "/livros/{id}": {
+      "get": {
+        "description": "Metadados, capa, sinopse e a primeira página de resenhas de outros leitores, filtradas por RN-08. A primeira abertura troca a sinopse para pendente e grava livro.pagina_aberta na outbox; a resposta nunca espera a fonte externa. resenhas vem null quando os contratos de leitura ou identidade estão indisponíveis.",
+        "operationId": "obterLivroOficial",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LivroOficialDetalheDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtém a página de um livro oficial",
+        "tags": [
+          "livros"
+        ]
+      }
+    },
+    "/livros/{id}/resenhas": {
+      "get": {
+        "description": "Cursor opaco, da mais recente para a mais antiga, com o filtro de RN-08 no servidor e sem a resenha do próprio solicitante.",
+        "operationId": "listarResenhasDoLivro",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minLength": 1,
+              "maxLength": 500,
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginaResenhasDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Lista as próximas resenhas autorizadas de um livro oficial",
+        "tags": [
+          "livros"
+        ]
+      }
+    },
+    "/autores/{id}": {
+      "get": {
+        "description": "Nome, biografia curta da OpenLibrary (null quando a fonte não tem) e os livros oficiais ativos do autor, paginados, do grupo de ano mais recente para o mais antigo (RF-ACV-10). Livro pessoal nunca aparece (RNF-SEC-06).",
+        "operationId": "obterAutor",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100000,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginaDoAutorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtém a página de um autor",
+        "tags": [
+          "catalogo"
+        ]
+      }
+    },
+    "/editoras/{id}": {
+      "get": {
+        "description": "Nome canônico e os livros oficiais ativos da editora, paginados, na mesma ordem da página de autor (RF-ACV-11). Livro pessoal nunca aparece (RNF-SEC-06).",
+        "operationId": "obterEditora",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100000,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginaDaEditoraDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtém a página de uma editora",
+        "tags": [
+          "catalogo"
+        ]
+      }
+    },
+    "/series/{id}": {
+      "get": {
+        "description": "Nome, autores e os livros oficiais ativos da série, paginados, pelo número de ordem; sem número, no fim, por título (RF-ACV-12). Livro pessoal nunca aparece (RNF-SEC-06).",
+        "operationId": "obterSerie",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100000,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginaDaSerieDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtém a página de uma série",
+        "tags": [
+          "catalogo"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Lê Ai — acervo",
+    "description": "Contrato do serviço acervo. Cadastro por ISBN e livro pessoal entregues por F-ACV-CADASTRO; busca e página do livro seguem planejadas.",
+    "version": "0.1.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "SolicitarImportacaoDto": {
+        "type": "object",
+        "properties": {
+          "isbn": {
+            "type": "string",
+            "minLength": 13,
+            "maxLength": 17,
+            "example": "978-85-359-1484-9",
+            "description": "ISBN-13; separadores podem ser normalizados pelo servidor."
+          }
+        },
+        "required": [
+          "isbn"
+        ]
+      },
+      "ImportacaoAceitaDto": {
+        "type": "object",
+        "properties": {
+          "importacaoId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pendente"
+            ]
+          }
+        },
+        "required": [
+          "importacaoId",
+          "status"
+        ]
+      },
+      "LivroImportadoResumoDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "titulo": {
+            "type": "string"
+          },
+          "autores": {
+            "type": "string",
+            "nullable": true,
+            "description": "Autores para exibição, separados por vírgula."
+          },
+          "editora": {
+            "type": "string",
+            "nullable": true
+          },
+          "anoPublicacao": {
+            "type": "number",
+            "nullable": true
+          },
+          "paginas": {
+            "type": "number",
+            "minimum": 1
+          },
+          "capaUrl": {
+            "type": "string",
+            "nullable": true,
+            "description": "Capa resolvida: cópia própria, senão URL externa."
+          }
+        },
+        "required": [
+          "id",
+          "titulo",
+          "autores",
+          "editora",
+          "anoPublicacao",
+          "paginas",
+          "capaUrl"
+        ]
+      },
+      "ImportacaoDto": {
+        "type": "object",
+        "properties": {
+          "importacaoId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "isbn": {
+            "type": "string",
+            "pattern": "^97[89][0-9]{10}$"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pendente",
+              "concluida",
+              "nao_encontrado",
+              "falha_transitoria"
+            ],
+            "description": "nao_encontrado significa que todas as fontes responderam sem o ISBN; falha_transitoria significa indisponibilidade após as retentativas. Os dois não se confundem."
+          },
+          "livroId": {
+            "type": "object",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Preenchido somente quando status é concluida."
+          },
+          "livro": {
+            "nullable": true,
+            "description": "Resumo do livro, somente quando status é concluida.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LivroImportadoResumoDto"
+              }
+            ]
+          },
+          "permiteCadastroPessoal": {
+            "type": "boolean",
+            "description": "true somente quando status é nao_encontrado."
+          },
+          "criadoEm": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "atualizadoEm": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "importacaoId",
+          "isbn",
+          "status",
+          "livroId",
+          "livro",
+          "permiteCadastroPessoal",
+          "criadoEm",
+          "atualizadoEm"
+        ]
+      },
+      "LivroPessoalEntradaDto": {
+        "type": "object",
+        "properties": {
+          "titulo": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "example": "Caderno de viagem"
+          },
+          "autor": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "example": "Marina Albuquerque"
+          },
+          "paginas": {
+            "type": "number",
+            "minimum": 1,
+            "example": 180
+          },
+          "sinopse": {
+            "type": "object",
+            "maxLength": 4000,
+            "nullable": true
+          },
+          "capaUrl": {
+            "type": "object",
+            "format": "uri",
+            "nullable": true,
+            "description": "URL do asset já enviado diretamente ao serviço de imagens."
+          },
+          "assuntos": {
+            "maxItems": 100,
+            "nullable": true,
+            "description": "Ids do conjunto curado (GET /assuntos). Repetidos são ignorados. No PATCH, ausente preserva; [] ou null limpa.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": [
+          "titulo",
+          "autor",
+          "paginas"
+        ]
+      },
+      "NotaDoDonoDto": {
+        "type": "object",
+        "properties": {
+          "valor": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 5,
+            "multipleOf": 0.5,
+            "example": 4.5
+          }
+        },
+        "required": [
+          "valor"
+        ]
+      },
+      "ResenhaResumoDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "autorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "autorNome": {
+            "type": "string"
+          },
+          "autorAvatarUrl": {
+            "type": "object",
+            "nullable": true
+          },
+          "texto": {
+            "type": "string"
+          },
+          "spoiler": {
+            "type": "boolean"
+          },
+          "criadoEm": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "atualizadoEm": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "curtidas": {
+            "type": "number",
+            "minimum": 0
+          },
+          "descurtidas": {
+            "type": "number",
+            "minimum": 0
+          },
+          "minhaReacao": {
+            "type": "string",
+            "enum": [
+              "curtida",
+              "descurtida"
+            ],
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "autorId",
+          "autorNome",
+          "texto",
+          "spoiler",
+          "criadoEm",
+          "atualizadoEm",
+          "curtidas",
+          "descurtidas",
+          "minhaReacao"
+        ]
+      },
+      "DonoResumoDto": {
+        "type": "object",
+        "properties": {
+          "nome": {
+            "type": "string"
+          },
+          "avatarUrl": {
+            "type": "object",
+            "nullable": true
+          }
+        },
+        "required": [
+          "nome"
+        ]
+      },
+      "AssuntoResumoDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nome": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "nome"
+        ]
+      },
+      "LivroPessoalDetalheDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "pessoal"
+            ]
+          },
+          "donoId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "titulo": {
+            "type": "string"
+          },
+          "autor": {
+            "type": "string"
+          },
+          "paginas": {
+            "type": "number",
+            "minimum": 1
+          },
+          "sinopse": {
+            "type": "object",
+            "nullable": true
+          },
+          "capaUrl": {
+            "type": "object",
+            "nullable": true,
+            "format": "uri"
+          },
+          "modoConsulta": {
+            "type": "boolean",
+            "description": "true para terceiro autorizado por RN-15; false para o dono. Em modo consulta o cliente não oferece estante, favorito, leitura nem progresso."
+          },
+          "notaDoDono": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NotaDoDonoDto"
+              }
+            ]
+          },
+          "resenhaDoDono": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResenhaResumoDto"
+              }
+            ]
+          },
+          "dono": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DonoResumoDto"
+              }
+            ]
+          },
+          "assuntos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AssuntoResumoDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "tipo",
+          "donoId",
+          "titulo",
+          "autor",
+          "paginas",
+          "sinopse",
+          "capaUrl",
+          "modoConsulta",
+          "notaDoDono",
+          "resenhaDoDono",
+          "dono",
+          "assuntos"
+        ]
+      },
+      "LivroPessoalAtualizacaoDto": {
+        "type": "object",
+        "properties": {
+          "titulo": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "autor": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "paginas": {
+            "type": "number",
+            "minimum": 1
+          },
+          "sinopse": {
+            "type": "object",
+            "maxLength": 4000,
+            "nullable": true
+          },
+          "capaUrl": {
+            "type": "object",
+            "format": "uri",
+            "nullable": true
+          },
+          "assuntos": {
+            "maxItems": 100,
+            "nullable": true,
+            "description": "Ids do conjunto curado (GET /assuntos). Repetidos são ignorados. No PATCH, ausente preserva; [] ou null limpa.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "ListaAssuntosDto": {
+        "type": "object",
+        "properties": {
+          "itens": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AssuntoResumoDto"
+            }
+          }
+        },
+        "required": [
+          "itens"
+        ]
+      },
+      "AutorResumoDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nome": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "nome"
+        ]
+      },
+      "CapaDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true
+          },
+          "origem": {
+            "type": "string",
+            "enum": [
+              "propria",
+              "externa",
+              "placeholder"
+            ]
+          }
+        },
+        "required": [
+          "origem"
+        ]
+      },
+      "LivroOficialResumoDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "titulo": {
+            "type": "string"
+          },
+          "autores": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AutorResumoDto"
+            }
+          },
+          "editora": {
+            "type": "string",
+            "nullable": true
+          },
+          "anoPublicacao": {
+            "type": "integer",
+            "nullable": true
+          },
+          "paginas": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "capa": {
+            "$ref": "#/components/schemas/CapaDto"
+          },
+          "assuntos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AssuntoResumoDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "titulo",
+          "autores",
+          "editora",
+          "anoPublicacao",
+          "paginas",
+          "capa",
+          "assuntos"
+        ]
+      },
+      "PaginaLivrosDto": {
+        "type": "object",
+        "properties": {
+          "itens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LivroOficialResumoDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "totalItens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "totalPaginas": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "itens",
+          "page",
+          "limit",
+          "totalItens",
+          "totalPaginas"
+        ]
+      },
+      "SerieDoLivroDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nome": {
+            "type": "string"
+          },
+          "numero": {
+            "type": "integer",
+            "minimum": 1,
+            "nullable": true,
+            "description": "Número de ordem na série; null quando a fonte não o tem."
+          }
+        },
+        "required": [
+          "id",
+          "nome",
+          "numero"
+        ]
+      },
+      "SinopseDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "nao_consultada",
+              "pendente",
+              "disponivel",
+              "ausente",
+              "falha_transitoria"
+            ]
+          },
+          "texto": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 4000,
+            "description": "Só em disponivel."
+          }
+        },
+        "required": [
+          "status",
+          "texto"
+        ]
+      },
+      "NotaGeralDto": {
+        "type": "object",
+        "properties": {
+          "valor": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 5,
+            "example": 4.3
+          },
+          "quantidade": {
+            "type": "integer",
+            "minimum": 1,
+            "example": 412
+          }
+        },
+        "required": [
+          "valor",
+          "quantidade"
+        ]
+      },
+      "NotaDosLeitoresDto": {
+        "type": "object",
+        "properties": {
+          "valor": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 5,
+            "example": 4.2,
+            "description": "Média das notas dos leitores do app, com 1 casa."
+          },
+          "quantidade": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "valor",
+          "quantidade"
+        ]
+      },
+      "FaixaDaDistribuicaoDto": {
+        "type": "object",
+        "properties": {
+          "valor": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 5,
+            "multipleOf": 0.5
+          },
+          "quantidade": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "valor",
+          "quantidade"
+        ]
+      },
+      "PaginaResenhasDto": {
+        "type": "object",
+        "properties": {
+          "itens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResenhaResumoDto"
+            }
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "proximoCursor": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "itens",
+          "limit",
+          "proximoCursor"
+        ]
+      },
+      "LivroOficialDetalheDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "titulo": {
+            "type": "string"
+          },
+          "autores": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AutorResumoDto"
+            }
+          },
+          "editora": {
+            "type": "string",
+            "nullable": true
+          },
+          "anoPublicacao": {
+            "type": "integer",
+            "nullable": true
+          },
+          "paginas": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "capa": {
+            "$ref": "#/components/schemas/CapaDto"
+          },
+          "assuntos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AssuntoResumoDto"
+            }
+          },
+          "editoraId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Leva à página da editora; null sem editora."
+          },
+          "serie": {
+            "nullable": true,
+            "description": "null quando o livro não pertence a uma série.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SerieDoLivroDto"
+              }
+            ]
+          },
+          "isbn": {
+            "type": "string",
+            "pattern": "^97[89][0-9]{10}$"
+          },
+          "sinopse": {
+            "$ref": "#/components/schemas/SinopseDto"
+          },
+          "notaGeral": {
+            "nullable": true,
+            "description": "Nota da fonte externa (RF-ACV-15); null quando a fonte não tem nota.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NotaGeralDto"
+              }
+            ]
+          },
+          "notaDosLeitores": {
+            "nullable": true,
+            "description": "Média dos leitores do app; null sem nenhuma nota.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NotaDosLeitoresDto"
+              }
+            ]
+          },
+          "distribuicao": {
+            "description": "As 11 faixas de 5 a 0 quando há nota dos leitores; vazia quando não há.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FaixaDaDistribuicaoDto"
+            }
+          },
+          "resenhas": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PaginaResenhasDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "titulo",
+          "autores",
+          "editora",
+          "anoPublicacao",
+          "paginas",
+          "capa",
+          "assuntos",
+          "editoraId",
+          "serie",
+          "isbn",
+          "sinopse",
+          "notaGeral",
+          "notaDosLeitores",
+          "distribuicao",
+          "resenhas"
+        ]
+      },
+      "PaginaDoAutorDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nome": {
+            "type": "string"
+          },
+          "biografia": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 2000,
+            "description": "Texto puro da OpenLibrary, no idioma da fonte."
+          },
+          "livros": {
+            "$ref": "#/components/schemas/PaginaLivrosDto"
+          }
+        },
+        "required": [
+          "id",
+          "nome",
+          "biografia",
+          "livros"
+        ]
+      },
+      "PaginaDaEditoraDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nome": {
+            "type": "string"
+          },
+          "livros": {
+            "$ref": "#/components/schemas/PaginaLivrosDto"
+          }
+        },
+        "required": [
+          "id",
+          "nome",
+          "livros"
+        ]
+      },
+      "LivroDaSerieResumoDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "titulo": {
+            "type": "string"
+          },
+          "autores": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AutorResumoDto"
+            }
+          },
+          "editora": {
+            "type": "string",
+            "nullable": true
+          },
+          "anoPublicacao": {
+            "type": "integer",
+            "nullable": true
+          },
+          "paginas": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "capa": {
+            "$ref": "#/components/schemas/CapaDto"
+          },
+          "assuntos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AssuntoResumoDto"
+            }
+          },
+          "numeroNaSerie": {
+            "type": "integer",
+            "minimum": 1,
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "titulo",
+          "autores",
+          "editora",
+          "anoPublicacao",
+          "paginas",
+          "capa",
+          "assuntos",
+          "numeroNaSerie"
+        ]
+      },
+      "PaginaLivrosDaSerieDto": {
+        "type": "object",
+        "properties": {
+          "itens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LivroDaSerieResumoDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "totalItens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "totalPaginas": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "itens",
+          "page",
+          "limit",
+          "totalItens",
+          "totalPaginas"
+        ]
+      },
+      "PaginaDaSerieDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nome": {
+            "type": "string"
+          },
+          "autores": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AutorResumoDto"
+            }
+          },
+          "livros": {
+            "$ref": "#/components/schemas/PaginaLivrosDaSerieDto"
+          }
+        },
+        "required": [
+          "id",
+          "nome",
+          "autores",
+          "livros"
+        ]
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ]
+}

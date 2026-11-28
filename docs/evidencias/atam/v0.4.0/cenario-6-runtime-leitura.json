@@ -1,0 +1,4047 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "consultarSaude",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Serviço e banco saudáveis.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "status": "ok",
+                    "service": "leitura",
+                    "time": "2026-08-25T12:00:00.000Z"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Health check do serviço (RNF-OBS-02)",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/livros/{livroId}/nota": {
+      "put": {
+        "description": "Uma nota por usuário e livro, de 0 a 5 em passos de 0,5 (RN-06). Mesmo valor responde 200 sem gravar e sem evento.",
+        "operationId": "salvarNota",
+        "parameters": [
+          {
+            "name": "livroId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Chave da intenção, reenviada igual numa nova tentativa.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotaEntradaDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotaDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Cria ou atualiza a nota do leitor para o livro",
+        "tags": [
+          "avaliacoes"
+        ]
+      },
+      "delete": {
+        "description": "A confirmação é do cliente (RNF-USA-04). Sem nota para remover, responde 204 sem evento.",
+        "operationId": "excluirNota",
+        "parameters": [
+          {
+            "name": "livroId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Chave da intenção, reenviada igual numa nova tentativa.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Nota removida ou já ausente."
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Remove a nota do leitor para o livro",
+        "tags": [
+          "avaliacoes"
+        ]
+      }
+    },
+    "/livros/{livroId}/resenha": {
+      "put": {
+        "description": "Uma resenha por usuário e livro, texto cru de até 5.000 caracteres (RN-07). Só a criação publica resenha.publicada.",
+        "operationId": "salvarResenha",
+        "parameters": [
+          {
+            "name": "livroId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Chave da intenção, reenviada igual numa nova tentativa.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResenhaEntradaDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResenhaDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Cria ou atualiza a resenha do leitor para o livro",
+        "tags": [
+          "avaliacoes"
+        ]
+      },
+      "delete": {
+        "description": "A confirmação irreversível é do cliente (RNF-USA-04). Sem resenha, responde 204 sem evento.",
+        "operationId": "excluirResenha",
+        "parameters": [
+          {
+            "name": "livroId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Chave da intenção, reenviada igual numa nova tentativa.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Resenha removida ou já ausente."
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Exclui fisicamente a resenha do leitor",
+        "tags": [
+          "avaliacoes"
+        ]
+      }
+    },
+    "/livros/{livroId}/minha-avaliacao": {
+      "get": {
+        "description": "Nota e resenha ausentes são nulas, nunca valores inventados.",
+        "operationId": "consultarMinhaAvaliacao",
+        "parameters": [
+          {
+            "name": "livroId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MinhaAvaliacaoDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Consulta a nota e a resenha atuais do leitor",
+        "tags": [
+          "avaliacoes"
+        ]
+      }
+    },
+    "/me/estatisticas": {
+      "get": {
+        "description": "Só do próprio leitor. Recomposto de forma assíncrona a partir de `progresso.registrado` e `leitura.finalizada` (RF-STA-05). Médias sem denominador são nulas.",
+        "operationId": "consultarMinhasEstatisticas",
+        "parameters": [
+          {
+            "name": "periodo",
+            "required": false,
+            "in": "query",
+            "description": "Ano de calendário (`2026`) ou `acumulado`; ausente, o ano corrente.",
+            "schema": {
+              "pattern": "^([1-9][0-9]{3}|acumulado)$",
+              "example": "2026",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EstatisticasDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Consulta totais e médias de leitura de um ano ou do acumulado",
+        "tags": [
+          "estatisticas"
+        ]
+      }
+    },
+    "/me/estatisticas/graficos": {
+      "get": {
+        "operationId": "consultarGraficosEstatisticas",
+        "parameters": [
+          {
+            "name": "periodo",
+            "required": false,
+            "in": "query",
+            "description": "Ano de calendário (`2026`) ou `acumulado`; ausente, o ano corrente.",
+            "schema": {
+              "pattern": "^([1-9][0-9]{3}|acumulado)$",
+              "example": "2026",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GraficosEstatisticasDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Séries de páginas e livros concluídos por mês ou por ano",
+        "tags": [
+          "estatisticas"
+        ]
+      }
+    },
+    "/perfis/{usuarioId}/estatisticas": {
+      "get": {
+        "operationId": "consultarEstatisticasPerfil",
+        "parameters": [
+          {
+            "name": "usuarioId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ano",
+            "required": false,
+            "in": "query",
+            "description": "Ano de calendário; ausente, o ano corrente.",
+            "schema": {
+              "minimum": 1000,
+              "maximum": 9999,
+              "example": 2026,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EstatisticasPerfilDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Consulta os totais do ano de um perfil autorizado",
+        "tags": [
+          "estatisticas",
+          "perfis"
+        ]
+      }
+    },
+    "/resenhas/{resenhaId}/reacao": {
+      "put": {
+        "description": "Uma reação por leitor e resenha, alternável (RF-AVA-05). A primeira curtida do par publica resenha.curtida para o autor; recurtir, alternar e descurtir não publicam.",
+        "operationId": "reagirResenha",
+        "parameters": [
+          {
+            "name": "resenhaId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Chave da intenção, reenviada igual numa nova tentativa.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReacaoEntradaDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReacoesDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Curte ou descurte a resenha de outro leitor",
+        "tags": [
+          "reacoes"
+        ]
+      },
+      "delete": {
+        "description": "Revalida o acesso como o PUT. Sem reação ativa, responde 200 com o estado atual.",
+        "operationId": "removerReacaoResenha",
+        "parameters": [
+          {
+            "name": "resenhaId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "via",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "feed",
+                "lista"
+              ]
+            }
+          },
+          {
+            "name": "referenciaId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Chave da intenção, reenviada igual numa nova tentativa.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReacoesDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Retira a reação do leitor à resenha",
+        "tags": [
+          "reacoes"
+        ]
+      }
+    },
+    "/livros/{livroId}/frases": {
+      "get": {
+        "description": "RN-08 por autor; livro pessoal só para o dono. Mais recentes primeiro. Traz a cota do leitor (minhasFrases de limitePorLivro).",
+        "operationId": "listarFrases",
+        "parameters": [
+          {
+            "name": "livroId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 10000,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limite",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginaFrasesDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Lista as frases do livro que o leitor pode ver",
+        "tags": [
+          "frases"
+        ]
+      },
+      "post": {
+        "description": "Até 500 caracteres, página de 1 ao total do livro e no máximo 10 por leitor e livro (RN-11, 422 LIMITE_DE_FRASES).",
+        "operationId": "cadastrarFrase",
+        "parameters": [
+          {
+            "name": "livroId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Chave da intenção, reenviada igual numa nova tentativa.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FraseEntradaDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FraseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Guarda um trecho do livro com a página",
+        "tags": [
+          "frases"
+        ]
+      }
+    },
+    "/frases/{fraseId}": {
+      "delete": {
+        "description": "A confirmação é do cliente (RNF-USA-04). Frase inexistente ou de outra pessoa é 404.",
+        "operationId": "excluirFrase",
+        "parameters": [
+          {
+            "name": "fraseId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Chave da intenção, reenviada igual numa nova tentativa.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Frase excluída."
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Exclui a própria frase",
+        "tags": [
+          "frases"
+        ]
+      }
+    },
+    "/internal/moderacao/resenhas/{resenhaId}/remocao": {
+      "post": {
+        "operationId": "removerResenhaPelaModeracao",
+        "parameters": [
+          {
+            "name": "resenhaId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Moderacao-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemocaoDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "",
+        "tags": [
+          "interno"
+        ]
+      }
+    },
+    "/internal/moderacao/frases/{fraseId}/remocao": {
+      "post": {
+        "operationId": "removerFrasePelaModeracao",
+        "parameters": [
+          {
+            "name": "fraseId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Moderacao-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemocaoDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "",
+        "tags": [
+          "interno"
+        ]
+      }
+    },
+    "/perfis/{usuarioId}/resenhas": {
+      "get": {
+        "description": "RN-08: próprio usuário e perfis públicos; privado exige seguimento aceito. Livro pessoal só para o dono (RN-15).",
+        "operationId": "listarResenhasPerfil",
+        "parameters": [
+          {
+            "name": "usuarioId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 10000,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limite",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginaResenhasPerfilDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Lista as resenhas autorizadas de um perfil",
+        "tags": [
+          "perfis"
+        ]
+      }
+    },
+    "/estante": {
+      "post": {
+        "operationId": "adicionarLivroEstante",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdicionarEstanteEntradaDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Livro adicionado como Quero ler."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Adiciona um livro à estante como Quero ler",
+        "tags": [
+          "estante"
+        ]
+      },
+      "get": {
+        "operationId": "listarMinhaEstante",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "QUERO_LER",
+                "LENDO",
+                "LIDO",
+                "RELENDO",
+                "ABANDONADO"
+              ]
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "Busca por título ou autor dentro da estante; combina com `status`.",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "name": "ordenacao",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "adicionado_desc",
+              "type": "string",
+              "enum": [
+                "adicionado_desc",
+                "adicionado_asc",
+                "titulo_asc",
+                "titulo_desc",
+                "autor_asc",
+                "autor_desc",
+                "progresso_asc",
+                "progresso_desc"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limite",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Página da estante e totais por status."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Lista a estante do leitor autenticado",
+        "tags": [
+          "estante"
+        ]
+      }
+    },
+    "/estante/{livroId}": {
+      "delete": {
+        "operationId": "removerLivroEstante",
+        "parameters": [
+          {
+            "name": "livroId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Vínculo removido ou repetição idempotente concluída."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Remove um livro em Quero ler sem histórico",
+        "tags": [
+          "estante"
+        ]
+      },
+      "get": {
+        "operationId": "consultarItemEstante",
+        "parameters": [
+          {
+            "name": "livroId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Item da estante do livro."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Consulta um livro na estante do leitor autenticado",
+        "tags": [
+          "estante"
+        ]
+      }
+    },
+    "/perfis/{usuarioId}/estante": {
+      "get": {
+        "operationId": "listarEstantePerfil",
+        "parameters": [
+          {
+            "name": "usuarioId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "QUERO_LER",
+                "LENDO",
+                "LIDO",
+                "RELENDO",
+                "ABANDONADO"
+              ]
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "Busca por título ou autor dentro da estante; combina com `status`.",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "name": "ordenacao",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "adicionado_desc",
+              "type": "string",
+              "enum": [
+                "adicionado_desc",
+                "adicionado_asc",
+                "titulo_asc",
+                "titulo_desc",
+                "autor_asc",
+                "autor_desc",
+                "progresso_asc",
+                "progresso_desc"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limite",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Página autorizada da estante."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Lista a estante autorizada de um perfil",
+        "tags": [
+          "estante"
+        ]
+      }
+    },
+    "/livros/{livroId}/conclusoes": {
+      "get": {
+        "operationId": "consultarConclusoesLivro",
+        "parameters": [
+          {
+            "name": "livroId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Contagem de leituras finalizadas."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Consulta quantas vezes o leitor concluiu o livro",
+        "tags": [
+          "estante",
+          "leituras"
+        ]
+      }
+    },
+    "/livros/{livroId}/favorito": {
+      "get": {
+        "description": "Só do próprio leitor; livro não favoritado responde `favorito: false`.",
+        "operationId": "consultarFavorito",
+        "parameters": [
+          {
+            "name": "livroId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FavoritoDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Consulta se o livro é favorito do leitor",
+        "tags": [
+          "favoritos"
+        ]
+      },
+      "put": {
+        "description": "Independente da estante: não cria vínculo nem status de leitura. Livro pessoal de outro leitor é recusado (RN-15). Marcar de novo responde 200 sem duplicar.",
+        "operationId": "marcarFavorito",
+        "parameters": [
+          {
+            "name": "livroId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Chave da intenção, reenviada igual numa nova tentativa.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FavoritoDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Marca o livro como favorito do leitor",
+        "tags": [
+          "favoritos"
+        ]
+      },
+      "delete": {
+        "description": "Não altera a estante. Sem favorito para remover, responde 204 do mesmo jeito.",
+        "operationId": "desmarcarFavorito",
+        "parameters": [
+          {
+            "name": "livroId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Chave da intenção, reenviada igual numa nova tentativa.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Favorito removido ou já ausente."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Desmarca o livro como favorito do leitor",
+        "tags": [
+          "favoritos"
+        ]
+      }
+    },
+    "/me/favoritos": {
+      "get": {
+        "description": "Só do próprio leitor, do mais recente ao mais antigo. Livro fora da estante vem com `status` nulo. Livro inativo não aparece. `q` busca por título ou autor.",
+        "operationId": "listarMeusFavoritos",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 10000,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limite",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "Busca por título ou autor entre os favoritos.",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginaFavoritosDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Lista os favoritos do leitor, dentro ou fora da estante",
+        "tags": [
+          "favoritos"
+        ]
+      }
+    },
+    "/me/historico": {
+      "get": {
+        "description": "Só do próprio leitor. Conta leitura e releitura finalizadas (RN-04.4); releitura incompleta e leitura abandonada ficam de fora. Ordena pela data de fim, da mais recente. `q` pesquisa título ou autor em todos os anos e combina com `ano`.",
+        "operationId": "listarMeuHistorico",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 10000,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limite",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "ano",
+            "required": false,
+            "in": "query",
+            "description": "Restringe às leituras concluídas nesse ano, pela data de fim.",
+            "schema": {
+              "minimum": 1000,
+              "maximum": 9999,
+              "example": 2026,
+              "type": "number"
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "Pesquisa por título ou autor em todo o histórico; combina com `ano`.",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginaHistoricoDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Lista as leituras concluídas do leitor, uma ocorrência por conclusão",
+        "tags": [
+          "historico"
+        ]
+      }
+    },
+    "/leituras": {
+      "post": {
+        "operationId": "iniciarLeitura",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID opaco; chave ator + método + caminho canônico (RNF-ERR-04).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IniciarLeituraEntradaDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeituraDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Inicia a primeira leitura de um livro",
+        "tags": [
+          "leituras"
+        ]
+      }
+    },
+    "/releituras": {
+      "post": {
+        "operationId": "iniciarReleitura",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID opaco; chave ator + método + caminho canônico (RNF-ERR-04).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IniciarLeituraEntradaDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeituraDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Inicia uma releitura de livro já concluído",
+        "tags": [
+          "leituras"
+        ]
+      }
+    },
+    "/leituras/{leituraId}": {
+      "get": {
+        "operationId": "detalharLeitura",
+        "parameters": [
+          {
+            "name": "leituraId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeituraDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Consulta os detalhes de uma leitura própria",
+        "tags": [
+          "leituras"
+        ]
+      }
+    },
+    "/leituras/{leituraId}/finalizar": {
+      "post": {
+        "operationId": "finalizarLeitura",
+        "parameters": [
+          {
+            "name": "leituraId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID opaco; chave ator + método + caminho canônico (RNF-ERR-04).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FinalizarLeituraEntradaDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeituraDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Finaliza uma leitura ou releitura em andamento",
+        "tags": [
+          "leituras"
+        ]
+      }
+    },
+    "/leituras/{leituraId}/abandonar": {
+      "post": {
+        "operationId": "abandonarLeitura",
+        "parameters": [
+          {
+            "name": "leituraId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID opaco; chave ator + método + caminho canônico (RNF-ERR-04).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeituraDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Abandona manualmente uma leitura em andamento",
+        "tags": [
+          "leituras"
+        ]
+      }
+    },
+    "/leituras/{leituraId}/retomar": {
+      "post": {
+        "operationId": "retomarLeitura",
+        "parameters": [
+          {
+            "name": "leituraId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID opaco; chave ator + método + caminho canônico (RNF-ERR-04).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeituraDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Retoma uma primeira leitura abandonada",
+        "tags": [
+          "leituras"
+        ]
+      }
+    },
+    "/leituras/{leituraId}/progresso": {
+      "post": {
+        "operationId": "registrarProgresso",
+        "parameters": [
+          {
+            "name": "leituraId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID opaco; chave ator + método + caminho canônico (RNF-ERR-04).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CriarProgressoEntradaDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgressoComResumoDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Registra uma atualização manual de progresso",
+        "tags": [
+          "progresso"
+        ]
+      },
+      "get": {
+        "operationId": "listarProgressos",
+        "parameters": [
+          {
+            "name": "leituraId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 10000,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limite",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginaProgressoDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Lista as atualizações de progresso de uma leitura",
+        "tags": [
+          "progresso"
+        ]
+      }
+    },
+    "/progresso/{progressoId}": {
+      "delete": {
+        "operationId": "excluirTrechoProgresso",
+        "parameters": [
+          {
+            "name": "progressoId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID opaco; chave ator + método + caminho canônico (RNF-ERR-04).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExcluirProgressoEntradaDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExclusaoProgressoResultadoDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Exclui uma atualização e o trecho posterior confirmado",
+        "tags": [
+          "progresso"
+        ]
+      }
+    },
+    "/me/sequencia": {
+      "get": {
+        "description": "Só do próprio leitor. Conta dias de calendário com ao menos um progresso, no fuso do dispositivo (RN-18). Sem progresso, zeros e `ultimoDiaComLeitura` nulo.",
+        "operationId": "consultarMinhaSequencia",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SequenciaDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Consulta a sequência diária atual e a maior já alcançada",
+        "tags": [
+          "sequencia"
+        ]
+      }
+    },
+    "/me/sequencia/calendario": {
+      "get": {
+        "description": "Só do próprio leitor e somente leitura (RF-GAM-04, RN-17). Dias com ao menos um progresso com página lida, pela data local (RN-18). Janela: o mês corrente e os cinco anteriores, sem recuar antes do primeiro dia com leitura (RNF-DES-02). Mês fora dela é 422.",
+        "operationId": "consultarCalendarioDaSequencia",
+        "parameters": [
+          {
+            "name": "mes",
+            "required": false,
+            "in": "query",
+            "description": "Mês no formato AAAA-MM. Ausente, o mês corrente.",
+            "schema": {
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "example": "2026-09",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarioSequenciaDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Mês fora da janela."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Lista os dias com leitura de um mês da janela recente",
+        "tags": [
+          "sequencia"
+        ]
+      }
+    },
+    "/desafios": {
+      "post": {
+        "operationId": "criarDesafio",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID opaco; chave ator + método + caminho canônico (RNF-ERR-04).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CriarDesafioEntradaDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DesafioDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cria um desafio",
+        "tags": [
+          "desafios"
+        ]
+      },
+      "get": {
+        "operationId": "listarDesafios",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 10000,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limite",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginaDesafiosDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Lista os desafios com o progresso da janela corrente",
+        "tags": [
+          "desafios"
+        ]
+      }
+    },
+    "/desafios/{desafioId}/janelas": {
+      "get": {
+        "description": "Janelas encerradas da mais recente para a mais antiga, com unidade, periodicidade e alvo vigentes em cada uma (RN-20.7), períodos sem progresso como não cumpridos (RN-20.9) e a pausa da janela (RN-20.6). Só o dono: desafio de outra pessoa é 404 (RF-DSF-05).",
+        "operationId": "listarJanelasDesafio",
+        "parameters": [
+          {
+            "name": "desafioId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 10000,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limite",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginaJanelasDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Desafio inexistente ou de outra pessoa."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Lista o histórico de janelas encerradas de um desafio",
+        "tags": [
+          "desafios"
+        ]
+      }
+    },
+    "/desafios/{desafioId}": {
+      "patch": {
+        "operationId": "editarDesafio",
+        "parameters": [
+          {
+            "name": "desafioId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID opaco; chave ator + método + caminho canônico (RNF-ERR-04).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditarDesafioEntradaDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DesafioDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Edita um desafio",
+        "tags": [
+          "desafios"
+        ]
+      },
+      "delete": {
+        "operationId": "excluirDesafio",
+        "parameters": [
+          {
+            "name": "desafioId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID opaco; chave ator + método + caminho canônico (RNF-ERR-04).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Desafio excluído ou repetição idempotente concluída."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Exclui um desafio",
+        "tags": [
+          "desafios"
+        ]
+      }
+    },
+    "/desafios/{desafioId}/pausar": {
+      "post": {
+        "operationId": "pausarDesafio",
+        "parameters": [
+          {
+            "name": "desafioId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID opaco; chave ator + método + caminho canônico (RNF-ERR-04).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DesafioDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Pausa um desafio",
+        "tags": [
+          "desafios"
+        ]
+      }
+    },
+    "/desafios/{desafioId}/retomar": {
+      "post": {
+        "operationId": "retomarDesafio",
+        "parameters": [
+          {
+            "name": "desafioId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID opaco; chave ator + método + caminho canônico (RNF-ERR-04).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DesafioDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Retoma um desafio pausado",
+        "tags": [
+          "desafios"
+        ]
+      }
+    },
+    "/internal/jobs/inatividade": {
+      "post": {
+        "operationId": "InatividadeController_executar",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExecutarJobDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Inatividade"
+        ]
+      }
+    },
+    "/internal/jobs/lembrete-sequencia": {
+      "post": {
+        "operationId": "LembreteSequenciaController_executar",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExecutarLembreteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "LembreteSequencia"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Lê Ai — leitura",
+    "description": "Contrato do serviço leitura. Estante, progresso, nota e resenha entram com F-EST, F-PRG e F-AVA.",
+    "version": "0.1.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "NotaEntradaDto": {
+        "type": "object",
+        "properties": {
+          "valor": {
+            "type": "number",
+            "format": "float",
+            "minimum": 0,
+            "maximum": 5,
+            "multipleOf": 0.5,
+            "example": 4.5
+          }
+        },
+        "required": [
+          "valor"
+        ]
+      },
+      "NotaDto": {
+        "type": "object",
+        "properties": {
+          "livroId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "valor": {
+            "type": "number",
+            "format": "float",
+            "minimum": 0,
+            "maximum": 5,
+            "multipleOf": 0.5
+          },
+          "criadoEm": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "atualizadoEm": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "livroId",
+          "valor",
+          "criadoEm",
+          "atualizadoEm"
+        ]
+      },
+      "ResenhaEntradaDto": {
+        "type": "object",
+        "properties": {
+          "texto": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 5000
+          },
+          "spoiler": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "texto",
+          "spoiler"
+        ]
+      },
+      "ResenhaDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "usuarioId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "livroId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "texto": {
+            "type": "string",
+            "maxLength": 5000
+          },
+          "spoiler": {
+            "type": "boolean"
+          },
+          "criadoEm": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "atualizadoEm": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "usuarioId",
+          "livroId",
+          "texto",
+          "spoiler",
+          "criadoEm",
+          "atualizadoEm"
+        ]
+      },
+      "MinhaResenhaDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "usuarioId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "livroId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "texto": {
+            "type": "string",
+            "maxLength": 5000
+          },
+          "spoiler": {
+            "type": "boolean"
+          },
+          "criadoEm": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "atualizadoEm": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "curtidas": {
+            "type": "number",
+            "minimum": 0
+          },
+          "descurtidas": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "id",
+          "usuarioId",
+          "livroId",
+          "texto",
+          "spoiler",
+          "criadoEm",
+          "atualizadoEm",
+          "curtidas",
+          "descurtidas"
+        ]
+      },
+      "MinhaAvaliacaoDto": {
+        "type": "object",
+        "properties": {
+          "livroId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nota": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NotaDto"
+              }
+            ]
+          },
+          "resenha": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MinhaResenhaDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "livroId",
+          "nota",
+          "resenha"
+        ]
+      },
+      "AnoComRegistroDto": {
+        "type": "object",
+        "properties": {
+          "ano": {
+            "type": "number",
+            "example": 2026
+          },
+          "livrosConcluidos": {
+            "type": "number",
+            "minimum": 0,
+            "example": 9
+          }
+        },
+        "required": [
+          "ano",
+          "livrosConcluidos"
+        ]
+      },
+      "TotaisEstatisticaDto": {
+        "type": "object",
+        "properties": {
+          "livrosConcluidos": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Leituras concluídas no período, pela data de fim; releituras contam como ocorrências próprias.",
+            "example": 9
+          },
+          "paginasLidas": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Páginas derivadas das atualizações de progresso (RN-17.1), inclusive de leituras abandonadas (RN-04).",
+            "example": 3818
+          },
+          "minutosLidos": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Minutos informados nas atualizações de progresso.",
+            "example": 5130
+          }
+        },
+        "required": [
+          "livrosConcluidos",
+          "paginasLidas",
+          "minutosLidos"
+        ]
+      },
+      "PaginasPorDiaDto": {
+        "type": "object",
+        "properties": {
+          "valor": {
+            "type": "number",
+            "nullable": true,
+            "description": "Páginas por dia com leitura, uma casa decimal; nulo sem dia com leitura.",
+            "example": 20.4
+          },
+          "paginasLidas": {
+            "type": "number",
+            "minimum": 0,
+            "example": 3818
+          },
+          "diasComLeitura": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Datas locais distintas com progresso no período.",
+            "example": 187
+          }
+        },
+        "required": [
+          "valor",
+          "paginasLidas",
+          "diasComLeitura"
+        ]
+      },
+      "DiasPorLivroDto": {
+        "type": "object",
+        "properties": {
+          "valor": {
+            "type": "number",
+            "nullable": true,
+            "description": "Dias por leitura concluída, uma casa decimal; nulo sem leitura concluída.",
+            "example": 19.1
+          },
+          "dias": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Soma de `dataFim − dataInicio + 1` das leituras concluídas no período, com dias sem leitura e intervalos de abandono.",
+            "example": 172
+          },
+          "leiturasConcluidas": {
+            "type": "number",
+            "minimum": 0,
+            "example": 9
+          }
+        },
+        "required": [
+          "valor",
+          "dias",
+          "leiturasConcluidas"
+        ]
+      },
+      "NotaMediaDto": {
+        "type": "object",
+        "properties": {
+          "valor": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 5,
+            "description": "Média das notas dadas no período, uma casa decimal; nulo sem nota.",
+            "example": 4.1
+          },
+          "quantidade": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Notas dadas no período, pela data da última vez que foram dadas (fuso America/Sao_Paulo).",
+            "example": 8
+          }
+        },
+        "required": [
+          "valor",
+          "quantidade"
+        ]
+      },
+      "MediasEstatisticaDto": {
+        "type": "object",
+        "properties": {
+          "paginasPorDia": {
+            "$ref": "#/components/schemas/PaginasPorDiaDto"
+          },
+          "diasPorLivro": {
+            "$ref": "#/components/schemas/DiasPorLivroDto"
+          },
+          "notaMedia": {
+            "$ref": "#/components/schemas/NotaMediaDto"
+          }
+        },
+        "required": [
+          "paginasPorDia",
+          "diasPorLivro",
+          "notaMedia"
+        ]
+      },
+      "FaixaDeNotaDto": {
+        "type": "object",
+        "properties": {
+          "valor": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 5,
+            "multipleOf": 0.5,
+            "example": 4.5
+          },
+          "quantidade": {
+            "type": "integer",
+            "minimum": 0,
+            "example": 2
+          }
+        },
+        "required": [
+          "valor",
+          "quantidade"
+        ]
+      },
+      "DistribuicaoNotasDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Notas do período; igual a `medias.notaMedia.quantidade`.",
+            "example": 8
+          },
+          "faixas": {
+            "description": "Sempre as onze notas da escala (0 a 5, passo 0,5), em ordem crescente, inclusive as de contagem zero (RN-06).",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FaixaDeNotaDto"
+            }
+          }
+        },
+        "required": [
+          "total",
+          "faixas"
+        ]
+      },
+      "EstatisticasDto": {
+        "type": "object",
+        "properties": {
+          "ano": {
+            "type": "number",
+            "nullable": true,
+            "description": "Ano do recorte; nulo no acumulado.",
+            "example": 2026
+          },
+          "anos": {
+            "description": "Anos com progresso ou leitura concluída, do mais recente ao mais antigo, para o seletor.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AnoComRegistroDto"
+            }
+          },
+          "primeiroRegistro": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "description": "Primeira data com progresso ou fim de leitura concluída; nulo sem registro.",
+            "example": "2023-11-12"
+          },
+          "totais": {
+            "$ref": "#/components/schemas/TotaisEstatisticaDto"
+          },
+          "medias": {
+            "$ref": "#/components/schemas/MediasEstatisticaDto"
+          },
+          "distribuicaoNotas": {
+            "nullable": true,
+            "description": "Quantos livros receberam cada nota no período; nulo sem nenhuma nota, nunca onze zeros (RN-06.3).",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DistribuicaoNotasDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "ano",
+          "anos",
+          "primeiroRegistro",
+          "totais",
+          "medias",
+          "distribuicaoNotas"
+        ]
+      },
+      "PontoEstatisticaDto": {
+        "type": "object",
+        "properties": {
+          "ano": {
+            "type": "number",
+            "example": 2026
+          },
+          "mes": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 1,
+            "maximum": 12,
+            "description": "Mês (1–12) na série mensal; nulo na série anual.",
+            "example": 9
+          },
+          "paginasLidas": {
+            "type": "number",
+            "minimum": 0,
+            "example": 412
+          },
+          "livrosConcluidos": {
+            "type": "number",
+            "minimum": 0,
+            "example": 1
+          }
+        },
+        "required": [
+          "ano",
+          "mes",
+          "paginasLidas",
+          "livrosConcluidos"
+        ]
+      },
+      "GraficosEstatisticasDto": {
+        "type": "object",
+        "properties": {
+          "ano": {
+            "type": "number",
+            "nullable": true,
+            "description": "Ano do recorte; nulo no acumulado.",
+            "example": 2026
+          },
+          "granularidade": {
+            "type": "string",
+            "enum": [
+              "mes",
+              "ano"
+            ],
+            "description": "Um ponto por mês num ano; um ponto por ano no acumulado."
+          },
+          "pontos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PontoEstatisticaDto"
+            }
+          }
+        },
+        "required": [
+          "ano",
+          "granularidade",
+          "pontos"
+        ]
+      },
+      "EstatisticasPerfilDto": {
+        "type": "object",
+        "properties": {
+          "livrosConcluidos": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Leituras concluídas no período, pela data de fim; releituras contam como ocorrências próprias.",
+            "example": 9
+          },
+          "paginasLidas": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Páginas derivadas das atualizações de progresso (RN-17.1), inclusive de leituras abandonadas (RN-04).",
+            "example": 3818
+          },
+          "minutosLidos": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Minutos informados nas atualizações de progresso.",
+            "example": 5130
+          },
+          "ano": {
+            "type": "number",
+            "example": 2026
+          },
+          "distribuicaoNotas": {
+            "nullable": true,
+            "description": "Quantos livros receberam cada nota no período; nulo sem nenhuma nota, nunca onze zeros (RN-06.3).",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DistribuicaoNotasDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "livrosConcluidos",
+          "paginasLidas",
+          "minutosLidos",
+          "ano",
+          "distribuicaoNotas"
+        ]
+      },
+      "ReacaoEntradaDto": {
+        "type": "object",
+        "properties": {
+          "via": {
+            "type": "string",
+            "enum": [
+              "feed",
+              "lista"
+            ]
+          },
+          "referenciaId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "curtida",
+              "descurtida"
+            ]
+          }
+        },
+        "required": [
+          "tipo"
+        ]
+      },
+      "ReacoesDto": {
+        "type": "object",
+        "properties": {
+          "minhaReacao": {
+            "type": "string",
+            "enum": [
+              "curtida",
+              "descurtida"
+            ],
+            "nullable": true
+          },
+          "curtidas": {
+            "type": "number",
+            "minimum": 0
+          },
+          "descurtidas": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "minhaReacao",
+          "curtidas",
+          "descurtidas"
+        ]
+      },
+      "AutorDaFraseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "username": {
+            "type": "string"
+          },
+          "nome": {
+            "type": "string"
+          },
+          "avatarUrl": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "nome",
+          "avatarUrl"
+        ]
+      },
+      "FraseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "livroId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "texto": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "pagina": {
+            "type": "number",
+            "minimum": 1
+          },
+          "criadoEm": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "autor": {
+            "$ref": "#/components/schemas/AutorDaFraseDto"
+          },
+          "minha": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "livroId",
+          "texto",
+          "pagina",
+          "criadoEm",
+          "autor",
+          "minha"
+        ]
+      },
+      "PaginacaoDto": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "number",
+            "minimum": 1
+          },
+          "limite": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "totalItens": {
+            "type": "number",
+            "minimum": 0
+          },
+          "totalPaginas": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "page",
+          "limite",
+          "totalItens",
+          "totalPaginas"
+        ]
+      },
+      "PaginaFrasesDto": {
+        "type": "object",
+        "properties": {
+          "itens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FraseDto"
+            }
+          },
+          "paginacao": {
+            "$ref": "#/components/schemas/PaginacaoDto"
+          },
+          "minhasFrases": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10
+          },
+          "limitePorLivro": {
+            "type": "number",
+            "example": 10
+          }
+        },
+        "required": [
+          "itens",
+          "paginacao",
+          "minhasFrases",
+          "limitePorLivro"
+        ]
+      },
+      "FraseEntradaDto": {
+        "type": "object",
+        "properties": {
+          "texto": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "pagina": {
+            "type": "number",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "texto",
+          "pagina"
+        ]
+      },
+      "RemocaoDto": {
+        "type": "object",
+        "properties": {
+          "removida": {
+            "type": "boolean",
+            "description": "`false` quando o conteúdo já não existia."
+          },
+          "autorId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "livroId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        },
+        "required": [
+          "removida",
+          "autorId",
+          "livroId"
+        ]
+      },
+      "LivroDaResenhaDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "oficial",
+              "pessoal"
+            ]
+          },
+          "titulo": {
+            "type": "string"
+          },
+          "autor": {
+            "type": "string",
+            "nullable": true
+          },
+          "capaUrl": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "tipo",
+          "titulo",
+          "autor",
+          "capaUrl"
+        ]
+      },
+      "ResenhaDoPerfilDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "usuarioId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "livroId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "texto": {
+            "type": "string",
+            "maxLength": 5000
+          },
+          "spoiler": {
+            "type": "boolean"
+          },
+          "criadoEm": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "atualizadoEm": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "livro": {
+            "$ref": "#/components/schemas/LivroDaResenhaDto"
+          },
+          "nota": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 5,
+            "multipleOf": 0.5
+          },
+          "curtidas": {
+            "type": "number",
+            "minimum": 0
+          },
+          "descurtidas": {
+            "type": "number",
+            "minimum": 0
+          },
+          "minhaReacao": {
+            "type": "string",
+            "enum": [
+              "curtida",
+              "descurtida"
+            ],
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "usuarioId",
+          "livroId",
+          "texto",
+          "spoiler",
+          "criadoEm",
+          "atualizadoEm",
+          "livro",
+          "nota",
+          "curtidas",
+          "descurtidas",
+          "minhaReacao"
+        ]
+      },
+      "PaginaResenhasPerfilDto": {
+        "type": "object",
+        "properties": {
+          "itens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResenhaDoPerfilDto"
+            }
+          },
+          "paginacao": {
+            "$ref": "#/components/schemas/PaginacaoDto"
+          }
+        },
+        "required": [
+          "itens",
+          "paginacao"
+        ]
+      },
+      "AdicionarEstanteEntradaDto": {
+        "type": "object",
+        "properties": {
+          "livroId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "livroId"
+        ]
+      },
+      "FavoritoDto": {
+        "type": "object",
+        "properties": {
+          "livroId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "favorito": {
+            "type": "boolean"
+          },
+          "favoritadoEm": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "livroId",
+          "favorito",
+          "favoritadoEm"
+        ]
+      },
+      "LivroReferenciadoDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "oficial",
+              "pessoal"
+            ]
+          },
+          "titulo": {
+            "type": "string"
+          },
+          "autor": {
+            "type": "string",
+            "nullable": true
+          },
+          "capaUrl": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "tipo",
+          "titulo",
+          "autor",
+          "capaUrl"
+        ]
+      },
+      "ItemFavoritoDto": {
+        "type": "object",
+        "properties": {
+          "livro": {
+            "$ref": "#/components/schemas/LivroReferenciadoDto"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "QUERO_LER",
+              "LENDO",
+              "LIDO",
+              "RELENDO",
+              "ABANDONADO"
+            ],
+            "nullable": true,
+            "description": "Status na estante; nulo quando o livro está fora dela."
+          },
+          "favoritadoEm": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "livro",
+          "status",
+          "favoritadoEm"
+        ]
+      },
+      "PaginaFavoritosDto": {
+        "type": "object",
+        "properties": {
+          "itens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItemFavoritoDto"
+            }
+          },
+          "paginacao": {
+            "$ref": "#/components/schemas/PaginacaoDto"
+          }
+        },
+        "required": [
+          "itens",
+          "paginacao"
+        ]
+      },
+      "OcorrenciaHistoricoDto": {
+        "type": "object",
+        "properties": {
+          "leituraId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "livro": {
+            "$ref": "#/components/schemas/LivroReferenciadoDto"
+          },
+          "dataInicio": {
+            "type": "string",
+            "format": "date"
+          },
+          "dataFim": {
+            "type": "string",
+            "format": "date"
+          },
+          "releitura": {
+            "type": "boolean"
+          },
+          "duracaoDias": {
+            "type": "number",
+            "minimum": 1,
+            "description": "Dias de `dataInicio` a `dataFim`, contando os dois."
+          },
+          "paginaFinal": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Página final registrada."
+          },
+          "totalPaginas": {
+            "type": "number",
+            "minimum": 1,
+            "nullable": true
+          }
+        },
+        "required": [
+          "leituraId",
+          "livro",
+          "dataInicio",
+          "dataFim",
+          "releitura",
+          "duracaoDias",
+          "paginaFinal",
+          "totalPaginas"
+        ]
+      },
+      "AnoHistoricoDto": {
+        "type": "object",
+        "properties": {
+          "ano": {
+            "type": "number",
+            "example": 2026
+          },
+          "total": {
+            "type": "number",
+            "minimum": 1,
+            "description": "Leituras concluídas no ano."
+          }
+        },
+        "required": [
+          "ano",
+          "total"
+        ]
+      },
+      "TotaisHistoricoDto": {
+        "type": "object",
+        "properties": {
+          "livros": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Livros distintos no filtro atual."
+          },
+          "leituras": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Leituras concluídas no filtro atual."
+          }
+        },
+        "required": [
+          "livros",
+          "leituras"
+        ]
+      },
+      "PaginaHistoricoDto": {
+        "type": "object",
+        "properties": {
+          "itens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OcorrenciaHistoricoDto"
+            }
+          },
+          "paginacao": {
+            "$ref": "#/components/schemas/PaginacaoDto"
+          },
+          "anos": {
+            "description": "Anos com leitura concluída, do mais recente; ignora `ano` e `q`.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AnoHistoricoDto"
+            }
+          },
+          "totais": {
+            "$ref": "#/components/schemas/TotaisHistoricoDto"
+          }
+        },
+        "required": [
+          "itens",
+          "paginacao",
+          "anos",
+          "totais"
+        ]
+      },
+      "IniciarLeituraEntradaDto": {
+        "type": "object",
+        "properties": {
+          "livroId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dataInicio": {
+            "type": "string",
+            "format": "date",
+            "description": "Padrão é a data atual do leitor; pode ser editada."
+          }
+        },
+        "required": [
+          "livroId"
+        ]
+      },
+      "LeituraDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "livroId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "QUERO_LER",
+              "LENDO",
+              "LIDO",
+              "RELENDO",
+              "ABANDONADO"
+            ]
+          },
+          "dataInicio": {
+            "type": "string",
+            "format": "date"
+          },
+          "dataFim": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "releitura": {
+            "type": "boolean"
+          },
+          "incompleta": {
+            "type": "boolean"
+          },
+          "retomavel": {
+            "type": "boolean"
+          },
+          "paginaAtual": {
+            "type": "number",
+            "minimum": 0
+          },
+          "totalPaginas": {
+            "type": "number",
+            "minimum": 1,
+            "nullable": true
+          },
+          "percentualConcluido": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "nullable": true
+          },
+          "vezesLido": {
+            "type": "number",
+            "minimum": 0
+          },
+          "ultimaAtividadeEm": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finalizadaEm": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "finalizacaoFusoHorario": {
+            "type": "string",
+            "nullable": true,
+            "example": "America/Sao_Paulo"
+          },
+          "finalizacaoDataLocal": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "livroId",
+          "status",
+          "dataInicio",
+          "dataFim",
+          "releitura",
+          "incompleta",
+          "retomavel",
+          "paginaAtual",
+          "totalPaginas",
+          "percentualConcluido",
+          "vezesLido",
+          "ultimaAtividadeEm",
+          "finalizadaEm",
+          "finalizacaoFusoHorario",
+          "finalizacaoDataLocal"
+        ]
+      },
+      "FinalizarLeituraEntradaDto": {
+        "type": "object",
+        "properties": {
+          "dataFim": {
+            "type": "string",
+            "format": "date",
+            "description": "Padrão é a data atual do leitor; pode ser editada."
+          },
+          "fusoHorarioDispositivo": {
+            "type": "string",
+            "example": "America/Sao_Paulo",
+            "description": "Identificador IANA usado para derivar a data local da ação."
+          }
+        },
+        "required": [
+          "fusoHorarioDispositivo"
+        ]
+      },
+      "CriarProgressoEntradaDto": {
+        "type": "object",
+        "properties": {
+          "pagina": {
+            "type": "number",
+            "minimum": 1,
+            "description": "Página absoluta em que o leitor parou."
+          },
+          "minutos": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 720,
+            "default": 0,
+            "description": "Tempo gasto; ausente é registrado como 0 (não informado)."
+          },
+          "registradoEmDispositivo": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "fusoHorarioDispositivo": {
+            "type": "string",
+            "example": "America/Sao_Paulo",
+            "description": "Identificador IANA capturado automaticamente."
+          }
+        },
+        "required": [
+          "pagina",
+          "registradoEmDispositivo",
+          "fusoHorarioDispositivo"
+        ]
+      },
+      "ProgressoDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "leituraId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "posicao": {
+            "type": "number",
+            "minimum": 1
+          },
+          "pagina": {
+            "type": "number",
+            "minimum": 1
+          },
+          "paginaAnterior": {
+            "type": "number",
+            "minimum": 0
+          },
+          "paginasLidas": {
+            "type": "number",
+            "minimum": 1
+          },
+          "minutos": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 720
+          },
+          "registradoEmDispositivo": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "fusoHorarioDispositivo": {
+            "type": "string",
+            "example": "America/Sao_Paulo"
+          },
+          "dataLocal": {
+            "type": "string",
+            "format": "date"
+          },
+          "criadoEm": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "leituraId",
+          "posicao",
+          "pagina",
+          "paginaAnterior",
+          "paginasLidas",
+          "minutos",
+          "registradoEmDispositivo",
+          "fusoHorarioDispositivo",
+          "dataLocal",
+          "criadoEm"
+        ]
+      },
+      "ResumoProgressoDto": {
+        "type": "object",
+        "properties": {
+          "paginaAtual": {
+            "type": "number",
+            "minimum": 0
+          },
+          "totalPaginas": {
+            "type": "number",
+            "minimum": 1
+          },
+          "percentualConcluido": {
+            "type": "number",
+            "format": "float",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "minutosTotais": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "paginaAtual",
+          "totalPaginas",
+          "percentualConcluido",
+          "minutosTotais"
+        ]
+      },
+      "ProgressoComResumoDto": {
+        "type": "object",
+        "properties": {
+          "progresso": {
+            "$ref": "#/components/schemas/ProgressoDto"
+          },
+          "resumo": {
+            "$ref": "#/components/schemas/ResumoProgressoDto"
+          }
+        },
+        "required": [
+          "progresso",
+          "resumo"
+        ]
+      },
+      "PaginaProgressoDto": {
+        "type": "object",
+        "properties": {
+          "itens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProgressoDto"
+            }
+          },
+          "paginacao": {
+            "$ref": "#/components/schemas/PaginacaoDto"
+          },
+          "resumo": {
+            "$ref": "#/components/schemas/ResumoProgressoDto"
+          },
+          "somenteLeitura": {
+            "type": "boolean",
+            "description": "Verdadeiro para ocorrência finalizada ou historicamente fechada."
+          }
+        },
+        "required": [
+          "itens",
+          "paginacao",
+          "resumo",
+          "somenteLeitura"
+        ]
+      },
+      "ExcluirProgressoEntradaDto": {
+        "type": "object",
+        "properties": {
+          "ultimoProgressoIdConfirmado": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Último registro que o usuário viu e confirmou remover."
+          }
+        },
+        "required": [
+          "ultimoProgressoIdConfirmado"
+        ]
+      },
+      "ExclusaoProgressoResultadoDto": {
+        "type": "object",
+        "properties": {
+          "idsRemovidos": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "resumo": {
+            "$ref": "#/components/schemas/ResumoProgressoDto"
+          }
+        },
+        "required": [
+          "idsRemovidos",
+          "resumo"
+        ]
+      },
+      "SequenciaDto": {
+        "type": "object",
+        "properties": {
+          "sequenciaAtual": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Dias seguidos com leitura até hoje ou ontem, no último fuso do dispositivo; 0 quando um dia se encerrou sem leitura.",
+            "example": 12
+          },
+          "maiorSequencia": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Maior sequência já alcançada; preservada quando a atual zera.",
+            "example": 31
+          },
+          "ultimoDiaComLeitura": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "description": "Último dia de calendário local com progresso; nulo sem nenhum progresso.",
+            "example": "2026-10-08"
+          }
+        },
+        "required": [
+          "sequenciaAtual",
+          "maiorSequencia",
+          "ultimoDiaComLeitura"
+        ]
+      },
+      "CalendarioSequenciaDto": {
+        "type": "object",
+        "properties": {
+          "mes": {
+            "type": "string",
+            "example": "2026-09",
+            "description": "Mês devolvido, AAAA-MM."
+          },
+          "mesAtual": {
+            "type": "string",
+            "example": "2026-09",
+            "description": "Mês corrente no último fuso do dispositivo; limite à frente da navegação."
+          },
+          "mesMaisAntigo": {
+            "type": "string",
+            "example": "2026-04",
+            "description": "Mês mais antigo disponível na janela; limite para trás da navegação."
+          },
+          "hoje": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-09-24",
+            "description": "Dia corrente no mesmo fuso que apura a sequência."
+          },
+          "dias": {
+            "description": "Dias do mês com leitura, em ordem crescente, sem repetição.",
+            "example": [
+              "2026-09-01",
+              "2026-09-02",
+              "2026-09-24"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        },
+        "required": [
+          "mes",
+          "mesAtual",
+          "mesMaisAntigo",
+          "hoje",
+          "dias"
+        ]
+      },
+      "CriarDesafioEntradaDto": {
+        "type": "object",
+        "properties": {
+          "unidade": {
+            "type": "string",
+            "enum": [
+              "paginas",
+              "minutos",
+              "livros"
+            ]
+          },
+          "janela": {
+            "type": "string",
+            "enum": [
+              "diaria",
+              "semanal",
+              "mensal",
+              "anual"
+            ]
+          },
+          "valorAlvo": {
+            "type": "number",
+            "minimum": 1,
+            "description": "Inteiro positivo; o teto depende da unidade: 100.000 páginas, 100.000 minutos ou 1.000 livros (422 acima dele)."
+          },
+          "fusoHorario": {
+            "type": "string",
+            "example": "America/Sao_Paulo",
+            "description": "Identificador IANA do dispositivo. Define o dia de hoje e, com ele, a janela corrente (RN-20.1)."
+          }
+        },
+        "required": [
+          "unidade",
+          "janela",
+          "valorAlvo",
+          "fusoHorario"
+        ]
+      },
+      "JanelaDesafioDto": {
+        "type": "object",
+        "properties": {
+          "inicio": {
+            "type": "string",
+            "format": "date",
+            "description": "Primeiro dia da janela."
+          },
+          "fim": {
+            "type": "string",
+            "format": "date",
+            "description": "Último dia da janela."
+          },
+          "acumulado": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Soma na unidade do desafio dos registros da janela, fora das pausas."
+          },
+          "cumprida": {
+            "type": "boolean",
+            "description": "O acumulado atingiu o alvo (RN-20.8)."
+          }
+        },
+        "required": [
+          "inicio",
+          "fim",
+          "acumulado",
+          "cumprida"
+        ]
+      },
+      "DesafioDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "unidade": {
+            "type": "string",
+            "enum": [
+              "paginas",
+              "minutos",
+              "livros"
+            ]
+          },
+          "janela": {
+            "type": "string",
+            "enum": [
+              "diaria",
+              "semanal",
+              "mensal",
+              "anual"
+            ]
+          },
+          "valorAlvo": {
+            "type": "number",
+            "minimum": 1
+          },
+          "fusoHorario": {
+            "type": "string",
+            "example": "America/Sao_Paulo"
+          },
+          "pausado": {
+            "type": "boolean"
+          },
+          "pausadoDesde": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Início da pausa em curso; nulo quando ativo."
+          },
+          "criadoEm": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "janelaCorrente": {
+            "description": "Janela de calendário corrente. Enquanto pausado, não é avaliada (RN-20.6).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/JanelaDesafioDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "unidade",
+          "janela",
+          "valorAlvo",
+          "fusoHorario",
+          "pausado",
+          "pausadoDesde",
+          "criadoEm",
+          "janelaCorrente"
+        ]
+      },
+      "PaginaDesafiosDto": {
+        "type": "object",
+        "properties": {
+          "itens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DesafioDto"
+            }
+          },
+          "paginacao": {
+            "$ref": "#/components/schemas/PaginacaoDto"
+          }
+        },
+        "required": [
+          "itens",
+          "paginacao"
+        ]
+      },
+      "JanelaEncerradaDto": {
+        "type": "object",
+        "properties": {
+          "inicio": {
+            "type": "string",
+            "format": "date",
+            "description": "Primeiro dia da janela."
+          },
+          "fim": {
+            "type": "string",
+            "format": "date",
+            "description": "Último dia da janela."
+          },
+          "unidade": {
+            "type": "string",
+            "enum": [
+              "paginas",
+              "minutos",
+              "livros"
+            ],
+            "description": "Unidade vigente nesta janela, não a atual (RN-20.7)."
+          },
+          "periodicidade": {
+            "type": "string",
+            "enum": [
+              "diaria",
+              "semanal",
+              "mensal",
+              "anual"
+            ],
+            "description": "Periodicidade vigente nesta janela, não a atual (RN-20.7)."
+          },
+          "valorAlvo": {
+            "type": "number",
+            "minimum": 1,
+            "description": "Alvo vigente nesta janela, não o atual (RN-20.7)."
+          },
+          "acumulado": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Soma na unidade da janela dos registros dela, fora das pausas. Zero no período sem progresso (RN-20.9)."
+          },
+          "cumprida": {
+            "type": "boolean",
+            "description": "O acumulado atingiu o alvo desta janela (RN-20.8). Pode mudar com captura offline tardia (RN-20.10)."
+          },
+          "pausa": {
+            "type": "string",
+            "enum": [
+              "inteira",
+              "parcial",
+              "nenhuma"
+            ],
+            "description": "Quanto da janela o desafio passou pausado (RN-20.6): `inteira` quando uma pausa cobre do primeiro ao último instante dela no fuso da janela, `parcial` quando alguma pausa a alcança só em parte, `nenhuma` sem pausa."
+          }
+        },
+        "required": [
+          "inicio",
+          "fim",
+          "unidade",
+          "periodicidade",
+          "valorAlvo",
+          "acumulado",
+          "cumprida",
+          "pausa"
+        ]
+      },
+      "PaginaJanelasDto": {
+        "type": "object",
+        "properties": {
+          "itens": {
+            "description": "Janelas encerradas, da mais recente para a mais antiga.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/JanelaEncerradaDto"
+            }
+          },
+          "paginacao": {
+            "$ref": "#/components/schemas/PaginacaoDto"
+          }
+        },
+        "required": [
+          "itens",
+          "paginacao"
+        ]
+      },
+      "EditarDesafioEntradaDto": {
+        "type": "object",
+        "properties": {
+          "unidade": {
+            "type": "string",
+            "enum": [
+              "paginas",
+              "minutos",
+              "livros"
+            ]
+          },
+          "janela": {
+            "type": "string",
+            "enum": [
+              "diaria",
+              "semanal",
+              "mensal",
+              "anual"
+            ]
+          },
+          "valorAlvo": {
+            "type": "number",
+            "minimum": 1,
+            "description": "Inteiro positivo; o teto depende da unidade: 100.000 páginas, 100.000 minutos ou 1.000 livros (422 acima dele)."
+          },
+          "fusoHorario": {
+            "type": "string",
+            "example": "America/Sao_Paulo",
+            "description": "Identificador IANA do dispositivo. Define o dia de hoje e, com ele, a janela corrente (RN-20.1)."
+          }
+        },
+        "required": [
+          "fusoHorario"
+        ]
+      },
+      "ExecutarJobDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ExecutarLembreteDto": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ]
+}

@@ -75,7 +75,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [x] Só o **dono** altera os assuntos do seu livro pessoal (RN-03, SEC-02); terceiro com via válida apenas visualiza. Evidência: integração (feed e lista) e teste manual (PATCH de outra conta: 403; consulta pela lista na web).
 - [x] Assuntos de livro pessoal **não** aparecem em busca, filtros ou páginas de autor/editora/série, e não alteram contadores de catálogo (RN-03, SEC-06). Evidência: teste de isolamento com livro criado pela API com assunto (busca, filtro, `totalItens`, página de autor, `v_livro_recomendacao_v1`, `GET /assuntos`) e teste manual no dev.
 - [x] Web e mobile mostram o seletor a partir do conjunto curado, sem campo livre. Evidência: testes dos clientes e teste manual (Edge e emulador).
-- [ ] Recarga e assuntos em livro pessoal funcionam **em DES**. Desmarcado: o DES vem com o merge na `main`, no fechamento de novembro; a recarga real é pendência do grupo (decisão 4 do plano).
+- [ ] Recarga e assuntos em livro pessoal funcionam **em DES**. **Assuntos validados pela API em 28/11/2026** (ver Timeline); a recarga real segue pendente.
 
 ## Definition of Done
 
@@ -111,6 +111,8 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - Stack de `acervo` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
 ## Timeline
+
+### DES 28/11/2026: assuntos no livro pessoal validados pelo `code/scripts/atam/validacao-periodo-3.mjs`, com as contas de demonstração do DES e a release `v0.4.0` no ar ([`validacao-periodo-3-des.json`](../../evidencias/atam/v0.4.0/validacao-periodo-3-des.json)). A validação foi pela API, com as mesmas chamadas que a web e o app fazem; as telas em DES não foram conferidas uma a uma. `GET /assuntos` devolveu 31 assuntos; o Caio criou um livro pessoal com dois deles (201), leu de volta os dois assuntos (200) e o livro de teste foi apagado (204). A recarga real do dump continua pendência do grupo.
 
 ### Merge 08/11/2026: o Vicenzo conferiu o `0ccaee4` e todo o delta desde a primeira revisão, aprovou o PR #62 e ele foi mergeado na `desenvolvimento` às 00:35 (`97a2f95`), com a CI verde. Sem migration, nada a aplicar no dev. Card #31 em "Concluído". Continuam abertos: a recarga real em dev e DES (pendência do grupo, decisão 4) e o fluxo em DES, que vem com o merge da `main` no fechamento de novembro, com o `acervo` subindo junto ou antes da web (ordem de deploy acima).
 

@@ -1,0 +1,82 @@
+{
+  "medidoEm": "2026-11-28T04:45:06.219Z",
+  "ambiente": "DES (Render, Oregon)",
+  "servicos": [
+    {
+      "servico": "identidade",
+      "primeiro": {
+        "iniciadoEm": "2026-11-28T04:45:06.220Z",
+        "ms": 182657.7,
+        "status": 200,
+        "erro": null,
+        "corpo": {
+          "status": "ok",
+          "service": "identidade",
+          "time": "2026-11-28T04:48:09.315Z"
+        }
+      },
+      "segundo": {
+        "iniciadoEm": "2026-11-28T04:48:08.878Z",
+        "ms": 491.3,
+        "status": 200
+      }
+    },
+    {
+      "servico": "acervo",
+      "primeiro": {
+        "iniciadoEm": "2026-11-28T04:48:09.369Z",
+        "ms": 27383.3,
+        "status": 200,
+        "erro": null,
+        "corpo": {
+          "status": "ok",
+          "service": "acervo",
+          "time": "2026-11-28T04:48:37.291Z"
+        }
+      },
+      "segundo": {
+        "iniciadoEm": "2026-11-28T04:48:36.753Z",
+        "ms": 239.7,
+        "status": 200
+      }
+    },
+    {
+      "servico": "leitura",
+      "primeiro": {
+        "iniciadoEm": "2026-11-28T04:48:36.993Z",
+        "ms": 27405.2,
+        "status": 200,
+        "erro": null,
+        "corpo": {
+          "status": "ok",
+          "service": "leitura",
+          "time": "2026-11-28T04:49:04.934Z"
+        }
+      },
+      "segundo": {
+        "iniciadoEm": "2026-11-28T04:49:04.398Z",
+        "ms": 257.5,
+        "status": 200
+      }
+    },
+    {
+      "servico": "social",
+      "primeiro": {
+        "iniciadoEm": "2026-11-28T04:49:04.656Z",
+        "ms": 181433.2,
+        "status": 200,
+        "erro": null,
+        "corpo": {
+          "status": "ok",
+          "service": "social",
+          "time": "2026-11-28T04:52:06.602Z"
+        }
+      },
+      "segundo": {
+        "iniciadoEm": "2026-11-28T04:52:06.090Z",
+        "ms": 239.2,
+        "status": 200
+      }
+    }
+  ]
+}

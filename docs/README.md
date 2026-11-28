@@ -73,6 +73,7 @@ _**Resumo**. O Lê Ai é um aplicativo social de leitura, no modelo Skoob/Letter
    8.7. Plano de ação e recomendações técnicas <br />
    8.8. Avaliação final <br />
    8.9. Evidências dos testes realizados <br />
+   8.10. Revalidação na v0.4.0 <br />
 
 9. [Plano de Testes](9.plano_de_testes.md#plano-de-testes "Plano de Testes") <br />
    9.1. Objetivo <br />

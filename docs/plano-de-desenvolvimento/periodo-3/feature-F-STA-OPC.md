@@ -69,7 +69,7 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - [ ] Só o próprio leitor vê a sua por `/me` (SEC-02); o recorte de perfil respeita RN-08 no servidor e reaproveita a mesma camada de cálculo (SEC-03).
 - [ ] O gráfico atende contraste WCAG AA e trata o estado vazio sem erro (RNF-USA-03).
 - [ ] Nenhuma tabela ou campo novo é criado para a feature.
-- [ ] A distribuição funciona **em DES**, na web e no app.
+- [ ] A distribuição funciona **em DES**, na web e no app. **API validada em 28/11/2026** (ver Timeline).
 
 ## Definition of Done
 
@@ -98,6 +98,8 @@ Herda de [P0-INFRA](../periodo-0/feature-P0-INFRA.md) corpo de erro padrão + co
 - Stack de `leitura` definida: **NestJS (TypeScript)** (arquitetura §2.1).
 
 ## Timeline
+
+### DES 28/11/2026: distribuição validada pelo `code/scripts/atam/validacao-periodo-3.mjs`, com as contas de demonstração do DES e a release `v0.4.0` no ar ([`validacao-periodo-3-des.json`](../../evidencias/atam/v0.4.0/validacao-periodo-3-des.json)). A validação foi pela API, com as mesmas chamadas que a web e o app fazem; as telas em DES não foram conferidas uma a uma. `GET /me/estatisticas` do Caio (200) trouxe `distribuicaoNotas` com as faixas.
 
 ### Implementação 07/11/2026: backend, web e mobile na branch `feat/f-sta-opc-distribuicao-notas`. A distribuição é calculada em consulta (`GROUP BY nota.valor` filtrado pelo ano de `nota.atualizado_em` no fuso padrão, o mesmo critério de `recompor`), sem tabela, migration nem evento; a alternativa de persistir os buckets em `estatistica_mensal` segue descartada até haver medição em DES. Decisões ratificadas na implementação: a distribuição entra no DTO público do perfil (ano corrente, sob RN-08) e o formato é a contagem, sem percentual. Divergência protótipo × implementação: a frase de ajuda do card (`Cada livro conta uma vez…`) foi retirada por decisão da dona da feature, e o design ainda a lista. O balão da web é medido e fica acima da coluna, o eixo X mostra só as notas inteiras quando não cabe (container query em `rem`, que acompanha o texto grande) e o gráfico do app tem ←/→/Home/End/Esc com foco visível, como no design. Revisão de código: `baldes` e as contagens de nota são lidas numa transação `REPEATABLE READ` somente leitura, de modo que `total` e `notaMedia.quantidade` não divergem sob escrita concorrente; `total` é a soma das onze faixas; o balão aberto pelo teclado não fecha com o mouse. Pendente para o DoD: CI verde, testes de integração do `leitura` em Postgres descartável e fluxo em DES/HML após o merge na `main`.
 

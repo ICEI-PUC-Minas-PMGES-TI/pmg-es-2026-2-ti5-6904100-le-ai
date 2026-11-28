@@ -28,13 +28,13 @@ As sete opcionais foram implementadas e integradas à `desenvolvimento` até 24/
 
 | Feature | Dono | Situação | O que continua aberto (detalhe no arquivo) |
 |---|---|---|---|
-| [F-ACV-OPC](feature-F-ACV-OPC.md) | Renato Douglas | entregue, na `main` e em DES | recarga real do dump (decisão do grupo); conferência em DES não registrada no arquivo |
-| [F-REC-ALG](feature-F-REC-ALG.md) | Henrique Carvalho | entregue, na `main` e em DES | fluxo em DES não registrado; lacunas L-45 a L-48 do plano de testes |
+| [F-ACV-OPC](feature-F-ACV-OPC.md) | Renato Douglas | entregue; assuntos no livro pessoal validados em DES pela API (28/11/2026) | recarga real do dump (decisão do grupo) |
+| [F-REC-ALG](feature-F-REC-ALG.md) | Henrique Carvalho | entregue; sugestões e descarte validados em DES pela API (28/11/2026) | descarte em lote não exercitado em DES; lacunas L-45 a L-48 do plano de testes |
 | [F-NOT-OPC](feature-F-NOT-OPC.md) | Kayke | entregue e validada em DES (push num Android físico, 24/11/2026) | lacunas L-39 a L-42 do plano de testes |
-| [F-MOD-OPC](feature-F-MOD-OPC.md) | Renato Douglas | entregue, na `main` e em DES | conferência em DES não registrada no arquivo |
-| [F-GAM-OPC](feature-F-GAM-OPC.md) | Vicenzo Fonseca | entregue; em DES, o job do lembrete respondeu 200 | ver o lembrete chegar num Android, com uma conta que tenha lido na véspera e não no dia |
-| [F-STA-OPC](feature-F-STA-OPC.md) | Ana Luiza de Freitas | entregue, na `main` e em DES | lacuna L-34 do plano de testes |
-| [F-DSF-OPC](feature-F-DSF-OPC.md) | Vicenzo Fonseca | entregue, na `main` e em DES | lacunas L-43 e L-44 do plano de testes |
+| [F-MOD-OPC](feature-F-MOD-OPC.md) | Renato Douglas | entregue, na `main` e em DES | **não validada em DES**: o passo de suspender e reativar exige a senha do administrador, que não estava no arquivo de contas |
+| [F-GAM-OPC](feature-F-GAM-OPC.md) | Vicenzo Fonseca | entregue; calendário validado em DES pela API (28/11/2026); o job do lembrete roda todo dia com `elegiveis: 0` | ver o lembrete chegar num Android, com uma conta que tenha lido na véspera e não no dia |
+| [F-STA-OPC](feature-F-STA-OPC.md) | Ana Luiza de Freitas | entregue; validada em DES pela API (28/11/2026) | lacuna L-34 do plano de testes |
+| [F-DSF-OPC](feature-F-DSF-OPC.md) | Vicenzo Fonseca | entregue; validada em DES pela API (28/11/2026) | lacunas L-43 e L-44 do plano de testes |
 
 **Cross-cutting do período:**
 
@@ -42,7 +42,7 @@ As sete opcionais foram implementadas e integradas à `desenvolvimento` até 24/
 - **ATAM:** feito em 19 e 20/11/2026 contra a `v0.2.1` em DES ([`8.avaliacao_arquitetura.md`](../../8.avaliacao_arquitetura.md) e a versão para assinatura em `assets/arquitetura/`). As features do Período 3 ficaram fora das medições.
 - **Documento de Arquitetura:** versão final v1.11 (28/11/2026), com a recomendação algorítmica, as VIEWs novas e a contagem do banco de DES (65 tabelas e 12 VIEWs).
 
-Nada desceu de nível pela regra de corte: as sete opcionais entraram. O que fica aberto são as validações em DES ainda sem registro nos arquivos das features e as lacunas de teste listadas acima.
+A validação em DES de 28/11/2026 foi feita pela API com as contas de demonstração (`code/scripts/atam/validacao-periodo-3.mjs`, evidência em [`evidencias/atam/v0.4.0/`](../../evidencias/atam/v0.4.0/)): 12 passos, nenhuma falha. Nada desceu de nível pela regra de corte: as sete opcionais entraram. O que fica aberto é a suspensão em DES (F-MOD-OPC), o lembrete chegando num Android (F-GAM-OPC), a recarga real do dump (F-ACV-OPC) e as lacunas de teste listadas acima.
 
 ### Refinamento depois da v0.3.0
 

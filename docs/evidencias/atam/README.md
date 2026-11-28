@@ -35,3 +35,7 @@ Dados brutos das medições do [`docs/8.avaliacao_arquitetura.md`](../../8.avali
 **Impacto no DES:** o tempo ativo do compute do Neon `le-ai-oregon` (`active_time` do projeto, lido pelo MCP) passou de 44.128 s (22:08 UTC) para 44.892 s (22:34 UTC), +764 s, contando também qualquer outro uso do DES nessa janela. Nada foi apagado, e nenhuma fila, configuração ou mensagem do broker de DES foi tocada.
 
 **Dado retirado:** o `cenario-6-runtime-identidade.json` copia o spec exposto em runtime, que traz como `example` de e-mail um endereço `@gmail.com` vindo das anotações `@Schema` do `identidade`. Na cópia versionada aqui, esse valor foi trocado por `exemplo@leai.invalid` (20/11/2026). Nenhum outro campo foi alterado.
+
+## Revalidação na v0.4.0 (28/11/2026)
+
+A pasta [`v0.4.0/`](v0.4.0/) tem a rodada que repetiu, na versão final, os cenários medidos em DES (C-01, C-02, C-03, C-04 e C-06), com os mesmos scripts e os contratos lidos da tag `v0.4.0`, e a validação dos fluxos do Período 3 pela API (`validacao-periodo-3-des.json`, gerada pelo `code/scripts/atam/validacao-periodo-3.mjs`). O C-04 foi medido às 04:45 UTC, com os quatro serviços hibernados havia mais de 15 min. Os resultados estão no `docs/8.avaliacao_arquitetura.md` §8.10. Os arquivos seguem as mesmas regras desta pasta: horário em UTC, sem token nem senha.

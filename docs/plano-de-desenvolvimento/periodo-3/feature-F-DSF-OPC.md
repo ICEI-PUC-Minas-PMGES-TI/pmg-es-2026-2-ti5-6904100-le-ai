@@ -99,7 +99,7 @@ Na `vicenzo-features`, em cima da `desenvolvimento` com o Período 2 fechado. M�
 - [x] O histórico é **exclusivo do dono** do desafio; terceiro com o id recebe negação (SEC-02).
 - [x] Excluir o desafio remove seu histórico (RF-DSF-04); a exclusão de conta o limpa por F-CONTA-2.
 - [x] Nenhuma tabela nova é criada — o histórico usa os snapshots de `janela_desafio` de F-DSF.
-- [ ] O histórico funciona no app **em DES** — entra no merge de fechamento do Período 3.
+- [ ] O histórico funciona no app **em DES** — entra no merge de fechamento do Período 3. **API validada em 28/11/2026** (ver Timeline).
 
 ## Definition of Done
 
@@ -139,6 +139,8 @@ Na `vicenzo-features`, em cima da `desenvolvimento` com o Período 2 fechado. M�
 - **Header sem divisor** mesmo com a lista rolando por baixo, a mesma simplificação da lista de Desafios (`semDivisor`).
 
 ## Timeline
+
+### DES 28/11/2026: histórico validado pelo `code/scripts/atam/validacao-periodo-3.mjs`, com as contas de demonstração do DES e a release `v0.4.0` no ar ([`validacao-periodo-3-des.json`](../../evidencias/atam/v0.4.0/validacao-periodo-3-des.json)). A validação foi pela API, com as mesmas chamadas que a web e o app fazem; as telas em DES não foram conferidas uma a uma. `GET /desafios` do Caio trouxe 3 desafios, e `GET /desafios/{id}/janelas` (200), 9 janelas do primeiro. O banco de DES tem 25 janelas encerradas, a última de 24/11/2026, depois do deploy.
 
 ### Implementação 07/11/2026: backend e mobile implementados na `vicenzo-features`, sobre a `desenvolvimento` com o Período 2 fechado (inclui a F-MOD-OPC).
 
