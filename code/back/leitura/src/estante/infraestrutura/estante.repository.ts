@@ -273,6 +273,7 @@ export class EstanteRepository {
               ),
             ),
         ).mapWith(Boolean),
+        tipo: vLivroReferencia.tipo,
         titulo: vLivroReferencia.titulo,
         autor: vLivroReferencia.autorExibicao,
         capaUrl: vLivroReferencia.capaResolvida,
@@ -311,12 +312,14 @@ interface LinhaConsultada {
   paginaAtual: number | null;
   totalPaginas: number | null;
   favorito: boolean;
+  tipo: string | null;
   titulo: string | null;
   autor: string | null;
   capaUrl: string | null;
 }
 
 function paraLinha({
+  tipo,
   titulo,
   autor,
   capaUrl,
@@ -336,6 +339,11 @@ function paraLinha({
             status: ultimaLeituraStatus as StatusLeitura,
             releitura: ultimaLeituraReleitura as boolean,
           },
-    livro: { titulo: titulo as string, autor, capaUrl },
+    livro: {
+      tipo: tipo as LivroItemEstante['tipo'],
+      titulo: titulo as string,
+      autor,
+      capaUrl,
+    },
   };
 }

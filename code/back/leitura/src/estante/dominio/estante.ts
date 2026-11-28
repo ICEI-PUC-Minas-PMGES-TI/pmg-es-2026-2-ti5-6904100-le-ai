@@ -14,6 +14,10 @@ export type OrdenacaoEstante = (typeof ORDENACOES_ESTANTE)[number];
 
 export const ORDENACAO_PADRAO: OrdenacaoEstante = 'adicionado_desc';
 
-export type LivroItemEstante = Pick<LivroSnapshot, 'titulo' | 'capaUrl'> & {
+/** `tipo` diz à web e ao mobile qual página do livro abrir a partir do card. */
+export type LivroItemEstante = Pick<
+  LivroSnapshot,
+  'tipo' | 'titulo' | 'capaUrl'
+> & {
   autor: string | null;
 };

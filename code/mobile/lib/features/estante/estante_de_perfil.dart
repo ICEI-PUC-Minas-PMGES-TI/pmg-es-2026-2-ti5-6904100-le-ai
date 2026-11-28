@@ -35,6 +35,11 @@ class EstanteDePerfil extends StatefulWidget {
   /// `EstantePage`. No perfil de outro leitor fica nulo, porque as escritas são de quem olha.
   final Listenable? alteracoes;
 
+  /// Página do livro, aberta pela capa e pelo título do card. O livro pessoal só abre no próprio
+  /// perfil ([proprio]): o terceiro chega a ele exclusivamente pelo feed ou por uma lista (RN-15).
+  final void Function(String livroId, {required bool pessoal})? aoAbrirLivro;
+  final bool proprio;
+
   const EstanteDePerfil({
     super.key,
     required this.servico,
@@ -45,6 +50,8 @@ class EstanteDePerfil extends StatefulWidget {
     this.acaoDoTitulo,
     this.vazio,
     this.alteracoes,
+    this.aoAbrirLivro,
+    this.proprio = false,
   });
 
   @override
@@ -52,6 +59,15 @@ class EstanteDePerfil extends StatefulWidget {
 }
 
 class _EstanteDePerfilState extends State<EstanteDePerfil> {
+  VoidCallback? _paraOLivro(ItemEstante item) {
+    final aoAbrirLivro = widget.aoAbrirLivro;
+    final pessoal = item.livro.pessoal;
+    if (aoAbrirLivro == null || (pessoal && !widget.proprio)) {
+      return null;
+    }
+    return () => aoAbrirLivro(item.livroId, pessoal: pessoal);
+  }
+
   late final ListaDaEstante _lista = ListaDaEstante(
     (pagina) => widget.servico.listarEstantePerfil(widget.usuarioId, FiltroEstante(pagina: pagina)),
   );
@@ -174,7 +190,11 @@ class _EstanteDePerfilState extends State<EstanteDePerfil> {
       GradeDaEstante(
         filhos: <Widget>[
           for (final item in _lista.itens)
-            CartaoEstante(key: ValueKey<String>(item.livroId), item: item),
+            CartaoEstante(
+              key: ValueKey<String>(item.livroId),
+              item: item,
+              aoAbrirLivro: _paraOLivro(item),
+            ),
         ],
       ),
       FimDaLista(

@@ -131,19 +131,30 @@ class CartaoEstante extends StatelessWidget {
   final int? paginaAtual;
   final int? totalPaginas;
   final double? percentualConcluido;
+
+  /// Painel de ações: o botão de mais ações sobre a capa e o toque no resto do card.
   final VoidCallback? aoAbrir;
+
+  /// Página do livro: o toque na capa e no título. Nulo deixa os dois sem toque (livro pessoal no
+  /// perfil de outro leitor, RN-15).
+  final VoidCallback? aoAbrirLivro;
   final int? paginaPendente;
 
-  CartaoEstante({super.key, required ItemEstante item, this.aoAbrir, this.paginaPendente})
-    : livro = item.livro,
-      status = item.status,
-      favorito = item.favorito,
-      vezesLido = item.vezesLido,
-      paginaAtual = item.paginaAtual,
-      totalPaginas = item.totalPaginas,
-      percentualConcluido = item.percentualConcluido;
+  CartaoEstante({
+    super.key,
+    required ItemEstante item,
+    this.aoAbrir,
+    this.aoAbrirLivro,
+    this.paginaPendente,
+  }) : livro = item.livro,
+       status = item.status,
+       favorito = item.favorito,
+       vezesLido = item.vezesLido,
+       paginaAtual = item.paginaAtual,
+       totalPaginas = item.totalPaginas,
+       percentualConcluido = item.percentualConcluido;
 
-  CartaoEstante.doFavorito({super.key, required ItemFavorito item, this.aoAbrir})
+  CartaoEstante.doFavorito({super.key, required ItemFavorito item, this.aoAbrir, this.aoAbrirLivro})
     : livro = item.livro.livro,
       status = item.status,
       favorito = true,
@@ -178,9 +189,39 @@ class CartaoEstante extends StatelessWidget {
         ? textoParouNaPagina(paginaAtual, totalPaginas)
         : null;
     final autor = livro.autor;
+    final aoAbrir = this.aoAbrir;
+    final aoAbrirLivro = this.aoAbrirLivro;
 
-    final conteudo = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    // Toque no resto do card abre as ações, como antes; o botão sobre a capa é o caminho acessível.
+    Widget acionavel(List<Widget> filhos, {Key? key}) {
+      final coluna = Column(
+        key: key,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: filhos,
+      );
+      if (aoAbrir == null) {
+        return coluna;
+      }
+      return GestureDetector(behavior: HitTestBehavior.opaque, onTap: aoAbrir, child: coluna);
+    }
+
+    // Capa e título levam à página do livro. A capa repete o título: fica fora da semântica.
+    Widget paraOLivro(Widget filho, {required Key key, bool link = false}) {
+      if (aoAbrirLivro == null) {
+        return filho;
+      }
+      final toque = GestureDetector(
+        key: key,
+        behavior: HitTestBehavior.opaque,
+        onTap: aoAbrirLivro,
+        child: filho,
+      );
+      return link ? Semantics(link: true, child: toque) : ExcludeSemantics(child: toque);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
         AspectRatio(
@@ -188,13 +229,20 @@ class CartaoEstante extends StatelessWidget {
           child: LayoutBuilder(
             builder: (context, limites) => Stack(
               children: <Widget>[
-                CapaLivro(url: livro.capaUrl, largura: limites.maxWidth, altura: limites.maxHeight),
+                paraOLivro(
+                  CapaLivro(
+                    url: livro.capaUrl,
+                    largura: limites.maxWidth,
+                    altura: limites.maxHeight,
+                  ),
+                  key: const ValueKey<String>('capa-do-cartao'),
+                ),
                 if (favorito)
                   const Align(
                     alignment: Alignment.topLeft,
                     child: Padding(
                       padding: EdgeInsets.all(DesignTokens.space2),
-                      child: _MarcaDeFavorito(),
+                      child: IgnorePointer(child: _MarcaDeFavorito()),
                     ),
                   ),
                 if (status == StatusEstante.lido || status == StatusEstante.relendo)
@@ -202,76 +250,128 @@ class CartaoEstante extends StatelessWidget {
                     alignment: Alignment.topRight,
                     child: Padding(
                       padding: const EdgeInsets.all(DesignTokens.space2),
-                      child: _SeloDaCapa(status: status!),
+                      child: IgnorePointer(child: _SeloDaCapa(status: status!)),
+                    ),
+                  ),
+                if (aoAbrir != null)
+                  Align(
+                    alignment: Alignment.bottomRight,
+                    child: Padding(
+                      padding: const EdgeInsets.all(DesignTokens.space1),
+                      child: _BotaoDeAcoes(titulo: livro.titulo, aoTocar: aoAbrir),
                     ),
                   ),
               ],
             ),
           ),
         ),
-        if (percentual != null) ...<Widget>[
-          const SizedBox(height: DesignTokens.space2),
-          BarraDeProgresso(
-            percentual: percentual,
-            rotulo: percentual == 0 ? TextosDaEstante.progressoIniciado : '${percentual.toInt()}%',
-            semantica: 'Progresso de ${livro.titulo}',
-          ),
-          if (paginaPendente != null) ...<Widget>[
-            const SizedBox(height: DesignTokens.space1),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Icon(
-                  PhosphorIconsRegular.cloudArrowUp,
-                  size: _iconeDoAviso,
-                  color: theme.warningColor,
-                ),
-                const SizedBox(width: DesignTokens.space1),
-                Expanded(
-                  child: Text(
-                    TextosDoRegistro.avisoOffline,
-                    style: theme.textTheme.bodySmall?.copyWith(color: theme.warningColor),
-                  ),
-                ),
-              ],
+        if (percentual != null)
+          acionavel(<Widget>[
+            const SizedBox(height: DesignTokens.space2),
+            BarraDeProgresso(
+              percentual: percentual,
+              rotulo: percentual == 0
+                  ? TextosDaEstante.progressoIniciado
+                  : '${percentual.toInt()}%',
+              semantica: 'Progresso de ${livro.titulo}',
             ),
-          ],
-        ],
+            if (paginaPendente != null) ...<Widget>[
+              const SizedBox(height: DesignTokens.space1),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Icon(
+                    PhosphorIconsRegular.cloudArrowUp,
+                    size: _iconeDoAviso,
+                    color: theme.warningColor,
+                  ),
+                  const SizedBox(width: DesignTokens.space1),
+                  Expanded(
+                    child: Text(
+                      TextosDoRegistro.avisoOffline,
+                      style: theme.textTheme.bodySmall?.copyWith(color: theme.warningColor),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ]),
         const SizedBox(height: DesignTokens.space2),
-        Text(
-          livro.titulo,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.titleSmall,
+        Align(
+          alignment: Alignment.centerLeft,
+          child: paraOLivro(
+            Text(
+              livro.titulo,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.titleSmall,
+            ),
+            key: const ValueKey<String>('titulo-do-cartao'),
+            link: true,
+          ),
         ),
-        if (autor != null)
-          Text(autor, maxLines: 1, overflow: TextOverflow.ellipsis, style: legenda),
-        const SizedBox(height: DesignTokens.space2),
-        if (status != null)
-          PillStatus(status: status)
-        else
-          Text(TextosDoFiltroFavoritos.foraDaEstante, style: legenda),
-        if (parouNaPagina != null) ...<Widget>[
-          const SizedBox(height: DesignTokens.space1),
-          Text(parouNaPagina, style: legenda),
-        ],
-        if (vezesLido > 0) ...<Widget>[
-          const SizedBox(height: DesignTokens.space1),
-          Text(textoVezesLido(vezesLido), style: legenda),
-        ],
+        acionavel(key: const ValueKey<String>('resto-do-cartao'), <Widget>[
+          if (autor != null)
+            Text(autor, maxLines: 1, overflow: TextOverflow.ellipsis, style: legenda),
+          const SizedBox(height: DesignTokens.space2),
+          if (status != null)
+            PillStatus(status: status)
+          else
+            Text(TextosDoFiltroFavoritos.foraDaEstante, style: legenda),
+          if (parouNaPagina != null) ...<Widget>[
+            const SizedBox(height: DesignTokens.space1),
+            Text(parouNaPagina, style: legenda),
+          ],
+          if (vezesLido > 0) ...<Widget>[
+            const SizedBox(height: DesignTokens.space1),
+            Text(textoVezesLido(vezesLido), style: legenda),
+          ],
+        ]),
       ],
     );
+  }
+}
 
-    if (aoAbrir == null) {
-      return conteudo;
-    }
+/// Mais ações do livro, no canto da capa: 48px de área de toque, com o círculo de 32px dos selos.
+class _BotaoDeAcoes extends StatelessWidget {
+  final String titulo;
+  final VoidCallback aoTocar;
+
+  const _BotaoDeAcoes({required this.titulo, required this.aoTocar});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Semantics(
       button: true,
-      child: InkWell(
-        onTap: aoAbrir,
-        splashFactory: NoSplash.splashFactory,
-        borderRadius: BorderRadius.circular(DesignTokens.radiusSm),
-        child: conteudo,
+      label: rotuloDasAcoesDoLivro(titulo),
+      excludeSemantics: true,
+      // Com `excludeSemantics`, a ação de toque some da árvore: vai aqui.
+      onTap: aoTocar,
+      child: GestureDetector(
+        key: const ValueKey<String>('acoes-do-cartao'),
+        behavior: HitTestBehavior.opaque,
+        onTap: aoTocar,
+        child: SizedBox(
+          width: 48,
+          height: 48,
+          child: Center(
+            child: Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: theme.pageBackground,
+                shape: BoxShape.circle,
+                boxShadow: theme.elevation1,
+              ),
+              child: Icon(
+                PhosphorIconsBold.dotsThree,
+                size: 20,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -121,6 +121,7 @@ export class EstanteService {
             paginaAtual: null,
             totalPaginas: livro.paginas,
             livro: {
+              tipo: livro.snapshot.tipo,
               titulo: livro.snapshot.titulo,
               autor: livro.snapshot.autor,
               capaUrl: livro.snapshot.capaUrl,

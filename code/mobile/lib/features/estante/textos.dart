@@ -93,6 +93,8 @@ const Map<StatusEstante, VazioDoFiltro> vazioDoFiltro = <StatusEstante, VazioDoF
   ),
 };
 
+String rotuloDasAcoesDoLivro(String titulo) => 'Ações de $titulo';
+
 abstract final class TextosDaEstanteDePerfil {
   static const String titulo = 'Estante';
   static const String erroTexto =

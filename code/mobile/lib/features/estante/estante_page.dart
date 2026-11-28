@@ -52,6 +52,9 @@ class EstantePage extends StatefulWidget {
   final bool lembreteDeSequencia;
   final VoidCallback? aoConsumirLembrete;
 
+  /// Página do livro, aberta pela capa e pelo título do card: o id e se o livro é pessoal.
+  final void Function(String livroId, {required bool pessoal})? aoAbrirLivro;
+
   const EstantePage({
     super.key,
     required this.servico,
@@ -65,6 +68,7 @@ class EstantePage extends StatefulWidget {
     this.aoBuscarNoAcervo,
     this.lembreteDeSequencia = false,
     this.aoConsumirLembrete,
+    this.aoAbrirLivro,
   });
 
   @override
@@ -321,6 +325,11 @@ class _EstantePageState extends State<EstantePage> {
     return false;
   }
 
+  VoidCallback? _paraOLivro(String livroId, LivroDaEstante livro) {
+    final aoAbrirLivro = widget.aoAbrirLivro;
+    return aoAbrirLivro == null ? null : () => aoAbrirLivro(livroId, pessoal: livro.pessoal);
+  }
+
   Future<void> _abrirFavorito(ItemFavorito favorito) async {
     final item = favorito.status == null ? null : await _itemDaEstante(favorito.livro.id);
     if (!mounted) {
@@ -483,6 +492,7 @@ class _EstantePageState extends State<EstantePage> {
                 key: ValueKey<String>(item.livro.id),
                 item: item,
                 aoAbrir: () => _abrirFavorito(item),
+                aoAbrirLivro: _paraOLivro(item.livro.id, item.livro.livro),
               ),
           ],
         ),
@@ -605,6 +615,7 @@ class _EstantePageState extends State<EstantePage> {
                 key: ValueKey<String>(item.livroId),
                 item: item,
                 aoAbrir: () => _abrirAcoes(item),
+                aoAbrirLivro: _paraOLivro(item.livroId, item.livro),
                 paginaPendente: _paginaPendente(item),
               ),
           ],

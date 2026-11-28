@@ -1743,9 +1743,10 @@ components:
         livro:
           type: object
           additionalProperties: false
-          required: [titulo, autor, capaUrl]
-          description: Snapshot de `v_livro_referencia_v1`.
+          required: [tipo, titulo, autor, capaUrl]
+          description: Snapshot de `v_livro_referencia_v1`. `tipo` diz qual página do livro o card abre.
           properties:
+            tipo: { type: string, enum: [oficial, pessoal] }
             titulo: { type: string }
             autor: { type: string, nullable: true }
             capaUrl: { type: string, format: uri, nullable: true }

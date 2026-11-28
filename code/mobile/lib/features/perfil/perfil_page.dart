@@ -51,6 +51,9 @@ class PerfilPage extends StatefulWidget {
   /// [aoBuscarLivros].
   final VoidCallback? aoVerLivrosLidos;
 
+  /// Página do livro, aberta pela capa e pelo título de um card da estante do perfil.
+  final void Function(String livroId, {required bool pessoal})? aoAbrirLivro;
+
   /// Estante do próprio leitor (F-EST). Sem ela, a seção fica no estado vazio.
   final EstanteService? estante;
 
@@ -90,6 +93,7 @@ class PerfilPage extends StatefulWidget {
     this.aoBuscarLivros,
     this.aoVerEstante,
     this.aoVerLivrosLidos,
+    this.aoAbrirLivro,
     this.estante,
     this.alteracoesDoProgresso,
     this.resenhas,
@@ -368,6 +372,8 @@ class _PerfilPageState extends State<PerfilPage> {
                           primeiroNome: primeiroNome(perfil.displayName),
                           aoMudarLivrosLidos: (lidos) => setState(() => _livrosLidos = lidos),
                           alteracoes: _alteracoesDaEstante,
+                          proprio: true,
+                          aoAbrirLivro: widget.aoAbrirLivro,
                           acaoDoTitulo: aoVerEstante == null ? null : BotaoVerTudo(onPressed: aoVerEstante),
                           vazio: EstanteVaziaDoPerfil(
                             proprio: true,

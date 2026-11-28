@@ -11,7 +11,7 @@ export function useFavoritosDaEstante(listar: LeituraService['listarFavoritos'],
       items: resposta.itens.map(({ livro, status }) => ({
         id: livro.id,
         livroId: livro.id,
-        livro: { titulo: livro.titulo, autor: livro.autor, capaUrl: livro.capaUrl },
+        livro: { tipo: livro.tipo, titulo: livro.titulo, autor: livro.autor, capaUrl: livro.capaUrl },
         status,
         favorito: true,
       })),

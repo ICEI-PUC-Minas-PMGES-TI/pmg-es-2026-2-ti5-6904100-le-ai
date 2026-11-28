@@ -267,6 +267,10 @@ GoRouter buildRouter({
                   lembreteDeSequencia:
                       state.uri.queryParameters[parametroDoLembrete] == valorDoLembreteDeSequencia,
                   aoConsumirLembrete: () => context.go(rotaEstante),
+                  // Capa e título do card: a página do livro fica na aba Estante.
+                  aoAbrirLivro: (livroId, {required pessoal}) => context.push(
+                    pessoal ? rotaLivroPessoalNaEstante(livroId) : '$rotaEstante/livro/$livroId',
+                  ),
                 ),
                 routes: <RouteBase>[
                   GoRoute(
@@ -280,6 +284,15 @@ GoRouter buildRouter({
                     ),
                   ),
                   ...rotasDaEstante(deps, servicoDeEstante, progresso: depsDeProgresso),
+                  // O livro oficial aberto pelo card da estante fica na aba Estante
+                  // (pagina-do-livro.md §4.1: o item ativo é a aba de origem).
+                  rotaDoLivroOficial(
+                    deps,
+                    raiz: rotaEstante,
+                    estante: servicoDeEstante,
+                    progresso: depsDeProgresso,
+                    social: depsDeFeed.social,
+                  ),
                   rotaDoProgresso(depsDeProgresso, servicoDeEstante),
                   rotaDeNotificacoes(depsDeNotificacoes, rotaEstante),
                 ],
@@ -363,6 +376,11 @@ GoRouter buildRouter({
                   aoVerEstante: () => context.go(rotaEstante),
                   aoVerLivrosLidos: () =>
                       context.go('$rotaEstante?status=${StatusEstante.lido.valor}'),
+                  // Como as resenhas do perfil: o oficial abre na aba Perfil; o pessoal, na Estante,
+                  // onde o dono chega a ele.
+                  aoAbrirLivro: (livroId, {required pessoal}) => pessoal
+                      ? context.go(rotaLivroPessoalNaEstante(livroId))
+                      : context.push('/perfil/livro/$livroId'),
                   estante: servicoDeEstante,
                   alteracoesDoProgresso: depsDeProgresso.servico.alteracoes,
                   resenhas: (usuarioId) =>

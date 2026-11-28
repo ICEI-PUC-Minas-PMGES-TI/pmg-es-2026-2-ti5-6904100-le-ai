@@ -111,6 +111,8 @@ export type OrdenacaoEstante =
   | 'progresso_desc'
 
 export interface LivroDaEstante {
+  /** Qual página do livro o card abre. Ausente só em respostas anteriores ao campo: vale oficial. */
+  tipo?: 'oficial' | 'pessoal'
   titulo: string
   autor: string | null
   capaUrl: string | null

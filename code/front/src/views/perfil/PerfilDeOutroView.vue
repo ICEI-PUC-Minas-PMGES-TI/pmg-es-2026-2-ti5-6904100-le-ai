@@ -604,6 +604,7 @@ const textoDaConfirmacao = computed(() =>
                   <CardEstante
                     :item="item"
                     :acionavel="false"
+                    origem="outro-perfil"
                   />
                 </li>
               </ul>

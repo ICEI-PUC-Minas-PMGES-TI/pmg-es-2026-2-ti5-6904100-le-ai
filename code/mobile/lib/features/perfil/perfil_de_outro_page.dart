@@ -47,6 +47,9 @@ class PerfilDeOutroPage extends StatefulWidget {
   /// só com o conteúdo visível (perfil-de-outro-leitor.md §4.1 A e RN-08).
   final Widget Function(String usuarioId, String nome)? estatisticas;
 
+  /// Página do livro oficial aberta pela capa e pelo título de um card da estante.
+  final ValueChanged<String>? aoAbrirLivro;
+
   const PerfilDeOutroPage({
     super.key,
     required this.servico,
@@ -59,6 +62,7 @@ class PerfilDeOutroPage extends StatefulWidget {
     this.resenhas,
     this.listas,
     this.estatisticas,
+    this.aoAbrirLivro,
   });
 
   @override
@@ -380,6 +384,9 @@ class _PerfilDeOutroPageState extends State<PerfilDeOutroPage> {
                       primeiroNome: nome,
                       aoMudarRestricao: (restrita) => setState(() => _estanteRestrita = restrita),
                       aoMudarLivrosLidos: (lidos) => setState(() => _livrosLidos = lidos),
+                      aoAbrirLivro: widget.aoAbrirLivro == null
+                          ? null
+                          : (livroId, {required pessoal}) => widget.aoAbrirLivro!(livroId),
                     ),
             ),
           ],

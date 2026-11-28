@@ -42,12 +42,21 @@ class LivroDaEstante {
   final String? autor;
   final String? capaUrl;
 
-  const LivroDaEstante({required this.titulo, required this.autor, required this.capaUrl});
+  /// Qual página do livro o card abre. Sem `tipo` na resposta, vale oficial.
+  final bool pessoal;
+
+  const LivroDaEstante({
+    required this.titulo,
+    required this.autor,
+    required this.capaUrl,
+    this.pessoal = false,
+  });
 
   factory LivroDaEstante.fromJson(Map<String, dynamic> json) => LivroDaEstante(
     titulo: json['titulo'] as String,
     autor: json['autor'] as String?,
     capaUrl: json['capaUrl'] as String?,
+    pessoal: json['tipo'] == 'pessoal',
   );
 }
 

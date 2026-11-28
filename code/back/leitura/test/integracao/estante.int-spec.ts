@@ -84,6 +84,7 @@ describe('estante (integração)', () => {
       expect(resposta.body).toEqual({
         livroId,
         livro: {
+          tipo: 'oficial',
           titulo: 'Torto Arado',
           autor: 'Itamar Vieira Junior',
           capaUrl: 'https://covers.openlibrary.org/b/id/1-L.jpg',
@@ -172,7 +173,12 @@ describe('estante (integração)', () => {
         donoId: usuario,
       });
 
-      await adicionar(usuario, livroId).expect(201);
+      const resposta = await adicionar(usuario, livroId).expect(201);
+
+      // O card usa o tipo para abrir a página do livro pessoal, e não a do oficial.
+      expect(resposta.body.livro.tipo).toBe('pessoal');
+      const { body } = await consultar(usuario, '/estante').expect(200);
+      expect(body.itens[0].livro.tipo).toBe('pessoal');
     });
 
     it('livro inexistente ou inativo é 404', async () => {
@@ -381,11 +387,13 @@ describe('estante (integração)', () => {
         ]),
       );
       expect(porLivro.get(ids[0])).toEqual({
+        tipo: 'oficial',
         titulo: 'Sem autor',
         autor: null,
         capaUrl: null,
       });
       expect(porLivro.get(ids[3])).toEqual({
+        tipo: 'oficial',
         titulo: 'Beta',
         autor: 'Assis',
         capaUrl: 'https://covers.openlibrary.org/b/id/1-L.jpg',

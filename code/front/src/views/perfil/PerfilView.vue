@@ -347,6 +347,7 @@ const LINK_DE_CONTADOR =
                     <CardEstante
                       :item="item"
                       :acionavel="false"
+                      origem="meu-perfil"
                     />
                   </li>
                 </ul>

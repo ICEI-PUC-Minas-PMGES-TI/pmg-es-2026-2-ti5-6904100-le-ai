@@ -731,7 +731,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('56%'), findsOneWidget);
 
-      await tocar(tester, find.text('Torto Arado'));
+      await tocar(tester, find.byKey(const ValueKey<String>('acoes-do-cartao')));
       await tester.pumpAndSettle();
       expect(find.text(AcoesDeLeitura.verAtualizacoes), findsOneWidget);
       await tester.tap(find.text(AcoesDeLeitura.registrarProgresso));
@@ -745,7 +745,7 @@ void main() {
       expect(find.text('65%'), findsOneWidget);
       expect(armazem.conteudo, contains('"pagina":172'));
 
-      await tocar(tester, find.text('Torto Arado'));
+      await tocar(tester, find.byKey(const ValueKey<String>('acoes-do-cartao')));
       await tester.pumpAndSettle();
       await tester.tap(find.text(AcoesDeLeitura.verAtualizacoes));
       await tester.pumpAndSettle();

@@ -141,6 +141,8 @@ List<RouteBase> rotasDoPerfil(
         aoBuscarLeitor: () => context.push(rotaBuscarLeitor),
         aoAbrirSolicitacoes: () => context.push(rotaSolicitacoes),
         estante: estante,
+        // Como as resenhas do perfil de outro leitor: o livro abre na aba Perfil.
+        aoAbrirLivro: (livroId) => context.push('/perfil/livro/$livroId'),
         resenhas: resenhasDeOutro == null
             ? null
             : (usuarioId, nome) => resenhasDeOutro(context, usuarioId, nome),

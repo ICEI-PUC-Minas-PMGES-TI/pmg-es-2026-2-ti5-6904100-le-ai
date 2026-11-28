@@ -40,6 +40,10 @@ export const TEXTOS_DA_ESTANTE = {
   progressoIniciado: 'Iniciada',
 } as const
 
+export function rotuloDasAcoesDoLivro(titulo: string): string {
+  return `Ações de ${titulo}`
+}
+
 export type DestinoDoVazio = StatusEstante | 'descobrir'
 
 export interface VazioDoFiltro {

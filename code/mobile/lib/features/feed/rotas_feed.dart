@@ -101,6 +101,8 @@ GoRoute rotaDoFeed(
             aoBuscarLeitor: () => context.push(rotaBuscarLeitor),
             aoAbrirSolicitacoes: () => context.push(rotaSolicitacoes),
             estante: estante,
+            // Como as resenhas do perfil de outro leitor: o livro abre na aba Perfil.
+            aoAbrirLivro: (livroId) => context.push('/perfil/livro/$livroId'),
             resenhas: resenhasDoAutor == null
                 ? null
                 : (usuarioId, nome) => resenhasDoAutor(context, usuarioId, nome),
